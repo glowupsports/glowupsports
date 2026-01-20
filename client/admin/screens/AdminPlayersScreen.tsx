@@ -1516,14 +1516,27 @@ export default function AdminPlayersScreen() {
                   <Text style={styles.sectionTitle}>Packages</Text>
                 </View>
                 <Pressable 
-                  style={styles.addCreditsButtonSmall}
+                  style={{
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    gap: 6,
+                    backgroundColor: Colors.dark.successNeon,
+                    paddingHorizontal: 14,
+                    paddingVertical: 8,
+                    borderRadius: 8,
+                    shadowColor: Colors.dark.successNeon,
+                    shadowOffset: { width: 0, height: 2 },
+                    shadowOpacity: 0.4,
+                    shadowRadius: 6,
+                    elevation: 4,
+                  }}
                   onPress={() => {
                     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
                     setShowCreditStoreModal(true);
                   }}
                 >
-                  <Ionicons name="add-circle" size={16} color={Colors.dark.successNeon} />
-                  <Text style={styles.addCreditsTextSmall}>Add</Text>
+                  <Ionicons name="add" size={18} color="#0B0D10" />
+                  <Text style={{ color: '#0B0D10', fontSize: 13, fontWeight: '700' }}>Add Package</Text>
                 </Pressable>
               </View>
               
@@ -1639,38 +1652,117 @@ export default function AdminPlayersScreen() {
               )}
             </View>
 
-            {/* Attendance History Section */}
-            <View style={[styles.section, CardStyles.elevated]}>
-              <Text style={styles.sectionTitle}>Attendance History</Text>
+            {/* Attendance History Section - Premium */}
+            <View style={[styles.section, CardStyles.elevated, { overflow: 'hidden' }]}>
+              <LinearGradient
+                colors={['rgba(0, 224, 255, 0.08)', 'transparent']}
+                style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 80 }}
+              />
+              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                  <View style={{ width: 36, height: 36, borderRadius: 10, backgroundColor: `${Colors.dark.xpCyan}15`, alignItems: 'center', justifyContent: 'center' }}>
+                    <Ionicons name="calendar" size={18} color={Colors.dark.xpCyan} />
+                  </View>
+                  <Text style={[styles.sectionTitle, { marginBottom: 0 }]}>Attendance History</Text>
+                </View>
+                <Pressable
+                  onPress={() => {
+                    if (stats && selectedPlayer) {
+                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                      generateAttendanceReportPDF(stats, selectedPlayer);
+                    }
+                  }}
+                  style={{
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    gap: 6,
+                    backgroundColor: `${Colors.dark.xpCyan}15`,
+                    paddingHorizontal: 14,
+                    paddingVertical: 8,
+                    borderRadius: 8,
+                    borderWidth: 1,
+                    borderColor: `${Colors.dark.xpCyan}40`,
+                  }}
+                >
+                  <Ionicons name="download-outline" size={16} color={Colors.dark.xpCyan} />
+                  <Text style={{ color: Colors.dark.xpCyan, fontSize: 13, fontWeight: '600' }}>Report</Text>
+                </Pressable>
+              </View>
               {stats.sessions && Array.isArray(stats.sessions) && stats.sessions.length > 0 ? (
-                <View style={styles.sessionsListContainer}>
-                  {stats.sessions.slice(0, 10).map((session: { id: string; startTime: string; sessionType: string; attended: string }) => (
-                    <View key={session.id} style={styles.sessionRow}>
-                      <View style={styles.sessionInfo}>
-                        <Text style={styles.sessionDate}>
-                          {session.startTime ? new Date(session.startTime).toLocaleDateString() : 'N/A'}
-                        </Text>
-                        <Text style={styles.sessionType}>{session.sessionType || 'Session'}</Text>
+                <View style={{ gap: 10 }}>
+                  {stats.sessions.slice(0, 10).map((session: { id: string; startTime: string; sessionType: string; attended: string }) => {
+                    const sessionDate = session.startTime ? new Date(session.startTime) : null;
+                    const dayName = sessionDate ? sessionDate.toLocaleDateString('en-US', { weekday: 'short' }).toUpperCase() : 'N/A';
+                    const dayNum = sessionDate ? sessionDate.getDate() : '';
+                    const monthName = sessionDate ? sessionDate.toLocaleDateString('en-US', { month: 'short' }).toUpperCase() : '';
+                    const timeStr = sessionDate ? sessionDate.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }) : '';
+                    const statusColor = session.attended === 'present' ? Colors.dark.successNeon : 
+                      session.attended === 'absent' ? Colors.dark.error : Colors.dark.orange;
+                    const statusText = session.attended === 'present' ? 'Present' : 
+                      session.attended === 'absent' ? 'Absent' : 'Pending';
+                    
+                    return (
+                      <View 
+                        key={session.id} 
+                        style={{
+                          flexDirection: 'row',
+                          alignItems: 'center',
+                          backgroundColor: 'rgba(30, 35, 45, 0.8)',
+                          borderRadius: 12,
+                          padding: 12,
+                          borderWidth: 1,
+                          borderColor: 'rgba(255,255,255,0.06)',
+                        }}
+                      >
+                        <View style={{
+                          width: 54,
+                          height: 60,
+                          backgroundColor: `${Colors.dark.xpCyan}10`,
+                          borderRadius: 10,
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          marginRight: 14,
+                          borderWidth: 1,
+                          borderColor: `${Colors.dark.xpCyan}30`,
+                        }}>
+                          <Text style={{ fontSize: 10, color: Colors.dark.xpCyan, fontWeight: '600', letterSpacing: 0.5 }}>{dayName}</Text>
+                          <Text style={{ fontSize: 22, color: Colors.dark.text, fontWeight: '700' }}>{dayNum}</Text>
+                          <Text style={{ fontSize: 9, color: Colors.dark.textMuted, fontWeight: '500' }}>{monthName}</Text>
+                        </View>
+                        <View style={{ flex: 1 }}>
+                          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+                            <View style={{
+                              backgroundColor: `${Colors.dark.primary}20`,
+                              paddingHorizontal: 8,
+                              paddingVertical: 3,
+                              borderRadius: 6,
+                            }}>
+                              <Text style={{ fontSize: 11, color: Colors.dark.primary, fontWeight: '600', textTransform: 'capitalize' }}>
+                                {session.sessionType || 'Session'}
+                              </Text>
+                            </View>
+                          </View>
+                          <Text style={{ fontSize: 13, color: Colors.dark.textMuted }}>{timeStr}</Text>
+                        </View>
+                        <View style={{
+                          backgroundColor: `${statusColor}15`,
+                          paddingHorizontal: 12,
+                          paddingVertical: 6,
+                          borderRadius: 8,
+                          borderWidth: 1,
+                          borderColor: `${statusColor}40`,
+                        }}>
+                          <Text style={{ fontSize: 12, color: statusColor, fontWeight: '600' }}>{statusText}</Text>
+                        </View>
                       </View>
-                      <View style={[
-                        styles.sessionStatusBadge,
-                        { backgroundColor: session.attended === 'present' ? `${Colors.dark.successNeon}20` : 
-                          session.attended === 'absent' ? `${Colors.dark.error}20` : `${Colors.dark.orange}20` }
-                      ]}>
-                        <Text style={[
-                          styles.sessionStatusText,
-                          { color: session.attended === 'present' ? Colors.dark.successNeon : 
-                            session.attended === 'absent' ? Colors.dark.error : Colors.dark.orange }
-                        ]}>
-                          {session.attended === 'present' ? 'Present' : 
-                           session.attended === 'absent' ? 'Absent' : 'Pending'}
-                        </Text>
-                      </View>
-                    </View>
-                  ))}
+                    );
+                  })}
                 </View>
               ) : (
-                <Text style={styles.noSessionsText}>No sessions recorded yet</Text>
+                <View style={{ alignItems: 'center', padding: 24 }}>
+                  <Ionicons name="calendar-outline" size={40} color={Colors.dark.textMuted} />
+                  <Text style={{ color: Colors.dark.textMuted, marginTop: 12, fontSize: 14 }}>No sessions recorded yet</Text>
+                </View>
               )}
             </View>
 
