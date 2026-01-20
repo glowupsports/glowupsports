@@ -122,13 +122,14 @@ interface SeriesDetailDrawerProps {
   onClose: () => void;
 }
 
-type TabId = "overview" | "timeline" | "feedback" | "progress";
+type TabId = "overview" | "timeline" | "feedback" | "progress" | "plan";
 
 const TABS: { id: TabId; label: string; icon: string }[] = [
   { id: "overview", label: "Overview", icon: "information-circle-outline" },
   { id: "timeline", label: "Timeline", icon: "calendar-outline" },
   { id: "feedback", label: "Feedback", icon: "chatbubble-outline" },
   { id: "progress", label: "Progress", icon: "trending-up-outline" },
+  { id: "plan", label: "Plan", icon: "clipboard-outline" },
 ];
 
 const DAY_NAMES = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
@@ -1688,6 +1689,105 @@ export default function SeriesDetailDrawer({
     );
   };
 
+  const renderPlanTab = () => {
+    const upcomingSessions = series?.sessions?.filter(s => {
+      const sessionDate = new Date(s.startTime);
+      return sessionDate >= new Date() && s.status !== "completed" && s.status !== "cancelled";
+    }).sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime()) || [];
+
+    return (
+      <View style={styles.planTabContainer}>
+        <View style={styles.planHeader}>
+          <Ionicons name="clipboard" size={24} color={Colors.dark.gold} />
+          <Text style={styles.planHeaderTitle}>Session Plans</Text>
+        </View>
+        <Text style={styles.planHeaderSubtitle}>
+          Generate and manage lesson plans for upcoming sessions
+        </Text>
+
+        {upcomingSessions.length === 0 ? (
+          <View style={styles.planEmptyState}>
+            <Ionicons name="calendar-outline" size={48} color={Colors.dark.textMuted} />
+            <Text style={styles.planEmptyTitle}>No Upcoming Sessions</Text>
+            <Text style={styles.planEmptySubtitle}>
+              Schedule sessions to generate lesson plans
+            </Text>
+          </View>
+        ) : (
+          <View style={styles.planSessionsList}>
+            <Text style={styles.planSectionTitle}>Upcoming Sessions ({upcomingSessions.length})</Text>
+            {upcomingSessions.slice(0, 5).map((session: any) => {
+              const sessionDate = new Date(session.startTime);
+              const hasPlan = session.sessionPlan?.blocks?.length > 0;
+              
+              return (
+                <Pressable
+                  key={session.id}
+                  style={styles.planSessionCard}
+                  onPress={() => {
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  }}
+                >
+                  <View style={styles.planSessionInfo}>
+                    <Text style={styles.planSessionDate}>
+                      {sessionDate.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })}
+                    </Text>
+                    <Text style={styles.planSessionTime}>
+                      {sessionDate.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })}
+                    </Text>
+                  </View>
+                  <View style={styles.planSessionStatus}>
+                    {hasPlan ? (
+                      <View style={styles.planReadyBadge}>
+                        <Ionicons name="checkmark-circle" size={16} color={Colors.dark.successNeon} />
+                        <Text style={styles.planReadyText}>Plan Ready</Text>
+                      </View>
+                    ) : (
+                      <View style={styles.planNeededBadge}>
+                        <Ionicons name="add-circle" size={16} color={Colors.dark.gold} />
+                        <Text style={styles.planNeededText}>Generate Plan</Text>
+                      </View>
+                    )}
+                  </View>
+                </Pressable>
+              );
+            })}
+            
+            {upcomingSessions.length > 5 && (
+              <Text style={styles.planMoreText}>
+                +{upcomingSessions.length - 5} more sessions
+              </Text>
+            )}
+          </View>
+        )}
+
+        <View style={styles.planTemplatesSection}>
+          <Text style={styles.planSectionTitle}>Quick Actions</Text>
+          <Pressable
+            style={styles.planActionButton}
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+            }}
+          >
+            <Ionicons name="document-text-outline" size={20} color={Colors.dark.gold} />
+            <Text style={styles.planActionText}>Browse Lesson Templates</Text>
+            <Ionicons name="chevron-forward" size={18} color={Colors.dark.textMuted} />
+          </Pressable>
+          <Pressable
+            style={styles.planActionButton}
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+            }}
+          >
+            <Ionicons name="flash-outline" size={20} color={Colors.dark.gold} />
+            <Text style={styles.planActionText}>Auto-Generate All Plans</Text>
+            <Ionicons name="chevron-forward" size={18} color={Colors.dark.textMuted} />
+          </Pressable>
+        </View>
+      </View>
+    );
+  };
+
   const renderTabContent = () => {
     switch (activeTab) {
       case "overview":
@@ -1698,6 +1798,8 @@ export default function SeriesDetailDrawer({
         return renderFeedbackTab();
       case "progress":
         return renderProgressTab();
+      case "plan":
+        return renderPlanTab();
       default:
         return null;
     }
@@ -4778,5 +4880,128 @@ const styles = StyleSheet.create({
     color: Colors.dark.error,
     marginBottom: Spacing.md,
     textAlign: "center",
+  },
+  planTabContainer: {
+    padding: Spacing.lg,
+  },
+  planHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+    marginBottom: Spacing.xs,
+  },
+  planHeaderTitle: {
+    fontSize: Typography.h3.fontSize,
+    fontWeight: "700",
+    color: Colors.dark.text,
+  },
+  planHeaderSubtitle: {
+    fontSize: Typography.body.fontSize,
+    color: Colors.dark.textMuted,
+    marginBottom: Spacing.lg,
+  },
+  planEmptyState: {
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: Spacing["2xl"],
+  },
+  planEmptyTitle: {
+    fontSize: Typography.body.fontSize,
+    fontWeight: "600",
+    color: Colors.dark.text,
+    marginTop: Spacing.md,
+  },
+  planEmptySubtitle: {
+    fontSize: Typography.caption.fontSize,
+    color: Colors.dark.textMuted,
+    marginTop: Spacing.xs,
+    textAlign: "center",
+  },
+  planSessionsList: {
+    marginBottom: Spacing.lg,
+  },
+  planSectionTitle: {
+    fontSize: Typography.caption.fontSize,
+    fontWeight: "600",
+    color: Colors.dark.textMuted,
+    textTransform: "uppercase",
+    letterSpacing: 1,
+    marginBottom: Spacing.md,
+  },
+  planSessionCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    backgroundColor: Colors.dark.backgroundSecondary,
+    borderRadius: BorderRadius.md,
+    padding: Spacing.md,
+    marginBottom: Spacing.sm,
+  },
+  planSessionInfo: {
+    flex: 1,
+  },
+  planSessionDate: {
+    fontSize: Typography.body.fontSize,
+    fontWeight: "600",
+    color: Colors.dark.text,
+  },
+  planSessionTime: {
+    fontSize: Typography.caption.fontSize,
+    color: Colors.dark.textMuted,
+    marginTop: 2,
+  },
+  planSessionStatus: {
+    marginLeft: Spacing.md,
+  },
+  planReadyBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    backgroundColor: Colors.dark.successNeon + "20",
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 4,
+    borderRadius: BorderRadius.sm,
+  },
+  planReadyText: {
+    fontSize: Typography.small.fontSize,
+    fontWeight: "600",
+    color: Colors.dark.successNeon,
+  },
+  planNeededBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    backgroundColor: Colors.dark.gold + "20",
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 4,
+    borderRadius: BorderRadius.sm,
+  },
+  planNeededText: {
+    fontSize: Typography.small.fontSize,
+    fontWeight: "600",
+    color: Colors.dark.gold,
+  },
+  planMoreText: {
+    fontSize: Typography.caption.fontSize,
+    color: Colors.dark.textMuted,
+    textAlign: "center",
+    marginTop: Spacing.sm,
+  },
+  planTemplatesSection: {
+    marginTop: Spacing.md,
+  },
+  planActionButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: Colors.dark.backgroundSecondary,
+    borderRadius: BorderRadius.md,
+    padding: Spacing.md,
+    marginBottom: Spacing.sm,
+    gap: Spacing.md,
+  },
+  planActionText: {
+    flex: 1,
+    fontSize: Typography.body.fontSize,
+    color: Colors.dark.text,
   },
 });
