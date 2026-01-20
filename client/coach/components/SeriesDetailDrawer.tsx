@@ -955,6 +955,67 @@ export default function SeriesDetailDrawer({
 
   // Complete entire series (archive it)
   const [completingSeries, setCompletingSeries] = useState(false);
+  const [extendingSeries, setExtendingSeries] = useState(false);
+  
+  const handleExtendSeries = async () => {
+    if (!seriesId) return;
+    
+    let weeksToAdd = 10;
+    if (Platform.OS === "web" && typeof window !== "undefined") {
+      const input = window.prompt("How many weeks would you like to add?", "10");
+      if (!input) return;
+      weeksToAdd = parseInt(input, 10);
+      if (isNaN(weeksToAdd) || weeksToAdd < 1 || weeksToAdd > 52) {
+        window.alert("Please enter a number between 1 and 52");
+        return;
+      }
+    } else {
+      const confirmed = await new Promise<boolean>((resolve) => {
+        Alert.alert("Extend Class", "Add 10 more weeks?", [
+          { text: "Cancel", onPress: () => resolve(false), style: "cancel" },
+          { text: "Add 10 Weeks", onPress: () => resolve(true) },
+        ]);
+      });
+      if (!confirmed) return;
+    }
+    
+    setExtendingSeries(true);
+    try {
+      const response = await fetch(`${getApiUrl()}/api/coach/series/${seriesId}/extend`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ weeks: weeksToAdd }),
+      });
+      
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || "Failed to extend series");
+      }
+      
+      const result = await response.json();
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      
+      if (Platform.OS === "web" && typeof window !== "undefined") {
+        window.alert(`Added ${result.sessionsCreated} new sessions!`);
+      } else {
+        Alert.alert("Success", `Added ${result.sessionsCreated} new sessions!`);
+      }
+      
+      queryClient.invalidateQueries({ queryKey: ["/api/coach/series"] });
+      queryClient.invalidateQueries({ queryKey: [`/api/coach/series/${seriesId}`] });
+    } catch (error) {
+      console.error("Error extending series:", error);
+      const msg = error.message || "Failed to extend series";
+      if (Platform.OS === "web" && typeof window !== "undefined") {
+        window.alert(msg);
+      } else {
+        Alert.alert("Error", msg);
+      }
+    } finally {
+      setExtendingSeries(false);
+    }
+  };
   
   const handleCompleteSeries = async () => {
     if (!seriesId) return;
@@ -1379,6 +1440,24 @@ export default function SeriesDetailDrawer({
         </View>
 
         <View style={styles.deleteSeriesSection}>
+          {/* Extend Series Button - add more weeks */}
+          {series?.status === "active" && (
+            <Pressable
+              onPress={handleExtendSeries}
+              style={[styles.extendSeriesButton, extendingSeries && styles.extendSeriesButtonDisabled]}
+              disabled={extendingSeries}
+            >
+              {extendingSeries ? (
+                <ActivityIndicator size="small" color={Colors.dark.accent} />
+              ) : (
+                <>
+                  <Ionicons name="add-circle-outline" size={18} color={Colors.dark.accent} />
+                  <Text style={styles.extendSeriesButtonText}>Extend Class (+weeks)</Text>
+                </>
+              )}
+            </Pressable>
+          )}
+          
           {/* Complete Series Button - only show if series is active */}
           {series?.status === "active" && (
             <Pressable
@@ -4705,6 +4784,27 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderTopColor: Colors.dark.border,
     gap: Spacing.md,
+  },
+  extendSeriesButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: Spacing.sm,
+    paddingVertical: Spacing.md,
+    paddingHorizontal: Spacing.lg,
+    borderRadius: BorderRadius.md,
+    borderWidth: 1,
+    borderColor: Colors.dark.accent + "40",
+    backgroundColor: Colors.dark.accent + "10",
+    marginBottom: Spacing.sm,
+  },
+  extendSeriesButtonDisabled: {
+    opacity: 0.5,
+  },
+  extendSeriesButtonText: {
+    fontSize: Typography.body.fontSize,
+    fontWeight: "600",
+    color: Colors.dark.accent,
   },
   completeSeriesButton: {
     flexDirection: "row",

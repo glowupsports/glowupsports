@@ -8887,6 +8887,106 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Extend a coaching series with additional weeks
+  app.post("/api/coach/series/:id/extend", authMiddleware, requireAcademy, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const { id } = req.params;
+      const { weeks } = req.body;
+      const coachId = req.user!.coachId;
+      const academyId = req.user!.academyId!;
+      
+      if (!weeks || weeks < 1 || weeks > 52) {
+        return res.status(400).json({ error: "Weeks must be between 1 and 52" });
+      }
+      
+      const existing = await storage.getCoachingSeriesById(id);
+      if (!existing) {
+        return res.status(404).json({ error: "Series not found" });
+      }
+      
+      if (existing.coachId !== coachId) {
+        return res.status(403).json({ error: "Not authorized to extend this series" });
+      }
+      
+      // Get all sessions to find the last one
+      const allSessions = await db.select().from(sessions).where(eq(sessions.seriesId, id)).orderBy(desc(sessions.startTime));
+      if (allSessions.length === 0) {
+        return res.status(400).json({ error: "No sessions found in series" });
+      }
+      
+      const lastSession = allSessions[0];
+      const academyTimezone = "Asia/Dubai";
+      
+      // Get series active members
+      const seriesMembers = await storage.getSeriesPlayers(id);
+      const activeMembers = seriesMembers.filter(m => m.status === "active");
+      
+      const newSessions: any[] = [];
+      const skippedWeeks: any[] = [];
+      
+      // Generate new sessions starting from week after last session
+      for (let weekIndex = 1; weekIndex <= weeks; weekIndex++) {
+        // Calculate new session date (add weeks to last session)
+        const newSessionDate = new Date(new Date(lastSession.startTime).getTime() + (weekIndex * 7 * 24 * 60 * 60 * 1000));
+        const sessionEndTime = new Date(newSessionDate.getTime() + (existing.duration || 60) * 60000);
+        
+        // Check for conflicts
+        const coachConflict = await storage.checkCoachConflict(coachId!, newSessionDate, sessionEndTime, undefined, academyId);
+        const courtConflict = existing.courtId ? await storage.checkCourtConflict(existing.courtId, newSessionDate, sessionEndTime, undefined, academyId) : false;
+        
+        if (coachConflict || courtConflict) {
+          skippedWeeks.push({ week: weekIndex, reason: coachConflict ? "Coach busy" : "Court busy" });
+          continue;
+        }
+        
+        // Calculate pricing snapshot
+        let pricingSnapshot: { academyPrice?: string; coachPayout?: string; academyMargin?: string } = {};
+        try {
+          const pricing = await storage.calculateSessionPricing(academyId, coachId!, existing.sessionType, existing.duration || 60);
+          pricingSnapshot = {
+            academyPrice: String(pricing.academyPrice),
+            coachPayout: String(pricing.coachPayout),
+            academyMargin: String(pricing.academyMargin),
+          };
+        } catch (e) {}
+        
+        // Create the session
+        const newSession = await storage.createSession({
+          seriesId: id,
+          coachId: coachId!,
+          academyId,
+          courtId: existing.courtId,
+          sessionType: existing.sessionType,
+          startTime: newSessionDate,
+          endTime: sessionEndTime,
+          status: "scheduled",
+          maxPlayers: existing.maxPlayers,
+          xpValue: existing.xpValue || 20,
+          ...pricingSnapshot
+        });
+        
+        newSessions.push(newSession);
+        
+        // Add all active members to this session
+        for (const member of activeMembers) {
+          try {
+            await storage.addPlayerToSession({ sessionId: newSession.id, playerId: member.playerId });
+          } catch (e) {}
+        }
+      }
+      
+      res.json({
+        success: true,
+        sessionsCreated: newSessions.length,
+        skippedWeeks,
+        message: `Extended series with ${newSessions.length} new sessions`
+      });
+    } catch (error) {
+      console.error("Error extending coaching series:", error);
+      res.status(500).json({ error: "Failed to extend series" });
+    }
+  });
+
   // Sync all coaching series - regenerate missing sessions
   app.post("/api/coach/series/sync-all", authMiddleware, requireAcademy, async (req: AuthenticatedRequest, res: Response) => {
     try {
