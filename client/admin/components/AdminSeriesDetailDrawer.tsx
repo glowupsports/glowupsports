@@ -216,6 +216,12 @@ export default function AdminSeriesDetailDrawer({
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       onClose();
     },
+    onError: (error) => {
+      console.error("[DeleteSeries] Error:", error);
+      if (Platform.OS === "web") {
+        window.alert("Failed to delete class. Please try again.");
+      }
+    },
   });
 
   const { data: sessionAttendance = [] } = useQuery<any[]>({
