@@ -42,6 +42,7 @@ interface CoachingSeries {
   locationName?: string | null;
   courtName?: string | null;
   playerCount: number;
+  playerNames?: string[];
   sessionsCompleted: number;
   pendingFeedback: number;
 }
@@ -241,6 +242,14 @@ function SeriesCard({ series, onPress }: SeriesCardProps) {
           </View>
         </View>
 
+        {series.playerNames && series.playerNames.length > 0 ? (
+          <View style={cardStyles.playerNamesRow}>
+            <Text style={cardStyles.playerNamesText} numberOfLines={1}>
+              {series.playerNames.join(", ")}{series.playerCount > 4 ? ` +${series.playerCount - 4}` : ""}
+            </Text>
+          </View>
+        ) : null}
+
         {series.pendingFeedback > 0 ? (
           <View style={cardStyles.feedbackBadge}>
             <Ionicons name="chatbubble-outline" size={12} color={ADMIN_COLOR} />
@@ -323,6 +332,14 @@ const cardStyles = StyleSheet.create({
   metaText: {
     ...Typography.caption,
     color: Colors.dark.textMuted,
+  },
+  playerNamesRow: {
+    marginTop: Spacing.xs,
+  },
+  playerNamesText: {
+    ...Typography.caption,
+    color: Colors.dark.textSecondary,
+    fontStyle: "italic",
   },
   feedbackBadge: {
     flexDirection: "row",

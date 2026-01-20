@@ -8154,6 +8154,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return {
           ...s,
           playerCount: activePlayers.length,
+          playerNames: activePlayers.map(p => p.playerName || "Unknown").slice(0, 4),
           sessionsCompleted: sessionsForSeries.length,
           pendingFeedback: Math.max(0, pendingFeedback),
           playerPreview,
@@ -14569,8 +14570,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const coachMap = new Map(academyCoaches.map(c => [c.id, c]));
 
       const enrichedSeries = await Promise.all(allSeries.map(async (s) => {
-        const seriesPlayers = await storage.getSeriesPlayers(s.id);
-        const activePlayers = seriesPlayers.filter(p => p.status === "active");
+        const seriesPlayersWithDetails = await storage.getSeriesPlayersWithDetails(s.id);
+        const activePlayers = seriesPlayersWithDetails.filter(p => p.status === "active");
 
         const sessionsForSeries = await db
           .select()
@@ -14596,6 +14597,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           ...s,
           coachName: coach?.name || "Unknown Coach",
           playerCount: activePlayers.length,
+          playerNames: activePlayers.map(p => p.playerName || "Unknown").slice(0, 4),
           sessionsCompleted: sessionsForSeries.length,
           pendingFeedback: Math.max(0, pendingFeedback),
         };
