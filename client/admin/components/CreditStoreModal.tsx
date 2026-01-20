@@ -6,6 +6,7 @@ import {
   Modal,
   Pressable,
   ActivityIndicator,
+  TextInput,
 } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import Ionicons from "@expo/vector-icons/Ionicons";
@@ -35,14 +36,16 @@ const QUANTITIES: CreditQuantity[] = [1, 5, 10, 20];
 export default function CreditStoreModal({ visible, onClose, playerId, playerName }: CreditStoreModalProps) {
   const [selectedType, setSelectedType] = useState<CreditType>("group");
   const [selectedQuantity, setSelectedQuantity] = useState<CreditQuantity>(5);
+  const [pricePerCredit, setPricePerCredit] = useState("");
   const queryClient = useQueryClient();
 
   const grantCreditsMutation = useMutation({
-    mutationFn: async (data: { playerId: string; creditType: CreditType; quantity: number }) => {
+    mutationFn: async (data: { playerId: string; creditType: CreditType; quantity: number; pricePerCredit: number }) => {
       return apiRequest("POST", "/api/packages", {
         playerId: data.playerId,
         totalCredits: data.quantity,
         creditType: data.creditType,
+        pricePerCredit: data.pricePerCredit,
         expiryMonths: 12,
       });
     },
@@ -68,8 +71,11 @@ export default function CreditStoreModal({ visible, onClose, playerId, playerNam
       playerId,
       creditType: selectedType,
       quantity: selectedQuantity,
+      pricePerCredit: parseFloat(pricePerCredit) || 0,
     });
   };
+  
+  const totalPrice = (parseFloat(pricePerCredit) || 0) * selectedQuantity;
 
   const selectedTypeInfo = CREDIT_TYPES.find(t => t.key === selectedType);
 
@@ -155,6 +161,29 @@ export default function CreditStoreModal({ visible, onClose, playerId, playerNam
                   </Pressable>
                 ))}
               </View>
+            </View>
+
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>Price per Credit (AED)</Text>
+              <View style={styles.priceInputContainer}>
+                <Text style={styles.currencyPrefix}>AED</Text>
+                <TextInput
+                  style={styles.priceInput}
+                  value={pricePerCredit}
+                  onChangeText={setPricePerCredit}
+                  keyboardType="decimal-pad"
+                  placeholder="0"
+                  placeholderTextColor={Colors.dark.textMuted}
+                />
+              </View>
+              {totalPrice > 0 && (
+                <View style={styles.totalPriceRow}>
+                  <Text style={styles.totalPriceLabel}>Total Package Price:</Text>
+                  <Text style={[styles.totalPriceValue, { color: selectedTypeInfo?.color }]}>
+                    AED {totalPrice.toFixed(2)}
+                  </Text>
+                </View>
+              )}
             </View>
 
             <View style={styles.summaryCard}>
@@ -362,5 +391,43 @@ const styles = StyleSheet.create({
   },
   buttonDisabled: {
     opacity: 0.6,
+  },
+  priceInputContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: Backgrounds.card,
+    borderRadius: BorderRadius.md,
+    borderWidth: 2,
+    borderColor: "rgba(255, 255, 255, 0.1)",
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm,
+  },
+  currencyPrefix: {
+    ...Typography.body,
+    color: Colors.dark.textMuted,
+    marginRight: Spacing.sm,
+  },
+  priceInput: {
+    flex: 1,
+    ...Typography.h3,
+    color: Colors.dark.text,
+    padding: 0,
+  },
+  totalPriceRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginTop: Spacing.sm,
+    paddingTop: Spacing.sm,
+    borderTopWidth: 1,
+    borderTopColor: "rgba(255, 255, 255, 0.1)",
+  },
+  totalPriceLabel: {
+    ...Typography.body,
+    color: Colors.dark.textMuted,
+  },
+  totalPriceValue: {
+    ...Typography.h3,
+    fontWeight: "700",
   },
 });
