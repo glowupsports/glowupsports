@@ -16659,15 +16659,32 @@ export async function registerRoutes(app: Express): Promise<Server> {
           isPaid: pkg.isPaid || false,
           price: pkg.price || 0,
         })),
-        sessions: sessions.slice(0, 50).map((s: any) => ({
-          id: s.id,
-          sessionId: s.sessionId,
-          startTime: s.startTime,
-          endTime: s.endTime,
-          sessionType: s.sessionType,
-          attended: s.attendanceStatus || s.attended,
-          creditsUsed: s.creditsUsed || 0,
-          isPaid: (s.creditsUsed || 0) > 0,
+        sessions: await Promise.all(sessions.slice(0, 50).map(async (s: any) => {
+          // Calculate effective session type based on attendance
+          let effectiveType = s.sessionType;
+          if (s.sessionType === 'semi_private' || s.sessionType === 'group') {
+            try {
+              const allAttendees = await storage.getSessionPlayers(s.id);
+              const presentCount = allAttendees.filter((a: any) => a.attendanceStatus === 'present').length;
+              if (presentCount === 1) {
+                effectiveType = 'private';
+              } else if (presentCount === 2 && s.sessionType === 'group') {
+                effectiveType = 'semi_private';
+              }
+            } catch (e) {
+              // Fall back to original type
+            }
+          }
+          return {
+            id: s.id,
+            sessionId: s.sessionId,
+            startTime: s.startTime,
+            endTime: s.endTime,
+            sessionType: effectiveType,
+            attended: s.attendanceStatus || s.attended,
+            creditsUsed: s.creditsUsed || 0,
+            isPaid: (s.creditsUsed || 0) > 0,
+          };
         })),
       });
     } catch (error) {
