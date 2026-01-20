@@ -1290,9 +1290,9 @@ export default function AdminPlayersScreen() {
                       <View style={styles.packageCredits}>
                         <Text style={[
                           styles.packageCreditsValue,
-                          { color: pkg.remaining > 0 ? Colors.dark.successNeon : Colors.dark.textMuted }
+                          { color: (pkg.remainingCredits || pkg.remaining || 0) > 0 ? Colors.dark.successNeon : Colors.dark.textMuted }
                         ]}>
-                          {pkg.remaining}
+                          {pkg.remainingCredits ?? pkg.remaining ?? 0}
                         </Text>
                         <Text style={styles.packageCreditsLabel}>/ {pkg.totalCredits} credits</Text>
                       </View>
@@ -1332,26 +1332,28 @@ export default function AdminPlayersScreen() {
             {/* Attendance History Section */}
             <View style={[styles.section, CardStyles.elevated]}>
               <Text style={styles.sectionTitle}>Attendance History</Text>
-              {stats.sessions && stats.sessions.recentSessions && stats.sessions.recentSessions.length > 0 ? (
+              {stats.sessions && Array.isArray(stats.sessions) && stats.sessions.length > 0 ? (
                 <View style={styles.sessionsListContainer}>
-                  {stats.sessions.recentSessions.slice(0, 10).map((session: { id: string; date: string; sessionType: string; status: string }) => (
+                  {stats.sessions.slice(0, 10).map((session: { id: string; startTime: string; sessionType: string; attended: string }) => (
                     <View key={session.id} style={styles.sessionRow}>
                       <View style={styles.sessionInfo}>
-                        <Text style={styles.sessionDate}>{session.date}</Text>
-                        <Text style={styles.sessionType}>{session.sessionType}</Text>
+                        <Text style={styles.sessionDate}>
+                          {session.startTime ? new Date(session.startTime).toLocaleDateString() : 'N/A'}
+                        </Text>
+                        <Text style={styles.sessionType}>{session.sessionType || 'Session'}</Text>
                       </View>
                       <View style={[
                         styles.sessionStatusBadge,
-                        { backgroundColor: session.status === 'present' ? `${Colors.dark.successNeon}20` : 
-                          session.status === 'absent' ? `${Colors.dark.error}20` : `${Colors.dark.orange}20` }
+                        { backgroundColor: session.attended === 'present' ? `${Colors.dark.successNeon}20` : 
+                          session.attended === 'absent' ? `${Colors.dark.error}20` : `${Colors.dark.orange}20` }
                       ]}>
                         <Text style={[
                           styles.sessionStatusText,
-                          { color: session.status === 'present' ? Colors.dark.successNeon : 
-                            session.status === 'absent' ? Colors.dark.error : Colors.dark.orange }
+                          { color: session.attended === 'present' ? Colors.dark.successNeon : 
+                            session.attended === 'absent' ? Colors.dark.error : Colors.dark.orange }
                         ]}>
-                          {session.status === 'present' ? 'Present' : 
-                           session.status === 'absent' ? 'Absent' : 'Pending'}
+                          {session.attended === 'present' ? 'Present' : 
+                           session.attended === 'absent' ? 'Absent' : 'Pending'}
                         </Text>
                       </View>
                     </View>
