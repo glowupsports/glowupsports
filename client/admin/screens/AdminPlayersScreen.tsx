@@ -174,6 +174,7 @@ export default function AdminPlayersScreen() {
   const [showReportIssueModal, setShowReportIssueModal] = useState(false);
   const [showInvoiceModal, setShowInvoiceModal] = useState(false);
   const [showCreditStoreModal, setShowCreditStoreModal] = useState(false);
+  const [showRecordPaymentModal, setShowRecordPaymentModal] = useState(false);
   const [inviteCopied, setInviteCopied] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
   const [ballLevelFilter, setBallLevelFilter] = useState<string>("all");
@@ -641,26 +642,12 @@ export default function AdminPlayersScreen() {
                 <View style={styles.paymentActions}>
                   <Pressable 
                     style={styles.recordPaymentButton}
-                    onPress={async () => {
+                    onPress={() => {
                       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-                      const unpaidPackages = stats.packages?.filter((p: PlayerPackage) => !p.isPaid) || [];
-                      if (unpaidPackages.length === 0) {
-                        return;
-                      }
-                      try {
-                        await Promise.all(
-                          unpaidPackages.map((pkg: PlayerPackage) => 
-                            apiRequest("PATCH", `/api/packages/${pkg.id}`, { isPaid: true })
-                          )
-                        );
-                        queryClient.invalidateQueries({ queryKey: [`/api/admin/players/${selectedPlayer?.id}/stats`] });
-                        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-                      } catch (error) {
-                        console.error("Failed to record payment:", error);
-                        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-                      }
+                      setShowRecordPaymentModal(true);
                     }}
                   >
+                    <Ionicons name="card-outline" size={16} color="#000" />
                     <Text style={styles.recordPaymentText}>Record Payment</Text>
                   </Pressable>
                   <Pressable 
@@ -684,12 +671,14 @@ export default function AdminPlayersScreen() {
                     <Text style={styles.sectionTitle}>Packages</Text>
                   </View>
                   <Pressable 
-                    style={styles.addCreditsButton}
+                    style={styles.addCreditsButtonPremium}
                     onPress={() => {
                       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                      setShowCreditStoreModal(true);
                     }}
                   >
-                    <Ionicons name="add" size={18} color={Colors.dark.primary} />
+                    <Ionicons name="add" size={16} color="#000" />
+                    <Text style={styles.addCreditsButtonText}>Add</Text>
                   </Pressable>
                 </View>
                 
@@ -2020,6 +2009,90 @@ export default function AdminPlayersScreen() {
         playerId={selectedPlayerId || ""}
         playerName={playerStats?.player?.name || ""}
       />
+
+      {/* Record Payment Modal */}
+      <Modal
+        visible={showRecordPaymentModal}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setShowRecordPaymentModal(false)}
+      >
+        <View style={styles.recordPaymentModalOverlay}>
+          <View style={styles.recordPaymentModalContainer}>
+            <View style={styles.recordPaymentModalHeader}>
+              <Text style={styles.recordPaymentModalTitle}>Record Payment</Text>
+              <Pressable 
+                style={styles.recordPaymentModalClose}
+                onPress={() => setShowRecordPaymentModal(false)}
+              >
+                <Ionicons name="close" size={24} color={Colors.dark.text} />
+              </Pressable>
+            </View>
+            
+            <ScrollView style={styles.recordPaymentModalContent}>
+              {stats?.packages?.filter((p: PlayerPackage) => !p.isPaid).length === 0 ? (
+                <View style={styles.noUnpaidContainer}>
+                  <Ionicons name="checkmark-circle" size={48} color={Colors.dark.successNeon} />
+                  <Text style={styles.noUnpaidTitle}>All Paid!</Text>
+                  <Text style={styles.noUnpaidText}>
+                    This player has no outstanding payments.
+                  </Text>
+                </View>
+              ) : (
+                <>
+                  <Text style={styles.unpaidSectionTitle}>Unpaid Packages</Text>
+                  {stats?.packages?.filter((p: PlayerPackage) => !p.isPaid).map((pkg: PlayerPackage) => (
+                    <View key={pkg.id} style={styles.unpaidPackageCard}>
+                      <View style={styles.unpaidPackageInfo}>
+                        <View style={styles.unpaidPackageRow}>
+                          <Ionicons 
+                            name={pkg.creditType === "private" ? "person" : pkg.creditType === "semi_private" ? "people" : "people-circle"} 
+                            size={20} 
+                            color={Colors.dark.primary} 
+                          />
+                          <Text style={styles.unpaidPackageType}>
+                            {pkg.creditType === "private" ? "Private" : pkg.creditType === "semi_private" ? "Semi-Private" : "Group"}
+                          </Text>
+                        </View>
+                        <Text style={styles.unpaidPackageCredits}>
+                          {pkg.remainingCredits} / {pkg.totalCredits} credits
+                        </Text>
+                        <Text style={styles.unpaidPackagePrice}>
+                          AED {Number(pkg.price || 0).toLocaleString()}
+                        </Text>
+                      </View>
+                      <Pressable
+                        style={styles.markPaidButton}
+                        onPress={async () => {
+                          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                          try {
+                            await apiRequest("PATCH", `/api/packages/${pkg.id}`, { isPaid: true });
+                            queryClient.invalidateQueries({ queryKey: [`/api/admin/players/${selectedPlayer?.id}/stats`] });
+                            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+                          } catch (error) {
+                            console.error("Failed to record payment:", error);
+                            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+                          }
+                        }}
+                      >
+                        <Ionicons name="checkmark" size={18} color="#000" />
+                        <Text style={styles.markPaidButtonText}>Mark Paid</Text>
+                      </Pressable>
+                    </View>
+                  ))}
+                </>
+              )}
+            </ScrollView>
+            
+            <Pressable
+              style={styles.recordPaymentModalDone}
+              onPress={() => setShowRecordPaymentModal(false)}
+            >
+              <Text style={styles.recordPaymentModalDoneText}>Done</Text>
+            </Pressable>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -2776,15 +2849,18 @@ const styles = StyleSheet.create({
   },
   recordPaymentButton: {
     flex: 1,
+    flexDirection: "row",
     backgroundColor: Colors.dark.orange,
     paddingVertical: Spacing.md,
     borderRadius: BorderRadius.md,
     alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
   },
   recordPaymentText: {
     ...Typography.body,
-    color: Colors.dark.text,
-    fontWeight: "600",
+    color: "#000",
+    fontWeight: "700",
   },
   createInvoiceButton: {
     flex: 1,
@@ -3025,6 +3101,20 @@ const styles = StyleSheet.create({
     backgroundColor: `${Colors.dark.primary}20`,
     alignItems: "center",
     justifyContent: "center",
+  },
+  addCreditsButtonPremium: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    backgroundColor: Colors.dark.primary,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm,
+    borderRadius: BorderRadius.md,
+  },
+  addCreditsButtonText: {
+    ...Typography.caption,
+    color: "#000",
+    fontWeight: "700",
   },
   creditsOverview: {
     flexDirection: "row",
@@ -3502,5 +3592,118 @@ const styles = StyleSheet.create({
   noInviteText: {
     ...Typography.small,
     color: Colors.dark.textMuted,
+  },
+  recordPaymentModalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.8)",
+    justifyContent: "flex-end",
+  },
+  recordPaymentModalContainer: {
+    backgroundColor: Colors.dark.backgroundElevated,
+    borderTopLeftRadius: BorderRadius.xl,
+    borderTopRightRadius: BorderRadius.xl,
+    maxHeight: "70%",
+    paddingBottom: 34,
+  },
+  recordPaymentModalHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    padding: Spacing.lg,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.dark.border,
+  },
+  recordPaymentModalTitle: {
+    ...Typography.h3,
+    color: Colors.dark.text,
+    fontWeight: "700",
+  },
+  recordPaymentModalClose: {
+    padding: Spacing.xs,
+  },
+  recordPaymentModalContent: {
+    padding: Spacing.lg,
+  },
+  noUnpaidContainer: {
+    alignItems: "center",
+    paddingVertical: Spacing.xl,
+    gap: Spacing.md,
+  },
+  noUnpaidTitle: {
+    ...Typography.h3,
+    color: Colors.dark.successNeon,
+    fontWeight: "700",
+  },
+  noUnpaidText: {
+    ...Typography.body,
+    color: Colors.dark.textMuted,
+    textAlign: "center",
+  },
+  unpaidSectionTitle: {
+    ...Typography.caption,
+    color: Colors.dark.textMuted,
+    textTransform: "uppercase",
+    letterSpacing: 1,
+    marginBottom: Spacing.md,
+  },
+  unpaidPackageCard: {
+    backgroundColor: Colors.dark.backgroundCard,
+    borderRadius: BorderRadius.lg,
+    padding: Spacing.lg,
+    marginBottom: Spacing.md,
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    borderWidth: 1,
+    borderColor: `${Colors.dark.error}40`,
+  },
+  unpaidPackageInfo: {
+    flex: 1,
+    gap: 4,
+  },
+  unpaidPackageRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+  },
+  unpaidPackageType: {
+    ...Typography.body,
+    color: Colors.dark.text,
+    fontWeight: "600",
+  },
+  unpaidPackageCredits: {
+    ...Typography.small,
+    color: Colors.dark.textMuted,
+  },
+  unpaidPackagePrice: {
+    ...Typography.body,
+    color: Colors.dark.error,
+    fontWeight: "700",
+  },
+  markPaidButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    backgroundColor: Colors.dark.successNeon,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm,
+    borderRadius: BorderRadius.md,
+  },
+  markPaidButtonText: {
+    ...Typography.caption,
+    color: "#000",
+    fontWeight: "700",
+  },
+  recordPaymentModalDone: {
+    backgroundColor: Colors.dark.primary,
+    marginHorizontal: Spacing.lg,
+    paddingVertical: Spacing.md,
+    borderRadius: BorderRadius.md,
+    alignItems: "center",
+  },
+  recordPaymentModalDoneText: {
+    ...Typography.body,
+    color: "#000",
+    fontWeight: "700",
   },
 });
