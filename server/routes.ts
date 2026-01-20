@@ -2864,6 +2864,78 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
 
+      // Smart Rules Validation: Check coach settings for minimum session length and buffer
+      const coachSettingsData = await storage.getCoachSettings(coachId);
+      if (coachSettingsData) {
+        // Validate minimum session length
+        if (coachSettingsData.minSessionLength && duration < coachSettingsData.minSessionLength) {
+          return res.status(400).json({
+            error: "Session too short",
+            level: 2,
+            message: `Session duration (${duration} min) is less than your minimum session length setting (${coachSettingsData.minSessionLength} min)`
+          });
+        }
+
+        // Validate buffer between sessions
+        if (coachSettingsData.bufferBetweenSessions && coachSettingsData.bufferBetweenSessions > 0) {
+          const bufferMinutes = coachSettingsData.bufferBetweenSessions;
+          
+          // Check for sessions that end within buffer time before this session starts
+          const bufferStartCheck = new Date(start.getTime() - bufferMinutes * 60000);
+          const sessionsBeforeBuffer = await storage.getCoachSessionsInRange(
+            coachId, 
+            academyId!, 
+            bufferStartCheck, 
+            start
+          );
+          
+          // Filter to find sessions that actually end within the buffer window
+          const conflictingBefore = sessionsBeforeBuffer.filter(s => {
+            const sessionEnd = new Date(s.endTime);
+            const timeBetween = (start.getTime() - sessionEnd.getTime()) / 60000;
+            return timeBetween > 0 && timeBetween < bufferMinutes;
+          });
+          
+          if (conflictingBefore.length > 0) {
+            const prevSession = conflictingBefore[0];
+            const prevEnd = new Date(prevSession.endTime);
+            const gapMinutes = Math.round((start.getTime() - prevEnd.getTime()) / 60000);
+            return res.status(409).json({
+              error: "Buffer conflict",
+              level: 2,
+              message: `Only ${gapMinutes} min gap before this session. Your settings require ${bufferMinutes} min buffer between sessions.`
+            });
+          }
+          
+          // Check for sessions that start within buffer time after this session ends
+          const bufferEndCheck = new Date(end.getTime() + bufferMinutes * 60000);
+          const sessionsAfterBuffer = await storage.getCoachSessionsInRange(
+            coachId, 
+            academyId!, 
+            end, 
+            bufferEndCheck
+          );
+          
+          // Filter to find sessions that actually start within the buffer window
+          const conflictingAfter = sessionsAfterBuffer.filter(s => {
+            const sessionStart = new Date(s.startTime);
+            const timeBetween = (sessionStart.getTime() - end.getTime()) / 60000;
+            return timeBetween > 0 && timeBetween < bufferMinutes;
+          });
+          
+          if (conflictingAfter.length > 0) {
+            const nextSession = conflictingAfter[0];
+            const nextStart = new Date(nextSession.startTime);
+            const gapMinutes = Math.round((nextStart.getTime() - end.getTime()) / 60000);
+            return res.status(409).json({
+              error: "Buffer conflict",
+              level: 2,
+              message: `Only ${gapMinutes} min gap after this session. Your settings require ${bufferMinutes} min buffer between sessions.`
+            });
+          }
+        }
+      }
+
       // Create sessions (single, recurring, or flexible)
       const isFlexibleSession = isFlexible && flexibleDates && Array.isArray(flexibleDates) && flexibleDates.length > 0;
       const sessionsToCreate = isFlexibleSession ? flexibleDates.length : (weekCount && weekCount > 1 ? weekCount : 1);

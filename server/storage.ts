@@ -2383,6 +2383,18 @@ export const storage = {
     return db.select().from(sessions).where(and(...conditions));
   },
 
+  async getCoachSessionsInRange(coachId: string, academyId: string, startDate: Date, endDate: Date): Promise<Session[]> {
+    return db.select().from(sessions).where(
+      and(
+        eq(sessions.coachId, coachId),
+        eq(sessions.academyId, academyId),
+        ne(sessions.status, "cancelled"),
+        gte(sessions.startTime, startDate),
+        lte(sessions.endTime, endDate)
+      )
+    );
+  },
+
   async getSessionsBySeriesId(seriesId: string): Promise<Session[]> {
     return db.select().from(sessions).where(eq(sessions.seriesId, seriesId));
   },
