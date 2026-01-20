@@ -1271,55 +1271,107 @@ export default function AdminPlayersScreen() {
               
               {stats.packages && stats.packages.length > 0 ? (
                 <View style={styles.packagesGrid}>
-                  {stats.packages.map((pkg: PlayerPackage) => (
-                    <View 
-                      key={pkg.id} 
-                      style={[
-                        styles.packageCard,
-                        !pkg.isPaid && styles.packageCardUnpaid
-                      ]}
-                    >
-                      <View style={styles.packageHeader}>
-                        <Text style={styles.packageName}>{pkg.packageName || pkg.creditType}</Text>
-                        {!pkg.isPaid && (
-                          <View style={styles.unpaidBadge}>
-                            <Text style={styles.unpaidBadgeText}>UNPAID</Text>
+                  {stats.packages.map((pkg: PlayerPackage) => {
+                    const remaining = pkg.remainingCredits ?? pkg.remaining ?? 0;
+                    const total = pkg.totalCredits || 0;
+                    const percentage = total > 0 ? (remaining / total) * 100 : 0;
+                    const creditColor = remaining > 0 ? Colors.dark.successNeon : Colors.dark.textMuted;
+                    
+                    return (
+                      <View 
+                        key={pkg.id} 
+                        style={[
+                          styles.premiumPackageCard,
+                          !pkg.isPaid && styles.premiumPackageCardUnpaid
+                        ]}
+                      >
+                        <LinearGradient
+                          colors={[
+                            pkg.isPaid ? 'rgba(200, 255, 61, 0.08)' : 'rgba(255, 152, 0, 0.08)',
+                            'transparent'
+                          ]}
+                          style={styles.packageGradient}
+                        />
+                        <View style={styles.premiumPackageHeader}>
+                          <View style={styles.packageTypeRow}>
+                            <View style={[
+                              styles.packageIconBadge,
+                              { backgroundColor: pkg.isPaid ? `${Colors.dark.successNeon}20` : `${Colors.dark.orange}20` }
+                            ]}>
+                              <Ionicons 
+                                name="ticket" 
+                                size={16} 
+                                color={pkg.isPaid ? Colors.dark.successNeon : Colors.dark.orange} 
+                              />
+                            </View>
+                            <Text style={styles.premiumPackageName}>
+                              {(pkg.packageName || pkg.creditType || 'Package').charAt(0).toUpperCase() + 
+                               (pkg.packageName || pkg.creditType || 'Package').slice(1)}
+                            </Text>
                           </View>
+                          {!pkg.isPaid ? (
+                            <View style={styles.premiumUnpaidBadge}>
+                              <Text style={styles.premiumUnpaidText}>UNPAID</Text>
+                            </View>
+                          ) : (
+                            <View style={styles.premiumPaidBadge}>
+                              <Text style={styles.premiumPaidText}>PAID</Text>
+                            </View>
+                          )}
+                        </View>
+                        
+                        <View style={styles.premiumCreditsSection}>
+                          <View style={styles.creditsDisplay}>
+                            <Text style={[styles.premiumCreditsValue, { color: creditColor }]}>
+                              {remaining}
+                            </Text>
+                            <Text style={styles.premiumCreditsDivider}>/</Text>
+                            <Text style={styles.premiumCreditsTotal}>{total}</Text>
+                            <Text style={styles.premiumCreditsLabel}>credits</Text>
+                          </View>
+                          <View style={styles.creditsProgressBar}>
+                            <View 
+                              style={[
+                                styles.creditsProgressFill,
+                                { 
+                                  width: `${percentage}%`,
+                                  backgroundColor: creditColor
+                                }
+                              ]} 
+                            />
+                          </View>
+                        </View>
+                        
+                        {pkg.expiresAt || pkg.expiryDate ? (
+                          <View style={styles.packageExpiryRow}>
+                            <Ionicons name="calendar-outline" size={12} color={Colors.dark.textMuted} />
+                            <Text style={styles.premiumPackageExpiry}>
+                              Expires {new Date(pkg.expiresAt || pkg.expiryDate).toLocaleDateString()}
+                            </Text>
+                          </View>
+                        ) : null}
+                        
+                        {!pkg.isPaid && (
+                          <Pressable
+                            style={styles.premiumMarkPaidButton}
+                            onPress={async () => {
+                              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                              try {
+                                await apiRequest("PATCH", `/api/packages/${pkg.id}`, { isPaid: true });
+                                queryClient.invalidateQueries({ queryKey: [`/api/admin/players/${selectedPlayer?.id}/stats`] });
+                                Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+                              } catch (error) {
+                                console.error("Failed to mark as paid:", error);
+                              }
+                            }}
+                          >
+                            <Ionicons name="checkmark-circle" size={14} color={Colors.dark.successNeon} />
+                            <Text style={styles.premiumMarkPaidText}>Mark as Paid</Text>
+                          </Pressable>
                         )}
                       </View>
-                      <View style={styles.packageCredits}>
-                        <Text style={[
-                          styles.packageCreditsValue,
-                          { color: (pkg.remainingCredits || pkg.remaining || 0) > 0 ? Colors.dark.successNeon : Colors.dark.textMuted }
-                        ]}>
-                          {pkg.remainingCredits ?? pkg.remaining ?? 0}
-                        </Text>
-                        <Text style={styles.packageCreditsLabel}>/ {pkg.totalCredits} credits</Text>
-                      </View>
-                      {pkg.expiresAt && (
-                        <Text style={styles.packageExpiry}>
-                          Expires: {new Date(pkg.expiresAt).toLocaleDateString()}
-                        </Text>
-                      )}
-                      {!pkg.isPaid && (
-                        <Pressable
-                          style={styles.markPaidButton}
-                          onPress={async () => {
-                            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-                            try {
-                              await apiRequest("PATCH", `/api/packages/${pkg.id}`, { isPaid: true });
-                              queryClient.invalidateQueries({ queryKey: [`/api/admin/players/${selectedPlayer?.id}/stats`] });
-                              Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-                            } catch (error) {
-                              console.error("Failed to mark as paid:", error);
-                            }
-                          }}
-                        >
-                          <Text style={styles.markPaidButtonText}>Mark as Paid</Text>
-                        </Pressable>
-                      )}
-                    </View>
-                  ))}
+                    );
+                  })}
                 </View>
               ) : (
                 <View style={styles.emptyPackages}>
@@ -3187,5 +3239,156 @@ const styles = StyleSheet.create({
     ...Typography.caption,
     color: Colors.dark.successNeon,
     fontWeight: "600",
+  },
+  packagesGrid: {
+    gap: Spacing.md,
+  },
+  premiumPackageCard: {
+    backgroundColor: Backgrounds.elevated,
+    borderRadius: BorderRadius.lg,
+    borderWidth: 1,
+    borderColor: "rgba(200, 255, 61, 0.15)",
+    padding: Spacing.lg,
+    overflow: "hidden",
+  },
+  premiumPackageCardUnpaid: {
+    borderColor: "rgba(255, 152, 0, 0.25)",
+  },
+  packageGradient: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    height: 60,
+  },
+  premiumPackageHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: Spacing.md,
+  },
+  packageTypeRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+  },
+  packageIconBadge: {
+    width: 32,
+    height: 32,
+    borderRadius: 8,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  premiumPackageName: {
+    ...Typography.body,
+    color: Colors.dark.text,
+    fontWeight: "700",
+    letterSpacing: 0.3,
+  },
+  premiumUnpaidBadge: {
+    backgroundColor: `${Colors.dark.orange}20`,
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 4,
+    borderRadius: BorderRadius.sm,
+    borderWidth: 1,
+    borderColor: `${Colors.dark.orange}30`,
+  },
+  premiumUnpaidText: {
+    ...Typography.caption,
+    color: Colors.dark.orange,
+    fontWeight: "700",
+    fontSize: 10,
+    letterSpacing: 0.5,
+  },
+  premiumPaidBadge: {
+    backgroundColor: `${Colors.dark.successNeon}20`,
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 4,
+    borderRadius: BorderRadius.sm,
+    borderWidth: 1,
+    borderColor: `${Colors.dark.successNeon}30`,
+  },
+  premiumPaidText: {
+    ...Typography.caption,
+    color: Colors.dark.successNeon,
+    fontWeight: "700",
+    fontSize: 10,
+    letterSpacing: 0.5,
+  },
+  premiumCreditsSection: {
+    marginBottom: Spacing.sm,
+  },
+  creditsDisplay: {
+    flexDirection: "row",
+    alignItems: "baseline",
+    gap: 4,
+    marginBottom: Spacing.sm,
+  },
+  premiumCreditsValue: {
+    fontSize: 32,
+    fontWeight: "800",
+    letterSpacing: -1,
+  },
+  premiumCreditsDivider: {
+    ...Typography.h3,
+    color: Colors.dark.textMuted,
+    fontWeight: "400",
+  },
+  premiumCreditsTotal: {
+    ...Typography.h3,
+    color: Colors.dark.textMuted,
+    fontWeight: "600",
+  },
+  premiumCreditsLabel: {
+    ...Typography.small,
+    color: Colors.dark.textMuted,
+    marginLeft: 4,
+  },
+  creditsProgressBar: {
+    height: 4,
+    backgroundColor: "rgba(255, 255, 255, 0.08)",
+    borderRadius: 2,
+    overflow: "hidden",
+  },
+  creditsProgressFill: {
+    height: "100%",
+    borderRadius: 2,
+  },
+  packageExpiryRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    marginTop: Spacing.sm,
+  },
+  premiumPackageExpiry: {
+    ...Typography.caption,
+    color: Colors.dark.textMuted,
+  },
+  premiumMarkPaidButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: Spacing.sm,
+    paddingVertical: Spacing.sm,
+    paddingHorizontal: Spacing.md,
+    marginTop: Spacing.md,
+    borderRadius: BorderRadius.md,
+    borderWidth: 1,
+    borderColor: `${Colors.dark.successNeon}40`,
+    backgroundColor: `${Colors.dark.successNeon}15`,
+  },
+  premiumMarkPaidText: {
+    ...Typography.small,
+    color: Colors.dark.successNeon,
+    fontWeight: "700",
+  },
+  emptyPackages: {
+    alignItems: "center",
+    paddingVertical: Spacing.xl,
+    gap: Spacing.sm,
+  },
+  emptyPackagesText: {
+    ...Typography.caption,
+    color: Colors.dark.textMuted,
   },
 });
