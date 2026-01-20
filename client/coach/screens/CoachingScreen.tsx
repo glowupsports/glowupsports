@@ -3381,15 +3381,8 @@ const glowLevelsStyles = StyleSheet.create({
 function TemplatesTab({ insets, tabBarHeight }: { insets: { bottom: number }; tabBarHeight: number }) {
   const navigation = useNavigation<any>();
   
-  const { data: templates, isLoading } = useQuery<{
-    blue: any[];
-    red: any[];
-    orange: any[];
-    green: any[];
-    yellow: any[];
-    adult: any[];
-  }>({
-    queryKey: ["/api/lesson-templates/library"],
+  const { data: templates = [], isLoading } = useQuery<any[]>({
+    queryKey: ["/api/lesson-templates"],
   });
 
   const ballLevels = [
@@ -3401,19 +3394,17 @@ function TemplatesTab({ insets, tabBarHeight }: { insets: { bottom: number }; ta
   ];
 
   const getCounts = () => {
-    if (!templates) return { blue: 0, red: 0, orange: 0, green: 0, yellow: 0, adult: 0 };
-    return {
-      blue: templates.blue?.length || 0,
-      red: templates.red?.length || 0,
-      orange: templates.orange?.length || 0,
-      green: templates.green?.length || 0,
-      yellow: templates.yellow?.length || 0,
-      adult: templates.adult?.length || 0,
-    };
+    if (!templates || !Array.isArray(templates)) return { blue: 0, red: 0, orange: 0, green: 0, yellow: 0, adult: 0 };
+    const grouped: Record<string, number> = { blue: 0, red: 0, orange: 0, green: 0, yellow: 0, adult: 0 };
+    templates.forEach((t: any) => {
+      const level = t.ballLevel?.toLowerCase() || "adult";
+      if (grouped[level] !== undefined) grouped[level]++;
+    });
+    return grouped;
   };
 
   const counts = getCounts();
-  const totalTemplates = Object.values(counts).reduce((a, b) => a + b, 0);
+  const totalTemplates = templates?.length || 0;
 
   if (isLoading) {
     return (
@@ -3487,8 +3478,8 @@ function LevelCardsTab({ insets, tabBarHeight }: { insets: { bottom: number }; t
   const navigation = useNavigation<any>();
   const [selectedLevel, setSelectedLevel] = useState<string>("red");
 
-  const { data: levelData, isLoading } = useQuery<any>({
-    queryKey: ["/api/glow-leveling/level-cards", selectedLevel],
+  const { data: levelData = [], isLoading } = useQuery<any[]>({
+    queryKey: ["/api/glow-leveling/levels", selectedLevel],
   });
 
   const levels = [
@@ -3526,16 +3517,19 @@ function LevelCardsTab({ insets, tabBarHeight }: { insets: { bottom: number }; t
 
       {isLoading ? (
         <ActivityIndicator size="large" color={Colors.dark.primary} style={{ marginTop: Spacing.xl }} />
-      ) : levelData?.pillars ? (
+      ) : levelData && levelData.length > 0 ? (
         <View style={levelCardsStyles.pillarsContainer}>
-          {levelData.pillars.map((pillar: any, index: number) => (
+          {levelData.map((level: any, index: number) => (
             <View key={index} style={levelCardsStyles.pillarCard}>
-              <Text style={levelCardsStyles.pillarName}>{pillar.name}</Text>
-              <Text style={levelCardsStyles.pillarDesc}>{pillar.description || "Skills in this pillar"}</Text>
-              {pillar.skills?.map((skill: any, skillIndex: number) => (
+              <View style={{ flexDirection: "row", alignItems: "center", marginBottom: Spacing.sm }}>
+                <View style={[levelCardsStyles.skillDot, { backgroundColor: levels.find(l => l.key === selectedLevel)?.color, width: 12, height: 12, borderRadius: 6 }]} />
+                <Text style={levelCardsStyles.pillarName}>{level.name || "Level " + (level.sublevel || index + 1)}</Text>
+              </View>
+              <Text style={levelCardsStyles.pillarDesc}>{level.description || `Sublevel ${level.sublevel || index + 1} skills`}</Text>
+              {level.skills?.map((skill: any, skillIndex: number) => (
                 <View key={skillIndex} style={levelCardsStyles.skillRow}>
                   <View style={[levelCardsStyles.skillDot, { backgroundColor: levels.find(l => l.key === selectedLevel)?.color }]} />
-                  <Text style={levelCardsStyles.skillText}>{skill.name || skill}</Text>
+                  <Text style={levelCardsStyles.skillText}>{typeof skill === 'string' ? skill : skill.name || skill.skill}</Text>
                 </View>
               ))}
             </View>
@@ -3572,23 +3566,9 @@ const levelCardsStyles = StyleSheet.create({
   emptySubtext: { fontSize: 14, color: Colors.dark.disabled, marginTop: Spacing.xs },
 });
 
-// Match Log Tab - Recent matches inline
+// Match Log Tab - Guide users to log matches
 function MatchLogTab({ insets, tabBarHeight }: { insets: { bottom: number }; tabBarHeight: number }) {
   const navigation = useNavigation<any>();
-  const { coach } = useCoach();
-
-  const { data: matchLogs, isLoading } = useQuery<any[]>({
-    queryKey: ["/api/match-logs", { coachId: coach?.id }],
-    enabled: !!coach?.id,
-  });
-
-  if (isLoading) {
-    return (
-      <View style={matchLogStyles.container}>
-        <ActivityIndicator size="large" color={Colors.dark.orange} />
-      </View>
-    );
-  }
 
   return (
     <ScrollView
@@ -3600,35 +3580,36 @@ function MatchLogTab({ insets, tabBarHeight }: { insets: { bottom: number }; tab
         <Text style={matchLogStyles.subtitle}>Track player match results and performance</Text>
       </View>
 
-      {(!matchLogs || matchLogs.length === 0) ? (
-        <View style={matchLogStyles.emptyState}>
-          <Ionicons name="tennisball-outline" size={48} color={Colors.dark.disabled} />
-          <Text style={matchLogStyles.emptyText}>No Matches Logged Yet</Text>
-          <Text style={matchLogStyles.emptySubtext}>Log matches from a player's profile to track their results</Text>
-          <Pressable
-            style={matchLogStyles.actionButton}
-            onPress={() => navigation.navigate("Players")}
-          >
-            <Ionicons name="people-outline" size={18} color="#fff" />
-            <Text style={matchLogStyles.actionButtonText}>Go to Players</Text>
-          </Pressable>
+      <View style={matchLogStyles.infoCard}>
+        <View style={matchLogStyles.infoIcon}>
+          <Ionicons name="tennisball" size={32} color={Colors.dark.orange} />
         </View>
-      ) : (
-        <View style={matchLogStyles.listContainer}>
-          {matchLogs.map((match: any, index: number) => (
-            <View key={match.id || index} style={matchLogStyles.matchCard}>
-              <View style={matchLogStyles.matchHeader}>
-                <Text style={matchLogStyles.matchPlayer}>{match.playerName || "Player"}</Text>
-                <Text style={[matchLogStyles.matchResult, { color: match.won ? Colors.dark.successNeon : Colors.dark.danger }]}>
-                  {match.won ? "WIN" : "LOSS"}
-                </Text>
-              </View>
-              <Text style={matchLogStyles.matchScore}>{match.score || "Score not recorded"}</Text>
-              <Text style={matchLogStyles.matchDate}>{match.date || match.createdAt}</Text>
-            </View>
-          ))}
+        <Text style={matchLogStyles.infoTitle}>Log Matches by Player</Text>
+        <Text style={matchLogStyles.infoText}>
+          Match logs are organized per player. To log a new match or view match history:
+        </Text>
+        <View style={matchLogStyles.stepsList}>
+          <View style={matchLogStyles.step}>
+            <Text style={matchLogStyles.stepNumber}>1</Text>
+            <Text style={matchLogStyles.stepText}>Go to the Players tab</Text>
+          </View>
+          <View style={matchLogStyles.step}>
+            <Text style={matchLogStyles.stepNumber}>2</Text>
+            <Text style={matchLogStyles.stepText}>Select a player</Text>
+          </View>
+          <View style={matchLogStyles.step}>
+            <Text style={matchLogStyles.stepNumber}>3</Text>
+            <Text style={matchLogStyles.stepText}>Tap "Log Match" to record results</Text>
+          </View>
         </View>
-      )}
+        <Pressable
+          style={matchLogStyles.actionButton}
+          onPress={() => navigation.navigate("Players")}
+        >
+          <Ionicons name="people-outline" size={18} color="#fff" />
+          <Text style={matchLogStyles.actionButtonText}>Go to Players</Text>
+        </Pressable>
+      </View>
     </ScrollView>
   );
 }
@@ -3638,37 +3619,21 @@ const matchLogStyles = StyleSheet.create({
   header: { padding: Spacing.lg },
   title: { fontSize: 24, fontWeight: "700", color: Colors.dark.text, marginBottom: Spacing.xs },
   subtitle: { fontSize: 14, color: Colors.dark.disabled },
-  emptyState: { alignItems: "center", justifyContent: "center", paddingVertical: Spacing.xxl, paddingHorizontal: Spacing.lg },
-  emptyText: { fontSize: 18, fontWeight: "600", color: Colors.dark.text, marginTop: Spacing.md },
-  emptySubtext: { fontSize: 14, color: Colors.dark.disabled, marginTop: Spacing.xs, textAlign: "center" },
-  actionButton: { flexDirection: "row", alignItems: "center", backgroundColor: Colors.dark.orange, paddingHorizontal: Spacing.lg, paddingVertical: Spacing.md, borderRadius: BorderRadius.full, marginTop: Spacing.lg, gap: Spacing.sm },
+  infoCard: { marginHorizontal: Spacing.lg, backgroundColor: Colors.dark.card, borderRadius: BorderRadius.lg, padding: Spacing.xl, alignItems: "center" },
+  infoIcon: { width: 64, height: 64, borderRadius: 32, backgroundColor: Colors.dark.orange + "20", alignItems: "center", justifyContent: "center", marginBottom: Spacing.md },
+  infoTitle: { fontSize: 18, fontWeight: "700", color: Colors.dark.text, marginBottom: Spacing.sm },
+  infoText: { fontSize: 14, color: Colors.dark.disabled, textAlign: "center", marginBottom: Spacing.lg },
+  stepsList: { width: "100%", marginBottom: Spacing.lg },
+  step: { flexDirection: "row", alignItems: "center", paddingVertical: Spacing.sm },
+  stepNumber: { width: 24, height: 24, borderRadius: 12, backgroundColor: Colors.dark.orange, color: "#fff", textAlign: "center", lineHeight: 24, fontWeight: "700", fontSize: 12, marginRight: Spacing.md, overflow: "hidden" },
+  stepText: { fontSize: 14, color: Colors.dark.text },
+  actionButton: { flexDirection: "row", alignItems: "center", backgroundColor: Colors.dark.orange, paddingHorizontal: Spacing.lg, paddingVertical: Spacing.md, borderRadius: BorderRadius.full, marginTop: Spacing.sm, gap: Spacing.sm },
   actionButtonText: { color: "#fff", fontWeight: "600", fontSize: 14 },
-  listContainer: { paddingHorizontal: Spacing.lg },
-  matchCard: { backgroundColor: Colors.dark.card, borderRadius: BorderRadius.lg, padding: Spacing.lg, marginBottom: Spacing.md },
-  matchHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: Spacing.xs },
-  matchPlayer: { fontSize: 16, fontWeight: "600", color: Colors.dark.text },
-  matchResult: { fontSize: 14, fontWeight: "700" },
-  matchScore: { fontSize: 14, color: Colors.dark.text, marginBottom: Spacing.xs },
-  matchDate: { fontSize: 12, color: Colors.dark.disabled },
 });
 
-// Session Plan Tab - Session plans inline
+// Session Plan Tab - Guide users to session plans
 function SessionPlanTab({ insets, tabBarHeight }: { insets: { bottom: number }; tabBarHeight: number }) {
   const navigation = useNavigation<any>();
-  const { coach } = useCoach();
-
-  const { data: sessionPlans, isLoading } = useQuery<any[]>({
-    queryKey: ["/api/session-plans", { coachId: coach?.id }],
-    enabled: !!coach?.id,
-  });
-
-  if (isLoading) {
-    return (
-      <View style={sessionPlanStyles.container}>
-        <ActivityIndicator size="large" color={Colors.dark.gold} />
-      </View>
-    );
-  }
 
   return (
     <ScrollView
@@ -3680,39 +3645,36 @@ function SessionPlanTab({ insets, tabBarHeight }: { insets: { bottom: number }; 
         <Text style={sessionPlanStyles.subtitle}>Pre-built lesson structures with drill blocks</Text>
       </View>
 
-      {(!sessionPlans || sessionPlans.length === 0) ? (
-        <View style={sessionPlanStyles.emptyState}>
-          <Ionicons name="clipboard-outline" size={48} color={Colors.dark.disabled} />
-          <Text style={sessionPlanStyles.emptyText}>No Session Plans Yet</Text>
-          <Text style={sessionPlanStyles.emptySubtext}>Session plans are auto-generated when you create sessions with templates</Text>
-          <Pressable
-            style={sessionPlanStyles.actionButton}
-            onPress={() => navigation.navigate("Calendar")}
-          >
-            <Ionicons name="calendar-outline" size={18} color="#000" />
-            <Text style={sessionPlanStyles.actionButtonText}>View Calendar</Text>
-          </Pressable>
+      <View style={sessionPlanStyles.infoCard}>
+        <View style={sessionPlanStyles.infoIcon}>
+          <Ionicons name="clipboard" size={32} color={Colors.dark.gold} />
         </View>
-      ) : (
-        <View style={sessionPlanStyles.listContainer}>
-          {sessionPlans.map((plan: any, index: number) => (
-            <Pressable 
-              key={plan.id || index} 
-              style={sessionPlanStyles.planCard}
-              onPress={() => navigation.navigate("SessionPlanDetail", { planId: plan.id })}
-            >
-              <View style={sessionPlanStyles.planIcon}>
-                <Ionicons name="document-text" size={24} color={Colors.dark.gold} />
-              </View>
-              <View style={sessionPlanStyles.planInfo}>
-                <Text style={sessionPlanStyles.planTitle}>{plan.title || plan.name || "Session Plan"}</Text>
-                <Text style={sessionPlanStyles.planMeta}>{plan.drillCount || 0} drills • {plan.duration || 60} min</Text>
-              </View>
-              <Ionicons name="chevron-forward" size={20} color={Colors.dark.disabled} />
-            </Pressable>
-          ))}
+        <Text style={sessionPlanStyles.infoTitle}>Plans Live in Sessions</Text>
+        <Text style={sessionPlanStyles.infoText}>
+          Each session can have its own session plan with drill blocks. To view or create a plan:
+        </Text>
+        <View style={sessionPlanStyles.stepsList}>
+          <View style={sessionPlanStyles.step}>
+            <Text style={sessionPlanStyles.stepNumber}>1</Text>
+            <Text style={sessionPlanStyles.stepText}>Go to the Calendar tab</Text>
+          </View>
+          <View style={sessionPlanStyles.step}>
+            <Text style={sessionPlanStyles.stepNumber}>2</Text>
+            <Text style={sessionPlanStyles.stepText}>Tap on any scheduled session</Text>
+          </View>
+          <View style={sessionPlanStyles.step}>
+            <Text style={sessionPlanStyles.stepNumber}>3</Text>
+            <Text style={sessionPlanStyles.stepText}>Tap "Session Plan" to generate or view</Text>
+          </View>
         </View>
-      )}
+        <Pressable
+          style={sessionPlanStyles.actionButton}
+          onPress={() => navigation.navigate("Calendar")}
+        >
+          <Ionicons name="calendar-outline" size={18} color="#000" />
+          <Text style={sessionPlanStyles.actionButtonText}>Go to Calendar</Text>
+        </Pressable>
+      </View>
     </ScrollView>
   );
 }
@@ -3722,17 +3684,16 @@ const sessionPlanStyles = StyleSheet.create({
   header: { padding: Spacing.lg },
   title: { fontSize: 24, fontWeight: "700", color: Colors.dark.text, marginBottom: Spacing.xs },
   subtitle: { fontSize: 14, color: Colors.dark.disabled },
-  emptyState: { alignItems: "center", justifyContent: "center", paddingVertical: Spacing.xxl, paddingHorizontal: Spacing.lg },
-  emptyText: { fontSize: 18, fontWeight: "600", color: Colors.dark.text, marginTop: Spacing.md },
-  emptySubtext: { fontSize: 14, color: Colors.dark.disabled, marginTop: Spacing.xs, textAlign: "center" },
-  actionButton: { flexDirection: "row", alignItems: "center", backgroundColor: Colors.dark.gold, paddingHorizontal: Spacing.lg, paddingVertical: Spacing.md, borderRadius: BorderRadius.full, marginTop: Spacing.lg, gap: Spacing.sm },
+  infoCard: { marginHorizontal: Spacing.lg, backgroundColor: Colors.dark.card, borderRadius: BorderRadius.lg, padding: Spacing.xl, alignItems: "center" },
+  infoIcon: { width: 64, height: 64, borderRadius: 32, backgroundColor: Colors.dark.gold + "20", alignItems: "center", justifyContent: "center", marginBottom: Spacing.md },
+  infoTitle: { fontSize: 18, fontWeight: "700", color: Colors.dark.text, marginBottom: Spacing.sm },
+  infoText: { fontSize: 14, color: Colors.dark.disabled, textAlign: "center", marginBottom: Spacing.lg },
+  stepsList: { width: "100%", marginBottom: Spacing.lg },
+  step: { flexDirection: "row", alignItems: "center", paddingVertical: Spacing.sm },
+  stepNumber: { width: 24, height: 24, borderRadius: 12, backgroundColor: Colors.dark.gold, color: "#000", textAlign: "center", lineHeight: 24, fontWeight: "700", fontSize: 12, marginRight: Spacing.md, overflow: "hidden" },
+  stepText: { fontSize: 14, color: Colors.dark.text },
+  actionButton: { flexDirection: "row", alignItems: "center", backgroundColor: Colors.dark.gold, paddingHorizontal: Spacing.lg, paddingVertical: Spacing.md, borderRadius: BorderRadius.full, marginTop: Spacing.sm, gap: Spacing.sm },
   actionButtonText: { color: "#000", fontWeight: "600", fontSize: 14 },
-  listContainer: { paddingHorizontal: Spacing.lg },
-  planCard: { flexDirection: "row", alignItems: "center", backgroundColor: Colors.dark.card, borderRadius: BorderRadius.lg, padding: Spacing.lg, marginBottom: Spacing.md },
-  planIcon: { width: 48, height: 48, borderRadius: BorderRadius.md, backgroundColor: Colors.dark.gold + "20", alignItems: "center", justifyContent: "center", marginRight: Spacing.md },
-  planInfo: { flex: 1 },
-  planTitle: { fontSize: 16, fontWeight: "600", color: Colors.dark.text, marginBottom: 2 },
-  planMeta: { fontSize: 13, color: Colors.dark.disabled },
 });
 
 const styles = StyleSheet.create({
