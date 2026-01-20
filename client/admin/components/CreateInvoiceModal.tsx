@@ -418,7 +418,35 @@ export default function CreateInvoiceModal({
   const [lineItems, setLineItems] = useState<LineItem[]>([
     { id: "1", description: "", quantity: 1, unitPrice: 0, total: 0 }
   ]);
+  const [selectedPackageTemplate, setSelectedPackageTemplate] = useState<string | null>(null);
   const [taxRate, setTaxRate] = useState(0);
+  
+  const PACKAGE_TEMPLATES = [
+    { id: "private_5", label: "5 Private Lessons", description: "Private Tennis Lessons (5 sessions)", quantity: 5, unitPrice: 280 },
+    { id: "private_10", label: "10 Private Lessons", description: "Private Tennis Lessons (10 sessions)", quantity: 10, unitPrice: 280 },
+    { id: "private_20", label: "20 Private Lessons", description: "Private Tennis Lessons (20 sessions)", quantity: 20, unitPrice: 280 },
+    { id: "semi_5", label: "5 Semi-Private Lessons", description: "Semi-Private Tennis Lessons (5 sessions)", quantity: 5, unitPrice: 180 },
+    { id: "semi_10", label: "10 Semi-Private Lessons", description: "Semi-Private Tennis Lessons (10 sessions)", quantity: 10, unitPrice: 180 },
+    { id: "semi_20", label: "20 Semi-Private Lessons", description: "Semi-Private Tennis Lessons (20 sessions)", quantity: 20, unitPrice: 180 },
+    { id: "group_10", label: "10 Group Lessons", description: "Group Tennis Lessons (10 sessions)", quantity: 10, unitPrice: 75 },
+    { id: "group_20", label: "20 Group Lessons", description: "Group Tennis Lessons (20 sessions)", quantity: 20, unitPrice: 75 },
+    { id: "group_40", label: "40 Group Lessons", description: "Group Tennis Lessons (40 sessions)", quantity: 40, unitPrice: 75 },
+  ];
+  
+  const selectPackageTemplate = (templateId: string) => {
+    const template = PACKAGE_TEMPLATES.find(t => t.id === templateId);
+    if (template) {
+      setSelectedPackageTemplate(templateId);
+      setLineItems([{
+        id: "1",
+        description: template.description,
+        quantity: template.quantity,
+        unitPrice: template.unitPrice,
+        total: template.quantity * template.unitPrice,
+      }]);
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    }
+  };
   const [discount, setDiscount] = useState(0);
   const [notes, setNotes] = useState("");
   const [currency] = useState("AED");
@@ -627,6 +655,39 @@ export default function CreateInvoiceModal({
                 />
               </View>
             </View>
+          </View>
+
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Quick Select Package</Text>
+            <ScrollView 
+              horizontal 
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.packageTemplatesContainer}
+            >
+              {PACKAGE_TEMPLATES.map((template) => (
+                <Pressable
+                  key={template.id}
+                  style={[
+                    styles.packageTemplateCard,
+                    selectedPackageTemplate === template.id && styles.packageTemplateCardSelected
+                  ]}
+                  onPress={() => selectPackageTemplate(template.id)}
+                >
+                  <Text style={[
+                    styles.packageTemplateLabel,
+                    selectedPackageTemplate === template.id && styles.packageTemplateLabelSelected
+                  ]}>
+                    {template.label}
+                  </Text>
+                  <Text style={[
+                    styles.packageTemplatePrice,
+                    selectedPackageTemplate === template.id && styles.packageTemplatePriceSelected
+                  ]}>
+                    AED {(template.quantity * template.unitPrice).toLocaleString()}
+                  </Text>
+                </Pressable>
+              ))}
+            </ScrollView>
           </View>
 
           <View style={styles.section}>
@@ -1086,5 +1147,41 @@ const styles = StyleSheet.create({
     fontSize: Typography.body.fontSize,
     fontWeight: "600",
     color: Colors.dark.text,
+  },
+  packageTemplatesContainer: {
+    flexDirection: "row",
+    gap: Spacing.sm,
+    paddingVertical: Spacing.sm,
+  },
+  packageTemplateCard: {
+    backgroundColor: Colors.dark.backgroundSecondary,
+    borderRadius: BorderRadius.md,
+    padding: Spacing.md,
+    minWidth: 140,
+    borderWidth: 1,
+    borderColor: Colors.dark.backgroundTertiary,
+    alignItems: "center",
+  },
+  packageTemplateCardSelected: {
+    backgroundColor: Colors.dark.successNeon + "15",
+    borderColor: Colors.dark.successNeon,
+  },
+  packageTemplateLabel: {
+    fontSize: Typography.caption.fontSize,
+    fontWeight: "600",
+    color: Colors.dark.text,
+    marginBottom: 4,
+    textAlign: "center",
+  },
+  packageTemplateLabelSelected: {
+    color: Colors.dark.successNeon,
+  },
+  packageTemplatePrice: {
+    fontSize: Typography.h4.fontSize,
+    fontWeight: "700",
+    color: Colors.dark.textMuted,
+  },
+  packageTemplatePriceSelected: {
+    color: Colors.dark.successNeon,
   },
 });

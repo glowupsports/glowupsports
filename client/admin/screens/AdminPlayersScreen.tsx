@@ -625,7 +625,28 @@ export default function AdminPlayersScreen() {
                   </View>
                 ) : null}
                 <View style={styles.paymentActions}>
-                  <Pressable style={styles.recordPaymentButton}>
+                  <Pressable 
+                    style={styles.recordPaymentButton}
+                    onPress={async () => {
+                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                      const unpaidPackages = stats.packages?.filter((p: PlayerPackage) => !p.isPaid) || [];
+                      if (unpaidPackages.length === 0) {
+                        return;
+                      }
+                      try {
+                        await Promise.all(
+                          unpaidPackages.map((pkg: PlayerPackage) => 
+                            apiRequest("PATCH", `/api/packages/${pkg.id}`, { isPaid: true })
+                          )
+                        );
+                        queryClient.invalidateQueries({ queryKey: [`/api/admin/players/${selectedPlayer?.id}/stats`] });
+                        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+                      } catch (error) {
+                        console.error("Failed to record payment:", error);
+                        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+                      }
+                    }}
+                  >
                     <Text style={styles.recordPaymentText}>Record Payment</Text>
                   </Pressable>
                   <Pressable 
