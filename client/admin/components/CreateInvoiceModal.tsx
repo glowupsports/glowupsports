@@ -831,23 +831,47 @@ export default function CreateInvoiceModal({
       });
 
       if (Platform.OS === "web") {
-        const printWindow = window.open("", "_blank");
-        if (printWindow) {
-          printWindow.document.write(html);
-          printWindow.document.close();
-          setTimeout(() => {
-            printWindow.print();
-          }, 500);
+        // Create an iframe to render HTML and trigger download
+        const iframe = document.createElement("iframe");
+        iframe.style.display = "none";
+        document.body.appendChild(iframe);
+        const doc = iframe.contentDocument || iframe.contentWindow?.document;
+        if (doc) {
+          doc.open();
+          doc.write(html);
+          doc.close();
+          // Create a blob from the HTML content
+          const blob = new Blob([html], { type: "text/html" });
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement("a");
+          a.href = url;
+          a.download = `Invoice_${invoiceNumber}.html`;
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+          URL.revokeObjectURL(url);
+          document.body.removeChild(iframe);
+          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+          if (Platform.OS === "web") {
+            window.alert("Invoice downloaded! Open the HTML file in a browser and use Print > Save as PDF to create a PDF.");
+          }
         }
-        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       } else {
+        // Mobile: Generate PDF and share (allows saving to Files)
+        console.log("[PDF] Starting mobile PDF generation...");
         const { uri } = await Print.printToFileAsync({ html });
+        console.log("[PDF] PDF created at:", uri);
         const canShare = await Sharing.isAvailableAsync();
+        console.log("[PDF] Sharing available:", canShare);
         if (canShare) {
           await Sharing.shareAsync(uri, {
             mimeType: "application/pdf",
             dialogTitle: `Invoice ${invoiceNumber}`,
+            UTI: "com.adobe.pdf",
           });
+          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        } else {
+          Alert.alert("Success", "PDF saved. Check your downloads folder.");
         }
       }
     } catch (error) {
