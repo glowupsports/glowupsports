@@ -831,31 +831,19 @@ export default function CreateInvoiceModal({
       });
 
       if (Platform.OS === "web") {
-        // Create an iframe to render HTML and trigger download
-        const iframe = document.createElement("iframe");
-        iframe.style.display = "none";
-        document.body.appendChild(iframe);
-        const doc = iframe.contentDocument || iframe.contentWindow?.document;
-        if (doc) {
-          doc.open();
-          doc.write(html);
-          doc.close();
-          // Create a blob from the HTML content
-          const blob = new Blob([html], { type: "text/html" });
-          const url = URL.createObjectURL(blob);
-          const a = document.createElement("a");
-          a.href = url;
-          a.download = `Invoice_${invoiceNumber}.html`;
-          document.body.appendChild(a);
-          a.click();
-          document.body.removeChild(a);
-          URL.revokeObjectURL(url);
-          document.body.removeChild(iframe);
+        // Open invoice in new tab for viewing/printing
+        const blob = new Blob([html], { type: "text/html" });
+        const url = URL.createObjectURL(blob);
+        const newWindow = window.open(url, "_blank");
+        if (newWindow) {
           Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-          if (Platform.OS === "web") {
-            window.alert("Invoice downloaded! Open the HTML file in a browser and use Print > Save as PDF to create a PDF.");
-          }
+        } else {
+          // If popup blocked, try opening as data URL
+          const dataUrl = "data:text/html;charset=utf-8," + encodeURIComponent(html);
+          window.open(dataUrl, "_blank");
         }
+        // Clean up blob URL after a delay
+        setTimeout(() => URL.revokeObjectURL(url), 5000);
       } else {
         // Mobile: Generate PDF and share (allows saving to Files)
         console.log("[PDF] Starting mobile PDF generation...");
