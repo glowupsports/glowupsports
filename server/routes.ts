@@ -2976,7 +2976,69 @@ export async function registerRoutes(app: Express): Promise<Server> {
           effectiveWeekCount = flexibleDates.length;
           seriesTitle = `${sessionTypeLabels[sessionType] || sessionType} - Flexible`;
         } else if (sessionsToCreate === 1) {
-          // ONE-OFF: dayOfWeek = -1, single date
+          // ONE-OFF: Check if players already have a matching series on same day of week + time
+          const sessionDayOfWeek = start.getUTCDay();
+          let matchingSeries: any = null;
+          
+          if (playerIds && Array.isArray(playerIds) && playerIds.length > 0) {
+            // Find series where ALL these players are active members, same day of week, same time
+            const allCoachSeries = await storage.getCoachingSeries(coachId, academyId!);
+            for (const s of allCoachSeries) {
+              if (s.status !== "active") continue;
+              if (s.dayOfWeek !== sessionDayOfWeek) continue;
+              if (s.startTime !== startTimeStr) continue;
+              if (s.sessionType !== sessionType) continue;
+              
+              // Get active players in this series
+              const seriesPlayers = await storage.getSeriesPlayers(s.id);
+              const activePlayerIds = seriesPlayers.filter((p: any) => p.status === "active").map((p: any) => p.playerId);
+              
+              // Check if all selected players are in this series
+              const allPlayersMatch = playerIds.every((pid: string) => activePlayerIds.includes(pid));
+              if (allPlayersMatch && activePlayerIds.length === playerIds.length) {
+                matchingSeries = s;
+                break;
+              }
+            }
+          }
+          
+          if (matchingSeries) {
+            // Found matching series - add session to it instead of creating new
+            seriesId = matchingSeries.id;
+            console.log(`[SmartSession] Adding to existing series: ${matchingSeries.title} (ID: ${matchingSeries.id})`);
+            
+            // Skip series creation, go directly to session creation
+            const newSession = await storage.createSession({
+              seriesId: matchingSeries.id,
+              coachId: coachId!,
+              academyId: academyId!,
+              courtId,
+              sessionType,
+              startTime: start,
+              endTime: end,
+              status: "scheduled",
+              maxPlayers: matchingSeries.maxPlayers,
+              xpValue: matchingSeries.xpValue || 20,
+              ...pricingSnapshot
+            });
+            
+            // Add players to this session
+            for (const pid of playerIds) {
+              try {
+                await storage.addPlayerToSession({ sessionId: newSession.id, playerId: pid });
+              } catch (e) {}
+            }
+            
+            return res.json({
+              series: matchingSeries,
+              sessions: [newSession],
+              skippedWeeks: [],
+              addedToExistingSeries: true,
+              message: `Session added to existing class: ${matchingSeries.title}`
+            });
+          }
+          
+          // No matching series found, create one-off as usual
           effectiveDayOfWeek = FLEXIBLE_DAY;
           seriesStartDateStr = dateStr;
           seriesEndDateStr = dateStr;
