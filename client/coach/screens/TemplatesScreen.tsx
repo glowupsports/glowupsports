@@ -647,7 +647,7 @@ const styles = StyleSheet.create({
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: "rgba(0,0,0,0.7)",
+    backgroundColor: "#0B0D10",
     justifyContent: "flex-end",
   },
   modalContent: {

@@ -2161,7 +2161,7 @@ const styles = StyleSheet.create({
   },
   sortModalOverlay: {
     flex: 1,
-    backgroundColor: "rgba(0, 0, 0, 0.9)",
+    backgroundColor: "#0B0D10",
     justifyContent: "center",
     alignItems: "center",
     padding: Spacing.xl,
@@ -4103,7 +4103,7 @@ const styles = StyleSheet.create({
   },
   confirmModalOverlay: {
     flex: 1,
-    backgroundColor: "rgba(0, 0, 0, 0.9)",
+    backgroundColor: "#0B0D10",
     justifyContent: "center",
     alignItems: "center",
     padding: Spacing.xl,
