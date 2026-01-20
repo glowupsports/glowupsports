@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
   View,
   Text,
@@ -10,6 +10,7 @@ import {
   ActivityIndicator,
   Alert,
   Platform,
+  FlatList,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
@@ -19,8 +20,21 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import * as Haptics from "expo-haptics";
 import * as Print from "expo-print";
 import * as Sharing from "expo-sharing";
+import * as FileSystem from "expo-file-system";
 import { Colors, Spacing, BorderRadius, Typography, CardStyles, Backgrounds } from "@/constants/theme";
 import { apiRequest } from "@/lib/query-client";
+
+const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+const DAYS_IN_MONTH = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+
+function isLeapYear(year: number) {
+  return (year % 4 === 0 && year % 100 !== 0) || year % 400 === 0;
+}
+
+function getDaysInMonth(month: number, year: number) {
+  if (month === 1 && isLeapYear(year)) return 29;
+  return DAYS_IN_MONTH[month];
+}
 
 interface LineItem {
   id: string;
@@ -108,23 +122,28 @@ const generateInvoicePDF = (invoice: {
       <meta charset="utf-8">
       <title>Invoice ${invoice.invoiceNumber}</title>
       <style>
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
         * { margin: 0; padding: 0; box-sizing: border-box; }
+        @page { size: A4; margin: 0; }
+        @media print {
+          html, body { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+        }
         body { 
           font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
-          background: linear-gradient(180deg, #0B0D10 0%, #12151A 100%);
+          background: #0B0D10;
           color: #ffffff;
-          padding: 40px;
+          padding: 32px;
           min-height: 100vh;
+          -webkit-print-color-adjust: exact;
+          print-color-adjust: exact;
         }
         .invoice-container {
-          max-width: 800px;
+          max-width: 780px;
           margin: 0 auto;
-          background: linear-gradient(180deg, #1a1d24 0%, #0f1115 100%);
-          border-radius: 24px;
-          padding: 48px;
+          background: #12151A;
+          border-radius: 20px;
+          padding: 40px;
           border: 1px solid #2a2d35;
-          box-shadow: 0 24px 48px rgba(0,0,0,0.4);
         }
         .header {
           display: flex;
@@ -402,6 +421,262 @@ const generateInvoicePDF = (invoice: {
   `;
 };
 
+interface DatePickerModalProps {
+  visible: boolean;
+  onClose: () => void;
+  date: Date;
+  onDateChange: (date: Date) => void;
+  title: string;
+}
+
+function DatePickerModal({ visible, onClose, date, onDateChange, title }: DatePickerModalProps) {
+  const [selectedYear, setSelectedYear] = useState(date.getFullYear());
+  const [selectedMonth, setSelectedMonth] = useState(date.getMonth());
+  const [selectedDay, setSelectedDay] = useState(date.getDate());
+
+  useEffect(() => {
+    setSelectedYear(date.getFullYear());
+    setSelectedMonth(date.getMonth());
+    setSelectedDay(date.getDate());
+  }, [date, visible]);
+
+  const daysInCurrentMonth = getDaysInMonth(selectedMonth, selectedYear);
+  const days = Array.from({ length: daysInCurrentMonth }, (_, i) => i + 1);
+  const years = Array.from({ length: 5 }, (_, i) => new Date().getFullYear() + i);
+
+  const handleConfirm = () => {
+    const newDate = new Date(selectedYear, selectedMonth, selectedDay);
+    onDateChange(newDate);
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    onClose();
+  };
+
+  return (
+    <Modal
+      visible={visible}
+      transparent
+      animationType="fade"
+      onRequestClose={onClose}
+    >
+      <Pressable style={datePickerStyles.overlay} onPress={onClose}>
+        <Pressable style={datePickerStyles.container} onPress={(e) => e.stopPropagation()}>
+          <LinearGradient
+            colors={["#C8FF3D15", "transparent"]}
+            style={datePickerStyles.gradient}
+          />
+          <Text style={datePickerStyles.title}>{title}</Text>
+          
+          <View style={datePickerStyles.pickersRow}>
+            <View style={datePickerStyles.pickerColumn}>
+              <Text style={datePickerStyles.pickerLabel}>Day</Text>
+              <ScrollView style={datePickerStyles.pickerScroll} showsVerticalScrollIndicator={false}>
+                {days.map((day) => (
+                  <Pressable
+                    key={day}
+                    style={[
+                      datePickerStyles.pickerItem,
+                      selectedDay === day && datePickerStyles.pickerItemSelected,
+                    ]}
+                    onPress={() => setSelectedDay(day)}
+                  >
+                    <Text style={[
+                      datePickerStyles.pickerItemText,
+                      selectedDay === day && datePickerStyles.pickerItemTextSelected,
+                    ]}>
+                      {day}
+                    </Text>
+                  </Pressable>
+                ))}
+              </ScrollView>
+            </View>
+            
+            <View style={datePickerStyles.pickerColumn}>
+              <Text style={datePickerStyles.pickerLabel}>Month</Text>
+              <ScrollView style={datePickerStyles.pickerScroll} showsVerticalScrollIndicator={false}>
+                {MONTHS.map((month, index) => (
+                  <Pressable
+                    key={month}
+                    style={[
+                      datePickerStyles.pickerItem,
+                      selectedMonth === index && datePickerStyles.pickerItemSelected,
+                    ]}
+                    onPress={() => {
+                      setSelectedMonth(index);
+                      const maxDays = getDaysInMonth(index, selectedYear);
+                      if (selectedDay > maxDays) setSelectedDay(maxDays);
+                    }}
+                  >
+                    <Text style={[
+                      datePickerStyles.pickerItemText,
+                      selectedMonth === index && datePickerStyles.pickerItemTextSelected,
+                    ]}>
+                      {month}
+                    </Text>
+                  </Pressable>
+                ))}
+              </ScrollView>
+            </View>
+            
+            <View style={datePickerStyles.pickerColumn}>
+              <Text style={datePickerStyles.pickerLabel}>Year</Text>
+              <ScrollView style={datePickerStyles.pickerScroll} showsVerticalScrollIndicator={false}>
+                {years.map((year) => (
+                  <Pressable
+                    key={year}
+                    style={[
+                      datePickerStyles.pickerItem,
+                      selectedYear === year && datePickerStyles.pickerItemSelected,
+                    ]}
+                    onPress={() => setSelectedYear(year)}
+                  >
+                    <Text style={[
+                      datePickerStyles.pickerItemText,
+                      selectedYear === year && datePickerStyles.pickerItemTextSelected,
+                    ]}>
+                      {year}
+                    </Text>
+                  </Pressable>
+                ))}
+              </ScrollView>
+            </View>
+          </View>
+          
+          <View style={datePickerStyles.selectedPreview}>
+            <Text style={datePickerStyles.previewText}>
+              {selectedDay} {MONTHS[selectedMonth]} {selectedYear}
+            </Text>
+          </View>
+          
+          <View style={datePickerStyles.buttonsRow}>
+            <Pressable style={datePickerStyles.cancelButton} onPress={onClose}>
+              <Text style={datePickerStyles.cancelButtonText}>Cancel</Text>
+            </Pressable>
+            <Pressable style={datePickerStyles.confirmButton} onPress={handleConfirm}>
+              <Text style={datePickerStyles.confirmButtonText}>Confirm</Text>
+            </Pressable>
+          </View>
+        </Pressable>
+      </Pressable>
+    </Modal>
+  );
+}
+
+const datePickerStyles = StyleSheet.create({
+  overlay: {
+    flex: 1,
+    backgroundColor: "rgba(0, 0, 0, 0.8)",
+    justifyContent: "center",
+    alignItems: "center",
+    padding: Spacing.xl,
+  },
+  container: {
+    backgroundColor: Backgrounds.card,
+    borderRadius: BorderRadius.xl,
+    padding: Spacing.xl,
+    width: "100%",
+    maxWidth: 360,
+    borderWidth: 1,
+    borderColor: "rgba(200, 255, 61, 0.2)",
+    overflow: "hidden",
+  },
+  gradient: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    height: 100,
+  },
+  title: {
+    fontSize: Typography.h3.fontSize,
+    fontWeight: "700",
+    color: Colors.dark.text,
+    textAlign: "center",
+    marginBottom: Spacing.lg,
+  },
+  pickersRow: {
+    flexDirection: "row",
+    gap: Spacing.md,
+    marginBottom: Spacing.lg,
+  },
+  pickerColumn: {
+    flex: 1,
+  },
+  pickerLabel: {
+    fontSize: Typography.caption.fontSize,
+    color: Colors.dark.textMuted,
+    textTransform: "uppercase",
+    letterSpacing: 1,
+    marginBottom: Spacing.sm,
+    textAlign: "center",
+  },
+  pickerScroll: {
+    height: 160,
+    backgroundColor: Backgrounds.elevated,
+    borderRadius: BorderRadius.md,
+    paddingHorizontal: Spacing.xs,
+  },
+  pickerItem: {
+    paddingVertical: Spacing.sm,
+    paddingHorizontal: Spacing.sm,
+    borderRadius: BorderRadius.sm,
+    alignItems: "center",
+  },
+  pickerItemSelected: {
+    backgroundColor: Colors.dark.primary,
+  },
+  pickerItemText: {
+    fontSize: Typography.body.fontSize,
+    color: Colors.dark.textMuted,
+    fontWeight: "500",
+  },
+  pickerItemTextSelected: {
+    color: "#0B0D10",
+    fontWeight: "700",
+  },
+  selectedPreview: {
+    backgroundColor: Backgrounds.elevated,
+    borderRadius: BorderRadius.md,
+    padding: Spacing.md,
+    marginBottom: Spacing.lg,
+    borderWidth: 1,
+    borderColor: Colors.dark.primary + "40",
+  },
+  previewText: {
+    fontSize: Typography.h4.fontSize,
+    fontWeight: "600",
+    color: Colors.dark.primary,
+    textAlign: "center",
+  },
+  buttonsRow: {
+    flexDirection: "row",
+    gap: Spacing.md,
+  },
+  cancelButton: {
+    flex: 1,
+    paddingVertical: Spacing.md,
+    borderRadius: BorderRadius.md,
+    backgroundColor: Backgrounds.elevated,
+    alignItems: "center",
+  },
+  cancelButtonText: {
+    fontSize: Typography.body.fontSize,
+    fontWeight: "600",
+    color: Colors.dark.textMuted,
+  },
+  confirmButton: {
+    flex: 1,
+    paddingVertical: Spacing.md,
+    borderRadius: BorderRadius.md,
+    backgroundColor: Colors.dark.primary,
+    alignItems: "center",
+  },
+  confirmButtonText: {
+    fontSize: Typography.body.fontSize,
+    fontWeight: "700",
+    color: "#0B0D10",
+  },
+});
+
 export default function CreateInvoiceModal({
   visible,
   onClose,
@@ -541,15 +816,18 @@ export default function CreateInvoiceModal({
         notes,
       });
 
-      const { uri } = await Print.printToFileAsync({ html });
-      
       if (Platform.OS === "web") {
-        const link = document.createElement("a");
-        link.href = uri;
-        link.download = `Invoice-${invoiceNumber}.pdf`;
-        link.click();
+        const printWindow = window.open("", "_blank");
+        if (printWindow) {
+          printWindow.document.write(html);
+          printWindow.document.close();
+          setTimeout(() => {
+            printWindow.print();
+          }, 500);
+        }
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       } else {
+        const { uri } = await Print.printToFileAsync({ html });
         const canShare = await Sharing.isAvailableAsync();
         if (canShare) {
           await Sharing.shareAsync(uri, {
@@ -679,29 +957,50 @@ export default function CreateInvoiceModal({
               </View>
             </View>
             
-            {showIssueDatePicker && (
-              <DateTimePicker
-                value={issueDate}
-                mode="date"
-                display={Platform.OS === "ios" ? "spinner" : "default"}
-                onChange={(event, selectedDate) => {
-                  setShowIssueDatePicker(Platform.OS === "ios");
-                  if (selectedDate) setIssueDate(selectedDate);
-                }}
-                themeVariant="dark"
-              />
-            )}
-            {showDueDatePicker && (
-              <DateTimePicker
-                value={dueDate}
-                mode="date"
-                display={Platform.OS === "ios" ? "spinner" : "default"}
-                onChange={(event, selectedDate) => {
-                  setShowDueDatePicker(Platform.OS === "ios");
-                  if (selectedDate) setDueDate(selectedDate);
-                }}
-                themeVariant="dark"
-              />
+            {Platform.OS === "web" ? (
+              <>
+                <DatePickerModal
+                  visible={showIssueDatePicker}
+                  onClose={() => setShowIssueDatePicker(false)}
+                  date={issueDate}
+                  onDateChange={setIssueDate}
+                  title="Select Issue Date"
+                />
+                <DatePickerModal
+                  visible={showDueDatePicker}
+                  onClose={() => setShowDueDatePicker(false)}
+                  date={dueDate}
+                  onDateChange={setDueDate}
+                  title="Select Due Date"
+                />
+              </>
+            ) : (
+              <>
+                {showIssueDatePicker && (
+                  <DateTimePicker
+                    value={issueDate}
+                    mode="date"
+                    display={Platform.OS === "ios" ? "spinner" : "default"}
+                    onChange={(event, selectedDate) => {
+                      setShowIssueDatePicker(Platform.OS === "ios");
+                      if (selectedDate) setIssueDate(selectedDate);
+                    }}
+                    themeVariant="dark"
+                  />
+                )}
+                {showDueDatePicker && (
+                  <DateTimePicker
+                    value={dueDate}
+                    mode="date"
+                    display={Platform.OS === "ios" ? "spinner" : "default"}
+                    onChange={(event, selectedDate) => {
+                      setShowDueDatePicker(Platform.OS === "ios");
+                      if (selectedDate) setDueDate(selectedDate);
+                    }}
+                    themeVariant="dark"
+                  />
+                )}
+              </>
             )}
           </View>
 
