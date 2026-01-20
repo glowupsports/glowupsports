@@ -257,8 +257,6 @@ const generateAttendanceReportPDF = (stats: any, player: any) => {
           </div>
         </div>
         
-        <!-- RAINBOW DEBUG INDICATOR - V3 CODE LOADED -->
-        <div style="height: 8px; background: linear-gradient(90deg, #ff0000, #ff7f00, #ffff00, #00ff00, #0000ff, #4b0082, #8f00ff); border-radius: 4px; margin-bottom: 24px;"></div>
 
         <div class="player-section">
           <div class="player-name">${player?.name || stats.player?.name || "Player"}</div>
