@@ -6762,6 +6762,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         expiryDate: finalExpiryDate || null,
         invoiceId: invoice.id,
         name: `${totalCredits} ${creditType.replace('_', ' ')} credits`,
+        isPaid: false,
       });
       
       // Update invoice with package ID
