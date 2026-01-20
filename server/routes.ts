@@ -2984,7 +2984,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
             // Find series where ALL these players are active members, same day of week, same time
             const allCoachSeries = await storage.getCoachingSeries(coachId, academyId!);
             for (const s of allCoachSeries) {
-              if (s.status !== "active") continue;
+              // Include both active AND ended series for smart merge
+              if (s.status !== "active" && s.status !== "ended") continue;
               if (s.dayOfWeek !== sessionDayOfWeek) continue;
               if (s.startTime !== startTimeStr) continue;
               if (s.sessionType !== sessionType) continue;
@@ -7505,8 +7506,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
         };
       });
 
+      // Filter out future sessions - only show history (past sessions)
+      const now = new Date();
+      const pastRecords = combinedRecords.filter(record => {
+        if (!record.sessionStartTime) return false;
+        return new Date(record.sessionStartTime) < now;
+      });
+
       // Sort by session start time (newest first)
-      const sortedRecords = combinedRecords.sort((a, b) => {
+      const sortedRecords = pastRecords.sort((a, b) => {
         const dateA = a.sessionStartTime ? new Date(a.sessionStartTime) : new Date(0);
         const dateB = b.sessionStartTime ? new Date(b.sessionStartTime) : new Date(0);
         return dateB.getTime() - dateA.getTime();
