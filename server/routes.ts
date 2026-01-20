@@ -16232,6 +16232,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
         paymentStatus = totalPaid > 0 ? "partial" : "overdue";
       }
 
+      // Get player credits by type
+      const playerPackages = await storage.getActivePlayerPackages(playerId, player.academyId ?? undefined);
+      const creditsByType = { group: 0, private: 0, semi_private: 0 };
+      let totalCredits = 0;
+      for (const pkg of playerPackages) {
+        const creditType = (pkg.creditType || "group") as "group" | "private" | "semi_private";
+        creditsByType[creditType] += pkg.remainingCredits;
+        totalCredits += pkg.remainingCredits;
+      }
+
       res.json({
         player: {
           id: player.id,
@@ -16274,6 +16284,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
           status: paymentStatus,
           currency: "AED",
         },
+        credits: {
+          total: totalCredits,
+          group: creditsByType.group,
+          semiPrivate: creditsByType.semi_private,
+          private: creditsByType.private,
+          activePackages: playerPackages.length,
+        },
+        sessions: sessions.slice(0, 50).map((s: any) => ({
+          id: s.id,
+          sessionId: s.sessionId,
+          startTime: s.startTime,
+          endTime: s.endTime,
+          sessionType: s.sessionType,
+          attended: s.attendanceStatus || s.attended,
+          creditsUsed: s.creditsUsed || 0,
+          isPaid: (s.creditsUsed || 0) > 0 || s.attendanceStatus !== "present",
+        })),
       });
     } catch (error) {
       console.error("Player stats error:", error);

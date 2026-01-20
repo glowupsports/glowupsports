@@ -41,6 +41,17 @@ interface Player {
   isActive?: boolean;
 }
 
+interface PlayerSession {
+  id: string;
+  sessionId: string;
+  startTime: string;
+  endTime: string;
+  sessionType: string;
+  attended: string;
+  creditsUsed: number;
+  isPaid: boolean;
+}
+
 interface PlayerStats {
   player: {
     id: string;
@@ -83,6 +94,14 @@ interface PlayerStats {
     status: "paid" | "partial" | "overdue";
     currency: string;
   };
+  credits?: {
+    total: number;
+    group: number;
+    semiPrivate: number;
+    private: number;
+    activePackages: number;
+  };
+  sessions?: PlayerSession[];
 }
 
 const BALL_LEVELS = ["red", "orange", "green", "yellow"];
@@ -604,6 +623,128 @@ export default function AdminPlayersScreen() {
                     <Text style={styles.createInvoiceText}>Create Invoice</Text>
                   </Pressable>
                 </View>
+              </View>
+
+              {/* Credits/Packages Section */}
+              <View style={[styles.section, CardStyles.elevated]}>
+                <View style={styles.sectionHeader}>
+                  <View style={styles.sectionTitleRow}>
+                    <Ionicons name="ticket-outline" size={18} color={Colors.dark.primary} />
+                    <Text style={styles.sectionTitle}>Packages</Text>
+                  </View>
+                  <Pressable 
+                    style={styles.addCreditsButton}
+                    onPress={() => {
+                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                    }}
+                  >
+                    <Ionicons name="add" size={18} color={Colors.dark.primary} />
+                  </Pressable>
+                </View>
+                
+                <View style={styles.creditsOverview}>
+                  <View style={styles.creditStatCard}>
+                    <Text style={styles.creditStatValue}>{stats.credits?.total || 0}</Text>
+                    <Text style={styles.creditStatLabel}>Total Credits</Text>
+                  </View>
+                  <View style={styles.creditStatCard}>
+                    <Text style={styles.creditStatValue}>{stats.credits?.activePackages || 0}</Text>
+                    <Text style={styles.creditStatLabel}>Active Packages</Text>
+                  </View>
+                </View>
+
+                <View style={styles.creditTypeRow}>
+                  <View style={[styles.creditTypeCard, { backgroundColor: `${Colors.dark.xpCyan}15` }]}>
+                    <Text style={[styles.creditTypeValue, { color: Colors.dark.xpCyan }]}>{stats.credits?.group || 0}</Text>
+                    <Text style={styles.creditTypeLabel}>Group</Text>
+                  </View>
+                  <View style={[styles.creditTypeCard, { backgroundColor: `${Colors.dark.orange}15` }]}>
+                    <Text style={[styles.creditTypeValue, { color: Colors.dark.orange }]}>{stats.credits?.private || 0}</Text>
+                    <Text style={styles.creditTypeLabel}>Private</Text>
+                  </View>
+                  <View style={[styles.creditTypeCard, { backgroundColor: `${Colors.dark.primary}15` }]}>
+                    <Text style={[styles.creditTypeValue, { color: Colors.dark.primary }]}>{stats.credits?.semiPrivate || 0}</Text>
+                    <Text style={styles.creditTypeLabel}>Semi-Private</Text>
+                  </View>
+                </View>
+
+                <Pressable 
+                  style={styles.grantCreditsButton}
+                  onPress={() => {
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                  }}
+                >
+                  <Ionicons name="add-circle-outline" size={18} color={Colors.dark.primary} />
+                  <Text style={styles.grantCreditsText}>Grant Credits</Text>
+                </Pressable>
+              </View>
+
+              {/* Attendance History Section */}
+              <View style={[styles.section, CardStyles.elevated]}>
+                <View style={styles.sectionHeader}>
+                  <View style={styles.sectionTitleRow}>
+                    <Ionicons name="calendar-outline" size={18} color={Colors.dark.xpCyan} />
+                    <Text style={styles.sectionTitle}>Attendance History</Text>
+                  </View>
+                  <Text style={styles.sessionCount}>{stats.sessions?.length || 0} sessions</Text>
+                </View>
+
+                {stats.sessions && stats.sessions.length > 0 ? (
+                  <View style={styles.sessionsList}>
+                    {stats.sessions.slice(0, 10).map((session, index) => {
+                      const sessionDate = new Date(session.startTime);
+                      const isAttended = session.attended === "present";
+                      const isPaid = session.creditsUsed > 0;
+                      
+                      return (
+                        <View key={session.id || index} style={styles.sessionRow}>
+                          <View style={styles.sessionDateBlock}>
+                            <View style={[
+                              styles.sessionIndicator, 
+                              { backgroundColor: isAttended ? Colors.dark.successNeon : Colors.dark.error }
+                            ]} />
+                            <View>
+                              <Text style={styles.sessionDate}>
+                                {sessionDate.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })}
+                              </Text>
+                              <Text style={styles.sessionTime}>
+                                {sessionDate.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" })}
+                              </Text>
+                            </View>
+                          </View>
+                          <View style={styles.sessionBadges}>
+                            <View style={[styles.sessionTypeBadge, { backgroundColor: Backgrounds.card }]}>
+                              <Text style={styles.sessionTypeText}>
+                                {session.sessionType === "private" ? "Private" : 
+                                 session.sessionType === "semi_private" ? "Semi" : "Group"}
+                              </Text>
+                            </View>
+                            <View style={[
+                              styles.paymentBadge, 
+                              { backgroundColor: isPaid ? `${Colors.dark.successNeon}20` : `${Colors.dark.gold}20` }
+                            ]}>
+                              <View style={[
+                                styles.paymentDot,
+                                { backgroundColor: isPaid ? Colors.dark.successNeon : Colors.dark.gold }
+                              ]} />
+                              <Text style={[
+                                styles.paymentBadgeText, 
+                                { color: isPaid ? Colors.dark.successNeon : Colors.dark.gold }
+                              ]}>
+                                {isPaid ? "Paid" : "Pending"}
+                              </Text>
+                            </View>
+                          </View>
+                        </View>
+                      );
+                    })}
+                  </View>
+                ) : (
+                  <View style={styles.emptySessionsState}>
+                    <Ionicons name="calendar-outline" size={32} color={Colors.dark.textMuted} />
+                    <Text style={styles.emptySessionsText}>No sessions yet</Text>
+                  </View>
+                )}
               </View>
 
               {stats.player.parentName || stats.player.parentPhone ? (
@@ -2109,5 +2250,157 @@ const styles = StyleSheet.create({
   },
   btnDisabled: {
     opacity: 0.6,
+  },
+  sectionHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: Spacing.md,
+  },
+  sectionTitleRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+  },
+  addCreditsButton: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: `${Colors.dark.primary}20`,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  creditsOverview: {
+    flexDirection: "row",
+    gap: Spacing.md,
+    marginBottom: Spacing.md,
+  },
+  creditStatCard: {
+    flex: 1,
+    backgroundColor: `${Colors.dark.primary}15`,
+    borderRadius: BorderRadius.md,
+    padding: Spacing.md,
+    alignItems: "center",
+  },
+  creditStatValue: {
+    ...Typography.h2,
+    color: Colors.dark.primary,
+    fontWeight: "700",
+  },
+  creditStatLabel: {
+    ...Typography.small,
+    color: Colors.dark.textMuted,
+    marginTop: 2,
+  },
+  creditTypeRow: {
+    flexDirection: "row",
+    gap: Spacing.sm,
+    marginBottom: Spacing.md,
+  },
+  creditTypeCard: {
+    flex: 1,
+    borderRadius: BorderRadius.sm,
+    padding: Spacing.sm,
+    alignItems: "center",
+  },
+  creditTypeValue: {
+    ...Typography.h3,
+    fontWeight: "700",
+  },
+  creditTypeLabel: {
+    ...Typography.small,
+    color: Colors.dark.textMuted,
+    marginTop: 2,
+  },
+  grantCreditsButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: Spacing.sm,
+    paddingVertical: Spacing.md,
+    borderRadius: BorderRadius.md,
+    borderWidth: 1,
+    borderColor: `${Colors.dark.primary}40`,
+    backgroundColor: `${Colors.dark.primary}10`,
+  },
+  grantCreditsText: {
+    ...Typography.body,
+    color: Colors.dark.primary,
+    fontWeight: "600",
+  },
+  sessionCount: {
+    ...Typography.caption,
+    color: Colors.dark.xpCyan,
+    fontWeight: "600",
+  },
+  sessionsList: {
+    gap: Spacing.sm,
+  },
+  sessionRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    backgroundColor: Backgrounds.card,
+    borderRadius: BorderRadius.sm,
+    padding: Spacing.sm,
+  },
+  sessionDateBlock: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+  },
+  sessionIndicator: {
+    width: 3,
+    height: 32,
+    borderRadius: 2,
+  },
+  sessionDate: {
+    ...Typography.body,
+    color: Colors.dark.text,
+    fontWeight: "500",
+  },
+  sessionTime: {
+    ...Typography.small,
+    color: Colors.dark.textMuted,
+  },
+  sessionBadges: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+  },
+  sessionTypeBadge: {
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 4,
+    borderRadius: BorderRadius.sm,
+  },
+  sessionTypeText: {
+    ...Typography.small,
+    color: Colors.dark.textMuted,
+  },
+  paymentBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 4,
+    borderRadius: BorderRadius.sm,
+  },
+  paymentDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+  },
+  paymentBadgeText: {
+    ...Typography.small,
+    fontWeight: "600",
+  },
+  emptySessionsState: {
+    alignItems: "center",
+    paddingVertical: Spacing.xl,
+    gap: Spacing.sm,
+  },
+  emptySessionsText: {
+    ...Typography.caption,
+    color: Colors.dark.textMuted,
   },
 });
