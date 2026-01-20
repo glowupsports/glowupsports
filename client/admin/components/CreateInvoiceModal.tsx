@@ -14,11 +14,12 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
 import Ionicons from "@expo/vector-icons/Ionicons";
+import DateTimePicker from "@react-native-community/datetimepicker";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import * as Haptics from "expo-haptics";
 import * as Print from "expo-print";
 import * as Sharing from "expo-sharing";
-import { Colors, Spacing, BorderRadius, Typography, CardStyles } from "@/constants/theme";
+import { Colors, Spacing, BorderRadius, Typography, CardStyles, Backgrounds } from "@/constants/theme";
 import { apiRequest } from "@/lib/query-client";
 
 interface LineItem {
@@ -37,6 +38,8 @@ interface PlayerInfo {
   parentName?: string;
   parentEmail?: string;
   parentPhone?: string;
+  coachId?: string;
+  coachName?: string;
 }
 
 interface AcademyInfo {
@@ -60,8 +63,9 @@ const generateInvoiceNumber = () => {
   const date = new Date();
   const year = date.getFullYear();
   const month = String(date.getMonth() + 1).padStart(2, "0");
-  const random = Math.random().toString(36).substring(2, 8).toUpperCase();
-  return `INV-${year}${month}-${random}`;
+  const day = String(date.getDate()).padStart(2, "0");
+  const sequence = String(Math.floor(Math.random() * 9999) + 1).padStart(4, "0");
+  return `INV-${year}-${month}${day}-${sequence}`;
 };
 
 const formatDate = (date: Date) => {
@@ -409,16 +413,19 @@ export default function CreateInvoiceModal({
   const queryClient = useQueryClient();
   
   const [invoiceNumber] = useState(generateInvoiceNumber());
-  const [issueDate, setIssueDate] = useState(formatDate(new Date()));
+  const [issueDate, setIssueDate] = useState(new Date());
   const [dueDate, setDueDate] = useState(() => {
     const date = new Date();
     date.setDate(date.getDate() + 14);
-    return formatDate(date);
+    return date;
   });
+  const [showIssueDatePicker, setShowIssueDatePicker] = useState(false);
+  const [showDueDatePicker, setShowDueDatePicker] = useState(false);
   const [lineItems, setLineItems] = useState<LineItem[]>([
     { id: "1", description: "", quantity: 1, unitPrice: 0, total: 0 }
   ]);
   const [selectedPackageTemplate, setSelectedPackageTemplate] = useState<string | null>(null);
+  const [expandedCategory, setExpandedCategory] = useState<string | null>("private");
   const [taxRate, setTaxRate] = useState(0);
   
   const PACKAGE_TEMPLATES = [
@@ -522,8 +529,8 @@ export default function CreateInvoiceModal({
         academyAddress: academy?.address,
         academyEmail: academy?.email,
         academyPhone: academy?.phone,
-        issueDate,
-        dueDate,
+        issueDate: formatDate(issueDate),
+        dueDate: formatDate(dueDate),
         lineItems: lineItems.filter(item => item.description && item.total > 0),
         subtotal,
         taxRate,
@@ -577,7 +584,7 @@ export default function CreateInvoiceModal({
       playerId: player?.id,
       amount: total,
       currency,
-      dueDate,
+      dueDate: formatDate(dueDate),
       lineItems: lineItems.filter(item => item.description && item.total > 0),
       notes,
     });
@@ -617,8 +624,15 @@ export default function CreateInvoiceModal({
           </View>
 
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Bill To</Text>
-            <View style={styles.playerCard}>
+            <View style={styles.sectionHeaderRow}>
+              <Ionicons name="person-outline" size={18} color={Colors.dark.successNeon} />
+              <Text style={styles.sectionTitle}>Bill To</Text>
+            </View>
+            <View style={styles.premiumPlayerCard}>
+              <LinearGradient
+                colors={['rgba(200, 255, 61, 0.08)', 'transparent']}
+                style={styles.playerCardGradient}
+              />
               <View style={styles.playerAvatar}>
                 <Text style={styles.playerAvatarText}>
                   {player?.name?.charAt(0).toUpperCase() || "?"}
@@ -627,67 +641,216 @@ export default function CreateInvoiceModal({
               <View style={styles.playerInfo}>
                 <Text style={styles.playerName}>{player?.name || "Unknown"}</Text>
                 {player?.email && <Text style={styles.playerEmail}>{player.email}</Text>}
+                {player?.coachName && (
+                  <View style={styles.coachRow}>
+                    <Ionicons name="fitness-outline" size={12} color={Colors.dark.orange} />
+                    <Text style={styles.coachName}>Coach: {player.coachName}</Text>
+                  </View>
+                )}
               </View>
             </View>
           </View>
 
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Dates</Text>
+            <View style={styles.sectionHeaderRow}>
+              <Ionicons name="calendar-outline" size={18} color={Colors.dark.orange} />
+              <Text style={styles.sectionTitle}>Dates</Text>
+            </View>
             <View style={styles.dateRow}>
               <View style={styles.dateField}>
                 <Text style={styles.dateLabel}>Issue Date</Text>
-                <TextInput
-                  style={styles.dateInput}
-                  value={issueDate}
-                  onChangeText={setIssueDate}
-                  placeholder="YYYY-MM-DD"
-                  placeholderTextColor={Colors.dark.textMuted}
-                />
+                <Pressable
+                  style={styles.datePickerButton}
+                  onPress={() => setShowIssueDatePicker(true)}
+                >
+                  <Text style={styles.datePickerText}>{formatDate(issueDate)}</Text>
+                  <Ionicons name="calendar" size={18} color={Colors.dark.orange} />
+                </Pressable>
               </View>
               <View style={styles.dateField}>
                 <Text style={styles.dateLabel}>Due Date</Text>
-                <TextInput
-                  style={styles.dateInput}
-                  value={dueDate}
-                  onChangeText={setDueDate}
-                  placeholder="YYYY-MM-DD"
-                  placeholderTextColor={Colors.dark.textMuted}
-                />
+                <Pressable
+                  style={styles.datePickerButton}
+                  onPress={() => setShowDueDatePicker(true)}
+                >
+                  <Text style={styles.datePickerText}>{formatDate(dueDate)}</Text>
+                  <Ionicons name="calendar" size={18} color={Colors.dark.orange} />
+                </Pressable>
               </View>
             </View>
+            
+            {showIssueDatePicker && (
+              <DateTimePicker
+                value={issueDate}
+                mode="date"
+                display={Platform.OS === "ios" ? "spinner" : "default"}
+                onChange={(event, selectedDate) => {
+                  setShowIssueDatePicker(Platform.OS === "ios");
+                  if (selectedDate) setIssueDate(selectedDate);
+                }}
+                themeVariant="dark"
+              />
+            )}
+            {showDueDatePicker && (
+              <DateTimePicker
+                value={dueDate}
+                mode="date"
+                display={Platform.OS === "ios" ? "spinner" : "default"}
+                onChange={(event, selectedDate) => {
+                  setShowDueDatePicker(Platform.OS === "ios");
+                  if (selectedDate) setDueDate(selectedDate);
+                }}
+                themeVariant="dark"
+              />
+            )}
           </View>
 
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Quick Select Package</Text>
-            <ScrollView 
-              horizontal 
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={styles.packageTemplatesContainer}
+            <View style={styles.sectionHeaderRow}>
+              <Ionicons name="pricetag-outline" size={18} color={Colors.dark.primary} />
+              <Text style={styles.sectionTitle}>Quick Select Package</Text>
+            </View>
+            
+            {/* Private Lessons */}
+            <Pressable 
+              style={styles.categoryHeader}
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                setExpandedCategory(expandedCategory === "private" ? null : "private");
+              }}
             >
-              {PACKAGE_TEMPLATES.map((template) => (
-                <Pressable
-                  key={template.id}
-                  style={[
-                    styles.packageTemplateCard,
-                    selectedPackageTemplate === template.id && styles.packageTemplateCardSelected
-                  ]}
-                  onPress={() => selectPackageTemplate(template.id)}
-                >
-                  <Text style={[
-                    styles.packageTemplateLabel,
-                    selectedPackageTemplate === template.id && styles.packageTemplateLabelSelected
-                  ]}>
-                    {template.label}
-                  </Text>
-                  <Text style={[
-                    styles.packageTemplatePrice,
-                    selectedPackageTemplate === template.id && styles.packageTemplatePriceSelected
-                  ]}>
-                    AED {(template.quantity * template.unitPrice).toLocaleString()}
-                  </Text>
-                </Pressable>
-              ))}
-            </ScrollView>
+              <View style={styles.categoryTitleRow}>
+                <View style={[styles.categoryIcon, { backgroundColor: `${Colors.dark.orange}20` }]}>
+                  <Ionicons name="person" size={18} color={Colors.dark.orange} />
+                </View>
+                <View>
+                  <Text style={styles.categoryTitle}>Private</Text>
+                  <Text style={styles.categorySubtitle}>AED 280/session</Text>
+                </View>
+              </View>
+              <Ionicons 
+                name={expandedCategory === "private" ? "chevron-up" : "chevron-down"} 
+                size={20} 
+                color={Colors.dark.textMuted} 
+              />
+            </Pressable>
+            {expandedCategory === "private" && (
+              <View style={styles.packageGrid}>
+                {[5, 10, 20].map((qty) => {
+                  const templateId = `private_${qty}`;
+                  const isSelected = selectedPackageTemplate === templateId;
+                  const total = qty * 280;
+                  return (
+                    <Pressable
+                      key={templateId}
+                      style={[styles.packageCard, isSelected && styles.packageCardSelected]}
+                      onPress={() => selectPackageTemplate(templateId)}
+                    >
+                      <Text style={[styles.packageQty, isSelected && styles.packageQtySelected]}>{qty}</Text>
+                      <Text style={styles.packageQtyLabel}>sessions</Text>
+                      <Text style={[styles.packagePrice, isSelected && styles.packagePriceSelected]}>
+                        AED {total.toLocaleString()}
+                      </Text>
+                      <Text style={styles.packagePriceEach}>AED 280/ea</Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
+            )}
+
+            {/* Semi-Private Lessons */}
+            <Pressable 
+              style={styles.categoryHeader}
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                setExpandedCategory(expandedCategory === "semi_private" ? null : "semi_private");
+              }}
+            >
+              <View style={styles.categoryTitleRow}>
+                <View style={[styles.categoryIcon, { backgroundColor: `${Colors.dark.primary}20` }]}>
+                  <Ionicons name="people" size={18} color={Colors.dark.primary} />
+                </View>
+                <View>
+                  <Text style={styles.categoryTitle}>Semi-Private</Text>
+                  <Text style={styles.categorySubtitle}>AED 180/session</Text>
+                </View>
+              </View>
+              <Ionicons 
+                name={expandedCategory === "semi_private" ? "chevron-up" : "chevron-down"} 
+                size={20} 
+                color={Colors.dark.textMuted} 
+              />
+            </Pressable>
+            {expandedCategory === "semi_private" && (
+              <View style={styles.packageGrid}>
+                {[5, 10, 20].map((qty) => {
+                  const templateId = `semi_private_${qty}`;
+                  const isSelected = selectedPackageTemplate === templateId;
+                  const total = qty * 180;
+                  return (
+                    <Pressable
+                      key={templateId}
+                      style={[styles.packageCard, isSelected && styles.packageCardSelected]}
+                      onPress={() => selectPackageTemplate(templateId)}
+                    >
+                      <Text style={[styles.packageQty, isSelected && styles.packageQtySelected]}>{qty}</Text>
+                      <Text style={styles.packageQtyLabel}>sessions</Text>
+                      <Text style={[styles.packagePrice, isSelected && styles.packagePriceSelected]}>
+                        AED {total.toLocaleString()}
+                      </Text>
+                      <Text style={styles.packagePriceEach}>AED 180/ea</Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
+            )}
+
+            {/* Group Lessons */}
+            <Pressable 
+              style={styles.categoryHeader}
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                setExpandedCategory(expandedCategory === "group" ? null : "group");
+              }}
+            >
+              <View style={styles.categoryTitleRow}>
+                <View style={[styles.categoryIcon, { backgroundColor: `${Colors.dark.xpCyan}20` }]}>
+                  <Ionicons name="people-outline" size={18} color={Colors.dark.xpCyan} />
+                </View>
+                <View>
+                  <Text style={styles.categoryTitle}>Group</Text>
+                  <Text style={styles.categorySubtitle}>AED 75/session</Text>
+                </View>
+              </View>
+              <Ionicons 
+                name={expandedCategory === "group" ? "chevron-up" : "chevron-down"} 
+                size={20} 
+                color={Colors.dark.textMuted} 
+              />
+            </Pressable>
+            {expandedCategory === "group" && (
+              <View style={styles.packageGrid}>
+                {[10, 20, 40].map((qty) => {
+                  const templateId = `group_${qty}`;
+                  const isSelected = selectedPackageTemplate === templateId;
+                  const total = qty * 75;
+                  return (
+                    <Pressable
+                      key={templateId}
+                      style={[styles.packageCard, isSelected && styles.packageCardSelected]}
+                      onPress={() => selectPackageTemplate(templateId)}
+                    >
+                      <Text style={[styles.packageQty, isSelected && styles.packageQtySelected]}>{qty}</Text>
+                      <Text style={styles.packageQtyLabel}>sessions</Text>
+                      <Text style={[styles.packagePrice, isSelected && styles.packagePriceSelected]}>
+                        AED {total.toLocaleString()}
+                      </Text>
+                      <Text style={styles.packagePriceEach}>AED 75/ea</Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
+            )}
           </View>
 
           <View style={styles.section}>
@@ -1183,5 +1346,135 @@ const styles = StyleSheet.create({
   },
   packageTemplatePriceSelected: {
     color: Colors.dark.successNeon,
+  },
+  sectionHeaderRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+    marginBottom: Spacing.md,
+  },
+  premiumPlayerCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: Backgrounds.elevated,
+    borderRadius: BorderRadius.lg,
+    padding: Spacing.lg,
+    borderWidth: 1,
+    borderColor: "rgba(200, 255, 61, 0.15)",
+    overflow: "hidden",
+  },
+  playerCardGradient: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    height: 80,
+  },
+  coachRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    marginTop: 4,
+  },
+  coachName: {
+    fontSize: Typography.caption.fontSize,
+    color: Colors.dark.orange,
+    fontWeight: "500",
+  },
+  datePickerButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    backgroundColor: Backgrounds.elevated,
+    borderRadius: BorderRadius.md,
+    padding: Spacing.md,
+    borderWidth: 1,
+    borderColor: "rgba(255, 152, 0, 0.2)",
+  },
+  datePickerText: {
+    fontSize: Typography.body.fontSize,
+    color: Colors.dark.text,
+    fontWeight: "500",
+  },
+  categoryHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    backgroundColor: Backgrounds.elevated,
+    borderRadius: BorderRadius.md,
+    padding: Spacing.md,
+    marginBottom: Spacing.sm,
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.06)",
+  },
+  categoryTitleRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+  },
+  categoryIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  categoryTitle: {
+    fontSize: Typography.body.fontSize,
+    fontWeight: "700",
+    color: Colors.dark.text,
+  },
+  categorySubtitle: {
+    fontSize: Typography.caption.fontSize,
+    color: Colors.dark.textMuted,
+    marginTop: 2,
+  },
+  packageGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: Spacing.sm,
+    marginBottom: Spacing.md,
+    paddingLeft: Spacing.sm,
+  },
+  packageCard: {
+    flex: 1,
+    minWidth: 100,
+    backgroundColor: Backgrounds.elevated,
+    borderRadius: BorderRadius.md,
+    padding: Spacing.md,
+    alignItems: "center",
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.06)",
+  },
+  packageCardSelected: {
+    backgroundColor: `${Colors.dark.successNeon}15`,
+    borderColor: Colors.dark.successNeon,
+  },
+  packageQty: {
+    fontSize: 28,
+    fontWeight: "800",
+    color: Colors.dark.text,
+    letterSpacing: -1,
+  },
+  packageQtySelected: {
+    color: Colors.dark.successNeon,
+  },
+  packageQtyLabel: {
+    fontSize: Typography.caption.fontSize,
+    color: Colors.dark.textMuted,
+    marginBottom: Spacing.xs,
+  },
+  packagePrice: {
+    fontSize: Typography.body.fontSize,
+    fontWeight: "700",
+    color: Colors.dark.primary,
+  },
+  packagePriceSelected: {
+    color: Colors.dark.successNeon,
+  },
+  packagePriceEach: {
+    fontSize: Typography.caption.fontSize,
+    color: Colors.dark.textMuted,
+    marginTop: 2,
   },
 });
