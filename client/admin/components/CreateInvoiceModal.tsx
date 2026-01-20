@@ -23,6 +23,7 @@ import * as Sharing from "expo-sharing";
 import * as FileSystem from "expo-file-system";
 import { Colors, Spacing, BorderRadius, Typography, CardStyles, Backgrounds } from "@/constants/theme";
 import { apiRequest } from "@/lib/query-client";
+import { GLOW_UP_TENNIS_LOGO } from "./logoBase64";
 
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 const DAYS_IN_MONTH = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
@@ -73,9 +74,17 @@ interface CreateInvoiceModalProps {
   onSuccess?: () => void;
 }
 
-const generateInvoiceNumber = () => {
-  const sequence = String(Math.floor(Math.random() * 9999) + 1).padStart(4, "0");
-  return `#${sequence}`;
+const getNextInvoiceNumber = async (): Promise<string> => {
+  try {
+    const AsyncStorage = (await import("@react-native-async-storage/async-storage")).default;
+    const stored = await AsyncStorage.getItem("@invoice_counter");
+    const currentNumber = stored ? parseInt(stored, 10) : 0;
+    const nextNumber = currentNumber + 1;
+    await AsyncStorage.setItem("@invoice_counter", String(nextNumber));
+    return `#${String(nextNumber).padStart(4, "0")}`;
+  } catch {
+    return `#${String(Math.floor(Math.random() * 99) + 1).padStart(4, "0")}`;
+  }
 };
 
 const formatDate = (date: Date) => {
@@ -150,27 +159,11 @@ const generateInvoicePDF = (invoice: {
           border-bottom: 1px solid #2a2d35;
         }
         .logo-row {
-          display: flex;
-          align-items: center;
-          gap: 16px;
           margin-bottom: 12px;
         }
-        .logo-icon {
-          flex-shrink: 0;
-        }
-        .logo-section h1 {
-          font-size: 24px;
-          font-weight: 800;
-          color: #C8FF3D;
-          margin: 0;
-          letter-spacing: -0.5px;
-        }
-        .tagline {
-          font-size: 12px;
-          color: #00D4FF;
-          margin-top: 2px;
-          font-weight: 500;
-          letter-spacing: 0.5px;
+        .logo-img {
+          width: 160px;
+          height: auto;
         }
         .contact-info {
           color: #6b7280;
@@ -353,18 +346,7 @@ const generateInvoicePDF = (invoice: {
         <div class="header">
           <div class="logo-section">
             <div class="logo-row">
-              <div class="logo-icon">
-                <svg width="40" height="40" viewBox="0 0 40 40" fill="none">
-                  <circle cx="20" cy="20" r="18" fill="#C8FF3D" opacity="0.15"/>
-                  <circle cx="20" cy="20" r="14" stroke="#C8FF3D" stroke-width="2" fill="none"/>
-                  <path d="M8 20c0-6.627 5.373-12 12-12" stroke="#C8FF3D" stroke-width="2" fill="none"/>
-                  <path d="M32 20c0 6.627-5.373 12-12 12" stroke="#C8FF3D" stroke-width="2" fill="none"/>
-                </svg>
-              </div>
-              <div>
-                <h1>${invoice.academyName}</h1>
-                <p class="tagline">Premium Tennis Coaching</p>
-              </div>
+              <img src="${GLOW_UP_TENNIS_LOGO}" alt="Logo" class="logo-img" />
             </div>
             <p class="contact-info">${invoice.academyAddress || "Dubai, UAE"}<br/>
             ${invoice.academyEmail || "info@glowuptennis.com"}<br/>
@@ -713,8 +695,14 @@ export default function CreateInvoiceModal({
   const insets = useSafeAreaInsets();
   const queryClient = useQueryClient();
   
-  const [invoiceNumber] = useState(generateInvoiceNumber());
+  const [invoiceNumber, setInvoiceNumber] = useState("#0001");
   const [issueDate, setIssueDate] = useState(new Date());
+  
+  useEffect(() => {
+    if (visible) {
+      getNextInvoiceNumber().then(setInvoiceNumber);
+    }
+  }, [visible]);
   const [dueDate, setDueDate] = useState(() => {
     const date = new Date();
     date.setDate(date.getDate() + 14);
