@@ -520,7 +520,7 @@ export default function AdminClassesScreen() {
         contentContainerStyle={[styles.listContent, { paddingBottom: insets.bottom + 100 }]}
         showsVerticalScrollIndicator={false}
       >
-        {sortedDays.length === 0 ? (
+        {sortedDays.length === 0 && flexibleSeries.length === 0 ? (
           <View style={styles.emptyState}>
             <Ionicons name="albums-outline" size={48} color={Colors.dark.textMuted} />
             <Text style={styles.emptyText}>No classes found</Text>
@@ -530,15 +530,17 @@ export default function AdminClassesScreen() {
           </View>
         ) : (
           <>
-            <CollapsibleDaySection
-              key="flexible"
-              dayOfWeek={FLEXIBLE_DAY}
-              series={flexibleSeries}
-              isExpanded={expandedDays.has(FLEXIBLE_DAY)}
-              onToggle={() => toggleDay(FLEXIBLE_DAY)}
-              onSeriesPress={handleSeriesPress}
-              isFlexible
-            />
+            {flexibleSeries.length > 0 && (
+              <CollapsibleDaySection
+                key="flexible"
+                dayOfWeek={FLEXIBLE_DAY}
+                series={flexibleSeries}
+                isExpanded={expandedDays.has(FLEXIBLE_DAY)}
+                onToggle={() => toggleDay(FLEXIBLE_DAY)}
+                onSeriesPress={handleSeriesPress}
+                isFlexible
+              />
+            )}
             {sortedDays.map((day) => (
               <CollapsibleDaySection
                 key={day}
