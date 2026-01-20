@@ -471,6 +471,9 @@ export function generateAttendanceReportHtml(data: AttendanceReportData): string
       </div>
     </div>
     
+    <!-- RAINBOW DEBUG INDICATOR - V2 CODE LOADED -->
+    <div style="height: 8px; background: linear-gradient(90deg, #ff0000, #ff7f00, #ffff00, #00ff00, #0000ff, #4b0082, #8f00ff); border-radius: 4px; margin-bottom: 24px;"></div>
+    
     <div class="player-card">
       <div class="player-name">${data.player.name}</div>
       <div class="stats-row">

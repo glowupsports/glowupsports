@@ -7416,21 +7416,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }, {} as Record<string, { startTime: Date; endTime: Date; sessionType: string; status: string }>);
       }
 
-      // Use Dubai timezone (UTC+4) for filtering
-      const dubaiOffset = 4 * 60 * 60 * 1000; // 4 hours in milliseconds
-      const nowUtc = new Date();
-      const nowDubai = new Date(nowUtc.getTime() + dubaiOffset);
+      // Filter out future sessions - compare directly in UTC
+      const now = new Date();
+      console.log('[AttendanceReport] Current time (UTC):', now.toISOString());
       
       const records = playerRecords
         .map(record => {
           const sessionInfo = record.sessionId ? sessionMap[record.sessionId] : null;
           if (!sessionInfo) return null;
           
-          // Convert session time to Dubai timezone for comparison
-          const sessionTimeDubai = new Date(sessionInfo.startTime.getTime() + dubaiOffset);
+          const sessionTime = new Date(sessionInfo.startTime);
           
           // Only include sessions that have already started (past sessions)
-          if (sessionTimeDubai >= nowDubai) return null;
+          // Session startTime is stored in UTC, so compare directly
+          if (sessionTime > now) {
+            console.log('[AttendanceReport] Filtering out future session:', sessionTime.toISOString());
+            return null;
+          }
           
           return {
             sessionId: record.sessionId,
@@ -7444,6 +7446,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         })
         .filter(Boolean)
         .sort((a, b) => new Date(b!.date).getTime() - new Date(a!.date).getTime()) as any[];
+      
+      console.log('[AttendanceReport] Total records after filtering:', records.length);
 
       const presentCount = records.filter(r => r.status === 'present').length;
       const absentCount = records.filter(r => r.status === 'absent').length;
