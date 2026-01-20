@@ -174,7 +174,7 @@ export default function AdminPlayersScreen() {
   const [showInvoiceModal, setShowInvoiceModal] = useState(false);
   const [showCreditStoreModal, setShowCreditStoreModal] = useState(false);
   const [inviteCopied, setInviteCopied] = useState(false);
-  const [showFilters, setShowFilters] = useState(true);
+  const [showFilters, setShowFilters] = useState(false);
   const [ballLevelFilter, setBallLevelFilter] = useState<string>("all");
   const [levelFilter, setLevelFilter] = useState<string>("all");
   const [ageGroupFilter, setAgeGroupFilter] = useState<string>("all");
