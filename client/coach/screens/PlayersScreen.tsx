@@ -23,6 +23,7 @@ import * as Haptics from "expo-haptics";
 import * as Clipboard from "expo-clipboard";
 import * as Print from "expo-print";
 import * as Sharing from "expo-sharing";
+import * as Linking from "expo-linking";
 import Animated, { 
   useAnimatedStyle, 
   useSharedValue, 
@@ -866,7 +867,6 @@ function PlayerDetailView({
   const [isExportingReport, setIsExportingReport] = useState(false);
   const [showAllHistory, setShowAllHistory] = useState(false);
   const [showDeepAssessment, setShowDeepAssessment] = useState(false);
-  const [selectedAttendanceMonth, setSelectedAttendanceMonth] = useState<string | null>(null);
 
   const handleExportProgressReport = async () => {
     try {
@@ -1074,38 +1074,7 @@ function PlayerDetailView({
   const regularNotes = notes.filter(n => !n.isPinned);
   const nextLessonNotes = notes.filter(n => n.category === "next-lesson");
 
-  // Get unique months from attendance history for tabs
-  const attendanceMonths = useMemo(() => {
-    const monthsSet = new Set<string>();
-    attendanceHistory.forEach(record => {
-      if (record.date) {
-        const d = new Date(record.date);
-        const monthKey = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
-        monthsSet.add(monthKey);
-      }
-    });
-    return Array.from(monthsSet).sort((a, b) => b.localeCompare(a)); // newest first
-  }, [attendanceHistory]);
-
-  // Format month key to display label
-  const formatMonthLabel = (monthKey: string) => {
-    const [year, month] = monthKey.split('-');
-    const date = new Date(parseInt(year), parseInt(month) - 1);
-    return date.toLocaleDateString("en-US", { month: "short", year: "2-digit" });
-  };
-
-  // Filter attendance by selected month
-  const filteredAttendance = useMemo(() => {
-    if (!selectedAttendanceMonth) return attendanceHistory;
-    return attendanceHistory.filter(record => {
-      if (!record.date) return false;
-      const d = new Date(record.date);
-      const monthKey = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
-      return monthKey === selectedAttendanceMonth;
-    });
-  }, [attendanceHistory, selectedAttendanceMonth]);
-
-  const displayedHistory = showAllHistory ? filteredAttendance : filteredAttendance.slice(0, 10);
+  const displayedHistory = showAllHistory ? attendanceHistory : attendanceHistory.slice(0, 5);
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
@@ -1550,266 +1519,24 @@ function PlayerDetailView({
 
         {/* Attendance History Section */}
         <View style={styles.infoSection}>
-        {/* Attendance History Section */}
-        <View style={styles.infoSection}>
           <View style={styles.attendanceHistoryHeader}>
             <View style={styles.attendanceHistoryTitleRow}>
               <Ionicons name="calendar" size={18} color={Colors.dark.xpCyan} />
-              <Text style={styles.sectionLabel}>Attendance History</Text>
+              <Text style={styles.sectionLabel}>ATTENDANCE HISTORY</Text>
             </View>
-            <View style={styles.attendanceHeaderRight}>
-              <Text style={styles.attendanceHistoryCount}>
-                {selectedAttendanceMonth ? filteredAttendance.length : attendanceHistory.length} sessions
-              </Text>
-              <Pressable
-                style={styles.attendanceDownloadBtn}
-                onPress={() => {
-                  if (selectedPlayer) {
-                    const url = `${API_BASE_URL}/api/players/${selectedPlayer.id}/attendance-report`;
-                    Linking.openURL(url);
-                  }
-                }}
-              >
-                <Ionicons name="download-outline" size={16} color={Colors.dark.neonGreen} />
-              </Pressable>
-            </View>
-          </View>
-        {/* Attendance History Section */}
-        <View style={styles.infoSection}>
-          <View style={styles.attendanceHistoryHeader}>
-            <View style={styles.attendanceHistoryTitleRow}>
-              <Ionicons name="calendar" size={18} color={Colors.dark.xpCyan} />
-              <Text style={styles.sectionLabel}>Attendance History</Text>
-            </View>
-            <View style={styles.attendanceHeaderRight}>
-              <Text style={styles.attendanceHistoryCount}>
-                {selectedAttendanceMonth ? filteredAttendance.length : attendanceHistory.length} sessions
-              </Text>
-              <Pressable
-                style={styles.attendanceDownloadBtn}
-                onPress={() => {
-                  if (selectedPlayer) {
-                    const url = `${API_BASE_URL}/api/players/${selectedPlayer.id}/attendance-report`;
-                    Linking.openURL(url);
-                  }
-                }}
-              >
-                <Ionicons name="download-outline" size={16} color={Colors.dark.neonGreen} />
-              </Pressable>
-            </View>
-          </View>
-        {/* Attendance History Section */}
-        <View style={styles.infoSection}>
-          <View style={styles.attendanceHistoryHeader}>
-            <View style={styles.attendanceHistoryTitleRow}>
-              <Ionicons name="calendar" size={18} color={Colors.dark.xpCyan} />
-              <Text style={styles.sectionLabel}>Attendance History</Text>
-            </View>
-            <View style={styles.attendanceHeaderRight}>
-              <Text style={styles.attendanceHistoryCount}>
-                {selectedAttendanceMonth ? filteredAttendance.length : attendanceHistory.length} sessions
-              </Text>
-              <Pressable
-                style={styles.attendanceDownloadBtn}
-                onPress={() => {
-                  if (selectedPlayer) {
-                    const url = `${API_BASE_URL}/api/players/${selectedPlayer.id}/attendance-report`;
-                    Linking.openURL(url);
-                  }
-                }}
-              >
-                <Ionicons name="download-outline" size={16} color={Colors.dark.neonGreen} />
-              </Pressable>
-            </View>
-          </View>
-        {/* Attendance History Section */}
-        <View style={styles.infoSection}>
-          <View style={styles.attendanceHistoryHeader}>
-            <View style={styles.attendanceHistoryTitleRow}>
-              <Ionicons name="calendar" size={18} color={Colors.dark.xpCyan} />
-              <Text style={styles.sectionLabel}>Attendance History</Text>
-            </View>
-            <View style={styles.attendanceHeaderRight}>
-              <Text style={styles.attendanceHistoryCount}>
-                {selectedAttendanceMonth ? filteredAttendance.length : attendanceHistory.length} sessions
-              </Text>
-              <Pressable
-                style={styles.attendanceDownloadBtn}
-                onPress={() => {
-                  if (selectedPlayer) {
-                    const url = `${API_BASE_URL}/api/players/${selectedPlayer.id}/attendance-report`;
-                    Linking.openURL(url);
-                  }
-                }}
-              >
-                <Ionicons name="download-outline" size={16} color={Colors.dark.neonGreen} />
-              </Pressable>
-            </View>
-          </View>
-        {/* Attendance History Section */}
-        <View style={styles.infoSection}>
-          <View style={styles.attendanceHistoryHeader}>
-            <View style={styles.attendanceHistoryTitleRow}>
-              <Ionicons name="calendar" size={18} color={Colors.dark.xpCyan} />
-              <Text style={styles.sectionLabel}>Attendance History</Text>
-            </View>
-            <View style={styles.attendanceHeaderRight}>
-              <Text style={styles.attendanceHistoryCount}>
-                {selectedAttendanceMonth ? filteredAttendance.length : attendanceHistory.length} sessions
-              </Text>
-              <Pressable
-                style={styles.attendanceDownloadBtn}
-                onPress={() => {
-                  if (selectedPlayer) {
-                    const url = `${API_BASE_URL}/api/players/${selectedPlayer.id}/attendance-report`;
-                    Linking.openURL(url);
-                  }
-                }}
-              >
-                <Ionicons name="download-outline" size={16} color={Colors.dark.neonGreen} />
-              </Pressable>
-            </View>
-          </View>
-        {/* Attendance History Section */}
-        <View style={styles.infoSection}>
-          <View style={styles.attendanceHistoryHeader}>
-            <View style={styles.attendanceHistoryTitleRow}>
-              <Ionicons name="calendar" size={18} color={Colors.dark.xpCyan} />
-              <Text style={styles.sectionLabel}>Attendance History</Text>
-            </View>
-            <View style={styles.attendanceHeaderRight}>
-              <Text style={styles.attendanceHistoryCount}>
-                {selectedAttendanceMonth ? filteredAttendance.length : attendanceHistory.length} sessions
-              </Text>
-              <Pressable
-                style={styles.attendanceDownloadBtn}
-                onPress={() => {
-                  if (selectedPlayer) {
-                    const url = `${API_BASE_URL}/api/players/${selectedPlayer.id}/attendance-report`;
-                    Linking.openURL(url);
-                  }
-                }}
-              >
-                <Ionicons name="download-outline" size={16} color={Colors.dark.neonGreen} />
-              </Pressable>
-            </View>
-          </View>
-        {/* Attendance History Section */}
-        <View style={styles.infoSection}>
-          <View style={styles.attendanceHistoryHeader}>
-            <View style={styles.attendanceHistoryTitleRow}>
-              <Ionicons name="calendar" size={18} color={Colors.dark.xpCyan} />
-              <Text style={styles.sectionLabel}>Attendance History</Text>
-            </View>
-            <View style={styles.attendanceHeaderRight}>
-              <Text style={styles.attendanceHistoryCount}>
-                {selectedAttendanceMonth ? filteredAttendance.length : attendanceHistory.length} sessions
-              </Text>
-              <Pressable
-                style={styles.attendanceDownloadBtn}
-                onPress={() => {
-                  if (selectedPlayer) {
-                    const url = `${API_BASE_URL}/api/players/${selectedPlayer.id}/attendance-report`;
-                    Linking.openURL(url);
-                  }
-                }}
-              >
-                <Ionicons name="download-outline" size={16} color={Colors.dark.neonGreen} />
-              </Pressable>
-            </View>
-          </View>
-        {/* Attendance History Section */}
-        <View style={styles.infoSection}>
-          <View style={styles.attendanceHistoryHeader}>
-            <View style={styles.attendanceHistoryTitleRow}>
-              <Ionicons name="calendar" size={18} color={Colors.dark.xpCyan} />
-              <Text style={styles.sectionLabel}>Attendance History</Text>
-            </View>
-            <View style={styles.attendanceHeaderRight}>
-              <Text style={styles.attendanceHistoryCount}>
-                {selectedAttendanceMonth ? filteredAttendance.length : attendanceHistory.length} sessions
-              </Text>
-              <Pressable
-                style={styles.attendanceDownloadBtn}
-                onPress={() => {
-                  if (selectedPlayer) {
-                    const url = `${API_BASE_URL}/api/players/${selectedPlayer.id}/attendance-report`;
-                    Linking.openURL(url);
-                  }
-                }}
-              >
-                <Ionicons name="download-outline" size={16} color={Colors.dark.neonGreen} />
-              </Pressable>
-            </View>
-          </View>
-        {/* Attendance History Section */}
-        <View style={styles.infoSection}>
-          <View style={styles.attendanceHistoryHeader}>
-            <View style={styles.attendanceHistoryTitleRow}>
-              <Ionicons name="calendar" size={18} color={Colors.dark.xpCyan} />
-              <Text style={styles.sectionLabel}>Attendance History</Text>
-            </View>
-            <View style={styles.attendanceHeaderRight}>
-              <Text style={styles.attendanceHistoryCount}>
-                {selectedAttendanceMonth ? filteredAttendance.length : attendanceHistory.length} sessions
-              </Text>
-              <Pressable
-                style={styles.attendanceDownloadBtn}
-                onPress={() => {
-                  if (selectedPlayer) {
-                    const url = `${API_BASE_URL}/api/players/${selectedPlayer.id}/attendance-report`;
-                    Linking.openURL(url);
-                  }
-                }}
-              >
-                <Ionicons name="download-outline" size={16} color={Colors.dark.neonGreen} />
-              </Pressable>
-            </View>
-          </View>
-
-          {/* Month Tabs */}
-          {attendanceMonths.length > 0 && (
-            <ScrollView 
-              horizontal 
-              showsHorizontalScrollIndicator={false} 
-              style={styles.monthTabsContainer}
-              contentContainerStyle={styles.monthTabsContent}
+            <Pressable
+              style={styles.reportButton}
+              onPress={() => {
+                if (selectedPlayer) {
+                  const url = `${getApiUrl()}/api/players/${selectedPlayer.id}/attendance-report`;
+                  Linking.openURL(url);
+                }
+              }}
             >
-              <Pressable
-                style={[
-                  styles.monthTab,
-                  !selectedAttendanceMonth && styles.monthTabActive
-                ]}
-                onPress={() => {
-                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                  setSelectedAttendanceMonth(null);
-                }}
-              >
-                <Text style={[
-                  styles.monthTabText,
-                  !selectedAttendanceMonth && styles.monthTabTextActive
-                ]}>All</Text>
-              </Pressable>
-              {attendanceMonths.map((monthKey) => (
-                <Pressable
-                  key={monthKey}
-                  style={[
-                    styles.monthTab,
-                    selectedAttendanceMonth === monthKey && styles.monthTabActive
-                  ]}
-                  onPress={() => {
-                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                    setSelectedAttendanceMonth(monthKey);
-                  }}
-                >
-                  <Text style={[
-                    styles.monthTabText,
-                    selectedAttendanceMonth === monthKey && styles.monthTabTextActive
-                  ]}>{formatMonthLabel(monthKey)}</Text>
-                </Pressable>
-              ))}
-            </ScrollView>
-          )}
+              <Ionicons name="document-text-outline" size={14} color={Colors.dark.xpCyan} />
+              <Text style={styles.reportButtonText}>Report</Text>
+            </Pressable>
+          </View>
 
           {attendanceHistory.length === 0 ? (
             <View style={styles.emptyAttendanceCard}>
@@ -1874,7 +1601,7 @@ function PlayerDetailView({
                   }}
                 >
                   <Text style={styles.showMoreHistoryText}>
-                    {showAllHistory ? "Show Less" : `Show All (${filteredAttendance.length} sessions)`}
+                    {showAllHistory ? "Show Less" : `Show All (${attendanceHistory.length} sessions)`}
                   </Text>
                   <Ionicons 
                     name={showAllHistory ? "chevron-up" : "chevron-down"} 
@@ -2161,7 +1888,7 @@ const styles = StyleSheet.create({
   },
   sortModalOverlay: {
     flex: 1,
-    backgroundColor: "#0B0D10",
+    backgroundColor: "rgba(0, 0, 0, 0.9)",
     justifyContent: "center",
     alignItems: "center",
     padding: Spacing.xl,
@@ -4103,7 +3830,7 @@ const styles = StyleSheet.create({
   },
   confirmModalOverlay: {
     flex: 1,
-    backgroundColor: "#0B0D10",
+    backgroundColor: "rgba(0, 0, 0, 0.9)",
     justifyContent: "center",
     alignItems: "center",
     padding: Spacing.xl,
@@ -4510,6 +4237,22 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
     borderRadius: BorderRadius.full,
   },
+  reportButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    backgroundColor: Colors.dark.xpCyan + "15",
+    paddingHorizontal: Spacing.md,
+    paddingVertical: 6,
+    borderRadius: BorderRadius.full,
+    borderWidth: 1,
+    borderColor: Colors.dark.xpCyan + "30",
+  },
+  reportButtonText: {
+    fontSize: 12,
+    fontWeight: "600",
+    color: Colors.dark.xpCyan,
+  },
   emptyAttendanceCard: {
     backgroundColor: Backgrounds.card,
     borderRadius: BorderRadius.lg,
@@ -4527,35 +4270,6 @@ const styles = StyleSheet.create({
   emptyAttendanceSubtext: {
     fontSize: Typography.small.fontSize,
     color: Colors.dark.disabled,
-  },
-  monthTabsContainer: {
-    marginBottom: Spacing.md,
-    marginTop: Spacing.xs,
-  },
-  monthTabsContent: {
-    gap: Spacing.xs,
-    paddingHorizontal: Spacing.xs,
-  },
-  monthTab: {
-    paddingHorizontal: Spacing.md,
-    paddingVertical: Spacing.xs,
-    borderRadius: BorderRadius.lg,
-    backgroundColor: "rgba(255, 255, 255, 0.06)",
-    borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.1)",
-  },
-  monthTabActive: {
-    backgroundColor: `${Colors.dark.xpCyan}20`,
-    borderColor: Colors.dark.xpCyan,
-  },
-  monthTabText: {
-    fontSize: Typography.small.fontSize,
-    fontWeight: "500",
-    color: Colors.dark.textMuted,
-  },
-  monthTabTextActive: {
-    color: Colors.dark.xpCyan,
-    fontWeight: "600",
   },
   attendanceHistoryList: {
     gap: Spacing.sm,
