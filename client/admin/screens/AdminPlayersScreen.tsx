@@ -1418,28 +1418,48 @@ export default function AdminPlayersScreen() {
 
             {/* Invite Link Section */}
             <View style={[styles.section, CardStyles.elevated]}>
-              <Text style={styles.sectionTitle}>Player Invite</Text>
+              <View style={styles.premiumInviteHeader}>
+                <View style={styles.inviteIconBadge}>
+                  <Ionicons name="link" size={18} color={Colors.dark.xpCyan} />
+                </View>
+                <Text style={styles.premiumSectionTitle}>Player Invite</Text>
+              </View>
               {inviteLoading ? (
-                <ActivityIndicator size="small" color={Colors.dark.orange} />
+                <View style={styles.inviteLoadingState}>
+                  <ActivityIndicator size="small" color={Colors.dark.orange} />
+                  <Text style={styles.inviteLoadingStateText}>Generating invite...</Text>
+                </View>
               ) : playerInvite?.inviteLink ? (
-                <View style={styles.inviteContainer}>
-                  <Text style={styles.inviteCode}>{playerInvite.inviteCode}</Text>
+                <View style={styles.premiumInviteContainer}>
+                  <View style={styles.inviteCodeBox}>
+                    <Text style={styles.inviteCodeLabel}>Invite Code</Text>
+                    <Text style={styles.premiumInviteCode}>{playerInvite.inviteCode}</Text>
+                  </View>
                   <Pressable
-                    style={[styles.copyButton, inviteCopied && styles.copyButtonCopied]}
+                    style={[styles.premiumCopyButton, inviteCopied && styles.premiumCopyButtonCopied]}
                     onPress={handleCopyInviteLink}
                   >
-                    <Ionicons 
-                      name={inviteCopied ? "checkmark" : "copy-outline"} 
-                      size={16} 
-                      color={inviteCopied ? Colors.dark.successNeon : Colors.dark.text} 
+                    <LinearGradient
+                      colors={inviteCopied 
+                        ? ['rgba(200, 255, 61, 0.2)', 'rgba(200, 255, 61, 0.1)'] 
+                        : ['rgba(0, 224, 255, 0.15)', 'rgba(0, 224, 255, 0.05)']}
+                      style={styles.copyButtonGradient}
                     />
-                    <Text style={[styles.copyButtonText, inviteCopied && styles.copyButtonTextCopied]}>
-                      {inviteCopied ? "Copied!" : "Copy Link"}
+                    <Ionicons 
+                      name={inviteCopied ? "checkmark-circle" : "copy"} 
+                      size={18} 
+                      color={inviteCopied ? Colors.dark.successNeon : Colors.dark.xpCyan} 
+                    />
+                    <Text style={[styles.premiumCopyButtonText, inviteCopied && styles.premiumCopyButtonTextCopied]}>
+                      {inviteCopied ? "Copied!" : "Copy Invite Link"}
                     </Text>
                   </Pressable>
                 </View>
               ) : (
-                <Text style={styles.noInviteText}>No invite link available</Text>
+                <View style={styles.noInviteState}>
+                  <Ionicons name="link-outline" size={24} color={Colors.dark.textMuted} />
+                  <Text style={styles.noInviteText}>No invite link available</Text>
+                </View>
               )}
             </View>
 
@@ -3389,6 +3409,98 @@ const styles = StyleSheet.create({
   },
   emptyPackagesText: {
     ...Typography.caption,
+    color: Colors.dark.textMuted,
+  },
+  premiumInviteHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+    marginBottom: Spacing.md,
+  },
+  inviteIconBadge: {
+    width: 32,
+    height: 32,
+    borderRadius: 8,
+    backgroundColor: `${Colors.dark.xpCyan}20`,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  premiumSectionTitle: {
+    ...Typography.body,
+    color: Colors.dark.text,
+    fontWeight: "700",
+  },
+  inviteLoadingState: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+    paddingVertical: Spacing.md,
+  },
+  inviteLoadingStateText: {
+    ...Typography.small,
+    color: Colors.dark.textMuted,
+  },
+  premiumInviteContainer: {
+    gap: Spacing.md,
+  },
+  inviteCodeBox: {
+    backgroundColor: "rgba(0, 224, 255, 0.08)",
+    borderRadius: BorderRadius.md,
+    padding: Spacing.md,
+    borderWidth: 1,
+    borderColor: "rgba(0, 224, 255, 0.15)",
+  },
+  inviteCodeLabel: {
+    ...Typography.caption,
+    color: Colors.dark.xpCyan,
+    fontWeight: "600",
+    marginBottom: 4,
+    letterSpacing: 0.5,
+  },
+  premiumInviteCode: {
+    ...Typography.h3,
+    color: Colors.dark.text,
+    fontWeight: "700",
+    fontFamily: "monospace",
+    letterSpacing: 1,
+  },
+  premiumCopyButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: Spacing.sm,
+    paddingVertical: Spacing.md,
+    paddingHorizontal: Spacing.lg,
+    borderRadius: BorderRadius.md,
+    borderWidth: 1,
+    borderColor: `${Colors.dark.xpCyan}30`,
+    overflow: "hidden",
+  },
+  premiumCopyButtonCopied: {
+    borderColor: `${Colors.dark.successNeon}40`,
+  },
+  copyButtonGradient: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+  },
+  premiumCopyButtonText: {
+    ...Typography.body,
+    color: Colors.dark.xpCyan,
+    fontWeight: "700",
+  },
+  premiumCopyButtonTextCopied: {
+    color: Colors.dark.successNeon,
+  },
+  noInviteState: {
+    alignItems: "center",
+    paddingVertical: Spacing.lg,
+    gap: Spacing.sm,
+  },
+  noInviteText: {
+    ...Typography.small,
     color: Colors.dark.textMuted,
   },
 });
