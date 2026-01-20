@@ -182,7 +182,7 @@ export default function CoachingScreen() {
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
       <LinearGradient
-        colors={[Colors.dark.backgroundRoot, Colors.dark.backgroundDefault]}
+        colors={[Colors.dark.backgroundRoot, Colors.dark.backgroundRoot]}
         style={StyleSheet.absoluteFill}
       />
 
@@ -1866,7 +1866,7 @@ function TodayFeedbackTab({ insets, tabBarHeight }: { insets: { bottom: number }
       onOpenFeedback={(session) => {
         setShowDetailDrawer(false);
         setDetailSession(null);
-        setSelectedSession(session);
+        setSelectedSession(session as any);
       }}
     />
   </>
@@ -3172,7 +3172,7 @@ const glowLevelsStyles = StyleSheet.create({
     gap: Spacing.xs,
     paddingVertical: Spacing.sm,
     borderRadius: BorderRadius.lg,
-    backgroundColor: Colors.dark.backgroundDefault,
+    backgroundColor: Colors.dark.backgroundRoot,
     borderWidth: 2,
     borderColor: "transparent",
   },
@@ -3182,7 +3182,7 @@ const glowLevelsStyles = StyleSheet.create({
     color: Colors.dark.text,
   },
   levelCard: {
-    backgroundColor: Colors.dark.backgroundDefault,
+    backgroundColor: Colors.dark.backgroundRoot,
     borderRadius: BorderRadius.xl,
     marginBottom: Spacing.md,
     overflow: "hidden",
@@ -3315,7 +3315,7 @@ const glowLevelsStyles = StyleSheet.create({
     gap: Spacing.md,
   },
   skillItem: {
-    backgroundColor: Colors.dark.backgroundDefault,
+    backgroundColor: Colors.dark.backgroundRoot,
     padding: Spacing.md,
     borderRadius: BorderRadius.md,
   },
@@ -3456,12 +3456,12 @@ function TemplatesTab({ insets, tabBarHeight }: { insets: { bottom: number }; ta
 }
 
 const templatesStyles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: Colors.dark.background },
+  container: { flex: 1, backgroundColor: Colors.dark.backgroundRoot },
   header: { padding: Spacing.lg },
   title: { fontSize: 24, fontWeight: "700", color: Colors.dark.text, marginBottom: Spacing.xs },
   subtitle: { fontSize: 14, color: Colors.dark.disabled, marginBottom: Spacing.md },
   countBadges: { flexDirection: "row", flexWrap: "wrap", gap: Spacing.sm },
-  countBadge: { flexDirection: "row", alignItems: "center", backgroundColor: Colors.dark.card, borderRadius: BorderRadius.full, paddingHorizontal: Spacing.md, paddingVertical: Spacing.xs },
+  countBadge: { flexDirection: "row", alignItems: "center", backgroundColor: Colors.dark.backgroundSecondary, borderRadius: BorderRadius.full, paddingHorizontal: Spacing.md, paddingVertical: Spacing.xs },
   countDot: { width: 8, height: 8, borderRadius: 4, marginRight: Spacing.xs },
   countText: { fontSize: 14, fontWeight: "700", color: Colors.dark.text, marginRight: Spacing.xs },
   countLabel: { fontSize: 12, color: Colors.dark.disabled },
@@ -3547,7 +3547,7 @@ function LevelCardsTab({ insets, tabBarHeight }: { insets: { bottom: number }; t
 }
 
 const levelCardsStyles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: Colors.dark.background },
+  container: { flex: 1, backgroundColor: Colors.dark.backgroundRoot },
   header: { padding: Spacing.lg },
   title: { fontSize: 24, fontWeight: "700", color: Colors.dark.text, marginBottom: Spacing.xs },
   subtitle: { fontSize: 14, color: Colors.dark.disabled },
@@ -3555,13 +3555,13 @@ const levelCardsStyles = StyleSheet.create({
   levelTab: { flexDirection: "row", alignItems: "center", paddingHorizontal: Spacing.md, paddingVertical: Spacing.sm, borderRadius: BorderRadius.full, borderWidth: 1, borderColor: Colors.dark.border, gap: Spacing.xs },
   levelTabText: { fontSize: 12, fontWeight: "600", color: Colors.dark.text },
   pillarsContainer: { paddingHorizontal: Spacing.lg },
-  pillarCard: { backgroundColor: Colors.dark.card, borderRadius: BorderRadius.lg, padding: Spacing.lg, marginBottom: Spacing.md },
+  pillarCard: { backgroundColor: Colors.dark.backgroundSecondary, borderRadius: BorderRadius.lg, padding: Spacing.lg, marginBottom: Spacing.md },
   pillarName: { fontSize: 16, fontWeight: "700", color: Colors.dark.text, marginBottom: Spacing.xs },
   pillarDesc: { fontSize: 12, color: Colors.dark.disabled, marginBottom: Spacing.md },
   skillRow: { flexDirection: "row", alignItems: "center", paddingVertical: Spacing.xs },
   skillDot: { width: 6, height: 6, borderRadius: 3, marginRight: Spacing.sm },
   skillText: { fontSize: 14, color: Colors.dark.text },
-  emptyState: { alignItems: "center", justifyContent: "center", paddingVertical: Spacing.xxl },
+  emptyState: { alignItems: "center", justifyContent: "center", paddingVertical: Spacing["2xl"] },
   emptyText: { fontSize: 16, fontWeight: "600", color: Colors.dark.text, marginTop: Spacing.md },
   emptySubtext: { fontSize: 14, color: Colors.dark.disabled, marginTop: Spacing.xs },
 });
@@ -3615,11 +3615,11 @@ function MatchLogTab({ insets, tabBarHeight }: { insets: { bottom: number }; tab
 }
 
 const matchLogStyles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: Colors.dark.background },
+  container: { flex: 1, backgroundColor: Colors.dark.backgroundRoot },
   header: { padding: Spacing.lg },
   title: { fontSize: 24, fontWeight: "700", color: Colors.dark.text, marginBottom: Spacing.xs },
   subtitle: { fontSize: 14, color: Colors.dark.disabled },
-  infoCard: { marginHorizontal: Spacing.lg, backgroundColor: Colors.dark.card, borderRadius: BorderRadius.lg, padding: Spacing.xl, alignItems: "center" },
+  infoCard: { marginHorizontal: Spacing.lg, backgroundColor: Colors.dark.backgroundSecondary, borderRadius: BorderRadius.lg, padding: Spacing.xl, alignItems: "center" },
   infoIcon: { width: 64, height: 64, borderRadius: 32, backgroundColor: Colors.dark.orange + "20", alignItems: "center", justifyContent: "center", marginBottom: Spacing.md },
   infoTitle: { fontSize: 18, fontWeight: "700", color: Colors.dark.text, marginBottom: Spacing.sm },
   infoText: { fontSize: 14, color: Colors.dark.disabled, textAlign: "center", marginBottom: Spacing.lg },
@@ -3680,11 +3680,11 @@ function SessionPlanTab({ insets, tabBarHeight }: { insets: { bottom: number }; 
 }
 
 const sessionPlanStyles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: Colors.dark.background },
+  container: { flex: 1, backgroundColor: Colors.dark.backgroundRoot },
   header: { padding: Spacing.lg },
   title: { fontSize: 24, fontWeight: "700", color: Colors.dark.text, marginBottom: Spacing.xs },
   subtitle: { fontSize: 14, color: Colors.dark.disabled },
-  infoCard: { marginHorizontal: Spacing.lg, backgroundColor: Colors.dark.card, borderRadius: BorderRadius.lg, padding: Spacing.xl, alignItems: "center" },
+  infoCard: { marginHorizontal: Spacing.lg, backgroundColor: Colors.dark.backgroundSecondary, borderRadius: BorderRadius.lg, padding: Spacing.xl, alignItems: "center" },
   infoIcon: { width: 64, height: 64, borderRadius: 32, backgroundColor: Colors.dark.gold + "20", alignItems: "center", justifyContent: "center", marginBottom: Spacing.md },
   infoTitle: { fontSize: 18, fontWeight: "700", color: Colors.dark.text, marginBottom: Spacing.sm },
   infoText: { fontSize: 14, color: Colors.dark.disabled, textAlign: "center", marginBottom: Spacing.lg },
@@ -4925,12 +4925,6 @@ const styles = StyleSheet.create({
     color: Colors.dark.gold,
     marginTop: 2,
   },
-  xpRewardBadge: {
-    backgroundColor: Colors.dark.gold,
-    paddingHorizontal: Spacing.sm,
-    paddingVertical: Spacing.xs,
-    borderRadius: BorderRadius.sm,
-  },
   xpRewardBadgeText: {
     fontSize: Typography.small.fontSize,
     color: Colors.dark.backgroundRoot,
@@ -5025,11 +5019,6 @@ const styles = StyleSheet.create({
     color: Colors.dark.gold,
     fontWeight: "600",
   },
-  sessionDateText: {
-    fontSize: 10,
-    color: Colors.dark.tabIconDefault,
-    marginTop: 2,
-  },
   sectionTitle: {
     ...Typography.h3,
     color: Colors.dark.text,
@@ -5112,18 +5101,6 @@ const styles = StyleSheet.create({
     fontSize: Typography.body.fontSize,
     color: Colors.dark.text,
   },
-  pendingBadge: {
-    alignSelf: "flex-start",
-    backgroundColor: Colors.dark.orange + "20",
-    paddingHorizontal: Spacing.sm,
-    paddingVertical: 2,
-    borderRadius: BorderRadius.sm,
-  },
-  pendingText: {
-    fontSize: Typography.caption.fontSize,
-    color: Colors.dark.orange,
-    fontWeight: "500",
-  },
   doneBadge: {
     flexDirection: "row",
     alignItems: "center",
@@ -5147,9 +5124,6 @@ const styles = StyleSheet.create({
   backText: {
     fontSize: Typography.body.fontSize,
     color: Colors.dark.text,
-  },
-  feedbackHeader: {
-    marginBottom: Spacing.xl,
   },
   feedbackTitle: {
     ...Typography.h2,
@@ -5698,11 +5672,6 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     gap: Spacing.sm,
     marginTop: 2,
-  },
-  levelBadge: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 4,
   },
   levelDotSmall: {
     width: 8,
@@ -6281,10 +6250,6 @@ const styles = StyleSheet.create({
   },
   ballLevelButtonActive: {
     backgroundColor: Colors.dark.disabled + "20",
-  },
-  ballLevelText: {
-    fontSize: Typography.small.fontSize,
-    color: Colors.dark.tabIconDefault,
   },
   saveTemplateButton: {
     flexDirection: "row",

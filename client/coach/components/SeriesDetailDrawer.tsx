@@ -591,7 +591,7 @@ export default function SeriesDetailDrawer({
         validityDays: 90,
         currency: "AED",
       });
-      return result as { id: string; name: string; credits: number; price: string };
+      return result as unknown as { id: string; name: string; credits: number; price: string };
     },
     onSuccess: async (newTemplate) => {
       await queryClient.invalidateQueries({ queryKey: ["/api/billing/package-templates"] });
@@ -1401,9 +1401,9 @@ export default function SeriesDetailDrawer({
             <View style={styles.completedBadge}>
               <Ionicons name="checkmark-circle" size={18} color={Colors.dark.successNeon} />
               <Text style={styles.completedBadgeText}>Class Completed</Text>
-              {series.endedAt && (
+              {(series as any).endedAt && (
                 <Text style={styles.completedDateText}>
-                  {new Date(series.endedAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
+                  {new Date((series as any).endedAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
                 </Text>
               )}
             </View>
