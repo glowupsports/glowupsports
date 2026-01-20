@@ -4426,6 +4426,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
         coachNotes,
       });
 
+      // Auto-fill attendance for players without attendance status (default to 'present')
+      try {
+        const sessionPlayers = await storage.getSessionPlayersWithPlayerInfo(id);
+        for (const sp of sessionPlayers) {
+          if (!sp.attendanceStatus || sp.attendanceStatus === 'pending') {
+            await storage.updateAttendance(id, sp.playerId!, 'present');
+          }
+        }
+      } catch (attendanceError) {
+        console.error("[Attendance] Error auto-filling attendance:", attendanceError);
+      }
+
       // Mark session as completed
       await storage.updateSession(id, { status: "completed" });
 
