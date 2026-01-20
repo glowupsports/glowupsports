@@ -7416,11 +7416,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }, {} as Record<string, { startTime: Date; endTime: Date; sessionType: string; status: string }>);
       }
 
-      const now = new Date();
+      // Use Dubai timezone (UTC+4) for filtering
+      const dubaiOffset = 4 * 60 * 60 * 1000; // 4 hours in milliseconds
+      const nowUtc = new Date();
+      const nowDubai = new Date(nowUtc.getTime() + dubaiOffset);
+      
       const records = playerRecords
         .map(record => {
           const sessionInfo = record.sessionId ? sessionMap[record.sessionId] : null;
-          if (!sessionInfo || new Date(sessionInfo.startTime) >= now) return null;
+          if (!sessionInfo) return null;
+          
+          // Convert session time to Dubai timezone for comparison
+          const sessionTimeDubai = new Date(sessionInfo.startTime.getTime() + dubaiOffset);
+          
+          // Only include sessions that have already started (past sessions)
+          if (sessionTimeDubai >= nowDubai) return null;
+          
           return {
             sessionId: record.sessionId,
             date: sessionInfo.startTime.toISOString().split('T')[0],

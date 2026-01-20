@@ -392,6 +392,41 @@ export function generateAttendanceReportHtml(data: AttendanceReportData): string
       font-size: 12px;
     }
     
+    .download-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      background: linear-gradient(135deg, #C8FF3D 0%, #9FCC31 100%);
+      color: #0B0D10;
+      border: none;
+      padding: 12px 24px;
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      margin-left: 16px;
+      text-decoration: none;
+    }
+    
+    .download-btn:hover {
+      opacity: 0.9;
+    }
+    
+    .header-actions {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+    
+    .section-title {
+      font-size: 14px;
+      font-weight: 700;
+      color: rgba(255, 255, 255, 0.8);
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      margin-bottom: 16px;
+    }
+    
     @media print {
       body {
         background: #0B0D10 !important;
@@ -401,6 +436,10 @@ export function generateAttendanceReportHtml(data: AttendanceReportData): string
       
       .report-container {
         padding: 20px;
+      }
+      
+      .download-btn {
+        display: none !important;
       }
     }
     
@@ -416,9 +455,19 @@ export function generateAttendanceReportHtml(data: AttendanceReportData): string
       <div class="logo">
         <div class="logo-text">GLOW UP TENNIS</div>
       </div>
-      <div class="report-title-box">
-        <div class="report-label">Attendance Report</div>
-        <div class="report-date">${formatDate(data.reportDate)}</div>
+      <div class="header-actions">
+        <div class="report-title-box">
+          <div class="report-label">Attendance Report</div>
+          <div class="report-date">${formatDate(data.reportDate)}</div>
+        </div>
+        <button class="download-btn" onclick="window.print()">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+            <polyline points="7 10 12 15 17 10"/>
+            <line x1="12" y1="15" x2="12" y2="3"/>
+          </svg>
+          Download PDF
+        </button>
       </div>
     </div>
     
