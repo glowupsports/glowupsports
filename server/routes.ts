@@ -3033,6 +3033,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
               sessionType,
               startTime: start,
               endTime: end,
+              duration,
               status: "scheduled",
               maxPlayers: matchingSeries.maxPlayers,
               xpValue: matchingSeries.xpPerSession || 20,
@@ -3098,6 +3099,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
               seriesId: series.id,
               playerId,
               status: "active",
+              joinedAt: start,
             });
           }
         }
@@ -3558,6 +3560,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           academyId: academyId || undefined,
           startTime: start,
           endTime: end,
+              duration,
           duration,
           sessionType,
           status: "scheduled",
@@ -15952,6 +15955,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           academyId,
           startTime: start,
           endTime: end,
+              duration,
           duration,
           sessionType,
           status: "scheduled",

@@ -349,6 +349,23 @@ export default function SeriesDetailDrawer({
       camp: "Camp",
     };
     const typeLabel = sessionTypeLabels[series.sessionType] || series.sessionType || "Training";
+    
+    // Handle Flexible/One-Off classes (dayOfWeek = -1)
+    if (series.dayOfWeek === -1) {
+      // For flexible classes, show date of first session if available
+      const firstSession = series.sessions?.[0];
+      if (firstSession?.startTime) {
+        const sessionDate = new Date(firstSession.startTime);
+        const dateStr = sessionDate.toLocaleDateString("en-US", { 
+          month: "short", 
+          day: "numeric",
+          timeZone: timezone 
+        });
+        return `${typeLabel} - ${dateStr} ${localStartTime}`;
+      }
+      return `${typeLabel} - Flexible ${localStartTime}`;
+    }
+    
     const dayName = DAY_NAMES[series.dayOfWeek];
     return `${typeLabel} - ${dayName} ${localStartTime}`;
   }, [series, academy?.timezone]);
@@ -1154,7 +1171,9 @@ export default function SeriesDetailDrawer({
           <View style={styles.infoRow}>
             <Ionicons name="calendar-outline" size={16} color={Colors.dark.textMuted} />
             <Text style={styles.infoText}>
-              {DAY_NAMES[series.dayOfWeek]}s at {formatTime(series.startTime)}
+              {series.dayOfWeek === -1 
+                ? `Flexible at ${formatTime(series.startTime)}`
+                : `${DAY_NAMES[series.dayOfWeek]}s at ${formatTime(series.startTime)}`}
             </Text>
           </View>
           <View style={styles.infoRow}>
@@ -1922,7 +1941,9 @@ export default function SeriesDetailDrawer({
                   </View>
                   <Text style={styles.title}>{displayTitle}</Text>
                   <Text style={styles.subtitle}>
-                    {DAY_NAMES[series.dayOfWeek]}s at {formatTime(series.startTime)} - {series.sessionType.replace("_", " ")}
+                    {series.dayOfWeek === -1 
+                      ? `Flexible at ${formatTime(series.startTime)}`
+                      : `${DAY_NAMES[series.dayOfWeek]}s at ${formatTime(series.startTime)}`} - {series.sessionType.replace("_", " ")}
                   </Text>
                 </View>
               </View>
