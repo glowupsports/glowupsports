@@ -2030,7 +2030,7 @@ export default function AdminPlayersScreen() {
             </View>
             
             <ScrollView style={styles.recordPaymentModalContent}>
-              {stats?.packages?.filter((p: PlayerPackage) => !p.isPaid).length === 0 ? (
+              {playerStats?.packages?.filter((p: PlayerPackage) => !p.isPaid).length === 0 ? (
                 <View style={styles.noUnpaidContainer}>
                   <Ionicons name="checkmark-circle" size={48} color={Colors.dark.successNeon} />
                   <Text style={styles.noUnpaidTitle}>All Paid!</Text>
@@ -2041,7 +2041,7 @@ export default function AdminPlayersScreen() {
               ) : (
                 <>
                   <Text style={styles.unpaidSectionTitle}>Unpaid Packages</Text>
-                  {stats?.packages?.filter((p: PlayerPackage) => !p.isPaid).map((pkg: PlayerPackage) => (
+                  {playerStats?.packages?.filter((p: PlayerPackage) => !p.isPaid).map((pkg: PlayerPackage) => (
                     <View key={pkg.id} style={styles.unpaidPackageCard}>
                       <View style={styles.unpaidPackageInfo}>
                         <View style={styles.unpaidPackageRow}>
