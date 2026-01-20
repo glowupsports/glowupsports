@@ -16308,63 +16308,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Admin - Grant credits to player
-  app.post("/api/admin/players/:playerId/credits", authMiddleware, requireRole("admin", "academy_owner", "platform_owner"), async (req: AuthenticatedRequest, res: Response) => {
-    try {
-      const playerId = req.params.playerId;
-      const { creditType, quantity } = req.body;
-
-      if (!creditType || !quantity || quantity <= 0) {
-        return res.status(400).json({ error: "Invalid credit type or quantity" });
-      }
-
-      const player = await storage.getPlayer(playerId);
-      if (!player) {
-        return res.status(404).json({ error: "Player not found" });
-      }
-
-      // Map credit type to package type
-      const packageTypeMap: Record<string, string> = {
-        group: "group",
-        semi_private: "semi_private",
-        private: "private",
-      };
-
-      const packageType = packageTypeMap[creditType];
-      if (!packageType) {
-        return res.status(400).json({ error: "Invalid credit type" });
-      }
-
-      // Create a credit package for the player
-      const packageId = crypto.randomUUID();
-      const now = new Date();
-      const expiryDate = new Date(now.getFullYear() + 1, now.getMonth(), now.getDate());
-
-      await storage.createCreditPackage({
-        id: packageId,
-        playerId,
-        academyId: player.academyId || "",
-        packageType,
-        totalCredits: quantity,
-        remainingCredits: quantity,
-        purchaseDate: now,
-        expiryDate,
-        pricePerCredit: 0,
-        status: "active",
-        createdAt: now,
-        updatedAt: now,
-      });
-
-      res.json({ 
-        success: true, 
-        message: `Granted ${quantity} ${creditType} credits to ${player.name}`,
-        packageId,
-      });
-    } catch (error) {
-      console.error("Grant credits error:", error);
-      res.status(500).json({ error: "Failed to grant credits" });
-    }
-  });
 
   // Platform Owner - Get single academy details
   app.get("/api/platform/academies/:id", authMiddleware, requireRole("platform_owner"), async (req: AuthenticatedRequest, res: Response) => {

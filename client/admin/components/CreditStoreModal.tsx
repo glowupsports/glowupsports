@@ -39,17 +39,20 @@ export default function CreditStoreModal({ visible, onClose, playerId, playerNam
 
   const grantCreditsMutation = useMutation({
     mutationFn: async (data: { playerId: string; creditType: CreditType; quantity: number }) => {
-      return apiRequest(`/api/admin/players/${data.playerId}/credits`, {
+      return apiRequest("/api/packages", {
         method: "POST",
         body: JSON.stringify({
+          playerId: data.playerId,
+          totalCredits: data.quantity,
           creditType: data.creditType,
-          quantity: data.quantity,
+          expiryMonths: 12,
         }),
       });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/admin/players", playerId, "stats"] });
       queryClient.invalidateQueries({ queryKey: ["/api/admin/players"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/players"] });
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       onClose();
     },
