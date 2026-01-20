@@ -1097,7 +1097,7 @@ export default function CreateInvoiceModal({
             {expandedCategory === "semi_private" && (
               <View style={styles.packageGrid}>
                 {[5, 10, 20].map((qty) => {
-                  const templateId = `semi_private_${qty}`;
+                  const templateId = `semi_${qty}`;
                   const isSelected = selectedPackageTemplate === templateId;
                   const total = qty * 160;
                   return (
