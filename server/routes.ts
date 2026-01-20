@@ -16232,15 +16232,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         paymentStatus = totalPaid > 0 ? "partial" : "overdue";
       }
 
-      // Get player credits by type
+      // Get player credits by type (includes debt/negative balances)
+      const creditBalance = await storage.getPlayerCreditBalanceByType(playerId);
+      const totalCredits = creditBalance.group + creditBalance.semi_private + creditBalance.private;
+      
+      // Get active packages count
       const playerPackages = await storage.getActivePlayerPackages(playerId, player.academyId ?? undefined);
-      const creditsByType = { group: 0, private: 0, semi_private: 0 };
-      let totalCredits = 0;
-      for (const pkg of playerPackages) {
-        const creditType = (pkg.creditType || "group") as "group" | "private" | "semi_private";
-        creditsByType[creditType] += pkg.remainingCredits;
-        totalCredits += pkg.remainingCredits;
-      }
 
       res.json({
         player: {
@@ -16286,9 +16283,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         },
         credits: {
           total: totalCredits,
-          group: creditsByType.group,
-          semiPrivate: creditsByType.semi_private,
-          private: creditsByType.private,
+          group: creditBalance.group,
+          semiPrivate: creditBalance.semi_private,
+          private: creditBalance.private,
           activePackages: playerPackages.length,
         },
         sessions: sessions.slice(0, 50).map((s: any) => ({
@@ -16299,7 +16296,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           sessionType: s.sessionType,
           attended: s.attendanceStatus || s.attended,
           creditsUsed: s.creditsUsed || 0,
-          isPaid: (s.creditsUsed || 0) > 0 || s.attendanceStatus !== "present",
+          isPaid: (s.creditsUsed || 0) > 0,
         })),
       });
     } catch (error) {
@@ -16812,9 +16809,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         recentXpGains: [],
         credits: {
           total: totalCredits,
-          group: creditsByType.group,
-          private: creditsByType.private,
-          semi_private: creditsByType.semi_private,
+          group: creditBalance.group,
+          private: creditBalance.private,
+          semi_private: creditBalance.semi_private,
         },
       });
     } catch (error) {
