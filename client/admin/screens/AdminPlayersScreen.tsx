@@ -126,12 +126,17 @@ const generateAttendanceReportPDF = (stats: any, player: any) => {
 
   const htmlContent = `
     <!DOCTYPE html>
-    <html>
+    <html style="background: #0B0D10; min-height: 100%;">
     <head>
       <meta charset="UTF-8">
       <style>
         @page { size: A4; margin: 0; }
         * { box-sizing: border-box; margin: 0; padding: 0; }
+        html, body {
+          min-height: 100%;
+          height: 100%;
+          background: #0B0D10;
+        }
         body {
           font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
           background: #0B0D10;
@@ -144,6 +149,7 @@ const generateAttendanceReportPDF = (stats: any, player: any) => {
           margin: 0 auto;
           padding: 40px;
           background: #0B0D10;
+          min-height: 100vh;
         }
         .header {
           display: flex;
