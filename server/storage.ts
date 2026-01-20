@@ -6086,14 +6086,12 @@ export const storage = {
         eq(creditTransactions.creditType, creditType),
         eq(creditTransactions.reason, "session_join_debt"),
         isNull(creditTransactions.packageId) // Only unsettled debts (no package assigned)
-      ));
+      ))
+      .orderBy(creditTransactions.createdAt); // Settle oldest debts first
     
     if (unsettledDebts.length === 0) {
       return { settledCount: 0, totalDeducted: 0 };
     }
-    
-    // Calculate total debt to settle
-    const totalDebt = unsettledDebts.reduce((sum, tx) => sum + Math.abs(tx.amount), 0);
     
     // Get the package to update remaining credits
     const pkg = await db.select().from(packages).where(eq(packages.id, packageId)).limit(1);
@@ -6103,16 +6101,27 @@ export const storage = {
     }
     
     const currentRemaining = pkg[0].remainingCredits;
-    const newRemaining = Math.max(0, currentRemaining - totalDebt);
-    const actualDeducted = currentRemaining - newRemaining;
     
-    // Update package remaining credits
+    // Only settle as many debts as we have credits for
+    const debtsToSettle = unsettledDebts.slice(0, currentRemaining);
+    const actualDeducted = debtsToSettle.length;
+    
+    if (actualDeducted === 0) {
+      return { settledCount: 0, totalDeducted: 0 };
+    }
+    
+    const newRemaining = currentRemaining - actualDeducted;
+    
+    // Update package remaining credits and status
     await db.update(packages)
-      .set({ remainingCredits: newRemaining })
+      .set({ 
+        remainingCredits: newRemaining,
+        status: newRemaining <= 0 ? "depleted" : "active",
+      })
       .where(eq(packages.id, packageId));
     
-    // Mark debt transactions as settled by linking to the package
-    for (const debt of unsettledDebts) {
+    // Mark ONLY the debts we can afford to settle
+    for (const debt of debtsToSettle) {
       await db.update(creditTransactions)
         .set({ 
           packageId: packageId,
@@ -6135,16 +6144,17 @@ export const storage = {
       amount: -actualDeducted,
       reason: "debt_settlement",
       metadata: {
-        settledDebts: unsettledDebts.length,
-        originalDebt: totalDebt,
+        settledDebts: debtsToSettle.length,
+        originalDebt: unsettledDebts.length,
         actualDeducted,
+        remainingUnsettled: unsettledDebts.length - debtsToSettle.length,
       },
       createdAt: new Date(),
     });
     
-    console.log(`[SettleDebts] Settled ${unsettledDebts.length} debts for player ${playerId}: deducted ${actualDeducted} from package ${packageId} (${currentRemaining} -> ${newRemaining})`);
+    console.log(`[SettleDebts] Settled ${debtsToSettle.length} of ${unsettledDebts.length} debts for player ${playerId}: deducted ${actualDeducted} from package ${packageId} (${currentRemaining} -> ${newRemaining})`);
     
-    return { settledCount: unsettledDebts.length, totalDeducted: actualDeducted };
+    return { settledCount: debtsToSettle.length, totalDeducted: actualDeducted };
   },
 
   // Get player pillar progress summary for Glow Leveling OS display
