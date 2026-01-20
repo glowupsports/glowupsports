@@ -74,12 +74,8 @@ interface CreateInvoiceModalProps {
 }
 
 const generateInvoiceNumber = () => {
-  const date = new Date();
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, "0");
-  const day = String(date.getDate()).padStart(2, "0");
   const sequence = String(Math.floor(Math.random() * 9999) + 1).padStart(4, "0");
-  return `INV-${year}-${month}${day}-${sequence}`;
+  return `#${sequence}`;
 };
 
 const formatDate = (date: Date) => {
@@ -153,16 +149,33 @@ const generateInvoicePDF = (invoice: {
           padding-bottom: 32px;
           border-bottom: 1px solid #2a2d35;
         }
-        .logo-section h1 {
-          font-size: 28px;
-          font-weight: 700;
-          color: #C8FF3D;
-          margin-bottom: 8px;
+        .logo-row {
+          display: flex;
+          align-items: center;
+          gap: 16px;
+          margin-bottom: 12px;
         }
-        .logo-section p {
-          color: #8a8f9c;
-          font-size: 14px;
-          line-height: 1.5;
+        .logo-icon {
+          flex-shrink: 0;
+        }
+        .logo-section h1 {
+          font-size: 24px;
+          font-weight: 800;
+          color: #C8FF3D;
+          margin: 0;
+          letter-spacing: -0.5px;
+        }
+        .tagline {
+          font-size: 12px;
+          color: #00D4FF;
+          margin-top: 2px;
+          font-weight: 500;
+          letter-spacing: 0.5px;
+        }
+        .contact-info {
+          color: #6b7280;
+          font-size: 12px;
+          line-height: 1.6;
         }
         .invoice-badge {
           background: linear-gradient(135deg, #C8FF3D20 0%, #C8FF3D10 100%);
@@ -339,9 +352,22 @@ const generateInvoicePDF = (invoice: {
       <div class="invoice-container">
         <div class="header">
           <div class="logo-section">
-            <h1>${invoice.academyName}</h1>
-            <p>${invoice.academyAddress || ""}<br/>
-            ${invoice.academyEmail || ""}<br/>
+            <div class="logo-row">
+              <div class="logo-icon">
+                <svg width="40" height="40" viewBox="0 0 40 40" fill="none">
+                  <circle cx="20" cy="20" r="18" fill="#C8FF3D" opacity="0.15"/>
+                  <circle cx="20" cy="20" r="14" stroke="#C8FF3D" stroke-width="2" fill="none"/>
+                  <path d="M8 20c0-6.627 5.373-12 12-12" stroke="#C8FF3D" stroke-width="2" fill="none"/>
+                  <path d="M32 20c0 6.627-5.373 12-12 12" stroke="#C8FF3D" stroke-width="2" fill="none"/>
+                </svg>
+              </div>
+              <div>
+                <h1>${invoice.academyName}</h1>
+                <p class="tagline">Premium Tennis Coaching</p>
+              </div>
+            </div>
+            <p class="contact-info">${invoice.academyAddress || "Dubai, UAE"}<br/>
+            ${invoice.academyEmail || "info@glowuptennis.com"}<br/>
             ${invoice.academyPhone || ""}</p>
           </div>
           <div class="invoice-badge">
@@ -800,7 +826,7 @@ export default function CreateInvoiceModal({
         invoiceNumber,
         playerName: player?.name || "",
         playerEmail: player?.email,
-        academyName: academy?.name || "Tennis Academy",
+        academyName: academy?.name || "Glow Up Tennis",
         academyAddress: academy?.address,
         academyEmail: academy?.email,
         academyPhone: academy?.phone,
