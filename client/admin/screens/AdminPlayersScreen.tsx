@@ -166,6 +166,7 @@ export default function AdminPlayersScreen() {
   const queryClient = useQueryClient();
   const [showAddModal, setShowAddModal] = useState(false);
   const [showDetailModal, setShowDetailModal] = useState(false);
+  const [showFullDetailsModal, setShowFullDetailsModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [selectedPlayerId, setSelectedPlayerId] = useState<string | null>(null);
   const [editingPlayer, setEditingPlayer] = useState<Player | null>(null);
@@ -201,7 +202,7 @@ export default function AdminPlayersScreen() {
 
   const { data: playerStats, isLoading: statsLoading, error: statsError, refetch: refetchStats } = useQuery<PlayerStats>({
     queryKey: ["/api/admin/players", selectedPlayerId, "stats"],
-    enabled: !!selectedPlayerId && showDetailModal,
+    enabled: !!selectedPlayerId && (showDetailModal || showFullDetailsModal),
   });
 
   const { data: playerInvite, isLoading: inviteLoading, isError: inviteError, refetch: refetchInvite } = useQuery<{ 
@@ -210,7 +211,7 @@ export default function AdminPlayersScreen() {
     status: string;
   }>({
     queryKey: [`/api/players/${selectedPlayerId}/invite`],
-    enabled: !!selectedPlayerId && showDetailModal,
+    enabled: !!selectedPlayerId && (showDetailModal || showFullDetailsModal),
     retry: 2,
     retryDelay: 1000,
   });
@@ -266,10 +267,19 @@ export default function AdminPlayersScreen() {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
   };
 
-  const openDetailModal = (playerId: string) => {
-    setSelectedPlayerId(playerId);
-    setShowDetailModal(true);
+  const togglePlayerExpansion = (playerId: string) => {
+    if (selectedPlayerId === playerId) {
+      setSelectedPlayerId(null);
+      setShowDetailModal(false);
+    } else {
+      setSelectedPlayerId(playerId);
+      setShowDetailModal(true);
+    }
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+  };
+
+  const openDetailModal = (playerId: string) => {
+    togglePlayerExpansion(playerId);
   };
 
   const closeDetailModal = () => {
@@ -407,63 +417,169 @@ export default function AdminPlayersScreen() {
     return Colors.dark.successNeon;
   };
 
-  const renderPlayer = ({ item }: { item: Player }) => (
-    <Pressable
-      style={[styles.playerCard, CardStyles.elevated]}
-      onPress={() => openDetailModal(item.id)}
-    >
-      <View style={[styles.playerAvatar, { borderColor: getBallLevelColor(item.ballLevel) }]}>
-        <Text style={styles.avatarText}>{item.name?.charAt(0).toUpperCase() || "?"}</Text>
-      </View>
-      <View style={styles.playerInfo}>
-        <Text style={styles.playerName}>{item.name}</Text>
-        <Text style={styles.playerEmail}>{item.email || "No email"}</Text>
-        <View style={styles.playerMeta}>
-          <View style={[styles.ballBadge, { backgroundColor: `${getBallLevelColor(item.ballLevel)}20` }]}>
-            <View style={[styles.ballDot, { backgroundColor: getBallLevelColor(item.ballLevel) }]} />
-            <Text style={[styles.ballText, { color: getBallLevelColor(item.ballLevel) }]}>
-              {item.ballLevel || "N/A"}
-            </Text>
+  const renderPlayer = ({ item }: { item: Player }) => {
+    const isExpanded = selectedPlayerId === item.id && showDetailModal;
+    const stats = isExpanded ? playerStats : null;
+    
+    return (
+      <View style={styles.playerCardWrapper}>
+        <Pressable
+          style={[
+            styles.playerCard, 
+            CardStyles.elevated,
+            isExpanded && styles.playerCardExpanded
+          ]}
+          onPress={() => togglePlayerExpansion(item.id)}
+        >
+          <View style={[styles.playerAvatar, { borderColor: getBallLevelColor(item.ballLevel) }]}>
+            <Text style={styles.avatarText}>{item.name?.charAt(0).toUpperCase() || "?"}</Text>
           </View>
-          {item.level ? (
-            <Text style={styles.levelText}>Level {item.level}</Text>
-          ) : null}
-          {item.coachName ? (
-            <Text style={styles.coachText}>{item.coachName}</Text>
-          ) : null}
-        </View>
-      </View>
-      <View style={styles.creditsContainer}>
-        {item.totalCredits && item.totalCredits > 0 ? (
-          <View style={[styles.creditsBadge, { backgroundColor: `${getCreditsColor(item.remainingCredits, item.totalCredits)}15` }]}>
+          <View style={styles.playerInfo}>
+            <Text style={styles.playerName}>{item.name}</Text>
+            <Text style={styles.playerEmail}>{item.email || "No email"}</Text>
+            <View style={styles.playerMeta}>
+              <View style={[styles.ballBadge, { backgroundColor: `${getBallLevelColor(item.ballLevel)}20` }]}>
+                <View style={[styles.ballDot, { backgroundColor: getBallLevelColor(item.ballLevel) }]} />
+                <Text style={[styles.ballText, { color: getBallLevelColor(item.ballLevel) }]}>
+                  {item.ballLevel || "N/A"}
+                </Text>
+              </View>
+              {item.level ? (
+                <Text style={styles.levelText}>Level {item.level}</Text>
+              ) : null}
+              {item.coachName ? (
+                <Text style={styles.coachText}>{item.coachName}</Text>
+              ) : null}
+            </View>
+          </View>
+          <View style={styles.creditsContainer}>
+            {item.totalCredits && item.totalCredits > 0 ? (
+              <View style={[styles.creditsBadge, { backgroundColor: `${getCreditsColor(item.remainingCredits, item.totalCredits)}15` }]}>
+                <Ionicons 
+                  name="ticket-outline" 
+                  size={14} 
+                  color={getCreditsColor(item.remainingCredits, item.totalCredits)} 
+                />
+                <Text style={[styles.creditsText, { color: getCreditsColor(item.remainingCredits, item.totalCredits) }]}>
+                  {item.remainingCredits || 0}
+                </Text>
+              </View>
+            ) : null}
             <Ionicons 
-              name="ticket-outline" 
-              size={14} 
-              color={getCreditsColor(item.remainingCredits, item.totalCredits)} 
+              name={isExpanded ? "chevron-down" : "chevron-forward"} 
+              size={20} 
+              color={Colors.dark.textMuted} 
             />
-            <Text style={[styles.creditsText, { color: getCreditsColor(item.remainingCredits, item.totalCredits) }]}>
-              {item.remainingCredits || 0}
-            </Text>
           </View>
-        ) : null}
-        <Ionicons name="chevron-forward" size={20} color={Colors.dark.textMuted} />
-      </View>
-    </Pressable>
-  );
+        </Pressable>
+        
+        {isExpanded && (
+          <View style={[styles.expandedContent, CardStyles.elevated]}>
+            {statsLoading ? (
+              <View style={styles.loadingContainer}>
+                <ActivityIndicator size="small" color={Colors.dark.primary} />
+                <Text style={styles.loadingText}>Loading player details...</Text>
+              </View>
+            ) : stats ? (
+              <>
+                {/* Quick Stats Row */}
+                <View style={styles.quickStatsRow}>
+                  <View style={styles.quickStat}>
+                    <Text style={styles.quickStatValue}>{stats.sessions?.totalSessions || 0}</Text>
+                    <Text style={styles.quickStatLabel}>Sessions</Text>
+                  </View>
+                  <View style={styles.quickStat}>
+                    <Text style={[styles.quickStatValue, { color: Colors.dark.successNeon }]}>
+                      {stats.credits?.remaining || 0}
+                    </Text>
+                    <Text style={styles.quickStatLabel}>Credits Left</Text>
+                  </View>
+                  <View style={styles.quickStat}>
+                    <Text style={[styles.quickStatValue, { color: Colors.dark.warningNeon }]}>
+                      AED {stats.payments?.totalOwed?.toFixed(0) || 0}
+                    </Text>
+                    <Text style={styles.quickStatLabel}>Owed</Text>
+                  </View>
+                </View>
 
+                {/* Action Buttons */}
+                <View style={styles.expandedActions}>
+                  <Pressable 
+                    style={styles.actionButton}
+                    onPress={() => {
+                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                      setShowInvoiceModal(true);
+                    }}
+                  >
+                    <Ionicons name="document-text-outline" size={16} color={Colors.dark.successNeon} />
+                    <Text style={styles.actionButtonText}>Create Invoice</Text>
+                  </Pressable>
+                  <Pressable 
+                    style={styles.actionButton}
+                    onPress={() => {
+                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                      setShowCreditStoreModal(true);
+                    }}
+                  >
+                    <Ionicons name="add-circle-outline" size={16} color={Colors.dark.successNeon} />
+                    <Text style={styles.actionButtonText}>Add Credits</Text>
+                  </Pressable>
+                  <Pressable 
+                    style={styles.viewMoreButton}
+                    onPress={() => {
+                      setShowFullDetailsModal(true);
+                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                    }}
+                  >
+                    <Text style={styles.viewMoreText}>Full Details</Text>
+                    <Ionicons name="open-outline" size={14} color={Colors.dark.primary} />
+                  </Pressable>
+                </View>
+
+                {/* Packages Summary */}
+                {stats.packages && stats.packages.length > 0 && (
+                  <View style={styles.packagesSummary}>
+                    <Text style={styles.packagesSummaryTitle}>Active Packages</Text>
+                    {stats.packages.slice(0, 2).map((pkg: PlayerPackage) => (
+                      <View key={pkg.id} style={styles.packageSummaryRow}>
+                        <Text style={styles.packageSummaryName}>{pkg.packageName || pkg.creditType}</Text>
+                        <Text style={[
+                          styles.packageSummaryCredits,
+                          { color: pkg.remaining > 0 ? Colors.dark.successNeon : Colors.dark.textMuted }
+                        ]}>
+                          {pkg.remaining}/{pkg.totalCredits}
+                        </Text>
+                      </View>
+                    ))}
+                  </View>
+                )}
+              </>
+            ) : (
+              <Text style={styles.noDataText}>No data available</Text>
+            )}
+          </View>
+        )}
+      </View>
+    );
+  };
+
+  const closeFullDetailsModal = () => {
+    setShowFullDetailsModal(false);
+  };
+  
   const renderDetailModal = () => {
     const stats = playerStats;
     
     return (
       <Modal
-        visible={showDetailModal}
+        visible={showFullDetailsModal}
         animationType="slide"
         presentationStyle="pageSheet"
-        onRequestClose={closeDetailModal}
+        onRequestClose={closeFullDetailsModal}
       >
         <View style={[styles.modalContainer, { paddingTop: insets.top + Spacing.lg }]}>
           <View style={styles.modalHeader}>
-            <Pressable onPress={closeDetailModal}>
+            <Pressable onPress={closeFullDetailsModal}>
               <Ionicons name="close" size={24} color={Colors.dark.text} />
             </Pressable>
             <Text style={styles.modalTitle}>Player Details</Text>
@@ -1825,6 +1941,118 @@ const styles = StyleSheet.create({
   creditsText: {
     ...Typography.caption,
     fontWeight: "700",
+  },
+  playerCardWrapper: {
+    marginBottom: Spacing.sm,
+  },
+  playerCardExpanded: {
+    borderBottomLeftRadius: 0,
+    borderBottomRightRadius: 0,
+    marginBottom: 0,
+    borderBottomWidth: 0,
+  },
+  expandedContent: {
+    backgroundColor: Backgrounds.card,
+    borderWidth: 1,
+    borderTopWidth: 0,
+    borderColor: "rgba(255, 255, 255, 0.06)",
+    borderBottomLeftRadius: BorderRadius.md,
+    borderBottomRightRadius: BorderRadius.md,
+    padding: Spacing.lg,
+    paddingTop: Spacing.md,
+  },
+  quickStatsRow: {
+    flexDirection: "row",
+    justifyContent: "space-around",
+    paddingBottom: Spacing.md,
+    borderBottomWidth: 1,
+    borderBottomColor: "rgba(255, 255, 255, 0.06)",
+    marginBottom: Spacing.md,
+  },
+  quickStat: {
+    alignItems: "center",
+  },
+  quickStatValue: {
+    ...Typography.h3,
+    color: Colors.dark.text,
+    fontWeight: "700",
+  },
+  quickStatLabel: {
+    ...Typography.caption,
+    color: Colors.dark.textMuted,
+    marginTop: 2,
+  },
+  expandedActions: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: Spacing.sm,
+    marginBottom: Spacing.md,
+  },
+  actionButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    backgroundColor: Colors.dark.successNeon + "15",
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm,
+    borderRadius: BorderRadius.sm,
+  },
+  actionButtonText: {
+    ...Typography.caption,
+    color: Colors.dark.successNeon,
+    fontWeight: "600",
+  },
+  viewMoreButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    marginLeft: "auto",
+  },
+  viewMoreText: {
+    ...Typography.caption,
+    color: Colors.dark.primary,
+  },
+  packagesSummary: {
+    backgroundColor: "rgba(255, 255, 255, 0.02)",
+    borderRadius: BorderRadius.sm,
+    padding: Spacing.md,
+  },
+  packagesSummaryTitle: {
+    ...Typography.caption,
+    color: Colors.dark.textMuted,
+    marginBottom: Spacing.sm,
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
+  },
+  packageSummaryRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    paddingVertical: 4,
+  },
+  packageSummaryName: {
+    ...Typography.small,
+    color: Colors.dark.text,
+  },
+  packageSummaryCredits: {
+    ...Typography.small,
+    fontWeight: "700",
+  },
+  loadingContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: Spacing.sm,
+    padding: Spacing.lg,
+  },
+  loadingText: {
+    ...Typography.small,
+    color: Colors.dark.textMuted,
+  },
+  noDataText: {
+    ...Typography.small,
+    color: Colors.dark.textMuted,
+    textAlign: "center",
+    padding: Spacing.md,
   },
   emptyState: {
     alignItems: "center",
