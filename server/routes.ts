@@ -7369,6 +7369,103 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Generate attendance report PDF for a player
+  app.get("/api/players/:id/attendance-report", authMiddleware, requireAcademy, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const { id } = req.params;
+      const academyId = req.user!.academyId;
+      
+      const { valid } = await validatePlayerOwnership(id, academyId, storage);
+      if (!valid) {
+        return res.status(404).json({ error: "Player not found" });
+      }
+      
+      const { generateAttendanceReportHtml, AttendanceReportData } = await import("./services/attendanceReportPdf");
+      
+      const player = await storage.getPlayer(id);
+      const academy = academyId ? await storage.getAcademy(academyId) : null;
+      
+      // Get attendance history (past sessions only)
+      const playerRecords = await db
+        .select({
+          sessionId: sessionPlayers.sessionId,
+          attendanceStatus: sessionPlayers.attendanceStatus,
+          lateMinutes: sessionPlayers.lateMinutes,
+        })
+        .from(sessionPlayers)
+        .where(eq(sessionPlayers.playerId, id));
+
+      const sessionIds = playerRecords.map(r => r.sessionId).filter(Boolean);
+      let sessionMap: Record<string, { startTime: Date; endTime: Date; sessionType: string; status: string }> = {};
+      
+      if (sessionIds.length > 0) {
+        const sessionDetails = await db
+          .select({
+            id: sessions.id,
+            startTime: sessions.startTime,
+            endTime: sessions.endTime,
+            sessionType: sessions.sessionType,
+            status: sessions.status,
+          })
+          .from(sessions)
+          .where(inArray(sessions.id, sessionIds));
+        
+        sessionMap = sessionDetails.reduce((acc, s) => {
+          acc[s.id] = { startTime: s.startTime, endTime: s.endTime, sessionType: s.sessionType, status: s.status };
+          return acc;
+        }, {} as Record<string, { startTime: Date; endTime: Date; sessionType: string; status: string }>);
+      }
+
+      const now = new Date();
+      const records = playerRecords
+        .map(record => {
+          const sessionInfo = record.sessionId ? sessionMap[record.sessionId] : null;
+          if (!sessionInfo || new Date(sessionInfo.startTime) >= now) return null;
+          return {
+            sessionId: record.sessionId,
+            date: sessionInfo.startTime.toISOString().split('T')[0],
+            startTime: sessionInfo.startTime.toISOString(),
+            endTime: sessionInfo.endTime.toISOString(),
+            sessionType: sessionInfo.sessionType,
+            status: record.attendanceStatus,
+            lateMinutes: record.lateMinutes,
+          };
+        })
+        .filter(Boolean)
+        .sort((a, b) => new Date(b!.date).getTime() - new Date(a!.date).getTime()) as any[];
+
+      const presentCount = records.filter(r => r.status === 'present').length;
+      const absentCount = records.filter(r => r.status === 'absent').length;
+      
+      const reportData = {
+        reportDate: now.toISOString(),
+        academy: {
+          name: academy?.name || "Tennis Academy",
+        },
+        player: {
+          name: player?.name || "Player",
+          ballLevel: player?.ballLevel || undefined,
+        },
+        summary: {
+          totalSessions: records.length,
+          presentCount,
+          absentCount,
+          attendanceRate: records.length > 0 ? Math.round((presentCount / records.length) * 100) : 0,
+        },
+        records,
+      };
+      
+      const html = generateAttendanceReportHtml(reportData);
+      
+      res.setHeader("Content-Type", "text/html");
+      res.send(html);
+    } catch (error) {
+      console.error("Error generating attendance report:", error);
+      res.status(500).json({ error: "Failed to generate attendance report" });
+    }
+  });
+
+
   // Add progress entry for a player
   app.post("/api/players/:id/progress", authMiddleware, requireAcademy, async (req: AuthenticatedRequest, res: Response) => {
     try {
