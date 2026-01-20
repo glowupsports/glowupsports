@@ -1109,6 +1109,11 @@ export const storage = {
     return result[0];
   },
 
+  async getCoachSettings(coachId: string): Promise<any | null> {
+    const result = await db.select().from(coachSettings).where(eq(coachSettings.coachId, coachId));
+    return result[0] || null;
+  },
+
   async getAllCoaches(academyId?: string): Promise<Coach[]> {
     if (academyId) {
       // Two-part approach: (1) coaches with active membership, (2) legacy coaches (no membership but academy matches)
