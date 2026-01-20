@@ -24,6 +24,258 @@ import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollV
 import { ReportIssueModal } from "@/components/ReportIssueModal";
 import CreateInvoiceModal from "@/admin/components/CreateInvoiceModal";
 import CreditStoreModal from "@/admin/components/CreditStoreModal";
+import { GLOW_UP_TENNIS_LOGO } from "@/admin/components/logoBase64";
+
+const generateAttendanceReportPDF = (stats: any, player: any) => {
+  if (!stats?.sessions || stats.sessions.length === 0) {
+    Alert.alert("No Sessions", "There are no sessions to include in the report.");
+    return;
+  }
+
+  const now = new Date();
+  const reportDate = now.toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" });
+  
+  const presentCount = stats.sessions.filter((s: any) => s.attended === "present").length;
+  const absentCount = stats.sessions.filter((s: any) => s.attended === "absent" || s.attended === "no_show").length;
+  const pendingCount = stats.sessions.filter((s: any) => !s.attended || s.attended === "pending").length;
+  const attendanceRate = stats.sessions.length > 0 ? Math.round((presentCount / stats.sessions.length) * 100) : 0;
+
+  const sessionRows = stats.sessions.map((session: any) => {
+    const sessionDate = new Date(session.startTime);
+    const isAttended = session.attended === "present";
+    const isAbsent = session.attended === "absent" || session.attended === "no_show";
+    const statusLabel = isAttended ? "Present" : isAbsent ? "Absent" : "Pending";
+    const statusColor = isAttended ? "#00E676" : isAbsent ? "#FF5252" : "#FFD740";
+    const sessionType = session.sessionType === "private" ? "Private" : 
+                        session.sessionType === "semi_private" ? "Semi-Private" : "Group";
+    
+    return `
+      <tr>
+        <td style="padding: 14px 16px; border-bottom: 1px solid #2a2d35;">
+          <div style="font-weight: 600; color: #fff;">${sessionDate.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })}</div>
+          <div style="font-size: 12px; color: #6b7280;">${sessionDate.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" })}</div>
+        </td>
+        <td style="padding: 14px 16px; border-bottom: 1px solid #2a2d35;">
+          <span style="background: #1e2127; padding: 4px 10px; border-radius: 6px; font-size: 12px; color: #00D4FF;">${sessionType}</span>
+        </td>
+        <td style="padding: 14px 16px; border-bottom: 1px solid #2a2d35; text-align: center;">
+          <span style="background: ${statusColor}20; color: ${statusColor}; padding: 6px 14px; border-radius: 20px; font-size: 12px; font-weight: 600;">${statusLabel}</span>
+        </td>
+      </tr>
+    `;
+  }).join("");
+
+  const htmlContent = `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="UTF-8">
+      <style>
+        @page { size: A4; margin: 0; }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+          font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+          background: #0B0D10;
+          color: #fff;
+          -webkit-print-color-adjust: exact;
+          print-color-adjust: exact;
+        }
+        .container {
+          max-width: 800px;
+          margin: 0 auto;
+          padding: 40px;
+          background: #0B0D10;
+        }
+        .header {
+          display: flex;
+          justify-content: space-between;
+          align-items: flex-start;
+          margin-bottom: 40px;
+          padding-bottom: 30px;
+          border-bottom: 1px solid #2a2d35;
+        }
+        .logo-section img {
+          width: 140px;
+          height: auto;
+          margin-bottom: 12px;
+        }
+        .report-badge {
+          background: linear-gradient(135deg, #00D4FF20, #00D4FF10);
+          border: 1px solid #00D4FF40;
+          border-radius: 12px;
+          padding: 16px 24px;
+          text-align: right;
+        }
+        .report-label {
+          font-size: 11px;
+          color: #00D4FF;
+          letter-spacing: 1px;
+          text-transform: uppercase;
+          margin-bottom: 4px;
+        }
+        .report-title {
+          font-size: 18px;
+          font-weight: 700;
+          color: #fff;
+        }
+        .player-section {
+          background: linear-gradient(135deg, #C8FF3D10, #C8FF3D05);
+          border: 1px solid #C8FF3D30;
+          border-radius: 16px;
+          padding: 24px;
+          margin-bottom: 30px;
+        }
+        .player-name {
+          font-size: 24px;
+          font-weight: 800;
+          color: #C8FF3D;
+          margin-bottom: 8px;
+        }
+        .player-email {
+          font-size: 14px;
+          color: #6b7280;
+        }
+        .stats-grid {
+          display: grid;
+          grid-template-columns: repeat(4, 1fr);
+          gap: 16px;
+          margin-bottom: 30px;
+        }
+        .stat-card {
+          background: #14171C;
+          border-radius: 12px;
+          padding: 20px;
+          text-align: center;
+          border: 1px solid #2a2d35;
+        }
+        .stat-value {
+          font-size: 28px;
+          font-weight: 800;
+          margin-bottom: 4px;
+        }
+        .stat-label {
+          font-size: 11px;
+          color: #6b7280;
+          text-transform: uppercase;
+          letter-spacing: 0.5px;
+        }
+        .sessions-section {
+          background: #14171C;
+          border-radius: 16px;
+          overflow: hidden;
+          border: 1px solid #2a2d35;
+        }
+        .sessions-header {
+          background: #1a1d22;
+          padding: 16px 20px;
+          border-bottom: 1px solid #2a2d35;
+        }
+        .sessions-title {
+          font-size: 14px;
+          font-weight: 700;
+          color: #fff;
+          text-transform: uppercase;
+          letter-spacing: 1px;
+        }
+        table {
+          width: 100%;
+          border-collapse: collapse;
+        }
+        th {
+          text-align: left;
+          padding: 14px 16px;
+          font-size: 11px;
+          color: #6b7280;
+          text-transform: uppercase;
+          letter-spacing: 1px;
+          background: #1a1d22;
+          border-bottom: 1px solid #2a2d35;
+        }
+        th:last-child { text-align: center; }
+        .footer {
+          margin-top: 40px;
+          padding-top: 20px;
+          border-top: 1px solid #2a2d35;
+          text-align: center;
+          color: #6b7280;
+          font-size: 12px;
+        }
+      </style>
+    </head>
+    <body>
+      <div class="container">
+        <div class="header">
+          <div class="logo-section">
+            <img src="${GLOW_UP_TENNIS_LOGO}" alt="Glow Up Tennis" />
+          </div>
+          <div class="report-badge">
+            <div class="report-label">Attendance Report</div>
+            <div class="report-title">${reportDate}</div>
+          </div>
+        </div>
+
+        <div class="player-section">
+          <div class="player-name">${player?.name || stats.player?.name || "Player"}</div>
+          <div class="player-email">${player?.email || stats.player?.email || ""}</div>
+        </div>
+
+        <div class="stats-grid">
+          <div class="stat-card">
+            <div class="stat-value" style="color: #fff;">${stats.sessions.length}</div>
+            <div class="stat-label">Total Sessions</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-value" style="color: #00E676;">${presentCount}</div>
+            <div class="stat-label">Present</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-value" style="color: #FF5252;">${absentCount}</div>
+            <div class="stat-label">Absent</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-value" style="color: #C8FF3D;">${attendanceRate}%</div>
+            <div class="stat-label">Attendance Rate</div>
+          </div>
+        </div>
+
+        <div class="sessions-section">
+          <div class="sessions-header">
+            <div class="sessions-title">Session Details</div>
+          </div>
+          <table>
+            <thead>
+              <tr>
+                <th>Date & Time</th>
+                <th>Session Type</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${sessionRows}
+            </tbody>
+          </table>
+        </div>
+
+        <div class="footer">
+          Generated by Glow Up Tennis • ${reportDate}
+        </div>
+      </div>
+    </body>
+    </html>
+  `;
+
+  if (Platform.OS === "web") {
+    const printWindow = window.open("", "_blank");
+    if (printWindow) {
+      printWindow.document.write(htmlContent);
+      printWindow.document.close();
+    }
+  } else {
+    import("expo-print").then(({ printAsync }) => {
+      printAsync({ html: htmlContent });
+    });
+  }
+};
 
 interface Player {
   id: string;
@@ -817,72 +1069,89 @@ export default function AdminPlayersScreen() {
                 ) : null}
               </View>
 
-              {/* Attendance History Section */}
-              <View style={[styles.section, CardStyles.elevated]}>
-                <View style={styles.sectionHeader}>
-                  <View style={styles.sectionTitleRow}>
-                    <Ionicons name="calendar-outline" size={18} color={Colors.dark.xpCyan} />
-                    <Text style={styles.sectionTitle}>Attendance History</Text>
+              {/* Attendance History Section - Premium */}
+              <View style={[styles.section, styles.attendanceSectionPremium]}>
+                <View style={styles.attendanceHeader}>
+                  <View style={styles.attendanceHeaderLeft}>
+                    <View style={styles.attendanceIconWrapper}>
+                      <Ionicons name="calendar" size={20} color={Colors.dark.xpCyan} />
+                    </View>
+                    <View>
+                      <Text style={styles.attendanceTitle}>Attendance History</Text>
+                      <Text style={styles.attendanceSubtitle}>{stats.sessions?.length || 0} sessions recorded</Text>
+                    </View>
                   </View>
-                  <Text style={styles.sessionCount}>{stats.sessions?.length || 0} sessions</Text>
+                  <Pressable 
+                    style={styles.downloadReportButton}
+                    onPress={() => {
+                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                      generateAttendanceReportPDF(stats, selectedPlayer);
+                    }}
+                  >
+                    <Ionicons name="download-outline" size={16} color="#000" />
+                    <Text style={styles.downloadReportText}>Report</Text>
+                  </Pressable>
                 </View>
 
                 {stats.sessions && stats.sessions.length > 0 ? (
-                  <View style={styles.sessionsList}>
+                  <View style={styles.attendanceList}>
                     {stats.sessions.slice(0, 10).map((session, index) => {
                       const sessionDate = new Date(session.startTime);
                       const isAttended = session.attended === "present";
                       const isAbsent = session.attended === "absent" || session.attended === "no_show";
                       const attendanceLabel = isAttended ? "Present" : isAbsent ? "Absent" : "Pending";
                       const attendanceColor = isAttended ? Colors.dark.successNeon : isAbsent ? Colors.dark.error : Colors.dark.gold;
+                      const attendanceIcon = isAttended ? "checkmark-circle" : isAbsent ? "close-circle" : "time";
                       
                       return (
-                        <View key={session.id || index} style={styles.sessionRow}>
-                          <View style={styles.sessionDateBlock}>
-                            <View style={[
-                              styles.sessionIndicator, 
-                              { backgroundColor: attendanceColor }
-                            ]} />
-                            <View>
-                              <Text style={styles.sessionDate}>
-                                {sessionDate.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })}
-                              </Text>
-                              <Text style={styles.sessionTime}>
+                        <View key={session.id || index} style={styles.attendanceCard}>
+                          <View style={styles.attendanceDateSection}>
+                            <Text style={styles.attendanceDay}>
+                              {sessionDate.toLocaleDateString("en-US", { weekday: "short" })}
+                            </Text>
+                            <Text style={styles.attendanceDateNum}>
+                              {sessionDate.getDate()}
+                            </Text>
+                            <Text style={styles.attendanceMonth}>
+                              {sessionDate.toLocaleDateString("en-US", { month: "short" })}
+                            </Text>
+                          </View>
+                          <View style={styles.attendanceDetails}>
+                            <View style={styles.attendanceTimeRow}>
+                              <Ionicons name="time-outline" size={14} color={Colors.dark.textMuted} />
+                              <Text style={styles.attendanceTimeText}>
                                 {sessionDate.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" })}
+                              </Text>
+                              <View style={[styles.sessionTypeChip, { backgroundColor: `${Colors.dark.xpCyan}20` }]}>
+                                <Text style={[styles.sessionTypeChipText, { color: Colors.dark.xpCyan }]}>
+                                  {session.sessionType === "private" ? "Private" : 
+                                   session.sessionType === "semi_private" ? "Semi-Private" : "Group"}
+                                </Text>
+                              </View>
+                            </View>
+                            <View style={styles.attendanceCreditsRow}>
+                              <Text style={styles.attendanceCreditsText}>
+                                {session.creditsUsed || 1} credit{(session.creditsUsed || 1) > 1 ? "s" : ""} used
                               </Text>
                             </View>
                           </View>
-                          <View style={styles.sessionBadges}>
-                            <View style={[styles.sessionTypeBadge, { backgroundColor: Backgrounds.card }]}>
-                              <Text style={styles.sessionTypeText}>
-                                {session.sessionType === "private" ? "Private" : 
-                                 session.sessionType === "semi_private" ? "Semi" : "Group"}
-                              </Text>
-                            </View>
-                            <View style={[
-                              styles.paymentBadge, 
-                              { backgroundColor: `${attendanceColor}20` }
-                            ]}>
-                              <View style={[
-                                styles.paymentDot,
-                                { backgroundColor: attendanceColor }
-                              ]} />
-                              <Text style={[
-                                styles.paymentBadgeText, 
-                                { color: attendanceColor }
-                              ]}>
-                                {attendanceLabel}
-                              </Text>
-                            </View>
+                          <View style={[styles.attendanceStatusBadge, { backgroundColor: `${attendanceColor}15`, borderColor: `${attendanceColor}40` }]}>
+                            <Ionicons name={attendanceIcon} size={18} color={attendanceColor} />
+                            <Text style={[styles.attendanceStatusText, { color: attendanceColor }]}>
+                              {attendanceLabel}
+                            </Text>
                           </View>
                         </View>
                       );
                     })}
                   </View>
                 ) : (
-                  <View style={styles.emptySessionsState}>
-                    <Ionicons name="calendar-outline" size={32} color={Colors.dark.textMuted} />
-                    <Text style={styles.emptySessionsText}>No sessions yet</Text>
+                  <View style={styles.emptyAttendanceState}>
+                    <View style={styles.emptyAttendanceIcon}>
+                      <Ionicons name="calendar-outline" size={40} color={Colors.dark.textMuted} />
+                    </View>
+                    <Text style={styles.emptyAttendanceTitle}>No Sessions Yet</Text>
+                    <Text style={styles.emptyAttendanceText}>Sessions will appear here once scheduled</Text>
                   </View>
                 )}
               </View>
@@ -3705,5 +3974,166 @@ const styles = StyleSheet.create({
     ...Typography.body,
     color: "#000",
     fontWeight: "700",
+  },
+  attendanceSectionPremium: {
+    backgroundColor: Colors.dark.backgroundCard,
+    borderRadius: BorderRadius.xl,
+    padding: 0,
+    overflow: "hidden",
+    borderWidth: 1,
+    borderColor: `${Colors.dark.xpCyan}20`,
+  },
+  attendanceHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    padding: Spacing.lg,
+    backgroundColor: `${Colors.dark.xpCyan}08`,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.dark.border,
+  },
+  attendanceHeaderLeft: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.md,
+  },
+  attendanceIconWrapper: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    backgroundColor: `${Colors.dark.xpCyan}15`,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  attendanceTitle: {
+    ...Typography.body,
+    color: Colors.dark.text,
+    fontWeight: "700",
+  },
+  attendanceSubtitle: {
+    ...Typography.small,
+    color: Colors.dark.textMuted,
+    marginTop: 2,
+  },
+  downloadReportButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    backgroundColor: Colors.dark.xpCyan,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm,
+    borderRadius: BorderRadius.md,
+  },
+  downloadReportText: {
+    ...Typography.caption,
+    color: "#000",
+    fontWeight: "700",
+  },
+  attendanceList: {
+    padding: Spacing.md,
+    gap: Spacing.sm,
+  },
+  attendanceCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: Colors.dark.backgroundElevated,
+    borderRadius: BorderRadius.lg,
+    padding: Spacing.md,
+    gap: Spacing.md,
+    borderWidth: 1,
+    borderColor: Colors.dark.border,
+  },
+  attendanceDateSection: {
+    width: 50,
+    alignItems: "center",
+    paddingRight: Spacing.md,
+    borderRightWidth: 1,
+    borderRightColor: Colors.dark.border,
+  },
+  attendanceDay: {
+    ...Typography.caption,
+    color: Colors.dark.textMuted,
+    textTransform: "uppercase",
+    fontSize: 10,
+  },
+  attendanceDateNum: {
+    ...Typography.h2,
+    color: Colors.dark.text,
+    fontWeight: "800",
+    lineHeight: 28,
+  },
+  attendanceMonth: {
+    ...Typography.caption,
+    color: Colors.dark.xpCyan,
+    textTransform: "uppercase",
+    fontSize: 10,
+  },
+  attendanceDetails: {
+    flex: 1,
+    gap: 4,
+  },
+  attendanceTimeRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+  },
+  attendanceTimeText: {
+    ...Typography.small,
+    color: Colors.dark.textMuted,
+  },
+  sessionTypeChip: {
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 2,
+    borderRadius: BorderRadius.sm,
+  },
+  sessionTypeChipText: {
+    ...Typography.caption,
+    fontSize: 10,
+    fontWeight: "600",
+  },
+  attendanceCreditsRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.xs,
+  },
+  attendanceCreditsText: {
+    ...Typography.caption,
+    color: Colors.dark.textMuted,
+  },
+  attendanceStatusBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm,
+    borderRadius: BorderRadius.md,
+    borderWidth: 1,
+  },
+  attendanceStatusText: {
+    ...Typography.caption,
+    fontWeight: "700",
+    fontSize: 11,
+  },
+  emptyAttendanceState: {
+    alignItems: "center",
+    paddingVertical: Spacing.xl * 2,
+    gap: Spacing.md,
+  },
+  emptyAttendanceIcon: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: `${Colors.dark.xpCyan}10`,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  emptyAttendanceTitle: {
+    ...Typography.body,
+    color: Colors.dark.text,
+    fontWeight: "600",
+  },
+  emptyAttendanceText: {
+    ...Typography.small,
+    color: Colors.dark.textMuted,
   },
 });
