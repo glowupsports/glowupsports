@@ -477,6 +477,25 @@ function CommentsModal({ visible, postId, onClose }: CommentsModalProps) {
     enabled: !!postId && visible,
   });
   
+  // Fetch user's liked comments for this post
+  const { data: myLikedData } = useQuery<{ likedCommentIds: string[] }>({
+    queryKey: ["/api/social/posts", postId, "my-liked-comments"],
+    queryFn: async () => {
+      if (!postId) return { likedCommentIds: [] };
+      const response = await apiFetch(`/api/social/posts/${postId}/my-liked-comments`);
+      if (!response.ok) return { likedCommentIds: [] };
+      return response.json();
+    },
+    enabled: !!postId && visible,
+  });
+  
+  // Sync liked comments from server
+  useEffect(() => {
+    if (myLikedData?.likedCommentIds) {
+      setLikedComments(new Set(myLikedData.likedCommentIds));
+    }
+  }, [myLikedData]);
+  
   const handleSubmitComment = async () => {
     if (!commentText.trim() || !postId || isSubmitting) return;
     
@@ -502,8 +521,10 @@ function CommentsModal({ visible, postId, onClose }: CommentsModalProps) {
     }
   };
   
-  const handleLike = (commentId: string) => {
+  const handleLike = async (commentId: string) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    
+    // Optimistic update
     setLikedComments(prev => {
       const newSet = new Set(prev);
       if (newSet.has(commentId)) {
@@ -513,6 +534,25 @@ function CommentsModal({ visible, postId, onClose }: CommentsModalProps) {
       }
       return newSet;
     });
+    
+    // Call API to persist like
+    try {
+      await apiRequest("POST", `/api/social/comments/${commentId}/like`);
+      // Refetch comments to get updated like counts
+      refetch();
+    } catch (error) {
+      console.log("Like error:", error);
+      // Revert optimistic update on error
+      setLikedComments(prev => {
+        const newSet = new Set(prev);
+        if (newSet.has(commentId)) {
+          newSet.delete(commentId);
+        } else {
+          newSet.add(commentId);
+        }
+        return newSet;
+      });
+    }
   };
   
   const handleReply = (comment: any) => {
@@ -555,11 +595,12 @@ function CommentsModal({ visible, postId, onClose }: CommentsModalProps) {
           style={{ flex: 1, maxHeight: DRAWER_HEIGHT - 160 }}
           renderItem={({ item }) => {
             const isLiked = likedComments.has(item.id);
-            const likeCount = (item.likeCount || 0) + (isLiked ? 1 : 0);
+            const likeCount = item.likeCount || 0;
             const hasPhoto = item.author?.photoUrl;
+            const isReply = !!item.replyToName || !!item.parentId;
             
             return (
-              <View style={styles.commentItem}>
+              <View style={[styles.commentItem, isReply && styles.commentItemReply]}>
                 {hasPhoto ? (
                   <Image 
                     source={{ uri: item.author.photoUrl.startsWith("http") ? item.author.photoUrl : `${getApiUrl()}${item.author.photoUrl}` }} 
@@ -1861,6 +1902,12 @@ const styles = StyleSheet.create({
     gap: Spacing.sm,
     borderBottomWidth: 1,
     borderBottomColor: Colors.dark.border,
+  },
+  commentItemReply: {
+    marginLeft: 32,
+    backgroundColor: Colors.dark.background + "80",
+    borderLeftWidth: 2,
+    borderLeftColor: Colors.dark.primary + "50",
   },
   commentAvatar: {
     width: 36,
