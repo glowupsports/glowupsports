@@ -26787,6 +26787,38 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Delete a comment (only if author)
+  app.delete("/api/social/comments/:commentId", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const { commentId } = req.params;
+      const userId = req.user!.userId;
+      
+      // Check if comment exists and user is the author
+      const [comment] = await db.select().from(postCommentsTable).where(eq(postCommentsTable.id, commentId)).limit(1);
+      
+      if (!comment) {
+        return res.status(404).json({ error: "Comment not found" });
+      }
+      
+      if (comment.authorId !== userId) {
+        return res.status(403).json({ error: "You can only delete your own comments" });
+      }
+      
+      // Delete the comment
+      await db.delete(postCommentsTable).where(eq(postCommentsTable.id, commentId));
+      
+      // Update comment count on the post
+      await db.update(postsTable)
+        .set({ commentCount: sql`GREATEST(comment_count - 1, 0)` })
+        .where(eq(postsTable.id, comment.postId));
+      
+      res.json({ success: true, message: "Comment deleted" });
+    } catch (error) {
+      console.error("Error deleting comment:", error);
+      res.status(500).json({ error: "Failed to delete comment" });
+    }
+  });
+
   // Get comments user has liked for a post
   app.get("/api/social/posts/:postId/my-liked-comments", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
     try {

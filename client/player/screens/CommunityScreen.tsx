@@ -448,7 +448,9 @@ function CommentsModal({ visible, postId, onClose }: CommentsModalProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [replyingTo, setReplyingTo] = useState<{ id: string; name: string; text: string } | null>(null);
   const [likedComments, setLikedComments] = useState<Set<string>>(new Set());
+  const [isExpanded, setIsExpanded] = useState(false);
   const queryClient = useQueryClient();
+  const { user } = useAuth();
   
   const translateY = useSharedValue(DRAWER_HEIGHT);
   
@@ -562,6 +564,22 @@ function CommentsModal({ visible, postId, onClose }: CommentsModalProps) {
       text: comment.text || comment.content || ""
     });
   };
+
+  const handleDeleteComment = async (commentId: string) => {
+    try {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+      await apiRequest("DELETE", `/api/social/comments/${commentId}`);
+      refetch();
+      queryClient.invalidateQueries({ queryKey: ["/api/social/feed"] });
+    } catch (error) {
+      console.log("Delete comment error:", error);
+    }
+  };
+
+  const toggleExpand = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    setIsExpanded(!isExpanded);
+  };
   
   if (!visible) return null;
   
@@ -571,7 +589,7 @@ function CommentsModal({ visible, postId, onClose }: CommentsModalProps) {
         style={styles.drawerBackdrop} 
         onPress={onClose}
       />
-      <Animated.View style={[styles.commentsDrawer, animatedStyle, { bottom: tabBarHeight }]}>
+      <Animated.View style={[styles.commentsDrawer, animatedStyle, { bottom: tabBarHeight, height: isExpanded ? "85%" : DRAWER_HEIGHT }]}>
         <LinearGradient
           colors={[Colors.dark.backgroundSecondary, Colors.dark.backgroundRoot]}
           style={StyleSheet.absoluteFill}
@@ -583,15 +601,20 @@ function CommentsModal({ visible, postId, onClose }: CommentsModalProps) {
         
         <View style={styles.drawerHeader}>
           <ThemedText style={styles.drawerTitle}>Comments</ThemedText>
-          <Pressable onPress={onClose} style={styles.drawerCloseButton}>
-            <Ionicons name="close" size={20} color={Colors.dark.text} />
-          </Pressable>
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+            <Pressable onPress={toggleExpand} style={styles.drawerCloseButton}>
+              <Ionicons name={isExpanded ? "contract-outline" : "expand-outline"} size={18} color={Colors.dark.text} />
+            </Pressable>
+            <Pressable onPress={onClose} style={styles.drawerCloseButton}>
+              <Ionicons name="close" size={20} color={Colors.dark.text} />
+            </Pressable>
+          </View>
         </View>
         
         <FlatList
           data={comments}
           keyExtractor={(item: any) => item.id}
-          style={{ flex: 1, maxHeight: DRAWER_HEIGHT - 160 }}
+          style={{ flex: 1, maxHeight: isExpanded ? "100%" : DRAWER_HEIGHT - 160 }}
           renderItem={({ item }) => {
             const isLiked = likedComments.has(item.id);
             const likeCount = item.likeCount || 0;
@@ -638,6 +661,11 @@ function CommentsModal({ visible, postId, onClose }: CommentsModalProps) {
                       <Ionicons name="arrow-undo-outline" size={14} color={Colors.dark.textMuted} />
                       <ThemedText style={styles.commentActionText}>Reply</ThemedText>
                     </Pressable>
+                    {item.authorId === user?.id && (
+                      <Pressable style={styles.commentActionBtn} onPress={() => handleDeleteComment(item.id)}>
+                        <Ionicons name="trash-outline" size={14} color="#EF4444" />
+                      </Pressable>
+                    )}
                   </View>
                 </View>
               </View>
