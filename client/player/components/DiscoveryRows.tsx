@@ -208,12 +208,12 @@ export function GroupLessonsRow() {
 
   const handleLessonPress = (sessionId: string) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    navigation.navigate("LessonBooking", { selectedSession: sessionId });
+    navigation.navigate("BrowseGroupLessons");
   };
 
   const handleSeeAll = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    navigation.navigate("LessonBooking");
+    navigation.navigate("BrowseGroupLessons");
   };
 
   if (groupLessons.length === 0) {

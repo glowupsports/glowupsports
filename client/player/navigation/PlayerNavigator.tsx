@@ -33,6 +33,7 @@ import CourtDetailScreen from "@/player/screens/CourtDetailScreen";
 import MyCourtBookingsScreen from "@/player/screens/MyCourtBookingsScreen";
 import QuickBookScreen from "@/player/screens/QuickBookScreen";
 import LessonBookingScreen from "@/player/screens/LessonBookingScreen";
+import BrowseGroupLessonsScreen from "@/player/screens/BrowseGroupLessonsScreen";
 import MyLessonRequestsScreen from "@/player/screens/MyLessonRequestsScreen";
 import PlayerFinderScreen from "@/player/screens/PlayerFinderScreen";
 import GlowLeaderboardScreen from "@/player/screens/GlowLeaderboardScreen";
@@ -112,6 +113,7 @@ export type PlayerStackParamList = {
   CourtDetail: { courtId: string; date: string };
   MyCourtBookings: undefined;
   LessonBooking: undefined;
+  BrowseGroupLessons: undefined;
   MyLessonRequests: undefined;
   PlayerFinder: undefined;
   GlowLeaderboard: undefined;
@@ -438,6 +440,17 @@ function PlayerStackNavigator() {
           headerTitle: "Book Lesson",
           headerStyle: { backgroundColor: '#090E17' },
           headerTintColor: '#CCFF00',
+          headerTitleStyle: { color: '#ffffff', fontWeight: '600' },
+        }}
+      />
+      <Stack.Screen 
+        name="BrowseGroupLessons" 
+        component={BrowseGroupLessonsScreen}
+        options={{
+          headerShown: true,
+          headerTitle: "Group Lessons",
+          headerStyle: { backgroundColor: '#090E17' },
+          headerTintColor: '#C8FF3D',
           headerTitleStyle: { color: '#ffffff', fontWeight: '600' },
         }}
       />

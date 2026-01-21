@@ -17227,6 +17227,130 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Get available group sessions for player to browse and join
+  app.get("/api/player/available-group-sessions", authMiddleware, requirePlayerOrOwner, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const playerId = req.user!.playerId;
+      if (!playerId) {
+        return res.status(400).json({ error: "Player ID required" });
+      }
+      
+      const player = await storage.getPlayer(playerId);
+      if (!player || !player.academyId) {
+        return res.json({ sessions: [] });
+      }
+      
+      const now = new Date();
+      const academySessions = await storage.getSessionsByAcademy(player.academyId);
+      
+      // Filter for upcoming group sessions
+      const groupSessions = academySessions.filter(s => {
+        if (new Date(s.startTime) <= now) return false;
+        if (s.sessionType !== "group") return false;
+        return true;
+      });
+      
+      // Get details for each session
+      const sessionsWithDetails = await Promise.all(groupSessions.map(async (session) => {
+        const coach = session.coachId ? await storage.getCoach(session.coachId) : null;
+        const court = session.courtId ? await storage.getCourt(session.courtId) : null;
+        const startTime = new Date(session.startTime);
+        const endTime = new Date(session.endTime);
+        
+        // Check if player is already enrolled
+        const sessionPlayers = await storage.getSessionPlayers(session.id);
+        const isEnrolled = sessionPlayers.some(sp => sp.playerId === playerId);
+        const currentPlayers = sessionPlayers.length;
+        const maxPlayers = session.maxPlayers || 6;
+        const spotsLeft = Math.max(0, maxPlayers - currentPlayers);
+        
+        return {
+          id: session.id,
+          type: session.sessionType || "group",
+          date: startTime.toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short" }),
+          time: `${startTime.getHours().toString().padStart(2, '0')}:${startTime.getMinutes().toString().padStart(2, '0')}`,
+          endTime: `${endTime.getHours().toString().padStart(2, '0')}:${endTime.getMinutes().toString().padStart(2, '0')}`,
+          spotsLeft,
+          maxPlayers,
+          currentPlayers,
+          coachName: coach?.name || null,
+          coachId: session.coachId,
+          courtName: court?.name || null,
+          ballLevel: ((session as any).targetBallLevel || (session as any).ballLevel || "").toUpperCase() || null,
+          isEnrolled,
+        };
+      }));
+      
+      // Sort by date/time
+      sessionsWithDetails.sort((a, b) => {
+        const dateA = new Date(`${a.date} ${a.time}`);
+        const dateB = new Date(`${b.date} ${b.time}`);
+        return dateA.getTime() - dateB.getTime();
+      });
+      
+      res.json({ sessions: sessionsWithDetails });
+    } catch (error) {
+      console.error("Error fetching available group sessions:", error);
+      res.status(500).json({ error: "Failed to fetch sessions" });
+    }
+  });
+
+  // Enroll player in a group session
+  app.post("/api/player/sessions/:sessionId/enroll", authMiddleware, requirePlayerOrOwner, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const playerId = req.user!.playerId;
+      const { sessionId } = req.params;
+      
+      if (!playerId) {
+        return res.status(400).json({ error: "Player ID required" });
+      }
+      
+      const player = await storage.getPlayer(playerId);
+      if (!player) {
+        return res.status(404).json({ error: "Player not found" });
+      }
+      
+      const session = await storage.getSession(sessionId);
+      if (!session) {
+        return res.status(404).json({ error: "Session not found" });
+      }
+      
+      // Check if session is in the future
+      if (new Date(session.startTime) <= new Date()) {
+        return res.status(400).json({ error: "Cannot enroll in past sessions" });
+      }
+      
+      // Check if already enrolled
+      const sessionPlayers = await storage.getSessionPlayers(sessionId);
+      if (sessionPlayers.some(sp => sp.playerId === playerId)) {
+        return res.status(400).json({ error: "Already enrolled in this session" });
+      }
+      
+      // Check if session is full
+      const maxPlayers = session.maxPlayers || 6;
+      if (sessionPlayers.length >= maxPlayers) {
+        return res.status(400).json({ error: "Session is full" });
+      }
+      
+      // Check if player has group credits
+      const credits = await storage.getPlayerCreditBalanceByType(playerId);
+      if (credits.group <= 0) {
+        return res.status(400).json({ error: "No group credits available. Please purchase a package." });
+      }
+      
+      // Add player to session
+      await storage.addPlayerToSession(sessionId, playerId);
+      
+      // Deduct 1 group credit
+      await storage.deductPlayerCredit(playerId, "group", 1, session.academyId || undefined);
+      
+      res.json({ success: true, message: "Successfully enrolled in session" });
+    } catch (error) {
+      console.error("Error enrolling in session:", error);
+      res.status(500).json({ error: "Failed to enroll in session" });
+    }
+  });
+
   // Get player social and availability data for the new 5-zone Player Home
   app.get("/api/player/me/social", authMiddleware, requirePlayerOrOwner, async (req: AuthenticatedRequest, res: Response) => {
     try {
