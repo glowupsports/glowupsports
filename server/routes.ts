@@ -17385,10 +17385,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       // Get nearby players from the same academy with profile photos
-      const nearbyPlayers: Array<{id: string; name: string; level: string; status: string; playedTogether: number; profilePhotoUrl?: string; playerLevel?: number}> = [];
+      // Filter by same ball level as current player
+      const currentPlayerBallLevel = (player.ballLevel || "glow").toLowerCase();
+      const nearbyPlayers: Array<{id: string; name: string; level: string; status: string; playedTogether: number; profilePhotoUrl?: string; playerLevel?: number; ballLevel?: string; skillLevel?: number}> = [];
       if (player.academyId) {
         const academyPlayers = await storage.getPlayersByAcademy(player.academyId);
-        const otherPlayers = academyPlayers.filter(p => p.id !== playerId).slice(0, 8);
+        // Filter by same ball level, then take up to 20 players
+        const sameLevelPlayers = academyPlayers.filter(p => {
+          if (p.id === playerId) return false;
+          const pBallLevel = (p.ballLevel || "").toLowerCase();
+          return pBallLevel === currentPlayerBallLevel;
+        });
+        const otherPlayers = sameLevelPlayers.slice(0, 20);
         
         for (const p of otherPlayers) {
           nearbyPlayers.push({
@@ -17399,6 +17407,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
             playedTogether: Math.floor(Math.random() * 5),
             profilePhotoUrl: (p as any).profilePhotoUrl || null,
             playerLevel: p.level || 1,
+            ballLevel: p.ballLevel || undefined,
+            skillLevel: p.skillLevel || undefined,
           });
         }
       }
@@ -22482,6 +22492,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           mutualSessions: mutualCount,
           preferredTime: player.preferredTime || undefined,
           ballLevel: player.ballLevel || undefined,
+          skillLevel: player.skillLevel || undefined,
         };
       }));
 
@@ -26635,7 +26646,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
               const [player] = await db.select().from(players).where(eq(players.id, user.playerId)).limit(1);
               if (player) {
                 authorData.name = player.name;
-                authorData.photoUrl = player.photoUrl;
+                authorData.photoUrl = (player as any).profilePhotoUrl || player.photoUrl;
               }
             }
           }

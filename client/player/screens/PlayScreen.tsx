@@ -57,6 +57,7 @@ interface NearbyPlayer {
   mutualSessions: number;
   preferredTime?: string;
   ballLevel?: string;
+  skillLevel?: number;
 }
 
 const TAB_OPTIONS = ["Group Lessons", "Players"] as const;
@@ -542,7 +543,9 @@ export default function PlayScreen() {
   const renderPlayerCard = (player: NearbyPlayer) => {
     const hasAvatar = player.avatarUrl;
     const ballColor = getBallLevelColor(player.ballLevel || "");
-    const ballLabel = getBallLevelLabel(player.ballLevel || "");
+    // Combine ballLevel + skillLevel to show "GLOW 6" instead of just "GLOW"
+    const baseBallLabel = getBallLevelLabel(player.ballLevel || "");
+    const ballLabel = player.skillLevel ? `${baseBallLabel} ${player.skillLevel}` : baseBallLabel;
     
     return (
       <Pressable 

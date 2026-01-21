@@ -160,7 +160,7 @@ function PlayerTabsContent() {
     return tabState.routes?.[index]?.name ?? "Home";
   });
   
-  const hideChat = currentRouteName === "Play" || currentRouteName === "Social";
+  const hideChat = currentRouteName === "Play" || currentRouteName === "Social" || currentRouteName === "Community";
   
   return (
     <View style={styles.tabsContainer}>
@@ -249,7 +249,7 @@ function PlayerTabsContent() {
         />
       </Tab.Navigator>
       {!hideChat && <CoachChatFooter mode="player" />}
-      <PlayerQuickActionsFAB />
+      {!hideChat && <PlayerQuickActionsFAB />}
     </View>
   );
 }
