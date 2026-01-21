@@ -96,12 +96,11 @@ export function PlayersNearYouRow() {
   const playerBallLevel = state.player?.ballLevel?.toLowerCase() || "glow";
 
   const nearbyPlayers = state.nearbyPlayers ?? [];
-  // Filter by availability AND same ball level
+  // Filter by same ball level only (show all players at same level)
   const availablePlayers = nearbyPlayers.filter(p => {
-    const isAvailable = p.status === "available" || p.status === "online";
-    const playerLevel = p.level?.toLowerCase() || "";
+    const playerLevel = (p.ballLevel || p.level || "").toLowerCase();
     const matchesBallLevel = playerLevel.includes(playerBallLevel) || playerBallLevel.includes(playerLevel) || playerLevel === playerBallLevel;
-    return isAvailable && matchesBallLevel;
+    return matchesBallLevel;
   });
 
   const handlePlayerPress = (playerId: string) => {

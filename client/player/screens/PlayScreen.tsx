@@ -159,17 +159,17 @@ export default function PlayScreen() {
       );
     }
     
-    // Limit to 6 unless showAllPlayers is true
-    if (!showAllPlayers && !playerSearchQuery.trim()) {
-      filtered = filtered.slice(0, 6);
-    }
-    
-    // Apply ball level filter for players
+    // Apply ball level filter for players FIRST
     if (selectedPlayerLevel !== "all") {
       filtered = filtered.filter(p => {
         const level = p.ballLevel?.toLowerCase() || "";
         return level.includes(selectedPlayerLevel) || selectedPlayerLevel.includes(level);
       });
+    }
+    
+    // Limit to 6 unless showAllPlayers is true (AFTER filtering)
+    if (!showAllPlayers && !playerSearchQuery.trim()) {
+      filtered = filtered.slice(0, 6);
     }
     
     return filtered;

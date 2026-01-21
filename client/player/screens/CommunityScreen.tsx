@@ -562,7 +562,7 @@ function CommentsModal({ visible, postId, onClose }: CommentsModalProps) {
               <View style={styles.commentItem}>
                 {hasPhoto ? (
                   <Image 
-                    source={{ uri: item.author.photoUrl }} 
+                    source={{ uri: item.author.photoUrl.startsWith("http") ? item.author.photoUrl : `${getApiUrl()}${item.author.photoUrl}` }} 
                     style={styles.commentAvatarImage} 
                   />
                 ) : (

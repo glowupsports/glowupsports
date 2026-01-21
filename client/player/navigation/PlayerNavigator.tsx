@@ -160,7 +160,7 @@ function PlayerTabsContent() {
     return tabState.routes?.[index]?.name ?? "Home";
   });
   
-  const hideChat = currentRouteName === "Play";
+  const hideChat = currentRouteName === "Play" || currentRouteName === "Social";
   
   return (
     <View style={styles.tabsContainer}>
