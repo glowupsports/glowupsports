@@ -105,6 +105,10 @@ export function setFreshUserStorage(storage: UserStorageInterface): void {
 export async function authMiddlewareWithFreshData(req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> {
   const authHeader = req.headers.authorization;
   
+  // Debug: log auth header status for certain endpoints
+  if (req.path.includes("/play/")) {
+  }
+  
   if (!authHeader || !authHeader.startsWith("Bearer ")) {
     res.status(401).json({ error: "Authentication required" });
     return;

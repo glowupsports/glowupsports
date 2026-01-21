@@ -91,3 +91,15 @@ This prevents:
 - Creating duplicate/conflicting APIs
 - Breaking existing functionality
 - Schema mismatches and SQL errors
+### Bug Fixes & Lessons Learned (2026-01-21)
+
+#### Social API Session Ordering Fix
+- **Issue**: Sessions were not sorted by start time before being sliced to 6, causing random sessions to appear instead of the earliest upcoming ones
+- **Fix**: Added sorting by `startTime` before the `slice(0, 6)` in the `/api/player/me/social` endpoint
+- **Lesson**: Always verify that queries/collections are sorted before slicing to get the expected results
+
+#### Authentication Pattern
+- All `/api/play/*` endpoints use `authMiddleware` which requires:
+  - `Authorization: Bearer <token>` header
+  - Valid JWT token from login
+- The client `getAuthHeaders()` function properly sets this header for all authenticated requests

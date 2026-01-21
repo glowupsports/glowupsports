@@ -17435,7 +17435,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
           return true;
         });
         
-        const upcomingSessions = levelFilteredSessions.slice(0, 6);
+        // Sort by start time before slicing
+        const sortedSessions = levelFilteredSessions.sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime());
+        const upcomingSessions = sortedSessions.slice(0, 6);
         
         for (const session of upcomingSessions) {
           const coach = session.coachId ? await storage.getCoach(session.coachId) : null;
