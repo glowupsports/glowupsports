@@ -340,12 +340,8 @@ export function GroupLessonsRow() {
         accentColor={ballLevelColor}
       />
 
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={styles.rowScrollContent}
-      >
-        {groupLessons.slice(0, 6).map((session, index) => {
+      <View style={styles.fullWidthLessonsContainer}>
+        {groupLessons.slice(0, 3).map((session, index) => {
           const levelColor = session.ballLevel ? getBallLevelColor(session.ballLevel) : ProTennisColors.electricGreen;
           const currentPlayers = (session.maxPlayers || 6) - session.spotsLeft;
           const isFull = session.spotsLeft === 0;
@@ -501,7 +497,7 @@ export function GroupLessonsRow() {
             </Animated.View>
           );
         })}
-      </ScrollView>
+      </View>
     </View>
   );
 }
@@ -674,9 +670,9 @@ export function TrainingSessionsRow() {
               />
               <View style={styles.trainingContent}>
                 <View style={styles.trainingIconWrap}>
-                  <Feather name="calendar" size={24} color={ProTennisColors.warning} />
+                  <Feather name="calendar" size={18} color={ProTennisColors.warning} />
                 </View>
-                <Text style={styles.trainingTitle}>Group Lessons</Text>
+                <Text style={styles.trainingTitle}>Group</Text>
                 <Text style={styles.trainingSubtitle}>
                   {availability.groupSessions} available
                 </Text>
@@ -699,9 +695,9 @@ export function TrainingSessionsRow() {
               />
               <View style={styles.trainingContent}>
                 <View style={styles.trainingIconWrap}>
-                  <Feather name="user" size={24} color="#9C27B0" />
+                  <Feather name="user" size={18} color="#9C27B0" />
                 </View>
-                <Text style={styles.trainingTitle}>Private Lessons</Text>
+                <Text style={styles.trainingTitle}>Private</Text>
                 <Text style={styles.trainingSubtitle}>
                   {availability.privateLessons} available
                 </Text>
@@ -724,7 +720,7 @@ export function TrainingSessionsRow() {
               />
               <View style={styles.trainingContent}>
                 <View style={styles.trainingIconWrap}>
-                  <Feather name="grid" size={24} color={ProTennisColors.neonCyan} />
+                  <Feather name="grid" size={18} color={ProTennisColors.neonCyan} />
                 </View>
                 <Text style={styles.trainingTitle}>Courts</Text>
                 <Text style={styles.trainingSubtitle}>
@@ -1255,8 +1251,8 @@ const styles = StyleSheet.create({
     color: ProTennisColors.midnightBlue,
   },
   trainingCard: {
-    width: 150,
-    minHeight: 160,
+    width: 110,
+    minHeight: 130,
     overflow: "hidden",
   },
   trainingGradient: {
@@ -1267,26 +1263,26 @@ const styles = StyleSheet.create({
     height: 80,
   },
   trainingContent: {
-    padding: Spacing.md,
-    gap: Spacing.xs,
+    padding: Spacing.sm,
+    gap: 2,
     flex: 1,
   },
   trainingIconWrap: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
     backgroundColor: Backgrounds.card,
     alignItems: "center",
     justifyContent: "center",
-    marginBottom: Spacing.xs,
+    marginBottom: 2,
   },
   trainingTitle: {
-    fontSize: 14,
+    fontSize: 11,
     fontWeight: "700",
     color: ProTennisColors.white,
   },
   trainingSubtitle: {
-    fontSize: 12,
+    fontSize: 10,
     color: ProTennisColors.textSecondary,
   },
   trainingChips: {
@@ -1351,10 +1347,15 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: ProTennisColors.textMuted,
   },
-  // Play-style card styles (matching PlayScreen)
+  // Full width lessons container
+  fullWidthLessonsContainer: {
+    paddingHorizontal: Spacing.lg,
+    gap: Spacing.md,
+  },
+  // Play-style card styles (matching PlayScreen) - FULL WIDTH
   playStyleCard: {
-    width: 280,
-    minHeight: 260,
+    width: "100%",
+    minHeight: 200,
     borderRadius: BorderRadius.lg,
     borderWidth: 2,
     overflow: "hidden",

@@ -479,7 +479,8 @@ function CommentsModal({ visible, postId, onClose }: CommentsModalProps) {
     <Modal
       visible={visible}
       animationType="slide"
-      presentationStyle="pageSheet"
+      presentationStyle="formSheet"
+      transparent={true}
       onRequestClose={onClose}
     >
       <KeyboardAvoidingView 
@@ -511,7 +512,7 @@ function CommentsModal({ visible, postId, onClose }: CommentsModalProps) {
               </View>
               <View style={styles.commentContent}>
                 <ThemedText style={styles.commentAuthor}>{item.author?.name || "Unknown"}</ThemedText>
-                <ThemedText style={styles.commentText}>{item.content}</ThemedText>
+                <ThemedText style={styles.commentText}>{item.text || item.content || ""}</ThemedText>
               </View>
             </View>
           )}

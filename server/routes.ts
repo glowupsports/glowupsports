@@ -17445,29 +17445,44 @@ export async function registerRoutes(app: Express): Promise<Server> {
           const maxPlayers = session.maxPlayers || 4;
           const currentPlayers = session.currentPlayers || 0;
           
-          // Get participants who have joined this session
-          // Note: If session has playerIds, fetch those players
+          // Get participants from session_players table (not from session object)
           let participants: Array<{id: string; name: string; profilePhotoUrl?: string; level: number}> = [];
-          const sessionPlayerIds = (session as any).playerIds || [];
-          if (sessionPlayerIds.length > 0) {
-            for (const pid of sessionPlayerIds.slice(0, 5)) {
-              const p = await storage.getPlayer(pid);
-              if (p) {
-                participants.push({
-                  id: p.id,
-                  name: p.name || "Player",
-                  profilePhotoUrl: (p as any).profilePhotoUrl || null,
-                  level: p.level || 1,
-                });
-              }
+          let isEnrolled = false;
+          
+          // Check session_players first, then series_players for recurring sessions
+          const sessionPlayerRecords = await storage.getSessionPlayers(session.id);
+          let playerIds = sessionPlayerRecords.map(sp => sp.playerId);
+          
+          // If no session_players and session has seriesId, check series_players
+          if (playerIds.length === 0 && (session as any).seriesId) {
+            const seriesPlayers = await storage.getSeriesPlayers((session as any).seriesId);
+            playerIds = seriesPlayers.map(sp => sp.playerId);
+          }
+          
+          // Check if current player is enrolled
+          isEnrolled = playerIds.includes(playerId);
+          
+          // Get participant details
+          for (const pid of playerIds.slice(0, 6)) {
+            const p = await storage.getPlayer(pid);
+            if (p) {
+              participants.push({
+                id: p.id,
+                name: p.name || "Player",
+                profilePhotoUrl: (p as any).profilePhotoUrl || null,
+                level: p.level || 1,
+              });
             }
           }
           
+          // Recalculate spots based on actual enrolled players
+          const actualCurrentPlayers = playerIds.length;
+          
           // Format time in Dubai timezone (UTC+4)
-          const dubaiTimeFormatter = new Intl.DateTimeFormat('en-GB', {
-            timeZone: 'Asia/Dubai',
-            hour: '2-digit',
-            minute: '2-digit',
+          const dubaiTimeFormatter = new Intl.DateTimeFormat("en-GB", {
+            timeZone: "Asia/Dubai",
+            hour: "2-digit",
+            minute: "2-digit",
             hour12: false,
           });
           const dubaiTimeStr = dubaiTimeFormatter.format(time);
@@ -17477,11 +17492,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
             type: session.sessionType || "group",
             time: dubaiTimeStr,
             date: session.startTime.toISOString(),
-            spotsLeft: Math.max(0, maxPlayers - currentPlayers),
+            spotsLeft: Math.max(0, maxPlayers - actualCurrentPlayers),
             maxPlayers,
             coachName: coach?.name,
             ballLevel: ((session as any).targetBallLevel || playerBallLevel).toUpperCase(),
             participants,
+            isEnrolled,
           });
         }
       }
