@@ -105,13 +105,11 @@ function PlayerHomeContent() {
   };
 
   const handleWalletPress = () => {
-    // Navigate to profile which shows credits info
-    navigation.navigate("Profile");
+    navigation.navigate("ParentCreditStore");
   };
 
   const handleSquadPress = () => {
-    // Navigate to community/social tab for squad
-    navigation.navigate("Community");
+    navigation.navigate("FamilyLobby");
   };
 
   const handleBookLesson = () => {
