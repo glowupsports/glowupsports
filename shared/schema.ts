@@ -800,6 +800,51 @@ export const insertOpenMatchSlotSchema = createInsertSchema(openMatchSlots).omit
 export type InsertOpenMatchSlot = z.infer<typeof insertOpenMatchSlotSchema>;
 export type OpenMatchSlot = typeof openMatchSlots.$inferSelect;
 
+// Match Requests - For players looking for matches without a court booking
+export const matchRequests = pgTable("match_requests", {
+  id: varchar("id")
+    .primaryKey()
+    .default(sql`gen_random_uuid()`),
+  playerId: varchar("player_id").references(() => players.id).notNull(),
+  academyId: varchar("academy_id").references(() => academies.id),
+  
+  // Match details
+  matchType: text("match_type").default("singles"), // singles | doubles
+  title: text("title"),
+  description: text("description"),
+  
+  // Preferred date/time
+  preferredDate: date("preferred_date"),
+  preferredTime: text("preferred_time"), // "18:00"
+  
+  // Skill matching
+  requiredLevelMin: integer("required_level_min").default(1),
+  requiredLevelMax: integer("required_level_max").default(9),
+  requiredBallLevel: text("required_ball_level"), // For kids: blue | red | orange | green | yellow | glow
+  isAdult: boolean("is_adult").default(true),
+  
+  // Capacity for doubles
+  maxPlayers: integer("max_players").default(2),
+  
+  // Status
+  status: text("status").default("open"), // open | matched | cancelled | expired
+  
+  // Match result (when matched)
+  matchedWithPlayerId: varchar("matched_with_player_id").references(() => players.id),
+  matchedAt: timestamp("matched_at"),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => ({
+  playerIdx: index("match_requests_player_idx").on(table.playerId),
+  statusIdx: index("match_requests_status_idx").on(table.status),
+  dateIdx: index("match_requests_date_idx").on(table.preferredDate),
+}));
+
+export const insertMatchRequestSchema = createInsertSchema(matchRequests).omit({ id: true, createdAt: true, updatedAt: true });
+export type InsertMatchRequest = z.infer<typeof insertMatchRequestSchema>;
+export type MatchRequest = typeof matchRequests.$inferSelect;
+
 // ==================== SMART AVAILABILITY (Phase 4) ====================
 
 // Player Booking Preferences

@@ -37,6 +37,7 @@ import BrowseGroupLessonsScreen from "@/player/screens/BrowseGroupLessonsScreen"
 import MyLessonRequestsScreen from "@/player/screens/MyLessonRequestsScreen";
 import PlayerFinderScreen from "@/player/screens/PlayerFinderScreen";
 import GlowLeaderboardScreen from "@/player/screens/GlowLeaderboardScreen";
+import CreateMatchScreen from "@/player/screens/CreateMatchScreen";
 import FriendsListScreen from "@/player/screens/FriendsListScreen";
 import GroupsScreen from "@/player/screens/GroupsScreen";
 import GroupDetailScreen from "@/player/screens/GroupDetailScreen";
@@ -142,6 +143,7 @@ export type PlayerStackParamList = {
   XPHistory: undefined;
   LevelUpHistory: undefined;
   OpenMatches: undefined;
+  CreateMatch: undefined;
   BookingPreferences: undefined;
   BookingInvites: undefined;
   FamilyLobby: undefined;
@@ -771,6 +773,18 @@ function PlayerStackNavigator() {
           presentation: "card",
           headerShown: true,
           headerTitle: "Open Matches",
+          headerStyle: { backgroundColor: '#090E17' },
+          headerTintColor: '#CCFF00',
+          headerTitleStyle: { color: '#ffffff', fontWeight: '600' },
+        }}
+      />
+      <Stack.Screen 
+        name="CreateMatch" 
+        component={CreateMatchScreen}
+        options={{
+          presentation: "card",
+          headerShown: true,
+          headerTitle: "Find a Match",
           headerStyle: { backgroundColor: '#090E17' },
           headerTintColor: '#CCFF00',
           headerTitleStyle: { color: '#ffffff', fontWeight: '600' },

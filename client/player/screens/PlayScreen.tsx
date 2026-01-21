@@ -672,7 +672,7 @@ export default function PlayScreen() {
           style={styles.findMatchButton}
           onPress={() => {
             Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-            navigation.navigate("PlayerFinder" as never);
+            navigation.navigate("CreateMatch" as never);
           }}
         >
           <LinearGradient

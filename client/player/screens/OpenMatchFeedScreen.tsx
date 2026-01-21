@@ -195,18 +195,7 @@ export default function OpenMatchFeedScreen() {
 
   return (
     <LockedScreen featureKey="match_preparation">
-      <View style={[styles.container, { paddingTop: insets.top }]}>
-        <View style={styles.header}>
-          <Pressable onPress={() => navigation.goBack()} style={styles.backButton}>
-            <Ionicons name="chevron-back" size={28} color={Colors.dark.text} />
-          </Pressable>
-          <View style={styles.headerCenter}>
-            <Text style={styles.headerTitle}>Open Matches</Text>
-            <Text style={styles.headerSubtitle}>Find players to play with</Text>
-          </View>
-          <View style={styles.headerPlaceholder} />
-        </View>
-
+      <View style={styles.container}>
         <View style={styles.filters}>
           {(["all", "singles", "doubles"] as FilterType[]).map((filter) => (
             <Pressable

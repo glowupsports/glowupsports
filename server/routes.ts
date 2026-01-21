@@ -40,6 +40,7 @@ import {
   bookingInviteGuests,
   openMatches,
   openMatchSlots,
+  matchRequests,
   playerBookingPreferences,
   courtAvailabilitySnapshots,
   coachSettings,
@@ -25574,6 +25575,149 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Leave open match error:", error);
       res.status(500).json({ error: "Failed to leave match" });
+    }
+  });
+
+
+  // ==================== MATCH REQUESTS (Tinder-style Match Finding) ====================
+
+  // Create a match request
+  app.post("/api/play/create-match-request", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const playerId = req.user?.playerId;
+      const academyId = req.user?.academyId;
+
+      if (!playerId) {
+        return res.status(401).json({ error: "Player profile required" });
+      }
+
+      const {
+        matchType,
+        title,
+        description,
+        preferredDate,
+        preferredTime,
+        requiredLevelMin,
+        requiredLevelMax,
+        requiredBallLevel,
+        maxPlayers,
+      } = req.body;
+
+      const [request] = await db.insert(matchRequests).values({
+        playerId,
+        academyId,
+        matchType: matchType || "singles",
+        title: title || `Looking for ${matchType || "singles"} partner`,
+        description,
+        preferredDate,
+        preferredTime,
+        requiredLevelMin: requiredLevelMin || 1,
+        requiredLevelMax: requiredLevelMax || 9,
+        requiredBallLevel,
+        maxPlayers: maxPlayers || (matchType === "doubles" ? 4 : 2),
+        status: "open",
+      }).returning();
+
+      console.log("[MatchRequest] Created:", request.id, "by player:", playerId);
+      res.status(201).json(request);
+    } catch (error) {
+      console.error("Create match request error:", error);
+      res.status(500).json({ error: "Failed to create match request" });
+    }
+  });
+
+  // Get all open match requests
+  app.get("/api/play/match-requests", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const academyId = req.user?.academyId;
+      const playerId = req.user?.playerId;
+
+      const requests = await db
+        .select()
+        .from(matchRequests)
+        .where(
+          and(
+            eq(matchRequests.status, "open"),
+            academyId ? eq(matchRequests.academyId, academyId) : undefined,
+            playerId ? ne(matchRequests.playerId, playerId) : undefined
+          )
+        )
+        .orderBy(desc(matchRequests.createdAt));
+
+      // Enrich with player info
+      const enrichedRequests = await Promise.all(requests.map(async (request) => {
+        const [player] = await db.select().from(players).where(eq(players.id, request.playerId));
+        return {
+          ...request,
+          player: player ? {
+            id: player.id,
+            name: player.name,
+            profilePhotoUrl: player.profilePhotoUrl,
+            ballLevel: player.ballLevel,
+          } : null,
+        };
+      }));
+
+      res.json(enrichedRequests);
+    } catch (error) {
+      console.error("Get match requests error:", error);
+      res.status(500).json({ error: "Failed to get match requests" });
+    }
+  });
+
+  // Get my match requests
+  app.get("/api/play/my-match-requests", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const playerId = req.user?.playerId;
+
+      if (!playerId) {
+        return res.status(401).json({ error: "Player profile required" });
+      }
+
+      const requests = await db
+        .select()
+        .from(matchRequests)
+        .where(eq(matchRequests.playerId, playerId))
+        .orderBy(desc(matchRequests.createdAt));
+
+      res.json(requests);
+    } catch (error) {
+      console.error("Get my match requests error:", error);
+      res.status(500).json({ error: "Failed to get match requests" });
+    }
+  });
+
+  // Cancel a match request
+  app.post("/api/play/match-requests/:requestId/cancel", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const playerId = req.user?.playerId;
+      const { requestId } = req.params;
+
+      if (!playerId) {
+        return res.status(401).json({ error: "Player profile required" });
+      }
+
+      const [request] = await db
+        .select()
+        .from(matchRequests)
+        .where(and(
+          eq(matchRequests.id, requestId),
+          eq(matchRequests.playerId, playerId)
+        ));
+
+      if (!request) {
+        return res.status(404).json({ error: "Match request not found" });
+      }
+
+      await db
+        .update(matchRequests)
+        .set({ status: "cancelled", updatedAt: new Date() })
+        .where(eq(matchRequests.id, requestId));
+
+      res.json({ success: true, message: "Match request cancelled" });
+    } catch (error) {
+      console.error("Cancel match request error:", error);
+      res.status(500).json({ error: "Failed to cancel match request" });
     }
   });
 
