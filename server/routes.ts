@@ -26661,6 +26661,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
           .where(eq(commentLikesTable.commentId, comment.id));
         const likeCount = Number(likeResult?.count || 0);
         
+        // Get replyToName if this is a reply
+        let replyToName: string | null = null;
+        if (comment.parentId) {
+          const parentComment = rawComments.find(c => c.id === comment.parentId);
+          if (parentComment) {
+            try {
+              const [parentUser] = await db.select().from(users).where(eq(users.id, parentComment.authorId)).limit(1);
+              if (parentUser) {
+                replyToName = parentUser.username;
+                if (parentUser.playerId) {
+                  const [parentPlayer] = await db.select().from(players).where(eq(players.id, parentUser.playerId)).limit(1);
+                  if (parentPlayer) {
+                    replyToName = parentPlayer.name;
+                  }
+                }
+              }
+            } catch (e) {
+              // Keep null
+            }
+          }
+        }
         return {
           id: comment.id,
           postId: comment.postId,
@@ -26669,6 +26690,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           isQuickComment: comment.isQuickComment,
           quickCommentType: comment.quickCommentType,
           parentId: comment.parentId,
+          replyToName,
           isHidden: comment.isHidden,
           createdAt: comment.createdAt,
           author: authorData,

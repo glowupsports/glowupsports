@@ -503,8 +503,7 @@ function CommentsModal({ visible, postId, onClose }: CommentsModalProps) {
     try {
       const payload: any = { text: commentText.trim() };
       if (replyingTo) {
-        payload.replyToId = replyingTo.id;
-        payload.replyToName = replyingTo.name;
+        payload.parentId = replyingTo.id;
       }
       await apiRequest("POST", `/api/social/posts/${postId}/comments`, payload);
       setCommentText("");
