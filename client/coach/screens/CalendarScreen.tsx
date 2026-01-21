@@ -307,12 +307,20 @@ function DraggableSessionBlock({
           end={{ x: 1, y: 1 }}
           style={dragStyles.sessionGradient}
         >
-          <Text style={dragStyles.sessionText} numberOfLines={1}>
-            {sessionLabel}
-          </Text>
-          <Text style={dragStyles.sessionTime} numberOfLines={1}>
-            {formattedTime}
-          </Text>
+          {sessionLabel.includes("\n") ? (
+            <>
+              <Text style={dragStyles.sessionText} numberOfLines={1}>
+                {sessionLabel.split("\n")[0]}
+              </Text>
+              <Text style={dragStyles.sessionPlayerName} numberOfLines={1}>
+                {sessionLabel.split("\n")[1]}
+              </Text>
+            </>
+          ) : (
+            <Text style={dragStyles.sessionText} numberOfLines={1}>
+              {sessionLabel}
+            </Text>
+          )}
         </LinearGradient>
       </Animated.View>
     </GestureDetector>
@@ -506,6 +514,14 @@ const dragStyles = StyleSheet.create({
     color: "rgba(0, 0, 0, 0.9)",
     letterSpacing: 0.3,
     marginTop: 1,
+  },
+  sessionPlayerName: {
+    fontSize: 9,
+    fontWeight: "600",
+    color: "rgba(0, 0, 0, 0.7)",
+    letterSpacing: 0.2,
+    marginTop: 1,
+    textTransform: "capitalize",
   },
   weekSessionBlock: {
     position: "absolute",
@@ -1861,7 +1877,7 @@ export default function CalendarScreen() {
                                           session.sessionType === "group" ? "G" :
                                           session.sessionType === "physical" ? "Ph" : "";
                         const playerName = session.players?.[0]?.name?.split(" ")[0] || "";
-                        const sessionLabel = playerName ? `${typeLabel} • ${playerName}` : typeLabel;
+                        const sessionLabel = playerName ? `${typeLabel}\n${playerName}` : typeLabel;
                         const gradientColors = getSessionTypeGradient(session.sessionType);
                         return (
                           <DraggableSessionBlock

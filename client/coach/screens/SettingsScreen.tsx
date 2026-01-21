@@ -4,6 +4,7 @@ import {
   Text,
   StyleSheet,
   Pressable,
+  TouchableOpacity,
   ScrollView,
   Switch,
   Alert,
@@ -1368,16 +1369,17 @@ export default function SettingsScreen() {
                             <Text style={styles.travelTimeValue}>{tt.travelTimeMinutes} min</Text>
                           </View>
                         </View>
-                        <Pressable
+                        <TouchableOpacity
+                          activeOpacity={0.5}
                           onPress={() => {
                             Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
                             handleDeleteTravelTime(tt.id, getLocationName(tt.fromLocationId), getLocationName(tt.toLocationId));
                           }}
                           style={styles.travelTimeDeleteBtn}
-                          hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+                          hitSlop={{ top: 16, bottom: 16, left: 16, right: 16 }}
                         >
-                          <Ionicons name="trash-outline" size={20} color={Colors.dark.error} />
-                        </Pressable>
+                          <Ionicons name="trash-outline" size={22} color={Colors.dark.error} />
+                        </TouchableOpacity>
                       </View>
                     ))}
                   </View>
