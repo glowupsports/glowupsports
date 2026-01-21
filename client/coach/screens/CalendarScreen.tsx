@@ -1872,10 +1872,10 @@ export default function CalendarScreen() {
                         const sessionStart = parseUTCTimestamp(session.startTime);
                         const isPast = sessionEnd < now;
                         const isActive = now >= sessionStart && now < sessionEnd;
-                        const typeLabel = session.sessionType === "private" ? "P" :
-                                          session.sessionType === "semi_private" ? "S" :
-                                          session.sessionType === "group" ? "G" :
-                                          session.sessionType === "physical" ? "Ph" : "";
+                        const typeLabel = session.sessionType === "private" ? "Private" :
+                                          session.sessionType === "semi_private" ? "Semi Private" :
+                                          session.sessionType === "group" ? "Group" :
+                                          session.sessionType === "physical" ? "Physical" : "";
                         const playerName = session.players?.[0]?.name?.split(" ")[0] || "";
                         const sessionLabel = playerName ? `${typeLabel}\n${playerName}` : typeLabel;
                         const gradientColors = getSessionTypeGradient(session.sessionType);

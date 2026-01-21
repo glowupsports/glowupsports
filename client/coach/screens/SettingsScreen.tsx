@@ -231,6 +231,8 @@ export default function SettingsScreen() {
   const [testPushLoading, setTestPushLoading] = useState(false);
   const [testBookingLoading, setTestBookingLoading] = useState(false);
   const [showTravelTimeModal, setShowTravelTimeModal] = useState(false);
+  const [showDeleteTravelTimeModal, setShowDeleteTravelTimeModal] = useState(false);
+  const [travelTimeToDelete, setTravelTimeToDelete] = useState<{ id: string; fromName: string; toName: string } | null>(null);
   const [fromLocationId, setFromLocationId] = useState<string>("");
   const [toLocationId, setToLocationId] = useState<string>("");
   const [fromCourtId, setFromCourtId] = useState<string>("");
@@ -685,14 +687,16 @@ export default function SettingsScreen() {
   };
 
   const handleDeleteTravelTime = (id: string, fromName: string, toName: string) => {
-    Alert.alert(
-      "Delete Travel Time",
-      `Remove travel time between ${fromName} and ${toName}?`,
-      [
-        { text: "Cancel", style: "cancel" },
-        { text: "Delete", style: "destructive", onPress: () => deleteTravelTimeMutation.mutate(id) },
-      ]
-    );
+    setTravelTimeToDelete({ id, fromName, toName });
+    setShowDeleteTravelTimeModal(true);
+  };
+
+  const confirmDeleteTravelTime = () => {
+    if (travelTimeToDelete) {
+      deleteTravelTimeMutation.mutate(travelTimeToDelete.id);
+      setShowDeleteTravelTimeModal(false);
+      setTravelTimeToDelete(null);
+    }
   };
 
   const getLocationName = (id: string) => {
@@ -1854,6 +1858,43 @@ export default function SettingsScreen() {
           </View>
         </View>
       </Modal>
+
+      {/* Delete Travel Time Confirmation Modal */}
+      <Modal
+        visible={showDeleteTravelTimeModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowDeleteTravelTimeModal(false)}
+      >
+        <View style={styles.deleteModalOverlay}>
+          <View style={styles.deleteModalContent}>
+            <View style={styles.deleteModalIconWrapper}>
+              <Ionicons name="trash" size={32} color={Colors.dark.error} />
+            </View>
+            <Text style={styles.deleteModalTitle}>Delete Travel Time?</Text>
+            <Text style={styles.deleteModalMessage}>
+              Remove travel time between {travelTimeToDelete?.fromName} and {travelTimeToDelete?.toName}?
+            </Text>
+            <View style={styles.deleteModalButtons}>
+              <Pressable
+                style={styles.deleteModalCancelBtn}
+                onPress={() => {
+                  setShowDeleteTravelTimeModal(false);
+                  setTravelTimeToDelete(null);
+                }}
+              >
+                <Text style={styles.deleteModalCancelText}>Cancel</Text>
+              </Pressable>
+              <Pressable
+                style={styles.deleteModalConfirmBtn}
+                onPress={confirmDeleteTravelTime}
+              >
+                <Text style={styles.deleteModalConfirmText}>Delete</Text>
+              </Pressable>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -2582,6 +2623,72 @@ const styles = StyleSheet.create({
     marginLeft: Spacing.sm,
     backgroundColor: "rgba(255, 59, 48, 0.12)",
     borderRadius: BorderRadius.sm,
+  },
+  deleteModalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0, 0, 0, 0.8)",
+    justifyContent: "center",
+    alignItems: "center",
+    padding: Spacing.xl,
+  },
+  deleteModalContent: {
+    backgroundColor: Colors.dark.backgroundElevated,
+    borderRadius: BorderRadius.lg,
+    padding: Spacing.xl,
+    width: "100%",
+    maxWidth: 320,
+    alignItems: "center",
+  },
+  deleteModalIconWrapper: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: "rgba(255, 59, 48, 0.15)",
+    justifyContent: "center",
+    alignItems: "center",
+    marginBottom: Spacing.lg,
+  },
+  deleteModalTitle: {
+    fontSize: 18,
+    fontWeight: "700",
+    color: Colors.dark.text,
+    marginBottom: Spacing.sm,
+  },
+  deleteModalMessage: {
+    fontSize: 14,
+    color: Colors.dark.textSecondary,
+    textAlign: "center",
+    marginBottom: Spacing.xl,
+    lineHeight: 20,
+  },
+  deleteModalButtons: {
+    flexDirection: "row",
+    gap: Spacing.md,
+    width: "100%",
+  },
+  deleteModalCancelBtn: {
+    flex: 1,
+    paddingVertical: Spacing.md,
+    borderRadius: BorderRadius.md,
+    backgroundColor: Colors.dark.backgroundRoot,
+    alignItems: "center",
+  },
+  deleteModalCancelText: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: Colors.dark.text,
+  },
+  deleteModalConfirmBtn: {
+    flex: 1,
+    paddingVertical: Spacing.md,
+    borderRadius: BorderRadius.md,
+    backgroundColor: Colors.dark.error,
+    alignItems: "center",
+  },
+  deleteModalConfirmText: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: "#FFFFFF",
   },
   locationPicker: {
     flexDirection: "row",
