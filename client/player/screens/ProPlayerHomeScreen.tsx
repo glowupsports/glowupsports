@@ -1,14 +1,13 @@
 import React, { useCallback, useState } from "react";
 import { View, Text, StyleSheet, ScrollView, ActivityIndicator, RefreshControl } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { useFocusEffect } from "@react-navigation/native";
+import { useFocusEffect, useNavigation } from "@react-navigation/native";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Spacing, Backgrounds, GlowColors, BorderRadius, Colors } from "@/constants/theme";
 import { useAuth } from "@/coach/context/AuthContext";
 import { usePlayerDrawer } from "@/player/navigation/PlayerNavigator";
 import { PlayerStateProvider } from "@/player/context/PlayerStateContext";
 import { ProPlayerCard } from "@/player/components/ProPlayerCard";
-import { OnAirIndicator } from "@/player/components/OnAirIndicator";
 import { PlayersNearYouRow, OpenSessionsRow, TrainingSessionsRow } from "@/player/components/DiscoveryRows";
 import { MiniFeed } from "@/player/components/MiniFeed";
 import { TrackingBanner } from "@/player/components/TrackingBanner";
@@ -99,13 +98,21 @@ function PlayerHomeContent() {
 
   const { player, credits } = dashboardData;
 
+  const navigation = useNavigation<any>();
+  
   const handleAvatarPress = () => {
     openDrawer();
   };
 
-  const handleWalletPress = () => {};
+  const handleWalletPress = () => {
+    // Navigate to profile which shows credits info
+    navigation.navigate("Profile");
+  };
 
-  const handleSquadPress = () => {};
+  const handleSquadPress = () => {
+    // Navigate to community/social tab for squad
+    navigation.navigate("Community");
+  };
 
   const handleBookLesson = () => {
     setShowBookingWizard(true);
@@ -137,7 +144,7 @@ function PlayerHomeContent() {
           />
         }
       >
-        {/* PLAYER HEADER - Identity card with ON AIR indicator */}
+        {/* PLAYER HEADER - Identity card */}
         <View style={styles.headerSection}>
           <ProPlayerCard
             player={player}
@@ -147,9 +154,6 @@ function PlayerHomeContent() {
             onSquadPress={handleSquadPress}
             showSquadSwitch={true}
           />
-          <View style={styles.onAirBadge}>
-            <OnAirIndicator size="small" />
-          </View>
         </View>
 
         {/* TENNIS NEWS - Below header, above Today is Open */}
