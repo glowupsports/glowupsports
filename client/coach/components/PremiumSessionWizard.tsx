@@ -134,6 +134,7 @@ const BALL_LEVELS = [
   { id: "orange" as BallLevel, label: "Orange", color: Colors.dark.ballOrange, description: "Developing", image: "orange_tennis_ball_icon.png" },
   { id: "green" as BallLevel, label: "Green", color: Colors.dark.ballGreen, description: "Intermediate", image: "green_tennis_ball_icon.png" },
   { id: "yellow" as BallLevel, label: "Yellow", color: Colors.dark.ballYellow, description: "Advanced", image: "yellow_tennis_ball_icon.png" },
+  { id: "glow" as BallLevel, label: "Glow", color: "#C8FF3D", description: "Elite", image: "yellow_tennis_ball_icon.png" },
 ];
 
 const SKILL_LEVELS = [
