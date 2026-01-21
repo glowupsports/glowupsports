@@ -113,7 +113,6 @@ export default function PlayScreen() {
   const [activeTab, setActiveTab] = useState<typeof TAB_OPTIONS[number]>("Group Lessons");
   const [joiningSessionId, setJoiningSessionId] = useState<string | null>(null);
   const [currentTime, setCurrentTime] = useState(new Date());
-  const [showAllPlayers, setShowAllPlayers] = useState(false);
   const [playerSearchQuery, setPlayerSearchQuery] = useState("");
   const [selectedBallLevel, setSelectedBallLevel] = useState<string>("my_level");
   const [showOtherLevels, setShowOtherLevels] = useState(false);
@@ -192,13 +191,8 @@ export default function PlayScreen() {
       });
     }
     
-    // Limit to 6 unless showAllPlayers is true (AFTER filtering)
-    if (!showAllPlayers && !playerSearchQuery.trim()) {
-      filtered = filtered.slice(0, 6);
-    }
-    
     return filtered;
-  }, [nearbyPlayers, playerSearchQuery, showAllPlayers, selectedPlayerLevel]);
+  }, [nearbyPlayers, playerSearchQuery, selectedPlayerLevel]);
 
   const DAY_LABELS = ["all", "mon", "tue", "wed", "thu", "fri", "sat", "sun"] as const;
   
@@ -899,20 +893,6 @@ export default function PlayScreen() {
                   <Text style={styles.playerCount}>({nearbyPlayers.length})</Text>
                 ) : null}
               </View>
-              <Pressable 
-                style={styles.viewAllButton}
-                onPress={() => {
-                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                  setShowAllPlayers(!showAllPlayers);
-                }}
-              >
-                <Text style={styles.viewAllText}>{showAllPlayers ? "Show Less" : "View All"}</Text>
-                <Ionicons 
-                  name={showAllPlayers ? "chevron-up" : "chevron-down"} 
-                  size={14} 
-                  color={Colors.dark.primary} 
-                />
-              </Pressable>
             </View>
             
             {/* Discovery Filter Chips */}
