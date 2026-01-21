@@ -246,13 +246,13 @@ function setupExpoDevProxy(app: express.Application) {
       return next();
     }
     // Skip proxy for static file requests - let static middleware handle them
+    // BUT always proxy bundle requests to Expo dev server
+    if (req.path.includes('.bundle')) {
+      log(`[Proxy] Proxying bundle request to Expo: ${req.path}`);
+      return expoProxy(req, res, next);
+    }
     if (req.path === '/' || req.path.endsWith('.html') || req.path.endsWith('.js') || req.path.endsWith('.css') || req.path.endsWith('.json') || req.path.endsWith('.png') || req.path.endsWith('.ico')) {
       log(`[Proxy] Skipping proxy for static file: ${req.path}`);
-      return next();
-    }
-    // Skip proxy for bundle requests - these fail when expo dev server isn't running
-    if (req.path.includes('index.bundle') || req.path.includes('.bundle')) {
-      log(`[Proxy] Skipping proxy for bundle: ${req.path} - Expo dev server may not be running`);
       return next();
     }
     return expoProxy(req, res, next);
