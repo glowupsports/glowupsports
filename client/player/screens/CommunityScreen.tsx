@@ -722,8 +722,10 @@ function CommentsModal({ visible, postId, onClose }: CommentsModalProps) {
 interface CreateMomentModalProps {
   visible: boolean;
   onClose: () => void;
-  onSubmit: (data: { contextType: string; caption: string; mediaUrls: string[]; mediaTypes: string[] }) => void;
+  onSubmit: (data: { contextType: string; caption: string; mediaUrls: string[]; mediaTypes: string[]; visibility: string; groupId?: string }) => void;
   isSubmitting: boolean;
+  userRole?: string;
+  userGroups?: { id: string; name: string; type: string }[];
 }
 
 interface SelectedMedia {
@@ -731,12 +733,23 @@ interface SelectedMedia {
   type: "image" | "video";
 }
 
-function CreateMomentModal({ visible, onClose, onSubmit, isSubmitting }: CreateMomentModalProps) {
+function CreateMomentModal({ visible, onClose, onSubmit, isSubmitting, userRole, userGroups }: CreateMomentModalProps) {
   const insets = useSafeAreaInsets();
-  const [step, setStep] = useState<"context" | "content">("context");
+  const [step, setStep] = useState<"context" | "group_select" | "content">("context");
   const [selectedContext, setSelectedContext] = useState<ContextType | null>(null);
+  const [selectedGroupId, setSelectedGroupId] = useState<string | null>(null);
+  const [selectedGroupName, setSelectedGroupName] = useState<string | null>(null);
   const [caption, setCaption] = useState("");
   const [selectedMedia, setSelectedMedia] = useState<SelectedMedia | null>(null);
+  
+  // Filter context options based on user role
+  const isAdminOrCoach = userRole === "admin" || userRole === "coach" || userRole === "platform_owner" || userRole === "academy_owner";
+  const availableContextOptions = CONTEXT_OPTIONS.filter(option => {
+    // Event is only for admin/coach/owner
+    if (option.type === "event") return isAdminOrCoach;
+    // Achievement is typically auto-generated, but allow for now
+    return true;
+  });
 
   const handlePickMedia = async () => {
     const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -853,11 +866,22 @@ function CreateMomentModal({ visible, onClose, onSubmit, isSubmitting }: CreateM
     }
     
     console.log("[Social] Creating post with mediaUrls:", uploadedMediaUrls);
+    
+    // Determine visibility based on context type
+    let visibility = "friends"; // default for Training, Match, Free Play
+    if (selectedContext === "group") {
+      visibility = "group";
+    } else if (selectedContext === "event" || selectedContext === "achievement") {
+      visibility = "academy";
+    }
+    
     onSubmit({
       contextType: selectedContext,
       caption: caption.trim(),
       mediaUrls: uploadedMediaUrls,
       mediaTypes: uploadedMediaTypes,
+      visibility,
+      groupId: selectedGroupId || undefined,
     });
     setIsUploading(false);
   };
@@ -865,6 +889,8 @@ function CreateMomentModal({ visible, onClose, onSubmit, isSubmitting }: CreateM
   const handleClose = () => {
     setStep("context");
     setSelectedContext(null);
+    setSelectedGroupId(null);
+    setSelectedGroupName(null);
     setCaption("");
     setSelectedMedia(null);
     onClose();
@@ -873,6 +899,18 @@ function CreateMomentModal({ visible, onClose, onSubmit, isSubmitting }: CreateM
   const handleSelectContext = (context: ContextType) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     setSelectedContext(context);
+    // If Group is selected, show group selection step
+    if (context === "group" && userGroups && userGroups.length > 0) {
+      setStep("group_select");
+    } else {
+      setStep("content");
+    }
+  };
+
+  const handleSelectGroup = (groupId: string, groupName: string) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    setSelectedGroupId(groupId);
+    setSelectedGroupName(groupName);
     setStep("content");
   };
 
@@ -897,7 +935,7 @@ function CreateMomentModal({ visible, onClose, onSubmit, isSubmitting }: CreateM
             <Ionicons name="close" size={24} color={Colors.dark.text} />
           </Pressable>
           <ThemedText style={styles.modalTitle}>
-            {step === "context" ? "New Moment" : "Share Your Moment"}
+            {step === "context" ? "New Moment" : step === "group_select" ? "Select Group" : "Share Your Moment"}
           </ThemedText>
           {step === "content" ? (
             <Pressable 
@@ -923,7 +961,7 @@ function CreateMomentModal({ visible, onClose, onSubmit, isSubmitting }: CreateM
           <Animated.View entering={FadeIn} style={styles.contextStep}>
             <ThemedText style={styles.contextPrompt}>What are you sharing?</ThemedText>
             <View style={styles.contextGrid}>
-              {CONTEXT_OPTIONS.map((option) => (
+              {availableContextOptions.map((option) => (
                 <Pressable
                   key={option.type}
                   style={styles.contextOption}
@@ -937,6 +975,41 @@ function CreateMomentModal({ visible, onClose, onSubmit, isSubmitting }: CreateM
               ))}
             </View>
           </Animated.View>
+        ) : step === "group_select" ? (
+          <Animated.View entering={FadeIn} style={styles.contextStep}>
+            <ThemedText style={styles.contextPrompt}>Which group are you posting to?</ThemedText>
+            <ScrollView style={styles.groupList} showsVerticalScrollIndicator={false}>
+              {userGroups && userGroups.length > 0 ? (
+                userGroups.map((group) => (
+                  <Pressable
+                    key={group.id}
+                    style={styles.groupOption}
+                    onPress={() => handleSelectGroup(group.id, group.name)}
+                  >
+                    <View style={[styles.groupIconContainer, { backgroundColor: "#4ECDC420" }]}>
+                      <Ionicons name="people" size={24} color="#4ECDC4" />
+                    </View>
+                    <View style={styles.groupInfo}>
+                      <ThemedText style={styles.groupName}>{group.name}</ThemedText>
+                      <ThemedText style={styles.groupType}>
+                        {group.type === "training" ? "Training Group" : "Community Group"}
+                      </ThemedText>
+                    </View>
+                    <Ionicons name="chevron-forward" size={20} color={Colors.dark.textMuted} />
+                  </Pressable>
+                ))
+              ) : (
+                <View style={styles.noGroupsMessage}>
+                  <Ionicons name="people-outline" size={48} color={Colors.dark.textMuted} />
+                  <ThemedText style={styles.noGroupsText}>You're not in any groups yet</ThemedText>
+                </View>
+              )}
+            </ScrollView>
+            <Pressable style={styles.backButton} onPress={() => setStep("context")}>
+              <Ionicons name="arrow-back" size={20} color={Colors.dark.text} />
+              <ThemedText style={styles.backButtonText}>Back</ThemedText>
+            </Pressable>
+          </Animated.View>
         ) : (
           <Animated.View entering={SlideInUp} style={styles.contentStep}>
             <View style={styles.selectedContextBadge}>
@@ -949,6 +1022,7 @@ function CreateMomentModal({ visible, onClose, onSubmit, isSubmitting }: CreateM
                   />
                   <ThemedText style={styles.selectedContextText}>
                     {CONTEXT_OPTIONS.find(c => c.type === selectedContext)?.label}
+                    {selectedGroupName ? ` → ${selectedGroupName}` : ""}
                   </ThemedText>
                   <Pressable onPress={() => setStep("context")}>
                     <Ionicons name="pencil" size={14} color={Colors.dark.textSecondary} />
@@ -1032,6 +1106,11 @@ export default function CommunityScreen() {
     queryKey: ["/api/social/highlights"],
   });
   
+  // Fetch user's groups for group post selection
+  const { data: userGroups = [] } = useQuery<{ id: string; name: string; type: string }[]>({
+    queryKey: ["/api/social/groups"],
+  });
+  
   const reactMutation = useMutation({
     mutationFn: async ({ postId, type }: { postId: string; type: string }) => {
       return apiRequest("POST", `/api/social/posts/${postId}/reactions`, { reactionType: type });
@@ -1042,13 +1121,14 @@ export default function CommunityScreen() {
   });
 
   const createPostMutation = useMutation({
-    mutationFn: async (data: { contextType: string; caption: string; mediaUrls: string[]; mediaTypes: string[] }) => {
+    mutationFn: async (data: { contextType: string; caption: string; mediaUrls: string[]; mediaTypes: string[]; visibility: string; groupId?: string }) => {
       return apiRequest("POST", "/api/social/posts", {
         contextType: data.contextType,
         caption: data.caption,
         mediaUrls: data.mediaUrls,
         mediaTypes: data.mediaTypes.length > 0 ? data.mediaTypes : data.mediaUrls.map(() => "image"),
-        visibility: "academy",
+        visibility: data.visibility,
+        groupId: data.groupId,
       });
     },
     onSuccess: () => {
@@ -1211,6 +1291,8 @@ export default function CommunityScreen() {
         onClose={() => setShowCreateModal(false)}
         onSubmit={(data) => createPostMutation.mutate(data)}
         isSubmitting={createPostMutation.isPending}
+        userRole={user?.role}
+        userGroups={userGroups}
       />
       
       <CommentsModal
@@ -1608,6 +1690,62 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: "500",
     color: Colors.dark.text,
+  },
+  groupList: {
+    flex: 1,
+    paddingHorizontal: Spacing.lg,
+  },
+  groupOption: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: Colors.dark.backgroundSecondary,
+    borderRadius: BorderRadius.md,
+    padding: Spacing.md,
+    marginBottom: Spacing.sm,
+    gap: Spacing.md,
+  },
+  groupIconContainer: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  groupInfo: {
+    flex: 1,
+  },
+  groupName: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: Colors.dark.text,
+    marginBottom: 2,
+  },
+  groupType: {
+    fontSize: 13,
+    color: Colors.dark.textSecondary,
+  },
+  noGroupsMessage: {
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 48,
+  },
+  noGroupsText: {
+    fontSize: 15,
+    color: Colors.dark.textMuted,
+    marginTop: Spacing.md,
+  },
+  backButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: Spacing.xs,
+    paddingVertical: Spacing.md,
+    marginTop: Spacing.md,
+  },
+  backButtonText: {
+    fontSize: 15,
+    color: Colors.dark.text,
+    fontWeight: "500",
   },
   contentStep: {
     flex: 1,
