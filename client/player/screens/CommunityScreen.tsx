@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import {
   View,
   StyleSheet,
@@ -13,6 +13,7 @@ import {
   KeyboardAvoidingView,
   Platform,
   Share,
+  Dimensions,
 } from "react-native";
 import { Image } from "expo-image";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -22,7 +23,10 @@ import Ionicons from "@expo/vector-icons/Ionicons";
 import { LinearGradient } from "expo-linear-gradient";
 import * as ImagePicker from "expo-image-picker";
 import * as Haptics from "expo-haptics";
-import Animated, { FadeIn, FadeInDown, FadeOut, SlideInUp } from "react-native-reanimated";
+import Animated, { FadeIn, FadeInDown, FadeOut, SlideInUp, useSharedValue, useAnimatedStyle, withSpring } from "react-native-reanimated";
+
+const { height: SCREEN_HEIGHT } = Dimensions.get("window");
+const DRAWER_HEIGHT = Math.min(SCREEN_HEIGHT * 0.5, 400);
 import { useVideoPlayer, VideoView } from "expo-video";
 import { Colors, Spacing, BorderRadius, Backgrounds, GlowColors } from "@/constants/theme";
 import { ThemedText } from "@/components/ThemedText";
@@ -439,9 +443,24 @@ interface CommentsModalProps {
 
 function CommentsModal({ visible, postId, onClose }: CommentsModalProps) {
   const insets = useSafeAreaInsets();
+  const tabBarHeight = 85;
   const [commentText, setCommentText] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const queryClient = useQueryClient();
+  
+  const translateY = useSharedValue(DRAWER_HEIGHT);
+  
+  useEffect(() => {
+    if (visible) {
+      translateY.value = withSpring(0, { damping: 20, stiffness: 150 });
+    } else {
+      translateY.value = withSpring(DRAWER_HEIGHT, { damping: 20, stiffness: 150 });
+    }
+  }, [visible]);
+  
+  const animatedStyle = useAnimatedStyle(() => ({
+    transform: [{ translateY: translateY.value }],
+  }));
   
   // Fetch comments for this post
   const { data: comments = [], refetch } = useQuery<any[]>({
@@ -463,7 +482,6 @@ function CommentsModal({ visible, postId, onClose }: CommentsModalProps) {
       await apiRequest("POST", `/api/social/posts/${postId}/comments`, { text: commentText.trim() });
       setCommentText("");
       refetch();
-      // Also invalidate the main feed to update comment counts
       queryClient.invalidateQueries({ queryKey: ["/api/social/feed"] });
     } catch (error) {
       console.log("Comment error:", error);
@@ -475,34 +493,35 @@ function CommentsModal({ visible, postId, onClose }: CommentsModalProps) {
     }
   };
   
+  if (!visible) return null;
+  
   return (
-    <Modal
-      visible={visible}
-      animationType="slide"
-      presentationStyle="formSheet"
-      transparent={true}
-      onRequestClose={onClose}
-    >
-      <KeyboardAvoidingView 
-        behavior={Platform.OS === "ios" ? "padding" : "height"}
-        style={styles.modalContainer}
-      >
+    <>
+      <Pressable 
+        style={styles.drawerBackdrop} 
+        onPress={onClose}
+      />
+      <Animated.View style={[styles.commentsDrawer, animatedStyle, { bottom: tabBarHeight }]}>
         <LinearGradient
-          colors={[Colors.dark.backgroundRoot, "#0a1a2e", Colors.dark.backgroundRoot]}
+          colors={[Colors.dark.backgroundSecondary, Colors.dark.backgroundRoot]}
           style={StyleSheet.absoluteFill}
         />
         
-        <View style={[styles.modalHeader, { paddingTop: insets.top + Spacing.md }]}>
-          <Pressable onPress={onClose} style={{ padding: Spacing.sm }}>
-            <Ionicons name="close" size={24} color={Colors.dark.text} />
+        <View style={styles.drawerHandle}>
+          <View style={styles.drawerHandleBar} />
+        </View>
+        
+        <View style={styles.drawerHeader}>
+          <ThemedText style={styles.drawerTitle}>Comments</ThemedText>
+          <Pressable onPress={onClose} style={styles.drawerCloseButton}>
+            <Ionicons name="close" size={20} color={Colors.dark.text} />
           </Pressable>
-          <ThemedText style={styles.modalTitle}>Comments</ThemedText>
-          <View style={{ width: 32 }} />
         </View>
         
         <FlatList
           data={comments}
           keyExtractor={(item: any) => item.id}
+          style={{ flex: 1, maxHeight: DRAWER_HEIGHT - 140 }}
           renderItem={({ item }) => (
             <View style={styles.commentItem}>
               <View style={styles.commentAvatar}>
@@ -517,16 +536,15 @@ function CommentsModal({ visible, postId, onClose }: CommentsModalProps) {
             </View>
           )}
           ListEmptyComponent={
-            <View style={styles.emptyComments}>
-              <Ionicons name="chatbubble-outline" size={48} color={Colors.dark.textMuted} />
+            <View style={styles.emptyCommentsSmall}>
+              <Ionicons name="chatbubble-outline" size={32} color={Colors.dark.textMuted} />
               <ThemedText style={styles.emptyCommentsText}>No comments yet</ThemedText>
-              <ThemedText style={styles.emptyCommentsSubtext}>Be the first to comment!</ThemedText>
             </View>
           }
-          contentContainerStyle={styles.commentsList}
+          contentContainerStyle={{ paddingHorizontal: Spacing.md }}
         />
         
-        <View style={[styles.commentInputContainer, { paddingBottom: insets.bottom + Spacing.md }]}>
+        <View style={[styles.drawerInputContainer, { paddingBottom: insets.bottom > 0 ? insets.bottom : Spacing.sm }]}>
           <TextInput
             style={styles.commentInput}
             placeholder="Write a comment..."
@@ -547,8 +565,8 @@ function CommentsModal({ visible, postId, onClose }: CommentsModalProps) {
             )}
           </Pressable>
         </View>
-      </KeyboardAvoidingView>
-    </Modal>
+      </Animated.View>
+    </>
   );
 }
 
@@ -1842,5 +1860,64 @@ const styles = StyleSheet.create({
   },
   sendButtonDisabled: {
     backgroundColor: Colors.dark.primary + "50",
+  },
+  drawerBackdrop: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: "rgba(0,0,0,0.5)",
+    zIndex: 998,
+  },
+  commentsDrawer: {
+    position: "absolute",
+    left: 0,
+    right: 0,
+    height: DRAWER_HEIGHT,
+    borderTopLeftRadius: BorderRadius.xl,
+    borderTopRightRadius: BorderRadius.xl,
+    overflow: "hidden",
+    zIndex: 999,
+    borderWidth: 1,
+    borderColor: Colors.dark.border,
+    borderBottomWidth: 0,
+  },
+  drawerHandle: {
+    alignItems: "center",
+    paddingVertical: Spacing.sm,
+  },
+  drawerHandleBar: {
+    width: 40,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: Colors.dark.textMuted,
+  },
+  drawerHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingHorizontal: Spacing.md,
+    paddingBottom: Spacing.sm,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.dark.border,
+  },
+  drawerTitle: {
+    fontSize: 18,
+    fontWeight: "700",
+    color: Colors.dark.text,
+  },
+  drawerCloseButton: {
+    padding: Spacing.xs,
+  },
+  drawerInputContainer: {
+    flexDirection: "row",
+    alignItems: "flex-end",
+    gap: Spacing.sm,
+    paddingHorizontal: Spacing.md,
+    paddingTop: Spacing.sm,
+    borderTopWidth: 1,
+    borderTopColor: Colors.dark.border,
+  },
+  emptyCommentsSmall: {
+    alignItems: "center",
+    paddingVertical: Spacing.lg,
+    gap: Spacing.sm,
   },
 });
