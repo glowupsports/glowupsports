@@ -22318,7 +22318,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           lte(s.startTime, futureDate)
         ),
         orderBy: (s, { asc }) => [asc(s.startTime)],
-        limit: 20,
+        
       });
 
       // Enrich sessions with player count and player info
@@ -22436,7 +22436,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           eq(p.academyId, academyId || ""),
           ne(p.id, playerId)
         ),
-        limit: 20,
+        
       });
 
       // Build enriched players with mutual session counts
@@ -22467,6 +22467,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           vibe: player.preferredPlayType || "casual",
           mutualSessions: mutualCount,
           preferredTime: player.preferredTime || undefined,
+          ballLevel: player.ballLevel || undefined,
         };
       }));
 

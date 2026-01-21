@@ -56,6 +56,7 @@ interface NearbyPlayer {
   vibe: string;
   mutualSessions: number;
   preferredTime?: string;
+  ballLevel?: string;
 }
 
 const TAB_OPTIONS = ["Group Lessons", "Players"] as const;
@@ -494,11 +495,13 @@ export default function PlayScreen() {
 
   const renderPlayerCard = (player: NearbyPlayer) => {
     const hasAvatar = player.avatarUrl;
+    const ballColor = getBallLevelColor(player.ballLevel || "");
+    const ballLabel = getBallLevelLabel(player.ballLevel || "");
     
     return (
       <Pressable 
         key={player.id} 
-        style={styles.epicPlayerCard}
+        style={[styles.epicPlayerCard, { borderWidth: 2, borderColor: ballColor }]}
         onPress={() => navigation.navigate("PublicProfile", { playerId: player.id })}
       >
         {hasAvatar ? (
@@ -512,8 +515,8 @@ export default function PlayScreen() {
               style={styles.epicPlayerCardOverlay}
             >
               <View style={styles.epicPlayerCardContent}>
-                <View style={styles.epicPlayerLevelBadge}>
-                  <Text style={styles.epicPlayerLevelText}>Lv {player.level}</Text>
+                <View style={[styles.epicPlayerLevelBadge, { backgroundColor: ballColor }]}>
+                  <Text style={styles.epicPlayerLevelText}>{ballLabel}</Text>
                 </View>
                 <Text style={styles.epicPlayerCardName}>{player.name}</Text>
                 {player.mutualSessions > 0 ? (
@@ -550,11 +553,11 @@ export default function PlayScreen() {
             style={styles.epicPlayerCardBg}
           >
             <View style={styles.epicPlayerCardContent}>
-              <View style={styles.epicPlayerAvatarLarge}>
-                <Text style={styles.epicPlayerAvatarText}>{player.name.charAt(0).toUpperCase()}</Text>
+              <View style={[styles.epicPlayerAvatarLarge, { borderWidth: 3, borderColor: ballColor }]}>
+                <Text style={[styles.epicPlayerAvatarText, { color: ballColor }]}>{player.name.charAt(0).toUpperCase()}</Text>
               </View>
-              <View style={styles.epicPlayerLevelBadge}>
-                <Text style={styles.epicPlayerLevelText}>Lv {player.level}</Text>
+              <View style={[styles.epicPlayerLevelBadge, { backgroundColor: ballColor }]}>
+                <Text style={styles.epicPlayerLevelText}>{ballLabel}</Text>
               </View>
               <Text style={styles.epicPlayerCardName}>{player.name}</Text>
               {player.mutualSessions > 0 ? (
@@ -585,7 +588,7 @@ export default function PlayScreen() {
             </View>
           </LinearGradient>
         )}
-        <View style={styles.epicPlayerCardGlow} />
+        <View style={[styles.epicPlayerCardGlow, { borderColor: ballColor + "40" }]} />
       </Pressable>
     );
   };
