@@ -400,6 +400,16 @@ export default function AttendanceDrawer({
                 ]} 
               />
             </View>
+            
+            {/* Billing upgrade notice for semi-private becoming private */}
+            {session.sessionType === "semi_private" && getPresentCount() === 1 && players.length >= 2 ? (
+              <View style={styles.billingNotice}>
+                <Ionicons name="information-circle" size={18} color={Colors.dark.orange} />
+                <Text style={styles.billingNoticeText}>
+                  Billed as Private (1 attending)
+                </Text>
+              </View>
+            ) : null}
           </View>
         ) : null}
 
@@ -730,6 +740,21 @@ const styles = StyleSheet.create({
     height: "100%",
     backgroundColor: Colors.dark.primary,
     borderRadius: 2,
+  },
+  billingNotice: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "rgba(255, 165, 0, 0.15)",
+    paddingVertical: Spacing.sm,
+    paddingHorizontal: Spacing.md,
+    borderRadius: BorderRadius.sm,
+    marginTop: Spacing.md,
+    gap: Spacing.sm,
+  },
+  billingNoticeText: {
+    fontSize: Typography.small.fontSize,
+    fontWeight: "600",
+    color: Colors.dark.orange,
   },
   playerListScroll: {
     flex: 1,
