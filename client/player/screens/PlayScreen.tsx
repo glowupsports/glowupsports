@@ -92,6 +92,7 @@ export default function PlayScreen() {
   const [showAllPlayers, setShowAllPlayers] = useState(false);
   const [playerSearchQuery, setPlayerSearchQuery] = useState("");
   const [selectedBallLevel, setSelectedBallLevel] = useState<string>("my_level");
+  const [showOtherLevels, setShowOtherLevels] = useState(false);
 
   const { data: profileData } = useQuery<{ player: { ballLevel?: string } }>({
     queryKey: ["/api/player/me/profile"],
@@ -215,6 +216,8 @@ export default function PlayScreen() {
   });
 
   const handleJoinSession = (sessionId: string) => {
+    console.log("[PlayScreen] handleJoinSession called with sessionId:", sessionId);
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     setJoiningSessionId(sessionId);
     joinSessionMutation.mutate(sessionId);
   };
@@ -265,11 +268,15 @@ export default function PlayScreen() {
     const isFull = session.currentPlayers >= session.maxPlayers;
     const isJoining = joiningSessionId === session.id;
     const backgroundImage = session.courtImageUrl ? { uri: session.courtImageUrl } : courtBackground;
+    const sessionLevelColor = getBallLevelColor(session.ballLevel || "");
 
     return (
       <Pressable 
         key={session.id} 
-        style={styles.epicSessionCard}
+        style={[
+          styles.epicSessionCard,
+          { borderWidth: 2, borderColor: sessionLevelColor + "60", shadowColor: sessionLevelColor, shadowOffset: { width: 0, height: 0 }, shadowOpacity: 0.3, shadowRadius: 8 }
+        ]}
         onPress={() => navigation.navigate("TrainingDetail", { sessionId: session.id })}
       >
         <ImageBackground 
@@ -634,46 +641,88 @@ export default function PlayScreen() {
       >
         {activeTab === "Group Lessons" ? (
           <>
-            <ScrollView 
-              horizontal 
-              showsHorizontalScrollIndicator={false} 
-              style={styles.filterRow}
-              contentContainerStyle={styles.filterRowContent}
-            >
-              {BALL_LEVELS.map((level) => {
-                const isSelected = selectedBallLevel === level;
-                let color: string;
-                let label: string;
+            <View style={styles.filterContainer}>
+              <View style={styles.filterMainRow}>
+                <Pressable
+                  style={[
+                    styles.filterChip,
+                    selectedBallLevel === "my_level" && { backgroundColor: getBallLevelColor(playerBallLevel) + "30", borderColor: getBallLevelColor(playerBallLevel) },
+                  ]}
+                  onPress={() => {
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                    setSelectedBallLevel("my_level");
+                    setShowOtherLevels(false);
+                  }}
+                >
+                  <View style={[styles.filterDot, { backgroundColor: getBallLevelColor(playerBallLevel) }]} />
+                  <Text style={[styles.filterChipText, selectedBallLevel === "my_level" && { color: getBallLevelColor(playerBallLevel) }]}>
+                    My Level ({playerBallLevel.charAt(0).toUpperCase() + playerBallLevel.slice(1)})
+                  </Text>
+                </Pressable>
                 
-                if (level === "my_level") {
-                  color = getBallLevelColor(playerBallLevel);
-                  label = `My Level (${playerBallLevel.charAt(0).toUpperCase() + playerBallLevel.slice(1)})`;
-                } else if (level === "all") {
-                  color = Colors.dark.textMuted;
-                  label = "All Levels";
-                } else {
-                  color = getBallLevelColor(level);
-                  label = level.charAt(0).toUpperCase() + level.slice(1);
-                }
-                
-                return (
-                  <Pressable
-                    key={level}
-                    style={[
-                      styles.filterChip,
-                      isSelected && { backgroundColor: color + "30", borderColor: color },
-                    ]}
-                    onPress={() => {
-                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                      setSelectedBallLevel(level);
-                    }}
-                  >
-                    <View style={[styles.filterDot, { backgroundColor: color }]} />
-                    <Text style={[styles.filterChipText, isSelected && { color }]}>{label}</Text>
-                  </Pressable>
-                );
-              })}
-            </ScrollView>
+                <Pressable
+                  style={[
+                    styles.otherLevelsToggle,
+                    showOtherLevels && styles.otherLevelsToggleActive,
+                  ]}
+                  onPress={() => {
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                    setShowOtherLevels(!showOtherLevels);
+                    if (!showOtherLevels) {
+                      setSelectedBallLevel("all");
+                    } else {
+                      setSelectedBallLevel("my_level");
+                    }
+                  }}
+                >
+                  <Ionicons 
+                    name={showOtherLevels ? "people" : "people-outline"} 
+                    size={16} 
+                    color={showOtherLevels ? Colors.dark.primary : Colors.dark.textMuted} 
+                  />
+                  <Text style={[styles.otherLevelsToggleText, showOtherLevels && { color: Colors.dark.primary }]}>
+                    {showOtherLevels ? "Browsing all levels" : "Looking for someone else?"}
+                  </Text>
+                  <Ionicons 
+                    name={showOtherLevels ? "chevron-up" : "chevron-down"} 
+                    size={14} 
+                    color={showOtherLevels ? Colors.dark.primary : Colors.dark.textMuted} 
+                  />
+                </Pressable>
+              </View>
+              
+              {showOtherLevels && (
+                <ScrollView 
+                  horizontal 
+                  showsHorizontalScrollIndicator={false} 
+                  style={styles.filterRow}
+                  contentContainerStyle={styles.filterRowContent}
+                >
+                  {(["all", "blue", "red", "orange", "green", "yellow", "glow"] as const).map((level) => {
+                    const isSelected = selectedBallLevel === level;
+                    const color = level === "all" ? Colors.dark.textMuted : getBallLevelColor(level);
+                    const label = level === "all" ? "All Levels" : level.charAt(0).toUpperCase() + level.slice(1);
+                    
+                    return (
+                      <Pressable
+                        key={level}
+                        style={[
+                          styles.filterChip,
+                          isSelected && { backgroundColor: color + "30", borderColor: color },
+                        ]}
+                        onPress={() => {
+                          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                          setSelectedBallLevel(level);
+                        }}
+                      >
+                        <View style={[styles.filterDot, { backgroundColor: color }]} />
+                        <Text style={[styles.filterChipText, isSelected && { color }]}>{label}</Text>
+                      </Pressable>
+                    );
+                  })}
+                </ScrollView>
+              )}
+            </View>
             {sessionsLoading ? (
               <View style={styles.loadingContainer}>
                 <ActivityIndicator size="large" color={Colors.dark.primary} />
@@ -873,8 +922,37 @@ const styles = StyleSheet.create({
     color: Colors.dark.text,
     fontWeight: "600",
   },
-  filterRow: {
+  filterContainer: {
     marginBottom: Spacing.md,
+    gap: Spacing.sm,
+  },
+  filterMainRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: Spacing.md,
+  },
+  otherLevelsToggle: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.xs,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm,
+    borderRadius: BorderRadius.md,
+    backgroundColor: Colors.dark.backgroundSecondary,
+  },
+  otherLevelsToggleActive: {
+    backgroundColor: Colors.dark.primary + "20",
+    borderWidth: 1,
+    borderColor: Colors.dark.primary + "40",
+  },
+  otherLevelsToggleText: {
+    ...Typography.small,
+    color: Colors.dark.textMuted,
+    fontWeight: "500",
+  },
+  filterRow: {
+    marginTop: Spacing.sm,
     marginHorizontal: -Spacing.lg,
   },
   filterRowContent: {
