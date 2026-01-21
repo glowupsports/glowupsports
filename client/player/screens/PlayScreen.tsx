@@ -45,6 +45,7 @@ interface PlaySession {
   squadXpBonus?: number;
   waitlistCount: number;
   status: "open" | "almost_full" | "full";
+  isEnrolled?: boolean;
 }
 
 interface NearbyPlayer {
@@ -216,6 +217,33 @@ export default function PlayScreen() {
     },
   });
 
+  const leaveSessionMutation = useMutation({
+    mutationFn: async (sessionId: string) => {
+      const response = await apiRequest("POST", `/api/play/sessions/${sessionId}/leave`);
+      return await response.json();
+    },
+    onSuccess: (data: { success?: boolean; message?: string }) => {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      Alert.alert("Left Session", data.message || "You've left the session");
+      queryClient.invalidateQueries({ queryKey: ["/api/play/sessions"] });
+    },
+    onError: (error: Error) => {
+      const errorMessage = error.message.includes(": ") 
+        ? error.message.split(": ").slice(1).join(": ")
+        : error.message;
+      Alert.alert("Oops", errorMessage || "Could not leave session");
+    },
+    onSettled: () => {
+      setJoiningSessionId(null);
+    },
+  });
+
+  const handleLeaveSession = (sessionId: string) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    setJoiningSessionId(sessionId);
+    leaveSessionMutation.mutate(sessionId);
+  };
+
   const handleJoinSession = (sessionId: string) => {
     console.log("[PlayScreen] handleJoinSession called with sessionId:", sessionId);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
@@ -327,7 +355,25 @@ export default function PlayScreen() {
                   <View style={[styles.epicStatusBadge, { backgroundColor: statusBadge.bgColor }]}>
                     <Text style={[styles.epicStatusText, { color: statusBadge.color }]}>{statusBadge.text}</Text>
                   </View>
-                  {!isFull ? (
+                  {session.isEnrolled ? (
+                    <Pressable 
+                      style={[styles.epicCancelButton, isJoining && styles.buttonDisabled]}
+                      onPress={() => {
+                        if (!isJoining) {
+                          handleLeaveSession(session.id);
+                        }
+                      }}
+                    >
+                      {isJoining ? (
+                        <ActivityIndicator size="small" color="#FF6B6B" />
+                      ) : (
+                        <>
+                          <Ionicons name="close-circle-outline" size={18} color="#FF6B6B" />
+                          <Text style={styles.epicCancelButtonText}>Cancel</Text>
+                        </>
+                      )}
+                    </Pressable>
+                  ) : !isFull ? (
                     <Pressable 
                       style={[styles.epicJoinButton, isJoining && styles.buttonDisabled]}
                       onPress={() => {
@@ -1146,6 +1192,22 @@ const styles = StyleSheet.create({
     ...Typography.body,
     color: Colors.dark.text,
     fontWeight: "600",
+  },
+  epicCancelButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.xs,
+    backgroundColor: "rgba(255, 107, 107, 0.15)",
+    paddingHorizontal: Spacing.lg,
+    paddingVertical: Spacing.sm,
+    borderRadius: BorderRadius.md,
+    borderWidth: 1,
+    borderColor: "#FF6B6B",
+  },
+  epicCancelButtonText: {
+    ...Typography.body,
+    color: "#FF6B6B",
+    fontWeight: "700",
   },
   buttonDisabled: {
     opacity: 0.6,

@@ -22364,6 +22364,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         if (currentPlayers >= maxPlayers) status = "full";
         else if (maxPlayers - currentPlayers === 1) status = "almost_full";
 
+        // Check if current player is enrolled in this session
+        const isEnrolled = playerIds.includes(playerId);
+
         return {
           id: session.id,
           title: session.title || `${session.sessionType === "group" ? "Group" : "Semi"} Training`,
@@ -22381,6 +22384,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           xpReward: session.xpReward || 20,
           maxPlayers,
           currentPlayers,
+          isEnrolled,
           players: players.map(p => ({
             id: p.id,
             name: p.name,
