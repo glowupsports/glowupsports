@@ -100,9 +100,10 @@ export async function getPlayerPushTokens(playerId: string): Promise<string[]> {
 
 export async function sendSessionReminder(
   playerId: string,
-  sessionName: string,
+  sessionType: string,
   startTime: Date,
-  coachName: string
+  coachName: string,
+  location?: string
 ): Promise<void> {
   const tokens = await getPlayerPushTokens(playerId);
   if (tokens.length === 0) return;
@@ -113,10 +114,16 @@ export async function sendSessionReminder(
     timeZone: "Asia/Dubai",
   });
 
+  // Format session type nicely
+  const typeLabel = sessionType.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+  
+  // Build location string
+  const locationStr = location ? ` @ ${location}` : "";
+
   await sendPushNotification(
     tokens,
-    "Session Reminder",
-    `Your session "${sessionName}" with ${coachName} starts at ${timeStr}`,
+    `${typeLabel}${locationStr}`,
+    `With ${coachName} - ${timeStr}`,
     { type: "session_reminder", playerId }
   );
 }
@@ -286,9 +293,10 @@ export async function processScheduledReminders(): Promise<void> {
           } else {
             sendSessionReminder(
               sp.playerId,
-              sessionName,
+              session.sessionType,
               session.startTime,
-              coachName
+              coachName,
+              session.location || undefined
             ).catch(err => console.error("[SessionReminders] Failed to send player reminder:", err));
             playerNotificationsSent++;
           }
