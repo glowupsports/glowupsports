@@ -138,8 +138,8 @@ export function ActionNeededCard({
         </View>
 
         <View style={styles.actionsList}>
-          {actions.map((action) => (
-            <View key={action.id} style={styles.actionRow}>
+          {actions.map((action, index) => (
+            <View key={`${action.id}-${index}`} style={styles.actionRow}>
               <Ionicons
                 name={action.icon}
                 size={16}

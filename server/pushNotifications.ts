@@ -110,6 +110,7 @@ export async function sendSessionReminder(
   const timeStr = startTime.toLocaleTimeString("en-US", {
     hour: "2-digit",
     minute: "2-digit",
+    timeZone: "Asia/Dubai",
   });
 
   await sendPushNotification(
@@ -208,6 +209,7 @@ export async function sendSessionReminderToCoach(
   const timeStr = startTime.toLocaleTimeString("en-US", {
     hour: "2-digit",
     minute: "2-digit",
+    timeZone: "Asia/Dubai",
   });
 
   await sendPushNotification(
@@ -282,8 +284,8 @@ export async function processScheduledReminders(): Promise<void> {
           // Always try to send email reminder regardless of push tokens
           const player = await db.select().from(players).where(eq(players.id, sp.playerId)).limit(1);
           if (player[0]?.email) {
-            const sessionDate = session.startTime.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" });
-            const sessionTime = session.startTime.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" });
+            const sessionDate = session.startTime.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric", timeZone: "Asia/Dubai" });
+            const sessionTime = session.startTime.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", timeZone: "Asia/Dubai" });
             sendSessionReminderEmail({
               to: player[0].email,
               playerName: player[0].name,
