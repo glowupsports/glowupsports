@@ -105,7 +105,7 @@ function PlayerHomeContent() {
   };
 
   const handleWalletPress = () => {
-    navigation.navigate("ParentCreditStore");
+    navigation.navigate("ParentCreditStore", { playerId: player?.id });
   };
 
   const handleSquadPress = () => {
