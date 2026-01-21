@@ -293,7 +293,9 @@ export default function BrowseGroupLessonsScreen() {
                         <View style={styles.cardHeader}>
                           <View style={styles.titleSection}>
                             <Text style={styles.coachName}>
-                              {session.coachName ? `${session.coachName}'s Session` : "Group Session"}
+                              {session.coachName 
+                                ? `Group Class with Coach ${session.coachName.split(' ')[0]}` 
+                                : "Group Session"}
                             </Text>
                             <View style={styles.levelBadge}>
                               <Text style={[styles.levelText, { color: levelColor }]}>
@@ -405,7 +407,9 @@ export default function BrowseGroupLessonsScreen() {
                     { borderLeftColor: selectedSession.ballLevel ? getBallLevelColor(selectedSession.ballLevel) : ProTennisColors.electricGreen }
                   ]}>
                     <Text style={styles.sessionTitle}>
-                      {selectedSession.coachName ? `${selectedSession.coachName}'s Session` : "Group Session"}
+                      {selectedSession.coachName 
+                        ? `Group Class with Coach ${selectedSession.coachName.split(' ')[0]}` 
+                        : "Group Session"}
                     </Text>
                     <Text style={[
                       styles.sessionLevel,

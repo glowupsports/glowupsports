@@ -371,14 +371,16 @@ export function GroupLessonsRow() {
                   {/* Header with title and ball level */}
                   <View style={styles.playCardHeader}>
                     <Text style={styles.playCardTitle} numberOfLines={1}>
-                      {session.coachName ? `${session.coachName}'s Session` : "Group Training"}
+                      {session.coachName 
+                        ? `Group Class with Coach ${session.coachName.split(' ')[0]}` 
+                        : "Group Training"}
                     </Text>
                     <Text style={[styles.playCardBallLevel, { color: levelColor }]}>
                       {(session.ballLevel || "ALL").toUpperCase()}
                     </Text>
                     <View style={styles.playCardLocationRow}>
                       <Ionicons name="location" size={12} color={Colors.dark.primary} />
-                      <Text style={styles.playCardLocationText}>{(session as any).locationName || "Academy Courts"}</Text>
+                      <Text style={styles.playCardLocationText}>{(session as any).location || (session as any).locationName || "TBA"}</Text>
                     </View>
                     <View style={styles.playCardMetaRow}>
                       <Ionicons name="time-outline" size={12} color={Colors.dark.textMuted} />
