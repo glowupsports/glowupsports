@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useMemo } from "react";
 import {
   View,
   Text,
@@ -23,6 +23,17 @@ import { Colors, Spacing } from "@/constants/theme";
 import { useAuth } from "@/coach/context/AuthContext";
 import { apiRequest, getApiUrl, getStaticAssetsUrl } from "@/lib/query-client";
 
+const BALL_LEVEL_FILTERS = [
+  { id: "my_level", label: "My Level", color: "#C8FF3D" },
+  { id: "all", label: "All Levels", color: "#A0A8B8" },
+  { id: "blue", label: "Blue", color: "#3B82F6" },
+  { id: "red", label: "Red", color: "#EF4444" },
+  { id: "orange", label: "Orange", color: "#F97316" },
+  { id: "green", label: "Green", color: "#22C55E" },
+  { id: "yellow", label: "Yellow", color: "#EAB308" },
+  { id: "glow", label: "Glow", color: "#C8FF3D" },
+];
+
 const ProTennisColors = {
   backgroundPrimary: "#0B0D10",
   backgroundSecondary: "#12151A",
@@ -39,10 +50,12 @@ const ProTennisColors = {
 
 function getBallLevelColor(level: string): string {
   const l = level?.toLowerCase() || "";
+  if (l.includes("blue")) return "#3B82F6";
   if (l.includes("red")) return "#EF4444";
   if (l.includes("orange")) return "#F97316";
   if (l.includes("green")) return "#22C55E";
   if (l.includes("yellow")) return "#EAB308";
+  if (l.includes("glow")) return "#C8FF3D";
   return ProTennisColors.electricGreen;
 }
 
@@ -79,10 +92,17 @@ export default function BrowseGroupLessonsScreen() {
   const headerHeight = useHeaderHeight();
   const [enrollingId, setEnrollingId] = useState<string | null>(null);
   const [selectedSession, setSelectedSession] = useState<GroupSession | null>(null);
+  const [selectedFilter, setSelectedFilter] = useState<string>("my_level");
 
   const { data, isLoading, refetch, isRefetching } = useQuery<{ sessions: GroupSession[] }>({
     queryKey: ["/api/player/available-group-sessions"],
   });
+
+  const { data: profileData } = useQuery<{ player: { ballLevel?: string } }>({
+    queryKey: ["/api/player/me/profile"],
+  });
+
+  const playerBallLevel = profileData?.player?.ballLevel?.toLowerCase() || "glow";
 
   const enrollMutation = useMutation({
     mutationFn: async (sessionId: string) => {
@@ -118,6 +138,21 @@ export default function BrowseGroupLessonsScreen() {
 
   const sessions = data?.sessions || [];
   const groupSessions = sessions.filter(s => s.type === "group");
+  
+  const filteredSessions = useMemo(() => {
+    if (selectedFilter === "all") return groupSessions;
+    
+    const filterLevel = selectedFilter === "my_level" ? playerBallLevel : selectedFilter;
+    return groupSessions.filter(s => {
+      const sessionLevel = s.ballLevel?.toLowerCase() || "";
+      return sessionLevel.includes(filterLevel) || filterLevel.includes(sessionLevel);
+    });
+  }, [groupSessions, selectedFilter, playerBallLevel]);
+
+  const handleFilterPress = (filterId: string) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    setSelectedFilter(filterId);
+  };
 
   const renderParticipantAvatar = (participant: Participant, index: number) => {
     const hasPhoto = participant.profilePhotoUrl;
@@ -165,28 +200,64 @@ export default function BrowseGroupLessonsScreen() {
           />
         }
       >
+        <View style={styles.filterContainer}>
+          <ScrollView 
+            horizontal 
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.filterScroll}
+          >
+            {BALL_LEVEL_FILTERS.map((filter) => {
+              const isSelected = selectedFilter === filter.id;
+              const displayLabel = filter.id === "my_level" 
+                ? `My Level (${playerBallLevel.charAt(0).toUpperCase() + playerBallLevel.slice(1)})`
+                : filter.label;
+              return (
+                <Pressable
+                  key={filter.id}
+                  onPress={() => handleFilterPress(filter.id)}
+                  style={[
+                    styles.filterChip,
+                    isSelected && { backgroundColor: filter.color + "30", borderColor: filter.color }
+                  ]}
+                >
+                  <View style={[styles.filterDot, { backgroundColor: filter.color }]} />
+                  <Text style={[
+                    styles.filterLabel,
+                    isSelected && { color: filter.color, fontWeight: "700" }
+                  ]}>
+                    {displayLabel}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </ScrollView>
+        </View>
+
         {isLoading ? (
           <View style={styles.loadingContainer}>
             <ActivityIndicator size="large" color={ProTennisColors.electricGreen} />
             <Text style={styles.loadingText}>Loading available lessons...</Text>
           </View>
-        ) : groupSessions.length === 0 ? (
+        ) : filteredSessions.length === 0 ? (
           <Animated.View entering={FadeIn.duration(400)} style={styles.emptyContainer}>
             <View style={styles.emptyIcon}>
               <Feather name="calendar" size={48} color={ProTennisColors.textMuted} />
             </View>
             <Text style={styles.emptyTitle}>No Group Lessons Available</Text>
             <Text style={styles.emptySubtitle}>
-              There are no upcoming group sessions at your level right now. Check back later or ask your coach about scheduling.
+              {selectedFilter === "my_level" || selectedFilter !== "all"
+                ? `No sessions available for ${selectedFilter === "my_level" ? playerBallLevel : selectedFilter} level. Try selecting "All Levels" to see more.`
+                : "There are no upcoming group sessions right now. Check back later or ask your coach about scheduling."
+              }
             </Text>
           </Animated.View>
         ) : (
           <View style={styles.sessionsList}>
             <Text style={styles.sectionTitle}>
-              {groupSessions.length} Available Group Lesson{groupSessions.length !== 1 ? "s" : ""}
+              {filteredSessions.length} Available Group Lesson{filteredSessions.length !== 1 ? "s" : ""}
             </Text>
             
-            {groupSessions.map((session, index) => {
+            {filteredSessions.map((session, index) => {
               const levelColor = session.ballLevel ? getBallLevelColor(session.ballLevel) : ProTennisColors.electricGreen;
               const spotsLeft = session.spotsLeft;
               const isFull = spotsLeft <= 0;
@@ -762,5 +833,33 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: "rgba(0, 0, 0, 0.6)",
     marginTop: 2,
+  },
+  filterContainer: {
+    marginBottom: Spacing.lg,
+  },
+  filterScroll: {
+    paddingRight: Spacing.lg,
+    gap: Spacing.sm,
+  },
+  filterChip: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: ProTennisColors.border,
+    backgroundColor: ProTennisColors.cardBackground,
+    gap: 6,
+  },
+  filterDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
+  filterLabel: {
+    fontSize: 13,
+    fontWeight: "500",
+    color: ProTennisColors.textSecondary,
   },
 });
