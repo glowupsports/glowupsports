@@ -17259,6 +17259,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         
         // Check if player is already enrolled
         const sessionPlayers = await storage.getSessionPlayers(session.id);
+        const currentPlayers = sessionPlayers.length;
+        const maxPlayers = (session as any).maxPlayers || 8;
+        const spotsLeft = Math.max(0, maxPlayers - currentPlayers);
+        const isEnrolled = sessionPlayers.some(sp => sp.playerId === playerId);
         // Get participant details
         const participants = await Promise.all(sessionPlayers.slice(0, 10).map(async (sp) => {
           const p = await storage.getPlayer(sp.playerId);
