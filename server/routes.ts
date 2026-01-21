@@ -16574,7 +16574,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Get player credits by type (includes debt/negative balances)
       const creditBalance = await storage.getPlayerCreditBalanceByType(playerId);
-      const totalCredits = creditBalance.group + creditBalance.semi_private + creditBalance.private;
+      const totalCredits = creditsByType.group + creditsByType.semi_private + creditsByType.private;
       
       // Get active packages count
       const playerPackages = await storage.getPlayerPackages(playerId, player.academyId ?? undefined);
@@ -16642,9 +16642,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         },
         credits: {
           total: totalCredits,
-          group: creditBalance.group,
-          semiPrivate: creditBalance.semi_private,
-          private: creditBalance.private,
+          group: creditsByType.group,
+          semiPrivate: creditsByType.semi_private,
+          private: creditsByType.private,
           activePackages: playerPackages.filter((p: any) => p.status === "active").length,
         },
         packages: playerPackages.map((pkg: any) => ({
@@ -17216,9 +17216,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         recentXpGains: [],
         credits: {
           total: totalCredits,
-          group: creditBalance.group,
-          private: creditBalance.private,
-          semi_private: creditBalance.semi_private,
+          group: creditsByType.group,
+          private: creditsByType.private,
+          semi_private: creditsByType.semi_private,
         },
       });
     } catch (error) {
