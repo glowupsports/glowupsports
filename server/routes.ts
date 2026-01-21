@@ -26265,13 +26265,59 @@ export async function registerRoutes(app: Express): Promise<Server> {
             OFFSET ${offsetVal}
           `);
         } else {
-          // Default: for_you - all academy posts
+          // Default: for_you - aggregate friends + groups + academy posts
+          // Get user's friends and groups for proper filtering
+          let forYouFriendIds = [];
+          let forYouGroupIds = [];
+          
+          try {
+            // Get friend user IDs
+            const rawUser = await db.execute(sql`SELECT player_id FROM users WHERE id = ${userId} LIMIT 1`);
+            const currentPlayerId = rawUser.rows?.[0]?.player_id;
+            
+            if (currentPlayerId) {
+              const rawFriends = await db.execute(sql`
+                SELECT player2_id as friend_id FROM player_connections 
+                WHERE player1_id = ${currentPlayerId} AND status = 'accepted'
+                UNION
+                SELECT player1_id as friend_id FROM player_connections 
+                WHERE player2_id = ${currentPlayerId} AND status = 'accepted'
+              `);
+              const friendPlayerIds = (rawFriends.rows || []).map(r => r.friend_id);
+              
+              if (friendPlayerIds.length > 0) {
+                const rawFriendUsers = await db.execute(sql`
+                  SELECT id FROM users WHERE player_id = ANY(${friendPlayerIds})
+                `);
+                forYouFriendIds = (rawFriendUsers.rows || []).map(r => r.id);
+              }
+            }
+            
+            // Get user's groups
+            const rawGroups = await db.execute(sql`
+              SELECT group_id FROM group_members WHERE user_id = ${userId}
+            `);
+            forYouGroupIds = (rawGroups.rows || []).map(r => r.group_id);
+          } catch (err) {
+            console.log("Error fetching for_you context:", err);
+          }
+          
+          // Show posts that match: own posts, friends' posts (visibility=friends), 
+          // group posts (visibility=group, user is member), or academy-wide posts
           rawPosts = await db.execute(sql`
             SELECT id, author_id, academy_id, context_type, context_id, caption, 
                    media_urls, media_types, visibility, group_id, cheer_count, 
                    comment_count, created_at, is_hidden
             FROM posts 
-            WHERE academy_id = ${academyId} AND is_hidden = false
+            WHERE academy_id = ${academyId} 
+              AND is_hidden = false
+              AND (
+                author_id = ${userId}
+                OR visibility = 'academy'
+                OR visibility = 'public'
+                OR (visibility = 'friends' AND author_id = ANY(${forYouFriendIds.length > 0 ? forYouFriendIds : ['__none__']}))
+                OR (visibility = 'group' AND group_id = ANY(${forYouGroupIds.length > 0 ? forYouGroupIds : ['__none__']}))
+              )
             ORDER BY created_at DESC
             LIMIT ${limitVal}
             OFFSET ${offsetVal}
