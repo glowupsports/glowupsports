@@ -1,6 +1,8 @@
-import React, { useEffect } from "react";
-import { View, Text, StyleSheet, Pressable, ScrollView } from "react-native";
+import React, { useEffect, useState } from "react";
+import { View, Text, StyleSheet, Pressable, ScrollView, ActivityIndicator, Alert, Platform, Image as RNImage } from "react-native";
+import { Image as ExpoImage } from "expo-image";
 import { Feather } from "@expo/vector-icons";
+import Ionicons from "@expo/vector-icons/Ionicons";
 import Animated, { 
   FadeInRight, 
   FadeIn, 
@@ -16,11 +18,12 @@ import { LinearGradient } from "expo-linear-gradient";
 import { ProTennisColors, Spacing, BorderRadius, getPlayerLevelColor, Backgrounds, GlowColors, Colors } from "@/constants/theme";
 import { usePlayerState } from "@/player/context/PlayerStateContext";
 import { useNavigation } from "@react-navigation/native";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import * as Haptics from "expo-haptics";
 import { GlowAvatar } from "./GlowAvatar";
 import { NeonEdgeCard } from "./GlassCard";
-import { getStaticAssetsUrl } from "@/lib/query-client";
-import { formatSessionDateShort } from "@/lib/dateUtils";
+import { getStaticAssetsUrl, apiRequest } from "@/lib/query-client";
+import { formatSessionDateShort, formatSessionTimeWithRelativeDay } from "@/lib/dateUtils";
 
 // Helper to get color for ball level
 function getBallLevelColor(level: string): string {
@@ -89,8 +92,17 @@ export function PlayersNearYouRow() {
   const { state } = usePlayerState();
   const navigation = useNavigation<any>();
 
+  // Get player's ball level
+  const playerBallLevel = state.player?.ballLevel?.toLowerCase() || "glow";
+
   const nearbyPlayers = state.nearbyPlayers ?? [];
-  const availablePlayers = nearbyPlayers.filter(p => p.status === "available" || p.status === "online");
+  // Filter by availability AND same ball level
+  const availablePlayers = nearbyPlayers.filter(p => {
+    const isAvailable = p.status === "available" || p.status === "online";
+    const playerLevel = p.level?.toLowerCase() || "";
+    const matchesBallLevel = playerLevel.includes(playerBallLevel) || playerBallLevel.includes(playerLevel) || playerLevel === playerBallLevel;
+    return isAvailable && matchesBallLevel;
+  });
 
   const handlePlayerPress = (playerId: string) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -197,10 +209,42 @@ function formatSessionDate(dateStr?: string): string {
   return formatSessionDateShort(dateStr, "Asia/Dubai");
 }
 
-// Group Lessons Row - Liga-style bigger cards for coaching sessions
+// Helper to format time with Dubai timezone
+function formatSessionTime(dateStr?: string): string {
+  if (!dateStr) return "Today";
+  return formatSessionTimeWithRelativeDay(dateStr, "Asia/Dubai");
+}
+
+// Helper to get countdown text
+function getCountdownText(startTime: string): { text: string; urgent: boolean } {
+  const sessionDate = new Date(startTime);
+  const now = new Date();
+  const diff = sessionDate.getTime() - now.getTime();
+  
+  if (diff <= 0) return { text: "Starting Now", urgent: true };
+  
+  const hours = Math.floor(diff / (1000 * 60 * 60));
+  const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+  
+  if (hours > 24) {
+    const days = Math.floor(hours / 24);
+    return { text: `${days}d ${hours % 24}h left`, urgent: false };
+  }
+  if (hours > 0) {
+    return { text: `${hours}h ${minutes}m left`, urgent: hours < 2 };
+  }
+  if (minutes > 0) {
+    return { text: `${minutes}m left`, urgent: minutes < 30 };
+  }
+  return { text: "Soon", urgent: true };
+}
+
+// Group Lessons Row - Play screen style cards for coaching sessions
 export function GroupLessonsRow() {
   const { state } = usePlayerState();
   const navigation = useNavigation<any>();
+  const queryClient = useQueryClient();
+  const [joiningSessionId, setJoiningSessionId] = useState<string | null>(null);
 
   // Get player's ball level from state
   const playerBallLevel = state.player?.ballLevel?.toLowerCase() || "glow";
@@ -212,9 +256,50 @@ export function GroupLessonsRow() {
     return sessionLevel.includes(playerBallLevel) || playerBallLevel.includes(sessionLevel);
   });
 
-  const handleLessonPress = (sessionId: string) => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    navigation.navigate("PlayerTabs", { screen: "Play" });
+  const joinSessionMutation = useMutation({
+    mutationFn: async (sessionId: string) => {
+      const response = await apiRequest("POST", `/api/play/sessions/${sessionId}/join`);
+      return await response.json();
+    },
+    onSuccess: (data: { success?: boolean; message?: string }) => {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      Alert.alert("Joined!", data.message || "You're in the session!");
+      queryClient.invalidateQueries({ queryKey: ["/api/player/me/social"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/play/sessions"] });
+    },
+    onError: (error: Error) => {
+      Alert.alert("Oops", error.message || "Could not join session");
+    },
+    onSettled: () => setJoiningSessionId(null),
+  });
+
+  const leaveSessionMutation = useMutation({
+    mutationFn: async (sessionId: string) => {
+      const response = await apiRequest("POST", `/api/play/sessions/${sessionId}/leave`);
+      return await response.json();
+    },
+    onSuccess: (data: { success?: boolean; message?: string }) => {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      Alert.alert("Left Session", data.message || "You've left the session");
+      queryClient.invalidateQueries({ queryKey: ["/api/player/me/social"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/play/sessions"] });
+    },
+    onError: (error: Error) => {
+      Alert.alert("Oops", error.message || "Could not leave session");
+    },
+    onSettled: () => setJoiningSessionId(null),
+  });
+
+  const handleJoinSession = (sessionId: string) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    setJoiningSessionId(sessionId);
+    joinSessionMutation.mutate(sessionId);
+  };
+
+  const handleLeaveSession = (sessionId: string) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    setJoiningSessionId(sessionId);
+    leaveSessionMutation.mutate(sessionId);
   };
 
   const handleSeeAll = () => {
@@ -263,73 +348,156 @@ export function GroupLessonsRow() {
         {groupLessons.slice(0, 6).map((session, index) => {
           const levelColor = session.ballLevel ? getBallLevelColor(session.ballLevel) : ProTennisColors.electricGreen;
           const currentPlayers = (session.maxPlayers || 6) - session.spotsLeft;
+          const isFull = session.spotsLeft === 0;
+          const isJoining = joiningSessionId === session.id;
+          const countdown = getCountdownText((session as any).date || (session as any).startTime || new Date().toISOString());
+          const spotsLeft = session.spotsLeft;
+          const isEnrolled = (session as any).isEnrolled || false;
+          
+          const getStatusBadge = () => {
+            if (spotsLeft === 0) return { text: "Full", color: "#EF4444", bgColor: "#EF444440" };
+            if (spotsLeft === 1) return { text: "1 Almost Full", color: "#F97316", bgColor: "#F9731640" };
+            return { text: `${spotsLeft} Open`, color: Colors.dark.primary, bgColor: Colors.dark.primary + "40" };
+          };
+          const statusBadge = getStatusBadge();
           
           return (
             <Animated.View 
               key={session.id}
               entering={FadeInRight.delay(index * 80).duration(350)}
             >
-              <Pressable onPress={() => handleLessonPress(session.id)}>
-                <View style={styles.ligaCard}>
-                  {/* Top section with ball level accent */}
-                  <View style={[styles.ligaCardHeader, { borderLeftColor: levelColor }]}>
-                    <Text style={[styles.ligaTitle, { color: levelColor }]} numberOfLines={2}>
-                      {session.coachName ? `${session.coachName}'s Session` : "Group Session"}
+              <View style={[styles.playStyleCard, { borderColor: levelColor + "60", shadowColor: levelColor }]}>
+                <LinearGradient
+                  colors={["rgba(0,0,0,0.4)", "rgba(0,0,0,0.85)"]}
+                  style={styles.playStyleCardGradient}
+                >
+                  {/* Header with title and ball level */}
+                  <View style={styles.playCardHeader}>
+                    <Text style={styles.playCardTitle} numberOfLines={1}>
+                      {session.coachName ? `${session.coachName}'s Session` : "Group Training"}
                     </Text>
-                    <Text style={styles.ligaSubtitle}>
-                      {session.ballLevel || "All Levels"} • Tennis
+                    <Text style={[styles.playCardBallLevel, { color: levelColor }]}>
+                      {(session.ballLevel || "ALL").toUpperCase()}
                     </Text>
+                    <View style={styles.playCardLocationRow}>
+                      <Ionicons name="location" size={12} color={Colors.dark.primary} />
+                      <Text style={styles.playCardLocationText}>Location TBD</Text>
+                    </View>
+                    <View style={styles.playCardMetaRow}>
+                      <Ionicons name="time-outline" size={12} color={Colors.dark.textMuted} />
+                      <Text style={styles.playCardMetaText}>{formatSessionTime((session as any).date || (session as any).startTime)}</Text>
+                      <Text style={styles.playCardMetaDot}>·</Text>
+                      <Text style={styles.playCardMetaText}>All Levels</Text>
+                      <Text style={styles.playCardMetaDot}>·</Text>
+                      <Text style={styles.playCardMetaText}>Competitive</Text>
+                    </View>
                   </View>
 
-                  {/* Date and Time */}
-                  <View style={styles.ligaDateTimeRow}>
-                    <Text style={[styles.ligaDateTime, { color: levelColor }]}>
-                      {formatSessionDate((session as any).date)}
-                    </Text>
-                    <Text style={[styles.ligaDateTime, { color: levelColor }]}>
-                      {session.time || "TBD"}
-                    </Text>
+                  {/* XP and Countdown badges */}
+                  <View style={styles.playCardBadgesRow}>
+                    <View style={styles.playCardXpBadge}>
+                      <Ionicons name="flame" size={14} color="#F97316" />
+                      <Text style={styles.playCardXpText}>+{(session as any).xpReward || 25} XP</Text>
+                    </View>
+                    <View style={[styles.playCardCountdownBadge, countdown.urgent && styles.playCardCountdownUrgent]}>
+                      <Ionicons 
+                        name="timer-outline" 
+                        size={12} 
+                        color={countdown.urgent ? "#EF4444" : "#00CED1"} 
+                      />
+                      <Text style={[styles.playCardCountdownText, countdown.urgent && { color: "#EF4444" }]}>
+                        {countdown.text}
+                      </Text>
+                    </View>
                   </View>
 
-                  {/* Participant count with avatars */}
-                  <View style={styles.ligaParticipantsRow}>
-                    <Feather name="users" size={14} color={levelColor} />
-                    <Text style={styles.ligaParticipantText}>
-                      {currentPlayers} going • {session.maxPlayers || 6} limit
-                    </Text>
+                  {/* Status badge and Join/Cancel button */}
+                  <View style={styles.playCardActionsRow}>
+                    <View style={[styles.playCardStatusBadge, { backgroundColor: statusBadge.bgColor }]}>
+                      <Text style={[styles.playCardStatusText, { color: statusBadge.color }]}>{statusBadge.text}</Text>
+                    </View>
+                    {isEnrolled ? (
+                      <Pressable 
+                        style={[styles.playCardCancelButton, isJoining && styles.buttonDisabled]}
+                        onPress={() => !isJoining && handleLeaveSession(session.id)}
+                      >
+                        {isJoining ? (
+                          <ActivityIndicator size="small" color="#FF6B6B" />
+                        ) : (
+                          <>
+                            <Ionicons name="close-circle-outline" size={16} color="#FF6B6B" />
+                            <Text style={styles.playCardCancelText}>Cancel</Text>
+                          </>
+                        )}
+                      </Pressable>
+                    ) : !isFull ? (
+                      <Pressable 
+                        style={[styles.playCardJoinButton, isJoining && styles.buttonDisabled]}
+                        onPress={() => !isJoining && handleJoinSession(session.id)}
+                      >
+                        {isJoining ? (
+                          <ActivityIndicator size="small" color="#0B0D10" />
+                        ) : (
+                          <>
+                            <Ionicons name="enter-outline" size={16} color="#0B0D10" />
+                            <Text style={styles.playCardJoinText}>Join Session</Text>
+                          </>
+                        )}
+                      </Pressable>
+                    ) : (
+                      <Pressable style={styles.playCardWaitlistButton}>
+                        <Text style={styles.playCardWaitlistText}>Join Waitlist</Text>
+                      </Pressable>
+                    )}
                   </View>
 
-                  {/* Avatar stack */}
+                  {/* Credit cost */}
+                  <View style={styles.playCardCreditRow}>
+                    <Ionicons name="ticket-outline" size={12} color={Colors.dark.textMuted} />
+                    <Text style={styles.playCardCreditText}>1 Group Credit</Text>
+                  </View>
+
+                  {/* Participants avatars */}
                   {session.participants && session.participants.length > 0 && (
-                    <View style={styles.ligaAvatarRow}>
-                      {session.participants.slice(0, 4).map((p, i) => (
-                        <View key={p.id} style={[styles.ligaAvatar, { marginLeft: i > 0 ? -10 : 0, zIndex: 5 - i }]}>
-                          <GlowAvatar
-                            source={p.profilePhotoUrl ? `${getStaticAssetsUrl()}${p.profilePhotoUrl}` : null}
-                            name={p.name}
-                            size="sm"
-                            showGlow={false}
-                          />
-                        </View>
-                      ))}
-                      {session.participants.length > 4 && (
-                        <View style={[styles.ligaAvatarMore, { marginLeft: -10 }]}>
-                          <Text style={styles.ligaAvatarMoreText}>+{session.participants.length - 4}</Text>
-                        </View>
-                      )}
+                    <View style={styles.playCardParticipantsRow}>
+                      <View style={styles.playCardAvatarStack}>
+                        {session.participants.slice(0, 6).map((p, i) => (
+                          <View key={p.id} style={[styles.playCardAvatar, { marginLeft: i > 0 ? -12 : 0, zIndex: 6 - i }]}>
+                            {p.profilePhotoUrl ? (
+                              Platform.OS === 'web' ? (
+                                <RNImage 
+                                  source={{ uri: `${getStaticAssetsUrl()}${p.profilePhotoUrl}` }} 
+                                  style={styles.playCardAvatarImage}
+                                  resizeMode="cover"
+                                />
+                              ) : (
+                                <ExpoImage 
+                                  source={{ uri: `${getStaticAssetsUrl()}${p.profilePhotoUrl}` }} 
+                                  style={styles.playCardAvatarImage}
+                                  contentFit="cover"
+                                />
+                              )
+                            ) : (
+                              <View style={styles.playCardAvatarPlaceholder}>
+                                <Text style={styles.playCardAvatarInitial}>{p.name.charAt(0).toUpperCase()}</Text>
+                              </View>
+                            )}
+                          </View>
+                        ))}
+                        {session.participants.length > 6 && (
+                          <View style={[styles.playCardAvatarMore, { marginLeft: -12 }]}>
+                            <Text style={styles.playCardAvatarMoreText}>+{session.participants.length - 6}</Text>
+                          </View>
+                        )}
+                      </View>
+                      <Text style={styles.playCardParticipantNames}>
+                        {session.participants.slice(0, 2).map(p => p.name.split(" ")[0]).join(", ")}
+                        {session.participants.length > 2 ? ` +${session.participants.length - 2}` : ""}
+                      </Text>
                     </View>
                   )}
-
-                  {/* Sign Up Button */}
-                  <Pressable 
-                    style={[styles.ligaSignUpButton, { borderColor: levelColor }]}
-                    onPress={() => handleLessonPress(session.id)}
-                  >
-                    <Feather name="edit-2" size={14} color={levelColor} />
-                    <Text style={[styles.ligaSignUpText, { color: levelColor }]}>Sign up</Text>
-                  </Pressable>
-                </View>
-              </Pressable>
+                </LinearGradient>
+              </View>
             </Animated.View>
           );
         })}
@@ -1182,5 +1350,216 @@ const styles = StyleSheet.create({
   moreEventsText: {
     fontSize: 12,
     color: ProTennisColors.textMuted,
+  },
+  // Play-style card styles (matching PlayScreen)
+  playStyleCard: {
+    width: 280,
+    minHeight: 260,
+    borderRadius: BorderRadius.lg,
+    borderWidth: 2,
+    overflow: "hidden",
+    backgroundColor: "#1A1D24",
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 6,
+  },
+  playStyleCardGradient: {
+    flex: 1,
+    padding: Spacing.md,
+    gap: Spacing.sm,
+  },
+  playCardHeader: {
+    gap: 4,
+  },
+  playCardTitle: {
+    fontSize: 16,
+    fontWeight: "700",
+    color: Colors.dark.text,
+  },
+  playCardBallLevel: {
+    fontSize: 11,
+    fontWeight: "800",
+    letterSpacing: 1,
+  },
+  playCardLocationRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    marginTop: 4,
+  },
+  playCardLocationText: {
+    fontSize: 12,
+    color: Colors.dark.textMuted,
+  },
+  playCardMetaRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    marginTop: 2,
+  },
+  playCardMetaText: {
+    fontSize: 11,
+    color: Colors.dark.textMuted,
+  },
+  playCardMetaDot: {
+    color: Colors.dark.textMuted,
+    fontSize: 11,
+  },
+  playCardBadgesRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+  },
+  playCardXpBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    backgroundColor: "rgba(249, 115, 22, 0.2)",
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: BorderRadius.sm,
+  },
+  playCardXpText: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: "#F97316",
+  },
+  playCardCountdownBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    backgroundColor: "rgba(0, 206, 209, 0.2)",
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: BorderRadius.sm,
+  },
+  playCardCountdownUrgent: {
+    backgroundColor: "rgba(239, 68, 68, 0.2)",
+  },
+  playCardCountdownText: {
+    fontSize: 11,
+    fontWeight: "600",
+    color: "#00CED1",
+  },
+  playCardActionsRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+  },
+  playCardStatusBadge: {
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: BorderRadius.sm,
+  },
+  playCardStatusText: {
+    fontSize: 12,
+    fontWeight: "700",
+  },
+  playCardJoinButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    backgroundColor: Colors.dark.primary,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: BorderRadius.md,
+  },
+  playCardJoinText: {
+    fontSize: 13,
+    fontWeight: "700",
+    color: "#0B0D10",
+  },
+  playCardCancelButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    backgroundColor: "rgba(255, 107, 107, 0.2)",
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: BorderRadius.md,
+    borderWidth: 1,
+    borderColor: "rgba(255, 107, 107, 0.4)",
+  },
+  playCardCancelText: {
+    fontSize: 13,
+    fontWeight: "700",
+    color: "#FF6B6B",
+  },
+  playCardWaitlistButton: {
+    backgroundColor: "rgba(255, 255, 255, 0.1)",
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: BorderRadius.md,
+  },
+  playCardWaitlistText: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: Colors.dark.text,
+  },
+  playCardCreditRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+  },
+  playCardCreditText: {
+    fontSize: 11,
+    color: Colors.dark.textMuted,
+  },
+  playCardParticipantsRow: {
+    marginTop: Spacing.xs,
+    gap: 4,
+  },
+  playCardAvatarStack: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  playCardAvatar: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    borderWidth: 2,
+    borderColor: "#1A1D24",
+    overflow: "hidden",
+  },
+  playCardAvatarImage: {
+    width: "100%",
+    height: "100%",
+    borderRadius: 16,
+  },
+  playCardAvatarPlaceholder: {
+    width: "100%",
+    height: "100%",
+    backgroundColor: "#2A2D34",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  playCardAvatarInitial: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: Colors.dark.textMuted,
+  },
+  playCardAvatarMore: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: "#2A2D34",
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 2,
+    borderColor: "#1A1D24",
+  },
+  playCardAvatarMoreText: {
+    fontSize: 10,
+    fontWeight: "700",
+    color: Colors.dark.textMuted,
+  },
+  playCardParticipantNames: {
+    fontSize: 11,
+    color: Colors.dark.textMuted,
+    marginTop: 2,
+  },
+  buttonDisabled: {
+    opacity: 0.6,
   },
 });

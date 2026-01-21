@@ -10,11 +10,8 @@ import { usePlayerDrawer } from "@/player/navigation/PlayerNavigator";
 import { PlayerStateProvider } from "@/player/context/PlayerStateContext";
 import { ProPlayerCard } from "@/player/components/ProPlayerCard";
 import { OnAirIndicator } from "@/player/components/OnAirIndicator";
-import { TodayAtAGlance } from "@/player/components/TodayAtAGlance";
 import { PlayersNearYouRow, OpenSessionsRow, TrainingSessionsRow } from "@/player/components/DiscoveryRows";
-import { BookingHub } from "@/player/components/BookingHub";
 import { MiniFeed } from "@/player/components/MiniFeed";
-import { ProgressInsights } from "@/player/components/ProgressInsights";
 import { TrackingBanner } from "@/player/components/TrackingBanner";
 import { SessionHeroCard } from "@/player/components/SessionHeroCard";
 import { NewsTicker } from "@/player/components/NewsTicker";
@@ -264,30 +261,20 @@ function PlayerHomeContent() {
           </View>
         </View>
 
+        {/* TENNIS NEWS - Below header, above Today is Open */}
+        <NewsTicker />
+
         {/* HERO CTA - Next Session (PRIMARY ACTION) */}
         <SessionHeroCard onBookSession={handleBookLesson} />
 
-        {/* QUICK STATS STRIP - Compact Level, Streak, XP */}
-        <QuickStatsStrip 
-          level={player.level} 
-          streak={player.streak} 
-          xp={player.xp} 
-        />
-
         {/* TRACKING BANNER - Coach is watching */}
         <TrackingBanner />
-
-        {/* TENNIS NEWS */}
-        <NewsTicker />
-
-        {/* TODAY AT A GLANCE - Secondary status */}
-        <TodayAtAGlance />
 
         {/* DISCOVERY SECTION - Horizontal scrolling rows */}
         <View style={styles.discoverySection}>
           <Text style={styles.discoverySectionTitle}>DISCOVER</Text>
           
-          {/* Players Near You - Horizontal avatar carousel */}
+          {/* Players Near You - Horizontal avatar carousel (filtered by ball level) */}
           <PlayersNearYouRow />
           
           {/* Open Sessions - Join now cards */}
@@ -297,14 +284,8 @@ function PlayerHomeContent() {
           <TrainingSessionsRow />
         </View>
 
-        {/* BOOK & PLAN - Full booking hub with all options */}
-        <BookingHub />
-
         {/* COMMUNITY - Activity feed */}
         <MiniFeed />
-
-        {/* YOUR PROGRESS - Human-readable insights */}
-        <ProgressInsights />
       </ScrollView>
       
       <QuickServeFAB bottomOffset={48} />
