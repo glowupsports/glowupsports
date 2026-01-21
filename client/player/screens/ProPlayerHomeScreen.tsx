@@ -72,6 +72,7 @@ function PlayerHomeContent() {
   const queryClient = useQueryClient();
   const { user } = useAuth();
   const { openDrawer } = usePlayerDrawer();
+  const navigation = useNavigation<any>();
   const [showBookingWizard, setShowBookingWizard] = useState(false);
 
   const { data: dashboardData, isLoading, refetch, isRefetching } = useQuery<DashboardData>({
@@ -97,8 +98,6 @@ function PlayerHomeContent() {
   }
 
   const { player, credits } = dashboardData;
-
-  const navigation = useNavigation<any>();
   
   const handleAvatarPress = () => {
     openDrawer();
