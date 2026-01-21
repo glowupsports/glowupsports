@@ -271,13 +271,12 @@ export default function PlayScreen() {
     const sessionLevelColor = getBallLevelColor(session.ballLevel || "");
 
     return (
-      <Pressable 
+      <View 
         key={session.id} 
         style={[
           styles.epicSessionCard,
           { borderWidth: 2, borderColor: sessionLevelColor + "60", shadowColor: sessionLevelColor, shadowOffset: { width: 0, height: 0 }, shadowOpacity: 0.3, shadowRadius: 8 }
         ]}
-        onPress={() => navigation.navigate("TrainingDetail", { sessionId: session.id })}
       >
         <ImageBackground 
           source={backgroundImage} 
@@ -340,11 +339,12 @@ export default function PlayScreen() {
                   {!isFull ? (
                     <Pressable 
                       style={[styles.epicJoinButton, isJoining && styles.buttonDisabled]}
-                      onPress={(e) => {
-                        e.stopPropagation();
-                        if (!isJoining) handleJoinSession(session.id);
+                      onPress={() => {
+                        console.log("[PlayScreen] Join button pressed for session:", session.id);
+                        if (!isJoining) {
+                          handleJoinSession(session.id);
+                        }
                       }}
-                      disabled={isJoining}
                     >
                       {isJoining ? (
                         <ActivityIndicator size="small" color={Colors.dark.backgroundRoot} />
@@ -358,11 +358,12 @@ export default function PlayScreen() {
                   ) : (
                     <Pressable 
                       style={[styles.epicWaitlistButton, isJoining && styles.buttonDisabled]}
-                      onPress={(e) => {
-                        e.stopPropagation();
-                        if (!isJoining) handleJoinWaitlist(session.id);
+                      onPress={() => {
+                        console.log("[PlayScreen] Waitlist button pressed for session:", session.id);
+                        if (!isJoining) {
+                          handleJoinWaitlist(session.id);
+                        }
                       }}
-                      disabled={isJoining}
                     >
                       {isJoining ? (
                         <ActivityIndicator size="small" color={Colors.dark.text} />
@@ -435,7 +436,7 @@ export default function PlayScreen() {
           </LinearGradient>
         </ImageBackground>
         <View style={styles.epicCardGlow} />
-      </Pressable>
+      </View>
     );
   };
 
