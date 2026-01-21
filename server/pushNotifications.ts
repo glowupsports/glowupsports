@@ -199,9 +199,10 @@ export async function sendCoachNotification(
 
 export async function sendSessionReminderToCoach(
   coachId: string,
-  sessionName: string,
+  sessionType: string,
   startTime: Date,
-  playerCount: number
+  playerNames: string[],
+  location?: string
 ): Promise<void> {
   const tokens = await getCoachPushTokens(coachId);
   if (tokens.length === 0) return;
@@ -212,10 +213,21 @@ export async function sendSessionReminderToCoach(
     timeZone: "Asia/Dubai",
   });
 
+  // Format session type nicely
+  const typeLabel = sessionType.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+  
+  // Build player names string (max 3 names shown)
+  const displayNames = playerNames.slice(0, 3).join(", ");
+  const extraCount = playerNames.length > 3 ? ` +${playerNames.length - 3}` : "";
+  const playersStr = playerNames.length > 0 ? `${displayNames}${extraCount}` : "No players";
+  
+  // Build location string
+  const locationStr = location ? ` @ ${location}` : "";
+
   await sendPushNotification(
     tokens,
-    "Session Starting Soon",
-    `Your session "${sessionName}" with ${playerCount} player(s) starts at ${timeStr}`,
+    `${typeLabel}${locationStr}`,
+    `${playersStr} - ${timeStr}`,
     { type: "session_reminder_coach", coachId }
   );
 }
@@ -306,11 +318,23 @@ export async function processScheduledReminders(): Promise<void> {
         if (coachTokens.length === 0) {
           console.log(`[SessionReminders] Coach has no push tokens for session "${sessionName}"`);
         } else {
+          // Get player names for coach notification
+          const playerNames: string[] = [];
+          for (const sp of sessionPlayersList) {
+            if (sp.playerId) {
+              const playerData = await db.select().from(players).where(eq(players.id, sp.playerId)).limit(1);
+              if (playerData[0]?.name) {
+                playerNames.push(playerData[0].name.split(' ')[0]); // First name only
+              }
+            }
+          }
+          
           sendSessionReminderToCoach(
             session.coachId,
-            sessionName,
+            session.sessionType,
             session.startTime,
-            sessionPlayersList.length
+            playerNames,
+            session.location || undefined
           ).catch(err => console.error("[SessionReminders] Failed to send coach reminder:", err));
         }
       }
