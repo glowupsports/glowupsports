@@ -33,6 +33,7 @@ import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import { Colors, Spacing, FontSizes, BorderRadius, Typography } from "@/constants/theme";
 import { apiRequest, getApiUrl } from "@/lib/query-client";
+import { getAuthHeaders } from "@/lib/auth";
 import { useHeaderHeight } from "@react-navigation/elements";
 import Slider from "@react-native-community/slider";
 
@@ -122,6 +123,7 @@ export default function CreateMatchScreen() {
   // Create match mutation
   const createMatchMutation = useMutation({
     mutationFn: async () => {
+      console.log("[CreateMatch] Starting publish...");
       const matchData = {
         matchType,
         title: title || `Looking for ${matchType} partner`,
@@ -134,18 +136,26 @@ export default function CreateMatchScreen() {
         maxPlayers: matchType === "doubles" ? 4 : 2,
       };
       
-      const { getAuthHeaders } = await import("@/lib/auth");
+      console.log("[CreateMatch] Match data:", matchData);
+      const headers = getAuthHeaders();
+      console.log("[CreateMatch] Auth headers present:", !!headers.Authorization);
+      
       const res = await fetch(new URL("/api/play/create-match-request", getApiUrl()).toString(), {
         method: "POST",
         headers: { 
           "Content-Type": "application/json",
-          ...getAuthHeaders(),
+          ...headers,
         },
         credentials: "include",
         body: JSON.stringify(matchData),
       });
       
-      if (!res.ok) throw new Error("Failed to create match");
+      console.log("[CreateMatch] Response status:", res.status);
+      if (!res.ok) {
+        const errorText = await res.text();
+        console.error("[CreateMatch] Error response:", errorText);
+        throw new Error("Failed to create match");
+      }
       return res.json();
     },
     onSuccess: () => {
@@ -157,7 +167,8 @@ export default function CreateMatchScreen() {
       );
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     },
-    onError: () => {
+    onError: (error) => {
+      console.error("[CreateMatch] Mutation error:", error);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
     },
   });

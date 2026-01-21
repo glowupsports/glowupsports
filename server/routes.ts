@@ -17368,6 +17368,42 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Get player social and availability data for the new 5-zone Player Home
+  // Get player's friends list (players from same academy)
+  app.get("/api/player/me/friends", authMiddleware, requirePlayerOrOwner, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      if (!req.user!.playerId) {
+        return res.json([]);
+      }
+      const playerId = req.user!.playerId!;
+      const player = await storage.getPlayer(playerId);
+      
+      if (!player || !player.academyId) {
+        return res.json([]);
+      }
+      
+      // Get all players in the same academy
+      const allPlayers = await storage.getPlayersByAcademy(player.academyId);
+      
+      // Filter out current player and return friend info
+      const friends = allPlayers
+        .filter((p: any) => p.id !== playerId)
+        .map((p: any) => ({
+          id: p.id,
+          name: p.name || `${p.firstName || ''} ${p.lastName || ''}`.trim() || 'Player',
+          firstName: p.firstName || p.name?.split(' ')[0] || 'Player',
+          lastName: p.lastName || p.name?.split(' ').slice(1).join(' ') || '',
+          profilePhotoUrl: p.profilePhotoUrl,
+          ballLevel: p.ballLevel,
+          glowLevel: p.glowLevel,
+        }));
+      
+      res.json(friends);
+    } catch (error) {
+      console.error("Error fetching player friends:", error);
+      res.status(500).json({ error: "Failed to fetch friends" });
+    }
+  });
+
   app.get("/api/player/me/social", authMiddleware, requirePlayerOrOwner, async (req: AuthenticatedRequest, res: Response) => {
     try {
       if (!req.user!.playerId) {
