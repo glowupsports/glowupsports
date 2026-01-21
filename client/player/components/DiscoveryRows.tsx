@@ -29,7 +29,7 @@ function getBallLevelColor(level: string): string {
   if (levelLower.includes("orange")) return "#F97316";
   if (levelLower.includes("green")) return "#22C55E";
   if (levelLower.includes("yellow")) return "#EAB308";
-  if (levelLower.includes("adult") || levelLower.includes("glow")) return "#00E5FF";
+  if (levelLower.includes("glow")) return "#C8FF3D";
   return ProTennisColors.electricGreen;
 }
 
@@ -203,33 +203,43 @@ export function GroupLessonsRow() {
   const { state } = usePlayerState();
   const navigation = useNavigation<any>();
 
-  // Filter for group sessions only (coaching)
-  const groupLessons = (state.openSessions ?? []).filter(s => s.type === "group");
+  // Get player's ball level from state
+  const playerBallLevel = state.player?.ballLevel?.toLowerCase() || "glow";
+
+  // Filter for group sessions that match player's ball level
+  const allGroupLessons = (state.openSessions ?? []).filter(s => s.type === "group");
+  const groupLessons = allGroupLessons.filter(s => {
+    const sessionLevel = s.ballLevel?.toLowerCase() || "";
+    return sessionLevel.includes(playerBallLevel) || playerBallLevel.includes(sessionLevel);
+  });
 
   const handleLessonPress = (sessionId: string) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    navigation.navigate("BrowseGroupLessons");
+    navigation.navigate("PlayerTabs", { screen: "Play" });
   };
 
   const handleSeeAll = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    navigation.navigate("BrowseGroupLessons");
+    navigation.navigate("PlayerTabs", { screen: "Play" });
   };
+
+  const ballLevelLabel = playerBallLevel.charAt(0).toUpperCase() + playerBallLevel.slice(1);
+  const ballLevelColor = getBallLevelColor(playerBallLevel);
 
   if (groupLessons.length === 0) {
     return (
       <View style={styles.section}>
         <SectionHeader
-          title="Group Lessons"
+          title={`${ballLevelLabel} Lessons`}
           actionLabel="View All"
           onAction={handleSeeAll}
-          accentColor={ProTennisColors.electricGreen}
+          accentColor={ballLevelColor}
         />
         <View style={styles.emptyRow}>
           <Feather name="users" size={24} color={ProTennisColors.textMuted} />
-          <Text style={styles.emptyText}>No group lessons available</Text>
+          <Text style={styles.emptyText}>No {ballLevelLabel} lessons available</Text>
           <Pressable style={styles.emptyButton} onPress={handleSeeAll}>
-            <Text style={styles.emptyButtonText}>Browse Lessons</Text>
+            <Text style={styles.emptyButtonText}>Browse All Lessons</Text>
           </Pressable>
         </View>
       </View>
@@ -239,11 +249,11 @@ export function GroupLessonsRow() {
   return (
     <View style={styles.section}>
       <SectionHeader
-        title="Group Lessons"
+        title={`${ballLevelLabel} Lessons`}
         count={groupLessons.length}
         actionLabel="View All"
         onAction={handleSeeAll}
-        accentColor={ProTennisColors.electricGreen}
+        accentColor={ballLevelColor}
       />
 
       <ScrollView
