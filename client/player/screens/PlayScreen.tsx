@@ -96,6 +96,8 @@ export default function PlayScreen() {
   const [playerSearchQuery, setPlayerSearchQuery] = useState("");
   const [selectedBallLevel, setSelectedBallLevel] = useState<string>("my_level");
   const [showOtherLevels, setShowOtherLevels] = useState(false);
+  const [selectedDay, setSelectedDay] = useState<string>("all");
+  const [selectedPlayerLevel, setSelectedPlayerLevel] = useState<string>("all");
 
   const { data: profileData } = useQuery<{ player: { ballLevel?: string } }>({
     queryKey: ["/api/player/me/profile"],
@@ -162,19 +164,46 @@ export default function PlayScreen() {
       filtered = filtered.slice(0, 6);
     }
     
+    // Apply ball level filter for players
+    if (selectedPlayerLevel !== "all") {
+      filtered = filtered.filter(p => {
+        const level = p.ballLevel?.toLowerCase() || "";
+        return level.includes(selectedPlayerLevel) || selectedPlayerLevel.includes(level);
+      });
+    }
+    
     return filtered;
-  }, [nearbyPlayers, playerSearchQuery, showAllPlayers]);
+  }, [nearbyPlayers, playerSearchQuery, showAllPlayers, selectedPlayerLevel]);
+
+  const DAY_LABELS = ["all", "mon", "tue", "wed", "thu", "fri", "sat", "sun"] as const;
+  
+  const getDayOfWeek = (dateString: string): string => {
+    const date = new Date(dateString);
+    const days = ["sun", "mon", "tue", "wed", "thu", "fri", "sat"];
+    return days[date.getDay()];
+  };
 
   const filteredSessions = useMemo(() => {
     if (!sessions) return [];
-    if (selectedBallLevel === "all") return sessions;
     
-    const filterLevel = selectedBallLevel === "my_level" ? playerBallLevel : selectedBallLevel;
-    return sessions.filter(s => {
-      const sessionLevel = s.ballLevel?.toLowerCase() || "";
-      return sessionLevel.includes(filterLevel) || filterLevel.includes(sessionLevel);
-    });
-  }, [sessions, selectedBallLevel, playerBallLevel]);
+    let filtered = sessions;
+    
+    // Filter by ball level
+    if (selectedBallLevel !== "all") {
+      const filterLevel = selectedBallLevel === "my_level" ? playerBallLevel : selectedBallLevel;
+      filtered = filtered.filter(s => {
+        const sessionLevel = s.ballLevel?.toLowerCase() || "";
+        return sessionLevel.includes(filterLevel) || filterLevel.includes(sessionLevel);
+      });
+    }
+    
+    // Filter by day
+    if (selectedDay !== "all") {
+      filtered = filtered.filter(s => getDayOfWeek(s.startTime) === selectedDay);
+    }
+    
+    return filtered;
+  }, [sessions, selectedBallLevel, playerBallLevel, selectedDay]);
 
   const joinSessionMutation = useMutation({
     mutationFn: async (sessionId: string) => {
@@ -601,15 +630,6 @@ export default function PlayScreen() {
           <Text style={styles.headerTitle}>Play</Text>
           <View style={styles.headerLine} />
         </View>
-        <Pressable 
-          style={styles.chatButton}
-          onPress={() => navigation.navigate("PlayerMessages")}
-        >
-          <Ionicons name="chatbubbles" size={24} color={Colors.dark.primary} />
-          <View style={styles.chatBadge}>
-            <Text style={styles.chatBadgeText}>1</Text>
-          </View>
-        </Pressable>
       </View>
 
       <View style={styles.quickActions}>
@@ -778,6 +798,34 @@ export default function PlayScreen() {
                   })}
                 </ScrollView>
               )}
+              
+              <ScrollView 
+                horizontal 
+                showsHorizontalScrollIndicator={false} 
+                style={styles.filterRow}
+                contentContainerStyle={styles.filterRowContent}
+              >
+                {DAY_LABELS.map((day) => {
+                  const isSelected = selectedDay === day;
+                  const label = day === "all" ? "All Days" : day.toUpperCase();
+                  
+                  return (
+                    <Pressable
+                      key={day}
+                      style={[
+                        styles.dayChip,
+                        isSelected && styles.dayChipSelected,
+                      ]}
+                      onPress={() => {
+                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                        setSelectedDay(day);
+                      }}
+                    >
+                      <Text style={[styles.dayChipText, isSelected && styles.dayChipTextSelected]}>{label}</Text>
+                    </Pressable>
+                  );
+                })}
+              </ScrollView>
             </View>
             {sessionsLoading ? (
               <View style={styles.loadingContainer}>
@@ -844,6 +892,43 @@ export default function PlayScreen() {
                 </Pressable>
               ) : null}
             </View>
+            
+            {/* Ball Level Filter */}
+            <ScrollView 
+              horizontal 
+              showsHorizontalScrollIndicator={false} 
+              style={styles.filterRow}
+              contentContainerStyle={styles.filterRowContent}
+            >
+              {(["all", "blue", "red", "orange", "green", "yellow", "glow"] as const).map((level) => {
+                const isSelected = selectedPlayerLevel === level;
+                const color = level === "all" ? Colors.dark.textMuted : getBallLevelColor(level);
+                const label = level === "all" ? "ALL" : level.toUpperCase();
+                const playerCount = nearbyPlayers?.filter(p => {
+                  if (level === "all") return true;
+                  const pLevel = p.ballLevel?.toLowerCase() || "";
+                  return pLevel.includes(level);
+                }).length || 0;
+                
+                return (
+                  <Pressable
+                    key={level}
+                    style={[
+                      styles.playerLevelChip,
+                      isSelected && { backgroundColor: color + "30", borderColor: color },
+                    ]}
+                    onPress={() => {
+                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                      setSelectedPlayerLevel(level);
+                    }}
+                  >
+                    <View style={[styles.filterDot, { backgroundColor: color }]} />
+                    <Text style={[styles.playerLevelChipText, isSelected && { color }]}>{label}</Text>
+                    <Text style={[styles.playerLevelCount, isSelected && { color }]}>{playerCount}</Text>
+                  </Pressable>
+                );
+              })}
+            </ScrollView>
             
             {playersLoading ? (
               <ActivityIndicator size="small" color={Colors.dark.primary} />
@@ -1035,6 +1120,49 @@ const styles = StyleSheet.create({
     ...Typography.small,
     color: Colors.dark.textMuted,
     fontWeight: "500",
+  },
+  dayChip: {
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm,
+    borderRadius: BorderRadius.full,
+    backgroundColor: Colors.dark.backgroundSecondary,
+    borderWidth: 1,
+    borderColor: Colors.dark.border,
+    marginRight: Spacing.xs,
+  },
+  dayChipSelected: {
+    backgroundColor: Colors.dark.primary + "30",
+    borderColor: Colors.dark.primary,
+  },
+  dayChipText: {
+    ...Typography.small,
+    color: Colors.dark.textMuted,
+    fontWeight: "600",
+  },
+  dayChipTextSelected: {
+    color: Colors.dark.primary,
+  },
+  playerLevelChip: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.xs,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm,
+    borderRadius: BorderRadius.full,
+    backgroundColor: Colors.dark.backgroundSecondary,
+    borderWidth: 1,
+    borderColor: Colors.dark.border,
+  },
+  playerLevelChipText: {
+    ...Typography.small,
+    color: Colors.dark.textMuted,
+    fontWeight: "600",
+  },
+  playerLevelCount: {
+    ...Typography.small,
+    color: Colors.dark.textMuted,
+    opacity: 0.7,
+    marginLeft: Spacing.xs / 2,
   },
   ballLevelBadgeText: {
     ...Typography.small,

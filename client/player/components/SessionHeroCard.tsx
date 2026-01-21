@@ -2025,7 +2025,7 @@ const styles = StyleSheet.create({
     backgroundColor: ProTennisColors.warning,
   },
   upcomingStakes: {
-    marginBottom: Spacing.lg,
+    marginBottom: Spacing.xs,
   },
   stakesTitle: {
     ...Typography.labelSmall,
@@ -2060,8 +2060,8 @@ const styles = StyleSheet.create({
     alignItems: "center",
     backgroundColor: `${ProTennisColors.surfaceElevated}60`,
     borderRadius: BorderRadius.md,
-    padding: Spacing.md,
-    marginTop: Spacing.md,
+    padding: Spacing.sm,
+    marginTop: Spacing.xs,
   },
   sessionActionButton: {
     flex: 1,

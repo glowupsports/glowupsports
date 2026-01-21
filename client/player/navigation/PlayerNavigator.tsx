@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { useNavigation } from "@react-navigation/native";
+import { useNavigation, useNavigationState } from "@react-navigation/native";
 import { HeaderButton } from "@react-navigation/elements";
 import { StyleSheet, View, Platform, ActivityIndicator, ViewStyle } from "react-native";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
@@ -152,6 +152,16 @@ const Tab = createBottomTabNavigator<PlayerTabParamList>();
 const Stack = createNativeStackNavigator<PlayerStackParamList>();
 
 function PlayerTabsContent() {
+  const currentRouteName = useNavigationState((state) => {
+    if (!state || !state.routes || state.routes.length === 0) return "Home";
+    const tabState = state.routes[0]?.state;
+    if (!tabState) return "Home";
+    const index = tabState.index ?? 0;
+    return tabState.routes?.[index]?.name ?? "Home";
+  });
+  
+  const hideChat = currentRouteName === "Play";
+  
   return (
     <View style={styles.tabsContainer}>
       <Tab.Navigator
@@ -238,7 +248,7 @@ function PlayerTabsContent() {
           }}
         />
       </Tab.Navigator>
-      <CoachChatFooter mode="player" />
+      {!hideChat && <CoachChatFooter mode="player" />}
       <PlayerQuickActionsFAB />
     </View>
   );

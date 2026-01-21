@@ -254,22 +254,6 @@ export function MiniFeed() {
         <LatestPostCard post={latestPost} onPress={handlePress} />
       )}
 
-      {events.length > 0 && (
-        <View style={styles.eventsContainer}>
-          {events.map((event, index) => {
-            const config = eventTypeConfig[event.type] || eventTypeConfig.new_member;
-            return (
-              <AnimatedEventCard
-                key={event.id}
-                event={event}
-                config={config}
-                onPress={handlePress}
-                delay={index * 80}
-              />
-            );
-          })}
-        </View>
-      )}
     </Animated.View>
   );
 }
