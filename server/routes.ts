@@ -17259,11 +17259,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
         
         // Check if player is already enrolled
         const sessionPlayers = await storage.getSessionPlayers(session.id);
-        const isEnrolled = sessionPlayers.some(sp => sp.playerId === playerId);
-        const currentPlayers = sessionPlayers.length;
-        const maxPlayers = session.maxPlayers || 6;
-        const spotsLeft = Math.max(0, maxPlayers - currentPlayers);
-        
+        // Get participant details
+        const participants = await Promise.all(sessionPlayers.slice(0, 10).map(async (sp) => {
+          const p = await storage.getPlayer(sp.playerId);
+          return p ? {
+            id: p.id,
+            name: p.name || "Player",
+            profilePhotoUrl: (p as any).profilePhotoUrl || null,
+            level: p.level || 1,
+            ballLevel: p.ballLevel || null,
+          } : null;
+        }));
+        const validParticipants = participants.filter(Boolean);
+
         return {
           id: session.id,
           type: session.sessionType || "group",
@@ -17278,6 +17286,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           courtName: court?.name || null,
           ballLevel: ((session as any).targetBallLevel || (session as any).ballLevel || "").toUpperCase() || null,
           isEnrolled,
+          participants: validParticipants,
         };
       }));
       
