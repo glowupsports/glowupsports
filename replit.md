@@ -103,3 +103,31 @@ This prevents:
   - `Authorization: Bearer <token>` header
   - Valid JWT token from login
 - The client `getAuthHeaders()` function properly sets this header for all authenticated requests
+
+### Bug Fixes (2026-01-21) - Session Display Fixes
+
+#### Player Display in Play Screen
+- **Issue**: Play screen showed "4 Open" without player avatars for recurring sessions
+- **Root Cause**: `/api/play/sessions` only queried `session_players` table, but recurring sessions have players in `series_players` table (linked via `seriesId`)
+- **Fix**: Added fallback to check `series_players` when `session_players` is empty for sessions with a `seriesId`
+
+#### Timezone Display Fixes
+- **Issue**: Home screen and Play screen showed UTC times instead of Dubai time (UTC+4)
+- **Fix**: Created timezone-aware formatting functions in `client/lib/dateUtils.ts`:
+  - `formatSessionTimeWithRelativeDay()` - Shows "Today 5:00 PM" or "Wed 5:00 PM" in target timezone
+  - `formatSessionDateShort()` - Shows "21 Jan (Tue)" in target timezone
+- Both PlayScreen and DiscoveryRows now use Dubai timezone for display
+
+#### Join/Cancel Button State
+- **Issue**: Join button always showed "Join Session" even after player joined
+- **Fix**: Added `isEnrolled` field to `/api/play/sessions` API response, and button now shows "Cancel" with red styling when player is already enrolled
+
+#### Session Card Layout Improvements
+- Moved participant avatars BELOW the Join button for better layout (shows up to 6 players)
+- Added credit cost indicator showing "1 Group Credit" or "1 Semi-Private Credit" on each session card
+- Avatar overflow indicator shows "+N" for sessions with more than 6 players
+
+### Key Code Locations
+- **Play Sessions API**: `server/routes.ts` line ~22279 - includes series_players fallback and isEnrolled field
+- **Date Utilities**: `client/lib/dateUtils.ts` - timezone-aware formatting functions
+- **Play Screen**: `client/player/screens/PlayScreen.tsx` - updated layout with Cancel button and credit indicator
