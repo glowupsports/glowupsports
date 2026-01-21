@@ -36,6 +36,7 @@ interface OpenSession {
   coachName?: string;
   ballLevel?: string;
   participants?: SessionParticipant[];
+  locationName?: string;
 }
 
 interface CommunityEvent {

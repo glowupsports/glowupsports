@@ -17290,6 +17290,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           courtName: court?.name || null,
           ballLevel: ((session as any).targetBallLevel || (session as any).ballLevel || "").toUpperCase() || null,
           isEnrolled,
+            locationName,
           participants: validParticipants,
         };
       }));
@@ -17487,6 +17488,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
           });
           const dubaiTimeStr = dubaiTimeFormatter.format(time);
           
+          
+          // Get location name
+          let locationName = "Academy Courts";
+          if ((session as any).locationId) {
+            const location = await storage.getLocationById((session as any).locationId);
+            if (location) locationName = location.name;
+          } else if ((session as any).courtId) {
+            const court = await storage.getCourtById((session as any).courtId);
+            if (court) locationName = court.name;
+          }
+
           openSessions.push({
             id: session.id,
             type: session.sessionType || "group",
@@ -17498,6 +17510,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             ballLevel: ((session as any).targetBallLevel || playerBallLevel).toUpperCase(),
             participants,
             isEnrolled,
+            locationName,
           });
         }
       }
@@ -22401,6 +22414,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           maxPlayers,
           currentPlayers,
           isEnrolled,
+            locationName,
           players: players.map(p => ({
             id: p.id,
             name: p.name,

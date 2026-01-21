@@ -377,7 +377,7 @@ export function GroupLessonsRow() {
                     </Text>
                     <View style={styles.playCardLocationRow}>
                       <Ionicons name="location" size={12} color={Colors.dark.primary} />
-                      <Text style={styles.playCardLocationText}>Location TBD</Text>
+                      <Text style={styles.playCardLocationText}>{(session as any).locationName || "Academy Courts"}</Text>
                     </View>
                     <View style={styles.playCardMetaRow}>
                       <Ionicons name="time-outline" size={12} color={Colors.dark.textMuted} />
@@ -1372,35 +1372,40 @@ const styles = StyleSheet.create({
   },
   playCardHeader: {
     gap: 4,
+    alignItems: "center",
   },
   playCardTitle: {
-    fontSize: 16,
+    fontSize: 18,
     fontWeight: "700",
     color: Colors.dark.text,
+    textAlign: "center",
   },
   playCardBallLevel: {
-    fontSize: 11,
+    fontSize: 13,
     fontWeight: "800",
     letterSpacing: 1,
   },
   playCardLocationRow: {
     flexDirection: "row",
     alignItems: "center",
+    justifyContent: "center",
     gap: 4,
     marginTop: 4,
   },
   playCardLocationText: {
-    fontSize: 12,
-    color: Colors.dark.textMuted,
+    fontSize: 14,
+    color: Colors.dark.primary,
+    fontWeight: "600",
   },
   playCardMetaRow: {
     flexDirection: "row",
     alignItems: "center",
+    justifyContent: "center",
     gap: 4,
     marginTop: 2,
   },
   playCardMetaText: {
-    fontSize: 11,
+    fontSize: 13,
     color: Colors.dark.textMuted,
   },
   playCardMetaDot: {
@@ -1410,6 +1415,7 @@ const styles = StyleSheet.create({
   playCardBadgesRow: {
     flexDirection: "row",
     alignItems: "center",
+    justifyContent: "center",
     gap: Spacing.sm,
   },
   playCardXpBadge: {
@@ -1446,6 +1452,7 @@ const styles = StyleSheet.create({
   playCardActionsRow: {
     flexDirection: "row",
     alignItems: "center",
+    justifyContent: "center",
     gap: Spacing.sm,
   },
   playCardStatusBadge: {
@@ -1501,6 +1508,7 @@ const styles = StyleSheet.create({
   playCardCreditRow: {
     flexDirection: "row",
     alignItems: "center",
+    justifyContent: "center",
     gap: 6,
   },
   playCardCreditText: {
@@ -1510,10 +1518,12 @@ const styles = StyleSheet.create({
   playCardParticipantsRow: {
     marginTop: Spacing.xs,
     gap: 4,
+    alignItems: "center",
   },
   playCardAvatarStack: {
     flexDirection: "row",
     alignItems: "center",
+    justifyContent: "center",
   },
   playCardAvatar: {
     width: 32,
