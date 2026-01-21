@@ -123,9 +123,13 @@ export default function CreateMatchScreen() {
         maxPlayers: matchType === "doubles" ? 4 : 2,
       };
       
+      const { getAuthHeaders } = await import("@/lib/auth");
       const res = await fetch(new URL("/api/play/create-match-request", getApiUrl()).toString(), {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { 
+          "Content-Type": "application/json",
+          ...getAuthHeaders(),
+        },
         credentials: "include",
         body: JSON.stringify(matchData),
       });
@@ -327,64 +331,62 @@ export default function CreateMatchScreen() {
       exiting={SlideOutLeft.duration(200)}
       style={styles.stepContainer}
     >
-      <Text style={styles.stepTitle}>When do you want to play?</Text>
-      <Text style={styles.stepSubtitle}>Pick a date and time</Text>
+      <ScrollView showsVerticalScrollIndicator={false} style={{ flex: 1 }}>
+        <Text style={styles.stepTitle}>When do you want to play?</Text>
+        <Text style={styles.stepSubtitle}>Pick a date and time</Text>
 
-      <Text style={styles.sectionLabel}>Date</Text>
-      <ScrollView 
-        horizontal 
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={styles.dateScroll}
-      >
-        {dateOptions.map((date, index) => {
-          const formatted = formatDate(date);
-          const isSelected = selectedDate.toDateString() === date.toDateString();
-          return (
-            <Pressable
-              key={index}
-              style={[styles.dateCard, isSelected && styles.dateCardSelected]}
-              onPress={() => {
-                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                setSelectedDate(date);
-              }}
-            >
-              <Text style={[styles.dateDay, isSelected && styles.dateDaySelected]}>
-                {formatted.day}
-              </Text>
-              <Text style={[styles.dateNumber, isSelected && styles.dateNumberSelected]}>
-                {formatted.date}
-              </Text>
-              <Text style={[styles.dateMonth, isSelected && styles.dateMonthSelected]}>
-                {formatted.month}
-              </Text>
-            </Pressable>
-          );
-        })}
-      </ScrollView>
+        <Text style={styles.sectionLabel}>Date</Text>
+        <ScrollView 
+          horizontal 
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.dateScroll}
+        >
+          {dateOptions.map((date, index) => {
+            const formatted = formatDate(date);
+            const isSelected = selectedDate.toDateString() === date.toDateString();
+            return (
+              <Pressable
+                key={index}
+                style={[styles.dateCard, isSelected && styles.dateCardSelected]}
+                onPress={() => {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  setSelectedDate(date);
+                }}
+              >
+                <Text style={[styles.dateDay, isSelected && styles.dateDaySelected]}>
+                  {formatted.day}
+                </Text>
+                <Text style={[styles.dateNumber, isSelected && styles.dateNumberSelected]}>
+                  {formatted.date}
+                </Text>
+                <Text style={[styles.dateMonth, isSelected && styles.dateMonthSelected]}>
+                  {formatted.month}
+                </Text>
+              </Pressable>
+            );
+          })}
+        </ScrollView>
 
-      <Text style={styles.sectionLabel}>Time</Text>
-      <ScrollView 
-        horizontal 
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={styles.timeScroll}
-      >
-        {timeSlots.map((time) => {
-          const isSelected = selectedTime === time;
-          return (
-            <Pressable
-              key={time}
-              style={[styles.timeChip, isSelected && styles.timeChipSelected]}
-              onPress={() => {
-                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                setSelectedTime(time);
-              }}
-            >
-              <Text style={[styles.timeText, isSelected && styles.timeTextSelected]}>
-                {time}
-              </Text>
-            </Pressable>
-          );
-        })}
+        <Text style={styles.sectionLabel}>Time</Text>
+        <View style={styles.timeGrid}>
+          {timeSlots.map((time) => {
+            const isSelected = selectedTime === time;
+            return (
+              <Pressable
+                key={time}
+                style={[styles.timeChip, isSelected && styles.timeChipSelected]}
+                onPress={() => {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  setSelectedTime(time);
+                }}
+              >
+                <Text style={[styles.timeText, isSelected && styles.timeTextSelected]}>
+                  {time}
+                </Text>
+              </Pressable>
+            );
+          })}
+        </View>
       </ScrollView>
 
       <View style={styles.bottomActions}>
@@ -796,8 +798,9 @@ const styles = StyleSheet.create({
     gap: Spacing.sm,
   },
   dateCard: {
-    width: 70,
-    padding: Spacing.md,
+    width: 60,
+    paddingVertical: Spacing.sm,
+    paddingHorizontal: Spacing.xs,
     backgroundColor: Colors.dark.backgroundSecondary,
     borderRadius: BorderRadius.md,
     alignItems: "center",
@@ -831,17 +834,20 @@ const styles = StyleSheet.create({
   dateMonthSelected: {
     color: Colors.dark.primary,
   },
-  timeScroll: {
-    paddingVertical: Spacing.sm,
+  timeGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
     gap: Spacing.sm,
+    paddingVertical: Spacing.sm,
   },
   timeChip: {
-    paddingHorizontal: Spacing.md,
+    width: (SCREEN_WIDTH - Spacing.lg * 2 - Spacing.sm * 4) / 5,
     paddingVertical: Spacing.sm,
     backgroundColor: Colors.dark.backgroundSecondary,
-    borderRadius: BorderRadius.full,
+    borderRadius: BorderRadius.md,
     borderWidth: 1,
     borderColor: "transparent",
+    alignItems: "center",
   },
   timeChipSelected: {
     backgroundColor: Colors.dark.xpCyan + "20",
@@ -934,7 +940,7 @@ const styles = StyleSheet.create({
   },
   slider: {
     width: "100%",
-    height: 40,
+    height: 50,
   },
   ballLevelGrid: {
     flexDirection: "row",
