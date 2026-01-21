@@ -22297,12 +22297,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Enrich sessions with player count and player info
       const enrichedSessions = await Promise.all(sessions.map(async (session) => {
-        // Get players in this session
+        // Get players in this session - first check session_players
         const sessionPlayerRecords = await db.query.sessionPlayers.findMany({
           where: (sp, { eq }) => eq(sp.sessionId, session.id),
         });
         
-        const playerIds = sessionPlayerRecords.map(sp => sp.playerId).filter(Boolean) as string[];
+        let playerIds = sessionPlayerRecords.map(sp => sp.playerId).filter(Boolean) as string[];
+        
+        // If no session_players and session has a series, check series_players (for recurring sessions)
+        if (playerIds.length === 0 && session.seriesId) {
+          const seriesPlayers = await storage.getSeriesPlayers(session.seriesId);
+          playerIds = seriesPlayers
+            .filter(sp => sp.status === 'active')
+            .map(sp => sp.playerId)
+            .filter(Boolean) as string[];
+        }
+        
         const players = playerIds.length > 0 
           ? await db.query.players.findMany({
               where: (p, { inArray }) => inArray(p.id, playerIds),
