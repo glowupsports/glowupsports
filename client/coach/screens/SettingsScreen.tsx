@@ -1374,8 +1374,9 @@ export default function SettingsScreen() {
                             handleDeleteTravelTime(tt.id, getLocationName(tt.fromLocationId), getLocationName(tt.toLocationId));
                           }}
                           style={styles.travelTimeDeleteBtn}
+                          hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
                         >
-                          <Ionicons name="trash-outline" size={18} color={Colors.dark.error} />
+                          <Ionicons name="trash-outline" size={20} color={Colors.dark.error} />
                         </Pressable>
                       </View>
                     ))}
@@ -2575,8 +2576,10 @@ const styles = StyleSheet.create({
     color: Colors.dark.gold,
   },
   travelTimeDeleteBtn: {
-    padding: Spacing.sm,
+    padding: Spacing.md,
     marginLeft: Spacing.sm,
+    backgroundColor: "rgba(255, 59, 48, 0.12)",
+    borderRadius: BorderRadius.sm,
   },
   locationPicker: {
     flexDirection: "row",
