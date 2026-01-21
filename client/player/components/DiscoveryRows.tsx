@@ -170,7 +170,7 @@ export function PlayersNearYouRow() {
                   <Text style={styles.playerName} numberOfLines={1}>{player.name.split(" ")[0]}</Text>
                   <View style={[styles.levelBadge, { backgroundColor: `${levelColor}30` }]}>
                     <View style={[styles.levelDot, { backgroundColor: levelColor }]} />
-                    <Text style={[styles.levelText, { color: levelColor }]}>{player.level}</Text>
+                    <Text style={[styles.levelText, { color: levelColor }]}>{(player.ballLevel || player.level || "").toUpperCase()}</Text>
                   </View>
                   {player.status === "available" && (
                     <View style={styles.statusChip}>

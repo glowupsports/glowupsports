@@ -76,6 +76,23 @@ function getBallLevelColor(level: string): string {
 
 function getBallLevelLabel(level: string): string {
   const l = level?.toLowerCase() || "";
+  // Return the full level with sub-level number (e.g. "GLOW 6", "YELLOW 3")
+  if (l) {
+    // Extract level name and number if present
+    const match = l.match(/^(blue|red|orange|green|yellow|glow)\s*(\d+)?$/i);
+    if (match) {
+      const baseName = match[1].toUpperCase();
+      const subLevel = match[2];
+      return subLevel ? `${baseName} ${subLevel}` : baseName;
+    }
+    // Fallback for formats like "glow_6" or "glow-6"
+    const altMatch = l.match(/^(blue|red|orange|green|yellow|glow)[_-]?(\d+)?$/i);
+    if (altMatch) {
+      const baseName = altMatch[1].toUpperCase();
+      const subLevel = altMatch[2];
+      return subLevel ? `${baseName} ${subLevel}` : baseName;
+    }
+  }
   if (l.includes("blue")) return "BLUE";
   if (l.includes("red")) return "RED";
   if (l.includes("orange")) return "ORANGE";
