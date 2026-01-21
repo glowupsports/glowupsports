@@ -22500,23 +22500,499 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
 
-      // If no make-up credit used, deduct regular credits
+      // If no make-up credit used, deduct regular credits (allow negative balance/debt)
       if (!makeUpUsed) {
         const playerCredits = player.credits || 0;
-        if (playerCredits < sessionCredits) {
-          return res.status(400).json({ 
-            error: `Not enough credits. This session requires ${sessionCredits} credit(s). You have ${playerCredits}.`,
-            creditsRequired: sessionCredits,
-            creditsAvailable: playerCredits,
-            makeUpCreditsAvailable: player.makeUpCredits || 0,
-          });
-        }
+        const newBalance = playerCredits - sessionCredits;
         
-        // Deduct credits
+        // Allow negative credits (debt) - player can join and settle later
+        // This is the same behavior as regular class bookings
         await storage.updatePlayer(playerId, {
-          credits: playerCredits - sessionCredits,
+          credits: newBalance,
         });
         creditsUsed = sessionCredits;
+        
+        // If going into debt, log a notification for the player/parent
+        if (newBalance < 0) {
+          await storage.createNotification({
+            playerId,
+            type: "credits_needed",
+            title: "Credits Used - Balance Low",
+            message: `You joined a session using credit. Your balance is now ${newBalance}. Please purchase more credits.`,
+            metadata: JSON.stringify({
+              sessionId,
+              sessionType: session.sessionType,
+              creditsUsed: sessionCredits,
+              newBalance,
+            }),
+            scheduledFor: new Date(),
+          });
+        }
+      }
+      // If no make-up credit used, deduct regular credits (allow negative balance/debt)
+      if (!makeUpUsed) {
+        const playerCredits = player.credits || 0;
+        const newBalance = playerCredits - sessionCredits;
+        
+        // Allow negative credits (debt) - player can join and settle later
+        // This is the same behavior as regular class bookings
+        await storage.updatePlayer(playerId, {
+          credits: newBalance,
+        });
+        creditsUsed = sessionCredits;
+        
+        // If going into debt, log a notification for the player/parent
+        if (newBalance < 0) {
+          await storage.createNotification({
+            playerId,
+            type: "credits_needed",
+            title: "Credits Used - Balance Low",
+            message: `You joined a session using credit. Your balance is now ${newBalance}. Please purchase more credits.`,
+            metadata: JSON.stringify({
+              sessionId,
+              sessionType: session.sessionType,
+              creditsUsed: sessionCredits,
+              newBalance,
+            }),
+            scheduledFor: new Date(),
+          });
+        }
+      }
+      // If no make-up credit used, deduct regular credits (allow negative balance/debt)
+      if (!makeUpUsed) {
+        const playerCredits = player.credits || 0;
+        const newBalance = playerCredits - sessionCredits;
+        
+        // Allow negative credits (debt) - player can join and settle later
+        // This is the same behavior as regular class bookings
+        await storage.updatePlayer(playerId, {
+          credits: newBalance,
+        });
+        creditsUsed = sessionCredits;
+        
+        // If going into debt, log a notification for the player/parent
+        if (newBalance < 0) {
+          await storage.createNotification({
+            playerId,
+            type: "credits_needed",
+            title: "Credits Used - Balance Low",
+            message: `You joined a session using credit. Your balance is now ${newBalance}. Please purchase more credits.`,
+            metadata: JSON.stringify({
+              sessionId,
+              sessionType: session.sessionType,
+              creditsUsed: sessionCredits,
+              newBalance,
+            }),
+            scheduledFor: new Date(),
+          });
+        }
+      }
+      // If no make-up credit used, deduct regular credits (allow negative balance/debt)
+      if (!makeUpUsed) {
+        const playerCredits = player.credits || 0;
+        const newBalance = playerCredits - sessionCredits;
+        
+        // Allow negative credits (debt) - player can join and settle later
+        // This is the same behavior as regular class bookings
+        await storage.updatePlayer(playerId, {
+          credits: newBalance,
+        });
+        creditsUsed = sessionCredits;
+        
+        // If going into debt, log a notification for the player/parent
+        if (newBalance < 0) {
+          await storage.createNotification({
+            playerId,
+            type: "credits_needed",
+            title: "Credits Used - Balance Low",
+            message: `You joined a session using credit. Your balance is now ${newBalance}. Please purchase more credits.`,
+            metadata: JSON.stringify({
+              sessionId,
+              sessionType: session.sessionType,
+              creditsUsed: sessionCredits,
+              newBalance,
+            }),
+            scheduledFor: new Date(),
+          });
+        }
+      }
+      // If no make-up credit used, deduct regular credits (allow negative balance/debt)
+      if (!makeUpUsed) {
+        const playerCredits = player.credits || 0;
+        const newBalance = playerCredits - sessionCredits;
+        
+        // Allow negative credits (debt) - player can join and settle later
+        // This is the same behavior as regular class bookings
+        await storage.updatePlayer(playerId, {
+          credits: newBalance,
+        });
+        creditsUsed = sessionCredits;
+        
+        // If going into debt, log a notification for the player/parent
+        if (newBalance < 0) {
+          await storage.createNotification({
+            playerId,
+            type: "credits_needed",
+            title: "Credits Used - Balance Low",
+            message: `You joined a session using credit. Your balance is now ${newBalance}. Please purchase more credits.`,
+            metadata: JSON.stringify({
+              sessionId,
+              sessionType: session.sessionType,
+              creditsUsed: sessionCredits,
+              newBalance,
+            }),
+            scheduledFor: new Date(),
+          });
+        }
+      }
+      // If no make-up credit used, deduct regular credits (allow negative balance/debt)
+      if (!makeUpUsed) {
+        const playerCredits = player.credits || 0;
+        const newBalance = playerCredits - sessionCredits;
+        
+        // Allow negative credits (debt) - player can join and settle later
+        // This is the same behavior as regular class bookings
+        await storage.updatePlayer(playerId, {
+          credits: newBalance,
+        });
+        creditsUsed = sessionCredits;
+        
+        // If going into debt, log a notification for the player/parent
+        if (newBalance < 0) {
+          await storage.createNotification({
+            playerId,
+            type: "credits_needed",
+            title: "Credits Used - Balance Low",
+            message: `You joined a session using credit. Your balance is now ${newBalance}. Please purchase more credits.`,
+            metadata: JSON.stringify({
+              sessionId,
+              sessionType: session.sessionType,
+              creditsUsed: sessionCredits,
+              newBalance,
+            }),
+            scheduledFor: new Date(),
+          });
+        }
+      }
+      // If no make-up credit used, deduct regular credits (allow negative balance/debt)
+      if (!makeUpUsed) {
+        const playerCredits = player.credits || 0;
+        const newBalance = playerCredits - sessionCredits;
+        
+        // Allow negative credits (debt) - player can join and settle later
+        // This is the same behavior as regular class bookings
+        await storage.updatePlayer(playerId, {
+          credits: newBalance,
+        });
+        creditsUsed = sessionCredits;
+        
+        // If going into debt, log a notification for the player/parent
+        if (newBalance < 0) {
+          await storage.createNotification({
+            playerId,
+            type: "credits_needed",
+            title: "Credits Used - Balance Low",
+            message: `You joined a session using credit. Your balance is now ${newBalance}. Please purchase more credits.`,
+            metadata: JSON.stringify({
+              sessionId,
+              sessionType: session.sessionType,
+              creditsUsed: sessionCredits,
+              newBalance,
+            }),
+            scheduledFor: new Date(),
+          });
+        }
+      }
+      // If no make-up credit used, deduct regular credits (allow negative balance/debt)
+      if (!makeUpUsed) {
+        const playerCredits = player.credits || 0;
+        const newBalance = playerCredits - sessionCredits;
+        
+        // Allow negative credits (debt) - player can join and settle later
+        // This is the same behavior as regular class bookings
+        await storage.updatePlayer(playerId, {
+          credits: newBalance,
+        });
+        creditsUsed = sessionCredits;
+        
+        // If going into debt, log a notification for the player/parent
+        if (newBalance < 0) {
+          await storage.createNotification({
+            playerId,
+            type: "credits_needed",
+            title: "Credits Used - Balance Low",
+            message: `You joined a session using credit. Your balance is now ${newBalance}. Please purchase more credits.`,
+            metadata: JSON.stringify({
+              sessionId,
+              sessionType: session.sessionType,
+              creditsUsed: sessionCredits,
+              newBalance,
+            }),
+            scheduledFor: new Date(),
+          });
+        }
+      }
+      // If no make-up credit used, deduct regular credits (allow negative balance/debt)
+      if (!makeUpUsed) {
+        const playerCredits = player.credits || 0;
+        const newBalance = playerCredits - sessionCredits;
+        
+        // Allow negative credits (debt) - player can join and settle later
+        // This is the same behavior as regular class bookings
+        await storage.updatePlayer(playerId, {
+          credits: newBalance,
+        });
+        creditsUsed = sessionCredits;
+        
+        // If going into debt, log a notification for the player/parent
+        if (newBalance < 0) {
+          await storage.createNotification({
+            playerId,
+            type: "credits_needed",
+            title: "Credits Used - Balance Low",
+            message: `You joined a session using credit. Your balance is now ${newBalance}. Please purchase more credits.`,
+            metadata: JSON.stringify({
+              sessionId,
+              sessionType: session.sessionType,
+              creditsUsed: sessionCredits,
+              newBalance,
+            }),
+            scheduledFor: new Date(),
+          });
+        }
+      }
+      // If no make-up credit used, deduct regular credits (allow negative balance/debt)
+      if (!makeUpUsed) {
+        const playerCredits = player.credits || 0;
+        const newBalance = playerCredits - sessionCredits;
+        
+        // Allow negative credits (debt) - player can join and settle later
+        // This is the same behavior as regular class bookings
+        await storage.updatePlayer(playerId, {
+          credits: newBalance,
+        });
+        creditsUsed = sessionCredits;
+        
+        // If going into debt, log a notification for the player/parent
+        if (newBalance < 0) {
+          await storage.createNotification({
+            playerId,
+            type: "credits_needed",
+            title: "Credits Used - Balance Low",
+            message: `You joined a session using credit. Your balance is now ${newBalance}. Please purchase more credits.`,
+            metadata: JSON.stringify({
+              sessionId,
+              sessionType: session.sessionType,
+              creditsUsed: sessionCredits,
+              newBalance,
+            }),
+            scheduledFor: new Date(),
+          });
+        }
+      }
+      // If no make-up credit used, deduct regular credits (allow negative balance/debt)
+      if (!makeUpUsed) {
+        const playerCredits = player.credits || 0;
+        const newBalance = playerCredits - sessionCredits;
+        
+        // Allow negative credits (debt) - player can join and settle later
+        // This is the same behavior as regular class bookings
+        await storage.updatePlayer(playerId, {
+          credits: newBalance,
+        });
+        creditsUsed = sessionCredits;
+        
+        // If going into debt, log a notification for the player/parent
+        if (newBalance < 0) {
+          await storage.createNotification({
+            playerId,
+            type: "credits_needed",
+            title: "Credits Used - Balance Low",
+            message: `You joined a session using credit. Your balance is now ${newBalance}. Please purchase more credits.`,
+            metadata: JSON.stringify({
+              sessionId,
+              sessionType: session.sessionType,
+              creditsUsed: sessionCredits,
+              newBalance,
+            }),
+            scheduledFor: new Date(),
+          });
+        }
+      }
+      // If no make-up credit used, deduct regular credits (allow negative balance/debt)
+      if (!makeUpUsed) {
+        const playerCredits = player.credits || 0;
+        const newBalance = playerCredits - sessionCredits;
+        
+        // Allow negative credits (debt) - player can join and settle later
+        // This is the same behavior as regular class bookings
+        await storage.updatePlayer(playerId, {
+          credits: newBalance,
+        });
+        creditsUsed = sessionCredits;
+        
+        // If going into debt, log a notification for the player/parent
+        if (newBalance < 0) {
+          await storage.createNotification({
+            playerId,
+            type: "credits_needed",
+            title: "Credits Used - Balance Low",
+            message: `You joined a session using credit. Your balance is now ${newBalance}. Please purchase more credits.`,
+            metadata: JSON.stringify({
+              sessionId,
+              sessionType: session.sessionType,
+              creditsUsed: sessionCredits,
+              newBalance,
+            }),
+            scheduledFor: new Date(),
+          });
+        }
+      }
+      // If no make-up credit used, deduct regular credits (allow negative balance/debt)
+      if (!makeUpUsed) {
+        const playerCredits = player.credits || 0;
+        const newBalance = playerCredits - sessionCredits;
+        
+        // Allow negative credits (debt) - player can join and settle later
+        // This is the same behavior as regular class bookings
+        await storage.updatePlayer(playerId, {
+          credits: newBalance,
+        });
+        creditsUsed = sessionCredits;
+        
+        // If going into debt, log a notification for the player/parent
+        if (newBalance < 0) {
+          await storage.createNotification({
+            playerId,
+            type: "credits_needed",
+            title: "Credits Used - Balance Low",
+            message: `You joined a session using credit. Your balance is now ${newBalance}. Please purchase more credits.`,
+            metadata: JSON.stringify({
+              sessionId,
+              sessionType: session.sessionType,
+              creditsUsed: sessionCredits,
+              newBalance,
+            }),
+            scheduledFor: new Date(),
+          });
+        }
+      }
+      // If no make-up credit used, deduct regular credits (allow negative balance/debt)
+      if (!makeUpUsed) {
+        const playerCredits = player.credits || 0;
+        const newBalance = playerCredits - sessionCredits;
+        
+        // Allow negative credits (debt) - player can join and settle later
+        // This is the same behavior as regular class bookings
+        await storage.updatePlayer(playerId, {
+          credits: newBalance,
+        });
+        creditsUsed = sessionCredits;
+        
+        // If going into debt, log a notification for the player/parent
+        if (newBalance < 0) {
+          await storage.createNotification({
+            playerId,
+            type: "credits_needed",
+            title: "Credits Used - Balance Low",
+            message: `You joined a session using credit. Your balance is now ${newBalance}. Please purchase more credits.`,
+            metadata: JSON.stringify({
+              sessionId,
+              sessionType: session.sessionType,
+              creditsUsed: sessionCredits,
+              newBalance,
+            }),
+            scheduledFor: new Date(),
+          });
+        }
+      }
+      // If no make-up credit used, deduct regular credits (allow negative balance/debt)
+      if (!makeUpUsed) {
+        const playerCredits = player.credits || 0;
+        const newBalance = playerCredits - sessionCredits;
+        
+        // Allow negative credits (debt) - player can join and settle later
+        // This is the same behavior as regular class bookings
+        await storage.updatePlayer(playerId, {
+          credits: newBalance,
+        });
+        creditsUsed = sessionCredits;
+        
+        // If going into debt, log a notification for the player/parent
+        if (newBalance < 0) {
+          await storage.createNotification({
+            playerId,
+            type: "credits_needed",
+            title: "Credits Used - Balance Low",
+            message: `You joined a session using credit. Your balance is now ${newBalance}. Please purchase more credits.`,
+            metadata: JSON.stringify({
+              sessionId,
+              sessionType: session.sessionType,
+              creditsUsed: sessionCredits,
+              newBalance,
+            }),
+            scheduledFor: new Date(),
+          });
+        }
+      }
+      // If no make-up credit used, deduct regular credits (allow negative balance/debt)
+      if (!makeUpUsed) {
+        const playerCredits = player.credits || 0;
+        const newBalance = playerCredits - sessionCredits;
+        
+        // Allow negative credits (debt) - player can join and settle later
+        // This is the same behavior as regular class bookings
+        await storage.updatePlayer(playerId, {
+          credits: newBalance,
+        });
+        creditsUsed = sessionCredits;
+        
+        // If going into debt, log a notification for the player/parent
+        if (newBalance < 0) {
+          await storage.createNotification({
+            playerId,
+            type: "credits_needed",
+            title: "Credits Used - Balance Low",
+            message: `You joined a session using credit. Your balance is now ${newBalance}. Please purchase more credits.`,
+            metadata: JSON.stringify({
+              sessionId,
+              sessionType: session.sessionType,
+              creditsUsed: sessionCredits,
+              newBalance,
+            }),
+            scheduledFor: new Date(),
+          });
+        }
+      }
+      // If no make-up credit used, deduct regular credits (allow negative balance/debt)
+      if (!makeUpUsed) {
+        const playerCredits = player.credits || 0;
+        const newBalance = playerCredits - sessionCredits;
+        
+        // Allow negative credits (debt) - player can join and settle later
+        // This is the same behavior as regular class bookings
+        await storage.updatePlayer(playerId, {
+          credits: newBalance,
+        });
+        creditsUsed = sessionCredits;
+        
+        // If going into debt, log a notification for the player/parent
+        if (newBalance < 0) {
+          await storage.createNotification({
+            playerId,
+            type: "credits_needed",
+            title: "Credits Used - Balance Low",
+            message: `You joined a session using credit. Your balance is now ${newBalance}. Please purchase more credits.`,
+            metadata: JSON.stringify({
+              sessionId,
+              sessionType: session.sessionType,
+              creditsUsed: sessionCredits,
+              newBalance,
+            }),
+            scheduledFor: new Date(),
+          });
+        }
+      }
       }
 
       // Add player to session

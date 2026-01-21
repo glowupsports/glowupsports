@@ -637,7 +637,7 @@ export default function PlayScreen() {
 
       <ScrollView 
         style={styles.content}
-        contentContainerStyle={[styles.contentContainer, { paddingBottom: insets.bottom + 100 }]}
+        contentContainerStyle={[styles.contentContainer, { paddingBottom: insets.bottom + 200 }]}
         showsVerticalScrollIndicator={false}
       >
         {activeTab === "Group Lessons" ? (
