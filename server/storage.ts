@@ -2478,7 +2478,7 @@ export const storage = {
   },
 
   // Conflict checking
-  async checkCoachConflict(coachId: string, startTime: Date, endTime: Date, excludeSessionId?: string, academyId?: string): Promise<boolean> {
+  async checkCoachConflict(coachId: string, startTime: Date, endTime: Date, excludeSessionId?: string, academyId?: string, courtId?: string): Promise<boolean> {
     const conditions = [
       eq(sessions.coachId, coachId),
       eq(sessions.status, "scheduled"),
@@ -2493,10 +2493,86 @@ export const storage = {
     
     const conflicts = await db.select().from(sessions).where(and(...conditions));
     
-    if (excludeSessionId) {
-      return conflicts.filter(s => s.id !== excludeSessionId).length > 0;
+    const filteredConflicts = excludeSessionId 
+      ? conflicts.filter(s => s.id !== excludeSessionId) 
+      : conflicts;
+    
+    if (filteredConflicts.length > 0) {
+      return true;
     }
-    return conflicts.length > 0;
+    
+    // Check travel time conflicts - sessions that need travel buffer
+    if (courtId && academyId) {
+      // Get the court's location
+      const court = await db.select().from(courts).where(eq(courts.id, courtId)).limit(1);
+      const newSessionLocationId = court[0]?.locationId;
+      
+      if (newSessionLocationId) {
+        // Get all coach sessions on the same day (wider window for travel time check)
+        const dayStart = new Date(startTime);
+        dayStart.setHours(0, 0, 0, 0);
+        const dayEnd = new Date(startTime);
+        dayEnd.setHours(23, 59, 59, 999);
+        
+        const daySessions = await db
+          .select()
+          .from(sessions)
+          .where(and(
+            eq(sessions.coachId, coachId),
+            eq(sessions.status, "scheduled"),
+            gte(sessions.startTime, dayStart),
+            lte(sessions.endTime, dayEnd)
+          ));
+        
+        const filteredDaySessions = excludeSessionId 
+          ? daySessions.filter(s => s.id !== excludeSessionId) 
+          : daySessions;
+        
+        // Get travel times for this coach
+        const travelTimes = await db
+          .select()
+          .from(locationTravelTimes)
+          .where(eq(locationTravelTimes.coachId, coachId));
+        
+        for (const existingSession of filteredDaySessions) {
+          if (!existingSession.courtId) continue;
+          
+          // Get existing session's location
+          const existingCourt = await db.select().from(courts).where(eq(courts.id, existingSession.courtId)).limit(1);
+          const existingLocationId = existingCourt[0]?.locationId;
+          
+          if (!existingLocationId || existingLocationId === newSessionLocationId) continue;
+          
+          // Find travel time between these locations (check both directions)
+          const travelTime = travelTimes.find(tt => 
+            (tt.fromLocationId === existingLocationId && tt.toLocationId === newSessionLocationId) ||
+            (tt.fromLocationId === newSessionLocationId && tt.toLocationId === existingLocationId)
+          );
+          
+          if (!travelTime) continue;
+          
+          const travelMinutes = travelTime.travelTimeMinutes;
+          const existingStart = new Date(existingSession.startTime);
+          const existingEnd = new Date(existingSession.endTime);
+          
+          // Check if new session starts too soon after existing session ends (need travel buffer)
+          // existing ends at 8:00, travel is 30 min, new can't start before 8:30
+          const bufferAfterExisting = new Date(existingEnd.getTime() + travelMinutes * 60000);
+          if (startTime < bufferAfterExisting && endTime > existingEnd) {
+            return true; // Conflict: not enough travel time after existing session
+          }
+          
+          // Check if new session ends too close before existing session starts (need travel buffer)
+          // existing starts at 9:00, travel is 30 min, new must end before 8:30
+          const bufferBeforeExisting = new Date(existingStart.getTime() - travelMinutes * 60000);
+          if (endTime > bufferBeforeExisting && startTime < existingStart) {
+            return true; // Conflict: not enough travel time before existing session
+          }
+        }
+      }
+    }
+    
+    return false;
   },
 
   async checkCourtConflict(courtId: string, startTime: Date, endTime: Date, excludeSessionId?: string, academyId?: string): Promise<boolean> {

@@ -2846,7 +2846,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       // Check conflicts within this academy
-      const coachConflict = await storage.checkCoachConflict(coachId, start, end, undefined, academyId ?? undefined);
+      const coachConflict = await storage.checkCoachConflict(coachId, start, end, undefined, academyId ?? undefined, courtId);
       if (coachConflict) {
         return res.status(409).json({ 
           error: "Coach conflict", 
@@ -3545,7 +3545,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const endTimeStr = end.toISOString().split('T')[1].slice(0, 5);
         
         // Check for conflicts
-        const coachConflict = await storage.checkCoachConflict(coachId, start, end, undefined, academyId ?? undefined);
+        const coachConflict = await storage.checkCoachConflict(coachId, start, end, undefined, academyId ?? undefined, courtId);
         const courtConflict = await storage.checkCourtConflict(courtId, start, end, undefined, academyId ?? undefined);
         
         if (coachConflict || courtConflict) {
@@ -15763,7 +15763,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
 
-      const coachConflict = await storage.checkCoachConflict(coachId, start, end, undefined, academyId);
+      const coachConflict = await storage.checkCoachConflict(coachId, start, end, undefined, academyId, courtId);
       if (coachConflict) {
         return res.status(409).json({ 
           error: "Coach conflict", 
@@ -16052,7 +16052,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const endTimeStr = end.toISOString().split('T')[1].slice(0, 5);
         
         // Check for conflicts
-        const coachConflict = await storage.checkCoachConflict(coachId, start, end, undefined, academyId);
+        const coachConflict = await storage.checkCoachConflict(coachId, start, end, undefined, academyId, courtId);
         const courtConflict = await storage.checkCourtConflict(courtId, start, end, undefined, academyId);
         
         if (coachConflict || courtConflict) {
