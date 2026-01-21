@@ -708,11 +708,12 @@ export function PremiumSessionWizard({
 
   const getLevelColor = (level: string | null | undefined) => {
     const levelColors: Record<string, string> = {
+      blue: "#3B82F6",
       red: Colors.dark.ballRed,
       orange: Colors.dark.ballOrange,
       green: Colors.dark.ballGreen,
       yellow: Colors.dark.ballYellow,
-      glow: Colors.dark.xpCyan,
+      glow: "#C8FF3D",
     };
     return levelColors[level?.toLowerCase() || ""] || Colors.dark.tabIconDefault;
   };
