@@ -39,7 +39,7 @@ import Slider from "@react-native-community/slider";
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 
 type MatchType = "singles" | "doubles";
-type Step = "type" | "datetime" | "level" | "details" | "success";
+type Step = "type" | "partner" | "datetime" | "level" | "details" | "success";
 
 const BALL_LEVELS = [
   { id: "blue", label: "Blue", color: "#3B82F6", sublevel: 1 },
@@ -72,6 +72,14 @@ export default function CreateMatchScreen() {
   const [selectedBallLevel, setSelectedBallLevel] = useState<string>("green");
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
+  const [selectedPartner, setSelectedPartner] = useState<any>(null);
+  const [partnerOption, setPartnerOption] = useState<"find" | "select" | null>(null);
+
+  // Fetch friends for partner selection
+  const { data: friendsData } = useQuery({
+    queryKey: ["/api/player/me/friends"],
+    enabled: matchType === "doubles",
+  });
 
   // Get player info to determine if adult or kid
   const { data: playerData } = useQuery({
@@ -98,15 +106,18 @@ export default function CreateMatchScreen() {
   const celebrationScale = useSharedValue(0);
 
   // Step progress
-  const steps: Step[] = ["type", "datetime", "level", "details", "success"];
+  const steps: Step[] = matchType === "doubles" 
+    ? ["type", "partner", "datetime", "level", "details", "success"]
+    : ["type", "datetime", "level", "details", "success"];
   const stepIndex = steps.indexOf(currentStep);
 
   useEffect(() => {
-    progressWidth.value = withSpring((stepIndex / (steps.length - 2)) * 100, {
+    const totalSteps = matchType === "doubles" ? 5 : 4;
+    progressWidth.value = withSpring((stepIndex / (totalSteps - 1)) * 100, {
       damping: 15,
       stiffness: 100,
     });
-  }, [currentStep]);
+  }, [currentStep, matchType]);
 
   // Create match mutation
   const createMatchMutation = useMutation({
@@ -161,13 +172,19 @@ export default function CreateMatchScreen() {
     setMatchType(type);
     
     setTimeout(() => {
-      setCurrentStep("datetime");
+      if (type === "doubles") {
+        setCurrentStep("partner");
+      } else {
+        setCurrentStep("datetime");
+      }
     }, 400);
   };
 
   const handleNext = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    const stepOrder: Step[] = ["type", "datetime", "level", "details"];
+    const stepOrder: Step[] = matchType === "doubles" 
+      ? ["type", "partner", "datetime", "level", "details"]
+      : ["type", "datetime", "level", "details"];
     const currentIndex = stepOrder.indexOf(currentStep);
     if (currentIndex < stepOrder.length - 1) {
       setCurrentStep(stepOrder[currentIndex + 1]);
@@ -176,7 +193,9 @@ export default function CreateMatchScreen() {
 
   const handleBack = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    const stepOrder: Step[] = ["type", "datetime", "level", "details"];
+    const stepOrder: Step[] = matchType === "doubles" 
+      ? ["type", "partner", "datetime", "level", "details"]
+      : ["type", "datetime", "level", "details"];
     const currentIndex = stepOrder.indexOf(currentStep);
     if (currentIndex > 0) {
       setCurrentStep(stepOrder[currentIndex - 1]);
@@ -231,24 +250,30 @@ export default function CreateMatchScreen() {
     };
   };
 
-  const renderStepIndicator = () => (
-    <View style={styles.stepIndicator}>
-      <View style={styles.progressBar}>
-        <Animated.View style={[styles.progressFill, progressAnimatedStyle]} />
+  const renderStepIndicator = () => {
+    const stepDots = matchType === "doubles" 
+      ? ["type", "partner", "datetime", "level", "details"]
+      : ["type", "datetime", "level", "details"];
+    
+    return (
+      <View style={styles.stepIndicator}>
+        <View style={styles.progressBar}>
+          <Animated.View style={[styles.progressFill, progressAnimatedStyle]} />
+        </View>
+        <View style={styles.stepDots}>
+          {stepDots.map((step, index) => (
+            <View
+              key={step}
+              style={[
+                styles.stepDot,
+                stepIndex >= index && styles.stepDotActive,
+              ]}
+            />
+          ))}
+        </View>
       </View>
-      <View style={styles.stepDots}>
-        {["type", "datetime", "level", "details"].map((step, index) => (
-          <View
-            key={step}
-            style={[
-              styles.stepDot,
-              stepIndex >= index && styles.stepDotActive,
-            ]}
-          />
-        ))}
-      </View>
-    </View>
-  );
+    );
+  };
 
   const renderTypeStep = () => (
     <Animated.View 
@@ -324,6 +349,130 @@ export default function CreateMatchScreen() {
       </Animated.View>
     </Animated.View>
   );
+
+  const renderPartnerStep = () => {
+    const friends = friendsData?.friends || [];
+    
+    return (
+      <Animated.View 
+        entering={SlideInRight.duration(300)} 
+        exiting={SlideOutLeft.duration(200)}
+        style={styles.stepContainer}
+      >
+        <Text style={styles.stepTitle}>Your Doubles Partner</Text>
+        <Text style={styles.stepSubtitle}>Play with a friend or find a partner</Text>
+
+        <View style={styles.partnerOptions}>
+          <Pressable
+            style={[styles.partnerOptionCard, partnerOption === "find" && styles.partnerOptionSelected]}
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+              setPartnerOption("find");
+              setSelectedPartner(null);
+            }}
+          >
+            <View style={[styles.partnerIconCircle, partnerOption === "find" && { backgroundColor: Colors.dark.primary }]}>
+              <Ionicons 
+                name="search" 
+                size={28} 
+                color={partnerOption === "find" ? Colors.dark.backgroundRoot : Colors.dark.primary} 
+              />
+            </View>
+            <Text style={[styles.partnerOptionTitle, partnerOption === "find" && { color: Colors.dark.primary }]}>
+              Find a Partner
+            </Text>
+            <Text style={styles.partnerOptionDesc}>
+              Post match & find someone
+            </Text>
+          </Pressable>
+
+          <Pressable
+            style={[styles.partnerOptionCard, partnerOption === "select" && styles.partnerOptionSelected]}
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+              setPartnerOption("select");
+            }}
+          >
+            <View style={[styles.partnerIconCircle, partnerOption === "select" && { backgroundColor: Colors.dark.xpCyan }]}>
+              <Ionicons 
+                name="people" 
+                size={28} 
+                color={partnerOption === "select" ? Colors.dark.backgroundRoot : Colors.dark.xpCyan} 
+              />
+            </View>
+            <Text style={[styles.partnerOptionTitle, partnerOption === "select" && { color: Colors.dark.xpCyan }]}>
+              Invite a Friend
+            </Text>
+            <Text style={styles.partnerOptionDesc}>
+              {friends.length > 0 ? `${friends.length} friends available` : "Add friends first"}
+            </Text>
+          </Pressable>
+        </View>
+
+        {partnerOption === "select" && friends.length > 0 && (
+          <Animated.View entering={FadeIn.duration(200)} style={styles.friendsList}>
+            <Text style={styles.sectionLabel}>Select your partner</Text>
+            <ScrollView style={{ maxHeight: 200 }} showsVerticalScrollIndicator={false}>
+              {friends.map((friend: any) => (
+                <Pressable
+                  key={friend.id}
+                  style={[styles.friendCard, selectedPartner?.id === friend.id && styles.friendCardSelected]}
+                  onPress={() => {
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                    setSelectedPartner(friend);
+                  }}
+                >
+                  <View style={styles.friendAvatar}>
+                    <Text style={styles.friendAvatarText}>
+                      {friend.firstName?.[0] || friend.name?.[0] || "?"}
+                    </Text>
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.friendName}>
+                      {friend.firstName || friend.name || "Player"}
+                    </Text>
+                    <Text style={styles.friendLevel}>
+                      {friend.ballLevel || "Unknown level"}
+                    </Text>
+                  </View>
+                  {selectedPartner?.id === friend.id && (
+                    <Ionicons name="checkmark-circle" size={24} color={Colors.dark.primary} />
+                  )}
+                </Pressable>
+              ))}
+            </ScrollView>
+          </Animated.View>
+        )}
+
+        {partnerOption === "select" && friends.length === 0 && (
+          <Animated.View entering={FadeIn.duration(200)} style={styles.noFriendsBox}>
+            <Ionicons name="people-outline" size={48} color={Colors.dark.textMuted} />
+            <Text style={styles.noFriendsText}>No friends added yet</Text>
+            <Text style={styles.noFriendsSubtext}>Add friends from the Community tab</Text>
+          </Animated.View>
+        )}
+
+        <View style={styles.bottomActions}>
+          <Pressable style={styles.backButton} onPress={handleBack}>
+            <Ionicons name="arrow-back" size={24} color={Colors.dark.text} />
+          </Pressable>
+          <Pressable 
+            style={[styles.nextButton, !partnerOption && { opacity: 0.5 }]} 
+            onPress={handleNext}
+            disabled={!partnerOption}
+          >
+            <LinearGradient
+              colors={[Colors.dark.primary, Colors.dark.primaryGlow]}
+              style={styles.nextButtonGradient}
+            >
+              <Text style={styles.nextButtonText}>Next</Text>
+              <Ionicons name="arrow-forward" size={20} color={Colors.dark.backgroundRoot} />
+            </LinearGradient>
+          </Pressable>
+        </View>
+      </Animated.View>
+    );
+  };
 
   const renderDateTimeStep = () => (
     <Animated.View 
@@ -659,6 +808,7 @@ export default function CreateMatchScreen() {
         showsVerticalScrollIndicator={false}
       >
         {currentStep === "type" && renderTypeStep()}
+        {currentStep === "partner" && renderPartnerStep()}
         {currentStep === "datetime" && renderDateTimeStep()}
         {currentStep === "level" && renderLevelStep()}
         {currentStep === "details" && renderDetailsStep()}
@@ -1068,5 +1218,99 @@ const styles = StyleSheet.create({
     ...Typography.body,
     color: Colors.dark.xpCyan,
     fontWeight: "600",
+  },
+  partnerOptions: {
+    flexDirection: "row",
+    gap: Spacing.md,
+    marginTop: Spacing.lg,
+  },
+  partnerOptionCard: {
+    flex: 1,
+    padding: Spacing.lg,
+    backgroundColor: Colors.dark.backgroundSecondary,
+    borderRadius: BorderRadius.lg,
+    alignItems: "center",
+    borderWidth: 2,
+    borderColor: "transparent",
+  },
+  partnerOptionSelected: {
+    borderColor: Colors.dark.primary,
+    backgroundColor: Colors.dark.primary + "15",
+  },
+  partnerIconCircle: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    backgroundColor: Colors.dark.backgroundTertiary,
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: Spacing.md,
+  },
+  partnerOptionTitle: {
+    ...Typography.body,
+    color: Colors.dark.text,
+    fontWeight: "700",
+    marginBottom: Spacing.xs,
+  },
+  partnerOptionDesc: {
+    ...Typography.caption,
+    color: Colors.dark.textMuted,
+    textAlign: "center",
+  },
+  friendsList: {
+    marginTop: Spacing.lg,
+  },
+  friendCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    padding: Spacing.md,
+    backgroundColor: Colors.dark.backgroundSecondary,
+    borderRadius: BorderRadius.md,
+    marginBottom: Spacing.sm,
+    borderWidth: 2,
+    borderColor: "transparent",
+  },
+  friendCardSelected: {
+    borderColor: Colors.dark.primary,
+    backgroundColor: Colors.dark.primary + "15",
+  },
+  friendAvatar: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: Colors.dark.backgroundTertiary,
+    alignItems: "center",
+    justifyContent: "center",
+    marginRight: Spacing.md,
+  },
+  friendAvatarText: {
+    ...Typography.h3,
+    color: Colors.dark.text,
+  },
+  friendName: {
+    ...Typography.body,
+    color: Colors.dark.text,
+    fontWeight: "600",
+  },
+  friendLevel: {
+    ...Typography.caption,
+    color: Colors.dark.textMuted,
+  },
+  noFriendsBox: {
+    padding: Spacing.xl,
+    backgroundColor: Colors.dark.backgroundSecondary,
+    borderRadius: BorderRadius.lg,
+    alignItems: "center",
+    marginTop: Spacing.lg,
+  },
+  noFriendsText: {
+    ...Typography.body,
+    color: Colors.dark.text,
+    marginTop: Spacing.md,
+  },
+  noFriendsSubtext: {
+    ...Typography.caption,
+    color: Colors.dark.textMuted,
+    marginTop: Spacing.xs,
   },
 });
