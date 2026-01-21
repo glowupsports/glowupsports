@@ -906,13 +906,6 @@ function PlayerQuickActionsFAB() {
       onPress: () => navigation.navigate("Match"),
     },
     {
-      id: "find-match",
-      label: "Find Player",
-      icon: "people-outline",
-      color: Colors.dark.successNeon,
-      onPress: () => navigation.navigate("PlayerFinder"),
-    },
-    {
       id: "messages",
       label: "Messages",
       icon: "chatbubbles-outline",

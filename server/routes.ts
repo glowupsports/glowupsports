@@ -22450,10 +22450,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const playerId = req.user?.playerId;
       const academyId = req.user?.academyId;
+      const { filter } = req.query;
       
       if (!playerId) {
         return res.status(403).json({ error: "Player access required" });
       }
+
+      // Get current player's info for filtering
+      const currentPlayer = await db.query.players.findFirst({
+        where: (p, { eq }) => eq(p.id, playerId),
+      });
 
       // Get players from the same academy (or public players)
       const players = await db.query.players.findMany({
@@ -22464,7 +22470,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         
       });
 
-      // Build enriched players with mutual session counts
+      // Build enriched players with mutual session counts and openToPlay status
       const enrichedPlayers = await Promise.all(players.map(async (player) => {
         let mutualCount = 0;
         
@@ -22483,6 +22489,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
             console.error("Mutual sessions query failed:", e);
           }
         }
+        
+        // Check if player is "open to play" (from player field or openToPlay table)
+        let isOpenToPlay = (player as any).openToPlay || false;
+        try {
+          const otpRecord = await db.execute(
+            sql`SELECT id FROM open_to_play 
+                WHERE user_id = (SELECT id FROM users WHERE player_id = ${player.id} LIMIT 1)
+                  AND is_active = true 
+                  AND available_until > NOW()
+                LIMIT 1`
+          );
+          if (otpRecord.rows.length > 0) {
+            isOpenToPlay = true;
+          }
+        } catch (e) {
+          // Table might not exist or query failed, use player field
+        }
 
         return {
           id: player.id,
@@ -22494,13 +22517,32 @@ export async function registerRoutes(app: Express): Promise<Server> {
           preferredTime: player.preferredTime || undefined,
           ballLevel: player.ballLevel || undefined,
           skillLevel: player.skillLevel || undefined,
+          openToPlay: isOpenToPlay,
         };
       }));
 
-      // Sort by mutual sessions first, then by level proximity
-      enrichedPlayers.sort((a, b) => b.mutualSessions - a.mutualSessions);
+      // Apply discovery filter if provided
+      let filteredPlayers = enrichedPlayers;
+      
+      if (filter === "recommended") {
+        // Sort by mutual sessions (players who train with you)
+        filteredPlayers.sort((a, b) => b.mutualSessions - a.mutualSessions);
+      } else if (filter === "sameLevel") {
+        // Filter to players at same ball level
+        const currentBallLevel = currentPlayer?.ballLevel?.toLowerCase().split(/[\s_-]/)[0] || "";
+        filteredPlayers = filteredPlayers.filter(p => {
+          const pLevel = p.ballLevel?.toLowerCase().split(/[\s_-]/)[0] || "";
+          return pLevel === currentBallLevel && currentBallLevel !== "";
+        });
+      } else if (filter === "openToPlay") {
+        // Only show players who are open to play
+        filteredPlayers = filteredPlayers.filter(p => p.openToPlay);
+      } else {
+        // Default: sort by mutual sessions first, then by level proximity
+        filteredPlayers.sort((a, b) => b.mutualSessions - a.mutualSessions);
+      }
 
-      res.json(enrichedPlayers);
+      res.json(filteredPlayers);
     } catch (error) {
       console.error("Nearby players error:", error);
       res.status(500).json({ error: "Failed to fetch nearby players" });

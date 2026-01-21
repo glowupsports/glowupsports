@@ -58,7 +58,10 @@ interface NearbyPlayer {
   preferredTime?: string;
   ballLevel?: string;
   skillLevel?: number;
+  openToPlay?: boolean;
 }
+
+type DiscoverFilter = "all" | "recommended" | "sameLevel" | "openToPlay";
 
 const TAB_OPTIONS = ["Group Lessons", "Players"] as const;
 
@@ -116,6 +119,7 @@ export default function PlayScreen() {
   const [showOtherLevels, setShowOtherLevels] = useState(false);
   const [selectedDay, setSelectedDay] = useState<string>("all");
   const [selectedPlayerLevel, setSelectedPlayerLevel] = useState<string>("all");
+  const [discoverFilter, setDiscoverFilter] = useState<DiscoverFilter>("all");
 
   const { data: profileData } = useQuery<{ player: { ballLevel?: string } }>({
     queryKey: ["/api/player/me/profile"],
@@ -158,8 +162,11 @@ export default function PlayScreen() {
     queryKey: ["/api/play/sessions"],
   });
 
+  const nearbyPlayersQueryKey = discoverFilter !== "all" 
+    ? `/api/play/nearby-players?filter=${discoverFilter}` 
+    : "/api/play/nearby-players";
   const { data: nearbyPlayers, isLoading: playersLoading } = useQuery<NearbyPlayer[]>({
-    queryKey: ["/api/play/nearby-players"],
+    queryKey: [nearbyPlayersQueryKey],
   });
 
   // Filter and limit players based on search and showAll state
@@ -564,8 +571,15 @@ export default function PlayScreen() {
               style={styles.epicPlayerCardOverlay}
             >
               <View style={styles.epicPlayerCardContent}>
-                <View style={[styles.epicPlayerLevelBadge, { backgroundColor: ballColor }]}>
-                  <Text style={styles.epicPlayerLevelText}>{ballLabel}</Text>
+                <View style={styles.epicBadgeRow}>
+                  <View style={[styles.epicPlayerLevelBadge, { backgroundColor: ballColor }]}>
+                    <Text style={styles.epicPlayerLevelText}>{ballLabel}</Text>
+                  </View>
+                  {player.openToPlay ? (
+                    <View style={styles.openToPlayBadge}>
+                      <Ionicons name="tennisball" size={10} color={Colors.dark.backgroundRoot} />
+                    </View>
+                  ) : null}
                 </View>
                 <Text style={styles.epicPlayerCardName} numberOfLines={1} ellipsizeMode="tail">{player.name}</Text>
                 {player.mutualSessions > 0 ? (
@@ -602,8 +616,15 @@ export default function PlayScreen() {
             style={styles.epicPlayerCardBg}
           >
             <View style={styles.epicPlayerCardContent}>
-              <View style={[styles.epicPlayerAvatarLarge, { borderWidth: 3, borderColor: ballColor }]}>
-                <Text style={[styles.epicPlayerAvatarText, { color: ballColor }]}>{player.name.charAt(0).toUpperCase()}</Text>
+              <View style={styles.epicAvatarWrapper}>
+                <View style={[styles.epicPlayerAvatarLarge, { borderWidth: 3, borderColor: ballColor }]}>
+                  <Text style={[styles.epicPlayerAvatarText, { color: ballColor }]}>{player.name.charAt(0).toUpperCase()}</Text>
+                </View>
+                {player.openToPlay ? (
+                  <View style={styles.openToPlayAvatarBadge}>
+                    <Ionicons name="tennisball" size={10} color={Colors.dark.backgroundRoot} />
+                  </View>
+                ) : null}
               </View>
               <View style={[styles.epicPlayerLevelBadge, { backgroundColor: ballColor }]}>
                 <Text style={styles.epicPlayerLevelText}>{ballLabel}</Text>
@@ -893,6 +914,48 @@ export default function PlayScreen() {
                 />
               </Pressable>
             </View>
+            
+            {/* Discovery Filter Chips */}
+            <ScrollView 
+              horizontal 
+              showsHorizontalScrollIndicator={false} 
+              style={styles.discoverFilterRow}
+              contentContainerStyle={styles.discoverFilterContent}
+            >
+              {[
+                { id: "all", label: "All", icon: "people" },
+                { id: "recommended", label: "Recommended", icon: "star" },
+                { id: "sameLevel", label: "Same Level", icon: "bar-chart" },
+                { id: "openToPlay", label: "Open to Play", icon: "tennisball" },
+              ].map((filter) => {
+                const isSelected = discoverFilter === filter.id;
+                return (
+                  <Pressable
+                    key={filter.id}
+                    style={[
+                      styles.discoverChip,
+                      isSelected && styles.discoverChipActive,
+                    ]}
+                    onPress={() => {
+                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                      setDiscoverFilter(filter.id as DiscoverFilter);
+                    }}
+                  >
+                    <Ionicons 
+                      name={filter.icon as any} 
+                      size={14} 
+                      color={isSelected ? Colors.dark.backgroundRoot : Colors.dark.primary} 
+                    />
+                    <Text style={[
+                      styles.discoverChipText,
+                      isSelected && styles.discoverChipTextActive,
+                    ]}>
+                      {filter.label}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </ScrollView>
             
             {/* Search Bar */}
             <View style={styles.playerSearchContainer}>
@@ -1720,5 +1783,66 @@ const styles = StyleSheet.create({
     ...Typography.caption,
     fontWeight: "600",
     color: Colors.dark.text,
+  },
+  discoverFilterRow: {
+    marginBottom: Spacing.sm,
+  },
+  discoverFilterContent: {
+    paddingHorizontal: Spacing.lg,
+    gap: Spacing.sm,
+  },
+  discoverChip: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm,
+    backgroundColor: Colors.dark.backgroundSecondary,
+    borderRadius: BorderRadius.full,
+    borderWidth: 1,
+    borderColor: "transparent",
+  },
+  discoverChipActive: {
+    backgroundColor: Colors.dark.primary,
+    borderColor: Colors.dark.primary,
+  },
+  discoverChipText: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: Colors.dark.text,
+  },
+  discoverChipTextActive: {
+    color: Colors.dark.backgroundRoot,
+  },
+  epicBadgeRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.xs,
+  },
+  openToPlayBadge: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: Colors.dark.primary,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  epicAvatarWrapper: {
+    position: "relative",
+    alignItems: "center",
+    marginBottom: Spacing.sm,
+  },
+  openToPlayAvatarBadge: {
+    position: "absolute",
+    bottom: -4,
+    right: -4,
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: Colors.dark.primary,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 2,
+    borderColor: Colors.dark.backgroundSecondary,
   },
 });
