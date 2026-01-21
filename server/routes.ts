@@ -22481,88 +22481,72 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ error: "Player not found" });
       }
 
-      // Determine credit cost based on session type
-      const sessionCredits = session.sessionType === "private" ? 2 : 1;
-      let creditsUsed = 0;
-      let makeUpUsed = false;
-      let paymentMethod = "credits";
-
-      // Check for make-up credits first if requested
-      if (useMakeUpCredit) {
-        const makeUpCredits = player.makeUpCredits || 0;
-        if (makeUpCredits > 0) {
-          // Use make-up credit
-          await storage.updatePlayer(playerId, {
-            makeUpCredits: makeUpCredits - 1,
-          });
-          makeUpUsed = true;
-          paymentMethod = "make_up_credit";
-        }
-      }
-
-      // If no make-up credit used, deduct regular credits (allow negative balance/debt)
-      if (!makeUpUsed) {
-        const playerCredits = player.credits || 0;
-        const newBalance = playerCredits - sessionCredits;
-        
-        // Allow negative credits (debt) - player can join and settle later
-        // This is the same behavior as regular class bookings
-        await storage.updatePlayer(playerId, {
-          credits: newBalance,
-        });
-        creditsUsed = sessionCredits;
-        
-        // If going into debt, log a notification for the player/parent
-        if (newBalance < 0) {
-          await storage.createNotification({
-            playerId,
-            type: "credits_needed",
-            title: "Credits Used - Balance Low",
-            message: `You joined a session using credit. Your balance is now ${newBalance}. Please purchase more credits.`,
-            metadata: JSON.stringify({
-              sessionId,
-              sessionType: session.sessionType,
-              creditsUsed: sessionCredits,
-              newBalance,
-            }),
-            scheduledFor: new Date(),
-          });
-        }
-      }
-
-      // Add player to session
+      // Add player to session first
       await db.insert(sessionPlayers).values({
         sessionId,
         playerId,
       });
 
-      // Log the credit transaction
-      await storage.createCreditTransaction({
+      // Try to deduct credits using the credit package system
+      // Uses deductTypedCreditsForSession which matches credit type to session type
+      const sessionType = session.sessionType || "group";
+      const creditResult = await storage.deductTypedCreditsForSession(
         playerId,
-        academyId: session.academyId || player.academyId,
-        type: "debit",
-        amount: makeUpUsed ? 0 : -sessionCredits,
-        reason: makeUpUsed ? "make_up_lesson_used" : "session_join",
+        sessionType,
         sessionId,
-        metadata: JSON.stringify({
-          sessionType: session.sessionType,
-          paymentMethod,
-          makeUpUsed,
-        }),
-      });
+        session.academyId || player.academyId
+      );
 
-      const remainingCredits = makeUpUsed 
-        ? (player.credits || 0) 
-        : ((player.credits || 0) - sessionCredits);
+      let message = "";
+      let creditsDeducted = 0;
+      
+      if (creditResult.success) {
+        creditsDeducted = 1;
+        message = `Joined! 1 ${creditResult.creditType} credit deducted.`;
+      } else {
+        // No matching credits available - allow joining anyway (debt system)
+        // Log as debt/pending payment
+        await storage.createCreditTransaction({
+          playerId,
+          academyId: session.academyId || player.academyId,
+          type: "debit",
+          amount: -1,
+          reason: "session_join_debt",
+          sessionId,
+          metadata: JSON.stringify({
+            sessionType,
+            noCreditsAvailable: true,
+            creditTypeNeeded: creditResult.creditType || sessionType,
+          }),
+        });
+        
+        // Notify player to buy credits
+        await storage.createNotification({
+          playerId,
+          type: "credits_needed",
+          title: "Credits Needed",
+          message: `You joined a ${sessionType} session but have no ${creditResult.creditType || sessionType} credits. Please purchase credits.`,
+          metadata: JSON.stringify({
+            sessionId,
+            sessionType,
+            creditTypeNeeded: creditResult.creditType || sessionType,
+          }),
+          scheduledFor: new Date(),
+        });
+        
+        message = `Joined! No ${creditResult.creditType || sessionType} credits available - please buy credits.`;
+      }
+
+      // Get updated credit totals
+      const activePackages = await storage.getActivePlayerPackages(playerId, session.academyId || player.academyId);
+      const remainingCredits = activePackages.reduce((sum, pkg) => sum + pkg.remainingCredits, 0);
 
       res.json({ 
         success: true, 
-        message: makeUpUsed 
-          ? "Joined with make-up credit!" 
-          : `Joined! ${sessionCredits} credit${sessionCredits > 1 ? "s" : ""} deducted.`,
-        creditsDeducted: creditsUsed,
-        makeUpUsed,
+        message,
+        creditsDeducted,
         remainingCredits,
+        creditType: creditResult.creditType,
       });
     } catch (error) {
       console.error("Join session error:", error);
