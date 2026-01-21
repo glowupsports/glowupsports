@@ -17463,10 +17463,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
             }
           }
           
+          // Format time in Dubai timezone (UTC+4)
+          const dubaiTimeFormatter = new Intl.DateTimeFormat('en-GB', {
+            timeZone: 'Asia/Dubai',
+            hour: '2-digit',
+            minute: '2-digit',
+            hour12: false,
+          });
+          const dubaiTimeStr = dubaiTimeFormatter.format(time);
+          
           openSessions.push({
             id: session.id,
             type: session.sessionType || "group",
-            time: `${time.getHours().toString().padStart(2, '0')}:${time.getMinutes().toString().padStart(2, '0')}`,
+            time: dubaiTimeStr,
+            date: session.startTime.toISOString(),
             spotsLeft: Math.max(0, maxPlayers - currentPlayers),
             maxPlayers,
             coachName: coach?.name,

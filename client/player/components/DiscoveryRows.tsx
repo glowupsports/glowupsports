@@ -20,6 +20,7 @@ import * as Haptics from "expo-haptics";
 import { GlowAvatar } from "./GlowAvatar";
 import { NeonEdgeCard } from "./GlassCard";
 import { getStaticAssetsUrl } from "@/lib/query-client";
+import { formatSessionDateShort } from "@/lib/dateUtils";
 
 // Helper to get color for ball level
 function getBallLevelColor(level: string): string {
@@ -192,10 +193,8 @@ export function PlayersNearYouRow() {
 // Helper to format date nicely
 function formatSessionDate(dateStr?: string): string {
   if (!dateStr) return "Today";
-  const date = new Date(dateStr);
-  const days = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-  const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-  return `${date.getDate()} ${months[date.getMonth()]} (${days[date.getDay()]})`;
+  // Use Dubai timezone for consistent display
+  return formatSessionDateShort(dateStr, "Asia/Dubai");
 }
 
 // Group Lessons Row - Liga-style bigger cards for coaching sessions

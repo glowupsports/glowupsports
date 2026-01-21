@@ -8,6 +8,7 @@ import Ionicons from "@expo/vector-icons/Ionicons";
 import { LinearGradient } from "expo-linear-gradient";
 import * as Haptics from "expo-haptics";
 import { Colors, Spacing, Typography, BorderRadius, Backgrounds, GlowColors } from "@/constants/theme";
+import { formatSessionTimeWithRelativeDay } from "@/lib/dateUtils";
 import { apiRequest, getStaticAssetsUrl } from "@/lib/query-client";
 
 const courtBackground = require("@/assets/images/courts/court-night-default.png");
@@ -228,18 +229,8 @@ export default function PlayScreen() {
   };
 
   const formatTime = (dateStr: string) => {
-    const date = new Date(dateStr);
-    const now = new Date();
-    const isToday = date.toDateString() === now.toDateString();
-    const tomorrow = new Date(now);
-    tomorrow.setDate(tomorrow.getDate() + 1);
-    const isTomorrow = date.toDateString() === tomorrow.toDateString();
-    
-    const timeStr = date.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", hour12: true });
-    
-    if (isToday) return `Today ${timeStr}`;
-    if (isTomorrow) return `Tomorrow ${timeStr}`;
-    return `${date.toLocaleDateString("en-US", { weekday: "short" })} ${timeStr}`;
+    // Use Dubai timezone for consistent display
+    return formatSessionTimeWithRelativeDay(dateStr, "Asia/Dubai");
   };
 
   const getStatusBadge = (session: PlaySession) => {

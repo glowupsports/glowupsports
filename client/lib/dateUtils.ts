@@ -280,3 +280,85 @@ export function getDayOfWeekFromTimestamp(isoDateString: string, timezone: strin
     return 0;
   }
 }
+
+/**
+ * Format a session time with Today/Tomorrow relative labels in a specific timezone.
+ * Used for display in player-facing screens with Dubai timezone.
+ */
+export function formatSessionTimeWithRelativeDay(isoDateString: string, timezone: string): string {
+  try {
+    const date = parseUTCTimestamp(isoDateString);
+    if (isNaN(date.getTime())) return "--:--";
+    
+    const now = new Date();
+    
+    // Get date strings in target timezone for comparison
+    const dateFormatter = new Intl.DateTimeFormat("en-CA", {
+      timeZone: timezone,
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+    });
+    
+    const sessionDateStr = dateFormatter.format(date);
+    const todayDateStr = dateFormatter.format(now);
+    
+    // Calculate tomorrow in the target timezone
+    const tomorrow = new Date(now.getTime() + 24 * 60 * 60 * 1000);
+    const tomorrowDateStr = dateFormatter.format(tomorrow);
+    
+    // Format time in target timezone
+    const timeStr = date.toLocaleTimeString("en-US", {
+      timeZone: timezone,
+      hour: "numeric",
+      minute: "2-digit",
+      hour12: true,
+    });
+    
+    if (sessionDateStr === todayDateStr) return `Today ${timeStr}`;
+    if (sessionDateStr === tomorrowDateStr) return `Tomorrow ${timeStr}`;
+    
+    // Get day of week
+    const weekdayFormatter = new Intl.DateTimeFormat("en-US", {
+      timeZone: timezone,
+      weekday: "short",
+    });
+    
+    return `${weekdayFormatter.format(date)} ${timeStr}`;
+  } catch {
+    return "--:--";
+  }
+}
+
+/**
+ * Format a session date for display (e.g., "21 Jan (Tue)") in a specific timezone.
+ */
+export function formatSessionDateShort(isoDateString: string, timezone: string): string {
+  try {
+    const date = parseUTCTimestamp(isoDateString);
+    if (isNaN(date.getTime())) return "";
+    
+    const dayFormatter = new Intl.DateTimeFormat("en-US", {
+      timeZone: timezone,
+      day: "numeric",
+    });
+    
+    const monthFormatter = new Intl.DateTimeFormat("en-US", {
+      timeZone: timezone,
+      month: "short",
+    });
+    
+    const weekdayFormatter = new Intl.DateTimeFormat("en-US", {
+      timeZone: timezone,
+      weekday: "short",
+    });
+    
+    const day = dayFormatter.format(date);
+    const month = monthFormatter.format(date);
+    const weekday = weekdayFormatter.format(date);
+    
+    return `${day} ${month} (${weekday})`;
+  } catch {
+    return "";
+  }
+}
