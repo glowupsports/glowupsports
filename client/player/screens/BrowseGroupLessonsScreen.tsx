@@ -24,14 +24,14 @@ import { useAuth } from "@/coach/context/AuthContext";
 import { apiRequest, getApiUrl, getStaticAssetsUrl } from "@/lib/query-client";
 
 const BALL_LEVEL_FILTERS = [
-  { id: "my_level", label: "My Level", color: "#C8FF3D" },
+  { id: "my_level", label: "My Level", color: "dynamic" },
   { id: "all", label: "All Levels", color: "#A0A8B8" },
   { id: "blue", label: "Blue", color: "#3B82F6" },
   { id: "red", label: "Red", color: "#EF4444" },
   { id: "orange", label: "Orange", color: "#F97316" },
   { id: "green", label: "Green", color: "#22C55E" },
   { id: "yellow", label: "Yellow", color: "#EAB308" },
-  { id: "glow", label: "Glow", color: "#C8FF3D" },
+  { id: "glow", label: "Glow", color: "#E040FB" },
 ];
 
 const ProTennisColors = {
@@ -55,7 +55,7 @@ function getBallLevelColor(level: string): string {
   if (l.includes("orange")) return "#F97316";
   if (l.includes("green")) return "#22C55E";
   if (l.includes("yellow")) return "#EAB308";
-  if (l.includes("glow")) return "#C8FF3D";
+  if (l.includes("glow")) return "#E040FB";
   return ProTennisColors.electricGreen;
 }
 
@@ -223,6 +223,7 @@ export default function BrowseGroupLessonsScreen() {
           >
             {BALL_LEVEL_FILTERS.map((filter) => {
               const isSelected = selectedFilter === filter.id;
+              const chipColor = filter.id === "my_level" ? getBallLevelColor(playerBallLevel) : filter.color;
               const displayLabel = filter.id === "my_level" 
                 ? `My Level (${playerBallLevel.charAt(0).toUpperCase() + playerBallLevel.slice(1)})`
                 : filter.label;
@@ -232,13 +233,13 @@ export default function BrowseGroupLessonsScreen() {
                   onPress={() => handleFilterPress(filter.id)}
                   style={[
                     styles.filterChip,
-                    isSelected && { backgroundColor: filter.color + "30", borderColor: filter.color }
+                    isSelected && { backgroundColor: chipColor + "30", borderColor: chipColor }
                   ]}
                 >
-                  <View style={[styles.filterDot, { backgroundColor: filter.color }]} />
+                  <View style={[styles.filterDot, { backgroundColor: chipColor }]} />
                   <Text style={[
                     styles.filterLabel,
-                    isSelected && { color: filter.color, fontWeight: "700" }
+                    isSelected && { color: chipColor, fontWeight: "700" }
                   ]}>
                     {displayLabel}
                   </Text>

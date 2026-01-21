@@ -29,7 +29,7 @@ function getBallLevelColor(level: string): string {
   if (levelLower.includes("orange")) return "#F97316";
   if (levelLower.includes("green")) return "#22C55E";
   if (levelLower.includes("yellow")) return "#EAB308";
-  if (levelLower.includes("glow")) return "#C8FF3D";
+  if (levelLower.includes("glow")) return "#E040FB";
   return ProTennisColors.electricGreen;
 }
 

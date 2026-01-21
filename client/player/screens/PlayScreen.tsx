@@ -58,7 +58,7 @@ interface NearbyPlayer {
 
 const TAB_OPTIONS = ["Group Lessons", "Players"] as const;
 
-const BALL_LEVELS = ["all", "blue", "red", "orange", "green", "yellow", "glow"] as const;
+const BALL_LEVELS = ["my_level", "all", "blue", "red", "orange", "green", "yellow", "glow"] as const;
 
 function getBallLevelColor(level: string): string {
   const l = level?.toLowerCase() || "";
@@ -67,7 +67,7 @@ function getBallLevelColor(level: string): string {
   if (l.includes("orange")) return "#F97316";
   if (l.includes("green")) return "#22C55E";
   if (l.includes("yellow")) return "#EAB308";
-  if (l.includes("glow")) return "#C8FF3D";
+  if (l.includes("glow")) return "#E040FB";
   return Colors.dark.primary;
 }
 
@@ -91,7 +91,13 @@ export default function PlayScreen() {
   const [currentTime, setCurrentTime] = useState(new Date());
   const [showAllPlayers, setShowAllPlayers] = useState(false);
   const [playerSearchQuery, setPlayerSearchQuery] = useState("");
-  const [selectedBallLevel, setSelectedBallLevel] = useState<string>("all");
+  const [selectedBallLevel, setSelectedBallLevel] = useState<string>("my_level");
+
+  const { data: profileData } = useQuery<{ player: { ballLevel?: string } }>({
+    queryKey: ["/api/player/me/profile"],
+  });
+
+  const playerBallLevel = profileData?.player?.ballLevel?.toLowerCase() || "glow";
 
   useEffect(() => {
     const timer = setInterval(() => {
@@ -158,11 +164,13 @@ export default function PlayScreen() {
   const filteredSessions = useMemo(() => {
     if (!sessions) return [];
     if (selectedBallLevel === "all") return sessions;
+    
+    const filterLevel = selectedBallLevel === "my_level" ? playerBallLevel : selectedBallLevel;
     return sessions.filter(s => {
       const sessionLevel = s.ballLevel?.toLowerCase() || "";
-      return sessionLevel.includes(selectedBallLevel) || selectedBallLevel.includes(sessionLevel);
+      return sessionLevel.includes(filterLevel) || filterLevel.includes(sessionLevel);
     });
-  }, [sessions, selectedBallLevel]);
+  }, [sessions, selectedBallLevel, playerBallLevel]);
 
   const joinSessionMutation = useMutation({
     mutationFn: async (sessionId: string) => {
@@ -634,8 +642,20 @@ export default function PlayScreen() {
             >
               {BALL_LEVELS.map((level) => {
                 const isSelected = selectedBallLevel === level;
-                const color = level === "all" ? Colors.dark.textMuted : getBallLevelColor(level);
-                const label = level === "all" ? "All Levels" : level.charAt(0).toUpperCase() + level.slice(1);
+                let color: string;
+                let label: string;
+                
+                if (level === "my_level") {
+                  color = getBallLevelColor(playerBallLevel);
+                  label = `My Level (${playerBallLevel.charAt(0).toUpperCase() + playerBallLevel.slice(1)})`;
+                } else if (level === "all") {
+                  color = Colors.dark.textMuted;
+                  label = "All Levels";
+                } else {
+                  color = getBallLevelColor(level);
+                  label = level.charAt(0).toUpperCase() + level.slice(1);
+                }
+                
                 return (
                   <Pressable
                     key={level}
@@ -666,7 +686,9 @@ export default function PlayScreen() {
                 <Ionicons name="calendar-outline" size={48} color={Colors.dark.textMuted} />
                 <Text style={styles.emptyTitle}>No Group Lessons</Text>
                 <Text style={styles.emptySubtitle}>
-                  {selectedBallLevel !== "all" 
+                  {selectedBallLevel === "my_level" 
+                    ? `No ${playerBallLevel.toUpperCase()} level lessons available`
+                    : selectedBallLevel !== "all" 
                     ? `No ${selectedBallLevel.toUpperCase()} level lessons available` 
                     : "Check back soon for new group lessons"}
                 </Text>
