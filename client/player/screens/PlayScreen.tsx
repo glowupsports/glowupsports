@@ -410,15 +410,26 @@ export default function PlayScreen() {
                     </Pressable>
                   )}
                 </View>
+              </View>
 
-                <View style={styles.epicPlayersSection}>
+              {/* Credit Cost Indicator */}
+              <View style={styles.creditCostRow}>
+                <Ionicons name="ticket-outline" size={14} color={Colors.dark.textMuted} />
+                <Text style={styles.creditCostText}>
+                  1 {session.sessionType === "group" ? "Group" : "Semi-Private"} Credit
+                </Text>
+              </View>
+
+              {/* Participants Section - Below buttons */}
+              {session.players.length > 0 ? (
+                <View style={styles.participantsRow}>
                   <View style={styles.epicAvatarStack}>
-                    {session.players.slice(0, 4).map((player, index) => (
+                    {session.players.slice(0, 6).map((player, index) => (
                       <View 
                         key={player.id} 
                         style={[
                           styles.epicAvatarCircle, 
-                          { marginLeft: index > 0 ? -20 : 0, zIndex: 4 - index }
+                          { marginLeft: index > 0 ? -16 : 0, zIndex: 6 - index }
                         ]}
                       >
                         {player.avatarUrl ? (
@@ -448,16 +459,20 @@ export default function PlayScreen() {
                         ) : null}
                       </View>
                     ))}
+                    {session.players.length > 6 ? (
+                      <View style={[styles.epicAvatarCircle, styles.epicAvatarMore, { marginLeft: -16 }]}>
+                        <Text style={styles.epicAvatarMoreText}>+{session.players.length - 6}</Text>
+                      </View>
+                    ) : null}
                   </View>
-                  <View style={styles.epicPlayerNames}>
-                    {session.players.slice(0, 3).map((player, index) => (
-                      <Text key={player.id} style={styles.epicPlayerName}>
-                        {player.name.split(" ")[0]}{index < Math.min(session.players.length, 3) - 1 ? "  " : ""}
-                      </Text>
-                    ))}
+                  <View style={styles.participantNamesRow}>
+                    <Text style={styles.participantNamesText}>
+                      {session.players.slice(0, 3).map(p => p.name.split(" ")[0]).join(", ")}
+                      {session.players.length > 3 ? ` +${session.players.length - 3}` : ""}
+                    </Text>
                   </View>
                 </View>
-              </View>
+              ) : null}
 
               {session.squadName ? (
                 <View style={styles.epicSquadRow}>
@@ -1263,6 +1278,40 @@ const styles = StyleSheet.create({
     ...Typography.caption,
     color: Colors.dark.textMuted,
     fontSize: 11,
+  },
+  creditCostRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.xs,
+    marginTop: Spacing.md,
+    paddingTop: Spacing.sm,
+    borderTopWidth: 1,
+    borderTopColor: "rgba(255,255,255,0.1)",
+  },
+  creditCostText: {
+    ...Typography.caption,
+    color: Colors.dark.textMuted,
+  },
+  participantsRow: {
+    marginTop: Spacing.sm,
+    gap: Spacing.sm,
+  },
+  participantNamesRow: {
+    marginTop: Spacing.xs,
+  },
+  participantNamesText: {
+    ...Typography.caption,
+    color: Colors.dark.textSecondary,
+  },
+  epicAvatarMore: {
+    backgroundColor: Colors.dark.backgroundSecondary,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  epicAvatarMoreText: {
+    ...Typography.caption,
+    color: Colors.dark.textMuted,
+    fontWeight: "600",
   },
   epicSquadRow: {
     flexDirection: "row",
