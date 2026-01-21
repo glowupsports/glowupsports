@@ -26304,24 +26304,81 @@ export async function registerRoutes(app: Express): Promise<Server> {
           
           // Show posts that match: own posts, friends' posts (visibility=friends), 
           // group posts (visibility=group, user is member), or academy-wide posts
-          rawPosts = await db.execute(sql`
-            SELECT id, author_id, academy_id, context_type, context_id, caption, 
-                   media_urls, media_types, visibility, group_id, cheer_count, 
-                   comment_count, created_at, is_hidden
-            FROM posts 
-            WHERE academy_id = ${academyId} 
-              AND is_hidden = false
-              AND (
-                author_id = ${userId}
-                OR visibility = 'academy'
-                OR visibility = 'public'
-                OR (visibility = 'friends' AND author_id = ANY(${forYouFriendIds.length > 0 ? forYouFriendIds : ['__none__']}))
-                OR (visibility = 'group' AND group_id = ANY(${forYouGroupIds.length > 0 ? forYouGroupIds : ['__none__']}))
-              )
-            ORDER BY created_at DESC
-            LIMIT ${limitVal}
-            OFFSET ${offsetVal}
-          `);
+          // Build dynamic conditions based on friends/groups
+          if (forYouFriendIds.length > 0 && forYouGroupIds.length > 0) {
+            rawPosts = await db.execute(sql`
+              SELECT id, author_id, academy_id, context_type, context_id, caption, 
+                     media_urls, media_types, visibility, group_id, cheer_count, 
+                     comment_count, created_at, is_hidden
+              FROM posts 
+              WHERE academy_id = ${academyId} 
+                AND is_hidden = false
+                AND (
+                  author_id = ${userId}
+                  OR visibility = 'academy'
+                  OR visibility = 'public'
+                  OR (visibility = 'friends' AND author_id = ANY(${forYouFriendIds}))
+                  OR (visibility = 'group' AND group_id = ANY(${forYouGroupIds}))
+                )
+              ORDER BY created_at DESC
+              LIMIT ${limitVal}
+              OFFSET ${offsetVal}
+            `);
+          } else if (forYouFriendIds.length > 0) {
+            rawPosts = await db.execute(sql`
+              SELECT id, author_id, academy_id, context_type, context_id, caption, 
+                     media_urls, media_types, visibility, group_id, cheer_count, 
+                     comment_count, created_at, is_hidden
+              FROM posts 
+              WHERE academy_id = ${academyId} 
+                AND is_hidden = false
+                AND (
+                  author_id = ${userId}
+                  OR visibility = 'academy'
+                  OR visibility = 'public'
+                  OR (visibility = 'friends' AND author_id = ANY(${forYouFriendIds}))
+                )
+              ORDER BY created_at DESC
+              LIMIT ${limitVal}
+              OFFSET ${offsetVal}
+            `);
+          } else if (forYouGroupIds.length > 0) {
+            rawPosts = await db.execute(sql`
+              SELECT id, author_id, academy_id, context_type, context_id, caption, 
+                     media_urls, media_types, visibility, group_id, cheer_count, 
+                     comment_count, created_at, is_hidden
+              FROM posts 
+              WHERE academy_id = ${academyId} 
+                AND is_hidden = false
+                AND (
+                  author_id = ${userId}
+                  OR visibility = 'academy'
+                  OR visibility = 'public'
+                  OR (visibility = 'group' AND group_id = ANY(${forYouGroupIds}))
+                )
+              ORDER BY created_at DESC
+              LIMIT ${limitVal}
+              OFFSET ${offsetVal}
+            `);
+          } else {
+            // No friends or groups - show own posts and academy-wide posts
+            rawPosts = await db.execute(sql`
+              SELECT id, author_id, academy_id, context_type, context_id, caption, 
+                     media_urls, media_types, visibility, group_id, cheer_count, 
+                     comment_count, created_at, is_hidden
+              FROM posts 
+              WHERE academy_id = ${academyId} 
+                AND is_hidden = false
+                AND (
+                  author_id = ${userId}
+                  OR visibility = 'academy'
+                  OR visibility = 'public'
+                )
+              ORDER BY created_at DESC
+              LIMIT ${limitVal}
+              OFFSET ${offsetVal}
+            `);
+          }
         }
         
         posts = (rawPosts.rows || []).map((row: any) => ({
