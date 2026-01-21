@@ -56,17 +56,42 @@ interface NearbyPlayer {
   preferredTime?: string;
 }
 
-const TAB_OPTIONS = ["Sessions", "Players"] as const;
+const TAB_OPTIONS = ["Group Lessons", "Players"] as const;
+
+const BALL_LEVELS = ["all", "blue", "red", "orange", "green", "yellow", "glow"] as const;
+
+function getBallLevelColor(level: string): string {
+  const l = level?.toLowerCase() || "";
+  if (l.includes("blue")) return "#3B82F6";
+  if (l.includes("red")) return "#EF4444";
+  if (l.includes("orange")) return "#F97316";
+  if (l.includes("green")) return "#22C55E";
+  if (l.includes("yellow")) return "#EAB308";
+  if (l.includes("glow")) return "#C8FF3D";
+  return Colors.dark.primary;
+}
+
+function getBallLevelLabel(level: string): string {
+  const l = level?.toLowerCase() || "";
+  if (l.includes("blue")) return "BLUE";
+  if (l.includes("red")) return "RED";
+  if (l.includes("orange")) return "ORANGE";
+  if (l.includes("green")) return "GREEN";
+  if (l.includes("yellow")) return "YELLOW";
+  if (l.includes("glow")) return "GLOW";
+  return "ALL LEVELS";
+}
 
 export default function PlayScreen() {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<any>();
   const queryClient = useQueryClient();
-  const [activeTab, setActiveTab] = useState<typeof TAB_OPTIONS[number]>("Sessions");
+  const [activeTab, setActiveTab] = useState<typeof TAB_OPTIONS[number]>("Group Lessons");
   const [joiningSessionId, setJoiningSessionId] = useState<string | null>(null);
   const [currentTime, setCurrentTime] = useState(new Date());
   const [showAllPlayers, setShowAllPlayers] = useState(false);
   const [playerSearchQuery, setPlayerSearchQuery] = useState("");
+  const [selectedBallLevel, setSelectedBallLevel] = useState<string>("all");
 
   useEffect(() => {
     const timer = setInterval(() => {
@@ -129,6 +154,15 @@ export default function PlayScreen() {
     
     return filtered;
   }, [nearbyPlayers, playerSearchQuery, showAllPlayers]);
+
+  const filteredSessions = useMemo(() => {
+    if (!sessions) return [];
+    if (selectedBallLevel === "all") return sessions;
+    return sessions.filter(s => {
+      const sessionLevel = s.ballLevel?.toLowerCase() || "";
+      return sessionLevel.includes(selectedBallLevel) || selectedBallLevel.includes(sessionLevel);
+    });
+  }, [sessions, selectedBallLevel]);
 
   const joinSessionMutation = useMutation({
     mutationFn: async (sessionId: string) => {
@@ -242,7 +276,10 @@ export default function PlayScreen() {
             <View style={styles.cardContent}>
               <View style={styles.cardHeader}>
                 <View style={styles.cardTitleSection}>
-                  <Text style={styles.epicSessionTitle}>{session.title || "Training Session"}</Text>
+                  <Text style={styles.epicSessionTitle}>{session.title || "Group Lesson"}</Text>
+                  <Text style={[styles.ballLevelBadgeText, { color: getBallLevelColor(session.ballLevel || "") }]}>
+                    {getBallLevelLabel(session.ballLevel || "")}
+                  </Text>
                   <View style={styles.epicLocationRow}>
                     <Ionicons name="location" size={14} color={Colors.dark.primary} />
                     <Text style={styles.epicLocationText}>{session.locationName}</Text>
@@ -587,21 +624,55 @@ export default function PlayScreen() {
         contentContainerStyle={[styles.contentContainer, { paddingBottom: insets.bottom + 100 }]}
         showsVerticalScrollIndicator={false}
       >
-        {activeTab === "Sessions" ? (
-          sessionsLoading ? (
-            <View style={styles.loadingContainer}>
-              <ActivityIndicator size="large" color={Colors.dark.primary} />
-              <Text style={styles.loadingText}>Finding sessions...</Text>
-            </View>
-          ) : sessions && sessions.length > 0 ? (
-            sessions.map(renderSessionCard)
-          ) : (
-            <View style={styles.emptyState}>
-              <Ionicons name="calendar-outline" size={48} color={Colors.dark.textMuted} />
-              <Text style={styles.emptyTitle}>No Sessions Available</Text>
-              <Text style={styles.emptySubtitle}>Check back soon for new training sessions</Text>
-            </View>
-          )
+        {activeTab === "Group Lessons" ? (
+          <>
+            <ScrollView 
+              horizontal 
+              showsHorizontalScrollIndicator={false} 
+              style={styles.filterRow}
+              contentContainerStyle={styles.filterRowContent}
+            >
+              {BALL_LEVELS.map((level) => {
+                const isSelected = selectedBallLevel === level;
+                const color = level === "all" ? Colors.dark.textMuted : getBallLevelColor(level);
+                const label = level === "all" ? "All Levels" : level.charAt(0).toUpperCase() + level.slice(1);
+                return (
+                  <Pressable
+                    key={level}
+                    style={[
+                      styles.filterChip,
+                      isSelected && { backgroundColor: color + "30", borderColor: color },
+                    ]}
+                    onPress={() => {
+                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                      setSelectedBallLevel(level);
+                    }}
+                  >
+                    <View style={[styles.filterDot, { backgroundColor: color }]} />
+                    <Text style={[styles.filterChipText, isSelected && { color }]}>{label}</Text>
+                  </Pressable>
+                );
+              })}
+            </ScrollView>
+            {sessionsLoading ? (
+              <View style={styles.loadingContainer}>
+                <ActivityIndicator size="large" color={Colors.dark.primary} />
+                <Text style={styles.loadingText}>Finding group lessons...</Text>
+              </View>
+            ) : filteredSessions.length > 0 ? (
+              filteredSessions.map(renderSessionCard)
+            ) : (
+              <View style={styles.emptyState}>
+                <Ionicons name="calendar-outline" size={48} color={Colors.dark.textMuted} />
+                <Text style={styles.emptyTitle}>No Group Lessons</Text>
+                <Text style={styles.emptySubtitle}>
+                  {selectedBallLevel !== "all" 
+                    ? `No ${selectedBallLevel.toUpperCase()} level lessons available` 
+                    : "Check back soon for new group lessons"}
+                </Text>
+              </View>
+            )}
+          </>
         ) : (
           <>
             <View style={styles.sectionHeader}>
@@ -779,6 +850,40 @@ const styles = StyleSheet.create({
   tabTextActive: {
     color: Colors.dark.text,
     fontWeight: "600",
+  },
+  filterRow: {
+    marginBottom: Spacing.md,
+    marginHorizontal: -Spacing.lg,
+  },
+  filterRowContent: {
+    paddingHorizontal: Spacing.lg,
+    gap: Spacing.sm,
+  },
+  filterChip: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.xs,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm,
+    borderRadius: BorderRadius.full,
+    backgroundColor: Colors.dark.backgroundSecondary,
+    borderWidth: 1,
+    borderColor: Colors.dark.border,
+  },
+  filterDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
+  filterChipText: {
+    ...Typography.small,
+    color: Colors.dark.textMuted,
+    fontWeight: "500",
+  },
+  ballLevelBadgeText: {
+    ...Typography.small,
+    fontWeight: "700",
+    letterSpacing: 0.5,
   },
   content: {
     flex: 1,
