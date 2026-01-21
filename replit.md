@@ -52,3 +52,42 @@ The application uses a dark-themed gaming aesthetic with neon green and cyan acc
 ### Platform Support
 - **Mobile**: iOS and Android (native applications)
 - **Web**: Single-page application via Expo web build
+
+## Credit System Architecture
+
+**IMPORTANT**: Player credits are NOT stored directly on the players table. They are managed through `playerCreditPackages`.
+
+### Credit Storage
+- **Table**: `playerCreditPackages` - Each player can have multiple credit packages
+- **Fields**: `remainingCredits`, `totalCredits`, `creditType` (private/semi_private/group), `expiryDate`
+- **Credit Types**: 
+  - `private` - For private lessons (1 credit = 280 AED)
+  - `semi_private` - For semi-private lessons (1 credit = 160 AED)
+  - `group` - For group lessons (1 credit = 95 AED)
+
+### Key Functions (server/storage.ts)
+- `getActivePlayerPackages(playerId, academyId)` - Get all active credit packages for a player
+- `deductTypedCreditsForSession(playerId, sessionType, sessionId, academyId)` - Deduct credits for session booking
+- `usePackageCredit(packageId, academyId)` - Deduct 1 credit from a specific package
+- `getAllPlayersWithCredits(academyId)` - Get players with computed credit totals
+
+### Credit Deduction Rules
+1. Credits are matched by type (group session uses group credits)
+2. Packages expiring soonest are used first
+3. System allows negative balance (debt) for flexibility
+4. All transactions logged in `creditTransactions` table
+
+## Development Guidelines
+
+### CRITICAL: Always Check Existing Code First
+Before implementing ANY new feature or modification:
+1. **Search the codebase** for existing implementations using grep/search tools
+2. **Check storage.ts** for existing data access functions
+3. **Check routes.ts** for existing API endpoints
+4. **Never assume** fields exist on tables - verify the schema first
+5. **Reuse existing functions** rather than creating duplicates
+
+This prevents:
+- Creating duplicate/conflicting APIs
+- Breaking existing functionality
+- Schema mismatches and SQL errors
