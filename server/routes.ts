@@ -17,6 +17,7 @@ import {
   posts as postsTable,
   postReactions as postReactionsTable,
   postComments as postCommentsTable,
+  commentLikes as commentLikesTable,
   communityGroups as communityGroupsTable,
   groupMembers as groupMembersTable,
   openToPlay as openToPlayTable,
@@ -22697,7 +22698,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         playerId,
         sessionId,
         reason: reason || "player_left_session",
-        hoursBeforeSession: Math.max(0, hoursUntilSession),
+        hoursBeforeSession: Math.round(Math.max(0, hoursUntilSession)),
         isLateNotice: isLateCancel,
         makeUpEligibility: isLateCancel ? "not_eligible" : "eligible",
       });
@@ -22723,7 +22724,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             reason: "make_up_credit_refund",
             sessionId,
             metadata: JSON.stringify({
-              hoursBeforeSession: hoursUntilSession,
+              hoursBeforeSession: Math.round(hoursUntilSession),
               originalPaymentMethod: "make_up_credit",
               originalTransactionId: playerJoinTx.id,
             }),
@@ -22744,7 +22745,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             reason: "session_cancel_early",
             sessionId,
             metadata: JSON.stringify({
-              hoursBeforeSession: hoursUntilSession,
+              hoursBeforeSession: Math.round(hoursUntilSession),
               originalPaymentMethod: "credits",
               originalTransactionId: playerJoinTx.id,
               originalAmount: originalAmount,
@@ -22947,7 +22948,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         message: `You've left the session. ${refundMessage}${waitlistPromoted ? " Waitlist player promoted to your spot." : ""}`,
         creditRefunded,
         makeUpRefunded,
-        hoursBeforeSession: hoursUntilSession,
+        hoursBeforeSession: Math.round(hoursUntilSession),
         waitlistPromoted,
         waitlistCount: waitlistPlayers.length,
       });
@@ -26654,6 +26655,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
           // Keep defaults
         }
         
+        // Get like count for this comment
+        const [likeResult] = await db.select({ count: sql`count(*)` })
+          .from(commentLikesTable)
+          .where(eq(commentLikesTable.commentId, comment.id));
+        const likeCount = Number(likeResult?.count || 0);
+        
         return {
           id: comment.id,
           postId: comment.postId,
@@ -26665,6 +26672,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           isHidden: comment.isHidden,
           createdAt: comment.createdAt,
           author: authorData,
+          likeCount,
         };
       }));
       
@@ -26720,7 +26728,68 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Get user's groups
+  // Toggle like on a comment
+  app.post("/api/social/comments/:commentId/like", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const { commentId } = req.params;
+      const userId = req.user!.userId;
+      
+      // Check if already liked
+      const existingLike = await db.select()
+        .from(commentLikesTable)
+        .where(and(
+          eq(commentLikesTable.commentId, commentId),
+          eq(commentLikesTable.userId, userId)
+        ))
+        .limit(1);
+      
+      if (existingLike.length > 0) {
+        // Unlike - remove the like
+        await db.delete(commentLikesTable)
+          .where(and(
+            eq(commentLikesTable.commentId, commentId),
+            eq(commentLikesTable.userId, userId)
+          ));
+        res.json({ liked: false, message: "Like removed" });
+      } else {
+        // Like - add the like
+        await db.insert(commentLikesTable).values({
+          commentId,
+          userId,
+        });
+        res.json({ liked: true, message: "Comment liked" });
+      }
+    } catch (error) {
+      console.error("Error toggling comment like:", error);
+      res.status(500).json({ error: "Failed to toggle like" });
+    }
+  });
+
+  // Get comments user has liked for a post
+  app.get("/api/social/posts/:postId/my-liked-comments", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const { postId } = req.params;
+      const userId = req.user!.userId;
+      
+      // Get all comment IDs the user has liked for this post
+      const likedComments = await db.select({
+        commentId: commentLikesTable.commentId,
+      })
+      .from(commentLikesTable)
+      .innerJoin(postCommentsTable, eq(commentLikesTable.commentId, postCommentsTable.id))
+      .where(and(
+        eq(postCommentsTable.postId, postId),
+        eq(commentLikesTable.userId, userId)
+      ));
+      
+      res.json({ likedCommentIds: likedComments.map(l => l.commentId) });
+    } catch (error) {
+      console.error("Error fetching liked comments:", error);
+      res.status(500).json({ error: "Failed to fetch liked comments" });
+    }
+  });
+
+    // Get user's groups
   app.get("/api/social/groups", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
     try {
       const userId = req.user!.userId;

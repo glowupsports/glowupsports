@@ -3470,6 +3470,23 @@ export const insertPostCommentSchema = createInsertSchema(postComments).omit({ i
 export type InsertPostComment = z.infer<typeof insertPostCommentSchema>;
 export type PostComment = typeof postComments.$inferSelect;
 
+// Comment likes - tracks which users liked which comments
+export const commentLikes = pgTable("comment_likes", {
+  id: varchar("id")
+    .primaryKey()
+    .default(sql`gen_random_uuid()`),
+  commentId: varchar("comment_id").references(() => postComments.id, { onDelete: "cascade" }).notNull(),
+  userId: varchar("user_id").references(() => users.id, { onDelete: "cascade" }).notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("comment_likes_comment_idx").on(table.commentId),
+  index("comment_likes_user_idx").on(table.userId),
+]);
+
+export const insertCommentLikeSchema = createInsertSchema(commentLikes).omit({ id: true, createdAt: true });
+export type InsertCommentLike = z.infer<typeof insertCommentLikeSchema>;
+export type CommentLike = typeof commentLikes.$inferSelect;
+
 // Open to Play status
 export const openToPlay = pgTable("open_to_play", {
   id: varchar("id")
