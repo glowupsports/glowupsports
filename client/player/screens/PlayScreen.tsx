@@ -518,7 +518,7 @@ export default function PlayScreen() {
                 <View style={[styles.epicPlayerLevelBadge, { backgroundColor: ballColor }]}>
                   <Text style={styles.epicPlayerLevelText}>{ballLabel}</Text>
                 </View>
-                <Text style={styles.epicPlayerCardName}>{player.name}</Text>
+                <Text style={styles.epicPlayerCardName} numberOfLines={1} ellipsizeMode="tail">{player.name}</Text>
                 {player.mutualSessions > 0 ? (
                   <View style={styles.epicMutualBadge}>
                     <Ionicons name="checkmark-circle" size={12} color={Colors.dark.primary} />
@@ -1412,8 +1412,8 @@ const styles = StyleSheet.create({
   },
   epicPlayerCard: {
     width: CARD_WIDTH,
-    height: 200,
-    borderRadius: BorderRadius.lg,
+    height: 160,
+    borderRadius: BorderRadius.md,
     overflow: "hidden",
     position: "relative",
   },
@@ -1435,17 +1435,17 @@ const styles = StyleSheet.create({
     padding: Spacing.md,
   },
   epicPlayerAvatarLarge: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
+    width: 50,
+    height: 50,
+    borderRadius: 25,
     backgroundColor: Colors.dark.backgroundTertiary,
     alignItems: "center",
     justifyContent: "center",
     alignSelf: "center",
-    marginBottom: Spacing.md,
+    marginBottom: Spacing.sm,
   },
   epicPlayerAvatarText: {
-    fontSize: 32,
+    fontSize: 22,
     color: Colors.dark.text,
     fontWeight: "600",
   },
@@ -1465,10 +1465,11 @@ const styles = StyleSheet.create({
     fontSize: 10,
   },
   epicPlayerCardName: {
-    ...Typography.h4,
+    ...Typography.body,
     color: Colors.dark.text,
     fontWeight: "700",
     marginBottom: 2,
+    fontSize: 13,
   },
   epicMutualBadge: {
     flexDirection: "row",

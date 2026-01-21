@@ -26,7 +26,7 @@ import * as Haptics from "expo-haptics";
 import Animated, { FadeIn, FadeInDown, FadeOut, SlideInUp, useSharedValue, useAnimatedStyle, withSpring } from "react-native-reanimated";
 
 const { height: SCREEN_HEIGHT } = Dimensions.get("window");
-const DRAWER_HEIGHT = Math.min(SCREEN_HEIGHT * 0.5, 400);
+const DRAWER_HEIGHT = Math.min(SCREEN_HEIGHT * 0.55, 450);
 import { useVideoPlayer, VideoView } from "expo-video";
 import { Colors, Spacing, BorderRadius, Backgrounds, GlowColors } from "@/constants/theme";
 import { ThemedText } from "@/components/ThemedText";
@@ -446,6 +446,8 @@ function CommentsModal({ visible, postId, onClose }: CommentsModalProps) {
   const tabBarHeight = 85;
   const [commentText, setCommentText] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [replyingTo, setReplyingTo] = useState<{ id: string; name: string; text: string } | null>(null);
+  const [likedComments, setLikedComments] = useState<Set<string>>(new Set());
   const queryClient = useQueryClient();
   
   const translateY = useSharedValue(DRAWER_HEIGHT);
@@ -455,6 +457,7 @@ function CommentsModal({ visible, postId, onClose }: CommentsModalProps) {
       translateY.value = withSpring(0, { damping: 20, stiffness: 150 });
     } else {
       translateY.value = withSpring(DRAWER_HEIGHT, { damping: 20, stiffness: 150 });
+      setReplyingTo(null);
     }
   }, [visible]);
   
@@ -479,8 +482,14 @@ function CommentsModal({ visible, postId, onClose }: CommentsModalProps) {
     
     setIsSubmitting(true);
     try {
-      await apiRequest("POST", `/api/social/posts/${postId}/comments`, { text: commentText.trim() });
+      const payload: any = { text: commentText.trim() };
+      if (replyingTo) {
+        payload.replyToId = replyingTo.id;
+        payload.replyToName = replyingTo.name;
+      }
+      await apiRequest("POST", `/api/social/posts/${postId}/comments`, payload);
       setCommentText("");
+      setReplyingTo(null);
       refetch();
       queryClient.invalidateQueries({ queryKey: ["/api/social/feed"] });
     } catch (error) {
@@ -491,6 +500,28 @@ function CommentsModal({ visible, postId, onClose }: CommentsModalProps) {
     } finally {
       setIsSubmitting(false);
     }
+  };
+  
+  const handleLike = (commentId: string) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    setLikedComments(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(commentId)) {
+        newSet.delete(commentId);
+      } else {
+        newSet.add(commentId);
+      }
+      return newSet;
+    });
+  };
+  
+  const handleReply = (comment: any) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    setReplyingTo({
+      id: comment.id,
+      name: comment.author?.name || "Unknown",
+      text: comment.text || comment.content || ""
+    });
   };
   
   if (!visible) return null;
@@ -521,20 +552,57 @@ function CommentsModal({ visible, postId, onClose }: CommentsModalProps) {
         <FlatList
           data={comments}
           keyExtractor={(item: any) => item.id}
-          style={{ flex: 1, maxHeight: DRAWER_HEIGHT - 140 }}
-          renderItem={({ item }) => (
-            <View style={styles.commentItem}>
-              <View style={styles.commentAvatar}>
-                <ThemedText style={styles.commentAvatarText}>
-                  {(item.author?.name || "?").charAt(0).toUpperCase()}
-                </ThemedText>
+          style={{ flex: 1, maxHeight: DRAWER_HEIGHT - 160 }}
+          renderItem={({ item }) => {
+            const isLiked = likedComments.has(item.id);
+            const likeCount = (item.likeCount || 0) + (isLiked ? 1 : 0);
+            const hasPhoto = item.author?.photoUrl;
+            
+            return (
+              <View style={styles.commentItem}>
+                {hasPhoto ? (
+                  <Image 
+                    source={{ uri: item.author.photoUrl }} 
+                    style={styles.commentAvatarImage} 
+                  />
+                ) : (
+                  <View style={styles.commentAvatar}>
+                    <ThemedText style={styles.commentAvatarText}>
+                      {(item.author?.name || "?").charAt(0).toUpperCase()}
+                    </ThemedText>
+                  </View>
+                )}
+                <View style={styles.commentContent}>
+                  <ThemedText style={styles.commentAuthor}>{item.author?.name || "Unknown"}</ThemedText>
+                  {item.replyToName && (
+                    <View style={styles.replyBadge}>
+                      <Ionicons name="return-down-forward" size={10} color={Colors.dark.primary} />
+                      <ThemedText style={styles.replyBadgeText}>@{item.replyToName}</ThemedText>
+                    </View>
+                  )}
+                  <ThemedText style={styles.commentText}>{item.text || item.content || ""}</ThemedText>
+                  <View style={styles.commentActions}>
+                    <Pressable style={styles.commentActionBtn} onPress={() => handleLike(item.id)}>
+                      <Ionicons 
+                        name={isLiked ? "heart" : "heart-outline"} 
+                        size={14} 
+                        color={isLiked ? "#EF4444" : Colors.dark.textMuted} 
+                      />
+                      {likeCount > 0 && (
+                        <ThemedText style={[styles.commentActionText, isLiked && { color: "#EF4444" }]}>
+                          {likeCount}
+                        </ThemedText>
+                      )}
+                    </Pressable>
+                    <Pressable style={styles.commentActionBtn} onPress={() => handleReply(item)}>
+                      <Ionicons name="arrow-undo-outline" size={14} color={Colors.dark.textMuted} />
+                      <ThemedText style={styles.commentActionText}>Reply</ThemedText>
+                    </Pressable>
+                  </View>
+                </View>
               </View>
-              <View style={styles.commentContent}>
-                <ThemedText style={styles.commentAuthor}>{item.author?.name || "Unknown"}</ThemedText>
-                <ThemedText style={styles.commentText}>{item.text || item.content || ""}</ThemedText>
-              </View>
-            </View>
-          )}
+            );
+          }}
           ListEmptyComponent={
             <View style={styles.emptyCommentsSmall}>
               <Ionicons name="chatbubble-outline" size={32} color={Colors.dark.textMuted} />
@@ -544,10 +612,23 @@ function CommentsModal({ visible, postId, onClose }: CommentsModalProps) {
           contentContainerStyle={{ paddingHorizontal: Spacing.md }}
         />
         
-        <View style={[styles.drawerInputContainer, { paddingBottom: insets.bottom > 0 ? insets.bottom : Spacing.sm }]}>
+        {replyingTo && (
+          <View style={styles.replyingToBar}>
+            <View style={styles.replyingToContent}>
+              <ThemedText style={styles.replyingToLabel}>Replying to</ThemedText>
+              <ThemedText style={styles.replyingToName}>@{replyingTo.name}</ThemedText>
+              <ThemedText style={styles.replyingToText} numberOfLines={1}>{replyingTo.text}</ThemedText>
+            </View>
+            <Pressable onPress={() => setReplyingTo(null)}>
+              <Ionicons name="close-circle" size={20} color={Colors.dark.textMuted} />
+            </Pressable>
+          </View>
+        )}
+        
+        <View style={[styles.drawerInputContainer, { paddingBottom: insets.bottom > 0 ? insets.bottom : Spacing.md }]}>
           <TextInput
             style={styles.commentInput}
-            placeholder="Write a comment..."
+            placeholder={replyingTo ? `Reply to @${replyingTo.name}...` : "Write a comment..."}
             placeholderTextColor={Colors.dark.textMuted}
             value={commentText}
             onChangeText={setCommentText}
@@ -1807,6 +1888,67 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: Colors.dark.textSecondary,
     lineHeight: 20,
+  },
+  commentAvatarImage: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+  },
+  commentActions: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.md,
+    marginTop: 6,
+  },
+  commentActionBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+  },
+  commentActionText: {
+    fontSize: 12,
+    color: Colors.dark.textMuted,
+  },
+  replyBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    marginBottom: 2,
+  },
+  replyBadgeText: {
+    fontSize: 11,
+    color: Colors.dark.primary,
+    fontWeight: "500",
+  },
+  replyingToBar: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm,
+    backgroundColor: Colors.dark.backgroundTertiary,
+    borderTopWidth: 1,
+    borderTopColor: Colors.dark.border,
+  },
+  replyingToContent: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    marginRight: Spacing.sm,
+  },
+  replyingToLabel: {
+    fontSize: 12,
+    color: Colors.dark.textMuted,
+  },
+  replyingToName: {
+    fontSize: 12,
+    color: Colors.dark.primary,
+    fontWeight: "600",
+  },
+  replyingToText: {
+    fontSize: 12,
+    color: Colors.dark.textMuted,
+    flex: 1,
   },
   emptyComments: {
     flex: 1,

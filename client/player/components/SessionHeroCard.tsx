@@ -110,7 +110,7 @@ function AnimatedStakeCard({ icon, text, color, positive = true }: { icon: strin
         style={gamingStyles.stakeCardGradient}
       >
         <View style={[gamingStyles.stakeIconGlow, { backgroundColor: `${color}30` }]}>
-          <Feather name={icon as any} size={16} color={color} />
+          <Feather name={icon as any} size={12} color={color} />
         </View>
         <Text style={[gamingStyles.stakeCardText, { color: positive ? color : ProTennisColors.textPrimary }]}>
           {text}
@@ -165,12 +165,12 @@ function NeonBorderGlow({ color, children, style }: { color: string; children: R
 const gamingStyles = StyleSheet.create({
   countdownDigitBox: {
     alignItems: "center",
-    marginHorizontal: Spacing.xs,
+    marginHorizontal: 4,
   },
   countdownGradientBg: {
-    borderRadius: BorderRadius.md,
-    padding: Spacing.md,
-    minWidth: 70,
+    borderRadius: BorderRadius.sm,
+    padding: Spacing.sm,
+    minWidth: 52,
     alignItems: "center",
     justifyContent: "center",
     overflow: "hidden",
@@ -181,71 +181,72 @@ const gamingStyles = StyleSheet.create({
     backgroundColor: "rgba(255, 255, 255, 0.1)",
   },
   countdownDigitValue: {
-    fontSize: 48,
+    fontSize: 28,
     fontWeight: "900",
     color: ProTennisColors.midnightBlue,
     fontVariant: ["tabular-nums"],
     textShadowColor: "rgba(0, 0, 0, 0.3)",
-    textShadowOffset: { width: 0, height: 2 },
-    textShadowRadius: 4,
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 2,
   },
   countdownDigitLabel: {
-    marginTop: Spacing.xs,
-    fontSize: 10,
+    marginTop: 2,
+    fontSize: 8,
     fontWeight: "700",
     color: ProTennisColors.textMuted,
-    letterSpacing: 2,
+    letterSpacing: 1,
     textTransform: "uppercase",
   },
   countdownSeparatorText: {
-    fontSize: 40,
+    fontSize: 24,
     fontWeight: "300",
     color: ProTennisColors.neonCyan,
     alignSelf: "center",
-    marginBottom: 20,
+    marginBottom: 12,
     opacity: 0.7,
   },
   stakeCard: {
-    borderRadius: BorderRadius.md,
+    borderRadius: BorderRadius.sm,
     overflow: "hidden",
     shadowOffset: { width: 0, height: 0 },
-    shadowRadius: 12,
-    elevation: 6,
+    shadowRadius: 8,
+    elevation: 4,
     flex: 1,
   },
   stakeCardGradient: {
     flexDirection: "row",
     alignItems: "center",
-    padding: Spacing.md,
-    gap: Spacing.sm,
-    borderRadius: BorderRadius.md,
+    padding: Spacing.sm,
+    gap: Spacing.xs,
+    borderRadius: BorderRadius.sm,
     borderWidth: 1,
     borderColor: "rgba(255, 255, 255, 0.1)",
   },
   stakeIconGlow: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
+    width: 24,
+    height: 24,
+    borderRadius: 12,
     alignItems: "center",
     justifyContent: "center",
   },
   stakeCardText: {
     flex: 1,
-    fontSize: 12,
+    fontSize: 10,
     fontWeight: "600",
-    letterSpacing: 0.3,
+    letterSpacing: 0.2,
   },
   neonBorderContainer: {
-    borderRadius: BorderRadius.lg,
-    borderWidth: 1.5,
+    borderRadius: BorderRadius.md,
+    borderWidth: 1,
     overflow: "hidden",
     shadowOffset: { width: 0, height: 0 },
-    shadowRadius: 16,
-    elevation: 8,
+    shadowRadius: 12,
+    elevation: 6,
   },
   neonBorderInner: {
-    borderRadius: BorderRadius.lg - 2,
+    borderRadius: BorderRadius.md - 1,
     overflow: "hidden",
+    padding: Spacing.sm,
   },
 });
 
