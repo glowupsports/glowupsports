@@ -3,8 +3,7 @@ import { View, Text, StyleSheet, ScrollView, ActivityIndicator, RefreshControl }
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useFocusEffect } from "@react-navigation/native";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Feather } from "@expo/vector-icons";
-import { Spacing, Backgrounds, GlowColors, BorderRadius, Colors, TextColors, FunctionColors } from "@/constants/theme";
+import { Spacing, Backgrounds, GlowColors, BorderRadius, Colors } from "@/constants/theme";
 import { useAuth } from "@/coach/context/AuthContext";
 import { usePlayerDrawer } from "@/player/navigation/PlayerNavigator";
 import { PlayerStateProvider } from "@/player/context/PlayerStateContext";
@@ -19,114 +18,6 @@ import { QuickServeFAB } from "@/player/components/QuickServeFAB";
 import PlayerBookingWizard from "@/player/components/PlayerBookingWizard";
 import CollapsibleModeSwitcher from "@/components/CollapsibleModeSwitcher";
 import Svg, { Line, Rect } from "react-native-svg";
-
-interface QuickStatsStripProps {
-  level: number;
-  streak: number;
-  xp: number;
-}
-
-function QuickStatsStrip({ level, streak, xp }: QuickStatsStripProps) {
-  const xpToNextLevel = 1000 - (xp % 1000);
-  const xpProgress = (xp % 1000) / 1000;
-
-  return (
-    <View style={quickStatsStyles.container}>
-      <View style={quickStatsStyles.statBadge}>
-        <Feather name="star" size={14} color={GlowColors.primary} />
-        <View style={quickStatsStyles.statContent}>
-          <Text style={quickStatsStyles.statValue}>{level}</Text>
-          <Text style={quickStatsStyles.statLabel}>Level</Text>
-        </View>
-      </View>
-
-      <View style={quickStatsStyles.divider} />
-
-      <View style={quickStatsStyles.statBadge}>
-        <Feather name="zap" size={14} color={FunctionColors.social} />
-        <View style={quickStatsStyles.statContent}>
-          <Text style={quickStatsStyles.statValue}>{streak}</Text>
-          <Text style={quickStatsStyles.statLabel}>Streak</Text>
-        </View>
-      </View>
-
-      <View style={quickStatsStyles.divider} />
-
-      <View style={[quickStatsStyles.statBadge, quickStatsStyles.xpBadge]}>
-        <View style={quickStatsStyles.xpProgressContainer}>
-          <View style={[quickStatsStyles.xpProgressBar, { width: `${xpProgress * 100}%` }]} />
-        </View>
-        <View style={quickStatsStyles.statContent}>
-          <Text style={quickStatsStyles.statValue}>{xpToNextLevel}</Text>
-          <Text style={quickStatsStyles.statLabel}>XP to go</Text>
-        </View>
-      </View>
-    </View>
-  );
-}
-
-const quickStatsStyles = StyleSheet.create({
-  container: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    marginHorizontal: Spacing.lg,
-    paddingVertical: Spacing.md,
-    paddingHorizontal: Spacing.lg,
-    backgroundColor: Backgrounds.card,
-    borderRadius: BorderRadius.md,
-    borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.06)",
-  },
-  statBadge: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: Spacing.sm,
-    flex: 1,
-  },
-  statContent: {
-    alignItems: "flex-start",
-  },
-  statValue: {
-    fontSize: 16,
-    fontWeight: "700",
-    color: Colors.dark.text,
-    fontVariant: ["tabular-nums"],
-  },
-  statLabel: {
-    fontSize: 10,
-    fontWeight: "500",
-    color: Colors.dark.textMuted,
-    letterSpacing: 0.5,
-    textTransform: "uppercase",
-  },
-  divider: {
-    width: 1,
-    height: 28,
-    backgroundColor: "rgba(255, 255, 255, 0.1)",
-    marginHorizontal: Spacing.sm,
-  },
-  xpBadge: {
-    position: "relative",
-  },
-  xpProgressContainer: {
-    position: "absolute",
-    left: -Spacing.sm,
-    top: -Spacing.sm,
-    bottom: -Spacing.sm,
-    right: -Spacing.sm,
-    backgroundColor: "rgba(200, 255, 61, 0.08)",
-    borderRadius: BorderRadius.sm,
-    overflow: "hidden",
-  },
-  xpProgressBar: {
-    position: "absolute",
-    left: 0,
-    top: 0,
-    bottom: 0,
-    backgroundColor: "rgba(200, 255, 61, 0.15)",
-  },
-});
 
 interface DashboardData {
   player: {
