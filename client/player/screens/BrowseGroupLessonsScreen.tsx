@@ -185,21 +185,36 @@ export default function BrowseGroupLessonsScreen() {
   };
 
   return (
-    <View style={styles.container}>
-      <ScrollView
-        style={styles.scrollView}
-        contentContainerStyle={[
-          styles.scrollContent,
-          { paddingTop: Spacing.lg, paddingBottom: insets.bottom + Spacing.xl }
-        ]}
-        refreshControl={
-          <RefreshControl
-            refreshing={isRefetching}
-            onRefresh={refetch}
-            tintColor={ProTennisColors.electricGreen}
-          />
-        }
+    <View style={styles.modalOverlayContainer}>
+      <Pressable style={styles.modalBackdrop} onPress={() => navigation.goBack()} />
+      
+      <Animated.View 
+        entering={FadeInDown.duration(300)}
+        style={[styles.modalSheet, { paddingBottom: insets.bottom + 80 }]}
       >
+        <View style={styles.modalDragHandle} />
+        
+        <View style={styles.modalHeader}>
+          <Text style={styles.modalHeaderTitle}>Group Lessons</Text>
+          <Pressable onPress={() => navigation.goBack()} style={styles.modalCloseBtn}>
+            <Feather name="x" size={24} color={ProTennisColors.textPrimary} />
+          </Pressable>
+        </View>
+
+        <ScrollView
+          style={styles.scrollView}
+          contentContainerStyle={[
+            styles.scrollContent,
+            { paddingTop: Spacing.sm, paddingBottom: Spacing.xl }
+          ]}
+          refreshControl={
+            <RefreshControl
+              refreshing={isRefetching}
+              onRefresh={refetch}
+              tintColor={ProTennisColors.electricGreen}
+            />
+          }
+        >
         <View style={styles.filterContainer}>
           <ScrollView 
             horizontal 
@@ -352,7 +367,8 @@ export default function BrowseGroupLessonsScreen() {
             })}
           </View>
         )}
-      </ScrollView>
+        </ScrollView>
+      </Animated.View>
 
       <Modal
         visible={!!selectedSession}
@@ -360,8 +376,8 @@ export default function BrowseGroupLessonsScreen() {
         transparent={true}
         onRequestClose={() => setSelectedSession(null)}
       >
-        <View style={styles.modalOverlay}>
-          <Pressable style={styles.modalBackdrop} onPress={() => setSelectedSession(null)} />
+        <View style={styles.detailModalOverlay}>
+          <Pressable style={styles.detailModalBackdrop} onPress={() => setSelectedSession(null)} />
           
           <Animated.View 
             entering={FadeInDown.duration(300)}
@@ -479,6 +495,49 @@ export default function BrowseGroupLessonsScreen() {
 }
 
 const styles = StyleSheet.create({
+  modalOverlayContainer: {
+    flex: 1,
+    justifyContent: "flex-end",
+  },
+  modalBackdrop: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: "rgba(0, 0, 0, 0.5)",
+  },
+  modalSheet: {
+    backgroundColor: ProTennisColors.backgroundPrimary,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    maxHeight: "85%",
+    minHeight: "60%",
+  },
+  modalDragHandle: {
+    width: 40,
+    height: 4,
+    backgroundColor: ProTennisColors.border,
+    borderRadius: 2,
+    alignSelf: "center",
+    marginTop: Spacing.sm,
+  },
+  modalHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: Spacing.lg,
+    paddingVertical: Spacing.md,
+    borderBottomWidth: 1,
+    borderBottomColor: ProTennisColors.border,
+  },
+  modalHeaderTitle: {
+    fontSize: 18,
+    fontWeight: "700",
+    color: ProTennisColors.textPrimary,
+  },
+  modalCloseBtn: {
+    width: 40,
+    height: 40,
+    justifyContent: "center",
+    alignItems: "center",
+  },
   container: {
     flex: 1,
     backgroundColor: ProTennisColors.backgroundPrimary,
@@ -637,11 +696,11 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     color: "#000",
   },
-  modalOverlay: {
+  detailModalOverlay: {
     flex: 1,
     justifyContent: "flex-end",
   },
-  modalBackdrop: {
+  detailModalBackdrop: {
     ...StyleSheet.absoluteFillObject,
     backgroundColor: "rgba(0, 0, 0, 0.7)",
   },

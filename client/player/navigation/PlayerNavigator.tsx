@@ -447,11 +447,10 @@ function PlayerStackNavigator() {
         name="BrowseGroupLessons" 
         component={BrowseGroupLessonsScreen}
         options={{
-          headerShown: true,
-          headerTitle: "Group Lessons",
-          headerStyle: { backgroundColor: '#090E17' },
-          headerTintColor: '#C8FF3D',
-          headerTitleStyle: { color: '#ffffff', fontWeight: '600' },
+          presentation: 'transparentModal',
+          headerShown: false,
+          animation: 'slide_from_bottom',
+          contentStyle: { backgroundColor: 'transparent' },
         }}
       />
       <Stack.Screen 
