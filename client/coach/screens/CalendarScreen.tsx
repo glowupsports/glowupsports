@@ -148,6 +148,11 @@ const pulsingStyles = StyleSheet.create({
   },
 });
 
+interface SessionPlayer {
+  id: string;
+  name: string;
+}
+
 interface Session {
   id: string;
   coachId: string | null;
@@ -157,6 +162,8 @@ interface Session {
   duration: number;
   sessionType: string;
   status: string | null;
+  players?: SessionPlayer[];
+  location?: string;
 }
 
 interface BlockedSession {
@@ -1853,9 +1860,8 @@ export default function CalendarScreen() {
                                           session.sessionType === "semi_private" ? "S" :
                                           session.sessionType === "group" ? "G" :
                                           session.sessionType === "physical" ? "Ph" : "";
-                        const sessionCourt = courts.find(c => c.id === session.courtId);
-                        const courtShortName = sessionCourt?.name?.split(" ")[0] || "";
-                        const sessionLabel = courtShortName ? `${typeLabel} • ${courtShortName}` : typeLabel;
+                        const playerName = session.players?.[0]?.name?.split(" ")[0] || "";
+                        const sessionLabel = playerName ? `${typeLabel} • ${playerName}` : typeLabel;
                         const gradientColors = getSessionTypeGradient(session.sessionType);
                         return (
                           <DraggableSessionBlock
@@ -2145,8 +2151,9 @@ export default function CalendarScreen() {
                                               session.sessionType === "group" ? "G" : 
                                               session.sessionType === "physical" ? "Ph" : "";
                             const sessionCourt = courts.find(c => c.id === session.courtId);
-                            const courtShortName = sessionCourt?.name?.split(" ")[0] || "";
-                            const sessionLabel = courtShortName ? `${typeLabel} • ${courtShortName}` : typeLabel;
+                            const courtLocation = sessionCourt?.locationId ? allLocations.find(l => l.id === sessionCourt.locationId) : null;
+                            const locationShortName = courtLocation?.name?.split(" ")[0]?.toUpperCase() || "";
+                            const sessionLabel = locationShortName ? `${typeLabel}\n${locationShortName}` : typeLabel;
                             const dayColumnWidth = (SCREEN_WIDTH - TIME_COLUMN_WIDTH - Spacing.lg * 2) / 7;
                             
                             return (
