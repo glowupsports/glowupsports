@@ -1,6 +1,6 @@
 import { db } from "./db";
 import { eq, and, gte, lte, inArray, isNull, lt, ne } from "drizzle-orm";
-import { pushDeviceTokens, notificationPreferences, users, players, coaches, sessions, sessionPlayers, coachXpTransactions } from "@shared/schema";
+import { pushDeviceTokens, notificationPreferences, users, players, coaches, sessions, sessionPlayers, seriesPlayers, coachXpTransactions } from "@shared/schema";
 import { sendSessionReminderEmail } from "./emailService";
 
 interface ExpoPushMessage {
@@ -267,10 +267,28 @@ export async function processScheduledReminders(): Promise<void> {
         continue;
       }
 
-      const sessionPlayersList = await db
+      let sessionPlayersList = await db
         .select()
         .from(sessionPlayers)
         .where(eq(sessionPlayers.sessionId, session.id));
+
+      // For recurring sessions, fallback to seriesPlayers if no session-specific players
+      if (sessionPlayersList.length === 0 && session.seriesId) {
+        const seriesPlayersList = await db
+          .select()
+          .from(seriesPlayers)
+          .where(eq(seriesPlayers.seriesId, session.seriesId));
+        
+        // Map seriesPlayers to same format as sessionPlayers
+        sessionPlayersList = seriesPlayersList.map(sp => ({
+          id: sp.id,
+          sessionId: session.id,
+          playerId: sp.playerId,
+          status: 'enrolled' as const,
+          bookingSource: 'series' as const,
+          createdAt: sp.enrolledAt,
+        }));
+      }
 
       const coach = session.coachId ? await db
         .select()
