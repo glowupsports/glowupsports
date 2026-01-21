@@ -1781,7 +1781,13 @@ export default function SettingsScreen() {
               <View style={styles.drawerSection}>
                 <Text style={styles.drawerSectionLabel}>To Location</Text>
                 <View style={styles.drawerOptionsGrid}>
-                  {courts.filter(c => c.locationId && c.locationId !== fromLocationId).map((court) => (
+                  {courts.filter(c => {
+                    if (!c.locationId || c.locationId === fromLocationId) return false;
+                    const alreadyExists = travelTimes.some(tt => 
+                      tt.fromLocationId === fromLocationId && tt.toLocationId === c.locationId
+                    );
+                    return !alreadyExists;
+                  }).map((court) => (
                     <Pressable
                       key={court.id}
                       style={[
@@ -2626,13 +2632,13 @@ const styles = StyleSheet.create({
   },
   deleteModalOverlay: {
     flex: 1,
-    backgroundColor: "rgba(0, 0, 0, 0.8)",
+    backgroundColor: Colors.dark.backgroundRoot,
     justifyContent: "center",
     alignItems: "center",
     padding: Spacing.xl,
   },
   deleteModalContent: {
-    backgroundColor: Colors.dark.backgroundElevated,
+    backgroundColor: Colors.dark.backgroundCard,
     borderRadius: BorderRadius.lg,
     padding: Spacing.xl,
     width: "100%",

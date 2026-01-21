@@ -1873,7 +1873,7 @@ export default function CalendarScreen() {
                         const isPast = sessionEnd < now;
                         const isActive = now >= sessionStart && now < sessionEnd;
                         const typeLabel = session.sessionType === "private" ? "Private" :
-                                          session.sessionType === "semi_private" ? "Semi Private" :
+                                          session.sessionType === "semi_private" ? "Semi" :
                                           session.sessionType === "group" ? "Group" :
                                           session.sessionType === "physical" ? "Physical" : "";
                         const playerName = session.players?.[0]?.name?.split(" ")[0] || "";
