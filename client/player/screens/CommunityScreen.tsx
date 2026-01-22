@@ -780,6 +780,7 @@ function NewsSection() {
 
 function FriendsSection({ onChallenge, onSelectActivity }: { onChallenge?: (friend: Friend) => void; onSelectActivity?: (activity: FriendActivity) => void }) {
   const navigation = useNavigation<any>();
+  const queryClient = useQueryClient();
   const insets = useSafeAreaInsets();
   const tabBarHeight = useBottomTabBarHeight();
   const [activeTab, setActiveTab] = useState<"activity" | "friends" | "requests">("activity");
@@ -788,18 +789,39 @@ function FriendsSection({ onChallenge, onSelectActivity }: { onChallenge?: (frie
     queryKey: ["/api/player/me/friends"],
   });
   
-  const { data: friendsActivityData } = useQuery<{ posts: Post[] }>({
-    queryKey: ["/api/social/friends-activity"],
+  const { data: friendsActivityData, isLoading: activityLoading } = useQuery<Post[]>({
+    queryKey: ["/api/social/feed", { filter: "friends" }],
+    queryFn: async () => {
+      const response = await apiFetch("/api/social/feed?filter=friends");
+      if (!response.ok) throw new Error("Failed to load activity");
+      return response.json();
+    },
   });
   
-  const friendsActivity = friendsActivityData?.posts || [
-    { id: "fa1", authorId: "1", academyId: "1", contextType: "match_won", caption: "Won an intense 3-setter! 6-4, 4-6, 7-5", mediaUrls: [], mediaTypes: [], visibility: "public", cheerCount: 12, commentCount: 3, createdAt: new Date(Date.now() - 3600000).toISOString(), author: { id: "1", name: "Ahmed K.", photoUrl: undefined, ballLevel: "green", level: 8, title: "Rally Master" }, userReaction: null },
-    { id: "fa2", authorId: "2", academyId: "1", contextType: "level_up", caption: "Just hit Level 10! Thanks coach for all the support", mediaUrls: [], mediaTypes: [], visibility: "public", cheerCount: 25, commentCount: 8, createdAt: new Date(Date.now() - 7200000).toISOString(), author: { id: "2", name: "Sarah M.", photoUrl: undefined, ballLevel: "yellow", level: 10, title: "Court Warrior" }, userReaction: "fire" },
-    { id: "fa3", authorId: "3", academyId: "1", contextType: "training", caption: "Working on my backhand slice", mediaUrls: [], mediaTypes: [], visibility: "public", cheerCount: 5, commentCount: 1, createdAt: new Date(Date.now() - 14400000).toISOString(), author: { id: "3", name: "Mike R.", photoUrl: undefined, ballLevel: "orange", level: 5, title: "Rising Star" }, userReaction: null },
-  ];
+  const friendsActivity = friendsActivityData || [];
   
   const friends = friendsData?.friends || [];
   const requests = friendsData?.pendingRequests || [];
+  
+  const cheerMutation = useMutation({
+    mutationFn: async (postId: string) => {
+      const response = await apiFetch(`/api/social/posts/${postId}/reactions`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ reactionType: "fire" }),
+      });
+      if (!response.ok) throw new Error("Failed to cheer");
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/social/feed"] });
+    },
+  });
+  
+  const handleCheerPost = (postId: string) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    cheerMutation.mutate(postId);
+  };
   
   const getBallColor = (level?: string) => {
     const colors: Record<string, string> = {
@@ -997,11 +1019,16 @@ function FriendsSection({ onChallenge, onSelectActivity }: { onChallenge?: (frie
           
           <View style={styles.activityActions}>
             <View style={styles.activityReactions}>
-              <Ionicons name="flame" size={14} color={Colors.dark.primary} />
+              <Ionicons name="flame" size={14} color={post.userReaction ? Colors.dark.error : Colors.dark.primary} />
               <ThemedText style={styles.activityReactionCount}>{post.cheerCount}</ThemedText>
             </View>
-            <Pressable style={styles.activityCheerBtn} onPress={(e) => e.stopPropagation()}>
-              <ThemedText style={styles.activityCheerText}>Cheer</ThemedText>
+            <Pressable 
+              style={[styles.activityCheerBtn, post.userReaction && styles.activityCheerBtnActive]} 
+              onPress={(e) => { e.stopPropagation(); handleCheerPost(post.id); }}
+            >
+              <ThemedText style={[styles.activityCheerText, post.userReaction && styles.activityCheerTextActive]}>
+                {post.userReaction ? "Cheered!" : "Cheer"}
+              </ThemedText>
             </Pressable>
           </View>
         </Pressable>
@@ -1968,33 +1995,75 @@ interface PostDetailModalProps {
   onCheer: (postId: string) => void;
 }
 
+interface CommentData {
+  id: string;
+  author: { id: string; name: string; photoUrl?: string | null };
+  text: string;
+  createdAt: string;
+  likeCount: number;
+}
+
 function PostDetailModal({ visible, post, onClose, onCheer }: PostDetailModalProps) {
   const insets = useSafeAreaInsets();
+  const queryClient = useQueryClient();
   const [commentText, setCommentText] = useState("");
-  const [comments, setComments] = useState<{ id: string; author: string; text: string; time: string; likes: number }[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   
-  // Mock comments for now
-  useEffect(() => {
-    if (visible && post) {
-      setComments([
-        { id: "1", author: "Coach Mike", text: "Great job! Keep it up!", time: "2m", likes: 3 },
-        { id: "2", author: "Sarah M.", text: "Congrats! That was an amazing match!", time: "5m", likes: 1 },
-      ]);
-    }
-  }, [visible, post]);
+  const { data: commentsData, refetch: refetchComments } = useQuery<CommentData[]>({
+    queryKey: ["/api/social/posts", post?.id, "comments"],
+    queryFn: async () => {
+      if (!post?.id) return [];
+      const response = await apiFetch(`/api/social/posts/${post.id}/comments`);
+      if (!response.ok) return [];
+      return response.json();
+    },
+    enabled: visible && !!post?.id,
+  });
   
-  const handleSubmitComment = () => {
-    if (!commentText.trim()) return;
+  const comments = commentsData || [];
+  
+  const submitCommentMutation = useMutation({
+    mutationFn: async (text: string) => {
+      const response = await apiFetch(`/api/social/posts/${post?.id}/comments`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text }),
+      });
+      if (!response.ok) throw new Error("Failed to post comment");
+      return response.json();
+    },
+    onSuccess: () => {
+      refetchComments();
+      queryClient.invalidateQueries({ queryKey: ["/api/social/feed"] });
+    },
+  });
+  
+  const handleSubmitComment = async () => {
+    if (!commentText.trim() || !post?.id) return;
     setIsSubmitting(true);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     
-    setComments(prev => [
-      ...prev,
-      { id: Date.now().toString(), author: "You", text: commentText.trim(), time: "now", likes: 0 }
-    ]);
-    setCommentText("");
-    setIsSubmitting(false);
+    try {
+      await submitCommentMutation.mutateAsync(commentText.trim());
+      setCommentText("");
+    } catch (error) {
+      console.error("Failed to post comment:", error);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+  
+  const formatTime = (dateString: string) => {
+    const date = new Date(dateString);
+    const now = new Date();
+    const diffMs = now.getTime() - date.getTime();
+    const diffMins = Math.floor(diffMs / 60000);
+    if (diffMins < 1) return "now";
+    if (diffMins < 60) return `${diffMins}m`;
+    const diffHours = Math.floor(diffMins / 60);
+    if (diffHours < 24) return `${diffHours}h`;
+    const diffDays = Math.floor(diffHours / 24);
+    return `${diffDays}d`;
   };
   
   const getContextStyle = (type: string) => {
@@ -2097,20 +2166,20 @@ function PostDetailModal({ visible, post, onClose, onCheer }: PostDetailModalPro
               <View key={comment.id} style={postDetailStyles.commentItem}>
                 <View style={postDetailStyles.commentAvatar}>
                   <ThemedText style={postDetailStyles.commentAvatarText}>
-                    {comment.author.charAt(0).toUpperCase()}
+                    {(comment.author?.name || "?").charAt(0).toUpperCase()}
                   </ThemedText>
                 </View>
                 <View style={postDetailStyles.commentContent}>
                   <View style={postDetailStyles.commentHeader}>
-                    <ThemedText style={postDetailStyles.commentAuthor}>{comment.author}</ThemedText>
-                    <ThemedText style={postDetailStyles.commentTime}>{comment.time}</ThemedText>
+                    <ThemedText style={postDetailStyles.commentAuthor}>{comment.author?.name || "Player"}</ThemedText>
+                    <ThemedText style={postDetailStyles.commentTime}>{formatTime(comment.createdAt)}</ThemedText>
                   </View>
                   <ThemedText style={postDetailStyles.commentText}>{comment.text}</ThemedText>
                   <View style={postDetailStyles.commentActions}>
                     <Pressable style={postDetailStyles.commentAction}>
                       <Ionicons name="heart-outline" size={14} color={Colors.dark.textMuted} />
-                      {comment.likes > 0 ? (
-                        <ThemedText style={postDetailStyles.commentActionText}>{comment.likes}</ThemedText>
+                      {comment.likeCount > 0 ? (
+                        <ThemedText style={postDetailStyles.commentActionText}>{comment.likeCount}</ThemedText>
                       ) : null}
                     </Pressable>
                     <Pressable style={postDetailStyles.commentAction}>
@@ -4404,10 +4473,16 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.dark.primary + "20",
     borderRadius: BorderRadius.md,
   },
+  activityCheerBtnActive: {
+    backgroundColor: Colors.dark.error + "20",
+  },
   activityCheerText: {
     fontSize: 13,
     fontWeight: "600",
     color: Colors.dark.primary,
+  },
+  activityCheerTextActive: {
+    color: Colors.dark.error,
   },
 });
 

@@ -17720,7 +17720,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         { url: "https://feeds.bbci.co.uk/sport/tennis/rss.xml", source: "BBC Sport" },
         { url: "https://www.espn.com/espn/rss/tennis/news", source: "ESPN" },
         { url: "https://www.theguardian.com/sport/tennis/rss", source: "Guardian" },
-        { url: "https://syndication.bleacherreport.com/tennis.rss", source: "Bleacher" },
+        { url: "https://www.skysports.com/rss/12040", source: "Sky Sports" },
       ];
       
       const articles: Array<{
