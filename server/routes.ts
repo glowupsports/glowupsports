@@ -24098,6 +24098,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         group: "group",
       };
       
+      // Court Credits pricing: 1 credit = 5 AED (fixed)
+      const COURT_CREDIT_VALUE_AED = 5;
+      const COURT_CREDIT_QUANTITIES = [10, 25, 50, 100];
+      
       const pricing = await storage.getAcademyPricing(player.academyId);
       
       const packages: Array<{
@@ -24128,18 +24132,36 @@ export async function registerRoutes(app: Express): Promise<Server> {
           const totalPrice = pricePerCredit * credits;
           packages.push({
             id: `auto-${creditType}-${credits}`,
-            name: `${credits} ${creditTypeLabel} Credit${credits > 1 ? 's' : ''}`,
+            name: `${credits} ${creditTypeLabel} Credit${credits > 1 ? "s" : ""}`,
             creditType: CREDIT_TYPE_MAP[creditType],
             credits,
             pricePerCredit: pricePerCredit.toFixed(2),
             totalPrice: totalPrice.toFixed(2),
             currency,
-            validityDays: 90, // Default validity
-            isPopular: credits === 10, // Mark 10-pack as popular
+            validityDays: 90,
+            isPopular: credits === 10,
           });
         }
       }
+      
+      // Add Court Credits packages (1 credit = 5 AED, for court bookings)
+      for (const credits of COURT_CREDIT_QUANTITIES) {
+        const totalPrice = COURT_CREDIT_VALUE_AED * credits;
+        packages.push({
+          id: `auto-court-${credits}`,
+          name: `${credits} Court Credit${credits > 1 ? "s" : ""}`,
+          creditType: "court",
+          credits,
+          pricePerCredit: COURT_CREDIT_VALUE_AED.toFixed(2),
+          totalPrice: totalPrice.toFixed(2),
+          currency: "AED",
+          validityDays: 180,
+          description: "Use for court bookings",
+          isPopular: credits === 50,
+        });
+      }
 
+      res.json(packages);
       res.json(packages);
     } catch (error) {
       console.error("Get credit store error:", error);
@@ -24377,8 +24399,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const packages = await storage.getPlayerPackages(playerId);
       const activePackages = packages.filter(p => p.status === "active" && p.remainingCredits > 0);
 
-      const credits = {
+      const credits: Record<string, number> = {
         group: 0,
+        court: 0,
         private: 0,
         semi_private: 0,
       };

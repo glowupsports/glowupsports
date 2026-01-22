@@ -9,7 +9,7 @@ import * as Clipboard from "expo-clipboard";
 import { Colors, Spacing, Typography, BorderRadius, Backgrounds, GlowColors } from "@/constants/theme";
 import { apiRequest } from "@/lib/query-client";
 
-type CreditType = "group" | "private" | "semi_private";
+type CreditType = "group" | "private" | "semi_private" | "court";
 
 interface CreditPackage {
   id: string;
@@ -28,6 +28,7 @@ interface PlayerCredits {
   group: number;
   private: number;
   semi_private: number;
+  court: number;
 }
 
 type RouteParams = {
@@ -38,18 +39,21 @@ const CREDIT_TYPE_COLORS: Record<CreditType, string> = {
   group: Colors.dark.sessionGroup,
   private: Colors.dark.sessionPrivate,
   semi_private: Colors.dark.sessionSemiPrivate,
+  court: Colors.dark.xpCyan,
 };
 
 const CREDIT_TYPE_LABELS: Record<CreditType, string> = {
   group: "Group",
   private: "Private",
   semi_private: "Semi-Private",
+  court: "Court",
 };
 
 const CREDIT_TYPE_ICONS: Record<CreditType, keyof typeof Ionicons.glyphMap> = {
   private: "person",
   semi_private: "people",
   group: "people-circle",
+  court: "tennisball",
 };
 
 interface AcademyPaymentInfo {
@@ -94,7 +98,7 @@ export default function ParentCreditStoreScreen() {
     enabled: !!playerId,
   });
 
-  const credits = creditsData?.credits || { group: 0, private: 0, semi_private: 0 };
+  const credits = creditsData?.credits || { group: 0, private: 0, semi_private: 0, court: 0 };
 
   const purchaseMutation = useMutation({
     mutationFn: async ({ templateId, pin, paymentMethod }: { templateId: string; pin: string; paymentMethod: "cash" | "bank_transfer" }) => {
@@ -187,7 +191,7 @@ export default function ParentCreditStoreScreen() {
     return acc;
   }, {} as Record<CreditType, CreditPackage[]>);
 
-  const creditTypes: CreditType[] = ["private", "semi_private", "group"];
+  const creditTypes: CreditType[] = ["private", "semi_private", "group", "court"];
 
   const renderCreditTypeSection = (creditType: CreditType) => {
     const typePackages = groupedPackages[creditType] || [];

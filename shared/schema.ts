@@ -547,6 +547,11 @@ export const courts = pgTable("courts", {
   memberPricePerHour: numeric("member_price_per_hour"), // optional discounted price for members
   currency: text("currency").default("AED"),
   
+  // Court Credits System (1 credit = 5 AED)
+  creditsPerHour: integer("credits_per_hour").default(0), // 0 = use AED pricing, >0 = use credits
+  peakCreditsPerHour: integer("peak_credits_per_hour"), // optional peak hours credits
+  memberCreditsPerHour: integer("member_credits_per_hour"), // optional member discount credits
+  
   // Booking Rules
   maxBookingDurationHours: integer("max_booking_duration_hours").default(2),
   minBookingDurationMinutes: integer("min_booking_duration_minutes").default(60),
@@ -613,6 +618,10 @@ export const courtBookings = pgTable("court_bookings", {
   price: numeric("price").default("0"),
   currency: text("currency").default("AED"),
   paymentStatus: text("payment_status").default("pending"), // pending | paid | free | refunded
+  
+  // Court Credits (1 credit = 5 AED)
+  creditsUsed: integer("credits_used").default(0), // Number of court credits used for this booking
+  creditPackageId: varchar("credit_package_id"), // Which package the credits came from
   
   // Status
   status: text("status").default("pending"), // pending | confirmed | cancelled | completed | no_show
@@ -1349,7 +1358,7 @@ export const packages = pgTable("packages", {
   name: text("name"), // Copy from template or custom name
   
   // Credit type - determines which session types this package can be used for
-  creditType: text("credit_type").default("group"), // group | private | semi_private
+  creditType: text("credit_type").default("group"), // group | private | semi_private | court (1 court credit = 5 AED)
   
   // Optional: Link package to specific class - credits only valid for this class
   // If null, credits can be used for any class the player is member of
@@ -2697,7 +2706,7 @@ export const creditTransactions = pgTable("credit_transactions", {
   packageId: varchar("package_id").references(() => packages.id), // Which package the credits came from/went to
   
   type: text("type").notNull(), // credit | debit | refund | make_up_grant | make_up_used
-  creditType: text("credit_type"), // group | private | semi_private - type of credits being transacted
+  creditType: text("credit_type"), // group | private | semi_private | court - type of credits being transacted
   amount: integer("amount").notNull(), // positive for credit, negative for debit
   reason: text("reason").notNull(), // session_join | session_cancel | make_up_granted | make_up_lesson_used | package_purchased | admin_adjustment
   
