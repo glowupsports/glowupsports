@@ -540,19 +540,21 @@ function GlowScoreModal({
             <View style={modalStyles.howToLevel}>
               <Text style={modalStyles.sectionTitle}>How to Earn Glow Points</Text>
               <View style={modalStyles.howToItem}>
-                <Ionicons name="tennisball" size={18} color="#10B981" />
-                <Text style={modalStyles.howToText}>Improve pillar skills (+5-20 pts)</Text>
+                <View style={{ width: 24, height: 24, borderRadius: 12, backgroundColor: "#10B98130", justifyContent: "center", alignItems: "center" }}>
+                  <Text style={{ color: "#10B981", fontWeight: "bold", fontSize: 12 }}>1</Text>
+                </View>
+                <Text style={modalStyles.howToText}>Improve your 6 Pillars (+10-30 pts)</Text>
               </View>
               <View style={modalStyles.howToItem}>
-                <Ionicons name="star" size={18} color={Colors.dark.gold} />
-                <Text style={modalStyles.howToText}>Coach assessments (+10-50 pts)</Text>
-              </View>
-              <View style={modalStyles.howToItem}>
-                <Ionicons name="trophy" size={18} color="#3B82F6" />
+                <View style={{ width: 24, height: 24, borderRadius: 12, backgroundColor: "#3B82F630", justifyContent: "center", alignItems: "center" }}>
+                  <Text style={{ color: "#3B82F6", fontWeight: "bold", fontSize: 12 }}>2</Text>
+                </View>
                 <Text style={modalStyles.howToText}>Win matches (+25-100 pts)</Text>
               </View>
               <View style={modalStyles.howToItem}>
-                <Ionicons name="ribbon" size={18} color="#E040FB" />
+                <View style={{ width: 24, height: 24, borderRadius: 12, backgroundColor: "#E040FB30", justifyContent: "center", alignItems: "center" }}>
+                  <Text style={{ color: "#E040FB", fontWeight: "bold", fontSize: 12 }}>3</Text>
+                </View>
                 <Text style={modalStyles.howToText}>Complete achievements (bonus pts)</Text>
               </View>
             </View>
@@ -670,6 +672,148 @@ function XpExplanationModal({
   );
 }
 
+function AdultGlowLevelModal({ 
+  visible, 
+  onClose, 
+  currentLevel 
+}: { 
+  visible: boolean; 
+  onClose: () => void;
+  currentLevel: string | null;
+}) {
+  const insets = useSafeAreaInsets();
+  
+  const glowLevels = [
+    { 
+      rank: 9, name: "Absolute Beginner", color: "#6B7280",
+      summary: "Just starting tennis. Learning to make contact with the ball.",
+      skills: ["Basic grip knowledge", "Can hit ball over net", "Understanding of court layout"]
+    },
+    { 
+      rank: 8, name: "Beginner", color: "#8B5CF6",
+      summary: "Building fundamental strokes. Starting to rally.",
+      skills: ["Consistent forehand contact", "Basic backhand", "Underhand serve"]
+    },
+    { 
+      rank: 7, name: "Lower Intermediate", color: "#3B82F6",
+      summary: "Can sustain rallies. Learning tactical basics.",
+      skills: ["Rally 10+ balls", "Overhead serve attempts", "Basic positioning"]
+    },
+    { 
+      rank: 6, name: "Intermediate", color: "#22C55E",
+      summary: "Solid fundamentals. Developing game patterns.",
+      skills: ["Directional control", "Consistent serve", "Net approach basics"]
+    },
+    { 
+      rank: 5, name: "Upper Intermediate", color: "#10B981",
+      summary: "Strong all-court game. Ready for competitive play.",
+      skills: ["Spin control", "Tactical patterns", "Match composure"]
+    },
+    { 
+      rank: 4, name: "Lower Advanced", color: "#F59E0B",
+      summary: "Competing in club tournaments. Refined technique.",
+      skills: ["Weapon shot developed", "Serve & volley", "Point construction"]
+    },
+    { 
+      rank: 3, name: "Advanced", color: "#F97316",
+      summary: "Winning club events. Tournament-ready player.",
+      skills: ["All strokes mastered", "Mental toughness", "Match strategy"]
+    },
+    { 
+      rank: 2, name: "Elite Amateur", color: "#EF4444",
+      summary: "Top club player. Regional competition level.",
+      skills: ["High-level consistency", "Pressure performance", "Complete game"]
+    },
+    { 
+      rank: 1, name: "Elite / Semi-Pro", color: "#FFD700",
+      summary: "Professional-level skills. National/international competition.",
+      skills: ["World-class technique", "Elite fitness", "Championship mentality"]
+    },
+  ];
+  
+  const getCurrentRank = () => {
+    if (!currentLevel) return null;
+    const match = currentLevel.match(/(\d+)/);
+    return match ? parseInt(match[1]) : null;
+  };
+  
+  const currentRank = getCurrentRank();
+  const currentLevelInfo = glowLevels.find(l => l.rank === currentRank);
+
+  return (
+    <Modal visible={visible} animationType="slide" transparent>
+      <View style={modalStyles.overlay}>
+        <Pressable style={modalStyles.backdrop} onPress={onClose} />
+        <View style={[modalStyles.content, { paddingBottom: insets.bottom + 20, maxHeight: "85%" }]}>
+          <View style={modalStyles.header}>
+            <Text style={modalStyles.title}>Adult Glow Ranking</Text>
+            <Pressable onPress={onClose}>
+              <Ionicons name="close-circle" size={28} color={Colors.dark.textMuted} />
+            </Pressable>
+          </View>
+
+          <ScrollView style={modalStyles.body} showsVerticalScrollIndicator={false}>
+            {currentLevelInfo ? (
+              <View style={modalStyles.currentLevel}>
+                <View style={[modalStyles.currentLevelCircle, { borderColor: currentLevelInfo.color, backgroundColor: currentLevelInfo.color + "20" }]}>
+                  <Text style={[modalStyles.currentLevelNumber, { color: currentLevelInfo.color, fontSize: 28 }]}>{currentRank}</Text>
+                </View>
+                <View style={modalStyles.currentLevelInfo}>
+                  <Text style={[modalStyles.currentLevelTitle, { color: currentLevelInfo.color }]}>{currentLevelInfo.name}</Text>
+                  <Text style={modalStyles.currentLevelDesc}>Your current Glow rank</Text>
+                </View>
+              </View>
+            ) : null}
+
+            <View style={modalStyles.howToLevel}>
+              <Text style={modalStyles.sectionTitle}>How It Works</Text>
+              <Text style={modalStyles.descriptionText}>
+                Glow ranks go from 9 (beginner) to 1 (elite). Your coach tracks your progress across all 6 pillars. As you improve, you'll climb the ranks!
+              </Text>
+            </View>
+
+            <View style={modalStyles.milestonesSection}>
+              <Text style={modalStyles.sectionTitle}>Level Progression (9 → 1)</Text>
+              {glowLevels.map((level) => {
+                const isCurrentLevel = currentRank === level.rank;
+                const isPassed = currentRank !== null && currentRank < level.rank;
+                
+                return (
+                  <Pressable 
+                    key={level.rank} 
+                    style={[
+                      modalStyles.milestone, 
+                      isCurrentLevel && { borderLeftWidth: 3, borderLeftColor: level.color },
+                      { paddingVertical: Spacing.sm }
+                    ]}
+                  >
+                    <View style={[modalStyles.milestoneBadge, { backgroundColor: level.color + "20", borderColor: level.color }]}>
+                      <Text style={{ color: level.color, fontWeight: "bold", fontSize: 14 }}>{level.rank}</Text>
+                    </View>
+                    <View style={[modalStyles.milestoneContent, { flex: 1 }]}>
+                      <Text style={[modalStyles.milestoneTitle, { color: isCurrentLevel ? level.color : Colors.dark.text }]}>
+                        {level.name}
+                      </Text>
+                      <Text style={modalStyles.milestoneUnlocks} numberOfLines={2}>
+                        {level.summary}
+                      </Text>
+                    </View>
+                    {isPassed ? (
+                      <Ionicons name="checkmark-circle" size={20} color={GlowColors.primary} />
+                    ) : isCurrentLevel ? (
+                      <Ionicons name="radio-button-on" size={20} color={level.color} />
+                    ) : null}
+                  </Pressable>
+                );
+              })}
+            </View>
+          </ScrollView>
+        </View>
+      </View>
+    </Modal>
+  );
+}
+
 function BallLevelModal({ 
   visible, 
   onClose, 
@@ -687,7 +831,6 @@ function BallLevelModal({
     { id: "orange", name: "Orange Ball", color: "#F97316", description: "Ages 8-10: 50% slower balls, 3/4 court", ages: "8-10 years" },
     { id: "green", name: "Green Ball", color: "#22C55E", description: "Ages 9-12: 25% slower balls, full court", ages: "9-12 years" },
     { id: "yellow", name: "Yellow Ball", color: "#EAB308", description: "Ages 11+: Regular balls, full court", ages: "11+ years" },
-    { id: "glow", name: "Glow Master", color: "#00E5FF", description: "Advanced: Tournament-ready, all skills mastered", ages: "Any age" },
   ];
   
   const getCurrentLevelInfo = () => {
@@ -1076,13 +1219,45 @@ export default function PlayerProgressScreen() {
   const [showGlowScoreModal, setShowGlowScoreModal] = useState(false);
   const [showXpModal, setShowXpModal] = useState(false);
   const [showBallLevelModal, setShowBallLevelModal] = useState(false);
+  const [showAdultGlowModal, setShowAdultGlowModal] = useState(false);
   const [showPillarModal, setShowPillarModal] = useState(false);
   const [selectedPillar, setSelectedPillar] = useState<SkillDomain | null>(null);
+  
+  const isAdultPlayer = (level: string | null) => {
+    if (!level) return false;
+    return level.toLowerCase().startsWith("glow");
+  };
+  
+  const handleBallLevelPress = () => {
+    if (data && isAdultPlayer(data.ballLevel)) {
+      setShowAdultGlowModal(true);
+    } else {
+      setShowBallLevelModal(true);
+    }
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+  };
 
-  const handleDomainPress = (domainId: string, allDomains: SkillDomain[]) => {
-    const domain = allDomains.find(d => d.id === domainId);
-    if (domain) {
-      setSelectedPillar(domain);
+  const handleDomainPress = (pillarKey: string) => {
+    const pillarMapping: Record<string, { id: string; name: string; icon: string; color: string }> = {
+      "TECHNIQUE": { id: "technical", name: "Technical", icon: "tennisball", color: "#10B981" },
+      "TACTICAL": { id: "tactical", name: "Tactical", icon: "bulb", color: "#F59E0B" },
+      "PHYSICAL": { id: "physical", name: "Physical", icon: "fitness", color: "#EF4444" },
+      "MENTAL": { id: "mental", name: "Mental", icon: "flash", color: "#8B5CF6" },
+      "SOCIAL": { id: "social", name: "Social", icon: "people", color: "#EC4899" },
+      "MATCH": { id: "competition", name: "Competition", icon: "trophy", color: "#3B82F6" },
+    };
+    
+    const mapping = pillarMapping[pillarKey.toUpperCase()];
+    if (mapping) {
+      const pillarData = domains.find(d => d.id === mapping.id) || {
+        id: mapping.id,
+        name: mapping.name,
+        value: 0,
+        maxValue: 100,
+        icon: mapping.icon,
+        color: mapping.color,
+      };
+      setSelectedPillar(pillarData);
       setShowPillarModal(true);
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     }
@@ -1179,10 +1354,7 @@ export default function PlayerProgressScreen() {
           >
             <Pressable 
               style={styles.ballLevelInner}
-              onPress={() => {
-                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                setShowBallLevelModal(true);
-              }}
+              onPress={handleBallLevelPress}
             >
               <BallLevelBadge 
                 levelId={data.ballLevel || "red1"} 
@@ -1363,18 +1535,7 @@ export default function PlayerProgressScreen() {
             )}
             stage={getStageFromLevel(data.ballLevel || "red1")}
             role="player"
-            onPillarPress={(pillar) => {
-              const pillarDomains = domains.length > 0 ? domains : [
-                { id: "technique", name: "Technical", value: 5, maxValue: 100, icon: "tennisball", color: "#10B981" },
-                { id: "tactical", name: "Tactical", value: 5, maxValue: 100, icon: "bulb", color: "#F59E0B" },
-                { id: "physical", name: "Physical", value: 5, maxValue: 100, icon: "fitness", color: "#EF4444" },
-                { id: "mental", name: "Mental", value: 5, maxValue: 100, icon: "flash", color: "#8B5CF6" },
-                { id: "social", name: "Social", value: 5, maxValue: 100, icon: "people", color: "#EC4899" },
-                { id: "competition", name: "Competition", value: 5, maxValue: 100, icon: "trophy", color: "#3B82F6" },
-              ];
-              const domainId = pillar.toLowerCase() === "match" ? "competition" : pillar.toLowerCase();
-              handleDomainPress(domainId, pillarDomains);
-            }}
+            onPillarPress={(pillar) => handleDomainPress(pillar)}
           />
         </View>
 
@@ -1509,6 +1670,11 @@ export default function PlayerProgressScreen() {
       <BallLevelModal 
         visible={showBallLevelModal}
         onClose={() => setShowBallLevelModal(false)}
+        currentLevel={data.ballLevel}
+      />
+      <AdultGlowLevelModal 
+        visible={showAdultGlowModal}
+        onClose={() => setShowAdultGlowModal(false)}
         currentLevel={data.ballLevel}
       />
       <PillarDetailModal
