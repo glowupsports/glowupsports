@@ -549,10 +549,20 @@ export default function PlayScreen() {
     const baseBallLabel = getBallLevelLabel(player.ballLevel || "");
     const ballLabel = player.skillLevel ? `${baseBallLabel} ${player.skillLevel}` : baseBallLabel;
     
-    // Calculate power level from glow rating or generate mock
-    const powerLevel = player.glowRating || Math.floor(Math.random() * 500) + 300;
-    const winRate = player.winRate || Math.floor(Math.random() * 40) + 45;
-    const matchesPlayed = player.matchesPlayed || Math.floor(Math.random() * 50) + 5;
+    // Generate STABLE random values based on player ID (hash function)
+    const hashCode = (str: string) => {
+      let hash = 0;
+      for (let i = 0; i < str.length; i++) {
+        const char = str.charCodeAt(i);
+        hash = ((hash << 5) - hash) + char;
+        hash = hash & hash;
+      }
+      return Math.abs(hash);
+    };
+    const playerHash = hashCode(player.id);
+    const powerLevel = player.glowRating || (playerHash % 500) + 350;
+    const winRate = player.winRate || (playerHash % 40) + 45;
+    const matchesPlayed = player.matchesPlayed || ((playerHash >> 4) % 50) + 10;
     
     // Determine threat rank based on power level
     const getThreatRank = (power: number) => {
@@ -567,30 +577,42 @@ export default function PlayScreen() {
     const handleChallenge = (e: any) => {
       e.stopPropagation();
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
-      navigation.navigate("CreateMatch" as never);
+      // Navigate to CreateMatch with player pre-selected as opponent
+      navigation.navigate("CreateMatch", { opponentId: player.id, opponentName: player.name } as never);
     };
     
     const handleAddFriend = (e: any) => {
       e.stopPropagation();
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-      Alert.alert("Friend Request", `Send friend request to ${player.name}?`, [
-        { text: "Cancel", style: "cancel" },
-        { text: "Send", onPress: () => Alert.alert("Sent!", `Friend request sent to ${player.name}`) }
-      ]);
+      if (Platform.OS === "web") {
+        if (window.confirm(`Send friend request to ${player.name}?`)) {
+          window.alert(`Friend request sent to ${player.name}!`);
+        }
+      } else {
+        Alert.alert("Friend Request", `Send friend request to ${player.name}?`, [
+          { text: "Cancel", style: "cancel" },
+          { text: "Send", onPress: () => Alert.alert("Sent!", `Friend request sent to ${player.name}`) }
+        ]);
+      }
     };
     
     return (
       <Pressable 
         key={player.id} 
-        style={styles.bossCard}
+        style={[styles.bossCard, { shadowColor: ballColor }]}
         onPress={() => navigation.navigate("PublicProfile", { playerId: player.id })}
       >
+        {/* Outer glow layer */}
+        <View style={[styles.bossCardOuterGlow, { backgroundColor: ballColor + "15" }]} />
+        
         <LinearGradient
-          colors={[ballColor + "20", Colors.dark.backgroundSecondary, Colors.dark.backgroundTertiary]}
+          colors={[ballColor + "25", "rgba(20,25,35,0.95)", "rgba(15,18,25,0.98)"]}
           start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
+          end={{ x: 0.5, y: 1 }}
           style={styles.bossCardGradient}
         >
+          {/* Glass shine overlay */}
+          <View style={styles.bossCardShine} />
           {/* Top Row: Rank Badge + Threat Level */}
           <View style={styles.bossCardHeader}>
             <View style={[styles.bossRankBadge, { backgroundColor: ballColor }]}>
@@ -1630,10 +1652,35 @@ const styles = StyleSheet.create({
     borderRadius: BorderRadius.lg,
     overflow: "hidden",
     position: "relative",
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.4,
+    shadowRadius: 16,
+    elevation: 12,
+  },
+  bossCardOuterGlow: {
+    position: "absolute",
+    top: -2,
+    left: -2,
+    right: -2,
+    bottom: -2,
+    borderRadius: BorderRadius.lg + 2,
   },
   bossCardGradient: {
     padding: Spacing.md,
     gap: Spacing.sm,
+    borderRadius: BorderRadius.lg,
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.1)",
+  },
+  bossCardShine: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    height: 60,
+    backgroundColor: "rgba(255,255,255,0.05)",
+    borderTopLeftRadius: BorderRadius.lg,
+    borderTopRightRadius: BorderRadius.lg,
   },
   bossCardHeader: {
     flexDirection: "row",

@@ -9,8 +9,15 @@ import {
   ScrollView,
   ActivityIndicator,
 } from "react-native";
-import { useNavigation } from "@react-navigation/native";
+import { useNavigation, useRoute, RouteProp } from "@react-navigation/native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+
+type CreateMatchRouteParams = {
+  CreateMatch: {
+    opponentId?: string;
+    opponentName?: string;
+  };
+};
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import Animated, {
   FadeIn,
@@ -58,23 +65,30 @@ const GLOW_LEVELS = Array.from({ length: 9 }, (_, i) => ({
 
 export default function CreateMatchScreen() {
   const navigation = useNavigation();
+  const route = useRoute<RouteProp<CreateMatchRouteParams, "CreateMatch">>();
   const insets = useSafeAreaInsets();
   const headerHeight = useHeaderHeight();
   const queryClient = useQueryClient();
+  
+  // Get pre-selected opponent from route params (when coming from Challenge button)
+  const preSelectedOpponent = route.params?.opponentId ? {
+    id: route.params.opponentId,
+    name: route.params.opponentName || "Opponent",
+  } : null;
 
-  // Wizard state
-  const [currentStep, setCurrentStep] = useState<Step>("type");
-  const [matchType, setMatchType] = useState<MatchType | null>(null);
+  // Wizard state - start at "type" normally, or skip to singles if opponent pre-selected
+  const [currentStep, setCurrentStep] = useState<Step>(preSelectedOpponent ? "type" : "type");
+  const [matchType, setMatchType] = useState<MatchType | null>(preSelectedOpponent ? "singles" : null);
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [selectedTime, setSelectedTime] = useState<string>("18:00");
   const [isAdult, setIsAdult] = useState(true);
   const [skillLevelMin, setSkillLevelMin] = useState(1);
   const [skillLevelMax, setSkillLevelMax] = useState(9);
   const [selectedBallLevel, setSelectedBallLevel] = useState<string>("green");
-  const [title, setTitle] = useState("");
+  const [title, setTitle] = useState(preSelectedOpponent ? `Challenge ${preSelectedOpponent.name}` : "");
   const [description, setDescription] = useState("");
-  const [selectedPartner, setSelectedPartner] = useState<any>(null);
-  const [partnerOption, setPartnerOption] = useState<"find" | "select" | null>(null);
+  const [selectedPartner, setSelectedPartner] = useState<any>(preSelectedOpponent);
+  const [partnerOption, setPartnerOption] = useState<"find" | "select" | null>(preSelectedOpponent ? "select" : null);
 
   // Fetch friends for partner selection
   const { data: friendsData } = useQuery({
