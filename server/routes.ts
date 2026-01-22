@@ -22416,7 +22416,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Enrich slots with coach, location, and court names
       const enrichedSlots = await Promise.all(slots.map(async (slot) => {
         const [coach, location, court] = await Promise.all([
-          slot.coachId ? storage.getCoachById(slot.coachId) : null,
+          slot.coachId ? storage.getCoach(slot.coachId) : null,
           slot.locationId ? storage.getLocation(slot.locationId) : null,
           slot.courtId ? storage.getCourt(slot.courtId) : null,
         ]);
@@ -23617,6 +23617,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 academyId,
                 weekday: day.dayIndex,
                 startTime: block.startTime,
+                isActive: true,
                 endTime: block.endTime,
                 createdAt: new Date(),
               });
