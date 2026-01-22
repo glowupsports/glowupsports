@@ -798,21 +798,13 @@ export default function PlayerProgressScreen() {
           </View>
           <View style={styles.radarWrapper}>
             <SkillRadar domains={domains.length > 0 ? domains : [
-              { id: "technique", name: "Technique", value: 0, maxValue: 100, icon: "tennisball", color: "#10B981" },
-              { id: "tactical", name: "Tactical", value: 0, maxValue: 100, icon: "bulb", color: "#F59E0B" },
-              { id: "physical", name: "Physical", value: 0, maxValue: 100, icon: "fitness", color: "#EF4444" },
-              { id: "mental", name: "Mental", value: 0, maxValue: 100, icon: "flash", color: "#8B5CF6" },
-              { id: "social", name: "Social", value: 0, maxValue: 100, icon: "people", color: "#EC4899" },
-              { id: "match", name: "Match", value: 0, maxValue: 100, icon: "trophy", color: "#3B82F6" },
+              { id: "technique", name: "Technique", value: 5, maxValue: 100, icon: "tennisball", color: "#10B981" },
+              { id: "tactical", name: "Tactical", value: 5, maxValue: 100, icon: "bulb", color: "#F59E0B" },
+              { id: "physical", name: "Physical", value: 5, maxValue: 100, icon: "fitness", color: "#EF4444" },
+              { id: "mental", name: "Mental", value: 5, maxValue: 100, icon: "flash", color: "#8B5CF6" },
+              { id: "social", name: "Social", value: 5, maxValue: 100, icon: "people", color: "#EC4899" },
+              { id: "match", name: "Match", value: 5, maxValue: 100, icon: "trophy", color: "#3B82F6" },
             ]} />
-            {isNewPlayer && (
-              <View style={styles.radarOverlay}>
-                <View style={styles.radarOverlayContent}>
-                  <Ionicons name="lock-open" size={20} color="#C8FF3D" />
-                  <Text style={styles.radarOverlayText}>Complete sessions to unlock</Text>
-                </View>
-              </View>
-            )}
           </View>
         </View>
 
