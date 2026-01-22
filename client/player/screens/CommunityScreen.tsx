@@ -980,7 +980,11 @@ function FriendsSection({ onChallenge, onSelectActivity }: { onChallenge?: (frie
           <View style={styles.activityHeader}>
             <View style={styles.activityAvatarContainer}>
               {post.author.photoUrl ? (
-                <Image source={{ uri: post.author.photoUrl }} style={styles.activityAvatar} contentFit="cover" />
+                <Image 
+                  source={{ uri: post.author.photoUrl.startsWith("http") ? post.author.photoUrl : `${getApiUrl()}${post.author.photoUrl}` }} 
+                  style={styles.activityAvatar} 
+                  contentFit="cover" 
+                />
               ) : (
                 <LinearGradient
                   colors={[getBallColor(post.author.ballLevel) + "50", getBallColor(post.author.ballLevel) + "20"]}
