@@ -4,8 +4,7 @@ import Svg, { Circle } from "react-native-svg";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import * as Haptics from "expo-haptics";
 import { Colors, Spacing, Typography, BorderRadius, GlowColors, TextColors, FunctionColors } from "@/constants/theme";
-import { useLanguageSwitch } from "@/lib/useLanguageSwitch";
-import type { BallStage, ViewRole } from "@shared/language-switch";
+import type { BallStage } from "@shared/language-switch";
 
 interface PillarData {
   pillar: string;
@@ -21,13 +20,13 @@ interface PillarProgressRingsProps {
   onPillarPress?: (pillar: string) => void;
 }
 
-const PILLAR_CONFIG: Record<string, { icon: keyof typeof Ionicons.glyphMap; color: string }> = {
-  TECHNIQUE: { icon: "tennisball", color: "#10B981" },
-  TACTICAL: { icon: "bulb-outline", color: "#F59E0B" },
-  PHYSICAL: { icon: "fitness", color: "#EF4444" },
-  MENTAL: { icon: "flash-outline", color: "#8B5CF6" },
-  SOCIAL: { icon: "people-outline", color: "#EC4899" },
-  MATCH: { icon: "trophy-outline", color: "#3B82F6" },
+const PILLAR_CONFIG: Record<string, { icon: keyof typeof Ionicons.glyphMap; color: string; shortLabel: string }> = {
+  TECHNIQUE: { icon: "tennisball", color: "#10B981", shortLabel: "Technical" },
+  TACTICAL: { icon: "bulb-outline", color: "#F59E0B", shortLabel: "Tactical" },
+  PHYSICAL: { icon: "fitness", color: "#EF4444", shortLabel: "Physical" },
+  MENTAL: { icon: "flash-outline", color: "#8B5CF6", shortLabel: "Mental" },
+  SOCIAL: { icon: "people-outline", color: "#EC4899", shortLabel: "Social" },
+  MATCH: { icon: "trophy-outline", color: "#3B82F6", shortLabel: "Competition" },
 };
 
 const PILLAR_ORDER = ["TECHNIQUE", "TACTICAL", "PHYSICAL", "MENTAL", "SOCIAL", "MATCH"];
@@ -101,7 +100,6 @@ export default function PillarProgressRings({
   role = "player",
   onPillarPress,
 }: PillarProgressRingsProps) {
-  const { translate } = useLanguageSwitch({ levelId: null, role });
   const screenWidth = Dimensions.get("window").width;
   const itemWidth = Math.min((screenWidth - Spacing.lg * 2 - Spacing.sm * 2) / 3, 100);
   
@@ -115,7 +113,7 @@ export default function PillarProgressRings({
             trend: "stable" as const,
           };
           const pillarConfig = PILLAR_CONFIG[pillarKey];
-          const pillarName = translate.pillar(pillarKey);
+          const pillarName = pillarConfig.shortLabel;
           
           return (
             <Pressable
