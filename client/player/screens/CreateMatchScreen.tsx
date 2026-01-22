@@ -139,6 +139,7 @@ export default function CreateMatchScreen() {
     mutationFn: async () => {
       console.log("[CreateMatch] Starting publish...");
       const matchData = {
+        invitedPlayerId: selectedPartner?.id || null,
         matchType,
         title: title || `Looking for ${matchType} partner`,
         description,

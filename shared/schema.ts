@@ -839,6 +839,7 @@ export const matchRequests = pgTable("match_requests", {
   status: text("status").default("open"), // open | matched | cancelled | expired
   
   // Match result (when matched)
+  invitedPlayerId: varchar("invited_player_id").references(() => players.id),
   matchedWithPlayerId: varchar("matched_with_player_id").references(() => players.id),
   matchedAt: timestamp("matched_at"),
   
