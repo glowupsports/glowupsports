@@ -1,15 +1,15 @@
 import React, { useState, useMemo } from "react";
-import { View, Text, StyleSheet, ScrollView, Pressable, ActivityIndicator, Platform } from "react-native";
+import { View, Text, StyleSheet, ScrollView, Pressable, ActivityIndicator, Alert, Modal, Platform } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
-import { useQuery } from "@tanstack/react-query";
-import { Ionicons, Feather } from "@expo/vector-icons";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { Feather } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import { LinearGradient } from "expo-linear-gradient";
-import Animated, { FadeInDown, FadeIn } from "react-native-reanimated";
+import Animated, { FadeInDown, FadeIn, FadeInUp, useAnimatedStyle, useSharedValue, withSpring, withTiming, interpolate } from "react-native-reanimated";
+import DateTimePicker from "@react-native-community/datetimepicker";
 import { Colors, Spacing, BorderRadius } from "@/constants/theme";
-import { Image } from "expo-image";
-import { getStaticAssetsUrl } from "@/lib/query-client";
+import { apiRequest } from "@/lib/query-client";
 
 const ProTennisColors = {
   midnightBlue: "#0B0D10",
@@ -25,6 +25,7 @@ const ProTennisColors = {
   gold: "#FFD700",
   border: "#2A2E38",
   error: "#FF5252",
+  vacationBlue: "#4FC3F7",
 };
 
 interface SessionData {
@@ -40,19 +41,42 @@ interface SessionData {
     title: string;
   } | null;
   coachName: string | null;
-  coachPhotoUrl?: string | null;
 }
 
-interface ScheduledSession {
+interface CourtBookingData {
   id: string;
   date: string;
   startTime: string;
   endTime: string;
-  type: string;
-  title: string;
-  coachName: string;
-  coachPhotoUrl?: string;
+  courtName: string;
+  status: string;
+}
+
+interface MatchData {
+  id: string;
+  matchDate: string;
+  matchTime?: string;
+  opponentName?: string;
   courtName?: string;
+  status: string;
+  matchType?: string;
+}
+
+interface VacationData {
+  active: boolean;
+  activeVacation?: { id: string; startDate: string; endDate: string };
+  upcomingVacation?: { id: string; startDate: string; endDate: string };
+  holidays: Array<{ id: string; startDate: string; endDate: string }>;
+}
+
+interface ScheduledItem {
+  id: string;
+  date: string;
+  startTime: string;
+  endTime: string;
+  type: "private" | "group" | "semi_private" | "court" | "match";
+  title: string;
+  subtitle: string;
   status: "upcoming" | "completed" | "cancelled";
   attendanceStatus?: string;
 }
@@ -62,19 +86,21 @@ interface CalendarDay {
   isCurrentMonth: boolean;
   isToday: boolean;
   isSelected: boolean;
-  sessions: ScheduledSession[];
+  isVacation: boolean;
+  items: ScheduledItem[];
 }
 
-interface AttendanceStats {
-  totalSessions: number;
-  attended: number;
-  missed: number;
-  percentage: number;
-  streak: number;
+interface AttendanceRecord {
+  id: string;
+  date: string;
+  time: string;
+  title: string;
+  type: string;
+  status: "present" | "absent" | "late" | "vacation";
 }
 
-function NeonBorderCard({ children, accentColor = ProTennisColors.neonCyan, style }: { children: React.ReactNode; accentColor?: string; style?: any }) {
-  return (
+function NeonBorderCard({ children, accentColor = ProTennisColors.neonCyan, style, onPress }: { children: React.ReactNode; accentColor?: string; style?: any; onPress?: () => void }) {
+  const content = (
     <View style={[styles.neonCard, style]}>
       <View style={[styles.neonCardGlow, { shadowColor: accentColor }]} />
       <LinearGradient
@@ -87,6 +113,22 @@ function NeonBorderCard({ children, accentColor = ProTennisColors.neonCyan, styl
         {children}
       </View>
     </View>
+  );
+  
+  if (onPress) {
+    return <Pressable onPress={onPress}>{content}</Pressable>;
+  }
+  return content;
+}
+
+function QuickActionButton({ icon, label, color, onPress }: { icon: string; label: string; color: string; onPress: () => void }) {
+  return (
+    <Pressable style={styles.quickAction} onPress={onPress}>
+      <View style={[styles.quickActionIcon, { backgroundColor: color + "20" }]}>
+        <Feather name={icon as any} size={20} color={color} />
+      </View>
+      <Text style={styles.quickActionLabel}>{label}</Text>
+    </Pressable>
   );
 }
 
@@ -106,15 +148,57 @@ function StatCard({ icon, label, value, color, subtext }: { icon: string; label:
 export default function PlayerScheduleScreen() {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<any>();
+  const queryClient = useQueryClient();
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
+  const [showAttendanceHistory, setShowAttendanceHistory] = useState(false);
+  const [showVacationModal, setShowVacationModal] = useState(false);
+  const [vacationStartDate, setVacationStartDate] = useState<Date | null>(null);
+  const [vacationEndDate, setVacationEndDate] = useState<Date | null>(null);
+  const [showStartPicker, setShowStartPicker] = useState(false);
+  const [showEndPicker, setShowEndPicker] = useState(false);
 
   const { data: rawSessions, isLoading: sessionsLoading, error: sessionsError } = useQuery<SessionData[]>({
     queryKey: ["/api/player/me/sessions"],
   });
 
+  const { data: courtBookings } = useQuery<CourtBookingData[]>({
+    queryKey: ["/api/player/me/court-bookings"],
+  });
+
+  const { data: matches } = useQuery<MatchData[]>({
+    queryKey: ["/api/player/me/matches"],
+  });
+
+  const { data: vacationData } = useQuery<VacationData>({
+    queryKey: ["/api/player/me/vacation"],
+  });
+
   const { data: profileData } = useQuery<{ player: { attendanceStreak?: number } }>({
     queryKey: ["/api/player/me"],
+  });
+
+  const createVacationMutation = useMutation({
+    mutationFn: async (data: { startDate: string; endDate: string }) => {
+      return apiRequest("/api/player/me/vacation", "POST", data);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/player/me/vacation"] });
+      setShowVacationModal(false);
+      setVacationStartDate(null);
+      setVacationEndDate(null);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    },
+  });
+
+  const cancelVacationMutation = useMutation({
+    mutationFn: async (id: string) => {
+      return apiRequest(`/api/player/me/vacation/${id}`, "DELETE");
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/player/me/vacation"] });
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    },
   });
 
   const attendanceStreak = profileData?.player?.attendanceStreak || 0;
@@ -126,9 +210,9 @@ export default function PlayerScheduleScreen() {
     return `${year}-${month}-${day}`;
   };
 
-  const sessions: ScheduledSession[] = useMemo(() => {
+  const allItems: ScheduledItem[] = useMemo(() => {
     const now = new Date();
-    const items: ScheduledSession[] = [];
+    const items: ScheduledItem[] = [];
     
     const formatTime = (date: Date) => {
       const hours = date.getHours().toString().padStart(2, '0');
@@ -156,12 +240,45 @@ export default function PlayerScheduleScreen() {
           date: formatDate(startDate),
           startTime: formatTime(startDate),
           endTime: formatTime(endDate),
-          type: s.session.sessionType || "training",
+          type: (s.session.sessionType as any) || "private",
           title: s.session.title || getTypeLabel(s.session.sessionType),
-          coachName: s.coachName || "Coach",
-          courtName: s.session.courtName || undefined,
+          subtitle: s.coachName || "Coach",
           status: isCancelled ? "cancelled" : (isPast ? "completed" : "upcoming"),
           attendanceStatus: s.attendanceStatus,
+        });
+      }
+    }
+
+    if (courtBookings) {
+      for (const b of courtBookings) {
+        const bookingDate = new Date(b.date);
+        const isPast = bookingDate < now;
+        items.push({
+          id: `court-${b.id}`,
+          date: b.date.split('T')[0],
+          startTime: b.startTime || "00:00",
+          endTime: b.endTime || "01:00",
+          type: "court",
+          title: "Court Booking",
+          subtitle: b.courtName || "Court",
+          status: b.status === "cancelled" ? "cancelled" : (isPast ? "completed" : "upcoming"),
+        });
+      }
+    }
+
+    if (matches) {
+      for (const m of matches) {
+        const matchDate = new Date(m.matchDate);
+        const isPast = matchDate < now;
+        items.push({
+          id: `match-${m.id}`,
+          date: m.matchDate.split('T')[0],
+          startTime: m.matchTime || "00:00",
+          endTime: m.matchTime ? addHour(m.matchTime) : "01:00",
+          type: "match",
+          title: m.matchType === "open" ? "Open Match" : "Match",
+          subtitle: m.opponentName || m.courtName || "TBD",
+          status: m.status === "cancelled" ? "cancelled" : (isPast ? "completed" : "upcoming"),
         });
       }
     }
@@ -171,50 +288,67 @@ export default function PlayerScheduleScreen() {
       const dateB = new Date(`${b.date}T${b.startTime}`);
       return dateA.getTime() - dateB.getTime();
     });
-  }, [rawSessions]);
+  }, [rawSessions, courtBookings, matches]);
 
-  const attendanceStats: AttendanceStats = useMemo(() => {
-    const completed = sessions.filter(s => s.status === "completed");
-    const attended = completed.filter(s => s.attendanceStatus === "present" || s.attendanceStatus === "attended").length;
-    const missed = completed.filter(s => s.attendanceStatus === "absent" || s.attendanceStatus === "no_show").length;
+  const addHour = (time: string) => {
+    const [hours, mins] = time.split(':').map(Number);
+    const newHours = (hours + 1) % 24;
+    return `${newHours.toString().padStart(2, '0')}:${mins.toString().padStart(2, '0')}`;
+  };
+
+  const attendanceRecords: AttendanceRecord[] = useMemo(() => {
+    return allItems
+      .filter(item => item.status === "completed" && (item.type === "private" || item.type === "group" || item.type === "semi_private"))
+      .map(item => ({
+        id: item.id,
+        date: item.date,
+        time: item.startTime,
+        title: item.title,
+        type: item.type,
+        status: (item.attendanceStatus === "present" || item.attendanceStatus === "attended" ? "present" :
+                item.attendanceStatus === "absent" || item.attendanceStatus === "no_show" ? "absent" :
+                item.attendanceStatus === "late" ? "late" : "present") as any,
+      }))
+      .slice(-20)
+      .reverse();
+  }, [allItems]);
+
+  const attendanceStats = useMemo(() => {
+    const lessons = allItems.filter(item => item.status === "completed" && (item.type === "private" || item.type === "group" || item.type === "semi_private"));
+    const attended = lessons.filter(s => s.attendanceStatus === "present" || s.attendanceStatus === "attended").length;
+    const missed = lessons.filter(s => s.attendanceStatus === "absent" || s.attendanceStatus === "no_show").length;
     const total = attended + missed;
     const percentage = total > 0 ? Math.round((attended / total) * 100) : 100;
     
     return {
-      totalSessions: completed.length,
+      totalSessions: lessons.length,
       attended,
       missed,
       percentage,
       streak: attendanceStreak,
     };
-  }, [sessions, attendanceStreak]);
+  }, [allItems, attendanceStreak]);
 
-  const upcomingSessions = useMemo(() => {
-    return sessions.filter(s => s.status === "upcoming").slice(0, 5);
-  }, [sessions]);
+  const upcomingItems = useMemo(() => {
+    return allItems.filter(s => s.status === "upcoming").slice(0, 5);
+  }, [allItems]);
 
-  const nextSession = upcomingSessions[0];
+  const nextSession = upcomingItems.find(i => i.type !== "court" && i.type !== "match");
 
-  const thisMonthSessions = useMemo(() => {
+  const thisMonthCount = useMemo(() => {
     const now = new Date();
     const monthStr = `${now.getFullYear()}-${(now.getMonth() + 1).toString().padStart(2, '0')}`;
-    return sessions.filter(s => s.date.startsWith(monthStr) && s.status !== "cancelled").length;
-  }, [sessions]);
+    return allItems.filter(s => s.date.startsWith(monthStr) && s.status !== "cancelled").length;
+  }, [allItems]);
 
-  const getNextSessionCountdown = () => {
-    if (!nextSession) return null;
-    const sessionDate = new Date(`${nextSession.date}T${nextSession.startTime}`);
-    const now = new Date();
-    const diff = sessionDate.getTime() - now.getTime();
-    
-    if (diff < 0) return "Now";
-    
-    const days = Math.floor(diff / (1000 * 60 * 60 * 24));
-    const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
-    
-    if (days > 0) return `${days}d ${hours}h`;
-    if (hours > 0) return `${hours}h`;
-    return "Soon";
+  const isDateInVacation = (date: Date): boolean => {
+    if (!vacationData?.holidays?.length) return false;
+    const dateStr = formatLocalDate(date);
+    return vacationData.holidays.some(h => {
+      const start = h.startDate.split('T')[0];
+      const end = h.endDate.split('T')[0];
+      return dateStr >= start && dateStr <= end;
+    });
   };
 
   const calendarDays = useMemo(() => {
@@ -235,14 +369,15 @@ export default function PlayerScheduleScreen() {
         isCurrentMonth: false,
         isToday: false,
         isSelected: false,
-        sessions: [],
+        isVacation: false,
+        items: [],
       });
     }
 
     for (let day = 1; day <= lastDay.getDate(); day++) {
       const date = new Date(year, month, day);
       const dateStr = formatLocalDate(date);
-      const daySessions = sessions.filter((s) => s.date === dateStr);
+      const dayItems = allItems.filter((s) => s.date === dateStr);
       const selectedStr = formatLocalDate(selectedDate);
       
       days.push({
@@ -250,7 +385,8 @@ export default function PlayerScheduleScreen() {
         isCurrentMonth: true,
         isToday: formatLocalDate(date) === formatLocalDate(today),
         isSelected: dateStr === selectedStr,
-        sessions: daySessions,
+        isVacation: isDateInVacation(date),
+        items: dayItems,
       });
     }
 
@@ -262,34 +398,55 @@ export default function PlayerScheduleScreen() {
         isCurrentMonth: false,
         isToday: false,
         isSelected: false,
-        sessions: [],
+        isVacation: false,
+        items: [],
       });
     }
 
     return days;
-  }, [currentMonth, sessions, selectedDate]);
+  }, [currentMonth, allItems, selectedDate, vacationData]);
 
-  const selectedDateSessions = useMemo(() => {
+  const selectedDateItems = useMemo(() => {
     const dateStr = formatLocalDate(selectedDate);
-    return sessions.filter((s) => s.date === dateStr);
-  }, [selectedDate, sessions]);
+    return allItems.filter((s) => s.date === dateStr);
+  }, [selectedDate, allItems]);
 
   const getTypeColor = (type: string) => {
     switch (type) {
       case "private": return ProTennisColors.neonGreen;
       case "group": return ProTennisColors.gold;
       case "semi_private": return ProTennisColors.neonOrange;
+      case "court": return ProTennisColors.neonCyan;
+      case "match": return ProTennisColors.neonPurple;
       default: return ProTennisColors.neonCyan;
     }
   };
 
   const getTypeLabel = (type: string) => {
     switch (type) {
-      case "private": return "Private";
-      case "group": return "Group";
+      case "private": return "Private Lesson";
+      case "group": return "Group Lesson";
       case "semi_private": return "Semi-Private";
+      case "court": return "Court Booking";
+      case "match": return "Match";
       default: return "Training";
     }
+  };
+
+  const getNextSessionCountdown = () => {
+    if (!nextSession) return null;
+    const sessionDate = new Date(`${nextSession.date}T${nextSession.startTime}`);
+    const now = new Date();
+    const diff = sessionDate.getTime() - now.getTime();
+    
+    if (diff < 0) return "Now";
+    
+    const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+    const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+    
+    if (days > 0) return `${days}d ${hours}h`;
+    if (hours > 0) return `${hours}h`;
+    return "Soon";
   };
 
   const navigateMonth = (direction: number) => {
@@ -308,6 +465,47 @@ export default function PlayerScheduleScreen() {
     navigation.navigate("BookLesson");
   };
 
+  const handleBookCourt = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    navigation.navigate("CourtBooking");
+  };
+
+  const handleFindMatch = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    navigation.navigate("Play", { screen: "OpenMatchFeed" });
+  };
+
+  const handleSetVacation = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    setShowVacationModal(true);
+  };
+
+  const handleSaveVacation = () => {
+    if (!vacationStartDate || !vacationEndDate) {
+      Alert.alert("Missing Dates", "Please select both start and end dates.");
+      return;
+    }
+    if (vacationEndDate < vacationStartDate) {
+      Alert.alert("Invalid Dates", "End date must be after start date.");
+      return;
+    }
+    createVacationMutation.mutate({
+      startDate: vacationStartDate.toISOString(),
+      endDate: vacationEndDate.toISOString(),
+    });
+  };
+
+  const handleCancelVacation = (id: string) => {
+    Alert.alert(
+      "Cancel Vacation",
+      "Are you sure you want to cancel this vacation period?",
+      [
+        { text: "Keep", style: "cancel" },
+        { text: "Cancel Vacation", style: "destructive", onPress: () => cancelVacationMutation.mutate(id) },
+      ]
+    );
+  };
+
   const formatSelectedDate = () => {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
@@ -322,6 +520,21 @@ export default function PlayerScheduleScreen() {
     if (selectedStr === tomorrowStr) return "Tomorrow";
     
     return selectedDate.toLocaleDateString("en-US", { weekday: "long", month: "short", day: "numeric" });
+  };
+
+  const formatVacationDate = (dateStr: string) => {
+    const date = new Date(dateStr);
+    return date.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+  };
+
+  const getAttendanceColor = (status: string) => {
+    switch (status) {
+      case "present": return ProTennisColors.neonGreen;
+      case "absent": return ProTennisColors.error;
+      case "late": return ProTennisColors.neonOrange;
+      case "vacation": return ProTennisColors.vacationBlue;
+      default: return ProTennisColors.textMuted;
+    }
   };
 
   if (sessionsLoading) {
@@ -350,19 +563,15 @@ export default function PlayerScheduleScreen() {
         showsVerticalScrollIndicator={false}
       >
         <Animated.View entering={FadeInDown.delay(100).duration(400)}>
-          <View style={styles.headerSection}>
-            <Text style={styles.screenTitle}>My Schedule</Text>
-            <Pressable style={styles.bookButton} onPress={handleBookLesson}>
-              <LinearGradient
-                colors={[ProTennisColors.neonGreen, "#A8E000"]}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 0 }}
-                style={styles.bookButtonGradient}
-              >
-                <Feather name="plus" size={18} color={ProTennisColors.midnightBlue} />
-                <Text style={styles.bookButtonText}>Book Lesson</Text>
-              </LinearGradient>
-            </Pressable>
+          <Text style={styles.screenTitle}>My Schedule</Text>
+        </Animated.View>
+
+        <Animated.View entering={FadeInDown.delay(150).duration(400)}>
+          <View style={styles.quickActionsRow}>
+            <QuickActionButton icon="book" label="Book Lesson" color={ProTennisColors.neonGreen} onPress={handleBookLesson} />
+            <QuickActionButton icon="grid" label="Book Court" color={ProTennisColors.neonCyan} onPress={handleBookCourt} />
+            <QuickActionButton icon="users" label="Find Match" color={ProTennisColors.neonPurple} onPress={handleFindMatch} />
+            <QuickActionButton icon="sun" label="Vacation" color={ProTennisColors.vacationBlue} onPress={handleSetVacation} />
           </View>
         </Animated.View>
 
@@ -373,14 +582,14 @@ export default function PlayerScheduleScreen() {
               label="Next Lesson"
               value={getNextSessionCountdown() || "-"}
               color={ProTennisColors.neonCyan}
-              subtext={nextSession ? nextSession.type.charAt(0).toUpperCase() + nextSession.type.slice(1) : undefined}
+              subtext={nextSession?.type ? getTypeLabel(nextSession.type).split(' ')[0] : undefined}
             />
             <StatCard
               icon="calendar"
               label="This Month"
-              value={thisMonthSessions}
+              value={thisMonthCount}
               color={ProTennisColors.neonGreen}
-              subtext="Lessons"
+              subtext="Activities"
             />
             <StatCard
               icon="check-circle"
@@ -391,6 +600,34 @@ export default function PlayerScheduleScreen() {
             />
           </ScrollView>
         </Animated.View>
+
+        {(vacationData?.activeVacation || vacationData?.upcomingVacation) ? (
+          <Animated.View entering={FadeInDown.delay(250).duration(400)}>
+            <NeonBorderCard accentColor={ProTennisColors.vacationBlue}>
+              <View style={styles.vacationCard}>
+                <View style={styles.vacationHeader}>
+                  <View style={styles.vacationIconContainer}>
+                    <Feather name="sun" size={20} color={ProTennisColors.vacationBlue} />
+                  </View>
+                  <View style={styles.vacationInfo}>
+                    <Text style={styles.vacationTitle}>
+                      {vacationData.activeVacation ? "On Vacation" : "Upcoming Vacation"}
+                    </Text>
+                    <Text style={styles.vacationDates}>
+                      {formatVacationDate(vacationData.activeVacation?.startDate || vacationData.upcomingVacation!.startDate)} - {formatVacationDate(vacationData.activeVacation?.endDate || vacationData.upcomingVacation!.endDate)}
+                    </Text>
+                  </View>
+                  <Pressable 
+                    style={styles.vacationCancelButton}
+                    onPress={() => handleCancelVacation(vacationData.activeVacation?.id || vacationData.upcomingVacation!.id)}
+                  >
+                    <Feather name="x" size={18} color={ProTennisColors.error} />
+                  </Pressable>
+                </View>
+              </View>
+            </NeonBorderCard>
+          </Animated.View>
+        ) : null}
 
         <Animated.View entering={FadeInDown.delay(300).duration(400)}>
           <NeonBorderCard accentColor={ProTennisColors.neonPurple} style={styles.calendarCard}>
@@ -414,9 +651,9 @@ export default function PlayerScheduleScreen() {
 
             <View style={styles.calendarGrid}>
               {calendarDays.map((day, index) => {
-                const hasPrivate = day.sessions.some(s => s.type === "private");
-                const hasGroup = day.sessions.some(s => s.type === "group");
-                const hasSemiPrivate = day.sessions.some(s => s.type === "semi_private");
+                const hasLesson = day.items.some(s => s.type === "private" || s.type === "group" || s.type === "semi_private");
+                const hasCourt = day.items.some(s => s.type === "court");
+                const hasMatch = day.items.some(s => s.type === "match");
                 
                 return (
                   <Pressable
@@ -426,6 +663,7 @@ export default function PlayerScheduleScreen() {
                       !day.isCurrentMonth && styles.calendarDayOtherMonth,
                       day.isToday && styles.calendarDayToday,
                       day.isSelected && styles.calendarDaySelected,
+                      day.isVacation && styles.calendarDayVacation,
                     ]}
                     onPress={() => handleDayPress(day)}
                   >
@@ -437,11 +675,11 @@ export default function PlayerScheduleScreen() {
                     ]}>
                       {day.date.getDate()}
                     </Text>
-                    {day.sessions.length > 0 && day.isCurrentMonth ? (
+                    {day.items.length > 0 && day.isCurrentMonth ? (
                       <View style={styles.sessionDots}>
-                        {hasPrivate ? <View style={[styles.sessionDot, { backgroundColor: ProTennisColors.neonGreen }]} /> : null}
-                        {hasGroup ? <View style={[styles.sessionDot, { backgroundColor: ProTennisColors.gold }]} /> : null}
-                        {hasSemiPrivate ? <View style={[styles.sessionDot, { backgroundColor: ProTennisColors.neonOrange }]} /> : null}
+                        {hasLesson ? <View style={[styles.sessionDot, { backgroundColor: ProTennisColors.neonGreen }]} /> : null}
+                        {hasCourt ? <View style={[styles.sessionDot, { backgroundColor: ProTennisColors.neonCyan }]} /> : null}
+                        {hasMatch ? <View style={[styles.sessionDot, { backgroundColor: ProTennisColors.neonPurple }]} /> : null}
                       </View>
                     ) : null}
                   </Pressable>
@@ -452,15 +690,19 @@ export default function PlayerScheduleScreen() {
             <View style={styles.legendRow}>
               <View style={styles.legendItem}>
                 <View style={[styles.legendDot, { backgroundColor: ProTennisColors.neonGreen }]} />
-                <Text style={styles.legendText}>Private</Text>
+                <Text style={styles.legendText}>Lesson</Text>
               </View>
               <View style={styles.legendItem}>
-                <View style={[styles.legendDot, { backgroundColor: ProTennisColors.gold }]} />
-                <Text style={styles.legendText}>Group</Text>
+                <View style={[styles.legendDot, { backgroundColor: ProTennisColors.neonCyan }]} />
+                <Text style={styles.legendText}>Court</Text>
               </View>
               <View style={styles.legendItem}>
-                <View style={[styles.legendDot, { backgroundColor: ProTennisColors.neonOrange }]} />
-                <Text style={styles.legendText}>Semi-Private</Text>
+                <View style={[styles.legendDot, { backgroundColor: ProTennisColors.neonPurple }]} />
+                <Text style={styles.legendText}>Match</Text>
+              </View>
+              <View style={styles.legendItem}>
+                <View style={[styles.legendDot, { backgroundColor: ProTennisColors.vacationBlue }]} />
+                <Text style={styles.legendText}>Vacation</Text>
               </View>
             </View>
           </NeonBorderCard>
@@ -469,60 +711,53 @@ export default function PlayerScheduleScreen() {
         <Animated.View entering={FadeInDown.delay(400).duration(400)}>
           <View style={styles.sectionHeader}>
             <Text style={styles.sectionTitle}>{formatSelectedDate()}</Text>
-            <Text style={styles.sectionCount}>{selectedDateSessions.length} {selectedDateSessions.length === 1 ? "lesson" : "lessons"}</Text>
+            <Text style={styles.sectionCount}>{selectedDateItems.length} {selectedDateItems.length === 1 ? "item" : "items"}</Text>
           </View>
 
-          {selectedDateSessions.length === 0 ? (
+          {selectedDateItems.length === 0 ? (
             <View style={styles.emptyDay}>
               <View style={styles.emptyDayIcon}>
                 <Feather name="calendar" size={32} color={ProTennisColors.textMuted} />
               </View>
-              <Text style={styles.emptyDayText}>No lessons scheduled</Text>
+              <Text style={styles.emptyDayText}>Nothing scheduled</Text>
               <Pressable style={styles.emptyDayButton} onPress={handleBookLesson}>
                 <Text style={styles.emptyDayButtonText}>Book a Lesson</Text>
               </Pressable>
             </View>
           ) : (
             <View style={styles.sessionsList}>
-              {selectedDateSessions.map((session, index) => (
-                <Animated.View key={session.id} entering={FadeIn.delay(index * 100).duration(300)}>
-                  <NeonBorderCard accentColor={getTypeColor(session.type)} style={styles.sessionCard}>
+              {selectedDateItems.map((item, index) => (
+                <Animated.View key={item.id} entering={FadeIn.delay(index * 100).duration(300)}>
+                  <NeonBorderCard accentColor={getTypeColor(item.type)} style={styles.sessionCard}>
                     <View style={styles.sessionCardContent}>
                       <View style={styles.sessionTime}>
-                        <Text style={styles.sessionTimeText}>{session.startTime}</Text>
+                        <Text style={styles.sessionTimeText}>{item.startTime}</Text>
                         <View style={styles.sessionTimeLine} />
-                        <Text style={styles.sessionTimeText}>{session.endTime}</Text>
+                        <Text style={styles.sessionTimeText}>{item.endTime}</Text>
                       </View>
                       <View style={styles.sessionInfo}>
-                        <View style={[styles.sessionTypeBadge, { backgroundColor: getTypeColor(session.type) + "25" }]}>
-                          <Text style={[styles.sessionTypeText, { color: getTypeColor(session.type) }]}>
-                            {getTypeLabel(session.type)}
+                        <View style={[styles.sessionTypeBadge, { backgroundColor: getTypeColor(item.type) + "25" }]}>
+                          <Text style={[styles.sessionTypeText, { color: getTypeColor(item.type) }]}>
+                            {getTypeLabel(item.type)}
                           </Text>
                         </View>
-                        <Text style={styles.sessionTitle}>{session.title}</Text>
+                        <Text style={styles.sessionTitle}>{item.title}</Text>
                         <View style={styles.sessionMeta}>
-                          <Feather name="user" size={12} color={ProTennisColors.textSecondary} />
-                          <Text style={styles.sessionMetaText}>{session.coachName}</Text>
-                          {session.courtName ? (
-                            <>
-                              <Text style={styles.sessionMetaDot}>·</Text>
-                              <Feather name="map-pin" size={12} color={ProTennisColors.textSecondary} />
-                              <Text style={styles.sessionMetaText}>{session.courtName}</Text>
-                            </>
-                          ) : null}
+                          <Feather name={item.type === "court" ? "map-pin" : item.type === "match" ? "users" : "user"} size={12} color={ProTennisColors.textSecondary} />
+                          <Text style={styles.sessionMetaText}>{item.subtitle}</Text>
                         </View>
                       </View>
-                      {session.status === "completed" ? (
+                      {item.status === "completed" ? (
                         <View style={[styles.sessionStatus, { backgroundColor: ProTennisColors.neonGreen + "20" }]}>
                           <Feather name="check" size={16} color={ProTennisColors.neonGreen} />
                         </View>
-                      ) : session.status === "cancelled" ? (
+                      ) : item.status === "cancelled" ? (
                         <View style={[styles.sessionStatus, { backgroundColor: ProTennisColors.error + "20" }]}>
                           <Feather name="x" size={16} color={ProTennisColors.error} />
                         </View>
                       ) : (
-                        <View style={[styles.sessionStatus, { backgroundColor: ProTennisColors.neonCyan + "20" }]}>
-                          <Feather name="clock" size={16} color={ProTennisColors.neonCyan} />
+                        <View style={[styles.sessionStatus, { backgroundColor: getTypeColor(item.type) + "20" }]}>
+                          <Feather name="clock" size={16} color={getTypeColor(item.type)} />
                         </View>
                       )}
                     </View>
@@ -533,25 +768,25 @@ export default function PlayerScheduleScreen() {
           )}
         </Animated.View>
 
-        {upcomingSessions.length > 0 ? (
+        {upcomingItems.length > 0 ? (
           <Animated.View entering={FadeInDown.delay(500).duration(400)}>
             <View style={styles.sectionHeader}>
-              <Text style={styles.sectionTitle}>Upcoming Lessons</Text>
-              <Text style={styles.sectionCount}>{upcomingSessions.length} scheduled</Text>
+              <Text style={styles.sectionTitle}>Upcoming</Text>
+              <Text style={styles.sectionCount}>{upcomingItems.length} scheduled</Text>
             </View>
             <View style={styles.upcomingList}>
-              {upcomingSessions.map((session, index) => (
-                <View key={session.id} style={styles.upcomingItem}>
-                  <View style={[styles.upcomingDot, { backgroundColor: getTypeColor(session.type) }]} />
+              {upcomingItems.map((item, index) => (
+                <View key={item.id} style={styles.upcomingItem}>
+                  <View style={[styles.upcomingDot, { backgroundColor: getTypeColor(item.type) }]} />
                   <View style={styles.upcomingInfo}>
-                    <Text style={styles.upcomingTitle}>{session.title}</Text>
+                    <Text style={styles.upcomingTitle}>{item.title}</Text>
                     <Text style={styles.upcomingMeta}>
-                      {new Date(session.date).toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })} · {session.startTime}
+                      {new Date(item.date).toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })} · {item.startTime}
                     </Text>
                   </View>
-                  <View style={[styles.upcomingBadge, { backgroundColor: getTypeColor(session.type) + "20" }]}>
-                    <Text style={[styles.upcomingBadgeText, { color: getTypeColor(session.type) }]}>
-                      {getTypeLabel(session.type)}
+                  <View style={[styles.upcomingBadge, { backgroundColor: getTypeColor(item.type) + "20" }]}>
+                    <Text style={[styles.upcomingBadgeText, { color: getTypeColor(item.type) }]}>
+                      {item.type.charAt(0).toUpperCase() + item.type.slice(1).replace('_', '-')}
                     </Text>
                   </View>
                 </View>
@@ -563,8 +798,11 @@ export default function PlayerScheduleScreen() {
         <Animated.View entering={FadeInDown.delay(600).duration(400)}>
           <View style={styles.sectionHeader}>
             <Text style={styles.sectionTitle}>Attendance History</Text>
+            <Pressable onPress={() => setShowAttendanceHistory(!showAttendanceHistory)}>
+              <Feather name={showAttendanceHistory ? "chevron-up" : "chevron-down"} size={20} color={ProTennisColors.textSecondary} />
+            </Pressable>
           </View>
-          <NeonBorderCard accentColor={ProTennisColors.neonGreen} style={styles.attendanceCard}>
+          <NeonBorderCard accentColor={ProTennisColors.neonGreen} onPress={() => setShowAttendanceHistory(!showAttendanceHistory)}>
             <View style={styles.attendanceStats}>
               <View style={styles.attendanceStat}>
                 <Text style={[styles.attendanceValue, { color: ProTennisColors.neonGreen }]}>{attendanceStats.attended}</Text>
@@ -590,11 +828,116 @@ export default function PlayerScheduleScreen() {
                   style={[styles.attendanceProgressFill, { width: `${attendanceStats.percentage}%` }]}
                 />
               </View>
-              <Text style={styles.attendancePercentage}>{attendanceStats.percentage}% attendance rate</Text>
+              <Text style={styles.attendancePercentage}>{attendanceStats.percentage}% attendance rate · Tap to see details</Text>
             </View>
+
+            {showAttendanceHistory && attendanceRecords.length > 0 ? (
+              <Animated.View entering={FadeInUp.duration(300)} style={styles.attendanceHistoryList}>
+                {attendanceRecords.map((record, index) => (
+                  <View key={record.id} style={styles.attendanceHistoryItem}>
+                    <View style={[styles.attendanceStatusDot, { backgroundColor: getAttendanceColor(record.status) }]} />
+                    <View style={styles.attendanceHistoryInfo}>
+                      <Text style={styles.attendanceHistoryTitle}>{record.title}</Text>
+                      <Text style={styles.attendanceHistoryDate}>
+                        {new Date(record.date).toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })} · {record.time}
+                      </Text>
+                    </View>
+                    <Text style={[styles.attendanceHistoryStatus, { color: getAttendanceColor(record.status) }]}>
+                      {record.status.charAt(0).toUpperCase() + record.status.slice(1)}
+                    </Text>
+                  </View>
+                ))}
+              </Animated.View>
+            ) : null}
           </NeonBorderCard>
         </Animated.View>
       </ScrollView>
+
+      <Modal
+        visible={showVacationModal}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setShowVacationModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Set Vacation</Text>
+              <Pressable onPress={() => setShowVacationModal(false)}>
+                <Feather name="x" size={24} color={ProTennisColors.white} />
+              </Pressable>
+            </View>
+            
+            <Text style={styles.modalSubtitle}>Your lessons will be paused during this period</Text>
+
+            <Pressable style={styles.datePickerButton} onPress={() => setShowStartPicker(true)}>
+              <Feather name="calendar" size={18} color={ProTennisColors.neonCyan} />
+              <Text style={styles.datePickerLabel}>Start Date</Text>
+              <Text style={styles.datePickerValue}>
+                {vacationStartDate ? vacationStartDate.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : "Select date"}
+              </Text>
+            </Pressable>
+
+            {showStartPicker ? (
+              <DateTimePicker
+                value={vacationStartDate || new Date()}
+                mode="date"
+                display={Platform.OS === "ios" ? "spinner" : "default"}
+                minimumDate={new Date()}
+                onChange={(event, date) => {
+                  setShowStartPicker(Platform.OS === "ios");
+                  if (date) setVacationStartDate(date);
+                }}
+                themeVariant="dark"
+              />
+            ) : null}
+
+            <Pressable style={styles.datePickerButton} onPress={() => setShowEndPicker(true)}>
+              <Feather name="calendar" size={18} color={ProTennisColors.neonCyan} />
+              <Text style={styles.datePickerLabel}>End Date</Text>
+              <Text style={styles.datePickerValue}>
+                {vacationEndDate ? vacationEndDate.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : "Select date"}
+              </Text>
+            </Pressable>
+
+            {showEndPicker ? (
+              <DateTimePicker
+                value={vacationEndDate || vacationStartDate || new Date()}
+                mode="date"
+                display={Platform.OS === "ios" ? "spinner" : "default"}
+                minimumDate={vacationStartDate || new Date()}
+                onChange={(event, date) => {
+                  setShowEndPicker(Platform.OS === "ios");
+                  if (date) setVacationEndDate(date);
+                }}
+                themeVariant="dark"
+              />
+            ) : null}
+
+            <Pressable 
+              style={[styles.saveVacationButton, (!vacationStartDate || !vacationEndDate) && styles.saveVacationButtonDisabled]}
+              onPress={handleSaveVacation}
+              disabled={!vacationStartDate || !vacationEndDate || createVacationMutation.isPending}
+            >
+              <LinearGradient
+                colors={[ProTennisColors.vacationBlue, "#2196F3"]}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+                style={styles.saveVacationButtonGradient}
+              >
+                {createVacationMutation.isPending ? (
+                  <ActivityIndicator color={ProTennisColors.white} />
+                ) : (
+                  <>
+                    <Feather name="sun" size={18} color={ProTennisColors.white} />
+                    <Text style={styles.saveVacationButtonText}>Set Vacation</Text>
+                  </>
+                )}
+              </LinearGradient>
+            </Pressable>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -622,33 +965,36 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: "600",
   },
-  headerSection: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    paddingHorizontal: Spacing.lg,
-    marginBottom: Spacing.lg,
-  },
   screenTitle: {
     fontSize: 28,
     fontWeight: "800",
     color: ProTennisColors.white,
+    paddingHorizontal: Spacing.lg,
+    marginBottom: Spacing.lg,
   },
-  bookButton: {
-    borderRadius: BorderRadius.lg,
-    overflow: "hidden",
-  },
-  bookButtonGradient: {
+  quickActionsRow: {
     flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-    paddingVertical: 10,
-    paddingHorizontal: 16,
+    justifyContent: "space-around",
+    paddingHorizontal: Spacing.md,
+    marginBottom: Spacing.lg,
   },
-  bookButtonText: {
-    fontSize: 14,
-    fontWeight: "700",
-    color: ProTennisColors.midnightBlue,
+  quickAction: {
+    alignItems: "center",
+    width: 75,
+  },
+  quickActionIcon: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 6,
+  },
+  quickActionLabel: {
+    fontSize: 11,
+    fontWeight: "600",
+    color: ProTennisColors.textSecondary,
+    textAlign: "center",
   },
   statsRow: {
     paddingHorizontal: Spacing.lg,
@@ -719,6 +1065,43 @@ const styles = StyleSheet.create({
     backgroundColor: ProTennisColors.surfaceCard,
     overflow: "hidden",
   },
+  vacationCard: {
+    padding: Spacing.md,
+  },
+  vacationHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.md,
+  },
+  vacationIconContainer: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: ProTennisColors.vacationBlue + "20",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  vacationInfo: {
+    flex: 1,
+  },
+  vacationTitle: {
+    fontSize: 15,
+    fontWeight: "700",
+    color: ProTennisColors.white,
+  },
+  vacationDates: {
+    fontSize: 13,
+    color: ProTennisColors.textSecondary,
+    marginTop: 2,
+  },
+  vacationCancelButton: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: ProTennisColors.error + "20",
+    alignItems: "center",
+    justifyContent: "center",
+  },
   calendarCard: {},
   calendarHeader: {
     flexDirection: "row",
@@ -781,6 +1164,10 @@ const styles = StyleSheet.create({
     backgroundColor: ProTennisColors.neonCyan,
     borderRadius: 8,
   },
+  calendarDayVacation: {
+    backgroundColor: ProTennisColors.vacationBlue + "20",
+    borderRadius: 8,
+  },
   calendarDayText: {
     fontSize: 14,
     fontWeight: "600",
@@ -810,10 +1197,11 @@ const styles = StyleSheet.create({
   legendRow: {
     flexDirection: "row",
     justifyContent: "center",
-    gap: Spacing.lg,
+    gap: Spacing.md,
     paddingVertical: Spacing.sm,
     borderTopWidth: 1,
     borderTopColor: ProTennisColors.border,
+    flexWrap: "wrap",
   },
   legendItem: {
     flexDirection: "row",
@@ -826,7 +1214,7 @@ const styles = StyleSheet.create({
     borderRadius: 4,
   },
   legendText: {
-    fontSize: 11,
+    fontSize: 10,
     color: ProTennisColors.textSecondary,
   },
   sectionHeader: {
@@ -935,10 +1323,6 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: ProTennisColors.textSecondary,
   },
-  sessionMetaDot: {
-    color: ProTennisColors.textMuted,
-    marginHorizontal: 4,
-  },
   sessionStatus: {
     width: 36,
     height: 36,
@@ -988,7 +1372,6 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: "600",
   },
-  attendanceCard: {},
   attendanceStats: {
     flexDirection: "row",
     justifyContent: "space-around",
@@ -1031,5 +1414,106 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: ProTennisColors.textMuted,
     textAlign: "center",
+  },
+  attendanceHistoryList: {
+    borderTopWidth: 1,
+    borderTopColor: ProTennisColors.border,
+    paddingTop: Spacing.sm,
+  },
+  attendanceHistoryItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: Spacing.sm,
+    paddingHorizontal: Spacing.md,
+    gap: Spacing.sm,
+  },
+  attendanceStatusDot: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+  },
+  attendanceHistoryInfo: {
+    flex: 1,
+  },
+  attendanceHistoryTitle: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: ProTennisColors.white,
+  },
+  attendanceHistoryDate: {
+    fontSize: 11,
+    color: ProTennisColors.textMuted,
+    marginTop: 1,
+  },
+  attendanceHistoryStatus: {
+    fontSize: 11,
+    fontWeight: "600",
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.8)",
+    justifyContent: "flex-end",
+  },
+  modalContent: {
+    backgroundColor: ProTennisColors.surfaceCard,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    padding: Spacing.lg,
+    paddingBottom: 40,
+  },
+  modalHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: Spacing.md,
+  },
+  modalTitle: {
+    fontSize: 22,
+    fontWeight: "800",
+    color: ProTennisColors.white,
+  },
+  modalSubtitle: {
+    fontSize: 14,
+    color: ProTennisColors.textSecondary,
+    marginBottom: Spacing.lg,
+  },
+  datePickerButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: ProTennisColors.surfaceElevated,
+    padding: Spacing.md,
+    borderRadius: BorderRadius.md,
+    marginBottom: Spacing.sm,
+    gap: Spacing.sm,
+  },
+  datePickerLabel: {
+    flex: 1,
+    fontSize: 14,
+    color: ProTennisColors.textSecondary,
+  },
+  datePickerValue: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: ProTennisColors.white,
+  },
+  saveVacationButton: {
+    marginTop: Spacing.lg,
+    borderRadius: BorderRadius.lg,
+    overflow: "hidden",
+  },
+  saveVacationButtonDisabled: {
+    opacity: 0.5,
+  },
+  saveVacationButtonGradient: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: Spacing.sm,
+    paddingVertical: 14,
+  },
+  saveVacationButtonText: {
+    fontSize: 16,
+    fontWeight: "700",
+    color: ProTennisColors.white,
   },
 });
