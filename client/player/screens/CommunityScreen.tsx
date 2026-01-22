@@ -390,7 +390,7 @@ function MainTabBar({ active, onChange, friendRequestCount = 0 }: { active: Main
   const tabs: { key: MainTab; label: string; icon: string }[] = [
     { key: "feed", label: "Feed", icon: "newspaper" },
     { key: "friends", label: "Friends", icon: "people" },
-    { key: "groups", label: "albums", icon: "grid" },
+    { key: "groups", label: "Groups", icon: "grid" },
   ];
 
   return (
