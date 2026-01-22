@@ -23496,9 +23496,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(403).json({ error: "Coach access required" });
       }
 
-      const availability = await storage.getCoachAvailability(coachId, academyId);
+      const savedAvailability = await storage.getCoachAvailability(coachId, academyId);
 
-      res.json(availability);
+      res.json(savedAvailability);
     } catch (error) {
       console.error("Coach availability error:", error);
       res.status(500).json({ error: "Failed to fetch availability" });
@@ -23588,8 +23588,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { coachId } = req.params;
       const academyId = req.user?.academyId || "default-academy";
       
-      const availability = await storage.getCoachAvailability(coachId, academyId);
-      res.json(availability);
+      const savedAvailability = await storage.getCoachAvailability(coachId, academyId);
+      res.json(savedAvailability);
     } catch (error) {
       console.error("Coach availability error:", error);
       res.status(500).json({ error: "Failed to fetch availability" });
@@ -23601,21 +23601,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { coachId } = req.params;
       const academyId = req.user?.academyId || "default-academy";
-      const { weeklySchedule, isActive } = req.body;
+      const { availability, settings } = req.body;
+      const isActive = settings?.availabilityPaused !== undefined ? !settings.availabilityPaused : undefined;
       
       // Delete existing availability for this coach
       await db.delete(coachAvailability).where(eq(coachAvailability.coachId, coachId));
       
       // Create new availability slots from weekly schedule
-      if (weeklySchedule && Array.isArray(weeklySchedule)) {
-        for (const day of weeklySchedule) {
-          if (day.enabled && day.timeBlocks?.length > 0) {
+      if (availability && Array.isArray(availability)) {
+        for (const day of availability) {
+          if (day.isAvailable && day.timeBlocks?.length > 0) {
             for (const block of day.timeBlocks) {
               await db.insert(coachAvailability).values({
                 id: crypto.randomUUID(),
                 coachId,
                 academyId,
-                weekday: day.dayIndex,
+                weekday: day.weekday,
                 startTime: block.startTime,
                 isActive: true,
                 endTime: block.endTime,
@@ -23646,8 +23647,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
       
-      const availability = await storage.getCoachAvailability(coachId, academyId);
-      res.json(availability);
+      const savedAvailability = await storage.getCoachAvailability(coachId, academyId);
+      res.json(savedAvailability);
     } catch (error) {
       console.error("Update availability error:", error);
       res.status(500).json({ error: "Failed to update availability" });
@@ -25189,7 +25190,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         (endDate as string) || startDate as string
       );
 
-      res.json(availability);
+      res.json(savedAvailability);
     } catch (error) {
       console.error("Get court availability error:", error);
       res.status(500).json({ error: "Failed to get availability" });
