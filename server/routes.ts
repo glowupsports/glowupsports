@@ -2848,6 +2848,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         flexibleDates,
         maxPlayers,
         invitedPlayerId,
+        matchIntent,
         isOpenGroup,
         visibleToPlayers,
         notes,
@@ -3491,6 +3492,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         playerIds,
         maxPlayers,
         invitedPlayerId,
+        matchIntent,
         isOpen,
         visibleToPlayers,
         flexibleSessions, // Array of { date, time, startTime, endTime }
@@ -8540,6 +8542,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         skillLevel,
         maxPlayers,
         invitedPlayerId,
+        matchIntent,
         weekCount,
         seriesStartDate,
         seriesEndDate,
@@ -15083,6 +15086,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         skillLevel,
         maxPlayers,
         invitedPlayerId,
+        matchIntent,
         weekCount,
         seriesStartDate,
         seriesEndDate,
@@ -15782,6 +15786,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         playerIds,
         maxPlayers,
         invitedPlayerId,
+        matchIntent,
         isRecurring,
         visibleToPlayers,
         enableWaitlist,
@@ -16004,6 +16009,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         playerIds,
         maxPlayers,
         invitedPlayerId,
+        matchIntent,
         isOpen,
         visibleToPlayers,
         flexibleSessions,
@@ -17337,6 +17343,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           spotsLeft,
           maxPlayers,
         invitedPlayerId,
+        matchIntent,
           currentPlayers,
           coachName: coach?.name || null,
           coachId: session.coachId,
@@ -17606,6 +17613,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             spotsLeft: Math.max(0, maxPlayers - actualCurrentPlayers),
             maxPlayers,
         invitedPlayerId,
+        matchIntent,
             coachName: coach?.name,
             ballLevel: ((session as any).targetBallLevel || playerBallLevel).toUpperCase(),
             participants,
@@ -22573,6 +22581,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             locationName: s.locationName || s.location || "Location",
             maxPlayers,
         invitedPlayerId,
+        matchIntent,
             currentPlayers: players.length,
             players: players.map((p: any) => ({ id: p.id, name: p.name })),
             ballLevel: s.ballLevel,
@@ -22727,6 +22736,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           xpReward: session.xpReward || 20,
           maxPlayers,
         invitedPlayerId,
+        matchIntent,
           currentPlayers,
           isEnrolled,
             locationName,
@@ -25325,6 +25335,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             currentPlayers: 1,
             invitedPlayerId: invitedPlayerId || null,
         status: invitedPlayerId ? "pending_invite" : "open",
+        matchIntent: matchIntent || "friendly",
             visibility: "academy",
             costPerPlayer: price > 0 ? (price / 2).toFixed(2) : null,
             currency: court.currency || "AED",
@@ -25820,6 +25831,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         requiredBallLevel,
         maxPlayers,
         invitedPlayerId,
+        matchIntent,
         visibility,
         costPerPlayer,
       } = req.body;
@@ -25842,6 +25854,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         currentPlayers: 1,
         invitedPlayerId: invitedPlayerId || null,
         status: invitedPlayerId ? "pending_invite" : "open",
+        matchIntent: matchIntent || "friendly",
         visibility: visibility || "academy",
         costPerPlayer,
         currency: "AED",
@@ -25979,6 +25992,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           currentPlayers: sql`current_players - 1`,
           invitedPlayerId: invitedPlayerId || null,
         status: invitedPlayerId ? "pending_invite" : "open",
+        matchIntent: matchIntent || "friendly",
         })
         .where(eq(openMatches.id, matchId));
 
@@ -26013,6 +26027,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         requiredBallLevel,
         maxPlayers,
         invitedPlayerId,
+        matchIntent,
       } = req.body;
 
       const [request] = await db.insert(matchRequests).values({
@@ -26029,6 +26044,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         maxPlayers: maxPlayers || (matchType === "doubles" ? 4 : 2),
         invitedPlayerId: invitedPlayerId || null,
         status: invitedPlayerId ? "pending_invite" : "open",
+        matchIntent: matchIntent || "friendly",
       }).returning();
 
       console.log("[MatchRequest] Created:", request.id, "by player:", playerId);

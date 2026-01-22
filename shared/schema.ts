@@ -819,6 +819,7 @@ export const matchRequests = pgTable("match_requests", {
   
   // Match details
   matchType: text("match_type").default("singles"), // singles | doubles
+  matchIntent: text("match_intent").default("friendly"), // friendly | competitive | ranking - determines rating impact
   title: text("title"),
   description: text("description"),
   

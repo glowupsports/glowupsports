@@ -88,6 +88,7 @@ export default function CreateMatchScreen() {
   const [title, setTitle] = useState(preSelectedOpponent ? `Challenge ${preSelectedOpponent.name}` : "");
   const [description, setDescription] = useState("");
   const [selectedPartner, setSelectedPartner] = useState<any>(preSelectedOpponent);
+  const [matchIntent, setMatchIntent] = useState<"friendly" | "competitive" | "ranking">("friendly");
   const [partnerOption, setPartnerOption] = useState<"find" | "select" | null>(preSelectedOpponent ? "select" : null);
 
   // Fetch friends for partner selection
@@ -149,6 +150,7 @@ export default function CreateMatchScreen() {
         preferredDate: selectedDate.toISOString().split("T")[0],
         preferredTime: selectedTime,
         maxPlayers: matchType === "doubles" ? 4 : 2,
+        matchIntent,
       };
       
       console.log("[CreateMatch] Match data:", matchData);
@@ -365,6 +367,66 @@ export default function CreateMatchScreen() {
           </Pressable>
         </Animated.View>
       </View>
+
+      {/* Match Intent Selector */}
+      <Animated.View 
+        entering={FadeInUp.delay(200).duration(400)}
+        style={styles.intentSection}
+      >
+        <Text style={styles.intentLabel}>Match Format</Text>
+        <View style={styles.intentCards}>
+          <Pressable
+            style={[styles.intentCard, matchIntent === "friendly" && styles.intentCardSelected]}
+            onPress={() => setMatchIntent("friendly")}
+          >
+            <Ionicons 
+              name="happy-outline" 
+              size={24} 
+              color={matchIntent === "friendly" ? Colors.dark.backgroundRoot : Colors.dark.primary} 
+            />
+            <Text style={[styles.intentCardText, matchIntent === "friendly" && styles.intentCardTextSelected]}>
+              Friendly
+            </Text>
+            <Text style={[styles.intentCardDesc, matchIntent === "friendly" && styles.intentCardDescSelected]}>
+              No rating impact
+            </Text>
+          </Pressable>
+
+          <Pressable
+            style={[styles.intentCard, matchIntent === "competitive" && styles.intentCardSelected]}
+            onPress={() => setMatchIntent("competitive")}
+          >
+            <Ionicons 
+              name="flame-outline" 
+              size={24} 
+              color={matchIntent === "competitive" ? Colors.dark.backgroundRoot : Colors.dark.xpCyan} 
+            />
+            <Text style={[styles.intentCardText, matchIntent === "competitive" && styles.intentCardTextSelected]}>
+              Competitive
+            </Text>
+            <Text style={[styles.intentCardDesc, matchIntent === "competitive" && styles.intentCardDescSelected]}>
+              Affects rating
+            </Text>
+          </Pressable>
+
+          <Pressable
+            style={[styles.intentCard, matchIntent === "ranking" && styles.intentCardSelected]}
+            onPress={() => setMatchIntent("ranking")}
+          >
+            <Ionicons 
+              name="trophy-outline" 
+              size={24} 
+              color={matchIntent === "ranking" ? Colors.dark.backgroundRoot : Colors.dark.gold} 
+            />
+            <Text style={[styles.intentCardText, matchIntent === "ranking" && styles.intentCardTextSelected]}>
+              Ranking
+            </Text>
+            <Text style={[styles.intentCardDesc, matchIntent === "ranking" && styles.intentCardDescSelected]}>
+              Full rating impact
+            </Text>
+          </Pressable>
+        </View>
+      </Animated.View>
 
       <Animated.View 
         entering={FadeInUp.delay(300).duration(400)}
@@ -947,6 +1009,50 @@ const styles = StyleSheet.create({
     color: Colors.dark.textMuted,
   },
   typeCardDescSelected: {
+    color: "rgba(0,0,0,0.6)",
+  },
+  intentSection: {
+    marginTop: Spacing.xl,
+  },
+  intentLabel: {
+    ...Typography.label,
+    color: Colors.dark.textMuted,
+    marginBottom: Spacing.sm,
+    textAlign: "center",
+  },
+  intentCards: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    gap: Spacing.sm,
+  },
+  intentCard: {
+    flex: 1,
+    backgroundColor: Colors.dark.backgroundSecondary,
+    borderRadius: BorderRadius.md,
+    padding: Spacing.md,
+    alignItems: "center",
+    borderWidth: 1,
+    borderColor: Colors.dark.border,
+  },
+  intentCardSelected: {
+    backgroundColor: Colors.dark.primary,
+    borderColor: Colors.dark.primary,
+  },
+  intentCardText: {
+    ...Typography.bodySmall,
+    color: Colors.dark.text,
+    fontWeight: "600",
+    marginTop: Spacing.xs,
+  },
+  intentCardTextSelected: {
+    color: Colors.dark.backgroundRoot,
+  },
+  intentCardDesc: {
+    ...Typography.caption,
+    color: Colors.dark.textMuted,
+    marginTop: 2,
+  },
+  intentCardDescSelected: {
     color: "rgba(0,0,0,0.6)",
   },
   tipContainer: {
