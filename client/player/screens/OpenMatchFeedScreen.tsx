@@ -276,7 +276,14 @@ function PremiumMatchCard({
           <View style={styles.hostInfo}>
             <Text style={styles.hostName}>{match.host?.name || "Anonymous Host"}</Text>
             <View style={styles.hostMeta}>
-              {match.host?.level ? (
+              {match.host?.ballLevel ? (
+                <View style={[styles.hostLevelBadge, { backgroundColor: getBallLevelColor(match.host.ballLevel) + "20", borderColor: getBallLevelColor(match.host.ballLevel) }]}>
+                  <View style={[styles.ballLevelDot, { backgroundColor: getBallLevelColor(match.host.ballLevel) }]} />
+                  <Text style={[styles.hostLevelText, { color: getBallLevelColor(match.host.ballLevel) }]}>
+                    {match.host.ballLevel.toUpperCase()} {match.host.level || ""}
+                  </Text>
+                </View>
+              ) : match.host?.level ? (
                 <View style={styles.hostLevelBadge}>
                   <Ionicons name="star" size={10} color={Colors.dark.gold} />
                   <Text style={styles.hostLevelText}>Lvl {match.host.level}</Text>
@@ -746,11 +753,18 @@ const styles = StyleSheet.create({
   hostLevelBadge: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 2,
+    gap: 4,
     backgroundColor: Colors.dark.gold + "20",
     paddingVertical: 2,
     paddingHorizontal: 6,
     borderRadius: BorderRadius.xs,
+    borderWidth: 1,
+    borderColor: "transparent",
+  },
+  ballLevelDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
   },
   hostLevelText: {
     fontSize: 10,

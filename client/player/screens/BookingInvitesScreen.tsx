@@ -10,7 +10,6 @@ import {
   Alert,
 } from "react-native";
 import { useNavigation } from "@react-navigation/native";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
@@ -136,7 +135,6 @@ function InviteCard({
 
 export default function BookingInvitesScreen() {
   const navigation = useNavigation();
-  const insets = useSafeAreaInsets();
   const queryClient = useQueryClient();
   const [respondingId, setRespondingId] = useState<string | null>(null);
 
@@ -183,22 +181,7 @@ export default function BookingInvitesScreen() {
   const pastInvites = invites?.filter((i) => i.booking_invite_guests.status !== "pending") || [];
 
   return (
-    <View style={[styles.container, { paddingTop: insets.top }]}>
-      <View style={styles.header}>
-        <Pressable onPress={() => navigation.goBack()} style={styles.backButton}>
-          <Ionicons name="chevron-back" size={28} color={Colors.dark.text} />
-        </Pressable>
-        <View style={styles.headerCenter}>
-          <Text style={styles.headerTitle}>Booking Invites</Text>
-          {pendingInvites.length > 0 && (
-            <View style={styles.pendingBadge}>
-              <Text style={styles.pendingBadgeText}>{pendingInvites.length} pending</Text>
-            </View>
-          )}
-        </View>
-        <View style={styles.headerPlaceholder} />
-      </View>
-
+    <View style={styles.container}>
       {isLoading ? (
         <View style={styles.loading}>
           <ActivityIndicator color={Colors.dark.primary} size="large" />
@@ -234,7 +217,7 @@ export default function BookingInvitesScreen() {
             />
           )}
           keyExtractor={(item) => item.booking_invite_guests.id}
-          contentContainerStyle={[styles.list, { paddingBottom: insets.bottom + 20 }]}
+          contentContainerStyle={[styles.list, { paddingBottom: 100 }]}
           showsVerticalScrollIndicator={false}
           refreshControl={
             <RefreshControl

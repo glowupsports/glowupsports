@@ -127,6 +127,11 @@ export default function PlayScreen() {
     queryKey: ["/api/player/me/profile"],
   });
 
+  const { data: invitesData } = useQuery<Array<{ booking_invite_guests: { status: string } }>>({
+    queryKey: ["/api/player/booking-invites"],
+  });
+  const pendingInvitesCount = invitesData?.filter(i => i.booking_invite_guests?.status === "pending")?.length || 0;
+
   const playerBallLevel = profileData?.player?.ballLevel?.toLowerCase() || "glow";
 
   useEffect(() => {
@@ -753,16 +758,23 @@ export default function PlayScreen() {
 
       <View style={styles.bookingToolsRow}>
         <Pressable 
-          style={styles.bookingToolButton}
+          style={[styles.bookingToolButton, pendingInvitesCount > 0 && styles.bookingToolButtonActive]}
           onPress={() => {
             Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
             navigation.navigate("BookingInvites" as never);
           }}
         >
           <View style={styles.bookingToolIcon}>
-            <Ionicons name="mail" size={18} color={Colors.dark.gold} />
+            <Ionicons name="mail" size={18} color={pendingInvitesCount > 0 ? Colors.dark.primary : Colors.dark.gold} />
+            {pendingInvitesCount > 0 ? (
+              <View style={styles.invitesBadge}>
+                <Text style={styles.invitesBadgeText}>{pendingInvitesCount}</Text>
+              </View>
+            ) : null}
           </View>
-          <Text style={styles.bookingToolText}>Invites</Text>
+          <Text style={[styles.bookingToolText, pendingInvitesCount > 0 && { color: Colors.dark.primary }]}>
+            Invites{pendingInvitesCount > 0 ? ` (${pendingInvitesCount})` : ""}
+          </Text>
         </Pressable>
 
         <Pressable 
@@ -1899,6 +1911,10 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: Colors.dark.border,
   },
+  bookingToolButtonActive: {
+    backgroundColor: Colors.dark.primary + "20",
+    borderColor: Colors.dark.primary,
+  },
   bookingToolIcon: {
     width: 28,
     height: 28,
@@ -1906,6 +1922,24 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     backgroundColor: Colors.dark.backgroundRoot,
+    position: "relative",
+  },
+  invitesBadge: {
+    position: "absolute",
+    top: -4,
+    right: -4,
+    backgroundColor: Colors.dark.primary,
+    borderRadius: 8,
+    minWidth: 16,
+    height: 16,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 4,
+  },
+  invitesBadgeText: {
+    fontSize: 9,
+    fontWeight: "700",
+    color: Colors.dark.backgroundRoot,
   },
   bookingToolText: {
     ...Typography.caption,

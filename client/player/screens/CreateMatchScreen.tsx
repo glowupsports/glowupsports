@@ -1041,6 +1041,7 @@ const styles = StyleSheet.create({
     gap: Spacing.md,
     marginTop: "auto",
     paddingTop: Spacing.xl,
+    paddingBottom: 100,
   },
   backButton: {
     width: 56,
