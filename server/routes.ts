@@ -25401,24 +25401,57 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // ==================== OPEN MATCHES (Phase 3) ====================
 
-  // Get open matches
+  // Get open matches (queries match_requests table from Find a Match wizard)
   app.get("/api/open-matches", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
     try {
       const playerId = req.user?.playerId;
       const academyId = req.user?.academyId;
       const { matchType, ballLevel, date } = req.query;
 
-      let query = db
-        .select()
-        .from(openMatches)
-        .where(eq(openMatches.status, "open"));
+      // Query from match_requests table (where matches are created via Find a Match wizard)
+      const matches = await db
+        .select({
+          id: matchRequests.id,
+          playerId: matchRequests.playerId,
+          academyId: matchRequests.academyId,
+          matchType: matchRequests.matchType,
+          title: matchRequests.title,
+          description: matchRequests.description,
+          preferredDate: matchRequests.preferredDate,
+          preferredTime: matchRequests.preferredTime,
+          requiredLevelMin: matchRequests.requiredLevelMin,
+          requiredLevelMax: matchRequests.requiredLevelMax,
+          requiredBallLevel: matchRequests.requiredBallLevel,
+          isAdult: matchRequests.isAdult,
+          maxPlayers: matchRequests.maxPlayers,
+          status: matchRequests.status,
+          createdAt: matchRequests.createdAt,
+          playerName: players.name,
+          playerAvatar: players.profilePhotoUrl,
+          playerLevel: players.skillLevel,
+        })
+        .from(matchRequests)
+        .leftJoin(players, eq(matchRequests.playerId, players.id))
+        .where(eq(matchRequests.status, "open"));
 
-      const matches = await query;
+      // Apply filters
+      let filteredMatches = matches;
+      
+      if (matchType && matchType !== 'all') {
+        filteredMatches = filteredMatches.filter(m => m.matchType === matchType);
+      }
+      
+      if (ballLevel) {
+        filteredMatches = filteredMatches.filter(m => m.requiredBallLevel === ballLevel);
+      }
+      
+      if (date) {
+        filteredMatches = filteredMatches.filter(m => m.preferredDate === date);
+      }
 
-      // Filter by academy if needed (visibility = academy)
-      const filteredMatches = matches.filter(m => 
-        m.visibility === "public" || 
-        (m.visibility === "academy" && m.academyId === academyId)
+      // Filter by academy - show matches from same academy or public ones
+      filteredMatches = filteredMatches.filter(m => 
+        !m.academyId || m.academyId === academyId
       );
 
       res.json(filteredMatches);
