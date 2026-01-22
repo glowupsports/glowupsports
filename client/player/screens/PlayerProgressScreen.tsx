@@ -588,33 +588,7 @@ export default function PlayerProgressScreen() {
   const currentLevelXp = data.xp % 500;
 
   const totalObservations = data.skillRadar.reduce((sum, s) => sum + s.observationCount, 0);
-
-  if (totalObservations === 0) {
-    return (
-      <View style={[styles.container, { paddingTop: insets.top }]}>
-        <ScrollView
-          style={styles.scrollView}
-          contentContainerStyle={{ 
-            paddingHorizontal: Spacing.xl,
-            paddingVertical: Spacing.xl,
-            paddingBottom: insets.bottom + 200,
-            justifyContent: "center",
-            minHeight: "100%"
-          }}
-          showsVerticalScrollIndicator={false}
-        >
-          <EmptyStateCard
-            icon="trending-up"
-            title="No progress tracked yet"
-            description="Complete sessions to start tracking your development"
-            ctaText="View Schedule"
-            onPress={() => navigation.navigate("Schedule")}
-            style={{ marginTop: Spacing.xl }}
-          />
-        </ScrollView>
-      </View>
-    );
-  }
+  const isNewPlayer = totalObservations === 0;
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
@@ -623,31 +597,56 @@ export default function PlayerProgressScreen() {
         contentContainerStyle={{ paddingBottom: insets.bottom + 200 }}
         showsVerticalScrollIndicator={false}
       >
+        {/* Premium Header with Gradient Border */}
         <View style={styles.header}>
-          <Text style={styles.title}>My Progress</Text>
-          <Text style={styles.subtitle}>Coach-validated skill development</Text>
+          <View style={styles.headerTitleRow}>
+            <Text style={styles.title}>My Progress</Text>
+            {isNewPlayer && (
+              <View style={styles.newPlayerBadge}>
+                <Ionicons name="sparkles" size={12} color="#C8FF3D" />
+                <Text style={styles.newPlayerBadgeText}>NEW</Text>
+              </View>
+            )}
+          </View>
+          <Text style={styles.subtitle}>
+            {isNewPlayer 
+              ? "Start your tennis journey - your coach will track your progress"
+              : "Coach-validated skill development"}
+          </Text>
         </View>
 
-        {/* Ball Level Badge - Prominent Display */}
-        {data.ballLevel ? (
-          <View style={styles.ballLevelSection}>
-            <BallLevelBadge 
-              levelId={data.ballLevel} 
-              size="large" 
-              showLabel={true}
-            />
-          </View>
-        ) : null}
+        {/* Ball Level Badge - Always Shown with Neon Border */}
+        <View style={styles.ballLevelSection}>
+          <LinearGradient
+            colors={["rgba(200, 255, 61, 0.3)", "rgba(0, 229, 255, 0.3)", "rgba(224, 64, 251, 0.3)"]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={styles.ballLevelGradientBorder}
+          >
+            <View style={styles.ballLevelInner}>
+              <BallLevelBadge 
+                levelId={data.ballLevel || "red1"} 
+                size="large" 
+                showLabel={true}
+              />
+              {isNewPlayer && (
+                <Text style={styles.ballLevelHint}>Your starting level</Text>
+              )}
+            </View>
+          </LinearGradient>
+        </View>
 
+        {/* Stats Row - Premium Gaming Cards */}
         <View style={styles.statsRow}>
-          <View style={styles.statCard}>
+          <View style={[styles.statCard, styles.statCardGlow]}>
             <View style={styles.glowCircle}>
               <Text style={styles.glowValue}>{data.glowScore}</Text>
             </View>
-            <Text style={styles.statLabel}>Glow Score</Text>
+            <Text style={styles.statLabel}>GLOW SCORE</Text>
+            {isNewPlayer && <Text style={styles.statHint}>Start: 0</Text>}
           </View>
           <Pressable 
-            style={styles.statCard}
+            style={[styles.statCard, styles.statCardLevel]}
             onPress={() => {
               Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
               setShowLevelModal(true);
@@ -657,15 +656,17 @@ export default function PlayerProgressScreen() {
               <Text style={styles.levelValue}>{data.level}</Text>
             </View>
             <View style={styles.levelLabelRow}>
-              <Text style={styles.statLabel}>Level</Text>
+              <Text style={styles.statLabel}>LEVEL</Text>
               <Ionicons name="information-circle-outline" size={12} color={Colors.dark.textMuted} />
             </View>
+            {isNewPlayer && <Text style={styles.statHint}>Tap to learn</Text>}
           </Pressable>
-          <View style={styles.statCard}>
-            <View style={styles.sessionsCircle}>
-              <Text style={styles.sessionsValue}>{totalObservations}</Text>
+          <View style={[styles.statCard, styles.statCardXp]}>
+            <View style={styles.xpCircle}>
+              <Text style={styles.xpValue}>{data.xp}</Text>
             </View>
-            <Text style={styles.statLabel}>Observations</Text>
+            <Text style={styles.statLabel}>TOTAL XP</Text>
+            {isNewPlayer && <Text style={styles.statHint}>Earn XP!</Text>}
           </View>
         </View>
 
@@ -684,7 +685,65 @@ export default function PlayerProgressScreen() {
           </View>
         </View>
 
-        {data.levelReadiness ? (
+        {/* New Player Getting Started Section */}
+        {isNewPlayer && (
+          <View style={styles.gettingStartedSection}>
+            <LinearGradient
+              colors={["rgba(200, 255, 61, 0.1)", "rgba(0, 229, 255, 0.05)"]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={styles.gettingStartedCard}
+            >
+              <View style={styles.gettingStartedHeader}>
+                <View style={styles.gettingStartedIconWrap}>
+                  <Ionicons name="rocket" size={24} color="#C8FF3D" />
+                </View>
+                <View style={styles.gettingStartedInfo}>
+                  <Text style={styles.gettingStartedTitle}>START YOUR JOURNEY</Text>
+                  <Text style={styles.gettingStartedSubtitle}>Here's how to level up</Text>
+                </View>
+              </View>
+              <View style={styles.gettingStartedSteps}>
+                <View style={styles.gettingStartedStep}>
+                  <View style={[styles.stepNumber, { backgroundColor: "rgba(200, 255, 61, 0.2)" }]}>
+                    <Text style={[styles.stepNumberText, { color: "#C8FF3D" }]}>1</Text>
+                  </View>
+                  <View style={styles.stepContent}>
+                    <Text style={styles.stepTitle}>Attend Training Sessions</Text>
+                    <Text style={styles.stepDesc}>Your coach will observe and track your skills</Text>
+                  </View>
+                </View>
+                <View style={styles.gettingStartedStep}>
+                  <View style={[styles.stepNumber, { backgroundColor: "rgba(0, 229, 255, 0.2)" }]}>
+                    <Text style={[styles.stepNumberText, { color: "#00E5FF" }]}>2</Text>
+                  </View>
+                  <View style={styles.stepContent}>
+                    <Text style={styles.stepTitle}>Earn XP & Badges</Text>
+                    <Text style={styles.stepDesc}>Get rewarded for effort and improvement</Text>
+                  </View>
+                </View>
+                <View style={styles.gettingStartedStep}>
+                  <View style={[styles.stepNumber, { backgroundColor: "rgba(224, 64, 251, 0.2)" }]}>
+                    <Text style={[styles.stepNumberText, { color: "#E040FB" }]}>3</Text>
+                  </View>
+                  <View style={styles.stepContent}>
+                    <Text style={styles.stepTitle}>Level Up Your Skills</Text>
+                    <Text style={styles.stepDesc}>Progress through the 6 skill pillars</Text>
+                  </View>
+                </View>
+              </View>
+              <Pressable 
+                style={styles.gettingStartedCta}
+                onPress={() => navigation.navigate("Schedule")}
+              >
+                <Text style={styles.gettingStartedCtaText}>Book Your First Session</Text>
+                <Ionicons name="arrow-forward" size={16} color="#0B0D10" />
+              </Pressable>
+            </LinearGradient>
+          </View>
+        )}
+
+        {data.levelReadiness && !isNewPlayer ? (
           <LevelReadinessSection 
             readiness={data.levelReadiness} 
             currentLevel={data.ballLevel}
@@ -692,37 +751,83 @@ export default function PlayerProgressScreen() {
           />
         ) : null}
 
-        {/* Pillar Progress Rings - 6 Core Pillars */}
-        {data.ballLevel ? (
-          <View style={styles.pillarRingsSection}>
-            <Text style={styles.sectionTitle}>Core Pillars</Text>
-            <PillarProgressRings 
-              pillars={Object.fromEntries(
-                domains.map(d => [
-                  d.id.toUpperCase(), 
-                  { 
-                    pillar: d.id.toUpperCase(), 
-                    currentScore: d.value, 
-                    trend: d.trend === "rising" ? "up" : d.trend === "falling" ? "down" : "stable" 
-                  }
-                ])
-              )}
-              stage={getStageFromLevel(data.ballLevel)}
-              role="player"
-              onPillarPress={(pillar) => handleDomainPress(pillar.toLowerCase())}
-            />
+        {/* Pillar Progress Rings - 6 Core Pillars - ALWAYS SHOWN */}
+        <View style={styles.pillarRingsSection}>
+          <View style={styles.pillarHeaderRow}>
+            <Text style={styles.sectionTitle}>THE 6 PILLARS</Text>
+            {isNewPlayer && (
+              <View style={styles.pillarNewBadge}>
+                <Ionicons name="information-circle" size={12} color="#00E5FF" />
+                <Text style={styles.pillarNewBadgeText}>Your coach will rate these</Text>
+              </View>
+            )}
           </View>
-        ) : null}
-
-        <View style={styles.radarSection}>
-          <Text style={styles.sectionTitle}>Skill Domains</Text>
-          <SkillRadar domains={domains} />
+          <PillarProgressRings 
+            pillars={Object.fromEntries(
+              domains.length > 0 
+                ? domains.map(d => [
+                    d.id.toUpperCase(), 
+                    { 
+                      pillar: d.id.toUpperCase(), 
+                      currentScore: d.value, 
+                      trend: d.trend === "rising" ? "up" : d.trend === "falling" ? "down" : "stable" 
+                    }
+                  ])
+                : [
+                    ["TECHNIQUE", { pillar: "TECHNIQUE", currentScore: 0, trend: "stable" }],
+                    ["TACTICAL", { pillar: "TACTICAL", currentScore: 0, trend: "stable" }],
+                    ["PHYSICAL", { pillar: "PHYSICAL", currentScore: 0, trend: "stable" }],
+                    ["MENTAL", { pillar: "MENTAL", currentScore: 0, trend: "stable" }],
+                    ["SOCIAL", { pillar: "SOCIAL", currentScore: 0, trend: "stable" }],
+                    ["MATCH", { pillar: "MATCH", currentScore: 0, trend: "stable" }],
+                  ]
+            )}
+            stage={getStageFromLevel(data.ballLevel || "red1")}
+            role="player"
+            onPillarPress={(pillar) => handleDomainPress(pillar.toLowerCase())}
+          />
         </View>
 
+        {/* Skill Radar - Always shown, with placeholder for new players */}
+        <View style={styles.radarSection}>
+          <View style={styles.radarHeader}>
+            <Text style={styles.sectionTitle}>SKILL RADAR</Text>
+            {isNewPlayer && (
+              <Text style={styles.radarHint}>Will fill as you train</Text>
+            )}
+          </View>
+          <View style={styles.radarWrapper}>
+            <SkillRadar domains={domains.length > 0 ? domains : [
+              { id: "technique", name: "Technique", value: 0, maxValue: 100, icon: "tennisball", color: "#10B981" },
+              { id: "tactical", name: "Tactical", value: 0, maxValue: 100, icon: "bulb", color: "#F59E0B" },
+              { id: "physical", name: "Physical", value: 0, maxValue: 100, icon: "fitness", color: "#EF4444" },
+              { id: "mental", name: "Mental", value: 0, maxValue: 100, icon: "flash", color: "#8B5CF6" },
+              { id: "social", name: "Social", value: 0, maxValue: 100, icon: "people", color: "#EC4899" },
+              { id: "match", name: "Match", value: 0, maxValue: 100, icon: "trophy", color: "#3B82F6" },
+            ]} />
+            {isNewPlayer && (
+              <View style={styles.radarOverlay}>
+                <View style={styles.radarOverlayContent}>
+                  <Ionicons name="lock-open" size={20} color="#C8FF3D" />
+                  <Text style={styles.radarOverlayText}>Complete sessions to unlock</Text>
+                </View>
+              </View>
+            )}
+          </View>
+        </View>
+
+        {/* Skill Breakdown - Always shown */}
         <View style={styles.skillsSection}>
-          <Text style={styles.sectionTitle}>Skill Breakdown</Text>
+          <Text style={styles.sectionTitle}>SKILL BREAKDOWN</Text>
           <View style={styles.skillsList}>
-            {domains.map((domain) => (
+            {(domains.length > 0 ? domains : [
+              { id: "technique", name: "Technique", value: 0, maxValue: 100, icon: "tennisball", color: "#10B981" },
+              { id: "tactical", name: "Tactical", value: 0, maxValue: 100, icon: "bulb", color: "#F59E0B" },
+              { id: "physical", name: "Physical", value: 0, maxValue: 100, icon: "fitness", color: "#EF4444" },
+              { id: "mental", name: "Mental", value: 0, maxValue: 100, icon: "flash", color: "#8B5CF6" },
+              { id: "social", name: "Social", value: 0, maxValue: 100, icon: "people", color: "#EC4899" },
+              { id: "match", name: "Match", value: 0, maxValue: 100, icon: "trophy", color: "#3B82F6" },
+            ]).map((domain) => (
               <SkillBar 
                 key={domain.name} 
                 domain={domain} 
@@ -928,9 +1033,31 @@ const styles = StyleSheet.create({
     padding: Spacing.xl,
     paddingBottom: Spacing.lg,
   },
+  headerTitleRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+  },
   title: {
     ...Typography.h1,
     color: Colors.dark.text,
+  },
+  newPlayerBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    backgroundColor: "rgba(200, 255, 61, 0.15)",
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 4,
+    borderRadius: BorderRadius.sm,
+    borderWidth: 1,
+    borderColor: "rgba(200, 255, 61, 0.3)",
+  },
+  newPlayerBadgeText: {
+    fontSize: 10,
+    fontWeight: "800",
+    color: "#C8FF3D",
+    letterSpacing: 1,
   },
   subtitle: {
     ...Typography.small,
@@ -939,11 +1066,25 @@ const styles = StyleSheet.create({
   },
   ballLevelSection: {
     alignItems: "center",
-    paddingVertical: Spacing.lg,
     marginHorizontal: Spacing.xl,
     marginBottom: Spacing.lg,
-    backgroundColor: Backgrounds.card,
+  },
+  ballLevelGradientBorder: {
     borderRadius: BorderRadius.lg,
+    padding: 2,
+    width: "100%",
+  },
+  ballLevelInner: {
+    backgroundColor: Backgrounds.card,
+    borderRadius: BorderRadius.lg - 2,
+    paddingVertical: Spacing.xl,
+    alignItems: "center",
+    gap: Spacing.sm,
+  },
+  ballLevelHint: {
+    fontSize: 11,
+    color: Colors.dark.textMuted,
+    marginTop: Spacing.xs,
   },
   statsRow: {
     flexDirection: "row",
@@ -954,33 +1095,66 @@ const styles = StyleSheet.create({
   statCard: {
     flex: 1,
     ...CardStyles.base,
-    padding: Spacing.lg,
+    padding: Spacing.md,
     alignItems: "center",
-    gap: Spacing.sm,
+    gap: Spacing.xs,
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.08)",
+  },
+  statCardGlow: {
+    borderColor: "rgba(0, 229, 255, 0.2)",
+  },
+  statCardLevel: {
+    borderColor: "rgba(255, 215, 0, 0.2)",
+  },
+  statCardXp: {
+    borderColor: "rgba(200, 255, 61, 0.2)",
+  },
+  statHint: {
+    fontSize: 9,
+    color: Colors.dark.textMuted,
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
   },
   glowCircle: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: "rgba(0, 212, 255, 0.15)",
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: "rgba(0, 229, 255, 0.15)",
     borderWidth: 2,
-    borderColor: Colors.dark.xpCyan,
+    borderColor: "#00E5FF",
     justifyContent: "center",
     alignItems: "center",
   },
   glowValue: {
-    ...Typography.numberMedium,
-    color: Colors.dark.xpCyan,
+    fontSize: 18,
+    fontWeight: "800",
+    color: "#00E5FF",
   },
   levelCircle: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
+    width: 48,
+    height: 48,
+    borderRadius: 24,
     backgroundColor: "rgba(255, 215, 0, 0.15)",
     borderWidth: 2,
     borderColor: Colors.dark.gold,
     justifyContent: "center",
     alignItems: "center",
+  },
+  xpCircle: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: "rgba(200, 255, 61, 0.15)",
+    borderWidth: 2,
+    borderColor: "#C8FF3D",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  xpValue: {
+    fontSize: 14,
+    fontWeight: "800",
+    color: "#C8FF3D",
   },
   levelValue: {
     ...Typography.numberMedium,
@@ -1036,13 +1210,76 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.lg,
     marginBottom: Spacing.xl,
   },
+  pillarHeaderRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: Spacing.md,
+    paddingHorizontal: Spacing.sm,
+  },
+  pillarNewBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    backgroundColor: "rgba(0, 229, 255, 0.1)",
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 4,
+    borderRadius: BorderRadius.sm,
+  },
+  pillarNewBadgeText: {
+    fontSize: 9,
+    color: "#00E5FF",
+  },
   radarSection: {
     paddingHorizontal: Spacing.xl,
     marginBottom: Spacing.xl,
   },
-  sectionTitle: {
-    ...Typography.sectionTitle,
+  radarHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: Spacing.md,
+  },
+  radarHint: {
+    fontSize: 10,
     color: Colors.dark.textMuted,
+    fontStyle: "italic",
+  },
+  radarWrapper: {
+    position: "relative",
+  },
+  radarOverlay: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "rgba(11, 13, 16, 0.5)",
+    borderRadius: BorderRadius.lg,
+  },
+  radarOverlayContent: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+    backgroundColor: "rgba(200, 255, 61, 0.1)",
+    paddingHorizontal: Spacing.lg,
+    paddingVertical: Spacing.sm,
+    borderRadius: BorderRadius.md,
+    borderWidth: 1,
+    borderColor: "rgba(200, 255, 61, 0.3)",
+  },
+  radarOverlayText: {
+    fontSize: 12,
+    fontWeight: "600",
+    color: "#C8FF3D",
+  },
+  sectionTitle: {
+    fontSize: 11,
+    fontWeight: "700",
+    color: Colors.dark.textMuted,
+    letterSpacing: 2,
     marginBottom: Spacing.lg,
   },
   radarContainer: {
@@ -1050,6 +1287,92 @@ const styles = StyleSheet.create({
     ...CardStyles.base,
     padding: Spacing.lg,
     marginHorizontal: Spacing.xl,
+  },
+  gettingStartedSection: {
+    paddingHorizontal: Spacing.xl,
+    marginBottom: Spacing.xl,
+  },
+  gettingStartedCard: {
+    borderRadius: BorderRadius.lg,
+    padding: Spacing.lg,
+    borderWidth: 1,
+    borderColor: "rgba(200, 255, 61, 0.2)",
+  },
+  gettingStartedHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.md,
+    marginBottom: Spacing.lg,
+  },
+  gettingStartedIconWrap: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: "rgba(200, 255, 61, 0.15)",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  gettingStartedInfo: {
+    flex: 1,
+  },
+  gettingStartedTitle: {
+    fontSize: 14,
+    fontWeight: "800",
+    color: "#C8FF3D",
+    letterSpacing: 1,
+  },
+  gettingStartedSubtitle: {
+    fontSize: 12,
+    color: Colors.dark.textMuted,
+    marginTop: 2,
+  },
+  gettingStartedSteps: {
+    gap: Spacing.md,
+    marginBottom: Spacing.lg,
+  },
+  gettingStartedStep: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: Spacing.md,
+  },
+  stepNumber: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  stepNumberText: {
+    fontSize: 14,
+    fontWeight: "800",
+  },
+  stepContent: {
+    flex: 1,
+  },
+  stepTitle: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: Colors.dark.text,
+    marginBottom: 2,
+  },
+  stepDesc: {
+    fontSize: 12,
+    color: Colors.dark.textMuted,
+    lineHeight: 16,
+  },
+  gettingStartedCta: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: Spacing.sm,
+    backgroundColor: "#C8FF3D",
+    paddingVertical: Spacing.md,
+    borderRadius: BorderRadius.md,
+  },
+  gettingStartedCtaText: {
+    fontSize: 14,
+    fontWeight: "700",
+    color: "#0B0D10",
   },
   skillsSection: {
     paddingHorizontal: Spacing.xl,
