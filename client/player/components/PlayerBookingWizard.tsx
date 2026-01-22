@@ -95,6 +95,7 @@ interface PlayerBookingWizardProps {
 }
 
 type SessionType = "private" | "semi_private" | "group" | "open_play";
+type BrowseMode = "by_time" | "by_coach";
 
 const SESSION_TYPE_CARDS: {
   value: SessionType;
@@ -138,9 +139,10 @@ const SESSION_TYPE_CARDS: {
   },
 ];
 
-const TOTAL_SLIDES = 5;
+const TOTAL_SLIDES = 6;
 const SLIDE_TITLES = [
   "Choose Your Mode",
+  "How to Browse",
   "When & Where",
   "Pick Your Session",
   "Details",
@@ -166,7 +168,11 @@ export default function PlayerBookingWizard({
   // Slide 0: Session Type
   const [sessionType, setSessionType] = useState<SessionType>("private");
 
-  // Slide 1: When & Where
+  // Slide 1: Browse Mode (by time or by coach)
+  const [browseMode, setBrowseMode] = useState<BrowseMode>("by_time");
+  const [selectedCoachId, setSelectedCoachId] = useState<string | null>(null);
+
+  // Slide 2: When & Where
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [selectedLocationId, setSelectedLocationId] = useState<string | null>(null);
   const [duration, setDuration] = useState(60);
@@ -216,17 +222,20 @@ export default function PlayerBookingWizard({
       duration: duration.toString(),
     });
     if (selectedLocationId) params.append("locationId", selectedLocationId);
+    // When browsing by coach, filter to that coach only
+    if (browseMode === "by_coach" && selectedCoachId) {
+      params.append("coachId", selectedCoachId);
+    }
     
     return `/api/player/availability?${params}`;
-  }, [selectedDate, duration, selectedLocationId]);
+  }, [selectedDate, duration, selectedLocationId, browseMode, selectedCoachId]);
 
   // Fetch available slots using default queryFn
-  console.log('[BookingWizard] Query state:', { visible, currentSlide, url: availabilityQueryUrl, enabled: visible && currentSlide >= 1 });
+  // Enable when on slide 2 (When & Where) or later
   const { data: availableSlots = [], isLoading: slotsLoading, error: slotsError } = useQuery<AvailableSlot[]>({
     queryKey: [availabilityQueryUrl],
-    enabled: visible && currentSlide >= 1,
+    enabled: visible && currentSlide >= 2,
   });
-  console.log('[BookingWizard] Slots result:', { count: availableSlots.length, loading: slotsLoading, error: slotsError });
 
   // Build joinable sessions query URL with server-side filtering
   const joinableSessionsUrl = useMemo(() => {
@@ -238,15 +247,24 @@ export default function PlayerBookingWizard({
   }, [selectedDateString, sessionType]);
 
   // Fetch joinable sessions using the dedicated player endpoint (server-filtered)
+  // Enable when on slide 2 (When & Where) or later
   const { data: joinableSessions = [], isLoading: sessionsLoading } = useQuery<JoinableSession[]>({
     queryKey: [joinableSessionsUrl],
-    enabled: visible && currentSlide >= 1 && (sessionType === "group" || sessionType === "semi_private" || sessionType === "open_play"),
+    enabled: visible && currentSlide >= 2 && (sessionType === "group" || sessionType === "semi_private" || sessionType === "open_play"),
+  });
+
+  // Fetch coaches for "browse by coach" mode
+  const { data: coaches = [] } = useQuery<Coach[]>({
+    queryKey: ["/api/coaches"],
+    enabled: visible,
   });
 
   // Reset form on close
   const resetForm = useCallback(() => {
     setCurrentSlide(0);
     setSessionType("private");
+    setBrowseMode("by_time");
+    setSelectedCoachId(null);
     setSelectedDate(new Date());
     setSelectedLocationId(null);
     setDuration(60);
@@ -307,17 +325,20 @@ export default function PlayerBookingWizard({
       case 0:
         return !!sessionType;
       case 1:
-        return true; // Date is always set
+        // Browse mode slide - for "by_coach" need to select a coach
+        return browseMode === "by_time" || (browseMode === "by_coach" && !!selectedCoachId);
       case 2:
-        return !!selectedSlot || !!selectedSession;
+        return true; // Date is always set
       case 3:
-        return true; // Details optional
+        return !!selectedSlot || !!selectedSession;
       case 4:
+        return true; // Details optional
+      case 5:
         return true; // Confirm
       default:
         return false;
     }
-  }, [currentSlide, sessionType, selectedSlot, selectedSession]);
+  }, [currentSlide, sessionType, browseMode, selectedCoachId, selectedSlot, selectedSession]);
 
   // Create booking request mutation - always uses booking request flow
   // For joining an existing session, we include the sessionId in the request
@@ -456,7 +477,113 @@ export default function PlayerBookingWizard({
     </Animated.View>
   );
 
-  // SLIDE 1: When & Where
+  // SLIDE 1: How to Browse (by time or by coach)
+  const renderBrowseModeSlide = () => (
+    <Animated.View entering={FadeIn} style={styles.slideContent}>
+      <Text style={styles.slideSubtitle}>How would you like to find a session?</Text>
+      
+      <View style={styles.browseModeGrid}>
+        {/* Browse by Time option */}
+        <Pressable
+          onPress={() => {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+            setBrowseMode("by_time");
+            setSelectedCoachId(null);
+          }}
+          style={[
+            styles.browseModeCard,
+            browseMode === "by_time" && { borderColor: Colors.dark.xpCyan, borderWidth: 2 },
+          ]}
+        >
+          <LinearGradient
+            colors={browseMode === "by_time" ? [Colors.dark.xpCyan + "40", Colors.dark.xpCyan + "10"] : [Colors.dark.backgroundSecondary, Colors.dark.backgroundRoot]}
+            style={styles.browseModeCardGradient}
+          >
+            <View style={[styles.browseModeIcon, { backgroundColor: Colors.dark.xpCyan + "30" }]}>
+              <Ionicons name="calendar" size={36} color={Colors.dark.xpCyan} />
+            </View>
+            <Text style={[styles.browseModeLabel, browseMode === "by_time" && { color: Colors.dark.xpCyan }]}>
+              Browse by Time
+            </Text>
+            <Text style={styles.browseModeSubtitle}>See available courts & times first</Text>
+          </LinearGradient>
+        </Pressable>
+
+        {/* Browse by Coach option */}
+        <Pressable
+          onPress={() => {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+            setBrowseMode("by_coach");
+          }}
+          style={[
+            styles.browseModeCard,
+            browseMode === "by_coach" && { borderColor: Colors.dark.primary, borderWidth: 2 },
+          ]}
+        >
+          <LinearGradient
+            colors={browseMode === "by_coach" ? [Colors.dark.primary + "40", Colors.dark.primary + "10"] : [Colors.dark.backgroundSecondary, Colors.dark.backgroundRoot]}
+            style={styles.browseModeCardGradient}
+          >
+            <View style={[styles.browseModeIcon, { backgroundColor: Colors.dark.primary + "30" }]}>
+              <Ionicons name="person" size={36} color={Colors.dark.primary} />
+            </View>
+            <Text style={[styles.browseModeLabel, browseMode === "by_coach" && { color: Colors.dark.primary }]}>
+              Choose Coach
+            </Text>
+            <Text style={styles.browseModeSubtitle}>Select your preferred coach first</Text>
+          </LinearGradient>
+        </Pressable>
+      </View>
+
+      {/* Coach selection when "by_coach" is selected */}
+      {browseMode === "by_coach" && (
+        <Animated.View entering={FadeIn} style={styles.coachSelectionContainer}>
+          <Text style={styles.sectionTitle}>Select Your Coach</Text>
+          <ScrollView 
+            horizontal 
+            showsHorizontalScrollIndicator={false} 
+            style={styles.coachScroll}
+            contentContainerStyle={styles.coachScrollContent}
+          >
+            {coaches.map((coach) => {
+              const isSelected = selectedCoachId === coach.id;
+              return (
+                <Pressable
+                  key={coach.id}
+                  onPress={() => {
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                    setSelectedCoachId(coach.id);
+                  }}
+                  style={[styles.coachSelectionCard, isSelected && styles.coachSelectionCardSelected]}
+                >
+                  <View style={[styles.coachSelectionAvatar, { backgroundColor: coach.color || Colors.dark.primary }]}>
+                    {coach.profilePhotoUrl ? (
+                      <Image
+                        source={{ uri: `${getStaticAssetsUrl()}${coach.profilePhotoUrl}` }}
+                        style={styles.coachSelectionPhoto}
+                      />
+                    ) : (
+                      <Text style={styles.coachSelectionAvatarText}>
+                        {(coach.name || "C").charAt(0)}
+                      </Text>
+                    )}
+                  </View>
+                  <Text style={[styles.coachSelectionName, isSelected && { color: Colors.dark.primary }]}>
+                    {coach.name}
+                  </Text>
+                  {isSelected && (
+                    <Ionicons name="checkmark-circle" size={20} color={Colors.dark.primary} style={styles.coachCheckmark} />
+                  )}
+                </Pressable>
+              );
+            })}
+          </ScrollView>
+        </Animated.View>
+      )}
+    </Animated.View>
+  );
+
+  // SLIDE 2: When & Where
   const renderWhenWhereSlide = () => (
     <Animated.View entering={FadeIn} style={styles.slideContent}>
       <Text style={styles.slideSubtitle}>When do you want to play?</Text>
@@ -884,12 +1011,14 @@ export default function PlayerBookingWizard({
       case 0:
         return renderSessionTypeSlide();
       case 1:
-        return renderWhenWhereSlide();
+        return renderBrowseModeSlide();
       case 2:
-        return renderPickSessionSlide();
+        return renderWhenWhereSlide();
       case 3:
-        return renderDetailsSlide();
+        return renderPickSessionSlide();
       case 4:
+        return renderDetailsSlide();
+      case 5:
         return renderConfirmSlide();
       default:
         return null;
@@ -1184,6 +1313,91 @@ const styles = StyleSheet.create({
     position: "absolute",
     bottom: Spacing.md,
     left: 88,
+  },
+  browseModeGrid: {
+    gap: Spacing.md,
+  },
+  browseModeCard: {
+    borderRadius: BorderRadius.lg,
+    overflow: "hidden",
+    borderWidth: 1,
+    borderColor: Colors.dark.border,
+    marginBottom: Spacing.sm,
+  },
+  browseModeCardGradient: {
+    padding: Spacing.xl,
+    alignItems: "center",
+    gap: Spacing.md,
+  },
+  browseModeIcon: {
+    width: 72,
+    height: 72,
+    borderRadius: 36,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  browseModeLabel: {
+    fontSize: 20,
+    fontWeight: 700,
+    color: Colors.dark.text,
+  },
+  browseModeSubtitle: {
+    fontSize: 14,
+    color: Colors.dark.textSecondary,
+    textAlign: "center",
+  },
+  coachSelectionContainer: {
+    marginTop: Spacing.xl,
+  },
+  coachScroll: {
+    marginTop: Spacing.md,
+  },
+  coachScrollContent: {
+    paddingRight: Spacing.lg,
+  },
+  coachSelectionCard: {
+    alignItems: "center",
+    padding: Spacing.md,
+    marginRight: Spacing.md,
+    borderRadius: BorderRadius.lg,
+    backgroundColor: Colors.dark.backgroundSecondary,
+    borderWidth: 1,
+    borderColor: Colors.dark.border,
+    minWidth: 100,
+  },
+  coachSelectionCardSelected: {
+    borderColor: Colors.dark.primary,
+    backgroundColor: Colors.dark.primary + "15",
+  },
+  coachSelectionAvatar: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    alignItems: "center",
+    justifyContent: "center",
+    overflow: "hidden",
+  },
+  coachSelectionPhoto: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+  },
+  coachSelectionAvatarText: {
+    fontSize: 24,
+    fontWeight: 700,
+    color: Colors.dark.buttonText,
+  },
+  coachSelectionName: {
+    fontSize: 14,
+    fontWeight: 600,
+    color: Colors.dark.text,
+    marginTop: Spacing.sm,
+    textAlign: "center",
+  },
+  coachCheckmark: {
+    position: "absolute",
+    top: Spacing.sm,
+    right: Spacing.sm,
   },
   sectionHeader: {
     flexDirection: "row",
