@@ -139,12 +139,11 @@ const SESSION_TYPE_CARDS: {
   },
 ];
 
-const TOTAL_SLIDES = 6;
+const TOTAL_SLIDES = 5;
 const SLIDE_TITLES = [
   "Choose Your Mode",
   "How to Browse",
-  "When & Where",
-  "Pick Your Session",
+  "Find Your Session",
   "Details",
   "Confirm & Book",
 ];
@@ -210,6 +209,7 @@ export default function PlayerBookingWizard({
   });
 
   // Build availability query URL with params
+  // Note: We don't filter by locationId because coach_availability doesn't have location set
   const availabilityQueryUrl = useMemo(() => {
     const startDate = new Date(selectedDate);
     startDate.setHours(0, 0, 0, 0);
@@ -221,14 +221,13 @@ export default function PlayerBookingWizard({
       endDate: endDate.toISOString(),
       duration: duration.toString(),
     });
-    if (selectedLocationId) params.append("locationId", selectedLocationId);
     // When browsing by coach, filter to that coach only
     if (browseMode === "by_coach" && selectedCoachId) {
       params.append("coachId", selectedCoachId);
     }
     
     return `/api/player/availability?${params}`;
-  }, [selectedDate, duration, selectedLocationId, browseMode, selectedCoachId]);
+  }, [selectedDate, duration, browseMode, selectedCoachId]);
 
   // Fetch available slots using default queryFn
   // Enable when on slide 2 (When & Where) or later
@@ -328,12 +327,11 @@ export default function PlayerBookingWizard({
         // Browse mode slide - for "by_coach" need to select a coach
         return browseMode === "by_time" || (browseMode === "by_coach" && !!selectedCoachId);
       case 2:
-        return true; // Date is always set
-      case 3:
+        // Find Session slide - need to select a slot or session
         return !!selectedSlot || !!selectedSession;
-      case 4:
+      case 3:
         return true; // Details optional
-      case 5:
+      case 4:
         return true; // Confirm
       default:
         return false;
@@ -583,109 +581,8 @@ export default function PlayerBookingWizard({
     </Animated.View>
   );
 
-  // SLIDE 2: When & Where
-  const renderWhenWhereSlide = () => (
-    <Animated.View entering={FadeIn} style={styles.slideContent}>
-      <Text style={styles.slideSubtitle}>When do you want to play?</Text>
-
-      {/* Location Selector */}
-      <View style={styles.sectionHeader}>
-        <Ionicons name="location" size={18} color={Colors.dark.xpCyan} />
-        <Text style={styles.sectionTitle}>Location</Text>
-      </View>
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.locationScroll}>
-        <Pressable
-          style={[styles.locationChip, !selectedLocationId && styles.locationChipSelected]}
-          onPress={() => {
-            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-            setSelectedLocationId(null);
-          }}
-        >
-          <Ionicons name="globe" size={16} color={!selectedLocationId ? Colors.dark.xpCyan : Colors.dark.textSecondary} />
-          <Text style={[styles.locationChipText, !selectedLocationId && styles.locationChipTextSelected]}>
-            All Locations
-          </Text>
-        </Pressable>
-        {locations.map((loc) => (
-          <Pressable
-            key={loc.id}
-            style={[styles.locationChip, selectedLocationId === loc.id && styles.locationChipSelected]}
-            onPress={() => {
-              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-              setSelectedLocationId(loc.id);
-            }}
-          >
-            <Ionicons name="pin" size={16} color={selectedLocationId === loc.id ? Colors.dark.xpCyan : Colors.dark.textSecondary} />
-            <Text style={[styles.locationChipText, selectedLocationId === loc.id && styles.locationChipTextSelected]}>
-              {loc.name}
-            </Text>
-          </Pressable>
-        ))}
-      </ScrollView>
-
-      {/* Date Selector */}
-      <View style={styles.sectionHeader}>
-        <Ionicons name="calendar" size={18} color={Colors.dark.xpCyan} />
-        <Text style={styles.sectionTitle}>Date</Text>
-      </View>
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.dateScroll}>
-        {[0, 1, 2, 3, 4, 5, 6].map((offset) => {
-          const date = new Date();
-          date.setDate(date.getDate() + offset);
-          const isSelected = date.toDateString() === selectedDate.toDateString();
-          return (
-            <Pressable
-              key={offset}
-              style={[styles.dateChip, isSelected && styles.dateChipSelected]}
-              onPress={() => {
-                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                setSelectedDate(date);
-              }}
-            >
-              <Text style={[styles.dateChipDay, isSelected && styles.dateChipTextSelected]}>
-                {offset === 0 ? "Today" : offset === 1 ? "Tomorrow" : date.toLocaleDateString([], { weekday: "short" })}
-              </Text>
-              <Text style={[styles.dateChipDate, isSelected && styles.dateChipTextSelected]}>
-                {date.getDate()}
-              </Text>
-            </Pressable>
-          );
-        })}
-        <Pressable style={styles.dateChip} onPress={() => setShowCalendarModal(true)}>
-          <Ionicons name="calendar-outline" size={20} color={Colors.dark.textSecondary} />
-          <Text style={styles.dateChipDay}>More</Text>
-        </Pressable>
-      </ScrollView>
-
-      {/* Duration Selector */}
-      <View style={styles.sectionHeader}>
-        <Ionicons name="time" size={18} color={Colors.dark.xpCyan} />
-        <Text style={styles.sectionTitle}>Duration</Text>
-      </View>
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.durationScroll}>
-        {DURATIONS.map((dur) => {
-          const isSelected = duration === dur;
-          return (
-            <Pressable
-              key={dur}
-              style={[styles.durationChip, isSelected && styles.durationChipSelected]}
-              onPress={() => {
-                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                setDuration(dur);
-              }}
-            >
-              <Text style={[styles.durationChipText, isSelected && styles.durationChipTextSelected]}>
-                {dur} min
-              </Text>
-            </Pressable>
-          );
-        })}
-      </ScrollView>
-    </Animated.View>
-  );
-
-  // SLIDE 2: Pick Your Session
-  const renderPickSessionSlide = () => {
+  // SLIDE 2: Find Your Session (combined date/duration + available slots)
+  const renderFindSessionSlide = () => {
     const isLoading = slotsLoading || sessionsLoading;
 
     // Combine joinable sessions and available slots for display
@@ -693,17 +590,81 @@ export default function PlayerBookingWizard({
 
     return (
       <Animated.View entering={FadeIn} style={styles.slideContent}>
-        <Text style={styles.slideSubtitle}>
-          {showJoinable ? "Join a group or request new session" : "Available times"}
-        </Text>
-
-        {isLoading ? (
-          <View style={styles.loadingContainer}>
-            <ActivityIndicator size="large" color={Colors.dark.xpCyan} />
-            <Text style={styles.loadingText}>Finding sessions...</Text>
+        <ScrollView showsVerticalScrollIndicator={false} style={{ flex: 1 }}>
+          {/* Date Selector */}
+          <View style={styles.sectionHeader}>
+            <Ionicons name="calendar" size={18} color={Colors.dark.xpCyan} />
+            <Text style={styles.sectionTitle}>Date</Text>
           </View>
-        ) : (
-          <ScrollView showsVerticalScrollIndicator={false} style={styles.sessionsList}>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.dateScroll}>
+            {[0, 1, 2, 3, 4, 5, 6].map((offset) => {
+              const date = new Date();
+              date.setDate(date.getDate() + offset);
+              const isSelected = date.toDateString() === selectedDate.toDateString();
+              return (
+                <Pressable
+                  key={offset}
+                  style={[styles.dateChip, isSelected && styles.dateChipSelected]}
+                  onPress={() => {
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                    setSelectedDate(date);
+                  }}
+                >
+                  <Text style={[styles.dateChipDay, isSelected && styles.dateChipTextSelected]}>
+                    {offset === 0 ? "Today" : offset === 1 ? "Tomorrow" : date.toLocaleDateString([], { weekday: "short" })}
+                  </Text>
+                  <Text style={[styles.dateChipDate, isSelected && styles.dateChipTextSelected]}>
+                    {date.getDate()}
+                  </Text>
+                </Pressable>
+              );
+            })}
+            <Pressable style={styles.dateChip} onPress={() => setShowCalendarModal(true)}>
+              <Ionicons name="calendar-outline" size={20} color={Colors.dark.textSecondary} />
+              <Text style={styles.dateChipDay}>More</Text>
+            </Pressable>
+          </ScrollView>
+
+          {/* Duration Selector */}
+          <View style={styles.sectionHeader}>
+            <Ionicons name="time" size={18} color={Colors.dark.xpCyan} />
+            <Text style={styles.sectionTitle}>Duration</Text>
+          </View>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.durationScroll}>
+            {DURATIONS.map((dur) => {
+              const isSelected = duration === dur;
+              return (
+                <Pressable
+                  key={dur}
+                  style={[styles.durationChip, isSelected && styles.durationChipSelected]}
+                  onPress={() => {
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                    setDuration(dur);
+                  }}
+                >
+                  <Text style={[styles.durationChipText, isSelected && styles.durationChipTextSelected]}>
+                    {dur} min
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </ScrollView>
+
+          {/* Available Sessions Section */}
+          <View style={[styles.sectionHeader, { marginTop: Spacing.lg }]}>
+            <Ionicons name="tennisball" size={18} color={Colors.dark.xpCyan} />
+            <Text style={styles.sectionTitle}>
+              {showJoinable ? "Available Sessions" : "Available Times"}
+            </Text>
+          </View>
+
+          {isLoading ? (
+            <View style={styles.loadingContainer}>
+              <ActivityIndicator size="large" color={Colors.dark.xpCyan} />
+              <Text style={styles.loadingText}>Finding sessions...</Text>
+            </View>
+          ) : (
+            <>
             {/* Joinable Sessions */}
             {showJoinable && joinableSessions.length > 0 && (
               <>
@@ -840,12 +801,13 @@ export default function PlayerBookingWizard({
                 <Ionicons name="calendar-outline" size={48} color={Colors.dark.textSecondary} />
                 <Text style={styles.emptyStateTitle}>No sessions available</Text>
                 <Text style={styles.emptyStateText}>
-                  Try a different date or location
+                  Try a different date or duration
                 </Text>
               </View>
             )}
-          </ScrollView>
-        )}
+            </>
+          )}
+        </ScrollView>
       </Animated.View>
     );
   };
@@ -1013,12 +975,10 @@ export default function PlayerBookingWizard({
       case 1:
         return renderBrowseModeSlide();
       case 2:
-        return renderWhenWhereSlide();
+        return renderFindSessionSlide();
       case 3:
-        return renderPickSessionSlide();
-      case 4:
         return renderDetailsSlide();
-      case 5:
+      case 4:
         return renderConfirmSlide();
       default:
         return null;
