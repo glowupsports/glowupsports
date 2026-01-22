@@ -13,6 +13,7 @@ import {
   ScrollView,
 } from "react-native";
 import { Image } from "expo-image";
+import { useNavigation } from "@react-navigation/native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
 import { BlurView } from "expo-blur";
@@ -158,6 +159,7 @@ export default function PlayerBookingWizard({
   const insets = useSafeAreaInsets();
   const queryClient = useQueryClient();
 
+  const navigation = useNavigation<any>();
   // Current slide (0-4)
   const [currentSlide, setCurrentSlide] = useState(0);
 
@@ -756,6 +758,17 @@ export default function PlayerBookingWizard({
               keyboardType="email-address"
               autoCapitalize="none"
             />
+            <TouchableOpacity
+              style={styles.browseFriendsButton}
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                onClose();
+                navigation.navigate("PlayerTabs", { screen: "PlayStack", params: { screen: "Players" } });
+              }}
+            >
+              <Ionicons name="people-outline" size={16} color={Colors.dark.electricGreen} />
+              <Text style={styles.browseFriendsText}>Browse Friends on Glow</Text>
+            </TouchableOpacity>
           </View>
         )}
       </View>
@@ -1497,6 +1510,19 @@ const styles = StyleSheet.create({
     borderColor: Colors.dark.border,
     minHeight: 80,
     textAlignVertical: "top",
+  },
+  browseFriendsButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    marginTop: Spacing.sm,
+    paddingVertical: Spacing.sm,
+    gap: 6,
+  },
+  browseFriendsText: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: Colors.dark.electricGreen,
   },
   confirmCard: {
     borderRadius: BorderRadius.lg,
