@@ -79,7 +79,7 @@ interface ContextOption {
 const CONTEXT_OPTIONS: ContextOption[] = [
   { type: "training", label: "Training", icon: "tennisball", color: "#9AE66E" },
   { type: "match", label: "Match", icon: "trophy", color: "#FFD700" },
-  { type: "event", label: "Event", icon: "calendar", color: "#FF6B35" },
+  { type: "event", label: "At Event", icon: "calendar", color: "#FF6B35" },
   { type: "group", label: "Group", icon: "people", color: "#4ECDC4" },
   { type: "achievement", label: "Achievement", icon: "ribbon", color: "#E040FB" },
   { type: "free_play", label: "Free Play", icon: "basketball", color: "#00D9FF" },
@@ -518,7 +518,19 @@ interface NewsItem {
   category: "atp" | "wta" | "general";
 }
 
-function AchievementShowcase() {
+interface FriendActivity {
+  id: string;
+  playerId: string;
+  playerName: string;
+  level: number;
+  type: string;
+  caption: string;
+  time: string;
+  cheers: number;
+  photoUrl?: string;
+}
+
+function AchievementShowcase({ onSelectAchievement }: { onSelectAchievement: (achievement: Achievement) => void }) {
   const insets = useSafeAreaInsets();
   const tabBarHeight = useBottomTabBarHeight();
   const { user } = useAuth();
@@ -565,55 +577,59 @@ function AchievementShowcase() {
     const gradient = getAchievementGradient(item.type);
     
     return (
-      <Animated.View entering={FadeInDown.delay(100)} style={achievementStyles.cardContainer}>
-        <LinearGradient
-          colors={[gradient[0] + "15", gradient[1] + "08"]}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={achievementStyles.card}
-        >
-          <View style={achievementStyles.cardHeader}>
-            <LinearGradient
-              colors={gradient}
-              style={achievementStyles.iconContainer}
-            >
-              <Ionicons name={item.icon as any} size={24} color="#000" />
-            </LinearGradient>
-            <View style={achievementStyles.headerText}>
-              <ThemedText style={[achievementStyles.title, { color: gradient[0] }]}>
-                {item.title}
-              </ThemedText>
-              <ThemedText style={achievementStyles.date}>
-                {formatTimeAgo(item.date)}
-              </ThemedText>
-            </View>
-            {item.value ? (
-              <View style={[achievementStyles.valueBadge, { backgroundColor: gradient[0] }]}>
-                <ThemedText style={achievementStyles.valueText}>{item.value}</ThemedText>
-              </View>
-            ) : null}
-          </View>
-          
-          <ThemedText style={achievementStyles.description}>
-            {item.description}
-          </ThemedText>
-          
-          <Pressable
-            style={achievementStyles.shareButton}
-            onPress={() => handleShare(item)}
+      <Pressable 
+        onPress={() => {
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+          onSelectAchievement(item);
+        }}
+      >
+        <Animated.View entering={FadeInDown.delay(100)} style={achievementStyles.cardContainer}>
+          <LinearGradient
+            colors={[gradient[0] + "15", gradient[1] + "08"]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={achievementStyles.card}
           >
-            <LinearGradient
-              colors={gradient}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 0 }}
-              style={achievementStyles.shareGradient}
-            >
-              <Ionicons name="share-social" size={16} color="#000" />
-              <ThemedText style={achievementStyles.shareText}>Share to Story</ThemedText>
-            </LinearGradient>
-          </Pressable>
-        </LinearGradient>
-      </Animated.View>
+            <View style={achievementStyles.cardHeader}>
+              <LinearGradient
+                colors={gradient}
+                style={achievementStyles.iconContainer}
+              >
+                <Ionicons name={item.icon as any} size={24} color="#000" />
+              </LinearGradient>
+              <View style={achievementStyles.headerText}>
+                <ThemedText style={[achievementStyles.title, { color: gradient[0] }]}>
+                  {item.title}
+                </ThemedText>
+                <ThemedText style={achievementStyles.date}>
+                  {formatTimeAgo(item.date)}
+                </ThemedText>
+              </View>
+              {item.value ? (
+                <View style={[achievementStyles.valueBadge, { backgroundColor: gradient[0] }]}>
+                  <ThemedText style={achievementStyles.valueText}>{item.value}</ThemedText>
+                </View>
+              ) : null}
+            </View>
+            
+            <ThemedText style={achievementStyles.description}>
+              {item.description}
+            </ThemedText>
+            
+            <View style={achievementStyles.shareButton}>
+              <LinearGradient
+                colors={gradient}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+                style={achievementStyles.shareGradient}
+              >
+                <Ionicons name="share-social" size={16} color="#000" />
+                <ThemedText style={achievementStyles.shareText}>Share to Story</ThemedText>
+              </LinearGradient>
+            </View>
+          </LinearGradient>
+        </Animated.View>
+      </Pressable>
     );
   };
   
@@ -762,7 +778,7 @@ function NewsSection() {
   );
 }
 
-function FriendsSection({ onChallenge }: { onChallenge?: (friend: Friend) => void }) {
+function FriendsSection({ onChallenge, onSelectActivity }: { onChallenge?: (friend: Friend) => void; onSelectActivity?: (activity: FriendActivity) => void }) {
   const navigation = useNavigation<any>();
   const insets = useSafeAreaInsets();
   const tabBarHeight = useBottomTabBarHeight();
@@ -919,9 +935,26 @@ function FriendsSection({ onChallenge }: { onChallenge?: (friend: Friend) => voi
   const renderActivityCard = (post: Post) => {
     const badgeStyle = CONTEXT_BADGE_STYLES[post.contextType] || CONTEXT_BADGE_STYLES.training;
     
+    const handleOpenDetail = () => {
+      if (onSelectActivity) {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+        onSelectActivity({
+          id: post.id,
+          playerId: post.authorId,
+          playerName: post.author.name || "Unknown",
+          level: post.author.level || 1,
+          type: post.contextType,
+          caption: post.caption || "",
+          time: formatTimeAgo(post.createdAt),
+          cheers: post.cheerCount,
+          photoUrl: post.author.photoUrl,
+        });
+      }
+    };
+    
     return (
       <Animated.View key={post.id} entering={FadeInDown.delay(100).springify()}>
-        <View style={styles.activityCard}>
+        <Pressable style={styles.activityCard} onPress={handleOpenDetail}>
           <View style={styles.activityHeader}>
             <View style={styles.activityAvatarContainer}>
               {post.author.photoUrl ? (
@@ -967,11 +1000,11 @@ function FriendsSection({ onChallenge }: { onChallenge?: (friend: Friend) => voi
               <Ionicons name="flame" size={14} color={Colors.dark.primary} />
               <ThemedText style={styles.activityReactionCount}>{post.cheerCount}</ThemedText>
             </View>
-            <Pressable style={styles.activityCheerBtn}>
+            <Pressable style={styles.activityCheerBtn} onPress={(e) => e.stopPropagation()}>
               <ThemedText style={styles.activityCheerText}>Cheer</ThemedText>
             </Pressable>
           </View>
-        </View>
+        </Pressable>
       </Animated.View>
     );
   };
@@ -1440,6 +1473,917 @@ function CommentsModal({ visible, postId, onClose }: CommentsModalProps) {
   );
 }
 
+// Share Preview Modal - For sharing achievements with photo, caption, and background templates
+interface SharePreviewModalProps {
+  visible: boolean;
+  achievement: Achievement | null;
+  onClose: () => void;
+}
+
+const SHARE_BACKGROUNDS = [
+  { id: "neon", name: "Neon Glow", colors: ["#0B0D10", "#1a1a2e", "#16213e"] as const },
+  { id: "court", name: "Court Green", colors: ["#0B0D10", "#0d2818", "#1e4d2b"] as const },
+  { id: "gold", name: "Champion Gold", colors: ["#0B0D10", "#2d1f00", "#4a3200"] as const },
+  { id: "purple", name: "Royal Purple", colors: ["#0B0D10", "#1a0a2e", "#2d1b4e"] as const },
+  { id: "fire", name: "On Fire", colors: ["#0B0D10", "#2d0a00", "#4a1a00"] as const },
+];
+
+function SharePreviewModal({ visible, achievement, onClose }: SharePreviewModalProps) {
+  const insets = useSafeAreaInsets();
+  const [selectedBg, setSelectedBg] = useState(SHARE_BACKGROUNDS[0]);
+  const [caption, setCaption] = useState("");
+  const [selectedPhoto, setSelectedPhoto] = useState<string | null>(null);
+  const [isSharing, setIsSharing] = useState(false);
+  const { user } = useAuth();
+  
+  useEffect(() => {
+    if (visible && achievement) {
+      setCaption(`${achievement.title} - ${achievement.description}`);
+    }
+  }, [visible, achievement]);
+  
+  const handlePickPhoto = async () => {
+    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!permission.granted) {
+      Alert.alert("Permission needed", "Please allow access to your photos.");
+      return;
+    }
+    
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      aspect: [9, 16],
+      quality: 0.8,
+    });
+    
+    if (!result.canceled && result.assets[0]) {
+      setSelectedPhoto(result.assets[0].uri);
+    }
+  };
+  
+  const handleTakePhoto = async () => {
+    const permission = await ImagePicker.requestCameraPermissionsAsync();
+    if (!permission.granted) {
+      Alert.alert("Permission needed", "Please allow access to your camera.");
+      return;
+    }
+    
+    const result = await ImagePicker.launchCameraAsync({
+      allowsEditing: true,
+      aspect: [9, 16],
+      quality: 0.8,
+    });
+    
+    if (!result.canceled && result.assets[0]) {
+      setSelectedPhoto(result.assets[0].uri);
+    }
+  };
+  
+  const handleShare = async () => {
+    if (!achievement) return;
+    setIsSharing(true);
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    
+    try {
+      const shareMessage = `${caption}\n\nAchieved on Glow Up Tennis`;
+      await Share.share({
+        message: shareMessage,
+        title: achievement.title,
+      });
+    } catch (error) {
+      console.error("Share error:", error);
+    } finally {
+      setIsSharing(false);
+    }
+  };
+  
+  const handleClose = () => {
+    setSelectedPhoto(null);
+    setCaption("");
+    setSelectedBg(SHARE_BACKGROUNDS[0]);
+    onClose();
+  };
+  
+  const gradient: [string, string] = achievement ? (
+    achievement.type === "match_won" ? ["#FFD700", "#FF8C00"] :
+    achievement.type === "level_up" ? ["#C8FF3D", "#7CFC00"] :
+    achievement.type === "streak" ? ["#FF6B35", "#FF4500"] :
+    achievement.type === "badge" ? ["#E040FB", "#9C27B0"] :
+    ["#00E5FF", "#00BFFF"]
+  ) : ["#C8FF3D", "#7CFC00"];
+  
+  if (!visible || !achievement) return null;
+  
+  return (
+    <Modal
+      visible={visible}
+      animationType="slide"
+      presentationStyle="pageSheet"
+      onRequestClose={handleClose}
+    >
+      <View style={shareStyles.container}>
+        <LinearGradient
+          colors={selectedBg.colors as unknown as readonly [string, string, ...string[]]}
+          style={StyleSheet.absoluteFill}
+        />
+        
+        <View style={[shareStyles.header, { paddingTop: insets.top + Spacing.sm }]}>
+          <Pressable onPress={handleClose} style={shareStyles.closeBtn}>
+            <Ionicons name="close" size={24} color={Colors.dark.text} />
+          </Pressable>
+          <ThemedText style={shareStyles.headerTitle}>Share Achievement</ThemedText>
+          <View style={{ width: 40 }} />
+        </View>
+        
+        <ScrollView 
+          style={shareStyles.content}
+          contentContainerStyle={shareStyles.contentContainer}
+          showsVerticalScrollIndicator={false}
+        >
+          {/* Preview Card */}
+          <View style={shareStyles.previewCard}>
+            <LinearGradient
+              colors={selectedBg.colors as unknown as readonly [string, string, ...string[]]}
+              style={shareStyles.previewGradient}
+            >
+              {/* Photo area */}
+              {selectedPhoto ? (
+                <Pressable onPress={handlePickPhoto} style={shareStyles.photoContainer}>
+                  <Image source={{ uri: selectedPhoto }} style={shareStyles.photo} contentFit="cover" />
+                  <View style={shareStyles.photoOverlay}>
+                    <Ionicons name="camera" size={24} color="#fff" />
+                    <ThemedText style={shareStyles.photoOverlayText}>Change Photo</ThemedText>
+                  </View>
+                </Pressable>
+              ) : (
+                <View style={shareStyles.photoPlaceholder}>
+                  <View style={shareStyles.photoActions}>
+                    <Pressable style={shareStyles.photoBtn} onPress={handleTakePhoto}>
+                      <Ionicons name="camera" size={28} color={Colors.dark.primary} />
+                      <ThemedText style={shareStyles.photoBtnText}>Camera</ThemedText>
+                    </Pressable>
+                    <Pressable style={shareStyles.photoBtn} onPress={handlePickPhoto}>
+                      <Ionicons name="images" size={28} color={Colors.dark.primary} />
+                      <ThemedText style={shareStyles.photoBtnText}>Gallery</ThemedText>
+                    </Pressable>
+                  </View>
+                  <ThemedText style={shareStyles.photoHint}>Add a photo to personalize</ThemedText>
+                </View>
+              )}
+              
+              {/* Achievement info */}
+              <View style={shareStyles.achievementInfo}>
+                <LinearGradient
+                  colors={gradient as readonly [string, string, ...string[]]}
+                  style={shareStyles.achievementIcon}
+                >
+                  <Ionicons name={achievement.icon as any} size={32} color="#000" />
+                </LinearGradient>
+                
+                <ThemedText style={[shareStyles.achievementTitle, { color: gradient[0] }]}>
+                  {achievement.title}
+                </ThemedText>
+                
+                {achievement.value ? (
+                  <View style={[shareStyles.achievementValue, { backgroundColor: gradient[0] }]}>
+                    <ThemedText style={shareStyles.achievementValueText}>{achievement.value}</ThemedText>
+                  </View>
+                ) : null}
+                
+                <ThemedText style={shareStyles.achievementDesc}>{achievement.description}</ThemedText>
+              </View>
+              
+              {/* User badge */}
+              <View style={shareStyles.userBadge}>
+                <View style={[shareStyles.userAvatar, { backgroundColor: gradient[0] }]}>
+                  <ThemedText style={shareStyles.userAvatarText}>
+                    {(user?.username || "P").charAt(0).toUpperCase()}
+                  </ThemedText>
+                </View>
+                <View>
+                  <ThemedText style={shareStyles.userName}>{user?.username || "Player"}</ThemedText>
+                  <ThemedText style={shareStyles.appBrand}>Glow Up Tennis</ThemedText>
+                </View>
+              </View>
+            </LinearGradient>
+          </View>
+          
+          {/* Caption Input */}
+          <View style={shareStyles.captionSection}>
+            <ThemedText style={shareStyles.sectionTitle}>Caption</ThemedText>
+            <TextInput
+              style={shareStyles.captionInput}
+              value={caption}
+              onChangeText={setCaption}
+              placeholder="Write something about this achievement..."
+              placeholderTextColor={Colors.dark.textMuted}
+              multiline
+              maxLength={280}
+            />
+            <ThemedText style={shareStyles.charCount}>{caption.length}/280</ThemedText>
+          </View>
+          
+          {/* Background Selection */}
+          <View style={shareStyles.bgSection}>
+            <ThemedText style={shareStyles.sectionTitle}>Background</ThemedText>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+              <View style={shareStyles.bgOptions}>
+                {SHARE_BACKGROUNDS.map((bg) => (
+                  <Pressable
+                    key={bg.id}
+                    style={[
+                      shareStyles.bgOption,
+                      selectedBg.id === bg.id && shareStyles.bgOptionActive
+                    ]}
+                    onPress={() => {
+                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                      setSelectedBg(bg);
+                    }}
+                  >
+                    <LinearGradient
+                      colors={bg.colors as unknown as readonly [string, string, ...string[]]}
+                      style={shareStyles.bgOptionGradient}
+                    />
+                    <ThemedText style={shareStyles.bgOptionName}>{bg.name}</ThemedText>
+                  </Pressable>
+                ))}
+              </View>
+            </ScrollView>
+          </View>
+        </ScrollView>
+        
+        {/* Share Buttons */}
+        <View style={[shareStyles.footer, { paddingBottom: insets.bottom + Spacing.md }]}>
+          <Pressable
+            style={shareStyles.shareBtn}
+            onPress={handleShare}
+            disabled={isSharing}
+          >
+            <LinearGradient
+              colors={["#C8FF3D", "#7CFC00"]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+              style={shareStyles.shareBtnGradient}
+            >
+              {isSharing ? (
+                <ActivityIndicator size="small" color="#000" />
+              ) : (
+                <>
+                  <Ionicons name="share-social" size={20} color="#000" />
+                  <ThemedText style={shareStyles.shareBtnText}>Share to Story</ThemedText>
+                </>
+              )}
+            </LinearGradient>
+          </Pressable>
+        </View>
+      </View>
+    </Modal>
+  );
+}
+
+const shareStyles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: Colors.dark.backgroundRoot,
+  },
+  header: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: Spacing.lg,
+    paddingBottom: Spacing.md,
+  },
+  closeBtn: {
+    width: 40,
+    height: 40,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  headerTitle: {
+    fontSize: 18,
+    fontWeight: "600",
+    color: Colors.dark.text,
+  },
+  content: {
+    flex: 1,
+  },
+  contentContainer: {
+    padding: Spacing.lg,
+    gap: Spacing.xl,
+  },
+  previewCard: {
+    borderRadius: BorderRadius.xl,
+    overflow: "hidden",
+    borderWidth: 1,
+    borderColor: Colors.dark.border,
+  },
+  previewGradient: {
+    padding: Spacing.lg,
+    gap: Spacing.lg,
+  },
+  photoContainer: {
+    aspectRatio: 1,
+    borderRadius: BorderRadius.lg,
+    overflow: "hidden",
+  },
+  photo: {
+    width: "100%",
+    height: "100%",
+  },
+  photoOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: "rgba(0,0,0,0.4)",
+    alignItems: "center",
+    justifyContent: "center",
+    opacity: 0,
+  },
+  photoOverlayText: {
+    color: "#fff",
+    fontSize: 12,
+    marginTop: 4,
+  },
+  photoPlaceholder: {
+    aspectRatio: 16 / 9,
+    backgroundColor: Colors.dark.backgroundTertiary,
+    borderRadius: BorderRadius.lg,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 2,
+    borderStyle: "dashed",
+    borderColor: Colors.dark.border,
+  },
+  photoActions: {
+    flexDirection: "row",
+    gap: Spacing.xl,
+  },
+  photoBtn: {
+    alignItems: "center",
+    gap: 4,
+  },
+  photoBtnText: {
+    fontSize: 12,
+    color: Colors.dark.textSecondary,
+  },
+  photoHint: {
+    fontSize: 12,
+    color: Colors.dark.textMuted,
+    marginTop: Spacing.md,
+  },
+  achievementInfo: {
+    alignItems: "center",
+    gap: Spacing.sm,
+  },
+  achievementIcon: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  achievementTitle: {
+    fontSize: 24,
+    fontWeight: "700",
+    textAlign: "center",
+  },
+  achievementValue: {
+    paddingHorizontal: Spacing.md,
+    paddingVertical: 4,
+    borderRadius: BorderRadius.sm,
+  },
+  achievementValueText: {
+    fontSize: 14,
+    fontWeight: "700",
+    color: "#000",
+  },
+  achievementDesc: {
+    fontSize: 14,
+    color: Colors.dark.textSecondary,
+    textAlign: "center",
+  },
+  userBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+    alignSelf: "center",
+    marginTop: Spacing.md,
+  },
+  userAvatar: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  userAvatarText: {
+    fontSize: 16,
+    fontWeight: "700",
+    color: "#000",
+  },
+  userName: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: Colors.dark.text,
+  },
+  appBrand: {
+    fontSize: 11,
+    color: Colors.dark.primary,
+  },
+  captionSection: {
+    gap: Spacing.sm,
+  },
+  sectionTitle: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: Colors.dark.textSecondary,
+  },
+  captionInput: {
+    backgroundColor: Colors.dark.backgroundSecondary,
+    borderRadius: BorderRadius.md,
+    padding: Spacing.md,
+    color: Colors.dark.text,
+    fontSize: 15,
+    minHeight: 80,
+    textAlignVertical: "top",
+  },
+  charCount: {
+    fontSize: 11,
+    color: Colors.dark.textMuted,
+    textAlign: "right",
+  },
+  bgSection: {
+    gap: Spacing.sm,
+  },
+  bgOptions: {
+    flexDirection: "row",
+    gap: Spacing.sm,
+  },
+  bgOption: {
+    width: 80,
+    alignItems: "center",
+    gap: 4,
+  },
+  bgOptionActive: {
+    opacity: 1,
+  },
+  bgOptionGradient: {
+    width: 60,
+    height: 60,
+    borderRadius: BorderRadius.md,
+    borderWidth: 2,
+    borderColor: "transparent",
+  },
+  bgOptionName: {
+    fontSize: 10,
+    color: Colors.dark.textSecondary,
+    textAlign: "center",
+  },
+  footer: {
+    padding: Spacing.lg,
+    borderTopWidth: 1,
+    borderTopColor: Colors.dark.border,
+  },
+  shareBtn: {
+    borderRadius: BorderRadius.lg,
+    overflow: "hidden",
+  },
+  shareBtnGradient: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: Spacing.sm,
+    paddingVertical: Spacing.md,
+  },
+  shareBtnText: {
+    fontSize: 16,
+    fontWeight: "700",
+    color: "#000",
+  },
+});
+
+// Post Detail Modal - For viewing friend activity posts with comments
+interface PostDetailModalProps {
+  visible: boolean;
+  post: FriendActivity | null;
+  onClose: () => void;
+  onCheer: (postId: string) => void;
+}
+
+function PostDetailModal({ visible, post, onClose, onCheer }: PostDetailModalProps) {
+  const insets = useSafeAreaInsets();
+  const [commentText, setCommentText] = useState("");
+  const [comments, setComments] = useState<{ id: string; author: string; text: string; time: string; likes: number }[]>([]);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  
+  // Mock comments for now
+  useEffect(() => {
+    if (visible && post) {
+      setComments([
+        { id: "1", author: "Coach Mike", text: "Great job! Keep it up!", time: "2m", likes: 3 },
+        { id: "2", author: "Sarah M.", text: "Congrats! That was an amazing match!", time: "5m", likes: 1 },
+      ]);
+    }
+  }, [visible, post]);
+  
+  const handleSubmitComment = () => {
+    if (!commentText.trim()) return;
+    setIsSubmitting(true);
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    
+    setComments(prev => [
+      ...prev,
+      { id: Date.now().toString(), author: "You", text: commentText.trim(), time: "now", likes: 0 }
+    ]);
+    setCommentText("");
+    setIsSubmitting(false);
+  };
+  
+  const getContextStyle = (type: string) => {
+    return CONTEXT_BADGE_STYLES[type] || CONTEXT_BADGE_STYLES.training;
+  };
+  
+  const getContextLabel = (type: string) => {
+    switch (type) {
+      case "match_won": return "Match Won";
+      case "level_up": return "Level Up";
+      case "training": return "Training";
+      case "free_play": return "Free Play";
+      default: return type.replace("_", " ");
+    }
+  };
+  
+  if (!visible || !post) return null;
+  
+  const contextStyle = getContextStyle(post.type);
+  
+  return (
+    <Modal
+      visible={visible}
+      animationType="slide"
+      presentationStyle="pageSheet"
+      onRequestClose={onClose}
+    >
+      <View style={postDetailStyles.container}>
+        <LinearGradient
+          colors={[Colors.dark.backgroundRoot, "#0a1a2e", Colors.dark.backgroundRoot]}
+          style={StyleSheet.absoluteFill}
+        />
+        
+        <View style={[postDetailStyles.header, { paddingTop: insets.top + Spacing.sm }]}>
+          <Pressable onPress={onClose} style={postDetailStyles.closeBtn}>
+            <Ionicons name="close" size={24} color={Colors.dark.text} />
+          </Pressable>
+          <ThemedText style={postDetailStyles.headerTitle}>Post</ThemedText>
+          <View style={{ width: 40 }} />
+        </View>
+        
+        <ScrollView style={postDetailStyles.content} showsVerticalScrollIndicator={false}>
+          {/* Main Post */}
+          <View style={postDetailStyles.postCard}>
+            {/* Author header */}
+            <View style={postDetailStyles.authorRow}>
+              <View style={[postDetailStyles.avatar, { backgroundColor: Colors.dark.primary }]}>
+                <ThemedText style={postDetailStyles.avatarText}>
+                  {post.playerName.charAt(0).toUpperCase()}
+                </ThemedText>
+              </View>
+              <View style={postDetailStyles.authorInfo}>
+                <View style={postDetailStyles.nameRow}>
+                  <ThemedText style={postDetailStyles.authorName}>{post.playerName}</ThemedText>
+                  <View style={[postDetailStyles.levelBadge, { backgroundColor: Colors.dark.primary }]}>
+                    <ThemedText style={postDetailStyles.levelText}>Lvl {post.level}</ThemedText>
+                  </View>
+                </View>
+                <View style={postDetailStyles.contextRow}>
+                  <View style={[postDetailStyles.contextBadge, { backgroundColor: contextStyle.bg }]}>
+                    <Ionicons name={contextStyle.icon as any} size={12} color={contextStyle.text} />
+                    <ThemedText style={[postDetailStyles.contextText, { color: contextStyle.text }]}>
+                      {getContextLabel(post.type)}
+                    </ThemedText>
+                  </View>
+                  <ThemedText style={postDetailStyles.time}>{post.time}</ThemedText>
+                </View>
+              </View>
+            </View>
+            
+            {/* Caption */}
+            <ThemedText style={postDetailStyles.caption}>{post.caption}</ThemedText>
+            
+            {/* Actions */}
+            <View style={postDetailStyles.actions}>
+              <View style={postDetailStyles.reactions}>
+                <ThemedText style={postDetailStyles.reactionEmoji}>🔥</ThemedText>
+                <ThemedText style={postDetailStyles.reactionCount}>{post.cheers} cheers</ThemedText>
+              </View>
+              <Pressable
+                style={postDetailStyles.cheerBtn}
+                onPress={() => {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                  onCheer(post.id);
+                }}
+              >
+                <Ionicons name="flame" size={18} color={Colors.dark.primary} />
+                <ThemedText style={postDetailStyles.cheerBtnText}>Cheer</ThemedText>
+              </Pressable>
+            </View>
+          </View>
+          
+          {/* Comments Section */}
+          <View style={postDetailStyles.commentsSection}>
+            <ThemedText style={postDetailStyles.commentsTitle}>
+              Comments ({comments.length})
+            </ThemedText>
+            
+            {comments.map((comment) => (
+              <View key={comment.id} style={postDetailStyles.commentItem}>
+                <View style={postDetailStyles.commentAvatar}>
+                  <ThemedText style={postDetailStyles.commentAvatarText}>
+                    {comment.author.charAt(0).toUpperCase()}
+                  </ThemedText>
+                </View>
+                <View style={postDetailStyles.commentContent}>
+                  <View style={postDetailStyles.commentHeader}>
+                    <ThemedText style={postDetailStyles.commentAuthor}>{comment.author}</ThemedText>
+                    <ThemedText style={postDetailStyles.commentTime}>{comment.time}</ThemedText>
+                  </View>
+                  <ThemedText style={postDetailStyles.commentText}>{comment.text}</ThemedText>
+                  <View style={postDetailStyles.commentActions}>
+                    <Pressable style={postDetailStyles.commentAction}>
+                      <Ionicons name="heart-outline" size={14} color={Colors.dark.textMuted} />
+                      {comment.likes > 0 ? (
+                        <ThemedText style={postDetailStyles.commentActionText}>{comment.likes}</ThemedText>
+                      ) : null}
+                    </Pressable>
+                    <Pressable style={postDetailStyles.commentAction}>
+                      <Ionicons name="arrow-undo-outline" size={14} color={Colors.dark.textMuted} />
+                      <ThemedText style={postDetailStyles.commentActionText}>Reply</ThemedText>
+                    </Pressable>
+                  </View>
+                </View>
+              </View>
+            ))}
+          </View>
+        </ScrollView>
+        
+        {/* Comment Input */}
+        <KeyboardAvoidingView
+          behavior={Platform.OS === "ios" ? "padding" : "height"}
+          keyboardVerticalOffset={0}
+        >
+          <View style={[postDetailStyles.inputContainer, { paddingBottom: insets.bottom + Spacing.sm }]}>
+            <TextInput
+              style={postDetailStyles.input}
+              placeholder="Write a comment..."
+              placeholderTextColor={Colors.dark.textMuted}
+              value={commentText}
+              onChangeText={setCommentText}
+              multiline
+            />
+            <Pressable
+              style={[postDetailStyles.sendBtn, !commentText.trim() && postDetailStyles.sendBtnDisabled]}
+              onPress={handleSubmitComment}
+              disabled={!commentText.trim() || isSubmitting}
+            >
+              <Ionicons name="send" size={18} color={Colors.dark.buttonText} />
+            </Pressable>
+          </View>
+        </KeyboardAvoidingView>
+      </View>
+    </Modal>
+  );
+}
+
+const postDetailStyles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: Colors.dark.backgroundRoot,
+  },
+  header: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: Spacing.lg,
+    paddingBottom: Spacing.md,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.dark.border,
+  },
+  closeBtn: {
+    width: 40,
+    height: 40,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  headerTitle: {
+    fontSize: 18,
+    fontWeight: "600",
+    color: Colors.dark.text,
+  },
+  content: {
+    flex: 1,
+  },
+  postCard: {
+    padding: Spacing.lg,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.dark.border,
+  },
+  authorRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.md,
+  },
+  avatar: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  avatarText: {
+    fontSize: 20,
+    fontWeight: "700",
+    color: "#000",
+  },
+  authorInfo: {
+    flex: 1,
+    gap: 4,
+  },
+  nameRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+  },
+  authorName: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: Colors.dark.text,
+  },
+  levelBadge: {
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+  },
+  levelText: {
+    fontSize: 10,
+    fontWeight: "700",
+    color: "#000",
+  },
+  contextRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+  },
+  contextBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+  },
+  contextText: {
+    fontSize: 10,
+    fontWeight: "600",
+  },
+  time: {
+    fontSize: 11,
+    color: Colors.dark.textMuted,
+  },
+  caption: {
+    fontSize: 16,
+    color: Colors.dark.text,
+    lineHeight: 24,
+    marginTop: Spacing.lg,
+  },
+  actions: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginTop: Spacing.lg,
+    paddingTop: Spacing.md,
+    borderTopWidth: 1,
+    borderTopColor: Colors.dark.border,
+  },
+  reactions: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+  },
+  reactionEmoji: {
+    fontSize: 16,
+  },
+  reactionCount: {
+    fontSize: 14,
+    color: Colors.dark.textSecondary,
+  },
+  cheerBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm,
+    backgroundColor: Colors.dark.primary + "20",
+    borderRadius: BorderRadius.md,
+  },
+  cheerBtnText: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: Colors.dark.primary,
+  },
+  commentsSection: {
+    padding: Spacing.lg,
+    gap: Spacing.md,
+  },
+  commentsTitle: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: Colors.dark.text,
+    marginBottom: Spacing.sm,
+  },
+  commentItem: {
+    flexDirection: "row",
+    gap: Spacing.sm,
+  },
+  commentAvatar: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: Colors.dark.backgroundTertiary,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  commentAvatarText: {
+    fontSize: 12,
+    fontWeight: "600",
+    color: Colors.dark.text,
+  },
+  commentContent: {
+    flex: 1,
+    gap: 2,
+  },
+  commentHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+  },
+  commentAuthor: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: Colors.dark.text,
+  },
+  commentTime: {
+    fontSize: 11,
+    color: Colors.dark.textMuted,
+  },
+  commentText: {
+    fontSize: 14,
+    color: Colors.dark.text,
+    lineHeight: 20,
+  },
+  commentActions: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.md,
+    marginTop: 4,
+  },
+  commentAction: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+  },
+  commentActionText: {
+    fontSize: 12,
+    color: Colors.dark.textMuted,
+  },
+  inputContainer: {
+    flexDirection: "row",
+    alignItems: "flex-end",
+    gap: Spacing.sm,
+    padding: Spacing.md,
+    borderTopWidth: 1,
+    borderTopColor: Colors.dark.border,
+    backgroundColor: Colors.dark.backgroundSecondary,
+  },
+  input: {
+    flex: 1,
+    backgroundColor: Colors.dark.backgroundTertiary,
+    borderRadius: BorderRadius.lg,
+    padding: Spacing.md,
+    color: Colors.dark.text,
+    fontSize: 15,
+    maxHeight: 100,
+  },
+  sendBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: Colors.dark.primary,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  sendBtnDisabled: {
+    backgroundColor: Colors.dark.backgroundTertiary,
+  },
+});
+
 interface CreateMomentModalProps {
   visible: boolean;
   onClose: () => void;
@@ -1813,6 +2757,10 @@ export default function CommunityScreen() {
   const [mainTab, setMainTab] = useState<MainTab>("feed");
   const [filter, setFilter] = useState<FeedFilter>("for_you");
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [showShareModal, setShowShareModal] = useState(false);
+  const [selectedAchievement, setSelectedAchievement] = useState<Achievement | null>(null);
+  const [showPostDetailModal, setShowPostDetailModal] = useState(false);
+  const [selectedFriendActivity, setSelectedFriendActivity] = useState<FriendActivity | null>(null);
   const chatFooterHeight = 70;
   
   // Fetch friend requests count for badge
@@ -1981,7 +2929,12 @@ export default function CommunityScreen() {
           <FeedFilterTabs active={filter} onChange={setFilter} />
           
           {filter === "for_you" ? (
-            <AchievementShowcase />
+            <AchievementShowcase 
+              onSelectAchievement={(achievement) => {
+                setSelectedAchievement(achievement);
+                setShowShareModal(true);
+              }}
+            />
           ) : filter === "news" ? (
             <NewsSection />
           ) : isLoading ? (
@@ -2019,7 +2972,12 @@ export default function CommunityScreen() {
           )}
         </>
       ) : mainTab === "friends" ? (
-        <FriendsSection />
+        <FriendsSection 
+          onSelectActivity={(activity) => {
+            setSelectedFriendActivity(activity);
+            setShowPostDetailModal(true);
+          }}
+        />
       ) : (
         <GroupsSection />
       )}
@@ -2039,6 +2997,27 @@ export default function CommunityScreen() {
         onClose={() => {
           setShowCommentModal(false);
           setSelectedCommentPostId(null);
+        }}
+      />
+      
+      <SharePreviewModal
+        visible={showShareModal}
+        achievement={selectedAchievement}
+        onClose={() => {
+          setShowShareModal(false);
+          setSelectedAchievement(null);
+        }}
+      />
+      
+      <PostDetailModal
+        visible={showPostDetailModal}
+        post={selectedFriendActivity}
+        onClose={() => {
+          setShowPostDetailModal(false);
+          setSelectedFriendActivity(null);
+        }}
+        onCheer={(postId) => {
+          console.log("Cheer post:", postId);
         }}
       />
       </ThemedView>
