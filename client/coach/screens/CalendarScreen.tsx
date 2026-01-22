@@ -989,6 +989,47 @@ export default function CalendarScreen() {
   const ownSessions = calendarData?.ownSessions || [];
   const blockedSessions = calendarData?.blockedSessions || [];
 
+  // Compute cross-location busy blocks - show "Busy Elsewhere" on courts where coach is unavailable
+  // because they have a session at another location at the same time
+  const crossLocationBusyBlocks = useMemo(() => {
+    if (ownSessions.length === 0 || courts.length === 0) return [];
+    
+    const blocks: Array<{
+      id: string;
+      courtId: string;
+      startTime: string;
+      endTime: string;
+      busyAtLocation: string;
+      sessionType: string;
+    }> = [];
+    
+    // For each session, create "busy elsewhere" blocks on all OTHER courts
+    ownSessions.forEach(session => {
+      if (!session.courtId) return;
+      
+      // Find the location of this session's court
+      const sessionCourt = courts.find(c => c.id === session.courtId);
+      const sessionLocation = allLocations.find(l => l.id === sessionCourt?.locationId);
+      const locationName = sessionLocation?.name?.split(" ")[0] || "Elsewhere";
+      
+      // Create blocks on all OTHER courts for this time slot
+      courts.forEach(court => {
+        if (court.id === session.courtId) return; // Skip the same court
+        
+        blocks.push({
+          id: `busy-${session.id}-${court.id}`,
+          courtId: court.id,
+          startTime: session.startTime,
+          endTime: session.endTime,
+          busyAtLocation: locationName,
+          sessionType: session.sessionType,
+        });
+      });
+    });
+    
+    return blocks;
+  }, [ownSessions, courts, allLocations]);
+
   // Compute travel time blocks between sessions at different locations
   const travelTimeBlocks = useMemo(() => {
     if (travelTimes.length === 0 || ownSessions.length < 2) return [];
@@ -1912,6 +1953,36 @@ export default function CalendarScreen() {
                             style={[styles.blockedBlock, { top, height: height - 2 }]}
                           >
                             <Text style={styles.blockedText}>Unavailable</Text>
+                          </View>
+                        );
+                      })}
+
+                    {/* Render cross-location busy blocks - show where coach is busy elsewhere */}
+                    {crossLocationBusyBlocks
+                      .filter((block) => {
+                        // Filter by selected date
+                        const blockDateStr = getLocalDateString(block.startTime, academyTimezone);
+                        const selectedDateStr = formatDateObjectInTimezone(selectedDate, academyTimezone);
+                        if (blockDateStr !== selectedDateStr) return false;
+                        // Filter by court
+                        return block.courtId === court.id;
+                      })
+                      .map((block) => {
+                        const startLocal = getTimeInTimezone(block.startTime, academyTimezone);
+                        const endLocal = getTimeInTimezone(block.endTime, academyTimezone);
+                        const startHour = startLocal.hours + startLocal.minutes / 60;
+                        const endHour = endLocal.hours + endLocal.minutes / 60;
+                        const top = (startHour - focusBaseHour) * hourHeight;
+                        const height = (endHour - startHour) * hourHeight;
+                        return (
+                          <View
+                            key={block.id}
+                            style={[styles.busyElsewhereBlock, { top, height: Math.max(height - 2, 24) }]}
+                          >
+                            <Feather name="map-pin" size={10} color={Colors.dark.gold} style={{ marginRight: 2 }} />
+                            <Text style={styles.busyElsewhereText} numberOfLines={1}>
+                              @ {block.busyAtLocation}
+                            </Text>
                           </View>
                         );
                       })}
@@ -3434,6 +3505,28 @@ const styles = StyleSheet.create({
     ...Typography.caption,
     color: Colors.dark.textMuted,
     fontStyle: "italic",
+  },
+  busyElsewhereBlock: {
+    position: "absolute",
+    left: 2,
+    right: 2,
+    borderRadius: BorderRadius.xs,
+    backgroundColor: Colors.dark.gold + "15",
+    paddingHorizontal: Spacing.xs,
+    paddingVertical: 2,
+    borderWidth: 1,
+    borderColor: Colors.dark.gold + "40",
+    borderStyle: "dashed",
+    overflow: "hidden",
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  busyElsewhereText: {
+    fontSize: 9,
+    fontWeight: "600",
+    color: Colors.dark.gold,
+    letterSpacing: 0.2,
   },
   travelTimeBlock: {
     position: "absolute",
