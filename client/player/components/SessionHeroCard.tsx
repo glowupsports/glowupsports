@@ -461,7 +461,24 @@ export function SessionHeroCard({
       Alert.alert("Enter Reason", "Please explain why you need to cancel.");
       return;
     }
-    cancelSessionMutation.mutate({ reason: cancelReason, reasonText: cancelReasonText });
+    
+    Alert.alert(
+      "Confirm Cancellation",
+      "Are you sure you want to cancel this session? This action cannot be undone.",
+      [
+        {
+          text: "Go Back",
+          style: "cancel",
+        },
+        {
+          text: "Yes, Cancel Session",
+          style: "destructive",
+          onPress: () => {
+            cancelSessionMutation.mutate({ reason: cancelReason, reasonText: cancelReasonText });
+          },
+        },
+      ]
+    );
   };
 
   const handleLate = () => {
