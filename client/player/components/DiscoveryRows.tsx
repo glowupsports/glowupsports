@@ -515,12 +515,12 @@ export function OpenMatchesRow() {
 
   const handleMatchPress = (matchId: string) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    navigation.navigate("OpenMatches", { selectedMatch: matchId });
+    navigation.navigate("PlayStack", { screen: "OpenMatches", params: { selectedMatch: matchId } });
   };
 
   const handleSeeAll = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    navigation.navigate("OpenMatches");
+    navigation.navigate("PlayStack", { screen: "OpenMatches" });
   };
 
   if (openMatches.length === 0) {

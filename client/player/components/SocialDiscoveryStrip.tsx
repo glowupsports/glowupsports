@@ -24,7 +24,7 @@ export function SocialDiscoveryStrip() {
 
   const handleChallengePress = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    navigation.navigate("OpenMatches");
+    navigation.navigate("PlayStack", { screen: "OpenMatches" });
   };
 
   const handleSessionsPress = () => {

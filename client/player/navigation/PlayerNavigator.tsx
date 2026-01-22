@@ -86,10 +86,16 @@ export { usePlayerDrawer };
 export type PlayerTabParamList = {
   Home: undefined;
   Community: undefined;
-  Play: undefined;
+  PlayStack: undefined;
   Schedule: undefined;
   Progress: undefined;
   Profile: undefined;
+};
+
+export type PlayStackParamList = {
+  Play: undefined;
+  OpenMatches: undefined;
+  CreateMatch: undefined;
 };
 
 export type PlayerStackParamList = {
@@ -142,8 +148,6 @@ export type PlayerStackParamList = {
   Collection: undefined;
   XPHistory: undefined;
   LevelUpHistory: undefined;
-  OpenMatches: undefined;
-  CreateMatch: undefined;
   BookingPreferences: undefined;
   BookingInvites: undefined;
   FamilyLobby: undefined;
@@ -152,6 +156,37 @@ export type PlayerStackParamList = {
 
 const Tab = createBottomTabNavigator<PlayerTabParamList>();
 const Stack = createNativeStackNavigator<PlayerStackParamList>();
+const PlayStack = createNativeStackNavigator<PlayStackParamList>();
+
+function PlayStackNavigator() {
+  return (
+    <PlayStack.Navigator screenOptions={{ headerShown: false }}>
+      <PlayStack.Screen name="Play" component={PlayScreen} />
+      <PlayStack.Screen 
+        name="OpenMatches" 
+        component={OpenMatchFeedScreen}
+        options={{
+          headerShown: true,
+          headerTitle: "Open Matches",
+          headerStyle: { backgroundColor: '#090E17' },
+          headerTintColor: '#CCFF00',
+          headerTitleStyle: { color: '#ffffff', fontWeight: '600' },
+        }}
+      />
+      <PlayStack.Screen 
+        name="CreateMatch" 
+        component={CreateMatchScreen}
+        options={{
+          headerShown: true,
+          headerTitle: "Find a Match",
+          headerStyle: { backgroundColor: '#090E17' },
+          headerTintColor: '#CCFF00',
+          headerTitleStyle: { color: '#ffffff', fontWeight: '600' },
+        }}
+      />
+    </PlayStack.Navigator>
+  );
+}
 
 function PlayerTabsContent() {
   const currentRouteName = useNavigationState((state) => {
@@ -162,7 +197,7 @@ function PlayerTabsContent() {
     return tabState.routes?.[index]?.name ?? "Home";
   });
   
-  const hideChat = currentRouteName === "Play" || currentRouteName === "Social" || currentRouteName === "Community";
+  const hideChat = currentRouteName === "Play" || currentRouteName === "PlayStack" || currentRouteName === "Social" || currentRouteName === "Community";
   
   return (
     <View style={styles.tabsContainer}>
@@ -210,8 +245,8 @@ function PlayerTabsContent() {
           }}
         />
         <Tab.Screen
-          name="Play"
-          component={PlayScreen}
+          name="PlayStack"
+          component={PlayStackNavigator}
           options={{
             tabBarLabel: "Play",
             tabBarIcon: ({ color }) => (
@@ -761,30 +796,6 @@ function PlayerStackNavigator() {
           presentation: "card",
           headerShown: true,
           headerTitle: "Level History",
-          headerStyle: { backgroundColor: '#090E17' },
-          headerTintColor: '#CCFF00',
-          headerTitleStyle: { color: '#ffffff', fontWeight: '600' },
-        }}
-      />
-      <Stack.Screen 
-        name="OpenMatches" 
-        component={OpenMatchFeedScreen}
-        options={{
-          presentation: "card",
-          headerShown: true,
-          headerTitle: "Open Matches",
-          headerStyle: { backgroundColor: '#090E17' },
-          headerTintColor: '#CCFF00',
-          headerTitleStyle: { color: '#ffffff', fontWeight: '600' },
-        }}
-      />
-      <Stack.Screen 
-        name="CreateMatch" 
-        component={CreateMatchScreen}
-        options={{
-          presentation: "card",
-          headerShown: true,
-          headerTitle: "Find a Match",
           headerStyle: { backgroundColor: '#090E17' },
           headerTintColor: '#CCFF00',
           headerTitleStyle: { color: '#ffffff', fontWeight: '600' },
