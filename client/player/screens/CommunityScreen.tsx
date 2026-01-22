@@ -766,11 +766,21 @@ function FriendsSection({ onChallenge }: { onChallenge?: (friend: Friend) => voi
   const navigation = useNavigation<any>();
   const insets = useSafeAreaInsets();
   const tabBarHeight = useBottomTabBarHeight();
-  const [activeTab, setActiveTab] = useState<"friends" | "requests">("friends");
+  const [activeTab, setActiveTab] = useState<"activity" | "friends" | "requests">("activity");
   
   const { data: friendsData, isLoading, refetch } = useQuery<{ friends: Friend[]; pendingRequests: Friend[] }>({
     queryKey: ["/api/player/me/friends"],
   });
+  
+  const { data: friendsActivityData } = useQuery<{ posts: Post[] }>({
+    queryKey: ["/api/social/friends-activity"],
+  });
+  
+  const friendsActivity = friendsActivityData?.posts || [
+    { id: "fa1", authorId: "1", academyId: "1", contextType: "match_won", caption: "Won an intense 3-setter! 6-4, 4-6, 7-5", mediaUrls: [], mediaTypes: [], visibility: "public", cheerCount: 12, commentCount: 3, createdAt: new Date(Date.now() - 3600000).toISOString(), author: { id: "1", name: "Ahmed K.", photoUrl: undefined, ballLevel: "green", level: 8, title: "Rally Master" }, userReaction: null },
+    { id: "fa2", authorId: "2", academyId: "1", contextType: "level_up", caption: "Just hit Level 10! Thanks coach for all the support", mediaUrls: [], mediaTypes: [], visibility: "public", cheerCount: 25, commentCount: 8, createdAt: new Date(Date.now() - 7200000).toISOString(), author: { id: "2", name: "Sarah M.", photoUrl: undefined, ballLevel: "yellow", level: 10, title: "Court Warrior" }, userReaction: "fire" },
+    { id: "fa3", authorId: "3", academyId: "1", contextType: "training", caption: "Working on my backhand slice", mediaUrls: [], mediaTypes: [], visibility: "public", cheerCount: 5, commentCount: 1, createdAt: new Date(Date.now() - 14400000).toISOString(), author: { id: "3", name: "Mike R.", photoUrl: undefined, ballLevel: "orange", level: 5, title: "Rising Star" }, userReaction: null },
+  ];
   
   const friends = friendsData?.friends || [];
   const requests = friendsData?.pendingRequests || [];
@@ -906,9 +916,78 @@ function FriendsSection({ onChallenge }: { onChallenge?: (friend: Friend) => voi
     </Animated.View>
   );
   
+  const renderActivityCard = (post: Post) => {
+    const badgeStyle = CONTEXT_BADGE_STYLES[post.contextType] || CONTEXT_BADGE_STYLES.training;
+    
+    return (
+      <Animated.View key={post.id} entering={FadeInDown.delay(100).springify()}>
+        <View style={styles.activityCard}>
+          <View style={styles.activityHeader}>
+            <View style={styles.activityAvatarContainer}>
+              {post.author.photoUrl ? (
+                <Image source={{ uri: post.author.photoUrl }} style={styles.activityAvatar} contentFit="cover" />
+              ) : (
+                <LinearGradient
+                  colors={[getBallColor(post.author.ballLevel) + "50", getBallColor(post.author.ballLevel) + "20"]}
+                  style={styles.activityAvatarPlaceholder}
+                >
+                  <ThemedText style={[styles.activityAvatarLetter, { color: getBallColor(post.author.ballLevel) }]}>
+                    {post.author.name?.charAt(0).toUpperCase() || "?"}
+                  </ThemedText>
+                </LinearGradient>
+              )}
+              <View style={[styles.activityTypeDot, { backgroundColor: badgeStyle.text }]} />
+            </View>
+            
+            <View style={styles.activityInfo}>
+              <View style={styles.activityNameRow}>
+                <ThemedText style={styles.activityName}>{post.author.name}</ThemedText>
+                <View style={[styles.activityLevelBadge, { backgroundColor: getBallColor(post.author.ballLevel) }]}>
+                  <ThemedText style={styles.activityLevelText}>Lvl {post.author.level || 1}</ThemedText>
+                </View>
+              </View>
+              <View style={styles.activityMetaRow}>
+                <View style={[styles.activityContextBadge, { backgroundColor: badgeStyle.bg }]}>
+                  <Ionicons name={badgeStyle.icon as any} size={10} color={badgeStyle.text} />
+                  <ThemedText style={[styles.activityContextText, { color: badgeStyle.text }]}>
+                    {post.contextType.replace("_", " ").replace(/\b\w/g, l => l.toUpperCase())}
+                  </ThemedText>
+                </View>
+                <ThemedText style={styles.activityTime}>{formatTimeAgo(post.createdAt)}</ThemedText>
+              </View>
+            </View>
+          </View>
+          
+          {post.caption ? (
+            <ThemedText style={styles.activityCaption}>{post.caption}</ThemedText>
+          ) : null}
+          
+          <View style={styles.activityActions}>
+            <View style={styles.activityReactions}>
+              <Ionicons name="flame" size={14} color={Colors.dark.primary} />
+              <ThemedText style={styles.activityReactionCount}>{post.cheerCount}</ThemedText>
+            </View>
+            <Pressable style={styles.activityCheerBtn}>
+              <ThemedText style={styles.activityCheerText}>Cheer</ThemedText>
+            </Pressable>
+          </View>
+        </View>
+      </Animated.View>
+    );
+  };
+  
   return (
     <View style={styles.sectionContainer}>
       <View style={styles.sectionTabs}>
+        <Pressable 
+          style={[styles.sectionTab, activeTab === "activity" && styles.sectionTabActive]}
+          onPress={() => setActiveTab("activity")}
+        >
+          <Ionicons name="pulse" size={16} color={activeTab === "activity" ? Colors.dark.primary : Colors.dark.textSecondary} />
+          <ThemedText style={[styles.sectionTabText, activeTab === "activity" && styles.sectionTabTextActive]}>
+            Activity
+          </ThemedText>
+        </Pressable>
         <Pressable 
           style={[styles.sectionTab, activeTab === "friends" && styles.sectionTabActive]}
           onPress={() => setActiveTab("friends")}
@@ -934,6 +1013,23 @@ function FriendsSection({ onChallenge }: { onChallenge?: (friend: Friend) => voi
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={Colors.dark.primary} />
         </View>
+      ) : activeTab === "activity" ? (
+        <FlatList
+          data={friendsActivity}
+          keyExtractor={(item) => item.id}
+          renderItem={({ item }) => renderActivityCard(item)}
+          contentContainerStyle={{ paddingBottom: tabBarHeight + 100, paddingHorizontal: Spacing.md }}
+          ListEmptyComponent={
+            <View style={styles.emptyState}>
+              <View style={styles.emptyIcon}>
+                <Ionicons name="pulse" size={48} color={Colors.dark.textSecondary} />
+              </View>
+              <ThemedText style={styles.emptyTitle}>No friend activity</ThemedText>
+              <ThemedText style={styles.emptySubtitle}>Add friends to see their updates here</ThemedText>
+            </View>
+          }
+          showsVerticalScrollIndicator={false}
+        />
       ) : activeTab === "friends" ? (
         <FlatList
           data={friends}
@@ -3210,6 +3306,129 @@ const styles = StyleSheet.create({
   },
   joinedBtnText: {
     color: Colors.dark.textSecondary,
+  },
+  activityCard: {
+    backgroundColor: Colors.dark.backgroundSecondary,
+    borderRadius: BorderRadius.lg,
+    padding: Spacing.md,
+    marginBottom: Spacing.md,
+    borderWidth: 1,
+    borderColor: Colors.dark.border,
+  },
+  activityHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.md,
+  },
+  activityAvatarContainer: {
+    position: "relative",
+  },
+  activityAvatar: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+  },
+  activityAvatarPlaceholder: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  activityAvatarLetter: {
+    fontSize: 20,
+    fontWeight: "700",
+  },
+  activityTypeDot: {
+    position: "absolute",
+    bottom: 0,
+    right: 0,
+    width: 14,
+    height: 14,
+    borderRadius: 7,
+    borderWidth: 2,
+    borderColor: Colors.dark.backgroundSecondary,
+  },
+  activityInfo: {
+    flex: 1,
+    gap: 4,
+  },
+  activityNameRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+  },
+  activityName: {
+    fontSize: 15,
+    fontWeight: "600",
+    color: Colors.dark.text,
+  },
+  activityLevelBadge: {
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+  },
+  activityLevelText: {
+    fontSize: 10,
+    fontWeight: "700",
+    color: "#000",
+  },
+  activityMetaRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+  },
+  activityContextBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+  },
+  activityContextText: {
+    fontSize: 10,
+    fontWeight: "600",
+  },
+  activityTime: {
+    fontSize: 11,
+    color: Colors.dark.textMuted,
+  },
+  activityCaption: {
+    fontSize: 14,
+    color: Colors.dark.text,
+    marginTop: Spacing.md,
+    lineHeight: 20,
+  },
+  activityActions: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginTop: Spacing.md,
+    paddingTop: Spacing.sm,
+    borderTopWidth: 1,
+    borderTopColor: Colors.dark.border,
+  },
+  activityReactions: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+  },
+  activityReactionCount: {
+    fontSize: 13,
+    color: Colors.dark.textSecondary,
+    fontWeight: "500",
+  },
+  activityCheerBtn: {
+    paddingHorizontal: Spacing.md,
+    paddingVertical: 6,
+    backgroundColor: Colors.dark.primary + "20",
+    borderRadius: BorderRadius.md,
+  },
+  activityCheerText: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: Colors.dark.primary,
   },
 });
 
