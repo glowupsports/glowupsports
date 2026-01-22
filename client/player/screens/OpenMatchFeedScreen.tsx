@@ -31,7 +31,7 @@ import { Image } from "expo-image";
 import * as Haptics from "expo-haptics";
 import { Colors, Spacing, FontSizes, BorderRadius, Typography, Backgrounds, GlowColors } from "@/constants/theme";
 import { ThemedText } from "@/components/ThemedText";
-import { apiRequest, getApiUrl } from "@/lib/query-client";
+import { apiRequest, getApiUrl, getStaticAssetsUrl } from "@/lib/query-client";
 import { LockedScreen } from "../components/LockedScreen";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
@@ -173,7 +173,7 @@ function PlayerSlots({ current, max, players }: { current: number; max: number; 
             ]}
           >
             {player?.photoUrl ? (
-              <Image source={{ uri: player.photoUrl }} style={styles.playerSlotImage} contentFit="cover" />
+              <Image source={{ uri: `${getStaticAssetsUrl()}${player.photoUrl}` }} style={styles.playerSlotImage} contentFit="cover" />
             ) : isFilled ? (
               <Ionicons name="person" size={14} color={Colors.dark.primary} />
             ) : (
@@ -267,7 +267,7 @@ function PremiumMatchCard({
         <View style={styles.hostSection}>
           <View style={styles.hostAvatar}>
             {match.host?.photoUrl ? (
-              <Image source={{ uri: match.host.photoUrl }} style={styles.hostAvatarImage} contentFit="cover" />
+              <Image source={{ uri: `${getStaticAssetsUrl()}${match.host.photoUrl}` }} style={styles.hostAvatarImage} contentFit="cover" />
             ) : (
               <LinearGradient
                 colors={[getMatchGlowColor() + "40", getMatchGlowColor() + "20"]}
