@@ -469,15 +469,26 @@ function GlowScoreModal({
 }) {
   const insets = useSafeAreaInsets();
   
-  const getScoreRating = (score: number) => {
-    if (score >= 90) return { title: "Elite", color: "#FFD700" };
-    if (score >= 75) return { title: "Advanced", color: "#00E5FF" };
-    if (score >= 50) return { title: "Intermediate", color: GlowColors.primary };
-    if (score >= 25) return { title: "Developing", color: Colors.dark.orange };
-    return { title: "Beginner", color: Colors.dark.textMuted };
+  const glowRanks = [
+    { name: "Bronze", min: 0, max: 99, color: "#CD7F32", icon: "shield" as const },
+    { name: "Silver", min: 100, max: 249, color: "#C0C0C0", icon: "shield" as const },
+    { name: "Gold", min: 250, max: 499, color: "#FFD700", icon: "shield" as const },
+    { name: "Platinum", min: 500, max: 999, color: "#00E5FF", icon: "diamond" as const },
+    { name: "Diamond", min: 1000, max: 1999, color: "#E040FB", icon: "diamond" as const },
+    { name: "Master", min: 2000, max: 4999, color: "#FF4444", icon: "star" as const },
+    { name: "Grandmaster", min: 5000, max: 9999, color: "#C8FF3D", icon: "star" as const },
+    { name: "Legend", min: 10000, max: Infinity, color: "#FFD700", icon: "trophy" as const },
+  ];
+  
+  const getCurrentRank = (score: number) => {
+    return glowRanks.find(r => score >= r.min && score <= r.max) || glowRanks[0];
   };
   
-  const rating = getScoreRating(glowScore);
+  const currentRank = getCurrentRank(glowScore);
+  const nextRank = glowRanks[glowRanks.indexOf(currentRank) + 1];
+  const progressToNext = nextRank 
+    ? ((glowScore - currentRank.min) / (nextRank.min - currentRank.min)) * 100
+    : 100;
 
   return (
     <Modal visible={visible} animationType="slide" transparent>
@@ -493,49 +504,93 @@ function GlowScoreModal({
 
           <ScrollView style={modalStyles.body} showsVerticalScrollIndicator={false}>
             <View style={modalStyles.currentLevel}>
-              <View style={[modalStyles.currentLevelCircle, { borderColor: rating.color }]}>
-                <Text style={[modalStyles.currentLevelNumber, { color: rating.color }]}>{glowScore}</Text>
+              <View style={[modalStyles.currentLevelCircle, { borderColor: currentRank.color, backgroundColor: currentRank.color + "20" }]}>
+                <Ionicons name={currentRank.icon} size={24} color={currentRank.color} />
               </View>
               <View style={modalStyles.currentLevelInfo}>
-                <Text style={[modalStyles.currentLevelTitle, { color: rating.color }]}>{rating.title}</Text>
-                <Text style={modalStyles.currentLevelDesc}>Your current Glow Score</Text>
+                <Text style={[modalStyles.currentLevelTitle, { color: currentRank.color }]}>{currentRank.name}</Text>
+                <Text style={modalStyles.currentLevelDesc}>{glowScore} Glow Points</Text>
               </View>
             </View>
+
+            {nextRank ? (
+              <View style={[modalStyles.howToLevel, { marginBottom: Spacing.md }]}>
+                <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: Spacing.xs }}>
+                  <Text style={modalStyles.descriptionText}>Progress to {nextRank.name}</Text>
+                  <Text style={[modalStyles.descriptionText, { color: nextRank.color }]}>{nextRank.min - glowScore} to go</Text>
+                </View>
+                <View style={{ height: 8, backgroundColor: "rgba(255,255,255,0.1)", borderRadius: 4 }}>
+                  <View style={{ 
+                    height: "100%", 
+                    width: `${Math.min(progressToNext, 100)}%`, 
+                    backgroundColor: currentRank.color,
+                    borderRadius: 4
+                  }} />
+                </View>
+              </View>
+            ) : null}
 
             <View style={modalStyles.howToLevel}>
               <Text style={modalStyles.sectionTitle}>What is Glow Score?</Text>
               <Text style={modalStyles.descriptionText}>
-                Glow Score (0-100) represents your overall tennis ability based on all 6 skill pillars combined. 
-                It updates after each coach assessment.
+                Glow Score is unlimited, just like in video games! Keep improving to climb the ranks and unlock higher tiers. There is no ceiling - the more you train, the higher you go!
               </Text>
             </View>
 
             <View style={modalStyles.howToLevel}>
-              <Text style={modalStyles.sectionTitle}>How to Improve</Text>
+              <Text style={modalStyles.sectionTitle}>How to Earn Glow Points</Text>
               <View style={modalStyles.howToItem}>
                 <Ionicons name="tennisball" size={18} color="#10B981" />
-                <Text style={modalStyles.howToText}>Master technical skills</Text>
+                <Text style={modalStyles.howToText}>Improve pillar skills (+5-20 pts)</Text>
               </View>
               <View style={modalStyles.howToItem}>
-                <Ionicons name="bulb" size={18} color="#F59E0B" />
-                <Text style={modalStyles.howToText}>Develop tactical awareness</Text>
-              </View>
-              <View style={modalStyles.howToItem}>
-                <Ionicons name="fitness" size={18} color="#EF4444" />
-                <Text style={modalStyles.howToText}>Build physical fitness</Text>
-              </View>
-              <View style={modalStyles.howToItem}>
-                <Ionicons name="flash" size={18} color="#8B5CF6" />
-                <Text style={modalStyles.howToText}>Strengthen mental game</Text>
-              </View>
-              <View style={modalStyles.howToItem}>
-                <Ionicons name="people" size={18} color="#EC4899" />
-                <Text style={modalStyles.howToText}>Grow social & sportsmanship</Text>
+                <Ionicons name="star" size={18} color={Colors.dark.gold} />
+                <Text style={modalStyles.howToText}>Coach assessments (+10-50 pts)</Text>
               </View>
               <View style={modalStyles.howToItem}>
                 <Ionicons name="trophy" size={18} color="#3B82F6" />
-                <Text style={modalStyles.howToText}>Excel in competition</Text>
+                <Text style={modalStyles.howToText}>Win matches (+25-100 pts)</Text>
               </View>
+              <View style={modalStyles.howToItem}>
+                <Ionicons name="ribbon" size={18} color="#E040FB" />
+                <Text style={modalStyles.howToText}>Complete achievements (bonus pts)</Text>
+              </View>
+            </View>
+
+            <View style={modalStyles.milestonesSection}>
+              <Text style={modalStyles.sectionTitle}>Rank Progression</Text>
+              {glowRanks.map((rank, index) => {
+                const isCurrentRank = currentRank.name === rank.name;
+                const isPassed = glowScore >= rank.min && glowRanks.indexOf(currentRank) > index;
+                
+                return (
+                  <View 
+                    key={rank.name} 
+                    style={[
+                      modalStyles.milestone, 
+                      isCurrentRank && { borderLeftWidth: 3, borderLeftColor: rank.color, opacity: 1 },
+                      isPassed && { opacity: 1 }
+                    ]}
+                  >
+                    <View style={[modalStyles.milestoneBadge, { backgroundColor: rank.color + "20", borderColor: rank.color }]}>
+                      <Ionicons name={rank.icon} size={18} color={rank.color} />
+                    </View>
+                    <View style={modalStyles.milestoneContent}>
+                      <Text style={[modalStyles.milestoneTitle, { color: isCurrentRank ? rank.color : Colors.dark.text }]}>
+                        {rank.name}
+                      </Text>
+                      <Text style={modalStyles.milestoneUnlocks}>
+                        {rank.max === Infinity ? `${rank.min}+ points` : `${rank.min} - ${rank.max} points`}
+                      </Text>
+                    </View>
+                    {isPassed ? (
+                      <Ionicons name="checkmark-circle" size={20} color={GlowColors.primary} />
+                    ) : isCurrentRank ? (
+                      <Ionicons name="radio-button-on" size={20} color={rank.color} />
+                    ) : null}
+                  </View>
+                );
+              })}
             </View>
           </ScrollView>
         </View>
