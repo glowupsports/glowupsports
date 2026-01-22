@@ -831,10 +831,10 @@ function PlayerStackNavigator() {
         options={{
           presentation: "card",
           headerShown: true,
-          headerTitle: "Booking Preferences",
-          headerStyle: { backgroundColor: '#090E17' },
-          headerTintColor: '#CCFF00',
-          headerTitleStyle: { color: '#ffffff', fontWeight: '600' },
+          headerTitle: "Preferences",
+          headerStyle: { backgroundColor: '#0B0D10' },
+          headerTintColor: '#C8FF3D',
+          headerTitleStyle: { color: '#ffffff', fontWeight: '700' },
         }}
       />
       <Stack.Screen 
