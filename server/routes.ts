@@ -17611,8 +17611,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
             time: dubaiTimeStr,
             date: session.startTime.toISOString(),
             spotsLeft: Math.max(0, maxPlayers - actualCurrentPlayers),
-            maxPlayers,
-        invitedPlayerId,
         matchIntent,
             coachName: coach?.name,
             ballLevel: ((session as any).targetBallLevel || playerBallLevel).toUpperCase(),

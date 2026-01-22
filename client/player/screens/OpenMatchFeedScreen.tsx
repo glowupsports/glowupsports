@@ -235,10 +235,10 @@ function PremiumMatchCard({
 
   const getSkillSublevelLabel = (level?: number) => {
     if (!level) return "";
-    if (level === 1) return "BEG";
-    if (level === 2) return "INT";
-    if (level === 3) return "ADV";
-    return "";
+    if (level <= 2) return "PRO";
+    if (level <= 4) return "ADV";
+    if (level <= 6) return "INT";
+    return "BEG";
   };
 
   return (

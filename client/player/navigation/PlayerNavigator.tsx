@@ -438,6 +438,9 @@ function PlayerStackNavigator() {
         component={CoachDirectoryScreen}
         options={{
           presentation: "card",
+          headerTitle: "Find Coaches",
+          headerTransparent: true,
+          headerTintColor: Colors.dark.text,
         }}
       />
       <Stack.Screen 

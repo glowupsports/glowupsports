@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useMemo } from "react";
 import {
   View,
   Text,
@@ -7,15 +7,24 @@ import {
   Pressable,
   TextInput,
   ActivityIndicator,
+  Dimensions,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useQuery } from "@tanstack/react-query";
 import { useNavigation } from "@react-navigation/native";
+import { useHeaderHeight } from "@react-navigation/elements";
 import Ionicons from "@expo/vector-icons/Ionicons";
+import { LinearGradient } from "expo-linear-gradient";
+import { Image } from "expo-image";
 import * as Haptics from "expo-haptics";
+import Animated, { FadeInDown } from "react-native-reanimated";
 
-import { Colors, Spacing, BorderRadius, Typography, Backgrounds, GlowColors } from "@/constants/theme";
-import { apiFetch } from "@/lib/query-client";
+import { Colors, Spacing, BorderRadius, Typography, GlowColors } from "@/constants/theme";
+import { apiFetch, getStaticAssetsUrl } from "@/lib/query-client";
+import { useAuth } from "@/coach/context/AuthContext";
+
+const { width: SCREEN_WIDTH } = Dimensions.get("window");
+const CARD_WIDTH = (SCREEN_WIDTH - Spacing.lg * 2 - Spacing.md) / 2;
 
 interface CoachDirectoryEntry {
   id: string;
@@ -32,69 +41,139 @@ interface CoachDirectoryEntry {
   academyName: string | null;
   academyCity: string | null;
   academyCountry: string | null;
+  rating?: number;
+  totalStudents?: number;
 }
 
 const EXPERIENCE_LABELS: Record<string, string> = {
-  "0-2": "0-2 years",
-  "3-5": "3-5 years",
-  "6-10": "6-10 years",
-  "10+": "10+ years",
+  "0-2": "Emerging",
+  "3-5": "Experienced",
+  "6-10": "Senior",
+  "10+": "Master",
 };
 
-function CoachCard({ coach, onPress }: { coach: CoachDirectoryEntry; onPress: () => void }) {
+const SPECIALTY_COLORS: Record<string, string> = {
+  "All-Round Development": "#10B981",
+  "Competitive Training": "#F59E0B",
+  "Junior Development": "#EC4899",
+  "Adult Beginners": "#8B5CF6",
+  "High Performance": "#EF4444",
+  "Doubles Strategy": "#3B82F6",
+  "Mental Game": "#06B6D4",
+};
+
+function PremiumCoachCard({ coach, onPress, index }: { coach: CoachDirectoryEntry; onPress: () => void; index: number }) {
+  const specialtyColor = SPECIALTY_COLORS[coach.specialty || ""] || GlowColors.primary;
+  
   return (
-    <Pressable style={styles.coachCard} onPress={onPress}>
-      <View style={styles.coachAvatar}>
-        <Text style={styles.coachInitial}>{coach.name.charAt(0)}</Text>
-      </View>
-      <View style={styles.coachInfo}>
-        <Text style={styles.coachName}>{coach.name}</Text>
-        {coach.academyName ? (
-          <View style={styles.academyRow}>
-            <Ionicons name="school-outline" size={12} color={Colors.dark.textMuted} />
-            <Text style={styles.academyName}>{coach.academyName}</Text>
-            {coach.academyCity ? (
-              <Text style={styles.academyCity}> - {coach.academyCity}</Text>
+    <Animated.View 
+      entering={FadeInDown.delay(index * 80).springify()}
+      style={styles.cardWrapper}
+    >
+      <Pressable onPress={onPress} style={styles.cardPressable}>
+        <LinearGradient
+          colors={["rgba(30, 35, 45, 0.95)", "rgba(20, 25, 30, 0.98)"]}
+          style={[styles.coachCard, { borderColor: specialtyColor + "40" }]}
+        >
+          <View style={styles.cardImageSection}>
+            {coach.photoUrl ? (
+              <Image 
+                source={{ uri: `${getStaticAssetsUrl()}${coach.photoUrl}` }} 
+                style={styles.coachPhoto}
+                contentFit="cover"
+              />
+            ) : (
+              <LinearGradient
+                colors={[specialtyColor + "40", specialtyColor + "20"]}
+                style={styles.coachPhotoPlaceholder}
+              >
+                <Text style={[styles.coachInitial, { color: specialtyColor }]}>
+                  {coach.name.charAt(0).toUpperCase()}
+                </Text>
+              </LinearGradient>
+            )}
+            
+            {coach.level ? (
+              <View style={[styles.levelBadge, { backgroundColor: Colors.dark.xpCyan }]}>
+                <Text style={styles.levelText}>Lvl {coach.level}</Text>
+              </View>
+            ) : null}
+            
+            {coach.openToOpportunities ? (
+              <View style={styles.availableBadge}>
+                <Ionicons name="checkmark-circle" size={10} color="#fff" />
+              </View>
             ) : null}
           </View>
-        ) : null}
-        {coach.specialty ? (
-          <Text style={styles.coachSpecialty}>{coach.specialty}</Text>
-        ) : null}
-        {coach.yearsExperience ? (
-          <Text style={styles.experience}>
-            {EXPERIENCE_LABELS[coach.yearsExperience] || coach.yearsExperience} experience
-          </Text>
-        ) : null}
-      </View>
-      <View style={styles.coachMeta}>
-        {coach.level ? (
-          <View style={styles.levelBadge}>
-            <Text style={styles.levelText}>Lvl {coach.level}</Text>
+          
+          <View style={styles.cardContent}>
+            <Text style={styles.coachName} numberOfLines={1}>{coach.name}</Text>
+            
+            {coach.academyName ? (
+              <View style={styles.academyRow}>
+                <Ionicons name="school-outline" size={11} color={Colors.dark.textMuted} />
+                <Text style={styles.academyName} numberOfLines={1}>{coach.academyName}</Text>
+              </View>
+            ) : null}
+            
+            {coach.specialty ? (
+              <View style={[styles.specialtyBadge, { backgroundColor: specialtyColor + "20", borderColor: specialtyColor + "50" }]}>
+                <Text style={[styles.specialtyText, { color: specialtyColor }]} numberOfLines={1}>
+                  {coach.specialty}
+                </Text>
+              </View>
+            ) : null}
+            
+            <View style={styles.statsRow}>
+              {coach.yearsExperience ? (
+                <View style={styles.statItem}>
+                  <Ionicons name="ribbon-outline" size={12} color={Colors.dark.primary} />
+                  <Text style={styles.statText}>
+                    {EXPERIENCE_LABELS[coach.yearsExperience] || coach.yearsExperience}
+                  </Text>
+                </View>
+              ) : null}
+              {coach.rating ? (
+                <View style={styles.statItem}>
+                  <Ionicons name="star" size={12} color="#FFD700" />
+                  <Text style={styles.statText}>{coach.rating.toFixed(1)}</Text>
+                </View>
+              ) : null}
+            </View>
           </View>
-        ) : null}
-        {coach.openToOpportunities ? (
-          <View style={styles.openBadge}>
-            <Ionicons name="checkmark-circle" size={12} color={Colors.dark.primary} />
-            <Text style={styles.openText}>Open</Text>
+          
+          <View style={styles.cardFooter}>
+            <LinearGradient
+              colors={[specialtyColor, specialtyColor + "CC"]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+              style={styles.viewButton}
+            >
+              <Text style={styles.viewButtonText}>View Profile</Text>
+              <Ionicons name="chevron-forward" size={14} color="#fff" />
+            </LinearGradient>
           </View>
-        ) : null}
-      </View>
-    </Pressable>
+        </LinearGradient>
+      </Pressable>
+    </Animated.View>
   );
 }
 
+type FilterTab = "all" | "academy" | "open";
+
 export default function CoachDirectoryScreen() {
   const insets = useSafeAreaInsets();
+  const headerHeight = useHeaderHeight();
   const navigation = useNavigation<any>();
+  const { user } = useAuth();
   const [searchQuery, setSearchQuery] = useState("");
-  const [showOpenOnly, setShowOpenOnly] = useState(false);
+  const [activeTab, setActiveTab] = useState<FilterTab>("all");
 
   const { data: coachesData, isLoading } = useQuery<{ coaches: CoachDirectoryEntry[] }>({
-    queryKey: ["/api/coaches/directory", showOpenOnly ? "open" : "all"],
+    queryKey: ["/api/coaches/directory", activeTab === "open" ? "open" : "all"],
     queryFn: async () => {
       const params = new URLSearchParams();
-      if (showOpenOnly) params.set("openToOpportunities", "true");
+      if (activeTab === "open") params.set("openToOpportunities", "true");
       const response = await apiFetch(`/api/coaches/directory?${params.toString()}`);
       if (!response.ok) throw new Error("Failed to load coaches");
       return response.json();
@@ -103,94 +182,126 @@ export default function CoachDirectoryScreen() {
 
   const coaches = coachesData?.coaches || [];
 
-  const filteredCoaches = searchQuery.trim()
-    ? coaches.filter(
+  const filteredCoaches = useMemo(() => {
+    let list = coaches;
+    
+    if (activeTab === "academy" && user?.academyId) {
+      list = list.filter(c => c.academyId === user.academyId);
+    }
+    
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase();
+      list = list.filter(
         (c) =>
-          c.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          c.specialty?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          c.academyName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          c.academyCity?.toLowerCase().includes(searchQuery.toLowerCase())
-      )
-    : coaches;
+          c.name.toLowerCase().includes(query) ||
+          c.specialty?.toLowerCase().includes(query) ||
+          c.academyName?.toLowerCase().includes(query) ||
+          c.academyCity?.toLowerCase().includes(query)
+      );
+    }
+    
+    return list;
+  }, [coaches, searchQuery, activeTab, user?.academyId]);
 
   const handleCoachPress = (coach: CoachDirectoryEntry) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     navigation.navigate("CoachProfile", { coachId: coach.id });
   };
 
-  return (
-    <View style={[styles.container, { paddingTop: insets.top }]}>
-      <View style={styles.backRow}>
-        <Pressable 
-          style={styles.backButton}
-          onPress={() => {
-            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-            navigation.goBack();
-          }}
-        >
-          <Ionicons name="arrow-back" size={24} color={Colors.dark.text} />
-        </Pressable>
-      </View>
-      <View style={styles.header}>
-        <Text style={styles.title}>Coach Directory</Text>
-        <Text style={styles.subtitle}>Find tennis coaches across the platform</Text>
-      </View>
+  const tabs: { key: FilterTab; label: string; icon: keyof typeof Ionicons.glyphMap }[] = [
+    { key: "all", label: "All Coaches", icon: "people" },
+    { key: "academy", label: "My Academy", icon: "school" },
+    { key: "open", label: "Available", icon: "checkmark-circle" },
+  ];
 
-      <View style={styles.searchContainer}>
-        <View style={styles.searchInputWrapper}>
-          <Ionicons name="search" size={18} color={Colors.dark.textMuted} />
-          <TextInput
-            style={styles.searchInput}
-            value={searchQuery}
-            onChangeText={setSearchQuery}
-            placeholder="Search by name, specialty, or location..."
-            placeholderTextColor={Colors.dark.textMuted}
-          />
-          {searchQuery ? (
-            <Pressable onPress={() => setSearchQuery("")}>
-              <Ionicons name="close-circle" size={18} color={Colors.dark.textMuted} />
-            </Pressable>
-          ) : null}
-        </View>
-        <Pressable
-          style={[styles.filterButton, showOpenOnly && styles.filterButtonActive]}
-          onPress={() => {
-            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-            setShowOpenOnly(!showOpenOnly);
-          }}
-        >
-          <Ionicons 
-            name="briefcase-outline" 
-            size={18} 
-            color={showOpenOnly ? Colors.dark.backgroundRoot : Colors.dark.textMuted} 
-          />
-          <Text style={[styles.filterText, showOpenOnly && styles.filterTextActive]}>
-            Open to Opportunities
+  return (
+    <View style={styles.container}>
+      <LinearGradient
+        colors={[Colors.dark.backgroundRoot, Colors.dark.backgroundSecondary]}
+        style={styles.headerGradient}
+      >
+        <View style={[styles.header, { paddingTop: headerHeight + Spacing.md }]}>
+          <View style={styles.titleRow}>
+            <Text style={styles.title}>Find Coaches</Text>
+            <View style={styles.coachCount}>
+              <Ionicons name="people" size={14} color={GlowColors.primary} />
+              <Text style={styles.coachCountText}>{filteredCoaches.length}</Text>
+            </View>
+          </View>
+          <Text style={styles.subtitle}>
+            Discover world-class tennis coaches
           </Text>
-        </Pressable>
-      </View>
+        </View>
+        
+        <View style={styles.searchContainer}>
+          <View style={styles.searchInputWrapper}>
+            <Ionicons name="search" size={18} color={Colors.dark.textMuted} />
+            <TextInput
+              style={styles.searchInput}
+              value={searchQuery}
+              onChangeText={setSearchQuery}
+              placeholder="Search coaches..."
+              placeholderTextColor={Colors.dark.textMuted}
+            />
+            {searchQuery ? (
+              <Pressable onPress={() => setSearchQuery("")}>
+                <Ionicons name="close-circle" size={18} color={Colors.dark.textMuted} />
+              </Pressable>
+            ) : null}
+          </View>
+        </View>
+        
+        <View style={styles.tabsContainer}>
+          {tabs.map((tab) => (
+            <Pressable
+              key={tab.key}
+              style={[styles.tab, activeTab === tab.key && styles.tabActive]}
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                setActiveTab(tab.key);
+              }}
+            >
+              <Ionicons 
+                name={tab.icon} 
+                size={16} 
+                color={activeTab === tab.key ? Colors.dark.backgroundRoot : Colors.dark.textMuted} 
+              />
+              <Text style={[styles.tabText, activeTab === tab.key && styles.tabTextActive]}>
+                {tab.label}
+              </Text>
+            </Pressable>
+          ))}
+        </View>
+      </LinearGradient>
 
       {isLoading ? (
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={Colors.dark.xpCyan} />
-          <Text style={styles.loadingText}>Loading coaches...</Text>
+          <ActivityIndicator size="large" color={GlowColors.primary} />
+          <Text style={styles.loadingText}>Finding coaches...</Text>
         </View>
       ) : filteredCoaches.length === 0 ? (
         <View style={styles.emptyContainer}>
-          <Ionicons name="people-outline" size={48} color={Colors.dark.textMuted} />
+          <LinearGradient
+            colors={[GlowColors.primary + "30", GlowColors.primary + "10"]}
+            style={styles.emptyIcon}
+          >
+            <Ionicons name="people-outline" size={40} color={GlowColors.primary} />
+          </LinearGradient>
           <Text style={styles.emptyTitle}>No Coaches Found</Text>
           <Text style={styles.emptyText}>
-            {searchQuery ? "Try adjusting your search" : "No coaches are visible in the directory yet"}
+            {searchQuery ? "Try adjusting your search" : "No coaches match your filters"}
           </Text>
         </View>
       ) : (
         <FlatList
           data={filteredCoaches}
           keyExtractor={(item) => item.id}
-          renderItem={({ item }) => (
-            <CoachCard coach={item} onPress={() => handleCoachPress(item)} />
+          numColumns={2}
+          columnWrapperStyle={styles.row}
+          renderItem={({ item, index }) => (
+            <PremiumCoachCard coach={item} onPress={() => handleCoachPress(item)} index={index} />
           )}
-          contentContainerStyle={styles.listContent}
+          contentContainerStyle={[styles.listContent, { paddingBottom: insets.bottom + 100 }]}
           showsVerticalScrollIndicator={false}
         />
       )}
@@ -203,68 +314,86 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: Colors.dark.backgroundRoot,
   },
-  backRow: {
-    paddingHorizontal: Spacing.lg,
-    paddingTop: Spacing.md,
-  },
-  backButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: "rgba(255, 255, 255, 0.1)",
-    justifyContent: "center",
-    alignItems: "center",
+  headerGradient: {
+    paddingBottom: Spacing.lg,
   },
   header: {
     paddingHorizontal: Spacing.lg,
-    paddingTop: Spacing.sm,
     paddingBottom: Spacing.md,
   },
+  titleRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
   title: {
-    ...Typography.h2,
+    fontSize: 28,
+    fontWeight: "800",
     color: Colors.dark.text,
+    letterSpacing: -0.5,
+  },
+  coachCount: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    backgroundColor: GlowColors.primary + "20",
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 4,
+    borderRadius: BorderRadius.md,
+  },
+  coachCountText: {
+    fontSize: 14,
+    fontWeight: "700",
+    color: GlowColors.primary,
   },
   subtitle: {
-    ...Typography.body,
+    fontSize: 14,
     color: Colors.dark.textMuted,
-    marginTop: Spacing.xs,
+    marginTop: 4,
   },
   searchContainer: {
     paddingHorizontal: Spacing.lg,
     marginBottom: Spacing.md,
-    gap: Spacing.sm,
   },
   searchInputWrapper: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: Colors.dark.backgroundSecondary,
+    backgroundColor: "rgba(255, 255, 255, 0.08)",
     borderRadius: BorderRadius.lg,
     paddingHorizontal: Spacing.md,
-    paddingVertical: Spacing.sm,
+    paddingVertical: Spacing.sm + 2,
     gap: Spacing.sm,
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.1)",
   },
   searchInput: {
     flex: 1,
-    ...Typography.body,
+    fontSize: 15,
     color: Colors.dark.text,
   },
-  filterButton: {
+  tabsContainer: {
+    flexDirection: "row",
+    paddingHorizontal: Spacing.lg,
+    gap: Spacing.sm,
+  },
+  tab: {
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "center",
-    gap: Spacing.sm,
-    backgroundColor: Colors.dark.backgroundSecondary,
-    borderRadius: BorderRadius.lg,
+    gap: 6,
+    paddingHorizontal: Spacing.md,
     paddingVertical: Spacing.sm,
+    borderRadius: BorderRadius.lg,
+    backgroundColor: "rgba(255, 255, 255, 0.06)",
   },
-  filterButtonActive: {
-    backgroundColor: Colors.dark.primary,
+  tabActive: {
+    backgroundColor: GlowColors.primary,
   },
-  filterText: {
-    ...Typography.small,
+  tabText: {
+    fontSize: 13,
+    fontWeight: "500",
     color: Colors.dark.textMuted,
   },
-  filterTextActive: {
+  tabTextActive: {
     color: Colors.dark.backgroundRoot,
     fontWeight: "600",
   },
@@ -275,7 +404,7 @@ const styles = StyleSheet.create({
     gap: Spacing.md,
   },
   loadingText: {
-    ...Typography.body,
+    fontSize: 15,
     color: Colors.dark.textMuted,
   },
   emptyContainer: {
@@ -285,99 +414,147 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.xl,
     gap: Spacing.md,
   },
+  emptyIcon: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    justifyContent: "center",
+    alignItems: "center",
+    marginBottom: Spacing.sm,
+  },
   emptyTitle: {
-    ...Typography.h3,
+    fontSize: 20,
+    fontWeight: "700",
     color: Colors.dark.text,
   },
   emptyText: {
-    ...Typography.body,
+    fontSize: 14,
     color: Colors.dark.textMuted,
     textAlign: "center",
   },
   listContent: {
     paddingHorizontal: Spacing.lg,
-    paddingBottom: Spacing.xl,
+    paddingTop: Spacing.md,
+  },
+  row: {
+    justifyContent: "space-between",
+    marginBottom: Spacing.md,
+  },
+  cardWrapper: {
+    width: CARD_WIDTH,
+  },
+  cardPressable: {
+    borderRadius: BorderRadius.lg,
+    overflow: "hidden",
   },
   coachCard: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: Colors.dark.backgroundSecondary,
     borderRadius: BorderRadius.lg,
-    padding: Spacing.md,
-    marginBottom: Spacing.sm,
+    borderWidth: 1,
+    overflow: "hidden",
   },
-  coachAvatar: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: Colors.dark.backgroundTertiary,
+  cardImageSection: {
+    height: 120,
+    position: "relative",
+  },
+  coachPhoto: {
+    width: "100%",
+    height: "100%",
+  },
+  coachPhotoPlaceholder: {
+    width: "100%",
+    height: "100%",
     justifyContent: "center",
     alignItems: "center",
   },
   coachInitial: {
-    ...Typography.h3,
-    color: Colors.dark.text,
+    fontSize: 40,
+    fontWeight: "800",
   },
-  coachInfo: {
-    flex: 1,
-    marginLeft: Spacing.md,
+  levelBadge: {
+    position: "absolute",
+    top: Spacing.sm,
+    right: Spacing.sm,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: BorderRadius.sm,
+  },
+  levelText: {
+    fontSize: 11,
+    fontWeight: "700",
+    color: "#1A1A1A",
+  },
+  availableBadge: {
+    position: "absolute",
+    top: Spacing.sm,
+    left: Spacing.sm,
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: "#22C55E",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  cardContent: {
+    padding: Spacing.sm,
   },
   coachName: {
-    ...Typography.body,
+    fontSize: 15,
+    fontWeight: "700",
     color: Colors.dark.text,
-    fontWeight: "600",
+    marginBottom: 2,
   },
   academyRow: {
     flexDirection: "row",
     alignItems: "center",
     gap: 4,
-    marginTop: 2,
+    marginBottom: 6,
   },
   academyName: {
-    ...Typography.caption,
+    fontSize: 11,
     color: Colors.dark.textMuted,
+    flex: 1,
   },
-  academyCity: {
-    ...Typography.caption,
-    color: Colors.dark.textMuted,
-  },
-  coachSpecialty: {
-    ...Typography.small,
-    color: Colors.dark.textSecondary,
-    marginTop: 2,
-  },
-  experience: {
-    ...Typography.caption,
-    color: Colors.dark.textMuted,
-    marginTop: 2,
-  },
-  coachMeta: {
-    alignItems: "flex-end",
-    gap: Spacing.xs,
-  },
-  levelBadge: {
-    backgroundColor: "rgba(0, 200, 200, 0.2)",
-    paddingHorizontal: Spacing.sm,
-    paddingVertical: 2,
+  specialtyBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 3,
     borderRadius: BorderRadius.sm,
+    alignSelf: "flex-start",
+    borderWidth: 1,
+    marginBottom: 6,
   },
-  levelText: {
-    ...Typography.caption,
-    color: Colors.dark.xpCyan,
+  specialtyText: {
+    fontSize: 10,
     fontWeight: "600",
   },
-  openBadge: {
+  statsRow: {
+    flexDirection: "row",
+    gap: Spacing.sm,
+  },
+  statItem: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 2,
-    backgroundColor: "rgba(46, 204, 64, 0.15)",
-    paddingHorizontal: Spacing.sm,
-    paddingVertical: 2,
-    borderRadius: BorderRadius.sm,
+    gap: 3,
   },
-  openText: {
-    ...Typography.caption,
-    color: Colors.dark.primary,
+  statText: {
+    fontSize: 11,
+    color: Colors.dark.textSecondary,
     fontWeight: "500",
+  },
+  cardFooter: {
+    paddingHorizontal: Spacing.sm,
+    paddingBottom: Spacing.sm,
+  },
+  viewButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 4,
+    paddingVertical: 8,
+    borderRadius: BorderRadius.md,
+  },
+  viewButtonText: {
+    fontSize: 12,
+    fontWeight: "600",
+    color: "#fff",
   },
 });
