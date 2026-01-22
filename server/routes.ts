@@ -19225,6 +19225,162 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
   
   // Get academy peers (other players in same academy for safe comparison)
+  // Get player achievements for For You section
+  app.get("/api/player/me/achievements", authMiddleware, requirePlayerOrOwner, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const playerId = req.user!.playerId;
+      if (!playerId) {
+        return res.json({ achievements: [] });
+      }
+      
+      const achievements: Array<{
+        id: string;
+        type: string;
+        title: string;
+        description: string;
+        date: string;
+        icon: string;
+        color: string;
+        value?: string;
+      }> = [];
+      
+      // 1. Get earned badges from playerBadges
+      const earnedBadgesResult = await db.execute(sql`
+        SELECT pb.*, b.name as badge_name, b.description as badge_description, b.icon as badge_icon, b.color as badge_color
+        FROM player_badges pb
+        LEFT JOIN badges b ON pb.badge_id = b.id
+        WHERE pb.player_id = ${playerId}
+        ORDER BY pb.earned_at DESC
+        LIMIT 10
+      `);
+      
+      for (const badge of earnedBadgesResult.rows) {
+        achievements.push({
+          id: `badge-${badge.id}`,
+          type: "badge",
+          title: String(badge.badge_name || "Badge Earned!"),
+          description: String(badge.badge_description || "You earned a new badge"),
+          date: String(badge.earned_at || new Date().toISOString()),
+          icon: String(badge.badge_icon || "ribbon"),
+          color: String(badge.badge_color || "#E040FB"),
+          value: "Badge",
+        });
+      }
+      
+      // 2. Get recent match wins from adultGlowMatches
+      const matchWinsResult = await db.execute(sql`
+        SELECT agm.*, 
+               p.first_name as opponent_first, 
+               p.last_name as opponent_last
+        FROM adult_glow_matches agm
+        LEFT JOIN players p ON agm.opponent_id = p.id
+        WHERE agm.player_id = ${playerId} AND agm.did_win = true
+        ORDER BY agm.match_date DESC
+        LIMIT 5
+      `);
+      
+      for (const match of matchWinsResult.rows) {
+        const opponentName = match.opponent_first ? `${match.opponent_first} ${match.opponent_last?.toString().charAt(0) || ""}.` : "Opponent";
+        const setScore = match.set_score || "Victory";
+        achievements.push({
+          id: `win-${match.id}`,
+          type: "match_won",
+          title: "Match Victory!",
+          description: `Defeated ${opponentName} ${setScore}`,
+          date: String(match.match_date || match.created_at || new Date().toISOString()),
+          icon: "trophy",
+          color: "#FFD700",
+          value: String(setScore),
+        });
+      }
+      
+      // 3. Get rating changes (MMR increases)
+      const ratingChangesResult = await db.execute(sql`
+        SELECT agm.*, agm.mmr_change
+        FROM adult_glow_matches agm
+        WHERE agm.player_id = ${playerId} AND agm.mmr_change > 10
+        ORDER BY agm.match_date DESC
+        LIMIT 3
+      `);
+      
+      for (const match of ratingChangesResult.rows) {
+        const mmrChange = Number(match.mmr_change) || 0;
+        if (mmrChange > 10) {
+          achievements.push({
+            id: `rating-${match.id}`,
+            type: "rating_up",
+            title: "Rating Boost!",
+            description: `Your Glow Rating increased by ${Math.round(mmrChange)} points`,
+            date: String(match.match_date || match.created_at || new Date().toISOString()),
+            icon: "trending-up",
+            color: "#00E5FF",
+            value: `+${Math.round(mmrChange)}`,
+          });
+        }
+      }
+      
+      // 4. Get session milestones (count of completed sessions)
+      const sessionCountResult = await db.execute(sql`
+        SELECT COUNT(*) as count 
+        FROM session_players sp
+        JOIN sessions s ON sp.session_id = s.id
+        WHERE sp.player_id = ${playerId} 
+        AND s.status = 'completed'
+      `);
+      
+      const sessionCount = Number(sessionCountResult.rows[0]?.count) || 0;
+      const milestones = [5, 10, 25, 50, 100, 200];
+      for (const milestone of milestones) {
+        if (sessionCount >= milestone) {
+          achievements.push({
+            id: `sessions-${milestone}`,
+            type: "streak",
+            title: `${milestone} Sessions Complete!`,
+            description: `You have completed ${milestone} training sessions`,
+            date: new Date().toISOString(),
+            icon: "flame",
+            color: "#FF6B35",
+            value: `${milestone} Sessions`,
+          });
+        }
+      }
+      
+      // 5. Get player level info
+      const playerResult = await db.execute(sql`
+        SELECT xp_level FROM players WHERE id = ${playerId}
+      `);
+      
+      const playerLevel = Number(playerResult.rows[0]?.xp_level) || 1;
+      if (playerLevel > 1) {
+        achievements.push({
+          id: `level-${playerLevel}`,
+          type: "level_up",
+          title: `Level ${playerLevel} Achieved!`,
+          description: `You have reached Level ${playerLevel} - Keep climbing!`,
+          date: new Date().toISOString(),
+          icon: "arrow-up-circle",
+          color: "#C8FF3D",
+          value: `Level ${playerLevel}`,
+        });
+      }
+      
+      // Sort by date (newest first) and dedupe by id
+      const seen = new Set<string>();
+      const uniqueAchievements = achievements.filter(a => {
+        if (seen.has(a.id)) return false;
+        seen.add(a.id);
+        return true;
+      });
+      
+      uniqueAchievements.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+      
+      res.json({ achievements: uniqueAchievements.slice(0, 20) });
+    } catch (error) {
+      console.error("Error fetching player achievements:", error);
+      res.json({ achievements: [] });
+    }
+  });
+
   app.get("/api/player/me/peers", authMiddleware, requirePlayerOrOwner, async (req: AuthenticatedRequest, res: Response) => {
     // Return empty peers for users without player profile
     if (!req.user!.playerId) {

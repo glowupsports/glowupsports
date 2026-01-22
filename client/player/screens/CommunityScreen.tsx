@@ -538,13 +538,7 @@ function AchievementShowcase({ onSelectAchievement }: { onSelectAchievement: (ac
     queryKey: ["/api/player/me/achievements"],
   });
   
-  const achievements = achievementsData?.achievements || [
-    { id: "1", type: "match_won", title: "Match Victory!", description: "Defeated Ahmed K. 6-3, 6-4", date: new Date().toISOString(), icon: "trophy", color: "#FFD700", value: "6-3, 6-4" },
-    { id: "2", type: "level_up", title: "Level Up!", description: "Reached Level 12 - Tennis Warrior", date: new Date(Date.now() - 86400000).toISOString(), icon: "arrow-up-circle", color: "#C8FF3D", value: "Level 12" },
-    { id: "3", type: "streak", title: "5 Win Streak!", description: "Won 5 matches in a row", date: new Date(Date.now() - 172800000).toISOString(), icon: "flame", color: "#FF6B35", value: "5 Wins" },
-    { id: "4", type: "badge", title: "First Blood", description: "Won your first competitive match", date: new Date(Date.now() - 259200000).toISOString(), icon: "ribbon", color: "#E040FB", value: "Badge" },
-    { id: "5", type: "rating_up", title: "Rating Increase", description: "Your Glow Rating increased to 1450", date: new Date(Date.now() - 345600000).toISOString(), icon: "trending-up", color: "#00E5FF", value: "+25" },
-  ];
+  const achievements = achievementsData?.achievements || [];
   
   const handleShare = async (achievement: Achievement) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
