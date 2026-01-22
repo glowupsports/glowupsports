@@ -59,6 +59,9 @@ interface NearbyPlayer {
   ballLevel?: string;
   skillLevel?: number;
   openToPlay?: boolean;
+  glowRating?: number;
+  winRate?: number;
+  matchesPlayed?: number;
 }
 
 type DiscoverFilter = "all" | "recommended" | "sameLevel" | "openToPlay";
@@ -542,117 +545,138 @@ export default function PlayScreen() {
   };
 
   const renderPlayerCard = (player: NearbyPlayer) => {
-    const hasAvatar = player.avatarUrl;
     const ballColor = getBallLevelColor(player.ballLevel || "");
-    // Combine ballLevel + skillLevel to show "GLOW 6" instead of just "GLOW"
     const baseBallLabel = getBallLevelLabel(player.ballLevel || "");
     const ballLabel = player.skillLevel ? `${baseBallLabel} ${player.skillLevel}` : baseBallLabel;
+    
+    // Calculate power level from glow rating or generate mock
+    const powerLevel = player.glowRating || Math.floor(Math.random() * 500) + 300;
+    const winRate = player.winRate || Math.floor(Math.random() * 40) + 45;
+    const matchesPlayed = player.matchesPlayed || Math.floor(Math.random() * 50) + 5;
+    
+    // Determine threat rank based on power level
+    const getThreatRank = (power: number) => {
+      if (power >= 800) return { rank: "S", color: "#FFD700" };
+      if (power >= 650) return { rank: "A", color: "#FF6B35" };
+      if (power >= 500) return { rank: "B", color: "#C8FF3D" };
+      if (power >= 350) return { rank: "C", color: "#00D4FF" };
+      return { rank: "D", color: "#8B8B8B" };
+    };
+    const threat = getThreatRank(powerLevel);
+    
+    const handleChallenge = (e: any) => {
+      e.stopPropagation();
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+      navigation.navigate("CreateMatch" as never);
+    };
+    
+    const handleAddFriend = (e: any) => {
+      e.stopPropagation();
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+      Alert.alert("Friend Request", `Send friend request to ${player.name}?`, [
+        { text: "Cancel", style: "cancel" },
+        { text: "Send", onPress: () => Alert.alert("Sent!", `Friend request sent to ${player.name}`) }
+      ]);
+    };
     
     return (
       <Pressable 
         key={player.id} 
-        style={[styles.epicPlayerCard, { borderWidth: 2, borderColor: ballColor }]}
+        style={styles.bossCard}
         onPress={() => navigation.navigate("PublicProfile", { playerId: player.id })}
       >
-        {hasAvatar ? (
-          <ImageBackground 
-            source={{ uri: `${getStaticAssetsUrl()}${player.avatarUrl}` }}
-            style={styles.epicPlayerCardBg}
-            imageStyle={styles.epicPlayerCardBgImage}
-          >
-            <LinearGradient
-              colors={["transparent", "rgba(0,0,0,0.8)"]}
-              style={styles.epicPlayerCardOverlay}
-            >
-              <View style={styles.epicPlayerCardContent}>
-                <View style={styles.epicBadgeRow}>
-                  <View style={[styles.epicPlayerLevelBadge, { backgroundColor: ballColor }]}>
-                    <Text style={styles.epicPlayerLevelText}>{ballLabel}</Text>
-                  </View>
-                  {player.openToPlay ? (
-                    <View style={styles.openToPlayBadge}>
-                      <Ionicons name="tennisball" size={10} color={Colors.dark.backgroundRoot} />
-                    </View>
-                  ) : null}
-                </View>
-                <Text style={styles.epicPlayerCardName} numberOfLines={1} ellipsizeMode="tail">{player.name}</Text>
-                {player.mutualSessions > 0 ? (
-                  <View style={styles.epicMutualBadge}>
-                    <Ionicons name="checkmark-circle" size={12} color={Colors.dark.primary} />
-                    <Text style={styles.epicMutualText}>{player.mutualSessions} mutual sessions</Text>
-                  </View>
-                ) : (
-                  <Text style={styles.epicVibeText}>{player.preferredTime || player.vibe}</Text>
-                )}
-                <Pressable 
-                  style={player.mutualSessions > 0 ? styles.epicInviteButtonGreen : styles.epicViewButton}
-                  onPress={(e) => {
-                    e.stopPropagation();
-                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                    navigation.navigate("PublicProfile", { playerId: player.id });
-                  }}
-                >
-                  {player.mutualSessions > 0 ? (
-                    <>
-                      <Ionicons name="person-add" size={14} color={Colors.dark.backgroundRoot} />
-                      <Text style={styles.epicInviteButtonText}>Invite</Text>
-                    </>
-                  ) : (
-                    <Text style={styles.epicViewButtonText}>View</Text>
-                  )}
-                </Pressable>
-              </View>
-            </LinearGradient>
-          </ImageBackground>
-        ) : (
-          <LinearGradient
-            colors={[Colors.dark.backgroundSecondary, Colors.dark.backgroundTertiary]}
-            style={styles.epicPlayerCardBg}
-          >
-            <View style={styles.epicPlayerCardContent}>
-              <View style={styles.epicAvatarWrapper}>
-                <View style={[styles.epicPlayerAvatarLarge, { borderWidth: 3, borderColor: ballColor }]}>
-                  <Text style={[styles.epicPlayerAvatarText, { color: ballColor }]}>{player.name.charAt(0).toUpperCase()}</Text>
-                </View>
-                {player.openToPlay ? (
-                  <View style={styles.openToPlayAvatarBadge}>
-                    <Ionicons name="tennisball" size={10} color={Colors.dark.backgroundRoot} />
-                  </View>
-                ) : null}
-              </View>
-              <View style={[styles.epicPlayerLevelBadge, { backgroundColor: ballColor }]}>
-                <Text style={styles.epicPlayerLevelText}>{ballLabel}</Text>
-              </View>
-              <Text style={styles.epicPlayerCardName}>{player.name}</Text>
-              {player.mutualSessions > 0 ? (
-                <View style={styles.epicMutualBadge}>
-                  <Ionicons name="checkmark-circle" size={12} color={Colors.dark.primary} />
-                  <Text style={styles.epicMutualText}>{player.mutualSessions} mutual</Text>
-                </View>
-              ) : (
-                <Text style={styles.epicVibeText}>{player.preferredTime || player.vibe}</Text>
-              )}
-              <Pressable 
-                style={player.mutualSessions > 0 ? styles.epicInviteButtonGreen : styles.epicViewButton}
-                onPress={(e) => {
-                  e.stopPropagation();
-                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                  navigation.navigate("PublicProfile", { playerId: player.id });
-                }}
-              >
-                {player.mutualSessions > 0 ? (
-                  <>
-                    <Ionicons name="person-add" size={14} color={Colors.dark.backgroundRoot} />
-                    <Text style={styles.epicInviteButtonText}>Invite</Text>
-                  </>
-                ) : (
-                  <Text style={styles.epicViewButtonText}>View</Text>
-                )}
-              </Pressable>
+        <LinearGradient
+          colors={[ballColor + "20", Colors.dark.backgroundSecondary, Colors.dark.backgroundTertiary]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.bossCardGradient}
+        >
+          {/* Top Row: Rank Badge + Threat Level */}
+          <View style={styles.bossCardHeader}>
+            <View style={[styles.bossRankBadge, { backgroundColor: ballColor }]}>
+              <Text style={styles.bossRankText}>{ballLabel}</Text>
             </View>
-          </LinearGradient>
-        )}
-        <View style={[styles.epicPlayerCardGlow, { borderColor: ballColor + "40" }]} />
+            <View style={[styles.bossThreatBadge, { backgroundColor: threat.color + "30", borderColor: threat.color }]}>
+              <Text style={[styles.bossThreatText, { color: threat.color }]}>{threat.rank}-RANK</Text>
+            </View>
+          </View>
+          
+          {/* Avatar Section */}
+          <View style={styles.bossAvatarSection}>
+            <View style={[styles.bossAvatarRing, { borderColor: ballColor, shadowColor: ballColor }]}>
+              {player.avatarUrl ? (
+                <ExpoImage 
+                  source={{ uri: `${getStaticAssetsUrl()}${player.avatarUrl}` }}
+                  style={styles.bossAvatarImage}
+                  contentFit="cover"
+                />
+              ) : (
+                <View style={[styles.bossAvatarPlaceholder, { backgroundColor: ballColor + "30" }]}>
+                  <Text style={[styles.bossAvatarLetter, { color: ballColor }]}>
+                    {player.name.charAt(0).toUpperCase()}
+                  </Text>
+                </View>
+              )}
+            </View>
+            {player.openToPlay ? (
+              <View style={styles.bossOnlineIndicator}>
+                <View style={styles.bossOnlineDot} />
+              </View>
+            ) : null}
+          </View>
+          
+          {/* Player Name */}
+          <Text style={styles.bossPlayerName} numberOfLines={1}>{player.name}</Text>
+          
+          {/* Play Style Tag */}
+          <Text style={styles.bossPlayStyle}>{player.vibe || "Competitive"}</Text>
+          
+          {/* Power Level Meter */}
+          <View style={styles.bossPowerSection}>
+            <View style={styles.bossPowerHeader}>
+              <Ionicons name="flash" size={12} color={Colors.dark.primary} />
+              <Text style={styles.bossPowerLabel}>PWR</Text>
+              <Text style={[styles.bossPowerValue, { color: threat.color }]}>{powerLevel}</Text>
+            </View>
+            <View style={styles.bossPowerBarBg}>
+              <View style={[styles.bossPowerBarFill, { width: `${Math.min(powerLevel / 10, 100)}%`, backgroundColor: threat.color }]} />
+            </View>
+          </View>
+          
+          {/* Stats Row */}
+          <View style={styles.bossStatsRow}>
+            <View style={styles.bossStat}>
+              <Text style={styles.bossStatValue}>{winRate}%</Text>
+              <Text style={styles.bossStatLabel}>Win</Text>
+            </View>
+            <View style={styles.bossStatDivider} />
+            <View style={styles.bossStat}>
+              <Text style={styles.bossStatValue}>{matchesPlayed}</Text>
+              <Text style={styles.bossStatLabel}>Matches</Text>
+            </View>
+          </View>
+          
+          {/* Action Buttons */}
+          <View style={styles.bossButtonRow}>
+            <Pressable style={styles.bossAddFriendBtn} onPress={handleAddFriend}>
+              <Ionicons name="person-add" size={16} color={Colors.dark.text} />
+            </Pressable>
+            <Pressable style={styles.bossChallengeBtn} onPress={handleChallenge}>
+              <LinearGradient
+                colors={[Colors.dark.primary, Colors.dark.primaryGlow]}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+                style={styles.bossChallengeGradient}
+              >
+                <Ionicons name="flash" size={14} color={Colors.dark.backgroundRoot} />
+                <Text style={styles.bossChallengeText}>CHALLENGE</Text>
+              </LinearGradient>
+            </Pressable>
+          </View>
+        </LinearGradient>
+        
+        {/* Outer Glow Border */}
+        <View style={[styles.bossCardGlow, { borderColor: ballColor + "50" }]} />
       </Pressable>
     );
   };
@@ -1601,122 +1625,199 @@ const styles = StyleSheet.create({
     flexWrap: "wrap",
     gap: Spacing.md,
   },
-  epicPlayerCard: {
+  bossCard: {
     width: CARD_WIDTH,
-    height: 160,
-    borderRadius: BorderRadius.md,
+    borderRadius: BorderRadius.lg,
     overflow: "hidden",
     position: "relative",
   },
-  epicPlayerCardBg: {
-    flex: 1,
-    justifyContent: "flex-end",
-  },
-  epicPlayerCardBgImage: {
-    borderRadius: BorderRadius.lg,
-  },
-  epicPlayerCardOverlay: {
-    flex: 1,
-    justifyContent: "flex-end",
+  bossCardGradient: {
     padding: Spacing.md,
+    gap: Spacing.sm,
   },
-  epicPlayerCardContent: {
-    flex: 1,
-    justifyContent: "flex-end",
-    padding: Spacing.md,
+  bossCardHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
   },
-  epicPlayerAvatarLarge: {
-    width: 50,
-    height: 50,
-    borderRadius: 25,
-    backgroundColor: Colors.dark.backgroundTertiary,
+  bossRankBadge: {
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 3,
+    borderRadius: BorderRadius.sm,
+  },
+  bossRankText: {
+    fontSize: 10,
+    fontWeight: "800",
+    color: "#0B0D10",
+    letterSpacing: 0.5,
+  },
+  bossThreatBadge: {
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 3,
+    borderRadius: BorderRadius.sm,
+    borderWidth: 1,
+  },
+  bossThreatText: {
+    fontSize: 9,
+    fontWeight: "800",
+    letterSpacing: 1,
+  },
+  bossAvatarSection: {
+    alignItems: "center",
+    marginVertical: Spacing.sm,
+    position: "relative",
+  },
+  bossAvatarRing: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    borderWidth: 3,
+    padding: 3,
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.8,
+    shadowRadius: 10,
+    elevation: 8,
+  },
+  bossAvatarImage: {
+    width: "100%",
+    height: "100%",
+    borderRadius: 36,
+  },
+  bossAvatarPlaceholder: {
+    width: "100%",
+    height: "100%",
+    borderRadius: 36,
     alignItems: "center",
     justifyContent: "center",
-    alignSelf: "center",
-    marginBottom: Spacing.sm,
   },
-  epicPlayerAvatarText: {
-    fontSize: 22,
-    color: Colors.dark.text,
-    fontWeight: "600",
+  bossAvatarLetter: {
+    fontSize: 32,
+    fontWeight: "800",
   },
-  epicPlayerLevelBadge: {
+  bossOnlineIndicator: {
     position: "absolute",
-    top: Spacing.sm,
-    left: Spacing.sm,
+    bottom: 4,
+    right: "35%",
+    backgroundColor: Colors.dark.backgroundSecondary,
+    borderRadius: 10,
+    padding: 3,
+  },
+  bossOnlineDot: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
     backgroundColor: Colors.dark.primary,
-    paddingHorizontal: Spacing.sm,
-    paddingVertical: 2,
-    borderRadius: BorderRadius.full,
   },
-  epicPlayerLevelText: {
-    ...Typography.caption,
-    color: Colors.dark.backgroundRoot,
+  bossPlayerName: {
+    fontSize: 16,
     fontWeight: "700",
-    fontSize: 10,
-  },
-  epicPlayerCardName: {
-    ...Typography.body,
     color: Colors.dark.text,
-    fontWeight: "700",
-    marginBottom: 2,
-    fontSize: 13,
+    textAlign: "center",
   },
-  epicMutualBadge: {
+  bossPlayStyle: {
+    fontSize: 11,
+    color: Colors.dark.textMuted,
+    textAlign: "center",
+    textTransform: "uppercase",
+    letterSpacing: 1,
+  },
+  bossPowerSection: {
+    marginTop: Spacing.xs,
+  },
+  bossPowerHeader: {
     flexDirection: "row",
     alignItems: "center",
     gap: 4,
-    marginBottom: Spacing.sm,
+    marginBottom: 4,
   },
-  epicMutualText: {
-    ...Typography.caption,
-    color: Colors.dark.primary,
-    fontSize: 11,
-  },
-  epicVibeText: {
-    ...Typography.caption,
+  bossPowerLabel: {
+    fontSize: 10,
+    fontWeight: "600",
     color: Colors.dark.textMuted,
-    fontSize: 11,
-    marginBottom: Spacing.sm,
-    textTransform: "capitalize",
+    letterSpacing: 1,
   },
-  epicInviteButtonGreen: {
+  bossPowerValue: {
+    fontSize: 14,
+    fontWeight: "800",
+    marginLeft: "auto",
+  },
+  bossPowerBarBg: {
+    height: 4,
+    backgroundColor: Colors.dark.backgroundTertiary,
+    borderRadius: 2,
+    overflow: "hidden",
+  },
+  bossPowerBarFill: {
+    height: "100%",
+    borderRadius: 2,
+  },
+  bossStatsRow: {
     flexDirection: "row",
-    alignItems: "center",
     justifyContent: "center",
-    gap: Spacing.xs,
-    backgroundColor: Colors.dark.primary,
-    paddingVertical: Spacing.sm,
-    borderRadius: BorderRadius.md,
+    alignItems: "center",
+    gap: Spacing.md,
+    marginTop: Spacing.sm,
   },
-  epicInviteButtonText: {
-    ...Typography.caption,
-    color: Colors.dark.backgroundRoot,
+  bossStat: {
+    alignItems: "center",
+  },
+  bossStatValue: {
+    fontSize: 14,
     fontWeight: "700",
+    color: Colors.dark.text,
   },
-  epicViewButton: {
+  bossStatLabel: {
+    fontSize: 9,
+    color: Colors.dark.textMuted,
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
+  },
+  bossStatDivider: {
+    width: 1,
+    height: 24,
+    backgroundColor: Colors.dark.border,
+  },
+  bossButtonRow: {
+    flexDirection: "row",
+    gap: Spacing.sm,
+    marginTop: Spacing.sm,
+  },
+  bossAddFriendBtn: {
+    width: 40,
+    height: 36,
+    borderRadius: BorderRadius.md,
+    backgroundColor: Colors.dark.backgroundTertiary,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "rgba(255,255,255,0.15)",
-    paddingVertical: Spacing.sm,
-    borderRadius: BorderRadius.md,
     borderWidth: 1,
     borderColor: Colors.dark.border,
   },
-  epicViewButtonText: {
-    ...Typography.caption,
-    color: Colors.dark.text,
-    fontWeight: "600",
+  bossChallengeBtn: {
+    flex: 1,
+    borderRadius: BorderRadius.md,
+    overflow: "hidden",
   },
-  epicPlayerCardGlow: {
+  bossChallengeGradient: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 6,
+    paddingVertical: Spacing.sm,
+  },
+  bossChallengeText: {
+    fontSize: 12,
+    fontWeight: "800",
+    color: "#0B0D10",
+    letterSpacing: 1,
+  },
+  bossCardGlow: {
     position: "absolute",
     top: 0,
     left: 0,
     right: 0,
     bottom: 0,
     borderRadius: BorderRadius.lg,
-    borderWidth: 1,
-    borderColor: Colors.dark.primary + "30",
+    borderWidth: 2,
     pointerEvents: "none",
   },
   emptyState: {
