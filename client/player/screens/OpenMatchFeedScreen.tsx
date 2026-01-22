@@ -288,7 +288,7 @@ function PremiumMatchCard({
                 <View style={[styles.hostLevelBadge, { backgroundColor: getBallLevelColor(match.host.ballLevel) + "20", borderColor: getBallLevelColor(match.host.ballLevel) }]}>
                   <View style={[styles.ballLevelDot, { backgroundColor: getBallLevelColor(match.host.ballLevel) }]} />
                   <Text style={[styles.hostLevelText, { color: getBallLevelColor(match.host.ballLevel) }]}>
-                    {match.host.ballLevel.toUpperCase()} {match.host.level || ""} {getSkillSublevelLabel(match.host.skillLevel)}
+                    {match.host.ballLevel.toUpperCase()} {match.host.level || ""} {getSkillSublevelLabel(match.host.level)}
                   </Text>
                 </View>
               ) : match.host?.level ? (
