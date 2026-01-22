@@ -568,24 +568,47 @@ export function OpenMatchesRow() {
             >
               <Pressable onPress={() => handleMatchPress(match.id)}>
                 <NeonEdgeCard 
-                  color={ProTennisColors.neonCyan} 
+                  color={getBallLevelColor(match.ballLevel || "glow")} 
                   glowIntensity="medium" 
                   style={styles.matchCard}
                 >
                   <View style={styles.matchCardContent}>
                     <View style={styles.matchHeader}>
-                      <View style={styles.matchTypeIcon}>
-                        <Feather name="target" size={20} color={ProTennisColors.neonCyan} />
+                      {/* Host avatar */}
+                      <View style={[styles.matchHostAvatar, { borderColor: getBallLevelColor(match.ballLevel || "glow") }]}>
+                        {match.participants && match.participants[0]?.profilePhotoUrl ? (
+                          <ExpoImage 
+                            source={{ uri: `${getStaticAssetsUrl()}${match.participants[0].profilePhotoUrl}` }} 
+                            style={styles.matchHostImage}
+                            contentFit="cover"
+                          />
+                        ) : (
+                          <Text style={styles.matchHostInitials}>
+                            {match.participants?.[0]?.name?.charAt(0) || "?"}
+                          </Text>
+                        )}
                       </View>
-                      <View style={styles.matchTypeBadge}>
-                        <Text style={styles.matchTypeText}>
+                      <View style={[styles.matchTypeBadge, { backgroundColor: getBallLevelColor(match.ballLevel || "glow") + "25" }]}>
+                        <Text style={[styles.matchTypeText, { color: getBallLevelColor(match.ballLevel || "glow") }]}>
                           {(match.maxPlayers || 4) === 2 ? "Singles" : "Doubles"}
                         </Text>
                       </View>
                     </View>
 
+                    {/* Host info */}
+                    <Text style={styles.matchHostName} numberOfLines={1}>
+                      {match.participants?.[0]?.name || "Looking for host"}
+                    </Text>
+                    <View style={styles.matchLevelRow}>
+                      <View style={[styles.matchLevelBadge, { backgroundColor: getBallLevelColor(match.ballLevel || "glow") + "20" }]}>
+                        <View style={[styles.matchLevelDot, { backgroundColor: getBallLevelColor(match.ballLevel || "glow") }]} />
+                        <Text style={[styles.matchLevelText, { color: getBallLevelColor(match.ballLevel || "glow") }]}>
+                          {(match.ballLevel || "GLOW").toUpperCase()} {match.skillLevel || ""}
+                        </Text>
+                      </View>
+                    </View>
+                    
                     <Text style={styles.matchTime}>{match.time}</Text>
-                    <Text style={styles.matchLabel}>Looking for players</Text>
 
                     {/* Players joined */}
                     <View style={styles.matchPlayersRow}>
@@ -604,15 +627,15 @@ export function OpenMatchesRow() {
                         </View>
                       ) : null}
                       <Text style={styles.matchSpotsText}>
-                        {currentPlayers}/{match.maxPlayers || 4} players
+                        {currentPlayers}/{match.maxPlayers || 4}
                       </Text>
                     </View>
 
                     <Pressable 
-                      style={styles.matchJoinButton}
+                      style={[styles.matchJoinButton, { backgroundColor: getBallLevelColor(match.ballLevel || "glow") }]}
                       onPress={() => handleMatchPress(match.id)}
                     >
-                      <Text style={styles.matchJoinText}>Join Match</Text>
+                      <Text style={styles.matchJoinText}>Join</Text>
                       <Feather name="arrow-right" size={14} color={ProTennisColors.midnightBlue} />
                     </Pressable>
                   </View>
@@ -1203,6 +1226,54 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
+  matchHostAvatar: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: ProTennisColors.surfaceCard,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 2,
+    overflow: "hidden",
+  },
+  matchHostImage: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+  },
+  matchHostInitials: {
+    fontSize: 16,
+    fontWeight: "700",
+    color: ProTennisColors.white,
+  },
+  matchHostName: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: ProTennisColors.white,
+    marginTop: Spacing.xs,
+  },
+  matchLevelRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginTop: 2,
+  },
+  matchLevelBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    paddingVertical: 2,
+    paddingHorizontal: 6,
+    borderRadius: BorderRadius.xs,
+  },
+  matchLevelDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+  },
+  matchLevelText: {
+    fontSize: 10,
+    fontWeight: "600",
+  },
   matchTypeBadge: {
     backgroundColor: "rgba(0, 229, 255, 0.2)",
     paddingHorizontal: 8,
@@ -1215,11 +1286,11 @@ const styles = StyleSheet.create({
     color: ProTennisColors.neonCyan,
   },
   matchTime: {
-    fontSize: 24,
+    fontSize: 18,
     fontWeight: "800",
     color: ProTennisColors.white,
     fontVariant: ["tabular-nums"],
-    marginTop: Spacing.sm,
+    marginTop: Spacing.xs,
   },
   matchLabel: {
     fontSize: 12,
