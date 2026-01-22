@@ -221,10 +221,12 @@ export default function PlayerBookingWizard({
   }, [selectedDate, duration, selectedLocationId]);
 
   // Fetch available slots using default queryFn
-  const { data: availableSlots = [], isLoading: slotsLoading } = useQuery<AvailableSlot[]>({
+  console.log('[BookingWizard] Query state:', { visible, currentSlide, url: availabilityQueryUrl, enabled: visible && currentSlide >= 1 });
+  const { data: availableSlots = [], isLoading: slotsLoading, error: slotsError } = useQuery<AvailableSlot[]>({
     queryKey: [availabilityQueryUrl],
     enabled: visible && currentSlide >= 1,
   });
+  console.log('[BookingWizard] Slots result:', { count: availableSlots.length, loading: slotsLoading, error: slotsError });
 
   // Build joinable sessions query URL with server-side filtering
   const joinableSessionsUrl = useMemo(() => {
