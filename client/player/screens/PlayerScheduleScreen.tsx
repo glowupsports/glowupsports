@@ -77,6 +77,8 @@ interface ScheduledItem {
   type: "private" | "group" | "semi_private" | "court" | "match";
   title: string;
   subtitle: string;
+  coachName: string;
+  courtName: string;
   status: "upcoming" | "completed" | "cancelled";
   attendanceStatus?: string;
 }
@@ -97,6 +99,8 @@ interface AttendanceRecord {
   title: string;
   type: string;
   status: "present" | "absent" | "late" | "vacation";
+  coachName: string;
+  courtName: string;
 }
 
 function NeonBorderCard({ children, accentColor = ProTennisColors.neonCyan, style, onPress }: { children: React.ReactNode; accentColor?: string; style?: any; onPress?: () => void }) {
@@ -151,7 +155,8 @@ export default function PlayerScheduleScreen() {
   const queryClient = useQueryClient();
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
-  const [showAttendanceHistory, setShowAttendanceHistory] = useState(false);
+  const [showAttendanceModal, setShowAttendanceModal] = useState(false);
+  const [attendanceFilterMonth, setAttendanceFilterMonth] = useState(new Date());
   const [showVacationModal, setShowVacationModal] = useState(false);
   const [vacationStartDate, setVacationStartDate] = useState<Date | null>(null);
   const [vacationEndDate, setVacationEndDate] = useState<Date | null>(null);
@@ -243,6 +248,8 @@ export default function PlayerScheduleScreen() {
           type: (s.session.sessionType as any) || "private",
           title: s.session.title || getTypeLabel(s.session.sessionType),
           subtitle: s.coachName || "Coach",
+          coachName: s.coachName || "Coach",
+          courtName: s.session.courtName || "Court",
           status: isCancelled ? "cancelled" : (isPast ? "completed" : "upcoming"),
           attendanceStatus: s.attendanceStatus,
         });
@@ -261,6 +268,8 @@ export default function PlayerScheduleScreen() {
           type: "court",
           title: "Court Booking",
           subtitle: b.courtName || "Court",
+          coachName: "",
+          courtName: b.courtName || "Court",
           status: b.status === "cancelled" ? "cancelled" : (isPast ? "completed" : "upcoming"),
         });
       }
@@ -278,6 +287,8 @@ export default function PlayerScheduleScreen() {
           type: "match",
           title: m.matchType === "open" ? "Open Match" : "Match",
           subtitle: m.opponentName || m.courtName || "TBD",
+          coachName: "",
+          courtName: m.courtName || "Court",
           status: m.status === "cancelled" ? "cancelled" : (isPast ? "completed" : "upcoming"),
         });
       }
@@ -296,7 +307,7 @@ export default function PlayerScheduleScreen() {
     return `${newHours.toString().padStart(2, '0')}:${mins.toString().padStart(2, '0')}`;
   };
 
-  const attendanceRecords: AttendanceRecord[] = useMemo(() => {
+  const allAttendanceRecords: AttendanceRecord[] = useMemo(() => {
     return allItems
       .filter(item => item.status === "completed" && (item.type === "private" || item.type === "group" || item.type === "semi_private"))
       .map(item => ({
@@ -308,10 +319,20 @@ export default function PlayerScheduleScreen() {
         status: (item.attendanceStatus === "present" || item.attendanceStatus === "attended" ? "present" :
                 item.attendanceStatus === "absent" || item.attendanceStatus === "no_show" ? "absent" :
                 item.attendanceStatus === "late" ? "late" : "present") as any,
+        coachName: item.coachName,
+        courtName: item.courtName,
       }))
-      .slice(-20)
       .reverse();
   }, [allItems]);
+
+  const filteredAttendanceRecords = useMemo(() => {
+    const filterYear = attendanceFilterMonth.getFullYear();
+    const filterMonth = attendanceFilterMonth.getMonth();
+    return allAttendanceRecords.filter(record => {
+      const recordDate = new Date(record.date);
+      return recordDate.getFullYear() === filterYear && recordDate.getMonth() === filterMonth;
+    });
+  }, [allAttendanceRecords, attendanceFilterMonth]);
 
   const attendanceStats = useMemo(() => {
     const lessons = allItems.filter(item => item.status === "completed" && (item.type === "private" || item.type === "group" || item.type === "semi_private"));
@@ -462,7 +483,7 @@ export default function PlayerScheduleScreen() {
 
   const handleBookLesson = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    navigation.navigate("BookLesson");
+    navigation.navigate("LessonBooking");
   };
 
   const handleBookCourt = () => {
@@ -472,7 +493,7 @@ export default function PlayerScheduleScreen() {
 
   const handleFindMatch = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    navigation.navigate("Play", { screen: "OpenMatchFeed" });
+    navigation.navigate("Play", { screen: "OpenMatches" });
   };
 
   const handleSetVacation = () => {
@@ -798,11 +819,8 @@ export default function PlayerScheduleScreen() {
         <Animated.View entering={FadeInDown.delay(600).duration(400)}>
           <View style={styles.sectionHeader}>
             <Text style={styles.sectionTitle}>Attendance History</Text>
-            <Pressable onPress={() => setShowAttendanceHistory(!showAttendanceHistory)}>
-              <Feather name={showAttendanceHistory ? "chevron-up" : "chevron-down"} size={20} color={ProTennisColors.textSecondary} />
-            </Pressable>
           </View>
-          <NeonBorderCard accentColor={ProTennisColors.neonGreen} onPress={() => setShowAttendanceHistory(!showAttendanceHistory)}>
+          <NeonBorderCard accentColor={ProTennisColors.neonGreen} onPress={() => setShowAttendanceModal(true)}>
             <View style={styles.attendanceStats}>
               <View style={styles.attendanceStat}>
                 <Text style={[styles.attendanceValue, { color: ProTennisColors.neonGreen }]}>{attendanceStats.attended}</Text>
@@ -828,27 +846,14 @@ export default function PlayerScheduleScreen() {
                   style={[styles.attendanceProgressFill, { width: `${attendanceStats.percentage}%` }]}
                 />
               </View>
-              <Text style={styles.attendancePercentage}>{attendanceStats.percentage}% attendance rate · Tap to see details</Text>
+              <View style={styles.attendanceTapRow}>
+                <Text style={styles.attendancePercentage}>{attendanceStats.percentage}% attendance rate</Text>
+                <View style={styles.attendanceTapHint}>
+                  <Feather name="chevron-right" size={16} color={ProTennisColors.neonGreen} />
+                  <Text style={styles.attendanceTapText}>See All</Text>
+                </View>
+              </View>
             </View>
-
-            {showAttendanceHistory && attendanceRecords.length > 0 ? (
-              <Animated.View entering={FadeInUp.duration(300)} style={styles.attendanceHistoryList}>
-                {attendanceRecords.map((record, index) => (
-                  <View key={record.id} style={styles.attendanceHistoryItem}>
-                    <View style={[styles.attendanceStatusDot, { backgroundColor: getAttendanceColor(record.status) }]} />
-                    <View style={styles.attendanceHistoryInfo}>
-                      <Text style={styles.attendanceHistoryTitle}>{record.title}</Text>
-                      <Text style={styles.attendanceHistoryDate}>
-                        {new Date(record.date).toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })} · {record.time}
-                      </Text>
-                    </View>
-                    <Text style={[styles.attendanceHistoryStatus, { color: getAttendanceColor(record.status) }]}>
-                      {record.status.charAt(0).toUpperCase() + record.status.slice(1)}
-                    </Text>
-                  </View>
-                ))}
-              </Animated.View>
-            ) : null}
           </NeonBorderCard>
         </Animated.View>
       </ScrollView>
@@ -936,6 +941,126 @@ export default function PlayerScheduleScreen() {
               </LinearGradient>
             </Pressable>
           </View>
+        </View>
+      </Modal>
+
+      <Modal
+        visible={showAttendanceModal}
+        animationType="slide"
+        onRequestClose={() => setShowAttendanceModal(false)}
+      >
+        <View style={styles.attendanceModalContainer}>
+          <View style={[styles.attendanceModalHeader, { paddingTop: insets.top + Spacing.md }]}>
+            <View style={styles.attendanceModalTitleRow}>
+              <Text style={styles.attendanceModalTitle}>Attendance History</Text>
+              <Pressable onPress={() => setShowAttendanceModal(false)} style={styles.attendanceModalClose}>
+                <Feather name="x" size={24} color={ProTennisColors.white} />
+              </Pressable>
+            </View>
+            <View style={styles.attendanceMonthNav}>
+              <Pressable 
+                onPress={() => {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  setAttendanceFilterMonth(new Date(attendanceFilterMonth.getFullYear(), attendanceFilterMonth.getMonth() - 1, 1));
+                }} 
+                style={styles.attendanceMonthButton}
+              >
+                <Feather name="chevron-left" size={24} color={ProTennisColors.white} />
+              </Pressable>
+              <Text style={styles.attendanceMonthTitle}>
+                {attendanceFilterMonth.toLocaleDateString("en-US", { month: "long", year: "numeric" })}
+              </Text>
+              <Pressable 
+                onPress={() => {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  setAttendanceFilterMonth(new Date(attendanceFilterMonth.getFullYear(), attendanceFilterMonth.getMonth() + 1, 1));
+                }} 
+                style={styles.attendanceMonthButton}
+              >
+                <Feather name="chevron-right" size={24} color={ProTennisColors.white} />
+              </Pressable>
+            </View>
+            <View style={styles.attendanceModalStats}>
+              <View style={styles.attendanceModalStatItem}>
+                <Text style={[styles.attendanceModalStatValue, { color: ProTennisColors.neonGreen }]}>
+                  {filteredAttendanceRecords.filter(r => r.status === "present").length}
+                </Text>
+                <Text style={styles.attendanceModalStatLabel}>Present</Text>
+              </View>
+              <View style={styles.attendanceModalStatItem}>
+                <Text style={[styles.attendanceModalStatValue, { color: ProTennisColors.error }]}>
+                  {filteredAttendanceRecords.filter(r => r.status === "absent").length}
+                </Text>
+                <Text style={styles.attendanceModalStatLabel}>Absent</Text>
+              </View>
+              <View style={styles.attendanceModalStatItem}>
+                <Text style={[styles.attendanceModalStatValue, { color: ProTennisColors.neonOrange }]}>
+                  {filteredAttendanceRecords.filter(r => r.status === "late").length}
+                </Text>
+                <Text style={styles.attendanceModalStatLabel}>Late</Text>
+              </View>
+              <View style={styles.attendanceModalStatItem}>
+                <Text style={[styles.attendanceModalStatValue, { color: ProTennisColors.white }]}>
+                  {filteredAttendanceRecords.length}
+                </Text>
+                <Text style={styles.attendanceModalStatLabel}>Total</Text>
+              </View>
+            </View>
+          </View>
+          <ScrollView 
+            style={styles.attendanceModalList}
+            contentContainerStyle={{ paddingBottom: insets.bottom + 20 }}
+            showsVerticalScrollIndicator={false}
+          >
+            {filteredAttendanceRecords.length === 0 ? (
+              <View style={styles.attendanceEmptyState}>
+                <Feather name="calendar" size={48} color={ProTennisColors.textMuted} />
+                <Text style={styles.attendanceEmptyText}>No lessons in {attendanceFilterMonth.toLocaleDateString("en-US", { month: "long" })}</Text>
+              </View>
+            ) : (
+              filteredAttendanceRecords.map((record, index) => (
+                <Animated.View key={record.id} entering={FadeIn.delay(index * 50).duration(200)}>
+                  <View style={styles.attendanceRecordCard}>
+                    <View style={[styles.attendanceRecordStatus, { backgroundColor: getAttendanceColor(record.status) }]} />
+                    <View style={styles.attendanceRecordContent}>
+                      <View style={styles.attendanceRecordTop}>
+                        <Text style={styles.attendanceRecordTitle}>{record.title}</Text>
+                        <View style={[styles.attendanceRecordBadge, { backgroundColor: getAttendanceColor(record.status) + "20" }]}>
+                          <Text style={[styles.attendanceRecordBadgeText, { color: getAttendanceColor(record.status) }]}>
+                            {record.status.charAt(0).toUpperCase() + record.status.slice(1)}
+                          </Text>
+                        </View>
+                      </View>
+                      <View style={styles.attendanceRecordDetails}>
+                        <View style={styles.attendanceRecordDetail}>
+                          <Feather name="calendar" size={12} color={ProTennisColors.textSecondary} />
+                          <Text style={styles.attendanceRecordDetailText}>
+                            {new Date(record.date).toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })}
+                          </Text>
+                        </View>
+                        <View style={styles.attendanceRecordDetail}>
+                          <Feather name="clock" size={12} color={ProTennisColors.textSecondary} />
+                          <Text style={styles.attendanceRecordDetailText}>{record.time}</Text>
+                        </View>
+                        {record.coachName ? (
+                          <View style={styles.attendanceRecordDetail}>
+                            <Feather name="user" size={12} color={ProTennisColors.textSecondary} />
+                            <Text style={styles.attendanceRecordDetailText}>{record.coachName}</Text>
+                          </View>
+                        ) : null}
+                        {record.courtName ? (
+                          <View style={styles.attendanceRecordDetail}>
+                            <Feather name="map-pin" size={12} color={ProTennisColors.textSecondary} />
+                            <Text style={styles.attendanceRecordDetailText}>{record.courtName}</Text>
+                          </View>
+                        ) : null}
+                      </View>
+                    </View>
+                  </View>
+                </Animated.View>
+              ))
+            )}
+          </ScrollView>
         </View>
       </Modal>
     </View>
@@ -1515,5 +1640,155 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: "700",
     color: ProTennisColors.white,
+  },
+  attendanceTapRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  attendanceTapHint: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+  },
+  attendanceTapText: {
+    fontSize: 12,
+    fontWeight: "600",
+    color: ProTennisColors.neonGreen,
+  },
+  attendanceModalContainer: {
+    flex: 1,
+    backgroundColor: ProTennisColors.midnightBlue,
+  },
+  attendanceModalHeader: {
+    backgroundColor: ProTennisColors.surfaceCard,
+    borderBottomWidth: 1,
+    borderBottomColor: ProTennisColors.border,
+    paddingHorizontal: Spacing.lg,
+    paddingBottom: Spacing.md,
+  },
+  attendanceModalTitleRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: Spacing.md,
+  },
+  attendanceModalTitle: {
+    fontSize: 24,
+    fontWeight: "800",
+    color: ProTennisColors.white,
+  },
+  attendanceModalClose: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: ProTennisColors.surfaceElevated,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  attendanceMonthNav: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: Spacing.lg,
+    marginBottom: Spacing.md,
+  },
+  attendanceMonthButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: ProTennisColors.surfaceElevated,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  attendanceMonthTitle: {
+    fontSize: 18,
+    fontWeight: "700",
+    color: ProTennisColors.white,
+    minWidth: 160,
+    textAlign: "center",
+  },
+  attendanceModalStats: {
+    flexDirection: "row",
+    justifyContent: "space-around",
+    paddingVertical: Spacing.sm,
+  },
+  attendanceModalStatItem: {
+    alignItems: "center",
+  },
+  attendanceModalStatValue: {
+    fontSize: 24,
+    fontWeight: "800",
+  },
+  attendanceModalStatLabel: {
+    fontSize: 11,
+    color: ProTennisColors.textSecondary,
+    marginTop: 2,
+  },
+  attendanceModalList: {
+    flex: 1,
+    paddingHorizontal: Spacing.lg,
+    paddingTop: Spacing.md,
+  },
+  attendanceEmptyState: {
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 60,
+  },
+  attendanceEmptyText: {
+    fontSize: 16,
+    color: ProTennisColors.textMuted,
+    marginTop: Spacing.md,
+  },
+  attendanceRecordCard: {
+    flexDirection: "row",
+    backgroundColor: ProTennisColors.surfaceCard,
+    borderRadius: BorderRadius.lg,
+    marginBottom: Spacing.sm,
+    overflow: "hidden",
+    borderWidth: 1,
+    borderColor: ProTennisColors.border,
+  },
+  attendanceRecordStatus: {
+    width: 4,
+  },
+  attendanceRecordContent: {
+    flex: 1,
+    padding: Spacing.md,
+  },
+  attendanceRecordTop: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 8,
+  },
+  attendanceRecordTitle: {
+    fontSize: 15,
+    fontWeight: "600",
+    color: ProTennisColors.white,
+    flex: 1,
+  },
+  attendanceRecordBadge: {
+    paddingVertical: 4,
+    paddingHorizontal: 10,
+    borderRadius: 4,
+  },
+  attendanceRecordBadgeText: {
+    fontSize: 11,
+    fontWeight: "600",
+  },
+  attendanceRecordDetails: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: Spacing.md,
+  },
+  attendanceRecordDetail: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+  },
+  attendanceRecordDetailText: {
+    fontSize: 12,
+    color: ProTennisColors.textSecondary,
   },
 });
