@@ -33,6 +33,7 @@ import { Colors, Spacing, FontSizes, BorderRadius, Typography, Backgrounds, Glow
 import { ThemedText } from "@/components/ThemedText";
 import { apiRequest, getApiUrl, getStaticAssetsUrl } from "@/lib/query-client";
 import { LockedScreen } from "../components/LockedScreen";
+import { useAuth } from "@/context/AuthContext";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 
@@ -197,11 +198,15 @@ function PremiumMatchCard({
   onJoin, 
   isJoining,
   index,
+  isHost,
+  onManage,
 }: { 
   match: OpenMatch; 
   onJoin: () => void; 
   isJoining: boolean;
   index: number;
+  isHost?: boolean;
+  onManage?: () => void;
 }) {
   const slotsLeft = match.maxPlayers - match.currentPlayers;
   const isFull = slotsLeft === 0;
@@ -358,17 +363,22 @@ function PremiumMatchCard({
             <Pressable 
               style={[
                 styles.joinButtonLarge,
-                isFull && styles.joinButtonDisabled,
+                isFull && !isHost && styles.joinButtonDisabled,
                 isJoining && styles.joinButtonLoading,
+                isHost && { borderWidth: 2, borderColor: Colors.dark.xpCyan },
               ]}
               onPress={() => {
                 Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
-                onJoin();
+                if (isHost && onManage) {
+                  onManage();
+                } else {
+                  onJoin();
+                }
               }}
-              disabled={isFull || isJoining}
+              disabled={(!isHost && isFull) || isJoining}
             >
               <LinearGradient
-                colors={isFull ? ["#4B5563", "#374151"] : [Colors.dark.primary, "#9AE66E"]}
+                colors={isHost ? ["#00E5FF", "#06B6D4"] : (isFull ? ["#4B5563", "#374151"] : [Colors.dark.primary, "#9AE66E"])}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 1 }}
                 style={styles.joinButtonGradient}
@@ -378,12 +388,12 @@ function PremiumMatchCard({
                 ) : (
                   <>
                     <Ionicons 
-                      name={isFull ? "close-circle" : "flash"} 
+                      name={isHost ? "settings-outline" : (isFull ? "close-circle" : "flash")} 
                       size={20} 
-                      color={isFull ? Colors.dark.textMuted : Colors.dark.backgroundRoot} 
+                      color={isHost ? Colors.dark.backgroundRoot : (isFull ? Colors.dark.textMuted : Colors.dark.backgroundRoot)} 
                     />
-                    <Text style={[styles.joinButtonText, isFull && styles.joinButtonTextDisabled]}>
-                      {isFull ? "Full" : "Join Match"}
+                    <Text style={[styles.joinButtonText, isFull && !isHost && styles.joinButtonTextDisabled]}>
+                      {isHost ? "Manage" : (isFull ? "Full" : "Join Match")}
                     </Text>
                   </>
                 )}
@@ -449,6 +459,7 @@ function EmptyState({ onCreateMatch }: { onCreateMatch: () => void }) {
 }
 
 export default function OpenMatchFeedScreen() {
+  const { user } = useAuth();
   const navigation = useNavigation<any>();
   const insets = useSafeAreaInsets();
   const queryClient = useQueryClient();
@@ -493,15 +504,19 @@ export default function OpenMatchFeedScreen() {
     navigation.navigate("CreateMatch");
   };
 
-  const renderMatch = ({ item, index }: { item: OpenMatch; index: number }) => (
-    <PremiumMatchCard
-      match={item}
-      onJoin={() => joinMutation.mutate(item.id)}
-      isJoining={joiningMatchId === item.id}
-      index={index}
-    />
-  );
-
+  const renderMatch = ({ item, index }: { item: OpenMatch; index: number }) => {
+    const isHost = user?.playerId === item.hostPlayerId;
+    return (
+      <PremiumMatchCard
+        match={item}
+        onJoin={() => joinMutation.mutate(item.id)}
+        isJoining={joiningMatchId === item.id}
+        index={index}
+        isHost={isHost}
+        onManage={() => navigation.navigate("ManageMatch", { matchId: item.id })}
+      />
+    );
+  };
   return (
     <LockedScreen featureKey="match_preparation">
       <View style={styles.container}>
