@@ -27,6 +27,9 @@ interface Court {
   pricePerHour?: string;
   memberPricePerHour?: string;
   currency?: string;
+  creditsPerHour?: number;
+  peakCreditsPerHour?: number;
+  memberCreditsPerHour?: number;
   photoUrl?: string;
   description?: string;
   isActive?: boolean;
@@ -75,9 +78,12 @@ export default function CourtBookingScreen() {
     );
   }, [courts, searchQuery]);
 
-  const formatPrice = (price: string | undefined, currency: string = "AED") => {
-    if (!price || parseFloat(price) === 0) return "Free";
-    return `${currency} ${parseFloat(price).toFixed(0)}/hr`;
+  const formatPrice = (court: Court) => {
+    if (court.creditsPerHour && court.creditsPerHour > 0) {
+      return `${court.creditsPerHour} credits/hr`;
+    }
+    if (!court.pricePerHour || parseFloat(court.pricePerHour) === 0) return "Free";
+    return `${court.currency || "AED"} ${parseFloat(court.pricePerHour).toFixed(0)}/hr`;
   };
 
   const getSurfaceIcon = (surface?: string) => {
@@ -240,8 +246,8 @@ export default function CourtBookingScreen() {
                     {court.surface?.charAt(0).toUpperCase() + (court.surface?.slice(1) || "Hard")}
                   </Text>
                 </View>
-                <Text style={styles.courtPrice}>
-                  {formatPrice(court.pricePerHour, court.currency)}
+                <Text style={[styles.courtPrice, court.creditsPerHour && court.creditsPerHour > 0 && styles.courtPriceCredits]}>
+                  {formatPrice(court)}
                 </Text>
               </View>
 
@@ -466,6 +472,9 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: "700",
     color: Colors.dark.xpCyan,
+  },
+  courtPriceCredits: {
+    color: Colors.dark.glow,
   },
   courtName: {
     fontSize: 18,

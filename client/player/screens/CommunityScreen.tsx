@@ -37,6 +37,7 @@ import { apiRequest, apiFetch, getApiUrl } from "@/lib/query-client";
 import { useAuth } from "@/coach/context/AuthContext";
 import { LockedScreen } from "../components/LockedScreen";
 import * as Clipboard from "expo-clipboard";
+import * as WebBrowser from "expo-web-browser";
 
 type FeedFilter = "for_you" | "news" | "academy" | "moments" | "events";
 type MainTab = "feed" | "friends" | "groups";
@@ -510,12 +511,10 @@ interface Achievement {
 interface NewsItem {
   id: string;
   title: string;
-  summary: string;
+  link: string;
   source: string;
-  imageUrl?: string;
-  url: string;
+  thumbnail?: string;
   publishedAt: string;
-  category: "atp" | "wta" | "general";
 }
 
 interface FriendActivity {
@@ -681,18 +680,21 @@ function NewsSection() {
   const insets = useSafeAreaInsets();
   const tabBarHeight = useBottomTabBarHeight();
   
-  const { data: newsData, isLoading, refetch } = useQuery<{ news: NewsItem[] }>({
-    queryKey: ["/api/tennis/news"],
+  const { data: newsData, isLoading, refetch } = useQuery<{ articles: NewsItem[] }>({
+    queryKey: ["/api/player/news"],
   });
   
-  const news = newsData?.news || [
-    { id: "1", title: "Djokovic Wins Australian Open 2026", summary: "Novak Djokovic claims his 26th Grand Slam title with a stunning victory...", source: "ATP Tour", imageUrl: undefined, url: "#", publishedAt: new Date().toISOString(), category: "atp" as const },
-    { id: "2", title: "Swiatek Dominates WTA Finals", summary: "World No. 1 Iga Swiatek secures another impressive title...", source: "WTA", imageUrl: undefined, url: "#", publishedAt: new Date(Date.now() - 3600000).toISOString(), category: "wta" as const },
-    { id: "3", title: "Rising Star Alcaraz Eyes Top Ranking", summary: "Carlos Alcaraz continues his incredible rise in professional tennis...", source: "Tennis World", imageUrl: undefined, url: "#", publishedAt: new Date(Date.now() - 7200000).toISOString(), category: "atp" as const },
-    { id: "4", title: "Dubai Tennis Championship Announces Lineup", summary: "Star-studded field confirmed for the upcoming Dubai Tennis Championship...", source: "Dubai Tennis", imageUrl: undefined, url: "#", publishedAt: new Date(Date.now() - 14400000).toISOString(), category: "general" as const },
-  ];
+  const news = newsData?.articles || [];
   
-  const getCategoryColor = (category: string) => {
+  const getCategoryFromSource = (source: string): string => {
+    const lowerSource = source.toLowerCase();
+    if (lowerSource.includes("atp") || lowerSource.includes("espn")) return "atp";
+    if (lowerSource.includes("wta")) return "wta";
+    return "general";
+  };
+  
+  const getCategoryColor = (source: string) => {
+    const category = getCategoryFromSource(source);
     switch (category) {
       case "atp": return "#00A8E8";
       case "wta": return "#E040FB";
@@ -700,14 +702,24 @@ function NewsSection() {
     }
   };
   
+  const handleOpenArticle = async (link: string) => {
+    if (link && link !== "#") {
+      try {
+        await WebBrowser.openBrowserAsync(link);
+      } catch (error) {
+        console.error("Failed to open article:", error);
+      }
+    }
+  };
+  
   const renderNewsCard = ({ item }: { item: NewsItem }) => (
     <Animated.View entering={FadeInDown.delay(50)}>
-      <Pressable style={newsStyles.card}>
+      <Pressable style={newsStyles.card} onPress={() => handleOpenArticle(item.link)}>
         <View style={newsStyles.cardContent}>
           <View style={newsStyles.categoryRow}>
-            <View style={[newsStyles.categoryBadge, { backgroundColor: getCategoryColor(item.category) + "20" }]}>
-              <ThemedText style={[newsStyles.categoryText, { color: getCategoryColor(item.category) }]}>
-                {item.category.toUpperCase()}
+            <View style={[newsStyles.categoryBadge, { backgroundColor: getCategoryColor(item.source) + "20" }]}>
+              <ThemedText style={[newsStyles.categoryText, { color: getCategoryColor(item.source) }]}>
+                {getCategoryFromSource(item.source).toUpperCase()}
               </ThemedText>
             </View>
             <ThemedText style={newsStyles.source}>{item.source}</ThemedText>
@@ -715,10 +727,6 @@ function NewsSection() {
           
           <ThemedText style={newsStyles.title} numberOfLines={2}>
             {item.title}
-          </ThemedText>
-          
-          <ThemedText style={newsStyles.summary} numberOfLines={2}>
-            {item.summary}
           </ThemedText>
           
           <View style={newsStyles.footer}>
@@ -732,11 +740,11 @@ function NewsSection() {
           </View>
         </View>
         
-        {item.imageUrl ? (
-          <Image source={{ uri: item.imageUrl }} style={newsStyles.image} contentFit="cover" />
+        {item.thumbnail ? (
+          <Image source={{ uri: item.thumbnail }} style={newsStyles.image} contentFit="cover" />
         ) : (
           <LinearGradient
-            colors={[getCategoryColor(item.category), getCategoryColor(item.category) + "80"]}
+            colors={[getCategoryColor(item.source), getCategoryColor(item.source) + "80"]}
             style={newsStyles.imagePlaceholder}
           >
             <Ionicons name="tennisball" size={32} color="#FFF" />
