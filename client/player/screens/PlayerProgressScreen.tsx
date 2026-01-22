@@ -428,6 +428,163 @@ function LevelExplanationModal({
   );
 }
 
+function GlowScoreModal({ 
+  visible, 
+  onClose, 
+  glowScore 
+}: { 
+  visible: boolean; 
+  onClose: () => void;
+  glowScore: number;
+}) {
+  const insets = useSafeAreaInsets();
+  
+  const getScoreRating = (score: number) => {
+    if (score >= 90) return { title: "Elite", color: "#FFD700" };
+    if (score >= 75) return { title: "Advanced", color: "#00E5FF" };
+    if (score >= 50) return { title: "Intermediate", color: GlowColors.primary };
+    if (score >= 25) return { title: "Developing", color: Colors.dark.orange };
+    return { title: "Beginner", color: Colors.dark.textMuted };
+  };
+  
+  const rating = getScoreRating(glowScore);
+
+  return (
+    <Modal visible={visible} animationType="slide" transparent>
+      <View style={modalStyles.overlay}>
+        <Pressable style={modalStyles.backdrop} onPress={onClose} />
+        <View style={[modalStyles.content, { paddingBottom: insets.bottom + 20 }]}>
+          <View style={modalStyles.header}>
+            <Text style={modalStyles.title}>Understanding Glow Score</Text>
+            <Pressable onPress={onClose}>
+              <Ionicons name="close-circle" size={28} color={Colors.dark.textMuted} />
+            </Pressable>
+          </View>
+
+          <ScrollView style={modalStyles.body} showsVerticalScrollIndicator={false}>
+            <View style={modalStyles.currentLevel}>
+              <View style={[modalStyles.currentLevelCircle, { borderColor: rating.color }]}>
+                <Text style={[modalStyles.currentLevelNumber, { color: rating.color }]}>{glowScore}</Text>
+              </View>
+              <View style={modalStyles.currentLevelInfo}>
+                <Text style={[modalStyles.currentLevelTitle, { color: rating.color }]}>{rating.title}</Text>
+                <Text style={modalStyles.currentLevelDesc}>Your current Glow Score</Text>
+              </View>
+            </View>
+
+            <View style={modalStyles.howToLevel}>
+              <Text style={modalStyles.sectionTitle}>What is Glow Score?</Text>
+              <Text style={modalStyles.descriptionText}>
+                Glow Score (0-100) represents your overall tennis ability based on all 6 skill pillars combined. 
+                It updates after each coach assessment.
+              </Text>
+            </View>
+
+            <View style={modalStyles.howToLevel}>
+              <Text style={modalStyles.sectionTitle}>How to Improve</Text>
+              <View style={modalStyles.howToItem}>
+                <Ionicons name="tennisball" size={18} color="#10B981" />
+                <Text style={modalStyles.howToText}>Master technical skills</Text>
+              </View>
+              <View style={modalStyles.howToItem}>
+                <Ionicons name="bulb" size={18} color="#F59E0B" />
+                <Text style={modalStyles.howToText}>Develop tactical awareness</Text>
+              </View>
+              <View style={modalStyles.howToItem}>
+                <Ionicons name="fitness" size={18} color="#EF4444" />
+                <Text style={modalStyles.howToText}>Build physical fitness</Text>
+              </View>
+              <View style={modalStyles.howToItem}>
+                <Ionicons name="flash" size={18} color="#8B5CF6" />
+                <Text style={modalStyles.howToText}>Strengthen mental game</Text>
+              </View>
+              <View style={modalStyles.howToItem}>
+                <Ionicons name="people" size={18} color="#EC4899" />
+                <Text style={modalStyles.howToText}>Grow social & sportsmanship</Text>
+              </View>
+              <View style={modalStyles.howToItem}>
+                <Ionicons name="trophy" size={18} color="#3B82F6" />
+                <Text style={modalStyles.howToText}>Excel in competition</Text>
+              </View>
+            </View>
+          </ScrollView>
+        </View>
+      </View>
+    </Modal>
+  );
+}
+
+function XpExplanationModal({ 
+  visible, 
+  onClose, 
+  totalXp 
+}: { 
+  visible: boolean; 
+  onClose: () => void;
+  totalXp: number;
+}) {
+  const insets = useSafeAreaInsets();
+
+  return (
+    <Modal visible={visible} animationType="slide" transparent>
+      <View style={modalStyles.overlay}>
+        <Pressable style={modalStyles.backdrop} onPress={onClose} />
+        <View style={[modalStyles.content, { paddingBottom: insets.bottom + 20 }]}>
+          <View style={modalStyles.header}>
+            <Text style={modalStyles.title}>Understanding XP</Text>
+            <Pressable onPress={onClose}>
+              <Ionicons name="close-circle" size={28} color={Colors.dark.textMuted} />
+            </Pressable>
+          </View>
+
+          <ScrollView style={modalStyles.body} showsVerticalScrollIndicator={false}>
+            <View style={modalStyles.currentLevel}>
+              <View style={[modalStyles.currentLevelCircle, { borderColor: Colors.dark.xpCyan }]}>
+                <Text style={[modalStyles.currentLevelNumber, { color: Colors.dark.xpCyan, fontSize: 24 }]}>{totalXp}</Text>
+              </View>
+              <View style={modalStyles.currentLevelInfo}>
+                <Text style={[modalStyles.currentLevelTitle, { color: Colors.dark.xpCyan }]}>Total XP</Text>
+                <Text style={modalStyles.currentLevelDesc}>Experience points earned</Text>
+              </View>
+            </View>
+
+            <View style={modalStyles.howToLevel}>
+              <Text style={modalStyles.sectionTitle}>What is XP?</Text>
+              <Text style={modalStyles.descriptionText}>
+                XP (Experience Points) tracks your journey and progress. Earn 500 XP to level up and unlock new features.
+              </Text>
+            </View>
+
+            <View style={modalStyles.howToLevel}>
+              <Text style={modalStyles.sectionTitle}>How to Earn XP</Text>
+              <View style={modalStyles.howToItem}>
+                <Ionicons name="calendar-outline" size={18} color={GlowColors.primary} />
+                <Text style={modalStyles.howToText}>Attend sessions (+25-50 XP)</Text>
+              </View>
+              <View style={modalStyles.howToItem}>
+                <Ionicons name="star" size={18} color={Colors.dark.gold} />
+                <Text style={modalStyles.howToText}>Receive coach praise (+10-30 XP)</Text>
+              </View>
+              <View style={modalStyles.howToItem}>
+                <Ionicons name="trending-up" size={18} color="#10B981" />
+                <Text style={modalStyles.howToText}>Show improvement (+20-40 XP)</Text>
+              </View>
+              <View style={modalStyles.howToItem}>
+                <Ionicons name="flame" size={18} color="#FF4444" />
+                <Text style={modalStyles.howToText}>Training streaks (bonus XP)</Text>
+              </View>
+              <View style={modalStyles.howToItem}>
+                <Ionicons name="ribbon" size={18} color={Colors.dark.xpCyan} />
+                <Text style={modalStyles.howToText}>Complete achievements (+50-100 XP)</Text>
+              </View>
+            </View>
+          </ScrollView>
+        </View>
+      </View>
+    </Modal>
+  );
+}
+
 function SkillBar({ domain, onPress }: { domain: SkillDomain; onPress: () => void }) {
   const progress = domain.value / domain.maxValue;
   
@@ -529,6 +686,8 @@ export default function PlayerProgressScreen() {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<any>();
   const [showLevelModal, setShowLevelModal] = useState(false);
+  const [showGlowScoreModal, setShowGlowScoreModal] = useState(false);
+  const [showXpModal, setShowXpModal] = useState(false);
 
   const handleDomainPress = (domainId: string) => {
     navigation.navigate("SkillDetail", { domain: domainId });
@@ -638,13 +797,22 @@ export default function PlayerProgressScreen() {
 
         {/* Stats Row - Premium Gaming Cards */}
         <View style={styles.statsRow}>
-          <View style={[styles.statCard, styles.statCardGlow]}>
+          <Pressable 
+            style={[styles.statCard, styles.statCardGlow]}
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              setShowGlowScoreModal(true);
+            }}
+          >
             <View style={styles.glowCircle}>
               <Text style={styles.glowValue}>{data.glowScore}</Text>
             </View>
-            <Text style={styles.statLabel}>GLOW SCORE</Text>
-            {isNewPlayer && <Text style={styles.statHint}>Start: 0</Text>}
-          </View>
+            <View style={styles.levelLabelRow}>
+              <Text style={styles.statLabel}>GLOW SCORE</Text>
+              <Ionicons name="information-circle-outline" size={12} color={Colors.dark.textMuted} />
+            </View>
+            {isNewPlayer && <Text style={styles.statHint}>Tap to learn</Text>}
+          </Pressable>
           <Pressable 
             style={[styles.statCard, styles.statCardLevel]}
             onPress={() => {
@@ -661,13 +829,22 @@ export default function PlayerProgressScreen() {
             </View>
             {isNewPlayer && <Text style={styles.statHint}>Tap to learn</Text>}
           </Pressable>
-          <View style={[styles.statCard, styles.statCardXp]}>
+          <Pressable 
+            style={[styles.statCard, styles.statCardXp]}
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              setShowXpModal(true);
+            }}
+          >
             <View style={styles.xpCircle}>
               <Text style={styles.xpValue}>{data.xp}</Text>
             </View>
-            <Text style={styles.statLabel}>TOTAL XP</Text>
-            {isNewPlayer && <Text style={styles.statHint}>Earn XP!</Text>}
-          </View>
+            <View style={styles.levelLabelRow}>
+              <Text style={styles.statLabel}>TOTAL XP</Text>
+              <Ionicons name="information-circle-outline" size={12} color={Colors.dark.textMuted} />
+            </View>
+            {isNewPlayer && <Text style={styles.statHint}>Tap to learn</Text>}
+          </Pressable>
         </View>
 
         <View style={styles.xpSection}>
@@ -905,6 +1082,16 @@ export default function PlayerProgressScreen() {
         visible={showLevelModal}
         onClose={() => setShowLevelModal(false)}
         currentLevel={data.level}
+      />
+      <GlowScoreModal 
+        visible={showGlowScoreModal}
+        onClose={() => setShowGlowScoreModal(false)}
+        glowScore={data.glowScore}
+      />
+      <XpExplanationModal 
+        visible={showXpModal}
+        onClose={() => setShowXpModal(false)}
+        totalXp={data.xp}
       />
     </View>
   );
@@ -1740,6 +1927,11 @@ const modalStyles = StyleSheet.create({
   howToText: {
     ...Typography.body,
     color: Colors.dark.textMuted,
+  },
+  descriptionText: {
+    ...Typography.body,
+    color: Colors.dark.textMuted,
+    lineHeight: 22,
   },
   milestonesSection: {
     marginBottom: Spacing.xl,
