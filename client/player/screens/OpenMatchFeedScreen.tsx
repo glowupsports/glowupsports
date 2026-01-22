@@ -363,7 +363,7 @@ const styles = StyleSheet.create({
   matchTypeText: {
     fontSize: FontSizes.xs,
     fontWeight: "600",
-    color: Colors.dark.text,
+    color: "#0B0D10",
   },
   slotsBadge: {
     backgroundColor: Colors.dark.backgroundSecondary,
@@ -403,7 +403,7 @@ const styles = StyleSheet.create({
     color: Colors.dark.text,
   },
   freeBadge: {
-    backgroundColor: Colors.dark.primary + "30",
+    backgroundColor: Colors.dark.primary,
     paddingVertical: 2,
     paddingHorizontal: Spacing.xs,
     borderRadius: BorderRadius.sm,
@@ -411,7 +411,7 @@ const styles = StyleSheet.create({
   freeText: {
     fontSize: FontSizes.xs,
     fontWeight: "700",
-    color: Colors.dark.text,
+    color: "#0B0D10",
   },
   matchFooter: {
     flexDirection: "row",
@@ -443,6 +443,6 @@ const styles = StyleSheet.create({
   joinButtonText: {
     fontSize: FontSizes.sm,
     fontWeight: "700",
-    color: Colors.dark.text,
+    color: "#0B0D10",
   },
 });
