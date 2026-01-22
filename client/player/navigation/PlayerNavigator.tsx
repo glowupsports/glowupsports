@@ -64,6 +64,7 @@ import CollectionScreen from "@/player/screens/CollectionScreen";
 import XPHistoryScreen from "@/player/screens/XPHistoryScreen";
 import LevelUpHistoryScreen from "@/player/screens/LevelUpHistoryScreen";
 import OpenMatchFeedScreen from "@/player/screens/OpenMatchFeedScreen";
+import ManageMatchScreen from "@/player/screens/ManageMatchScreen";
 import BookingPreferencesScreen from "@/player/screens/BookingPreferencesScreen";
 import BookingInvitesScreen from "@/player/screens/BookingInvitesScreen";
 import FamilyLobbyScreen from "@/player/screens/FamilyLobbyScreen";
@@ -96,6 +97,7 @@ export type PlayStackParamList = {
   Play: undefined;
   OpenMatches: undefined;
   CreateMatch: undefined;
+  ManageMatch: { matchId: string };
   BookingInvites: undefined;
   BookingPreferences: undefined;
 };
@@ -173,6 +175,7 @@ function PlayStackNavigator() {
           headerStyle: { backgroundColor: '#090E17' },
           headerTintColor: '#CCFF00',
           headerTitleStyle: { color: '#ffffff', fontWeight: '600' },
+          headerBackVisible: true,
         }}
       />
       <PlayStack.Screen 
@@ -206,6 +209,18 @@ function PlayStackNavigator() {
           headerStyle: { backgroundColor: '#090E17' },
           headerTintColor: '#CCFF00',
           headerTitleStyle: { color: '#ffffff', fontWeight: '600' },
+        }}
+      />
+      <PlayStack.Screen 
+        name="ManageMatch" 
+        component={ManageMatchScreen}
+        options={{
+          headerShown: true,
+          headerTitle: "Manage Match",
+          headerStyle: { backgroundColor: '#090E17' },
+          headerTintColor: '#CCFF00',
+          headerTitleStyle: { color: '#ffffff', fontWeight: '600' },
+          headerBackVisible: true,
         }}
       />
     </PlayStack.Navigator>
