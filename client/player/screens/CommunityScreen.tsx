@@ -18,6 +18,7 @@ import {
 import { Image } from "expo-image";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
+import { useNavigation } from "@react-navigation/native";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { LinearGradient } from "expo-linear-gradient";
@@ -37,7 +38,8 @@ import { useAuth } from "@/coach/context/AuthContext";
 import { LockedScreen } from "../components/LockedScreen";
 import * as Clipboard from "expo-clipboard";
 
-type FeedFilter = "for_you" | "friends" | "groups" | "academy" | "events";
+type FeedFilter = "for_you" | "academy" | "events";
+type MainTab = "feed" | "friends" | "groups";
 
 interface Post {
   id: string;
@@ -363,10 +365,6 @@ function MomentCard({
 function EmptyFeed({ filter }: { filter: FeedFilter }) {
   const getMessage = () => {
     switch (filter) {
-      case "friends":
-        return "No moments from friends yet. Connect with players to see their updates!";
-      case "groups":
-        return "No group posts yet. Join a group to see their moments!";
       case "academy":
         return "No academy moments yet. Be the first to share!";
       case "events":
@@ -387,11 +385,49 @@ function EmptyFeed({ filter }: { filter: FeedFilter }) {
   );
 }
 
-function FilterTabs({ active, onChange }: { active: FeedFilter; onChange: (f: FeedFilter) => void }) {
+function MainTabBar({ active, onChange, friendRequestCount = 0 }: { active: MainTab; onChange: (t: MainTab) => void; friendRequestCount?: number }) {
+  const tabs: { key: MainTab; label: string; icon: string }[] = [
+    { key: "feed", label: "Feed", icon: "newspaper" },
+    { key: "friends", label: "Friends", icon: "people" },
+    { key: "groups", label: "albums", icon: "grid" },
+  ];
+
+  return (
+    <View style={styles.mainTabContainer}>
+      {tabs.map((tab) => {
+        const isActive = active === tab.key;
+        return (
+          <Pressable
+            key={tab.key}
+            style={[styles.mainTab, isActive && styles.mainTabActive]}
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              onChange(tab.key);
+            }}
+          >
+            <Ionicons 
+              name={tab.icon as any} 
+              size={20} 
+              color={isActive ? Colors.dark.primary : Colors.dark.textSecondary} 
+            />
+            <ThemedText style={[styles.mainTabText, isActive && styles.mainTabTextActive]}>
+              {tab.label}
+            </ThemedText>
+            {tab.key === "friends" && friendRequestCount > 0 ? (
+              <View style={styles.requestBadge}>
+                <ThemedText style={styles.requestBadgeText}>{friendRequestCount}</ThemedText>
+              </View>
+            ) : null}
+          </Pressable>
+        );
+      })}
+    </View>
+  );
+}
+
+function FeedFilterTabs({ active, onChange }: { active: FeedFilter; onChange: (f: FeedFilter) => void }) {
   const filters: { key: FeedFilter; label: string; icon: string }[] = [
     { key: "for_you", label: "For You", icon: "sparkles" },
-    { key: "friends", label: "Friends", icon: "people" },
-    { key: "groups", label: "Groups", icon: "grid" },
     { key: "academy", label: "Academy", icon: "tennisball" },
     { key: "events", label: "Events", icon: "calendar" },
   ];
@@ -431,6 +467,326 @@ function FilterTabs({ active, onChange }: { active: FeedFilter; onChange: (f: Fe
           );
         })}
       </ScrollView>
+    </View>
+  );
+}
+
+interface Friend {
+  id: string;
+  name: string;
+  username?: string;
+  photoUrl?: string;
+  ballLevel?: string;
+  skillLevel?: number;
+  glowRating?: number;
+  openToPlay?: boolean;
+  lastActive?: string;
+}
+
+interface Group {
+  id: string;
+  name: string;
+  description?: string;
+  type: string;
+  memberCount: number;
+  imageUrl?: string;
+  isJoined?: boolean;
+}
+
+function FriendsSection({ onChallenge }: { onChallenge?: (friend: Friend) => void }) {
+  const navigation = useNavigation<any>();
+  const insets = useSafeAreaInsets();
+  const tabBarHeight = useBottomTabBarHeight();
+  const [activeTab, setActiveTab] = useState<"friends" | "requests">("friends");
+  
+  const { data: friendsData, isLoading, refetch } = useQuery<{ friends: Friend[]; pendingRequests: Friend[] }>({
+    queryKey: ["/api/player/me/friends"],
+  });
+  
+  const friends = friendsData?.friends || [];
+  const requests = friendsData?.pendingRequests || [];
+  
+  const getBallColor = (level?: string) => {
+    const colors: Record<string, string> = {
+      blue: "#3B82F6", red: "#EF4444", orange: "#F97316",
+      green: "#22C55E", yellow: "#EAB308", glow: Colors.dark.primary,
+    };
+    return colors[level?.toLowerCase() || ""] || Colors.dark.textSecondary;
+  };
+  
+  const handleChallenge = (friend: Friend) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+    navigation.navigate("PlayStack", { 
+      screen: "CreateMatch", 
+      params: { opponentId: friend.id, opponentName: friend.name } 
+    });
+  };
+  
+  const handleMessage = (friend: Friend) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    navigation.navigate("Messages", { recipientId: friend.id });
+  };
+  
+  const handleAcceptRequest = async (requestId: string) => {
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    try {
+      await apiRequest("POST", `/api/player/friends/accept/${requestId}`);
+      refetch();
+    } catch (e) { console.log("Accept error", e); }
+  };
+  
+  const handleRejectRequest = async (requestId: string) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    try {
+      await apiRequest("POST", `/api/player/friends/reject/${requestId}`);
+      refetch();
+    } catch (e) { console.log("Reject error", e); }
+  };
+  
+  const renderFriendCard = (friend: Friend) => (
+    <Animated.View key={friend.id} entering={FadeInDown.delay(100).springify()}>
+      <Pressable 
+        style={styles.friendCard}
+        onPress={() => navigation.navigate("PublicProfile", { playerId: friend.id })}
+      >
+        <View style={styles.friendAvatarSection}>
+          <View style={[styles.friendAvatarRing, { borderColor: getBallColor(friend.ballLevel) }]}>
+            {friend.photoUrl ? (
+              <Image source={{ uri: friend.photoUrl }} style={styles.friendAvatar} contentFit="cover" />
+            ) : (
+              <View style={[styles.friendAvatarPlaceholder, { backgroundColor: getBallColor(friend.ballLevel) + "30" }]}>
+                <ThemedText style={[styles.friendAvatarLetter, { color: getBallColor(friend.ballLevel) }]}>
+                  {friend.name.charAt(0).toUpperCase()}
+                </ThemedText>
+              </View>
+            )}
+          </View>
+          {friend.openToPlay ? (
+            <View style={styles.onlineIndicator}>
+              <View style={styles.onlineDot} />
+            </View>
+          ) : null}
+        </View>
+        
+        <View style={styles.friendInfo}>
+          <ThemedText style={styles.friendName} numberOfLines={1}>{friend.name}</ThemedText>
+          <View style={styles.friendMeta}>
+            <View style={[styles.friendLevelBadge, { backgroundColor: getBallColor(friend.ballLevel) }]}>
+              <ThemedText style={styles.friendLevelText}>
+                {friend.ballLevel?.toUpperCase() || "NEW"} {friend.skillLevel || ""}
+              </ThemedText>
+            </View>
+            {friend.openToPlay ? (
+              <ThemedText style={styles.friendStatus}>Open to Play</ThemedText>
+            ) : null}
+          </View>
+        </View>
+        
+        <View style={styles.friendActions}>
+          <Pressable 
+            style={styles.friendActionBtn}
+            onPress={(e) => { e.stopPropagation(); handleMessage(friend); }}
+          >
+            <Ionicons name="chatbubble" size={18} color={Colors.dark.textSecondary} />
+          </Pressable>
+          <Pressable 
+            style={styles.friendChallengeBtn}
+            onPress={(e) => { e.stopPropagation(); handleChallenge(friend); }}
+          >
+            <LinearGradient
+              colors={[Colors.dark.primary, Colors.dark.primaryGlow || "#9AE66E"]}
+              style={styles.friendChallengeBtnGradient}
+            >
+              <Ionicons name="flash" size={16} color={Colors.dark.backgroundRoot} />
+            </LinearGradient>
+          </Pressable>
+        </View>
+      </Pressable>
+    </Animated.View>
+  );
+  
+  const renderRequestCard = (request: Friend) => (
+    <Animated.View key={request.id} entering={FadeInDown.delay(100).springify()}>
+      <View style={styles.requestCard}>
+        <View style={styles.friendAvatarSection}>
+          {request.photoUrl ? (
+            <Image source={{ uri: request.photoUrl }} style={styles.friendAvatar} contentFit="cover" />
+          ) : (
+            <View style={[styles.friendAvatarPlaceholder, { backgroundColor: Colors.dark.primary + "30" }]}>
+              <ThemedText style={[styles.friendAvatarLetter, { color: Colors.dark.primary }]}>
+                {request.name.charAt(0).toUpperCase()}
+              </ThemedText>
+            </View>
+          )}
+        </View>
+        
+        <View style={styles.friendInfo}>
+          <ThemedText style={styles.friendName}>{request.name}</ThemedText>
+          <ThemedText style={styles.requestSubtext}>Wants to be your tennis buddy</ThemedText>
+        </View>
+        
+        <View style={styles.requestActions}>
+          <Pressable style={styles.rejectBtn} onPress={() => handleRejectRequest(request.id)}>
+            <Ionicons name="close" size={20} color={Colors.dark.error} />
+          </Pressable>
+          <Pressable style={styles.acceptBtn} onPress={() => handleAcceptRequest(request.id)}>
+            <Ionicons name="checkmark" size={20} color={Colors.dark.backgroundRoot} />
+          </Pressable>
+        </View>
+      </View>
+    </Animated.View>
+  );
+  
+  return (
+    <View style={styles.sectionContainer}>
+      <View style={styles.sectionTabs}>
+        <Pressable 
+          style={[styles.sectionTab, activeTab === "friends" && styles.sectionTabActive]}
+          onPress={() => setActiveTab("friends")}
+        >
+          <Ionicons name="people" size={16} color={activeTab === "friends" ? Colors.dark.primary : Colors.dark.textSecondary} />
+          <ThemedText style={[styles.sectionTabText, activeTab === "friends" && styles.sectionTabTextActive]}>
+            Friends ({friends.length})
+          </ThemedText>
+        </Pressable>
+        <Pressable 
+          style={[styles.sectionTab, activeTab === "requests" && styles.sectionTabActive]}
+          onPress={() => setActiveTab("requests")}
+        >
+          <Ionicons name="mail" size={16} color={activeTab === "requests" ? Colors.dark.primary : Colors.dark.textSecondary} />
+          <ThemedText style={[styles.sectionTabText, activeTab === "requests" && styles.sectionTabTextActive]}>
+            Requests {requests.length > 0 ? `(${requests.length})` : ""}
+          </ThemedText>
+          {requests.length > 0 ? <View style={styles.requestDot} /> : null}
+        </Pressable>
+      </View>
+      
+      {isLoading ? (
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color={Colors.dark.primary} />
+        </View>
+      ) : activeTab === "friends" ? (
+        <FlatList
+          data={friends}
+          keyExtractor={(item) => item.id}
+          renderItem={({ item }) => renderFriendCard(item)}
+          contentContainerStyle={{ paddingBottom: tabBarHeight + 100, paddingHorizontal: Spacing.md }}
+          ListEmptyComponent={
+            <View style={styles.emptyState}>
+              <View style={styles.emptyIcon}>
+                <Ionicons name="people" size={48} color={Colors.dark.primary} />
+              </View>
+              <ThemedText style={styles.emptyTitle}>No friends yet</ThemedText>
+              <ThemedText style={styles.emptySubtitle}>Find and connect with other players at your academy</ThemedText>
+              <Pressable 
+                style={styles.findPlayersBtn}
+                onPress={() => navigation.navigate("PlayStack", { screen: "OpenMatches" })}
+              >
+                <ThemedText style={styles.findPlayersBtnText}>Find Players</ThemedText>
+                <Ionicons name="arrow-forward" size={16} color={Colors.dark.backgroundRoot} />
+              </Pressable>
+            </View>
+          }
+          showsVerticalScrollIndicator={false}
+        />
+      ) : (
+        <FlatList
+          data={requests}
+          keyExtractor={(item) => item.id}
+          renderItem={({ item }) => renderRequestCard(item)}
+          contentContainerStyle={{ paddingBottom: tabBarHeight + 100, paddingHorizontal: Spacing.md }}
+          ListEmptyComponent={
+            <View style={styles.emptyState}>
+              <View style={styles.emptyIcon}>
+                <Ionicons name="mail-open" size={48} color={Colors.dark.textSecondary} />
+              </View>
+              <ThemedText style={styles.emptyTitle}>No pending requests</ThemedText>
+              <ThemedText style={styles.emptySubtitle}>Friend requests will appear here</ThemedText>
+            </View>
+          }
+          showsVerticalScrollIndicator={false}
+        />
+      )}
+    </View>
+  );
+}
+
+function GroupsSection() {
+  const navigation = useNavigation<any>();
+  const insets = useSafeAreaInsets();
+  const tabBarHeight = useBottomTabBarHeight();
+  
+  const { data: groupsData, isLoading } = useQuery<Group[]>({
+    queryKey: ["/api/social/groups"],
+  });
+  
+  const groups = groupsData || [];
+  
+  const getGroupIcon = (type: string) => {
+    switch (type) {
+      case "skill_level": return "trophy";
+      case "age_group": return "people";
+      case "tournament": return "ribbon";
+      case "social": return "tennisball";
+      default: return "grid";
+    }
+  };
+  
+  const renderGroupCard = (group: Group) => (
+    <Animated.View key={group.id} entering={FadeInDown.delay(100).springify()}>
+      <Pressable style={styles.groupCard}>
+        <View style={styles.groupIconContainer}>
+          <LinearGradient
+            colors={[Colors.dark.primary + "30", Colors.dark.backgroundSecondary]}
+            style={styles.groupSectionIconBg}
+          >
+            <Ionicons name={getGroupIcon(group.type) as any} size={28} color={Colors.dark.primary} />
+          </LinearGradient>
+        </View>
+        
+        <View style={styles.groupSectionInfo}>
+          <ThemedText style={styles.groupSectionName}>{group.name}</ThemedText>
+          <ThemedText style={styles.groupSectionMeta}>
+            <Ionicons name="people" size={12} color={Colors.dark.textSecondary} /> {group.memberCount} members
+          </ThemedText>
+          {group.description ? (
+            <ThemedText style={styles.groupSectionDescription} numberOfLines={2}>{group.description}</ThemedText>
+          ) : null}
+        </View>
+        
+        <Pressable style={[styles.joinBtn, group.isJoined && styles.joinedBtn]}>
+          <ThemedText style={[styles.joinBtnText, group.isJoined && styles.joinedBtnText]}>
+            {group.isJoined ? "Joined" : "Join"}
+          </ThemedText>
+        </Pressable>
+      </Pressable>
+    </Animated.View>
+  );
+  
+  return (
+    <View style={styles.sectionContainer}>
+      {isLoading ? (
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color={Colors.dark.primary} />
+        </View>
+      ) : (
+        <FlatList
+          data={groups}
+          keyExtractor={(item) => item.id}
+          renderItem={({ item }) => renderGroupCard(item)}
+          contentContainerStyle={{ paddingBottom: tabBarHeight + 100, paddingHorizontal: Spacing.md }}
+          ListEmptyComponent={
+            <View style={styles.emptyState}>
+              <View style={styles.emptyIcon}>
+                <Ionicons name="grid" size={48} color={Colors.dark.primary} />
+              </View>
+              <ThemedText style={styles.emptyTitle}>No groups yet</ThemedText>
+              <ThemedText style={styles.emptySubtitle}>Join groups to connect with players of similar skill levels</ThemedText>
+            </View>
+          }
+          showsVerticalScrollIndicator={false}
+        />
+      )}
     </View>
   );
 }
@@ -1089,9 +1445,16 @@ export default function CommunityScreen() {
   const tabBarHeight = useBottomTabBarHeight();
   const queryClient = useQueryClient();
   const { user } = useAuth();
+  const [mainTab, setMainTab] = useState<MainTab>("feed");
   const [filter, setFilter] = useState<FeedFilter>("for_you");
   const [showCreateModal, setShowCreateModal] = useState(false);
   const chatFooterHeight = 70;
+  
+  // Fetch friend requests count for badge
+  const { data: friendsData } = useQuery<{ friends: any[]; pendingRequests: any[] }>({
+    queryKey: ["/api/player/me/friends"],
+  });
+  const friendRequestCount = friendsData?.pendingRequests?.length || 0;
   
   const { data: feed = [], isLoading, refetch, isFetching } = useQuery<Post[]>({
     queryKey: ["/api/social/feed", { filter }],
@@ -1229,61 +1592,67 @@ export default function CommunityScreen() {
         />
       
       <View style={[styles.header, { paddingTop: insets.top + Spacing.sm }]}>
-        <ThemedText style={styles.title}>Community</ThemedText>
+        <ThemedText style={styles.title}>Social</ThemedText>
         
         <View style={styles.headerActions}>
-          {highlights?.openToPlay && highlights.openToPlay > 0 ? (
-            <Pressable style={styles.openToPlayBadge}>
-              <Ionicons name="tennisball" size={16} color={Colors.dark.primary} />
-              <ThemedText style={styles.openToPlayText}>{highlights.openToPlay} Open</ThemedText>
+          {mainTab === "feed" ? (
+            <Pressable 
+              style={styles.headerButton}
+              onPress={handleCreateMoment}
+              testID="button-create-moment"
+            >
+              <View style={styles.addButton}>
+                <Ionicons name="add" size={22} color={Colors.dark.buttonText} />
+              </View>
             </Pressable>
           ) : null}
-          <Pressable 
-            style={styles.headerButton}
-            onPress={handleCreateMoment}
-            testID="button-create-moment"
-          >
-            <View style={styles.addButton}>
-              <Ionicons name="add" size={22} color={Colors.dark.buttonText} />
-            </View>
-          </Pressable>
         </View>
       </View>
       
-      <FilterTabs active={filter} onChange={setFilter} />
+      <MainTabBar active={mainTab} onChange={setMainTab} friendRequestCount={friendRequestCount} />
       
-      {isLoading ? (
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={Colors.dark.primary} />
-        </View>
-      ) : (
-        <FlatList
-          data={feed}
-          keyExtractor={(item) => item.id}
-          renderItem={({ item }) => (
-            <MomentCard 
-              post={item} 
-              onReact={handleReact}
-              onComment={handleComment}
-              onShare={handleShare}
-              onDelete={handleDelete}
-              currentUserId={user?.id}
+      {mainTab === "feed" ? (
+        <>
+          <FeedFilterTabs active={filter} onChange={setFilter} />
+          
+          {isLoading ? (
+            <View style={styles.loadingContainer}>
+              <ActivityIndicator size="large" color={Colors.dark.primary} />
+            </View>
+          ) : (
+            <FlatList
+              data={feed}
+              keyExtractor={(item) => item.id}
+              renderItem={({ item }) => (
+                <MomentCard 
+                  post={item} 
+                  onReact={handleReact}
+                  onComment={handleComment}
+                  onShare={handleShare}
+                  onDelete={handleDelete}
+                  currentUserId={user?.id}
+                />
+              )}
+              contentContainerStyle={[
+                styles.feedList,
+                { paddingBottom: tabBarHeight + chatFooterHeight + Spacing.xl }
+              ]}
+              refreshControl={
+                <RefreshControl
+                  refreshing={isFetching && !isLoading}
+                  onRefresh={refetch}
+                  tintColor={Colors.dark.primary}
+                />
+              }
+              ListEmptyComponent={<EmptyFeed filter={filter} />}
+              showsVerticalScrollIndicator={false}
             />
           )}
-          contentContainerStyle={[
-            styles.feedList,
-            { paddingBottom: tabBarHeight + chatFooterHeight + Spacing.xl }
-          ]}
-          refreshControl={
-            <RefreshControl
-              refreshing={isFetching && !isLoading}
-              onRefresh={refetch}
-              tintColor={Colors.dark.primary}
-            />
-          }
-          ListEmptyComponent={<EmptyFeed filter={filter} />}
-          showsVerticalScrollIndicator={false}
-        />
+        </>
+      ) : mainTab === "friends" ? (
+        <FriendsSection />
+      ) : (
+        <GroupsSection />
       )}
 
       <CreateMomentModal
@@ -2070,7 +2439,7 @@ const styles = StyleSheet.create({
   },
   commentItemReply: {
     marginLeft: 32,
-    backgroundColor: Colors.dark.background + "80",
+    backgroundColor: Colors.dark.backgroundSecondary + "80",
     borderLeftWidth: 2,
     borderLeftColor: Colors.dark.primary + "50",
   },
@@ -2273,5 +2642,300 @@ const styles = StyleSheet.create({
     alignItems: "center",
     paddingVertical: Spacing.lg,
     gap: Spacing.sm,
+  },
+  // Main Tab Bar styles
+  mainTabContainer: {
+    flexDirection: "row",
+    marginHorizontal: Spacing.md,
+    marginBottom: Spacing.md,
+    backgroundColor: Colors.dark.backgroundSecondary,
+    borderRadius: BorderRadius.lg,
+    padding: 4,
+  },
+  mainTab: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 6,
+    paddingVertical: Spacing.sm + 2,
+    borderRadius: BorderRadius.md,
+  },
+  mainTabActive: {
+    backgroundColor: Colors.dark.backgroundTertiary,
+  },
+  mainTabText: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: Colors.dark.textSecondary,
+  },
+  mainTabTextActive: {
+    color: Colors.dark.primary,
+  },
+  requestBadge: {
+    backgroundColor: Colors.dark.error,
+    borderRadius: 10,
+    minWidth: 18,
+    height: 18,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 5,
+  },
+  requestBadgeText: {
+    fontSize: 10,
+    fontWeight: "700",
+    color: Colors.dark.text,
+  },
+  // Friends Section styles
+  sectionContainer: {
+    flex: 1,
+  },
+  sectionTabs: {
+    flexDirection: "row",
+    marginHorizontal: Spacing.md,
+    marginBottom: Spacing.md,
+    gap: Spacing.sm,
+  },
+  sectionTab: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    paddingVertical: Spacing.sm,
+    paddingHorizontal: Spacing.md,
+    borderRadius: BorderRadius.md,
+    backgroundColor: Colors.dark.backgroundSecondary,
+  },
+  sectionTabActive: {
+    backgroundColor: Colors.dark.primary + "20",
+    borderWidth: 1,
+    borderColor: Colors.dark.primary + "50",
+  },
+  sectionTabText: {
+    fontSize: 13,
+    fontWeight: "500",
+    color: Colors.dark.textSecondary,
+  },
+  sectionTabTextActive: {
+    color: Colors.dark.primary,
+  },
+  requestDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: Colors.dark.error,
+  },
+  friendCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.md,
+    backgroundColor: Colors.dark.backgroundSecondary,
+    borderRadius: BorderRadius.lg,
+    padding: Spacing.md,
+    marginBottom: Spacing.sm,
+    borderWidth: 1,
+    borderColor: Colors.dark.border,
+  },
+  friendAvatarSection: {
+    position: "relative",
+  },
+  friendAvatarRing: {
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    borderWidth: 2,
+    padding: 2,
+    overflow: "hidden",
+  },
+  friendAvatar: {
+    width: "100%",
+    height: "100%",
+    borderRadius: 24,
+  },
+  friendAvatarPlaceholder: {
+    width: "100%",
+    height: "100%",
+    borderRadius: 24,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  friendAvatarLetter: {
+    fontSize: 20,
+    fontWeight: "700",
+  },
+  onlineIndicator: {
+    position: "absolute",
+    bottom: 0,
+    right: 0,
+    width: 16,
+    height: 16,
+    borderRadius: 8,
+    backgroundColor: Colors.dark.backgroundSecondary,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  onlineDot: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: "#22C55E",
+  },
+  friendInfo: {
+    flex: 1,
+    gap: 4,
+  },
+  friendName: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: Colors.dark.text,
+  },
+  friendMeta: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+  },
+  friendLevelBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 6,
+  },
+  friendLevelText: {
+    fontSize: 10,
+    fontWeight: "700",
+    color: Colors.dark.backgroundRoot,
+  },
+  friendStatus: {
+    fontSize: 11,
+    color: "#22C55E",
+    fontWeight: "500",
+  },
+  friendActions: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+  },
+  friendActionBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: Colors.dark.backgroundTertiary,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  friendChallengeBtn: {
+    borderRadius: 20,
+    overflow: "hidden",
+  },
+  friendChallengeBtnGradient: {
+    width: 40,
+    height: 40,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  requestCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.md,
+    backgroundColor: Colors.dark.backgroundSecondary,
+    borderRadius: BorderRadius.lg,
+    padding: Spacing.md,
+    marginBottom: Spacing.sm,
+    borderWidth: 1,
+    borderColor: Colors.dark.primary + "30",
+  },
+  requestSubtext: {
+    fontSize: 12,
+    color: Colors.dark.textSecondary,
+  },
+  requestActions: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+  },
+  rejectBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: Colors.dark.error + "20",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  acceptBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: Colors.dark.primary,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  findPlayersBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    backgroundColor: Colors.dark.primary,
+    paddingHorizontal: Spacing.lg,
+    paddingVertical: Spacing.sm + 2,
+    borderRadius: BorderRadius.md,
+    marginTop: Spacing.md,
+  },
+  findPlayersBtnText: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: Colors.dark.backgroundRoot,
+  },
+  // Groups Section styles
+  groupCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.md,
+    backgroundColor: Colors.dark.backgroundSecondary,
+    borderRadius: BorderRadius.lg,
+    padding: Spacing.md,
+    marginBottom: Spacing.sm,
+    borderWidth: 1,
+    borderColor: Colors.dark.border,
+  },
+  groupSectionIconBg: {
+    width: 56,
+    height: 56,
+    borderRadius: BorderRadius.md,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  groupSectionInfo: {
+    flex: 1,
+    gap: 2,
+  },
+  groupSectionName: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: Colors.dark.text,
+  },
+  groupSectionMeta: {
+    fontSize: 12,
+    color: Colors.dark.textSecondary,
+  },
+  groupSectionDescription: {
+    fontSize: 12,
+    color: Colors.dark.textMuted,
+    marginTop: 2,
+  },
+  joinBtn: {
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm,
+    borderRadius: BorderRadius.md,
+    backgroundColor: Colors.dark.primary,
+  },
+  joinedBtn: {
+    backgroundColor: Colors.dark.backgroundTertiary,
+    borderWidth: 1,
+    borderColor: Colors.dark.border,
+  },
+  joinBtnText: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: Colors.dark.backgroundRoot,
+  },
+  joinedBtnText: {
+    color: Colors.dark.textSecondary,
   },
 });
