@@ -863,7 +863,7 @@ export function SessionHeroCard({
             onRequestClose={() => setShowCancelModal(false)}
           >
             <Pressable style={styles.modalOverlay} onPress={() => setShowCancelModal(false)}>
-              <Pressable style={styles.modalContent} onPress={(e) => e.stopPropagation()}>
+              <View style={styles.modalContent} onStartShouldSetResponder={() => true}>
                 <KeyboardAwareScrollViewCompat 
                   showsVerticalScrollIndicator={false}
                   keyboardShouldPersistTaps="handled"
@@ -990,7 +990,7 @@ export function SessionHeroCard({
                     </Pressable>
                   </View>
                 </KeyboardAwareScrollViewCompat>
-              </Pressable>
+              </View>
             </Pressable>
           </Modal>
 
@@ -1190,7 +1190,7 @@ export function SessionHeroCard({
             onRequestClose={() => setShowCancelModal(false)}
           >
             <Pressable style={styles.modalOverlay} onPress={() => setShowCancelModal(false)}>
-              <Pressable style={styles.modalContent} onPress={(e) => e.stopPropagation()}>
+              <View style={styles.modalContent} onStartShouldSetResponder={() => true}>
                 <KeyboardAwareScrollViewCompat 
                   showsVerticalScrollIndicator={false}
                   keyboardShouldPersistTaps="handled"
@@ -1317,7 +1317,7 @@ export function SessionHeroCard({
                     </Pressable>
                   </View>
                 </KeyboardAwareScrollViewCompat>
-              </Pressable>
+              </View>
             </Pressable>
           </Modal>
 
