@@ -6,7 +6,7 @@ import { useQuery } from "@tanstack/react-query";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import * as Haptics from "expo-haptics";
 import { Colors, Spacing, Typography, BorderRadius, CardStyles, Backgrounds, GlowColors } from "@/constants/theme";
-import Svg, { Polygon, Circle, Text as SvgText, Line } from "react-native-svg";
+import Svg, { Polygon, Circle, Text as SvgText, Line, Defs, LinearGradient as SvgLinearGradient, Stop } from "react-native-svg";
 import { LinearGradient } from "expo-linear-gradient";
 import BallLevelBadge from "@/components/BallLevelBadge";
 import PillarProgressRings from "@/components/PillarProgressRings";
@@ -82,10 +82,9 @@ interface SkillDomain {
 }
 
 function SkillRadar({ domains }: { domains: SkillDomain[] }) {
-  const size = 260;
+  const size = 280;
   const center = size / 2;
-  const radius = 100;
-  const levels = 5;
+  const radius = 90;
 
   const getPoint = (index: number, value: number) => {
     const angle = (Math.PI * 2 * index) / domains.length - Math.PI / 2;
@@ -102,6 +101,19 @@ function SkillRadar({ domains }: { domains: SkillDomain[] }) {
   return (
     <View style={styles.radarContainer}>
       <Svg width={size} height={size}>
+        <Defs>
+          <SvgLinearGradient id="radarGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+            <Stop offset="0%" stopColor={GlowColors.primary} stopOpacity="0.4" />
+            <Stop offset="50%" stopColor="#00E5FF" stopOpacity="0.3" />
+            <Stop offset="100%" stopColor="#E040FB" stopOpacity="0.2" />
+          </SvgLinearGradient>
+          <SvgLinearGradient id="radarStroke" x1="0%" y1="0%" x2="100%" y2="100%">
+            <Stop offset="0%" stopColor={GlowColors.primary} stopOpacity="1" />
+            <Stop offset="50%" stopColor="#00E5FF" stopOpacity="1" />
+            <Stop offset="100%" stopColor="#E040FB" stopOpacity="1" />
+          </SvgLinearGradient>
+        </Defs>
+        
         {[1, 2, 3, 4, 5].map((level) => {
           const levelPoints = domains.map((_, i) => getPoint(i, level * 20));
           return (
@@ -109,13 +121,14 @@ function SkillRadar({ domains }: { domains: SkillDomain[] }) {
               key={level}
               points={levelPoints.map((p) => `${p.x},${p.y}`).join(" ")}
               fill="none"
-              stroke={Colors.dark.backgroundTertiary}
-              strokeWidth={1}
+              stroke={level === 5 ? "rgba(200, 255, 61, 0.3)" : "rgba(255,255,255,0.08)"}
+              strokeWidth={level === 5 ? 2 : 1}
+              strokeDasharray={level === 5 ? undefined : "4,4"}
             />
           );
         })}
         
-        {domains.map((_, i) => {
+        {domains.map((domain, i) => {
           const endPoint = getPoint(i, 100);
           return (
             <Line
@@ -124,7 +137,7 @@ function SkillRadar({ domains }: { domains: SkillDomain[] }) {
               y1={center}
               x2={endPoint.x}
               y2={endPoint.y}
-              stroke={Colors.dark.backgroundTertiary}
+              stroke={domain.color + "40"}
               strokeWidth={1}
             />
           );
@@ -132,35 +145,52 @@ function SkillRadar({ domains }: { domains: SkillDomain[] }) {
 
         <Polygon
           points={polygonPoints}
-          fill="rgba(200, 255, 61, 0.2)"
-          stroke={GlowColors.primary}
-          strokeWidth={2}
+          fill="url(#radarGradient)"
+          stroke="url(#radarStroke)"
+          strokeWidth={3}
         />
 
         {points.map((point, i) => (
-          <Circle
-            key={i}
-            cx={point.x}
-            cy={point.y}
-            r={4}
-            fill={GlowColors.primary}
-          />
+          <React.Fragment key={i}>
+            <Circle
+              cx={point.x}
+              cy={point.y}
+              r={8}
+              fill={domains[i].color + "30"}
+            />
+            <Circle
+              cx={point.x}
+              cy={point.y}
+              r={5}
+              fill={domains[i].color}
+              stroke="#0B0D10"
+              strokeWidth={2}
+            />
+          </React.Fragment>
         ))}
 
         {domains.map((domain, i) => {
-          const labelPoint = getPoint(i, 130);
+          const labelPoint = getPoint(i, 135);
           return (
-            <SvgText
-              key={i}
-              x={labelPoint.x}
-              y={labelPoint.y}
-              fill={Colors.dark.textMuted}
-              fontSize={10}
-              textAnchor="middle"
-              alignmentBaseline="middle"
-            >
-              {domain.name.slice(0, 3).toUpperCase()}
-            </SvgText>
+            <React.Fragment key={i}>
+              <Circle
+                cx={labelPoint.x}
+                cy={labelPoint.y}
+                r={16}
+                fill={domain.color + "20"}
+              />
+              <SvgText
+                x={labelPoint.x}
+                y={labelPoint.y + 1}
+                fill={domain.color}
+                fontSize={11}
+                fontWeight="bold"
+                textAnchor="middle"
+                alignmentBaseline="middle"
+              >
+                {domain.name.slice(0, 3).toUpperCase()}
+              </SvgText>
+            </React.Fragment>
           );
         })}
       </Svg>
