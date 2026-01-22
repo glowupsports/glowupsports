@@ -25511,7 +25511,55 @@ export async function registerRoutes(app: Express): Promise<Server> {
         !m.academyId || m.academyId === academyId
       );
 
-      res.json(filteredMatches);
+      // Transform to format expected by frontend
+      const transformedMatches = filteredMatches.map(m => {
+        let scheduledTime: string | null = null;
+        if (m.preferredDate && m.preferredTime) {
+          const [hours, minutes] = m.preferredTime.split(':').map(Number);
+          const date = new Date(m.preferredDate);
+          date.setHours(hours || 0, minutes || 0, 0, 0);
+          scheduledTime = date.toISOString();
+        }
+        return {
+          id: m.id,
+          bookingId: "",
+          hostPlayerId: m.playerId,
+          academyId: m.academyId,
+          matchType: m.matchType || "singles",
+          title: m.title,
+          description: m.description,
+          requiredLevelMin: m.requiredLevelMin || 1,
+          requiredLevelMax: m.requiredLevelMax || 9,
+          requiredBallLevel: m.requiredBallLevel,
+          maxPlayers: m.maxPlayers || (m.matchType === "doubles" ? 4 : 2),
+          currentPlayers: 1,
+          status: m.status || "open",
+          visibility: "public",
+          costPerPlayer: null,
+          currency: "AED",
+          xpBonus: 25,
+          createdAt: m.createdAt?.toISOString() || new Date().toISOString(),
+          scheduledTime,
+          preferredDate: m.preferredDate,
+          preferredTime: m.preferredTime,
+          courtName: null,
+          locationName: null,
+          host: {
+            id: m.playerId,
+            name: m.playerName || "Unknown Player",
+            photoUrl: m.playerAvatar,
+            level: m.playerLevel || 1,
+            ballLevel: m.requiredBallLevel,
+          },
+          players: [{
+            id: m.playerId,
+            name: m.playerName || "Unknown Player",
+            photoUrl: m.playerAvatar,
+          }],
+        };
+      });
+
+      res.json(transformedMatches);
     } catch (error) {
       console.error("Get open matches error:", error);
       res.status(500).json({ error: "Failed to get open matches" });
