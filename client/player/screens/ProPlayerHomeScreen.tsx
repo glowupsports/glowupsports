@@ -16,6 +16,7 @@ import { NewsTicker } from "@/player/components/NewsTicker";
 import { QuickServeFAB } from "@/player/components/QuickServeFAB";
 import PlayerBookingWizard from "@/player/components/PlayerBookingWizard";
 import CollapsibleModeSwitcher from "@/components/CollapsibleModeSwitcher";
+import PinEntryModal from "@/components/PinEntryModal";
 import Svg, { Line, Rect } from "react-native-svg";
 
 interface DashboardData {
@@ -74,6 +75,7 @@ function PlayerHomeContent() {
   const { openDrawer } = usePlayerDrawer();
   const navigation = useNavigation<any>();
   const [showBookingWizard, setShowBookingWizard] = useState(false);
+  const [showPinModal, setShowPinModal] = useState(false);
 
   const { data: dashboardData, isLoading, refetch, isRefetching } = useQuery<DashboardData>({
     queryKey: ["/api/player/me/dashboard"],
@@ -104,7 +106,7 @@ function PlayerHomeContent() {
   };
 
   const handleWalletPress = () => {
-    navigation.navigate("ParentCreditStore", { playerId: player?.id });
+    setShowPinModal(true);
   };
 
   const handleSquadPress = () => {
@@ -192,6 +194,16 @@ function PlayerHomeContent() {
         onBookingSuccess={handleBookingSuccess}
         playerId={player?.id}
         playerBallLevel={player?.ballLevel}
+      />
+      
+      {/* PIN ENTRY MODAL for Credit Store */}
+      <PinEntryModal
+        visible={showPinModal}
+        onClose={() => setShowPinModal(false)}
+        onSuccess={() => {
+          setShowPinModal(false);
+          navigation.navigate("ParentCreditStore", { playerId: player?.id });
+        }}
       />
     </View>
   );
