@@ -225,6 +225,14 @@ function PremiumMatchCard({
     return colors[level?.toLowerCase() || ""] || Colors.dark.textSecondary;
   };
 
+  const getSkillSublevelLabel = (level?: number) => {
+    if (!level) return "";
+    if (level === 1) return "BEG";
+    if (level === 2) return "INT";
+    if (level === 3) return "ADV";
+    return "";
+  };
+
   return (
     <Animated.View 
       entering={FadeInDown.delay(index * 100).springify()}
@@ -280,7 +288,7 @@ function PremiumMatchCard({
                 <View style={[styles.hostLevelBadge, { backgroundColor: getBallLevelColor(match.host.ballLevel) + "20", borderColor: getBallLevelColor(match.host.ballLevel) }]}>
                   <View style={[styles.ballLevelDot, { backgroundColor: getBallLevelColor(match.host.ballLevel) }]} />
                   <Text style={[styles.hostLevelText, { color: getBallLevelColor(match.host.ballLevel) }]}>
-                    {match.host.ballLevel.toUpperCase()} {match.host.level || ""}
+                    {match.host.ballLevel.toUpperCase()} {match.host.level || ""} {getSkillSublevelLabel(match.host.skillLevel)}
                   </Text>
                 </View>
               ) : match.host?.level ? (

@@ -603,7 +603,7 @@ export function OpenMatchesRow() {
                       <View style={[styles.matchLevelBadge, { backgroundColor: getBallLevelColor(match.ballLevel || "glow") + "20" }]}>
                         <View style={[styles.matchLevelDot, { backgroundColor: getBallLevelColor(match.ballLevel || "glow") }]} />
                         <Text style={[styles.matchLevelText, { color: getBallLevelColor(match.ballLevel || "glow") }]}>
-                          {(match.ballLevel || "GLOW").toUpperCase()} {match.skillLevel || ""}
+                          {(match.ballLevel || "GLOW").toUpperCase()} {match.skillLevel || ""} {match.skillLevel === 1 ? "BEG" : match.skillLevel === 2 ? "INT" : match.skillLevel === 3 ? "ADV" : ""}
                         </Text>
                       </View>
                     </View>
