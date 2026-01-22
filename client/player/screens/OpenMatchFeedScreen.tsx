@@ -460,9 +460,7 @@ export default function OpenMatchFeedScreen() {
   const joinMutation = useMutation({
     mutationFn: async (matchId: string) => {
       setJoiningMatchId(matchId);
-      const response = await apiRequest(`${getApiUrl()}/api/open-matches/${matchId}/join`, {
-        method: "POST",
-      });
+      const response = await apiRequest("POST", `/api/open-matches/${matchId}/join`);
       return response;
     },
     onSuccess: () => {
