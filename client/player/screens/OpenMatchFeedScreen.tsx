@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import {
   View,
   Text,
@@ -8,19 +8,33 @@ import {
   ActivityIndicator,
   RefreshControl,
   Alert,
+  Dimensions,
 } from "react-native";
 import { useNavigation } from "@react-navigation/native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import Animated, { FadeIn, FadeInRight, SlideInUp } from "react-native-reanimated";
+import Animated, { 
+  FadeIn, 
+  FadeInDown, 
+  FadeInUp,
+  useSharedValue,
+  useAnimatedStyle,
+  withRepeat,
+  withTiming,
+  withSpring,
+  Easing,
+} from "react-native-reanimated";
 import { LinearGradient } from "expo-linear-gradient";
-import { Ionicons } from "@expo/vector-icons";
+import { BlurView } from "expo-blur";
+import { Ionicons, Feather } from "@expo/vector-icons";
+import { Image } from "expo-image";
 import * as Haptics from "expo-haptics";
 import { Colors, Spacing, FontSizes, BorderRadius, Typography, Backgrounds, GlowColors } from "@/constants/theme";
 import { ThemedText } from "@/components/ThemedText";
-import { Card } from "@/components/Card";
 import { apiRequest, getApiUrl } from "@/lib/query-client";
 import { LockedScreen } from "../components/LockedScreen";
+
+const { width: SCREEN_WIDTH } = Dimensions.get("window");
 
 interface OpenMatch {
   id: string;
@@ -41,44 +55,248 @@ interface OpenMatch {
   currency: string;
   xpBonus: number;
   createdAt: string;
+  scheduledTime?: string;
+  courtName?: string;
+  locationName?: string;
+  host?: {
+    id: string;
+    name: string;
+    photoUrl?: string;
+    level?: number;
+    ballLevel?: string;
+    winRate?: number;
+  };
+  players?: Array<{
+    id: string;
+    name: string;
+    photoUrl?: string;
+  }>;
 }
 
 type FilterType = "all" | "singles" | "doubles";
 
-function MatchCard({ 
+function PulsingGlow({ color }: { color: string }) {
+  const opacity = useSharedValue(0.4);
+  const scale = useSharedValue(1);
+
+  useEffect(() => {
+    opacity.value = withRepeat(
+      withTiming(0.8, { duration: 1500, easing: Easing.inOut(Easing.ease) }),
+      -1,
+      true
+    );
+    scale.value = withRepeat(
+      withTiming(1.05, { duration: 1500, easing: Easing.inOut(Easing.ease) }),
+      -1,
+      true
+    );
+  }, []);
+
+  const animatedStyle = useAnimatedStyle(() => ({
+    opacity: opacity.value,
+    transform: [{ scale: scale.value }],
+  }));
+
+  return (
+    <Animated.View style={[styles.pulsingGlow, animatedStyle, { backgroundColor: color }]} />
+  );
+}
+
+function CountdownTimer({ scheduledTime }: { scheduledTime?: string }) {
+  const [timeLeft, setTimeLeft] = useState("");
+  const [isUrgent, setIsUrgent] = useState(false);
+
+  useEffect(() => {
+    if (!scheduledTime) {
+      setTimeLeft("Soon");
+      return;
+    }
+
+    const updateTimer = () => {
+      const now = new Date();
+      const target = new Date(scheduledTime);
+      const diff = target.getTime() - now.getTime();
+
+      if (diff <= 0) {
+        setTimeLeft("Starting now");
+        setIsUrgent(true);
+        return;
+      }
+
+      const hours = Math.floor(diff / (1000 * 60 * 60));
+      const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+
+      if (hours > 24) {
+        const days = Math.floor(hours / 24);
+        setTimeLeft(`in ${days}d`);
+        setIsUrgent(false);
+      } else if (hours > 0) {
+        setTimeLeft(`in ${hours}h ${minutes}m`);
+        setIsUrgent(hours < 2);
+      } else {
+        setTimeLeft(`in ${minutes}m`);
+        setIsUrgent(true);
+      }
+    };
+
+    updateTimer();
+    const interval = setInterval(updateTimer, 60000);
+    return () => clearInterval(interval);
+  }, [scheduledTime]);
+
+  return (
+    <View style={[styles.countdownBadge, isUrgent && styles.countdownUrgent]}>
+      {isUrgent && <PulsingGlow color={Colors.dark.error} />}
+      <Ionicons name="time" size={12} color={isUrgent ? Colors.dark.error : Colors.dark.primary} />
+      <Text style={[styles.countdownText, isUrgent && styles.countdownTextUrgent]}>
+        {timeLeft}
+      </Text>
+    </View>
+  );
+}
+
+function PlayerSlots({ current, max, players }: { current: number; max: number; players?: Array<{ id: string; name: string; photoUrl?: string }> }) {
+  const slots = Array.from({ length: max }, (_, i) => i);
+  
+  return (
+    <View style={styles.playerSlots}>
+      {slots.map((index) => {
+        const player = players?.[index];
+        const isFilled = index < current;
+        
+        return (
+          <View 
+            key={index} 
+            style={[
+              styles.playerSlot,
+              isFilled ? styles.playerSlotFilled : styles.playerSlotEmpty
+            ]}
+          >
+            {player?.photoUrl ? (
+              <Image source={{ uri: player.photoUrl }} style={styles.playerSlotImage} contentFit="cover" />
+            ) : isFilled ? (
+              <Ionicons name="person" size={14} color={Colors.dark.primary} />
+            ) : (
+              <Ionicons name="add" size={14} color={Colors.dark.textMuted} />
+            )}
+          </View>
+        );
+      })}
+      <Text style={styles.playerSlotsText}>
+        {max - current} {max - current === 1 ? "spot" : "spots"} left
+      </Text>
+    </View>
+  );
+}
+
+function PremiumMatchCard({ 
   match, 
   onJoin, 
-  isJoining 
+  isJoining,
+  index,
 }: { 
   match: OpenMatch; 
   onJoin: () => void; 
   isJoining: boolean;
+  index: number;
 }) {
   const slotsLeft = match.maxPlayers - match.currentPlayers;
   const isFull = slotsLeft === 0;
+  const isDoubles = match.matchType === "doubles";
+  const isMixed = match.matchType === "mixed";
+
+  const getMatchGradient = (): readonly [string, string, ...string[]] => {
+    if (isDoubles) return ["#9333EA", "#7C3AED", "#6366F1"] as const;
+    if (isMixed) return ["#EC4899", "#F472B6", "#FB7185"] as const;
+    return [Colors.dark.xpCyan, "#22D3EE", "#06B6D4"] as const;
+  };
+
+  const getMatchGlowColor = () => {
+    if (isDoubles) return "#9333EA";
+    if (isMixed) return "#EC4899";
+    return Colors.dark.xpCyan;
+  };
+
+  const getBallLevelColor = (level?: string) => {
+    const colors: Record<string, string> = {
+      blue: "#3B82F6", red: "#EF4444", orange: "#F97316",
+      green: "#22C55E", yellow: "#EAB308", glow: Colors.dark.primary,
+    };
+    return colors[level?.toLowerCase() || ""] || Colors.dark.textSecondary;
+  };
 
   return (
-    <Animated.View entering={FadeInRight.delay(100)}>
-      <Card style={styles.matchCard}>
-        <View style={styles.matchHeader}>
-          <View style={[styles.matchTypeBadge, match.matchType === "doubles" && styles.matchTypeDoubles]}>
+    <Animated.View 
+      entering={FadeInDown.delay(index * 100).springify()}
+      style={styles.premiumCardWrapper}
+    >
+      <LinearGradient
+        colors={["rgba(255,255,255,0.08)", "rgba(255,255,255,0.02)"]}
+        style={styles.premiumCard}
+      >
+        <View style={[styles.cardGlowBorder, { borderColor: getMatchGlowColor() + "60" }]} />
+        
+        <View style={styles.cardHeader}>
+          <LinearGradient
+            colors={getMatchGradient()}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 0 }}
+            style={styles.matchTypePill}
+          >
             <Ionicons 
-              name={match.matchType === "doubles" ? "people" : "person"} 
-              size={12} 
-              color={Colors.dark.text} 
+              name={isDoubles ? "people" : isMixed ? "people-circle" : "person"} 
+              size={14} 
+              color="#fff" 
             />
-            <Text style={styles.matchTypeText}>
+            <Text style={styles.matchTypePillText}>
               {match.matchType.charAt(0).toUpperCase() + match.matchType.slice(1)}
             </Text>
-          </View>
-          <View style={styles.slotsBadge}>
-            <Text style={styles.slotsText}>
-              {match.currentPlayers}/{match.maxPlayers}
-            </Text>
-          </View>
+          </LinearGradient>
+
+          <CountdownTimer scheduledTime={match.scheduledTime} />
         </View>
 
-        <Text style={styles.matchTitle}>
+        <View style={styles.hostSection}>
+          <View style={styles.hostAvatar}>
+            {match.host?.photoUrl ? (
+              <Image source={{ uri: match.host.photoUrl }} style={styles.hostAvatarImage} contentFit="cover" />
+            ) : (
+              <LinearGradient
+                colors={[getMatchGlowColor() + "40", getMatchGlowColor() + "20"]}
+                style={styles.hostAvatarPlaceholder}
+              >
+                <Text style={[styles.hostAvatarLetter, { color: getMatchGlowColor() }]}>
+                  {match.host?.name?.charAt(0).toUpperCase() || "?"}
+                </Text>
+              </LinearGradient>
+            )}
+            <View style={[styles.hostLevelRing, { borderColor: getBallLevelColor(match.host?.ballLevel) }]} />
+          </View>
+          
+          <View style={styles.hostInfo}>
+            <Text style={styles.hostName}>{match.host?.name || "Anonymous Host"}</Text>
+            <View style={styles.hostMeta}>
+              {match.host?.level ? (
+                <View style={styles.hostLevelBadge}>
+                  <Ionicons name="star" size={10} color={Colors.dark.gold} />
+                  <Text style={styles.hostLevelText}>Lvl {match.host.level}</Text>
+                </View>
+              ) : null}
+              {match.host?.winRate ? (
+                <Text style={styles.hostWinRate}>{match.host.winRate}% WR</Text>
+              ) : null}
+            </View>
+          </View>
+
+          {match.xpBonus > 0 ? (
+            <View style={styles.xpBadgeLarge}>
+              <Ionicons name="flash" size={16} color={Colors.dark.xpCyan} />
+              <Text style={styles.xpBadgeText}>+{match.xpBonus}</Text>
+            </View>
+          ) : null}
+        </View>
+
+        <Text style={styles.matchTitle} numberOfLines={2}>
           {match.title || `Looking for ${match.matchType} partner`}
         </Text>
 
@@ -88,67 +306,148 @@ function MatchCard({
           </Text>
         ) : null}
 
-        <View style={styles.matchMeta}>
-          <View style={styles.metaItem}>
-            <Ionicons name="fitness" size={14} color={Colors.dark.textMuted} />
-            <Text style={styles.metaText}>
+        <View style={styles.matchDetails}>
+          {match.locationName || match.courtName ? (
+            <View style={styles.detailItem}>
+              <Ionicons name="location" size={14} color={Colors.dark.primary} />
+              <Text style={styles.detailText} numberOfLines={1}>
+                {match.courtName || match.locationName}
+              </Text>
+            </View>
+          ) : null}
+
+          <View style={styles.detailItem}>
+            <Ionicons name="fitness" size={14} color={Colors.dark.gold} />
+            <Text style={styles.detailText}>
               Level {match.requiredLevelMin}-{match.requiredLevelMax}
             </Text>
           </View>
+
           {match.requiredBallLevel ? (
-            <View style={styles.metaItem}>
-              <Ionicons name="tennisball" size={14} color={Colors.dark.gold} />
-              <Text style={styles.metaText}>{match.requiredBallLevel}</Text>
-            </View>
-          ) : null}
-          {match.costPerPlayer && parseFloat(match.costPerPlayer) > 0 ? (
-            <View style={styles.metaItem}>
-              <Ionicons name="card" size={14} color={Colors.dark.primary} />
-              <Text style={styles.metaText}>
-                {match.currency} {match.costPerPlayer}
+            <View style={[styles.ballLevelBadge, { backgroundColor: getBallLevelColor(match.requiredBallLevel) + "30" }]}>
+              <View style={[styles.ballDot, { backgroundColor: getBallLevelColor(match.requiredBallLevel) }]} />
+              <Text style={[styles.ballLevelText, { color: getBallLevelColor(match.requiredBallLevel) }]}>
+                {match.requiredBallLevel}
               </Text>
             </View>
-          ) : (
-            <View style={styles.freeBadge}>
-              <Text style={styles.freeText}>FREE</Text>
-            </View>
-          )}
+          ) : null}
         </View>
 
-        <View style={styles.matchFooter}>
-          <View style={styles.xpBadge}>
-            <Ionicons name="flash" size={14} color={Colors.dark.xpCyan} />
-            <Text style={styles.xpText}>+{match.xpBonus} XP</Text>
-          </View>
+        <View style={styles.cardDivider} />
 
-          <Pressable 
-            style={[styles.joinButton, isFull && styles.joinButtonDisabled]}
-            onPress={onJoin}
-            disabled={isFull || isJoining}
-          >
-            {isJoining ? (
-              <ActivityIndicator size="small" color={Colors.dark.text} />
+        <View style={styles.cardFooter}>
+          <PlayerSlots 
+            current={match.currentPlayers} 
+            max={match.maxPlayers}
+            players={match.players}
+          />
+
+          <View style={styles.joinSection}>
+            {match.costPerPlayer && parseFloat(match.costPerPlayer) > 0 ? (
+              <View style={styles.costBadge}>
+                <Text style={styles.costText}>{match.currency} {match.costPerPlayer}</Text>
+              </View>
             ) : (
-              <>
-                <Ionicons 
-                  name={isFull ? "close-circle" : "add-circle"} 
-                  size={18} 
-                  color={Colors.dark.text} 
-                />
-                <Text style={styles.joinButtonText}>
-                  {isFull ? "Full" : "Join"}
-                </Text>
-              </>
+              <View style={styles.freeBadgeLarge}>
+                <Text style={styles.freeBadgeText}>FREE</Text>
+              </View>
             )}
-          </Pressable>
+
+            <Pressable 
+              style={[
+                styles.joinButtonLarge,
+                isFull && styles.joinButtonDisabled,
+                isJoining && styles.joinButtonLoading,
+              ]}
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+                onJoin();
+              }}
+              disabled={isFull || isJoining}
+            >
+              <LinearGradient
+                colors={isFull ? ["#4B5563", "#374151"] : [Colors.dark.primary, "#9AE66E"]}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={styles.joinButtonGradient}
+              >
+                {isJoining ? (
+                  <ActivityIndicator size="small" color={Colors.dark.backgroundRoot} />
+                ) : (
+                  <>
+                    <Ionicons 
+                      name={isFull ? "close-circle" : "flash"} 
+                      size={20} 
+                      color={isFull ? Colors.dark.textMuted : Colors.dark.backgroundRoot} 
+                    />
+                    <Text style={[styles.joinButtonText, isFull && styles.joinButtonTextDisabled]}>
+                      {isFull ? "Full" : "Join Match"}
+                    </Text>
+                  </>
+                )}
+              </LinearGradient>
+            </Pressable>
+          </View>
         </View>
-      </Card>
+      </LinearGradient>
+    </Animated.View>
+  );
+}
+
+function EmptyState({ onCreateMatch }: { onCreateMatch: () => void }) {
+  const bounceY = useSharedValue(0);
+
+  useEffect(() => {
+    bounceY.value = withRepeat(
+      withTiming(-10, { duration: 1000, easing: Easing.inOut(Easing.ease) }),
+      -1,
+      true
+    );
+  }, []);
+
+  const animatedStyle = useAnimatedStyle(() => ({
+    transform: [{ translateY: bounceY.value }],
+  }));
+
+  return (
+    <Animated.View entering={FadeIn.delay(200)} style={styles.emptyState}>
+      <Animated.View style={animatedStyle}>
+        <LinearGradient
+          colors={[Colors.dark.primary + "30", Colors.dark.xpCyan + "20"]}
+          style={styles.emptyIcon}
+        >
+          <Ionicons name="tennisball" size={48} color={Colors.dark.primary} />
+        </LinearGradient>
+      </Animated.View>
+      
+      <Text style={styles.emptyTitle}>No Open Matches</Text>
+      <Text style={styles.emptySubtitle}>
+        Be the first to create an open match and find your perfect partner
+      </Text>
+
+      <Pressable 
+        style={styles.createMatchButton}
+        onPress={() => {
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+          onCreateMatch();
+        }}
+      >
+        <LinearGradient
+          colors={[Colors.dark.primary, "#9AE66E"]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.createMatchGradient}
+        >
+          <Ionicons name="add-circle" size={22} color={Colors.dark.backgroundRoot} />
+          <Text style={styles.createMatchText}>Create Open Match</Text>
+        </LinearGradient>
+      </Pressable>
     </Animated.View>
   );
 }
 
 export default function OpenMatchFeedScreen() {
-  const navigation = useNavigation();
+  const navigation = useNavigation<any>();
   const insets = useSafeAreaInsets();
   const queryClient = useQueryClient();
   const [activeFilter, setActiveFilter] = useState<FilterType>("all");
@@ -169,10 +468,15 @@ export default function OpenMatchFeedScreen() {
     onSuccess: () => {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       queryClient.invalidateQueries({ queryKey: ["/api/open-matches"] });
-      Alert.alert("Joined!", "You've joined the match. Good luck!");
+      Alert.alert(
+        "You're In!", 
+        "Successfully joined the match. Get ready to play!",
+        [{ text: "Let's Go!", style: "default" }]
+      );
     },
     onError: (error: any) => {
-      Alert.alert("Error", error.message || "Could not join match");
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      Alert.alert("Couldn't Join", error.message || "Something went wrong. Try again.");
     },
     onSettled: () => {
       setJoiningMatchId(null);
@@ -185,53 +489,80 @@ export default function OpenMatchFeedScreen() {
     return matches.filter((m) => m.matchType === activeFilter);
   }, [matches, activeFilter]);
 
-  const renderMatch = ({ item }: { item: OpenMatch }) => (
-    <MatchCard
+  const handleCreateMatch = () => {
+    navigation.navigate("CreateMatch");
+  };
+
+  const renderMatch = ({ item, index }: { item: OpenMatch; index: number }) => (
+    <PremiumMatchCard
       match={item}
       onJoin={() => joinMutation.mutate(item.id)}
       isJoining={joiningMatchId === item.id}
+      index={index}
     />
   );
 
   return (
     <LockedScreen featureKey="match_preparation">
       <View style={styles.container}>
-        <View style={styles.filters}>
-          {(["all", "singles", "doubles"] as FilterType[]).map((filter) => (
-            <Pressable
-              key={filter}
-              style={[styles.filterButton, activeFilter === filter && styles.filterButtonActive]}
-              onPress={() => {
-                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                setActiveFilter(filter);
-              }}
-            >
-              <Text style={[styles.filterText, activeFilter === filter && styles.filterTextActive]}>
-                {filter.charAt(0).toUpperCase() + filter.slice(1)}
-              </Text>
-            </Pressable>
-          ))}
-        </View>
+        <Animated.View entering={FadeInUp} style={styles.filterSection}>
+          <View style={styles.filterRow}>
+            {(["all", "singles", "doubles"] as FilterType[]).map((filter, idx) => {
+              const isActive = activeFilter === filter;
+              const getFilterColor = () => {
+                if (filter === "doubles") return "#9333EA";
+                if (filter === "singles") return Colors.dark.xpCyan;
+                return Colors.dark.primary;
+              };
+              
+              return (
+                <Pressable
+                  key={filter}
+                  style={[styles.filterPill, isActive && { borderColor: getFilterColor() }]}
+                  onPress={() => {
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                    setActiveFilter(filter);
+                  }}
+                >
+                  {isActive ? (
+                    <LinearGradient
+                      colors={[getFilterColor() + "30", getFilterColor() + "10"]}
+                      style={StyleSheet.absoluteFill}
+                    />
+                  ) : null}
+                  <Ionicons 
+                    name={filter === "doubles" ? "people" : filter === "singles" ? "person" : "apps"} 
+                    size={14} 
+                    color={isActive ? getFilterColor() : Colors.dark.textMuted} 
+                  />
+                  <Text style={[styles.filterPillText, isActive && { color: getFilterColor() }]}>
+                    {filter.charAt(0).toUpperCase() + filter.slice(1)}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </View>
+
+          <View style={styles.matchCount}>
+            <Text style={styles.matchCountText}>
+              {filteredMatches.length} {filteredMatches.length === 1 ? "match" : "matches"} available
+            </Text>
+          </View>
+        </Animated.View>
 
         {isLoading ? (
           <View style={styles.loading}>
             <ActivityIndicator color={Colors.dark.primary} size="large" />
-            <Text style={styles.loadingText}>Finding matches...</Text>
+            <Text style={styles.loadingText}>Finding matches near you...</Text>
           </View>
         ) : filteredMatches.length === 0 ? (
-          <View style={styles.empty}>
-            <Ionicons name="tennisball-outline" size={64} color={Colors.dark.textMuted} />
-            <Text style={styles.emptyTitle}>No open matches</Text>
-            <Text style={styles.emptyText}>
-              Be the first to create an open match after booking a court
-            </Text>
-          </View>
+          <EmptyState onCreateMatch={handleCreateMatch} />
         ) : (
           <FlatList
             data={filteredMatches}
             renderItem={renderMatch}
             keyExtractor={(item) => item.id}
-            contentContainerStyle={[styles.list, { paddingBottom: insets.bottom + 20 }]}
+            contentContainerStyle={[styles.list, { paddingBottom: insets.bottom + 100 }]}
             showsVerticalScrollIndicator={false}
             refreshControl={
               <RefreshControl
@@ -252,65 +583,45 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: Colors.dark.backgroundRoot,
   },
-  header: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
+  filterSection: {
     paddingHorizontal: Spacing.md,
-    paddingVertical: Spacing.md,
+    paddingTop: Spacing.sm,
+    paddingBottom: Spacing.md,
   },
-  backButton: {
-    width: 44,
-    height: 44,
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: Colors.dark.backgroundSecondary,
-    borderRadius: 12,
-  },
-  headerCenter: {
-    alignItems: "center",
-  },
-  headerTitle: {
-    fontSize: FontSizes.xl,
-    fontWeight: "700",
-    color: Colors.dark.text,
-  },
-  headerSubtitle: {
-    fontSize: FontSizes.xs,
-    color: Colors.dark.primary,
-    fontWeight: "500",
-  },
-  headerPlaceholder: {
-    width: 44,
-  },
-  filters: {
+  filterRow: {
     flexDirection: "row",
-    paddingHorizontal: Spacing.md,
-    marginBottom: Spacing.md,
     gap: Spacing.sm,
   },
-  filterButton: {
+  filterPill: {
     flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 6,
     paddingVertical: Spacing.sm,
     paddingHorizontal: Spacing.md,
-    borderRadius: BorderRadius.md,
+    borderRadius: BorderRadius.lg,
+    borderWidth: 1.5,
+    borderColor: Colors.dark.border,
     backgroundColor: Colors.dark.backgroundSecondary,
-    alignItems: "center",
+    overflow: "hidden",
   },
-  filterButtonActive: {
-    backgroundColor: Colors.dark.primary,
-  },
-  filterText: {
+  filterPillText: {
     fontSize: FontSizes.sm,
     fontWeight: "600",
     color: Colors.dark.textMuted,
   },
-  filterTextActive: {
-    color: Colors.dark.text,
+  matchCount: {
+    marginTop: Spacing.sm,
+    alignItems: "center",
+  },
+  matchCountText: {
+    fontSize: FontSizes.xs,
+    color: Colors.dark.textMuted,
   },
   list: {
     paddingHorizontal: Spacing.md,
-    gap: Spacing.md,
+    gap: Spacing.lg,
   },
   loading: {
     flex: 1,
@@ -322,127 +633,342 @@ const styles = StyleSheet.create({
     fontSize: FontSizes.md,
     color: Colors.dark.textMuted,
   },
-  empty: {
-    flex: 1,
-    alignItems: "center",
-    justifyContent: "center",
-    paddingHorizontal: Spacing.xl,
-    gap: Spacing.md,
+  premiumCardWrapper: {
+    borderRadius: BorderRadius.xl,
+    overflow: "hidden",
   },
-  emptyTitle: {
-    fontSize: FontSizes.lg,
-    fontWeight: "700",
-    color: Colors.dark.text,
+  premiumCard: {
+    padding: Spacing.lg,
+    borderRadius: BorderRadius.xl,
+    backgroundColor: Colors.dark.backgroundSecondary,
+    position: "relative",
   },
-  emptyText: {
-    fontSize: FontSizes.md,
-    color: Colors.dark.textMuted,
-    textAlign: "center",
+  cardGlowBorder: {
+    ...StyleSheet.absoluteFillObject,
+    borderRadius: BorderRadius.xl,
+    borderWidth: 1.5,
+    pointerEvents: "none",
   },
-  matchCard: {
-    padding: Spacing.md,
-  },
-  matchHeader: {
+  cardHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    marginBottom: Spacing.sm,
+    marginBottom: Spacing.md,
   },
-  matchTypeBadge: {
+  matchTypePill: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    paddingVertical: 6,
+    paddingHorizontal: Spacing.md,
+    borderRadius: BorderRadius.full,
+  },
+  matchTypePillText: {
+    fontSize: FontSizes.sm,
+    fontWeight: "700",
+    color: "#fff",
+  },
+  countdownBadge: {
     flexDirection: "row",
     alignItems: "center",
     gap: 4,
-    backgroundColor: Colors.dark.primary,
     paddingVertical: 4,
     paddingHorizontal: Spacing.sm,
     borderRadius: BorderRadius.sm,
+    backgroundColor: Colors.dark.primary + "20",
+    position: "relative",
+    overflow: "hidden",
   },
-  matchTypeDoubles: {
-    backgroundColor: Colors.dark.xpCyan,
+  countdownUrgent: {
+    backgroundColor: Colors.dark.error + "20",
   },
-  matchTypeText: {
+  countdownText: {
     fontSize: FontSizes.xs,
     fontWeight: "600",
-    color: "#0B0D10",
+    color: Colors.dark.primary,
   },
-  slotsBadge: {
-    backgroundColor: Colors.dark.backgroundSecondary,
-    paddingVertical: 4,
+  countdownTextUrgent: {
+    color: Colors.dark.error,
+  },
+  pulsingGlow: {
+    ...StyleSheet.absoluteFillObject,
+    opacity: 0.3,
+  },
+  hostSection: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.md,
+    marginBottom: Spacing.md,
+  },
+  hostAvatar: {
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    position: "relative",
+  },
+  hostAvatarImage: {
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+  },
+  hostAvatarPlaceholder: {
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  hostAvatarLetter: {
+    fontSize: 22,
+    fontWeight: "700",
+  },
+  hostLevelRing: {
+    position: "absolute",
+    top: -2,
+    left: -2,
+    right: -2,
+    bottom: -2,
+    borderRadius: 28,
+    borderWidth: 2,
+  },
+  hostInfo: {
+    flex: 1,
+  },
+  hostName: {
+    fontSize: FontSizes.md,
+    fontWeight: "700",
+    color: Colors.dark.text,
+    marginBottom: 2,
+  },
+  hostMeta: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+  },
+  hostLevelBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 2,
+    backgroundColor: Colors.dark.gold + "20",
+    paddingVertical: 2,
+    paddingHorizontal: 6,
+    borderRadius: BorderRadius.xs,
+  },
+  hostLevelText: {
+    fontSize: 10,
+    fontWeight: "600",
+    color: Colors.dark.gold,
+  },
+  hostWinRate: {
+    fontSize: 10,
+    fontWeight: "500",
+    color: Colors.dark.textMuted,
+  },
+  xpBadgeLarge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    backgroundColor: Colors.dark.xpCyan + "20",
+    paddingVertical: 6,
     paddingHorizontal: Spacing.sm,
-    borderRadius: BorderRadius.sm,
+    borderRadius: BorderRadius.md,
+    borderWidth: 1,
+    borderColor: Colors.dark.xpCyan + "40",
   },
-  slotsText: {
-    fontSize: FontSizes.xs,
-    fontWeight: "600",
-    color: Colors.dark.textSecondary,
+  xpBadgeText: {
+    fontSize: FontSizes.sm,
+    fontWeight: "700",
+    color: Colors.dark.xpCyan,
   },
   matchTitle: {
-    fontSize: FontSizes.md,
+    fontSize: FontSizes.lg,
     fontWeight: "700",
     color: Colors.dark.text,
     marginBottom: 4,
   },
   matchDescription: {
     fontSize: FontSizes.sm,
-    color: Colors.dark.textMuted,
-    marginBottom: Spacing.sm,
+    color: Colors.dark.textSecondary,
+    marginBottom: Spacing.md,
+    lineHeight: 20,
   },
-  matchMeta: {
+  matchDetails: {
     flexDirection: "row",
+    flexWrap: "wrap",
     alignItems: "center",
-    gap: Spacing.md,
+    gap: Spacing.sm,
     marginBottom: Spacing.md,
   },
-  metaItem: {
+  detailItem: {
     flexDirection: "row",
     alignItems: "center",
     gap: 4,
-  },
-  metaText: {
-    fontSize: FontSizes.xs,
-    color: Colors.dark.text,
-  },
-  freeBadge: {
-    backgroundColor: Colors.dark.primary,
-    paddingVertical: 2,
-    paddingHorizontal: Spacing.xs,
+    backgroundColor: Colors.dark.backgroundRoot,
+    paddingVertical: 4,
+    paddingHorizontal: Spacing.sm,
     borderRadius: BorderRadius.sm,
   },
-  freeText: {
+  detailText: {
     fontSize: FontSizes.xs,
-    fontWeight: "700",
-    color: "#0B0D10",
+    fontWeight: "500",
+    color: Colors.dark.text,
   },
-  matchFooter: {
+  ballLevelBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    paddingVertical: 4,
+    paddingHorizontal: Spacing.sm,
+    borderRadius: BorderRadius.sm,
+  },
+  ballDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
+  ballLevelText: {
+    fontSize: FontSizes.xs,
+    fontWeight: "600",
+    textTransform: "capitalize",
+  },
+  cardDivider: {
+    height: 1,
+    backgroundColor: Colors.dark.border,
+    marginBottom: Spacing.md,
+  },
+  cardFooter: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
   },
-  xpBadge: {
+  playerSlots: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 4,
+    gap: 6,
   },
-  xpText: {
-    fontSize: FontSizes.sm,
+  playerSlot: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1.5,
+  },
+  playerSlotFilled: {
+    backgroundColor: Colors.dark.primary + "20",
+    borderColor: Colors.dark.primary,
+    borderStyle: "solid",
+  },
+  playerSlotEmpty: {
+    backgroundColor: "transparent",
+    borderColor: Colors.dark.textMuted + "40",
+    borderStyle: "dashed",
+  },
+  playerSlotImage: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+  },
+  playerSlotsText: {
+    fontSize: FontSizes.xs,
+    fontWeight: "500",
+    color: Colors.dark.textMuted,
+    marginLeft: 4,
+  },
+  joinSection: {
+    alignItems: "flex-end",
+    gap: 6,
+  },
+  costBadge: {
+    backgroundColor: Colors.dark.backgroundRoot,
+    paddingVertical: 2,
+    paddingHorizontal: 8,
+    borderRadius: BorderRadius.xs,
+  },
+  costText: {
+    fontSize: FontSizes.xs,
     fontWeight: "600",
-    color: Colors.dark.text,
+    color: Colors.dark.textSecondary,
   },
-  joinButton: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: Spacing.xs,
+  freeBadgeLarge: {
     backgroundColor: Colors.dark.primary,
-    paddingVertical: Spacing.sm,
-    paddingHorizontal: Spacing.md,
+    paddingVertical: 2,
+    paddingHorizontal: 10,
+    borderRadius: BorderRadius.xs,
+  },
+  freeBadgeText: {
+    fontSize: FontSizes.xs,
+    fontWeight: "700",
+    color: Colors.dark.backgroundRoot,
+  },
+  joinButtonLarge: {
     borderRadius: BorderRadius.md,
+    overflow: "hidden",
   },
   joinButtonDisabled: {
-    backgroundColor: Colors.dark.backgroundSecondary,
+    opacity: 0.7,
+  },
+  joinButtonLoading: {
+    opacity: 0.8,
+  },
+  joinButtonGradient: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    paddingVertical: Spacing.sm + 2,
+    paddingHorizontal: Spacing.lg,
   },
   joinButtonText: {
-    fontSize: FontSizes.sm,
+    fontSize: FontSizes.md,
     fontWeight: "700",
-    color: "#0B0D10",
+    color: Colors.dark.backgroundRoot,
+  },
+  joinButtonTextDisabled: {
+    color: Colors.dark.textMuted,
+  },
+  emptyState: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: Spacing.xl,
+    gap: Spacing.md,
+  },
+  emptyIcon: {
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: Spacing.md,
+  },
+  emptyTitle: {
+    fontSize: FontSizes.xl,
+    fontWeight: "700",
+    color: Colors.dark.text,
+    textAlign: "center",
+  },
+  emptySubtitle: {
+    fontSize: FontSizes.md,
+    color: Colors.dark.textMuted,
+    textAlign: "center",
+    lineHeight: 22,
+    maxWidth: 280,
+  },
+  createMatchButton: {
+    marginTop: Spacing.lg,
+    borderRadius: BorderRadius.lg,
+    overflow: "hidden",
+  },
+  createMatchGradient: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+    paddingVertical: Spacing.md,
+    paddingHorizontal: Spacing.xl,
+  },
+  createMatchText: {
+    fontSize: FontSizes.md,
+    fontWeight: "700",
+    color: Colors.dark.backgroundRoot,
   },
 });
