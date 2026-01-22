@@ -400,7 +400,7 @@ const styles = StyleSheet.create({
   },
   metaText: {
     fontSize: FontSizes.xs,
-    color: Colors.dark.textMuted,
+    color: Colors.dark.text,
   },
   freeBadge: {
     backgroundColor: Colors.dark.primary + "30",
@@ -411,7 +411,7 @@ const styles = StyleSheet.create({
   freeText: {
     fontSize: FontSizes.xs,
     fontWeight: "700",
-    color: Colors.dark.primary,
+    color: Colors.dark.text,
   },
   matchFooter: {
     flexDirection: "row",
@@ -426,7 +426,7 @@ const styles = StyleSheet.create({
   xpText: {
     fontSize: FontSizes.sm,
     fontWeight: "600",
-    color: Colors.dark.xpCyan,
+    color: Colors.dark.text,
   },
   joinButton: {
     flexDirection: "row",

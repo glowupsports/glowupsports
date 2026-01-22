@@ -17563,6 +17563,63 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
 
+      // Add open matches from match_requests table
+      if (player.academyId) {
+        const openMatchRequests = await db
+          .select({
+            id: matchRequests.id,
+            playerId: matchRequests.playerId,
+            matchType: matchRequests.matchType,
+            title: matchRequests.title,
+            preferredDate: matchRequests.preferredDate,
+            preferredTime: matchRequests.preferredTime,
+            requiredLevelMin: matchRequests.requiredLevelMin,
+            requiredLevelMax: matchRequests.requiredLevelMax,
+            maxPlayers: matchRequests.maxPlayers,
+            status: matchRequests.status,
+            createdAt: matchRequests.createdAt,
+            playerName: players.name,
+            playerAvatar: players.profilePhotoUrl,
+          })
+          .from(matchRequests)
+          .leftJoin(players, eq(matchRequests.playerId, players.id))
+          .where(and(
+            eq(matchRequests.status, "open"),
+            or(
+              eq(matchRequests.academyId, player.academyId),
+              isNull(matchRequests.academyId)
+            )
+          ))
+          .limit(6);
+
+        for (const match of openMatchRequests) {
+          const timeStr = match.preferredTime || "TBD";
+          const dateStr = match.preferredDate || new Date().toISOString().split("T")[0];
+          
+          openSessions.push({
+            id: match.id,
+            type: "open_match",
+            time: timeStr,
+            date: dateStr,
+            spotsLeft: (match.maxPlayers || 4) - 1,
+            maxPlayers: match.maxPlayers || 4,
+            matchType: match.matchType || "singles",
+            title: match.title || (match.matchType === "doubles" ? "Looking for doubles partner" : "Looking for singles match"),
+            requiredLevelMin: match.requiredLevelMin || 1,
+            requiredLevelMax: match.requiredLevelMax || 9,
+            participants: [{
+              id: match.playerId,
+              name: match.playerName || "Player",
+              profilePhotoUrl: match.playerAvatar || null,
+              level: 1,
+            }],
+            isEnrolled: match.playerId === playerId,
+            ballLevel: playerBallLevel.toUpperCase(),
+            locationName: "TBD",
+          });
+        }
+      }
+
       // Get community events (recent posts/announcements)
       const communityEvents: Array<{id: string; type: string; title: string; time: string}> = [];
       if (player.academyId) {

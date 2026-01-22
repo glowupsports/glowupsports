@@ -462,23 +462,30 @@ export function SessionHeroCard({
       return;
     }
     
-    Alert.alert(
-      "Confirm Cancellation",
-      "Are you sure you want to cancel this session? This action cannot be undone.",
-      [
-        {
-          text: "Go Back",
-          style: "cancel",
-        },
-        {
-          text: "Yes, Cancel Session",
-          style: "destructive",
-          onPress: () => {
-            cancelSessionMutation.mutate({ reason: cancelReason, reasonText: cancelReasonText });
+    if (Platform.OS === "web") {
+      const confirmed = window.confirm("Are you sure you want to cancel this session? This action cannot be undone.");
+      if (confirmed) {
+        cancelSessionMutation.mutate({ reason: cancelReason, reasonText: cancelReasonText });
+      }
+    } else {
+      Alert.alert(
+        "Confirm Cancellation",
+        "Are you sure you want to cancel this session? This action cannot be undone.",
+        [
+          {
+            text: "Go Back",
+            style: "cancel",
           },
-        },
-      ]
-    );
+          {
+            text: "Yes, Cancel Session",
+            style: "destructive",
+            onPress: () => {
+              cancelSessionMutation.mutate({ reason: cancelReason, reasonText: cancelReasonText });
+            },
+          },
+        ]
+      );
+    }
   };
 
   const handleLate = () => {
