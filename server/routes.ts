@@ -1773,6 +1773,50 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ error: "Failed to update freelance profile" });
     }
   });
+  // ==================== PLAYER LESSON REQUESTS ====================
+
+  // Player requests a group or semi-private lesson
+  app.post("/api/player/request-group-lesson", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const playerId = req.user?.playerId;
+      const academyId = req.user?.academyId;
+      
+      if (!playerId) {
+        return res.status(401).json({ error: "Player profile required" });
+      }
+
+      const { ballLevel, sessionType, invitedFriendIds } = req.body;
+
+      // Get player details
+      const player = await db.select().from(players).where(eq(players.id, playerId)).limit(1);
+      const playerName = player[0]?.name || "A player";
+      
+      // Get academy coaches to notify
+      const academyCoaches = academyId 
+        ? await db.select().from(coaches).where(eq(coaches.academyId, academyId))
+        : [];
+
+      // Create notification for coaches
+      for (const coach of academyCoaches) {
+        await db.insert(notifications).values({
+          id: `notif-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+          userId: coach.userId,
+          type: "lesson_request",
+          title: "New Lesson Request",
+          message: `${playerName} has requested a ${sessionType || "group"} lesson at ${ballLevel || "their"} level.`,
+          data: JSON.stringify({ playerId, ballLevel, sessionType, invitedFriendIds }),
+          createdAt: new Date(),
+        });
+      }
+
+      console.log(`[LessonRequest] Player ${playerId} requested ${sessionType} lesson at ${ballLevel} level`);
+      res.json({ success: true, message: "Request sent to coaches" });
+    } catch (error) {
+      console.error("Request group lesson error:", error);
+      res.status(500).json({ error: "Failed to send request" });
+    }
+  });
+
 
   // ==================== ACADEMY TRANSFER REQUESTS ====================
 

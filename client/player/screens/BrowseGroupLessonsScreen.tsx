@@ -266,6 +266,47 @@ export default function BrowseGroupLessonsScreen() {
                 : "There are no upcoming group sessions right now. Check back later or ask your coach about scheduling."
               }
             </Text>
+            <TouchableOpacity
+              style={styles.requestGroupButton}
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                Alert.alert(
+                  "Request Group Lesson",
+                  `Would you like to request a ${selectedFilter === "my_level" ? playerBallLevel : selectedFilter} level group lesson from your coach?`,
+                  [
+                    { text: "Cancel", style: "cancel" },
+                    { 
+                      text: "Send Request", 
+                      onPress: () => {
+                        apiRequest("POST", "/api/player/request-group-lesson", {
+                          ballLevel: selectedFilter === "my_level" ? playerBallLevel : selectedFilter,
+                          sessionType: "group"
+                        }).then(() => {
+                          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+                          Alert.alert("Request Sent!", "Your coach will be notified about your interest in a group lesson.");
+                        }).catch((err: any) => {
+                          Alert.alert("Error", err.message || "Failed to send request");
+                        });
+                      }
+                    }
+                  ]
+                );
+              }}
+            >
+              <Feather name="send" size={18} color="#000" />
+              <Text style={styles.requestGroupButtonText}>Request Group Lesson</Text>
+            </TouchableOpacity>
+            
+            <TouchableOpacity
+              style={styles.inviteFriendsButton}
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                navigation.navigate("PlayerTabs", { screen: "PlayStack", params: { screen: "Players" } });
+              }}
+            >
+              <Feather name="user-plus" size={18} color={ProTennisColors.electricGreen} />
+              <Text style={styles.inviteFriendsButtonText}>Find friends to join</Text>
+            </TouchableOpacity>
           </Animated.View>
         ) : (
           <View style={styles.sessionsList}>
@@ -590,6 +631,40 @@ const styles = StyleSheet.create({
     color: ProTennisColors.textSecondary,
     textAlign: "center",
     lineHeight: 20,
+  },
+  requestGroupButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: ProTennisColors.electricGreen,
+    paddingVertical: 14,
+    paddingHorizontal: 24,
+    borderRadius: 12,
+    marginTop: Spacing.xl,
+    gap: 8,
+  },
+  requestGroupButtonText: {
+    fontSize: 16,
+    fontWeight: "700",
+    color: "#000",
+  },
+  inviteFriendsButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "transparent",
+    borderWidth: 1,
+    borderColor: ProTennisColors.electricGreen,
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    borderRadius: 12,
+    marginTop: Spacing.md,
+    gap: 8,
+  },
+  inviteFriendsButtonText: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: ProTennisColors.electricGreen,
   },
   sessionsList: {
     gap: Spacing.md,
