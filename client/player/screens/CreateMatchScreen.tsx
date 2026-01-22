@@ -33,7 +33,7 @@ import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import { Colors, Spacing, FontSizes, BorderRadius, Typography } from "@/constants/theme";
 import { apiRequest, getApiUrl } from "@/lib/query-client";
-import { getAuthHeaders } from "@/lib/auth";
+import { getAuthToken } from "@/lib/auth";
 import { useHeaderHeight } from "@react-navigation/elements";
 import Slider from "@react-native-community/slider";
 
@@ -137,14 +137,14 @@ export default function CreateMatchScreen() {
       };
       
       console.log("[CreateMatch] Match data:", matchData);
-      const headers = getAuthHeaders();
-      console.log("[CreateMatch] Auth headers present:", !!headers.Authorization);
+      const token = getAuthToken();
+      console.log("[CreateMatch] Auth token present:", !!token);
       
       const res = await fetch(new URL("/api/play/create-match-request", getApiUrl()).toString(), {
         method: "POST",
         headers: { 
           "Content-Type": "application/json",
-          ...headers,
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
         credentials: "include",
         body: JSON.stringify(matchData),
