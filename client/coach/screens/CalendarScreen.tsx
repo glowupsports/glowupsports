@@ -1003,18 +1003,19 @@ export default function CalendarScreen() {
       sessionType: string;
     }> = [];
     
-    // For each session, create "busy elsewhere" blocks on all OTHER courts
+    // For each session, create "busy elsewhere" blocks on the CURRENTLY VISIBLE courts
+    // This shows blocking even when filtering to a single court/location
     ownSessions.forEach(session => {
       if (!session.courtId) return;
       
-      // Find the location of this session's court
-      const sessionCourt = courts.find(c => c.id === session.courtId);
+      // Find the location of this session's court (use allCourts to get correct info even if filtered out)
+      const sessionCourt = allCourts.find(c => c.id === session.courtId);
       const sessionLocation = allLocations.find(l => l.id === sessionCourt?.locationId);
       const locationName = sessionLocation?.name?.split(" ")[0] || "Elsewhere";
       
-      // Create blocks on all OTHER courts for this time slot
+      // Create blocks on all VISIBLE courts (from filtered courts list) except the session's own court
       courts.forEach(court => {
-        if (court.id === session.courtId) return; // Skip the same court
+        if (court.id === session.courtId) return; // Skip the same court - session is already shown there
         
         blocks.push({
           id: `busy-${session.id}-${court.id}`,
@@ -1028,7 +1029,7 @@ export default function CalendarScreen() {
     });
     
     return blocks;
-  }, [ownSessions, courts, allLocations]);
+  }, [ownSessions, courts, allCourts, allLocations]);
 
   // Compute travel time blocks between sessions at different locations
   const travelTimeBlocks = useMemo(() => {
