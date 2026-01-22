@@ -33,7 +33,7 @@ import { Colors, Spacing, FontSizes, BorderRadius, Typography, Backgrounds, Glow
 import { ThemedText } from "@/components/ThemedText";
 import { apiRequest, getApiUrl, getStaticAssetsUrl } from "@/lib/query-client";
 import { LockedScreen } from "../components/LockedScreen";
-import { useAuth } from "@/context/AuthContext";
+import { useAuth } from "@/coach/context/AuthContext";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 
