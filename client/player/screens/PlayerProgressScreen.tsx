@@ -1843,7 +1843,7 @@ export default function PlayerProgressScreen() {
                     { 
                       pillar: d.id.toUpperCase(), 
                       currentScore: d.value, 
-                      trend: d.trend === "rising" ? "up" : d.trend === "falling" ? "down" : "stable" 
+                      trend: d.trend === "rising" ? "improving" : d.trend === "falling" ? "declining" : "stable" 
                     }
                   ])
                 : [
@@ -1854,7 +1854,7 @@ export default function PlayerProgressScreen() {
                     ["SOCIAL", { pillar: "SOCIAL", currentScore: 0, trend: "stable" }],
                     ["MATCH", { pillar: "MATCH", currentScore: 0, trend: "stable" }],
                   ]
-            )}
+            ) as Record<string, { pillar: string; currentScore: number; trend: "improving" | "stable" | "declining" }>}
             stage={getStageFromLevel(data.ballLevel || "red1")}
             role="player"
             onPillarPress={(pillar) => handleDomainPress(pillar)}
@@ -2933,6 +2933,9 @@ const modalStyles = StyleSheet.create({
     color: Colors.dark.textMuted,
   },
   milestoneInfo: {
+    flex: 1,
+  },
+  milestoneContent: {
     flex: 1,
   },
   milestoneTitle: {

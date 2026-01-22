@@ -758,7 +758,7 @@ export default function PlayerBookingWizard({
               keyboardType="email-address"
               autoCapitalize="none"
             />
-            <TouchableOpacity
+            <Pressable
               style={styles.browseFriendsButton}
               onPress={() => {
                 Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -766,9 +766,9 @@ export default function PlayerBookingWizard({
                 navigation.navigate("PlayerTabs", { screen: "PlayStack", params: { screen: "Players" } });
               }}
             >
-              <Ionicons name="people-outline" size={16} color={Colors.dark.electricGreen} />
+              <Ionicons name="people-outline" size={16} color={GlowColors.primary} />
               <Text style={styles.browseFriendsText}>Browse Friends on Glow</Text>
-            </TouchableOpacity>
+            </Pressable>
           </View>
         )}
       </View>
@@ -1522,7 +1522,7 @@ const styles = StyleSheet.create({
   browseFriendsText: {
     fontSize: 14,
     fontWeight: "600",
-    color: Colors.dark.electricGreen,
+    color: GlowColors.primary,
   },
   confirmCard: {
     borderRadius: BorderRadius.lg,
