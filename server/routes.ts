@@ -22405,6 +22405,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ error: "Player not found" });
       }
 
+      console.log("[Availability] Fetching slots for player:", playerId, "dates:", startDate, "-", endDate, "academyId:", player.academyId);
       const slots = await storage.getAvailableSlots({
         academyId: player.academyId || "",
         coachId: coachId as string | undefined,
@@ -22433,6 +22434,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         };
       }));
 
+      console.log("[Availability] Returning", enrichedSlots.length, "slots");
       res.json(enrichedSlots);
     } catch (error) {
       console.error("Player availability error:", error);
