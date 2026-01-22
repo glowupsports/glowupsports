@@ -790,6 +790,188 @@ function BallLevelModal({
   );
 }
 
+function PillarDetailModal({ 
+  visible, 
+  onClose, 
+  domain 
+}: { 
+  visible: boolean; 
+  onClose: () => void;
+  domain: SkillDomain | null;
+}) {
+  const insets = useSafeAreaInsets();
+  
+  if (!domain) return null;
+  
+  const pillarDetails: Record<string, {
+    description: string;
+    skills: { name: string; level: string }[];
+    tips: string[];
+  }> = {
+    technical: {
+      description: "Master the fundamental strokes and techniques that form the foundation of your tennis game.",
+      skills: [
+        { name: "Forehand", level: "Developing" },
+        { name: "Backhand", level: "Developing" },
+        { name: "Serve", level: "Beginner" },
+        { name: "Volley", level: "Beginner" },
+        { name: "Slice", level: "Not Started" },
+      ],
+      tips: [
+        "Focus on consistent contact point",
+        "Keep your eye on the ball through impact",
+        "Practice shadow swings daily",
+      ],
+    },
+    tactical: {
+      description: "Develop your strategic thinking and decision-making abilities during match play.",
+      skills: [
+        { name: "Court Positioning", level: "Developing" },
+        { name: "Shot Selection", level: "Beginner" },
+        { name: "Pattern Play", level: "Not Started" },
+        { name: "Game Analysis", level: "Beginner" },
+      ],
+      tips: [
+        "Watch pro matches to learn patterns",
+        "Think one shot ahead",
+        "Identify opponent weaknesses early",
+      ],
+    },
+    physical: {
+      description: "Build the physical attributes needed for powerful and enduring tennis performance.",
+      skills: [
+        { name: "Footwork", level: "Developing" },
+        { name: "Speed & Agility", level: "Beginner" },
+        { name: "Endurance", level: "Developing" },
+        { name: "Strength", level: "Beginner" },
+      ],
+      tips: [
+        "Split step before every shot",
+        "Work on lateral movement drills",
+        "Build core strength for stability",
+      ],
+    },
+    mental: {
+      description: "Strengthen your mental game to stay focused and resilient under pressure.",
+      skills: [
+        { name: "Focus", level: "Developing" },
+        { name: "Composure", level: "Beginner" },
+        { name: "Confidence", level: "Beginner" },
+        { name: "Resilience", level: "Developing" },
+      ],
+      tips: [
+        "Use breathing techniques between points",
+        "Develop a pre-point routine",
+        "Stay present, forget past points",
+      ],
+    },
+    social: {
+      description: "Develop sportsmanship, teamwork, and communication skills on and off the court.",
+      skills: [
+        { name: "Sportsmanship", level: "Good" },
+        { name: "Team Communication", level: "Developing" },
+        { name: "Court Etiquette", level: "Good" },
+        { name: "Encouragement", level: "Developing" },
+      ],
+      tips: [
+        "Always shake hands after matches",
+        "Celebrate teammates' successes",
+        "Be gracious in wins and losses",
+      ],
+    },
+    competition: {
+      description: "Perform your best when it matters most in competitive match situations.",
+      skills: [
+        { name: "Match Play", level: "Beginner" },
+        { name: "Pressure Handling", level: "Not Started" },
+        { name: "Scoring Awareness", level: "Developing" },
+        { name: "Tournament Readiness", level: "Not Started" },
+      ],
+      tips: [
+        "Play practice sets to simulate matches",
+        "Learn to manage nervous energy",
+        "Review and learn from match footage",
+      ],
+    },
+  };
+  
+  const details = pillarDetails[domain.id] || pillarDetails.technical;
+  
+  const getLevelColor = (level: string) => {
+    switch (level) {
+      case "Good": return "#10B981";
+      case "Developing": return "#F59E0B";
+      case "Beginner": return "#3B82F6";
+      case "Not Started": return Colors.dark.textMuted;
+      default: return Colors.dark.textMuted;
+    }
+  };
+
+  return (
+    <Modal visible={visible} animationType="slide" transparent>
+      <View style={modalStyles.overlay}>
+        <Pressable style={modalStyles.backdrop} onPress={onClose} />
+        <View style={[modalStyles.content, { paddingBottom: insets.bottom + 20, maxHeight: "85%" }]}>
+          <View style={modalStyles.header}>
+            <View style={{ flexDirection: "row", alignItems: "center", gap: Spacing.sm }}>
+              <View style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: domain.color + "20", justifyContent: "center", alignItems: "center" }}>
+                <Ionicons name={domain.icon as any} size={20} color={domain.color} />
+              </View>
+              <Text style={[modalStyles.title, { color: domain.color }]}>{domain.name}</Text>
+            </View>
+            <Pressable onPress={onClose}>
+              <Ionicons name="close-circle" size={28} color={Colors.dark.textMuted} />
+            </Pressable>
+          </View>
+
+          <ScrollView style={modalStyles.body} showsVerticalScrollIndicator={false}>
+            <View style={[modalStyles.currentLevel, { marginBottom: Spacing.lg }]}>
+              <View style={[modalStyles.currentLevelCircle, { borderColor: domain.color, backgroundColor: domain.color + "20" }]}>
+                <Text style={[modalStyles.currentLevelNumber, { color: domain.color, fontSize: 28 }]}>{domain.value}</Text>
+              </View>
+              <View style={modalStyles.currentLevelInfo}>
+                <Text style={[modalStyles.currentLevelTitle, { color: domain.color }]}>
+                  {domain.value >= 80 ? "Excellent" : domain.value >= 60 ? "Good" : domain.value >= 40 ? "Developing" : "Beginner"}
+                </Text>
+                <Text style={modalStyles.currentLevelDesc}>Current proficiency level</Text>
+              </View>
+            </View>
+
+            <View style={[modalStyles.howToLevel, { marginBottom: Spacing.lg }]}>
+              <Text style={modalStyles.descriptionText}>{details.description}</Text>
+            </View>
+
+            <View style={[modalStyles.milestonesSection, { marginBottom: Spacing.lg }]}>
+              <Text style={modalStyles.sectionTitle}>Skill Breakdown</Text>
+              {details.skills.map((skill, index) => (
+                <View key={index} style={[modalStyles.milestone, { paddingVertical: Spacing.sm }]}>
+                  <View style={[modalStyles.milestoneBadge, { backgroundColor: getLevelColor(skill.level) + "20", borderColor: getLevelColor(skill.level) }]}>
+                    <Ionicons name="checkmark" size={14} color={getLevelColor(skill.level)} />
+                  </View>
+                  <View style={modalStyles.milestoneContent}>
+                    <Text style={modalStyles.milestoneTitle}>{skill.name}</Text>
+                    <Text style={[modalStyles.milestoneUnlocks, { color: getLevelColor(skill.level) }]}>{skill.level}</Text>
+                  </View>
+                </View>
+              ))}
+            </View>
+
+            <View style={modalStyles.howToLevel}>
+              <Text style={modalStyles.sectionTitle}>Coach Tips</Text>
+              {details.tips.map((tip, index) => (
+                <View key={index} style={modalStyles.howToItem}>
+                  <Ionicons name="bulb" size={18} color={domain.color} />
+                  <Text style={modalStyles.howToText}>{tip}</Text>
+                </View>
+              ))}
+            </View>
+          </ScrollView>
+        </View>
+      </View>
+    </Modal>
+  );
+}
+
 function SkillBar({ domain, onPress }: { domain: SkillDomain; onPress: () => void }) {
   const progress = domain.value / domain.maxValue;
   
@@ -894,9 +1076,16 @@ export default function PlayerProgressScreen() {
   const [showGlowScoreModal, setShowGlowScoreModal] = useState(false);
   const [showXpModal, setShowXpModal] = useState(false);
   const [showBallLevelModal, setShowBallLevelModal] = useState(false);
+  const [showPillarModal, setShowPillarModal] = useState(false);
+  const [selectedPillar, setSelectedPillar] = useState<SkillDomain | null>(null);
 
-  const handleDomainPress = (domainId: string) => {
-    navigation.navigate("SkillDetail", { domain: domainId });
+  const handleDomainPress = (domainId: string, allDomains: SkillDomain[]) => {
+    const domain = allDomains.find(d => d.id === domainId);
+    if (domain) {
+      setSelectedPillar(domain);
+      setShowPillarModal(true);
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    }
   };
 
   const { data, isLoading, error } = useQuery<ProgressData>({
@@ -1174,7 +1363,18 @@ export default function PlayerProgressScreen() {
             )}
             stage={getStageFromLevel(data.ballLevel || "red1")}
             role="player"
-            onPillarPress={(pillar) => handleDomainPress(pillar.toLowerCase())}
+            onPillarPress={(pillar) => {
+              const pillarDomains = domains.length > 0 ? domains : [
+                { id: "technique", name: "Technical", value: 5, maxValue: 100, icon: "tennisball", color: "#10B981" },
+                { id: "tactical", name: "Tactical", value: 5, maxValue: 100, icon: "bulb", color: "#F59E0B" },
+                { id: "physical", name: "Physical", value: 5, maxValue: 100, icon: "fitness", color: "#EF4444" },
+                { id: "mental", name: "Mental", value: 5, maxValue: 100, icon: "flash", color: "#8B5CF6" },
+                { id: "social", name: "Social", value: 5, maxValue: 100, icon: "people", color: "#EC4899" },
+                { id: "competition", name: "Competition", value: 5, maxValue: 100, icon: "trophy", color: "#3B82F6" },
+              ];
+              const domainId = pillar.toLowerCase() === "match" ? "competition" : pillar.toLowerCase();
+              handleDomainPress(domainId, pillarDomains);
+            }}
           />
         </View>
 
@@ -1310,6 +1510,11 @@ export default function PlayerProgressScreen() {
         visible={showBallLevelModal}
         onClose={() => setShowBallLevelModal(false)}
         currentLevel={data.ballLevel}
+      />
+      <PillarDetailModal
+        visible={showPillarModal}
+        onClose={() => setShowPillarModal(false)}
+        domain={selectedPillar}
       />
     </View>
   );
