@@ -22430,8 +22430,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
         endDate: new Date(endDate as string),
         duration: parseInt(duration as string) || 60,
       });
+      // Enrich slots with coach, location, and court names
+      const enrichedSlots = await Promise.all(slots.map(async (slot) => {
+        const [coach, location, court] = await Promise.all([
+          slot.coachId ? storage.getCoachById(slot.coachId) : null,
+          slot.locationId ? storage.getLocation(slot.locationId) : null,
+          slot.courtId ? storage.getCourt(slot.courtId) : null,
+        ]);
+        
+        return {
+          ...slot,
+          coachName: coach?.name || "Available Coach",
+          coachPhotoUrl: coach?.profilePhotoUrl || null,
+          locationId: slot.locationId,
+          locationName: location?.name || "Any Location",
+          courtId: slot.courtId,
+          courtName: court?.name || "Any Court",
+          duration: parseInt(duration as string) || 60,
+        };
+      }));
 
-      res.json(slots);
+      res.json(enrichedSlots);
     } catch (error) {
       console.error("Player availability error:", error);
       res.status(500).json({ error: "Failed to fetch availability" });
@@ -25811,6 +25830,133 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Get single open match by ID
+  app.get("/api/open-matches/:matchId", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const { matchId } = req.params;
+      
+      // First try to find in matchRequests table
+      const [matchRequest] = await db
+        .select({
+          id: matchRequests.id,
+          playerId: matchRequests.playerId,
+          academyId: matchRequests.academyId,
+          matchType: matchRequests.matchType,
+          title: matchRequests.title,
+          description: matchRequests.description,
+          preferredDate: matchRequests.preferredDate,
+          preferredTime: matchRequests.preferredTime,
+          requiredLevelMin: matchRequests.requiredLevelMin,
+          requiredLevelMax: matchRequests.requiredLevelMax,
+          requiredBallLevel: matchRequests.requiredBallLevel,
+          maxPlayers: matchRequests.maxPlayers,
+          status: matchRequests.status,
+          createdAt: matchRequests.createdAt,
+          playerName: players.name,
+          playerAvatar: players.profilePhotoUrl,
+          playerLevel: players.skillLevel,
+        })
+        .from(matchRequests)
+        .leftJoin(players, eq(matchRequests.playerId, players.id))
+        .where(eq(matchRequests.id, matchId));
+      
+      if (!matchRequest) {
+        return res.status(404).json({ error: "Match not found" });
+      }
+      
+      // Transform to expected format
+      let scheduledTime = null;
+      if (matchRequest.preferredDate) {
+        const date = new Date(matchRequest.preferredDate);
+        if (matchRequest.preferredTime) {
+          const [hours, minutes] = matchRequest.preferredTime.split(':').map(Number);
+          date.setHours(hours, minutes, 0, 0);
+        }
+        scheduledTime = date.toISOString();
+      }
+      
+      const transformedMatch = {
+        id: matchRequest.id,
+        bookingId: null,
+        hostPlayerId: matchRequest.playerId,
+        academyId: matchRequest.academyId,
+        matchType: matchRequest.matchType || "singles",
+        title: matchRequest.title,
+        description: matchRequest.description,
+        ballLevel: matchRequest.requiredBallLevel,
+        skillLevel: matchRequest.requiredLevelMin,
+        requiredLevelMin: matchRequest.requiredLevelMin || 1,
+        requiredLevelMax: matchRequest.requiredLevelMax || 9,
+        requiredBallLevel: matchRequest.requiredBallLevel,
+        maxPlayers: matchRequest.maxPlayers || (matchRequest.matchType === "doubles" ? 4 : 2),
+        currentPlayers: 1,
+        status: matchRequest.status || "open",
+        visibility: "public",
+        costPerPlayer: null,
+        currency: "AED",
+        xpBonus: 25,
+        createdAt: matchRequest.createdAt?.toISOString() || new Date().toISOString(),
+        scheduledTime,
+        courtName: null,
+        locationName: null,
+        host: {
+          id: matchRequest.playerId,
+          name: matchRequest.playerName || "Unknown Player",
+          photoUrl: matchRequest.playerAvatar,
+          level: matchRequest.playerLevel || 1,
+          ballLevel: matchRequest.requiredBallLevel,
+        },
+        players: [{
+          id: matchRequest.playerId,
+          name: matchRequest.playerName || "Unknown Player",
+          photoUrl: matchRequest.playerAvatar,
+        }],
+      };
+      
+      res.json(transformedMatch);
+    } catch (error) {
+      console.error("Get open match error:", error);
+      res.status(500).json({ error: "Failed to get match" });
+    }
+  });
+
+  // Delete/Cancel open match
+  app.delete("/api/open-matches/:matchId", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const { matchId } = req.params;
+      const playerId = req.user?.playerId;
+      
+      if (!playerId) {
+        return res.status(401).json({ error: "Player profile required" });
+      }
+      
+      // Find the match
+      const [matchRequest] = await db
+        .select()
+        .from(matchRequests)
+        .where(eq(matchRequests.id, matchId));
+      
+      if (!matchRequest) {
+        return res.status(404).json({ error: "Match not found" });
+      }
+      
+      // Check ownership
+      if (matchRequest.playerId !== playerId) {
+        return res.status(403).json({ error: "You can only cancel your own matches" });
+      }
+      
+      // Update status to cancelled
+      await db
+        .update(matchRequests)
+        .set({ status: "cancelled" })
+        .where(eq(matchRequests.id, matchId));
+      
+      res.json({ success: true, message: "Match cancelled successfully" });
+    } catch (error) {
+      console.error("Cancel open match error:", error);
+      res.status(500).json({ error: "Failed to cancel match" });
+    }
+  });
   // Create open match
   app.post("/api/open-matches", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
     try {
