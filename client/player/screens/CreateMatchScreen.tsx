@@ -173,7 +173,7 @@ export default function CreateMatchScreen() {
       return res.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/play/open-matches"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/open-matches"] });
       setCurrentStep("success");
       celebrationScale.value = withSequence(
         withTiming(1.2, { duration: 300 }),
