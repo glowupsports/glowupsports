@@ -218,9 +218,25 @@ export function ProPlayerCard({
         </View>
 
         <View style={styles.lockerSection}>
-          <Pressable style={styles.walletButton} onPress={handleWalletPress}>
-            <Ionicons name="wallet-outline" size={18} color={ProTennisColors.electricGreen} />
-            <Text style={styles.walletText}>{credits?.total ?? 0}</Text>
+          <Pressable 
+            style={[
+              styles.walletButton,
+              (credits?.total ?? 0) <= 0 && styles.walletButtonDanger,
+            ]} 
+            onPress={handleWalletPress}
+          >
+            {(credits?.total ?? 0) <= 0 && (
+              <Ionicons name="alert-circle" size={16} color="#DC2626" />
+            )}
+            <Ionicons 
+              name="wallet-outline" 
+              size={18} 
+              color={(credits?.total ?? 0) <= 0 ? "#DC2626" : ProTennisColors.electricGreen} 
+            />
+            <Text style={[
+              styles.walletText,
+              (credits?.total ?? 0) <= 0 && styles.walletTextDanger,
+            ]}>{credits?.total ?? 0}</Text>
           </Pressable>
           
           {showSquadSwitch && (
@@ -419,6 +435,14 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: "700",
     color: ProTennisColors.electricGreen,
+  },
+  walletButtonDanger: {
+    backgroundColor: "rgba(220, 38, 38, 0.15)",
+    borderWidth: 1,
+    borderColor: "rgba(220, 38, 38, 0.4)",
+  },
+  walletTextDanger: {
+    color: "#DC2626",
   },
   squadButton: {
     width: 36,
