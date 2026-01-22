@@ -24516,22 +24516,35 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const sessionType = parts[1]; // private, semi, group
         const credits = parseInt(parts[2], 10);
         
-        if (!["private", "semi", "group"].includes(sessionType) || isNaN(credits) || credits <= 0) {
+        if (!["private", "semi", "group", "court"].includes(sessionType) || isNaN(credits) || credits <= 0) {
           return res.status(400).json({ error: "Invalid package configuration" });
         }
         
-        // Get current pricing to snapshot the price
-        const pricing = await storage.getAcademyPricing(player.academyId);
-        const sessionPricing = pricing.find(p => p.sessionType === sessionType);
+        // Handle court credits specially with fixed pricing
+        let pricePerCredit: string;
+        let currency: string = "AED";
         
-        if (!sessionPricing || parseFloat(sessionPricing.pricePerSession) <= 0) {
-          return res.status(400).json({ error: "Pricing not configured for this session type" });
+        if (sessionType === "court") {
+          // Court credits use fixed pricing (5 AED per credit)
+          pricePerCredit = "5.00";
+        } else {
+          // Get current pricing from academy for session types
+          const pricing = await storage.getAcademyPricing(player.academyId);
+          const sessionPricing = pricing.find(p => p.sessionType === sessionType);
+          
+          if (!sessionPricing || parseFloat(sessionPricing.pricePerSession) <= 0) {
+            return res.status(400).json({ error: "Pricing not configured for this session type" });
+          }
+          pricePerCredit = parseFloat(sessionPricing.pricePerSession).toFixed(2);
+          currency = sessionPricing.currency || "AED";
         }
+        
         
         const creditTypeMap: Record<string, string> = {
           private: "private",
           semi: "semi_private",
           group: "group",
+          court: "court",
         };
         const creditTypeLabel = sessionType === "semi" ? "Semi-Private" : 
                                 sessionType.charAt(0).toUpperCase() + sessionType.slice(1);
@@ -24540,8 +24553,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
           name: `${credits} ${creditTypeLabel} Credit${credits > 1 ? 's' : ''}`,
           creditType: creditTypeMap[sessionType],
           credits,
-          pricePerCredit: parseFloat(sessionPricing.pricePerSession).toFixed(2),
-          currency: sessionPricing.currency || "AED",
+          pricePerCredit: pricePerCredit,
+          currency: currency,
           validityDays: 90,
         };
       } else {

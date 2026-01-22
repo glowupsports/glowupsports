@@ -695,7 +695,7 @@ const styles = StyleSheet.create({
     overflow: "hidden",
   },
   countdownUrgent: {
-    backgroundColor: Colors.dark.error + "20",
+    backgroundColor: Colors.dark.error,
   },
   countdownText: {
     fontSize: FontSizes.xs,
@@ -703,7 +703,7 @@ const styles = StyleSheet.create({
     color: Colors.dark.primary,
   },
   countdownTextUrgent: {
-    color: Colors.dark.error,
+    color: "#1A1A1A",
   },
   pulsingGlow: {
     ...StyleSheet.absoluteFillObject,

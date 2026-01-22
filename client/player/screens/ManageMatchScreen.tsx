@@ -195,7 +195,7 @@ export default function ManageMatchScreen() {
             <View style={styles.detailRow}>
               <View style={[styles.levelDot, { backgroundColor: getBallLevelColor(match.ballLevel || "glow") }]} />
               <Text style={styles.detailText}>
-                {(match.ballLevel || "GLOW").toUpperCase()} Level
+                {(match.ballLevel || "GLOW").toUpperCase()} {match.skillLevel || ""} Level
               </Text>
             </View>
           </View>
