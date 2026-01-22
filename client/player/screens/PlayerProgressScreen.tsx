@@ -816,26 +816,6 @@ export default function PlayerProgressScreen() {
           </View>
         </View>
 
-        {/* Skill Breakdown - Always shown */}
-        <View style={styles.skillsSection}>
-          <Text style={styles.sectionTitle}>SKILL BREAKDOWN</Text>
-          <View style={styles.skillsList}>
-            {(domains.length > 0 ? domains : [
-              { id: "technique", name: "Technique", value: 0, maxValue: 100, icon: "tennisball", color: "#10B981" },
-              { id: "tactical", name: "Tactical", value: 0, maxValue: 100, icon: "bulb", color: "#F59E0B" },
-              { id: "physical", name: "Physical", value: 0, maxValue: 100, icon: "fitness", color: "#EF4444" },
-              { id: "mental", name: "Mental", value: 0, maxValue: 100, icon: "flash", color: "#8B5CF6" },
-              { id: "social", name: "Social", value: 0, maxValue: 100, icon: "people", color: "#EC4899" },
-              { id: "match", name: "Match", value: 0, maxValue: 100, icon: "trophy", color: "#3B82F6" },
-            ]).map((domain) => (
-              <SkillBar 
-                key={domain.name} 
-                domain={domain} 
-                onPress={() => handleDomainPress(domain.id)}
-              />
-            ))}
-          </View>
-        </View>
 
         {data.overallInsights.strengths.length > 0 ? (
           <View style={styles.insightsSection}>
@@ -919,71 +899,6 @@ export default function PlayerProgressScreen() {
           </View>
         ) : null}
 
-        {attendanceData && attendanceData.classes.length > 0 ? (
-          <View style={styles.attendanceSection}>
-            <Text style={styles.sectionTitle}>My Classes</Text>
-            
-            <View style={styles.attendanceSummary}>
-              <View style={styles.attendanceSummaryItem}>
-                <Text style={styles.attendanceSummaryValue}>{attendanceData.summary.totalPresent}</Text>
-                <Text style={styles.attendanceSummaryLabel}>Attended</Text>
-              </View>
-              <View style={styles.attendanceSummaryDivider} />
-              <View style={styles.attendanceSummaryItem}>
-                <Text style={styles.attendanceSummaryValue}>{attendanceData.summary.totalSessions}</Text>
-                <Text style={styles.attendanceSummaryLabel}>Total</Text>
-              </View>
-              <View style={styles.attendanceSummaryDivider} />
-              <View style={styles.attendanceSummaryItem}>
-                <Text style={[styles.attendanceSummaryValue, { color: GlowColors.primary }]}>
-                  {attendanceData.summary.attendanceRate}%
-                </Text>
-                <Text style={styles.attendanceSummaryLabel}>Rate</Text>
-              </View>
-            </View>
-
-            {attendanceData.classes.map((cls) => (
-              <View key={cls.id} style={styles.attendanceCard}>
-                <View style={styles.attendanceCardHeader}>
-                  <View style={[styles.attendanceTypeIcon, { backgroundColor: getSessionTypeColor(cls.sessionType) + "20" }]}>
-                    <Ionicons 
-                      name={getSessionTypeIcon(cls.sessionType) as any} 
-                      size={18} 
-                      color={getSessionTypeColor(cls.sessionType)} 
-                    />
-                  </View>
-                  <View style={styles.attendanceCardInfo}>
-                    <Text style={styles.attendanceCardTitle}>{cls.title}</Text>
-                    <Text style={styles.attendanceCardTime}>{cls.dayOfWeek} at {cls.time}</Text>
-                  </View>
-                  {cls.status === "left" ? (
-                    <View style={styles.formerBadge}>
-                      <Text style={styles.formerBadgeText}>Former</Text>
-                    </View>
-                  ) : null}
-                </View>
-                <View style={styles.attendanceStats}>
-                  <View style={styles.attendanceStat}>
-                    <Ionicons name="checkmark-circle" size={14} color={GlowColors.primary} />
-                    <Text style={styles.attendanceStatText}>{cls.attendance.present} present</Text>
-                  </View>
-                  <View style={styles.attendanceStat}>
-                    <Ionicons name="airplane" size={14} color={Colors.dark.gold} />
-                    <Text style={styles.attendanceStatText}>{cls.attendance.vacation} vacation</Text>
-                  </View>
-                  <View style={styles.attendanceStat}>
-                    <Ionicons name="close-circle" size={14} color={Colors.dark.error} />
-                    <Text style={styles.attendanceStatText}>{cls.attendance.absent} absent</Text>
-                  </View>
-                </View>
-                <View style={styles.attendanceRateBar}>
-                  <View style={[styles.attendanceRateFill, { width: `${cls.attendance.rate}%` }]} />
-                </View>
-                <Text style={styles.attendanceRateText}>{cls.attendance.rate}% attendance rate</Text>
-              </View>
-            ))}
-          </View>
-        ) : null}
 
         <View style={styles.infoCard}>
           <Ionicons name="information-circle" size={20} color={Colors.dark.xpCyan} />
