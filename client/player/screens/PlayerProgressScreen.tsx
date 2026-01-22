@@ -585,6 +585,126 @@ function XpExplanationModal({
   );
 }
 
+function BallLevelModal({ 
+  visible, 
+  onClose, 
+  currentLevel 
+}: { 
+  visible: boolean; 
+  onClose: () => void;
+  currentLevel: string | null;
+}) {
+  const insets = useSafeAreaInsets();
+  
+  const ballLevels = [
+    { id: "blue", name: "Blue Ball", color: "#3B82F6", description: "Ages 4-6: Foam balls, mini court", ages: "4-6 years" },
+    { id: "red", name: "Red Ball", color: "#EF4444", description: "Ages 6-8: 75% slower balls, small court", ages: "6-8 years" },
+    { id: "orange", name: "Orange Ball", color: "#F97316", description: "Ages 8-10: 50% slower balls, 3/4 court", ages: "8-10 years" },
+    { id: "green", name: "Green Ball", color: "#22C55E", description: "Ages 9-12: 25% slower balls, full court", ages: "9-12 years" },
+    { id: "yellow", name: "Yellow Ball", color: "#EAB308", description: "Ages 11+: Regular balls, full court", ages: "11+ years" },
+    { id: "glow", name: "Glow Master", color: "#00E5FF", description: "Advanced: Tournament-ready, all skills mastered", ages: "Any age" },
+  ];
+  
+  const getCurrentLevelInfo = () => {
+    if (!currentLevel) return null;
+    const levelLower = currentLevel.toLowerCase();
+    return ballLevels.find(l => levelLower.startsWith(l.id));
+  };
+  
+  const currentLevelInfo = getCurrentLevelInfo();
+  const currentLevelNumber = currentLevel?.match(/\d+/)?.[0] || "";
+
+  return (
+    <Modal visible={visible} animationType="slide" transparent>
+      <View style={modalStyles.overlay}>
+        <Pressable style={modalStyles.backdrop} onPress={onClose} />
+        <View style={[modalStyles.content, { paddingBottom: insets.bottom + 20 }]}>
+          <View style={modalStyles.header}>
+            <Text style={modalStyles.title}>Understanding Ball Levels</Text>
+            <Pressable onPress={onClose}>
+              <Ionicons name="close-circle" size={28} color={Colors.dark.textMuted} />
+            </Pressable>
+          </View>
+
+          <ScrollView style={modalStyles.body} showsVerticalScrollIndicator={false}>
+            {currentLevelInfo ? (
+              <View style={modalStyles.currentLevel}>
+                <View style={[modalStyles.currentLevelCircle, { borderColor: currentLevelInfo.color, backgroundColor: currentLevelInfo.color + "20" }]}>
+                  <Ionicons name="tennisball" size={28} color={currentLevelInfo.color} />
+                </View>
+                <View style={modalStyles.currentLevelInfo}>
+                  <Text style={[modalStyles.currentLevelTitle, { color: currentLevelInfo.color }]}>
+                    {currentLevelInfo.name} {currentLevelNumber}
+                  </Text>
+                  <Text style={modalStyles.currentLevelDesc}>Your current ball level</Text>
+                </View>
+              </View>
+            ) : null}
+
+            <View style={modalStyles.howToLevel}>
+              <Text style={modalStyles.sectionTitle}>What are Ball Levels?</Text>
+              <Text style={modalStyles.descriptionText}>
+                Ball levels follow the ITF Play and Stay pathway. Slower balls and smaller courts help players develop proper technique before progressing to the full game.
+              </Text>
+            </View>
+
+            <View style={modalStyles.howToLevel}>
+              <Text style={modalStyles.sectionTitle}>How to Level Up</Text>
+              <View style={modalStyles.howToItem}>
+                <Ionicons name="checkmark-circle" size={18} color={GlowColors.primary} />
+                <Text style={modalStyles.howToText}>Master skills at your current level</Text>
+              </View>
+              <View style={modalStyles.howToItem}>
+                <Ionicons name="star" size={18} color={Colors.dark.gold} />
+                <Text style={modalStyles.howToText}>Pass coach skill assessments</Text>
+              </View>
+              <View style={modalStyles.howToItem}>
+                <Ionicons name="trophy" size={18} color={Colors.dark.xpCyan} />
+                <Text style={modalStyles.howToText}>Complete all 3 sub-levels (1, 2, 3)</Text>
+              </View>
+            </View>
+
+            <View style={modalStyles.milestonesSection}>
+              <Text style={modalStyles.sectionTitle}>Ball Level Progression</Text>
+              {ballLevels.map((level, index) => {
+                const isCurrentLevel = currentLevelInfo?.id === level.id;
+                const isPassed = ballLevels.findIndex(l => l.id === currentLevelInfo?.id) > index;
+                
+                return (
+                  <View 
+                    key={level.id} 
+                    style={[
+                      modalStyles.milestone, 
+                      isCurrentLevel && { borderLeftWidth: 3, borderLeftColor: level.color, opacity: 1 },
+                      isPassed && { opacity: 1 }
+                    ]}
+                  >
+                    <View style={[modalStyles.milestoneBadge, { backgroundColor: level.color + "20", borderColor: level.color }]}>
+                      <Ionicons name="tennisball" size={18} color={level.color} />
+                    </View>
+                    <View style={modalStyles.milestoneContent}>
+                      <Text style={[modalStyles.milestoneTitle, { color: isCurrentLevel ? level.color : Colors.dark.text }]}>
+                        {level.name}
+                      </Text>
+                      <Text style={modalStyles.milestoneUnlocks}>{level.description}</Text>
+                      <Text style={[modalStyles.milestoneUnlocks, { color: level.color }]}>{level.ages}</Text>
+                    </View>
+                    {isPassed ? (
+                      <Ionicons name="checkmark-circle" size={20} color={GlowColors.primary} />
+                    ) : isCurrentLevel ? (
+                      <Ionicons name="radio-button-on" size={20} color={level.color} />
+                    ) : null}
+                  </View>
+                );
+              })}
+            </View>
+          </ScrollView>
+        </View>
+      </View>
+    </Modal>
+  );
+}
+
 function SkillBar({ domain, onPress }: { domain: SkillDomain; onPress: () => void }) {
   const progress = domain.value / domain.maxValue;
   
@@ -688,6 +808,7 @@ export default function PlayerProgressScreen() {
   const [showLevelModal, setShowLevelModal] = useState(false);
   const [showGlowScoreModal, setShowGlowScoreModal] = useState(false);
   const [showXpModal, setShowXpModal] = useState(false);
+  const [showBallLevelModal, setShowBallLevelModal] = useState(false);
 
   const handleDomainPress = (domainId: string) => {
     navigation.navigate("SkillDetail", { domain: domainId });
@@ -782,16 +903,23 @@ export default function PlayerProgressScreen() {
             end={{ x: 1, y: 1 }}
             style={styles.ballLevelGradientBorder}
           >
-            <View style={styles.ballLevelInner}>
+            <Pressable 
+              style={styles.ballLevelInner}
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                setShowBallLevelModal(true);
+              }}
+            >
               <BallLevelBadge 
                 levelId={data.ballLevel || "red1"} 
                 size="large" 
                 showLabel={true}
               />
-              {isNewPlayer && (
-                <Text style={styles.ballLevelHint}>Your starting level</Text>
-              )}
-            </View>
+              <View style={styles.levelLabelRow}>
+                <Text style={styles.ballLevelHint}>{isNewPlayer ? "Your starting level" : "Tap to learn more"}</Text>
+                <Ionicons name="information-circle-outline" size={12} color={Colors.dark.textMuted} />
+              </View>
+            </Pressable>
           </LinearGradient>
         </View>
 
@@ -1092,6 +1220,11 @@ export default function PlayerProgressScreen() {
         visible={showXpModal}
         onClose={() => setShowXpModal(false)}
         totalXp={data.xp}
+      />
+      <BallLevelModal 
+        visible={showBallLevelModal}
+        onClose={() => setShowBallLevelModal(false)}
+        currentLevel={data.ballLevel}
       />
     </View>
   );
