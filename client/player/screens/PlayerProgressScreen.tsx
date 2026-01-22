@@ -933,136 +933,348 @@ function BallLevelModal({
   );
 }
 
+interface SkillCategory {
+  name: string;
+  skills: {
+    id: string;
+    name: string;
+    description: string;
+    score: number;
+    maxScore: number;
+    observable?: string;
+  }[];
+}
+
+const PILLAR_SKILL_DEFINITIONS: Record<string, {
+  description: string;
+  categories: {
+    name: string;
+    icon: keyof typeof Ionicons.glyphMap;
+    skills: { name: string; description: string }[];
+  }[];
+  tips: string[];
+}> = {
+  technical: {
+    description: "Master the fundamental strokes and techniques that form the foundation of your tennis game.",
+    categories: [
+      { 
+        name: "Forehand", 
+        icon: "tennisball",
+        skills: [
+          { name: "Topspin", description: "Generating heavy topspin with proper racket path" },
+          { name: "Flat Drive", description: "Hitting through the ball with power and accuracy" },
+          { name: "Slice", description: "Using underspin for variety and defensive shots" },
+          { name: "Inside-Out", description: "Running around backhand to hit forehand winners" },
+        ]
+      },
+      { 
+        name: "Backhand", 
+        icon: "tennisball",
+        skills: [
+          { name: "Topspin (1H/2H)", description: "Consistent topspin production on backhand side" },
+          { name: "Slice", description: "Low, skidding slice for defense and approach" },
+          { name: "Drive", description: "Flat, penetrating backhand shots" },
+        ]
+      },
+      { 
+        name: "Serve", 
+        icon: "arrow-up-circle",
+        skills: [
+          { name: "Flat Serve", description: "Power serve with minimal spin" },
+          { name: "Kick Serve", description: "High-bouncing second serve with topspin" },
+          { name: "Slice Serve", description: "Curving serve that pulls opponent wide" },
+          { name: "Placement", description: "Consistently hitting target zones" },
+        ]
+      },
+      { 
+        name: "Net Play", 
+        icon: "git-network",
+        skills: [
+          { name: "Volley", description: "Clean volleying technique at net" },
+          { name: "Overhead", description: "Smash technique and timing" },
+          { name: "Drop Volley", description: "Soft touch volleys for winners" },
+        ]
+      },
+    ],
+    tips: [
+      "Focus on consistent contact point",
+      "Keep your eye on the ball through impact",
+      "Practice shadow swings daily",
+    ],
+  },
+  tactical: {
+    description: "Develop your strategic thinking and decision-making abilities during match play.",
+    categories: [
+      { 
+        name: "Court Positioning", 
+        icon: "locate",
+        skills: [
+          { name: "Recovery", description: "Getting back to optimal court position" },
+          { name: "Angles", description: "Creating and defending court angles" },
+        ]
+      },
+      { 
+        name: "Shot Selection", 
+        icon: "options",
+        skills: [
+          { name: "High-Percentage Shots", description: "Choosing safe vs aggressive shots" },
+          { name: "Pattern Recognition", description: "Identifying and exploiting patterns" },
+        ]
+      },
+      { 
+        name: "Match Strategy", 
+        icon: "analytics",
+        skills: [
+          { name: "Opponent Analysis", description: "Reading opponent weaknesses" },
+          { name: "Game Plan Execution", description: "Sticking to tactical plan under pressure" },
+        ]
+      },
+    ],
+    tips: [
+      "Watch pro matches to learn patterns",
+      "Think one shot ahead",
+      "Identify opponent weaknesses early",
+    ],
+  },
+  physical: {
+    description: "Build the physical attributes needed for powerful and enduring tennis performance.",
+    categories: [
+      { 
+        name: "Movement", 
+        icon: "footsteps",
+        skills: [
+          { name: "Footwork", description: "Quick, efficient court coverage" },
+          { name: "Speed & Agility", description: "Explosive first step and direction changes" },
+          { name: "Balance", description: "Stability during shots" },
+        ]
+      },
+      { 
+        name: "Conditioning", 
+        icon: "fitness",
+        skills: [
+          { name: "Endurance", description: "Maintaining energy through long matches" },
+          { name: "Recovery", description: "Quick recovery between points and matches" },
+        ]
+      },
+      { 
+        name: "Power", 
+        icon: "flash",
+        skills: [
+          { name: "Core Strength", description: "Rotational power and stability" },
+          { name: "Leg Power", description: "Explosive movement and shot foundation" },
+        ]
+      },
+    ],
+    tips: [
+      "Split step before every shot",
+      "Work on lateral movement drills",
+      "Build core strength for stability",
+    ],
+  },
+  mental: {
+    description: "Strengthen your mental game to stay focused and resilient under pressure.",
+    categories: [
+      { 
+        name: "Focus", 
+        icon: "eye",
+        skills: [
+          { name: "Concentration", description: "Maintaining focus during long rallies" },
+          { name: "Point-by-Point", description: "Staying present, not dwelling on past" },
+        ]
+      },
+      { 
+        name: "Composure", 
+        icon: "water",
+        skills: [
+          { name: "Pressure Management", description: "Staying calm in big moments" },
+          { name: "Emotional Control", description: "Managing frustration and anger" },
+        ]
+      },
+      { 
+        name: "Confidence", 
+        icon: "shield-checkmark",
+        skills: [
+          { name: "Self-Belief", description: "Trusting your abilities under pressure" },
+          { name: "Positive Self-Talk", description: "Encouraging inner dialogue" },
+        ]
+      },
+    ],
+    tips: [
+      "Use breathing techniques between points",
+      "Develop a pre-point routine",
+      "Stay present, forget past points",
+    ],
+  },
+  social: {
+    description: "Develop sportsmanship, teamwork, and communication skills on and off the court.",
+    categories: [
+      { 
+        name: "Sportsmanship", 
+        icon: "heart",
+        skills: [
+          { name: "Fair Play", description: "Honest line calls and respectful behavior" },
+          { name: "Graciousness", description: "Handling wins and losses with class" },
+        ]
+      },
+      { 
+        name: "Communication", 
+        icon: "chatbubbles",
+        skills: [
+          { name: "Doubles Communication", description: "Effective partner communication" },
+          { name: "Court Etiquette", description: "Proper on-court behavior" },
+        ]
+      },
+    ],
+    tips: [
+      "Always shake hands after matches",
+      "Celebrate teammates' successes",
+      "Be gracious in wins and losses",
+    ],
+  },
+  competition: {
+    description: "Perform your best when it matters most in competitive match situations.",
+    categories: [
+      { 
+        name: "Match Play", 
+        icon: "trophy",
+        skills: [
+          { name: "Scoring Awareness", description: "Understanding match situation" },
+          { name: "Clutch Performance", description: "Delivering in pressure moments" },
+        ]
+      },
+      { 
+        name: "Tournament Readiness", 
+        icon: "calendar",
+        skills: [
+          { name: "Pre-Match Routine", description: "Consistent preparation process" },
+          { name: "Match Recovery", description: "Bouncing back between matches" },
+        ]
+      },
+    ],
+    tips: [
+      "Play practice sets to simulate matches",
+      "Learn to manage nervous energy",
+      "Review and learn from match footage",
+    ],
+  },
+};
+
+function SkillProgressBar({ score, maxScore, color }: { score: number; maxScore: number; color: string }) {
+  const progress = maxScore > 0 ? (score / maxScore) * 100 : 0;
+  
+  return (
+    <View style={skillBarStyles.container}>
+      <View style={skillBarStyles.track}>
+        <View 
+          style={[
+            skillBarStyles.fill, 
+            { 
+              width: `${progress}%`, 
+              backgroundColor: color,
+              shadowColor: color,
+              shadowOffset: { width: 0, height: 0 },
+              shadowOpacity: 0.6,
+              shadowRadius: 4,
+            }
+          ]} 
+        />
+      </View>
+      <View style={skillBarStyles.scoreContainer}>
+        <Text style={[skillBarStyles.score, { color }]}>{score}</Text>
+        <Text style={skillBarStyles.maxScore}>/{maxScore}</Text>
+      </View>
+    </View>
+  );
+}
+
+const skillBarStyles = StyleSheet.create({
+  container: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+  },
+  track: {
+    flex: 1,
+    height: 8,
+    backgroundColor: "rgba(255, 255, 255, 0.1)",
+    borderRadius: 4,
+    overflow: "hidden",
+  },
+  fill: {
+    height: "100%",
+    borderRadius: 4,
+  },
+  scoreContainer: {
+    flexDirection: "row",
+    alignItems: "baseline",
+    minWidth: 35,
+    justifyContent: "flex-end",
+  },
+  score: {
+    fontSize: 14,
+    fontWeight: "700",
+  },
+  maxScore: {
+    fontSize: 11,
+    color: Colors.dark.textMuted,
+  },
+});
+
 function PillarDetailModal({ 
   visible, 
   onClose, 
-  domain 
+  domain,
+  playerId,
 }: { 
   visible: boolean; 
   onClose: () => void;
   domain: SkillDomain | null;
+  playerId?: string;
 }) {
   const insets = useSafeAreaInsets();
+  const [expandedCategories, setExpandedCategories] = useState<Record<string, boolean>>({});
   
   if (!domain) return null;
   
-  const pillarDetails: Record<string, {
-    description: string;
-    skills: { name: string; level: string }[];
-    tips: string[];
-  }> = {
-    technical: {
-      description: "Master the fundamental strokes and techniques that form the foundation of your tennis game.",
-      skills: [
-        { name: "Forehand", level: "Developing" },
-        { name: "Backhand", level: "Developing" },
-        { name: "Serve", level: "Beginner" },
-        { name: "Volley", level: "Beginner" },
-        { name: "Slice", level: "Not Started" },
-      ],
-      tips: [
-        "Focus on consistent contact point",
-        "Keep your eye on the ball through impact",
-        "Practice shadow swings daily",
-      ],
-    },
-    tactical: {
-      description: "Develop your strategic thinking and decision-making abilities during match play.",
-      skills: [
-        { name: "Court Positioning", level: "Developing" },
-        { name: "Shot Selection", level: "Beginner" },
-        { name: "Pattern Play", level: "Not Started" },
-        { name: "Game Analysis", level: "Beginner" },
-      ],
-      tips: [
-        "Watch pro matches to learn patterns",
-        "Think one shot ahead",
-        "Identify opponent weaknesses early",
-      ],
-    },
-    physical: {
-      description: "Build the physical attributes needed for powerful and enduring tennis performance.",
-      skills: [
-        { name: "Footwork", level: "Developing" },
-        { name: "Speed & Agility", level: "Beginner" },
-        { name: "Endurance", level: "Developing" },
-        { name: "Strength", level: "Beginner" },
-      ],
-      tips: [
-        "Split step before every shot",
-        "Work on lateral movement drills",
-        "Build core strength for stability",
-      ],
-    },
-    mental: {
-      description: "Strengthen your mental game to stay focused and resilient under pressure.",
-      skills: [
-        { name: "Focus", level: "Developing" },
-        { name: "Composure", level: "Beginner" },
-        { name: "Confidence", level: "Beginner" },
-        { name: "Resilience", level: "Developing" },
-      ],
-      tips: [
-        "Use breathing techniques between points",
-        "Develop a pre-point routine",
-        "Stay present, forget past points",
-      ],
-    },
-    social: {
-      description: "Develop sportsmanship, teamwork, and communication skills on and off the court.",
-      skills: [
-        { name: "Sportsmanship", level: "Good" },
-        { name: "Team Communication", level: "Developing" },
-        { name: "Court Etiquette", level: "Good" },
-        { name: "Encouragement", level: "Developing" },
-      ],
-      tips: [
-        "Always shake hands after matches",
-        "Celebrate teammates' successes",
-        "Be gracious in wins and losses",
-      ],
-    },
-    competition: {
-      description: "Perform your best when it matters most in competitive match situations.",
-      skills: [
-        { name: "Match Play", level: "Beginner" },
-        { name: "Pressure Handling", level: "Not Started" },
-        { name: "Scoring Awareness", level: "Developing" },
-        { name: "Tournament Readiness", level: "Not Started" },
-      ],
-      tips: [
-        "Play practice sets to simulate matches",
-        "Learn to manage nervous energy",
-        "Review and learn from match footage",
-      ],
-    },
+  const pillarKey = domain.id;
+  const details = PILLAR_SKILL_DEFINITIONS[pillarKey] || PILLAR_SKILL_DEFINITIONS.technical;
+  
+  const getScoreColor = (score: number, maxScore: number) => {
+    const percent = maxScore > 0 ? (score / maxScore) * 100 : 0;
+    if (percent >= 80) return "#10B981";
+    if (percent >= 50) return "#F59E0B";
+    if (percent > 0) return "#3B82F6";
+    return Colors.dark.textMuted;
   };
   
-  const details = pillarDetails[domain.id] || pillarDetails.technical;
+  const getScoreLabel = (score: number, maxScore: number) => {
+    const percent = maxScore > 0 ? (score / maxScore) * 100 : 0;
+    if (percent >= 80) return "Excellent";
+    if (percent >= 50) return "Developing";
+    if (percent > 0) return "Beginner";
+    return "Not Started";
+  };
   
-  const getLevelColor = (level: string) => {
-    switch (level) {
-      case "Good": return "#10B981";
-      case "Developing": return "#F59E0B";
-      case "Beginner": return "#3B82F6";
-      case "Not Started": return Colors.dark.textMuted;
-      default: return Colors.dark.textMuted;
-    }
+  const toggleCategory = (categoryName: string) => {
+    setExpandedCategories(prev => ({
+      ...prev,
+      [categoryName]: !prev[categoryName],
+    }));
   };
 
   return (
     <Modal visible={visible} animationType="slide" transparent>
       <View style={modalStyles.overlay}>
         <Pressable style={modalStyles.backdrop} onPress={onClose} />
-        <View style={[modalStyles.content, { paddingBottom: insets.bottom + 20, maxHeight: "85%" }]}>
+        <View style={[modalStyles.content, { paddingBottom: insets.bottom + 20, maxHeight: "90%" }]}>
           <View style={modalStyles.header}>
             <View style={{ flexDirection: "row", alignItems: "center", gap: Spacing.sm }}>
-              <View style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: domain.color + "20", justifyContent: "center", alignItems: "center" }}>
+              <View style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: domain.color + "25", borderWidth: 2, borderColor: domain.color + "40", justifyContent: "center", alignItems: "center" }}>
                 <Ionicons name={domain.icon as any} size={20} color={domain.color} />
               </View>
               <Text style={[modalStyles.title, { color: domain.color }]}>{domain.name}</Text>
             </View>
-            <Pressable onPress={onClose}>
+            <Pressable onPress={onClose} hitSlop={10}>
               <Ionicons name="close-circle" size={28} color={Colors.dark.textMuted} />
             </Pressable>
           </View>
@@ -1080,27 +1292,68 @@ function PillarDetailModal({
               </View>
             </View>
 
-            <View style={[modalStyles.howToLevel, { marginBottom: Spacing.lg }]}>
+            <View style={{ marginBottom: Spacing.lg, paddingHorizontal: Spacing.xs }}>
               <Text style={modalStyles.descriptionText}>{details.description}</Text>
             </View>
 
-            <View style={[modalStyles.milestonesSection, { marginBottom: Spacing.lg }]}>
-              <Text style={modalStyles.sectionTitle}>Skill Breakdown</Text>
-              {details.skills.map((skill, index) => (
-                <View key={index} style={[modalStyles.milestone, { paddingVertical: Spacing.sm }]}>
-                  <View style={[modalStyles.milestoneBadge, { backgroundColor: getLevelColor(skill.level) + "20", borderColor: getLevelColor(skill.level) }]}>
-                    <Ionicons name="checkmark" size={14} color={getLevelColor(skill.level)} />
+            <View style={{ marginBottom: Spacing.lg }}>
+              <Text style={modalStyles.sectionTitle}>SKILL BREAKDOWN BY CATEGORY</Text>
+              
+              {details.categories.map((category, catIndex) => {
+                const isExpanded = expandedCategories[category.name] ?? true;
+                const categoryAvgScore = Math.floor(Math.random() * 2);
+                
+                return (
+                  <View key={catIndex} style={skillCategoryStyles.container}>
+                    <Pressable 
+                      style={skillCategoryStyles.header}
+                      onPress={() => toggleCategory(category.name)}
+                    >
+                      <View style={skillCategoryStyles.headerLeft}>
+                        <View style={[skillCategoryStyles.iconCircle, { backgroundColor: domain.color + "20" }]}>
+                          <Ionicons name={category.icon} size={16} color={domain.color} />
+                        </View>
+                        <Text style={skillCategoryStyles.categoryName}>{category.name}</Text>
+                      </View>
+                      <View style={skillCategoryStyles.headerRight}>
+                        <View style={[skillCategoryStyles.avgBadge, { backgroundColor: getScoreColor(categoryAvgScore, 2) + "20" }]}>
+                          <Text style={[skillCategoryStyles.avgText, { color: getScoreColor(categoryAvgScore, 2) }]}>
+                            {getScoreLabel(categoryAvgScore, 2)}
+                          </Text>
+                        </View>
+                        <Ionicons 
+                          name={isExpanded ? "chevron-up" : "chevron-down"} 
+                          size={18} 
+                          color={Colors.dark.textMuted} 
+                        />
+                      </View>
+                    </Pressable>
+                    
+                    {isExpanded && (
+                      <View style={skillCategoryStyles.skillsList}>
+                        {category.skills.map((skill, skillIndex) => {
+                          const mockScore = Math.floor(Math.random() * 3);
+                          const scoreColor = getScoreColor(mockScore, 2);
+                          
+                          return (
+                            <View key={skillIndex} style={skillCategoryStyles.skillRow}>
+                              <View style={skillCategoryStyles.skillInfo}>
+                                <Text style={skillCategoryStyles.skillName}>{skill.name}</Text>
+                                <Text style={skillCategoryStyles.skillDesc} numberOfLines={1}>{skill.description}</Text>
+                              </View>
+                              <SkillProgressBar score={mockScore} maxScore={2} color={scoreColor} />
+                            </View>
+                          );
+                        })}
+                      </View>
+                    )}
                   </View>
-                  <View style={modalStyles.milestoneContent}>
-                    <Text style={modalStyles.milestoneTitle}>{skill.name}</Text>
-                    <Text style={[modalStyles.milestoneUnlocks, { color: getLevelColor(skill.level) }]}>{skill.level}</Text>
-                  </View>
-                </View>
-              ))}
+                );
+              })}
             </View>
 
-            <View style={modalStyles.howToLevel}>
-              <Text style={modalStyles.sectionTitle}>Coach Tips</Text>
+            <View style={[modalStyles.howToLevel, { marginBottom: Spacing.xl }]}>
+              <Text style={modalStyles.sectionTitle}>COACH TIPS</Text>
               {details.tips.map((tip, index) => (
                 <View key={index} style={modalStyles.howToItem}>
                   <Ionicons name="bulb" size={18} color={domain.color} />
@@ -1114,6 +1367,75 @@ function PillarDetailModal({
     </Modal>
   );
 }
+
+const skillCategoryStyles = StyleSheet.create({
+  container: {
+    backgroundColor: "rgba(255, 255, 255, 0.03)",
+    borderRadius: BorderRadius.md,
+    marginBottom: Spacing.sm,
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.08)",
+    overflow: "hidden",
+  },
+  header: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    padding: Spacing.md,
+    backgroundColor: "rgba(255, 255, 255, 0.02)",
+  },
+  headerLeft: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+  },
+  iconCircle: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  categoryName: {
+    fontSize: 15,
+    fontWeight: "600",
+    color: Colors.dark.text,
+  },
+  headerRight: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+  },
+  avgBadge: {
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 4,
+    borderRadius: BorderRadius.sm,
+  },
+  avgText: {
+    fontSize: 11,
+    fontWeight: "600",
+  },
+  skillsList: {
+    paddingHorizontal: Spacing.md,
+    paddingBottom: Spacing.md,
+    gap: Spacing.sm,
+  },
+  skillRow: {
+    gap: Spacing.xs,
+  },
+  skillInfo: {
+    marginBottom: 4,
+  },
+  skillName: {
+    fontSize: 13,
+    fontWeight: "500",
+    color: Colors.dark.text,
+  },
+  skillDesc: {
+    fontSize: 11,
+    color: Colors.dark.textMuted,
+  },
+});
 
 function SkillBar({ domain, onPress }: { domain: SkillDomain; onPress: () => void }) {
   const progress = domain.value / domain.maxValue;

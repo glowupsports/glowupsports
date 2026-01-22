@@ -2,7 +2,9 @@ import React from "react";
 import { View, Text, StyleSheet, Pressable, Dimensions } from "react-native";
 import Svg, { Circle } from "react-native-svg";
 import Ionicons from "@expo/vector-icons/Ionicons";
+import { LinearGradient } from "expo-linear-gradient";
 import * as Haptics from "expo-haptics";
+import Animated, { useSharedValue, useAnimatedStyle, withSpring } from "react-native-reanimated";
 import { Colors, Spacing, Typography, BorderRadius, GlowColors, TextColors, FunctionColors } from "@/constants/theme";
 import type { BallStage } from "@shared/language-switch";
 
@@ -20,57 +22,58 @@ interface PillarProgressRingsProps {
   onPillarPress?: (pillar: string) => void;
 }
 
-const PILLAR_CONFIG: Record<string, { icon: keyof typeof Ionicons.glyphMap; color: string; shortLabel: string }> = {
-  TECHNIQUE: { icon: "tennisball", color: "#10B981", shortLabel: "Technical" },
-  TACTICAL: { icon: "bulb-outline", color: "#F59E0B", shortLabel: "Tactical" },
-  PHYSICAL: { icon: "fitness", color: "#EF4444", shortLabel: "Physical" },
-  MENTAL: { icon: "flash-outline", color: "#8B5CF6", shortLabel: "Mental" },
-  SOCIAL: { icon: "people-outline", color: "#EC4899", shortLabel: "Social" },
-  MATCH: { icon: "trophy-outline", color: "#3B82F6", shortLabel: "Competition" },
+const PILLAR_CONFIG: Record<string, { icon: keyof typeof Ionicons.glyphMap; color: string; gradient: [string, string]; shortLabel: string }> = {
+  TECHNIQUE: { icon: "tennisball", color: "#10B981", gradient: ["#10B98130", "#10B98110"], shortLabel: "Technical" },
+  TACTICAL: { icon: "bulb-outline", color: "#F59E0B", gradient: ["#F59E0B30", "#F59E0B10"], shortLabel: "Tactical" },
+  PHYSICAL: { icon: "fitness", color: "#EF4444", gradient: ["#EF444430", "#EF444410"], shortLabel: "Physical" },
+  MENTAL: { icon: "flash-outline", color: "#8B5CF6", gradient: ["#8B5CF630", "#8B5CF610"], shortLabel: "Mental" },
+  SOCIAL: { icon: "people-outline", color: "#EC4899", gradient: ["#EC489930", "#EC489910"], shortLabel: "Social" },
+  MATCH: { icon: "trophy-outline", color: "#3B82F6", gradient: ["#3B82F630", "#3B82F610"], shortLabel: "Competition" },
 };
 
 const PILLAR_ORDER = ["TECHNIQUE", "TACTICAL", "PHYSICAL", "MENTAL", "SOCIAL", "MATCH"];
 
-function ProgressRing({
+function ProgressBar({
   progress,
   color,
-  size = 50,
-  strokeWidth = 4,
 }: {
   progress: number;
   color: string;
-  size?: number;
-  strokeWidth?: number;
 }) {
-  const radius = (size - strokeWidth) / 2;
-  const circumference = 2 * Math.PI * radius;
-  const strokeDashoffset = circumference * (1 - Math.min(progress, 100) / 100);
+  const clampedProgress = Math.min(Math.max(progress, 0), 100);
   
   return (
-    <Svg width={size} height={size}>
-      <Circle
-        cx={size / 2}
-        cy={size / 2}
-        r={radius}
-        stroke={color + "30"}
-        strokeWidth={strokeWidth}
-        fill="transparent"
+    <View style={progressStyles.track}>
+      <View 
+        style={[
+          progressStyles.fill, 
+          { 
+            width: `${clampedProgress}%`,
+            backgroundColor: color,
+            shadowColor: color,
+            shadowOffset: { width: 0, height: 0 },
+            shadowOpacity: 0.8,
+            shadowRadius: 4,
+          }
+        ]} 
       />
-      <Circle
-        cx={size / 2}
-        cy={size / 2}
-        r={radius}
-        stroke={color}
-        strokeWidth={strokeWidth}
-        fill="transparent"
-        strokeDasharray={circumference}
-        strokeDashoffset={strokeDashoffset}
-        strokeLinecap="round"
-        transform={`rotate(-90 ${size / 2} ${size / 2})`}
-      />
-    </Svg>
+    </View>
   );
 }
+
+const progressStyles = StyleSheet.create({
+  track: {
+    height: 6,
+    backgroundColor: "rgba(255, 255, 255, 0.1)",
+    borderRadius: 3,
+    overflow: "hidden",
+    width: "100%",
+  },
+  fill: {
+    height: "100%",
+    borderRadius: 3,
+  },
+});
 
 function getTrendIcon(trend: string): keyof typeof Ionicons.glyphMap {
   switch (trend) {
@@ -94,6 +97,77 @@ function getTrendColor(trend: string): string {
   }
 }
 
+function PillarCard({ 
+  pillarKey, 
+  data, 
+  onPress 
+}: { 
+  pillarKey: string;
+  data: PillarData;
+  onPress: () => void;
+}) {
+  const config = PILLAR_CONFIG[pillarKey];
+  const scale = useSharedValue(1);
+  
+  const animatedStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: scale.value }],
+  }));
+  
+  const handlePressIn = () => {
+    scale.value = withSpring(0.96, { damping: 15 });
+  };
+  
+  const handlePressOut = () => {
+    scale.value = withSpring(1, { damping: 15 });
+  };
+  
+  return (
+    <Animated.View style={[styles.cardWrapper, animatedStyle]}>
+      <Pressable
+        onPress={() => {
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+          onPress();
+        }}
+        onPressIn={handlePressIn}
+        onPressOut={handlePressOut}
+        style={styles.cardPressable}
+      >
+        <LinearGradient
+          colors={["rgba(30, 35, 45, 0.95)", "rgba(20, 25, 30, 0.98)"]}
+          style={[styles.card, { borderColor: config.color + "50" }]}
+        >
+          <View style={styles.cardHeader}>
+            <View style={[styles.iconCircle, { backgroundColor: config.color + "25", borderColor: config.color + "40" }]}>
+              <Ionicons name={config.icon} size={22} color={config.color} />
+            </View>
+            <View style={styles.trendBadge}>
+              <Ionicons
+                name={getTrendIcon(data.trend)}
+                size={14}
+                color={getTrendColor(data.trend)}
+              />
+            </View>
+          </View>
+          
+          <Text style={styles.cardTitle}>{config.shortLabel}</Text>
+          
+          <View style={styles.scoreSection}>
+            <Text style={[styles.scoreValue, { color: config.color }]}>
+              {Math.round(data.currentScore)}%
+            </Text>
+          </View>
+          
+          <ProgressBar progress={data.currentScore} color={config.color} />
+          
+          <View style={styles.tapHint}>
+            <Ionicons name="chevron-forward" size={12} color={Colors.dark.textMuted} />
+          </View>
+        </LinearGradient>
+      </Pressable>
+    </Animated.View>
+  );
+}
+
 export default function PillarProgressRings({
   pillars,
   stage,
@@ -101,7 +175,7 @@ export default function PillarProgressRings({
   onPillarPress,
 }: PillarProgressRingsProps) {
   const screenWidth = Dimensions.get("window").width;
-  const itemWidth = Math.min((screenWidth - Spacing.lg * 2 - Spacing.sm * 2) / 3, 100);
+  const cardWidth = (screenWidth - Spacing.xl * 2 - Spacing.sm) / 2;
   
   return (
     <View style={styles.container}>
@@ -112,51 +186,15 @@ export default function PillarProgressRings({
             currentScore: 0,
             trend: "stable" as const,
           };
-          const pillarConfig = PILLAR_CONFIG[pillarKey];
-          const pillarName = pillarConfig.shortLabel;
           
           return (
-            <Pressable
-              key={pillarKey}
-              style={[styles.pillarItem, { width: itemWidth }]}
-              onPress={() => {
-                if (onPillarPress) {
-                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                  onPillarPress(pillarKey);
-                }
-              }}
-            >
-              <View style={styles.ringWrapper}>
-                <ProgressRing
-                  progress={data.currentScore}
-                  color={pillarConfig.color}
-                  size={56}
-                  strokeWidth={5}
-                />
-                <View style={styles.iconContainer}>
-                  <Ionicons
-                    name={pillarConfig.icon}
-                    size={20}
-                    color={pillarConfig.color}
-                  />
-                </View>
-              </View>
-              
-              <Text style={styles.pillarName} numberOfLines={1}>
-                {pillarName}
-              </Text>
-              
-              <View style={styles.scoreRow}>
-                <Text style={[styles.score, { color: pillarConfig.color }]}>
-                  {Math.round(data.currentScore)}%
-                </Text>
-                <Ionicons
-                  name={getTrendIcon(data.trend)}
-                  size={12}
-                  color={getTrendColor(data.trend)}
-                />
-              </View>
-            </Pressable>
+            <View key={pillarKey} style={{ width: cardWidth }}>
+              <PillarCard
+                pillarKey={pillarKey}
+                data={data}
+                onPress={() => onPillarPress?.(pillarKey)}
+              />
+            </View>
           );
         })}
       </View>
@@ -166,42 +204,70 @@ export default function PillarProgressRings({
 
 const styles = StyleSheet.create({
   container: {
-    padding: Spacing.md,
+    paddingHorizontal: Spacing.lg,
+    paddingVertical: Spacing.sm,
   },
   grid: {
     flexDirection: "row",
     flexWrap: "wrap",
     justifyContent: "space-between",
+    gap: Spacing.sm,
   },
-  pillarItem: {
-    alignItems: "center",
-    marginBottom: Spacing.lg,
+  cardWrapper: {
+    marginBottom: Spacing.sm,
   },
-  ringWrapper: {
-    position: "relative",
-    alignItems: "center",
-    justifyContent: "center",
+  cardPressable: {
+    borderRadius: BorderRadius.lg,
+    overflow: "hidden",
   },
-  iconContainer: {
-    position: "absolute",
-    alignItems: "center",
-    justifyContent: "center",
+  card: {
+    borderRadius: BorderRadius.lg,
+    padding: Spacing.md,
+    borderWidth: 1,
+    minHeight: 130,
   },
-  pillarName: {
-    fontSize: Typography.small.fontSize,
-    color: TextColors.primary,
-    fontWeight: "500",
-    marginTop: Spacing.xs,
-    textAlign: "center",
-  },
-  scoreRow: {
+  cardHeader: {
     flexDirection: "row",
-    alignItems: "center",
-    gap: 4,
-    marginTop: 2,
+    justifyContent: "space-between",
+    alignItems: "flex-start",
+    marginBottom: Spacing.sm,
   },
-  score: {
-    fontSize: Typography.small.fontSize,
+  iconCircle: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    justifyContent: "center",
+    alignItems: "center",
+    borderWidth: 1.5,
+  },
+  trendBadge: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: "rgba(255, 255, 255, 0.08)",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  cardTitle: {
+    fontSize: 14,
     fontWeight: "600",
+    color: Colors.dark.text,
+    marginBottom: Spacing.xs,
+  },
+  scoreSection: {
+    flexDirection: "row",
+    alignItems: "baseline",
+    marginBottom: Spacing.sm,
+  },
+  scoreValue: {
+    fontSize: 24,
+    fontWeight: "800",
+    letterSpacing: -0.5,
+  },
+  tapHint: {
+    position: "absolute",
+    bottom: Spacing.sm,
+    right: Spacing.sm,
+    opacity: 0.5,
   },
 });
