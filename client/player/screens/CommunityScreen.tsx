@@ -38,7 +38,7 @@ import { useAuth } from "@/coach/context/AuthContext";
 import { LockedScreen } from "../components/LockedScreen";
 import * as Clipboard from "expo-clipboard";
 
-type FeedFilter = "for_you" | "academy" | "events";
+type FeedFilter = "for_you" | "news" | "academy" | "moments" | "events";
 type MainTab = "feed" | "friends" | "groups";
 
 interface Post {
@@ -427,8 +427,10 @@ function MainTabBar({ active, onChange, friendRequestCount = 0 }: { active: Main
 
 function FeedFilterTabs({ active, onChange }: { active: FeedFilter; onChange: (f: FeedFilter) => void }) {
   const filters: { key: FeedFilter; label: string; icon: string }[] = [
-    { key: "for_you", label: "For You", icon: "sparkles" },
+    { key: "for_you", label: "For You", icon: "trophy" },
+    { key: "news", label: "News", icon: "newspaper" },
     { key: "academy", label: "Academy", icon: "tennisball" },
+    { key: "moments", label: "Moments", icon: "camera" },
     { key: "events", label: "Events", icon: "calendar" },
   ];
 
@@ -491,6 +493,273 @@ interface Group {
   memberCount: number;
   imageUrl?: string;
   isJoined?: boolean;
+}
+
+interface Achievement {
+  id: string;
+  type: "match_won" | "level_up" | "badge" | "streak" | "milestone" | "rating_up";
+  title: string;
+  description: string;
+  date: string;
+  icon: string;
+  color: string;
+  value?: string;
+  shareImage?: string;
+}
+
+interface NewsItem {
+  id: string;
+  title: string;
+  summary: string;
+  source: string;
+  imageUrl?: string;
+  url: string;
+  publishedAt: string;
+  category: "atp" | "wta" | "general";
+}
+
+function AchievementShowcase() {
+  const insets = useSafeAreaInsets();
+  const tabBarHeight = useBottomTabBarHeight();
+  const { user } = useAuth();
+  
+  const { data: achievementsData, isLoading, refetch } = useQuery<{ achievements: Achievement[] }>({
+    queryKey: ["/api/player/me/achievements"],
+  });
+  
+  const achievements = achievementsData?.achievements || [
+    { id: "1", type: "match_won", title: "Match Victory!", description: "Defeated Ahmed K. 6-3, 6-4", date: new Date().toISOString(), icon: "trophy", color: "#FFD700", value: "6-3, 6-4" },
+    { id: "2", type: "level_up", title: "Level Up!", description: "Reached Level 12 - Tennis Warrior", date: new Date(Date.now() - 86400000).toISOString(), icon: "arrow-up-circle", color: "#C8FF3D", value: "Level 12" },
+    { id: "3", type: "streak", title: "5 Win Streak!", description: "Won 5 matches in a row", date: new Date(Date.now() - 172800000).toISOString(), icon: "flame", color: "#FF6B35", value: "5 Wins" },
+    { id: "4", type: "badge", title: "First Blood", description: "Won your first competitive match", date: new Date(Date.now() - 259200000).toISOString(), icon: "ribbon", color: "#E040FB", value: "Badge" },
+    { id: "5", type: "rating_up", title: "Rating Increase", description: "Your Glow Rating increased to 1450", date: new Date(Date.now() - 345600000).toISOString(), icon: "trending-up", color: "#00E5FF", value: "+25" },
+  ];
+  
+  const handleShare = async (achievement: Achievement) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    
+    const shareMessage = `${achievement.title}\n${achievement.description}\n\nAchieved on Glow Up Tennis`;
+    
+    try {
+      await Share.share({
+        message: shareMessage,
+        title: achievement.title,
+      });
+    } catch (error) {
+      console.error("Share error:", error);
+    }
+  };
+  
+  const getAchievementGradient = (type: string): [string, string] => {
+    switch (type) {
+      case "match_won": return ["#FFD700", "#FF8C00"];
+      case "level_up": return ["#C8FF3D", "#7CFC00"];
+      case "streak": return ["#FF6B35", "#FF4500"];
+      case "badge": return ["#E040FB", "#9C27B0"];
+      case "rating_up": return ["#00E5FF", "#00BFFF"];
+      default: return ["#C8FF3D", "#7CFC00"];
+    }
+  };
+  
+  const renderAchievementCard = ({ item }: { item: Achievement }) => {
+    const gradient = getAchievementGradient(item.type);
+    
+    return (
+      <Animated.View entering={FadeInDown.delay(100)} style={achievementStyles.cardContainer}>
+        <LinearGradient
+          colors={[gradient[0] + "15", gradient[1] + "08"]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={achievementStyles.card}
+        >
+          <View style={achievementStyles.cardHeader}>
+            <LinearGradient
+              colors={gradient}
+              style={achievementStyles.iconContainer}
+            >
+              <Ionicons name={item.icon as any} size={24} color="#000" />
+            </LinearGradient>
+            <View style={achievementStyles.headerText}>
+              <ThemedText style={[achievementStyles.title, { color: gradient[0] }]}>
+                {item.title}
+              </ThemedText>
+              <ThemedText style={achievementStyles.date}>
+                {formatTimeAgo(item.date)}
+              </ThemedText>
+            </View>
+            {item.value ? (
+              <View style={[achievementStyles.valueBadge, { backgroundColor: gradient[0] }]}>
+                <ThemedText style={achievementStyles.valueText}>{item.value}</ThemedText>
+              </View>
+            ) : null}
+          </View>
+          
+          <ThemedText style={achievementStyles.description}>
+            {item.description}
+          </ThemedText>
+          
+          <Pressable
+            style={achievementStyles.shareButton}
+            onPress={() => handleShare(item)}
+          >
+            <LinearGradient
+              colors={gradient}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+              style={achievementStyles.shareGradient}
+            >
+              <Ionicons name="share-social" size={16} color="#000" />
+              <ThemedText style={achievementStyles.shareText}>Share to Story</ThemedText>
+            </LinearGradient>
+          </Pressable>
+        </LinearGradient>
+      </Animated.View>
+    );
+  };
+  
+  return (
+    <FlatList
+      data={achievements}
+      keyExtractor={(item) => item.id}
+      renderItem={renderAchievementCard}
+      contentContainerStyle={[
+        achievementStyles.list,
+        { paddingBottom: tabBarHeight + 80 + Spacing.xl }
+      ]}
+      refreshControl={
+        <RefreshControl
+          refreshing={isLoading}
+          onRefresh={refetch}
+          tintColor={Colors.dark.primary}
+        />
+      }
+      ListHeaderComponent={
+        <View style={achievementStyles.header}>
+          <LinearGradient
+            colors={["#C8FF3D", "#7CFC00"]}
+            style={achievementStyles.headerIconBg}
+          >
+            <Ionicons name="trophy" size={28} color="#000" />
+          </LinearGradient>
+          <ThemedText style={achievementStyles.headerTitle}>Your Achievements</ThemedText>
+          <ThemedText style={achievementStyles.headerSubtitle}>
+            Share your victories with friends
+          </ThemedText>
+        </View>
+      }
+      ListEmptyComponent={
+        <View style={achievementStyles.empty}>
+          <Ionicons name="trophy-outline" size={48} color={Colors.dark.textMuted} />
+          <ThemedText style={achievementStyles.emptyTitle}>No Achievements Yet</ThemedText>
+          <ThemedText style={achievementStyles.emptyText}>
+            Start playing matches to earn achievements!
+          </ThemedText>
+        </View>
+      }
+      showsVerticalScrollIndicator={false}
+    />
+  );
+}
+
+function NewsSection() {
+  const insets = useSafeAreaInsets();
+  const tabBarHeight = useBottomTabBarHeight();
+  
+  const { data: newsData, isLoading, refetch } = useQuery<{ news: NewsItem[] }>({
+    queryKey: ["/api/tennis/news"],
+  });
+  
+  const news = newsData?.news || [
+    { id: "1", title: "Djokovic Wins Australian Open 2026", summary: "Novak Djokovic claims his 26th Grand Slam title with a stunning victory...", source: "ATP Tour", imageUrl: undefined, url: "#", publishedAt: new Date().toISOString(), category: "atp" as const },
+    { id: "2", title: "Swiatek Dominates WTA Finals", summary: "World No. 1 Iga Swiatek secures another impressive title...", source: "WTA", imageUrl: undefined, url: "#", publishedAt: new Date(Date.now() - 3600000).toISOString(), category: "wta" as const },
+    { id: "3", title: "Rising Star Alcaraz Eyes Top Ranking", summary: "Carlos Alcaraz continues his incredible rise in professional tennis...", source: "Tennis World", imageUrl: undefined, url: "#", publishedAt: new Date(Date.now() - 7200000).toISOString(), category: "atp" as const },
+    { id: "4", title: "Dubai Tennis Championship Announces Lineup", summary: "Star-studded field confirmed for the upcoming Dubai Tennis Championship...", source: "Dubai Tennis", imageUrl: undefined, url: "#", publishedAt: new Date(Date.now() - 14400000).toISOString(), category: "general" as const },
+  ];
+  
+  const getCategoryColor = (category: string) => {
+    switch (category) {
+      case "atp": return "#00A8E8";
+      case "wta": return "#E040FB";
+      default: return Colors.dark.primary;
+    }
+  };
+  
+  const renderNewsCard = ({ item }: { item: NewsItem }) => (
+    <Animated.View entering={FadeInDown.delay(50)}>
+      <Pressable style={newsStyles.card}>
+        <View style={newsStyles.cardContent}>
+          <View style={newsStyles.categoryRow}>
+            <View style={[newsStyles.categoryBadge, { backgroundColor: getCategoryColor(item.category) + "20" }]}>
+              <ThemedText style={[newsStyles.categoryText, { color: getCategoryColor(item.category) }]}>
+                {item.category.toUpperCase()}
+              </ThemedText>
+            </View>
+            <ThemedText style={newsStyles.source}>{item.source}</ThemedText>
+          </View>
+          
+          <ThemedText style={newsStyles.title} numberOfLines={2}>
+            {item.title}
+          </ThemedText>
+          
+          <ThemedText style={newsStyles.summary} numberOfLines={2}>
+            {item.summary}
+          </ThemedText>
+          
+          <View style={newsStyles.footer}>
+            <ThemedText style={newsStyles.time}>
+              {formatTimeAgo(item.publishedAt)}
+            </ThemedText>
+            <View style={newsStyles.readMore}>
+              <ThemedText style={newsStyles.readMoreText}>Read More</ThemedText>
+              <Ionicons name="chevron-forward" size={14} color={Colors.dark.primary} />
+            </View>
+          </View>
+        </View>
+        
+        {item.imageUrl ? (
+          <Image source={{ uri: item.imageUrl }} style={newsStyles.image} contentFit="cover" />
+        ) : (
+          <LinearGradient
+            colors={[getCategoryColor(item.category), getCategoryColor(item.category) + "80"]}
+            style={newsStyles.imagePlaceholder}
+          >
+            <Ionicons name="tennisball" size={32} color="#FFF" />
+          </LinearGradient>
+        )}
+      </Pressable>
+    </Animated.View>
+  );
+  
+  return (
+    <FlatList
+      data={news}
+      keyExtractor={(item) => item.id}
+      renderItem={renderNewsCard}
+      contentContainerStyle={[
+        newsStyles.list,
+        { paddingBottom: tabBarHeight + 80 + Spacing.xl }
+      ]}
+      refreshControl={
+        <RefreshControl
+          refreshing={isLoading}
+          onRefresh={refetch}
+          tintColor={Colors.dark.primary}
+        />
+      }
+      ListHeaderComponent={
+        <View style={newsStyles.header}>
+          <View style={newsStyles.headerRow}>
+            <Ionicons name="newspaper" size={24} color={Colors.dark.primary} />
+            <ThemedText style={newsStyles.headerTitle}>Tennis News</ThemedText>
+          </View>
+          <ThemedText style={newsStyles.headerSubtitle}>
+            Latest from ATP, WTA & Tennis World
+          </ThemedText>
+        </View>
+      }
+      showsVerticalScrollIndicator={false}
+    />
+  );
 }
 
 function FriendsSection({ onChallenge }: { onChallenge?: (friend: Friend) => void }) {
@@ -1615,7 +1884,11 @@ export default function CommunityScreen() {
         <>
           <FeedFilterTabs active={filter} onChange={setFilter} />
           
-          {isLoading ? (
+          {filter === "for_you" ? (
+            <AchievementShowcase />
+          ) : filter === "news" ? (
+            <NewsSection />
+          ) : isLoading ? (
             <View style={styles.loadingContainer}>
               <ActivityIndicator size="large" color={Colors.dark.primary} />
             </View>
@@ -2937,5 +3210,218 @@ const styles = StyleSheet.create({
   },
   joinedBtnText: {
     color: Colors.dark.textSecondary,
+  },
+});
+
+const achievementStyles = StyleSheet.create({
+  list: {
+    padding: Spacing.md,
+    gap: Spacing.md,
+  },
+  header: {
+    alignItems: "center",
+    marginBottom: Spacing.lg,
+    paddingTop: Spacing.sm,
+  },
+  headerIconBg: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: Spacing.md,
+  },
+  headerTitle: {
+    fontSize: 22,
+    fontWeight: "700",
+    color: Colors.dark.text,
+    marginBottom: 4,
+  },
+  headerSubtitle: {
+    fontSize: 14,
+    color: Colors.dark.textSecondary,
+  },
+  cardContainer: {
+    marginBottom: Spacing.md,
+  },
+  card: {
+    borderRadius: BorderRadius.lg,
+    padding: Spacing.lg,
+    borderWidth: 1,
+    borderColor: Colors.dark.border,
+  },
+  cardHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: Spacing.md,
+  },
+  iconContainer: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  headerText: {
+    flex: 1,
+    marginLeft: Spacing.md,
+  },
+  title: {
+    fontSize: 18,
+    fontWeight: "700",
+  },
+  date: {
+    fontSize: 12,
+    color: Colors.dark.textMuted,
+    marginTop: 2,
+  },
+  valueBadge: {
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.xs,
+    borderRadius: BorderRadius.md,
+  },
+  valueText: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: "#000",
+  },
+  description: {
+    fontSize: 14,
+    color: Colors.dark.textSecondary,
+    marginBottom: Spacing.lg,
+    lineHeight: 20,
+  },
+  shareButton: {
+    borderRadius: BorderRadius.md,
+    overflow: "hidden",
+  },
+  shareGradient: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: Spacing.sm + 2,
+    gap: Spacing.sm,
+  },
+  shareText: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: "#000",
+  },
+  empty: {
+    alignItems: "center",
+    padding: Spacing.xl * 2,
+  },
+  emptyTitle: {
+    fontSize: 18,
+    fontWeight: "600",
+    color: Colors.dark.text,
+    marginTop: Spacing.md,
+    marginBottom: Spacing.sm,
+  },
+  emptyText: {
+    fontSize: 14,
+    color: Colors.dark.textSecondary,
+    textAlign: "center",
+  },
+});
+
+const newsStyles = StyleSheet.create({
+  list: {
+    padding: Spacing.md,
+    gap: Spacing.md,
+  },
+  header: {
+    marginBottom: Spacing.lg,
+    paddingTop: Spacing.sm,
+  },
+  headerRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+    marginBottom: 4,
+  },
+  headerTitle: {
+    fontSize: 22,
+    fontWeight: "700",
+    color: Colors.dark.text,
+  },
+  headerSubtitle: {
+    fontSize: 14,
+    color: Colors.dark.textSecondary,
+  },
+  card: {
+    flexDirection: "row",
+    backgroundColor: Colors.dark.backgroundSecondary,
+    borderRadius: BorderRadius.lg,
+    overflow: "hidden",
+    borderWidth: 1,
+    borderColor: Colors.dark.border,
+    marginBottom: Spacing.md,
+  },
+  cardContent: {
+    flex: 1,
+    padding: Spacing.md,
+  },
+  categoryRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+    marginBottom: Spacing.sm,
+  },
+  categoryBadge: {
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 2,
+    borderRadius: BorderRadius.sm,
+  },
+  categoryText: {
+    fontSize: 10,
+    fontWeight: "700",
+  },
+  source: {
+    fontSize: 11,
+    color: Colors.dark.textMuted,
+  },
+  title: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: Colors.dark.text,
+    marginBottom: Spacing.xs,
+    lineHeight: 22,
+  },
+  summary: {
+    fontSize: 13,
+    color: Colors.dark.textSecondary,
+    lineHeight: 18,
+    marginBottom: Spacing.sm,
+  },
+  footer: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  time: {
+    fontSize: 11,
+    color: Colors.dark.textMuted,
+  },
+  readMore: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 2,
+  },
+  readMoreText: {
+    fontSize: 12,
+    fontWeight: "500",
+    color: Colors.dark.primary,
+  },
+  image: {
+    width: 100,
+    height: "100%",
+    minHeight: 120,
+  },
+  imagePlaceholder: {
+    width: 100,
+    minHeight: 120,
+    alignItems: "center",
+    justifyContent: "center",
   },
 });
