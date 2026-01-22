@@ -179,7 +179,7 @@ export default function AvailabilityScreen() {
       const hydratedAvailability = WEEKDAYS.map((_, i) => {
         const dayData = (availabilityData as any[]).find((d: any) => d.weekday === i);
         if (dayData) {
-          const isAvailable = dayData.isAvailable === true;
+          const isAvailable = dayData.isActive === true || dayData.isAvailable === true;
           let timeBlocks: TimeBlock[] = [];
           if (dayData.timeBlocks && Array.isArray(dayData.timeBlocks) && dayData.timeBlocks.length > 0) {
             timeBlocks = dayData.timeBlocks;
