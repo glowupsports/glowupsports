@@ -18,7 +18,7 @@ import { LinearGradient } from "expo-linear-gradient";
 import * as Haptics from "expo-haptics";
 import Animated, { FadeInDown, FadeIn } from "react-native-reanimated";
 import { Colors, Spacing, FontSizes, BorderRadius } from "@/constants/theme";
-import { apiRequest, getApiUrl } from "@/lib/query-client";
+import { apiRequest } from "@/lib/query-client";
 
 const ProTennisColors = {
   midnightBlue: "#0B0D10",
@@ -132,18 +132,15 @@ export default function BookingPreferencesScreen() {
         return { start: tw?.start || "06:00", end: tw?.end || "12:00" };
       });
 
-      return apiRequest(`${getApiUrl()}/api/player/booking-preferences`, {
-        method: "PUT",
-        body: JSON.stringify({
-          preferredDays: selectedDays,
-          preferredTimeWindows: timeWindows,
-          preferredSurfaces: selectedSurfaces,
-          preferredMatchType,
-          autoAcceptFriendInvites: autoAcceptInvites,
-          openToOpenMatches: openToMatches,
-          notifyOnOpenMatches: notifyOpenMatches,
-          notifyOnFriendBookings: notifyFriendBookings,
-        }),
+      return apiRequest("PUT", "/api/player/booking-preferences", {
+        preferredDays: selectedDays,
+        preferredTimeWindows: timeWindows,
+        preferredSurfaces: selectedSurfaces,
+        preferredMatchType,
+        autoAcceptFriendInvites: autoAcceptInvites,
+        openToOpenMatches: openToMatches,
+        notifyOnOpenMatches: notifyOpenMatches,
+        notifyOnFriendBookings: notifyFriendBookings,
       });
     },
     onSuccess: () => {

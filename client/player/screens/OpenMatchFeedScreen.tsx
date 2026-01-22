@@ -47,6 +47,8 @@ interface OpenMatch {
   requiredLevelMin: number;
   requiredLevelMax: number;
   requiredBallLevel: string | null;
+  ballLevel?: string;
+  skillLevel?: number;
   maxPlayers: number;
   currentPlayers: number;
   status: string;
@@ -64,6 +66,7 @@ interface OpenMatch {
     photoUrl?: string;
     level?: number;
     ballLevel?: string;
+    skillLevel?: number;
     winRate?: number;
   };
   players?: Array<{
@@ -284,19 +287,12 @@ function PremiumMatchCard({
           <View style={styles.hostInfo}>
             <Text style={styles.hostName}>{match.host?.name || "Anonymous Host"}</Text>
             <View style={styles.hostMeta}>
-              {match.host?.ballLevel ? (
-                <View style={[styles.hostLevelBadge, { backgroundColor: getBallLevelColor(match.host.ballLevel) + "20", borderColor: getBallLevelColor(match.host.ballLevel) }]}>
-                  <View style={[styles.ballLevelDot, { backgroundColor: getBallLevelColor(match.host.ballLevel) }]} />
-                  <Text style={[styles.hostLevelText, { color: getBallLevelColor(match.host.ballLevel) }]}>
-                    {match.host.ballLevel.toUpperCase()} {match.host.level || ""} {getSkillSublevelLabel(match.host.level)}
-                  </Text>
-                </View>
-              ) : match.host?.level ? (
-                <View style={styles.hostLevelBadge}>
-                  <Ionicons name="star" size={10} color={Colors.dark.gold} />
-                  <Text style={styles.hostLevelText}>Lvl {match.host.level}</Text>
-                </View>
-              ) : null}
+              <View style={[styles.hostLevelBadge, { backgroundColor: getBallLevelColor(match.host?.ballLevel || match.ballLevel || "glow") + "20", borderColor: getBallLevelColor(match.host?.ballLevel || match.ballLevel || "glow") }]}>
+                <View style={[styles.ballLevelDot, { backgroundColor: getBallLevelColor(match.host?.ballLevel || match.ballLevel || "glow") }]} />
+                <Text style={[styles.hostLevelText, { color: getBallLevelColor(match.host?.ballLevel || match.ballLevel || "glow") }]}>
+                  {(match.host?.ballLevel || match.ballLevel || "GLOW").toUpperCase()} {match.skillLevel || match.host?.skillLevel || ""} {getSkillSublevelLabel(match.skillLevel || match.host?.skillLevel)}
+                </Text>
+              </View>
               {match.host?.winRate ? (
                 <Text style={styles.hostWinRate}>{match.host.winRate}% WR</Text>
               ) : null}
@@ -331,21 +327,12 @@ function PremiumMatchCard({
             </View>
           ) : null}
 
-          <View style={styles.detailItem}>
-            <Ionicons name="fitness" size={14} color={Colors.dark.gold} />
-            <Text style={styles.detailText}>
-              Level {match.requiredLevelMin}-{match.requiredLevelMax}
+          <View style={[styles.ballLevelBadge, { backgroundColor: getBallLevelColor(match.ballLevel || "glow") + "30" }]}>
+            <View style={[styles.ballDot, { backgroundColor: getBallLevelColor(match.ballLevel || "glow") }]} />
+            <Text style={[styles.ballLevelText, { color: getBallLevelColor(match.ballLevel || "glow") }]}>
+              {(match.ballLevel || "GLOW").toUpperCase()} {match.skillLevel || ""} {getSkillSublevelLabel(match.skillLevel)}
             </Text>
           </View>
-
-          {match.requiredBallLevel ? (
-            <View style={[styles.ballLevelBadge, { backgroundColor: getBallLevelColor(match.requiredBallLevel) + "30" }]}>
-              <View style={[styles.ballDot, { backgroundColor: getBallLevelColor(match.requiredBallLevel) }]} />
-              <Text style={[styles.ballLevelText, { color: getBallLevelColor(match.requiredBallLevel) }]}>
-                {match.requiredBallLevel}
-              </Text>
-            </View>
-          ) : null}
         </View>
 
         <View style={styles.cardDivider} />
