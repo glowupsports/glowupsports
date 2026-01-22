@@ -220,7 +220,7 @@ function PremiumMatchCard({
   const getBallLevelColor = (level?: string) => {
     const colors: Record<string, string> = {
       blue: "#3B82F6", red: "#EF4444", orange: "#F97316",
-      green: "#22C55E", yellow: "#EAB308", glow: Colors.dark.primary,
+      green: "#22C55E", yellow: "#EAB308", glow: "#E040FB",
     };
     return colors[level?.toLowerCase() || ""] || Colors.dark.textSecondary;
   };

@@ -96,6 +96,8 @@ export type PlayStackParamList = {
   Play: undefined;
   OpenMatches: undefined;
   CreateMatch: undefined;
+  BookingInvites: undefined;
+  BookingPreferences: undefined;
 };
 
 export type PlayerStackParamList = {
@@ -179,6 +181,28 @@ function PlayStackNavigator() {
         options={{
           headerShown: true,
           headerTitle: "Find a Match",
+          headerStyle: { backgroundColor: '#090E17' },
+          headerTintColor: '#CCFF00',
+          headerTitleStyle: { color: '#ffffff', fontWeight: '600' },
+        }}
+      />
+      <PlayStack.Screen 
+        name="BookingInvites" 
+        component={BookingInvitesScreen}
+        options={{
+          headerShown: true,
+          headerTitle: "Invites",
+          headerStyle: { backgroundColor: '#090E17' },
+          headerTintColor: '#E040FB',
+          headerTitleStyle: { color: '#ffffff', fontWeight: '600' },
+        }}
+      />
+      <PlayStack.Screen 
+        name="BookingPreferences" 
+        component={BookingPreferencesScreen}
+        options={{
+          headerShown: true,
+          headerTitle: "Preferences",
           headerStyle: { backgroundColor: '#090E17' },
           headerTintColor: '#CCFF00',
           headerTitleStyle: { color: '#ffffff', fontWeight: '600' },

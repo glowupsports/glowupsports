@@ -150,10 +150,7 @@ export default function BookingInvitesScreen() {
   const respondMutation = useMutation({
     mutationFn: async ({ inviteId, action }: { inviteId: string; action: "accept" | "decline" }) => {
       setRespondingId(inviteId);
-      return apiRequest(`${getApiUrl()}/api/player/booking-invites/${inviteId}/respond`, {
-        method: "POST",
-        body: JSON.stringify({ action }),
-      });
+      return apiRequest("POST", `/api/player/booking-invites/${inviteId}/respond`, { action });
     },
     onSuccess: (_, { action }) => {
       Haptics.notificationAsync(
@@ -189,11 +186,23 @@ export default function BookingInvitesScreen() {
         </View>
       ) : !invites || invites.length === 0 ? (
         <View style={styles.empty}>
-          <Ionicons name="mail-open-outline" size={64} color={Colors.dark.textMuted} />
-          <Text style={styles.emptyTitle}>No invites yet</Text>
+          <LinearGradient
+            colors={["#E040FB20", "#E040FB05"]}
+            style={styles.emptyGlowCircle}
+          >
+            <View style={styles.emptyIconContainer}>
+              <Ionicons name="mail-unread" size={48} color="#E040FB" />
+              <View style={styles.emptyPulse} />
+            </View>
+          </LinearGradient>
+          <Text style={styles.emptyTitle}>Inbox Clear</Text>
           <Text style={styles.emptyText}>
-            When friends invite you to play, you'll see their invites here
+            When players invite you to matches or court bookings, they'll appear here
           </Text>
+          <View style={styles.emptyHint}>
+            <Ionicons name="sparkles" size={14} color={Colors.dark.gold} />
+            <Text style={styles.emptyHintText}>Tip: Find a Match to play with others!</Text>
+          </View>
         </View>
       ) : (
         <FlatList
@@ -307,6 +316,50 @@ const styles = StyleSheet.create({
     fontSize: FontSizes.md,
     color: Colors.dark.textMuted,
     textAlign: "center",
+  },
+  emptyGlowCircle: {
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: Spacing.md,
+    borderWidth: 2,
+    borderColor: "#E040FB40",
+  },
+  emptyIconContainer: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: "#E040FB15",
+    alignItems: "center",
+    justifyContent: "center",
+    position: "relative",
+  },
+  emptyPulse: {
+    position: "absolute",
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    borderWidth: 2,
+    borderColor: "#E040FB30",
+  },
+  emptyHint: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.xs,
+    marginTop: Spacing.lg,
+    paddingVertical: Spacing.sm,
+    paddingHorizontal: Spacing.md,
+    backgroundColor: Colors.dark.gold + "15",
+    borderRadius: BorderRadius.full,
+    borderWidth: 1,
+    borderColor: Colors.dark.gold + "30",
+  },
+  emptyHintText: {
+    fontSize: FontSizes.sm,
+    color: Colors.dark.gold,
+    fontWeight: "500",
   },
   list: {
     paddingHorizontal: Spacing.md,
