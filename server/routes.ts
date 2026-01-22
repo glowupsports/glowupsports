@@ -26124,12 +26124,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Update match count
       await db
         .update(openMatches)
-        .set({ 
-          currentPlayers: sql`current_players - 1`,
-          invitedPlayerId: invitedPlayerId || null,
-        status: invitedPlayerId ? "pending_invite" : "open",
-        matchIntent: matchIntent || "friendly",
-        })
+        .set({ currentPlayers: sql`current_players - 1` })
         .where(eq(openMatches.id, matchId));
 
       res.json({ success: true, message: "Left match" });
@@ -26139,6 +26134,81 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+
+  // Invite friend to open match
+  app.post("/api/open-matches/:matchId/invite", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const hostPlayerId = req.user?.playerId;
+      const { matchId } = req.params;
+      const { playerId } = req.body;
+
+      if (!hostPlayerId) {
+        return res.status(401).json({ error: "Player profile required" });
+      }
+
+      if (!playerId) {
+        return res.status(400).json({ error: "Player ID required" });
+      }
+
+      // Verify host owns this match
+      const [match] = await db
+        .select()
+        .from(openMatches)
+        .where(eq(openMatches.id, matchId));
+
+      if (!match) {
+        return res.status(404).json({ error: "Match not found" });
+      }
+
+      if (match.hostPlayerId !== hostPlayerId) {
+        return res.status(403).json({ error: "Only the host can invite players" });
+      }
+
+      if (match.currentPlayers >= match.maxPlayers) {
+        return res.status(400).json({ error: "Match is already full" });
+      }
+
+      // Check if player is already in the match
+      const [existingSlot] = await db
+        .select()
+        .from(openMatchSlots)
+        .where(and(
+          eq(openMatchSlots.matchId, matchId),
+          eq(openMatchSlots.playerId, playerId),
+          eq(openMatchSlots.status, "confirmed")
+        ));
+
+      if (existingSlot) {
+        return res.status(400).json({ error: "Player is already in this match" });
+      }
+
+      // Get invited player info
+      const invitedPlayer = await storage.getPlayer(playerId);
+      if (!invitedPlayer) {
+        return res.status(404).json({ error: "Player not found" });
+      }
+
+      // Get host player info
+      const hostPlayer = await storage.getPlayer(hostPlayerId);
+
+      // Create a notification for the invited player
+      await db.insert(notifications).values({
+        id: crypto.randomUUID(),
+        userId: playerId,
+        type: "match_invite",
+        title: "Match Invitation",
+        message: `${hostPlayer?.name || "A player"} invited you to join their ${match.matchType} match`,
+        data: { matchId, hostPlayerId, matchType: match.matchType },
+        read: false,
+        createdAt: new Date(),
+      });
+
+      res.json({ success: true, message: "Invite sent successfully" });
+    } catch (error) {
+      console.error("Invite to open match error:", error);
+      res.status(500).json({ error: "Failed to send invite" });
+    }
+  });
 
   // ==================== MATCH REQUESTS (Tinder-style Match Finding) ====================
 

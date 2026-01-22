@@ -7,6 +7,8 @@ import {
   Pressable,
   ActivityIndicator,
   Alert,
+  Modal,
+  FlatList,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -57,6 +59,14 @@ interface OpenMatch {
   }>;
 }
 
+interface Friend {
+  id: string;
+  name: string;
+  profilePhotoUrl?: string;
+  level?: number;
+  ballLevel?: string;
+}
+
 export default function ManageMatchScreen() {
   const { user } = useAuth();
   const navigation = useNavigation<any>();
@@ -64,10 +74,16 @@ export default function ManageMatchScreen() {
   const insets = useSafeAreaInsets();
   const queryClient = useQueryClient();
   const { matchId } = route.params || {};
+  const [showInviteModal, setShowInviteModal] = useState(false);
+  const [invitingFriendId, setInvitingFriendId] = useState<string | null>(null);
 
   const { data: match, isLoading } = useQuery<OpenMatch>({
     queryKey: [`/api/open-matches/${matchId}`],
     enabled: !!matchId,
+  });
+
+  const { data: friends = [] } = useQuery<Friend[]>({
+    queryKey: ["/api/player/me/friends"],
   });
 
   const cancelMutation = useMutation({
@@ -86,6 +102,34 @@ export default function ManageMatchScreen() {
       Alert.alert("Error", error.message || "Failed to cancel match");
     },
   });
+
+  const inviteMutation = useMutation({
+    mutationFn: async (friendId: string) => {
+      return apiRequest("POST", `/api/open-matches/${matchId}/invite`, { playerId: friendId });
+    },
+    onSuccess: () => {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      queryClient.invalidateQueries({ queryKey: [`/api/open-matches/${matchId}`] });
+      setShowInviteModal(false);
+      setInvitingFriendId(null);
+      Alert.alert("Invite Sent!", "Your friend will be notified about this match.");
+    },
+    onError: (error: any) => {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      setInvitingFriendId(null);
+      Alert.alert("Error", error.message || "Failed to send invite");
+    },
+  });
+
+  const handleInviteFriend = (friendId: string) => {
+    setInvitingFriendId(friendId);
+    inviteMutation.mutate(friendId);
+  };
+
+  const getAvailableFriends = () => {
+    const playerIds = match?.players?.map(p => p.id) || [];
+    return friends.filter(f => !playerIds.includes(f.id) && f.id !== match?.hostPlayerId);
+  };
 
   const handleCancelMatch = () => {
     Alert.alert(
@@ -247,12 +291,16 @@ export default function ManageMatchScreen() {
             )}
 
             {Array.from({ length: slotsLeft }).map((_, i) => (
-              <View key={`empty-${i}`} style={[styles.playerCard, styles.emptySlot]}>
+              <Pressable 
+                key={`empty-${i}`} 
+                style={[styles.playerCard, styles.emptySlot]}
+                onPress={() => setShowInviteModal(true)}
+              >
                 <View style={[styles.playerAvatar, styles.emptyAvatar]}>
-                  <Ionicons name="add" size={20} color={Colors.dark.textMuted} />
+                  <Ionicons name="add" size={20} color={Colors.dark.primary} />
                 </View>
-                <Text style={styles.emptySlotText}>Open Spot</Text>
-              </View>
+                <Text style={styles.emptySlotText}>Invite Friend</Text>
+              </Pressable>
             ))}
           </View>
         </View>
@@ -281,6 +329,73 @@ export default function ManageMatchScreen() {
           )}
         </Pressable>
       </View>
+
+      <Modal
+        visible={showInviteModal}
+        animationType="slide"
+        transparent={true}
+        onRequestClose={() => setShowInviteModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalContent, { paddingBottom: insets.bottom + Spacing.lg }]}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Invite a Friend</Text>
+              <Pressable onPress={() => setShowInviteModal(false)} style={styles.modalClose}>
+                <Ionicons name="close" size={24} color={Colors.dark.text} />
+              </Pressable>
+            </View>
+
+            {getAvailableFriends().length === 0 ? (
+              <View style={styles.noFriendsContainer}>
+                <Ionicons name="people-outline" size={48} color={Colors.dark.textMuted} />
+                <Text style={styles.noFriendsText}>No friends available to invite</Text>
+                <Text style={styles.noFriendsSubtext}>Add friends from the Social tab to invite them to matches</Text>
+              </View>
+            ) : (
+              <FlatList
+                data={getAvailableFriends()}
+                keyExtractor={(item) => item.id}
+                renderItem={({ item }) => (
+                  <Pressable 
+                    style={styles.friendItem}
+                    onPress={() => handleInviteFriend(item.id)}
+                    disabled={inviteMutation.isPending}
+                  >
+                    <View style={styles.friendAvatar}>
+                      {item.profilePhotoUrl ? (
+                        <Image 
+                          source={{ uri: `${getStaticAssetsUrl()}${item.profilePhotoUrl}` }} 
+                          style={styles.friendImage}
+                          contentFit="cover"
+                        />
+                      ) : (
+                        <Text style={styles.friendInitial}>{item.name.charAt(0)}</Text>
+                      )}
+                    </View>
+                    <View style={styles.friendInfo}>
+                      <Text style={styles.friendName}>{item.name}</Text>
+                      {item.ballLevel && (
+                        <Text style={[styles.friendLevel, { color: getBallLevelColor(item.ballLevel) }]}>
+                          {item.ballLevel.toUpperCase()} Level
+                        </Text>
+                      )}
+                    </View>
+                    {invitingFriendId === item.id ? (
+                      <ActivityIndicator color={Colors.dark.primary} size="small" />
+                    ) : (
+                      <View style={styles.inviteButton}>
+                        <Ionicons name="paper-plane" size={16} color={Colors.dark.backgroundRoot} />
+                        <Text style={styles.inviteButtonText}>Invite</Text>
+                      </View>
+                    )}
+                  </Pressable>
+                )}
+                contentContainerStyle={styles.friendsList}
+              />
+            )}
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -499,5 +614,108 @@ const styles = StyleSheet.create({
     color: Colors.dark.error,
     fontSize: FontSizes.md,
     fontWeight: "600",
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.7)",
+    justifyContent: "flex-end",
+  },
+  modalContent: {
+    backgroundColor: Colors.dark.surfaceElevated,
+    borderTopLeftRadius: BorderRadius.xl,
+    borderTopRightRadius: BorderRadius.xl,
+    maxHeight: "70%",
+    paddingTop: Spacing.lg,
+  },
+  modalHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: Spacing.lg,
+    marginBottom: Spacing.lg,
+  },
+  modalTitle: {
+    color: Colors.dark.text,
+    fontSize: FontSizes.xl,
+    fontWeight: "700",
+  },
+  modalClose: {
+    padding: Spacing.xs,
+  },
+  friendsList: {
+    paddingHorizontal: Spacing.lg,
+    gap: Spacing.sm,
+  },
+  friendItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.md,
+    padding: Spacing.md,
+    backgroundColor: Colors.dark.surface,
+    borderRadius: BorderRadius.lg,
+    marginBottom: Spacing.sm,
+  },
+  friendAvatar: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: Colors.dark.primary + "20",
+    alignItems: "center",
+    justifyContent: "center",
+    overflow: "hidden",
+  },
+  friendImage: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+  },
+  friendInitial: {
+    color: Colors.dark.primary,
+    fontSize: FontSizes.lg,
+    fontWeight: "600",
+  },
+  friendInfo: {
+    flex: 1,
+    gap: 2,
+  },
+  friendName: {
+    color: Colors.dark.text,
+    fontSize: FontSizes.md,
+    fontWeight: "600",
+  },
+  friendLevel: {
+    fontSize: FontSizes.sm,
+  },
+  inviteButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    backgroundColor: Colors.dark.primary,
+    paddingVertical: 8,
+    paddingHorizontal: 14,
+    borderRadius: BorderRadius.lg,
+  },
+  inviteButtonText: {
+    color: Colors.dark.backgroundRoot,
+    fontSize: FontSizes.sm,
+    fontWeight: "600",
+  },
+  noFriendsContainer: {
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: Spacing.xxl,
+    paddingHorizontal: Spacing.lg,
+    gap: Spacing.md,
+  },
+  noFriendsText: {
+    color: Colors.dark.text,
+    fontSize: FontSizes.lg,
+    fontWeight: "600",
+    textAlign: "center",
+  },
+  noFriendsSubtext: {
+    color: Colors.dark.textMuted,
+    fontSize: FontSizes.sm,
+    textAlign: "center",
   },
 });
