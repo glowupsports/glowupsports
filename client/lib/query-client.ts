@@ -148,11 +148,19 @@ export const queryClient = new QueryClient({
       queryFn: getQueryFn({ on401: "throw" }),
       refetchInterval: false,
       refetchOnWindowFocus: false,
-      staleTime: Infinity,
+      staleTime: 1000 * 60 * 5,
+      gcTime: 1000 * 60 * 30,
       retry: false,
+      networkMode: "offlineFirst",
     },
     mutations: {
       retry: false,
     },
   },
 });
+
+export function prefetchQueries(queries: string[]) {
+  queries.forEach((queryKey) => {
+    queryClient.prefetchQuery({ queryKey: [queryKey] });
+  });
+}
