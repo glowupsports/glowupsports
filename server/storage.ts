@@ -6002,13 +6002,64 @@ export const storage = {
           }
           
           if (!packageToUse) {
-            // No package found - create a DEBT transaction (negative balance)
+            // No matching package found - create or update a DEBT PACKAGE
             // This allows players to attend without credits and tracks what they owe
             try {
+              // Check if a debt package already exists for this player and credit type
+              const existingDebtPackage = await tx.execute(sql`
+                SELECT id, remaining_credits FROM packages 
+                WHERE player_id = ${playerId} 
+                  AND credit_type = ${requiredCreditType}
+                  AND name LIKE 'Debt Package%'
+                FOR UPDATE
+                LIMIT 1
+              `);
+              
+              let debtPackageId: string;
+              let balanceBefore: number;
+              let balanceAfter: number;
+              
+              if (existingDebtPackage.rows[0]) {
+                // Update existing debt package - decrease remaining_credits further
+                const existingPkg = existingDebtPackage.rows[0] as any;
+                debtPackageId = existingPkg.id;
+                balanceBefore = existingPkg.remaining_credits;
+                balanceAfter = balanceBefore - 1;
+                
+                await tx.execute(sql`
+                  UPDATE packages 
+                  SET remaining_credits = ${balanceAfter}
+                  WHERE id = ${debtPackageId}
+                `);
+                console.log(`[Credits] Player ${playerId}: Updated debt package ${debtPackageId}, now ${balanceAfter} ${requiredCreditType} credits`);
+              } else {
+                // Create new debt package with -1 credits
+                const newPackageResult = await tx.execute(sql`
+                  INSERT INTO packages (id, player_id, academy_id, name, credit_type, total_credits, remaining_credits, status, created_at)
+                  VALUES (
+                    gen_random_uuid()::text, 
+                    ${playerId}, 
+                    ${academyId}, 
+                    ${'Debt Package - ' + requiredCreditType.charAt(0).toUpperCase() + requiredCreditType.slice(1).replace('_', ' ')}, 
+                    ${requiredCreditType}, 
+                    0, 
+                    -1, 
+                    'active', 
+                    NOW()
+                  )
+                  RETURNING id
+                `);
+                debtPackageId = (newPackageResult.rows[0] as any).id;
+                balanceBefore = 0;
+                balanceAfter = -1;
+                console.log(`[Credits] Player ${playerId}: Created new debt package ${debtPackageId} for ${requiredCreditType}`);
+              }
+              
+              // Create the debt transaction linked to the debt package
               const debtResult = await tx.execute(sql`
                 INSERT INTO credit_transactions (player_id, academy_id, session_id, package_id, type, credit_type, amount, reason, balance_before, balance_after, metadata)
-                VALUES (${playerId}, ${academyId}, ${sessionId}, NULL, 'debit', ${requiredCreditType}, -1, 'session_join_debt', 0, -1, 
-                       ${JSON.stringify({ seriesId, description: `Debt: ${requiredCreditType} credit owed (no package)`, isDebt: true, actualCreditType: requiredCreditType })}::jsonb)
+                VALUES (${playerId}, ${academyId}, ${sessionId}, ${debtPackageId}, 'debit', ${requiredCreditType}, -1, 'session_join_debt', ${balanceBefore}, ${balanceAfter}, 
+                       ${JSON.stringify({ seriesId, description: `Debt: ${requiredCreditType} credit owed`, isDebt: true, actualCreditType: requiredCreditType })}::jsonb)
                 ON CONFLICT DO NOTHING
                 RETURNING id
               `);
@@ -6017,14 +6068,13 @@ export const storage = {
                 results.skipped++;
               } else {
                 results.consumed++;
-                console.log(`[Credits] Player ${playerId}: Created debt transaction for ${requiredCreditType} credit`);
               }
             } catch (debtError: any) {
               if (debtError.code === '23505') {
                 results.skipped++;
               } else {
-                console.error(`[Credits] Debt transaction error for player ${playerId}:`, debtError);
-                results.errors.push(`Debt transaction failed for player ${playerId}`);
+                console.error(`[Credits] Debt package error for player ${playerId}:`, debtError);
+                results.errors.push(`Debt package failed for player ${playerId}`);
               }
             }
             return;
