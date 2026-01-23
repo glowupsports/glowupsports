@@ -270,6 +270,8 @@ import {
   creditTransactions,
   type CreditTransaction,
   type InsertCreditTransaction,
+  // In-Session Feedback
+  inSessionFeedback,
   // Player Baselines
   playerBaselines,
   playerPillarProgress,
@@ -6286,10 +6288,10 @@ export const storage = {
     // Get recent feedback count (last 30 days)
     const thirtyDaysAgo = new Date();
     thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-    const recentFeedback = await db.select({ count: sql<number>`count(*)` }).from(playerFeedback)
+    const recentFeedback = await db.select({ count: sql<number>`count(*)` }).from(inSessionFeedback)
       .where(and(
-        eq(playerFeedback.playerId, playerId),
-        gte(playerFeedback.feedbackDate, thirtyDaysAgo)
+        eq(inSessionFeedback.playerId, playerId),
+        gte(inSessionFeedback.createdAt, thirtyDaysAgo)
       ));
     
     const pillars = PILLAR_NAMES.map(pillarName => {
