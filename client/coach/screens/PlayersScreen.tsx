@@ -32,7 +32,7 @@ import Animated, {
   interpolate,
 } from "react-native-reanimated";
 import { Colors, Spacing, BorderRadius, Typography, FontSizes, getPlayerLevelColor, Backgrounds, GlowColors } from "@/constants/theme";
-import { apiRequest, getStaticAssetsUrl, getApiUrl } from "@/lib/query-client";
+import { apiRequest, getStaticAssetsUrl, getApiUrl, getAuthHeaders } from "@/lib/query-client";
 import { useCoach } from "@/coach/context/CoachContext";
 import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollViewCompat";
 import PackagesCard from "@/coach/components/PackagesCard";
@@ -876,6 +876,7 @@ function PlayerDetailView({
       
       const response = await fetch(new URL(`/api/players/${player.id}/progress-report`, getApiUrl()).toString(), {
         credentials: "include",
+        headers: getAuthHeaders(),
       });
       
       if (!response.ok) {
@@ -921,6 +922,7 @@ function PlayerDetailView({
       
       const response = await fetch(new URL(`/api/players/${player.id}/attendance-report`, getApiUrl()).toString(), {
         credentials: "include",
+        headers: getAuthHeaders(),
       });
       
       if (!response.ok) {
