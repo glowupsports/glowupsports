@@ -9940,8 +9940,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Get player feedback for these sessions
       const playerFeedbackList = await db
         .select()
-        .from(playerFeedback)
-        .where(inArray(playerFeedback.sessionId, sessionIds));
+        .from(inSessionFeedback)
+        .where(inArray(inSessionFeedback.sessionId, sessionIds));
       
       // Calculate summary stats
       const intensityCounts: Record<string, number> = {};

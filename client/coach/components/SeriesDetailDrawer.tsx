@@ -914,26 +914,28 @@ export default function SeriesDetailDrawer({
 
   const handleSaveAttendance = async () => {
     if (!selectedSession) return;
-    setSavingAttendance(true);
+    const sessionId = selectedSession.id;
+    const attendance = Object.entries(sessionAttendance).map(([playerId, status]) => ({
+      playerId,
+      status,
+    }));
+    
+    // Instant UI feedback - close modal immediately
+    setShowAttendanceModal(false);
+    setSelectedSession(null);
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    
+    // API call runs in background
     try {
-      const attendance = Object.entries(sessionAttendance).map(([playerId, status]) => ({
-        playerId,
-        status,
-      }));
-      
-      await apiRequest("POST", `/api/coach/sessions/${selectedSession.id}/attendance`, {
+      await apiRequest("POST", `/api/coach/sessions/${sessionId}/attendance`, {
         attendance,
         markCompleted: true,
       });
-      
       queryClient.invalidateQueries({ queryKey: [`/api/coach/series/${seriesId}`] });
-      setShowAttendanceModal(false);
-      setSelectedSession(null);
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     } catch (error) {
       console.error("Error saving attendance:", error);
-    } finally {
-      setSavingAttendance(false);
+      Alert.alert("Error", "Failed to save attendance. Please try again.");
+      queryClient.invalidateQueries({ queryKey: [`/api/coach/series/${seriesId}`] });
     }
   };
 
