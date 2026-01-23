@@ -9,6 +9,7 @@ import {
   ActivityIndicator,
   TextInput,
   Platform,
+  Alert,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
@@ -17,7 +18,7 @@ import * as Haptics from "expo-haptics";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import { Colors, Spacing, BorderRadius, Typography, Backgrounds, GlowColors } from "@/constants/theme";
-import { apiRequest } from "@/lib/query-client";
+import { apiRequest, getApiUrl } from "@/lib/query-client";
 import { convertUTCTimeToLocal } from "@/lib/dateUtils";
 import { useCoach } from "@/coach/context/CoachContext";
 import { WebCalendarPicker } from "@/components/WebCalendarPicker";
@@ -1045,9 +1046,9 @@ export default function SeriesDetailDrawer({
       
       queryClient.invalidateQueries({ queryKey: ["/api/coach/series"] });
       queryClient.invalidateQueries({ queryKey: [`/api/coach/series/${seriesId}`] });
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error extending series:", error);
-      const msg = error.message || "Failed to extend series";
+      const msg = error?.message || "Failed to extend series";
       if (Platform.OS === "web" && typeof window !== "undefined") {
         window.alert(msg);
       } else {
