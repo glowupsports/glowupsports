@@ -7416,13 +7416,193 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Generate attendance report PDF for a player
-  app.get("/api/players/:id/attendance-report", authMiddleware, requireAcademy, async (req: AuthenticatedRequest, res: Response) => {
+  app.get("/api/players/:id/attendance-report", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
     try {
       const { id } = req.params;
-      const academyId = req.user!.academyId;
+      const academyId = req.user?.academyId;
+      const coachId = req.user?.coachId;
+      const userRole = req.user?.role;
       
-      const { valid } = await validatePlayerOwnership(id, academyId, storage);
-      if (!valid) {
+      // Get the player first
+      const player = await storage.getPlayer(id);
+      if (!player) {
+        return res.status(404).json({ error: "Player not found" });
+      }
+      
+      // Allow access if user is from same academy, assigned coach, or platform owner
+      const isFromSameAcademy = academyId && player.academyId === academyId;
+      const isAssignedCoach = coachId && player.coachId === coachId;
+      const isPlatformOwner = userRole === "platform_owner";
+      
+      if (!isFromSameAcademy && !isAssignedCoach && !isPlatformOwner) {
+        return res.status(404).json({ error: "Player not found" });
+      }
+  app.get("/api/players/:id/attendance-report", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const { id } = req.params;
+      const academyId = req.user?.academyId;
+      const coachId = req.user?.coachId;
+      const userRole = req.user?.role;
+      
+      // Get the player first
+      const player = await storage.getPlayer(id);
+      if (!player) {
+        return res.status(404).json({ error: "Player not found" });
+      }
+      
+      // Allow access if user is from same academy, assigned coach, or platform owner
+      const isFromSameAcademy = academyId && player.academyId === academyId;
+      const isAssignedCoach = coachId && player.coachId === coachId;
+      const isPlatformOwner = userRole === "platform_owner";
+      
+      if (!isFromSameAcademy && !isAssignedCoach && !isPlatformOwner) {
+        return res.status(404).json({ error: "Player not found" });
+      }
+  app.get("/api/players/:id/attendance-report", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const { id } = req.params;
+      const academyId = req.user?.academyId;
+      const coachId = req.user?.coachId;
+      const userRole = req.user?.role;
+      
+      // Get the player first
+      const player = await storage.getPlayer(id);
+      if (!player) {
+        return res.status(404).json({ error: "Player not found" });
+      }
+      
+      // Allow access if user is from same academy, assigned coach, or platform owner
+      const isFromSameAcademy = academyId && player.academyId === academyId;
+      const isAssignedCoach = coachId && player.coachId === coachId;
+      const isPlatformOwner = userRole === "platform_owner";
+      
+      if (!isFromSameAcademy && !isAssignedCoach && !isPlatformOwner) {
+        return res.status(404).json({ error: "Player not found" });
+      }
+  app.get("/api/players/:id/attendance-report", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const { id } = req.params;
+      const academyId = req.user?.academyId;
+      const coachId = req.user?.coachId;
+      const userRole = req.user?.role;
+      
+      // Get the player first
+      const player = await storage.getPlayer(id);
+      if (!player) {
+        return res.status(404).json({ error: "Player not found" });
+      }
+      
+      // Allow access if user is from same academy, assigned coach, or platform owner
+      const isFromSameAcademy = academyId && player.academyId === academyId;
+      const isAssignedCoach = coachId && player.coachId === coachId;
+      const isPlatformOwner = userRole === "platform_owner";
+      
+      if (!isFromSameAcademy && !isAssignedCoach && !isPlatformOwner) {
+        return res.status(404).json({ error: "Player not found" });
+      }
+  app.get("/api/players/:id/attendance-report", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const { id } = req.params;
+      const academyId = req.user?.academyId;
+      const coachId = req.user?.coachId;
+      const userRole = req.user?.role;
+      
+      // Get the player first
+      const player = await storage.getPlayer(id);
+      if (!player) {
+        return res.status(404).json({ error: "Player not found" });
+      }
+      
+      // Allow access if user is from same academy, assigned coach, or platform owner
+      const isFromSameAcademy = academyId && player.academyId === academyId;
+      const isAssignedCoach = coachId && player.coachId === coachId;
+      const isPlatformOwner = userRole === "platform_owner";
+      
+      if (!isFromSameAcademy && !isAssignedCoach && !isPlatformOwner) {
+        return res.status(404).json({ error: "Player not found" });
+      }
+  app.get("/api/players/:id/attendance-report", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const { id } = req.params;
+      const academyId = req.user?.academyId;
+      const coachId = req.user?.coachId;
+      const userRole = req.user?.role;
+      
+      // Get the player first
+      const player = await storage.getPlayer(id);
+      if (!player) {
+        return res.status(404).json({ error: "Player not found" });
+      }
+      
+      // Allow access if user is from same academy, assigned coach, or platform owner
+      const isFromSameAcademy = academyId && player.academyId === academyId;
+      const isAssignedCoach = coachId && player.coachId === coachId;
+      const isPlatformOwner = userRole === "platform_owner";
+      
+      if (!isFromSameAcademy && !isAssignedCoach && !isPlatformOwner) {
+        return res.status(404).json({ error: "Player not found" });
+      }
+  app.get("/api/players/:id/attendance-report", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const { id } = req.params;
+      const academyId = req.user?.academyId;
+      const coachId = req.user?.coachId;
+      const userRole = req.user?.role;
+      
+      // Get the player first
+      const player = await storage.getPlayer(id);
+      if (!player) {
+        return res.status(404).json({ error: "Player not found" });
+      }
+      
+      // Allow access if user is from same academy, assigned coach, or platform owner
+      const isFromSameAcademy = academyId && player.academyId === academyId;
+      const isAssignedCoach = coachId && player.coachId === coachId;
+      const isPlatformOwner = userRole === "platform_owner";
+      
+      if (!isFromSameAcademy && !isAssignedCoach && !isPlatformOwner) {
+        return res.status(404).json({ error: "Player not found" });
+      }
+  app.get("/api/players/:id/attendance-report", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const { id } = req.params;
+      const academyId = req.user?.academyId;
+      const coachId = req.user?.coachId;
+      const userRole = req.user?.role;
+      
+      // Get the player first
+      const player = await storage.getPlayer(id);
+      if (!player) {
+        return res.status(404).json({ error: "Player not found" });
+      }
+      
+      // Allow access if user is from same academy, assigned coach, or platform owner
+      const isFromSameAcademy = academyId && player.academyId === academyId;
+      const isAssignedCoach = coachId && player.coachId === coachId;
+      const isPlatformOwner = userRole === "platform_owner";
+      
+      if (!isFromSameAcademy && !isAssignedCoach && !isPlatformOwner) {
+        return res.status(404).json({ error: "Player not found" });
+      }
+  app.get("/api/players/:id/attendance-report", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const { id } = req.params;
+      const academyId = req.user?.academyId;
+      const coachId = req.user?.coachId;
+      const userRole = req.user?.role;
+      
+      // Get the player first
+      const player = await storage.getPlayer(id);
+      if (!player) {
+        return res.status(404).json({ error: "Player not found" });
+      }
+      
+      // Allow access if user is from same academy, assigned coach, or platform owner
+      const isFromSameAcademy = academyId && player.academyId === academyId;
+      const isAssignedCoach = coachId && player.coachId === coachId;
+      const isPlatformOwner = userRole === "platform_owner";
+      
+      if (!isFromSameAcademy && !isAssignedCoach && !isPlatformOwner) {
         return res.status(404).json({ error: "Player not found" });
       }
       
