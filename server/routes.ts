@@ -24507,7 +24507,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       res.json(packages);
-      res.json(packages);
     } catch (error) {
       console.error("Get credit store error:", error);
       res.status(500).json({ error: "Failed to load credit store" });
