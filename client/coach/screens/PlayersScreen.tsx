@@ -1169,7 +1169,13 @@ function PlayerDetailView({
             </Pressable>
           </View>
         </View>
+      </LinearGradient>
 
+      <ScrollView
+        style={styles.detailContent}
+        contentContainerStyle={{ paddingBottom: tabBarHeight + Spacing.xl, paddingTop: Spacing.md }}
+        showsVerticalScrollIndicator={false}
+      >
         {/* Premium Profile Card */}
         <View style={styles.premiumProfileCard}>
           <View style={styles.premiumAvatarContainer}>
@@ -1240,13 +1246,6 @@ function PlayerDetailView({
             </View>
           </View>
         </View>
-      </LinearGradient>
-
-      <ScrollView
-        style={styles.detailContent}
-        contentContainerStyle={{ paddingBottom: tabBarHeight + Spacing.xl, paddingTop: Spacing.md }}
-        showsVerticalScrollIndicator={false}
-      >
 
         {pillarProgress ? (
           <View style={styles.levelReadinessCard}>
