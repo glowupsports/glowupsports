@@ -865,6 +865,7 @@ function PlayerDetailView({
   const [newNoteContent, setNewNoteContent] = useState("");
   const [newNoteCategory, setNewNoteCategory] = useState("general");
   const [isExportingReport, setIsExportingReport] = useState(false);
+  const [isExportingAttendanceReport, setIsExportingAttendanceReport] = useState(false);
   const [showAllHistory, setShowAllHistory] = useState(false);
   const [showDeepAssessment, setShowDeepAssessment] = useState(false);
 
@@ -910,6 +911,51 @@ function PlayerDetailView({
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
     } finally {
       setIsExportingReport(false);
+    }
+  };
+
+  const handleExportAttendanceReport = async () => {
+    try {
+      setIsExportingAttendanceReport(true);
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+      
+      const response = await fetch(new URL(`/api/players/${player.id}/attendance-report`, getApiUrl()).toString(), {
+        credentials: "include",
+      });
+      
+      if (!response.ok) {
+        throw new Error("Failed to generate attendance report");
+      }
+      
+      const html = await response.text();
+      
+      if (Platform.OS === "web") {
+        const printWindow = window.open("", "_blank");
+        if (printWindow) {
+          printWindow.document.write(html);
+          printWindow.document.close();
+          printWindow.print();
+        }
+      } else {
+        const { uri } = await Print.printToFileAsync({ html });
+        if (await Sharing.isAvailableAsync()) {
+          await Sharing.shareAsync(uri, {
+            mimeType: "application/pdf",
+            dialogTitle: `${player.name} Attendance Report`,
+            UTI: "com.adobe.pdf",
+          });
+        } else {
+          await Print.printAsync({ uri });
+        }
+      }
+      
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    } catch (error) {
+      console.error("Error exporting attendance report:", error);
+      Alert.alert("Error", "Failed to generate attendance report. Please try again.");
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+    } finally {
+      setIsExportingAttendanceReport(false);
     }
   };
 
@@ -1525,16 +1571,18 @@ function PlayerDetailView({
               <Text style={styles.sectionLabel}>ATTENDANCE HISTORY</Text>
             </View>
             <Pressable
-              style={styles.reportButton}
-              onPress={() => {
-                if (selectedPlayer) {
-                  const url = `${getApiUrl()}/api/players/${selectedPlayer.id}/attendance-report`;
-                  Linking.openURL(url);
-                }
-              }}
+              style={[styles.reportButton, isExportingAttendanceReport && { opacity: 0.5 }]}
+              onPress={handleExportAttendanceReport}
+              disabled={isExportingAttendanceReport}
             >
-              <Ionicons name="document-text-outline" size={14} color={Colors.dark.xpCyan} />
-              <Text style={styles.reportButtonText}>Report</Text>
+              {isExportingAttendanceReport ? (
+                <ActivityIndicator size="small" color={Colors.dark.xpCyan} />
+              ) : (
+                <>
+                  <Ionicons name="document-text-outline" size={14} color={Colors.dark.xpCyan} />
+                  <Text style={styles.reportButtonText}>Report</Text>
+                </>
+              )}
             </Pressable>
           </View>
 

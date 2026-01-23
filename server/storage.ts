@@ -272,6 +272,7 @@ import {
   type InsertCreditTransaction,
   // Player Baselines
   playerBaselines,
+  playerPillarProgress,
   ballLevels,
   type PlayerBaseline,
   type InsertPlayerBaseline,
