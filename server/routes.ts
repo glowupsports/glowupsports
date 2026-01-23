@@ -22939,37 +22939,69 @@ export async function registerRoutes(app: Express): Promise<Server> {
         creditsDeducted = 1;
         message = `Joined! 1 ${creditResult.creditType} credit deducted.`;
       } else {
-        // No matching credits available - allow joining anyway (debt system)
-        // Log as debt/pending payment
-        await storage.createCreditTransaction({
-          playerId,
-          academyId: session.academyId || player.academyId,
-          type: "debit",
-          amount: -1,
-          reason: "session_join_debt",
-          sessionId,
-          metadata: JSON.stringify({
-            sessionType,
-            noCreditsAvailable: true,
-            creditTypeNeeded: creditResult.creditType || sessionType,
-          }),
-        });
+        // No matching credits available - try to deduct from any available package (allows negative balance)
+        const allPackages = await storage.getActivePlayerPackages(playerId, session.academyId || player.academyId);
+        const targetPackage = allPackages.length > 0 ? allPackages[0] : null;
         
-        // Notify player to buy credits
-        await storage.createNotification({
-          playerId,
-          type: "credits_needed",
-          title: "Credits Needed",
-          message: `You joined a ${sessionType} session but have no ${creditResult.creditType || sessionType} credits. Please purchase credits.`,
-          metadata: JSON.stringify({
+        if (targetPackage) {
+          // Deduct from existing package (may go negative)
+          await db.update(packages).set({
+            remainingCredits: targetPackage.remainingCredits - 1,
+          }).where(eq(packages.id, targetPackage.id));
+          
+          // Log the transaction with package link
+          await storage.createCreditTransaction({
+            playerId,
+            academyId: session.academyId || player.academyId,
+            packageId: targetPackage.id,
+            type: "debit",
+            amount: -1,
+            reason: "session_booking",
             sessionId,
-            sessionType,
-            creditTypeNeeded: creditResult.creditType || sessionType,
-          }),
-          scheduledFor: new Date(),
-        });
-        
-        message = `Joined! No ${creditResult.creditType || sessionType} credits available - please buy credits.`;
+            balanceBefore: targetPackage.remainingCredits,
+            balanceAfter: targetPackage.remainingCredits - 1,
+            metadata: JSON.stringify({
+              sessionType,
+              creditTypeMismatch: true,
+              creditTypeNeeded: creditResult.creditType || sessionType,
+              packageCreditType: targetPackage.creditType,
+            }),
+          });
+          
+          creditsDeducted = 1;
+          message = `Joined! 1 credit deducted (${targetPackage.remainingCredits - 1} remaining).`;
+        } else {
+          // No packages at all - create debt transaction without package
+          await storage.createCreditTransaction({
+            playerId,
+            academyId: session.academyId || player.academyId,
+            type: "debit",
+            amount: -1,
+            reason: "session_join_debt",
+            sessionId,
+            metadata: JSON.stringify({
+              sessionType,
+              noPackagesAvailable: true,
+              creditTypeNeeded: creditResult.creditType || sessionType,
+            }),
+          });
+          
+          // Notify player to buy credits
+          await storage.createNotification({
+            playerId,
+            type: "credits_needed",
+            title: "Credits Needed",
+            message: `You joined a ${sessionType} session but have no credit packages. Please purchase credits.`,
+            metadata: JSON.stringify({
+              sessionId,
+              sessionType,
+              creditTypeNeeded: creditResult.creditType || sessionType,
+            }),
+            scheduledFor: new Date(),
+          });
+          
+          message = `Joined! No credit packages available - please buy credits.`;
+        }
       }
 
       // Get updated credit totals
