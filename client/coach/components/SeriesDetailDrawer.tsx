@@ -939,42 +939,46 @@ export default function SeriesDetailDrawer({
 
   const handleCancelSession = async () => {
     if (!selectedSession) return;
-    setCancellingSession(true);
+    const sessionId = selectedSession.id;
+    
+    // Instant UI feedback - close modal and show success immediately
+    setShowAttendanceModal(false);
+    setSelectedSession(null);
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    
+    // API call runs in background
     try {
-      await apiRequest("PATCH", `/api/coach/sessions/${selectedSession.id}/cancel`, {
+      await apiRequest("PATCH", `/api/coach/sessions/${sessionId}/cancel`, {
         reason: "Holiday / No Class",
       });
-      
       queryClient.invalidateQueries({ queryKey: [`/api/coach/series/${seriesId}`] });
-      setShowAttendanceModal(false);
-      setSelectedSession(null);
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     } catch (error) {
       console.error("Error cancelling session:", error);
-    } finally {
-      setCancellingSession(false);
+      Alert.alert("Error", "Failed to cancel session. Please try again.");
+      queryClient.invalidateQueries({ queryKey: [`/api/coach/series/${seriesId}`] });
     }
   };
 
   const handleDeleteSession = async () => {
     if (!selectedSession) return;
-    setDeletingSession(true);
+    const sessionId = selectedSession.id;
+    
+    // Instant UI feedback - close modals immediately
+    setShowDeleteConfirm(false);
+    setShowAttendanceModal(false);
+    setSelectedSession(null);
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    
+    // API call runs in background
     try {
-      await apiRequest("DELETE", `/api/coach/sessions/${selectedSession.id}`);
-      
+      await apiRequest("DELETE", `/api/coach/sessions/${sessionId}`);
       queryClient.invalidateQueries({ queryKey: [`/api/coach/series/${seriesId}`] });
       queryClient.invalidateQueries({ queryKey: ["/api/coach/calendar"] });
-      setShowDeleteConfirm(false);
-      setShowAttendanceModal(false);
-      setSelectedSession(null);
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      Alert.alert("Session Deleted", "The session has been removed and any used credits have been refunded.");
     } catch (error) {
       console.error("Error deleting session:", error);
       Alert.alert("Error", "Failed to delete session. Please try again.");
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-    } finally {
-      setDeletingSession(false);
+      queryClient.invalidateQueries({ queryKey: [`/api/coach/series/${seriesId}`] });
     }
   };
 
