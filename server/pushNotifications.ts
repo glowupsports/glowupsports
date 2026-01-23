@@ -1,6 +1,7 @@
 import { db } from "./db";
 import { eq, and, gte, lte, inArray, isNull, lt, ne } from "drizzle-orm";
-import { pushDeviceTokens, notificationPreferences, users, players, coaches, sessions, sessionPlayers, seriesPlayers, coachXpTransactions } from "@shared/schema";
+import { pushDeviceTokens, notificationPreferences, users, players, coaches, sessions, sessionPlayers, seriesPlayers, coachXpTransactions, creditTransactions } from "@shared/schema";
+import { storage } from "./storage";
 import { sendSessionReminderEmail } from "./emailService";
 
 interface ExpoPushMessage {
@@ -433,6 +434,9 @@ async function processAutoAttendance(): Promise<void> {
       id: sessions.id,
       coachId: sessions.coachId,
       endTime: sessions.endTime,
+      seriesId: sessions.seriesId,
+      sessionType: sessions.sessionType,
+      academyId: sessions.academyId,
     })
       .from(sessions)
       .where(and(
@@ -449,28 +453,114 @@ async function processAutoAttendance(): Promise<void> {
     console.log(`[AutoAttendance] Processing ${completedSessions.length} completed sessions`);
 
     for (const session of completedSessions) {
-      const unmarkedPlayers = await db.select({
+      // First, check if there are existing session_players with unmarked attendance
+      const existingPlayers = await db.select({
         id: sessionPlayers.id,
         playerId: sessionPlayers.playerId,
         attendanceStatus: sessionPlayers.attendanceStatus,
+        creditDeductedAt: sessionPlayers.creditDeductedAt,
       })
         .from(sessionPlayers)
-        .where(and(
-          eq(sessionPlayers.sessionId, session.id),
-          isNull(sessionPlayers.attendanceStatus)
-        ));
+        .where(eq(sessionPlayers.sessionId, session.id));
 
-      if (unmarkedPlayers.length === 0) continue;
+      // For recurring sessions without any session_players, create them from series_players
+      if (existingPlayers.length === 0 && session.seriesId) {
+        console.log(`[AutoAttendance] Session ${session.id}: No session_players found, checking series_players`);
+        
+        const seriesPlayersList = await db.select({
+          playerId: seriesPlayers.playerId,
+          status: seriesPlayers.status,
+        })
+          .from(seriesPlayers)
+          .where(and(
+            eq(seriesPlayers.seriesId, session.seriesId),
+            eq(seriesPlayers.status, "active")
+          ));
 
-      console.log(`[AutoAttendance] Session ${session.id}: Marking ${unmarkedPlayers.length} players as attended (auto-mark after session end)`);
+        if (seriesPlayersList.length > 0) {
+          console.log(`[AutoAttendance] Session ${session.id}: Creating ${seriesPlayersList.length} session_players from series_players`);
+          
+          for (const sp of seriesPlayersList) {
+            // Create session_player record with "present" attendance
+            const newSessionPlayerId = crypto.randomUUID();
+            await db.insert(sessionPlayers).values({
+              id: newSessionPlayerId,
+              sessionId: session.id,
+              playerId: sp.playerId,
+              attendanceStatus: "present",
+              lateMinutes: 0,
+              isGuest: false,
+              xpAwarded: 0,
+            });
 
-      for (const player of unmarkedPlayers) {
-        await db.update(sessionPlayers)
-          .set({ 
-            attendanceStatus: "present",
-            lateMinutes: 0
-          })
-          .where(eq(sessionPlayers.id, player.id));
+            // Deduct credit for this player
+            if (session.academyId) {
+              try {
+                const deductResult = await storage.deductTypedCreditsForSession(
+                  sp.playerId,
+                  session.sessionType || "group",
+                  session.id,
+                  session.academyId
+                );
+                
+                if (deductResult.success && deductResult.transactionId) {
+                  // Update session_player with credit transaction info
+                  await db.update(sessionPlayers)
+                    .set({
+                      creditDeductedAt: new Date(),
+                      creditTransactionId: deductResult.transactionId,
+                    })
+                    .where(eq(sessionPlayers.id, newSessionPlayerId));
+                  
+                  console.log(`[AutoAttendance] Deducted credit for player ${sp.playerId} in session ${session.id}`);
+                }
+              } catch (creditError) {
+                console.error(`[AutoAttendance] Failed to deduct credit for player ${sp.playerId}:`, creditError);
+              }
+            }
+          }
+        }
+      } else {
+        // Mark existing unmarked players as present
+        const unmarkedPlayers = existingPlayers.filter(p => p.attendanceStatus === null);
+        
+        if (unmarkedPlayers.length === 0) continue;
+
+        console.log(`[AutoAttendance] Session ${session.id}: Marking ${unmarkedPlayers.length} players as attended (auto-mark after session end)`);
+
+        for (const player of unmarkedPlayers) {
+          await db.update(sessionPlayers)
+            .set({ 
+              attendanceStatus: "present",
+              lateMinutes: 0
+            })
+            .where(eq(sessionPlayers.id, player.id));
+
+          // Deduct credit if not already deducted
+          if (!player.creditDeductedAt && session.academyId) {
+            try {
+              const deductResult = await storage.deductTypedCreditsForSession(
+                player.playerId,
+                session.sessionType || "group",
+                session.id,
+                session.academyId
+              );
+              
+              if (deductResult.success && deductResult.transactionId) {
+                await db.update(sessionPlayers)
+                  .set({
+                    creditDeductedAt: new Date(),
+                    creditTransactionId: deductResult.transactionId,
+                  })
+                  .where(eq(sessionPlayers.id, player.id));
+                
+                console.log(`[AutoAttendance] Deducted credit for player ${player.playerId} in session ${session.id}`);
+              }
+            } catch (creditError) {
+              console.error(`[AutoAttendance] Failed to deduct credit for player ${player.playerId}:`, creditError);
+            }
+          }
+        }
       }
     }
 
