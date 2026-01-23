@@ -16688,9 +16688,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         },
         credits: {
           total: totalCredits,
-          group: creditsByType.group,
+          group: creditBalance.group,
           semiPrivate: creditBalance.semi_private,
-          private: creditsByType.private,
+          private: creditBalance.private,
           activePackages: playerPackages.filter((p: any) => p.status === "active").length,
         },
         packages: playerPackages.map((pkg: any) => ({
@@ -17262,8 +17262,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         recentXpGains: [],
         credits: {
           total: totalCredits,
-          group: creditsByType.group,
-          private: creditsByType.private,
+          group: creditBalance.group,
+          private: creditBalance.private,
           semi_private: creditsByType.semi_private,
         },
       });
