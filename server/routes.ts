@@ -17334,8 +17334,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         recentXpGains: [],
         credits: {
           total: totalCredits,
-          group: creditBalance.group,
-          private: creditBalance.private,
+          group: creditsByType.group,
+          private: creditsByType.private,
           semi_private: creditsByType.semi_private,
         },
       });
