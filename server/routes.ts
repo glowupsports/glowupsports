@@ -23033,18 +23033,35 @@ export async function registerRoutes(app: Express): Promise<Server> {
           creditsDeducted = 1;
           message = `Joined! 1 credit deducted (${targetPackage.remainingCredits - 1} remaining).`;
         } else {
-          // No packages at all - create debt transaction without package
+          // No packages at all - create a debt package with negative balance
+          const creditTypeNeeded = creditResult.creditType || sessionType;
+          const debtPackage = await storage.createPackage({
+            academyId: session.academyId || player.academyId,
+            playerId,
+            creditType: creditTypeNeeded,
+            name: `Debt Package (${creditTypeNeeded})`,
+            totalCredits: 0,
+            remainingCredits: -1, // Start with negative balance
+            price: "0",
+            currency: "AED",
+            status: "active",
+          });
+          
+          // Log the transaction with the new debt package
           await storage.createCreditTransaction({
             playerId,
             academyId: session.academyId || player.academyId,
+            packageId: debtPackage.id,
             type: "debit",
             amount: -1,
-            reason: "session_join_debt",
+            reason: "session_booking",
             sessionId,
+            balanceBefore: 0,
+            balanceAfter: -1,
             metadata: JSON.stringify({
               sessionType,
-              noPackagesAvailable: true,
-              creditTypeNeeded: creditResult.creditType || sessionType,
+              debtPackageCreated: true,
+              creditTypeNeeded,
             }),
           });
           
@@ -23053,16 +23070,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
             playerId,
             type: "credits_needed",
             title: "Credits Needed",
-            message: `You joined a ${sessionType} session but have no credit packages. Please purchase credits.`,
+            message: `You joined a ${sessionType} session. Your balance is now -1. Please purchase credits.`,
             metadata: JSON.stringify({
               sessionId,
               sessionType,
-              creditTypeNeeded: creditResult.creditType || sessionType,
+              creditTypeNeeded,
+              debtPackageId: debtPackage.id,
             }),
             scheduledFor: new Date(),
           });
           
-          message = `Joined! No credit packages available - please buy credits.`;
+          creditsDeducted = 1;
+          message = `Joined! Debt of 1 ${creditTypeNeeded} credit created. Please buy credits.`;
         }
       }
 
