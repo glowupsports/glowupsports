@@ -16645,6 +16645,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Get next invoice number for creating invoices
+  app.get("/api/admin/next-invoice-number", authMiddleware, requireAcademy, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const academyId = req.user!.academyId!;
+      const invoiceNumber = await storage.generateInvoiceNumber(academyId);
+      res.json({ invoiceNumber });
+    } catch (error) {
+      console.error("Error generating invoice number:", error);
+      res.status(500).json({ error: "Failed to generate invoice number" });
+    }
+  });
+
   // Admin - Get detailed player stats with payments (also accessible by coaches for their assigned players)
   app.get("/api/admin/players/:playerId/stats", authMiddleware, requireRole("admin", "academy_owner", "platform_owner", "coach"), async (req: AuthenticatedRequest, res: Response) => {
     try {

@@ -76,14 +76,30 @@ interface CreateInvoiceModalProps {
 
 const getNextInvoiceNumber = async (): Promise<string> => {
   try {
-    const AsyncStorage = (await import("@react-native-async-storage/async-storage")).default;
-    const stored = await AsyncStorage.getItem("@invoice_counter");
-    const currentNumber = stored ? parseInt(stored, 10) : 0;
-    const nextNumber = currentNumber + 1;
-    await AsyncStorage.setItem("@invoice_counter", String(nextNumber));
-    return `#${String(nextNumber).padStart(4, "0")}`;
+    const { getApiUrl } = await import("@/lib/query-client");
+    const response = await fetch(new URL("/api/admin/next-invoice-number", getApiUrl()).toString(), {
+      method: "GET",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${await getAuthToken()}`,
+      },
+    });
+    if (response.ok) {
+      const data = await response.json();
+      return data.invoiceNumber || "#0001";
+    }
+    return "#0001";
   } catch {
-    return `#${String(Math.floor(Math.random() * 99) + 1).padStart(4, "0")}`;
+    return "#0001";
+  }
+};
+
+const getAuthToken = async (): Promise<string> => {
+  try {
+    const AsyncStorage = (await import("@react-native-async-storage/async-storage")).default;
+    return await AsyncStorage.getItem("authToken") || "";
+  } catch {
+    return "";
   }
 };
 
