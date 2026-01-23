@@ -1617,23 +1617,29 @@ function PlayerDetailView({
                       styles.attendanceStatusBadge,
                       record.status === "present" ? styles.attendanceStatusPresent :
                       record.status === "absent" ? styles.attendanceStatusAbsent :
+                      (record.status === "holiday" || record.status === "cancelled") ? styles.attendanceStatusCancelled :
                       styles.attendanceStatusPending
                     ]}>
                       <Ionicons 
                         name={record.status === "present" ? "checkmark-circle" : 
-                              record.status === "absent" ? "close-circle" : "time"} 
+                              record.status === "absent" ? "close-circle" : 
+                              (record.status === "holiday" || record.status === "cancelled") ? "calendar-outline" : "time"} 
                         size={14} 
                         color={record.status === "present" ? Colors.dark.primary : 
-                               record.status === "absent" ? Colors.dark.error : Colors.dark.gold}
+                               record.status === "absent" ? Colors.dark.error : 
+                               (record.status === "holiday" || record.status === "cancelled") ? Colors.dark.textSecondary : Colors.dark.gold}
                       />
                       <Text style={[
                         styles.attendanceStatusText,
                         record.status === "present" ? styles.attendanceStatusTextPresent :
                         record.status === "absent" ? styles.attendanceStatusTextAbsent :
+                        (record.status === "holiday" || record.status === "cancelled") ? styles.attendanceStatusTextCancelled :
                         styles.attendanceStatusTextPending
                       ]}>
                         {record.status === "present" ? "Present" : 
-                         record.status === "absent" ? "Absent" : "Pending"}
+                         record.status === "absent" ? "Absent" : 
+                         record.status === "holiday" ? "Holiday" :
+                         record.status === "cancelled" ? "Cancelled" : "Pending"}
                         {record.lateMinutes && record.lateMinutes > 0 ? ` (+${record.lateMinutes}m late)` : ""}
                       </Text>
                     </View>
@@ -4380,6 +4386,9 @@ const styles = StyleSheet.create({
   attendanceStatusPending: {
     backgroundColor: Colors.dark.gold + "20",
   },
+  attendanceStatusCancelled: {
+    backgroundColor: Colors.dark.textSecondary + "20",
+  },
   attendanceStatusText: {
     fontSize: 11,
     fontWeight: "600",
@@ -4392,6 +4401,9 @@ const styles = StyleSheet.create({
   },
   attendanceStatusTextPending: {
     color: Colors.dark.gold,
+  },
+  attendanceStatusTextCancelled: {
+    color: Colors.dark.textSecondary,
   },
   showMoreHistoryButton: {
     flexDirection: "row",
