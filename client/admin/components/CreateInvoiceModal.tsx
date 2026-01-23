@@ -847,19 +847,27 @@ export default function CreateInvoiceModal({
       });
 
       if (Platform.OS === "web") {
-        // Open invoice in new tab for viewing/printing
+        // Create a direct download link (no popup blocking)
         const blob = new Blob([html], { type: "text/html" });
         const url = URL.createObjectURL(blob);
-        const newWindow = window.open(url, "_blank");
-        if (newWindow) {
-          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-        } else {
-          // If popup blocked, try opening as data URL
-          const dataUrl = "data:text/html;charset=utf-8," + encodeURIComponent(html);
-          window.open(dataUrl, "_blank");
-        }
+        const filename = `Invoice_${invoiceNumber.replace('#', '').replace(/\//g, '-')}_${player?.name?.replace(/\s+/g, '_') || 'Invoice'}.html`;
+        
+        // Create invisible download link and click it
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = filename;
+        link.style.display = 'none';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        
         // Clean up blob URL after a delay
         setTimeout(() => URL.revokeObjectURL(url), 5000);
+        
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        
+        // Also show a toast/alert that the file was downloaded
+        window.alert(`Invoice downloaded as ${filename}. Open it in your browser and use Print > Save as PDF for a PDF version.`);
       } else {
         // Mobile: Generate PDF and share (allows saving to Files)
         console.log("[PDF] Starting mobile PDF generation...");
