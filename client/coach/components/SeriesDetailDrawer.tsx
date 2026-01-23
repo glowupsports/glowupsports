@@ -214,6 +214,8 @@ export default function SeriesDetailDrawer({
   const [loadingAttendance, setLoadingAttendance] = useState(false);
   const [savingAttendance, setSavingAttendance] = useState(false);
   const [cancellingSession, setCancellingSession] = useState(false);
+  const [deletingSession, setDeletingSession] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [editingMaxPlayers, setEditingMaxPlayers] = useState(false);
   const [newMaxPlayers, setNewMaxPlayers] = useState("");
   const [playerActionMenuId, setPlayerActionMenuId] = useState<string | null>(null);
@@ -950,6 +952,28 @@ export default function SeriesDetailDrawer({
       console.error("Error cancelling session:", error);
     } finally {
       setCancellingSession(false);
+    }
+  };
+
+  const handleDeleteSession = async () => {
+    if (!selectedSession) return;
+    setDeletingSession(true);
+    try {
+      await apiRequest("DELETE", `/api/coach/sessions/${selectedSession.id}`);
+      
+      queryClient.invalidateQueries({ queryKey: [`/api/coach/series/${seriesId}`] });
+      queryClient.invalidateQueries({ queryKey: ["/api/coach/calendar"] });
+      setShowDeleteConfirm(false);
+      setShowAttendanceModal(false);
+      setSelectedSession(null);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      Alert.alert("Session Deleted", "The session has been removed and any used credits have been refunded.");
+    } catch (error) {
+      console.error("Error deleting session:", error);
+      Alert.alert("Error", "Failed to delete session. Please try again.");
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+    } finally {
+      setDeletingSession(false);
     }
   };
 
@@ -2620,6 +2644,30 @@ export default function SeriesDetailDrawer({
                 >
                   <Ionicons name="swap-horizontal" size={18} color={Colors.dark.text} />
                   <Text style={styles.transferButtonText}>Transfer to Another Coach</Text>
+                </Pressable>
+
+                <Pressable
+                  style={[styles.deleteSessionButton, (savingAttendance || cancellingSession || deletingSession) && styles.saveButtonDisabled]}
+                  onPress={() => {
+                    Alert.alert(
+                      "Delete Session",
+                      "Are you sure you want to permanently delete this session? This will remove it from the calendar and refund any credits used. This cannot be undone.",
+                      [
+                        { text: "Cancel", style: "cancel" },
+                        { 
+                          text: "Delete", 
+                          style: "destructive",
+                          onPress: handleDeleteSession
+                        }
+                      ]
+                    );
+                  }}
+                  disabled={savingAttendance || cancellingSession || deletingSession}
+                >
+                  <Ionicons name="trash-outline" size={18} color="#FF4444" />
+                  <Text style={styles.deleteSessionButtonText}>
+                    {deletingSession ? "Deleting..." : "Delete Session Permanently"}
+                  </Text>
                 </Pressable>
               </View>
             </ScrollView>
@@ -4409,6 +4457,23 @@ const styles = StyleSheet.create({
     fontSize: Typography.body.fontSize,
     fontWeight: "600",
     color: Colors.dark.error,
+  },
+  deleteSessionButton: {
+    backgroundColor: "#FF444420",
+    borderRadius: BorderRadius.md,
+    padding: Spacing.md,
+    alignItems: "center",
+    borderWidth: 1,
+    borderColor: "#FF4444",
+    flexDirection: "row",
+    justifyContent: "center",
+    gap: Spacing.sm,
+    marginTop: Spacing.md,
+  },
+  deleteSessionButtonText: {
+    fontSize: Typography.body.fontSize,
+    fontWeight: "600",
+    color: "#FF4444",
   },
   webTimePickerRow: {
     flexDirection: "row",
