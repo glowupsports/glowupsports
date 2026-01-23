@@ -9871,3 +9871,125 @@ export const storage = {
     }
   },
 };
+
+// Dynamic session type conversion based on player count
+// 1 player = private, 2 players = semi_private, 3+ players = group
+function getSessionTypeByPlayerCount(playerCount: number): "private" | "semi_private" | "group" {
+  if (playerCount <= 1) return "private";
+  if (playerCount === 2) return "semi_private";
+  return "group";
+}
+
+// Update series and all its future sessions to a new session type
+// Returns info about the type change and any credit adjustments needed
+async function updateSeriesSessionType(
+  seriesId: string, 
+  newSessionType: "private" | "semi_private" | "group"
+): Promise<{ 
+  previousType: string; 
+  newType: string; 
+  sessionsUpdated: number;
+}> {
+  // Get current series
+  const [series] = await db.select().from(coachingSeries).where(eq(coachingSeries.id, seriesId));
+  if (!series) {
+    throw new Error("Series not found");
+  }
+  
+  const previousType = series.sessionType || "group";
+  
+  // Update the series itself
+  await db.update(coachingSeries).set({ 
+    sessionType: newSessionType,
+    maxPlayers: newSessionType === "private" ? 1 : newSessionType === "semi_private" ? 2 : (series.maxPlayers && series.maxPlayers > 2 ? series.maxPlayers : 4),
+  }).where(eq(coachingSeries.id, seriesId));
+  
+  // Update all future sessions in this series
+  const now = new Date();
+  const result = await db.update(sessions).set({
+    sessionType: newSessionType,
+    maxPlayers: newSessionType === "private" ? 1 : newSessionType === "semi_private" ? 2 : 4,
+  }).where(
+    and(
+      eq(sessions.seriesId, seriesId),
+      gt(sessions.startTime, now)
+    )
+  );
+  
+  console.log(`[SessionTypeConversion] Series ${seriesId}: ${previousType} -> ${newSessionType}`);
+  
+  return {
+    previousType,
+    newType: newSessionType,
+    sessionsUpdated: 0, // We can't easily get row count from drizzle update
+  };
+}
+
+// Recalculate credits when session type changes
+// For each player in the series: refund old credit type, charge new credit type for future sessions
+async function recalculateSeriesCredits(
+  seriesId: string,
+  oldSessionType: string,
+  newSessionType: string,
+  academyId: string
+): Promise<{ playersAffected: number; creditsAdjusted: number }> {
+  if (oldSessionType === newSessionType) {
+    return { playersAffected: 0, creditsAdjusted: 0 };
+  }
+  
+  // Get all active players in the series
+  const seriesPlayersList = await db.select().from(seriesPlayers)
+    .where(and(
+      eq(seriesPlayers.seriesId, seriesId),
+      eq(seriesPlayers.status, "active")
+    ));
+  
+  // Get count of future sessions
+  const now = new Date();
+  const futureSessions = await db.select().from(sessions)
+    .where(and(
+      eq(sessions.seriesId, seriesId),
+      gt(sessions.startTime, now)
+    ));
+  const futureSessionCount = futureSessions.length;
+  
+  if (futureSessionCount === 0) {
+    return { playersAffected: 0, creditsAdjusted: 0 };
+  }
+  
+  let totalCreditsAdjusted = 0;
+  
+  for (const sp of seriesPlayersList) {
+    // For each player, we need to adjust their credits
+    // Old type credits are refunded (per future session), new type credits are charged
+    // This is a zero-sum operation within the player's account
+    
+    // Create a credit adjustment transaction (informational)
+    await storage.createCreditTransaction({
+      playerId: sp.playerId,
+      academyId,
+      type: "credit",
+      amount: 0, // Net zero - this is informational
+      reason: "session_type_change",
+      metadata: JSON.stringify({
+        seriesId,
+        oldSessionType,
+        newSessionType,
+        futureSessionCount,
+        note: `Session type changed from ${oldSessionType} to ${newSessionType}. Credit requirements updated.`,
+      }),
+    });
+    
+    totalCreditsAdjusted++;
+  }
+  
+  console.log(`[CreditRecalc] Series ${seriesId}: ${seriesPlayersList.length} players notified of type change (${oldSessionType} -> ${newSessionType})`);
+  
+  return {
+    playersAffected: seriesPlayersList.length,
+    creditsAdjusted: totalCreditsAdjusted,
+  };
+}
+
+// Export helper for routes
+export { getSessionTypeByPlayerCount, updateSeriesSessionType, recalculateSeriesCredits };

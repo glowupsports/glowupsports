@@ -4,7 +4,7 @@ import rateLimit from "express-rate-limit";
 import multer from "multer";
 import path from "path";
 import fs from "fs";
-import { storage } from "./storage";
+import { storage, getSessionTypeByPlayerCount, updateSeriesSessionType, recalculateSeriesCredits } from "./storage";
 import { db } from "./db";
 import { playerHolidays } from "@shared/schema";
 import { eq, sql, desc, and, ne, gt, gte, asc, inArray, isNull, isNotNull, or, count } from "drizzle-orm";
@@ -9670,11 +9670,34 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
       
+      // === DYNAMIC SESSION TYPE CONVERSION ===
+      // Check if adding this player changes the session type
+      const updatedPlayers = await storage.getSeriesPlayers(id);
+      const activePlayerCount = updatedPlayers.filter(p => p.status === "active").length;
+      const newSessionType = getSessionTypeByPlayerCount(activePlayerCount);
+      const currentSessionType = existing.sessionType || "group";
+      
+      let sessionTypeChanged = false;
+      if (newSessionType !== currentSessionType) {
+        // Update series and all future sessions to new type
+        await updateSeriesSessionType(id, newSessionType);
+        
+        // Notify about credit type change (informational)
+        await recalculateSeriesCredits(id, currentSessionType, newSessionType, academyId);
+        
+        sessionTypeChanged = true;
+        console.log(`[AddPlayer] Session type changed: ${currentSessionType} -> ${newSessionType} (now ${activePlayerCount} players)`);
+      }
+      
       // Return the series player with linkedPackageId explicitly included
       res.status(201).json({ 
         ...seriesPlayer, 
         linkedPackageId: assignedPackageId,
         packageAssigned: !!assignedPackageId,
+        sessionTypeChanged,
+        newSessionType: sessionTypeChanged ? newSessionType : undefined,
+        previousSessionType: sessionTypeChanged ? currentSessionType : undefined,
+        activePlayerCount,
       });
     } catch (error) {
       console.error("Error adding player to class:", error);
@@ -9698,7 +9721,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       await storage.removePlayerFromSeries(id, playerId);
-      res.json({ success: true });
+      
+      // === DYNAMIC SESSION TYPE CONVERSION after player removal ===
+      const remainingPlayers = await storage.getSeriesPlayers(id);
+      const activePlayerCount = remainingPlayers.filter(p => p.status === "active").length;
+      const newSessionType = getSessionTypeByPlayerCount(activePlayerCount);
+      const currentSessionType = existing.sessionType || "group";
+      
+      let sessionTypeChanged = false;
+      if (newSessionType !== currentSessionType) {
+        await updateSeriesSessionType(id, newSessionType);
+        await recalculateSeriesCredits(id, currentSessionType, newSessionType, req.user!.academyId!);
+        sessionTypeChanged = true;
+        console.log(`[RemovePlayer] Session type changed: ${currentSessionType} -> ${newSessionType} (now ${activePlayerCount} players)`);
+      }
+      
+      res.json({ 
+        success: true,
+        sessionTypeChanged,
+        newSessionType: sessionTypeChanged ? newSessionType : undefined,
+        activePlayerCount,
+      });
     } catch (error) {
       console.error("Error removing player from series:", error);
       res.status(500).json({ error: "Failed to remove player from series" });
@@ -9727,7 +9770,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ error: "Player not found in this class" });
       }
       
-      res.json(updated);
+      // === DYNAMIC SESSION TYPE CONVERSION after player leaves ===
+      const remainingPlayers = await storage.getSeriesPlayers(id);
+      const activePlayerCount = remainingPlayers.filter(p => p.status === "active").length;
+      const newSessionType = getSessionTypeByPlayerCount(activePlayerCount);
+      const currentSessionType = existing.sessionType || "group";
+      
+      let sessionTypeChanged = false;
+      if (newSessionType !== currentSessionType) {
+        await updateSeriesSessionType(id, newSessionType);
+        await recalculateSeriesCredits(id, currentSessionType, newSessionType, req.user!.academyId!);
+        sessionTypeChanged = true;
+        console.log(`[LeavePlayer] Session type changed: ${currentSessionType} -> ${newSessionType} (now ${activePlayerCount} players)`);
+      }
+      
+      res.json({ 
+        ...updated,
+        sessionTypeChanged,
+        newSessionType: sessionTypeChanged ? newSessionType : undefined,
+        activePlayerCount,
+      });
     } catch (error) {
       console.error("Error marking player as left:", error);
       res.status(500).json({ error: "Failed to update player status" });
