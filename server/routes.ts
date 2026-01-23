@@ -7624,6 +7624,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const lateCount = sessionPlayerRecords.filter(r => r.lateMinutes && r.lateMinutes > 0).length;
       const attendancePercentage = totalLessons > 0 ? Math.round((presentCount / totalLessons) * 100) : 0;
 
+      console.log("[AttendanceSummary] Player:", playerId, "Total:", totalLessons, "Present:", presentCount, "Percentage:", attendancePercentage, "%");
       res.json({
         totalLessons,
         presentCount,
