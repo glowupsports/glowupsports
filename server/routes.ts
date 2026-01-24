@@ -7760,7 +7760,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Step 2: Get session details separately to avoid Drizzle LEFT JOIN issues
       const sessionIds = playerRecords.map(r => r.sessionId).filter(Boolean);
-      let sessionMap: Record<string, { startTime: Date; endTime: Date; sessionType: string; status: string }> = {};
+      let sessionMap: Record<string, { startTime: Date; endTime: Date; sessionType: string; status: string; seriesId: string | null }> = {};
       
       if (sessionIds.length > 0) {
         const sessionDetails = await db
@@ -7770,14 +7770,37 @@ export async function registerRoutes(app: Express): Promise<Server> {
             endTime: sessions.endTime,
             sessionType: sessions.sessionType,
             status: sessions.status,
+            seriesId: sessions.seriesId,
           })
           .from(sessions)
           .where(inArray(sessions.id, sessionIds));
         
         sessionMap = sessionDetails.reduce((acc, s) => {
-          acc[s.id] = { startTime: s.startTime, endTime: s.endTime, sessionType: s.sessionType, status: s.status };
+          acc[s.id] = { startTime: s.startTime, endTime: s.endTime, sessionType: s.sessionType, status: s.status, seriesId: s.seriesId };
           return acc;
-        }, {} as Record<string, { startTime: Date; endTime: Date; sessionType: string; status: string }>);
+        }, {} as Record<string, { startTime: Date; endTime: Date; sessionType: string; status: string; seriesId: string | null }>);
+      }
+
+      // Step 2.5: Fetch series info for grouping
+      const uniqueSeriesIds = [...new Set(Object.values(sessionMap).map(s => s.seriesId).filter(Boolean))] as string[];
+      let seriesMap: Record<string, { title: string; dayOfWeek: number; startTime: string; sessionType: string }> = {};
+
+      if (uniqueSeriesIds.length > 0) {
+        const seriesDetails = await db
+          .select({
+            id: coachingSeries.id,
+            title: coachingSeries.title,
+            dayOfWeek: coachingSeries.dayOfWeek,
+            startTime: coachingSeries.startTime,
+            sessionType: coachingSeries.sessionType,
+          })
+          .from(coachingSeries)
+          .where(inArray(coachingSeries.id, uniqueSeriesIds));
+        
+        seriesMap = seriesDetails.reduce((acc, s) => {
+          acc[s.id] = { title: s.title || '', dayOfWeek: s.dayOfWeek, startTime: s.startTime, sessionType: s.sessionType };
+          return acc;
+        }, {} as Record<string, { title: string; dayOfWeek: number; startTime: string; sessionType: string }>);
       }
 
       // Step 3: Combine and sort
@@ -7791,6 +7814,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           sessionEndTime: sessionInfo?.endTime || null,
           sessionType: sessionInfo?.sessionType || null,
           sessionStatus: sessionInfo?.status || null,
+          seriesId: sessionInfo?.seriesId || null,
         };
       });
 
@@ -7809,18 +7833,45 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
 
       // Format for frontend - include records even if session details are missing
-      const history = sortedRecords.map(record => ({
-        sessionId: record.sessionId,
-        date: record.sessionStartTime ? new Date(record.sessionStartTime).toISOString().split('T')[0] : null,
-        startTime: record.sessionStartTime || null,
-        endTime: record.sessionEndTime || null,
-        sessionType: record.sessionType || "group",
-        status: record.attendanceStatus,
-        lateMinutes: record.lateMinutes,
-        sessionStatus: record.sessionStatus || "completed",
-      }));
+      const history = sortedRecords.map(record => {
+        const seriesInfo = record.seriesId ? seriesMap[record.seriesId] : null;
+        return {
+          sessionId: record.sessionId,
+          date: record.sessionStartTime ? new Date(record.sessionStartTime).toISOString().split('T')[0] : null,
+          startTime: record.sessionStartTime || null,
+          endTime: record.sessionEndTime || null,
+          sessionType: record.sessionType || "group",
+          status: record.attendanceStatus,
+          lateMinutes: record.lateMinutes,
+          sessionStatus: record.sessionStatus || "completed",
+          seriesId: record.seriesId,
+          seriesDayOfWeek: seriesInfo?.dayOfWeek ?? null,
+          seriesTitle: seriesInfo?.title || null,
+        };
+      });
 
-      res.json(history);
+      // Calculate per-series summaries for the header display
+      const seriesSummaries = uniqueSeriesIds.map(seriesId => {
+        const seriesRecords = history.filter(r => r.seriesId === seriesId);
+        const presentCount = seriesRecords.filter(r => r.status === 'present').length;
+        const absentCount = seriesRecords.filter(r => r.status === 'absent').length;
+        const seriesInfo = seriesMap[seriesId];
+        const total = seriesRecords.length;
+        
+        return {
+          seriesId,
+          dayOfWeek: seriesInfo?.dayOfWeek ?? 0,
+          dayName: ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][seriesInfo?.dayOfWeek ?? 0],
+          startTime: seriesInfo?.startTime || '',
+          title: seriesInfo?.title || '',
+          totalSessions: total,
+          presentCount,
+          absentCount,
+          attendanceRate: total > 0 ? Math.round((presentCount / total) * 100) : 0,
+        };
+      }).sort((a, b) => a.dayOfWeek - b.dayOfWeek);
+
+      res.json({ history, seriesSummaries });
     } catch (error) {
       console.error("Error fetching player attendance history:", error);
       res.status(500).json({ error: "Failed to fetch attendance history" });

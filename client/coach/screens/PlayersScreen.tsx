@@ -846,6 +846,26 @@ interface AttendanceHistoryRecord {
   status: string | null;
   lateMinutes: number | null;
   sessionStatus: string | null;
+  seriesId?: string | null;
+  seriesDayOfWeek?: number | null;
+  seriesTitle?: string | null;
+}
+
+interface SeriesAttendanceSummary {
+  seriesId: string;
+  dayOfWeek: number;
+  dayName: string;
+  startTime: string;
+  title: string;
+  totalSessions: number;
+  presentCount: number;
+  absentCount: number;
+  attendanceRate: number;
+}
+
+interface AttendanceHistoryResponse {
+  history: AttendanceHistoryRecord[];
+  seriesSummaries: SeriesAttendanceSummary[];
 }
 
 function PlayerDetailView({
@@ -1029,10 +1049,12 @@ function PlayerDetailView({
     queryKey: [`/api/coach/players/${player.id}/attendance-summary`],
   });
 
-  // Fetch full attendance history
-  const { data: attendanceHistory = [] } = useQuery<AttendanceHistoryRecord[]>({
+  // Fetch full attendance history with series summaries
+  const { data: attendanceData } = useQuery<AttendanceHistoryResponse>({
     queryKey: [`/api/coach/players/${player.id}/attendance-history`],
   });
+  const attendanceHistory = attendanceData?.history || [];
+  const seriesAttendanceSummaries = attendanceData?.seriesSummaries || [];
 
   // Format attendance date for display
   const formatAttendanceDate = (dateStr: string) => {
@@ -1595,58 +1617,165 @@ function PlayerDetailView({
             </View>
           ) : (
             <View style={styles.attendanceHistoryList}>
-              {displayedHistory.map((record, index) => (
-                <View key={record.sessionId} style={styles.attendanceHistoryRow}>
-                  <View style={styles.attendanceHistoryDate}>
-                    <Text style={styles.attendanceHistoryDateText}>
-                      {formatAttendanceDate(record.date)}
-                    </Text>
-                    <Text style={styles.attendanceHistoryTime}>
-                      {formatAttendanceTime(record.startTime)} - {formatAttendanceTime(record.endTime)}
-                    </Text>
-                  </View>
-                  <View style={styles.attendanceHistoryDetails}>
-                    <View style={styles.attendanceHistoryType}>
-                      <Text style={styles.attendanceHistoryTypeText}>
-                        {record.sessionType === "private" ? "Private" : 
-                         record.sessionType === "group" ? "Group" : 
-                         record.sessionType === "semi-private" ? "Semi" : record.sessionType}
-                      </Text>
-                    </View>
-                    <View style={[
-                      styles.attendanceStatusBadge,
-                      record.status === "present" ? styles.attendanceStatusPresent :
-                      record.status === "absent" ? styles.attendanceStatusAbsent :
-                      (record.status === "holiday" || record.status === "cancelled" || record.status === "vacation") ? styles.attendanceStatusCancelled :
-                      styles.attendanceStatusPending
-                    ]}>
-                      <Ionicons 
-                        name={record.status === "present" ? "checkmark-circle" : 
-                              record.status === "absent" ? "close-circle" : 
-                              (record.status === "holiday" || record.status === "cancelled" || record.status === "vacation") ? "calendar-outline" : "time"} 
-                        size={14} 
-                        color={record.status === "present" ? Colors.dark.primary : 
-                               record.status === "absent" ? Colors.dark.error : 
-                               (record.status === "holiday" || record.status === "cancelled" || record.status === "vacation") ? Colors.dark.textSecondary : Colors.dark.gold}
-                      />
-                      <Text style={[
-                        styles.attendanceStatusText,
-                        record.status === "present" ? styles.attendanceStatusTextPresent :
-                        record.status === "absent" ? styles.attendanceStatusTextAbsent :
-                        (record.status === "holiday" || record.status === "cancelled" || record.status === "vacation") ? styles.attendanceStatusTextCancelled :
-                        styles.attendanceStatusTextPending
-                      ]}>
-                        {record.status === "present" ? "Present" : 
-                         record.status === "absent" ? "Absent" : 
-                         record.status === "holiday" ? "Holiday" :
-                         record.status === "vacation" ? "Vacation" :
-                         record.status === "cancelled" ? "Cancelled" : "Pending"}
-                        {record.lateMinutes && record.lateMinutes > 0 ? ` (+${record.lateMinutes}m late)` : ""}
-                      </Text>
-                    </View>
+              {/* Series Summary Cards - show when player has multiple lesson groups */}
+              {seriesAttendanceSummaries.length > 1 && (
+                <View style={styles.seriesSummaryContainer}>
+                  <Text style={styles.seriesSummaryTitle}>Per Lesson Group</Text>
+                  <View style={styles.seriesSummaryGrid}>
+                    {seriesAttendanceSummaries.map((summary) => (
+                      <View key={summary.seriesId} style={styles.seriesSummaryCard}>
+                        <View style={styles.seriesSummaryHeader}>
+                          <Text style={styles.seriesSummaryDay}>{summary.dayName}</Text>
+                          <Text style={styles.seriesSummaryTime}>{summary.startTime}</Text>
+                        </View>
+                        <View style={styles.seriesSummaryStats}>
+                          <View style={styles.seriesSummaryStat}>
+                            <Text style={[styles.seriesSummaryStatValue, { color: Colors.dark.primary }]}>
+                              {summary.presentCount}
+                            </Text>
+                            <Text style={styles.seriesSummaryStatLabel}>Present</Text>
+                          </View>
+                          <View style={styles.seriesSummaryStat}>
+                            <Text style={[styles.seriesSummaryStatValue, { color: Colors.dark.error }]}>
+                              {summary.absentCount}
+                            </Text>
+                            <Text style={styles.seriesSummaryStatLabel}>Absent</Text>
+                          </View>
+                          <View style={styles.seriesSummaryStat}>
+                            <Text style={[
+                              styles.seriesSummaryStatValue,
+                              { color: summary.attendanceRate >= 80 ? Colors.dark.primary : 
+                                       summary.attendanceRate >= 60 ? Colors.dark.gold : Colors.dark.error }
+                            ]}>
+                              {summary.attendanceRate}%
+                            </Text>
+                            <Text style={styles.seriesSummaryStatLabel}>Rate</Text>
+                          </View>
+                        </View>
+                      </View>
+                    ))}
                   </View>
                 </View>
-              ))}
+              )}
+
+              {/* Group sessions by series if multiple groups exist */}
+              {seriesAttendanceSummaries.length > 1 ? (
+                seriesAttendanceSummaries.map((summary) => {
+                  const seriesRecords = displayedHistory.filter(r => r.seriesId === summary.seriesId);
+                  if (seriesRecords.length === 0) return null;
+                  
+                  return (
+                    <View key={summary.seriesId} style={styles.seriesGroupSection}>
+                      <View style={styles.seriesGroupHeader}>
+                        <Text style={styles.seriesGroupDay}>{summary.dayName}</Text>
+                        <Text style={styles.seriesGroupTime}>{summary.startTime}</Text>
+                      </View>
+                      {seriesRecords.map((record) => (
+                        <View key={record.sessionId} style={styles.attendanceHistoryRow}>
+                          <View style={styles.attendanceHistoryDate}>
+                            <Text style={styles.attendanceHistoryDateText}>
+                              {formatAttendanceDate(record.date)}
+                            </Text>
+                          </View>
+                          <View style={styles.attendanceHistoryDetails}>
+                            <View style={styles.attendanceHistoryType}>
+                              <Text style={styles.attendanceHistoryTypeText}>
+                                {record.sessionType === "private" ? "Private" : 
+                                 record.sessionType === "group" ? "Group" : 
+                                 record.sessionType === "semi-private" ? "Semi" : record.sessionType}
+                              </Text>
+                            </View>
+                            <View style={[
+                              styles.attendanceStatusBadge,
+                              record.status === "present" ? styles.attendanceStatusPresent :
+                              record.status === "absent" ? styles.attendanceStatusAbsent :
+                              (record.status === "holiday" || record.status === "cancelled" || record.status === "vacation") ? styles.attendanceStatusCancelled :
+                              styles.attendanceStatusPending
+                            ]}>
+                              <Ionicons 
+                                name={record.status === "present" ? "checkmark-circle" : 
+                                      record.status === "absent" ? "close-circle" : 
+                                      (record.status === "holiday" || record.status === "cancelled" || record.status === "vacation") ? "calendar-outline" : "time"} 
+                                size={14} 
+                                color={record.status === "present" ? Colors.dark.primary : 
+                                       record.status === "absent" ? Colors.dark.error : 
+                                       (record.status === "holiday" || record.status === "cancelled" || record.status === "vacation") ? Colors.dark.textSecondary : Colors.dark.gold}
+                              />
+                              <Text style={[
+                                styles.attendanceStatusText,
+                                record.status === "present" ? styles.attendanceStatusTextPresent :
+                                record.status === "absent" ? styles.attendanceStatusTextAbsent :
+                                (record.status === "holiday" || record.status === "cancelled" || record.status === "vacation") ? styles.attendanceStatusTextCancelled :
+                                styles.attendanceStatusTextPending
+                              ]}>
+                                {record.status === "present" ? "Present" : 
+                                 record.status === "absent" ? "Absent" : 
+                                 record.status === "holiday" ? "Holiday" :
+                                 record.status === "vacation" ? "Vacation" :
+                                 record.status === "cancelled" ? "Cancelled" : "Pending"}
+                              </Text>
+                            </View>
+                          </View>
+                        </View>
+                      ))}
+                    </View>
+                  );
+                })
+              ) : (
+                /* Original layout for single lesson group */
+                displayedHistory.map((record, index) => (
+                  <View key={record.sessionId} style={styles.attendanceHistoryRow}>
+                    <View style={styles.attendanceHistoryDate}>
+                      <Text style={styles.attendanceHistoryDateText}>
+                        {formatAttendanceDate(record.date)}
+                      </Text>
+                      <Text style={styles.attendanceHistoryTime}>
+                        {formatAttendanceTime(record.startTime)} - {formatAttendanceTime(record.endTime)}
+                      </Text>
+                    </View>
+                    <View style={styles.attendanceHistoryDetails}>
+                      <View style={styles.attendanceHistoryType}>
+                        <Text style={styles.attendanceHistoryTypeText}>
+                          {record.sessionType === "private" ? "Private" : 
+                           record.sessionType === "group" ? "Group" : 
+                           record.sessionType === "semi-private" ? "Semi" : record.sessionType}
+                        </Text>
+                      </View>
+                      <View style={[
+                        styles.attendanceStatusBadge,
+                        record.status === "present" ? styles.attendanceStatusPresent :
+                        record.status === "absent" ? styles.attendanceStatusAbsent :
+                        (record.status === "holiday" || record.status === "cancelled" || record.status === "vacation") ? styles.attendanceStatusCancelled :
+                        styles.attendanceStatusPending
+                      ]}>
+                        <Ionicons 
+                          name={record.status === "present" ? "checkmark-circle" : 
+                                record.status === "absent" ? "close-circle" : 
+                                (record.status === "holiday" || record.status === "cancelled" || record.status === "vacation") ? "calendar-outline" : "time"} 
+                          size={14} 
+                          color={record.status === "present" ? Colors.dark.primary : 
+                                 record.status === "absent" ? Colors.dark.error : 
+                                 (record.status === "holiday" || record.status === "cancelled" || record.status === "vacation") ? Colors.dark.textSecondary : Colors.dark.gold}
+                        />
+                        <Text style={[
+                          styles.attendanceStatusText,
+                          record.status === "present" ? styles.attendanceStatusTextPresent :
+                          record.status === "absent" ? styles.attendanceStatusTextAbsent :
+                          (record.status === "holiday" || record.status === "cancelled" || record.status === "vacation") ? styles.attendanceStatusTextCancelled :
+                          styles.attendanceStatusTextPending
+                        ]}>
+                          {record.status === "present" ? "Present" : 
+                           record.status === "absent" ? "Absent" : 
+                           record.status === "holiday" ? "Holiday" :
+                           record.status === "vacation" ? "Vacation" :
+                           record.status === "cancelled" ? "Cancelled" : "Pending"}
+                          {record.lateMinutes && record.lateMinutes > 0 ? ` (+${record.lateMinutes}m late)` : ""}
+                        </Text>
+                      </View>
+                    </View>
+                  </View>
+                ))
+              )}
 
               {attendanceHistory.length > 5 ? (
                 <Pressable
@@ -4423,5 +4552,93 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     color: Colors.dark.xpCyan,
     letterSpacing: 0.5,
+  },
+  
+  // Series attendance summary styles
+  seriesSummaryContainer: {
+    marginBottom: Spacing.lg,
+  },
+  seriesSummaryTitle: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: Colors.dark.xpCyan,
+    textTransform: "uppercase",
+    letterSpacing: 1,
+    marginBottom: Spacing.sm,
+  },
+  seriesSummaryGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: Spacing.sm,
+  },
+  seriesSummaryCard: {
+    flex: 1,
+    minWidth: 140,
+    backgroundColor: Colors.dark.xpCyan + "10",
+    borderRadius: BorderRadius.md,
+    padding: Spacing.md,
+    borderWidth: 1,
+    borderColor: Colors.dark.xpCyan + "30",
+  },
+  seriesSummaryHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: Spacing.sm,
+  },
+  seriesSummaryDay: {
+    fontSize: 16,
+    fontWeight: "700",
+    color: Colors.dark.xpCyan,
+  },
+  seriesSummaryTime: {
+    fontSize: 12,
+    color: Colors.dark.tabIconDefault,
+    backgroundColor: "rgba(255, 255, 255, 0.1)",
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 2,
+    borderRadius: BorderRadius.xs,
+  },
+  seriesSummaryStats: {
+    flexDirection: "row",
+    justifyContent: "space-around",
+  },
+  seriesSummaryStat: {
+    alignItems: "center",
+  },
+  seriesSummaryStatValue: {
+    fontSize: 18,
+    fontWeight: "700",
+  },
+  seriesSummaryStatLabel: {
+    fontSize: 9,
+    color: Colors.dark.tabIconDefault,
+    textTransform: "uppercase",
+  },
+  
+  // Series group section styles
+  seriesGroupSection: {
+    marginBottom: Spacing.lg,
+  },
+  seriesGroupHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    backgroundColor: Colors.dark.xpCyan + "15",
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm,
+    borderRadius: BorderRadius.md,
+    marginBottom: Spacing.sm,
+    borderLeftWidth: 3,
+    borderLeftColor: Colors.dark.xpCyan,
+  },
+  seriesGroupDay: {
+    fontSize: 14,
+    fontWeight: "700",
+    color: Colors.dark.xpCyan,
+  },
+  seriesGroupTime: {
+    fontSize: 12,
+    color: Colors.dark.tabIconDefault,
   },
 });
