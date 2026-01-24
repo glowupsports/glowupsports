@@ -141,6 +141,7 @@ const premiumInputStyles = StyleSheet.create({
     fontSize: 16,
     color: Colors.dark.text,
     paddingVertical: 0,
+    outlineStyle: 'none' as any,
   },
   toggleButton: {
     padding: 4,
@@ -1634,6 +1635,7 @@ const styles = StyleSheet.create({
     paddingVertical: Spacing.md + 4,
     color: Colors.dark.text,
     fontSize: 16,
+    outlineStyle: 'none' as any,
   },
   usernameInput: {
     paddingRight: 40,
