@@ -1473,10 +1473,11 @@ export default function LoginScreen() {
       >
         {mode === "login" ? (
           <View style={styles.header}>
-            <View style={styles.logoContainer}>
-              <Ionicons name="tennisball" size={40} color={Colors.dark.primary} />
-            </View>
-            <Text style={styles.title}>GLOW UP SPORTS</Text>
+            <Image 
+              source={require("../../../assets/images/logo.png")} 
+              style={styles.headerLogo}
+              resizeMode="contain"
+            />
             <Text style={styles.subtitle}>Sign in to continue</Text>
           </View>
         ) : null}
@@ -1513,6 +1514,11 @@ const styles = StyleSheet.create({
   header: {
     alignItems: "center",
     marginBottom: Spacing.md,
+  },
+  headerLogo: {
+    width: 200,
+    height: 100,
+    marginBottom: Spacing.sm,
   },
   logoContainer: {
     width: 64,
