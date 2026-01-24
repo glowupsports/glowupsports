@@ -121,7 +121,17 @@ async function verifySync(): Promise<void> {
   console.log(`\nSynced: ${synced}, Out of sync: ${outOfSync}`);
 }
 
-if (require.main === module) {
+const isMainModule = () => {
+  try {
+    return import.meta.url === `file://${process.argv[1]}` || 
+           process.argv[1]?.endsWith('db-sync.ts') ||
+           process.argv[1]?.endsWith('db-sync.js');
+  } catch {
+    return false;
+  }
+};
+
+if (isMainModule()) {
   const args = process.argv.slice(2);
   const isVerify = args.includes('--verify');
   const isVerbose = args.includes('--verbose');
