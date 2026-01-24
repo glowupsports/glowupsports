@@ -15216,14 +15216,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Get a single coaching series by ID (admin can view any series in their academy)
   app.get("/api/admin/series/:id", authMiddleware, requireRole("admin", "academy_owner", "platform_owner"), async (req: AuthenticatedRequest, res: Response) => {
     try {
-      const { id } = req.params;
+      let { id } = req.params;
       const academyId = req.user?.academyId;
 
       if (!academyId) {
         return res.status(400).json({ error: "Academy context required" });
       }
 
-      const series = await storage.getCoachingSeriesById(id);
+      // Handle virtual/transferred series (prefixed with "virtual-")
+      const isVirtual = id.startsWith("virtual-");
+      const realSeriesId = isVirtual ? id.replace("virtual-", "") : id;
+
+      const series = await storage.getCoachingSeriesById(realSeriesId);
 
       if (!series) {
         return res.status(404).json({ error: "Series not found" });
