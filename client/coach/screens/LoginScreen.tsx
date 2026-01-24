@@ -1025,6 +1025,20 @@ export default function LoginScreen() {
         disabled={isSubmitting}
         colors={[Colors.dark.xpCyan, "#00A8CC"]}
       />
+
+      <View style={styles.dividerContainer}>
+        <View style={styles.dividerLine} />
+        <Text style={styles.dividerText}>OR</Text>
+        <View style={styles.dividerLine} />
+      </View>
+
+      <Pressable
+        style={styles.inviteButton}
+        onPress={() => handleModeChange("invite_code")}
+      >
+        <Ionicons name="key" size={18} color="#9B59B6" />
+        <Text style={styles.inviteButtonText}>I have an invite code</Text>
+      </Pressable>
     </>
   );
 
@@ -1790,6 +1804,38 @@ const styles = StyleSheet.create({
   secondaryButtonText: {
     ...Typography.body,
     color: Colors.dark.xpCyan,
+    fontWeight: "600",
+  },
+  dividerContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginVertical: Spacing.lg,
+  },
+  dividerLine: {
+    flex: 1,
+    height: 1,
+    backgroundColor: "rgba(255,255,255,0.1)",
+  },
+  dividerText: {
+    ...Typography.caption,
+    color: Colors.dark.textMuted,
+    marginHorizontal: Spacing.md,
+  },
+  inviteButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: Spacing.md,
+    paddingHorizontal: Spacing.lg,
+    backgroundColor: "rgba(155, 89, 182, 0.1)",
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "rgba(155, 89, 182, 0.3)",
+    gap: Spacing.sm,
+  },
+  inviteButtonText: {
+    ...Typography.body,
+    color: "#9B59B6",
     fontWeight: "600",
   },
   toggleButton: {

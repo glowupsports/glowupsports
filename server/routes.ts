@@ -3967,6 +3967,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
         coachId: targetCoachId,
       });
 
+      // If the session belongs to a series, copy series_players to session_players
+      // This ensures the new coach can see the players for this specific session
+      if (session.seriesId) {
+        const seriesPlayersList = await storage.getSeriesPlayers(session.seriesId);
+        
+        for (const sp of seriesPlayersList) {
+          if (sp.status === "active") {
+            // Add player to this specific session (addPlayerToSession handles duplicates)
+            await storage.addPlayerToSession({
+              sessionId: id,
+              playerId: sp.playerId,
+              status: "enrolled",
+            });
+          }
+        }
+      }
+
       // Create audit log
       await storage.createAuditLog({
         entityType: "session",
