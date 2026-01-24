@@ -6117,18 +6117,32 @@ export const storage = {
     totalDebt: number;
     hasDebt: boolean;
   }> {
-    // Get available credits from active packages grouped by type
+    // Get all active packages for the player
     const playerPackages = await db.select().from(packages)
       .where(and(
         eq(packages.playerId, playerId),
         eq(packages.status, "active")
       ));
     
+    // Calculate ACTUAL remaining credits by checking credit_transactions for each package
+    // This is more reliable than trusting the remainingCredits column
     const credits = { group: 0, semi_private: 0, private: 0 };
+    
     for (const pkg of playerPackages) {
       const creditType = (pkg.creditType || "group") as keyof typeof credits;
+      
+      // Get all transactions for this specific package
+      const packageTransactions = await db.select().from(creditTransactions)
+        .where(eq(creditTransactions.packageId, pkg.id));
+      
+      // Calculate: total_credits + sum of all transaction amounts (credits are positive, debits are negative)
+      const transactionSum = packageTransactions.reduce((sum, tx) => sum + tx.amount, 0);
+      // The transaction sum already includes the initial "credit" (+10) and all debits (-1 each)
+      // So actual remaining = transactionSum (which is totalCredits - usedCredits)
+      const actualRemaining = Math.max(0, transactionSum);
+      
       if (credits[creditType] !== undefined) {
-        credits[creditType] += pkg.remainingCredits;
+        credits[creditType] += actualRemaining;
       }
     }
     

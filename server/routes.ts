@@ -15138,6 +15138,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           .from(sessions)
           .where(and(
             eq(sessions.coachId, coachId),
+            eq(sessions.academyId, academyId), // Filter by academy to ensure correct data
             or(
               ownSeriesIds.length > 0 
                 ? and(isNotNull(sessions.seriesId), notInArray(sessions.seriesId, ownSeriesIds))
@@ -16943,17 +16944,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
           private: creditBalance.private,
           activePackages: playerPackages.filter((p: any) => p.status === "active").length,
         },
-        packages: playerPackages.map((pkg: any) => ({
-          id: pkg.id,
-          creditType: pkg.creditType || "group",
-          totalCredits: pkg.totalCredits,
-          remainingCredits: pkg.remainingCredits,
-          status: pkg.status,
-          expiryDate: pkg.expiryDate,
-          createdAt: pkg.createdAt,
-          pricePerCredit: pkg.pricePerCredit || 0,
-          isPaid: pkg.isPaid || false,
-          price: pkg.price || 0,
+        packages: await Promise.all(playerPackages.map(async (pkg: any) => {
+          // Calculate ACTUAL remaining credits from credit_transactions
+          const packageTransactions = await db.select().from(creditTransactions)
+            .where(eq(creditTransactions.packageId, pkg.id));
+          const transactionSum = packageTransactions.reduce((sum, tx) => sum + tx.amount, 0);
+          const actualRemaining = Math.max(0, transactionSum);
+          
+          return {
+            id: pkg.id,
+            creditType: pkg.creditType || "group",
+            totalCredits: pkg.totalCredits,
+            remainingCredits: actualRemaining, // Use calculated value, not stored value
+            status: pkg.status,
+            expiryDate: pkg.expiryDate,
+            createdAt: pkg.createdAt,
+            pricePerCredit: pkg.pricePerCredit || 0,
+            isPaid: pkg.isPaid || false,
+            price: pkg.price || 0,
+          };
         })),
         sessions: await Promise.all(sessions.slice(0, 50).map(async (s: any) => {
           // Calculate effective session type based on attendance
