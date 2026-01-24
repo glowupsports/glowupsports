@@ -7,7 +7,7 @@ import fs from "fs";
 import { storage, getSessionTypeByPlayerCount, updateSeriesSessionType, recalculateSeriesCredits } from "./storage";
 import { db } from "./db";
 import { playerHolidays } from "@shared/schema";
-import { eq, sql, desc, and, ne, gt, gte, asc, inArray, isNull, isNotNull, or, count } from "drizzle-orm";
+import { eq, sql, desc, and, ne, gt, gte, asc, inArray, notInArray, isNull, isNotNull, or, count } from "drizzle-orm";
 import { 
   invoices, payments, sessionPlayers, sessionWaitlist, creditTransactions, players, 
   locationTravelTimes, sessions, sessionFeedback, inSessionFeedback, seriesPlayers, coachingSeries,
@@ -8443,7 +8443,91 @@ export async function registerRoutes(app: Express): Promise<Server> {
         };
       }));
       
-      res.json(enrichedSeries);
+      // Find orphan sessions: sessions assigned to this coach but belonging to another coach's series
+      // These are transferred sessions that should appear as "virtual flexible" entries
+      const ownSeriesIds = series.map(s => s.id);
+      const orphanSessions = await db
+        .select()
+        .from(sessions)
+        .where(and(
+          eq(sessions.coachId, coachId),
+          or(
+            // Sessions with a seriesId not in this coach's series
+            ownSeriesIds.length > 0 
+              ? and(isNotNull(sessions.seriesId), notInArray(sessions.seriesId, ownSeriesIds))
+              : isNotNull(sessions.seriesId),
+            // Sessions without a seriesId (standalone transferred sessions)
+            isNull(sessions.seriesId)
+          )
+        ))
+        .orderBy(asc(sessions.startTime));
+      
+      // Group orphan sessions into virtual "flexible" series entries
+      const virtualFlexibleSeries: any[] = [];
+      if (orphanSessions.length > 0) {
+        // Group by original seriesId to create one virtual entry per transferred block
+        const groupedBySeriesId = orphanSessions.reduce((acc, session) => {
+          const key = session.seriesId || 'standalone';
+          if (!acc[key]) acc[key] = [];
+          acc[key].push(session);
+          return acc;
+        }, {} as Record<string, typeof orphanSessions>);
+        
+        for (const [seriesKey, sessionsGroup] of Object.entries(groupedBySeriesId)) {
+          const firstSession = sessionsGroup[0];
+          const completedCount = sessionsGroup.filter(s => s.status === 'completed').length;
+          const now = new Date();
+          const nextSession = sessionsGroup.find(s => s.status === 'scheduled' && new Date(s.startTime) > now);
+          
+          // Get players from first session
+          const sessionPlayersList = await db
+            .select()
+            .from(sessionPlayers)
+            .where(eq(sessionPlayers.sessionId, firstSession.id));
+          
+          const playerDetails = await Promise.all(sessionPlayersList.slice(0, 4).map(async (sp) => {
+            const player = await storage.getPlayer(sp.playerId);
+            return {
+              id: sp.playerId,
+              name: player?.name || 'Unknown',
+              ballLevel: player?.ballLevel || null,
+            };
+          }));
+          
+          virtualFlexibleSeries.push({
+            id: `virtual-${seriesKey}`,
+            title: firstSession.title || 'Transferred Session',
+            status: 'active',
+            sessionType: firstSession.sessionType,
+            dayOfWeek: -1, // Flexible indicator
+            startTime: firstSession.startTime,
+            duration: firstSession.duration,
+            coachId: coachId,
+            academyId: academyId,
+            maxPlayers: firstSession.maxPlayers || 1,
+            ballLevel: firstSession.ballLevel,
+            weekCount: sessionsGroup.length,
+            xpPerSession: firstSession.xpPerSession || 25,
+            createdAt: firstSession.createdAt,
+            isTransferred: true, // Mark as transferred sessions
+            originalSeriesId: seriesKey !== 'standalone' ? seriesKey : null,
+            playerCount: sessionPlayersList.length,
+            playerNames: playerDetails.map(p => p.name),
+            sessionsCompleted: completedCount,
+            pendingFeedback: 0,
+            playerPreview: playerDetails,
+            primaryBallLevel: firstSession.ballLevel,
+            nextSessionDate: nextSession?.startTime || null,
+            // Include actual session IDs for timeline/detail views
+            transferredSessionIds: sessionsGroup.map(s => s.id),
+          });
+        }
+      }
+      
+      // Combine regular series with virtual flexible entries
+      const allSeries = [...enrichedSeries, ...virtualFlexibleSeries];
+      
+      res.json(allSeries);
     } catch (error) {
       console.error("Error fetching coaching series:", error);
       res.status(500).json({ error: "Failed to fetch coaching series" });
