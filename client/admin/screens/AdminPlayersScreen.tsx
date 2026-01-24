@@ -18,6 +18,7 @@ import Ionicons from "@expo/vector-icons/Ionicons";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import * as Haptics from "expo-haptics";
 import * as Clipboard from "expo-clipboard";
+import DateTimePicker from "@react-native-community/datetimepicker";
 import { Colors, Spacing, BorderRadius, Typography, CardStyles, Backgrounds, GlowColors } from "@/constants/theme";
 import { apiRequest } from "@/lib/query-client";
 import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollViewCompat";
@@ -471,6 +472,7 @@ export default function AdminPlayersScreen() {
   const [selectedPackageForPayment, setSelectedPackageForPayment] = useState<PlayerPackage | null>(null);
   const [paymentMethod, setPaymentMethod] = useState<"cash" | "bank_transfer">("cash");
   const [paymentDate, setPaymentDate] = useState(new Date());
+  const [showPaymentDatePicker, setShowPaymentDatePicker] = useState(false);
   const [inviteCopied, setInviteCopied] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
   const [ballLevelFilter, setBallLevelFilter] = useState<string>("all");
@@ -2420,12 +2422,12 @@ export default function AdminPlayersScreen() {
         onRequestClose={() => setShowMarkPaidModal(false)}
       >
         <Pressable 
-          style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.7)', justifyContent: 'center', alignItems: 'center' }}
+          style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.92)', justifyContent: 'center', alignItems: 'center' }}
           onPress={() => setShowMarkPaidModal(false)}
         >
           <Pressable 
             style={{
-              backgroundColor: Colors.dark.backgroundCard,
+              backgroundColor: '#11141A',
               borderRadius: 16,
               padding: 24,
               width: '90%',
@@ -2513,12 +2515,50 @@ export default function AdminPlayersScreen() {
                 gap: 12,
                 marginBottom: 24,
               }}
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                setShowPaymentDatePicker(true);
+              }}
             >
               <Ionicons name="calendar" size={20} color={Colors.dark.orange} />
               <Text style={{ color: Colors.dark.text, fontSize: 16 }}>
                 {paymentDate.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}
               </Text>
             </Pressable>
+            
+            {showPaymentDatePicker && (
+              <View style={{ marginBottom: 16 }}>
+                <DateTimePicker
+                  value={paymentDate}
+                  mode="date"
+                  display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                  onChange={(event, selectedDate) => {
+                    if (Platform.OS === 'android') {
+                      setShowPaymentDatePicker(false);
+                    }
+                    if (selectedDate) {
+                      setPaymentDate(selectedDate);
+                    }
+                  }}
+                  textColor="#FFFFFF"
+                  themeVariant="dark"
+                />
+                {Platform.OS === 'ios' && (
+                  <Pressable
+                    style={{
+                      backgroundColor: Colors.dark.orange,
+                      padding: 12,
+                      borderRadius: 8,
+                      alignItems: 'center',
+                      marginTop: 8,
+                    }}
+                    onPress={() => setShowPaymentDatePicker(false)}
+                  >
+                    <Text style={{ color: '#0B0D10', fontWeight: '600' }}>Done</Text>
+                  </Pressable>
+                )}
+              </View>
+            )}
 
             <Pressable
               style={{
