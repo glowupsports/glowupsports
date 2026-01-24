@@ -8,6 +8,7 @@ import {
   Alert,
   TextInput,
   Platform,
+  Image,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
@@ -446,8 +447,9 @@ export default function LoginScreen() {
       if (result.success && result.user) {
         await saveAccount(
           normalizedUsername,
-          normalizedUsername,
-          result.user.role as "coach" | "player" | "owner" | "parent"
+          result.user.displayName || normalizedUsername,
+          result.user.role as "coach" | "player" | "owner" | "parent",
+          result.user.profilePhotoUrl || undefined
         );
         loadSavedAccounts();
       } else if (!result.success) {
@@ -758,11 +760,18 @@ export default function LoginScreen() {
               onLongPress={() => handleRemoveAccount(account)}
             >
               <View style={[styles.savedAccountAvatar, { borderColor: getRoleColor(account.role) }]}>
-                <Ionicons 
-                  name={getRoleIcon(account.role)} 
-                  size={20} 
-                  color={getRoleColor(account.role)} 
-                />
+                {account.avatarUrl ? (
+                  <Image 
+                    source={{ uri: account.avatarUrl }} 
+                    style={styles.savedAccountPhoto}
+                  />
+                ) : (
+                  <Ionicons 
+                    name={getRoleIcon(account.role)} 
+                    size={20} 
+                    color={getRoleColor(account.role)} 
+                  />
+                )}
               </View>
               <Text style={styles.savedAccountName} numberOfLines={1}>
                 {account.displayName}
@@ -1831,6 +1840,12 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     marginBottom: Spacing.xs,
+    overflow: "hidden",
+  },
+  savedAccountPhoto: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
   },
   savedAccountName: {
     ...Typography.caption,

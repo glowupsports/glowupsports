@@ -12,6 +12,8 @@ export interface AuthUser {
   academyId: string | null;
   coachId: string | null;
   playerId: string | null;
+  profilePhotoUrl?: string | null;
+  displayName?: string;
 }
 
 export interface AuthState {

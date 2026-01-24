@@ -572,6 +572,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
         playerId: user.playerId,
       });
 
+      // Get profile photo URL based on role
+      let profilePhotoUrl: string | null = null;
+      let displayName = user.username;
+      
+      if (user.coachId) {
+        const coach = await storage.getCoach(user.coachId);
+        if (coach) {
+          profilePhotoUrl = coach.profilePhotoUrl || null;
+          displayName = coach.name || user.username;
+        }
+      } else if (user.playerId) {
+        const player = await storage.getPlayer(user.playerId);
+        if (player) {
+          profilePhotoUrl = (player as any).profilePhotoUrl || null;
+          displayName = player.name || user.username;
+        }
+      }
+
       res.json({ 
         token,
         user: {
@@ -582,6 +600,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
           academyId: user.academyId,
           coachId: user.coachId,
           playerId: user.playerId,
+          profilePhotoUrl,
+          displayName,
         }
       });
     } catch (error) {
