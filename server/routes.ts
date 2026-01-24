@@ -3909,8 +3909,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ error: "Session not found" });
       }
 
-      // Verify current coach owns this session
-      if (session.coachId !== currentCoachId) {
+      // Verify current coach owns this session OR owns the series
+      let isAuthorized = session.coachId === currentCoachId;
+      
+      // Also allow transfer if coach owns the series this session belongs to
+      if (!isAuthorized && session.seriesId) {
+        const series = await storage.getSeries(session.seriesId);
+        if (series && series.coachId === currentCoachId) {
+          isAuthorized = true;
+        }
+      }
+      
+      if (!isAuthorized) {
         return res.status(403).json({ error: "Not authorized to transfer this session" });
       }
 
