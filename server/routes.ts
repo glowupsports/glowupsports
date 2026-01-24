@@ -8499,11 +8499,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         };
       }));
       
-      // Get all sessions for this series
+      // Get all sessions for this series (only those still assigned to this coach)
       const seriesSessions = await db
         .select()
         .from(sessions)
-        .where(eq(sessions.seriesId, id))
+        .where(and(eq(sessions.seriesId, id), eq(sessions.coachId, coachId)))
         .orderBy(asc(sessions.startTime));
       
       // Get location name if applicable
@@ -10158,11 +10158,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(403).json({ error: "Not authorized to view this series" });
       }
       
-      // Get all sessions for this series
+      // Get all sessions for this series (only those still assigned to this coach)
       const seriesSessions = await db
         .select()
         .from(sessions)
-        .where(eq(sessions.seriesId, id))
+        .where(and(eq(sessions.seriesId, id), eq(sessions.coachId, coachId)))
         .orderBy(asc(sessions.weekNumber), asc(sessions.startTime));
       
       // Get feedback for these sessions
