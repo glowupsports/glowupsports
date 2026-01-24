@@ -286,6 +286,8 @@ import {
   type InsertDeepAssessmentSkill,
   type PlayerDeepAssessment,
   type InsertPlayerDeepAssessment,
+  // Glow Skills
+  glowSkills,
 } from "@shared/schema";
 
 export const storage = {
