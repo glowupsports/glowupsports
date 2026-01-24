@@ -178,7 +178,55 @@ export function generateAttendanceReportHtml(data: AttendanceReportData): string
     return `<div class="month-tab ${index === 0 ? 'active' : ''}">${label} (${count})</div>`;
   }).join('');
 
-  // Generate attendance rows grouped by month
+  // Check if player has multiple series - if so, show side-by-side columns
+  const hasMultipleSeries = data.seriesSummaries && data.seriesSummaries.length > 1;
+  
+  // Generate side-by-side columns per series (for players with multiple lesson groups)
+  const seriesColumnsHtml = hasMultipleSeries && data.seriesSummaries ? (() => {
+    const seriesColumns = data.seriesSummaries.map(summary => {
+      const seriesRecords = data.records
+        .filter(r => r.seriesId === summary.series.id)
+        .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+      
+      const rowsHtml = seriesRecords.map(record => `
+        <div class="series-session-row">
+          <div class="series-session-date">${formatShortDate(record.date)}</div>
+          <span class="session-type-badge compact">${getSessionTypeLabel(record.sessionType)}</span>
+          <span class="status-badge compact" style="background: ${getStatusColor(record.status)}20; color: ${getStatusColor(record.status)};">
+            ${getStatusLabel(record.status)}
+          </span>
+        </div>
+      `).join('');
+      
+      return `
+        <div class="series-column">
+          <div class="series-column-header">
+            <div class="series-column-day">${getDayName(summary.series.dayOfWeek)}</div>
+            <div class="series-column-time">${summary.series.startTime}</div>
+          </div>
+          <div class="series-column-stats">
+            <span style="color: #10B981;">${summary.presentCount} Present</span>
+            <span style="color: #EF4444;">${summary.absentCount} Absent</span>
+            <span style="color: ${getAttendanceRateColor(summary.attendanceRate)};">${summary.attendanceRate}%</span>
+          </div>
+          <div class="series-column-sessions">
+            ${rowsHtml}
+          </div>
+        </div>
+      `;
+    }).join('');
+    
+    return `
+      <div class="series-columns-section">
+        <div class="section-title">Sessions per Lesson Group</div>
+        <div class="series-columns-grid">
+          ${seriesColumns}
+        </div>
+      </div>
+    `;
+  })() : '';
+
+  // Generate attendance rows grouped by month (traditional view for single-series players)
   const monthSectionsHtml = sortedMonths.map(monthKey => {
     const records = recordsByMonth.get(monthKey)!;
     const date = new Date(monthKey + '-01');
@@ -420,6 +468,90 @@ export function generateAttendanceReportHtml(data: AttendanceReportData): string
       margin-top: 2px;
     }
     
+    .series-columns-section {
+      margin-bottom: 32px;
+    }
+    
+    .series-columns-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+      gap: 20px;
+    }
+    
+    .series-column {
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 12px;
+      overflow: hidden;
+    }
+    
+    .series-column-header {
+      background: rgba(0, 212, 255, 0.15);
+      padding: 16px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 1px solid rgba(0, 212, 255, 0.3);
+    }
+    
+    .series-column-day {
+      font-size: 20px;
+      font-weight: 700;
+      color: #00D4FF;
+    }
+    
+    .series-column-time {
+      font-size: 14px;
+      color: rgba(255, 255, 255, 0.6);
+      background: rgba(255, 255, 255, 0.1);
+      padding: 4px 12px;
+      border-radius: 8px;
+    }
+    
+    .series-column-stats {
+      display: flex;
+      justify-content: space-around;
+      padding: 12px;
+      background: rgba(255, 255, 255, 0.02);
+      border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+      font-size: 12px;
+      font-weight: 600;
+    }
+    
+    .series-column-sessions {
+      padding: 8px;
+      max-height: 400px;
+      overflow-y: auto;
+    }
+    
+    .series-session-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 10px 12px;
+      border-radius: 8px;
+      margin-bottom: 4px;
+      background: rgba(255, 255, 255, 0.02);
+      border-left: 3px solid #C8FF3D;
+    }
+    
+    .series-session-date {
+      flex: 1;
+      font-size: 13px;
+      font-weight: 500;
+      color: white;
+    }
+    
+    .session-type-badge.compact {
+      padding: 2px 8px;
+      font-size: 10px;
+    }
+    
+    .status-badge.compact {
+      padding: 3px 10px;
+      font-size: 10px;
+    }
+    
     .month-tabs {
       display: flex;
       gap: 8px;
@@ -644,6 +776,8 @@ export function generateAttendanceReportHtml(data: AttendanceReportData): string
     </div>
     
     ${seriesBreakdownHtml}
+    
+    ${seriesColumnsHtml}
     
     <div class="month-tabs">
       ${monthTabsHtml}
