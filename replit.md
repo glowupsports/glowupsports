@@ -133,23 +133,45 @@ This prevents:
 - **Date Utilities**: `client/lib/dateUtils.ts` - timezone-aware formatting functions
 - **Play Screen**: `client/player/screens/PlayScreen.tsx` - updated layout with Cancel button and credit indicator
 
-### Database Schema Sync (2026-01-24)
+### Database Sync System (2026-01-24)
 
-#### CRITICAL: Two Databases - Don't Mix Them Up
-- **Replit Database** (`DATABASE_URL`): Used by `drizzle.config.ts` and `execute_sql_tool`
-- **Supabase Database** (`SUPABASE_DATABASE_URL`): Used by `server/db.ts` - THIS IS THE PRODUCTION DATABASE
+#### CRITICAL: Two Databases - Data Flow
+- **Replit Database** (`DATABASE_URL`): SOURCE OF TRUTH for development. Used by `drizzle.config.ts` and `execute_sql_tool`
+- **Supabase Database** (`SUPABASE_DATABASE_URL`): PRODUCTION runtime database. Used by `server/db.ts`
 
-#### How to Add New Columns to Supabase
-When adding new columns to the schema (`shared/schema.ts`), you MUST also add them to Supabase directly:
+#### Automatic Sync
+Data is automatically synchronized from Replit → Supabase on every server startup in development mode:
+- Script: `scripts/db-sync.ts`
+- Runs: Automatically on server startup (development only)
+- Direction: ONE-WAY (Replit → Supabase)
+- Tables synced: 40+ tables including users, players, sessions, packages, etc.
+
+#### Manual Sync Commands
 ```bash
-# Add column to Supabase
+# Verify sync status
+npx tsx scripts/db-sync.ts --verify
+
+# Force sync all tables
+npx tsx scripts/db-sync.ts
+
+# Full data dump and restore
+pg_dump "$DATABASE_URL" --data-only --column-inserts > /tmp/dump.sql
+psql "$SUPABASE_DATABASE_URL" -c "SET session_replication_role = 'replica';" && psql "$SUPABASE_DATABASE_URL" < /tmp/dump.sql
+```
+
+#### Adding New Columns
+When adding new columns to the schema (`shared/schema.ts`), add them to BOTH databases:
+```bash
+# 1. Add to Replit via drizzle
+npm run db:push
+
+# 2. Add to Supabase manually
 psql "$SUPABASE_DATABASE_URL" -c "ALTER TABLE table_name ADD COLUMN IF NOT EXISTS column_name data_type DEFAULT default_value;"
 ```
 
 #### Common Fix for "column does not exist" errors
 If you see errors like `column "status" does not exist`, the Supabase schema is out of sync:
 ```bash
-# Example: Adding missing columns to Supabase
 psql "$SUPABASE_DATABASE_URL" -c "ALTER TABLE players ADD COLUMN IF NOT EXISTS status text DEFAULT 'active';"
 psql "$SUPABASE_DATABASE_URL" -c "ALTER TABLE courts ADD COLUMN IF NOT EXISTS credits_per_hour integer DEFAULT 0;"
 ```
