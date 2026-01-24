@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useMemo } from "react";
 import {
   View,
   Text,
@@ -482,6 +482,7 @@ export default function AdminPlayersScreen() {
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [hasEmailFilter, setHasEmailFilter] = useState<string>("all");
   const [sortBy, setSortBy] = useState<SortOption>("name_asc");
+  const [selectedSeriesFilter, setSelectedSeriesFilter] = useState<string | null>(null);
   const [formData, setFormData] = useState({
     name: "",
     email: "",
@@ -516,6 +517,24 @@ export default function AdminPlayersScreen() {
   });
 
   const selectedPlayer = players.find(p => p.id === selectedPlayerId);
+
+  const uniqueSeries = useMemo(() => {
+    if (!playerStats?.sessions) return [];
+    const seriesMap = new Map();
+    playerStats.sessions.forEach((s: any) => {
+      if (s.seriesName && s.seriesId) {
+        seriesMap.set(s.seriesId, s.seriesName);
+      }
+    });
+    return Array.from(seriesMap.entries()).map(([id, name]) => ({ id, name }));
+  }, [playerStats?.sessions]);
+
+  const filteredSessions = useMemo(() => {
+    if (!playerStats?.sessions) return [];
+    return selectedSeriesFilter 
+      ? playerStats.sessions.filter((s: any) => s.seriesId === selectedSeriesFilter)
+      : playerStats.sessions;
+  }, [playerStats?.sessions, selectedSeriesFilter]);
 
   const addPlayerMutation = useMutation({
     mutationFn: async (data: typeof formData) => {
@@ -1124,7 +1143,7 @@ export default function AdminPlayersScreen() {
                     </View>
                     <View>
                       <Text style={styles.attendanceTitle}>Attendance History</Text>
-                      <Text style={styles.attendanceSubtitle}>{stats.sessions?.length || 0} sessions recorded</Text>
+                      <Text style={styles.attendanceSubtitle}>{filteredSessions?.length || 0} sessions recorded</Text>
                     </View>
                   </View>
                   <Pressable 
@@ -1139,9 +1158,52 @@ export default function AdminPlayersScreen() {
                   </Pressable>
                 </View>
 
-                {stats.sessions && stats.sessions.length > 0 ? (
+                {uniqueSeries.length > 0 ? (
+                  <ScrollView 
+                    horizontal 
+                    showsHorizontalScrollIndicator={false}
+                    style={styles.seriesFilterContainer}
+                    contentContainerStyle={{ paddingHorizontal: Spacing.md, paddingVertical: Spacing.sm }}
+                  >
+                    <Pressable
+                      style={[
+                        styles.seriesFilterChip,
+                        selectedSeriesFilter === null && styles.seriesFilterChipActive,
+                      ]}
+                      onPress={() => {
+                        setSelectedSeriesFilter(null);
+                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                      }}
+                    >
+                      <Text style={[
+                        styles.seriesFilterChipText,
+                        selectedSeriesFilter === null && styles.seriesFilterChipTextActive,
+                      ]}>All</Text>
+                    </Pressable>
+                    {uniqueSeries.map((series) => (
+                      <Pressable
+                        key={series.id}
+                        style={[
+                          styles.seriesFilterChip,
+                          selectedSeriesFilter === series.id && styles.seriesFilterChipActive,
+                        ]}
+                        onPress={() => {
+                          setSelectedSeriesFilter(series.id);
+                          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                        }}
+                      >
+                        <Text style={[
+                          styles.seriesFilterChipText,
+                          selectedSeriesFilter === series.id && styles.seriesFilterChipTextActive,
+                        ]}>{series.name}</Text>
+                      </Pressable>
+                    ))}
+                  </ScrollView>
+                ) : null}
+
+                {filteredSessions && filteredSessions.length > 0 ? (
                   <View style={styles.attendanceList}>
-                    {stats.sessions.slice(0, 10).map((session, index) => {
+                    {filteredSessions.slice(0, 10).map((session: any, index: number) => {
                       const sessionDate = new Date(session.startTime);
                       const isAttended = session.attended === "present";
                       const isAbsent = session.attended === "absent" || session.attended === "no_show";
@@ -1709,7 +1771,10 @@ export default function AdminPlayersScreen() {
                   <View style={{ width: 36, height: 36, borderRadius: 10, backgroundColor: `${Colors.dark.xpCyan}15`, alignItems: 'center', justifyContent: 'center' }}>
                     <Ionicons name="calendar" size={18} color={Colors.dark.xpCyan} />
                   </View>
-                  <Text style={[styles.sectionTitle, { marginBottom: 0 }]}>Attendance History</Text>
+                  <View>
+                    <Text style={[styles.sectionTitle, { marginBottom: 0 }]}>Attendance History</Text>
+                    <Text style={{ fontSize: 12, color: Colors.dark.textMuted, marginTop: 2 }}>{filteredSessions?.length || 0} sessions recorded</Text>
+                  </View>
                 </View>
                 <Pressable
                   onPress={() => {
@@ -1734,9 +1799,53 @@ export default function AdminPlayersScreen() {
                   <Text style={{ color: '#FFFFFF', fontSize: 13, fontWeight: '700' }}>Report</Text>
                 </Pressable>
               </View>
-              {stats.sessions && Array.isArray(stats.sessions) && stats.sessions.length > 0 ? (
+              
+              {uniqueSeries.length > 0 ? (
+                <ScrollView 
+                  horizontal 
+                  showsHorizontalScrollIndicator={false}
+                  style={styles.seriesFilterContainer}
+                  contentContainerStyle={{ paddingHorizontal: Spacing.md, paddingBottom: Spacing.sm }}
+                >
+                  <Pressable
+                    style={[
+                      styles.seriesFilterChip,
+                      selectedSeriesFilter === null && styles.seriesFilterChipActive,
+                    ]}
+                    onPress={() => {
+                      setSelectedSeriesFilter(null);
+                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                    }}
+                  >
+                    <Text style={[
+                      styles.seriesFilterChipText,
+                      selectedSeriesFilter === null && styles.seriesFilterChipTextActive,
+                    ]}>All</Text>
+                  </Pressable>
+                  {uniqueSeries.map((series) => (
+                    <Pressable
+                      key={series.id}
+                      style={[
+                        styles.seriesFilterChip,
+                        selectedSeriesFilter === series.id && styles.seriesFilterChipActive,
+                      ]}
+                      onPress={() => {
+                        setSelectedSeriesFilter(series.id);
+                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                      }}
+                    >
+                      <Text style={[
+                        styles.seriesFilterChipText,
+                        selectedSeriesFilter === series.id && styles.seriesFilterChipTextActive,
+                      ]}>{series.name}</Text>
+                    </Pressable>
+                  ))}
+                </ScrollView>
+              ) : null}
+
+              {filteredSessions && filteredSessions.length > 0 ? (
                 <View style={{ gap: 10 }}>
-                  {stats.sessions.slice(0, 10).map((session: { id: string; startTime: string; sessionType: string; attended: string }) => {
+                  {filteredSessions.slice(0, 10).map((session: { id: string; startTime: string; sessionType: string; attended: string }) => {
                     const sessionDate = session.startTime ? new Date(session.startTime) : null;
                     const dayName = sessionDate ? sessionDate.toLocaleDateString('en-US', { weekday: 'short' }).toUpperCase() : 'N/A';
                     const dayNum = sessionDate ? sessionDate.getDate() : '';
@@ -4459,5 +4568,29 @@ const styles = StyleSheet.create({
   emptyAttendanceText: {
     ...Typography.small,
     color: Colors.dark.textMuted,
+  },
+  seriesFilterContainer: {
+    flexDirection: 'row',
+    marginBottom: Spacing.md,
+  },
+  seriesFilterChip: {
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm,
+    borderRadius: BorderRadius.lg,
+    backgroundColor: 'rgba(255, 255, 255, 0.06)',
+    marginRight: Spacing.sm,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
+  },
+  seriesFilterChipActive: {
+    backgroundColor: `${Colors.dark.xpCyan}20`,
+    borderColor: Colors.dark.xpCyan,
+  },
+  seriesFilterChipText: {
+    fontSize: 12,
+    color: Colors.dark.textMuted,
+  },
+  seriesFilterChipTextActive: {
+    color: Colors.dark.xpCyan,
   },
 });
