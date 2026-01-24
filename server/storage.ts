@@ -6137,25 +6137,41 @@ export const storage = {
       }
     }
     
-    // Add unpaid debt transactions (negative amounts without package coverage)
-    // These are sessions attended without having credits - creates debt
-    const unpaidDebts = await db.select().from(creditTransactions)
+    // Add uncovered debt transactions (sessions not covered by an ACTIVE package)
+    // This includes:
+    // 1. Explicit debt reasons (session_unpaid, session_join_debt)
+    // 2. Transactions with no package_id
+    // 3. Transactions linked to DELETED packages (package no longer exists)
+    
+    // Get all debit transactions for this player
+    const allDebits = await db.select({
+      amount: creditTransactions.amount,
+      creditType: creditTransactions.creditType,
+      reason: creditTransactions.reason,
+      packageId: creditTransactions.packageId,
+    }).from(creditTransactions)
       .where(and(
         eq(creditTransactions.playerId, playerId),
-        or(
-          eq(creditTransactions.reason, "session_unpaid"),
-          eq(creditTransactions.reason, "session_join_debt"),
-          and(
-            isNull(creditTransactions.packageId),
-            inArray(creditTransactions.reason, ["session_booking", "session_join"])
-          )
-        )
+        lt(creditTransactions.amount, 0) // Only debits
       ));
     
-    for (const debt of unpaidDebts) {
-      const creditType = (debt.creditType || "group") as keyof typeof balance;
-      if (balance[creditType] !== undefined) {
-        balance[creditType] += debt.amount; // Debts are negative
+    // Get IDs of active packages to check coverage
+    const activePackageIds = new Set(activePackages.map(p => p.id));
+    
+    for (const debit of allDebits) {
+      // Count as debt if:
+      // 1. Explicit debt reason, OR
+      // 2. No package linked, OR  
+      // 3. Linked package is not active (deleted)
+      const isExplicitDebt = debit.reason === "session_unpaid" || debit.reason === "session_join_debt";
+      const hasNoPackage = !debit.packageId;
+      const packageDeleted = debit.packageId && !activePackageIds.has(debit.packageId);
+      
+      if (isExplicitDebt || hasNoPackage || packageDeleted) {
+        const creditType = (debit.creditType || "group") as keyof typeof balance;
+        if (balance[creditType] !== undefined) {
+          balance[creditType] += debit.amount; // Debts are negative
+        }
       }
     }
     
@@ -6373,24 +6389,34 @@ export const storage = {
       }
     }
     
-    // 2. Add unpaid debt transactions (sessions without package coverage)
-    const unpaidDebts = await db.select().from(creditTransactions)
+    // 2. Add uncovered debt transactions (sessions not covered by ACTIVE packages)
+    // Get active package IDs
+    const activePackageIds = new Set(activePackages.map(p => p.id));
+    
+    // Get all debit transactions for these players
+    const allDebits = await db.select({
+      playerId: creditTransactions.playerId,
+      amount: creditTransactions.amount,
+      creditType: creditTransactions.creditType,
+      reason: creditTransactions.reason,
+      packageId: creditTransactions.packageId,
+    }).from(creditTransactions)
       .where(and(
         inArray(creditTransactions.playerId, playerIds),
-        or(
-          eq(creditTransactions.reason, "session_unpaid"),
-          eq(creditTransactions.reason, "session_join_debt"),
-          and(
-            isNull(creditTransactions.packageId),
-            inArray(creditTransactions.reason, ["session_booking", "session_join"])
-          )
-        )
+        lt(creditTransactions.amount, 0) // Only debits
       ));
     
-    for (const debt of unpaidDebts) {
-      const creditType = (debt.creditType || "group") as "group" | "semi_private" | "private";
-      if (result[debt.playerId] && result[debt.playerId][creditType] !== undefined) {
-        result[debt.playerId][creditType] += debt.amount; // Debts are negative
+    for (const debit of allDebits) {
+      // Count as debt if: explicit debt reason, no package, or package deleted
+      const isExplicitDebt = debit.reason === "session_unpaid" || debit.reason === "session_join_debt";
+      const hasNoPackage = !debit.packageId;
+      const packageDeleted = debit.packageId && !activePackageIds.has(debit.packageId);
+      
+      if (isExplicitDebt || hasNoPackage || packageDeleted) {
+        const creditType = (debit.creditType || "group") as "group" | "semi_private" | "private";
+        if (result[debit.playerId] && result[debit.playerId][creditType] !== undefined) {
+          result[debit.playerId][creditType] += debit.amount;
+        }
       }
     }
     
