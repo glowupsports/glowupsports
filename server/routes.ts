@@ -3914,7 +3914,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Also allow transfer if coach owns the series this session belongs to
       if (!isAuthorized && session.seriesId) {
-        const series = await storage.getSeries(session.seriesId);
+        const series = await storage.getCoachingSeriesById(session.seriesId);
         if (series && series.coachId === currentCoachId) {
           isAuthorized = true;
         }
