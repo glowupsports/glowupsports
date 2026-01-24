@@ -29792,6 +29792,39 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // ==================== DELETE ACCOUNT REQUEST API ====================
+  // Public endpoint - no auth required
+  app.post("/api/delete-account-request", async (req: Request, res: Response) => {
+    try {
+      const { email, name, reason, comments } = req.body;
+      
+      if (!email || !name) {
+        return res.status(400).json({ error: "Email and name are required" });
+      }
+      
+      // Import and use the email service
+      const { sendDeleteAccountRequestEmail } = await import("./emailService");
+      
+      const result = await sendDeleteAccountRequestEmail({
+        userEmail: email,
+        userName: name,
+        reason,
+        comments,
+      });
+      
+      if (result.success) {
+        res.json({ success: true, message: "Deletion request submitted successfully" });
+      } else {
+        console.error("Failed to send delete account email:", result.error);
+        // Still return success to user - we'll handle manually if email fails
+        res.json({ success: true, message: "Deletion request submitted" });
+      }
+    } catch (error) {
+      console.error("Error processing delete account request:", error);
+      res.status(500).json({ error: "Failed to submit deletion request" });
+    }
+  });
+
   const httpServer = createServer(app);
   
   // Set up WebSocket server for real-time chat

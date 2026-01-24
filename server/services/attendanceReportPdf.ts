@@ -72,7 +72,8 @@ export function generateAttendanceReportHtml(data: AttendanceReportData): string
       return date.toLocaleTimeString('en-US', { 
         hour: '2-digit', 
         minute: '2-digit',
-        hour12: false 
+        hour12: false,
+        timeZone: 'Asia/Dubai'
       });
     } catch {
       return '';

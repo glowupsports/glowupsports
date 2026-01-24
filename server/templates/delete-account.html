@@ -1,0 +1,367 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Delete Account - Glow Up Sports</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+    
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: linear-gradient(135deg, #0a1628 0%, #1a2d4a 100%);
+      min-height: 100vh;
+      color: #fff;
+      line-height: 1.6;
+    }
+    
+    .container {
+      max-width: 600px;
+      margin: 0 auto;
+      padding: 40px 20px;
+    }
+    
+    .logo {
+      text-align: center;
+      margin-bottom: 40px;
+    }
+    
+    .logo h1 {
+      font-size: 28px;
+      font-weight: 700;
+      color: #00E5A0;
+    }
+    
+    .logo span {
+      color: #00D4FF;
+    }
+    
+    .card {
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 16px;
+      padding: 32px;
+      backdrop-filter: blur(10px);
+    }
+    
+    h2 {
+      font-size: 24px;
+      margin-bottom: 16px;
+      color: #fff;
+    }
+    
+    .description {
+      color: rgba(255, 255, 255, 0.7);
+      margin-bottom: 24px;
+    }
+    
+    .warning-box {
+      background: rgba(239, 68, 68, 0.15);
+      border: 1px solid rgba(239, 68, 68, 0.3);
+      border-radius: 12px;
+      padding: 16px;
+      margin-bottom: 24px;
+    }
+    
+    .warning-box h3 {
+      color: #EF4444;
+      font-size: 14px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      margin-bottom: 8px;
+    }
+    
+    .warning-box ul {
+      color: rgba(255, 255, 255, 0.8);
+      padding-left: 20px;
+      font-size: 14px;
+    }
+    
+    .warning-box li {
+      margin-bottom: 4px;
+    }
+    
+    .form-group {
+      margin-bottom: 20px;
+    }
+    
+    label {
+      display: block;
+      font-size: 14px;
+      font-weight: 600;
+      color: rgba(255, 255, 255, 0.9);
+      margin-bottom: 8px;
+    }
+    
+    input, textarea, select {
+      width: 100%;
+      padding: 14px 16px;
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      border-radius: 10px;
+      color: #fff;
+      font-size: 16px;
+      transition: all 0.2s;
+    }
+    
+    input:focus, textarea:focus, select:focus {
+      outline: none;
+      border-color: #00E5A0;
+      background: rgba(255, 255, 255, 0.12);
+    }
+    
+    input::placeholder, textarea::placeholder {
+      color: rgba(255, 255, 255, 0.4);
+    }
+    
+    textarea {
+      min-height: 100px;
+      resize: vertical;
+    }
+    
+    select {
+      appearance: none;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='%23ffffff' stroke-width='2'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 12px center;
+      background-size: 16px;
+      cursor: pointer;
+    }
+    
+    select option {
+      background: #1a2d4a;
+      color: #fff;
+    }
+    
+    .submit-btn {
+      width: 100%;
+      padding: 16px;
+      background: linear-gradient(135deg, #EF4444 0%, #DC2626 100%);
+      border: none;
+      border-radius: 10px;
+      color: #fff;
+      font-size: 16px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    
+    .submit-btn:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 20px rgba(239, 68, 68, 0.3);
+    }
+    
+    .submit-btn:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+      transform: none;
+    }
+    
+    .success-message {
+      display: none;
+      text-align: center;
+      padding: 40px 20px;
+    }
+    
+    .success-message.show {
+      display: block;
+    }
+    
+    .success-icon {
+      width: 80px;
+      height: 80px;
+      background: rgba(16, 185, 129, 0.2);
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin: 0 auto 20px;
+    }
+    
+    .success-icon svg {
+      width: 40px;
+      height: 40px;
+      color: #10B981;
+    }
+    
+    .success-message h3 {
+      font-size: 20px;
+      margin-bottom: 12px;
+    }
+    
+    .success-message p {
+      color: rgba(255, 255, 255, 0.7);
+    }
+    
+    .contact-info {
+      margin-top: 32px;
+      padding-top: 24px;
+      border-top: 1px solid rgba(255, 255, 255, 0.1);
+      text-align: center;
+      color: rgba(255, 255, 255, 0.6);
+      font-size: 14px;
+    }
+    
+    .contact-info a {
+      color: #00E5A0;
+      text-decoration: none;
+    }
+    
+    .contact-info a:hover {
+      text-decoration: underline;
+    }
+    
+    .form-container {
+      display: block;
+    }
+    
+    .form-container.hidden {
+      display: none;
+    }
+    
+    .error-message {
+      background: rgba(239, 68, 68, 0.15);
+      border: 1px solid rgba(239, 68, 68, 0.3);
+      border-radius: 8px;
+      padding: 12px;
+      color: #EF4444;
+      font-size: 14px;
+      margin-bottom: 16px;
+      display: none;
+    }
+    
+    .error-message.show {
+      display: block;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="logo">
+      <h1>Glow Up <span>Sports</span></h1>
+    </div>
+    
+    <div class="card">
+      <div class="form-container" id="formContainer">
+        <h2>Request Account Deletion</h2>
+        <p class="description">
+          We're sorry to see you go. Please fill out the form below to request the deletion of your account and associated data.
+        </p>
+        
+        <div class="warning-box">
+          <h3>What will be deleted</h3>
+          <ul>
+            <li>Your profile information and settings</li>
+            <li>Session history and attendance records</li>
+            <li>Progress reports and skill assessments</li>
+            <li>Uploaded photos and videos</li>
+            <li>Messages and communication history</li>
+          </ul>
+        </div>
+        
+        <div class="error-message" id="errorMessage"></div>
+        
+        <form id="deleteForm">
+          <div class="form-group">
+            <label for="email">Email Address *</label>
+            <input type="email" id="email" name="email" placeholder="Enter your account email" required>
+          </div>
+          
+          <div class="form-group">
+            <label for="name">Full Name *</label>
+            <input type="text" id="name" name="name" placeholder="Enter your full name" required>
+          </div>
+          
+          <div class="form-group">
+            <label for="reason">Reason for Deletion</label>
+            <select id="reason" name="reason">
+              <option value="">Select a reason (optional)</option>
+              <option value="no-longer-using">No longer using the app</option>
+              <option value="switching-academy">Switching to another academy</option>
+              <option value="privacy-concerns">Privacy concerns</option>
+              <option value="too-many-notifications">Too many notifications</option>
+              <option value="child-no-longer-plays">Child no longer plays tennis</option>
+              <option value="other">Other</option>
+            </select>
+          </div>
+          
+          <div class="form-group">
+            <label for="comments">Additional Comments</label>
+            <textarea id="comments" name="comments" placeholder="Any additional feedback or specific requests..."></textarea>
+          </div>
+          
+          <button type="submit" class="submit-btn" id="submitBtn">
+            Submit Deletion Request
+          </button>
+        </form>
+        
+        <div class="contact-info">
+          <p>Questions? Contact us at <a href="mailto:support@glowupsports.com">support@glowupsports.com</a></p>
+          <p style="margin-top: 8px;">Account deletion requests are processed within 30 days.</p>
+        </div>
+      </div>
+      
+      <div class="success-message" id="successMessage">
+        <div class="success-icon">
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+          </svg>
+        </div>
+        <h3>Request Submitted</h3>
+        <p>Your account deletion request has been received. We will process your request within 30 days and send a confirmation to your email.</p>
+        <div class="contact-info" style="border-top: none; margin-top: 24px;">
+          <p>If you have any questions, contact <a href="mailto:support@glowupsports.com">support@glowupsports.com</a></p>
+        </div>
+      </div>
+    </div>
+  </div>
+  
+  <script>
+    document.getElementById('deleteForm').addEventListener('submit', async function(e) {
+      e.preventDefault();
+      
+      const submitBtn = document.getElementById('submitBtn');
+      const errorMessage = document.getElementById('errorMessage');
+      const formContainer = document.getElementById('formContainer');
+      const successMessage = document.getElementById('successMessage');
+      
+      const email = document.getElementById('email').value;
+      const name = document.getElementById('name').value;
+      const reason = document.getElementById('reason').value;
+      const comments = document.getElementById('comments').value;
+      
+      submitBtn.disabled = true;
+      submitBtn.textContent = 'Submitting...';
+      errorMessage.classList.remove('show');
+      
+      try {
+        const response = await fetch('/api/delete-account-request', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ email, name, reason, comments }),
+        });
+        
+        const data = await response.json();
+        
+        if (response.ok) {
+          formContainer.classList.add('hidden');
+          successMessage.classList.add('show');
+        } else {
+          throw new Error(data.error || 'Failed to submit request');
+        }
+      } catch (error) {
+        errorMessage.textContent = error.message || 'Something went wrong. Please try again.';
+        errorMessage.classList.add('show');
+        submitBtn.disabled = false;
+        submitBtn.textContent = 'Submit Deletion Request';
+      }
+    });
+  </script>
+</body>
+</html>

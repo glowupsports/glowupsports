@@ -394,3 +394,83 @@ export async function sendCoachInviteEmail(params: {
     text: `${inviterName} has invited you to join ${academyName} as a coach on Glow Up Sports.${inviteCode ? ` Your invite code: ${inviteCode}` : ''}`
   });
 }
+
+export async function sendDeleteAccountRequestEmail(params: {
+  userEmail: string;
+  userName: string;
+  reason?: string;
+  comments?: string;
+}): Promise<{ success: boolean; error?: string }> {
+  const { userEmail, userName, reason, comments } = params;
+  
+  const reasonLabels: Record<string, string> = {
+    'no-longer-using': 'No longer using the app',
+    'switching-academy': 'Switching to another academy',
+    'privacy-concerns': 'Privacy concerns',
+    'too-many-notifications': 'Too many notifications',
+    'child-no-longer-plays': 'Child no longer plays tennis',
+    'other': 'Other',
+  };
+
+  const html = `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <style>
+        body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; background: #f5f5f5; padding: 20px; }
+        .container { max-width: 600px; margin: 0 auto; background: white; border-radius: 10px; padding: 30px; }
+        .header { background: linear-gradient(135deg, #EF4444, #DC2626); color: white; padding: 20px; border-radius: 10px 10px 0 0; margin: -30px -30px 20px; text-align: center; }
+        .info-row { padding: 10px 0; border-bottom: 1px solid #eee; }
+        .label { font-weight: bold; color: #666; }
+        .value { color: #333; margin-top: 4px; }
+        .comments { background: #f9f9f9; padding: 15px; border-radius: 8px; margin-top: 20px; }
+        .footer { margin-top: 30px; padding-top: 20px; border-top: 1px solid #eee; font-size: 12px; color: #999; }
+      </style>
+    </head>
+    <body>
+      <div class="container">
+        <div class="header">
+          <h2 style="margin: 0;">Account Deletion Request</h2>
+        </div>
+        
+        <p>A user has requested to delete their account. Please process this request within 30 days.</p>
+        
+        <div class="info-row">
+          <div class="label">User Email</div>
+          <div class="value">${escapeHtml(userEmail)}</div>
+        </div>
+        
+        <div class="info-row">
+          <div class="label">User Name</div>
+          <div class="value">${escapeHtml(userName)}</div>
+        </div>
+        
+        <div class="info-row">
+          <div class="label">Reason</div>
+          <div class="value">${reason ? escapeHtml(reasonLabels[reason] || reason) : 'Not specified'}</div>
+        </div>
+        
+        ${comments ? `
+        <div class="comments">
+          <div class="label">Additional Comments</div>
+          <div class="value" style="margin-top: 8px;">${escapeHtml(comments)}</div>
+        </div>
+        ` : ''}
+        
+        <div class="footer">
+          <p>This request was submitted through the Glow Up Sports delete account page.</p>
+          <p>Request date: ${new Date().toISOString()}</p>
+        </div>
+      </div>
+    </body>
+    </html>
+  `;
+
+  // Send to support email
+  return sendEmail({
+    to: 'support@glowupsports.com',
+    subject: `Account Deletion Request - ${userName}`,
+    html,
+    text: `Account Deletion Request\n\nUser: ${userName}\nEmail: ${userEmail}\nReason: ${reason || 'Not specified'}\nComments: ${comments || 'None'}`
+  });
+}
