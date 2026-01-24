@@ -6,6 +6,23 @@ export interface AttendanceRecord {
   sessionType: string;
   status: string | null;
   lateMinutes: number | null;
+  seriesId?: string | null;
+}
+
+export interface SeriesInfo {
+  id: string;
+  title: string;
+  dayOfWeek: number;
+  startTime: string;
+  sessionType: string;
+}
+
+export interface SeriesAttendanceSummary {
+  series: SeriesInfo;
+  totalSessions: number;
+  presentCount: number;
+  absentCount: number;
+  attendanceRate: number;
 }
 
 export interface AttendanceReportData {
@@ -25,6 +42,8 @@ export interface AttendanceReportData {
     attendanceRate: number;
   };
   records: AttendanceRecord[];
+  seriesMap?: Record<string, SeriesInfo>;
+  seriesSummaries?: SeriesAttendanceSummary[];
 }
 
 export function generateAttendanceReportHtml(data: AttendanceReportData): string {
@@ -85,6 +104,54 @@ export function generateAttendanceReportHtml(data: AttendanceReportData): string
     if (status === 'pending') return 'Pending';
     return status ? status.charAt(0).toUpperCase() + status.slice(1) : 'Pending';
   };
+
+  const getDayName = (dayOfWeek: number) => {
+    const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+    return days[dayOfWeek] || '';
+  };
+
+  const getAttendanceRateColor = (rate: number) => {
+    if (rate >= 90) return '#10B981'; // green
+    if (rate >= 75) return '#C8FF3D'; // lime
+    if (rate >= 50) return '#F59E0B'; // orange
+    return '#EF4444'; // red
+  };
+
+  // Generate series breakdown if we have series summaries
+  const seriesBreakdownHtml = data.seriesSummaries && data.seriesSummaries.length > 1 ? `
+    <div class="series-breakdown">
+      <div class="section-title">Attendance per Lesson Group</div>
+      <div class="series-grid">
+        ${data.seriesSummaries.map(summary => `
+          <div class="series-card">
+            <div class="series-header">
+              <div class="series-day">${getDayName(summary.series.dayOfWeek)}</div>
+              <div class="series-time">${summary.series.startTime}</div>
+            </div>
+            <div class="series-title">${summary.series.title}</div>
+            <div class="series-stats">
+              <div class="series-stat">
+                <span class="series-stat-value" style="color: #00D4FF;">${summary.totalSessions}</span>
+                <span class="series-stat-label">Sessions</span>
+              </div>
+              <div class="series-stat">
+                <span class="series-stat-value" style="color: #10B981;">${summary.presentCount}</span>
+                <span class="series-stat-label">Present</span>
+              </div>
+              <div class="series-stat">
+                <span class="series-stat-value" style="color: #EF4444;">${summary.absentCount}</span>
+                <span class="series-stat-label">Absent</span>
+              </div>
+              <div class="series-stat">
+                <span class="series-stat-value" style="color: ${getAttendanceRateColor(summary.attendanceRate)};">${summary.attendanceRate}%</span>
+                <span class="series-stat-label">Rate</span>
+              </div>
+            </div>
+          </div>
+        `).join('')}
+      </div>
+    </div>
+  ` : '';
 
   // Group records by month
   const recordsByMonth = new Map<string, AttendanceRecord[]>();
@@ -276,6 +343,81 @@ export function generateAttendanceReportHtml(data: AttendanceReportData): string
       text-transform: uppercase;
       letter-spacing: 0.5px;
       margin-top: 4px;
+    }
+    
+    .series-breakdown {
+      margin-bottom: 32px;
+    }
+    
+    .series-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 16px;
+    }
+    
+    .series-card {
+      background: rgba(0, 212, 255, 0.08);
+      border: 1px solid rgba(0, 212, 255, 0.25);
+      border-radius: 12px;
+      padding: 16px;
+    }
+    
+    .series-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 8px;
+    }
+    
+    .series-day {
+      font-size: 18px;
+      font-weight: 700;
+      color: #00D4FF;
+    }
+    
+    .series-time {
+      font-size: 14px;
+      color: rgba(255, 255, 255, 0.6);
+      background: rgba(255, 255, 255, 0.1);
+      padding: 4px 10px;
+      border-radius: 8px;
+    }
+    
+    .series-title {
+      font-size: 12px;
+      color: rgba(255, 255, 255, 0.5);
+      margin-bottom: 12px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    
+    .series-stats {
+      display: flex;
+      gap: 12px;
+    }
+    
+    .series-stat {
+      flex: 1;
+      text-align: center;
+      background: rgba(255, 255, 255, 0.05);
+      border-radius: 8px;
+      padding: 8px 4px;
+    }
+    
+    .series-stat-value {
+      display: block;
+      font-size: 20px;
+      font-weight: 700;
+    }
+    
+    .series-stat-label {
+      display: block;
+      font-size: 9px;
+      color: rgba(255, 255, 255, 0.5);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-top: 2px;
     }
     
     .month-tabs {
@@ -500,6 +642,8 @@ export function generateAttendanceReportHtml(data: AttendanceReportData): string
         </div>
       </div>
     </div>
+    
+    ${seriesBreakdownHtml}
     
     <div class="month-tabs">
       ${monthTabsHtml}

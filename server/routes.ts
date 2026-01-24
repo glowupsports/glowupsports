@@ -7502,7 +7502,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         .where(eq(sessionPlayers.playerId, id));
 
       const sessionIds = playerRecords.map(r => r.sessionId).filter(Boolean);
-      let sessionMap: Record<string, { startTime: Date; endTime: Date; sessionType: string; status: string }> = {};
+      let sessionMap: Record<string, { startTime: Date; endTime: Date; sessionType: string; status: string; seriesId: string | null }> = {};
       
       if (sessionIds.length > 0) {
         const sessionDetails = await db
@@ -7512,14 +7512,37 @@ export async function registerRoutes(app: Express): Promise<Server> {
             endTime: sessions.endTime,
             sessionType: sessions.sessionType,
             status: sessions.status,
+            seriesId: sessions.seriesId,
           })
           .from(sessions)
           .where(inArray(sessions.id, sessionIds));
         
         sessionMap = sessionDetails.reduce((acc, s) => {
-          acc[s.id] = { startTime: s.startTime, endTime: s.endTime, sessionType: s.sessionType, status: s.status };
+          acc[s.id] = { startTime: s.startTime, endTime: s.endTime, sessionType: s.sessionType, status: s.status, seriesId: s.seriesId };
           return acc;
-        }, {} as Record<string, { startTime: Date; endTime: Date; sessionType: string; status: string }>);
+        }, {} as Record<string, { startTime: Date; endTime: Date; sessionType: string; status: string; seriesId: string | null }>);
+      }
+
+      // Fetch series info for all unique seriesIds
+      const uniqueSeriesIds = [...new Set(Object.values(sessionMap).map(s => s.seriesId).filter(Boolean))] as string[];
+      let seriesMap: Record<string, { title: string; dayOfWeek: number; startTime: string; sessionType: string }> = {};
+
+      if (uniqueSeriesIds.length > 0) {
+        const seriesDetails = await db
+          .select({
+            id: coachingSeries.id,
+            title: coachingSeries.title,
+            dayOfWeek: coachingSeries.dayOfWeek,
+            startTime: coachingSeries.startTime,
+            sessionType: coachingSeries.sessionType,
+          })
+          .from(coachingSeries)
+          .where(inArray(coachingSeries.id, uniqueSeriesIds));
+        
+        seriesMap = seriesDetails.reduce((acc, s) => {
+          acc[s.id] = { title: s.title || '', dayOfWeek: s.dayOfWeek, startTime: s.startTime, sessionType: s.sessionType };
+          return acc;
+        }, {} as Record<string, { title: string; dayOfWeek: number; startTime: string; sessionType: string }>);
       }
 
       // Filter out future sessions - compare directly in UTC
@@ -7548,6 +7571,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             sessionType: sessionInfo.sessionType,
             status: record.attendanceStatus,
             lateMinutes: record.lateMinutes,
+            seriesId: sessionInfo.seriesId,
           };
         })
         .filter(Boolean)
@@ -7557,6 +7581,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const presentCount = records.filter(r => r.status === 'present').length;
       const absentCount = records.filter(r => r.status === 'absent').length;
+
+      // Calculate per-series attendance summaries
+      const seriesSummaries = uniqueSeriesIds.map(seriesId => {
+        const seriesRecords = records.filter(r => r.seriesId === seriesId);
+        const seriesPresent = seriesRecords.filter(r => r.status === 'present').length;
+        const seriesAbsent = seriesRecords.filter(r => r.status === 'absent').length;
+        const seriesInfo = seriesMap[seriesId];
+        
+        return {
+          series: {
+            id: seriesId,
+            title: seriesInfo?.title || 'Unknown',
+            dayOfWeek: seriesInfo?.dayOfWeek || 0,
+            startTime: seriesInfo?.startTime || '',
+            sessionType: seriesInfo?.sessionType || 'group',
+          },
+          totalSessions: seriesRecords.length,
+          presentCount: seriesPresent,
+          absentCount: seriesAbsent,
+          attendanceRate: seriesRecords.length > 0 ? Math.round((seriesPresent / seriesRecords.length) * 100) : 0,
+        };
+      }).sort((a, b) => a.series.dayOfWeek - b.series.dayOfWeek);
       
       const reportData = {
         reportDate: now.toISOString(),
@@ -7574,6 +7620,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
           attendanceRate: records.length > 0 ? Math.round((presentCount / records.length) * 100) : 0,
         },
         records,
+        seriesMap: Object.fromEntries(
+          Object.entries(seriesMap).map(([id, info]) => [id, { id, ...info }])
+        ),
+        seriesSummaries,
       };
       
       const html = generateAttendanceReportHtml(reportData);
