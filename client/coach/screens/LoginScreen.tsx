@@ -1297,15 +1297,12 @@ export default function LoginScreen() {
   return (
     <View style={styles.container}>
       <LinearGradient
-        colors={[Colors.dark.backgroundRoot, Colors.dark.backgroundDefault]}
+        colors={["#0A0F14", "#0D1820", "#0A1015"]}
+        locations={[0, 0.5, 1]}
         style={StyleSheet.absoluteFillObject}
       />
-      <LinearGradient
-        colors={[Colors.dark.primary, Colors.dark.xpCyan]}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 0 }}
-        style={styles.headerTopLine}
-      />
+      <View style={styles.backgroundGlow} />
+      <View style={styles.backgroundGlowSecondary} />
       <KeyboardAwareScrollViewCompat
         style={styles.scrollView}
         contentContainerStyle={[
@@ -1315,12 +1312,16 @@ export default function LoginScreen() {
       >
         {mode === "login" ? (
           <View style={styles.header}>
-            <View style={styles.iconContainer}>
-              <LinearGradient
-                colors={[`${Colors.dark.primary}30`, `${Colors.dark.xpCyan}20`]}
-                style={styles.iconGradient}
-              />
-              <Ionicons name="tennisball" size={48} color={Colors.dark.primary} />
+            <View style={styles.logoWrapper}>
+              <View style={styles.logoGlow} />
+              <View style={styles.logoGlowOuter} />
+              <View style={styles.iconContainer}>
+                <LinearGradient
+                  colors={[`${Colors.dark.primary}40`, `${Colors.dark.xpCyan}30`, "transparent"]}
+                  style={styles.iconGradient}
+                />
+                <Ionicons name="tennisball" size={52} color={Colors.dark.primary} />
+              </View>
             </View>
             <Text style={styles.title}>GLOW UP SPORTS</Text>
             <Text style={styles.subtitle}>Welcome back</Text>
@@ -1349,14 +1350,26 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
-  headerTopLine: {
-    height: 3,
-    width: "100%",
+  backgroundGlow: {
     position: "absolute",
-    top: 0,
-    left: 0,
-    right: 0,
-    zIndex: 10,
+    top: -100,
+    left: "50%",
+    marginLeft: -150,
+    width: 300,
+    height: 300,
+    borderRadius: 150,
+    backgroundColor: Colors.dark.primary,
+    opacity: 0.08,
+  },
+  backgroundGlowSecondary: {
+    position: "absolute",
+    top: 200,
+    right: -80,
+    width: 200,
+    height: 200,
+    borderRadius: 100,
+    backgroundColor: Colors.dark.xpCyan,
+    opacity: 0.05,
   },
   scrollView: {
     flex: 1,
@@ -1367,18 +1380,40 @@ const styles = StyleSheet.create({
   },
   header: {
     alignItems: "center",
-    marginBottom: Spacing.xl,
+    marginBottom: Spacing.xl * 1.5,
   },
-  iconContainer: {
-    width: 88,
-    height: 88,
-    borderRadius: 44,
-    backgroundColor: Backgrounds.card,
+  logoWrapper: {
     alignItems: "center",
     justifyContent: "center",
+    width: 140,
+    height: 140,
     marginBottom: Spacing.lg,
-    borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.06)",
+  },
+  logoGlow: {
+    position: "absolute",
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+    backgroundColor: Colors.dark.primary,
+    opacity: 0.25,
+  },
+  logoGlowOuter: {
+    position: "absolute",
+    width: 160,
+    height: 160,
+    borderRadius: 80,
+    backgroundColor: Colors.dark.xpCyan,
+    opacity: 0.08,
+  },
+  iconContainer: {
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    backgroundColor: "#0D1820",
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 2,
+    borderColor: `${Colors.dark.primary}40`,
     overflow: "hidden",
   },
   iconGradient: {
@@ -1389,14 +1424,20 @@ const styles = StyleSheet.create({
     bottom: 0,
   },
   title: {
-    ...Typography.h1,
+    fontSize: 28,
+    fontWeight: "900",
     color: Colors.dark.text,
     marginBottom: Spacing.xs,
-    letterSpacing: 2,
+    letterSpacing: 4,
+    textShadowColor: Colors.dark.primary,
+    textShadowOffset: { width: 0, height: 0 },
+    textShadowRadius: 15,
   },
   subtitle: {
-    ...Typography.body,
-    color: Colors.dark.tabIconDefault,
+    fontSize: 15,
+    fontWeight: "500",
+    color: Colors.dark.textMuted,
+    letterSpacing: 1,
   },
   form: {
     gap: Spacing.md,
@@ -1445,20 +1486,21 @@ const styles = StyleSheet.create({
   glassInput: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: Backgrounds.card,
-    borderRadius: BorderRadius.sm,
-    paddingHorizontal: Spacing.md,
-    borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.06)",
+    backgroundColor: "rgba(13, 24, 32, 0.8)",
+    borderRadius: BorderRadius.md,
+    paddingHorizontal: Spacing.lg,
+    paddingVertical: Spacing.sm,
+    borderWidth: 1.5,
+    borderColor: "rgba(255, 255, 255, 0.08)",
   },
   inputIcon: {
-    marginRight: Spacing.sm,
+    marginRight: Spacing.md,
   },
   input: {
     flex: 1,
-    paddingVertical: Spacing.md,
+    paddingVertical: Spacing.md + 4,
     color: Colors.dark.text,
-    fontSize: Typography.body.fontSize,
+    fontSize: 16,
   },
   usernameInput: {
     paddingRight: 40,
@@ -1522,16 +1564,17 @@ const styles = StyleSheet.create({
   gamingButton: {
     borderRadius: BorderRadius.lg,
     overflow: "hidden",
-    marginTop: Spacing.md,
+    marginTop: Spacing.lg,
   },
   gamingButtonGradient: {
-    paddingVertical: Spacing.md,
+    paddingVertical: Spacing.lg,
     alignItems: "center",
   },
   gamingButtonText: {
-    ...Typography.h4,
+    fontSize: 16,
+    fontWeight: "700",
     color: Colors.dark.text,
-    letterSpacing: 1,
+    letterSpacing: 2,
   },
   divider: {
     flexDirection: "row",
@@ -1554,16 +1597,16 @@ const styles = StyleSheet.create({
   roleOption: {
     flexDirection: "row",
     alignItems: "center",
-    padding: Spacing.md,
-    backgroundColor: Backgrounds.card,
-    borderRadius: BorderRadius.md,
+    padding: Spacing.lg,
+    backgroundColor: "rgba(13, 24, 32, 0.6)",
+    borderRadius: BorderRadius.lg,
     gap: Spacing.md,
-    borderWidth: 1,
+    borderWidth: 1.5,
     borderColor: "rgba(255, 255, 255, 0.06)",
   },
   roleIcon: {
-    width: 48,
-    height: 48,
+    width: 52,
+    height: 52,
     borderRadius: BorderRadius.md,
     alignItems: "center",
     justifyContent: "center",
@@ -1572,13 +1615,14 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   roleTitle: {
-    ...Typography.body,
-    color: Colors.dark.text,
+    fontSize: 16,
     fontWeight: "600",
+    color: Colors.dark.text,
   },
   roleDescription: {
-    ...Typography.small,
+    fontSize: 13,
     color: Colors.dark.textMuted,
+    marginTop: 2,
   },
   glassCard: {
     backgroundColor: Backgrounds.card,
