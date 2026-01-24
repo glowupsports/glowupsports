@@ -363,18 +363,23 @@ export default function AdminClassesScreen() {
   const [showCreateWizard, setShowCreateWizard] = useState(false);
   const [wizardCoachId, setWizardCoachId] = useState<string | null>(null);
 
+  // When a coach is selected, pass coachId to server to include their orphan/transferred sessions
+  const seriesEndpoint = selectedCoachId 
+    ? `/api/admin/series?coachId=${selectedCoachId}`
+    : "/api/admin/series";
+    
   const { data: seriesList = [], isLoading } = useQuery<CoachingSeries[]>({
-    queryKey: ["/api/admin/series"],
+    queryKey: [seriesEndpoint],
   });
 
   const { data: coaches = [] } = useQuery<Coach[]>({
     queryKey: ["/api/coaches"],
   });
 
+  // When coachId is passed to server, result is already filtered (including orphan sessions)
   const filteredByCoach = useMemo(() => {
-    if (!selectedCoachId) return seriesList;
-    return seriesList.filter((s) => s.coachId === selectedCoachId);
-  }, [seriesList, selectedCoachId]);
+    return seriesList;
+  }, [seriesList]);
 
   const filteredSeries = useMemo(() => {
     if (filter === "all") return filteredByCoach;
