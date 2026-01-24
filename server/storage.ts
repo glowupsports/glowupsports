@@ -6117,17 +6117,20 @@ export const storage = {
     totalDebt: number;
     hasDebt: boolean;
   }> {
-    // Calculate TOTAL credit balance from ALL transactions for this player
-    // This is the most reliable way - sum ALL credits and debits across ALL packages (including deleted ones)
-    const allTransactions = await db.select().from(creditTransactions)
-      .where(eq(creditTransactions.playerId, playerId));
+    // Calculate credit balance from ACTIVE packages only (not deleted ones)
+    // Sum remaining_credits from each active package, grouped by credit type
+    const activePackages = await db.select().from(packages)
+      .where(and(
+        eq(packages.playerId, playerId),
+        eq(packages.status, "active")
+      ));
     
     const balance = { group: 0, semi_private: 0, private: 0 };
     
-    for (const tx of allTransactions) {
-      const creditType = (tx.creditType || "group") as keyof typeof balance;
+    for (const pkg of activePackages) {
+      const creditType = (pkg.creditType || "group") as keyof typeof balance;
       if (balance[creditType] !== undefined) {
-        balance[creditType] += tx.amount; // Credits are positive, debits are negative
+        balance[creditType] += pkg.remainingCredits; // Sum remaining credits per type
       }
     }
     
@@ -6332,15 +6335,18 @@ export const storage = {
       result[id] = { group: 0, semi_private: 0, private: 0, totalDebt: 0, hasDebt: false };
     }
     
-    // Calculate TOTAL credit balance from ALL transactions for each player
-    // This is consistent with getPlayerCreditBalanceByType - sum ALL credits and debits
-    const allTransactions = await db.select().from(creditTransactions)
-      .where(inArray(creditTransactions.playerId, playerIds));
+    // Calculate credit balance from ACTIVE packages only (not deleted ones)
+    // This is consistent with getPlayerCreditBalanceByType
+    const activePackages = await db.select().from(packages)
+      .where(and(
+        inArray(packages.playerId, playerIds),
+        eq(packages.status, "active")
+      ));
     
-    for (const tx of allTransactions) {
-      const creditType = (tx.creditType || "group") as "group" | "semi_private" | "private";
-      if (result[tx.playerId] && result[tx.playerId][creditType] !== undefined) {
-        result[tx.playerId][creditType] += tx.amount; // Credits positive, debits negative
+    for (const pkg of activePackages) {
+      const creditType = (pkg.creditType || "group") as "group" | "semi_private" | "private";
+      if (result[pkg.playerId] && result[pkg.playerId][creditType] !== undefined) {
+        result[pkg.playerId][creditType] += pkg.remainingCredits; // Sum remaining credits per type
       }
     }
     
