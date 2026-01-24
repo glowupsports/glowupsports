@@ -13,8 +13,9 @@ The application uses a dark-themed gaming aesthetic with neon green and cyan acc
 
 ### Technical Implementations
 - **Frontend**: Built with React Native and Expo SDK 54, using React Navigation, React Context for state, `AsyncStorage` for local persistence, and `React Native Reanimated` for animations.
-- **Backend**: Developed with Express.js and TypeScript, providing RESTful API endpoints. It uses a `Drizzle ORM` schema for PostgreSQL, with in-memory data for current development. CORS is dynamically configured for Replit.
-- **Data Storage**: `AsyncStorage` on the client; `Drizzle ORM` with PostgreSQL schema on the server for users, coaches, players, sessions, feedback, progress, and diagnostic reports.
+- **Backend**: Developed with Express.js and TypeScript, providing RESTful API endpoints. It uses a `Drizzle ORM` schema for PostgreSQL. CORS is dynamically configured for Replit.
+- **Data Storage**: `AsyncStorage` on the client; `Drizzle ORM` with Supabase PostgreSQL on the server for users, coaches, players, sessions, feedback, progress, and diagnostic reports.
+- **Database**: Single Supabase PostgreSQL database (SUPABASE_DATABASE_URL) used for both development and production to ensure data consistency.
 - **Build System**: Concurrent Expo and Express servers for development. Production uses a static Expo web build served by Express. `Drizzle Kit` manages PostgreSQL schema migrations.
 
 ### Feature Specifications
