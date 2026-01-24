@@ -15148,6 +15148,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
           ))
           .orderBy(asc(sessions.startTime));
         
+        console.log(`[AdminSeries] Coach ${coachId} orphan sessions found: ${orphanSessions.length}`);
+        
         if (orphanSessions.length > 0) {
           const groupedBySeriesId = orphanSessions.reduce((acc, session) => {
             const key = session.seriesId || 'standalone';
@@ -16945,17 +16947,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
           activePackages: playerPackages.filter((p: any) => p.status === "active").length,
         },
         packages: await Promise.all(playerPackages.map(async (pkg: any) => {
-          // Calculate ACTUAL remaining credits from credit_transactions
-          const packageTransactions = await db.select().from(creditTransactions)
-            .where(eq(creditTransactions.packageId, pkg.id));
-          const transactionSum = packageTransactions.reduce((sum, tx) => sum + tx.amount, 0);
-          const actualRemaining = Math.max(0, transactionSum);
+          // Get the TOTAL credit balance for this player for this credit type
+          // This includes ALL transactions (even from deleted packages)
+          const allTransactions = await db.select().from(creditTransactions)
+            .where(and(
+              eq(creditTransactions.playerId, playerId),
+              eq(creditTransactions.creditType, pkg.creditType || "group")
+            ));
+          const totalBalance = allTransactions.reduce((sum, tx) => sum + tx.amount, 0);
+          
+          // For display, show the effective remaining based on total balance
+          // If total balance is negative, show 0 (player has debt)
+          // If positive, show up to the package's total credits
+          const effectiveRemaining = Math.max(0, Math.min(totalBalance, pkg.totalCredits));
           
           return {
             id: pkg.id,
             creditType: pkg.creditType || "group",
             totalCredits: pkg.totalCredits,
-            remainingCredits: actualRemaining, // Use calculated value, not stored value
+            remainingCredits: effectiveRemaining, // Show effective remaining based on total balance
             status: pkg.status,
             expiryDate: pkg.expiryDate,
             createdAt: pkg.createdAt,

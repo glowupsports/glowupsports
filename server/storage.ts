@@ -6117,58 +6117,30 @@ export const storage = {
     totalDebt: number;
     hasDebt: boolean;
   }> {
-    // Get all active packages for the player
-    const playerPackages = await db.select().from(packages)
-      .where(and(
-        eq(packages.playerId, playerId),
-        eq(packages.status, "active")
-      ));
+    // Calculate TOTAL credit balance from ALL transactions for this player
+    // This is the most reliable way - sum ALL credits and debits across ALL packages (including deleted ones)
+    const allTransactions = await db.select().from(creditTransactions)
+      .where(eq(creditTransactions.playerId, playerId));
     
-    // Calculate ACTUAL remaining credits by checking credit_transactions for each package
-    // This is more reliable than trusting the remainingCredits column
-    const credits = { group: 0, semi_private: 0, private: 0 };
+    const balance = { group: 0, semi_private: 0, private: 0 };
     
-    for (const pkg of playerPackages) {
-      const creditType = (pkg.creditType || "group") as keyof typeof credits;
-      
-      // Get all transactions for this specific package
-      const packageTransactions = await db.select().from(creditTransactions)
-        .where(eq(creditTransactions.packageId, pkg.id));
-      
-      // Calculate: total_credits + sum of all transaction amounts (credits are positive, debits are negative)
-      const transactionSum = packageTransactions.reduce((sum, tx) => sum + tx.amount, 0);
-      // The transaction sum already includes the initial "credit" (+10) and all debits (-1 each)
-      // So actual remaining = transactionSum (which is totalCredits - usedCredits)
-      const actualRemaining = Math.max(0, transactionSum);
-      
-      if (credits[creditType] !== undefined) {
-        credits[creditType] += actualRemaining;
+    for (const tx of allTransactions) {
+      const creditType = (tx.creditType || "group") as keyof typeof balance;
+      if (balance[creditType] !== undefined) {
+        balance[creditType] += tx.amount; // Credits are positive, debits are negative
       }
     }
     
-    // Get debt transactions (session_join_debt where package_id is NULL = unsettled)
-    const debtTransactions = await db.select().from(creditTransactions)
-      .where(and(
-        eq(creditTransactions.playerId, playerId),
-        eq(creditTransactions.reason, "session_join_debt"),
-        isNull(creditTransactions.packageId) // Only unsettled debts
-      ));
-    
-    const debts = { group: 0, semi_private: 0, private: 0 };
-    for (const tx of debtTransactions) {
-      const creditType = (tx.creditType || "group") as keyof typeof debts;
-      if (debts[creditType] !== undefined) {
-        debts[creditType] += Math.abs(tx.amount); // Transactions are negative, convert to positive debt count
-      }
-    }
-    
-    // Calculate net balance per type (credits - debts)
-    const totalDebt = debts.group + debts.semi_private + debts.private;
+    // Calculate debt (negative balance means player owes credits)
+    const groupDebt = balance.group < 0 ? Math.abs(balance.group) : 0;
+    const semiPrivateDebt = balance.semi_private < 0 ? Math.abs(balance.semi_private) : 0;
+    const privateDebt = balance.private < 0 ? Math.abs(balance.private) : 0;
+    const totalDebt = groupDebt + semiPrivateDebt + privateDebt;
     
     return {
-      group: credits.group - debts.group,
-      semi_private: credits.semi_private - debts.semi_private,
-      private: credits.private - debts.private,
+      group: Math.max(0, balance.group),
+      semi_private: Math.max(0, balance.semi_private),
+      private: Math.max(0, balance.private),
       totalDebt,
       hasDebt: totalDebt > 0,
     };
