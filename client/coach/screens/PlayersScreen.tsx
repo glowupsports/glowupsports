@@ -887,6 +887,7 @@ function PlayerDetailView({
   const [isExportingReport, setIsExportingReport] = useState(false);
   const [isExportingAttendanceReport, setIsExportingAttendanceReport] = useState(false);
   const [showAllHistory, setShowAllHistory] = useState(false);
+  const [expandedSeriesIds, setExpandedSeriesIds] = useState<Set<string>>(new Set());
   const [showDeepAssessment, setShowDeepAssessment] = useState(false);
 
   const handleExportProgressReport = async () => {
@@ -1661,16 +1662,42 @@ function PlayerDetailView({
               {/* Group sessions by series if multiple groups exist */}
               {seriesAttendanceSummaries.length > 1 ? (
                 seriesAttendanceSummaries.map((summary) => {
-                  const seriesRecords = displayedHistory.filter(r => r.seriesId === summary.seriesId);
+                  const seriesRecords = displayedHistory
+                    .filter(r => r.seriesId === summary.seriesId)
+                    .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
                   if (seriesRecords.length === 0) return null;
+                  
+                  const isExpanded = expandedSeriesIds.has(summary.seriesId);
+                  const toggleExpanded = () => {
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                    setExpandedSeriesIds(prev => {
+                      const newSet = new Set(prev);
+                      if (newSet.has(summary.seriesId)) {
+                        newSet.delete(summary.seriesId);
+                      } else {
+                        newSet.add(summary.seriesId);
+                      }
+                      return newSet;
+                    });
+                  };
                   
                   return (
                     <View key={summary.seriesId} style={styles.seriesGroupSection}>
-                      <View style={styles.seriesGroupHeader}>
-                        <Text style={styles.seriesGroupDay}>{summary.dayName}</Text>
-                        <Text style={styles.seriesGroupTime}>{summary.startTime}</Text>
-                      </View>
-                      {seriesRecords.map((record) => (
+                      <Pressable style={styles.seriesGroupHeader} onPress={toggleExpanded}>
+                        <View style={styles.seriesGroupHeaderLeft}>
+                          <Text style={styles.seriesGroupDay}>{summary.dayName}</Text>
+                          <Text style={styles.seriesGroupTime}>{summary.startTime}</Text>
+                          <View style={styles.seriesGroupCount}>
+                            <Text style={styles.seriesGroupCountText}>{seriesRecords.length}</Text>
+                          </View>
+                        </View>
+                        <Ionicons 
+                          name={isExpanded ? "chevron-up" : "chevron-down"} 
+                          size={20} 
+                          color={Colors.dark.xpCyan} 
+                        />
+                      </Pressable>
+                      {isExpanded && seriesRecords.map((record) => (
                         <View key={record.sessionId} style={styles.attendanceHistoryRow}>
                           <View style={styles.attendanceHistoryDate}>
                             <Text style={styles.attendanceHistoryDateText}>
@@ -1722,8 +1749,8 @@ function PlayerDetailView({
                   );
                 })
               ) : (
-                /* Original layout for single lesson group */
-                displayedHistory.map((record, index) => (
+                /* Original layout for single lesson group - sorted by date (newest first) */
+                [...displayedHistory].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()).map((record, index) => (
                   <View key={record.sessionId} style={styles.attendanceHistoryRow}>
                     <View style={styles.attendanceHistoryDate}>
                       <Text style={styles.attendanceHistoryDateText}>
@@ -4618,7 +4645,7 @@ const styles = StyleSheet.create({
   
   // Series group section styles
   seriesGroupSection: {
-    marginBottom: Spacing.lg,
+    marginBottom: Spacing.md,
   },
   seriesGroupHeader: {
     flexDirection: "row",
@@ -4632,6 +4659,11 @@ const styles = StyleSheet.create({
     borderLeftWidth: 3,
     borderLeftColor: Colors.dark.xpCyan,
   },
+  seriesGroupHeaderLeft: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+  },
   seriesGroupDay: {
     fontSize: 14,
     fontWeight: "700",
@@ -4640,5 +4672,20 @@ const styles = StyleSheet.create({
   seriesGroupTime: {
     fontSize: 12,
     color: Colors.dark.tabIconDefault,
+    backgroundColor: "rgba(255, 255, 255, 0.1)",
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: BorderRadius.xs,
+  },
+  seriesGroupCount: {
+    backgroundColor: Colors.dark.xpCyan + "30",
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: BorderRadius.full,
+  },
+  seriesGroupCountText: {
+    fontSize: 11,
+    fontWeight: "700",
+    color: Colors.dark.xpCyan,
   },
 });
