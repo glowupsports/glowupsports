@@ -271,14 +271,14 @@ function GamingPlayerCard({
                 
                 const formatCreditText = () => {
                   if (credits === undefined) return "No pkg";
-                  if (credits === 0) return "0 credits";
-                  if (!byType) return `${credits}`;
+                  if (!byType) return credits === 0 ? "0 credits" : `${credits}`;
                   
                   const parts: string[] = [];
-                  if (byType.private > 0) parts.push(`${byType.private} Prv`);
-                  if (byType.group > 0) parts.push(`${byType.group} Grp`);
-                  if (byType.semiPrivate > 0) parts.push(`${byType.semiPrivate} Semi`);
-                  return parts.length > 0 ? parts.join(" | ") : `${credits}`;
+                  // Show ALL credit types including negative (debt)
+                  if (byType.private !== 0) parts.push(`${byType.private} Prv`);
+                  if (byType.group !== 0) parts.push(`${byType.group} Grp`);
+                  if (byType.semiPrivate !== 0) parts.push(`${byType.semiPrivate} Semi`);
+                  return parts.length > 0 ? parts.join(" | ") : "0 credits";
                 };
                 
                 return (

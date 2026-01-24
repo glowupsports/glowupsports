@@ -6762,7 +6762,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       const pkgs = await storage.getPlayerPackages(playerId);
-      res.json(pkgs);
+      
+      // Calculate ACTUAL remaining credits based on all transactions (not stored value)
+      const enrichedPkgs = await Promise.all(pkgs.map(async (pkg: any) => {
+        const balance = await storage.getPlayerCreditBalanceByType(playerId);
+        const creditType = pkg.creditType || "group";
+        const actualBalance = balance[creditType as keyof typeof balance] || 0;
+        return {
+          ...pkg,
+          // Override stored remaining with actual balance for this credit type
+          remainingCredits: typeof actualBalance === 'number' ? actualBalance : pkg.remainingCredits,
+        };
+      }));
+      
+      res.json(enrichedPkgs);
     } catch (error) {
       console.error("Error fetching packages:", error);
       res.status(500).json({ error: "Failed to fetch packages" });

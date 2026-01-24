@@ -6332,36 +6332,26 @@ export const storage = {
       result[id] = { group: 0, semi_private: 0, private: 0, totalDebt: 0, hasDebt: false };
     }
     
-    // Get all active packages for these players
-    const playerPackages = await db.select().from(packages)
-      .where(and(
-        inArray(packages.playerId, playerIds),
-        eq(packages.status, "active")
-      ));
+    // Calculate TOTAL credit balance from ALL transactions for each player
+    // This is consistent with getPlayerCreditBalanceByType - sum ALL credits and debits
+    const allTransactions = await db.select().from(creditTransactions)
+      .where(inArray(creditTransactions.playerId, playerIds));
     
-    for (const pkg of playerPackages) {
-      const creditType = (pkg.creditType || "group") as "group" | "semi_private" | "private";
-      if (result[pkg.playerId] && result[pkg.playerId][creditType] !== undefined) {
-        result[pkg.playerId][creditType] += pkg.remainingCredits;
+    for (const tx of allTransactions) {
+      const creditType = (tx.creditType || "group") as "group" | "semi_private" | "private";
+      if (result[tx.playerId] && result[tx.playerId][creditType] !== undefined) {
+        result[tx.playerId][creditType] += tx.amount; // Credits positive, debits negative
       }
     }
     
-    // Get debt transactions for these players (only unsettled ones)
-    const debtTransactions = await db.select().from(creditTransactions)
-      .where(and(
-        inArray(creditTransactions.playerId, playerIds),
-        eq(creditTransactions.reason, "session_join_debt"),
-        isNull(creditTransactions.packageId) // Only unsettled debts
-      ));
-    
-    for (const tx of debtTransactions) {
-      const creditType = (tx.creditType || "group") as "group" | "semi_private" | "private";
-      if (result[tx.playerId] && result[tx.playerId][creditType] !== undefined) {
-        const debtAmount = Math.abs(tx.amount);
-        result[tx.playerId][creditType] -= debtAmount;
-        result[tx.playerId].totalDebt += debtAmount;
-        result[tx.playerId].hasDebt = true;
-      }
+    // Calculate debt (negative balance means player owes credits)
+    for (const playerId of playerIds) {
+      const balance = result[playerId];
+      const groupDebt = balance.group < 0 ? Math.abs(balance.group) : 0;
+      const semiPrivateDebt = balance.semi_private < 0 ? Math.abs(balance.semi_private) : 0;
+      const privateDebt = balance.private < 0 ? Math.abs(balance.private) : 0;
+      balance.totalDebt = groupDebt + semiPrivateDebt + privateDebt;
+      balance.hasDebt = balance.totalDebt > 0;
     }
     
     return result;
