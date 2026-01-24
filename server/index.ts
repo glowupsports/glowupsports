@@ -6,6 +6,7 @@ import * as fs from "fs";
 import * as path from "path";
 import { createProxyMiddleware } from "http-proxy-middleware";
 import { startReminderScheduler } from "./pushNotifications";
+import { runDatabaseSync } from "../scripts/db-sync";
 
 const app = express();
 app.set('trust proxy', 1);
@@ -367,6 +368,12 @@ function setupErrorHandler(app: express.Application) {
       log(`express server serving on port ${port}`);
       
       startReminderScheduler();
+      
+      if (process.env.NODE_ENV === 'development') {
+        runDatabaseSync().catch(err => {
+          console.error('[DB-SYNC] Error during startup sync:', err);
+        });
+      }
     },
   );
 })();
