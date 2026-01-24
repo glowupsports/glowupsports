@@ -11,12 +11,15 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
+import { BlurView } from "expo-blur";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import * as Haptics from "expo-haptics";
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
   withSpring,
+  withTiming,
+  interpolateColor,
 } from "react-native-reanimated";
 import { Colors, Spacing, BorderRadius, Typography, Backgrounds, GlowColors } from "@/constants/theme";
 import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollViewCompat";
@@ -35,33 +38,152 @@ import {
 type AuthMode = "login" | "player_register" | "coach_info" | "academy_apply" | "invite_code";
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
+const AnimatedView = Animated.createAnimatedComponent(View);
+
+interface PremiumInputProps {
+  value: string;
+  onChangeText: (text: string) => void;
+  placeholder: string;
+  icon: keyof typeof Ionicons.glyphMap;
+  iconColor?: string;
+  secureTextEntry?: boolean;
+  showToggle?: boolean;
+  onToggle?: () => void;
+  showPassword?: boolean;
+  autoCapitalize?: "none" | "sentences" | "words" | "characters";
+  autoComplete?: "username" | "password" | "email" | "name" | "off";
+  rightElement?: React.ReactNode;
+}
+
+function PremiumInput({ 
+  value, 
+  onChangeText, 
+  placeholder, 
+  icon, 
+  iconColor = Colors.dark.primary,
+  secureTextEntry = false,
+  showToggle = false,
+  onToggle,
+  showPassword = false,
+  autoCapitalize = "none",
+  autoComplete = "off",
+  rightElement,
+}: PremiumInputProps) {
+  const focusAnim = useSharedValue(0);
+  const [isFocused, setIsFocused] = useState(false);
+
+  const handleFocus = () => {
+    setIsFocused(true);
+    focusAnim.value = withTiming(1, { duration: 200 });
+  };
+
+  const handleBlur = () => {
+    setIsFocused(false);
+    focusAnim.value = withTiming(0, { duration: 200 });
+  };
+
+  const glowStyle = useAnimatedStyle(() => ({
+    borderColor: interpolateColor(
+      focusAnim.value,
+      [0, 1],
+      ["rgba(255,255,255,0.08)", iconColor]
+    ),
+    shadowOpacity: focusAnim.value * 0.4,
+  }));
+
+  return (
+    <AnimatedView style={[premiumInputStyles.container, glowStyle, { shadowColor: iconColor }]}>
+      <Ionicons name={icon} size={20} color={isFocused ? iconColor : Colors.dark.textMuted} style={premiumInputStyles.icon} />
+      <TextInput
+        value={value}
+        onChangeText={onChangeText}
+        placeholder={placeholder}
+        placeholderTextColor="rgba(255,255,255,0.3)"
+        secureTextEntry={secureTextEntry && !showPassword}
+        autoCapitalize={autoCapitalize}
+        autoComplete={autoComplete}
+        onFocus={handleFocus}
+        onBlur={handleBlur}
+        style={premiumInputStyles.input}
+      />
+      {showToggle && onToggle ? (
+        <Pressable onPress={onToggle} style={premiumInputStyles.toggleButton}>
+          <Ionicons 
+            name={showPassword ? "eye-off" : "eye"} 
+            size={20} 
+            color={Colors.dark.textMuted} 
+          />
+        </Pressable>
+      ) : null}
+      {rightElement}
+    </AnimatedView>
+  );
+}
+
+const premiumInputStyles = StyleSheet.create({
+  container: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "rgba(0,0,0,0.4)",
+    borderRadius: 16,
+    paddingHorizontal: 18,
+    paddingVertical: 16,
+    borderWidth: 1.5,
+    shadowOffset: { width: 0, height: 0 },
+    shadowRadius: 12,
+  },
+  icon: {
+    marginRight: 14,
+  },
+  input: {
+    flex: 1,
+    fontSize: 16,
+    color: Colors.dark.text,
+    paddingVertical: 0,
+  },
+  toggleButton: {
+    padding: 4,
+    marginLeft: 8,
+  },
+});
 
 interface RoleOptionProps {
   icon: keyof typeof Ionicons.glyphMap;
   title: string;
-  description: string;
   color: string;
   onPress: () => void;
+  compact?: boolean;
 }
 
-function RoleOption({ icon, title, description, color, onPress }: RoleOptionProps) {
+function RoleOption({ icon, title, color, onPress, compact = false }: RoleOptionProps) {
   const scale = useSharedValue(1);
+  const glowAnim = useSharedValue(0);
 
   const animatedStyle = useAnimatedStyle(() => ({
     transform: [{ scale: scale.value }],
   }));
 
+  const glowStyle = useAnimatedStyle(() => ({
+    borderColor: interpolateColor(
+      glowAnim.value,
+      [0, 1],
+      ["rgba(255,255,255,0.06)", `${color}80`]
+    ),
+  }));
+
   const handlePressIn = () => {
-    scale.value = withSpring(0.97, { damping: 15, stiffness: 400 });
+    scale.value = withSpring(0.95, { damping: 15, stiffness: 400 });
+    glowAnim.value = withTiming(1, { duration: 150 });
   };
 
   const handlePressOut = () => {
     scale.value = withSpring(1, { damping: 15, stiffness: 400 });
+    glowAnim.value = withTiming(0, { duration: 200 });
   };
 
   return (
     <AnimatedPressable
-      style={[styles.roleOption, animatedStyle]}
+      style={[compact ? styles.roleOptionCompact : styles.roleOption, animatedStyle, glowStyle]}
       onPress={() => {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
         onPress();
@@ -69,24 +191,20 @@ function RoleOption({ icon, title, description, color, onPress }: RoleOptionProp
       onPressIn={handlePressIn}
       onPressOut={handlePressOut}
     >
-      <View style={[styles.roleIcon, { backgroundColor: `${color}20` }]}>
-        <Ionicons name={icon} size={24} color={color} />
+      <View style={[styles.roleIconCompact, { backgroundColor: `${color}15` }]}>
+        <Ionicons name={icon} size={compact ? 22 : 24} color={color} />
       </View>
-      <View style={styles.roleContent}>
-        <Text style={styles.roleTitle}>{title}</Text>
-        <Text style={styles.roleDescription}>{description}</Text>
-      </View>
-      <Ionicons name="chevron-forward" size={20} color={Colors.dark.textMuted} />
+      <Text style={styles.roleTitleCompact} numberOfLines={1}>{title}</Text>
     </AnimatedPressable>
   );
 }
 
-function GamingButton({ 
+function PremiumButton({ 
   onPress, 
   title, 
   isLoading = false,
   disabled = false,
-  colors = [Colors.dark.primary, "#1FA030"],
+  colors = [Colors.dark.primary, "#1FA030"] as const,
 }: { 
   onPress: () => void; 
   title: string; 
@@ -95,19 +213,26 @@ function GamingButton({
   colors?: readonly [string, string, ...string[]];
 }) {
   const scale = useSharedValue(1);
+  const glowAnim = useSharedValue(0);
 
   const animatedStyle = useAnimatedStyle(() => ({
     transform: [{ scale: scale.value }],
   }));
 
+  const glowStyle = useAnimatedStyle(() => ({
+    shadowOpacity: 0.3 + glowAnim.value * 0.4,
+  }));
+
   const handlePressIn = () => {
     if (!disabled) {
       scale.value = withSpring(0.97, { damping: 15, stiffness: 400 });
+      glowAnim.value = withTiming(1, { duration: 150 });
     }
   };
 
   const handlePressOut = () => {
     scale.value = withSpring(1, { damping: 15, stiffness: 400 });
+    glowAnim.value = withTiming(0, { duration: 200 });
   };
 
   return (
@@ -116,23 +241,51 @@ function GamingButton({
       onPressIn={handlePressIn}
       onPressOut={handlePressOut}
       disabled={disabled || isLoading}
-      style={[styles.gamingButton, animatedStyle, disabled && { opacity: 0.6 }]}
+      style={[
+        premiumButtonStyles.container, 
+        animatedStyle, 
+        glowStyle,
+        { shadowColor: colors[0] },
+        disabled && { opacity: 0.6 }
+      ]}
     >
       <LinearGradient
         colors={colors}
         start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-        style={styles.gamingButtonGradient}
+        end={{ x: 1, y: 0 }}
+        style={premiumButtonStyles.gradient}
       >
         {isLoading ? (
-          <ActivityIndicator color={Colors.dark.text} />
+          <ActivityIndicator color="#fff" size="small" />
         ) : (
-          <Text style={styles.gamingButtonText}>{title}</Text>
+          <Text style={premiumButtonStyles.text}>{title}</Text>
         )}
       </LinearGradient>
     </AnimatedPressable>
   );
 }
+
+const premiumButtonStyles = StyleSheet.create({
+  container: {
+    borderRadius: 16,
+    overflow: "hidden",
+    shadowOffset: { width: 0, height: 4 },
+    shadowRadius: 16,
+    elevation: 8,
+  },
+  gradient: {
+    paddingVertical: 18,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  text: {
+    fontSize: 16,
+    fontWeight: "700",
+    color: "#fff",
+    letterSpacing: 2,
+    textTransform: "uppercase",
+  },
+});
 
 export default function LoginScreen() {
   const insets = useSafeAreaInsets();
@@ -631,90 +784,76 @@ export default function LoginScreen() {
     <>
       {renderSavedAccounts()}
       
-      <View style={styles.inputGroup}>
-        <Text style={styles.label}>USERNAME</Text>
-        <View style={styles.glassInput}>
-          <Ionicons name="person-outline" size={18} color={Colors.dark.xpCyan} style={styles.inputIcon} />
-          <TextInput
-            value={username}
-            onChangeText={setUsername}
-            placeholder="Enter your username"
-            placeholderTextColor={Colors.dark.textMuted}
-            autoCapitalize="none"
-            autoComplete="username"
-            style={styles.input}
-          />
-        </View>
+      <View style={styles.inputsContainer}>
+        <PremiumInput
+          value={username}
+          onChangeText={setUsername}
+          placeholder="Username"
+          icon="person-outline"
+          iconColor={Colors.dark.primary}
+          autoComplete="username"
+        />
+
+        <PremiumInput
+          value={password}
+          onChangeText={setPassword}
+          placeholder="Password"
+          icon="lock-closed-outline"
+          iconColor={Colors.dark.primary}
+          secureTextEntry
+          showToggle
+          onToggle={() => setShowPassword(!showPassword)}
+          showPassword={showPassword}
+          autoComplete="password"
+        />
       </View>
 
-      <View style={styles.inputGroup}>
-        <Text style={styles.label}>PASSWORD</Text>
-        <View style={styles.glassInput}>
-          <Ionicons name="lock-closed-outline" size={18} color={Colors.dark.xpCyan} style={styles.inputIcon} />
-          <TextInput
-            value={password}
-            onChangeText={setPassword}
-            placeholder="Enter your password"
-            placeholderTextColor={Colors.dark.textMuted}
-            secureTextEntry={!showPassword}
-            autoCapitalize="none"
-            style={[styles.input, styles.passwordInput]}
-          />
-          <Pressable
-            style={styles.eyeButton}
-            onPress={() => setShowPassword(!showPassword)}
-          >
-            <Ionicons
-              name={showPassword ? "eye-off-outline" : "eye-outline"}
-              size={20}
-              color={Colors.dark.tabIconDefault}
-            />
-          </Pressable>
-        </View>
-      </View>
-
-      <GamingButton
+      <PremiumButton
         onPress={handleLogin}
-        title="SIGN IN"
+        title="Sign In"
         isLoading={isSubmitting}
         disabled={isSubmitting}
       />
 
       <View style={styles.divider}>
         <View style={styles.dividerLine} />
-        <Text style={styles.dividerText}>New to Glow Up Sports?</Text>
+        <Text style={styles.dividerText}>New here?</Text>
         <View style={styles.dividerLine} />
       </View>
 
-      <View style={styles.roleOptions}>
-        <RoleOption
-          icon="person"
-          title="I'm a Player"
-          description="Create your account and join an academy"
-          color={Colors.dark.xpCyan}
-          onPress={() => handleModeChange("player_register")}
-        />
-        <RoleOption
-          icon="tennisball"
-          title="I'm a Coach"
-          description="Join with an invite from your academy"
-          color={Colors.dark.primary}
-          onPress={() => handleModeChange("coach_info")}
-        />
-        <RoleOption
-          icon="business"
-          title="I own an Academy"
-          description="Apply to join the platform"
-          color={Colors.dark.gold}
-          onPress={() => handleModeChange("academy_apply")}
-        />
-        <RoleOption
-          icon="key"
-          title="I have an invite code"
-          description="Join with a code from your platform owner"
-          color="#9B59B6"
-          onPress={() => handleModeChange("invite_code")}
-        />
+      <View style={styles.roleGrid}>
+        <View style={styles.roleRow}>
+          <RoleOption
+            icon="person"
+            title="Player"
+            color={Colors.dark.xpCyan}
+            onPress={() => handleModeChange("player_register")}
+            compact
+          />
+          <RoleOption
+            icon="tennisball"
+            title="Coach"
+            color={Colors.dark.primary}
+            onPress={() => handleModeChange("coach_info")}
+            compact
+          />
+        </View>
+        <View style={styles.roleRow}>
+          <RoleOption
+            icon="business"
+            title="Academy"
+            color={Colors.dark.gold}
+            onPress={() => handleModeChange("academy_apply")}
+            compact
+          />
+          <RoleOption
+            icon="key"
+            title="Invite Code"
+            color="#9B59B6"
+            onPress={() => handleModeChange("invite_code")}
+            compact
+          />
+        </View>
       </View>
     </>
   );
@@ -870,7 +1009,7 @@ export default function LoginScreen() {
         <Text style={styles.hintText}>At least 8 characters</Text>
       </View>
 
-      <GamingButton
+      <PremiumButton
         onPress={handlePlayerRegister}
         title="CREATE ACCOUNT"
         isLoading={isSubmitting}
@@ -903,7 +1042,7 @@ export default function LoginScreen() {
         </Text>
       </View>
 
-      <GamingButton
+      <PremiumButton
         onPress={() => handleModeChange("invite_code")}
         title="I HAVE AN INVITE"
         colors={[Colors.dark.primary, "#1FA030"]}
@@ -943,7 +1082,7 @@ export default function LoginScreen() {
             </Text>
           </View>
 
-          <GamingButton
+          <PremiumButton
             onPress={() => handleModeChange("login")}
             title="BACK TO LOGIN"
           />
@@ -1048,7 +1187,7 @@ export default function LoginScreen() {
           </View>
         </View>
 
-        <GamingButton
+        <PremiumButton
           onPress={handleAcademyApply}
           title="SUBMIT APPLICATION"
           isLoading={isSubmitting}
@@ -1226,7 +1365,7 @@ export default function LoginScreen() {
             </View>
           </View>
 
-          <GamingButton
+          <PremiumButton
             onPress={handleInviteRegister}
             title="CREATE ACCOUNT"
             isLoading={isSubmitting}
@@ -1276,7 +1415,7 @@ export default function LoginScreen() {
           </View>
         </View>
 
-        <GamingButton
+        <PremiumButton
           onPress={handleValidateInvite}
           title="VALIDATE CODE"
           isLoading={isSubmitting}
@@ -1297,34 +1436,24 @@ export default function LoginScreen() {
   return (
     <View style={styles.container}>
       <LinearGradient
-        colors={["#0A0F14", "#0D1820", "#0A1015"]}
+        colors={["#080C10", "#0A1015", "#080C10"]}
         locations={[0, 0.5, 1]}
         style={StyleSheet.absoluteFillObject}
       />
-      <View style={styles.backgroundGlow} />
-      <View style={styles.backgroundGlowSecondary} />
       <KeyboardAwareScrollViewCompat
         style={styles.scrollView}
         contentContainerStyle={[
           styles.content,
-          { paddingTop: insets.top + Spacing.xl, paddingBottom: insets.bottom + Spacing.xl },
+          { paddingTop: insets.top + Spacing.lg, paddingBottom: insets.bottom + Spacing.lg },
         ]}
       >
         {mode === "login" ? (
           <View style={styles.header}>
-            <View style={styles.logoWrapper}>
-              <View style={styles.logoGlow} />
-              <View style={styles.logoGlowOuter} />
-              <View style={styles.iconContainer}>
-                <LinearGradient
-                  colors={[`${Colors.dark.primary}40`, `${Colors.dark.xpCyan}30`, "transparent"]}
-                  style={styles.iconGradient}
-                />
-                <Ionicons name="tennisball" size={52} color={Colors.dark.primary} />
-              </View>
+            <View style={styles.logoContainer}>
+              <Ionicons name="tennisball" size={40} color={Colors.dark.primary} />
             </View>
             <Text style={styles.title}>GLOW UP SPORTS</Text>
-            <Text style={styles.subtitle}>Welcome back</Text>
+            <Text style={styles.subtitle}>Sign in to continue</Text>
           </View>
         ) : null}
 
@@ -1350,27 +1479,6 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
-  backgroundGlow: {
-    position: "absolute",
-    top: -100,
-    left: "50%",
-    marginLeft: -150,
-    width: 300,
-    height: 300,
-    borderRadius: 150,
-    backgroundColor: Colors.dark.primary,
-    opacity: 0.08,
-  },
-  backgroundGlowSecondary: {
-    position: "absolute",
-    top: 200,
-    right: -80,
-    width: 200,
-    height: 200,
-    borderRadius: 100,
-    backgroundColor: Colors.dark.xpCyan,
-    opacity: 0.05,
-  },
   scrollView: {
     flex: 1,
   },
@@ -1380,64 +1488,66 @@ const styles = StyleSheet.create({
   },
   header: {
     alignItems: "center",
-    marginBottom: Spacing.xl * 1.5,
+    marginBottom: Spacing.xl,
   },
-  logoWrapper: {
+  logoContainer: {
+    width: 72,
+    height: 72,
+    borderRadius: 36,
+    backgroundColor: "rgba(0,0,0,0.5)",
     alignItems: "center",
     justifyContent: "center",
-    width: 140,
-    height: 140,
-    marginBottom: Spacing.lg,
-  },
-  logoGlow: {
-    position: "absolute",
-    width: 120,
-    height: 120,
-    borderRadius: 60,
-    backgroundColor: Colors.dark.primary,
-    opacity: 0.25,
-  },
-  logoGlowOuter: {
-    position: "absolute",
-    width: 160,
-    height: 160,
-    borderRadius: 80,
-    backgroundColor: Colors.dark.xpCyan,
-    opacity: 0.08,
-  },
-  iconContainer: {
-    width: 100,
-    height: 100,
-    borderRadius: 50,
-    backgroundColor: "#0D1820",
-    alignItems: "center",
-    justifyContent: "center",
-    borderWidth: 2,
-    borderColor: `${Colors.dark.primary}40`,
-    overflow: "hidden",
-  },
-  iconGradient: {
-    position: "absolute",
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
+    borderWidth: 1,
+    borderColor: `${Colors.dark.primary}30`,
+    marginBottom: Spacing.md,
   },
   title: {
-    fontSize: 28,
-    fontWeight: "900",
+    fontSize: 22,
+    fontWeight: "800",
     color: Colors.dark.text,
-    marginBottom: Spacing.xs,
-    letterSpacing: 4,
-    textShadowColor: Colors.dark.primary,
-    textShadowOffset: { width: 0, height: 0 },
-    textShadowRadius: 15,
+    marginBottom: 4,
+    letterSpacing: 3,
   },
   subtitle: {
-    fontSize: 15,
-    fontWeight: "500",
+    fontSize: 14,
+    fontWeight: "400",
     color: Colors.dark.textMuted,
-    letterSpacing: 1,
+  },
+  inputsContainer: {
+    gap: Spacing.md,
+    marginBottom: Spacing.lg,
+  },
+  roleGrid: {
+    gap: Spacing.sm,
+  },
+  roleRow: {
+    flexDirection: "row",
+    gap: Spacing.sm,
+  },
+  roleOptionCompact: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: Spacing.lg,
+    paddingHorizontal: Spacing.sm,
+    backgroundColor: "rgba(0,0,0,0.3)",
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.06)",
+    gap: Spacing.sm,
+  },
+  roleIconCompact: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  roleTitleCompact: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: Colors.dark.text,
+    textAlign: "center",
   },
   form: {
     gap: Spacing.md,
