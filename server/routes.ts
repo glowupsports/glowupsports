@@ -6763,19 +6763,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       const pkgs = await storage.getPlayerPackages(playerId);
       
-      // Calculate ACTUAL remaining credits based on all transactions (not stored value)
-      const enrichedPkgs = await Promise.all(pkgs.map(async (pkg: any) => {
-        const balance = await storage.getPlayerCreditBalanceByType(playerId);
-        const creditType = pkg.creditType || "group";
-        const actualBalance = balance[creditType as keyof typeof balance] || 0;
-        return {
-          ...pkg,
-          // Override stored remaining with actual balance for this credit type
-          remainingCredits: typeof actualBalance === 'number' ? actualBalance : pkg.remainingCredits,
-        };
-      }));
-      
-      res.json(enrichedPkgs);
+      // Each package shows its OWN remaining credits (not the total balance)
+      // The remaining credits are already stored correctly on each package
+      res.json(pkgs);
     } catch (error) {
       console.error("Error fetching packages:", error);
       res.status(500).json({ error: "Failed to fetch packages" });
@@ -16959,31 +16949,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
           private: creditBalance.private,
           activePackages: playerPackages.filter((p: any) => p.status === "active").length,
         },
-        packages: await Promise.all(playerPackages.map(async (pkg: any) => {
-          // Get the TOTAL credit balance for this player for this credit type
-          // This includes ALL transactions (even from deleted packages)
-          const allTransactions = await db.select().from(creditTransactions)
-            .where(and(
-              eq(creditTransactions.playerId, playerId),
-              eq(creditTransactions.creditType, pkg.creditType || "group")
-            ));
-          const totalBalance = allTransactions.reduce((sum, tx) => sum + tx.amount, 0);
-          
-          // For display, show the ACTUAL total balance (can be negative for debt)
-          // This is the real credit situation for this player + credit type
-          
-          return {
-            id: pkg.id,
-            creditType: pkg.creditType || "group",
-            totalCredits: pkg.totalCredits,
-            remainingCredits: totalBalance, // Show ACTUAL balance (can be negative)
-            status: pkg.status,
-            expiryDate: pkg.expiryDate,
-            createdAt: pkg.createdAt,
-            pricePerCredit: pkg.pricePerCredit || 0,
-            isPaid: pkg.isPaid || false,
-            price: pkg.price || 0,
-          };
+        packages: playerPackages.map((pkg: any) => ({
+          // Each package shows its OWN remaining credits
+          id: pkg.id,
+          creditType: pkg.creditType || "group",
+          totalCredits: pkg.totalCredits,
+          remainingCredits: pkg.remainingCredits, // Package's own remaining
+          status: pkg.status,
+          expiryDate: pkg.expiryDate,
+          createdAt: pkg.createdAt,
+          pricePerCredit: pkg.pricePerCredit || 0,
+          isPaid: pkg.isPaid || false,
+          price: pkg.price || 0,
         })),
         sessions: await Promise.all(sessions.slice(0, 50).map(async (s: any) => {
           // Calculate effective session type based on attendance

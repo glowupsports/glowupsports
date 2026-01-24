@@ -1617,28 +1617,29 @@ function PlayerDetailView({
                       styles.attendanceStatusBadge,
                       record.status === "present" ? styles.attendanceStatusPresent :
                       record.status === "absent" ? styles.attendanceStatusAbsent :
-                      (record.status === "holiday" || record.status === "cancelled") ? styles.attendanceStatusCancelled :
+                      (record.status === "holiday" || record.status === "cancelled" || record.status === "vacation") ? styles.attendanceStatusCancelled :
                       styles.attendanceStatusPending
                     ]}>
                       <Ionicons 
                         name={record.status === "present" ? "checkmark-circle" : 
                               record.status === "absent" ? "close-circle" : 
-                              (record.status === "holiday" || record.status === "cancelled") ? "calendar-outline" : "time"} 
+                              (record.status === "holiday" || record.status === "cancelled" || record.status === "vacation") ? "calendar-outline" : "time"} 
                         size={14} 
                         color={record.status === "present" ? Colors.dark.primary : 
                                record.status === "absent" ? Colors.dark.error : 
-                               (record.status === "holiday" || record.status === "cancelled") ? Colors.dark.textSecondary : Colors.dark.gold}
+                               (record.status === "holiday" || record.status === "cancelled" || record.status === "vacation") ? Colors.dark.textSecondary : Colors.dark.gold}
                       />
                       <Text style={[
                         styles.attendanceStatusText,
                         record.status === "present" ? styles.attendanceStatusTextPresent :
                         record.status === "absent" ? styles.attendanceStatusTextAbsent :
-                        (record.status === "holiday" || record.status === "cancelled") ? styles.attendanceStatusTextCancelled :
+                        (record.status === "holiday" || record.status === "cancelled" || record.status === "vacation") ? styles.attendanceStatusTextCancelled :
                         styles.attendanceStatusTextPending
                       ]}>
                         {record.status === "present" ? "Present" : 
                          record.status === "absent" ? "Absent" : 
                          record.status === "holiday" ? "Holiday" :
+                         record.status === "vacation" ? "Vacation" :
                          record.status === "cancelled" ? "Cancelled" : "Pending"}
                         {record.lateMinutes && record.lateMinutes > 0 ? ` (+${record.lateMinutes}m late)` : ""}
                       </Text>
