@@ -3325,8 +3325,11 @@ export const storage = {
     
     const sessionIds = seriesSessions.map(s => s.id);
     
-    // Delete session_players for all sessions in this series
     if (sessionIds.length > 0) {
+      // Delete credit_transactions for all sessions in this series (must be before sessions)
+      await db.delete(creditTransactions).where(inArray(creditTransactions.sessionId, sessionIds));
+      
+      // Delete session_players for all sessions in this series
       await db.delete(sessionPlayers).where(inArray(sessionPlayers.sessionId, sessionIds));
     }
     
