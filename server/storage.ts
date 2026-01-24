@@ -6117,8 +6117,10 @@ export const storage = {
     totalDebt: number;
     hasDebt: boolean;
   }> {
-    // Calculate credit balance from ACTIVE packages only (not deleted ones)
-    // Sum remaining_credits from each active package, grouped by credit type
+    // Calculate credit balance from:
+    // 1. ACTIVE packages remaining_credits
+    // 2. PLUS unpaid debt transactions (no package_id or specific debt reasons)
+    
     const activePackages = await db.select().from(packages)
       .where(and(
         eq(packages.playerId, playerId),
@@ -6127,21 +6129,43 @@ export const storage = {
     
     const balance = { group: 0, semi_private: 0, private: 0 };
     
+    // Add remaining credits from active packages
     for (const pkg of activePackages) {
       const creditType = (pkg.creditType || "group") as keyof typeof balance;
       if (balance[creditType] !== undefined) {
-        balance[creditType] += pkg.remainingCredits; // Sum remaining credits per type
+        balance[creditType] += pkg.remainingCredits;
       }
     }
     
-    // Calculate debt (negative balance means player owes credits)
+    // Add unpaid debt transactions (negative amounts without package coverage)
+    // These are sessions attended without having credits - creates debt
+    const unpaidDebts = await db.select().from(creditTransactions)
+      .where(and(
+        eq(creditTransactions.playerId, playerId),
+        or(
+          eq(creditTransactions.reason, "session_unpaid"),
+          eq(creditTransactions.reason, "session_join_debt"),
+          and(
+            isNull(creditTransactions.packageId),
+            inArray(creditTransactions.reason, ["session_booking", "session_join"])
+          )
+        )
+      ));
+    
+    for (const debt of unpaidDebts) {
+      const creditType = (debt.creditType || "group") as keyof typeof balance;
+      if (balance[creditType] !== undefined) {
+        balance[creditType] += debt.amount; // Debts are negative
+      }
+    }
+    
+    // Calculate total debt (negative balance means player owes credits)
     const groupDebt = balance.group < 0 ? Math.abs(balance.group) : 0;
     const semiPrivateDebt = balance.semi_private < 0 ? Math.abs(balance.semi_private) : 0;
     const privateDebt = balance.private < 0 ? Math.abs(balance.private) : 0;
     const totalDebt = groupDebt + semiPrivateDebt + privateDebt;
     
     return {
-      // Return ACTUAL balance (can be negative for debt)
       group: balance.group,
       semi_private: balance.semi_private,
       private: balance.private,
@@ -6335,8 +6359,7 @@ export const storage = {
       result[id] = { group: 0, semi_private: 0, private: 0, totalDebt: 0, hasDebt: false };
     }
     
-    // Calculate credit balance from ACTIVE packages only (not deleted ones)
-    // This is consistent with getPlayerCreditBalanceByType
+    // 1. Add remaining credits from ACTIVE packages
     const activePackages = await db.select().from(packages)
       .where(and(
         inArray(packages.playerId, playerIds),
@@ -6346,11 +6369,32 @@ export const storage = {
     for (const pkg of activePackages) {
       const creditType = (pkg.creditType || "group") as "group" | "semi_private" | "private";
       if (result[pkg.playerId] && result[pkg.playerId][creditType] !== undefined) {
-        result[pkg.playerId][creditType] += pkg.remainingCredits; // Sum remaining credits per type
+        result[pkg.playerId][creditType] += pkg.remainingCredits;
       }
     }
     
-    // Calculate debt (negative balance means player owes credits)
+    // 2. Add unpaid debt transactions (sessions without package coverage)
+    const unpaidDebts = await db.select().from(creditTransactions)
+      .where(and(
+        inArray(creditTransactions.playerId, playerIds),
+        or(
+          eq(creditTransactions.reason, "session_unpaid"),
+          eq(creditTransactions.reason, "session_join_debt"),
+          and(
+            isNull(creditTransactions.packageId),
+            inArray(creditTransactions.reason, ["session_booking", "session_join"])
+          )
+        )
+      ));
+    
+    for (const debt of unpaidDebts) {
+      const creditType = (debt.creditType || "group") as "group" | "semi_private" | "private";
+      if (result[debt.playerId] && result[debt.playerId][creditType] !== undefined) {
+        result[debt.playerId][creditType] += debt.amount; // Debts are negative
+      }
+    }
+    
+    // Calculate total debt per player
     for (const playerId of playerIds) {
       const balance = result[playerId];
       const groupDebt = balance.group < 0 ? Math.abs(balance.group) : 0;
