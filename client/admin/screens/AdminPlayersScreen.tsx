@@ -1175,6 +1175,9 @@ export default function AdminPlayersScreen() {
                                 </Text>
                               </View>
                             </View>
+                            {session.seriesName ? (
+                              <Text style={styles.seriesNameText}>{session.seriesName}</Text>
+                            ) : null}
                             <View style={styles.attendanceCreditsRow}>
                               <Text style={styles.attendanceCreditsText}>
                                 {session.creditsUsed || 1} credit{(session.creditsUsed || 1) > 1 ? "s" : ""} used
@@ -4415,6 +4418,11 @@ const styles = StyleSheet.create({
   attendanceCreditsText: {
     ...Typography.caption,
     color: Colors.dark.textMuted,
+  },
+  seriesNameText: {
+    fontSize: 13,
+    color: Colors.dark.textMuted,
+    marginTop: 2,
   },
   attendanceStatusBadge: {
     flexDirection: "row",

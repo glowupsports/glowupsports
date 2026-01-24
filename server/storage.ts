@@ -6891,6 +6891,7 @@ export const storage = {
     courtId: string | null;
     coachId: string | null;
     attendanceStatus: string | null;
+    seriesId: string | null;
   }[]> {
     try {
       // Get sessionPlayer records, excluding those marked as absent (cancelled)
@@ -6940,6 +6941,7 @@ export const storage = {
           courtId: s.courtId,
           coachId: s.coachId,
           attendanceStatus: playerRecord?.attendanceStatus || null,
+          seriesId: s.seriesId,
         };
       });
     } catch (error) {

@@ -17019,6 +17019,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
               // Fall back to original type
             }
           }
+          // Look up series name if session has a seriesId
+          let seriesName = null;
+          if (s.seriesId) {
+            try {
+              const series = await storage.getCoachingSeries(s.seriesId);
+              seriesName = series?.name || null;
+            } catch (e) {
+              // Fall back to null
+            }
+          }
+          
           return {
             id: s.id,
             sessionId: s.sessionId,
@@ -17028,6 +17039,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
             attended: s.attendanceStatus || s.attended,
             creditsUsed: s.creditsUsed || 0,
             isPaid: (s.creditsUsed || 0) > 0,
+            seriesId: s.seriesId || null,
+            seriesName: seriesName,
           };
         })),
       });
