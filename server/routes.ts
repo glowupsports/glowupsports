@@ -15128,8 +15128,79 @@ export async function registerRoutes(app: Express): Promise<Server> {
           pendingFeedback: Math.max(0, pendingFeedback),
         };
       }));
-
-      res.json(enrichedSeries);
+      
+      // If filtering by a specific coach, also include their orphan sessions (transferred from other coaches)
+      const virtualFlexibleSeries: any[] = [];
+      if (coachId && typeof coachId === "string") {
+        const ownSeriesIds = allSeries.map(s => s.id);
+        const orphanSessions = await db
+          .select()
+          .from(sessions)
+          .where(and(
+            eq(sessions.coachId, coachId),
+            or(
+              ownSeriesIds.length > 0 
+                ? and(isNotNull(sessions.seriesId), notInArray(sessions.seriesId, ownSeriesIds))
+                : isNotNull(sessions.seriesId),
+              isNull(sessions.seriesId)
+            )
+          ))
+          .orderBy(asc(sessions.startTime));
+        
+        if (orphanSessions.length > 0) {
+          const groupedBySeriesId = orphanSessions.reduce((acc, session) => {
+            const key = session.seriesId || 'standalone';
+            if (!acc[key]) acc[key] = [];
+            acc[key].push(session);
+            return acc;
+          }, {} as Record<string, typeof orphanSessions>);
+          
+          for (const [seriesKey, sessionsGroup] of Object.entries(groupedBySeriesId)) {
+            const firstSession = sessionsGroup[0];
+            const completedCount = sessionsGroup.filter(s => s.status === 'completed').length;
+            const now = new Date();
+            const nextSession = sessionsGroup.find(s => s.status === 'scheduled' && new Date(s.startTime) > now);
+            
+            const sessionPlayersList = await db
+              .select()
+              .from(sessionPlayers)
+              .where(eq(sessionPlayers.sessionId, firstSession.id));
+            
+            const playerDetails = await Promise.all(sessionPlayersList.slice(0, 4).map(async (sp) => {
+              const player = await storage.getPlayer(sp.playerId);
+              return { id: sp.playerId, name: player?.name || 'Unknown' };
+            }));
+            
+            const coach = coachMap.get(coachId);
+            
+            virtualFlexibleSeries.push({
+              id: `virtual-${seriesKey}`,
+              title: firstSession.title || 'Transferred Session',
+              status: 'active',
+              sessionType: firstSession.sessionType,
+              dayOfWeek: -1,
+              startTime: firstSession.startTime,
+              duration: firstSession.duration,
+              coachId: coachId,
+              coachName: coach?.name || 'Unknown Coach',
+              academyId: academyId,
+              maxPlayers: firstSession.maxPlayers || 1,
+              ballLevel: firstSession.ballLevel,
+              weekCount: sessionsGroup.length,
+              isTransferred: true,
+              originalSeriesId: seriesKey !== 'standalone' ? seriesKey : null,
+              playerCount: sessionPlayersList.length,
+              playerNames: playerDetails.map(p => p.name),
+              sessionsCompleted: completedCount,
+              pendingFeedback: 0,
+              transferredSessionIds: sessionsGroup.map(s => s.id),
+            });
+          }
+        }
+      }
+      
+      const finalSeries = [...enrichedSeries, ...virtualFlexibleSeries];
+      res.json(finalSeries);
     } catch (error) {
       console.error("Error fetching admin series:", error);
       res.status(500).json({ error: "Failed to fetch series" });
