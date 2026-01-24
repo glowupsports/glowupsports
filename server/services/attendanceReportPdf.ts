@@ -72,13 +72,18 @@ export function generateAttendanceReportHtml(data: AttendanceReportData): string
   const getStatusColor = (status: string | null) => {
     if (status === 'present') return '#10B981';
     if (status === 'absent') return '#EF4444';
-    return '#F59E0B';
+    if (status === 'late') return '#F97316';
+    if (status === 'vacation') return '#8B5CF6';
+    return '#F59E0B'; // pending/unknown
   };
 
   const getStatusLabel = (status: string | null) => {
     if (status === 'present') return 'Present';
     if (status === 'absent') return 'Absent';
-    return 'Pending';
+    if (status === 'late') return 'Late';
+    if (status === 'vacation') return 'Vacation';
+    if (status === 'pending') return 'Pending';
+    return status ? status.charAt(0).toUpperCase() + status.slice(1) : 'Pending';
   };
 
   // Group records by month
