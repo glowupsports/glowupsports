@@ -16956,16 +16956,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
             ));
           const totalBalance = allTransactions.reduce((sum, tx) => sum + tx.amount, 0);
           
-          // For display, show the effective remaining based on total balance
-          // If total balance is negative, show 0 (player has debt)
-          // If positive, show up to the package's total credits
-          const effectiveRemaining = Math.max(0, Math.min(totalBalance, pkg.totalCredits));
+          // For display, show the ACTUAL total balance (can be negative for debt)
+          // This is the real credit situation for this player + credit type
           
           return {
             id: pkg.id,
             creditType: pkg.creditType || "group",
             totalCredits: pkg.totalCredits,
-            remainingCredits: effectiveRemaining, // Show effective remaining based on total balance
+            remainingCredits: totalBalance, // Show ACTUAL balance (can be negative)
             status: pkg.status,
             expiryDate: pkg.expiryDate,
             createdAt: pkg.createdAt,

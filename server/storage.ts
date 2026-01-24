@@ -6138,9 +6138,10 @@ export const storage = {
     const totalDebt = groupDebt + semiPrivateDebt + privateDebt;
     
     return {
-      group: Math.max(0, balance.group),
-      semi_private: Math.max(0, balance.semi_private),
-      private: Math.max(0, balance.private),
+      // Return ACTUAL balance (can be negative for debt)
+      group: balance.group,
+      semi_private: balance.semi_private,
+      private: balance.private,
       totalDebt,
       hasDebt: totalDebt > 0,
     };
