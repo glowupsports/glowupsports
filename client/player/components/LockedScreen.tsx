@@ -13,18 +13,27 @@ interface LockedScreenProps {
 }
 
 export function LockedScreen({ featureKey, children }: LockedScreenProps) {
-  const { isFeatureUnlocked, level, getFeatureInfo } = usePlayerLevelContext();
+  const { isFeatureUnlocked, level, getFeatureInfo, featureUnlockConfig } = usePlayerLevelContext();
   const insets = useSafeAreaInsets();
   const navigation = useNavigation();
 
   const isUnlocked = isFeatureUnlocked(featureKey);
+  const featureInfo = getFeatureInfo(featureKey);
 
-  if (isUnlocked) {
+  // If feature config hasn't loaded yet, show children (optimistic rendering)
+  // This prevents showing "locked" screen while data is still loading
+  const isConfigLoaded = featureUnlockConfig && featureUnlockConfig.length > 0;
+  
+  // If unlocked OR config not loaded yet (avoid flash of locked screen)
+  if (isUnlocked || !isConfigLoaded) {
     return <>{children}</>;
   }
 
-  const featureInfo = getFeatureInfo(featureKey);
+  // Double-check: if player level >= required level, show content
   const requiredLevel = featureInfo?.requiredLevel || 1;
+  if (level >= requiredLevel) {
+    return <>{children}</>;
+  }
   const featureName = featureInfo?.featureName || featureKey.replace(/_/g, " ");
   const featureIcon = featureInfo?.featureIcon || "lock-closed";
   const levelsToGo = requiredLevel - level;
