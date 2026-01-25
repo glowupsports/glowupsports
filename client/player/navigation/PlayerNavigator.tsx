@@ -22,6 +22,7 @@ import AcademyProfileScreen from "@/player/screens/AcademyProfileScreen";
 import CoachDirectoryScreen from "@/player/screens/CoachDirectoryScreen";
 import TransferRequestScreen from "@/player/screens/TransferRequestScreen";
 import PlayerOnboardingScreen from "@/player/screens/PlayerOnboardingScreen";
+import PlayerOnboardingV2 from "@/player/screens/PlayerOnboardingV2";
 import ParentDashboardScreen from "@/player/screens/ParentDashboardScreen";
 import ParentInvoicesScreen from "@/player/screens/ParentInvoicesScreen";
 import ParentPaymentsScreen from "@/player/screens/ParentPaymentsScreen";
@@ -934,7 +935,7 @@ export default function PlayerNavigator() {
   const showOnboarding = user?.role === "player" && needsOnboarding && onboardingComplete !== true;
 
   if (showOnboarding) {
-    return <PlayerOnboardingScreen onComplete={handleOnboardingComplete} />;
+    return <PlayerOnboardingV2 onComplete={handleOnboardingComplete} />;
   }
 
   const playerId = user?.playerId || dashboard?.player?.id || null;
