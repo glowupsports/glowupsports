@@ -159,7 +159,7 @@ export default function FamilyLobbyScreen() {
   const navigation = useNavigation();
   const insets = useSafeAreaInsets();
   const queryClient = useQueryClient();
-  const { familyData, setActivePlayer } = useFamily();
+  const { familyData, setActivePlayer, isLoading } = useFamily();
 
   const payAllMutation = useMutation({
     mutationFn: async () => {
@@ -204,11 +204,26 @@ export default function FamilyLobbyScreen() {
     );
   };
 
-  if (!familyData) {
+  if (isLoading) {
     return (
       <View style={[styles.container, styles.loading, { paddingTop: insets.top }]}>
         <ActivityIndicator size="large" color={Colors.dark.primary} />
         <Text style={styles.loadingText}>Loading family...</Text>
+      </View>
+    );
+  }
+
+  if (!familyData) {
+    return (
+      <View style={[styles.container, styles.loading, { paddingTop: insets.top }]}>
+        <Ionicons name="people-outline" size={64} color={Colors.dark.textMuted} />
+        <Text style={styles.loadingText}>No family account found</Text>
+        <Pressable 
+          style={{ marginTop: Spacing.lg, paddingHorizontal: Spacing.xl, paddingVertical: Spacing.md, backgroundColor: Colors.dark.primary, borderRadius: BorderRadius.medium }}
+          onPress={() => navigation.goBack()}
+        >
+          <Text style={{ color: Colors.dark.textPrimary, fontSize: FontSizes.md, fontWeight: "600" }}>Go Back</Text>
+        </Pressable>
       </View>
     );
   }
