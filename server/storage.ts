@@ -2721,6 +2721,45 @@ export const storage = {
     return result[0] || null;
   },
 
+  async getPlayersLastSessions(playerIds: string[]): Promise<Map<string, Session>> {
+    if (playerIds.length === 0) return new Map();
+    
+    const now = new Date();
+    
+    // Single query to get last session for each player using a subquery
+    const result = await db
+      .select({
+        playerId: sessionPlayers.playerId,
+        sessionId: sessions.id,
+        startTime: sessions.startTime,
+        title: sessions.title,
+        sessionType: sessions.sessionType,
+        status: sessions.status,
+      })
+      .from(sessionPlayers)
+      .innerJoin(sessions, eq(sessionPlayers.sessionId, sessions.id))
+      .where(and(
+        inArray(sessionPlayers.playerId, playerIds),
+        lte(sessions.startTime, now)
+      ))
+      .orderBy(desc(sessions.startTime));
+    
+    // Build map with first (most recent) session per player
+    const lastSessionMap = new Map<string, Session>();
+    for (const row of result) {
+      if (!row.playerId || lastSessionMap.has(row.playerId)) continue;
+      lastSessionMap.set(row.playerId, {
+        id: row.sessionId,
+        startTime: row.startTime,
+        title: row.title,
+        sessionType: row.sessionType,
+        status: row.status,
+      } as Session);
+    }
+    
+    return lastSessionMap;
+  },
+
   async getSessionPlayersWithDetails(sessionId: string, academyId?: string): Promise<Array<{
     id: string;
     name: string;
@@ -6392,20 +6431,36 @@ export const storage = {
       }
     }
     
-    // 2. Add ONLY explicit unpaid session debt
-    // Transactions with package_id were already paid (even if package was later deleted)
-    const unpaidDebts = await db.select({
+    // 2. Add debt from session bookings where player has no package (isDebt: true in metadata)
+    // Include session_booking debts, session_unpaid, and session_join_debt
+    const debtTransactions = await db.select({
       playerId: creditTransactions.playerId,
       amount: creditTransactions.amount,
       creditType: creditTransactions.creditType,
+      metadata: creditTransactions.metadata,
+      reason: creditTransactions.reason,
+      packageId: creditTransactions.packageId,
     }).from(creditTransactions)
       .where(and(
         inArray(creditTransactions.playerId, playerIds),
         or(
           eq(creditTransactions.reason, "session_unpaid"),
-          eq(creditTransactions.reason, "session_join_debt")
+          eq(creditTransactions.reason, "session_join_debt"),
+          eq(creditTransactions.reason, "session_booking")
         )
       ));
+    
+    // Filter to only include actual debts (no package associated or metadata.isDebt = true)
+    const unpaidDebts = debtTransactions.filter(t => {
+      // session_unpaid and session_join_debt are always debt
+      if (t.reason === "session_unpaid" || t.reason === "session_join_debt") return true;
+      // session_booking with metadata.isDebt = true is debt
+      const meta = t.metadata as { isDebt?: boolean } | null;
+      if (meta?.isDebt === true) return true;
+      // session_booking WITHOUT a valid package is debt
+      if (t.reason === "session_booking" && !t.packageId) return true;
+      return false;
+    });
     
     for (const debt of unpaidDebts) {
       const creditType = (debt.creditType || "group") as "group" | "semi_private" | "private";

@@ -1004,36 +1004,28 @@ export default function SeriesDetailDrawer({
   // Complete entire series (archive it)
   const [completingSeries, setCompletingSeries] = useState(false);
   const [extendingSeries, setExtendingSeries] = useState(false);
+  const [showExtendModal, setShowExtendModal] = useState(false);
+  const [weeksToExtend, setWeeksToExtend] = useState(4);
   
-  const handleExtendSeries = async () => {
+  const weekOptions = [2, 4, 6, 8, 10, 12, 16, 20, 24];
+  
+  const handleExtendSeries = () => {
+    if (!seriesId) return;
+    setShowExtendModal(true);
+  };
+  
+  const confirmExtendSeries = async () => {
     if (!seriesId) return;
     
-    let weeksToAdd = 10;
-    if (Platform.OS === "web" && typeof window !== "undefined") {
-      const input = window.prompt("How many weeks would you like to add?", "10");
-      if (!input) return;
-      weeksToAdd = parseInt(input, 10);
-      if (isNaN(weeksToAdd) || weeksToAdd < 1 || weeksToAdd > 52) {
-        window.alert("Please enter a number between 1 and 52");
-        return;
-      }
-    } else {
-      const confirmed = await new Promise<boolean>((resolve) => {
-        Alert.alert("Extend Class", "Add 10 more weeks?", [
-          { text: "Cancel", onPress: () => resolve(false), style: "cancel" },
-          { text: "Add 10 Weeks", onPress: () => resolve(true) },
-        ]);
-      });
-      if (!confirmed) return;
-    }
-    
     setExtendingSeries(true);
+    setShowExtendModal(false);
+    
     try {
       const response = await fetch(`${getApiUrl()}/api/coach/series/${seriesId}/extend`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify({ weeks: weeksToAdd }),
+        body: JSON.stringify({ weeks: weeksToExtend }),
       });
       
       if (!response.ok) {
@@ -3355,6 +3347,87 @@ export default function SeriesDetailDrawer({
           </View>
         </View>
       </Modal>
+
+      {/* Extend Class Modal */}
+      <Modal
+        visible={showExtendModal}
+        animationType="fade"
+        transparent={true}
+        onRequestClose={() => setShowExtendModal(false)}
+      >
+        <View style={styles.extendModalOverlay}>
+          <View style={styles.extendModalBackdrop}>
+            <Pressable 
+              style={StyleSheet.absoluteFill} 
+              onPress={() => setShowExtendModal(false)} 
+            />
+          </View>
+          <View style={styles.extendModalContent}>
+            <View style={styles.extendModalHeader}>
+              <Ionicons name="calendar-outline" size={32} color={Colors.dark.accent} />
+              <Text style={styles.extendModalTitle}>Extend Class</Text>
+              <Text style={styles.extendModalSubtitle}>
+                Add more weeks to this class series
+              </Text>
+            </View>
+            
+            <Text style={styles.extendModalLabel}>How many weeks?</Text>
+            <View style={styles.weekOptionsGrid}>
+              {weekOptions.map((weeks) => (
+                <Pressable
+                  key={weeks}
+                  style={[
+                    styles.weekOption,
+                    weeksToExtend === weeks && styles.weekOptionSelected,
+                  ]}
+                  onPress={() => {
+                    Haptics.selectionAsync();
+                    setWeeksToExtend(weeks);
+                  }}
+                >
+                  <Text style={[
+                    styles.weekOptionText,
+                    weeksToExtend === weeks && styles.weekOptionTextSelected,
+                  ]}>
+                    {weeks}
+                  </Text>
+                  <Text style={[
+                    styles.weekOptionSubtext,
+                    weeksToExtend === weeks && styles.weekOptionSubtextSelected,
+                  ]}>
+                    weeks
+                  </Text>
+                </Pressable>
+              ))}
+            </View>
+            
+            <View style={styles.extendModalFooter}>
+              <Pressable
+                style={styles.extendCancelButton}
+                onPress={() => setShowExtendModal(false)}
+              >
+                <Text style={styles.extendCancelButtonText}>Cancel</Text>
+              </Pressable>
+              <Pressable
+                style={styles.extendConfirmButton}
+                onPress={confirmExtendSeries}
+              >
+                <LinearGradient
+                  colors={[Colors.dark.accent, Colors.dark.accentSecondary]}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 0 }}
+                  style={styles.extendConfirmGradient}
+                >
+                  <Ionicons name="add-circle" size={20} color={Colors.dark.backgroundRoot} />
+                  <Text style={styles.extendConfirmButtonText}>
+                    Add {weeksToExtend} Weeks
+                  </Text>
+                </LinearGradient>
+              </Pressable>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </Modal>
   );
 }
@@ -5196,5 +5269,123 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: Typography.body.fontSize,
     color: Colors.dark.text,
+  },
+  extendModalOverlay: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    padding: Spacing.lg,
+  },
+  extendModalBackdrop: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: Backgrounds.overlay,
+  },
+  extendModalContent: {
+    backgroundColor: Backgrounds.elevated,
+    borderRadius: BorderRadius.xl,
+    padding: Spacing.xl,
+    width: "100%",
+    maxWidth: 380,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.3,
+    shadowRadius: 16,
+    elevation: 16,
+  },
+  extendModalHeader: {
+    alignItems: "center",
+    marginBottom: Spacing.xl,
+  },
+  extendModalTitle: {
+    fontSize: 24,
+    fontWeight: "700",
+    color: Colors.dark.text,
+    marginTop: Spacing.md,
+  },
+  extendModalSubtitle: {
+    fontSize: Typography.bodySmall.fontSize,
+    color: Colors.dark.textSecondary,
+    marginTop: Spacing.xs,
+    textAlign: "center",
+  },
+  extendModalLabel: {
+    fontSize: Typography.bodySmall.fontSize,
+    fontWeight: "600",
+    color: Colors.dark.textSecondary,
+    marginBottom: Spacing.md,
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
+  },
+  weekOptionsGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: Spacing.sm,
+    marginBottom: Spacing.xl,
+  },
+  weekOption: {
+    width: "30%",
+    aspectRatio: 1.2,
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: BorderRadius.md,
+    borderWidth: 1,
+    borderColor: Colors.dark.border,
+    backgroundColor: Backgrounds.card,
+  },
+  weekOptionSelected: {
+    borderColor: Colors.dark.accent,
+    backgroundColor: Colors.dark.accent + "20",
+  },
+  weekOptionText: {
+    fontSize: 24,
+    fontWeight: "700",
+    color: Colors.dark.textSecondary,
+  },
+  weekOptionTextSelected: {
+    color: Colors.dark.accent,
+  },
+  weekOptionSubtext: {
+    fontSize: 11,
+    color: Colors.dark.textMuted,
+    marginTop: 2,
+  },
+  weekOptionSubtextSelected: {
+    color: Colors.dark.accent,
+  },
+  extendModalFooter: {
+    flexDirection: "row",
+    gap: Spacing.md,
+  },
+  extendCancelButton: {
+    flex: 1,
+    paddingVertical: Spacing.md,
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: BorderRadius.md,
+    borderWidth: 1,
+    borderColor: Colors.dark.border,
+  },
+  extendCancelButtonText: {
+    fontSize: Typography.body.fontSize,
+    fontWeight: "600",
+    color: Colors.dark.textSecondary,
+  },
+  extendConfirmButton: {
+    flex: 2,
+    borderRadius: BorderRadius.md,
+    overflow: "hidden",
+  },
+  extendConfirmGradient: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: Spacing.sm,
+    paddingVertical: Spacing.md,
+    paddingHorizontal: Spacing.lg,
+  },
+  extendConfirmButtonText: {
+    fontSize: Typography.body.fontSize,
+    fontWeight: "700",
+    color: Colors.dark.backgroundRoot,
   },
 });

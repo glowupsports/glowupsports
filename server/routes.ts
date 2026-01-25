@@ -5850,16 +5850,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
       
-      // Enhance each player with their last lesson date
-      const playersWithLessonDates = await Promise.all(
-        playerList.map(async (player) => {
-          const lastLesson = await storage.getPlayerLastSession(player.id);
-          return {
-            ...player,
-            lastLessonDate: lastLesson?.startTime || null,
-          };
-        })
-      );
+      // Batch fetch last lesson dates for all players at once (performance optimization)
+      const playerIds = playerList.map(p => p.id);
+      const lastLessonMap = await storage.getPlayersLastSessions(playerIds);
+      // Map player data with last lesson dates
+      const playersWithLessonDates = playerList.map((player) => ({
+        ...player,
+        lastLessonDate: lastLessonMap.get(player.id)?.startTime || null,
+      }));
       
       if (usePagination) {
         const { limit, offset } = parsePagination(req.query as any);
