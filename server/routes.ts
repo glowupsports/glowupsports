@@ -10921,7 +10921,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             return { amount: 0, currency, warning: "missing_academy_id" };
           }
           
-          const pricing = await storage.getAcademyPricingByType(academyId, sessionType);
+          const pricing = cachedData?.getPricing ? await cachedData.getPricing(academyId, sessionType) : await storage.getAcademyPricingByType(academyId, sessionType);
           if (!pricing) {
             console.warn(`[Earnings] No academy pricing found for ${academyId} / ${sessionType}`);
             return { amount: 0, currency, warning: "missing_academy_pricing" };
@@ -10956,6 +10956,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "Coach ID required" });
       }
       
+      const _perfStart = Date.now();
+      console.log('[Earnings PERF] Starting calculation for coach:', coachId);
+      
       const now = new Date();
       const currentMonth = now.getMonth() + 1;
       const currentYear = now.getFullYear();
@@ -10973,6 +10976,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const upcomingSessions = await storage.getCoachUpcomingSessionsForMonth(coachId, currentMonth, currentYear);
       
 
+      console.log('[Earnings PERF] Fetching sessions:', Date.now() - _perfStart, 'ms, completed:', completedSessions.length, 'upcoming:', upcomingSessions.length);
+      
       // OPTIMIZATION: Batch fetch all player counts to avoid N+1 queries
       const allSessions = [...completedSessions, ...upcomingSessions];
       const allSessionIds = allSessions.map(s => s.id).filter(Boolean) as string[];
@@ -11008,14 +11013,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
         return pricingCache.get(key);
       };
+      console.log('[Earnings PERF] Batch fetch done:', Date.now() - _perfStart, 'ms, sessions:', allSessionIds.length, 'series:', allSeriesIds.length);
+      
       // Track earnings and session counts by currency to handle multi-currency coaches properly
       const realizedByCurrency: Record<string, { amount: number; sessions: number }> = {};
       const projectedByCurrency: Record<string, { amount: number; sessions: number }> = {};
       const errors: Array<{ sessionId: string; code: string; message: string }> = [];
       
-      // Calculate realized from completed sessions using contracts
-      for (const session of completedSessions) {
-        const earning = await calculateSessionEarning(session, coachId, contracts, { sessionPlayersMap, seriesPlayersMap, getPricing: getAcademyPricingCached });
+      // Calculate all earnings in parallel using Promise.all
+      const cachedData = { sessionPlayersMap, seriesPlayersMap, getPricing: getAcademyPricingCached };
+      
+      const [completedEarnings, upcomingEarnings] = await Promise.all([
+        Promise.all(completedSessions.map(session => calculateSessionEarning(session, coachId, contracts, cachedData).then(e => ({ session, earning: e })))),
+        Promise.all(upcomingSessions.map(session => calculateSessionEarning(session, coachId, contracts, cachedData).then(e => ({ session, earning: e }))))
+      ]);
+      
+      console.log('[Earnings PERF] Parallel calculation done:', Date.now() - _perfStart, 'ms');
+      
+      // Process completed session results
+      for (const { session, earning } of completedEarnings) {
         if (earning.warning) {
           errors.push({
             sessionId: session.id,
@@ -11030,9 +11046,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         realizedByCurrency[earning.currency].sessions += 1;
       }
       
-      // Calculate projected from upcoming sessions using contracts
-      for (const session of upcomingSessions) {
-        const earning = await calculateSessionEarning(session, coachId, contracts, { sessionPlayersMap, seriesPlayersMap, getPricing: getAcademyPricingCached });
+      // Process upcoming session results
+      for (const { session, earning } of upcomingEarnings) {
         if (earning.warning) {
           errors.push({
             sessionId: session.id,
