@@ -135,10 +135,14 @@ This prevents:
 
 ### Database Architecture (2026-01-25)
 
+#### ⚠️ CRITICAL: NEVER USE REPLIT DATABASE
+**NEVER write to or read from the Replit dev database (`DATABASE_URL`).** 
+The user cannot delete it and any data written there is wasted.
+
 #### SINGLE DATABASE: Supabase PostgreSQL
 - **Supabase Database** (`SUPABASE_DATABASE_URL`): The ONLY database used by the app
 - **server/db.ts**: Connects to Supabase for all read/write operations
-- **Replit Database**: NOT USED - can be safely removed from the project
+- **Replit Database**: IGNORE COMPLETELY - user cannot delete it, do not use it
 
 #### Schema Changes
 When adding new columns to the schema (`shared/schema.ts`):
