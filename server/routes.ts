@@ -18155,6 +18155,42 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Squad preview for onboarding - shows players at same level
+  app.get("/api/player/squad-preview", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const { academyId, ballLevel, limit = "8" } = req.query as { academyId?: string; ballLevel?: string; limit?: string };
+      
+      if (!academyId || !ballLevel) {
+        return res.json([]);
+      }
+
+      // Find players at the same ball level in this academy
+      const similarPlayers = await db
+        .select({
+          id: players.id,
+          displayName: players.displayName,
+          profilePhotoUrl: players.profilePhotoUrl,
+          currentLevel: players.currentLevel,
+        })
+        .from(players)
+        .where(
+          and(
+            eq(players.academyId, academyId),
+            eq(players.status, "active"),
+            eq(players.currentLevel, ballLevel),
+            req.user?.playerId ? ne(players.id, req.user.playerId) : sql`1=1`
+          )
+        )
+        .limit(parseInt(limit))
+        .orderBy(sql`RANDOM()`);
+
+      res.json(similarPlayers);
+    } catch (error) {
+      console.error("Squad preview error:", error);
+      res.json([]);
+    }
+  });
+
   app.get("/api/player/me/social", authMiddleware, requirePlayerOrOwner, async (req: AuthenticatedRequest, res: Response) => {
     try {
       if (!req.user!.playerId) {
