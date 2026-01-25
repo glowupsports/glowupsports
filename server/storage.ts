@@ -3360,11 +3360,41 @@ export const storage = {
   },
 
   async endCoachingSeries(id: string): Promise<CoachingSeries | undefined> {
+    const now = new Date();
+    
+    // Step 1: Get all FUTURE scheduled sessions for this series (to be deleted)
+    const futureSessions = await db
+      .select({ id: sessions.id })
+      .from(sessions)
+      .where(and(
+        eq(sessions.seriesId, id),
+        eq(sessions.status, "scheduled"),
+        gte(sessions.startTime, now)
+      ));
+    
+    const futureSessionIds = futureSessions.map(s => s.id);
+    
+    // Step 2: Delete future sessions and their related data (credits not yet used)
+    if (futureSessionIds.length > 0) {
+      // Delete credit transactions for future sessions (these are pending/unused)
+      await db.delete(creditTransactions).where(inArray(creditTransactions.sessionId, futureSessionIds));
+      
+      // Delete session players for future sessions
+      await db.delete(sessionPlayers).where(inArray(sessionPlayers.sessionId, futureSessionIds));
+      
+      // Delete the future sessions themselves
+      await db.delete(sessions).where(inArray(sessions.id, futureSessionIds));
+      
+      console.log(`[EndSeries] Deleted ${futureSessionIds.length} future scheduled sessions for series ${id}`);
+    }
+    
+    // Step 3: Mark series as ended (completed sessions remain intact!)
     const result = await db
       .update(coachingSeries)
-      .set({ status: "ended", endedAt: new Date() })
+      .set({ status: "ended", endedAt: now })
       .where(eq(coachingSeries.id, id))
       .returning();
+    
     return result[0];
   },
 
