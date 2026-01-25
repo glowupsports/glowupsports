@@ -9481,9 +9481,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const ended = await storage.endCoachingSeries(id);
       
       // Invalidate caches for this coach
-      apiCache.invalidatePattern(`coach_series_${coachId}`);
-      apiCache.invalidatePattern(`coach_earnings_${coachId}`);
-      apiCache.invalidatePattern(`coach_calendar_${coachId}`);
+      apiCache.invalidate(`coach_series_${coachId}`);
+      apiCache.invalidate(`coach_earnings_${coachId}`);
+      apiCache.invalidate(`coach_calendar_${coachId}`);
       res.json(ended);
     } catch (error) {
       console.error("Error ending coaching series:", error);
@@ -9616,8 +9616,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       // Step 6: Invalidate cache
-      apiCache.invalidatePattern(`series:${coachId}`);
-      apiCache.invalidatePattern(`earnings:${coachId}`);
+      apiCache.invalidate(`series:${coachId}`);
+      apiCache.invalidate(`earnings:${coachId}`);
       
       console.log(`[ExtendBG] Complete! ${createdSessions.length} sessions created in ${Date.now() - startTime}ms`);
     } catch (error) {
