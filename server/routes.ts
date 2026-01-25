@@ -4386,10 +4386,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         let creditConsumptionResult = null;
         const presentPlayers = req.body.attendance.filter((a: { status: string }) => a.status === "present");
         
-        // For GROUP sessions: charge both present AND absent players (vacation players are exempt)
-        // For PRIVATE/SEMI-PRIVATE sessions: only charge present players (no-show = no charge)
-        const isGroupSession = session.sessionType === "group" || session.sessionType === "camp" || session.sessionType === "team_training" || session.sessionType === "clinic";
-        const chargeablePlayers = isGroupSession
+        // For PRIVATE sessions: charge both present AND absent players (coach was there, player pays)
+        // For SEMI-PRIVATE/GROUP sessions: only charge present players (absent = no charge)
+        const isPrivateSession = session.sessionType === "private" || session.sessionType === "private_adjusted";
+        const chargeablePlayers = isPrivateSession
           ? req.body.attendance.filter((a: { status: string }) => 
               a.status === "present" || a.status === "absent"
             )
@@ -16410,8 +16410,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
           try {
             await storage.deleteSessionCreditTransactions(id);
             
-            const isGroupSession = session.sessionType === "group" || session.sessionType === "camp";
-            const chargeablePlayers = isGroupSession
+            const isPrivateSession = session.sessionType === "private" || session.sessionType === "private_adjusted";
+            const chargeablePlayers = isPrivateSession
               ? attendance.filter((a: { status: string }) => a.status === "present" || a.status === "absent")
               : presentPlayers;
             
