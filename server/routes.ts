@@ -9572,7 +9572,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           };
         } catch (e) {}
         
-        // Create the session
+        // Create the session with all required fields from the series
         const newSession = await storage.createSession({
           seriesId: id,
           coachId: coachId!,
@@ -9581,9 +9581,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
           sessionType: existing.sessionType,
           startTime: newSessionDate,
           endTime: sessionEndTime,
+          duration: existing.duration || 60,
           status: "scheduled",
           maxPlayers: existing.maxPlayers,
-          xpValue: existing.xpValue || 20,
+          xpPerSession: existing.xpPerSession || existing.xpValue || 20,
+          ballLevel: existing.ballLevel,
+          title: existing.title,
           ...pricingSnapshot
         });
         
