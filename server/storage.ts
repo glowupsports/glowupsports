@@ -4493,6 +4493,12 @@ export const storage = {
     return db.select().from(conversationParticipants).where(and(...conditions));
   },
 
+  // Batch fetch participants for multiple conversations (optimized)
+  async getConversationParticipantsBatch(conversationIds: string[], coachId?: string): Promise<(ConversationParticipant & { conversationId: string })[]> {
+    if (conversationIds.length === 0) return [];
+    return db.select().from(conversationParticipants).where(inArray(conversationParticipants.conversationId, conversationIds));
+  },
+
   async addConversationParticipant(data: InsertConversationParticipant): Promise<ConversationParticipant> {
     const result = await db.insert(conversationParticipants).values(data).returning();
     return result[0];

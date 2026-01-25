@@ -2524,17 +2524,85 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Get own sessions (full data) - filtered by academy
       const ownSessions = await storage.getSessionsByCoach(coachId as string, startDate, endDate, academyId ?? undefined);
       
-      // Fetch players for each session using unified roster helper
-      // This combines series players (base roster) with session-specific overrides (attendance, guests)
-      const sessionsWithPlayers = await Promise.all(
-        ownSessions.map(async (session) => {
-          const players = await storage.getSessionRoster(session.id, session.seriesId || null, academyId ?? undefined);
-          return {
-            ...session,
-            players,
-          };
-        })
-      );
+      // OPTIMIZED: Batch fetch all session and series players at once
+      const sessionIds = ownSessions.map(s => s.id);
+      const seriesIds = [...new Set(ownSessions.map(s => s.seriesId).filter(Boolean))] as string[];
+      
+      // Parallel fetch session players and series players
+      const [allSessionPlayers, allSeriesPlayers] = await Promise.all([
+        sessionIds.length > 0 ? db.select({
+          sessionId: sessionPlayers.sessionId,
+          playerId: sessionPlayers.playerId,
+          status: sessionPlayers.status,
+          attendanceStatus: sessionPlayers.attendanceStatus,
+          isGuest: sessionPlayers.isGuest,
+          playerName: players.name,
+          playerBallLevel: players.ballLevel,
+          profilePhotoUrl: players.profilePhotoUrl,
+        }).from(sessionPlayers)
+          .leftJoin(players, eq(sessionPlayers.playerId, players.id))
+          .where(inArray(sessionPlayers.sessionId, sessionIds)) : Promise.resolve([]),
+        seriesIds.length > 0 ? db.select({
+          seriesId: seriesPlayers.seriesId,
+          playerId: seriesPlayers.playerId,
+          status: seriesPlayers.status,
+          playerName: players.name,
+          playerBallLevel: players.ballLevel,
+          profilePhotoUrl: players.profilePhotoUrl,
+        }).from(seriesPlayers)
+          .leftJoin(players, eq(seriesPlayers.playerId, players.id))
+          .where(and(inArray(seriesPlayers.seriesId, seriesIds), eq(seriesPlayers.status, "active"))) : Promise.resolve([]),
+      ]);
+      
+      // Create lookup maps
+      const sessionPlayersMap = new Map<string, typeof allSessionPlayers>();
+      for (const p of allSessionPlayers) {
+        if (!sessionPlayersMap.has(p.sessionId)) sessionPlayersMap.set(p.sessionId, []);
+        sessionPlayersMap.get(p.sessionId)!.push(p);
+      }
+      
+      const seriesPlayersMap = new Map<string, typeof allSeriesPlayers>();
+      for (const p of allSeriesPlayers) {
+        if (!p.seriesId) continue;
+        if (!seriesPlayersMap.has(p.seriesId)) seriesPlayersMap.set(p.seriesId, []);
+        seriesPlayersMap.get(p.seriesId)!.push(p);
+      }
+      
+      // Build roster for each session using cached data (no await in loop)
+      const sessionsWithPlayers = ownSessions.map((session) => {
+        const sessionSpecificPlayers = sessionPlayersMap.get(session.id) || [];
+        const baseSeriesPlayers = session.seriesId ? (seriesPlayersMap.get(session.seriesId) || []) : [];
+        
+        // Combine: session players override series players
+        const sessionPlayerIds = new Set(sessionSpecificPlayers.map(p => p.playerId));
+        const combinedPlayers = [
+          ...sessionSpecificPlayers.map(p => ({
+            id: p.playerId,
+            name: p.playerName || "Unknown",
+            ballLevel: p.playerBallLevel || null,
+            profilePhotoUrl: p.profilePhotoUrl || null,
+            status: p.status,
+            attendanceStatus: p.attendanceStatus,
+            isGuest: p.isGuest,
+          })),
+          ...baseSeriesPlayers
+            .filter(p => !sessionPlayerIds.has(p.playerId))
+            .map(p => ({
+              id: p.playerId,
+              name: p.playerName || "Unknown",
+              ballLevel: p.playerBallLevel || null,
+              profilePhotoUrl: p.profilePhotoUrl || null,
+              status: p.status,
+              attendanceStatus: null,
+              isGuest: false,
+            })),
+        ];
+        
+        return {
+          ...session,
+          players: combinedPlayers,
+        };
+      });
       
       // Get blocked sessions (other coaches, no details) - filtered by academy
       const blockedSessions = await storage.getBlockedSessions(coachId as string, startDate, endDate, academyId ?? undefined);
@@ -8515,44 +8583,81 @@ export async function registerRoutes(app: Express): Promise<Server> {
         series = await storage.getCoachingSeries(coachId, academyId || undefined);
       }
       
-      // Enrich each series with player count, players preview, and sessions completed
-      const enrichedSeries = await Promise.all(series.map(async (s) => {
-        // Use getSeriesPlayersWithDetails to get player names and ball levels
-        const activePlayers = await storage.getSeriesPlayersWithDetails(s.id);
+      // OPTIMIZED: Batch fetch all data upfront to avoid N+1 queries
+      const seriesIds = series.map(s => s.id);
+      
+      // Parallel batch fetch all related data
+      const [allSeriesPlayers, allCompletedSessions, allNextSessions] = await Promise.all([
+        // Batch fetch all players for all series
+        seriesIds.length > 0 ? db.select({
+          seriesId: seriesPlayers.seriesId,
+          playerId: seriesPlayers.playerId,
+          status: seriesPlayers.status,
+          playerName: players.name,
+          playerBallLevel: players.ballLevel,
+        }).from(seriesPlayers)
+          .leftJoin(players, eq(seriesPlayers.playerId, players.id))
+          .where(and(inArray(seriesPlayers.seriesId, seriesIds), eq(seriesPlayers.status, "active"))) : Promise.resolve([]),
         
-        // Count completed sessions for this series
-        const sessionsForSeries = await db
-          .select()
-          .from(sessions)
+        // Batch fetch all completed sessions for all series
+        seriesIds.length > 0 ? db.select({
+          seriesId: sessions.seriesId,
+          id: sessions.id,
+        }).from(sessions)
+          .where(and(inArray(sessions.seriesId, seriesIds), eq(sessions.status, "completed"))) : Promise.resolve([]),
+        
+        // Batch fetch next scheduled session for each series (use subquery approach)
+        seriesIds.length > 0 ? db.select({
+          seriesId: sessions.seriesId,
+          startTime: sql<Date>`MIN(${sessions.startTime})`,
+        }).from(sessions)
           .where(and(
-            eq(sessions.seriesId, s.id),
-            eq(sessions.status, "completed")
-          ));
-        
-        // Count pending feedback (completed sessions without feedback)
-        const completedSessionIds = sessionsForSeries.map(sess => sess.id);
-        let pendingFeedback = 0;
-        if (completedSessionIds.length > 0) {
-          const feedbackCount = await db
-            .select({ count: sql<number>`count(distinct ${sessionFeedback.sessionId})` })
-            .from(sessionFeedback)
-            .where(inArray(sessionFeedback.sessionId, completedSessionIds));
-          pendingFeedback = sessionsForSeries.length - (feedbackCount[0]?.count || 0);
-        }
-        
-        // Get next scheduled session date
-        const now = new Date();
-        const nextSessionResult = await db
-          .select({ startTime: sessions.startTime })
-          .from(sessions)
-          .where(and(
-            eq(sessions.seriesId, s.id),
+            inArray(sessions.seriesId, seriesIds),
             eq(sessions.status, "scheduled"),
-            gte(sessions.startTime, now)
+            gte(sessions.startTime, new Date())
           ))
-          .orderBy(asc(sessions.startTime))
-          .limit(1);
-        const nextSessionDate = nextSessionResult[0]?.startTime || null;
+          .groupBy(sessions.seriesId) : Promise.resolve([]),
+      ]);
+      
+      // Get feedback counts for all completed sessions
+      const allCompletedSessionIds = allCompletedSessions.map(s => s.id);
+      const feedbackCounts = allCompletedSessionIds.length > 0 ? await db.select({
+        sessionId: sessionFeedback.sessionId,
+      }).from(sessionFeedback)
+        .where(inArray(sessionFeedback.sessionId, allCompletedSessionIds)) : [];
+      
+      // Create lookup maps for O(1) access
+      const playersBySeriesMap = new Map<string, typeof allSeriesPlayers>();
+      for (const p of allSeriesPlayers) {
+        if (!p.seriesId) continue;
+        if (!playersBySeriesMap.has(p.seriesId)) playersBySeriesMap.set(p.seriesId, []);
+        playersBySeriesMap.get(p.seriesId)!.push(p);
+      }
+      
+      const completedCountMap = new Map<string, number>();
+      const completedSessionIdsBySeriesMap = new Map<string, string[]>();
+      for (const s of allCompletedSessions) {
+        if (!s.seriesId) continue;
+        completedCountMap.set(s.seriesId, (completedCountMap.get(s.seriesId) || 0) + 1);
+        if (!completedSessionIdsBySeriesMap.has(s.seriesId)) completedSessionIdsBySeriesMap.set(s.seriesId, []);
+        completedSessionIdsBySeriesMap.get(s.seriesId)!.push(s.id);
+      }
+      
+      const nextSessionMap = new Map<string, Date>();
+      for (const s of allNextSessions) {
+        if (s.seriesId && s.startTime) nextSessionMap.set(s.seriesId, s.startTime);
+      }
+      
+      const feedbackSessionIds = new Set(feedbackCounts.map(f => f.sessionId));
+      
+      // Process all series using cached data (no await in loop)
+      const enrichedSeries = series.map((s) => {
+        const activePlayers = playersBySeriesMap.get(s.id) || [];
+        const sessionsCompleted = completedCountMap.get(s.id) || 0;
+        const completedSessionIds = completedSessionIdsBySeriesMap.get(s.id) || [];
+        const sessionsWithFeedback = completedSessionIds.filter(id => feedbackSessionIds.has(id)).length;
+        const pendingFeedback = Math.max(0, sessionsCompleted - sessionsWithFeedback);
+        const nextSessionDate = nextSessionMap.get(s.id) || null;
         
         // Get player preview data (first 4 players with names and ball levels)
         const playerPreview = activePlayers.slice(0, 4).map(p => ({
@@ -8576,13 +8681,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
           ...s,
           playerCount: activePlayers.length,
           playerNames: activePlayers.map(p => p.playerName || "Unknown").slice(0, 4),
-          sessionsCompleted: sessionsForSeries.length,
-          pendingFeedback: Math.max(0, pendingFeedback),
+          sessionsCompleted,
+          pendingFeedback,
           playerPreview,
           primaryBallLevel,
           nextSessionDate,
         };
-      }));
+      });
       
       // Find orphan sessions: sessions assigned to this coach but belonging to another coach's series
       // These are transferred sessions that should appear as "virtual flexible" entries
@@ -12183,21 +12288,34 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       const conversations = await storage.getConversationsForCoach(id, academyId);
       
-      // Enrich with participant info
-      const enriched = await Promise.all(
-        conversations.map(async (conv) => {
-          const participants = await storage.getConversationParticipants(conv.id, coachId!);
-          
-          // Get player name for conversations with a player
-          let playerName = null;
-          if (conv.playerId) {
-            const player = await storage.getPlayer(conv.playerId, academyId);
-            playerName = player?.name;
-          }
-          
-          return { ...conv, participants, playerName };
-        })
-      );
+      // OPTIMIZED: Batch fetch all participants and players at once
+      const conversationIds = conversations.map(c => c.id);
+      const playerIds = conversations.map(c => c.playerId).filter(Boolean) as string[];
+      
+      // Parallel batch fetch
+      const [allParticipants, allPlayers] = await Promise.all([
+        conversationIds.length > 0 ? storage.getConversationParticipantsBatch(conversationIds, coachId!) : Promise.resolve([]),
+        playerIds.length > 0 ? db.select({ id: players.id, name: players.name }).from(players).where(inArray(players.id, playerIds)) : Promise.resolve([]),
+      ]);
+      
+      // Create lookup maps
+      const participantsByConv = new Map<string, typeof allParticipants>();
+      for (const p of allParticipants) {
+        if (!participantsByConv.has(p.conversationId)) participantsByConv.set(p.conversationId, []);
+        participantsByConv.get(p.conversationId)!.push(p);
+      }
+      
+      const playerNameMap = new Map<string, string>();
+      for (const p of allPlayers) {
+        playerNameMap.set(p.id, p.name);
+      }
+      
+      // Enrich using cached data (no await in loop)
+      const enriched = conversations.map((conv) => {
+        const participants = participantsByConv.get(conv.id) || [];
+        const playerName = conv.playerId ? (playerNameMap.get(conv.playerId) || null) : null;
+        return { ...conv, participants, playerName };
+      });
       
       // Return only real conversations - no sample/demo data
       res.json(enriched);
