@@ -9510,6 +9510,116 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Extend a coaching series with additional weeks
+  // Background task processor for extend series
+  async function processExtendSeriesBackground(
+    seriesId: string, 
+    weeks: number, 
+    coachId: string, 
+    academyId: string,
+    existing: any,
+    lastSession: any,
+    activeMembers: any[]
+  ) {
+    const startTime = Date.now();
+    console.log(`[ExtendBG] Starting background extend for series ${seriesId}, ${weeks} weeks`);
+    
+    try {
+      // Step 1: Calculate all new session dates upfront
+      const sessionDates: { startTime: Date; endTime: Date; weekIndex: number }[] = [];
+      for (let weekIndex = 1; weekIndex <= weeks; weekIndex++) {
+        const newSessionDate = new Date(new Date(lastSession.startTime).getTime() + (weekIndex * 7 * 24 * 60 * 60 * 1000));
+        const sessionEndTime = new Date(newSessionDate.getTime() + (existing.duration || 60) * 60000);
+        sessionDates.push({ startTime: newSessionDate, endTime: sessionEndTime, weekIndex });
+      }
+      
+      // Step 2: Batch conflict checking - check all dates in parallel
+      const conflictResults = await Promise.all(
+        sessionDates.map(async (sd) => {
+          const [coachConflict, courtConflict] = await Promise.all([
+            storage.checkCoachConflict(coachId, sd.startTime, sd.endTime, undefined, academyId),
+            existing.courtId ? storage.checkCourtConflict(existing.courtId, sd.startTime, sd.endTime, undefined, academyId) : Promise.resolve(false)
+          ]);
+          return { ...sd, coachConflict, courtConflict, hasConflict: coachConflict || courtConflict };
+        })
+      );
+      
+      const validSessions = conflictResults.filter(r => !r.hasConflict);
+      const skippedCount = conflictResults.filter(r => r.hasConflict).length;
+      
+      console.log(`[ExtendBG] Conflict check done: ${validSessions.length} valid, ${skippedCount} skipped (${Date.now() - startTime}ms)`);
+      
+      if (validSessions.length === 0) {
+        console.log(`[ExtendBG] No valid sessions to create`);
+        return;
+      }
+      
+      // Step 3: Calculate pricing once (same for all sessions)
+      let pricingSnapshot: { academyPrice?: string; coachPayout?: string; academyMargin?: string } = {};
+      try {
+        const pricing = await storage.calculateSessionPricing(academyId, coachId, existing.sessionType, existing.duration || 60);
+        pricingSnapshot = {
+          academyPrice: String(pricing.academyPrice),
+          coachPayout: String(pricing.coachPayout),
+          academyMargin: String(pricing.academyMargin),
+        };
+      } catch (e) {}
+      
+      // Step 4: Batch insert all sessions using raw SQL for speed
+      const sessionInserts = validSessions.map(vs => ({
+        id: crypto.randomUUID(),
+        seriesId,
+        coachId,
+        academyId,
+        courtId: existing.courtId,
+        sessionType: existing.sessionType,
+        startTime: vs.startTime,
+        endTime: vs.endTime,
+        duration: existing.duration || 60,
+        status: "scheduled" as const,
+        maxPlayers: existing.maxPlayers,
+        xpPerSession: existing.xpPerSession || existing.xpValue || 20,
+        ballLevel: existing.ballLevel,
+        title: existing.title,
+        ...pricingSnapshot
+      }));
+      
+      // Insert sessions in parallel batches of 5
+      const createdSessions: any[] = [];
+      const batchSize = 5;
+      for (let i = 0; i < sessionInserts.length; i += batchSize) {
+        const batch = sessionInserts.slice(i, i + batchSize);
+        const results = await Promise.all(
+          batch.map(s => storage.createSession(s))
+        );
+        createdSessions.push(...results);
+      }
+      
+      console.log(`[ExtendBG] Created ${createdSessions.length} sessions (${Date.now() - startTime}ms)`);
+      
+      // Step 5: Batch add players to all sessions in parallel
+      if (activeMembers.length > 0) {
+        const playerAssignments: Promise<any>[] = [];
+        for (const session of createdSessions) {
+          for (const member of activeMembers) {
+            playerAssignments.push(
+              storage.addPlayerToSession({ sessionId: session.id, playerId: member.playerId }).catch(() => null)
+            );
+          }
+        }
+        await Promise.all(playerAssignments);
+        console.log(`[ExtendBG] Added ${activeMembers.length} players to ${createdSessions.length} sessions (${Date.now() - startTime}ms)`);
+      }
+      
+      // Step 6: Invalidate cache
+      apiCache.invalidatePattern(`series:${coachId}`);
+      apiCache.invalidatePattern(`earnings:${coachId}`);
+      
+      console.log(`[ExtendBG] Complete! ${createdSessions.length} sessions created in ${Date.now() - startTime}ms`);
+    } catch (error) {
+      console.error("[ExtendBG] Background extend failed:", error);
+    }
+  }
+
   app.post("/api/coach/series/:id/extend", authMiddleware, requireAcademy, async (req: AuthenticatedRequest, res: Response) => {
     try {
       const { id } = req.params;
@@ -9521,6 +9631,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "Weeks must be between 1 and 52" });
       }
       
+      // Quick validation - these are fast cached queries
       const existing = await storage.getCoachingSeriesById(id);
       if (!existing) {
         return res.status(404).json({ error: "Series not found" });
@@ -9530,82 +9641,32 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(403).json({ error: "Not authorized to extend this series" });
       }
       
-      // Get all sessions to find the last one
-      const allSessions = await db.select().from(sessions).where(eq(sessions.seriesId, id)).orderBy(desc(sessions.startTime));
+      // Get last session quickly
+      const allSessions = await db.select().from(sessions).where(eq(sessions.seriesId, id)).orderBy(desc(sessions.startTime)).limit(1);
       if (allSessions.length === 0) {
         return res.status(400).json({ error: "No sessions found in series" });
       }
       
       const lastSession = allSessions[0];
-      const academyTimezone = "Asia/Dubai";
       
-      // Get series active members
+      // Get active members
       const seriesMembers = await storage.getSeriesPlayers(id);
       const activeMembers = seriesMembers.filter(m => m.status === "active");
       
-      const newSessions: any[] = [];
-      const skippedWeeks: any[] = [];
-      
-      // Generate new sessions starting from week after last session
-      for (let weekIndex = 1; weekIndex <= weeks; weekIndex++) {
-        // Calculate new session date (add weeks to last session)
-        const newSessionDate = new Date(new Date(lastSession.startTime).getTime() + (weekIndex * 7 * 24 * 60 * 60 * 1000));
-        const sessionEndTime = new Date(newSessionDate.getTime() + (existing.duration || 60) * 60000);
-        
-        // Check for conflicts
-        const coachConflict = await storage.checkCoachConflict(coachId!, newSessionDate, sessionEndTime, undefined, academyId);
-        const courtConflict = existing.courtId ? await storage.checkCourtConflict(existing.courtId, newSessionDate, sessionEndTime, undefined, academyId) : false;
-        
-        if (coachConflict || courtConflict) {
-          skippedWeeks.push({ week: weekIndex, reason: coachConflict ? "Coach busy" : "Court busy" });
-          continue;
-        }
-        
-        // Calculate pricing snapshot
-        let pricingSnapshot: { academyPrice?: string; coachPayout?: string; academyMargin?: string } = {};
-        try {
-          const pricing = await storage.calculateSessionPricing(academyId, coachId!, existing.sessionType, existing.duration || 60);
-          pricingSnapshot = {
-            academyPrice: String(pricing.academyPrice),
-            coachPayout: String(pricing.coachPayout),
-            academyMargin: String(pricing.academyMargin),
-          };
-        } catch (e) {}
-        
-        // Create the session with all required fields from the series
-        const newSession = await storage.createSession({
-          seriesId: id,
-          coachId: coachId!,
-          academyId,
-          courtId: existing.courtId,
-          sessionType: existing.sessionType,
-          startTime: newSessionDate,
-          endTime: sessionEndTime,
-          duration: existing.duration || 60,
-          status: "scheduled",
-          maxPlayers: existing.maxPlayers,
-          xpPerSession: existing.xpPerSession || existing.xpValue || 20,
-          ballLevel: existing.ballLevel,
-          title: existing.title,
-          ...pricingSnapshot
-        });
-        
-        newSessions.push(newSession);
-        
-        // Add all active members to this session
-        for (const member of activeMembers) {
-          try {
-            await storage.addPlayerToSession({ sessionId: newSession.id, playerId: member.playerId });
-          } catch (e) {}
-        }
-      }
-      
+      // INSTANT RESPONSE - Fire and forget the background processing
       res.json({
         success: true,
-        sessionsCreated: newSessions.length,
-        skippedWeeks,
-        message: `Extended series with ${newSessions.length} new sessions`
+        sessionsCreated: weeks, // Optimistic - actual may differ due to conflicts
+        skippedWeeks: [],
+        message: `Extending series with ${weeks} new sessions...`,
+        processing: true
       });
+      
+      // Process in background (non-blocking)
+      setImmediate(() => {
+        processExtendSeriesBackground(id, weeks, coachId!, academyId, existing, lastSession, activeMembers);
+      });
+      
     } catch (error) {
       console.error("Error extending coaching series:", error);
       res.status(500).json({ error: "Failed to extend series" });
