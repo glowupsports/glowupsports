@@ -64,6 +64,7 @@ import {
   validateSessionOwnership,
   validatePackageOwnership,
   validateNotificationOwnership,
+  refreshAuthMiddleware,
   type AuthenticatedRequest 
 } from "./auth";
 import { 
@@ -1212,7 +1213,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.json({ success: true, message: "Logged out successfully" });
   });
 
-  app.post("/auth/refresh", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
+  app.post("/auth/refresh", refreshAuthMiddleware, async (req: AuthenticatedRequest, res: Response) => {
     try {
       const user = req.user!;
       const token = generateToken({

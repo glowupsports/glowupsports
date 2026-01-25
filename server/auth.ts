@@ -76,6 +76,37 @@ export function verifyToken(token: string): JWTPayload | null {
   }
 }
 
+// Verify token but allow expired tokens (for refresh purposes)
+// Returns the payload even if expired, but returns null if signature is invalid
+export function verifyTokenAllowExpired(token: string): JWTPayload | null {
+  try {
+    return jwt.verify(token, JWT_SECRET, { ignoreExpiration: true }) as JWTPayload;
+  } catch {
+    return null;
+  }
+}
+
+// Middleware that accepts expired tokens (for token refresh endpoint)
+export function refreshAuthMiddleware(req: AuthenticatedRequest, res: Response, next: NextFunction): void {
+  const authHeader = req.headers.authorization;
+  
+  if (!authHeader || !authHeader.startsWith("Bearer ")) {
+    res.status(401).json({ error: "Authentication required" });
+    return;
+  }
+
+  const token = authHeader.substring(7);
+  const payload = verifyTokenAllowExpired(token);
+
+  if (!payload) {
+    res.status(401).json({ error: "Invalid token signature" });
+    return;
+  }
+
+  req.user = payload;
+  next();
+}
+
 export function authMiddleware(req: AuthenticatedRequest, res: Response, next: NextFunction): void {
   const authHeader = req.headers.authorization;
   

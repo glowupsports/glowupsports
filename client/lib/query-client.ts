@@ -1,5 +1,5 @@
 import { QueryClient, QueryFunction } from "@tanstack/react-query";
-import { getAuthToken, triggerUnauthorized, getCurrentAcademyId } from "./auth";
+import { getAuthToken, triggerUnauthorized, getCurrentAcademyId, getRefreshedToken } from "./auth";
 import { validateEnv, isDevelopment, logEnvStatus } from "./env";
 
 import { Platform } from "react-native";
@@ -43,8 +43,14 @@ export function getStaticAssetsUrl(): string {
 async function throwIfResNotOk(res: Response) {
   if (!res.ok) {
     if (res.status === 401) {
-      console.log("[API] Received 401, triggering unauthorized handler");
-      triggerUnauthorized();
+      console.log("[API] Received 401, attempting token refresh...");
+      await triggerUnauthorized();
+      // After triggerUnauthorized, check if we got a new token
+      const newToken = getRefreshedToken();
+      if (newToken) {
+        // Token was refreshed, throw a special error so caller can retry
+        throw new Error("TOKEN_REFRESHED");
+      }
     }
     const text = (await res.text()) || res.statusText;
     throw new Error(`${res.status}: ${text}`);
@@ -117,6 +123,34 @@ export async function apiRequest(
 }
 
 type UnauthorizedBehavior = "returnNull" | "throw";
+
+async function fetchWithRetry(url: URL, unauthorizedBehavior: UnauthorizedBehavior, retryCount = 0): Promise<any> {
+  const res = await fetch(url, {
+    headers: getAuthHeaders(),
+    credentials: "include",
+  });
+
+  if (res.status === 401) {
+    console.log("[QueryClient] Received 401, attempting token refresh...");
+    await triggerUnauthorized();
+    
+    // Check if token was refreshed
+    const newToken = getRefreshedToken();
+    if (newToken && retryCount === 0) {
+      console.log("[QueryClient] Token refreshed, retrying request...");
+      return fetchWithRetry(url, unauthorizedBehavior, retryCount + 1);
+    }
+    
+    if (unauthorizedBehavior === "returnNull") {
+      return null;
+    }
+    throw new Error("401: Unauthorized");
+  }
+
+  await throwIfResNotOk(res);
+  return await res.json();
+}
+
 export const getQueryFn: <T>(options: {
   on401: UnauthorizedBehavior;
 }) => QueryFunction<T> =
@@ -124,22 +158,7 @@ export const getQueryFn: <T>(options: {
   async ({ queryKey }) => {
     const baseUrl = getApiUrl();
     const url = new URL(queryKey.join("/") as string, baseUrl);
-
-    const res = await fetch(url, {
-      headers: getAuthHeaders(),
-      credentials: "include",
-    });
-
-    if (res.status === 401) {
-      console.log("[QueryClient] Received 401 for", queryKey.join("/"));
-      triggerUnauthorized();
-      if (unauthorizedBehavior === "returnNull") {
-        return null;
-      }
-    }
-
-    await throwIfResNotOk(res);
-    return await res.json();
+    return fetchWithRetry(url, unauthorizedBehavior);
   };
 
 export const queryClient = new QueryClient({

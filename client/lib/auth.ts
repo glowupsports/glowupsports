@@ -25,16 +25,89 @@ export interface AuthState {
 let currentToken: string | null = null;
 let currentAcademyId: string | null = null;
 let onUnauthorizedCallback: (() => void) | null = null;
+let isRefreshing = false;
+let refreshPromise: Promise<boolean> | null = null;
 
 export function setOnUnauthorizedCallback(callback: (() => void) | null): void {
   onUnauthorizedCallback = callback;
 }
 
-export function triggerUnauthorized(): void {
-  console.log("[Auth] Triggering unauthorized callback (token expired or invalid)");
+// Attempt to refresh the token before logging out
+async function attemptTokenRefresh(): Promise<boolean> {
+  if (!currentToken) {
+    console.log("[Auth] No token to refresh");
+    return false;
+  }
+
+  // Prevent multiple simultaneous refresh attempts
+  if (isRefreshing && refreshPromise) {
+    console.log("[Auth] Refresh already in progress, waiting...");
+    return refreshPromise;
+  }
+
+  isRefreshing = true;
+  refreshPromise = (async () => {
+    try {
+      console.log("[Auth] Attempting token refresh...");
+      
+      // Dynamic import to avoid circular dependency
+      const { getApiUrl } = await import("./query-client");
+      const baseUrl = getApiUrl();
+      const url = new URL("/auth/refresh", baseUrl);
+
+      const response = await fetch(url.toString(), {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${currentToken}`,
+          "Content-Type": "application/json",
+        },
+        credentials: "include",
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        if (data.token) {
+          console.log("[Auth] Token refreshed successfully");
+          currentToken = data.token;
+          await AsyncStorage.setItem(AUTH_TOKEN_KEY, data.token);
+          return true;
+        }
+      }
+
+      console.log("[Auth] Token refresh failed with status:", response.status);
+      return false;
+    } catch (error) {
+      console.error("[Auth] Token refresh error:", error);
+      return false;
+    } finally {
+      isRefreshing = false;
+      refreshPromise = null;
+    }
+  })();
+
+  return refreshPromise;
+}
+
+export async function triggerUnauthorized(): Promise<void> {
+  console.log("[Auth] Received 401, attempting token refresh first...");
+  
+  // Try to refresh the token
+  const refreshSuccess = await attemptTokenRefresh();
+  
+  if (refreshSuccess) {
+    console.log("[Auth] Token refreshed, retrying original request...");
+    // Token was refreshed, the caller should retry the request
+    return;
+  }
+
+  console.log("[Auth] Token refresh failed, triggering logout");
   if (onUnauthorizedCallback) {
     onUnauthorizedCallback();
   }
+}
+
+export function getRefreshedToken(): string | null {
+  return currentToken;
 }
 
 export function getAuthToken(): string | null {
