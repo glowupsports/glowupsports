@@ -382,7 +382,7 @@ export async function processScheduledReminders(): Promise<void> {
 
 let reminderInterval: ReturnType<typeof setInterval> | null = null;
 
-const AUTO_ATTENDANCE_GRACE_PERIOD = 30 * 60 * 1000; // 30 minutes after session ends
+const AUTO_ATTENDANCE_GRACE_PERIOD = 0; // No grace period - mark attendance immediately after session ends
 const AUTO_ATTENDANCE_XP_REWARD = 25; // XP for marking attendance during class
 
 // Auto-complete sessions that have passed their end time
