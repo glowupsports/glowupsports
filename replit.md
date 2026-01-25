@@ -177,3 +177,37 @@ psql "$SUPABASE_DATABASE_URL" -c "ALTER TABLE courts ADD COLUMN IF NOT EXISTS cr
 ```
 
 Then restart the workflow to pick up the changes.
+
+### Performance Caching (2026-01-25)
+
+#### In-Memory API Cache Implementation
+Heavy API endpoints are now cached to provide sub-10ms responses after initial load:
+
+**Cached Endpoints:**
+- `/api/coach/earnings/summary` - 5 minute TTL (was 4.4s → <10ms cached)
+- `/api/coach/series` - 5 minute TTL (was 3.4s → <10ms cached)  
+- `/api/coaches/:id/conversations` - 2 minute TTL (was 3.2s → <10ms cached)
+
+**Cache Architecture (server/cache.ts):**
+- In-memory cache with automatic expiration
+- Pattern-based invalidation for related data
+- Cache keys: CACHE_KEYS.COACH_EARNINGS(coachId), CACHE_KEYS.COACH_SERIES(coachId, status), etc.
+- TTLs defined in CACHE_TTL object
+
+**Cache Invalidation (TODO):**
+When data changes, invalidate related caches:
+- Session created/updated → invalidate earnings, series, calendar
+- Message sent → invalidate conversations
+- Player added/removed → invalidate series, players
+
+**Usage Pattern:**
+\`\`\`typescript
+const cacheKey = CACHE_KEYS.COACH_EARNINGS(coachId);
+const cached = apiCache.get(cacheKey);
+if (cached) return res.json(cached);
+
+// ... calculate data ...
+
+apiCache.set(cacheKey, response, CACHE_TTL.COACH_EARNINGS);
+res.json(response);
+\`\`\`

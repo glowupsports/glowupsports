@@ -90,6 +90,7 @@ import { sendFeedbackNotification, sendLevelUpNotification, sendBadgeEarnedNotif
 import { sendFeedbackNotificationEmail, sendLevelUpEmail, sendWelcomeEmail, sendSessionReminderEmail, sendCoachInviteEmail } from "./emailService";
 import { createCalendarEvent, updateCalendarEvent, deleteCalendarEvent, checkConnection as checkCalendarConnection, SessionEventData } from "./googleCalendarService";
 import { generateInvoiceHtml, parseLineItems } from "./services/invoicePdf";
+import { apiCache, CACHE_KEYS, CACHE_TTL } from "./cache";
 import shopRoutes from "./shop-routes";
 import marketplaceRoutes from "./marketplace-routes";
 import glowLevelingRoutes from "./routes/glow-leveling";
@@ -8574,6 +8575,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       const { status } = req.query;
       
+      // Check cache first
+      const cacheKey = CACHE_KEYS.COACH_SERIES(coachId, status as string || 'all');
+      const cached = apiCache.get(cacheKey);
+      if (cached) {
+        console.log('[Series PERF] Cache HIT for coach:', coachId);
+        return res.json(cached);
+      }
+      const _perfStart = Date.now();
+      
       let series;
       if (status === "active") {
         series = await storage.getActiveCoachingSeries(coachId, academyId || undefined);
@@ -8770,6 +8780,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Combine regular series with virtual flexible entries
       const allSeries = [...enrichedSeries, ...virtualFlexibleSeries];
+      
+      // Cache the response for 5 minutes
+      apiCache.set(cacheKey, allSeries, CACHE_TTL.COACH_SERIES);
+      console.log('[Series PERF] Cache SET for coach:', coachId, 'Total time:', Date.now() - _perfStart, 'ms');
       
       res.json(allSeries);
     } catch (error) {
@@ -11059,6 +11073,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "Coach ID required" });
       }
       
+      // Check cache first for fast response
+      const cacheKey = CACHE_KEYS.COACH_EARNINGS(coachId);
+      const cached = apiCache.get(cacheKey);
+      if (cached) {
+        console.log('[Earnings PERF] Cache HIT for coach:', coachId);
+        return res.json(cached);
+      }
+      
       const _perfStart = Date.now();
       console.log('[Earnings PERF] Starting calculation for coach:', coachId);
       
@@ -11198,7 +11220,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         paymentRuleDisplay = { type: "hourly", currency: "AED", isDefault: true };
       }
       
-      res.json({
+      const response = {
         realized: {
           amount: realizedData.amount.toFixed(2),
           currency: displayCurrency,
@@ -11234,7 +11256,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         } : {}),
         // Include errors array if any configuration issues detected
         ...(errors.length > 0 ? { configErrors: errors } : {}),
-      });
+      };
+      
+      // Cache the response for 5 minutes
+      apiCache.set(cacheKey, response, CACHE_TTL.COACH_EARNINGS);
+      console.log('[Earnings PERF] Cache SET for coach:', coachId, 'Total time:', Date.now() - _perfStart, 'ms');
+      
+      res.json(response);
     } catch (error) {
       console.error("Error fetching coach earnings summary:", error);
       res.status(500).json({ error: "Failed to fetch earnings summary" });
@@ -12283,6 +12311,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (id !== coachId) {
         return res.status(404).json({ error: "Conversations not found" });
       }
+      
+      // Check cache first
+      const cacheKey = CACHE_KEYS.COACH_CONVERSATIONS(coachId);
+      const cached = apiCache.get(cacheKey);
+      if (cached) {
+        console.log('[Conversations PERF] Cache HIT for coach:', coachId);
+        return res.json(cached);
+      }
+      const _perfStart = Date.now();
       
       const conversations = await storage.getConversationsForCoach(id, academyId);
       
