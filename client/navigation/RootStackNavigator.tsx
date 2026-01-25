@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState, useCallback } from "react";
 import { ActivityIndicator, View, StyleSheet } from "react-native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import CoachNavigator from "@/coach/navigation/CoachNavigator";
@@ -7,12 +7,14 @@ import AdminNavigator from "@/admin/navigation/AdminNavigator";
 import OwnerNavigator from "@/owner/navigation/OwnerNavigator";
 import PlatformNavigator from "@/platform/navigation/PlatformNavigator";
 import LoginScreen from "@/coach/screens/LoginScreen";
+import BootScreen from "@/screens/BootScreen";
 import { useScreenOptions } from "@/hooks/useScreenOptions";
 import { useAppMode } from "@/context/AppModeContext";
 import { useAuth } from "@/coach/context/AuthContext";
 import { Colors } from "@/constants/theme";
 
 export type RootStackParamList = {
+  Boot: undefined;
   Player: undefined;
   Coach: undefined;
   Admin: undefined;
@@ -27,6 +29,11 @@ export default function RootStackNavigator() {
   const screenOptions = useScreenOptions();
   const { mode } = useAppMode();
   const { isAuthenticated, isLoading } = useAuth();
+  const [bootComplete, setBootComplete] = useState(false);
+
+  const handleBootComplete = useCallback(() => {
+    setBootComplete(true);
+  }, []);
 
   if (isLoading) {
     return (
@@ -36,17 +43,23 @@ export default function RootStackNavigator() {
     );
   }
 
-  const getNavigator = () => {
-    if (!isAuthenticated) {
-      return (
+  if (!isAuthenticated) {
+    return (
+      <Stack.Navigator screenOptions={screenOptions}>
         <Stack.Screen
           name="Login"
           component={LoginScreen}
           options={{ headerShown: false }}
         />
-      );
-    }
+      </Stack.Navigator>
+    );
+  }
 
+  if (!bootComplete) {
+    return <BootScreen onBootComplete={handleBootComplete} />;
+  }
+
+  const getMainNavigator = () => {
     switch (mode) {
       case "platform":
         return (
@@ -93,8 +106,8 @@ export default function RootStackNavigator() {
   };
 
   return (
-    <Stack.Navigator key={isAuthenticated ? mode : "login"} screenOptions={screenOptions}>
-      {getNavigator()}
+    <Stack.Navigator key={mode} screenOptions={screenOptions}>
+      {getMainNavigator()}
     </Stack.Navigator>
   );
 }
