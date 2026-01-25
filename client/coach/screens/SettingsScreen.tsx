@@ -763,8 +763,9 @@ export default function SettingsScreen() {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     try {
       const response = await apiRequest("POST", "/api/push/test", {});
-      const data = response as unknown as { success: boolean; devicesNotified: number };
-      const message = `Test notification sent to ${data.devicesNotified} device(s). Check your phone!`;
+      const data = response as unknown as { success: boolean; devicesNotified?: number };
+      const deviceCount = data.devicesNotified ?? 1;
+      const message = `Test notification sent to ${deviceCount} device(s). Check your phone!`;
       if (Platform.OS === "web") {
         window.alert(message);
       } else {

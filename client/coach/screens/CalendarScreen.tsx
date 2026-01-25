@@ -221,13 +221,12 @@ function DraggableSessionBlock({
   const isDragging = useSharedValue(false);
 
   const panGesture = Gesture.Pan()
-    .activateAfterLongPress(300)
+    .activateAfterLongPress(400)
     .enabled(!isPast)
     .onStart(() => {
       isDragging.value = true;
       scale.value = withSpring(1.05);
       zIndex.value = 100;
-      runOnJS(Haptics.impactAsync)(Haptics.ImpactFeedbackStyle.Medium);
     })
     .onUpdate((event) => {
       translateX.value = event.translationX;
@@ -367,13 +366,12 @@ function WeekDraggableSessionBlock({
   const isDragging = useSharedValue(false);
 
   const panGesture = Gesture.Pan()
-    .activateAfterLongPress(300)
+    .activateAfterLongPress(400)
     .enabled(!isPast)
     .onStart(() => {
       isDragging.value = true;
       scale.value = withSpring(1.1);
       zIndex.value = 100;
-      runOnJS(Haptics.impactAsync)(Haptics.ImpactFeedbackStyle.Medium);
     })
     .onUpdate((event) => {
       translateX.value = event.translationX;

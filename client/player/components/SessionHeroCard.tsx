@@ -245,7 +245,6 @@ const gamingStyles = StyleSheet.create({
   },
   neonBorderInner: {
     borderRadius: BorderRadius.md - 1,
-    overflow: "hidden",
     padding: Spacing.sm,
   },
 });
@@ -1465,6 +1464,7 @@ const styles = StyleSheet.create({
   bookingButtonsRow: {
     flexDirection: "row",
     gap: Spacing.sm,
+    width: "100%",
   },
   gamingPrimaryButtonHalf: {
     flex: 1,
@@ -1477,13 +1477,13 @@ const styles = StyleSheet.create({
     elevation: 8,
   },
   gamingButtonGradientFill: {
-    flex: 1,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
     paddingVertical: Spacing.lg,
     paddingHorizontal: Spacing.md,
     gap: Spacing.sm,
+    minHeight: 52,
   },
   gamingButtonGradient: {
     flexDirection: "row",
@@ -1943,6 +1943,7 @@ const styles = StyleSheet.create({
   },
   openDayActions: {
     gap: Spacing.md,
+    width: "100%",
   },
   openDayButton: {
     flexDirection: "row",
@@ -1955,6 +1956,7 @@ const styles = StyleSheet.create({
   openDaySecondaryRow: {
     flexDirection: "row",
     gap: Spacing.md,
+    width: "100%",
   },
   openDaySmallButton: {
     flex: 1,
