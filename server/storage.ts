@@ -6195,20 +6195,34 @@ export const storage = {
       }
     }
     
-    // Add ONLY explicit unpaid session debt
-    // Transactions with package_id were already paid (even if package was later deleted)
-    // Only "session_unpaid" and "session_join_debt" are real unpaid debts
-    const unpaidDebts = await db.select({
+    // Add debt from all unpaid session transactions:
+    // - session_unpaid: Explicit unpaid marker
+    // - session_join_debt: Player joined without credits
+    // - session_booking with isDebt=true or without packageId: Booked without available package
+    const debtTransactions = await db.select({
       amount: creditTransactions.amount,
       creditType: creditTransactions.creditType,
+      reason: creditTransactions.reason,
+      packageId: creditTransactions.packageId,
+      metadata: creditTransactions.metadata,
     }).from(creditTransactions)
       .where(and(
         eq(creditTransactions.playerId, playerId),
         or(
           eq(creditTransactions.reason, "session_unpaid"),
-          eq(creditTransactions.reason, "session_join_debt")
+          eq(creditTransactions.reason, "session_join_debt"),
+          eq(creditTransactions.reason, "session_booking")
         )
       ));
+    
+    // Filter to only actual debts (same logic as getPlayersCreditBalances)
+    const unpaidDebts = debtTransactions.filter(t => {
+      if (t.reason === "session_unpaid" || t.reason === "session_join_debt") return true;
+      const meta = t.metadata as { isDebt?: boolean } | null;
+      if (meta?.isDebt === true) return true;
+      if (t.reason === "session_booking" && !t.packageId) return true;
+      return false;
+    });
     
     for (const debt of unpaidDebts) {
       const creditType = (debt.creditType || "group") as keyof typeof balance;
