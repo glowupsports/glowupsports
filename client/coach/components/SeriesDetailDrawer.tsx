@@ -18,7 +18,7 @@ import * as Haptics from "expo-haptics";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import { Colors, Spacing, BorderRadius, Typography, Backgrounds, GlowColors } from "@/constants/theme";
-import { apiRequest, getApiUrl } from "@/lib/query-client";
+import { apiRequest, getApiUrl, getAuthHeaders } from "@/lib/query-client";
 import { convertUTCTimeToLocal } from "@/lib/dateUtils";
 import { useCoach } from "@/coach/context/CoachContext";
 import { WebCalendarPicker } from "@/components/WebCalendarPicker";
@@ -1023,7 +1023,10 @@ export default function SeriesDetailDrawer({
     try {
       const response = await fetch(`${getApiUrl()}/api/coach/series/${seriesId}/extend`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { 
+          "Content-Type": "application/json",
+          ...getAuthHeaders(),
+        },
         credentials: "include",
         body: JSON.stringify({ weeks: weeksToExtend }),
       });

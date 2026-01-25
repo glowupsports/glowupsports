@@ -522,7 +522,10 @@ async function processAutoAttendance(): Promise<void> {
         }
       } else {
         // Mark existing unmarked players as present
-        const unmarkedPlayers = existingPlayers.filter(p => p.attendanceStatus === null);
+        // Include both null and "pending" status - players who haven't been marked by coach
+        const unmarkedPlayers = existingPlayers.filter(p => 
+          p.attendanceStatus === null || p.attendanceStatus === "pending"
+        );
         
         if (unmarkedPlayers.length === 0) continue;
 
