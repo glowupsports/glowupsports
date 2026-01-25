@@ -1044,7 +1044,6 @@ function PlayerDetailView({
     totalLessons: number;
     presentCount: number;
     attendancePercentage: number;
-    lateCount: number;
   }
   const { data: attendanceSummary } = useQuery<AttendanceSummary>({
     queryKey: [`/api/coach/players/${player.id}/attendance-summary`],
@@ -1250,7 +1249,7 @@ function PlayerDetailView({
           {/* Quick Stats Row */}
           <View style={styles.premiumQuickStats}>
             <View style={styles.premiumQuickStat}>
-              <Text style={styles.premiumQuickStatValue}>{attendanceSummary?.totalLessons ?? 0}</Text>
+              <Text style={styles.premiumQuickStatValue}>{attendanceSummary?.presentCount ?? 0}</Text>
               <Text style={styles.premiumQuickStatLabel}>Sessions</Text>
             </View>
             <View style={styles.premiumQuickStatDivider} />
@@ -1259,13 +1258,6 @@ function PlayerDetailView({
                 {attendanceSummary?.attendancePercentage ?? 0}%
               </Text>
               <Text style={styles.premiumQuickStatLabel}>Attendance</Text>
-            </View>
-            <View style={styles.premiumQuickStatDivider} />
-            <View style={styles.premiumQuickStat}>
-              <Text style={[styles.premiumQuickStatValue, { color: attendanceSummary?.lateCount ? Colors.dark.gold : Colors.dark.primary }]}>
-                {attendanceSummary?.lateCount ?? 0}
-              </Text>
-              <Text style={styles.premiumQuickStatLabel}>Late</Text>
             </View>
           </View>
         </View>
