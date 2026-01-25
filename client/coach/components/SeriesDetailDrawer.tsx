@@ -5303,13 +5303,13 @@ const styles = StyleSheet.create({
     marginTop: Spacing.md,
   },
   extendModalSubtitle: {
-    fontSize: Typography.bodySmall.fontSize,
+    fontSize: Typography.small.fontSize,
     color: Colors.dark.textSecondary,
     marginTop: Spacing.xs,
     textAlign: "center",
   },
   extendModalLabel: {
-    fontSize: Typography.bodySmall.fontSize,
+    fontSize: Typography.small.fontSize,
     fontWeight: "600",
     color: Colors.dark.textSecondary,
     marginBottom: Spacing.md,
