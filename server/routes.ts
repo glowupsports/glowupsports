@@ -4497,6 +4497,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         lateMinutes,
         absenceReason
       );
+      // Always mark session as completed when attendance is saved (single player)
+      if (session.status === "scheduled") {
+        await storage.updateSession(id, { status: "completed" });
+        console.log(`[Attendance] Auto-completed session ${id} after attendance save`);
+      }
       
       // Award XP for timely attendance marking (during class time)
       if (coachId && session.endTime) {
@@ -7636,7 +7641,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             startTime: sessionInfo.startTime.toISOString(),
             endTime: sessionInfo.endTime.toISOString(),
             sessionType: sessionInfo.sessionType,
-            status: record.attendanceStatus,
+            status: record.sessionStatus === "cancelled" ? "cancelled" : (record.attendanceStatus || null),
             lateMinutes: record.lateMinutes,
             seriesId: sessionInfo.seriesId,
           };
@@ -7908,7 +7913,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           startTime: record.sessionStartTime || null,
           endTime: record.sessionEndTime || null,
           sessionType: record.sessionType || "group",
-          status: record.attendanceStatus,
+          status: record.sessionStatus === "cancelled" ? "cancelled" : (record.attendanceStatus || null),
           lateMinutes: record.lateMinutes,
           sessionStatus: record.sessionStatus || "completed",
           seriesId: record.seriesId,
