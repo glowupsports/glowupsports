@@ -20,12 +20,6 @@ const MAX_RETRY_ATTEMPTS = 3;
 const RETRY_DELAY_MS = 3000;
 
 export function UpdateController({ children }: UpdateControllerProps) {
-  // OTA updates are disabled - just render children directly
-  // To re-enable, set updates.enabled: true in app.json and rebuild the app
-  return <>{children}</>;
-
-  // ---- DISABLED CODE BELOW ----
-  // The following code is kept for reference but will not execute
   const [showUpdateScreen, setShowUpdateScreen] = useState(false);
   const [downloadProgress, setDownloadProgress] = useState(0);
   const [isDownloading, setIsDownloading] = useState(false);
