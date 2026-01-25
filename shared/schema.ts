@@ -989,6 +989,15 @@ export const players = pgTable("players", {
   preferredTime: text("preferred_time"), // Preferred session time (morning/afternoon/evening)
   status: text("status").default("active"), // active | inactive | suspended
   
+  // New Onboarding Fields
+  tennisIdol: text("tennis_idol"), // Favorite tennis player (Federer, Nadal, Alcaraz, etc.)
+  favoriteShot: text("favorite_shot"), // forehand/backhand/serve/volley/dropshot
+  shortTermGoal: text("short_term_goal"), // 3-month goal
+  longTermDream: text("long_term_dream"), // Tennis dream/aspiration
+  weeklyCommitment: text("weekly_commitment"), // 1x/2x/3x/4x+ per week
+  nickname: text("nickname"), // Fun nickname for the app
+  quizScore: integer("quiz_score"), // Mini tennis rules quiz score
+  
   createdAt: timestamp("created_at").defaultNow(),
 });
 
@@ -1017,6 +1026,14 @@ export const updatePlayerSchema = z.object({
   matchPreference: z.enum(["casual", "training", "competitive"]).optional().nullable(),
   privacyLevel: z.enum(["public", "platform", "academy"]).optional(),
   bio: z.string().max(500).optional().nullable(),
+  // New Onboarding Fields
+  tennisIdol: z.string().max(100).optional().nullable(),
+  favoriteShot: z.enum(["forehand", "backhand", "serve", "volley", "dropshot"]).optional().nullable(),
+  shortTermGoal: z.string().max(500).optional().nullable(),
+  longTermDream: z.string().max(500).optional().nullable(),
+  weeklyCommitment: z.enum(["1x", "2x", "3x", "4x+"]).optional().nullable(),
+  nickname: z.string().max(50).optional().nullable(),
+  quizScore: z.number().int().min(0).max(100).optional().nullable(),
 }).transform((data) => ({
   ...data,
   email: data.email === "" ? null : data.email,
