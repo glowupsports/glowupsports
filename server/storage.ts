@@ -2043,6 +2043,11 @@ export const storage = {
         .set({ linkedPackageId: null })
         .where(eq(seriesPlayers.linkedPackageId, id));
       
+      // Clear credit_transactions references to this package (set package_id to null)
+      await tx.update(creditTransactions)
+        .set({ packageId: null })
+        .where(eq(creditTransactions.packageId, id));
+      
       // Get invoice IDs associated with this package
       const packageInvoices = await tx.select({ id: invoices.id }).from(invoices).where(eq(invoices.packageId, id));
       const invoiceIds = packageInvoices.map(inv => inv.id);
