@@ -2533,7 +2533,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         sessionIds.length > 0 ? db.select({
           sessionId: sessionPlayers.sessionId,
           playerId: sessionPlayers.playerId,
-          status: sessionPlayers.status,
+          
           attendanceStatus: sessionPlayers.attendanceStatus,
           isGuest: sessionPlayers.isGuest,
           playerName: players.name,
@@ -2581,7 +2581,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             name: p.playerName || "Unknown",
             ballLevel: p.playerBallLevel || null,
             profilePhotoUrl: p.profilePhotoUrl || null,
-            status: p.status,
+            status: p.attendanceStatus || "active",
             attendanceStatus: p.attendanceStatus,
             isGuest: p.isGuest,
           })),
@@ -2592,7 +2592,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
               name: p.playerName || "Unknown",
               ballLevel: p.playerBallLevel || null,
               profilePhotoUrl: p.profilePhotoUrl || null,
-              status: p.status,
+              status: p.attendanceStatus || "active",
               attendanceStatus: null,
               isGuest: false,
             })),
