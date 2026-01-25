@@ -2641,6 +2641,11 @@ export const storage = {
     return db.select().from(sessionPlayers).where(eq(sessionPlayers.sessionId, sessionId));
   },
 
+  async getSessionPlayersBatch(sessionIds: string[]): Promise<SessionPlayer[]> {
+    if (sessionIds.length === 0) return [];
+    return db.select().from(sessionPlayers).where(inArray(sessionPlayers.sessionId, sessionIds));
+  },
+
   async getSessionPlayer(sessionId: string, playerId: string): Promise<SessionPlayer | null> {
     const result = await db
       .select()

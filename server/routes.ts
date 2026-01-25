@@ -11429,15 +11429,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const allSessions = await storage.getAllSessionsByCoach(id, academyId);
       const completedSessions = allSessions.filter(s => s.status === "completed");
       
-      // Get unique player count from session players (parallel fetch for efficiency)
+      // Get unique player count using batch query (optimized)
+      const sessionIds = allSessions.map(s => s.id);
+      const allSessionPlayers = await storage.getSessionPlayersBatch(sessionIds);
       const playerIds = new Set<string>();
-      const sessionPlayerResults = await Promise.all(
-        allSessions.map(session => storage.getSessionPlayers(session.id))
-      );
-      sessionPlayerResults.flat().forEach(sp => {
+      allSessionPlayers.forEach(sp => {
         if (sp.playerId) playerIds.add(sp.playerId);
       });
-      
       // Calculate streak (consecutive days with completed sessions)
       let streak = 0;
       const today = new Date();
