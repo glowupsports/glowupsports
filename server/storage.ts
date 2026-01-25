@@ -3360,6 +3360,11 @@ export const storage = {
       .orderBy(asc(seriesPlayers.joinedAt));
   },
 
+  async getSeriesPlayersBatch(seriesIds: string[]): Promise<SeriesPlayer[]> {
+    if (seriesIds.length === 0) return [];
+    return db.select().from(seriesPlayers).where(inArray(seriesPlayers.seriesId, seriesIds));
+  },
+
   async getSeriesPlayersWithDetails(seriesId: string): Promise<Array<{
     playerId: string;
     playerName: string | null;

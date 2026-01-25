@@ -10812,10 +10812,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
   }
 
   // Helper function to calculate session earning based on contract
-  async function calculateSessionEarning(
+    async function calculateSessionEarning(
     session: { id?: string; academyId?: string | null; duration?: number | null; sessionType?: string | null },
     coachId: string,
-    contracts: any[]
+    contracts: any[],
+    cachedData?: {
+      sessionPlayersMap?: Map<string, number>;
+      seriesPlayersMap?: Map<string, number>;
+      getPricing?: (academyId: string, sessionType: string) => Promise<any>;
+    }
   ): Promise<{ amount: number; currency: string; warning?: string; playerCount?: number }> {
     const sessionId = session.id;
     const academyId = session.academyId;
@@ -10846,21 +10851,34 @@ export async function registerRoutes(app: Express): Promise<Server> {
     // Players can be tracked either in session_players (for individual sessions) or series_players (for recurring series)
     let playerCount = 1;
     if (sessionType === "group" || sessionType === "semi_private") {
-      // First check session_players table
-      if (sessionId) {
-        const sessionPlayers = await storage.getSessionPlayers(sessionId);
-        if (sessionPlayers.length > 0) {
-          playerCount = sessionPlayers.length;
+      // Use cached data if available (OPTIMIZED path)
+      if (cachedData?.sessionPlayersMap || cachedData?.seriesPlayersMap) {
+        if (sessionId && cachedData.sessionPlayersMap) {
+          const cachedCount = cachedData.sessionPlayersMap.get(sessionId);
+          if (cachedCount && cachedCount > 0) {
+            playerCount = cachedCount;
+          }
         }
-      }
-      
-      // If no session_players found and session has a series, check series_players
-      if (playerCount === 1 && (session as any).seriesId) {
-        const seriesPlayers = await storage.getSeriesPlayers((session as any).seriesId);
-        // Count active players in the series
-        const activeSeriesPlayers = seriesPlayers.filter((sp: any) => sp.status === "active");
-        if (activeSeriesPlayers.length > 0) {
-          playerCount = activeSeriesPlayers.length;
+        if (playerCount === 1 && (session as any).seriesId && cachedData.seriesPlayersMap) {
+          const cachedSeriesCount = cachedData.seriesPlayersMap.get((session as any).seriesId);
+          if (cachedSeriesCount && cachedSeriesCount > 0) {
+            playerCount = cachedSeriesCount;
+          }
+        }
+      } else {
+        // Fallback to individual queries (SLOW path - avoid in batch operations)
+        if (sessionId) {
+          const sessionPlayers = await storage.getSessionPlayers(sessionId);
+          if (sessionPlayers.length > 0) {
+            playerCount = sessionPlayers.length;
+          }
+        }
+        if (playerCount === 1 && (session as any).seriesId) {
+          const seriesPlayers = await storage.getSeriesPlayers((session as any).seriesId);
+          const activeSeriesPlayers = seriesPlayers.filter((sp: any) => sp.status === "active");
+          if (activeSeriesPlayers.length > 0) {
+            playerCount = activeSeriesPlayers.length;
+          }
         }
       }
     }
@@ -10954,6 +10972,42 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Get upcoming sessions this month (projected earnings)
       const upcomingSessions = await storage.getCoachUpcomingSessionsForMonth(coachId, currentMonth, currentYear);
       
+
+      // OPTIMIZATION: Batch fetch all player counts to avoid N+1 queries
+      const allSessions = [...completedSessions, ...upcomingSessions];
+      const allSessionIds = allSessions.map(s => s.id).filter(Boolean) as string[];
+      const allSeriesIds = allSessions.map(s => (s as any).seriesId).filter(Boolean) as string[];
+      
+      // Batch fetch session players and series players
+      const [sessionPlayersData, seriesPlayersData] = await Promise.all([
+        storage.getSessionPlayersBatch(allSessionIds),
+        storage.getSeriesPlayersBatch(allSeriesIds)
+      ]);
+      
+      // Create lookup maps for O(1) access
+      const sessionPlayersMap = new Map<string, number>();
+      for (const sp of sessionPlayersData) {
+        const count = sessionPlayersMap.get(sp.sessionId) || 0;
+        sessionPlayersMap.set(sp.sessionId, count + 1);
+      }
+      
+      const seriesPlayersMap = new Map<string, number>();
+      for (const sp of seriesPlayersData) {
+        if (sp.status === "active") {
+          const count = seriesPlayersMap.get(sp.seriesId) || 0;
+          seriesPlayersMap.set(sp.seriesId, count + 1);
+        }
+      }
+      
+      // Cache academy pricing to avoid repeated lookups
+      const pricingCache = new Map<string, any>();
+      const getAcademyPricingCached = async (academyId: string, sessionType: string) => {
+        const key = `${academyId}_${sessionType}`;
+        if (!pricingCache.has(key)) {
+          pricingCache.set(key, await storage.getAcademyPricingByType(academyId, sessionType));
+        }
+        return pricingCache.get(key);
+      };
       // Track earnings and session counts by currency to handle multi-currency coaches properly
       const realizedByCurrency: Record<string, { amount: number; sessions: number }> = {};
       const projectedByCurrency: Record<string, { amount: number; sessions: number }> = {};
@@ -10961,7 +11015,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Calculate realized from completed sessions using contracts
       for (const session of completedSessions) {
-        const earning = await calculateSessionEarning(session, coachId, contracts);
+        const earning = await calculateSessionEarning(session, coachId, contracts, { sessionPlayersMap, seriesPlayersMap, getPricing: getAcademyPricingCached });
         if (earning.warning) {
           errors.push({
             sessionId: session.id,
@@ -10978,7 +11032,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Calculate projected from upcoming sessions using contracts
       for (const session of upcomingSessions) {
-        const earning = await calculateSessionEarning(session, coachId, contracts);
+        const earning = await calculateSessionEarning(session, coachId, contracts, { sessionPlayersMap, seriesPlayersMap, getPricing: getAcademyPricingCached });
         if (earning.warning) {
           errors.push({
             sessionId: session.id,
