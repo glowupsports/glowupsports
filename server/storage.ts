@@ -6867,10 +6867,12 @@ export const storage = {
   
   async checkDatabaseHealth(): Promise<boolean> {
     try {
-      await db.select().from(users).limit(1);
+      const result = await db.select().from(users).limit(1);
+      console.log("[Health] Database check passed, found", result.length, "users");
       return true;
-    } catch (error) {
-      console.error("Database health check failed:", error);
+    } catch (error: any) {
+      console.error("[Health] Database check FAILED:", error.message);
+      console.error("[Health] Full error:", JSON.stringify(error, null, 2));
       return false;
     }
   },

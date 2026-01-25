@@ -4711,7 +4711,7 @@ var init_schema = __esm({
 // server/db.ts
 import { drizzle } from "drizzle-orm/node-postgres";
 import pkg from "pg";
-var Pool, databaseUrl, pool, db;
+var Pool, databaseUrl, maskedUrl, pool, db;
 var init_db = __esm({
   "server/db.ts"() {
     "use strict";
@@ -4719,14 +4719,28 @@ var init_db = __esm({
     ({ Pool } = pkg);
     databaseUrl = process.env.SUPABASE_DATABASE_URL || "";
     if (!databaseUrl) {
+      console.error("[Database] CRITICAL: SUPABASE_DATABASE_URL is not set!");
+      console.error("[Database] Available env vars:", Object.keys(process.env).filter((k) => k.includes("DATABASE") || k.includes("SUPA") || k.includes("PG")));
       throw new Error("SUPABASE_DATABASE_URL must be set");
     }
+    maskedUrl = databaseUrl.replace(/\/\/[^:]+:[^@]+@/, "//***:***@");
+    console.log(`[Database] Attempting connection to: ${maskedUrl.substring(0, 50)}...`);
     pool = new Pool({
       connectionString: databaseUrl,
-      ssl: { rejectUnauthorized: false }
+      ssl: { rejectUnauthorized: false },
+      connectionTimeoutMillis: 1e4,
+      idleTimeoutMillis: 3e4
+    });
+    pool.on("error", (err) => {
+      console.error("[Database] Pool error:", err.message);
+    });
+    pool.query("SELECT 1").then(() => {
+      console.log("[Database] Connection test successful - Supabase PostgreSQL ready");
+    }).catch((err) => {
+      console.error("[Database] Connection test FAILED:", err.message);
     });
     db = drizzle(pool, { schema: schema_exports });
-    console.log(`[Database] Connected to Supabase PostgreSQL`);
+    console.log(`[Database] Drizzle ORM initialized with Supabase PostgreSQL`);
   }
 });
 
@@ -9367,10 +9381,12 @@ var init_storage = __esm({
       // ==================== HEALTH CHECK ====================
       async checkDatabaseHealth() {
         try {
-          await db.select().from(users).limit(1);
+          const result = await db.select().from(users).limit(1);
+          console.log("[Health] Database check passed, found", result.length, "users");
           return true;
         } catch (error) {
-          console.error("Database health check failed:", error);
+          console.error("[Health] Database check FAILED:", error.message);
+          console.error("[Health] Full error:", JSON.stringify(error, null, 2));
           return false;
         }
       },
