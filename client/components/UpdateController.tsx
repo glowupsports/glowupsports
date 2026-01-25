@@ -103,18 +103,6 @@ export function UpdateController({ children }: UpdateControllerProps) {
 
       await testCdnConnectivity();
 
-      const listener = Updates.addListener((event) => {
-        if (event.type === Updates.UpdateEventType.UPDATE_AVAILABLE) {
-          setIsUpdateReady(true);
-          setIsDownloading(false);
-        } else if (event.type === Updates.UpdateEventType.ERROR) {
-          const eventError = (event as { error?: Error }).error;
-          const errMsg = eventError?.message || "Unknown listener error";
-          console.error("[UpdateController] Listener error:", errMsg);
-          handleDownloadError(errMsg, "LISTENER_ERROR");
-        }
-      });
-
       let progress = 0;
       progressIntervalRef.current = setInterval(() => {
         progress += Math.random() * 15;
@@ -142,8 +130,6 @@ export function UpdateController({ children }: UpdateControllerProps) {
         console.log("[UpdateController] Update downloaded, auto-reloading...");
         await Updates.reloadAsync();
       }
-
-      listener.remove();
     } catch (error: unknown) {
       if (progressIntervalRef.current) {
         clearInterval(progressIntervalRef.current);
@@ -214,7 +200,7 @@ export function UpdateController({ children }: UpdateControllerProps) {
 
   return (
     <LinearGradient
-      colors={[Colors.dark.background, "#0a1a2e", Colors.dark.background]}
+      colors={[Backgrounds.root, "#0a1a2e", Backgrounds.root]}
       style={styles.container}
     >
       <View style={styles.content}>
