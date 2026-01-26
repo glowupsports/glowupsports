@@ -5,7 +5,7 @@ import { useFocusEffect, useNavigation } from "@react-navigation/native";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Spacing, Backgrounds, GlowColors, BorderRadius, Colors } from "@/constants/theme";
 import { useAuth } from "@/coach/context/AuthContext";
-import { usePlayerDrawer } from "@/player/navigation/PlayerNavigator";
+import { usePlayerDrawer } from "@/player/context/PlayerDrawerContext";
 import { useWalkthrough } from "@/player/context/WalkthroughContext";
 import { PlayerStateProvider } from "@/player/context/PlayerStateContext";
 import { ProPlayerCard } from "@/player/components/ProPlayerCard";
