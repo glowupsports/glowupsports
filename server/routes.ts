@@ -30225,6 +30225,38 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Debug endpoint to reset player onboarding
+  app.post("/api/debug/reset-onboarding/:playerId", async (req: Request, res: Response) => {
+    try {
+      const { playerId } = req.params;
+      
+      await db.update(players)
+        .set({ 
+          onboardingCompleted: false,
+          academyId: null,
+          profilePhotoUrl: null
+        })
+        .where(eq(players.id, playerId));
+      
+      const updatedPlayer = await db.select({
+        id: players.id,
+        name: players.name,
+        onboardingCompleted: players.onboardingCompleted,
+        academyId: players.academyId,
+        profilePhotoUrl: players.profilePhotoUrl
+      }).from(players).where(eq(players.id, playerId)).limit(1);
+      
+      res.json({ 
+        success: true, 
+        message: "Onboarding reset successfully",
+        player: updatedPlayer[0] 
+      });
+    } catch (error) {
+      console.error("Reset onboarding error:", error);
+      res.status(500).json({ error: "Reset failed" });
+    }
+  });
+
   const httpServer = createServer(app);
   
   // Set up WebSocket server for real-time chat
