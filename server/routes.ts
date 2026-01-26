@@ -17945,8 +17945,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const glowScore = Math.min(100, Math.round((totalXp / (level * 500)) * 100));
       
       const onboardingCompleted = player.onboardingCompleted ?? false;
-      const hasAcademy = !!player.academyId;
-      const needsOnboarding = !onboardingCompleted || !hasAcademy;
+      const needsOnboarding = !onboardingCompleted;
       
       res.json({
         isOnboarding: needsOnboarding,
