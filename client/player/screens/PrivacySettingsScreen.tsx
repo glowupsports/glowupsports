@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { View, Text, StyleSheet, Pressable, ActivityIndicator } from "react-native";
+import { View, Text, StyleSheet, Pressable, ActivityIndicator, Alert } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import * as Haptics from "expo-haptics";
@@ -77,6 +77,14 @@ export default function PrivacySettingsScreen({
       } else if (onGoBack) {
         onGoBack();
       }
+    },
+    onError: (error: Error) => {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      Alert.alert(
+        "Could not save",
+        "Please try again or log in again if the problem persists.",
+        [{ text: "OK" }]
+      );
     },
   });
 
@@ -266,7 +274,7 @@ const styles = StyleSheet.create({
     marginRight: Spacing.md,
   },
   optionTitle: {
-    ...Typography.subtitle,
+    ...Typography.h4,
     color: TextColors.primary,
     marginBottom: 4,
   },
@@ -318,7 +326,7 @@ const styles = StyleSheet.create({
     opacity: 0.7,
   },
   confirmButtonText: {
-    ...Typography.button,
+    ...Typography.h4,
     color: "#0B0D10",
     fontWeight: "700",
   },
