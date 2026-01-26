@@ -1,7 +1,6 @@
 import React, { useState } from "react";
 import { View, Text, StyleSheet, Pressable, ActivityIndicator } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { useNavigation, useRoute, RouteProp } from "@react-navigation/native";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import * as Haptics from "expo-haptics";
 import { LinearGradient } from "expo-linear-gradient";
@@ -43,23 +42,23 @@ const PRIVACY_OPTIONS: PrivacyOption[] = [
   },
 ];
 
-type RouteParams = {
-  PrivacySettings: {
-    isOnboarding?: boolean;
-    currentLevel?: PrivacyLevel;
-  };
-};
+interface PrivacySettingsScreenProps {
+  isOnboarding?: boolean;
+  onComplete?: () => void;
+  currentLevel?: PrivacyLevel;
+  onGoBack?: () => void;
+}
 
-export default function PrivacySettingsScreen() {
+export default function PrivacySettingsScreen({
+  isOnboarding = false,
+  onComplete,
+  currentLevel = "everyone",
+  onGoBack,
+}: PrivacySettingsScreenProps) {
   const insets = useSafeAreaInsets();
-  const navigation = useNavigation();
-  const route = useRoute<RouteProp<RouteParams, "PrivacySettings">>();
   const queryClient = useQueryClient();
   
-  const isOnboarding = route.params?.isOnboarding ?? false;
-  const initialLevel = route.params?.currentLevel ?? "everyone";
-  
-  const [selected, setSelected] = useState<PrivacyLevel>(initialLevel);
+  const [selected, setSelected] = useState<PrivacyLevel>(currentLevel);
 
   const updatePrivacyMutation = useMutation({
     mutationFn: async (privacyLevel: PrivacyLevel) => {
@@ -73,7 +72,11 @@ export default function PrivacySettingsScreen() {
       queryClient.invalidateQueries({ queryKey: ["/api/player/me/social"] });
       queryClient.invalidateQueries({ queryKey: ["/api/player/me/dashboard"] });
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      navigation.goBack();
+      if (onComplete) {
+        onComplete();
+      } else if (onGoBack) {
+        onGoBack();
+      }
     },
   });
 
@@ -90,10 +93,10 @@ export default function PrivacySettingsScreen() {
   return (
     <View style={[styles.container, { paddingTop: insets.top + Spacing.xl }]}>
       <View style={styles.header}>
-        {!isOnboarding && (
+        {!isOnboarding && onGoBack && (
           <Pressable 
             style={styles.backButton} 
-            onPress={() => navigation.goBack()}
+            onPress={onGoBack}
             hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
           >
             <Ionicons name="chevron-back" size={24} color={Colors.text.primary} />

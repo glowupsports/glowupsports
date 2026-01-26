@@ -886,12 +886,19 @@ function PlayerStackNavigator() {
       />
       <Stack.Screen 
         name="PrivacySettings" 
-        component={PrivacySettingsScreen}
         options={{
           presentation: "modal",
           headerShown: false,
         }}
-      />
+      >
+        {(screenProps) => (
+          <PrivacySettingsScreen
+            isOnboarding={screenProps.route.params?.isOnboarding}
+            currentLevel={screenProps.route.params?.currentLevel as any}
+            onGoBack={() => screenProps.navigation.goBack()}
+          />
+        )}
+      </Stack.Screen>
     </Stack.Navigator>
   );
 }
@@ -911,6 +918,7 @@ export default function PlayerNavigator() {
   const { user, refreshAuth } = useAuth();
   const queryClient = useQueryClient();
   const [onboardingComplete, setOnboardingComplete] = useState<boolean | null>(null);
+  const [showPrivacySetup, setShowPrivacySetup] = useState(false);
 
   usePushNotifications();
 
@@ -929,6 +937,7 @@ export default function PlayerNavigator() {
     // Refresh user data to get the new playerId
     await refreshAuth();
     setOnboardingComplete(true);
+    setShowPrivacySetup(true);
     queryClient.invalidateQueries({ queryKey: ["/api/player/me/dashboard"] });
     queryClient.invalidateQueries({ queryKey: ["/api/me"] });
   };
@@ -948,6 +957,11 @@ export default function PlayerNavigator() {
 
   if (showOnboarding) {
     return <PlayerOnboardingV2 onComplete={handleOnboardingComplete} />;
+  }
+
+  // Show privacy setup modal after onboarding
+  if (showPrivacySetup) {
+    return <PrivacySettingsScreen isOnboarding onComplete={() => setShowPrivacySetup(false)} />;
   }
 
   const playerId = user?.playerId || dashboard?.player?.id || null;

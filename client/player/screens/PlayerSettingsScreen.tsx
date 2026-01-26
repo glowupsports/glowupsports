@@ -158,6 +158,7 @@ export default function PlayerSettingsScreen() {
       icon: "lock-closed",
       label: "Privacy Settings",
       type: "link",
+      onPress: () => (navigation.getParent() as any)?.navigate("PrivacySettings", { isOnboarding: false }),
     },
     {
       id: "help",
