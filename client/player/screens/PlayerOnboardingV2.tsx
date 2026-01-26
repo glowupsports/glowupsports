@@ -818,12 +818,24 @@ function PlatformWelcomeVideoStep({ onNext }: StepProps) {
 
 function AcademyWelcomeVideoStep({ data, onNext }: StepProps) {
   const { data: academyData } = useQuery<{ welcomeVideoUrl?: string; name?: string }>({
-    queryKey: data.selectedAcademyId ? [`/api/academies/${data.selectedAcademyId}/settings`] : [],
-    enabled: !!data.selectedAcademyId,
+    queryKey: data.academyId ? [`/api/academies/${data.academyId}/settings`] : [],
+    enabled: !!data.academyId,
   });
 
+  // Auto-skip if no academy was selected
+  useEffect(() => {
+    if (!data.academyId) {
+      onNext();
+    }
+  }, [data.academyId, onNext]);
+
+  // Don't render if no academy - we're auto-skipping
+  if (!data.academyId) {
+    return null;
+  }
+
   const hasVideo = !!academyData?.welcomeVideoUrl;
-  const academyName = academyData?.name || "Your Academy";
+  const academyName = data.academyName || academyData?.name || "Your Academy";
 
   return (
     <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.stepContainer} showsVerticalScrollIndicator={false}>
@@ -1465,6 +1477,7 @@ function AcademySelectionStep({ data, setData, onNext }: StepProps) {
         style={styles.skipLink}
         onPress={() => {
           Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+          setData(prev => ({ ...prev, academyId: null, academyName: null }));
           onNext();
         }}
       >
