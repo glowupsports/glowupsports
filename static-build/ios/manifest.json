@@ -1,11 +1,11 @@
 {
-  "id": "dadca7bc-3984-4d99-bc63-b7fe249d8698",
-  "createdAt": "2026-01-21T08:16:31.266Z",
-  "runtimeVersion": "1.2.0",
+  "id": "bb5878a0-4175-4c15-bfc8-6407e47a3976",
+  "createdAt": "2026-01-26T17:40:23.922Z",
+  "runtimeVersion": "1.3.0",
   "launchAsset": {
-    "key": "bundle-1768983391266-40827",
+    "key": "bundle-1769449223922-4757",
     "contentType": "application/javascript",
-    "url": "https://81de32e9-0d70-4ba8-89e4-d7d5a668d2f1-00-mmcbv7admw7g.spock.replit.dev/1768983391266-40827/_expo/static/js/ios/bundle.js"
+    "url": "https://81de32e9-0d70-4ba8-89e4-d7d5a668d2f1-00-mmcbv7admw7g.spock.replit.dev/1769449223922-4757/_expo/static/js/ios/bundle.js"
   },
   "assets": [],
   "metadata": {},
@@ -16,13 +16,15 @@
     "expoClient": {
       "name": "Glow Up Sports",
       "slug": "glow-up-sports-qimo0pvm-ks03bklnmcri",
-      "version": "1.2.0",
+      "version": "1.3.0",
       "runtimeVersion": {
         "policy": "appVersion"
       },
       "updates": {
-        "enabled": false,
-        "fallbackToCacheTimeout": 0
+        "enabled": true,
+        "checkAutomatically": "ON_LOAD",
+        "fallbackToCacheTimeout": 0,
+        "url": "https://u.expo.dev/ce3ccb00-0553-4abc-a038-1a93b7483738"
       },
       "orientation": "portrait",
       "icon": "./assets/images/icon.png",
@@ -49,7 +51,8 @@
         "permissions": [
           "INTERNET",
           "ACCESS_NETWORK_STATE"
-        ]
+        ],
+        "enableProguardInReleaseBuilds": true
       },
       "web": {
         "output": "single",
@@ -68,7 +71,15 @@
             }
           }
         ],
-        "expo-web-browser"
+        "expo-web-browser",
+        [
+          "expo-notifications",
+          {
+            "icon": "./assets/images/notification-icon.png",
+            "color": "#00E676",
+            "defaultChannel": "default"
+          }
+        ]
       ],
       "experiments": {
         "reactCompiler": true
@@ -92,6 +103,10 @@
           "expo-web-browser": {
             "name": "expo-web-browser",
             "version": "15.0.10"
+          },
+          "expo-notifications": {
+            "name": "expo-notifications",
+            "version": "0.32.16"
           }
         }
       },
@@ -118,6 +133,6 @@
       },
       "mainModuleName": "client/index"
     },
-    "scopeKey": "@anonymous/glow-up-sports-qimo0pvm-ks03bklnmcri-b295b202-4ef8-4e26-8baa-44676847d460"
+    "scopeKey": "@anonymous/glow-up-sports-qimo0pvm-ks03bklnmcri-6d5e3031-4e88-4aa8-b1cc-6c1829a98cc8"
   }
 }
