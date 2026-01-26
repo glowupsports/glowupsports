@@ -1825,22 +1825,32 @@ export default function PlayerOnboardingV2Screen({ onComplete }: Props) {
       const response = await apiRequest("POST", "/api/player/me/onboarding", payload);
       const result = await response.json();
       
+      console.log("[Onboarding] Photo upload check:", { 
+        hasPhotoUri: !!onboardingData.profilePhotoUri, 
+        platform: Platform.OS,
+        photoUri: onboardingData.profilePhotoUri 
+      });
+      
       if (onboardingData.profilePhotoUri && Platform.OS !== 'web') {
         try {
+          console.log("[Onboarding] Uploading profile photo...");
           const formData = new FormData();
           const file = new File(onboardingData.profilePhotoUri);
           formData.append("photo", file);
           
-          await fetch(new URL("/api/player/me/photo", getApiUrl()).toString(), {
+          const photoResponse = await fetch(new URL("/api/player/me/photo", getApiUrl()).toString(), {
             method: "POST",
             headers: {
               Authorization: `Bearer ${await import("@/lib/auth").then(m => m.getAuthToken())}`,
             },
             body: formData,
           });
+          console.log("[Onboarding] Photo upload response:", photoResponse.status);
         } catch (photoError) {
           console.warn("Failed to upload profile photo:", photoError);
         }
+      } else if (onboardingData.profilePhotoUri && Platform.OS === 'web') {
+        console.log("[Onboarding] Skipping photo upload on web platform");
       }
       
       return result;

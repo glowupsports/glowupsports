@@ -28217,8 +28217,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         player: {
           id: players.id,
           name: players.name,
-          photoUrl: players.photoUrl,
+          profilePhotoUrl: players.profilePhotoUrl,
           ballLevel: players.ballLevel,
+        profilePhotoUrl: players.profilePhotoUrl,
+        academyId: players.academyId,
         },
       })
       .from(postsTable)
@@ -28640,8 +28642,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         player: {
           id: players.id,
           name: players.name,
-          photoUrl: players.photoUrl,
+          profilePhotoUrl: players.profilePhotoUrl,
           ballLevel: players.ballLevel,
+        profilePhotoUrl: players.profilePhotoUrl,
+        academyId: players.academyId,
         },
       })
       .from(openToPlayTable)
@@ -29611,11 +29615,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const topPlayers = await db.select({
         id: players.id,
         name: players.name,
-        photoUrl: players.photoUrl,
+        profilePhotoUrl: players.profilePhotoUrl,
         level: players.level,
         glowScore: players.glowScore,
         xp: players.xp,
         ballLevel: players.ballLevel,
+        profilePhotoUrl: players.profilePhotoUrl,
+        academyId: players.academyId,
         streak: players.consecutiveDays,
       })
       .from(players)
@@ -29710,10 +29716,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const results = await db.select({
         id: players.id,
         name: players.name,
-        photoUrl: players.photoUrl,
+        profilePhotoUrl: players.profilePhotoUrl,
         level: players.level,
         glowScore: players.glowScore,
         ballLevel: players.ballLevel,
+        profilePhotoUrl: players.profilePhotoUrl,
+        academyId: players.academyId,
         openToPlay: players.openToPlay,
       })
       .from(players)
@@ -29754,6 +29762,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const currentPlayerResult = await db.select({
         level: players.level,
         ballLevel: players.ballLevel,
+        profilePhotoUrl: players.profilePhotoUrl,
+        academyId: players.academyId,
         glowScore: players.glowScore,
       })
       .from(players)
@@ -29842,10 +29852,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const openPlayers = await db.select({
         id: players.id,
         name: players.name,
-        photoUrl: players.photoUrl,
+        profilePhotoUrl: players.profilePhotoUrl,
         level: players.level,
         glowScore: players.glowScore,
         ballLevel: players.ballLevel,
+        profilePhotoUrl: players.profilePhotoUrl,
+        academyId: players.academyId,
       })
       .from(players)
       .where(and(...playerConditions))
@@ -29932,10 +29944,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const [otherPlayer] = await db.select({
           id: players.id,
           name: players.name,
-          photoUrl: players.photoUrl,
+          profilePhotoUrl: players.profilePhotoUrl,
           level: players.level,
           glowScore: players.glowScore,
           ballLevel: players.ballLevel,
+        profilePhotoUrl: players.profilePhotoUrl,
+        academyId: players.academyId,
           openToPlay: players.openToPlay,
         })
         .from(players)
@@ -30199,6 +30213,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         id: players.id,
         name: players.name,
         ballLevel: players.ballLevel,
+        profilePhotoUrl: players.profilePhotoUrl,
+        academyId: players.academyId,
         createdAt: players.createdAt
       }).from(players).orderBy(desc(players.createdAt)).limit(10);
       
