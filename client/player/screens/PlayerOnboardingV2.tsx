@@ -145,7 +145,7 @@ interface StepProps {
   ageGroup?: AgeGroup;
 }
 
-const TOTAL_STEPS = 19;
+const TOTAL_STEPS = 18;
 
 function ProgressBar({ currentStep, totalSteps }: { currentStep: number; totalSteps: number }) {
   return (
@@ -1963,9 +1963,8 @@ export default function PlayerOnboardingV2Screen({ onComplete }: Props) {
       case 13: return true; // Academy Selection
       case 14: return true; // Academy Welcome Video
       case 15: return true; // Goal Setting
-      case 16: return true; // Parent Connect or Quiz
-      case 17: return true; // Quiz or Completion
-      case 18: return true; // Completion
+      case 16: return true; // Parent Connect
+      case 17: return true; // Completion
       default: return false;
     }
   };
@@ -1990,14 +1989,13 @@ export default function PlayerOnboardingV2Screen({ onComplete }: Props) {
       case 13: return <AcademySelectionStep {...stepProps} />;
       case 14: return <AcademyWelcomeVideoStep {...stepProps} />;
       case 15: return <GoalSettingStep {...stepProps} />;
-      case 16: return needsParentConnect ? <ParentConnectStep {...stepProps} /> : <TennisQuizStep {...stepProps} />;
-      case 17: return needsParentConnect && isBeginner ? <TennisQuizStep {...stepProps} /> : <CompletionStep {...stepProps} onComplete={handleComplete} />;
-      case 18: return <CompletionStep {...stepProps} onComplete={handleComplete} />;
+      case 16: return needsParentConnect ? <ParentConnectStep {...stepProps} /> : <CompletionStep {...stepProps} onComplete={handleComplete} />;
+      case 17: return <CompletionStep {...stepProps} onComplete={handleComplete} />;
       default: return null;
     }
   };
 
-  const isCompletionStep = currentStep === TOTAL_STEPS - 1 || (currentStep === 17 && (!needsParentConnect || !isBeginner));
+  const isCompletionStep = currentStep === TOTAL_STEPS - 1 || (currentStep === 16 && !needsParentConnect);
 
   return (
     <View style={[styles.container, { paddingTop: insets.top + Spacing.lg }]}>
