@@ -1831,12 +1831,20 @@ export default function PlayerOnboardingV2Screen({ onComplete }: Props) {
         photoUri: onboardingData.profilePhotoUri 
       });
       
-      if (onboardingData.profilePhotoUri && Platform.OS !== 'web') {
+      if (onboardingData.profilePhotoUri) {
         try {
           console.log("[Onboarding] Uploading profile photo...");
           const formData = new FormData();
-          const file = new File(onboardingData.profilePhotoUri);
-          formData.append("photo", file);
+          
+          if (Platform.OS === 'web') {
+            const response = await fetch(onboardingData.profilePhotoUri);
+            const blob = await response.blob();
+            const webFile = new window.File([blob], `profile-photo.${blob.type.split('/')[1] || 'png'}`, { type: blob.type });
+            formData.append("photo", webFile);
+          } else {
+            const file = new File(onboardingData.profilePhotoUri);
+            formData.append("photo", file);
+          }
           
           const photoResponse = await fetch(new URL("/api/player/me/photo", getApiUrl()).toString(), {
             method: "POST",
@@ -1846,11 +1854,13 @@ export default function PlayerOnboardingV2Screen({ onComplete }: Props) {
             body: formData,
           });
           console.log("[Onboarding] Photo upload response:", photoResponse.status);
+          if (!photoResponse.ok) {
+            const errorText = await photoResponse.text();
+            console.warn("[Onboarding] Photo upload failed:", errorText);
+          }
         } catch (photoError) {
           console.warn("Failed to upload profile photo:", photoError);
         }
-      } else if (onboardingData.profilePhotoUri && Platform.OS === 'web') {
-        console.log("[Onboarding] Skipping photo upload on web platform");
       }
       
       return result;
