@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { View, Text, StyleSheet, ScrollView, Pressable, Alert, Platform, Switch, ActivityIndicator } from "react-native";
+import { View, Text, StyleSheet, ScrollView, Pressable, Alert, Platform, Switch, ActivityIndicator, Modal, TextInput } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
 import Ionicons from "@expo/vector-icons/Ionicons";
@@ -93,6 +93,41 @@ export default function SystemScreen() {
 
   const [testPushLoading, setTestPushLoading] = useState(false);
   const [testSignupLoading, setTestSignupLoading] = useState(false);
+
+  const [showWelcomeVideoModal, setShowWelcomeVideoModal] = useState(false);
+  const [welcomeVideoUrl, setWelcomeVideoUrl] = useState("");
+
+  const { data: welcomeVideoConfig } = useQuery<{ value: { url: string } } | null>({
+    queryKey: ["/api/platform/config/welcome_video"],
+  });
+
+  const welcomeVideoMutation = useMutation({
+    mutationFn: async (url: string) => {
+      return apiRequest("PUT", "/api/platform/config/welcome_video", { value: { url } });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/platform/config/welcome_video"] });
+      setShowWelcomeVideoModal(false);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      if (Platform.OS === "web") {
+        window.alert("Welcome video updated successfully!");
+      } else {
+        Alert.alert("Success", "Welcome video updated successfully!");
+      }
+    },
+    onError: () => {
+      if (Platform.OS === "web") {
+        window.alert("Failed to update welcome video.");
+      } else {
+        Alert.alert("Error", "Failed to update welcome video.");
+      }
+    },
+  });
+
+  const handleOpenWelcomeVideoModal = () => {
+    setWelcomeVideoUrl(welcomeVideoConfig?.value?.url || "");
+    setShowWelcomeVideoModal(true);
+  };
 
   const handleTestPushNotification = async () => {
     setTestPushLoading(true);
@@ -350,6 +385,12 @@ export default function SystemScreen() {
           <Text style={styles.sectionTitle}>Platform Settings</Text>
           <View style={[styles.settingsCard, CardStyles.elevated]}>
             <SettingRow 
+              icon="videocam" 
+              label="Welcome Video" 
+              description={welcomeVideoConfig?.value?.url ? "Video configured" : "Set platform intro video"}
+              onPress={handleOpenWelcomeVideoModal}
+            />
+            <SettingRow 
               icon="business" 
               label="Academy Defaults" 
               description="Default settings for new academies"
@@ -491,6 +532,42 @@ export default function SystemScreen() {
           <Text style={styles.versionSubtext}>Build 2024.12.28</Text>
         </View>
       </ScrollView>
+
+      <Modal visible={showWelcomeVideoModal} transparent animationType="fade" onRequestClose={() => setShowWelcomeVideoModal(false)}>
+        <Pressable style={styles.modalOverlay} onPress={() => setShowWelcomeVideoModal(false)}>
+          <Pressable style={styles.modalContent} onPress={() => {}}>
+            <Text style={styles.modalTitle}>Platform Welcome Video</Text>
+            <Text style={styles.modalDescription}>
+              This video will be shown to all new players during onboarding, introducing them to the Glow Up Sports experience.
+            </Text>
+            <TextInput
+              style={styles.modalInput}
+              placeholder="Enter YouTube or video URL..."
+              placeholderTextColor={Colors.dark.textMuted}
+              value={welcomeVideoUrl}
+              onChangeText={setWelcomeVideoUrl}
+              autoCapitalize="none"
+              keyboardType="url"
+            />
+            <View style={styles.modalButtons}>
+              <Pressable style={styles.modalCancelButton} onPress={() => setShowWelcomeVideoModal(false)}>
+                <Text style={styles.modalCancelText}>Cancel</Text>
+              </Pressable>
+              <Pressable 
+                style={[styles.modalSaveButton, !welcomeVideoUrl && styles.modalSaveButtonDisabled]} 
+                onPress={() => welcomeVideoMutation.mutate(welcomeVideoUrl)}
+                disabled={!welcomeVideoUrl || welcomeVideoMutation.isPending}
+              >
+                {welcomeVideoMutation.isPending ? (
+                  <ActivityIndicator size="small" color="#fff" />
+                ) : (
+                  <Text style={styles.modalSaveText}>Save</Text>
+                )}
+              </Pressable>
+            </View>
+          </Pressable>
+        </Pressable>
+      </Modal>
     </View>
   );
 }
@@ -624,5 +701,67 @@ const styles = StyleSheet.create({
     ...Typography.small,
     color: Colors.dark.textMuted,
     fontSize: 10,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.7)",
+    justifyContent: "center",
+    alignItems: "center",
+    padding: Spacing.lg,
+  },
+  modalContent: {
+    backgroundColor: Colors.dark.backgroundSecondary,
+    borderRadius: BorderRadius.lg,
+    padding: Spacing.xl,
+    width: "100%",
+    maxWidth: 400,
+  },
+  modalTitle: {
+    ...Typography.h2,
+    color: Colors.dark.text,
+    marginBottom: Spacing.sm,
+  },
+  modalDescription: {
+    ...Typography.body,
+    color: Colors.dark.textMuted,
+    marginBottom: Spacing.lg,
+  },
+  modalInput: {
+    backgroundColor: Colors.dark.backgroundRoot,
+    borderRadius: BorderRadius.md,
+    padding: Spacing.md,
+    color: Colors.dark.text,
+    ...Typography.body,
+    marginBottom: Spacing.lg,
+  },
+  modalButtons: {
+    flexDirection: "row",
+    gap: Spacing.md,
+  },
+  modalCancelButton: {
+    flex: 1,
+    backgroundColor: Colors.dark.backgroundRoot,
+    borderRadius: BorderRadius.md,
+    padding: Spacing.md,
+    alignItems: "center",
+  },
+  modalCancelText: {
+    ...Typography.body,
+    color: Colors.dark.textMuted,
+  },
+  modalSaveButton: {
+    flex: 1,
+    backgroundColor: PLATFORM_COLOR,
+    borderRadius: BorderRadius.md,
+    padding: Spacing.md,
+    alignItems: "center",
+  },
+  modalSaveButtonDisabled: {
+    opacity: 0.5,
+  },
+  modalSaveText: {
+    ...Typography.body,
+    color: "#fff",
+    fontWeight: "600",
   },
 });

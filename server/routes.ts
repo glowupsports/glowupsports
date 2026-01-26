@@ -15153,6 +15153,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // ==================== PLATFORM CONFIG ENDPOINTS ====================
 
+  // Public endpoint: Get platform welcome video for onboarding
+  app.get("/api/public/platform/welcome-video", async (req: Request, res: Response) => {
+    try {
+      const config = await storage.getPlatformConfig("welcome_video");
+      if (!config || !config.value) {
+        return res.json({ url: null });
+      }
+      const value = config.value as { url?: string };
+      res.json({ url: value.url || null });
+    } catch (error) {
+      console.error("Get platform welcome video error:", error);
+      res.status(500).json({ error: "Failed to fetch platform welcome video" });
+    }
+  });
+
   // Get all platform configs
   app.get("/api/platform/config", authMiddleware, requireRole("platform_owner"), async (req: AuthenticatedRequest, res: Response) => {
     try {
