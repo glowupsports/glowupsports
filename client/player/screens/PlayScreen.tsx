@@ -110,6 +110,17 @@ function getBallLevelLabel(level: string): string {
   return "ALL LEVELS";
 }
 
+function getCleanSessionTitle(session: PlaySession): string {
+  const title = session.title || "";
+  if (!title || title.includes("-0") || title.match(/\d{2}:\d{2}/) || title.length > 50) {
+    if (session.coachName) {
+      return `Group with Coach ${session.coachName.split(" ")[0]}`;
+    }
+    return session.sessionType === "group" ? "Group Session" : "Semi-Private Session";
+  }
+  return title;
+}
+
 export default function PlayScreen() {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<any>();
@@ -331,14 +342,15 @@ export default function PlayScreen() {
 
   const getStatusBadge = (session: PlaySession) => {
     const spotsLeft = session.maxPlayers - session.currentPlayers;
+    const playerCount = `${session.currentPlayers}/${session.maxPlayers}`;
     
     if (spotsLeft === 0) {
-      return { text: "Full", color: Colors.dark.error, bgColor: Colors.dark.error + "40" };
+      return { text: `Full (${playerCount})`, color: Colors.dark.error, bgColor: Colors.dark.error + "40" };
     }
     if (spotsLeft === 1) {
-      return { text: "1 Almost Full", color: Colors.dark.orange, bgColor: Colors.dark.orange + "40" };
+      return { text: `Almost Full (${playerCount})`, color: Colors.dark.orange, bgColor: Colors.dark.orange + "40" };
     }
-    return { text: `${spotsLeft} Open`, color: Colors.dark.primary, bgColor: Colors.dark.primary + "40" };
+    return { text: `${spotsLeft} spots left (${playerCount})`, color: Colors.dark.primary, bgColor: Colors.dark.primary + "40" };
   };
 
   const getLevelRangeText = (session: PlaySession) => {
@@ -377,7 +389,7 @@ export default function PlayScreen() {
             <View style={styles.cardContent}>
               <View style={styles.cardHeader}>
                 <View style={styles.cardTitleSection}>
-                  <Text style={styles.epicSessionTitle}>{session.title || "Group Lesson"}</Text>
+                  <Text style={styles.epicSessionTitle}>{getCleanSessionTitle(session)}</Text>
                   <Text style={[styles.ballLevelBadgeText, { color: getBallLevelColor(session.ballLevel || "") }]}>
                     {getBallLevelLabel(session.ballLevel || "")}
                   </Text>
