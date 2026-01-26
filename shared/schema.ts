@@ -2387,6 +2387,9 @@ export const academySettings = pgTable("academy_settings", {
   cancellationWindowHours: integer("cancellation_window_hours").default(24), // Hours before session when policy kicks in
   cancellationChargePercent: integer("cancellation_charge_percent").default(100), // Percentage charged for late cancellation (0-100)
   
+  // Onboarding Welcome Video
+  welcomeVideoUrl: text("welcome_video_url"), // YouTube or custom video URL for player onboarding
+  
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });

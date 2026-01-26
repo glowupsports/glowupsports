@@ -104,6 +104,7 @@ interface AcademySettings {
   defaultSessionLength?: number;
   xpVisibleToPlayers?: boolean;
   notificationsEnabled?: boolean;
+  welcomeVideoUrl?: string;
 }
 
 export default function SettingsScreen() {
@@ -113,6 +114,8 @@ export default function SettingsScreen() {
   const { logout } = useAuth();
   const [showSessionLengthModal, setShowSessionLengthModal] = useState(false);
   const [sessionLengthInput, setSessionLengthInput] = useState("60");
+  const [showWelcomeVideoModal, setShowWelcomeVideoModal] = useState(false);
+  const [welcomeVideoInput, setWelcomeVideoInput] = useState("");
   const [showResetModal, setShowResetModal] = useState(false);
   const [resetConfirmation, setResetConfirmation] = useState("");
   const [resetOptions, setResetOptions] = useState<ResetOptions>({
@@ -134,6 +137,7 @@ export default function SettingsScreen() {
     defaultSessionLength: 60,
     xpVisibleToPlayers: true,
     notificationsEnabled: true,
+    welcomeVideoUrl: "",
   };
 
   const updateSettingsMutation = useMutation({
@@ -164,6 +168,16 @@ export default function SettingsScreen() {
   const handleOpenSessionLengthModal = () => {
     setSessionLengthInput(String(settings.defaultSessionLength || 60));
     setShowSessionLengthModal(true);
+  };
+
+  const handleOpenWelcomeVideoModal = () => {
+    setWelcomeVideoInput(settings.welcomeVideoUrl || "");
+    setShowWelcomeVideoModal(true);
+  };
+
+  const handleSaveWelcomeVideo = () => {
+    updateSettingsMutation.mutate({ welcomeVideoUrl: welcomeVideoInput.trim() || null });
+    setShowWelcomeVideoModal(false);
   };
 
   const handleExportPlayers = async () => {
@@ -406,6 +420,13 @@ export default function SettingsScreen() {
             toggle={settings.notificationsEnabled ?? true}
             onToggle={handleToggleNotifications}
           />
+          <SettingRow
+            icon="videocam"
+            title="Welcome Video"
+            subtitle="Shown during player onboarding"
+            value={settings.welcomeVideoUrl ? "Set" : "Not set"}
+            onPress={handleOpenWelcomeVideoModal}
+          />
         </Section>
 
         <Section title="Billing & Pricing">
@@ -544,6 +565,53 @@ export default function SettingsScreen() {
               })}
             </View>
           </View>
+        </View>
+      </Modal>
+
+      <Modal
+        visible={showWelcomeVideoModal}
+        animationType="slide"
+        transparent
+        onRequestClose={() => setShowWelcomeVideoModal(false)}
+      >
+        <View style={styles.sessionLengthModalOverlay}>
+          <Pressable style={styles.modalBackdrop} onPress={() => setShowWelcomeVideoModal(false)} />
+          <KeyboardAwareScrollViewCompat style={{ flex: 0 }}>
+            <View style={[styles.sessionLengthModalContent, { paddingBottom: insets.bottom + Spacing.lg }]}>
+              <View style={styles.modalHeader}>
+                <Pressable onPress={() => setShowWelcomeVideoModal(false)}>
+                  <Text style={styles.cancelButton}>Cancel</Text>
+                </Pressable>
+                <Text style={styles.modalTitle}>Welcome Video</Text>
+                <Pressable onPress={handleSaveWelcomeVideo}>
+                  <Text style={styles.saveButton}>Save</Text>
+                </Pressable>
+              </View>
+              <Text style={styles.sessionLengthLabel}>Enter a YouTube or video URL to show new players during onboarding</Text>
+              <TextInput
+                style={styles.welcomeVideoInput}
+                value={welcomeVideoInput}
+                onChangeText={setWelcomeVideoInput}
+                placeholder="https://youtube.com/watch?v=..."
+                placeholderTextColor={Colors.dark.textMuted}
+                autoCapitalize="none"
+                autoCorrect={false}
+                keyboardType="url"
+              />
+              {settings.welcomeVideoUrl ? (
+                <Pressable
+                  style={styles.clearVideoButton}
+                  onPress={() => {
+                    updateSettingsMutation.mutate({ welcomeVideoUrl: null });
+                    setShowWelcomeVideoModal(false);
+                  }}
+                >
+                  <Ionicons name="trash-outline" size={18} color={Colors.dark.error} />
+                  <Text style={styles.clearVideoText}>Remove video</Text>
+                </Pressable>
+              ) : null}
+            </View>
+          </KeyboardAwareScrollViewCompat>
         </View>
       </Modal>
 
@@ -908,5 +976,27 @@ const styles = StyleSheet.create({
     color: Colors.dark.textMuted,
     textAlign: "center",
     marginTop: Spacing.sm,
+  },
+  welcomeVideoInput: {
+    ...Typography.body,
+    color: Colors.dark.text,
+    backgroundColor: Colors.dark.backgroundRoot,
+    padding: Spacing.md,
+    borderRadius: BorderRadius.md,
+    marginTop: Spacing.sm,
+    borderWidth: 1,
+    borderColor: Colors.dark.border,
+  },
+  clearVideoButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: Spacing.xs,
+    marginTop: Spacing.lg,
+    paddingVertical: Spacing.sm,
+  },
+  clearVideoText: {
+    ...Typography.small,
+    color: Colors.dark.error,
   },
 });

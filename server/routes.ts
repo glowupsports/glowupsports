@@ -21692,6 +21692,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "Academy ID required" });
       }
 
+
+      // Get extended academy settings for welcomeVideoUrl
+      const extendedSettings = await storage.getAcademySettings(academyId);
       const academy = await storage.getAcademy(academyId);
       if (!academy) {
         return res.status(404).json({ error: "Academy not found" });
@@ -21701,6 +21704,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         defaultSessionLength: (academy as any).defaultSessionLength || 60,
         xpVisibleToPlayers: (academy as any).xpVisibleToPlayers ?? true,
         notificationsEnabled: (academy as any).notificationsEnabled ?? true,
+        welcomeVideoUrl: extendedSettings?.welcomeVideoUrl || "",
       });
     } catch (error) {
       console.error("Get academy settings error:", error);
@@ -21717,6 +21721,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const updates = req.body;
+
+      // Handle welcomeVideoUrl separately in academy_settings table
+      if (updates.welcomeVideoUrl !== undefined) {
+        await storage.upsertAcademySettings(academyId, { welcomeVideoUrl: updates.welcomeVideoUrl });
+      }
       const updated = await storage.updateAcademy(academyId, updates);
 
       res.json({ success: true, ...updates });
