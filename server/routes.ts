@@ -2713,6 +2713,59 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Get today's player birthdays for coaches
+  app.get("/api/coach/birthdays/today", authMiddleware, requireAcademy, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const coachId = req.user!.coachId;
+      const academyId = req.user!.academyId;
+      
+      if (!coachId) {
+        return res.status(400).json({ error: "Coach ID required" });
+      }
+      
+      // Get all players assigned to this coach
+      const coachPlayers = await db
+        .select({
+          id: players.id,
+          name: players.name,
+          ballLevel: players.ballLevel,
+          profilePhotoUrl: players.profilePhotoUrl,
+          dateOfBirth: players.dateOfBirth,
+        })
+        .from(players)
+        .where(
+          and(
+            eq(players.coachId, coachId),
+            isNotNull(players.dateOfBirth)
+          )
+        );
+      
+      // Filter players whose birthday is today
+      const today = new Date();
+      const birthdayPlayers = coachPlayers.filter(p => {
+        if (!p.dateOfBirth) return false;
+        const birth = new Date(p.dateOfBirth);
+        return birth.getMonth() === today.getMonth() && birth.getDate() === today.getDate();
+      }).map(p => {
+        const birth = new Date(p.dateOfBirth!);
+        const age = today.getFullYear() - birth.getFullYear();
+        return {
+          id: p.id,
+          name: p.name,
+          ballLevel: p.ballLevel,
+          photoUrl: p.profilePhotoUrl,
+          turningAge: age,
+        };
+      });
+      
+      res.json({ birthdays: birthdayPlayers, count: birthdayPlayers.length });
+    } catch (error) {
+      console.error("Error fetching today's birthdays:", error);
+      res.status(500).json({ error: "Failed to fetch birthdays" });
+    }
+  });
+
+
   // Check for conflicts before booking
   app.get("/api/coach/sessions/check-conflict", authMiddleware, requireAcademy, async (req: AuthenticatedRequest, res: Response) => {
     try {
