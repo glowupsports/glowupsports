@@ -19,6 +19,7 @@ import { SocialPulseCard } from "@/player/components/SocialPulseCard";
 import { usePlayerDrawer } from "@/player/context/PlayerDrawerContext";
 import { usePlayer } from "@/player/context/PlayerContext";
 import { BirthdayCelebrationModal, shouldShowBirthdayCelebration } from "@/player/components/BirthdayCelebrationModal";
+import { BirthdayConfettiOverlay, BirthdayBanner, BirthdayXPBonusCard } from "@/player/components/BirthdayThemeOverlay";
 import { useMissionControl, useAssignDailyQuests, useClaimQuestReward } from "@/player/hooks/useQuests";
 import { apiRequest, getApiUrl, getStaticAssetsUrl } from "@/lib/query-client";
 import Animated, { FadeIn, FadeOut, SlideInUp, useSharedValue, useAnimatedStyle, withSpring, withSequence, withTiming, withRepeat } from "react-native-reanimated";
@@ -261,7 +262,6 @@ function GameCountdown({ targetDate }: { targetDate: Date }) {
   const [timeLeft, setTimeLeft] = useState({ hours: 0, minutes: 0, seconds: 0 });
   
   useEffect(() => {
-    console.log("[Birthday] isBirthday:", isBirthday, "showPlayerDashboard:", showPlayerDashboard);
     const updateCountdown = () => {
       const now = new Date();
       const diff = Math.max(0, targetDate.getTime() - now.getTime());
@@ -326,7 +326,6 @@ function MissionCountdownRing({ targetDate, sessionDuration = 60, size = 140 }: 
   const [isSessionEnded, setIsSessionEnded] = useState(false);
   
   useEffect(() => {
-    console.log("[Birthday] isBirthday:", isBirthday, "showPlayerDashboard:", showPlayerDashboard);
     const updateCountdown = () => {
       const now = new Date();
       const sessionStart = targetDate.getTime();
@@ -1247,11 +1246,22 @@ export default function PlayerHomeScreen() {
         </Animated.View>
       ) : null}
       
+      {/* Birthday Confetti Overlay - Covers entire screen when it's player's birthday */}
+      {isBirthday && <BirthdayConfettiOverlay />}
+      
       <ScrollView
         style={styles.scrollView}
         contentContainerStyle={{ paddingBottom: insets.bottom + 200 }}
         showsVerticalScrollIndicator={false}
       >
+        {/* Birthday Banner - Shows festive header on birthday */}
+        {isBirthday && (
+          <BirthdayBanner 
+            playerName={player.name || "Champion"} 
+            playerAge={playerAge}
+          />
+        )}
+        
         {/* A) Player Profile Bar - Always first at top */}
         <PlayerStatusBar 
           player={player}
@@ -1259,6 +1269,9 @@ export default function PlayerHomeScreen() {
           lastFeedback={lastFeedback}
           onAvatarPress={openDrawer}
         />
+        
+        {/* Birthday XP Bonus Card - Shows 2x XP message on birthday */}
+        {isBirthday && <BirthdayXPBonusCard />}
 
         {/* B) HERO: Next Mission Card */}
         {nextSession ? (
