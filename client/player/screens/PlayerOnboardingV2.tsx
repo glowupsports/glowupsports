@@ -772,6 +772,19 @@ function PlatformWelcomeVideoStep({ onNext }: StepProps) {
           <Text style={styles.videoFeatureText}>Connect with coaches</Text>
         </View>
       </Animated.View>
+
+      <Animated.View entering={FadeInUp.delay(600).duration(400)} style={styles.videoNextContainer}>
+        <Pressable
+          style={styles.primaryButton}
+          onPress={() => {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+            onNext();
+          }}
+        >
+          <Text style={styles.primaryButtonText}>Let's Go!</Text>
+          <Ionicons name="arrow-forward" size={20} color={Colors.dark.backgroundRoot} />
+        </Pressable>
+      </Animated.View>
     </ScrollView>
   );
 }
@@ -832,6 +845,19 @@ function AcademyWelcomeVideoStep({ data, onNext }: StepProps) {
           <View style={styles.nextStepNumber}><Text style={styles.nextStepNumberText}>3</Text></View>
           <Text style={styles.nextStepText}>Start earning XP</Text>
         </View>
+      </Animated.View>
+
+      <Animated.View entering={FadeInUp.delay(600).duration(400)} style={styles.videoNextContainer}>
+        <Pressable
+          style={styles.primaryButton}
+          onPress={() => {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+            onNext();
+          }}
+        >
+          <Text style={styles.primaryButtonText}>Continue</Text>
+          <Ionicons name="arrow-forward" size={20} color={Colors.dark.backgroundRoot} />
+        </Pressable>
       </Animated.View>
     </ScrollView>
   );
@@ -2717,6 +2743,9 @@ const styles = StyleSheet.create({
     color: Colors.dark.text,
   },
   birthdayNextContainer: {
+    marginTop: Spacing.xl,
+  },
+  videoNextContainer: {
     marginTop: Spacing.xl,
   },
 });
