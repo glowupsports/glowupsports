@@ -1897,7 +1897,7 @@ export default function PlayerOnboardingV2Screen({ onComplete }: Props) {
             <View style={styles.backButton} />
           )}
 
-          {![0, 1, 2, 4, 5, 6].includes(currentStep) ? (
+          {![0, 1, 2, 4, 5, 6, 7, 14].includes(currentStep) ? (
             <Pressable
               style={[styles.nextButton, !canProceed() ? styles.nextButtonDisabled : null]}
               onPress={handleNext}
