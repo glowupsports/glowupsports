@@ -1835,31 +1835,76 @@ export default function PlayerOnboardingV2Screen({ onComplete }: Props) {
         try {
           console.log("[Onboarding] Uploading profile photo...");
           const formData = new FormData();
+          const authToken = await import("@/lib/auth").then(m => m.getAuthToken());
           
           if (Platform.OS === 'web') {
-            const response = await fetch(onboardingData.profilePhotoUri);
-            const blob = await response.blob();
-            const webFile = new window.File([blob], `profile-photo.${blob.type.split('/')[1] || 'png'}`, { type: blob.type });
-            formData.append("photo", webFile);
+            console.log("[Onboarding] Web platform - converting blob URL to File...");
+            
+            if (!onboardingData.profilePhotoUri.startsWith('blob:')) {
+              console.warn("[Onboarding] Photo URI is not a blob URL:", onboardingData.profilePhotoUri.substring(0, 50));
+            }
+            
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 30000);
+            
+            try {
+              const blobResponse = await fetch(onboardingData.profilePhotoUri, { signal: controller.signal });
+              clearTimeout(timeoutId);
+              
+              if (!blobResponse.ok) {
+                console.warn("[Onboarding] Failed to fetch blob URL:", blobResponse.status);
+                throw new Error(`Failed to fetch blob: ${blobResponse.status}`);
+              }
+              
+              const blob = await blobResponse.blob();
+              console.log("[Onboarding] Blob fetched successfully, size:", blob.size, "type:", blob.type);
+              
+              if (blob.size === 0) {
+                console.warn("[Onboarding] Blob is empty, skipping upload");
+                return result;
+              }
+              
+              const extension = blob.type.split('/')[1] || 'png';
+              const webFile = new window.File([blob], `profile-photo.${extension}`, { type: blob.type });
+              formData.append("photo", webFile);
+            } catch (blobError: any) {
+              if (blobError.name === 'AbortError') {
+                console.warn("[Onboarding] Photo blob fetch timed out after 30s");
+              } else {
+                console.warn("[Onboarding] Failed to fetch blob:", blobError.message || blobError);
+              }
+              return result;
+            }
           } else {
             const file = new File(onboardingData.profilePhotoUri);
             formData.append("photo", file);
           }
           
+          console.log("[Onboarding] Uploading to server...");
+          const uploadController = new AbortController();
+          const uploadTimeoutId = setTimeout(() => uploadController.abort(), 60000);
+          
           const photoResponse = await fetch(new URL("/api/player/me/photo", getApiUrl()).toString(), {
             method: "POST",
             headers: {
-              Authorization: `Bearer ${await import("@/lib/auth").then(m => m.getAuthToken())}`,
+              Authorization: `Bearer ${authToken}`,
             },
             body: formData,
+            signal: uploadController.signal,
           });
+          clearTimeout(uploadTimeoutId);
+          
           console.log("[Onboarding] Photo upload response:", photoResponse.status);
           if (!photoResponse.ok) {
             const errorText = await photoResponse.text();
             console.warn("[Onboarding] Photo upload failed:", errorText);
+          } else {
+            const uploadResult = await photoResponse.json();
+            console.log("[Onboarding] Photo upload successful!", uploadResult);
           }
-        } catch (photoError) {
-          console.warn("Failed to upload profile photo:", photoError);
+        } catch (photoError: any) {
+          const errorMessage = photoError?.message || photoError?.name || String(photoError) || 'Unknown error';
+          console.warn("[Onboarding] Failed to upload profile photo:", errorMessage);
         }
       }
       
