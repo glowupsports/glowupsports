@@ -30328,6 +30328,65 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+
+  // DEV ONLY: Reset onboarding for testing (no auth required)
+  if (process.env.NODE_ENV === 'development') {
+    app.get("/api/dev/players/search", async (req: Request, res: Response) => {
+      try {
+        const query = req.query.q as string;
+        if (!query || query.length < 2) {
+          return res.status(400).json({ error: "Search query must be at least 2 characters" });
+        }
+
+        const searchResults = await db.select({
+          id: players.id,
+          name: players.name,
+          displayName: players.displayName,
+          email: players.email,
+          ballLevel: players.ballLevel,
+          onboardingCompleted: players.onboardingCompleted,
+          profilePhotoUrl: players.profilePhotoUrl,
+        })
+        .from(players)
+        .where(
+          or(
+            ilike(players.name, '%' + query + '%'),
+            ilike(players.displayName, '%' + query + '%'),
+            ilike(players.email, '%' + query + '%')
+          )
+        )
+        .limit(20);
+
+        res.json(searchResults);
+      } catch (error) {
+        console.error("Dev player search error:", error);
+        res.status(500).json({ error: "Failed to search players" });
+      }
+    });
+
+    app.post("/api/dev/players/:id/reset-onboarding", async (req: Request, res: Response) => {
+      try {
+        const playerId = req.params.id;
+        
+        const [updated] = await db.update(players)
+          .set({ 
+            onboardingCompleted: false,
+            profilePhotoUrl: null
+          })
+          .where(eq(players.id, playerId))
+          .returning({ id: players.id, name: players.name, onboardingCompleted: players.onboardingCompleted });
+
+        if (!updated) {
+          return res.status(404).json({ error: "Player not found" });
+        }
+
+        res.json({ message: "Onboarding reset successfully", player: updated });
+      } catch (error) {
+        console.error("Reset onboarding error:", error);
+        res.status(500).json({ error: "Failed to reset onboarding" });
+      }
+    });
+  }
   const httpServer = createServer(app);
   
   // Set up WebSocket server for real-time chat
