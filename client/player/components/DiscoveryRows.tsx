@@ -523,6 +523,20 @@ export function OpenMatchesRow() {
     navigation.navigate("PlayStack", { screen: "OpenMatches" });
   };
 
+  const getMatchTypeGradient = (maxPlayers: number): readonly [string, string, ...string[]] => {
+    const isDoubles = maxPlayers === 4;
+    if (isDoubles) return ["#9333EA", "#7C3AED", "#6366F1"] as const;
+    return [Colors.dark.xpCyan, "#22D3EE", "#06B6D4"] as const;
+  };
+
+  const getSkillLabel = (skillLevel?: number) => {
+    if (!skillLevel) return "";
+    if (skillLevel <= 2) return "PRO";
+    if (skillLevel <= 4) return "ADV";
+    if (skillLevel <= 6) return "INT";
+    return "BEG";
+  };
+
   if (openMatches.length === 0) {
     return (
       <View style={styles.section}>
@@ -557,71 +571,159 @@ export function OpenMatchesRow() {
         {openMatches.slice(0, 3).map((match, index) => {
           const currentPlayers = (match.maxPlayers || 4) - match.spotsLeft;
           const ballColor = getBallLevelColor(match.ballLevel || "glow");
+          const isDoubles = (match.maxPlayers || 4) === 4;
+          const matchDate = (match as any).date || (match as any).startTime || (match as any).scheduledTime;
+          const countdown = getCountdownText(matchDate || new Date().toISOString());
+          const slotsLeft = match.spotsLeft;
           
           return (
             <Animated.View 
               key={match.id}
-              entering={FadeInRight.delay(index * 60).duration(300)}
+              entering={FadeInRight.delay(index * 80).duration(350)}
             >
               <Pressable onPress={() => handleMatchPress(match.id)}>
-                <NeonEdgeCard 
-                  color={ballColor} 
-                  glowIntensity="medium" 
-                  style={styles.matchCardFullWidth}
+                <LinearGradient
+                  colors={["rgba(255,255,255,0.08)", "rgba(255,255,255,0.02)"]}
+                  style={styles.premiumMatchCard}
                 >
-                  <View style={styles.matchCardFullWidthContent}>
-                    {/* Left: Host avatar with ring */}
-                    <View style={[styles.matchHostAvatarLarge, { borderColor: ballColor }]}>
+                  <View style={[styles.premiumMatchGlowBorder, { borderColor: ballColor + "60" }]} />
+                  
+                  <View style={styles.premiumMatchHeader}>
+                    <LinearGradient
+                      colors={getMatchTypeGradient(match.maxPlayers || 4)}
+                      start={{ x: 0, y: 0 }}
+                      end={{ x: 1, y: 0 }}
+                      style={styles.matchTypePillGradient}
+                    >
+                      <Ionicons 
+                        name={isDoubles ? "people" : "person"} 
+                        size={12} 
+                        color="#fff" 
+                      />
+                      <Text style={styles.matchTypePillTextWhite}>
+                        {isDoubles ? "Doubles" : "Singles"}
+                      </Text>
+                    </LinearGradient>
+
+                    <View style={[styles.countdownBadge, countdown.urgent && styles.countdownBadgeUrgent]}>
+                      <Ionicons 
+                        name="time" 
+                        size={12} 
+                        color={countdown.urgent ? "#EF4444" : Colors.dark.primary} 
+                      />
+                      <Text style={[styles.countdownBadgeText, countdown.urgent && { color: "#EF4444" }]}>
+                        {countdown.text}
+                      </Text>
+                    </View>
+                  </View>
+
+                  <View style={styles.premiumMatchHostSection}>
+                    <View style={[styles.premiumMatchHostAvatar, { borderColor: ballColor }]}>
                       {match.participants && match.participants[0]?.profilePhotoUrl ? (
                         <ExpoImage 
                           source={{ uri: `${getStaticAssetsUrl()}${match.participants[0].profilePhotoUrl}` }} 
-                          style={styles.matchHostImageLarge}
+                          style={styles.premiumMatchHostImage}
                           contentFit="cover"
                         />
                       ) : (
-                        <Text style={styles.matchHostInitialsLarge}>
-                          {match.participants?.[0]?.name?.charAt(0) || "?"}
-                        </Text>
+                        <LinearGradient
+                          colors={[ballColor + "40", ballColor + "20"]}
+                          style={styles.premiumMatchHostPlaceholder}
+                        >
+                          <Text style={[styles.premiumMatchHostInitial, { color: ballColor }]}>
+                            {match.participants?.[0]?.name?.charAt(0) || "?"}
+                          </Text>
+                        </LinearGradient>
                       )}
                     </View>
-
-                    {/* Center: Host info + level */}
-                    <View style={styles.matchInfoCenter}>
-                      <View style={styles.matchTopRow}>
-                        <Text style={styles.matchHostNameLarge} numberOfLines={1}>
-                          {match.participants?.[0]?.name || "Looking for host"}
+                    
+                    <View style={styles.premiumMatchHostInfo}>
+                      <Text style={styles.premiumMatchHostName} numberOfLines={1}>
+                        {match.participants?.[0]?.name || "Looking for players"}
+                      </Text>
+                      <View style={[styles.premiumMatchLevelBadge, { backgroundColor: ballColor + "20", borderColor: ballColor }]}>
+                        <View style={[styles.premiumMatchLevelDot, { backgroundColor: ballColor }]} />
+                        <Text style={[styles.premiumMatchLevelText, { color: ballColor }]}>
+                          {(match.ballLevel || "GLOW").toUpperCase()} {match.skillLevel || ""} {getSkillLabel(match.skillLevel)}
                         </Text>
-                        <View style={[styles.matchTypeBadgeLarge, { backgroundColor: ballColor + "25" }]}>
-                          <Text style={[styles.matchTypeTextLarge, { color: ballColor }]}>
-                            {(match.maxPlayers || 4) === 2 ? "Singles" : "Doubles"}
-                          </Text>
-                        </View>
-                      </View>
-                      <View style={[styles.matchLevelBadgeLarge, { backgroundColor: ballColor + "20" }]}>
-                        <View style={[styles.matchLevelDotLarge, { backgroundColor: ballColor }]} />
-                        <Text style={[styles.matchLevelTextLarge, { color: ballColor }]}>
-                          {(match.ballLevel || "GLOW").toUpperCase()} {match.skillLevel || ""} {match.skillLevel === 1 ? "BEG" : match.skillLevel === 2 ? "INT" : match.skillLevel === 3 ? "ADV" : ""}
-                        </Text>
-                      </View>
-                      <View style={styles.matchMetaRow}>
-                        <Feather name="clock" size={12} color={ProTennisColors.textSecondary} />
-                        <Text style={styles.matchTimeLarge}>{match.time}</Text>
-                        <Text style={styles.matchMetaDot}>·</Text>
-                        <Feather name="users" size={12} color={ProTennisColors.textSecondary} />
-                        <Text style={styles.matchTimeLarge}>{currentPlayers}/{match.maxPlayers || 4}</Text>
                       </View>
                     </View>
 
-                    {/* Right: Join button */}
+                    {(match as any).xpReward > 0 ? (
+                      <View style={styles.xpBadgeSmall}>
+                        <Ionicons name="flash" size={14} color={Colors.dark.xpCyan} />
+                        <Text style={styles.xpBadgeSmallText}>+{(match as any).xpReward}</Text>
+                      </View>
+                    ) : null}
+                  </View>
+
+                  {matchDate ? (
+                    <View style={styles.premiumMatchDateRow}>
+                      <Ionicons name="calendar-outline" size={14} color={Colors.dark.textSecondary} />
+                      <Text style={styles.premiumMatchDateText}>
+                        {formatSessionDateShort(matchDate, "Asia/Dubai")}
+                      </Text>
+                      <Text style={styles.premiumMatchDateDot}>·</Text>
+                      <Ionicons name="time-outline" size={14} color={Colors.dark.textSecondary} />
+                      <Text style={styles.premiumMatchDateText}>
+                        {formatSessionTimeWithRelativeDay(matchDate, "Asia/Dubai")}
+                      </Text>
+                    </View>
+                  ) : null}
+
+                  {(match as any).locationName || (match as any).courtName ? (
+                    <View style={styles.premiumMatchLocationRow}>
+                      <Ionicons name="location" size={14} color={Colors.dark.primary} />
+                      <Text style={styles.premiumMatchLocationText} numberOfLines={1}>
+                        {(match as any).courtName || (match as any).locationName}
+                      </Text>
+                    </View>
+                  ) : null}
+
+                  <View style={styles.premiumMatchDivider} />
+
+                  <View style={styles.premiumMatchFooter}>
+                    <View style={styles.premiumMatchPlayerSlots}>
+                      {Array.from({ length: match.maxPlayers || 4 }).map((_, slotIndex) => {
+                        const player = match.participants?.[slotIndex];
+                        const isFilled = slotIndex < currentPlayers;
+                        
+                        return (
+                          <View 
+                            key={slotIndex} 
+                            style={[
+                              styles.premiumMatchSlot,
+                              isFilled ? styles.premiumMatchSlotFilled : styles.premiumMatchSlotEmpty
+                            ]}
+                          >
+                            {player?.profilePhotoUrl ? (
+                              <ExpoImage 
+                                source={{ uri: `${getStaticAssetsUrl()}${player.profilePhotoUrl}` }} 
+                                style={styles.premiumMatchSlotImage}
+                                contentFit="cover"
+                              />
+                            ) : isFilled ? (
+                              <Ionicons name="person" size={12} color={Colors.dark.primary} />
+                            ) : (
+                              <Ionicons name="add" size={12} color={Colors.dark.textMuted} />
+                            )}
+                          </View>
+                        );
+                      })}
+                      <Text style={styles.premiumMatchSlotsText}>
+                        {slotsLeft} {slotsLeft === 1 ? "spot" : "spots"} left
+                      </Text>
+                    </View>
+
                     <Pressable 
-                      style={[styles.matchJoinButtonLarge, { backgroundColor: ballColor }]}
+                      style={[styles.premiumMatchJoinBtn, { backgroundColor: ballColor }]}
                       onPress={() => handleMatchPress(match.id)}
                     >
-                      <Text style={styles.matchJoinTextLarge}>Join</Text>
-                      <Feather name="arrow-right" size={16} color={ProTennisColors.midnightBlue} />
+                      <Text style={styles.premiumMatchJoinText}>Join</Text>
+                      <Feather name="arrow-right" size={14} color="#0A0A12" />
                     </Pressable>
                   </View>
-                </NeonEdgeCard>
+                </LinearGradient>
               </Pressable>
             </Animated.View>
           );
@@ -1294,6 +1396,211 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: "700",
     color: ProTennisColors.midnightBlue,
+  },
+  premiumMatchCard: {
+    borderRadius: BorderRadius.lg,
+    padding: Spacing.md,
+    overflow: "hidden",
+  },
+  premiumMatchGlowBorder: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    borderRadius: BorderRadius.lg,
+    borderWidth: 1,
+    pointerEvents: "none",
+  },
+  premiumMatchHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: Spacing.sm,
+  },
+  matchTypePillGradient: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: BorderRadius.full,
+  },
+  matchTypePillTextWhite: {
+    fontSize: 11,
+    fontWeight: "700",
+    color: "#fff",
+  },
+  countdownBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    backgroundColor: "rgba(0,229,255,0.1)",
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: BorderRadius.full,
+  },
+  countdownBadgeUrgent: {
+    backgroundColor: "rgba(239,68,68,0.15)",
+  },
+  countdownBadgeText: {
+    fontSize: 11,
+    fontWeight: "600",
+    color: Colors.dark.primary,
+  },
+  premiumMatchHostSection: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+    marginBottom: Spacing.sm,
+  },
+  premiumMatchHostAvatar: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    borderWidth: 2,
+    overflow: "hidden",
+  },
+  premiumMatchHostImage: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+  },
+  premiumMatchHostPlaceholder: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  premiumMatchHostInitial: {
+    fontSize: 18,
+    fontWeight: "700",
+  },
+  premiumMatchHostInfo: {
+    flex: 1,
+    gap: 4,
+  },
+  premiumMatchHostName: {
+    fontSize: 15,
+    fontWeight: "700",
+    color: Colors.dark.text,
+  },
+  premiumMatchLevelBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    alignSelf: "flex-start",
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: BorderRadius.xs,
+    borderWidth: 1,
+  },
+  premiumMatchLevelDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+  },
+  premiumMatchLevelText: {
+    fontSize: 11,
+    fontWeight: "600",
+  },
+  xpBadgeSmall: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 2,
+    backgroundColor: "rgba(0,229,255,0.15)",
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: BorderRadius.sm,
+  },
+  xpBadgeSmallText: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: Colors.dark.xpCyan,
+  },
+  premiumMatchDateRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    marginBottom: Spacing.xs,
+  },
+  premiumMatchDateText: {
+    fontSize: 12,
+    color: Colors.dark.textSecondary,
+    fontWeight: "500",
+  },
+  premiumMatchDateDot: {
+    color: Colors.dark.textMuted,
+    marginHorizontal: 2,
+  },
+  premiumMatchLocationRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    marginBottom: Spacing.sm,
+  },
+  premiumMatchLocationText: {
+    fontSize: 13,
+    color: Colors.dark.textSecondary,
+    flex: 1,
+  },
+  premiumMatchDivider: {
+    height: 1,
+    backgroundColor: "rgba(255,255,255,0.08)",
+    marginVertical: Spacing.sm,
+  },
+  premiumMatchFooter: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  premiumMatchPlayerSlots: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+  },
+  premiumMatchSlot: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    alignItems: "center",
+    justifyContent: "center",
+    overflow: "hidden",
+  },
+  premiumMatchSlotFilled: {
+    backgroundColor: "rgba(0,229,255,0.2)",
+    borderWidth: 1,
+    borderColor: Colors.dark.primary + "60",
+  },
+  premiumMatchSlotEmpty: {
+    backgroundColor: "rgba(255,255,255,0.05)",
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.1)",
+    borderStyle: "dashed",
+  },
+  premiumMatchSlotImage: {
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+  },
+  premiumMatchSlotsText: {
+    fontSize: 12,
+    color: Colors.dark.textMuted,
+    marginLeft: 6,
+  },
+  premiumMatchJoinBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    paddingVertical: 8,
+    paddingHorizontal: 14,
+    borderRadius: BorderRadius.md,
+  },
+  premiumMatchJoinText: {
+    fontSize: 13,
+    fontWeight: "700",
+    color: "#0A0A12",
   },
   matchCardContent: {
     padding: Spacing.md,
