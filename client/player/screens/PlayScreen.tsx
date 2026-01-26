@@ -113,9 +113,6 @@ function getBallLevelLabel(level: string): string {
 function getCleanSessionTitle(session: PlaySession): string {
   const title = session.title || "";
   if (!title || title.includes("-0") || title.match(/\d{2}:\d{2}/) || title.length > 50) {
-    if (session.coachName) {
-      return `Group with Coach ${session.coachName.split(" ")[0]}`;
-    }
     return session.sessionType === "group" ? "Group Session" : "Semi-Private Session";
   }
   return title;
@@ -397,6 +394,12 @@ export default function PlayScreen() {
                     <Ionicons name="location" size={14} color={Colors.dark.primary} />
                     <Text style={styles.epicLocationText}>{session.locationName}</Text>
                   </View>
+                  {session.coachName && (
+                    <View style={styles.epicCoachRow}>
+                      <Ionicons name="person" size={13} color={Colors.dark.xpCyan} />
+                      <Text style={styles.epicCoachText}>Coach {session.coachName}</Text>
+                    </View>
+                  )}
                   <View style={styles.epicMetaRow}>
                     <Ionicons name="time-outline" size={13} color={Colors.dark.textMuted} />
                     <Text style={styles.epicMetaText}>{formatTime(session.startTime)}</Text>
@@ -1375,6 +1378,16 @@ const styles = StyleSheet.create({
   epicLocationText: {
     ...Typography.body,
     color: Colors.dark.text,
+    fontWeight: "500",
+  },
+  epicCoachRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.xs,
+  },
+  epicCoachText: {
+    ...Typography.small,
+    color: Colors.dark.xpCyan,
     fontWeight: "500",
   },
   epicMetaRow: {
