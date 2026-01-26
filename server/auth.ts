@@ -160,6 +160,15 @@ export async function authMiddlewareWithFreshData(req: AuthenticatedRequest, res
   if (freshUserStorage) {
     try {
       const freshUser = await freshUserStorage.getUserById(payload.userId);
+      
+      // SECURITY: If user no longer exists in database, reject the request
+      // This prevents use of tokens for deleted/non-existent users
+      if (!freshUser) {
+        console.warn(`[Auth] User ${payload.userId} from token not found in database - rejecting`);
+        res.status(401).json({ error: "User account not found. Please log in again." });
+        return;
+      }
+      
       if (freshUser) {
         // Determine the effective academy context
         let effectiveAcademyId = freshUser.academyId;
