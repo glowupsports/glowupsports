@@ -70,6 +70,7 @@ import BookingPreferencesScreen from "@/player/screens/BookingPreferencesScreen"
 import BookingInvitesScreen from "@/player/screens/BookingInvitesScreen";
 import FamilyLobbyScreen from "@/player/screens/FamilyLobbyScreen";
 import NewsScreen from "@/player/screens/NewsScreen";
+import PrivacySettingsScreen from "@/player/screens/PrivacySettingsScreen";
 import PlayerIdentityDrawer from "@/components/PlayerIdentityDrawer";
 import { CartProvider } from "@/player/contexts/CartContext";
 import { CoachChatFooter } from "@/coach/components/CoachChatFooter";
@@ -159,6 +160,7 @@ export type PlayerStackParamList = {
   BookingInvites: undefined;
   FamilyLobby: undefined;
   News: undefined;
+  PrivacySettings: { isOnboarding?: boolean; currentLevel?: string };
 };
 
 const Tab = createBottomTabNavigator<PlayerTabParamList>();
@@ -880,6 +882,14 @@ function PlayerStackNavigator() {
           headerStyle: { backgroundColor: '#090E17' },
           headerTintColor: '#CCFF00',
           headerTitleStyle: { color: '#ffffff', fontWeight: '600' },
+        }}
+      />
+      <Stack.Screen 
+        name="PrivacySettings" 
+        component={PrivacySettingsScreen}
+        options={{
+          presentation: "modal",
+          headerShown: false,
         }}
       />
     </Stack.Navigator>

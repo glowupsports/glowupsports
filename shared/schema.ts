@@ -983,7 +983,7 @@ export const players = pgTable("players", {
   typicalPlayTimes: jsonb("typical_play_times").$type<string[]>(), // morning/afternoon/evening/weekend
   preferredCities: jsonb("preferred_cities").$type<string[]>(), // cities/areas
   matchPreference: text("match_preference"), // casual/training/competitive
-  privacyLevel: text("privacy_level").default("platform"), // public/platform/academy
+  privacyLevel: text("privacy_level").default("platform"), // everyone/platform/academy/hidden
   bio: text("bio"), // Short player bio
   lastActiveAt: timestamp("last_active_at"),
   preferredTime: text("preferred_time"), // Preferred session time (morning/afternoon/evening)
@@ -1024,7 +1024,7 @@ export const updatePlayerSchema = z.object({
   typicalPlayTimes: z.array(z.string()).optional().nullable(),
   preferredCities: z.array(z.string()).optional().nullable(),
   matchPreference: z.enum(["casual", "training", "competitive"]).optional().nullable(),
-  privacyLevel: z.enum(["public", "platform", "academy"]).optional(),
+  privacyLevel: z.enum(["everyone", "platform", "academy", "hidden"]).optional(),
   bio: z.string().max(500).optional().nullable(),
   // New Onboarding Fields
   tennisIdol: z.string().max(100).optional().nullable(),
