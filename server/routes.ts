@@ -3963,7 +3963,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const usedCredits = await db
         .select()
         .from(creditTransactions)
-        .where(and(
+        
+          .where(and(
           eq(creditTransactions.sessionId, id),
           eq(creditTransactions.type, "use")
         ));
@@ -5058,7 +5059,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         createdAt: inSessionFeedback.createdAt,
         sessionId: inSessionFeedback.sessionId,
       }).from(inSessionFeedback)
-        .where(and(
+        
+          .where(and(
           eq(inSessionFeedback.playerId, playerId),
           eq(inSessionFeedback.visibility, "public")
         ))
@@ -6567,7 +6569,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
           for (const skillId of checkedSkillIds) {
             // Check if skill score already exists
             const existing = await db.select().from(playerSkillScores)
-              .where(and(
+              
+          .where(and(
                 eq(playerSkillScores.playerId, id),
                 eq(playerSkillScores.skillId, skillId)
               ))
@@ -6653,7 +6656,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
           for (const skillId of checkedSkillIds) {
             // Check if skill score already exists
             const existing = await db.select().from(playerSkillScores)
-              .where(and(
+              
+          .where(and(
                 eq(playerSkillScores.playerId, id),
                 eq(playerSkillScores.skillId, skillId)
               ))
@@ -8766,6 +8770,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           seriesId: sessions.seriesId,
           startTime: sql<Date>`MIN(${sessions.startTime})`,
         }).from(sessions)
+          
           .where(and(
             inArray(sessions.seriesId, seriesIds),
             eq(sessions.status, "scheduled"),
@@ -8850,7 +8855,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const orphanSessions = await db
         .select()
         .from(sessions)
-        .where(and(
+        
+          .where(and(
           eq(sessions.coachId, coachId),
           or(
             // Sessions with a seriesId not in this coach's series
@@ -10454,7 +10460,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Update the player's join date directly in the database
       const updated = await db.update(seriesPlayers)
         .set({ joinedAt: new Date(joinDate) })
-        .where(and(
+        
+          .where(and(
           eq(seriesPlayers.seriesId, id),
           eq(seriesPlayers.playerId, playerId)
         ))
@@ -10635,7 +10642,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const xpData = await db
         .select()
         .from(xpTransactions)
-        .where(and(
+        
+          .where(and(
           inArray(xpTransactions.playerId, playerIds),
           inArray(xpTransactions.sessionId, sessionIds)
         ));
@@ -10661,6 +10669,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             sessionCount: sql<number>`count(*)::int`,
           })
           .from(sessionPlayers)
+          
           .where(and(
             inArray(sessionPlayers.playerId, playerIds),
             inArray(sessionPlayers.sessionId, completedSessionIds),
@@ -10792,7 +10801,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
           recurringGroupId: sessions.recurringGroupId,
         })
         .from(sessions)
-        .where(and(
+        
+          .where(and(
           eq(sessions.coachId, coachId),
           eq(sessions.isRecurring, true),
           isNotNull(sessions.recurringGroupId),
@@ -15755,6 +15765,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const sessionsForSeries = await db
           .select()
           .from(sessions)
+          
           .where(and(
             eq(sessions.seriesId, s.id),
             eq(sessions.status, "completed")
@@ -15789,6 +15800,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const orphanSessions = await db
           .select()
           .from(sessions)
+          
           .where(and(
             eq(sessions.coachId, coachId),
             eq(sessions.academyId, academyId), // Filter by academy to ensure correct data
@@ -18597,8 +18609,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
           })
           .from(matchRequests)
           .leftJoin(players, eq(matchRequests.playerId, players.id))
+          
           .where(and(
             eq(matchRequests.status, "open"),
+            eq(players.ballLevel, player.ballLevel),
             or(
               eq(matchRequests.academyId, player.academyId),
               isNull(matchRequests.academyId)
@@ -19940,6 +19954,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             count: count(),
           })
           .from(sessionPlayers)
+          
           .where(and(
             inArray(sessionPlayers.sessionId, sessionIds),
             eq(sessionPlayers.playerId, playerId)
@@ -20567,7 +20582,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Check if user is a member
       const [membership] = await db.select()
         .from(groupMembersTable)
-        .where(and(
+        
+          .where(and(
           eq(groupMembersTable.groupId, groupId),
           eq(groupMembersTable.userId, userId)
         ));
@@ -20616,7 +20632,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Verify membership
       const [membership] = await db.select()
         .from(groupMembersTable)
-        .where(and(
+        
+          .where(and(
           eq(groupMembersTable.groupId, groupId),
           eq(groupMembersTable.userId, userId)
         ));
@@ -20682,7 +20699,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Check if already a member
       const [existing] = await db.select()
         .from(groupMembersTable)
-        .where(and(
+        
+          .where(and(
           eq(groupMembersTable.groupId, groupId),
           eq(groupMembersTable.userId, userId)
         ));
@@ -20719,7 +20737,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Check if member
       const [membership] = await db.select()
         .from(groupMembersTable)
-        .where(and(
+        
+          .where(and(
           eq(groupMembersTable.groupId, groupId),
           eq(groupMembersTable.userId, userId)
         ));
@@ -20735,7 +20754,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Leave the group
       await db.delete(groupMembersTable)
-        .where(and(
+        
+          .where(and(
           eq(groupMembersTable.groupId, groupId),
           eq(groupMembersTable.userId, userId)
         ));
@@ -24244,7 +24264,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
               if (useMakeUp) {
                 const result = await tx.update(players)
                   .set({ makeUpCredits: sql`GREATEST(0, COALESCE(make_up_credits, 0) - 1)` })
-                  .where(and(
+                  
+          .where(and(
                     eq(players.id, waitlistPlayer.id),
                     sql`COALESCE(make_up_credits, 0) > 0`
                   ))
@@ -24256,7 +24277,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
               } else {
                 const result = await tx.update(players)
                   .set({ credits: sql`GREATEST(0, COALESCE(credits, 0) - ${sessionCredits})` })
-                  .where(and(
+                  
+          .where(and(
                     eq(players.id, waitlistPlayer.id),
                     sql`COALESCE(credits, 0) >= ${sessionCredits}`
                   ))
@@ -24877,7 +24899,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const travelTimes = await db
         .select()
         .from(locationTravelTimes)
-        .where(and(
+        
+          .where(and(
           eq(locationTravelTimes.coachId, coachId),
           eq(locationTravelTimes.academyId, academyId)
         ));
@@ -24921,6 +24944,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const existing = await db
           .select()
           .from(locationTravelTimes)
+          
           .where(and(
             eq(locationTravelTimes.coachId, coachId),
             eq(locationTravelTimes.academyId, academyId),
@@ -24975,7 +24999,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       await db
         .delete(locationTravelTimes)
-        .where(and(
+        
+          .where(and(
           eq(locationTravelTimes.id, id),
           eq(locationTravelTimes.coachId, coachId)
         ));
@@ -26770,7 +26795,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const [guest] = await db
         .select()
         .from(bookingInviteGuests)
-        .where(and(
+        
+          .where(and(
           eq(bookingInviteGuests.inviteId, inviteId),
           eq(bookingInviteGuests.playerId, playerId)
         ));
@@ -27137,7 +27163,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const [existing] = await db
         .select()
         .from(openMatchSlots)
-        .where(and(
+        
+          .where(and(
           eq(openMatchSlots.matchId, matchId),
           eq(openMatchSlots.playerId, playerId)
         ));
@@ -27197,7 +27224,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const [slot] = await db
         .select()
         .from(openMatchSlots)
-        .where(and(
+        
+          .where(and(
           eq(openMatchSlots.matchId, matchId),
           eq(openMatchSlots.playerId, playerId)
         ));
@@ -27266,7 +27294,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const [existingSlot] = await db
         .select()
         .from(openMatchSlots)
-        .where(and(
+        
+          .where(and(
           eq(openMatchSlots.matchId, matchId),
           eq(openMatchSlots.playerId, playerId),
           eq(openMatchSlots.status, "confirmed")
@@ -27365,6 +27394,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         .where(
           and(
             eq(matchRequests.status, "open"),
+            eq(players.ballLevel, player.ballLevel),
             academyId ? eq(matchRequests.academyId, academyId) : undefined,
             playerId ? ne(matchRequests.playerId, playerId) : undefined
           )
@@ -27427,7 +27457,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const [request] = await db
         .select()
         .from(matchRequests)
-        .where(and(
+        
+          .where(and(
           eq(matchRequests.id, requestId),
           eq(matchRequests.playerId, playerId)
         ));
@@ -28362,7 +28393,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
           const userReactions = await db.select({
             postId: postReactionsTable.postId,
             reactionType: postReactionsTable.reactionType,
-          }).from(postReactionsTable).where(and(
+          }).from(postReactionsTable)
+          .where(and(
             eq(postReactionsTable.userId, userId),
             inArray(postReactionsTable.postId, postIds)
           ));
@@ -28514,7 +28546,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Get user's reaction
       const [userReaction] = await db.select()
         .from(postReactionsTable)
-        .where(and(
+        
+          .where(and(
           eq(postReactionsTable.postId, id),
           eq(postReactionsTable.userId, userId)
         ));
@@ -28581,7 +28614,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Check if reaction already exists
       const [existing] = await db.select()
         .from(postReactionsTable)
-        .where(and(
+        
+          .where(and(
           eq(postReactionsTable.postId, postId),
           eq(postReactionsTable.userId, userId)
         ));
@@ -28619,7 +28653,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const userId = req.user!.userId;
       
       const result = await db.delete(postReactionsTable)
-        .where(and(
+        
+          .where(and(
           eq(postReactionsTable.postId, postId),
           eq(postReactionsTable.userId, userId)
         ));
@@ -28646,7 +28681,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // First get comments
       const rawComments = await db.select()
         .from(postCommentsTable)
-        .where(and(
+        
+          .where(and(
           eq(postCommentsTable.postId, postId),
           eq(postCommentsTable.isHidden, false)
         ))
@@ -28777,7 +28813,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Check if already liked
       const existingLike = await db.select()
         .from(commentLikesTable)
-        .where(and(
+        
+          .where(and(
           eq(commentLikesTable.commentId, commentId),
           eq(commentLikesTable.userId, userId)
         ))
@@ -28786,6 +28823,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (existingLike.length > 0) {
         // Unlike - remove the like
         await db.delete(commentLikesTable)
+          
           .where(and(
             eq(commentLikesTable.commentId, commentId),
             eq(commentLikesTable.userId, userId)
@@ -28849,7 +28887,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       })
       .from(commentLikesTable)
       .innerJoin(postCommentsTable, eq(commentLikesTable.commentId, postCommentsTable.id))
-      .where(and(
+      
+          .where(and(
         eq(postCommentsTable.postId, postId),
         eq(commentLikesTable.userId, userId)
       ));
@@ -28879,7 +28918,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Also get academy-wide groups
       const academyGroups = await db.select()
         .from(communityGroupsTable)
-        .where(and(
+        
+          .where(and(
           eq(communityGroupsTable.academyId, academyId || ""),
           eq(communityGroupsTable.type, "academy")
         ));
@@ -28921,7 +28961,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       .from(openToPlayTable)
       .leftJoin(users, eq(openToPlayTable.userId, users.id))
       .leftJoin(players, eq(users.playerId, players.id))
-      .where(and(
+      
+          .where(and(
         eq(openToPlayTable.academyId, academyId || ""),
         eq(openToPlayTable.isActive, true),
         gte(openToPlayTable.availableUntil, now)
@@ -28959,7 +29000,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Deactivate any existing open-to-play for this user
       await db.update(openToPlayTable)
         .set({ isActive: false })
-        .where(and(
+        
+          .where(and(
           eq(openToPlayTable.userId, userId),
           eq(openToPlayTable.isActive, true)
         ));
@@ -28992,7 +29034,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       await db.update(openToPlayTable)
         .set({ isActive: false })
-        .where(and(
+        
+          .where(and(
           eq(openToPlayTable.userId, userId),
           eq(openToPlayTable.isActive, true)
         ));
@@ -29015,7 +29058,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Count new moments in last 24h
       const [momentCount] = await db.select({ count: count() })
         .from(postsTable)
-        .where(and(
+        
+          .where(and(
           eq(postsTable.academyId, academyId || ""),
           gte(postsTable.createdAt, oneDayAgo),
           eq(postsTable.isHidden, false)
@@ -29024,7 +29068,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Count open-to-play users
       const [openToPlayCount] = await db.select({ count: count() })
         .from(openToPlayTable)
-        .where(and(
+        
+          .where(and(
           eq(openToPlayTable.academyId, academyId || ""),
           eq(openToPlayTable.isActive, true),
           gte(openToPlayTable.availableUntil, now)
@@ -29060,7 +29105,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       })
       .from(playerQuestsTable)
       .innerJoin(questTemplatesTable, eq(playerQuestsTable.questTemplateId, questTemplatesTable.id))
-      .where(and(
+      
+          .where(and(
         eq(playerQuestsTable.playerId, playerId),
         inArray(playerQuestsTable.status, ["active", "completed"])
       ))
@@ -29069,7 +29115,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Get today's quest slots
       const [dailySlot] = await db.select()
         .from(dailyQuestSlotsTable)
-        .where(and(
+        
+          .where(and(
           eq(dailyQuestSlotsTable.playerId, playerId),
           eq(dailyQuestSlotsTable.slotDate, today)
         ));
@@ -29138,7 +29185,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Check if already assigned today
       const [existingSlot] = await db.select()
         .from(dailyQuestSlotsTable)
-        .where(and(
+        
+          .where(and(
           eq(dailyQuestSlotsTable.playerId, playerId),
           eq(dailyQuestSlotsTable.slotDate, today)
         ));
@@ -29150,7 +29198,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Get available daily quest templates
       const templates = await db.select()
         .from(questTemplatesTable)
-        .where(and(
+        
+          .where(and(
           eq(questTemplatesTable.questType, "daily"),
           eq(questTemplatesTable.isActive, true),
           or(
@@ -29226,7 +29275,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const existingWeeklyQuests = await db.select()
         .from(playerQuestsTable)
         .innerJoin(questTemplatesTable, eq(playerQuestsTable.questTemplateId, questTemplatesTable.id))
-        .where(and(
+        
+          .where(and(
           eq(playerQuestsTable.playerId, playerId),
           eq(questTemplatesTable.questType, "weekly"),
           gte(playerQuestsTable.expiresAt, now)
@@ -29239,7 +29289,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Get available weekly quest templates
       const templates = await db.select()
         .from(questTemplatesTable)
-        .where(and(
+        
+          .where(and(
           eq(questTemplatesTable.questType, "weekly"),
           eq(questTemplatesTable.isActive, true),
           or(
@@ -29296,7 +29347,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       })
       .from(playerQuestsTable)
       .innerJoin(questTemplatesTable, eq(playerQuestsTable.questTemplateId, questTemplatesTable.id))
-      .where(and(
+      
+          .where(and(
         eq(playerQuestsTable.id, id),
         eq(playerQuestsTable.playerId, playerId)
       ));
@@ -29334,6 +29386,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             allCompleted: sql`completed_count + 1 >= 3`,
             bonusUnlocked: sql`completed_count + 1 >= 3`,
           })
+          
           .where(and(
             eq(dailyQuestSlotsTable.playerId, playerId),
             eq(dailyQuestSlotsTable.slotDate, today)
@@ -29373,7 +29426,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       })
       .from(playerQuestsTable)
       .innerJoin(questTemplatesTable, eq(playerQuestsTable.questTemplateId, questTemplatesTable.id))
-      .where(and(
+      
+          .where(and(
         eq(playerQuestsTable.id, id),
         eq(playerQuestsTable.playerId, playerId)
       ));
@@ -29519,7 +29573,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Check if player has unlocked this title
       const [playerTitle] = await db.select()
         .from(playerTitlesTable)
-        .where(and(
+        
+          .where(and(
           eq(playerTitlesTable.playerId, playerId),
           eq(playerTitlesTable.titleId, titleId)
         ));
@@ -29573,7 +29628,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       })
         .from(playerTitlesTable)
         .innerJoin(titlesTable, eq(playerTitlesTable.titleId, titlesTable.id))
-        .where(and(
+        
+          .where(and(
           eq(playerTitlesTable.playerId, playerId),
           eq(playerTitlesTable.isEquipped, true)
         ));
@@ -29746,7 +29802,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Get today's quests using simpler query pattern
       const playerQuestRows = await db.select()
         .from(playerQuestsTable)
-        .where(and(
+        
+          .where(and(
           eq(playerQuestsTable.playerId, playerId),
           inArray(playerQuestsTable.status, ["active", "completed"])
         ))
@@ -29801,7 +29858,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         if (academyId) {
           const momentResult = await db.select({ count: count() })
             .from(postsTable)
-            .where(and(
+            
+          .where(and(
               eq(postsTable.academyId, academyId),
               eq(postsTable.isHidden, false)
             ));
@@ -29809,7 +29867,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
           
           const otpResult = await db.select({ count: count() })
             .from(openToPlayTable)
-            .where(and(
+            
+          .where(and(
               eq(openToPlayTable.academyId, academyId),
               eq(openToPlayTable.isActive, true)
             ));
