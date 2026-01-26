@@ -1784,7 +1784,27 @@ export default function PlayerOnboardingV2Screen({ onComplete }: Props) {
         quizScore: onboardingData.quizScore,
       };
       const response = await apiRequest("POST", "/api/player/me/onboarding", payload);
-      return response.json();
+      const result = await response.json();
+      
+      if (onboardingData.profilePhotoUri && Platform.OS !== 'web') {
+        try {
+          const formData = new FormData();
+          const file = new File(onboardingData.profilePhotoUri);
+          formData.append("photo", file);
+          
+          await fetch(new URL("/api/player/me/photo", getApiUrl()).toString(), {
+            method: "POST",
+            headers: {
+              Authorization: `Bearer ${await import("@/lib/auth").then(m => m.getAuthToken())}`,
+            },
+            body: formData,
+          });
+        } catch (photoError) {
+          console.warn("Failed to upload profile photo:", photoError);
+        }
+      }
+      
+      return result;
     },
     onSuccess: async (responseData: { success: boolean; playerId: string; token?: string }) => {
       if (responseData.token && user) {
