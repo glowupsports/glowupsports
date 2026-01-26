@@ -36,7 +36,8 @@ The application utilizes a dark-themed gaming aesthetic, incorporating neon gree
 - **Credit System Architecture**: Player credits are managed through `playerCreditPackages` table with specific credit types (private, semi_private, group) and expiry dates. Credit deduction follows specific rules based on session type and package expiry.
 - **API Caching**: In-memory caching implemented for heavy API endpoints with defined TTLs and pattern-based invalidation.
 - **Token Refresh Mechanism**: Automatic client-side token refresh before logging out on 401 errors, supported by a server-side `refreshAuthMiddleware` that accepts expired tokens.
-- **Player Onboarding V2**: A comprehensive 15+ step onboarding flow adapted for age, including profile setup, skill assessment, goal setting, and academy selection.
+- **Player Onboarding V2**: A comprehensive 17-step onboarding flow adapted for age, including Welcome, Birthday, Gender selection (Male/Female/Prefer not to say), Photo upload, Ball Level Reveal (with age-based mapping: Red 4-6, Orange 7-8, Green 9-10, Yellow 11-17, Adult DSS 18+), level adjustment option, Why Tennis motivation, Experience (including 10-15, 15-20, 20+ years options), About Yourself, Tennis Idol (featuring new generation players: Alcaraz, Sinner, Swiatek, Rune, Sabalenka), Enjoyment tags, Focus goals, Availability, Academy selection, Goal setting, Parent connect/Quiz, and Completion.
+- **Academy Settings Welcome Video**: Academy owners can configure a welcome video URL in settings, displayed to new players during onboarding.
 
 ## External Dependencies
 
