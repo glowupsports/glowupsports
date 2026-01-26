@@ -1,4 +1,4 @@
-import React, { useCallback, useState, useEffect } from "react";
+import React, { useCallback, useState, useEffect, useMemo } from "react";
 import { View, Text, StyleSheet, ScrollView, ActivityIndicator, RefreshControl } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useFocusEffect, useNavigation } from "@react-navigation/native";
@@ -19,6 +19,8 @@ import PlayerBookingWizard from "@/player/components/PlayerBookingWizard";
 import CollapsibleModeSwitcher from "@/components/CollapsibleModeSwitcher";
 import PinEntryModal from "@/components/PinEntryModal";
 import Svg, { Line, Rect } from "react-native-svg";
+import { BirthdayConfettiOverlay } from "@/player/components/BirthdayThemeOverlay";
+import { BirthdayBanner, BirthdayXPBonusCard } from "@/player/components/BirthdayThemeOverlay";
 
 interface DashboardData {
   player: {
@@ -30,6 +32,7 @@ interface DashboardData {
     ballLevel: string | null;
     streak: number;
     profilePhotoUrl?: string | null;
+    dateOfBirth?: string | null;
   };
   coach: {
     id: string;
@@ -112,6 +115,25 @@ function PlayerHomeContent() {
 
   const { player, credits } = dashboardData;
   
+  const isBirthday = useMemo(() => {
+    if (!player?.dateOfBirth) return false;
+    const today = new Date();
+    const dob = new Date(player.dateOfBirth);
+    return today.getMonth() === dob.getMonth() && today.getDate() === dob.getDate();
+  }, [player?.dateOfBirth]);
+
+  const playerAge = useMemo(() => {
+    if (!player?.dateOfBirth) return null;
+    const today = new Date();
+    const dob = new Date(player.dateOfBirth);
+    let age = today.getFullYear() - dob.getFullYear();
+    const monthDiff = today.getMonth() - dob.getMonth();
+    if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < dob.getDate())) {
+      age--;
+    }
+    return age;
+  }, [player?.dateOfBirth]);
+  
   const handleAvatarPress = () => {
     openDrawer();
   };
@@ -138,6 +160,8 @@ function PlayerHomeContent() {
     <View style={styles.container}>
       <BroadcastBackground />
       
+      {isBirthday && <BirthdayConfettiOverlay />}
+      
       <ScrollView
         style={styles.scrollView}
         contentContainerStyle={[
@@ -154,6 +178,14 @@ function PlayerHomeContent() {
           />
         }
       >
+        {/* BIRTHDAY BANNER - Festive celebration on birthday */}
+        {isBirthday && (
+          <BirthdayBanner 
+            playerName={player.name || "Champion"} 
+            playerAge={playerAge}
+          />
+        )}
+
         {/* PLAYER HEADER - Identity card */}
         <View style={styles.headerSection}>
           <ProPlayerCard
@@ -165,6 +197,9 @@ function PlayerHomeContent() {
             showSquadSwitch={true}
           />
         </View>
+
+        {/* BIRTHDAY XP BONUS - 2x XP message on birthday */}
+        {isBirthday && <BirthdayXPBonusCard />}
 
         {/* TENNIS NEWS - Below header, above Today is Open */}
         <NewsTicker />
