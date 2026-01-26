@@ -261,6 +261,7 @@ function GameCountdown({ targetDate }: { targetDate: Date }) {
   const [timeLeft, setTimeLeft] = useState({ hours: 0, minutes: 0, seconds: 0 });
   
   useEffect(() => {
+    console.log("[Birthday] isBirthday:", isBirthday, "showPlayerDashboard:", showPlayerDashboard);
     const updateCountdown = () => {
       const now = new Date();
       const diff = Math.max(0, targetDate.getTime() - now.getTime());
@@ -325,6 +326,7 @@ function MissionCountdownRing({ targetDate, sessionDuration = 60, size = 140 }: 
   const [isSessionEnded, setIsSessionEnded] = useState(false);
   
   useEffect(() => {
+    console.log("[Birthday] isBirthday:", isBirthday, "showPlayerDashboard:", showPlayerDashboard);
     const updateCountdown = () => {
       const now = new Date();
       const sessionStart = targetDate.getTime();
@@ -923,9 +925,10 @@ export default function PlayerHomeScreen() {
   const { isBirthday } = usePlayer();
   
   useEffect(() => {
+    console.log("[Birthday] isBirthday:", isBirthday, "showPlayerDashboard:", showPlayerDashboard);
     if (isBirthday && showPlayerDashboard) {
       shouldShowBirthdayCelebration(isBirthday).then((shouldShow) => {
-        if (shouldShow) {
+        console.log("[Birthday] shouldShow:", shouldShow); if (shouldShow) {
           setShowBirthdayModal(true);
         }
       });
