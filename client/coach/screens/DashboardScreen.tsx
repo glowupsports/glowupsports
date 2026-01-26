@@ -1458,7 +1458,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   birthdayTitle: {
-    fontSize: Typography.sizes.md,
+    fontSize: 14,
     fontWeight: "600" as const,
     color: Colors.dark.text,
   },
@@ -1470,7 +1470,7 @@ const styles = StyleSheet.create({
     borderRadius: 10,
   },
   birthdayCountText: {
-    fontSize: Typography.sizes.sm,
+    fontSize: 12,
     fontWeight: "700" as const,
     color: "#FF69B4",
   },
@@ -1484,17 +1484,17 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
   },
   birthdayPlayerName: {
-    fontSize: Typography.sizes.md,
+    fontSize: 14,
     fontWeight: "500" as const,
     color: Colors.dark.text,
   },
   birthdayPlayerAge: {
-    fontSize: Typography.sizes.sm,
+    fontSize: 12,
     color: "#FFD700",
     fontWeight: "500" as const,
   },
   birthdayNote: {
-    fontSize: Typography.sizes.xs,
+    fontSize: 10,
     color: Colors.dark.xpCyan,
     fontStyle: "italic",
     textAlign: "center" as const,
