@@ -95,6 +95,7 @@ interface OnboardingData {
   gender: string | null;
   profilePhotoUri: string | null;
   motivationType: string | null;
+  motivationTypes: string[];
   experienceLevel: string | null;
   height: number | null;
   tshirtSize: TshirtSize | null;
@@ -108,6 +109,7 @@ interface OnboardingData {
   academyId: string | null;
   academyName: string | null;
   shortTermGoal: string | null;
+  shortTermGoals: string[];
   longTermDream: string | null;
   parentEmail: string | null;
   quizScore: number;
@@ -612,6 +614,7 @@ function BallLevelRevealStep({ data, setData, onNext, age }: StepProps & { age: 
   }, []);
 
   const ballOptions = [
+    { id: "blue", label: "Blue Ball", color: BallLevelColors.blue, description: "Soft foam fun for little ones" },
     { id: "red", label: "Red Ball", color: BallLevelColors.red, description: "Mini court, soft ball" },
     { id: "orange", label: "Orange Ball", color: BallLevelColors.orange, description: "3/4 court" },
     { id: "green", label: "Green Ball", color: BallLevelColors.green, description: "Full court, slower ball" },
@@ -883,56 +886,98 @@ function WhyTennisStep({ data, setData, onNext, ageGroup }: StepProps) {
   };
 
   const currentOptions = options[ageGroup || "adult"];
+  const selectedMotivations = data.motivationTypes || [];
+
+  const toggleMotivation = (id: string) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    setData((prev) => {
+      const current = prev.motivationTypes || [];
+      if (current.includes(id)) {
+        return { ...prev, motivationTypes: current.filter((m) => m !== id), motivationType: current.filter((m) => m !== id)[0] || null };
+      }
+      return { ...prev, motivationTypes: [...current, id], motivationType: id };
+    });
+  };
 
   return (
     <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.stepContainer} showsVerticalScrollIndicator={false}>
       <Animated.View entering={FadeInDown.delay(100).duration(500)}>
         <Text style={styles.stepTitle}>Why Tennis?</Text>
-        <Text style={styles.stepSubtitle}>What brings you to the court?</Text>
+        <Text style={styles.stepSubtitle}>What brings you to the court? (Select all that apply)</Text>
       </Animated.View>
 
       <Animated.View entering={FadeInDown.delay(300).duration(500)} style={styles.optionsContainer}>
-        {currentOptions.map((option) => (
+        {currentOptions.map((option) => {
+          const isSelected = selectedMotivations.includes(option.id);
+          return (
+            <Pressable
+              key={option.id}
+              style={[styles.selectableCard, isSelected ? styles.selectableCardActive : null]}
+              onPress={() => toggleMotivation(option.id)}
+            >
+              <Ionicons
+                name={option.icon as any}
+                size={28}
+                color={isSelected ? GlowColors.primary : Colors.dark.textMuted}
+              />
+              <Text style={[styles.selectableCardText, isSelected ? styles.selectableCardTextActive : null]}>
+                {option.label}
+              </Text>
+              {isSelected ? (
+                <View style={styles.checkIcon}>
+                  <Ionicons name="checkmark" size={16} color={Colors.dark.backgroundRoot} />
+                </View>
+              ) : null}
+            </Pressable>
+          );
+        })}
+      </Animated.View>
+
+      {selectedMotivations.length > 0 ? (
+        <Animated.View entering={FadeInUp.delay(100).duration(300)} style={styles.videoNextContainer}>
           <Pressable
-            key={option.id}
-            style={[styles.selectableCard, data.motivationType === option.id ? styles.selectableCardActive : null]}
+            style={styles.primaryButton}
             onPress={() => {
-              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-              setData((prev) => ({ ...prev, motivationType: option.id }));
-              setTimeout(onNext, 300);
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+              onNext();
             }}
           >
-            <Ionicons
-              name={option.icon as any}
-              size={28}
-              color={data.motivationType === option.id ? GlowColors.primary : Colors.dark.textMuted}
-            />
-            <Text style={[styles.selectableCardText, data.motivationType === option.id ? styles.selectableCardTextActive : null]}>
-              {option.label}
-            </Text>
-            {data.motivationType === option.id ? (
-              <View style={styles.checkIcon}>
-                <Ionicons name="checkmark" size={16} color={Colors.dark.backgroundRoot} />
-              </View>
-            ) : null}
+            <Text style={styles.primaryButtonText}>Next</Text>
+            <Ionicons name="arrow-forward" size={20} color={Colors.dark.backgroundRoot} />
           </Pressable>
-        ))}
-      </Animated.View>
+        </Animated.View>
+      ) : null}
     </ScrollView>
   );
 }
 
-function ExperienceStep({ data, setData, onNext }: StepProps) {
-  const options = [
-    { id: "new", label: "New to tennis" },
-    { id: "6-12months", label: "6-12 months" },
-    { id: "1-3years", label: "1-3 years" },
-    { id: "3-5years", label: "3-5 years" },
-    { id: "5-10years", label: "5-10 years" },
-    { id: "10-15years", label: "10-15 years" },
-    { id: "15-20years", label: "15-20 years" },
-    { id: "20+years", label: "20+ years" },
+function ExperienceStep({ data, setData, onNext, age }: StepProps & { age?: number }) {
+  const playerAge = age || 18;
+  
+  const allOptions = [
+    { id: "new", label: "New to tennis", maxAge: 100 },
+    { id: "6-12months", label: "6-12 months", maxAge: 100 },
+    { id: "1-3years", label: "1-3 years", maxAge: 100 },
+    { id: "3-5years", label: "3-5 years", maxAge: 100 },
+    { id: "5-10years", label: "5-10 years", maxAge: 100 },
+    { id: "10-15years", label: "10-15 years", maxAge: 100 },
+    { id: "15-20years", label: "15-20 years", maxAge: 100 },
+    { id: "20+years", label: "20+ years", maxAge: 100 },
   ];
+
+  const getMaxExperience = (playerAge: number): string[] => {
+    if (playerAge < 2) return ["new"];
+    if (playerAge < 3) return ["new", "6-12months"];
+    if (playerAge < 5) return ["new", "6-12months", "1-3years"];
+    if (playerAge < 8) return ["new", "6-12months", "1-3years", "3-5years"];
+    if (playerAge < 13) return ["new", "6-12months", "1-3years", "3-5years", "5-10years"];
+    if (playerAge < 18) return ["new", "6-12months", "1-3years", "3-5years", "5-10years", "10-15years"];
+    if (playerAge < 23) return ["new", "6-12months", "1-3years", "3-5years", "5-10years", "10-15years", "15-20years"];
+    return allOptions.map(o => o.id);
+  };
+
+  const availableIds = getMaxExperience(playerAge);
+  const options = allOptions.filter(opt => availableIds.includes(opt.id));
 
   return (
     <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.stepContainer} showsVerticalScrollIndicator={false}>
@@ -949,7 +994,6 @@ function ExperienceStep({ data, setData, onNext }: StepProps) {
             onPress={() => {
               Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
               setData((prev) => ({ ...prev, experienceLevel: option.id }));
-              setTimeout(onNext, 300);
             }}
           >
             <Text style={[styles.chipText, data.experienceLevel === option.id ? styles.chipTextActive : null]}>
@@ -958,6 +1002,21 @@ function ExperienceStep({ data, setData, onNext }: StepProps) {
           </Pressable>
         ))}
       </Animated.View>
+
+      {data.experienceLevel ? (
+        <Animated.View entering={FadeInUp.delay(100).duration(300)} style={styles.videoNextContainer}>
+          <Pressable
+            style={styles.primaryButton}
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+              onNext();
+            }}
+          >
+            <Text style={styles.primaryButtonText}>Next</Text>
+            <Ionicons name="arrow-forward" size={20} color={Colors.dark.backgroundRoot} />
+          </Pressable>
+        </Animated.View>
+      ) : null}
     </ScrollView>
   );
 }
@@ -1392,7 +1451,7 @@ function AcademySelectionStep({ data, setData, onNext }: StepProps) {
 }
 
 function GoalSettingStep({ data, setData, onNext }: StepProps) {
-  const [shortTermGoal, setShortTermGoal] = useState(data.shortTermGoal || "");
+  const [selectedGoals, setSelectedGoals] = useState<string[]>(data.shortTermGoals || []);
   const [longTermDream, setLongTermDream] = useState(data.longTermDream || "");
 
   const goalChips = [
@@ -1403,40 +1462,37 @@ function GoalSettingStep({ data, setData, onNext }: StepProps) {
     "Have fun",
   ];
 
+  const toggleGoal = (goal: string) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    setSelectedGoals(prev => {
+      const newGoals = prev.includes(goal) 
+        ? prev.filter(g => g !== goal) 
+        : [...prev, goal];
+      setData(d => ({ ...d, shortTermGoals: newGoals, shortTermGoal: newGoals[0] || null }));
+      return newGoals;
+    });
+  };
+
   return (
     <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.stepContainer} showsVerticalScrollIndicator={false}>
       <Animated.View entering={FadeInDown.delay(100).duration(500)}>
         <Text style={styles.stepTitle}>Set Your Goals</Text>
-        <Text style={styles.stepSubtitle}>What do you want to achieve?</Text>
+        <Text style={styles.stepSubtitle}>What do you want to achieve? (Select all that apply)</Text>
       </Animated.View>
 
       <Animated.View entering={FadeInDown.delay(200).duration(500)} style={styles.sectionContainer}>
-        <Text style={styles.sectionLabel}>3-month goal</Text>
+        <Text style={styles.sectionLabel}>3-month goals</Text>
         <View style={styles.chipsContainer}>
           {goalChips.map((chip) => (
             <Pressable
               key={chip}
-              style={[styles.chip, shortTermGoal === chip ? styles.chipActive : null]}
-              onPress={() => {
-                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                setShortTermGoal(chip);
-                setData((prev) => ({ ...prev, shortTermGoal: chip }));
-              }}
+              style={[styles.chip, selectedGoals.includes(chip) ? styles.chipActive : null]}
+              onPress={() => toggleGoal(chip)}
             >
-              <Text style={[styles.chipText, shortTermGoal === chip ? styles.chipTextActive : null]}>{chip}</Text>
+              <Text style={[styles.chipText, selectedGoals.includes(chip) ? styles.chipTextActive : null]}>{chip}</Text>
             </Pressable>
           ))}
         </View>
-        <TextInput
-          style={[styles.textInput, { marginTop: Spacing.md }]}
-          value={shortTermGoal}
-          onChangeText={(text) => {
-            setShortTermGoal(text);
-            setData((prev) => ({ ...prev, shortTermGoal: text }));
-          }}
-          placeholder="Or type your own goal..."
-          placeholderTextColor={Colors.dark.textMuted}
-        />
       </Animated.View>
 
       <Animated.View entering={FadeInDown.delay(300).duration(500)} style={styles.sectionContainer}>
@@ -1681,6 +1737,7 @@ export default function PlayerOnboardingV2Screen({ onComplete }: Props) {
     gender: null,
     profilePhotoUri: null,
     motivationType: null,
+    motivationTypes: [],
     experienceLevel: null,
     height: null,
     tshirtSize: null,
@@ -1694,6 +1751,7 @@ export default function PlayerOnboardingV2Screen({ onComplete }: Props) {
     academyId: null,
     academyName: null,
     shortTermGoal: null,
+    shortTermGoals: [],
     longTermDream: null,
     parentEmail: null,
     quizScore: 0,
@@ -1771,7 +1829,7 @@ export default function PlayerOnboardingV2Screen({ onComplete }: Props) {
       case 3: return true; // Photo (optional)
       case 4: return true; // Ball/Glow Level Reveal
       case 5: return true; // Platform Welcome Video
-      case 6: return !!data.motivationType; // Why Tennis
+      case 6: return (data.motivationTypes?.length || 0) > 0; // Why Tennis
       case 7: return !!data.experienceLevel; // Experience
       case 8: return !!data.dominantHand; // About Yourself
       case 9: return true; // Tennis Idol (optional)
@@ -1799,7 +1857,7 @@ export default function PlayerOnboardingV2Screen({ onComplete }: Props) {
       case 4: return age !== null ? <BallLevelRevealStep {...stepProps} age={age} /> : null;
       case 5: return <PlatformWelcomeVideoStep {...stepProps} />;
       case 6: return <WhyTennisStep {...stepProps} />;
-      case 7: return <ExperienceStep {...stepProps} />;
+      case 7: return <ExperienceStep {...stepProps} age={age || undefined} />;
       case 8: return <AboutYourselfStep {...stepProps} />;
       case 9: return <TennisIdolStep {...stepProps} />;
       case 10: return <EnjoymentStep {...stepProps} />;
