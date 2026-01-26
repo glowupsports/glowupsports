@@ -38,6 +38,7 @@ import { useAuth } from "@/coach/context/AuthContext";
 import { LockedScreen } from "../components/LockedScreen";
 import * as Clipboard from "expo-clipboard";
 import * as WebBrowser from "expo-web-browser";
+import { useWalkthrough } from "@/player/context/WalkthroughContext";
 
 type FeedFilter = "for_you" | "news" | "academy" | "moments" | "events";
 type MainTab = "feed" | "friends" | "groups";
@@ -2829,6 +2830,7 @@ export default function CommunityScreen() {
   const tabBarHeight = useBottomTabBarHeight();
   const queryClient = useQueryClient();
   const { user } = useAuth();
+  const { hasSeenScreen, startWalkthrough } = useWalkthrough();
   const [mainTab, setMainTab] = useState<MainTab>("feed");
   const [filter, setFilter] = useState<FeedFilter>("for_you");
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -2837,6 +2839,15 @@ export default function CommunityScreen() {
   const [showPostDetailModal, setShowPostDetailModal] = useState(false);
   const [selectedFriendActivity, setSelectedFriendActivity] = useState<FriendActivity | null>(null);
   const chatFooterHeight = 70;
+
+  useEffect(() => {
+    if (!hasSeenScreen("Social")) {
+      const timer = setTimeout(() => {
+        startWalkthrough("Social");
+      }, 500);
+      return () => clearTimeout(timer);
+    }
+  }, [hasSeenScreen, startWalkthrough]);
   
   // Fetch friend requests count for badge
   const { data: friendsData } = useQuery<{ friends: any[]; pendingRequests: any[] }>({

@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { View, Text, StyleSheet, ScrollView, ActivityIndicator, Pressable, Modal, FlatList } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
@@ -12,6 +12,7 @@ import BallLevelBadge from "@/components/BallLevelBadge";
 import PillarProgressRings from "@/components/PillarProgressRings";
 import { EmptyStateCard } from "@/components/EmptyStateCard";
 import { getStageFromLevel, type BallStage } from "@shared/language-switch";
+import { useWalkthrough } from "@/player/context/WalkthroughContext";
 
 interface DomainInsights {
   recentHighlights: string[];
@@ -1537,6 +1538,7 @@ function getSessionTypeColor(type: string): string {
 export default function PlayerProgressScreen() {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<any>();
+  const { hasSeenScreen, startWalkthrough } = useWalkthrough();
   const [showLevelModal, setShowLevelModal] = useState(false);
   const [showGlowScoreModal, setShowGlowScoreModal] = useState(false);
   const [showXpModal, setShowXpModal] = useState(false);
@@ -1544,6 +1546,15 @@ export default function PlayerProgressScreen() {
   const [showAdultGlowModal, setShowAdultGlowModal] = useState(false);
   const [showPillarModal, setShowPillarModal] = useState(false);
   const [selectedPillar, setSelectedPillar] = useState<SkillDomain | null>(null);
+
+  useEffect(() => {
+    if (!hasSeenScreen("Progress")) {
+      const timer = setTimeout(() => {
+        startWalkthrough("Progress");
+      }, 500);
+      return () => clearTimeout(timer);
+    }
+  }, [hasSeenScreen, startWalkthrough]);
   
   const isAdultPlayer = (level: string | null) => {
     if (!level) return false;

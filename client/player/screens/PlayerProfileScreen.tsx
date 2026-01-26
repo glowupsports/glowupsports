@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { View, Text, StyleSheet, ScrollView, Pressable, ActivityIndicator, Alert, Platform, Linking, Switch, Image as RNImage, Modal, FlatList } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
@@ -16,6 +16,7 @@ import PinEntryModal from "@/components/PinEntryModal";
 import Animated, { useSharedValue, useAnimatedStyle, withSpring } from "react-native-reanimated";
 import { apiRequest, getApiUrl, getStaticAssetsUrl } from "@/lib/query-client";
 import { getAuthToken } from "@/lib/auth";
+import { useWalkthrough } from "@/player/context/WalkthroughContext";
 
 interface ProfileData {
   player: {
@@ -149,11 +150,21 @@ export default function PlayerProfileScreen() {
   const navigation = useNavigation<any>();
   const { setMode } = useAppMode();
   const { logout } = useAuth();
+  const { hasSeenScreen, startWalkthrough } = useWalkthrough();
   const [showPinModal, setShowPinModal] = useState(false);
   const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
   const [activeTab, setActiveTab] = useState<ProfileTab>("moments");
   const [showTitlesModal, setShowTitlesModal] = useState(false);
   const queryClient = useQueryClient();
+
+  useEffect(() => {
+    if (!hasSeenScreen("Profile")) {
+      const timer = setTimeout(() => {
+        startWalkthrough("Profile");
+      }, 500);
+      return () => clearTimeout(timer);
+    }
+  }, [hasSeenScreen, startWalkthrough]);
 
   const { data, isLoading, error } = useQuery<ProfileData>({
     queryKey: ["/api/player/me/profile"],

@@ -1,4 +1,4 @@
-import React, { useCallback, useState } from "react";
+import React, { useCallback, useState, useEffect } from "react";
 import { View, Text, StyleSheet, ScrollView, ActivityIndicator, RefreshControl } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useFocusEffect, useNavigation } from "@react-navigation/native";
@@ -6,6 +6,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Spacing, Backgrounds, GlowColors, BorderRadius, Colors } from "@/constants/theme";
 import { useAuth } from "@/coach/context/AuthContext";
 import { usePlayerDrawer } from "@/player/navigation/PlayerNavigator";
+import { useWalkthrough } from "@/player/context/WalkthroughContext";
 import { PlayerStateProvider } from "@/player/context/PlayerStateContext";
 import { ProPlayerCard } from "@/player/components/ProPlayerCard";
 import { PlayersNearYouRow, OpenSessionsRow, TrainingSessionsRow } from "@/player/components/DiscoveryRows";
@@ -76,11 +77,21 @@ function PlayerHomeContent() {
   const navigation = useNavigation<any>();
   const [showBookingWizard, setShowBookingWizard] = useState(false);
   const [showPinModal, setShowPinModal] = useState(false);
+  const { hasSeenScreen, startWalkthrough } = useWalkthrough();
 
   const { data: dashboardData, isLoading, refetch, isRefetching } = useQuery<DashboardData>({
     queryKey: ["/api/player/me/dashboard"],
     enabled: !!user?.playerId,
   });
+
+  useEffect(() => {
+    if (dashboardData && !hasSeenScreen("Home")) {
+      const timer = setTimeout(() => {
+        startWalkthrough("Home");
+      }, 1000);
+      return () => clearTimeout(timer);
+    }
+  }, [dashboardData, hasSeenScreen, startWalkthrough]);
 
   useFocusEffect(
     useCallback(() => {

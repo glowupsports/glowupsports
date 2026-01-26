@@ -79,6 +79,8 @@ import { usePushNotifications } from "@/hooks/usePushNotifications";
 import { PlayerDrawerProvider, usePlayerDrawer } from "@/player/context/PlayerDrawerContext";
 import { PlayerLevelProvider } from "@/player/context/PlayerLevelContext";
 import { FamilyProvider } from "@/player/context/FamilyContext";
+import { WalkthroughProvider } from "@/player/context/WalkthroughContext";
+import { WalkthroughOverlay } from "@/player/components/WalkthroughOverlay";
 import { PlayerProvider as PlayerDataProvider } from "@/player/context/PlayerContext";
 import { QuickActionsFAB, QuickAction } from "@/components/QuickActionsFAB";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
@@ -945,9 +947,12 @@ export default function PlayerNavigator() {
       <CartProvider>
         <FamilyProvider playerId={playerId}>
           <PlayerLevelProvider playerId={playerId}>
-            <View style={styles.container}>
-              <PlayerStackNavigator />
-            </View>
+            <WalkthroughProvider>
+              <View style={styles.container}>
+                <PlayerStackNavigator />
+                <WalkthroughOverlay />
+              </View>
+            </WalkthroughProvider>
           </PlayerLevelProvider>
         </FamilyProvider>
       </CartProvider>

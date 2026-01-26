@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import { View, Text, StyleSheet, ScrollView, Pressable, ActivityIndicator, Alert, Modal, Platform } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
@@ -10,6 +10,7 @@ import Animated, { FadeInDown, FadeIn, FadeInUp, useAnimatedStyle, useSharedValu
 import DateTimePicker from "@react-native-community/datetimepicker";
 import { Colors, Spacing, BorderRadius } from "@/constants/theme";
 import { apiRequest } from "@/lib/query-client";
+import { useWalkthrough } from "@/player/context/WalkthroughContext";
 
 const ProTennisColors = {
   midnightBlue: "#0B0D10",
@@ -153,6 +154,7 @@ export default function PlayerScheduleScreen() {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<any>();
   const queryClient = useQueryClient();
+  const { hasSeenScreen, startWalkthrough } = useWalkthrough();
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [showAttendanceModal, setShowAttendanceModal] = useState(false);
@@ -162,6 +164,15 @@ export default function PlayerScheduleScreen() {
   const [vacationEndDate, setVacationEndDate] = useState<Date | null>(null);
   const [showStartPicker, setShowStartPicker] = useState(false);
   const [showEndPicker, setShowEndPicker] = useState(false);
+
+  useEffect(() => {
+    if (!hasSeenScreen("Schedule")) {
+      const timer = setTimeout(() => {
+        startWalkthrough("Schedule");
+      }, 500);
+      return () => clearTimeout(timer);
+    }
+  }, [hasSeenScreen, startWalkthrough]);
 
   const { data: rawSessions, isLoading: sessionsLoading, error: sessionsError } = useQuery<SessionData[]>({
     queryKey: ["/api/player/me/sessions"],

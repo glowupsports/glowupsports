@@ -10,6 +10,7 @@ import * as Haptics from "expo-haptics";
 import { Colors, Spacing, Typography, BorderRadius, Backgrounds, GlowColors } from "@/constants/theme";
 import { formatSessionTimeWithRelativeDay } from "@/lib/dateUtils";
 import { apiRequest, getStaticAssetsUrl } from "@/lib/query-client";
+import { useWalkthrough } from "@/player/context/WalkthroughContext";
 
 const courtBackground = require("@/assets/images/courts/court-night-default.png");
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
@@ -113,6 +114,7 @@ export default function PlayScreen() {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<any>();
   const queryClient = useQueryClient();
+  const { hasSeenScreen, startWalkthrough } = useWalkthrough();
   const [activeTab, setActiveTab] = useState<typeof TAB_OPTIONS[number]>("Group Lessons");
   const [joiningSessionId, setJoiningSessionId] = useState<string | null>(null);
   const [currentTime, setCurrentTime] = useState(new Date());
@@ -122,6 +124,15 @@ export default function PlayScreen() {
   const [selectedDay, setSelectedDay] = useState<string>("all");
   const [selectedPlayerLevel, setSelectedPlayerLevel] = useState<string>("all");
   const [discoverFilter, setDiscoverFilter] = useState<DiscoverFilter>("all");
+
+  useEffect(() => {
+    if (!hasSeenScreen("Play")) {
+      const timer = setTimeout(() => {
+        startWalkthrough("Play");
+      }, 500);
+      return () => clearTimeout(timer);
+    }
+  }, [hasSeenScreen, startWalkthrough]);
 
   const { data: profileData } = useQuery<{ player: { ballLevel?: string } }>({
     queryKey: ["/api/player/me/profile"],
