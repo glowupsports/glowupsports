@@ -15495,6 +15495,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         onboardingCompleted: players.onboardingCompleted,
         profilePhotoUrl: players.profilePhotoUrl,
         academyId: players.academyId,
+        dateOfBirth: players.dateOfBirth,
+        parentEmail: players.parentEmail,
+        coachId: players.coachId,
       })
       .from(players)
       .where(
@@ -30401,6 +30404,35 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json({ users: recentUsers, players: recentPlayers });
     } catch (error) {
       console.error("Debug query error:", error);
+      res.status(500).json({ error: "Debug query failed" });
+
+    }
+  });
+  // Debug endpoint to get specific player data for troubleshooting
+  app.get("/api/debug/player/:playerId", async (req: Request, res: Response) => {
+    try {
+      const { playerId } = req.params;
+      const player = await db.select({
+        id: players.id,
+        name: players.name,
+        displayName: players.displayName,
+        email: players.email,
+        ballLevel: players.ballLevel,
+        dateOfBirth: players.dateOfBirth,
+        parentEmail: players.parentEmail,
+        coachId: players.coachId,
+        academyId: players.academyId,
+        profilePhotoUrl: players.profilePhotoUrl,
+        onboardingCompleted: players.onboardingCompleted
+      }).from(players).where(eq(players.id, playerId)).limit(1);
+      
+      if (player.length === 0) {
+        return res.status(404).json({ error: "Player not found" });
+      }
+      
+      res.json(player[0]);
+    } catch (error) {
+      console.error("Debug player query error:", error);
       res.status(500).json({ error: "Debug query failed" });
     }
   });
