@@ -131,7 +131,7 @@ interface StepProps {
   ageGroup?: AgeGroup;
 }
 
-const TOTAL_STEPS = 17;
+const TOTAL_STEPS = 19;
 
 function ProgressBar({ currentStep, totalSteps }: { currentStep: number; totalSteps: number }) {
   return (
@@ -694,6 +694,131 @@ function BallLevelRevealStep({ data, setData, onNext, age }: StepProps & { age: 
         </Pressable>
       </Modal>
     </View>
+  );
+}
+
+function PlatformWelcomeVideoStep({ onNext }: StepProps) {
+  const { data: videoData } = useQuery<{ url: string | null }>({
+    queryKey: ["/api/public/platform/welcome-video"],
+  });
+
+  const hasVideo = !!videoData?.url;
+
+  return (
+    <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.stepContainer} showsVerticalScrollIndicator={false}>
+      <Animated.View entering={FadeInDown.delay(100).duration(500)}>
+        <Text style={styles.stepTitle}>Welcome to Glow Up Sports</Text>
+        <Text style={styles.stepSubtitle}>Watch this quick intro to see what your tennis journey looks like</Text>
+      </Animated.View>
+
+      <Animated.View entering={ZoomIn.delay(300).springify()} style={styles.videoContainer}>
+        {hasVideo ? (
+          <View style={styles.videoPlayer}>
+            <LinearGradient
+              colors={[`${GlowColors.primary}30`, `${GlowColors.secondary}30`]}
+              style={styles.videoPlaceholder}
+            >
+              <Ionicons name="play-circle" size={64} color={GlowColors.primary} />
+              <Text style={styles.videoPlaceholderText}>Platform Welcome Video</Text>
+              <Text style={styles.videoUrlHint}>{videoData.url}</Text>
+            </LinearGradient>
+          </View>
+        ) : (
+          <View style={styles.videoPlayer}>
+            <LinearGradient
+              colors={[`${GlowColors.primary}30`, `${GlowColors.secondary}30`]}
+              style={styles.videoPlaceholder}
+            >
+              <Ionicons name="tennisball" size={64} color={GlowColors.primary} />
+              <Text style={styles.videoPlaceholderText}>Your Glow Journey Awaits</Text>
+              <Text style={styles.videoPlaceholderSubtext}>Level up your game with personalized coaching</Text>
+            </LinearGradient>
+          </View>
+        )}
+      </Animated.View>
+
+      <Animated.View entering={FadeInUp.delay(500).duration(400)} style={styles.videoFeatures}>
+        <View style={styles.videoFeatureItem}>
+          <View style={[styles.videoFeatureIcon, { backgroundColor: `${GlowColors.primary}20` }]}>
+            <Ionicons name="trending-up" size={20} color={GlowColors.primary} />
+          </View>
+          <Text style={styles.videoFeatureText}>Track your progress</Text>
+        </View>
+        <View style={styles.videoFeatureItem}>
+          <View style={[styles.videoFeatureIcon, { backgroundColor: `${GlowColors.secondary}20` }]}>
+            <Ionicons name="trophy" size={20} color={GlowColors.secondary} />
+          </View>
+          <Text style={styles.videoFeatureText}>Earn XP & badges</Text>
+        </View>
+        <View style={styles.videoFeatureItem}>
+          <View style={[styles.videoFeatureIcon, { backgroundColor: `${GlowColors.tertiary}20` }]}>
+            <Ionicons name="people" size={20} color={GlowColors.tertiary} />
+          </View>
+          <Text style={styles.videoFeatureText}>Connect with coaches</Text>
+        </View>
+      </Animated.View>
+    </ScrollView>
+  );
+}
+
+function AcademyWelcomeVideoStep({ data, onNext }: StepProps) {
+  const { data: academyData } = useQuery<{ welcomeVideoUrl?: string; name?: string }>({
+    queryKey: data.selectedAcademyId ? [`/api/academies/${data.selectedAcademyId}/settings`] : [],
+    enabled: !!data.selectedAcademyId,
+  });
+
+  const hasVideo = !!academyData?.welcomeVideoUrl;
+  const academyName = academyData?.name || "Your Academy";
+
+  return (
+    <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.stepContainer} showsVerticalScrollIndicator={false}>
+      <Animated.View entering={FadeInDown.delay(100).duration(500)}>
+        <Text style={styles.stepTitle}>Welcome to {academyName}</Text>
+        <Text style={styles.stepSubtitle}>A message from your new tennis family</Text>
+      </Animated.View>
+
+      <Animated.View entering={ZoomIn.delay(300).springify()} style={styles.videoContainer}>
+        {hasVideo ? (
+          <View style={styles.videoPlayer}>
+            <LinearGradient
+              colors={[`${GlowColors.secondary}30`, `${GlowColors.tertiary}30`]}
+              style={styles.videoPlaceholder}
+            >
+              <Ionicons name="play-circle" size={64} color={GlowColors.secondary} />
+              <Text style={styles.videoPlaceholderText}>Academy Welcome Video</Text>
+              <Text style={styles.videoUrlHint}>{academyData.welcomeVideoUrl}</Text>
+            </LinearGradient>
+          </View>
+        ) : (
+          <View style={styles.videoPlayer}>
+            <LinearGradient
+              colors={[`${GlowColors.secondary}30`, `${GlowColors.tertiary}30`]}
+              style={styles.videoPlaceholder}
+            >
+              <Ionicons name="school" size={64} color={GlowColors.secondary} />
+              <Text style={styles.videoPlaceholderText}>Ready to Start</Text>
+              <Text style={styles.videoPlaceholderSubtext}>Your coaches are excited to meet you</Text>
+            </LinearGradient>
+          </View>
+        )}
+      </Animated.View>
+
+      <Animated.View entering={FadeInUp.delay(500).duration(400)} style={styles.academyHighlights}>
+        <Text style={styles.academyHighlightsTitle}>What's Next</Text>
+        <View style={styles.nextStepItem}>
+          <View style={styles.nextStepNumber}><Text style={styles.nextStepNumberText}>1</Text></View>
+          <Text style={styles.nextStepText}>Book your first session</Text>
+        </View>
+        <View style={styles.nextStepItem}>
+          <View style={styles.nextStepNumber}><Text style={styles.nextStepNumberText}>2</Text></View>
+          <Text style={styles.nextStepText}>Meet your coach</Text>
+        </View>
+        <View style={styles.nextStepItem}>
+          <View style={styles.nextStepNumber}><Text style={styles.nextStepNumberText}>3</Text></View>
+          <Text style={styles.nextStepText}>Start earning XP</Text>
+        </View>
+      </Animated.View>
+    </ScrollView>
   );
 }
 
@@ -1604,18 +1729,20 @@ export default function PlayerOnboardingV2Screen({ onComplete }: Props) {
       case 2: return !!data.gender; // Gender
       case 3: return true; // Photo (optional)
       case 4: return true; // Ball/Glow Level Reveal
-      case 5: return !!data.motivationType; // Why Tennis
-      case 6: return !!data.experienceLevel; // Experience
-      case 7: return !!data.dominantHand; // About Yourself
-      case 8: return true; // Tennis Idol (optional)
-      case 9: return data.enjoymentTags.length > 0; // Enjoyment
-      case 10: return data.focusGoals.length > 0; // Focus Goals
-      case 11: return data.typicalPlayTimes.length > 0; // Availability
-      case 12: return true; // Academy Selection
-      case 13: return true; // Goal Setting
-      case 14: return true; // Parent Connect or Quiz
-      case 15: return true; // Quiz or Completion
-      case 16: return true; // Completion
+      case 5: return true; // Platform Welcome Video
+      case 6: return !!data.motivationType; // Why Tennis
+      case 7: return !!data.experienceLevel; // Experience
+      case 8: return !!data.dominantHand; // About Yourself
+      case 9: return true; // Tennis Idol (optional)
+      case 10: return data.enjoymentTags.length > 0; // Enjoyment
+      case 11: return data.focusGoals.length > 0; // Focus Goals
+      case 12: return data.typicalPlayTimes.length > 0; // Availability
+      case 13: return true; // Academy Selection
+      case 14: return true; // Academy Welcome Video
+      case 15: return true; // Goal Setting
+      case 16: return true; // Parent Connect or Quiz
+      case 17: return true; // Quiz or Completion
+      case 18: return true; // Completion
       default: return false;
     }
   };
@@ -1629,23 +1756,25 @@ export default function PlayerOnboardingV2Screen({ onComplete }: Props) {
       case 2: return <GenderStep {...stepProps} />;
       case 3: return <PhotoUploadStep {...stepProps} />;
       case 4: return age !== null ? <BallLevelRevealStep {...stepProps} age={age} /> : null;
-      case 5: return <WhyTennisStep {...stepProps} />;
-      case 6: return <ExperienceStep {...stepProps} />;
-      case 7: return <AboutYourselfStep {...stepProps} />;
-      case 8: return <TennisIdolStep {...stepProps} />;
-      case 9: return <EnjoymentStep {...stepProps} />;
-      case 10: return <FocusGoalsStep {...stepProps} />;
-      case 11: return <AvailabilityStep {...stepProps} />;
-      case 12: return <AcademySelectionStep {...stepProps} />;
-      case 13: return <GoalSettingStep {...stepProps} />;
-      case 14: return needsParentConnect ? <ParentConnectStep {...stepProps} /> : <TennisQuizStep {...stepProps} />;
-      case 15: return needsParentConnect && isBeginner ? <TennisQuizStep {...stepProps} /> : <CompletionStep {...stepProps} onComplete={handleComplete} />;
-      case 16: return <CompletionStep {...stepProps} onComplete={handleComplete} />;
+      case 5: return <PlatformWelcomeVideoStep {...stepProps} />;
+      case 6: return <WhyTennisStep {...stepProps} />;
+      case 7: return <ExperienceStep {...stepProps} />;
+      case 8: return <AboutYourselfStep {...stepProps} />;
+      case 9: return <TennisIdolStep {...stepProps} />;
+      case 10: return <EnjoymentStep {...stepProps} />;
+      case 11: return <FocusGoalsStep {...stepProps} />;
+      case 12: return <AvailabilityStep {...stepProps} />;
+      case 13: return <AcademySelectionStep {...stepProps} />;
+      case 14: return <AcademyWelcomeVideoStep {...stepProps} />;
+      case 15: return <GoalSettingStep {...stepProps} />;
+      case 16: return needsParentConnect ? <ParentConnectStep {...stepProps} /> : <TennisQuizStep {...stepProps} />;
+      case 17: return needsParentConnect && isBeginner ? <TennisQuizStep {...stepProps} /> : <CompletionStep {...stepProps} onComplete={handleComplete} />;
+      case 18: return <CompletionStep {...stepProps} onComplete={handleComplete} />;
       default: return null;
     }
   };
 
-  const isCompletionStep = currentStep === TOTAL_STEPS - 1 || (currentStep === 15 && (!needsParentConnect || !isBeginner));
+  const isCompletionStep = currentStep === TOTAL_STEPS - 1 || (currentStep === 17 && (!needsParentConnect || !isBeginner));
 
   return (
     <View style={[styles.container, { paddingTop: insets.top + Spacing.lg }]}>
@@ -2486,5 +2615,90 @@ const styles = StyleSheet.create({
   genderTextActive: {
     color: GlowColors.primary,
     fontWeight: "600",
+  },
+  videoContainer: {
+    marginVertical: Spacing.xl,
+  },
+  videoPlayer: {
+    borderRadius: BorderRadius.lg,
+    overflow: "hidden",
+  },
+  videoPlaceholder: {
+    height: 200,
+    justifyContent: "center",
+    alignItems: "center",
+    borderRadius: BorderRadius.lg,
+    gap: Spacing.sm,
+  },
+  videoPlaceholderText: {
+    ...Typography.h3,
+    color: Colors.dark.text,
+    marginTop: Spacing.sm,
+  },
+  videoPlaceholderSubtext: {
+    ...Typography.body,
+    color: Colors.dark.textMuted,
+  },
+  videoUrlHint: {
+    ...Typography.small,
+    color: Colors.dark.textMuted,
+    marginTop: Spacing.xs,
+  },
+  videoFeatures: {
+    gap: Spacing.md,
+    marginTop: Spacing.lg,
+  },
+  videoFeatureItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.md,
+    padding: Spacing.md,
+    backgroundColor: Backgrounds.card,
+    borderRadius: BorderRadius.md,
+  },
+  videoFeatureIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  videoFeatureText: {
+    ...Typography.body,
+    color: Colors.dark.text,
+  },
+  academyHighlights: {
+    marginTop: Spacing.xl,
+    padding: Spacing.lg,
+    backgroundColor: Backgrounds.card,
+    borderRadius: BorderRadius.lg,
+  },
+  academyHighlightsTitle: {
+    ...Typography.h4,
+    color: Colors.dark.text,
+    marginBottom: Spacing.md,
+  },
+  nextStepItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.md,
+    paddingVertical: Spacing.sm,
+  },
+  nextStepNumber: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: GlowColors.secondary,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  nextStepNumberText: {
+    ...Typography.small,
+    color: "#fff",
+    fontWeight: "600",
+  },
+  nextStepText: {
+    ...Typography.body,
+    color: Colors.dark.text,
   },
 });
