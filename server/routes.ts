@@ -19131,6 +19131,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Create cancellation record
       await storage.createPlayerSessionCancellation({
+        sessionType: session.sessionType,
         sessionId,
         playerId,
         academyId: player?.academyId,
@@ -19296,6 +19297,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Create cancellation record for tracking
       await storage.createPlayerSessionCancellation({
+        sessionType: session.sessionType,
         sessionId,
         playerId,
         academyId: player?.academyId,
@@ -24169,6 +24171,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Log the cancellation
       await storage.createPlayerSessionCancellation({
+        sessionType: session.sessionType,
         playerId,
         sessionId,
         reason: reason || "player_left_session",

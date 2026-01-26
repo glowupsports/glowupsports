@@ -107,7 +107,7 @@ function getBallLevelLabel(level: string): string {
   if (l.includes("green")) return "GREEN";
   if (l.includes("yellow")) return "YELLOW";
   if (l.includes("glow")) return "GLOW";
-  return "ALL LEVELS";
+  return "";
 }
 
 function getCleanSessionTitle(session: PlaySession): string {
@@ -410,9 +410,11 @@ export default function PlayScreen() {
                       })()}
                     </View>
                   </View>
-                  <Text style={[styles.ballLevelBadgeText, { color: getBallLevelColor(session.ballLevel || "") }]}>
-                    {getBallLevelLabel(session.ballLevel || "")}
-                  </Text>
+                  {session.ballLevel && getBallLevelLabel(session.ballLevel) && (
+                    <Text style={[styles.ballLevelBadgeText, { color: getBallLevelColor(session.ballLevel) }]}>
+                      {getBallLevelLabel(session.ballLevel)}
+                    </Text>
+                  )}
                   <View style={styles.epicLocationRow}>
                     <Ionicons name="location" size={14} color={Colors.dark.primary} />
                     <Text style={styles.epicLocationText}>{session.locationName}</Text>
@@ -426,10 +428,6 @@ export default function PlayScreen() {
                   <View style={styles.epicMetaRow}>
                     <Ionicons name="time-outline" size={13} color={Colors.dark.textMuted} />
                     <Text style={styles.epicMetaText}>{formatTime(session.startTime)}</Text>
-                    <Text style={styles.epicMetaDot}>·</Text>
-                    <Text style={styles.epicMetaText}>{getLevelRangeText(session)}</Text>
-                    <Text style={styles.epicMetaDot}>·</Text>
-                    <Text style={[styles.epicMetaText, { textTransform: "capitalize" }]}>{session.vibe}</Text>
                   </View>
                 </View>
               </View>
