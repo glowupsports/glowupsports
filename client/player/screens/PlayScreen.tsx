@@ -386,7 +386,30 @@ export default function PlayScreen() {
             <View style={styles.cardContent}>
               <View style={styles.cardHeader}>
                 <View style={styles.cardTitleSection}>
-                  <Text style={styles.epicSessionTitle}>{getCleanSessionTitle(session)}</Text>
+                  <View style={styles.titleWithBadges}>
+                    <Text style={styles.epicSessionTitle}>{getCleanSessionTitle(session)}</Text>
+                    <View style={styles.inlineBadgesRow}>
+                      <View style={styles.epicXpBadgeSmall}>
+                        <Ionicons name="flame" size={12} color={Colors.dark.orange} />
+                        <Text style={styles.epicXpTextSmall}>+{session.xpReward} XP</Text>
+                      </View>
+                      {(() => {
+                        const countdown = getCountdownText(session.startTime);
+                        return (
+                          <View style={[styles.countdownBadgeSmall, countdown.urgent && styles.countdownUrgent]}>
+                            <Ionicons 
+                              name="timer-outline" 
+                              size={11} 
+                              color={countdown.urgent ? Colors.dark.error : Colors.dark.xpCyan} 
+                            />
+                            <Text style={[styles.countdownTextSmall, countdown.urgent && styles.countdownTextUrgent]}>
+                              {countdown.text}
+                            </Text>
+                          </View>
+                        );
+                      })()}
+                    </View>
+                  </View>
                   <Text style={[styles.ballLevelBadgeText, { color: getBallLevelColor(session.ballLevel || "") }]}>
                     {getBallLevelLabel(session.ballLevel || "")}
                   </Text>
@@ -409,28 +432,6 @@ export default function PlayScreen() {
                     <Text style={[styles.epicMetaText, { textTransform: "capitalize" }]}>{session.vibe}</Text>
                   </View>
                 </View>
-              </View>
-
-              <View style={styles.epicBadgesRow}>
-                <View style={styles.epicXpBadge}>
-                  <Ionicons name="flame" size={16} color={Colors.dark.orange} />
-                  <Text style={styles.epicXpText}>+{session.xpReward} XP</Text>
-                </View>
-                {(() => {
-                  const countdown = getCountdownText(session.startTime);
-                  return (
-                    <View style={[styles.countdownBadge, countdown.urgent && styles.countdownUrgent]}>
-                      <Ionicons 
-                        name="timer-outline" 
-                        size={14} 
-                        color={countdown.urgent ? Colors.dark.error : Colors.dark.xpCyan} 
-                      />
-                      <Text style={[styles.countdownText, countdown.urgent && styles.countdownTextUrgent]}>
-                        {countdown.text}
-                      </Text>
-                    </View>
-                  );
-                })()}
               </View>
 
               <View style={styles.epicActionsRow}>
@@ -1361,7 +1362,12 @@ const styles = StyleSheet.create({
   },
   cardTitleSection: {
     gap: Spacing.xs,
-    paddingRight: 140,
+  },
+  titleWithBadges: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    justifyContent: "space-between",
+    gap: Spacing.sm,
   },
   epicSessionTitle: {
     ...Typography.h2,
@@ -1369,6 +1375,47 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     marginBottom: 2,
     flexWrap: "wrap",
+    flex: 1,
+  },
+  inlineBadgesRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    flexShrink: 0,
+  },
+  epicXpBadgeSmall: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 3,
+    backgroundColor: "rgba(255, 133, 27, 0.25)",
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: BorderRadius.full,
+    borderWidth: 1,
+    borderColor: Colors.dark.orange + "40",
+  },
+  epicXpTextSmall: {
+    ...Typography.caption,
+    color: Colors.dark.orange,
+    fontWeight: "600",
+    fontSize: 11,
+  },
+  countdownBadgeSmall: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 3,
+    backgroundColor: "rgba(34, 211, 238, 0.15)",
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: BorderRadius.full,
+    borderWidth: 1,
+    borderColor: Colors.dark.xpCyan + "40",
+  },
+  countdownTextSmall: {
+    ...Typography.caption,
+    color: Colors.dark.xpCyan,
+    fontWeight: "600",
+    fontSize: 11,
   },
   epicLocationRow: {
     flexDirection: "row",
