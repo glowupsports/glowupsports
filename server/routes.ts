@@ -18220,6 +18220,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const sessionsWithDetails = await Promise.all(groupSessions.map(async (session) => {
         const coach = session.coachId ? await storage.getCoach(session.coachId) : null;
         const court = session.courtId ? await storage.getCourt(session.courtId) : null;
+        let locationName = null;
+        if (court && (court).locationId) {
+          const location = await storage.getLocation((court).locationId);
+          locationName = location?.name || null;
+        }
         const startTime = new Date(session.startTime);
         const endTime = new Date(session.endTime);
         
@@ -18256,7 +18261,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           courtName: court?.name || null,
           ballLevel: ((session as any).targetBallLevel || (session as any).ballLevel || "").toUpperCase() || null,
           isEnrolled,
-            locationName,
+          locationName,
           participants: validParticipants,
         };
       }));
