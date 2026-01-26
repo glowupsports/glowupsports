@@ -5,7 +5,7 @@ import Ionicons from "@expo/vector-icons/Ionicons";
 import * as Haptics from "expo-haptics";
 import { LinearGradient } from "expo-linear-gradient";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { Colors, Spacing, Typography, BorderRadius, CardStyles, Backgrounds, GlowColors } from "@/constants/theme";
+import { Colors, Spacing, Typography, BorderRadius, CardStyles, Backgrounds } from "@/constants/theme";
 import { apiRequest } from "@/lib/query-client";
 
 type PrivacyLevel = "everyone" | "platform" | "academy" | "hidden";
@@ -24,7 +24,7 @@ const PRIVACY_OPTIONS: PrivacyOption[] = [
     icon: "globe-outline",
     title: "Visible to Everyone",
     description: "Other players can find you for Open Matches and see your profile",
-    color: GlowColors.primary,
+    color: "#C8FF3D",
   },
   {
     id: "academy",
@@ -104,7 +104,7 @@ export default function PrivacySettingsScreen({
         )}
         <View style={styles.headerContent}>
           <View style={styles.iconContainer}>
-            <Ionicons name="shield-checkmark" size={32} color={GlowColors.primary} />
+            <Ionicons name="shield-checkmark" size={32} color="#C8FF3D" />
           </View>
           <Text style={styles.title}>Privacy Settings</Text>
           <Text style={styles.subtitle}>
@@ -177,7 +177,7 @@ export default function PrivacySettingsScreen({
           disabled={updatePrivacyMutation.isPending}
         >
           <LinearGradient
-            colors={[GlowColors.primary, GlowColors.soft]}
+            colors={["#C8FF3D", "#A6E92A"]}
             style={StyleSheet.absoluteFillObject}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 1 }}
@@ -219,7 +219,7 @@ const styles = StyleSheet.create({
     width: 64,
     height: 64,
     borderRadius: 32,
-    backgroundColor: `${GlowColors.primary}15`,
+    backgroundColor: "rgba(200, 255, 61, 0.08)",
     justifyContent: "center",
     alignItems: "center",
     marginBottom: Spacing.md,

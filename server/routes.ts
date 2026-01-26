@@ -18229,11 +18229,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const nearbyPlayers: Array<{id: string; name: string; level: string; status: string; playedTogether: number; profilePhotoUrl?: string; playerLevel?: number; ballLevel?: string; skillLevel?: number}> = [];
       if (player.academyId) {
         const academyPlayers = await storage.getPlayersByAcademy(player.academyId);
-        // Filter by same ball level, then take up to 20 players
+        // Filter by same ball level and privacy settings, then take up to 20 players
         const sameLevelPlayers = academyPlayers.filter(p => {
           if (p.id === playerId) return false;
           const pBallLevel = (p.ballLevel || "").toLowerCase();
-          return pBallLevel === currentPlayerBallLevel;
+          if (pBallLevel !== currentPlayerBallLevel) return false;
+          
+          // Privacy filtering: hidden players are not visible
+          const privacyLevel = (p as any).privacyLevel || "platform";
+          if (privacyLevel === "hidden") return false;
+          // Academy-only players are visible since we are in the same academy
+          return true;
         });
         const otherPlayers = sameLevelPlayers.slice(0, 20);
         
@@ -23589,6 +23595,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
 
         return {
+          privacyLevel: (player as any).privacyLevel || "platform",
           id: player.id,
           name: player.name,
           level: player.level || 1,
@@ -23602,8 +23609,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
         };
       }));
 
+      // Apply privacy filter first - hidden players are never visible
+      let filteredPlayers = enrichedPlayers.filter(p => {
+        if (p.privacyLevel === "hidden") return false;
+        // Academy-only players only visible to same-academy members
+        if (p.privacyLevel === "academy" && currentPlayer?.academyId !== academyId) return false;
+        return true;
+      });
+
       // Apply discovery filter if provided
-      let filteredPlayers = enrichedPlayers;
       
       if (filter === "recommended") {
         // Sort by mutual sessions (players who train with you)
