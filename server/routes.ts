@@ -30183,6 +30183,32 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Debug endpoint to verify Supabase data
+  app.get("/api/debug/recent-users", async (req: Request, res: Response) => {
+    try {
+      const recentUsers = await db.select({
+        id: users.id,
+        username: users.username,
+        email: users.email,
+        playerId: users.playerId,
+        role: users.role,
+        createdAt: users.createdAt
+      }).from(users).orderBy(desc(users.createdAt)).limit(10);
+      
+      const recentPlayers = await db.select({
+        id: players.id,
+        name: players.name,
+        ballLevel: players.ballLevel,
+        createdAt: players.createdAt
+      }).from(players).orderBy(desc(players.createdAt)).limit(10);
+      
+      res.json({ users: recentUsers, players: recentPlayers });
+    } catch (error) {
+      console.error("Debug query error:", error);
+      res.status(500).json({ error: "Debug query failed" });
+    }
+  });
+
   const httpServer = createServer(app);
   
   // Set up WebSocket server for real-time chat
