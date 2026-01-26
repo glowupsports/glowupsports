@@ -26561,8 +26561,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
           status: matchRequests.status,
           createdAt: matchRequests.createdAt,
           playerName: players.name,
-          playerAvatar: players.profilePhotoUrl,
           playerLevel: players.skillLevel,
+          playerBallLevel: players.ballLevel,
         })
         .from(matchRequests)
         .leftJoin(players, eq(matchRequests.playerId, players.id))
@@ -26607,7 +26607,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
           description: m.description,
           requiredLevelMin: m.requiredLevelMin || 1,
           requiredLevelMax: m.requiredLevelMax || 9,
-          requiredBallLevel: m.requiredBallLevel,
+          requiredBallLevel: m.requiredBallLevel || m.playerBallLevel,
+          ballLevel: m.requiredBallLevel || m.playerBallLevel,
           maxPlayers: m.maxPlayers || (m.matchType === "doubles" ? 4 : 2),
           currentPlayers: 1,
           status: m.status || "open",
@@ -26626,7 +26627,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             name: m.playerName || "Unknown Player",
             photoUrl: m.playerAvatar,
             level: m.playerLevel || 1,
-            ballLevel: m.requiredBallLevel,
+            ballLevel: m.requiredBallLevel || m.playerBallLevel,
           },
           players: [{
             id: m.playerId,
@@ -26668,6 +26669,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           playerName: players.name,
           playerAvatar: players.profilePhotoUrl,
           playerLevel: players.skillLevel,
+          playerBallLevel: players.ballLevel,
         })
         .from(matchRequests)
         .leftJoin(players, eq(matchRequests.playerId, players.id))
