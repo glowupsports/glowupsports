@@ -23737,7 +23737,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
           const coach = await storage.getCoach(session.coachId);
           coachName = coach?.name || null;
         }
-        // Get location info - check session first, then series if no session locationId
+        // Get court info first (needed for location fallback)
+        let courtName = null;
+        let courtLocationId: string | null = null;
+        if (session.courtId) {
+          const court = await storage.getCourt(session.courtId);
+          courtName = court?.name || null;
+          courtLocationId = court?.locationId || null;
+        }
+
+        // Get location info - check session first, then series, then court
         let locationName = "Location TBD";
         let locationId = session.locationId;
         
@@ -23751,16 +23760,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
           }
         }
         
+        // If still no locationId, get from court
+        if (!locationId && courtLocationId) {
+          locationId = courtLocationId;
+        }
+        
         if (locationId) {
           const location = await storage.getLocation(locationId);
           locationName = location?.name || "Location TBD";
-        }
-
-        // Get court info
-        let courtName = null;
-        if (session.courtId) {
-          const court = await storage.getCourt(session.courtId);
-          courtName = court?.name || null;
         }
 
         // Check waitlist
