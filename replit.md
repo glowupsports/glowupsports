@@ -13,6 +13,13 @@ The application utilizes a dark-themed gaming aesthetic, incorporating neon gree
 
 ### Technical Implementations
 - **Frontend**: Developed with React Native and Expo SDK 54, leveraging React Navigation for routing, React Context for state management, `AsyncStorage` for local data persistence, and `React Native Reanimated` for animations.
+
+### IMPORTANT: Player Home Screen
+**The main Player Home Screen is `ProPlayerHomeScreen.tsx`** (NOT `PlayerHomeScreen.tsx`).
+- Location: `client/player/screens/ProPlayerHomeScreen.tsx`
+- This is the home tab that players see after login
+- Contains: Player card, news ticker, session hero, discovery rows (Players Near You, Open Sessions, Training Sessions), and mini feed
+- Birthday celebrations are displayed here (confetti, banner, XP bonus card)
 - **Backend**: Built using Express.js with TypeScript, providing RESTful API endpoints. It integrates with `Drizzle ORM` for PostgreSQL database interactions. CORS is dynamically configured for the Replit environment.
 - **Data Storage**: Client-side data is stored using `AsyncStorage`. Server-side data uses `Drizzle ORM` with a Supabase PostgreSQL database to manage users, coaches, players, sessions, feedback, progress, and diagnostic reports.
 - **Build System**: Development utilizes concurrent Expo and Express servers. Production deploys a static Expo web build served by Express. `Drizzle Kit` is employed for PostgreSQL schema migrations.
