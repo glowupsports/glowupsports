@@ -7,7 +7,7 @@ import fs from "fs";
 import { storage, getSessionTypeByPlayerCount, updateSeriesSessionType, recalculateSeriesCredits } from "./storage";
 import { db } from "./db";
 import { playerHolidays } from "@shared/schema";
-import { eq, sql, desc, and, ne, gt, gte, asc, inArray, notInArray, isNull, isNotNull, or, count } from "drizzle-orm";
+import { eq, sql, desc, and, ne, gt, gte, asc, inArray, notInArray, isNull, isNotNull, or, count, ilike } from "drizzle-orm";
 import { 
   invoices, payments, sessionPlayers, sessionWaitlist, creditTransactions, players, 
   locationTravelTimes, sessions, sessionFeedback, inSessionFeedback, seriesPlayers, coachingSeries,
@@ -15409,6 +15409,64 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+
+  // Admin Player Search & Onboarding Reset
+  app.get("/api/admin/players/search", authMiddleware, requireRole("admin", "academy_owner", "platform_owner"), async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const query = req.query.q as string;
+      if (!query || query.length < 2) {
+        return res.status(400).json({ error: "Search query must be at least 2 characters" });
+      }
+
+      const searchResults = await db.select({
+        id: players.id,
+        name: players.name,
+        displayName: players.displayName,
+        email: players.email,
+        ballLevel: players.ballLevel,
+        onboardingCompleted: players.onboardingCompleted,
+        profilePhotoUrl: players.profilePhotoUrl,
+        academyId: players.academyId,
+      })
+      .from(players)
+      .where(
+        or(
+          ilike(players.name, `%${query}%`),
+          ilike(players.displayName, `%${query}%`),
+          ilike(players.email, `%${query}%`)
+        )
+      )
+      .limit(20);
+
+      res.json(searchResults);
+    } catch (error) {
+      console.error("Admin player search error:", error);
+      res.status(500).json({ error: "Failed to search players" });
+    }
+  });
+
+  app.post("/api/admin/players/:id/reset-onboarding", authMiddleware, requireRole("admin", "academy_owner", "platform_owner"), async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const playerId = req.params.id;
+      
+      const [updated] = await db.update(players)
+        .set({ 
+          onboardingCompleted: false,
+          profilePhotoUrl: null
+        })
+        .where(eq(players.id, playerId))
+        .returning({ id: players.id, name: players.name, onboardingCompleted: players.onboardingCompleted });
+
+      if (!updated) {
+        return res.status(404).json({ error: "Player not found" });
+      }
+
+      res.json({ message: "Onboarding reset successfully", player: updated });
+    } catch (error) {
+      console.error("Reset onboarding error:", error);
+      res.status(500).json({ error: "Failed to reset onboarding" });
+    }
+  });
   // Admin Roles & Permissions - Get role configurations
   app.get("/api/admin/roles", authMiddleware, requireRole("admin", "academy_owner", "platform_owner"), async (req: AuthenticatedRequest, res: Response) => {
     try {

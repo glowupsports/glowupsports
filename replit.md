@@ -39,9 +39,22 @@ The application utilizes a dark-themed gaming aesthetic, incorporating neon gree
 - **Player Onboarding V2**: A comprehensive 17-step onboarding flow adapted for age, including Welcome, Birthday, Gender selection (Male/Female/Prefer not to say), Photo upload, Ball Level Reveal (with age-based mapping: Red 4-6, Orange 7-8, Green 9-10, Yellow 11-17, Adult DSS 18+), level adjustment option, Why Tennis motivation, Experience (including 10-15, 15-20, 20+ years options), About Yourself, Tennis Idol (featuring new generation players: Alcaraz, Sinner, Swiatek, Rune, Sabalenka), Enjoyment tags, Focus goals, Availability, Academy selection, Goal setting, Parent connect/Quiz, and Completion.
 - **Academy Settings Welcome Video**: Academy owners can configure a welcome video URL in settings, displayed to new players during onboarding.
 
+## CRITICAL: Database Configuration
+
+**ALL database operations use Supabase PostgreSQL exclusively.**
+
+- **Connection**: `SUPABASE_DATABASE_URL` environment variable (required)
+- **ORM**: Drizzle ORM with PostgreSQL driver
+- **Location**: `server/db.ts` configures the database connection
+- **DO NOT USE**: Replit's built-in PostgreSQL (`DATABASE_URL`) - this is NOT connected to our data
+- **Admin Tools**: Use `/api/admin/players/search?q=name` endpoint to search players (requires platform owner auth)
+
+All player data, coaches, sessions, academies, and other entities are stored in the Supabase database.
+The `execute_sql_tool` in Replit connects to Replit's database, NOT Supabase - always use API endpoints instead.
+
 ## External Dependencies
 
-- **Database**: Supabase PostgreSQL (via Drizzle ORM)
+- **Database**: Supabase PostgreSQL (via Drizzle ORM) - ONLY database used
 - **Deployment**: Replit
 - **Push Notifications**: Expo Push API
 - **Email Service**: Resend API
