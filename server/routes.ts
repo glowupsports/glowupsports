@@ -2547,6 +2547,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           attendanceStatus: sessionPlayers.attendanceStatus,
           isGuest: sessionPlayers.isGuest,
           playerName: players.name,
+            hostBallLevel: players.ballLevel,
           playerBallLevel: players.ballLevel,
           profilePhotoUrl: players.profilePhotoUrl,
         }).from(sessionPlayers)
@@ -2557,6 +2558,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           playerId: seriesPlayers.playerId,
           status: seriesPlayers.status,
           playerName: players.name,
+            hostBallLevel: players.ballLevel,
           playerBallLevel: players.ballLevel,
           profilePhotoUrl: players.profilePhotoUrl,
         }).from(seriesPlayers)
@@ -8746,6 +8748,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           playerId: seriesPlayers.playerId,
           status: seriesPlayers.status,
           playerName: players.name,
+            hostBallLevel: players.ballLevel,
           playerBallLevel: players.ballLevel,
         }).from(seriesPlayers)
           .leftJoin(players, eq(seriesPlayers.playerId, players.id))
@@ -18589,6 +18592,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             status: matchRequests.status,
             createdAt: matchRequests.createdAt,
             playerName: players.name,
+            hostBallLevel: players.ballLevel,
             playerAvatar: players.profilePhotoUrl,
           })
           .from(matchRequests)
@@ -18624,7 +18628,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
               level: 1,
             }],
             isEnrolled: match.playerId === playerId,
-            ballLevel: playerBallLevel.toUpperCase(),
+            ballLevel: (match.hostBallLevel || "green").toUpperCase(),
             locationName: "TBD",
           });
         }
@@ -26826,6 +26830,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           status: matchRequests.status,
           createdAt: matchRequests.createdAt,
           playerName: players.name,
+            hostBallLevel: players.ballLevel,
           playerLevel: players.skillLevel,
           playerBallLevel: players.ballLevel,
         })
@@ -26932,6 +26937,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           status: matchRequests.status,
           createdAt: matchRequests.createdAt,
           playerName: players.name,
+            hostBallLevel: players.ballLevel,
           playerAvatar: players.profilePhotoUrl,
           playerLevel: players.skillLevel,
           playerBallLevel: players.ballLevel,
