@@ -224,6 +224,14 @@ function parsePagination(query: { limit?: string; offset?: string; page?: string
   return { limit, offset };
 }
 
+// Birthday check helper - returns true if today matches the player birth date (month and day)
+function isBirthdayToday(dateOfBirth: string | Date | null): boolean {
+  if (!dateOfBirth) return false;
+  const birthDate = new Date(dateOfBirth);
+  const today = new Date();
+  return birthDate.getMonth() === today.getMonth() && birthDate.getDate() === today.getDate();
+}
+
 export async function registerRoutes(app: Express): Promise<Server> {
   // Initialize storage for fresh user data fetching in auth middleware
   setFreshUserStorage(storage);
@@ -4701,19 +4709,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       for (const sp of sessionPlayers) {
         if (sp.playerId && sp.attendanceStatus === "present") {
+          // Fetch player first to check for birthday bonus
+          const player = await storage.getPlayer(sp.playerId);
+          const hasBirthdayBonus = player && isBirthdayToday(player.dateOfBirth);
+          const xpWithBonus = hasBirthdayBonus ? playerXp * 2 : playerXp;
+          const xpDescription = hasBirthdayBonus 
+            ? `Attended ${session.sessionType} session (2x Birthday Bonus!)`
+            : `Attended ${session.sessionType} session`;
+          
           await storage.createXpTransaction({
             playerId: sp.playerId,
-            xpAmount: playerXp,
+            xpAmount: xpWithBonus,
             source: "session_complete",
-            description: `Attended ${session.sessionType} session`,
+            description: xpDescription,
             sessionId: id,
           });
           
           // Update player total XP and check for level up
-          const player = await storage.getPlayer(sp.playerId);
           if (player) {
             const oldLevel = player.level || 1;
-            const newTotalXp = (player.totalXp || 0) + playerXp;
+            const newTotalXp = (player.totalXp || 0) + xpWithBonus;
             
             // Calculate new level based on XP thresholds
             const LEVEL_THRESHOLDS = [0, 100, 300, 600, 1000, 1500, 2100, 2800, 3600, 4500, 5500];
