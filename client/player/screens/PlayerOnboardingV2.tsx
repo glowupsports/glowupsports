@@ -53,6 +53,7 @@ const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get("window");
 type AgeGroup = "kid" | "teen" | "adult";
 
 function getAgeGroup(age: number): AgeGroup {
+  if (age < 4) return "kid"; // Toddlers also treated as kids
   if (age >= 4 && age <= 10) return "kid";
   if (age >= 11 && age <= 17) return "teen";
   return "adult";
@@ -70,6 +71,9 @@ function calculateAge(dateOfBirth: string): number {
 }
 
 function getBallLevel(age: number): { level: string; color: string; description: string; isGlowLevel?: boolean } {
+  if (age < 4) {
+    return { level: "Red", color: BallLevelColors.red, description: "Starting your tennis journey - mini court fun!" };
+  }
   if (age >= 4 && age <= 6) {
     return { level: "Red", color: BallLevelColors.red, description: "Mini court, soft ball - perfect for beginners!" };
   }
@@ -301,7 +305,6 @@ function BirthdayStep({ data, setData, onNext, playerName }: StepProps) {
       setData((prev) => ({ ...prev, dateOfBirth: dateStr }));
       setShowPicker(false);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      setTimeout(onNext, 300);
     }
   };
 
@@ -359,7 +362,7 @@ function BirthdayStep({ data, setData, onNext, playerName }: StepProps) {
               color={GlowColors.primary}
             />
             <Text style={styles.ageGroupText}>
-              {ageGroup === "kid" ? "Junior Player" : ageGroup === "teen" ? "Rising Star" : "Adult Player"}
+              {age < 4 ? "Little Champion" : ageGroup === "kid" ? "Junior Player" : ageGroup === "teen" ? "Rising Star" : "Adult Player"}
             </Text>
           </Animated.View>
         ) : null}
