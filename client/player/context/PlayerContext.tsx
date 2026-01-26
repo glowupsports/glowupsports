@@ -18,6 +18,7 @@ interface PlayerContextData {
   glowMmr: number;
   glowRank: number;
   totalMatchesPlayed: number;
+  isBirthday: boolean;
 }
 
 function calculateAge(dateOfBirth: string | null): number {
@@ -30,6 +31,13 @@ function calculateAge(dateOfBirth: string | null): number {
     age--;
   }
   return age;
+}
+
+function checkIsBirthday(dateOfBirth: string | null): boolean {
+  if (!dateOfBirth) return false;
+  const today = new Date();
+  const birth = new Date(dateOfBirth);
+  return today.getMonth() === birth.getMonth() && today.getDate() === birth.getDate();
 }
 
 const PlayerContext = createContext<PlayerContextData | undefined>(undefined);
@@ -69,6 +77,7 @@ export function PlayerProvider({ children }: PlayerProviderProps) {
 
   const dateOfBirth = profile?.player?.dateOfBirth || null;
   const age = calculateAge(dateOfBirth);
+  const isBirthday = checkIsBirthday(dateOfBirth);
   
   const value: PlayerContextData = {
     playerId: profile?.player?.id ?? null,
@@ -86,6 +95,7 @@ export function PlayerProvider({ children }: PlayerProviderProps) {
     glowMmr: profile?.player?.glowMmr ?? 1000,
     glowRank: profile?.player?.glowRank ?? 9,
     totalMatchesPlayed: profile?.player?.totalMatchesPlayed ?? 0,
+    isBirthday,
   };
 
   return (

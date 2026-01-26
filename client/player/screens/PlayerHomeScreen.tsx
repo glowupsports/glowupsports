@@ -17,6 +17,8 @@ import { ReviewPromptBanner } from "@/player/components/ReviewPromptBanner";
 import { QuestTrackerCard } from "@/player/components/QuestTrackerCard";
 import { SocialPulseCard } from "@/player/components/SocialPulseCard";
 import { usePlayerDrawer } from "@/player/context/PlayerDrawerContext";
+import { usePlayer } from "@/player/context/PlayerContext";
+import { BirthdayCelebrationModal, shouldShowBirthdayCelebration } from "@/player/components/BirthdayCelebrationModal";
 import { useMissionControl, useAssignDailyQuests, useClaimQuestReward } from "@/player/hooks/useQuests";
 import { apiRequest, getApiUrl, getStaticAssetsUrl } from "@/lib/query-client";
 import Animated, { FadeIn, FadeOut, SlideInUp, useSharedValue, useAnimatedStyle, withSpring, withSequence, withTiming, withRepeat } from "react-native-reanimated";
@@ -916,6 +918,19 @@ export default function PlayerHomeScreen() {
   const [reportIssueType, setReportIssueType] = useState<string | null>(null);
   const [reportIssueText, setReportIssueText] = useState("");
   const [actionSuccess, setActionSuccess] = useState<string | null>(null);
+  const [showBirthdayModal, setShowBirthdayModal] = useState(false);
+  
+  const { isBirthday } = usePlayer();
+  
+  useEffect(() => {
+    if (isBirthday && showPlayerDashboard) {
+      shouldShowBirthdayCelebration(isBirthday).then((shouldShow) => {
+        if (shouldShow) {
+          setShowBirthdayModal(true);
+        }
+      });
+    }
+  }, [isBirthday, showPlayerDashboard]);
   
   const playerAge = calculatePlayerAge(data?.player?.dateOfBirth);
   const isMinorPlayer = playerAge <= 17;
@@ -2027,6 +2042,12 @@ export default function PlayerHomeScreen() {
           </KeyboardAwareScrollViewCompat>
         </Pressable>
       </Modal>
+      
+      <BirthdayCelebrationModal
+        visible={showBirthdayModal}
+        onDismiss={() => setShowBirthdayModal(false)}
+        playerName={data?.player?.name?.split(" ")[0]}
+      />
     </View>
   );
 }
