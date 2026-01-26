@@ -18550,6 +18550,47 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Update player social/privacy settings
+  app.patch("/api/player/me/social", authMiddleware, requirePlayerOrOwner, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      if (!req.user!.playerId) {
+        return res.status(400).json({ error: "No player profile found" });
+      }
+      
+      const playerId = req.user!.playerId!;
+      const { privacyLevel, openToPlay, displayName, bio } = req.body;
+      
+      // Update privacy level if provided
+      if (privacyLevel !== undefined) {
+        const validLevels = ["everyone", "platform", "academy", "hidden"];
+        if (!validLevels.includes(privacyLevel)) {
+          return res.status(400).json({ error: "Invalid privacy level" });
+        }
+        await db.execute(sql`UPDATE players SET privacy_level = ${privacyLevel} WHERE id = ${playerId}`);
+      }
+      
+      // Update open to play status if provided
+      if (typeof openToPlay === "boolean") {
+        await db.execute(sql`UPDATE players SET open_to_play = ${openToPlay} WHERE id = ${playerId}`);
+      }
+      
+      // Update display name if provided
+      if (displayName !== undefined) {
+        await db.execute(sql`UPDATE players SET display_name = ${displayName} WHERE id = ${playerId}`);
+      }
+      
+      // Update bio if provided
+      if (bio !== undefined) {
+        await db.execute(sql`UPDATE players SET bio = ${bio} WHERE id = ${playerId}`);
+      }
+      
+      res.json({ success: true, message: "Social settings updated" });
+    } catch (error) {
+      console.error("Error updating player social settings:", error);
+      res.status(500).json({ error: "Failed to update social settings" });
+    }
+  });
+
   // Tennis news RSS aggregator - cached for 15 minutes
   let newsCache: { articles: any[]; fetchedAt: number } | null = null;
   const NEWS_CACHE_TTL = 15 * 60 * 1000; // 15 minutes
