@@ -1356,12 +1356,14 @@ const styles = StyleSheet.create({
   },
   cardTitleSection: {
     gap: Spacing.xs,
+    paddingRight: 140,
   },
   epicSessionTitle: {
     ...Typography.h2,
     color: Colors.dark.text,
     fontWeight: "700",
     marginBottom: 2,
+    flexWrap: "wrap",
   },
   epicLocationRow: {
     flexDirection: "row",
