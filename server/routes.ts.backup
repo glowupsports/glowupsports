@@ -17790,7 +17790,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           name: name || username,
           academyId: academyId,
           status: "active",
-          ballLevel: ballLevel || "green",
+          ballLevel: "green",
         });
 
         await storage.updateUser(newUser.id, { playerId: newPlayer.id });
@@ -20546,7 +20546,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       let playerId = req.user!.playerId;
       let newPlayerCreated = false;
-      const { academyId, motivationType, dateOfBirth, ballLevel, height, tshirtSize, dominantHand, backhandType, experienceLevel, enjoymentTags, focusGoals, selfConfidenceFlags } = req.body;
+      const { academyId, motivationType, dateOfBirth, height, tshirtSize, dominantHand, backhandType, experienceLevel, enjoymentTags, focusGoals, selfConfidenceFlags } = req.body;
 
       // Academy selection is now optional - players can skip it
       let selectedAcademyId = academyId || null;
@@ -20577,7 +20577,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const newPlayer = await storage.createPlayer({
           name: user.email.split("@")[0] || "Player",
           email: user.email,
-          ballLevel: ballLevel || "green",
+          ballLevel: "green",
           academyId: selectedAcademyId,
           coachId: null,
         });
@@ -20601,7 +20601,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
         experienceLevel,
         enjoymentTags,
         focusGoals,
-        ballLevel,
         selfConfidenceFlags,
       });
 

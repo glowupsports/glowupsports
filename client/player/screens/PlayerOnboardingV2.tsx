@@ -90,10 +90,22 @@ function getBallLevel(age: number): { level: string; color: string; description:
   return { level: "Adult DSS", color: GlowColors.primary, description: "You'll get your Glow Rating after your first assessment session!", isGlowLevel: true };
 }
 
+function getBallLevelColor(ballLevel: string): string {
+  const level = ballLevel.toLowerCase();
+  if (level.includes("blue")) return BallLevelColors.blue;
+  if (level.includes("red")) return BallLevelColors.red;
+  if (level.includes("orange")) return BallLevelColors.orange;
+  if (level.includes("green")) return BallLevelColors.green;
+  if (level.includes("yellow")) return BallLevelColors.yellow;
+  if (level.includes("glow") || level.includes("adult")) return GlowColors.primary;
+  return Colors.dark.primary;
+}
+
 interface OnboardingData {
   dateOfBirth: string | null;
   gender: string | null;
   profilePhotoUri: string | null;
+  ballLevel: string | null;
   motivationType: string | null;
   motivationTypes: string[];
   experienceLevel: string | null;
@@ -602,13 +614,24 @@ function GenderStep({ data, setData, onNext, playerName }: StepProps) {
 function BallLevelRevealStep({ data, setData, onNext, age }: StepProps & { age: number }) {
   const [revealed, setRevealed] = useState(false);
   const [showAdjustModal, setShowAdjustModal] = useState(false);
-  const ballLevel = getBallLevel(age);
+  const calculatedBallLevel = getBallLevel(age);
   const isAdult = age >= 18;
+  
+  // Use the data.ballLevel if already set (user adjusted), otherwise use calculated
+  const currentBallLevelId = data.ballLevel || (isAdult ? "glow" : calculatedBallLevel.level.toLowerCase());
+  const ballLevel = data.ballLevel 
+    ? { level: data.ballLevel.charAt(0).toUpperCase() + data.ballLevel.slice(1), color: getBallLevelColor(data.ballLevel), description: calculatedBallLevel.description, isGlowLevel: data.ballLevel === "glow" }
+    : calculatedBallLevel;
 
   useEffect(() => {
     const timer = setTimeout(() => {
       setRevealed(true);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      // Save the ball level to data when revealed
+      if (!data.ballLevel) {
+        const levelToSave = isAdult ? "glow" : calculatedBallLevel.level.toLowerCase();
+        setData(prev => ({ ...prev, ballLevel: levelToSave }));
+      }
     }, 800);
     return () => clearTimeout(timer);
   }, []);
@@ -688,9 +711,10 @@ function BallLevelRevealStep({ data, setData, onNext, age }: StepProps & { age: 
               {ballOptions.map((option) => (
                 <Pressable
                   key={option.id}
-                  style={styles.adjustOption}
+                  style={[styles.adjustOption, data.ballLevel === option.id && styles.adjustOptionSelected]}
                   onPress={() => {
                     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                    setData(prev => ({ ...prev, ballLevel: option.id }));
                     setShowAdjustModal(false);
                   }}
                 >
@@ -1736,6 +1760,7 @@ export default function PlayerOnboardingV2Screen({ onComplete }: Props) {
     dateOfBirth: null,
     gender: null,
     profilePhotoUri: null,
+    ballLevel: null,
     motivationType: null,
     motivationTypes: [],
     experienceLevel: null,
@@ -1768,6 +1793,7 @@ export default function PlayerOnboardingV2Screen({ onComplete }: Props) {
     mutationFn: async (onboardingData: OnboardingData) => {
       const payload = {
         dateOfBirth: onboardingData.dateOfBirth,
+        ballLevel: onboardingData.ballLevel,
         motivationType: onboardingData.motivationType,
         experienceLevel: onboardingData.experienceLevel,
         height: onboardingData.height,
