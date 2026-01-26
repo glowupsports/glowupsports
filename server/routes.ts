@@ -23776,7 +23776,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/play/nearby-players", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
     try {
       const playerId = req.user?.playerId;
-      const academyId = req.user?.academyId;
       const { filter } = req.query;
       
       if (!playerId) {
@@ -23787,6 +23786,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const currentPlayer = await db.query.players.findFirst({
         where: (p, { eq }) => eq(p.id, playerId),
       });
+      
+      const academyId = currentPlayer?.academyId;
+      console.log(`[NearbyPlayers] Player ${playerId} academyId: ${academyId}`);
 
       // Get players from the same academy (or public players)
       const players = await db.query.players.findMany({

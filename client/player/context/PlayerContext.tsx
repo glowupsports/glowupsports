@@ -36,8 +36,13 @@ function calculateAge(dateOfBirth: string | null): number {
 function checkIsBirthday(dateOfBirth: string | null): boolean {
   if (!dateOfBirth) return false;
   const today = new Date();
-  const birth = new Date(dateOfBirth);
-  return today.getMonth() === birth.getMonth() && today.getDate() === birth.getDate();
+  // Parse date as local date to avoid timezone issues
+  // dateOfBirth format is "YYYY-MM-DD"
+  const parts = dateOfBirth.split("-");
+  if (parts.length !== 3) return false;
+  const birthMonth = parseInt(parts[1], 10) - 1; // 0-indexed month
+  const birthDay = parseInt(parts[2], 10);
+  return today.getMonth() === birthMonth && today.getDate() === birthDay;
 }
 
 const PlayerContext = createContext<PlayerContextData | undefined>(undefined);
