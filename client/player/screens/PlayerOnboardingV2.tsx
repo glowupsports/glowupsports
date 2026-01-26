@@ -69,7 +69,7 @@ function calculateAge(dateOfBirth: string): number {
   return age;
 }
 
-function getBallLevel(age: number): { level: string; color: string; description: string } {
+function getBallLevel(age: number): { level: string; color: string; description: string; isGlowLevel?: boolean } {
   if (age >= 4 && age <= 6) {
     return { level: "Red", color: BallLevelColors.red, description: "Mini court, soft ball - perfect for beginners!" };
   }
@@ -79,11 +79,16 @@ function getBallLevel(age: number): { level: string; color: string; description:
   if (age >= 9 && age <= 10) {
     return { level: "Green", color: BallLevelColors.green, description: "Full court, slower ball - almost there!" };
   }
-  return { level: "Yellow", color: BallLevelColors.yellow, description: "Standard ball - you're ready for the real deal!" };
+  if (age >= 11 && age <= 17) {
+    return { level: "Yellow", color: BallLevelColors.yellow, description: "Standard ball - you're ready for the real deal!" };
+  }
+  // Adults (18+) get Glow Level system instead of ball levels
+  return { level: "Adult DSS", color: GlowColors.primary, description: "You'll get your Glow Rating after your first assessment session!", isGlowLevel: true };
 }
 
 interface OnboardingData {
   dateOfBirth: string | null;
+  gender: string | null;
   profilePhotoUri: string | null;
   motivationType: string | null;
   experienceLevel: string | null;
@@ -122,7 +127,7 @@ interface StepProps {
   ageGroup?: AgeGroup;
 }
 
-const TOTAL_STEPS = 16;
+const TOTAL_STEPS = 17;
 
 function ProgressBar({ currentStep, totalSteps }: { currentStep: number; totalSteps: number }) {
   return (
@@ -527,9 +532,58 @@ function PhotoUploadStep({ data, setData, onNext, playerName }: StepProps) {
   );
 }
 
-function BallLevelRevealStep({ onNext, age }: StepProps & { age: number }) {
+function GenderStep({ data, setData, onNext, playerName }: StepProps) {
+  const genderOptions = [
+    { id: "male", label: "Male", icon: "male-outline" },
+    { id: "female", label: "Female", icon: "female-outline" },
+    { id: "prefer_not_to_say", label: "Prefer not to say", icon: "person-outline" },
+  ];
+
+  return (
+    <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.stepContainer} showsVerticalScrollIndicator={false}>
+      <Animated.View entering={FadeInDown.delay(100).duration(500)}>
+        <Text style={styles.stepTitle}>
+          {playerName ? `Hey ${playerName}!` : "One more thing"}
+        </Text>
+        <Text style={styles.stepSubtitle}>How would you like to be addressed?</Text>
+      </Animated.View>
+
+      <Animated.View entering={FadeInDown.delay(300).duration(500)} style={styles.genderContainer}>
+        {genderOptions.map((option) => (
+          <Pressable
+            key={option.id}
+            style={[styles.genderCard, data.gender === option.id ? styles.genderCardActive : null]}
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              setData((prev) => ({ ...prev, gender: option.id }));
+              setTimeout(onNext, 300);
+            }}
+          >
+            <View style={[styles.genderIcon, data.gender === option.id ? styles.genderIconActive : null]}>
+              <Ionicons
+                name={option.icon as any}
+                size={24}
+                color={data.gender === option.id ? Colors.dark.backgroundRoot : Colors.dark.textMuted}
+              />
+            </View>
+            <Text style={[styles.genderText, data.gender === option.id ? styles.genderTextActive : null]}>
+              {option.label}
+            </Text>
+            {data.gender === option.id ? (
+              <Ionicons name="checkmark-circle" size={24} color={GlowColors.primary} />
+            ) : null}
+          </Pressable>
+        ))}
+      </Animated.View>
+    </ScrollView>
+  );
+}
+
+function BallLevelRevealStep({ data, setData, onNext, age }: StepProps & { age: number }) {
   const [revealed, setRevealed] = useState(false);
+  const [showAdjustModal, setShowAdjustModal] = useState(false);
   const ballLevel = getBallLevel(age);
+  const isAdult = age >= 18;
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -539,22 +593,48 @@ function BallLevelRevealStep({ onNext, age }: StepProps & { age: number }) {
     return () => clearTimeout(timer);
   }, []);
 
+  const ballOptions = [
+    { id: "red", label: "Red Ball", color: BallLevelColors.red, description: "Mini court, soft ball" },
+    { id: "orange", label: "Orange Ball", color: BallLevelColors.orange, description: "3/4 court" },
+    { id: "green", label: "Green Ball", color: BallLevelColors.green, description: "Full court, slower ball" },
+    { id: "yellow", label: "Yellow Ball", color: BallLevelColors.yellow, description: "Standard ball" },
+  ];
+
   return (
     <View style={styles.ballLevelContainer}>
       {revealed ? <Confetti /> : null}
 
       <Animated.View entering={FadeInDown.delay(100).duration(500)}>
-        <Text style={styles.stepTitle}>Your Ball Level</Text>
-        <Text style={styles.stepSubtitle}>Based on your age, here's the perfect ball for you!</Text>
+        <Text style={styles.stepTitle}>{isAdult ? "Your Glow Level" : "Your Ball Level"}</Text>
+        <Text style={styles.stepSubtitle}>
+          {isAdult 
+            ? "As an adult player, you'll be rated on our Glow DSS system!"
+            : "Based on your age, here's the perfect ball for you!"}
+        </Text>
       </Animated.View>
 
       {revealed ? (
         <Animated.View entering={ZoomIn.springify()} style={styles.ballLevelCard}>
           <View style={[styles.ballIcon, { backgroundColor: ballLevel.color }]}>
-            <Ionicons name="tennisball" size={48} color="#FFFFFF" />
+            <Ionicons name={isAdult ? "star" : "tennisball"} size={48} color="#FFFFFF" />
           </View>
-          <Text style={[styles.ballLevelTitle, { color: ballLevel.color }]}>{ballLevel.level} Ball</Text>
+          <Text style={[styles.ballLevelTitle, { color: ballLevel.color }]}>
+            {isAdult ? "Glow DSS Rating" : `${ballLevel.level} Ball`}
+          </Text>
           <Text style={styles.ballLevelDescription}>{ballLevel.description}</Text>
+          
+          {!isAdult ? (
+            <Pressable 
+              style={styles.adjustLink}
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                setShowAdjustModal(true);
+              }}
+            >
+              <Ionicons name="help-circle-outline" size={16} color={Colors.dark.textMuted} />
+              <Text style={styles.adjustLinkText}>This doesn't seem right?</Text>
+            </Pressable>
+          ) : null}
         </Animated.View>
       ) : (
         <Animated.View style={styles.loadingBall}>
@@ -576,6 +656,40 @@ function BallLevelRevealStep({ onNext, age }: StepProps & { age: number }) {
           </Pressable>
         </Animated.View>
       ) : null}
+
+      <Modal visible={showAdjustModal} transparent animationType="fade" onRequestClose={() => setShowAdjustModal(false)}>
+        <Pressable style={styles.modalOverlay} onPress={() => setShowAdjustModal(false)}>
+          <Pressable style={styles.adjustModal} onPress={() => {}}>
+            <Text style={styles.adjustModalTitle}>Change Ball Level</Text>
+            <Text style={styles.adjustModalSubtitle}>Select your actual playing level:</Text>
+            
+            <View style={styles.adjustOptions}>
+              {ballOptions.map((option) => (
+                <Pressable
+                  key={option.id}
+                  style={styles.adjustOption}
+                  onPress={() => {
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                    setShowAdjustModal(false);
+                  }}
+                >
+                  <View style={[styles.adjustBallIcon, { backgroundColor: option.color }]}>
+                    <Ionicons name="tennisball" size={24} color="#FFFFFF" />
+                  </View>
+                  <View style={styles.adjustOptionInfo}>
+                    <Text style={styles.adjustOptionLabel}>{option.label}</Text>
+                    <Text style={styles.adjustOptionDesc}>{option.description}</Text>
+                  </View>
+                </Pressable>
+              ))}
+            </View>
+            
+            <Pressable style={styles.adjustCancelButton} onPress={() => setShowAdjustModal(false)}>
+              <Text style={styles.adjustCancelText}>Keep {ballLevel.level} Ball</Text>
+            </Pressable>
+          </Pressable>
+        </Pressable>
+      </Modal>
     </View>
   );
 }
@@ -645,7 +759,10 @@ function ExperienceStep({ data, setData, onNext }: StepProps) {
     { id: "6-12months", label: "6-12 months" },
     { id: "1-3years", label: "1-3 years" },
     { id: "3-5years", label: "3-5 years" },
-    { id: "5+years", label: "5+ years" },
+    { id: "5-10years", label: "5-10 years" },
+    { id: "10-15years", label: "10-15 years" },
+    { id: "15-20years", label: "15-20 years" },
+    { id: "20+years", label: "20+ years" },
   ];
 
   return (
@@ -796,22 +913,28 @@ function TennisIdolStep({ data, setData, onNext, ageGroup }: StepProps) {
 
   const idolOptions = {
     kid: [
-      { id: "alcaraz", label: "Carlos Alcaraz" },
-      { id: "sinner", label: "Jannik Sinner" },
-      { id: "swiatek", label: "Iga Swiatek" },
-      { id: "gauff", label: "Coco Gauff" },
+      { id: "alcaraz", label: "Carlos Alcaraz", emoji: "ES" },
+      { id: "sinner", label: "Jannik Sinner", emoji: "IT" },
+      { id: "swiatek", label: "Iga Swiatek", emoji: "PL" },
+      { id: "gauff", label: "Coco Gauff", emoji: "US" },
+      { id: "rune", label: "Holger Rune", emoji: "DK" },
+      { id: "sabalenka", label: "Aryna Sabalenka", emoji: "BY" },
     ],
     teen: [
-      { id: "alcaraz", label: "Carlos Alcaraz" },
-      { id: "sinner", label: "Jannik Sinner" },
-      { id: "swiatek", label: "Iga Swiatek" },
-      { id: "djokovic", label: "Novak Djokovic" },
+      { id: "alcaraz", label: "Carlos Alcaraz", emoji: "ES" },
+      { id: "sinner", label: "Jannik Sinner", emoji: "IT" },
+      { id: "swiatek", label: "Iga Swiatek", emoji: "PL" },
+      { id: "djokovic", label: "Novak Djokovic", emoji: "RS" },
+      { id: "gauff", label: "Coco Gauff", emoji: "US" },
+      { id: "rune", label: "Holger Rune", emoji: "DK" },
     ],
     adult: [
-      { id: "federer", label: "Roger Federer" },
-      { id: "nadal", label: "Rafael Nadal" },
-      { id: "djokovic", label: "Novak Djokovic" },
-      { id: "serena", label: "Serena Williams" },
+      { id: "federer", label: "Roger Federer", emoji: "CH" },
+      { id: "nadal", label: "Rafael Nadal", emoji: "ES" },
+      { id: "djokovic", label: "Novak Djokovic", emoji: "RS" },
+      { id: "serena", label: "Serena Williams", emoji: "US" },
+      { id: "alcaraz", label: "Carlos Alcaraz", emoji: "ES" },
+      { id: "sinner", label: "Jannik Sinner", emoji: "IT" },
     ],
   };
 
@@ -1293,14 +1416,30 @@ function TennisQuizStep({ data, setData, onNext }: StepProps) {
   );
 }
 
-function CompletionStep({ data, onNext, playerName }: StepProps & { onComplete: () => void }) {
+function CompletionStep({ data, playerName, onComplete }: StepProps & { onComplete: () => void }) {
   const [showConfetti, setShowConfetti] = useState(true);
+  const [isSaving, setIsSaving] = useState(false);
 
   useEffect(() => {
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     const timer = setTimeout(() => setShowConfetti(false), 3000);
     return () => clearTimeout(timer);
   }, []);
+
+  const formatExperience = (exp: string | null) => {
+    if (!exp) return null;
+    const map: Record<string, string> = {
+      "new": "Beginner",
+      "6-12months": "6-12 months",
+      "1-3years": "1-3 years",
+      "3-5years": "3-5 years",
+      "5-10years": "5-10 years",
+      "10-15years": "10-15 years",
+      "15-20years": "15-20 years",
+      "20+years": "20+ years",
+    };
+    return map[exp] || exp;
+  };
 
   return (
     <View style={styles.completionContainer}>
@@ -1323,7 +1462,7 @@ function CompletionStep({ data, onNext, playerName }: StepProps & { onComplete: 
           <View style={styles.summaryItem}>
             <Ionicons name="time-outline" size={20} color={GlowColors.primary} />
             <Text style={styles.summaryText}>
-              Experience: {data.experienceLevel === "new" ? "Beginner" : data.experienceLevel}
+              Experience: {formatExperience(data.experienceLevel)}
             </Text>
           </View>
         ) : null}
@@ -1343,13 +1482,15 @@ function CompletionStep({ data, onNext, playerName }: StepProps & { onComplete: 
 
       <Animated.View entering={FadeInUp.delay(1000).duration(600)}>
         <Pressable
-          style={styles.completionButton}
+          style={[styles.completionButton, isSaving ? { opacity: 0.7 } : null]}
+          disabled={isSaving}
           onPress={() => {
             Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
-            onNext();
+            setIsSaving(true);
+            onComplete();
           }}
         >
-          <Text style={styles.completionButtonText}>Let's Go!</Text>
+          <Text style={styles.completionButtonText}>{isSaving ? "Saving..." : "Let's Go!"}</Text>
           <Ionicons name="rocket-outline" size={24} color={Colors.dark.backgroundRoot} />
         </Pressable>
       </Animated.View>
@@ -1368,6 +1509,7 @@ export default function PlayerOnboardingV2Screen({ onComplete }: Props) {
   const [currentStep, setCurrentStep] = useState(0);
   const [data, setData] = useState<OnboardingData>({
     dateOfBirth: null,
+    gender: null,
     profilePhotoUri: null,
     motivationType: null,
     experienceLevel: null,
@@ -1454,22 +1596,23 @@ export default function PlayerOnboardingV2Screen({ onComplete }: Props) {
 
   const canProceed = () => {
     switch (currentStep) {
-      case 0: return true;
-      case 1: return !!data.dateOfBirth;
-      case 2: return true;
-      case 3: return true;
-      case 4: return !!data.motivationType;
-      case 5: return !!data.experienceLevel;
-      case 6: return !!data.dominantHand;
-      case 7: return true;
-      case 8: return data.enjoymentTags.length > 0;
-      case 9: return data.focusGoals.length > 0;
-      case 10: return data.typicalPlayTimes.length > 0;
-      case 11: return true;
-      case 12: return true;
-      case 13: return true;
-      case 14: return true;
-      case 15: return true;
+      case 0: return true; // Welcome
+      case 1: return !!data.dateOfBirth; // Birthday
+      case 2: return !!data.gender; // Gender
+      case 3: return true; // Photo (optional)
+      case 4: return true; // Ball/Glow Level Reveal
+      case 5: return !!data.motivationType; // Why Tennis
+      case 6: return !!data.experienceLevel; // Experience
+      case 7: return !!data.dominantHand; // About Yourself
+      case 8: return true; // Tennis Idol (optional)
+      case 9: return data.enjoymentTags.length > 0; // Enjoyment
+      case 10: return data.focusGoals.length > 0; // Focus Goals
+      case 11: return data.typicalPlayTimes.length > 0; // Availability
+      case 12: return true; // Academy Selection
+      case 13: return true; // Goal Setting
+      case 14: return true; // Parent Connect or Quiz
+      case 15: return true; // Quiz or Completion
+      case 16: return true; // Completion
       default: return false;
     }
   };
@@ -1480,25 +1623,26 @@ export default function PlayerOnboardingV2Screen({ onComplete }: Props) {
     switch (currentStep) {
       case 0: return <WelcomeStep {...stepProps} />;
       case 1: return <BirthdayStep {...stepProps} />;
-      case 2: return <PhotoUploadStep {...stepProps} />;
-      case 3: return age !== null ? <BallLevelRevealStep {...stepProps} age={age} /> : null;
-      case 4: return <WhyTennisStep {...stepProps} />;
-      case 5: return <ExperienceStep {...stepProps} />;
-      case 6: return <AboutYourselfStep {...stepProps} />;
-      case 7: return <TennisIdolStep {...stepProps} />;
-      case 8: return <EnjoymentStep {...stepProps} />;
-      case 9: return <FocusGoalsStep {...stepProps} />;
-      case 10: return <AvailabilityStep {...stepProps} />;
-      case 11: return <AcademySelectionStep {...stepProps} />;
-      case 12: return <GoalSettingStep {...stepProps} />;
-      case 13: return needsParentConnect ? <ParentConnectStep {...stepProps} /> : <TennisQuizStep {...stepProps} />;
-      case 14: return needsParentConnect && isBeginner ? <TennisQuizStep {...stepProps} /> : <CompletionStep {...stepProps} onComplete={handleComplete} />;
-      case 15: return <CompletionStep {...stepProps} onComplete={handleComplete} />;
+      case 2: return <GenderStep {...stepProps} />;
+      case 3: return <PhotoUploadStep {...stepProps} />;
+      case 4: return age !== null ? <BallLevelRevealStep {...stepProps} age={age} /> : null;
+      case 5: return <WhyTennisStep {...stepProps} />;
+      case 6: return <ExperienceStep {...stepProps} />;
+      case 7: return <AboutYourselfStep {...stepProps} />;
+      case 8: return <TennisIdolStep {...stepProps} />;
+      case 9: return <EnjoymentStep {...stepProps} />;
+      case 10: return <FocusGoalsStep {...stepProps} />;
+      case 11: return <AvailabilityStep {...stepProps} />;
+      case 12: return <AcademySelectionStep {...stepProps} />;
+      case 13: return <GoalSettingStep {...stepProps} />;
+      case 14: return needsParentConnect ? <ParentConnectStep {...stepProps} /> : <TennisQuizStep {...stepProps} />;
+      case 15: return needsParentConnect && isBeginner ? <TennisQuizStep {...stepProps} /> : <CompletionStep {...stepProps} onComplete={handleComplete} />;
+      case 16: return <CompletionStep {...stepProps} onComplete={handleComplete} />;
       default: return null;
     }
   };
 
-  const isCompletionStep = currentStep === TOTAL_STEPS - 1 || (currentStep === 14 && (!needsParentConnect || !isBeginner));
+  const isCompletionStep = currentStep === TOTAL_STEPS - 1 || (currentStep === 15 && (!needsParentConnect || !isBeginner));
 
   return (
     <View style={[styles.container, { paddingTop: insets.top + Spacing.lg }]}>
@@ -1522,7 +1666,7 @@ export default function PlayerOnboardingV2Screen({ onComplete }: Props) {
             <View style={styles.backButton} />
           )}
 
-          {![0, 1, 3, 4, 5].includes(currentStep) ? (
+          {![0, 1, 2, 4, 5, 6].includes(currentStep) ? (
             <Pressable
               style={[styles.nextButton, !canProceed() ? styles.nextButtonDisabled : null]}
               onPress={handleNext}
@@ -2232,6 +2376,112 @@ const styles = StyleSheet.create({
   nextButtonText: {
     ...Typography.body,
     color: Colors.dark.backgroundRoot,
+    fontWeight: "600",
+  },
+  adjustLink: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.xs,
+    marginTop: Spacing.lg,
+    paddingVertical: Spacing.sm,
+  },
+  adjustLinkText: {
+    ...Typography.small,
+    color: Colors.dark.textMuted,
+  },
+  adjustModal: {
+    backgroundColor: Backgrounds.card,
+    borderRadius: BorderRadius.xl,
+    padding: Spacing.xl,
+    width: SCREEN_WIDTH - Spacing.xl * 2,
+    maxHeight: SCREEN_HEIGHT * 0.7,
+  },
+  adjustModalTitle: {
+    ...Typography.h2,
+    color: Colors.dark.text,
+    textAlign: "center",
+    marginBottom: Spacing.sm,
+  },
+  adjustModalSubtitle: {
+    ...Typography.body,
+    color: Colors.dark.textMuted,
+    textAlign: "center",
+    marginBottom: Spacing.xl,
+  },
+  adjustOptions: {
+    gap: Spacing.md,
+    marginBottom: Spacing.lg,
+  },
+  adjustOption: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.md,
+    padding: Spacing.md,
+    backgroundColor: Backgrounds.surface,
+    borderRadius: BorderRadius.lg,
+  },
+  adjustBallIcon: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  adjustOptionInfo: {
+    flex: 1,
+  },
+  adjustOptionLabel: {
+    ...Typography.body,
+    color: Colors.dark.text,
+    fontWeight: "600",
+  },
+  adjustOptionDesc: {
+    ...Typography.small,
+    color: Colors.dark.textMuted,
+  },
+  adjustCancelButton: {
+    alignItems: "center",
+    paddingVertical: Spacing.md,
+  },
+  adjustCancelText: {
+    ...Typography.body,
+    color: GlowColors.primary,
+  },
+  genderContainer: {
+    gap: Spacing.md,
+  },
+  genderCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.md,
+    padding: Spacing.lg,
+    backgroundColor: Backgrounds.card,
+    borderRadius: BorderRadius.lg,
+    borderWidth: 2,
+    borderColor: "transparent",
+  },
+  genderCardActive: {
+    borderColor: GlowColors.primary,
+    backgroundColor: `${GlowColors.primary}10`,
+  },
+  genderIcon: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: Backgrounds.surface,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  genderIconActive: {
+    backgroundColor: GlowColors.primary,
+  },
+  genderText: {
+    ...Typography.body,
+    color: Colors.dark.text,
+    flex: 1,
+  },
+  genderTextActive: {
+    color: GlowColors.primary,
     fontWeight: "600",
   },
 });
