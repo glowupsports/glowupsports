@@ -17,6 +17,7 @@ import Animated, { useSharedValue, useAnimatedStyle, withSpring } from "react-na
 import { apiRequest, getApiUrl, getStaticAssetsUrl } from "@/lib/query-client";
 import { getAuthToken } from "@/lib/auth";
 import { useWalkthrough } from "@/player/context/WalkthroughContext";
+import { usePlayer } from "@/player/context/PlayerContext";
 
 interface ProfileData {
   player: {
@@ -151,6 +152,7 @@ export default function PlayerProfileScreen() {
   const { setMode } = useAppMode();
   const { logout } = useAuth();
   const { hasSeenScreen, startWalkthrough } = useWalkthrough();
+  const { isBirthday } = usePlayer();
   const [showPinModal, setShowPinModal] = useState(false);
   const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
   const [activeTab, setActiveTab] = useState<ProfileTab>("moments");
@@ -474,6 +476,12 @@ export default function PlayerProfileScreen() {
               <Ionicons name="flash" size={14} color={Colors.dark.xpCyan} />
               <Text style={styles.glowText}>{player.glowScore} Glow</Text>
             </View>
+            {isBirthday ? (
+              <View style={styles.birthdayBadge}>
+                <Text style={styles.birthdayIcon}>🎂</Text>
+                <Text style={styles.birthdayText}>Birthday!</Text>
+              </View>
+            ) : null}
           </View>
 
           {/* Open to Play Toggle */}
@@ -1295,6 +1303,25 @@ const styles = StyleSheet.create({
     ...Typography.caption,
     color: Colors.dark.xpCyan,
     fontWeight: "600",
+  },
+  birthdayBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    backgroundColor: "rgba(255, 105, 180, 0.2)",
+    paddingHorizontal: Spacing.md,
+    paddingVertical: 6,
+    borderRadius: BorderRadius.lg,
+    borderWidth: 1,
+    borderColor: "#FF69B4",
+  },
+  birthdayIcon: {
+    fontSize: 14,
+  },
+  birthdayText: {
+    ...Typography.caption,
+    color: "#FF69B4",
+    fontWeight: "700",
   },
   sectionTitle: {
     ...Typography.sectionTitle,
