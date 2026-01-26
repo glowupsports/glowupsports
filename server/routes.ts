@@ -23651,11 +23651,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/play/sessions", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
     try {
       const playerId = req.user?.playerId;
-      const academyId = req.user?.academyId;
       
       if (!playerId) {
         return res.status(403).json({ error: "Player access required" });
       }
+
+      // Get player's academyId from database (more reliable than req.user.academyId)
+      const currentPlayer = await storage.getPlayer(playerId);
+      const academyId = currentPlayer?.academyId;
+      console.log("[PlaySessions] Player:", playerId, "Academy:", academyId);
 
       // Get upcoming group/semi sessions from player's academy + public sessions
       const now = new Date();
@@ -23668,7 +23672,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             eq(s.academyId, academyId || ""),
             eq(s.academyId, null as any) // Public sessions
           ),
-          inArray(s.sessionType, ["group", "semi"]),
+          inArray(s.sessionType, ["group", "semi_private"]),
           eq(s.status, "scheduled"),
           gte(s.startTime, now),
           lte(s.startTime, futureDate)
