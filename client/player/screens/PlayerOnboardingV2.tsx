@@ -72,7 +72,7 @@ function calculateAge(dateOfBirth: string): number {
 
 function getBallLevel(age: number): { level: string; color: string; description: string; isGlowLevel?: boolean } {
   if (age < 4) {
-    return { level: "Red", color: BallLevelColors.red, description: "Starting your tennis journey - mini court fun!" };
+    return { level: "Blue", color: BallLevelColors.blue, description: "Starting your tennis journey - soft foam fun!" };
   }
   if (age >= 4 && age <= 6) {
     return { level: "Red", color: BallLevelColors.red, description: "Mini court, soft ball - perfect for beginners!" };
@@ -367,6 +367,21 @@ function BirthdayStep({ data, setData, onNext, playerName }: StepProps) {
           </Animated.View>
         ) : null}
       </Animated.View>
+
+      {data.dateOfBirth ? (
+        <Animated.View entering={FadeInUp.delay(400).duration(400)} style={styles.birthdayNextContainer}>
+          <Pressable
+            style={styles.primaryButton}
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+              onNext();
+            }}
+          >
+            <Text style={styles.primaryButtonText}>Next</Text>
+            <Ionicons name="arrow-forward" size={20} color={Colors.dark.backgroundRoot} />
+          </Pressable>
+        </Animated.View>
+      ) : null}
 
       <Modal visible={showPicker} transparent animationType="fade" onRequestClose={() => setShowPicker(false)}>
         <Pressable style={styles.modalOverlay} onPress={() => setShowPicker(false)}>
@@ -2700,5 +2715,8 @@ const styles = StyleSheet.create({
   nextStepText: {
     ...Typography.body,
     color: Colors.dark.text,
+  },
+  birthdayNextContainer: {
+    marginTop: Spacing.xl,
   },
 });
