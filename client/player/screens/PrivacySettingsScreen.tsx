@@ -5,7 +5,7 @@ import Ionicons from "@expo/vector-icons/Ionicons";
 import * as Haptics from "expo-haptics";
 import { LinearGradient } from "expo-linear-gradient";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { Colors, Spacing, Typography, BorderRadius, CardStyles, Backgrounds } from "@/constants/theme";
+import { Colors, Spacing, Typography, BorderRadius, CardStyles, Backgrounds, TextColors } from "@/constants/theme";
 import { apiRequest } from "@/lib/query-client";
 
 type PrivacyLevel = "everyone" | "platform" | "academy" | "hidden";
@@ -99,7 +99,7 @@ export default function PrivacySettingsScreen({
             onPress={onGoBack}
             hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
           >
-            <Ionicons name="chevron-back" size={24} color={Colors.text.primary} />
+            <Ionicons name="chevron-back" size={24} color={TextColors.primary} />
           </Pressable>
         )}
         <View style={styles.headerContent}>
@@ -164,7 +164,7 @@ export default function PrivacySettingsScreen({
       </View>
 
       <View style={styles.infoCard}>
-        <Ionicons name="information-circle-outline" size={20} color={Colors.text.muted} />
+        <Ionicons name="information-circle-outline" size={20} color={TextColors.muted} />
         <Text style={styles.infoText}>
           You can change this anytime in Settings. Your choice affects who can see your profile and invite you to matches.
         </Text>
@@ -226,13 +226,13 @@ const styles = StyleSheet.create({
   },
   title: {
     ...Typography.h1,
-    color: Colors.text.primary,
+    color: TextColors.primary,
     textAlign: "center",
     marginBottom: Spacing.xs,
   },
   subtitle: {
     ...Typography.body,
-    color: Colors.text.secondary,
+    color: TextColors.secondary,
     textAlign: "center",
   },
   optionsContainer: {
@@ -267,12 +267,12 @@ const styles = StyleSheet.create({
   },
   optionTitle: {
     ...Typography.subtitle,
-    color: Colors.text.primary,
+    color: TextColors.primary,
     marginBottom: 4,
   },
   optionDescription: {
     ...Typography.caption,
-    color: Colors.text.secondary,
+    color: TextColors.secondary,
     lineHeight: 18,
   },
   radioOuter: {
@@ -280,7 +280,7 @@ const styles = StyleSheet.create({
     height: 24,
     borderRadius: 12,
     borderWidth: 2,
-    borderColor: Colors.text.muted,
+    borderColor: TextColors.muted,
     justifyContent: "center",
     alignItems: "center",
   },
@@ -300,7 +300,7 @@ const styles = StyleSheet.create({
   },
   infoText: {
     ...Typography.caption,
-    color: Colors.text.muted,
+    color: TextColors.muted,
     flex: 1,
     lineHeight: 18,
   },
