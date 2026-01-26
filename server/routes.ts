@@ -23741,7 +23741,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         
         // If session doesnt have locationId but has a series, get location from series
         if (!locationId && session.seriesId) {
-          const series = await db.query.sessionSeries.findFirst({
+          const series = await db.query.coachingSeries.findFirst({
             where: (s, { eq }) => eq(s.id, session.seriesId!),
           });
           if (series?.locationId) {
