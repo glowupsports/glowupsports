@@ -1,465 +1,1303 @@
-<!doctype html>
-<html>
-  <head>
-    <title>APP_NAME_PLACEHOLDER</title>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <style>
-      * {
-        box-sizing: border-box;
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Glow Up Sports - World's First RPG-Style Tennis Platform</title>
+  <meta name="description" content="Transform your tennis academy into an epic gaming hub. Revolutionary AI analyzes 6 core tennis attributes to create personalized player DNA profiles.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    :root {
+      --primary-green: #00FF88;
+      --primary-cyan: #00D4FF;
+      --primary-yellow: #FFD700;
+      --primary-orange: #FF6B35;
+      --primary-purple: #A855F7;
+      --primary-pink: #FF1493;
+      --bg-dark: #0a0a1a;
+      --bg-card: rgba(255,255,255,0.05);
+      --text-primary: #ffffff;
+      --text-secondary: rgba(255,255,255,0.7);
+      --text-muted: rgba(255,255,255,0.5);
+    }
+
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      background: linear-gradient(135deg, #0a0a1a 0%, #1a0a2e 50%, #0a1a2e 100%);
+      color: var(--text-primary);
+      line-height: 1.6;
+      overflow-x: hidden;
+    }
+
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 0 24px;
+    }
+
+    /* Navigation */
+    nav {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      z-index: 1000;
+      background: rgba(10,10,26,0.95);
+      backdrop-filter: blur(10px);
+      border-bottom: 1px solid rgba(255,255,255,0.1);
+    }
+
+    .nav-container {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 16px 24px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .logo {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      font-weight: 700;
+      font-size: 20px;
+    }
+
+    .logo-icon {
+      width: 40px;
+      height: 40px;
+      background: linear-gradient(135deg, var(--primary-green), var(--primary-cyan));
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 20px;
+    }
+
+    .logo-badge {
+      background: var(--primary-purple);
+      color: white;
+      font-size: 10px;
+      padding: 2px 8px;
+      border-radius: 20px;
+      font-weight: 600;
+    }
+
+    .nav-links {
+      display: flex;
+      gap: 32px;
+      align-items: center;
+    }
+
+    .nav-links a {
+      color: var(--text-secondary);
+      text-decoration: none;
+      font-size: 14px;
+      font-weight: 500;
+      transition: color 0.2s;
+    }
+
+    .nav-links a:hover {
+      color: var(--text-primary);
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 12px 24px;
+      border-radius: 8px;
+      font-weight: 600;
+      font-size: 14px;
+      text-decoration: none;
+      transition: all 0.2s;
+      cursor: pointer;
+      border: none;
+    }
+
+    .btn-primary {
+      background: linear-gradient(135deg, var(--primary-green), var(--primary-cyan));
+      color: #000;
+    }
+
+    .btn-primary:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 10px 30px rgba(0,255,136,0.3);
+    }
+
+    .btn-secondary {
+      background: rgba(255,255,255,0.1);
+      color: var(--text-primary);
+      border: 1px solid rgba(255,255,255,0.2);
+    }
+
+    .btn-secondary:hover {
+      background: rgba(255,255,255,0.15);
+    }
+
+    /* Hero Section */
+    .hero {
+      padding: 140px 0 80px;
+      position: relative;
+    }
+
+    .hero-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 60px;
+      align-items: center;
+    }
+
+    .hero-badge {
+      display: inline-block;
+      background: rgba(168,85,247,0.2);
+      color: var(--primary-purple);
+      padding: 8px 16px;
+      border-radius: 20px;
+      font-size: 12px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      margin-bottom: 24px;
+    }
+
+    .hero h1 {
+      font-size: 48px;
+      font-weight: 800;
+      line-height: 1.1;
+      margin-bottom: 24px;
+    }
+
+    .hero h1 .gradient {
+      background: linear-gradient(135deg, var(--primary-green), var(--primary-cyan));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .hero-subtitle {
+      font-size: 18px;
+      color: var(--text-secondary);
+      margin-bottom: 32px;
+    }
+
+    .hero-features {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      margin-bottom: 32px;
+    }
+
+    .hero-feature {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      color: var(--text-secondary);
+      font-size: 14px;
+    }
+
+    .hero-feature-icon {
+      width: 24px;
+      height: 24px;
+      background: rgba(168,85,247,0.2);
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 12px;
+    }
+
+    .hero-buttons {
+      display: flex;
+      gap: 16px;
+    }
+
+    /* Glow Score Engine Card */
+    .glow-engine-card {
+      background: var(--bg-card);
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 20px;
+      padding: 32px;
+      backdrop-filter: blur(10px);
+    }
+
+    .glow-engine-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 24px;
+    }
+
+    .glow-engine-title {
+      font-size: 18px;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .elite-badge {
+      background: linear-gradient(135deg, var(--primary-purple), var(--primary-pink));
+      color: white;
+      padding: 4px 12px;
+      border-radius: 20px;
+      font-size: 12px;
+      font-weight: 600;
+    }
+
+    .skill-bar {
+      margin-bottom: 16px;
+    }
+
+    .skill-bar-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 8px;
+    }
+
+    .skill-bar-label {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 14px;
+      color: var(--text-secondary);
+    }
+
+    .skill-bar-value {
+      font-weight: 600;
+      font-size: 14px;
+    }
+
+    .skill-bar-track {
+      height: 8px;
+      background: rgba(255,255,255,0.1);
+      border-radius: 4px;
+      overflow: hidden;
+    }
+
+    .skill-bar-fill {
+      height: 100%;
+      border-radius: 4px;
+      transition: width 1s ease;
+    }
+
+    .skill-forehand .skill-bar-fill { background: linear-gradient(90deg, #00FF88, #00D4FF); }
+    .skill-backhand .skill-bar-fill { background: linear-gradient(90deg, #FFD700, #FF6B35); }
+    .skill-serve .skill-bar-fill { background: linear-gradient(90deg, #A855F7, #FF1493); }
+    .skill-volley .skill-bar-fill { background: linear-gradient(90deg, #00D4FF, #0066FF); }
+    .skill-movement .skill-bar-fill { background: linear-gradient(90deg, #FF6B35, #FF1493); }
+    .skill-gameiq .skill-bar-fill { background: linear-gradient(90deg, #00FF88, #A855F7); }
+
+    .glow-score-container {
+      background: rgba(0,255,136,0.1);
+      border-radius: 16px;
+      padding: 24px;
+      text-align: center;
+      margin-top: 24px;
+    }
+
+    .glow-score-value {
+      font-size: 56px;
+      font-weight: 800;
+      background: linear-gradient(135deg, var(--primary-green), var(--primary-cyan));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .glow-score-label {
+      color: var(--text-secondary);
+      font-size: 14px;
+      margin-top: 4px;
+    }
+
+    .glow-rank-badge {
+      display: inline-block;
+      background: linear-gradient(135deg, var(--primary-green), var(--primary-cyan));
+      color: #000;
+      padding: 6px 16px;
+      border-radius: 20px;
+      font-size: 12px;
+      font-weight: 700;
+      margin-top: 12px;
+    }
+
+    /* Stats Section */
+    .stats {
+      padding: 60px 0;
+      background: rgba(0,0,0,0.3);
+    }
+
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 40px;
+      text-align: center;
+    }
+
+    .stat-item {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    .stat-icon {
+      width: 48px;
+      height: 48px;
+      background: linear-gradient(135deg, var(--primary-purple), var(--primary-pink));
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 24px;
+      margin-bottom: 16px;
+    }
+
+    .stat-value {
+      font-size: 36px;
+      font-weight: 800;
+      background: linear-gradient(135deg, var(--primary-green), var(--primary-cyan));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .stat-label {
+      color: var(--text-secondary);
+      font-size: 14px;
+      margin-top: 4px;
+    }
+
+    /* Features Section */
+    .features {
+      padding: 100px 0;
+    }
+
+    .section-header {
+      text-align: center;
+      margin-bottom: 60px;
+    }
+
+    .section-header h2 {
+      font-size: 40px;
+      font-weight: 800;
+      margin-bottom: 16px;
+    }
+
+    .section-header p {
+      color: var(--text-secondary);
+      font-size: 18px;
+      max-width: 600px;
+      margin: 0 auto;
+    }
+
+    .features-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 24px;
+    }
+
+    .feature-card {
+      background: var(--bg-card);
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 16px;
+      padding: 32px;
+      transition: transform 0.2s, box-shadow 0.2s;
+    }
+
+    .feature-card:hover {
+      transform: translateY(-4px);
+      box-shadow: 0 20px 40px rgba(0,0,0,0.3);
+    }
+
+    .feature-icon {
+      width: 56px;
+      height: 56px;
+      background: linear-gradient(135deg, var(--primary-green), var(--primary-cyan));
+      border-radius: 14px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 28px;
+      margin-bottom: 20px;
+    }
+
+    .feature-card h3 {
+      font-size: 20px;
+      font-weight: 700;
+      margin-bottom: 12px;
+    }
+
+    .feature-card p {
+      color: var(--text-secondary);
+      font-size: 14px;
+      line-height: 1.6;
+    }
+
+    /* Ball Levels Section */
+    .ball-levels {
+      padding: 100px 0;
+      background: rgba(0,0,0,0.3);
+    }
+
+    .ball-levels-grid {
+      display: grid;
+      grid-template-columns: repeat(6, 1fr);
+      gap: 16px;
+    }
+
+    .ball-level-card {
+      background: var(--bg-card);
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 16px;
+      padding: 24px;
+      text-align: center;
+      transition: transform 0.2s;
+    }
+
+    .ball-level-card:hover {
+      transform: translateY(-4px);
+    }
+
+    .ball-icon {
+      width: 64px;
+      height: 64px;
+      border-radius: 50%;
+      margin: 0 auto 16px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 32px;
+    }
+
+    .ball-blue { background: linear-gradient(135deg, #3B82F6, #1D4ED8); }
+    .ball-red { background: linear-gradient(135deg, #EF4444, #B91C1C); }
+    .ball-orange { background: linear-gradient(135deg, #F97316, #C2410C); }
+    .ball-green { background: linear-gradient(135deg, #22C55E, #15803D); }
+    .ball-yellow { background: linear-gradient(135deg, #EAB308, #A16207); }
+    .ball-adult { background: linear-gradient(135deg, var(--primary-purple), var(--primary-pink)); }
+
+    .ball-level-name {
+      font-weight: 700;
+      font-size: 16px;
+      margin-bottom: 4px;
+    }
+
+    .ball-level-ages {
+      color: var(--text-muted);
+      font-size: 12px;
+    }
+
+    /* Dashboards Section */
+    .dashboards {
+      padding: 100px 0;
+    }
+
+    .dashboards-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 24px;
+    }
+
+    .dashboard-card {
+      background: var(--bg-card);
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 20px;
+      padding: 32px;
+      transition: transform 0.2s;
+    }
+
+    .dashboard-card:hover {
+      transform: translateY(-4px);
+    }
+
+    .dashboard-header {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 24px;
+    }
+
+    .dashboard-icon {
+      width: 48px;
+      height: 48px;
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 24px;
+    }
+
+    .dashboard-player .dashboard-icon { background: linear-gradient(135deg, var(--primary-green), var(--primary-cyan)); }
+    .dashboard-coach .dashboard-icon { background: linear-gradient(135deg, var(--primary-orange), var(--primary-pink)); }
+    .dashboard-academy .dashboard-icon { background: linear-gradient(135deg, var(--primary-purple), var(--primary-cyan)); }
+
+    .dashboard-title {
+      font-size: 18px;
+      font-weight: 700;
+    }
+
+    .dashboard-subtitle {
+      color: var(--text-muted);
+      font-size: 12px;
+    }
+
+    .dashboard-stats {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+    }
+
+    .dashboard-stat {
+      background: rgba(255,255,255,0.05);
+      border-radius: 12px;
+      padding: 16px;
+    }
+
+    .dashboard-stat-label {
+      color: var(--text-muted);
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 4px;
+    }
+
+    .dashboard-stat-value {
+      font-size: 24px;
+      font-weight: 700;
+    }
+
+    /* Testimonials */
+    .testimonials {
+      padding: 100px 0;
+      background: rgba(0,0,0,0.3);
+    }
+
+    .testimonials-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 24px;
+    }
+
+    .testimonial-card {
+      background: var(--bg-card);
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 16px;
+      padding: 32px;
+    }
+
+    .testimonial-stars {
+      color: var(--primary-yellow);
+      font-size: 18px;
+      margin-bottom: 16px;
+    }
+
+    .testimonial-text {
+      color: var(--text-secondary);
+      font-size: 15px;
+      line-height: 1.7;
+      margin-bottom: 24px;
+      font-style: italic;
+    }
+
+    .testimonial-author {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .testimonial-avatar {
+      width: 48px;
+      height: 48px;
+      background: linear-gradient(135deg, var(--primary-purple), var(--primary-pink));
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 700;
+      font-size: 16px;
+    }
+
+    .testimonial-name {
+      font-weight: 600;
+      font-size: 14px;
+    }
+
+    .testimonial-role {
+      color: var(--text-muted);
+      font-size: 12px;
+    }
+
+    /* CTA Section */
+    .cta {
+      padding: 100px 0;
+      text-align: center;
+      background: linear-gradient(135deg, rgba(168,85,247,0.2), rgba(0,212,255,0.1));
+    }
+
+    .cta h2 {
+      font-size: 44px;
+      font-weight: 800;
+      margin-bottom: 16px;
+    }
+
+    .cta p {
+      color: var(--text-secondary);
+      font-size: 18px;
+      margin-bottom: 40px;
+      max-width: 600px;
+      margin-left: auto;
+      margin-right: auto;
+    }
+
+    .cta-buttons {
+      display: flex;
+      gap: 16px;
+      justify-content: center;
+      margin-bottom: 40px;
+    }
+
+    .cta-features {
+      display: flex;
+      gap: 48px;
+      justify-content: center;
+    }
+
+    .cta-feature {
+      text-align: center;
+    }
+
+    .cta-feature-value {
+      font-weight: 700;
+      font-size: 18px;
+      margin-bottom: 4px;
+    }
+
+    .cta-feature-label {
+      color: var(--text-muted);
+      font-size: 12px;
+    }
+
+    /* Footer */
+    footer {
+      padding: 60px 0 40px;
+      border-top: 1px solid rgba(255,255,255,0.1);
+    }
+
+    .footer-grid {
+      display: grid;
+      grid-template-columns: 2fr 1fr 1fr 1fr;
+      gap: 60px;
+      margin-bottom: 40px;
+    }
+
+    .footer-brand p {
+      color: var(--text-muted);
+      font-size: 14px;
+      margin-top: 16px;
+      line-height: 1.7;
+    }
+
+    .footer-badges {
+      display: flex;
+      gap: 12px;
+      margin-top: 20px;
+    }
+
+    .footer-badge {
+      background: rgba(255,255,255,0.1);
+      padding: 6px 12px;
+      border-radius: 6px;
+      font-size: 11px;
+      color: var(--text-muted);
+    }
+
+    .footer-column h4 {
+      font-size: 14px;
+      font-weight: 600;
+      margin-bottom: 20px;
+    }
+
+    .footer-column a {
+      display: block;
+      color: var(--text-muted);
+      text-decoration: none;
+      font-size: 14px;
+      margin-bottom: 12px;
+      transition: color 0.2s;
+    }
+
+    .footer-column a:hover {
+      color: var(--text-primary);
+    }
+
+    .footer-bottom {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding-top: 40px;
+      border-top: 1px solid rgba(255,255,255,0.1);
+    }
+
+    .footer-copyright {
+      color: var(--text-muted);
+      font-size: 13px;
+    }
+
+    .footer-legal {
+      display: flex;
+      gap: 24px;
+    }
+
+    .footer-legal a {
+      color: var(--text-muted);
+      text-decoration: none;
+      font-size: 13px;
+    }
+
+    /* Responsive */
+    @media (max-width: 1024px) {
+      .hero-grid {
+        grid-template-columns: 1fr;
+        gap: 40px;
       }
-      body {
-        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-        margin: 0;
-        padding: 32px 20px;
-        text-align: center;
-        background: #fff;
-        color: #222;
-        line-height: 1.5;
-        min-height: 100vh;
+
+      .features-grid,
+      .dashboards-grid,
+      .testimonials-grid {
+        grid-template-columns: 1fr;
       }
-      .wrapper {
-        max-width: 480px;
-        margin: 0 auto;
+
+      .ball-levels-grid {
+        grid-template-columns: repeat(3, 1fr);
       }
-      h1 {
-        font-size: 26px;
-        font-weight: 600;
-        margin: 0;
-        color: #111;
+
+      .stats-grid {
+        grid-template-columns: repeat(2, 1fr);
       }
-      .subtitle {
-        font-size: 15px;
-        color: #666;
-        margin-top: 8px;
-        margin-bottom: 32px;
+
+      .footer-grid {
+        grid-template-columns: 1fr 1fr;
       }
-      .loading {
+
+      .nav-links {
         display: none;
-        margin: 60px 0;
       }
-      .spinner {
-        border: 2px solid #ddd;
-        border-top-color: #333;
-        border-radius: 50%;
-        width: 32px;
-        height: 32px;
-        animation: spin 0.8s linear infinite;
-        margin: 20px auto;
-      }
-      @keyframes spin {
-        to {
-          transform: rotate(360deg);
-        }
-      }
-      .loading-text {
-        font-size: 16px;
-        color: #444;
-      }
-      .content {
-        display: block;
+    }
+
+    @media (max-width: 640px) {
+      .hero h1 {
+        font-size: 32px;
       }
 
-      .steps-container {
-        display: flex;
+      .ball-levels-grid {
+        grid-template-columns: repeat(2, 1fr);
+      }
+
+      .cta-features {
         flex-direction: column;
-        gap: 20px;
+        gap: 24px;
       }
 
-      .step {
-        padding: 24px;
-        border: 1px solid #ddd;
-        border-radius: 12px;
+      .cta-buttons {
+        flex-direction: column;
+        align-items: center;
+      }
+
+      .footer-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .footer-bottom {
+        flex-direction: column;
+        gap: 16px;
         text-align: center;
-        background: #fafafa;
       }
-      .step-header {
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        gap: 10px;
-        margin-bottom: 12px;
-      }
-      .step-number {
-        width: 28px;
-        height: 28px;
-        border: 1px solid #999;
-        border-radius: 50%;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        font-weight: 600;
-        font-size: 14px;
-        flex-shrink: 0;
-        color: #555;
-      }
-      .step-title {
-        font-size: 18px;
-        font-weight: 600;
-        margin: 0;
-        color: #222;
-      }
-      .step-description {
-        font-size: 14px;
-        margin-bottom: 16px;
-        color: #666;
-      }
+    }
+  </style>
+</head>
+<body>
 
-      .store-buttons {
-        display: flex;
-        flex-direction: column;
-        gap: 6px;
-        justify-content: center;
-        flex-wrap: wrap;
-      }
-      .store-button {
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        gap: 8px;
-        padding: 12px 20px;
-        font-size: 14px;
-        font-weight: 500;
-        border: 1px solid #ccc;
-        border-radius: 8px;
-        text-decoration: none;
-        color: #333;
-        background: #fff;
-        transition: all 0.15s;
-      }
-      .store-button:hover {
-        background: #f5f5f5;
-        border-color: #999;
-      }
-      .store-link {
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        gap: 6px;
-        padding: 8px 0;
-        font-size: 13px;
-        font-weight: 400;
-        text-decoration: underline;
-        text-underline-offset: 2px;
-        color: #666;
-        background: none;
-        border: none;
-        transition: color 0.15s;
-      }
-      .store-link:hover {
-        color: #333;
-      }
-      .store-link .store-icon {
-        width: 14px;
-        height: 14px;
-      }
-      .store-icon {
-        width: 18px;
-        height: 18px;
-      }
-
-      .qr-section {
-        background: #333;
-        color: #fff;
-        border-color: #333;
-      }
-      .qr-section .step-number {
-        border-color: rgba(255, 255, 255, 0.5);
-        color: #fff;
-      }
-      .qr-section .step-title {
-        color: #fff;
-      }
-      .qr-section .step-description {
-        color: rgba(255, 255, 255, 0.7);
-      }
-      .qr-code {
-        width: 180px;
-        height: 180px;
-        margin: 0 auto 16px;
-        background: #fff;
-        border-radius: 8px;
-        padding: 12px;
-      }
-      .qr-code canvas {
-        width: 100%;
-        height: 100%;
-      }
-      .open-button {
-        display: inline-block;
-        padding: 12px 24px;
-        font-size: 14px;
-        font-weight: 500;
-        border: 1px solid rgba(255, 255, 255, 0.3);
-        border-radius: 8px;
-        text-decoration: none;
-        color: #333;
-        background: #fff;
-        transition: opacity 0.15s;
-      }
-      .open-button:hover {
-        opacity: 0.9;
-      }
-
-      /* Desktop styles */
-      @media (min-width: 768px) {
-        body {
-          padding: 48px 32px;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-        }
-        .wrapper {
-          max-width: 720px;
-        }
-        h1 {
-          font-size: 32px;
-          margin-bottom: 10px;
-        }
-        .subtitle {
-          font-size: 16px;
-          margin-bottom: 40px;
-        }
-        .steps-container {
-          flex-direction: row;
-          gap: 20px;
-          align-items: stretch;
-        }
-        .step {
-          flex: 1;
-          display: flex;
-          flex-direction: column;
-          padding: 28px;
-        }
-        .step-description {
-          flex-grow: 1;
-        }
-        .store-buttons {
-          flex-direction: column;
-          gap: 10px;
-        }
-        .qr-code {
-          width: 200px;
-          height: 200px;
-        }
-      }
-
-      /* Large desktop */
-      @media (min-width: 1024px) {
-        .wrapper {
-          max-width: 800px;
-        }
-        h1 {
-          font-size: 36px;
-        }
-        .steps-container {
-          gap: 28px;
-        }
-        .step {
-          padding: 32px;
-        }
-      }
-
-      /* Dark mode */
-      @media (prefers-color-scheme: dark) {
-        body {
-          background: #0d0d0d;
-          color: #e0e0e0;
-        }
-        h1 {
-          color: #f5f5f5;
-        }
-        .subtitle {
-          color: #999;
-        }
-        .spinner {
-          border-color: #444;
-          border-top-color: #ccc;
-        }
-        .loading-text {
-          color: #aaa;
-        }
-        .step {
-          border-color: #333;
-          background: #1a1a1a;
-        }
-        .step-number {
-          border-color: #666;
-          color: #bbb;
-        }
-        .step-title {
-          color: #f0f0f0;
-        }
-        .step-description {
-          color: #888;
-        }
-        .store-button {
-          border-color: #444;
-          color: #e0e0e0;
-          background: #222;
-        }
-        .store-button:hover {
-          background: #2a2a2a;
-          border-color: #666;
-        }
-        .store-link {
-          color: #888;
-        }
-        .store-link:hover {
-          color: #ccc;
-        }
-        .qr-section {
-          background: #111;
-          border-color: #333;
-        }
-        .qr-section .step-number {
-          border-color: rgba(255, 255, 255, 0.4);
-        }
-        .qr-section .step-description {
-          color: rgba(255, 255, 255, 0.6);
-        }
-        .open-button {
-          background: #f0f0f0;
-          color: #111;
-        }
-        .open-button:hover {
-          background: #e0e0e0;
-        }
-      }
-    </style>
-  </head>
-  <body>
-    <div class="wrapper">
-      <div class="loading" id="loading">
-        <div class="spinner"></div>
-        <div class="loading-text">Opening in Expo Go...</div>
+  <!-- Navigation -->
+  <nav>
+    <div class="nav-container">
+      <div class="logo">
+        <div class="logo-icon">&#127934;</div>
+        <span>Glow Up Tennis</span>
+        <span class="logo-badge">DUBAI</span>
       </div>
+      <div class="nav-links">
+        <a href="#features">Features</a>
+        <a href="#levels">Ball Levels</a>
+        <a href="#dashboards">Dashboards</a>
+        <a href="#testimonials">Testimonials</a>
+        <a href="#" class="btn btn-primary">Download App</a>
+      </div>
+    </div>
+  </nav>
 
-      <div class="content" id="content">
-        <h1>APP_NAME_PLACEHOLDER</h1>
-        <p class="subtitle">Preview this app on your phone</p>
-
-        <div class="steps-container">
-          <div class="step">
-            <div class="step-header">
-              <div class="step-number">1</div>
-              <h2 class="step-title">Download Expo Go</h2>
+  <!-- Hero Section -->
+  <section class="hero">
+    <div class="container">
+      <div class="hero-grid">
+        <div class="hero-content">
+          <span class="hero-badge">&#127942; REVOLUTIONARY TENNIS TECHNOLOGY</span>
+          <h1>Transform Tennis with<br><span class="gradient">Glow Score Engine&trade;</span></h1>
+          <p class="hero-subtitle">&#127941; WORLD'S FIRST RPG-STYLE TENNIS PLATFORM &#127941;<br><br>
+          Revolutionary AI analyzes 6 core tennis attributes to create personalized player DNA profiles, transforming boring tennis lessons into epic gaming adventures that students actually BEG to attend!</p>
+          
+          <div class="hero-features">
+            <div class="hero-feature">
+              <span class="hero-feature-icon">&#129504;</span>
+              <span>6 Skill Pillar Tracking System</span>
             </div>
-            <p class="step-description">
-              Expo Go is a free app to test mobile apps
-            </p>
-            <div class="store-buttons" id="store-buttons">
-              <a
-                id="app-store-btn"
-                href="https://apps.apple.com/app/id982107779"
-                class="store-button"
-                target="_blank"
-              >
-                <svg class="store-icon" viewBox="0 0 24 24" fill="currentColor">
-                  <path
-                    d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.81-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M13 3.5c.73-.83 1.94-1.46 2.94-1.5.13 1.17-.34 2.35-1.04 3.19-.69.85-1.83 1.51-2.95 1.42-.15-1.15.41-2.35 1.05-3.11z"
-                  />
-                </svg>
-                App Store
-              </a>
-              <a
-                id="play-store-btn"
-                href="https://play.google.com/store/apps/details?id=host.exp.exponent"
-                class="store-button"
-                target="_blank"
-              >
-                <svg class="store-icon" viewBox="0 0 24 24" fill="currentColor">
-                  <path
-                    d="M3,20.5V3.5C3,2.91 3.34,2.39 3.84,2.15L13.69,12L3.84,21.85C3.34,21.6 3,21.09 3,20.5M16.81,15.12L6.05,21.34L14.54,12.85L16.81,15.12M20.16,10.81C20.5,11.08 20.75,11.5 20.75,12C20.75,12.5 20.53,12.9 20.18,13.18L17.89,14.5L15.39,12L17.89,9.5L20.16,10.81M6.05,2.66L16.81,8.88L14.54,11.15L6.05,2.66Z"
-                  />
-                </svg>
-                Google Play
-              </a>
+            <div class="hero-feature">
+              <span class="hero-feature-icon">&#127919;</span>
+              <span>XP & Level Progression (20 Levels)</span>
+            </div>
+            <div class="hero-feature">
+              <span class="hero-feature-icon">&#128200;</span>
+              <span>Real-Time Progress Analytics</span>
+            </div>
+            <div class="hero-feature">
+              <span class="hero-feature-icon">&#127942;</span>
+              <span>Coach Validation & Certifications</span>
             </div>
           </div>
-
-          <div class="step qr-section">
-            <div class="step-header">
-              <div class="step-number">2</div>
-              <h2 class="step-title">Scan QR Code</h2>
+          
+          <div class="hero-buttons">
+            <a href="#" class="btn btn-primary">&#127934; Start Your Journey</a>
+            <a href="#" class="btn btn-secondary">&#128249; See Engine in Action</a>
+          </div>
+        </div>
+        
+        <div class="glow-engine-card">
+          <div class="glow-engine-header">
+            <span class="glow-engine-title">&#127942; Glow Score Engine&trade;</span>
+            <span class="elite-badge">Elite DNA</span>
+          </div>
+          
+          <div class="skill-bar skill-forehand">
+            <div class="skill-bar-header">
+              <span class="skill-bar-label">&#129351; Forehand</span>
+              <span class="skill-bar-value" style="color: #00FF88;">92</span>
             </div>
-            <p class="step-description">Use your phone's camera or Expo Go</p>
-            <div class="qr-code" id="qr-code"></div>
-            <a href="exps://EXPS_URL_PLACEHOLDER" class="open-button"
-              >Open in Expo Go</a
-            >
+            <div class="skill-bar-track">
+              <div class="skill-bar-fill" style="width: 92%;"></div>
+            </div>
+          </div>
+          
+          <div class="skill-bar skill-backhand">
+            <div class="skill-bar-header">
+              <span class="skill-bar-label">&#129352; Backhand</span>
+              <span class="skill-bar-value" style="color: #FFD700;">88</span>
+            </div>
+            <div class="skill-bar-track">
+              <div class="skill-bar-fill" style="width: 88%;"></div>
+            </div>
+          </div>
+          
+          <div class="skill-bar skill-serve">
+            <div class="skill-bar-header">
+              <span class="skill-bar-label">&#128165; Serve</span>
+              <span class="skill-bar-value" style="color: #A855F7;">85</span>
+            </div>
+            <div class="skill-bar-track">
+              <div class="skill-bar-fill" style="width: 85%;"></div>
+            </div>
+          </div>
+          
+          <div class="skill-bar skill-volley">
+            <div class="skill-bar-header">
+              <span class="skill-bar-label">&#127934; Volley</span>
+              <span class="skill-bar-value" style="color: #00D4FF;">94</span>
+            </div>
+            <div class="skill-bar-track">
+              <div class="skill-bar-fill" style="width: 94%;"></div>
+            </div>
+          </div>
+          
+          <div class="skill-bar skill-movement">
+            <div class="skill-bar-header">
+              <span class="skill-bar-label">&#128694; Movement</span>
+              <span class="skill-bar-value" style="color: #FF6B35;">87</span>
+            </div>
+            <div class="skill-bar-track">
+              <div class="skill-bar-fill" style="width: 87%;"></div>
+            </div>
+          </div>
+          
+          <div class="skill-bar skill-gameiq">
+            <div class="skill-bar-header">
+              <span class="skill-bar-label">&#129504; Game IQ</span>
+              <span class="skill-bar-value" style="color: #00FF88;">91</span>
+            </div>
+            <div class="skill-bar-track">
+              <div class="skill-bar-fill" style="width: 91%;"></div>
+            </div>
+          </div>
+          
+          <div class="glow-score-container">
+            <div class="glow-score-value">891</div>
+            <div class="glow-score-label">Overall Glow Score</div>
+            <span class="glow-rank-badge">&#127942; ELITE PLAYER</span>
           </div>
         </div>
       </div>
     </div>
+  </section>
 
-    <script src="https://unpkg.com/qr-code-styling@1.6.0/lib/qr-code-styling.js"></script>
-    <script>
-      (function () {
-        const ua = navigator.userAgent;
-        const loadingEl = document.getElementById("loading");
-        const contentEl = document.getElementById("content");
+  <!-- Stats Section -->
+  <section class="stats">
+    <div class="container">
+      <div class="stats-grid">
+        <div class="stat-item">
+          <div class="stat-icon">&#127934;</div>
+          <div class="stat-value">10K+</div>
+          <div class="stat-label">Tennis Addicts Created</div>
+        </div>
+        <div class="stat-item">
+          <div class="stat-icon">&#11088;</div>
+          <div class="stat-value">50M+</div>
+          <div class="stat-label">XP Points Earned</div>
+        </div>
+        <div class="stat-item">
+          <div class="stat-icon">&#127942;</div>
+          <div class="stat-value">500+</div>
+          <div class="stat-label">Epic Achievements</div>
+        </div>
+        <div class="stat-item">
+          <div class="stat-icon">&#128293;</div>
+          <div class="stat-value">95%</div>
+          <div class="stat-label">BEG for More Tennis</div>
+        </div>
+      </div>
+    </div>
+  </section>
 
-        const isAndroid = /Android/i.test(ua);
-        const isIOS =
-          /iPhone|iPad|iPod/i.test(ua) ||
-          (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+  <!-- Features Section -->
+  <section class="features" id="features">
+    <div class="container">
+      <div class="section-header">
+        <h2>&#127941; WITNESS THE TENNIS REVOLUTION! &#127941;</h2>
+        <p>Transform tennis learning with our REVOLUTIONARY LEVEL SYSTEM that takes students from Blue Ball beginners to elite champions through gamified skill mastery!</p>
+      </div>
+      
+      <div class="features-grid">
+        <div class="feature-card">
+          <div class="feature-icon">&#127919;</div>
+          <h3>Live XP & Level System</h3>
+          <p>Watch students gain XP in real-time during lessons! 20 exciting levels with badges, titles, and exclusive rewards that unlock as they progress.</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon">&#127942;</div>
+          <h3>Achievement Unlocking</h3>
+          <p>Celebrate skill mastery with epic badge ceremonies. Students earn collectible achievements that showcase their tennis journey.</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon">&#127794;</div>
+          <h3>Interactive Skill Trees</h3>
+          <p>Unlock new tennis abilities like an RPG game. Visual progression paths show exactly what skills to develop next.</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon">&#9878;&#65039;</div>
+          <h3>Gamified Challenges</h3>
+          <p>Turn practice drills into exciting competitions. Daily and weekly challenges keep students motivated and engaged.</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon">&#128200;</div>
+          <h3>Real-Time Analytics</h3>
+          <p>Track student progress with beautiful dashboards. Parents and coaches see improvement metrics instantly.</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon">&#127934;</div>
+          <h3>Court Booking System</h3>
+          <p>Book courts, invite friends, and find open matches. Social play features connect players at similar skill levels.</p>
+        </div>
+      </div>
+    </div>
+  </section>
 
-        const deepLink = "exps://EXPS_URL_PLACEHOLDER";
+  <!-- Ball Levels Section -->
+  <section class="ball-levels" id="levels">
+    <div class="container">
+      <div class="section-header">
+        <h2>&#127934; TENNIS LEVEL PROGRESSION</h2>
+        <p>Complete Tennis Journey - From absolute beginner to tournament champion!</p>
+      </div>
+      
+      <div class="ball-levels-grid">
+        <div class="ball-level-card">
+          <div class="ball-icon ball-blue">&#127934;</div>
+          <div class="ball-level-name">Blue Ball</div>
+          <div class="ball-level-ages">Beginner - Ages 3-5</div>
+        </div>
+        <div class="ball-level-card">
+          <div class="ball-icon ball-red">&#127934;</div>
+          <div class="ball-level-name">Red Ball</div>
+          <div class="ball-level-ages">Foundation - Ages 4-6</div>
+        </div>
+        <div class="ball-level-card">
+          <div class="ball-icon ball-orange">&#127934;</div>
+          <div class="ball-level-name">Orange Ball</div>
+          <div class="ball-level-ages">Developing - Ages 7-8</div>
+        </div>
+        <div class="ball-level-card">
+          <div class="ball-icon ball-green">&#127934;</div>
+          <div class="ball-level-name">Green Ball</div>
+          <div class="ball-level-ages">Intermediate - Ages 9-10</div>
+        </div>
+        <div class="ball-level-card">
+          <div class="ball-icon ball-yellow">&#127934;</div>
+          <div class="ball-level-name">Yellow Ball</div>
+          <div class="ball-level-ages">Competition - Ages 11-17</div>
+        </div>
+        <div class="ball-level-card">
+          <div class="ball-icon ball-adult">&#127942;</div>
+          <div class="ball-level-name">Adult DSS</div>
+          <div class="ball-level-ages">ELO Rating - 18+</div>
+        </div>
+      </div>
+    </div>
+  </section>
 
-        // Adjust store buttons based on platform
-        const appStoreBtn = document.getElementById("app-store-btn");
-        const playStoreBtn = document.getElementById("play-store-btn");
-        const storeButtonsContainer = document.getElementById("store-buttons");
+  <!-- Dashboards Section -->
+  <section class="dashboards" id="dashboards">
+    <div class="container">
+      <div class="section-header">
+        <h2>&#128187; STUDENTS ARE OBSESSED! &#128187;</h2>
+        <p>See how we're revolutionizing tennis and creating tennis addicts worldwide!</p>
+      </div>
+      
+      <div class="dashboards-grid">
+        <div class="dashboard-card dashboard-player">
+          <div class="dashboard-header">
+            <div class="dashboard-icon">&#127919;</div>
+            <div>
+              <div class="dashboard-title">PLAYER DASHBOARD</div>
+              <div class="dashboard-subtitle">RPG-Style Tennis Progression</div>
+            </div>
+          </div>
+          <div class="dashboard-stats">
+            <div class="dashboard-stat">
+              <div class="dashboard-stat-label">Current Level</div>
+              <div class="dashboard-stat-value" style="color: var(--primary-green);">Level 12</div>
+            </div>
+            <div class="dashboard-stat">
+              <div class="dashboard-stat-label">XP Progress</div>
+              <div class="dashboard-stat-value">2,847</div>
+            </div>
+            <div class="dashboard-stat">
+              <div class="dashboard-stat-label">Badges Earned</div>
+              <div class="dashboard-stat-value">47</div>
+            </div>
+            <div class="dashboard-stat">
+              <div class="dashboard-stat-label">Skills Mastered</div>
+              <div class="dashboard-stat-value">12</div>
+            </div>
+          </div>
+        </div>
+        
+        <div class="dashboard-card dashboard-coach">
+          <div class="dashboard-header">
+            <div class="dashboard-icon">&#128104;&#8205;&#127891;</div>
+            <div>
+              <div class="dashboard-title">COACH DASHBOARD</div>
+              <div class="dashboard-subtitle">Student Progress Management</div>
+            </div>
+          </div>
+          <div class="dashboard-stats">
+            <div class="dashboard-stat">
+              <div class="dashboard-stat-label">Active Students</div>
+              <div class="dashboard-stat-value" style="color: var(--primary-orange);">24</div>
+            </div>
+            <div class="dashboard-stat">
+              <div class="dashboard-stat-label">Attendance</div>
+              <div class="dashboard-stat-value">89%</div>
+            </div>
+            <div class="dashboard-stat">
+              <div class="dashboard-stat-label">XP Awarded Today</div>
+              <div class="dashboard-stat-value">1,247</div>
+            </div>
+            <div class="dashboard-stat">
+              <div class="dashboard-stat-label">Pending Reviews</div>
+              <div class="dashboard-stat-value">5</div>
+            </div>
+          </div>
+        </div>
+        
+        <div class="dashboard-card dashboard-academy">
+          <div class="dashboard-header">
+            <div class="dashboard-icon">&#127963;&#65039;</div>
+            <div>
+              <div class="dashboard-title">ACADEMY DASHBOARD</div>
+              <div class="dashboard-subtitle">Complete Academy Oversight</div>
+            </div>
+          </div>
+          <div class="dashboard-stats">
+            <div class="dashboard-stat">
+              <div class="dashboard-stat-label">Total Students</div>
+              <div class="dashboard-stat-value" style="color: var(--primary-purple);">847</div>
+            </div>
+            <div class="dashboard-stat">
+              <div class="dashboard-stat-label">Retention Rate</div>
+              <div class="dashboard-stat-value">94%</div>
+            </div>
+            <div class="dashboard-stat">
+              <div class="dashboard-stat-label">Revenue</div>
+              <div class="dashboard-stat-value">$47,293</div>
+            </div>
+            <div class="dashboard-stat">
+              <div class="dashboard-stat-label">Monthly Growth</div>
+              <div class="dashboard-stat-value">+23%</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
 
-        if (isIOS) {
-          playStoreBtn.className = "store-link";
-          storeButtonsContainer.appendChild(playStoreBtn);
-        } else if (isAndroid) {
-          appStoreBtn.className = "store-link";
-          storeButtonsContainer.insertBefore(playStoreBtn, appStoreBtn);
-        }
+  <!-- Testimonials -->
+  <section class="testimonials" id="testimonials">
+    <div class="container">
+      <div class="section-header">
+        <h2>&#127941; STUDENTS & PARENTS ARE BLOWN AWAY! &#127941;</h2>
+        <p>See how we're creating TENNIS ADDICTS and transforming students worldwide!</p>
+      </div>
+      
+      <div class="testimonials-grid">
+        <div class="testimonial-card">
+          <div class="testimonial-stars">&#11088;&#11088;&#11088;&#11088;&#11088;</div>
+          <p class="testimonial-text">"I used to hate tennis practice, but now I can't wait to level up my backhand and unlock new achievements! It feels like playing my favorite video game."</p>
+          <div class="testimonial-author">
+            <div class="testimonial-avatar">ET</div>
+            <div>
+              <div class="testimonial-name">Emma Thompson</div>
+              <div class="testimonial-role">Tennis Student, Age 14 - Level 23 Player</div>
+            </div>
+          </div>
+        </div>
+        
+        <div class="testimonial-card">
+          <div class="testimonial-stars">&#11088;&#11088;&#11088;&#11088;&#11088;</div>
+          <p class="testimonial-text">"My students are more motivated than ever! They actually ask for extra practice time to earn more XP. The gamification has completely transformed their attitude."</p>
+          <div class="testimonial-author">
+            <div class="testimonial-avatar">MS</div>
+            <div>
+              <div class="testimonial-name">Coach Maria Santos</div>
+              <div class="testimonial-role">Tennis Coach & Former Pro - Coach Level 10</div>
+            </div>
+          </div>
+        </div>
+        
+        <div class="testimonial-card">
+          <div class="testimonial-stars">&#11088;&#11088;&#11088;&#11088;&#11088;</div>
+          <p class="testimonial-text">"My son went from complaining about tennis lessons to begging to go every day. He's made more progress in 3 months than in the previous year!"</p>
+          <div class="testimonial-author">
+            <div class="testimonial-avatar">DP</div>
+            <div>
+              <div class="testimonial-name">David Park</div>
+              <div class="testimonial-role">Parent of 12-year-old Student</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
 
-        const qrCode = new QRCodeStyling({
-          width: 400,
-          height: 400,
-          data: deepLink,
-          image: "assets/images/icon.png",
-          dotsOptions: {
-            color: "#333333",
-            type: "rounded",
-          },
-          backgroundOptions: {
-            color: "#ffffff",
-          },
-          imageOptions: {
-            crossOrigin: "anonymous",
-            margin: 6,
-            imageSize: 0.35,
-          },
-          cornersSquareOptions: {
-            type: "extra-rounded",
-          },
-          cornersDotOptions: {
-            type: "dot",
-          },
-          qrOptions: {
-            errorCorrectionLevel: "H",
-          },
-        });
+  <!-- CTA Section -->
+  <section class="cta">
+    <div class="container">
+      <h2>&#128640; READY TO CREATE TENNIS ADDICTS? &#128640;</h2>
+      <p>Join 10,000+ OBSESSED STUDENTS worldwide who are BEGGING for more tennis through our REVOLUTIONARY GAMING SYSTEM! Transform your tennis academy into an EPIC GAMING HUB today!</p>
+      
+      <div class="cta-buttons">
+        <a href="#" class="btn btn-primary">&#127934; Start Free Trial</a>
+        <a href="#" class="btn btn-secondary">&#128197; Schedule Demo</a>
+      </div>
+      
+      <div class="cta-features">
+        <div class="cta-feature">
+          <div class="cta-feature-value">14-Day</div>
+          <div class="cta-feature-label">Free Trial</div>
+        </div>
+        <div class="cta-feature">
+          <div class="cta-feature-value">No</div>
+          <div class="cta-feature-label">Setup Fees</div>
+        </div>
+        <div class="cta-feature">
+          <div class="cta-feature-value">24/7</div>
+          <div class="cta-feature-label">Support</div>
+        </div>
+        <div class="cta-feature">
+          <div class="cta-feature-value">Cancel</div>
+          <div class="cta-feature-label">Anytime</div>
+        </div>
+      </div>
+    </div>
+  </section>
 
-        qrCode.append(document.getElementById("qr-code"));
+  <!-- Footer -->
+  <footer>
+    <div class="container">
+      <div class="footer-grid">
+        <div class="footer-brand">
+          <div class="logo">
+            <div class="logo-icon">&#127934;</div>
+            <span>Glow Up Tennis</span>
+          </div>
+          <p>The leading tennis facility management platform trusted by professionals worldwide. Built for Dubai's premier tennis academies.</p>
+          <div class="footer-badges">
+            <span class="footer-badge">&#128274; PCI DSS Certified</span>
+            <span class="footer-badge">&#9989; AWS Powered</span>
+          </div>
+        </div>
+        
+        <div class="footer-column">
+          <h4>Platform</h4>
+          <a href="#">Features</a>
+          <a href="#">Customers</a>
+          <a href="#">Demo</a>
+          <a href="#">Login</a>
+        </div>
+        
+        <div class="footer-column">
+          <h4>Support</h4>
+          <a href="#">24/7 Customer Support</a>
+          <a href="#">Training & Onboarding</a>
+          <a href="#">Help Center</a>
+          <a href="#">API Documentation</a>
+        </div>
+        
+        <div class="footer-column">
+          <h4>Company</h4>
+          <a href="#">About Us</a>
+          <a href="#">Careers</a>
+          <a href="#">Blog</a>
+          <a href="#">Contact</a>
+        </div>
+      </div>
+      
+      <div class="footer-bottom">
+        <div class="footer-copyright">&copy; 2026 Glow Up Tennis. All rights reserved.</div>
+        <div class="footer-legal">
+          <a href="#">Privacy Policy</a>
+          <a href="#">Terms of Service</a>
+          <a href="#">Security</a>
+        </div>
+      </div>
+    </div>
+  </footer>
 
-        if (isAndroid || isIOS) {
-          loadingEl.style.display = "block";
-          contentEl.style.display = "none";
-          window.location.href = deepLink;
-          setTimeout(function () {
-            loadingEl.style.display = "none";
-            contentEl.style.display = "block";
-          }, 500);
-        }
-      })();
-    </script>
-  </body>
+</body>
 </html>
