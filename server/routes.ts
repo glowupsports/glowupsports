@@ -4970,6 +4970,76 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
+  // Get player profile data including dateOfBirth for PlayerContext
+  app.get("/api/player/me", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const tokenUser = req.user!;
+      
+      // Get fresh user data
+      const freshUser = await storage.getUserById(tokenUser.userId);
+      if (!freshUser || !freshUser.playerId) {
+        return res.status(400).json({ error: "Player not found" });
+      }
+      
+      const player = await storage.getPlayer(freshUser.playerId);
+      if (!player) {
+        return res.status(404).json({ error: "Player not found" });
+      }
+      
+      // Get coach info if assigned
+      let coach = null;
+      if (player.coachId) {
+        const coachData = await storage.getCoach(player.coachId);
+        if (coachData) {
+          coach = {
+            id: coachData.id,
+            name: coachData.name,
+            username: coachData.name,
+            photoUrl: coachData.photoUrl,
+          };
+        }
+      }
+      
+      // Get academy info if assigned
+      let academy = null;
+      if (player.academyId) {
+        const academyData = await storage.getAcademy(player.academyId);
+        if (academyData) {
+          academy = {
+            id: academyData.id,
+            name: academyData.name,
+          };
+        }
+      }
+      
+      res.json({
+        player: {
+          id: player.id,
+          name: player.name,
+          displayName: player.displayName,
+          email: player.email,
+          ballLevel: player.ballLevel,
+          level: player.level || 1,
+          xp: player.totalXp || 0,
+          glowScore: player.glowScore || 0,
+          dateOfBirth: player.dateOfBirth,
+          academyId: player.academyId,
+          coachId: player.coachId,
+          profilePhotoUrl: player.profilePhotoUrl,
+          isAdult: player.isAdult || false,
+          glowMmr: player.glowMmr || 1000,
+          glowRank: player.glowRank || 9,
+          totalMatchesPlayed: player.totalMatchesPlayed || 0,
+        },
+        coach,
+        academy,
+      });
+    } catch (error) {
+      console.error("Error fetching player profile:", error);
+      res.status(500).json({ error: "Failed to fetch player profile" });
+    }
+  });
+
   // Get player's public feedback (for player app)
   app.get("/api/player/me/feedback", authMiddleware, requirePlayerOrOwner, async (req: AuthenticatedRequest, res: Response) => {
     try {
@@ -5460,32 +5530,32 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // ==================== FAMILY LOBBY ENDPOINTS ====================
 
-  // Get family status - returns all players linked by same parentEmail
+  // Get family status - returns all players linked by same email address
   app.get("/api/family/status", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
     try {
       const tokenUser = req.user!;
       
-      // Get the user's player record
+      // Get the users player record
       const freshUser = await storage.getUserById(tokenUser.userId);
       if (!freshUser || !freshUser.playerId) {
         return res.json({ isFamily: false });
       }
       
       const player = await storage.getPlayer(freshUser.playerId);
-      if (!player || !player.parentEmail) {
+      if (!player || !player.email) {
         return res.json({ isFamily: false });
       }
       
-      // Find all players with the same parentEmail
+      // Find all players with the same email address (same family)
       const familyMembers = await db
         .select()
         .from(players)
-        .where(eq(players.parentEmail, player.parentEmail));
+        .where(eq(players.email, player.email));
       
       if (familyMembers.length <= 1) {
         return res.json({ isFamily: false });
       }
-      
+
       // Get outstanding balances for each player
       const memberData = await Promise.all(familyMembers.map(async (member) => {
         // Get next session - skip for now to get basic functionality working
@@ -5528,7 +5598,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json({
         isFamily: true,
         family: {
-          parentEmail: player.parentEmail,
+          email: player.email,
           members: memberData,
           outstandingTotal,
         },
