@@ -23735,11 +23735,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
           const coach = await storage.getCoach(session.coachId);
           coachName = coach?.name || null;
         }
-
-        // Get location info
+        // Get location info - check session first, then series if no session locationId
         let locationName = "Location TBD";
-        if (session.locationId) {
-          const location = await storage.getLocation(session.locationId);
+        let locationId = session.locationId;
+        
+        // If session doesnt have locationId but has a series, get location from series
+        if (!locationId && session.seriesId) {
+          const series = await db.query.sessionSeries.findFirst({
+            where: (s, { eq }) => eq(s.id, session.seriesId!),
+          });
+          if (series?.locationId) {
+            locationId = series.locationId;
+          }
+        }
+        
+        if (locationId) {
+          const location = await storage.getLocation(locationId);
           locationName = location?.name || "Location TBD";
         }
 

@@ -539,9 +539,11 @@ export default function PlayScreen() {
                         ) : null}
                       </View>
                     ))}
-                    {session.players.length > 6 ? (
+                    {(session.players.length > 6 || session.currentPlayers > session.players.length) ? (
                       <View style={[styles.epicAvatarCircle, styles.epicAvatarMore, { marginLeft: -16 }]}>
-                        <Text style={styles.epicAvatarMoreText}>+{session.players.length - 6}</Text>
+                        <Text style={styles.epicAvatarMoreText}>
+                          +{Math.max(session.players.length > 6 ? session.players.length - 6 : 0, session.currentPlayers - session.players.length)}
+                        </Text>
                       </View>
                     ) : null}
                   </View>
