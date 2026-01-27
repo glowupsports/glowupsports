@@ -8724,9 +8724,13 @@ export const storage = {
     for (const session of sessionBlocks) {
       const sessionStart = new Date(session.startTime);
       const sessionEnd = new Date(session.endTime);
+      // Convert to Dubai time (UTC+4) for display
+      const DUBAI_OFFSET = 4;
+      const dubaiStart = new Date(sessionStart.getTime() + DUBAI_OFFSET * 60 * 60 * 1000);
+      const dubaiEnd = new Date(sessionEnd.getTime() + DUBAI_OFFSET * 60 * 60 * 1000);
       blockedSlots.push({
-        startTime: sessionStart.toTimeString().slice(0, 5),
-        endTime: sessionEnd.toTimeString().slice(0, 5),
+        startTime: dubaiStart.toISOString().slice(11, 16),
+        endTime: dubaiEnd.toISOString().slice(11, 16),
         status: "booked",
         reason: "tennis_lesson"
       });
