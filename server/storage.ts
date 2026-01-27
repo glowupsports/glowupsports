@@ -6258,7 +6258,7 @@ export const storage = {
     // This catches sessions where no transaction was created at all
     const unpaidAttendedSessions = await db.select({
       sessionId: sessionPlayers.sessionId,
-      sessionType: sessions.type,
+      sessionType: sessions.sessionType,
     })
       .from(sessionPlayers)
       .innerJoin(sessions, eq(sessions.id, sessionPlayers.sessionId))
@@ -6545,7 +6545,7 @@ export const storage = {
     const unpaidAttendedSessions = await db.select({
       playerId: sessionPlayers.playerId,
       sessionId: sessionPlayers.sessionId,
-      sessionType: sessions.type,
+      sessionType: sessions.sessionType,
     })
       .from(sessionPlayers)
       .innerJoin(sessions, eq(sessions.id, sessionPlayers.sessionId))
