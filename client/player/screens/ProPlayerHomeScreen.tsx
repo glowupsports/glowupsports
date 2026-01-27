@@ -104,6 +104,27 @@ function PlayerHomeContent() {
     }, [user?.playerId, queryClient])
   );
 
+  const isBirthday = useMemo(() => {
+    const dateOfBirth = dashboardData?.player?.dateOfBirth;
+    if (!dateOfBirth) return false;
+    const today = new Date();
+    const dob = new Date(dateOfBirth);
+    return today.getMonth() === dob.getMonth() && today.getDate() === dob.getDate();
+  }, [dashboardData?.player?.dateOfBirth]);
+
+  const playerAge = useMemo(() => {
+    const dateOfBirth = dashboardData?.player?.dateOfBirth;
+    if (!dateOfBirth) return undefined;
+    const today = new Date();
+    const dob = new Date(dateOfBirth);
+    let age = today.getFullYear() - dob.getFullYear();
+    const monthDiff = today.getMonth() - dob.getMonth();
+    if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < dob.getDate())) {
+      age--;
+    }
+    return age;
+  }, [dashboardData?.player?.dateOfBirth]);
+
   if (isLoading || !dashboardData) {
     return (
       <View style={[styles.container, styles.loadingContainer]}>
@@ -114,25 +135,6 @@ function PlayerHomeContent() {
   }
 
   const { player, credits } = dashboardData;
-  
-  const isBirthday = useMemo(() => {
-    if (!player?.dateOfBirth) return false;
-    const today = new Date();
-    const dob = new Date(player.dateOfBirth);
-    return today.getMonth() === dob.getMonth() && today.getDate() === dob.getDate();
-  }, [player?.dateOfBirth]);
-
-  const playerAge = useMemo(() => {
-    if (!player?.dateOfBirth) return null;
-    const today = new Date();
-    const dob = new Date(player.dateOfBirth);
-    let age = today.getFullYear() - dob.getFullYear();
-    const monthDiff = today.getMonth() - dob.getMonth();
-    if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < dob.getDate())) {
-      age--;
-    }
-    return age;
-  }, [player?.dateOfBirth]);
   
   const handleAvatarPress = () => {
     openDrawer();
