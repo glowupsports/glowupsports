@@ -131,10 +131,7 @@ export type PlayerStackParamList = {
   ParentLessons: { playerId: string };
   ParentCreditStore: { playerId: string };
   ParentSettings: undefined;
-  CourtBooking: undefined;
   QuickBook: undefined;
-  CourtDetail: { courtId: string; date: string };
-  MyCourtBookings: undefined;
   LessonBooking: undefined;
   BrowseGroupLessons: undefined;
   MyLessonRequests: undefined;
@@ -519,29 +516,8 @@ function PlayerStackNavigator() {
         }}
       />
       <Stack.Screen 
-        name="CourtBooking" 
-        component={CourtBookingScreen}
-        options={{
-          presentation: "card",
-        }}
-      />
-      <Stack.Screen 
         name="QuickBook" 
         component={QuickBookScreen}
-        options={{
-          presentation: "card",
-        }}
-      />
-      <Stack.Screen 
-        name="CourtDetail" 
-        component={CourtDetailScreen}
-        options={{
-          presentation: "card",
-        }}
-      />
-      <Stack.Screen 
-        name="MyCourtBookings" 
-        component={MyCourtBookingsScreen}
         options={{
           presentation: "card",
         }}
