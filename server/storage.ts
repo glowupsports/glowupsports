@@ -6327,7 +6327,7 @@ export const storage = {
     }).from(creditTransactions)
       .where(and(
         eq(creditTransactions.playerId, playerId),
-        eq(creditTransactions.type, "deduction")
+        eq(creditTransactions.type, "debit")
       ));
     
     // Get set of sessions that have a successful deduction transaction
@@ -6588,7 +6588,7 @@ export const storage = {
     }).from(creditTransactions)
       .where(and(
         inArray(creditTransactions.playerId, playerIds),
-        eq(creditTransactions.type, "deduction")
+        eq(creditTransactions.type, "debit")
       ));
     
     // Create a map of player -> set of sessions with deductions
