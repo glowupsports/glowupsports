@@ -2384,11 +2384,9 @@ export default function AdminPlayersScreen() {
         transparent
         onRequestClose={() => setShowDeleteModal(false)}
       >
-        <Pressable 
-          style={styles.deleteModalOverlay} 
-          onPress={() => setShowDeleteModal(false)}
-        >
-          <Pressable style={styles.deleteModalContent} onPress={(e) => e.stopPropagation()}>
+        <View style={styles.deleteModalOverlay}>
+          <Pressable style={StyleSheet.absoluteFill} onPress={() => setShowDeleteModal(false)} />
+          <View style={styles.deleteModalContent}>
             <View style={styles.deleteModalHeader}>
               <View style={styles.deleteModalIconContainer}>
                 <Ionicons name="trash" size={32} color={Colors.dark.error} />
@@ -2492,8 +2490,8 @@ export default function AdminPlayersScreen() {
                 )}
               </Pressable>
             </View>
-          </Pressable>
-        </Pressable>
+          </View>
+        </View>
       </Modal>
 
       <ReportIssueModal
@@ -2533,11 +2531,11 @@ export default function AdminPlayersScreen() {
         animationType="fade"
         onRequestClose={() => setShowMarkPaidModal(false)}
       >
-        <Pressable 
+        <View 
           style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.92)', justifyContent: 'center', alignItems: 'center' }}
-          onPress={() => setShowMarkPaidModal(false)}
         >
-          <Pressable 
+          <Pressable style={StyleSheet.absoluteFill} onPress={() => setShowMarkPaidModal(false)} />
+          <View 
             style={{
               backgroundColor: '#11141A',
               borderRadius: 16,
@@ -2547,7 +2545,6 @@ export default function AdminPlayersScreen() {
               borderWidth: 1,
               borderColor: 'rgba(255,255,255,0.1)',
             }}
-            onPress={(e) => e.stopPropagation()}
           >
             <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 24 }}>
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
@@ -2703,8 +2700,8 @@ export default function AdminPlayersScreen() {
               <Ionicons name="checkmark-circle" size={20} color="#0B0D10" />
               <Text style={{ color: '#0B0D10', fontSize: 16, fontWeight: '700' }}>Confirm Payment</Text>
             </Pressable>
-          </Pressable>
-        </Pressable>
+          </View>
+        </View>
       </Modal>
 
       {/* Record Payment Modal */}

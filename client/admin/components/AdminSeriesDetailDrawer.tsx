@@ -626,8 +626,9 @@ export default function AdminSeriesDetailDrawer({
           transparent
           onRequestClose={() => setShowAddPlayerModal(false)}
         >
-          <Pressable style={styles.modalOverlay} onPress={() => setShowAddPlayerModal(false)}>
-            <Pressable style={styles.modalContent} onPress={(e) => e.stopPropagation()}>
+          <View style={styles.modalOverlay}>
+            <Pressable style={StyleSheet.absoluteFill} onPress={() => setShowAddPlayerModal(false)} />
+            <View style={styles.modalContent}>
               <Text style={styles.modalTitle}>Add Player</Text>
               <TextInput
                 style={styles.searchInput}
@@ -656,8 +657,8 @@ export default function AdminSeriesDetailDrawer({
               <Pressable style={styles.modalCancel} onPress={() => setShowAddPlayerModal(false)}>
                 <Text style={styles.modalCancelText}>Cancel</Text>
               </Pressable>
-            </Pressable>
-          </Pressable>
+            </View>
+          </View>
         </Modal>
 
         <Modal
@@ -666,9 +667,10 @@ export default function AdminSeriesDetailDrawer({
           transparent
           onRequestClose={() => setPausingPlayerId(null)}
         >
-          <Pressable style={styles.modalOverlay} onPress={() => setPausingPlayerId(null)}>
+          <View style={styles.modalOverlay}>
+            <Pressable style={StyleSheet.absoluteFill} onPress={() => setPausingPlayerId(null)} />
             <KeyboardAwareScrollViewCompat>
-              <Pressable style={styles.modalContent} onPress={(e) => e.stopPropagation()}>
+              <View style={styles.modalContent}>
                 <Text style={styles.modalTitle}>Pause Player</Text>
 
                 <Text style={styles.inputLabel}>From</Text>
@@ -760,9 +762,9 @@ export default function AdminSeriesDetailDrawer({
                     <Text style={styles.modalConfirmText}>Pause Player</Text>
                   </Pressable>
                 </View>
-              </Pressable>
+              </View>
             </KeyboardAwareScrollViewCompat>
-          </Pressable>
+          </View>
         </Modal>
 
         <Modal
@@ -771,8 +773,9 @@ export default function AdminSeriesDetailDrawer({
           transparent
           onRequestClose={() => setRemovingPlayerId(null)}
         >
-          <Pressable style={styles.modalOverlay} onPress={() => setRemovingPlayerId(null)}>
-            <Pressable style={styles.modalContent} onPress={(e) => e.stopPropagation()}>
+          <View style={styles.modalOverlay}>
+            <Pressable style={StyleSheet.absoluteFill} onPress={() => setRemovingPlayerId(null)} />
+            <View style={styles.modalContent}>
               <Text style={styles.modalTitle}>Remove Player</Text>
               <Text style={styles.modalSubtitle}>Are you sure you want to remove this player from the class?</Text>
 
@@ -791,8 +794,8 @@ export default function AdminSeriesDetailDrawer({
                   <Text style={styles.modalConfirmText}>Remove</Text>
                 </Pressable>
               </View>
-            </Pressable>
-          </Pressable>
+            </View>
+          </View>
         </Modal>
 
         <Modal
