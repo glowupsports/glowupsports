@@ -6316,12 +6316,9 @@ export const storage = {
         eq(creditTransactions.playerId, playerId),
         or(
           eq(creditTransactions.reason, "session_unpaid"),
-          or(
           eq(creditTransactions.reason, "session_join_debt"),
-          eq(creditTransactions.reason, "session_debt")
-        ),
-          eq(creditTransactions.reason, "session_booking"),
-          eq(creditTransactions.reason, "session_debt")
+          eq(creditTransactions.reason, "session_debt"),
+          eq(creditTransactions.reason, "session_booking")
         )
       ));
     
@@ -6694,12 +6691,9 @@ export const storage = {
         inArray(creditTransactions.playerId, playerIds),
         or(
           eq(creditTransactions.reason, "session_unpaid"),
-          or(
           eq(creditTransactions.reason, "session_join_debt"),
-          eq(creditTransactions.reason, "session_debt")
-        ),
-          eq(creditTransactions.reason, "session_booking"),
-          eq(creditTransactions.reason, "session_debt")
+          eq(creditTransactions.reason, "session_debt"),
+          eq(creditTransactions.reason, "session_booking")
         )
       ));
     
