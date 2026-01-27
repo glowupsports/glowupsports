@@ -2180,6 +2180,11 @@ export const storage = {
     return { success: false, reason: "credit_deduction_failed" };
   },
 
+  /**
+   * @deprecated Use ensureCreditProcessed(sessionPlayerId) instead.
+   * This function is now only called internally by ensureCreditProcessed.
+   * Direct calls from routes should be replaced with ensureCreditProcessed.
+   */
   async deductTypedCreditsForSession(
     playerId: string,
     sessionType: string,
