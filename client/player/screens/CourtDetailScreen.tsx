@@ -390,7 +390,7 @@ export default function CourtDetailScreen() {
 
       <ScrollView 
         style={styles.content} 
-        contentContainerStyle={{ paddingBottom: 85 + 140 }}
+        contentContainerStyle={{ paddingBottom: 145 + 140 }}
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.pricingCard}>
@@ -947,7 +947,7 @@ const styles = StyleSheet.create({
 
   bookingBar: {
     position: "absolute",
-    bottom: 85,
+    bottom: 145,
     left: 0,
     right: 0,
   },
