@@ -6430,11 +6430,11 @@ export const storage = {
     totalDeducted: number;
     sessionIds: string[];
   }> {
-    // Map credit type to session types
+    // Map credit type to session types (include all variations like private_adjusted)
     const creditToSessionTypes: Record<string, string[]> = {
-      private: ["private"],
-      semi_private: ["semi", "semi_private"],
-      group: ["group"],
+      private: ["private", "private_adjusted"],
+      semi_private: ["semi", "semi_private", "semi_private_adjusted"],
+      group: ["group", "group_adjusted"],
     };
     
     const matchingSessionTypes = creditToSessionTypes[creditType] || [creditType];
