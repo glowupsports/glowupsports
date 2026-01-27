@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useRef, useEffect } from "react";
 import {
   View,
   Text,
@@ -7,17 +7,25 @@ import {
   Pressable,
   ActivityIndicator,
   TextInput,
+  Animated,
+  Dimensions,
 } from "react-native";
 import { useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useQuery } from "@tanstack/react-query";
+import { LinearGradient } from "expo-linear-gradient";
+import { Image } from "expo-image";
 import Ionicons from "@expo/vector-icons/Ionicons";
-import { Colors, Spacing, BorderRadius, Backgrounds, GlowColors } from "@/constants/theme";
+import * as Haptics from "expo-haptics";
+import { Colors, Spacing, BorderRadius } from "@/constants/theme";
 import type { PlayerStackParamList } from "@/player/navigation/PlayerNavigator";
 import { LockedScreen } from "../components/LockedScreen";
+import { getApiUrl } from "@/lib/query-client";
 
 type NavigationProp = NativeStackNavigationProp<PlayerStackParamList>;
+
+const { width: SCREEN_WIDTH } = Dimensions.get("window");
 
 interface Court {
   id: string;
@@ -33,6 +41,7 @@ interface Court {
   photoUrl?: string;
   description?: string;
   isActive?: boolean;
+  xpRewardPerHour?: number;
   academy?: {
     id: string;
     name: string;
@@ -46,14 +55,163 @@ interface Court {
   canBook?: boolean;
 }
 
-const SURFACE_OPTIONS = ["all", "hard", "clay", "grass", "indoor"];
+const SURFACE_CONFIG = {
+  all: { icon: "apps", color: Colors.dark.xpCyan, label: "All", gradient: ["#00D4FF20", "#00D4FF05"] },
+  hard: { icon: "tennisball", color: "#00D4FF", label: "Hard", gradient: ["#00D4FF30", "#00D4FF10"] },
+  clay: { icon: "leaf", color: "#E07B39", label: "Clay", gradient: ["#E07B3930", "#E07B3910"] },
+  grass: { icon: "golf", color: "#4CAF50", label: "Grass", gradient: ["#4CAF5030", "#4CAF5010"] },
+  indoor: { icon: "home", color: "#9575CD", label: "Indoor", gradient: ["#9575CD30", "#9575CD10"] },
+} as const;
+
+function PulsingDot({ color }: { color: string }) {
+  const pulseAnim = useRef(new Animated.Value(1)).current;
+
+  useEffect(() => {
+    const pulse = Animated.loop(
+      Animated.sequence([
+        Animated.timing(pulseAnim, { toValue: 1.3, duration: 800, useNativeDriver: true }),
+        Animated.timing(pulseAnim, { toValue: 1, duration: 800, useNativeDriver: true }),
+      ])
+    );
+    pulse.start();
+    return () => pulse.stop();
+  }, [pulseAnim]);
+
+  return (
+    <View style={styles.pulseContainer}>
+      <Animated.View style={[styles.pulseOuter, { backgroundColor: color + "40", transform: [{ scale: pulseAnim }] }]} />
+      <View style={[styles.pulseDot, { backgroundColor: color }]} />
+    </View>
+  );
+}
+
+function CourtCard({ court, onPress, surfaceConfig }: { court: Court; onPress: () => void; surfaceConfig: typeof SURFACE_CONFIG[keyof typeof SURFACE_CONFIG] }) {
+  const scaleAnim = useRef(new Animated.Value(1)).current;
+  const apiUrl = getApiUrl();
+  
+  const handlePressIn = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    Animated.spring(scaleAnim, { toValue: 0.98, useNativeDriver: true, speed: 50 }).start();
+  };
+  
+  const handlePressOut = () => {
+    Animated.spring(scaleAnim, { toValue: 1, useNativeDriver: true, speed: 50 }).start();
+  };
+
+  const formatPrice = () => {
+    if (court.creditsPerHour && court.creditsPerHour > 0) {
+      return { value: court.creditsPerHour.toString(), unit: "credits/hr", isCredits: true };
+    }
+    if (!court.pricePerHour || parseFloat(court.pricePerHour) === 0) {
+      return { value: "Free", unit: "", isCredits: false };
+    }
+    return { value: `${court.currency || "AED"} ${parseFloat(court.pricePerHour).toFixed(0)}`, unit: "/hr", isCredits: false };
+  };
+
+  const price = formatPrice();
+  const hasPhoto = court.photoUrl && court.photoUrl.length > 0;
+
+  return (
+    <Animated.View style={{ transform: [{ scale: scaleAnim }] }}>
+      <Pressable onPress={onPress} onPressIn={handlePressIn} onPressOut={handlePressOut}>
+        <View style={styles.courtCard}>
+          <LinearGradient
+            colors={["#171B22", "#11141A"]}
+            style={styles.courtCardGradient}
+          >
+            <View style={styles.courtCardInner}>
+              {hasPhoto ? (
+                <View style={styles.courtPhotoContainer}>
+                  <Image
+                    source={{ uri: `${apiUrl}${court.photoUrl}` }}
+                    style={styles.courtPhoto}
+                    contentFit="cover"
+                  />
+                  <LinearGradient
+                    colors={["transparent", "rgba(17, 20, 26, 0.8)", "#11141A"]}
+                    style={styles.photoOverlay}
+                  />
+                </View>
+              ) : (
+                <LinearGradient
+                  colors={surfaceConfig.gradient as [string, string]}
+                  style={styles.courtPhotoPlaceholder}
+                >
+                  <Ionicons name="tennisball-outline" size={40} color={surfaceConfig.color + "60"} />
+                </LinearGradient>
+              )}
+
+              <View style={styles.courtContent}>
+                <View style={styles.courtTopRow}>
+                  <View style={[styles.surfaceBadge, { borderColor: surfaceConfig.color + "60" }]}>
+                    <Ionicons name={surfaceConfig.icon as any} size={12} color={surfaceConfig.color} />
+                    <Text style={[styles.surfaceBadgeText, { color: surfaceConfig.color }]}>
+                      {surfaceConfig.label}
+                    </Text>
+                  </View>
+
+                  {court.xpRewardPerHour && court.xpRewardPerHour > 0 && (
+                    <View style={styles.xpBadge}>
+                      <Ionicons name="flash" size={10} color={Colors.dark.primaryGlow} />
+                      <Text style={styles.xpBadgeText}>+{court.xpRewardPerHour} XP/hr</Text>
+                    </View>
+                  )}
+                </View>
+
+                <Text style={styles.courtName} numberOfLines={1}>{court.name}</Text>
+
+                <View style={styles.courtMetaRow}>
+                  {court.academy && (
+                    <View style={styles.metaItem}>
+                      <Ionicons name="business-outline" size={12} color={Colors.dark.textSecondary} />
+                      <Text style={styles.metaText} numberOfLines={1}>{court.academy.name}</Text>
+                    </View>
+                  )}
+                  {court.location && (
+                    <View style={styles.metaItem}>
+                      <Ionicons name="location-outline" size={12} color={Colors.dark.textSecondary} />
+                      <Text style={styles.metaText} numberOfLines={1}>{court.location.name}</Text>
+                    </View>
+                  )}
+                </View>
+
+                <View style={styles.courtBottomRow}>
+                  <View style={styles.availabilityRow}>
+                    <PulsingDot color={Colors.dark.successNeon} />
+                    <Text style={styles.availabilityText}>Available</Text>
+                  </View>
+
+                  <View style={styles.priceContainer}>
+                    <Text style={[styles.priceValue, price.isCredits && styles.priceCredits]}>
+                      {price.value}
+                    </Text>
+                    {price.unit && (
+                      <Text style={styles.priceUnit}>{price.unit}</Text>
+                    )}
+                  </View>
+                </View>
+              </View>
+            </View>
+
+            <View style={styles.viewSlotsButton}>
+              <Text style={styles.viewSlotsText}>View Slots</Text>
+              <Ionicons name="chevron-forward" size={18} color={Colors.dark.xpCyan} />
+            </View>
+          </LinearGradient>
+          
+          <View style={[styles.courtCardGlow, { shadowColor: surfaceConfig.color }]} />
+        </View>
+      </Pressable>
+    </Animated.View>
+  );
+}
 
 export default function CourtBookingScreen() {
   const navigation = useNavigation<NavigationProp>();
   const insets = useSafeAreaInsets();
   
   const [searchQuery, setSearchQuery] = useState("");
-  const [selectedSurface, setSelectedSurface] = useState("all");
+  const [selectedSurface, setSelectedSurface] = useState<keyof typeof SURFACE_CONFIG>("all");
   const [selectedDate, setSelectedDate] = useState<string>(() => {
     const today = new Date();
     return today.toISOString().split("T")[0];
@@ -78,33 +236,8 @@ export default function CourtBookingScreen() {
     );
   }, [courts, searchQuery]);
 
-  const formatPrice = (court: Court) => {
-    if (court.creditsPerHour && court.creditsPerHour > 0) {
-      return `${court.creditsPerHour} credits/hr`;
-    }
-    if (!court.pricePerHour || parseFloat(court.pricePerHour) === 0) return "Free";
-    return `${court.currency || "AED"} ${parseFloat(court.pricePerHour).toFixed(0)}/hr`;
-  };
-
-  const getSurfaceIcon = (surface?: string) => {
-    switch (surface) {
-      case "clay": return "leaf-outline";
-      case "grass": return "golf-outline";
-      case "indoor": return "home-outline";
-      default: return "tennisball-outline";
-    }
-  };
-
-  const getSurfaceColor = (surface?: string) => {
-    switch (surface) {
-      case "clay": return "#E07B39";
-      case "grass": return "#4CAF50";
-      case "indoor": return "#9575CD";
-      default: return Colors.dark.xpCyan;
-    }
-  };
-
   const handleCourtPress = (court: Court) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     navigation.navigate("CourtDetail", { courtId: court.id, date: selectedDate });
   };
 
@@ -116,9 +249,9 @@ export default function CourtBookingScreen() {
       date.setDate(today.getDate() + i);
       dates.push({
         value: date.toISOString().split("T")[0],
-        label: i === 0 ? "Today" : i === 1 ? "Tomorrow" : date.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" }),
-        short: date.toLocaleDateString("en-US", { weekday: "short" }),
+        weekday: date.toLocaleDateString("en-US", { weekday: "short" }),
         day: date.getDate(),
+        isToday: i === 0,
       });
     }
     return dates;
@@ -126,168 +259,178 @@ export default function CourtBookingScreen() {
 
   const dateOptions = getDateOptions();
 
+  const handleDatePress = (dateValue: string) => {
+    Haptics.selectionAsync();
+    setSelectedDate(dateValue);
+  };
+
+  const handleSurfacePress = (surface: keyof typeof SURFACE_CONFIG) => {
+    Haptics.selectionAsync();
+    setSelectedSurface(surface);
+  };
+
   return (
     <LockedScreen featureKey="court_booking">
       <View style={[styles.container, { paddingTop: insets.top }]}>
         <View style={styles.header}>
-          <Pressable onPress={() => navigation.goBack()} style={styles.backButton}>
+          <Pressable 
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              navigation.goBack();
+            }} 
+            style={styles.backButton}
+          >
             <Ionicons name="chevron-back" size={28} color={Colors.dark.text} />
           </Pressable>
-          <Text style={styles.headerTitle}>Book a Court</Text>
+          
+          <View style={styles.headerCenter}>
+            <Text style={styles.headerTitle}>Book a Court</Text>
+            <Text style={styles.headerSubtitle}>{filteredCourts.length} courts available</Text>
+          </View>
+          
           <View style={styles.headerSpacer} />
         </View>
 
-      <View style={styles.searchContainer}>
-        <View style={styles.searchInputWrapper}>
-          <Ionicons name="search" size={20} color={Colors.dark.textSecondary} />
-          <TextInput
-            style={styles.searchInput}
-            placeholder="Search courts, academies..."
-            placeholderTextColor={Colors.dark.textSecondary}
-            value={searchQuery}
-            onChangeText={setSearchQuery}
-          />
-          {searchQuery.length > 0 && (
-            <Pressable onPress={() => setSearchQuery("")}>
-              <Ionicons name="close-circle" size={20} color={Colors.dark.textSecondary} />
-            </Pressable>
-          )}
-        </View>
-      </View>
-
-      <View style={styles.dateContainer}>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.dateScroll}>
-          {dateOptions.map((option) => (
-            <Pressable
-              key={option.value}
-              style={[
-                styles.dateChip,
-                selectedDate === option.value && styles.dateChipActive,
-              ]}
-              onPress={() => setSelectedDate(option.value)}
+        <View style={styles.searchSection}>
+          <View style={styles.searchContainer}>
+            <LinearGradient
+              colors={["#1F2430", "#171B22"]}
+              style={styles.searchGradient}
             >
-              <Text style={[
-                styles.dateShort,
-                selectedDate === option.value && styles.dateTextActive,
-              ]}>
-                {option.short}
-              </Text>
-              <Text style={[
-                styles.dateDay,
-                selectedDate === option.value && styles.dateTextActive,
-              ]}>
-                {option.day}
-              </Text>
-            </Pressable>
-          ))}
-        </ScrollView>
-      </View>
-
-      <View style={styles.filterContainer}>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterScroll}>
-          {SURFACE_OPTIONS.map((surface) => (
-            <Pressable
-              key={surface}
-              style={[
-                styles.filterChip,
-                selectedSurface === surface && styles.filterChipActive,
-              ]}
-              onPress={() => setSelectedSurface(surface)}
-            >
-              <Ionicons 
-                name={surface === "all" ? "grid-outline" : getSurfaceIcon(surface)} 
-                size={16} 
-                color={selectedSurface === surface ? Colors.dark.backgroundRoot : Colors.dark.text} 
+              <Ionicons name="search" size={20} color={Colors.dark.textSecondary} />
+              <TextInput
+                style={styles.searchInput}
+                placeholder="Search courts, venues..."
+                placeholderTextColor={Colors.dark.textSecondary}
+                value={searchQuery}
+                onChangeText={setSearchQuery}
               />
-              <Text style={[
-                styles.filterText,
-                selectedSurface === surface && styles.filterTextActive,
-              ]}>
-                {surface.charAt(0).toUpperCase() + surface.slice(1)}
-              </Text>
-            </Pressable>
-          ))}
-        </ScrollView>
-      </View>
+              {searchQuery.length > 0 && (
+                <Pressable onPress={() => setSearchQuery("")} hitSlop={10}>
+                  <Ionicons name="close-circle" size={20} color={Colors.dark.textSecondary} />
+                </Pressable>
+              )}
+            </LinearGradient>
+          </View>
+        </View>
 
-      <ScrollView 
-        style={styles.courtsList} 
-        contentContainerStyle={[styles.courtsListContent, { paddingBottom: insets.bottom + 100 }]}
-        showsVerticalScrollIndicator={false}
-      >
-        {isLoading ? (
-          <View style={styles.loadingContainer}>
-            <ActivityIndicator size="large" color={Colors.dark.xpCyan} />
-            <Text style={styles.loadingText}>Finding available courts...</Text>
-          </View>
-        ) : isError ? (
-          <View style={styles.errorContainer}>
-            <Ionicons name="alert-circle-outline" size={48} color={Colors.dark.accentError} />
-            <Text style={styles.errorText}>Failed to load courts</Text>
-            <Text style={styles.errorSubtext}>Please check your connection and try again</Text>
-          </View>
-        ) : filteredCourts.length === 0 ? (
-          <View style={styles.emptyContainer}>
-            <Ionicons name="tennisball-outline" size={48} color={Colors.dark.textSecondary} />
-            <Text style={styles.emptyText}>No courts available</Text>
-            <Text style={styles.emptySubtext}>Try adjusting your filters or check back later</Text>
-          </View>
-        ) : (
-          filteredCourts.map((court) => (
-            <Pressable
-              key={court.id}
-              style={styles.courtCard}
-              onPress={() => handleCourtPress(court)}
-            >
-              <View style={styles.courtHeader}>
-                <View style={[styles.surfaceTag, { backgroundColor: getSurfaceColor(court.surface) + "20" }]}>
-                  <Ionicons name={getSurfaceIcon(court.surface)} size={14} color={getSurfaceColor(court.surface)} />
-                  <Text style={[styles.surfaceText, { color: getSurfaceColor(court.surface) }]}>
-                    {court.surface?.charAt(0).toUpperCase() + (court.surface?.slice(1) || "Hard")}
+        <View style={styles.dateSection}>
+          <ScrollView 
+            horizontal 
+            showsHorizontalScrollIndicator={false} 
+            contentContainerStyle={styles.dateScroll}
+          >
+            {dateOptions.map((option) => {
+              const isSelected = selectedDate === option.value;
+              return (
+                <Pressable
+                  key={option.value}
+                  style={[styles.dateChip, isSelected && styles.dateChipActive]}
+                  onPress={() => handleDatePress(option.value)}
+                >
+                  {isSelected && (
+                    <LinearGradient
+                      colors={[Colors.dark.xpCyan, "#00A8CC"]}
+                      style={StyleSheet.absoluteFill}
+                    />
+                  )}
+                  <Text style={[styles.dateWeekday, isSelected && styles.dateTextActive]}>
+                    {option.isToday ? "Today" : option.weekday}
                   </Text>
-                </View>
-                <Text style={[styles.courtPrice, court.creditsPerHour && court.creditsPerHour > 0 && styles.courtPriceCredits]}>
-                  {formatPrice(court)}
+                  <Text style={[styles.dateDay, isSelected && styles.dateTextActive]}>
+                    {option.day}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </ScrollView>
+        </View>
+
+        <View style={styles.filterSection}>
+          <ScrollView 
+            horizontal 
+            showsHorizontalScrollIndicator={false} 
+            contentContainerStyle={styles.filterScroll}
+          >
+            {(Object.keys(SURFACE_CONFIG) as Array<keyof typeof SURFACE_CONFIG>).map((surface) => {
+              const config = SURFACE_CONFIG[surface];
+              const isSelected = selectedSurface === surface;
+              return (
+                <Pressable
+                  key={surface}
+                  style={[
+                    styles.filterChip,
+                    isSelected && { borderColor: config.color, backgroundColor: config.color + "15" },
+                  ]}
+                  onPress={() => handleSurfacePress(surface)}
+                >
+                  <Ionicons 
+                    name={config.icon as any} 
+                    size={16} 
+                    color={isSelected ? config.color : Colors.dark.textSecondary} 
+                  />
+                  <Text style={[
+                    styles.filterText,
+                    isSelected && { color: config.color },
+                  ]}>
+                    {config.label}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </ScrollView>
+        </View>
+
+        <ScrollView 
+          style={styles.courtsList} 
+          contentContainerStyle={[styles.courtsListContent, { paddingBottom: insets.bottom + 100 }]}
+          showsVerticalScrollIndicator={false}
+        >
+          {isLoading ? (
+            <View style={styles.stateContainer}>
+              <View style={styles.loadingPulse}>
+                <ActivityIndicator size="large" color={Colors.dark.xpCyan} />
+              </View>
+              <Text style={styles.stateTitle}>Finding courts...</Text>
+              <Text style={styles.stateSubtitle}>Checking availability in real-time</Text>
+            </View>
+          ) : isError ? (
+            <View style={styles.stateContainer}>
+              <View style={styles.errorIcon}>
+                <Ionicons name="cloud-offline-outline" size={48} color={Colors.dark.accentError} />
+              </View>
+              <Text style={styles.stateTitle}>Connection Issue</Text>
+              <Text style={styles.stateSubtitle}>Please check your internet and try again</Text>
+            </View>
+          ) : filteredCourts.length === 0 ? (
+            <View style={styles.stateContainer}>
+              <View style={styles.emptyIcon}>
+                <Ionicons name="tennisball-outline" size={48} color={Colors.dark.textSecondary} />
+              </View>
+              <Text style={styles.stateTitle}>No Courts Found</Text>
+              <Text style={styles.stateSubtitle}>Try adjusting filters or check back later</Text>
+            </View>
+          ) : (
+            <>
+              <View style={styles.resultsHeader}>
+                <Text style={styles.resultsCount}>{filteredCourts.length} Available</Text>
+                <Text style={styles.resultsDate}>
+                  {dateOptions.find(d => d.value === selectedDate)?.isToday 
+                    ? "Today" 
+                    : new Date(selectedDate).toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })}
                 </Text>
               </View>
-
-              <Text style={styles.courtName}>{court.name}</Text>
               
-              {court.academy && (
-                <View style={styles.academyRow}>
-                  <Ionicons name="business-outline" size={14} color={Colors.dark.textSecondary} />
-                  <Text style={styles.academyName}>{court.academy.name}</Text>
-                </View>
-              )}
-
-              {court.location && (
-                <View style={styles.locationRow}>
-                  <Ionicons name="location-outline" size={14} color={Colors.dark.textSecondary} />
-                  <Text style={styles.locationText}>{court.location.name}</Text>
-                </View>
-              )}
-
-              {court.description && (
-                <Text style={styles.courtDescription} numberOfLines={2}>
-                  {court.description}
-                </Text>
-              )}
-
-              <View style={styles.courtFooter}>
-                <View style={styles.availabilityBadge}>
-                  <Ionicons name="checkmark-circle" size={14} color={Colors.dark.successNeon} />
-                  <Text style={styles.availabilityText}>Available</Text>
-                </View>
-                {court.canBook !== false && (
-                  <View style={styles.bookButton}>
-                    <Text style={styles.bookButtonText}>View Slots</Text>
-                    <Ionicons name="chevron-forward" size={16} color={Colors.dark.xpCyan} />
-                  </View>
-                )}
-              </View>
-            </Pressable>
-          ))
-        )}
+              {filteredCourts.map((court) => (
+                <CourtCard
+                  key={court.id}
+                  court={court}
+                  onPress={() => handleCourtPress(court)}
+                  surfaceConfig={SURFACE_CONFIG[court.surface as keyof typeof SURFACE_CONFIG] || SURFACE_CONFIG.hard}
+                />
+              ))}
+            </>
+          )}
         </ScrollView>
       </View>
     </LockedScreen>
@@ -297,7 +440,7 @@ export default function CourtBookingScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: Colors.dark.backgroundRoot,
+    backgroundColor: "#0B0D10",
   },
   header: {
     flexDirection: "row",
@@ -307,69 +450,94 @@ const styles = StyleSheet.create({
     paddingVertical: Spacing.md,
   },
   backButton: {
-    width: 40,
-    height: 40,
+    width: 44,
+    height: 44,
     alignItems: "center",
     justifyContent: "center",
+    borderRadius: 22,
+    backgroundColor: "#171B22",
+  },
+  headerCenter: {
+    alignItems: "center",
   },
   headerTitle: {
     fontSize: 20,
     fontWeight: "700",
-    color: Colors.dark.text,
+    color: "#FFFFFF",
+    letterSpacing: 0.5,
+  },
+  headerSubtitle: {
+    fontSize: 12,
+    color: "#7C8290",
+    marginTop: 2,
   },
   headerSpacer: {
-    width: 40,
+    width: 44,
+  },
+  
+  searchSection: {
+    paddingHorizontal: Spacing.md,
+    marginBottom: Spacing.md,
   },
   searchContainer: {
-    paddingHorizontal: Spacing.md,
-    marginBottom: Spacing.sm,
+    borderRadius: BorderRadius.lg,
+    overflow: "hidden",
   },
-  searchInputWrapper: {
+  searchGradient: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: Colors.dark.backgroundSecondary,
-    borderRadius: BorderRadius.md,
     paddingHorizontal: Spacing.md,
-    height: 48,
+    height: 52,
     gap: Spacing.sm,
+    borderRadius: BorderRadius.lg,
+    borderWidth: 1,
+    borderColor: "#1F2430",
   },
   searchInput: {
     flex: 1,
-    color: Colors.dark.text,
+    color: "#FFFFFF",
     fontSize: 16,
   },
-  dateContainer: {
-    marginBottom: Spacing.sm,
+
+  dateSection: {
+    marginBottom: Spacing.md,
   },
   dateScroll: {
     paddingHorizontal: Spacing.md,
     gap: Spacing.sm,
   },
   dateChip: {
-    paddingHorizontal: Spacing.md,
-    paddingVertical: Spacing.sm,
-    borderRadius: BorderRadius.md,
-    backgroundColor: Colors.dark.backgroundSecondary,
+    width: 60,
+    height: 72,
+    borderRadius: BorderRadius.lg,
+    backgroundColor: "#171B22",
     alignItems: "center",
-    minWidth: 56,
+    justifyContent: "center",
+    overflow: "hidden",
+    borderWidth: 1,
+    borderColor: "#1F2430",
   },
   dateChipActive: {
-    backgroundColor: Colors.dark.xpCyan,
+    borderColor: Colors.dark.xpCyan,
   },
-  dateShort: {
-    fontSize: 12,
-    color: Colors.dark.textSecondary,
-    fontWeight: "500",
+  dateWeekday: {
+    fontSize: 11,
+    color: "#7C8290",
+    fontWeight: "600",
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
   },
   dateDay: {
-    fontSize: 18,
+    fontSize: 22,
     fontWeight: "700",
-    color: Colors.dark.text,
+    color: "#FFFFFF",
+    marginTop: 2,
   },
   dateTextActive: {
-    color: Colors.dark.backgroundRoot,
+    color: "#0B0D10",
   },
-  filterContainer: {
+
+  filterSection: {
     marginBottom: Spacing.md,
   },
   filterScroll: {
@@ -382,20 +550,17 @@ const styles = StyleSheet.create({
     gap: Spacing.xs,
     paddingHorizontal: Spacing.md,
     paddingVertical: Spacing.sm,
-    borderRadius: BorderRadius.md,
-    backgroundColor: Colors.dark.backgroundSecondary,
-  },
-  filterChipActive: {
-    backgroundColor: Colors.dark.xpCyan,
+    borderRadius: BorderRadius.full,
+    backgroundColor: "#171B22",
+    borderWidth: 1,
+    borderColor: "#1F2430",
   },
   filterText: {
     fontSize: 14,
-    color: Colors.dark.text,
+    color: "#B8BCC6",
     fontWeight: "500",
   },
-  filterTextActive: {
-    color: Colors.dark.backgroundRoot,
-  },
+
   courtsList: {
     flex: 1,
   },
@@ -403,129 +568,233 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.md,
     gap: Spacing.md,
   },
-  loadingContainer: {
+
+  resultsHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: Spacing.xs,
+  },
+  resultsCount: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: Colors.dark.xpCyan,
+  },
+  resultsDate: {
+    fontSize: 13,
+    color: "#7C8290",
+  },
+
+  stateContainer: {
     flex: 1,
     alignItems: "center",
     justifyContent: "center",
-    paddingVertical: 60,
+    paddingVertical: 80,
     gap: Spacing.md,
   },
-  loadingText: {
-    color: Colors.dark.textSecondary,
-    fontSize: 14,
-  },
-  errorContainer: {
+  loadingPulse: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: "#171B22",
     alignItems: "center",
     justifyContent: "center",
-    paddingVertical: 60,
-    gap: Spacing.sm,
   },
-  errorText: {
-    color: Colors.dark.accentError,
-    fontSize: 16,
-    fontWeight: "600",
-  },
-  errorSubtext: {
-    color: Colors.dark.textSecondary,
-    fontSize: 14,
-  },
-  emptyContainer: {
+  errorIcon: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: Colors.dark.accentError + "15",
     alignItems: "center",
     justifyContent: "center",
-    paddingVertical: 60,
-    gap: Spacing.sm,
   },
-  emptyText: {
-    color: Colors.dark.text,
-    fontSize: 16,
+  emptyIcon: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: "#171B22",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  stateTitle: {
+    fontSize: 18,
     fontWeight: "600",
+    color: "#FFFFFF",
   },
-  emptySubtext: {
-    color: Colors.dark.textSecondary,
+  stateSubtitle: {
     fontSize: 14,
+    color: "#7C8290",
     textAlign: "center",
   },
+
   courtCard: {
-    backgroundColor: Colors.dark.backgroundSecondary,
-    borderRadius: BorderRadius.lg,
+    borderRadius: BorderRadius.xl,
+    overflow: "hidden",
+    marginBottom: 4,
+  },
+  courtCardGradient: {
+    borderRadius: BorderRadius.xl,
+    borderWidth: 1,
+    borderColor: "#1F2430",
+    overflow: "hidden",
+  },
+  courtCardGlow: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    borderRadius: BorderRadius.xl,
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.15,
+    shadowRadius: 12,
+    elevation: 0,
+  },
+  courtCardInner: {
+    flexDirection: "row",
+  },
+  courtPhotoContainer: {
+    width: 100,
+    height: 120,
+    position: "relative",
+  },
+  courtPhoto: {
+    width: "100%",
+    height: "100%",
+  },
+  photoOverlay: {
+    position: "absolute",
+    right: 0,
+    top: 0,
+    bottom: 0,
+    width: 40,
+  },
+  courtPhotoPlaceholder: {
+    width: 100,
+    height: 120,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  courtContent: {
+    flex: 1,
     padding: Spacing.md,
+    gap: Spacing.xs,
+  },
+  courtTopRow: {
+    flexDirection: "row",
+    alignItems: "center",
     gap: Spacing.sm,
   },
-  courtHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-  },
-  surfaceTag: {
+  surfaceBadge: {
     flexDirection: "row",
     alignItems: "center",
     gap: 4,
-    paddingHorizontal: Spacing.sm,
-    paddingVertical: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
     borderRadius: BorderRadius.sm,
+    borderWidth: 1,
   },
-  surfaceText: {
-    fontSize: 12,
-    fontWeight: "600",
-  },
-  courtPrice: {
-    fontSize: 16,
+  surfaceBadgeText: {
+    fontSize: 10,
     fontWeight: "700",
-    color: Colors.dark.xpCyan,
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
   },
-  courtPriceCredits: {
-    color: Colors.dark.glow,
+  xpBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 3,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: BorderRadius.sm,
+    backgroundColor: Colors.dark.primaryGlow + "20",
+  },
+  xpBadgeText: {
+    fontSize: 10,
+    fontWeight: "700",
+    color: Colors.dark.primaryGlow,
   },
   courtName: {
-    fontSize: 18,
+    fontSize: 17,
     fontWeight: "700",
-    color: Colors.dark.text,
+    color: "#FFFFFF",
+    marginTop: 2,
   },
-  academyRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: Spacing.xs,
+  courtMetaRow: {
+    gap: 4,
   },
-  academyName: {
-    fontSize: 14,
-    color: Colors.dark.textSecondary,
-  },
-  locationRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: Spacing.xs,
-  },
-  locationText: {
-    fontSize: 13,
-    color: Colors.dark.textSecondary,
-  },
-  courtDescription: {
-    fontSize: 13,
-    color: Colors.dark.textSecondary,
-    lineHeight: 18,
-  },
-  courtFooter: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginTop: Spacing.xs,
-  },
-  availabilityBadge: {
+  metaItem: {
     flexDirection: "row",
     alignItems: "center",
     gap: 4,
+  },
+  metaText: {
+    fontSize: 12,
+    color: "#7C8290",
+    flex: 1,
+  },
+  courtBottomRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginTop: 4,
+  },
+  availabilityRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+  },
+  pulseContainer: {
+    width: 10,
+    height: 10,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  pulseOuter: {
+    position: "absolute",
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+  },
+  pulseDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
   },
   availabilityText: {
     fontSize: 12,
     color: Colors.dark.successNeon,
+    fontWeight: "600",
+  },
+  priceContainer: {
+    flexDirection: "row",
+    alignItems: "baseline",
+    gap: 2,
+  },
+  priceValue: {
+    fontSize: 16,
+    fontWeight: "700",
+    color: Colors.dark.xpCyan,
+  },
+  priceCredits: {
+    color: Colors.dark.primaryGlow,
+  },
+  priceUnit: {
+    fontSize: 11,
+    color: "#7C8290",
     fontWeight: "500",
   },
-  bookButton: {
+  viewSlotsButton: {
     flexDirection: "row",
     alignItems: "center",
+    justifyContent: "center",
     gap: 4,
+    paddingVertical: Spacing.sm,
+    borderTopWidth: 1,
+    borderTopColor: "#1F2430",
+    backgroundColor: "#11141A",
   },
-  bookButtonText: {
+  viewSlotsText: {
     fontSize: 14,
     fontWeight: "600",
     color: Colors.dark.xpCyan,
