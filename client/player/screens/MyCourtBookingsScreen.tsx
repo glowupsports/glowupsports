@@ -8,6 +8,7 @@ import {
   ActivityIndicator,
   Alert,
   RefreshControl,
+  Image,
 } from "react-native";
 import { useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
@@ -19,6 +20,26 @@ import { apiRequest, getApiUrl } from "@/lib/query-client";
 import type { PlayerStackParamList } from "@/player/navigation/PlayerNavigator";
 
 type NavigationProp = NativeStackNavigationProp<PlayerStackParamList>;
+
+interface BookingPartner {
+  id: string;
+  displayName: string;
+  photoUrl?: string;
+  xpLevel?: number;
+}
+
+interface BookingGuest {
+  name: string;
+  email?: string;
+}
+
+interface OpenMatch {
+  id: string;
+  title?: string;
+  status: string;
+  maxPlayers: number;
+  currentPlayers: number;
+}
 
 interface CourtBooking {
   id: string;
@@ -38,6 +59,7 @@ interface CourtBooking {
   xpAwarded: number;
   notes?: string;
   createdAt: string;
+  partnerType?: "friend" | "guest" | "open_match" | "solo";
   court: {
     id: string;
     name: string;
@@ -49,6 +71,9 @@ interface CourtBooking {
       name: string;
     };
   };
+  partner?: BookingPartner;
+  guest?: BookingGuest;
+  openMatch?: OpenMatch;
 }
 
 type TabType = "upcoming" | "past" | "cancelled";
@@ -154,10 +179,115 @@ export default function MyCourtBookingsScreen() {
     }
   };
 
+  const getPartnerIcon = (partnerType?: string) => {
+    switch (partnerType) {
+      case "friend": return "people";
+      case "guest": return "person-add";
+      case "open_match": return "globe";
+      case "solo": return "fitness";
+      default: return "person";
+    }
+  };
+
+  const getPartnerColor = (partnerType?: string) => {
+    switch (partnerType) {
+      case "friend": return Colors.dark.xpCyan;
+      case "guest": return Colors.dark.primaryGlow;
+      case "open_match": return "#E040FB";
+      case "solo": return "#FF9500";
+      default: return Colors.dark.textSecondary;
+    }
+  };
+
+  const renderPartnerInfo = (booking: CourtBooking) => {
+    const apiUrl = getApiUrl();
+    
+    if (booking.partnerType === "friend" && booking.partner) {
+      return (
+        <View style={styles.partnerRow}>
+          <View style={[styles.partnerIconCircle, { backgroundColor: Colors.dark.xpCyan + "20" }]}>
+            {booking.partner.photoUrl ? (
+              <Image 
+                source={{ uri: `${apiUrl}${booking.partner.photoUrl}` }} 
+                style={styles.partnerPhoto}
+              />
+            ) : (
+              <Ionicons name="person" size={14} color={Colors.dark.xpCyan} />
+            )}
+          </View>
+          <View style={styles.partnerInfo}>
+            <Text style={styles.partnerLabel}>Playing with</Text>
+            <Text style={styles.partnerName}>{booking.partner.displayName}</Text>
+          </View>
+          {booking.partner.xpLevel && (
+            <View style={styles.partnerLevelBadge}>
+              <Text style={styles.partnerLevelText}>Lvl {booking.partner.xpLevel}</Text>
+            </View>
+          )}
+        </View>
+      );
+    }
+    
+    if (booking.partnerType === "guest" && booking.guest) {
+      return (
+        <View style={styles.partnerRow}>
+          <View style={[styles.partnerIconCircle, { backgroundColor: Colors.dark.primaryGlow + "20" }]}>
+            <Ionicons name="person-add" size={14} color={Colors.dark.primaryGlow} />
+          </View>
+          <View style={styles.partnerInfo}>
+            <Text style={styles.partnerLabel}>Guest</Text>
+            <Text style={styles.partnerName}>{booking.guest.name}</Text>
+          </View>
+        </View>
+      );
+    }
+    
+    if (booking.partnerType === "open_match" && booking.openMatch) {
+      const isFull = booking.openMatch.currentPlayers >= booking.openMatch.maxPlayers;
+      return (
+        <View style={styles.partnerRow}>
+          <View style={[styles.partnerIconCircle, { backgroundColor: "#E040FB20" }]}>
+            <Ionicons name="globe" size={14} color="#E040FB" />
+          </View>
+          <View style={styles.partnerInfo}>
+            <Text style={styles.partnerLabel}>Open Match</Text>
+            <Text style={styles.partnerName}>
+              {booking.openMatch.title || "Looking for players"}
+            </Text>
+          </View>
+          <View style={[styles.openMatchStatus, isFull && styles.openMatchFull]}>
+            <Text style={[styles.openMatchStatusText, isFull && styles.openMatchFullText]}>
+              {booking.openMatch.currentPlayers}/{booking.openMatch.maxPlayers}
+            </Text>
+          </View>
+        </View>
+      );
+    }
+    
+    if (booking.partnerType === "solo") {
+      return (
+        <View style={styles.partnerRow}>
+          <View style={[styles.partnerIconCircle, { backgroundColor: "#FF950020" }]}>
+            <Ionicons name="fitness" size={14} color="#FF9500" />
+          </View>
+          <View style={styles.partnerInfo}>
+            <Text style={styles.partnerLabel}>Solo Practice</Text>
+            <Text style={styles.partnerName}>Training session</Text>
+          </View>
+        </View>
+      );
+    }
+    
+    return null;
+  };
+
   const renderBookingCard = (booking: CourtBooking) => {
     const bookingDate = new Date(`${booking.date}T${booking.endTime}`);
     const isPast = bookingDate < new Date();
     const canCancel = booking.status === "confirmed" && !isPast;
+    const hasPartnerInfo = booking.partnerType && booking.partnerType !== "solo" 
+      ? (booking.partner || booking.guest || booking.openMatch) 
+      : booking.partnerType === "solo";
 
     return (
       <View key={booking.id} style={styles.bookingCard}>
@@ -193,6 +323,12 @@ export default function MyCourtBookingsScreen() {
             </View>
           )}
         </View>
+
+        {hasPartnerInfo && (
+          <View style={styles.partnerSection}>
+            {renderPartnerInfo(booking)}
+          </View>
+        )}
 
         <View style={styles.bookingFooter}>
           <Text style={styles.priceText}>
@@ -283,7 +419,7 @@ export default function MyCourtBookingsScreen() {
             {activeTab === "upcoming" && (
               <Pressable 
                 style={styles.bookNewButton}
-                onPress={() => navigation.navigate("CourtBooking")}
+                onPress={() => navigation.navigate("Schedule", { screen: "CourtBooking" } as any)}
               >
                 <Text style={styles.bookNewButtonText}>Book a Court</Text>
               </Pressable>
@@ -296,7 +432,7 @@ export default function MyCourtBookingsScreen() {
 
       <Pressable 
         style={[styles.fab, { bottom: insets.bottom + 100 }]}
-        onPress={() => navigation.navigate("CourtBooking")}
+        onPress={() => navigation.navigate("Schedule", { screen: "CourtBooking" } as any)}
       >
         <Ionicons name="add" size={28} color={Colors.dark.backgroundRoot} />
       </Pressable>
@@ -509,5 +645,70 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.25,
     shadowRadius: 4,
+  },
+  partnerSection: {
+    borderTopWidth: 1,
+    borderTopColor: "rgba(255, 255, 255, 0.06)",
+    paddingTop: Spacing.sm,
+    marginTop: Spacing.xs,
+  },
+  partnerRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+  },
+  partnerIconCircle: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    alignItems: "center",
+    justifyContent: "center",
+    overflow: "hidden",
+  },
+  partnerPhoto: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+  },
+  partnerInfo: {
+    flex: 1,
+  },
+  partnerLabel: {
+    fontSize: 11,
+    color: Colors.dark.textSecondary,
+    marginBottom: 1,
+  },
+  partnerName: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: Colors.dark.text,
+  },
+  partnerLevelBadge: {
+    backgroundColor: Colors.dark.xpCyan + "20",
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 2,
+    borderRadius: BorderRadius.sm,
+  },
+  partnerLevelText: {
+    fontSize: 11,
+    fontWeight: "600",
+    color: Colors.dark.xpCyan,
+  },
+  openMatchStatus: {
+    backgroundColor: "#E040FB20",
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 4,
+    borderRadius: BorderRadius.sm,
+  },
+  openMatchFull: {
+    backgroundColor: Colors.dark.successNeon + "20",
+  },
+  openMatchStatusText: {
+    fontSize: 12,
+    fontWeight: "600",
+    color: "#E040FB",
+  },
+  openMatchFullText: {
+    color: Colors.dark.successNeon,
   },
 });
