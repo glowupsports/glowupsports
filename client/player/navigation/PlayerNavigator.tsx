@@ -106,6 +106,14 @@ export type PlayStackParamList = {
   BookingPreferences: undefined;
 };
 
+export type ScheduleStackParamList = {
+  ScheduleMain: undefined;
+  CourtBooking: undefined;
+  CourtDetail: { courtId: string; date: string };
+  MyCourtBookings: undefined;
+  QuickBook: undefined;
+};
+
 export type PlayerStackParamList = {
   PlayerTabs: undefined;
   Training: undefined;
@@ -166,6 +174,7 @@ export type PlayerStackParamList = {
 const Tab = createBottomTabNavigator<PlayerTabParamList>();
 const Stack = createNativeStackNavigator<PlayerStackParamList>();
 const PlayStack = createNativeStackNavigator<PlayStackParamList>();
+const ScheduleStack = createNativeStackNavigator<ScheduleStackParamList>();
 
 function PlayStackNavigator() {
   return (
@@ -229,6 +238,18 @@ function PlayStackNavigator() {
         }}
       />
     </PlayStack.Navigator>
+  );
+}
+
+function ScheduleStackNavigator() {
+  return (
+    <ScheduleStack.Navigator screenOptions={{ headerShown: false }}>
+      <ScheduleStack.Screen name="ScheduleMain" component={PlayerScheduleScreen} />
+      <ScheduleStack.Screen name="CourtBooking" component={CourtBookingScreen} />
+      <ScheduleStack.Screen name="CourtDetail" component={CourtDetailScreen} />
+      <ScheduleStack.Screen name="MyCourtBookings" component={MyCourtBookingsScreen} />
+      <ScheduleStack.Screen name="QuickBook" component={QuickBookScreen} />
+    </ScheduleStack.Navigator>
   );
 }
 
@@ -300,7 +321,7 @@ function PlayerTabsContent() {
         />
         <Tab.Screen
           name="Schedule"
-          component={PlayerScheduleScreen}
+          component={ScheduleStackNavigator}
           options={{
             tabBarLabel: "Schedule",
             tabBarIcon: ({ color }) => (

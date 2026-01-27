@@ -20,12 +20,12 @@ import Ionicons from "@expo/vector-icons/Ionicons";
 import * as Haptics from "expo-haptics";
 import { Colors, Spacing, BorderRadius } from "@/constants/theme";
 import { apiRequest, getApiUrl } from "@/lib/query-client";
-import type { PlayerStackParamList } from "@/player/navigation/PlayerNavigator";
+import type { ScheduleStackParamList, PlayerStackParamList } from "@/player/navigation/PlayerNavigator";
 import { AnimatedCheck } from "@/components/AnimatedCheck";
 import { SuccessToast } from "@/components/SuccessToast";
 
-type NavigationProp = NativeStackNavigationProp<PlayerStackParamList>;
-type RouteProp = NativeStackScreenProps<PlayerStackParamList, "CourtDetail">["route"];
+type NavigationProp = NativeStackNavigationProp<ScheduleStackParamList>;
+type RouteProp = NativeStackScreenProps<ScheduleStackParamList, "CourtDetail">["route"];
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 

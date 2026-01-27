@@ -8648,7 +8648,91 @@ export const storage = {
       ))
       .limit(1);
 
-    return existingBooking.length === 0;
+    if (existingBooking.length > 0) return false;
+
+    // Check sessions (tennis lessons) that use this court
+    const sessionStartTime = new Date(`${date}T${startTime}:00`);
+    const sessionEndTime = new Date(`${date}T${endTime}:00`);
+    
+    const sessionConflict = await db.select()
+      .from(sessions)
+      .where(and(
+        eq(sessions.courtId, courtId),
+        inArray(sessions.status, ["scheduled", "in_progress"]),
+        or(
+          and(lt(sessions.startTime, sessionEndTime), gt(sessions.endTime, sessionStartTime))
+        )
+      ))
+      .limit(1);
+
+    return sessionConflict.length === 0;
+  },
+
+  // Get all blocked time slots for a court on a specific date (includes sessions, bookings, and availability blocks)
+  async getCourtBlockedSlots(courtId: string, date: string): Promise<Array<{ startTime: string; endTime: string; status: string; reason?: string }>> {
+    const blockedSlots: Array<{ startTime: string; endTime: string; status: string; reason?: string }> = [];
+    
+    // Get court_availability blocks
+    const availabilityBlocks = await db.select()
+      .from(courtAvailability)
+      .where(and(
+        eq(courtAvailability.courtId, courtId),
+        eq(courtAvailability.date, date),
+        ne(courtAvailability.status, "available")
+      ));
+    
+    for (const block of availabilityBlocks) {
+      blockedSlots.push({
+        startTime: block.startTime,
+        endTime: block.endTime,
+        status: block.status,
+        reason: "blocked"
+      });
+    }
+    
+    // Get court bookings
+    const bookings = await db.select()
+      .from(courtBookings)
+      .where(and(
+        eq(courtBookings.courtId, courtId),
+        eq(courtBookings.date, date),
+        inArray(courtBookings.status, ["pending", "confirmed"])
+      ));
+    
+    for (const booking of bookings) {
+      blockedSlots.push({
+        startTime: booking.startTime,
+        endTime: booking.endTime,
+        status: "booked",
+        reason: "player_booking"
+      });
+    }
+    
+    // Get sessions (tennis lessons) that use this court
+    const dayStart = new Date(`${date}T00:00:00`);
+    const dayEnd = new Date(`${date}T23:59:59`);
+    
+    const sessionBlocks = await db.select()
+      .from(sessions)
+      .where(and(
+        eq(sessions.courtId, courtId),
+        inArray(sessions.status, ["scheduled", "in_progress"]),
+        gte(sessions.startTime, dayStart),
+        lte(sessions.startTime, dayEnd)
+      ));
+    
+    for (const session of sessionBlocks) {
+      const sessionStart = new Date(session.startTime);
+      const sessionEnd = new Date(session.endTime);
+      blockedSlots.push({
+        startTime: sessionStart.toTimeString().slice(0, 5),
+        endTime: sessionEnd.toTimeString().slice(0, 5),
+        status: "booked",
+        reason: "tennis_lesson"
+      });
+    }
+    
+    return blockedSlots;
   },
 
   // Create a court booking

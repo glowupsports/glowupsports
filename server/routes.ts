@@ -26263,10 +26263,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         offset = "0" 
       } = req.query;
 
+      const searchDate = (date as string) || new Date().toISOString().split("T")[0];
+
       const courts = await storage.searchCourts({
         userId,
         userAcademyId: academyId,
-        date: date as string,
+        date: searchDate,
         surface: surface as string,
         visibility: visibility as string,
         minPrice: minPrice ? parseFloat(minPrice as string) : undefined,
@@ -26276,7 +26278,44 @@ export async function registerRoutes(app: Express): Promise<Server> {
         offset: parseInt(offset as string),
       });
 
-      res.json(courts);
+      // Get blocked slots for each court and calculate available time slots
+      const TIME_SLOTS = ["07:00", "08:00", "09:00", "10:00", "11:00", "12:00", "13:00", "14:00", "15:00", "16:00", "17:00", "18:00", "19:00", "20:00", "21:00"];
+      const now = new Date();
+      const nowTime = now.toTimeString().slice(0, 5);
+      const isToday = searchDate === now.toISOString().split("T")[0];
+
+      const courtsWithAvailability = await Promise.all(courts.map(async (court) => {
+        const blockedSlots = await storage.getCourtBlockedSlots(court.id, searchDate);
+        
+        // Calculate available slots
+        const availableSlots: string[] = [];
+        for (const slot of TIME_SLOTS) {
+          // Skip past slots if today
+          if (isToday && slot <= nowTime) continue;
+          
+          // Check if slot is blocked
+          const isBlocked = blockedSlots.some(blocked => {
+            return blocked.startTime <= slot && blocked.endTime > slot;
+          });
+          
+          if (!isBlocked) {
+            availableSlots.push(slot);
+          }
+        }
+        
+        // Get next 3 available slots for preview
+        const nextAvailableSlots = availableSlots.slice(0, 3);
+        const totalAvailable = availableSlots.length;
+        
+        return {
+          ...court,
+          nextAvailableSlots,
+          totalAvailableSlots: totalAvailable,
+          hasAvailability: totalAvailable > 0,
+        };
+      }));
+
+      res.json(courtsWithAvailability);
     } catch (error) {
       console.error("Search courts error:", error);
       res.status(500).json({ error: "Failed to search courts" });
@@ -26296,10 +26335,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ error: "Court not found" });
       }
 
-      // Get availability for the requested date
-      const availability = date 
-        ? await storage.getCourtAvailability(courtId, date as string)
+      // Get blocked slots (includes sessions, bookings, and manual blocks)
+      const blockedSlots = date 
+        ? await storage.getCourtBlockedSlots(courtId, date as string)
         : [];
+      
+      // Transform to availability format expected by frontend
+      const availability = blockedSlots.map(slot => ({
+        id: `${courtId}-${slot.startTime}`,
+        startTime: slot.startTime,
+        endTime: slot.endTime,
+        status: slot.status,
+        reason: slot.reason,
+      }));
 
       res.json({ ...court, availability });
     } catch (error) {

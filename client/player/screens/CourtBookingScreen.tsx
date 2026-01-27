@@ -19,11 +19,11 @@ import { Image } from "expo-image";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import * as Haptics from "expo-haptics";
 import { Colors, Spacing, BorderRadius } from "@/constants/theme";
-import type { PlayerStackParamList } from "@/player/navigation/PlayerNavigator";
+import type { ScheduleStackParamList } from "@/player/navigation/PlayerNavigator";
 import { LockedScreen } from "../components/LockedScreen";
 import { getApiUrl } from "@/lib/query-client";
 
-type NavigationProp = NativeStackNavigationProp<PlayerStackParamList>;
+type NavigationProp = NativeStackNavigationProp<ScheduleStackParamList>;
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 
@@ -53,6 +53,9 @@ interface Court {
     address?: string;
   };
   canBook?: boolean;
+  nextAvailableSlots?: string[];
+  totalAvailableSlots?: number;
+  hasAvailability?: boolean;
 }
 
 const SURFACE_CONFIG = {
@@ -176,10 +179,19 @@ function CourtCard({ court, onPress, surfaceConfig }: { court: Court; onPress: (
                 </View>
 
                 <View style={styles.courtBottomRow}>
-                  <View style={styles.availabilityRow}>
-                    <PulsingDot color={Colors.dark.successNeon} />
-                    <Text style={styles.availabilityText}>Available</Text>
-                  </View>
+                  {court.hasAvailability !== false ? (
+                    <View style={styles.availabilityRow}>
+                      <PulsingDot color={Colors.dark.successNeon} />
+                      <Text style={styles.availabilityText}>
+                        {court.totalAvailableSlots || 0} slots
+                      </Text>
+                    </View>
+                  ) : (
+                    <View style={styles.availabilityRow}>
+                      <View style={[styles.noAvailDot, { backgroundColor: Colors.dark.accentError }]} />
+                      <Text style={styles.noAvailText}>Fully booked</Text>
+                    </View>
+                  )}
 
                   <View style={styles.priceContainer}>
                     <Text style={[styles.priceValue, price.isCredits && styles.priceCredits]}>
@@ -190,11 +202,26 @@ function CourtCard({ court, onPress, surfaceConfig }: { court: Court; onPress: (
                     )}
                   </View>
                 </View>
+
+                {court.nextAvailableSlots && court.nextAvailableSlots.length > 0 && (
+                  <View style={styles.timeSlotsPreview}>
+                    {court.nextAvailableSlots.map((slot, index) => (
+                      <View key={slot} style={styles.timeSlotChip}>
+                        <Text style={styles.timeSlotText}>{slot}</Text>
+                      </View>
+                    ))}
+                    {(court.totalAvailableSlots || 0) > 3 && (
+                      <Text style={styles.moreSlots}>+{(court.totalAvailableSlots || 0) - 3}</Text>
+                    )}
+                  </View>
+                )}
               </View>
             </View>
 
             <View style={styles.viewSlotsButton}>
-              <Text style={styles.viewSlotsText}>View Slots</Text>
+              <Text style={styles.viewSlotsText}>
+                {court.hasAvailability !== false ? "View All Slots" : "View Details"}
+              </Text>
               <Ionicons name="chevron-forward" size={18} color={Colors.dark.xpCyan} />
             </View>
           </LinearGradient>
@@ -798,5 +825,41 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: "600",
     color: Colors.dark.xpCyan,
+  },
+  noAvailDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+  },
+  noAvailText: {
+    fontSize: 12,
+    color: Colors.dark.accentError,
+    fontWeight: "600",
+  },
+  timeSlotsPreview: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    marginTop: 8,
+    flexWrap: "wrap",
+  },
+  timeSlotChip: {
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: BorderRadius.full,
+    backgroundColor: Colors.dark.xpCyan + "15",
+    borderWidth: 1,
+    borderColor: Colors.dark.xpCyan + "40",
+  },
+  timeSlotText: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: Colors.dark.xpCyan,
+  },
+  moreSlots: {
+    fontSize: 11,
+    color: "#7C8290",
+    fontWeight: "500",
+    marginLeft: 2,
   },
 });
