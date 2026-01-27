@@ -606,6 +606,7 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: "#0B0D10",
+    marginBottom: 85,
   },
   centered: {
     justifyContent: "center",
