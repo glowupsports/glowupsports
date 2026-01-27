@@ -493,36 +493,21 @@ async function processAutoAttendance(): Promise<void> {
               xpAwarded: 0,
             });
 
-            // Deduct credit for this player
-            if (session.academyId) {
-              try {
-                const deductResult = await storage.deductTypedCreditsForSession(
-                  sp.playerId,
-                  session.sessionType || "group",
-                  session.id,
-                  session.academyId
-                );
-                
-                if (deductResult.success && deductResult.transactionId) {
-                  // Update session_player with credit transaction info
-                  await db.update(sessionPlayers)
-                    .set({
-                      creditDeductedAt: new Date(),
-                      creditTransactionId: deductResult.transactionId,
-                    })
-                    .where(eq(sessionPlayers.id, newSessionPlayerId));
-                  
-                  console.log(`[AutoAttendance] Deducted credit for player ${sp.playerId} in session ${session.id}`);
-                }
-              } catch (creditError) {
-                console.error(`[AutoAttendance] Failed to deduct credit for player ${sp.playerId}:`, creditError);
+            // REFACTORED: Use ensureCreditProcessed instead of direct deduction
+            try {
+              const result = await storage.ensureCreditProcessed(newSessionPlayerId);
+              if (result.action === "consumed") {
+                console.log(`[AutoAttendance] Consumed credit for player ${sp.playerId} in session ${session.id}`);
+              } else if (result.action === "debt_created") {
+                console.log(`[AutoAttendance] Created debt for player ${sp.playerId} in session ${session.id}`);
               }
+            } catch (creditError) {
+              console.error(`[AutoAttendance] Failed to process credit for player ${sp.playerId}:`, creditError);
             }
           }
         }
       } else {
         // Mark existing unmarked players as present
-        // Include both null and "pending" status - players who haven't been marked by coach
         const unmarkedPlayers = existingPlayers.filter(p => 
           p.attendanceStatus === null || p.attendanceStatus === "pending"
         );
@@ -532,6 +517,7 @@ async function processAutoAttendance(): Promise<void> {
         console.log(`[AutoAttendance] Session ${session.id}: Marking ${unmarkedPlayers.length} players as attended (auto-mark after session end)`);
 
         for (const player of unmarkedPlayers) {
+          // First update attendance status
           await db.update(sessionPlayers)
             .set({ 
               attendanceStatus: "present",
@@ -539,29 +525,18 @@ async function processAutoAttendance(): Promise<void> {
             })
             .where(eq(sessionPlayers.id, player.id));
 
-          // Deduct credit if not already deducted
-          if (!player.creditDeductedAt && session.academyId) {
-            try {
-              const deductResult = await storage.deductTypedCreditsForSession(
-                player.playerId,
-                session.sessionType || "group",
-                session.id,
-                session.academyId
-              );
-              
-              if (deductResult.success && deductResult.transactionId) {
-                await db.update(sessionPlayers)
-                  .set({
-                    creditDeductedAt: new Date(),
-                    creditTransactionId: deductResult.transactionId,
-                  })
-                  .where(eq(sessionPlayers.id, player.id));
-                
-                console.log(`[AutoAttendance] Deducted credit for player ${player.playerId} in session ${session.id}`);
-              }
-            } catch (creditError) {
-              console.error(`[AutoAttendance] Failed to deduct credit for player ${player.playerId}:`, creditError);
+          // REFACTORED: Use ensureCreditProcessed instead of direct deduction
+          try {
+            const result = await storage.ensureCreditProcessed(player.id);
+            if (result.action === "consumed") {
+              console.log(`[AutoAttendance] Consumed credit for player ${player.playerId} in session ${session.id}`);
+            } else if (result.action === "debt_created") {
+              console.log(`[AutoAttendance] Created debt for player ${player.playerId} in session ${session.id}`);
+            } else if (result.action === "already_processed") {
+              console.log(`[AutoAttendance] Credit already processed for player ${player.playerId}`);
             }
+          } catch (creditError) {
+            console.error(`[AutoAttendance] Failed to process credit for player ${player.playerId}:`, creditError);
           }
         }
       }
