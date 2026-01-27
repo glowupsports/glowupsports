@@ -9,6 +9,8 @@ import {
   Alert,
   Animated,
   Dimensions,
+  TextInput,
+  Modal,
 } from "react-native";
 import { useNavigation, useRoute } from "@react-navigation/native";
 import type { NativeStackNavigationProp, NativeStackScreenProps } from "@react-navigation/native-stack";
@@ -185,6 +187,14 @@ export default function CourtDetailScreen() {
   const [showBookingConfirm, setShowBookingConfirm] = useState(false);
   const [showSuccessAnimation, setShowSuccessAnimation] = useState(false);
   const [showSuccessToast, setShowSuccessToast] = useState(false);
+  
+  // Enhanced booking flow - Partner selection
+  const [bookingStep, setBookingStep] = useState<1 | 2 | 3>(1); // 1: partner type, 2: details, 3: confirm
+  const [partnerType, setPartnerType] = useState<"friend" | "guest" | "open_match" | "solo" | null>(null);
+  const [selectedPartner, setSelectedPartner] = useState<{ id: string; name: string; photoUrl?: string } | null>(null);
+  const [guestName, setGuestName] = useState("");
+  const [openMatchTitle, setOpenMatchTitle] = useState("");
+  const [playerSearchQuery, setPlayerSearchQuery] = useState("");
 
   const detailUrl = `/api/courts/${courtId}/details?date=${date}`;
 
@@ -192,8 +202,23 @@ export default function CourtDetailScreen() {
     queryKey: [detailUrl],
   });
 
+  // Fetch friends/academy players for partner selection
+  interface SearchPlayer { id: string; displayName: string; photoUrl?: string; ballLevel?: string; xpLevel?: number; }
+  const { data: searchResults } = useQuery<SearchPlayer[]>({
+    queryKey: ["/api/players/search", playerSearchQuery],
+    enabled: playerSearchQuery.length >= 2 && partnerType === "friend",
+  });
+
   const bookingMutation = useMutation({
-    mutationFn: async (data: { date: string; startTime: string; endTime: string }) => {
+    mutationFn: async (data: { 
+      date: string; 
+      startTime: string; 
+      endTime: string;
+      partnerType?: "friend" | "guest" | "open_match" | "solo";
+      partnerId?: string;
+      guestName?: string;
+      openMatchTitle?: string;
+    }) => {
       return apiRequest("POST", `/api/courts/${courtId}/book`, data);
     },
     onSuccess: () => {
@@ -280,8 +305,58 @@ export default function CourtDetailScreen() {
       date,
       startTime: selectedSlot.start,
       endTime: selectedSlot.end,
+      partnerType: partnerType || "solo",
+      partnerId: selectedPartner?.id,
+      guestName: guestName || undefined,
+      openMatchTitle: openMatchTitle || undefined,
     });
+    resetBookingFlow();
+  };
+
+  const resetBookingFlow = () => {
     setShowBookingConfirm(false);
+    setBookingStep(1);
+    setPartnerType(null);
+    setSelectedPartner(null);
+    setGuestName("");
+    setOpenMatchTitle("");
+    setPlayerSearchQuery("");
+  };
+
+  const handlePartnerTypeSelect = (type: "friend" | "guest" | "open_match" | "solo") => {
+    Haptics.selectionAsync();
+    setPartnerType(type);
+    if (type === "solo") {
+      setBookingStep(3); // Skip to confirmation for solo
+    } else {
+      setBookingStep(2); // Go to details step
+    }
+  };
+
+  const handlePartnerSelected = (player: SearchPlayer) => {
+    Haptics.selectionAsync();
+    setSelectedPartner({ id: player.id, name: player.displayName, photoUrl: player.photoUrl });
+    setBookingStep(3);
+  };
+
+  const handleGuestConfirm = () => {
+    if (guestName.trim().length < 2) return;
+    Haptics.selectionAsync();
+    setBookingStep(3);
+  };
+
+  const handleOpenMatchConfirm = () => {
+    Haptics.selectionAsync();
+    setOpenMatchTitle(openMatchTitle || "Looking for a hitting partner");
+    setBookingStep(3);
+  };
+
+  const getPartnerDescription = () => {
+    if (partnerType === "solo") return "Solo Practice";
+    if (partnerType === "friend" && selectedPartner) return `Playing with ${selectedPartner.name}`;
+    if (partnerType === "guest" && guestName) return `Playing with ${guestName} (Guest)`;
+    if (partnerType === "open_match") return "Open Match - Others can join";
+    return "";
   };
 
   const formatPrice = () => {
@@ -525,59 +600,276 @@ export default function CourtDetailScreen() {
       )}
 
       {showBookingConfirm && (
-        <View style={styles.confirmOverlay}>
-          <Pressable style={styles.confirmBackdrop} onPress={() => setShowBookingConfirm(false)} />
-          <View style={[styles.confirmModal, { marginBottom: 85 + Spacing.xl }]}>
-            <LinearGradient
-              colors={["#1F2430", "#171B22"]}
-              style={styles.confirmGradient}
-            >
-              <View style={styles.confirmHeader}>
-                <Ionicons name="calendar" size={24} color={Colors.dark.xpCyan} />
-                <Text style={styles.confirmTitle}>Confirm Booking</Text>
-              </View>
-              
-              <View style={styles.confirmDetails}>
-                <Text style={styles.confirmCourtName}>{court.name}</Text>
-                <Text style={styles.confirmDate}>
-                  {new Date(date).toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" })}
-                </Text>
-                <Text style={styles.confirmTime}>{selectedSlot?.start} - {selectedSlot?.end}</Text>
-              </View>
-
-              <View style={styles.confirmPriceRow}>
-                <Text style={styles.confirmPriceLabel}>Total</Text>
-                <Text style={[styles.confirmPriceValue, price.isCredits && styles.priceCredits]}>
-                  {price.value} {price.unit}
-                </Text>
-              </View>
-              
-              {court.requiresApproval && (
-                <View style={styles.approvalNote}>
-                  <Ionicons name="information-circle" size={16} color={Colors.dark.accentWarning} />
-                  <Text style={styles.approvalText}>This booking requires academy approval</Text>
+        <Modal
+          visible={showBookingConfirm}
+          animationType="slide"
+          transparent={true}
+          onRequestClose={resetBookingFlow}
+        >
+          <View style={styles.confirmOverlay}>
+            <Pressable style={styles.confirmBackdrop} onPress={resetBookingFlow} />
+            <View style={[styles.confirmModal, { marginBottom: 145 + Spacing.xl, maxHeight: "80%" }]}>
+              <LinearGradient
+                colors={["#1F2430", "#171B22"]}
+                style={styles.confirmGradient}
+              >
+                {/* Header with step indicator */}
+                <View style={styles.confirmHeader}>
+                  <View style={styles.stepIndicator}>
+                    <View style={[styles.stepDot, bookingStep >= 1 && styles.stepDotActive]} />
+                    <View style={[styles.stepLine, bookingStep >= 2 && styles.stepLineActive]} />
+                    <View style={[styles.stepDot, bookingStep >= 2 && styles.stepDotActive]} />
+                    <View style={[styles.stepLine, bookingStep >= 3 && styles.stepLineActive]} />
+                    <View style={[styles.stepDot, bookingStep >= 3 && styles.stepDotActive]} />
+                  </View>
+                  <Text style={styles.confirmTitle}>
+                    {bookingStep === 1 && "Who are you playing with?"}
+                    {bookingStep === 2 && partnerType === "friend" && "Select a Player"}
+                    {bookingStep === 2 && partnerType === "guest" && "Enter Guest Name"}
+                    {bookingStep === 2 && partnerType === "open_match" && "Create Open Match"}
+                    {bookingStep === 3 && "Confirm Booking"}
+                  </Text>
                 </View>
-              )}
-              
-              <View style={styles.confirmButtons}>
-                <Pressable 
-                  style={styles.cancelConfirmButton} 
-                  onPress={() => setShowBookingConfirm(false)}
-                >
-                  <Text style={styles.cancelConfirmText}>Cancel</Text>
-                </Pressable>
-                <Pressable style={styles.confirmBookButton} onPress={confirmBooking}>
-                  <LinearGradient
-                    colors={[Colors.dark.xpCyan, "#00A8CC"]}
-                    style={styles.confirmBookGradient}
-                  >
-                    <Text style={styles.confirmBookText}>Confirm</Text>
-                  </LinearGradient>
-                </Pressable>
-              </View>
-            </LinearGradient>
+
+                {/* Step 1: Partner Type Selection */}
+                {bookingStep === 1 && (
+                  <ScrollView style={styles.partnerOptions} showsVerticalScrollIndicator={false}>
+                    <Pressable 
+                      style={styles.partnerOptionCard}
+                      onPress={() => handlePartnerTypeSelect("friend")}
+                    >
+                      <LinearGradient colors={["#1A2332", "#151C28"]} style={styles.partnerOptionGradient}>
+                        <View style={[styles.partnerIconCircle, { backgroundColor: Colors.dark.xpCyan + "20" }]}>
+                          <Ionicons name="people" size={24} color={Colors.dark.xpCyan} />
+                        </View>
+                        <View style={styles.partnerOptionText}>
+                          <Text style={styles.partnerOptionTitle}>Academy Player</Text>
+                          <Text style={styles.partnerOptionDesc}>Invite a friend from your academy</Text>
+                        </View>
+                        <Ionicons name="chevron-forward" size={20} color={Colors.dark.textSecondary} />
+                      </LinearGradient>
+                    </Pressable>
+
+                    <Pressable 
+                      style={styles.partnerOptionCard}
+                      onPress={() => handlePartnerTypeSelect("guest")}
+                    >
+                      <LinearGradient colors={["#1A2332", "#151C28"]} style={styles.partnerOptionGradient}>
+                        <View style={[styles.partnerIconCircle, { backgroundColor: Colors.dark.primaryGlow + "20" }]}>
+                          <Ionicons name="person-add" size={24} color={Colors.dark.primaryGlow} />
+                        </View>
+                        <View style={styles.partnerOptionText}>
+                          <Text style={styles.partnerOptionTitle}>Invite a Guest</Text>
+                          <Text style={styles.partnerOptionDesc}>Bring someone not in the system</Text>
+                        </View>
+                        <Ionicons name="chevron-forward" size={20} color={Colors.dark.textSecondary} />
+                      </LinearGradient>
+                    </Pressable>
+
+                    <Pressable 
+                      style={styles.partnerOptionCard}
+                      onPress={() => handlePartnerTypeSelect("open_match")}
+                    >
+                      <LinearGradient colors={["#1A2332", "#151C28"]} style={styles.partnerOptionGradient}>
+                        <View style={[styles.partnerIconCircle, { backgroundColor: "#E040FB20" }]}>
+                          <Ionicons name="globe" size={24} color="#E040FB" />
+                        </View>
+                        <View style={styles.partnerOptionText}>
+                          <Text style={styles.partnerOptionTitle}>Create Open Match</Text>
+                          <Text style={styles.partnerOptionDesc}>Let other players join you</Text>
+                        </View>
+                        <Ionicons name="chevron-forward" size={20} color={Colors.dark.textSecondary} />
+                      </LinearGradient>
+                    </Pressable>
+
+                    <Pressable 
+                      style={styles.partnerOptionCard}
+                      onPress={() => handlePartnerTypeSelect("solo")}
+                    >
+                      <LinearGradient colors={["#1A2332", "#151C28"]} style={styles.partnerOptionGradient}>
+                        <View style={[styles.partnerIconCircle, { backgroundColor: "#FF950020" }]}>
+                          <Ionicons name="fitness" size={24} color="#FF9500" />
+                        </View>
+                        <View style={styles.partnerOptionText}>
+                          <Text style={styles.partnerOptionTitle}>Solo Practice</Text>
+                          <Text style={styles.partnerOptionDesc}>Book for yourself (training, wall, etc.)</Text>
+                        </View>
+                        <Ionicons name="chevron-forward" size={20} color={Colors.dark.textSecondary} />
+                      </LinearGradient>
+                    </Pressable>
+                  </ScrollView>
+                )}
+
+                {/* Step 2: Friend Search */}
+                {bookingStep === 2 && partnerType === "friend" && (
+                  <View style={styles.searchStep}>
+                    <View style={styles.searchInputContainer}>
+                      <Ionicons name="search" size={20} color={Colors.dark.textSecondary} />
+                      <TextInput
+                        style={styles.searchInput}
+                        placeholder="Search players..."
+                        placeholderTextColor={Colors.dark.textSecondary}
+                        value={playerSearchQuery}
+                        onChangeText={setPlayerSearchQuery}
+                        autoFocus
+                      />
+                    </View>
+                    <ScrollView style={styles.searchResults} showsVerticalScrollIndicator={false}>
+                      {searchResults && searchResults.map((player) => (
+                        <Pressable 
+                          key={player.id}
+                          style={styles.playerResultCard}
+                          onPress={() => handlePartnerSelected(player)}
+                        >
+                          <View style={styles.playerAvatar}>
+                            {player.photoUrl ? (
+                              <Image source={{ uri: `${apiUrl}${player.photoUrl}` }} style={styles.playerPhoto} />
+                            ) : (
+                              <Ionicons name="person" size={20} color={Colors.dark.textSecondary} />
+                            )}
+                          </View>
+                          <View style={styles.playerInfo}>
+                            <Text style={styles.playerName}>{player.displayName}</Text>
+                            <Text style={styles.playerLevel}>Level {player.xpLevel || 1}</Text>
+                          </View>
+                          <Ionicons name="add-circle" size={24} color={Colors.dark.xpCyan} />
+                        </Pressable>
+                      ))}
+                      {playerSearchQuery.length >= 2 && (!searchResults || searchResults.length === 0) && (
+                        <Text style={styles.noResultsText}>No players found</Text>
+                      )}
+                    </ScrollView>
+                    <Pressable style={styles.backStepButton} onPress={() => setBookingStep(1)}>
+                      <Ionicons name="arrow-back" size={18} color={Colors.dark.text} />
+                      <Text style={styles.backStepText}>Back</Text>
+                    </Pressable>
+                  </View>
+                )}
+
+                {/* Step 2: Guest Name Input */}
+                {bookingStep === 2 && partnerType === "guest" && (
+                  <View style={styles.guestStep}>
+                    <Text style={styles.guestLabel}>Guest Name</Text>
+                    <TextInput
+                      style={styles.guestInput}
+                      placeholder="Enter your guest's name..."
+                      placeholderTextColor={Colors.dark.textSecondary}
+                      value={guestName}
+                      onChangeText={setGuestName}
+                      autoFocus
+                    />
+                    <Text style={styles.guestHint}>Your guest will need to check in at reception</Text>
+                    
+                    <View style={styles.guestButtons}>
+                      <Pressable style={styles.backStepButton} onPress={() => setBookingStep(1)}>
+                        <Ionicons name="arrow-back" size={18} color={Colors.dark.text} />
+                        <Text style={styles.backStepText}>Back</Text>
+                      </Pressable>
+                      <Pressable 
+                        style={[styles.nextStepButton, guestName.trim().length < 2 && styles.nextStepButtonDisabled]} 
+                        onPress={handleGuestConfirm}
+                        disabled={guestName.trim().length < 2}
+                      >
+                        <Text style={styles.nextStepText}>Continue</Text>
+                        <Ionicons name="arrow-forward" size={18} color="#0B0D10" />
+                      </Pressable>
+                    </View>
+                  </View>
+                )}
+
+                {/* Step 2: Open Match Setup */}
+                {bookingStep === 2 && partnerType === "open_match" && (
+                  <View style={styles.openMatchStep}>
+                    <Text style={styles.guestLabel}>Match Title (Optional)</Text>
+                    <TextInput
+                      style={styles.guestInput}
+                      placeholder="Looking for a hitting partner..."
+                      placeholderTextColor={Colors.dark.textSecondary}
+                      value={openMatchTitle}
+                      onChangeText={setOpenMatchTitle}
+                    />
+                    <View style={styles.openMatchInfo}>
+                      <Ionicons name="information-circle" size={16} color={Colors.dark.xpCyan} />
+                      <Text style={styles.openMatchInfoText}>
+                        Other players in your academy will see this match and can request to join
+                      </Text>
+                    </View>
+                    
+                    <View style={styles.guestButtons}>
+                      <Pressable style={styles.backStepButton} onPress={() => setBookingStep(1)}>
+                        <Ionicons name="arrow-back" size={18} color={Colors.dark.text} />
+                        <Text style={styles.backStepText}>Back</Text>
+                      </Pressable>
+                      <Pressable style={styles.nextStepButton} onPress={handleOpenMatchConfirm}>
+                        <Text style={styles.nextStepText}>Continue</Text>
+                        <Ionicons name="arrow-forward" size={18} color="#0B0D10" />
+                      </Pressable>
+                    </View>
+                  </View>
+                )}
+
+                {/* Step 3: Final Confirmation */}
+                {bookingStep === 3 && (
+                  <View style={styles.finalConfirmStep}>
+                    <View style={styles.confirmDetails}>
+                      <Text style={styles.confirmCourtName}>{court.name}</Text>
+                      <Text style={styles.confirmDate}>
+                        {new Date(date).toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" })}
+                      </Text>
+                      <Text style={styles.confirmTime}>{selectedSlot?.start} - {selectedSlot?.end}</Text>
+                    </View>
+
+                    <View style={styles.partnerSummary}>
+                      <Ionicons 
+                        name={partnerType === "friend" ? "people" : partnerType === "guest" ? "person-add" : partnerType === "open_match" ? "globe" : "fitness"} 
+                        size={20} 
+                        color={Colors.dark.xpCyan} 
+                      />
+                      <Text style={styles.partnerSummaryText}>{getPartnerDescription()}</Text>
+                    </View>
+
+                    <View style={styles.confirmPriceRow}>
+                      <Text style={styles.confirmPriceLabel}>Total</Text>
+                      <Text style={[styles.confirmPriceValue, price.isCredits && styles.priceCredits]}>
+                        {price.value} {price.unit}
+                      </Text>
+                    </View>
+                    
+                    {court.requiresApproval && (
+                      <View style={styles.approvalNote}>
+                        <Ionicons name="information-circle" size={16} color={Colors.dark.accentWarning} />
+                        <Text style={styles.approvalText}>This booking requires academy approval</Text>
+                      </View>
+                    )}
+                    
+                    <View style={styles.confirmButtons}>
+                      <Pressable style={styles.backStepButton} onPress={() => setBookingStep(partnerType === "solo" ? 1 : 2)}>
+                        <Ionicons name="arrow-back" size={18} color={Colors.dark.text} />
+                        <Text style={styles.backStepText}>Back</Text>
+                      </Pressable>
+                      <Pressable 
+                        style={[styles.confirmBookButton, bookingMutation.isPending && styles.confirmBookButtonDisabled]} 
+                        onPress={confirmBooking}
+                        disabled={bookingMutation.isPending}
+                      >
+                        <LinearGradient
+                          colors={bookingMutation.isPending ? ["#4A4F5C", "#4A4F5C"] : [Colors.dark.xpCyan, "#00A8CC"]}
+                          style={styles.confirmBookGradient}
+                        >
+                          {bookingMutation.isPending ? (
+                            <ActivityIndicator size="small" color="#FFFFFF" />
+                          ) : (
+                            <Text style={styles.confirmBookText}>Book Now</Text>
+                          )}
+                        </LinearGradient>
+                      </Pressable>
+                    </View>
+                  </View>
+                )}
+              </LinearGradient>
+            </View>
           </View>
-        </View>
+        </Modal>
       )}
 
       {showSuccessAnimation && (
@@ -1103,11 +1395,240 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     color: "#0B0D10",
   },
+  confirmBookButtonDisabled: {
+    opacity: 0.6,
+  },
 
   successOverlay: {
     ...StyleSheet.absoluteFillObject,
     backgroundColor: "rgba(0, 0, 0, 0.85)",
     justifyContent: "center",
     alignItems: "center",
+  },
+
+  // Step indicator
+  stepIndicator: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: Spacing.md,
+  },
+  stepDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: "#2A2E38",
+  },
+  stepDotActive: {
+    backgroundColor: Colors.dark.xpCyan,
+  },
+  stepLine: {
+    width: 30,
+    height: 2,
+    backgroundColor: "#2A2E38",
+    marginHorizontal: 4,
+  },
+  stepLineActive: {
+    backgroundColor: Colors.dark.xpCyan,
+  },
+
+  // Partner options
+  partnerOptions: {
+    maxHeight: 320,
+  },
+  partnerOptionCard: {
+    marginBottom: Spacing.sm,
+    borderRadius: BorderRadius.lg,
+    overflow: "hidden",
+  },
+  partnerOptionGradient: {
+    flexDirection: "row",
+    alignItems: "center",
+    padding: Spacing.md,
+  },
+  partnerIconCircle: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    alignItems: "center",
+    justifyContent: "center",
+    marginRight: Spacing.md,
+  },
+  partnerOptionText: {
+    flex: 1,
+  },
+  partnerOptionTitle: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: "#FFFFFF",
+    marginBottom: 2,
+  },
+  partnerOptionDesc: {
+    fontSize: 13,
+    color: Colors.dark.textSecondary,
+  },
+
+  // Search step
+  searchStep: {
+    flex: 1,
+  },
+  searchInputContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#11141A",
+    borderRadius: BorderRadius.md,
+    paddingHorizontal: Spacing.md,
+    marginBottom: Spacing.md,
+    borderWidth: 1,
+    borderColor: "#2A2E38",
+  },
+  searchInput: {
+    flex: 1,
+    paddingVertical: Spacing.md,
+    paddingHorizontal: Spacing.sm,
+    fontSize: 15,
+    color: "#FFFFFF",
+  },
+  searchResults: {
+    maxHeight: 200,
+  },
+  playerResultCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    padding: Spacing.md,
+    backgroundColor: "#151B24",
+    borderRadius: BorderRadius.md,
+    marginBottom: Spacing.sm,
+  },
+  playerAvatar: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: "#1F2430",
+    alignItems: "center",
+    justifyContent: "center",
+    marginRight: Spacing.md,
+    overflow: "hidden",
+  },
+  playerPhoto: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+  },
+  playerInfo: {
+    flex: 1,
+  },
+  playerName: {
+    fontSize: 15,
+    fontWeight: "600",
+    color: "#FFFFFF",
+  },
+  playerLevel: {
+    fontSize: 12,
+    color: Colors.dark.textSecondary,
+  },
+  noResultsText: {
+    textAlign: "center",
+    color: Colors.dark.textSecondary,
+    paddingVertical: Spacing.xl,
+  },
+
+  // Guest step
+  guestStep: {
+    paddingTop: Spacing.sm,
+  },
+  guestLabel: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: Colors.dark.textSecondary,
+    marginBottom: Spacing.sm,
+  },
+  guestInput: {
+    backgroundColor: "#11141A",
+    borderRadius: BorderRadius.md,
+    padding: Spacing.md,
+    fontSize: 16,
+    color: "#FFFFFF",
+    borderWidth: 1,
+    borderColor: "#2A2E38",
+    marginBottom: Spacing.sm,
+  },
+  guestHint: {
+    fontSize: 12,
+    color: Colors.dark.textSecondary,
+    marginBottom: Spacing.lg,
+  },
+  guestButtons: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginTop: Spacing.md,
+  },
+
+  // Open match step
+  openMatchStep: {
+    paddingTop: Spacing.sm,
+  },
+  openMatchInfo: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    backgroundColor: Colors.dark.xpCyan + "15",
+    padding: Spacing.md,
+    borderRadius: BorderRadius.md,
+    marginTop: Spacing.md,
+    gap: Spacing.sm,
+  },
+  openMatchInfoText: {
+    flex: 1,
+    fontSize: 13,
+    color: Colors.dark.xpCyan,
+    lineHeight: 18,
+  },
+
+  // Navigation buttons
+  backStepButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    padding: Spacing.md,
+    gap: Spacing.xs,
+  },
+  backStepText: {
+    fontSize: 15,
+    color: Colors.dark.text,
+  },
+  nextStepButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: Colors.dark.xpCyan,
+    paddingHorizontal: Spacing.lg,
+    paddingVertical: Spacing.md,
+    borderRadius: BorderRadius.full,
+    gap: Spacing.xs,
+  },
+  nextStepButtonDisabled: {
+    opacity: 0.5,
+  },
+  nextStepText: {
+    fontSize: 15,
+    fontWeight: "600",
+    color: "#0B0D10",
+  },
+
+  // Final confirm step
+  finalConfirmStep: {
+    paddingTop: Spacing.sm,
+  },
+  partnerSummary: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#151B24",
+    padding: Spacing.md,
+    borderRadius: BorderRadius.md,
+    marginVertical: Spacing.md,
+    gap: Spacing.sm,
+  },
+  partnerSummaryText: {
+    fontSize: 14,
+    color: "#FFFFFF",
+    fontWeight: "500",
   },
 });
