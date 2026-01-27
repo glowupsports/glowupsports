@@ -305,7 +305,7 @@ export function GroupLessonsRow() {
 
   const handleSeeAll = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    navigation.navigate("PlayerTabs", { screen: "Play" });
+    navigation.navigate("Schedule", { screen: "BrowseGroupLessons" });
   };
 
   const ballLevelLabel = playerBallLevel.charAt(0).toUpperCase() + playerBallLevel.slice(1);
@@ -386,9 +386,12 @@ export function GroupLessonsRow() {
                       <Ionicons name="time-outline" size={12} color={Colors.dark.textMuted} />
                       <Text style={styles.playCardMetaText}>{formatSessionTime((session as any).date || (session as any).startTime)}</Text>
                       <Text style={styles.playCardMetaDot}>·</Text>
-                      <Text style={styles.playCardMetaText}>All Levels</Text>
+                      <View style={[styles.ballLevelDot, { backgroundColor: levelColor }]} />
+                      <Text style={[styles.playCardMetaText, { color: levelColor }]}>
+                        {session.ballLevel ? session.ballLevel.charAt(0).toUpperCase() + session.ballLevel.slice(1) : "All Levels"}
+                      </Text>
                       <Text style={styles.playCardMetaDot}>·</Text>
-                      <Text style={styles.playCardMetaText}>Competitive</Text>
+                      <Text style={styles.playCardMetaText}>{(session as any).skillLevel || "Competitive"}</Text>
                     </View>
                   </View>
 
@@ -1879,6 +1882,12 @@ const styles = StyleSheet.create({
   playCardMetaDot: {
     color: Colors.dark.textMuted,
     fontSize: 11,
+  },
+  ballLevelDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    marginRight: 2,
   },
   playCardBadgesRow: {
     flexDirection: "row",
