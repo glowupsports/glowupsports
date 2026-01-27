@@ -6424,6 +6424,110 @@ export const storage = {
     return { settledCount: debtsToSettle.length, totalDeducted: actualDeducted };
   },
 
+  // Settle unpaid sessions (creditDeductedAt = null) when a new package is created
+  async settleUnpaidSessions(playerId: string, creditType: string, packageId: string, academyId?: string): Promise<{
+    settledCount: number;
+    totalDeducted: number;
+    sessionIds: string[];
+  }> {
+    // Map credit type to session types
+    const creditToSessionTypes: Record<string, string[]> = {
+      private: ["private"],
+      semi_private: ["semi", "semi_private"],
+      group: ["group"],
+    };
+    
+    const matchingSessionTypes = creditToSessionTypes[creditType] || [creditType];
+    
+    // Find all sessions for this player where creditDeductedAt is null
+    // and session type matches the credit type
+    const unpaidSessions = await db.select({
+      sessionPlayerId: sessionPlayers.id,
+      sessionId: sessionPlayers.sessionId,
+      playerId: sessionPlayers.playerId,
+      sessionType: sessions.sessionType,
+      startTime: sessions.startTime,
+    })
+    .from(sessionPlayers)
+    .innerJoin(sessions, eq(sessionPlayers.sessionId, sessions.id))
+    .where(and(
+      eq(sessionPlayers.playerId, playerId),
+      isNull(sessionPlayers.creditDeductedAt),
+      inArray(sessions.sessionType, matchingSessionTypes),
+      academyId ? eq(sessions.academyId, academyId) : undefined
+    ))
+    .orderBy(sessions.startTime); // Settle oldest sessions first
+    
+    if (unpaidSessions.length === 0) {
+      return { settledCount: 0, totalDeducted: 0, sessionIds: [] };
+    }
+    
+    // Get the package to update remaining credits
+    const pkg = await db.select().from(packages).where(eq(packages.id, packageId)).limit(1);
+    if (pkg.length === 0) {
+      console.error(`[SettleUnpaidSessions] Package ${packageId} not found`);
+      return { settledCount: 0, totalDeducted: 0, sessionIds: [] };
+    }
+    
+    const currentRemaining = pkg[0].remainingCredits;
+    
+    // Only settle as many sessions as we have credits for
+    const sessionsToSettle = unpaidSessions.slice(0, currentRemaining);
+    const actualDeducted = sessionsToSettle.length;
+    
+    if (actualDeducted === 0) {
+      return { settledCount: 0, totalDeducted: 0, sessionIds: [] };
+    }
+    
+    const newRemaining = currentRemaining - actualDeducted;
+    const settledSessionIds: string[] = [];
+    
+    // Update package remaining credits and status
+    await db.update(packages)
+      .set({ 
+        remainingCredits: newRemaining,
+        status: newRemaining <= 0 ? "depleted" : "active",
+      })
+      .where(eq(packages.id, packageId));
+    
+    // Mark each session as paid and create credit transactions
+    for (const session of sessionsToSettle) {
+      // Create credit transaction for this session
+      const transaction = await db.insert(creditTransactions).values({
+        playerId,
+        academyId: academyId || pkg[0].academyId,
+        packageId,
+        type: "debit",
+        creditType,
+        amount: -1,
+        reason: "retrospective_settlement",
+        sessionId: session.sessionId,
+        balanceBefore: currentRemaining - settledSessionIds.length,
+        balanceAfter: currentRemaining - settledSessionIds.length - 1,
+        metadata: JSON.stringify({
+          sessionType: session.sessionType,
+          settledAt: new Date().toISOString(),
+          settledByPackage: packageId,
+          originalSessionDate: session.startTime?.toISOString(),
+        }),
+      }).returning();
+      
+      // Update session_player with creditDeductedAt
+      await db.update(sessionPlayers)
+        .set({ 
+          creditDeductedAt: new Date(),
+          creditTransactionId: transaction[0]?.id,
+        })
+        .where(eq(sessionPlayers.id, session.sessionPlayerId));
+      
+      settledSessionIds.push(session.sessionId);
+    }
+    
+    console.log(`[SettleUnpaidSessions] Settled ${sessionsToSettle.length} of ${unpaidSessions.length} unpaid sessions for player ${playerId}: deducted ${actualDeducted} from package ${packageId} (${currentRemaining} -> ${newRemaining})`);
+    
+    return { settledCount: sessionsToSettle.length, totalDeducted: actualDeducted, sessionIds: settledSessionIds };
+  },
+
   // Get player pillar progress summary for Glow Leveling OS display
   async getPlayerPillarProgressSummary(playerId: string): Promise<{
     pillars: Array<{

@@ -7203,6 +7203,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Settle any outstanding debts for this player and credit type
       const debtSettlement = await storage.settlePlayerDebts(playerId, creditType, pkg.id);
+      
+      // Also settle any unpaid sessions (creditDeductedAt=null)
+      const unpaidSettlement = await storage.settleUnpaidSessions(playerId, creditType, pkg.id, academyId);
+      if (unpaidSettlement.settledCount > 0) {
+        console.log(`[Package] Settled ${unpaidSettlement.settledCount} unpaid sessions for player ${playerId}`);
+      }
       if (debtSettlement.settledCount > 0) {
         console.log(`[Package] Settled ${debtSettlement.settledCount} debt(s) for player ${playerId}, deducted ${debtSettlement.totalDeducted} credits from package ${pkg.id}`);
       }
@@ -10093,6 +10099,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
           
           // Settle any outstanding debts for this player
           const creditPkgDebtSettlement = await storage.settlePlayerDebts(playerId, sessionType, pkg.id);
+          
+          // Also settle any unpaid sessions (creditDeductedAt=null)
+          const unpaidSettlement = await storage.settleUnpaidSessions(playerId, sessionType, pkg.id, academyId);
+          if (unpaidSettlement.settledCount > 0) {
+            console.log(`[AddPlayer] Settled ${unpaidSettlement.settledCount} unpaid sessions from credit package for player ${playerId}`);
+          }
           if (creditPkgDebtSettlement.settledCount > 0) {
             console.log(`[AddPlayer] Settled ${creditPkgDebtSettlement.settledCount} debts from credit package for player ${playerId}`);
           }
@@ -14201,6 +14213,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Settle any outstanding debts for this player
       const pkgCreditType = template.sessionType || 'group';
       const pkgDebtSettlement = await storage.settlePlayerDebts(playerId, pkgCreditType, pkg.id);
+      
+      // Also settle any unpaid sessions (creditDeductedAt=null)
+      const unpaidSettlement = await storage.settleUnpaidSessions(playerId, pkgCreditType, pkg.id, academyId);
+      if (unpaidSettlement.settledCount > 0) {
+        console.log(`[AssignPackage] Settled ${unpaidSettlement.settledCount} unpaid sessions for player ${playerId}`);
+      }
       if (pkgDebtSettlement.settledCount > 0) {
         console.log(`[AssignPackage] Settled ${pkgDebtSettlement.settledCount} debt(s) for player ${playerId}`);
       }
