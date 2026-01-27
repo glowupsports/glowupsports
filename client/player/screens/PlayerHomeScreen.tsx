@@ -1551,11 +1551,9 @@ export default function PlayerHomeScreen() {
         animationType="fade"
         onRequestClose={() => setShowCancelModal(false)}
       >
-        <Pressable 
-          style={styles.modalOverlay}
-          onPress={() => setShowCancelModal(false)}
-        >
-          <Pressable style={styles.modalContent} onPress={(e) => e.stopPropagation()}>
+        <View style={styles.modalOverlay}>
+          <Pressable style={StyleSheet.absoluteFill} onPress={() => setShowCancelModal(false)} />
+          <View style={styles.modalContent}>
             {nextSession?.type === "group" ? (
               <>
                 <View style={styles.modalHeader}>
@@ -1750,8 +1748,8 @@ export default function PlayerHomeScreen() {
                 </View>
               </>
             )}
-          </Pressable>
-        </Pressable>
+          </View>
+        </View>
       </Modal>
       
       <Modal
@@ -1760,11 +1758,9 @@ export default function PlayerHomeScreen() {
         animationType="fade"
         onRequestClose={() => setShowLateModal(false)}
       >
-        <Pressable 
-          style={styles.modalOverlay}
-          onPress={() => setShowLateModal(false)}
-        >
-          <Pressable style={styles.modalContent} onPress={(e) => e.stopPropagation()}>
+        <View style={styles.modalOverlay}>
+          <Pressable style={StyleSheet.absoluteFill} onPress={() => setShowLateModal(false)} />
+          <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
               <Ionicons name="time" size={28} color={Colors.dark.orange} />
               <Text style={styles.modalTitle}>Running Late?</Text>
@@ -1829,8 +1825,8 @@ export default function PlayerHomeScreen() {
                 )}
               </Pressable>
             </View>
-          </Pressable>
-        </Pressable>
+          </View>
+        </View>
       </Modal>
       
       <Modal
@@ -1839,15 +1835,13 @@ export default function PlayerHomeScreen() {
         animationType="fade"
         onRequestClose={() => setShowVacationModal(false)}
       >
-        <Pressable 
-          style={styles.modalOverlay}
-          onPress={() => setShowVacationModal(false)}
-        >
+        <View style={styles.modalOverlay}>
+          <Pressable style={StyleSheet.absoluteFill} onPress={() => setShowVacationModal(false)} />
           <KeyboardAwareScrollViewCompat 
             contentContainerStyle={styles.vacationModalScrollContent}
             keyboardShouldPersistTaps="handled"
           >
-            <Pressable style={styles.modalContent} onPress={(e) => e.stopPropagation()}>
+            <View style={styles.modalContent}>
               <View style={styles.modalHeader}>
                 <Ionicons name="airplane" size={28} color={Colors.dark.xpCyan} />
                 <Text style={styles.modalTitle}>Set Vacation</Text>
@@ -1963,9 +1957,9 @@ export default function PlayerHomeScreen() {
                   )}
                 </Pressable>
               </View>
-            </Pressable>
+            </View>
           </KeyboardAwareScrollViewCompat>
-        </Pressable>
+        </View>
       </Modal>
       
       <Modal
@@ -1974,15 +1968,13 @@ export default function PlayerHomeScreen() {
         animationType="fade"
         onRequestClose={() => setShowReportModal(false)}
       >
-        <Pressable 
-          style={styles.modalOverlay}
-          onPress={() => setShowReportModal(false)}
-        >
+        <View style={styles.modalOverlay}>
+          <Pressable style={StyleSheet.absoluteFill} onPress={() => setShowReportModal(false)} />
           <KeyboardAwareScrollViewCompat 
             contentContainerStyle={styles.vacationModalScrollContent}
             keyboardShouldPersistTaps="handled"
           >
-            <Pressable style={styles.modalContent} onPress={(e) => e.stopPropagation()}>
+            <View style={styles.modalContent}>
               <View style={styles.modalHeader}>
                 <Ionicons name="alert-circle" size={28} color={Colors.dark.error} />
                 <Text style={styles.modalTitle}>Report an Issue</Text>
@@ -2066,9 +2058,9 @@ export default function PlayerHomeScreen() {
                   )}
                 </Pressable>
               </View>
-            </Pressable>
+            </View>
           </KeyboardAwareScrollViewCompat>
-        </Pressable>
+        </View>
       </Modal>
       
       <BirthdayCelebrationModal
