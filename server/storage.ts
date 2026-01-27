@@ -10798,7 +10798,7 @@ async function repairAllPlayerCredits(): Promise<{
   
   // Find all unprocessed session_players with present/late attendance
   const unprocessed = await db.execute(sql`
-    SELECT sp.id, sp.player_id, sp.session_id, sp.attendance_status, p.first_name, p.last_name
+    SELECT sp.id, sp.player_id, sp.session_id, sp.attendance_status, p.name as player_name
     FROM session_players sp
     JOIN players p ON p.id = sp.player_id
     WHERE sp.attendance_status IN ('present', 'late')
@@ -10817,17 +10817,17 @@ async function repairAllPlayerCredits(): Promise<{
       
       if (result.action === "consumed") {
         results.consumed++;
-        console.log(`[RepairCredits] ${sp.first_name} ${sp.last_name}: Consumed credit from package ${result.packageId}`);
+        console.log(`[RepairCredits] ${sp.player_name}: Consumed credit from package ${result.packageId}`);
       } else if (result.action === "debt_created") {
         results.debts++;
-        console.log(`[RepairCredits] ${sp.first_name} ${sp.last_name}: Created debt (no ${result.creditType} credits)`);
+        console.log(`[RepairCredits] ${sp.player_name}: Created debt (no ${result.creditType} credits)`);
       } else if (result.action === "already_processed") {
         results.alreadyProcessed++;
       } else if (result.action === "error") {
-        results.errors.push(`${sp.first_name} ${sp.last_name}: ${result.error}`);
+        results.errors.push(`${sp.player_name}: ${result.error}`);
       }
     } catch (error: any) {
-      results.errors.push(`${sp.first_name} ${sp.last_name}: ${error.message}`);
+      results.errors.push(`${sp.player_name}: ${error.message}`);
     }
   }
   
