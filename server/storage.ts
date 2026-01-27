@@ -6305,7 +6305,45 @@ export const storage = {
       }
     }
     
-    // Note: Simplified - just use package remaining credits for now
+    // Count attended sessions that don't have a credit deduction (unpaid sessions)
+    // This creates negative credit balance (debt)
+    
+    // Get all attended sessions for this player
+    const attendedSessionsData = await db.select({
+      sessionId: sessionPlayers.sessionId,
+      sessionType: sessions.sessionType,
+    })
+      .from(sessionPlayers)
+      .innerJoin(sessions, eq(sessions.id, sessionPlayers.sessionId))
+      .where(and(
+        eq(sessionPlayers.playerId, playerId),
+        eq(sessionPlayers.status, "attended")
+      ));
+    
+    // Get all credit transactions for this player (filter client-side to avoid SQL reserved word issue)
+    const allTx = await db.select({
+      sessionId: creditTransactions.sessionId,
+      txType: creditTransactions.type,
+    }).from(creditTransactions)
+      .where(eq(creditTransactions.playerId, playerId));
+    
+    // Filter to only debit transactions (credit usage)
+    const debitTx = allTx.filter(t => t.txType === "debit");
+    const sessionsWithDeduction = new Set(debitTx.filter(t => t.sessionId).map(t => t.sessionId));
+    
+    // Find attended sessions without a credit deduction (unpaid)
+    const unpaidSessions = attendedSessionsData.filter(sp => !sessionsWithDeduction.has(sp.sessionId));
+    
+    // Subtract unpaid sessions from balance by credit type
+    for (const sp of unpaidSessions) {
+      const sessionType = (sp.sessionType || "group").toLowerCase().replace("-", "_").replace(" ", "_");
+      const creditType = sessionType === "private" ? "private" 
+        : (sessionType === "semi" || sessionType === "semi_private") ? "semi_private" 
+        : "group";
+      if (balance[creditType as keyof typeof balance] !== undefined) {
+        balance[creditType as "group" | "semi_private" | "private"] -= 1;
+      }
+    }
     
     // Calculate total debt (negative balance means player owes credits)
     const groupDebt = balance.group < 0 ? Math.abs(balance.group) : 0;
@@ -6521,8 +6559,57 @@ export const storage = {
       }
     }
     
-    // Note: Simplified debt calculation - just use package remaining credits for now
-    // Debt tracking is handled separately via session attendance
+    // 2. Count attended sessions without credit deduction (unpaid sessions = debt)
+    const allAttendedSessions = await db.select({
+      playerId: sessionPlayers.playerId,
+      sessionId: sessionPlayers.sessionId,
+      sessionType: sessions.sessionType,
+    })
+      .from(sessionPlayers)
+      .innerJoin(sessions, eq(sessions.id, sessionPlayers.sessionId))
+      .where(and(
+        inArray(sessionPlayers.playerId, playerIds),
+        eq(sessionPlayers.status, "attended")
+      ));
+    
+    // Get all credit transactions and filter client-side (avoid SQL reserved word issue with "type")
+    const allTransactions = await db.select({
+      playerId: creditTransactions.playerId,
+      sessionId: creditTransactions.sessionId,
+      txType: creditTransactions.type,
+    }).from(creditTransactions)
+      .where(inArray(creditTransactions.playerId, playerIds));
+    
+    // Filter to debit transactions
+    const allDeductions = allTransactions.filter(t => t.txType === "debit");
+    
+    // Map player -> set of sessions with deductions
+    const sessionsWithDeductionByPlayer = new Map<string, Set<string>>();
+    for (const d of allDeductions) {
+      if (!d.sessionId) continue;
+      if (!sessionsWithDeductionByPlayer.has(d.playerId)) {
+        sessionsWithDeductionByPlayer.set(d.playerId, new Set());
+      }
+      sessionsWithDeductionByPlayer.get(d.playerId)!.add(d.sessionId);
+    }
+    
+    // Find attended sessions without deduction (unpaid)
+    const unpaidSessions = allAttendedSessions.filter(sp => {
+      const playerDeductions = sessionsWithDeductionByPlayer.get(sp.playerId);
+      return !playerDeductions || !playerDeductions.has(sp.sessionId);
+    });
+    
+    // Subtract unpaid sessions from balance by credit type
+    for (const sp of unpaidSessions) {
+      if (!result[sp.playerId]) continue;
+      const sessionType = (sp.sessionType || "group").toLowerCase().replace("-", "_").replace(" ", "_");
+      const creditType = sessionType === "private" ? "private" 
+        : (sessionType === "semi" || sessionType === "semi_private") ? "semi_private" 
+        : "group";
+      if (result[sp.playerId][creditType as "group" | "semi_private" | "private"] !== undefined) {
+        result[sp.playerId][creditType as "group" | "semi_private" | "private"] -= 1;
+      }
+    }
     
     // Calculate total debt per player
     for (const playerId of playerIds) {
