@@ -2,7 +2,7 @@ import React, { useEffect, useState } from "react";
 import { View, Text, StyleSheet, Pressable, Modal, TextInput, Alert, Platform } from "react-native";
 import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollViewCompat";
 import { LinearGradient } from "expo-linear-gradient";
-import { Feather } from "@expo/vector-icons";
+import { Feather, Ionicons } from "@expo/vector-icons";
 import Animated, {
   useAnimatedStyle,
   withRepeat,
@@ -508,96 +508,118 @@ export function SessionHeroCard({
     return (
       <NeonBorderGlow color={ProTennisColors.electricGreen} style={styles.heroCard}>
         <View style={styles.noSessionContent}>
-          <View style={styles.openDayHeader}>
-            <LinearGradient
-              colors={[`${ProTennisColors.electricGreen}30`, `${ProTennisColors.electricGreen}10`]}
-              style={styles.openDayIconContainer}
-            >
-              <Feather name="sun" size={32} color={ProTennisColors.electricGreen} />
-            </LinearGradient>
+          {/* Premium Tennis Header */}
+          <View style={styles.tennisOpenDayHeader}>
+            <View style={styles.tennisCourtIconWrapper}>
+              <LinearGradient
+                colors={[`${ProTennisColors.electricGreen}25`, `${ProTennisColors.electricGreen}08`]}
+                style={styles.tennisCourtIconBg}
+              >
+                {/* Tennis Court SVG-style icon using nested views */}
+                <View style={styles.miniCourtContainer}>
+                  <View style={styles.miniCourtOuter}>
+                    <View style={styles.miniCourtNet} />
+                    <View style={styles.miniCourtInner}>
+                      <Ionicons name="tennisball" size={16} color={ProTennisColors.electricGreen} />
+                    </View>
+                  </View>
+                </View>
+              </LinearGradient>
+              <View style={styles.tennisCourtPulse} />
+            </View>
             <View style={styles.openDayTextContainer}>
-              <Text style={styles.openDayTitleGlow}>TODAY IS OPEN</Text>
-              <Text style={styles.openDaySubtitle}>No sessions scheduled - make it count!</Text>
+              <Text style={styles.openDayTitleGlow}>COURT TIME</Text>
+              <Text style={styles.openDaySubtitle}>No sessions today - hit the court!</Text>
             </View>
           </View>
 
-          <View style={styles.gamingStakesRow}>
-            <AnimatedStakeCard 
-              icon="zap" 
-              text="+50 XP for booking" 
-              color={ProTennisColors.warning} 
-              positive
-            />
-            <AnimatedStakeCard 
-              icon="trending-up" 
-              text="Keep streak alive" 
-              color={ProTennisColors.electricGreen} 
-              positive
-            />
+          {/* XP Stakes with tennis ball accent */}
+          <View style={styles.tennisStakesRow}>
+            <View style={styles.tennisStakeCard}>
+              <View style={[styles.tennisStakeIconCircle, { backgroundColor: `${ProTennisColors.warning}15` }]}>
+                <Ionicons name="flash" size={14} color={ProTennisColors.warning} />
+              </View>
+              <Text style={[styles.tennisStakeText, { color: ProTennisColors.warning }]}>+50 XP for booking</Text>
+            </View>
+            <View style={styles.tennisStakeCard}>
+              <View style={[styles.tennisStakeIconCircle, { backgroundColor: `${ProTennisColors.electricGreen}15` }]}>
+                <Ionicons name="flame" size={14} color={ProTennisColors.electricGreen} />
+              </View>
+              <Text style={[styles.tennisStakeText, { color: ProTennisColors.electricGreen }]}>Keep streak alive</Text>
+            </View>
           </View>
 
-          <View style={styles.openDayActions}>
-            <View style={styles.bookingButtonsRow}>
+          {/* Premium Action Buttons */}
+          <View style={styles.tennisActionsContainer}>
+            <View style={styles.tennisPrimaryRow}>
+              {/* Book Lesson - Tennis Racket Theme */}
               <Pressable
                 style={({ pressed }) => [
-                  styles.gamingPrimaryButtonHalf,
+                  styles.tennisPrimaryButton,
                   pressed && styles.buttonPressed,
                 ]}
                 onPress={handleBookSession}
               >
                 <LinearGradient
-                  colors={[ProTennisColors.electricGreen, `${ProTennisColors.electricGreen}CC`]}
+                  colors={[ProTennisColors.electricGreen, "#9AE62E"]}
                   start={{ x: 0, y: 0 }}
                   end={{ x: 1, y: 1 }}
-                  style={styles.gamingButtonGradientFill}
+                  style={styles.tennisPrimaryGradient}
                 >
-                  <Feather name="calendar" size={18} color={ProTennisColors.midnightBlue} />
-                  <Text style={styles.gamingPrimaryButtonText}>BOOK LESSON</Text>
+                  <View style={styles.tennisButtonIconWrapper}>
+                    <Ionicons name="person" size={18} color={ProTennisColors.midnightBlue} />
+                    <View style={styles.tennisRacketAccent}>
+                      <Ionicons name="tennisball-outline" size={10} color={ProTennisColors.midnightBlue} />
+                    </View>
+                  </View>
+                  <Text style={styles.tennisPrimaryButtonText}>BOOK LESSON</Text>
                 </LinearGradient>
               </Pressable>
 
+              {/* Book Court - Court Theme */}
               <Pressable
                 style={({ pressed }) => [
-                  styles.gamingPrimaryButtonHalf,
-                  { shadowColor: ProTennisColors.neonCyan },
+                  styles.tennisPrimaryButton,
                   pressed && styles.buttonPressed,
                 ]}
                 onPress={() => navigation.navigate("Schedule", { screen: "CourtBooking" })}
               >
                 <LinearGradient
-                  colors={[ProTennisColors.neonCyan, `${ProTennisColors.neonCyan}CC`]}
+                  colors={[ProTennisColors.neonCyan, "#00D4FF"]}
                   start={{ x: 0, y: 0 }}
                   end={{ x: 1, y: 1 }}
-                  style={styles.gamingButtonGradientFill}
+                  style={styles.tennisPrimaryGradient}
                 >
-                  <Feather name="grid" size={18} color={ProTennisColors.midnightBlue} />
-                  <Text style={styles.gamingPrimaryButtonText}>BOOK COURT</Text>
+                  <View style={styles.tennisButtonIconWrapper}>
+                    <Ionicons name="grid" size={18} color={ProTennisColors.midnightBlue} />
+                  </View>
+                  <Text style={styles.tennisPrimaryButtonText}>BOOK COURT</Text>
                 </LinearGradient>
               </Pressable>
             </View>
 
-            <View style={styles.openDaySecondaryRow}>
+            {/* Secondary Actions - Clean Glass Style */}
+            <View style={styles.tennisSecondaryRow}>
               <Pressable
                 style={({ pressed }) => [
-                  styles.gamingSecondaryButton,
-                  pressed && styles.buttonPressed,
+                  styles.tennisSecondaryButton,
+                  pressed && styles.tennisSecondaryPressed,
                 ]}
                 onPress={handleFindMatch}
               >
-                <Feather name="users" size={16} color={ProTennisColors.neonCyan} />
-                <Text style={[styles.gamingSecondaryButtonText, { color: ProTennisColors.neonCyan }]}>FIND PLAYERS</Text>
+                <Ionicons name="people" size={16} color={ProTennisColors.neonCyan} />
+                <Text style={[styles.tennisSecondaryText, { color: ProTennisColors.neonCyan }]}>FIND PLAYERS</Text>
               </Pressable>
 
               <Pressable
                 style={({ pressed }) => [
-                  styles.gamingSecondaryButton,
-                  { borderColor: `${ProTennisColors.electricGreen}50` },
-                  pressed && styles.buttonPressed,
+                  styles.tennisSecondaryButton,
+                  pressed && styles.tennisSecondaryPressed,
                 ]}
                 onPress={handleJoinOpenGroup}
               >
-                <Feather name="play-circle" size={16} color={ProTennisColors.electricGreen} />
-                <Text style={[styles.gamingSecondaryButtonText, { color: ProTennisColors.electricGreen }]}>JOIN OPEN GROUP</Text>
+                <Ionicons name="globe" size={16} color={ProTennisColors.electricGreen} />
+                <Text style={[styles.tennisSecondaryText, { color: ProTennisColors.electricGreen }]}>JOIN OPEN GROUP</Text>
               </Pressable>
             </View>
           </View>
@@ -2245,5 +2267,167 @@ const styles = StyleSheet.create({
   },
   lateMinutesTextSelected: {
     color: ProTennisColors.warning,
+  },
+
+  // Premium Tennis Redesign Styles
+  tennisOpenDayHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.md,
+    marginBottom: Spacing.lg,
+  },
+  tennisCourtIconWrapper: {
+    position: "relative",
+    width: 56,
+    height: 56,
+  },
+  tennisCourtIconBg: {
+    width: 56,
+    height: 56,
+    borderRadius: 16,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1,
+    borderColor: `${ProTennisColors.electricGreen}30`,
+  },
+  tennisCourtPulse: {
+    position: "absolute",
+    top: -4,
+    left: -4,
+    right: -4,
+    bottom: -4,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: `${ProTennisColors.electricGreen}15`,
+  },
+  miniCourtContainer: {
+    width: 36,
+    height: 36,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  miniCourtOuter: {
+    width: 32,
+    height: 32,
+    borderWidth: 1.5,
+    borderColor: ProTennisColors.electricGreen,
+    borderRadius: 4,
+    alignItems: "center",
+    justifyContent: "center",
+    position: "relative",
+  },
+  miniCourtNet: {
+    position: "absolute",
+    left: "50%",
+    marginLeft: -0.5,
+    top: 4,
+    bottom: 4,
+    width: 1,
+    backgroundColor: `${ProTennisColors.electricGreen}60`,
+  },
+  miniCourtInner: {
+    width: 20,
+    height: 20,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  tennisStakesRow: {
+    flexDirection: "row",
+    gap: Spacing.sm,
+    marginBottom: Spacing.lg,
+  },
+  tennisStakeCard: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.xs,
+    backgroundColor: `${ProTennisColors.surfaceElevated}50`,
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: Spacing.sm,
+    borderRadius: BorderRadius.lg,
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.05)",
+  },
+  tennisStakeIconCircle: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  tennisStakeText: {
+    fontSize: 12,
+    fontWeight: "600",
+    letterSpacing: 0.3,
+  },
+  tennisActionsContainer: {
+    gap: Spacing.md,
+    width: "100%",
+  },
+  tennisPrimaryRow: {
+    flexDirection: "row",
+    gap: Spacing.md,
+  },
+  tennisPrimaryButton: {
+    flex: 1,
+    borderRadius: BorderRadius.lg,
+    overflow: "hidden",
+    shadowColor: ProTennisColors.electricGreen,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  tennisPrimaryGradient: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: Spacing.md,
+    paddingHorizontal: Spacing.md,
+    gap: Spacing.sm,
+  },
+  tennisButtonIconWrapper: {
+    width: 24,
+    height: 24,
+    alignItems: "center",
+    justifyContent: "center",
+    position: "relative",
+  },
+  tennisRacketAccent: {
+    position: "absolute",
+    top: -4,
+    right: -6,
+  },
+  tennisPrimaryButtonText: {
+    fontSize: 13,
+    fontWeight: "800",
+    color: ProTennisColors.midnightBlue,
+    letterSpacing: 0.8,
+  },
+  tennisSecondaryRow: {
+    flexDirection: "row",
+    gap: Spacing.md,
+  },
+  tennisSecondaryButton: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: Spacing.xs,
+    paddingVertical: Spacing.md,
+    paddingHorizontal: Spacing.sm,
+    borderRadius: BorderRadius.lg,
+    backgroundColor: `${ProTennisColors.surfaceElevated}40`,
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.08)",
+  },
+  tennisSecondaryPressed: {
+    opacity: 0.7,
+    backgroundColor: `${ProTennisColors.surfaceElevated}60`,
+  },
+  tennisSecondaryText: {
+    fontSize: 11,
+    fontWeight: "700",
+    letterSpacing: 0.5,
   },
 });
