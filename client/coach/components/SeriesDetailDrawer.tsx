@@ -2798,7 +2798,6 @@ export default function SeriesDetailDrawer({
           <Pressable style={styles.backdrop} onPress={() => setShowRestoreModal(false)} />
           <View 
             style={[styles.restoreModalContent, { paddingBottom: insets.bottom + Spacing.lg }]}
-            onStartShouldSetResponder={() => true}
           >
             <LinearGradient
               colors={[Colors.dark.accentCyan + "15", "transparent"]}
@@ -2885,7 +2884,6 @@ export default function SeriesDetailDrawer({
           <Pressable style={styles.backdrop} onPress={() => setShowRescheduleModal(false)} />
           <View 
             style={[styles.restoreModalContent, { paddingBottom: insets.bottom + Spacing.lg }]}
-            onStartShouldSetResponder={() => true}
           >
             <LinearGradient
               colors={[Colors.dark.accentCyan + "15", "transparent"]}
@@ -3046,8 +3044,6 @@ export default function SeriesDetailDrawer({
           <Pressable style={styles.backdrop} onPress={() => setShowPauseModal(false)} />
           <View 
             style={[styles.modalContent, { paddingBottom: insets.bottom + Spacing.lg, zIndex: 2 }]}
-            onStartShouldSetResponderCapture={() => true}
-            onResponderRelease={(e) => e.stopPropagation?.()}
           >
             <KeyboardAwareScrollViewCompat>
               <View style={styles.modalHeader}>
@@ -3200,8 +3196,6 @@ export default function SeriesDetailDrawer({
           <Pressable style={styles.backdrop} onPress={() => setShowRemoveModal(false)} />
           <View 
             style={[styles.modalContent, { paddingBottom: insets.bottom + Spacing.lg, zIndex: 2 }]}
-            onStartShouldSetResponderCapture={() => true}
-            onResponderRelease={(e) => e.stopPropagation?.()}
           >
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>Remove Player</Text>
@@ -3281,8 +3275,6 @@ export default function SeriesDetailDrawer({
           <Pressable style={styles.backdrop} onPress={() => setShowEditJoinDateModal(false)} />
           <View 
             style={[styles.modalContent, { paddingBottom: insets.bottom + Spacing.lg, zIndex: 2 }]}
-            onStartShouldSetResponder={() => true}
-            onResponderRelease={(e) => e.stopPropagation?.()}
           >
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>Edit Join Date</Text>
