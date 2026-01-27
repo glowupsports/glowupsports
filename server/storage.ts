@@ -1994,11 +1994,16 @@ export const storage = {
     // Return packages with calculated remaining
     return playerPackages.map(pkg => {
       const usedFromPackage = usedCreditsPerPackage[pkg.id] || 0;
-      const calculatedRemaining = Math.max(0, pkg.totalCredits - usedFromPackage);
+      // Calculate remaining: start with totalCredits, subtract used credits
+      // Ensure it never goes below 0 or above totalCredits
+      const calculatedRemaining = Math.min(
+        pkg.totalCredits, 
+        Math.max(0, pkg.totalCredits - usedFromPackage)
+      );
       return {
         ...pkg,
         calculatedRemaining,
-        // Also update remainingCredits for consistency in display
+        // Override remainingCredits with correct calculated value
         remainingCredits: calculatedRemaining,
       };
     });
