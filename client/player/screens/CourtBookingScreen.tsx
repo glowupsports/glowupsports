@@ -410,7 +410,7 @@ export default function CourtBookingScreen() {
 
         <ScrollView 
           style={styles.courtsList} 
-          contentContainerStyle={[styles.courtsListContent, { paddingBottom: insets.bottom + 100 }]}
+          contentContainerStyle={[styles.courtsListContent, { paddingBottom: 85 + 100 }]}
           showsVerticalScrollIndicator={false}
         >
           {isLoading ? (

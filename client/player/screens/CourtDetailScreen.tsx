@@ -390,7 +390,7 @@ export default function CourtDetailScreen() {
 
       <ScrollView 
         style={styles.content} 
-        contentContainerStyle={{ paddingBottom: insets.bottom + 140 }}
+        contentContainerStyle={{ paddingBottom: 85 + 140 }}
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.pricingCard}>
@@ -490,7 +490,7 @@ export default function CourtDetailScreen() {
       </ScrollView>
 
       {selectedSlot && court.canBook && (
-        <View style={[styles.bookingBar, { paddingBottom: insets.bottom + Spacing.md }]}>
+        <View style={[styles.bookingBar, { paddingBottom: Spacing.md }]}>
           <LinearGradient
             colors={["rgba(23, 27, 34, 0.98)", "rgba(17, 20, 26, 0.98)"]}
             style={styles.bookingBarGradient}
@@ -527,7 +527,7 @@ export default function CourtDetailScreen() {
       {showBookingConfirm && (
         <View style={styles.confirmOverlay}>
           <Pressable style={styles.confirmBackdrop} onPress={() => setShowBookingConfirm(false)} />
-          <View style={[styles.confirmModal, { marginBottom: insets.bottom + Spacing.xl }]}>
+          <View style={[styles.confirmModal, { marginBottom: 85 + Spacing.xl }]}>
             <LinearGradient
               colors={["#1F2430", "#171B22"]}
               style={styles.confirmGradient}
@@ -946,7 +946,7 @@ const styles = StyleSheet.create({
 
   bookingBar: {
     position: "absolute",
-    bottom: 0,
+    bottom: 85,
     left: 0,
     right: 0,
   },
