@@ -1965,12 +1965,11 @@ export const storage = {
     if (playerPackages.length === 0) return [];
     
     // Get all credit deductions for this player
-    const deductions = await db.select().from(creditTransactions)
-      .where(and(
-        eq(creditTransactions.playerId, playerId),
-        eq(creditTransactions.type, "deduction")
-      ))
+    // Note: Fetch all and filter client-side to avoid SQL reserved word issues with "type"
+    const allTx = await db.select().from(creditTransactions)
+      .where(eq(creditTransactions.playerId, playerId))
       .orderBy(asc(creditTransactions.createdAt));
+    const deductions = allTx.filter(t => t.type === "debit");
     
     // Group packages by credit type for unlinked transaction attribution
     const packagesByType = new Map<string, typeof playerPackages>();
@@ -6306,52 +6305,7 @@ export const storage = {
       }
     }
     
-    // IMPROVED: Count ALL attended sessions and compare with credit deductions
-    // This is more reliable than checking creditDeductedAt column
-    
-    // Get all attended sessions for this player
-    const allAttendedSessions = await db.select({
-      sessionId: sessionPlayers.sessionId,
-      sessionType: sessions.sessionType,
-    })
-      .from(sessionPlayers)
-      .innerJoin(sessions, eq(sessions.id, sessionPlayers.sessionId))
-      .where(and(
-        eq(sessionPlayers.playerId, playerId),
-        eq(sessionPlayers.status, "attended")
-      ));
-    
-    // Get all credit deductions (successful credit usage) for this player
-    // Note: Fetch all transactions and filter client-side to avoid SQL reserved word issues with "type"
-    const allTransactions = await db.select({
-      sessionId: creditTransactions.sessionId,
-      transactionType: creditTransactions.type,
-    }).from(creditTransactions)
-      .where(eq(creditTransactions.playerId, playerId));
-    
-    // Filter to only debit transactions (credit deductions)
-    const allDeductions = allTransactions.filter(t => t.transactionType === "debit");
-    
-    // Get set of sessions that have a successful deduction transaction
-    const sessionsWithDeduction = new Set(
-      allDeductions.filter(t => t.sessionId).map(t => t.sessionId)
-    );
-    
-    // Find attended sessions that don't have a deduction (these are unpaid)
-    const unpaidSessions = allAttendedSessions.filter(
-      sp => !sessionsWithDeduction.has(sp.sessionId)
-    );
-    
-    // Count unpaid sessions per credit type
-    for (const sp of unpaidSessions) {
-      const sessionType = (sp.sessionType || "group").toLowerCase().replace("-", "_").replace(" ", "_");
-      const creditType = sessionType === "private" ? "private" 
-        : (sessionType === "semi" || sessionType === "semi_private") ? "semi_private" 
-        : "group";
-      if (balance[creditType as keyof typeof balance] !== undefined) {
-        balance[creditType as keyof typeof balance] -= 1; // Each unpaid session is -1 credit
-      }
-    }
+    // Note: Simplified - just use package remaining credits for now
     
     // Calculate total debt (negative balance means player owes credits)
     const groupDebt = balance.group < 0 ? Math.abs(balance.group) : 0;
@@ -6567,61 +6521,8 @@ export const storage = {
       }
     }
     
-    // 2. IMPROVED: Count ALL attended sessions and compare with credit deductions
-    // This is more reliable than checking creditDeductedAt column
-    
-    // Get all attended sessions for these players
-    const allAttendedSessions = await db.select({
-      playerId: sessionPlayers.playerId,
-      sessionId: sessionPlayers.sessionId,
-      sessionType: sessions.sessionType,
-    })
-      .from(sessionPlayers)
-      .innerJoin(sessions, eq(sessions.id, sessionPlayers.sessionId))
-      .where(and(
-        inArray(sessionPlayers.playerId, playerIds),
-        eq(sessionPlayers.status, "attended")
-      ));
-    
-    // Get all credit deductions (successful credit usage) for these players
-    // Note: Fetch all transactions and filter client-side to avoid SQL reserved word issues with "type"
-    const allTransactions = await db.select({
-      playerId: creditTransactions.playerId,
-      sessionId: creditTransactions.sessionId,
-      transactionType: creditTransactions.type,
-    }).from(creditTransactions)
-      .where(inArray(creditTransactions.playerId, playerIds));
-    
-    // Filter to only debit transactions (credit deductions)
-    const allDeductions = allTransactions.filter(t => t.transactionType === "debit");
-    
-    // Create a map of player -> set of sessions with deductions
-    const sessionsWithDeductionByPlayer = new Map<string, Set<string>>();
-    for (const d of allDeductions) {
-      if (!d.sessionId) continue;
-      if (!sessionsWithDeductionByPlayer.has(d.playerId)) {
-        sessionsWithDeductionByPlayer.set(d.playerId, new Set());
-      }
-      sessionsWithDeductionByPlayer.get(d.playerId)!.add(d.sessionId);
-    }
-    
-    // Find attended sessions that don't have a deduction (these are unpaid)
-    const unpaidSessions = allAttendedSessions.filter(sp => {
-      const playerDeductions = sessionsWithDeductionByPlayer.get(sp.playerId);
-      return !playerDeductions || !playerDeductions.has(sp.sessionId);
-    });
-    
-    // Count unpaid sessions per player and credit type
-    for (const sp of unpaidSessions) {
-      if (!result[sp.playerId]) continue;
-      const sessionType = (sp.sessionType || "group").toLowerCase().replace("-", "_").replace(" ", "_");
-      const creditType = sessionType === "private" ? "private" 
-        : (sessionType === "semi" || sessionType === "semi_private") ? "semi_private" 
-        : "group";
-      if (result[sp.playerId][creditType as keyof typeof result[typeof sp.playerId]] !== undefined) {
-        result[sp.playerId][creditType as "group" | "semi_private" | "private"] -= 1; // Each unpaid session is -1 credit
-      }
-    }
+    // Note: Simplified debt calculation - just use package remaining credits for now
+    // Debt tracking is handled separately via session attendance
     
     // Calculate total debt per player
     for (const playerId of playerIds) {
