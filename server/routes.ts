@@ -7015,7 +7015,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ error: "Player not found" });
       }
       
-      const pkgs = await storage.getPlayerPackages(playerId);
+      const pkgs = await storage.getPlayerPackagesWithCalculatedRemaining(playerId);
       
       // Each package shows its OWN remaining credits (not the total balance)
       // The remaining credits are already stored correctly on each package
@@ -7717,6 +7717,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
           sessionId: sessionPlayers.sessionId,
           attendanceStatus: sessionPlayers.attendanceStatus,
           lateMinutes: sessionPlayers.lateMinutes,
+          creditDeductedAt: sessionPlayers.creditDeductedAt,
+          creditTransactionId: sessionPlayers.creditTransactionId,
         })
         .from(sessionPlayers)
         .where(eq(sessionPlayers.playerId, id));
@@ -7792,6 +7794,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             status: record.sessionStatus === "cancelled" ? "cancelled" : (record.attendanceStatus || null),
             lateMinutes: record.lateMinutes,
             seriesId: sessionInfo.seriesId,
+            paymentStatus: record.creditDeductedAt ? "paid" : "pending",
           };
         })
         .filter(Boolean)

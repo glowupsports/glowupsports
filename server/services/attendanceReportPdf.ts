@@ -7,6 +7,7 @@ export interface AttendanceRecord {
   status: string | null;
   lateMinutes: number | null;
   seriesId?: string | null;
+  paymentStatus?: "paid" | "pending";
 }
 
 export interface SeriesInfo {
@@ -196,6 +197,9 @@ export function generateAttendanceReportHtml(data: AttendanceReportData): string
           <span class="status-badge compact" style="background: ${getStatusColor(record.status)}20; color: ${getStatusColor(record.status)};">
             ${getStatusLabel(record.status)}
           </span>
+          <span class="payment-badge compact ${record.paymentStatus === 'paid' ? 'paid' : 'pending'}">
+            ${record.paymentStatus === 'paid' ? 'Paid' : 'Pending'}
+          </span>
         </div>
       `).join('');
       
@@ -248,6 +252,11 @@ export function generateAttendanceReportHtml(data: AttendanceReportData): string
             ${record.lateMinutes && record.lateMinutes > 0 ? ` (+${record.lateMinutes}m)` : ''}
           </span>
         </td>
+        <td class="payment-cell">
+          <span class="payment-badge ${record.paymentStatus === 'paid' ? 'paid' : 'pending'}">
+            ${record.paymentStatus === 'paid' ? 'Paid' : 'Pending'}
+          </span>
+        </td>
       </tr>
     `).join('');
 
@@ -260,6 +269,7 @@ export function generateAttendanceReportHtml(data: AttendanceReportData): string
               <th>Date & Time</th>
               <th>Type</th>
               <th>Status</th>
+              <th>Payment</th>
             </tr>
           </thead>
           <tbody>
@@ -553,6 +563,11 @@ export function generateAttendanceReportHtml(data: AttendanceReportData): string
       font-size: 10px;
     }
     
+    .payment-badge.compact {
+      padding: 3px 10px;
+      font-size: 10px;
+    }
+    
     .month-tabs {
       display: flex;
       gap: 8px;
@@ -661,6 +676,28 @@ export function generateAttendanceReportHtml(data: AttendanceReportData): string
       border-radius: 16px;
       font-size: 12px;
       font-weight: 600;
+    }
+    
+    .payment-cell {
+      text-align: center;
+    }
+    
+    .payment-badge {
+      display: inline-block;
+      padding: 6px 14px;
+      border-radius: 16px;
+      font-size: 12px;
+      font-weight: 600;
+    }
+    
+    .payment-badge.paid {
+      background: rgba(16, 185, 129, 0.2);
+      color: #10B981;
+    }
+    
+    .payment-badge.pending {
+      background: rgba(245, 158, 11, 0.2);
+      color: #F59E0B;
     }
     
     .footer {
