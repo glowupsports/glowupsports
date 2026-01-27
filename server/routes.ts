@@ -7613,6 +7613,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return sessionDate >= threeMonthsAgo && sessionDate <= now;
       });
       
+      const attendedSessionsAll = sessions.filter((s: any) => 
+        (s.attendanceStatus === "present" || s.status === "completed") && new Date(s.startTime) <= dubaiNow
+      );
       const attendedSessions = recentSessions.filter(ps => 
         ps.playerRecord.attendanceStatus === "present" || ps.playerRecord.attendanceStatus === "late"
       );
@@ -17555,6 +17558,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return sessionDate >= thirtyDaysAgo;
       });
 
+      const attendedSessionsAll = sessions.filter((s: any) => 
+        (s.attendanceStatus === "present" || s.status === "completed") && new Date(s.startTime) <= dubaiNow
+      );
       const attendedSessions = recentSessions.filter((s: any) => 
         s.attendanceStatus === "present" || s.status === "completed"
       );
@@ -17610,7 +17616,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         },
         attendance: {
           totalSessions: sessions.length,
-          attended: attendedSessions.length,
+          attended: attendedSessionsAll.length,
           missed: recentSessions.length - attendedSessions.length,
           rate: attendanceRate,
           streak: player.currentStreak || 0,
