@@ -28,7 +28,6 @@ interface Package {
   creditType?: CreditType;
   totalCredits: number;
   remainingCredits: number;
-  calculatedRemaining?: number;
   price?: string;
   pricePerCredit?: string;
   currency?: string;
@@ -391,9 +390,8 @@ export default function PackagesCard({ playerId, playerName }: PackagesCardProps
         <View style={styles.packagesList}>
           {packages.map((pkg) => {
             const creditType = (pkg.creditType || "group") as CreditType;
-            const remaining = pkg.calculatedRemaining ?? pkg.remainingCredits;
-            const progressPercent = pkg.totalCredits > 0 ? (remaining / pkg.totalCredits) * 100 : 0;
-            const isDepleted = remaining <= 0;
+            const progressPercent = pkg.totalCredits > 0 ? (pkg.remainingCredits / pkg.totalCredits) * 100 : 0;
+            const isDepleted = pkg.remainingCredits <= 0;
             const expired = isExpired(pkg.expiryDate);
             const typeColor = creditType === "private" ? Colors.dark.sessionPrivate 
               : creditType === "semi_private" ? Colors.dark.sessionSemiPrivate 
@@ -438,7 +436,7 @@ export default function PackagesCard({ playerId, playerName }: PackagesCardProps
                   <Text style={styles.creditsLabel}>Credits</Text>
                   <View style={styles.creditsDisplay}>
                     <Text style={[styles.creditsRemaining, isDepleted && styles.creditsDepleted]}>
-                      {remaining}
+                      {pkg.remainingCredits}
                     </Text>
                     <Text style={styles.creditsTotal}>/ {pkg.totalCredits}</Text>
                   </View>
