@@ -1846,8 +1846,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ error: "Failed to send request" });
     }
   });
-
-
   // ==================== ACADEMY TRANSFER REQUESTS ====================
 
   // Player requests to transfer to another academy
@@ -2766,8 +2764,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ error: "Failed to fetch birthdays" });
     }
   });
-
-
   // Check for conflicts before booking
   app.get("/api/coach/sessions/check-conflict", authMiddleware, requireAcademy, async (req: AuthenticatedRequest, res: Response) => {
     try {
@@ -7017,21 +7013,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       const pkgs = await storage.getPlayerPackagesWithCalculatedRemaining(playerId);
       
-      // Lazy settle: auto-settle unpaid sessions for each active package
-      for (const pkg of pkgs) {
-        if (pkg.status === 'active' && pkg.remainingCredits > 0) {
-          const creditType = pkg.creditType || 'group';
-          const settlement = await storage.settleUnpaidSessions(playerId, creditType, pkg.id, pkg.academyId);
-          if (settlement.settledCount > 0) {
-            console.log(`[LazySettle] Package ${pkg.id}: Settled ${settlement.settledCount} unpaid sessions for player ${playerId}`);
-            // Update the package in our response with new remaining credits
-            pkg.remainingCredits = pkg.remainingCredits - settlement.totalDeducted;
-          }
-        }
-      }
-      
-      // Each package shows its OWN remaining credits (not the total balance)
-      // The remaining credits are already stored correctly on each package
+      // PATCH B: Removed lazy settle completely
+      // Settlement now only happens at package creation time via POST /api/packages
+      // This prevents response-only updates that don't persist to DB
+      // Each package shows its OWN stored remainingCredits from the database
       res.json(pkgs);
     } catch (error) {
       console.error("Error fetching packages:", error);
@@ -7877,8 +7862,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ error: "Failed to generate attendance report" });
     }
   });
-
-
   // Add progress entry for a player
   app.post("/api/players/:id/progress", authMiddleware, requireAcademy, async (req: AuthenticatedRequest, res: Response) => {
     try {
@@ -15596,8 +15579,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ error: "Failed to fetch platform financials" });
     }
   });
-
-
   // Admin Player Search & Onboarding Reset
   app.get("/api/admin/players/search", authMiddleware, requireRole("admin", "academy_owner", "platform_owner"), async (req: AuthenticatedRequest, res: Response) => {
     try {
@@ -17741,8 +17722,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ error: "Failed to fetch player stats" });
     }
   });
-
-
   // Platform Owner - Get single academy details
   app.get("/api/platform/academies/:id", authMiddleware, requireRole("platform_owner"), async (req: AuthenticatedRequest, res: Response) => {
     try {
@@ -22050,8 +22029,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!academyId) {
         return res.status(400).json({ error: "Academy ID required" });
       }
-
-
       // Get extended academy settings for welcomeVideoUrl
       const extendedSettings = await storage.getAcademySettings(academyId);
       const academy = await storage.getAcademy(academyId);
@@ -24777,8 +24754,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ error: "Failed to delete availability" });
     }
   });
-
-
   // ==================== COACH AVAILABILITY BY ID (Frontend expects these routes) ====================
 
   // Get coach availability by coach ID
@@ -27391,8 +27366,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ error: "Failed to leave match" });
     }
   });
-
-
   // Invite friend to open match
   app.post("/api/open-matches/:matchId/invite", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
     try {
@@ -30750,8 +30723,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ error: "Reset failed" });
     }
   });
-
-
   // DEV ONLY: Reset onboarding for testing (no auth required)
   if (process.env.NODE_ENV === 'development') {
     app.get("/api/dev/players/search", async (req: Request, res: Response) => {
