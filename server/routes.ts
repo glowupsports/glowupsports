@@ -15615,6 +15615,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.error("Admin player search error:", error);
       res.status(500).json({ error: "Failed to search players" });
     }
+  });
 
   // REPAIR JOB: Fix player credit data
   app.post("/api/admin/players/:id/repair-credits", authMiddleware, requireRole("admin", "academy_owner", "platform_owner"), async (req: AuthenticatedRequest, res: Response) => {
@@ -15645,6 +15646,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ error: "Failed to repair credits" });
     }
   });
+
+  // BULK REPAIR: Fix ALL players' credit data using ensureCreditProcessed
+  app.post("/api/admin/repair-all-credits", authMiddleware, requireRole("admin", "platform_owner"), async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      console.log("[BulkRepair] Starting bulk repair of all player credits...");
+      const { repairAllPlayerCredits } = await import("./storage");
+      const result = await repairAllPlayerCredits();
+      
+      console.log(`[BulkRepair] Complete: ${result.processed} processed, ${result.consumed} consumed, ${result.debts} debts, ${result.alreadyProcessed} already processed`);
+      
+      res.json({
+        message: "Bulk credit repair complete",
+        ...result,
+      });
+    } catch (error) {
+      console.error("Bulk credit repair error:", error);
+      res.status(500).json({ error: "Failed to repair credits" });
+    }
   });
 
   app.post("/api/admin/players/:id/reset-onboarding", authMiddleware, requireRole("admin", "academy_owner", "platform_owner"), async (req: AuthenticatedRequest, res: Response) => {
