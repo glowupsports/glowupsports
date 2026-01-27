@@ -15615,6 +15615,36 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.error("Admin player search error:", error);
       res.status(500).json({ error: "Failed to search players" });
     }
+
+  // REPAIR JOB: Fix player credit data
+  app.post("/api/admin/players/:id/repair-credits", authMiddleware, requireRole("admin", "academy_owner", "platform_owner"), async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const playerId = req.params.id;
+      
+      // Verify player exists
+      const player = await storage.getPlayer(playerId);
+      if (!player) {
+        return res.status(404).json({ error: "Player not found" });
+      }
+      
+      const result = await storage.repairPlayerCredits(playerId);
+      
+      if (result.success) {
+        res.json({
+          message: `Repaired credits for ${player.name || playerId}`,
+          ...result,
+        });
+      } else {
+        res.status(500).json({
+          error: "Repair failed",
+          ...result,
+        });
+      }
+    } catch (error) {
+      console.error("Credit repair error:", error);
+      res.status(500).json({ error: "Failed to repair credits" });
+    }
+  });
   });
 
   app.post("/api/admin/players/:id/reset-onboarding", authMiddleware, requireRole("admin", "academy_owner", "platform_owner"), async (req: AuthenticatedRequest, res: Response) => {

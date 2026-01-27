@@ -10334,6 +10334,133 @@ export const storage = {
       return { assigned: false };
     }
   },
+
+  // REPAIR JOB: Fix credit data for a player
+  // This repairs:
+  // 1. packages.remainingCredits based on actual debit transactions
+  // 2. Marks debts with packageId as settled via metadata (but keeps packageId for legacy)
+  // 3. Fixes session_players.creditDeductedAt where transactions exist
+  async repairPlayerCredits(playerId: string): Promise<{
+    success: boolean;
+    packagesRepaired: number;
+    debtsMarkedSettled: number;
+    sessionPlayersFixed: number;
+    details: string[];
+  }> {
+    const details: string[] = [];
+    let packagesRepaired = 0;
+    let debtsMarkedSettled = 0;
+    let sessionPlayersFixed = 0;
+    
+    try {
+      // Step 1: Get all packages for this player
+      const playerPackages = await db.select().from(packages).where(eq(packages.playerId, playerId));
+      
+      for (const pkg of playerPackages) {
+        // Count real debits (not debts!) for this package
+        // Only count: session_join, retrospective_settlement, debt_settlement
+        // Do NOT count session_join_debt (those are debts, not consumption)
+        const debits = await db.select({
+          amount: creditTransactions.amount,
+          reason: creditTransactions.reason,
+        }).from(creditTransactions)
+          .where(and(
+            eq(creditTransactions.packageId, pkg.id),
+            eq(creditTransactions.type, "debit"),
+            inArray(creditTransactions.reason, ["session_join", "retrospective_settlement", "debt_settlement"])
+          ));
+        
+        const totalDebited = debits.reduce((sum, d) => sum + Math.abs(d.amount), 0);
+        const correctRemaining = Math.max(0, pkg.totalCredits - totalDebited);
+        
+        if (correctRemaining !== pkg.remainingCredits) {
+          details.push(`Package ${pkg.id}: ${pkg.remainingCredits} -> ${correctRemaining} (debited ${totalDebited} of ${pkg.totalCredits})`);
+          await db.update(packages).set({
+            remainingCredits: correctRemaining,
+            status: correctRemaining <= 0 ? "depleted" : "active",
+          }).where(eq(packages.id, pkg.id));
+          packagesRepaired++;
+        }
+      }
+      
+      // Step 2: Mark debts that have packageId as settled (legacy fix)
+      const debtsWithPackageId = await db.select().from(creditTransactions)
+        .where(and(
+          eq(creditTransactions.playerId, playerId),
+          eq(creditTransactions.reason, "session_join_debt"),
+          isNotNull(creditTransactions.packageId)
+        ));
+      
+      for (const debt of debtsWithPackageId) {
+        const meta = (debt.metadata as Record<string, unknown>) || {};
+        if (!meta.settled) {
+          await db.update(creditTransactions).set({
+            packageId: null, // Clear packageId - debts should never have it
+            metadata: {
+              ...meta,
+              settled: true,
+              settledAt: new Date().toISOString(),
+              legacyRepair: true,
+              originalPackageId: debt.packageId,
+            },
+          }).where(eq(creditTransactions.id, debt.id));
+          debtsMarkedSettled++;
+          details.push(`Debt ${debt.id}: marked as settled, cleared packageId`);
+        }
+      }
+      
+      // Step 3: Fix session_players.creditDeductedAt where debit transactions exist but creditDeductedAt is null
+      const sessionsWithDebits = await db.select({
+        sessionId: creditTransactions.sessionId,
+        transactionId: creditTransactions.id,
+      }).from(creditTransactions)
+        .where(and(
+          eq(creditTransactions.playerId, playerId),
+          eq(creditTransactions.type, "debit"),
+          isNotNull(creditTransactions.sessionId),
+          inArray(creditTransactions.reason, ["session_join", "retrospective_settlement"])
+        ));
+      
+      for (const item of sessionsWithDebits) {
+        if (!item.sessionId) continue;
+        
+        const sp = await db.select().from(sessionPlayers)
+          .where(and(
+            eq(sessionPlayers.sessionId, item.sessionId),
+            eq(sessionPlayers.playerId, playerId),
+            isNull(sessionPlayers.creditDeductedAt)
+          ));
+        
+        if (sp.length > 0) {
+          await db.update(sessionPlayers).set({
+            creditDeductedAt: new Date(),
+            creditTransactionId: item.transactionId,
+          }).where(eq(sessionPlayers.id, sp[0].id));
+          sessionPlayersFixed++;
+          details.push(`SessionPlayer ${sp[0].id}: set creditDeductedAt`);
+        }
+      }
+      
+      console.log(`[RepairCredits] Player ${playerId}: ${packagesRepaired} packages, ${debtsMarkedSettled} debts, ${sessionPlayersFixed} session_players`);
+      
+      return {
+        success: true,
+        packagesRepaired,
+        debtsMarkedSettled,
+        sessionPlayersFixed,
+        details,
+      };
+    } catch (error) {
+      console.error(`[RepairCredits] Error repairing player ${playerId}:`, error);
+      return {
+        success: false,
+        packagesRepaired,
+        debtsMarkedSettled,
+        sessionPlayersFixed,
+        details: [...details, `Error: ${error}`],
+      };
+    }
+  },
 };
 
 // Dynamic session type conversion based on player count
