@@ -7017,6 +7017,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       const pkgs = await storage.getPlayerPackagesWithCalculatedRemaining(playerId);
       
+      // Lazy settle: auto-settle unpaid sessions for each active package
+      for (const pkg of pkgs) {
+        if (pkg.status === 'active' && pkg.remainingCredits > 0) {
+          const creditType = pkg.creditType || 'group';
+          const settlement = await storage.settleUnpaidSessions(playerId, creditType, pkg.id, pkg.academyId);
+          if (settlement.settledCount > 0) {
+            console.log(`[LazySettle] Package ${pkg.id}: Settled ${settlement.settledCount} unpaid sessions for player ${playerId}`);
+            // Update the package in our response with new remaining credits
+            pkg.remainingCredits = pkg.remainingCredits - settlement.totalDeducted;
+          }
+        }
+      }
+      
       // Each package shows its OWN remaining credits (not the total balance)
       // The remaining credits are already stored correctly on each package
       res.json(pkgs);
