@@ -808,8 +808,9 @@ export default function PlayerPublicProfileScreen() {
         animationType="fade"
         onRequestClose={() => setSelectedPillar(null)}
       >
-        <Pressable style={styles.modalOverlay} onPress={() => setSelectedPillar(null)}>
-          <Pressable style={styles.modalContent} onPress={(e) => e.stopPropagation()}>
+        <View style={styles.modalOverlay}>
+          <Pressable style={StyleSheet.absoluteFill} onPress={() => setSelectedPillar(null)} />
+          <View style={styles.modalContent}>
             {selectedPillar && (
               <>
                 <View style={styles.modalHeader}>
@@ -867,8 +868,8 @@ export default function PlayerPublicProfileScreen() {
                 </View>
               </>
             )}
-          </Pressable>
-        </Pressable>
+          </View>
+        </View>
       </Modal>
     </View>
   );

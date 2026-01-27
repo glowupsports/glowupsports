@@ -1062,8 +1062,9 @@ export default function PlayerBookingWizard({
 
         {/* Calendar Modal */}
         <Modal visible={showCalendarModal} transparent animationType="fade">
-          <Pressable style={styles.calendarOverlay} onPress={() => setShowCalendarModal(false)}>
-            <Pressable style={styles.calendarModal} onPress={(e) => e.stopPropagation()}>
+          <View style={styles.calendarOverlay}>
+            <Pressable style={StyleSheet.absoluteFill} onPress={() => setShowCalendarModal(false)} />
+            <View style={styles.calendarModal}>
               <View style={styles.calendarHeader}>
                 <Pressable
                   onPress={() => {
@@ -1151,8 +1152,8 @@ export default function PlayerBookingWizard({
               <Pressable style={styles.calendarCloseButton} onPress={() => setShowCalendarModal(false)}>
                 <Text style={styles.calendarCloseButtonText}>Close</Text>
               </Pressable>
-            </Pressable>
-          </Pressable>
+            </View>
+          </View>
         </Modal>
       </View>
     </Modal>

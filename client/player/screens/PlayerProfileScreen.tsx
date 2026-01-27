@@ -990,11 +990,9 @@ export default function PlayerProfileScreen() {
         animationType="slide"
         onRequestClose={() => setShowTitlesModal(false)}
       >
-        <Pressable 
-          style={styles.modalOverlay} 
-          onPress={() => setShowTitlesModal(false)}
-        >
-          <Pressable style={styles.titlesModalContent} onPress={(e) => e.stopPropagation()}>
+        <View style={styles.modalOverlay}>
+          <Pressable style={StyleSheet.absoluteFill} onPress={() => setShowTitlesModal(false)} />
+          <View style={styles.titlesModalContent}>
             <View style={styles.titlesModalHeader}>
               <Text style={styles.titlesModalTitle}>Your Titles</Text>
               <Pressable onPress={() => setShowTitlesModal(false)}>
@@ -1063,8 +1061,8 @@ export default function PlayerProfileScreen() {
                 )}
               />
             )}
-          </Pressable>
-        </Pressable>
+          </View>
+        </View>
       </Modal>
 
       <PinEntryModal

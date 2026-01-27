@@ -823,8 +823,9 @@ export function SessionHeroCard({
             animationType="fade"
             onRequestClose={() => setShowReportModal(false)}
           >
-            <Pressable style={styles.modalOverlay} onPress={() => setShowReportModal(false)}>
-              <Pressable style={styles.modalContent} onPress={(e) => e.stopPropagation()}>
+            <View style={styles.modalOverlay}>
+              <Pressable style={StyleSheet.absoluteFill} onPress={() => setShowReportModal(false)} />
+              <View style={styles.modalContent}>
                 <KeyboardAwareScrollViewCompat 
                   showsVerticalScrollIndicator={false}
                   keyboardShouldPersistTaps="handled"
@@ -896,8 +897,8 @@ export function SessionHeroCard({
                     </Pressable>
                   </View>
                 </KeyboardAwareScrollViewCompat>
-              </Pressable>
-            </Pressable>
+              </View>
+            </View>
           </Modal>
 
           {/* Cancel Session Modal */}
