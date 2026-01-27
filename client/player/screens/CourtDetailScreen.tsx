@@ -229,11 +229,13 @@ export default function CourtDetailScreen() {
 
   const getSlotStatus = (time: string): "available" | "booked" | "blocked" | "past" => {
     const now = new Date();
-    const slotDate = new Date(date);
-    const [hours, minutes] = time.split(":").map(Number);
-    slotDate.setHours(hours, minutes, 0, 0);
+    const DUBAI_OFFSET = 4;
+    const dubaiNow = new Date(now.getTime() + DUBAI_OFFSET * 60 * 60 * 1000);
+    const dubaiDateStr = dubaiNow.toISOString().split("T")[0];
+    const dubaiTimeStr = dubaiNow.toISOString().slice(11, 16);
     
-    if (slotDate < now) return "past";
+    const isToday = date === dubaiDateStr;
+    if (isToday && time <= dubaiTimeStr) return "past";
     
     if (court?.availability) {
       const blocked = court.availability.find(a => 
