@@ -6235,7 +6235,8 @@ export const storage = {
   }> {
     // Calculate credit balance from:
     // 1. ACTIVE packages remaining_credits
-    // 2. PLUS unpaid debt transactions (no package_id or specific debt reasons)
+    // 2. MINUS unpaid attended sessions (attended but no credit transaction)
+    // 3. MINUS debt transactions (session_unpaid, session_join_debt, etc.)
     
     const activePackages = await db.select().from(packages)
       .where(and(
@@ -6253,7 +6254,32 @@ export const storage = {
       }
     }
     
-    // Add debt from all unpaid session transactions:
+    // IMPROVED: Count attended sessions WITHOUT credit transaction as unpaid debt
+    // This catches sessions where no transaction was created at all
+    const unpaidAttendedSessions = await db.select({
+      sessionId: sessionPlayers.sessionId,
+      sessionType: sessions.type,
+    })
+      .from(sessionPlayers)
+      .innerJoin(sessions, eq(sessions.id, sessionPlayers.sessionId))
+      .where(and(
+        eq(sessionPlayers.playerId, playerId),
+        eq(sessionPlayers.status, "attended"),
+        isNull(sessionPlayers.creditDeductedAt) // No credit was deducted for this session
+      ));
+    
+    // Count unpaid sessions per credit type
+    for (const sp of unpaidAttendedSessions) {
+      const sessionType = (sp.sessionType || "group").toLowerCase().replace("-", "_").replace(" ", "_");
+      const creditType = sessionType === "private" ? "private" 
+        : (sessionType === "semi" || sessionType === "semi_private") ? "semi_private" 
+        : "group";
+      if (balance[creditType as keyof typeof balance] !== undefined) {
+        balance[creditType as keyof typeof balance] -= 1; // Each unpaid session is -1 credit
+      }
+    }
+    
+    // Also add debt from explicit debt transactions (for sessions that DO have transaction records):
     // - session_unpaid: Explicit unpaid marker
     // - session_join_debt: Player joined without credits
     // - session_booking with isDebt=true or without packageId: Booked without available package
@@ -6263,6 +6289,7 @@ export const storage = {
       reason: creditTransactions.reason,
       packageId: creditTransactions.packageId,
       metadata: creditTransactions.metadata,
+      sessionId: creditTransactions.sessionId,
     }).from(creditTransactions)
       .where(and(
         eq(creditTransactions.playerId, playerId),
@@ -6273,8 +6300,18 @@ export const storage = {
         )
       ));
     
+    // Get set of session IDs that have debt transactions to avoid double-counting
+    const sessionsWithDebtTransactions = new Set(
+      debtTransactions.filter(t => t.sessionId).map(t => t.sessionId)
+    );
+    
     // Filter to only actual debts (same logic as getPlayersCreditBalances)
+    // But exclude sessions we already counted from session_players
     const unpaidDebts = debtTransactions.filter(t => {
+      // Skip if we already counted this session from session_players unpaid check
+      if (t.sessionId && unpaidAttendedSessions.some(sp => sp.sessionId === t.sessionId)) {
+        return false;
+      }
       if (t.reason === "session_unpaid" || t.reason === "session_join_debt") return true;
       const meta = t.metadata as { isDebt?: boolean } | null;
       if (meta?.isDebt === true) return true;
@@ -6503,7 +6540,43 @@ export const storage = {
       }
     }
     
-    // 2. Add debt from session bookings where player has no package (isDebt: true in metadata)
+    // 2. IMPROVED: Count attended sessions WITHOUT credit transaction as unpaid debt
+    // This catches sessions where no transaction was created at all
+    const unpaidAttendedSessions = await db.select({
+      playerId: sessionPlayers.playerId,
+      sessionId: sessionPlayers.sessionId,
+      sessionType: sessions.type,
+    })
+      .from(sessionPlayers)
+      .innerJoin(sessions, eq(sessions.id, sessionPlayers.sessionId))
+      .where(and(
+        inArray(sessionPlayers.playerId, playerIds),
+        eq(sessionPlayers.status, "attended"),
+        isNull(sessionPlayers.creditDeductedAt) // No credit was deducted for this session
+      ));
+    
+    // Count unpaid sessions per player and credit type
+    for (const sp of unpaidAttendedSessions) {
+      if (!result[sp.playerId]) continue;
+      const sessionType = (sp.sessionType || "group").toLowerCase().replace("-", "_").replace(" ", "_");
+      const creditType = sessionType === "private" ? "private" 
+        : (sessionType === "semi" || sessionType === "semi_private") ? "semi_private" 
+        : "group";
+      if (result[sp.playerId][creditType as keyof typeof result[typeof sp.playerId]] !== undefined) {
+        result[sp.playerId][creditType as "group" | "semi_private" | "private"] -= 1; // Each unpaid session is -1 credit
+      }
+    }
+    
+    // Create set of session IDs already counted per player
+    const sessionsByPlayer = new Map<string, Set<string>>();
+    for (const sp of unpaidAttendedSessions) {
+      if (!sessionsByPlayer.has(sp.playerId)) {
+        sessionsByPlayer.set(sp.playerId, new Set());
+      }
+      sessionsByPlayer.get(sp.playerId)!.add(sp.sessionId);
+    }
+    
+    // 3. Add debt from session bookings where player has no package (isDebt: true in metadata)
     // Include session_booking debts, session_unpaid, and session_join_debt
     const debtTransactions = await db.select({
       playerId: creditTransactions.playerId,
@@ -6512,6 +6585,7 @@ export const storage = {
       metadata: creditTransactions.metadata,
       reason: creditTransactions.reason,
       packageId: creditTransactions.packageId,
+      sessionId: creditTransactions.sessionId,
     }).from(creditTransactions)
       .where(and(
         inArray(creditTransactions.playerId, playerIds),
@@ -6523,7 +6597,13 @@ export const storage = {
       ));
     
     // Filter to only include actual debts (no package associated or metadata.isDebt = true)
+    // But exclude sessions we already counted from session_players
     const unpaidDebts = debtTransactions.filter(t => {
+      // Skip if we already counted this session from session_players unpaid check
+      const playerSessions = sessionsByPlayer.get(t.playerId);
+      if (t.sessionId && playerSessions?.has(t.sessionId)) {
+        return false;
+      }
       // session_unpaid and session_join_debt are always debt
       if (t.reason === "session_unpaid" || t.reason === "session_join_debt") return true;
       // session_booking with metadata.isDebt = true is debt
