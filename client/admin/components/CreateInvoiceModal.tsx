@@ -16,7 +16,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import DateTimePicker from "@react-native-community/datetimepicker";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQueryClient, useQuery } from "@tanstack/react-query";
 import * as Haptics from "expo-haptics";
 import * as Print from "expo-print";
 import * as Sharing from "expo-sharing";
@@ -64,6 +64,11 @@ interface AcademyInfo {
   email?: string;
   phone?: string;
   logo?: string;
+  bankName?: string;
+  bankAccountNumber?: string;
+  bankIban?: string;
+  bankAccountHolder?: string;
+  bankSwiftCode?: string;
 }
 
 interface CreateInvoiceModalProps {
@@ -115,6 +120,11 @@ const generateInvoicePDF = (invoice: {
   academyAddress?: string;
   academyEmail?: string;
   academyPhone?: string;
+  bankName?: string;
+  bankAccountNumber?: string;
+  bankIban?: string;
+  bankAccountHolder?: string;
+  bankSwiftCode?: string;
   issueDate: string;
   dueDate: string;
   lineItems: LineItem[];
@@ -435,6 +445,19 @@ const generateInvoicePDF = (invoice: {
         </div>
         ` : ""}
 
+        ${(invoice.bankName || invoice.bankIban || invoice.bankAccountNumber) ? `
+        <div class="notes-section" style="margin-top: 24px;">
+          <h4>Payment Details - Bank Transfer</h4>
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 12px;">
+            ${invoice.bankName ? `<p><strong style="color: #6b7280;">Bank Name:</strong><br/><span style="color: #ffffff; font-weight: 500;">${invoice.bankName}</span></p>` : ""}
+            ${invoice.bankAccountHolder ? `<p><strong style="color: #6b7280;">Account Holder:</strong><br/><span style="color: #ffffff; font-weight: 500;">${invoice.bankAccountHolder}</span></p>` : ""}
+            ${invoice.bankAccountNumber ? `<p><strong style="color: #6b7280;">Account Number:</strong><br/><span style="color: #C8FF3D; font-weight: 600; font-family: monospace;">${invoice.bankAccountNumber}</span></p>` : ""}
+            ${invoice.bankIban ? `<p><strong style="color: #6b7280;">IBAN:</strong><br/><span style="color: #C8FF3D; font-weight: 600; font-family: monospace;">${invoice.bankIban}</span></p>` : ""}
+            ${invoice.bankSwiftCode ? `<p><strong style="color: #6b7280;">SWIFT/BIC:</strong><br/><span style="color: #ffffff; font-weight: 500; font-family: monospace;">${invoice.bankSwiftCode}</span></p>` : ""}
+          </div>
+        </div>
+        ` : ""}
+
         <div class="footer">
           <p>Thank you for choosing ${invoice.academyName}</p>
           <p class="brand">Powered by Glow Up Sports</p>
@@ -705,11 +728,19 @@ export default function CreateInvoiceModal({
   visible,
   onClose,
   player,
-  academy,
+  academy: academyProp,
   onSuccess,
 }: CreateInvoiceModalProps) {
   const insets = useSafeAreaInsets();
   const queryClient = useQueryClient();
+  
+  // Fetch academy data with bank details if not provided
+  const { data: fetchedAcademy } = useQuery<AcademyInfo>({
+    queryKey: ["/api/admin/academy"],
+    enabled: visible && !academyProp,
+  });
+  
+  const academy = academyProp || fetchedAcademy;
   
   const [invoiceNumber, setInvoiceNumber] = useState("#0001");
   const [issueDate, setIssueDate] = useState(new Date());
@@ -834,6 +865,11 @@ export default function CreateInvoiceModal({
         academyAddress: academy?.address,
         academyEmail: academy?.email,
         academyPhone: academy?.phone,
+        bankName: academy?.bankName,
+        bankAccountNumber: academy?.bankAccountNumber,
+        bankIban: academy?.bankIban,
+        bankAccountHolder: academy?.bankAccountHolder,
+        bankSwiftCode: academy?.bankSwiftCode,
         issueDate: formatDate(issueDate),
         dueDate: formatDate(dueDate),
         lineItems: lineItems.filter(item => item.description && item.total > 0),

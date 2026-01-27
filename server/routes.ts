@@ -17494,6 +17494,33 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Get academy details with bank information for invoices
+  app.get("/api/admin/academy", authMiddleware, requireAcademy, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const academyId = req.user!.academyId!;
+      const academy = await storage.getAcademy(academyId);
+      if (!academy) {
+        return res.status(404).json({ error: "Academy not found" });
+      }
+      res.json({
+        id: academy.id,
+        name: academy.name,
+        address: academy.address,
+        email: academy.email,
+        phone: academy.phone,
+        logo: academy.logo,
+        bankName: academy.bankName,
+        bankAccountNumber: academy.bankAccountNumber,
+        bankIban: academy.bankIban,
+        bankAccountHolder: academy.bankAccountHolder,
+        bankSwiftCode: academy.bankSwiftCode,
+      });
+    } catch (error) {
+      console.error("Error fetching academy:", error);
+      res.status(500).json({ error: "Failed to fetch academy" });
+    }
+  });
+
   // Admin - Get detailed player stats with payments (also accessible by coaches for their assigned players)
   app.get("/api/admin/players/:playerId/stats", authMiddleware, requireRole("admin", "academy_owner", "platform_owner", "coach"), async (req: AuthenticatedRequest, res: Response) => {
     try {
