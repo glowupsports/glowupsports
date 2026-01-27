@@ -6430,9 +6430,11 @@ export const storage = {
     totalDeducted: number;
     sessionIds: string[];
   }> {
-    // Map credit type to session types (include all variations like private_adjusted)
+    // Map credit type to session types (include all variations)
+    // Both 'semi' and 'semi_private' keys point to the same session types
     const creditToSessionTypes: Record<string, string[]> = {
       private: ["private", "private_adjusted"],
+      semi: ["semi", "semi_private", "semi_private_adjusted"],
       semi_private: ["semi", "semi_private", "semi_private_adjusted"],
       group: ["group", "group_adjusted"],
     };
