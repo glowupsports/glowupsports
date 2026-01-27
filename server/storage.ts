@@ -6256,17 +6256,23 @@ export const storage = {
     
     // IMPROVED: Count attended sessions WITHOUT credit transaction as unpaid debt
     // This catches sessions where no transaction was created at all
-    const unpaidAttendedSessions = await db.select({
-      sessionId: sessionPlayers.sessionId,
-      sessionType: sessions.sessionType,
-    })
-      .from(sessionPlayers)
-      .innerJoin(sessions, eq(sessions.id, sessionPlayers.sessionId))
-      .where(and(
-        eq(sessionPlayers.playerId, playerId),
-        eq(sessionPlayers.status, "attended"),
-        isNull(sessionPlayers.creditDeductedAt) // No credit was deducted for this session
-      ));
+    // Note: Wrapped in try-catch in case credit_deducted_at column doesn't exist yet
+    let unpaidAttendedSessions: { sessionId: string; sessionType: string | null }[] = [];
+    try {
+      unpaidAttendedSessions = await db.select({
+        sessionId: sessionPlayers.sessionId,
+        sessionType: sessions.sessionType,
+      })
+        .from(sessionPlayers)
+        .innerJoin(sessions, eq(sessions.id, sessionPlayers.sessionId))
+        .where(and(
+          eq(sessionPlayers.playerId, playerId),
+          eq(sessionPlayers.status, "attended"),
+          isNull(sessionPlayers.creditDeductedAt) // No credit was deducted for this session
+        ));
+    } catch (err) {
+      console.log("[getPlayerCreditBalanceByType] Skipping unpaid sessions check - column may not exist:", (err as Error).message);
+    }
     
     // Count unpaid sessions per credit type
     for (const sp of unpaidAttendedSessions) {
@@ -6542,18 +6548,24 @@ export const storage = {
     
     // 2. IMPROVED: Count attended sessions WITHOUT credit transaction as unpaid debt
     // This catches sessions where no transaction was created at all
-    const unpaidAttendedSessions = await db.select({
-      playerId: sessionPlayers.playerId,
-      sessionId: sessionPlayers.sessionId,
-      sessionType: sessions.sessionType,
-    })
-      .from(sessionPlayers)
-      .innerJoin(sessions, eq(sessions.id, sessionPlayers.sessionId))
-      .where(and(
-        inArray(sessionPlayers.playerId, playerIds),
-        eq(sessionPlayers.status, "attended"),
-        isNull(sessionPlayers.creditDeductedAt) // No credit was deducted for this session
-      ));
+    // Note: Wrapped in try-catch in case credit_deducted_at column doesn't exist yet
+    let unpaidAttendedSessions: { playerId: string; sessionId: string; sessionType: string | null }[] = [];
+    try {
+      unpaidAttendedSessions = await db.select({
+        playerId: sessionPlayers.playerId,
+        sessionId: sessionPlayers.sessionId,
+        sessionType: sessions.sessionType,
+      })
+        .from(sessionPlayers)
+        .innerJoin(sessions, eq(sessions.id, sessionPlayers.sessionId))
+        .where(and(
+          inArray(sessionPlayers.playerId, playerIds),
+          eq(sessionPlayers.status, "attended"),
+          isNull(sessionPlayers.creditDeductedAt) // No credit was deducted for this session
+        ));
+    } catch (err) {
+      console.log("[getPlayersCreditBalances] Skipping unpaid sessions check - column may not exist:", (err as Error).message);
+    }
     
     // Count unpaid sessions per player and credit type
     for (const sp of unpaidAttendedSessions) {
