@@ -2714,8 +2714,9 @@ export default function CalendarScreen() {
         animationType="fade"
         onRequestClose={cancelPendingDrag}
       >
-        <Pressable style={dragModalStyles.backdrop} onPress={cancelPendingDrag}>
-          <Pressable style={dragModalStyles.container} onPress={(e) => e.stopPropagation()}>
+        <View style={dragModalStyles.backdrop}>
+          <Pressable style={StyleSheet.absoluteFill} onPress={cancelPendingDrag} />
+          <View style={dragModalStyles.container}>
             <Animated.View entering={FadeIn.duration(200)} style={dragModalStyles.card}>
               {/* Header */}
               <View style={dragModalStyles.header}>
@@ -2823,8 +2824,8 @@ export default function CalendarScreen() {
                 </Pressable>
               </View>
             </Animated.View>
-          </Pressable>
-        </Pressable>
+          </View>
+        </View>
       </Modal>
     </View>
   );
