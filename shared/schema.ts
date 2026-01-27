@@ -2726,11 +2726,15 @@ export const creditTransactions = pgTable("credit_transactions", {
   academyId: varchar("academy_id").references(() => academies.id),
   sessionId: varchar("session_id").references(() => sessions.id),
   packageId: varchar("package_id").references(() => packages.id), // Which package the credits came from/went to
+  sessionPlayerId: varchar("session_player_id").references(() => sessionPlayers.id), // Links to specific session_player record for uniqueness
   
   type: text("type").notNull(), // credit | debit | refund | make_up_grant | make_up_used
   creditType: text("credit_type"), // group | private | semi_private | court - type of credits being transacted
   amount: integer("amount").notNull(), // positive for credit, negative for debit
-  reason: text("reason").notNull(), // session_join | session_cancel | make_up_granted | make_up_lesson_used | package_purchased | admin_adjustment
+  reason: text("reason").notNull(), // session_consumed | session_debt | session_settlement | session_cancel | make_up_granted | make_up_lesson_used | package_purchased | admin_adjustment
+  
+  // Unique event key for idempotency: "consume:<sessionPlayerId>" prevents duplicate consumptions
+  eventKey: varchar("event_key"),
   
   balanceBefore: integer("balance_before"),
   balanceAfter: integer("balance_after"),
@@ -2744,6 +2748,8 @@ export const creditTransactions = pgTable("credit_transactions", {
   index("credit_transactions_player_session_idx").on(table.playerId, table.sessionId),
   index("credit_transactions_package_idx").on(table.packageId),
   index("credit_transactions_credit_type_idx").on(table.creditType),
+  // BULLETPROOF: eventKey unique constraint prevents duplicate consumptions at DB level
+  unique("credit_transactions_event_key_unique").on(table.eventKey),
 ]);
 
 export const insertCreditTransactionSchema = createInsertSchema(creditTransactions).omit({ id: true, createdAt: true });

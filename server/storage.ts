@@ -10582,5 +10582,293 @@ async function recalculateSeriesCredits(
   };
 }
 
+/**
+ * BULLETPROOF CREDIT PROCESSING - Single Entrypoint
+ * 
+ * All attendance flows MUST call this function to process credits.
+ * This ensures:
+ * 1. FOR UPDATE lock prevents race conditions
+ * 2. Double idempotency check (creditDeductedAt + creditTransactionId)
+ * 3. Unique constraint on session_player_id in credit_transactions
+ * 4. Either consumes credit OR creates debt - never both
+ * 
+ * @param sessionPlayerId - The specific session_player record to process
+ * @returns Result with success status and details
+ */
+async function ensureCreditProcessed(sessionPlayerId: string): Promise<{
+  success: boolean;
+  action: "consumed" | "debt_created" | "already_processed" | "not_attended" | "error";
+  transactionId?: string;
+  packageId?: string;
+  creditType?: string;
+  error?: string;
+}> {
+  try {
+    return await db.transaction(async (tx) => {
+      // STEP 1: Lock the session_player row with FOR UPDATE
+      const spResult = await tx.execute(sql`
+        SELECT 
+          sp.id, sp.session_id, sp.player_id, sp.attendance_status, 
+          sp.credit_deducted_at, sp.credit_transaction_id,
+          s.session_type, s.series_id, s.academy_id
+        FROM session_players sp
+        JOIN sessions s ON s.id = sp.session_id
+        WHERE sp.id = ${sessionPlayerId}
+        FOR UPDATE OF sp
+      `);
+      
+      if (spResult.rows.length === 0) {
+        return { success: false, action: "error" as const, error: "Session player not found" };
+      }
+      
+      const sp = spResult.rows[0] as any;
+      
+      // STEP 2: Check attendance status - only process present/late
+      const attendanceStatus = sp.attendance_status?.toLowerCase();
+      if (attendanceStatus !== "present" && attendanceStatus !== "late") {
+        return { success: true, action: "not_attended" as const };
+      }
+      
+      // STEP 3: Idempotency check - both fields must be null
+      if (sp.credit_deducted_at || sp.credit_transaction_id) {
+        console.log(`[EnsureCredit] Session player ${sessionPlayerId} already processed at ${sp.credit_deducted_at}`);
+        return { 
+          success: true, 
+          action: "already_processed" as const, 
+          transactionId: sp.credit_transaction_id 
+        };
+      }
+      
+      // STEP 4: Determine credit type needed
+      const sessionType = sp.session_type || "group";
+      const normalizeType = (type: string): string => {
+        const normalized = type.toLowerCase().replace("-", "_").replace(" ", "_");
+        if (normalized === "semi" || normalized === "semi_private" || normalized === "semi_private_adjusted") return "semi_private";
+        if (normalized === "private" || normalized === "private_adjusted") return "private";
+        return "group";
+      };
+      const requiredCreditType = normalizeType(sessionType);
+      const playerId = sp.player_id;
+      const sessionId = sp.session_id;
+      const academyId = sp.academy_id;
+      const seriesId = sp.series_id;
+      
+      // STEP 5: Find a package with matching credits
+      const packageResult = await tx.execute(sql`
+        SELECT id, remaining_credits, credit_type, academy_id
+        FROM packages 
+        WHERE player_id = ${playerId} 
+          AND status = 'active' 
+          AND remaining_credits > 0
+          AND (credit_type = ${requiredCreditType} OR credit_type IS NULL)
+        ORDER BY expiry_date ASC NULLS LAST
+        FOR UPDATE
+        LIMIT 1
+      `);
+      
+      // BULLETPROOF: Use eventKey for unique constraint
+      const consumeEventKey = `consume:${sessionPlayerId}`;
+      const debtEventKey = `debt:${sessionPlayerId}`;
+      
+      if (packageResult.rows.length === 0) {
+        // STEP 6A: No credits available - create debt transaction
+        console.log(`[EnsureCredit] No ${requiredCreditType} credits for player ${playerId}, creating debt`);
+        
+        const debtTxId = crypto.randomUUID();
+        try {
+          await tx.execute(sql`
+            INSERT INTO credit_transactions (
+              id, player_id, academy_id, session_id, session_player_id, package_id,
+              type, credit_type, amount, reason, event_key, balance_before, balance_after, metadata
+            )
+            VALUES (
+              ${debtTxId}, ${playerId}, ${academyId}, ${sessionId}, ${sessionPlayerId}, NULL,
+              'debit', ${requiredCreditType}, -1, 'session_debt', ${debtEventKey}, 0, -1,
+              ${JSON.stringify({ 
+                seriesId, 
+                sessionType, 
+                description: `Debt: No ${requiredCreditType} credits available`,
+                isDebt: true 
+              })}::jsonb
+            )
+          `);
+        } catch (insertError: any) {
+          if (insertError.code === '23505') {
+            console.log(`[EnsureCredit] Duplicate debt detected for session_player ${sessionPlayerId}`);
+            return { success: true, action: "already_processed" as const };
+          }
+          throw insertError;
+        }
+        
+        // Update session_player - mark as processed but leave creditTransactionId null for debt
+        await tx.execute(sql`
+          UPDATE session_players 
+          SET credit_deducted_at = NOW()
+          WHERE id = ${sessionPlayerId}
+        `);
+        
+        return {
+          success: true,
+          action: "debt_created" as const,
+          creditType: requiredCreditType,
+        };
+      }
+      
+      // STEP 6B: Credits available - consume from package
+      const pkg = packageResult.rows[0] as any;
+      const balanceBefore = pkg.remaining_credits;
+      const balanceAfter = balanceBefore - 1;
+      const creditType = pkg.credit_type || requiredCreditType;
+      
+      // Create consumption transaction with unique eventKey
+      const consumeTxId = crypto.randomUUID();
+      try {
+        await tx.execute(sql`
+          INSERT INTO credit_transactions (
+            id, player_id, academy_id, session_id, session_player_id, package_id,
+            type, credit_type, amount, reason, event_key, balance_before, balance_after, metadata
+          )
+          VALUES (
+            ${consumeTxId}, ${playerId}, ${academyId}, ${sessionId}, ${sessionPlayerId}, ${pkg.id},
+            'debit', ${creditType}, -1, 'session_consumed', ${consumeEventKey}, ${balanceBefore}, ${balanceAfter},
+            ${JSON.stringify({ 
+              seriesId, 
+              sessionType,
+              packageId: pkg.id,
+              description: `Credit consumed for ${sessionType} session` 
+            })}::jsonb
+          )
+        `);
+      } catch (insertError: any) {
+        // Unique constraint violation - already processed by concurrent request
+        if (insertError.code === '23505') {
+          console.log(`[EnsureCredit] Duplicate detected for session_player ${sessionPlayerId}`);
+          return { success: true, action: "already_processed" as const };
+        }
+        throw insertError;
+      }
+      
+      // Decrement package credits
+      await tx.execute(sql`
+        UPDATE packages 
+        SET remaining_credits = ${balanceAfter},
+            status = CASE WHEN ${balanceAfter} <= 0 THEN 'depleted' ELSE status END
+        WHERE id = ${pkg.id}
+      `);
+      
+      // Update session_player with credit info
+      await tx.execute(sql`
+        UPDATE session_players 
+        SET credit_deducted_at = NOW(),
+            credit_transaction_id = ${consumeTxId}
+        WHERE id = ${sessionPlayerId}
+      `);
+      
+      console.log(`[EnsureCredit] Consumed 1 ${creditType} credit from package ${pkg.id} for session_player ${sessionPlayerId}`);
+      
+      return {
+        success: true,
+        action: "consumed" as const,
+        transactionId: consumeTxId,
+        packageId: pkg.id,
+        creditType,
+      };
+    });
+  } catch (error: any) {
+    console.error(`[EnsureCredit] Error processing session_player ${sessionPlayerId}:`, error);
+    return { success: false, action: "error" as const, error: error.message };
+  }
+}
+
+/**
+ * BULK REPAIR: Re-process all session_players with attendance but no credit processing
+ * This finds all session_players where:
+ * 1. attendanceStatus = present/late
+ * 2. creditDeductedAt IS NULL
+ * And runs ensureCreditProcessed on each
+ */
+async function repairAllPlayerCredits(): Promise<{
+  processed: number;
+  consumed: number;
+  debts: number;
+  alreadyProcessed: number;
+  errors: string[];
+}> {
+  const results = { processed: 0, consumed: 0, debts: 0, alreadyProcessed: 0, errors: [] as string[] };
+  
+  // Find all unprocessed session_players with present/late attendance
+  const unprocessed = await db.execute(sql`
+    SELECT sp.id, sp.player_id, sp.session_id, sp.attendance_status, p.first_name, p.last_name
+    FROM session_players sp
+    JOIN players p ON p.id = sp.player_id
+    WHERE sp.attendance_status IN ('present', 'late')
+      AND sp.credit_deducted_at IS NULL
+    ORDER BY sp.id
+  `);
+  
+  console.log(`[RepairCredits] Found ${unprocessed.rows.length} unprocessed session_players`);
+  
+  for (const row of unprocessed.rows) {
+    const sp = row as any;
+    results.processed++;
+    
+    try {
+      const result = await ensureCreditProcessed(sp.id);
+      
+      if (result.action === "consumed") {
+        results.consumed++;
+        console.log(`[RepairCredits] ${sp.first_name} ${sp.last_name}: Consumed credit from package ${result.packageId}`);
+      } else if (result.action === "debt_created") {
+        results.debts++;
+        console.log(`[RepairCredits] ${sp.first_name} ${sp.last_name}: Created debt (no ${result.creditType} credits)`);
+      } else if (result.action === "already_processed") {
+        results.alreadyProcessed++;
+      } else if (result.action === "error") {
+        results.errors.push(`${sp.first_name} ${sp.last_name}: ${result.error}`);
+      }
+    } catch (error: any) {
+      results.errors.push(`${sp.first_name} ${sp.last_name}: ${error.message}`);
+    }
+  }
+  
+  // Also re-link any session_players that have creditDeductedAt but no creditTransactionId
+  const needsRelink = await db.execute(sql`
+    SELECT sp.id, sp.player_id, sp.session_id
+    FROM session_players sp
+    WHERE sp.credit_deducted_at IS NOT NULL
+      AND sp.credit_transaction_id IS NULL
+  `);
+  
+  console.log(`[RepairCredits] Found ${needsRelink.rows.length} session_players needing transaction re-link`);
+  
+  for (const row of needsRelink.rows) {
+    const sp = row as any;
+    
+    // Find matching transaction
+    const txResult = await db.execute(sql`
+      SELECT id FROM credit_transactions
+      WHERE player_id = ${sp.player_id}
+        AND session_id = ${sp.session_id}
+        AND amount = -1
+        AND package_id IS NOT NULL
+        AND reason IN ('session_join', 'session_consumed', 'session_booking')
+      ORDER BY created_at DESC
+      LIMIT 1
+    `);
+    
+    if (txResult.rows.length > 0) {
+      const txId = (txResult.rows[0] as any).id;
+      await db.execute(sql`
+        UPDATE session_players 
+        SET credit_transaction_id = ${txId}
+        WHERE id = ${sp.id}
+      `);
+      console.log(`[RepairCredits] Re-linked session_player ${sp.id} to transaction ${txId}`);
+    }
+  }
+  
+  return results;
+}
+
 // Export helper for routes
-export { getSessionTypeByPlayerCount, updateSeriesSessionType, recalculateSeriesCredits };
+export { getSessionTypeByPlayerCount, updateSeriesSessionType, recalculateSeriesCredits, ensureCreditProcessed, repairAllPlayerCredits };
