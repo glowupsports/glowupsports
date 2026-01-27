@@ -6316,14 +6316,18 @@ export const storage = {
         eq(creditTransactions.playerId, playerId),
         or(
           eq(creditTransactions.reason, "session_unpaid"),
+          or(
           eq(creditTransactions.reason, "session_join_debt"),
-          eq(creditTransactions.reason, "session_booking")
+          eq(creditTransactions.reason, "session_debt")
+        ),
+          eq(creditTransactions.reason, "session_booking"),
+          eq(creditTransactions.reason, "session_debt")
         )
       ));
     
     // Filter to only actual debts (same logic as getPlayersCreditBalances)
     const unpaidDebts = debtTransactions.filter(t => {
-      if (t.reason === "session_unpaid" || t.reason === "session_join_debt") return true;
+      if (t.reason === "session_unpaid" || t.reason === "session_join_debt" || t.reason === "session_debt") return true;
       const meta = t.metadata as { isDebt?: boolean } | null;
       if (meta?.isDebt === true) return true;
       if (t.reason === "session_booking" && !t.packageId) return true;
@@ -6365,7 +6369,10 @@ export const storage = {
       .where(and(
         eq(creditTransactions.playerId, playerId),
         eq(creditTransactions.creditType, creditType),
-        eq(creditTransactions.reason, "session_join_debt"),
+        or(
+          eq(creditTransactions.reason, "session_join_debt"),
+          eq(creditTransactions.reason, "session_debt")
+        ),
         // Debt is unsettled if metadata.settled is not true
         // We use packageId IS NULL as a fallback for old data
         isNull(creditTransactions.packageId)
@@ -6687,15 +6694,19 @@ export const storage = {
         inArray(creditTransactions.playerId, playerIds),
         or(
           eq(creditTransactions.reason, "session_unpaid"),
+          or(
           eq(creditTransactions.reason, "session_join_debt"),
-          eq(creditTransactions.reason, "session_booking")
+          eq(creditTransactions.reason, "session_debt")
+        ),
+          eq(creditTransactions.reason, "session_booking"),
+          eq(creditTransactions.reason, "session_debt")
         )
       ));
     
     // Filter to only include actual debts (no package associated or metadata.isDebt = true)
     const unpaidDebts = debtTransactions.filter(t => {
       // session_unpaid and session_join_debt are always debt
-      if (t.reason === "session_unpaid" || t.reason === "session_join_debt") return true;
+      if (t.reason === "session_unpaid" || t.reason === "session_join_debt" || t.reason === "session_debt") return true;
       // session_booking with metadata.isDebt = true is debt
       const meta = t.metadata as { isDebt?: boolean } | null;
       if (meta?.isDebt === true) return true;
@@ -10392,7 +10403,10 @@ export const storage = {
       const debtsWithPackageId = await db.select().from(creditTransactions)
         .where(and(
           eq(creditTransactions.playerId, playerId),
+          or(
           eq(creditTransactions.reason, "session_join_debt"),
+          eq(creditTransactions.reason, "session_debt")
+        ),
           isNotNull(creditTransactions.packageId)
         ));
       
