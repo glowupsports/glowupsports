@@ -1964,49 +1964,13 @@ export const storage = {
     
     if (playerPackages.length === 0) return [];
     
-    // Get all credit transactions for this player that reference a package
-    const transactions = await db.select({
-      packageId: creditTransactions.packageId,
-      amount: creditTransactions.amount,
-      type: creditTransactions.type,
-    }).from(creditTransactions)
-      .where(and(
-        eq(creditTransactions.playerId, playerId),
-        isNotNull(creditTransactions.packageId)
-      ));
-    
-    // Calculate used credits per package from transactions
-    const usedCreditsPerPackage: Record<string, number> = {};
-    for (const tx of transactions) {
-      if (tx.packageId) {
-        if (!usedCreditsPerPackage[tx.packageId]) {
-          usedCreditsPerPackage[tx.packageId] = 0;
-        }
-        // Debits have negative amounts, credits have positive
-        if (tx.type === "debit") {
-          usedCreditsPerPackage[tx.packageId] += Math.abs(tx.amount);
-        } else if (tx.type === "credit" || tx.type === "refund") {
-          usedCreditsPerPackage[tx.packageId] -= Math.abs(tx.amount);
-        }
-      }
-    }
-    
-    // Return packages with calculated remaining
-    return playerPackages.map(pkg => {
-      const usedFromPackage = usedCreditsPerPackage[pkg.id] || 0;
-      // Calculate remaining: start with totalCredits, subtract used credits
-      // Ensure it never goes below 0 or above totalCredits
-      const calculatedRemaining = Math.min(
-        pkg.totalCredits, 
-        Math.max(0, pkg.totalCredits - usedFromPackage)
-      );
-      return {
-        ...pkg,
-        calculatedRemaining,
-        // Override remainingCredits with correct calculated value
-        remainingCredits: calculatedRemaining,
-      };
-    });
+    // FIXED: Use database remainingCredits directly - it's the source of truth
+    // The database value is updated correctly by usePackageCredit and other functions
+    // Previous logic was recalculating from transactions which missed unlinked transactions
+    return playerPackages.map(pkg => ({
+      ...pkg,
+      calculatedRemaining: pkg.remainingCredits,
+    }));
   },
 
   async getActivePlayerPackages(playerId: string, academyId?: string): Promise<Package[]> {
