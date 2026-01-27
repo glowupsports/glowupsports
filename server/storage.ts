@@ -6322,13 +6322,15 @@ export const storage = {
       ));
     
     // Get all credit deductions (successful credit usage) for this player
-    const allDeductions = await db.select({
+    // Note: Fetch all transactions and filter client-side to avoid SQL reserved word issues with "type"
+    const allTransactions = await db.select({
       sessionId: creditTransactions.sessionId,
+      transactionType: creditTransactions.type,
     }).from(creditTransactions)
-      .where(and(
-        eq(creditTransactions.playerId, playerId),
-        eq(creditTransactions.type, "debit")
-      ));
+      .where(eq(creditTransactions.playerId, playerId));
+    
+    // Filter to only debit transactions (credit deductions)
+    const allDeductions = allTransactions.filter(t => t.transactionType === "debit");
     
     // Get set of sessions that have a successful deduction transaction
     const sessionsWithDeduction = new Set(
@@ -6582,14 +6584,16 @@ export const storage = {
       ));
     
     // Get all credit deductions (successful credit usage) for these players
-    const allDeductions = await db.select({
+    // Note: Fetch all transactions and filter client-side to avoid SQL reserved word issues with "type"
+    const allTransactions = await db.select({
       playerId: creditTransactions.playerId,
       sessionId: creditTransactions.sessionId,
+      transactionType: creditTransactions.type,
     }).from(creditTransactions)
-      .where(and(
-        inArray(creditTransactions.playerId, playerIds),
-        eq(creditTransactions.type, "debit")
-      ));
+      .where(inArray(creditTransactions.playerId, playerIds));
+    
+    // Filter to only debit transactions (credit deductions)
+    const allDeductions = allTransactions.filter(t => t.transactionType === "debit");
     
     // Create a map of player -> set of sessions with deductions
     const sessionsWithDeductionByPlayer = new Map<string, Set<string>>();
