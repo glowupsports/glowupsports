@@ -6737,6 +6737,21 @@ export const storage = {
       const requiredCreditType = normalizeType(sessionType);
       
       return await db.transaction(async (tx) => {
+        // PATCH D: Idempotency guard - check if credit was already deducted for this session/player
+        const existingSessionPlayer = await tx.select({
+          creditDeductedAt: sessionPlayers.creditDeductedAt,
+          creditTransactionId: sessionPlayers.creditTransactionId,
+        }).from(sessionPlayers)
+          .where(and(
+            eq(sessionPlayers.sessionId, sessionId),
+            eq(sessionPlayers.playerId, playerId)
+          ));
+        
+        if (existingSessionPlayer.length > 0 && existingSessionPlayer[0].creditDeductedAt !== null) {
+          console.log(`[Credits] Idempotency guard: Credit already deducted for session ${sessionId}, player ${playerId}. Transaction ID: ${existingSessionPlayer[0].creditTransactionId}`);
+          return false; // No-op, already consumed
+        }
+        
         let packageToUse = null;
         
         // Priority 1: Check linkedPackageId first if provided AND has matching credit type
@@ -6820,8 +6835,23 @@ export const storage = {
   },
 
   // Create a debt transaction when no credits are available
+  // PATCH D: Added idempotency guard for creditDeductedAt
   async createDebtTransaction(playerId: string, sessionId: string, academyId: string, sessionType?: string): Promise<boolean> {
     try {
+      // Idempotency guard: check if credit was already consumed for this session
+      const existingSessionPlayer = await db.select({
+        creditDeductedAt: sessionPlayers.creditDeductedAt,
+      }).from(sessionPlayers)
+        .where(and(
+          eq(sessionPlayers.sessionId, sessionId),
+          eq(sessionPlayers.playerId, playerId)
+        ));
+      
+      if (existingSessionPlayer.length > 0 && existingSessionPlayer[0].creditDeductedAt !== null) {
+        console.log(`[Credits] Idempotency guard: Cannot create debt - credit already deducted for session ${sessionId}, player ${playerId}`);
+        return false;
+      }
+      
       const normalizeType = (type: string | undefined): string => {
         if (!type) return "group";
         const normalized = type.toLowerCase().replace("-", "_").replace(" ", "_");
