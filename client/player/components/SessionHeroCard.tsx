@@ -409,7 +409,7 @@ export function SessionHeroCard({
     if (onBookSession) {
       onBookSession();
     } else {
-      navigation.navigate("CourtBooking");
+      navigation.navigate("Schedule", { screen: "CourtBooking" });
     }
   };
 
@@ -562,7 +562,7 @@ export function SessionHeroCard({
                   { shadowColor: ProTennisColors.neonCyan },
                   pressed && styles.buttonPressed,
                 ]}
-                onPress={() => navigation.navigate("CourtBooking")}
+                onPress={() => navigation.navigate("Schedule", { screen: "CourtBooking" })}
               >
                 <LinearGradient
                   colors={[ProTennisColors.neonCyan, `${ProTennisColors.neonCyan}CC`]}

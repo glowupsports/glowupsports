@@ -756,7 +756,7 @@ export function TrainingSessionsRow() {
 
   const handleCourtPress = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    navigation.navigate("CourtBooking");
+    navigation.navigate("Schedule", { screen: "CourtBooking" });
   };
 
   return (
