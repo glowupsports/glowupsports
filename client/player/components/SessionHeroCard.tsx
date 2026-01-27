@@ -907,8 +907,9 @@ export function SessionHeroCard({
             animationType="fade"
             onRequestClose={() => setShowCancelModal(false)}
           >
-            <Pressable style={styles.modalOverlay} onPress={() => setShowCancelModal(false)}>
-              <View style={styles.modalContent} onStartShouldSetResponder={() => true}>
+            <View style={styles.modalOverlay}>
+              <Pressable style={StyleSheet.absoluteFill} onPress={() => setShowCancelModal(false)} />
+              <View style={styles.modalContent}>
                 <KeyboardAwareScrollViewCompat 
                   showsVerticalScrollIndicator={false}
                   keyboardShouldPersistTaps="handled"
@@ -1036,7 +1037,7 @@ export function SessionHeroCard({
                   </View>
                 </KeyboardAwareScrollViewCompat>
               </View>
-            </Pressable>
+            </View>
           </Modal>
 
           {/* Running Late Modal */}
@@ -1046,8 +1047,9 @@ export function SessionHeroCard({
             animationType="fade"
             onRequestClose={() => setShowLateModal(false)}
           >
-            <Pressable style={styles.modalOverlay} onPress={() => setShowLateModal(false)}>
-              <Pressable style={styles.modalContent} onPress={(e) => e.stopPropagation()}>
+            <View style={styles.modalOverlay}>
+              <Pressable style={StyleSheet.absoluteFill} onPress={() => setShowLateModal(false)} />
+              <View style={styles.modalContent}>
                 <KeyboardAwareScrollViewCompat 
                   showsVerticalScrollIndicator={false}
                   keyboardShouldPersistTaps="handled"
@@ -1118,8 +1120,8 @@ export function SessionHeroCard({
                     </Pressable>
                   </View>
                 </KeyboardAwareScrollViewCompat>
-              </Pressable>
-            </Pressable>
+              </View>
+            </View>
           </Modal>
         </View>
       </NeonBorderGlow>
@@ -1234,8 +1236,9 @@ export function SessionHeroCard({
             animationType="fade"
             onRequestClose={() => setShowCancelModal(false)}
           >
-            <Pressable style={styles.modalOverlay} onPress={() => setShowCancelModal(false)}>
-              <View style={styles.modalContent} onStartShouldSetResponder={() => true}>
+            <View style={styles.modalOverlay}>
+              <Pressable style={StyleSheet.absoluteFill} onPress={() => setShowCancelModal(false)} />
+              <View style={styles.modalContent}>
                 <KeyboardAwareScrollViewCompat 
                   showsVerticalScrollIndicator={false}
                   keyboardShouldPersistTaps="handled"
@@ -1363,7 +1366,7 @@ export function SessionHeroCard({
                   </View>
                 </KeyboardAwareScrollViewCompat>
               </View>
-            </Pressable>
+            </View>
           </Modal>
 
           {/* Running Late Modal */}
@@ -1373,8 +1376,9 @@ export function SessionHeroCard({
             animationType="fade"
             onRequestClose={() => setShowLateModal(false)}
           >
-            <Pressable style={styles.modalOverlay} onPress={() => setShowLateModal(false)}>
-              <Pressable style={styles.modalContent} onPress={(e) => e.stopPropagation()}>
+            <View style={styles.modalOverlay}>
+              <Pressable style={StyleSheet.absoluteFill} onPress={() => setShowLateModal(false)} />
+              <View style={styles.modalContent}>
                 <KeyboardAwareScrollViewCompat 
                   showsVerticalScrollIndicator={false}
                   keyboardShouldPersistTaps="handled"
@@ -1445,8 +1449,8 @@ export function SessionHeroCard({
                     </Pressable>
                   </View>
                 </KeyboardAwareScrollViewCompat>
-              </Pressable>
-            </Pressable>
+              </View>
+            </View>
           </Modal>
         </View>
       </NeonBorderGlow>
