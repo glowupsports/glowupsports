@@ -573,18 +573,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       await storage.updateUserLastLogin(user.id);
 
-      const token = generateToken({
-        userId: user.id,
-        email: user.email,
-        role: user.role,
-        academyId: user.academyId,
-        coachId: user.coachId,
-        playerId: user.playerId,
-      });
-
-      // Get profile photo URL based on role
+      // Get profile photo URL and additional data based on role
       let profilePhotoUrl: string | null = null;
       let displayName = user.username;
+      let effectiveAcademyId = user.academyId;
       
       if (user.coachId) {
         const coach = await storage.getCoach(user.coachId);
@@ -593,12 +585,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
           displayName = coach.name || user.username;
         }
       } else if (user.playerId) {
+        // For players, get academyId from player record (not user record)
         const player = await storage.getPlayer(user.playerId);
         if (player) {
           profilePhotoUrl = (player as any).profilePhotoUrl || null;
           displayName = player.name || user.username;
+          // Use player's academyId - this is where players are linked to academies
+          effectiveAcademyId = player.academyId || user.academyId;
         }
       }
+
+      const token = generateToken({
+        userId: user.id,
+        email: user.email,
+        role: user.role,
+        academyId: effectiveAcademyId,
+        coachId: user.coachId,
+        playerId: user.playerId,
+      });
 
       res.json({ 
         token,
@@ -607,7 +611,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           username: user.username,
           email: user.email,
           role: user.role,
-          academyId: user.academyId,
+          academyId: effectiveAcademyId,
           coachId: user.coachId,
           playerId: user.playerId,
           profilePhotoUrl,
