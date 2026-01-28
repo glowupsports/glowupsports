@@ -29906,7 +29906,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Get player's earned badges
+  // Get player's badges and titles collection with locked/unlocked status
   app.get("/api/player/badges", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
     try {
       const playerId = req.user!.playerId;
@@ -29915,6 +29915,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "Player context required" });
       }
       
+      // Get all available badges
+      const allBadges = await db.select().from(badgesTable).where(eq(badgesTable.isActive, true));
+      
+      // Get player's earned badges
       const earnedBadges = await db.select({
         playerBadge: playerBadgesTable,
         badge: badgesTable,
@@ -29924,10 +29928,44 @@ export async function registerRoutes(app: Express): Promise<Server> {
         .where(eq(playerBadgesTable.playerId, playerId))
         .orderBy(desc(playerBadgesTable.earnedAt));
       
-      res.json(earnedBadges.map(eb => ({
-        ...eb.badge,
-        earnedAt: eb.playerBadge.earnedAt,
-      })));
+      const earnedBadgeMap = new Map(earnedBadges.map(eb => [eb.badge.id, eb.playerBadge.earnedAt]));
+      
+      // Get all available titles
+      const allTitles = await db.select().from(titlesTable).where(eq(titlesTable.isActive, true));
+      
+      // Get player's unlocked titles
+      const unlockedTitles = await db.select({
+        playerTitle: playerTitlesTable,
+        title: titlesTable,
+      })
+        .from(playerTitlesTable)
+        .innerJoin(titlesTable, eq(playerTitlesTable.titleId, titlesTable.id))
+        .where(eq(playerTitlesTable.playerId, playerId));
+      
+      const unlockedTitleMap = new Map(unlockedTitles.map(ut => [ut.title.id, { unlockedAt: ut.playerTitle.unlockedAt, isEquipped: ut.playerTitle.isEquipped }]));
+      
+      // Build response with all badges and titles including earned/locked status
+      const badges = allBadges.map(badge => ({
+        ...badge,
+        earnedAt: earnedBadgeMap.get(badge.id) || null,
+      }));
+      
+      const titles = allTitles.map(title => ({
+        ...title,
+        unlockedAt: unlockedTitleMap.get(title.id)?.unlockedAt || null,
+        isEquipped: unlockedTitleMap.get(title.id)?.isEquipped || false,
+      }));
+      
+      res.json({
+        badges,
+        titles,
+        stats: {
+          totalBadges: allBadges.length,
+          earnedBadges: earnedBadges.length,
+          totalTitles: allTitles.length,
+          unlockedTitles: unlockedTitles.length,
+        },
+      });
     } catch (error) {
       console.error("Error fetching player badges:", error);
       res.status(500).json({ error: "Failed to fetch player badges" });
