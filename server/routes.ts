@@ -30762,6 +30762,263 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
     });
   }
+
+  // Admin endpoint to fix vacation attendance debts retroactively
+  app.post("/api/admin/fix-vacation-debts", async (req: Request, res: Response) => {
+    try {
+      console.log("[VacationDebtFix] Starting retroactive vacation debt cancellation...");
+      
+      // Find all session_players records with vacation status
+      const vacationRecords = await db
+        .select({
+          sessionId: sessionPlayers.sessionId,
+          playerId: sessionPlayers.playerId,
+          status: sessionPlayers.attendanceStatus,
+        })
+        .from(sessionPlayers)
+        .where(eq(sessionPlayers.attendanceStatus, "vacation"));
+      
+      console.log(`[VacationDebtFix] Found ${vacationRecords.length} vacation attendance records`);
+      
+      let totalCancelled = 0;
+      const results: { playerId: string; sessionId: string; creditsRestored: number }[] = [];
+      
+      for (const record of vacationRecords) {
+        if (!record.playerId || !record.sessionId) continue;
+        
+        const cancelResult = await storage.cancelSessionDebt(record.playerId, record.sessionId);
+        if (cancelResult.cancelled) {
+          totalCancelled += cancelResult.amount;
+          results.push({
+            playerId: record.playerId,
+            sessionId: record.sessionId,
+            creditsRestored: cancelResult.amount
+          });
+          console.log(`[VacationDebtFix] Cancelled ${cancelResult.amount} debt for player ${record.playerId} session ${record.sessionId}`);
+        }
+      }
+      
+      console.log(`[VacationDebtFix] Complete. Total credits restored: ${totalCancelled}`);
+      
+      res.json({
+        success: true,
+        message: `Fixed vacation debts for ${results.length} records`,
+        totalCreditsRestored: totalCancelled,
+        details: results
+      });
+    } catch (error) {
+      console.error("[VacationDebtFix] Error:", error);
+      res.status(500).json({ error: "Failed to fix vacation debts" });
+    }
+  });
+
+
+  // Admin endpoint to recalculate V3 debt based on actual attendance (excluding vacation)
+  app.post("/api/admin/recalculate-v3-debts", async (req: Request, res: Response) => {
+    try {
+      console.log("[V3DebtFix] Starting recalculation of V3 debts...");
+      
+      const v3Debts = await db.select().from(creditTransactions)
+        .where(and(
+          eq(creditTransactions.reason, "session_debt"),
+          isNull(creditTransactions.sessionId)
+        ));
+      
+      console.log(`[V3DebtFix] Found ${v3Debts.length} V3 debt transactions to review`);
+      
+      const results: { playerId: string; creditType: string; oldDebt: number; newDebt: number; change: number }[] = [];
+      
+      for (const debt of v3Debts) {
+        if (!debt.playerId) continue;
+        
+        const creditType = debt.creditType || "group";
+        const oldDebtAmount = Math.abs(debt.amount);
+        
+        const sessionTypesForCredit = creditType === "group" 
+          ? ["group"]
+          : creditType === "semi_private" 
+            ? ["semi_private", "semi-private"]
+            : ["private"];
+        
+        const presentSessions = await db
+          .select({ count: sql<number>`count(*)` })
+          .from(sessionPlayers)
+          .innerJoin(sessions, eq(sessionPlayers.sessionId, sessions.id))
+          .where(and(
+            eq(sessionPlayers.playerId, debt.playerId),
+            eq(sessionPlayers.attendanceStatus, "present"),
+            inArray(sessions.sessionType, sessionTypesForCredit)
+          ));
+        
+        const presentCount = Number(presentSessions[0]?.count || 0);
+        
+        const playerPackages = await db.select({
+          totalCredits: sql<number>`COALESCE(SUM(total_credits), 0)`
+        }).from(packages)
+          .where(and(
+            eq(packages.playerId, debt.playerId),
+            eq(packages.creditType, creditType)
+          ));
+        
+        const totalPurchased = Number(playerPackages[0]?.totalCredits || 0);
+        const newDebtAmount = Math.max(0, presentCount - totalPurchased);
+        const change = oldDebtAmount - newDebtAmount;
+        
+        if (change !== 0) {
+          if (newDebtAmount === 0) {
+            await db.update(creditTransactions)
+              .set({
+                amount: 0,
+                metadata: {
+                  ...(debt.metadata as Record<string, unknown> || {}),
+                  cancelled: true,
+                  recalculatedAt: new Date().toISOString(),
+                  oldAmount: debt.amount,
+                  reason: "v3_debt_recalculation"
+                }
+              })
+              .where(eq(creditTransactions.id, debt.id));
+          } else {
+            await db.update(creditTransactions)
+              .set({
+                amount: -newDebtAmount,
+                metadata: {
+                  ...(debt.metadata as Record<string, unknown> || {}),
+                  recalculatedAt: new Date().toISOString(),
+                  oldAmount: debt.amount,
+                  presentCount,
+                  totalPurchased,
+                  reason: "v3_debt_recalculation"
+                }
+              })
+              .where(eq(creditTransactions.id, debt.id));
+          }
+          
+          results.push({
+            playerId: debt.playerId,
+            creditType,
+            oldDebt: oldDebtAmount,
+            newDebt: newDebtAmount,
+            change
+          });
+          
+          console.log(`[V3DebtFix] Player ${debt.playerId.slice(0, 8)}: ${creditType} debt ${oldDebtAmount} -> ${newDebtAmount} (change: ${change})`);
+        }
+      }
+      
+      console.log(`[V3DebtFix] Complete. Updated ${results.length} debt records`);
+      
+      res.json({
+        success: true,
+        message: `Recalculated ${results.length} V3 debt records`,
+        totalCreditsRestored: results.reduce((sum, r) => sum + r.change, 0),
+        details: results
+      });
+    } catch (error) {
+      console.error("[V3DebtFix] Error:", error);
+      res.status(500).json({ error: "Failed to recalculate V3 debts" });
+    }
+  });
+
+
+  // Admin endpoint to subtract vacation sessions from V3 debts
+  app.post("/api/admin/fix-vacation-v3-debts", async (req: Request, res: Response) => {
+    try {
+      console.log("[VacationV3Fix] Starting vacation debt adjustment...");
+      
+      const v3Debts = await db.select().from(creditTransactions)
+        .where(and(
+          eq(creditTransactions.reason, "session_debt"),
+          isNull(creditTransactions.sessionId)
+        ));
+      
+      console.log(`[VacationV3Fix] Found ${v3Debts.length} V3 debt transactions`);
+      
+      const results: { playerId: string; creditType: string; oldDebt: number; newDebt: number; vacationCount: number }[] = [];
+      
+      for (const debt of v3Debts) {
+        if (!debt.playerId) continue;
+        
+        const meta = debt.metadata as Record<string, unknown> | null;
+        if (meta?.cancelled) continue;
+        
+        const creditType = debt.creditType || "group";
+        const oldDebtAmount = Math.abs(debt.amount);
+        
+        const sessionTypesForCredit = creditType === "group" 
+          ? ["group"]
+          : creditType === "semi_private" 
+            ? ["semi_private", "semi-private"]
+            : ["private"];
+        
+        const vacationSessions = await db
+          .select({ count: sql<number>`count(*)` })
+          .from(sessionPlayers)
+          .innerJoin(sessions, eq(sessionPlayers.sessionId, sessions.id))
+          .where(and(
+            eq(sessionPlayers.playerId, debt.playerId),
+            eq(sessionPlayers.attendanceStatus, "vacation"),
+            inArray(sessions.sessionType, sessionTypesForCredit)
+          ));
+        
+        const vacationCount = Number(vacationSessions[0]?.count || 0);
+        
+        if (vacationCount === 0) continue;
+        
+        const newDebtAmount = Math.max(0, oldDebtAmount - vacationCount);
+        
+        if (newDebtAmount === 0) {
+          await db.update(creditTransactions)
+            .set({
+              amount: 0,
+              metadata: {
+                ...(meta || {}),
+                cancelled: true,
+                vacationAdjustment: vacationCount,
+                adjustedAt: new Date().toISOString(),
+                oldAmount: debt.amount,
+              }
+            })
+            .where(eq(creditTransactions.id, debt.id));
+        } else {
+          await db.update(creditTransactions)
+            .set({
+              amount: -newDebtAmount,
+              metadata: {
+                ...(meta || {}),
+                vacationAdjustment: vacationCount,
+                adjustedAt: new Date().toISOString(),
+                oldAmount: debt.amount,
+              }
+            })
+            .where(eq(creditTransactions.id, debt.id));
+        }
+        
+        results.push({
+          playerId: debt.playerId,
+          creditType,
+          oldDebt: oldDebtAmount,
+          newDebt: newDebtAmount,
+          vacationCount
+        });
+        
+        console.log(`[VacationV3Fix] Player ${debt.playerId.slice(0, 8)}: ${creditType} debt ${oldDebtAmount} -> ${newDebtAmount} (vacations: ${vacationCount})`);
+      }
+      
+      console.log(`[VacationV3Fix] Complete. Adjusted ${results.length} debt records`);
+      
+      res.json({
+        success: true,
+        message: `Adjusted ${results.length} V3 debt records for vacation sessions`,
+        totalCreditsRestored: results.reduce((sum, r) => sum + (r.oldDebt - r.newDebt), 0),
+        details: results
+      });
+    } catch (error) {
+      console.error("[VacationV3Fix] Error:", error);
+      res.status(500).json({ error: "Failed to fix vacation V3 debts" });
+    }
+  });
+
   const httpServer = createServer(app);
   
   // Set up WebSocket server for real-time chat
