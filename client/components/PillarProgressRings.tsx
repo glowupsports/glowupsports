@@ -175,7 +175,8 @@ export default function PillarProgressRings({
   onPillarPress,
 }: PillarProgressRingsProps) {
   const screenWidth = Dimensions.get("window").width;
-  const cardWidth = (screenWidth - Spacing.xl * 2 - Spacing.sm) / 2;
+  // Calculate card width for 2-column layout: screen width - horizontal padding (lg * 2) - gap between cards (sm)
+  const cardWidth = (screenWidth - Spacing.lg * 2 - Spacing.sm) / 2;
   
   return (
     <View style={styles.container}>
@@ -188,7 +189,7 @@ export default function PillarProgressRings({
           };
           
           return (
-            <View key={pillarKey} style={{ width: cardWidth }}>
+            <View key={pillarKey} style={styles.cardColumn}>
               <PillarCard
                 pillarKey={pillarKey}
                 data={data}
@@ -211,10 +212,13 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     flexWrap: "wrap",
     justifyContent: "space-between",
-    gap: Spacing.sm,
+    rowGap: Spacing.sm,
+  },
+  cardColumn: {
+    width: "48.5%",
   },
   cardWrapper: {
-    marginBottom: Spacing.sm,
+    marginBottom: 0,
   },
   cardPressable: {
     borderRadius: BorderRadius.lg,
