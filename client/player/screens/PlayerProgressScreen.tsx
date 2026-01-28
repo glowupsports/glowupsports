@@ -1879,6 +1879,38 @@ export default function PlayerProgressScreen() {
             role="player"
             onPillarPress={(pillar) => handleDomainPress(pillar)}
           />
+          <Pressable 
+            style={styles.feedbackCenterLink}
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              navigation.navigate("FeedbackCenter");
+            }}
+          >
+            <View style={styles.feedbackCenterIcon}>
+              <Ionicons name="document-text" size={18} color={GlowColors.primary} />
+            </View>
+            <View style={styles.feedbackCenterInfo}>
+              <Text style={styles.feedbackCenterTitle}>Feedback Center</Text>
+              <Text style={styles.feedbackCenterSubtitle}>View all skill assessments from coaches</Text>
+            </View>
+            <Ionicons name="chevron-forward" size={20} color={Colors.dark.textMuted} />
+          </Pressable>
+          <Pressable 
+            style={styles.feedbackCenterLink}
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              navigation.navigate("Tournaments");
+            }}
+          >
+            <View style={[styles.feedbackCenterIcon, { backgroundColor: "rgba(224, 64, 251, 0.15)" }]}>
+              <Ionicons name="trophy" size={18} color="#E040FB" />
+            </View>
+            <View style={styles.feedbackCenterInfo}>
+              <Text style={styles.feedbackCenterTitle}>Tournaments & Ladders</Text>
+              <Text style={styles.feedbackCenterSubtitle}>Compete in events and climb the rankings</Text>
+            </View>
+            <Ionicons name="chevron-forward" size={20} color={Colors.dark.textMuted} />
+          </Pressable>
         </View>
 
         {/* Skill Radar - Always shown, with placeholder for new players */}
@@ -1934,11 +1966,23 @@ export default function PlayerProgressScreen() {
         {coachFeedback && coachFeedback.length > 0 ? (
           <View style={styles.feedbackSection}>
             <View style={styles.feedbackHeader}>
-              <Text style={styles.sectionTitle}>Coach Feedback</Text>
-              <View style={styles.feedbackBadge}>
-                <Ionicons name="star" size={12} color={GlowColors.primary} />
-                <Text style={styles.feedbackBadgeText}>{coachFeedback.length}</Text>
+              <View style={styles.sectionTitleRow}>
+                <Text style={styles.sectionTitle}>Coach Feedback</Text>
+                <View style={styles.feedbackBadge}>
+                  <Ionicons name="star" size={12} color={GlowColors.primary} />
+                  <Text style={styles.feedbackBadgeText}>{coachFeedback.length}</Text>
+                </View>
               </View>
+              <Pressable 
+                style={styles.viewAllButton}
+                onPress={() => {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  navigation.navigate("CoachFeedbackHistory");
+                }}
+              >
+                <Text style={styles.viewAllText}>View All</Text>
+                <Ionicons name="chevron-forward" size={14} color={Colors.dark.xpCyan} />
+              </Pressable>
             </View>
             <View style={styles.feedbackList}>
               {coachFeedback.slice(0, 5).map((feedback) => {
@@ -2564,6 +2608,53 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: "700",
     color: GlowColors.primary,
+  },
+  sectionTitleRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+  },
+  viewAllButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+  },
+  viewAllText: {
+    fontSize: 12,
+    fontWeight: "600",
+    color: Colors.dark.xpCyan,
+  },
+  feedbackCenterLink: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "rgba(255, 255, 255, 0.03)",
+    borderRadius: BorderRadius.md,
+    padding: Spacing.md,
+    marginTop: Spacing.lg,
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.08)",
+    gap: Spacing.sm,
+  },
+  feedbackCenterIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: GlowColors.primary + "15",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  feedbackCenterInfo: {
+    flex: 1,
+    gap: 2,
+  },
+  feedbackCenterTitle: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: Colors.dark.text,
+  },
+  feedbackCenterSubtitle: {
+    fontSize: 12,
+    color: Colors.dark.textMuted,
   },
   feedbackList: {
     gap: Spacing.sm,

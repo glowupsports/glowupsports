@@ -5210,6 +5210,76 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.get("/api/player/me/skill-assessments", authMiddleware, requirePlayerOrOwner, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const playerId = req.user!.playerId;
+      if (!playerId) {
+        return res.status(400).json({ error: "Player not found" });
+      }
+      
+      const assessments = await db.select({
+        id: deepAssessmentPillarSummaries.id,
+        pillarId: deepAssessmentPillarSummaries.pillarId,
+        pillarName: skillDomains.label,
+        skillName: deepAssessmentPillarSummaries.pillarId,
+        rating: deepAssessmentPillarSummaries.currentScore,
+        comment: deepAssessmentPillarSummaries.notes,
+        coachId: deepAssessmentPillarSummaries.assessedBy,
+        coachName: users.fullName,
+        createdAt: deepAssessmentPillarSummaries.updatedAt,
+      })
+        .from(deepAssessmentPillarSummaries)
+        .leftJoin(skillDomains, eq(skillDomains.pillarKey, deepAssessmentPillarSummaries.pillarId))
+        .leftJoin(users, eq(users.id, deepAssessmentPillarSummaries.assessedBy))
+        .where(eq(deepAssessmentPillarSummaries.playerId, playerId))
+        .orderBy(desc(deepAssessmentPillarSummaries.updatedAt))
+        .limit(100);
+      
+      res.json(assessments);
+    } catch (error) {
+      console.error("Error fetching skill assessments:", error);
+      res.status(500).json({ error: "Failed to fetch skill assessments" });
+    }
+  });
+
+  app.get("/api/player/me/session-feedback", authMiddleware, requirePlayerOrOwner, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const playerId = req.user!.playerId;
+      if (!playerId) {
+        return res.status(400).json({ error: "Player not found" });
+      }
+      
+      const feedback = await db.select({
+        id: inSessionFeedback.id,
+        sessionId: inSessionFeedback.sessionId,
+        sessionDate: sessions.date,
+        sessionType: sessions.sessionType,
+        feedbackType: inSessionFeedback.feedbackType,
+        message: inSessionFeedback.message,
+        xpAwarded: inSessionFeedback.xpAwarded,
+        visibility: inSessionFeedback.visibility,
+        pillarId: inSessionFeedback.pillarId,
+        coachId: inSessionFeedback.coachId,
+        coachName: users.fullName,
+        createdAt: inSessionFeedback.createdAt,
+      })
+        .from(inSessionFeedback)
+        .leftJoin(sessions, eq(sessions.id, inSessionFeedback.sessionId))
+        .leftJoin(users, eq(users.id, inSessionFeedback.coachId))
+        .where(and(
+          eq(inSessionFeedback.playerId, playerId),
+          eq(inSessionFeedback.visibility, "public")
+        ))
+        .orderBy(desc(inSessionFeedback.createdAt))
+        .limit(100);
+      
+      res.json(feedback);
+    } catch (error) {
+      console.error("Error fetching session feedback:", error);
+      res.status(500).json({ error: "Failed to fetch session feedback" });
+    }
+  });
+
   // ==================== SESSION CANCELLATION ====================
   
   // Cancel session by coach (no charge, with reason)
@@ -15872,7 +15942,38 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/admin/players/:id/reset-onboarding", authMiddleware, requireRole("admin", "academy_owner", "platform_owner"), async (req: AuthenticatedRequest, res: Response) => {
+  // Admin: Set player XP/Level for testing
+  app.post("/api/admin/players/:id/set-level", authMiddleware, requireRole("admin", "academy_owner", "platform_owner"), async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const { id } = req.params;
+      const { level, xp } = req.body;
+      
+      // Level 50 requires 20500 XP based on leveling formula
+      // XP = 100 * level + 50 * (level - 1)^1.3 approximately
+      const targetXp = xp || calculateXpForLevel(level || 50);
+      
+      await storage.updatePlayer(id, { totalXp: targetXp });
+      
+      console.log(`[Admin] Set player ${id} to level ${level || 50} with ${targetXp} XP`);
+      res.json({ success: true, playerId: id, totalXp: targetXp, targetLevel: level || 50 });
+    } catch (error) {
+      console.error("Set player level error:", error);
+      res.status(500).json({ error: "Failed to set player level" });
+    }
+  });
+
+  // Helper function for XP calculation
+  function calculateXpForLevel(level: number): number {
+    // Based on the level system: each level requires progressively more XP
+    // Level 50 needs approximately 20500+ XP
+    let totalXp = 0;
+    for (let i = 1; i <= level; i++) {
+      totalXp += Math.floor(100 + 50 * Math.pow(i - 1, 1.3));
+    }
+    return totalXp;
+  }
+
+    app.post("/api/admin/players/:id/reset-onboarding", authMiddleware, requireRole("admin", "academy_owner", "platform_owner"), async (req: AuthenticatedRequest, res: Response) => {
     try {
       const playerId = req.params.id;
       
@@ -31021,7 +31122,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
     });
 
-    app.post("/api/dev/players/:id/reset-onboarding", async (req: Request, res: Response) => {
+    // Dev: Set player XP/Level for testing (no auth required)
+    app.post("/api/dev/players/:id/set-level", async (req: Request, res: Response) => {
+      try {
+        const { id } = req.params;
+        const { level } = req.body;
+        
+        // Level calculation: cumulative XP for each level
+        let targetXp = 0;
+        for (let i = 1; i <= (level || 50); i++) {
+          targetXp += Math.floor(100 + 50 * Math.pow(i - 1, 1.3));
+        }
+        
+        await storage.updatePlayer(id, { totalXp: targetXp });
+        
+        console.log(`[Dev] Set player ${id} to level ${level || 50} with ${targetXp} XP`);
+        res.json({ success: true, playerId: id, totalXp: targetXp, targetLevel: level || 50 });
+      } catch (error) {
+        console.error("Dev set player level error:", error);
+        res.status(500).json({ error: "Failed to set player level" });
+      }
+    });
+
+        app.post("/api/dev/players/:id/reset-onboarding", async (req: Request, res: Response) => {
       try {
         const playerId = req.params.id;
         

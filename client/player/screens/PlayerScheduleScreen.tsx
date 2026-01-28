@@ -165,14 +165,17 @@ export default function PlayerScheduleScreen() {
   const [showStartPicker, setShowStartPicker] = useState(false);
   const [showEndPicker, setShowEndPicker] = useState(false);
 
+  // Walkthrough effect - only run once on mount using ref to prevent re-triggers
+  const walkthroughTriggered = React.useRef(false);
   useEffect(() => {
-    if (!hasSeenScreen("Schedule")) {
+    if (!walkthroughTriggered.current && !hasSeenScreen("Schedule")) {
+      walkthroughTriggered.current = true;
       const timer = setTimeout(() => {
         startWalkthrough("Schedule");
       }, 500);
       return () => clearTimeout(timer);
     }
-  }, [hasSeenScreen, startWalkthrough]);
+  }, []);
 
   const { data: rawSessions, isLoading: sessionsLoading, error: sessionsError } = useQuery<SessionData[]>({
     queryKey: ["/api/player/me/sessions"],

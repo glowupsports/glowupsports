@@ -71,6 +71,11 @@ import BookingInvitesScreen from "@/player/screens/BookingInvitesScreen";
 import FamilyLobbyScreen from "@/player/screens/FamilyLobbyScreen";
 import NewsScreen from "@/player/screens/NewsScreen";
 import PrivacySettingsScreen from "@/player/screens/PrivacySettingsScreen";
+import FeedbackCenterScreen from "@/player/screens/FeedbackCenterScreen";
+import CoachFeedbackHistoryScreen from "@/player/screens/CoachFeedbackHistoryScreen";
+import TournamentsScreen from "@/player/screens/TournamentsScreen";
+import TournamentDetailScreen from "@/player/screens/TournamentDetailScreen";
+import LadderDetailScreen from "@/player/screens/LadderDetailScreen";
 import PlayerIdentityDrawer from "@/components/PlayerIdentityDrawer";
 import { CartProvider } from "@/player/contexts/CartContext";
 import { CoachChatFooter } from "@/coach/components/CoachChatFooter";
@@ -166,6 +171,11 @@ export type PlayerStackParamList = {
   FamilyLobby: undefined;
   News: undefined;
   PrivacySettings: { isOnboarding?: boolean; currentLevel?: string };
+  FeedbackCenter: undefined;
+  CoachFeedbackHistory: undefined;
+  Tournaments: undefined;
+  TournamentDetail: { tournamentId: string };
+  LadderDetail: { ladderId: string };
 };
 
 const Tab = createBottomTabNavigator<PlayerTabParamList>();
@@ -896,6 +906,46 @@ function PlayerStackNavigator() {
           />
         )}
       </Stack.Screen>
+      <Stack.Screen 
+        name="FeedbackCenter" 
+        component={FeedbackCenterScreen}
+        options={{
+          presentation: "card",
+          headerShown: false,
+        }}
+      />
+      <Stack.Screen 
+        name="CoachFeedbackHistory" 
+        component={CoachFeedbackHistoryScreen}
+        options={{
+          presentation: "card",
+          headerShown: false,
+        }}
+      />
+      <Stack.Screen 
+        name="Tournaments" 
+        component={TournamentsScreen}
+        options={{
+          presentation: "card",
+          headerShown: false,
+        }}
+      />
+      <Stack.Screen 
+        name="TournamentDetail" 
+        component={TournamentDetailScreen}
+        options={{
+          presentation: "card",
+          headerShown: false,
+        }}
+      />
+      <Stack.Screen 
+        name="LadderDetail" 
+        component={LadderDetailScreen}
+        options={{
+          presentation: "card",
+          headerShown: false,
+        }}
+      />
     </Stack.Navigator>
   );
 }

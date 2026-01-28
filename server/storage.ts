@@ -883,55 +883,80 @@ export const storage = {
 
   // Get all coaches from an academy for booking wizard (with extended details)
   async getAcademyCoachesForBooking(academyId: string) {
-    // Get all coaches for this academy
-    const academyCoaches = await db.select({
-      id: coaches.id,
-      name: coaches.name,
-      profilePhotoUrl: coaches.photoUrl,
-      specialty: coaches.specialty,
-      yearsExperience: coaches.yearsExperience,
-      specializations: coaches.specializations,
-      ballLevels: coaches.ballLevels,
-      bio: coaches.publicQuote,
-      certifications: coaches.certifications,
-      languages: coaches.languages,
-      hourlyRate: coaches.hourlyRate,
-    }).from(coaches).where(eq(coaches.academyId, academyId));
-    
-    // Get session counts and calculate ratings for each coach
-    const enrichedCoaches = await Promise.all(academyCoaches.map(async (coach) => {
-      // Count total students
-      const studentCount = await db.select({ count: count() })
-        .from(sessions)
-        .where(eq(sessions.coachId, coach.id));
+    try {
+      // Get all coaches for this academy using full select to avoid field issues
+      const academyCoaches = await db.select().from(coaches).where(eq(coaches.academyId, academyId));
       
-      // Calculate average rating from coach reviews
-      const feedbackResult = await db.select({
-        avgRating: sql<number>`AVG(CAST(overall_score AS NUMERIC))`,
-        totalReviews: count(),
-      }).from(coachReviews).where(eq(coachReviews.coachId, coach.id));
+      // Get session counts and calculate ratings for each coach
+      const enrichedCoaches = await Promise.all(academyCoaches.map(async (coach) => {
+        try {
+          // Count total students (unique players in sessions)
+          const studentCount = await db.select({ count: count() })
+            .from(sessions)
+            .where(eq(sessions.coachId, coach.id));
+          
+          // Calculate average rating from coach reviews using raw SQL for safety
+          let avgRating = null;
+          let totalReviews = 0;
+          try {
+            const feedbackResult = await db.execute(
+              sql`SELECT AVG(CAST(overall_score AS NUMERIC)) as avg_rating, COUNT(*) as total_reviews 
+                  FROM coach_reviews WHERE coach_id = ${coach.id}`
+            );
+            if (feedbackResult.rows && feedbackResult.rows.length > 0) {
+              avgRating = feedbackResult.rows[0].avg_rating;
+              totalReviews = Number(feedbackResult.rows[0].total_reviews || 0);
+            }
+          } catch (reviewError) {
+            console.warn(`[CoachBooking] Review query failed for coach ${coach.id}:`, reviewError);
+          }
+          
+          return {
+            id: coach.id,
+            name: coach.name,
+            profilePhotoUrl: coach.photoUrl,
+            specialty: coach.specialty,
+            yearsExperience: coach.yearsExperience,
+            specializations: coach.specializations,
+            ballLevels: coach.ballLevels,
+            bio: coach.publicQuote,
+            certifications: coach.certifications,
+            languages: coach.languages,
+            hourlyRate: coach.hourlyRate,
+            totalStudents: studentCount[0]?.count || 0,
+            rating: avgRating ? Number(avgRating).toFixed(1) : null,
+            totalReviews,
+            availableForPrivate: true,
+            availableForGroup: true,
+          };
+        } catch (coachError) {
+          console.error(`[CoachBooking] Error enriching coach ${coach.id}:`, coachError);
+          return {
+            id: coach.id,
+            name: coach.name,
+            profilePhotoUrl: coach.photoUrl,
+            specialty: coach.specialty,
+            yearsExperience: coach.yearsExperience,
+            specializations: coach.specializations,
+            ballLevels: coach.ballLevels,
+            bio: coach.publicQuote,
+            certifications: coach.certifications,
+            languages: coach.languages,
+            hourlyRate: coach.hourlyRate,
+            totalStudents: 0,
+            rating: null,
+            totalReviews: 0,
+            availableForPrivate: true,
+            availableForGroup: true,
+          };
+        }
+      }));
       
-      // Get session type availability
-      const privateSession = await db.select({ id: sessions.id })
-        .from(sessions)
-        .where(and(eq(sessions.coachId, coach.id), eq(sessions.type, "private")))
-        .limit(1);
-      const groupSession = await db.select({ id: sessions.id })
-        .from(sessions)
-        .where(and(eq(sessions.coachId, coach.id), eq(sessions.type, "group")))
-        .limit(1);
-      
-      return {
-        ...coach,
-        totalStudents: studentCount[0]?.count || 0,
-        rating: feedbackResult[0]?.avgRating ? Number(feedbackResult[0].avgRating).toFixed(1) : null,
-        totalReviews: Number(feedbackResult[0]?.totalReviews || 0),
-        availableForPrivate: privateSession.length > 0 || true,
-        availableForGroup: groupSession.length > 0 || true,
-      };
-    }));
-    
-    return enrichedCoaches;
+      return enrichedCoaches;
+    } catch (error) {
+      console.error("[CoachBooking] getAcademyCoachesForBooking error:", error);
+      throw error;
+    }
   },
 
 
