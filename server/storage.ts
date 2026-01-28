@@ -6322,14 +6322,10 @@ export const storage = {
         )
       ));
     
-    // Filter to only actual UNSETTLED debts
+    // Filter to only actual debts (same logic as getPlayersCreditBalances)
     const unpaidDebts = debtTransactions.filter(t => {
-      const meta = t.metadata as { isDebt?: boolean; settled?: boolean } | null;
-      
-      // CRITICAL: Skip if this debt has been settled
-      if (meta?.settled === true) return false;
-      
       if (t.reason === "session_unpaid" || t.reason === "session_join_debt" || t.reason === "session_debt") return true;
+      const meta = t.metadata as { isDebt?: boolean } | null;
       if (meta?.isDebt === true) return true;
       if (t.reason === "session_booking" && !t.packageId) return true;
       return false;
@@ -6757,16 +6753,12 @@ export const storage = {
         )
       ));
     
-    // Filter to only include actual UNSETTLED debts
+    // Filter to only include actual debts (no package associated or metadata.isDebt = true)
     const unpaidDebts = debtTransactions.filter(t => {
-      const meta = t.metadata as { isDebt?: boolean; settled?: boolean } | null;
-      
-      // CRITICAL: Skip if this debt has been settled
-      if (meta?.settled === true) return false;
-      
-      // session_unpaid and session_join_debt are always debt (if not settled)
+      // session_unpaid and session_join_debt are always debt
       if (t.reason === "session_unpaid" || t.reason === "session_join_debt" || t.reason === "session_debt") return true;
       // session_booking with metadata.isDebt = true is debt
+      const meta = t.metadata as { isDebt?: boolean } | null;
       if (meta?.isDebt === true) return true;
       // session_booking WITHOUT a valid package is debt
       if (t.reason === "session_booking" && !t.packageId) return true;
