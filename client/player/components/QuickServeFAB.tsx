@@ -52,7 +52,7 @@ export function QuickServeFAB({ bottomOffset = 70 }: QuickServeFABProps) {
       icon: "tennisball-outline",
       color: ProTennisColors.electricGreen,
       onPress: () => {
-        navigation.navigate("Match");
+        navigation.navigate("PlayerTabs", { screen: "Schedule", params: { screen: "Match" } });
       },
     },
     {
@@ -70,7 +70,7 @@ export function QuickServeFAB({ bottomOffset = 70 }: QuickServeFABProps) {
       icon: "videocam-outline",
       color: ProTennisColors.electricGreen,
       onPress: () => {
-        navigation.navigate("SkillEvidence");
+        navigation.navigate("PlayerTabs", { screen: "Progress", params: { screen: "SkillEvidence" } });
       },
     },
   ];

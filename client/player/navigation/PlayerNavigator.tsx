@@ -117,6 +117,24 @@ export type ScheduleStackParamList = {
   CourtDetail: { courtId: string; date: string };
   MyCourtBookings: undefined;
   QuickBook: undefined;
+  Match: { opponentId?: string } | undefined;
+  MatchDetail: { matchId: string };
+};
+
+export type ProgressStackParamList = {
+  ProgressMain: undefined;
+  GlowLeaderboard: undefined;
+  Quests: undefined;
+  Tournaments: undefined;
+  TournamentDetail: { tournamentId: string };
+  LadderDetail: { ladderId: string };
+  FeedbackCenter: undefined;
+  CoachFeedbackHistory: undefined;
+  SkillEvidence: undefined;
+  TrialGates: undefined;
+  Collection: undefined;
+  XPHistory: undefined;
+  LevelUpHistory: undefined;
 };
 
 export type PlayerStackParamList = {
@@ -141,7 +159,6 @@ export type PlayerStackParamList = {
   BrowseGroupLessons: undefined;
   MyLessonRequests: undefined;
   PlayerFinder: undefined;
-  GlowLeaderboard: undefined;
   FriendsList: undefined;
   Groups: undefined;
   GroupDetail: { groupId: string; groupName: string };
@@ -150,7 +167,6 @@ export type PlayerStackParamList = {
   PlayerHelp: undefined;
   PublicProfile: { playerId?: string };
   CoachProfile: { coachId: string };
-  Quests: undefined;
   Shop: undefined;
   ProductDetail: { productId: string };
   ServiceDetail: { serviceId: string };
@@ -159,29 +175,18 @@ export type PlayerStackParamList = {
   Marketplace: undefined;
   MarketplaceListing: { listingId: string };
   MyListings: undefined;
-  Match: { opponentId?: string } | undefined;
-  MatchDetail: { matchId: string };
-  SkillEvidence: undefined;
-  TrialGates: undefined;
-  Collection: undefined;
-  XPHistory: undefined;
-  LevelUpHistory: undefined;
   BookingPreferences: undefined;
   BookingInvites: undefined;
   FamilyLobby: undefined;
   News: undefined;
   PrivacySettings: { isOnboarding?: boolean; currentLevel?: string };
-  FeedbackCenter: undefined;
-  CoachFeedbackHistory: undefined;
-  Tournaments: undefined;
-  TournamentDetail: { tournamentId: string };
-  LadderDetail: { ladderId: string };
 };
 
 const Tab = createBottomTabNavigator<PlayerTabParamList>();
 const Stack = createNativeStackNavigator<PlayerStackParamList>();
 const PlayStack = createNativeStackNavigator<PlayStackParamList>();
 const ScheduleStack = createNativeStackNavigator<ScheduleStackParamList>();
+const ProgressStack = createNativeStackNavigator<ProgressStackParamList>();
 
 function PlayStackNavigator() {
   return (
@@ -256,7 +261,149 @@ function ScheduleStackNavigator() {
       <ScheduleStack.Screen name="CourtDetail" component={CourtDetailScreen} />
       <ScheduleStack.Screen name="MyCourtBookings" component={MyCourtBookingsScreen} />
       <ScheduleStack.Screen name="QuickBook" component={QuickBookScreen} />
+      <ScheduleStack.Screen 
+        name="Match" 
+        component={MatchScreen}
+        options={{
+          headerShown: true,
+          headerTitle: "Matches",
+          headerStyle: { backgroundColor: '#0a0f1a' },
+          headerTintColor: '#00ff88',
+          headerTitleStyle: { color: '#ffffff', fontWeight: '600' },
+        }}
+      />
+      <ScheduleStack.Screen 
+        name="MatchDetail" 
+        component={MatchDetailScreen}
+        options={{
+          headerShown: true,
+          headerTitle: "Match Details",
+          headerStyle: { backgroundColor: '#090E17' },
+          headerTintColor: '#CCFF00',
+          headerTitleStyle: { color: '#ffffff', fontWeight: '600' },
+        }}
+      />
     </ScheduleStack.Navigator>
+  );
+}
+
+function ProgressStackNavigator() {
+  return (
+    <ProgressStack.Navigator screenOptions={{ headerShown: false }}>
+      <ProgressStack.Screen name="ProgressMain" component={PlayerProgressScreen} />
+      <ProgressStack.Screen 
+        name="GlowLeaderboard" 
+        component={GlowLeaderboardScreen}
+        options={{
+          headerShown: true,
+          headerTitle: "Leaderboard",
+          headerStyle: { backgroundColor: '#090E17' },
+          headerTintColor: '#CCFF00',
+          headerTitleStyle: { color: '#ffffff', fontWeight: '600' },
+        }}
+      />
+      <ProgressStack.Screen 
+        name="Quests" 
+        component={QuestsScreen}
+        options={{
+          headerShown: true,
+          headerTitle: "Quests",
+          headerStyle: { backgroundColor: Colors.dark.backgroundRoot },
+          headerTintColor: Colors.dark.text,
+          headerBackTitle: "Back",
+        }}
+      />
+      <ProgressStack.Screen 
+        name="Tournaments" 
+        component={TournamentsScreen}
+        options={{
+          headerShown: false,
+        }}
+      />
+      <ProgressStack.Screen 
+        name="TournamentDetail" 
+        component={TournamentDetailScreen}
+        options={{
+          headerShown: false,
+        }}
+      />
+      <ProgressStack.Screen 
+        name="LadderDetail" 
+        component={LadderDetailScreen}
+        options={{
+          headerShown: false,
+        }}
+      />
+      <ProgressStack.Screen 
+        name="FeedbackCenter" 
+        component={FeedbackCenterScreen}
+        options={{
+          headerShown: false,
+        }}
+      />
+      <ProgressStack.Screen 
+        name="CoachFeedbackHistory" 
+        component={CoachFeedbackHistoryScreen}
+        options={{
+          headerShown: false,
+        }}
+      />
+      <ProgressStack.Screen 
+        name="SkillEvidence" 
+        component={SkillEvidenceScreen}
+        options={{
+          headerShown: true,
+          headerTitle: "Skill Evidence",
+          headerStyle: { backgroundColor: '#090E17' },
+          headerTintColor: '#CCFF00',
+          headerTitleStyle: { color: '#ffffff', fontWeight: '600' },
+        }}
+      />
+      <ProgressStack.Screen 
+        name="TrialGates" 
+        component={TrialGatesScreen}
+        options={{
+          headerShown: true,
+          headerTitle: "Trial Gates",
+          headerStyle: { backgroundColor: '#090E17' },
+          headerTintColor: '#CCFF00',
+          headerTitleStyle: { color: '#ffffff', fontWeight: '600' },
+        }}
+      />
+      <ProgressStack.Screen 
+        name="Collection" 
+        component={CollectionScreen}
+        options={{
+          headerShown: true,
+          headerTitle: "Collection",
+          headerStyle: { backgroundColor: '#090E17' },
+          headerTintColor: '#CCFF00',
+          headerTitleStyle: { color: '#ffffff', fontWeight: '600' },
+        }}
+      />
+      <ProgressStack.Screen 
+        name="XPHistory" 
+        component={XPHistoryScreen}
+        options={{
+          headerShown: true,
+          headerTitle: "XP History",
+          headerStyle: { backgroundColor: '#090E17' },
+          headerTintColor: '#CCFF00',
+          headerTitleStyle: { color: '#ffffff', fontWeight: '600' },
+        }}
+      />
+      <ProgressStack.Screen 
+        name="LevelUpHistory" 
+        component={LevelUpHistoryScreen}
+        options={{
+          headerShown: true,
+          headerTitle: "Level History",
+          headerStyle: { backgroundColor: '#090E17' },
+          headerTintColor: '#CCFF00',
+          headerTitleStyle: { color: '#ffffff', fontWeight: '600' },
+        }}
+      />
+    </ProgressStack.Navigator>
   );
 }
 
@@ -338,7 +485,7 @@ function PlayerTabsContent() {
         />
         <Tab.Screen
           name="Progress"
-          component={PlayerProgressScreen}
+          component={ProgressStackNavigator}
           options={{
             tabBarLabel: "Progress",
             tabBarIcon: ({ color }) => (
@@ -574,18 +721,6 @@ function PlayerStackNavigator() {
         }}
       />
       <Stack.Screen 
-        name="GlowLeaderboard" 
-        component={GlowLeaderboardScreen}
-        options={{
-          presentation: "card",
-          headerShown: true,
-          headerTitle: "Leaderboard",
-          headerStyle: { backgroundColor: '#090E17' },
-          headerTintColor: '#CCFF00',
-          headerTitleStyle: { color: '#ffffff', fontWeight: '600' },
-        }}
-      />
-      <Stack.Screen 
         name="FriendsList" 
         component={FriendsListScreen}
         options={{
@@ -661,18 +796,6 @@ function PlayerStackNavigator() {
         component={PlayerCoachProfileScreen}
         options={{
           presentation: "card",
-        }}
-      />
-      <Stack.Screen 
-        name="Quests" 
-        component={QuestsScreen}
-        options={{
-          presentation: "card",
-          headerShown: true,
-          headerTitle: "Quests",
-          headerStyle: { backgroundColor: Colors.dark.backgroundRoot },
-          headerTintColor: Colors.dark.text,
-          headerBackTitle: "Back",
         }}
       />
       <Stack.Screen 
@@ -772,90 +895,6 @@ function PlayerStackNavigator() {
         }}
       />
       <Stack.Screen 
-        name="Match" 
-        component={MatchScreen}
-        options={{
-          presentation: "card",
-          headerShown: true,
-          headerTitle: "Matches",
-          headerStyle: { backgroundColor: '#0a0f1a' },
-          headerTintColor: '#00ff88',
-          headerTitleStyle: { color: '#ffffff', fontWeight: '600' },
-        }}
-      />
-      <Stack.Screen 
-        name="MatchDetail" 
-        component={MatchDetailScreen}
-        options={{
-          presentation: "card",
-          headerShown: true,
-          headerTitle: "Match Details",
-          headerStyle: { backgroundColor: '#090E17' },
-          headerTintColor: '#CCFF00',
-          headerTitleStyle: { color: '#ffffff', fontWeight: '600' },
-        }}
-      />
-      <Stack.Screen 
-        name="SkillEvidence" 
-        component={SkillEvidenceScreen}
-        options={{
-          presentation: "card",
-          headerShown: true,
-          headerTitle: "Skill Evidence",
-          headerStyle: { backgroundColor: '#090E17' },
-          headerTintColor: '#CCFF00',
-          headerTitleStyle: { color: '#ffffff', fontWeight: '600' },
-        }}
-      />
-      <Stack.Screen 
-        name="TrialGates" 
-        component={TrialGatesScreen}
-        options={{
-          presentation: "card",
-          headerShown: true,
-          headerTitle: "Trial Gates",
-          headerStyle: { backgroundColor: '#090E17' },
-          headerTintColor: '#CCFF00',
-          headerTitleStyle: { color: '#ffffff', fontWeight: '600' },
-        }}
-      />
-      <Stack.Screen 
-        name="Collection" 
-        component={CollectionScreen}
-        options={{
-          presentation: "card",
-          headerShown: true,
-          headerTitle: "Collection",
-          headerStyle: { backgroundColor: '#090E17' },
-          headerTintColor: '#CCFF00',
-          headerTitleStyle: { color: '#ffffff', fontWeight: '600' },
-        }}
-      />
-      <Stack.Screen 
-        name="XPHistory" 
-        component={XPHistoryScreen}
-        options={{
-          presentation: "card",
-          headerShown: true,
-          headerTitle: "XP History",
-          headerStyle: { backgroundColor: '#090E17' },
-          headerTintColor: '#CCFF00',
-          headerTitleStyle: { color: '#ffffff', fontWeight: '600' },
-        }}
-      />
-      <Stack.Screen 
-        name="LevelUpHistory" 
-        component={LevelUpHistoryScreen}
-        options={{
-          presentation: "card",
-          headerShown: true,
-          headerTitle: "Level History",
-          headerStyle: { backgroundColor: '#090E17' },
-          headerTintColor: '#CCFF00',
-          headerTitleStyle: { color: '#ffffff', fontWeight: '600' },
-        }}
-      />
-      <Stack.Screen 
         name="BookingPreferences" 
         component={BookingPreferencesScreen}
         options={{
@@ -906,46 +945,6 @@ function PlayerStackNavigator() {
           />
         )}
       </Stack.Screen>
-      <Stack.Screen 
-        name="FeedbackCenter" 
-        component={FeedbackCenterScreen}
-        options={{
-          presentation: "card",
-          headerShown: false,
-        }}
-      />
-      <Stack.Screen 
-        name="CoachFeedbackHistory" 
-        component={CoachFeedbackHistoryScreen}
-        options={{
-          presentation: "card",
-          headerShown: false,
-        }}
-      />
-      <Stack.Screen 
-        name="Tournaments" 
-        component={TournamentsScreen}
-        options={{
-          presentation: "card",
-          headerShown: false,
-        }}
-      />
-      <Stack.Screen 
-        name="TournamentDetail" 
-        component={TournamentDetailScreen}
-        options={{
-          presentation: "card",
-          headerShown: false,
-        }}
-      />
-      <Stack.Screen 
-        name="LadderDetail" 
-        component={LadderDetailScreen}
-        options={{
-          presentation: "card",
-          headerShown: false,
-        }}
-      />
     </Stack.Navigator>
   );
 }
@@ -1032,7 +1031,7 @@ export default function PlayerNavigator() {
 }
 
 function PlayerQuickActionsFAB() {
-  const navigation = useNavigation<NativeStackNavigationProp<PlayerStackParamList>>();
+  const navigation = useNavigation<any>();
 
   const playerActions: QuickAction[] = [
     {
@@ -1047,7 +1046,7 @@ function PlayerQuickActionsFAB() {
       label: "Match",
       icon: "tennisball-outline",
       color: Colors.dark.xpCyan,
-      onPress: () => navigation.navigate("Match"),
+      onPress: () => navigation.navigate("PlayerTabs", { screen: "Schedule", params: { screen: "Match" } }),
     },
     {
       id: "messages",
@@ -1075,7 +1074,7 @@ function PlayerQuickActionsFAB() {
       label: "Quests",
       icon: "flag-outline",
       color: Colors.dark.successNeon,
-      onPress: () => navigation.navigate("Quests"),
+      onPress: () => navigation.navigate("PlayerTabs", { screen: "Progress", params: { screen: "Quests" } }),
     },
   ];
 

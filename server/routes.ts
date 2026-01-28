@@ -30362,12 +30362,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const topPlayers = await db.select({
         id: players.id,
         name: players.name,
-        profilePhotoUrl: players.profilePhotoUrl,
+        photoUrl: players.profilePhotoUrl,
         level: players.level,
         glowScore: players.glowScore,
         xp: players.xp,
         ballLevel: players.ballLevel,
-        profilePhotoUrl: players.profilePhotoUrl,
         academyId: players.academyId,
         streak: players.consecutiveDays,
       })
@@ -31127,17 +31126,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
       try {
         const { id } = req.params;
         const { level } = req.body;
+        const targetLevel = level || 50;
         
         // Level calculation: cumulative XP for each level
         let targetXp = 0;
-        for (let i = 1; i <= (level || 50); i++) {
+        for (let i = 1; i <= targetLevel; i++) {
           targetXp += Math.floor(100 + 50 * Math.pow(i - 1, 1.3));
         }
         
-        await storage.updatePlayer(id, { totalXp: targetXp });
+        // Update BOTH totalXp AND level field
+        await storage.updatePlayer(id, { totalXp: targetXp, level: targetLevel });
         
-        console.log(`[Dev] Set player ${id} to level ${level || 50} with ${targetXp} XP`);
-        res.json({ success: true, playerId: id, totalXp: targetXp, targetLevel: level || 50 });
+        console.log(`[Dev] Set player ${id} to level ${targetLevel} with ${targetXp} XP`);
+        res.json({ success: true, playerId: id, totalXp: targetXp, targetLevel });
       } catch (error) {
         console.error("Dev set player level error:", error);
         res.status(500).json({ error: "Failed to set player level" });
