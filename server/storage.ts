@@ -6360,6 +6360,8 @@ export const storage = {
     settledCount: number;
     totalDeducted: number;
   }> {
+    console.log(`[SettleDebts] Starting for player ${playerId}, creditType ${creditType}, package ${packageId}`);
+    
     // Find unsettled debt transactions for this player and credit type
     // CRITICAL: Check metadata.settled != true, not packageId
     const unsettledDebts = await db.select().from(creditTransactions)
@@ -6377,13 +6379,18 @@ export const storage = {
       ))
       .orderBy(creditTransactions.createdAt); // Settle oldest debts first
     
+    console.log(`[SettleDebts] Found ${unsettledDebts.length} debts with packageId=NULL for creditType=${creditType}`);
+    
     // Filter to only unsettled debts (metadata.settled != true)
     const trulyUnsettledDebts = unsettledDebts.filter(debt => {
       const meta = debt.metadata as Record<string, unknown> | null;
       return !meta?.settled;
     });
     
+    console.log(`[SettleDebts] After filtering settled: ${trulyUnsettledDebts.length} truly unsettled debts`);
+    
     if (trulyUnsettledDebts.length === 0) {
+      console.log(`[SettleDebts] No debts to settle for player ${playerId}`);
       return { settledCount: 0, totalDeducted: 0 };
     }
     
