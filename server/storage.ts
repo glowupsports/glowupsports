@@ -6322,11 +6322,12 @@ export const storage = {
         )
       ));
     
-    // Filter to only actual debts that are NOT settled
+    // Filter to only actual debts that are NOT settled and NOT cancelled
     const unpaidDebts = debtTransactions.filter(t => {
-      // First check if this debt was already settled
-      const meta = t.metadata as { isDebt?: boolean; settled?: boolean } | null;
+      // First check if this debt was already settled or cancelled
+      const meta = t.metadata as { isDebt?: boolean; settled?: boolean; cancelled?: boolean } | null;
       if (meta?.settled === true) return false; // Skip settled debts
+      if (meta?.cancelled === true) return false; // Skip cancelled debts
       
       if (t.reason === "session_unpaid" || t.reason === "session_join_debt" || t.reason === "session_debt") return true;
       if (meta?.isDebt === true) return true;
@@ -6354,6 +6355,62 @@ export const storage = {
       totalDebt,
       hasDebt: totalDebt > 0,
     };
+  },
+
+  // Cancel/reverse debt transaction when attendance changes to vacation/absent
+  // This removes the debt for a session that the player didn't actually attend
+  async cancelSessionDebt(playerId: string, sessionId: string): Promise<{ cancelled: boolean; amount: number }> {
+    console.log(`[CancelDebt] Checking for debt to cancel - player: ${playerId}, session: ${sessionId}`);
+    
+    // Find debt transactions for this player and session
+    const debtTransactions = await db.select().from(creditTransactions)
+      .where(and(
+        eq(creditTransactions.playerId, playerId),
+        eq(creditTransactions.sessionId, sessionId),
+        or(
+          eq(creditTransactions.reason, "session_debt"),
+          eq(creditTransactions.reason, "session_join_debt"),
+          eq(creditTransactions.reason, "session_unpaid"),
+          eq(creditTransactions.reason, "session_booking")
+        )
+      ));
+    
+    // Filter to actual debts (not settled)
+    const unsettledDebts = debtTransactions.filter(t => {
+      const meta = t.metadata as { isDebt?: boolean; settled?: boolean; cancelled?: boolean } | null;
+      if (meta?.settled === true || meta?.cancelled === true) return false;
+      if (t.reason === "session_debt" || t.reason === "session_join_debt" || t.reason === "session_unpaid") return true;
+      if (t.reason === "session_booking" && meta?.isDebt === true) return true;
+      if (t.reason === "session_booking" && !t.packageId) return true;
+      return false;
+    });
+    
+    if (unsettledDebts.length === 0) {
+      console.log(`[CancelDebt] No debt found to cancel`);
+      return { cancelled: false, amount: 0 };
+    }
+    
+    let totalCancelled = 0;
+    
+    for (const debt of unsettledDebts) {
+      // Mark debt as cancelled (don't delete - keep for audit trail)
+      await db.update(creditTransactions)
+        .set({
+          metadata: {
+            ...(debt.metadata as Record<string, unknown> || {}),
+            cancelled: true,
+            cancelledAt: new Date().toISOString(),
+            cancelReason: "attendance_changed_to_vacation"
+          }
+        })
+        .where(eq(creditTransactions.id, debt.id));
+      
+      totalCancelled += Math.abs(debt.amount);
+      console.log(`[CancelDebt] Cancelled debt transaction ${debt.id}, amount: ${debt.amount}`);
+    }
+    
+    console.log(`[CancelDebt] Total cancelled: ${totalCancelled} credits for player ${playerId}`);
+    return { cancelled: true, amount: totalCancelled };
   },
 
   // PATCH C: Settle player debts when a new package is purchased
@@ -6756,11 +6813,12 @@ export const storage = {
         )
       ));
     
-    // Filter to only include actual debts that are NOT settled
+    // Filter to only include actual debts that are NOT settled and NOT cancelled
     const unpaidDebts = debtTransactions.filter(t => {
-      // First check if this debt was already settled
-      const meta = t.metadata as { isDebt?: boolean; settled?: boolean } | null;
+      // First check if this debt was already settled or cancelled
+      const meta = t.metadata as { isDebt?: boolean; settled?: boolean; cancelled?: boolean } | null;
       if (meta?.settled === true) return false; // Skip settled debts
+      if (meta?.cancelled === true) return false; // Skip cancelled debts
       
       // session_unpaid and session_join_debt are always debt (unless settled)
       if (t.reason === "session_unpaid" || t.reason === "session_join_debt" || t.reason === "session_debt") return true;

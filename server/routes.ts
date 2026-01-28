@@ -4435,6 +4435,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
             record.absentReason
           );
           results.push(updated);
+          
+          // When attendance changes to vacation, cancel any debt for this session
+          if (record.status === "vacation") {
+            const cancelResult = await storage.cancelSessionDebt(record.playerId, id);
+            if (cancelResult.cancelled) {
+              console.log(`[Attendance] Cancelled ${cancelResult.amount} credits of debt for player ${record.playerId} due to vacation status`);
+            }
+          }
         }
         
         // Award XP for timely attendance marking (during class time)
@@ -16679,6 +16687,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
           record.absentReason
         );
         results.push(updated);
+          
+          // When attendance changes to vacation, cancel any debt for this session
+          if (record.status === "vacation") {
+            const cancelResult = await storage.cancelSessionDebt(record.playerId, id);
+            if (cancelResult.cancelled) {
+              console.log(`[Attendance] Cancelled ${cancelResult.amount} credits of debt for player ${record.playerId} due to vacation status`);
+            }
+          }
       }
 
       // Mark session as completed if all attendance is marked
