@@ -1155,11 +1155,41 @@ function GroupsSection() {
   const navigation = useNavigation<any>();
   const insets = useSafeAreaInsets();
   const tabBarHeight = useBottomTabBarHeight();
+  const queryClient = useQueryClient();
   const [groupFilter, setGroupFilter] = useState<GroupFilter>("all");
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [newGroupName, setNewGroupName] = useState("");
+  const [newGroupDescription, setNewGroupDescription] = useState("");
+  const [newGroupType, setNewGroupType] = useState<"social" | "friends">("social");
   
   const { data: groupsData, isLoading } = useQuery<Group[]>({
     queryKey: ["/api/social/groups"],
   });
+  
+  const createGroupMutation = useMutation({
+    mutationFn: async (data: { name: string; description: string; type: string }) => {
+      return apiRequest("/api/player/groups", {
+        method: "POST",
+        body: JSON.stringify(data),
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/social/groups"] });
+      setShowCreateModal(false);
+      setNewGroupName("");
+      setNewGroupDescription("");
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    },
+  });
+  
+  const handleCreateGroup = () => {
+    if (!newGroupName.trim() || newGroupName.length < 2) return;
+    createGroupMutation.mutate({
+      name: newGroupName.trim(),
+      description: newGroupDescription.trim(),
+      type: newGroupType,
+    });
+  };
   
   const allGroups = groupsData || [];
   
@@ -1270,11 +1300,108 @@ function GroupsSection() {
                   ? "Create or join social groups with fellow players"
                   : "Join groups to connect with players of similar skill levels"}
               </ThemedText>
+              {groupFilter !== "training" ? (
+                <Pressable 
+                  style={styles.createGroupBtn}
+                  onPress={() => {
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                    setShowCreateModal(true);
+                  }}
+                >
+                  <Ionicons name="add" size={18} color={Colors.dark.background} />
+                  <ThemedText style={styles.createGroupBtnText}>Create Group</ThemedText>
+                </Pressable>
+              ) : null}
             </View>
           }
           showsVerticalScrollIndicator={false}
         />
       )}
+      
+      {groupFilter !== "training" ? (
+        <Pressable 
+          style={[styles.createGroupFab, { bottom: tabBarHeight + 20 }]}
+          onPress={() => {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+            setShowCreateModal(true);
+          }}
+        >
+          <Ionicons name="add" size={28} color={Colors.dark.background} />
+        </Pressable>
+      ) : null}
+      
+      <Modal visible={showCreateModal} transparent animationType="fade">
+        <View style={styles.createGroupModalOverlay}>
+          <Animated.View entering={FadeInDown.springify()} style={styles.createGroupModalContent}>
+            <View style={styles.createGroupModalHeader}>
+              <ThemedText style={styles.createGroupModalTitle}>Create Group</ThemedText>
+              <Pressable onPress={() => setShowCreateModal(false)}>
+                <Ionicons name="close" size={24} color={Colors.dark.textSecondary} />
+              </Pressable>
+            </View>
+            
+            <View style={styles.createGroupForm}>
+              <View style={styles.createGroupInputGroup}>
+                <ThemedText style={styles.createGroupLabel}>Group Name</ThemedText>
+                <TextInput
+                  style={styles.createGroupInput}
+                  placeholder="Enter group name..."
+                  placeholderTextColor={Colors.dark.textMuted}
+                  value={newGroupName}
+                  onChangeText={setNewGroupName}
+                  maxLength={50}
+                />
+              </View>
+              
+              <View style={styles.createGroupInputGroup}>
+                <ThemedText style={styles.createGroupLabel}>Description (optional)</ThemedText>
+                <TextInput
+                  style={[styles.createGroupInput, styles.createGroupTextArea]}
+                  placeholder="What's this group about?"
+                  placeholderTextColor={Colors.dark.textMuted}
+                  value={newGroupDescription}
+                  onChangeText={setNewGroupDescription}
+                  multiline
+                  numberOfLines={3}
+                  maxLength={200}
+                />
+              </View>
+              
+              <View style={styles.createGroupInputGroup}>
+                <ThemedText style={styles.createGroupLabel}>Group Type</ThemedText>
+                <View style={styles.createGroupTypeRow}>
+                  <Pressable 
+                    style={[styles.createGroupTypeBtn, newGroupType === "social" && styles.createGroupTypeBtnActive]}
+                    onPress={() => setNewGroupType("social")}
+                  >
+                    <Ionicons name="people" size={18} color={newGroupType === "social" ? Colors.dark.background : Colors.dark.textSecondary} />
+                    <ThemedText style={[styles.createGroupTypeText, newGroupType === "social" && styles.createGroupTypeTextActive]}>Social</ThemedText>
+                  </Pressable>
+                  <Pressable 
+                    style={[styles.createGroupTypeBtn, newGroupType === "friends" && styles.createGroupTypeBtnActive]}
+                    onPress={() => setNewGroupType("friends")}
+                  >
+                    <Ionicons name="heart" size={18} color={newGroupType === "friends" ? Colors.dark.background : Colors.dark.textSecondary} />
+                    <ThemedText style={[styles.createGroupTypeText, newGroupType === "friends" && styles.createGroupTypeTextActive]}>Friends</ThemedText>
+                  </Pressable>
+                </View>
+              </View>
+            </View>
+            
+            <Pressable 
+              style={[styles.createGroupSubmitBtn, (!newGroupName.trim() || createGroupMutation.isPending) && styles.createGroupSubmitBtnDisabled]}
+              onPress={handleCreateGroup}
+              disabled={!newGroupName.trim() || createGroupMutation.isPending}
+            >
+              {createGroupMutation.isPending ? (
+                <ActivityIndicator size="small" color={Colors.dark.background} />
+              ) : (
+                <ThemedText style={styles.createGroupSubmitText}>Create Group</ThemedText>
+              )}
+            </Pressable>
+          </Animated.View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -4403,6 +4530,131 @@ const styles = StyleSheet.create({
   groupFilterTextActive: {
     color: Colors.dark.background,
     fontWeight: "600",
+  },
+  createGroupBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    backgroundColor: Colors.dark.primary,
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    borderRadius: BorderRadius.full,
+    marginTop: Spacing.lg,
+  },
+  createGroupBtnText: {
+    fontSize: 15,
+    fontWeight: "600",
+    color: Colors.dark.background,
+  },
+  createGroupFab: {
+    position: "absolute",
+    right: Spacing.lg,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: Colors.dark.primary,
+    alignItems: "center",
+    justifyContent: "center",
+    shadowColor: Colors.dark.primary,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 8,
+  },
+  createGroupModalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.7)",
+    justifyContent: "center",
+    alignItems: "center",
+    padding: Spacing.lg,
+  },
+  createGroupModalContent: {
+    width: "100%",
+    maxWidth: 400,
+    backgroundColor: Colors.dark.backgroundSecondary,
+    borderRadius: BorderRadius.xl,
+    padding: Spacing.lg,
+    borderWidth: 1,
+    borderColor: Colors.dark.border,
+  },
+  createGroupModalHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: Spacing.lg,
+  },
+  createGroupModalTitle: {
+    fontSize: 20,
+    fontWeight: "700",
+    color: Colors.dark.text,
+  },
+  createGroupForm: {
+    gap: Spacing.md,
+  },
+  createGroupInputGroup: {
+    gap: 6,
+  },
+  createGroupLabel: {
+    fontSize: 13,
+    fontWeight: "500",
+    color: Colors.dark.textSecondary,
+  },
+  createGroupInput: {
+    backgroundColor: Colors.dark.backgroundTertiary,
+    borderRadius: BorderRadius.md,
+    padding: Spacing.md,
+    fontSize: 15,
+    color: Colors.dark.text,
+    borderWidth: 1,
+    borderColor: Colors.dark.border,
+  },
+  createGroupTextArea: {
+    minHeight: 80,
+    textAlignVertical: "top",
+  },
+  createGroupTypeRow: {
+    flexDirection: "row",
+    gap: Spacing.sm,
+  },
+  createGroupTypeBtn: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    paddingVertical: 12,
+    borderRadius: BorderRadius.md,
+    backgroundColor: Colors.dark.backgroundTertiary,
+    borderWidth: 1,
+    borderColor: Colors.dark.border,
+  },
+  createGroupTypeBtnActive: {
+    backgroundColor: Colors.dark.primary,
+    borderColor: Colors.dark.primary,
+  },
+  createGroupTypeText: {
+    fontSize: 14,
+    fontWeight: "500",
+    color: Colors.dark.textSecondary,
+  },
+  createGroupTypeTextActive: {
+    color: Colors.dark.background,
+    fontWeight: "600",
+  },
+  createGroupSubmitBtn: {
+    backgroundColor: Colors.dark.primary,
+    paddingVertical: 14,
+    borderRadius: BorderRadius.md,
+    alignItems: "center",
+    marginTop: Spacing.lg,
+  },
+  createGroupSubmitBtnDisabled: {
+    opacity: 0.5,
+  },
+  createGroupSubmitText: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: Colors.dark.background,
   },
   groupCard: {
     flexDirection: "row",
