@@ -905,11 +905,11 @@ export const storage = {
         .from(sessions)
         .where(eq(sessions.coachId, coach.id));
       
-      // Calculate average rating from feedback
+      // Calculate average rating from coach reviews
       const feedbackResult = await db.select({
-        avgRating: sql<number>`AVG(overall_rating)`,
+        avgRating: sql<number>`AVG(CAST(overall_score AS NUMERIC))`,
         totalReviews: count(),
-      }).from(feedback).where(eq(feedback.coachId, coach.id));
+      }).from(coachReviews).where(eq(coachReviews.coachId, coach.id));
       
       // Get session type availability
       const privateSession = await db.select({ id: sessions.id })

@@ -27161,6 +27161,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
         !m.academyId || m.academyId === academyId
       );
 
+      // Filter out past matches - only show future or today's matches that haven't started
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      filteredMatches = filteredMatches.filter(m => {
+        if (!m.preferredDate) return true;
+        const matchDate = new Date(m.preferredDate);
+        matchDate.setHours(0, 0, 0, 0);
+        if (matchDate < today) return false;
+        // If today, check if the match time has passed
+        if (matchDate.getTime() === today.getTime() && m.preferredTime) {
+          const [hours, minutes] = m.preferredTime.split(':').map(Number);
+          const now = new Date();
+          const matchTime = new Date();
+          matchTime.setHours(hours || 0, minutes || 0, 0, 0);
+          return matchTime > now;
+        }
+        return true;
+      });
+
       // Transform to format expected by frontend
       const transformedMatches = filteredMatches.map(m => {
         let scheduledTime: string | null = null;
