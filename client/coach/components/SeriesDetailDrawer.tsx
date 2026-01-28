@@ -271,7 +271,9 @@ export default function SeriesDetailDrawer({
   // Reschedule session state
   const [showRescheduleModal, setShowRescheduleModal] = useState(false);
   const [rescheduleTime, setRescheduleTime] = useState<Date>(new Date());
+  const [rescheduleDate, setRescheduleDate] = useState<Date>(new Date());
   const [showRescheduleTimePicker, setShowRescheduleTimePicker] = useState(false);
+  const [showRescheduleDatePicker, setShowRescheduleDatePicker] = useState(false);
   const [reschedulingSession, setReschedulingSession] = useState(false);
 
   const { data: series, isLoading } = useQuery<SeriesDetail>({
@@ -825,6 +827,7 @@ export default function SeriesDetailDrawer({
     
     // For future sessions (not today), show reschedule modal
     if (!isPast && !isToday) {
+      setRescheduleDate(sessionDate);
       setRescheduleTime(sessionDate);
       setShowRescheduleModal(true);
       return;
@@ -874,9 +877,8 @@ export default function SeriesDetailDrawer({
     setReschedulingSession(true);
     
     try {
-      // Build new start/end times using the selected time but keep the original date
-      const originalDate = new Date(selectedSession.startTime);
-      const newStartTime = new Date(originalDate);
+      // Build new start/end times using the selected date AND time
+      const newStartTime = new Date(rescheduleDate);
       newStartTime.setHours(rescheduleTime.getHours(), rescheduleTime.getMinutes(), 0, 0);
       
       const duration = series?.duration || 60;
@@ -2892,8 +2894,8 @@ export default function SeriesDetailDrawer({
             
             <View style={styles.restoreModalHeader}>
               <View style={styles.restoreModalTitleRow}>
-                <Ionicons name="time-outline" size={28} color={Colors.dark.accentCyan} />
-                <Text style={styles.restoreModalTitle}>Edit Session Time</Text>
+                <Ionicons name="calendar-outline" size={28} color={Colors.dark.accentCyan} />
+                <Text style={styles.restoreModalTitle}>Reschedule Session</Text>
               </View>
               <Pressable 
                 onPress={() => setShowRescheduleModal(false)} 
@@ -2906,26 +2908,52 @@ export default function SeriesDetailDrawer({
             
             {selectedSession ? (
               <View style={styles.restoreSessionContent}>
-                <View style={styles.restoreSessionCard}>
-                  <LinearGradient
-                    colors={[Colors.dark.accentCyan + "25", Colors.dark.accentCyan + "08"]}
-                    style={styles.restoreSessionCardGradient}
-                  >
-                    <View style={styles.restoreSessionIconContainer}>
-                      <Ionicons name="calendar" size={36} color={Colors.dark.accentCyan} />
-                    </View>
-                    
-                    <Text style={styles.restoreSessionDate}>
-                      {formatDate(selectedSession.startTime)}
-                    </Text>
-                    <Text style={styles.restoreSessionWeek}>
-                      Week {selectedSession.weekNumber || "?"}
-                    </Text>
-                  </LinearGradient>
-                </View>
+                <Text style={[styles.sectionLabel, { marginBottom: Spacing.sm }]}>
+                  NEW DATE
+                </Text>
+                
+                {Platform.OS === "web" ? (
+                  <View style={styles.webTimePickerRow}>
+                    <TextInput
+                      style={styles.webTimeInput}
+                      value={rescheduleDate.toISOString().split('T')[0]}
+                      onChangeText={(text) => {
+                        const parsed = new Date(text);
+                        if (!isNaN(parsed.getTime())) {
+                          setRescheduleDate(parsed);
+                        }
+                      }}
+                      placeholder="YYYY-MM-DD"
+                      placeholderTextColor={Colors.dark.textMuted}
+                    />
+                  </View>
+                ) : (
+                  <>
+                    <Pressable
+                      onPress={() => setShowRescheduleDatePicker(true)}
+                      style={styles.timePickerButton}
+                    >
+                      <Ionicons name="calendar-outline" size={20} color={Colors.dark.accentCyan} />
+                      <Text style={styles.timePickerText}>
+                        {rescheduleDate.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })}
+                      </Text>
+                    </Pressable>
+                    {showRescheduleDatePicker && (
+                      <DateTimePicker
+                        value={rescheduleDate}
+                        mode="date"
+                        display="spinner"
+                        onChange={(_, date) => {
+                          setShowRescheduleDatePicker(false);
+                          if (date) setRescheduleDate(date);
+                        }}
+                      />
+                    )}
+                  </>
+                )}
                 
                 <Text style={[styles.sectionLabel, { marginTop: Spacing.lg, marginBottom: Spacing.sm }]}>
-                  NEW START TIME
+                  NEW TIME
                 </Text>
                 
                 {Platform.OS === "web" ? (
@@ -2993,7 +3021,7 @@ export default function SeriesDetailDrawer({
                     ) : (
                       <>
                         <Ionicons name="checkmark-circle" size={22} color={Colors.dark.text} />
-                        <Text style={styles.restoreButtonText}>Update Time</Text>
+                        <Text style={styles.restoreButtonText}>Reschedule</Text>
                       </>
                     )}
                   </LinearGradient>
