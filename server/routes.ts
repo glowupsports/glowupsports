@@ -30358,92 +30358,95 @@ export async function registerRoutes(app: Express): Promise<Server> {
         conditions.push(eq(players.academyId, academyId));
       }
       
-      // Determine sort order based on category
-      let orderColumn: any;
-      let orderSecondary: any = desc(players.xp);
-      
-      switch (category) {
-        case "xp":
-          orderColumn = desc(players.xp);
-          orderSecondary = desc(players.glowScore);
-          break;
-        case "dss_rating":
-          orderColumn = desc(players.glowMmr);
-          orderSecondary = desc(players.glowScore);
-          // Only include adult players with DSS ratings
-          conditions.push(eq(players.isAdult, true));
-          conditions.push(sql`COALESCE(${players.glowMmr}, 0) > 0`);
-          break;
-        case "ball_level":
-          // Use ball level order: yellow > green > orange > red
-          orderColumn = sql`CASE 
-            WHEN ${players.ballLevel} = 'yellow' THEN 1 
-            WHEN ${players.ballLevel} = 'green' THEN 2 
-            WHEN ${players.ballLevel} = 'orange' THEN 3 
-            WHEN ${players.ballLevel} = 'red' THEN 4 
-            ELSE 5 END`;
-          orderSecondary = desc(players.glowScore);
-          conditions.push(sql`${players.ballLevel} IS NOT NULL`);
-          break;
-        case "glow_score":
-        default:
-          orderColumn = desc(players.glowScore);
-          break;
+      // Add category-specific conditions
+      if (category === "dss_rating") {
+        conditions.push(eq(players.isAdult, true));
+        conditions.push(sql`COALESCE(${players.glowMmr}, 0) > 0`);
+      } else if (category === "ball_level") {
+        conditions.push(sql`${players.ballLevel} IS NOT NULL`);
       }
       
-      // Get top players
-      const topPlayers = await db.select({
-        id: players.id,
-        name: players.name,
-        photoUrl: players.profilePhotoUrl,
-        level: players.level,
-        glowScore: players.glowScore,
-        xp: players.xp,
-        ballLevel: players.ballLevel,
-        glowMmr: players.glowMmr,
-        academyId: players.academyId,
-        streak: players.consecutiveDays,
-        isAdult: players.isAdult,
-      })
-      .from(players)
-      .where(and(...conditions))
-      .orderBy(orderColumn, orderSecondary)
-      .limit(50);
+      // Get top players with simple ordering
+      let topPlayers: any[];
       
-      // Calculate current player's rank based on category
+      if (category === "xp") {
+        topPlayers = await db.select({
+          id: players.id,
+          name: players.name,
+          photoUrl: players.profilePhotoUrl,
+          level: players.level,
+          glowScore: players.glowScore,
+          xp: players.xp,
+          ballLevel: players.ballLevel,
+          glowMmr: players.glowMmr,
+          streak: players.consecutiveDays,
+        })
+        .from(players)
+        .where(and(...conditions))
+        .orderBy(desc(players.xp))
+        .limit(50);
+      } else if (category === "dss_rating") {
+        topPlayers = await db.select({
+          id: players.id,
+          name: players.name,
+          photoUrl: players.profilePhotoUrl,
+          level: players.level,
+          glowScore: players.glowScore,
+          xp: players.xp,
+          ballLevel: players.ballLevel,
+          glowMmr: players.glowMmr,
+          streak: players.consecutiveDays,
+        })
+        .from(players)
+        .where(and(...conditions))
+        .orderBy(desc(players.glowMmr))
+        .limit(50);
+      } else if (category === "ball_level") {
+        topPlayers = await db.select({
+          id: players.id,
+          name: players.name,
+          photoUrl: players.profilePhotoUrl,
+          level: players.level,
+          glowScore: players.glowScore,
+          xp: players.xp,
+          ballLevel: players.ballLevel,
+          glowMmr: players.glowMmr,
+          streak: players.consecutiveDays,
+        })
+        .from(players)
+        .where(and(...conditions))
+        .orderBy(desc(players.glowScore))
+        .limit(50);
+        // Sort by ball level manually
+        const ballOrder: Record<string, number> = { yellow: 1, green: 2, orange: 3, red: 4 };
+        topPlayers.sort((a, b) => (ballOrder[a.ballLevel] || 5) - (ballOrder[b.ballLevel] || 5));
+      } else {
+        // Default: glow_score
+        topPlayers = await db.select({
+          id: players.id,
+          name: players.name,
+          photoUrl: players.profilePhotoUrl,
+          level: players.level,
+          glowScore: players.glowScore,
+          xp: players.xp,
+          ballLevel: players.ballLevel,
+          glowMmr: players.glowMmr,
+          streak: players.consecutiveDays,
+        })
+        .from(players)
+        .where(and(...conditions))
+        .orderBy(desc(players.glowScore))
+        .limit(50);
+      }
+      
+      // Calculate current player's rank
       let myRank = 0;
       if (playerId) {
         const playerIndex = topPlayers.findIndex(p => p.id === playerId);
         if (playerIndex >= 0) {
           myRank = playerIndex + 1;
         } else {
-          // Player not in top 50, calculate rank
-          const [currentPlayerData] = await db.select({ 
-            glowScore: players.glowScore,
-            xp: players.xp,
-            glowMmr: players.glowMmr,
-            ballLevel: players.ballLevel,
-          })
-            .from(players)
-            .where(eq(players.id, playerId));
-          
-          if (currentPlayerData) {
-            let rankConditions: any[];
-            switch (category) {
-              case "xp":
-                rankConditions = [...conditions, sql`COALESCE(${players.xp}, 0) > ${currentPlayerData.xp || 0}`];
-                break;
-              case "dss_rating":
-                rankConditions = [...conditions, sql`COALESCE(${players.glowMmr}, 0) > ${currentPlayerData.glowMmr || 0}`];
-                break;
-              default:
-                rankConditions = [...conditions, sql`COALESCE(${players.glowScore}, 0) > ${currentPlayerData.glowScore || 0}`];
-            }
-            const [{ count: higherCount }] = await db.select({ count: count() })
-              .from(players)
-              .where(and(...rankConditions));
-            myRank = Number(higherCount) + 1;
-          }
+          myRank = topPlayers.length + 1;
         }
       }
       
@@ -30451,9 +30454,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const currentPlayer = playerId ? topPlayers.find(p => p.id === playerId) : null;
       
       // Helper to format DSS rating from MMR
-      const formatDssRating = (mmr: number) => {
-        const dss = mmr ? ((mmr - 1000) / 1000 * 3 + 3).toFixed(1) : null;
-        return dss;
+      const formatDssRating = (mmr: number | null) => {
+        if (!mmr) return null;
+        return ((mmr - 1000) / 1000 * 3 + 3).toFixed(1);
       };
       
       res.json({
@@ -30463,7 +30466,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         currentPlayer: currentPlayer ? {
           ...currentPlayer,
           rank: myRank,
-          dssRating: currentPlayer.glowMmr ? formatDssRating(currentPlayer.glowMmr) : null,
+          dssRating: formatDssRating(currentPlayer.glowMmr),
         } : null,
         rankings: topPlayers.map((p, idx) => ({
           rank: idx + 1,
@@ -30474,7 +30477,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           glowScore: p.glowScore || 0,
           xp: p.xp || 0,
           ballLevel: p.ballLevel,
-          dssRating: p.glowMmr ? formatDssRating(p.glowMmr) : null,
+          dssRating: formatDssRating(p.glowMmr),
           streak: p.streak || 0,
           isCurrentPlayer: p.id === playerId,
         })),
@@ -30484,7 +30487,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ error: "Failed to fetch leaderboard" });
     }
   });
-
   // Search players for connections
   app.get("/api/player/search", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
     try {

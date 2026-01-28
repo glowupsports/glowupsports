@@ -5473,6 +5473,7 @@ export const featureUnlockKeys = [
   "coach_profile_view",
   "training_history",
   "skill_journey",
+  "level_up_history",
   // Progress & Analysis
   "progress_overview",
   "skill_details",
