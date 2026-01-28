@@ -513,8 +513,14 @@ export function OpenMatchesRow() {
   const { state } = usePlayerState();
   const navigation = useNavigation<any>();
 
-  // Filter for open matches only (player vs player)
-  const openMatches = (state.openSessions ?? []).filter(s => s.type === "open_match");
+  // Filter for open matches only (player vs player) and only future matches
+  const now = new Date();
+  const openMatches = (state.openSessions ?? []).filter(s => {
+    if (s.type !== "open_match") return false;
+    const matchDate = (s as any).date || (s as any).startTime || (s as any).scheduledTime;
+    if (!matchDate) return true; // Show if no date (shouldn't happen)
+    return new Date(matchDate) > now;
+  });
 
   const handleMatchPress = (matchId: string) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
