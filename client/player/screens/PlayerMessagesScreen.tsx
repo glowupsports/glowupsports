@@ -124,7 +124,7 @@ export default function PlayerMessagesScreen() {
         ctaText="New Message"
         onPress={() => {
           Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-          navigation.navigate("FriendsList");
+          navigation.navigate("Community");
         }}
       />
     </View>

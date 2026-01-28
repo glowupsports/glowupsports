@@ -39,8 +39,6 @@ import MyLessonRequestsScreen from "@/player/screens/MyLessonRequestsScreen";
 import PlayerFinderScreen from "@/player/screens/PlayerFinderScreen";
 import GlowLeaderboardScreen from "@/player/screens/GlowLeaderboardScreen";
 import CreateMatchScreen from "@/player/screens/CreateMatchScreen";
-import FriendsListScreen from "@/player/screens/FriendsListScreen";
-import GroupsScreen from "@/player/screens/GroupsScreen";
 import GroupDetailScreen from "@/player/screens/GroupDetailScreen";
 import PlayerMessagesScreen from "@/player/screens/PlayerMessagesScreen";
 import PlayerNotificationsScreen from "@/player/screens/PlayerNotificationsScreen";
@@ -722,31 +720,12 @@ function PlayerStackNavigator() {
         }}
       />
       <Stack.Screen 
-        name="FriendsList" 
-        component={FriendsListScreen}
-        options={{
-          presentation: "card",
-        }}
-      />
-      <Stack.Screen 
         name="News" 
         component={NewsScreen}
         options={{
           presentation: "card",
           headerShown: true,
           headerTitle: "Tennis News",
-          headerStyle: { backgroundColor: '#090E17' },
-          headerTintColor: '#CCFF00',
-          headerTitleStyle: { color: '#ffffff', fontWeight: '600' },
-        }}
-      />
-      <Stack.Screen 
-        name="Groups" 
-        component={GroupsScreen}
-        options={{
-          presentation: "card",
-          headerShown: true,
-          headerTitle: "Groups",
           headerStyle: { backgroundColor: '#090E17' },
           headerTintColor: '#CCFF00',
           headerTitleStyle: { color: '#ffffff', fontWeight: '600' },
