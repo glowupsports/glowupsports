@@ -15734,6 +15734,72 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Admin endpoint to check and fix player academy assignments
+  app.get("/api/admin/players/academy-status", authMiddleware, requireRole("admin", "platform_owner"), async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      // Get all players with their academyId status
+      const allPlayers = await storage.getAllPlayers();
+      
+      const playersWithoutAcademy = allPlayers.filter(p => !p.academyId);
+      const playersWithAcademy = allPlayers.filter(p => p.academyId);
+      
+      // Group by academy
+      const byAcademy: Record<string, { name: string; count: number }> = {};
+      for (const player of playersWithAcademy) {
+        if (!byAcademy[player.academyId!]) {
+          const academy = await storage.getAcademy(player.academyId!);
+          byAcademy[player.academyId!] = { name: academy?.name || "Unknown", count: 0 };
+        }
+        byAcademy[player.academyId!].count++;
+      }
+      
+      res.json({
+        total: allPlayers.length,
+        withAcademy: playersWithAcademy.length,
+        withoutAcademy: playersWithoutAcademy.length,
+        orphanedPlayers: playersWithoutAcademy.map(p => ({ id: p.id, name: p.name, email: p.email })),
+        byAcademy,
+      });
+    } catch (error) {
+      console.error("Admin academy status error:", error);
+      res.status(500).json({ error: "Failed to get academy status" });
+    }
+  });
+
+  // Admin endpoint to assign players to an academy
+  app.post("/api/admin/players/assign-academy", authMiddleware, requireRole("admin", "platform_owner"), async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const { playerIds, academyId } = req.body;
+      
+      if (!playerIds || !Array.isArray(playerIds) || !academyId) {
+        return res.status(400).json({ error: "playerIds array and academyId are required" });
+      }
+      
+      // Verify academy exists
+      const academy = await storage.getAcademy(academyId);
+      if (!academy) {
+        return res.status(404).json({ error: "Academy not found" });
+      }
+      
+      // Update each player
+      const results = [];
+      for (const playerId of playerIds) {
+        try {
+          await storage.updatePlayer(playerId, { academyId });
+          results.push({ playerId, success: true });
+        } catch (error) {
+          results.push({ playerId, success: false, error: String(error) });
+        }
+      }
+      
+      res.json({ success: true, results, academyName: academy.name });
+    } catch (error) {
+      console.error("Admin assign academy error:", error);
+      res.status(500).json({ error: "Failed to assign academy" });
+    }
+  });
+
+
   // REPAIR JOB: Fix player credit data
   app.post("/api/admin/players/:id/repair-credits", authMiddleware, requireRole("admin", "academy_owner", "platform_owner"), async (req: AuthenticatedRequest, res: Response) => {
     try {
