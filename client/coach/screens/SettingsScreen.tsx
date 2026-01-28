@@ -1494,34 +1494,6 @@ export default function SettingsScreen() {
         </View>
 
         <View style={styles.section}>
-          <View style={styles.devToolsHeader}>
-            <Ionicons name="code-slash" size={16} color="#E67E22" />
-            <Text style={styles.devToolsTitle}>DEVELOPER TOOLS</Text>
-          </View>
-          <View style={styles.devToolsCard}>
-            <Text style={styles.devToolsNote}>
-              Test push notifications and simulate events. Requires Expo Go with notifications enabled.
-            </Text>
-            
-            <GradientButton
-              onPress={handleTestPushNotification}
-              label="Test Push Notification"
-              icon="notifications"
-              colors={["#E67E22", "#D35400"]}
-              loading={testPushLoading}
-            />
-
-            <GradientButton
-              onPress={handleTestBookingRequest}
-              label="Simulate Booking Request"
-              icon="calendar"
-              colors={["#E67E22", "#D35400"]}
-              loading={testBookingLoading}
-            />
-          </View>
-        </View>
-
-        <View style={styles.section}>
           <Pressable
             style={styles.logoutButton}
             onPress={() => {
