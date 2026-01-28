@@ -4679,6 +4679,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (session.status === "scheduled") {
         await storage.updateSession(id, { status: "completed" });
         console.log(`[Attendance] Auto-completed session ${id} after attendance save`);
+        
+        // Check if player is eligible for coach review prompt (3+ sessions)
+        if (playerId && session.coachId) {
+          try {
+            const sessionCount = await storage.getPlayerCoachSessionCount(playerId, session.coachId);
+            const hasExistingReview = await storage.hasPlayerReviewedCoach(playerId, session.coachId);
+            const hasPendingPrompt = await storage.getPendingReviewPrompt(playerId, session.coachId);
+            
+            if (sessionCount >= 3 && !hasExistingReview && !hasPendingPrompt) {
+              await storage.createReviewPrompt({
+                playerId,
+                coachId: session.coachId,
+                academyId: session.academyId || req.user?.academyId || "",
+                triggerType: "session_milestone",
+                sessionId: id,
+                isDismissed: false,
+              });
+              console.log(`[ReviewPrompt] Created review prompt for player ${playerId} after ${sessionCount} sessions with coach ${session.coachId}`);
+            }
+          } catch (promptError) {
+            console.error("[ReviewPrompt] Error creating review prompt:", promptError);
+          }
+        }
       }
       
       // Award XP for timely attendance marking (during class time)
