@@ -40,6 +40,7 @@ import PlayerFinderScreen from "@/player/screens/PlayerFinderScreen";
 import GlowLeaderboardScreen from "@/player/screens/GlowLeaderboardScreen";
 import CreateMatchScreen from "@/player/screens/CreateMatchScreen";
 import GroupDetailScreen from "@/player/screens/GroupDetailScreen";
+import GroupsScreen from "@/player/screens/GroupsScreen";
 import PlayerMessagesScreen from "@/player/screens/PlayerMessagesScreen";
 import PlayerNotificationsScreen from "@/player/screens/PlayerNotificationsScreen";
 import PlayerHelpScreen from "@/player/screens/PlayerHelpScreen";
@@ -729,6 +730,14 @@ function PlayerStackNavigator() {
           headerStyle: { backgroundColor: '#090E17' },
           headerTintColor: '#CCFF00',
           headerTitleStyle: { color: '#ffffff', fontWeight: '600' },
+        }}
+      />
+      <Stack.Screen 
+        name="Groups" 
+        component={GroupsScreen}
+        options={{
+          presentation: "card",
+          headerShown: false,
         }}
       />
       <Stack.Screen 

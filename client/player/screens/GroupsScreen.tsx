@@ -302,7 +302,7 @@ export default function GroupsScreen({ navigation }: Props) {
       </Text>
       {activeTab === "my" && (
         <Pressable style={styles.emptyButton} onPress={() => setShowCreateModal(true)}>
-          <Ionicons name="add" size={18} color={Colors.dark.backgroundRoot} />
+          <Ionicons name="add" size={18} color={Colors.dark.primary} />
           <Text style={styles.emptyButtonText}>Create Group</Text>
         </Pressable>
       )}
@@ -313,6 +313,14 @@ export default function GroupsScreen({ navigation }: Props) {
     <LockedScreen featureKey="groups">
       <View style={[styles.container, { paddingTop: insets.top }]}>
         <View style={styles.header}>
+          <Pressable onPress={() => navigation.goBack()} style={styles.backButton}>
+            <Ionicons name="arrow-back" size={24} color={Colors.dark.primary} />
+          </Pressable>
+          <Text style={styles.headerTitle}>Groups</Text>
+          <View style={{ width: 40 }} />
+        </View>
+
+        <View style={styles.titleRow}>
           <Text style={styles.title}>Groups</Text>
           <Pressable 
             style={styles.createIconButton}
@@ -323,70 +331,70 @@ export default function GroupsScreen({ navigation }: Props) {
           >
             <Ionicons name="add-circle" size={28} color={Colors.dark.primary} />
           </Pressable>
-      </View>
-
-      <View style={styles.tabs}>
-        <Pressable 
-          style={[styles.tab, activeTab === "my" && styles.tabActive]}
-          onPress={() => setActiveTab("my")}
-        >
-          <Text style={[styles.tabText, activeTab === "my" && styles.tabTextActive]}>My Groups</Text>
-          {data?.myGroups?.length ? (
-            <View style={styles.tabBadge}>
-              <Text style={styles.tabBadgeText}>{data.myGroups.length}</Text>
-            </View>
-          ) : null}
-        </Pressable>
-        <Pressable 
-          style={[styles.tab, activeTab === "discover" && styles.tabActive]}
-          onPress={() => setActiveTab("discover")}
-        >
-          <Text style={[styles.tabText, activeTab === "discover" && styles.tabTextActive]}>Discover</Text>
-          {data?.discover?.length ? (
-            <View style={styles.tabBadge}>
-              <Text style={styles.tabBadgeText}>{data.discover.length}</Text>
-            </View>
-          ) : null}
-        </Pressable>
-      </View>
-
-      {isLoading ? (
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={Colors.dark.primary} />
         </View>
-      ) : (
-        <FlatList
-          data={displayGroups}
-          keyExtractor={(item) => item.id}
-          renderItem={({ item }) => (
-            <GroupCard
-              group={item}
-              onPress={() => handleGroupPress(item)}
-              onJoin={() => joinMutation.mutate(item.id)}
-              onLeave={() => handleLeave(item)}
-            />
-          )}
-          contentContainerStyle={[
-            styles.listContent,
-            { paddingBottom: tabBarHeight + Spacing.xl },
-            displayGroups.length === 0 && styles.emptyListContent,
-          ]}
-          refreshControl={
-            <RefreshControl
-              refreshing={isRefetching}
-              onRefresh={refetch}
-              tintColor={Colors.dark.primary}
-            />
-          }
-          ListEmptyComponent={renderEmptyState}
-        />
-      )}
 
-      <CreateGroupModal
-        visible={showCreateModal}
-        onClose={() => setShowCreateModal(false)}
-        onCreate={(data) => createMutation.mutate(data)}
-      />
+        <View style={styles.tabs}>
+          <Pressable 
+            style={[styles.tab, activeTab === "my" && styles.tabActive]}
+            onPress={() => setActiveTab("my")}
+          >
+            <Text style={[styles.tabText, activeTab === "my" && styles.tabTextActive]}>My Groups</Text>
+            {data?.myGroups?.length ? (
+              <View style={styles.tabBadge}>
+                <Text style={styles.tabBadgeText}>{data.myGroups.length}</Text>
+              </View>
+            ) : null}
+          </Pressable>
+          <Pressable 
+            style={[styles.tab, activeTab === "discover" && styles.tabActive]}
+            onPress={() => setActiveTab("discover")}
+          >
+            <Text style={[styles.tabText, activeTab === "discover" && styles.tabTextActive]}>Discover</Text>
+            {data?.discover?.length ? (
+              <View style={styles.tabBadge}>
+                <Text style={styles.tabBadgeText}>{data.discover.length}</Text>
+              </View>
+            ) : null}
+          </Pressable>
+        </View>
+
+        {isLoading ? (
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator size="large" color={Colors.dark.primary} />
+          </View>
+        ) : (
+          <FlatList
+            data={displayGroups}
+            keyExtractor={(item) => item.id}
+            renderItem={({ item }) => (
+              <GroupCard
+                group={item}
+                onPress={() => handleGroupPress(item)}
+                onJoin={() => joinMutation.mutate(item.id)}
+                onLeave={() => handleLeave(item)}
+              />
+            )}
+            contentContainerStyle={[
+              styles.listContent,
+              { paddingBottom: tabBarHeight + Spacing.xl },
+              displayGroups.length === 0 && styles.emptyListContent,
+            ]}
+            refreshControl={
+              <RefreshControl
+                refreshing={isRefetching}
+                onRefresh={refetch}
+                tintColor={Colors.dark.primary}
+              />
+            }
+            ListEmptyComponent={renderEmptyState}
+          />
+        )}
+
+        <CreateGroupModal
+          visible={showCreateModal}
+          onClose={() => setShowCreateModal(false)}
+          onCreate={(data) => createMutation.mutate(data)}
+        />
       </View>
     </LockedScreen>
   );
@@ -398,6 +406,24 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.dark.backgroundRoot,
   },
   header: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm,
+  },
+  backButton: {
+    width: 40,
+    height: 40,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  headerTitle: {
+    fontSize: 17,
+    fontWeight: "600",
+    color: Colors.dark.text,
+  },
+  titleRow: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
@@ -427,7 +453,7 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.dark.backgroundSecondary,
   },
   tabActive: {
-    backgroundColor: Colors.dark.primary + "20",
+    backgroundColor: Colors.dark.primary,
   },
   tabText: {
     fontSize: 14,
@@ -435,11 +461,11 @@ const styles = StyleSheet.create({
     color: Colors.dark.textMuted,
   },
   tabTextActive: {
-    color: Colors.dark.primary,
+    color: Colors.dark.backgroundRoot,
   },
   tabBadge: {
     marginLeft: Spacing.xs,
-    backgroundColor: Colors.dark.primary,
+    backgroundColor: Colors.dark.backgroundRoot,
     borderRadius: BorderRadius.full,
     paddingHorizontal: 6,
     paddingVertical: 2,
@@ -449,7 +475,7 @@ const styles = StyleSheet.create({
   tabBadgeText: {
     fontSize: 11,
     fontWeight: "700",
-    color: Colors.dark.backgroundRoot,
+    color: Colors.dark.text,
   },
   loadingContainer: {
     flex: 1,
@@ -551,7 +577,6 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontWeight: "600",
     color: Colors.dark.text,
-    marginTop: Spacing.lg,
   },
   emptySubtitle: {
     fontSize: 14,
@@ -563,7 +588,9 @@ const styles = StyleSheet.create({
   emptyButton: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: Colors.dark.primary,
+    backgroundColor: "transparent",
+    borderWidth: 1.5,
+    borderColor: Colors.dark.primary,
     paddingHorizontal: Spacing.lg,
     paddingVertical: Spacing.sm,
     borderRadius: BorderRadius.full,
@@ -573,7 +600,7 @@ const styles = StyleSheet.create({
   emptyButtonText: {
     fontSize: 14,
     fontWeight: "600",
-    color: Colors.dark.backgroundRoot,
+    color: Colors.dark.primary,
   },
   modalOverlay: {
     flex: 1,

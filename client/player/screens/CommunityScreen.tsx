@@ -1308,7 +1308,7 @@ function GroupsSection() {
                     setShowCreateModal(true);
                   }}
                 >
-                  <Ionicons name="add" size={18} color={Colors.dark.background} />
+                  <Ionicons name="add" size={18} color={Colors.dark.primary} />
                   <ThemedText style={styles.createGroupBtnText}>Create Group</ThemedText>
                 </Pressable>
               ) : null}
@@ -4535,16 +4535,18 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 6,
-    backgroundColor: Colors.dark.primary,
+    backgroundColor: "transparent",
     paddingVertical: 12,
     paddingHorizontal: 20,
     borderRadius: BorderRadius.full,
+    borderWidth: 1.5,
+    borderColor: Colors.dark.primary,
     marginTop: Spacing.lg,
   },
   createGroupBtnText: {
     fontSize: 15,
     fontWeight: "600",
-    color: Colors.dark.background,
+    color: Colors.dark.primary,
   },
   createGroupFab: {
     position: "absolute",
