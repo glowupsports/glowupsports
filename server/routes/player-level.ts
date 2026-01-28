@@ -670,6 +670,7 @@ router.post("/seed-defaults", async (req: Request, res: Response) => {
       { featureKey: "progress_overview", requiredLevel: 5, featureName: "Progress Overview", featureIcon: "stats-chart", onboardingTitle: "Progress Overview Unlocked!", onboardingDescription: "Track your improvement across all skill areas" },
       { featureKey: "skill_details", requiredLevel: 5, featureName: "Skill Details", featureIcon: "analytics" },
       { featureKey: "glow_leaderboard", requiredLevel: 5, featureName: "Leaderboard", featureIcon: "podium", onboardingTitle: "Leaderboard Unlocked!", onboardingDescription: "See how you rank against other players" },
+      { featureKey: "collection", requiredLevel: 1, featureName: "Collection", featureIcon: "ribbon", featureDescription: "View your badges and titles" },
       // Level 6 - Social expansion
       { featureKey: "player_finder", requiredLevel: 6, featureName: "Player Finder", featureIcon: "search", onboardingTitle: "Player Finder Unlocked!", onboardingDescription: "Find other players to train and compete with" },
       { featureKey: "friends_list", requiredLevel: 6, featureName: "Friends", featureIcon: "people-circle" },

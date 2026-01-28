@@ -23,17 +23,27 @@ interface RankedPlayer {
   glowScore: number;
   xp: number;
   ballLevel: string | null;
+  dssRating: string | null;
   streak: number;
   isCurrentPlayer: boolean;
 }
 
 interface LeaderboardData {
   scope: string;
-  period: string;
+  category: string;
   myRank: number;
   currentPlayer: RankedPlayer | null;
   rankings: RankedPlayer[];
 }
+
+type CategoryKey = "glow_score" | "xp" | "dss_rating" | "ball_level";
+
+const CATEGORIES: { key: CategoryKey; label: string; icon: string; color: string }[] = [
+  { key: "glow_score", label: "Glow", icon: "flame", color: Colors.dark.gold },
+  { key: "xp", label: "XP", icon: "star", color: Colors.dark.primary },
+  { key: "dss_rating", label: "DSS", icon: "analytics", color: "#8B5CF6" },
+  { key: "ball_level", label: "Level", icon: "tennisball", color: "#10B981" },
+];
 
 function getRankColor(rank: number): string {
   if (rank === 1) return Colors.dark.gold;
@@ -148,40 +158,72 @@ function RankingRow({ player, index }: { player: RankedPlayer; index: number }) 
   );
 }
 
+function getCategoryScoreDisplay(player: RankedPlayer, category: CategoryKey) {
+  switch (category) {
+    case "xp":
+      return { value: player.xp?.toLocaleString() || "0", icon: "star", color: Colors.dark.primary };
+    case "dss_rating":
+      return { value: player.dssRating || "—", icon: "analytics", color: "#8B5CF6" };
+    case "ball_level":
+      const ballColors: Record<string, string> = { red: "#EF4444", orange: "#F97316", green: "#10B981", yellow: "#EAB308" };
+      return { value: player.ballLevel?.charAt(0).toUpperCase() + (player.ballLevel?.slice(1) || "") || "—", icon: "tennisball", color: ballColors[player.ballLevel || ""] || Colors.dark.textMuted };
+    case "glow_score":
+    default:
+      return { value: player.glowScore?.toString() || "0", icon: "flame", color: Colors.dark.gold };
+  }
+}
+
 export default function GlowLeaderboardScreen() {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation();
   const [scope, setScope] = useState<"academy" | "global">("academy");
+  const [category, setCategory] = useState<CategoryKey>("glow_score");
   
   const { data, isLoading, refetch, isRefetching, isError } = useQuery<LeaderboardData>({
-    queryKey: ["/api/player/leaderboard", scope],
-    queryFn: () => apiFetch(`/api/player/leaderboard?scope=${scope}`),
+    queryKey: ["/api/player/leaderboard", scope, category],
+    queryFn: () => apiFetch(`/api/player/leaderboard?scope=${scope}&category=${category}`),
   });
 
   const topThree = data?.rankings?.slice(0, 3) ?? [];
   const restOfRankings = data?.rankings?.slice(3) ?? [];
+  const currentCat = CATEGORIES.find(c => c.key === category) || CATEGORIES[0];
 
   return (
     <LockedScreen featureKey="glow_leaderboard">
       <View style={styles.container}>
         <View style={styles.scopeToggle}>
-        <Pressable
-          style={[styles.scopeButton, scope === "academy" && styles.scopeButtonActive]}
-          onPress={() => setScope("academy")}
-        >
-          <ThemedText style={[styles.scopeText, scope === "academy" && styles.scopeTextActive]}>
-            Academy
-          </ThemedText>
-        </Pressable>
-        <Pressable
-          style={[styles.scopeButton, scope === "global" && styles.scopeButtonActive]}
-          onPress={() => setScope("global")}
-        >
-          <ThemedText style={[styles.scopeText, scope === "global" && styles.scopeTextActive]}>
-            Global
-          </ThemedText>
-        </Pressable>
-      </View>
+          <Pressable
+            style={[styles.scopeButton, scope === "academy" && styles.scopeButtonActive]}
+            onPress={() => { Haptics.selectionAsync(); setScope("academy"); }}
+          >
+            <ThemedText style={[styles.scopeText, scope === "academy" && styles.scopeTextActive]}>
+              Academy
+            </ThemedText>
+          </Pressable>
+          <Pressable
+            style={[styles.scopeButton, scope === "global" && styles.scopeButtonActive]}
+            onPress={() => { Haptics.selectionAsync(); setScope("global"); }}
+          >
+            <ThemedText style={[styles.scopeText, scope === "global" && styles.scopeTextActive]}>
+              Global
+            </ThemedText>
+          </Pressable>
+        </View>
+        
+        <View style={styles.categoryTabs}>
+          {CATEGORIES.map((cat) => (
+            <Pressable
+              key={cat.key}
+              style={[styles.categoryTab, category === cat.key && { backgroundColor: cat.color + "20", borderColor: cat.color }]}
+              onPress={() => { Haptics.selectionAsync(); setCategory(cat.key); }}
+            >
+              <Ionicons name={cat.icon as any} size={14} color={category === cat.key ? cat.color : Colors.dark.textMuted} />
+              <ThemedText style={[styles.categoryLabel, category === cat.key && { color: cat.color }]}>
+                {cat.label}
+              </ThemedText>
+            </Pressable>
+          ))}
+        </View>
 
       {isLoading ? (
         <View style={styles.loadingContainer}>
@@ -274,6 +316,30 @@ const styles = StyleSheet.create({
   },
   scopeTextActive: {
     color: Colors.dark.backgroundRoot,
+  },
+  categoryTabs: {
+    flexDirection: "row",
+    marginHorizontal: Spacing.lg,
+    marginBottom: Spacing.md,
+    gap: Spacing.xs,
+  },
+  categoryTab: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 4,
+    paddingVertical: Spacing.sm,
+    paddingHorizontal: Spacing.xs,
+    borderRadius: BorderRadius.md,
+    backgroundColor: Colors.dark.card,
+    borderWidth: 1,
+    borderColor: "transparent",
+  },
+  categoryLabel: {
+    fontSize: 11,
+    fontWeight: "600",
+    color: Colors.dark.textMuted,
   },
   loadingContainer: {
     flex: 1,

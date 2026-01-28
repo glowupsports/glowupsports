@@ -30350,15 +30350,48 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const academyId = req.user!.academyId;
       const playerId = req.user!.playerId;
       const scope = (req.query.scope as string) || "academy";
-      const period = (req.query.period as string) || "weekly";
+      const category = (req.query.category as string) || "glow_score";
       
-      // Build conditions array, filtering out undefined
-      const conditions = [eq(players.status, "active")];
+      // Build conditions array
+      const conditions: any[] = [eq(players.status, "active")];
       if (scope === "academy" && academyId) {
         conditions.push(eq(players.academyId, academyId));
       }
       
-      // Get top players by Glow Score
+      // Determine sort order based on category
+      let orderColumn: any;
+      let orderSecondary: any = desc(players.xp);
+      
+      switch (category) {
+        case "xp":
+          orderColumn = desc(players.xp);
+          orderSecondary = desc(players.glowScore);
+          break;
+        case "dss_rating":
+          orderColumn = desc(players.glowMmr);
+          orderSecondary = desc(players.glowScore);
+          // Only include adult players with DSS ratings
+          conditions.push(eq(players.isAdult, true));
+          conditions.push(sql`COALESCE(${players.glowMmr}, 0) > 0`);
+          break;
+        case "ball_level":
+          // Use ball level order: yellow > green > orange > red
+          orderColumn = sql`CASE 
+            WHEN ${players.ballLevel} = 'yellow' THEN 1 
+            WHEN ${players.ballLevel} = 'green' THEN 2 
+            WHEN ${players.ballLevel} = 'orange' THEN 3 
+            WHEN ${players.ballLevel} = 'red' THEN 4 
+            ELSE 5 END`;
+          orderSecondary = desc(players.glowScore);
+          conditions.push(sql`${players.ballLevel} IS NOT NULL`);
+          break;
+        case "glow_score":
+        default:
+          orderColumn = desc(players.glowScore);
+          break;
+      }
+      
+      // Get top players
       const topPlayers = await db.select({
         id: players.id,
         name: players.name,
@@ -30367,47 +30400,70 @@ export async function registerRoutes(app: Express): Promise<Server> {
         glowScore: players.glowScore,
         xp: players.xp,
         ballLevel: players.ballLevel,
+        glowMmr: players.glowMmr,
         academyId: players.academyId,
         streak: players.consecutiveDays,
+        isAdult: players.isAdult,
       })
       .from(players)
       .where(and(...conditions))
-      .orderBy(desc(players.glowScore), desc(players.xp))
+      .orderBy(orderColumn, orderSecondary)
       .limit(50);
       
-      // Calculate current player's rank
+      // Calculate current player's rank based on category
       let myRank = 0;
       if (playerId) {
         const playerIndex = topPlayers.findIndex(p => p.id === playerId);
         if (playerIndex >= 0) {
           myRank = playerIndex + 1;
         } else {
-          // Player not in top 50, get their glow score first
-          const [currentPlayerData] = await db.select({ glowScore: players.glowScore })
+          // Player not in top 50, calculate rank
+          const [currentPlayerData] = await db.select({ 
+            glowScore: players.glowScore,
+            xp: players.xp,
+            glowMmr: players.glowMmr,
+            ballLevel: players.ballLevel,
+          })
             .from(players)
             .where(eq(players.id, playerId));
           
-          const myGlowScore = currentPlayerData?.glowScore || 0;
-          
-          // Count players with higher glow score
-          const rankConditions = [...conditions, sql`COALESCE(${players.glowScore}, 0) > ${myGlowScore}`];
-          const [{ count: higherCount }] = await db.select({ count: count() })
-            .from(players)
-            .where(and(...rankConditions));
-          myRank = Number(higherCount) + 1;
+          if (currentPlayerData) {
+            let rankConditions: any[];
+            switch (category) {
+              case "xp":
+                rankConditions = [...conditions, sql`COALESCE(${players.xp}, 0) > ${currentPlayerData.xp || 0}`];
+                break;
+              case "dss_rating":
+                rankConditions = [...conditions, sql`COALESCE(${players.glowMmr}, 0) > ${currentPlayerData.glowMmr || 0}`];
+                break;
+              default:
+                rankConditions = [...conditions, sql`COALESCE(${players.glowScore}, 0) > ${currentPlayerData.glowScore || 0}`];
+            }
+            const [{ count: higherCount }] = await db.select({ count: count() })
+              .from(players)
+              .where(and(...rankConditions));
+            myRank = Number(higherCount) + 1;
+          }
         }
       }
       
       // Get current player's data
       const currentPlayer = playerId ? topPlayers.find(p => p.id === playerId) : null;
       
+      // Helper to format DSS rating from MMR
+      const formatDssRating = (mmr: number) => {
+        const dss = mmr ? ((mmr - 1000) / 1000 * 3 + 3).toFixed(1) : null;
+        return dss;
+      };
+      
       res.json({
         scope,
-        period,
+        category,
         myRank,
         currentPlayer: currentPlayer ? {
           ...currentPlayer,
           rank: myRank,
+          dssRating: currentPlayer.glowMmr ? formatDssRating(currentPlayer.glowMmr) : null,
         } : null,
         rankings: topPlayers.map((p, idx) => ({
           rank: idx + 1,
@@ -30418,6 +30474,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           glowScore: p.glowScore || 0,
           xp: p.xp || 0,
           ballLevel: p.ballLevel,
+          dssRating: p.glowMmr ? formatDssRating(p.glowMmr) : null,
           streak: p.streak || 0,
           isCurrentPlayer: p.id === playerId,
         })),

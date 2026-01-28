@@ -5485,6 +5485,7 @@ export const featureUnlockKeys = [
   "groups",
   "public_profile",
   "glow_leaderboard",
+  "collection",
   // Shop & Marketplace
   "academy_shop",
   "marketplace",
