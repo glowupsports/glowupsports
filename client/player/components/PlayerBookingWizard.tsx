@@ -11,6 +11,7 @@ import {
   Platform,
   Dimensions,
   ScrollView,
+  FlatList,
 } from "react-native";
 import { Image } from "expo-image";
 import { useNavigation } from "@react-navigation/native";
@@ -38,6 +39,8 @@ import { Colors, Typography, Spacing, BorderRadius, Backgrounds, GlowColors } fr
 import { apiRequest, apiFetch, getApiUrl, getStaticAssetsUrl } from "@/lib/query-client";
 import { AnimatedCheck } from "@/components/AnimatedCheck";
 import { SuccessToast } from "@/components/SuccessToast";
+import BookingCoachCard from "./BookingCoachCard";
+import CoachProfileDrawer from "./CoachProfileDrawer";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 
@@ -46,6 +49,25 @@ interface Coach {
   name: string;
   profilePhotoUrl?: string | null;
   color?: string | null;
+}
+
+interface DirectoryCoach {
+  id: string;
+  name: string;
+  photoUrl?: string | null;
+  specialty?: string | null;
+  yearsExperience?: string | null;
+  specializations?: string[] | null;
+  languages?: string[] | null;
+  level?: number | null;
+  openToOpportunities?: boolean | null;
+  academyId?: string | null;
+  academyName?: string | null;
+  rating?: number | null;
+  totalStudents?: number | null;
+  bio?: string | null;
+  certifications?: string[] | null;
+  ballLevels?: string[] | null;
 }
 
 interface Location {
@@ -258,6 +280,32 @@ export default function PlayerBookingWizard({
     enabled: visible,
   });
 
+  // Fetch detailed coaches from directory for the new coach selection screen
+  const { data: directoryData, isLoading: directoryLoading } = useQuery<{ coaches: DirectoryCoach[] }>({
+    queryKey: ["/api/coaches/directory"],
+    queryFn: async () => {
+      const response = await apiFetch("/api/coaches/directory");
+      if (!response.ok) throw new Error("Failed to load coaches");
+      return response.json();
+    },
+    enabled: visible && browseMode === "by_coach",
+  });
+  const directoryCoaches = directoryData?.coaches || [];
+
+  // Coach profile drawer state
+  const [showCoachDrawer, setShowCoachDrawer] = useState(false);
+  const [selectedCoachForDrawer, setSelectedCoachForDrawer] = useState<DirectoryCoach | null>(null);
+
+  // Dynamic slide count - add extra slide when browsing by coach
+  const getTotalSlides = () => browseMode === "by_coach" ? 6 : 5;
+  const getSlideTitle = (slide: number) => {
+    if (browseMode === "by_coach") {
+      const titles = ["Choose Your Mode", "How to Browse", "Select Coach", "Find Your Session", "Details", "Confirm & Book"];
+      return titles[slide] || "";
+    }
+    return SLIDE_TITLES[slide] || "";
+  };
+
   // Reset form on close
   const resetForm = useCallback(() => {
     setCurrentSlide(0);
@@ -273,6 +321,8 @@ export default function PlayerBookingWizard({
     setPlayerNote("");
     setFriendEmail("");
     setShowSuccess(false);
+    setShowCoachDrawer(false);
+    setSelectedCoachForDrawer(null);
   }, []);
 
   useEffect(() => {
@@ -285,11 +335,12 @@ export default function PlayerBookingWizard({
 
   // Animate slide progress
   useEffect(() => {
-    slideProgress.value = withSpring(currentSlide / (TOTAL_SLIDES - 1), {
+    const totalSlides = getTotalSlides();
+    slideProgress.value = withSpring(currentSlide / (totalSlides - 1), {
       damping: 20,
       stiffness: 90,
     });
-  }, [currentSlide]);
+  }, [currentSlide, browseMode]);
 
   // Glow pulse animation
   useEffect(() => {
@@ -305,11 +356,12 @@ export default function PlayerBookingWizard({
 
   // Navigation
   const goNext = useCallback(() => {
-    if (currentSlide < TOTAL_SLIDES - 1) {
+    const totalSlides = getTotalSlides();
+    if (currentSlide < totalSlides - 1) {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
       setCurrentSlide((prev) => prev + 1);
     }
-  }, [currentSlide]);
+  }, [currentSlide, browseMode]);
 
   const goBack = useCallback(() => {
     if (currentSlide > 0) {
@@ -318,23 +370,29 @@ export default function PlayerBookingWizard({
     }
   }, [currentSlide]);
 
-  // Can proceed to next slide?
+  // Can proceed to next slide? (dynamic based on browse mode)
   const canProceed = useMemo(() => {
-    switch (currentSlide) {
-      case 0:
-        return !!sessionType;
-      case 1:
-        // Browse mode slide - for "by_coach" need to select a coach
-        return browseMode === "by_time" || (browseMode === "by_coach" && !!selectedCoachId);
-      case 2:
-        // Find Session slide - need to select a slot or session
-        return !!selectedSlot || !!selectedSession;
-      case 3:
-        return true; // Details optional
-      case 4:
-        return true; // Confirm
-      default:
-        return false;
+    if (browseMode === "by_coach") {
+      // 6 slides: Mode -> Browse -> Coach -> Session -> Details -> Confirm
+      switch (currentSlide) {
+        case 0: return !!sessionType;
+        case 1: return true; // Browse mode already selected
+        case 2: return !!selectedCoachId; // Must select a coach
+        case 3: return !!selectedSlot || !!selectedSession; // Find Session
+        case 4: return true; // Details optional
+        case 5: return true; // Confirm
+        default: return false;
+      }
+    } else {
+      // 5 slides: Mode -> Browse -> Session -> Details -> Confirm
+      switch (currentSlide) {
+        case 0: return !!sessionType;
+        case 1: return true; // Browse mode
+        case 2: return !!selectedSlot || !!selectedSession; // Find Session
+        case 3: return true; // Details optional
+        case 4: return true; // Confirm
+        default: return false;
+      }
     }
   }, [currentSlide, sessionType, browseMode, selectedCoachId, selectedSlot, selectedSession]);
 
@@ -532,56 +590,100 @@ export default function PlayerBookingWizard({
           </LinearGradient>
         </Pressable>
       </View>
-
-      {/* Coach selection when "by_coach" is selected */}
-      {browseMode === "by_coach" && (
-        <Animated.View entering={FadeIn} style={styles.coachSelectionContainer}>
-          <Text style={styles.sectionTitle}>Select Your Coach</Text>
-          <ScrollView 
-            horizontal 
-            showsHorizontalScrollIndicator={false} 
-            style={styles.coachScroll}
-            contentContainerStyle={styles.coachScrollContent}
-          >
-            {coaches.map((coach) => {
-              const isSelected = selectedCoachId === coach.id;
-              return (
-                <Pressable
-                  key={coach.id}
-                  onPress={() => {
-                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                    setSelectedCoachId(coach.id);
-                  }}
-                  style={[styles.coachSelectionCard, isSelected && styles.coachSelectionCardSelected]}
-                >
-                  <View style={[styles.coachSelectionAvatar, { backgroundColor: coach.color || Colors.dark.primary }]}>
-                    {coach.profilePhotoUrl ? (
-                      <Image
-                        source={{ uri: `${getStaticAssetsUrl()}${coach.profilePhotoUrl}` }}
-                        style={styles.coachSelectionPhoto}
-                      />
-                    ) : (
-                      <Text style={styles.coachSelectionAvatarText}>
-                        {(coach.name || "C").charAt(0)}
-                      </Text>
-                    )}
-                  </View>
-                  <Text style={[styles.coachSelectionName, isSelected && { color: Colors.dark.primary }]}>
-                    {coach.name}
-                  </Text>
-                  {isSelected && (
-                    <Ionicons name="checkmark-circle" size={20} color={Colors.dark.primary} style={styles.coachCheckmark} />
-                  )}
-                </Pressable>
-              );
-            })}
-          </ScrollView>
-        </Animated.View>
-      )}
     </Animated.View>
   );
 
-  // SLIDE 2: Find Your Session (combined date/duration + available slots)
+  // SLIDE 2 (only when by_coach): Select Coach - Premium coach cards
+  const renderSelectCoachSlide = () => {
+    const handleCoachSelect = (coach: DirectoryCoach) => {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+      setSelectedCoachId(coach.id);
+    };
+
+    const handleCoachInfoPress = (coach: DirectoryCoach) => {
+      setSelectedCoachForDrawer(coach);
+      setShowCoachDrawer(true);
+    };
+
+    const mapCoachForCard = (coach: DirectoryCoach) => ({
+      id: coach.id,
+      name: coach.name,
+      profilePhotoUrl: coach.photoUrl,
+      specialty: coach.specialty,
+      yearsExperience: coach.yearsExperience,
+      specializations: coach.specializations,
+      ballLevels: coach.ballLevels,
+      rating: coach.rating,
+      totalStudents: coach.totalStudents,
+      bio: coach.bio,
+      availableForPrivate: true,
+      availableForGroup: true,
+    });
+
+    const mapCoachForDrawer = (coach: DirectoryCoach) => ({
+      id: coach.id,
+      name: coach.name,
+      profilePhotoUrl: coach.photoUrl,
+      specialty: coach.specialty,
+      yearsExperience: coach.yearsExperience,
+      specializations: coach.specializations,
+      ballLevels: coach.ballLevels,
+      rating: coach.rating,
+      totalStudents: coach.totalStudents,
+      bio: coach.bio,
+      certifications: coach.certifications,
+      languages: coach.languages,
+      availableForPrivate: true,
+      availableForGroup: true,
+    });
+
+    return (
+      <Animated.View entering={FadeIn} style={styles.slideContent}>
+        <Text style={styles.slideSubtitle}>Choose your tennis coach</Text>
+        
+        {directoryLoading ? (
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator size="large" color={GlowColors.primary} />
+            <Text style={styles.loadingText}>Loading coaches...</Text>
+          </View>
+        ) : directoryCoaches.length === 0 ? (
+          <View style={styles.emptyCoachesContainer}>
+            <Ionicons name="people-outline" size={48} color={Colors.dark.textMuted} />
+            <Text style={styles.emptyCoachesText}>No coaches available</Text>
+          </View>
+        ) : (
+          <FlatList
+            data={directoryCoaches}
+            keyExtractor={(item) => item.id}
+            renderItem={({ item, index }) => (
+              <BookingCoachCard
+                coach={mapCoachForCard(item)}
+                isSelected={selectedCoachId === item.id}
+                onSelect={() => handleCoachSelect(item)}
+                onInfoPress={() => handleCoachInfoPress(item)}
+                index={index}
+              />
+            )}
+            contentContainerStyle={styles.coachCardsContainer}
+            showsVerticalScrollIndicator={false}
+          />
+        )}
+
+        <CoachProfileDrawer
+          visible={showCoachDrawer}
+          onClose={() => setShowCoachDrawer(false)}
+          onSelectCoach={() => {
+            if (selectedCoachForDrawer) {
+              setSelectedCoachId(selectedCoachForDrawer.id);
+            }
+          }}
+          coach={selectedCoachForDrawer ? mapCoachForDrawer(selectedCoachForDrawer) : null}
+        />
+      </Animated.View>
+    );
+  };
+
+  // SLIDE 2 or 3: Find Your Session (combined date/duration + available slots)
   const renderFindSessionSlide = () => {
     const isLoading = slotsLoading || sessionsLoading;
 
@@ -967,21 +1069,29 @@ export default function PlayerBookingWizard({
     );
   };
 
-  // Render slide content
+  // Render slide content (dynamic based on browse mode)
   const renderSlideContent = () => {
-    switch (currentSlide) {
-      case 0:
-        return renderSessionTypeSlide();
-      case 1:
-        return renderBrowseModeSlide();
-      case 2:
-        return renderFindSessionSlide();
-      case 3:
-        return renderDetailsSlide();
-      case 4:
-        return renderConfirmSlide();
-      default:
-        return null;
+    if (browseMode === "by_coach") {
+      // 6 slides: Mode -> Browse -> Coach -> Session -> Details -> Confirm
+      switch (currentSlide) {
+        case 0: return renderSessionTypeSlide();
+        case 1: return renderBrowseModeSlide();
+        case 2: return renderSelectCoachSlide();
+        case 3: return renderFindSessionSlide();
+        case 4: return renderDetailsSlide();
+        case 5: return renderConfirmSlide();
+        default: return null;
+      }
+    } else {
+      // 5 slides: Mode -> Browse -> Session -> Details -> Confirm
+      switch (currentSlide) {
+        case 0: return renderSessionTypeSlide();
+        case 1: return renderBrowseModeSlide();
+        case 2: return renderFindSessionSlide();
+        case 3: return renderDetailsSlide();
+        case 4: return renderConfirmSlide();
+        default: return null;
+      }
     }
   };
 
@@ -1002,9 +1112,9 @@ export default function PlayerBookingWizard({
           </Pressable>
 
           <View style={styles.headerCenter}>
-            <Text style={styles.headerTitle}>{SLIDE_TITLES[currentSlide]}</Text>
+            <Text style={styles.headerTitle}>{getSlideTitle(currentSlide)}</Text>
             <Text style={styles.headerSlide}>
-              Step {currentSlide + 1} of {TOTAL_SLIDES}
+              Step {currentSlide + 1} of {getTotalSlides()}
             </Text>
           </View>
 
@@ -1035,9 +1145,9 @@ export default function PlayerBookingWizard({
               style={[
                 styles.nextButton,
                 !canProceed && styles.nextButtonDisabled,
-                currentSlide === TOTAL_SLIDES - 1 && styles.confirmButton,
+                currentSlide === getTotalSlides() - 1 && styles.confirmButton,
               ]}
-              onPress={currentSlide === TOTAL_SLIDES - 1 ? handleBook : goNext}
+              onPress={currentSlide === getTotalSlides() - 1 ? handleBook : goNext}
               disabled={!canProceed || bookingMutation.isPending}
             >
               {bookingMutation.isPending ? (
@@ -1045,13 +1155,13 @@ export default function PlayerBookingWizard({
               ) : (
                 <>
                   <Text style={styles.nextButtonText}>
-                    {currentSlide === TOTAL_SLIDES - 1
+                    {currentSlide === getTotalSlides() - 1
                       ? isJoining
                         ? "Join Session"
                         : "Request Booking"
                       : "Next"}
                   </Text>
-                  {currentSlide < TOTAL_SLIDES - 1 && (
+                  {currentSlide < getTotalSlides() - 1 && (
                     <Ionicons name="arrow-forward" size={20} color={Colors.dark.buttonText} />
                   )}
                 </>
@@ -1464,6 +1574,20 @@ const styles = StyleSheet.create({
   loadingText: {
     fontSize: 16,
     color: Colors.dark.textSecondary,
+  },
+  emptyCoachesContainer: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    gap: Spacing.md,
+    paddingVertical: Spacing.xxl,
+  },
+  emptyCoachesText: {
+    fontSize: 16,
+    color: Colors.dark.textMuted,
+  },
+  coachCardsContainer: {
+    paddingBottom: Spacing.lg,
   },
   sessionsList: {
     flex: 1,
