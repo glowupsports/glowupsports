@@ -312,6 +312,14 @@ export default function LoginScreen() {
   const [inviteData, setInviteData] = useState<{ academyName: string; email: string | null; role: string; isPlayerInvite?: boolean; playerId?: string; playerName?: string | null } | null>(null);
   const [inviteValidated, setInviteValidated] = useState(false);
 
+  // OTP verification state
+  const [otpCode, setOtpCode] = useState("");
+  const [otpSent, setOtpSent] = useState(false);
+  const [otpVerified, setOtpVerified] = useState(false);
+  const [otpSending, setOtpSending] = useState(false);
+  const [isNewEmail, setIsNewEmail] = useState<boolean | null>(null);
+  const [resendCooldown, setResendCooldown] = useState(0);
+
   const [usernameStatus, setUsernameStatus] = useState<{
     checking: boolean;
     available: boolean | null;
@@ -387,6 +395,103 @@ export default function LoginScreen() {
     setInviteData(null);
     setInviteValidated(false);
     setUsernameStatus({ checking: false, available: null, error: null, suggestions: [] });
+    // Reset OTP state
+    setOtpCode("");
+    setOtpSent(false);
+    setOtpVerified(false);
+    setIsNewEmail(null);
+    setResendCooldown(0);
+  };
+
+  // Check if email is new and requires OTP
+  const checkEmailStatus = async (emailValue: string) => {
+    if (!emailValue || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailValue)) {
+      setIsNewEmail(null);
+      return;
+    }
+
+    try {
+      const response = await apiRequest("POST", "/auth/check-email", { email: emailValue });
+      const data = await response.json();
+      setIsNewEmail(data.isNewEmail);
+      // Reset OTP state when email changes
+      if (data.isNewEmail) {
+        setOtpSent(false);
+        setOtpVerified(false);
+        setOtpCode("");
+      }
+    } catch (error) {
+      console.log("[Email Check] Error:", error);
+      setIsNewEmail(null);
+    }
+  };
+
+  // Send OTP to email
+  const handleSendOTP = async () => {
+    if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      Alert.alert("Error", "Please enter a valid email address");
+      return;
+    }
+
+    setOtpSending(true);
+    try {
+      const response = await apiRequest("POST", "/auth/otp/send", { email });
+      const data = await response.json();
+      
+      if (data.success) {
+        setOtpSent(true);
+        setResendCooldown(60);
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        Alert.alert("Code Sent", "A verification code has been sent to your email");
+        
+        // Start cooldown timer
+        const timer = setInterval(() => {
+          setResendCooldown((prev) => {
+            if (prev <= 1) {
+              clearInterval(timer);
+              return 0;
+            }
+            return prev - 1;
+          });
+        }, 1000);
+      } else {
+        Alert.alert("Error", data.error || "Failed to send verification code");
+      }
+    } catch (error) {
+      Alert.alert("Error", "Failed to send verification code. Please try again.");
+    } finally {
+      setOtpSending(false);
+    }
+  };
+
+  // Verify OTP code
+  const handleVerifyOTP = async () => {
+    if (!otpCode || otpCode.length !== 6) {
+      Alert.alert("Error", "Please enter the 6-digit code");
+      return;
+    }
+
+    setOtpSending(true);
+    try {
+      const response = await apiRequest("POST", "/auth/otp/verify", { email, code: otpCode });
+      const data = await response.json();
+      
+      if (data.verified || data.success) {
+        setOtpVerified(true);
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      } else {
+        Alert.alert("Invalid Code", data.error || "The verification code is incorrect");
+      }
+    } catch (error: any) {
+      let errorMessage = "Failed to verify code. Please try again.";
+      try {
+        const parsed = JSON.parse(error.message.replace(/^\d+:\s*/, ''));
+        if (parsed.error) errorMessage = parsed.error;
+      } catch {}
+      Alert.alert("Error", errorMessage);
+    } finally {
+      setOtpSending(false);
+    }
   };
 
   const checkUsernameAvailability = async (value: string) => {
@@ -474,6 +579,12 @@ export default function LoginScreen() {
       return;
     }
 
+    // Check if this is a new email and OTP is required
+    if (isNewEmail && !otpVerified) {
+      Alert.alert("Verification Required", "Please verify your email first by entering the code sent to your inbox");
+      return;
+    }
+
     const normalizedUsername = username.toLowerCase();
 
     if (normalizedUsername.length < 3) {
@@ -504,9 +615,16 @@ export default function LoginScreen() {
         email,
         password,
         phone: fullPhone,
+        otpCode: isNewEmail ? otpCode : undefined,
       });
       if (!result.success) {
-        Alert.alert("Registration Failed", result.error || "Please try again");
+        // Check if OTP is required
+        if (result.error?.includes("verification required") || result.requiresOTP) {
+          setIsNewEmail(true);
+          Alert.alert("Verification Required", "Please verify your email to complete registration");
+        } else {
+          Alert.alert("Registration Failed", result.error || "Please try again");
+        }
       }
     } catch (error) {
       Alert.alert("Error", "Something went wrong. Please try again.");
@@ -962,15 +1080,91 @@ export default function LoginScreen() {
           <Ionicons name="mail-outline" size={18} color={Colors.dark.xpCyan} style={styles.inputIcon} />
           <TextInput
             value={email}
-            onChangeText={setEmail}
+            onChangeText={(text) => {
+              setEmail(text);
+              // Reset OTP state when email changes
+              setOtpSent(false);
+              setOtpVerified(false);
+              setOtpCode("");
+              // Check if email is new after a delay
+              if (text && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(text)) {
+                checkEmailStatus(text);
+              }
+            }}
             placeholder="Enter your email"
             placeholderTextColor={Colors.dark.textMuted}
             keyboardType="email-address"
             autoCapitalize="none"
             style={styles.input}
           />
+          {otpVerified ? (
+            <View style={styles.usernameStatusIcon}>
+              <Ionicons name="checkmark-circle" size={20} color={Colors.dark.successNeon} />
+            </View>
+          ) : null}
         </View>
+        {isNewEmail && !otpVerified ? (
+          <Text style={styles.hintText}>New email - verification required</Text>
+        ) : null}
       </View>
+
+      {isNewEmail && !otpVerified ? (
+        <View style={styles.inputGroup}>
+          <Text style={styles.label}>EMAIL VERIFICATION</Text>
+          {!otpSent ? (
+            <Pressable
+              style={[styles.sendOtpButton, otpSending && styles.sendOtpButtonDisabled]}
+              onPress={handleSendOTP}
+              disabled={otpSending}
+            >
+              {otpSending ? (
+                <ActivityIndicator size="small" color="#fff" />
+              ) : (
+                <>
+                  <Ionicons name="shield-checkmark-outline" size={18} color="#fff" />
+                  <Text style={styles.sendOtpButtonText}>Send Verification Code</Text>
+                </>
+              )}
+            </Pressable>
+          ) : (
+            <>
+              <View style={styles.glassInput}>
+                <Ionicons name="key-outline" size={18} color={Colors.dark.xpCyan} style={styles.inputIcon} />
+                <TextInput
+                  value={otpCode}
+                  onChangeText={(text) => setOtpCode(text.replace(/[^0-9]/g, '').slice(0, 6))}
+                  placeholder="Enter 6-digit code"
+                  placeholderTextColor={Colors.dark.textMuted}
+                  keyboardType="number-pad"
+                  maxLength={6}
+                  style={styles.input}
+                />
+                <Pressable
+                  style={[styles.verifyOtpButton, (otpSending || otpCode.length !== 6) && styles.verifyOtpButtonDisabled]}
+                  onPress={handleVerifyOTP}
+                  disabled={otpSending || otpCode.length !== 6}
+                >
+                  {otpSending ? (
+                    <ActivityIndicator size="small" color="#fff" />
+                  ) : (
+                    <Text style={styles.verifyOtpButtonText}>Verify</Text>
+                  )}
+                </Pressable>
+              </View>
+              <View style={styles.otpActionsRow}>
+                <Text style={styles.hintText}>Check your inbox for the code</Text>
+                {resendCooldown > 0 ? (
+                  <Text style={styles.resendCooldownText}>Resend in {resendCooldown}s</Text>
+                ) : (
+                  <Pressable onPress={handleSendOTP} disabled={otpSending}>
+                    <Text style={styles.resendLink}>Resend Code</Text>
+                  </Pressable>
+                )}
+              </View>
+            </>
+          )}
+        </View>
+      ) : null}
 
       <View style={styles.inputGroup}>
         <Text style={styles.label}>PHONE (FOR WHATSAPP)</Text>
@@ -1723,6 +1917,11 @@ const styles = StyleSheet.create({
     marginVertical: Spacing.xl,
     gap: Spacing.md,
   },
+  dividerContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginVertical: Spacing.lg,
+  },
   dividerLine: {
     flex: 1,
     height: 1,
@@ -1813,21 +2012,6 @@ const styles = StyleSheet.create({
     ...Typography.body,
     color: Colors.dark.xpCyan,
     fontWeight: "600",
-  },
-  dividerContainer: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginVertical: Spacing.lg,
-  },
-  dividerLine: {
-    flex: 1,
-    height: 1,
-    backgroundColor: "rgba(255,255,255,0.1)",
-  },
-  dividerText: {
-    ...Typography.caption,
-    color: Colors.dark.textMuted,
-    marginHorizontal: Spacing.md,
   },
   inviteButton: {
     flexDirection: "row",
@@ -1920,5 +2104,52 @@ const styles = StyleSheet.create({
     alignItems: "center",
     marginTop: Spacing.lg,
     gap: Spacing.md,
+  },
+  sendOtpButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: Spacing.sm,
+    backgroundColor: Colors.dark.primary,
+    paddingVertical: Spacing.md,
+    borderRadius: BorderRadius.md,
+  },
+  sendOtpButtonDisabled: {
+    opacity: 0.6,
+  },
+  sendOtpButtonText: {
+    ...Typography.body,
+    color: "#fff",
+    fontWeight: "600",
+  },
+  verifyOtpButton: {
+    backgroundColor: Colors.dark.primary,
+    paddingHorizontal: Spacing.lg,
+    paddingVertical: Spacing.sm,
+    borderRadius: BorderRadius.md,
+    marginLeft: Spacing.sm,
+  },
+  verifyOtpButtonDisabled: {
+    opacity: 0.6,
+  },
+  verifyOtpButtonText: {
+    ...Typography.small,
+    color: "#fff",
+    fontWeight: "700",
+  },
+  otpActionsRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginTop: Spacing.xs,
+  },
+  resendCooldownText: {
+    ...Typography.small,
+    color: Colors.dark.textMuted,
+  },
+  resendLink: {
+    ...Typography.small,
+    color: Colors.dark.xpCyan,
+    fontWeight: "600",
   },
 });

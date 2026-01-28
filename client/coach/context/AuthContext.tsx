@@ -43,6 +43,7 @@ interface PlayerRegisterData {
   tshirtSize?: TshirtSize;
   dateOfBirth?: string;
   height?: number;
+  otpCode?: string;
 }
 
 interface AuthContextType {
@@ -53,7 +54,7 @@ interface AuthContextType {
   academy: Academy | null;
   login: (username: string, password: string) => Promise<{ success: boolean; error?: string; user?: AuthUser }>;
   register: (data: RegisterData) => Promise<{ success: boolean; error?: string }>;
-  registerPlayer: (data: PlayerRegisterData) => Promise<{ success: boolean; error?: string }>;
+  registerPlayer: (data: PlayerRegisterData) => Promise<{ success: boolean; error?: string; requiresOTP?: boolean }>;
   logout: () => Promise<void>;
   refreshAuth: () => Promise<void>;
 }
@@ -237,7 +238,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const registerPlayer = async (playerData: PlayerRegisterData): Promise<{ success: boolean; error?: string }> => {
+  const registerPlayer = async (playerData: PlayerRegisterData): Promise<{ success: boolean; error?: string; requiresOTP?: boolean }> => {
     try {
       const apiUrl = getApiUrl();
       const response = await fetch(new URL("/auth/register/player", apiUrl).toString(), {
@@ -249,6 +250,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const data = await response.json();
       
       if (!response.ok) {
+        // Check if OTP verification is required
+        if (data.requiresOTP) {
+          return { success: false, error: data.error || "Email verification required", requiresOTP: true };
+        }
         return { success: false, error: data.error || "Registration failed" };
       }
       

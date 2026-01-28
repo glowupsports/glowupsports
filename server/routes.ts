@@ -88,7 +88,7 @@ import { z } from "zod";
 import { sanitizeNote, sanitizeMessage, sanitizeTemplateName, sanitizeTemplateContent } from "./utils/sanitize";
 import { localTimeToUTC, utcToLocalTime, getTimezoneOffset, getFirstSessionDate, addDaysToLocalDate, getLocalDateParts, resolveLocalTimeToUTC, ensureResolvableLocalTime } from "./utils/timezone";
 import { sendFeedbackNotification, sendLevelUpNotification, sendBadgeEarnedNotification, sendXPGainNotification } from "./pushNotifications";
-import { sendFeedbackNotificationEmail, sendLevelUpEmail, sendWelcomeEmail, sendSessionReminderEmail, sendCoachInviteEmail, sendOTPEmail, verifyOTPCode } from "./emailService";
+import { sendFeedbackNotificationEmail, sendLevelUpEmail, sendWelcomeEmail, sendSessionReminderEmail, sendCoachInviteEmail, sendOTPEmail, verifyOTPCode, hasValidOTP } from "./emailService";
 import { createCalendarEvent, updateCalendarEvent, deleteCalendarEvent, checkConnection as checkCalendarConnection, SessionEventData } from "./googleCalendarService";
 import { generateInvoiceHtml, parseLineItems } from "./services/invoicePdf";
 import { apiCache, CACHE_KEYS, CACHE_TTL } from "./cache";
@@ -670,6 +670,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Check if email is new (for OTP requirement)
+  app.post("/auth/check-email", authLimiter, async (req: Request, res: Response) => {
+    try {
+      const { email } = req.body;
+      
+      if (!email || typeof email !== "string") {
+        return res.status(400).json({ error: "Email is required" });
+      }
+
+      // Check if any user exists with this email
+      const existingUser = await storage.getUserByEmail(email.toLowerCase());
+      
+      res.json({
+        isNewEmail: !existingUser,
+        requiresOTP: !existingUser, // Only new emails require OTP verification
+      });
+    } catch (error) {
+      console.error("Check email error:", error);
+      res.status(500).json({ error: "Failed to check email" });
+    }
+  });
+
+
   // Player self-registration (open, no academy required)
   app.post("/auth/register/player", authLimiter, async (req: Request, res: Response) => {
     try {
@@ -687,6 +710,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       // Normalize username to lowercase for consistent storage
+
+      // Check if email is new and requires OTP verification
+      const existingEmailUser = await storage.getUserByEmail(email.toLowerCase());
+      if (!existingEmailUser) {
+        // New email - require OTP verification
+        const { otpCode } = req.body;
+        if (!otpCode) {
+          return res.status(400).json({ 
+            error: "Email verification required for new accounts",
+            requiresOTP: true 
+          });
+        }
+        
+        const otpResult = verifyOTPCode(email, otpCode);
+        if (!otpResult.valid) {
+          return res.status(400).json({ 
+            error: otpResult.error || "Invalid verification code",
+            requiresOTP: true 
+          });
+        }
+      }
+
       const username = rawUsername.toLowerCase();
       
       // Calculate age from date of birth
