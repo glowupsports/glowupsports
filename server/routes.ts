@@ -31074,6 +31074,152 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+
+  // Admin endpoint to recalculate all player debts from scratch based on actual session attendance
+  app.post("/api/admin/recalculate-all-debts", async (req: Request, res: Response) => {
+    try {
+      console.log("[RecalculateDebts] Starting full recalculation of all player debts...");
+      
+      const sessionsNeedingDebt = await db.execute(sql`
+        SELECT 
+          sp.id as session_player_id,
+          sp.player_id,
+          sp.session_id,
+          sp.attendance_status,
+          sp.credit_deducted_at,
+          sp.credit_transaction_id,
+          s.session_type,
+          s.academy_id,
+          s.start_time as session_date
+        FROM session_players sp
+        JOIN sessions s ON s.id = sp.session_id
+        WHERE sp.attendance_status IN ('present', 'late')
+          AND s.status = 'completed'
+        ORDER BY sp.player_id, s.start_time
+      `);
+      
+      console.log(`[RecalculateDebts] Found ${sessionsNeedingDebt.rows.length} present/late session records`);
+      
+      const v3DebtsResult = await db.execute(sql`
+        UPDATE credit_transactions 
+        SET amount = 0,
+            metadata = jsonb_set(
+              COALESCE(metadata, '{}'::jsonb), 
+              '{cancelled}', 
+              'true'::jsonb
+            ) || jsonb_build_object('cancelledAt', NOW()::text, 'cancelReason', 'recalculate_all_debts')
+        WHERE reason = 'session_debt' 
+          AND session_id IS NULL
+          AND (metadata->>'cancelled')::boolean IS NOT TRUE
+        RETURNING id
+      `);
+      
+      console.log(`[RecalculateDebts] Cancelled ${v3DebtsResult.rows.length} V3 aggregated debt records`);
+      
+      const playerDebts: Map<string, Map<string, { playerId: string; creditType: string; sessions: any[] }>> = new Map();
+      
+      for (const row of sessionsNeedingDebt.rows as any[]) {
+        const playerId = row.player_id;
+        const sessionType = row.session_type || "group";
+        const creditType = sessionType.includes("private") && !sessionType.includes("semi") 
+          ? "private" 
+          : sessionType.includes("semi") 
+            ? "semi_private" 
+            : "group";
+        
+        if (!playerDebts.has(playerId)) {
+          playerDebts.set(playerId, new Map());
+        }
+        
+        const playerMap = playerDebts.get(playerId)!;
+        if (!playerMap.has(creditType)) {
+          playerMap.set(creditType, { playerId, creditType, sessions: [] });
+        }
+        
+        playerMap.get(creditType)!.sessions.push(row);
+      }
+      
+      const results: { playerId: string; creditType: string; presentCount: number; availableCredits: number; debtCreated: number }[] = [];
+      
+      for (const [playerId, creditTypes] of playerDebts) {
+        for (const [creditType, data] of creditTypes) {
+          const packagesResult = await db.execute(sql`
+            SELECT COALESCE(SUM(remaining_credits), 0) as total_credits
+            FROM packages 
+            WHERE player_id = ${playerId}
+              AND status = 'active'
+              AND (credit_type = ${creditType} OR credit_type IS NULL)
+          `);
+          
+          const consumedResult = await db.execute(sql`
+            SELECT COUNT(*) as consumed
+            FROM credit_transactions
+            WHERE player_id = ${playerId}
+              AND credit_type = ${creditType}
+              AND reason = 'session_consumed'
+              AND package_id IS NOT NULL
+          `);
+          
+          const availableCredits = Number((packagesResult.rows[0] as any)?.total_credits || 0);
+          const alreadyConsumed = Number((consumedResult.rows[0] as any)?.consumed || 0);
+          const presentCount = data.sessions.length;
+          const totalCreditsEver = availableCredits + alreadyConsumed;
+          const debtAmount = Math.max(0, presentCount - totalCreditsEver);
+          
+          if (debtAmount > 0) {
+            const debtId = crypto.randomUUID();
+            await db.execute(sql`
+              INSERT INTO credit_transactions (
+                id, player_id, academy_id, type, credit_type, amount, reason, metadata
+              )
+              VALUES (
+                ${debtId},
+                ${playerId},
+                'default-academy',
+                'debit',
+                ${creditType},
+                ${-debtAmount},
+                'session_debt',
+                ${JSON.stringify({
+                  recalculatedAt: new Date().toISOString(),
+                  presentCount,
+                  totalCreditsEver,
+                  availableCredits,
+                  alreadyConsumed,
+                  description: `Recalculated debt: ${presentCount} sessions - ${totalCreditsEver} credits = ${debtAmount} owed`
+                })}::jsonb
+              )
+            `);
+            
+            console.log(`[RecalculateDebts] Player ${playerId.slice(0,8)}: ${creditType} debt = ${debtAmount} (present: ${presentCount}, credits: ${totalCreditsEver})`);
+          }
+          
+          results.push({
+            playerId,
+            creditType,
+            presentCount,
+            availableCredits: totalCreditsEver,
+            debtCreated: debtAmount
+          });
+        }
+      }
+      
+      const totalDebtCreated = results.reduce((sum, r) => sum + r.debtCreated, 0);
+      console.log(`[RecalculateDebts] Complete. Created ${totalDebtCreated} total debt across ${results.filter(r => r.debtCreated > 0).length} player/type combos`);
+      
+      res.json({
+        success: true,
+        message: `Recalculated debts for ${playerDebts.size} players`,
+        v3DebtsCancelled: v3DebtsResult.rows.length,
+        totalDebtCreated,
+        details: results.filter(r => r.debtCreated > 0)
+      });
+    } catch (error) {
+      console.error("[RecalculateDebts] Error:", error);
+      res.status(500).json({ error: "Failed to recalculate debts" });
+    }
+  });
+
   const httpServer = createServer(app);
   
   // Set up WebSocket server for real-time chat
