@@ -88,7 +88,7 @@ import { z } from "zod";
 import { sanitizeNote, sanitizeMessage, sanitizeTemplateName, sanitizeTemplateContent } from "./utils/sanitize";
 import { localTimeToUTC, utcToLocalTime, getTimezoneOffset, getFirstSessionDate, addDaysToLocalDate, getLocalDateParts, resolveLocalTimeToUTC, ensureResolvableLocalTime } from "./utils/timezone";
 import { sendFeedbackNotification, sendLevelUpNotification, sendBadgeEarnedNotification, sendXPGainNotification } from "./pushNotifications";
-import { sendFeedbackNotificationEmail, sendLevelUpEmail, sendWelcomeEmail, sendSessionReminderEmail, sendCoachInviteEmail } from "./emailService";
+import { sendFeedbackNotificationEmail, sendLevelUpEmail, sendWelcomeEmail, sendSessionReminderEmail, sendCoachInviteEmail, sendOTPEmail, verifyOTPCode } from "./emailService";
 import { createCalendarEvent, updateCalendarEvent, deleteCalendarEvent, checkConnection as checkCalendarConnection, SessionEventData } from "./googleCalendarService";
 import { generateInvoiceHtml, parseLineItems } from "./services/invoicePdf";
 import { apiCache, CACHE_KEYS, CACHE_TTL } from "./cache";
@@ -617,6 +617,56 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Login error:", error);
       res.status(500).json({ error: "Login failed" });
+    }
+  });
+
+
+  // Email OTP verification endpoints
+  app.post("/auth/otp/send", authLimiter, async (req: Request, res: Response) => {
+    try {
+      const { email } = req.body;
+      
+      if (!email || typeof email !== "string") {
+        return res.status(400).json({ error: "Email is required" });
+      }
+
+      // Validate email format
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(email)) {
+        return res.status(400).json({ error: "Invalid email format" });
+      }
+
+      const result = await sendOTPEmail(email);
+      
+      if (result.success) {
+        res.json({ success: true, message: "Verification code sent to your email" });
+      } else {
+        res.status(500).json({ error: result.error || "Failed to send verification code" });
+      }
+    } catch (error) {
+      console.error("OTP send error:", error);
+      res.status(500).json({ error: "Failed to send verification code" });
+    }
+  });
+
+  app.post("/auth/otp/verify", authLimiter, async (req: Request, res: Response) => {
+    try {
+      const { email, code } = req.body;
+      
+      if (!email || !code) {
+        return res.status(400).json({ error: "Email and code are required" });
+      }
+
+      const result = verifyOTPCode(email, code);
+      
+      if (result.valid) {
+        res.json({ success: true, verified: true });
+      } else {
+        res.status(400).json({ error: result.error, verified: false });
+      }
+    } catch (error) {
+      console.error("OTP verify error:", error);
+      res.status(500).json({ error: "Failed to verify code" });
     }
   });
 

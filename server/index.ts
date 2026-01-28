@@ -5,7 +5,7 @@ import { registerRoutes } from "./routes";
 import * as fs from "fs";
 import * as path from "path";
 import { createProxyMiddleware } from "http-proxy-middleware";
-import { startReminderScheduler } from "./pushNotifications";
+import { startReminderScheduler, startDailyTipScheduler } from "./pushNotifications";
 // DB-SYNC removed - using single Supabase database for both dev and production
 
 const app = express();
@@ -387,6 +387,7 @@ function setupErrorHandler(app: express.Application) {
       log(`express server serving on port ${port}`);
       
       startReminderScheduler();
+      startDailyTipScheduler();
     },
   );
 })();

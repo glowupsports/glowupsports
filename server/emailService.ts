@@ -474,3 +474,171 @@ export async function sendDeleteAccountRequestEmail(params: {
     text: `Account Deletion Request\n\nUser: ${userName}\nEmail: ${userEmail}\nReason: ${reason || 'Not specified'}\nComments: ${comments || 'None'}`
   });
 }
+
+// ==================== EMAIL OTP VERIFICATION ====================
+
+interface OTPStore {
+  code: string;
+  email: string;
+  expiresAt: Date;
+  attempts: number;
+}
+
+// In-memory OTP store (in production, use Redis or database)
+const otpStore = new Map<string, OTPStore>();
+
+// Clean up expired OTPs every 5 minutes
+setInterval(() => {
+  const now = new Date();
+  for (const [key, otp] of otpStore.entries()) {
+    if (otp.expiresAt < now) {
+      otpStore.delete(key);
+    }
+  }
+}, 5 * 60 * 1000);
+
+function generateOTPCode(): string {
+  return Math.floor(100000 + Math.random() * 900000).toString();
+}
+
+export async function sendOTPEmail(email: string): Promise<{ success: boolean; error?: string }> {
+  try {
+    // Generate 6-digit OTP
+    const code = generateOTPCode();
+    const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes expiry
+
+    // Store OTP (key by email, allows same email to have multiple OTPs for different accounts)
+    const otpKey = `${email.toLowerCase()}_${Date.now()}`;
+    otpStore.set(otpKey, {
+      code,
+      email: email.toLowerCase(),
+      expiresAt,
+      attempts: 0,
+    });
+
+    // Also store by email for verification lookup
+    otpStore.set(email.toLowerCase(), {
+      code,
+      email: email.toLowerCase(),
+      expiresAt,
+      attempts: 0,
+    });
+
+    const html = `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Verify Your Email</title>
+</head>
+<body style="margin: 0; padding: 0; background-color: #0A0A0B; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #0A0A0B; padding: 40px 20px;">
+    <tr>
+      <td align="center">
+        <table width="100%" max-width="500" cellpadding="0" cellspacing="0" style="background: linear-gradient(135deg, #1A1A1D 0%, #16161A 100%); border-radius: 16px; overflow: hidden;">
+          <!-- Header -->
+          <tr>
+            <td style="padding: 32px; text-align: center; border-bottom: 1px solid rgba(50, 255, 126, 0.1);">
+              <h1 style="margin: 0; font-size: 28px; font-weight: 800; color: #32FF7E;">Glow Up Sports</h1>
+              <p style="margin: 8px 0 0 0; font-size: 14px; color: rgba(255,255,255,0.6);">Tennis Academy Platform</p>
+            </td>
+          </tr>
+          
+          <!-- Content -->
+          <tr>
+            <td style="padding: 40px 32px;">
+              <h2 style="margin: 0 0 16px 0; font-size: 24px; font-weight: 700; color: #ffffff;">Verify Your Email</h2>
+              <p style="margin: 0 0 24px 0; font-size: 16px; line-height: 1.6; color: rgba(255,255,255,0.7);">
+                Use this code to complete your registration. This code expires in 10 minutes.
+              </p>
+              
+              <!-- OTP Code Box -->
+              <div style="background: linear-gradient(135deg, rgba(50, 255, 126, 0.15) 0%, rgba(50, 255, 126, 0.05) 100%); border: 2px solid rgba(50, 255, 126, 0.3); border-radius: 12px; padding: 24px; text-align: center; margin: 24px 0;">
+                <span style="font-size: 36px; font-weight: 800; letter-spacing: 8px; color: #32FF7E; font-family: 'SF Mono', Monaco, monospace;">${code}</span>
+              </div>
+              
+              <p style="margin: 24px 0 0 0; font-size: 14px; color: rgba(255,255,255,0.5);">
+                If you didn't request this code, you can safely ignore this email.
+              </p>
+            </td>
+          </tr>
+          
+          <!-- Footer -->
+          <tr>
+            <td style="padding: 24px 32px; background: rgba(0,0,0,0.3); text-align: center;">
+              <p style="margin: 0; font-size: 12px; color: rgba(255,255,255,0.4);">
+                This is an automated message from Glow Up Sports. Please do not reply.
+              </p>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>`;
+
+    const result = await sendEmail({
+      to: email,
+      subject: `${code} - Your Glow Up Sports Verification Code`,
+      html,
+      text: `Your Glow Up Sports verification code is: ${code}. This code expires in 10 minutes.`,
+    });
+
+    if (result.success) {
+      console.log(`[OTP] Sent verification code to ${email}`);
+    }
+
+    return result;
+  } catch (error) {
+    console.error("[OTP] Failed to send verification code:", error);
+    return { success: false, error: "Failed to send verification code" };
+  }
+}
+
+export function verifyOTPCode(email: string, code: string): { valid: boolean; error?: string } {
+  const normalizedEmail = email.toLowerCase();
+  const storedOTP = otpStore.get(normalizedEmail);
+
+  if (!storedOTP) {
+    return { valid: false, error: "No verification code found. Please request a new one." };
+  }
+
+  // Check expiry
+  if (storedOTP.expiresAt < new Date()) {
+    otpStore.delete(normalizedEmail);
+    return { valid: false, error: "Verification code has expired. Please request a new one." };
+  }
+
+  // Check attempts (max 5)
+  if (storedOTP.attempts >= 5) {
+    otpStore.delete(normalizedEmail);
+    return { valid: false, error: "Too many failed attempts. Please request a new code." };
+  }
+
+  // Verify code
+  if (storedOTP.code !== code) {
+    storedOTP.attempts++;
+    return { valid: false, error: `Invalid code. ${5 - storedOTP.attempts} attempts remaining.` };
+  }
+
+  // Success - delete the OTP
+  otpStore.delete(normalizedEmail);
+  console.log(`[OTP] Email verified: ${email}`);
+  
+  return { valid: true };
+}
+
+export function hasValidOTP(email: string): boolean {
+  const normalizedEmail = email.toLowerCase();
+  const storedOTP = otpStore.get(normalizedEmail);
+  
+  if (!storedOTP) return false;
+  if (storedOTP.expiresAt < new Date()) {
+    otpStore.delete(normalizedEmail);
+    return false;
+  }
+  
+  return true;
+}
