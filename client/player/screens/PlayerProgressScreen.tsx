@@ -1226,11 +1226,13 @@ function PillarDetailModal({
   onClose, 
   domain,
   playerId,
+  currentLevel,
 }: { 
   visible: boolean; 
   onClose: () => void;
   domain: SkillDomain | null;
   playerId?: string;
+  currentLevel?: string | null;
 }) {
   const insets = useSafeAreaInsets();
   const [expandedCategories, setExpandedCategories] = useState<Record<string, boolean>>({});
@@ -1273,7 +1275,14 @@ function PillarDetailModal({
               <View style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: domain.color + "25", borderWidth: 2, borderColor: domain.color + "40", justifyContent: "center", alignItems: "center" }}>
                 <Ionicons name={domain.icon as any} size={20} color={domain.color} />
               </View>
-              <Text style={[modalStyles.title, { color: domain.color }]}>{domain.name}</Text>
+              <View>
+                <Text style={[modalStyles.title, { color: domain.color }]}>{domain.name}</Text>
+                {currentLevel && (
+                  <Text style={{ fontSize: 12, color: Colors.dark.xpCyan, marginTop: 2 }}>
+                    Your Level: {currentLevel.toUpperCase().replace("_", " ")}
+                  </Text>
+                )}
+              </View>
             </View>
             <Pressable onPress={onClose} hitSlop={10}>
               <Ionicons name="close-circle" size={28} color={Colors.dark.textMuted} />
@@ -2014,6 +2023,7 @@ export default function PlayerProgressScreen() {
         visible={showPillarModal}
         onClose={() => setShowPillarModal(false)}
         domain={selectedPillar}
+        currentLevel={data?.ballLevel}
       />
     </View>
   );
