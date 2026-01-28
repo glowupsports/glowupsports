@@ -95,9 +95,9 @@ const DRAWER_SECTIONS: DrawerSection[] = [
     items: [
       { id: "sessions", title: "My Sessions", subtitle: "Upcoming training", icon: "calendar", screen: "PlayerTabs", params: { screen: "Schedule" } },
       { id: "plan", title: "My Plan & Progress", subtitle: "Academy program & XP", icon: "document-text", screen: "PlayerTabs", params: { screen: "Progress" } },
-      { id: "swinglab", title: "Swing Lab", subtitle: "Video analysis", icon: "videocam", screen: "SkillEvidence" },
-      { id: "feedback", title: "Feedback Center", subtitle: "Skill assessments", icon: "stats-chart", screen: "PlayerTabs", params: { screen: "Progress" } },
-      { id: "coachfeedback", title: "Coach Feedback", subtitle: "Session reviews", icon: "chatbubbles", screen: "PlayerMessages" },
+      { id: "swinglab", title: "Swing Lab", subtitle: "Video analysis", icon: "videocam", screen: "PlayerTabs", params: { screen: "Progress", params: { screen: "SkillEvidence" } } },
+      { id: "feedback", title: "Feedback Center", subtitle: "Skill assessments", icon: "stats-chart", screen: "PlayerTabs", params: { screen: "Progress", params: { screen: "FeedbackCenter" } } },
+      { id: "coachfeedback", title: "Coach Feedback", subtitle: "Session reviews", icon: "chatbubbles", screen: "PlayerTabs", params: { screen: "Progress", params: { screen: "CoachFeedbackHistory" } } },
     ],
   },
   {
@@ -133,7 +133,7 @@ const DRAWER_SECTIONS: DrawerSection[] = [
       { id: "progresstracker", title: "Progress Tracker", subtitle: "Domain trends", icon: "trending-up", screen: "PlayerTabs", params: { screen: "Progress", params: { screen: "XPHistory" } } },
       { id: "badges", title: "Badges & Titles", subtitle: "Rarity rewards", icon: "shield-checkmark", screen: "PlayerTabs", params: { screen: "Progress", params: { screen: "Collection" } } },
       { id: "locked", title: "Locked Features", subtitle: "What unlocks next", icon: "lock-closed", screen: "PlayerTabs", params: { screen: "Progress", params: { screen: "Collection" } } },
-      { id: "collection", title: "Collection", subtitle: "Archives of growth", icon: "albums", screen: "PlayerTabs", params: { screen: "Progress", params: { screen: "Collection" } }, comingSoon: true },
+      { id: "collection", title: "Collection", subtitle: "Archives of growth", icon: "albums", screen: "PlayerTabs", params: { screen: "Progress", params: { screen: "Collection" } } },
     ],
   },
   {
@@ -586,12 +586,8 @@ const styles = StyleSheet.create({
     bottom: 0,
     width: DRAWER_WIDTH,
     backgroundColor: Backgrounds.root,
-    borderRightWidth: 4,
-    borderRightColor: "#FF0000",
-    borderTopWidth: 4,
-    borderTopColor: "#FF7F00",
-    borderBottomWidth: 4,
-    borderBottomColor: "#0000FF",
+    borderRightWidth: 1,
+    borderRightColor: GlowColors.primary + "20",
   },
   drawerGradient: {
     flex: 1,
