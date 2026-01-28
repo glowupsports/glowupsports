@@ -3,6 +3,10 @@ import { eq, and, gte, lte, inArray, isNull, lt, ne } from "drizzle-orm";
 import { pushDeviceTokens, notificationPreferences, users, players, coaches, sessions, sessionPlayers, seriesPlayers, coachXpTransactions, creditTransactions } from "@shared/schema";
 import { storage } from "./storage";
 import { sendSessionReminderEmail } from "./emailService";
+import { initializeFirebase, isFirebaseInitialized, isFCMToken, sendFCMNotification } from "./fcm";
+
+// Initialize Firebase on module load
+initializeFirebase();
 
 interface ExpoPushMessage {
   to: string;
@@ -24,7 +28,8 @@ interface ExpoPushTicket {
 
 const EXPO_PUSH_URL = "https://exp.host/--/api/v2/push/send";
 
-export async function sendPushNotification(
+// Send push notification via Expo Push API (for Expo Go and iOS)
+async function sendExpoPushNotification(
   tokens: string[],
   title: string,
   body: string,
@@ -56,9 +61,57 @@ export async function sendPushNotification(
     const result = await response.json();
     return result.data || [];
   } catch (error) {
-    console.error("Failed to send push notification:", error);
+    console.error("Failed to send Expo push notification:", error);
     return [];
   }
+}
+
+// Unified push notification function - routes to Expo or FCM based on token type
+export async function sendPushNotification(
+  tokens: string[],
+  title: string,
+  body: string,
+  data?: Record<string, unknown>
+): Promise<ExpoPushTicket[]> {
+  if (tokens.length === 0) return [];
+
+  // Separate tokens by type
+  const expoTokens: string[] = [];
+  const fcmTokens: string[] = [];
+
+  for (const token of tokens) {
+    if (isFCMToken(token)) {
+      fcmTokens.push(token);
+    } else {
+      expoTokens.push(token);
+    }
+  }
+
+  const results: ExpoPushTicket[] = [];
+
+  // Send to Expo Push API
+  if (expoTokens.length > 0) {
+    const expoResults = await sendExpoPushNotification(expoTokens, title, body, data);
+    results.push(...expoResults);
+  }
+
+  // Send to FCM (if Firebase is initialized)
+  if (fcmTokens.length > 0 && isFirebaseInitialized()) {
+    const fcmResults = await sendFCMNotification(fcmTokens, title, body, data);
+    // Convert FCM results to ExpoPushTicket format
+    for (const result of fcmResults) {
+      results.push({
+        status: result.success ? "ok" : "error",
+        id: result.messageId,
+        message: result.error,
+      });
+    }
+  } else if (fcmTokens.length > 0) {
+    // FCM tokens but Firebase not initialized - log warning
+    console.warn(`[Push] ${fcmTokens.length} FCM tokens but Firebase not initialized`);
+  }
+
+  return results;
 }
 
 export async function getUserPushTokens(userId: string): Promise<string[]> {
