@@ -529,7 +529,8 @@ function PlayerTabsWithDrawer() {
   const handleDrawerNavigate = (screen: string, params?: any) => {
     // Navigate first using the Stack navigator context
     if (screen === "PlayerTabs" && params?.screen) {
-      navigation.navigate("PlayerTabs", { screen: params.screen });
+      // Pass full nested params for deep navigation (e.g., Progress -> Tournaments)
+      navigation.navigate("PlayerTabs", params);
     } else {
       navigation.navigate(screen, params);
     }
