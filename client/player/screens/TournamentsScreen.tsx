@@ -6,14 +6,14 @@ import {
   ScrollView,
   Pressable,
   FlatList,
-  ActivityIndicator,
+  Dimensions,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
+import { LinearGradient } from "expo-linear-gradient";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import * as Haptics from "expo-haptics";
 import {
-  Colors,
   Spacing,
   Typography,
   BorderRadius,
@@ -24,8 +24,9 @@ import {
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import type { PlayerStackParamList } from "@/player/navigation/PlayerNavigator";
 
-type NavigationProp = NativeStackNavigationProp<PlayerStackParamList>;
+const { width: SCREEN_WIDTH } = Dimensions.get("window");
 
+type NavigationProp = NativeStackNavigationProp<PlayerStackParamList>;
 type TournamentType = "singles" | "doubles" | "mixed";
 type TournamentFormat = "knockout" | "round_robin" | "box_league";
 type TabType = "upcoming" | "my_tournaments" | "ladders";
@@ -99,20 +100,6 @@ const MOCK_TOURNAMENTS: Tournament[] = [
     isRegistered: false,
     status: "upcoming",
   },
-  {
-    id: "4",
-    name: "Doubles Team Challenge",
-    type: "doubles",
-    format: "knockout",
-    startDate: "2026-03-15",
-    endDate: "2026-03-16",
-    location: "Elite Tennis Academy",
-    entryFee: 30,
-    spotsTotal: 16,
-    spotsTaken: 8,
-    isRegistered: false,
-    status: "upcoming",
-  },
 ];
 
 const MOCK_MY_TOURNAMENTS: Tournament[] = [
@@ -130,20 +117,6 @@ const MOCK_MY_TOURNAMENTS: Tournament[] = [
     isRegistered: true,
     status: "in_progress",
   },
-  {
-    id: "6",
-    name: "Junior Doubles Festival",
-    type: "doubles",
-    format: "round_robin",
-    startDate: "2026-01-20",
-    endDate: "2026-01-25",
-    location: "Academy Courts",
-    entryFee: null,
-    spotsTotal: 24,
-    spotsTaken: 24,
-    isRegistered: true,
-    status: "completed",
-  },
 ];
 
 const MOCK_LADDERS: Ladder[] = [
@@ -159,16 +132,6 @@ const MOCK_LADDERS: Ladder[] = [
   },
   {
     id: "l2",
-    name: "Open Doubles Ladder",
-    type: "doubles",
-    playerCount: 28,
-    myPosition: null,
-    isJoined: false,
-    challengeWindow: "Weekends only",
-    lastActivity: "1 day ago",
-  },
-  {
-    id: "l3",
     name: "Junior Challenge Ladder",
     type: "singles",
     playerCount: 32,
@@ -181,34 +144,25 @@ const MOCK_LADDERS: Ladder[] = [
 
 function getTypeColor(type: TournamentType): string {
   switch (type) {
-    case "singles":
-      return GlowColors.primary;
-    case "doubles":
-      return "#00D4FF";
-    case "mixed":
-      return "#E040FB";
+    case "singles": return GlowColors.primary;
+    case "doubles": return "#00D4FF";
+    case "mixed": return "#E040FB";
   }
 }
 
 function getTypeBadge(type: TournamentType): string {
   switch (type) {
-    case "singles":
-      return "Singles";
-    case "doubles":
-      return "Doubles";
-    case "mixed":
-      return "Mixed";
+    case "singles": return "SINGLES";
+    case "doubles": return "DOUBLES";
+    case "mixed": return "MIXED";
   }
 }
 
-function getFormatDisplay(format: TournamentFormat): string {
+function getFormatIcon(format: TournamentFormat): string {
   switch (format) {
-    case "knockout":
-      return "Knock-out";
-    case "round_robin":
-      return "Round Robin";
-    case "box_league":
-      return "Box League";
+    case "knockout": return "git-network-outline";
+    case "round_robin": return "sync-outline";
+    case "box_league": return "grid-outline";
   }
 }
 
@@ -223,103 +177,88 @@ function TournamentCard({ tournament, onPress }: { tournament: Tournament; onPre
   const typeColor = getTypeColor(tournament.type);
   const spotsRemaining = tournament.spotsTotal - tournament.spotsTaken;
   const isFull = spotsRemaining <= 0;
+  const fillPercent = (tournament.spotsTaken / tournament.spotsTotal) * 100;
 
   return (
-    <Pressable
-      style={({ pressed }) => [
-        styles.tournamentCard,
-        pressed && styles.cardPressed,
-      ]}
-      onPress={onPress}
-    >
-      <View style={styles.cardHeader}>
-        <View style={styles.cardTitleRow}>
-          <Text style={styles.tournamentName} numberOfLines={1}>
-            {tournament.name}
+    <Pressable style={({ pressed }) => [styles.card, pressed && styles.cardPressed]} onPress={onPress}>
+      {tournament.status === "in_progress" && (
+        <View style={styles.liveBadge}>
+          <View style={styles.liveDot} />
+          <Text style={styles.liveText}>LIVE</Text>
+        </View>
+      )}
+      
+      <View style={styles.cardTop}>
+        <View style={styles.cardHeader}>
+          <Text style={styles.cardTitle} numberOfLines={1}>{tournament.name}</Text>
+          <View style={[styles.typeBadge, { backgroundColor: typeColor }]}>
+            <Text style={styles.typeBadgeText}>{getTypeBadge(tournament.type)}</Text>
+          </View>
+        </View>
+        
+        <View style={styles.formatRow}>
+          <Ionicons name={getFormatIcon(tournament.format) as any} size={12} color={TextColors.muted} />
+          <Text style={styles.formatText}>
+            {tournament.format === "knockout" ? "Knockout" : tournament.format === "round_robin" ? "Round Robin" : "Box League"}
           </Text>
-          <View style={[styles.typeBadge, { backgroundColor: typeColor + "20" }]}>
-            <Text style={[styles.typeBadgeText, { color: typeColor }]}>
-              {getTypeBadge(tournament.type)}
+        </View>
+      </View>
+
+      <View style={styles.cardMeta}>
+        <View style={styles.metaItem}>
+          <Ionicons name="calendar" size={13} color={TextColors.muted} />
+          <Text style={styles.metaText}>{formatDateRange(tournament.startDate, tournament.endDate)}</Text>
+        </View>
+        <View style={styles.metaItem}>
+          <Ionicons name="location" size={13} color={TextColors.muted} />
+          <Text style={styles.metaText} numberOfLines={1}>{tournament.location}</Text>
+        </View>
+      </View>
+
+      <View style={styles.progressBar}>
+        <View style={[styles.progressFill, { width: `${fillPercent}%`, backgroundColor: isFull ? "#FF4D4D" : GlowColors.primary }]} />
+      </View>
+
+      <View style={styles.cardFooter}>
+        <View style={styles.footerLeft}>
+          <View style={styles.priceBadge}>
+            {tournament.entryFee ? (
+              <>
+                <Ionicons name="cash" size={12} color={GlowColors.primary} />
+                <Text style={styles.priceText}>${tournament.entryFee}</Text>
+              </>
+            ) : (
+              <>
+                <Ionicons name="gift" size={12} color="#00E676" />
+                <Text style={[styles.priceText, { color: "#00E676" }]}>Free</Text>
+              </>
+            )}
+          </View>
+          <View style={styles.spotsBadge}>
+            <Ionicons name="people" size={12} color={isFull ? "#FF4D4D" : TextColors.secondary} />
+            <Text style={[styles.spotsText, isFull && { color: "#FF4D4D" }]}>
+              {isFull ? "Full" : `${spotsRemaining} spots`}
             </Text>
           </View>
         </View>
-        <View style={styles.formatRow}>
-          <Ionicons name="trophy-outline" size={14} color={TextColors.muted} />
-          <Text style={styles.formatText}>{getFormatDisplay(tournament.format)}</Text>
-        </View>
-      </View>
 
-      <View style={styles.cardDetails}>
-        <View style={styles.detailRow}>
-          <Ionicons name="calendar-outline" size={16} color={TextColors.secondary} />
-          <Text style={styles.detailText}>
-            {formatDateRange(tournament.startDate, tournament.endDate)}
-          </Text>
-        </View>
-        <View style={styles.detailRow}>
-          <Ionicons name="location-outline" size={16} color={TextColors.secondary} />
-          <Text style={styles.detailText} numberOfLines={1}>
-            {tournament.location}
-          </Text>
-        </View>
-        <View style={styles.cardFooter}>
-          <View style={styles.statsRow}>
-            {tournament.entryFee ? (
-              <View style={styles.stat}>
-                <Ionicons name="ticket-outline" size={14} color={GlowColors.primary} />
-                <Text style={styles.statValue}>${tournament.entryFee}</Text>
-              </View>
-            ) : (
-              <View style={styles.stat}>
-                <Ionicons name="gift-outline" size={14} color="#00E676" />
-                <Text style={[styles.statValue, { color: "#00E676" }]}>Free</Text>
-              </View>
-            )}
-            <View style={styles.stat}>
-              <Ionicons 
-                name="people-outline" 
-                size={14} 
-                color={isFull ? "#FF4D4D" : TextColors.secondary} 
-              />
-              <Text style={[styles.statValue, isFull && { color: "#FF4D4D" }]}>
-                {spotsRemaining} spots left
-              </Text>
-            </View>
+        {tournament.isRegistered ? (
+          <View style={styles.registeredBadge}>
+            <Ionicons name="checkmark-circle" size={14} color={GlowColors.primary} />
+            <Text style={styles.registeredText}>Entered</Text>
           </View>
-          {!tournament.isRegistered ? (
-            <Pressable
-              style={[styles.registerButton, isFull && styles.registerButtonDisabled]}
-              disabled={isFull}
-              onPress={(e) => {
-                e.stopPropagation();
-                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-              }}
-            >
-              <Text style={[styles.registerButtonText, isFull && styles.registerButtonTextDisabled]}>
-                {isFull ? "Full" : "Register"}
-              </Text>
-            </Pressable>
-          ) : (
-            <View style={styles.registeredBadge}>
-              <Ionicons name="checkmark-circle" size={16} color={GlowColors.primary} />
-              <Text style={styles.registeredText}>Registered</Text>
-            </View>
-          )}
-        </View>
+        ) : (
+          <Pressable
+            style={[styles.registerBtn, isFull && styles.registerBtnDisabled]}
+            disabled={isFull}
+            onPress={(e) => { e.stopPropagation(); Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); }}
+          >
+            <Text style={[styles.registerBtnText, isFull && styles.registerBtnTextDisabled]}>
+              {isFull ? "Full" : "Register"}
+            </Text>
+          </Pressable>
+        )}
       </View>
-
-      {tournament.status === "in_progress" && (
-        <View style={styles.statusBadge}>
-          <View style={styles.liveIndicator} />
-          <Text style={styles.statusText}>In Progress</Text>
-        </View>
-      )}
-      {tournament.status === "completed" && (
-        <View style={[styles.statusBadge, { backgroundColor: "rgba(255, 255, 255, 0.1)" }]}>
-          <Ionicons name="checkmark" size={12} color={TextColors.muted} />
-          <Text style={[styles.statusText, { color: TextColors.muted }]}>Completed</Text>
-        </View>
-      )}
     </Pressable>
   );
 }
@@ -328,96 +267,57 @@ function LadderCard({ ladder, onPress }: { ladder: Ladder; onPress: () => void }
   const typeColor = getTypeColor(ladder.type);
 
   return (
-    <Pressable
-      style={({ pressed }) => [
-        styles.ladderCard,
-        pressed && styles.cardPressed,
-      ]}
-      onPress={onPress}
-    >
-      <View style={styles.ladderHeader}>
-        <View style={styles.ladderTitleRow}>
-          <Ionicons name="podium-outline" size={24} color={GlowColors.primary} />
-          <View style={styles.ladderTitleContent}>
-            <Text style={styles.ladderName}>{ladder.name}</Text>
-            <View style={[styles.typeBadge, { backgroundColor: typeColor + "20" }]}>
-              <Text style={[styles.typeBadgeText, { color: typeColor }]}>
-                {getTypeBadge(ladder.type)}
-              </Text>
+    <Pressable style={({ pressed }) => [styles.ladderCard, pressed && styles.cardPressed]} onPress={onPress}>
+      <LinearGradient
+        colors={[Backgrounds.card, Backgrounds.elevated]}
+        style={styles.ladderGradient}
+      >
+        <View style={styles.ladderTop}>
+          <View style={styles.ladderIcon}>
+            <Ionicons name="podium" size={20} color={GlowColors.primary} />
+          </View>
+          <View style={styles.ladderInfo}>
+            <Text style={styles.ladderName} numberOfLines={1}>{ladder.name}</Text>
+            <View style={[styles.typeBadgeMini, { backgroundColor: typeColor + "25" }]}>
+              <Text style={[styles.typeBadgeMiniText, { color: typeColor }]}>{getTypeBadge(ladder.type)}</Text>
             </View>
           </View>
         </View>
-      </View>
 
-      <View style={styles.ladderStats}>
-        <View style={styles.ladderStat}>
-          <Text style={styles.ladderStatValue}>{ladder.playerCount}</Text>
-          <Text style={styles.ladderStatLabel}>Players</Text>
-        </View>
-        {ladder.myPosition ? (
+        <View style={styles.ladderStats}>
           <View style={styles.ladderStat}>
-            <Text style={[styles.ladderStatValue, { color: GlowColors.primary }]}>
-              #{ladder.myPosition}
-            </Text>
-            <Text style={styles.ladderStatLabel}>My Position</Text>
+            <Text style={styles.ladderStatValue}>{ladder.playerCount}</Text>
+            <Text style={styles.ladderStatLabel}>Players</Text>
           </View>
-        ) : null}
-        <View style={styles.ladderStat}>
-          <Text style={styles.ladderStatValue}>{ladder.challengeWindow}</Text>
-          <Text style={styles.ladderStatLabel}>Challenge Window</Text>
-        </View>
-      </View>
-
-      <View style={styles.ladderFooter}>
-        <View style={styles.activityRow}>
-          <Ionicons name="time-outline" size={14} color={TextColors.muted} />
-          <Text style={styles.activityText}>Last activity: {ladder.lastActivity}</Text>
-        </View>
-        {ladder.isJoined ? (
-          <View style={styles.joinedBadge}>
-            <Ionicons name="checkmark-circle" size={16} color={GlowColors.primary} />
-            <Text style={styles.joinedText}>Joined</Text>
+          {ladder.myPosition && (
+            <View style={styles.ladderStat}>
+              <Text style={[styles.ladderStatValue, { color: GlowColors.primary }]}>#{ladder.myPosition}</Text>
+              <Text style={styles.ladderStatLabel}>Rank</Text>
+            </View>
+          )}
+          <View style={styles.ladderStat}>
+            <Text style={styles.ladderStatValue}>{ladder.challengeWindow}</Text>
+            <Text style={styles.ladderStatLabel}>Challenge</Text>
           </View>
-        ) : (
-          <Pressable
-            style={styles.joinButton}
-            onPress={(e) => {
-              e.stopPropagation();
-              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-            }}
-          >
-            <Text style={styles.joinButtonText}>Join Ladder</Text>
-          </Pressable>
-        )}
-      </View>
-    </Pressable>
-  );
-}
-
-function TabButton({
-  label,
-  isActive,
-  onPress,
-  count,
-}: {
-  label: string;
-  isActive: boolean;
-  onPress: () => void;
-  count?: number;
-}) {
-  return (
-    <Pressable
-      style={[styles.tabButton, isActive && styles.tabButtonActive]}
-      onPress={onPress}
-    >
-      <Text style={[styles.tabButtonText, isActive && styles.tabButtonTextActive]}>
-        {label}
-      </Text>
-      {count !== undefined && count > 0 && (
-        <View style={[styles.countBadge, isActive && styles.countBadgeActive]}>
-          <Text style={[styles.countText, isActive && styles.countTextActive]}>{count}</Text>
         </View>
-      )}
+
+        <View style={styles.ladderFooter}>
+          <View style={styles.activityBadge}>
+            <Ionicons name="time" size={11} color={TextColors.muted} />
+            <Text style={styles.activityText}>{ladder.lastActivity}</Text>
+          </View>
+          {ladder.isJoined ? (
+            <View style={styles.joinedBadge}>
+              <Ionicons name="checkmark-circle" size={14} color={GlowColors.primary} />
+              <Text style={styles.joinedText}>Joined</Text>
+            </View>
+          ) : (
+            <Pressable style={styles.joinBtn} onPress={(e) => { e.stopPropagation(); }}>
+              <Text style={styles.joinBtnText}>Join</Text>
+            </Pressable>
+          )}
+        </View>
+      </LinearGradient>
     </Pressable>
   );
 }
@@ -427,15 +327,26 @@ export default function TournamentsScreen() {
   const insets = useSafeAreaInsets();
   const [activeTab, setActiveTab] = useState<TabType>("upcoming");
 
-  const handleTournamentPress = (tournamentId: string) => {
+  const handleTabPress = (tab: TabType) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    navigation.navigate("TournamentDetail", { tournamentId });
+    setActiveTab(tab);
   };
 
-  const handleLadderPress = (ladderId: string) => {
+  const handleTournamentPress = (id: string) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    navigation.navigate("LadderDetail", { ladderId });
+    navigation.navigate("TournamentDetail", { tournamentId: id });
   };
+
+  const handleLadderPress = (id: string) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    navigation.navigate("LadderDetail", { ladderId: id });
+  };
+
+  const tabs = [
+    { key: "upcoming" as TabType, label: "Upcoming", count: MOCK_TOURNAMENTS.length },
+    { key: "my_tournaments" as TabType, label: "My Events", count: MOCK_MY_TOURNAMENTS.length },
+    { key: "ladders" as TabType, label: "Ladders", count: MOCK_LADDERS.filter(l => l.isJoined).length },
+  ];
 
   const renderContent = () => {
     switch (activeTab) {
@@ -445,50 +356,26 @@ export default function TournamentsScreen() {
             data={MOCK_TOURNAMENTS}
             keyExtractor={(item) => item.id}
             renderItem={({ item }) => (
-              <TournamentCard
-                tournament={item}
-                onPress={() => handleTournamentPress(item.id)}
-              />
+              <TournamentCard tournament={item} onPress={() => handleTournamentPress(item.id)} />
             )}
             contentContainerStyle={styles.listContent}
             showsVerticalScrollIndicator={false}
-            ListEmptyComponent={
-              <View style={styles.emptyState}>
-                <Ionicons name="trophy-outline" size={48} color={TextColors.muted} />
-                <Text style={styles.emptyTitle}>No Upcoming Tournaments</Text>
-                <Text style={styles.emptyText}>
-                  Check back later for new tournaments to join
-                </Text>
-              </View>
-            }
+            ListEmptyComponent={<EmptyState icon="trophy-outline" title="No Upcoming Tournaments" />}
           />
         );
-
       case "my_tournaments":
         return (
           <FlatList
             data={MOCK_MY_TOURNAMENTS}
             keyExtractor={(item) => item.id}
             renderItem={({ item }) => (
-              <TournamentCard
-                tournament={item}
-                onPress={() => handleTournamentPress(item.id)}
-              />
+              <TournamentCard tournament={item} onPress={() => handleTournamentPress(item.id)} />
             )}
             contentContainerStyle={styles.listContent}
             showsVerticalScrollIndicator={false}
-            ListEmptyComponent={
-              <View style={styles.emptyState}>
-                <Ionicons name="calendar-outline" size={48} color={TextColors.muted} />
-                <Text style={styles.emptyTitle}>No Registered Tournaments</Text>
-                <Text style={styles.emptyText}>
-                  Register for upcoming tournaments to see them here
-                </Text>
-              </View>
-            }
+            ListEmptyComponent={<EmptyState icon="calendar-outline" title="No Registered Events" />}
           />
         );
-
       case "ladders":
         return (
           <FlatList
@@ -499,15 +386,7 @@ export default function TournamentsScreen() {
             )}
             contentContainerStyle={styles.listContent}
             showsVerticalScrollIndicator={false}
-            ListEmptyComponent={
-              <View style={styles.emptyState}>
-                <Ionicons name="podium-outline" size={48} color={TextColors.muted} />
-                <Text style={styles.emptyTitle}>No Active Ladders</Text>
-                <Text style={styles.emptyText}>
-                  Join a ladder to compete against other players
-                </Text>
-              </View>
-            }
+            ListEmptyComponent={<EmptyState icon="podium-outline" title="No Ladders Available" />}
           />
         );
     }
@@ -516,37 +395,45 @@ export default function TournamentsScreen() {
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
       <View style={styles.header}>
-        <Pressable style={styles.backButton} onPress={() => navigation.goBack()}>
-          <Ionicons name="arrow-back" size={24} color={GlowColors.primary} />
+        <Pressable style={styles.backBtn} onPress={() => navigation.goBack()}>
+          <Ionicons name="chevron-back" size={22} color={GlowColors.primary} />
         </Pressable>
         <Text style={styles.headerTitle}>Tournaments</Text>
         <View style={styles.headerRight} />
       </View>
 
-      <View style={styles.tabsContainer}>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.tabsScroll}>
-          <TabButton
-            label="Upcoming"
-            isActive={activeTab === "upcoming"}
-            onPress={() => setActiveTab("upcoming")}
-            count={MOCK_TOURNAMENTS.length}
-          />
-          <TabButton
-            label="My Tournaments"
-            isActive={activeTab === "my_tournaments"}
-            onPress={() => setActiveTab("my_tournaments")}
-            count={MOCK_MY_TOURNAMENTS.length}
-          />
-          <TabButton
-            label="Ladders"
-            isActive={activeTab === "ladders"}
-            onPress={() => setActiveTab("ladders")}
-            count={MOCK_LADDERS.filter((l) => l.isJoined).length}
-          />
-        </ScrollView>
+      <View style={styles.tabBar}>
+        {tabs.map((tab) => (
+          <Pressable
+            key={tab.key}
+            style={[styles.tab, activeTab === tab.key && styles.tabActive]}
+            onPress={() => handleTabPress(tab.key)}
+          >
+            <Text style={[styles.tabText, activeTab === tab.key && styles.tabTextActive]}>
+              {tab.label}
+            </Text>
+            {tab.count > 0 && (
+              <View style={[styles.tabCount, activeTab === tab.key && styles.tabCountActive]}>
+                <Text style={[styles.tabCountText, activeTab === tab.key && styles.tabCountTextActive]}>
+                  {tab.count}
+                </Text>
+              </View>
+            )}
+          </Pressable>
+        ))}
       </View>
 
       <View style={styles.content}>{renderContent()}</View>
+    </View>
+  );
+}
+
+function EmptyState({ icon, title }: { icon: string; title: string }) {
+  return (
+    <View style={styles.empty}>
+      <Ionicons name={icon as any} size={48} color={TextColors.muted} />
+      <Text style={styles.emptyTitle}>{title}</Text>
+      <Text style={styles.emptyText}>Check back later for new events</Text>
     </View>
   );
 }
@@ -560,258 +447,296 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    paddingHorizontal: Spacing.lg,
-    paddingVertical: Spacing.md,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm,
   },
-  backButton: {
-    width: 40,
-    height: 40,
-    borderRadius: BorderRadius.sm,
+  backBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
     backgroundColor: Backgrounds.card,
     alignItems: "center",
     justifyContent: "center",
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.08)",
   },
   headerTitle: {
-    ...Typography.h2,
+    fontSize: 18,
+    fontWeight: "700",
     color: TextColors.primary,
   },
   headerRight: {
-    width: 40,
+    width: 36,
   },
-  tabsContainer: {
-    borderBottomWidth: 1,
-    borderBottomColor: "rgba(255, 255, 255, 0.08)",
+  tabBar: {
+    flexDirection: "row",
+    marginHorizontal: Spacing.md,
+    marginBottom: Spacing.sm,
+    gap: 6,
   },
-  tabsScroll: {
-    paddingHorizontal: Spacing.lg,
-    paddingVertical: Spacing.sm,
-  },
-  tabButton: {
+  tab: {
+    flex: 1,
     flexDirection: "row",
     alignItems: "center",
-    paddingHorizontal: Spacing.lg,
-    paddingVertical: Spacing.sm,
-    marginRight: Spacing.sm,
-    borderRadius: BorderRadius.full,
+    justifyContent: "center",
+    gap: 4,
+    paddingVertical: 10,
+    borderRadius: 8,
     backgroundColor: Backgrounds.card,
     borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.08)",
+    borderColor: "rgba(255,255,255,0.06)",
   },
-  tabButtonActive: {
+  tabActive: {
     backgroundColor: GlowColors.primary + "20",
     borderColor: GlowColors.primary + "40",
   },
-  tabButtonText: {
-    ...Typography.small,
-    color: TextColors.muted,
-    fontWeight: "500",
-  },
-  tabButtonTextActive: {
-    color: GlowColors.primary,
+  tabText: {
+    fontSize: 12,
     fontWeight: "600",
+    color: TextColors.muted,
   },
-  countBadge: {
-    marginLeft: Spacing.xs,
-    paddingHorizontal: Spacing.sm,
+  tabTextActive: {
+    color: GlowColors.primary,
+  },
+  tabCount: {
+    backgroundColor: "rgba(255,255,255,0.1)",
+    paddingHorizontal: 6,
     paddingVertical: 2,
-    borderRadius: BorderRadius.full,
-    backgroundColor: "rgba(255, 255, 255, 0.1)",
+    borderRadius: 8,
   },
-  countBadgeActive: {
+  tabCountActive: {
     backgroundColor: GlowColors.primary + "30",
   },
-  countText: {
-    fontSize: 11,
-    fontWeight: "600",
+  tabCountText: {
+    fontSize: 10,
+    fontWeight: "700",
     color: TextColors.muted,
   },
-  countTextActive: {
+  tabCountTextActive: {
     color: GlowColors.primary,
   },
   content: {
     flex: 1,
   },
   listContent: {
-    padding: Spacing.lg,
+    padding: Spacing.md,
     paddingBottom: 100,
   },
-  tournamentCard: {
+  card: {
     backgroundColor: Backgrounds.card,
-    borderRadius: BorderRadius.md,
-    padding: Spacing.lg,
-    marginBottom: Spacing.md,
+    borderRadius: 12,
+    padding: Spacing.md,
+    marginBottom: 10,
     borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.06)",
+    borderColor: "rgba(255,255,255,0.06)",
   },
   cardPressed: {
     opacity: 0.9,
     transform: [{ scale: 0.98 }],
   },
-  cardHeader: {
-    marginBottom: Spacing.md,
-  },
-  cardTitleRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    marginBottom: Spacing.xs,
-  },
-  tournamentName: {
-    ...Typography.h3,
-    color: TextColors.primary,
-    flex: 1,
-    marginRight: Spacing.sm,
-  },
-  typeBadge: {
-    paddingHorizontal: Spacing.sm,
-    paddingVertical: 4,
-    borderRadius: BorderRadius.xs,
-  },
-  typeBadgeText: {
-    fontSize: 11,
-    fontWeight: "600",
-    textTransform: "uppercase",
-  },
-  formatRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: Spacing.xs,
-  },
-  formatText: {
-    ...Typography.caption,
-    color: TextColors.muted,
-  },
-  cardDetails: {
-    gap: Spacing.sm,
-  },
-  detailRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: Spacing.sm,
-  },
-  detailText: {
-    ...Typography.small,
-    color: TextColors.secondary,
-    flex: 1,
-  },
-  cardFooter: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    marginTop: Spacing.sm,
-    paddingTop: Spacing.md,
-    borderTopWidth: 1,
-    borderTopColor: "rgba(255, 255, 255, 0.06)",
-  },
-  statsRow: {
-    flexDirection: "row",
-    gap: Spacing.lg,
-  },
-  stat: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: Spacing.xs,
-  },
-  statValue: {
-    ...Typography.caption,
-    color: TextColors.secondary,
-    fontWeight: "500",
-  },
-  registerButton: {
-    backgroundColor: GlowColors.primary,
-    paddingHorizontal: Spacing.lg,
-    paddingVertical: Spacing.sm,
-    borderRadius: BorderRadius.sm,
-  },
-  registerButtonDisabled: {
-    backgroundColor: "rgba(255, 255, 255, 0.1)",
-  },
-  registerButtonText: {
-    ...Typography.caption,
-    color: Backgrounds.root,
-    fontWeight: "700",
-  },
-  registerButtonTextDisabled: {
-    color: TextColors.muted,
-  },
-  registeredBadge: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: Spacing.xs,
-  },
-  registeredText: {
-    ...Typography.caption,
-    color: GlowColors.primary,
-    fontWeight: "600",
-  },
-  statusBadge: {
+  liveBadge: {
     position: "absolute",
-    top: Spacing.md,
-    right: Spacing.md,
+    top: 10,
+    right: 10,
     flexDirection: "row",
     alignItems: "center",
     gap: 4,
     backgroundColor: "rgba(255, 77, 77, 0.2)",
-    paddingHorizontal: Spacing.sm,
-    paddingVertical: 4,
-    borderRadius: BorderRadius.xs,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+    zIndex: 1,
   },
-  liveIndicator: {
+  liveDot: {
     width: 6,
     height: 6,
     borderRadius: 3,
     backgroundColor: "#FF4D4D",
   },
-  statusText: {
-    fontSize: 10,
-    fontWeight: "600",
+  liveText: {
+    fontSize: 9,
+    fontWeight: "800",
     color: "#FF4D4D",
-    textTransform: "uppercase",
   },
-  ladderCard: {
-    backgroundColor: Backgrounds.card,
-    borderRadius: BorderRadius.md,
-    padding: Spacing.lg,
-    marginBottom: Spacing.md,
-    borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.06)",
+  cardTop: {
+    marginBottom: 10,
   },
-  ladderHeader: {
-    marginBottom: Spacing.md,
+  cardHeader: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    justifyContent: "space-between",
+    gap: 8,
   },
-  ladderTitleRow: {
+  cardTitle: {
+    fontSize: 15,
+    fontWeight: "700",
+    color: TextColors.primary,
+    flex: 1,
+  },
+  typeBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 4,
+  },
+  typeBadgeText: {
+    fontSize: 9,
+    fontWeight: "800",
+    color: Backgrounds.root,
+  },
+  formatRow: {
     flexDirection: "row",
     alignItems: "center",
-    gap: Spacing.md,
+    gap: 4,
+    marginTop: 4,
   },
-  ladderTitleContent: {
+  formatText: {
+    fontSize: 11,
+    color: TextColors.muted,
+  },
+  cardMeta: {
+    gap: 6,
+    marginBottom: 10,
+  },
+  metaItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+  },
+  metaText: {
+    fontSize: 12,
+    color: TextColors.secondary,
+    flex: 1,
+  },
+  progressBar: {
+    height: 3,
+    backgroundColor: "rgba(255,255,255,0.08)",
+    borderRadius: 2,
+    marginBottom: 10,
+    overflow: "hidden",
+  },
+  progressFill: {
+    height: "100%",
+    borderRadius: 2,
+  },
+  cardFooter: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  footerLeft: {
+    flexDirection: "row",
+    gap: 12,
+  },
+  priceBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+  },
+  priceText: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: GlowColors.primary,
+  },
+  spotsBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+  },
+  spotsText: {
+    fontSize: 11,
+    color: TextColors.secondary,
+  },
+  registeredBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+  },
+  registeredText: {
+    fontSize: 11,
+    fontWeight: "600",
+    color: GlowColors.primary,
+  },
+  registerBtn: {
+    backgroundColor: GlowColors.primary,
+    paddingHorizontal: 14,
+    paddingVertical: 6,
+    borderRadius: 6,
+  },
+  registerBtnDisabled: {
+    backgroundColor: "rgba(255,255,255,0.1)",
+  },
+  registerBtnText: {
+    fontSize: 11,
+    fontWeight: "700",
+    color: Backgrounds.root,
+  },
+  registerBtnTextDisabled: {
+    color: TextColors.muted,
+  },
+  ladderCard: {
+    borderRadius: 12,
+    marginBottom: 10,
+    overflow: "hidden",
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.06)",
+  },
+  ladderGradient: {
+    padding: Spacing.md,
+  },
+  ladderTop: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    marginBottom: 12,
+  },
+  ladderIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 10,
+    backgroundColor: GlowColors.primary + "15",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  ladderInfo: {
     flex: 1,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
   },
   ladderName: {
-    ...Typography.h3,
+    fontSize: 14,
+    fontWeight: "700",
     color: TextColors.primary,
     flex: 1,
+  },
+  typeBadgeMini: {
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+  },
+  typeBadgeMiniText: {
+    fontSize: 8,
+    fontWeight: "800",
   },
   ladderStats: {
     flexDirection: "row",
     justifyContent: "space-around",
-    paddingVertical: Spacing.md,
+    paddingVertical: 10,
     borderTopWidth: 1,
     borderBottomWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.06)",
+    borderColor: "rgba(255,255,255,0.06)",
+    marginBottom: 10,
   },
   ladderStat: {
     alignItems: "center",
   },
   ladderStatValue: {
-    ...Typography.h3,
+    fontSize: 14,
+    fontWeight: "700",
     color: TextColors.primary,
   },
   ladderStatLabel: {
-    ...Typography.caption,
+    fontSize: 10,
     color: TextColors.muted,
     marginTop: 2,
   },
@@ -819,52 +744,51 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    marginTop: Spacing.md,
   },
-  activityRow: {
+  activityBadge: {
     flexDirection: "row",
     alignItems: "center",
-    gap: Spacing.xs,
+    gap: 4,
   },
   activityText: {
-    ...Typography.caption,
+    fontSize: 10,
     color: TextColors.muted,
-  },
-  joinButton: {
-    backgroundColor: GlowColors.primary,
-    paddingHorizontal: Spacing.lg,
-    paddingVertical: Spacing.sm,
-    borderRadius: BorderRadius.sm,
-  },
-  joinButtonText: {
-    ...Typography.caption,
-    color: Backgrounds.root,
-    fontWeight: "700",
   },
   joinedBadge: {
     flexDirection: "row",
     alignItems: "center",
-    gap: Spacing.xs,
+    gap: 4,
   },
   joinedText: {
-    ...Typography.caption,
-    color: GlowColors.primary,
+    fontSize: 11,
     fontWeight: "600",
+    color: GlowColors.primary,
   },
-  emptyState: {
+  joinBtn: {
+    backgroundColor: GlowColors.primary,
+    paddingHorizontal: 14,
+    paddingVertical: 6,
+    borderRadius: 6,
+  },
+  joinBtnText: {
+    fontSize: 11,
+    fontWeight: "700",
+    color: Backgrounds.root,
+  },
+  empty: {
     alignItems: "center",
     justifyContent: "center",
-    paddingVertical: Spacing["4xl"],
+    paddingVertical: 60,
   },
   emptyTitle: {
-    ...Typography.h3,
+    fontSize: 16,
+    fontWeight: "700",
     color: TextColors.primary,
-    marginTop: Spacing.lg,
-    marginBottom: Spacing.sm,
+    marginTop: 12,
   },
   emptyText: {
-    ...Typography.small,
+    fontSize: 13,
     color: TextColors.muted,
-    textAlign: "center",
+    marginTop: 4,
   },
 });

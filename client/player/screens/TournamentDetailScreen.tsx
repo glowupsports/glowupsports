@@ -5,14 +5,14 @@ import {
   StyleSheet,
   ScrollView,
   Pressable,
-  FlatList,
+  Dimensions,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation, useRoute } from "@react-navigation/native";
+import { LinearGradient } from "expo-linear-gradient";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import * as Haptics from "expo-haptics";
 import {
-  Colors,
   Spacing,
   Typography,
   BorderRadius,
@@ -23,6 +23,8 @@ import {
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import type { RouteProp } from "@react-navigation/native";
 import type { PlayerStackParamList } from "@/player/navigation/PlayerNavigator";
+
+const { width: SCREEN_WIDTH } = Dimensions.get("window");
 
 type NavigationProp = NativeStackNavigationProp<PlayerStackParamList>;
 type RouteProps = RouteProp<PlayerStackParamList, "TournamentDetail">;
@@ -76,13 +78,7 @@ const MOCK_TOURNAMENT = {
   spotsTotal: 32,
   spotsTaken: 32,
   isRegistered: true,
-  description: "Annual championship open to all club members. Best of 3 sets with tiebreaks at 6-6.",
-  rules: [
-    "Best of 3 sets",
-    "Tiebreak at 6-6",
-    "No coaching during matches",
-    "Players provide balls",
-  ],
+  description: "Annual championship open to all club members.",
 };
 
 const MOCK_DRAW: Match[][] = [
@@ -91,20 +87,13 @@ const MOCK_DRAW: Match[][] = [
     { id: "r32-2", round: "R32", player1: { name: "A. Williams" }, player2: { name: "R. Brown" }, score: "7-5, 6-4", winner: 1 },
     { id: "r32-3", round: "R32", player1: { name: "T. Davis", seed: 4 }, player2: { name: "K. Miller" }, score: "6-1, 6-0", winner: 1 },
     { id: "r32-4", round: "R32", player1: { name: "You" }, player2: { name: "P. Wilson" }, score: "6-4, 7-6", winner: 1, isMyMatch: true },
-    { id: "r32-5", round: "R32", player1: { name: "C. Taylor", seed: 3 }, player2: { name: "L. Anderson" }, score: "6-2, 6-3", winner: 1 },
-    { id: "r32-6", round: "R32", player1: { name: "H. Thomas" }, player2: { name: "N. Jackson" }, score: "4-6, 6-3, 6-4", winner: 2 },
-    { id: "r32-7", round: "R32", player1: { name: "E. White", seed: 2 }, player2: { name: "D. Harris" }, score: "6-0, 6-1", winner: 1 },
-    { id: "r32-8", round: "R32", player1: { name: "S. Martin" }, player2: { name: "B. Garcia" }, score: "6-3, 3-6, 7-5", winner: 1 },
   ],
   [
     { id: "r16-1", round: "R16", player1: { name: "J. Smith", seed: 1 }, player2: { name: "A. Williams" }, score: "6-4, 6-3", winner: 1 },
     { id: "r16-2", round: "R16", player1: { name: "T. Davis", seed: 4 }, player2: { name: "You" }, score: null, winner: null, isMyMatch: true, time: "14:00", court: "Court 1" },
-    { id: "r16-3", round: "R16", player1: { name: "C. Taylor", seed: 3 }, player2: { name: "N. Jackson" }, score: "6-2, 6-4", winner: 1 },
-    { id: "r16-4", round: "R16", player1: { name: "E. White", seed: 2 }, player2: { name: "S. Martin" }, score: "6-1, 6-2", winner: 1 },
   ],
   [
     { id: "qf-1", round: "QF", player1: { name: "J. Smith", seed: 1 }, player2: null, score: null, winner: null },
-    { id: "qf-2", round: "QF", player1: { name: "C. Taylor", seed: 3 }, player2: { name: "E. White", seed: 2 }, score: null, winner: null },
   ],
   [
     { id: "sf-1", round: "SF", player1: null, player2: null, score: null, winner: null },
@@ -124,124 +113,120 @@ const MOCK_GROUPS: { name: string; standings: GroupStanding[] }[] = [
       { position: 4, playerName: "A. Williams", played: 3, won: 0, lost: 3, setsWon: 0, setsLost: 6, gamesWon: 18, gamesLost: 36 },
     ],
   },
-  {
-    name: "Group B",
-    standings: [
-      { position: 1, playerName: "T. Davis", played: 3, won: 3, lost: 0, setsWon: 6, setsLost: 0, gamesWon: 36, gamesLost: 15 },
-      { position: 2, playerName: "C. Taylor", played: 3, won: 2, lost: 1, setsWon: 4, setsLost: 3, gamesWon: 32, gamesLost: 27 },
-      { position: 3, playerName: "E. White", played: 3, won: 1, lost: 2, setsWon: 2, setsLost: 4, gamesWon: 25, gamesLost: 31 },
-      { position: 4, playerName: "S. Martin", played: 3, won: 0, lost: 3, setsWon: 0, setsLost: 6, gamesWon: 16, gamesLost: 36 },
-    ],
-  },
 ];
 
 const MOCK_SCHEDULE: ScheduleMatch[] = [
   { id: "s1", time: "10:00", court: "Court 1", player1: "J. Smith", player2: "A. Williams", round: "R16" },
-  { id: "s2", time: "10:00", court: "Court 2", player1: "C. Taylor", player2: "N. Jackson", round: "R16" },
-  { id: "s3", time: "12:00", court: "Court 1", player1: "E. White", player2: "S. Martin", round: "R16" },
-  { id: "s4", time: "14:00", court: "Court 1", player1: "T. Davis", player2: "You", round: "R16", isMyMatch: true },
-  { id: "s5", time: "16:00", court: "Court 1", player1: "TBD", player2: "TBD", round: "QF" },
+  { id: "s2", time: "12:00", court: "Court 1", player1: "E. White", player2: "S. Martin", round: "R16" },
+  { id: "s3", time: "14:00", court: "Court 1", player1: "T. Davis", player2: "You", round: "R16", isMyMatch: true },
 ];
 
 const MOCK_PARTICIPANTS = [
   { id: "1", name: "J. Smith", seed: 1 },
   { id: "2", name: "E. White", seed: 2 },
-  { id: "3", name: "C. Taylor", seed: 3 },
-  { id: "4", name: "T. Davis", seed: 4 },
-  { id: "5", name: "M. Johnson" },
-  { id: "6", name: "A. Williams" },
-  { id: "7", name: "R. Brown" },
-  { id: "8", name: "K. Miller" },
+  { id: "3", name: "T. Davis", seed: 4 },
   { id: "9", name: "You", isMe: true },
-  { id: "10", name: "P. Wilson" },
-  { id: "11", name: "L. Anderson" },
-  { id: "12", name: "H. Thomas" },
 ];
 
 const ROUND_LABELS: Record<string, string> = {
-  R32: "Round of 32",
-  R16: "Round of 16",
-  QF: "Quarter Finals",
-  SF: "Semi Finals",
+  R32: "R32",
+  R16: "R16",
+  QF: "QF",
+  SF: "SF",
   F: "Final",
 };
 
 function DrawBracket({ matches }: { matches: Match[][] }) {
   return (
-    <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-      <View style={styles.bracketContainer}>
-        {matches.map((round, roundIndex) => (
-          <View key={roundIndex} style={styles.roundColumn}>
-            <Text style={styles.roundLabel}>
-              {ROUND_LABELS[round[0]?.round] || round[0]?.round}
-            </Text>
-            <View style={styles.matchesColumn}>
-              {round.map((match, matchIndex) => (
-                <View
-                  key={match.id}
-                  style={[
-                    styles.matchCard,
-                    match.isMyMatch && styles.myMatchCard,
-                    { marginTop: roundIndex > 0 ? Math.pow(2, roundIndex) * 30 : 0 },
-                  ]}
-                >
-                  <View style={[styles.playerRow, match.winner === 1 && styles.winnerRow]}>
-                    <View style={styles.playerInfo}>
-                      {match.player1?.seed && (
-                        <Text style={styles.seed}>[{match.player1.seed}]</Text>
+    <ScrollView 
+      horizontal 
+      showsHorizontalScrollIndicator={false}
+      contentContainerStyle={styles.bracketScroll}
+    >
+      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.bracketVertical}>
+        <View style={styles.bracketContainer}>
+          {matches.map((round, roundIndex) => (
+            <View key={roundIndex} style={styles.roundColumn}>
+              <View style={styles.roundHeader}>
+                <Text style={styles.roundLabel}>
+                  {ROUND_LABELS[round[0]?.round] || round[0]?.round}
+                </Text>
+              </View>
+              <View style={styles.matchesColumn}>
+                {round.map((match) => {
+                  const spacing = Math.pow(2, roundIndex) * 8;
+                  return (
+                    <View
+                      key={match.id}
+                      style={[
+                        styles.matchCard,
+                        match.isMyMatch && styles.myMatchCard,
+                        { marginTop: roundIndex > 0 ? spacing : 0 },
+                      ]}
+                    >
+                      <View style={[styles.playerSlot, match.winner === 1 && styles.winnerSlot]}>
+                        <View style={styles.playerInfo}>
+                          {match.player1?.seed && (
+                            <View style={styles.seedBadge}>
+                              <Text style={styles.seedText}>{match.player1.seed}</Text>
+                            </View>
+                          )}
+                          <Text
+                            style={[
+                              styles.playerName,
+                              match.winner === 1 && styles.winnerName,
+                              match.player1?.name === "You" && styles.myName,
+                            ]}
+                            numberOfLines={1}
+                          >
+                            {match.player1?.name || "TBD"}
+                          </Text>
+                        </View>
+                        {match.score && (
+                          <Text style={[styles.scoreText, match.winner === 1 && styles.winnerScore]}>
+                            {match.score.split(",")[0]}
+                          </Text>
+                        )}
+                      </View>
+                      <View style={styles.matchDivider} />
+                      <View style={[styles.playerSlot, match.winner === 2 && styles.winnerSlot]}>
+                        <View style={styles.playerInfo}>
+                          {match.player2?.seed && (
+                            <View style={styles.seedBadge}>
+                              <Text style={styles.seedText}>{match.player2.seed}</Text>
+                            </View>
+                          )}
+                          <Text
+                            style={[
+                              styles.playerName,
+                              match.winner === 2 && styles.winnerName,
+                              match.player2?.name === "You" && styles.myName,
+                            ]}
+                            numberOfLines={1}
+                          >
+                            {match.player2?.name || "TBD"}
+                          </Text>
+                        </View>
+                        {match.score && (
+                          <Text style={[styles.scoreText, match.winner === 2 && styles.winnerScore]}>
+                            {match.score.split(",")[1]?.trim() || ""}
+                          </Text>
+                        )}
+                      </View>
+                      {!match.score && match.time && (
+                        <View style={styles.liveIndicator}>
+                          <View style={styles.liveDot} />
+                          <Text style={styles.liveText}>{match.time}</Text>
+                        </View>
                       )}
-                      <Text
-                        style={[
-                          styles.playerName,
-                          match.winner === 1 && styles.winnerName,
-                          match.player1?.name === "You" && styles.myName,
-                        ]}
-                        numberOfLines={1}
-                      >
-                        {match.player1?.name || "TBD"}
-                      </Text>
                     </View>
-                    {match.score && (
-                      <Text style={[styles.score, match.winner === 1 && styles.winnerScore]}>
-                        {match.score.split(",")[0]}
-                      </Text>
-                    )}
-                  </View>
-                  <View style={styles.matchDivider} />
-                  <View style={[styles.playerRow, match.winner === 2 && styles.winnerRow]}>
-                    <View style={styles.playerInfo}>
-                      {match.player2?.seed && (
-                        <Text style={styles.seed}>[{match.player2.seed}]</Text>
-                      )}
-                      <Text
-                        style={[
-                          styles.playerName,
-                          match.winner === 2 && styles.winnerName,
-                          match.player2?.name === "You" && styles.myName,
-                        ]}
-                        numberOfLines={1}
-                      >
-                        {match.player2?.name || "TBD"}
-                      </Text>
-                    </View>
-                    {match.score && (
-                      <Text style={[styles.score, match.winner === 2 && styles.winnerScore]}>
-                        {match.score.split(",")[1]?.trim() || ""}
-                      </Text>
-                    )}
-                  </View>
-                  {!match.score && match.time && (
-                    <View style={styles.matchTime}>
-                      <Text style={styles.matchTimeText}>{match.time}</Text>
-                      <Text style={styles.matchCourtText}>{match.court}</Text>
-                    </View>
-                  )}
-                </View>
-              ))}
+                  );
+                })}
+              </View>
             </View>
-          </View>
-        ))}
-      </View>
+          ))}
+        </View>
+      </ScrollView>
     </ScrollView>
   );
 }
@@ -249,49 +234,47 @@ function DrawBracket({ matches }: { matches: Match[][] }) {
 function GroupTable({ group }: { group: { name: string; standings: GroupStanding[] } }) {
   return (
     <View style={styles.groupContainer}>
-      <Text style={styles.groupName}>{group.name}</Text>
-      <View style={styles.tableHeader}>
-        <Text style={[styles.tableHeaderText, styles.posCol]}>#</Text>
-        <Text style={[styles.tableHeaderText, styles.playerCol]}>Player</Text>
-        <Text style={[styles.tableHeaderText, styles.statCol]}>P</Text>
-        <Text style={[styles.tableHeaderText, styles.statCol]}>W</Text>
-        <Text style={[styles.tableHeaderText, styles.statCol]}>L</Text>
-        <Text style={[styles.tableHeaderText, styles.setsCol]}>Sets</Text>
-        <Text style={[styles.tableHeaderText, styles.gamesCol]}>Games</Text>
+      <View style={styles.groupHeader}>
+        <Ionicons name="grid" size={14} color={GlowColors.primary} />
+        <Text style={styles.groupName}>{group.name}</Text>
       </View>
-      {group.standings.map((standing, index) => (
-        <View
-          key={standing.playerName}
-          style={[
-            styles.tableRow,
-            standing.playerName === "You" && styles.myRow,
-            index === group.standings.length - 1 && styles.lastRow,
-          ]}
-        >
-          <Text style={[styles.tableCell, styles.posCol, standing.position <= 2 && styles.qualifyPos]}>
-            {standing.position}
-          </Text>
-          <Text
-            style={[
-              styles.tableCell,
-              styles.playerCol,
-              standing.playerName === "You" && styles.myNameCell,
-            ]}
-            numberOfLines={1}
-          >
-            {standing.playerName}
-          </Text>
-          <Text style={[styles.tableCell, styles.statCol]}>{standing.played}</Text>
-          <Text style={[styles.tableCell, styles.statCol, styles.wonCell]}>{standing.won}</Text>
-          <Text style={[styles.tableCell, styles.statCol, styles.lostCell]}>{standing.lost}</Text>
-          <Text style={[styles.tableCell, styles.setsCol]}>
-            {standing.setsWon}-{standing.setsLost}
-          </Text>
-          <Text style={[styles.tableCell, styles.gamesCol]}>
-            {standing.gamesWon}-{standing.gamesLost}
-          </Text>
+      <View style={styles.tableWrapper}>
+        <View style={styles.tableHeader}>
+          <Text style={[styles.tableHeaderText, styles.posCol]}>#</Text>
+          <Text style={[styles.tableHeaderText, styles.playerCol]}>Player</Text>
+          <Text style={[styles.tableHeaderText, styles.statCol]}>W</Text>
+          <Text style={[styles.tableHeaderText, styles.statCol]}>L</Text>
+          <Text style={[styles.tableHeaderText, styles.setsCol]}>Sets</Text>
         </View>
-      ))}
+        {group.standings.map((standing, index) => (
+          <View
+            key={standing.playerName}
+            style={[
+              styles.tableRow,
+              standing.playerName === "You" && styles.myRow,
+              index === group.standings.length - 1 && styles.lastRow,
+            ]}
+          >
+            <View style={[styles.posCol, styles.posWrapper]}>
+              <Text style={[styles.tableCell, standing.position <= 2 && styles.qualifyPos]}>
+                {standing.position}
+              </Text>
+              {standing.position <= 2 && <View style={styles.qualifyDot} />}
+            </View>
+            <Text
+              style={[styles.tableCell, styles.playerCol, standing.playerName === "You" && styles.myNameCell]}
+              numberOfLines={1}
+            >
+              {standing.playerName}
+            </Text>
+            <Text style={[styles.tableCell, styles.statCol, styles.wonCell]}>{standing.won}</Text>
+            <Text style={[styles.tableCell, styles.statCol, styles.lostCell]}>{standing.lost}</Text>
+            <Text style={[styles.tableCell, styles.setsCol]}>
+              {standing.setsWon}-{standing.setsLost}
+            </Text>
+          </View>
+        ))}
+      </View>
     </View>
   );
 }
@@ -300,37 +283,31 @@ function ScheduleList({ schedule }: { schedule: ScheduleMatch[] }) {
   return (
     <View style={styles.scheduleContainer}>
       {schedule.map((match) => (
-        <View
-          key={match.id}
-          style={[styles.scheduleCard, match.isMyMatch && styles.myScheduleCard]}
-        >
-          <View style={styles.scheduleTime}>
-            <Ionicons name="time-outline" size={16} color={GlowColors.primary} />
-            <Text style={styles.scheduleTimeText}>{match.time}</Text>
-          </View>
-          <View style={styles.scheduleMatch}>
-            <Text
-              style={[styles.schedulePlayer, match.player1 === "You" && styles.myScheduleName]}
-            >
-              {match.player1}
-            </Text>
-            <Text style={styles.scheduleVs}>vs</Text>
-            <Text
-              style={[styles.schedulePlayer, match.player2 === "You" && styles.myScheduleName]}
-            >
-              {match.player2}
-            </Text>
-          </View>
-          <View style={styles.scheduleInfo}>
+        <Pressable key={match.id} style={[styles.scheduleCard, match.isMyMatch && styles.myScheduleCard]}>
+          <View style={styles.scheduleTimeBlock}>
+            <Text style={styles.scheduleTime}>{match.time}</Text>
             <View style={styles.scheduleBadge}>
               <Text style={styles.scheduleBadgeText}>{match.round}</Text>
             </View>
-            <View style={styles.scheduleCourt}>
-              <Ionicons name="location-outline" size={12} color={TextColors.muted} />
-              <Text style={styles.scheduleCourtText}>{match.court}</Text>
-            </View>
           </View>
-        </View>
+          <View style={styles.scheduleMatchInfo}>
+            <Text style={[styles.schedulePlayer, match.player1 === "You" && styles.myScheduleName]}>
+              {match.player1}
+            </Text>
+            <View style={styles.vsContainer}>
+              <View style={styles.vsLine} />
+              <Text style={styles.vsText}>VS</Text>
+              <View style={styles.vsLine} />
+            </View>
+            <Text style={[styles.schedulePlayer, match.player2 === "You" && styles.myScheduleName]}>
+              {match.player2}
+            </Text>
+          </View>
+          <View style={styles.scheduleCourtBlock}>
+            <Ionicons name="location" size={12} color={TextColors.muted} />
+            <Text style={styles.scheduleCourtText}>{match.court}</Text>
+          </View>
+        </Pressable>
       ))}
     </View>
   );
@@ -338,28 +315,25 @@ function ScheduleList({ schedule }: { schedule: ScheduleMatch[] }) {
 
 function ParticipantsList({ participants }: { participants: typeof MOCK_PARTICIPANTS }) {
   return (
-    <View style={styles.participantsContainer}>
-      {participants.map((player, index) => (
-        <View
-          key={player.id}
-          style={[styles.participantCard, player.isMe && styles.myParticipantCard]}
-        >
-          <View style={styles.participantAvatar}>
-            <Text style={styles.participantInitial}>{player.name.charAt(0)}</Text>
-          </View>
-          <View style={styles.participantInfo}>
-            <Text style={[styles.participantName, player.isMe && styles.myParticipantName]}>
+    <View style={styles.participantsGrid}>
+      {participants.map((player) => (
+        <View key={player.id} style={[styles.participantCard, player.isMe && styles.myParticipantCard]}>
+          <LinearGradient
+            colors={player.isMe ? [GlowColors.primary + "30", "transparent"] : ["transparent", "transparent"]}
+            style={styles.participantGradient}
+          >
+            <View style={[styles.participantAvatar, player.isMe && styles.myAvatar]}>
+              <Text style={styles.participantInitial}>{player.name.charAt(0)}</Text>
+            </View>
+            <Text style={[styles.participantName, player.isMe && styles.myParticipantName]} numberOfLines={1}>
               {player.name}
             </Text>
             {player.seed && (
-              <Text style={styles.participantSeed}>Seed #{player.seed}</Text>
+              <View style={styles.participantSeedBadge}>
+                <Text style={styles.participantSeedText}>#{player.seed}</Text>
+              </View>
             )}
-          </View>
-          {player.isMe && (
-            <View style={styles.meBadge}>
-              <Text style={styles.meBadgeText}>You</Text>
-            </View>
-          )}
+          </LinearGradient>
         </View>
       ))}
     </View>
@@ -375,72 +349,17 @@ export default function TournamentDetailScreen() {
   const tournament = MOCK_TOURNAMENT;
   const isKnockout = tournament.format === "knockout";
 
-  const renderViewToggle = () => (
-    <ScrollView
-      horizontal
-      showsHorizontalScrollIndicator={false}
-      style={styles.viewToggleScroll}
-      contentContainerStyle={styles.viewToggleContainer}
-    >
-      {isKnockout ? (
-        <Pressable
-          style={[styles.viewToggleButton, viewMode === "draw" && styles.viewToggleActive]}
-          onPress={() => setViewMode("draw")}
-        >
-          <Ionicons
-            name="git-network-outline"
-            size={18}
-            color={viewMode === "draw" ? GlowColors.primary : TextColors.muted}
-          />
-          <Text style={[styles.viewToggleText, viewMode === "draw" && styles.viewToggleTextActive]}>
-            Draw
-          </Text>
-        </Pressable>
-      ) : (
-        <Pressable
-          style={[styles.viewToggleButton, viewMode === "groups" && styles.viewToggleActive]}
-          onPress={() => setViewMode("groups")}
-        >
-          <Ionicons
-            name="grid-outline"
-            size={18}
-            color={viewMode === "groups" ? GlowColors.primary : TextColors.muted}
-          />
-          <Text style={[styles.viewToggleText, viewMode === "groups" && styles.viewToggleTextActive]}>
-            Groups
-          </Text>
-        </Pressable>
-      )}
-      <Pressable
-        style={[styles.viewToggleButton, viewMode === "schedule" && styles.viewToggleActive]}
-        onPress={() => setViewMode("schedule")}
-      >
-        <Ionicons
-          name="calendar-outline"
-          size={18}
-          color={viewMode === "schedule" ? GlowColors.primary : TextColors.muted}
-        />
-        <Text style={[styles.viewToggleText, viewMode === "schedule" && styles.viewToggleTextActive]}>
-          Schedule
-        </Text>
-      </Pressable>
-      <Pressable
-        style={[styles.viewToggleButton, viewMode === "participants" && styles.viewToggleActive]}
-        onPress={() => setViewMode("participants")}
-      >
-        <Ionicons
-          name="people-outline"
-          size={18}
-          color={viewMode === "participants" ? GlowColors.primary : TextColors.muted}
-        />
-        <Text
-          style={[styles.viewToggleText, viewMode === "participants" && styles.viewToggleTextActive]}
-        >
-          Players
-        </Text>
-      </Pressable>
-    </ScrollView>
-  );
+  const tabs = [
+    { key: "draw" as ViewMode, label: "Draw", icon: "git-network-outline" as const, show: isKnockout },
+    { key: "groups" as ViewMode, label: "Groups", icon: "grid-outline" as const, show: !isKnockout },
+    { key: "schedule" as ViewMode, label: "Schedule", icon: "time-outline" as const, show: true },
+    { key: "participants" as ViewMode, label: "Players", icon: "people-outline" as const, show: true },
+  ].filter(t => t.show);
+
+  const handleTabPress = (key: ViewMode) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    setViewMode(key);
+  };
 
   const renderContent = () => {
     switch (viewMode) {
@@ -448,21 +367,19 @@ export default function TournamentDetailScreen() {
         return <DrawBracket matches={MOCK_DRAW} />;
       case "groups":
         return (
-          <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.groupsContent}>
-            {MOCK_GROUPS.map((group) => (
-              <GroupTable key={group.name} group={group} />
-            ))}
+          <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.contentPadding}>
+            {MOCK_GROUPS.map((group) => <GroupTable key={group.name} group={group} />)}
           </ScrollView>
         );
       case "schedule":
         return (
-          <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scheduleContent}>
+          <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.contentPadding}>
             <ScheduleList schedule={MOCK_SCHEDULE} />
           </ScrollView>
         );
       case "participants":
         return (
-          <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.participantsContent}>
+          <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.contentPadding}>
             <ParticipantsList participants={MOCK_PARTICIPANTS} />
           </ScrollView>
         );
@@ -473,102 +390,83 @@ export default function TournamentDetailScreen() {
     <View style={[styles.container, { paddingTop: insets.top }]}>
       <View style={styles.header}>
         <Pressable style={styles.backButton} onPress={() => navigation.goBack()}>
-          <Ionicons name="arrow-back" size={24} color={GlowColors.primary} />
+          <Ionicons name="chevron-back" size={22} color={GlowColors.primary} />
         </Pressable>
-        <View style={styles.headerContent}>
-          <Text style={styles.headerTitle} numberOfLines={1}>
-            {tournament.name}
+        <View style={styles.headerCenter}>
+          <Text style={styles.headerTitle} numberOfLines={1}>{tournament.name}</Text>
+          <Text style={styles.headerSubtitle}>
+            {new Date(tournament.startDate).toLocaleDateString("en-US", { month: "short", day: "numeric" })} - {new Date(tournament.endDate).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
           </Text>
-          <View style={styles.headerMeta}>
-            <Ionicons name="calendar-outline" size={14} color={TextColors.secondary} />
-            <Text style={styles.headerMetaText}>
-              {new Date(tournament.startDate).toLocaleDateString("en-US", {
-                month: "short",
-                day: "numeric",
-              })}{" "}
-              -{" "}
-              {new Date(tournament.endDate).toLocaleDateString("en-US", {
-                month: "short",
-                day: "numeric",
-              })}
-            </Text>
-          </View>
         </View>
+        <View style={styles.headerRight} />
       </View>
 
-      <View style={styles.infoCard}>
-        <View style={styles.infoRow}>
-          <View style={styles.infoItem}>
-            <Ionicons name="trophy-outline" size={20} color={GlowColors.primary} />
-            <View>
-              <Text style={styles.infoLabel}>Format</Text>
-              <Text style={styles.infoValue}>
-                {tournament.format === "knockout"
-                  ? "Knock-out"
-                  : tournament.format === "round_robin"
-                  ? "Round Robin"
-                  : "Box League"}
-              </Text>
-            </View>
-          </View>
-          <View style={styles.infoItem}>
-            <Ionicons name="location-outline" size={20} color="#00D4FF" />
-            <View>
-              <Text style={styles.infoLabel}>Location</Text>
-              <Text style={styles.infoValue} numberOfLines={1}>
-                {tournament.location}
-              </Text>
-            </View>
-          </View>
+      <View style={styles.statsBar}>
+        <View style={styles.statItem}>
+          <Ionicons name="trophy" size={16} color={GlowColors.primary} />
+          <Text style={styles.statLabel}>Format</Text>
+          <Text style={styles.statValue}>Knockout</Text>
         </View>
-        <View style={styles.infoRow}>
-          <View style={styles.infoItem}>
-            <Ionicons name="people-outline" size={20} color="#E040FB" />
-            <View>
-              <Text style={styles.infoLabel}>Entries</Text>
-              <Text style={styles.infoValue}>
-                {tournament.spotsTaken}/{tournament.spotsTotal}
-              </Text>
-            </View>
-          </View>
-          <View style={styles.infoItem}>
-            <Ionicons name="ticket-outline" size={20} color="#FFB020" />
-            <View>
-              <Text style={styles.infoLabel}>Entry Fee</Text>
-              <Text style={styles.infoValue}>
-                {tournament.entryFee ? `$${tournament.entryFee}` : "Free"}
-              </Text>
-            </View>
-          </View>
+        <View style={styles.statDivider} />
+        <View style={styles.statItem}>
+          <Ionicons name="people" size={16} color="#00D4FF" />
+          <Text style={styles.statLabel}>Entries</Text>
+          <Text style={styles.statValue}>{tournament.spotsTaken}/{tournament.spotsTotal}</Text>
+        </View>
+        <View style={styles.statDivider} />
+        <View style={styles.statItem}>
+          <Ionicons name="cash" size={16} color="#FFB020" />
+          <Text style={styles.statLabel}>Fee</Text>
+          <Text style={styles.statValue}>${tournament.entryFee}</Text>
         </View>
       </View>
 
       {tournament.isRegistered && (
-        <View style={styles.myMatchSection}>
-          <View style={styles.myMatchHeader}>
-            <Ionicons name="flash" size={18} color={GlowColors.primary} />
-            <Text style={styles.myMatchTitle}>Your Next Match</Text>
-          </View>
-          <View style={styles.myMatchCard}>
-            <View style={styles.myMatchDetails}>
-              <Text style={styles.myMatchVs}>vs T. Davis [4]</Text>
-              <View style={styles.myMatchTime}>
-                <Ionicons name="time-outline" size={14} color={TextColors.secondary} />
-                <Text style={styles.myMatchTimeText}>Today at 14:00</Text>
+        <View style={styles.nextMatchCard}>
+          <LinearGradient
+            colors={[GlowColors.primary + "25", GlowColors.primary + "08"]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={styles.nextMatchGradient}
+          >
+            <View style={styles.nextMatchLeft}>
+              <View style={styles.nextMatchLabel}>
+                <Ionicons name="flash" size={12} color={GlowColors.primary} />
+                <Text style={styles.nextMatchLabelText}>NEXT MATCH</Text>
               </View>
-              <View style={styles.myMatchCourt}>
-                <Ionicons name="location-outline" size={14} color={TextColors.secondary} />
-                <Text style={styles.myMatchCourtText}>Court 1</Text>
+              <Text style={styles.nextMatchOpponent}>vs T. Davis [4]</Text>
+              <View style={styles.nextMatchMeta}>
+                <Ionicons name="time-outline" size={12} color={TextColors.secondary} />
+                <Text style={styles.nextMatchMetaText}>Today 14:00</Text>
+                <Ionicons name="location-outline" size={12} color={TextColors.secondary} style={{ marginLeft: 8 }} />
+                <Text style={styles.nextMatchMetaText}>Court 1</Text>
               </View>
             </View>
-            <View style={styles.myMatchRound}>
-              <Text style={styles.myMatchRoundText}>R16</Text>
+            <View style={styles.nextMatchRound}>
+              <Text style={styles.nextMatchRoundText}>R16</Text>
             </View>
-          </View>
+          </LinearGradient>
         </View>
       )}
 
-      {renderViewToggle()}
+      <View style={styles.tabBar}>
+        {tabs.map((tab) => (
+          <Pressable
+            key={tab.key}
+            style={[styles.tab, viewMode === tab.key && styles.tabActive]}
+            onPress={() => handleTabPress(tab.key)}
+          >
+            <Ionicons
+              name={tab.icon}
+              size={16}
+              color={viewMode === tab.key ? GlowColors.primary : TextColors.muted}
+            />
+            <Text style={[styles.tabText, viewMode === tab.key && styles.tabTextActive]}>
+              {tab.label}
+            </Text>
+          </Pressable>
+        ))}
+      </View>
 
       <View style={styles.content}>{renderContent()}</View>
     </View>
@@ -583,201 +481,207 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: "row",
     alignItems: "center",
-    paddingHorizontal: Spacing.lg,
-    paddingVertical: Spacing.md,
-    gap: Spacing.md,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm,
   },
   backButton: {
-    width: 40,
-    height: 40,
-    borderRadius: BorderRadius.sm,
+    width: 36,
+    height: 36,
+    borderRadius: 10,
     backgroundColor: Backgrounds.card,
     alignItems: "center",
     justifyContent: "center",
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.08)",
   },
-  headerContent: {
+  headerCenter: {
     flex: 1,
+    marginHorizontal: Spacing.sm,
   },
   headerTitle: {
-    ...Typography.h2,
+    fontSize: 16,
+    fontWeight: "700",
     color: TextColors.primary,
   },
-  headerMeta: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: Spacing.xs,
+  headerSubtitle: {
+    fontSize: 11,
+    color: TextColors.muted,
     marginTop: 2,
   },
-  headerMetaText: {
-    ...Typography.caption,
-    color: TextColors.secondary,
+  headerRight: {
+    width: 36,
   },
-  infoCard: {
-    marginHorizontal: Spacing.lg,
-    marginBottom: Spacing.md,
-    padding: Spacing.lg,
-    backgroundColor: Backgrounds.card,
-    borderRadius: BorderRadius.md,
-    borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.06)",
-  },
-  infoRow: {
+  statsBar: {
     flexDirection: "row",
-    justifyContent: "space-between",
-    marginBottom: Spacing.md,
-  },
-  infoItem: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: Spacing.sm,
-    flex: 1,
-  },
-  infoLabel: {
-    ...Typography.caption,
-    color: TextColors.muted,
-  },
-  infoValue: {
-    ...Typography.small,
-    color: TextColors.primary,
-    fontWeight: "600",
-  },
-  myMatchSection: {
-    marginHorizontal: Spacing.lg,
-    marginBottom: Spacing.md,
-  },
-  myMatchHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: Spacing.xs,
+    marginHorizontal: Spacing.md,
     marginBottom: Spacing.sm,
+    backgroundColor: Backgrounds.card,
+    borderRadius: 10,
+    padding: Spacing.sm,
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.06)",
   },
-  myMatchTitle: {
-    ...Typography.h4,
-    color: GlowColors.primary,
-  },
-  myMatchCard: {
-    flexDirection: "row",
-    justifyContent: "space-between",
+  statItem: {
+    flex: 1,
     alignItems: "center",
-    padding: Spacing.lg,
-    backgroundColor: GlowColors.primary + "15",
-    borderRadius: BorderRadius.md,
+    gap: 2,
+  },
+  statLabel: {
+    fontSize: 9,
+    color: TextColors.muted,
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
+  },
+  statValue: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: TextColors.primary,
+  },
+  statDivider: {
+    width: 1,
+    backgroundColor: "rgba(255,255,255,0.08)",
+    marginVertical: 4,
+  },
+  nextMatchCard: {
+    marginHorizontal: Spacing.md,
+    marginBottom: Spacing.sm,
+    borderRadius: 12,
+    overflow: "hidden",
     borderWidth: 1,
     borderColor: GlowColors.primary + "30",
   },
-  myMatchDetails: {
-    gap: Spacing.xs,
+  nextMatchGradient: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    padding: Spacing.md,
   },
-  myMatchVs: {
-    ...Typography.h3,
+  nextMatchLeft: {
+    flex: 1,
+  },
+  nextMatchLabel: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    marginBottom: 4,
+  },
+  nextMatchLabelText: {
+    fontSize: 9,
+    fontWeight: "700",
+    color: GlowColors.primary,
+    letterSpacing: 1,
+  },
+  nextMatchOpponent: {
+    fontSize: 16,
+    fontWeight: "700",
     color: TextColors.primary,
   },
-  myMatchTime: {
+  nextMatchMeta: {
     flexDirection: "row",
     alignItems: "center",
-    gap: Spacing.xs,
+    marginTop: 4,
   },
-  myMatchTimeText: {
-    ...Typography.caption,
+  nextMatchMetaText: {
+    fontSize: 11,
     color: TextColors.secondary,
+    marginLeft: 4,
   },
-  myMatchCourt: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: Spacing.xs,
-  },
-  myMatchCourtText: {
-    ...Typography.caption,
-    color: TextColors.secondary,
-  },
-  myMatchRound: {
+  nextMatchRound: {
     backgroundColor: GlowColors.primary,
-    paddingHorizontal: Spacing.md,
-    paddingVertical: Spacing.sm,
-    borderRadius: BorderRadius.sm,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 6,
   },
-  myMatchRoundText: {
-    ...Typography.caption,
+  nextMatchRoundText: {
+    fontSize: 12,
+    fontWeight: "800",
     color: Backgrounds.root,
-    fontWeight: "700",
   },
-  viewToggleScroll: {
-    borderBottomWidth: 1,
-    borderBottomColor: "rgba(255, 255, 255, 0.08)",
-  },
-  viewToggleContainer: {
+  tabBar: {
     flexDirection: "row",
-    paddingHorizontal: Spacing.lg,
-    paddingVertical: Spacing.sm,
-    gap: Spacing.sm,
+    marginHorizontal: Spacing.md,
+    marginBottom: Spacing.sm,
+    gap: 6,
   },
-  viewToggleButton: {
+  tab: {
+    flex: 1,
     flexDirection: "row",
     alignItems: "center",
-    gap: Spacing.xs,
-    paddingHorizontal: Spacing.lg,
-    paddingVertical: Spacing.sm,
-    borderRadius: BorderRadius.full,
+    justifyContent: "center",
+    gap: 4,
+    paddingVertical: 8,
+    borderRadius: 8,
     backgroundColor: Backgrounds.card,
     borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.08)",
+    borderColor: "rgba(255,255,255,0.06)",
   },
-  viewToggleActive: {
+  tabActive: {
     backgroundColor: GlowColors.primary + "20",
     borderColor: GlowColors.primary + "40",
   },
-  viewToggleText: {
-    ...Typography.caption,
-    color: TextColors.muted,
-    fontWeight: "500",
-  },
-  viewToggleTextActive: {
-    color: GlowColors.primary,
+  tabText: {
+    fontSize: 11,
     fontWeight: "600",
+    color: TextColors.muted,
+  },
+  tabTextActive: {
+    color: GlowColors.primary,
   },
   content: {
     flex: 1,
   },
-  bracketContainer: {
-    flexDirection: "row",
-    padding: Spacing.lg,
+  contentPadding: {
+    padding: Spacing.md,
     paddingBottom: 100,
   },
+  bracketScroll: {
+    paddingHorizontal: Spacing.md,
+    paddingBottom: 100,
+  },
+  bracketVertical: {
+    paddingVertical: Spacing.sm,
+  },
+  bracketContainer: {
+    flexDirection: "row",
+    gap: 12,
+  },
   roundColumn: {
-    marginRight: Spacing.xl,
-    minWidth: 140,
+    minWidth: 120,
+  },
+  roundHeader: {
+    marginBottom: 8,
   },
   roundLabel: {
-    ...Typography.caption,
+    fontSize: 10,
+    fontWeight: "700",
     color: TextColors.muted,
     textAlign: "center",
-    marginBottom: Spacing.md,
     textTransform: "uppercase",
     letterSpacing: 1,
   },
   matchesColumn: {
-    gap: Spacing.md,
+    gap: 8,
   },
   matchCard: {
     backgroundColor: Backgrounds.card,
-    borderRadius: BorderRadius.sm,
+    borderRadius: 8,
     borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.06)",
+    borderColor: "rgba(255,255,255,0.06)",
     overflow: "hidden",
   },
   myMatchCard: {
-    borderColor: GlowColors.primary + "40",
+    borderColor: GlowColors.primary + "50",
     backgroundColor: GlowColors.primary + "10",
   },
-  playerRow: {
+  playerSlot: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    paddingHorizontal: Spacing.sm,
-    paddingVertical: Spacing.xs,
+    paddingHorizontal: 8,
+    paddingVertical: 6,
   },
-  winnerRow: {
-    backgroundColor: "rgba(0, 230, 118, 0.1)",
+  winnerSlot: {
+    backgroundColor: "rgba(0, 230, 118, 0.12)",
   },
   playerInfo: {
     flexDirection: "row",
@@ -785,13 +689,21 @@ const styles = StyleSheet.create({
     gap: 4,
     flex: 1,
   },
-  seed: {
-    fontSize: 10,
+  seedBadge: {
+    backgroundColor: "rgba(255,255,255,0.1)",
+    borderRadius: 3,
+    paddingHorizontal: 4,
+    paddingVertical: 1,
+  },
+  seedText: {
+    fontSize: 8,
+    fontWeight: "700",
     color: TextColors.muted,
   },
   playerName: {
-    ...Typography.caption,
+    fontSize: 11,
     color: TextColors.secondary,
+    flex: 1,
   },
   winnerName: {
     color: TextColors.primary,
@@ -799,249 +711,262 @@ const styles = StyleSheet.create({
   },
   myName: {
     color: GlowColors.primary,
-    fontWeight: "600",
+    fontWeight: "700",
   },
-  score: {
-    fontSize: 11,
+  scoreText: {
+    fontSize: 10,
     color: TextColors.muted,
-    fontWeight: "500",
+    fontWeight: "600",
   },
   winnerScore: {
     color: "#00E676",
   },
   matchDivider: {
     height: 1,
-    backgroundColor: "rgba(255, 255, 255, 0.06)",
+    backgroundColor: "rgba(255,255,255,0.06)",
   },
-  matchTime: {
+  liveIndicator: {
     flexDirection: "row",
-    justifyContent: "center",
     alignItems: "center",
-    gap: Spacing.xs,
+    justifyContent: "center",
+    gap: 4,
     paddingVertical: 4,
-    backgroundColor: "rgba(200, 255, 61, 0.1)",
+    backgroundColor: GlowColors.primary + "15",
   },
-  matchTimeText: {
-    fontSize: 10,
+  liveDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: GlowColors.primary,
+  },
+  liveText: {
+    fontSize: 9,
+    fontWeight: "700",
     color: GlowColors.primary,
-    fontWeight: "600",
-  },
-  matchCourtText: {
-    fontSize: 10,
-    color: GlowColors.primary,
-  },
-  groupsContent: {
-    padding: Spacing.lg,
-    paddingBottom: 100,
   },
   groupContainer: {
-    marginBottom: Spacing.xl,
+    marginBottom: Spacing.lg,
+  },
+  groupHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    marginBottom: 8,
   },
   groupName: {
-    ...Typography.h3,
+    fontSize: 14,
+    fontWeight: "700",
     color: TextColors.primary,
-    marginBottom: Spacing.md,
+  },
+  tableWrapper: {
+    backgroundColor: Backgrounds.card,
+    borderRadius: 10,
+    overflow: "hidden",
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.06)",
   },
   tableHeader: {
     flexDirection: "row",
-    paddingVertical: Spacing.sm,
-    paddingHorizontal: Spacing.sm,
+    paddingVertical: 8,
+    paddingHorizontal: 10,
     backgroundColor: Backgrounds.elevated,
-    borderRadius: BorderRadius.sm,
-    marginBottom: 4,
   },
   tableHeaderText: {
-    ...Typography.caption,
+    fontSize: 10,
+    fontWeight: "700",
     color: TextColors.muted,
-    fontWeight: "600",
+    textTransform: "uppercase",
   },
   tableRow: {
     flexDirection: "row",
-    paddingVertical: Spacing.sm,
-    paddingHorizontal: Spacing.sm,
-    backgroundColor: Backgrounds.card,
+    paddingVertical: 10,
+    paddingHorizontal: 10,
     borderBottomWidth: 1,
-    borderBottomColor: "rgba(255, 255, 255, 0.04)",
+    borderBottomColor: "rgba(255,255,255,0.04)",
+    alignItems: "center",
   },
   myRow: {
-    backgroundColor: GlowColors.primary + "15",
-    borderLeftWidth: 2,
-    borderLeftColor: GlowColors.primary,
+    backgroundColor: GlowColors.primary + "12",
   },
   lastRow: {
     borderBottomWidth: 0,
-    borderBottomLeftRadius: BorderRadius.sm,
-    borderBottomRightRadius: BorderRadius.sm,
   },
   tableCell: {
-    ...Typography.caption,
+    fontSize: 12,
     color: TextColors.secondary,
   },
   posCol: {
-    width: 24,
-    textAlign: "center",
+    width: 28,
+  },
+  posWrapper: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
   },
   qualifyPos: {
     color: "#00E676",
-    fontWeight: "600",
+    fontWeight: "700",
+  },
+  qualifyDot: {
+    width: 4,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: "#00E676",
   },
   playerCol: {
     flex: 1,
   },
   myNameCell: {
     color: GlowColors.primary,
-    fontWeight: "600",
+    fontWeight: "700",
   },
   statCol: {
-    width: 28,
+    width: 32,
     textAlign: "center",
   },
   wonCell: {
     color: "#00E676",
+    fontWeight: "600",
   },
   lostCell: {
     color: "#FF4D4D",
+    fontWeight: "600",
   },
   setsCol: {
-    width: 45,
-    textAlign: "center",
-  },
-  gamesCol: {
-    width: 55,
-    textAlign: "center",
-  },
-  scheduleContent: {
-    padding: Spacing.lg,
-    paddingBottom: 100,
+    width: 50,
+    textAlign: "right",
   },
   scheduleContainer: {
-    gap: Spacing.md,
+    gap: 10,
   },
   scheduleCard: {
-    flexDirection: "row",
-    alignItems: "center",
-    padding: Spacing.lg,
     backgroundColor: Backgrounds.card,
-    borderRadius: BorderRadius.md,
+    borderRadius: 10,
+    padding: Spacing.md,
     borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.06)",
-    gap: Spacing.md,
+    borderColor: "rgba(255,255,255,0.06)",
   },
   myScheduleCard: {
     borderColor: GlowColors.primary + "40",
     backgroundColor: GlowColors.primary + "10",
   },
-  scheduleTime: {
+  scheduleTimeBlock: {
     flexDirection: "row",
     alignItems: "center",
-    gap: Spacing.xs,
-    minWidth: 70,
+    justifyContent: "space-between",
+    marginBottom: 8,
   },
-  scheduleTimeText: {
-    ...Typography.body,
+  scheduleTime: {
+    fontSize: 20,
+    fontWeight: "800",
     color: GlowColors.primary,
-    fontWeight: "600",
-  },
-  scheduleMatch: {
-    flex: 1,
-    alignItems: "center",
-  },
-  schedulePlayer: {
-    ...Typography.small,
-    color: TextColors.primary,
-    fontWeight: "500",
-  },
-  myScheduleName: {
-    color: GlowColors.primary,
-    fontWeight: "600",
-  },
-  scheduleVs: {
-    ...Typography.caption,
-    color: TextColors.muted,
-    marginVertical: 2,
-  },
-  scheduleInfo: {
-    alignItems: "flex-end",
-    gap: Spacing.xs,
   },
   scheduleBadge: {
-    backgroundColor: "rgba(255, 255, 255, 0.1)",
-    paddingHorizontal: Spacing.sm,
-    paddingVertical: 2,
-    borderRadius: BorderRadius.xs,
+    backgroundColor: "rgba(255,255,255,0.1)",
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 4,
   },
   scheduleBadgeText: {
     fontSize: 10,
+    fontWeight: "700",
     color: TextColors.secondary,
-    fontWeight: "600",
   },
-  scheduleCourt: {
+  scheduleMatchInfo: {
+    alignItems: "center",
+    marginBottom: 8,
+  },
+  schedulePlayer: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: TextColors.primary,
+  },
+  myScheduleName: {
+    color: GlowColors.primary,
+    fontWeight: "700",
+  },
+  vsContainer: {
     flexDirection: "row",
     alignItems: "center",
+    gap: 8,
+    marginVertical: 4,
+  },
+  vsLine: {
+    width: 20,
+    height: 1,
+    backgroundColor: "rgba(255,255,255,0.15)",
+  },
+  vsText: {
+    fontSize: 10,
+    fontWeight: "700",
+    color: TextColors.muted,
+  },
+  scheduleCourtBlock: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
     gap: 4,
   },
   scheduleCourtText: {
     fontSize: 11,
     color: TextColors.muted,
   },
-  participantsContent: {
-    padding: Spacing.lg,
-    paddingBottom: 100,
-  },
-  participantsContainer: {
-    gap: Spacing.sm,
+  participantsGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 10,
   },
   participantCard: {
-    flexDirection: "row",
-    alignItems: "center",
-    padding: Spacing.md,
+    width: (SCREEN_WIDTH - Spacing.md * 2 - 10) / 2,
     backgroundColor: Backgrounds.card,
-    borderRadius: BorderRadius.sm,
+    borderRadius: 10,
+    overflow: "hidden",
     borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.06)",
-    gap: Spacing.md,
+    borderColor: "rgba(255,255,255,0.06)",
   },
   myParticipantCard: {
     borderColor: GlowColors.primary + "40",
-    backgroundColor: GlowColors.primary + "10",
+  },
+  participantGradient: {
+    padding: Spacing.md,
+    alignItems: "center",
+    gap: 8,
   },
   participantAvatar: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     backgroundColor: Backgrounds.elevated,
     alignItems: "center",
     justifyContent: "center",
   },
-  participantInitial: {
-    ...Typography.h4,
-    color: TextColors.primary,
+  myAvatar: {
+    borderWidth: 2,
+    borderColor: GlowColors.primary,
   },
-  participantInfo: {
-    flex: 1,
+  participantInitial: {
+    fontSize: 18,
+    fontWeight: "700",
+    color: TextColors.primary,
   },
   participantName: {
-    ...Typography.body,
+    fontSize: 12,
+    fontWeight: "600",
     color: TextColors.primary,
-    fontWeight: "500",
+    textAlign: "center",
   },
   myParticipantName: {
     color: GlowColors.primary,
-    fontWeight: "600",
   },
-  participantSeed: {
-    ...Typography.caption,
-    color: GlowColors.primary,
+  participantSeedBadge: {
+    backgroundColor: GlowColors.primary + "20",
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 4,
   },
-  meBadge: {
-    backgroundColor: GlowColors.primary,
-    paddingHorizontal: Spacing.sm,
-    paddingVertical: 4,
-    borderRadius: BorderRadius.xs,
-  },
-  meBadgeText: {
+  participantSeedText: {
     fontSize: 10,
-    color: Backgrounds.root,
     fontWeight: "700",
+    color: GlowColors.primary,
   },
 });
