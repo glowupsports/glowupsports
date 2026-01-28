@@ -23606,6 +23606,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Get player's booking requests
+  // Get all coaches from player's academy for booking wizard (with extended details)
+  app.get("/api/player/academy-coaches", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const playerId = req.user?.playerId;
+      const academyId = req.user?.academyId;
+      
+      if (!playerId || !academyId) {
+        return res.status(403).json({ error: "Player access required" });
+      }
+
+      // Get all coaches from this academy with extended details for booking
+      const academyCoaches = await storage.getAcademyCoachesForBooking(academyId);
+      
+      res.json({ coaches: academyCoaches });
+    } catch (error) {
+      console.error("Get academy coaches error:", error);
+      res.status(500).json({ error: "Failed to fetch academy coaches" });
+    }
+  });
+
   app.get("/api/player/booking-requests", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
     try {
       const playerId = req.user?.playerId;

@@ -881,6 +881,60 @@ export const storage = {
     return filtered;
   },
 
+  // Get all coaches from an academy for booking wizard (with extended details)
+  async getAcademyCoachesForBooking(academyId: string) {
+    // Get all coaches for this academy
+    const academyCoaches = await db.select({
+      id: coaches.id,
+      name: coaches.name,
+      profilePhotoUrl: coaches.photoUrl,
+      specialty: coaches.specialty,
+      yearsExperience: coaches.yearsExperience,
+      specializations: coaches.specializations,
+      ballLevels: coaches.ballLevels,
+      bio: coaches.publicQuote,
+      certifications: coaches.certifications,
+      languages: coaches.languages,
+      hourlyRate: coaches.hourlyRate,
+    }).from(coaches).where(eq(coaches.academyId, academyId));
+    
+    // Get session counts and calculate ratings for each coach
+    const enrichedCoaches = await Promise.all(academyCoaches.map(async (coach) => {
+      // Count total students
+      const studentCount = await db.select({ count: count() })
+        .from(sessions)
+        .where(eq(sessions.coachId, coach.id));
+      
+      // Calculate average rating from feedback
+      const feedbackResult = await db.select({
+        avgRating: sql<number>`AVG(overall_rating)`,
+        totalReviews: count(),
+      }).from(feedback).where(eq(feedback.coachId, coach.id));
+      
+      // Get session type availability
+      const privateSession = await db.select({ id: sessions.id })
+        .from(sessions)
+        .where(and(eq(sessions.coachId, coach.id), eq(sessions.type, "private")))
+        .limit(1);
+      const groupSession = await db.select({ id: sessions.id })
+        .from(sessions)
+        .where(and(eq(sessions.coachId, coach.id), eq(sessions.type, "group")))
+        .limit(1);
+      
+      return {
+        ...coach,
+        totalStudents: studentCount[0]?.count || 0,
+        rating: feedbackResult[0]?.avgRating ? Number(feedbackResult[0].avgRating).toFixed(1) : null,
+        totalReviews: Number(feedbackResult[0]?.totalReviews || 0),
+        availableForPrivate: privateSession.length > 0 || true,
+        availableForGroup: groupSession.length > 0 || true,
+      };
+    }));
+    
+    return enrichedCoaches;
+  },
+
+
   async getCoachPublicProfile(coachId: string) {
     const coach = await db.select().from(coaches).where(and(
       eq(coaches.id, coachId),

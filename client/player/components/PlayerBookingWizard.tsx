@@ -280,17 +280,17 @@ export default function PlayerBookingWizard({
     enabled: visible,
   });
 
-  // Fetch detailed coaches from directory for the new coach selection screen
-  const { data: directoryData, isLoading: directoryLoading } = useQuery<{ coaches: DirectoryCoach[] }>({
-    queryKey: ["/api/coaches/directory"],
+  // Fetch all coaches from player's academy for coach selection screen
+  const { data: academyCoachesData, isLoading: academyCoachesLoading } = useQuery<{ coaches: DirectoryCoach[] }>({
+    queryKey: ["/api/player/academy-coaches"],
     queryFn: async () => {
-      const response = await apiFetch("/api/coaches/directory");
+      const response = await apiFetch("/api/player/academy-coaches");
       if (!response.ok) throw new Error("Failed to load coaches");
       return response.json();
     },
-    enabled: visible && browseMode === "by_coach",
+    enabled: visible,
   });
-  const directoryCoaches = directoryData?.coaches || [];
+  const directoryCoaches = academyCoachesData?.coaches || [];
 
   // Coach profile drawer state
   const [showCoachDrawer, setShowCoachDrawer] = useState(false);
@@ -641,7 +641,7 @@ export default function PlayerBookingWizard({
       <Animated.View entering={FadeIn} style={styles.slideContent}>
         <Text style={styles.slideSubtitle}>Choose your tennis coach</Text>
         
-        {directoryLoading ? (
+        {academyCoachesLoading ? (
           <View style={styles.loadingContainer}>
             <ActivityIndicator size="large" color={GlowColors.primary} />
             <Text style={styles.loadingText}>Loading coaches...</Text>
