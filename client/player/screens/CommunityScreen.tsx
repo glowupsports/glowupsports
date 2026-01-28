@@ -1143,16 +1143,33 @@ function FriendsSection({ onChallenge, onSelectActivity }: { onChallenge?: (frie
   );
 }
 
+type GroupFilter = "all" | "training" | "social";
+
+const GROUP_FILTERS: { key: GroupFilter; label: string; icon: string }[] = [
+  { key: "all", label: "All", icon: "apps" },
+  { key: "training", label: "Training", icon: "tennisball" },
+  { key: "social", label: "Social", icon: "people" },
+];
+
 function GroupsSection() {
   const navigation = useNavigation<any>();
   const insets = useSafeAreaInsets();
   const tabBarHeight = useBottomTabBarHeight();
+  const [groupFilter, setGroupFilter] = useState<GroupFilter>("all");
   
   const { data: groupsData, isLoading } = useQuery<Group[]>({
     queryKey: ["/api/social/groups"],
   });
   
-  const groups = groupsData || [];
+  const allGroups = groupsData || [];
+  
+  const groups = useMemo(() => {
+    if (groupFilter === "all") return allGroups;
+    if (groupFilter === "training") {
+      return allGroups.filter(g => g.type === "training" || g.type === "skill_level" || g.type === "tournament");
+    }
+    return allGroups.filter(g => g.type === "social" || g.type === "age_group");
+  }, [allGroups, groupFilter]);
   
   const getGroupIcon = (type: string) => {
     switch (type) {
@@ -1195,8 +1212,41 @@ function GroupsSection() {
     </Animated.View>
   );
   
+  const renderFilterTabs = () => (
+    <View style={styles.groupFilterContainer}>
+      {GROUP_FILTERS.map((filter) => (
+        <Pressable
+          key={filter.key}
+          style={[
+            styles.groupFilterTab,
+            groupFilter === filter.key && styles.groupFilterTabActive,
+          ]}
+          onPress={() => {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+            setGroupFilter(filter.key);
+          }}
+        >
+          <Ionicons
+            name={filter.icon as any}
+            size={16}
+            color={groupFilter === filter.key ? Colors.dark.background : Colors.dark.textSecondary}
+          />
+          <ThemedText
+            style={[
+              styles.groupFilterText,
+              groupFilter === filter.key && styles.groupFilterTextActive,
+            ]}
+          >
+            {filter.label}
+          </ThemedText>
+        </Pressable>
+      ))}
+    </View>
+  );
+  
   return (
     <View style={styles.sectionContainer}>
+      {renderFilterTabs()}
       {isLoading ? (
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={Colors.dark.primary} />
@@ -1212,8 +1262,14 @@ function GroupsSection() {
               <View style={styles.emptyIcon}>
                 <Ionicons name="grid" size={48} color={Colors.dark.primary} />
               </View>
-              <ThemedText style={styles.emptyTitle}>No groups yet</ThemedText>
-              <ThemedText style={styles.emptySubtitle}>Join groups to connect with players of similar skill levels</ThemedText>
+              <ThemedText style={styles.emptyTitle}>No {groupFilter === "all" ? "" : groupFilter + " "}groups yet</ThemedText>
+              <ThemedText style={styles.emptySubtitle}>
+                {groupFilter === "training" 
+                  ? "Join training groups created by your coach" 
+                  : groupFilter === "social"
+                  ? "Create or join social groups with fellow players"
+                  : "Join groups to connect with players of similar skill levels"}
+              </ThemedText>
             </View>
           }
           showsVerticalScrollIndicator={false}
@@ -4317,6 +4373,37 @@ const styles = StyleSheet.create({
     color: Colors.dark.backgroundRoot,
   },
   // Groups Section styles
+  groupFilterContainer: {
+    flexDirection: "row",
+    gap: Spacing.sm,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm,
+    marginBottom: Spacing.sm,
+  },
+  groupFilterTab: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    paddingVertical: 8,
+    paddingHorizontal: 14,
+    borderRadius: BorderRadius.full,
+    backgroundColor: Colors.dark.backgroundSecondary,
+    borderWidth: 1,
+    borderColor: Colors.dark.border,
+  },
+  groupFilterTabActive: {
+    backgroundColor: Colors.dark.primary,
+    borderColor: Colors.dark.primary,
+  },
+  groupFilterText: {
+    fontSize: 13,
+    fontWeight: "500",
+    color: Colors.dark.textSecondary,
+  },
+  groupFilterTextActive: {
+    color: Colors.dark.background,
+    fontWeight: "600",
+  },
   groupCard: {
     flexDirection: "row",
     alignItems: "center",
