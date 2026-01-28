@@ -374,7 +374,8 @@ export default function PlayerIdentityDrawer({ visible, onClose, onNavigate }: P
         }
         
         if (screen === "PlayerTabs" && params?.screen) {
-          rootNav.navigate("PlayerTabs", { screen: params.screen });
+          // Pass full nested params for deep navigation (e.g., Progress -> Tournaments)
+          rootNav.navigate("PlayerTabs", params);
         } else {
           rootNav.navigate(screen, params);
         }
