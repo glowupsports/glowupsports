@@ -233,6 +233,7 @@ export default function SettingsScreen() {
   const [showTravelTimeModal, setShowTravelTimeModal] = useState(false);
   const [showDeleteTravelTimeModal, setShowDeleteTravelTimeModal] = useState(false);
   const [travelTimeToDelete, setTravelTimeToDelete] = useState<{ id: string; fromName: string; toName: string } | null>(null);
+  const [travelTimesExpanded, setTravelTimesExpanded] = useState(false);
   const [fromLocationId, setFromLocationId] = useState<string>("");
   const [toLocationId, setToLocationId] = useState<string>("");
   const [fromCourtId, setFromCourtId] = useState<string>("");
@@ -1332,10 +1333,34 @@ export default function SettingsScreen() {
         </View>
 
         <View style={styles.section}>
-          <SectionHeader title="Court Travel Times" icon="car-outline" />
-          <Text style={styles.sectionDescription}>
-            Set travel time between courts at different locations to prevent scheduling conflicts
-          </Text>
+          <Pressable 
+            style={styles.collapsibleHeader}
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              setTravelTimesExpanded(!travelTimesExpanded);
+            }}
+          >
+            <View style={styles.collapsibleHeaderLeft}>
+              <Ionicons name="car-outline" size={18} color={Colors.dark.xpCyan} />
+              <Text style={styles.collapsibleHeaderTitle}>Court Travel Times</Text>
+              {travelTimes.length > 0 && (
+                <View style={styles.collapsibleBadge}>
+                  <Text style={styles.collapsibleBadgeText}>{travelTimes.length}</Text>
+                </View>
+              )}
+            </View>
+            <Ionicons 
+              name={travelTimesExpanded ? "chevron-up" : "chevron-down"} 
+              size={20} 
+              color={Colors.dark.textMuted} 
+            />
+          </Pressable>
+          
+          {travelTimesExpanded && (
+            <>
+              <Text style={styles.sectionDescription}>
+                Set travel time between courts at different locations to prevent scheduling conflicts
+              </Text>
           
           {(() => {
             const courtsWithLocation = courts.filter(c => c.locationId);
@@ -1405,6 +1430,8 @@ export default function SettingsScreen() {
               </>
             );
           })()}
+            </>
+          )}
         </View>
 
         <View style={styles.section}>
@@ -2530,6 +2557,36 @@ const styles = StyleSheet.create({
     color: Colors.dark.textMuted,
     marginBottom: Spacing.md,
     paddingHorizontal: Spacing.lg,
+  },
+  collapsibleHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: Spacing.lg,
+    paddingVertical: Spacing.md,
+  },
+  collapsibleHeaderLeft: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+  },
+  collapsibleHeaderTitle: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: Colors.dark.text,
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
+  },
+  collapsibleBadge: {
+    backgroundColor: Colors.dark.xpCyan + "25",
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 10,
+  },
+  collapsibleBadgeText: {
+    fontSize: 12,
+    fontWeight: "600",
+    color: Colors.dark.xpCyan,
   },
   travelTimesList: {
     gap: Spacing.sm,
