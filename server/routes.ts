@@ -28261,7 +28261,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
                    comment_count, created_at, is_hidden
             FROM posts 
             WHERE academy_id = ${academyId} AND is_hidden = false AND author_id = ANY(${friendUserIds})
-            ORDER BY created_at DESC
+            ORDER BY id DESC
             LIMIT ${limitVal}
             OFFSET ${offsetVal}
           `);
@@ -28272,7 +28272,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
                    comment_count, created_at, is_hidden
             FROM posts 
             WHERE academy_id = ${academyId} AND is_hidden = false AND group_id = ANY(${groupIds})
-            ORDER BY created_at DESC
+            ORDER BY id DESC
             LIMIT ${limitVal}
             OFFSET ${offsetVal}
           `);
@@ -28283,7 +28283,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
                    comment_count, created_at, is_hidden
             FROM posts 
             WHERE academy_id = ${academyId} AND is_hidden = false AND (visibility = 'academy' OR visibility = 'public')
-            ORDER BY created_at DESC
+            ORDER BY id DESC
             LIMIT ${limitVal}
             OFFSET ${offsetVal}
           `);
@@ -28294,7 +28294,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
                    comment_count, created_at, is_hidden
             FROM posts 
             WHERE academy_id = ${academyId} AND is_hidden = false AND context_type = 'event'
-            ORDER BY created_at DESC
+            ORDER BY id DESC
             LIMIT ${limitVal}
             OFFSET ${offsetVal}
           `);
@@ -28354,7 +28354,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
                   OR (visibility = 'friends' AND author_id = ANY(${forYouFriendIds}))
                   OR (visibility = 'group' AND group_id = ANY(${forYouGroupIds}))
                 )
-              ORDER BY created_at DESC
+              ORDER BY id DESC
               LIMIT ${limitVal}
               OFFSET ${offsetVal}
             `);
@@ -28372,7 +28372,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
                   OR visibility = 'public'
                   OR (visibility = 'friends' AND author_id = ANY(${forYouFriendIds}))
                 )
-              ORDER BY created_at DESC
+              ORDER BY id DESC
               LIMIT ${limitVal}
               OFFSET ${offsetVal}
             `);
@@ -28390,7 +28390,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
                   OR visibility = 'public'
                   OR (visibility = 'group' AND group_id = ANY(${forYouGroupIds}))
                 )
-              ORDER BY created_at DESC
+              ORDER BY id DESC
               LIMIT ${limitVal}
               OFFSET ${offsetVal}
             `);
@@ -28408,7 +28408,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
                   OR visibility = 'academy'
                   OR visibility = 'public'
                 )
-              ORDER BY created_at DESC
+              ORDER BY id DESC
               LIMIT ${limitVal}
               OFFSET ${offsetVal}
             `);
@@ -30617,6 +30617,61 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Debug endpoint to verify Supabase data
+
+  // Debug endpoint to search players by name (no auth required for debugging)
+  app.get("/api/debug/search-players", async (req: Request, res: Response) => {
+    try {
+      const query = (req.query.q as string || "").toLowerCase();
+      if (!query) {
+        return res.status(400).json({ error: "Query parameter 'q' is required" });
+      }
+      
+      const searchPattern = `%${query}%`;
+      const matchingPlayersRaw = await db.execute(sql`
+        SELECT id, name, ball_level, academy_id, created_at
+        FROM players 
+        WHERE LOWER(name) LIKE ${searchPattern}
+        LIMIT 20
+      `);
+      
+      const matchingPlayers = matchingPlayersRaw.rows as {id: string; name: string; ball_level: string; academy_id: string; created_at: Date}[];
+      
+      const enrichedPlayers = await Promise.all(matchingPlayers.map(async (player) => {
+        const balances = await storage.getPlayerCreditBalanceByType(player.id);
+        
+        const spRecordsRaw = await db.execute(sql`
+          SELECT id, session_id, attendance_status, credit_deducted_at, credit_transaction_id
+          FROM session_players
+          WHERE player_id = ${player.id}
+          ORDER BY id DESC
+        `);
+        
+        const transactionsRaw = await db.execute(sql`
+          SELECT * FROM credit_transactions
+          WHERE player_id = ${player.id}
+          ORDER BY id DESC
+        `);
+        
+        return {
+          id: player.id,
+          name: player.name,
+          ballLevel: player.ball_level,
+          academyId: player.academy_id,
+          createdAt: player.created_at,
+          creditBalances: balances,
+          sessionPlayerRecords: spRecordsRaw.rows,
+          creditTransactions: transactionsRaw.rows
+        };
+      }));
+      
+      res.json({ players: enrichedPlayers });
+    } catch (error) {
+      console.error("Debug search error:", error);
+      res.status(500).json({ error: "Search failed" });
+    }
+  });
+
+
   app.get("/api/debug/recent-users", async (req: Request, res: Response) => {
     try {
       const recentUsers = await db.select({
