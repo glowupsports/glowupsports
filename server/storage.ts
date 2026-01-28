@@ -6368,7 +6368,8 @@ export const storage = {
         eq(creditTransactions.creditType, creditType),
         or(
           eq(creditTransactions.reason, "session_join_debt"),
-          eq(creditTransactions.reason, "session_debt")
+          eq(creditTransactions.reason, "session_debt"),
+          eq(creditTransactions.reason, "session_unpaid")
         ),
         // Debt is unsettled if metadata.settled is not true
         // We use packageId IS NULL as a fallback for old data
