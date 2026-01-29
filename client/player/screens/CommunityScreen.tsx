@@ -17,8 +17,9 @@ import {
 } from "react-native";
 import { Image } from "expo-image";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import { useNavigation } from "@react-navigation/native";
+
+const TAB_BAR_HEIGHT = 80;
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { LinearGradient } from "expo-linear-gradient";
@@ -532,7 +533,7 @@ interface FriendActivity {
 
 function AchievementShowcase({ onSelectAchievement }: { onSelectAchievement: (achievement: Achievement) => void }) {
   const insets = useSafeAreaInsets();
-  const tabBarHeight = useBottomTabBarHeight();
+  const tabBarHeight = TAB_BAR_HEIGHT;
   const { user } = useAuth();
   
   const { data: achievementsData, isLoading, refetch } = useQuery<{ achievements: Achievement[] }>({
@@ -673,7 +674,7 @@ function AchievementShowcase({ onSelectAchievement }: { onSelectAchievement: (ac
 
 function NewsSection() {
   const insets = useSafeAreaInsets();
-  const tabBarHeight = useBottomTabBarHeight();
+  const tabBarHeight = TAB_BAR_HEIGHT;
   
   const { data: newsData, isLoading, refetch } = useQuery<{ articles: NewsItem[] }>({
     queryKey: ["/api/player/news"],
@@ -785,7 +786,7 @@ function FriendsSection({ onChallenge, onSelectActivity }: { onChallenge?: (frie
   const navigation = useNavigation<any>();
   const queryClient = useQueryClient();
   const insets = useSafeAreaInsets();
-  const tabBarHeight = useBottomTabBarHeight();
+  const tabBarHeight = TAB_BAR_HEIGHT;
   const [activeTab, setActiveTab] = useState<"activity" | "friends" | "requests">("activity");
   
   const { data: friendsData, isLoading, refetch } = useQuery<{ friends: Friend[]; pendingRequests: Friend[] }>({
@@ -1154,7 +1155,7 @@ const GROUP_FILTERS: { key: GroupFilter; label: string; icon: string }[] = [
 function GroupsSection() {
   const navigation = useNavigation<any>();
   const insets = useSafeAreaInsets();
-  const tabBarHeight = useBottomTabBarHeight();
+  const tabBarHeight = TAB_BAR_HEIGHT;
   const queryClient = useQueryClient();
   const [groupFilter, setGroupFilter] = useState<GroupFilter>("all");
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -3010,7 +3011,7 @@ function CreateMomentModal({ visible, onClose, onSubmit, isSubmitting, userRole,
 
 export default function CommunityScreen() {
   const insets = useSafeAreaInsets();
-  const tabBarHeight = useBottomTabBarHeight();
+  const tabBarHeight = TAB_BAR_HEIGHT;
   const queryClient = useQueryClient();
   const { user } = useAuth();
   const { hasSeenScreen, startWalkthrough } = useWalkthrough();

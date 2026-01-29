@@ -16,8 +16,9 @@ import {
   Linking,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import { LinearGradient } from "expo-linear-gradient";
+
+const TAB_BAR_HEIGHT = 80;
 import Ionicons from "@expo/vector-icons/Ionicons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as Haptics from "expo-haptics";
@@ -209,7 +210,7 @@ function GradientButton({
 
 export default function SettingsScreen() {
   const insets = useSafeAreaInsets();
-  const tabBarHeight = useBottomTabBarHeight();
+  const tabBarHeight = TAB_BAR_HEIGHT;
   const queryClient = useQueryClient();
   const navigation = useNavigation<any>();
   const { coach, focusMode, setFocusMode } = useCoach();

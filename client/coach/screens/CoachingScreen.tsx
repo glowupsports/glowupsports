@@ -11,8 +11,9 @@ import {
   Platform,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import { useNavigation } from "@react-navigation/native";
+
+const TAB_BAR_HEIGHT = 80;
 import { LinearGradient } from "expo-linear-gradient";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -133,7 +134,7 @@ interface ObservationTrend {
 
 export default function CoachingScreen() {
   const insets = useSafeAreaInsets();
-  const tabBarHeight = useBottomTabBarHeight();
+  const tabBarHeight = TAB_BAR_HEIGHT;
   const navigation = useNavigation<any>();
   const [activeTab, setActiveTab] = useState<TabType>("series");
   const { coach } = useCoach();
