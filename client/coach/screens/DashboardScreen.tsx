@@ -47,6 +47,7 @@ import SessionDetailDrawer from "@/coach/components/SessionDetailDrawer";
 import { PlayersByLevelCard } from "@/coach/components/PlayersByLevelCard";
 import { useWebSocket } from "@/lib/useWebSocket";
 import { ActionNeededCard } from "@/components/ActionNeededCard";
+import { CoachInsightsPanel } from "@/coach/components/CoachInsightsPanel";
 
 interface Player {
   id: string;
@@ -318,6 +319,59 @@ export default function DashboardScreen() {
     // Stamina = 100 - burnout risk (so more rest = higher stamina)
     return Math.max(0, 100 - burnoutRiskData.riskScore);
   }, [burnoutRiskData]);
+
+  // Generate smart insights for coach
+  const coachInsights = useMemo(() => {
+    const insights: Array<{
+      id: string;
+      type: "level_up" | "attendance" | "streak" | "earnings" | "alert";
+      title: string;
+      description: string;
+    }> = [];
+    
+    // Sessions insight
+    if (todaysSessions.length > 5) {
+      insights.push({
+        id: "busy-day",
+        type: "attendance",
+        title: "Heavy Load Today",
+        description: `${todaysSessions.length} sessions scheduled - pace yourself!`,
+      });
+    } else if (todaysSessions.length === 0) {
+      insights.push({
+        id: "rest-day",
+        type: "streak",
+        title: "Rest Day",
+        description: "No sessions today - enjoy recovery time",
+      });
+    }
+    
+    // Performance insight based on completed sessions
+    const completedToday = todaysSessions.filter(s => s.status === "completed").length;
+    if (completedToday > 0 && todaysSessions.length > 0) {
+      const completionRate = Math.round((completedToday / todaysSessions.length) * 100);
+      if (completionRate >= 80) {
+        insights.push({
+          id: "great-progress",
+          type: "earnings",
+          title: "Great Progress",
+          description: `${completionRate}% of today's sessions completed`,
+        });
+      }
+    }
+    
+    // Stamina warning
+    if (coachStats.staminaPercent <= 30) {
+      insights.push({
+        id: "low-stamina",
+        type: "alert",
+        title: "Low Energy",
+        description: "Consider pacing or taking breaks",
+      });
+    }
+    
+    return insights;
+  }, [todaysSessions, coachStats]);
 
   // Fetch coach XP from API
   const { data: coachXpData } = useQuery<{
@@ -1191,6 +1245,14 @@ export default function DashboardScreen() {
             )}
           </LinearGradient>
         </View>
+
+        {/* === SMART INSIGHTS - Quick contextual tips === */}
+        <CoachInsightsPanel 
+          insights={coachInsights}
+          onInsightPress={(insight) => {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+          }}
+        />
 
         {/* === COACH ANALYTICS - Gaming Insights HUD === */}
         <View style={styles.gamingCard}>

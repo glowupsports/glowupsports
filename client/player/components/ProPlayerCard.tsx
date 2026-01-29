@@ -17,6 +17,7 @@ import * as Haptics from "expo-haptics";
 import { getStaticAssetsUrl } from "@/lib/query-client";
 import { usePlayerLevel } from "../hooks/usePlayerLevel";
 import { useNavigation } from "@react-navigation/native";
+import { SkillProgressRing } from "./SkillProgressRing";
 
 interface PlayerData {
   id: string;
@@ -184,9 +185,13 @@ export function ProPlayerCard({
             <View style={styles.titleBadge}>
               <Text style={styles.titleText}>{playerTitle}</Text>
             </View>
-            <View style={styles.levelBadge}>
-              <Text style={styles.levelText}>LVL {currentLevel}</Text>
-            </View>
+            <SkillProgressRing
+              currentXp={xpInLevel}
+              xpForNextLevel={xpNeeded}
+              level={currentLevel}
+              size={36}
+              strokeWidth={3}
+            />
           </View>
           
           <View style={styles.formBarContainer}>
