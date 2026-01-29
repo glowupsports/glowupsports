@@ -1,12 +1,12 @@
-import React, { useState } from "react";
+import React, { useState, useCallback } from "react";
 import { useNavigation, useNavigationState } from "@react-navigation/native";
 import { HeaderButton } from "@react-navigation/elements";
 import { StyleSheet, View, Platform, ActivityIndicator, ViewStyle } from "react-native";
-import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { BlurView } from "expo-blur";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { SwipeableTabBar, TabConfig } from "@/components/SwipeableTabBar";
 import ProPlayerHomeScreen from "@/player/screens/ProPlayerHomeScreen";
 import PlayerJourneyScreen from "@/player/screens/PlayerJourneyScreen";
 import PlayScreen from "@/player/screens/PlayScreen";
@@ -181,7 +181,6 @@ export type PlayerStackParamList = {
   PrivacySettings: { isOnboarding?: boolean; currentLevel?: string };
 };
 
-const Tab = createBottomTabNavigator<PlayerTabParamList>();
 const Stack = createNativeStackNavigator<PlayerStackParamList>();
 const PlayStack = createNativeStackNavigator<PlayStackParamList>();
 const ScheduleStack = createNativeStackNavigator<ScheduleStackParamList>();
@@ -406,106 +405,47 @@ function ProgressStackNavigator() {
   );
 }
 
-function PlayerTabsContent() {
-  const currentRouteName = useNavigationState((state) => {
-    if (!state || !state.routes || state.routes.length === 0) return "Home";
-    const tabState = state.routes[0]?.state;
-    if (!tabState) return "Home";
-    const index = tabState.index ?? 0;
-    return tabState.routes?.[index]?.name ?? "Home";
-  });
+const PLAYER_TABS: TabConfig[] = [
+  { key: "Home", label: "Home", icon: "home-outline", iconFocused: "home", component: ProPlayerHomeScreen },
+  { key: "Community", label: "Social", icon: "people-outline", iconFocused: "people", component: CommunityScreen },
+  { key: "PlayStack", label: "Play", icon: "game-controller-outline", iconFocused: "game-controller", component: PlayStackNavigator },
+  { key: "Schedule", label: "Schedule", icon: "calendar-outline", iconFocused: "calendar", component: ScheduleStackNavigator },
+  { key: "Progress", label: "Progress", icon: "stats-chart-outline", iconFocused: "stats-chart", component: ProgressStackNavigator },
+  { key: "Profile", label: "Profile", icon: "person-outline", iconFocused: "person", component: PlayerProfileScreen },
+];
+
+const HIDE_CHAT_TABS = ["PlayStack", "Community"];
+
+function PlayerTabsContent({ onEdgeSwipeLeft }: { onEdgeSwipeLeft?: () => void }) {
+  const [currentTabKey, setCurrentTabKey] = useState("Home");
   
-  const hideChat = currentRouteName === "Play" || currentRouteName === "PlayStack" || currentRouteName === "Social" || currentRouteName === "Community";
+  const hideChat = HIDE_CHAT_TABS.includes(currentTabKey);
+  
+  const handlePageChange = useCallback((index: number, key: string) => {
+    setCurrentTabKey(key);
+  }, []);
+  
+  const renderOverlay = useCallback((tabKey: string) => {
+    const shouldHide = HIDE_CHAT_TABS.includes(tabKey);
+    if (shouldHide) return null;
+    
+    return (
+      <>
+        <CoachChatFooter mode="player" />
+        <PlayerQuickActionsFAB />
+      </>
+    );
+  }, []);
   
   return (
-    <View style={styles.tabsContainer}>
-      <Tab.Navigator
-        screenOptions={{
-          headerShown: false,
-          tabBarStyle: styles.tabBar,
-          tabBarBackground: () => (
-            <View style={styles.tabBarBackground}>
-              {Platform.OS === "ios" ? (
-                <BlurView
-                  intensity={80}
-                  tint="dark"
-                  style={StyleSheet.absoluteFill}
-                />
-              ) : (
-                <View style={[StyleSheet.absoluteFill, styles.androidTabBackground]} />
-              )}
-            </View>
-          ),
-          tabBarActiveTintColor: Colors.dark.primary,
-          tabBarInactiveTintColor: Colors.dark.tabIconDefault,
-          tabBarLabelStyle: styles.tabLabel,
-          tabBarIconStyle: { marginBottom: -2 },
-        }}
-      >
-        <Tab.Screen
-          name="Home"
-          component={ProPlayerHomeScreen}
-          options={{
-            tabBarLabel: "Home",
-            tabBarIcon: ({ color }) => (
-              <Ionicons name="home-outline" size={22} color={color} />
-            ),
-          }}
-        />
-        <Tab.Screen
-          name="Community"
-          component={CommunityScreen}
-          options={{
-            tabBarLabel: "Social",
-            tabBarIcon: ({ color }) => (
-              <Ionicons name="people-outline" size={22} color={color} />
-            ),
-          }}
-        />
-        <Tab.Screen
-          name="PlayStack"
-          component={PlayStackNavigator}
-          options={{
-            tabBarLabel: "Play",
-            tabBarIcon: ({ color }) => (
-              <Ionicons name="game-controller-outline" size={22} color={color} />
-            ),
-          }}
-        />
-        <Tab.Screen
-          name="Schedule"
-          component={ScheduleStackNavigator}
-          options={{
-            tabBarLabel: "Schedule",
-            tabBarIcon: ({ color }) => (
-              <Ionicons name="calendar-outline" size={22} color={color} />
-            ),
-          }}
-        />
-        <Tab.Screen
-          name="Progress"
-          component={ProgressStackNavigator}
-          options={{
-            tabBarLabel: "Progress",
-            tabBarIcon: ({ color }) => (
-              <Ionicons name="stats-chart-outline" size={22} color={color} />
-            ),
-          }}
-        />
-        <Tab.Screen
-          name="Profile"
-          component={PlayerProfileScreen}
-          options={{
-            tabBarLabel: "Profile",
-            tabBarIcon: ({ color }) => (
-              <Ionicons name="person-outline" size={22} color={color} />
-            ),
-          }}
-        />
-      </Tab.Navigator>
-      {!hideChat && <CoachChatFooter mode="player" />}
-      {!hideChat && <PlayerQuickActionsFAB />}
-    </View>
+    <SwipeableTabBar
+      tabs={PLAYER_TABS}
+      primaryColor={Colors.dark.primary}
+      secondaryColor={Colors.dark.xpCyan}
+      onEdgeSwipeLeft={onEdgeSwipeLeft}
+      onPageChange={handlePageChange}
+      renderOverlay={renderOverlay}
+    />
   );
 }
 
@@ -539,9 +479,13 @@ function PlayerTabsWithDrawer() {
     }, 100);
   };
   
+  const handleEdgeSwipeLeft = useCallback(() => {
+    setDrawerVisible(true);
+  }, []);
+  
   return (
     <View style={{ flex: 1 }}>
-      <PlayerTabsContent />
+      <PlayerTabsContent onEdgeSwipeLeft={handleEdgeSwipeLeft} />
       <PlayerIdentityDrawer 
         visible={drawerVisible} 
         onClose={() => setDrawerVisible(false)}

@@ -113,6 +113,9 @@ interface SwipeableTabBarProps {
   inactiveColor?: string;
   children?: React.ReactNode;
   renderOverlay?: (currentTabKey: string) => React.ReactNode;
+  onEdgeSwipeLeft?: () => void;
+  initialPage?: number;
+  onPageChange?: (index: number, key: string) => void;
 }
 
 export function SwipeableTabBar({ 
@@ -121,23 +124,43 @@ export function SwipeableTabBar({
   secondaryColor = Colors.dark.xpCyan,
   inactiveColor = Colors.dark.tabIconDefault,
   renderOverlay,
+  onEdgeSwipeLeft,
+  initialPage = 0,
+  onPageChange,
 }: SwipeableTabBarProps) {
   const insets = useSafeAreaInsets();
-  const [currentIndex, setCurrentIndex] = useState(0);
+  const [currentIndex, setCurrentIndex] = useState(initialPage);
   const pagerRef = useRef<PagerView>(null);
-  const scrollOffset = useSharedValue(0);
+  const scrollOffset = useSharedValue(initialPage);
+  const lastScrollOffset = useRef(initialPage);
+  const edgeSwipeTriggered = useRef(false);
 
   const handlePageSelected = useCallback((e: any) => {
     const newIndex = e.nativeEvent.position;
     setCurrentIndex(newIndex);
     scrollOffset.value = newIndex;
+    edgeSwipeTriggered.current = false;
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-  }, [scrollOffset]);
+    if (onPageChange) {
+      onPageChange(newIndex, tabs[newIndex].key);
+    }
+  }, [scrollOffset, onPageChange, tabs]);
 
   const handlePageScroll = useCallback((e: any) => {
     const { position, offset } = e.nativeEvent;
-    scrollOffset.value = position + offset;
-  }, [scrollOffset]);
+    const currentOffset = position + offset;
+    scrollOffset.value = currentOffset;
+    
+    if (onEdgeSwipeLeft && position === 0 && offset < 0 && !edgeSwipeTriggered.current) {
+      if (lastScrollOffset.current >= 0 && currentOffset < -0.1) {
+        edgeSwipeTriggered.current = true;
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+        onEdgeSwipeLeft();
+      }
+    }
+    
+    lastScrollOffset.current = currentOffset;
+  }, [scrollOffset, onEdgeSwipeLeft]);
 
   const navigateToPage = useCallback((index: number) => {
     pagerRef.current?.setPage(index);
