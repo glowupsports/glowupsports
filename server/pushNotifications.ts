@@ -1053,3 +1053,142 @@ export function stopDailyTipScheduler(): void {
     console.log("[DailyTips] Scheduler stopped");
   }
 }
+
+// ==================== AUTO SESSION COMPLETION SCHEDULER ====================
+// Automatically marks sessions as completed and deducts credits when session endTime has passed
+
+let autoSessionInterval: ReturnType<typeof setInterval> | null = null;
+
+async function processAutoSessionCompletion(): Promise<void> {
+  try {
+    const { db } = await import("./db");
+    const { sessions, sessionPlayers, players, packages } = await import("@shared/schema");
+    const { eq, and, lt, isNull, inArray } = await import("drizzle-orm");
+    const { storage } = await import("./storage");
+    
+    const dubaiNow = new Date(new Date().toLocaleString("en-US", { timeZone: "Asia/Dubai" }));
+    console.log(`[AutoComplete] Running auto session completion check at ${dubaiNow.toISOString()}`);
+    
+    // Find all sessions where:
+    // 1. endTime has passed (session is over)
+    // 2. status is still "scheduled" (not yet completed)
+    const incompleteSessions = await db.select({
+      id: sessions.id,
+      sessionType: sessions.sessionType,
+      academyId: sessions.academyId,
+      startTime: sessions.startTime,
+      endTime: sessions.endTime,
+    })
+    .from(sessions)
+    .where(and(
+      lt(sessions.endTime, dubaiNow),
+      eq(sessions.status, "scheduled")
+    ));
+    
+    if (incompleteSessions.length === 0) {
+      console.log("[AutoComplete] No sessions to auto-complete");
+      return;
+    }
+    
+    console.log(`[AutoComplete] Found ${incompleteSessions.length} sessions to auto-complete`);
+    
+    let totalPlayersMarked = 0;
+    let totalCreditsDeducted = 0;
+    
+    for (const session of incompleteSessions) {
+      try {
+        // Get all enrolled players for this session who haven't been marked yet
+        const enrolledPlayers = await db.select({
+          id: sessionPlayers.id,
+          playerId: sessionPlayers.playerId,
+          attendanceStatus: sessionPlayers.attendanceStatus,
+          creditDeductedAt: sessionPlayers.creditDeductedAt,
+        })
+        .from(sessionPlayers)
+        .where(eq(sessionPlayers.sessionId, session.id));
+        
+        // Mark each player as present and deduct credits
+        for (const sp of enrolledPlayers) {
+          // Skip if already marked as present/absent or credit already deducted
+          if (sp.attendanceStatus === "present" || sp.attendanceStatus === "absent" || sp.creditDeductedAt) {
+            continue;
+          }
+          
+          // Mark as present
+          await db.update(sessionPlayers)
+            .set({ 
+              attendanceStatus: "present",
+              attended: true,
+            })
+            .where(eq(sessionPlayers.id, sp.id));
+          
+          totalPlayersMarked++;
+          
+          // Deduct credits
+          const creditResult = await storage.deductTypedCreditsForSession(
+            sp.playerId,
+            session.sessionType,
+            session.id,
+            session.academyId || undefined,
+            sp.id
+          );
+          
+          if (creditResult.success) {
+            totalCreditsDeducted++;
+            console.log(`[AutoComplete] Deducted credit for player ${sp.playerId} in session ${session.id}`);
+          } else {
+            console.log(`[AutoComplete] No credit available for player ${sp.playerId}: ${creditResult.reason}`);
+          }
+        }
+        
+        // Mark session as completed
+        await db.update(sessions)
+          .set({ status: "completed" })
+          .where(eq(sessions.id, session.id));
+        
+        console.log(`[AutoComplete] Completed session ${session.id} (${session.sessionType})`);
+        
+      } catch (sessionError) {
+        console.error(`[AutoComplete] Error processing session ${session.id}:`, sessionError);
+      }
+    }
+    
+    console.log(`[AutoComplete] Finished: ${incompleteSessions.length} sessions completed, ${totalPlayersMarked} players marked, ${totalCreditsDeducted} credits deducted`);
+    
+  } catch (error) {
+    console.error("[AutoComplete] Error in auto session completion:", error);
+  }
+}
+
+export function startAutoSessionCompletionScheduler(): void {
+  if (autoSessionInterval) {
+    console.log("[AutoComplete] Scheduler already running");
+    return;
+  }
+
+  console.log("[AutoComplete] Starting auto session completion scheduler (runs hourly)");
+  
+  // Run immediately on startup to catch any missed sessions
+  setTimeout(() => {
+    processAutoSessionCompletion().catch(console.error);
+  }, 10000); // Wait 10 seconds after startup
+  
+  // Then run every hour at :05 past the hour
+  autoSessionInterval = setInterval(() => {
+    const now = new Date();
+    const minutes = now.getMinutes();
+    
+    // Run at 5 minutes past each hour (to ensure sessions have fully ended)
+    if (minutes >= 5 && minutes < 10) {
+      processAutoSessionCompletion().catch(console.error);
+    }
+  }, 5 * 60 * 1000); // Check every 5 minutes, but only execute at :05-:09
+}
+
+export function stopAutoSessionCompletionScheduler(): void {
+  if (autoSessionInterval) {
+    clearInterval(autoSessionInterval);
+    autoSessionInterval = null;
+    console.log("[AutoComplete] Scheduler stopped");
+  }
+}
