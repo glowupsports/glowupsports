@@ -1229,3 +1229,110 @@ export function stopAutoSessionCompletionScheduler(): void {
     console.log("[AutoComplete] Scheduler stopped");
   }
 }
+
+// ==================== MONTHLY REPORT SCHEDULER ====================
+let monthlyReportInterval: ReturnType<typeof setInterval> | null = null;
+
+async function processMonthlyReports(): Promise<void> {
+  console.log("[MonthlyReports] Running monthly report check at", new Date().toISOString());
+  
+  try {
+    const { players, users, playerCreditPackages } = await import("@shared/schema");
+    
+    // Get all active players with emails
+    const activePlayers = await db
+      .select({
+        playerId: players.id,
+        userId: players.userId,
+        displayName: players.displayName,
+        email: users.email,
+      })
+      .from(players)
+      .innerJoin(users, eq(players.userId, users.id))
+      .where(
+        and(
+          isNotNull(users.email),
+          eq(players.isActive, true)
+        )
+      );
+    
+    console.log(`[MonthlyReports] Found ${activePlayers.length} active players with emails`);
+    
+    // Get the previous month
+    const now = new Date();
+    const previousMonth = now.getMonth() === 0 ? 11 : now.getMonth() - 1;
+    const previousYear = now.getMonth() === 0 ? now.getFullYear() - 1 : now.getFullYear();
+    
+    let reportsSent = 0;
+    let reportsSkipped = 0;
+    
+    for (const player of activePlayers) {
+      try {
+        // Make API call to send report
+        const response = await fetch(`http://localhost:5000/api/player/${player.playerId}/monthly-report`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            // Use internal service auth header
+            'X-Internal-Service': 'monthly-report-scheduler',
+          },
+          body: JSON.stringify({
+            month: previousMonth,
+            year: previousYear,
+          }),
+        });
+        
+        if (response.ok) {
+          reportsSent++;
+          console.log(`[MonthlyReports] Sent report to ${player.displayName} (${player.email})`);
+        } else {
+          reportsSkipped++;
+          const error = await response.text();
+          console.log(`[MonthlyReports] Skipped ${player.displayName}: ${error}`);
+        }
+      } catch (err) {
+        reportsSkipped++;
+        console.error(`[MonthlyReports] Error sending report to ${player.playerId}:`, err);
+      }
+      
+      // Add a small delay between emails to avoid rate limiting
+      await new Promise(resolve => setTimeout(resolve, 500));
+    }
+    
+    console.log(`[MonthlyReports] Completed: ${reportsSent} sent, ${reportsSkipped} skipped`);
+  } catch (error) {
+    console.error("[MonthlyReports] Error processing monthly reports:", error);
+  }
+}
+
+export function startMonthlyReportScheduler(): void {
+  if (monthlyReportInterval) {
+    console.log("[MonthlyReports] Scheduler already running");
+    return;
+  }
+
+  console.log("[MonthlyReports] Starting monthly report scheduler (runs on 1st of each month)");
+  
+  // Check every hour if it's the 1st of the month
+  monthlyReportInterval = setInterval(() => {
+    const now = new Date();
+    const day = now.getDate();
+    const hour = now.getHours();
+    
+    // Run on the 1st of each month at 9 AM (local time)
+    if (day === 1 && hour === 9) {
+      processMonthlyReports().catch(console.error);
+    }
+  }, 60 * 60 * 1000); // Check every hour
+}
+
+export function stopMonthlyReportScheduler(): void {
+  if (monthlyReportInterval) {
+    clearInterval(monthlyReportInterval);
+    monthlyReportInterval = null;
+    console.log("[MonthlyReports] Scheduler stopped");
+  }
+}
+
+// Export for manual triggering
+export { processMonthlyReports };

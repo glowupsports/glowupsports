@@ -5,7 +5,7 @@ import { registerRoutes } from "./routes";
 import * as fs from "fs";
 import * as path from "path";
 import { createProxyMiddleware } from "http-proxy-middleware";
-import { startReminderScheduler, startDailyTipScheduler, startAutoSessionCompletionScheduler } from "./pushNotifications";
+import { startReminderScheduler, startDailyTipScheduler, startAutoSessionCompletionScheduler, startMonthlyReportScheduler } from "./pushNotifications";
 // DB-SYNC removed - using single Supabase database for both dev and production
 
 const app = express();
@@ -389,6 +389,7 @@ function setupErrorHandler(app: express.Application) {
       startReminderScheduler();
       startDailyTipScheduler();
       startAutoSessionCompletionScheduler();
+      startMonthlyReportScheduler();
     },
   );
 })();
