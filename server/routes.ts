@@ -8500,6 +8500,116 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+
+  // Update player attendance status with credit adjustment
+  app.patch("/api/coach/players/:playerId/sessions/:sessionId/attendance", authMiddleware, requireAcademy, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const { playerId, sessionId } = req.params;
+      const { newStatus } = req.body; // present, absent, late, holiday
+      const academyId = req.user!.academyId;
+
+      if (!["present", "absent", "late", "holiday"].includes(newStatus)) {
+        return res.status(400).json({ error: "Invalid status. Must be: present, absent, late, or holiday" });
+      }
+
+      const { valid } = await validatePlayerOwnership(playerId, academyId, storage);
+      if (!valid) {
+        return res.status(404).json({ error: "Player not found" });
+      }
+
+      // Get the session player record
+      const [spRecord] = await db.select()
+        .from(sessionPlayers)
+        .where(and(
+          eq(sessionPlayers.playerId, playerId),
+          eq(sessionPlayers.sessionId, sessionId)
+        ))
+        .limit(1);
+
+      if (!spRecord) {
+        return res.status(404).json({ error: "Session enrollment not found" });
+      }
+
+      const oldStatus = spRecord.attendanceStatus;
+      
+      // Get session info for credit type
+      const [sessionInfo] = await db.select({
+        sessionType: sessions.sessionType,
+      }).from(sessions).where(eq(sessions.id, sessionId)).limit(1);
+
+      if (!sessionInfo) {
+        return res.status(404).json({ error: "Session not found" });
+      }
+
+      const creditType = sessionInfo.sessionType.includes("semi") ? "semi_private" : 
+                         sessionInfo.sessionType.includes("group") ? "group" : "private";
+
+      // Determine credit adjustment needed
+      const wasCharged = oldStatus === "present" || oldStatus === "late";
+      const willBeCharged = newStatus === "present" || newStatus === "late";
+
+      let creditAdjustment = 0;
+      let adjustmentReason = "";
+
+      if (wasCharged && !willBeCharged) {
+        // Refund credit (changing from present/late to absent/holiday)
+        creditAdjustment = 1;
+        adjustmentReason = "attendance_correction_refund";
+      } else if (!wasCharged && willBeCharged) {
+        // Deduct credit (changing from absent/holiday to present/late)
+        creditAdjustment = -1;
+        adjustmentReason = "attendance_correction_deduct";
+      }
+
+      // Update the attendance status
+      await db.update(sessionPlayers)
+        .set({ 
+          attendanceStatus: newStatus,
+          creditDeductedAt: willBeCharged ? (spRecord.creditDeductedAt || new Date()) : null,
+        })
+        .where(eq(sessionPlayers.id, spRecord.id));
+
+      // Record credit transaction if there is an adjustment
+      if (creditAdjustment !== 0) {
+        const transactionId = `attendance-correction-${sessionId}-${playerId}-${Date.now()}`;
+        
+        await db.insert(creditTransactions).values({
+          id: transactionId,
+          playerId: playerId,
+          sessionId: sessionId,
+          type: creditAdjustment > 0 ? "refund" : "debit",
+          amount: creditAdjustment,
+          reason: adjustmentReason,
+          creditType: creditType,
+          metadata: { 
+            oldStatus, 
+            newStatus, 
+            correctedBy: req.user!.coachId || req.user!.id,
+            correctedAt: new Date().toISOString(),
+          },
+        });
+
+        console.log(`[AttendanceCorrection] Player ${playerId} session ${sessionId}: ${oldStatus} -> ${newStatus}, credit adjustment: ${creditAdjustment}`);
+      }
+
+      // Get player info for response
+      const player = await storage.getPlayer(playerId);
+
+      res.json({ 
+        success: true,
+        message: `Attendance updated from ${oldStatus || "none"} to ${newStatus}`,
+        creditAdjustment,
+        oldStatus,
+        newStatus,
+        playerName: player?.name,
+      });
+      
+    } catch (error) {
+      console.error("Update attendance error:", error);
+      res.status(500).json({ error: "Failed to update attendance" });
+    }
+  });
+
   // ==================== RECURRING SESSIONS API ====================
 
   // Get all recurring series for a coach
