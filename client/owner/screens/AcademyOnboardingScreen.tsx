@@ -23,7 +23,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Colors, Spacing, BorderRadius, Backgrounds, GlowColors } from "@/constants/theme";
 import { apiRequest } from "@/lib/query-client";
 import { countries, getCitiesForCountry } from "@shared/countries";
-import { useAuth } from "@/lib/auth";
+import { useAuth } from "@/coach/context/AuthContext";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 
