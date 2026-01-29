@@ -6396,64 +6396,23 @@ export const storage = {
     totalDebt: number;
     hasDebt: boolean;
   }> {
-    // Calculate credit balance from:
-    // 1. ACTIVE packages remaining_credits
-    // 2. PLUS unpaid debt transactions (no package_id or specific debt reasons)
+    // SIMPLE APPROACH: Sum ALL credit transactions to get the real balance
+    // This includes package purchases (+), session bookings (-), debt settlements, etc.
+    // The net sum is always the correct balance
     
-    const activePackages = await db.select().from(packages)
-      .where(and(
-        eq(packages.playerId, playerId),
-        eq(packages.status, "active")
-      ));
+    const allTransactions = await db.select({
+      amount: creditTransactions.amount,
+      creditType: creditTransactions.creditType,
+    }).from(creditTransactions)
+      .where(eq(creditTransactions.playerId, playerId));
     
     const balance = { group: 0, semi_private: 0, private: 0 };
     
-    // Add remaining credits from active packages
-    for (const pkg of activePackages) {
-      const creditType = (pkg.creditType || "group") as keyof typeof balance;
+    // Sum all transactions by type
+    for (const tx of allTransactions) {
+      const creditType = (tx.creditType || "group") as keyof typeof balance;
       if (balance[creditType] !== undefined) {
-        balance[creditType] += pkg.remainingCredits;
-      }
-    }
-    
-    // Add debt from all unpaid session transactions:
-    // - session_unpaid: Explicit unpaid marker
-    // - session_join_debt: Player joined without credits
-    // - session_booking with isDebt=true or without packageId: Booked without available package
-    const debtTransactions = await db.select({
-      amount: creditTransactions.amount,
-      creditType: creditTransactions.creditType,
-      reason: creditTransactions.reason,
-      packageId: creditTransactions.packageId,
-      metadata: creditTransactions.metadata,
-    }).from(creditTransactions)
-      .where(and(
-        eq(creditTransactions.playerId, playerId),
-        or(
-          eq(creditTransactions.reason, "session_unpaid"),
-          eq(creditTransactions.reason, "session_join_debt"),
-          eq(creditTransactions.reason, "session_debt"),
-          eq(creditTransactions.reason, "session_booking")
-        )
-      ));
-    
-    // Filter to only actual debts that are NOT settled and NOT cancelled
-    const unpaidDebts = debtTransactions.filter(t => {
-      // First check if this debt was already settled or cancelled
-      const meta = t.metadata as { isDebt?: boolean; settled?: boolean; cancelled?: boolean } | null;
-      if (meta?.settled === true) return false; // Skip settled debts
-      if (meta?.cancelled === true) return false; // Skip cancelled debts
-      
-      if (t.reason === "session_unpaid" || t.reason === "session_join_debt" || t.reason === "session_debt") return true;
-      if (meta?.isDebt === true) return true;
-      if (t.reason === "session_booking" && !t.packageId) return true;
-      return false;
-    });
-    
-    for (const debt of unpaidDebts) {
-      const creditType = (debt.creditType || "group") as keyof typeof balance;
-      if (balance[creditType] !== undefined) {
-        balance[creditType] += debt.amount; // Debts are negative
+        balance[creditType] += tx.amount;
       }
     }
     
