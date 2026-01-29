@@ -45,10 +45,11 @@ async function getCredentials() {
 }
 
 async function getResendClient() {
-  const { apiKey, fromEmail } = await getCredentials();
+  const { apiKey } = await getCredentials();
   return {
     client: new Resend(apiKey),
-    fromEmail: fromEmail || 'noreply@glowupsports.com'
+    // Use verified subdomain - admin.glowupsports.com is verified in Resend
+    fromEmail: 'Glow Up Sports <noreply@admin.glowupsports.com>'
   };
 }
 
