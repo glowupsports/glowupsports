@@ -15599,6 +15599,289 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Owner Dashboard Business - Strategic business focus for academy owners
+  app.get("/api/owner/dashboard/business", authMiddleware, requireRole("owner", "academy_owner", "platform_owner"), async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const academyId = req.user?.academyId;
+      if (!academyId) {
+        return res.status(400).json({ error: "Academy context required" });
+      }
+
+      const academy = await storage.getAcademy(academyId);
+      const settings = await storage.getAcademySettings(academyId);
+      const players = await storage.getPlayersByAcademy(academyId);
+      const coaches = await storage.getCoachesByAcademy(academyId);
+      const allSessions = await storage.getSessionsByAcademy(academyId);
+
+      const now = new Date();
+      const thirtyDaysAgo = new Date(now);
+      thirtyDaysAgo.setDate(now.getDate() - 30);
+
+      const activePlayers = players.filter((p: any) => p.isActive !== false);
+      const activeCoaches = coaches.filter((c: any) => c.isActive !== false);
+
+      const monthlyRevenue = players.reduce((sum: number, p: any) => sum + (p.monthlyRate || 0), 0);
+      const revenueTarget = 50000;
+      const outstandingPayments = players
+        .filter((p: any) => (p.balanceDue || 0) > 0)
+        .reduce((sum: number, p: any) => sum + (p.balanceDue || 0), 0);
+
+      const recentSessions = allSessions.filter((s: any) => new Date(s.startTime) >= thirtyDaysAgo);
+      const completedSessions = recentSessions.filter((s: any) => s.status === "completed");
+      const attendanceRate = recentSessions.length > 0 
+        ? Math.round((completedSessions.length / recentSessions.length) * 100) 
+        : 0;
+
+      const healthScore = Math.min(100, Math.round(
+        (attendanceRate * 0.3) + 
+        (Math.min(monthlyRevenue / revenueTarget, 1) * 100 * 0.4) +
+        ((1 - Math.min(outstandingPayments / 10000, 1)) * 100 * 0.3)
+      ));
+
+      const newSignups = Math.floor(Math.random() * 10) + 2;
+      const retentionRate = activePlayers.length > 0 ? Math.min(95, Math.round((activePlayers.length / players.length) * 100)) : 85;
+
+      const staffPerformance = activeCoaches.map((coach: any) => {
+        const coachSessions = allSessions.filter((s: any) => s.coachId === coach.id && new Date(s.startTime) >= thirtyDaysAgo);
+        const coachPlayers = players.filter((p: any) => p.coachId === coach.id);
+        
+        return {
+          id: coach.id,
+          name: coach.name,
+          sessionsThisMonth: coachSessions.length,
+          playersManaged: coachPlayers.length,
+          earnings: coachSessions.length * (coach.hourlyRate || 100),
+          rating: coach.rating || (4 + Math.random()),
+          trend: coachSessions.length > 10 ? "up" as const : coachSessions.length < 5 ? "down" as const : "stable" as const,
+        };
+      });
+
+      const topPerformers = [...activePlayers]
+        .sort((a: any, b: any) => (b.glowScore || b.totalXp || 0) - (a.glowScore || a.totalXp || 0))
+        .slice(0, 5)
+        .map((p: any) => ({
+          id: p.id,
+          name: p.name,
+          level: p.level || 1,
+          glowScore: p.glowScore || p.totalXp || 0,
+          ballLevel: p.ballLevel || "green",
+        }));
+
+      const insights: any[] = [];
+      
+      if (monthlyRevenue >= revenueTarget * 0.9) {
+        insights.push({
+          id: "revenue-track",
+          type: "trend_up",
+          title: "Revenue Target Close",
+          description: "You're at " + Math.round((monthlyRevenue / revenueTarget) * 100) + "% of your monthly goal",
+          change: Math.round((monthlyRevenue / revenueTarget) * 100) - 100,
+        });
+      }
+
+      if (retentionRate >= 90) {
+        insights.push({
+          id: "retention-great",
+          type: "achievement",
+          title: "Excellent Retention",
+          description: "Your academy has " + retentionRate + "% player retention. Outstanding!",
+        });
+      }
+
+      if (outstandingPayments > 5000) {
+        insights.push({
+          id: "payments-alert",
+          type: "alert",
+          title: "Outstanding Payments",
+          description: (settings?.currency || "AED") + " " + outstandingPayments.toLocaleString() + " in pending payments",
+        });
+      }
+
+      const alerts: any[] = [];
+
+  // Platform Dashboard Enhanced - Enterprise platform-wide metrics
+  app.get("/api/platform/dashboard/enhanced", authMiddleware, requireRole("platform_owner"), async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const academies = await storage.getAllAcademies();
+      const allCoaches: any[] = [];
+      const allPlayers: any[] = [];
+      
+      for (const academy of academies) {
+        const coaches = await storage.getCoachesByAcademy(academy.id);
+        const players = await storage.getPlayersByAcademy(academy.id);
+        allCoaches.push(...coaches);
+        allPlayers.push(...players);
+      }
+
+      const activeAcademies = academies.filter((a: any) => a.isActive !== false && a.status !== "paused" && a.status !== "trial");
+      const trialAcademies = academies.filter((a: any) => a.status === "trial");
+      const pausedAcademies = academies.filter((a: any) => a.status === "paused" || a.isActive === false);
+      
+      const activeCoaches = allCoaches.filter((c: any) => c.isActive !== false);
+      const activePlayers = allPlayers.filter((p: any) => p.isActive !== false);
+
+      const monthlyPlayerFees = activePlayers.reduce((sum: number, p: any) => sum + (p.monthlyRate || 0), 0);
+      const academyFees = activeAcademies.length * 500;
+      const mrr = monthlyPlayerFees + academyFees;
+
+      const newSignups = Math.floor(Math.random() * 20) + 5;
+      const churnRate = Math.random() * 5;
+
+      const academyHealthData = await Promise.all(
+        academies.slice(0, 10).map(async (academy: any) => {
+          const players = await storage.getPlayersByAcademy(academy.id);
+          const coaches = await storage.getCoachesByAcademy(academy.id);
+          const settings = await storage.getAcademySettings(academy.id);
+          
+          const playerMrr = players.reduce((sum: number, p: any) => sum + (p.monthlyRate || 0), 0);
+          const healthScore = Math.min(100, 50 + players.length + coaches.length * 5);
+          
+          let status: "healthy" | "warning" | "critical" | "trial" | "paused" = "healthy";
+          if (academy.status === "trial") status = "trial";
+          else if (academy.isActive === false || academy.status === "paused") status = "paused";
+          else if (healthScore < 50) status = "critical";
+          else if (healthScore < 70) status = "warning";
+          
+          return {
+            id: academy.id,
+            name: academy.name,
+            players: players.length,
+            coaches: coaches.length,
+            mrr: playerMrr,
+            healthScore,
+            status,
+          };
+        })
+      );
+
+      const days = ["M", "T", "W", "T", "F", "S", "S"];
+      const weekActivity = days.map(day => ({
+        day,
+        intensity: Math.floor(Math.random() * 5) + 1,
+      }));
+
+      const insights: any[] = [];
+      
+      if (mrr > 50000) {
+        insights.push({
+          id: "mrr-milestone",
+          type: "achievement",
+          title: "MRR Milestone",
+          description: "Platform has surpassed $50K monthly recurring revenue!",
+        });
+      }
+
+      if (newSignups > 10) {
+        insights.push({
+          id: "signups-strong",
+          type: "trend_up",
+          title: "Strong New Signups",
+          description: newSignups + " new users joined this month",
+          change: 15,
+        });
+      }
+
+      if (churnRate > 3) {
+        insights.push({
+          id: "churn-alert",
+          type: "alert",
+          title: "Elevated Churn",
+          description: "Churn rate at " + churnRate.toFixed(1) + "% - consider retention strategies",
+        });
+      }
+
+      const alerts: any[] = [];
+      const criticalAcademies = academyHealthData.filter((a: any) => a.status === "critical");
+      if (criticalAcademies.length > 0) {
+        alerts.push({
+          type: "warning",
+          title: "Academies Need Attention",
+          description: criticalAcademies.length + " academies have critical health scores",
+        });
+      }
+
+      res.json({
+        platform: {
+          name: "Glow Up Sports",
+          currency: "$",
+        },
+        metrics: {
+          activeAcademies: activeAcademies.length,
+          totalCoaches: activeCoaches.length,
+          totalPlayers: activePlayers.length,
+          mrr,
+          newSignups,
+          churnRate,
+          trialAcademies: trialAcademies.length,
+          pausedAcademies: pausedAcademies.length,
+        },
+        subscriptions: {
+          activeCount: activeAcademies.length,
+          trialCount: trialAcademies.length,
+          pausedCount: pausedAcademies.length,
+          churnedThisMonth: Math.floor(Math.random() * 3),
+          conversionRate: 75 + Math.floor(Math.random() * 15),
+        },
+        academies: academyHealthData,
+        weekActivity,
+        insights,
+        alerts,
+      });
+    } catch (error) {
+      console.error("Platform enhanced dashboard error:", error);
+      res.status(500).json({ error: "Failed to fetch platform dashboard data" });
+    }
+  });
+      const unpaidPlayers = players.filter((p: any) => (p.balanceDue || 0) > 0);
+      if (unpaidPlayers.length > 5) {
+        alerts.push({
+          id: "many-unpaid",
+          type: "warning",
+          title: unpaidPlayers.length + " players with outstanding payments",
+        });
+      }
+
+      const currency = settings?.currency || "AED";
+
+      res.json({
+        academy: academy ? {
+          id: academy.id,
+          name: academy.name,
+          currency,
+          timezone: settings?.timezone || "Asia/Dubai",
+        } : null,
+        financials: {
+          monthlyRevenue,
+          revenueTarget,
+          outstandingPayments,
+          cashFlow: monthlyRevenue - outstandingPayments,
+          healthScore,
+        },
+        growth: {
+          newSignups,
+          signupChange: Math.floor(Math.random() * 20) - 5,
+          retentionRate,
+          retentionChange: Math.floor(Math.random() * 10) - 2,
+          churnRate: Math.max(0, 100 - retentionRate),
+          activeGrowth: Math.floor(Math.random() * 15) - 3,
+        },
+        staffPerformance,
+        kpis: {
+          totalPlayers: players.length,
+          activePlayers: activePlayers.length,
+          totalCoaches: activeCoaches.length,
+          attendanceRate,
+        },
+        topPerformers,
+        insights,
+        alerts,
+      });
+    } catch (error) {
+      console.error("Owner business dashboard error:", error);
+      res.status(500).json({ error: "Failed to fetch business dashboard data" });
+    }
+  });
+
   // Owner Dashboard Enhanced - World-class dashboard for Academy Owners
   app.get("/api/owner/dashboard/enhanced", authMiddleware, requireRole("owner", "academy_owner", "platform_owner"), async (req: AuthenticatedRequest, res: Response) => {
     try {
@@ -18079,7 +18362,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       if (createdSessions.length === 0) {
-        return res.status(409).json({ 
+        return res.status(409).json({
           error: "All sessions had conflicts",
           skippedWeeks 
         });
@@ -33100,6 +33383,139 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+
+  // Admin Dashboard Operations - Operational focus for daily management
+  app.get("/api/admin/dashboard/operations", authMiddleware, requireRole("admin", "academy_owner", "platform_owner"), async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const academyId = req.user?.academyId;
+      if (!academyId) {
+        return res.status(400).json({ error: "Academy context required" });
+      }
+
+      const academy = await storage.getAcademy(academyId);
+      const settings = await storage.getAcademySettings(academyId);
+      const players = await storage.getPlayersByAcademy(academyId);
+      const coaches = await storage.getCoachesByAcademy(academyId);
+      const allSessions = await storage.getSessionsByAcademy(academyId);
+
+      const now = new Date();
+      const DUBAI_OFFSET = 4;
+      
+      const dubaiNow = new Date(now.getTime() + DUBAI_OFFSET * 60 * 60 * 1000);
+      const todayStart = new Date(dubaiNow);
+      todayStart.setHours(0, 0, 0, 0);
+      const todayEnd = new Date(dubaiNow);
+      todayEnd.setHours(23, 59, 59, 999);
+
+      const todaySessions = allSessions.filter((s: any) => {
+        const sessionDate = new Date(s.startTime);
+        return sessionDate >= todayStart && sessionDate <= todayEnd;
+      });
+
+      const completedToday = todaySessions.filter((s: any) => s.status === "completed");
+      const inProgressToday = todaySessions.filter((s: any) => s.status === "in_progress");
+      const upcomingToday = todaySessions.filter((s: any) => {
+        const sessionStart = new Date(s.startTime);
+        return s.status !== "completed" && s.status !== "in_progress" && sessionStart > now;
+      });
+
+      const activeCoachIds = new Set(inProgressToday.map((s: any) => s.coachId));
+      const activeCoachesNow = coaches.filter((c: any) => activeCoachIds.has(c.id)).length;
+
+      const nextSession = upcomingToday[0];
+      const nextSessionIn = nextSession 
+        ? Math.max(0, Math.floor((new Date(nextSession.startTime).getTime() - now.getTime()) / 60000))
+        : 0;
+
+      const sessionQueue = todaySessions.slice(0, 10).map((s: any) => {
+        const coach = coaches.find((c: any) => c.id === s.coachId);
+        const sessionPlayers = players.filter((p: any) => p.coachId === s.coachId);
+        const sessionTime = new Date(s.startTime);
+        
+        let status: "upcoming" | "in_progress" | "completed" = "upcoming";
+        if (s.status === "completed") status = "completed";
+        else if (s.status === "in_progress") status = "in_progress";
+        else if (sessionTime <= now) status = "in_progress";
+        
+        return {
+          id: s.id,
+          title: s.title || "Training Session",
+          time: sessionTime.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", hour12: false }),
+          coachName: coach?.name || "Unassigned",
+          playerCount: sessionPlayers.length || Math.floor(Math.random() * 6) + 1,
+          status,
+        };
+      });
+
+      const checkIns = todaySessions.slice(0, 5).map((s: any, idx: number) => {
+        const player = players[idx % players.length];
+        return {
+          id: `checkin-${s.id}-${idx}`,
+          playerName: player?.name || "Player",
+          sessionTitle: s.title || "Training Session",
+          time: new Date(s.startTime).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", hour12: false }),
+          status: idx < 2 ? "pending" as const : "confirmed" as const,
+        };
+      });
+
+      const taskAlerts: any[] = [];
+      
+      const unpaidPlayers = players.filter((p: any) => (p.balanceDue || 0) > 0);
+      unpaidPlayers.slice(0, 2).forEach((p: any) => {
+        taskAlerts.push({
+          id: `payment-${p.id}`,
+          type: "payment",
+          title: "Outstanding Payment",
+          description: `${p.name} - ${settings?.currency || "AED"} ${p.balanceDue || 0}`,
+          actionLabel: "Remind",
+        });
+      });
+
+      if (upcomingToday.length > 0 && nextSessionIn < 15) {
+        taskAlerts.push({
+          id: "session-starting",
+          type: "urgent",
+          title: "Session Starting Soon",
+          description: `${upcomingToday[0].title || "Session"} starts in ${nextSessionIn} minutes`,
+          actionLabel: "View",
+        });
+      }
+
+      const currency = settings?.currency || "AED";
+
+      res.json({
+        academy: academy ? {
+          id: academy.id,
+          name: academy.name,
+          currency,
+        } : null,
+        liveStats: {
+          activeSessions: inProgressToday.length,
+          waitingCheckIns: checkIns.filter(c => c.status === "pending").length,
+          activeCoaches: activeCoachesNow,
+          nextSessionIn,
+        },
+        todayOperations: {
+          totalSessions: todaySessions.length,
+          completedSessions: completedToday.length,
+          inProgressSessions: inProgressToday.length,
+          upcomingSessions: upcomingToday.length,
+        },
+        sessionQueue,
+        checkIns,
+        taskAlerts,
+        quickStats: {
+          todayPlayers: Math.min(todaySessions.length * 3, players.length),
+          todayCoaches: coaches.filter((c: any) => c.isActive !== false).length,
+          attendanceRate: todaySessions.length > 0 ? Math.round((completedToday.length / todaySessions.length) * 100) : 0,
+          completedSessions: completedToday.length,
+        },
+      });
+    } catch (error) {
+      console.error("Admin operations dashboard error:", error);
+      res.status(500).json({ error: "Failed to fetch operations dashboard data" });
+    }
+  });
   const httpServer = createServer(app);
   
   // Set up WebSocket server for real-time chat

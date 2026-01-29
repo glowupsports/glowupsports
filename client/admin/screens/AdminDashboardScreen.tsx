@@ -22,13 +22,11 @@ import { useAuth } from "@/coach/context/AuthContext";
 import CollapsibleModeSwitcher from "@/components/CollapsibleModeSwitcher";
 import type { AdminTabParamList, AdminStackParamList } from "@/admin/navigation/AdminNavigator";
 
-import { AcademyCommandCenter } from "@/admin/components/AcademyCommandCenter";
+import { OperationsHubHero } from "@/admin/components/OperationsHubHero";
+import { SessionQueuePanel } from "@/admin/components/SessionQueuePanel";
+import { CheckInStream } from "@/admin/components/CheckInStream";
+import { TaskAlertsList } from "@/admin/components/TaskAlertsList";
 import { TodayOperationsPanel } from "@/admin/components/TodayOperationsPanel";
-import { RevenueHealthGauge } from "@/admin/components/RevenueHealthGauge";
-import { LiveActivityFeed, ActivityEvent } from "@/admin/components/LiveActivityFeed";
-import { CoachPerformanceRow, CoachPerformance } from "@/admin/components/CoachPerformanceRow";
-import { SmartInsightsPanel, Insight } from "@/admin/components/SmartInsightsPanel";
-import { WeekHeatmap } from "@/admin/components/WeekHeatmap";
 import { AnimatedKpiCard } from "@/admin/components/AnimatedKpiCard";
 
 type AdminNavProp = CompositeNavigationProp<
@@ -36,57 +34,52 @@ type AdminNavProp = CompositeNavigationProp<
   NativeStackNavigationProp<AdminStackParamList>
 >;
 
-interface EnhancedDashboardData {
+interface AdminOperationsData {
   academy: {
     id: string;
     name: string;
     currency: string;
-    timezone: string;
   } | null;
-  kpis: {
-    activePlayers: number;
+  liveStats: {
+    activeSessions: number;
+    waitingCheckIns: number;
     activeCoaches: number;
-    sessionsThisWeek: number;
-    attendanceRate: number;
-    outstandingPayments: number;
-    monthlyRevenue: number;
-    revenueTarget: number;
-    currency: string;
+    nextSessionIn: number;
   };
   todayOperations: {
     totalSessions: number;
     completedSessions: number;
     inProgressSessions: number;
     upcomingSessions: number;
-    playersCheckedIn: number;
-    activeCoachesNow: number;
   };
-  coachPerformance: CoachPerformance[];
-  weekData: Array<{
-    date: string;
-    sessionCount: number;
-  }>;
-  recentActivity: Array<{
+  sessionQueue: Array<{
     id: string;
-    type: string;
     title: string;
-    subtitle?: string;
-    timestamp: string;
+    time: string;
+    coachName: string;
+    playerCount: number;
+    status: "upcoming" | "in_progress" | "completed";
   }>;
-  insights: Array<{
+  checkIns: Array<{
     id: string;
-    type: string;
-    title: string;
-    description: string;
-    change?: number;
+    playerName: string;
+    sessionTitle: string;
+    time: string;
+    status: "pending" | "confirmed" | "late";
   }>;
-  alerts: Array<{
+  taskAlerts: Array<{
     id: string;
-    type: "error" | "warning" | "info";
-    category: string;
+    type: "no_show" | "late" | "payment" | "session" | "urgent";
     title: string;
     description: string;
+    actionLabel?: string;
   }>;
+  quickStats: {
+    todayPlayers: number;
+    todayCoaches: number;
+    attendanceRate: number;
+    completedSessions: number;
+  };
 }
 
 export default function AdminDashboardScreen() {
@@ -95,8 +88,8 @@ export default function AdminDashboardScreen() {
   const { user } = useAuth();
   const [refreshing, setRefreshing] = useState(false);
 
-  const { data: dashboardData, isLoading, refetch } = useQuery<EnhancedDashboardData>({
-    queryKey: ["/api/admin/dashboard/enhanced"],
+  const { data: operationsData, isLoading, refetch } = useQuery<AdminOperationsData>({
+    queryKey: ["/api/admin/dashboard/operations"],
   });
 
   const onRefresh = async () => {
@@ -105,60 +98,25 @@ export default function AdminDashboardScreen() {
     setRefreshing(false);
   };
 
-  const kpis = dashboardData?.kpis;
-  const todayOps = dashboardData?.todayOperations;
-  const currency = kpis?.currency || "AED";
+  const liveStats = operationsData?.liveStats || {
+    activeSessions: 0,
+    waitingCheckIns: 0,
+    activeCoaches: 0,
+    nextSessionIn: 0,
+  };
 
-  const activityEvents: ActivityEvent[] = useMemo(() => {
-    return (dashboardData?.recentActivity || []).map(a => ({
-      ...a,
-      type: a.type as ActivityEvent["type"],
-      timestamp: new Date(a.timestamp),
-    }));
-  }, [dashboardData?.recentActivity]);
-
-  const weekDays = useMemo(() => {
-    if (dashboardData?.weekData) {
-      const maxSessions = Math.max(...dashboardData.weekData.map(d => d.sessionCount), 1);
-      return dashboardData.weekData.map(d => ({
-        date: new Date(d.date),
-        sessionCount: d.sessionCount,
-        intensity: d.sessionCount / maxSessions,
-      }));
-    }
-    
-    const days = [];
-    const today = new Date();
-    const dayOfWeek = today.getDay();
-    const startOfWeek = new Date(today);
-    startOfWeek.setDate(today.getDate() - dayOfWeek);
-    
-    for (let i = 0; i < 7; i++) {
-      const date = new Date(startOfWeek);
-      date.setDate(startOfWeek.getDate() + i);
-      days.push({
-        date,
-        sessionCount: 0,
-        intensity: 0,
-      });
-    }
-    return days;
-  }, [dashboardData?.weekData]);
-
-  const insights: Insight[] = useMemo(() => {
-    return (dashboardData?.insights || []).map(i => ({
-      ...i,
-      type: i.type as Insight["type"],
-    }));
-  }, [dashboardData?.insights]);
-
-  const formatCurrency = (amount: number) => `${currency} ${amount.toLocaleString()}`;
+  const todayOps = operationsData?.todayOperations || {
+    totalSessions: 0,
+    completedSessions: 0,
+    inProgressSessions: 0,
+    upcomingSessions: 0,
+  };
 
   if (isLoading) {
     return (
       <View style={[styles.container, styles.loadingContainer, { paddingTop: insets.top }]}>
         <ActivityIndicator size="large" color={Colors.dark.orange} />
-        <Text style={styles.loadingText}>Loading Command Center...</Text>
+        <Text style={styles.loadingText}>Loading Operations Hub...</Text>
       </View>
     );
   }
@@ -166,7 +124,7 @@ export default function AdminDashboardScreen() {
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
       <LinearGradient
-        colors={["rgba(255,152,0,0.12)", "rgba(255,215,0,0.08)", "transparent"]}
+        colors={["rgba(255,152,0,0.15)", "rgba(255,87,34,0.08)", "transparent"]}
         style={styles.headerGradient}
       />
 
@@ -180,69 +138,65 @@ export default function AdminDashboardScreen() {
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.dark.orange} />
         }
       >
-        <AcademyCommandCenter
-          academyName={dashboardData?.academy?.name || "Tennis Academy"}
-          todaySessions={todayOps?.totalSessions || 0}
-          activeCoaches={todayOps?.activeCoachesNow || 0}
-          playersCheckedIn={todayOps?.playersCheckedIn || 0}
-          isLive={true}
-          notificationCount={dashboardData?.alerts?.length || 0}
-          onNotificationPress={() => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)}
+        <OperationsHubHero
+          activeSessions={liveStats.activeSessions}
+          waitingCheckIns={liveStats.waitingCheckIns}
+          activeCoaches={liveStats.activeCoaches}
+          nextSessionIn={liveStats.nextSessionIn}
+          onViewSchedule={() => navigation.navigate("AdminSchedule")}
         />
 
         <TodayOperationsPanel
           currentDate={new Date()}
-          totalSessions={todayOps?.totalSessions || 0}
-          completedSessions={todayOps?.completedSessions || 0}
-          inProgressSessions={todayOps?.inProgressSessions || 0}
-          upcomingSessions={todayOps?.upcomingSessions || 0}
+          totalSessions={todayOps.totalSessions}
+          completedSessions={todayOps.completedSessions}
+          inProgressSessions={todayOps.inProgressSessions}
+          upcomingSessions={todayOps.upcomingSessions}
           onViewSchedule={() => navigation.navigate("AdminSchedule")}
+        />
+
+        <SessionQueuePanel
+          sessions={operationsData?.sessionQueue || []}
+          onSessionPress={(id) => navigation.navigate("AdminSchedule")}
+          onStartSession={(id) => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium)}
+          onViewAll={() => navigation.navigate("AdminSchedule")}
+        />
+
+        <View style={styles.twoColumnRow}>
+          <View style={styles.columnHalf}>
+            <CheckInStream
+              checkIns={operationsData?.checkIns || []}
+              onConfirm={(id) => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)}
+              onViewPlayer={(id) => navigation.navigate("AdminPlayers")}
+            />
+          </View>
+        </View>
+
+        <TaskAlertsList
+          alerts={operationsData?.taskAlerts || []}
+          onAlertPress={(id) => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)}
+          onAction={(id) => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium)}
         />
 
         <View style={styles.kpiRow}>
           <View style={styles.kpiItem}>
             <AnimatedKpiCard
               icon="people"
-              label="Active Players"
-              value={kpis?.activePlayers || 0}
+              label="Today's Players"
+              value={operationsData?.quickStats?.todayPlayers || 0}
               color={Colors.dark.xpCyan}
               onPress={() => navigation.navigate("AdminPlayers")}
             />
           </View>
           <View style={styles.kpiItem}>
             <AnimatedKpiCard
-              icon="person"
-              label="Coaches"
-              value={kpis?.activeCoaches || 0}
+              icon="checkmark-circle"
+              label="Completed"
+              value={operationsData?.quickStats?.completedSessions || todayOps.completedSessions}
               color={Colors.dark.primary}
-              onPress={() => navigation.navigate("AdminCoaches")}
             />
           </View>
         </View>
-
-        <RevenueHealthGauge
-          monthlyRevenue={kpis?.monthlyRevenue || 0}
-          revenueTarget={kpis?.revenueTarget || 50000}
-          outstandingPayments={kpis?.outstandingPayments || 0}
-          attendanceRate={kpis?.attendanceRate || 0}
-          currency={currency}
-        />
-
-        <CoachPerformanceRow
-          coaches={dashboardData?.coachPerformance || []}
-          currency={currency}
-          onCoachPress={(id) => navigation.navigate("AdminCoaches")}
-          onViewAll={() => navigation.navigate("AdminCoaches")}
-        />
-
-        <WeekHeatmap
-          days={weekDays}
-          onDayPress={(date) => navigation.navigate("AdminSchedule")}
-        />
-
-        <LiveActivityFeed events={activityEvents} maxEvents={5} />
-
-        <SmartInsightsPanel insights={insights} />
 
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Quick Actions</Text>
@@ -251,25 +205,25 @@ export default function AdminDashboardScreen() {
               style={styles.quickAction}
               onPress={() => {
                 Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                navigation.navigate("AdminPlayers");
+                navigation.navigate("AdminSchedule");
               }}
             >
-              <View style={[styles.quickActionIcon, { backgroundColor: `${Colors.dark.xpCyan}15` }]}>
-                <Ionicons name="person-add" size={22} color={Colors.dark.xpCyan} />
+              <View style={[styles.quickActionIcon, { backgroundColor: `${Colors.dark.orange}15` }]}>
+                <Ionicons name="play-circle" size={22} color={Colors.dark.orange} />
               </View>
-              <Text style={styles.quickActionLabel}>Add Player</Text>
+              <Text style={styles.quickActionLabel}>Start Session</Text>
             </Pressable>
             <Pressable 
               style={styles.quickAction}
               onPress={() => {
                 Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                navigation.navigate("AdminCoaches");
+                navigation.navigate("AdminPlayers");
               }}
             >
-              <View style={[styles.quickActionIcon, { backgroundColor: `${Colors.dark.primary}15` }]}>
-                <Ionicons name="person-add-outline" size={22} color={Colors.dark.primary} />
+              <View style={[styles.quickActionIcon, { backgroundColor: `${Colors.dark.xpCyan}15` }]}>
+                <Ionicons name="log-in" size={22} color={Colors.dark.xpCyan} />
               </View>
-              <Text style={styles.quickActionLabel}>Add Coach</Text>
+              <Text style={styles.quickActionLabel}>Check-in</Text>
             </Pressable>
             <Pressable 
               style={styles.quickAction}
@@ -278,8 +232,8 @@ export default function AdminDashboardScreen() {
                 navigation.navigate("AdminSchedule");
               }}
             >
-              <View style={[styles.quickActionIcon, { backgroundColor: `${Colors.dark.orange}15` }]}>
-                <Ionicons name="calendar-outline" size={22} color={Colors.dark.orange} />
+              <View style={[styles.quickActionIcon, { backgroundColor: `${Colors.dark.primary}15` }]}>
+                <Ionicons name="calendar" size={22} color={Colors.dark.primary} />
               </View>
               <Text style={styles.quickActionLabel}>Schedule</Text>
             </Pressable>
@@ -287,13 +241,13 @@ export default function AdminDashboardScreen() {
               style={styles.quickAction}
               onPress={() => {
                 Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                navigation.navigate("AdminReports");
+                navigation.navigate("AdminPlayers");
               }}
             >
               <View style={[styles.quickActionIcon, { backgroundColor: `${Colors.dark.gold}15` }]}>
-                <Ionicons name="analytics" size={22} color={Colors.dark.gold} />
+                <Ionicons name="clipboard" size={22} color={Colors.dark.gold} />
               </View>
-              <Text style={styles.quickActionLabel}>Reports</Text>
+              <Text style={styles.quickActionLabel}>Attendance</Text>
             </Pressable>
           </View>
         </View>
@@ -311,7 +265,7 @@ export default function AdminDashboardScreen() {
               <Ionicons name="people-outline" size={24} color={Colors.dark.primary} />
               <View style={styles.menuCardText}>
                 <Text style={styles.menuCardTitle}>Manage Coaches</Text>
-                <Text style={styles.menuCardSubtitle}>Performance, payments, profiles</Text>
+                <Text style={styles.menuCardSubtitle}>Schedules, availability, assignments</Text>
               </View>
               <Ionicons name="chevron-forward" size={20} color={Colors.dark.textMuted} />
             </View>
@@ -328,7 +282,7 @@ export default function AdminDashboardScreen() {
               <Ionicons name="person-outline" size={24} color={Colors.dark.xpCyan} />
               <View style={styles.menuCardText}>
                 <Text style={styles.menuCardTitle}>Manage Players</Text>
-                <Text style={styles.menuCardSubtitle}>Attendance, progress, payments</Text>
+                <Text style={styles.menuCardSubtitle}>Registrations, attendance, groups</Text>
               </View>
               <Ionicons name="chevron-forward" size={20} color={Colors.dark.textMuted} />
             </View>
@@ -338,31 +292,14 @@ export default function AdminDashboardScreen() {
             style={styles.menuCard}
             onPress={() => {
               Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-              navigation.navigate("AdminPayments");
+              navigation.navigate("AdminClasses");
             }}
           >
             <View style={styles.menuCardContent}>
-              <Ionicons name="cash-outline" size={24} color={Colors.dark.gold} />
+              <Ionicons name="grid-outline" size={24} color={Colors.dark.orange} />
               <View style={styles.menuCardText}>
-                <Text style={styles.menuCardTitle}>Payments</Text>
-                <Text style={styles.menuCardSubtitle}>Record, confirm, track payments</Text>
-              </View>
-              <Ionicons name="chevron-forward" size={20} color={Colors.dark.textMuted} />
-            </View>
-          </Pressable>
-
-          <Pressable 
-            style={styles.menuCard}
-            onPress={() => {
-              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-              navigation.navigate("AdminSettings");
-            }}
-          >
-            <View style={styles.menuCardContent}>
-              <Ionicons name="settings-outline" size={24} color={Colors.dark.orange} />
-              <View style={styles.menuCardText}>
-                <Text style={styles.menuCardTitle}>Academy Settings</Text>
-                <Text style={styles.menuCardSubtitle}>Profile, branding, permissions</Text>
+                <Text style={styles.menuCardTitle}>Manage Classes</Text>
+                <Text style={styles.menuCardSubtitle}>Groups, schedules, capacity</Text>
               </View>
               <Ionicons name="chevron-forward" size={20} color={Colors.dark.textMuted} />
             </View>
@@ -392,13 +329,20 @@ const styles = StyleSheet.create({
     top: 0,
     left: 0,
     right: 0,
-    height: 250,
+    height: 280,
   },
   scrollView: {
     flex: 1,
   },
   content: {
     padding: Spacing.lg,
+  },
+  twoColumnRow: {
+    flexDirection: "row",
+    gap: Spacing.md,
+  },
+  columnHalf: {
+    flex: 1,
   },
   kpiRow: {
     flexDirection: "row",
@@ -441,6 +385,7 @@ const styles = StyleSheet.create({
     ...Typography.small,
     color: Colors.dark.text,
     textAlign: "center",
+    fontSize: 11,
   },
   menuCard: {
     backgroundColor: Colors.dark.backgroundSecondary,

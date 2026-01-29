@@ -1,0 +1,292 @@
+import React, { useEffect } from "react";
+import { View, Text, StyleSheet, Pressable } from "react-native";
+import { LinearGradient } from "expo-linear-gradient";
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withRepeat,
+  withSequence,
+  withTiming,
+  Easing,
+} from "react-native-reanimated";
+import Ionicons from "@expo/vector-icons/Ionicons";
+import { Colors, Spacing, BorderRadius, Typography } from "@/constants/theme";
+
+const PLATFORM_PURPLE = "#9B59B6";
+const PLATFORM_VIOLET = "#8E44AD";
+
+interface PlatformCommandCenterProps {
+  platformName: string;
+  totalMrr: number;
+  activeAcademies: number;
+  totalPlayers: number;
+  currency: string;
+  onLogoutPress?: () => void;
+  onSettingsPress?: () => void;
+}
+
+export function PlatformCommandCenter({
+  platformName,
+  totalMrr,
+  activeAcademies,
+  totalPlayers,
+  currency,
+  onLogoutPress,
+  onSettingsPress,
+}: PlatformCommandCenterProps) {
+  const pulseScale = useSharedValue(1);
+  const glowOpacity = useSharedValue(0.4);
+
+  useEffect(() => {
+    pulseScale.value = withRepeat(
+      withSequence(
+        withTiming(1.12, { duration: 1800, easing: Easing.inOut(Easing.ease) }),
+        withTiming(1, { duration: 1800, easing: Easing.inOut(Easing.ease) })
+      ),
+      -1,
+      false
+    );
+    glowOpacity.value = withRepeat(
+      withSequence(
+        withTiming(0.7, { duration: 2000, easing: Easing.inOut(Easing.ease) }),
+        withTiming(0.4, { duration: 2000, easing: Easing.inOut(Easing.ease) })
+      ),
+      -1,
+      false
+    );
+  }, []);
+
+  const pulseStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: pulseScale.value }],
+    opacity: glowOpacity.value,
+  }));
+
+  const formatCurrency = (amount: number) => {
+    if (amount >= 1000000) return `${(amount / 1000000).toFixed(1)}M`;
+    if (amount >= 1000) return `${(amount / 1000).toFixed(0)}K`;
+    return amount.toLocaleString();
+  };
+
+  return (
+    <View style={styles.container}>
+      <LinearGradient
+        colors={[PLATFORM_PURPLE + "35", PLATFORM_VIOLET + "15", "transparent"]}
+        style={styles.gradientBg}
+      />
+      
+      <View style={styles.borderContainer}>
+        <LinearGradient
+          colors={[PLATFORM_PURPLE, PLATFORM_VIOLET, PLATFORM_PURPLE]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.gradientBorder}
+        />
+        
+        <View style={styles.innerContainer}>
+          <View style={styles.header}>
+            <View style={styles.logoSection}>
+              <View style={styles.logoContainer}>
+                <Animated.View style={[styles.logoPulse, pulseStyle]} />
+                <Ionicons name="globe" size={28} color={PLATFORM_PURPLE} />
+              </View>
+              <View>
+                <Text style={styles.label}>PLATFORM CENTER</Text>
+                <Text style={styles.platformName}>{platformName}</Text>
+              </View>
+            </View>
+            
+            <View style={styles.actionButtons}>
+              <Pressable style={styles.actionBtn} onPress={onSettingsPress}>
+                <Ionicons name="settings-outline" size={20} color={PLATFORM_PURPLE} />
+              </Pressable>
+              <Pressable style={styles.actionBtn} onPress={onLogoutPress}>
+                <Ionicons name="log-out-outline" size={20} color={PLATFORM_PURPLE} />
+              </Pressable>
+            </View>
+          </View>
+
+          <View style={styles.mrrSection}>
+            <View style={styles.mrrLabel}>
+              <Ionicons name="cash-outline" size={16} color={PLATFORM_PURPLE} />
+              <Text style={styles.mrrLabelText}>Monthly Recurring Revenue</Text>
+            </View>
+            <View style={styles.mrrValueRow}>
+              <Text style={styles.currencySymbol}>{currency}</Text>
+              <Text style={styles.mrrValue}>{formatCurrency(totalMrr)}</Text>
+            </View>
+          </View>
+
+          <View style={styles.statsRow}>
+            <View style={styles.statBox}>
+              <View style={[styles.statIconBg, { backgroundColor: PLATFORM_PURPLE + "20" }]}>
+                <Ionicons name="business" size={18} color={PLATFORM_PURPLE} />
+              </View>
+              <Text style={styles.statValue}>{activeAcademies}</Text>
+              <Text style={styles.statLabel}>Active Academies</Text>
+            </View>
+
+            <View style={styles.divider} />
+
+            <View style={styles.statBox}>
+              <View style={[styles.statIconBg, { backgroundColor: Colors.dark.xpCyan + "20" }]}>
+                <Ionicons name="people" size={18} color={Colors.dark.xpCyan} />
+              </View>
+              <Text style={styles.statValue}>{formatCurrency(totalPlayers)}</Text>
+              <Text style={styles.statLabel}>Total Players</Text>
+            </View>
+          </View>
+        </View>
+      </View>
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: {
+    marginBottom: Spacing.lg,
+  },
+  gradientBg: {
+    position: "absolute",
+    top: -70,
+    left: -40,
+    right: -40,
+    height: 250,
+    borderRadius: 125,
+  },
+  borderContainer: {
+    borderRadius: BorderRadius.xl,
+    padding: 2,
+    overflow: "hidden",
+  },
+  gradientBorder: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+  },
+  innerContainer: {
+    backgroundColor: Colors.dark.backgroundSecondary,
+    borderRadius: BorderRadius.xl - 2,
+    padding: Spacing.lg,
+  },
+  header: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: Spacing.lg,
+  },
+  logoSection: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.md,
+    flex: 1,
+  },
+  logoContainer: {
+    width: 56,
+    height: 56,
+    borderRadius: 18,
+    backgroundColor: PLATFORM_PURPLE + "20",
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1,
+    borderColor: PLATFORM_PURPLE + "40",
+  },
+  logoPulse: {
+    position: "absolute",
+    width: 56,
+    height: 56,
+    borderRadius: 18,
+    backgroundColor: PLATFORM_PURPLE,
+  },
+  label: {
+    ...Typography.small,
+    color: PLATFORM_PURPLE,
+    fontWeight: "700",
+    letterSpacing: 1,
+    marginBottom: 2,
+  },
+  platformName: {
+    ...Typography.h3,
+    color: Colors.dark.text,
+    fontSize: 18,
+  },
+  actionButtons: {
+    flexDirection: "row",
+    gap: Spacing.sm,
+  },
+  actionBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    backgroundColor: PLATFORM_PURPLE + "15",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  mrrSection: {
+    backgroundColor: PLATFORM_PURPLE + "10",
+    borderRadius: BorderRadius.lg,
+    padding: Spacing.md,
+    marginBottom: Spacing.lg,
+    borderWidth: 1,
+    borderColor: PLATFORM_PURPLE + "30",
+  },
+  mrrLabel: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.xs,
+    marginBottom: Spacing.xs,
+  },
+  mrrLabelText: {
+    ...Typography.small,
+    color: PLATFORM_PURPLE,
+    fontWeight: "600",
+  },
+  mrrValueRow: {
+    flexDirection: "row",
+    alignItems: "baseline",
+  },
+  currencySymbol: {
+    ...Typography.h3,
+    color: PLATFORM_PURPLE,
+    marginRight: 6,
+  },
+  mrrValue: {
+    ...Typography.h1,
+    color: Colors.dark.text,
+    fontSize: 36,
+  },
+  statsRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
+  statBox: {
+    flex: 1,
+    alignItems: "center",
+  },
+  statIconBg: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: Spacing.xs,
+  },
+  statValue: {
+    ...Typography.h2,
+    color: Colors.dark.text,
+    marginBottom: 2,
+  },
+  statLabel: {
+    ...Typography.small,
+    color: Colors.dark.textMuted,
+    fontSize: 11,
+    textAlign: "center",
+  },
+  divider: {
+    width: 1,
+    height: 50,
+    backgroundColor: Colors.dark.border,
+  },
+});

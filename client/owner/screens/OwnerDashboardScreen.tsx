@@ -15,58 +15,63 @@ import { LinearGradient } from "expo-linear-gradient";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import * as Haptics from "expo-haptics";
 import { useQuery } from "@tanstack/react-query";
-import { Colors, Spacing, BorderRadius, Typography, CardStyles } from "@/constants/theme";
+import { Colors, Spacing, BorderRadius, Typography } from "@/constants/theme";
 import { useAuth } from "@/coach/context/AuthContext";
 import CollapsibleModeSwitcher from "@/components/CollapsibleModeSwitcher";
 import type { OwnerTabParamList } from "@/owner/navigation/OwnerNavigator";
 
-import { AcademyCommandCenter } from "@/admin/components/AcademyCommandCenter";
-import { TodayOperationsPanel } from "@/admin/components/TodayOperationsPanel";
+import { BusinessCommandCenter } from "@/owner/components/BusinessCommandCenter";
+import { GrowthMetricsPanel } from "@/owner/components/GrowthMetricsPanel";
+import { StaffPerformancePanel } from "@/owner/components/StaffPerformancePanel";
 import { RevenueHealthGauge } from "@/admin/components/RevenueHealthGauge";
-import { LiveActivityFeed, ActivityEvent } from "@/admin/components/LiveActivityFeed";
-import { CoachPerformanceRow, CoachPerformance } from "@/admin/components/CoachPerformanceRow";
 import { SmartInsightsPanel, Insight } from "@/admin/components/SmartInsightsPanel";
-import { WeekHeatmap } from "@/admin/components/WeekHeatmap";
 import { AnimatedKpiCard } from "@/admin/components/AnimatedKpiCard";
 
 type NavigationProp = NativeStackNavigationProp<OwnerTabParamList>;
 
-interface EnhancedOwnerDashboardData {
+interface OwnerBusinessDashboardData {
   academy: {
     id: string;
     name: string;
     currency: string;
     timezone: string;
   } | null;
-  kpis: {
-    activePlayers: number;
-    activeCoaches: number;
-    sessionsThisWeek: number;
-    attendanceRate: number;
-    outstandingPayments: number;
+  financials: {
     monthlyRevenue: number;
     revenueTarget: number;
-    currency: string;
+    outstandingPayments: number;
+    cashFlow: number;
+    healthScore: number;
   };
-  todayOperations: {
-    totalSessions: number;
-    completedSessions: number;
-    inProgressSessions: number;
-    upcomingSessions: number;
-    playersCheckedIn: number;
-    activeCoachesNow: number;
+  growth: {
+    newSignups: number;
+    signupChange: number;
+    retentionRate: number;
+    retentionChange: number;
+    churnRate: number;
+    activeGrowth: number;
   };
-  coachPerformance: CoachPerformance[];
-  weekData: Array<{
-    date: string;
-    sessionCount: number;
-  }>;
-  recentActivity: Array<{
+  staffPerformance: Array<{
     id: string;
-    type: string;
-    title: string;
-    subtitle?: string;
-    timestamp: string;
+    name: string;
+    sessionsThisMonth: number;
+    playersManaged: number;
+    earnings: number;
+    rating: number;
+    trend: "up" | "down" | "stable";
+  }>;
+  kpis: {
+    totalPlayers: number;
+    activePlayers: number;
+    totalCoaches: number;
+    attendanceRate: number;
+  };
+  topPerformers: Array<{
+    id: string;
+    name: string;
+    level: number;
+    glowScore: number;
+    ballLevel: string;
   }>;
   insights: Array<{
     id: string;
@@ -75,20 +80,10 @@ interface EnhancedOwnerDashboardData {
     description: string;
     change?: number;
   }>;
-  topPerformers: Array<{
-    id: string;
-    name: string;
-    level: number;
-    totalXp: number;
-    glowScore: number;
-    ballLevel: string;
-  }>;
   alerts: Array<{
     id: string;
     type: "error" | "warning" | "info";
-    category: string;
     title: string;
-    description: string;
   }>;
 }
 
@@ -147,8 +142,8 @@ export default function OwnerDashboardScreen() {
   const navigation = useNavigation<NavigationProp>();
   const [refreshing, setRefreshing] = useState(false);
 
-  const { data: dashboardData, isLoading, refetch } = useQuery<EnhancedOwnerDashboardData>({
-    queryKey: ["/api/owner/dashboard/enhanced"],
+  const { data: dashboardData, isLoading, refetch } = useQuery<OwnerBusinessDashboardData>({
+    queryKey: ["/api/owner/dashboard/business"],
   });
 
   const onRefresh = async () => {
@@ -157,46 +152,32 @@ export default function OwnerDashboardScreen() {
     setRefreshing(false);
   };
 
-  const kpis = dashboardData?.kpis;
-  const todayOps = dashboardData?.todayOperations;
-  const currency = kpis?.currency || "AED";
+  const financials = dashboardData?.financials || {
+    monthlyRevenue: 0,
+    revenueTarget: 50000,
+    outstandingPayments: 0,
+    cashFlow: 0,
+    healthScore: 75,
+  };
+
+  const growth = dashboardData?.growth || {
+    newSignups: 0,
+    signupChange: 0,
+    retentionRate: 85,
+    retentionChange: 0,
+    churnRate: 0,
+    activeGrowth: 0,
+  };
+
+  const kpis = dashboardData?.kpis || {
+    totalPlayers: 0,
+    activePlayers: 0,
+    totalCoaches: 0,
+    attendanceRate: 0,
+  };
+
+  const currency = dashboardData?.academy?.currency || "AED";
   const topPerformers = dashboardData?.topPerformers || [];
-
-  const activityEvents: ActivityEvent[] = useMemo(() => {
-    return (dashboardData?.recentActivity || []).map(a => ({
-      ...a,
-      type: a.type as ActivityEvent["type"],
-      timestamp: new Date(a.timestamp),
-    }));
-  }, [dashboardData?.recentActivity]);
-
-  const weekDays = useMemo(() => {
-    if (dashboardData?.weekData) {
-      const maxSessions = Math.max(...dashboardData.weekData.map(d => d.sessionCount), 1);
-      return dashboardData.weekData.map(d => ({
-        date: new Date(d.date),
-        sessionCount: d.sessionCount,
-        intensity: d.sessionCount / maxSessions,
-      }));
-    }
-    
-    const days = [];
-    const today = new Date();
-    const dayOfWeek = today.getDay();
-    const startOfWeek = new Date(today);
-    startOfWeek.setDate(today.getDate() - dayOfWeek);
-    
-    for (let i = 0; i < 7; i++) {
-      const date = new Date(startOfWeek);
-      date.setDate(startOfWeek.getDate() + i);
-      days.push({
-        date,
-        sessionCount: 0,
-        intensity: 0,
-      });
-    }
-    return days;
-  }, [dashboardData?.weekData]);
 
   const insights: Insight[] = useMemo(() => {
     return (dashboardData?.insights || []).map(i => ({
@@ -209,7 +190,7 @@ export default function OwnerDashboardScreen() {
     return (
       <View style={[styles.container, styles.loadingContainer, { paddingTop: insets.top }]}>
         <ActivityIndicator size="large" color={Colors.dark.gold} />
-        <Text style={styles.loadingText}>Loading Command Center...</Text>
+        <Text style={styles.loadingText}>Loading Business Center...</Text>
       </View>
     );
   }
@@ -217,7 +198,7 @@ export default function OwnerDashboardScreen() {
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
       <LinearGradient
-        colors={["rgba(255,215,0,0.15)", "rgba(255,152,0,0.08)", "transparent"]}
+        colors={["rgba(255,215,0,0.18)", "rgba(184,134,11,0.10)", "transparent"]}
         style={styles.headerGradient}
       />
 
@@ -231,31 +212,22 @@ export default function OwnerDashboardScreen() {
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.dark.gold} />
         }
       >
-        <AcademyCommandCenter
-          academyName={dashboardData?.academy?.name || "My Tennis Academy"}
-          todaySessions={todayOps?.totalSessions || 0}
-          activeCoaches={todayOps?.activeCoachesNow || 0}
-          playersCheckedIn={todayOps?.playersCheckedIn || 0}
-          isLive={true}
+        <BusinessCommandCenter
+          academyName={dashboardData?.academy?.name || "My Academy"}
+          monthlyRevenue={financials.monthlyRevenue}
+          revenueTarget={financials.revenueTarget}
+          healthScore={financials.healthScore}
+          currency={currency}
           notificationCount={dashboardData?.alerts?.length || 0}
           onNotificationPress={() => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)}
-        />
-
-        <TodayOperationsPanel
-          currentDate={new Date()}
-          totalSessions={todayOps?.totalSessions || 0}
-          completedSessions={todayOps?.completedSessions || 0}
-          inProgressSessions={todayOps?.inProgressSessions || 0}
-          upcomingSessions={todayOps?.upcomingSessions || 0}
-          onViewSchedule={() => navigation.navigate("Operations")}
         />
 
         <View style={styles.kpiRow}>
           <View style={styles.kpiItem}>
             <AnimatedKpiCard
               icon="people"
-              label="Active Players"
-              value={kpis?.activePlayers || 0}
+              label="Total Players"
+              value={kpis.totalPlayers}
               color={Colors.dark.xpCyan}
               onPress={() => navigation.navigate("People")}
             />
@@ -264,34 +236,36 @@ export default function OwnerDashboardScreen() {
             <AnimatedKpiCard
               icon="person"
               label="Coaches"
-              value={kpis?.activeCoaches || 0}
+              value={kpis.totalCoaches}
               color={Colors.dark.primary}
               onPress={() => navigation.navigate("People")}
             />
           </View>
         </View>
 
+        <GrowthMetricsPanel
+          newSignups={growth.newSignups}
+          signupChange={growth.signupChange}
+          retentionRate={growth.retentionRate}
+          retentionChange={growth.retentionChange}
+          churnRate={growth.churnRate}
+          activeGrowth={growth.activeGrowth}
+        />
+
         <RevenueHealthGauge
-          monthlyRevenue={kpis?.monthlyRevenue || 0}
-          revenueTarget={kpis?.revenueTarget || 50000}
-          outstandingPayments={kpis?.outstandingPayments || 0}
-          attendanceRate={kpis?.attendanceRate || 0}
+          monthlyRevenue={financials.monthlyRevenue}
+          revenueTarget={financials.revenueTarget}
+          outstandingPayments={financials.outstandingPayments}
+          attendanceRate={kpis.attendanceRate}
           currency={currency}
         />
 
-        <CoachPerformanceRow
-          coaches={dashboardData?.coachPerformance || []}
+        <StaffPerformancePanel
+          coaches={dashboardData?.staffPerformance || []}
           currency={currency}
           onCoachPress={(id) => navigation.navigate("People")}
           onViewAll={() => navigation.navigate("People")}
         />
-
-        <WeekHeatmap
-          days={weekDays}
-          onDayPress={(date) => navigation.navigate("Operations")}
-        />
-
-        <LiveActivityFeed events={activityEvents} maxEvents={5} />
 
         <SmartInsightsPanel insights={insights} />
 
@@ -319,7 +293,6 @@ export default function OwnerDashboardScreen() {
               <View style={styles.emptyState}>
                 <Ionicons name="trophy-outline" size={32} color={Colors.dark.textMuted} />
                 <Text style={styles.emptyStateText}>No performers yet</Text>
-                <Text style={styles.emptyStateSubtext}>Add players to track top performers</Text>
               </View>
             )}
           </View>
@@ -332,37 +305,37 @@ export default function OwnerDashboardScreen() {
               style={styles.quickAction}
               onPress={() => {
                 Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                navigation.navigate("People");
-              }}
-            >
-              <View style={[styles.quickActionIcon, { backgroundColor: `${Colors.dark.xpCyan}15` }]}>
-                <Ionicons name="person-add" size={22} color={Colors.dark.xpCyan} />
-              </View>
-              <Text style={styles.quickActionLabel}>Add Player</Text>
-            </Pressable>
-            <Pressable 
-              style={styles.quickAction}
-              onPress={() => {
-                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                navigation.navigate("Operations");
-              }}
-            >
-              <View style={[styles.quickActionIcon, { backgroundColor: `${Colors.dark.primary}15` }]}>
-                <Ionicons name="add-circle" size={22} color={Colors.dark.primary} />
-              </View>
-              <Text style={styles.quickActionLabel}>New Session</Text>
-            </Pressable>
-            <Pressable 
-              style={styles.quickAction}
-              onPress={() => {
-                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
                 navigation.navigate("Performance");
               }}
             >
-              <View style={[styles.quickActionIcon, { backgroundColor: `${Colors.dark.orange}15` }]}>
-                <Ionicons name="analytics" size={22} color={Colors.dark.orange} />
+              <View style={[styles.quickActionIcon, { backgroundColor: `${Colors.dark.gold}15` }]}>
+                <Ionicons name="analytics" size={22} color={Colors.dark.gold} />
               </View>
               <Text style={styles.quickActionLabel}>Reports</Text>
+            </Pressable>
+            <Pressable 
+              style={styles.quickAction}
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                navigation.navigate("People");
+              }}
+            >
+              <View style={[styles.quickActionIcon, { backgroundColor: `${Colors.dark.primary}15` }]}>
+                <Ionicons name="people" size={22} color={Colors.dark.primary} />
+              </View>
+              <Text style={styles.quickActionLabel}>Staff</Text>
+            </Pressable>
+            <Pressable 
+              style={styles.quickAction}
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                navigation.navigate("Finance");
+              }}
+            >
+              <View style={[styles.quickActionIcon, { backgroundColor: `${Colors.dark.xpCyan}15` }]}>
+                <Ionicons name="cash" size={22} color={Colors.dark.xpCyan} />
+              </View>
+              <Text style={styles.quickActionLabel}>Payments</Text>
             </Pressable>
             <Pressable 
               style={styles.quickAction}
@@ -371,8 +344,8 @@ export default function OwnerDashboardScreen() {
                 navigation.navigate("Settings");
               }}
             >
-              <View style={[styles.quickActionIcon, { backgroundColor: `${Colors.dark.gold}15` }]}>
-                <Ionicons name="settings" size={22} color={Colors.dark.gold} />
+              <View style={[styles.quickActionIcon, { backgroundColor: `${Colors.dark.orange}15` }]}>
+                <Ionicons name="settings" size={22} color={Colors.dark.orange} />
               </View>
               <Text style={styles.quickActionLabel}>Settings</Text>
             </Pressable>
@@ -402,7 +375,7 @@ const styles = StyleSheet.create({
     top: 0,
     left: 0,
     right: 0,
-    height: 280,
+    height: 300,
   },
   scrollView: {
     flex: 1,
@@ -517,10 +490,6 @@ const styles = StyleSheet.create({
     ...Typography.body,
     color: Colors.dark.textMuted,
     marginTop: Spacing.sm,
-  },
-  emptyStateSubtext: {
-    ...Typography.small,
-    color: Colors.dark.textMuted,
   },
   quickActionsGrid: {
     flexDirection: "row",
