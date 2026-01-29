@@ -889,6 +889,8 @@ function PlayerDetailView({
   const [showAllHistory, setShowAllHistory] = useState(false);
   const [expandedSeriesIds, setExpandedSeriesIds] = useState<Set<string>>(new Set());
   const [showDeepAssessment, setShowDeepAssessment] = useState(false);
+  const [editingAttendance, setEditingAttendance] = useState<AttendanceHistoryRecord | null>(null);
+  const [isUpdatingAttendance, setIsUpdatingAttendance] = useState(false);
 
   const handleExportProgressReport = async () => {
     try {
@@ -1112,6 +1114,35 @@ function PlayerDetailView({
     onSuccess: () => {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
       queryClient.invalidateQueries({ queryKey: [`/api/players/${player.id}/notes`] });
+    },
+  });
+
+  const updateAttendanceMutation = useMutation({
+    mutationFn: async ({ sessionId, newStatus }: { sessionId: string; newStatus: string }) => {
+      const response = await fetch(
+        new URL(`/api/coach/players/${player.id}/sessions/${sessionId}/attendance`, getApiUrl()).toString(),
+        {
+          method: "PATCH",
+          credentials: "include",
+          headers: { ...getAuthHeaders(), "Content-Type": "application/json" },
+          body: JSON.stringify({ newStatus }),
+        }
+      );
+      if (!response.ok) throw new Error("Failed to update attendance");
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [`/api/coach/players/${player.id}/attendance-history`] });
+      queryClient.invalidateQueries({ queryKey: [`/api/coach/players/${player.id}/attendance-summary`] });
+      queryClient.invalidateQueries({ queryKey: [`/api/players/${player.id}/credit-balance`] });
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      setEditingAttendance(null);
+      setIsUpdatingAttendance(false);
+    },
+    onError: () => {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      setIsUpdatingAttendance(false);
+      Alert.alert("Error", "Failed to update attendance");
     },
   });
 
@@ -1734,6 +1765,15 @@ function PlayerDetailView({
                                  record.status === "cancelled" ? "Cancelled" : "Pending"}
                               </Text>
                             </View>
+                            <Pressable
+                              style={styles.attendanceEditButton}
+                              onPress={() => {
+                                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                                setEditingAttendance(record);
+                              }}
+                            >
+                              <Ionicons name="pencil" size={16} color={Colors.dark.xpCyan} />
+                            </Pressable>
                           </View>
                         </View>
                       ))}
@@ -1791,6 +1831,15 @@ function PlayerDetailView({
                           {record.lateMinutes && record.lateMinutes > 0 ? ` (+${record.lateMinutes}m late)` : ""}
                         </Text>
                       </View>
+                      <Pressable
+                        style={styles.attendanceEditButton}
+                        onPress={() => {
+                          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                          setEditingAttendance(record);
+                        }}
+                      >
+                        <Ionicons name="pencil" size={16} color={Colors.dark.xpCyan} />
+                      </Pressable>
                     </View>
                   </View>
                 ))
@@ -1970,6 +2019,64 @@ function PlayerDetailView({
         player={player}
         onClose={() => setShowDeepAssessment(false)}
       />
+
+      {/* Edit Attendance Modal */}
+      <Modal visible={!!editingAttendance} transparent animationType="fade">
+        <Pressable style={styles.editAttendanceModalOverlay} onPress={() => setEditingAttendance(null)}>
+          <View style={styles.editAttendanceModalContent}>
+            <Text style={styles.editAttendanceModalTitle}>Edit Attendance</Text>
+            <Text style={styles.editAttendanceModalSubtitle}>
+              {editingAttendance ? formatAttendanceDate(editingAttendance.date) : ""}
+            </Text>
+            
+            {["present", "absent", "late", "holiday"].map((status) => (
+              <Pressable
+                key={status}
+                style={[
+                  styles.editAttendanceOption,
+                  editingAttendance?.status === status && styles.editAttendanceOptionSelected,
+                ]}
+                onPress={() => {
+                  if (editingAttendance && editingAttendance.status !== status) {
+                    setIsUpdatingAttendance(true);
+                    updateAttendanceMutation.mutate({
+                      sessionId: editingAttendance.sessionId,
+                      newStatus: status,
+                    });
+                  } else {
+                    setEditingAttendance(null);
+                  }
+                }}
+                disabled={isUpdatingAttendance}
+              >
+                <Ionicons
+                  name={status === "present" ? "checkmark-circle" : 
+                        status === "absent" ? "close-circle" : 
+                        status === "late" ? "time" : "calendar-outline"}
+                  size={20}
+                  color={status === "present" ? Colors.dark.primary : 
+                         status === "absent" ? Colors.dark.error : 
+                         status === "late" ? Colors.dark.gold : Colors.dark.textSecondary}
+                />
+                <Text style={styles.editAttendanceOptionText}>
+                  {status.charAt(0).toUpperCase() + status.slice(1)}
+                </Text>
+                {editingAttendance?.status === status && (
+                  <Ionicons name="checkmark" size={20} color={Colors.dark.primary} style={{ marginLeft: "auto" }} />
+                )}
+              </Pressable>
+            ))}
+            
+            {isUpdatingAttendance && (
+              <ActivityIndicator size="small" color={Colors.dark.xpCyan} style={{ marginTop: 16 }} />
+            )}
+            
+            <Text style={styles.editAttendanceNote}>
+              Changing attendance will automatically adjust credits
+            </Text>
+          </View>
+        </Pressable>
+      </Modal>
     </View>
   );
 }
@@ -4679,5 +4786,62 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: "700",
     color: Colors.dark.xpCyan,
+  },
+
+  // === EDIT ATTENDANCE MODAL STYLES ===
+  attendanceEditButton: {
+    padding: 8,
+    marginLeft: 8,
+  },
+  editAttendanceModalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.7)",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  editAttendanceModalContent: {
+    backgroundColor: Backgrounds.elevated,
+    borderRadius: 16,
+    padding: 24,
+    width: "85%",
+    maxWidth: 340,
+  },
+  editAttendanceModalTitle: {
+    fontSize: 18,
+    fontWeight: "700",
+    color: Colors.dark.text,
+    textAlign: "center",
+    marginBottom: 4,
+  },
+  editAttendanceModalSubtitle: {
+    fontSize: 14,
+    color: Colors.dark.textSecondary,
+    textAlign: "center",
+    marginBottom: 20,
+  },
+  editAttendanceOption: {
+    flexDirection: "row",
+    alignItems: "center",
+    padding: 16,
+    borderRadius: 12,
+    backgroundColor: Backgrounds.card,
+    marginBottom: 8,
+    gap: 12,
+  },
+  editAttendanceOptionSelected: {
+    borderWidth: 1,
+    borderColor: Colors.dark.primary,
+  },
+  editAttendanceOptionText: {
+    fontSize: 16,
+    color: Colors.dark.text,
+    fontWeight: "500",
+  },
+  editAttendanceNote: {
+    fontSize: 12,
+    color: Colors.dark.textSecondary,
+    textAlign: "center",
+    marginTop: 16,
+    fontStyle: "italic",
   },
 });
