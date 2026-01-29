@@ -23459,7 +23459,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ error: "Academy not found" });
       }
 
-      res.json(academy);
+      res.json({ academy });
     } catch (error) {
       console.error("Get academy error:", error);
       res.status(500).json({ error: "Failed to fetch academy" });
