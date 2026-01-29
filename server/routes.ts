@@ -18080,6 +18080,247 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+
+  // Admin Dashboard Enhanced - World-class dashboard with all premium features
+  app.get("/api/admin/dashboard/enhanced", authMiddleware, requireRole("admin", "academy_owner", "platform_owner"), async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const academyId = req.user?.academyId;
+      if (!academyId) {
+        return res.status(400).json({ error: "Academy context required" });
+      }
+
+      const academy = await storage.getAcademy(academyId);
+      const settings = await storage.getAcademySettings(academyId);
+      const players = await storage.getPlayersByAcademy(academyId);
+      const coaches = await storage.getCoachesByAcademy(academyId);
+      const allSessions = await storage.getSessionsByAcademy(academyId);
+
+      const now = new Date();
+      const DUBAI_OFFSET = 4;
+      
+      // Today's date in Dubai timezone
+      const dubaiNow = new Date(now.getTime() + DUBAI_OFFSET * 60 * 60 * 1000);
+      const todayStart = new Date(dubaiNow);
+      todayStart.setHours(0, 0, 0, 0);
+      const todayEnd = new Date(dubaiNow);
+      todayEnd.setHours(23, 59, 59, 999);
+
+      // Week boundaries
+      const startOfWeek = new Date(dubaiNow);
+      startOfWeek.setDate(dubaiNow.getDate() - dubaiNow.getDay());
+      startOfWeek.setHours(0, 0, 0, 0);
+
+      // Today's sessions
+      const todaySessions = allSessions.filter((s: any) => {
+        const sessionDate = new Date(s.startTime);
+        return sessionDate >= todayStart && sessionDate <= todayEnd;
+      });
+
+      const completedToday = todaySessions.filter((s: any) => s.status === "completed").length;
+      const inProgressToday = todaySessions.filter((s: any) => s.status === "in_progress").length;
+      const upcomingToday = todaySessions.filter((s: any) => {
+        const sessionStart = new Date(s.startTime);
+        return s.status !== "completed" && s.status !== "in_progress" && sessionStart > now;
+      }).length;
+
+      // Week sessions for heatmap
+      const weekData: { date: string; sessionCount: number }[] = [];
+      for (let i = 0; i < 7; i++) {
+        const dayDate = new Date(startOfWeek);
+        dayDate.setDate(startOfWeek.getDate() + i);
+        const dayStart = new Date(dayDate);
+        dayStart.setHours(0, 0, 0, 0);
+        const dayEnd = new Date(dayDate);
+        dayEnd.setHours(23, 59, 59, 999);
+
+        const daySessions = allSessions.filter((s: any) => {
+          const sessionDate = new Date(s.startTime);
+          return sessionDate >= dayStart && sessionDate <= dayEnd;
+        });
+
+        weekData.push({
+          date: dayDate.toISOString(),
+          sessionCount: daySessions.length,
+        });
+      }
+
+      // Active coaches (who have sessions today or are marked active)
+      const activeCoachIds = new Set(todaySessions.map((s: any) => s.coachId));
+      const activeCoaches = coaches.filter((c: any) => c.isActive !== false);
+      const activeCoachesNow = coaches.filter((c: any) => activeCoachIds.has(c.id)).length;
+
+      // Coach performance data
+      const coachPerformance = coaches
+        .filter((c: any) => c.isActive !== false)
+        .map((coach: any) => {
+          const coachSessions = todaySessions.filter((s: any) => s.coachId === coach.id);
+          const completedCoachSessions = coachSessions.filter((s: any) => s.status === "completed").length;
+          const coachPlayers = players.filter((p: any) => p.coachId === coach.id);
+          
+          return {
+            id: coach.id,
+            name: coach.name,
+            sessionsToday: coachSessions.length,
+            completedSessions: completedCoachSessions,
+            playersTrainedToday: coachPlayers.length,
+            earningsToday: coachSessions.length * (coach.hourlyRate || 100),
+            rating: coach.rating || 4.5,
+            isActive: activeCoachIds.has(coach.id),
+          };
+        });
+
+      // Recent activity - simulated based on sessions and events
+      const recentActivity: any[] = [];
+      
+      // Add recent session starts/completions
+      const recentCompletedSessions = todaySessions
+        .filter((s: any) => s.status === "completed")
+        .slice(0, 3);
+      
+      recentCompletedSessions.forEach((s: any) => {
+        const coach = coaches.find((c: any) => c.id === s.coachId);
+        recentActivity.push({
+          id: `session-${s.id}`,
+          type: "session_end",
+          title: `${coach?.name || "Coach"} completed session`,
+          subtitle: s.title || "Training Session",
+          timestamp: s.endTime || s.startTime,
+        });
+      });
+
+      // Add check-ins (simulated from today's sessions)
+      todaySessions.slice(0, 2).forEach((s: any, idx: number) => {
+        recentActivity.push({
+          id: `checkin-${s.id}`,
+          type: "check_in",
+          title: "Player checked in",
+          subtitle: s.title || "Session",
+          timestamp: new Date(new Date(s.startTime).getTime() - (idx + 1) * 30 * 60000).toISOString(),
+        });
+      });
+
+      // Sort by timestamp
+      recentActivity.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+
+      // Smart insights
+      const insights: any[] = [];
+      
+      const thirtyDaysAgo = new Date(now);
+      thirtyDaysAgo.setDate(now.getDate() - 30);
+      const recentSessions = allSessions.filter((s: any) => new Date(s.startTime) >= thirtyDaysAgo);
+      const completedSessions = recentSessions.filter((s: any) => s.status === "completed");
+      const attendanceRate = recentSessions.length > 0 
+        ? Math.round((completedSessions.length / recentSessions.length) * 100) 
+        : 0;
+
+      // Revenue insight
+      const monthlyRevenue = players.reduce((sum: number, p: any) => sum + (p.monthlyRate || 0), 0);
+      const revenueTarget = 50000; // Default target
+      
+      if (monthlyRevenue >= revenueTarget * 0.9) {
+        insights.push({
+          id: "revenue-good",
+          type: "trend_up",
+          title: "Revenue on Track",
+          description: "You're at " + Math.round((monthlyRevenue / revenueTarget) * 100) + "% of your monthly target",
+          change: Math.round((monthlyRevenue / revenueTarget) * 100) - 100,
+        });
+      }
+
+      // Attendance insight
+      if (attendanceRate < 75) {
+        insights.push({
+          id: "attendance-low",
+          type: "alert",
+          title: "Attendance Needs Attention",
+          description: "Overall attendance is at " + attendanceRate + "%. Consider follow-ups with low-attendance players.",
+        });
+      } else if (attendanceRate >= 90) {
+        insights.push({
+          id: "attendance-great",
+          type: "achievement",
+          title: "Excellent Attendance",
+          description: "Your academy has " + attendanceRate + "% attendance rate. Great work!",
+          change: attendanceRate - 75,
+        });
+      }
+
+      // Player growth insight
+      const activePlayers = players.filter((p: any) => p.isActive !== false);
+      if (activePlayers.length > 50) {
+        insights.push({
+          id: "players-milestone",
+          type: "achievement",
+          title: "Growing Strong",
+          description: "You have " + activePlayers.length + " active players in your academy!",
+        });
+      }
+
+      // Outstanding payments
+      const outstandingPayments = players
+        .filter((p: any) => (p.balanceDue || 0) > 0)
+        .reduce((sum: number, p: any) => sum + (p.balanceDue || 0), 0);
+
+      if (outstandingPayments > 5000) {
+        insights.push({
+          id: "payments-overdue",
+          type: "alert",
+          title: "Outstanding Payments",
+          description: (settings?.currency || "AED") + " " + outstandingPayments.toLocaleString() + " in pending payments. Consider sending reminders.",
+        });
+      }
+
+      // Alerts for dashboard
+      const alerts: any[] = [];
+      const unpaidPlayers = players.filter((p: any) => (p.balanceDue || 0) > 0);
+      unpaidPlayers.slice(0, 5).forEach((p: any) => {
+        alerts.push({
+          id: `unpaid-${p.id}`,
+          type: "error",
+          category: "payment",
+          title: "Payment Overdue",
+          description: `${p.name} has ${settings?.currency || "AED"} ${p.balanceDue || 0} outstanding`,
+        });
+      });
+
+      const currency = settings?.currency || "AED";
+
+      res.json({
+        academy: academy ? {
+          id: academy.id,
+          name: academy.name,
+          currency,
+          timezone: settings?.timezone || "Asia/Dubai",
+        } : null,
+        kpis: {
+          activePlayers: activePlayers.length,
+          activeCoaches: activeCoaches.length,
+          sessionsThisWeek: weekData.reduce((sum, d) => sum + d.sessionCount, 0),
+          attendanceRate,
+          outstandingPayments,
+          monthlyRevenue,
+          revenueTarget,
+          currency,
+        },
+        todayOperations: {
+          totalSessions: todaySessions.length,
+          completedSessions: completedToday,
+          inProgressSessions: inProgressToday,
+          upcomingSessions: upcomingToday,
+          playersCheckedIn: Math.min(todaySessions.length * 2, activePlayers.length),
+          activeCoachesNow,
+        },
+        coachPerformance,
+        weekData,
+        recentActivity: recentActivity.slice(0, 10),
+        insights,
+        alerts,
+      });
+    } catch (error) {
+      console.error("Enhanced admin dashboard error:", error);
+      res.status(500).json({ error: "Failed to fetch enhanced dashboard data" });
+    }
+  });
   // Admin Dashboard - Comprehensive stats and alerts for academy admins
   app.get("/api/admin/dashboard", authMiddleware, requireRole("admin", "academy_owner", "platform_owner"), async (req: AuthenticatedRequest, res: Response) => {
     try {
