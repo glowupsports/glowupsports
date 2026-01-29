@@ -412,6 +412,7 @@ interface CoachProfile {
     id: string;
     name: string;
     onboardingCompleted?: boolean;
+    academyId?: string;
   };
 }
 
@@ -441,7 +442,8 @@ export default function CoachNavigator() {
   }
 
   const coachOnboardingCompleted = profile?.coach?.onboardingCompleted ?? false;
-  const showOnboarding = user?.coachId && !coachOnboardingCompleted && onboardingComplete !== true;
+  const hasAcademy = !!profile?.coach?.academyId;
+  const showOnboarding = user?.coachId && !coachOnboardingCompleted && !hasAcademy && onboardingComplete !== true;
 
   if (showOnboarding) {
     return <CoachOnboardingScreen onComplete={handleOnboardingComplete} />;
