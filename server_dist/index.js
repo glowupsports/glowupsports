@@ -6516,6 +6516,36 @@ var init_storage = __esm({
           };
         }
         await db.transaction(async (tx) => {
+          const allDebts = await tx.select().from(creditTransactions).where(and(
+            eq(creditTransactions.playerId, pkg2.playerId),
+            or2(
+              eq(creditTransactions.reason, "session_join_debt"),
+              eq(creditTransactions.reason, "session_debt"),
+              eq(creditTransactions.reason, "session_unpaid")
+            )
+          ));
+          const debtsSettledByThisPackage = allDebts.filter((debt) => {
+            const meta = debt.metadata;
+            return meta?.settledByPackage === id;
+          });
+          for (const debt of debtsSettledByThisPackage) {
+            const meta = debt.metadata;
+            const originalAmount = meta?.originalAmount || Math.abs(debt.amount);
+            const updatedMeta = { ...meta };
+            delete updatedMeta.settled;
+            delete updatedMeta.settledByPackage;
+            delete updatedMeta.lastSettledAt;
+            delete updatedMeta.originalAmount;
+            await tx.update(creditTransactions).set({
+              amount: -originalAmount,
+              // Restore negative debt amount
+              metadata: updatedMeta
+            }).where(eq(creditTransactions.id, debt.id));
+            console.log(`[PackageDelete] Restored debt ${debt.id} for player ${pkg2.playerId}, amount: -${originalAmount}`);
+          }
+          if (debtsSettledByThisPackage.length > 0) {
+            console.log(`[PackageDelete] Restored ${debtsSettledByThisPackage.length} debts for player ${pkg2.playerId}`);
+          }
           await tx.update(seriesPlayers).set({ linkedPackageId: null }).where(eq(seriesPlayers.linkedPackageId, id));
           await tx.update(creditTransactions).set({ packageId: null }).where(eq(creditTransactions.packageId, id));
           const packageInvoices = await tx.select({ id: invoices.id }).from(invoices).where(eq(invoices.packageId, id));
@@ -42622,10 +42652,6 @@ Skill Level: ${updates.skillLevel || session.skillLevel || "Not specified"}`,
         }
       });
       const debtSettlement = await storage.settlePlayerDebts(playerId, creditType, pkg2.id);
-      const unpaidSettlement = await storage.settleUnpaidSessions(playerId, creditType, pkg2.id, academyId);
-      if (unpaidSettlement.settledCount > 0) {
-        console.log(`[Package] Settled ${unpaidSettlement.settledCount} unpaid sessions for player ${playerId}`);
-      }
       if (debtSettlement.settledCount > 0) {
         console.log(`[Package] Settled ${debtSettlement.settledCount} debt(s) for player ${playerId}, deducted ${debtSettlement.totalDeducted} credits from package ${pkg2.id}`);
       }
@@ -44972,10 +44998,6 @@ Skill Level: ${updates.skillLevel || session.skillLevel || "Not specified"}`,
           assignedPackageId = pkg2.id;
           console.log(`[AddPlayer] Created credit package ${pkg2.id} (${credits} ${creditType} credits) for player ${playerId}`);
           const creditPkgDebtSettlement = await storage.settlePlayerDebts(playerId, sessionType, pkg2.id);
-          const unpaidSettlement = await storage.settleUnpaidSessions(playerId, sessionType, pkg2.id, academyId);
-          if (unpaidSettlement.settledCount > 0) {
-            console.log(`[AddPlayer] Settled ${unpaidSettlement.settledCount} unpaid sessions from credit package for player ${playerId}`);
-          }
           if (creditPkgDebtSettlement.settledCount > 0) {
             console.log(`[AddPlayer] Settled ${creditPkgDebtSettlement.settledCount} debts from credit package for player ${playerId}`);
           }
@@ -48130,10 +48152,6 @@ Skill Level: ${updates.skillLevel || session.skillLevel || "Not specified"}`,
       });
       const pkgCreditType = template.sessionType || "group";
       const pkgDebtSettlement = await storage.settlePlayerDebts(playerId, pkgCreditType, pkg2.id);
-      const unpaidSettlement = await storage.settleUnpaidSessions(playerId, pkgCreditType, pkg2.id, academyId);
-      if (unpaidSettlement.settledCount > 0) {
-        console.log(`[AssignPackage] Settled ${unpaidSettlement.settledCount} unpaid sessions for player ${playerId}`);
-      }
       if (pkgDebtSettlement.settledCount > 0) {
         console.log(`[AssignPackage] Settled ${pkgDebtSettlement.settledCount} debt(s) for player ${playerId}`);
       }

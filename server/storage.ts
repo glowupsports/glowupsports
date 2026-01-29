@@ -2183,6 +2183,48 @@ export const storage = {
     // Use transaction to cascade delete all dependent records
     // Dependency chain: packages → invoices → payments → refunds, also series_players.linked_package_id
     await db.transaction(async (tx) => {
+      // IMPORTANT: Restore any debts that were settled by this package
+      // Find credit transactions where metadata.settledByPackage matches this package
+      const allDebts = await tx.select().from(creditTransactions)
+        .where(and(
+          eq(creditTransactions.playerId, pkg.playerId!),
+          or(
+            eq(creditTransactions.reason, "session_join_debt"),
+            eq(creditTransactions.reason, "session_debt"),
+            eq(creditTransactions.reason, "session_unpaid")
+          )
+        ));
+      
+      // Filter to find debts settled by this specific package
+      const debtsSettledByThisPackage = allDebts.filter(debt => {
+        const meta = debt.metadata as Record<string, unknown> | null;
+        return meta?.settledByPackage === id;
+      });
+      
+      // Restore each debt (mark as unsettled)
+      for (const debt of debtsSettledByThisPackage) {
+        const meta = debt.metadata as Record<string, unknown> | null;
+        const originalAmount = (meta?.originalAmount as number) || Math.abs(debt.amount);
+        const updatedMeta = { ...meta };
+        delete updatedMeta.settled;
+        delete updatedMeta.settledByPackage;
+        delete updatedMeta.lastSettledAt;
+        delete updatedMeta.originalAmount;
+        
+        await tx.update(creditTransactions)
+          .set({ 
+            amount: -originalAmount, // Restore negative debt amount
+            metadata: updatedMeta
+          })
+          .where(eq(creditTransactions.id, debt.id));
+        
+        console.log(`[PackageDelete] Restored debt ${debt.id} for player ${pkg.playerId}, amount: -${originalAmount}`);
+      }
+      
+      if (debtsSettledByThisPackage.length > 0) {
+        console.log(`[PackageDelete] Restored ${debtsSettledByThisPackage.length} debts for player ${pkg.playerId}`);
+      }
+      
       // Clear any series_players references to this package first
       await tx.update(seriesPlayers)
         .set({ linkedPackageId: null })

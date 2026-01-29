@@ -353,15 +353,6 @@ export default function PackagesCard({ playerId, playerName }: PackagesCardProps
 
       <View style={styles.summaryRow}>
         <View style={styles.summaryItem}>
-          <Text style={[
-            styles.summaryValue,
-            creditBalance && (creditBalance.group + creditBalance.semi_private + creditBalance.private) < 0 && styles.debtValue
-          ]}>
-            {creditBalance ? creditBalance.group + creditBalance.semi_private + creditBalance.private : totalRemaining}
-          </Text>
-          <Text style={styles.summaryLabel}>Total Credits</Text>
-        </View>
-        <View style={styles.summaryItem}>
           <Text style={styles.summaryValue}>{activePackages.length}</Text>
           <Text style={styles.summaryLabel}>Active Packages</Text>
         </View>
