@@ -1,9 +1,6 @@
 import React, { useEffect } from "react";
-import { StyleSheet, View, Platform, ActivityIndicator } from "react-native";
-import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
+import { StyleSheet, View, ActivityIndicator } from "react-native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
-import Ionicons from "@expo/vector-icons/Ionicons";
-import { BlurView } from "expo-blur";
 import { useQuery } from "@tanstack/react-query";
 import { setCurrentAcademyId } from "@/lib/auth";
 import OwnerDashboardScreen from "@/owner/screens/OwnerDashboardScreen";
@@ -23,6 +20,7 @@ import PricingScreen from "@/owner/screens/PricingScreen";
 import CoachCompensationScreen from "@/owner/screens/CoachCompensationScreen";
 import CreditPackagesScreen from "@/owner/screens/CreditPackagesScreen";
 import ShopManagementScreen from "@/owner/screens/ShopManagementScreen";
+import { SwipeableTabBar, TabConfig } from "@/components/SwipeableTabBar";
 import { QuickActionsFAB, QuickAction } from "@/components/QuickActionsFAB";
 import { useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
@@ -53,107 +51,26 @@ export type OwnerStackParamList = {
   ShopManagement: undefined;
 };
 
-const Tab = createBottomTabNavigator<OwnerTabParamList>();
 const Stack = createNativeStackNavigator<OwnerStackParamList>();
+
+const OWNER_TABS: TabConfig[] = [
+  { key: "OwnerDashboard", label: "Home", icon: "home-outline", iconFocused: "home", component: OwnerDashboardScreen },
+  { key: "Academy", label: "Academy", icon: "business-outline", iconFocused: "business", component: AcademyScreen },
+  { key: "People", label: "People", icon: "people-outline", iconFocused: "people", component: PeopleScreen },
+  { key: "Operations", label: "Ops", icon: "calendar-outline", iconFocused: "calendar", component: OperationsScreen },
+  { key: "Performance", label: "Stats", icon: "analytics-outline", iconFocused: "analytics", component: PerformanceScreen },
+  { key: "Finance", label: "Finance", icon: "card-outline", iconFocused: "card", component: FinanceScreen },
+  { key: "Settings", label: "Settings", icon: "cog-outline", iconFocused: "cog", component: SettingsScreen },
+];
 
 function OwnerTabs() {
   return (
-    <View style={styles.tabsWrapper}>
-      <Tab.Navigator
-        screenOptions={{
-          headerShown: false,
-          tabBarStyle: styles.tabBar,
-          tabBarBackground: () => (
-            <View style={styles.tabBarBackground}>
-              {Platform.OS === "ios" ? (
-                <BlurView
-                  intensity={80}
-                  tint="dark"
-                  style={StyleSheet.absoluteFill}
-                />
-              ) : (
-                <View style={[StyleSheet.absoluteFill, styles.androidTabBackground]} />
-              )}
-            </View>
-          ),
-          tabBarActiveTintColor: Colors.dark.gold,
-          tabBarInactiveTintColor: Colors.dark.tabIconDefault,
-          tabBarLabelStyle: styles.tabLabel,
-        }}
-      >
-        <Tab.Screen
-          name="OwnerDashboard"
-          component={OwnerDashboardScreen}
-          options={{
-            tabBarLabel: "Home",
-            tabBarIcon: ({ color, size }) => (
-              <Ionicons name="home" size={size - 2} color={color} />
-            ),
-          }}
-        />
-        <Tab.Screen
-          name="Academy"
-          component={AcademyScreen}
-          options={{
-            tabBarLabel: "Academy",
-            tabBarIcon: ({ color, size }) => (
-              <Ionicons name="business" size={size - 2} color={color} />
-            ),
-          }}
-        />
-        <Tab.Screen
-          name="People"
-          component={PeopleScreen}
-          options={{
-            tabBarLabel: "People",
-            tabBarIcon: ({ color, size }) => (
-              <Ionicons name="people" size={size - 2} color={color} />
-            ),
-          }}
-        />
-        <Tab.Screen
-          name="Operations"
-          component={OperationsScreen}
-          options={{
-            tabBarLabel: "Ops",
-            tabBarIcon: ({ color, size }) => (
-              <Ionicons name="calendar" size={size - 2} color={color} />
-            ),
-          }}
-        />
-        <Tab.Screen
-          name="Performance"
-          component={PerformanceScreen}
-          options={{
-            tabBarLabel: "Stats",
-            tabBarIcon: ({ color, size }) => (
-              <Ionicons name="analytics" size={size - 2} color={color} />
-            ),
-          }}
-        />
-        <Tab.Screen
-          name="Finance"
-          component={FinanceScreen}
-          options={{
-            tabBarLabel: "Finance",
-            tabBarIcon: ({ color, size }) => (
-              <Ionicons name="card" size={size - 2} color={color} />
-            ),
-          }}
-        />
-        <Tab.Screen
-          name="Settings"
-          component={SettingsScreen}
-          options={{
-            tabBarLabel: "Settings",
-            tabBarIcon: ({ color, size }) => (
-              <Ionicons name="cog" size={size - 2} color={color} />
-            ),
-          }}
-        />
-      </Tab.Navigator>
-      <OwnerQuickActionsFAB />
-    </View>
+    <SwipeableTabBar 
+      tabs={OWNER_TABS}
+      primaryColor={Colors.dark.gold}
+      secondaryColor={Colors.dark.orange}
+      renderOverlay={() => <OwnerQuickActionsFAB />}
+    />
   );
 }
 
@@ -202,29 +119,29 @@ function OwnerQuickActionsFAB() {
       id: "courts",
       label: "Courts",
       icon: "tennisball-outline",
-      color: Colors.dark.successNeon,
+      color: Colors.dark.xpCyan,
       onPress: () => navigation.navigate("CourtsManagement"),
+    },
+    {
+      id: "credit-packages",
+      label: "Packages",
+      icon: "gift-outline",
+      color: Colors.dark.orange,
+      onPress: () => navigation.navigate("CreditPackages"),
     },
     {
       id: "shop",
       label: "Shop",
       icon: "storefront-outline",
-      color: Colors.dark.xpCyan,
+      color: Colors.dark.successNeon,
       onPress: () => navigation.navigate("ShopManagement"),
     },
     {
-      id: "credits",
-      label: "Credits",
-      icon: "wallet-outline",
-      color: Colors.dark.orange,
-      onPress: () => navigation.navigate("CreditPackages"),
-    },
-    {
-      id: "rules",
-      label: "Rules",
-      icon: "document-text-outline",
+      id: "profile",
+      label: "Profile",
+      icon: "person-circle-outline",
       color: Colors.dark.ballGlow,
-      onPress: () => navigation.navigate("RulesAndPolicies"),
+      onPress: () => navigation.navigate("OwnerProfile"),
     },
   ];
 
@@ -237,28 +154,34 @@ function OwnerQuickActionsFAB() {
   );
 }
 
+interface AcademyInfo {
+  academy: {
+    id: string;
+    onboardingCompleted?: boolean;
+  };
+}
+
 export default function OwnerNavigator() {
-  const { data: meData, isLoading } = useQuery<{ user?: { academyId?: string | null }; coach: { onboardingCompleted?: boolean } | null }>({
-    queryKey: ["/api/me"],
+  const { data, isLoading } = useQuery<AcademyInfo>({
+    queryKey: ["/api/owner/academy"],
   });
-  
-  // Set the current academy context when user data loads
+
   useEffect(() => {
-    if (meData?.user?.academyId) {
-      setCurrentAcademyId(meData.user.academyId);
+    if (data?.academy?.id) {
+      setCurrentAcademyId(data.academy.id);
     }
-  }, [meData?.user?.academyId]);
-  
-  if (isLoading || meData === undefined) {
+  }, [data?.academy?.id]);
+
+  if (isLoading) {
     return (
       <View style={styles.loadingContainer}>
         <ActivityIndicator size="large" color={Colors.dark.gold} />
       </View>
     );
   }
-  
-  const onboardingCompleted = meData?.coach?.onboardingCompleted ?? false;
-  
+
+  const onboardingCompleted = data?.academy?.onboardingCompleted ?? false;
+
   return (
     <View style={styles.container}>
       <OwnerStackNavigator onboardingCompleted={onboardingCompleted} />
@@ -271,35 +194,10 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: Colors.dark.backgroundRoot,
   },
-  tabsWrapper: {
-    flex: 1,
-    backgroundColor: Colors.dark.backgroundRoot,
-  },
   loadingContainer: {
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
     backgroundColor: Colors.dark.backgroundRoot,
-  },
-  tabBar: {
-    position: "absolute",
-    borderTopWidth: 1,
-    borderTopColor: "rgba(255, 215, 0, 0.15)",
-    elevation: 0,
-    backgroundColor: "transparent",
-    height: 70,
-    paddingTop: 6,
-  },
-  tabBarBackground: {
-    ...StyleSheet.absoluteFillObject,
-    overflow: "hidden",
-  },
-  androidTabBackground: {
-    backgroundColor: "rgba(11, 13, 16, 0.98)",
-  },
-  tabLabel: {
-    fontSize: 9,
-    fontWeight: "600",
-    letterSpacing: 0.3,
   },
 });

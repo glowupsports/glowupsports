@@ -1,9 +1,6 @@
 import React from "react";
-import { StyleSheet, View, Platform } from "react-native";
-import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
+import { StyleSheet, View } from "react-native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
-import Ionicons from "@expo/vector-icons/Ionicons";
-import { BlurView } from "expo-blur";
 import CommandCenterScreen from "@/platform/screens/CommandCenterScreen";
 import AcademiesScreen from "@/platform/screens/AcademiesScreen";
 import AcademyDetailScreen from "@/platform/screens/AcademyDetailScreen";
@@ -21,6 +18,7 @@ import BillingConfigScreen from "@/platform/screens/BillingConfigScreen";
 import NotificationTemplatesScreen from "@/platform/screens/NotificationTemplatesScreen";
 import AuditLogsScreen from "@/platform/screens/AuditLogsScreen";
 import DiagnosticsScreen from "@/platform/screens/DiagnosticsScreen";
+import { SwipeableTabBar, TabConfig } from "@/components/SwipeableTabBar";
 import { QuickActionsFAB, QuickAction } from "@/components/QuickActionsFAB";
 import { useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
@@ -50,99 +48,27 @@ export type PlatformStackParamList = {
   Diagnostics: undefined;
 };
 
-const Tab = createBottomTabNavigator<PlatformTabParamList>();
 const Stack = createNativeStackNavigator<PlatformStackParamList>();
 
 const PLATFORM_COLOR = "#9B59B6";
 
+const PLATFORM_TABS: TabConfig[] = [
+  { key: "CommandCenter", label: "Overview", icon: "grid-outline", iconFocused: "grid", component: CommandCenterScreen },
+  { key: "Academies", label: "Academies", icon: "business-outline", iconFocused: "business", component: AcademiesScreen },
+  { key: "CoachHealth", label: "Coaches", icon: "fitness-outline", iconFocused: "fitness", component: CoachHealthScreen },
+  { key: "PlayerHealth", label: "Players", icon: "people-outline", iconFocused: "people", component: PlayerHealthScreen },
+  { key: "Financials", label: "Finance", icon: "card-outline", iconFocused: "card", component: FinancialsScreen },
+  { key: "System", label: "System", icon: "cog-outline", iconFocused: "cog", component: SystemScreen },
+];
+
 function PlatformTabs() {
   return (
-    <View style={styles.tabsWrapper}>
-      <Tab.Navigator
-        screenOptions={{
-          headerShown: false,
-          tabBarStyle: styles.tabBar,
-          tabBarBackground: () => (
-            <View style={styles.tabBarBackground}>
-              {Platform.OS === "ios" ? (
-                <BlurView
-                  intensity={80}
-                  tint="dark"
-                  style={StyleSheet.absoluteFill}
-                />
-              ) : (
-                <View style={[StyleSheet.absoluteFill, styles.androidTabBackground]} />
-              )}
-            </View>
-          ),
-          tabBarActiveTintColor: PLATFORM_COLOR,
-          tabBarInactiveTintColor: Colors.dark.tabIconDefault,
-          tabBarLabelStyle: styles.tabLabel,
-        }}
-      >
-        <Tab.Screen
-          name="CommandCenter"
-          component={CommandCenterScreen}
-          options={{
-            tabBarLabel: "Overview",
-            tabBarIcon: ({ color, size }) => (
-              <Ionicons name="grid" size={size - 2} color={color} />
-            ),
-          }}
-        />
-        <Tab.Screen
-          name="Academies"
-          component={AcademiesScreen}
-          options={{
-            tabBarLabel: "Academies",
-            tabBarIcon: ({ color, size }) => (
-              <Ionicons name="business" size={size - 2} color={color} />
-            ),
-          }}
-        />
-        <Tab.Screen
-          name="CoachHealth"
-          component={CoachHealthScreen}
-          options={{
-            tabBarLabel: "Coaches",
-            tabBarIcon: ({ color, size }) => (
-              <Ionicons name="fitness" size={size - 2} color={color} />
-            ),
-          }}
-        />
-        <Tab.Screen
-          name="PlayerHealth"
-          component={PlayerHealthScreen}
-          options={{
-            tabBarLabel: "Players",
-            tabBarIcon: ({ color, size }) => (
-              <Ionicons name="people" size={size - 2} color={color} />
-            ),
-          }}
-        />
-        <Tab.Screen
-          name="Financials"
-          component={FinancialsScreen}
-          options={{
-            tabBarLabel: "Finance",
-            tabBarIcon: ({ color, size }) => (
-              <Ionicons name="card" size={size - 2} color={color} />
-            ),
-          }}
-        />
-        <Tab.Screen
-          name="System"
-          component={SystemScreen}
-          options={{
-            tabBarLabel: "System",
-            tabBarIcon: ({ color, size }) => (
-              <Ionicons name="cog" size={size - 2} color={color} />
-            ),
-          }}
-        />
-      </Tab.Navigator>
-      <PlatformQuickActionsFAB />
-    </View>
+    <SwipeableTabBar 
+      tabs={PLATFORM_TABS}
+      primaryColor={PLATFORM_COLOR}
+      secondaryColor={Colors.dark.xpCyan}
+      renderOverlay={() => <PlatformQuickActionsFAB />}
+    />
   );
 }
 
@@ -165,19 +91,10 @@ function PlatformStackNavigator() {
   );
 }
 
-const PLATFORM_FAB_COLOR = "#9B59B6";
-
 function PlatformQuickActionsFAB() {
   const navigation = useNavigation<NativeStackNavigationProp<PlatformStackParamList>>();
 
   const platformActions: QuickAction[] = [
-    {
-      id: "academies",
-      label: "Academies",
-      icon: "business-outline",
-      color: PLATFORM_FAB_COLOR,
-      onPress: () => navigation.navigate("Academies"),
-    },
     {
       id: "xp-config",
       label: "XP Config",
@@ -203,22 +120,29 @@ function PlatformQuickActionsFAB() {
       id: "audit-logs",
       label: "Audit Logs",
       icon: "document-text-outline",
-      color: Colors.dark.orange,
+      color: Colors.dark.ballGlow,
       onPress: () => navigation.navigate("AuditLogs"),
     },
     {
-      id: "anti-abuse",
-      label: "Anti-Abuse",
-      icon: "shield-outline",
-      color: Colors.dark.error,
-      onPress: () => navigation.navigate("AntiAbuseRules"),
+      id: "notifications",
+      label: "Templates",
+      icon: "notifications-outline",
+      color: Colors.dark.orange,
+      onPress: () => navigation.navigate("NotificationTemplates"),
+    },
+    {
+      id: "feature-unlocks",
+      label: "Features",
+      icon: "key-outline",
+      color: PLATFORM_COLOR,
+      onPress: () => navigation.navigate("FeatureUnlocks"),
     },
   ];
 
   return (
     <QuickActionsFAB
       actions={platformActions}
-      primaryColor={PLATFORM_FAB_COLOR}
+      primaryColor={PLATFORM_COLOR}
       secondaryColor={Colors.dark.xpCyan}
     />
   );
@@ -236,28 +160,5 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: Colors.dark.backgroundRoot,
-  },
-  tabsWrapper: {
-    flex: 1,
-    backgroundColor: Colors.dark.backgroundRoot,
-  },
-  tabBar: {
-    position: "absolute",
-    borderTopWidth: 0,
-    elevation: 0,
-    backgroundColor: "transparent",
-    height: 70,
-    paddingTop: 6,
-  },
-  tabBarBackground: {
-    ...StyleSheet.absoluteFillObject,
-    overflow: "hidden",
-  },
-  androidTabBackground: {
-    backgroundColor: "rgba(18, 18, 18, 0.95)",
-  },
-  tabLabel: {
-    fontSize: 9,
-    fontWeight: "500",
   },
 });
