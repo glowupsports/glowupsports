@@ -1,11 +1,13 @@
-import React, { useState } from "react";
-import { StyleSheet, View, Platform, ActivityIndicator, Text } from "react-native";
-import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
+import React, { useState, useRef, useCallback, useMemo } from "react";
+import { StyleSheet, View, Platform, ActivityIndicator, Pressable, Dimensions } from "react-native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { BlurView } from "expo-blur";
 import { LinearGradient } from "expo-linear-gradient";
+import PagerView from "react-native-pager-view";
+import Animated, { useSharedValue, useAnimatedStyle, withSpring, interpolate, SharedValue } from "react-native-reanimated";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import DashboardScreen from "@/coach/screens/DashboardScreen";
 import CalendarScreen from "@/coach/screens/CalendarScreen";
 import PlayersScreen from "@/coach/screens/PlayersScreen";
@@ -42,19 +44,6 @@ import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { Colors, Spacing, BorderRadius } from "@/constants/theme";
 import * as Haptics from "expo-haptics";
 
-function GamingTabIcon({ name, focused, size }: { name: keyof typeof Ionicons.glyphMap; focused: boolean; size: number }) {
-  return (
-    <View style={styles.tabIconContainer}>
-      {focused && <View style={styles.tabIconGlow} />}
-      <Ionicons 
-        name={focused ? name.replace("-outline", "") as keyof typeof Ionicons.glyphMap : name} 
-        size={size} 
-        color={focused ? Colors.dark.primary : Colors.dark.tabIconDefault} 
-      />
-    </View>
-  );
-}
-
 export type CoachTabParamList = {
   Dashboard: undefined;
   Calendar: undefined;
@@ -62,6 +51,17 @@ export type CoachTabParamList = {
   Coaching: undefined;
   Settings: undefined;
 };
+
+const { width: SCREEN_WIDTH } = Dimensions.get("window");
+
+// Tab configuration
+const TAB_CONFIG = [
+  { key: "Dashboard", label: "Home", icon: "home-outline", iconFocused: "home" },
+  { key: "Calendar", label: "Calendar", icon: "calendar-outline", iconFocused: "calendar" },
+  { key: "Players", label: "Players", icon: "people-outline", iconFocused: "people" },
+  { key: "Coaching", label: "Coaching", icon: "clipboard-outline", iconFocused: "clipboard" },
+  { key: "Settings", label: "Settings", icon: "settings-outline", iconFocused: "settings" },
+] as const;
 
 export type CoachStackParamList = {
   CoachTabs: undefined;
@@ -87,105 +87,167 @@ export type CoachStackParamList = {
   MatchReview: { matchId: string };
 };
 
-const Tab = createBottomTabNavigator<CoachTabParamList>();
 const Stack = createNativeStackNavigator<CoachStackParamList>();
 
+// Custom animated tab bar item
+function SwipeableTabItem({ 
+  tab, 
+  index, 
+  currentIndex, 
+  scrollOffset,
+  onPress 
+}: { 
+  tab: typeof TAB_CONFIG[number]; 
+  index: number; 
+  currentIndex: number;
+  scrollOffset: SharedValue<number>;
+  onPress: () => void;
+}) {
+  const animatedStyle = useAnimatedStyle(() => {
+    const distance = Math.abs(scrollOffset.value - index);
+    const scale = interpolate(distance, [0, 1], [1, 0.9]);
+    const opacity = interpolate(distance, [0, 1], [1, 0.5]);
+    
+    return {
+      transform: [{ scale }],
+      opacity,
+    };
+  });
+
+  const focused = currentIndex === index;
+  const iconName = focused ? tab.iconFocused : tab.icon;
+
+  return (
+    <Pressable 
+      style={styles.swipeTabItem} 
+      onPress={onPress}
+      android_ripple={{ color: Colors.dark.primary + "30", borderless: true }}
+    >
+      <Animated.View style={[styles.swipeTabIconContainer, animatedStyle]}>
+        {focused && <View style={styles.tabIconGlow} />}
+        <Ionicons 
+          name={iconName as keyof typeof Ionicons.glyphMap}
+          size={24} 
+          color={focused ? Colors.dark.primary : Colors.dark.tabIconDefault} 
+        />
+      </Animated.View>
+      <Animated.Text 
+        style={[
+          styles.swipeTabLabel, 
+          { color: focused ? Colors.dark.primary : Colors.dark.tabIconDefault }
+        ]}
+      >
+        {tab.label}
+      </Animated.Text>
+    </Pressable>
+  );
+}
+
+// Animated indicator that follows swipe
+function TabIndicator({ scrollOffset }: { scrollOffset: SharedValue<number> }) {
+  const tabWidth = SCREEN_WIDTH / TAB_CONFIG.length;
+  
+  const animatedStyle = useAnimatedStyle(() => {
+    return {
+      transform: [{ translateX: withSpring(scrollOffset.value * tabWidth, { damping: 20, stiffness: 200 }) }],
+    };
+  });
+
+  return (
+    <Animated.View style={[styles.tabIndicator, { width: tabWidth }, animatedStyle]}>
+      <LinearGradient
+        colors={[Colors.dark.primary, Colors.dark.xpCyan]}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 0 }}
+        style={styles.tabIndicatorGradient}
+      />
+    </Animated.View>
+  );
+}
+
 function CoachTabs() {
-  const [currentTab, setCurrentTab] = useState("Dashboard");
+  const insets = useSafeAreaInsets();
+  const [currentIndex, setCurrentIndex] = useState(0);
   const [showAddPlayerModal, setShowAddPlayerModal] = useState(false);
   const queryClient = useQueryClient();
-  
+  const pagerRef = useRef<PagerView>(null);
+  const scrollOffset = useSharedValue(0);
+
+  const handlePageSelected = useCallback((e: any) => {
+    const newIndex = e.nativeEvent.position;
+    setCurrentIndex(newIndex);
+    scrollOffset.value = newIndex;
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+  }, [scrollOffset]);
+
+  const handlePageScroll = useCallback((e: any) => {
+    const { position, offset } = e.nativeEvent;
+    scrollOffset.value = position + offset;
+  }, [scrollOffset]);
+
+  const navigateToPage = useCallback((index: number) => {
+    pagerRef.current?.setPage(index);
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+  }, []);
+
+  const currentTabName = TAB_CONFIG[currentIndex].key;
+  const showFAB = currentTabName !== "Calendar" && currentTabName !== "Players";
+
+  const screens = useMemo(() => [
+    <View key="Dashboard" style={styles.pageContainer}><DashboardScreen /></View>,
+    <View key="Calendar" style={styles.pageContainer}><CalendarScreen /></View>,
+    <View key="Players" style={styles.pageContainer}><PlayersScreen /></View>,
+    <View key="Coaching" style={styles.pageContainer}><CoachingScreen /></View>,
+    <View key="Settings" style={styles.pageContainer}><SettingsScreen /></View>,
+  ], []);
+
   return (
     <View style={styles.tabsWrapper}>
-      <Tab.Navigator
-        screenListeners={{
-          state: (e) => {
-            const state = e.data.state;
-            if (state) {
-              const routeName = state.routes[state.index]?.name;
-              if (routeName) setCurrentTab(routeName);
-            }
-          },
-        }}
-        screenOptions={{
-          headerShown: false,
-          tabBarStyle: styles.tabBar,
-          tabBarBackground: () => (
-            <View style={styles.tabBarBackground}>
-              <LinearGradient
-                colors={[Colors.dark.primary + "40", "transparent", Colors.dark.xpCyan + "40"]}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 0 }}
-                style={styles.tabBarTopLine}
-              />
-              {Platform.OS === "ios" ? (
-                <BlurView
-                  intensity={90}
-                  tint="dark"
-                  style={StyleSheet.absoluteFill}
-                />
-              ) : (
-                <View style={[StyleSheet.absoluteFill, styles.androidTabBackground]} />
-              )}
-            </View>
-          ),
-          tabBarActiveTintColor: Colors.dark.primary,
-          tabBarInactiveTintColor: Colors.dark.tabIconDefault,
-          tabBarLabelStyle: styles.tabLabel,
-        }}
+      <PagerView
+        ref={pagerRef}
+        style={styles.pagerView}
+        initialPage={0}
+        onPageSelected={handlePageSelected}
+        onPageScroll={handlePageScroll}
+        overdrag={true}
+        overScrollMode="never"
       >
-        <Tab.Screen
-          name="Dashboard"
-          component={DashboardScreen}
-          options={{
-            tabBarLabel: "Home",
-            tabBarIcon: ({ focused, size }) => (
-              <GamingTabIcon name="home-outline" focused={focused} size={size} />
-            ),
-          }}
-        />
-        <Tab.Screen
-          name="Calendar"
-          component={CalendarScreen}
-          options={{
-            tabBarLabel: "Calendar",
-            tabBarIcon: ({ focused, size }) => (
-              <GamingTabIcon name="calendar-outline" focused={focused} size={size} />
-            ),
-          }}
-        />
-        <Tab.Screen
-          name="Players"
-          component={PlayersScreen}
-          options={{
-            tabBarLabel: "Players",
-            tabBarIcon: ({ focused, size }) => (
-              <GamingTabIcon name="people-outline" focused={focused} size={size} />
-            ),
-          }}
-        />
-        <Tab.Screen
-          name="Coaching"
-          component={CoachingScreen}
-          options={{
-            tabBarLabel: "Coaching",
-            tabBarIcon: ({ focused, size }) => (
-              <GamingTabIcon name="clipboard-outline" focused={focused} size={size} />
-            ),
-          }}
-        />
-        <Tab.Screen
-          name="Settings"
-          component={SettingsScreen}
-          options={{
-            tabBarLabel: "Settings",
-            tabBarIcon: ({ focused, size }) => (
-              <GamingTabIcon name="settings-outline" focused={focused} size={size} />
-            ),
-          }}
-        />
-      </Tab.Navigator>
-      {currentTab !== "Calendar" && currentTab !== "Players" && (
+        {screens}
+      </PagerView>
+
+      {/* Custom swipeable tab bar */}
+      <View style={[styles.swipeTabBar, { paddingBottom: insets.bottom > 0 ? insets.bottom : 16 }]}>
+        <View style={styles.swipeTabBarBackground}>
+          <LinearGradient
+            colors={[Colors.dark.primary + "40", "transparent", Colors.dark.xpCyan + "40"]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 0 }}
+            style={styles.tabBarTopLine}
+          />
+          {Platform.OS === "ios" ? (
+            <BlurView intensity={90} tint="dark" style={StyleSheet.absoluteFill} />
+          ) : (
+            <View style={[StyleSheet.absoluteFill, styles.androidTabBackground]} />
+          )}
+        </View>
+        
+        <TabIndicator scrollOffset={scrollOffset} />
+        
+        <View style={styles.swipeTabRow}>
+          {TAB_CONFIG.map((tab, index) => (
+            <SwipeableTabItem
+              key={tab.key}
+              tab={tab}
+              index={index}
+              currentIndex={currentIndex}
+              scrollOffset={scrollOffset}
+              onPress={() => navigateToPage(index)}
+            />
+          ))}
+        </View>
+      </View>
+
+      {showFAB && (
         <CoachQuickActionsFAB onAddPlayer={() => setShowAddPlayerModal(true)} />
       )}
       <PremiumAddPlayerFlow
@@ -465,20 +527,59 @@ const styles = StyleSheet.create({
     alignItems: "center",
     backgroundColor: Colors.dark.backgroundRoot,
   },
-  tabBar: {
+  pagerView: {
+    flex: 1,
+  },
+  pageContainer: {
+    flex: 1,
+  },
+  swipeTabBar: {
     position: "absolute",
     left: 0,
     right: 0,
     bottom: 0,
-    borderTopWidth: 0,
-    elevation: 0,
-    backgroundColor: Platform.OS === "web" ? "rgba(11, 13, 16, 0.98)" : "transparent",
-    height: 85,
     paddingTop: 8,
   },
-  tabBarBackground: {
+  swipeTabBarBackground: {
     ...StyleSheet.absoluteFillObject,
     overflow: "hidden",
+  },
+  swipeTabRow: {
+    flexDirection: "row",
+    justifyContent: "space-around",
+    alignItems: "center",
+    paddingVertical: 8,
+  },
+  swipeTabItem: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 4,
+  },
+  swipeTabIconContainer: {
+    position: "relative",
+    alignItems: "center",
+    justifyContent: "center",
+    width: 32,
+    height: 32,
+  },
+  swipeTabLabel: {
+    fontSize: 10,
+    fontWeight: "600",
+    letterSpacing: 0.5,
+    marginTop: 2,
+  },
+  tabIndicator: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    height: 3,
+    zIndex: 20,
+  },
+  tabIndicatorGradient: {
+    flex: 1,
+    marginHorizontal: 12,
+    borderRadius: 2,
   },
   tabBarTopLine: {
     position: "absolute",
@@ -490,19 +591,6 @@ const styles = StyleSheet.create({
   },
   androidTabBackground: {
     backgroundColor: "rgba(11, 13, 16, 0.98)",
-  },
-  tabLabel: {
-    fontSize: 10,
-    fontWeight: "600",
-    letterSpacing: 0.5,
-    marginTop: 2,
-  },
-  tabIconContainer: {
-    position: "relative",
-    alignItems: "center",
-    justifyContent: "center",
-    width: 32,
-    height: 32,
   },
   tabIconGlow: {
     position: "absolute",
