@@ -105,12 +105,10 @@ function SwipeableTabItem({
 }) {
   const animatedStyle = useAnimatedStyle(() => {
     const distance = Math.abs(scrollOffset.value - index);
-    const scale = interpolate(distance, [0, 1], [1, 0.9]);
-    const opacity = interpolate(distance, [0, 1], [1, 0.5]);
+    const scale = interpolate(distance, [0, 1], [1, 0.95]);
     
     return {
       transform: [{ scale }],
-      opacity,
     };
   });
 
