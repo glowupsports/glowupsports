@@ -20508,7 +20508,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
         sessionId,
         playerId,
         academyId: player?.academyId,
-        sessionType: "group",
         cancellationType: "unavailable",
         reason,
         reasonText: reasonText || null,
