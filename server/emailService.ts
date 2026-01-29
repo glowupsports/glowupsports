@@ -643,3 +643,236 @@ export function hasValidOTP(email: string): boolean {
   
   return true;
 }
+
+// Monthly Player Report Email
+export interface MonthlyReportData {
+  playerName: string;
+  playerEmail: string;
+  month: string; // e.g., "January 2026"
+  academyName: string;
+  
+  // Lessons
+  lessonsTotal: number;
+  lessonsAttended: number;
+  lessonsAbsent: number;
+  lessonsLate: number;
+  lessonsHoliday: number;
+  lessonsByType: { type: string; count: number }[];
+  coachNames: string[];
+  
+  // Courts
+  courtsBooked: number;
+  courtHours: number;
+  
+  // Matches
+  matchesPlayed: number;
+  matchesWon: number;
+  matchesLost: number;
+  
+  // XP & Level
+  xpEarned: number;
+  currentLevel: number;
+  currentXp: number;
+  xpToNextLevel: number;
+  levelProgress: number; // percentage
+  
+  // Credits
+  creditsUsed: number;
+  creditsRemaining: number;
+  creditsByType: { type: string; used: number; remaining: number }[];
+  
+  // Glow Level
+  glowLevel?: string;
+  glowLevelProgress?: number;
+}
+
+export async function sendMonthlyReportEmail(data: MonthlyReportData): Promise<{ success: boolean; error?: string }> {
+  const attendanceRate = data.lessonsTotal > 0 
+    ? Math.round((data.lessonsAttended / data.lessonsTotal) * 100) 
+    : 0;
+  
+  const winRate = data.matchesPlayed > 0 
+    ? Math.round((data.matchesWon / data.matchesPlayed) * 100) 
+    : 0;
+
+  const lessonsByTypeHtml = data.lessonsByType.map(lt => `
+    <div style="display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #333;">
+      <span style="color: #aaa;">${escapeHtml(lt.type)}</span>
+      <span style="color: #fff; font-weight: 600;">${lt.count} sessions</span>
+    </div>
+  `).join('');
+
+  const creditsByTypeHtml = data.creditsByType.map(ct => `
+    <div style="display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #333;">
+      <span style="color: #aaa;">${escapeHtml(ct.type)}</span>
+      <span style="color: #fff;">Used: <strong>${ct.used}</strong> | Remaining: <strong style="color: #00ff88;">${ct.remaining}</strong></span>
+    </div>
+  `).join('');
+
+  const html = `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <title>Monthly Tennis Report</title>
+    </head>
+    <body style="margin: 0; padding: 0; background: #0a0a0a; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+      <div style="max-width: 600px; margin: 0 auto; padding: 20px;">
+        
+        <!-- Header -->
+        <div style="text-align: center; padding: 30px 20px; background: linear-gradient(135deg, #1a1a2e 0%, #0f3460 100%); border-radius: 16px 16px 0 0;">
+          <h1 style="margin: 0; font-size: 28px; color: #00ff88;">Glow Up Sports</h1>
+          <p style="margin: 10px 0 0; color: #00d4ff; font-size: 18px;">${escapeHtml(data.month)} Report</p>
+        </div>
+        
+        <!-- Player Info -->
+        <div style="background: #1a1a2e; padding: 25px; border-bottom: 1px solid #333;">
+          <p style="margin: 0; color: #aaa; font-size: 14px;">Hello,</p>
+          <h2 style="margin: 8px 0 0; color: #fff; font-size: 24px;">${escapeHtml(data.playerName)}</h2>
+          <p style="margin: 8px 0 0; color: #666; font-size: 14px;">${escapeHtml(data.academyName)}</p>
+        </div>
+        
+        <!-- Quick Stats Grid -->
+        <div style="background: #141428; padding: 25px;">
+          <h3 style="margin: 0 0 20px; color: #00d4ff; font-size: 16px; text-transform: uppercase; letter-spacing: 1px;">Monthly Highlights</h3>
+          <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 15px;">
+            
+            <!-- Lessons -->
+            <div style="background: #1a1a2e; padding: 20px; border-radius: 12px; text-align: center;">
+              <div style="font-size: 32px; color: #00ff88; font-weight: bold;">${data.lessonsAttended}</div>
+              <div style="color: #aaa; font-size: 12px; margin-top: 5px;">LESSONS ATTENDED</div>
+              <div style="color: #666; font-size: 11px; margin-top: 3px;">of ${data.lessonsTotal} scheduled</div>
+            </div>
+            
+            <!-- Attendance Rate -->
+            <div style="background: #1a1a2e; padding: 20px; border-radius: 12px; text-align: center;">
+              <div style="font-size: 32px; color: ${attendanceRate >= 80 ? '#00ff88' : attendanceRate >= 60 ? '#ffaa00' : '#ff4444'}; font-weight: bold;">${attendanceRate}%</div>
+              <div style="color: #aaa; font-size: 12px; margin-top: 5px;">ATTENDANCE RATE</div>
+            </div>
+            
+            <!-- Courts -->
+            <div style="background: #1a1a2e; padding: 20px; border-radius: 12px; text-align: center;">
+              <div style="font-size: 32px; color: #00d4ff; font-weight: bold;">${data.courtsBooked}</div>
+              <div style="color: #aaa; font-size: 12px; margin-top: 5px;">COURTS BOOKED</div>
+              <div style="color: #666; font-size: 11px; margin-top: 3px;">${data.courtHours} hours</div>
+            </div>
+            
+            <!-- Matches -->
+            <div style="background: #1a1a2e; padding: 20px; border-radius: 12px; text-align: center;">
+              <div style="font-size: 32px; color: #aa88ff; font-weight: bold;">${data.matchesPlayed}</div>
+              <div style="color: #aaa; font-size: 12px; margin-top: 5px;">MATCHES PLAYED</div>
+              <div style="color: #666; font-size: 11px; margin-top: 3px;">${data.matchesWon}W - ${data.matchesLost}L ${data.matchesPlayed > 0 ? `(${winRate}%)` : ''}</div>
+            </div>
+            
+          </div>
+        </div>
+        
+        <!-- XP & Level Progress -->
+        <div style="background: #1a1a2e; padding: 25px; border-top: 1px solid #333;">
+          <h3 style="margin: 0 0 20px; color: #00d4ff; font-size: 16px; text-transform: uppercase; letter-spacing: 1px;">Level Progress</h3>
+          
+          <div style="display: flex; align-items: center; gap: 20px; margin-bottom: 15px;">
+            <div style="width: 60px; height: 60px; border-radius: 50%; background: linear-gradient(135deg, #00ff88 0%, #00d4ff 100%); display: flex; align-items: center; justify-content: center;">
+              <span style="font-size: 24px; font-weight: bold; color: #0a0a0a;">${data.currentLevel}</span>
+            </div>
+            <div>
+              <div style="color: #fff; font-size: 18px; font-weight: 600;">Level ${data.currentLevel}</div>
+              <div style="color: #00ff88; font-size: 14px;">+${data.xpEarned} XP this month</div>
+            </div>
+          </div>
+          
+          <!-- Progress Bar -->
+          <div style="background: #333; border-radius: 8px; height: 12px; overflow: hidden;">
+            <div style="background: linear-gradient(90deg, #00ff88 0%, #00d4ff 100%); height: 100%; width: ${data.levelProgress}%; transition: width 0.3s;"></div>
+          </div>
+          <div style="display: flex; justify-content: space-between; margin-top: 8px;">
+            <span style="color: #666; font-size: 12px;">${data.currentXp} XP</span>
+            <span style="color: #666; font-size: 12px;">${data.xpToNextLevel} XP to Level ${data.currentLevel + 1}</span>
+          </div>
+          
+          ${data.glowLevel ? `
+          <div style="margin-top: 20px; padding: 15px; background: #141428; border-radius: 8px;">
+            <div style="color: #aaa; font-size: 12px;">GLOW LEVEL</div>
+            <div style="color: #00ff88; font-size: 20px; font-weight: bold; margin-top: 5px;">${escapeHtml(data.glowLevel)}</div>
+          </div>
+          ` : ''}
+        </div>
+        
+        <!-- Lesson Breakdown -->
+        <div style="background: #141428; padding: 25px; border-top: 1px solid #333;">
+          <h3 style="margin: 0 0 20px; color: #00d4ff; font-size: 16px; text-transform: uppercase; letter-spacing: 1px;">Lesson Breakdown</h3>
+          
+          <!-- Attendance Status -->
+          <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 20px;">
+            <div style="background: #1a1a2e; padding: 12px; border-radius: 8px; text-align: center;">
+              <div style="font-size: 20px; color: #00ff88; font-weight: bold;">${data.lessonsAttended}</div>
+              <div style="color: #666; font-size: 10px;">PRESENT</div>
+            </div>
+            <div style="background: #1a1a2e; padding: 12px; border-radius: 8px; text-align: center;">
+              <div style="font-size: 20px; color: #ff4444; font-weight: bold;">${data.lessonsAbsent}</div>
+              <div style="color: #666; font-size: 10px;">ABSENT</div>
+            </div>
+            <div style="background: #1a1a2e; padding: 12px; border-radius: 8px; text-align: center;">
+              <div style="font-size: 20px; color: #ffaa00; font-weight: bold;">${data.lessonsLate}</div>
+              <div style="color: #666; font-size: 10px;">LATE</div>
+            </div>
+            <div style="background: #1a1a2e; padding: 12px; border-radius: 8px; text-align: center;">
+              <div style="font-size: 20px; color: #888; font-weight: bold;">${data.lessonsHoliday}</div>
+              <div style="color: #666; font-size: 10px;">HOLIDAY</div>
+            </div>
+          </div>
+          
+          <!-- By Session Type -->
+          <div style="background: #1a1a2e; padding: 15px; border-radius: 8px;">
+            <div style="color: #aaa; font-size: 12px; margin-bottom: 10px;">BY SESSION TYPE</div>
+            ${lessonsByTypeHtml || '<div style="color: #666;">No lessons this month</div>'}
+          </div>
+          
+          ${data.coachNames.length > 0 ? `
+          <div style="margin-top: 15px; color: #666; font-size: 12px;">
+            Coached by: <span style="color: #aaa;">${data.coachNames.map(n => escapeHtml(n)).join(', ')}</span>
+          </div>
+          ` : ''}
+        </div>
+        
+        <!-- Credits -->
+        <div style="background: #1a1a2e; padding: 25px; border-top: 1px solid #333;">
+          <h3 style="margin: 0 0 20px; color: #00d4ff; font-size: 16px; text-transform: uppercase; letter-spacing: 1px;">Credit Usage</h3>
+          
+          <div style="display: flex; justify-content: space-around; margin-bottom: 20px;">
+            <div style="text-align: center;">
+              <div style="font-size: 28px; color: #ff6666; font-weight: bold;">${data.creditsUsed}</div>
+              <div style="color: #666; font-size: 12px;">USED</div>
+            </div>
+            <div style="text-align: center;">
+              <div style="font-size: 28px; color: #00ff88; font-weight: bold;">${data.creditsRemaining}</div>
+              <div style="color: #666; font-size: 12px;">REMAINING</div>
+            </div>
+          </div>
+          
+          ${creditsByTypeHtml ? `
+          <div style="background: #141428; padding: 15px; border-radius: 8px;">
+            <div style="color: #aaa; font-size: 12px; margin-bottom: 10px;">BY CREDIT TYPE</div>
+            ${creditsByTypeHtml}
+          </div>
+          ` : ''}
+        </div>
+        
+        <!-- Footer -->
+        <div style="background: #0a0a0a; padding: 30px 20px; text-align: center; border-radius: 0 0 16px 16px;">
+          <p style="margin: 0; color: #666; font-size: 12px;">Keep up the great work! See you on the court.</p>
+          <p style="margin: 15px 0 0; color: #444; font-size: 11px;">Glow Up Sports - Dubai Tennis Academy</p>
+        </div>
+        
+      </div>
+    </body>
+    </html>
+  `;
+
+  return sendEmail({
+    to: data.playerEmail,
+    subject: `Your ${data.month} Tennis Report - Glow Up Sports`,
+    html,
+  });
+}
