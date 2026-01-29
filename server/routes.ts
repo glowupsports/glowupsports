@@ -7,7 +7,7 @@ import fs from "fs";
 import { storage, getSessionTypeByPlayerCount, updateSeriesSessionType, recalculateSeriesCredits } from "./storage";
 import { db } from "./db";
 import { playerHolidays } from "@shared/schema";
-import { eq, sql, desc, and, ne, gt, gte, asc, inArray, notInArray, isNull, isNotNull, or, count, ilike } from "drizzle-orm";
+import { eq, sql, desc, and, ne, gt, gte, asc, inArray, notInArray, isNull, isNotNull, or, count, ilike, lte } from "drizzle-orm";
 import { 
   invoices, payments, sessionPlayers, sessionWaitlist, creditTransactions, players, 
   locationTravelTimes, sessions, sessionFeedback, inSessionFeedback, seriesPlayers, coachingSeries,
@@ -46,6 +46,13 @@ import {
   coachSettings,
   coachAvailability,
   availabilityExceptions,
+  // Monthly report tables
+  courtBookings,
+  matchLogs,
+  playerCreditPackages,
+  playerBallLevels,
+  academies,
+
 } from "@shared/schema";
 import { setupWebSocket, broadcastNewMessage, broadcastNewSession, broadcastFeedbackReceived, broadcastSessionUpdate } from "./websocket";
 import { 
@@ -534,6 +541,267 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
 
   // ==================== MAINTENANCE MODE CHECK ====================
+
+  // Monthly Player Report endpoint - sends comprehensive monthly activity report
+  app.post("/api/player/:playerId/monthly-report", authMiddleware, async (req: Request, res: Response) => {
+    try {
+      const { playerId } = req.params;
+      const { month, year } = req.body; // Optional: defaults to previous month
+      
+      // Calculate the month to report on
+      const now = new Date();
+      const reportYear = year || (now.getMonth() === 0 ? now.getFullYear() - 1 : now.getFullYear());
+      const reportMonth = month !== undefined ? month : (now.getMonth() === 0 ? 11 : now.getMonth() - 1);
+      
+      const startDate = new Date(reportYear, reportMonth, 1);
+      const endDate = new Date(reportYear, reportMonth + 1, 0, 23, 59, 59);
+      
+      const monthName = startDate.toLocaleString('en-US', { month: 'long', year: 'numeric' });
+      
+      // Get player info
+      const [player] = await db.select().from(players).where(eq(players.id, playerId));
+      if (!player) {
+        return res.status(404).json({ error: "Player not found" });
+      }
+      
+      // Get user email
+      const [user] = await db.select().from(users).where(eq(users.id, player.userId));
+      if (!user?.email) {
+        return res.status(400).json({ error: "Player has no email address" });
+      }
+      
+      // Get academy
+      const [academy] = player.academyId 
+        ? await db.select().from(academies).where(eq(academies.id, player.academyId))
+        : [null];
+      
+      // Get session attendance for the month
+      const sessionAttendance = await db
+        .select({
+          sessionId: sessionPlayers.sessionId,
+          attendanceStatus: sessionPlayers.attendanceStatus,
+          sessionType: sessions.sessionType,
+          coachId: sessions.coachId,
+          startTime: sessions.startTime,
+        })
+        .from(sessionPlayers)
+        .innerJoin(sessions, eq(sessionPlayers.sessionId, sessions.id))
+        .where(
+          and(
+            eq(sessionPlayers.playerId, playerId),
+            gte(sessions.startTime, startDate),
+            lte(sessions.startTime, endDate)
+          )
+        );
+      
+      // Calculate lesson stats
+      const lessonsTotal = sessionAttendance.length;
+      const lessonsAttended = sessionAttendance.filter(s => s.attendanceStatus === 'Present').length;
+      const lessonsLate = sessionAttendance.filter(s => s.attendanceStatus === 'Late').length;
+      const lessonsAbsent = sessionAttendance.filter(s => s.attendanceStatus === 'Absent').length;
+      const lessonsHoliday = sessionAttendance.filter(s => s.attendanceStatus === 'Holiday').length;
+      
+      // Group by session type
+      const typeCountMap: Record<string, number> = {};
+      sessionAttendance.forEach(s => {
+        const type = s.sessionType || 'Other';
+        typeCountMap[type] = (typeCountMap[type] || 0) + 1;
+      });
+      const lessonsByType = Object.entries(typeCountMap).map(([type, count]) => ({
+        type: type.charAt(0).toUpperCase() + type.slice(1).replace('_', ' '),
+        count
+      }));
+      
+      // Get unique coaches
+      const coachIds = [...new Set(sessionAttendance.map(s => s.coachId).filter(Boolean))];
+      const coachesData = coachIds.length > 0
+        ? await db.select({ id: coaches.id, displayName: coaches.displayName }).from(coaches).where(inArray(coaches.id, coachIds as string[]))
+        : [];
+      const coachNames = coachesData.map(c => c.displayName || 'Coach');
+      
+      // Get court bookings
+      const courtBookingsData = await db
+        .select({
+          id: courtBookings.id,
+          durationMinutes: courtBookings.durationMinutes,
+        })
+        .from(courtBookings)
+        .where(
+          and(
+            eq(courtBookings.playerId, playerId),
+            gte(courtBookings.date, startDate.toISOString().split('T')[0]),
+            lte(courtBookings.date, endDate.toISOString().split('T')[0])
+          )
+        );
+      
+      const courtsBooked = courtBookingsData.length;
+      const courtHours = Math.round(courtBookingsData.reduce((sum, b) => sum + (b.durationMinutes || 0), 0) / 60);
+      
+      // Get matches
+      const matchesData = await db
+        .select({
+          id: matchLogs.id,
+          didWin: matchLogs.didWin,
+        })
+        .from(matchLogs)
+        .where(
+          and(
+            eq(matchLogs.playerId, playerId),
+            gte(matchLogs.createdAt, startDate),
+            lte(matchLogs.createdAt, endDate)
+          )
+        );
+      
+      const matchesPlayed = matchesData.length;
+      const matchesWon = matchesData.filter(m => m.didWin).length;
+      const matchesLost = matchesPlayed - matchesWon;
+      
+      // Get XP earned this month
+      const xpData = await db
+        .select({ xpAmount: xpTransactions.xpAmount })
+        .from(xpTransactions)
+        .where(
+          and(
+            eq(xpTransactions.playerId, playerId),
+            gte(xpTransactions.createdAt, startDate),
+            lte(xpTransactions.createdAt, endDate)
+          )
+        );
+      
+      const xpEarned = xpData.reduce((sum, x) => sum + (x.xpAmount || 0), 0);
+      
+      // Get current level and XP (from player record or calculate)
+      const currentLevel = player.level || 1;
+      const currentXp = player.totalXp || 0;
+      
+      // XP requirements per level (simplified)
+      const xpPerLevel = [0, 100, 250, 500, 800, 1200, 1700, 2300, 3000, 3800, 4700, 5700, 6800, 8000, 9300, 10700, 12200, 13800, 15500, 17300, 20000];
+      const xpForCurrentLevel = xpPerLevel[currentLevel - 1] || 0;
+      const xpForNextLevel = xpPerLevel[currentLevel] || 20000;
+      const xpProgress = currentXp - xpForCurrentLevel;
+      const xpNeeded = xpForNextLevel - xpForCurrentLevel;
+      const levelProgress = Math.min(100, Math.round((xpProgress / xpNeeded) * 100));
+      const xpToNextLevel = xpForNextLevel - currentXp;
+      
+      // Get credit transactions this month
+      const creditTxns = await db
+        .select({
+          type: creditTransactions.type,
+          creditType: creditTransactions.creditType,
+          amount: creditTransactions.amount,
+        })
+        .from(creditTransactions)
+        .where(
+          and(
+            eq(creditTransactions.playerId, playerId),
+            gte(creditTransactions.createdAt, startDate),
+            lte(creditTransactions.createdAt, endDate)
+          )
+        );
+      
+      const creditsUsed = creditTxns
+        .filter(t => t.type === 'debit')
+        .reduce((sum, t) => sum + Math.abs(t.amount || 0), 0);
+      
+      // Get current credit balance from player packages
+      const playerPackages = await db
+        .select({
+          creditType: playerCreditPackages.creditType,
+          remainingCredits: playerCreditPackages.remainingCredits,
+        })
+        .from(playerCreditPackages)
+        .where(
+          and(
+            eq(playerCreditPackages.playerId, playerId),
+            eq(playerCreditPackages.status, 'active')
+          )
+        );
+      
+      const creditsRemaining = playerPackages.reduce((sum, p) => sum + (p.remainingCredits || 0), 0);
+      
+      // Group credits by type
+      const creditsByTypeMap: Record<string, { used: number; remaining: number }> = {};
+      creditTxns.forEach(t => {
+        const type = t.creditType || 'general';
+        if (!creditsByTypeMap[type]) {
+          creditsByTypeMap[type] = { used: 0, remaining: 0 };
+        }
+        if (t.type === 'debit') {
+          creditsByTypeMap[type].used += Math.abs(t.amount || 0);
+        }
+      });
+      playerPackages.forEach(p => {
+        const type = p.creditType || 'general';
+        if (!creditsByTypeMap[type]) {
+          creditsByTypeMap[type] = { used: 0, remaining: 0 };
+        }
+        creditsByTypeMap[type].remaining += p.remainingCredits || 0;
+      });
+      
+      const creditsByType = Object.entries(creditsByTypeMap).map(([type, data]) => ({
+        type: type.charAt(0).toUpperCase() + type.slice(1).replace('_', ' '),
+        used: data.used,
+        remaining: data.remaining,
+      }));
+      
+      // Get glow level
+      const [ballLevel] = await db
+        .select({ ballLevel: playerBallLevels.ballLevel })
+        .from(playerBallLevels)
+        .where(eq(playerBallLevels.playerId, playerId))
+        .limit(1);
+      
+      const glowLevel = ballLevel?.ballLevel 
+        ? ballLevel.ballLevel.charAt(0).toUpperCase() + ballLevel.ballLevel.slice(1)
+        : undefined;
+      
+      // Send the report
+      const { sendMonthlyReportEmail } = await import("./emailService");
+      const result = await sendMonthlyReportEmail({
+        playerName: player.displayName || 'Player',
+        playerEmail: user.email,
+        month: monthName,
+        academyName: academy?.name || 'Glow Up Sports',
+        
+        lessonsTotal,
+        lessonsAttended,
+        lessonsAbsent,
+        lessonsLate,
+        lessonsHoliday,
+        lessonsByType,
+        coachNames,
+        
+        courtsBooked,
+        courtHours,
+        
+        matchesPlayed,
+        matchesWon,
+        matchesLost,
+        
+        xpEarned,
+        currentLevel,
+        currentXp,
+        xpToNextLevel,
+        levelProgress,
+        
+        creditsUsed,
+        creditsRemaining,
+        creditsByType,
+        
+        glowLevel,
+      });
+      
+      if (result.success) {
+        console.log(`[MonthlyReport] Sent ${monthName} report to ${user.email} for player ${playerId}`);
+        res.json({ success: true, message: `Monthly report sent to ${user.email}`, month: monthName });
+      } else {
+        res.status(500).json({ success: false, error: result.error });
+      }
+    } catch (error: any) {
+      console.error("[MonthlyReport] Error:", error);
+      res.status(500).json({ error: error.message || "Failed to send monthly report" });
+    }
+  });
   // Check maintenance status endpoint (for clients to check before proceeding)
   app.get("/api/maintenance/status", async (_req: Request, res: Response) => {
     try {
