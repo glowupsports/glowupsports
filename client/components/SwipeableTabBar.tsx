@@ -185,7 +185,7 @@ export function SwipeableTabBar({
       <PagerView
         ref={pagerRef}
         style={styles.pagerView}
-        initialPage={0}
+        initialPage={initialPage}
         onPageSelected={handlePageSelected}
         onPageScroll={handlePageScroll}
         overdrag={true}
