@@ -571,17 +571,19 @@ const dragStyles = StyleSheet.create({
     justifyContent: "center",
   },
   weekSessionText: {
-    fontSize: 10,
+    fontSize: 8,
     fontWeight: "900",
     color: "#000000",
-    letterSpacing: 0.5,
+    letterSpacing: 0.3,
     textTransform: "uppercase",
+    textAlign: "center",
   },
   weekSessionTime: {
-    fontSize: 8,
-    fontWeight: "700",
-    color: "rgba(0, 0, 0, 0.9)",
-    letterSpacing: 0.3,
+    fontSize: 7,
+    fontWeight: "600",
+    color: "rgba(0, 0, 0, 0.85)",
+    letterSpacing: 0,
+    textAlign: "center",
   },
 });
 
@@ -2232,14 +2234,25 @@ export default function CalendarScreen() {
                             const isPast = sessionEnd < now;
                             const isActive = now >= sessionStart && now < sessionEnd;
                             const gradientColors = getSessionTypeGradient(session.sessionType);
-                            const typeLabel = session.sessionType === "private" ? "P" :
-                                              session.sessionType === "semi_private" ? "S" :
-                                              session.sessionType === "group" ? "G" : 
-                                              session.sessionType === "physical" ? "Ph" : "";
+                            
+                            // Session type as full name for week view
+                            const typeLabel = session.sessionType === "private" ? "PRIVATE" :
+                                              session.sessionType === "semi_private" ? "SEMI" :
+                                              session.sessionType === "group" ? "GROUP" : 
+                                              session.sessionType === "physical" ? "PHYS" : "";
+                            
+                            // Get player names for the session
+                            const playerNames = session.players?.map(p => p.name.split(" ")[0]).join(", ") || "";
+                            
+                            // Get location name
                             const sessionCourt = courts.find(c => c.id === session.courtId);
                             const courtLocation = sessionCourt?.locationId ? allLocations.find(l => l.id === sessionCourt.locationId) : null;
-                            const locationShortName = courtLocation?.name?.split(" ")[0]?.toUpperCase() || "";
-                            const sessionLabel = locationShortName ? `${typeLabel}\n${locationShortName}` : typeLabel;
+                            const locationShortName = courtLocation?.name?.split(" ")[0] || "";
+                            
+                            // Build session label: TYPE + name(s) + location
+                            const sessionLabel = typeLabel;
+                            const sessionSubtitle = playerNames || locationShortName;
+                            
                             const dayColumnWidth = (SCREEN_WIDTH - TIME_COLUMN_WIDTH - Spacing.lg * 2) / 7;
                             
                             return (
@@ -2252,7 +2265,7 @@ export default function CalendarScreen() {
                                 isActive={isActive}
                                 gradientColors={gradientColors}
                                 sessionLabel={sessionLabel}
-                                formattedTime={formatTimeInTimezone(session.startTime, academyTimezone)}
+                                formattedTime={sessionSubtitle}
                                 hourHeight={hourHeight}
                                 dayColumnWidth={dayColumnWidth}
                                 onTap={() => {
@@ -3084,9 +3097,10 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     paddingVertical: Spacing.xs,
-    paddingHorizontal: Spacing.sm,
+    paddingHorizontal: Spacing.xs,
     borderRadius: 8,
     overflow: "hidden",
+    minWidth: 60,
   },
   viewButtonGamingActive: {
     ...Platform.select({
@@ -3110,13 +3124,13 @@ const styles = StyleSheet.create({
     borderRadius: 8,
   },
   viewButtonTextGaming: {
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: "700",
     color: "rgba(255, 255, 255, 0.6)",
-    letterSpacing: 1.5,
+    letterSpacing: 0.5,
   },
   viewButtonTextGamingActive: {
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: "800",
     color: "#1A1A1A",
     letterSpacing: 1.5,
@@ -4206,17 +4220,19 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   weekSessionText: {
-    fontSize: 10,
+    fontSize: 8,
     fontWeight: "900",
     color: "#000000",
-    letterSpacing: 0.5,
+    letterSpacing: 0.3,
     textTransform: "uppercase",
+    textAlign: "center",
   },
   weekSessionTime: {
-    fontSize: 8,
-    fontWeight: "700",
-    color: "rgba(0, 0, 0, 0.9)",
-    letterSpacing: 0.3,
+    fontSize: 7,
+    fontWeight: "600",
+    color: "rgba(0, 0, 0, 0.85)",
+    letterSpacing: 0,
+    textAlign: "center",
     marginTop: 1,
   },
   weekNowLine: {
