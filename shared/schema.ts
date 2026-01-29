@@ -1411,6 +1411,9 @@ export const insertPackageSchema = createInsertSchema(packages).omit({ id: true,
 export type InsertPackage = z.infer<typeof insertPackageSchema>;
 export type Package = typeof packages.$inferSelect;
 
+// Alias for backwards compatibility - playerCreditPackages references the packages table
+export const playerCreditPackages = packages;
+
 // Sessions
 export const sessions = pgTable("sessions", {
   id: varchar("id")
