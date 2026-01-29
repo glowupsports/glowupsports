@@ -984,6 +984,44 @@ function PlayerDetailView({
     }
   };
 
+  const [isSendingMonthlyReport, setIsSendingMonthlyReport] = useState(false);
+
+  const handleSendMonthlyReport = async () => {
+    try {
+      setIsSendingMonthlyReport(true);
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+      
+      const response = await fetch(new URL(`/api/player/${player.id}/monthly-report`, getApiUrl()).toString(), {
+        method: "POST",
+        credentials: "include",
+        headers: {
+          ...getAuthHeaders(),
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({}), // Uses previous month by default
+      });
+      
+      const data = await response.json();
+      
+      if (!response.ok) {
+        throw new Error(data.error || "Failed to send monthly report");
+      }
+      
+      Alert.alert(
+        "Monthly Report Sent",
+        `${data.month} report has been emailed to this player.`,
+        [{ text: "OK" }]
+      );
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    } catch (error: any) {
+      console.error("Error sending monthly report:", error);
+      Alert.alert("Error", error.message || "Failed to send monthly report. Please try again.");
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+    } finally {
+      setIsSendingMonthlyReport(false);
+    }
+  };
+
   const { data: notes = [], isLoading: notesLoading } = useQuery<PlayerNote[]>({
     queryKey: [`/api/players/${player.id}/notes`],
   });
@@ -1617,20 +1655,36 @@ function PlayerDetailView({
               <Ionicons name="calendar" size={18} color={Colors.dark.xpCyan} />
               <Text style={styles.sectionLabel}>ATTENDANCE HISTORY</Text>
             </View>
-            <Pressable
-              style={[styles.reportButton, isExportingAttendanceReport && { opacity: 0.5 }]}
-              onPress={handleExportAttendanceReport}
-              disabled={isExportingAttendanceReport}
-            >
-              {isExportingAttendanceReport ? (
-                <ActivityIndicator size="small" color={Colors.dark.xpCyan} />
-              ) : (
-                <>
-                  <Ionicons name="document-text-outline" size={14} color={Colors.dark.xpCyan} />
-                  <Text style={styles.reportButtonText}>Report</Text>
-                </>
-              )}
-            </Pressable>
+            <View style={{ flexDirection: "row", gap: 8 }}>
+              <Pressable
+                style={[styles.reportButton, isExportingAttendanceReport && { opacity: 0.5 }]}
+                onPress={handleExportAttendanceReport}
+                disabled={isExportingAttendanceReport}
+              >
+                {isExportingAttendanceReport ? (
+                  <ActivityIndicator size="small" color={Colors.dark.xpCyan} />
+                ) : (
+                  <>
+                    <Ionicons name="document-text-outline" size={14} color={Colors.dark.xpCyan} />
+                    <Text style={styles.reportButtonText}>PDF</Text>
+                  </>
+                )}
+              </Pressable>
+              <Pressable
+                style={[styles.reportButton, isSendingMonthlyReport && { opacity: 0.5 }]}
+                onPress={handleSendMonthlyReport}
+                disabled={isSendingMonthlyReport}
+              >
+                {isSendingMonthlyReport ? (
+                  <ActivityIndicator size="small" color={Colors.dark.primary} />
+                ) : (
+                  <>
+                    <Ionicons name="mail-outline" size={14} color={Colors.dark.primary} />
+                    <Text style={[styles.reportButtonText, { color: Colors.dark.primary }]}>Email</Text>
+                  </>
+                )}
+              </Pressable>
+            </View>
           </View>
 
           {attendanceHistory.length === 0 ? (
