@@ -157,6 +157,7 @@ function OwnerQuickActionsFAB() {
 interface AcademyInfo {
   academy: {
     id: string;
+    name?: string;
     onboardingCompleted?: boolean;
   };
 }
@@ -180,7 +181,8 @@ export default function OwnerNavigator() {
     );
   }
 
-  const onboardingCompleted = data?.academy?.onboardingCompleted ?? false;
+  const hasExistingAcademy = !!data?.academy?.id && !!data?.academy?.name;
+  const onboardingCompleted = hasExistingAcademy || (data?.academy?.onboardingCompleted ?? false);
 
   return (
     <View style={styles.container}>

@@ -23,6 +23,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Colors, Spacing, BorderRadius, Backgrounds, GlowColors } from "@/constants/theme";
 import { apiRequest } from "@/lib/query-client";
 import { countries, getCitiesForCountry } from "@shared/countries";
+import { useAuth } from "@/lib/auth";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 
@@ -170,11 +171,19 @@ function SelectableChip({
   );
 }
 
-function Step1Welcome({ onNext }: StepProps) {
+function Step1Welcome({ onNext, onLogout }: StepProps & { onLogout?: () => void }) {
   const insets = useSafeAreaInsets();
   
   return (
     <View style={[styles.stepContainer, { paddingTop: insets.top + Spacing.xl }]}>
+      {onLogout && (
+        <View style={styles.logoutContainer}>
+          <Pressable style={styles.logoutButton} onPress={onLogout}>
+            <Ionicons name="log-out-outline" size={20} color={Colors.dark.textSecondary} />
+            <Text style={styles.logoutText}>Log out</Text>
+          </Pressable>
+        </View>
+      )}
       <Animated.View entering={FadeInDown.delay(200).duration(500)} style={styles.welcomeContent}>
         <View style={styles.welcomeIconContainer}>
           <Ionicons name="tennisball" size={60} color={Colors.dark.primary} />
@@ -756,6 +765,7 @@ const TOTAL_STEPS = 7;
 export default function AcademyOnboardingScreen({ navigation }: any) {
   const [currentStep, setCurrentStep] = useState(0);
   const queryClient = useQueryClient();
+  const { logout } = useAuth();
   
   const [data, setData] = useState<OnboardingData>({
     academyName: "",
@@ -811,7 +821,7 @@ export default function AcademyOnboardingScreen({ navigation }: any) {
   const renderStep = () => {
     switch (currentStep) {
       case 0:
-        return <Step1Welcome {...stepProps} />;
+        return <Step1Welcome {...stepProps} onLogout={logout} />;
       case 1:
         return <Step2Identity {...stepProps} showCountryPicker={showCountryPicker} setShowCountryPicker={setShowCountryPicker} showCityPicker={showCityPicker} setShowCityPicker={setShowCityPicker} />;
       case 2:
@@ -1321,5 +1331,22 @@ const styles = StyleSheet.create({
     color: Colors.dark.textSecondary,
     textAlign: "center",
     padding: Spacing.xl,
+  },
+  logoutContainer: {
+    position: "absolute",
+    top: 10,
+    right: 0,
+    zIndex: 10,
+  },
+  logoutButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.xs,
+    paddingVertical: Spacing.sm,
+    paddingHorizontal: Spacing.md,
+  },
+  logoutText: {
+    fontSize: 14,
+    color: Colors.dark.textSecondary,
   },
 });
