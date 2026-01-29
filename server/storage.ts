@@ -3939,12 +3939,6 @@ export const storage = {
     return alerts;
   },
 
-  // ==================== COACH UPDATE ====================
-  async updateCoach(id: string, data: Partial<InsertCoach>): Promise<Coach> {
-    const result = await db.update(coaches).set(data).where(eq(coaches.id, id)).returning();
-    return result[0];
-  },
-
   // ==================== PROGRESS ENGINE V2 ====================
 
   // Skill Domains

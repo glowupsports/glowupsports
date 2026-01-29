@@ -4348,7 +4348,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
           academyId: academyId || undefined,
           startTime: start,
           endTime: end,
-              duration,
           duration,
           sessionType,
           status: "scheduled",
@@ -18009,7 +18008,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
           academyId,
           startTime: start,
           endTime: end,
-              duration,
           duration,
           sessionType,
           status: "scheduled",
@@ -20342,13 +20340,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         sessionId,
         playerId,
         academyId: player?.academyId,
-        sessionType: session.sessionType,
         cancellationType: "cancel",
         reason,
         reasonText: reasonText || null,
         sessionDate: sessionTime,
-        hoursBeforeSession: Math.round(hoursUntilSession),
-        isLateCancel: isLateCancellation,
         billingStatus,
         makeUpEligibility,
         notifiedCoach: true,
@@ -25028,8 +25023,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
           xpReward: session.xpReward || 20,
           maxPlayers,
           currentPlayers,
-          isEnrolled,
-            locationName,
           players: players.map(p => ({
             id: p.id,
             name: p.name,
@@ -29735,12 +29728,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
           name: players.name,
           profilePhotoUrl: players.profilePhotoUrl,
           ballLevel: players.ballLevel,
-        profilePhotoUrl: players.profilePhotoUrl,
         academyId: players.academyId,
         },
       })
       .from(postsTable)
-      .leftJoin(users, eq(postsTable.authorId, users.id))
       .leftJoin(players, eq(users.playerId, players.id))
       .where(eq(postsTable.id, id));
       
@@ -30168,12 +30159,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
           name: players.name,
           profilePhotoUrl: players.profilePhotoUrl,
           ballLevel: players.ballLevel,
-        profilePhotoUrl: players.profilePhotoUrl,
         academyId: players.academyId,
         },
       })
       .from(openToPlayTable)
-      .leftJoin(users, eq(openToPlayTable.userId, users.id))
       .leftJoin(players, eq(users.playerId, players.id))
       
           .where(and(
@@ -31359,7 +31348,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
         level: players.level,
         glowScore: players.glowScore,
         ballLevel: players.ballLevel,
-        profilePhotoUrl: players.profilePhotoUrl,
         academyId: players.academyId,
         openToPlay: players.openToPlay,
       })
@@ -31495,7 +31483,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
         level: players.level,
         glowScore: players.glowScore,
         ballLevel: players.ballLevel,
-        profilePhotoUrl: players.profilePhotoUrl,
         academyId: players.academyId,
       })
       .from(players)
@@ -31587,7 +31574,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
           level: players.level,
           glowScore: players.glowScore,
           ballLevel: players.ballLevel,
-        profilePhotoUrl: players.profilePhotoUrl,
         academyId: players.academyId,
           openToPlay: players.openToPlay,
         })
