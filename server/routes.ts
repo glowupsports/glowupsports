@@ -18766,6 +18766,191 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // View player credit transactions (for debugging/auditing)
+  app.get("/api/admin/players/:playerId/credit-transactions", authMiddleware, requireRole("admin", "academy_owner", "platform_owner", "coach"), async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const { playerId } = req.params;
+      
+      const player = await storage.getPlayer(playerId);
+      if (!player) {
+        return res.status(404).json({ error: "Player not found" });
+      }
+      
+      const transactions = await storage.getCreditTransactionsByPlayer(playerId);
+      const creditBalance = await storage.getPlayerCreditBalanceByType(playerId);
+      const playerPackages = await storage.getPlayerPackages(playerId, player.academyId ?? undefined);
+      
+      const summary = {
+        group: { credits: 0, debts: 0, balance: creditBalance.group },
+        semi_private: { credits: 0, debts: 0, balance: creditBalance.semi_private },
+        private: { credits: 0, debts: 0, balance: creditBalance.private },
+      };
+      
+      for (const tx of transactions) {
+        const type = tx.creditType as keyof typeof summary || "group";
+        if (type in summary) {
+          if (tx.amount > 0) {
+            summary[type].credits += tx.amount;
+          } else {
+            summary[type].debts += Math.abs(tx.amount);
+          }
+        }
+      }
+      
+      res.json({
+        player: { id: player.id, name: player.name, email: player.email },
+        creditBalance,
+        summary,
+        packages: playerPackages.map(p => ({ 
+          id: p.id, 
+          name: p.name, 
+          creditType: p.creditType, 
+          totalCredits: p.totalCredits, 
+          remainingCredits: p.remainingCredits,
+          isPaid: p.isPaid,
+          isDeleted: p.status === 'deleted'
+        })),
+        transactions: transactions.slice(0, 100),
+        totalTransactions: transactions.length,
+      });
+    } catch (error) {
+      console.error("Get credit transactions error:", error);
+      res.status(500).json({ error: "Failed to get credit transactions" });
+    }
+  });
+
+  // Manually add debt for a player (for fixing credit mismatches)
+  app.post("/api/admin/players/:playerId/add-debt", authMiddleware, requireRole("admin", "academy_owner", "platform_owner"), async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const { playerId } = req.params;
+      const { amount, creditType, reason } = req.body;
+      
+      if (!amount || amount <= 0) {
+        return res.status(400).json({ error: "Amount must be a positive number" });
+      }
+      if (!creditType || !["group", "semi_private", "private"].includes(creditType)) {
+        return res.status(400).json({ error: "Credit type must be group, semi_private, or private" });
+      }
+      
+      const player = await storage.getPlayer(playerId);
+      if (!player) {
+        return res.status(404).json({ error: "Player not found" });
+      }
+      
+      const debtId = `manual-debt-${Date.now()}-${playerId}`;
+      
+      await db.insert(creditTransactions).values({
+        id: debtId,
+        playerId: playerId,
+        packageId: null,
+        type: "debit",
+        amount: -amount,
+        reason: reason || "manual_debt_correction",
+        creditType: creditType,
+        sessionId: null,
+        metadata: { 
+          isDebt: true, 
+          addedManually: true,
+          addedBy: req.user?.id,
+          addedAt: new Date().toISOString(),
+        },
+      });
+      
+      const newBalance = await storage.getPlayerCreditBalanceByType(playerId);
+      
+      console.log(`[ManualDebt] Added ${amount} ${creditType} debt for player ${playerId} by ${req.user?.id}`);
+      
+      res.json({
+        success: true,
+        message: `Added ${amount} ${creditType} debt for ${player.name}`,
+        newBalance,
+        debtId,
+      });
+    } catch (error) {
+      console.error("Add debt error:", error);
+      res.status(500).json({ error: "Failed to add debt" });
+    }
+  });
+
+  // Audit all players for credit mismatches
+  app.get("/api/admin/audit-credits", authMiddleware, requireRole("admin", "platform_owner"), async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      console.log("[CreditAudit] Starting full credit audit...");
+      
+      const allPlayers = await db.select({
+        id: players.id,
+        name: players.name,
+        email: players.email,
+      }).from(players);
+      
+      const mismatches = [];
+      
+      for (const player of allPlayers) {
+        const attendedSessions = await db.select({
+          sessionType: sessions.sessionType,
+        })
+        .from(sessionPlayers)
+        .innerJoin(sessions, eq(sessionPlayers.sessionId, sessions.id))
+        .where(and(
+          eq(sessionPlayers.playerId, player.id),
+          eq(sessionPlayers.attendanceStatus, "present")
+        ));
+        
+        const sessionsByType = { group: 0, semi_private: 0, private: 0 };
+        for (const s of attendedSessions) {
+          if (s.sessionType.includes("semi")) sessionsByType.semi_private++;
+          else if (s.sessionType.includes("group")) sessionsByType.group++;
+          else sessionsByType.private++;
+        }
+        
+        const transactions = await storage.getCreditTransactionsByPlayer(player.id);
+        const creditBalance = await storage.getPlayerCreditBalanceByType(player.id);
+        
+        const txByType = { group: { credits: 0, debts: 0 }, semi_private: { credits: 0, debts: 0 }, private: { credits: 0, debts: 0 } };
+        
+        for (const tx of transactions) {
+          const type = tx.creditType || "group";
+          if (type in txByType) {
+            if (tx.amount > 0) txByType[type].credits += tx.amount;
+            else txByType[type].debts += Math.abs(tx.amount);
+          }
+        }
+        
+        const totalSessions = attendedSessions.length;
+        const totalCreditsFromPackages = txByType.group.credits + txByType.semi_private.credits + txByType.private.credits;
+        const netBalance = creditBalance.group + creditBalance.semi_private + creditBalance.private;
+        
+        if (totalSessions > 0 && totalCreditsFromPackages === 0 && netBalance >= 0) {
+          mismatches.push({
+            playerId: player.id,
+            playerName: player.name || "Unknown",
+            email: player.email || "",
+            sessionsAttended: totalSessions,
+            netBalance,
+            expectedDebt: -totalSessions,
+            mismatch: totalSessions + netBalance,
+            byType: {
+              group: { sessions: sessionsByType.group, balance: creditBalance.group, ...txByType.group },
+              semi_private: { sessions: sessionsByType.semi_private, balance: creditBalance.semi_private, ...txByType.semi_private },
+              private: { sessions: sessionsByType.private, balance: creditBalance.private, ...txByType.private },
+            }
+          });
+        }
+      }
+      
+      console.log(`[CreditAudit] Found ${mismatches.length} players with potential credit mismatches`);
+      
+      res.json({
+        totalPlayers: allPlayers.length,
+        mismatchCount: mismatches.length,
+        mismatches: mismatches.sort((a, b) => b.mismatch - a.mismatch),
+      });
+    } catch (error) {
+      console.error("Credit audit error:", error);
+      res.status(500).json({ error: "Failed to audit credits" });
+    }
+  });
+
   // Scan ALL players for unpaid sessions and fix them
   app.post("/api/fix-all-unpaid-sessions", async (_req: Request, res: Response) => {
     try {
