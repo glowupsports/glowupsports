@@ -1137,7 +1137,44 @@ async function processAutoSessionCompletion(): Promise<void> {
             totalCreditsDeducted++;
             console.log(`[AutoComplete] Deducted credit for player ${sp.playerId} in session ${session.id}`);
           } else {
-            console.log(`[AutoComplete] No credit available for player ${sp.playerId}: ${creditResult.reason}`);
+            // Record as debt when no credits available
+            const { creditTransactions } = await import("@shared/schema");
+            const debtId = `debt-auto-${session.id}-${sp.playerId}`;
+            
+            // Check if debt already recorded
+            const existingDebt = await db.select().from(creditTransactions)
+              .where(eq(creditTransactions.id, debtId))
+              .limit(1);
+            
+            if (existingDebt.length === 0) {
+              // Map session type to credit type
+              const creditType = session.sessionType.includes("semi") ? "semi_private" : 
+                                 session.sessionType.includes("group") ? "group" : "private";
+              
+              await db.insert(creditTransactions).values({
+                id: debtId,
+                playerId: sp.playerId,
+                packageId: null,
+                amount: -1,
+                reason: "session_debt",
+                creditType: creditType,
+                sessionId: session.id,
+                metadata: { 
+                  isDebt: true, 
+                  autoCompleted: true,
+                  sessionType: session.sessionType,
+                  reason: creditResult.reason 
+                },
+              });
+              
+              // Mark creditDeductedAt to prevent re-processing
+              await db.update(sessionPlayers)
+                .set({ creditDeductedAt: new Date() })
+                .where(eq(sessionPlayers.id, sp.id));
+              
+              totalCreditsDeducted++;
+              console.log(`[AutoComplete] Recorded debt for player ${sp.playerId} in session ${session.id}`);
+            }
           }
         }
         

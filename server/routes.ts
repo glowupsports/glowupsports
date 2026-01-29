@@ -314,6 +314,93 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+
+  // TEMPORARY: Fix unpaid sessions for specific player (public endpoint for debugging)
+  app.post("/api/fix-player-unpaid/:playerId", async (req: Request, res: Response) => {
+    try {
+      const { playerId } = req.params;
+      
+      const player = await storage.getPlayer(playerId);
+      if (!player) {
+        return res.status(404).json({ error: "Player not found" });
+      }
+      
+      // Find all sessions where player has attended but no credit was deducted
+      const unpaidSessions = await db.select({
+        sessionPlayerId: sessionPlayers.id,
+        sessionId: sessionPlayers.sessionId,
+        playerId: sessionPlayers.playerId,
+        
+        attendanceStatus: sessionPlayers.attendanceStatus,
+        creditDeductedAt: sessionPlayers.creditDeductedAt,
+        sessionType: sessions.sessionType,
+        startTime: sessions.startTime,
+      })
+      .from(sessionPlayers)
+      .innerJoin(sessions, eq(sessionPlayers.sessionId, sessions.id))
+      .where(and(
+        eq(sessionPlayers.playerId, playerId),
+        or(
+          
+          eq(sessionPlayers.attendanceStatus, "present")
+        ),
+        isNull(sessionPlayers.creditDeductedAt)
+      ));
+      
+      if (unpaidSessions.length === 0) {
+        return res.json({ 
+          message: "No unpaid sessions found", 
+          fixed: 0,
+          totalSessions: 0 
+        });
+      }
+      
+      let fixedCount = 0;
+      
+      for (const session of unpaidSessions) {
+        const debtId = `debt-fix-${session.sessionId}-${session.playerId}`;
+        
+        const existingDebt = await db.select().from(creditTransactions)
+          .where(eq(creditTransactions.id, debtId))
+          .limit(1);
+        
+        if (existingDebt.length === 0) {
+          const creditType = session.sessionType.includes("semi") ? "semi_private" : 
+                             session.sessionType.includes("group") ? "group" : "private";
+          
+          await db.insert(creditTransactions).values({
+            id: debtId,
+            playerId: session.playerId,
+            packageId: null,
+            type: "debit",
+            amount: -1,
+            reason: "session_debt",
+            creditType: creditType,
+            sessionId: session.sessionId,
+            metadata: { isDebt: true, fixedManually: true, sessionType: session.sessionType },
+          });
+          
+          await db.update(sessionPlayers)
+            .set({ creditDeductedAt: new Date() })
+            .where(eq(sessionPlayers.id, session.sessionPlayerId));
+          
+          fixedCount++;
+          console.log(`[FixUnpaid] Recorded debt for session ${session.sessionId}`);
+        }
+      }
+      
+      res.json({
+        message: `Fixed ${fixedCount} unpaid sessions`,
+        fixed: fixedCount,
+        totalSessions: unpaidSessions.length,
+        playerName: player.name,
+      });
+      
+    } catch (error) {
+      console.error("Fix unpaid sessions error:", error);
+      res.status(500).json({ error: "Failed to fix unpaid sessions" });
+    }
+  });
   // ==================== MAINTENANCE MODE CHECK ====================
   // Check maintenance status endpoint (for clients to check before proceeding)
   app.get("/api/maintenance/status", async (_req: Request, res: Response) => {
@@ -18084,6 +18171,99 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Player stats error:", error);
       res.status(500).json({ error: "Failed to fetch player stats" });
+    }
+  });
+
+  // Admin - Fix unpaid sessions for a player (record debt for sessions with attended=true but no credit deducted)
+  app.post("/api/admin/players/:playerId/fix-unpaid-sessions", authMiddleware, requireRole("admin", "academy_owner", "platform_owner", "coach"), async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const { playerId } = req.params;
+      
+      const player = await storage.getPlayer(playerId);
+      if (!player) {
+        return res.status(404).json({ error: "Player not found" });
+      }
+      
+      // Find all sessions where player has attended but no credit was deducted
+      const unpaidSessions = await db.select({
+        sessionPlayerId: sessionPlayers.id,
+        sessionId: sessionPlayers.sessionId,
+        playerId: sessionPlayers.playerId,
+        
+        attendanceStatus: sessionPlayers.attendanceStatus,
+        creditDeductedAt: sessionPlayers.creditDeductedAt,
+        sessionType: sessions.sessionType,
+        startTime: sessions.startTime,
+      })
+      .from(sessionPlayers)
+      .innerJoin(sessions, eq(sessionPlayers.sessionId, sessions.id))
+      .where(and(
+        eq(sessionPlayers.playerId, playerId),
+        or(
+          
+          eq(sessionPlayers.attendanceStatus, "present")
+        ),
+        isNull(sessionPlayers.creditDeductedAt)
+      ));
+      
+      if (unpaidSessions.length === 0) {
+        return res.json({ 
+          message: "No unpaid sessions found", 
+          fixed: 0,
+          totalSessions: 0 
+        });
+      }
+      
+      let fixedCount = 0;
+      
+      for (const session of unpaidSessions) {
+        // Record debt transaction
+        const debtId = `debt-fix-${session.sessionId}-${session.playerId}`;
+        
+        // Check if debt already recorded
+        const existingDebt = await db.select().from(creditTransactions)
+          .where(eq(creditTransactions.id, debtId))
+          .limit(1);
+        
+        if (existingDebt.length === 0) {
+          const creditType = session.sessionType.includes("semi") ? "semi_private" : 
+                             session.sessionType.includes("group") ? "group" : "private";
+          
+          await db.insert(creditTransactions).values({
+            id: debtId,
+            playerId: session.playerId,
+            packageId: null,
+            type: "debit",
+            amount: -1,
+            reason: "session_debt",
+            creditType: creditType,
+            sessionId: session.sessionId,
+            metadata: { 
+              isDebt: true, 
+              fixedManually: true,
+              sessionType: session.sessionType,
+              originalDate: session.startTime
+            },
+          });
+          
+          // Mark creditDeductedAt to prevent re-processing
+          await db.update(sessionPlayers)
+            .set({ creditDeductedAt: new Date() })
+            .where(eq(sessionPlayers.id, session.sessionPlayerId));
+          
+          fixedCount++;
+        }
+      }
+      
+      res.json({
+        message: `Fixed ${fixedCount} unpaid sessions`,
+        fixed: fixedCount,
+        totalSessions: unpaidSessions.length,
+      });
+      
+    } catch (error) {
+      console.error("Fix unpaid sessions error:", error);
+      res.status(500).json({ error: "Failed to fix unpaid sessions" });
     }
   });
   // Platform Owner - Get single academy details
