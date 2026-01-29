@@ -25,7 +25,7 @@ config.resolver = {
   resolveRequest: (context, moduleName, platform) => {
     if (platform === 'web' && moduleName === 'react-native-pager-view') {
       return {
-        filePath: path.resolve(__dirname, 'client/shims/react-native-pager-view.web.ts'),
+        filePath: path.resolve(__dirname, 'client/shims/react-native-pager-view.web.tsx'),
         type: 'sourceFile',
       };
     }
