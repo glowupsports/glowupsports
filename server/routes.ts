@@ -15733,8 +15733,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const outstandingPayments = players
         .filter((p: any) => (p.balanceDue || 0) > 0)
         .reduce((sum: number, p: any) => sum + (p.balanceDue || 0), 0);
-      const recentSessions = allSessions.filter((s: any) => new Date(s.startTime) >= thirtyDaysAgo);
-      const completedSessions = recentSessions.filter((s: any) => s.status === "completed");
       const attendanceRate = recentSessions.length > 0 
         ? Math.round((completedSessions.length / recentSessions.length) * 100) 
         : 0;
