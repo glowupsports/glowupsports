@@ -9,6 +9,8 @@ import {
   RefreshControl,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useNavigation } from "@react-navigation/native";
+import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { useTabNavigation } from "@/components/TabNavigationContext";
 
 import { LinearGradient } from "expo-linear-gradient";
@@ -140,6 +142,7 @@ export default function OwnerDashboardScreen() {
   const insets = useSafeAreaInsets();
   const { user } = useAuth();
   const navigation = useNavigation<NavigationProp>();
+  const { navigateToTab } = useTabNavigation();
   const [refreshing, setRefreshing] = useState(false);
 
   const { data: dashboardData, isLoading, refetch } = useQuery<OwnerBusinessDashboardData>({
