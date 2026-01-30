@@ -18565,6 +18565,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (playerIds && playerIds.length > 0) {
         const firstPlayerId = playerIds[0];
         const playerSeries = await storage.getPlayerSeries(firstPlayerId);
+        
+        console.log("[BulkSessions DEBUG] Looking for existing series:");
+        console.log("[BulkSessions DEBUG] - coachId from request:", coachId);
+        console.log("[BulkSessions DEBUG] - sessionType from request:", sessionType);
+        console.log("[BulkSessions DEBUG] - playerIds:", playerIds);
+        console.log("[BulkSessions DEBUG] - Player series found:", playerSeries.length);
+        playerSeries.forEach((s: any) => {
+          console.log("[BulkSessions DEBUG]   Series:", s.id, "title:", s.title, "coachId:", s.coachId, "sessionType:", s.sessionType, "status:", s.status);
+          console.log("[BulkSessions DEBUG]   Match check: coachId match=", s.coachId === coachId, "sessionType match=", s.sessionType === sessionType, "status match=", s.status === "active");
+        });
+        
         const existingSeries = playerSeries.find((s: any) => 
           s.coachId === coachId && 
           s.sessionType === sessionType && 
@@ -18572,6 +18583,333 @@ export async function registerRoutes(app: Express): Promise<Server> {
         );
         if (existingSeries) {
           seriesId = existingSeries.id;
+          console.log("[BulkSessions DEBUG] FOUND existing series:", existingSeries.id, existingSeries.title);
+        } else {
+          console.log("[BulkSessions DEBUG] NO existing series found - will create new one");
+        }
+      }
+      // If players provided, try to find their existing active series with this coach
+      if (playerIds && playerIds.length > 0) {
+        const firstPlayerId = playerIds[0];
+        const playerSeries = await storage.getPlayerSeries(firstPlayerId);
+        
+        console.log("[BulkSessions DEBUG] Looking for existing series:");
+        console.log("[BulkSessions DEBUG] - coachId from request:", coachId);
+        console.log("[BulkSessions DEBUG] - sessionType from request:", sessionType);
+        console.log("[BulkSessions DEBUG] - playerIds:", playerIds);
+        console.log("[BulkSessions DEBUG] - Player series found:", playerSeries.length);
+        playerSeries.forEach((s: any) => {
+          console.log("[BulkSessions DEBUG]   Series:", s.id, "title:", s.title, "coachId:", s.coachId, "sessionType:", s.sessionType, "status:", s.status);
+          console.log("[BulkSessions DEBUG]   Match check: coachId match=", s.coachId === coachId, "sessionType match=", s.sessionType === sessionType, "status match=", s.status === "active");
+        });
+        
+        const existingSeries = playerSeries.find((s: any) => 
+          s.coachId === coachId && 
+          s.sessionType === sessionType && 
+          s.status === "active"
+        );
+        if (existingSeries) {
+          seriesId = existingSeries.id;
+          console.log("[BulkSessions DEBUG] FOUND existing series:", existingSeries.id, existingSeries.title);
+        } else {
+          console.log("[BulkSessions DEBUG] NO existing series found - will create new one");
+        }
+      }
+      // If players provided, try to find their existing active series with this coach
+      if (playerIds && playerIds.length > 0) {
+        const firstPlayerId = playerIds[0];
+        const playerSeries = await storage.getPlayerSeries(firstPlayerId);
+        
+        console.log("[BulkSessions DEBUG] Looking for existing series:");
+        console.log("[BulkSessions DEBUG] - coachId from request:", coachId);
+        console.log("[BulkSessions DEBUG] - sessionType from request:", sessionType);
+        console.log("[BulkSessions DEBUG] - playerIds:", playerIds);
+        console.log("[BulkSessions DEBUG] - Player series found:", playerSeries.length);
+        playerSeries.forEach((s: any) => {
+          console.log("[BulkSessions DEBUG]   Series:", s.id, "title:", s.title, "coachId:", s.coachId, "sessionType:", s.sessionType, "status:", s.status);
+          console.log("[BulkSessions DEBUG]   Match check: coachId match=", s.coachId === coachId, "sessionType match=", s.sessionType === sessionType, "status match=", s.status === "active");
+        });
+        
+        const existingSeries = playerSeries.find((s: any) => 
+          s.coachId === coachId && 
+          s.sessionType === sessionType && 
+          s.status === "active"
+        );
+        if (existingSeries) {
+          seriesId = existingSeries.id;
+          console.log("[BulkSessions DEBUG] FOUND existing series:", existingSeries.id, existingSeries.title);
+        } else {
+          console.log("[BulkSessions DEBUG] NO existing series found - will create new one");
+        }
+      }
+      // If players provided, try to find their existing active series with this coach
+      if (playerIds && playerIds.length > 0) {
+        const firstPlayerId = playerIds[0];
+        const playerSeries = await storage.getPlayerSeries(firstPlayerId);
+        
+        console.log("[BulkSessions DEBUG] Looking for existing series:");
+        console.log("[BulkSessions DEBUG] - coachId from request:", coachId);
+        console.log("[BulkSessions DEBUG] - sessionType from request:", sessionType);
+        console.log("[BulkSessions DEBUG] - playerIds:", playerIds);
+        console.log("[BulkSessions DEBUG] - Player series found:", playerSeries.length);
+        playerSeries.forEach((s: any) => {
+          console.log("[BulkSessions DEBUG]   Series:", s.id, "title:", s.title, "coachId:", s.coachId, "sessionType:", s.sessionType, "status:", s.status);
+          console.log("[BulkSessions DEBUG]   Match check: coachId match=", s.coachId === coachId, "sessionType match=", s.sessionType === sessionType, "status match=", s.status === "active");
+        });
+        
+        const existingSeries = playerSeries.find((s: any) => 
+          s.coachId === coachId && 
+          s.sessionType === sessionType && 
+          s.status === "active"
+        );
+        if (existingSeries) {
+          seriesId = existingSeries.id;
+          console.log("[BulkSessions DEBUG] FOUND existing series:", existingSeries.id, existingSeries.title);
+        } else {
+          console.log("[BulkSessions DEBUG] NO existing series found - will create new one");
+        }
+      }
+      // If players provided, try to find their existing active series with this coach
+      if (playerIds && playerIds.length > 0) {
+        const firstPlayerId = playerIds[0];
+        const playerSeries = await storage.getPlayerSeries(firstPlayerId);
+        
+        console.log("[BulkSessions DEBUG] Looking for existing series:");
+        console.log("[BulkSessions DEBUG] - coachId from request:", coachId);
+        console.log("[BulkSessions DEBUG] - sessionType from request:", sessionType);
+        console.log("[BulkSessions DEBUG] - playerIds:", playerIds);
+        console.log("[BulkSessions DEBUG] - Player series found:", playerSeries.length);
+        playerSeries.forEach((s: any) => {
+          console.log("[BulkSessions DEBUG]   Series:", s.id, "title:", s.title, "coachId:", s.coachId, "sessionType:", s.sessionType, "status:", s.status);
+          console.log("[BulkSessions DEBUG]   Match check: coachId match=", s.coachId === coachId, "sessionType match=", s.sessionType === sessionType, "status match=", s.status === "active");
+        });
+        
+        const existingSeries = playerSeries.find((s: any) => 
+          s.coachId === coachId && 
+          s.sessionType === sessionType && 
+          s.status === "active"
+        );
+        if (existingSeries) {
+          seriesId = existingSeries.id;
+          console.log("[BulkSessions DEBUG] FOUND existing series:", existingSeries.id, existingSeries.title);
+        } else {
+          console.log("[BulkSessions DEBUG] NO existing series found - will create new one");
+        }
+      }
+      // If players provided, try to find their existing active series with this coach
+      if (playerIds && playerIds.length > 0) {
+        const firstPlayerId = playerIds[0];
+        const playerSeries = await storage.getPlayerSeries(firstPlayerId);
+        
+        console.log("[BulkSessions DEBUG] Looking for existing series:");
+        console.log("[BulkSessions DEBUG] - coachId from request:", coachId);
+        console.log("[BulkSessions DEBUG] - sessionType from request:", sessionType);
+        console.log("[BulkSessions DEBUG] - playerIds:", playerIds);
+        console.log("[BulkSessions DEBUG] - Player series found:", playerSeries.length);
+        playerSeries.forEach((s: any) => {
+          console.log("[BulkSessions DEBUG]   Series:", s.id, "title:", s.title, "coachId:", s.coachId, "sessionType:", s.sessionType, "status:", s.status);
+          console.log("[BulkSessions DEBUG]   Match check: coachId match=", s.coachId === coachId, "sessionType match=", s.sessionType === sessionType, "status match=", s.status === "active");
+        });
+        
+        const existingSeries = playerSeries.find((s: any) => 
+          s.coachId === coachId && 
+          s.sessionType === sessionType && 
+          s.status === "active"
+        );
+        if (existingSeries) {
+          seriesId = existingSeries.id;
+          console.log("[BulkSessions DEBUG] FOUND existing series:", existingSeries.id, existingSeries.title);
+        } else {
+          console.log("[BulkSessions DEBUG] NO existing series found - will create new one");
+        }
+      }
+      // If players provided, try to find their existing active series with this coach
+      if (playerIds && playerIds.length > 0) {
+        const firstPlayerId = playerIds[0];
+        const playerSeries = await storage.getPlayerSeries(firstPlayerId);
+        
+        console.log("[BulkSessions DEBUG] Looking for existing series:");
+        console.log("[BulkSessions DEBUG] - coachId from request:", coachId);
+        console.log("[BulkSessions DEBUG] - sessionType from request:", sessionType);
+        console.log("[BulkSessions DEBUG] - playerIds:", playerIds);
+        console.log("[BulkSessions DEBUG] - Player series found:", playerSeries.length);
+        playerSeries.forEach((s: any) => {
+          console.log("[BulkSessions DEBUG]   Series:", s.id, "title:", s.title, "coachId:", s.coachId, "sessionType:", s.sessionType, "status:", s.status);
+          console.log("[BulkSessions DEBUG]   Match check: coachId match=", s.coachId === coachId, "sessionType match=", s.sessionType === sessionType, "status match=", s.status === "active");
+        });
+        
+        const existingSeries = playerSeries.find((s: any) => 
+          s.coachId === coachId && 
+          s.sessionType === sessionType && 
+          s.status === "active"
+        );
+        if (existingSeries) {
+          seriesId = existingSeries.id;
+          console.log("[BulkSessions DEBUG] FOUND existing series:", existingSeries.id, existingSeries.title);
+        } else {
+          console.log("[BulkSessions DEBUG] NO existing series found - will create new one");
+        }
+      }
+      // If players provided, try to find their existing active series with this coach
+      if (playerIds && playerIds.length > 0) {
+        const firstPlayerId = playerIds[0];
+        const playerSeries = await storage.getPlayerSeries(firstPlayerId);
+        
+        console.log("[BulkSessions DEBUG] Looking for existing series:");
+        console.log("[BulkSessions DEBUG] - coachId from request:", coachId);
+        console.log("[BulkSessions DEBUG] - sessionType from request:", sessionType);
+        console.log("[BulkSessions DEBUG] - playerIds:", playerIds);
+        console.log("[BulkSessions DEBUG] - Player series found:", playerSeries.length);
+        playerSeries.forEach((s: any) => {
+          console.log("[BulkSessions DEBUG]   Series:", s.id, "title:", s.title, "coachId:", s.coachId, "sessionType:", s.sessionType, "status:", s.status);
+          console.log("[BulkSessions DEBUG]   Match check: coachId match=", s.coachId === coachId, "sessionType match=", s.sessionType === sessionType, "status match=", s.status === "active");
+        });
+        
+        const existingSeries = playerSeries.find((s: any) => 
+          s.coachId === coachId && 
+          s.sessionType === sessionType && 
+          s.status === "active"
+        );
+        if (existingSeries) {
+          seriesId = existingSeries.id;
+          console.log("[BulkSessions DEBUG] FOUND existing series:", existingSeries.id, existingSeries.title);
+        } else {
+          console.log("[BulkSessions DEBUG] NO existing series found - will create new one");
+        }
+      }
+      // If players provided, try to find their existing active series with this coach
+      if (playerIds && playerIds.length > 0) {
+        const firstPlayerId = playerIds[0];
+        const playerSeries = await storage.getPlayerSeries(firstPlayerId);
+        
+        console.log("[BulkSessions DEBUG] Looking for existing series:");
+        console.log("[BulkSessions DEBUG] - coachId from request:", coachId);
+        console.log("[BulkSessions DEBUG] - sessionType from request:", sessionType);
+        console.log("[BulkSessions DEBUG] - playerIds:", playerIds);
+        console.log("[BulkSessions DEBUG] - Player series found:", playerSeries.length);
+        playerSeries.forEach((s: any) => {
+          console.log("[BulkSessions DEBUG]   Series:", s.id, "title:", s.title, "coachId:", s.coachId, "sessionType:", s.sessionType, "status:", s.status);
+          console.log("[BulkSessions DEBUG]   Match check: coachId match=", s.coachId === coachId, "sessionType match=", s.sessionType === sessionType, "status match=", s.status === "active");
+        });
+        
+        const existingSeries = playerSeries.find((s: any) => 
+          s.coachId === coachId && 
+          s.sessionType === sessionType && 
+          s.status === "active"
+        );
+        if (existingSeries) {
+          seriesId = existingSeries.id;
+          console.log("[BulkSessions DEBUG] FOUND existing series:", existingSeries.id, existingSeries.title);
+        } else {
+          console.log("[BulkSessions DEBUG] NO existing series found - will create new one");
+        }
+      }
+      // If players provided, try to find their existing active series with this coach
+      if (playerIds && playerIds.length > 0) {
+        const firstPlayerId = playerIds[0];
+        const playerSeries = await storage.getPlayerSeries(firstPlayerId);
+        
+        console.log("[BulkSessions DEBUG] Looking for existing series:");
+        console.log("[BulkSessions DEBUG] - coachId from request:", coachId);
+        console.log("[BulkSessions DEBUG] - sessionType from request:", sessionType);
+        console.log("[BulkSessions DEBUG] - playerIds:", playerIds);
+        console.log("[BulkSessions DEBUG] - Player series found:", playerSeries.length);
+        playerSeries.forEach((s: any) => {
+          console.log("[BulkSessions DEBUG]   Series:", s.id, "title:", s.title, "coachId:", s.coachId, "sessionType:", s.sessionType, "status:", s.status);
+          console.log("[BulkSessions DEBUG]   Match check: coachId match=", s.coachId === coachId, "sessionType match=", s.sessionType === sessionType, "status match=", s.status === "active");
+        });
+        
+        const existingSeries = playerSeries.find((s: any) => 
+          s.coachId === coachId && 
+          s.sessionType === sessionType && 
+          s.status === "active"
+        );
+        if (existingSeries) {
+          seriesId = existingSeries.id;
+          console.log("[BulkSessions DEBUG] FOUND existing series:", existingSeries.id, existingSeries.title);
+        } else {
+          console.log("[BulkSessions DEBUG] NO existing series found - will create new one");
+        }
+      }
+      // If players provided, try to find their existing active series with this coach
+      if (playerIds && playerIds.length > 0) {
+        const firstPlayerId = playerIds[0];
+        const playerSeries = await storage.getPlayerSeries(firstPlayerId);
+        
+        console.log("[BulkSessions DEBUG] Looking for existing series:");
+        console.log("[BulkSessions DEBUG] - coachId from request:", coachId);
+        console.log("[BulkSessions DEBUG] - sessionType from request:", sessionType);
+        console.log("[BulkSessions DEBUG] - playerIds:", playerIds);
+        console.log("[BulkSessions DEBUG] - Player series found:", playerSeries.length);
+        playerSeries.forEach((s: any) => {
+          console.log("[BulkSessions DEBUG]   Series:", s.id, "title:", s.title, "coachId:", s.coachId, "sessionType:", s.sessionType, "status:", s.status);
+          console.log("[BulkSessions DEBUG]   Match check: coachId match=", s.coachId === coachId, "sessionType match=", s.sessionType === sessionType, "status match=", s.status === "active");
+        });
+        
+        const existingSeries = playerSeries.find((s: any) => 
+          s.coachId === coachId && 
+          s.sessionType === sessionType && 
+          s.status === "active"
+        );
+        if (existingSeries) {
+          seriesId = existingSeries.id;
+          console.log("[BulkSessions DEBUG] FOUND existing series:", existingSeries.id, existingSeries.title);
+        } else {
+          console.log("[BulkSessions DEBUG] NO existing series found - will create new one");
+        }
+      }
+      // If players provided, try to find their existing active series with this coach
+      if (playerIds && playerIds.length > 0) {
+        const firstPlayerId = playerIds[0];
+        const playerSeries = await storage.getPlayerSeries(firstPlayerId);
+        
+        console.log("[BulkSessions DEBUG] Looking for existing series:");
+        console.log("[BulkSessions DEBUG] - coachId from request:", coachId);
+        console.log("[BulkSessions DEBUG] - sessionType from request:", sessionType);
+        console.log("[BulkSessions DEBUG] - playerIds:", playerIds);
+        console.log("[BulkSessions DEBUG] - Player series found:", playerSeries.length);
+        playerSeries.forEach((s: any) => {
+          console.log("[BulkSessions DEBUG]   Series:", s.id, "title:", s.title, "coachId:", s.coachId, "sessionType:", s.sessionType, "status:", s.status);
+          console.log("[BulkSessions DEBUG]   Match check: coachId match=", s.coachId === coachId, "sessionType match=", s.sessionType === sessionType, "status match=", s.status === "active");
+        });
+        
+        const existingSeries = playerSeries.find((s: any) => 
+          s.coachId === coachId && 
+          s.sessionType === sessionType && 
+          s.status === "active"
+        );
+        if (existingSeries) {
+          seriesId = existingSeries.id;
+          console.log("[BulkSessions DEBUG] FOUND existing series:", existingSeries.id, existingSeries.title);
+        } else {
+          console.log("[BulkSessions DEBUG] NO existing series found - will create new one");
+        }
+      }
+      // If players provided, try to find their existing active series with this coach
+      if (playerIds && playerIds.length > 0) {
+        const firstPlayerId = playerIds[0];
+        const playerSeries = await storage.getPlayerSeries(firstPlayerId);
+        
+        console.log("[BulkSessions DEBUG] Looking for existing series:");
+        console.log("[BulkSessions DEBUG] - coachId from request:", coachId);
+        console.log("[BulkSessions DEBUG] - sessionType from request:", sessionType);
+        console.log("[BulkSessions DEBUG] - playerIds:", playerIds);
+        console.log("[BulkSessions DEBUG] - Player series found:", playerSeries.length);
+        playerSeries.forEach((s: any) => {
+          console.log("[BulkSessions DEBUG]   Series:", s.id, "title:", s.title, "coachId:", s.coachId, "sessionType:", s.sessionType, "status:", s.status);
+          console.log("[BulkSessions DEBUG]   Match check: coachId match=", s.coachId === coachId, "sessionType match=", s.sessionType === sessionType, "status match=", s.status === "active");
+        });
+        
+        const existingSeries = playerSeries.find((s: any) => 
+          s.coachId === coachId && 
+          s.sessionType === sessionType && 
+          s.status === "active"
+        );
+        if (existingSeries) {
+          seriesId = existingSeries.id;
+          console.log("[BulkSessions DEBUG] FOUND existing series:", existingSeries.id, existingSeries.title);
+        } else {
+          console.log("[BulkSessions DEBUG] NO existing series found - will create new one");
         }
       }
       
