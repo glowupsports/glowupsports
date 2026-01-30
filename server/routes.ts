@@ -11655,7 +11655,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const timeline = seriesSessions.map(session => {
         const dateParam = req.query.date as string | undefined;
       const now = dateParam ? new Date(dateParam) : new Date(); const DUBAI_OFFSET = 4; const dubaiNow = new Date(now.getTime() + DUBAI_OFFSET * 60 * 60 * 1000);
-        const sessionDate = new Date(session.startTime);
+        const sessionDateUTC = new Date(session.startTime);
+        const sessionDateDubai = toDubaiTime(sessionDateUTC);
         const isToday = sessionDate.toDateString() === now.toDateString();
         const isPast = sessionDate < now;
         const hasFeedback = feedbackMap[session.id] || false;
@@ -11793,7 +11794,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         firstWeekStart.setUTCHours(0, 0, 0, 0);
         
         for (const session of groupSessions) {
-          const sessionDate = new Date(session.startTime);
+          const sessionDateUTC = new Date(session.startTime);
+        const sessionDateDubai = toDubaiTime(sessionDateUTC);
           sessionDate.setUTCHours(0, 0, 0, 0);
           
           // Calculate weeks elapsed since first session
@@ -16373,7 +16375,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         for (const academy of academies) {
           const sessions = await storage.getSessionsByAcademy(academy.id);
           for (const session of sessions) {
-            const sessionDate = new Date(session.startTime);
+            const sessionDateUTC = new Date(session.startTime);
+        const sessionDateDubai = toDubaiTime(sessionDateUTC);
             if (sessionDate >= sevenDaysAgo && sessionDate <= now) {
               const dayIndex = sessionDate.getDay();
               activityByDay[dayIndex]++;
@@ -28411,6 +28414,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       ];
 
       // Get all sessions for the academy on this date
+      // Helper to convert UTC to Dubai timezone (UTC+4)
+      const toDubaiTime = (utcDate: Date): Date => {
+        const dubaiOffset = 4 * 60; // minutes
+        const utcTime = utcDate.getTime();
+        return new Date(utcTime + dubaiOffset * 60 * 1000);
+      };
       const allSessions = academyId ? await storage.getSessionsByAcademy(academyId) : [];
       const dateStr = date as string;
       
@@ -28418,12 +28427,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const dateSessionsMap = new Map<string, Set<number>>();
       for (const session of allSessions) {
         if (!session.courtId) continue;
-        const sessionDate = new Date(session.startTime);
-        const sessionDateStr = sessionDate.toISOString().split('T')[0];
+        const sessionDateUTC = new Date(session.startTime);
+        const sessionDateDubai = toDubaiTime(sessionDateUTC);
+        const sessionDateStr = sessionDateDubai.toISOString().split('T')[0];
         if (sessionDateStr !== dateStr) continue;
         
-        const startHour = sessionDate.getHours();
-        const endHour = session.endTime ? new Date(session.endTime).getHours() : startHour + 1;
+        const startHour = sessionDateDubai.getUTCHours();
+        const endDateDubai = session.endTime ? toDubaiTime(new Date(session.endTime)) : null;
+        const endHour = endDateDubai ? endDateDubai.getUTCHours() : startHour + 1;
         
         if (!dateSessionsMap.has(session.courtId)) {
           dateSessionsMap.set(session.courtId, new Set());
