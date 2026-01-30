@@ -203,7 +203,7 @@ export default function CommandCenterScreen() {
               label="Total Coaches"
               value={metrics.totalCoaches}
               color={Colors.dark.primary}
-              onPress={() => navigation.navigate("Coaches")}
+              onPress={() => navigation.navigate("CoachHealth")}
             />
           </View>
           <View style={styles.kpiItem}>
@@ -212,7 +212,7 @@ export default function CommandCenterScreen() {
               label="New Signups"
               value={metrics.newSignups}
               color={Colors.dark.xpCyan}
-              onPress={() => navigation.navigate("Players")}
+              onPress={() => navigation.navigate("PlayerHealth")}
             />
           </View>
         </View>
@@ -280,7 +280,7 @@ export default function CommandCenterScreen() {
               style={styles.quickAction}
               onPress={() => {
                 Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                navigation.navigate("Coaches");
+                navigation.navigate("CoachHealth");
               }}
             >
               <View style={[styles.quickActionIcon, { backgroundColor: `${Colors.dark.xpCyan}15` }]}>
