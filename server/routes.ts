@@ -10476,6 +10476,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       await storage.deleteCoachingSeries(id);
+      
+      // Invalidate cache after deletion so list refreshes properly
+      apiCache.invalidate(`coach_series_${coachId}`);
+      apiCache.invalidate(`coach_earnings_${coachId}`);
+      apiCache.invalidate(`coach_calendar_${coachId}`);
+      console.log("[Series DELETE] Cache invalidated for coach:", coachId);
       res.json({ success: true });
     } catch (error) {
       console.error("Error deleting coaching series:", error);
@@ -10648,6 +10654,73 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Sync all coaching series - regenerate missing sessions
+
+  // Add extra lesson to a series (one-time session outside regular schedule)
+  app.post("/api/coach/series/:id/extra-lesson", authMiddleware, requireAcademy, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const { id } = req.params;
+      const { startTime, duration } = req.body;
+      const coachId = req.user!.coachId;
+      const academyId = req.user!.academyId;
+      
+      if (!coachId || !academyId) {
+        return res.status(400).json({ error: "Coach and academy required" });
+      }
+      
+      // Get the series
+      const series = await storage.getCoachingSeriesById(id);
+      if (!series) {
+        return res.status(404).json({ error: "Series not found" });
+      }
+      
+      if (series.coachId !== coachId) {
+        return res.status(403).json({ error: "Not authorized to modify this series" });
+      }
+      
+      // Parse the start time
+      const sessionStart = new Date(startTime);
+      const sessionEnd = new Date(sessionStart.getTime() + (duration || 60) * 60 * 1000);
+      
+      // Get players from the series
+      const seriesPlayers = await storage.getSeriesPlayers(id);
+      const activePlayerIds = seriesPlayers
+        .filter(sp => sp.status === "active")
+        .map(sp => sp.playerId);
+      
+      // Create the session
+      const session = await storage.createSession({
+        academyId,
+        coachId,
+        startTime: sessionStart,
+        endTime: sessionEnd,
+        sessionType: series.sessionType || "group",
+        status: "scheduled",
+        seriesId: id,
+        maxPlayers: series.maxPlayers || 4,
+        playerIds: activePlayerIds,
+      });
+      
+      // Assign players to the session
+      for (const playerId of activePlayerIds) {
+        await storage.assignPlayerToSession(session.id, playerId);
+      }
+      
+      // Invalidate cache
+      apiCache.invalidate(`coach_series_${coachId}`);
+      apiCache.invalidate(`coach_calendar_${coachId}`);
+      
+      console.log("[Extra Lesson] Created session:", session.id, "for series:", id);
+      
+      res.json({ 
+        success: true, 
+        session,
+        playersAdded: activePlayerIds.length 
+      });
+    } catch (error) {
+      console.error("Error adding extra lesson:", error);
+      res.status(500).json({ error: "Failed to add extra lesson" });
+    }
+  });
   app.post("/api/coach/series/sync-all", authMiddleware, requireAcademy, async (req: AuthenticatedRequest, res: Response) => {
     try {
       const coachId = req.user!.coachId;
@@ -17726,6 +17799,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       await storage.deleteCoachingSeries(id);
+      
+      // Invalidate cache after deletion so list refreshes properly
+      apiCache.invalidate(`coach_series_${coachId}`);
+      apiCache.invalidate(`coach_earnings_${coachId}`);
+      apiCache.invalidate(`coach_calendar_${coachId}`);
+      console.log("[Series DELETE] Cache invalidated for coach:", coachId);
 
       res.json({ success: true });
     } catch (error) {

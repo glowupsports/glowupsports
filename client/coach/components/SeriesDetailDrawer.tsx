@@ -1009,6 +1009,14 @@ export default function SeriesDetailDrawer({
   const [showExtendModal, setShowExtendModal] = useState(false);
   const [weeksToExtend, setWeeksToExtend] = useState(4);
   
+  // Extra lesson modal
+  const [showExtraLessonModal, setShowExtraLessonModal] = useState(false);
+  const [extraLessonDate, setExtraLessonDate] = useState<Date>(new Date());
+  const [extraLessonTime, setExtraLessonTime] = useState<Date>(new Date());
+  const [showExtraLessonDatePicker, setShowExtraLessonDatePicker] = useState(false);
+  const [showExtraLessonTimePicker, setShowExtraLessonTimePicker] = useState(false);
+  const [addingExtraLesson, setAddingExtraLesson] = useState(false);
+  
   const weekOptions = [2, 4, 6, 8, 10, 12, 16, 20, 24];
   
   const handleExtendSeries = () => {
@@ -1059,6 +1067,58 @@ export default function SeriesDetailDrawer({
       }
     } finally {
       setExtendingSeries(false);
+    }
+  };
+  
+  const confirmAddExtraLesson = async () => {
+    if (!seriesId || !series) return;
+    
+    setAddingExtraLesson(true);
+    setShowExtraLessonModal(false);
+    
+    try {
+      // Combine date and time
+      const lessonDateTime = new Date(extraLessonDate);
+      lessonDateTime.setHours(extraLessonTime.getHours(), extraLessonTime.getMinutes(), 0, 0);
+      
+      const response = await fetch(`${getApiUrl()}/api/coach/series/${seriesId}/extra-lesson`, {
+        method: "POST",
+        headers: { 
+          "Content-Type": "application/json",
+          ...getAuthHeaders(),
+        },
+        body: JSON.stringify({
+          startTime: lessonDateTime.toISOString(),
+          duration: series.duration || 60,
+        }),
+      });
+      
+      if (!response.ok) {
+        const data = await response.json();
+        throw new Error(data.error || "Failed to add extra lesson");
+      }
+      
+      await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      
+      // Refresh data
+      queryClient.invalidateQueries({ queryKey: ["/api/coach/series"] });
+      queryClient.invalidateQueries({ queryKey: [`/api/coach/series/${seriesId}`] });
+      
+      if (Platform.OS === "web" && typeof window !== "undefined") {
+        window.alert("Extra lesson added successfully!");
+      } else {
+        Alert.alert("Success", "Extra lesson added to the class!");
+      }
+    } catch (error: any) {
+      console.error("Error adding extra lesson:", error);
+      const msg = error?.message || "Failed to add extra lesson";
+      if (Platform.OS === "web" && typeof window !== "undefined") {
+        window.alert(msg);
+      } else {
+        Alert.alert("Error", msg);
+      }
+    } finally {
+      setAddingExtraLesson(false);
     }
   };
   
@@ -1500,6 +1560,24 @@ export default function SeriesDetailDrawer({
                 <>
                   <Ionicons name="add-circle-outline" size={18} color={Colors.dark.accent} />
                   <Text style={styles.extendSeriesButtonText}>Extend Class (+weeks)</Text>
+                </>
+              )}
+            </Pressable>
+          )}
+          
+          {/* Add Extra Lesson Button - only show if series is active */}
+          {series?.status === "active" && (
+            <Pressable
+              onPress={() => setShowExtraLessonModal(true)}
+              style={[styles.extendSeriesButton, addingExtraLesson && styles.extendSeriesButtonDisabled]}
+              disabled={addingExtraLesson}
+            >
+              {addingExtraLesson ? (
+                <ActivityIndicator size="small" color={Colors.dark.warningNeon} />
+              ) : (
+                <>
+                  <Ionicons name="calendar-outline" size={18} color={Colors.dark.warningNeon} />
+                  <Text style={[styles.extendSeriesButtonText, { color: Colors.dark.warningNeon }]}>Add Extra Lesson</Text>
                 </>
               )}
             </Pressable>
@@ -3444,6 +3522,134 @@ export default function SeriesDetailDrawer({
                   <Ionicons name="add-circle" size={20} color={Colors.dark.backgroundRoot} />
                   <Text style={styles.extendConfirmButtonText}>
                     Add {weeksToExtend} Weeks
+                  </Text>
+                </LinearGradient>
+              </Pressable>
+            </View>
+          </View>
+        </View>
+      </Modal>
+      
+      {/* Extra Lesson Modal */}
+      <Modal
+        visible={showExtraLessonModal}
+        animationType="fade"
+        transparent={true}
+        onRequestClose={() => setShowExtraLessonModal(false)}
+      >
+        <View style={styles.extendModalOverlay}>
+          <View style={styles.extendModalBackdrop}>
+            <Pressable 
+              style={StyleSheet.absoluteFill} 
+              onPress={() => setShowExtraLessonModal(false)} 
+            />
+          </View>
+          <View style={styles.extendModalContent}>
+            <View style={styles.extendModalHeader}>
+              <Ionicons name="calendar-outline" size={32} color={Colors.dark.warningNeon} />
+              <Text style={styles.extendModalTitle}>Add Extra Lesson</Text>
+              <Text style={styles.extendModalSubtitle}>
+                Schedule a one-time session for this class
+              </Text>
+            </View>
+            
+            <Text style={styles.extendModalLabel}>Select Date</Text>
+            {Platform.OS === "web" ? (
+              <WebCalendarPicker
+                value={extraLessonDate}
+                onChange={(date) => setExtraLessonDate(date)}
+                minDate={new Date()}
+              />
+            ) : (
+              <Pressable
+                style={styles.datePickerButton}
+                onPress={() => setShowExtraLessonDatePicker(true)}
+              >
+                <Ionicons name="calendar" size={20} color={Colors.dark.accent} />
+                <Text style={styles.datePickerButtonText}>
+                  {extraLessonDate.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })}
+                </Text>
+              </Pressable>
+            )}
+            
+            {showExtraLessonDatePicker && Platform.OS !== "web" && (
+              <DateTimePicker
+                value={extraLessonDate}
+                mode="date"
+                display="default"
+                minimumDate={new Date()}
+                onChange={(event, selectedDate) => {
+                  setShowExtraLessonDatePicker(false);
+                  if (selectedDate) setExtraLessonDate(selectedDate);
+                }}
+              />
+            )}
+            
+            <Text style={[styles.extendModalLabel, { marginTop: Spacing.md }]}>Select Time</Text>
+            {Platform.OS === "web" ? (
+              <input
+                type="time"
+                value={`${String(extraLessonTime.getHours()).padStart(2, '0')}:${String(extraLessonTime.getMinutes()).padStart(2, '0')}`}
+                onChange={(e) => {
+                  const [hours, minutes] = e.target.value.split(':');
+                  const newTime = new Date();
+                  newTime.setHours(parseInt(hours), parseInt(minutes), 0, 0);
+                  setExtraLessonTime(newTime);
+                }}
+                style={{
+                  backgroundColor: Colors.dark.backgroundSecondary,
+                  color: Colors.dark.text,
+                  border: `1px solid ${Colors.dark.border}`,
+                  borderRadius: BorderRadius.md,
+                  padding: Spacing.sm,
+                  fontSize: 16,
+                  width: '100%',
+                }}
+              />
+            ) : (
+              <Pressable
+                style={styles.datePickerButton}
+                onPress={() => setShowExtraLessonTimePicker(true)}
+              >
+                <Ionicons name="time" size={20} color={Colors.dark.accent} />
+                <Text style={styles.datePickerButtonText}>
+                  {extraLessonTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false })}
+                </Text>
+              </Pressable>
+            )}
+            
+            {showExtraLessonTimePicker && Platform.OS !== "web" && (
+              <DateTimePicker
+                value={extraLessonTime}
+                mode="time"
+                display="default"
+                onChange={(event, selectedTime) => {
+                  setShowExtraLessonTimePicker(false);
+                  if (selectedTime) setExtraLessonTime(selectedTime);
+                }}
+              />
+            )}
+            
+            <View style={styles.extendModalFooter}>
+              <Pressable
+                style={styles.extendCancelButton}
+                onPress={() => setShowExtraLessonModal(false)}
+              >
+                <Text style={styles.extendCancelButtonText}>Cancel</Text>
+              </Pressable>
+              <Pressable
+                style={[styles.extendConfirmButton, { borderColor: Colors.dark.warningNeon }]}
+                onPress={confirmAddExtraLesson}
+              >
+                <LinearGradient
+                  colors={[Colors.dark.warningNeon, Colors.dark.warning]}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 0 }}
+                  style={styles.extendConfirmGradient}
+                >
+                  <Ionicons name="add-circle" size={20} color={Colors.dark.backgroundRoot} />
+                  <Text style={styles.extendConfirmButtonText}>
+                    Add Lesson
                   </Text>
                 </LinearGradient>
               </Pressable>
