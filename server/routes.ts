@@ -322,6 +322,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
 
+  // TEMPORARY: Cleanup endpoint to delete a specific series and its sessions
+  app.delete("/api/cleanup/series/:id", async (req: Request, res: Response) => {
+    try {
+      const { id } = req.params;
+      console.log("[Cleanup] Deleting series:", id);
+      
+      await storage.deleteCoachingSeries(id);
+      
+      console.log("[Cleanup] Series deleted successfully:", id);
+      res.json({ success: true, message: `Series ${id} and all related sessions deleted` });
+    } catch (error) {
+      console.error("[Cleanup] Error deleting series:", error);
+      res.status(500).json({ error: "Failed to delete series" });
+    }
+  });
+
+
   // TEMPORARY: Fix unpaid sessions for specific player (public endpoint for debugging)
   app.post("/api/fix-player-unpaid/:playerId", async (req: Request, res: Response) => {
     try {
