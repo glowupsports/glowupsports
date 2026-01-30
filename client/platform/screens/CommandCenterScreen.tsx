@@ -268,7 +268,7 @@ export default function CommandCenterScreen() {
               style={styles.quickAction}
               onPress={() => {
                 Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                navigation.navigate("Finance");
+                navigation.navigate("Financials");
               }}
             >
               <View style={[styles.quickActionIcon, { backgroundColor: `${Colors.dark.primary}15` }]}>
