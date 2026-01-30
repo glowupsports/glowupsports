@@ -1015,6 +1015,7 @@ export default function SeriesDetailDrawer({
   const [selectedCourtId, setSelectedCourtId] = useState<string | null>(null);
   const [extraLessonDate, setExtraLessonDate] = useState<Date>(new Date());
   const [extraLessonTime, setExtraLessonTime] = useState<Date>(new Date());
+  const [selectedTimeSlot, setSelectedTimeSlot] = useState<string | null>(null);
   const [showExtraLessonDatePicker, setShowExtraLessonDatePicker] = useState(false);
   const [showExtraLessonTimePicker, setShowExtraLessonTimePicker] = useState(false);
   const [addingExtraLesson, setAddingExtraLesson] = useState(false);
@@ -1025,11 +1026,39 @@ export default function SeriesDetailDrawer({
     enabled: showExtraLessonModal,
   });
   
+  // Fetch sessions for selected court and date to show busy slots
+  const dateStr = extraLessonDate.toISOString().split('T')[0];
+  const { data: courtSessionsData } = useQuery<any[]>({
+    queryKey: ["/api/coach/calendar", selectedCourtId, dateStr],
+    enabled: showExtraLessonModal && extraLessonStep === 3 && !!selectedCourtId,
+  });
+  
+  // Generate time slots from 6:00 to 22:00 (1-hour intervals)
+  const timeSlots = React.useMemo(() => {
+    const slots: { time: string; available: boolean }[] = [];
+    for (let hour = 6; hour <= 22; hour++) {
+      const timeStr = `${String(hour).padStart(2, '0')}:00`;
+      // Check if this slot is booked
+      const isBooked = courtSessionsData?.some((session: any) => {
+        if (session.courtId !== selectedCourtId) return false;
+        const sessionStart = new Date(session.startTime);
+        const sessionDate = sessionStart.toISOString().split('T')[0];
+        if (sessionDate !== dateStr) return false;
+        const sessionHour = sessionStart.getHours();
+        const sessionEndHour = new Date(session.endTime).getHours();
+        return hour >= sessionHour && hour < sessionEndHour;
+      }) || false;
+      slots.push({ time: timeStr, available: !isBooked });
+    }
+    return slots;
+  }, [courtSessionsData, selectedCourtId, dateStr]);
+  
   const resetExtraLessonModal = () => {
     setExtraLessonStep(1);
     setSelectedCourtId(null);
     setExtraLessonDate(new Date());
     setExtraLessonTime(new Date());
+    setSelectedTimeSlot(null);
     setShowExtraLessonModal(false);
   };
   
@@ -3588,36 +3617,57 @@ export default function SeriesDetailDrawer({
                   </Text>
                 </View>
                 
-                <ScrollView style={{ maxHeight: 250, marginBottom: Spacing.md }}>
+                <View style={{ marginBottom: Spacing.md }}>
                   {courtsData && courtsData.length > 0 ? (
-                    courtsData.map((court) => (
+                    courtsData.map((court, index) => (
                       <Pressable
                         key={court.id}
                         style={[
-                          styles.weekOption,
-                          { flexDirection: "row", alignItems: "center", justifyContent: "flex-start", gap: Spacing.sm, marginBottom: Spacing.xs },
-                          selectedCourtId === court.id && styles.weekOptionSelected,
+                          {
+                            flexDirection: "row",
+                            alignItems: "center",
+                            padding: Spacing.md,
+                            borderRadius: BorderRadius.md,
+                            backgroundColor: selectedCourtId === court.id ? Colors.dark.warning + "20" : Colors.dark.backgroundSecondary,
+                            borderWidth: 2,
+                            borderColor: selectedCourtId === court.id ? Colors.dark.warning : Colors.dark.border,
+                            marginBottom: index < courtsData.length - 1 ? Spacing.sm : 0,
+                          },
                         ]}
                         onPress={() => {
                           Haptics.selectionAsync();
                           setSelectedCourtId(court.id);
                         }}
                       >
-                        <View style={{ width: 12, height: 12, borderRadius: 6, backgroundColor: court.color || Colors.dark.accent }} />
-                        <Text style={[
-                          styles.weekOptionText,
-                          selectedCourtId === court.id && styles.weekOptionTextSelected,
-                        ]}>
+                        <View style={{ 
+                          width: 16, 
+                          height: 16, 
+                          borderRadius: 8, 
+                          backgroundColor: court.color || Colors.dark.accent,
+                          marginRight: Spacing.md,
+                        }} />
+                        <Text style={{
+                          color: selectedCourtId === court.id ? Colors.dark.warning : Colors.dark.text,
+                          fontSize: 16,
+                          fontWeight: selectedCourtId === court.id ? "600" : "400",
+                          flex: 1,
+                        }}>
                           {court.name}
                         </Text>
+                        {selectedCourtId === court.id && (
+                          <Ionicons name="checkmark-circle" size={22} color={Colors.dark.warning} />
+                        )}
                       </Pressable>
                     ))
                   ) : (
-                    <Text style={{ color: Colors.dark.textSecondary, textAlign: "center", padding: Spacing.md }}>
-                      No courts available
-                    </Text>
+                    <View style={{ padding: Spacing.lg, alignItems: "center" }}>
+                      <Ionicons name="tennisball-outline" size={40} color={Colors.dark.textMuted} />
+                      <Text style={{ color: Colors.dark.textSecondary, textAlign: "center", marginTop: Spacing.sm }}>
+                        No courts available
+                      </Text>
+                    </View>
                   )}
-                </ScrollView>
+                </View>
                 
                 <View style={styles.extendModalFooter}>
                   <Pressable style={styles.extendCancelButton} onPress={resetExtraLessonModal}>
@@ -3711,80 +3761,99 @@ export default function SeriesDetailDrawer({
               <>
                 <View style={styles.extendModalHeader}>
                   <Ionicons name="time-outline" size={32} color={Colors.dark.warning} />
-                  <Text style={styles.extendModalTitle}>Select Time</Text>
+                  <Text style={styles.extendModalTitle}>Available Times</Text>
                   <Text style={styles.extendModalSubtitle}>
-                    Choose the start time for the lesson
+                    {courtsData?.find(c => c.id === selectedCourtId)?.name || "Court"} - {extraLessonDate.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })}
                   </Text>
                 </View>
                 
-                {Platform.OS === "web" ? (
-                  <input
-                    type="time"
-                    value={`${String(extraLessonTime.getHours()).padStart(2, '0')}:${String(extraLessonTime.getMinutes()).padStart(2, '0')}`}
-                    onChange={(e) => {
-                      const [hours, minutes] = e.target.value.split(':');
-                      const newTime = new Date();
-                      newTime.setHours(parseInt(hours), parseInt(minutes), 0, 0);
-                      setExtraLessonTime(newTime);
-                    }}
-                    style={{
-                      backgroundColor: Colors.dark.backgroundSecondary,
-                      color: Colors.dark.text,
-                      border: `1px solid ${Colors.dark.border}`,
-                      borderRadius: BorderRadius.md,
-                      padding: Spacing.md,
-                      fontSize: 18,
-                      width: '100%',
-                      textAlign: 'center',
-                    }}
-                  />
-                ) : (
-                  <>
-                    <Pressable
-                      style={styles.datePickerButton}
-                      onPress={() => setShowExtraLessonTimePicker(true)}
-                    >
-                      <Ionicons name="time" size={20} color={Colors.dark.accent} />
-                      <Text style={styles.datePickerText}>
-                        {extraLessonTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false })}
-                      </Text>
-                    </Pressable>
-                    {showExtraLessonTimePicker && (
-                      <DateTimePicker
-                        value={extraLessonTime}
-                        mode="time"
-                        display="default"
-                        onChange={(event, selectedTime) => {
-                          setShowExtraLessonTimePicker(false);
-                          if (selectedTime) setExtraLessonTime(selectedTime);
+                <View style={{ 
+                  flexDirection: "row", 
+                  flexWrap: "wrap", 
+                  justifyContent: "space-between",
+                  marginBottom: Spacing.md,
+                }}>
+                  {timeSlots.map((slot) => {
+                    const isSelected = selectedTimeSlot === slot.time;
+                    return (
+                      <Pressable
+                        key={slot.time}
+                        style={{
+                          width: "23%",
+                          paddingVertical: Spacing.sm,
+                          paddingHorizontal: Spacing.xs,
+                          marginBottom: Spacing.sm,
+                          borderRadius: BorderRadius.md,
+                          borderWidth: 2,
+                          borderColor: isSelected ? Colors.dark.successNeon : slot.available ? Colors.dark.border : Colors.dark.border,
+                          backgroundColor: isSelected 
+                            ? Colors.dark.successNeon + "30" 
+                            : slot.available 
+                              ? Colors.dark.backgroundSecondary 
+                              : Colors.dark.backgroundRoot,
+                          opacity: slot.available ? 1 : 0.4,
+                          alignItems: "center",
                         }}
-                      />
-                    )}
-                  </>
+                        onPress={() => {
+                          if (slot.available) {
+                            Haptics.selectionAsync();
+                            setSelectedTimeSlot(slot.time);
+                            const [hours, minutes] = slot.time.split(':');
+                            const newTime = new Date();
+                            newTime.setHours(parseInt(hours), parseInt(minutes || "0"), 0, 0);
+                            setExtraLessonTime(newTime);
+                          }
+                        }}
+                        disabled={!slot.available}
+                      >
+                        <Text style={{
+                          color: isSelected 
+                            ? Colors.dark.successNeon 
+                            : slot.available 
+                              ? Colors.dark.text 
+                              : Colors.dark.textMuted,
+                          fontSize: 14,
+                          fontWeight: isSelected ? "700" : "500",
+                        }}>
+                          {slot.time}
+                        </Text>
+                        {!slot.available && (
+                          <Text style={{ color: Colors.dark.textMuted, fontSize: 9, marginTop: 2 }}>
+                            Booked
+                          </Text>
+                        )}
+                      </Pressable>
+                    );
+                  })}
+                </View>
+                
+                {selectedTimeSlot && (
+                  <View style={{ 
+                    padding: Spacing.md, 
+                    backgroundColor: Colors.dark.successNeon + "15", 
+                    borderRadius: BorderRadius.md,
+                    borderWidth: 1,
+                    borderColor: Colors.dark.successNeon + "40",
+                    marginBottom: Spacing.md,
+                  }}>
+                    <View style={{ flexDirection: "row", alignItems: "center", gap: Spacing.sm }}>
+                      <Ionicons name="checkmark-circle" size={20} color={Colors.dark.successNeon} />
+                      <Text style={{ color: Colors.dark.successNeon, fontWeight: "600", fontSize: 14 }}>
+                        Selected: {selectedTimeSlot}
+                      </Text>
+                    </View>
+                  </View>
                 )}
                 
-                {/* Summary */}
-                <View style={{ marginTop: Spacing.lg, padding: Spacing.md, backgroundColor: Colors.dark.backgroundSecondary, borderRadius: BorderRadius.md }}>
-                  <Text style={{ color: Colors.dark.textSecondary, fontSize: 12, marginBottom: Spacing.xs }}>Summary</Text>
-                  <Text style={{ color: Colors.dark.text, fontSize: 14 }}>
-                    Court: {courtsData?.find(c => c.id === selectedCourtId)?.name || "Selected"}
-                  </Text>
-                  <Text style={{ color: Colors.dark.text, fontSize: 14 }}>
-                    Date: {extraLessonDate.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })}
-                  </Text>
-                  <Text style={{ color: Colors.dark.text, fontSize: 14 }}>
-                    Time: {extraLessonTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false })}
-                  </Text>
-                </View>
-                
-                <View style={[styles.extendModalFooter, { marginTop: Spacing.lg }]}>
+                <View style={[styles.extendModalFooter, { marginTop: Spacing.sm }]}>
                   <Pressable style={styles.extendCancelButton} onPress={() => setExtraLessonStep(2)}>
                     <Ionicons name="arrow-back" size={16} color={Colors.dark.textSecondary} />
                     <Text style={styles.extendCancelButtonText}>Back</Text>
                   </Pressable>
                   <Pressable
-                    style={styles.extendConfirmButton}
+                    style={[styles.extendConfirmButton, !selectedTimeSlot && { opacity: 0.5 }]}
                     onPress={confirmAddExtraLesson}
+                    disabled={!selectedTimeSlot}
                   >
                     <LinearGradient
                       colors={[Colors.dark.successNeon, Colors.dark.accentGreen]}
