@@ -1009,13 +1009,29 @@ export default function SeriesDetailDrawer({
   const [showExtendModal, setShowExtendModal] = useState(false);
   const [weeksToExtend, setWeeksToExtend] = useState(4);
   
-  // Extra lesson modal
+  // Extra lesson modal - 3-step wizard
   const [showExtraLessonModal, setShowExtraLessonModal] = useState(false);
+  const [extraLessonStep, setExtraLessonStep] = useState(1); // 1=Court, 2=Date, 3=Time
+  const [selectedCourtId, setSelectedCourtId] = useState<string | null>(null);
   const [extraLessonDate, setExtraLessonDate] = useState<Date>(new Date());
   const [extraLessonTime, setExtraLessonTime] = useState<Date>(new Date());
   const [showExtraLessonDatePicker, setShowExtraLessonDatePicker] = useState(false);
   const [showExtraLessonTimePicker, setShowExtraLessonTimePicker] = useState(false);
   const [addingExtraLesson, setAddingExtraLesson] = useState(false);
+  
+  // Fetch courts for the academy
+  const { data: courtsData } = useQuery<{ id: string; name: string; color: string }[]>({
+    queryKey: ["/api/courts"],
+    enabled: showExtraLessonModal,
+  });
+  
+  const resetExtraLessonModal = () => {
+    setExtraLessonStep(1);
+    setSelectedCourtId(null);
+    setExtraLessonDate(new Date());
+    setExtraLessonTime(new Date());
+    setShowExtraLessonModal(false);
+  };
   
   const weekOptions = [2, 4, 6, 8, 10, 12, 16, 20, 24];
   
@@ -1071,10 +1087,10 @@ export default function SeriesDetailDrawer({
   };
   
   const confirmAddExtraLesson = async () => {
-    if (!seriesId || !series) return;
+    if (!seriesId || !series || !selectedCourtId) return;
     
     setAddingExtraLesson(true);
-    setShowExtraLessonModal(false);
+    resetExtraLessonModal();
     
     try {
       // Combine date and time
@@ -1090,6 +1106,7 @@ export default function SeriesDetailDrawer({
         body: JSON.stringify({
           startTime: lessonDateTime.toISOString(),
           duration: series.duration || 60,
+          courtId: selectedCourtId,
         }),
       });
       
@@ -1573,11 +1590,11 @@ export default function SeriesDetailDrawer({
               disabled={addingExtraLesson}
             >
               {addingExtraLesson ? (
-                <ActivityIndicator size="small" color={Colors.dark.warningNeon} />
+                <ActivityIndicator size="small" color={Colors.dark.warning} />
               ) : (
                 <>
-                  <Ionicons name="calendar-outline" size={18} color={Colors.dark.warningNeon} />
-                  <Text style={[styles.extendSeriesButtonText, { color: Colors.dark.warningNeon }]}>Add Extra Lesson</Text>
+                  <Ionicons name="calendar-outline" size={18} color={Colors.dark.warning} />
+                  <Text style={[styles.extendSeriesButtonText, { color: Colors.dark.warning }]}>Add Extra Lesson</Text>
                 </>
               )}
             </Pressable>
@@ -3514,7 +3531,7 @@ export default function SeriesDetailDrawer({
                 onPress={confirmExtendSeries}
               >
                 <LinearGradient
-                  colors={[Colors.dark.accent, Colors.dark.accentSecondary]}
+                  colors={[Colors.dark.accent, Colors.dark.accentGreen]}
                   start={{ x: 0, y: 0 }}
                   end={{ x: 1, y: 0 }}
                   style={styles.extendConfirmGradient}
@@ -3530,130 +3547,258 @@ export default function SeriesDetailDrawer({
         </View>
       </Modal>
       
-      {/* Extra Lesson Modal */}
+      {/* Extra Lesson Modal - 3 Step Wizard */}
       <Modal
         visible={showExtraLessonModal}
         animationType="fade"
         transparent={true}
-        onRequestClose={() => setShowExtraLessonModal(false)}
+        onRequestClose={resetExtraLessonModal}
       >
         <View style={styles.extendModalOverlay}>
           <View style={styles.extendModalBackdrop}>
             <Pressable 
               style={StyleSheet.absoluteFill} 
-              onPress={() => setShowExtraLessonModal(false)} 
+              onPress={resetExtraLessonModal} 
             />
           </View>
           <View style={styles.extendModalContent}>
-            <View style={styles.extendModalHeader}>
-              <Ionicons name="calendar-outline" size={32} color={Colors.dark.warningNeon} />
-              <Text style={styles.extendModalTitle}>Add Extra Lesson</Text>
-              <Text style={styles.extendModalSubtitle}>
-                Schedule a one-time session for this class
-              </Text>
+            {/* Step Indicator */}
+            <View style={{ flexDirection: "row", justifyContent: "center", marginBottom: Spacing.md, gap: Spacing.xs }}>
+              {[1, 2, 3].map((step) => (
+                <View 
+                  key={step} 
+                  style={{ 
+                    width: 8, 
+                    height: 8, 
+                    borderRadius: 4, 
+                    backgroundColor: extraLessonStep >= step ? Colors.dark.warning : Colors.dark.border 
+                  }} 
+                />
+              ))}
             </View>
             
-            <Text style={styles.extendModalLabel}>Select Date</Text>
-            {Platform.OS === "web" ? (
-              <WebCalendarPicker
-                value={extraLessonDate}
-                onChange={(date) => setExtraLessonDate(date)}
-                minDate={new Date()}
-              />
-            ) : (
-              <Pressable
-                style={styles.datePickerButton}
-                onPress={() => setShowExtraLessonDatePicker(true)}
-              >
-                <Ionicons name="calendar" size={20} color={Colors.dark.accent} />
-                <Text style={styles.datePickerButtonText}>
-                  {extraLessonDate.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })}
-                </Text>
-              </Pressable>
-            )}
-            
-            {showExtraLessonDatePicker && Platform.OS !== "web" && (
-              <DateTimePicker
-                value={extraLessonDate}
-                mode="date"
-                display="default"
-                minimumDate={new Date()}
-                onChange={(event, selectedDate) => {
-                  setShowExtraLessonDatePicker(false);
-                  if (selectedDate) setExtraLessonDate(selectedDate);
-                }}
-              />
-            )}
-            
-            <Text style={[styles.extendModalLabel, { marginTop: Spacing.md }]}>Select Time</Text>
-            {Platform.OS === "web" ? (
-              <input
-                type="time"
-                value={`${String(extraLessonTime.getHours()).padStart(2, '0')}:${String(extraLessonTime.getMinutes()).padStart(2, '0')}`}
-                onChange={(e) => {
-                  const [hours, minutes] = e.target.value.split(':');
-                  const newTime = new Date();
-                  newTime.setHours(parseInt(hours), parseInt(minutes), 0, 0);
-                  setExtraLessonTime(newTime);
-                }}
-                style={{
-                  backgroundColor: Colors.dark.backgroundSecondary,
-                  color: Colors.dark.text,
-                  border: `1px solid ${Colors.dark.border}`,
-                  borderRadius: BorderRadius.md,
-                  padding: Spacing.sm,
-                  fontSize: 16,
-                  width: '100%',
-                }}
-              />
-            ) : (
-              <Pressable
-                style={styles.datePickerButton}
-                onPress={() => setShowExtraLessonTimePicker(true)}
-              >
-                <Ionicons name="time" size={20} color={Colors.dark.accent} />
-                <Text style={styles.datePickerButtonText}>
-                  {extraLessonTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false })}
-                </Text>
-              </Pressable>
-            )}
-            
-            {showExtraLessonTimePicker && Platform.OS !== "web" && (
-              <DateTimePicker
-                value={extraLessonTime}
-                mode="time"
-                display="default"
-                onChange={(event, selectedTime) => {
-                  setShowExtraLessonTimePicker(false);
-                  if (selectedTime) setExtraLessonTime(selectedTime);
-                }}
-              />
-            )}
-            
-            <View style={styles.extendModalFooter}>
-              <Pressable
-                style={styles.extendCancelButton}
-                onPress={() => setShowExtraLessonModal(false)}
-              >
-                <Text style={styles.extendCancelButtonText}>Cancel</Text>
-              </Pressable>
-              <Pressable
-                style={[styles.extendConfirmButton, { borderColor: Colors.dark.warningNeon }]}
-                onPress={confirmAddExtraLesson}
-              >
-                <LinearGradient
-                  colors={[Colors.dark.warningNeon, Colors.dark.warning]}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 0 }}
-                  style={styles.extendConfirmGradient}
-                >
-                  <Ionicons name="add-circle" size={20} color={Colors.dark.backgroundRoot} />
-                  <Text style={styles.extendConfirmButtonText}>
-                    Add Lesson
+            {/* Step 1: Court Selection */}
+            {extraLessonStep === 1 && (
+              <>
+                <View style={styles.extendModalHeader}>
+                  <Ionicons name="tennisball-outline" size={32} color={Colors.dark.warning} />
+                  <Text style={styles.extendModalTitle}>Select Court</Text>
+                  <Text style={styles.extendModalSubtitle}>
+                    Choose a court for the extra lesson
                   </Text>
-                </LinearGradient>
-              </Pressable>
-            </View>
+                </View>
+                
+                <ScrollView style={{ maxHeight: 250, marginBottom: Spacing.md }}>
+                  {courtsData && courtsData.length > 0 ? (
+                    courtsData.map((court) => (
+                      <Pressable
+                        key={court.id}
+                        style={[
+                          styles.weekOption,
+                          { flexDirection: "row", alignItems: "center", justifyContent: "flex-start", gap: Spacing.sm, marginBottom: Spacing.xs },
+                          selectedCourtId === court.id && styles.weekOptionSelected,
+                        ]}
+                        onPress={() => {
+                          Haptics.selectionAsync();
+                          setSelectedCourtId(court.id);
+                        }}
+                      >
+                        <View style={{ width: 12, height: 12, borderRadius: 6, backgroundColor: court.color || Colors.dark.accent }} />
+                        <Text style={[
+                          styles.weekOptionText,
+                          selectedCourtId === court.id && styles.weekOptionTextSelected,
+                        ]}>
+                          {court.name}
+                        </Text>
+                      </Pressable>
+                    ))
+                  ) : (
+                    <Text style={{ color: Colors.dark.textSecondary, textAlign: "center", padding: Spacing.md }}>
+                      No courts available
+                    </Text>
+                  )}
+                </ScrollView>
+                
+                <View style={styles.extendModalFooter}>
+                  <Pressable style={styles.extendCancelButton} onPress={resetExtraLessonModal}>
+                    <Text style={styles.extendCancelButtonText}>Cancel</Text>
+                  </Pressable>
+                  <Pressable
+                    style={[styles.extendConfirmButton, !selectedCourtId && { opacity: 0.5 }]}
+                    onPress={() => selectedCourtId && setExtraLessonStep(2)}
+                    disabled={!selectedCourtId}
+                  >
+                    <LinearGradient
+                      colors={[Colors.dark.warning, Colors.dark.warning]}
+                      start={{ x: 0, y: 0 }}
+                      end={{ x: 1, y: 0 }}
+                      style={styles.extendConfirmGradient}
+                    >
+                      <Text style={styles.extendConfirmButtonText}>Next</Text>
+                      <Ionicons name="arrow-forward" size={18} color={Colors.dark.backgroundRoot} />
+                    </LinearGradient>
+                  </Pressable>
+                </View>
+              </>
+            )}
+            
+            {/* Step 2: Date Selection */}
+            {extraLessonStep === 2 && (
+              <>
+                <View style={styles.extendModalHeader}>
+                  <Ionicons name="calendar-outline" size={32} color={Colors.dark.warning} />
+                  <Text style={styles.extendModalTitle}>Select Date</Text>
+                  <Text style={styles.extendModalSubtitle}>
+                    Pick a date for the extra lesson
+                  </Text>
+                </View>
+                
+                {Platform.OS === "web" ? (
+                  <WebCalendarPicker
+                    value={extraLessonDate}
+                    onChange={(date) => setExtraLessonDate(date)}
+                  />
+                ) : (
+                  <>
+                    <Pressable
+                      style={styles.datePickerButton}
+                      onPress={() => setShowExtraLessonDatePicker(true)}
+                    >
+                      <Ionicons name="calendar" size={20} color={Colors.dark.accent} />
+                      <Text style={styles.datePickerText}>
+                        {extraLessonDate.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric", year: "numeric" })}
+                      </Text>
+                    </Pressable>
+                    {showExtraLessonDatePicker && (
+                      <DateTimePicker
+                        value={extraLessonDate}
+                        mode="date"
+                        display="default"
+                        onChange={(event, selectedDate) => {
+                          setShowExtraLessonDatePicker(false);
+                          if (selectedDate) setExtraLessonDate(selectedDate);
+                        }}
+                      />
+                    )}
+                  </>
+                )}
+                
+                <View style={[styles.extendModalFooter, { marginTop: Spacing.lg }]}>
+                  <Pressable style={styles.extendCancelButton} onPress={() => setExtraLessonStep(1)}>
+                    <Ionicons name="arrow-back" size={16} color={Colors.dark.textSecondary} />
+                    <Text style={styles.extendCancelButtonText}>Back</Text>
+                  </Pressable>
+                  <Pressable
+                    style={styles.extendConfirmButton}
+                    onPress={() => setExtraLessonStep(3)}
+                  >
+                    <LinearGradient
+                      colors={[Colors.dark.warning, Colors.dark.warning]}
+                      start={{ x: 0, y: 0 }}
+                      end={{ x: 1, y: 0 }}
+                      style={styles.extendConfirmGradient}
+                    >
+                      <Text style={styles.extendConfirmButtonText}>Next</Text>
+                      <Ionicons name="arrow-forward" size={18} color={Colors.dark.backgroundRoot} />
+                    </LinearGradient>
+                  </Pressable>
+                </View>
+              </>
+            )}
+            
+            {/* Step 3: Time Selection */}
+            {extraLessonStep === 3 && (
+              <>
+                <View style={styles.extendModalHeader}>
+                  <Ionicons name="time-outline" size={32} color={Colors.dark.warning} />
+                  <Text style={styles.extendModalTitle}>Select Time</Text>
+                  <Text style={styles.extendModalSubtitle}>
+                    Choose the start time for the lesson
+                  </Text>
+                </View>
+                
+                {Platform.OS === "web" ? (
+                  <input
+                    type="time"
+                    value={`${String(extraLessonTime.getHours()).padStart(2, '0')}:${String(extraLessonTime.getMinutes()).padStart(2, '0')}`}
+                    onChange={(e) => {
+                      const [hours, minutes] = e.target.value.split(':');
+                      const newTime = new Date();
+                      newTime.setHours(parseInt(hours), parseInt(minutes), 0, 0);
+                      setExtraLessonTime(newTime);
+                    }}
+                    style={{
+                      backgroundColor: Colors.dark.backgroundSecondary,
+                      color: Colors.dark.text,
+                      border: `1px solid ${Colors.dark.border}`,
+                      borderRadius: BorderRadius.md,
+                      padding: Spacing.md,
+                      fontSize: 18,
+                      width: '100%',
+                      textAlign: 'center',
+                    }}
+                  />
+                ) : (
+                  <>
+                    <Pressable
+                      style={styles.datePickerButton}
+                      onPress={() => setShowExtraLessonTimePicker(true)}
+                    >
+                      <Ionicons name="time" size={20} color={Colors.dark.accent} />
+                      <Text style={styles.datePickerText}>
+                        {extraLessonTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false })}
+                      </Text>
+                    </Pressable>
+                    {showExtraLessonTimePicker && (
+                      <DateTimePicker
+                        value={extraLessonTime}
+                        mode="time"
+                        display="default"
+                        onChange={(event, selectedTime) => {
+                          setShowExtraLessonTimePicker(false);
+                          if (selectedTime) setExtraLessonTime(selectedTime);
+                        }}
+                      />
+                    )}
+                  </>
+                )}
+                
+                {/* Summary */}
+                <View style={{ marginTop: Spacing.lg, padding: Spacing.md, backgroundColor: Colors.dark.backgroundSecondary, borderRadius: BorderRadius.md }}>
+                  <Text style={{ color: Colors.dark.textSecondary, fontSize: 12, marginBottom: Spacing.xs }}>Summary</Text>
+                  <Text style={{ color: Colors.dark.text, fontSize: 14 }}>
+                    Court: {courtsData?.find(c => c.id === selectedCourtId)?.name || "Selected"}
+                  </Text>
+                  <Text style={{ color: Colors.dark.text, fontSize: 14 }}>
+                    Date: {extraLessonDate.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })}
+                  </Text>
+                  <Text style={{ color: Colors.dark.text, fontSize: 14 }}>
+                    Time: {extraLessonTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false })}
+                  </Text>
+                </View>
+                
+                <View style={[styles.extendModalFooter, { marginTop: Spacing.lg }]}>
+                  <Pressable style={styles.extendCancelButton} onPress={() => setExtraLessonStep(2)}>
+                    <Ionicons name="arrow-back" size={16} color={Colors.dark.textSecondary} />
+                    <Text style={styles.extendCancelButtonText}>Back</Text>
+                  </Pressable>
+                  <Pressable
+                    style={styles.extendConfirmButton}
+                    onPress={confirmAddExtraLesson}
+                  >
+                    <LinearGradient
+                      colors={[Colors.dark.successNeon, Colors.dark.accentGreen]}
+                      start={{ x: 0, y: 0 }}
+                      end={{ x: 1, y: 0 }}
+                      style={styles.extendConfirmGradient}
+                    >
+                      <Ionicons name="checkmark-circle" size={20} color={Colors.dark.backgroundRoot} />
+                      <Text style={styles.extendConfirmButtonText}>Add Lesson</Text>
+                    </LinearGradient>
+                  </Pressable>
+                </View>
+              </>
+            )}
           </View>
         </View>
       </Modal>
