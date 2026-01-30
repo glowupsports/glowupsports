@@ -556,7 +556,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { playerId } = req.params;
       const { month, year } = req.body; // Optional: defaults to previous month
       // Calculate the month to report on
-      const now = new Date();
+      const dateParam = req.query.date as string | undefined;
+      const now = dateParam ? new Date(dateParam) : new Date();
       const reportYear = year || (now.getMonth() === 0 ? now.getFullYear() - 1 : now.getFullYear());
       const reportMonth = month !== undefined ? month : (now.getMonth() === 0 ? 11 : now.getMonth() - 1);
       
@@ -2587,7 +2588,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const updateData: Record<string, any> = {};
-      const now = new Date(); const DUBAI_OFFSET = 4; const dubaiNow = new Date(now.getTime() + DUBAI_OFFSET * 60 * 60 * 1000);
+      const dateParam = req.query.date as string | undefined;
+      const now = dateParam ? new Date(dateParam) : new Date(); const DUBAI_OFFSET = 4; const dubaiNow = new Date(now.getTime() + DUBAI_OFFSET * 60 * 60 * 1000);
 
       if (isFromAcademy) {
         updateData.fromAcademyStatus = decision === "approve" ? "approved" : "rejected";
@@ -2739,7 +2741,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "This invitation has already been responded to" });
       }
 
-      const now = new Date(); const DUBAI_OFFSET = 4; const dubaiNow = new Date(now.getTime() + DUBAI_OFFSET * 60 * 60 * 1000);
+      const dateParam = req.query.date as string | undefined;
+      const now = dateParam ? new Date(dateParam) : new Date(); const DUBAI_OFFSET = 4; const dubaiNow = new Date(now.getTime() + DUBAI_OFFSET * 60 * 60 * 1000);
       
       if (decision === "accept") {
         // Create coach-academy membership
@@ -4963,7 +4966,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Refund credits if session hasn't started yet
       let refundResult = null;
-      const now = new Date(); const DUBAI_OFFSET = 4; const dubaiNow = new Date(now.getTime() + DUBAI_OFFSET * 60 * 60 * 1000);
+      const dateParam = req.query.date as string | undefined;
+      const now = dateParam ? new Date(dateParam) : new Date(); const DUBAI_OFFSET = 4; const dubaiNow = new Date(now.getTime() + DUBAI_OFFSET * 60 * 60 * 1000);
       if (session.startTime > now) {
         refundResult = await storage.refundCreditsForSession(playerId, id, academyId);
       }
@@ -5794,7 +5798,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: `Session is already ${session.status}` });
       }
       
-      const now = new Date(); const DUBAI_OFFSET = 4; const dubaiNow = new Date(now.getTime() + DUBAI_OFFSET * 60 * 60 * 1000);
+      const dateParam = req.query.date as string | undefined;
+      const now = dateParam ? new Date(dateParam) : new Date(); const DUBAI_OFFSET = 4; const dubaiNow = new Date(now.getTime() + DUBAI_OFFSET * 60 * 60 * 1000);
       
       // Update session with cancellation details (no charge for coach-initiated cancellations)
       const updates: Record<string, unknown> = {
@@ -5896,7 +5901,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const chargePercent = settings?.cancellationChargePercent || 100;
       
       // Calculate hours until session
-      const now = new Date(); const DUBAI_OFFSET = 4; const dubaiNow = new Date(now.getTime() + DUBAI_OFFSET * 60 * 60 * 1000);
+      const dateParam = req.query.date as string | undefined;
+      const now = dateParam ? new Date(dateParam) : new Date(); const DUBAI_OFFSET = 4; const dubaiNow = new Date(now.getTime() + DUBAI_OFFSET * 60 * 60 * 1000);
       const sessionStart = new Date(session.startTime);
       const hoursUntilSession = (sessionStart.getTime() - now.getTime()) / (1000 * 60 * 60);
       
@@ -8298,7 +8304,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const progressRecords = await storage.getPlayerProgress(id, academyId || undefined);
       const summary = await storage.getProgressSummary(id, academyId || undefined);
       
-      const now = new Date(); const DUBAI_OFFSET = 4; const dubaiNow = new Date(now.getTime() + DUBAI_OFFSET * 60 * 60 * 1000);
+      const dateParam = req.query.date as string | undefined;
+      const now = dateParam ? new Date(dateParam) : new Date(); const DUBAI_OFFSET = 4; const dubaiNow = new Date(now.getTime() + DUBAI_OFFSET * 60 * 60 * 1000);
       const threeMonthsAgo = new Date(now.getFullYear(), now.getMonth() - 3, 1);
       
       const allSessions = await storage.getSessionsByAcademy(academyId || "");
@@ -8470,7 +8477,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       // Filter out future sessions - compare directly in UTC
-      const now = new Date(); const DUBAI_OFFSET = 4; const dubaiNow = new Date(now.getTime() + DUBAI_OFFSET * 60 * 60 * 1000);
+      const dateParam = req.query.date as string | undefined;
+      const now = dateParam ? new Date(dateParam) : new Date(); const DUBAI_OFFSET = 4; const dubaiNow = new Date(now.getTime() + DUBAI_OFFSET * 60 * 60 * 1000);
       console.log('[AttendanceReport] Current time (UTC):', now.toISOString());
       
       const records = playerRecords
@@ -8742,7 +8750,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
 
       // Filter out future sessions - only show history (past sessions)
-      const now = new Date(); const DUBAI_OFFSET = 4; const dubaiNow = new Date(now.getTime() + DUBAI_OFFSET * 60 * 60 * 1000);
+      const dateParam = req.query.date as string | undefined;
+      const now = dateParam ? new Date(dateParam) : new Date(); const DUBAI_OFFSET = 4; const dubaiNow = new Date(now.getTime() + DUBAI_OFFSET * 60 * 60 * 1000);
       const pastRecords = combinedRecords.filter(record => {
         if (!record.sessionStartTime) return false;
         return new Date(record.sessionStartTime) < now;
@@ -9315,7 +9324,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Get all future sessions in the series (not modified individually)
       const allSessions = await storage.getSessionsByRecurringGroupId(session.recurringGroupId, academyId || undefined);
-      const now = new Date(); const DUBAI_OFFSET = 4; const dubaiNow = new Date(now.getTime() + DUBAI_OFFSET * 60 * 60 * 1000);
+      const dateParam = req.query.date as string | undefined;
+      const now = dateParam ? new Date(dateParam) : new Date(); const DUBAI_OFFSET = 4; const dubaiNow = new Date(now.getTime() + DUBAI_OFFSET * 60 * 60 * 1000);
       const futureSessions = allSessions.filter(s => 
         new Date(s.startTime) >= now && !s.isModifiedFromSeries
       );
@@ -9699,7 +9709,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         for (const [seriesKey, sessionsGroup] of Object.entries(groupedBySeriesId)) {
           const firstSession = sessionsGroup[0];
           const completedCount = sessionsGroup.filter(s => s.status === 'completed').length;
-          const now = new Date(); const DUBAI_OFFSET = 4; const dubaiNow = new Date(now.getTime() + DUBAI_OFFSET * 60 * 60 * 1000);
+          const dateParam = req.query.date as string | undefined;
+      const now = dateParam ? new Date(dateParam) : new Date(); const DUBAI_OFFSET = 4; const dubaiNow = new Date(now.getTime() + DUBAI_OFFSET * 60 * 60 * 1000);
           const nextSession = sessionsGroup.find(s => s.status === 'scheduled' && new Date(s.startTime) > now);
           
           // Get players from first session
@@ -11051,7 +11062,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
           
           // Add player to future session instances
           const allSeriesSessions = await db.select().from(sessions).where(eq(sessions.seriesId, id));
-          const now = new Date(); const DUBAI_OFFSET = 4; const dubaiNow = new Date(now.getTime() + DUBAI_OFFSET * 60 * 60 * 1000);
+          const dateParam = req.query.date as string | undefined;
+      const now = dateParam ? new Date(dateParam) : new Date(); const DUBAI_OFFSET = 4; const dubaiNow = new Date(now.getTime() + DUBAI_OFFSET * 60 * 60 * 1000);
           const futureSessions = allSeriesSessions.filter(s => new Date(s.startTime) > now);
           for (const futureSession of futureSessions) {
             try {
@@ -11641,7 +11653,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Build timeline
       const timeline = seriesSessions.map(session => {
-        const now = new Date(); const DUBAI_OFFSET = 4; const dubaiNow = new Date(now.getTime() + DUBAI_OFFSET * 60 * 60 * 1000);
+        const dateParam = req.query.date as string | undefined;
+      const now = dateParam ? new Date(dateParam) : new Date(); const DUBAI_OFFSET = 4; const dubaiNow = new Date(now.getTime() + DUBAI_OFFSET * 60 * 60 * 1000);
         const sessionDate = new Date(session.startTime);
         const isToday = sessionDate.toDateString() === now.toDateString();
         const isPast = sessionDate < now;
@@ -12202,7 +12215,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const _perfStart = Date.now();
       console.log('[Earnings PERF] Starting calculation for coach:', coachId);
       
-      const now = new Date(); const DUBAI_OFFSET = 4; const dubaiNow = new Date(now.getTime() + DUBAI_OFFSET * 60 * 60 * 1000);
+      const dateParam = req.query.date as string | undefined;
+      const now = dateParam ? new Date(dateParam) : new Date(); const DUBAI_OFFSET = 4; const dubaiNow = new Date(now.getTime() + DUBAI_OFFSET * 60 * 60 * 1000);
       const currentMonth = now.getMonth() + 1;
       const currentYear = now.getFullYear();
       
@@ -12498,7 +12512,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Get last 6 months of history
       const history = [];
-      const now = new Date(); const DUBAI_OFFSET = 4; const dubaiNow = new Date(now.getTime() + DUBAI_OFFSET * 60 * 60 * 1000);
+      const dateParam = req.query.date as string | undefined;
+      const now = dateParam ? new Date(dateParam) : new Date(); const DUBAI_OFFSET = 4; const dubaiNow = new Date(now.getTime() + DUBAI_OFFSET * 60 * 60 * 1000);
       
       for (let i = 0; i < 6; i++) {
         const date = new Date(now.getFullYear(), now.getMonth() - i, 1);
@@ -13639,7 +13654,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   
   // Helper function for sample messages
   function getSampleMessages(conversationId: string) {
-    const now = new Date(); const DUBAI_OFFSET = 4; const dubaiNow = new Date(now.getTime() + DUBAI_OFFSET * 60 * 60 * 1000);
+    const dateParam = req.query.date as string | undefined;
+      const now = dateParam ? new Date(dateParam) : new Date(); const DUBAI_OFFSET = 4; const dubaiNow = new Date(now.getTime() + DUBAI_OFFSET * 60 * 60 * 1000);
     const hour = 60 * 60 * 1000;
     
     if (conversationId === "sample-academy") {
@@ -15688,7 +15704,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const coaches = await storage.getCoachesByAcademy(academyId);
       const allSessions = await storage.getSessionsByAcademy(academyId);
 
-      const now = new Date();
+      const dateParam = req.query.date as string | undefined;
+      const now = dateParam ? new Date(dateParam) : new Date();
       const thirtyDaysAgo = new Date(now);
       thirtyDaysAgo.setDate(now.getDate() - 30);
 
@@ -15788,7 +15805,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         allPlayers.push(...players);
       }
 
-      const activeAcademies = academies.filter((a: any) => a.isActive !== false && a.status !== "paused" && a.status !== "trial");
+      const activeAcademies = academies.filter((a: any) => a.isActive !== false);
       const trialAcademies = academies.filter((a: any) => a.status === "trial");
       const pausedAcademies = academies.filter((a: any) => a.status === "paused" || a.isActive === false);
       
@@ -15971,7 +15988,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const coaches = await storage.getCoachesByAcademy(academyId);
       const allSessions = await storage.getSessionsByAcademy(academyId);
 
-      const now = new Date();
+      const dateParam = req.query.date as string | undefined;
+      const now = dateParam ? new Date(dateParam) : new Date();
       const DUBAI_OFFSET = 4;
       
       const dubaiNow = new Date(now.getTime() + DUBAI_OFFSET * 60 * 60 * 1000);
@@ -16201,7 +16219,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const academyId = req.user?.academyId;
       
-      const now = new Date(); const DUBAI_OFFSET = 4; const dubaiNow = new Date(now.getTime() + DUBAI_OFFSET * 60 * 60 * 1000);
+      const dateParam = req.query.date as string | undefined;
+      const now = dateParam ? new Date(dateParam) : new Date(); const DUBAI_OFFSET = 4; const dubaiNow = new Date(now.getTime() + DUBAI_OFFSET * 60 * 60 * 1000);
       const thirtyDaysAgo = new Date(now);
       thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
 
@@ -16295,7 +16314,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const trialAcademies = academies.filter(a => a.subscriptionStatus === "trial");
       const pausedAcademies = academies.filter(a => a.isActive === false);
 
-      const now = new Date(); const DUBAI_OFFSET = 4; const dubaiNow = new Date(now.getTime() + DUBAI_OFFSET * 60 * 60 * 1000);
+      const dateParam = req.query.date as string | undefined;
+      const now = dateParam ? new Date(dateParam) : new Date(); const DUBAI_OFFSET = 4; const dubaiNow = new Date(now.getTime() + DUBAI_OFFSET * 60 * 60 * 1000);
       const thirtyDaysAgo = new Date(now);
       thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
 
@@ -16395,7 +16415,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Platform Owner - Get financials (real data from invoices and payments)
   app.get("/api/platform/financials", authMiddleware, requireRole("platform_owner"), async (req: AuthenticatedRequest, res: Response) => {
     try {
-      const now = new Date(); const DUBAI_OFFSET = 4; const dubaiNow = new Date(now.getTime() + DUBAI_OFFSET * 60 * 60 * 1000);
+      const dateParam = req.query.date as string | undefined;
+      const now = dateParam ? new Date(dateParam) : new Date(); const DUBAI_OFFSET = 4; const dubaiNow = new Date(now.getTime() + DUBAI_OFFSET * 60 * 60 * 1000);
       const thirtyDaysAgo = new Date(now);
       thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
 
@@ -16557,7 +16578,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         allPlayers.push(...players.map(p => ({ ...p, academyName: academy.name })));
       }
 
-      const now = new Date(); const DUBAI_OFFSET = 4; const dubaiNow = new Date(now.getTime() + DUBAI_OFFSET * 60 * 60 * 1000);
+      const dateParam = req.query.date as string | undefined;
+      const now = dateParam ? new Date(dateParam) : new Date(); const DUBAI_OFFSET = 4; const dubaiNow = new Date(now.getTime() + DUBAI_OFFSET * 60 * 60 * 1000);
       const sevenDaysAgo = new Date(now);
       sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
 
@@ -16646,7 +16668,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         allCoaches.push(...coaches.map(c => ({ ...c, academyName: academy.name })));
       }
 
-      const now = new Date(); const DUBAI_OFFSET = 4; const dubaiNow = new Date(now.getTime() + DUBAI_OFFSET * 60 * 60 * 1000);
+      const dateParam = req.query.date as string | undefined;
+      const now = dateParam ? new Date(dateParam) : new Date(); const DUBAI_OFFSET = 4; const dubaiNow = new Date(now.getTime() + DUBAI_OFFSET * 60 * 60 * 1000);
       const sevenDaysAgo = new Date(now);
       sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
 
@@ -17385,7 +17408,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
           for (const [seriesKey, sessionsGroup] of Object.entries(groupedBySeriesId)) {
             const firstSession = sessionsGroup[0];
             const completedCount = sessionsGroup.filter(s => s.status === 'completed').length;
-            const now = new Date(); const DUBAI_OFFSET = 4; const dubaiNow = new Date(now.getTime() + DUBAI_OFFSET * 60 * 60 * 1000);
+            const dateParam = req.query.date as string | undefined;
+      const now = dateParam ? new Date(dateParam) : new Date(); const DUBAI_OFFSET = 4; const dubaiNow = new Date(now.getTime() + DUBAI_OFFSET * 60 * 60 * 1000);
             const nextSession = sessionsGroup.find(s => s.status === 'scheduled' && new Date(s.startTime) > now);
             
             const sessionPlayersList = await db
@@ -18699,7 +18723,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const coaches = await storage.getCoachesByAcademy(academyId);
       const allSessions = await storage.getSessionsByAcademy(academyId);
 
-      const now = new Date();
+      const dateParam = req.query.date as string | undefined;
+      const now = dateParam ? new Date(dateParam) : new Date();
       const DUBAI_OFFSET = 4;
       
       // Today's date in Dubai timezone
@@ -18939,7 +18964,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const coaches = await storage.getCoachesByAcademy(academyId);
       const allSessions = await storage.getSessionsByAcademy(academyId);
 
-      const now = new Date(); const DUBAI_OFFSET = 4; const dubaiNow = new Date(now.getTime() + DUBAI_OFFSET * 60 * 60 * 1000);
+      const dateParam = req.query.date as string | undefined;
+      const now = dateParam ? new Date(dateParam) : new Date(); const DUBAI_OFFSET = 4; const dubaiNow = new Date(now.getTime() + DUBAI_OFFSET * 60 * 60 * 1000);
       const startOfWeek = new Date(now);
       startOfWeek.setDate(now.getDate() - now.getDay());
       startOfWeek.setHours(0, 0, 0, 0);
@@ -19090,7 +19116,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const sessions = await storage.getAllSessionsByCoach(coachId);
       const players = await storage.getPlayersByCoach(coachId);
       
-      const now = new Date(); const DUBAI_OFFSET = 4; const dubaiNow = new Date(now.getTime() + DUBAI_OFFSET * 60 * 60 * 1000);
+      const dateParam = req.query.date as string | undefined;
+      const now = dateParam ? new Date(dateParam) : new Date(); const DUBAI_OFFSET = 4; const dubaiNow = new Date(now.getTime() + DUBAI_OFFSET * 60 * 60 * 1000);
       const thirtyDaysAgo = new Date(now);
       thirtyDaysAgo.setDate(now.getDate() - 30);
       
@@ -19357,7 +19384,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const xpData = await storage.getPlayerXpTotal(playerId);
       const milestones = await storage.getPlayerMilestones(playerId);
 
-      const now = new Date(); const DUBAI_OFFSET = 4; const dubaiNow = new Date(now.getTime() + DUBAI_OFFSET * 60 * 60 * 1000);
+      const dateParam = req.query.date as string | undefined;
+      const now = dateParam ? new Date(dateParam) : new Date(); const DUBAI_OFFSET = 4; const dubaiNow = new Date(now.getTime() + DUBAI_OFFSET * 60 * 60 * 1000);
       const thirtyDaysAgo = new Date(now);
       thirtyDaysAgo.setDate(now.getDate() - 30);
 
@@ -20291,7 +20319,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       future.setDate(future.getDate() + 30);
       
       let nextSession = null;
-      const now = new Date(); const DUBAI_OFFSET = 4; const dubaiNow = new Date(now.getTime() + DUBAI_OFFSET * 60 * 60 * 1000);
+      const dateParam = req.query.date as string | undefined;
+      const now = dateParam ? new Date(dateParam) : new Date(); const DUBAI_OFFSET = 4; const dubaiNow = new Date(now.getTime() + DUBAI_OFFSET * 60 * 60 * 1000);
       const upcomingSessions = await storage.getPlayerSessionsWithDetails(playerId, threeHoursAgo, future);
       
       // Find the most relevant session: either currently active, or next upcoming
@@ -20441,7 +20470,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.json({ sessions: [] });
       }
       
-      const now = new Date(); const DUBAI_OFFSET = 4; const dubaiNow = new Date(now.getTime() + DUBAI_OFFSET * 60 * 60 * 1000);
+      const dateParam = req.query.date as string | undefined;
+      const now = dateParam ? new Date(dateParam) : new Date(); const DUBAI_OFFSET = 4; const dubaiNow = new Date(now.getTime() + DUBAI_OFFSET * 60 * 60 * 1000);
       const academySessions = await storage.getSessionsByAcademy(player.academyId);
       
       // Filter for upcoming group sessions
@@ -20713,7 +20743,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }> = [];
       
       if (player.academyId) {
-        const now = new Date(); const DUBAI_OFFSET = 4; const dubaiNow = new Date(now.getTime() + DUBAI_OFFSET * 60 * 60 * 1000);
+        const dateParam = req.query.date as string | undefined;
+      const now = dateParam ? new Date(dateParam) : new Date(); const DUBAI_OFFSET = 4; const dubaiNow = new Date(now.getTime() + DUBAI_OFFSET * 60 * 60 * 1000);
         
         const academySessions = await storage.getSessionsByAcademy(player.academyId);
         
@@ -20879,7 +20910,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         
         for (const post of recentPosts) {
           const created = new Date(post.createdAt);
-          const now = new Date(); const DUBAI_OFFSET = 4; const dubaiNow = new Date(now.getTime() + DUBAI_OFFSET * 60 * 60 * 1000);
+          const dateParam = req.query.date as string | undefined;
+      const now = dateParam ? new Date(dateParam) : new Date(); const DUBAI_OFFSET = 4; const dubaiNow = new Date(now.getTime() + DUBAI_OFFSET * 60 * 60 * 1000);
           const diffHours = Math.floor((now.getTime() - created.getTime()) / (1000 * 60 * 60));
           const timeStr = diffHours < 24 ? `${diffHours}h ago` : `${Math.floor(diffHours / 24)}d ago`;
           
@@ -20906,7 +20938,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       let courtsAvailable = 0;
       
       if (player.academyId) {
-        const now = new Date(); const DUBAI_OFFSET = 4; const dubaiNow = new Date(now.getTime() + DUBAI_OFFSET * 60 * 60 * 1000);
+        const dateParam = req.query.date as string | undefined;
+      const now = dateParam ? new Date(dateParam) : new Date(); const DUBAI_OFFSET = 4; const dubaiNow = new Date(now.getTime() + DUBAI_OFFSET * 60 * 60 * 1000);
         
         const allSessions = await storage.getSessionsByAcademy(player.academyId);
         const upcomingAll = allSessions.filter(s => new Date(s.startTime) > now);
@@ -21324,7 +21357,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Check if session is in the future
       const sessionTime = new Date(session.startTime);
-      const now = new Date(); const DUBAI_OFFSET = 4; const dubaiNow = new Date(now.getTime() + DUBAI_OFFSET * 60 * 60 * 1000);
+      const dateParam = req.query.date as string | undefined;
+      const now = dateParam ? new Date(dateParam) : new Date(); const DUBAI_OFFSET = 4; const dubaiNow = new Date(now.getTime() + DUBAI_OFFSET * 60 * 60 * 1000);
       if (sessionTime < now) {
         return res.status(400).json({ error: "Cannot cancel a past session" });
       }
@@ -21491,7 +21525,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Check if session is in the future
       const sessionTime = new Date(session.startTime);
-      const now = new Date(); const DUBAI_OFFSET = 4; const dubaiNow = new Date(now.getTime() + DUBAI_OFFSET * 60 * 60 * 1000);
+      const dateParam = req.query.date as string | undefined;
+      const now = dateParam ? new Date(dateParam) : new Date(); const DUBAI_OFFSET = 4; const dubaiNow = new Date(now.getTime() + DUBAI_OFFSET * 60 * 60 * 1000);
       if (sessionTime < now) {
         return res.status(400).json({ error: "Cannot mark unavailable for a past session" });
       }
@@ -21591,7 +21626,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Check if session is today or in the near future
       const sessionTime = new Date(session.startTime);
-      const now = new Date(); const DUBAI_OFFSET = 4; const dubaiNow = new Date(now.getTime() + DUBAI_OFFSET * 60 * 60 * 1000);
+      const dateParam = req.query.date as string | undefined;
+      const now = dateParam ? new Date(dateParam) : new Date(); const DUBAI_OFFSET = 4; const dubaiNow = new Date(now.getTime() + DUBAI_OFFSET * 60 * 60 * 1000);
       const hoursUntilSession = (sessionTime.getTime() - now.getTime()) / (1000 * 60 * 60);
       
       if (hoursUntilSession < -2) {
@@ -21788,7 +21824,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       const holidays = await storage.getPlayerHolidays(playerId);
-      const now = new Date(); const DUBAI_OFFSET = 4; const dubaiNow = new Date(now.getTime() + DUBAI_OFFSET * 60 * 60 * 1000);
+      const dateParam = req.query.date as string | undefined;
+      const now = dateParam ? new Date(dateParam) : new Date(); const DUBAI_OFFSET = 4; const dubaiNow = new Date(now.getTime() + DUBAI_OFFSET * 60 * 60 * 1000);
       
       // Find active vacation
       const activeVacation = holidays.find(h => {
@@ -22342,7 +22379,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Get session attendance stats using player sessions helper
       const ninety = new Date();
       ninety.setDate(ninety.getDate() - 90);
-      const now = new Date(); const DUBAI_OFFSET = 4; const dubaiNow = new Date(now.getTime() + DUBAI_OFFSET * 60 * 60 * 1000);
+      const dateParam = req.query.date as string | undefined;
+      const now = dateParam ? new Date(dateParam) : new Date(); const DUBAI_OFFSET = 4; const dubaiNow = new Date(now.getTime() + DUBAI_OFFSET * 60 * 60 * 1000);
       
       const playerSessions = await storage.getPlayerSessionsWithDetails(playerId, ninety, now);
       const totalSessions = playerSessions.length;
@@ -23932,7 +23970,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       // Calculate date range based on period
-      const now = new Date(); const DUBAI_OFFSET = 4; const dubaiNow = new Date(now.getTime() + DUBAI_OFFSET * 60 * 60 * 1000);
+      const dateParam = req.query.date as string | undefined;
+      const now = dateParam ? new Date(dateParam) : new Date(); const DUBAI_OFFSET = 4; const dubaiNow = new Date(now.getTime() + DUBAI_OFFSET * 60 * 60 * 1000);
       let startDate: Date;
       let endDate: Date = new Date(now);
       endDate.setHours(23, 59, 59, 999);
@@ -24049,7 +24088,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Get real payment data
       const allPayments = await storage.getPayments(academyId);
-      const now = new Date(); const DUBAI_OFFSET = 4; const dubaiNow = new Date(now.getTime() + DUBAI_OFFSET * 60 * 60 * 1000);
+      const dateParam = req.query.date as string | undefined;
+      const now = dateParam ? new Date(dateParam) : new Date(); const DUBAI_OFFSET = 4; const dubaiNow = new Date(now.getTime() + DUBAI_OFFSET * 60 * 60 * 1000);
       const thisWeekStart = new Date(now.getFullYear(), now.getMonth(), now.getDate() - now.getDay());
       const thisMonthStart = new Date(now.getFullYear(), now.getMonth(), 1);
       const lastMonthStart = new Date(now.getFullYear(), now.getMonth() - 1, 1);
@@ -24422,7 +24462,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const coachData = await Promise.all(
         coaches.map(async (coach) => {
           // Calculate weekly session count dynamically
-          const now = new Date(); const DUBAI_OFFSET = 4; const dubaiNow = new Date(now.getTime() + DUBAI_OFFSET * 60 * 60 * 1000);
+          const dateParam = req.query.date as string | undefined;
+      const now = dateParam ? new Date(dateParam) : new Date(); const DUBAI_OFFSET = 4; const dubaiNow = new Date(now.getTime() + DUBAI_OFFSET * 60 * 60 * 1000);
           const weekStart = new Date(now);
           weekStart.setDate(now.getDate() - now.getDay());
           weekStart.setHours(0, 0, 0, 0);
@@ -24630,7 +24671,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const players = await storage.getPlayersByCoach(coachId, academyId);
       
       // Get coach's sessions this week
-      const now = new Date(); const DUBAI_OFFSET = 4; const dubaiNow = new Date(now.getTime() + DUBAI_OFFSET * 60 * 60 * 1000);
+      const dateParam = req.query.date as string | undefined;
+      const now = dateParam ? new Date(dateParam) : new Date(); const DUBAI_OFFSET = 4; const dubaiNow = new Date(now.getTime() + DUBAI_OFFSET * 60 * 60 * 1000);
       const weekStart = new Date(now);
       weekStart.setDate(now.getDate() - now.getDay());
       const weekEnd = new Date(weekStart);
@@ -25832,7 +25874,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Get all future sessions for the academy
       const allSessions = await storage.getSessionsByAcademy(academyId);
-      const now = new Date(); const DUBAI_OFFSET = 4; const dubaiNow = new Date(now.getTime() + DUBAI_OFFSET * 60 * 60 * 1000);
+      const dateParam = req.query.date as string | undefined;
+      const now = dateParam ? new Date(dateParam) : new Date(); const DUBAI_OFFSET = 4; const dubaiNow = new Date(now.getTime() + DUBAI_OFFSET * 60 * 60 * 1000);
       
       // Filter joinable sessions
       const joinable = await Promise.all(
@@ -25922,7 +25965,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.log("[PlaySessions] Player:", playerId, "Academy:", academyId);
 
       // Get upcoming group/semi sessions from player's academy + public sessions
-      const now = new Date(); const DUBAI_OFFSET = 4; const dubaiNow = new Date(now.getTime() + DUBAI_OFFSET * 60 * 60 * 1000);
+      const dateParam = req.query.date as string | undefined;
+      const now = dateParam ? new Date(dateParam) : new Date(); const DUBAI_OFFSET = 4; const dubaiNow = new Date(now.getTime() + DUBAI_OFFSET * 60 * 60 * 1000);
       const futureDate = new Date();
       futureDate.setDate(futureDate.getDate() + 14); // Next 2 weeks
 
@@ -26273,7 +26317,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       // Calculate hours until session for cancellation policy
-      const now = new Date(); const DUBAI_OFFSET = 4; const dubaiNow = new Date(now.getTime() + DUBAI_OFFSET * 60 * 60 * 1000);
+      const dateParam = req.query.date as string | undefined;
+      const now = dateParam ? new Date(dateParam) : new Date(); const DUBAI_OFFSET = 4; const dubaiNow = new Date(now.getTime() + DUBAI_OFFSET * 60 * 60 * 1000);
       const sessionStart = new Date(session.startTime);
       const hoursUntilSession = (sessionStart.getTime() - now.getTime()) / (1000 * 60 * 60);
       const isLateCancel = hoursUntilSession < 24;
@@ -27411,7 +27456,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const overdueInvoices = invoices.filter(inv => inv.status === "pending" && inv.dueDate && new Date(inv.dueDate) < new Date());
       
       // Get current month lesson summary
-      const now = new Date(); const DUBAI_OFFSET = 4; const dubaiNow = new Date(now.getTime() + DUBAI_OFFSET * 60 * 60 * 1000);
+      const dateParam = req.query.date as string | undefined;
+      const now = dateParam ? new Date(dateParam) : new Date(); const DUBAI_OFFSET = 4; const dubaiNow = new Date(now.getTime() + DUBAI_OFFSET * 60 * 60 * 1000);
       const lessonSummary = await storage.getPlayerLessonSummary(playerId, now.getMonth() + 1, now.getFullYear());
       
       // Get session-based billing (attended sessions with prices)
@@ -27824,7 +27870,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         };
       }
 
-      const now = new Date(); const DUBAI_OFFSET = 4; const dubaiNow = new Date(now.getTime() + DUBAI_OFFSET * 60 * 60 * 1000);
+      const dateParam = req.query.date as string | undefined;
+      const now = dateParam ? new Date(dateParam) : new Date(); const DUBAI_OFFSET = 4; const dubaiNow = new Date(now.getTime() + DUBAI_OFFSET * 60 * 60 * 1000);
       const expiresAt = new Date(now);
       expiresAt.setDate(expiresAt.getDate() + templateData.validityDays);
 
@@ -28416,7 +28463,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Get blocked slots for each court and calculate available time slots
       const TIME_SLOTS = ["07:00", "08:00", "09:00", "10:00", "11:00", "12:00", "13:00", "14:00", "15:00", "16:00", "17:00", "18:00", "19:00", "20:00", "21:00"];
-      const now = new Date(); const DUBAI_OFFSET = 4; const dubaiNow = new Date(now.getTime() + DUBAI_OFFSET * 60 * 60 * 1000);
+      const dateParam = req.query.date as string | undefined;
+      const now = dateParam ? new Date(dateParam) : new Date(); const DUBAI_OFFSET = 4; const dubaiNow = new Date(now.getTime() + DUBAI_OFFSET * 60 * 60 * 1000);
       const nowTime = dubaiNow.toISOString().slice(11, 16);
       const dubaiDateStr = dubaiNow.toISOString().split("T")[0]; const isToday = searchDate === dubaiDateStr;
 
@@ -28744,7 +28792,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Get court for cancel window check
       const court = await storage.getCourt(booking.courtId);
       const bookingDateTime = new Date(`${booking.date}T${booking.startTime}`);
-      const now = new Date(); const DUBAI_OFFSET = 4; const dubaiNow = new Date(now.getTime() + DUBAI_OFFSET * 60 * 60 * 1000);
+      const dateParam = req.query.date as string | undefined;
+      const now = dateParam ? new Date(dateParam) : new Date(); const DUBAI_OFFSET = 4; const dubaiNow = new Date(now.getTime() + DUBAI_OFFSET * 60 * 60 * 1000);
       const hoursUntilBooking = (bookingDateTime.getTime() - now.getTime()) / 3600000;
       
       if (court && hoursUntilBooking < (court.cancelWindowHours || 24)) {
@@ -29100,7 +29149,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         // If today, check if the match time has passed
         if (matchDate.getTime() === today.getTime() && m.preferredTime) {
           const [hours, minutes] = m.preferredTime.split(':').map(Number);
-          const now = new Date();
+          const dateParam = req.query.date as string | undefined;
+      const now = dateParam ? new Date(dateParam) : new Date();
           const matchTime = new Date();
           matchTime.setHours(hours || 0, minutes || 0, 0, 0);
           return matchTime > now;
@@ -31161,7 +31211,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/social/open-to-play", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
     try {
       const academyId = req.user!.academyId;
-      const now = new Date(); const DUBAI_OFFSET = 4; const dubaiNow = new Date(now.getTime() + DUBAI_OFFSET * 60 * 60 * 1000);
+      const dateParam = req.query.date as string | undefined;
+      const now = dateParam ? new Date(dateParam) : new Date(); const DUBAI_OFFSET = 4; const dubaiNow = new Date(now.getTime() + DUBAI_OFFSET * 60 * 60 * 1000);
       
       const openPlayers = await db.select({
         openToPlay: openToPlayTable,
@@ -31270,7 +31321,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const userId = req.user!.userId;
       const academyId = req.user!.academyId;
-      const now = new Date(); const DUBAI_OFFSET = 4; const dubaiNow = new Date(now.getTime() + DUBAI_OFFSET * 60 * 60 * 1000);
+      const dateParam = req.query.date as string | undefined;
+      const now = dateParam ? new Date(dateParam) : new Date(); const DUBAI_OFFSET = 4; const dubaiNow = new Date(now.getTime() + DUBAI_OFFSET * 60 * 60 * 1000);
       const oneDayAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000);
       
       // Count new moments in last 24h
@@ -31476,7 +31528,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       // Get current week start (Monday)
-      const now = new Date(); const DUBAI_OFFSET = 4; const dubaiNow = new Date(now.getTime() + DUBAI_OFFSET * 60 * 60 * 1000);
+      const dateParam = req.query.date as string | undefined;
+      const now = dateParam ? new Date(dateParam) : new Date(); const DUBAI_OFFSET = 4; const dubaiNow = new Date(now.getTime() + DUBAI_OFFSET * 60 * 60 * 1000);
       const dayOfWeek = now.getDay();
       const mondayOffset = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
       const weekStart = new Date(now);
@@ -32048,7 +32101,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "Player context required" });
       }
       
-      const now = new Date(); const DUBAI_OFFSET = 4; const dubaiNow = new Date(now.getTime() + DUBAI_OFFSET * 60 * 60 * 1000);
+      const dateParam = req.query.date as string | undefined;
+      const now = dateParam ? new Date(dateParam) : new Date(); const DUBAI_OFFSET = 4; const dubaiNow = new Date(now.getTime() + DUBAI_OFFSET * 60 * 60 * 1000);
       const today = now.toISOString().split('T')[0];
       const oneDayAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000);
       
@@ -33480,7 +33534,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const coaches = await storage.getCoachesByAcademy(academyId);
       const allSessions = await storage.getSessionsByAcademy(academyId);
 
-      const now = new Date();
+      const dateParam = req.query.date as string | undefined;
+      const now = dateParam ? new Date(dateParam) : new Date();
       const DUBAI_OFFSET = 4;
       
       const dubaiNow = new Date(now.getTime() + DUBAI_OFFSET * 60 * 60 * 1000);

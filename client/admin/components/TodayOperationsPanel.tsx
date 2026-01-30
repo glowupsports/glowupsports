@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React from "react";
 import { View, Text, StyleSheet, Pressable } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import Ionicons from "@expo/vector-icons/Ionicons";
@@ -24,8 +24,6 @@ export function TodayOperationsPanel({
   onDateChange,
   onViewSchedule,
 }: TodayOperationsPanelProps) {
-  const [selectedDate, setSelectedDate] = useState(currentDate);
-
   const formatDate = (date: Date) => {
     const today = new Date();
     const isToday = date.toDateString() === today.toDateString();
@@ -36,14 +34,17 @@ export function TodayOperationsPanel({
     tomorrow.setDate(tomorrow.getDate() + 1);
     if (date.toDateString() === tomorrow.toDateString()) return "Tomorrow";
     
+    const yesterday = new Date(today);
+    yesterday.setDate(yesterday.getDate() - 1);
+    if (date.toDateString() === yesterday.toDateString()) return "Yesterday";
+    
     return date.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" });
   };
 
   const navigateDate = (direction: number) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    const newDate = new Date(selectedDate);
+    const newDate = new Date(currentDate);
     newDate.setDate(newDate.getDate() + direction);
-    setSelectedDate(newDate);
     onDateChange?.(newDate);
   };
 
@@ -79,7 +80,7 @@ export function TodayOperationsPanel({
             <Pressable style={styles.navButton} onPress={() => navigateDate(-1)}>
               <Ionicons name="chevron-back" size={20} color={Colors.dark.text} />
             </Pressable>
-            <Text style={styles.dateText}>{formatDate(selectedDate)}</Text>
+            <Text style={styles.dateText}>{formatDate(currentDate)}</Text>
             <Pressable style={styles.navButton} onPress={() => navigateDate(1)}>
               <Ionicons name="chevron-forward" size={20} color={Colors.dark.text} />
             </Pressable>

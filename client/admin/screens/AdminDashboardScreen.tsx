@@ -87,10 +87,23 @@ export default function AdminDashboardScreen() {
   const navigation = useNavigation<AdminNavProp>();
   const { user } = useAuth();
   const [refreshing, setRefreshing] = useState(false);
+  const [selectedDate, setSelectedDate] = useState(new Date());
 
   const { data: operationsData, isLoading, refetch } = useQuery<AdminOperationsData>({
-    queryKey: ["/api/admin/dashboard/operations"],
+    queryKey: ["/api/admin/dashboard/operations", selectedDate.toISOString().split('T')[0]],
+    queryFn: async () => {
+      const dateStr = selectedDate.toISOString().split('T')[0];
+      const response = await fetch(`/api/admin/dashboard/operations?date=${dateStr}`, {
+        credentials: 'include',
+      });
+      if (!response.ok) throw new Error('Failed to fetch operations data');
+      return response.json();
+    },
   });
+
+  const handleDateChange = (newDate: Date) => {
+    setSelectedDate(newDate);
+  };
 
   const onRefresh = async () => {
     setRefreshing(true);
@@ -147,11 +160,12 @@ export default function AdminDashboardScreen() {
         />
 
         <TodayOperationsPanel
-          currentDate={new Date()}
+          currentDate={selectedDate}
           totalSessions={todayOps.totalSessions}
           completedSessions={todayOps.completedSessions}
           inProgressSessions={todayOps.inProgressSessions}
           upcomingSessions={todayOps.upcomingSessions}
+          onDateChange={handleDateChange}
           onViewSchedule={() => navigation.navigate("AdminSchedule")}
         />
 
