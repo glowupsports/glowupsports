@@ -28410,17 +28410,44 @@ export async function registerRoutes(app: Express): Promise<Server> {
         "19:00", "20:00", "21:00", "22:00"
       ];
 
+      // Get all sessions for the academy on this date
+      const allSessions = academyId ? await storage.getSessionsByAcademy(academyId) : [];
+      const dateStr = date as string;
+      
+      // Filter sessions for the specified date
+      const dateSessionsMap = new Map<string, Set<number>>();
+      for (const session of allSessions) {
+        if (!session.courtId) continue;
+        const sessionDate = new Date(session.startTime);
+        const sessionDateStr = sessionDate.toISOString().split('T')[0];
+        if (sessionDateStr !== dateStr) continue;
+        
+        const startHour = sessionDate.getHours();
+        const endHour = session.endTime ? new Date(session.endTime).getHours() : startHour + 1;
+        
+        if (!dateSessionsMap.has(session.courtId)) {
+          dateSessionsMap.set(session.courtId, new Set());
+        }
+        for (let h = startHour; h < endHour; h++) {
+          dateSessionsMap.get(session.courtId)!.add(h);
+        }
+      }
+
       for (const court of courts) {
-        // Get existing bookings for this court on this date
         const availability = await storage.getCourtAvailability(court.id, date as string);
         const bookedTimes = new Set(availability.filter(a => !a.available).map(a => a.time));
+        const sessionBookedHours = dateSessionsMap.get(court.id) || new Set<number>();
 
         for (const time of timeSlots) {
+          const hour = parseInt(time.split(':')[0], 10);
+          const isBlockedBySession = sessionBookedHours.has(hour);
+          const isBlockedByAvailability = bookedTimes.has(time);
+          
           slots.push({
             courtId: court.id,
             courtName: court.name,
             time,
-            available: !bookedTimes.has(time),
+            available: !isBlockedBySession && !isBlockedByAvailability,
             price: court.pricePerHour,
             currency: court.currency || "AED",
           });

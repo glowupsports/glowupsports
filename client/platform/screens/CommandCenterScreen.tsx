@@ -77,7 +77,7 @@ function ActivityDay({ day, intensity }: ActivityDayProps) {
   const opacity = Math.min(1, 0.2 + (intensity * 0.2));
   return (
     <View style={styles.activityDayContainer}>
-      <View style={[styles.activityDay, { backgroundColor: `rgba(155, 89, 182, ${opacity})` }]} />
+      <View style={[styles.activityDay, { backgroundColor: `rgba(46, 204, 113, ${opacity})` }]} />
       <Text style={styles.activityDayLabel}>{day}</Text>
     </View>
   );
