@@ -89,16 +89,9 @@ export default function AdminDashboardScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [selectedDate, setSelectedDate] = useState(new Date());
 
+  const dateQueryStr = selectedDate.toISOString().split('T')[0];
   const { data: operationsData, isLoading, refetch } = useQuery<AdminOperationsData>({
-    queryKey: ["/api/admin/dashboard/operations", selectedDate.toISOString().split('T')[0]],
-    queryFn: async () => {
-      const dateStr = selectedDate.toISOString().split('T')[0];
-      const response = await fetch(`/api/admin/dashboard/operations?date=${dateStr}`, {
-        credentials: 'include',
-      });
-      if (!response.ok) throw new Error('Failed to fetch operations data');
-      return response.json();
-    },
+    queryKey: [`/api/admin/dashboard/operations?date=${dateQueryStr}`],
   });
 
   const handleDateChange = (newDate: Date) => {
