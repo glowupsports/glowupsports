@@ -63,10 +63,12 @@ function formatTimeAgo(dateString: string): string {
 function LatestPostCard({ post, onPress }: { post: Post; onPress: () => void }) {
   const authorName = post.player?.name || post.author?.username || "Player";
   const avatarUrl = post.player?.photoUrl 
-    ? `${getStaticAssetsUrl()}${post.player.photoUrl}` 
+    ? (post.player.photoUrl.startsWith("http") ? post.player.photoUrl : `${getStaticAssetsUrl()}${post.player.photoUrl}`)
     : null;
   const hasMedia = post.mediaUrls && post.mediaUrls.length > 0;
-  const firstMediaUrl = hasMedia ? `${getStaticAssetsUrl()}${post.mediaUrls[0]}` : null;
+  const firstMediaUrl = hasMedia 
+    ? (post.mediaUrls[0].startsWith("http") ? post.mediaUrls[0] : `${getStaticAssetsUrl()}${post.mediaUrls[0]}`) 
+    : null;
 
   return (
     <Pressable onPress={onPress} style={styles.latestPostCard}>
