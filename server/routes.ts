@@ -33579,7 +33579,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           title: s.title || "Training Session",
           time: sessionTime.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", hour12: false }),
           coachName: coach?.name || "Unassigned",
-          playerCount: sessionPlayers.length || Math.floor(Math.random() * 6) + 1,
+          playerCount: sessionPlayers.length,
           status,
         };
       });

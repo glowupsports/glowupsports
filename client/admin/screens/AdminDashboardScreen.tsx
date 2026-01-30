@@ -90,8 +90,9 @@ export default function AdminDashboardScreen() {
   const [selectedDate, setSelectedDate] = useState(new Date());
 
   const dateQueryStr = selectedDate.toISOString().split('T')[0];
-  const { data: operationsData, isLoading, refetch } = useQuery<AdminOperationsData>({
+  const { data: operationsData, isLoading, isFetching, refetch } = useQuery<AdminOperationsData>({
     queryKey: [`/api/admin/dashboard/operations?date=${dateQueryStr}`],
+    placeholderData: (prev) => prev,
   });
 
   const handleDateChange = (newDate: Date) => {
@@ -118,7 +119,7 @@ export default function AdminDashboardScreen() {
     upcomingSessions: 0,
   };
 
-  if (isLoading) {
+  if (isLoading && !operationsData) {
     return (
       <View style={[styles.container, styles.loadingContainer, { paddingTop: insets.top }]}>
         <ActivityIndicator size="large" color={Colors.dark.orange} />
