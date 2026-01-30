@@ -15,6 +15,7 @@ import AdminSubscriptionsScreen from "@/admin/screens/AdminSubscriptionsScreen";
 import AdminRolesPermissionsScreen from "@/admin/screens/AdminRolesPermissionsScreen";
 import { SwipeableTabBar, TabConfig } from "@/components/SwipeableTabBar";
 import { QuickActionsFAB, QuickAction } from "@/components/QuickActionsFAB";
+import { TabNavigationProvider } from "@/components/TabNavigationContext";
 import { useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { Colors } from "@/constants/theme";
@@ -141,9 +142,11 @@ function AdminQuickActionsFAB() {
 
 export default function AdminNavigator() {
   return (
-    <View style={styles.container}>
-      <AdminStackNavigator />
-    </View>
+    <TabNavigationProvider>
+      <View style={styles.container}>
+        <AdminStackNavigator />
+      </View>
+    </TabNavigationProvider>
   );
 }
 

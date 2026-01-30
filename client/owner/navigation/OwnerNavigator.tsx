@@ -22,6 +22,7 @@ import CreditPackagesScreen from "@/owner/screens/CreditPackagesScreen";
 import ShopManagementScreen from "@/owner/screens/ShopManagementScreen";
 import { SwipeableTabBar, TabConfig } from "@/components/SwipeableTabBar";
 import { QuickActionsFAB, QuickAction } from "@/components/QuickActionsFAB";
+import { TabNavigationProvider } from "@/components/TabNavigationContext";
 import { useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { Colors } from "@/constants/theme";
@@ -185,9 +186,11 @@ export default function OwnerNavigator() {
   const onboardingCompleted = hasExistingAcademy || (data?.academy?.onboardingCompleted ?? false);
 
   return (
-    <View style={styles.container}>
-      <OwnerStackNavigator onboardingCompleted={onboardingCompleted} />
-    </View>
+    <TabNavigationProvider>
+      <View style={styles.container}>
+        <OwnerStackNavigator onboardingCompleted={onboardingCompleted} />
+      </View>
+    </TabNavigationProvider>
   );
 }
 

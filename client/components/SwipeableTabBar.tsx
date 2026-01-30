@@ -1,4 +1,4 @@
-import React, { useRef, useCallback, useState, useMemo } from "react";
+import React, { useRef, useCallback, useState, useMemo, useEffect } from "react";
 import { StyleSheet, View, Platform, Pressable, Dimensions } from "react-native";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { BlurView } from "expo-blur";
@@ -8,6 +8,7 @@ import Animated, { useSharedValue, useAnimatedStyle, withSpring, interpolate, Sh
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import * as Haptics from "expo-haptics";
 import { Colors } from "@/constants/theme";
+import { useTabNavigation } from "./TabNavigationContext";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 
@@ -132,6 +133,11 @@ export function SwipeableTabBar({
   const scrollOffset = useSharedValue(initialPage);
   const lastScrollOffset = useRef(initialPage);
   const edgeSwipeTriggered = useRef(false);
+  const { registerPager } = useTabNavigation();
+
+  useEffect(() => {
+    registerPager(pagerRef, tabs);
+  }, [registerPager, tabs]);
 
   const handlePageSelected = useCallback((e: any) => {
     const newIndex = e.nativeEvent.position;

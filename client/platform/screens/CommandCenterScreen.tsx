@@ -5,11 +5,10 @@ import { LinearGradient } from "expo-linear-gradient";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import * as Haptics from "expo-haptics";
 import { useQuery } from "@tanstack/react-query";
-import { useNavigation } from "@react-navigation/native";
-import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { Colors, Spacing, BorderRadius, Typography } from "@/constants/theme";
 import { useAuth } from "@/coach/context/AuthContext";
 import CollapsibleModeSwitcher from "@/components/CollapsibleModeSwitcher";
+import { useTabNavigation } from "@/components/TabNavigationContext";
 
 import { PlatformCommandCenter } from "@/platform/components/PlatformCommandCenter";
 import { AcademyHealthCards } from "@/platform/components/AcademyHealthCards";
@@ -86,7 +85,7 @@ function ActivityDay({ day, intensity }: ActivityDayProps) {
 export default function CommandCenterScreen() {
   const insets = useSafeAreaInsets();
   const { logout } = useAuth();
-  const navigation = useNavigation<NativeStackNavigationProp<any>>();
+  const { navigateToTab } = useTabNavigation();
   const [refreshing, setRefreshing] = useState(false);
 
   const { data: platformData, isLoading, refetch } = useQuery<PlatformDashboardData>({
@@ -193,7 +192,7 @@ export default function CommandCenterScreen() {
           totalPlayers={metrics.totalPlayers}
           currency={currency}
           onLogoutPress={handleLogout}
-          onSettingsPress={() => navigation.navigate("System")}
+          onSettingsPress={() => navigateToTab("System")}
         />
 
         <View style={styles.kpiRow}>
@@ -203,7 +202,7 @@ export default function CommandCenterScreen() {
               label="Total Coaches"
               value={metrics.totalCoaches}
               color={Colors.dark.primary}
-              onPress={() => navigation.navigate("CoachHealth")}
+              onPress={() => navigateToTab("CoachHealth")}
             />
           </View>
           <View style={styles.kpiItem}>
@@ -212,7 +211,7 @@ export default function CommandCenterScreen() {
               label="New Signups"
               value={metrics.newSignups}
               color={Colors.dark.xpCyan}
-              onPress={() => navigation.navigate("PlayerHealth")}
+              onPress={() => navigateToTab("PlayerHealth")}
             />
           </View>
         </View>
@@ -228,8 +227,8 @@ export default function CommandCenterScreen() {
         <AcademyHealthCards
           academies={platformData?.academies || []}
           currency={currency}
-          onAcademyPress={(id) => navigation.navigate("Academies")}
-          onViewAll={() => navigation.navigate("Academies")}
+          onAcademyPress={(id) => navigateToTab("Academies")}
+          onViewAll={() => navigateToTab("Academies")}
         />
 
         <View style={styles.section}>
@@ -256,7 +255,7 @@ export default function CommandCenterScreen() {
               style={styles.quickAction}
               onPress={() => {
                 Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                navigation.navigate("Academies");
+                navigateToTab("Academies");
               }}
             >
               <View style={[styles.quickActionIcon, { backgroundColor: `${PLATFORM_PURPLE}15` }]}>
@@ -268,7 +267,7 @@ export default function CommandCenterScreen() {
               style={styles.quickAction}
               onPress={() => {
                 Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                navigation.navigate("Financials");
+                navigateToTab("Financials");
               }}
             >
               <View style={[styles.quickActionIcon, { backgroundColor: `${Colors.dark.primary}15` }]}>
@@ -280,7 +279,7 @@ export default function CommandCenterScreen() {
               style={styles.quickAction}
               onPress={() => {
                 Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                navigation.navigate("CoachHealth");
+                navigateToTab("CoachHealth");
               }}
             >
               <View style={[styles.quickActionIcon, { backgroundColor: `${Colors.dark.xpCyan}15` }]}>
@@ -292,7 +291,7 @@ export default function CommandCenterScreen() {
               style={styles.quickAction}
               onPress={() => {
                 Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                navigation.navigate("System");
+                navigateToTab("System");
               }}
             >
               <View style={[styles.quickActionIcon, { backgroundColor: `${Colors.dark.orange}15` }]}>

@@ -12,7 +12,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { useQuery } from "@tanstack/react-query";
-import { useNavigation } from "@react-navigation/native";
+import { useTabNavigation } from "@/components/TabNavigationContext";
 import type { BottomTabNavigationProp } from "@react-navigation/bottom-tabs";
 import type { CompositeNavigationProp } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
@@ -150,7 +150,7 @@ export default function AdminDashboardScreen() {
           waitingCheckIns={liveStats.waitingCheckIns}
           activeCoaches={liveStats.activeCoaches}
           nextSessionIn={liveStats.nextSessionIn}
-          onViewSchedule={() => navigation.navigate("AdminSchedule")}
+          onViewSchedule={() => navigateToTab("AdminSchedule")}
         />
 
         <TodayOperationsPanel
@@ -160,14 +160,14 @@ export default function AdminDashboardScreen() {
           inProgressSessions={todayOps.inProgressSessions}
           upcomingSessions={todayOps.upcomingSessions}
           onDateChange={handleDateChange}
-          onViewSchedule={() => navigation.navigate("AdminSchedule")}
+          onViewSchedule={() => navigateToTab("AdminSchedule")}
         />
 
         <SessionQueuePanel
           sessions={operationsData?.sessionQueue || []}
-          onSessionPress={(id) => navigation.navigate("AdminSchedule")}
+          onSessionPress={(id) => navigateToTab("AdminSchedule")}
           onStartSession={(id) => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium)}
-          onViewAll={() => navigation.navigate("AdminSchedule")}
+          onViewAll={() => navigateToTab("AdminSchedule")}
         />
 
         <View style={styles.twoColumnRow}>
@@ -175,7 +175,7 @@ export default function AdminDashboardScreen() {
             <CheckInStream
               checkIns={operationsData?.checkIns || []}
               onConfirm={(id) => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)}
-              onViewPlayer={(id) => navigation.navigate("AdminPlayers")}
+              onViewPlayer={(id) => navigateToTab("AdminPlayers")}
             />
           </View>
         </View>
@@ -193,7 +193,7 @@ export default function AdminDashboardScreen() {
               label="Today's Players"
               value={operationsData?.quickStats?.todayPlayers || 0}
               color={Colors.dark.xpCyan}
-              onPress={() => navigation.navigate("AdminPlayers")}
+              onPress={() => navigateToTab("AdminPlayers")}
             />
           </View>
           <View style={styles.kpiItem}>
@@ -213,7 +213,7 @@ export default function AdminDashboardScreen() {
               style={styles.quickAction}
               onPress={() => {
                 Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                navigation.navigate("AdminSchedule");
+                navigateToTab("AdminSchedule");
               }}
             >
               <View style={[styles.quickActionIcon, { backgroundColor: `${Colors.dark.orange}15` }]}>
@@ -225,7 +225,7 @@ export default function AdminDashboardScreen() {
               style={styles.quickAction}
               onPress={() => {
                 Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                navigation.navigate("AdminPlayers");
+                navigateToTab("AdminPlayers");
               }}
             >
               <View style={[styles.quickActionIcon, { backgroundColor: `${Colors.dark.xpCyan}15` }]}>
@@ -237,7 +237,7 @@ export default function AdminDashboardScreen() {
               style={styles.quickAction}
               onPress={() => {
                 Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                navigation.navigate("AdminSchedule");
+                navigateToTab("AdminSchedule");
               }}
             >
               <View style={[styles.quickActionIcon, { backgroundColor: `${Colors.dark.primary}15` }]}>
@@ -249,7 +249,7 @@ export default function AdminDashboardScreen() {
               style={styles.quickAction}
               onPress={() => {
                 Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                navigation.navigate("AdminPlayers");
+                navigateToTab("AdminPlayers");
               }}
             >
               <View style={[styles.quickActionIcon, { backgroundColor: `${Colors.dark.gold}15` }]}>
@@ -266,7 +266,7 @@ export default function AdminDashboardScreen() {
             style={styles.menuCard}
             onPress={() => {
               Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-              navigation.navigate("AdminCoaches");
+              navigateToTab("AdminCoaches");
             }}
           >
             <View style={styles.menuCardContent}>
@@ -283,7 +283,7 @@ export default function AdminDashboardScreen() {
             style={styles.menuCard}
             onPress={() => {
               Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-              navigation.navigate("AdminPlayers");
+              navigateToTab("AdminPlayers");
             }}
           >
             <View style={styles.menuCardContent}>
@@ -300,7 +300,7 @@ export default function AdminDashboardScreen() {
             style={styles.menuCard}
             onPress={() => {
               Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-              navigation.navigate("AdminClasses");
+              navigateToTab("AdminClasses");
             }}
           >
             <View style={styles.menuCardContent}>

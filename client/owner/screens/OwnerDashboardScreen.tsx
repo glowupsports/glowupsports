@@ -9,8 +9,8 @@ import {
   RefreshControl,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { useNavigation } from "@react-navigation/native";
-import { NativeStackNavigationProp } from "@react-navigation/native-stack";
+import { useTabNavigation } from "@/components/TabNavigationContext";
+
 import { LinearGradient } from "expo-linear-gradient";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import * as Haptics from "expo-haptics";
@@ -229,7 +229,7 @@ export default function OwnerDashboardScreen() {
               label="Total Players"
               value={kpis.totalPlayers}
               color={Colors.dark.xpCyan}
-              onPress={() => navigation.navigate("People")}
+              onPress={() => navigateToTab("People")}
             />
           </View>
           <View style={styles.kpiItem}>
@@ -238,7 +238,7 @@ export default function OwnerDashboardScreen() {
               label="Coaches"
               value={kpis.totalCoaches}
               color={Colors.dark.primary}
-              onPress={() => navigation.navigate("People")}
+              onPress={() => navigateToTab("People")}
             />
           </View>
         </View>
@@ -263,8 +263,8 @@ export default function OwnerDashboardScreen() {
         <StaffPerformancePanel
           coaches={dashboardData?.staffPerformance || []}
           currency={currency}
-          onCoachPress={(id) => navigation.navigate("People")}
-          onViewAll={() => navigation.navigate("People")}
+          onCoachPress={(id) => navigateToTab("People")}
+          onViewAll={() => navigateToTab("People")}
         />
 
         <SmartInsightsPanel insights={insights} />
@@ -305,7 +305,7 @@ export default function OwnerDashboardScreen() {
               style={styles.quickAction}
               onPress={() => {
                 Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                navigation.navigate("Performance");
+                navigateToTab("Performance");
               }}
             >
               <View style={[styles.quickActionIcon, { backgroundColor: `${Colors.dark.gold}15` }]}>
@@ -317,7 +317,7 @@ export default function OwnerDashboardScreen() {
               style={styles.quickAction}
               onPress={() => {
                 Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                navigation.navigate("People");
+                navigateToTab("People");
               }}
             >
               <View style={[styles.quickActionIcon, { backgroundColor: `${Colors.dark.primary}15` }]}>
@@ -329,7 +329,7 @@ export default function OwnerDashboardScreen() {
               style={styles.quickAction}
               onPress={() => {
                 Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                navigation.navigate("Finance");
+                navigateToTab("Finance");
               }}
             >
               <View style={[styles.quickActionIcon, { backgroundColor: `${Colors.dark.xpCyan}15` }]}>
@@ -341,7 +341,7 @@ export default function OwnerDashboardScreen() {
               style={styles.quickAction}
               onPress={() => {
                 Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                navigation.navigate("Settings");
+                navigateToTab("Settings");
               }}
             >
               <View style={[styles.quickActionIcon, { backgroundColor: `${Colors.dark.orange}15` }]}>

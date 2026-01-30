@@ -20,6 +20,7 @@ import AuditLogsScreen from "@/platform/screens/AuditLogsScreen";
 import DiagnosticsScreen from "@/platform/screens/DiagnosticsScreen";
 import { SwipeableTabBar, TabConfig } from "@/components/SwipeableTabBar";
 import { QuickActionsFAB, QuickAction } from "@/components/QuickActionsFAB";
+import { TabNavigationProvider } from "@/components/TabNavigationContext";
 import { useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { Colors } from "@/constants/theme";
@@ -150,9 +151,11 @@ function PlatformQuickActionsFAB() {
 
 export default function PlatformNavigator() {
   return (
-    <View style={styles.container}>
-      <PlatformStackNavigator />
-    </View>
+    <TabNavigationProvider>
+      <View style={styles.container}>
+        <PlatformStackNavigator />
+      </View>
+    </TabNavigationProvider>
   );
 }
 
