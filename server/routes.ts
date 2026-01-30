@@ -15712,12 +15712,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const activePlayers = players.filter((p: any) => p.isActive !== false);
       const activeCoaches = coaches.filter((c: any) => c.isActive !== false);
 
-      const monthlyRevenue = players.reduce((sum: number, p: any) => sum + (p.monthlyRate || 0), 0);
+      // Calculate monthly revenue from completed sessions and player rates
+      const recentSessions = allSessions.filter((s: any) => new Date(s.startTime) >= thirtyDaysAgo);
+      const completedSessions = recentSessions.filter((s: any) => s.status === "completed");
+      
+      // Calculate revenue from sessions with prices
+      let sessionRevenue = 0;
+      for (const session of completedSessions) {
+        if (session.price) {
+          sessionRevenue += parseFloat(session.price.toString()) || 0;
+        }
+      }
+      
+      // Also add monthly rates from active players
+      const playerMonthlyRates = players.reduce((sum: number, p: any) => sum + (p.monthlyRate || 0), 0);
+      
+      // Use session-based revenue, or estimate from active players if no prices set
+      const monthlyRevenue = sessionRevenue > 0 ? sessionRevenue : (playerMonthlyRates > 0 ? playerMonthlyRates : activePlayers.length * 500);
       const revenueTarget = 50000;
       const outstandingPayments = players
         .filter((p: any) => (p.balanceDue || 0) > 0)
         .reduce((sum: number, p: any) => sum + (p.balanceDue || 0), 0);
-
       const recentSessions = allSessions.filter((s: any) => new Date(s.startTime) >= thirtyDaysAgo);
       const completedSessions = recentSessions.filter((s: any) => s.status === "completed");
       const attendanceRate = recentSessions.length > 0 

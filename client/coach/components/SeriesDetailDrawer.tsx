@@ -1028,30 +1028,28 @@ export default function SeriesDetailDrawer({
   
   // Fetch sessions for selected court and date to show busy slots
   const dateStr = extraLessonDate.toISOString().split('T')[0];
-  const { data: courtSessionsData } = useQuery<any[]>({
-    queryKey: ["/api/coach/calendar", selectedCourtId, dateStr],
+  const { data: courtAvailabilityData, isLoading: loadingAvailability } = useQuery<{
+    courts: any[];
+    slots: Array<{ courtId: string; courtName: string; time: string; available: boolean }>;
+  }>({
+    queryKey: [`/api/courts/availability?date=${dateStr}`],
     enabled: showExtraLessonModal && extraLessonStep === 3 && !!selectedCourtId,
   });
   
   // Generate time slots from 6:00 to 22:00 (1-hour intervals)
   const timeSlots = React.useMemo(() => {
     const slots: { time: string; available: boolean }[] = [];
+    const courtSlots = courtAvailabilityData?.slots?.filter(s => s.courtId === selectedCourtId) || [];
+    
     for (let hour = 6; hour <= 22; hour++) {
       const timeStr = `${String(hour).padStart(2, '0')}:00`;
-      // Check if this slot is booked
-      const isBooked = courtSessionsData?.some((session: any) => {
-        if (session.courtId !== selectedCourtId) return false;
-        const sessionStart = new Date(session.startTime);
-        const sessionDate = sessionStart.toISOString().split('T')[0];
-        if (sessionDate !== dateStr) return false;
-        const sessionHour = sessionStart.getHours();
-        const sessionEndHour = new Date(session.endTime).getHours();
-        return hour >= sessionHour && hour < sessionEndHour;
-      }) || false;
-      slots.push({ time: timeStr, available: !isBooked });
+      // Find matching slot from availability API
+      const matchingSlot = courtSlots.find(s => s.time === timeStr);
+      const isAvailable = matchingSlot ? matchingSlot.available : true;
+      slots.push({ time: timeStr, available: isAvailable });
     }
     return slots;
-  }, [courtSessionsData, selectedCourtId, dateStr]);
+  }, [courtAvailabilityData, selectedCourtId]);
   
   const resetExtraLessonModal = () => {
     setExtraLessonStep(1);
