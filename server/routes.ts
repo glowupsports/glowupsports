@@ -3944,6 +3944,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           }
           
           const session = await storage.createSession({
+        duration: duration || 60,
             academyId,
             coachId,
             courtId,
@@ -4077,6 +4078,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
 
         const session = await storage.createSession({
+        duration: duration || 60,
           academyId,
           coachId,
           courtId,
@@ -4346,6 +4348,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         
         // Create the session linked to series
         const session = await storage.createSession({
+        duration: duration || 60,
           coachId,
           courtId,
           academyId: academyId || undefined,
@@ -10033,6 +10036,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           
           // Create session for this flexible date
           const session = await storage.createSession({
+        duration: duration || 60,
             academyId,
             coachId,
             courtId: courtId || null,
@@ -10261,6 +10265,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
         // Create the session linked to this series
         const session = await storage.createSession({
+        duration: duration || 60,
           academyId,
           coachId,
           courtId: courtId || null,
@@ -10700,6 +10705,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Create the session
       const session = await storage.createSession({
+        duration: duration || 60,
         academyId,
         coachId,
         startTime: sessionStart,
@@ -10832,6 +10838,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
                       } catch {}
                       
                       const session = await storage.createSession({
+        duration: duration || 60,
                         academyId,
                         coachId,
                         courtId: series.courtId || null,
@@ -17757,6 +17764,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
 
         const session = await storage.createSession({
+        duration: duration || 60,
           academyId,
           coachId,
           courtId: courtId || null,
@@ -18412,6 +18420,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
 
         const session = await storage.createSession({
+        duration: duration || 60,
           academyId,
           coachId,
           courtId,
@@ -18632,6 +18641,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         
         // Create the session linked to series
         const session = await storage.createSession({
+        duration: duration || 60,
           coachId,
           courtId,
           academyId,
