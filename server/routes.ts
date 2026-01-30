@@ -10718,10 +10718,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
         playerIds: activePlayerIds,
       });
       
-      // Assign players to the session
-      for (const playerId of activePlayerIds) {
-        await storage.assignPlayerToSession(session.id, playerId);
-      }
       
       // Invalidate cache
       apiCache.invalidate(`coach_series_${coachId}`);
