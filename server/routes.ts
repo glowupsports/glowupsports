@@ -11615,7 +11615,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             inArray(sessionPlayers.playerId, playerIds),
             inArray(sessionPlayers.sessionId, completedSessionIds),
             or(
-              inArray(sessionPlayers.attendanceStatus, ["present", "late"]),
+              inArray(sessionPlayers.attendanceStatus, ["present", "late", "absent"]),
               isNull(sessionPlayers.attendanceStatus)  // Legacy data without attendance tracking
             )
           ))
