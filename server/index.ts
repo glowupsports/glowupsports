@@ -383,13 +383,23 @@ function setupErrorHandler(app: express.Application) {
       host: "0.0.0.0",
       reusePort: true,
     },
-    () => {
+    async () => {
       log(`express server serving on port ${port}`);
       
       startReminderScheduler();
       startDailyTipScheduler();
       startAutoSessionCompletionScheduler();
       startMonthlyReportScheduler();
+      
+      // Run bulk credit repair on startup to fix any missing charges
+      try {
+        const { repairAllPlayerCredits } = await import("./storage");
+        log("[StartupRepair] Running bulk credit repair...");
+        const result = await repairAllPlayerCredits();
+        log(`[StartupRepair] Complete: ${result.processed} processed, ${result.consumed} consumed, ${result.debts} debts, ${result.errors} errors`);
+      } catch (error) {
+        console.error("[StartupRepair] Failed:", error);
+      }
     },
   );
 })();
