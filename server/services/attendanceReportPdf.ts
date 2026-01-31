@@ -7,7 +7,7 @@ export interface AttendanceRecord {
   status: string | null;
   lateMinutes: number | null;
   seriesId?: string | null;
-  paymentStatus?: "paid" | "pending";
+  paymentStatus?: "paid" | "pending" | "cancelled";
 }
 
 export interface SeriesInfo {
@@ -197,8 +197,8 @@ export function generateAttendanceReportHtml(data: AttendanceReportData): string
           <span class="status-badge compact" style="background: ${getStatusColor(record.status)}20; color: ${getStatusColor(record.status)};">
             ${getStatusLabel(record.status)}
           </span>
-          <span class="payment-badge compact ${record.paymentStatus === 'paid' ? 'paid' : 'pending'}">
-            ${record.paymentStatus === 'paid' ? 'Paid' : 'Pending'}
+          <span class="payment-badge compact ${record.paymentStatus === 'paid' ? 'paid' : record.paymentStatus === 'cancelled' ? 'cancelled' : 'pending'}">
+            ${record.paymentStatus === 'paid' ? 'Paid' : record.paymentStatus === 'cancelled' ? 'N/A' : 'Pending'}
           </span>
         </div>
       `).join('');
@@ -253,8 +253,8 @@ export function generateAttendanceReportHtml(data: AttendanceReportData): string
           </span>
         </td>
         <td class="payment-cell">
-          <span class="payment-badge ${record.paymentStatus === 'paid' ? 'paid' : 'pending'}">
-            ${record.paymentStatus === 'paid' ? 'Paid' : 'Pending'}
+          <span class="payment-badge ${record.paymentStatus === 'paid' ? 'paid' : record.paymentStatus === 'cancelled' ? 'cancelled' : 'pending'}">
+            ${record.paymentStatus === 'paid' ? 'Paid' : record.paymentStatus === 'cancelled' ? 'N/A' : 'Pending'}
           </span>
         </td>
       </tr>
@@ -698,6 +698,11 @@ export function generateAttendanceReportHtml(data: AttendanceReportData): string
     .payment-badge.pending {
       background: rgba(245, 158, 11, 0.2);
       color: #F59E0B;
+    }
+    
+    .payment-badge.cancelled {
+      background: rgba(229, 57, 53, 0.15);
+      color: #E53935;
     }
     
     .footer {
