@@ -11011,13 +11011,20 @@ async function repairAllPlayerCredits(): Promise<{
 }> {
   const results = { processed: 0, consumed: 0, debts: 0, alreadyProcessed: 0, errors: [] as string[] };
   
-  // Find all unprocessed session_players with present/late attendance
+  // Find all unprocessed session_players with chargeable attendance:
+  // - present/late for any session type
+  // - absent ONLY for private sessions (coach showed up, player pays)
   const unprocessed = await db.execute(sql`
-    SELECT sp.id, sp.player_id, sp.session_id, sp.attendance_status, p.name as player_name
+    SELECT sp.id, sp.player_id, sp.session_id, sp.attendance_status, p.name as player_name, s.session_type
     FROM session_players sp
     JOIN players p ON p.id = sp.player_id
-    WHERE sp.attendance_status IN ('present', 'late')
-      AND sp.credit_deducted_at IS NULL
+    JOIN sessions s ON s.id = sp.session_id
+    WHERE sp.credit_deducted_at IS NULL
+      AND s.status != 'cancelled'
+      AND (
+        sp.attendance_status IN ('present', 'late')
+        OR (sp.attendance_status = 'absent' AND s.session_type IN ('private', 'private_adjusted'))
+      )
     ORDER BY sp.id
   `);
   
