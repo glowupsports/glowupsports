@@ -297,6 +297,46 @@ export default function PackagesCard({ playerId, playerName }: PackagesCardProps
     }
   };
 
+  const [isRepairing, setIsRepairing] = useState(false);
+  
+  const repairMutation = useMutation({
+    mutationFn: async () => {
+      const response = await apiRequest("POST", `/api/coach/players/${playerId}/repair-credits`, {});
+      return response.json();
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: [`/api/players/${playerId}/packages`] });
+      queryClient.invalidateQueries({ queryKey: [`/api/players/${playerId}/credit-balance`] });
+      queryClient.invalidateQueries({ queryKey: ["/api/players?withCredits=true"] });
+      setIsRepairing(false);
+      if (Platform.OS !== "web") {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      }
+      Alert.alert("Credits Repaired", `Processed ${data.consumed || 0} session(s), ${data.debts || 0} debt(s)`);
+    },
+    onError: (error: Error) => {
+      setIsRepairing(false);
+      Alert.alert("Error", error.message || "Failed to repair credits");
+    },
+  });
+
+  const handleRepairCredits = () => {
+    Alert.alert(
+      "Repair Credits",
+      "This will recalculate credits from all past sessions. Use this if credits don't match attendance records.",
+      [
+        { text: "Cancel", style: "cancel" },
+        { 
+          text: "Repair", 
+          onPress: () => {
+            setIsRepairing(true);
+            repairMutation.mutate();
+          }
+        },
+      ]
+    );
+  };
+
   const formatDate = (date: Date) => {
     return date.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
   };
@@ -341,14 +381,27 @@ export default function PackagesCard({ playerId, playerName }: PackagesCardProps
               </View>
               <Text style={styles.title}>Packages</Text>
             </View>
-            <Pressable onPress={() => setShowAddModal(true)} style={styles.addButton}>
-              <LinearGradient
-                colors={[Colors.dark.primary + "30", Colors.dark.xpCyan + "20"]}
-                style={styles.addButtonGradient}
+            <View style={styles.headerButtons}>
+              <Pressable 
+                onPress={handleRepairCredits} 
+                style={[styles.repairButton, isRepairing && styles.repairButtonDisabled]}
+                disabled={isRepairing}
               >
-                <Ionicons name="add" size={20} color={Colors.dark.primary} />
-              </LinearGradient>
-            </Pressable>
+                <Ionicons 
+                  name={isRepairing ? "sync" : "build-outline"} 
+                  size={18} 
+                  color={isRepairing ? Colors.dark.disabled : Colors.dark.xpCyan} 
+                />
+              </Pressable>
+              <Pressable onPress={() => setShowAddModal(true)} style={styles.addButton}>
+                <LinearGradient
+                  colors={[Colors.dark.primary + "30", Colors.dark.xpCyan + "20"]}
+                  style={styles.addButtonGradient}
+                >
+                  <Ionicons name="add" size={20} color={Colors.dark.primary} />
+                </LinearGradient>
+              </Pressable>
+            </View>
           </View>
 
       <View style={styles.summaryRow}>
@@ -735,6 +788,19 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: Spacing.sm,
+  },
+  headerButtons: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+  },
+  repairButton: {
+    padding: Spacing.sm,
+    borderRadius: BorderRadius.md,
+    backgroundColor: Colors.dark.xpCyan + "15",
+  },
+  repairButtonDisabled: {
+    opacity: 0.5,
   },
   headerIconContainer: {
     width: 36,

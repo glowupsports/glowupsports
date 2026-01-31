@@ -8847,6 +8847,39 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Coach-accessible credit repair for their players
+  app.post("/api/coach/players/:playerId/repair-credits", authMiddleware, requireAcademy, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const { playerId } = req.params;
+      const academyId = req.user!.academyId;
+
+      // Validate player ownership
+      const { valid } = await validatePlayerOwnership(playerId, academyId, storage);
+      if (!valid) {
+        return res.status(404).json({ error: "Player not found" });
+      }
+
+      const player = await storage.getPlayer(playerId);
+      const result = await storage.repairPlayerCredits(playerId);
+
+      if (result.success) {
+        console.log(`[CreditRepair] Coach repaired credits for ${player?.name || playerId}: consumed=${result.consumed}, debts=${result.debts}`);
+        res.json({
+          message: `Repaired credits for ${player?.name || playerId}`,
+          ...result,
+        });
+      } else {
+        res.status(500).json({
+          error: "Repair failed",
+          ...result,
+        });
+      }
+    } catch (error) {
+      console.error("Credit repair error:", error);
+      res.status(500).json({ error: "Failed to repair credits" });
+    }
+  });
+
 
   // Update player attendance status with credit adjustment
   app.patch("/api/coach/players/:playerId/sessions/:sessionId/attendance", authMiddleware, requireAcademy, async (req: AuthenticatedRequest, res: Response) => {
