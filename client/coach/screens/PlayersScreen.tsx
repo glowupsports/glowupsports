@@ -1083,7 +1083,9 @@ function PlayerDetailView({
   // Fetch attendance summary
   interface AttendanceSummary {
     totalLessons: number;
+    attendedCount: number;  // Sessions where attendance was recorded (present + late + absent)
     presentCount: number;
+    absentCount: number;
     attendancePercentage: number;
   }
   const { data: attendanceSummary } = useQuery<AttendanceSummary>({
@@ -1319,7 +1321,7 @@ function PlayerDetailView({
           {/* Quick Stats Row */}
           <View style={styles.premiumQuickStats}>
             <View style={styles.premiumQuickStat}>
-              <Text style={styles.premiumQuickStatValue}>{attendanceSummary?.totalLessons ?? 0}</Text>
+              <Text style={styles.premiumQuickStatValue}>{attendanceSummary?.attendedCount ?? 0}</Text>
               <Text style={styles.premiumQuickStatLabel}>Sessions</Text>
             </View>
             <View style={styles.premiumQuickStatDivider} />
@@ -4698,7 +4700,7 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.dark.gold + "20",
   },
   attendanceStatusCancelled: {
-    backgroundColor: Colors.dark.textSecondary + "20",
+    backgroundColor: "#E53935" + "30",  // Red background for cancelled
   },
   attendanceStatusText: {
     fontSize: 11,
@@ -4714,7 +4716,7 @@ const styles = StyleSheet.create({
     color: Colors.dark.gold,
   },
   attendanceStatusTextCancelled: {
-    color: Colors.dark.textSecondary,
+    color: "#E53935",  // Red text for cancelled
   },
   showMoreHistoryButton: {
     flexDirection: "row",

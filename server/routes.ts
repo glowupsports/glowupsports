@@ -8660,25 +8660,42 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ error: "Player not found" });
       }
 
-      // Get all session_players records for this player
+      // Get all session_players records for this player with session status
       const sessionPlayerRecords = await db
         .select({
           sessionId: sessionPlayers.sessionId,
           attendanceStatus: sessionPlayers.attendanceStatus,
           lateMinutes: sessionPlayers.lateMinutes,
+          sessionStatus: sessions.status,
         })
         .from(sessionPlayers)
+        .innerJoin(sessions, eq(sessionPlayers.sessionId, sessions.id))
         .where(eq(sessionPlayers.playerId, playerId));
 
+      // Total scheduled lessons (all records)
       const totalLessons = sessionPlayerRecords.length;
-      const presentCount = sessionPlayerRecords.filter(r => r.attendanceStatus === "present").length;
-      const lateCount = sessionPlayerRecords.filter(r => r.lateMinutes && r.lateMinutes > 0).length;
-      const attendancePercentage = totalLessons > 0 ? Math.round((presentCount / totalLessons) * 100) : 0;
+      
+      // Count by attendance status (excluding cancelled sessions)
+      const nonCancelledRecords = sessionPlayerRecords.filter(r => r.sessionStatus !== "cancelled");
+      const presentCount = nonCancelledRecords.filter(r => r.attendanceStatus === "present").length;
+      const absentCount = nonCancelledRecords.filter(r => r.attendanceStatus === "absent").length;
+      const lateCount = nonCancelledRecords.filter(r => r.lateMinutes && r.lateMinutes > 0).length;
+      
+      // Attended sessions = sessions where player was marked present OR absent (actual attendance recorded)
+      // This excludes: cancelled sessions, future sessions (null attendance), pending
+      const attendedCount = nonCancelledRecords.filter(r => 
+        r.attendanceStatus === "present" || r.attendanceStatus === "late" || r.attendanceStatus === "absent"
+      ).length;
+      
+      // Attendance percentage based on attended sessions (present out of attended)
+      const attendancePercentage = attendedCount > 0 ? Math.round((presentCount / attendedCount) * 100) : 0;
 
-      console.log("[AttendanceSummary] Player:", playerId, "Total:", totalLessons, "Present:", presentCount, "Percentage:", attendancePercentage, "%");
+      console.log("[AttendanceSummary] Player:", playerId, "Attended:", attendedCount, "Present:", presentCount, "Absent:", absentCount, "Percentage:", attendancePercentage, "%");
       res.json({
         totalLessons,
+        attendedCount,  // Sessions where attendance was recorded (present + late + absent)
         presentCount,
+        absentCount,    // Sessions marked absent
         attendancePercentage,
         lateCount,
       });
