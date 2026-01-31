@@ -57,7 +57,7 @@ const PILLAR_CONFIG: Record<string, { icon: keyof typeof Ionicons.glyphMap; colo
   TECHNIQUE: { icon: "tennisball", color: "#10B981", label: "Technique" },
   TACTICAL: { icon: "bulb", color: "#F59E0B", label: "Tactical" },
   PHYSICAL: { icon: "barbell", color: "#EF4444", label: "Physical" },
-  MENTAL: { icon: "brain", color: "#8B5CF6", label: "Mental" },
+  MENTAL: { icon: "analytics", color: "#8B5CF6", label: "Mental" },
   SOCIAL: { icon: "people", color: "#EC4899", label: "Social" },
   MATCH: { icon: "trophy", color: "#3B82F6", label: "Match" },
 };
@@ -258,7 +258,7 @@ export function DeepAssessmentDrawer({ visible, player, onClose }: DeepAssessmen
                           <Text style={styles.pillarName}>{config.label}</Text>
                           <Text style={styles.pillarStats}>
                             {summary?.assessedSkills || 0}/{summary?.totalSkills || 0} assessed
-                            {summary?.averageScore !== null && ` • Avg: ${summary.averageScore.toFixed(1)}`}
+                            {summary?.averageScore !== null && summary?.averageScore !== undefined && ` • Avg: ${summary.averageScore.toFixed(1)}`}
                           </Text>
                         </View>
                       </View>

@@ -76,7 +76,7 @@ const PILLARS = [
   { id: "TECHNIQUE", label: "Technique", icon: "tennisball-outline" as const, color: "#4CAF50" },
   { id: "TACTICAL", label: "Tactical", icon: "bulb-outline" as const, color: "#2196F3" },
   { id: "PHYSICAL", label: "Physical", icon: "fitness-outline" as const, color: "#FF9800" },
-  { id: "MENTAL", label: "Mental", icon: "brain-outline" as const, color: "#9C27B0" },
+  { id: "MENTAL", label: "Mental", icon: "analytics-outline" as const, color: "#9C27B0" },
   { id: "SOCIAL", label: "Social", icon: "people-outline" as const, color: "#E91E63" },
   { id: "MATCH", label: "Match", icon: "trophy-outline" as const, color: "#FFC107" },
 ];
@@ -176,7 +176,7 @@ export function GlowAssessmentFlow({
       <View style={styles.container}>
         <View style={styles.header}>
           <Pressable onPress={onCancel} style={styles.closeButton}>
-            <Ionicons name="close" size={24} color={Colors.textMuted} />
+            <Ionicons name="close" size={24} color={Colors.dark.textMuted} />
           </Pressable>
           <Text style={styles.title}>Glow Assessment</Text>
           <Text style={styles.subtitle}>{playerName}</Text>
@@ -231,7 +231,7 @@ export function GlowAssessmentFlow({
             disabled={!selectedLevel}
           >
             <LinearGradient
-              colors={[GlowColors.primary, GlowColors.primaryDark]}
+              colors={[GlowColors.primary, GlowColors.dark]}
               style={styles.nextButtonGradient}
             >
               <Text style={styles.nextButtonText}>Start Assessment</Text>
@@ -257,7 +257,7 @@ export function GlowAssessmentFlow({
       <View style={styles.container}>
         <View style={styles.header}>
           <Pressable onPress={() => setStep(0)} style={styles.closeButton}>
-            <Ionicons name="arrow-back" size={24} color={Colors.textMuted} />
+            <Ionicons name="arrow-back" size={24} color={Colors.dark.textMuted} />
           </Pressable>
           <Text style={styles.title}>{levelData?.name}</Text>
           <Text style={styles.subtitle}>Data-Driven Level</Text>
@@ -289,7 +289,7 @@ export function GlowAssessmentFlow({
             }}
           >
             <LinearGradient
-              colors={[GlowColors.primary, GlowColors.primaryDark]}
+              colors={[GlowColors.primary, GlowColors.dark]}
               style={styles.nextButtonGradient}
             >
               <Text style={styles.nextButtonText}>Continue Anyway</Text>
@@ -308,7 +308,7 @@ export function GlowAssessmentFlow({
       <View style={styles.container}>
         <View style={styles.header}>
           <Pressable onPress={handlePrevPillar} style={styles.closeButton}>
-            <Ionicons name="arrow-back" size={24} color={Colors.textMuted} />
+            <Ionicons name="arrow-back" size={24} color={Colors.dark.textMuted} />
           </Pressable>
           <View style={styles.headerCenter}>
             <Text style={styles.title}>{currentPillar.label}</Text>
@@ -343,7 +343,7 @@ export function GlowAssessmentFlow({
                 <Ionicons
                   name={isComplete ? "checkmark-circle" : pillar.icon}
                   size={20}
-                  color={isCurrent ? pillar.color : isComplete ? GlowColors.primary : Colors.textMuted}
+                  color={isCurrent ? pillar.color : isComplete ? GlowColors.primary : Colors.dark.textMuted}
                 />
               </Pressable>
             );
@@ -353,7 +353,7 @@ export function GlowAssessmentFlow({
         <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
           {pillarCategories.length === 0 ? (
             <View style={styles.emptyPillar}>
-              <Ionicons name="information-circle-outline" size={48} color={Colors.textMuted} />
+              <Ionicons name="information-circle-outline" size={48} color={Colors.dark.textMuted} />
               <Text style={styles.emptyText}>No skills for this pillar at this level</Text>
             </View>
           ) : (
@@ -434,7 +434,7 @@ export function GlowAssessmentFlow({
       <View style={styles.container}>
         <View style={styles.header}>
           <Pressable onPress={() => setStep(2)} style={styles.closeButton}>
-            <Ionicons name="arrow-back" size={24} color={Colors.textMuted} />
+            <Ionicons name="arrow-back" size={24} color={Colors.dark.textMuted} />
           </Pressable>
           <Text style={styles.title}>Review Assessment</Text>
           <Text style={styles.subtitle}>{playerName} - {levelData?.name}</Text>
@@ -477,7 +477,7 @@ export function GlowAssessmentFlow({
             <Ionicons
               name={weightedTotal >= 60 ? "checkmark-circle" : "alert-circle"}
               size={32}
-              color={weightedTotal >= 60 ? GlowColors.primary : Colors.warning}
+              color={weightedTotal >= 60 ? GlowColors.primary : Colors.dark.accentWarning}
             />
             <Text style={styles.promotionTitle}>
               {weightedTotal >= 60 ? "Promotion Ready" : "More Work Needed"}
@@ -500,7 +500,7 @@ export function GlowAssessmentFlow({
             disabled={saveAssessment.isPending}
           >
             <LinearGradient
-              colors={[GlowColors.primary, GlowColors.primaryDark]}
+              colors={[GlowColors.primary, GlowColors.dark]}
               style={styles.nextButtonGradient}
             >
               {saveAssessment.isPending ? (
@@ -544,7 +544,7 @@ function SkillCheckItem({ skill, score, onScore, color }: SkillCheckItemProps) {
         <Ionicons
           name={expanded ? "chevron-up" : "chevron-down"}
           size={20}
-          color={Colors.textMuted}
+          color={Colors.dark.textMuted}
         />
       </Pressable>
 
@@ -604,7 +604,7 @@ function SkillCheckItem({ skill, score, onScore, color }: SkillCheckItemProps) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: Backgrounds.primary,
+    backgroundColor: Backgrounds.root,
   },
   centered: {
     justifyContent: "center",
@@ -617,7 +617,7 @@ const styles = StyleSheet.create({
     paddingTop: Spacing.xl,
     paddingBottom: Spacing.md,
     borderBottomWidth: 1,
-    borderBottomColor: Colors.border,
+    borderBottomColor: Colors.dark.border,
   },
   headerCenter: {
     flex: 1,
@@ -629,11 +629,11 @@ const styles = StyleSheet.create({
   title: {
     fontSize: FontSizes.lg,
     fontWeight: "700",
-    color: Colors.textPrimary,
+    color: Colors.dark.text,
   },
   subtitle: {
     fontSize: FontSizes.sm,
-    color: Colors.textMuted,
+    color: Colors.dark.textMuted,
     marginTop: 2,
   },
   content: {
@@ -643,12 +643,12 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: FontSizes.md,
     fontWeight: "600",
-    color: Colors.textPrimary,
+    color: Colors.dark.text,
     marginTop: Spacing.lg,
   },
   sectionHint: {
     fontSize: FontSizes.sm,
-    color: Colors.textMuted,
+    color: Colors.dark.textMuted,
     marginTop: Spacing.xs,
     marginBottom: Spacing.md,
   },
@@ -658,11 +658,11 @@ const styles = StyleSheet.create({
   levelCard: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: Backgrounds.secondary,
+    backgroundColor: Backgrounds.card,
     borderRadius: BorderRadius.md,
     padding: Spacing.md,
     borderWidth: 1,
-    borderColor: Colors.border,
+    borderColor: Colors.dark.border,
     gap: Spacing.md,
   },
   levelBadge: {
@@ -681,7 +681,7 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: FontSizes.md,
     fontWeight: "500",
-    color: Colors.textPrimary,
+    color: Colors.dark.text,
   },
   footer: {
     flexDirection: "row",
@@ -689,7 +689,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.lg,
     paddingVertical: Spacing.md,
     borderTopWidth: 1,
-    borderTopColor: Colors.border,
+    borderTopColor: Colors.dark.border,
     gap: Spacing.md,
   },
   cancelButton: {
@@ -698,7 +698,7 @@ const styles = StyleSheet.create({
   },
   cancelButtonText: {
     fontSize: FontSizes.md,
-    color: Colors.textMuted,
+    color: Colors.dark.textMuted,
     fontWeight: "500",
   },
   nextButton: {
@@ -722,11 +722,11 @@ const styles = StyleSheet.create({
   },
   loadingText: {
     fontSize: FontSizes.md,
-    color: Colors.textMuted,
+    color: Colors.dark.textMuted,
     marginTop: Spacing.md,
   },
   dataDrivenCard: {
-    backgroundColor: Backgrounds.secondary,
+    backgroundColor: Backgrounds.card,
     borderRadius: BorderRadius.lg,
     padding: Spacing.xl,
     alignItems: "center",
@@ -735,19 +735,19 @@ const styles = StyleSheet.create({
   dataDrivenTitle: {
     fontSize: FontSizes.lg,
     fontWeight: "600",
-    color: Colors.textPrimary,
+    color: Colors.dark.text,
     marginTop: Spacing.md,
   },
   dataDrivenText: {
     fontSize: FontSizes.sm,
-    color: Colors.textMuted,
+    color: Colors.dark.textMuted,
     textAlign: "center",
     marginTop: Spacing.sm,
     lineHeight: 20,
   },
   dataDrivenHint: {
     fontSize: FontSizes.xs,
-    color: Colors.textMuted,
+    color: Colors.dark.textMuted,
     textAlign: "center",
     marginTop: Spacing.md,
     fontStyle: "italic",
@@ -755,7 +755,7 @@ const styles = StyleSheet.create({
   pillarNav: {
     flexDirection: "row",
     borderBottomWidth: 1,
-    borderBottomColor: Colors.border,
+    borderBottomColor: Colors.dark.border,
   },
   pillarTab: {
     flex: 1,
@@ -784,11 +784,11 @@ const styles = StyleSheet.create({
     letterSpacing: 1,
   },
   skillItem: {
-    backgroundColor: Backgrounds.secondary,
+    backgroundColor: Backgrounds.card,
     borderRadius: BorderRadius.md,
     marginBottom: Spacing.sm,
     borderWidth: 1,
-    borderColor: Colors.border,
+    borderColor: Colors.dark.border,
     overflow: "hidden",
   },
   skillHeader: {
@@ -802,11 +802,11 @@ const styles = StyleSheet.create({
   skillName: {
     fontSize: FontSizes.md,
     fontWeight: "500",
-    color: Colors.textPrimary,
+    color: Colors.dark.text,
   },
   skillDesc: {
     fontSize: FontSizes.sm,
-    color: Colors.textMuted,
+    color: Colors.dark.textMuted,
     marginTop: 2,
   },
   rubricList: {
@@ -817,25 +817,25 @@ const styles = StyleSheet.create({
   rubricItem: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: Backgrounds.tertiary,
+    backgroundColor: Backgrounds.surface,
     borderRadius: BorderRadius.sm,
     padding: Spacing.sm,
     borderWidth: 1,
-    borderColor: Colors.border,
+    borderColor: Colors.dark.border,
     gap: Spacing.sm,
   },
   rubricScore: {
     width: 28,
     height: 28,
     borderRadius: 14,
-    backgroundColor: Backgrounds.primary,
+    backgroundColor: Backgrounds.root,
     alignItems: "center",
     justifyContent: "center",
   },
   rubricScoreText: {
     fontSize: FontSizes.sm,
     fontWeight: "600",
-    color: Colors.textMuted,
+    color: Colors.dark.textMuted,
   },
   rubricContent: {
     flex: 1,
@@ -843,11 +843,11 @@ const styles = StyleSheet.create({
   rubricLabel: {
     fontSize: FontSizes.sm,
     fontWeight: "600",
-    color: Colors.textPrimary,
+    color: Colors.dark.text,
   },
   rubricObservable: {
     fontSize: FontSizes.xs,
-    color: Colors.textMuted,
+    color: Colors.dark.textMuted,
     marginTop: 2,
   },
   quickScore: {
@@ -860,24 +860,24 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: Backgrounds.tertiary,
+    backgroundColor: Backgrounds.surface,
     alignItems: "center",
     justifyContent: "center",
     borderWidth: 1,
-    borderColor: Colors.border,
+    borderColor: Colors.dark.border,
   },
   quickScoreText: {
     fontSize: FontSizes.sm,
     fontWeight: "600",
-    color: Colors.textMuted,
+    color: Colors.dark.textMuted,
   },
   emptyPillar: {
     alignItems: "center",
-    paddingVertical: Spacing.xxl,
+    paddingVertical: Spacing["2xl"],
   },
   emptyText: {
     fontSize: FontSizes.md,
-    color: Colors.textMuted,
+    color: Colors.dark.textMuted,
     marginTop: Spacing.md,
   },
   progressInfo: {
@@ -885,10 +885,10 @@ const styles = StyleSheet.create({
   },
   progressText: {
     fontSize: FontSizes.sm,
-    color: Colors.textMuted,
+    color: Colors.dark.textMuted,
   },
   summaryCard: {
-    backgroundColor: Backgrounds.secondary,
+    backgroundColor: Backgrounds.card,
     borderRadius: BorderRadius.lg,
     padding: Spacing.lg,
     marginTop: Spacing.lg,
@@ -897,7 +897,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     paddingBottom: Spacing.lg,
     borderBottomWidth: 1,
-    borderBottomColor: Colors.border,
+    borderBottomColor: Colors.dark.border,
     marginBottom: Spacing.lg,
   },
   overallScoreValue: {
@@ -907,7 +907,7 @@ const styles = StyleSheet.create({
   },
   overallScoreLabel: {
     fontSize: FontSizes.sm,
-    color: Colors.textMuted,
+    color: Colors.dark.textMuted,
   },
   pillarScoreRow: {
     flexDirection: "row",
@@ -922,7 +922,7 @@ const styles = StyleSheet.create({
   },
   pillarScoreName: {
     fontSize: FontSizes.sm,
-    color: Colors.textPrimary,
+    color: Colors.dark.text,
     fontWeight: "500",
   },
   pillarScoreRight: {
@@ -934,7 +934,7 @@ const styles = StyleSheet.create({
   pillarBar: {
     flex: 1,
     height: 8,
-    backgroundColor: Backgrounds.tertiary,
+    backgroundColor: Backgrounds.surface,
     borderRadius: 4,
     overflow: "hidden",
   },
@@ -945,12 +945,12 @@ const styles = StyleSheet.create({
   pillarScoreValue: {
     fontSize: FontSizes.sm,
     fontWeight: "600",
-    color: Colors.textPrimary,
+    color: Colors.dark.text,
     width: 40,
     textAlign: "right",
   },
   promotionCard: {
-    backgroundColor: Backgrounds.secondary,
+    backgroundColor: Backgrounds.card,
     borderRadius: BorderRadius.lg,
     padding: Spacing.lg,
     marginTop: Spacing.md,
@@ -960,12 +960,12 @@ const styles = StyleSheet.create({
   promotionTitle: {
     fontSize: FontSizes.lg,
     fontWeight: "600",
-    color: Colors.textPrimary,
+    color: Colors.dark.text,
     marginTop: Spacing.sm,
   },
   promotionText: {
     fontSize: FontSizes.sm,
-    color: Colors.textMuted,
+    color: Colors.dark.textMuted,
     textAlign: "center",
     marginTop: Spacing.xs,
   },
