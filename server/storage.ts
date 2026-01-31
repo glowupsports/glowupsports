@@ -10830,9 +10830,18 @@ async function ensureCreditProcessed(sessionPlayerId: string): Promise<{
       
       const sp = spResult.rows[0] as any;
       
-      // STEP 2: Check attendance status - only process present/late
+      // STEP 2: Check attendance status
+      // For PRIVATE sessions: charge present, late, AND absent (coach was there, player pays)
+      // For GROUP/SEMI-PRIVATE sessions: only charge present and late
       const attendanceStatus = sp.attendance_status?.toLowerCase();
-      if (attendanceStatus !== "present" && attendanceStatus !== "late") {
+      const sessionType = (sp.session_type || "group").toLowerCase();
+      const isPrivateSession = sessionType === "private" || sessionType === "private_adjusted";
+      
+      const isChargeable = isPrivateSession
+        ? ["present", "late", "absent"].includes(attendanceStatus || "")
+        : ["present", "late"].includes(attendanceStatus || "");
+      
+      if (!isChargeable) {
         return { success: true, action: "not_attended" as const };
       }
       
@@ -10846,8 +10855,7 @@ async function ensureCreditProcessed(sessionPlayerId: string): Promise<{
         };
       }
       
-      // STEP 4: Determine credit type needed
-      const sessionType = sp.session_type || "group";
+      // STEP 4: Determine credit type needed (sessionType already defined in step 2)
       const normalizeType = (type: string): string => {
         const normalized = type.toLowerCase().replace("-", "_").replace(" ", "_");
         if (normalized === "semi" || normalized === "semi_private" || normalized === "semi_private_adjusted") return "semi_private";
