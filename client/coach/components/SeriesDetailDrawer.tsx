@@ -24,6 +24,7 @@ import { useCoach } from "@/coach/context/CoachContext";
 import { WebCalendarPicker } from "@/components/WebCalendarPicker";
 import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollViewCompat";
 import InSessionFeedbackDrawer from "./InSessionFeedbackDrawer";
+import { DeepAssessmentDrawer } from "./DeepAssessmentDrawer";
 
 interface PlayerCredits {
   group: number;
@@ -225,6 +226,8 @@ export default function SeriesDetailDrawer({
   const [showFeedbackDrawer, setShowFeedbackDrawer] = useState(false);
   const [feedbackSessionId, setFeedbackSessionId] = useState<string | null>(null);
   const [feedbackPlayers, setFeedbackPlayers] = useState<Array<{id: string; name: string}>>([]);
+  const [showDeepAssessment, setShowDeepAssessment] = useState(false);
+  const [assessmentPlayer, setAssessmentPlayer] = useState<{id: string; name: string; ballLevel?: string | null} | null>(null);
   const [editingMaxPlayers, setEditingMaxPlayers] = useState(false);
   const [newMaxPlayers, setNewMaxPlayers] = useState("");
   const [playerActionMenuId, setPlayerActionMenuId] = useState<string | null>(null);
@@ -2022,6 +2025,17 @@ export default function SeriesDetailDrawer({
               <Text style={styles.playerProgressName}>{player.name}</Text>
               <Text style={styles.playerProgressSessions}>{player.sessionsAttended} sessions</Text>
             </View>
+            <Pressable
+              style={styles.assessButton}
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                setAssessmentPlayer({ id: player.id, name: player.name, ballLevel: player.ballLevel });
+                setShowDeepAssessment(true);
+              }}
+            >
+              <Ionicons name="clipboard-outline" size={14} color={Colors.dark.xpCyan} />
+              <Text style={styles.assessButtonText}>Assess</Text>
+            </Pressable>
             <View style={styles.playerXpBadge}>
               <Ionicons name="star" size={14} color={Colors.dark.gold} />
               <Text style={styles.playerXpValue}>{player.xpEarned.toLocaleString()}</Text>
@@ -3980,6 +3994,16 @@ export default function SeriesDetailDrawer({
         }}
       />
     )}
+
+    {/* Deep Assessment Drawer - for skill assessment */}
+    <DeepAssessmentDrawer
+      visible={showDeepAssessment}
+      player={assessmentPlayer}
+      onClose={() => {
+        setShowDeepAssessment(false);
+        setAssessmentPlayer(null);
+      }}
+    />
   </>
   );
 }
@@ -4542,6 +4566,21 @@ const styles = StyleSheet.create({
     fontSize: Typography.small.fontSize,
     fontWeight: "600",
     color: Colors.dark.gold,
+  },
+  assessButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    backgroundColor: Colors.dark.xpCyan + "15",
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: Spacing.xs,
+    borderRadius: BorderRadius.sm,
+    marginRight: Spacing.xs,
+  },
+  assessButtonText: {
+    fontSize: Typography.small.fontSize,
+    fontWeight: "600",
+    color: Colors.dark.xpCyan,
   },
   // Add Player Modal styles
   sectionHeaderRow: {
