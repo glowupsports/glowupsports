@@ -23,6 +23,7 @@ import { convertUTCTimeToLocal } from "@/lib/dateUtils";
 import { useCoach } from "@/coach/context/CoachContext";
 import { WebCalendarPicker } from "@/components/WebCalendarPicker";
 import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollViewCompat";
+import InSessionFeedbackDrawer from "./InSessionFeedbackDrawer";
 
 interface PlayerCredits {
   group: number;
@@ -217,6 +218,9 @@ export default function SeriesDetailDrawer({
   const [cancellingSession, setCancellingSession] = useState(false);
   const [deletingSession, setDeletingSession] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [showFeedbackDrawer, setShowFeedbackDrawer] = useState(false);
+  const [feedbackSessionId, setFeedbackSessionId] = useState<string | null>(null);
+  const [feedbackPlayers, setFeedbackPlayers] = useState<Array<{id: string; name: string}>>([]);
   const [editingMaxPlayers, setEditingMaxPlayers] = useState(false);
   const [newMaxPlayers, setNewMaxPlayers] = useState("");
   const [playerActionMenuId, setPlayerActionMenuId] = useState<string | null>(null);
@@ -922,7 +926,17 @@ export default function SeriesDetailDrawer({
       status,
     }));
     
-    // Instant UI feedback - close modal immediately
+    // Get present players for feedback
+    const presentPlayerIds = Object.entries(sessionAttendance)
+      .filter(([_, status]) => status === "present")
+      .map(([playerId]) => playerId);
+    
+    // Get player names from series data
+    const playersForFeedback = (series?.players || [])
+      .filter((p: Player) => presentPlayerIds.includes(p.id))
+      .map((p: Player) => ({ id: p.id, name: p.name }));
+    
+    // Close attendance modal
     setShowAttendanceModal(false);
     setSelectedSession(null);
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
@@ -934,6 +948,16 @@ export default function SeriesDetailDrawer({
         markCompleted: true,
       });
       queryClient.invalidateQueries({ queryKey: [`/api/coach/series/${seriesId}`] });
+      
+      // Show feedback drawer if there are present players
+      if (playersForFeedback.length > 0) {
+        setFeedbackSessionId(sessionId);
+        setFeedbackPlayers(playersForFeedback);
+        // Small delay to ensure modal closes smoothly
+        setTimeout(() => {
+          setShowFeedbackDrawer(true);
+        }, 300);
+      }
     } catch (error) {
       console.error("Error saving attendance:", error);
       Alert.alert("Error", "Failed to save attendance. Please try again.");
@@ -2054,6 +2078,7 @@ export default function SeriesDetailDrawer({
   };
 
   return (
+    <>
     <Modal
       visible={visible}
       animationType="slide"
@@ -3870,6 +3895,21 @@ export default function SeriesDetailDrawer({
         </View>
       </Modal>
     </Modal>
+
+    {/* Feedback Drawer - appears after saving attendance */}
+    {feedbackSessionId && (
+      <InSessionFeedbackDrawer
+        visible={showFeedbackDrawer}
+        sessionId={feedbackSessionId}
+        players={feedbackPlayers}
+        onClose={() => {
+          setShowFeedbackDrawer(false);
+          setFeedbackSessionId(null);
+          setFeedbackPlayers([]);
+        }}
+      />
+    )}
+  </>
   );
 }
 
