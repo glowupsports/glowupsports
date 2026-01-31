@@ -8521,10 +8521,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
             startTime: sessionInfo.startTime.toISOString(),
             endTime: sessionInfo.endTime.toISOString(),
             sessionType: sessionInfo.sessionType,
-            status: record.sessionStatus === "cancelled" ? "cancelled" : (record.attendanceStatus || null),
+            status: sessionInfo.status === "cancelled" ? "cancelled" : (record.attendanceStatus || null),
             lateMinutes: record.lateMinutes,
             seriesId: sessionInfo.seriesId,
-            paymentStatus: record.creditDeductedAt ? "paid" : "pending",
+            paymentStatus: sessionInfo.status === "cancelled" ? "cancelled" : (record.creditDeductedAt ? "paid" : "pending"),
           };
         })
         .filter(Boolean)
