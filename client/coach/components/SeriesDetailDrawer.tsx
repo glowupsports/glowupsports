@@ -62,9 +62,13 @@ interface FeedbackData {
     id: string;
     playerId: string;
     sessionId: string;
-    progressTrend: string | null;
-    effortLevel: string | null;
-    note: string | null;
+    coachId: string;
+    feedbackType: string;
+    message: string;
+    visibility: string;
+    xpAwarded: number;
+    pillarId?: string | null;
+    createdAt: string;
   }[];
   summary: {
     total: number;
@@ -1834,7 +1838,10 @@ export default function SeriesDetailDrawer({
       );
     }
 
-    if (!feedbackData || feedbackData.summary.withFeedback === 0) {
+    const hasAnyFeedback = (feedbackData?.summary.withFeedback || 0) > 0 || 
+                          (feedbackData?.playerFeedback?.length || 0) > 0;
+    
+    if (!feedbackData || !hasAnyFeedback) {
       return (
         <View style={styles.tabContent}>
           <View style={styles.emptyState}>
@@ -1848,7 +1855,26 @@ export default function SeriesDetailDrawer({
       );
     }
 
-    const { summary, feedback } = feedbackData;
+    const { summary, feedback, playerFeedback } = feedbackData;
+    
+    // Helper to get feedback type styling
+    const getFeedbackTypeStyle = (type: string) => {
+      switch (type) {
+        case "praise": return { icon: "star" as const, color: GlowColors.primary, label: "Praise" };
+        case "effort": return { icon: "flame" as const, color: Colors.dark.orange, label: "Great Effort" };
+        case "technique": return { icon: "bulb" as const, color: Colors.dark.xpCyan, label: "Technique Tip" };
+        case "improvement": return { icon: "trending-up" as const, color: Colors.dark.successNeon, label: "Improvement" };
+        case "focus": return { icon: "eye" as const, color: Colors.dark.gold, label: "Focus Needed" };
+        case "attitude": return { icon: "happy" as const, color: "#EC4899", label: "Attitude" };
+        default: return { icon: "chatbubble" as const, color: Colors.dark.textSecondary, label: "Note" };
+      }
+    };
+    
+    // Get player name from series
+    const getPlayerName = (playerId: string) => {
+      const player = series?.players?.find((p: Player) => p.id === playerId);
+      return player?.name || "Player";
+    };
 
     return (
       <View style={styles.tabContent}>
@@ -1881,26 +1907,71 @@ export default function SeriesDetailDrawer({
           </View>
         ) : null}
 
-        <Text style={styles.sectionTitle}>Recent Feedback</Text>
-        {feedback.slice(0, 5).map((fb) => (
-          <View key={fb.id} style={styles.feedbackCard}>
-            <View style={styles.feedbackHeader}>
-              <Text style={styles.feedbackDate}>
-                {fb.sessionDate ? formatDate(fb.sessionDate) : "Session"}
-              </Text>
-              {fb.intensity ? (
-                <View style={[styles.intensityBadge, { backgroundColor: fb.intensity === "intense" ? Colors.dark.error + "20" : fb.intensity === "normal" ? Colors.dark.gold + "20" : Colors.dark.successNeon + "20" }]}>
-                  <Text style={[styles.intensityBadgeText, { color: fb.intensity === "intense" ? Colors.dark.error : fb.intensity === "normal" ? Colors.dark.gold : Colors.dark.successNeon }]}>
-                    {fb.intensity}
+        {/* Player Feedback Section */}
+        {playerFeedback && playerFeedback.length > 0 ? (
+          <>
+            <Text style={styles.sectionTitle}>Player Feedback ({playerFeedback.length})</Text>
+            {playerFeedback.slice(0, 10).map((pf) => {
+              const typeStyle = getFeedbackTypeStyle(pf.feedbackType);
+              return (
+                <View key={pf.id} style={styles.feedbackCard}>
+                  <View style={styles.feedbackHeader}>
+                    <View style={{ flexDirection: "row", alignItems: "center", gap: Spacing.sm }}>
+                      <View style={[styles.feedbackTypeIcon, { backgroundColor: typeStyle.color + "20" }]}>
+                        <Ionicons name={typeStyle.icon} size={14} color={typeStyle.color} />
+                      </View>
+                      <Text style={styles.feedbackPlayerName}>{getPlayerName(pf.playerId)}</Text>
+                    </View>
+                    <View style={{ flexDirection: "row", alignItems: "center", gap: Spacing.xs }}>
+                      {pf.xpAwarded > 0 ? (
+                        <View style={styles.xpBadge}>
+                          <Text style={styles.xpBadgeText}>+{pf.xpAwarded} XP</Text>
+                        </View>
+                      ) : null}
+                      <View style={[styles.visibilityBadge, { backgroundColor: pf.visibility === "public" ? GlowColors.primary + "20" : Colors.dark.border }]}>
+                        <Ionicons 
+                          name={pf.visibility === "public" ? "eye" : "eye-off"} 
+                          size={12} 
+                          color={pf.visibility === "public" ? GlowColors.primary : Colors.dark.textMuted} 
+                        />
+                      </View>
+                    </View>
+                  </View>
+                  <Text style={styles.feedbackNote} numberOfLines={2}>{pf.message}</Text>
+                  <Text style={styles.feedbackTimestamp}>
+                    {formatDate(pf.createdAt)} • {typeStyle.label}
                   </Text>
                 </View>
-              ) : null}
-            </View>
-            {fb.coachNotes ? (
-              <Text style={styles.feedbackNote} numberOfLines={2}>{fb.coachNotes}</Text>
-            ) : null}
-          </View>
-        ))}
+              );
+            })}
+          </>
+        ) : null}
+
+        {/* Session Feedback Section */}
+        {feedback.length > 0 ? (
+          <>
+            <Text style={styles.sectionTitle}>Session Notes</Text>
+            {feedback.slice(0, 5).map((fb) => (
+              <View key={fb.id} style={styles.feedbackCard}>
+                <View style={styles.feedbackHeader}>
+                  <Text style={styles.feedbackDate}>
+                    {fb.sessionDate ? formatDate(fb.sessionDate) : "Session"}
+                  </Text>
+                  {fb.intensity ? (
+                    <View style={[styles.intensityBadge, { backgroundColor: fb.intensity === "intense" ? Colors.dark.error + "20" : fb.intensity === "normal" ? Colors.dark.gold + "20" : Colors.dark.successNeon + "20" }]}>
+                      <Text style={[styles.intensityBadgeText, { color: fb.intensity === "intense" ? Colors.dark.error : fb.intensity === "normal" ? Colors.dark.gold : Colors.dark.successNeon }]}>
+                        {fb.intensity}
+                      </Text>
+                    </View>
+                  ) : null}
+                </View>
+                {fb.coachNotes ? (
+                  <Text style={styles.feedbackNote} numberOfLines={2}>{fb.coachNotes}</Text>
+                ) : null}
+              </View>
+            ))}
+          </>
+        ) : null}
       </View>
     );
   };
@@ -4365,6 +4436,41 @@ const styles = StyleSheet.create({
     fontSize: Typography.small.fontSize,
     color: Colors.dark.textMuted,
     marginTop: Spacing.xs,
+  },
+  feedbackTypeIcon: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  feedbackPlayerName: {
+    fontSize: Typography.body.fontSize,
+    fontWeight: "600",
+    color: Colors.dark.text,
+  },
+  feedbackTimestamp: {
+    fontSize: Typography.caption.fontSize,
+    color: Colors.dark.textMuted,
+    marginTop: Spacing.xs,
+  },
+  xpBadge: {
+    backgroundColor: GlowColors.primary + "20",
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 2,
+    borderRadius: BorderRadius.sm,
+  },
+  xpBadgeText: {
+    fontSize: Typography.caption.fontSize,
+    fontWeight: "600",
+    color: GlowColors.primary,
+  },
+  visibilityBadge: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    alignItems: "center",
+    justifyContent: "center",
   },
   progressSummary: {
     flexDirection: "row",
