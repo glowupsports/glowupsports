@@ -2,7 +2,8 @@ import React, { useState, useEffect, useMemo } from "react";
 import { View, Text, StyleSheet, ScrollView, Pressable, ActivityIndicator, Image, Alert, ImageBackground, Dimensions, Platform, Image as RNImage, TextInput } from "react-native";
 import { Image as ExpoImage } from "expo-image";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { useNavigation } from "@react-navigation/native";
+import { useNavigation, useRoute, RouteProp } from "@react-navigation/native";
+import type { PlayStackParamList } from "@/player/navigation/PlayerNavigator";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { LinearGradient } from "expo-linear-gradient";
@@ -121,9 +122,11 @@ function getCleanSessionTitle(session: PlaySession): string {
 export default function PlayScreen() {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<any>();
+  const route = useRoute<RouteProp<PlayStackParamList, "Play">>();
   const queryClient = useQueryClient();
   const { hasSeenScreen, startWalkthrough } = useWalkthrough();
-  const [activeTab, setActiveTab] = useState<typeof TAB_OPTIONS[number]>("Group Lessons");
+  const initialTab = route.params?.initialTab || "Group Lessons";
+  const [activeTab, setActiveTab] = useState<typeof TAB_OPTIONS[number]>(initialTab);
   const [joiningSessionId, setJoiningSessionId] = useState<string | null>(null);
   const [currentTime, setCurrentTime] = useState(new Date());
   const [playerSearchQuery, setPlayerSearchQuery] = useState("");

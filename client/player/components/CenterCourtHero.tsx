@@ -190,7 +190,7 @@ function NoSessionScheduled({ onBookSession, onFindMatch }: { onBookSession?: ()
     if (onFindMatch) {
       onFindMatch();
     } else {
-      navigation.navigate("OpenMatchFeed");
+      navigation.navigate("PlayerTabs", { screen: "PlayStack", params: { screen: "OpenMatchFeed" } });
     }
   };
 

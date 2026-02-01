@@ -105,12 +105,18 @@ export function PlayersNearYouRow() {
 
   const handlePlayerPress = (playerId: string) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    navigation.navigate("PlayerProfile", { playerId });
+    navigation.navigate("PlayerTabs", { 
+      screen: "PlayStack", 
+      params: { screen: "PlayerProfile", params: { playerId } } 
+    });
   };
 
   const handleSeeAll = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    navigation.navigate("PlayerFinder");
+    navigation.navigate("PlayerTabs", { 
+      screen: "PlayStack", 
+      params: { screen: "Play", params: { initialTab: "Players" } } 
+    });
   };
 
   const getAvatarSource = (player: typeof state.nearbyPlayers[0]) => {
@@ -524,12 +530,18 @@ export function OpenMatchesRow() {
 
   const handleMatchPress = (matchId: string) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    navigation.navigate("PlayStack", { screen: "OpenMatches", params: { selectedMatch: matchId } });
+    navigation.navigate("PlayerTabs", { 
+      screen: "PlayStack", 
+      params: { screen: "OpenMatches", params: { selectedMatch: matchId } } 
+    });
   };
 
   const handleSeeAll = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    navigation.navigate("PlayStack", { screen: "OpenMatches" });
+    navigation.navigate("PlayerTabs", { 
+      screen: "PlayStack", 
+      params: { screen: "OpenMatches" } 
+    });
   };
 
   const getMatchTypeGradient = (maxPlayers: number): readonly [string, string, ...string[]] => {
@@ -765,7 +777,10 @@ export function TrainingSessionsRow() {
 
   const handleCourtPress = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    navigation.navigate("Schedule", { screen: "CourtBooking" });
+    navigation.navigate("PlayerTabs", { 
+      screen: "Schedule", 
+      params: { screen: "CourtBooking" } 
+    });
   };
 
   return (

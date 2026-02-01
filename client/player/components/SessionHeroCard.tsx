@@ -417,12 +417,18 @@ export function SessionHeroCard({
     if (onFindMatch) {
       onFindMatch();
     } else {
-      navigation.navigate("PlayerFinder");
+      navigation.navigate("PlayerTabs", { 
+        screen: "PlayStack", 
+        params: { screen: "Play", params: { initialTab: "Players" } } 
+      });
     }
   };
 
   const handleJoinOpenGroup = () => {
-    navigation.navigate("OpenMatchFeed");
+    navigation.navigate("PlayerTabs", { 
+      screen: "PlayStack", 
+      params: { screen: "OpenMatches" } 
+    });
   };
 
   const handleCheckIn = () => {
