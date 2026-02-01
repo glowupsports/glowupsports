@@ -23,6 +23,7 @@ import * as Haptics from "expo-haptics";
 import { GlowAvatar } from "./GlowAvatar";
 import { NeonEdgeCard } from "./GlassCard";
 import { getStaticAssetsUrl, apiRequest } from "@/lib/query-client";
+import { SwipeBlocker } from "@/components/SwipeBlocker";
 import { formatSessionDateShort, formatSessionTimeWithRelativeDay } from "@/lib/dateUtils";
 
 // Helper to get color for ball level

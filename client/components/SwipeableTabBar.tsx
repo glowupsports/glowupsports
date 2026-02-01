@@ -134,7 +134,7 @@ export function SwipeableTabBar({
   const scrollOffset = useSharedValue(initialPage);
   const lastScrollOffset = useRef(initialPage);
   const edgeSwipeTriggered = useRef(false);
-  const { registerPager } = useTabNavigation();
+  const { registerPager, scrollEnabled } = useTabNavigation();
 
   useEffect(() => {
     registerPager(pagerRef, tabs);
@@ -202,6 +202,7 @@ export function SwipeableTabBar({
         onPageScroll={handlePageScroll}
         overdrag={true}
         overScrollMode="never"
+        scrollEnabled={scrollEnabled}
       >
         {screens}
       </PagerView>

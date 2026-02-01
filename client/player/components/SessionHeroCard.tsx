@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, Pressable, Modal, TextInput, Alert, Platform } 
 import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollViewCompat";
 import { LinearGradient } from "expo-linear-gradient";
 import { Feather, Ionicons } from "@expo/vector-icons";
+import { SwipeBlocker } from "@/components/SwipeBlocker";
 import Animated, {
   useAnimatedStyle,
   withRepeat,
@@ -557,7 +558,7 @@ export function SessionHeroCard({
 
           {/* Premium Action Buttons */}
           <View style={styles.tennisActionsContainer}>
-            <View style={styles.tennisPrimaryRow}>
+            <SwipeBlocker style={styles.tennisPrimaryRow}>
               {/* Book Lesson - Tennis Racket Theme */}
               <Pressable
                 style={({ pressed }) => [
@@ -588,7 +589,7 @@ export function SessionHeroCard({
                   styles.tennisPrimaryButton,
                   pressed && styles.buttonPressed,
                 ]}
-                onPress={() => navigation.navigate("Schedule", { screen: "CourtBooking" })}
+                onPress={() => navigation.navigate("PlayerTabs" as never, { screen: "Schedule", params: { screen: "CourtBooking" } } as never)}
               >
                 <LinearGradient
                   colors={[ProTennisColors.neonCyan, "#00D4FF"]}
@@ -602,10 +603,10 @@ export function SessionHeroCard({
                   <Text style={styles.tennisPrimaryButtonText}>BOOK COURT</Text>
                 </LinearGradient>
               </Pressable>
-            </View>
+            </SwipeBlocker>
 
             {/* Secondary Actions - Clean Glass Style */}
-            <View style={styles.tennisSecondaryRow}>
+            <SwipeBlocker style={styles.tennisSecondaryRow}>
               <Pressable
                 style={({ pressed }) => [
                   styles.tennisSecondaryButton,
@@ -627,7 +628,7 @@ export function SessionHeroCard({
                 <Ionicons name="globe" size={16} color={ProTennisColors.electricGreen} />
                 <Text style={[styles.tennisSecondaryText, { color: ProTennisColors.electricGreen }]}>JOIN OPEN GROUP</Text>
               </Pressable>
-            </View>
+            </SwipeBlocker>
           </View>
         </View>
       </NeonBorderGlow>

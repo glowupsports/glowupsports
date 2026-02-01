@@ -1,10 +1,12 @@
-import React, { createContext, useContext, useCallback, useRef, ReactNode } from "react";
+import React, { createContext, useContext, useCallback, useRef, useState, ReactNode } from "react";
 import PagerView from "react-native-pager-view";
 import * as Haptics from "expo-haptics";
 
 interface TabNavigationContextType {
   navigateToTab: (tabKey: string) => void;
   registerPager: (pagerRef: React.RefObject<PagerView | null>, tabs: { key: string }[]) => void;
+  scrollEnabled: boolean;
+  setScrollEnabled: (enabled: boolean) => void;
 }
 
 const TabNavigationContext = createContext<TabNavigationContextType | null>(null);
@@ -16,6 +18,7 @@ interface TabNavigationProviderProps {
 export function TabNavigationProvider({ children }: TabNavigationProviderProps) {
   const pagerRefStore = useRef<React.RefObject<PagerView | null> | null>(null);
   const tabsStore = useRef<{ key: string }[]>([]);
+  const [scrollEnabled, setScrollEnabled] = useState(true);
 
   const registerPager = useCallback((pagerRef: React.RefObject<PagerView | null>, tabs: { key: string }[]) => {
     pagerRefStore.current = pagerRef;
@@ -39,7 +42,7 @@ export function TabNavigationProvider({ children }: TabNavigationProviderProps) 
   }, []);
 
   return (
-    <TabNavigationContext.Provider value={{ navigateToTab, registerPager }}>
+    <TabNavigationContext.Provider value={{ navigateToTab, registerPager, scrollEnabled, setScrollEnabled }}>
       {children}
     </TabNavigationContext.Provider>
   );
@@ -52,7 +55,9 @@ export function useTabNavigation(): TabNavigationContextType {
       navigateToTab: (tabKey: string) => {
         console.warn("[TabNavigation] useTabNavigation called outside provider");
       },
-      registerPager: () => {}
+      registerPager: () => {},
+      scrollEnabled: true,
+      setScrollEnabled: () => {}
     };
   }
   return context;
