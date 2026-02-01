@@ -43,8 +43,17 @@ function NavigationController({
   const prevAuthRef = useRef(isAuthenticated);
   const prevBootRef = useRef(bootComplete);
   const prevModeRef = useRef(mode);
+  const initializedRef = useRef(false);
 
   useEffect(() => {
+    if (!initializedRef.current) {
+      initializedRef.current = true;
+      prevAuthRef.current = isAuthenticated;
+      prevBootRef.current = bootComplete;
+      prevModeRef.current = mode;
+      return;
+    }
+
     const authChanged = prevAuthRef.current !== isAuthenticated;
     const bootChanged = prevBootRef.current !== bootComplete;
     const modeChanged = prevModeRef.current !== mode;
@@ -114,106 +123,54 @@ export default function RootStackNavigator() {
   };
 
   return (
-    <Stack.Navigator 
-      screenOptions={screenOptions}
-      initialRouteName={getInitialRoute()}
-    >
-      <Stack.Screen
-        name="Login"
-        component={LoginScreen}
-        options={{ headerShown: false }}
+    <>
+      <NavigationController 
+        isAuthenticated={isAuthenticated} 
+        bootComplete={bootComplete} 
+        mode={mode} 
       />
-      <Stack.Screen
-        name="Boot"
-        options={{ headerShown: false }}
+      <Stack.Navigator 
+        screenOptions={screenOptions}
+        initialRouteName={getInitialRoute()}
       >
-        {() => (
-          <>
-            <NavigationController 
-              isAuthenticated={isAuthenticated} 
-              bootComplete={bootComplete} 
-              mode={mode} 
-            />
-            <BootScreenWrapper onBootComplete={handleBootComplete} />
-          </>
-        )}
-      </Stack.Screen>
-      <Stack.Screen
-        name="Platform"
-        options={{ headerShown: false }}
-      >
-        {() => (
-          <>
-            <NavigationController 
-              isAuthenticated={isAuthenticated} 
-              bootComplete={bootComplete} 
-              mode={mode} 
-            />
-            <PlatformNavigator />
-          </>
-        )}
-      </Stack.Screen>
-      <Stack.Screen
-        name="AcademyOwner"
-        options={{ headerShown: false }}
-      >
-        {() => (
-          <>
-            <NavigationController 
-              isAuthenticated={isAuthenticated} 
-              bootComplete={bootComplete} 
-              mode={mode} 
-            />
-            <OwnerNavigator />
-          </>
-        )}
-      </Stack.Screen>
-      <Stack.Screen
-        name="Admin"
-        options={{ headerShown: false }}
-      >
-        {() => (
-          <>
-            <NavigationController 
-              isAuthenticated={isAuthenticated} 
-              bootComplete={bootComplete} 
-              mode={mode} 
-            />
-            <AdminNavigator />
-          </>
-        )}
-      </Stack.Screen>
-      <Stack.Screen
-        name="Coach"
-        options={{ headerShown: false }}
-      >
-        {() => (
-          <>
-            <NavigationController 
-              isAuthenticated={isAuthenticated} 
-              bootComplete={bootComplete} 
-              mode={mode} 
-            />
-            <CoachNavigator />
-          </>
-        )}
-      </Stack.Screen>
-      <Stack.Screen
-        name="Player"
-        options={{ headerShown: false }}
-      >
-        {() => (
-          <>
-            <NavigationController 
-              isAuthenticated={isAuthenticated} 
-              bootComplete={bootComplete} 
-              mode={mode} 
-            />
-            <PlayerNavigator />
-          </>
-        )}
-      </Stack.Screen>
-    </Stack.Navigator>
+        <Stack.Screen
+          name="Login"
+          component={LoginScreen}
+          options={{ headerShown: false }}
+        />
+        <Stack.Screen
+          name="Boot"
+          options={{ headerShown: false }}
+        >
+          {() => <BootScreenWrapper onBootComplete={handleBootComplete} />}
+        </Stack.Screen>
+        <Stack.Screen
+          name="Platform"
+          component={PlatformNavigator}
+          options={{ headerShown: false }}
+        />
+        <Stack.Screen
+          name="AcademyOwner"
+          component={OwnerNavigator}
+          options={{ headerShown: false }}
+        />
+        <Stack.Screen
+          name="Admin"
+          component={AdminNavigator}
+          options={{ headerShown: false }}
+        />
+        <Stack.Screen
+          name="Coach"
+          component={CoachNavigator}
+          options={{ headerShown: false }}
+        />
+        <Stack.Screen
+          name="Player"
+          component={PlayerNavigator}
+          options={{ headerShown: false }}
+        />
+      </Stack.Navigator>
+    </>
   );
 }
 
