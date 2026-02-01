@@ -141,6 +141,20 @@ export async function getCoachPushTokens(coachId: string): Promise<string[]> {
 }
 
 export async function getPlayerPushTokens(playerId: string): Promise<string[]> {
+  const tokens = await db
+    .select({ token: pushDeviceTokens.token })
+    .from(pushDeviceTokens)
+    .where(
+      and(
+        eq(pushDeviceTokens.playerId, playerId),
+        eq(pushDeviceTokens.isActive, true)
+      )
+    );
+  
+  if (tokens.length > 0) {
+    return tokens.map((t) => t.token);
+  }
+  
   const user = await db
     .select({ id: users.id })
     .from(users)

@@ -80,7 +80,6 @@ import { CartProvider } from "@/player/contexts/CartContext";
 import { CoachChatFooter } from "@/coach/components/CoachChatFooter";
 import { Colors } from "@/constants/theme";
 import { useAuth } from "@/coach/context/AuthContext";
-import { usePushNotifications } from "@/hooks/usePushNotifications";
 import { PlayerDrawerProvider, usePlayerDrawer } from "@/player/context/PlayerDrawerContext";
 import { PlayerLevelProvider } from "@/player/context/PlayerLevelContext";
 import { FamilyProvider } from "@/player/context/FamilyContext";
@@ -904,7 +903,6 @@ export default function PlayerNavigator() {
   const [onboardingComplete, setOnboardingComplete] = useState<boolean | null>(null);
   const [showPrivacySetup, setShowPrivacySetup] = useState(false);
 
-  usePushNotifications();
 
   // Fetch dashboard for player users who might need onboarding
   // Only fetch if user is a player role - owners/coaches viewing player mode have their own playerId

@@ -12,6 +12,7 @@ import BootScreen from "@/screens/BootScreen";
 import { useScreenOptions } from "@/hooks/useScreenOptions";
 import { useAppMode } from "@/context/AppModeContext";
 import { useAuth } from "@/coach/context/AuthContext";
+import { usePushNotifications } from "@/hooks/usePushNotifications";
 import { Colors } from "@/constants/theme";
 
 export type RootStackParamList = {
@@ -100,6 +101,8 @@ export default function RootStackNavigator() {
   const handleBootComplete = useCallback(() => {
     setBootComplete(true);
   }, []);
+
+  usePushNotifications();
 
   if (isLoading) {
     return (

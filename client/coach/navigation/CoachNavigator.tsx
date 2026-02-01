@@ -38,7 +38,6 @@ import OfflineBanner from "@/components/OfflineBanner";
 import { QuickActionsFAB, QuickAction } from "@/components/QuickActionsFAB";
 import { PremiumAddPlayerFlow } from "@/coach/components/PremiumAddPlayerFlow";
 import { useAuth } from "@/coach/context/AuthContext";
-import { usePushNotifications } from "@/hooks/usePushNotifications";
 import { useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { Colors, Spacing, BorderRadius } from "@/constants/theme";
@@ -419,7 +418,6 @@ export default function CoachNavigator() {
   const queryClient = useQueryClient();
   const [onboardingComplete, setOnboardingComplete] = useState<boolean | null>(null);
 
-  usePushNotifications();
 
   const { data: profile, isLoading } = useQuery<CoachProfile>({
     queryKey: ["/api/coach/me/profile"],
