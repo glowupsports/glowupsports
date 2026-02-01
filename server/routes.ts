@@ -239,6 +239,13 @@ function isBirthdayToday(dateOfBirth: string | Date | null): boolean {
   return birthDate.getMonth() === today.getMonth() && birthDate.getDate() === today.getDate();
 }
 
+// Helper to convert UTC to Dubai timezone (UTC+4)
+function toDubaiTime(utcDate: Date): Date {
+  const dubaiOffset = 4 * 60; // minutes
+  const utcTime = utcDate.getTime();
+  return new Date(utcTime + dubaiOffset * 60 * 1000);
+}
+
 export async function registerRoutes(app: Express): Promise<Server> {
   // Initialize storage for fresh user data fetching in auth middleware
   setFreshUserStorage(storage);
@@ -21124,7 +21131,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       // Fetch fresh news from RSS feeds
-      const Parser = require("rss-parser");
+      const RSSParser = (await import("rss-parser")).default;
+      const Parser = RSSParser;
       const parser = new Parser({
         timeout: 5000,
         headers: { "User-Agent": "GlowUpSports/1.0" },
@@ -22674,7 +22682,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // 1. Get earned badges from playerBadges
       const earnedBadgesResult = await db.execute(sql`
-        SELECT pb.*, b.name as badge_name, b.description as badge_description, b.icon as badge_icon, b.color as badge_color
+        SELECT pb.*, b.name as badge_name, b.description as badge_description, b.category as badge_icon, b.color as badge_color
         FROM player_badges pb
         LEFT JOIN badges b ON pb.badge_id = b.id
         WHERE pb.player_id = ${playerId}

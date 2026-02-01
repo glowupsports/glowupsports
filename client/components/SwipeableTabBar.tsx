@@ -129,6 +129,7 @@ export function SwipeableTabBar({
 }: SwipeableTabBarProps) {
   const insets = useSafeAreaInsets();
   const [currentIndex, setCurrentIndex] = useState(initialPage);
+  const [visitedTabs, setVisitedTabs] = useState<Set<number>>(() => new Set([initialPage]));
   const pagerRef = useRef<PagerView>(null);
   const scrollOffset = useSharedValue(initialPage);
   const lastScrollOffset = useRef(initialPage);
@@ -144,6 +145,12 @@ export function SwipeableTabBar({
     setCurrentIndex(newIndex);
     scrollOffset.value = newIndex;
     edgeSwipeTriggered.current = false;
+    setVisitedTabs(prev => {
+      if (prev.has(newIndex)) return prev;
+      const next = new Set(prev);
+      next.add(newIndex);
+      return next;
+    });
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     if (onPageChange) {
       onPageChange(newIndex, tabs[newIndex].key);
@@ -174,14 +181,15 @@ export function SwipeableTabBar({
   const currentTabKey = tabs[currentIndex].key;
 
   const screens = useMemo(() => 
-    tabs.map((tab) => {
+    tabs.map((tab, index) => {
       const TabComponent = tab.component;
+      const isVisited = visitedTabs.has(index);
       return (
         <View key={tab.key} style={styles.pageContainer}>
-          <TabComponent />
+          {isVisited ? <TabComponent /> : <View style={styles.pageContainer} />}
         </View>
       );
-    }), [tabs]
+    }), [tabs, visitedTabs]
   );
 
   return (
