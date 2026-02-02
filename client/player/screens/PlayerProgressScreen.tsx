@@ -1873,9 +1873,9 @@ export default function PlayerProgressScreen() {
             pillars={Object.fromEntries(
               domains.length > 0 
                 ? domains.map(d => [
-                    d.id.toUpperCase(), 
+                    d.name.toUpperCase(), 
                     { 
-                      pillar: d.id.toUpperCase(), 
+                      pillar: d.name.toUpperCase(), 
                       currentScore: d.value, 
                       trend: d.trend === "rising" ? "improving" : d.trend === "falling" ? "declining" : "stable" 
                     }
