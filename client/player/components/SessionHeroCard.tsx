@@ -417,13 +417,18 @@ export function SessionHeroCard({
   };
 
   const handleBookCourt = () => {
-    // Navigate directly to CourtBooking screen in Schedule stack
-    navigation.navigate("PlayerTabs", {
-      screen: "Schedule",
-      params: {
-        screen: "CourtBooking"
+    // First navigate to Schedule tab, then to CourtBooking after a brief delay
+    navigateToTab("Schedule");
+    // Use timeout to wait for tab switch, then navigate within that stack
+    setTimeout(() => {
+      try {
+        // Get the root navigation and navigate to nested screen
+        const rootNav = navigation.getParent()?.getParent() || navigation;
+        rootNav.navigate("Schedule", { screen: "CourtBooking" });
+      } catch (e) {
+        console.log("[SessionHeroCard] Fallback navigation to CourtBooking");
       }
-    });
+    }, 100);
   };
 
   const handleFindMatch = () => {
@@ -431,25 +436,29 @@ export function SessionHeroCard({
       onFindMatch();
     } else {
       // Navigate to Play tab with Players sub-tab selected
-      navigation.navigate("PlayerTabs", {
-        screen: "PlayStack",
-        params: {
-          screen: "Play",
-          params: { initialTab: "Players" }
+      navigateToTab("PlayStack");
+      setTimeout(() => {
+        try {
+          const rootNav = navigation.getParent()?.getParent() || navigation;
+          rootNav.navigate("PlayStack", { screen: "Play", params: { initialTab: "Players" } });
+        } catch (e) {
+          console.log("[SessionHeroCard] Fallback navigation to Players");
         }
-      });
+      }, 100);
     }
   };
 
   const handleJoinOpenGroup = () => {
     // Navigate to Play tab with Group Lessons sub-tab
-    navigation.navigate("PlayerTabs", {
-      screen: "PlayStack",
-      params: {
-        screen: "Play",
-        params: { initialTab: "Group Lessons" }
+    navigateToTab("PlayStack");
+    setTimeout(() => {
+      try {
+        const rootNav = navigation.getParent()?.getParent() || navigation;
+        rootNav.navigate("PlayStack", { screen: "Play", params: { initialTab: "Group Lessons" } });
+      } catch (e) {
+        console.log("[SessionHeroCard] Fallback navigation to Group Lessons");
       }
-    });
+    }, 100);
   };
 
   const handleCheckIn = () => {
