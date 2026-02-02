@@ -261,7 +261,11 @@ export function GroupLessonsRow() {
   const allGroupLessons = (state.openSessions ?? []).filter(s => s.type === "group");
   const groupLessons = allGroupLessons.filter(s => {
     const sessionLevel = s.ballLevel?.toLowerCase() || "";
-    return sessionLevel.includes(playerBallLevel) || playerBallLevel.includes(sessionLevel);
+    // Show sessions if: exact match, session has no level (all levels), or either contains the other
+    if (!sessionLevel || sessionLevel === "all" || sessionLevel === "any") return true;
+    return sessionLevel === playerBallLevel || 
+           sessionLevel.includes(playerBallLevel) || 
+           playerBallLevel.includes(sessionLevel);
   });
 
   const joinSessionMutation = useMutation({

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from "react";
-import { View, Text, StyleSheet, ScrollView, Pressable, ActivityIndicator, Image, Alert, ImageBackground, Dimensions, Platform, Image as RNImage, TextInput } from "react-native";
+import { View, Text, StyleSheet, ScrollView, Pressable, ActivityIndicator, Image, Alert, ImageBackground, Dimensions, Platform, Image as RNImage, TextInput, Modal } from "react-native";
 import { Image as ExpoImage } from "expo-image";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation, useRoute, RouteProp } from "@react-navigation/native";
@@ -135,6 +135,7 @@ export default function PlayScreen() {
   const [selectedDay, setSelectedDay] = useState<string>("all");
   const [selectedPlayerLevel, setSelectedPlayerLevel] = useState<string>("all");
   const [discoverFilter, setDiscoverFilter] = useState<DiscoverFilter>("all");
+  const [selectedSession, setSelectedSession] = useState<PlaySession | null>(null);
 
   useEffect(() => {
     if (!hasSeenScreen("Play")) {
@@ -558,8 +559,30 @@ export default function PlayScreen() {
                       {session.players.length > 3 ? ` +${session.players.length - 3}` : ""}
                     </Text>
                   </View>
+                  <Pressable
+                    style={styles.sessionInfoButton}
+                    onPress={() => {
+                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                      setSelectedSession(session);
+                    }}
+                  >
+                    <Ionicons name="information-circle-outline" size={20} color={Colors.dark.xpCyan} />
+                  </Pressable>
                 </View>
-              ) : null}
+              ) : (
+                <View style={styles.participantsRow}>
+                  <Text style={[styles.participantNamesText, { color: Colors.dark.textMuted }]}>No players yet</Text>
+                  <Pressable
+                    style={styles.sessionInfoButton}
+                    onPress={() => {
+                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                      setSelectedSession(session);
+                    }}
+                  >
+                    <Ionicons name="information-circle-outline" size={20} color={Colors.dark.xpCyan} />
+                  </Pressable>
+                </View>
+              )}
 
               {session.squadName ? (
                 <View style={styles.epicSquadRow}>
