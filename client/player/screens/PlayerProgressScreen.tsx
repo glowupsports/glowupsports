@@ -1645,6 +1645,13 @@ export default function PlayerProgressScreen() {
     );
   }
 
+  // DEBUG: Log skill radar data to see what's coming from API
+  console.log("[DEBUG PROGRESS] skillRadar from API:", JSON.stringify(data.skillRadar.map(s => ({
+    domainId: s.domainId,
+    domain: s.domain,
+    progress: s.progress
+  })), null, 2));
+
   const domains: SkillDomain[] = data.skillRadar.map(skill => ({
     id: skill.domainId,
     name: skill.domain,
@@ -1655,6 +1662,13 @@ export default function PlayerProgressScreen() {
     trend: skill.trend,
     insights: skill.insights,
   }));
+
+  // DEBUG: Log mapped domains
+  console.log("[DEBUG PROGRESS] Mapped domains:", JSON.stringify(domains.map(d => ({
+    id: d.id,
+    name: d.name,
+    value: d.value
+  })), null, 2));
 
   const currentLevelXp = data.xp % 500;
 

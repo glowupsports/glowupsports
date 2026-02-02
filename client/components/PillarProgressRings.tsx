@@ -207,6 +207,11 @@ const styles = StyleSheet.create({
   container: {
     paddingHorizontal: Spacing.lg,
     paddingVertical: Spacing.sm,
+    // DEBUG: Rainbow border to highlight skill radar area
+    borderWidth: 4,
+    borderColor: "#FF0000",
+    borderRadius: 16,
+    backgroundColor: "rgba(255, 0, 0, 0.1)",
   },
   grid: {
     flexDirection: "row",
@@ -216,6 +221,9 @@ const styles = StyleSheet.create({
   },
   cardColumn: {
     width: "48.5%",
+    // DEBUG: Rainbow colors for each card
+    borderWidth: 2,
+    borderColor: "#FF00FF",
   },
   cardWrapper: {
     marginBottom: 0,

@@ -6954,7 +6954,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // If player doesn't have an academy yet, return empty array gracefully
       if (!academyId) {
-        return res.json([]);
+        return res.json({ friends: [], pendingRequests: [] });
       }
       
       // Get all players in the same academy
@@ -14621,7 +14621,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const coachId = req.user!.coachId;
       if (!coachId) {
-        return res.json([]);
+        return res.json({ friends: [], pendingRequests: [] });
       }
       
       const memberships = await storage.getCoachMemberships(coachId);
@@ -18096,7 +18096,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const sessionIds = seriesSessions.map(s => s.id);
 
       if (sessionIds.length === 0) {
-        return res.json([]);
+        return res.json({ friends: [], pendingRequests: [] });
       }
 
       const feedback = await db
@@ -20695,13 +20695,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/player/me/friends", authMiddleware, requirePlayerOrOwner, async (req: AuthenticatedRequest, res: Response) => {
     try {
       if (!req.user!.playerId) {
-        return res.json([]);
+        return res.json({ friends: [], pendingRequests: [] });
       }
       const playerId = req.user!.playerId!;
       const player = await storage.getPlayer(playerId);
       
       if (!player || !player.academyId) {
-        return res.json([]);
+        return res.json({ friends: [], pendingRequests: [] });
       }
       
       // Get all players in the same academy
@@ -20720,7 +20720,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           glowLevel: p.glowLevel,
         }));
       
-      res.json(friends);
+      res.json({ friends, pendingRequests: [] });
     } catch (error) {
       console.error("Error fetching player friends:", error);
       res.status(500).json({ error: "Failed to fetch friends" });
@@ -20733,7 +20733,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { academyId, ballLevel, limit = "8" } = req.query as { academyId?: string; ballLevel?: string; limit?: string };
       
       if (!academyId || !ballLevel) {
-        return res.json([]);
+        return res.json({ friends: [], pendingRequests: [] });
       }
 
       // Find players at the same ball level in this academy
@@ -21302,7 +21302,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       // Return empty sessions for users without player profile
       if (!req.user!.playerId) {
-        return res.json([]);
+        return res.json({ friends: [], pendingRequests: [] });
       }
       const playerId = req.user!.playerId!;
       
@@ -21379,7 +21379,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const playerId = req.user!.playerId;
       
       if (!userId) {
-        return res.json([]);
+        return res.json({ friends: [], pendingRequests: [] });
       }
       
       // Get court bookings for this user (by userId or playerId)
@@ -23524,7 +23524,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       // Return empty training history for users without player profile
       if (!req.user!.playerId) {
-        return res.json([]);
+        return res.json({ friends: [], pendingRequests: [] });
       }
       const playerId = req.user!.playerId!;
       
@@ -23717,7 +23717,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       // Return empty challenges for users without player profile
       if (!req.user!.playerId) {
-        return res.json([]);
+        return res.json({ friends: [], pendingRequests: [] });
       }
       const playerId = req.user!.playerId!;
       const player = await storage.getPlayer(playerId);
@@ -23741,17 +23741,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/player/me/conversations", authMiddleware, requirePlayerOrOwner, async (req: AuthenticatedRequest, res: Response) => {
     try {
       if (!req.user!.playerId) {
-        return res.json([]);
+        return res.json({ friends: [], pendingRequests: [] });
       }
       const playerId = req.user!.playerId!;
       const player = await storage.getPlayer(playerId);
       if (!player) {
-        return res.json([]);
+        return res.json({ friends: [], pendingRequests: [] });
       }
 
       const academyId = player.academyId;
       if (!academyId) {
-        return res.json([]);
+        return res.json({ friends: [], pendingRequests: [] });
       }
 
       const conversations = await storage.getConversationsForPlayer(playerId, academyId);
@@ -23897,12 +23897,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/player/me/conversations/:id/messages", authMiddleware, requirePlayerOrOwner, async (req: AuthenticatedRequest, res: Response) => {
     try {
       if (!req.user!.playerId) {
-        return res.json([]);
+        return res.json({ friends: [], pendingRequests: [] });
       }
       const playerId = req.user!.playerId!;
       const player = await storage.getPlayer(playerId);
       if (!player || !player.academyId) {
-        return res.json([]);
+        return res.json({ friends: [], pendingRequests: [] });
       }
 
       const { id } = req.params;
@@ -30496,7 +30496,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // If no academyId, return empty feed
       if (!academyId) {
-        return res.json([]);
+        return res.json({ friends: [], pendingRequests: [] });
       }
       
       // Get filter-specific user/group IDs first
@@ -30509,7 +30509,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           const currentPlayerId = (rawUser.rows?.[0] as any)?.player_id;
           
           if (!currentPlayerId) {
-            return res.json([]);
+            return res.json({ friends: [], pendingRequests: [] });
           }
           
           const rawFriends = await db.execute(sql`
@@ -30522,7 +30522,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           const friendPlayerIds = (rawFriends.rows || []).map((r: any) => r.friend_id);
           
           if (friendPlayerIds.length === 0) {
-            return res.json([]);
+            return res.json({ friends: [], pendingRequests: [] });
           }
           
           const rawFriendUsers = await db.execute(sql`
@@ -30531,11 +30531,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
           friendUserIds = (rawFriendUsers.rows || []).map((r: any) => r.id);
           
           if (friendUserIds.length === 0) {
-            return res.json([]);
+            return res.json({ friends: [], pendingRequests: [] });
           }
         } catch (friendsError) {
           console.error("Error fetching friends filter:", friendsError);
-          return res.json([]);
+          return res.json({ friends: [], pendingRequests: [] });
         }
       } else if (filter === "groups") {
         try {
@@ -30545,11 +30545,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
           groupIds = (rawGroups.rows || []).map((r: any) => r.group_id);
           
           if (groupIds.length === 0) {
-            return res.json([]);
+            return res.json({ friends: [], pendingRequests: [] });
           }
         } catch (groupsError) {
           console.error("Error fetching groups filter:", groupsError);
-          return res.json([]);
+          return res.json({ friends: [], pendingRequests: [] });
         }
       }
       
