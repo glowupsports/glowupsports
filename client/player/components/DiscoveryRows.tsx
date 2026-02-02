@@ -538,7 +538,25 @@ export function OpenMatchesRow() {
 
   const handleSeeAll = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    navigateToTab("PlayStack");
+    // Navigate to Play tab with Players sub-tab
+    navigation.navigate("PlayerTabs", {
+      screen: "PlayStack",
+      params: {
+        screen: "Play",
+        params: { initialTab: "Players" }
+      }
+    });
+  };
+
+  const handleCreateMatch = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    // Navigate directly to CreateMatch screen
+    navigation.navigate("PlayerTabs", {
+      screen: "PlayStack",
+      params: {
+        screen: "CreateMatch"
+      }
+    });
   };
 
   const getMatchTypeGradient = (maxPlayers: number): readonly [string, string, ...string[]] => {
@@ -567,7 +585,7 @@ export function OpenMatchesRow() {
         <View style={styles.emptyRow}>
           <Feather name="target" size={24} color={ProTennisColors.textMuted} />
           <Text style={styles.emptyText}>No open matches right now</Text>
-          <Pressable style={styles.emptyButton} onPress={handleSeeAll}>
+          <Pressable style={styles.emptyButton} onPress={handleCreateMatch}>
             <Text style={styles.emptyButtonText}>Create a Match</Text>
           </Pressable>
         </View>

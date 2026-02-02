@@ -417,19 +417,39 @@ export function SessionHeroCard({
   };
 
   const handleBookCourt = () => {
-    navigateToTab("Schedule");
+    // Navigate directly to CourtBooking screen in Schedule stack
+    navigation.navigate("PlayerTabs", {
+      screen: "Schedule",
+      params: {
+        screen: "CourtBooking"
+      }
+    });
   };
 
   const handleFindMatch = () => {
     if (onFindMatch) {
       onFindMatch();
     } else {
-      navigateToTab("PlayStack");
+      // Navigate to Play tab with Players sub-tab selected
+      navigation.navigate("PlayerTabs", {
+        screen: "PlayStack",
+        params: {
+          screen: "Play",
+          params: { initialTab: "Players" }
+        }
+      });
     }
   };
 
   const handleJoinOpenGroup = () => {
-    navigateToTab("PlayStack");
+    // Navigate to Play tab with Group Lessons sub-tab
+    navigation.navigate("PlayerTabs", {
+      screen: "PlayStack",
+      params: {
+        screen: "Play",
+        params: { initialTab: "Group Lessons" }
+      }
+    });
   };
 
   const handleCheckIn = () => {
