@@ -206,11 +206,15 @@ function MomentCard({
             {isVideo ? (
               <VideoPostMedia uri={mediaUrl} />
             ) : (
-              <Image 
-                source={{ uri: mediaUrl }} 
-                style={styles.momentImage}
-                contentFit="contain"
-              />
+              <View style={styles.momentImageContainer}>
+                <Image 
+                  source={{ uri: mediaUrl }} 
+                  style={styles.momentImage}
+                  contentFit="cover"
+                  placeholder={{ blurhash: "L6PZfSi_.AyE_3t7t7R**0o#DgR4" }}
+                  transition={200}
+                />
+              </View>
             )}
             {/* Context badge overlay on photo */}
             <View style={[styles.contextBadgeOverlay, { backgroundColor: contextStyle.bg }]}>
@@ -3825,10 +3829,15 @@ const styles = StyleSheet.create({
   mediaSection: {
     position: "relative",
   },
-  momentImage: {
+  momentImageContainer: {
     width: "100%",
     height: 200,
     backgroundColor: "rgba(0,0,0,0.3)",
+    overflow: "hidden",
+  },
+  momentImage: {
+    width: "100%",
+    height: "100%",
   },
   videoContainer: {
     position: "relative",
