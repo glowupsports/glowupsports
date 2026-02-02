@@ -3693,10 +3693,6 @@ const styles = StyleSheet.create({
   postCard: {
     padding: Spacing.md,
     marginBottom: Spacing.sm,
-    // DEBUG: Rainbow border for posts/moments
-    borderWidth: 3,
-    borderColor: "#00FFFF",
-    backgroundColor: "rgba(0, 255, 255, 0.05)",
   },
   postHeader: {
     marginBottom: Spacing.sm,
@@ -4591,12 +4587,6 @@ const styles = StyleSheet.create({
     marginHorizontal: Spacing.md,
     marginBottom: Spacing.md,
     gap: Spacing.sm,
-    // DEBUG: Rainbow border for friends section
-    borderWidth: 4,
-    borderColor: "#00FF00",
-    backgroundColor: "rgba(0, 255, 0, 0.1)",
-    padding: 8,
-    borderRadius: 12,
   },
   sectionTab: {
     flexDirection: "row",
@@ -4606,9 +4596,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.md,
     borderRadius: BorderRadius.md,
     backgroundColor: Colors.dark.backgroundSecondary,
-    // DEBUG: Rainbow border for tab buttons
-    borderWidth: 2,
-    borderColor: "#FFFF00",
   },
   sectionTabActive: {
     backgroundColor: Colors.dark.primary + "20",
