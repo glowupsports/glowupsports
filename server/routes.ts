@@ -33778,6 +33778,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ error: "Failed to fetch operations dashboard data" });
     }
   });
+
+  // Demo data seed endpoint for TheLaw (Play Store mockups)
+  app.post("/api/admin/seed-demo-data", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const user = req.user!;
+      if (user.role !== "platform_owner") {
+        return res.status(403).json({ error: "Only platform owner can seed demo data" });
+      }
+
+      const { seedDemoDataForTheLaw } = await import("./seeds/demo-data-seed");
+      const result = await seedDemoDataForTheLaw();
+      
+      if (result.success) {
+        res.json(result);
+      } else {
+        res.status(400).json(result);
+      }
+    } catch (error) {
+      console.error("Demo seed error:", error);
+      res.status(500).json({ error: "Failed to seed demo data" });
+    }
+  });
+
   const httpServer = createServer(app);
   
   // Set up WebSocket server for real-time chat
