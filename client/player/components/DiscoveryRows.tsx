@@ -537,31 +537,17 @@ export function OpenMatchesRow() {
   };
 
   const handleSeeAll = () => {
+    console.log("[DiscoveryRows] handleSeeAll called");
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     // Navigate to Play tab with Players sub-tab
-    navigateToTab("PlayStack");
-    setTimeout(() => {
-      try {
-        const rootNav = navigation.getParent()?.getParent() || navigation;
-        rootNav.navigate("PlayStack", { screen: "Play", params: { initialTab: "Players" } });
-      } catch (e) {
-        console.log("[DiscoveryRows] Fallback navigation to Players");
-      }
-    }, 100);
+    navigateToTab("PlayStack", { screen: "Play", params: { initialTab: "Players" } });
   };
 
   const handleCreateMatch = () => {
+    console.log("[DiscoveryRows] handleCreateMatch called");
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     // Navigate directly to CreateMatch screen
-    navigateToTab("PlayStack");
-    setTimeout(() => {
-      try {
-        const rootNav = navigation.getParent()?.getParent() || navigation;
-        rootNav.navigate("PlayStack", { screen: "CreateMatch" });
-      } catch (e) {
-        console.log("[DiscoveryRows] Fallback navigation to CreateMatch");
-      }
-    }, 100);
+    navigateToTab("PlayStack", { screen: "CreateMatch" });
   };
 
   const getMatchTypeGradient = (maxPlayers: number): readonly [string, string, ...string[]] => {

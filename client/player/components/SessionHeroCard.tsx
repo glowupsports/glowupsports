@@ -417,48 +417,25 @@ export function SessionHeroCard({
   };
 
   const handleBookCourt = () => {
-    // First navigate to Schedule tab, then to CourtBooking after a brief delay
-    navigateToTab("Schedule");
-    // Use timeout to wait for tab switch, then navigate within that stack
-    setTimeout(() => {
-      try {
-        // Get the root navigation and navigate to nested screen
-        const rootNav = navigation.getParent()?.getParent() || navigation;
-        rootNav.navigate("Schedule", { screen: "CourtBooking" });
-      } catch (e) {
-        console.log("[SessionHeroCard] Fallback navigation to CourtBooking");
-      }
-    }, 100);
+    console.log("[SessionHeroCard] handleBookCourt called");
+    // Navigate to Schedule tab, then to CourtBooking screen
+    navigateToTab("Schedule", { screen: "CourtBooking" });
   };
 
   const handleFindMatch = () => {
+    console.log("[SessionHeroCard] handleFindMatch called");
     if (onFindMatch) {
       onFindMatch();
     } else {
       // Navigate to Play tab with Players sub-tab selected
-      navigateToTab("PlayStack");
-      setTimeout(() => {
-        try {
-          const rootNav = navigation.getParent()?.getParent() || navigation;
-          rootNav.navigate("PlayStack", { screen: "Play", params: { initialTab: "Players" } });
-        } catch (e) {
-          console.log("[SessionHeroCard] Fallback navigation to Players");
-        }
-      }, 100);
+      navigateToTab("PlayStack", { screen: "Play", params: { initialTab: "Players" } });
     }
   };
 
   const handleJoinOpenGroup = () => {
+    console.log("[SessionHeroCard] handleJoinOpenGroup called");
     // Navigate to Play tab with Group Lessons sub-tab
-    navigateToTab("PlayStack");
-    setTimeout(() => {
-      try {
-        const rootNav = navigation.getParent()?.getParent() || navigation;
-        rootNav.navigate("PlayStack", { screen: "Play", params: { initialTab: "Group Lessons" } });
-      } catch (e) {
-        console.log("[SessionHeroCard] Fallback navigation to Group Lessons");
-      }
-    }, 100);
+    navigateToTab("PlayStack", { screen: "Play", params: { initialTab: "Group Lessons" } });
   };
 
   const handleCheckIn = () => {

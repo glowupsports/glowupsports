@@ -1,6 +1,6 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import { StyleSheet, View } from "react-native";
-import { NavigationContainer } from "@react-navigation/native";
+import { NavigationContainer, NavigationContainerRef } from "@react-navigation/native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { KeyboardProvider } from "react-native-keyboard-controller";
 import { SafeAreaProvider } from "react-native-safe-area-context";
@@ -20,10 +20,24 @@ import { NetworkProvider } from "@/context/NetworkContext";
 import { CoachProvider } from "@/coach/context/CoachContext";
 import { AuthProvider } from "@/coach/context/AuthContext";
 import { UIInteractionProvider } from "@/contexts/UIInteractionContext";
+import { TabNavigationProvider, useTabNavigation } from "@/components/TabNavigationContext";
+
+function NavigationRefRegistrar({ navigationRef }: { navigationRef: React.RefObject<NavigationContainerRef<any>> }) {
+  const { registerNavigation } = useTabNavigation();
+  
+  useEffect(() => {
+    if (navigationRef.current) {
+      registerNavigation(navigationRef.current);
+    }
+  }, [navigationRef, registerNavigation]);
+  
+  return null;
+}
 
 export default function App() {
   const [isReady, setIsReady] = useState(false);
   const [splashComplete, setSplashComplete] = useState(false);
+  const navigationRef = useRef<NavigationContainerRef<any>>(null);
 
   useEffect(() => {
     async function prepare() {
@@ -59,11 +73,14 @@ export default function App() {
                           <PlayerProvider>
                             <CoachProvider>
                               <UIInteractionProvider>
-                                <View style={styles.root}>
-                                  <NavigationContainer>
-                                    <RootStackNavigator />
-                                  </NavigationContainer>
-                                </View>
+                                <TabNavigationProvider>
+                                  <NavigationRefRegistrar navigationRef={navigationRef} />
+                                  <View style={styles.root}>
+                                    <NavigationContainer ref={navigationRef}>
+                                      <RootStackNavigator />
+                                    </NavigationContainer>
+                                  </View>
+                                </TabNavigationProvider>
                               </UIInteractionProvider>
                             </CoachProvider>
                           </PlayerProvider>

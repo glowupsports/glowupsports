@@ -33,12 +33,18 @@ export function TabNavigationProvider({ children }: TabNavigationProviderProps) 
   }, []);
 
   const navigateToTab = useCallback((tabKey: string, screenParams?: { screen: string; params?: any }) => {
+    console.log(`[TabNavigation] navigateToTab called: tabKey=${tabKey}`, screenParams);
+    console.log(`[TabNavigation] pagerRef exists: ${!!pagerRefStore.current?.current}`);
+    console.log(`[TabNavigation] tabs count: ${tabsStore.current.length}`);
+    console.log(`[TabNavigation] navigationRef exists: ${!!navigationRef.current}`);
+    
     if (!pagerRefStore.current?.current || !tabsStore.current.length) {
       console.warn("[TabNavigation] Pager not registered yet");
       return;
     }
     
     const tabIndex = tabsStore.current.findIndex(t => t.key === tabKey);
+    console.log(`[TabNavigation] tabIndex for "${tabKey}": ${tabIndex}`);
     if (tabIndex === -1) {
       console.warn(`[TabNavigation] Tab "${tabKey}" not found`);
       return;
@@ -47,15 +53,17 @@ export function TabNavigationProvider({ children }: TabNavigationProviderProps) 
     // First navigate to the tab
     pagerRefStore.current.current.setPage(tabIndex);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    console.log(`[TabNavigation] Tab switched to index ${tabIndex}`);
     
     // If screen params provided, navigate to nested screen after tab switch
     if (screenParams && navigationRef.current) {
       // Small delay to let tab switch animation complete
       setTimeout(() => {
         if (navigationRef.current) {
+          console.log(`[TabNavigation] Navigating to nested screen:`, tabKey, screenParams);
           navigationRef.current.navigate(tabKey, screenParams);
         }
-      }, 50);
+      }, 150);
     }
   }, []);
 
