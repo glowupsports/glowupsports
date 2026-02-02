@@ -544,7 +544,54 @@ function AchievementShowcase({ onSelectAchievement }: { onSelectAchievement: (ac
     queryKey: ["/api/player/me/achievements"],
   });
   
-  const achievements = achievementsData?.achievements || [];
+  const DEMO_ACHIEVEMENTS: Achievement[] = [
+    {
+      id: "demo-1",
+      type: "level_up",
+      title: "Level Up!",
+      description: "You reached Level 50 - Tennis Legend status unlocked!",
+      icon: "arrow-up-circle",
+      date: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(),
+      value: "Level 50",
+    },
+    {
+      id: "demo-2",
+      type: "match_won",
+      title: "Match Victory",
+      description: "Won 3 consecutive matches this week",
+      icon: "trophy",
+      date: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString(),
+      value: "3 Wins",
+    },
+    {
+      id: "demo-3",
+      type: "streak",
+      title: "Training Streak",
+      description: "7 days of consistent training - keep it up!",
+      icon: "flame",
+      date: new Date(Date.now() - 3 * 60 * 60 * 1000).toISOString(),
+      value: "7 Days",
+    },
+    {
+      id: "demo-4",
+      type: "badge",
+      title: "Technique Master",
+      description: "Achieved 70%+ in Technical skills assessment",
+      icon: "ribbon",
+      date: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString(),
+    },
+    {
+      id: "demo-5",
+      type: "rating_up",
+      title: "Rating Boost",
+      description: "Your Glow Rating increased by 125 points",
+      icon: "trending-up",
+      date: new Date(Date.now() - 12 * 60 * 60 * 1000).toISOString(),
+      value: "+125",
+    },
+  ];
+
+  const achievements = achievementsData?.achievements?.length ? achievementsData.achievements : DEMO_ACHIEVEMENTS;
   
   const handleShare = async (achievement: Achievement) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
@@ -806,7 +853,98 @@ function FriendsSection({ onChallenge, onSelectActivity }: { onChallenge?: (frie
     },
   });
   
-  const friendsActivity = friendsActivityData || [];
+  const DEMO_FRIEND_ACTIVITY: Post[] = [
+    {
+      id: "activity-1",
+      authorId: "friend-1",
+      academyId: "demo-academy",
+      contextType: "session_completed",
+      caption: "Great training session today! Working on my backhand technique.",
+      mediaUrls: [],
+      mediaTypes: [],
+      visibility: "friends",
+      cheerCount: 12,
+      commentCount: 3,
+      createdAt: new Date(Date.now() - 30 * 60 * 1000).toISOString(),
+      author: {
+        id: "friend-1",
+        name: "Sarah Johnson",
+        photoUrl: null,
+        ballLevel: "yellow",
+        level: 35,
+        title: "Rising Star",
+      },
+      userReaction: null,
+    },
+    {
+      id: "activity-2",
+      authorId: "friend-2",
+      academyId: "demo-academy",
+      contextType: "match",
+      caption: "Won my doubles match 6-4, 6-2! Great teamwork with my partner.",
+      mediaUrls: [],
+      mediaTypes: [],
+      visibility: "friends",
+      cheerCount: 24,
+      commentCount: 8,
+      createdAt: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
+      author: {
+        id: "friend-2",
+        name: "Marcus Williams",
+        photoUrl: null,
+        ballLevel: "green",
+        level: 28,
+        title: "Court Master",
+      },
+      userReaction: "fire",
+    },
+    {
+      id: "activity-3",
+      authorId: "friend-3",
+      academyId: "demo-academy",
+      contextType: "level_up",
+      caption: "Just reached Level 40! Thank you everyone for the support!",
+      mediaUrls: [],
+      mediaTypes: [],
+      visibility: "friends",
+      cheerCount: 45,
+      commentCount: 15,
+      createdAt: new Date(Date.now() - 5 * 60 * 60 * 1000).toISOString(),
+      author: {
+        id: "friend-3",
+        name: "Emma Chen",
+        photoUrl: null,
+        ballLevel: "yellow",
+        level: 40,
+        title: "Tennis Legend",
+      },
+      userReaction: null,
+    },
+    {
+      id: "activity-4",
+      authorId: "friend-4",
+      academyId: "demo-academy",
+      contextType: "training",
+      caption: "Focus on serve technique today. Coach feedback was super helpful!",
+      mediaUrls: [],
+      mediaTypes: [],
+      visibility: "friends",
+      cheerCount: 8,
+      commentCount: 2,
+      createdAt: new Date(Date.now() - 8 * 60 * 60 * 1000).toISOString(),
+      author: {
+        id: "friend-4",
+        name: "Alex Rodriguez",
+        photoUrl: null,
+        ballLevel: "orange",
+        level: 22,
+        title: "Serve Specialist",
+      },
+      userReaction: null,
+    },
+  ];
+
+  const friendsActivity = friendsActivityData?.length ? friendsActivityData : DEMO_FRIEND_ACTIVITY;
   
   const friends = friendsData?.friends || [];
   const requests = friendsData?.pendingRequests || [];
@@ -1204,7 +1342,55 @@ function GroupsSection() {
     });
   };
   
-  const allGroups = groupsData || [];
+  const DEMO_GROUPS: Group[] = [
+    {
+      id: "group-1",
+      name: "Yellow Ball Champions",
+      description: "For advanced yellow ball players looking to compete",
+      type: "skill_level",
+      memberCount: 24,
+      isJoined: true,
+      createdBy: "coach-demo",
+    },
+    {
+      id: "group-2",
+      name: "Weekend Warriors",
+      description: "Casual weekend tennis meetups and social events",
+      type: "social",
+      memberCount: 45,
+      isJoined: true,
+      createdBy: "player-1",
+    },
+    {
+      id: "group-3",
+      name: "Dubai Tennis League",
+      description: "Official tournament group for league matches",
+      type: "tournament",
+      memberCount: 32,
+      isJoined: false,
+      createdBy: "academy-admin",
+    },
+    {
+      id: "group-4",
+      name: "Junior Development",
+      description: "U16 players training together",
+      type: "training",
+      memberCount: 18,
+      isJoined: false,
+      createdBy: "coach-demo",
+    },
+    {
+      id: "group-5",
+      name: "Ladies Tennis Club",
+      description: "Women's tennis community for all skill levels",
+      type: "social",
+      memberCount: 28,
+      isJoined: true,
+      createdBy: "player-2",
+    },
+  ];
+
+  const allGroups = groupsData?.length ? groupsData : DEMO_GROUPS;
   
   const groups = useMemo(() => {
     if (groupFilter === "all") return allGroups;
@@ -3051,7 +3237,76 @@ export default function CommunityScreen() {
   });
   const friendRequestCount = friendsData?.pendingRequests?.length || 0;
   
-  const { data: feed = [], isLoading, refetch, isFetching } = useQuery<Post[]>({
+  const DEMO_ACADEMY_FEED: Post[] = [
+    {
+      id: "academy-post-1",
+      authorId: "coach-1",
+      academyId: "demo-academy",
+      contextType: "event",
+      caption: "Exciting news! Our Summer Tennis Camp registration is now open. Limited spots available for all skill levels.",
+      mediaUrls: [],
+      mediaTypes: [],
+      visibility: "academy",
+      cheerCount: 34,
+      commentCount: 12,
+      createdAt: new Date(Date.now() - 4 * 60 * 60 * 1000).toISOString(),
+      author: {
+        id: "coach-1",
+        name: "Coach Ahmed",
+        photoUrl: null,
+        isCoach: true,
+        level: 50,
+        title: "Head Coach",
+      },
+      userReaction: null,
+    },
+    {
+      id: "academy-post-2",
+      authorId: "admin-1",
+      academyId: "demo-academy",
+      contextType: "achievement",
+      caption: "Congratulations to our Yellow Ball team for winning the Dubai Regional Championship! Amazing teamwork!",
+      mediaUrls: [],
+      mediaTypes: [],
+      visibility: "academy",
+      cheerCount: 89,
+      commentCount: 28,
+      createdAt: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString(),
+      author: {
+        id: "admin-1",
+        name: "Glow Up Academy",
+        photoUrl: null,
+        isCoach: true,
+        level: 100,
+        title: "Academy",
+      },
+      userReaction: "fire",
+    },
+    {
+      id: "academy-post-3",
+      authorId: "coach-2",
+      academyId: "demo-academy",
+      contextType: "training",
+      caption: "New training schedule is out! Check your app for updated session times. See you on the court!",
+      mediaUrls: [],
+      mediaTypes: [],
+      visibility: "academy",
+      cheerCount: 22,
+      commentCount: 5,
+      createdAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(),
+      author: {
+        id: "coach-2",
+        name: "Coach Maria",
+        photoUrl: null,
+        isCoach: true,
+        level: 45,
+        title: "Senior Coach",
+      },
+      userReaction: null,
+    },
+  ];
+
+  const { data: rawFeed = [], isLoading, refetch, isFetching } = useQuery<Post[]>({
     queryKey: ["/api/social/feed", { filter }],
     queryFn: async () => {
       const response = await apiFetch(`/api/social/feed?filter=${filter}`);
@@ -3059,6 +3314,8 @@ export default function CommunityScreen() {
       return response.json();
     },
   });
+  
+  const feed = rawFeed.length > 0 ? rawFeed : (filter === "academy" || filter === "moments") ? DEMO_ACADEMY_FEED : [];
   
   const { data: highlights } = useQuery<{ newMoments: number; openToPlay: number }>({
     queryKey: ["/api/social/highlights"],
