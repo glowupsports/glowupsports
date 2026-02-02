@@ -14,14 +14,14 @@ import {
   playerSkillState,
 } from "@shared/schema";
 
-// Maps pillar names to skill domain names
+// Maps pillar names to skill domain names (domain names must match what PillarProgressRings expects when uppercased)
 const PILLARS = [
-  { name: "TECHNIQUE", domainName: "technical", percentage: 72, icon: "tennisball", color: "#39FF14" },
-  { name: "TACTICAL", domainName: "tactical", percentage: 65, icon: "lightbulb", color: "#FF6B35" },
-  { name: "PHYSICAL", domainName: "physical", percentage: 78, icon: "fitness", color: "#00E5FF" },
-  { name: "MENTAL", domainName: "mental", percentage: 58, icon: "brain", color: "#E040FB" },
-  { name: "SOCIAL", domainName: "social", percentage: 70, icon: "people", color: "#FFAB40" },
-  { name: "MATCH", domainName: "match", percentage: 55, icon: "trophy", color: "#EEFF41" },
+  { name: "TECHNIQUE", domainName: "technique", percentage: 72, icon: "tennisball", color: "#10B981" },
+  { name: "TACTICAL", domainName: "tactical", percentage: 65, icon: "bulb-outline", color: "#F59E0B" },
+  { name: "PHYSICAL", domainName: "physical", percentage: 78, icon: "fitness", color: "#EF4444" },
+  { name: "MENTAL", domainName: "mental", percentage: 58, icon: "flash-outline", color: "#8B5CF6" },
+  { name: "SOCIAL", domainName: "social", percentage: 70, icon: "people-outline", color: "#EC4899" },
+  { name: "MATCH", domainName: "match", percentage: 55, icon: "trophy-outline", color: "#3B82F6" },
 ];
 
 export async function seedDemoDataForTheLaw() {
