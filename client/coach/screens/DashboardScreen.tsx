@@ -48,6 +48,7 @@ import { PlayersByLevelCard } from "@/coach/components/PlayersByLevelCard";
 import { useWebSocket } from "@/lib/useWebSocket";
 import { ActionNeededCard } from "@/components/ActionNeededCard";
 import { CoachInsightsPanel } from "@/coach/components/CoachInsightsPanel";
+import { useTabNavigation } from "@/components/TabNavigationContext";
 
 interface Player {
   id: string;
@@ -92,6 +93,7 @@ export default function DashboardScreen() {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation();
   const queryClient = useQueryClient();
+  const { navigateToTab } = useTabNavigation();
   const { coach, academy, calendarData, isLoading, refetchCalendar } = useCoach();
   const { logout } = useAuth();
   const [showStatusPanel, setShowStatusPanel] = useState(false);
@@ -482,7 +484,13 @@ export default function DashboardScreen() {
       EditProfile: "CoachProfile",
     };
     const targetScreen = screenMap[screen] || screen;
-    (navigation as any).navigate("CoachTabs", { screen: targetScreen, params });
+    // Use tab navigation for main tabs, regular navigation for nested screens
+    const tabNames = ["Dashboard", "Players", "Calendar", "Coaching"];
+    if (tabNames.includes(targetScreen)) {
+      navigateToTab(targetScreen);
+    } else {
+      (navigation as any).navigate("CoachTabs", { screen: targetScreen, params });
+    }
   };
 
   const formatTime = (date: string) => {

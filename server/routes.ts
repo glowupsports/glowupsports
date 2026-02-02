@@ -15881,7 +15881,35 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
 
-      const alerts: any[] = [];
+      res.json({
+        academy: {
+          id: academy?.id,
+          name: academy?.name,
+          healthScore,
+        },
+        financials: {
+          monthlyRevenue,
+          revenueTarget,
+          outstandingPayments,
+          currency: settings?.currency || "AED",
+        },
+        metrics: {
+          activePlayers: activePlayers.length,
+          activeCoaches: activeCoaches.length,
+          newSignups,
+          retentionRate,
+          attendanceRate,
+        },
+        staffPerformance,
+        topPerformers,
+        insights,
+        alerts,
+      });
+    } catch (error) {
+      console.error("[Owner Dashboard Business] Error:", error);
+      res.status(500).json({ error: "Failed to fetch business dashboard" });
+    }
+  });
 
   // Platform Dashboard Enhanced - Enterprise platform-wide metrics
   app.get("/api/platform/dashboard/enhanced", authMiddleware, requireRole("platform_owner"), async (req: AuthenticatedRequest, res: Response) => {
@@ -16016,55 +16044,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ error: "Failed to fetch platform dashboard data" });
     }
   });
-      const unpaidPlayers = players.filter((p: any) => (p.balanceDue || 0) > 0);
-      if (unpaidPlayers.length > 5) {
-        alerts.push({
-          id: "many-unpaid",
-          type: "warning",
-          title: unpaidPlayers.length + " players with outstanding payments",
-        });
-      }
 
-      const currency = settings?.currency || "AED";
-
-      res.json({
-        academy: academy ? {
-          id: academy.id,
-          name: academy.name,
-          currency,
-          timezone: settings?.timezone || "Asia/Dubai",
-        } : null,
-        financials: {
-          monthlyRevenue,
-          revenueTarget,
-          outstandingPayments,
-          cashFlow: monthlyRevenue - outstandingPayments,
-          healthScore,
-        },
-        growth: {
-          newSignups,
-          signupChange: Math.floor(Math.random() * 20) - 5,
-          retentionRate,
-          retentionChange: Math.floor(Math.random() * 10) - 2,
-          churnRate: Math.max(0, 100 - retentionRate),
-          activeGrowth: Math.floor(Math.random() * 15) - 3,
-        },
-        staffPerformance,
-        kpis: {
-          totalPlayers: players.length,
-          activePlayers: activePlayers.length,
-          totalCoaches: activeCoaches.length,
-          attendanceRate,
-        },
-        topPerformers,
-        insights,
-        alerts,
-      });
-    } catch (error) {
-      console.error("Owner business dashboard error:", error);
-      res.status(500).json({ error: "Failed to fetch business dashboard data" });
-    }
-  });
 
   // Owner Dashboard Enhanced - World-class dashboard for Academy Owners
   app.get("/api/owner/dashboard/enhanced", authMiddleware, requireRole("owner", "academy_owner", "platform_owner"), async (req: AuthenticatedRequest, res: Response) => {

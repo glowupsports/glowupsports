@@ -7,6 +7,7 @@ import Ionicons from "@expo/vector-icons/Ionicons";
 import { BlurView } from "expo-blur";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { SwipeableTabBar, TabConfig } from "@/components/SwipeableTabBar";
+import { TabNavigationProvider } from "@/components/TabNavigationContext";
 import ProPlayerHomeScreen from "@/player/screens/ProPlayerHomeScreen";
 import PlayerJourneyScreen from "@/player/screens/PlayerJourneyScreen";
 import PlayScreen from "@/player/screens/PlayScreen";
@@ -949,20 +950,22 @@ export default function PlayerNavigator() {
   const playerId = user?.playerId || dashboard?.player?.id || null;
 
   return (
-    <PlayerDataProvider>
-      <CartProvider>
-        <FamilyProvider playerId={playerId}>
-          <PlayerLevelProvider playerId={playerId}>
-            <WalkthroughProvider>
-              <View style={styles.container}>
-                <PlayerStackNavigator />
-                <WalkthroughOverlay />
-              </View>
-            </WalkthroughProvider>
-          </PlayerLevelProvider>
-        </FamilyProvider>
-      </CartProvider>
-    </PlayerDataProvider>
+    <TabNavigationProvider>
+      <PlayerDataProvider>
+        <CartProvider>
+          <FamilyProvider playerId={playerId}>
+            <PlayerLevelProvider playerId={playerId}>
+              <WalkthroughProvider>
+                <View style={styles.container}>
+                  <PlayerStackNavigator />
+                  <WalkthroughOverlay />
+                </View>
+              </WalkthroughProvider>
+            </PlayerLevelProvider>
+          </FamilyProvider>
+        </CartProvider>
+      </PlayerDataProvider>
+    </TabNavigationProvider>
   );
 }
 

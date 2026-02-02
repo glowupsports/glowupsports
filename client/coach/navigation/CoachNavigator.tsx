@@ -1,13 +1,9 @@
-import React, { useState, useRef, useCallback, useMemo } from "react";
-import { StyleSheet, View, Platform, ActivityIndicator, Pressable, Dimensions } from "react-native";
+import React, { useState, useCallback, useMemo } from "react";
+import { StyleSheet, View, Platform, ActivityIndicator } from "react-native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import Ionicons from "@expo/vector-icons/Ionicons";
-import { BlurView } from "expo-blur";
-import { LinearGradient } from "expo-linear-gradient";
-import PagerView from "react-native-pager-view";
-import Animated, { useSharedValue, useAnimatedStyle, withSpring, interpolate, SharedValue } from "react-native-reanimated";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { SwipeableTabBar, TabConfig } from "@/components/SwipeableTabBar";
+import { TabNavigationProvider } from "@/components/TabNavigationContext";
 import DashboardScreen from "@/coach/screens/DashboardScreen";
 import CalendarScreen from "@/coach/screens/CalendarScreen";
 import PlayersScreen from "@/coach/screens/PlayersScreen";
@@ -40,8 +36,7 @@ import { PremiumAddPlayerFlow } from "@/coach/components/PremiumAddPlayerFlow";
 import { useAuth } from "@/coach/context/AuthContext";
 import { useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
-import { Colors, Spacing, BorderRadius } from "@/constants/theme";
-import * as Haptics from "expo-haptics";
+import { Colors } from "@/constants/theme";
 
 export type CoachTabParamList = {
   Dashboard: undefined;
@@ -51,16 +46,14 @@ export type CoachTabParamList = {
   Settings: undefined;
 };
 
-const { width: SCREEN_WIDTH } = Dimensions.get("window");
-
-// Tab configuration
-const TAB_CONFIG = [
-  { key: "Dashboard", label: "Home", icon: "home-outline", iconFocused: "home" },
-  { key: "Calendar", label: "Calendar", icon: "calendar-outline", iconFocused: "calendar" },
-  { key: "Players", label: "Players", icon: "people-outline", iconFocused: "people" },
-  { key: "Coaching", label: "Coaching", icon: "clipboard-outline", iconFocused: "clipboard" },
-  { key: "Settings", label: "Settings", icon: "settings-outline", iconFocused: "settings" },
-] as const;
+// Tab configuration using shared SwipeableTabBar component pattern
+const COACH_TABS: TabConfig[] = [
+  { key: "Dashboard", label: "Home", icon: "home-outline", iconFocused: "home", component: DashboardScreen },
+  { key: "Calendar", label: "Calendar", icon: "calendar-outline", iconFocused: "calendar", component: CalendarScreen },
+  { key: "Players", label: "Players", icon: "people-outline", iconFocused: "people", component: PlayersScreen },
+  { key: "Coaching", label: "Coaching", icon: "clipboard-outline", iconFocused: "clipboard", component: CoachingScreen },
+  { key: "Settings", label: "Settings", icon: "settings-outline", iconFocused: "settings", component: SettingsScreen },
+];
 
 export type CoachStackParamList = {
   CoachTabs: undefined;
@@ -89,174 +82,41 @@ export type CoachStackParamList = {
 const Stack = createNativeStackNavigator<CoachStackParamList>();
 
 // Custom animated tab bar item
-function SwipeableTabItem({ 
-  tab, 
-  index, 
-  currentIndex, 
-  scrollOffset,
-  onPress 
-}: { 
-  tab: typeof TAB_CONFIG[number]; 
-  index: number; 
-  currentIndex: number;
-  scrollOffset: SharedValue<number>;
-  onPress: () => void;
-}) {
-  const animatedStyle = useAnimatedStyle(() => {
-    const distance = Math.abs(scrollOffset.value - index);
-    const scale = interpolate(distance, [0, 1], [1, 0.95]);
-    
-    return {
-      transform: [{ scale }],
-    };
-  });
-
-  const focused = currentIndex === index;
-  const iconName = focused ? tab.iconFocused : tab.icon;
-
-  return (
-    <Pressable 
-      style={styles.swipeTabItem} 
-      onPress={onPress}
-      android_ripple={{ color: Colors.dark.primary + "30", borderless: true }}
-    >
-      <Animated.View style={[styles.swipeTabIconContainer, animatedStyle]}>
-        {focused && <View style={styles.tabIconGlow} />}
-        <Ionicons 
-          name={iconName as keyof typeof Ionicons.glyphMap}
-          size={24} 
-          color={focused ? Colors.dark.primary : Colors.dark.tabIconDefault} 
-        />
-      </Animated.View>
-      <Animated.Text 
-        style={[
-          styles.swipeTabLabel, 
-          { color: focused ? Colors.dark.primary : Colors.dark.tabIconDefault }
-        ]}
-      >
-        {tab.label}
-      </Animated.Text>
-    </Pressable>
-  );
-}
-
-// Animated indicator that follows swipe
-function TabIndicator({ scrollOffset }: { scrollOffset: SharedValue<number> }) {
-  const tabWidth = SCREEN_WIDTH / TAB_CONFIG.length;
-  
-  const animatedStyle = useAnimatedStyle(() => {
-    return {
-      transform: [{ translateX: withSpring(scrollOffset.value * tabWidth, { damping: 20, stiffness: 200 }) }],
-    };
-  });
-
-  return (
-    <Animated.View style={[styles.tabIndicator, { width: tabWidth }, animatedStyle]}>
-      <LinearGradient
-        colors={[Colors.dark.primary, Colors.dark.xpCyan]}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 0 }}
-        style={styles.tabIndicatorGradient}
-      />
-    </Animated.View>
-  );
-}
-
 function CoachTabs() {
-  const insets = useSafeAreaInsets();
-  const [currentIndex, setCurrentIndex] = useState(0);
   const [showAddPlayerModal, setShowAddPlayerModal] = useState(false);
+  const [currentTabKey, setCurrentTabKey] = useState("Dashboard");
   const queryClient = useQueryClient();
-  const pagerRef = useRef<PagerView>(null);
-  const scrollOffset = useSharedValue(0);
 
-  const handlePageSelected = useCallback((e: any) => {
-    const newIndex = e.nativeEvent.position;
-    setCurrentIndex(newIndex);
-    scrollOffset.value = newIndex;
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-  }, [scrollOffset]);
-
-  const handlePageScroll = useCallback((e: any) => {
-    const { position, offset } = e.nativeEvent;
-    scrollOffset.value = position + offset;
-  }, [scrollOffset]);
-
-  const navigateToPage = useCallback((index: number) => {
-    pagerRef.current?.setPage(index);
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+  const handlePageChange = useCallback((index: number, key: string) => {
+    setCurrentTabKey(key);
   }, []);
 
-  const currentTabName = TAB_CONFIG[currentIndex].key;
-  const showFAB = currentTabName !== "Calendar" && currentTabName !== "Players";
+  const showFAB = currentTabKey !== "Calendar" && currentTabKey !== "Players";
 
-  const screens = useMemo(() => [
-    <View key="Dashboard" style={styles.pageContainer}><DashboardScreen /></View>,
-    <View key="Calendar" style={styles.pageContainer}><CalendarScreen /></View>,
-    <View key="Players" style={styles.pageContainer}><PlayersScreen /></View>,
-    <View key="Coaching" style={styles.pageContainer}><CoachingScreen /></View>,
-    <View key="Settings" style={styles.pageContainer}><SettingsScreen /></View>,
-  ], []);
+  const renderOverlay = useCallback((tabKey: string) => {
+    const shouldShowFAB = tabKey !== "Calendar" && tabKey !== "Players";
+    if (!shouldShowFAB) return null;
+    return <CoachQuickActionsFAB onAddPlayer={() => setShowAddPlayerModal(true)} />;
+  }, []);
 
   return (
-    <View style={styles.tabsWrapper}>
-      <PagerView
-        ref={pagerRef}
-        style={styles.pagerView}
-        initialPage={0}
-        onPageSelected={handlePageSelected}
-        onPageScroll={handlePageScroll}
-        overdrag={true}
-        overScrollMode="never"
-      >
-        {screens}
-      </PagerView>
-
-      {/* Custom swipeable tab bar */}
-      <View style={[styles.swipeTabBar, { paddingBottom: insets.bottom > 0 ? insets.bottom : 16 }]}>
-        <View style={styles.swipeTabBarBackground}>
-          <LinearGradient
-            colors={[Colors.dark.primary + "40", "transparent", Colors.dark.xpCyan + "40"]}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 0 }}
-            style={styles.tabBarTopLine}
-          />
-          {Platform.OS === "ios" ? (
-            <BlurView intensity={90} tint="dark" style={StyleSheet.absoluteFill} />
-          ) : (
-            <View style={[StyleSheet.absoluteFill, styles.androidTabBackground]} />
-          )}
-        </View>
-        
-        <TabIndicator scrollOffset={scrollOffset} />
-        
-        <View style={styles.swipeTabRow}>
-          {TAB_CONFIG.map((tab, index) => (
-            <SwipeableTabItem
-              key={tab.key}
-              tab={tab}
-              index={index}
-              currentIndex={currentIndex}
-              scrollOffset={scrollOffset}
-              onPress={() => navigateToPage(index)}
-            />
-          ))}
-        </View>
-      </View>
-
-      {showFAB && (
-        <CoachQuickActionsFAB onAddPlayer={() => setShowAddPlayerModal(true)} />
-      )}
+    <>
+      <SwipeableTabBar
+        tabs={COACH_TABS}
+        primaryColor={Colors.dark.primary}
+        secondaryColor={Colors.dark.xpCyan}
+        onPageChange={handlePageChange}
+        renderOverlay={renderOverlay}
+      />
       <PremiumAddPlayerFlow
         visible={showAddPlayerModal}
         onClose={() => setShowAddPlayerModal(false)}
         onComplete={(player) => {
-          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
           queryClient.invalidateQueries({ queryKey: ["/api/players"] });
           queryClient.invalidateQueries({ queryKey: ["/api/players?withCredits=true"] });
         }}
       />
-    </View>
+    </>
   );
 }
 
@@ -446,10 +306,12 @@ export default function CoachNavigator() {
   }
 
   return (
-    <View style={styles.container}>
-      <OfflineBanner />
-      <CoachStackNavigator />
-    </View>
+    <TabNavigationProvider>
+      <View style={styles.container}>
+        <OfflineBanner />
+        <CoachStackNavigator />
+      </View>
+    </TabNavigationProvider>
   );
 }
 
