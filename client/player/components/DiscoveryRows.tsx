@@ -312,7 +312,10 @@ export function GroupLessonsRow() {
 
   const handleSeeAll = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    navigation.navigate("Schedule", { screen: "BrowseGroupLessons" });
+    navigation.navigate("PlayerTabs", { 
+      screen: "ScheduleStack", 
+      params: { screen: "BrowseGroupLessons" } 
+    });
   };
 
   const ballLevelLabel = playerBallLevel.charAt(0).toUpperCase() + playerBallLevel.slice(1);
@@ -773,13 +776,16 @@ export function TrainingSessionsRow() {
 
   const handleBookPress = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    navigation.navigate("LessonBooking");
+    navigation.navigate("PlayerTabs", { 
+      screen: "ScheduleStack", 
+      params: { screen: "BrowseGroupLessons" } 
+    });
   };
 
   const handleCourtPress = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     navigation.navigate("PlayerTabs", { 
-      screen: "Schedule", 
+      screen: "ScheduleStack", 
       params: { screen: "CourtBooking" } 
     });
   };

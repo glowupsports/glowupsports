@@ -476,13 +476,13 @@ export default function DashboardScreen() {
     return result;
   }, [pendingFeedbackCount]);
 
-  const handleNavigate = (screen: string) => {
+  const handleNavigate = (screen: string, params?: any) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     const screenMap: Record<string, string> = {
       EditProfile: "CoachProfile",
     };
     const targetScreen = screenMap[screen] || screen;
-    (navigation as any).navigate(targetScreen);
+    (navigation as any).navigate("CoachTabs", { screen: targetScreen, params });
   };
 
   const formatTime = (date: string) => {
@@ -998,7 +998,7 @@ export default function DashboardScreen() {
                       style={styles.actionBarBtn}
                       onPress={() => {
                         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-                        (navigation as any).navigate("Calendar", { openSessionId: currentSession.id, action: "attendance" });
+                        (navigation as any).navigate("CoachTabs", { screen: "Calendar", params: { openSessionId: currentSession.id, action: "attendance" } });
                       }}
                     >
                       <LinearGradient
@@ -1015,7 +1015,7 @@ export default function DashboardScreen() {
                       style={styles.actionBarBtn}
                       onPress={() => {
                         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                        (navigation as any).navigate("Calendar", { openSessionId: currentSession.id, action: "extend" });
+                        (navigation as any).navigate("CoachTabs", { screen: "Calendar", params: { openSessionId: currentSession.id, action: "extend" } });
                       }}
                     >
                       <LinearGradient
@@ -1049,7 +1049,7 @@ export default function DashboardScreen() {
                       style={styles.actionBarBtn}
                       onPress={() => {
                         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                        (navigation as any).navigate("Calendar", { openSessionId: currentSession.id, action: "end" });
+                        (navigation as any).navigate("CoachTabs", { screen: "Calendar", params: { openSessionId: currentSession.id, action: "end" } });
                       }}
                     >
                       <LinearGradient
@@ -1455,7 +1455,7 @@ export default function DashboardScreen() {
         onClose={() => setSelectedSessionForDetail(null)}
         onAttendance={() => {
           if (selectedSessionForDetail) {
-            (navigation as any).navigate("Calendar", { openSessionId: selectedSessionForDetail.id, action: "attendance" });
+            (navigation as any).navigate("CoachTabs", { screen: "Calendar", params: { openSessionId: selectedSessionForDetail.id, action: "attendance" } });
             setSelectedSessionForDetail(null);
           }
         }}

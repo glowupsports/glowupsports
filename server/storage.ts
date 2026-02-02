@@ -3600,6 +3600,9 @@ export const storage = {
     const sessionIds = seriesSessions.map(s => s.id);
     
     if (sessionIds.length > 0) {
+      // Delete coach_xp_transactions for all sessions in this series (must be before sessions)
+      await db.delete(coachXpTransactions).where(inArray(coachXpTransactions.sessionId, sessionIds));
+      
       // Delete credit_transactions for all sessions in this series (must be before sessions)
       await db.delete(creditTransactions).where(inArray(creditTransactions.sessionId, sessionIds));
       

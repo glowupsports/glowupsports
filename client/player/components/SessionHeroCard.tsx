@@ -410,8 +410,18 @@ export function SessionHeroCard({
     if (onBookSession) {
       onBookSession();
     } else {
-      navigation.navigate("Schedule", { screen: "CourtBooking" });
+      navigation.navigate("PlayerTabs", { 
+        screen: "ScheduleStack", 
+        params: { screen: "BrowseGroupLessons" } 
+      });
     }
+  };
+
+  const handleBookCourt = () => {
+    navigation.navigate("PlayerTabs", { 
+      screen: "ScheduleStack", 
+      params: { screen: "CourtBooking" } 
+    });
   };
 
   const handleFindMatch = () => {
@@ -589,7 +599,7 @@ export function SessionHeroCard({
                   styles.tennisPrimaryButton,
                   pressed && styles.buttonPressed,
                 ]}
-                onPress={() => navigation.navigate("PlayerTabs" as never, { screen: "Schedule", params: { screen: "CourtBooking" } } as never)}
+                onPress={handleBookCourt}
               >
                 <LinearGradient
                   colors={[ProTennisColors.neonCyan, "#00D4FF"]}
