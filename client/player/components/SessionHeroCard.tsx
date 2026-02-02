@@ -16,6 +16,7 @@ import Animated, {
 } from "react-native-reanimated";
 import { useNavigation } from "@react-navigation/native";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useTabNavigation } from "@/components/TabNavigationContext";
 import { GlassCard } from "./GlassCard";
 import { GlowAvatar } from "./GlowAvatar";
 import { ProTennisColors, Spacing, BorderRadius, Typography, Backgrounds, GlowColors, Colors } from "@/constants/theme";
@@ -258,6 +259,7 @@ export function SessionHeroCard({
   onFindMatch,
 }: SessionHeroCardProps) {
   const navigation = useNavigation<any>();
+  const { navigateToTab } = useTabNavigation();
   const queryClient = useQueryClient();
   const { state } = usePlayerState();
   const { sessionStatus, minutesToNextSession, minutesRemaining, coachName, sessionCourtName, sessionType, coachPhotoUrl, sessionId } = state;
@@ -410,36 +412,24 @@ export function SessionHeroCard({
     if (onBookSession) {
       onBookSession();
     } else {
-      navigation.navigate("PlayerTabs", { 
-        screen: "ScheduleStack", 
-        params: { screen: "BrowseGroupLessons" } 
-      });
+      navigateToTab("Schedule");
     }
   };
 
   const handleBookCourt = () => {
-    navigation.navigate("PlayerTabs", { 
-      screen: "ScheduleStack", 
-      params: { screen: "CourtBooking" } 
-    });
+    navigateToTab("Schedule");
   };
 
   const handleFindMatch = () => {
     if (onFindMatch) {
       onFindMatch();
     } else {
-      navigation.navigate("PlayerTabs", { 
-        screen: "PlayStack", 
-        params: { screen: "Play", params: { initialTab: "Players" } } 
-      });
+      navigateToTab("PlayStack");
     }
   };
 
   const handleJoinOpenGroup = () => {
-    navigation.navigate("PlayerTabs", { 
-      screen: "PlayStack", 
-      params: { screen: "OpenMatches" } 
-    });
+    navigateToTab("PlayStack");
   };
 
   const handleCheckIn = () => {
