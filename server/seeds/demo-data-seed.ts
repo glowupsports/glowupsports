@@ -10,15 +10,18 @@ import {
   playerPillarProgress,
   deepAssessmentPillarSummaries,
   coaches,
+  skillDomains,
+  playerSkillState,
 } from "@shared/schema";
 
+// Maps pillar names to skill domain names
 const PILLARS = [
-  { name: "TECHNIQUE", percentage: 72, icon: "tennis-ball" },
-  { name: "TACTICAL", percentage: 65, icon: "lightbulb" },
-  { name: "PHYSICAL", percentage: 78, icon: "fitness" },
-  { name: "MENTAL", percentage: 58, icon: "brain" },
-  { name: "SOCIAL", percentage: 70, icon: "people" },
-  { name: "MATCH", percentage: 55, icon: "trophy" },
+  { name: "TECHNIQUE", domainName: "technical", percentage: 72, icon: "tennisball", color: "#39FF14" },
+  { name: "TACTICAL", domainName: "tactical", percentage: 65, icon: "lightbulb", color: "#FF6B35" },
+  { name: "PHYSICAL", domainName: "physical", percentage: 78, icon: "fitness", color: "#00E5FF" },
+  { name: "MENTAL", domainName: "mental", percentage: 58, icon: "brain", color: "#E040FB" },
+  { name: "SOCIAL", domainName: "social", percentage: 70, icon: "people", color: "#FFAB40" },
+  { name: "MATCH", domainName: "match", percentage: 55, icon: "trophy", color: "#EEFF41" },
 ];
 
 export async function seedDemoDataForTheLaw() {
@@ -155,6 +158,84 @@ export async function seedDemoDataForTheLaw() {
       }
     }
     console.log("[DemoSeed] Deep assessment summaries added");
+
+    // Add player skill state for SkillRadar
+    console.log("[DemoSeed] Adding player skill state data...");
+    
+    // Get existing skill domains
+    const existingDomains = await db.select().from(skillDomains);
+    console.log("[DemoSeed] Found", existingDomains.length, "existing skill domains");
+    
+    for (const pillar of PILLARS) {
+      // Find matching domain
+      let domain = existingDomains.find(d => 
+        d.name.toLowerCase() === pillar.domainName.toLowerCase()
+      );
+      
+      // If domain doesn't exist, create it
+      if (!domain) {
+        const displayName = pillar.domainName.charAt(0).toUpperCase() + pillar.domainName.slice(1);
+        const [newDomain] = await db.insert(skillDomains).values({
+          id: `domain-${pillar.domainName}`,
+          name: pillar.domainName,
+          displayName,
+          description: `${displayName} skills assessment`,
+          icon: pillar.icon,
+          color: pillar.color,
+          sortOrder: PILLARS.indexOf(pillar),
+        }).returning();
+        domain = newDomain;
+        console.log("[DemoSeed] Created skill domain:", pillar.domainName);
+      }
+      
+      // Check for existing player skill state
+      const existingState = await db.select()
+        .from(playerSkillState)
+        .where(and(
+          eq(playerSkillState.playerId, playerId),
+          eq(playerSkillState.domainId, domain.id)
+        ))
+        .limit(1);
+      
+      const trend = pillar.percentage > 60 ? "improving" : pillar.percentage > 40 ? "stable" : "focus";
+      const momentum = pillar.percentage > 70 ? "strong" : pillar.percentage > 50 ? "building" : "slowing";
+      const assessmentStatus = pillar.percentage > 70 ? "meets" : pillar.percentage > 50 ? "developing" : "not_yet";
+      
+      if (existingState.length > 0) {
+        await db.update(playerSkillState)
+          .set({
+            progressValue: pillar.percentage,
+            trend,
+            momentum,
+            confidenceScore: Math.round(pillar.percentage * 0.8),
+            assessmentStatus,
+            lastAssessmentDate: new Date(),
+            lastUpDate: new Date(Date.now() - 24 * 60 * 60 * 1000),
+            upCountRecent: Math.floor(pillar.percentage / 15),
+            downCountRecent: Math.floor((100 - pillar.percentage) / 30),
+            updatedAt: new Date(),
+          })
+          .where(eq(playerSkillState.id, existingState[0].id));
+      } else {
+        await db.insert(playerSkillState).values({
+          id: `skill-${playerId}-${pillar.domainName}`,
+          playerId,
+          domainId: domain.id,
+          progressValue: pillar.percentage,
+          trend,
+          momentum,
+          confidenceScore: Math.round(pillar.percentage * 0.8),
+          assessmentStatus,
+          lastAssessmentDate: new Date(),
+          lastUpDate: new Date(Date.now() - 24 * 60 * 60 * 1000),
+          upCountRecent: Math.floor(pillar.percentage / 15),
+          downCountRecent: Math.floor((100 - pillar.percentage) / 30),
+          isFrozen: false,
+          updatedAt: new Date(),
+        });
+      }
+    }
+    console.log("[DemoSeed] Player skill state added");
 
     // Find other players to add as friends
     console.log("[DemoSeed] Finding other players to add as friends...");
