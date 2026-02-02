@@ -22,22 +22,27 @@ import { AuthProvider } from "@/coach/context/AuthContext";
 import { UIInteractionProvider } from "@/contexts/UIInteractionContext";
 import { TabNavigationProvider, useTabNavigation } from "@/components/TabNavigationContext";
 
-function NavigationRefRegistrar({ navigationRef }: { navigationRef: React.RefObject<NavigationContainerRef<any>> }) {
+function NavigationContainerWithRef() {
+  const navigationRef = useRef<NavigationContainerRef<any>>(null);
   const { registerNavigation } = useTabNavigation();
   
-  useEffect(() => {
+  const handleReady = useCallback(() => {
     if (navigationRef.current) {
+      console.log("[NavigationContainerWithRef] Navigation ready, registering ref");
       registerNavigation(navigationRef.current);
     }
-  }, [navigationRef, registerNavigation]);
+  }, [registerNavigation]);
   
-  return null;
+  return (
+    <NavigationContainer ref={navigationRef} onReady={handleReady}>
+      <RootStackNavigator />
+    </NavigationContainer>
+  );
 }
 
 export default function App() {
   const [isReady, setIsReady] = useState(false);
   const [splashComplete, setSplashComplete] = useState(false);
-  const navigationRef = useRef<NavigationContainerRef<any>>(null);
 
   useEffect(() => {
     async function prepare() {
@@ -74,11 +79,8 @@ export default function App() {
                             <CoachProvider>
                               <UIInteractionProvider>
                                 <TabNavigationProvider>
-                                  <NavigationRefRegistrar navigationRef={navigationRef} />
                                   <View style={styles.root}>
-                                    <NavigationContainer ref={navigationRef}>
-                                      <RootStackNavigator />
-                                    </NavigationContainer>
+                                    <NavigationContainerWithRef />
                                   </View>
                                 </TabNavigationProvider>
                               </UIInteractionProvider>
