@@ -19,6 +19,7 @@ import { ProTennisColors, Spacing, BorderRadius, getPlayerLevelColor, Background
 import { usePlayerState } from "@/player/context/PlayerStateContext";
 import { useNavigation } from "@react-navigation/native";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useTabNavigation } from "@/components/TabNavigationContext";
 import * as Haptics from "expo-haptics";
 import { GlowAvatar } from "./GlowAvatar";
 import { NeonEdgeCard } from "./GlassCard";
@@ -92,6 +93,7 @@ function SectionHeader({ title, count, actionLabel, onAction, accentColor = ProT
 export function PlayersNearYouRow() {
   const { state } = usePlayerState();
   const navigation = useNavigation<any>();
+  const { navigateToTab } = useTabNavigation();
 
   // Get player's ball level
   const playerBallLevel = state.player?.ballLevel?.toLowerCase() || "glow";
@@ -106,18 +108,12 @@ export function PlayersNearYouRow() {
 
   const handlePlayerPress = (playerId: string) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    navigation.navigate("PlayerTabs", { 
-      screen: "PlayStack", 
-      params: { screen: "PlayerProfile", params: { playerId } } 
-    });
+    navigateToTab("PlayStack");
   };
 
   const handleSeeAll = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    navigation.navigate("PlayerTabs", { 
-      screen: "PlayStack", 
-      params: { screen: "Play", params: { initialTab: "Players" } } 
-    });
+    navigateToTab("PlayStack");
   };
 
   const getAvatarSource = (player: typeof state.nearbyPlayers[0]) => {
@@ -251,6 +247,7 @@ function getCountdownText(startTime: string): { text: string; urgent: boolean } 
 export function GroupLessonsRow() {
   const { state } = usePlayerState();
   const navigation = useNavigation<any>();
+  const { navigateToTab } = useTabNavigation();
   const queryClient = useQueryClient();
   const [joiningSessionId, setJoiningSessionId] = useState<string | null>(null);
 
@@ -316,10 +313,7 @@ export function GroupLessonsRow() {
 
   const handleSeeAll = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    navigation.navigate("PlayerTabs", { 
-      screen: "ScheduleStack", 
-      params: { screen: "BrowseGroupLessons" } 
-    });
+    navigateToTab("Schedule");
   };
 
   const ballLevelLabel = playerBallLevel.charAt(0).toUpperCase() + playerBallLevel.slice(1);
@@ -526,6 +520,7 @@ export function GroupLessonsRow() {
 export function OpenMatchesRow() {
   const { state } = usePlayerState();
   const navigation = useNavigation<any>();
+  const { navigateToTab } = useTabNavigation();
 
   // Filter for open matches only (player vs player) and only future matches
   const now = new Date();
@@ -538,18 +533,12 @@ export function OpenMatchesRow() {
 
   const handleMatchPress = (matchId: string) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    navigation.navigate("PlayerTabs", { 
-      screen: "PlayStack", 
-      params: { screen: "OpenMatches", params: { selectedMatch: matchId } } 
-    });
+    navigateToTab("PlayStack");
   };
 
   const handleSeeAll = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    navigation.navigate("PlayerTabs", { 
-      screen: "PlayStack", 
-      params: { screen: "OpenMatches" } 
-    });
+    navigateToTab("PlayStack");
   };
 
   const getMatchTypeGradient = (maxPlayers: number): readonly [string, string, ...string[]] => {
@@ -775,23 +764,18 @@ export function OpenSessionsRow() {
 export function TrainingSessionsRow() {
   const { state } = usePlayerState();
   const navigation = useNavigation<any>();
+  const { navigateToTab } = useTabNavigation();
 
   const availability = state.availability ?? { groupSessions: 0, privateLessons: 0, courtsAvailable: 0 };
 
   const handleBookPress = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    navigation.navigate("PlayerTabs", { 
-      screen: "ScheduleStack", 
-      params: { screen: "BrowseGroupLessons" } 
-    });
+    navigateToTab("Schedule");
   };
 
   const handleCourtPress = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    navigation.navigate("PlayerTabs", { 
-      screen: "ScheduleStack", 
-      params: { screen: "CourtBooking" } 
-    });
+    navigateToTab("Schedule");
   };
 
   return (
@@ -888,12 +872,13 @@ export function TrainingSessionsRow() {
 export function CommunityFeedPreview() {
   const { state } = usePlayerState();
   const navigation = useNavigation<any>();
+  const { navigateToTab } = useTabNavigation();
 
   const communityEvents = state.communityEvents ?? [];
 
   const handlePress = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    navigation.navigate("Community");
+    navigateToTab("Community");
   };
 
   const visibleEvents = communityEvents.slice(0, 3);
