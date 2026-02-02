@@ -107,8 +107,9 @@ export function PlayersNearYouRow() {
   });
 
   const handlePlayerPress = (playerId: string) => {
+    console.log("[DiscoveryRows] handlePlayerPress called for playerId:", playerId);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    navigateToTab("PlayStack");
+    navigation.navigate("PublicProfile", { playerId });
   };
 
   const handleSeeAll = () => {
