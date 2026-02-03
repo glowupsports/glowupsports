@@ -94,7 +94,7 @@ import { fromZodError } from "zod-validation-error";
 import { z } from "zod";
 import { sanitizeNote, sanitizeMessage, sanitizeTemplateName, sanitizeTemplateContent } from "./utils/sanitize";
 import { localTimeToUTC, utcToLocalTime, getTimezoneOffset, getFirstSessionDate, addDaysToLocalDate, getLocalDateParts, resolveLocalTimeToUTC, ensureResolvableLocalTime } from "./utils/timezone";
-import { sendFeedbackNotification, sendLevelUpNotification, sendBadgeEarnedNotification, sendXPGainNotification } from "./pushNotifications";
+import { sendFeedbackNotification, sendLevelUpNotification, sendBadgeEarnedNotification, sendXPGainNotification, sendSessionConfirmedNotification, sendSessionCancelledNotification, sendNewMessageNotification, sendCreditsLowNotification, getPlayerPushTokens, getCoachPushTokens, sendPushNotification } from "./pushNotifications";
 import { sendFeedbackNotificationEmail, sendLevelUpEmail, sendWelcomeEmail, sendSessionReminderEmail, sendCoachInviteEmail, sendOTPEmail, verifyOTPCode, hasValidOTP } from "./emailService";
 import { createCalendarEvent, updateCalendarEvent, deleteCalendarEvent, checkConnection as checkCalendarConnection, SessionEventData } from "./googleCalendarService";
 import { generateInvoiceHtml, parseLineItems } from "./services/invoicePdf";
@@ -4226,6 +4226,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
 
+      // Send push notifications to players added to the session (non-blocking)
+      if (playerIds && Array.isArray(playerIds) && playerIds.length > 0) {
+        const coachData = await storage.getCoach(coachId!);
+        const coachName = coachData?.firstName ? `${coachData.firstName} ${coachData.lastName || ""}`.trim() : "Your coach";
+        const firstSession = createdSessions[0];
+        const sessionDate = firstSession.startTime ? new Date(firstSession.startTime).toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short" }) : "";
+        const sessionTime = firstSession.startTime ? new Date(firstSession.startTime).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" }) : "";
+        
+        for (const playerId of playerIds) {
+          sendSessionConfirmedNotification(
+            playerId,
+            sessionType,
+            firstSession.startTime || new Date(),
+            coachName
+          ).catch(err => console.error("[PushNotification] Failed to send session notification:", err));
+        }
+      }
+
       // For recurring sessions, return summary with skipped weeks info
       if (sessionsToCreate > 1) {
         res.status(201).json({
@@ -4970,6 +4988,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
 
+      // Send push notification to player about new session booking
+      if (playerId && !isGuest && isNewEnrollment) {
+        const coachId = req.user?.coachId;
+        const coachData = coachId ? await storage.getCoach(coachId) : null;
+        const coachName = coachData?.firstName ? `${coachData.firstName} ${coachData.lastName || ""}`.trim() : "Your coach";
+        sendSessionConfirmedNotification(
+          playerId,
+          session.sessionType,
+          session.startTime,
+          coachName
+        ).catch(err => console.error("[PushNotification] Failed to send session notification:", err));
+      }
       res.status(201).json({ 
         ...sessionPlayer, 
         success: true,
