@@ -1,6 +1,6 @@
 import React from "react";
 import { View, Text, StyleSheet, Pressable, Modal, Dimensions } from "react-native";
-import Animated, { FadeIn, FadeOut, SlideInDown } from "react-native-reanimated";
+import Animated, { FadeIn, FadeOut, SlideInDown, Easing } from "react-native-reanimated";
 import * as Haptics from "expo-haptics";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { useWalkthrough } from "../context/WalkthroughContext";
@@ -39,7 +39,7 @@ export function WalkthroughOverlay() {
       <Animated.View entering={FadeIn.duration(200)} exiting={FadeOut.duration(200)} style={styles.overlay}>
         <Pressable style={styles.overlayBackground} onPress={handleNext} />
         
-        <Animated.View entering={SlideInDown.springify().damping(15)} style={styles.tooltipCard}>
+        <Animated.View entering={SlideInDown.duration(350).easing(Easing.out(Easing.cubic))} style={styles.tooltipCard}>
           <View style={styles.iconContainer}>
             <Ionicons name="bulb" size={28} color={GlowColors.primary} />
           </View>
@@ -175,7 +175,7 @@ const styles = StyleSheet.create({
     gap: Spacing.xs,
   },
   nextButtonText: {
-    ...Typography.button,
+    ...Typography.h4,
     color: Colors.dark.backgroundRoot,
   },
 });
