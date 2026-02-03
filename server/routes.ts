@@ -5062,13 +5062,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ error: "Player not found" });
       }
 
-      // Refund credits if session hasn't started yet
+      // Always refund credits when removing player
       let refundResult = null;
       const dateParam = req.query.date as string | undefined;
       const now = dateParam ? new Date(dateParam) : new Date(); const DUBAI_OFFSET = 4; const dubaiNow = new Date(now.getTime() + DUBAI_OFFSET * 60 * 60 * 1000);
-      if (session.startTime > now) {
-        refundResult = await storage.refundCreditsForSession(playerId, id, academyId);
-      }
+      refundResult = await storage.refundCreditsForSession(playerId, id, academyId); // Always refund
 
       await storage.removePlayerFromSession(id, playerId);
 

@@ -440,14 +440,13 @@ export default function SessionDetailDrawer({
   const removePlayerMutation = useMutation({
     mutationFn: async ({ playerId, reason, fromDate }: { playerId: string; reason: string; fromDate: string }) => {
       if (!session) throw new Error("No session selected");
-      const currentPlayers = session.players || [];
-      const updatedPlayerIds = currentPlayers.filter(p => p.id !== playerId).map(p => p.id);
-      return apiRequest("PATCH", `/api/coach/sessions/${session.id}`, {
-        playerIds: updatedPlayerIds,
-        removalNote: { playerId, reason, fromDate },
-      });
+      const dateParam = fromDate === "today" ? new Date().toISOString() : undefined;
+      const url = dateParam 
+        ? `/api/coach/sessions/${session.id}/players/${playerId}?date=${dateParam}`
+        : `/api/coach/sessions/${session.id}/players/${playerId}`;
+      return apiRequest("DELETE", url);
     },
-    onSuccess: () => {
+    onSuccess: (data: any) => {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       queryClient.invalidateQueries({ 
         predicate: (query) => {
@@ -458,7 +457,8 @@ export default function SessionDetailDrawer({
       setShowRemovePlayer(null);
       setRemoveReason("");
       setRemoveFromDate("today");
-      Alert.alert("Success", "Player removed from session");
+      const refundMsg = data?.creditRefunded ? " Credits refunded." : "";
+      Alert.alert("Success", `Player removed from session.${refundMsg}`);
     },
     onError: (error: Error) => {
       Alert.alert("Error", error.message || "Failed to remove player");
