@@ -11349,6 +11349,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       await storage.removePlayerFromSeries(id, playerId);
       
+
+      // === REMOVE FROM ALL FUTURE SESSIONS OF THIS SERIES ===
+      const effectiveDate = new Date();
+      const removedFromSessions = await storage.removePlayerFromFutureSeriesSessions(id, playerId, effectiveDate, req.user!.academyId!);
+      console.log(`[RemovePlayer] Removed player ${playerId} from ${removedFromSessions} future sessions of series ${id}`);
+
       // === DYNAMIC SESSION TYPE CONVERSION after player removal ===
       const remainingPlayers = await storage.getSeriesPlayers(id);
       const activePlayerCount = remainingPlayers.filter(p => p.status === "active").length;
@@ -11397,6 +11403,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ error: "Player not found in this class" });
       }
       
+
+      // === REMOVE FROM ALL FUTURE SESSIONS OF THIS SERIES ===
+      const effectiveDate = leftAtDate || new Date();
+      const removedFromSessions = await storage.removePlayerFromFutureSeriesSessions(id, playerId, effectiveDate, req.user!.academyId!);
+      console.log(`[LeavePlayer] Removed player ${playerId} from ${removedFromSessions} future sessions of series ${id}`);
+
       // === DYNAMIC SESSION TYPE CONVERSION after player leaves ===
       const remainingPlayers = await storage.getSeriesPlayers(id);
       const activePlayerCount = remainingPlayers.filter(p => p.status === "active").length;

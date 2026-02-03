@@ -3715,6 +3715,53 @@ export const storage = {
       ));
   },
 
+  async removePlayerFromFutureSeriesSessions(seriesId: string, playerId: string, effectiveDate: Date, academyId: string): Promise<number> {
+    // Find all future sessions of this series
+    const futureSessions = await db
+      .select({ id: sessions.id })
+      .from(sessions)
+      .where(and(
+        eq(sessions.seriesId, seriesId),
+        gte(sessions.startTime, effectiveDate),
+        ne(sessions.status, "cancelled")
+      ));
+
+    if (futureSessions.length === 0) return 0;
+
+    const sessionIds = futureSessions.map(s => s.id);
+    let removedCount = 0;
+
+    // Remove player from each future session and refund credits
+    for (const sessionId of sessionIds) {
+      // Check if player is enrolled in this session
+      const enrollment = await db
+        .select()
+        .from(sessionPlayers)
+        .where(and(
+          eq(sessionPlayers.sessionId, sessionId),
+          eq(sessionPlayers.playerId, playerId)
+        ))
+        .limit(1);
+
+      if (enrollment.length > 0) {
+        // Refund credits for this session
+        await this.refundCreditsForSession(playerId, sessionId, academyId);
+
+        // Remove from session_players
+        await db
+          .delete(sessionPlayers)
+          .where(and(
+            eq(sessionPlayers.sessionId, sessionId),
+            eq(sessionPlayers.playerId, playerId)
+          ));
+        removedCount++;
+      }
+    }
+
+    console.log(`[RemoveFutureSessions] Removed player ${playerId} from ${removedCount}/${sessionIds.length} future sessions of series ${seriesId}`);
+    return removedCount;
+  },
+
   async updateSeriesPlayer(seriesId: string, playerId: string, data: Partial<InsertSeriesPlayer>): Promise<SeriesPlayer | undefined> {
     const result = await db
       .update(seriesPlayers)
