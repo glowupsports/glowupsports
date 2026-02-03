@@ -4635,6 +4635,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
       await db.update(coachXpTransactions).set({ sessionId: null }).where(eq(coachXpTransactions.sessionId, id));
       await db.update(playerPillarProgress).set({ lastSessionId: null }).where(eq(playerPillarProgress.lastSessionId, id));
       
+      // Get players for notification before deleting session_players
+      const playersInSession = await db.select({ playerId: sessionPlayers.playerId })
+        .from(sessionPlayers)
+        .where(eq(sessionPlayers.sessionId, id));
+      const coachData = coachId ? await storage.getCoach(coachId) : null;
+      const coachName = coachData?.firstName ? `${coachData.firstName} ${coachData.lastName || ""}`.trim() : "Your coach";
+      
+      // Send push notifications to all players in the cancelled session (non-blocking)
+      for (const p of playersInSession) {
+        if (p.playerId) {
+          sendSessionCancelledNotification(
+            p.playerId,
+            session.sessionType,
+            session.startTime,
+            coachName,
+            reason || "Session cancelled"
+          ).catch(err => console.error("[PushNotification] Failed to send cancellation notification:", err));
+        }
+      }
+
       // Get all session_player IDs for this session and nullify references in credit_transactions
       // This is required because credit_transactions has a foreign key to session_players
       const sessionPlayerRecords = await db.select({ id: sessionPlayers.id }).from(sessionPlayers).where(eq(sessionPlayers.sessionId, id));
@@ -13951,6 +13971,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
       
       res.status(201).json(message);
+
+      // Send push notification to recipient (non-blocking)
+      if (senderType === "coach" && senderCoachId) {
+        // Get players in this conversation to notify them
+        const participants = await storage.getConversationParticipants(conversationId, coachId!, academyId);
+        const coachData = await storage.getCoach(senderCoachId);
+        const senderName = coachData?.firstName ? `${coachData.firstName} ${coachData.lastName || ""}`.trim() : "Coach";
+        
+        for (const participant of participants) {
+          if (participant.playerId) {
+            sendNewMessageNotification(
+              participant.playerId,
+              senderName,
+              sanitizedBody.substring(0, 100)
+            ).catch(err => console.error("[PushNotification] Failed to send message notification:", err));
+          }
+        }
+      }
     } catch (error) {
       console.error("Error sending message:", error);
       res.status(500).json({ error: "Failed to send message" });
@@ -21598,6 +21636,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
           }),
         });
       }
+
+      // Send push notification to coach about player cancellation (non-blocking)
+      if (session.coachId) {
+        const tokens = await getCoachPushTokens(session.coachId);
+        if (tokens.length > 0) {
+          sendPushNotification(
+            tokens,
+            semiPrivateUpgraded ? "Semi-Private Upgraded" : "Session Cancelled",
+            `${player?.name || "A player"} has cancelled${isLateCancellation ? " (late cancellation)" : ""}`,
+            { screen: "Session", sessionId }
+          ).catch(err => console.error("[PushNotification] Failed to send cancellation notification to coach:", err));
+        }
+      }
       
       res.json({
         success: true,
@@ -24008,6 +24059,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
         lastMessagePreview: body.trim().substring(0, 100),
       });
 
+
+      // Send push notification to coach when player sends a message (non-blocking)
+      const participants = await storage.getConversationParticipants(id, undefined, academyId);
+      for (const participant of participants) {
+        if (participant.coachId) {
+          const tokens = await getCoachPushTokens(participant.coachId);
+          if (tokens.length > 0) {
+            sendPushNotification(
+              tokens,
+              `New message from ${player.name || "Player"}`,
+              body.trim().substring(0, 100),
+              { screen: "Messages", conversationId: id }
+            ).catch(err => console.error("[PushNotification] Failed to send coach message notification:", err));
+          }
+        }
+      }
       res.status(201).json(message);
     } catch (error) {
       console.error("Error sending player message:", error);
