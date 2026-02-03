@@ -2663,6 +2663,11 @@ export const storage = {
   },
 
   async updateSession(id: string, data: Partial<InsertSession>): Promise<Session | undefined> {
+    // Return existing session if no updates provided (prevents SQL syntax error)
+    if (!data || Object.keys(data).length === 0) {
+      const existing = await db.select().from(sessions).where(eq(sessions.id, id));
+      return existing[0];
+    }
     const result = await db
       .update(sessions)
       .set(data)
