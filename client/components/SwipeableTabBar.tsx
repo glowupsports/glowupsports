@@ -183,13 +183,16 @@ export function SwipeableTabBar({
   const screens = useMemo(() => 
     tabs.map((tab, index) => {
       const TabComponent = tab.component;
-      const isVisited = visitedTabs.has(index);
+      // Only render the CURRENT tab to prevent multiple navigator registration conflicts
+      // Stack navigators (PlayStack, ScheduleStack, ProgressStack) cannot be mounted simultaneously
+      // This trades smooth swiping animation for stability - the tab will mount when it becomes active
+      const shouldRender = index === currentIndex;
       return (
         <View key={tab.key} style={styles.pageContainer}>
-          {isVisited ? <TabComponent /> : <View style={styles.pageContainer} />}
+          {shouldRender ? <TabComponent /> : <View style={styles.pageContainer} />}
         </View>
       );
-    }), [tabs, visitedTabs]
+    }), [tabs, currentIndex]
   );
 
   return (
