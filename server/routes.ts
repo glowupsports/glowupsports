@@ -4965,6 +4965,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
 
+      // Send low credits notification if remaining credits are low (<=2)
+      if (creditDeductionResult && creditDeductionResult.success && creditDeductionResult.package) {
+        const remaining = creditDeductionResult.package.remainingCredits || 0;
+        if (remaining <= 2 && remaining >= 0) {
+          sendCreditsLowNotification(
+            playerId,
+            remaining,
+            creditDeductionResult.creditType || session.sessionType
+          ).catch(err => console.error("[PushNotification] Failed to send low credits notification:", err));
+        }
+      }
+
       if (skipCreditCheck && playerId && !isGuest) {
         const creditCheck = await storage.checkPlayerCreditsForSessionType(
           playerId,
