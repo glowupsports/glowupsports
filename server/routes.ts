@@ -4617,6 +4617,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
       await db.update(coachXpTransactions).set({ sessionId: null }).where(eq(coachXpTransactions.sessionId, id));
       await db.update(playerPillarProgress).set({ lastSessionId: null }).where(eq(playerPillarProgress.lastSessionId, id));
       
+      // Get all session_player IDs for this session and nullify references in credit_transactions
+      // This is required because credit_transactions has a foreign key to session_players
+      const sessionPlayerRecords = await db.select({ id: sessionPlayers.id }).from(sessionPlayers).where(eq(sessionPlayers.sessionId, id));
+      if (sessionPlayerRecords.length > 0) {
+        const spIds = sessionPlayerRecords.map(sp => sp.id);
+        await db.update(creditTransactions)
+          .set({ sessionPlayerId: null })
+          .where(inArray(creditTransactions.sessionPlayerId, spIds));
+      }
       // Delete related records
       await db.delete(sessionPlayers).where(eq(sessionPlayers.sessionId, id));
       await db.delete(sessionSkillObservations).where(eq(sessionSkillObservations.sessionId, id));
