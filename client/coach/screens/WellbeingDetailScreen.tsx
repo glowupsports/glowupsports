@@ -12,7 +12,7 @@ import { LinearGradient } from "expo-linear-gradient";
 import * as Haptics from "expo-haptics";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
-import { Colors, Typography, Spacing } from "@/constants/theme";
+import { Colors, Typography, Spacing, Backgrounds } from "@/constants/theme";
 import { useCoach } from "@/coach/context/CoachContext";
 
 interface BurnoutRiskData {
@@ -300,7 +300,7 @@ export default function WellbeingDetailScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: Colors.dark.background,
+    backgroundColor: Backgrounds.root,
   },
   header: {
     flexDirection: "row",
@@ -309,7 +309,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.md,
     paddingVertical: Spacing.md,
     borderBottomWidth: 1,
-    borderBottomColor: Colors.dark.backgroundSecondary,
+    borderBottomColor: Backgrounds.card,
   },
   backButton: {
     width: 40,
@@ -345,7 +345,7 @@ const styles = StyleSheet.create({
     gap: Spacing.lg,
   },
   riskCard: {
-    backgroundColor: Colors.dark.backgroundSecondary,
+    backgroundColor: Backgrounds.card,
     borderRadius: 16,
     overflow: "hidden",
     borderWidth: 1,
@@ -373,7 +373,7 @@ const styles = StyleSheet.create({
     width: 80,
     height: 80,
     borderRadius: 40,
-    backgroundColor: Colors.dark.background,
+    backgroundColor: Backgrounds.root,
     alignItems: "center",
     justifyContent: "center",
     borderWidth: 2,
@@ -450,7 +450,7 @@ const styles = StyleSheet.create({
   metricCard: {
     flex: 1,
     minWidth: "45%",
-    backgroundColor: Colors.dark.backgroundSecondary,
+    backgroundColor: Backgrounds.card,
     borderRadius: 12,
     padding: Spacing.md,
     alignItems: "center",
@@ -476,7 +476,7 @@ const styles = StyleSheet.create({
   },
   totalRow: {
     flexDirection: "row",
-    backgroundColor: Colors.dark.backgroundSecondary,
+    backgroundColor: Backgrounds.card,
     borderRadius: 12,
     overflow: "hidden",
     borderWidth: 1,
@@ -506,7 +506,7 @@ const styles = StyleSheet.create({
   recommendationCard: {
     flexDirection: "row",
     alignItems: "flex-start",
-    backgroundColor: Colors.dark.backgroundSecondary,
+    backgroundColor: Backgrounds.card,
     borderRadius: 12,
     padding: Spacing.md,
     gap: Spacing.sm,
@@ -529,7 +529,7 @@ const styles = StyleSheet.create({
   tipCard: {
     flexDirection: "row",
     alignItems: "flex-start",
-    backgroundColor: Colors.dark.backgroundSecondary,
+    backgroundColor: Backgrounds.card,
     borderRadius: 12,
     padding: Spacing.md,
     gap: Spacing.sm,
