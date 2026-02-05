@@ -10861,7 +10861,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         sessionType: series.sessionType || "group",
         status: "scheduled",
         seriesId: id,
-        courtId: courtId || undefined,
+        courtId: existing.courtId || undefined,
         maxPlayers: series.maxPlayers || 4,
         playerIds: activePlayerIds,
       });
@@ -11244,7 +11244,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       const seriesPlayer = await storage.addPlayerToSeries({
         seriesId: id,
-        courtId: courtId || undefined,
+        courtId: existing.courtId || undefined,
         playerId,
         status: "active",
         joinedAt: effectiveJoinDate ? new Date(effectiveJoinDate) : new Date(),
@@ -18059,7 +18059,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       } else {
         await storage.addPlayerToSeries({
           seriesId: id,
-        courtId: courtId || undefined,
+        courtId: existing.courtId || undefined,
           playerId,
           status: "active",
           linkedPackageId: packageId || null,
