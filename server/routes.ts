@@ -10614,7 +10614,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const ended = await storage.endCoachingSeries(id);
       
       // Invalidate caches for this coach
-      apiCache.invalidate(`coach_series_${coachId}`);
+      apiCache.invalidate(`series:${coachId}`);
       apiCache.invalidate(`coach_earnings_${coachId}`);
       apiCache.invalidate(`coach_calendar_${coachId}`);
       res.json(ended);
@@ -10642,7 +10642,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       await storage.deleteCoachingSeries(id);
       
       // Invalidate cache after deletion so list refreshes properly
-      apiCache.invalidate(`coach_series_${coachId}`);
+      apiCache.invalidate(`series:${coachId}`);
       apiCache.invalidate(`coach_earnings_${coachId}`);
       apiCache.invalidate(`coach_calendar_${coachId}`);
       console.log("[Series DELETE] Cache invalidated for coach:", coachId);
@@ -10868,7 +10868,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       
       // Invalidate cache
-      apiCache.invalidate(`coach_series_${coachId}`);
+      apiCache.invalidate(`series:${coachId}`);
       apiCache.invalidate(`coach_calendar_${coachId}`);
       
       console.log("[Extra Lesson] Created session:", session.id, "for series:", id);
@@ -18005,7 +18005,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       await storage.deleteCoachingSeries(id);
       
       // Invalidate cache after deletion so list refreshes properly
-      apiCache.invalidate(`coach_series_${coachId}`);
+      apiCache.invalidate(`series:${coachId}`);
       apiCache.invalidate(`coach_earnings_${coachId}`);
       apiCache.invalidate(`coach_calendar_${coachId}`);
       console.log("[Series DELETE] Cache invalidated for coach:", coachId);
