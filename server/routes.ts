@@ -4643,14 +4643,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const coachName = coachData?.firstName ? `${coachData.firstName} ${coachData.lastName || ""}`.trim() : "Your coach";
       
       // Send push notifications to all players in the cancelled session (non-blocking)
+      const sessionDateStr = new Date(session.startTime).toLocaleDateString("en-GB", {
+        weekday: "short",
+        day: "numeric",
+        month: "short",
+        timeZone: "Asia/Dubai"
+      });
       for (const p of playersInSession) {
         if (p.playerId) {
           sendSessionCancelledNotification(
             p.playerId,
             session.sessionType,
-            session.startTime,
-            coachName,
-            reason || "Session cancelled"
+            sessionDateStr,
+            reason || `Cancelled by ${coachName}`
           ).catch(err => console.error("[PushNotification] Failed to send cancellation notification:", err));
         }
       }

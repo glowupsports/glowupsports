@@ -141,6 +141,10 @@ export async function getCoachPushTokens(coachId: string): Promise<string[]> {
 }
 
 export async function getPlayerPushTokens(playerId: string): Promise<string[]> {
+  if (!playerId) {
+    console.warn("[PushNotification] getPlayerPushTokens called with empty playerId");
+    return [];
+  }
   const tokens = await db
     .select({ token: pushDeviceTokens.token })
     .from(pushDeviceTokens)
