@@ -6,7 +6,7 @@ import path from "path";
 import fs from "fs";
 import { storage, getSessionTypeByPlayerCount, updateSeriesSessionType, recalculateSeriesCredits } from "./storage";
 import { db } from "./db";
-import { playerHolidays } from "@shared/schema";
+import { playerHolidays, coachWellnessLogs, insertCoachWellnessLogSchema } from "@shared/schema";
 import { eq, sql, desc, and, ne, gt, gte, asc, inArray, notInArray, isNull, isNotNull, or, count, ilike, lte } from "drizzle-orm";
 import { 
   invoices, payments, sessionPlayers, sessionWaitlist, creditTransactions, players, 
@@ -14397,6 +14397,159 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ error: "Failed to calculate burnout risk" });
     }
   });
+
+  // ==================== COACH WELLNESS TRACKING ====================
+
+  // Get coach wellness logs (last 30 days)
+  app.get("/api/coaches/:id/wellness", authMiddleware, requireAcademy, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const { id } = req.params;
+      const coachId = req.user!.coachId;
+      const academyId = req.user!.academyId!;
+      
+      if (id !== coachId) {
+        return res.status(403).json({ error: "Access denied" });
+      }
+      
+      const days = parseInt(req.query.days as string) || 30;
+      const startDate = new Date();
+      startDate.setDate(startDate.getDate() - days);
+      
+      const logs = await db.select()
+        .from(coachWellnessLogs)
+        .where(and(
+          eq(coachWellnessLogs.coachId, id),
+          gte(coachWellnessLogs.date, startDate.toISOString().split('T')[0])
+        ))
+        .orderBy(desc(coachWellnessLogs.date));
+      
+      // Calculate averages
+      const avgSleep = logs.length > 0 
+        ? logs.reduce((acc, l) => acc + (parseFloat(l.sleepHours as string) || 0), 0) / logs.filter(l => l.sleepHours).length
+        : null;
+      const avgEnergy = logs.length > 0
+        ? logs.reduce((acc, l) => acc + (l.energyLevel || 0), 0) / logs.filter(l => l.energyLevel).length
+        : null;
+      const avgMood = logs.length > 0
+        ? logs.reduce((acc, l) => acc + (l.moodLevel || 0), 0) / logs.filter(l => l.moodLevel).length
+        : null;
+      
+      res.json({
+        logs,
+        summary: {
+          totalEntries: logs.length,
+          avgSleep: avgSleep ? Math.round(avgSleep * 10) / 10 : null,
+          avgEnergy: avgEnergy ? Math.round(avgEnergy * 10) / 10 : null,
+          avgMood: avgMood ? Math.round(avgMood * 10) / 10 : null,
+        }
+      });
+    } catch (error) {
+      console.error("Error fetching wellness logs:", error);
+      res.status(500).json({ error: "Failed to fetch wellness logs" });
+    }
+  });
+
+  // Get wellness log for a specific date
+  app.get("/api/coaches/:id/wellness/:date", authMiddleware, requireAcademy, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const { id, date } = req.params;
+      const coachId = req.user!.coachId;
+      
+      if (id !== coachId) {
+        return res.status(403).json({ error: "Access denied" });
+      }
+      
+      const [log] = await db.select()
+        .from(coachWellnessLogs)
+        .where(and(
+          eq(coachWellnessLogs.coachId, id),
+          eq(coachWellnessLogs.date, date)
+        ))
+        .limit(1);
+      
+      res.json({ log: log || null });
+    } catch (error) {
+      console.error("Error fetching wellness log:", error);
+      res.status(500).json({ error: "Failed to fetch wellness log" });
+    }
+  });
+
+  // Create or update wellness log for a date
+  app.post("/api/coaches/:id/wellness", authMiddleware, requireAcademy, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const { id } = req.params;
+      const coachId = req.user!.coachId;
+      const academyId = req.user!.academyId!;
+      
+      if (id !== coachId) {
+        return res.status(403).json({ error: "Access denied" });
+      }
+      
+      const { date, sleepHours, sleepQuality, nutritionScore, mealsCount, hydrationLevel, energyLevel, moodLevel, stressLevel, physicalPain, painNotes, notes } = req.body;
+      
+      if (!date) {
+        return res.status(400).json({ error: "Date is required" });
+      }
+      
+      // Check if entry exists for this date
+      const [existing] = await db.select()
+        .from(coachWellnessLogs)
+        .where(and(
+          eq(coachWellnessLogs.coachId, id),
+          eq(coachWellnessLogs.date, date)
+        ))
+        .limit(1);
+      
+      if (existing) {
+        // Update existing entry
+        const [updated] = await db.update(coachWellnessLogs)
+          .set({
+            sleepHours,
+            sleepQuality,
+            nutritionScore,
+            mealsCount,
+            hydrationLevel,
+            energyLevel,
+            moodLevel,
+            stressLevel,
+            physicalPain,
+            painNotes,
+            notes,
+            updatedAt: new Date(),
+          })
+          .where(eq(coachWellnessLogs.id, existing.id))
+          .returning();
+        
+        res.json({ log: updated, updated: true });
+      } else {
+        // Create new entry
+        const [created] = await db.insert(coachWellnessLogs)
+          .values({
+            coachId: id,
+            academyId,
+            date,
+            sleepHours,
+            sleepQuality,
+            nutritionScore,
+            mealsCount,
+            hydrationLevel,
+            energyLevel,
+            moodLevel,
+            stressLevel,
+            physicalPain,
+            painNotes,
+            notes,
+          })
+          .returning();
+        
+        res.json({ log: created, updated: false });
+      }
+    } catch (error) {
+      console.error("Error saving wellness log:", error);
+      res.status(500).json({ error: "Failed to save wellness log" });
+    }
+  });
+
 
   // Get calendar heatmap data for a month
   app.get("/api/coaches/:id/calendar-heatmap", authMiddleware, requireAcademy, async (req: AuthenticatedRequest, res: Response) => {

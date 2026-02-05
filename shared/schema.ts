@@ -5739,3 +5739,50 @@ export const deepAssessmentPillarSummaries = pgTable("deep_assessment_pillar_sum
   index("deep_assessment_pillar_summaries_player_idx").on(table.playerId),
   unique("deep_assessment_pillar_summaries_unique").on(table.playerId, table.pillar),
 ]);
+
+// ==================== COACH WELLNESS TRACKING ====================
+
+// Coach Wellness Logs - Daily wellness tracking for coaches
+export const coachWellnessLogs = pgTable("coach_wellness_logs", {
+  id: varchar("id")
+    .primaryKey()
+    .default(sql`gen_random_uuid()`),
+  coachId: varchar("coach_id").references(() => coaches.id).notNull(),
+  academyId: varchar("academy_id").references(() => academies.id),
+  
+  // Date of the wellness entry (one entry per day)
+  date: date("date").notNull(),
+  
+  // Sleep tracking (in hours, 0-12)
+  sleepHours: numeric("sleep_hours", { precision: 3, scale: 1 }),
+  sleepQuality: text("sleep_quality"), // poor | fair | good | excellent
+  
+  // Nutrition tracking (1-5 scale)
+  nutritionScore: integer("nutrition_score"), // 1=poor, 2=fair, 3=okay, 4=good, 5=excellent
+  mealsCount: integer("meals_count"), // How many proper meals eaten
+  hydrationLevel: text("hydration_level"), // low | moderate | good | excellent
+  
+  // Energy & mood
+  energyLevel: integer("energy_level"), // 1-5 scale
+  moodLevel: integer("mood_level"), // 1-5 scale
+  stressLevel: integer("stress_level"), // 1-5 scale (1=low, 5=high)
+  
+  // Physical status
+  physicalPain: boolean("physical_pain").default(false), // Any injuries/pain?
+  painNotes: text("pain_notes"), // Description of pain if any
+  
+  // Optional notes
+  notes: text("notes"),
+  
+  // Timestamps
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("coach_wellness_logs_coach_idx").on(table.coachId),
+  index("coach_wellness_logs_date_idx").on(table.date),
+  unique("coach_wellness_logs_coach_date").on(table.coachId, table.date),
+]);
+
+export const insertCoachWellnessLogSchema = createInsertSchema(coachWellnessLogs).omit({ id: true, createdAt: true, updatedAt: true });
+export type InsertCoachWellnessLog = z.infer<typeof insertCoachWellnessLogSchema>;
+export type CoachWellnessLog = typeof coachWellnessLogs.$inferSelect;
