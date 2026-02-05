@@ -1311,7 +1311,12 @@ export default function DashboardScreen() {
                     navigation.navigate("CoachEarnings" as never);
                   }}
                 />
-                <BurnoutRiskCard />
+                <BurnoutRiskCard 
+                  onPress={() => {
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                    navigation.navigate("WellbeingDetail" as never);
+                  }}
+                />
                 <LoadForecastCard 
                   onDayPress={(date) => {
                     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
