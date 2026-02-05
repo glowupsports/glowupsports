@@ -1266,8 +1266,8 @@ export default function SeriesDetailDrawer({
     setDeletingSeries(true);
     try {
       await apiRequest("DELETE", `/api/coach/series/${seriesId}`);
-      queryClient.invalidateQueries({ queryKey: ["/api/coach/series"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/coach/calendar"] });
+      await queryClient.invalidateQueries({ queryKey: ["/api/coach/series"] });
+      await queryClient.invalidateQueries({ queryKey: ["/api/coach/calendar"] });
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       onClose();
     } catch (error) {
