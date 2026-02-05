@@ -30,6 +30,7 @@ import LevelCardsScreen from "@/coach/screens/glow/LevelCardsScreen";
 import CoachCalibrationScreen from "@/coach/screens/glow/CoachCalibrationScreen";
 import MatchReviewScreen from "@/coach/screens/glow/MatchReviewScreen";
 import LessonTemplateLibraryScreen from "@/coach/screens/glow/LessonTemplateLibraryScreen";
+import WellbeingDetailScreen from "@/coach/screens/WellbeingDetailScreen";
 import OfflineBanner from "@/components/OfflineBanner";
 import { QuickActionsFAB, QuickAction } from "@/components/QuickActionsFAB";
 import { PremiumAddPlayerFlow } from "@/coach/components/PremiumAddPlayerFlow";
@@ -77,6 +78,7 @@ export type CoachStackParamList = {
   LevelCards: undefined;
   CoachCalibration: undefined;
   MatchReview: { matchId: string };
+  WellbeingDetail: undefined;
 };
 
 const Stack = createNativeStackNavigator<CoachStackParamList>();
@@ -255,6 +257,14 @@ function CoachStackNavigator() {
       <Stack.Screen 
         name="MatchReview" 
         component={MatchReviewScreen}
+        options={{
+          headerShown: false,
+          presentation: "card",
+        }}
+      />
+      <Stack.Screen 
+        name="WellbeingDetail" 
+        component={WellbeingDetailScreen}
         options={{
           headerShown: false,
           presentation: "card",
