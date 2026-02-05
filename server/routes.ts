@@ -10090,7 +10090,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         sessionType,
         ballLevel,
         skillLevel,
-        maxPlayers: maxPlayers || 4,
+        maxPlayers: maxPlayers || 6,
         weekCount: effectiveWeekCount || null,
         seriesStartDate: effectiveSeriesStartDate,
         seriesEndDate: effectiveSeriesEndDate || null,
@@ -10862,7 +10862,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         status: "scheduled",
         seriesId: id,
         courtId: existing.courtId || undefined,
-        maxPlayers: series.maxPlayers || 4,
+        maxPlayers: series.maxPlayers || 6,
         playerIds: activePlayerIds,
       });
       
@@ -11944,7 +11944,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           locationId: firstSession.locationId || null,
           ballLevel: firstSession.ballLevel || null,
           skillLevel: firstSession.skillLevel || null,
-          maxPlayers: firstSession.maxPlayers || 4,
+          maxPlayers: firstSession.maxPlayers || 6,
           xpPerSession: firstSession.xpReward || 100,
           vibe: firstSession.vibe || null,
           price: firstSession.price ? String(firstSession.price) : null,
@@ -17787,7 +17787,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         sessionType,
         ballLevel,
         skillLevel,
-        maxPlayers: maxPlayers || 4,
+        maxPlayers: maxPlayers || 6,
         weekCount: weekCount || null,
         seriesStartDate,
         seriesEndDate: seriesEndDate || null,
@@ -20961,7 +20961,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         for (const session of upcomingSessions) {
           const coach = session.coachId ? await storage.getCoach(session.coachId) : null;
           const time = new Date(session.startTime);
-          const maxPlayers = session.maxPlayers || 4;
+          const maxPlayers = session.maxPlayers || 6;
           const currentPlayers = session.currentPlayers || 0;
           
           // Get participants from session_players table (not from session object)
@@ -26279,7 +26279,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           ),
         });
 
-        const maxPlayers = session.maxPlayers || 4;
+        const maxPlayers = session.maxPlayers || 6;
         const currentPlayers = players.length;
         let status: "open" | "almost_full" | "full" = "open";
         if (currentPlayers >= maxPlayers) status = "full";
@@ -26471,7 +26471,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         where: (sp, { eq }) => eq(sp.sessionId, sessionId),
       });
 
-      const maxPlayers = session.maxPlayers || 4;
+      const maxPlayers = session.maxPlayers || 6;
       if (currentPlayers.length >= maxPlayers) {
         return res.status(400).json({ error: "Session is full. Join the waitlist instead." });
       }
