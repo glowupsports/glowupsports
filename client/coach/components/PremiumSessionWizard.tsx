@@ -209,7 +209,7 @@ export function PremiumSessionWizard({
   const [flexibleDates, setFlexibleDates] = useState<FlexibleDate[]>([]);
   const [flexibleCalendarMonth, setFlexibleCalendarMonth] = useState(new Date());
   
-  const [maxPlayers, setMaxPlayers] = useState(4);
+  const [maxPlayers, setMaxPlayers] = useState(6);
   const [skillLevel, setSkillLevel] = useState<SkillLevel | null>(null);
   const [sessionBallLevel, setSessionBallLevel] = useState<BallLevel | null>(null);
   const [ballLevelOverride, setBallLevelOverride] = useState(false);
@@ -1143,7 +1143,7 @@ export function PremiumSessionWizard({
 
   const renderPlayersCard = () => {
     const typeData = SESSION_TYPES.find(t => t.id === sessionType);
-    const maxPlayersForType = sessionType === "private" ? 1 : sessionType === "semi_private" ? 3 : 12;
+    const maxPlayersForType = sessionType === "private" ? 1 : sessionType === "semi_private" ? 2 : 6;
     
     return (
       <BaselineFlowCard

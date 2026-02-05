@@ -264,7 +264,7 @@ export default function CreateSessionWizard({
   const [startTime, setStartTime] = useState<string | null>(null);
   
   // Slide 3: Session Setup
-  const [maxPlayers, setMaxPlayers] = useState(4);
+  const [maxPlayers, setMaxPlayers] = useState(6);
   const [ballLevel, setBallLevel] = useState<BallLevel | null>(null);
   const [skillLevel, setSkillLevel] = useState<SkillLevel | null>(null);
   const [isOpenGroup, setIsOpenGroup] = useState(true);

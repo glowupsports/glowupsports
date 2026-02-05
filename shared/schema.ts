@@ -1083,7 +1083,7 @@ export const lessonGroups = pgTable("lesson_groups", {
   minGlowRank: integer("min_glow_rank"), // 1-9 (1=highest, 9=beginner)
   maxGlowRank: integer("max_glow_rank"), // 1-9
   
-  maxPlayers: integer("max_players").default(8),
+  maxPlayers: integer("max_players").default(6),
   isActive: boolean("is_active").default(true),
   
   createdAt: timestamp("created_at").defaultNow(),
@@ -1433,7 +1433,7 @@ export const sessions = pgTable("sessions", {
   skillLevel: integer("skill_level"),
   
   title: text("title"), // Display name like "Sunset Rally", "Glow Doubles"
-  maxPlayers: integer("max_players").default(4), // Max players for group sessions
+  maxPlayers: integer("max_players").default(6), // Max players for group sessions
   xpReward: integer("xp_reward").default(20), // XP earned for attending
   vibe: text("vibe").default("casual"), // casual/competitive
   minLevel: integer("min_level"), // Minimum player level
@@ -1502,7 +1502,7 @@ export const coachingSeries = pgTable("coaching_series", {
   sessionType: text("session_type").notNull(), // private/semi/group/physical/activity
   ballLevel: text("ball_level"),
   skillLevel: integer("skill_level"),
-  maxPlayers: integer("max_players").default(4), // Max capacity
+  maxPlayers: integer("max_players").default(6), // Max capacity
   
   // Timeline
   weekCount: integer("week_count"), // total weeks in series (null = open-ended)
@@ -4724,7 +4724,7 @@ export const lessonTemplates = pgTable("lesson_templates", {
   
   // Target settings
   minPlayers: integer("min_players").default(1),
-  maxPlayers: integer("max_players").default(4),
+  maxPlayers: integer("max_players").default(6),
   ageGroup: text("age_group"), // kids, juniors, teens, adults
   
   // Template metadata
