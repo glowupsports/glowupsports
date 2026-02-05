@@ -57,7 +57,8 @@
           "color": "#00E676",
           "defaultChannel": "default"
         }
-      ]
+      ],
+      "./plugins/withTelephonyRequirement.js"
     ],
     "experiments": {
       "reactCompiler": true
