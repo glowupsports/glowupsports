@@ -6,6 +6,15 @@ Glow Up Sports is a comprehensive multi-academy SaaS platform designed for Tenni
 ## User Preferences
 Preferred communication style: Simple, everyday language.
 
+### CRITICAL: API Development Rule
+**DO NOT create new API endpoints without explicit permission!**
+
+1. **First**: Check what existing endpoints are available for the feature
+2. **Second**: Modify existing endpoint logic if needed
+3. **Third**: Only if nothing exists, ASK permission before creating a new endpoint
+
+This rule applies to ALL development work going forward. Always search existing routes first using grep/search before proposing any new API endpoints.
+
 ## System Architecture
 
 ### UI/UX Decisions
