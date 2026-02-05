@@ -12,7 +12,8 @@ import { LinearGradient } from "expo-linear-gradient";
 import * as Haptics from "expo-haptics";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
-import { Colors, Typography, Spacing, Backgrounds } from "@/constants/theme";
+import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
+import { Colors, Spacing, Backgrounds } from "@/constants/theme";
 import { useCoach } from "@/coach/context/CoachContext";
 
 interface BurnoutRiskData {
@@ -29,43 +30,43 @@ interface BurnoutRiskData {
   recommendations: string[];
 }
 
-const WELLBEING_TIPS = [
-  {
-    icon: "bed-outline" as const,
-    title: "Prioritize Rest Days",
-    description: "Schedule at least 1-2 complete rest days per week for recovery.",
-  },
-  {
-    icon: "water-outline" as const,
-    title: "Stay Hydrated",
-    description: "Drink water throughout sessions. Dehydration affects energy and focus.",
-  },
-  {
-    icon: "moon-outline" as const,
-    title: "Quality Sleep",
-    description: "Aim for 7-8 hours of sleep for better decision-making.",
-  },
-  {
-    icon: "walk-outline" as const,
-    title: "Active Recovery",
-    description: "Light movement on rest days helps circulation without strain.",
-  },
-  {
-    icon: "happy-outline" as const,
-    title: "Mental Breaks",
-    description: "Take short breaks between sessions to reset mentally.",
-  },
-];
+interface WellnessLog {
+  id: string;
+  date: string;
+  sleepHours: string | null;
+  sleepQuality: string | null;
+  nutritionScore: number | null;
+  energyLevel: number | null;
+  moodLevel: number | null;
+  stressLevel: number | null;
+  hydrationLevel: string | null;
+}
+
+interface WellnessData {
+  logs: WellnessLog[];
+  summary: {
+    totalEntries: number;
+    avgSleep: number | null;
+    avgEnergy: number | null;
+    avgMood: number | null;
+  };
+}
 
 export default function WellbeingDetailScreen() {
-  const navigation = useNavigation();
+  const navigation = useNavigation<NativeStackNavigationProp<any>>();
   const insets = useSafeAreaInsets();
   const { coach } = useCoach();
 
-  const { data, isLoading } = useQuery<BurnoutRiskData>({
+  const { data: burnoutData, isLoading: burnoutLoading } = useQuery<BurnoutRiskData>({
     queryKey: ["/api/coaches", coach?.id, "burnout-risk"],
     enabled: !!coach?.id,
     staleTime: 5 * 60 * 1000,
+  });
+
+  const { data: wellnessData, isLoading: wellnessLoading } = useQuery<WellnessData>({
+    queryKey: ["/api/coaches", coach?.id, "wellness"],
+    enabled: !!coach?.id,
+    staleTime: 2 * 60 * 1000,
   });
 
   const getRiskColor = (level: string) => {
@@ -102,7 +103,32 @@ export default function WellbeingDetailScreen() {
     return `${hours}h ${mins}m`;
   };
 
-  if (isLoading || !data) {
+  const getWellnessColor = (value: number | null, max: number = 5) => {
+    if (!value) return Colors.dark.tabIconDefault;
+    const ratio = value / max;
+    if (ratio >= 0.8) return Colors.dark.primary;
+    if (ratio >= 0.6) return Colors.dark.xpCyan;
+    if (ratio >= 0.4) return Colors.dark.gold;
+    return Colors.dark.orange;
+  };
+
+  const getLast7Days = () => {
+    const days = [];
+    for (let i = 6; i >= 0; i--) {
+      const date = new Date();
+      date.setDate(date.getDate() - i);
+      days.push(date.toISOString().split("T")[0]);
+    }
+    return days;
+  };
+
+  const getLogForDate = (date: string) => {
+    return wellnessData?.logs.find(log => log.date === date);
+  };
+
+  const isLoading = burnoutLoading || wellnessLoading;
+
+  if (isLoading || !burnoutData) {
     return (
       <View style={[styles.container, { paddingTop: insets.top }]}>
         <View style={styles.header}>
@@ -119,13 +145,14 @@ export default function WellbeingDetailScreen() {
           <View style={styles.headerSpacer} />
         </View>
         <View style={styles.loadingContainer}>
-          <Text style={styles.loadingText}>ANALYZING WORKLOAD...</Text>
+          <Text style={styles.loadingText}>ANALYZING WELLBEING...</Text>
         </View>
       </View>
     );
   }
 
-  const riskColor = getRiskColor(data.riskLevel);
+  const riskColor = getRiskColor(burnoutData.riskLevel);
+  const last7Days = getLast7Days();
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
@@ -140,7 +167,16 @@ export default function WellbeingDetailScreen() {
           <Ionicons name="arrow-back" size={24} color={Colors.dark.text} />
         </Pressable>
         <Text style={styles.headerTitle}>WELLBEING</Text>
-        <View style={styles.headerSpacer} />
+        <Pressable
+          style={styles.logButton}
+          onPress={() => {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+            navigation.navigate("WellnessLog");
+          }}
+        >
+          <Ionicons name="add" size={18} color={Colors.dark.buttonText} />
+          <Text style={styles.logButtonText}>LOG</Text>
+        </Pressable>
       </View>
 
       <ScrollView
@@ -160,7 +196,7 @@ export default function WellbeingDetailScreen() {
           <View style={styles.riskContent}>
             <View style={styles.riskScoreRow}>
               <View style={styles.riskScoreContainer}>
-                <Text style={[styles.riskScore, { color: riskColor }]}>{data.riskScore}</Text>
+                <Text style={[styles.riskScore, { color: riskColor }]}>{burnoutData.riskScore}</Text>
                 <Text style={styles.riskLabel}>RISK</Text>
               </View>
               
@@ -168,10 +204,10 @@ export default function WellbeingDetailScreen() {
                 <View style={[styles.riskBadge, { backgroundColor: riskColor + "20", borderColor: riskColor + "40" }]}>
                   <View style={[styles.riskDot, { backgroundColor: riskColor }]} />
                   <Text style={[styles.riskBadgeText, { color: riskColor }]}>
-                    {data.riskLevel.toUpperCase()}
+                    {burnoutData.riskLevel.toUpperCase()}
                   </Text>
                 </View>
-                <Text style={styles.riskDescription}>{getRiskDescription(data.riskLevel)}</Text>
+                <Text style={styles.riskDescription}>{getRiskDescription(burnoutData.riskLevel)}</Text>
               </View>
             </View>
           </View>
@@ -185,7 +221,104 @@ export default function WellbeingDetailScreen() {
               end={{ x: 1, y: 0 }}
               style={styles.sectionAccent}
             />
-            <Ionicons name="stats-chart" size={14} color={Colors.dark.xpCyan} />
+            <Ionicons name="calendar" size={14} color={Colors.dark.xpCyan} />
+            <Text style={styles.sectionTitle}>LAST 7 DAYS</Text>
+          </View>
+          
+          <View style={styles.weekGrid}>
+            {last7Days.map((date) => {
+              const log = getLogForDate(date);
+              const dayName = new Date(date).toLocaleDateString("en-US", { weekday: "short" });
+              const dayNum = new Date(date).getDate();
+              const hasLog = !!log;
+              
+              return (
+                <Pressable
+                  key={date}
+                  style={[styles.dayCard, hasLog && styles.dayCardLogged]}
+                  onPress={() => {
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                    navigation.navigate("WellnessLog");
+                  }}
+                >
+                  <Text style={styles.dayName}>{dayName.toUpperCase()}</Text>
+                  <Text style={[styles.dayNum, hasLog && { color: Colors.dark.primary }]}>{dayNum}</Text>
+                  {hasLog ? (
+                    <View style={styles.dayMetrics}>
+                      {log.sleepHours && (
+                        <View style={styles.dayMetric}>
+                          <Ionicons name="moon" size={10} color={Colors.dark.xpCyan} />
+                          <Text style={styles.dayMetricText}>{parseFloat(log.sleepHours)}h</Text>
+                        </View>
+                      )}
+                      {log.energyLevel && (
+                        <View style={styles.dayMetric}>
+                          <Ionicons name="flash" size={10} color={getWellnessColor(log.energyLevel)} />
+                          <Text style={styles.dayMetricText}>{log.energyLevel}/5</Text>
+                        </View>
+                      )}
+                    </View>
+                  ) : (
+                    <View style={styles.dayEmpty}>
+                      <Ionicons name="add-circle-outline" size={16} color={Colors.dark.tabIconDefault} />
+                    </View>
+                  )}
+                </Pressable>
+              );
+            })}
+          </View>
+        </View>
+
+        {wellnessData && wellnessData.summary.totalEntries > 0 ? (
+          <View style={styles.section}>
+            <View style={styles.sectionHeader}>
+              <LinearGradient
+                colors={[Colors.dark.primary + "40", "transparent"]}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+                style={styles.sectionAccent}
+              />
+              <Ionicons name="trending-up" size={14} color={Colors.dark.primary} />
+              <Text style={styles.sectionTitle}>30-DAY AVERAGES</Text>
+            </View>
+            
+            <View style={styles.averagesRow}>
+              <View style={styles.averageCard}>
+                <Ionicons name="moon" size={20} color={Colors.dark.xpCyan} />
+                <Text style={[styles.averageValue, { color: Colors.dark.xpCyan }]}>
+                  {wellnessData.summary.avgSleep || "-"}h
+                </Text>
+                <Text style={styles.averageLabel}>AVG SLEEP</Text>
+              </View>
+              
+              <View style={styles.averageCard}>
+                <Ionicons name="flash" size={20} color={Colors.dark.primary} />
+                <Text style={[styles.averageValue, { color: Colors.dark.primary }]}>
+                  {wellnessData.summary.avgEnergy || "-"}/5
+                </Text>
+                <Text style={styles.averageLabel}>AVG ENERGY</Text>
+              </View>
+              
+              <View style={styles.averageCard}>
+                <Ionicons name="happy" size={20} color={Colors.dark.gold} />
+                <Text style={[styles.averageValue, { color: Colors.dark.gold }]}>
+                  {wellnessData.summary.avgMood || "-"}/5
+                </Text>
+                <Text style={styles.averageLabel}>AVG MOOD</Text>
+              </View>
+            </View>
+          </View>
+        ) : null}
+
+        <View style={styles.section}>
+          <View style={styles.sectionHeader}>
+            <LinearGradient
+              colors={[Colors.dark.gold + "40", "transparent"]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+              style={styles.sectionAccent}
+            />
+            <Ionicons name="stats-chart" size={14} color={Colors.dark.gold} />
             <Text style={styles.sectionTitle}>WORKLOAD METRICS</Text>
           </View>
           
@@ -193,7 +326,7 @@ export default function WellbeingDetailScreen() {
             <View style={styles.metricCard}>
               <Ionicons name="time-outline" size={20} color={Colors.dark.primary} />
               <Text style={[styles.metricValue, { color: Colors.dark.primary }]}>
-                {formatMinutesToHours(data.metrics.avgDailyMinutesPast)}
+                {formatMinutesToHours(burnoutData.metrics.avgDailyMinutesPast)}
               </Text>
               <Text style={styles.metricLabel}>AVG DAILY</Text>
               <Text style={styles.metricSub}>Past 14 Days</Text>
@@ -202,7 +335,7 @@ export default function WellbeingDetailScreen() {
             <View style={styles.metricCard}>
               <Ionicons name="calendar-outline" size={20} color={Colors.dark.xpCyan} />
               <Text style={[styles.metricValue, { color: Colors.dark.xpCyan }]}>
-                {formatMinutesToHours(data.metrics.avgDailyMinutesFuture)}
+                {formatMinutesToHours(burnoutData.metrics.avgDailyMinutesFuture)}
               </Text>
               <Text style={styles.metricLabel}>AVG DAILY</Text>
               <Text style={styles.metricSub}>Next 7 Days</Text>
@@ -211,7 +344,7 @@ export default function WellbeingDetailScreen() {
             <View style={styles.metricCard}>
               <Ionicons name="bed-outline" size={20} color={Colors.dark.gold} />
               <Text style={[styles.metricValue, { color: Colors.dark.gold }]}>
-                {data.metrics.restDaysLastWeek}/7
+                {burnoutData.metrics.restDaysLastWeek}/7
               </Text>
               <Text style={styles.metricLabel}>REST DAYS</Text>
               <Text style={styles.metricSub}>Last Week</Text>
@@ -220,31 +353,15 @@ export default function WellbeingDetailScreen() {
             <View style={styles.metricCard}>
               <Ionicons name="flame-outline" size={20} color={Colors.dark.orange} />
               <Text style={[styles.metricValue, { color: Colors.dark.orange }]}>
-                {data.metrics.consecutiveHeavyDays}d
+                {burnoutData.metrics.consecutiveHeavyDays}d
               </Text>
               <Text style={styles.metricLabel}>HEAVY STREAK</Text>
               <Text style={styles.metricSub}>Consecutive</Text>
             </View>
           </View>
-
-          <View style={styles.totalRow}>
-            <View style={styles.totalCard}>
-              <Text style={styles.totalLabel}>TOTAL PAST 14 DAYS</Text>
-              <Text style={styles.totalValue}>
-                {formatMinutesToHours(data.metrics.totalMinutesPast14Days)}
-              </Text>
-            </View>
-            <View style={styles.totalDivider} />
-            <View style={styles.totalCard}>
-              <Text style={styles.totalLabel}>SCHEDULED NEXT 7 DAYS</Text>
-              <Text style={styles.totalValue}>
-                {formatMinutesToHours(data.metrics.scheduledMinutesNext7Days)}
-              </Text>
-            </View>
-          </View>
         </View>
 
-        {data.recommendations.length > 0 ? (
+        {burnoutData.recommendations.length > 0 ? (
           <View style={styles.section}>
             <View style={styles.sectionHeader}>
               <LinearGradient
@@ -257,7 +374,7 @@ export default function WellbeingDetailScreen() {
               <Text style={styles.sectionTitle}>RECOMMENDATIONS</Text>
             </View>
             
-            {data.recommendations.map((rec, index) => (
+            {burnoutData.recommendations.map((rec, index) => (
               <View key={index} style={styles.recommendationCard}>
                 <View style={[styles.recommendationIcon, { backgroundColor: riskColor + "15" }]}>
                   <Ionicons name="alert-circle" size={16} color={riskColor} />
@@ -267,31 +384,6 @@ export default function WellbeingDetailScreen() {
             ))}
           </View>
         ) : null}
-
-        <View style={styles.section}>
-          <View style={styles.sectionHeader}>
-            <LinearGradient
-              colors={[Colors.dark.primary + "40", "transparent"]}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 0 }}
-              style={styles.sectionAccent}
-            />
-            <Ionicons name="fitness" size={14} color={Colors.dark.primary} />
-            <Text style={styles.sectionTitle}>WELLBEING TIPS</Text>
-          </View>
-          
-          {WELLBEING_TIPS.map((tip, index) => (
-            <View key={index} style={styles.tipCard}>
-              <View style={styles.tipIcon}>
-                <Ionicons name={tip.icon} size={18} color={Colors.dark.primary} />
-              </View>
-              <View style={styles.tipContent}>
-                <Text style={styles.tipTitle}>{tip.title}</Text>
-                <Text style={styles.tipDescription}>{tip.description}</Text>
-              </View>
-            </View>
-          ))}
-        </View>
       </ScrollView>
     </View>
   );
@@ -324,7 +416,22 @@ const styles = StyleSheet.create({
     letterSpacing: 1.5,
   },
   headerSpacer: {
-    width: 40,
+    width: 70,
+  },
+  logButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    backgroundColor: Colors.dark.primary,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: 8,
+    borderRadius: 8,
+  },
+  logButtonText: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: Colors.dark.buttonText,
+    letterSpacing: 0.5,
   },
   loadingContainer: {
     flex: 1,
@@ -442,6 +549,75 @@ const styles = StyleSheet.create({
     color: Colors.dark.text,
     letterSpacing: 1.5,
   },
+  weekGrid: {
+    flexDirection: "row",
+    gap: Spacing.xs,
+  },
+  dayCard: {
+    flex: 1,
+    backgroundColor: Backgrounds.card,
+    borderRadius: 10,
+    padding: Spacing.sm,
+    alignItems: "center",
+    gap: 4,
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.04)",
+  },
+  dayCardLogged: {
+    borderColor: Colors.dark.primary + "40",
+  },
+  dayName: {
+    fontSize: 9,
+    fontWeight: "600",
+    color: Colors.dark.tabIconDefault,
+    letterSpacing: 0.5,
+  },
+  dayNum: {
+    fontSize: 16,
+    fontWeight: "700",
+    color: Colors.dark.text,
+  },
+  dayMetrics: {
+    gap: 2,
+    alignItems: "center",
+  },
+  dayMetric: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 2,
+  },
+  dayMetricText: {
+    fontSize: 9,
+    fontWeight: "600",
+    color: Colors.dark.tabIconDefault,
+  },
+  dayEmpty: {
+    paddingTop: 4,
+  },
+  averagesRow: {
+    flexDirection: "row",
+    gap: Spacing.sm,
+  },
+  averageCard: {
+    flex: 1,
+    backgroundColor: Backgrounds.card,
+    borderRadius: 12,
+    padding: Spacing.md,
+    alignItems: "center",
+    gap: 4,
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.04)",
+  },
+  averageValue: {
+    fontSize: 18,
+    fontWeight: "800",
+  },
+  averageLabel: {
+    fontSize: 9,
+    fontWeight: "600",
+    color: Colors.dark.tabIconDefault,
+    letterSpacing: 0.5,
+  },
   metricsGrid: {
     flexDirection: "row",
     flexWrap: "wrap",
@@ -474,35 +650,6 @@ const styles = StyleSheet.create({
     color: Colors.dark.tabIconDefault,
     opacity: 0.7,
   },
-  totalRow: {
-    flexDirection: "row",
-    backgroundColor: Backgrounds.card,
-    borderRadius: 12,
-    overflow: "hidden",
-    borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.04)",
-  },
-  totalCard: {
-    flex: 1,
-    padding: Spacing.md,
-    alignItems: "center",
-  },
-  totalDivider: {
-    width: 1,
-    backgroundColor: "rgba(255, 255, 255, 0.06)",
-  },
-  totalLabel: {
-    fontSize: 9,
-    fontWeight: "600",
-    color: Colors.dark.tabIconDefault,
-    letterSpacing: 0.5,
-    marginBottom: 4,
-  },
-  totalValue: {
-    fontSize: 16,
-    fontWeight: "700",
-    color: Colors.dark.text,
-  },
   recommendationCard: {
     flexDirection: "row",
     alignItems: "flex-start",
@@ -525,37 +672,5 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: Colors.dark.text,
     lineHeight: 20,
-  },
-  tipCard: {
-    flexDirection: "row",
-    alignItems: "flex-start",
-    backgroundColor: Backgrounds.card,
-    borderRadius: 12,
-    padding: Spacing.md,
-    gap: Spacing.sm,
-    borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.04)",
-  },
-  tipIcon: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: Colors.dark.primary + "15",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  tipContent: {
-    flex: 1,
-    gap: 2,
-  },
-  tipTitle: {
-    fontSize: 13,
-    fontWeight: "600",
-    color: Colors.dark.text,
-  },
-  tipDescription: {
-    fontSize: 12,
-    color: Colors.dark.tabIconDefault,
-    lineHeight: 18,
   },
 });
