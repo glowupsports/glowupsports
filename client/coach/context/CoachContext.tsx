@@ -62,6 +62,8 @@ interface BlockedSession {
   startTime: string;
   endTime: string;
   blocked: true;
+  blockedReason?: string;
+  isCourtBlock?: boolean;
 }
 
 interface CalendarData {

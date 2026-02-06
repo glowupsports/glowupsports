@@ -42,6 +42,7 @@ import {
   openMatchSlots,
   matchRequests,
   playerBookingPreferences,
+  courtAvailability,
   courtAvailabilitySnapshots,
   coachSettings,
   coachAvailability,
@@ -3267,13 +3268,50 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
 
+      // Get court availability blocks (manually blocked courts)
+      const dateStrForQuery = `${year}-${month.toString().padStart(2, '0')}-${day.toString().padStart(2, '0')}`;
+      let courtBlockedSlots: any[] = [];
+      if (view === "day") {
+        courtBlockedSlots = await db.select()
+          .from(courtAvailability)
+          .where(and(
+            eq(courtAvailability.date, dateStrForQuery),
+            eq(courtAvailability.status, "blocked")
+          ));
+      } else if (view === "week") {
+        const weekStartStr = `${startDate.getUTCFullYear()}-${(startDate.getUTCMonth() + 1).toString().padStart(2, '0')}-${startDate.getUTCDate().toString().padStart(2, '0')}`;
+        const weekEndStr = `${endDate.getUTCFullYear()}-${(endDate.getUTCMonth() + 1).toString().padStart(2, '0')}-${endDate.getUTCDate().toString().padStart(2, '0')}`;
+        courtBlockedSlots = await db.select()
+          .from(courtAvailability)
+          .where(and(
+            gte(courtAvailability.date, weekStartStr),
+            lte(courtAvailability.date, weekEndStr),
+            eq(courtAvailability.status, "blocked")
+          ));
+      }
+      const courtBlockedForResponse = courtBlockedSlots.map((slot: any) => {
+        const [slotYear, slotMonth, slotDay] = slot.date.split('-').map(Number);
+        const [startH, startM] = (slot.startTime || "00:00").split(':').map(Number);
+        const [endH, endM] = (slot.endTime || "01:00").split(':').map(Number);
+        return {
+          id: `court-block-${slot.id}`,
+          courtId: slot.courtId,
+          startTime: new Date(Date.UTC(slotYear, slotMonth - 1, slotDay, startH, startM, 0, 0)),
+          endTime: new Date(Date.UTC(slotYear, slotMonth - 1, slotDay, endH, endM, 0, 0)),
+          blocked: true as const,
+          blockedReason: slot.blockedReason || "blocked",
+          isCourtBlock: true,
+        };
+      });
+
+
       // Get courts - filtered by academy
       const courts = await storage.getAllCourts(academyId ?? undefined);
       const locations = await storage.getAllLocations(academyId ?? undefined);
 
       res.json({
         ownSessions: sessionsWithPlayers,
-        blockedSessions: blockedSessionsMinimal,
+        blockedSessions: [...blockedSessionsMinimal, ...courtBlockedForResponse],
         externalBlocks,
         courts,
         locations,

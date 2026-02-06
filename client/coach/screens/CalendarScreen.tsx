@@ -639,6 +639,11 @@ export default function CalendarScreen() {
   const [selectedCourtFilter, setSelectedCourtFilter] = useState<string | null>(null); // null = all courts
   const [isExporting, setIsExporting] = useState(false);
   const [headerCollapsed, setHeaderCollapsed] = useState(false); // Collapse DAY/WEEK/MONTH and court filters
+  const [selectionMode, setSelectionMode] = useState(false);
+  const [selectedCells, setSelectedCells] = useState<Array<{ courtId: string; courtName: string; hour: number }>>([]);
+  const [selectionStart, setSelectionStart] = useState<{ courtIndex: number; hour: number } | null>(null);
+  const [showBlockActionModal, setShowBlockActionModal] = useState(false);
+  const [blockReason, setBlockReason] = useState<string>("training");
 
   // Refs for synchronized horizontal scrolling between court headers and lanes
   const courtHeaderScrollRef = useRef<ScrollView>(null);
@@ -1168,10 +1173,148 @@ export default function CalendarScreen() {
   };
 
   const handleSlotPress = (courtId: string, hour: number) => {
+    if (selectionMode) {
+      toggleCellSelection(courtId, hour);
+      return;
+    }
     const time = new Date(selectedDate);
     time.setHours(hour, 0, 0, 0);
     setSelectedSlot({ courtId, time });
     setShowCreateDrawer(true);
+  };
+
+  const handleSlotLongPress = (courtId: string, courtName: string, hour: number, courtIndex: number) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+    setSelectionMode(true);
+    setSelectionStart({ courtIndex, hour });
+    setSelectedCells([{ courtId, courtName, hour }]);
+  };
+
+  const toggleCellSelection = (courtId: string, hour: number) => {
+    setSelectedCells(prev => {
+      const exists = prev.find(c => c.courtId === courtId && c.hour === hour);
+      if (exists) {
+        return prev.filter(c => !(c.courtId === courtId && c.hour === hour));
+      }
+      const courtName = courts.find(c => c.id === courtId)?.name || "";
+      return [...prev, { courtId, courtName, hour }];
+    });
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+  };
+
+  const extendSelection = (courtId: string, courtName: string, hour: number, courtIndex: number) => {
+    if (!selectionStart) return;
+    const minCourtIdx = Math.min(selectionStart.courtIndex, courtIndex);
+    const maxCourtIdx = Math.max(selectionStart.courtIndex, courtIndex);
+    const minHour = Math.min(selectionStart.hour, hour);
+    const maxHour = Math.max(selectionStart.hour, hour);
+    const newCells: Array<{ courtId: string; courtName: string; hour: number }> = [];
+    for (let ci = minCourtIdx; ci <= maxCourtIdx; ci++) {
+      if (ci >= 0 && ci < courts.length) {
+        for (let h = minHour; h <= maxHour; h++) {
+          newCells.push({ courtId: courts[ci].id, courtName: courts[ci].name, hour: h });
+        }
+      }
+    }
+    setSelectedCells(newCells);
+  };
+
+  const clearSelection = () => {
+    setSelectionMode(false);
+    setSelectedCells([]);
+    setSelectionStart(null);
+  };
+
+  const confirmSelection = () => {
+    if (selectedCells.length === 0) {
+      clearSelection();
+      return;
+    }
+    setShowBlockActionModal(true);
+  };
+
+  const isCellSelected = (courtId: string, hour: number) => {
+    return selectedCells.some(c => c.courtId === courtId && c.hour === hour);
+  };
+
+  const blockCourtMutation = useMutation({
+    mutationFn: async (cells: Array<{ courtId: string; hour: number }>) => {
+      const dateStr = formatDateObjectInTimezone(selectedDate, academyTimezone);
+      const promises = cells.map(cell => {
+        const startTime = `${cell.hour.toString().padStart(2, "0")}:00`;
+        const endHour = cell.hour + 1;
+        const endTime = `${endHour.toString().padStart(2, "0")}:00`;
+        return apiRequest("POST", `/api/courts/${cell.courtId}/block`, {
+          date: dateStr,
+          startTime,
+          endTime,
+          reason: blockReason,
+        });
+      });
+      await Promise.all(promises);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/coach/calendar"] });
+      clearSelection();
+      setShowBlockActionModal(false);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    },
+    onError: (error: any) => {
+      Alert.alert("Error", error?.message || "Failed to block courts");
+    },
+  });
+
+  const unblockCourtMutation = useMutation({
+    mutationFn: async (data: { courtId: string; startTime: string; endTime: string }) => {
+      const dateStr = formatDateObjectInTimezone(selectedDate, academyTimezone);
+      const startLocal = getTimeInTimezone(data.startTime, academyTimezone);
+      const endLocal = getTimeInTimezone(data.endTime, academyTimezone);
+      const startTimeStr = `${startLocal.hours.toString().padStart(2, "0")}:${startLocal.minutes.toString().padStart(2, "0")}`;
+      const endTimeStr = `${endLocal.hours.toString().padStart(2, "0")}:${endLocal.minutes.toString().padStart(2, "0")}`;
+      return apiRequest("POST", `/api/courts/${data.courtId}/unblock`, {
+        date: dateStr,
+        startTime: startTimeStr,
+        endTime: endTimeStr,
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/coach/calendar"] });
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    },
+    onError: (error: any) => {
+      Alert.alert("Error", error?.message || "Failed to unblock court");
+    },
+  });
+
+  const handleBlockedSlotPress = (session: any) => {
+    if (!session.courtId) return;
+    const startLocal = getTimeInTimezone(session.startTime, academyTimezone);
+    const endLocal = getTimeInTimezone(session.endTime, academyTimezone);
+    const startStr = `${startLocal.hours.toString().padStart(2, "0")}:${startLocal.minutes.toString().padStart(2, "0")}`;
+    const endStr = `${endLocal.hours.toString().padStart(2, "0")}:${endLocal.minutes.toString().padStart(2, "0")}`;
+    const courtName = courts.find(c => c.id === session.courtId)?.name || "Court";
+    if (session.isCourtBlock) {
+      const reason = session.blockedReason ? ` (${session.blockedReason})` : "";
+      Alert.alert(
+        "Blocked Court",
+        `${courtName}${reason}\n${startStr} - ${endStr}`,
+        [
+          { text: "Cancel", style: "cancel" },
+          { text: "Unblock", style: "destructive", onPress: () => {
+            unblockCourtMutation.mutate({
+              courtId: session.courtId!,
+              startTime: session.startTime,
+              endTime: session.endTime,
+            });
+          }},
+        ]
+      );
+    } else {
+      Alert.alert(
+        "Unavailable",
+        `${courtName}\n${startStr} - ${endStr}\nAnother coach has a session here.`
+      );
+    }
   };
 
   const changeDate = (days: number) => {
@@ -1889,11 +2032,19 @@ export default function CalendarScreen() {
                           styles.hourSlot, 
                           { height: hourHeight },
                           hourIndex % 2 === 0 ? styles.hourSlotEven : styles.hourSlotOdd,
+                          isCellSelected(court.id, hour) && styles.hourSlotSelected,
                         ]}
                         onPress={() => handleSlotPress(court.id, hour)}
+                        onLongPress={() => handleSlotLongPress(court.id, court.name, hour, courtIndex)}
+                        delayLongPress={400}
                       >
                         <View style={styles.hourLine} />
                         {timeGrid === 30 && <View style={[styles.halfHourLine, { top: hourHeight / 2 }]} />}
+                        {isCellSelected(court.id, hour) && (
+                          <View style={styles.selectedCellOverlay}>
+                            <Feather name="check" size={14} color={Colors.dark.primary} />
+                          </View>
+                        )}
                       </Pressable>
                     ))}
 
@@ -1948,13 +2099,30 @@ export default function CalendarScreen() {
                       .filter((s) => s.courtId === court.id || (s.courtId === null && courtIndex === 0))
                       .map((session) => {
                         const { top, height } = getSessionPosition(session);
+                        const isCourtBlock = (session as any).isCourtBlock;
                         return (
-                          <View
+                          <Pressable
                             key={session.id}
-                            style={[styles.blockedBlock, { top, height: height - 2 }]}
+                            style={[
+                              isCourtBlock ? styles.blockedBlock : styles.blockedBlockOther,
+                              { top, height: height - 2 },
+                            ]}
+                            onPress={() => handleBlockedSlotPress(session)}
                           >
-                            <Text style={styles.blockedText}>Unavailable</Text>
-                          </View>
+                            {isCourtBlock ? (
+                              <>
+                                <Feather name="lock" size={12} color="#FF4444" style={{ marginBottom: 2 }} />
+                                <Text style={styles.blockedTextCourt}>BLOCKED</Text>
+                                {(session as any).blockedReason && height > 40 ? (
+                                  <Text style={styles.blockedReasonText}>
+                                    {(session as any).blockedReason}
+                                  </Text>
+                                ) : null}
+                              </>
+                            ) : (
+                              <Text style={styles.blockedText}>Unavailable</Text>
+                            )}
+                          </Pressable>
                         );
                       })}
 
@@ -2633,24 +2801,134 @@ export default function CalendarScreen() {
         </ScrollView>
       )}
 
-      {/* FAB Button - Gaming Style with Gradient */}
-      <Pressable
-        style={styles.fabContainer}
-        onPress={() => {
-          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-          setShowCreateDrawer(true);
-        }}
+      {/* Selection Mode Toolbar */}
+      {selectionMode && viewMode === "day" ? (
+        <View style={styles.selectionToolbar}>
+          <View style={styles.selectionToolbarContent}>
+            <Pressable style={styles.selectionCancelBtn} onPress={clearSelection}>
+              <Feather name="x" size={18} color={Colors.dark.textSecondary} />
+            </Pressable>
+            <Text style={styles.selectionCount}>
+              {selectedCells.length} slot{selectedCells.length !== 1 ? "s" : ""} selected
+            </Text>
+            <Pressable 
+              style={[styles.selectionBlockBtn, selectedCells.length === 0 && { opacity: 0.4 }]} 
+              onPress={confirmSelection}
+              disabled={selectedCells.length === 0}
+            >
+              <Feather name="lock" size={16} color="#1A1A1A" />
+              <Text style={styles.selectionBlockBtnText}>Block</Text>
+            </Pressable>
+          </View>
+        </View>
+      ) : (
+        <>
+          {/* FAB Button - Gaming Style with Gradient */}
+          <Pressable
+            style={styles.fabContainer}
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+              setShowCreateDrawer(true);
+            }}
+          >
+            <Animated.View style={styles.fabGlow} />
+            <LinearGradient
+              colors={["#00D4FF", "#2ECC40"]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={styles.fabGradient}
+            >
+              <Ionicons name="add" size={28} color="#1A1A1A" />
+            </LinearGradient>
+          </Pressable>
+        </>
+      )}
+
+      {/* Block Court Action Modal */}
+      <Modal
+        visible={showBlockActionModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowBlockActionModal(false)}
       >
-        <Animated.View style={styles.fabGlow} />
-        <LinearGradient
-          colors={["#00D4FF", "#2ECC40"]}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={styles.fabGradient}
-        >
-          <Ionicons name="add" size={28} color="#1A1A1A" />
-        </LinearGradient>
-      </Pressable>
+        <Pressable style={styles.blockModalOverlay} onPress={() => setShowBlockActionModal(false)}>
+          <View style={styles.blockModalContent}>
+            <Text style={styles.blockModalTitle}>BLOCK COURTS</Text>
+            <Text style={styles.blockModalSubtitle}>
+              {selectedCells.length} slot{selectedCells.length !== 1 ? "s" : ""} on{" "}
+              {formatDate(selectedDate)}
+            </Text>
+
+            <View style={styles.blockModalSummary}>
+              {(() => {
+                const grouped = selectedCells.reduce<Record<string, number[]>>((acc, cell) => {
+                  if (!acc[cell.courtName]) acc[cell.courtName] = [];
+                  acc[cell.courtName].push(cell.hour);
+                  return acc;
+                }, {});
+                return Object.entries(grouped).map(([courtName, hours]) => {
+                  const sortedHours = hours.sort((a, b) => a - b);
+                  const startH = sortedHours[0];
+                  const endH = sortedHours[sortedHours.length - 1] + 1;
+                  return (
+                    <View key={courtName} style={styles.blockModalSummaryRow}>
+                      <Text style={styles.blockModalCourtName}>{courtName}</Text>
+                      <Text style={styles.blockModalTimeRange}>
+                        {formatTime(startH)} - {formatTime(endH)}
+                      </Text>
+                    </View>
+                  );
+                });
+              })()}
+            </View>
+
+            <Text style={styles.blockModalReasonLabel}>REASON</Text>
+            <View style={styles.blockReasonRow}>
+              {["training", "event", "maintenance", "closed"].map((reason) => (
+                <Pressable
+                  key={reason}
+                  style={[
+                    styles.blockReasonPill,
+                    blockReason === reason && styles.blockReasonPillActive,
+                  ]}
+                  onPress={() => setBlockReason(reason)}
+                >
+                  <Text style={[
+                    styles.blockReasonPillText,
+                    blockReason === reason && styles.blockReasonPillTextActive,
+                  ]}>
+                    {reason.charAt(0).toUpperCase() + reason.slice(1)}
+                  </Text>
+                </Pressable>
+              ))}
+            </View>
+
+            <View style={styles.blockModalActions}>
+              <Pressable style={styles.blockModalCancelBtn} onPress={() => {
+                setShowBlockActionModal(false);
+              }}>
+                <Text style={styles.blockModalCancelText}>Cancel</Text>
+              </Pressable>
+              <Pressable 
+                style={styles.blockModalConfirmBtn} 
+                onPress={() => {
+                  blockCourtMutation.mutate(selectedCells.map(c => ({ courtId: c.courtId, hour: c.hour })));
+                }}
+                disabled={blockCourtMutation.isPending}
+              >
+                {blockCourtMutation.isPending ? (
+                  <ActivityIndicator size="small" color="#1A1A1A" />
+                ) : (
+                  <>
+                    <Feather name="lock" size={16} color="#1A1A1A" />
+                    <Text style={styles.blockModalConfirmText}>Block Courts</Text>
+                  </>
+                )}
+              </Pressable>
+            </View>
+          </View>
+        </Pressable>
+      </Modal>
 
       {/* Loading Overlay - Only show on initial load when there's no data */}
       {isLoading && !calendarData && (
@@ -3508,17 +3786,227 @@ const styles = StyleSheet.create({
     left: 2,
     right: 2,
     borderRadius: BorderRadius.xs,
+    backgroundColor: "rgba(255, 68, 68, 0.12)",
+    padding: Spacing.xs,
+    borderWidth: 1,
+    borderColor: "rgba(255, 68, 68, 0.3)",
+    borderStyle: "dashed",
+    overflow: "hidden",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  blockedBlockOther: {
+    position: "absolute",
+    left: 2,
+    right: 2,
+    borderRadius: BorderRadius.xs,
     backgroundColor: "rgba(100, 100, 100, 0.3)",
     padding: Spacing.xs,
     borderWidth: 1,
     borderColor: "rgba(255, 255, 255, 0.1)",
     borderStyle: "dashed",
     overflow: "hidden",
+    justifyContent: "center",
+    alignItems: "center",
   },
   blockedText: {
     ...Typography.caption,
     color: Colors.dark.textMuted,
     fontStyle: "italic",
+    textAlign: "center",
+  },
+  blockedTextCourt: {
+    ...Typography.caption,
+    color: "#FF4444",
+    fontWeight: "700",
+    letterSpacing: 1,
+    textAlign: "center",
+  },
+  blockedReasonText: {
+    ...Typography.caption,
+    color: Colors.dark.textMuted,
+    fontSize: 9,
+    textAlign: "center",
+    marginTop: 2,
+  },
+  hourSlotSelected: {
+    backgroundColor: Colors.dark.primary + "25",
+    borderColor: Colors.dark.primary + "60",
+    borderWidth: 1,
+    borderStyle: "dashed",
+  },
+  selectedCellOverlay: {
+    position: "absolute",
+    top: 4,
+    right: 4,
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: Colors.dark.primary + "40",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  selectionToolbar: {
+    position: "absolute",
+    bottom: 0,
+    left: 0,
+    right: 0,
+    paddingBottom: 30,
+    paddingTop: 12,
+    paddingHorizontal: Spacing.lg,
+    backgroundColor: Backgrounds.card,
+    borderTopWidth: 1,
+    borderTopColor: Colors.dark.primary + "30",
+  },
+  selectionToolbarContent: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  selectionCancelBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: "rgba(255,255,255,0.08)",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  selectionCount: {
+    ...Typography.body,
+    color: Colors.dark.textSecondary,
+    flex: 1,
+    textAlign: "center",
+  },
+  selectionBlockBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    backgroundColor: Colors.dark.primary,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: BorderRadius.md,
+  },
+  selectionBlockBtnText: {
+    ...Typography.body,
+    color: "#1A1A1A",
+    fontWeight: "700",
+  },
+  blockModalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.7)",
+    justifyContent: "center",
+    alignItems: "center",
+    padding: Spacing.lg,
+  },
+  blockModalContent: {
+    backgroundColor: Backgrounds.card,
+    borderRadius: BorderRadius.lg,
+    padding: Spacing.xl,
+    width: "100%",
+    maxWidth: 360,
+    borderWidth: 1,
+    borderColor: Colors.dark.primary + "30",
+  },
+  blockModalTitle: {
+    ...Typography.h3,
+    color: Colors.dark.text,
+    fontWeight: "800",
+    letterSpacing: 2,
+    textAlign: "center",
+    marginBottom: 4,
+  },
+  blockModalSubtitle: {
+    ...Typography.body,
+    color: Colors.dark.textSecondary,
+    textAlign: "center",
+    marginBottom: Spacing.lg,
+  },
+  blockModalSummary: {
+    backgroundColor: "rgba(255,255,255,0.04)",
+    borderRadius: BorderRadius.sm,
+    padding: Spacing.md,
+    marginBottom: Spacing.lg,
+    gap: 8,
+  },
+  blockModalSummaryRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
+  blockModalCourtName: {
+    ...Typography.body,
+    color: Colors.dark.text,
+    fontWeight: "600",
+  },
+  blockModalTimeRange: {
+    ...Typography.body,
+    color: Colors.dark.xpCyan,
+    fontWeight: "500",
+  },
+  blockModalReasonLabel: {
+    ...Typography.caption,
+    color: Colors.dark.textMuted,
+    fontWeight: "700",
+    letterSpacing: 1.5,
+    marginBottom: 8,
+  },
+  blockReasonRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+    marginBottom: Spacing.xl,
+  },
+  blockReasonPill: {
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: BorderRadius.full,
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.15)",
+    backgroundColor: "rgba(255,255,255,0.05)",
+  },
+  blockReasonPillActive: {
+    borderColor: Colors.dark.primary,
+    backgroundColor: Colors.dark.primary + "20",
+  },
+  blockReasonPillText: {
+    ...Typography.caption,
+    color: Colors.dark.textSecondary,
+    fontWeight: "500",
+  },
+  blockReasonPillTextActive: {
+    color: Colors.dark.primary,
+  },
+  blockModalActions: {
+    flexDirection: "row",
+    gap: 12,
+  },
+  blockModalCancelBtn: {
+    flex: 1,
+    paddingVertical: 12,
+    borderRadius: BorderRadius.md,
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.15)",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  blockModalCancelText: {
+    ...Typography.body,
+    color: Colors.dark.textSecondary,
+  },
+  blockModalConfirmBtn: {
+    flex: 1,
+    flexDirection: "row",
+    gap: 6,
+    paddingVertical: 12,
+    borderRadius: BorderRadius.md,
+    backgroundColor: "#FF4444",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  blockModalConfirmText: {
+    ...Typography.body,
+    color: "#1A1A1A",
+    fontWeight: "700",
   },
   busyElsewhereBlock: {
     position: "absolute",
