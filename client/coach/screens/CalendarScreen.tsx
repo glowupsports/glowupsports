@@ -2803,7 +2803,7 @@ export default function CalendarScreen() {
 
       {/* Selection Mode Toolbar */}
       {selectionMode && viewMode === "day" ? (
-        <View style={[styles.selectionToolbar, { bottom: insets.bottom + 60 }]}>
+        <View style={[styles.selectionToolbar, { bottom: Math.max(insets.bottom, 20) + 80 }]}>
           <View style={styles.selectionToolbarContent}>
             <Pressable style={styles.selectionCancelBtn} onPress={clearSelection}>
               <Feather name="x" size={20} color="#FFF" />
@@ -3850,14 +3850,15 @@ const styles = StyleSheet.create({
     position: "absolute",
     left: 12,
     right: 12,
-    paddingVertical: 14,
+    paddingVertical: 16,
     paddingHorizontal: Spacing.lg,
-    backgroundColor: "#1A1F2E",
-    borderRadius: BorderRadius.lg,
-    borderWidth: 1.5,
-    borderColor: Colors.dark.primary + "60",
-    elevation: 10,
-    zIndex: 999,
+    backgroundColor: "#1C2233",
+    borderRadius: 16,
+    borderWidth: 2,
+    borderColor: Colors.dark.primary,
+    elevation: 20,
+    zIndex: 9999,
+    boxShadow: "0px -4px 20px rgba(0, 212, 255, 0.3)",
   },
   selectionToolbarContent: {
     flexDirection: "row",
