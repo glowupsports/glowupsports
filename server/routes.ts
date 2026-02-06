@@ -47,6 +47,7 @@ import {
   coachSettings,
   coachAvailability,
   availabilityExceptions,
+  coachTimeBlocks,
   // Monthly report tables
   courtBookings,
   matchLogs,
@@ -3305,6 +3306,36 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
 
 
+      // Get coach personal time blocks (coach unavailability)
+      let coachPersonalBlocks: any[] = [];
+      try {
+        const cbStartStr = `${startDate.getUTCFullYear()}-${(startDate.getUTCMonth() + 1).toString().padStart(2, '0')}-${startDate.getUTCDate().toString().padStart(2, '0')}`;
+        const cbEndStr = `${endDate.getUTCFullYear()}-${(endDate.getUTCMonth() + 1).toString().padStart(2, '0')}-${endDate.getUTCDate().toString().padStart(2, '0')}`;
+        const rawCoachBlocks = await db.select()
+          .from(coachTimeBlocks)
+          .where(and(
+            eq(coachTimeBlocks.coachId, coachId as string),
+            eq(coachTimeBlocks.sourceType, 'blocked'),
+            eq(coachTimeBlocks.status, 'confirmed'),
+            gte(coachTimeBlocks.date, cbStartStr),
+            lte(coachTimeBlocks.date, cbEndStr)
+          ));
+        coachPersonalBlocks = rawCoachBlocks.map((block: any) => {
+          const [bY, bM, bD] = block.date.split('-').map(Number);
+          const [sH, sM] = (block.startTime || '00:00').split(':').map(Number);
+          const [eH, eM] = (block.endTime || '01:00').split(':').map(Number);
+          return {
+            id: `coach-block-${block.id}`,
+            startTime: new Date(Date.UTC(bY, bM - 1, bD, sH, sM, 0, 0)),
+            endTime: new Date(Date.UTC(bY, bM - 1, bD, eH, eM, 0, 0)),
+            blockReason: block.blockReason || 'personal',
+            isCoachBlock: true,
+          };
+        });
+      } catch (e) {
+        // Table might not exist yet
+      }
+
       // Get courts - filtered by academy
       const courts = await storage.getAllCourts(academyId ?? undefined);
       const locations = await storage.getAllLocations(academyId ?? undefined);
@@ -3313,6 +3344,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         ownSessions: sessionsWithPlayers,
         blockedSessions: [...blockedSessionsMinimal, ...courtBlockedForResponse],
         externalBlocks,
+        coachBlocks: coachPersonalBlocks,
         courts,
         locations,
         dateRange: { start: startDate, end: endDate },
@@ -29343,7 +29375,83 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // ==================== ACADEMY COURT MANAGEMENT ====================
+  // Coach personal time block - block coach availability (not court)
+  app.post("/api/coach/time-blocks", authMiddleware, requireRole("coach", "academy_owner", "platform_owner"), async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const coachId = req.user?.coachId;
+      const academyId = req.user?.academyId;
+      if (!coachId) return res.status(400).json({ error: "Coach ID required" });
+
+      const { startDate, endDate, weekdays, startTime, endTime, reason } = req.body;
+      
+      if (!startDate || !endDate || !startTime || !endTime) {
+        return res.status(400).json({ error: "startDate, endDate, startTime, endTime are required" });
+      }
+      if (!weekdays || !Array.isArray(weekdays) || weekdays.length === 0) {
+        return res.status(400).json({ error: "weekdays array is required (0=Sun, 1=Mon, ..., 6=Sat)" });
+      }
+
+      // Generate all dates in range matching selected weekdays
+      const start = new Date(startDate);
+      const end = new Date(endDate);
+      const blocksToCreate: any[] = [];
+      
+      for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+        const dayOfWeek = d.getDay();
+        if (weekdays.includes(dayOfWeek)) {
+          const dateStr = d.toISOString().split('T')[0];
+          blocksToCreate.push({
+            coachId,
+            sourceType: "blocked",
+            sourceAcademyId: academyId || null,
+            date: dateStr,
+            startTime,
+            endTime,
+            status: "confirmed",
+            isPrivate: false,
+            blockReason: reason || "personal",
+          });
+        }
+      }
+
+      if (blocksToCreate.length === 0) {
+        return res.status(400).json({ error: "No matching dates found for selected weekdays" });
+      }
+
+      // Insert all blocks
+      await db.insert(coachTimeBlocks).values(blocksToCreate);
+
+      res.status(201).json({ 
+        success: true, 
+        message: `Created ${blocksToCreate.length} time blocks`,
+        count: blocksToCreate.length,
+      });
+    } catch (error) {
+      console.error("Create coach time block error:", error);
+      res.status(500).json({ error: "Failed to create time blocks" });
+    }
+  });
+
+  // Delete coach personal time block
+  app.delete("/api/coach/time-blocks/:blockId", authMiddleware, requireRole("coach", "academy_owner", "platform_owner"), async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const coachId = req.user?.coachId;
+      const { blockId } = req.params;
+      const realId = blockId.replace('coach-block-', '');
+      
+      await db.delete(coachTimeBlocks).where(and(
+        eq(coachTimeBlocks.id, realId),
+        eq(coachTimeBlocks.coachId, coachId!)
+      ));
+
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Delete coach time block error:", error);
+      res.status(500).json({ error: "Failed to delete time block" });
+    }
+  });
+
+    // ==================== ACADEMY COURT MANAGEMENT ====================
 
   // Update court booking settings
   app.put("/api/courts/:courtId/booking-settings", authMiddleware, requireRole("academy_owner", "platform_owner"), async (req: AuthenticatedRequest, res: Response) => {
