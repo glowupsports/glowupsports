@@ -999,6 +999,7 @@ export default function CalendarScreen() {
   const hours = displayHours;
   const ownSessions = calendarData?.ownSessions || [];
   const blockedSessions = calendarData?.blockedSessions || [];
+  const coachBlocks = calendarData?.coachBlocks || [];
 
   // Compute cross-location busy blocks - show "Busy Elsewhere" on courts where coach is unavailable
   // because they have a session at another location at the same time
@@ -2166,6 +2167,39 @@ export default function CalendarScreen() {
                         );
                       })}
 
+                    {/* Render coach personal blocks (orange dashed) */}
+                    {coachBlocks
+                      .filter((block: any) => {
+                        const blockDateStr = getLocalDateString(new Date(block.startTime), academyTimezone);
+                        const selectedDateStr = formatDateObjectInTimezone(selectedDate, academyTimezone);
+                        return blockDateStr === selectedDateStr;
+                      })
+                      .map((block: any) => {
+                        const startDt = new Date(block.startTime);
+                        const endDt = new Date(block.endTime);
+                        const startHour = startDt.getUTCHours() + startDt.getUTCMinutes() / 60;
+                        const endHour = endDt.getUTCHours() + endDt.getUTCMinutes() / 60;
+                        const top = (startHour - START_HOUR) * hourHeight;
+                        const height = (endHour - startHour) * hourHeight;
+                        return (
+                          <View
+                            key={block.id + "-" + court.id}
+                            style={[
+                              styles.coachBlockStyle,
+                              { top, height: height - 2 },
+                            ]}
+                          >
+                            <Feather name="user-x" size={10} color="#FFA500" style={{ marginBottom: 1 }} />
+                            <Text style={styles.coachBlockText}>MY BLOCK</Text>
+                            {height > 30 && block.blockReason ? (
+                              <Text style={[styles.coachBlockText, { fontWeight: "400", fontSize: 8 }]}>
+                                {block.blockReason}
+                              </Text>
+                            ) : null}
+                          </View>
+                        );
+                      })}
+
                     {/* Render cross-location busy blocks - show where coach is busy elsewhere */}
                     {crossLocationBusyBlocks
                       .filter((block) => {
@@ -2432,6 +2466,30 @@ export default function CalendarScreen() {
                               </View>
                             );
                           })}
+
+                          {/* Render coach personal blocks in week view */}
+                          {coachBlocks
+                            .filter((block: any) => {
+                              const blockDateStr = getLocalDateString(new Date(block.startTime), academyTimezone);
+                              const dateStr = `${date.getFullYear()}-${(date.getMonth() + 1).toString().padStart(2, "0")}-${date.getDate().toString().padStart(2, "0")}`;
+                              return blockDateStr === dateStr;
+                            })
+                            .map((block: any) => {
+                              const startDt = new Date(block.startTime);
+                              const endDt = new Date(block.endTime);
+                              const startHour = startDt.getUTCHours() + startDt.getUTCMinutes() / 60;
+                              const endHour = endDt.getUTCHours() + endDt.getUTCMinutes() / 60;
+                              const top = (startHour - START_HOUR) * hourHeight;
+                              const height = (endHour - startHour) * hourHeight;
+                              return (
+                                <View
+                                  key={block.id + "-week"}
+                                  style={[styles.coachBlockStyle, { top, height: Math.max(height - 2, 16) }]}
+                                >
+                                  <Text style={[styles.coachBlockText, { fontSize: 7 }]}>MY BLOCK</Text>
+                                </View>
+                              );
+                            })}
 
                           {/* Render draggable sessions for this day */}
                           {daySessions.map((session) => {
