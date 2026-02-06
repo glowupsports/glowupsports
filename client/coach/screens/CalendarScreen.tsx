@@ -2803,10 +2803,10 @@ export default function CalendarScreen() {
 
       {/* Selection Mode Toolbar */}
       {selectionMode && viewMode === "day" ? (
-        <View style={styles.selectionToolbar}>
+        <View style={[styles.selectionToolbar, { bottom: insets.bottom + 60 }]}>
           <View style={styles.selectionToolbarContent}>
             <Pressable style={styles.selectionCancelBtn} onPress={clearSelection}>
-              <Feather name="x" size={18} color={Colors.dark.textSecondary} />
+              <Feather name="x" size={20} color="#FFF" />
             </Pressable>
             <Text style={styles.selectionCount}>
               {selectedCells.length} slot{selectedCells.length !== 1 ? "s" : ""} selected
@@ -2816,8 +2816,8 @@ export default function CalendarScreen() {
               onPress={confirmSelection}
               disabled={selectedCells.length === 0}
             >
-              <Feather name="lock" size={16} color="#1A1A1A" />
-              <Text style={styles.selectionBlockBtnText}>Block</Text>
+              <Feather name="lock" size={18} color="#FFF" />
+              <Text style={styles.selectionBlockBtnText}>BLOCK</Text>
             </Pressable>
           </View>
         </View>
@@ -3848,48 +3848,55 @@ const styles = StyleSheet.create({
   },
   selectionToolbar: {
     position: "absolute",
-    bottom: 0,
-    left: 0,
-    right: 0,
-    paddingBottom: 30,
-    paddingTop: 12,
+    left: 12,
+    right: 12,
+    paddingVertical: 14,
     paddingHorizontal: Spacing.lg,
-    backgroundColor: Backgrounds.card,
-    borderTopWidth: 1,
-    borderTopColor: Colors.dark.primary + "30",
+    backgroundColor: "#1A1F2E",
+    borderRadius: BorderRadius.lg,
+    borderWidth: 1.5,
+    borderColor: Colors.dark.primary + "60",
+    elevation: 10,
+    zIndex: 999,
   },
   selectionToolbarContent: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
+    gap: 12,
   },
   selectionCancelBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: "rgba(255,255,255,0.08)",
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: "rgba(255,68,68,0.2)",
     justifyContent: "center",
     alignItems: "center",
+    borderWidth: 1,
+    borderColor: "rgba(255,68,68,0.4)",
   },
   selectionCount: {
     ...Typography.body,
-    color: Colors.dark.textSecondary,
+    color: "#FFF",
+    fontWeight: "700",
     flex: 1,
     textAlign: "center",
   },
   selectionBlockBtn: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 6,
-    backgroundColor: Colors.dark.primary,
-    paddingHorizontal: 16,
-    paddingVertical: 10,
+    gap: 8,
+    backgroundColor: "#FF4444",
+    paddingHorizontal: 22,
+    paddingVertical: 12,
     borderRadius: BorderRadius.md,
   },
   selectionBlockBtnText: {
     ...Typography.body,
-    color: "#1A1A1A",
-    fontWeight: "700",
+    color: "#FFF",
+    fontWeight: "800",
+    fontSize: 15,
+    letterSpacing: 1,
   },
   blockModalOverlay: {
     flex: 1,
