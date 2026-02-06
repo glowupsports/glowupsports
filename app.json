@@ -58,7 +58,8 @@
           "defaultChannel": "default"
         }
       ],
-      "./plugins/withTelephonyRequirement.js"
+      "./plugins/withTelephonyRequirement.js",
+      "./plugins/withNoTabletSupport.js"
     ],
     "experiments": {
       "reactCompiler": true
