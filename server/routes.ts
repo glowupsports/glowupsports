@@ -10662,7 +10662,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     academyId: string,
     existing: any,
     lastSession: any,
-    activeMembers: any[]
+    activeMembers: any[],
+    maxWeekNumber: number
   ) {
     const startTime = Date.now();
     console.log(`[ExtendBG] Starting background extend for series ${seriesId}, ${weeks} weeks`);
@@ -10724,6 +10725,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         xpPerSession: existing.xpPerSession || existing.xpValue || 20,
         ballLevel: existing.ballLevel,
         title: existing.title,
+        weekNumber: maxWeekNumber + vs.weekIndex,
         ...pricingSnapshot
       }));
       
@@ -10793,6 +10795,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       const lastSession = allSessions[0];
       
+      
+      // Get the highest weekNumber from existing sessions in this series
+      const maxWeekResult = await db.select({ maxWeek: sql<number>`COALESCE(MAX(${sessions.weekNumber}), 0)` }).from(sessions).where(eq(sessions.seriesId, id));
+      const maxWeekNumber = maxWeekResult[0]?.maxWeek || 0;
       // Get active members
       const seriesMembers = await storage.getSeriesPlayers(id);
       const activeMembers = seriesMembers.filter(m => m.status === "active");
@@ -10808,7 +10814,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Process in background (non-blocking)
       setImmediate(() => {
-        processExtendSeriesBackground(id, weeks, coachId!, academyId, existing, lastSession, activeMembers);
+        processExtendSeriesBackground(id, weeks, coachId!, academyId, existing, lastSession, activeMembers, maxWeekNumber);
       });
       
     } catch (error) {

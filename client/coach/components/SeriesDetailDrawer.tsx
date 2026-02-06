@@ -2291,7 +2291,7 @@ export default function SeriesDetailDrawer({
                 <Text style={styles.backfillSubtitle}>
                   Mark which past sessions this player attended since {joinDate.toLocaleDateString()}
                 </Text>
-                {getPastSessionsSinceJoinDate().map((session) => (
+                {getPastSessionsSinceJoinDate().map((session, idx) => (
                   <Pressable
                     key={session.id}
                     style={[
@@ -2315,7 +2315,7 @@ export default function SeriesDetailDrawer({
                     </View>
                     <View style={styles.attendanceInfo}>
                       <Text style={styles.attendanceDate}>{formatDate(session.startTime)}</Text>
-                      <Text style={styles.attendanceWeek}>Week {session.weekNumber || "?"}</Text>
+                      <Text style={styles.attendanceWeek}>Week {session.weekNumber || idx + 1}</Text>
                     </View>
                   </Pressable>
                 ))}
@@ -2720,7 +2720,7 @@ export default function SeriesDetailDrawer({
                   </View>
                   {selectedSession ? (
                     <Text style={styles.attendanceModalDate}>
-                      {formatDate(selectedSession.startTime)} - Week {selectedSession.weekNumber || "?"}
+                      {formatDate(selectedSession.startTime)} - Week {selectedSession.weekNumber || ([...series.sessions].sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime()).findIndex(s => s.id === selectedSession.id) + 1)}
                     </Text>
                   ) : null}
                 </View>
@@ -3067,7 +3067,7 @@ export default function SeriesDetailDrawer({
                       {formatDate(selectedSession.startTime)}
                     </Text>
                     <Text style={styles.restoreSessionWeek}>
-                      Week {selectedSession.weekNumber || "?"}
+                      Week {selectedSession.weekNumber || ([...series.sessions].sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime()).findIndex(s => s.id === selectedSession.id) + 1)}
                     </Text>
                   </LinearGradient>
                 </View>
