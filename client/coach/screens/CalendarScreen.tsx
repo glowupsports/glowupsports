@@ -644,6 +644,12 @@ export default function CalendarScreen() {
   const [selectionStart, setSelectionStart] = useState<{ courtIndex: number; hour: number } | null>(null);
   const [showBlockActionModal, setShowBlockActionModal] = useState(false);
   const [blockReason, setBlockReason] = useState<string>("training");
+  const [blockMode, setBlockMode] = useState<"coach" | "court">("coach");
+  const [blockDateFrom, setBlockDateFrom] = useState<Date>(new Date());
+  const [blockDateTo, setBlockDateTo] = useState<Date>(new Date());
+  const [blockWeekdays, setBlockWeekdays] = useState<number[]>([1, 2, 3, 4, 5]);
+  const [showFromPicker, setShowFromPicker] = useState(false);
+  const [showToPicker, setShowToPicker] = useState(false);
 
   // Refs for synchronized horizontal scrolling between court headers and lanes
   const courtHeaderScrollRef = useRef<ScrollView>(null);
@@ -1230,6 +1236,11 @@ export default function CalendarScreen() {
       clearSelection();
       return;
     }
+    setBlockDateFrom(new Date(selectedDate));
+    setBlockDateTo(new Date(selectedDate));
+    const dayOfWeek = selectedDate.getDay();
+    setBlockWeekdays([dayOfWeek]);
+    setBlockMode("coach");
     setShowBlockActionModal(true);
   };
 
@@ -1261,6 +1272,35 @@ export default function CalendarScreen() {
     },
     onError: (error: any) => {
       Alert.alert("Error", error?.message || "Failed to block courts");
+    },
+  });
+
+  const coachBlockMutation = useMutation({
+    mutationFn: async (data: { startDate: string; endDate: string; weekdays: number[]; startTime: string; endTime: string; reason: string }) => {
+      return apiRequest("POST", "/api/coach/time-blocks", data);
+    },
+    onSuccess: (data: any) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/coach/calendar"] });
+      clearSelection();
+      setShowBlockActionModal(false);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      Alert.alert("Blocked", `${data.count || ''} time blocks created`);
+    },
+    onError: (error: any) => {
+      Alert.alert("Error", error?.message || "Failed to create time blocks");
+    },
+  });
+
+  const deleteCoachBlockMutation = useMutation({
+    mutationFn: async (blockId: string) => {
+      return apiRequest("DELETE", `/api/coach/time-blocks/${blockId}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/coach/calendar"] });
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    },
+    onError: (error: any) => {
+      Alert.alert("Error", error?.message || "Failed to remove block");
     },
   });
 
@@ -2844,7 +2884,7 @@ export default function CalendarScreen() {
         </>
       )}
 
-      {/* Block Court Action Modal */}
+      {/* Block Action Modal - Enhanced with date range & weekday selector */}
       <Modal
         visible={showBlockActionModal}
         transparent
@@ -2852,39 +2892,148 @@ export default function CalendarScreen() {
         onRequestClose={() => setShowBlockActionModal(false)}
       >
         <Pressable style={styles.blockModalOverlay} onPress={() => setShowBlockActionModal(false)}>
-          <View style={styles.blockModalContent}>
-            <Text style={styles.blockModalTitle}>BLOCK COURTS</Text>
+          <ScrollView style={{ maxHeight: "90%" }} contentContainerStyle={{ justifyContent: "center", flexGrow: 1 }}>
+          <Pressable style={styles.blockModalContent} onPress={(e) => e.stopPropagation()}>
+            <Text style={styles.blockModalTitle}>BLOCK MY TIME</Text>
             <Text style={styles.blockModalSubtitle}>
-              {selectedCells.length} slot{selectedCells.length !== 1 ? "s" : ""} on{" "}
-              {formatDate(selectedDate)}
+              Block your availability as a coach
             </Text>
 
+            {/* Time summary */}
             <View style={styles.blockModalSummary}>
               {(() => {
-                const grouped = selectedCells.reduce<Record<string, number[]>>((acc, cell) => {
-                  if (!acc[cell.courtName]) acc[cell.courtName] = [];
-                  acc[cell.courtName].push(cell.hour);
-                  return acc;
-                }, {});
-                return Object.entries(grouped).map(([courtName, hours]) => {
-                  const sortedHours = hours.sort((a, b) => a - b);
-                  const startH = sortedHours[0];
-                  const endH = sortedHours[sortedHours.length - 1] + 1;
-                  return (
-                    <View key={courtName} style={styles.blockModalSummaryRow}>
-                      <Text style={styles.blockModalCourtName}>{courtName}</Text>
-                      <Text style={styles.blockModalTimeRange}>
-                        {formatTime(startH)} - {formatTime(endH)}
-                      </Text>
-                    </View>
-                  );
-                });
+                const allHours = selectedCells.map(c => c.hour).sort((a, b) => a - b);
+                const uniqueHours = [...new Set(allHours)];
+                if (uniqueHours.length === 0) return null;
+                const startH = uniqueHours[0];
+                const endH = uniqueHours[uniqueHours.length - 1] + 1;
+                return (
+                  <View style={styles.blockModalSummaryRow}>
+                    <Feather name="clock" size={14} color={Colors.dark.primary} />
+                    <Text style={styles.blockModalTimeRange}>
+                      {formatTime(startH)} - {formatTime(endH)}
+                    </Text>
+                  </View>
+                );
               })()}
             </View>
 
-            <Text style={styles.blockModalReasonLabel}>REASON</Text>
+            {/* Date Range */}
+            <Text style={styles.blockModalReasonLabel}>DATE RANGE</Text>
+            <View style={styles.dateRangeRow}>
+              <Pressable 
+                style={styles.datePickerBtn} 
+                onPress={() => setShowFromPicker(!showFromPicker)}
+              >
+                <Feather name="calendar" size={14} color={Colors.dark.primary} />
+                <Text style={styles.datePickerBtnText}>
+                  {blockDateFrom.toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" })}
+                </Text>
+              </Pressable>
+              <Text style={styles.dateRangeArrow}>to</Text>
+              <Pressable 
+                style={styles.datePickerBtn} 
+                onPress={() => setShowToPicker(!showToPicker)}
+              >
+                <Feather name="calendar" size={14} color={Colors.dark.primary} />
+                <Text style={styles.datePickerBtnText}>
+                  {blockDateTo.toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" })}
+                </Text>
+              </Pressable>
+            </View>
+            
+            {showFromPicker ? (
+              <View style={styles.inlineDatePicker}>
+                <View style={styles.datePickerControls}>
+                  <Pressable onPress={() => {
+                    const d = new Date(blockDateFrom);
+                    d.setDate(d.getDate() - 1);
+                    setBlockDateFrom(d);
+                  }}>
+                    <Feather name="chevron-left" size={24} color={Colors.dark.primary} />
+                  </Pressable>
+                  <Text style={styles.datePickerCurrentDate}>
+                    {blockDateFrom.toLocaleDateString("en-GB", { weekday: "short", day: "2-digit", month: "short", year: "numeric" })}
+                  </Text>
+                  <Pressable onPress={() => {
+                    const d = new Date(blockDateFrom);
+                    d.setDate(d.getDate() + 1);
+                    setBlockDateFrom(d);
+                    if (d > blockDateTo) setBlockDateTo(new Date(d));
+                  }}>
+                    <Feather name="chevron-right" size={24} color={Colors.dark.primary} />
+                  </Pressable>
+                </View>
+                <Pressable style={styles.datePickerDone} onPress={() => setShowFromPicker(false)}>
+                  <Text style={styles.datePickerDoneText}>Done</Text>
+                </Pressable>
+              </View>
+            ) : null}
+
+            {showToPicker ? (
+              <View style={styles.inlineDatePicker}>
+                <View style={styles.datePickerControls}>
+                  <Pressable onPress={() => {
+                    const d = new Date(blockDateTo);
+                    d.setDate(d.getDate() - 1);
+                    if (d >= blockDateFrom) setBlockDateTo(d);
+                  }}>
+                    <Feather name="chevron-left" size={24} color={Colors.dark.primary} />
+                  </Pressable>
+                  <Text style={styles.datePickerCurrentDate}>
+                    {blockDateTo.toLocaleDateString("en-GB", { weekday: "short", day: "2-digit", month: "short", year: "numeric" })}
+                  </Text>
+                  <Pressable onPress={() => {
+                    const d = new Date(blockDateTo);
+                    d.setDate(d.getDate() + 1);
+                    setBlockDateTo(d);
+                  }}>
+                    <Feather name="chevron-right" size={24} color={Colors.dark.primary} />
+                  </Pressable>
+                </View>
+                <Pressable style={styles.datePickerDone} onPress={() => setShowToPicker(false)}>
+                  <Text style={styles.datePickerDoneText}>Done</Text>
+                </Pressable>
+              </View>
+            ) : null}
+
+            {/* Weekday Selector */}
+            <Text style={[styles.blockModalReasonLabel, { marginTop: 16 }]}>REPEAT ON DAYS</Text>
+            <View style={styles.weekdayRow}>
+              {[
+                { label: "Sun", value: 0 },
+                { label: "Mon", value: 1 },
+                { label: "Tue", value: 2 },
+                { label: "Wed", value: 3 },
+                { label: "Thu", value: 4 },
+                { label: "Fri", value: 5 },
+                { label: "Sat", value: 6 },
+              ].map((day) => {
+                const isSelected = blockWeekdays.includes(day.value);
+                return (
+                  <Pressable
+                    key={day.value}
+                    style={[styles.weekdayPill, isSelected && styles.weekdayPillActive]}
+                    onPress={() => {
+                      setBlockWeekdays(prev =>
+                        isSelected
+                          ? prev.filter(d => d !== day.value)
+                          : [...prev, day.value]
+                      );
+                    }}
+                  >
+                    <Text style={[styles.weekdayPillText, isSelected && styles.weekdayPillTextActive]}>
+                      {day.label}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+
+            {/* Reason */}
+            <Text style={[styles.blockModalReasonLabel, { marginTop: 16 }]}>REASON</Text>
             <View style={styles.blockReasonRow}>
-              {["training", "event", "maintenance", "closed"].map((reason) => (
+              {["personal", "holiday", "tournament", "sick", "training"].map((reason) => (
                 <Pressable
                   key={reason}
                   style={[
@@ -2912,21 +3061,37 @@ export default function CalendarScreen() {
               <Pressable 
                 style={styles.blockModalConfirmBtn} 
                 onPress={() => {
-                  blockCourtMutation.mutate(selectedCells.map(c => ({ courtId: c.courtId, hour: c.hour })));
+                  const allHours = selectedCells.map(c => c.hour).sort((a, b) => a - b);
+                  const uniqueHours = [...new Set(allHours)];
+                  const startH = uniqueHours[0];
+                  const endH = uniqueHours[uniqueHours.length - 1] + 1;
+                  const startTime = `${startH.toString().padStart(2, "0")}:00`;
+                  const endTime = `${endH.toString().padStart(2, "0")}:00`;
+                  const startDate = `${blockDateFrom.getFullYear()}-${(blockDateFrom.getMonth() + 1).toString().padStart(2, "0")}-${blockDateFrom.getDate().toString().padStart(2, "0")}`;
+                  const endDate = `${blockDateTo.getFullYear()}-${(blockDateTo.getMonth() + 1).toString().padStart(2, "0")}-${blockDateTo.getDate().toString().padStart(2, "0")}`;
+                  coachBlockMutation.mutate({
+                    startDate,
+                    endDate,
+                    weekdays: blockWeekdays,
+                    startTime,
+                    endTime,
+                    reason: blockReason,
+                  });
                 }}
-                disabled={blockCourtMutation.isPending}
+                disabled={coachBlockMutation.isPending || blockWeekdays.length === 0}
               >
-                {blockCourtMutation.isPending ? (
+                {coachBlockMutation.isPending ? (
                   <ActivityIndicator size="small" color="#1A1A1A" />
                 ) : (
                   <>
                     <Feather name="lock" size={16} color="#1A1A1A" />
-                    <Text style={styles.blockModalConfirmText}>Block Courts</Text>
+                    <Text style={styles.blockModalConfirmText}>Block Time</Text>
                   </>
                 )}
               </Pressable>
             </View>
-          </View>
+          </Pressable>
+          </ScrollView>
         </Pressable>
       </Modal>
 
@@ -4015,6 +4180,109 @@ const styles = StyleSheet.create({
     ...Typography.body,
     color: "#1A1A1A",
     fontWeight: "700",
+  },
+  dateRangeRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    marginBottom: 8,
+  },
+  datePickerBtn: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    backgroundColor: "rgba(255,255,255,0.06)",
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    borderRadius: BorderRadius.sm,
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.12)",
+  },
+  datePickerBtnText: {
+    ...Typography.body,
+    color: Colors.dark.textPrimary,
+    fontSize: 13,
+  },
+  dateRangeArrow: {
+    ...Typography.caption,
+    color: Colors.dark.textMuted,
+  },
+  inlineDatePicker: {
+    backgroundColor: "rgba(255,255,255,0.04)",
+    borderRadius: BorderRadius.sm,
+    padding: 12,
+    marginBottom: 8,
+  },
+  datePickerControls: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  datePickerCurrentDate: {
+    ...Typography.body,
+    color: Colors.dark.textPrimary,
+    fontWeight: "600",
+  },
+  datePickerDone: {
+    alignSelf: "flex-end",
+    marginTop: 8,
+    paddingHorizontal: 16,
+    paddingVertical: 6,
+    backgroundColor: Colors.dark.primary + "30",
+    borderRadius: BorderRadius.sm,
+  },
+  datePickerDoneText: {
+    ...Typography.caption,
+    color: Colors.dark.primary,
+    fontWeight: "700",
+  },
+  weekdayRow: {
+    flexDirection: "row",
+    gap: 6,
+    flexWrap: "wrap",
+  },
+  weekdayPill: {
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 20,
+    backgroundColor: "rgba(255,255,255,0.06)",
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.12)",
+  },
+  weekdayPillActive: {
+    backgroundColor: Colors.dark.primary + "25",
+    borderColor: Colors.dark.primary,
+  },
+  weekdayPillText: {
+    ...Typography.caption,
+    color: Colors.dark.textMuted,
+    fontWeight: "600",
+  },
+  weekdayPillTextActive: {
+    color: Colors.dark.primary,
+  },
+  coachBlockStyle: {
+    position: "absolute",
+    left: 2,
+    right: 2,
+    borderRadius: BorderRadius.xs,
+    backgroundColor: "rgba(255, 165, 0, 0.15)",
+    padding: Spacing.xs,
+    borderWidth: 1,
+    borderColor: "rgba(255, 165, 0, 0.4)",
+    borderStyle: "dashed",
+    overflow: "hidden",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  coachBlockText: {
+    ...Typography.caption,
+    color: "#FFA500",
+    fontWeight: "700",
+    letterSpacing: 0.5,
+    textAlign: "center",
+    fontSize: 9,
   },
   busyElsewhereBlock: {
     position: "absolute",
