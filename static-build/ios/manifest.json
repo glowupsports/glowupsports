@@ -1,11 +1,11 @@
 {
-  "id": "00e006d0-bbd2-4124-85c0-79c505ff92d5",
-  "createdAt": "2026-02-06T05:28:51.975Z",
-  "runtimeVersion": "1.3.0",
+  "id": "193ecd7a-9485-4a35-922d-4664c653bb1e",
+  "createdAt": "2026-02-06T05:39:21.732Z",
+  "runtimeVersion": "1.3.1",
   "launchAsset": {
-    "key": "bundle-1770355731975-26111",
+    "key": "bundle-1770356361732-28120",
     "contentType": "application/javascript",
-    "url": "https://81de32e9-0d70-4ba8-89e4-d7d5a668d2f1-00-mmcbv7admw7g.spock.replit.dev/1770355731975-26111/_expo/static/js/ios/bundle.js"
+    "url": "https://81de32e9-0d70-4ba8-89e4-d7d5a668d2f1-00-mmcbv7admw7g.spock.replit.dev/1770356361732-28120/_expo/static/js/ios/bundle.js"
   },
   "assets": [],
   "metadata": {},
@@ -16,8 +16,8 @@
     "expoClient": {
       "name": "Glow Up Sports",
       "slug": "glow-up-sports-qimo0pvm-ks03bklnmcri",
-      "version": "1.3.0",
-      "runtimeVersion": "1.3.0",
+      "version": "1.3.1",
+      "runtimeVersion": "1.3.1",
       "updates": {
         "enabled": true,
         "checkAutomatically": "ON_LOAD",
