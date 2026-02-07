@@ -30,7 +30,9 @@ import Animated, {
   useSharedValue, 
   withSpring,
   withTiming,
+  withSequence,
   interpolate,
+  runOnJS,
 } from "react-native-reanimated";
 import { Colors, Spacing, BorderRadius, Typography, FontSizes, getPlayerLevelColor, Backgrounds, GlowColors } from "@/constants/theme";
 import { apiRequest, getStaticAssetsUrl, getApiUrl, getAuthHeaders } from "@/lib/query-client";
@@ -901,6 +903,18 @@ function PlayerDetailView({
   const [isUpdatingAttendance, setIsUpdatingAttendance] = useState(false);
 
   const [localAuditVerified, setLocalAuditVerified] = useState<boolean>(!!player.auditVerifiedAt);
+  const [verifyFlashText, setVerifyFlashText] = useState<string | null>(null);
+  const verifyFlashOpacity = useSharedValue(0);
+  const verifyButtonScale = useSharedValue(1);
+
+  const verifyFlashStyle = useAnimatedStyle(() => ({
+    opacity: verifyFlashOpacity.value,
+    transform: [{ translateY: interpolate(verifyFlashOpacity.value, [0, 1], [8, 0]) }],
+  }));
+
+  const verifyButtonAnimStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: verifyButtonScale.value }],
+  }));
 
   const auditVerifyMutation = useMutation({
     mutationFn: async () => {
@@ -911,14 +925,25 @@ function PlayerDetailView({
       setLocalAuditVerified(data.auditVerified);
       queryClient.invalidateQueries({ queryKey: ["/api/players"] });
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      if (data.auditVerified) {
-        Alert.alert("Verified", `${player.name}'s credits and payments have been verified by you.`);
-      } else {
-        Alert.alert("Unverified", `${player.name}'s verification has been removed.`);
-      }
+      verifyButtonScale.value = withSequence(
+        withSpring(1.3, { damping: 8 }),
+        withSpring(1, { damping: 12 })
+      );
+      setVerifyFlashText(data.auditVerified ? "Verified" : "Unverified");
+      verifyFlashOpacity.value = withSequence(
+        withTiming(1, { duration: 150 }),
+        withTiming(1, { duration: 1200 }),
+        withTiming(0, { duration: 400 })
+      );
     },
     onError: (error: any) => {
-      Alert.alert("Error", "Could not update verification status. Please try again.");
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      setVerifyFlashText("Error");
+      verifyFlashOpacity.value = withSequence(
+        withTiming(1, { duration: 150 }),
+        withTiming(1, { duration: 1000 }),
+        withTiming(0, { duration: 400 })
+      );
       console.error("[AuditVerify] Error:", error);
     },
   });
@@ -1271,27 +1296,45 @@ function PlayerDetailView({
             <Ionicons name="arrow-back" size={22} color={Colors.dark.text} />
           </Pressable>
           <View style={{ flexDirection: "row", gap: Spacing.sm }}>
-            <Pressable 
-              style={[
-                styles.premiumExportButton,
-                localAuditVerified ? { backgroundColor: Colors.dark.primary + "30", borderColor: Colors.dark.primary, borderWidth: 1 } : null,
-              ]} 
-              onPress={() => {
-                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-                auditVerifyMutation.mutate();
-              }}
-              disabled={auditVerifyMutation.isPending}
-            >
-              {auditVerifyMutation.isPending ? (
-                <ActivityIndicator size="small" color={Colors.dark.primary} />
-              ) : (
-                <Ionicons 
-                  name={localAuditVerified ? "checkmark-circle" : "checkmark-circle-outline"} 
-                  size={22} 
-                  color={localAuditVerified ? Colors.dark.primary : Colors.dark.tabIconDefault} 
-                />
-              )}
-            </Pressable>
+            <View style={{ alignItems: "center" }}>
+              <Animated.View style={verifyButtonAnimStyle}>
+                <Pressable 
+                  style={[
+                    styles.premiumExportButton,
+                    localAuditVerified ? { backgroundColor: Colors.dark.primary + "30", borderColor: Colors.dark.primary, borderWidth: 1 } : null,
+                  ]} 
+                  onPress={() => {
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                    auditVerifyMutation.mutate();
+                  }}
+                  disabled={auditVerifyMutation.isPending}
+                >
+                  {auditVerifyMutation.isPending ? (
+                    <ActivityIndicator size="small" color={Colors.dark.primary} />
+                  ) : (
+                    <Ionicons 
+                      name={localAuditVerified ? "checkmark-circle" : "checkmark-circle-outline"} 
+                      size={22} 
+                      color={localAuditVerified ? Colors.dark.primary : Colors.dark.tabIconDefault} 
+                    />
+                  )}
+                </Pressable>
+              </Animated.View>
+              {verifyFlashText ? (
+                <Animated.Text style={[{
+                  position: "absolute",
+                  top: 44,
+                  fontSize: 11,
+                  fontWeight: "700",
+                  color: verifyFlashText === "Error" ? Colors.dark.error : 
+                         verifyFlashText === "Unverified" ? Colors.dark.warning : Colors.dark.primary,
+                  textAlign: "center",
+                  width: 80,
+                }, verifyFlashStyle]}>
+                  {verifyFlashText}
+                </Animated.Text>
+              ) : null}
+            </View>
             <Pressable 
               style={styles.premiumExportButton} 
               onPress={() => {
