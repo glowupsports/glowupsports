@@ -6515,20 +6515,20 @@ export const storage = {
     totalDebt: number;
     hasDebt: boolean;
   }> {
-    // SIMPLE APPROACH: Sum ALL credit transactions to get the real balance
-    // This includes package purchases (+), session bookings (-), debt settlements, etc.
-    // The net sum is always the correct balance
-    
     const allTransactions = await db.select({
       amount: creditTransactions.amount,
       creditType: creditTransactions.creditType,
+      reason: creditTransactions.reason,
+      metadata: creditTransactions.metadata,
     }).from(creditTransactions)
       .where(eq(creditTransactions.playerId, playerId));
     
     const balance = { group: 0, semi_private: 0, private: 0 };
     
-    // Sum all transactions by type
     for (const tx of allTransactions) {
+      const meta = tx.metadata as { settled?: boolean; cancelled?: boolean } | null;
+      if (meta?.settled === true || meta?.cancelled === true) continue;
+      
       const creditType = (tx.creditType || "group") as keyof typeof balance;
       if (balance[creditType] !== undefined) {
         balance[creditType] += tx.amount;
