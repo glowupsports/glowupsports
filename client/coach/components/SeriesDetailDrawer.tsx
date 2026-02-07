@@ -1790,7 +1790,7 @@ export default function SeriesDetailDrawer({
                         {isCompleted
                           ? "Completed"
                           : isCancelled || isSkipped
-                          ? "Cancelled"
+                          ? "Cancelled - Refunded"
                           : isPast || isToday
                           ? "Needs Attendance"
                           : "Tap to Edit"}
@@ -3070,6 +3070,13 @@ export default function SeriesDetailDrawer({
                       Week {selectedSession.weekNumber || ([...series.sessions].sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime()).findIndex(s => s.id === selectedSession.id) + 1)}
                     </Text>
                   </LinearGradient>
+                </View>
+                
+                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, marginBottom: Spacing.sm, paddingHorizontal: Spacing.md, paddingVertical: 8, borderRadius: 8, backgroundColor: Colors.dark.accentCyan + "15", borderWidth: 1, borderColor: Colors.dark.accentCyan + "30" }}>
+                  <Ionicons name="shield-checkmark" size={18} color={Colors.dark.accentCyan} />
+                  <Text style={{ color: Colors.dark.accentCyan, fontSize: 13, fontWeight: "600" }}>
+                    Credits Refunded - No charges applied
+                  </Text>
                 </View>
                 
                 <Text style={styles.restoreSessionDescription}>
