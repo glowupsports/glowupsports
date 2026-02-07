@@ -71,6 +71,8 @@ interface Player {
   totalCredits?: number;
   creditsByType?: { private: number; group: number; semiPrivate: number };
   primaryCreditType?: string | null;
+  auditVerifiedAt?: string | null;
+  auditVerifiedBy?: string | null;
 }
 
 interface PlayerNote {
@@ -217,6 +219,11 @@ function GamingPlayerCard({
               <Text style={styles.gamingCardName} numberOfLines={1}>
                 {player.name}
               </Text>
+              {player.auditVerifiedAt ? (
+                <View style={styles.auditVerifiedBadge}>
+                  <Ionicons name="checkmark-circle" size={16} color={Colors.dark.primary} />
+                </View>
+              ) : null}
               {needsBaseline && (
                 <Pressable 
                   style={styles.baselineNeededBadge}
@@ -893,6 +900,20 @@ function PlayerDetailView({
   const [editingAttendance, setEditingAttendance] = useState<AttendanceHistoryRecord | null>(null);
   const [isUpdatingAttendance, setIsUpdatingAttendance] = useState(false);
 
+  const [localAuditVerified, setLocalAuditVerified] = useState<boolean>(!!player.auditVerifiedAt);
+
+  const auditVerifyMutation = useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest("POST", `/api/players/${player.id}/audit-verify`);
+      return res.json();
+    },
+    onSuccess: (data: any) => {
+      setLocalAuditVerified(data.auditVerified);
+      queryClient.invalidateQueries({ queryKey: ["/api/players"] });
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    },
+  });
+
   const handleExportProgressReport = async () => {
     try {
       setIsExportingReport(true);
@@ -1241,6 +1262,27 @@ function PlayerDetailView({
             <Ionicons name="arrow-back" size={22} color={Colors.dark.text} />
           </Pressable>
           <View style={{ flexDirection: "row", gap: Spacing.sm }}>
+            <Pressable 
+              style={[
+                styles.premiumExportButton,
+                localAuditVerified ? { backgroundColor: Colors.dark.primary + "30", borderColor: Colors.dark.primary, borderWidth: 1 } : null,
+              ]} 
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                auditVerifyMutation.mutate();
+              }}
+              disabled={auditVerifyMutation.isPending}
+            >
+              {auditVerifyMutation.isPending ? (
+                <ActivityIndicator size="small" color={Colors.dark.primary} />
+              ) : (
+                <Ionicons 
+                  name={localAuditVerified ? "checkmark-circle" : "checkmark-circle-outline"} 
+                  size={22} 
+                  color={localAuditVerified ? Colors.dark.primary : Colors.dark.tabIconDefault} 
+                />
+              )}
+            </Pressable>
             <Pressable 
               style={styles.premiumExportButton} 
               onPress={() => {
@@ -2495,6 +2537,9 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     borderWidth: 1,
+  },
+  auditVerifiedBadge: {
+    marginLeft: 2,
   },
   baselineNeededBadge: {
     flexDirection: "row",
