@@ -147,29 +147,32 @@ export function usePushNotifications() {
       }
 
       let token: string | null = null;
+      const isExpoGo = Constants.appOwnership === 'expo';
 
-      const projectId = Constants.expoConfig?.extra?.eas?.projectId;
-      if (projectId) {
+      if (!isExpoGo) {
         try {
-          console.log('[Push] Getting Expo push token with projectId:', projectId);
-          const tokenData = await Notifications.getExpoPushTokenAsync({ projectId });
-          token = tokenData.data;
-          console.log('[Push] Got Expo push token:', token?.substring(0, 30) + '...');
-        } catch (expoError) {
-          console.warn('[Push] Failed to get Expo push token, trying native device token:', expoError);
+          console.log('[Push] Production build detected - getting native FCM token...');
+          const nativeToken = await Notifications.getDevicePushTokenAsync();
+          token = nativeToken.data as string;
+          console.log('[Push] Got native FCM token:', token?.substring(0, 40) + '...');
+        } catch (fcmError) {
+          console.warn('[Push] Failed to get native FCM token:', fcmError);
         }
-      } else {
-        console.warn('[Push] No EAS projectId configured, trying native device token');
       }
 
       if (!token) {
-        try {
-          console.log('[Push] Getting native device push token (FCM)...');
-          const nativeToken = await Notifications.getDevicePushTokenAsync();
-          token = nativeToken.data as string;
-          console.log('[Push] Got native FCM token:', token?.substring(0, 30) + '...');
-        } catch (nativeError) {
-          console.error('[Push] Failed to get native device token:', nativeError);
+        const projectId = Constants.expoConfig?.extra?.eas?.projectId;
+        if (projectId) {
+          try {
+            console.log('[Push] Trying Expo push token with projectId:', projectId);
+            const tokenData = await Notifications.getExpoPushTokenAsync({ projectId });
+            token = tokenData.data;
+            console.log('[Push] Got Expo push token:', token?.substring(0, 30) + '...');
+          } catch (expoError) {
+            console.error('[Push] Failed to get Expo push token:', expoError);
+          }
+        } else {
+          console.warn('[Push] No EAS projectId configured');
         }
       }
 
@@ -177,10 +180,12 @@ export function usePushNotifications() {
         setState(prev => ({
           ...prev,
           isLoading: false,
-          error: 'Could not obtain push token (tried Expo + native FCM)',
+          error: 'Could not obtain push token',
         }));
         return null;
       }
+
+      console.log('[Push] Final token type:', token.startsWith('ExponentPushToken[') ? 'EXPO' : 'FCM', '| isExpoGo:', isExpoGo);
 
       setState(prev => ({ 
         ...prev, 
