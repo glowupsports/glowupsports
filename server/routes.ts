@@ -5013,47 +5013,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
         isNewEnrollment = true;
       }
 
-      let creditDeductionResult = null;
-
-      // Deduct typed credits (updates specific session_player row with creditDeductedAt)
-      if (playerId && !isGuest && !skipCreditCheck) {
-        creditDeductionResult = await storage.deductTypedCreditsForSession(
-          playerId,
-          session.sessionType,
-          id,
-          academyId,
-          sessionPlayer?.id // Pass specific session_player ID for precise targeting
-        );
-        
-        // If deduction failed, only remove if this was a NEW enrollment
-        if (!creditDeductionResult.success) {
-          if (isNewEnrollment) {
-            await storage.removePlayerFromSession(id, playerId);
-          }
-          const player = await storage.getPlayer(playerId, academyId);
-          return res.status(400).json({
-            error: "credit_deduction_failed",
-            message: `Could not deduct credits for ${player?.name || "player"}: ${creditDeductionResult.reason}`,
-            creditType: creditDeductionResult.creditType,
-            playerId,
-            sessionId: id,
-            alreadyEnrolled: !isNewEnrollment,
-          });
-        }
-      }
-
-      // Send low credits notification if remaining credits are low (<=2)
-      if (creditDeductionResult && creditDeductionResult.success && creditDeductionResult.package) {
-        const remaining = creditDeductionResult.package.remainingCredits || 0;
-        if (remaining <= 2 && remaining >= 0) {
-          sendCreditsLowNotification(
-            playerId,
-            remaining,
-            creditDeductionResult.creditType || session.sessionType
-          ).catch(err => console.error("[PushNotification] Failed to send low credits notification:", err));
-        }
-      }
-
       if (skipCreditCheck && playerId && !isGuest) {
         const creditCheck = await storage.checkPlayerCreditsForSessionType(
           playerId,
@@ -5112,9 +5071,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(201).json({ 
         ...sessionPlayer, 
         success: true,
-        creditDeducted: creditDeductionResult?.success || false,
-        creditType: creditDeductionResult?.creditType,
-        remainingCredits: creditDeductionResult?.package?.remainingCredits,
+        creditDeducted: false,
+        creditType: null,
+        remainingCredits: null,
       });
     } catch (error) {
       console.error("Error adding player:", error);
@@ -5499,22 +5458,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Mark session as completed
       await storage.updateSession(id, { status: "completed" });
 
-      // If this is a class session, consume credits for active members
-      let creditConsumptionResult = null;
-      if (session.seriesId) {
-        try {
-          creditConsumptionResult = await storage.consumeCreditsForClassSession(
-            session.seriesId,
-            id,
-            new Date(session.startTime)
-          );
-          console.log(`[Credits] Session ${id}: consumed ${creditConsumptionResult.consumed}, skipped ${creditConsumptionResult.skipped}, errors: ${creditConsumptionResult.errors.length}`);
-        } catch (creditError) {
-          console.error("[Credits] Error consuming credits for class session:", creditError);
-          // Don't fail the whole request, just log the error
-        }
-      }
-
       // Award Coach XP based on session type
       const COACH_XP_REWARDS: Record<string, number> = {
         private: 25,
@@ -5567,7 +5510,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const playerXp = PLAYER_XP_REWARDS[session.sessionType] || 15;
       
       const sessionPlayers = await storage.getSessionPlayers(id);
-      const creditResults: { playerId: string; success: boolean; reason?: string }[] = [];
       
       for (const sp of sessionPlayers) {
         if (sp.playerId && sp.attendanceStatus === "present") {
@@ -5623,27 +5565,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
             }
           }
           
-          // Check if credits were already deducted at booking time (new flow)
-          const existingTransactions = await storage.getCreditTransactionsBySession(id);
-          const alreadyDeducted = existingTransactions.some(
-            t => t.playerId === sp.playerId && t.type === "debit" && t.reason === "session_booking"
-          );
-          
-          if (!alreadyDeducted) {
-            // Auto-deduct credit from player's active package (legacy flow for old sessions)
-            const creditResult = await storage.autoDeductPlayerCredit(sp.playerId, academyId || undefined);
-            creditResults.push({
-              playerId: sp.playerId,
-              success: creditResult.success,
-              reason: creditResult.reason,
-            });
-          } else {
-            creditResults.push({
-              playerId: sp.playerId,
-              success: true,
-              reason: "already_deducted_at_booking",
-            });
-          }
         }
       }
 
@@ -5681,7 +5602,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(201).json({ 
         feedback, 
         xpAwarded: { coach: coachXp, playerCount: sessionPlayers.filter(sp => sp.attendanceStatus === "present").length },
-        creditsDeducted: creditResults,
+        creditsDeducted: [],
       });
     } catch (error) {
       console.error("Error saving feedback:", error);
@@ -11261,14 +11182,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 
                 // Mark as attended - returns object with isNewAttendance flag
                 const attendanceResult = await storage.markAttendance(sessionId, playerId, true, academyId);
-                // Only consume credit if this is NEW attendance (not a duplicate)
                 if (attendanceResult && attendanceResult.isNewAttendance) {
-                  const consumed = await storage.consumeSingleCreditForSession(playerId, sessionId, academyId, assignedPackageId, sessionType);
-                  // If no credits consumed, create debt transaction
-                  if (!consumed) {
-                    await storage.createDebtTransaction(playerId, sessionId, academyId, sessionType);
-                  }
-                  // Award XP for attended session
+                  const { ensureCreditProcessed } = await import("./storage");
+                  await ensureCreditProcessed(attendanceResult.record.id);
                   if (session) {
                     const xpAmount = session.xpValue || 20;
                     await storage.addPlayerXP(playerId, xpAmount, sessionId, "session_attendance");
@@ -11335,14 +11251,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
             }
             // Mark as attended - returns object with isNewAttendance flag
             const attendanceResult = await storage.markAttendance(sessionId, playerId, true, academyId);
-            // Only consume credit if this is NEW attendance (not a duplicate)
             if (attendanceResult && attendanceResult.isNewAttendance) {
-              const consumed = await storage.consumeSingleCreditForSession(playerId, sessionId, academyId, assignedPackageId, sessionType);
-              // If no credits consumed, create debt transaction
-              if (!consumed) {
-                await storage.createDebtTransaction(playerId, sessionId, academyId, sessionType);
-              }
-              // Award XP for attended session
+              const { ensureCreditProcessed } = await import("./storage");
+              await ensureCreditProcessed(attendanceResult.record.id);
               if (session) {
                 const xpAmount = session.xpValue || 20;
                 await storage.addPlayerXP(playerId, xpAmount, sessionId, "session_attendance");
@@ -18633,28 +18544,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
           }
         }
         
-        // Consume credits if this is a series session
-        if (session.seriesId) {
-          try {
-            await storage.deleteSessionCreditTransactions(id);
-            
-            const isPrivateSession = session.sessionType === "private" || session.sessionType === "private_adjusted";
-            const chargeablePlayers = isPrivateSession
-              ? attendance.filter((a: { status: string }) => a.status === "present" || a.status === "absent")
-              : presentPlayers;
-            
-            await storage.consumeCreditsForClassSessionWithAttendance(
-              session.seriesId,
-              id,
-              new Date(session.startTime),
-              chargeablePlayers.map((p: { playerId: string }) => p.playerId),
-              presentPlayers.length,
-              attendance.length
-            );
-          } catch (creditError) {
-            console.error("[Credits] Error consuming credits:", creditError);
-          }
-        }
       }
 
       res.json({ success: true, updated: results.length });
