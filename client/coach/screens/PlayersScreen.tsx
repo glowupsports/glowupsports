@@ -924,6 +924,7 @@ function PlayerDetailView({
     onSuccess: (data: any) => {
       setLocalAuditVerified(data.auditVerified);
       queryClient.invalidateQueries({ queryKey: ["/api/players"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/players?withCredits=true"] });
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       verifyButtonScale.value = withSequence(
         withSpring(1.3, { damping: 8 }),
