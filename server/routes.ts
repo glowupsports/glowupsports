@@ -359,6 +359,334 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
 
+  // TEMPORARY: Full credit repair and attendance report for all players
+  app.post("/api/debug/repair-all-credits", async (req: Request, res: Response) => {
+    try {
+      const allPlayers = await db.select({
+        id: players.id,
+        name: players.name,
+      }).from(players).orderBy(players.name);
+
+      const report: any[] = [];
+      let totalDuplicatesRemoved = 0;
+
+      for (const player of allPlayers) {
+        const attendanceData = await db.select({
+          status: sessionPlayers.attendanceStatus,
+        }).from(sessionPlayers)
+          .where(eq(sessionPlayers.playerId, player.id));
+
+        const presentCount = attendanceData.filter(a => a.status === "present" || a.status === "late").length;
+        const absentCount = attendanceData.filter(a => a.status === "absent").length;
+        const vacationCount = attendanceData.filter(a => a.status === "vacation").length;
+        const totalSessions = attendanceData.length;
+
+        const allDebits = await db.select({
+          id: creditTransactions.id,
+          sessionId: creditTransactions.sessionId,
+          amount: creditTransactions.amount,
+          reason: creditTransactions.reason,
+          creditType: creditTransactions.creditType,
+          createdAt: creditTransactions.createdAt,
+          packageId: creditTransactions.packageId,
+        }).from(creditTransactions)
+          .where(and(
+            eq(creditTransactions.playerId, player.id),
+            eq(creditTransactions.type, "debit"),
+          ))
+          .orderBy(creditTransactions.createdAt);
+
+        const debitsBySession = new Map<string, typeof allDebits>();
+        for (const debit of allDebits) {
+          if (!debit.sessionId) continue;
+          const existing = debitsBySession.get(debit.sessionId) || [];
+          existing.push(debit);
+          debitsBySession.set(debit.sessionId, existing);
+        }
+
+        let duplicatesRemoved = 0;
+        for (const [sessionId, debits] of debitsBySession) {
+          if (debits.length <= 1) continue;
+          
+          const sorted = [...debits].sort((a, b) => {
+            if (a.packageId && !b.packageId) return -1;
+            if (!a.packageId && b.packageId) return 1;
+            const reasonOrder: Record<string, number> = {
+              session_consumed: 1,
+              session_join: 2,
+              session_booking: 3,
+              session_debt: 4,
+              session_join_debt: 5,
+              session_unpaid: 6,
+            };
+            const aOrder = reasonOrder[a.reason || ""] || 10;
+            const bOrder = reasonOrder[b.reason || ""] || 10;
+            if (aOrder !== bOrder) return aOrder - bOrder;
+            return new Date(a.createdAt!).getTime() - new Date(b.createdAt!).getTime();
+          });
+
+          const toKeep = sorted[0];
+          const toDelete = sorted.slice(1);
+          
+          for (const dup of toDelete) {
+            await db.delete(creditTransactions).where(eq(creditTransactions.id, dup.id));
+            duplicatesRemoved++;
+            totalDuplicatesRemoved++;
+          }
+        }
+
+        const afterDebits = await db.select({
+          amount: creditTransactions.amount,
+          creditType: creditTransactions.creditType,
+        }).from(creditTransactions)
+          .where(eq(creditTransactions.playerId, player.id));
+
+        const balance = { group: 0, semi_private: 0, private: 0 };
+        for (const tx of afterDebits) {
+          const ct = (tx.creditType || "group") as keyof typeof balance;
+          if (balance[ct] !== undefined) {
+            balance[ct] += tx.amount;
+          }
+        }
+
+        report.push({
+          name: player.name,
+          attended: presentCount,
+          absent: absentCount,
+          vacation: vacationCount,
+          totalSessions,
+          duplicatesRemoved,
+          creditBalance: balance,
+        });
+      }
+
+      res.json({
+        totalPlayers: report.length,
+        totalDuplicatesRemoved,
+        players: report,
+      });
+    } catch (error: any) {
+      console.error("[RepairAllCredits] Error:", error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+
+  // TEMPORARY: Deep credit repair - ensure debits match attendance exactly
+  app.post("/api/debug/deep-repair-credits", async (req: Request, res: Response) => {
+    try {
+      const allPlayers = await db.select({
+        id: players.id,
+        name: players.name,
+      }).from(players).orderBy(players.name);
+
+      const report: any[] = [];
+      let totalExcessRemoved = 0;
+
+      for (const player of allPlayers) {
+        const spRecords = await db.execute(sql`
+          SELECT sp.id, sp.session_id, sp.attendance_status, sp.player_id, s.session_type
+          FROM session_players sp
+          JOIN sessions s ON s.id = sp.session_id
+          WHERE sp.player_id = ${player.id}
+            AND s.status != 'cancelled'
+        `);
+
+        let chargeableCount = 0;
+        const chargeableSessionIds = new Set<string>();
+        for (const sp of spRecords.rows as any[]) {
+          const status = (sp.attendance_status || "").toLowerCase();
+          const sessionType = (sp.session_type || "group").toLowerCase();
+          const isPrivate = sessionType === "private" || sessionType === "private_adjusted";
+          
+          const isChargeable = isPrivate
+            ? ["present", "late", "absent"].includes(status)
+            : ["present", "late"].includes(status);
+          
+          if (isChargeable) {
+            chargeableCount++;
+            chargeableSessionIds.add(sp.session_id);
+          }
+        }
+
+        const allDebits = await db.select({
+          id: creditTransactions.id,
+          sessionId: creditTransactions.sessionId,
+          amount: creditTransactions.amount,
+          reason: creditTransactions.reason,
+          creditType: creditTransactions.creditType,
+          createdAt: creditTransactions.createdAt,
+          packageId: creditTransactions.packageId,
+        }).from(creditTransactions)
+          .where(and(
+            eq(creditTransactions.playerId, player.id),
+            eq(creditTransactions.type, "debit"),
+          ))
+          .orderBy(creditTransactions.createdAt);
+
+        const totalDebits = allDebits.length;
+        
+        if (totalDebits <= chargeableCount) {
+          report.push({
+            name: player.name,
+            chargeableAttendance: chargeableCount,
+            debitTransactions: totalDebits,
+            excess: 0,
+            removed: 0,
+            status: totalDebits === chargeableCount ? "OK" : "UNDER",
+          });
+          continue;
+        }
+
+        const excess = totalDebits - chargeableCount;
+        
+        const debitsBySession = new Map<string, any[]>();
+        const orphanDebits: any[] = [];
+        
+        for (const debit of allDebits) {
+          if (debit.sessionId && chargeableSessionIds.has(debit.sessionId)) {
+            const existing = debitsBySession.get(debit.sessionId) || [];
+            existing.push(debit);
+            debitsBySession.set(debit.sessionId, existing);
+          } else {
+            orphanDebits.push(debit);
+          }
+        }
+
+        let removedCount = 0;
+        for (const orphan of orphanDebits) {
+          await db.delete(creditTransactions).where(eq(creditTransactions.id, orphan.id));
+          removedCount++;
+        }
+
+        for (const [sessionId, debitsForSession] of debitsBySession) {
+          if (debitsForSession.length <= 1) continue;
+          
+          const sorted = [...debitsForSession].sort((a: any, b: any) => {
+            if (a.packageId && !b.packageId) return -1;
+            if (!a.packageId && b.packageId) return 1;
+            const order: Record<string, number> = { session_consumed: 1, session_join: 2, session_booking: 3 };
+            const ao = order[a.reason || ""] || 10;
+            const bo = order[b.reason || ""] || 10;
+            if (ao !== bo) return ao - bo;
+            return new Date(a.createdAt!).getTime() - new Date(b.createdAt!).getTime();
+          });
+          
+          for (let i = 1; i < sorted.length; i++) {
+            await db.delete(creditTransactions).where(eq(creditTransactions.id, sorted[i].id));
+            removedCount++;
+          }
+        }
+
+        totalExcessRemoved += removedCount;
+
+        const afterTx = await db.select({
+          amount: creditTransactions.amount,
+          creditType: creditTransactions.creditType,
+        }).from(creditTransactions)
+          .where(eq(creditTransactions.playerId, player.id));
+
+        const balance = { group: 0, semi_private: 0, private: 0 };
+        for (const tx of afterTx) {
+          const ct = (tx.creditType || "group") as keyof typeof balance;
+          if (balance[ct] !== undefined) balance[ct] += tx.amount;
+        }
+
+        report.push({
+          name: player.name,
+          chargeableAttendance: chargeableCount,
+          debitTransactions: totalDebits,
+          excess,
+          removed: removedCount,
+          newBalance: balance,
+          status: "FIXED",
+        });
+      }
+
+      res.json({
+        totalPlayers: report.length,
+        totalExcessRemoved,
+        playersFixed: report.filter(r => r.status === "FIXED").length,
+        playersOk: report.filter(r => r.status === "OK").length,
+        playersUnder: report.filter(r => r.status === "UNDER").length,
+        players: report,
+      });
+    } catch (error: any) {
+      console.error("[DeepRepair] Error:", error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // TEMPORARY: Fill missing credit transactions for all UNDER-charged players
+  app.post("/api/debug/reset-orphaned-session-players", async (req: Request, res: Response) => {
+    try {
+      const { ensureCreditProcessed } = await import("./storage");
+      
+      // Find ALL chargeable session_players that don't have a matching debit transaction
+      const missingDebits = await db.execute(sql`
+        SELECT sp.id, sp.player_id, sp.session_id, sp.attendance_status, sp.credit_deducted_at,
+               s.session_type, p.name as player_name
+        FROM session_players sp
+        JOIN sessions s ON s.id = sp.session_id
+        JOIN players p ON p.id = sp.player_id
+        WHERE s.status != 'cancelled'
+          AND (
+            sp.attendance_status IN ('present', 'late')
+            OR (sp.attendance_status = 'absent' AND s.session_type IN ('private', 'private_adjusted'))
+          )
+          AND NOT EXISTS (
+            SELECT 1 FROM credit_transactions ct
+            WHERE ct.player_id = sp.player_id
+              AND ct.session_id = sp.session_id
+              AND ct.type = 'debit'
+          )
+        ORDER BY p.name, s.created_at
+      `);
+
+      console.log(`[FillMissing] Found ${missingDebits.rows.length} chargeable session_players without matching debit`);
+
+      let processed = 0;
+      let consumed = 0;
+      let debts = 0;
+      let alreadyDone = 0;
+      let errors: string[] = [];
+
+      for (const row of missingDebits.rows as any[]) {
+        try {
+          // Reset credit_deducted_at so ensureCreditProcessed will process it
+          if (row.credit_deducted_at) {
+            await db.execute(sql`
+              UPDATE session_players 
+              SET credit_deducted_at = NULL, credit_transaction_id = NULL
+              WHERE id = ${row.id}
+            `);
+          }
+
+          const result = await ensureCreditProcessed(row.id);
+          processed++;
+          if (result.action === "consumed") consumed++;
+          else if (result.action === "debt_created") debts++;
+          else if (result.action === "already_processed") alreadyDone++;
+        } catch (e: any) {
+          errors.push(`${row.player_name}: ${e.message}`);
+        }
+      }
+
+      res.json({
+        totalMissing: missingDebits.rows.length,
+        processed,
+        consumed,
+        debts,
+        alreadyDone,
+        errors: errors.length,
+        errorDetails: errors.slice(0, 20),
+      });
+    } catch (error: any) {
+      console.error("[FillMissing] Error:", error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   // TEMPORARY: Fix unpaid sessions for specific player (public endpoint for debugging)
   app.post("/api/fix-player-unpaid/:playerId", async (req: Request, res: Response) => {
     try {
