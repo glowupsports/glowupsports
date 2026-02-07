@@ -5955,16 +5955,22 @@ export const storage = {
   // ==================== PHASE 3: PUSH NOTIFICATIONS ====================
 
   async registerPushToken(data: InsertPushDeviceToken): Promise<PushDeviceToken> {
-    // Check if token already exists, update if so
     const existing = await db.select().from(pushDeviceTokens).where(eq(pushDeviceTokens.token, data.token));
     if (existing.length > 0) {
       const updated = await db.update(pushDeviceTokens)
-        .set({ isActive: true, lastUsedAt: new Date(), coachId: data.coachId })
+        .set({ 
+          isActive: true, 
+          lastUsedAt: new Date(), 
+          coachId: data.coachId,
+          playerId: data.playerId || existing[0].playerId,
+        })
         .where(eq(pushDeviceTokens.token, data.token))
         .returning();
+      console.log(`[PushToken] Updated existing token for user ${data.userId} (coach: ${data.coachId}, player: ${data.playerId})`);
       return updated[0];
     }
     const result = await db.insert(pushDeviceTokens).values(data).returning();
+    console.log(`[PushToken] Registered new token for user ${data.userId} (coach: ${data.coachId}, player: ${data.playerId}, platform: ${data.platform})`);
     return result[0];
   },
 

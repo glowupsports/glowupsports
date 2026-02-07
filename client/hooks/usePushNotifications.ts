@@ -147,6 +147,7 @@ export function usePushNotifications() {
         return null;
       }
 
+      console.log('[Push] Getting Expo push token with projectId:', projectId);
       const tokenData = await Notifications.getExpoPushTokenAsync({ projectId });
       const token = tokenData.data;
 
@@ -168,6 +169,7 @@ export function usePushNotifications() {
       return token;
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Failed to get push token';
+      console.error('[Push] FAILED to get push token:', message, error);
       setState(prev => ({ ...prev, isLoading: false, error: message }));
       return null;
     }
@@ -176,6 +178,7 @@ export function usePushNotifications() {
   const registerTokenWithServer = useCallback(async (token: string) => {
     if (!user?.id) return;
 
+    console.log('[Push] Registering token with server:', token.substring(0, 30) + '...');
     try {
       const url = new URL('/api/push/register', getApiUrl());
       await apiRequest('POST', url.toString(), {
@@ -187,7 +190,7 @@ export function usePushNotifications() {
       setState(prev => ({ ...prev, isRegistered: true }));
       console.log('Push token registered successfully');
     } catch (error) {
-      console.error('Failed to register push token with server:', error);
+      console.error('[Push] FAILED to register token with server:', error);
     }
   }, [user?.id]);
 
@@ -236,11 +239,17 @@ export function usePushNotifications() {
 
   useEffect(() => {
     if (user?.id && Platform.OS !== 'web' && Device.isDevice) {
+      console.log('[Push] Auto-registering push notifications for user:', user.id);
       registerForPushNotificationsAsync().then(token => {
         if (token) {
+          console.log('[Push] Got token, registering with server...');
           registerTokenWithServer(token);
+        } else {
+          console.log('[Push] No token obtained - check permissions and projectId');
         }
       });
+    } else {
+      console.log('[Push] Skipping push registration - web:', Platform.OS === 'web', 'isDevice:', Device.isDevice, 'userId:', user?.id);
     }
   }, [user?.id, registerForPushNotificationsAsync, registerTokenWithServer]);
 

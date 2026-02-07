@@ -2502,6 +2502,7 @@ export const pushDeviceTokens = pgTable("push_device_tokens", {
     .default(sql`gen_random_uuid()`),
   userId: varchar("user_id").references(() => users.id).notNull(),
   coachId: varchar("coach_id").references(() => coaches.id),
+  playerId: varchar("player_id").references(() => players.id),
   
   token: text("token").notNull(),
   platform: text("platform").notNull(), // ios | android | web

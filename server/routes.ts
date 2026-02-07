@@ -54,6 +54,7 @@ import {
   playerCreditPackages,
   playerBallLevels,
   academies,
+  pushDeviceTokens,
 
 } from "@shared/schema";
 import { setupWebSocket, broadcastNewMessage, broadcastNewSession, broadcastFeedbackReceived, broadcastSessionUpdate } from "./websocket";
@@ -15385,6 +15386,53 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error sending test push:", error);
       res.status(500).json({ error: "Failed to send test notification" });
+    }
+  });
+
+  app.get("/api/push/debug", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const userId = req.user!.userId;
+      const coachId = req.user!.coachId;
+      const playerId = req.user!.playerId;
+
+      const allTokens = await db.select().from(pushDeviceTokens)
+        .where(eq(pushDeviceTokens.userId, userId));
+
+      const activeTokens = allTokens.filter(t => t.isActive);
+
+      const tokenSummary = activeTokens.map(t => ({
+        id: t.id,
+        platform: t.platform,
+        deviceName: t.deviceName,
+        tokenType: t.token.startsWith("ExponentPushToken[") ? "expo" : "fcm",
+        tokenPreview: t.token.substring(0, 30) + "...",
+        coachId: t.coachId,
+        playerId: t.playerId,
+        lastUsedAt: t.lastUsedAt,
+        createdAt: t.createdAt,
+      }));
+
+      const { isFirebaseInitialized } = await import("./fcm");
+
+      res.json({
+        userId,
+        coachId,
+        playerId,
+        totalTokens: allTokens.length,
+        activeTokens: activeTokens.length,
+        inactiveTokens: allTokens.length - activeTokens.length,
+        tokens: tokenSummary,
+        firebaseInitialized: isFirebaseInitialized(),
+        diagnostics: {
+          hasActiveExpoTokens: activeTokens.some(t => t.token.startsWith("ExponentPushToken[")),
+          hasActiveFCMTokens: activeTokens.some(t => !t.token.startsWith("ExponentPushToken[") && t.token.length > 100),
+          coachTokensLinked: activeTokens.some(t => t.coachId === coachId),
+          playerTokensLinked: activeTokens.some(t => t.playerId === playerId),
+        }
+      });
+    } catch (error) {
+      console.error("Error in push debug:", error);
+      res.status(500).json({ error: "Failed to get push debug info" });
     }
   });
 
