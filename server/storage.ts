@@ -2413,15 +2413,49 @@ export const storage = {
       t => t.playerId === playerId && t.type === "debit" && t.reason === "session_booking"
     );
     
-    // If no session_booking found, check for session_join_debt (players without packages)
+    // If no session_booking found, check for session_join_debt or session_debt (players without packages)
     if (!originalDebit) {
       const debtTransaction = transactions.find(
-        t => t.playerId === playerId && t.type === "debit" && t.reason === "session_join_debt"
+        t => t.playerId === playerId && t.type === "debit" && 
+        (t.reason === "session_join_debt" || t.reason === "session_debt")
       );
       
       if (debtTransaction) {
-        // Remove the debt transaction (no package to refund to)
-        await db.delete(creditTransactions).where(eq(creditTransactions.id, debtTransaction.id));
+        const meta = debtTransaction.metadata ? 
+          (typeof debtTransaction.metadata === 'string' ? JSON.parse(debtTransaction.metadata) : debtTransaction.metadata) : {};
+        
+        if (meta.settled && meta.settledByPackage) {
+          // This debt was already settled by a package purchase - need to refund the package credit
+          const pkg = await this.getPackage(meta.settledByPackage);
+          if (pkg) {
+            await db.update(packages)
+              .set({ remainingCredits: pkg.remainingCredits + 1 })
+              .where(eq(packages.id, pkg.id));
+            
+            // Also undo the debt_settlement transaction if exists
+            if (meta.settledByTransactionId) {
+              const existingMeta = await db.select({ metadata: creditTransactions.metadata })
+                .from(creditTransactions)
+                .where(eq(creditTransactions.id, meta.settledByTransactionId));
+              if (existingMeta.length > 0) {
+                const settleMeta = existingMeta[0].metadata ? 
+                  (typeof existingMeta[0].metadata === 'string' ? JSON.parse(existingMeta[0].metadata) : existingMeta[0].metadata) : {};
+                await db.update(creditTransactions)
+                  .set({ metadata: { ...settleMeta, cancelled: true, cancelledReason: "session_cancelled" } })
+                  .where(eq(creditTransactions.id, meta.settledByTransactionId));
+              }
+            }
+          }
+          // Mark the original debt as cancelled
+          await db.update(creditTransactions)
+            .set({ metadata: { ...meta, cancelled: true, cancelledReason: "session_cancelled" } })
+            .where(eq(creditTransactions.id, debtTransaction.id));
+        } else {
+          // Unsettled debt - just mark as cancelled
+          await db.update(creditTransactions)
+            .set({ metadata: { ...meta, cancelled: true, cancelledReason: "session_cancelled" } })
+            .where(eq(creditTransactions.id, debtTransaction.id));
+        }
         
         // Clear session_player record
         await db.update(sessionPlayers)
@@ -2434,7 +2468,7 @@ export const storage = {
             eq(sessionPlayers.playerId, playerId)
           ));
         
-        console.log(`[Refund] Removed debt transaction for player ${playerId} in session ${sessionId}`);
+        console.log(`[Refund] Cancelled debt transaction for player ${playerId} in session ${sessionId} (settled: ${!!meta.settled})`);
         return { 
           success: true, 
           creditType: debtTransaction.creditType || "group",
