@@ -6475,19 +6475,17 @@ export const storage = {
     }).from(creditTransactions)
       .where(eq(creditTransactions.playerId, playerId));
     
-    // Get all active packages for this player to validate purchase credits
-    const activePackages = await db.select({
+    // Get ALL packages for this player (any status) to validate purchase credits
+    // Ghost credits are only for DELETED packages (not in DB at all)
+    // Depleted/expired packages are REAL - their purchases are valid
+    const allPlayerPackages = await db.select({
       id: packages.id,
       status: packages.status,
       expiryDate: packages.expiryDate,
     }).from(packages)
       .where(eq(packages.playerId, playerId));
     
-    const activePackageIds = new Set(
-      activePackages
-        .filter(pkg => pkg.status === "active")
-        .map(pkg => pkg.id)
-    );
+    const existingPackageIds = new Set(allPlayerPackages.map(pkg => pkg.id));
     
     const balance = { group: 0, semi_private: 0, private: 0 };
     
@@ -6495,9 +6493,10 @@ export const storage = {
       const meta = tx.metadata as { settled?: boolean; cancelled?: boolean; expired?: boolean } | null;
       if (meta?.settled === true || meta?.cancelled === true || meta?.expired === true) continue;
       
-      // For purchase/package credits, only count if the associated package is still active
+      // For purchase/package credits, only count if the package EXISTS in the database
+      // Depleted/expired packages are still real - only truly deleted packages are ghosts
       if (tx.amount > 0 && tx.packageId) {
-        if (!activePackageIds.has(tx.packageId)) {
+        if (!existingPackageIds.has(tx.packageId)) {
           continue;
         }
       }
@@ -11202,21 +11201,24 @@ async function auditAllPlayerCredits(): Promise<{
   const playerIds = allPlayers.map(p => p.id);
   const playerNameMap = new Map(allPlayers.map(p => [p.id, p.name]));
   
-  // Get all active package IDs
-  const activePackagesList = await db.select({
+  // Get ALL package IDs that exist in the database (any status)
+  const allPackagesList = await db.select({
     id: packages.id,
     playerId: packages.playerId,
     status: packages.status,
   }).from(packages)
     .where(inArray(packages.playerId, playerIds));
   
+  // ALL existing package IDs - ghost credits are only for DELETED packages (not in DB at all)
+  const existingPackageIds = new Set(allPackagesList.map(pkg => pkg.id));
+  // Active package IDs - used for Phase 3 balance sync
   const activePackageIds = new Set(
-    activePackagesList
+    allPackagesList
       .filter(pkg => pkg.status === "active")
       .map(pkg => pkg.id)
   );
   
-  // Find all positive credit transactions with non-active packageIds (ghost credits)
+  // Find all credit transactions for these players
   const allPositiveTransactions = await db.select({
     id: creditTransactions.id,
     playerId: creditTransactions.playerId,
@@ -11228,11 +11230,12 @@ async function auditAllPlayerCredits(): Promise<{
   }).from(creditTransactions)
     .where(inArray(creditTransactions.playerId, playerIds));
   
-  // Filter to ghost credits: positive amounts with a packageId that isn't active
+  // Ghost credits: positive amounts referencing a packageId that NO LONGER EXISTS in the database
+  // Depleted/expired packages are REAL packages - their purchases are valid, not ghosts
   const ghostPurchases = allPositiveTransactions.filter(tx => {
     if (tx.amount <= 0) return false;
     if (!tx.packageId) return false;
-    if (activePackageIds.has(tx.packageId)) return false;
+    if (existingPackageIds.has(tx.packageId)) return false;
     return true;
   });
   
@@ -11322,10 +11325,10 @@ async function auditAllPlayerCredits(): Promise<{
     for (const tx of allPlayerTxs) {
       const meta = tx.metadata as { settled?: boolean; cancelled?: boolean; expired?: boolean } | null;
       if (meta?.settled || meta?.cancelled || meta?.expired) continue;
-      // Skip orphan purchases
+      // Skip orphan purchases (no packageId)
       if (tx.amount > 0 && !tx.packageId && (tx.reason === "package_purchased" || tx.reason === "package_purchase")) continue;
-      // Skip purchases for non-active packages
-      if (tx.amount > 0 && tx.packageId && !activePackageIds.has(tx.packageId)) continue;
+      // Skip purchases for DELETED packages (not in DB at all) - depleted/expired packages are real
+      if (tx.amount > 0 && tx.packageId && !existingPackageIds.has(tx.packageId)) continue;
       txBalance += tx.amount;
     }
     
