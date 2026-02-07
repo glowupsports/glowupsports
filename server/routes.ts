@@ -4131,32 +4131,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 sessionId: session.id,
                 playerId,
               });
-              
-              const creditResult = await storage.deductTypedCreditsForSession(
-                playerId,
-                sessionType,
-                session.id,
-                academyId || undefined
-              );
-              
-              if (!creditResult.success) {
-                const player = await storage.getPlayer(playerId, academyId!);
-                if (player) {
-                  const creditTypeLabel = (creditResult.creditType || sessionType).replace("_", "-");
-                  await storage.createNotification({
-                    playerId,
-                    type: "credits_needed",
-                    title: "Credits Required",
-                    message: `You've been added to a ${creditTypeLabel} lesson but don't have matching credits.`,
-                    metadata: JSON.stringify({
-                      sessionId: session.id,
-                      sessionType,
-                      requiredCreditType: creditResult.creditType,
-                    }),
-                  });
-                  await storage.createDebtForSession(playerId, sessionType, session.id, academyId || undefined);
-                }
-              }
             }
           }
           
@@ -4268,36 +4242,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
               playerNames.push(player.name);
             }
             
-            // First add player to session (creates session_player record)
             await storage.addPlayerToSession({
               sessionId: session.id,
               playerId,
             });
-            
-            // Then deduct typed credits (updates session_player with creditDeductedAt)
-            const creditResult = await storage.deductTypedCreditsForSession(
-              playerId,
-              sessionType,
-              session.id,
-              academyId || undefined
-            );
-            
-            // If credits couldn't be deducted, create notification
-            if (!creditResult.success && player) {
-              const creditTypeLabel = (creditResult.creditType || sessionType).replace("_", "-");
-              await storage.createNotification({
-                playerId,
-                type: "credits_needed",
-                title: "Credits Required",
-                message: `You've been added to a ${creditTypeLabel} lesson but don't have matching credits.`,
-                metadata: JSON.stringify({
-                  sessionId: session.id,
-                  sessionType,
-                  requiredCreditType: creditResult.creditType,
-                }),
-              });
-              await storage.createDebtForSession(playerId, sessionType, session.id, academyId || undefined);
-            }
           }
         }
 
@@ -9404,37 +9352,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         for (const session of sessionInstances) {
           if (!session.isSkipped) {
             for (const playerId of playerIds) {
-              // First add player to session
               await storage.addPlayerToSession({
                 sessionId: session.id,
                 playerId,
               });
-              
-              // Then deduct typed credits (updates session_player with creditDeductedAt)
-              const creditResult = await storage.deductTypedCreditsForSession(
-                playerId,
-                sessionType,
-                session.id,
-                academyId || undefined
-              );
-              if (!creditResult.success) {
-                const player = await storage.getPlayer(playerId, academyId!);
-                if (player) {
-                  const creditTypeLabel = (creditResult.creditType || sessionType).replace("_", "-");
-                  await storage.createNotification({
-                    playerId,
-                    type: "credits_needed",
-                    title: "Credits Required",
-                    message: `You've been added to a ${creditTypeLabel} lesson but don't have matching credits.`,
-                    metadata: JSON.stringify({
-                      sessionId: session.id,
-                      sessionType,
-                      requiredCreditType: creditResult.creditType,
-                    }),
-                  });
-                  await storage.createDebtForSession(playerId, sessionType, session.id, academyId || undefined);
-                }
-              }
             }
           }
         }
@@ -18919,25 +18840,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
             
             await storage.addPlayerToSession({ sessionId: session.id, playerId });
             
-            const creditResult = await storage.deductTypedCreditsForSession(playerId, sessionType, session.id, academyId);
-            
-            // Create notification if credits couldn't be deducted
-            if (!creditResult.success && player) {
-              const creditTypeLabel = (creditResult.creditType || sessionType).replace("_", "-");
-              await storage.createNotification({
-                playerId,
-                type: "credits_needed",
-                title: "Credits Required",
-                message: `You've been added to a ${creditTypeLabel} lesson but don't have matching credits.`,
-                metadata: JSON.stringify({
-                  sessionId: session.id,
-                  sessionType,
-                  requiredCreditType: creditResult.creditType,
-                }),
-              });
-              await storage.createDebtForSession(playerId, sessionType, session.id, academyId);
-            }
-            
             // Also add to series if it exists
             if (seriesId && week === 0) {
               await storage.addPlayerToSeries({ seriesId, playerId });
@@ -19147,24 +19049,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
           for (const playerId of playerIds) {
             const player = await storage.getPlayer(playerId, academyId);
             await storage.addPlayerToSession({ sessionId: session.id, playerId });
-            
-            const creditResult = await storage.deductTypedCreditsForSession(playerId, sessionType, session.id, academyId);
-            
-            if (!creditResult.success && player) {
-              const creditTypeLabel = (creditResult.creditType || sessionType).replace("_", "-");
-              await storage.createNotification({
-                playerId,
-                type: "credits_needed",
-                title: "Credits Required",
-                message: `You've been added to a ${creditTypeLabel} lesson but don't have matching credits.`,
-                metadata: JSON.stringify({
-                  sessionId: session.id,
-                  sessionType,
-                  requiredCreditType: creditResult.creditType,
-                }),
-              });
-              await storage.createDebtForSession(playerId, sessionType, session.id, academyId);
-            }
           }
         }
         
