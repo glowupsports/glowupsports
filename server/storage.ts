@@ -6520,14 +6520,40 @@ export const storage = {
       creditType: creditTransactions.creditType,
       reason: creditTransactions.reason,
       metadata: creditTransactions.metadata,
+      packageId: creditTransactions.packageId,
     }).from(creditTransactions)
       .where(eq(creditTransactions.playerId, playerId));
+    
+    // Get all active packages for this player to validate purchase credits
+    const activePackages = await db.select({
+      id: packages.id,
+      status: packages.status,
+      expiryDate: packages.expiryDate,
+    }).from(packages)
+      .where(eq(packages.playerId, playerId));
+    
+    const activePackageIds = new Set(
+      activePackages
+        .filter(pkg => pkg.status === "active")
+        .map(pkg => pkg.id)
+    );
     
     const balance = { group: 0, semi_private: 0, private: 0 };
     
     for (const tx of allTransactions) {
-      const meta = tx.metadata as { settled?: boolean; cancelled?: boolean } | null;
-      if (meta?.settled === true || meta?.cancelled === true) continue;
+      const meta = tx.metadata as { settled?: boolean; cancelled?: boolean; expired?: boolean } | null;
+      if (meta?.settled === true || meta?.cancelled === true || meta?.expired === true) continue;
+      
+      // For purchase/package credits, only count if the associated package is still active
+      if (tx.amount > 0 && tx.packageId) {
+        if (!activePackageIds.has(tx.packageId)) {
+          continue;
+        }
+      }
+      // Orphan purchase credits (no packageId) - skip if reason is package-related
+      if (tx.amount > 0 && !tx.packageId && (tx.reason === "package_purchased" || tx.reason === "package_purchase")) {
+        continue;
+      }
       
       const creditType = (tx.creditType || "group") as keyof typeof balance;
       if (balance[creditType] !== undefined) {
@@ -11211,5 +11237,112 @@ async function repairAllPlayerCredits(): Promise<{
   return results;
 }
 
+async function auditAllPlayerCredits(): Promise<{
+  playersChecked: number;
+  ghostCreditsFound: number;
+  playersWithIssues: string[];
+}> {
+  const results = { playersChecked: 0, ghostCreditsFound: 0, playersWithIssues: [] as string[] };
+  
+  // Get all players
+  const allPlayers = await db.select({ id: players.id, name: players.name }).from(players);
+  results.playersChecked = allPlayers.length;
+  
+  if (allPlayers.length === 0) return results;
+  
+  const playerIds = allPlayers.map(p => p.id);
+  const playerNameMap = new Map(allPlayers.map(p => [p.id, p.name]));
+  
+  // Get all active package IDs
+  const activePackagesList = await db.select({
+    id: packages.id,
+    playerId: packages.playerId,
+    status: packages.status,
+  }).from(packages)
+    .where(inArray(packages.playerId, playerIds));
+  
+  const activePackageIds = new Set(
+    activePackagesList
+      .filter(pkg => pkg.status === "active")
+      .map(pkg => pkg.id)
+  );
+  
+  // Find all positive credit transactions with non-active packageIds (ghost credits)
+  const allPositiveTransactions = await db.select({
+    id: creditTransactions.id,
+    playerId: creditTransactions.playerId,
+    amount: creditTransactions.amount,
+    packageId: creditTransactions.packageId,
+    creditType: creditTransactions.creditType,
+    reason: creditTransactions.reason,
+    metadata: creditTransactions.metadata,
+  }).from(creditTransactions)
+    .where(inArray(creditTransactions.playerId, playerIds));
+  
+  // Filter to ghost credits: positive amounts with a packageId that isn't active
+  const ghostPurchases = allPositiveTransactions.filter(tx => {
+    if (tx.amount <= 0) return false;
+    if (!tx.packageId) return false;
+    if (activePackageIds.has(tx.packageId)) return false;
+    return true;
+  });
+  
+  // Mark ghost transactions as expired
+  for (const tx of ghostPurchases) {
+    
+    const meta = tx.metadata as { settled?: boolean; cancelled?: boolean; expired?: boolean } | null;
+    if (meta?.settled === true || meta?.cancelled === true || meta?.expired === true) continue;
+    
+    // This is a ghost credit - mark it as expired
+    results.ghostCreditsFound++;
+    const playerName = playerNameMap.get(tx.playerId) || tx.playerId;
+    
+    const existingMeta = (tx.metadata || {}) as Record<string, unknown>;
+    await db.update(creditTransactions)
+      .set({ 
+        metadata: { ...existingMeta, expired: true, expiredReason: "package_not_active" } 
+      })
+      .where(eq(creditTransactions.id, tx.id));
+    
+    if (!results.playersWithIssues.includes(playerName)) {
+      results.playersWithIssues.push(playerName);
+    }
+    
+    console.log(`[CreditAudit] Ghost credit found: ${playerName} - ${tx.amount} ${tx.creditType} credits from package ${tx.packageId}`);
+  }
+  
+  // Also fix orphan purchase transactions without packageId
+  const orphanPurchases = allPositiveTransactions.filter(tx => {
+    if (tx.amount <= 0) return false;
+    if (tx.packageId) return false;
+    if (tx.reason !== "package_purchased" && tx.reason !== "package_purchase") return false;
+    const meta = tx.metadata as { settled?: boolean; cancelled?: boolean; expired?: boolean } | null;
+    if (meta?.settled === true || meta?.cancelled === true || meta?.expired === true) return false;
+    return true;
+  });
+  
+  for (const tx of orphanPurchases) {
+    results.ghostCreditsFound++;
+    const playerName = playerNameMap.get(tx.playerId) || tx.playerId;
+    
+    const existingMeta = (tx.metadata || {}) as Record<string, unknown>;
+    await db.update(creditTransactions)
+      .set({ 
+        metadata: { ...existingMeta, expired: true, expiredReason: "orphan_purchase_no_package" } 
+      })
+      .where(eq(creditTransactions.id, tx.id));
+    
+    if (!results.playersWithIssues.includes(playerName)) {
+      results.playersWithIssues.push(playerName);
+    }
+    
+    console.log(`[CreditAudit] Orphan purchase fixed: ${playerName} - ${tx.amount} ${tx.creditType} credits (no packageId, reason: ${tx.reason})`);
+  }
+  
+  console.log(`[CreditAudit] Checked ${results.playersChecked} players, found ${results.ghostCreditsFound} ghost credits for ${results.playersWithIssues.length} players`);
+  
+  return results;
+}
+
 // Export helper for routes
-export { getSessionTypeByPlayerCount, updateSeriesSessionType, recalculateSeriesCredits, ensureCreditProcessed, repairAllPlayerCredits };
+export { getSessionTypeByPlayerCount, updateSeriesSessionType, recalculateSeriesCredits, ensureCreditProcessed, repairAllPlayerCredits, auditAllPlayerCredits };

@@ -911,6 +911,15 @@ function PlayerDetailView({
       setLocalAuditVerified(data.auditVerified);
       queryClient.invalidateQueries({ queryKey: ["/api/players"] });
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      if (data.auditVerified) {
+        Alert.alert("Verified", `${player.name}'s credits and payments have been verified by you.`);
+      } else {
+        Alert.alert("Unverified", `${player.name}'s verification has been removed.`);
+      }
+    },
+    onError: (error: any) => {
+      Alert.alert("Error", "Could not update verification status. Please try again.");
+      console.error("[AuditVerify] Error:", error);
     },
   });
 
