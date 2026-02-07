@@ -765,7 +765,7 @@ export default function SettingsScreen() {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     try {
       const response = await apiRequest("POST", "/api/push/test", {});
-      const data = response as unknown as { success: boolean; devicesNotified?: number };
+      const data = await response.json();
       const deviceCount = data.devicesNotified ?? 1;
       const message = `Test notification sent to ${deviceCount} device(s). Check your phone!`;
       if (Platform.OS === "web") {
@@ -790,7 +790,7 @@ export default function SettingsScreen() {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     try {
       const response = await apiRequest("POST", "/api/coach/test/booking-request", {});
-      const data = response as unknown as { success: boolean; simulation: { playerName: string; sessionType: string; notificationSent: boolean } };
+      const data = await response.json() as { success: boolean; simulation: { playerName: string; sessionType: string; notificationSent: boolean } };
       const message = data.simulation.notificationSent 
         ? `Simulated: "${data.simulation.playerName}" requested a ${data.simulation.sessionType}! Push notification sent.`
         : `Simulated booking request. (No push token - open app on phone first)`;

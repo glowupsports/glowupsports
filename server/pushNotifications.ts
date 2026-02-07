@@ -59,10 +59,69 @@ async function sendExpoPushNotification(
     });
 
     const result = await response.json();
-    return result.data || [];
+    const tickets: ExpoPushTicket[] = result.data || [];
+
+    console.log(`[ExpoPush] Sent ${messages.length} messages, got ${tickets.length} tickets`);
+
+    for (let i = 0; i < tickets.length; i++) {
+      if (tickets[i].status === "error") {
+        console.error(`[ExpoPush] Error for token ${tokens[i]?.substring(0, 30)}...: ${tickets[i].message} (${tickets[i].details?.error})`);
+        if (tickets[i].details?.error === "DeviceNotRegistered") {
+          deactivateStaleToken(tokens[i]);
+        }
+      }
+    }
+
+    const ticketIds = tickets.filter(t => t.status === "ok" && t.id).map(t => t.id!);
+    if (ticketIds.length > 0) {
+      setTimeout(() => checkExpoReceipts(ticketIds, tokens), 30000);
+    }
+
+    return tickets;
   } catch (error) {
     console.error("Failed to send Expo push notification:", error);
     return [];
+  }
+}
+
+async function deactivateStaleToken(token: string): Promise<void> {
+  try {
+    await db.update(pushDeviceTokens)
+      .set({ isActive: false })
+      .where(eq(pushDeviceTokens.token, token));
+    console.log(`[ExpoPush] Deactivated stale token: ${token.substring(0, 30)}...`);
+  } catch (error) {
+    console.error("[ExpoPush] Failed to deactivate stale token:", error);
+  }
+}
+
+async function checkExpoReceipts(ticketIds: string[], tokens: string[]): Promise<void> {
+  try {
+    const response = await fetch("https://exp.host/--/api/v2/push/getReceipts", {
+      method: "POST",
+      headers: {
+        "Accept": "application/json",
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ ids: ticketIds }),
+    });
+
+    const result = await response.json();
+    const receipts = result.data || {};
+
+    for (const [id, receipt] of Object.entries(receipts) as [string, any][]) {
+      if (receipt.status === "error") {
+        console.error(`[ExpoPush] Receipt error for ${id}: ${receipt.message} (${receipt.details?.error})`);
+        if (receipt.details?.error === "DeviceNotRegistered") {
+          const ticketIndex = ticketIds.indexOf(id);
+          if (ticketIndex >= 0 && tokens[ticketIndex]) {
+            deactivateStaleToken(tokens[ticketIndex]);
+          }
+        }
+      }
+    }
+  } catch (error) {
+    console.error("[ExpoPush] Failed to check receipts:", error);
   }
 }
 
