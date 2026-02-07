@@ -6641,29 +6641,27 @@ export const storage = {
   }> {
     console.log(`[SettleDebts] Starting for player ${playerId}, creditType ${creditType}, package ${packageId}`);
     
-    // Find unsettled debt transactions for this player and credit type
-    // CRITICAL: Check metadata.settled != true, not packageId
+    // Find ALL unsettled negative transactions for this player and credit type
+    // This includes session_debt, session_join_debt, session_unpaid, 
+    // retrospective_settlement, session_consumed, and any other deductions
     const unsettledDebts = await db.select().from(creditTransactions)
       .where(and(
         eq(creditTransactions.playerId, playerId),
         eq(creditTransactions.creditType, creditType),
-        or(
-          eq(creditTransactions.reason, "session_join_debt"),
-          eq(creditTransactions.reason, "session_debt"),
-          eq(creditTransactions.reason, "session_unpaid")
-        ),
-        // Debt is unsettled if metadata.settled is not true
-        // We use packageId IS NULL as a fallback for old data
         isNull(creditTransactions.packageId)
       ))
       .orderBy(creditTransactions.createdAt); // Settle oldest debts first
     
     console.log(`[SettleDebts] Found ${unsettledDebts.length} debts with packageId=NULL for creditType=${creditType}`);
     
-    // Filter to only unsettled debts (metadata.settled != true)
+    // Filter to only unsettled negative transactions (debts)
     const trulyUnsettledDebts = unsettledDebts.filter(debt => {
+      if (debt.amount >= 0) return false; // Only negative (deduction) transactions
       const meta = debt.metadata as Record<string, unknown> | null;
-      return !meta?.settled;
+      if (meta?.settled || meta?.expired || meta?.cancelled) return false;
+      // Skip debt_settlement transactions (these are settlements themselves, not debts)
+      if (debt.reason === "debt_settlement") return false;
+      return true;
     });
     
     console.log(`[SettleDebts] After filtering settled: ${trulyUnsettledDebts.length} truly unsettled debts`);
