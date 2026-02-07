@@ -2043,56 +2043,7 @@ export const storage = {
     
     if (playerPackages.length === 0) return [];
     
-    // PATCH A: Use stored remainingCredits as the truth, not recalculation
-    // The calculatedRemaining is kept for debugging purposes only
-    // Get all credit transactions for this player that reference a package (for debug only)
-    const transactions = await db.select({
-      packageId: creditTransactions.packageId,
-      amount: creditTransactions.amount,
-      type: creditTransactions.type,
-    }).from(creditTransactions)
-      .where(and(
-        eq(creditTransactions.playerId, playerId),
-        isNotNull(creditTransactions.packageId)
-      ));
-    
-    // Calculate used credits per package from transactions (DEBUG ONLY)
-    const usedCreditsPerPackage: Record<string, number> = {};
-    for (const tx of transactions) {
-      if (tx.packageId) {
-        if (!usedCreditsPerPackage[tx.packageId]) {
-          usedCreditsPerPackage[tx.packageId] = 0;
-        }
-        // Debits have negative amounts, credits have positive
-        if (tx.type === "debit") {
-          usedCreditsPerPackage[tx.packageId] += Math.abs(tx.amount);
-        } else if (tx.type === "credit" || tx.type === "refund") {
-          usedCreditsPerPackage[tx.packageId] -= Math.abs(tx.amount);
-        }
-      }
-    }
-    
-    // Return packages with STORED remainingCredits (not calculated!)
-    return playerPackages.map(pkg => {
-      const usedFromPackage = usedCreditsPerPackage[pkg.id] || 0;
-      // Calculate for debug purposes only
-      const debugCalculatedRemaining = Math.min(
-        pkg.totalCredits, 
-        Math.max(0, pkg.totalCredits - usedFromPackage)
-      );
-      
-      // Log mismatch for debugging
-      if (debugCalculatedRemaining !== pkg.remainingCredits) {
-        console.log(`[CreditDebug] Package ${pkg.id} mismatch: stored=${pkg.remainingCredits}, calculated=${debugCalculatedRemaining}`);
-      }
-      
-      return {
-        ...pkg,
-        calculatedRemaining: debugCalculatedRemaining, // Debug only
-        // CRITICAL: Use stored value, do NOT override remainingCredits
-        // remainingCredits stays as pkg.remainingCredits from database
-      };
-    });
+    return playerPackages;
   },
 
   async getActivePlayerPackages(playerId: string, academyId?: string): Promise<Package[]> {
