@@ -137,20 +137,6 @@ export function usePushNotifications() {
         return null;
       }
 
-      const projectId = Constants.expoConfig?.extra?.eas?.projectId;
-      if (!projectId) {
-        setState(prev => ({ 
-          ...prev, 
-          isLoading: false, 
-          error: 'Project ID not configured' 
-        }));
-        return null;
-      }
-
-      console.log('[Push] Getting Expo push token with projectId:', projectId);
-      const tokenData = await Notifications.getExpoPushTokenAsync({ projectId });
-      const token = tokenData.data;
-
       if (Platform.OS === 'android') {
         await Notifications.setNotificationChannelAsync('default', {
           name: 'default',
@@ -158,6 +144,42 @@ export function usePushNotifications() {
           vibrationPattern: [0, 250, 250, 250],
           lightColor: '#2ECC40',
         });
+      }
+
+      let token: string | null = null;
+
+      const projectId = Constants.expoConfig?.extra?.eas?.projectId;
+      if (projectId) {
+        try {
+          console.log('[Push] Getting Expo push token with projectId:', projectId);
+          const tokenData = await Notifications.getExpoPushTokenAsync({ projectId });
+          token = tokenData.data;
+          console.log('[Push] Got Expo push token:', token?.substring(0, 30) + '...');
+        } catch (expoError) {
+          console.warn('[Push] Failed to get Expo push token, trying native device token:', expoError);
+        }
+      } else {
+        console.warn('[Push] No EAS projectId configured, trying native device token');
+      }
+
+      if (!token) {
+        try {
+          console.log('[Push] Getting native device push token (FCM)...');
+          const nativeToken = await Notifications.getDevicePushTokenAsync();
+          token = nativeToken.data as string;
+          console.log('[Push] Got native FCM token:', token?.substring(0, 30) + '...');
+        } catch (nativeError) {
+          console.error('[Push] Failed to get native device token:', nativeError);
+        }
+      }
+
+      if (!token) {
+        setState(prev => ({
+          ...prev,
+          isLoading: false,
+          error: 'Could not obtain push token (tried Expo + native FCM)',
+        }));
+        return null;
       }
 
       setState(prev => ({ 

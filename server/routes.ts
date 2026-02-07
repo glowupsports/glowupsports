@@ -15389,6 +15389,98 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.post("/api/push/test-direct", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const { token } = req.body;
+      if (!token) {
+        return res.status(400).json({ error: "Token is required in request body" });
+      }
+
+      const { isFCMToken } = await import("./fcm");
+      const tokenType = token.startsWith("ExponentPushToken[") ? "expo" : (isFCMToken(token) ? "fcm" : "unknown");
+
+      console.log(`[PushTestDirect] Testing ${tokenType} token: ${token.substring(0, 40)}...`);
+
+      if (tokenType === "fcm") {
+        const { isFirebaseInitialized, sendFCMNotification } = await import("./fcm");
+        if (!isFirebaseInitialized()) {
+          return res.status(500).json({ error: "Firebase not initialized - check FIREBASE_SERVICE_ACCOUNT_KEY" });
+        }
+        const results = await sendFCMNotification(
+          [token],
+          "Glow Up Sports - FCM Test",
+          "Push notifications via FCM are working on your Play Store app!",
+          { type: "test", timestamp: new Date().toISOString() }
+        );
+        return res.json({ success: true, tokenType, results });
+      } else {
+        const { sendPushNotification } = await import("./pushNotifications");
+        const results = await sendPushNotification(
+          [token],
+          "Glow Up Sports - Test",
+          "Push notifications are working!",
+          { type: "test", timestamp: new Date().toISOString() }
+        );
+        return res.json({ success: true, tokenType, results });
+      }
+    } catch (error) {
+      console.error("Error in direct push test:", error);
+      res.status(500).json({ error: "Failed to send test notification" });
+    }
+  });
+
+  app.post("/api/push/test-all-tokens", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const userId = req.user!.userId;
+      const allTokens = await db.select().from(pushDeviceTokens)
+        .where(and(
+          eq(pushDeviceTokens.userId, userId),
+          eq(pushDeviceTokens.isActive, true)
+        ));
+
+      if (allTokens.length === 0) {
+        return res.status(400).json({
+          error: "No active tokens",
+          message: "Your Play Store app hasn't registered a push token yet. Make sure you've opened the app and allowed notifications."
+        });
+      }
+
+      const results = [];
+      const { sendPushNotification } = await import("./pushNotifications");
+      const { isFCMToken, isFirebaseInitialized: isFirebaseInit } = await import("./fcm");
+
+      for (const t of allTokens) {
+        const tokenType = t.token.startsWith("ExponentPushToken[") ? "expo" : (isFCMToken(t.token) ? "fcm" : "unknown");
+        console.log(`[PushTestAll] Testing ${tokenType} token on ${t.platform} (${t.deviceName}): ${t.token.substring(0, 30)}...`);
+
+        const result = await sendPushNotification(
+          [t.token],
+          "Glow Up Sports - Push Test",
+          `Testing ${tokenType.toUpperCase()} on ${t.deviceName || t.platform}`,
+          { type: "test", timestamp: new Date().toISOString() }
+        );
+
+        results.push({
+          tokenType,
+          platform: t.platform,
+          deviceName: t.deviceName,
+          tokenPreview: t.token.substring(0, 30) + "...",
+          result,
+        });
+      }
+
+      res.json({
+        success: true,
+        firebaseInitialized: isFirebaseInit(),
+        totalTokensTested: allTokens.length,
+        results,
+      });
+    } catch (error) {
+      console.error("Error in test-all-tokens:", error);
+      res.status(500).json({ error: "Failed to send test notifications" });
+    }
+  });
+
   app.get("/api/push/debug", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
     try {
       const userId = req.user!.userId;
