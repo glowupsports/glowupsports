@@ -4154,6 +4154,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
                       requiredCreditType: creditResult.creditType,
                     }),
                   });
+                  await storage.createDebtForSession(playerId, sessionType, session.id, academyId || undefined);
                 }
               }
             }
@@ -4295,6 +4296,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
                   requiredCreditType: creditResult.creditType,
                 }),
               });
+              await storage.createDebtForSession(playerId, sessionType, session.id, academyId || undefined);
             }
           }
         }
@@ -9409,12 +9411,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
               });
               
               // Then deduct typed credits (updates session_player with creditDeductedAt)
-              await storage.deductTypedCreditsForSession(
+              const creditResult = await storage.deductTypedCreditsForSession(
                 playerId,
                 sessionType,
                 session.id,
                 academyId || undefined
               );
+              if (!creditResult.success) {
+                const player = await storage.getPlayer(playerId, academyId!);
+                if (player) {
+                  const creditTypeLabel = (creditResult.creditType || sessionType).replace("_", "-");
+                  await storage.createNotification({
+                    playerId,
+                    type: "credits_needed",
+                    title: "Credits Required",
+                    message: `You've been added to a ${creditTypeLabel} lesson but don't have matching credits.`,
+                    metadata: JSON.stringify({
+                      sessionId: session.id,
+                      sessionType,
+                      requiredCreditType: creditResult.creditType,
+                    }),
+                  });
+                  await storage.createDebtForSession(playerId, sessionType, session.id, academyId || undefined);
+                }
+              }
             }
           }
         }
@@ -18915,6 +18935,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
                   requiredCreditType: creditResult.creditType,
                 }),
               });
+              await storage.createDebtForSession(playerId, sessionType, session.id, academyId);
             }
             
             // Also add to series if it exists
@@ -19142,6 +19163,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
                   requiredCreditType: creditResult.creditType,
                 }),
               });
+              await storage.createDebtForSession(playerId, sessionType, session.id, academyId);
             }
           }
         }

@@ -2399,6 +2399,56 @@ export const storage = {
     };
   },
 
+  async createDebtForSession(
+    playerId: string,
+    sessionType: string,
+    sessionId: string,
+    academyId?: string,
+    sessionPlayerId?: string
+  ): Promise<{ transactionId: string }> {
+    const sessionToCreditType: Record<string, string> = {
+      private: "private",
+      semi: "semi_private",
+      semi_private: "semi_private",
+      group: "group",
+    };
+    const creditType = sessionToCreditType[sessionType] || "group";
+
+    const transaction = await this.createCreditTransaction({
+      playerId,
+      academyId: academyId || null,
+      packageId: null,
+      type: "debit",
+      creditType,
+      amount: -1,
+      reason: "session_join_debt",
+      sessionId,
+      balanceBefore: 0,
+      balanceAfter: -1,
+      metadata: JSON.stringify({
+        sessionType,
+        debt: true,
+        noPackageAvailable: true,
+      }),
+    });
+
+    const whereClause = sessionPlayerId
+      ? eq(sessionPlayers.id, sessionPlayerId)
+      : and(
+          eq(sessionPlayers.sessionId, sessionId),
+          eq(sessionPlayers.playerId, playerId)
+        );
+
+    await db.update(sessionPlayers)
+      .set({
+        creditDeductedAt: new Date(),
+        creditTransactionId: transaction.id,
+      })
+      .where(whereClause);
+
+    return { transactionId: transaction.id };
+  },
+
   async refundCreditsForSession(
     playerId: string,
     sessionId: string,
