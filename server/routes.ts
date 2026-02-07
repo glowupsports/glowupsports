@@ -7417,6 +7417,46 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Toggle audit verification for a player (coach marks player as reviewed)
+  app.post("/api/players/:id/audit-verify", authMiddleware, requireAcademy, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const { id } = req.params;
+      const coachId = req.user!.coachId;
+      const academyId = req.user!.academyId;
+      
+      const { valid } = await validatePlayerOwnership(id, academyId, storage);
+      if (!valid) {
+        return res.status(404).json({ error: "Player not found" });
+      }
+      
+      // Check current audit status
+      const player = await storage.getPlayer(id);
+      if (!player) {
+        return res.status(404).json({ error: "Player not found" });
+      }
+      
+      const isCurrentlyVerified = !!player.auditVerifiedAt;
+      
+      if (isCurrentlyVerified) {
+        // Unverify
+        await db.execute(sql`
+          UPDATE players SET audit_verified_at = NULL, audit_verified_by = NULL WHERE id = ${id}
+        `);
+        res.json({ auditVerified: false, auditVerifiedAt: null, auditVerifiedBy: null });
+      } else {
+        // Verify
+        const now = new Date();
+        await db.execute(sql`
+          UPDATE players SET audit_verified_at = ${now}, audit_verified_by = ${coachId} WHERE id = ${id}
+        `);
+        res.json({ auditVerified: true, auditVerifiedAt: now.toISOString(), auditVerifiedBy: coachId });
+      }
+    } catch (error) {
+      console.error("Error toggling audit verification:", error);
+      res.status(500).json({ error: "Failed to toggle audit verification" });
+    }
+  });
+
   // Delete player (permanently removes all associated data)
   app.delete("/api/players/:id", authMiddleware, requireAcademy, async (req: AuthenticatedRequest, res: Response) => {
     try {

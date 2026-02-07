@@ -998,6 +998,9 @@ export const players = pgTable("players", {
   nickname: text("nickname"), // Fun nickname for the app
   quizScore: integer("quiz_score"), // Mini tennis rules quiz score
   
+  auditVerifiedAt: timestamp("audit_verified_at"),
+  auditVerifiedBy: varchar("audit_verified_by"),
+  
   createdAt: timestamp("created_at").defaultNow(),
 });
 

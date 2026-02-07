@@ -36,8 +36,14 @@ pool.on('error', (err) => {
 });
 
 // Test connection on startup
-pool.query('SELECT 1').then(() => {
+pool.query('SELECT 1').then(async () => {
   console.log('[Database] Connection test successful - Supabase PostgreSQL ready');
+  try {
+    await pool.query(`ALTER TABLE players ADD COLUMN IF NOT EXISTS audit_verified_at TIMESTAMP`);
+    await pool.query(`ALTER TABLE players ADD COLUMN IF NOT EXISTS audit_verified_by VARCHAR`);
+  } catch (e: any) {
+    console.log('[Database] Audit columns already exist or migration skipped');
+  }
 }).catch((err) => {
   console.error('[Database] Connection test FAILED:', err.message);
 });
