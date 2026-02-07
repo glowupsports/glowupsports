@@ -348,6 +348,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
 
+  // TEMPORARY: Search player by name for debugging
+  app.get("/api/debug/search-player", async (req: Request, res: Response) => {
+    try {
+      const name = req.query.name as string;
+      if (!name) return res.status(400).json({ error: "name query param required" });
+      const results = await db.select({ id: players.id, name: players.name }).from(players).where(ilike(players.name, `%${name}%`)).limit(10);
+      res.json(results);
+    } catch (e) { res.status(500).json({ error: "Search failed" }); }
+  });
+
+
   // TEMPORARY: Fix unpaid sessions for specific player (public endpoint for debugging)
   app.post("/api/fix-player-unpaid/:playerId", async (req: Request, res: Response) => {
     try {
@@ -358,14 +369,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ error: "Player not found" });
       }
       
-      // Find all sessions where player has attended but no credit was deducted
-      const unpaidSessions = await db.select({
+      // Find ALL sessions where player has attended (present or late)
+      // Don't filter by creditDeductedAt - it may be set even without a transaction
+      const allAttendedSessions = await db.select({
         sessionPlayerId: sessionPlayers.id,
         sessionId: sessionPlayers.sessionId,
         playerId: sessionPlayers.playerId,
-        
         attendanceStatus: sessionPlayers.attendanceStatus,
         creditDeductedAt: sessionPlayers.creditDeductedAt,
+        creditTransactionId: sessionPlayers.creditTransactionId,
         sessionType: sessions.sessionType,
         startTime: sessions.startTime,
       })
@@ -374,33 +386,46 @@ export async function registerRoutes(app: Express): Promise<Server> {
       .where(and(
         eq(sessionPlayers.playerId, playerId),
         or(
-          
-          eq(sessionPlayers.attendanceStatus, "present")
-        ),
-        isNull(sessionPlayers.creditDeductedAt)
+          eq(sessionPlayers.attendanceStatus, "present"),
+          eq(sessionPlayers.attendanceStatus, "late")
+        )
       ));
       
-      if (unpaidSessions.length === 0) {
+      // For each attended session, check if a credit transaction actually exists
+      const sessionsWithoutTransaction: typeof allAttendedSessions = [];
+      
+      for (const session of allAttendedSessions) {
+        const existingTransactions = await db.select({ id: creditTransactions.id })
+          .from(creditTransactions)
+          .where(and(
+            eq(creditTransactions.playerId, playerId),
+            eq(creditTransactions.sessionId, session.sessionId),
+            eq(creditTransactions.type, "debit")
+          ))
+          .limit(1);
+        
+        if (existingTransactions.length === 0) {
+          sessionsWithoutTransaction.push(session);
+        }
+      }
+      
+      if (sessionsWithoutTransaction.length === 0) {
         return res.json({ 
-          message: "No unpaid sessions found", 
+          message: "All attended sessions have credit transactions", 
           fixed: 0,
+          totalAttended: allAttendedSessions.length,
           totalSessions: 0 
         });
       }
       
       let fixedCount = 0;
       
-      for (const session of unpaidSessions) {
+      for (const session of sessionsWithoutTransaction) {
         const debtId = `debt-fix-${session.sessionId}-${session.playerId}`;
+        const creditType = session.sessionType.includes("semi") ? "semi_private" : 
+                           session.sessionType.includes("group") ? "group" : "private";
         
-        const existingDebt = await db.select().from(creditTransactions)
-          .where(eq(creditTransactions.id, debtId))
-          .limit(1);
-        
-        if (existingDebt.length === 0) {
-          const creditType = session.sessionType.includes("semi") ? "semi_private" : 
-                             session.sessionType.includes("group") ? "group" : "private";
-          
+        try {
           await db.insert(creditTransactions).values({
             id: debtId,
             playerId: session.playerId,
@@ -414,18 +439,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
           });
           
           await db.update(sessionPlayers)
-            .set({ creditDeductedAt: new Date() })
+            .set({ creditDeductedAt: new Date(), creditTransactionId: debtId })
             .where(eq(sessionPlayers.id, session.sessionPlayerId));
           
           fixedCount++;
-          console.log(`[FixUnpaid] Recorded debt for session ${session.sessionId}`);
+          console.log(`[FixUnpaid] Recorded debt for session ${session.sessionId} (type: ${creditType})`);
+        } catch (e: any) {
+          if (e.code === '23505') {
+            console.log(`[FixUnpaid] Transaction already exists for ${session.sessionId}, skipping`);
+          } else {
+            console.error(`[FixUnpaid] Error fixing session ${session.sessionId}:`, e);
+          }
         }
       }
       
       res.json({
-        message: `Fixed ${fixedCount} unpaid sessions`,
+        message: `Fixed ${fixedCount} unpaid sessions for ${player.name}`,
         fixed: fixedCount,
-        totalSessions: unpaidSessions.length,
+        totalAttended: allAttendedSessions.length,
+        totalSessions: sessionsWithoutTransaction.length,
         playerName: player.name,
       });
       
@@ -437,8 +469,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Scan ALL players for unpaid sessions and fix them
   app.post("/api/fix-all-unpaid-sessions", async (_req: Request, res: Response) => {
     try {
-      // Find ALL sessionPlayers with attendance but no credit deducted
-      const allUnpaidSessions = await db.select({
+      // Find ALL attended sessions (present or late) - don't filter by creditDeductedAt
+      const allAttendedSessions = await db.select({
         sessionPlayerId: sessionPlayers.id,
         sessionId: sessionPlayers.sessionId,
         playerId: sessionPlayers.playerId,
@@ -449,23 +481,41 @@ export async function registerRoutes(app: Express): Promise<Server> {
       })
       .from(sessionPlayers)
       .innerJoin(sessions, eq(sessionPlayers.sessionId, sessions.id))
-      .where(and(
+      .where(or(
         eq(sessionPlayers.attendanceStatus, "present"),
-        isNull(sessionPlayers.creditDeductedAt)
+        eq(sessionPlayers.attendanceStatus, "late")
       ));
 
-      if (allUnpaidSessions.length === 0) {
+      // For each session, check if a debit transaction actually exists
+      const sessionsWithoutTransaction: typeof allAttendedSessions = [];
+      for (const session of allAttendedSessions) {
+        const existingTransactions = await db.select({ id: creditTransactions.id })
+          .from(creditTransactions)
+          .where(and(
+            eq(creditTransactions.playerId, session.playerId),
+            eq(creditTransactions.sessionId, session.sessionId),
+            eq(creditTransactions.type, "debit")
+          ))
+          .limit(1);
+        
+        if (existingTransactions.length === 0) {
+          sessionsWithoutTransaction.push(session);
+        }
+      }
+
+      if (sessionsWithoutTransaction.length === 0) {
         return res.json({ 
-          message: "No unpaid sessions found across all players", 
+          message: "All attended sessions have credit transactions", 
           fixed: 0,
+          totalAttended: allAttendedSessions.length,
           totalSessions: 0,
           playersFixes: [] 
         });
       }
       
       // Group by player
-      const byPlayer = new Map<string, typeof allUnpaidSessions>();
-      for (const session of allUnpaidSessions) {
+      const byPlayer = new Map<string, typeof sessionsWithoutTransaction>();
+      for (const session of sessionsWithoutTransaction) {
         if (!byPlayer.has(session.playerId)) {
           byPlayer.set(session.playerId, []);
         }
@@ -481,15 +531,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         
         for (const session of playerSessions) {
           const debtId = `debt-fix-${session.sessionId}-${session.playerId}`;
+          const creditType = session.sessionType.includes("semi") ? "semi_private" : 
+                             session.sessionType.includes("group") ? "group" : "private";
           
-          const existingDebt = await db.select().from(creditTransactions)
-            .where(eq(creditTransactions.id, debtId))
-            .limit(1);
-          
-          if (existingDebt.length === 0) {
-            const creditType = session.sessionType.includes("semi") ? "semi_private" : 
-                               session.sessionType.includes("group") ? "group" : "private";
-            
+          try {
             await db.insert(creditTransactions).values({
               id: debtId,
               playerId: session.playerId,
@@ -503,11 +548,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
             });
             
             await db.update(sessionPlayers)
-              .set({ creditDeductedAt: new Date() })
+              .set({ creditDeductedAt: new Date(), creditTransactionId: debtId })
               .where(eq(sessionPlayers.id, session.sessionPlayerId));
             
             fixedCount++;
             totalFixed++;
+            console.log(`[FixAllUnpaid] Recorded debt for session ${session.sessionId} (type: ${creditType})`);
+          } catch (e: any) {
+            if (e.code === '23505') {
+              console.log(`[FixAllUnpaid] Transaction already exists for ${session.sessionId}, skipping`);
+            } else {
+              console.error(`[FixAllUnpaid] Error fixing session ${session.sessionId}:`, e);
+            }
           }
         }
         
@@ -524,14 +576,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json({ 
         message: `Fixed ${totalFixed} unpaid sessions across ${playersFixes.length} players`, 
         fixed: totalFixed,
-        totalSessions: allUnpaidSessions.length,
+        totalAttended: allAttendedSessions.length,
+        totalSessions: sessionsWithoutTransaction.length,
         playersFixes,
       });
       
     } catch (error) {
       console.error("Fix all unpaid sessions error:", error);
       res.status(500).json({ error: "Failed to fix all unpaid sessions" });
-      res.status(500).json({ error: "Failed to fix unpaid sessions" });
     }
   });
   // Test email endpoint
@@ -20246,11 +20298,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Scan ALL players for unpaid sessions and fix them
+  // Scan ALL players for unpaid sessions and fix them (duplicate kept for route ordering)
   app.post("/api/fix-all-unpaid-sessions", async (_req: Request, res: Response) => {
     try {
-      // Find ALL sessionPlayers with attendance but no credit deducted
-      const allUnpaidSessions = await db.select({
+      // Find ALL attended sessions (present or late) - don't filter by creditDeductedAt
+      const allAttendedSessions = await db.select({
         sessionPlayerId: sessionPlayers.id,
         sessionId: sessionPlayers.sessionId,
         playerId: sessionPlayers.playerId,
@@ -20261,23 +20313,41 @@ export async function registerRoutes(app: Express): Promise<Server> {
       })
       .from(sessionPlayers)
       .innerJoin(sessions, eq(sessionPlayers.sessionId, sessions.id))
-      .where(and(
+      .where(or(
         eq(sessionPlayers.attendanceStatus, "present"),
-        isNull(sessionPlayers.creditDeductedAt)
+        eq(sessionPlayers.attendanceStatus, "late")
       ));
 
-      if (allUnpaidSessions.length === 0) {
+      // For each session, check if a debit transaction actually exists
+      const sessionsWithoutTransaction: typeof allAttendedSessions = [];
+      for (const session of allAttendedSessions) {
+        const existingTransactions = await db.select({ id: creditTransactions.id })
+          .from(creditTransactions)
+          .where(and(
+            eq(creditTransactions.playerId, session.playerId),
+            eq(creditTransactions.sessionId, session.sessionId),
+            eq(creditTransactions.type, "debit")
+          ))
+          .limit(1);
+        
+        if (existingTransactions.length === 0) {
+          sessionsWithoutTransaction.push(session);
+        }
+      }
+
+      if (sessionsWithoutTransaction.length === 0) {
         return res.json({ 
-          message: "No unpaid sessions found across all players", 
+          message: "All attended sessions have credit transactions", 
           fixed: 0,
+          totalAttended: allAttendedSessions.length,
           totalSessions: 0,
           playersFixes: [] 
         });
       }
       
       // Group by player
-      const byPlayer = new Map<string, typeof allUnpaidSessions>();
-      for (const session of allUnpaidSessions) {
+      const byPlayer = new Map<string, typeof sessionsWithoutTransaction>();
+      for (const session of sessionsWithoutTransaction) {
         if (!byPlayer.has(session.playerId)) {
           byPlayer.set(session.playerId, []);
         }
@@ -20293,15 +20363,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         
         for (const session of playerSessions) {
           const debtId = `debt-fix-${session.sessionId}-${session.playerId}`;
+          const creditType = session.sessionType.includes("semi") ? "semi_private" : 
+                             session.sessionType.includes("group") ? "group" : "private";
           
-          const existingDebt = await db.select().from(creditTransactions)
-            .where(eq(creditTransactions.id, debtId))
-            .limit(1);
-          
-          if (existingDebt.length === 0) {
-            const creditType = session.sessionType.includes("semi") ? "semi_private" : 
-                               session.sessionType.includes("group") ? "group" : "private";
-            
+          try {
             await db.insert(creditTransactions).values({
               id: debtId,
               playerId: session.playerId,
@@ -20315,11 +20380,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
             });
             
             await db.update(sessionPlayers)
-              .set({ creditDeductedAt: new Date() })
+              .set({ creditDeductedAt: new Date(), creditTransactionId: debtId })
               .where(eq(sessionPlayers.id, session.sessionPlayerId));
             
             fixedCount++;
             totalFixed++;
+            console.log(`[FixAllUnpaid] Recorded debt for session ${session.sessionId} (type: ${creditType})`);
+          } catch (e: any) {
+            if (e.code === '23505') {
+              console.log(`[FixAllUnpaid] Transaction already exists for ${session.sessionId}, skipping`);
+            } else {
+              console.error(`[FixAllUnpaid] Error fixing session ${session.sessionId}:`, e);
+            }
           }
         }
         
@@ -20336,14 +20408,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json({ 
         message: `Fixed ${totalFixed} unpaid sessions across ${playersFixes.length} players`, 
         fixed: totalFixed,
-        totalSessions: allUnpaidSessions.length,
+        totalAttended: allAttendedSessions.length,
+        totalSessions: sessionsWithoutTransaction.length,
         playersFixes,
       });
       
     } catch (error) {
       console.error("Fix all unpaid sessions error:", error);
       res.status(500).json({ error: "Failed to fix all unpaid sessions" });
-      res.status(500).json({ error: "Failed to fix unpaid sessions" });
     }
   });
   // Platform Owner - Get single academy details
