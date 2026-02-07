@@ -399,11 +399,7 @@ function setupErrorHandler(app: express.Application) {
         log(`[StartupRepair] Complete: ${result.processed} processed, ${result.consumed} consumed, ${result.debts} debts, ${result.errors} errors`);
         
         log("[CreditAudit] Running ghost credit audit for ALL players...");
-        const auditResult = await auditAllPlayerCredits();
-        log(`[CreditAudit] Complete: ${auditResult.playersChecked} players checked, ${auditResult.ghostCreditsFound} ghost credits found`);
-        if (auditResult.playersWithIssues.length > 0) {
-          log(`[CreditAudit] Players with ghost credits fixed: ${auditResult.playersWithIssues.join(", ")}`);
-        }
+        await auditAllPlayerCredits();
       } catch (error) {
         console.error("[StartupRepair] Failed:", error);
       }

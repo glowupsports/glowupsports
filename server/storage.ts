@@ -11339,6 +11339,137 @@ async function auditAllPlayerCredits(): Promise<{
   
   console.log(`[CreditAudit] Checked ${results.playersChecked} players, found ${results.ghostCreditsFound} ghost credits for ${results.playersWithIssues.length} players`);
   
+  // PHASE 3: Package-Transaction Balance Sync
+  // For each active package, calculate expected remaining from transactions and fix mismatches
+  const activePackagesWithDetails = await db.select().from(packages)
+    .where(eq(packages.status, "active"));
+  
+  let syncFixes = 0;
+  
+  for (const pkg of activePackagesWithDetails) {
+    const playerName = playerNameMap.get(pkg.playerId) || pkg.playerId;
+    
+    // Get ALL active transactions for this package's player and credit type
+    const playerTxs = allPositiveTransactions.filter(tx => tx.playerId === pkg.playerId);
+    
+    // Also get ALL transactions (including negative) for this player
+    const allPlayerTxs = await db.select({
+      id: creditTransactions.id,
+      amount: creditTransactions.amount,
+      creditType: creditTransactions.creditType,
+      reason: creditTransactions.reason,
+      packageId: creditTransactions.packageId,
+      metadata: creditTransactions.metadata,
+    }).from(creditTransactions)
+      .where(and(
+        eq(creditTransactions.playerId, pkg.playerId),
+        eq(creditTransactions.creditType, pkg.creditType)
+      ));
+    
+    // Calculate balance from active transactions only
+    let txBalance = 0;
+    for (const tx of allPlayerTxs) {
+      const meta = tx.metadata as { settled?: boolean; cancelled?: boolean; expired?: boolean } | null;
+      if (meta?.settled || meta?.cancelled || meta?.expired) continue;
+      // Skip orphan purchases
+      if (tx.amount > 0 && !tx.packageId && (tx.reason === "package_purchased" || tx.reason === "package_purchase")) continue;
+      // Skip purchases for non-active packages
+      if (tx.amount > 0 && tx.packageId && !activePackageIds.has(tx.packageId)) continue;
+      txBalance += tx.amount;
+    }
+    
+    if (txBalance !== pkg.remainingCredits) {
+      syncFixes++;
+      console.log(`[CreditAudit] SYNC FIX: ${playerName} - ${pkg.creditType} package remaining ${pkg.remainingCredits} -> ${txBalance} (diff: ${pkg.remainingCredits - txBalance})`);
+      
+      // Find unsettled negative transactions without packageId (orphan debts)
+      const unsettledNegative = allPlayerTxs.filter(tx => {
+        if (tx.amount >= 0) return false;
+        if (tx.packageId) return false;
+        const meta = tx.metadata as { settled?: boolean; cancelled?: boolean; expired?: boolean } | null;
+        if (meta?.settled || meta?.cancelled || meta?.expired) return false;
+        if (tx.reason === "debt_settlement") return false;
+        return true;
+      });
+      
+      const orphanDebtTotal = unsettledNegative.reduce((sum, tx) => sum + Math.abs(tx.amount), 0);
+      
+      if (unsettledNegative.length > 0 && orphanDebtTotal > 0) {
+        // Settle orphan debts properly: mark as settled AND create a settlement transaction
+        const creditsToDeduct = Math.min(orphanDebtTotal, pkg.remainingCredits);
+        
+        for (const debt of unsettledNegative) {
+          const existingMeta = (debt.metadata || {}) as Record<string, unknown>;
+          await db.update(creditTransactions)
+            .set({
+              metadata: {
+                ...existingMeta,
+                settled: true,
+                settledAt: new Date().toISOString(),
+                settledByPackage: pkg.id,
+                settledByAudit: true,
+              }
+            })
+            .where(eq(creditTransactions.id, debt.id));
+          console.log(`[CreditAudit] Settled orphan debt: ${debt.amount} ${debt.reason} for ${playerName}`);
+        }
+        
+        // Create a settlement transaction to deduct from package
+        if (creditsToDeduct > 0) {
+          await db.insert(creditTransactions).values({
+            id: crypto.randomUUID(),
+            playerId: pkg.playerId,
+            packageId: pkg.id,
+            creditType: pkg.creditType,
+            type: "debit",
+            amount: -creditsToDeduct,
+            reason: "debt_settlement",
+            metadata: {
+              settledDebtsCount: unsettledNegative.length,
+              creditsUsed: creditsToDeduct,
+              settledByAudit: true,
+              settledReasons: unsettledNegative.map(d => d.reason),
+            },
+            createdAt: new Date(),
+          });
+        }
+        
+        // Update package remaining
+        const newRemaining = Math.max(0, pkg.remainingCredits - creditsToDeduct);
+        await db.update(packages)
+          .set({
+            remainingCredits: newRemaining,
+            status: newRemaining <= 0 ? "depleted" : "active",
+          })
+          .where(eq(packages.id, pkg.id));
+        
+        console.log(`[CreditAudit] Package ${pkg.creditType} updated: ${pkg.remainingCredits} -> ${newRemaining} for ${playerName}`);
+      } else {
+        // No orphan debts - just correct the remaining credits to match TX balance
+        const correctRemaining = Math.max(0, txBalance);
+        await db.update(packages)
+          .set({
+            remainingCredits: correctRemaining,
+            status: correctRemaining <= 0 ? "depleted" : "active",
+          })
+          .where(eq(packages.id, pkg.id));
+      }
+      
+      if (!results.playersWithIssues.includes(playerName)) {
+        results.playersWithIssues.push(playerName);
+      }
+    }
+  }
+  
+  if (syncFixes > 0) {
+    console.log(`[CreditAudit] Synced ${syncFixes} package(s) with correct remaining credits`);
+  }
+  
+  console.log(`[CreditAudit] Complete: ${results.playersChecked} players checked, ${results.ghostCreditsFound} ghost credits found, ${syncFixes} packages synced`);
+  if (results.playersWithIssues.length > 0) {
+    console.log(`[CreditAudit] Players with issues fixed: ${results.playersWithIssues.join(", ")}`);
+  }
+  
   return results;
 }
 
