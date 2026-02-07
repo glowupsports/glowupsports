@@ -126,13 +126,21 @@ export async function sendFCMNotification(
         error: error.message || "Unknown error",
       });
 
-      // Handle invalid tokens - mark them as inactive
       if (
         error.code === "messaging/invalid-registration-token" ||
         error.code === "messaging/registration-token-not-registered"
       ) {
-        // Token is invalid, should be marked as inactive
-        console.log(`[FCM] Token ${token.substring(0, 20)}... is invalid, should be deactivated`);
+        console.log(`[FCM] Deactivating invalid token: ${token.substring(0, 20)}...`);
+        try {
+          const { db } = await import("./db");
+          const { pushDeviceTokens } = await import("@shared/schema");
+          const { eq } = await import("drizzle-orm");
+          await db.update(pushDeviceTokens)
+            .set({ isActive: false })
+            .where(eq(pushDeviceTokens.token, token));
+        } catch (deactivateErr) {
+          console.error("[FCM] Failed to deactivate invalid token:", deactivateErr);
+        }
       }
     }
   }
