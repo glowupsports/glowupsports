@@ -499,8 +499,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
           const status = (sp.attendance_status || "").toLowerCase();
           const sessionType = (sp.session_type || "group").toLowerCase();
           const isPrivate = sessionType === "private" || sessionType === "private_adjusted";
-          
-          const isChargeable = isPrivate
+          // BUSINESS RULE: Absent players ALWAYS get charged - only vacation skips
+          const isChargeable = ["present", "late", "absent"].includes(status);
+
+
             ? ["present", "late", "absent"].includes(status)
             : ["present", "late"].includes(status);
           
@@ -5512,14 +5514,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
         let creditConsumptionResult = null;
         const presentPlayers = req.body.attendance.filter((a: { status: string }) => a.status === "present");
         
-        // For PRIVATE sessions: charge both present AND absent players (coach was there, player pays)
-        // For SEMI-PRIVATE/GROUP sessions: only charge present players (absent = no charge)
+        // BUSINESS RULE: Absent players ALWAYS get charged (they missed the lesson but it still counts)
+        // Only vacation/holiday status skips credit deduction
         const isPrivateSession = session.sessionType === "private" || session.sessionType === "private_adjusted";
-        const chargeablePlayers = isPrivateSession
-          ? req.body.attendance.filter((a: { status: string }) => 
-              a.status === "present" || a.status === "absent"
-            )
-          : presentPlayers;
+        const chargeablePlayers = req.body.attendance.filter((a: { status: string }) => 
+          a.status === "present" || a.status === "late" || a.status === "absent"
+        );
+
+
+
+
+
+
+
+
         
         if (req.body.markCompleted) {
           // Auto-adjust session type based on present players
@@ -5553,10 +5561,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
           for (const updatedRecord of results) {
             if (!updatedRecord) continue;
             
-            // Only process present/late for group/semi_private, and present/late/absent for private
-            const isChargeable = isPrivateSession
-              ? ["present", "late", "absent"].includes(updatedRecord.attendanceStatus || "")
-              : ["present", "late"].includes(updatedRecord.attendanceStatus || "");
+            // BUSINESS RULE: Absent players ALWAYS get charged - only vacation skips
+            const isChargeable = ["present", "late", "absent"].includes(updatedRecord.attendanceStatus || "");
+
+
+
+
             
             if (isChargeable) {
               try {
