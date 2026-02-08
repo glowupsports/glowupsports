@@ -79,34 +79,6 @@ interface CreateInvoiceModalProps {
   onSuccess?: () => void;
 }
 
-const getNextInvoiceNumber = async (): Promise<string> => {
-  try {
-    const { getApiUrl } = await import("@/lib/query-client");
-    const response = await fetch(new URL("/api/admin/next-invoice-number", getApiUrl()).toString(), {
-      method: "GET",
-      headers: {
-        "Content-Type": "application/json",
-        "Authorization": `Bearer ${await getAuthToken()}`,
-      },
-    });
-    if (response.ok) {
-      const data = await response.json();
-      return data.invoiceNumber || "#0001";
-    }
-    return "#0001";
-  } catch {
-    return "#0001";
-  }
-};
-
-const getAuthToken = async (): Promise<string> => {
-  try {
-    const AsyncStorage = (await import("@react-native-async-storage/async-storage")).default;
-    return await AsyncStorage.getItem("authToken") || "";
-  } catch {
-    return "";
-  }
-};
 
 const formatDate = (date: Date) => {
   return date.toISOString().split("T")[0];
@@ -742,14 +714,12 @@ export default function CreateInvoiceModal({
   
   const academy = academyProp || fetchedAcademy;
   
-  const [invoiceNumber, setInvoiceNumber] = useState("#0001");
+  const { data: invoiceNumberData } = useQuery<{ invoiceNumber: string }>({
+    queryKey: ["/api/admin/next-invoice-number"],
+    enabled: visible,
+  });
+  const invoiceNumber = invoiceNumberData?.invoiceNumber || "...";
   const [issueDate, setIssueDate] = useState(new Date());
-  
-  useEffect(() => {
-    if (visible) {
-      getNextInvoiceNumber().then(setInvoiceNumber);
-    }
-  }, [visible]);
   const [dueDate, setDueDate] = useState(() => {
     const date = new Date();
     date.setDate(date.getDate() + 14);
@@ -830,6 +800,7 @@ export default function CreateInvoiceModal({
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/billing/invoices"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/next-invoice-number"] });
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       onSuccess?.();
       onClose();
