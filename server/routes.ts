@@ -503,9 +503,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
           const isChargeable = ["present", "late", "absent"].includes(status);
 
 
-            ? ["present", "late", "absent"].includes(status)
-            : ["present", "late"].includes(status);
-          
           if (isChargeable) {
             chargeableCount++;
             chargeableSessionIds.add(sp.session_id);
@@ -5520,14 +5517,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const chargeablePlayers = req.body.attendance.filter((a: { status: string }) => 
           a.status === "present" || a.status === "late" || a.status === "absent"
         );
-
-
-
-
-
-
-
-
         
         if (req.body.markCompleted) {
           // Auto-adjust session type based on present players
@@ -5563,10 +5552,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
             
             // BUSINESS RULE: Absent players ALWAYS get charged - only vacation skips
             const isChargeable = ["present", "late", "absent"].includes(updatedRecord.attendanceStatus || "");
-
-
-
-
             
             if (isChargeable) {
               try {
