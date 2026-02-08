@@ -635,7 +635,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         WHERE s.status != 'cancelled'
           AND (
             sp.attendance_status IN ('present', 'late')
-            OR (sp.attendance_status = 'absent' AND s.session_type IN ('private', 'private_adjusted'))
+            OR sp.attendance_status = 'absent'
           )
           AND NOT EXISTS (
             SELECT 1 FROM credit_transactions ct

@@ -11150,7 +11150,7 @@ async function repairAllPlayerCredits(): Promise<{
       AND s.status != 'cancelled'
       AND (
         sp.attendance_status IN ('present', 'late')
-        OR (sp.attendance_status = 'absent' AND s.session_type IN ('private', 'private_adjusted'))
+        OR sp.attendance_status = 'absent'
       )
     ORDER BY sp.id
   `);
