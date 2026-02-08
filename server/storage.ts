@@ -11461,5 +11461,64 @@ async function auditAllPlayerCredits(): Promise<{
   return results;
 }
 
+async function repairGroupSessionTypes(): Promise<{ fixed: number; errors: string[] }> {
+  const results = { fixed: 0, errors: [] as string[] };
+
+  const wrongSessions = await db.execute(sql`
+    SELECT s.id, s.session_type, s.series_id
+    FROM sessions s
+    WHERE s.session_type IN ('group_adjusted', 'semi_private_adjusted')
+      AND s.status = 'completed'
+  `);
+
+  console.log(`[RepairGroupTypes] Found ${wrongSessions.rows.length} group sessions wrongly converted`);
+
+  for (const row of wrongSessions.rows) {
+    const s = row as any;
+    try {
+      await db.update(sessions).set({ sessionType: "group" }).where(eq(sessions.id, s.id));
+
+      const sessionPlayers = await db.execute(sql`
+        SELECT sp.id, sp.player_id, sp.attendance_status, ct.id as tx_id, ct.credit_type, ct.package_id
+        FROM session_players sp
+        LEFT JOIN credit_transactions ct ON ct.session_player_id = sp.id AND ct.type = 'debit'
+        WHERE sp.session_id = ${s.id}
+      `);
+
+      for (const sp of sessionPlayers.rows) {
+        const spData = sp as any;
+        if (spData.tx_id && spData.credit_type !== "group") {
+          await db.execute(sql`
+            UPDATE credit_transactions 
+            SET credit_type = 'group'
+            WHERE id = ${spData.tx_id}
+          `);
+
+          if (spData.package_id) {
+            const pkg = await db.execute(sql`
+              SELECT credit_type FROM player_credit_packages WHERE id = ${spData.package_id}
+            `);
+            if (pkg.rows.length > 0 && (pkg.rows[0] as any).credit_type !== "group") {
+              await db.execute(sql`
+                UPDATE player_credit_packages 
+                SET remaining_credits = remaining_credits + 1
+                WHERE id = ${spData.package_id}
+              `);
+              console.log(`[RepairGroupTypes] Refunded 1 ${spData.credit_type} credit to package ${spData.package_id}`);
+            }
+          }
+
+          console.log(`[RepairGroupTypes] Fixed session ${s.id}: ${s.session_type} -> group, tx ${spData.tx_id} credit_type -> group`);
+          results.fixed++;
+        }
+      }
+    } catch (error: any) {
+      results.errors.push(`Session ${s.id}: ${error.message}`);
+    }
+  }
+
+  return results;
+}
+
 // Export helper for routes
-export { getSessionTypeByPlayerCount, updateSeriesSessionType, recalculateSeriesCredits, ensureCreditProcessed, repairAllPlayerCredits, auditAllPlayerCredits };
+export { getSessionTypeByPlayerCount, updateSeriesSessionType, recalculateSeriesCredits, ensureCreditProcessed, repairAllPlayerCredits, auditAllPlayerCredits, repairGroupSessionTypes };
