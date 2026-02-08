@@ -5527,15 +5527,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
           if (session.sessionType === "semi_private" && presentCount === 1) {
             adjustedSessionType = "private_adjusted";
             console.log(`[SessionType] Auto-adjusting session ${id} from semi_private to private_adjusted (only 1 player present)`);
-          } else if (session.sessionType === "group" && presentCount === 1) {
-            adjustedSessionType = "private_adjusted";
-            console.log(`[SessionType] Auto-adjusting session ${id} from group to private_adjusted (only 1 player present)`);
-          } else if (session.sessionType === "group" && presentCount === 2) {
-            adjustedSessionType = "semi_private_adjusted";
-            console.log(`[SessionType] Auto-adjusting session ${id} from group to semi_private_adjusted (only 2 players present)`);
-          } else if (session.sessionType === "semi_private" && presentCount >= 3) {
-            adjustedSessionType = "group_adjusted";
-            console.log(`[SessionType] Auto-adjusting session ${id} from semi_private to group_adjusted (3+ players present)`);
           }
           
           await storage.updateSession(id, { 
