@@ -44,6 +44,7 @@ import { filterSessionsByDate } from "@/lib/dateUtils";
 import { getApiUrl } from "@/lib/query-client";
 import { NextSessionCountdown } from "@/coach/components/NextSessionCountdown";
 import SessionDetailDrawer from "@/coach/components/SessionDetailDrawer";
+import AttendanceDrawer from "@/coach/components/AttendanceDrawer";
 import { PlayersByLevelCard } from "@/coach/components/PlayersByLevelCard";
 import { useWebSocket } from "@/lib/useWebSocket";
 import { ActionNeededCard } from "@/components/ActionNeededCard";
@@ -105,6 +106,7 @@ export default function DashboardScreen() {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [currentSecond, setCurrentSecond] = useState(() => Math.floor(Date.now() / 1000));
   const [selectedSessionForDetail, setSelectedSessionForDetail] = useState<Session | null>(null);
+  const [selectedSessionForAttendance, setSelectedSessionForAttendance] = useState<Session | null>(null);
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -1468,9 +1470,21 @@ export default function DashboardScreen() {
         onClose={() => setSelectedSessionForDetail(null)}
         onAttendance={() => {
           if (selectedSessionForDetail) {
-            (navigation as any).navigate("CoachTabs", { screen: "Calendar", params: { openSessionId: selectedSessionForDetail.id, action: "attendance" } });
+            const sess = selectedSessionForDetail;
             setSelectedSessionForDetail(null);
+            setTimeout(() => {
+              setSelectedSessionForAttendance(sess);
+            }, 300);
           }
+        }}
+      />
+
+      <AttendanceDrawer
+        visible={!!selectedSessionForAttendance}
+        session={selectedSessionForAttendance}
+        onClose={() => setSelectedSessionForAttendance(null)}
+        onSave={() => {
+          setSelectedSessionForAttendance(null);
         }}
       />
     </View>
