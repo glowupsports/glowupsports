@@ -5601,11 +5601,65 @@ export async function registerRoutes(app: Express): Promise<Server> {
             }
           }
         
+        // Award session completion XP to coach (batch flow)
+        let sessionCompletionXp = 0;
+        if (req.body.markCompleted && coachId) {
+          const COACH_XP_REWARDS_BATCH = {
+            private: 25,
+            semi_private: 35,
+            group: 50,
+            camp: 75,
+            team_training: 60,
+            clinic: 45,
+            match: 30,
+            assessment: 40,
+          } as Record<string, number>;
+          sessionCompletionXp = COACH_XP_REWARDS_BATCH[session.sessionType] || 20;
+
+          try {
+            const existingSessionXp = await db.select()
+              .from(coachXpTransactions)
+              .where(and(
+                eq(coachXpTransactions.coachId, coachId),
+                eq(coachXpTransactions.source, 'session_completion'),
+                eq(coachXpTransactions.sessionId, id)
+              ));
+
+            if (existingSessionXp.length === 0) {
+              await db.insert(coachXpTransactions).values({
+                coachId,
+                xpAmount: sessionCompletionXp,
+                source: 'session_completion',
+                description: 'Completed ' + session.sessionType + ' session',
+                sessionId: id,
+              });
+
+              const coachForXp = await storage.getCoach(coachId);
+              if (coachForXp) {
+                const newTotalXp = (coachForXp.totalXp || 0) + sessionCompletionXp + (xpAwarded ? 25 : 0);
+                let newLevel = 1;
+                let xpThreshold = 500;
+                let accumulatedXp = 0;
+                while (accumulatedXp + xpThreshold <= newTotalXp) {
+                  accumulatedXp += xpThreshold;
+                  newLevel++;
+                  xpThreshold = 500 + (newLevel - 1) * 100;
+                }
+                await storage.updateCoach(coachId, { totalXp: newTotalXp, level: newLevel });
+                console.log('[CoachXP] Awarded ' + sessionCompletionXp + ' session completion XP to coach ' + coachId + ' (total: ' + newTotalXp + ')');
+              }
+            }
+          } catch (xpErr) {
+            console.error('[CoachXP] Error awarding session completion XP:', xpErr);
+          }
+        }
+
+        const totalXpAwarded = (xpAwarded ? 25 : 0) + sessionCompletionXp;
         return res.json({ 
           success: true, 
           updated: results.length, 
-          message: req.body.markCompleted ? "Attendance saved and session completed" : "Attendance saved",
-          xpAwarded: xpAwarded ? 25 : 0,
+          message: req.body.markCompleted ? 'Attendance saved and session completed' : 'Attendance saved',
+          xpAwarded: totalXpAwarded,
           creditConsumption: creditConsumptionResult
         });
       }

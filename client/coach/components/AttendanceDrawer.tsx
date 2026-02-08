@@ -143,6 +143,8 @@ export default function AttendanceDrawer({
     loadLastUsedLateMinutes();
   }, []);
 
+  const [coachXpAwarded, setCoachXpAwarded] = useState(0);
+
   useEffect(() => {
     if (session?.players) {
       const initial = new Map<string, AttendanceRecord>();
@@ -155,18 +157,26 @@ export default function AttendanceDrawer({
         });
       });
       setAttendance(initial);
+      setCoachXpAwarded(0);
     }
   }, [session]);
 
   const saveMutation = useMutation({
     mutationFn: async (data: { sessionId: string; attendance: AttendanceRecord[] }) => {
-      return apiRequest("POST", `/api/coach/sessions/${data.sessionId}/attendance`, {
+      const res = await apiRequest("POST", `/api/coach/sessions/${data.sessionId}/attendance`, {
         attendance: data.attendance,
+        markCompleted: true,
       });
+      return res.json();
     },
-    onSuccess: () => {
+    onSuccess: (data: any) => {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       queryClient.invalidateQueries({ queryKey: ["/api/coach/calendar"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/coach/dashboard"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/coach/profile"] });
+      if (data?.xpAwarded) {
+        setCoachXpAwarded(data.xpAwarded);
+      }
       setShowSuccessAnimation(true);
       setTimeout(() => {
         setShowSuccessAnimation(false);
@@ -314,8 +324,7 @@ export default function AttendanceDrawer({
 
   const getSessionSummaryData = () => {
     const presentCount = getPresentCount();
-    const xpPerPlayer = 25;
-    const xpEarned = presentCount * xpPerPlayer;
+    const xpEarned = coachXpAwarded || 25;
     return {
       duration: session?.duration || 60,
       skillsPracticed: presentCount,
