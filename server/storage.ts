@@ -10964,13 +10964,31 @@ async function ensureCreditProcessed(sessionPlayerId: string): Promise<{
       const sp = spResult.rows[0] as any;
       
       // STEP 2: Check attendance status
-      // For PRIVATE sessions: charge present, late, AND absent (coach was there, player pays)
-      // For GROUP/SEMI-PRIVATE sessions: only charge present and late
+      // For PRIVATE sessions (originally booked as private): absent = still charged (coach was there)
+      // For SEMI-PRIVATE sessions: absent = NOT charged (only the present player gets charged as private)
+      // For GROUP sessions: absent = still charged (lesson happened regardless)
       const attendanceStatus = sp.attendance_status?.toLowerCase();
       const sessionType = (sp.session_type || "group").toLowerCase();
-      const isPrivateSession = sessionType === "private" || sessionType === "private_adjusted";
       
-      const isChargeable = isPrivateSession
+      // CRITICAL: Check if this session was originally semi_private by looking at the series
+      // When a semi-private has 1 absent player, session gets adjusted to private_adjusted
+      // But the absent player should NOT be charged - only truly private sessions charge absent
+      let isOriginallyPrivate = sessionType === "private";
+      if (sessionType === "private_adjusted" && sp.series_id) {
+        const seriesResult = await tx.execute(sql`
+          SELECT session_type FROM coaching_series WHERE id = ${sp.series_id} LIMIT 1
+        `);
+        const seriesType = (seriesResult.rows[0] as any)?.session_type;
+        if (seriesType === "semi_private") {
+          isOriginallyPrivate = false;
+        } else {
+          isOriginallyPrivate = true;
+        }
+      } else if (sessionType === "private_adjusted") {
+        isOriginallyPrivate = true;
+      }
+      
+      const isChargeable = isOriginallyPrivate
         ? ["present", "late", "absent"].includes(attendanceStatus || "")
         : ["present", "late"].includes(attendanceStatus || "");
       

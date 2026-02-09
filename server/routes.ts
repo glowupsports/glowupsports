@@ -499,7 +499,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
           const status = (sp.attendance_status || "").toLowerCase();
           const sessionType = (sp.session_type || "group").toLowerCase();
           const isPrivate = sessionType === "private" || sessionType === "private_adjusted";
-          // BUSINESS RULE: Absent players ALWAYS get charged - only vacation skips
+          // Credit charging rules: private absent=charged, semi-private absent=NOT charged, group absent=charged
+          // Note: ensureCreditProcessed handles the semi-private check via series lookup
           const isChargeable = ["present", "late", "absent"].includes(status);
 
 
@@ -6005,13 +6006,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
           
           // REFACTORED: Use ensureCreditProcessed() for bulletproof credit handling
           // Process credits for chargeable players using the single entrypoint
+          
+          // Track original session type BEFORE adjustment for correct charging logic
+          const originalSessionType = session.sessionType;
           const creditResults = { consumed: 0, debts: 0, skipped: 0, errors: [] as string[] };
           
           for (const updatedRecord of results) {
             if (!updatedRecord) continue;
             
-            // BUSINESS RULE: Absent players ALWAYS get charged - only vacation skips
-            const isChargeable = ["present", "late", "absent"].includes(updatedRecord.attendanceStatus || "");
+            // BUSINESS RULE for credit charging:
+            // - Private sessions: absent = still charged (coach was there waiting)
+            // - Semi-private sessions: absent = NOT charged (only the present player pays, as private)
+            // - Group sessions: absent = still charged (lesson happened regardless)
+            const attendanceStatus = (updatedRecord.attendanceStatus || '').toLowerCase();
+            const isAbsent = attendanceStatus === 'absent';
+            const wasSemiPrivate = originalSessionType === 'semi_private';
+            
+            // Skip credit deduction for absent players in semi-private sessions
+            if (isAbsent && wasSemiPrivate) {
+              console.log(`[Credits] Skipping credit for absent player ${updatedRecord.playerId} in semi-private session ${id} (original type: semi_private)`);
+              creditResults.skipped++;
+              continue;
+            }
+            
+            const isChargeable = ['present', 'late', 'absent'].includes(attendanceStatus);
             
             if (isChargeable) {
               try {
