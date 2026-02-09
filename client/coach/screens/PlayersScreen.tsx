@@ -1141,7 +1141,8 @@ function PlayerDetailView({
   // Fetch attendance summary
   interface AttendanceSummary {
     totalLessons: number;
-    attendedCount: number;  // Sessions where attendance was recorded (present + late + absent)
+    attendedCount: number;
+    actuallyAttendedCount: number;
     presentCount: number;
     absentCount: number;
     attendancePercentage: number;
@@ -1423,7 +1424,7 @@ function PlayerDetailView({
           {/* Quick Stats Row */}
           <View style={styles.premiumQuickStats}>
             <View style={styles.premiumQuickStat}>
-              <Text style={styles.premiumQuickStatValue}>{attendanceSummary?.attendedCount ?? 0}</Text>
+              <Text style={styles.premiumQuickStatValue}>{attendanceSummary?.actuallyAttendedCount ?? 0}</Text>
               <Text style={styles.premiumQuickStatLabel}>Sessions</Text>
             </View>
             <View style={styles.premiumQuickStatDivider} />

@@ -9658,12 +9658,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
       ).length;
       
       // Attendance percentage based on attended sessions (present out of attended)
+      // Actually attended = sessions where player was physically present (present + late, NOT absent)
+      const actuallyAttendedCount = presentCount + lateCount;
       const attendancePercentage = attendedCount > 0 ? Math.round((presentCount / attendedCount) * 100) : 0;
 
       console.log("[AttendanceSummary] Player:", playerId, "Attended:", attendedCount, "Present:", presentCount, "Absent:", absentCount, "Percentage:", attendancePercentage, "%");
       res.json({
         totalLessons,
         attendedCount,  // Sessions where attendance was recorded (present + late + absent)
+        actuallyAttendedCount,  // Sessions where player was physically present (present + late only)
         presentCount,
         absentCount,    // Sessions marked absent
         attendancePercentage,
