@@ -1367,7 +1367,8 @@ export default function SeriesDetailDrawer({
             const activePlayers = series.players.filter(p => p.status === "active");
             const pausedPlayers = series.players.filter(p => p.status === "paused");
             const formerPlayers = series.players.filter(p => p.status === "left");
-            const canAddMore = activePlayers.length < series.maxPlayers;
+            const effectiveMaxPlayers = series.sessionType === "private" ? 1 : series.sessionType === "semi_private" ? 2 : series.maxPlayers;
+            const canAddMore = activePlayers.length < effectiveMaxPlayers;
             
             return (
               <>
@@ -1380,7 +1381,7 @@ export default function SeriesDetailDrawer({
                         value={newMaxPlayers}
                         onChangeText={setNewMaxPlayers}
                         keyboardType="number-pad"
-                        placeholder={String(series.maxPlayers)}
+                        placeholder={String(effectiveMaxPlayers)}
                         placeholderTextColor={Colors.dark.textMuted}
                         maxLength={2}
                         autoFocus
@@ -1395,11 +1396,11 @@ export default function SeriesDetailDrawer({
                     </View>
                   ) : (
                     <Pressable 
-                      onPress={() => { setEditingMaxPlayers(true); setNewMaxPlayers(String(series.maxPlayers)); }}
+                      onPress={() => { setEditingMaxPlayers(true); setNewMaxPlayers(String(effectiveMaxPlayers)); }}
                       style={styles.editableTitle}
                     >
                       <Text style={styles.sectionTitle}>
-                        Active Players ({activePlayers.length}/{series.maxPlayers})
+                        Active Players ({activePlayers.length}/{effectiveMaxPlayers})
                       </Text>
                       <Ionicons name="pencil" size={14} color={Colors.dark.textMuted} style={{ marginLeft: 6 }} />
                     </Pressable>
