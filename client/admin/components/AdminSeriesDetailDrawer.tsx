@@ -310,7 +310,7 @@ export default function AdminSeriesDetailDrawer({
 
   const formatDate = (dateStr: string) => {
     const date = new Date(dateStr);
-    return date.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+    return date.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric", timeZone: "Asia/Dubai" });
   };
 
   if (!visible) return null;

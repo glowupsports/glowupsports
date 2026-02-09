@@ -146,7 +146,7 @@ export function CoachingSeriesCard({ series, onPress, onEditPress }: Props) {
     
     if (isToday) return "Today";
     if (isTomorrow) return "Tomorrow";
-    return nextDate.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" });
+    return nextDate.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric", timeZone: academy?.timezone || "Asia/Dubai" });
   };
   
   const nextSessionLabel = formatNextSession();
