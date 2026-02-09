@@ -39,6 +39,7 @@ import { useAuth } from "@/coach/context/AuthContext";
 import { useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { Colors } from "@/constants/theme";
+import { ChatStateProvider, useChatState } from "@/coach/context/ChatStateContext";
 
 export type CoachTabParamList = {
   Dashboard: undefined;
@@ -90,6 +91,7 @@ function CoachTabs() {
   const [showAddPlayerModal, setShowAddPlayerModal] = useState(false);
   const [currentTabKey, setCurrentTabKey] = useState("Dashboard");
   const queryClient = useQueryClient();
+  const { isChatExpanded } = useChatState();
 
   const handlePageChange = useCallback((index: number, key: string) => {
     setCurrentTabKey(key);
@@ -99,9 +101,9 @@ function CoachTabs() {
 
   const renderOverlay = useCallback((tabKey: string) => {
     const shouldShowFAB = tabKey !== "Calendar" && tabKey !== "Players";
-    if (!shouldShowFAB) return null;
+    if (!shouldShowFAB || isChatExpanded) return null;
     return <CoachQuickActionsFAB onAddPlayer={() => setShowAddPlayerModal(true)} />;
-  }, []);
+  }, [isChatExpanded]);
 
   return (
     <>
@@ -326,12 +328,14 @@ export default function CoachNavigator() {
   }
 
   return (
-    <TabNavigationProvider>
-      <View style={styles.container}>
-        <OfflineBanner />
-        <CoachStackNavigator />
-      </View>
-    </TabNavigationProvider>
+    <ChatStateProvider>
+      <TabNavigationProvider>
+        <View style={styles.container}>
+          <OfflineBanner />
+          <CoachStackNavigator />
+        </View>
+      </TabNavigationProvider>
+    </ChatStateProvider>
   );
 }
 

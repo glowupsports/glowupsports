@@ -25,6 +25,7 @@ import { useCoach } from "@/coach/context/CoachContext";
 import { useAuth } from "@/coach/context/AuthContext";
 import { apiRequest, getApiUrl } from "@/lib/query-client";
 import { useWebSocket, type NewMessagePayload, type TypingPayload } from "@/lib/useWebSocket";
+import { useChatState } from "@/coach/context/ChatStateContext";
 
 interface ChatFooterProps {
   mode?: "coach" | "player";
@@ -140,6 +141,7 @@ export function CoachChatFooter({ mode = "coach" }: ChatFooterProps) {
   const queryClient = useQueryClient();
   const { coach } = useCoach();
   const { user } = useAuth();
+  const { setChatExpanded } = useChatState();
 
   const isPlayerMode = mode === "player";
   const userId = isPlayerMode ? user?.playerId : coach?.id;
@@ -349,6 +351,10 @@ export function CoachChatFooter({ mode = "coach" }: ChatFooterProps) {
         : FOOTER_COLLAPSED;
     height.value = withSpring(targetHeight, { damping: 20, stiffness: 200 });
   }, [isExpanded, isFullscreen]);
+
+  useEffect(() => {
+    setChatExpanded(isExpanded || isFullscreen);
+  }, [isExpanded, isFullscreen, setChatExpanded]);
 
   const animatedStyle = useAnimatedStyle(() => ({
     height: height.value,
@@ -673,40 +679,45 @@ export function CoachChatFooter({ mode = "coach" }: ChatFooterProps) {
 
   const renderVerticalTabs = () => (
     <View style={styles.verticalTabPanel}>
-      {CHAT_TABS.map((tab) => {
-        const isActive = currentTab === tab.id;
-        return (
-          <Pressable
-            key={tab.id}
-            onPress={() => handleTabChange(tab.id)}
-            style={[styles.verticalTab, isActive && styles.verticalTabActive]}
-          >
-            <Ionicons
-              name={tab.icon}
-              size={20}
-              color={isActive ? Colors.dark.primary : Colors.dark.textMuted}
-            />
-            <ThemedText
-              style={[styles.verticalTabLabel, isActive && styles.verticalTabLabelActive]}
-              numberOfLines={1}
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={styles.verticalTabScroll}
+      >
+        {CHAT_TABS.map((tab) => {
+          const isActive = currentTab === tab.id;
+          return (
+            <Pressable
+              key={tab.id}
+              onPress={() => handleTabChange(tab.id)}
+              style={[styles.verticalTab, isActive && styles.verticalTabActive]}
             >
-              {tab.name}
-            </ThemedText>
+              <Ionicons
+                name={tab.icon}
+                size={20}
+                color={isActive ? Colors.dark.primary : Colors.dark.textMuted}
+              />
+              <ThemedText
+                style={[styles.verticalTabLabel, isActive && styles.verticalTabLabelActive]}
+                numberOfLines={1}
+              >
+                {tab.name}
+              </ThemedText>
+            </Pressable>
+          );
+        })}
+        {(currentTab === "players" || currentTab === "coaches" || currentTab === "squad") ? (
+          <Pressable
+            onPress={() => {
+              if (currentTab === "players") setShowNewMessage(true);
+              else if (currentTab === "coaches") setShowCoachSelector(true);
+              else if (currentTab === "squad") setShowSquadSelector(true);
+            }}
+            style={styles.verticalAddButton}
+          >
+            <Ionicons name="add" size={20} color={Colors.dark.buttonText} />
           </Pressable>
-        );
-      })}
-      {(currentTab === "players" || currentTab === "coaches" || currentTab === "squad") ? (
-        <Pressable
-          onPress={() => {
-            if (currentTab === "players") setShowNewMessage(true);
-            else if (currentTab === "coaches") setShowCoachSelector(true);
-            else if (currentTab === "squad") setShowSquadSelector(true);
-          }}
-          style={styles.verticalAddButton}
-        >
-          <Ionicons name="add" size={20} color={Colors.dark.buttonText} />
-        </Pressable>
-      ) : null}
+        ) : null}
+      </ScrollView>
     </View>
   );
 
@@ -1154,7 +1165,7 @@ export function CoachChatFooter({ mode = "coach" }: ChatFooterProps) {
   };
 
   return (
-    <Animated.View style={[styles.container, { bottom: tabBarHeight }, animatedStyle]}>
+    <Animated.View style={[styles.container, { bottom: tabBarHeight, paddingTop: isFullscreen ? insets.top : 0 }, animatedStyle]}>
       <View style={styles.header}>
         <Pressable
           onPress={() => {
@@ -1354,6 +1365,8 @@ const styles = StyleSheet.create({
     backgroundColor: Backgrounds.card,
     borderRightWidth: 1,
     borderRightColor: Colors.dark.primary + "20",
+  },
+  verticalTabScroll: {
     paddingTop: Spacing.sm,
     paddingBottom: Spacing.sm,
     alignItems: "center",
