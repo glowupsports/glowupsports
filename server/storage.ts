@@ -2134,6 +2134,27 @@ export const storage = {
     // Use transaction to cascade delete all dependent records
     // Dependency chain: packages → invoices → payments → refunds, also series_players.linked_package_id
     await db.transaction(async (tx) => {
+      // REFUND: Create a credit refund transaction to restore used credits back to player's balance
+      if (creditsUsed > 0 && pkg.playerId) {
+        await tx.insert(creditTransactions).values({
+          id: crypto.randomUUID(),
+          playerId: pkg.playerId,
+          packageId: null,
+          amount: creditsUsed,
+          type: pkg.creditType || "group",
+          reason: "package_deleted_refund",
+          metadata: {
+            deletedPackageId: id,
+            packageName: pkg.packageName || "Unknown",
+            totalCredits: pkg.totalCredits,
+            creditsRefunded: creditsUsed,
+            refundedAt: new Date().toISOString(),
+          },
+          createdAt: new Date(),
+        });
+        console.log(`[PackageDelete] Refunded ${creditsUsed} ${pkg.creditType || "group"} credits to player ${pkg.playerId} for deleted package ${id}`);
+      }
+
       // IMPORTANT: Restore any debts that were settled by this package
       // Find credit transactions where metadata.settledByPackage matches this package
       const allDebts = await tx.select().from(creditTransactions)

@@ -13,7 +13,7 @@ import RootStackNavigator from "@/navigation/RootStackNavigator";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { UpdateController } from "@/components/UpdateController";
 import { AnimatedSplashScreen } from "@/components/AnimatedSplashScreen";
-import { DeviceRestriction } from "@/components/DeviceRestriction";
+
 import { PlayerProvider } from "@/context/PlayerContext";
 import { AppModeProvider } from "@/context/AppModeContext";
 import { NetworkProvider } from "@/context/NetworkContext";
@@ -69,29 +69,27 @@ export default function App() {
         <SafeAreaProvider>
           <GestureHandlerRootView style={styles.root}>
             <KeyboardProvider>
-              <DeviceRestriction>
-                <AnimatedSplashScreen isReady={isReady} onComplete={handleSplashComplete}>
-                  <UpdateController>
-                    <NetworkProvider>
-                      <AppModeProvider>
-                        <AuthProvider>
-                          <PlayerProvider>
-                            <CoachProvider>
-                              <UIInteractionProvider>
-                                <TabNavigationProvider>
-                                  <View style={styles.root}>
-                                    <NavigationContainerWithRef />
-                                  </View>
-                                </TabNavigationProvider>
-                              </UIInteractionProvider>
-                            </CoachProvider>
-                          </PlayerProvider>
-                        </AuthProvider>
-                      </AppModeProvider>
-                    </NetworkProvider>
-                  </UpdateController>
-                </AnimatedSplashScreen>
-              </DeviceRestriction>
+              <AnimatedSplashScreen isReady={isReady} onComplete={handleSplashComplete}>
+                <UpdateController>
+                  <NetworkProvider>
+                    <AppModeProvider>
+                      <AuthProvider>
+                        <PlayerProvider>
+                          <CoachProvider>
+                            <UIInteractionProvider>
+                              <TabNavigationProvider>
+                                <View style={styles.root}>
+                                  <NavigationContainerWithRef />
+                                </View>
+                              </TabNavigationProvider>
+                            </UIInteractionProvider>
+                          </CoachProvider>
+                        </PlayerProvider>
+                      </AuthProvider>
+                    </AppModeProvider>
+                  </NetworkProvider>
+                </UpdateController>
+              </AnimatedSplashScreen>
               <StatusBar style="light" />
             </KeyboardProvider>
           </GestureHandlerRootView>
