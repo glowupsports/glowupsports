@@ -16,11 +16,11 @@
     "userInterfaceStyle": "dark",
     "newArchEnabled": true,
     "ios": {
-      "supportsTablet": false,
+      "supportsTablet": true,
       "bundleIdentifier": "com.glowupsports.app"
     },
     "android": {
-      "supportsTablet": false,
+      "supportsTablet": true,
       "adaptiveIcon": {
         "backgroundColor": "#1A1A1A",
         "foregroundImage": "./assets/images/android-icon-foreground.png",
@@ -57,9 +57,7 @@
           "color": "#00E676",
           "defaultChannel": "default"
         }
-      ],
-      "./plugins/withTelephonyRequirement.js",
-      "./plugins/withNoTabletSupport.js"
+      ]
     ],
     "experiments": {
       "reactCompiler": true
