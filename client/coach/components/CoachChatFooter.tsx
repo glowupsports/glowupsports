@@ -98,6 +98,18 @@ interface Squad {
   name: string;
 }
 
+interface ActivityEvent {
+  id: string;
+  type: string;
+  icon: string;
+  title: string;
+  description: string;
+  playerName?: string;
+  timestamp: string;
+  xp?: number;
+  level?: number;
+}
+
 const TAB_BAR_HEIGHT = 85;
 
 export function CoachChatFooter({ mode = "coach" }: ChatFooterProps) {
@@ -395,16 +407,12 @@ export function CoachChatFooter({ mode = "coach" }: ChatFooterProps) {
     return sorted;
   }, [conversations, currentTab, CHAT_TABS]);
 
-  const activityFeed = useMemo(() => {
-    return [...conversations]
-      .filter(c => c.lastMessagePreview && c.lastMessageAt)
-      .sort((a, b) => {
-        const aTime = a.lastMessageAt ? new Date(a.lastMessageAt).getTime() : 0;
-        const bTime = b.lastMessageAt ? new Date(b.lastMessageAt).getTime() : 0;
-        return bTime - aTime;
-      })
-      .slice(0, 30);
-  }, [conversations]);
+  const { data: activityFeedData, isLoading: loadingActivity } = useQuery<{ events: ActivityEvent[] }>({
+    queryKey: ["/api/academy/activity-feed"],
+    enabled: !!userId && currentTab === "activity",
+    refetchInterval: 60000,
+  });
+  const activityEvents = activityFeedData?.events || [];
 
   const handleTabChange = (tab: ChatTab) => {
     setCurrentTab(tab);
@@ -592,11 +600,25 @@ export function CoachChatFooter({ mode = "coach" }: ChatFooterProps) {
 
   const getActivityIcon = (type: string): keyof typeof Ionicons.glyphMap => {
     switch (type) {
+      case "level_up": return "arrow-up-circle";
+      case "xp_level_up": return "star";
+      case "xp_earned": return "flash";
+      case "session_completed": return "checkmark-circle";
       case "academy": return "trophy-outline";
       case "squad":
       case "group": return "fitness-outline";
       case "coach_coach": return "ribbon-outline";
       default: return "chatbubble-outline";
+    }
+  };
+
+  const getActivityColor = (type: string): string => {
+    switch (type) {
+      case "level_up": return Colors.dark.successNeon;
+      case "xp_level_up": return "#FFD700";
+      case "xp_earned": return Colors.dark.xpCyan;
+      case "session_completed": return Colors.dark.primary;
+      default: return Colors.dark.textSecondary;
     }
   };
 
@@ -676,48 +698,58 @@ export function CoachChatFooter({ mode = "coach" }: ChatFooterProps) {
   const renderActivityFeed = () => (
     <View style={styles.activityFeedContainer}>
       <View style={styles.activityHeader}>
-        <Ionicons name="newspaper-outline" size={16} color={Colors.dark.primary} />
-        <ThemedText style={styles.activityHeaderText}>Recent Activity</ThemedText>
+        <Ionicons name="pulse" size={16} color={Colors.dark.primary} />
+        <ThemedText style={styles.activityHeaderText}>Academy Feed</ThemedText>
       </View>
-      <FlatList
-        data={activityFeed}
-        keyExtractor={(item) => `activity-${item.id}`}
-        renderItem={({ item }) => {
-          const name = getConvName(item);
-          return (
-            <Pressable
-              onPress={() => {
-                setCurrentTab(
-                  CHAT_TABS.find(t => t.types.includes(item.type))?.id || "players"
-                );
-                setSelectedConversation(item);
-              }}
-              style={styles.activityItem}
-            >
-              <View style={styles.activityIconWrap}>
-                <Ionicons name={getActivityIcon(item.type)} size={18} color={Colors.dark.xpCyan} />
-              </View>
-              <View style={styles.activityContent}>
-                <View style={styles.activityTopRow}>
-                  <ThemedText style={styles.activitySender} numberOfLines={1}>{name}</ThemedText>
-                  <ThemedText style={styles.activityTime}>
-                    {item.lastMessageAt ? formatRelativeTime(item.lastMessageAt) : ""}
-                  </ThemedText>
+      {loadingActivity ? (
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator color={Colors.dark.primary} />
+        </View>
+      ) : (
+        <FlatList
+          data={activityEvents}
+          keyExtractor={(item) => item.id}
+          renderItem={({ item }) => {
+            const color = getActivityColor(item.type);
+            const isLevelUp = item.type === "level_up" || item.type === "xp_level_up";
+            return (
+              <View style={[styles.activityItem, isLevelUp && styles.activityItemHighlight]}>
+                <View style={[styles.activityIconWrap, { backgroundColor: color + "18", borderColor: color + "30" }]}>
+                  <Ionicons name={getActivityIcon(item.type)} size={18} color={color} />
                 </View>
-                <ThemedText style={styles.activityPreview} numberOfLines={2}>
-                  {item.lastMessagePreview || ""}
-                </ThemedText>
+                <View style={styles.activityContent}>
+                  <View style={styles.activityTopRow}>
+                    <ThemedText style={[styles.activitySender, isLevelUp && { color }]} numberOfLines={1}>
+                      {item.title}
+                    </ThemedText>
+                    <ThemedText style={styles.activityTime}>
+                      {formatRelativeTime(item.timestamp)}
+                    </ThemedText>
+                  </View>
+                  <ThemedText style={styles.activityPreview} numberOfLines={2}>
+                    {item.description}
+                  </ThemedText>
+                  {item.xp ? (
+                    <View style={styles.activityXpBadge}>
+                      <Ionicons name="flash" size={10} color={Colors.dark.xpCyan} />
+                      <ThemedText style={styles.activityXpText}>+{item.xp} XP</ThemedText>
+                    </View>
+                  ) : null}
+                </View>
               </View>
-            </Pressable>
-          );
-        }}
-        ListEmptyComponent={
-          <View style={styles.emptyState}>
-            <Ionicons name="newspaper-outline" size={36} color={Colors.dark.tabIconDefault} />
-            <ThemedText style={styles.emptyText}>No recent activity</ThemedText>
-          </View>
-        }
-      />
+            );
+          }}
+          ListEmptyComponent={
+            <View style={styles.emptyState}>
+              <Ionicons name="pulse" size={36} color={Colors.dark.tabIconDefault} />
+              <ThemedText style={styles.emptyText}>No recent academy activity</ThemedText>
+              <ThemedText style={[styles.emptyText, { fontSize: 12, marginTop: 4 }]}>
+                Level ups, XP gains, and sessions will show here
+              </ThemedText>
+            </View>
+          }
+        />
+      )}
     </View>
   );
 
@@ -1291,6 +1323,11 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: Backgrounds.surface + "40",
   },
+  activityItemHighlight: {
+    backgroundColor: Colors.dark.primary + "08",
+    borderLeftWidth: 3,
+    borderLeftColor: Colors.dark.primary + "60",
+  },
   activityIconWrap: {
     width: 36,
     height: 36,
@@ -1326,6 +1363,25 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: Colors.dark.textSecondary,
     lineHeight: 16,
+  },
+  activityXpBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 3,
+    backgroundColor: Colors.dark.xpCyan + "15",
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 10,
+    alignSelf: "flex-start",
+    marginTop: 4,
+    borderWidth: 1,
+    borderColor: Colors.dark.xpCyan + "25",
+  },
+  activityXpText: {
+    fontSize: 10,
+    fontWeight: "700",
+    color: Colors.dark.xpCyan,
+    letterSpacing: 0.5,
   },
   conversationHeader: {
     flexDirection: "row",
