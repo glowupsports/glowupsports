@@ -71,17 +71,19 @@ export function CoachingSeriesCard({ series, onPress, onEditPress }: Props) {
   };
 
   const typeConfig = SESSION_TYPE_CONFIG[series.sessionType] || SESSION_TYPE_CONFIG.private;
-  const dayName = DAY_NAMES[series.dayOfWeek];
+  const isFlexible = series.dayOfWeek === -1;
+  const dayName = isFlexible ? "Flexible" : DAY_NAMES[series.dayOfWeek];
   const totalWeeks = series.weekCount || "Open";
   
-  // startTime is stored as UTC (HH:MM) in database, convert to local academy time for display
   const localStartTime = useMemo(() => {
     const timezone = academy?.timezone || "Asia/Dubai";
     return convertUTCTimeToLocal(series.startTime, timezone);
   }, [series.startTime, academy?.timezone]);
   
-  // Build display title with correct local time (title in DB may have hardcoded UTC time)
   const displayTitle = useMemo(() => {
+    if (isFlexible) {
+      return series.title || "Flexible Session";
+    }
     const sessionTypeLabels: Record<string, string> = {
       private: "Private Lesson",
       semi: "Semi-Private",
@@ -95,7 +97,7 @@ export function CoachingSeriesCard({ series, onPress, onEditPress }: Props) {
     };
     const typeLabel = sessionTypeLabels[series.sessionType] || series.sessionType || "Training";
     return `${typeLabel} - ${dayName} ${localStartTime}`;
-  }, [series.sessionType, dayName, localStartTime]);
+  }, [series.sessionType, dayName, localStartTime, isFlexible, series.title]);
   const completedProgress = series.weekCount 
     ? Math.round((series.sessionsCompleted / series.weekCount) * 100) 
     : null;

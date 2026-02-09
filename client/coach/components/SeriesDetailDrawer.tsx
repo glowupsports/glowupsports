@@ -361,20 +361,8 @@ export default function SeriesDetailDrawer({
     };
     const typeLabel = sessionTypeLabels[series.sessionType] || series.sessionType || "Training";
     
-    // Handle Flexible/One-Off classes (dayOfWeek = -1)
     if (series.dayOfWeek === -1) {
-      // For flexible classes, show date of first session if available
-      const firstSession = series.sessions?.[0];
-      if (firstSession?.startTime) {
-        const sessionDate = new Date(firstSession.startTime);
-        const dateStr = sessionDate.toLocaleDateString("en-US", { 
-          month: "short", 
-          day: "numeric",
-          timeZone: timezone 
-        });
-        return `${typeLabel} - ${dateStr} ${localStartTime}`;
-      }
-      return `${typeLabel} - Flexible ${localStartTime}`;
+      return series.title || `${typeLabel} - Flexible`;
     }
     
     const dayName = DAY_NAMES[series.dayOfWeek];

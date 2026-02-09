@@ -35123,6 +35123,133 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+
+  // One-time fix: repair series titles with "undefined" and merge duplicate flexible series
+  app.post("/api/admin/fix-series-titles-and-merge", async (req: Request, res: Response) => {
+    try {
+      console.log("[SeriesFix] Starting series title repair and merge...");
+      const fixes: string[] = [];
+      
+      // 1. Find all series with "undefined" in their title
+      const allSeries = await db.select().from(coachingSeries);
+      const undefinedSeries = allSeries.filter(s => s.title && s.title.includes("undefined"));
+      
+      for (const s of undefinedSeries) {
+        // Get players in this series
+        const sPlayers = await storage.getSeriesPlayers(s.id);
+        const activePlayerIds = sPlayers.filter((p: any) => p.status === "active").map((p: any) => p.playerId);
+        
+        let playerNameSuffix = "";
+        if (activePlayerIds.length > 0) {
+          const playerNames = await Promise.all(activePlayerIds.map(async (pid: string) => {
+            const p = await storage.getPlayer(pid);
+            return p?.name?.split(" ")[0] || "Player";
+          }));
+          playerNameSuffix = ` - ${playerNames.join(", ")}`;
+        }
+        
+        const sessionTypeLabels: Record<string, string> = {
+          private: "Private Lesson",
+          semi_private: "Semi-Private",
+          group: "Group Session",
+          physical: "Physical Training",
+          activity: "Activity",
+        };
+        
+        const newTitle = `${sessionTypeLabels[s.sessionType || ""] || s.sessionType || "Session"}${playerNameSuffix}`;
+        
+        await db.update(coachingSeries)
+          .set({ title: newTitle })
+          .where(eq(coachingSeries.id, s.id));
+        
+        fixes.push(`Renamed "${s.title}" → "${newTitle}" (ID: ${s.id})`);
+      }
+      
+      // 2. Find and merge duplicate flexible series (same coach + same players + same session type)
+      const activeSeries = allSeries.filter(s => s.status === "active" && s.dayOfWeek === -1);
+      
+      // Group by coach + session type
+      const seriesByKey: Record<string, typeof activeSeries> = {};
+      for (const s of activeSeries) {
+        const key = `${s.coachId}_${s.sessionType}`;
+        if (!seriesByKey[key]) seriesByKey[key] = [];
+        seriesByKey[key].push(s);
+      }
+      
+      for (const [key, group] of Object.entries(seriesByKey)) {
+        if (group.length <= 1) continue;
+        
+        // For each pair, check if they share the same players
+        const seriesWithPlayers = await Promise.all(group.map(async (s) => {
+          const sPlayers = await storage.getSeriesPlayers(s.id);
+          const activeIds = sPlayers.filter((p: any) => p.status === "active").map((p: any) => p.playerId).sort();
+          return { series: s, playerIds: activeIds };
+        }));
+        
+        // Group by sorted player IDs
+        const byPlayers: Record<string, typeof seriesWithPlayers> = {};
+        for (const swp of seriesWithPlayers) {
+          const pKey = swp.playerIds.join(",");
+          if (!byPlayers[pKey]) byPlayers[pKey] = [];
+          byPlayers[pKey].push(swp);
+        }
+        
+        for (const [pKey, duplicates] of Object.entries(byPlayers)) {
+          if (duplicates.length <= 1 || pKey === "") continue;
+          
+          // Keep the first one (oldest), merge others into it
+          const primary = duplicates[0];
+          const toMerge = duplicates.slice(1);
+          
+          for (const dup of toMerge) {
+            // Move all sessions from duplicate to primary
+            const dupSessions = await db.select().from(sessions)
+              .where(eq(sessions.seriesId, dup.series.id));
+            
+            for (const sess of dupSessions) {
+              await db.update(sessions)
+                .set({ seriesId: primary.series.id })
+                .where(eq(sessions.id, sess.id));
+            }
+            
+            // Archive the duplicate series
+            await db.update(coachingSeries)
+              .set({ status: "ended" })
+              .where(eq(coachingSeries.id, dup.series.id));
+            
+            fixes.push(`Merged series "${dup.series.title}" (ID: ${dup.series.id}) → "${primary.series.title}" (ID: ${primary.series.id}), moved ${dupSessions.length} sessions`);
+          }
+          
+          // Update primary series weekCount based on actual sessions
+          const allPrimarySessions = await db.select().from(sessions)
+            .where(eq(sessions.seriesId, primary.series.id));
+          
+          // Update end date to latest session
+          let latestDate = primary.series.seriesEndDate;
+          for (const sess of allPrimarySessions) {
+            const sessDate = sess.startTime ? new Date(sess.startTime).toISOString().split('T')[0] : null;
+            if (sessDate && (!latestDate || sessDate > latestDate)) {
+              latestDate = sessDate;
+            }
+          }
+          
+          await db.update(coachingSeries)
+            .set({ 
+              weekCount: allPrimarySessions.length,
+              seriesEndDate: latestDate,
+            })
+            .where(eq(coachingSeries.id, primary.series.id));
+        }
+      }
+      
+      console.log(`[SeriesFix] Completed. ${fixes.length} changes made.`);
+      res.json({ success: true, fixes });
+    } catch (error: any) {
+      console.error("[SeriesFix] Error:", error);
+      res.status(500).json({ error: error.message || "Fix failed" });
+    }
+  });
+
   const httpServer = createServer(app);
   
   // Set up WebSocket server for real-time chat
