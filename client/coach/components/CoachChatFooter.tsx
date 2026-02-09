@@ -67,7 +67,7 @@ interface Conversation {
 
 const REACTION_EMOJIS = ["thumbsup", "heart", "fire", "trophy", "star"];
 
-type ChatTab = "players" | "coaches" | "academy" | "squad" | "activity" | "admin";
+type ChatTab = "players" | "coaches" | "academy" | "squad" | "activity" | "admin" | "world";
 
 const COACH_CHAT_TABS: { id: ChatTab; name: string; icon: keyof typeof Ionicons.glyphMap; types: string[] }[] = [
   { id: "players", name: "Players", icon: "people-outline", types: ["direct_message", "coach_player"] },
@@ -75,6 +75,7 @@ const COACH_CHAT_TABS: { id: ChatTab; name: string; icon: keyof typeof Ionicons.
   { id: "academy", name: "Academy", icon: "home-outline", types: ["academy"] },
   { id: "squad", name: "Squad", icon: "fitness-outline", types: ["squad", "group"] },
   { id: "activity", name: "Activity", icon: "newspaper-outline", types: [] },
+  { id: "world", name: "World", icon: "globe-outline", types: ["world"] },
   { id: "admin", name: "Admin", icon: "shield-outline", types: ["admin"] },
 ];
 
@@ -84,6 +85,7 @@ const PLAYER_CHAT_TABS: { id: ChatTab; name: string; icon: keyof typeof Ionicons
   { id: "academy", name: "Academy", icon: "home-outline", types: ["academy"] },
   { id: "squad", name: "Squad", icon: "fitness-outline", types: ["squad", "group"] },
   { id: "activity", name: "Activity", icon: "newspaper-outline", types: [] },
+  { id: "world", name: "World", icon: "globe-outline", types: ["world"] },
 ];
 
 interface Player {
@@ -108,6 +110,26 @@ interface ActivityEvent {
   timestamp: string;
   xp?: number;
   level?: number;
+}
+
+interface WorldMessage {
+  id: string;
+  conversationId: string;
+  senderType: string | null;
+  senderCoachId: string | null;
+  senderPlayerId: string | null;
+  body: string;
+  messageType: string | null;
+  createdAt: string;
+  senderName: string;
+  academyName: string;
+  reactions: Array<{
+    id: string;
+    emoji: string;
+    reactorType: string;
+    reactorCoachId: string | null;
+    reactorPlayerId: string | null;
+  }>;
 }
 
 const TAB_BAR_HEIGHT = 85;
@@ -335,7 +357,16 @@ export function CoachChatFooter({ mode = "coach" }: ChatFooterProps) {
   const isSampleConversation = selectedConversation?.id?.startsWith("sample-") || false;
 
   const handleSend = async () => {
-    if (inputText.trim() && selectedConversation && !isSampleConversation) {
+    if (!inputText.trim()) return;
+    if (currentTab === "world") {
+      sendWorldMessageMutation.mutate(inputText.trim());
+      setInputText("");
+      setTimeout(() => {
+        flatListRef.current?.scrollToEnd({ animated: true });
+      }, 100);
+      return;
+    }
+    if (selectedConversation && !isSampleConversation) {
       sendMessageMutation.mutate(inputText.trim());
       setInputText("");
       setTimeout(() => {
@@ -414,6 +445,24 @@ export function CoachChatFooter({ mode = "coach" }: ChatFooterProps) {
   });
   const activityEvents = activityFeedData?.events || [];
 
+  const { data: worldMessages = [], isLoading: loadingWorldMessages } = useQuery<WorldMessage[]>({
+    queryKey: ["/api/world-chat/messages"],
+    enabled: !!userId && currentTab === "world",
+    refetchInterval: isConnected ? 15000 : 5000,
+  });
+
+  const sendWorldMessageMutation = useMutation({
+    mutationFn: async (body: string) => {
+      return apiRequest("POST", "/api/world-chat/messages", {
+        body,
+        messageType: "text",
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/world-chat/messages"] });
+    },
+  });
+
   const handleTabChange = (tab: ChatTab) => {
     setCurrentTab(tab);
 
@@ -421,7 +470,7 @@ export function CoachChatFooter({ mode = "coach" }: ChatFooterProps) {
     setShowSquadSelector(false);
     setShowCoachSelector(false);
 
-    if (tab === "activity") {
+    if (tab === "activity" || tab === "world") {
       setSelectedConversation(null);
       return;
     }
@@ -753,6 +802,95 @@ export function CoachChatFooter({ mode = "coach" }: ChatFooterProps) {
     </View>
   );
 
+  const renderWorldMessage = ({ item }: { item: WorldMessage }) => {
+    const isOwn = isPlayerMode
+      ? (item.senderType === "player" && item.senderPlayerId === userId)
+      : (item.senderType === "coach" && item.senderCoachId === userId);
+
+    return (
+      <View style={[styles.messageBubble, isOwn ? styles.ownMessage : styles.otherMessage]}>
+        {!isOwn ? (
+          <View style={styles.senderInfo}>
+            <View style={[styles.playerAvatar, { backgroundColor: Colors.dark.primary + "30" }]}>
+              <Ionicons name="person" size={10} color={Colors.dark.primary} />
+            </View>
+            <ThemedText style={[styles.senderName, { color: Colors.dark.primary }]}>
+              {item.senderName}
+            </ThemedText>
+            {item.academyName ? (
+              <View style={styles.worldAcademyBadge}>
+                <Ionicons name="shield-outline" size={9} color={Colors.dark.xpCyan} />
+                <ThemedText style={styles.worldAcademyText}>{item.academyName}</ThemedText>
+              </View>
+            ) : null}
+          </View>
+        ) : null}
+        <View style={styles.messageRow}>
+          <ThemedText style={[styles.messageText, isOwn && styles.ownMessageText]}>{item.body}</ThemedText>
+          <ThemedText style={[styles.timestamp, isOwn && styles.ownTimestamp]}>{formatTime(item.createdAt)}</ThemedText>
+        </View>
+      </View>
+    );
+  };
+
+  const renderWorldChat = () => (
+    <>
+      <View style={styles.activityFeedContainer}>
+        <View style={styles.activityHeader}>
+          <Ionicons name="globe-outline" size={16} color={Colors.dark.xpCyan} />
+          <ThemedText style={[styles.activityHeaderText, { color: Colors.dark.xpCyan }]}>World Chat</ThemedText>
+          <View style={styles.worldOnlineBadge}>
+            <View style={styles.worldOnlineDot} />
+            <ThemedText style={styles.worldOnlineText}>Live</ThemedText>
+          </View>
+        </View>
+        {loadingWorldMessages ? (
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator color={Colors.dark.xpCyan} />
+          </View>
+        ) : (
+          <FlatList
+            ref={flatListRef}
+            data={worldMessages}
+            keyExtractor={(item) => item.id}
+            renderItem={renderWorldMessage}
+            onContentSizeChange={() => flatListRef.current?.scrollToEnd({ animated: false })}
+            ListEmptyComponent={
+              <View style={styles.emptyState}>
+                <Ionicons name="globe-outline" size={36} color={Colors.dark.tabIconDefault} />
+                <ThemedText style={styles.emptyText}>No messages in World Chat yet</ThemedText>
+                <ThemedText style={[styles.emptyText, { fontSize: 12, marginTop: 4 }]}>
+                  Be the first to say hello to the world!
+                </ThemedText>
+              </View>
+            }
+          />
+        )}
+      </View>
+      <View style={styles.inputContainer}>
+        <TextInput
+          value={inputText}
+          onChangeText={setInputText}
+          placeholder="Message the world..."
+          placeholderTextColor={Colors.dark.textMuted}
+          style={styles.input}
+          onSubmitEditing={handleSend}
+          returnKeyType="send"
+        />
+        <Pressable
+          onPress={handleSend}
+          disabled={sendWorldMessageMutation.isPending}
+          style={({ pressed }) => [
+            styles.sendButton,
+            { opacity: pressed || sendWorldMessageMutation.isPending ? 0.5 : 1 },
+          ]}
+        >
+          <Ionicons name="send-outline" size={18} color={Colors.dark.buttonText} />
+        </Pressable>
+      </View>
+    </>
+  );
+
   const renderNewMessageSelector = () => (
     <View style={styles.selectorContainer}>
       <View style={styles.selectorHeader}>
@@ -917,6 +1055,10 @@ export function CoachChatFooter({ mode = "coach" }: ChatFooterProps) {
   const renderRightPanel = () => {
     if (currentTab === "activity") {
       return renderActivityFeed();
+    }
+
+    if (currentTab === "world") {
+      return renderWorldChat();
     }
 
     if (showNewMessage) return renderNewMessageSelector();
@@ -1671,5 +1813,46 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: "600",
     color: Colors.dark.buttonText,
+  },
+  worldAcademyBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 3,
+    backgroundColor: Colors.dark.xpCyan + "15",
+    borderWidth: 1,
+    borderColor: Colors.dark.xpCyan + "30",
+    paddingHorizontal: 5,
+    paddingVertical: 1,
+    borderRadius: 6,
+    marginLeft: 4,
+  },
+  worldAcademyText: {
+    fontSize: 9,
+    fontWeight: "600",
+    color: Colors.dark.xpCyan,
+    letterSpacing: 0.3,
+  },
+  worldOnlineBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    marginLeft: "auto",
+    backgroundColor: Colors.dark.successNeon + "15",
+    borderWidth: 1,
+    borderColor: Colors.dark.successNeon + "30",
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 8,
+  },
+  worldOnlineDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: Colors.dark.successNeon,
+  },
+  worldOnlineText: {
+    fontSize: 10,
+    fontWeight: "600",
+    color: Colors.dark.successNeon,
   },
 });
