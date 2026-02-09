@@ -3785,6 +3785,251 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Get today's player birthdays for coaches
 
+  // ==================== WORLD CHAT ====================
+  // Global chat across all academies
+
+  // Get or create the world chat conversation
+  app.get("/api/world-chat", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      // Find existing world chat conversation
+      let worldConv = await db.select().from(conversations)
+        .where(eq(conversations.type, "world"))
+        .limit(1);
+
+      if (worldConv.length === 0) {
+        // Create the world chat
+        const created = await db.insert(conversations).values({
+          type: "world",
+          title: "World Chat",
+          academyId: null,
+          coachId: null,
+          playerId: null,
+        }).returning();
+        worldConv = created;
+      }
+
+      res.json(worldConv[0]);
+    } catch (error) {
+      console.error("Error getting world chat:", error);
+      res.status(500).json({ error: "Failed to get world chat" });
+    }
+  });
+
+  // Get world chat messages
+  app.get("/api/world-chat/messages", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      // Find world chat conversation
+      const worldConvResult = await db.select().from(conversations)
+        .where(eq(conversations.type, "world"))
+        .limit(1);
+
+      if (worldConvResult.length === 0) {
+        return res.json([]);
+      }
+
+      const worldConvId = worldConvResult[0].id;
+      const limit = Math.min(parseInt(req.query.limit as string) || 50, 100);
+
+      // Get messages with sender info
+      const msgs = await db.select({
+        id: messages.id,
+        conversationId: messages.conversationId,
+        senderType: messages.senderType,
+        senderCoachId: messages.senderCoachId,
+        senderPlayerId: messages.senderPlayerId,
+        body: messages.body,
+        messageType: messages.messageType,
+        createdAt: messages.createdAt,
+      }).from(messages)
+        .where(and(
+          eq(messages.conversationId, worldConvId),
+          eq(messages.isDeleted, false)
+        ))
+        .orderBy(desc(messages.createdAt))
+        .limit(limit);
+
+      // Reverse for chronological display
+      const orderedMsgs = msgs.reverse();
+
+      // Get sender details (coach names + academy names)
+      const coachIds = [...new Set(orderedMsgs.filter(m => m.senderCoachId).map(m => m.senderCoachId!))];
+      const playerIds = [...new Set(orderedMsgs.filter(m => m.senderPlayerId).map(m => m.senderPlayerId!))];
+
+      const coachMap = new Map<string, { name: string; academyName: string }>();
+      const playerMap = new Map<string, { name: string; academyName: string }>();
+
+      if (coachIds.length > 0) {
+        const coachData = await db.select({
+          id: coaches.id,
+          name: coaches.name,
+          firstName: coaches.firstName,
+          lastName: coaches.lastName,
+          academyId: coaches.academyId,
+        }).from(coaches).where(inArray(coaches.id, coachIds));
+
+        const academyIds = [...new Set(coachData.filter(c => c.academyId).map(c => c.academyId!))];
+        const academyData = academyIds.length > 0
+          ? await db.select({ id: academies.id, name: academies.name }).from(academies).where(inArray(academies.id, academyIds))
+          : [];
+        const academyNameMap = new Map(academyData.map(a => [a.id, a.name]));
+
+        for (const c of coachData) {
+          const name = c.name || `${c.firstName || ''} ${c.lastName || ''}`.trim() || 'Coach';
+          coachMap.set(c.id, { name, academyName: (c.academyId ? academyNameMap.get(c.academyId) : null) || 'Academy' });
+        }
+      }
+
+      if (playerIds.length > 0) {
+        const playerData = await db.select({
+          id: players.id,
+          name: players.name,
+          firstName: players.firstName,
+          lastName: players.lastName,
+          academyId: players.academyId,
+        }).from(players).where(inArray(players.id, playerIds));
+
+        const academyIds = [...new Set(playerData.filter(p => p.academyId).map(p => p.academyId!))];
+        const academyData = academyIds.length > 0
+          ? await db.select({ id: academies.id, name: academies.name }).from(academies).where(inArray(academies.id, academyIds))
+          : [];
+        const academyNameMap = new Map(academyData.map(a => [a.id, a.name]));
+
+        for (const p of playerData) {
+          const name = p.name || `${p.firstName || ''} ${p.lastName || ''}`.trim() || 'Player';
+          playerMap.set(p.id, { name, academyName: (p.academyId ? academyNameMap.get(p.academyId) : null) || 'Academy' });
+        }
+      }
+
+      // Enrich messages with sender info
+      const enrichedMessages = orderedMsgs.map(m => {
+        let senderName = "Unknown";
+        let academyName = "";
+        if (m.senderType === "coach" && m.senderCoachId) {
+          const info = coachMap.get(m.senderCoachId);
+          senderName = info?.name || "Coach";
+          academyName = info?.academyName || "";
+        } else if (m.senderType === "player" && m.senderPlayerId) {
+          const info = playerMap.get(m.senderPlayerId);
+          senderName = info?.name || "Player";
+          academyName = info?.academyName || "";
+        } else if (m.senderType === "system") {
+          senderName = "System";
+        }
+
+        return {
+          ...m,
+          senderName,
+          academyName,
+          reactions: [],
+        };
+      });
+
+      res.json(enrichedMessages);
+    } catch (error) {
+      console.error("Error getting world chat messages:", error);
+      res.status(500).json({ error: "Failed to get world chat messages" });
+    }
+  });
+
+  // Post message to world chat
+  app.post("/api/world-chat/messages", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const { body, messageType } = req.body;
+      const userId = req.user!.id;
+      const coachId = req.user!.coachId;
+      const playerId = req.user!.playerId;
+
+      if (!body || !body.trim()) {
+        return res.status(400).json({ error: "Message body required" });
+      }
+
+      const sanitizedBody = sanitizeMessage(body);
+      if (!sanitizedBody) {
+        return res.status(400).json({ error: "Message body required after sanitization" });
+      }
+
+      // Get or create world chat conversation
+      let worldConvResult = await db.select().from(conversations)
+        .where(eq(conversations.type, "world"))
+        .limit(1);
+
+      if (worldConvResult.length === 0) {
+        const created = await db.insert(conversations).values({
+          type: "world",
+          title: "World Chat",
+          academyId: null,
+          coachId: null,
+          playerId: null,
+        }).returning();
+        worldConvResult = created;
+      }
+
+      const worldConvId = worldConvResult[0].id;
+
+      const senderType = coachId ? "coach" : playerId ? "player" : "system";
+
+      const result = await db.insert(messages).values({
+        conversationId: worldConvId,
+        senderType,
+        senderCoachId: coachId || null,
+        senderPlayerId: playerId || null,
+        body: sanitizedBody,
+        messageType: messageType || "text",
+        academyId: null,
+      }).returning();
+
+      // Update conversation last message
+      await db.update(conversations).set({
+        lastMessageAt: new Date(),
+        lastMessagePreview: sanitizedBody.substring(0, 100),
+      }).where(eq(conversations.id, worldConvId));
+
+      // Get sender info for response
+      let senderName = "Unknown";
+      let academyName = "";
+      if (senderType === "coach" && coachId) {
+        const coachData = await db.select({
+          name: coaches.name,
+          firstName: coaches.firstName,
+          lastName: coaches.lastName,
+          academyId: coaches.academyId,
+        }).from(coaches).where(eq(coaches.id, coachId)).limit(1);
+        if (coachData.length > 0) {
+          senderName = coachData[0].name || `${coachData[0].firstName || ''} ${coachData[0].lastName || ''}`.trim() || 'Coach';
+          if (coachData[0].academyId) {
+            const acad = await db.select({ name: academies.name }).from(academies).where(eq(academies.id, coachData[0].academyId!)).limit(1);
+            academyName = acad[0]?.name || '';
+          }
+        }
+      } else if (senderType === "player" && playerId) {
+        const playerData = await db.select({
+          name: players.name,
+          firstName: players.firstName,
+          lastName: players.lastName,
+          academyId: players.academyId,
+        }).from(players).where(eq(players.id, playerId)).limit(1);
+        if (playerData.length > 0) {
+          senderName = playerData[0].name || `${playerData[0].firstName || ''} ${playerData[0].lastName || ''}`.trim() || 'Player';
+          if (playerData[0].academyId) {
+            const acad = await db.select({ name: academies.name }).from(academies).where(eq(academies.id, playerData[0].academyId!)).limit(1);
+            academyName = acad[0]?.name || '';
+          }
+        }
+      }
+
+      res.status(201).json({
+        ...result[0],
+        senderName,
+        academyName,
+        reactions: [],
+      });
+    } catch (error) {
+      console.error("Error posting to world chat:", error);
+      res.status(500).json({ error: "Failed to post message" });
+    }
+  });
+
+
   // Academy Activity Feed - shows what's happening in the academy
   app.get("/api/academy/activity-feed", authMiddleware, requireAcademy, async (req: AuthenticatedRequest, res: Response) => {
     try {
