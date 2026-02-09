@@ -35267,7 +35267,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ error: error.message || "Fix failed" });
     }
   });
-
   const httpServer = createServer(app);
   
   // Set up WebSocket server for real-time chat
