@@ -11667,7 +11667,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         sessionType: series.sessionType || "group",
         status: "scheduled",
         seriesId: id,
-        courtId: existing.courtId || undefined,
+        courtId: courtId || series.courtId || undefined,
         maxPlayers: series.maxPlayers || 6,
         playerIds: activePlayerIds,
       });

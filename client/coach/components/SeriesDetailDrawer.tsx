@@ -171,11 +171,6 @@ function getBallLevelColor(ballLevel: string | null | undefined): string {
 }
 
 function isPlayerActiveForSession(player: Player, sessionDate: Date): boolean {
-  if (!player.joinedAt) return true;
-  
-  const joinDate = new Date(player.joinedAt);
-  if (joinDate > sessionDate) return false;
-  
   if (player.leftAt) {
     const leftDate = new Date(player.leftAt);
     if (leftDate < sessionDate) return false;
