@@ -1280,12 +1280,15 @@ export default function SeriesDetailDrawer({
     }
   };
 
+  const tz = academy?.timezone || "Asia/Dubai";
+
   const formatDate = (dateStr: string) => {
     const date = new Date(dateStr);
     return date.toLocaleDateString("en-US", {
       month: "short",
       day: "numeric",
       year: "numeric",
+      timeZone: tz,
     });
   };
 
@@ -1683,7 +1686,7 @@ export default function SeriesDetailDrawer({
               <Text style={styles.completedBadgeText}>Class Completed</Text>
               {(series as any).endedAt && (
                 <Text style={styles.completedDateText}>
-                  {new Date((series as any).endedAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
+                  {new Date((series as any).endedAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric", timeZone: tz })}
                 </Text>
               )}
             </View>
@@ -1718,7 +1721,7 @@ export default function SeriesDetailDrawer({
     const formatSessionTime = (startTime: string) => {
       try {
         const date = new Date(startTime);
-        return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false });
+        return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: tz });
       } catch {
         return "";
       }
@@ -2087,10 +2090,10 @@ export default function SeriesDetailDrawer({
                 >
                   <View style={styles.planSessionInfo}>
                     <Text style={styles.planSessionDate}>
-                      {sessionDate.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })}
+                      {sessionDate.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric", timeZone: tz })}
                     </Text>
                     <Text style={styles.planSessionTime}>
-                      {sessionDate.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })}
+                      {sessionDate.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", timeZone: tz })}
                     </Text>
                   </View>
                   <View style={styles.planSessionStatus}>
