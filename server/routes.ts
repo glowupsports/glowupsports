@@ -6,7 +6,7 @@ import path from "path";
 import fs from "fs";
 import { storage, getSessionTypeByPlayerCount, updateSeriesSessionType, recalculateSeriesCredits } from "./storage";
 import { db } from "./db";
-import { playerHolidays, coachWellnessLogs, insertCoachWellnessLogSchema } from "@shared/schema";
+import { playerHolidays, coachWellnessLogs, insertCoachWellnessLogSchema, levelUpEvents, playerXpEvents, ballLevels } from "@shared/schema";
 import { eq, sql, desc, and, ne, gt, gte, asc, inArray, notInArray, isNull, isNotNull, or, count, ilike, lte } from "drizzle-orm";
 import { 
   invoices, payments, sessionPlayers, sessionWaitlist, creditTransactions, players, 
@@ -3784,6 +3784,168 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Get today's player birthdays for coaches
+
+  // Academy Activity Feed - shows what's happening in the academy
+  app.get("/api/academy/activity-feed", authMiddleware, requireAcademy, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const academyId = req.user!.academyId;
+      const limit = Math.min(parseInt(req.query.limit as string) || 30, 50);
+      const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+
+      // Get all academy players
+      const academyPlayers = await db.select({ 
+        id: players.id, 
+        name: players.name,
+        firstName: players.firstName,
+        lastName: players.lastName 
+      }).from(players).where(eq(players.academyId, academyId!));
+      
+      const playerIds = academyPlayers.map(p => p.id);
+      const playerMap = new Map(academyPlayers.map(p => [p.id, p.name || `${p.firstName || ''} ${p.lastName || ''}`.trim() || 'Player']));
+      
+      if (playerIds.length === 0) {
+        return res.json({ events: [] });
+      }
+
+      // Fetch events in parallel
+      const [levelUps, xpEvents, completedSessions] = await Promise.all([
+        // Level-up events (ball level promotions)
+        db.select({
+          id: levelUpEvents.id,
+          playerId: levelUpEvents.playerId,
+          toLevelId: levelUpEvents.toLevelId,
+          fromLevelId: levelUpEvents.fromLevelId,
+          xpAwarded: levelUpEvents.xpAwarded,
+          titleUnlocked: levelUpEvents.titleUnlocked,
+          createdAt: levelUpEvents.createdAt,
+        }).from(levelUpEvents)
+          .where(and(
+            inArray(levelUpEvents.playerId, playerIds),
+            gte(levelUpEvents.createdAt, sevenDaysAgo)
+          ))
+          .orderBy(desc(levelUpEvents.createdAt))
+          .limit(10),
+
+        // XP events (level ups in XP system)
+        db.select({
+          id: playerXpEvents.id,
+          playerId: playerXpEvents.playerId,
+          actionSource: playerXpEvents.actionSource,
+          xpAmount: playerXpEvents.xpAmount,
+          triggeredLevelUp: playerXpEvents.triggeredLevelUp,
+          newLevel: playerXpEvents.newLevel,
+          levelAtEvent: playerXpEvents.levelAtEvent,
+          createdAt: playerXpEvents.createdAt,
+        }).from(playerXpEvents)
+          .where(and(
+            inArray(playerXpEvents.playerId, playerIds),
+            gte(playerXpEvents.createdAt, sevenDaysAgo)
+          ))
+          .orderBy(desc(playerXpEvents.createdAt))
+          .limit(20),
+
+        // Recently completed sessions
+        db.select({
+          id: sessions.id,
+          title: sessions.title,
+          sessionType: sessions.sessionType,
+          startTime: sessions.startTime,
+          status: sessions.status,
+        }).from(sessions)
+          .where(and(
+            eq(sessions.academyId, academyId!),
+            eq(sessions.status, "completed"),
+            gte(sessions.startTime, sevenDaysAgo)
+          ))
+          .orderBy(desc(sessions.startTime))
+          .limit(10),
+      ]);
+
+      // Build unified activity feed
+      const events: Array<{
+        id: string;
+        type: string;
+        icon: string;
+        title: string;
+        description: string;
+        playerName?: string;
+        timestamp: string;
+        xp?: number;
+        level?: number;
+      }> = [];
+
+      // Add ball level promotions
+      for (const lu of levelUps) {
+        const name = playerMap.get(lu.playerId) || 'Player';
+        events.push({
+          id: `levelup-${lu.id}`,
+          type: "level_up",
+          icon: "arrow-up-circle",
+          title: `${name} leveled up!`,
+          description: lu.titleUnlocked ? `Unlocked title: ${lu.titleUnlocked}` : `Promoted to new ball level`,
+          playerName: name,
+          timestamp: lu.createdAt?.toISOString() || new Date().toISOString(),
+          xp: lu.xpAwarded || 0,
+        });
+      }
+
+      // Add XP level-ups (player XP system)
+      for (const xp of xpEvents) {
+        const name = playerMap.get(xp.playerId) || 'Player';
+        if (xp.triggeredLevelUp && xp.newLevel) {
+          events.push({
+            id: `xplevel-${xp.id}`,
+            type: "xp_level_up",
+            icon: "star",
+            title: `${name} reached Level ${xp.newLevel}!`,
+            description: `Earned ${xp.xpAmount} XP from ${xp.actionSource.replace(/_/g, ' ')}`,
+            playerName: name,
+            timestamp: xp.createdAt?.toISOString() || new Date().toISOString(),
+            xp: xp.xpAmount,
+            level: xp.newLevel,
+          });
+        } else if (xp.xpAmount >= 50) {
+          // Only show significant XP gains
+          events.push({
+            id: `xp-${xp.id}`,
+            type: "xp_earned",
+            icon: "flash",
+            title: `${name} earned ${xp.xpAmount} XP`,
+            description: `From ${xp.actionSource.replace(/_/g, ' ')}`,
+            playerName: name,
+            timestamp: xp.createdAt?.toISOString() || new Date().toISOString(),
+            xp: xp.xpAmount,
+            level: xp.levelAtEvent,
+          });
+        }
+      }
+
+      // Add completed sessions
+      for (const s of completedSessions) {
+        const typeLabel = s.sessionType === "private" ? "Private" : 
+          s.sessionType === "semi_private" ? "Semi-Private" : 
+          s.sessionType === "group" ? "Group" : 
+          s.sessionType === "private_adjusted" ? "Private (Adjusted)" : s.sessionType;
+        events.push({
+          id: `session-${s.id}`,
+          type: "session_completed",
+          icon: "checkmark-circle",
+          title: `${typeLabel} session completed`,
+          description: s.title || `${typeLabel} Session`,
+          timestamp: s.startTime?.toISOString() || new Date().toISOString(),
+        });
+      }
+
+      // Sort all events by timestamp descending
+      events.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+
+      res.json({ events: events.slice(0, limit) });
+    } catch (error) {
+      console.error("Error fetching activity feed:", error);
+      res.status(500).json({ error: "Failed to fetch activity feed" });
+    }
+  });
+
   app.get("/api/coach/birthdays/today", authMiddleware, requireAcademy, async (req: AuthenticatedRequest, res: Response) => {
     try {
       const coachId = req.user!.coachId;
