@@ -2598,6 +2598,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#1A1F2A",
     borderRadius: BorderRadius.lg,
     padding: Spacing.lg,
+    marginBottom: Spacing.xl,
   },
   flexibleMonthNav: {
     flexDirection: "row",
@@ -2627,6 +2628,7 @@ const styles = StyleSheet.create({
   flexibleCalendarGrid: {
     flexDirection: "row",
     flexWrap: "wrap",
+    paddingBottom: Spacing.md,
   },
   flexibleDayCell: {
     width: `${100 / 7}%`,
