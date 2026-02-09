@@ -950,6 +950,8 @@ export default function SeriesDetailDrawer({
         markCompleted: true,
       });
       queryClient.invalidateQueries({ queryKey: [`/api/coach/series/${seriesId}`] });
+      queryClient.invalidateQueries({ queryKey: ["/api/players?withCredits=true"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/players"] });
       
       // Show feedback drawer if there are present players
       if (playersForFeedback.length > 0) {

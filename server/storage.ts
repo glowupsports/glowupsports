@@ -6996,69 +6996,54 @@ export const storage = {
     
     const result: Record<string, { group: number; semi_private: number; private: number; totalDebt: number; hasDebt: boolean }> = {};
     
-    // Initialize all players
     for (const id of playerIds) {
       result[id] = { group: 0, semi_private: 0, private: 0, totalDebt: 0, hasDebt: false };
     }
     
-    // 1. Add remaining credits from ACTIVE packages
-    const activePackages = await db.select().from(packages)
-      .where(and(
-        inArray(packages.playerId, playerIds),
-        eq(packages.status, "active")
-      ));
-    
-    for (const pkg of activePackages) {
-      const creditType = (pkg.creditType || "group") as "group" | "semi_private" | "private";
-      if (result[pkg.playerId] && result[pkg.playerId][creditType] !== undefined) {
-        result[pkg.playerId][creditType] += pkg.remainingCredits;
-      }
-    }
-    
-    // 2. Add debt from session bookings where player has no package (isDebt: true in metadata)
-    // Include session_booking debts, session_unpaid, and session_join_debt
-    const debtTransactions = await db.select({
+    const allTransactions = await db.select({
       playerId: creditTransactions.playerId,
       amount: creditTransactions.amount,
       creditType: creditTransactions.creditType,
-      metadata: creditTransactions.metadata,
       reason: creditTransactions.reason,
+      metadata: creditTransactions.metadata,
       packageId: creditTransactions.packageId,
     }).from(creditTransactions)
-      .where(and(
-        inArray(creditTransactions.playerId, playerIds),
-        or(
-          eq(creditTransactions.reason, "session_unpaid"),
-          eq(creditTransactions.reason, "session_join_debt"),
-          eq(creditTransactions.reason, "session_debt"),
-          eq(creditTransactions.reason, "session_booking")
-        )
-      ));
+      .where(inArray(creditTransactions.playerId, playerIds));
     
-    // Filter to only include actual debts that are NOT settled and NOT cancelled
-    const unpaidDebts = debtTransactions.filter(t => {
-      // First check if this debt was already settled or cancelled
-      const meta = t.metadata as { isDebt?: boolean; settled?: boolean; cancelled?: boolean } | null;
-      if (meta?.settled === true) return false; // Skip settled debts
-      if (meta?.cancelled === true) return false; // Skip cancelled debts
+    const allPlayerPackages = await db.select({
+      id: packages.id,
+      playerId: packages.playerId,
+    }).from(packages)
+      .where(inArray(packages.playerId, playerIds));
+    
+    const existingPackageIdsByPlayer: Record<string, Set<string>> = {};
+    for (const pkg of allPlayerPackages) {
+      if (!existingPackageIdsByPlayer[pkg.playerId]) {
+        existingPackageIdsByPlayer[pkg.playerId] = new Set();
+      }
+      existingPackageIdsByPlayer[pkg.playerId].add(pkg.id);
+    }
+    
+    for (const tx of allTransactions) {
+      const meta = tx.metadata as { settled?: boolean; cancelled?: boolean; expired?: boolean } | null;
+      if (meta?.settled === true || meta?.cancelled === true || meta?.expired === true) continue;
       
-      // session_unpaid and session_join_debt are always debt (unless settled)
-      if (t.reason === "session_unpaid" || t.reason === "session_join_debt" || t.reason === "session_debt") return true;
-      // session_booking with metadata.isDebt = true is debt
-      if (meta?.isDebt === true) return true;
-      // session_booking WITHOUT a valid package is debt
-      if (t.reason === "session_booking" && !t.packageId) return true;
-      return false;
-    });
-    
-    for (const debt of unpaidDebts) {
-      const creditType = (debt.creditType || "group") as "group" | "semi_private" | "private";
-      if (result[debt.playerId] && result[debt.playerId][creditType] !== undefined) {
-        result[debt.playerId][creditType] += debt.amount;
+      if (tx.amount > 0 && tx.packageId) {
+        const playerPkgIds = existingPackageIdsByPlayer[tx.playerId];
+        if (!playerPkgIds || !playerPkgIds.has(tx.packageId)) {
+          continue;
+        }
+      }
+      if (tx.amount > 0 && !tx.packageId && (tx.reason === "package_purchased" || tx.reason === "package_purchase")) {
+        continue;
+      }
+      
+      const creditType = (tx.creditType || "group") as "group" | "semi_private" | "private";
+      if (result[tx.playerId] && result[tx.playerId][creditType] !== undefined) {
+        result[tx.playerId][creditType] += tx.amount;
       }
     }
     
-    // Calculate total debt per player
     for (const playerId of playerIds) {
       const balance = result[playerId];
       const groupDebt = balance.group < 0 ? Math.abs(balance.group) : 0;
