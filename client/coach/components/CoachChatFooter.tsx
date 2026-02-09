@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect, useCallback } from "react";
+import React, { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import {
   View,
   StyleSheet,
@@ -34,6 +34,7 @@ const { height: SCREEN_HEIGHT } = Dimensions.get("window");
 const FOOTER_COLLAPSED = 60;
 const FOOTER_EXPANDED = Math.min(SCREEN_HEIGHT * 0.6, 450);
 const FOOTER_FULLSCREEN = SCREEN_HEIGHT;
+const LEFT_PANEL_WIDTH = 94;
 
 interface Message {
   id: string;
@@ -66,13 +67,14 @@ interface Conversation {
 
 const REACTION_EMOJIS = ["thumbsup", "heart", "fire", "trophy", "star"];
 
-type ChatTab = "players" | "coaches" | "academy" | "squad" | "admin";
+type ChatTab = "players" | "coaches" | "academy" | "squad" | "activity" | "admin";
 
 const COACH_CHAT_TABS: { id: ChatTab; name: string; icon: keyof typeof Ionicons.glyphMap; types: string[] }[] = [
   { id: "players", name: "Players", icon: "people-outline", types: ["direct_message", "coach_player"] },
   { id: "coaches", name: "Coaches", icon: "ribbon-outline", types: ["coach_coach"] },
   { id: "academy", name: "Academy", icon: "home-outline", types: ["academy"] },
   { id: "squad", name: "Squad", icon: "fitness-outline", types: ["squad", "group"] },
+  { id: "activity", name: "Activity", icon: "newspaper-outline", types: [] },
   { id: "admin", name: "Admin", icon: "shield-outline", types: ["admin"] },
 ];
 
@@ -81,6 +83,7 @@ const PLAYER_CHAT_TABS: { id: ChatTab; name: string; icon: keyof typeof Ionicons
   { id: "coaches", name: "Coaches", icon: "ribbon-outline", types: ["coach_player", "direct_message"] },
   { id: "academy", name: "Academy", icon: "home-outline", types: ["academy"] },
   { id: "squad", name: "Squad", icon: "fitness-outline", types: ["squad", "group"] },
+  { id: "activity", name: "Activity", icon: "newspaper-outline", types: [] },
 ];
 
 interface Player {
@@ -103,8 +106,7 @@ export function CoachChatFooter({ mode = "coach" }: ChatFooterProps) {
   const queryClient = useQueryClient();
   const { coach } = useCoach();
   const { user } = useAuth();
-  
-  // Determine user ID based on mode
+
   const isPlayerMode = mode === "player";
   const userId = isPlayerMode ? user?.playerId : coach?.id;
   const userType = isPlayerMode ? "player" : "coach";
@@ -177,11 +179,11 @@ export function CoachChatFooter({ mode = "coach" }: ChatFooterProps) {
     }
   }, [selectedConversation, isConnected, sendTyping]);
 
-  const currentTypingUsers = selectedConversation 
-    ? typingUsers.get(selectedConversation.id) 
+  const currentTypingUsers = selectedConversation
+    ? typingUsers.get(selectedConversation.id)
     : undefined;
   const isOtherTyping = currentTypingUsers && currentTypingUsers.size > 0;
-  
+
   const toggleFullscreen = () => {
     if (isFullscreen) {
       setIsFullscreen(false);
@@ -191,29 +193,29 @@ export function CoachChatFooter({ mode = "coach" }: ChatFooterProps) {
     }
   };
 
-  const conversationsQueryKey = isPlayerMode 
-    ? ["/api/player/me/conversations"] 
+  const conversationsQueryKey = isPlayerMode
+    ? ["/api/player/me/conversations"]
     : ["/api/coaches", userId, "conversations"];
-  
+
   const { data: conversations = [], isLoading: loadingConversations } = useQuery<Conversation[]>({
     queryKey: conversationsQueryKey,
     enabled: !!userId,
   });
 
-  const messagesQueryKey = isPlayerMode 
+  const messagesQueryKey = isPlayerMode
     ? ["/api/player/me/conversations", selectedConversation?.id, "messages"]
     : ["/api/conversations", selectedConversation?.id, "messages"];
-  
+
   const { data: messages = [], isLoading: loadingMessages } = useQuery<Message[]>({
     queryKey: messagesQueryKey,
     enabled: !!selectedConversation?.id,
     refetchInterval: isConnected ? 30000 : 5000,
   });
 
-  const unreadQueryKey = isPlayerMode 
+  const unreadQueryKey = isPlayerMode
     ? ["/api/player/me/unread-count"]
     : ["/api/coaches", userId, "unread-count"];
-  
+
   const { data: unreadData } = useQuery<{ unreadCount: number }>({
     queryKey: unreadQueryKey,
     enabled: !!userId,
@@ -230,7 +232,7 @@ export function CoachChatFooter({ mode = "coach" }: ChatFooterProps) {
     queryKey: ["/api/coaches"],
     enabled: !!userId && currentTab === "coaches",
   });
-  
+
   const otherCoaches = isPlayerMode ? allCoaches : allCoaches.filter(c => c.id !== coach?.id);
 
   const { data: squads = [] } = useQuery<Squad[]>({
@@ -306,10 +308,10 @@ export function CoachChatFooter({ mode = "coach" }: ChatFooterProps) {
   });
 
   useEffect(() => {
-    const targetHeight = isFullscreen 
-      ? FOOTER_FULLSCREEN 
-      : isExpanded 
-        ? FOOTER_EXPANDED 
+    const targetHeight = isFullscreen
+      ? FOOTER_FULLSCREEN
+      : isExpanded
+        ? FOOTER_EXPANDED
         : FOOTER_COLLAPSED;
     height.value = withSpring(targetHeight, { damping: 20, stiffness: 200 });
   }, [isExpanded, isFullscreen]);
@@ -319,7 +321,7 @@ export function CoachChatFooter({ mode = "coach" }: ChatFooterProps) {
   }));
 
   const isSampleConversation = selectedConversation?.id?.startsWith("sample-") || false;
-  
+
   const handleSend = async () => {
     if (inputText.trim() && selectedConversation && !isSampleConversation) {
       sendMessageMutation.mutate(inputText.trim());
@@ -333,6 +335,19 @@ export function CoachChatFooter({ mode = "coach" }: ChatFooterProps) {
   const formatTime = (dateStr: string) => {
     const date = new Date(dateStr);
     return date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+  };
+
+  const formatRelativeTime = (dateStr: string) => {
+    const date = new Date(dateStr);
+    const now = new Date();
+    const diffMs = now.getTime() - date.getTime();
+    const diffMin = Math.floor(diffMs / 60000);
+    if (diffMin < 1) return "now";
+    if (diffMin < 60) return `${diffMin}m`;
+    const diffHr = Math.floor(diffMin / 60);
+    if (diffHr < 24) return `${diffHr}h`;
+    const diffDay = Math.floor(diffHr / 24);
+    return `${diffDay}d`;
   };
 
   const getReactionIcon = (emoji: string): keyof typeof Ionicons.glyphMap => {
@@ -353,52 +368,84 @@ export function CoachChatFooter({ mode = "coach" }: ChatFooterProps) {
     }
     return currentTabConfig?.types.includes(conv.type) ?? false;
   });
-  const displayConversations = filteredConversations.length > 0 ? filteredConversations : 
+  const displayConversations = filteredConversations.length > 0 ? filteredConversations :
     (currentTab === "players" ? conversations : []);
   const latestConversation = conversations[0];
   const unreadCount = unreadData?.unreadCount || 0;
 
+  const recentContacts = useMemo(() => {
+    const sorted = [...conversations]
+      .filter(c => {
+        if (currentTab === "players") {
+          const tabCfg = CHAT_TABS.find(t => t.id === "players");
+          return c.playerId !== null || tabCfg?.types.includes(c.type);
+        }
+        if (currentTab === "coaches") {
+          const tabCfg = CHAT_TABS.find(t => t.id === "coaches");
+          return tabCfg?.types.includes(c.type);
+        }
+        return false;
+      })
+      .sort((a, b) => {
+        const aTime = a.lastMessageAt ? new Date(a.lastMessageAt).getTime() : 0;
+        const bTime = b.lastMessageAt ? new Date(b.lastMessageAt).getTime() : 0;
+        return bTime - aTime;
+      })
+      .slice(0, 10);
+    return sorted;
+  }, [conversations, currentTab, CHAT_TABS]);
+
+  const activityFeed = useMemo(() => {
+    return [...conversations]
+      .filter(c => c.lastMessagePreview && c.lastMessageAt)
+      .sort((a, b) => {
+        const aTime = a.lastMessageAt ? new Date(a.lastMessageAt).getTime() : 0;
+        const bTime = b.lastMessageAt ? new Date(b.lastMessageAt).getTime() : 0;
+        return bTime - aTime;
+      })
+      .slice(0, 30);
+  }, [conversations]);
+
   const handleTabChange = (tab: ChatTab) => {
     setCurrentTab(tab);
-    
-    // Reset all selector states when changing tabs
+
     setShowNewMessage(false);
     setShowSquadSelector(false);
     setShowCoachSelector(false);
-    
+
+    if (tab === "activity") {
+      setSelectedConversation(null);
+      return;
+    }
+
     if (selectedConversation && !CHAT_TABS.find(t => t.id === tab)?.types.includes(selectedConversation.type)) {
       setSelectedConversation(null);
     }
-    
+
     if (tab === "academy") {
       const academyConv = conversations.find(c => c.type === "academy");
       if (academyConv) {
         setSelectedConversation(academyConv);
       }
     } else {
-      // Clear selection when switching to other tabs (unless staying within same type)
       if (selectedConversation?.type === "academy") {
         setSelectedConversation(null);
       }
     }
   };
-  
-  // Auto-select or create Academy conversation when Academy tab is active
+
   useEffect(() => {
     if (currentTab === "academy" && !createConversationMutation.isPending) {
-      // First check if we have an academy conversation from the server
       const academyConv = conversations.find(c => c.type === "academy");
       if (academyConv) {
         if (!selectedConversation || selectedConversation.id !== academyConv.id) {
           setSelectedConversation(academyConv);
         }
       } else if (academyConvCreated) {
-        // Use locally created academy conversation if backend hasn't returned it yet
         if (!selectedConversation || selectedConversation.id !== academyConvCreated.id) {
           setSelectedConversation(academyConvCreated);
         }
       } else {
-        // Create academy chat if it doesn't exist
         createConversationMutation.mutate({
           type: "academy",
           title: "Academy Chat",
@@ -408,7 +455,7 @@ export function CoachChatFooter({ mode = "coach" }: ChatFooterProps) {
   }, [currentTab, conversations, selectedConversation, createConversationMutation.isPending, academyConvCreated]);
 
   const renderMessage = ({ item }: { item: Message }) => {
-    const isOwn = isPlayerMode 
+    const isOwn = isPlayerMode
       ? (item.senderType === "player" && item.senderPlayerId === userId)
       : (item.senderType === "coach" && item.senderCoachId === userId);
     const isSystem = item.messageType === "system";
@@ -430,15 +477,17 @@ export function CoachChatFooter({ mode = "coach" }: ChatFooterProps) {
         {!isOwn ? (
           <View style={styles.senderInfo}>
             <View style={styles.playerAvatar}>
-              <Ionicons name="person" size={12} color={Colors.dark.text} />
+              <Ionicons name="person" size={10} color={Colors.dark.text} />
             </View>
             <ThemedText style={styles.senderName}>
               {selectedConversation?.playerName || "Player"}
             </ThemedText>
           </View>
         ) : null}
-        <ThemedText style={styles.messageText}>{item.body}</ThemedText>
-        <ThemedText style={styles.timestamp}>{formatTime(item.createdAt)}</ThemedText>
+        <View style={styles.messageRow}>
+          <ThemedText style={[styles.messageText, isOwn && styles.ownMessageText]}>{item.body}</ThemedText>
+          <ThemedText style={[styles.timestamp, isOwn && styles.ownTimestamp]}>{formatTime(item.createdAt)}</ThemedText>
+        </View>
         {item.reactions.length > 0 ? (
           <View style={styles.reactions}>
             {Object.entries(
@@ -477,8 +526,7 @@ export function CoachChatFooter({ mode = "coach" }: ChatFooterProps) {
   const handleStartNewPlayerChat = (player: Player) => {
     const playerName = player.name || `${player.firstName || ''} ${player.lastName || ''}`.trim() || 'Player';
     if (isPlayerMode) {
-      // Player-to-player chat
-      const existingConv = conversations.find(c => 
+      const existingConv = conversations.find(c =>
         c.type === "player_player" && c.title?.includes(playerName)
       );
       if (existingConv) {
@@ -492,7 +540,6 @@ export function CoachChatFooter({ mode = "coach" }: ChatFooterProps) {
         });
       }
     } else {
-      // Coach-to-player chat
       const existingConv = conversations.find(c => c.playerId === player.id);
       if (existingConv) {
         setSelectedConversation(existingConv);
@@ -532,6 +579,147 @@ export function CoachChatFooter({ mode = "coach" }: ChatFooterProps) {
       });
     }
   };
+
+  const handleCreateAcademyChat = () => {
+    createConversationMutation.mutate({
+      type: "academy",
+      title: "Academy Chat",
+    });
+  };
+
+  const getConvName = (conv: Conversation) => conv.playerName || conv.title || "Chat";
+  const getInitial = (name: string) => name.charAt(0).toUpperCase();
+
+  const getActivityIcon = (type: string): keyof typeof Ionicons.glyphMap => {
+    switch (type) {
+      case "academy": return "trophy-outline";
+      case "squad":
+      case "group": return "fitness-outline";
+      case "coach_coach": return "ribbon-outline";
+      default: return "chatbubble-outline";
+    }
+  };
+
+  const renderVerticalTabs = () => (
+    <View style={styles.verticalTabPanel}>
+      {CHAT_TABS.map((tab) => {
+        const isActive = currentTab === tab.id;
+        return (
+          <Pressable
+            key={tab.id}
+            onPress={() => handleTabChange(tab.id)}
+            style={[styles.verticalTab, isActive && styles.verticalTabActive]}
+          >
+            <Ionicons
+              name={tab.icon}
+              size={20}
+              color={isActive ? Colors.dark.primary : Colors.dark.textMuted}
+            />
+            <ThemedText
+              style={[styles.verticalTabLabel, isActive && styles.verticalTabLabelActive]}
+              numberOfLines={1}
+            >
+              {tab.name}
+            </ThemedText>
+          </Pressable>
+        );
+      })}
+      {(currentTab === "players" || currentTab === "coaches" || currentTab === "squad") ? (
+        <Pressable
+          onPress={() => {
+            if (currentTab === "players") setShowNewMessage(true);
+            else if (currentTab === "coaches") setShowCoachSelector(true);
+            else if (currentTab === "squad") setShowSquadSelector(true);
+          }}
+          style={styles.verticalAddButton}
+        >
+          <Ionicons name="add" size={20} color={Colors.dark.buttonText} />
+        </Pressable>
+      ) : null}
+    </View>
+  );
+
+  const renderQuickContacts = () => {
+    if (currentTab !== "players" && currentTab !== "coaches") return null;
+    if (recentContacts.length === 0) return null;
+
+    return (
+      <View style={styles.quickContactsContainer}>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.quickContactsScroll}
+        >
+          {recentContacts.map((conv) => {
+            const name = getConvName(conv);
+            return (
+              <Pressable
+                key={conv.id}
+                onPress={() => setSelectedConversation(conv)}
+                style={styles.quickContactItem}
+              >
+                <View style={[
+                  styles.quickContactAvatar,
+                  selectedConversation?.id === conv.id && styles.quickContactAvatarActive,
+                ]}>
+                  <ThemedText style={styles.quickContactInitial}>{getInitial(name)}</ThemedText>
+                </View>
+                <ThemedText style={styles.quickContactName} numberOfLines={1}>{name}</ThemedText>
+              </Pressable>
+            );
+          })}
+        </ScrollView>
+      </View>
+    );
+  };
+
+  const renderActivityFeed = () => (
+    <View style={styles.activityFeedContainer}>
+      <View style={styles.activityHeader}>
+        <Ionicons name="newspaper-outline" size={16} color={Colors.dark.primary} />
+        <ThemedText style={styles.activityHeaderText}>Recent Activity</ThemedText>
+      </View>
+      <FlatList
+        data={activityFeed}
+        keyExtractor={(item) => `activity-${item.id}`}
+        renderItem={({ item }) => {
+          const name = getConvName(item);
+          return (
+            <Pressable
+              onPress={() => {
+                setCurrentTab(
+                  CHAT_TABS.find(t => t.types.includes(item.type))?.id || "players"
+                );
+                setSelectedConversation(item);
+              }}
+              style={styles.activityItem}
+            >
+              <View style={styles.activityIconWrap}>
+                <Ionicons name={getActivityIcon(item.type)} size={18} color={Colors.dark.xpCyan} />
+              </View>
+              <View style={styles.activityContent}>
+                <View style={styles.activityTopRow}>
+                  <ThemedText style={styles.activitySender} numberOfLines={1}>{name}</ThemedText>
+                  <ThemedText style={styles.activityTime}>
+                    {item.lastMessageAt ? formatRelativeTime(item.lastMessageAt) : ""}
+                  </ThemedText>
+                </View>
+                <ThemedText style={styles.activityPreview} numberOfLines={2}>
+                  {item.lastMessagePreview || ""}
+                </ThemedText>
+              </View>
+            </Pressable>
+          );
+        }}
+        ListEmptyComponent={
+          <View style={styles.emptyState}>
+            <Ionicons name="newspaper-outline" size={36} color={Colors.dark.tabIconDefault} />
+            <ThemedText style={styles.emptyText}>No recent activity</ThemedText>
+          </View>
+        }
+      />
+    </View>
+  );
 
   const renderNewMessageSelector = () => (
     <View style={styles.selectorContainer}>
@@ -628,60 +816,6 @@ export function CoachChatFooter({ mode = "coach" }: ChatFooterProps) {
     </View>
   );
 
-  const renderTabBar = () => (
-    <View style={styles.tabBarContainer}>
-      <ScrollView 
-        horizontal 
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={styles.tabBar}
-      >
-        {CHAT_TABS.map((tab) => (
-          <Pressable
-            key={tab.id}
-            onPress={() => handleTabChange(tab.id)}
-            style={[
-              styles.tab,
-              currentTab === tab.id && styles.tabActive,
-            ]}
-          >
-            <Ionicons
-              name={tab.icon}
-              size={16}
-              color={currentTab === tab.id ? Colors.dark.primary : Colors.dark.text}
-            />
-            <ThemedText
-              style={[
-                styles.tabName,
-                currentTab === tab.id && styles.tabNameActive,
-              ]}
-            >
-              {tab.name}
-            </ThemedText>
-          </Pressable>
-        ))}
-      </ScrollView>
-      {currentTab === "players" || currentTab === "coaches" || currentTab === "squad" ? (
-        <Pressable 
-          onPress={() => {
-            if (currentTab === "players") setShowNewMessage(true);
-            else if (currentTab === "coaches") setShowCoachSelector(true);
-            else if (currentTab === "squad") setShowSquadSelector(true);
-          }} 
-          style={styles.addButton}
-        >
-          <Ionicons name="add" size={20} color={Colors.dark.backgroundRoot} />
-        </Pressable>
-      ) : null}
-    </View>
-  );
-
-  const handleCreateAcademyChat = () => {
-    createConversationMutation.mutate({
-      type: "academy",
-      title: "Academy Chat",
-    });
-  };
-
   const renderConversationListContent = () => (
     <>
       <FlatList
@@ -711,8 +845,8 @@ export function CoachChatFooter({ mode = "coach" }: ChatFooterProps) {
           <View style={styles.emptyState}>
             <Ionicons name="chatbubbles-outline" size={40} color={Colors.dark.tabIconDefault} />
             <ThemedText style={styles.emptyText}>
-              {currentTab === "academy" && createConversationMutation.isPending 
-                ? "Setting up Academy Chat..." 
+              {currentTab === "academy" && createConversationMutation.isPending
+                ? "Setting up Academy Chat..."
                 : `No ${currentTabConfig?.name.toLowerCase()} chats yet`}
             </ThemedText>
             {currentTab === "academy" ? (
@@ -747,6 +881,103 @@ export function CoachChatFooter({ mode = "coach" }: ChatFooterProps) {
       />
     </>
   );
+
+  const renderRightPanel = () => {
+    if (currentTab === "activity") {
+      return renderActivityFeed();
+    }
+
+    if (showNewMessage) return renderNewMessageSelector();
+    if (showSquadSelector) return renderSquadSelector();
+    if (showCoachSelector) return renderCoachSelector();
+
+    if (selectedConversation) {
+      return (
+        <>
+          {currentTab !== "academy" ? (
+            <View style={styles.conversationHeader}>
+              <Pressable onPress={() => setSelectedConversation(null)} style={styles.backButton}>
+                <Ionicons name="chevron-back" size={20} color={Colors.dark.text} />
+              </Pressable>
+              <ThemedText style={styles.conversationTitle}>
+                {selectedConversation.playerName || selectedConversation.title || "Chat"}
+              </ThemedText>
+            </View>
+          ) : null}
+
+          {loadingMessages ? (
+            <View style={styles.loadingContainer}>
+              <ActivityIndicator color={Colors.dark.primary} />
+            </View>
+          ) : (
+            <FlatList
+              ref={flatListRef}
+              data={messages}
+              keyExtractor={(item) => item.id}
+              renderItem={renderMessage}
+              style={styles.messageList}
+              contentContainerStyle={styles.messageListContent}
+              onContentSizeChange={() => flatListRef.current?.scrollToEnd({ animated: false })}
+            />
+          )}
+
+          {isOtherTyping ? (
+            <View style={styles.typingIndicator}>
+              <View style={styles.typingDots}>
+                <View style={styles.typingDot} />
+                <View style={[styles.typingDot, { opacity: 0.7 }]} />
+                <View style={[styles.typingDot, { opacity: 0.5 }]} />
+              </View>
+              <ThemedText style={styles.typingText}>typing...</ThemedText>
+            </View>
+          ) : null}
+
+          <View style={styles.inputContainer}>
+            {isConnected ? (
+              <View style={styles.inputConnectionIndicator}>
+                <View style={styles.connectionDot} />
+              </View>
+            ) : null}
+            <TextInput
+              value={inputText}
+              onChangeText={handleInputChange}
+              placeholder={isSampleConversation ? "Demo chat - read only" : "Type a message..."}
+              placeholderTextColor={Colors.dark.textMuted}
+              style={styles.input}
+              onSubmitEditing={handleSend}
+              returnKeyType="send"
+              editable={!isSampleConversation}
+            />
+            <Pressable
+              onPress={handleSend}
+              disabled={sendMessageMutation.isPending || isSampleConversation}
+              style={({ pressed }) => [
+                styles.sendButton,
+                { opacity: pressed || sendMessageMutation.isPending || isSampleConversation ? 0.5 : 1 },
+              ]}
+            >
+              <Ionicons name="send-outline" size={18} color={Colors.dark.buttonText} />
+            </Pressable>
+          </View>
+        </>
+      );
+    }
+
+    if (loadingConversations) {
+      return (
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator color={Colors.dark.primary} />
+        </View>
+      );
+    }
+
+    return (
+      <>
+        {renderQuickContacts()}
+        {renderConversationListContent()}
+      </>
+    );
+  };
 
   return (
     <Animated.View style={[styles.container, { bottom: tabBarHeight }, animatedStyle]}>
@@ -816,89 +1047,10 @@ export function CoachChatFooter({ mode = "coach" }: ChatFooterProps) {
 
       {isExpanded ? (
         <View style={styles.expandedContent}>
-          {renderTabBar()}
-          
-          {showNewMessage ? (
-            renderNewMessageSelector()
-          ) : showSquadSelector ? (
-            renderSquadSelector()
-          ) : showCoachSelector ? (
-            renderCoachSelector()
-          ) : selectedConversation ? (
-            <>
-              {currentTab !== "academy" ? (
-                <View style={styles.conversationHeader}>
-                  <Pressable onPress={() => setSelectedConversation(null)} style={styles.backButton}>
-                    <Ionicons name="chevron-back" size={20} color={Colors.dark.text} />
-                  </Pressable>
-                  <ThemedText style={styles.conversationTitle}>
-                    {selectedConversation.playerName || selectedConversation.title || "Chat"}
-                  </ThemedText>
-                </View>
-              ) : null}
-
-              {loadingMessages ? (
-                <View style={styles.loadingContainer}>
-                  <ActivityIndicator color={Colors.dark.primary} />
-                </View>
-              ) : (
-                <FlatList
-                  ref={flatListRef}
-                  data={messages}
-                  keyExtractor={(item) => item.id}
-                  renderItem={renderMessage}
-                  style={styles.messageList}
-                  contentContainerStyle={styles.messageListContent}
-                  onContentSizeChange={() => flatListRef.current?.scrollToEnd({ animated: false })}
-                />
-              )}
-
-              {isOtherTyping ? (
-                <View style={styles.typingIndicator}>
-                  <View style={styles.typingDots}>
-                    <View style={styles.typingDot} />
-                    <View style={[styles.typingDot, { opacity: 0.7 }]} />
-                    <View style={[styles.typingDot, { opacity: 0.5 }]} />
-                  </View>
-                  <ThemedText style={styles.typingText}>typing...</ThemedText>
-                </View>
-              ) : null}
-
-              <View style={styles.inputContainer}>
-                {isConnected ? (
-                  <View style={styles.connectionIndicator}>
-                    <View style={styles.connectionDot} />
-                  </View>
-                ) : null}
-                <TextInput
-                  value={inputText}
-                  onChangeText={handleInputChange}
-                  placeholder={isSampleConversation ? "Demo chat - read only" : "Type a message..."}
-                  placeholderTextColor={Colors.dark.textMuted}
-                  style={styles.input}
-                  onSubmitEditing={handleSend}
-                  returnKeyType="send"
-                  editable={!isSampleConversation}
-                />
-                <Pressable
-                  onPress={handleSend}
-                  disabled={sendMessageMutation.isPending || isSampleConversation}
-                  style={({ pressed }) => [
-                    styles.sendButton,
-                    { opacity: pressed || sendMessageMutation.isPending || isSampleConversation ? 0.5 : 1 },
-                  ]}
-                >
-                  <Ionicons name="send-outline" size={20} color={Colors.dark.buttonText} />
-                </Pressable>
-              </View>
-            </>
-          ) : loadingConversations ? (
-            <View style={styles.loadingContainer}>
-              <ActivityIndicator color={Colors.dark.primary} />
-            </View>
-          ) : (
-            renderConversationListContent()
-          )}
+          {renderVerticalTabs()}
+          <View style={styles.rightPanel}>
+            {renderRightPanel()}
+          </View>
         </View>
       ) : null}
     </Animated.View>
@@ -1020,46 +1172,160 @@ const styles = StyleSheet.create({
   },
   expandedContent: {
     flex: 1,
+    flexDirection: "row",
     backgroundColor: Backgrounds.root,
   },
-  tabBarContainer: {
-    flexDirection: "row",
-    alignItems: "center",
-    borderBottomWidth: 1,
-    borderBottomColor: `${Colors.dark.primary}20`,
+  verticalTabPanel: {
+    width: LEFT_PANEL_WIDTH,
+    backgroundColor: Backgrounds.card,
+    borderRightWidth: 1,
+    borderRightColor: Colors.dark.primary + "20",
+    paddingTop: Spacing.sm,
     paddingBottom: Spacing.sm,
-    paddingTop: Spacing.xs,
-    backgroundColor: `${Colors.dark.backgroundSecondary}80`,
+    alignItems: "center",
+    gap: 2,
   },
-  tabBar: {
-    flexDirection: "row",
+  verticalTab: {
+    width: LEFT_PANEL_WIDTH - 8,
+    paddingVertical: Spacing.sm,
+    paddingHorizontal: Spacing.xs,
+    borderRadius: BorderRadius.xs,
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 3,
+  },
+  verticalTabActive: {
+    backgroundColor: Colors.dark.primary + "25",
+    borderWidth: 1,
+    borderColor: Colors.dark.primary + "40",
+  },
+  verticalTabLabel: {
+    fontSize: 10,
+    color: Colors.dark.textMuted,
+    textAlign: "center",
+    fontWeight: "500",
+  },
+  verticalTabLabelActive: {
+    color: Colors.dark.primary,
+    fontWeight: "700",
+  },
+  verticalAddButton: {
+    marginTop: "auto",
+    width: 36,
+    height: 36,
+    borderRadius: BorderRadius.full,
+    backgroundColor: Colors.dark.primary,
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: Spacing.sm,
+  },
+  rightPanel: {
+    flex: 1,
+    backgroundColor: Backgrounds.root,
+  },
+  quickContactsContainer: {
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.dark.primary + "15",
+    paddingVertical: Spacing.sm,
+    backgroundColor: Backgrounds.card + "80",
+  },
+  quickContactsScroll: {
     paddingHorizontal: Spacing.sm,
-    gap: Spacing.sm,
+    gap: Spacing.md,
+  },
+  quickContactItem: {
+    alignItems: "center",
+    width: 56,
+  },
+  quickContactAvatar: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: Backgrounds.elevated,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 2,
+    borderColor: Colors.dark.primary + "30",
+  },
+  quickContactAvatarActive: {
+    borderColor: Colors.dark.primary,
+    backgroundColor: Colors.dark.primary + "20",
+  },
+  quickContactInitial: {
+    fontSize: 16,
+    fontWeight: "700",
+    color: Colors.dark.text,
+  },
+  quickContactName: {
+    fontSize: 9,
+    color: Colors.dark.textSecondary,
+    marginTop: 3,
+    textAlign: "center",
+    width: 56,
+  },
+  activityFeedContainer: {
     flex: 1,
   },
-  tab: {
+  activityHeader: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 6,
+    gap: Spacing.sm,
     paddingHorizontal: Spacing.md,
     paddingVertical: Spacing.sm,
-    borderRadius: BorderRadius.full,
-    backgroundColor: "transparent",
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.dark.primary + "20",
+    backgroundColor: Backgrounds.card + "60",
   },
-  tabActive: {
-    backgroundColor: `${Colors.dark.primary}25`,
-    borderWidth: 1,
-    borderColor: `${Colors.dark.primary}40`,
-  },
-  tabName: {
-    fontSize: 11,
-    color: Colors.dark.text,
-    opacity: 0.7,
-  },
-  tabNameActive: {
+  activityHeaderText: {
+    fontSize: 13,
+    fontWeight: "700",
     color: Colors.dark.primary,
-    opacity: 1,
-    fontWeight: "600",
+    textTransform: "uppercase",
+    letterSpacing: 0.8,
+  },
+  activityItem: {
+    flexDirection: "row",
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm,
+    gap: Spacing.sm,
+    borderBottomWidth: 1,
+    borderBottomColor: Backgrounds.surface + "40",
+  },
+  activityIconWrap: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: Colors.dark.xpCyan + "15",
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1,
+    borderColor: Colors.dark.xpCyan + "25",
+  },
+  activityContent: {
+    flex: 1,
+  },
+  activityTopRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 2,
+  },
+  activitySender: {
+    fontSize: 13,
+    fontWeight: "700",
+    color: Colors.dark.text,
+    flex: 1,
+    marginRight: Spacing.sm,
+  },
+  activityTime: {
+    fontSize: 10,
+    color: Colors.dark.textMuted,
+    fontWeight: "500",
+  },
+  activityPreview: {
+    fontSize: 12,
+    color: Colors.dark.textSecondary,
+    lineHeight: 16,
   },
   conversationHeader: {
     flexDirection: "row",
@@ -1073,7 +1339,7 @@ const styles = StyleSheet.create({
     padding: Spacing.xs,
   },
   conversationTitle: {
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: "600",
     color: Colors.dark.text,
     marginLeft: Spacing.xs,
@@ -1081,17 +1347,17 @@ const styles = StyleSheet.create({
   conversationItem: {
     flexDirection: "row",
     alignItems: "center",
-    padding: Spacing.md,
+    padding: Spacing.sm,
     marginHorizontal: Spacing.sm,
-    marginVertical: Spacing.xs,
-    borderRadius: BorderRadius.md,
-    backgroundColor: `${Colors.dark.primary}08`,
-    gap: Spacing.md,
+    marginVertical: 2,
+    borderRadius: BorderRadius.xs,
+    backgroundColor: Colors.dark.primary + "08",
+    gap: Spacing.sm,
   },
   conversationAvatar: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
     backgroundColor: Colors.dark.backgroundSecondary,
     alignItems: "center",
     justifyContent: "center",
@@ -1100,14 +1366,14 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   conversationName: {
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: "600",
     color: Colors.dark.text,
   },
   conversationPreview: {
-    fontSize: 12,
+    fontSize: 11,
     color: Colors.dark.tabIconDefault,
-    marginTop: 2,
+    marginTop: 1,
   },
   loadingContainer: {
     flex: 1,
@@ -1122,7 +1388,7 @@ const styles = StyleSheet.create({
     gap: Spacing.md,
   },
   emptyText: {
-    fontSize: 14,
+    fontSize: 13,
     color: Colors.dark.tabIconDefault,
   },
   messageList: {
@@ -1130,14 +1396,14 @@ const styles = StyleSheet.create({
   },
   messageListContent: {
     padding: Spacing.sm,
-    gap: Spacing.sm,
+    gap: Spacing.xs,
   },
   messageBubble: {
     maxWidth: "80%",
-    padding: Spacing.md,
-    paddingHorizontal: Spacing.lg,
-    borderRadius: BorderRadius.lg,
-    marginVertical: Spacing.xs,
+    paddingVertical: Spacing.sm,
+    paddingHorizontal: Spacing.md,
+    borderRadius: BorderRadius.md,
+    marginVertical: 2,
   },
   ownMessage: {
     alignSelf: "flex-end",
@@ -1147,52 +1413,64 @@ const styles = StyleSheet.create({
   },
   otherMessage: {
     alignSelf: "flex-start",
-    backgroundColor: `${Colors.dark.xpCyan}15`,
+    backgroundColor: Colors.dark.xpCyan + "12",
     borderBottomLeftRadius: 4,
     borderWidth: 1,
-    borderColor: `${Colors.dark.xpCyan}30`,
+    borderColor: Colors.dark.xpCyan + "25",
     marginRight: Spacing.xl,
   },
   senderInfo: {
     flexDirection: "row",
     alignItems: "center",
     gap: Spacing.xs,
-    marginBottom: Spacing.xs,
+    marginBottom: 3,
   },
   playerAvatar: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
+    width: 20,
+    height: 20,
+    borderRadius: 10,
     backgroundColor: Colors.dark.backgroundRoot,
     alignItems: "center",
     justifyContent: "center",
   },
   senderName: {
-    fontSize: 12,
-    fontWeight: "600",
-    color: Colors.dark.text,
-    opacity: 0.8,
+    fontSize: 11,
+    fontWeight: "800",
+    color: Colors.dark.xpCyan,
+    letterSpacing: 0.3,
+  },
+  messageRow: {
+    flexDirection: "row",
+    alignItems: "flex-end",
+    gap: Spacing.sm,
   },
   messageText: {
-    fontSize: 14,
+    fontSize: 13,
     color: Colors.dark.text,
+    flex: 1,
+    lineHeight: 18,
+  },
+  ownMessageText: {
+    color: Colors.dark.buttonText,
   },
   timestamp: {
-    fontSize: 10,
+    fontSize: 9,
     color: Colors.dark.text,
-    opacity: 0.5,
-    marginTop: Spacing.xs,
-    alignSelf: "flex-end",
+    opacity: 0.45,
+  },
+  ownTimestamp: {
+    color: Colors.dark.buttonText,
+    opacity: 0.6,
   },
   systemMessage: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
     gap: Spacing.xs,
-    padding: Spacing.sm,
+    padding: Spacing.xs,
   },
   systemText: {
-    fontSize: 12,
+    fontSize: 11,
     color: Colors.dark.successNeon,
     fontWeight: "600",
   },
@@ -1245,7 +1523,7 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.dark.disabled,
   },
   typingText: {
-    fontSize: 12,
+    fontSize: 11,
     color: Colors.dark.textMuted,
     fontStyle: "italic",
   },
@@ -1259,6 +1537,13 @@ const styles = StyleSheet.create({
     right: 0,
     borderRadius: 6,
     backgroundColor: Backgrounds.root,
+  },
+  inputConnectionIndicator: {
+    width: 12,
+    height: 12,
+    justifyContent: "center",
+    alignItems: "center",
+    borderRadius: 6,
   },
   connectionDot: {
     width: 8,
@@ -1287,13 +1572,13 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.dark.backgroundSecondary,
     borderRadius: BorderRadius.full,
     paddingHorizontal: Spacing.lg,
-    paddingVertical: Platform.OS === "ios" ? Spacing.md : Spacing.sm,
+    paddingVertical: Platform.OS === "ios" ? Spacing.sm : Spacing.xs,
     color: Colors.dark.text,
-    fontSize: 14,
+    fontSize: 13,
   },
   sendButton: {
-    width: 40,
-    height: 40,
+    width: 36,
+    height: 36,
     borderRadius: BorderRadius.full,
     backgroundColor: Colors.dark.primary,
     alignItems: "center",
@@ -1311,20 +1596,10 @@ const styles = StyleSheet.create({
     borderBottomColor: Colors.dark.backgroundSecondary,
   },
   selectorTitle: {
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: "600",
     color: Colors.dark.text,
     marginLeft: Spacing.xs,
-  },
-  addButton: {
-    marginRight: Spacing.sm,
-    padding: Spacing.sm,
-    backgroundColor: Colors.dark.primary,
-    borderRadius: BorderRadius.full,
-    width: 32,
-    height: 32,
-    justifyContent: "center",
-    alignItems: "center",
   },
   startChatButton: {
     flexDirection: "row",
@@ -1332,12 +1607,12 @@ const styles = StyleSheet.create({
     gap: Spacing.sm,
     backgroundColor: Colors.dark.primary,
     paddingHorizontal: Spacing.lg,
-    paddingVertical: Spacing.md,
+    paddingVertical: Spacing.sm,
     borderRadius: BorderRadius.md,
-    marginTop: Spacing.lg,
+    marginTop: Spacing.md,
   },
   startChatButtonText: {
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: "600",
     color: Colors.dark.buttonText,
   },
