@@ -4636,17 +4636,69 @@ export async function registerRoutes(app: Express): Promise<Server> {
         let effectiveWeekCount: number;
         
         if (isFlexibleSession) {
-          // FLEXIBLE: dayOfWeek = -1, multiple dates
-          effectiveDayOfWeek = FLEXIBLE_DAY;
-          const sortedDates = [...flexibleDates].sort((a: any, b: any) => 
-            (a.date || a).localeCompare(b.date || b)
-          );
-          seriesStartDateStr = typeof sortedDates[0] === 'string' ? sortedDates[0] : sortedDates[0].date;
-          seriesEndDateStr = typeof sortedDates[sortedDates.length - 1] === 'string' 
-            ? sortedDates[sortedDates.length - 1] 
-            : sortedDates[sortedDates.length - 1].date;
-          effectiveWeekCount = flexibleDates.length;
-          seriesTitle = `${sessionTypeLabels[sessionType] || sessionType} - Flexible`;
+          // FLEXIBLE: Smart merge - check if existing flexible series matches these players
+          let matchingFlexSeries: any = null;
+          
+          if (playerIds && Array.isArray(playerIds) && playerIds.length > 0) {
+            const allCoachSeries = await storage.getCoachingSeries(coachId, academyId!);
+            for (const s of allCoachSeries) {
+              if (s.status !== "active") continue;
+              if (s.dayOfWeek !== FLEXIBLE_DAY) continue;
+              if (s.sessionType !== sessionType) continue;
+              
+              const sPlayers = await storage.getSeriesPlayers(s.id);
+              const activeIds = sPlayers.filter((p: any) => p.status === "active").map((p: any) => p.playerId);
+              
+              const allMatch = playerIds.every((pid: string) => activeIds.includes(pid));
+              if (allMatch && activeIds.length === playerIds.length) {
+                matchingFlexSeries = s;
+                break;
+              }
+            }
+          }
+          
+          if (matchingFlexSeries) {
+            seriesId = matchingFlexSeries.id;
+            console.log(`[SmartSession] Adding flexible sessions to existing series: ${matchingFlexSeries.title} (ID: ${matchingFlexSeries.id})`);
+            
+            const sortedNewDates = [...flexibleDates].sort((a: any, b: any) => 
+              (a.date || a).localeCompare(b.date || b)
+            );
+            const lastNewDate = typeof sortedNewDates[sortedNewDates.length - 1] === 'string' 
+              ? sortedNewDates[sortedNewDates.length - 1] 
+              : sortedNewDates[sortedNewDates.length - 1].date;
+            
+            if (!matchingFlexSeries.seriesEndDate || lastNewDate > matchingFlexSeries.seriesEndDate) {
+              await db.update(coachingSeries)
+                .set({ 
+                  seriesEndDate: lastNewDate,
+                  weekCount: (matchingFlexSeries.weekCount || 0) + flexibleDates.length,
+                })
+                .where(eq(coachingSeries.id, matchingFlexSeries.id));
+            }
+          }
+          
+          if (!seriesId) {
+            effectiveDayOfWeek = FLEXIBLE_DAY;
+            const sortedDates = [...flexibleDates].sort((a: any, b: any) => 
+              (a.date || a).localeCompare(b.date || b)
+            );
+            seriesStartDateStr = typeof sortedDates[0] === 'string' ? sortedDates[0] : sortedDates[0].date;
+            seriesEndDateStr = typeof sortedDates[sortedDates.length - 1] === 'string' 
+              ? sortedDates[sortedDates.length - 1] 
+              : sortedDates[sortedDates.length - 1].date;
+            effectiveWeekCount = flexibleDates.length;
+            
+            let playerNameSuffix = "";
+            if ((sessionType === "private" || sessionType === "semi_private") && playerIds && playerIds.length > 0) {
+              const playerNames = await Promise.all(playerIds.map(async (pid: string) => {
+                const p = await storage.getPlayer(pid);
+                return p?.name?.split(" ")[0] || "Player";
+              }));
+              playerNameSuffix = ` - ${playerNames.join(", ")}`;
+            }
+            seriesTitle = `${sessionTypeLabels[sessionType] || sessionType}${playerNameSuffix}`;
+          }
         } else if (sessionsToCreate === 1) {
           // ONE-OFF: Check if players already have a matching series on same day of week + time
           const sessionDayOfWeek = start.getUTCDay();
@@ -4733,7 +4785,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
           seriesStartDateStr = dateStr;
           seriesEndDateStr = dateStr;
           effectiveWeekCount = 1;
-          seriesTitle = `${sessionTypeLabels[sessionType] || sessionType} - One-Off`;
+          let oneOffPlayerSuffix = "";
+          if ((sessionType === "private" || sessionType === "semi_private") && playerIds && playerIds.length > 0) {
+            const oneOffPlayerNames = await Promise.all(playerIds.map(async (pid: string) => {
+              const p = await storage.getPlayer(pid);
+              return p?.name?.split(" ")[0] || "Player";
+            }));
+            oneOffPlayerSuffix = ` - ${oneOffPlayerNames.join(", ")}`;
+          }
+          seriesTitle = `${sessionTypeLabels[sessionType] || sessionType}${oneOffPlayerSuffix}`;
         } else {
           // RECURRING (weekly): dayOfWeek = 0-6
           effectiveDayOfWeek = start.getUTCDay();
@@ -4744,35 +4804,37 @@ export async function registerRoutes(app: Express): Promise<Server> {
           seriesTitle = `${sessionTypeLabels[sessionType] || sessionType} - ${dayNames[effectiveDayOfWeek]} ${startTimeStr}`;
         }
         
-        const series = await storage.createCoachingSeries({
-          academyId,
-          coachId,
-          courtId: courtId || null,
-          locationId: locationId || null,
-          title: seriesTitle,
-          dayOfWeek: effectiveDayOfWeek,
-          startTime: startTimeStr,
-          duration,
-          sessionType,
-          ballLevel: ballLevel || null,
-          skillLevel: skillLevel || null,
-          maxPlayers: maxPlayers || (sessionType === "private" ? 1 : sessionType === "semi_private" ? 2 : 6),
-          weekCount: effectiveWeekCount,
-          seriesStartDate: seriesStartDateStr,
-          seriesEndDate: seriesEndDateStr,
-          status: "active",
-        });
-        seriesId = series.id;
-        
-        // Add players to series if provided
-        if (playerIds && Array.isArray(playerIds)) {
-          for (const playerId of playerIds) {
-            await storage.addPlayerToSeries({
-              seriesId: series.id,
-              playerId,
-              status: "active",
-              joinedAt: start,
-            });
+        if (!seriesId) {
+          const series = await storage.createCoachingSeries({
+            academyId,
+            coachId,
+            courtId: courtId || null,
+            locationId: locationId || null,
+            title: seriesTitle,
+            dayOfWeek: effectiveDayOfWeek,
+            startTime: startTimeStr,
+            duration,
+            sessionType,
+            ballLevel: ballLevel || null,
+            skillLevel: skillLevel || null,
+            maxPlayers: maxPlayers || (sessionType === "private" ? 1 : sessionType === "semi_private" ? 2 : 6),
+            weekCount: effectiveWeekCount,
+            seriesStartDate: seriesStartDateStr,
+            seriesEndDate: seriesEndDateStr,
+            status: "active",
+          });
+          seriesId = series.id;
+          
+          // Add players to series if provided
+          if (playerIds && Array.isArray(playerIds)) {
+            for (const playerId of playerIds) {
+              await storage.addPlayerToSeries({
+                seriesId: series.id,
+                playerId,
+                status: "active",
+                joinedAt: start,
+              });
+            }
           }
         }
       }
