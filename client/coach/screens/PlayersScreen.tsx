@@ -37,6 +37,7 @@ import Animated, {
 import { Colors, Spacing, BorderRadius, Typography, FontSizes, getPlayerLevelColor, Backgrounds, GlowColors } from "@/constants/theme";
 import { apiRequest, getStaticAssetsUrl, getApiUrl, getAuthHeaders } from "@/lib/query-client";
 import { useCoach } from "@/coach/context/CoachContext";
+import { convertUTCTimeToLocal } from "@/lib/dateUtils";
 import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollViewCompat";
 import PackagesCard from "@/coach/components/PackagesCard";
 import QuickBaselineDrawer from "@/coach/components/QuickBaselineDrawer";
@@ -887,8 +888,9 @@ function PlayerDetailView({
   onBack: () => void;
   insets: { top: number; bottom: number };
 }) {
-  const { coach } = useCoach();
+  const { coach, academy } = useCoach();
   const queryClient = useQueryClient();
+  const tz = academy?.timezone || "Asia/Dubai";
   
   const tabBarHeight = TAB_BAR_HEIGHT;
   const [showAddNote, setShowAddNote] = useState(false);
@@ -1158,7 +1160,7 @@ function PlayerDetailView({
   // Format attendance date for display
   const formatAttendanceDate = (dateStr: string) => {
     const d = new Date(dateStr);
-    return d.toLocaleDateString("en-US", { weekday: "short", day: "numeric", month: "short" });
+    return d.toLocaleDateString("en-US", { weekday: "short", day: "numeric", month: "short", timeZone: tz });
   };
 
   // Format time for attendance history (ISO string to HH:MM)
@@ -1166,10 +1168,15 @@ function PlayerDetailView({
     if (!timeStr) return "";
     try {
       const d = new Date(timeStr);
-      return d.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", hour12: false });
+      return d.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", hour12: false, timeZone: tz });
     } catch {
       return "";
     }
+  };
+
+  // Convert UTC time string (HH:MM) to local academy timezone
+  const formatSeriesTime = (utcTime: string) => {
+    return convertUTCTimeToLocal(utcTime, tz);
   };
 
   // Calculate level readiness (returns null for max level or invalid level)
@@ -1802,7 +1809,7 @@ function PlayerDetailView({
                       <View key={summary.seriesId} style={styles.seriesSummaryCard}>
                         <View style={styles.seriesSummaryHeader}>
                           <Text style={styles.seriesSummaryDay}>{summary.dayName}</Text>
-                          <Text style={styles.seriesSummaryTime}>{summary.startTime}</Text>
+                          <Text style={styles.seriesSummaryTime}>{formatSeriesTime(summary.startTime)}</Text>
                         </View>
                         <View style={styles.seriesSummaryStats}>
                           <View style={styles.seriesSummaryStat}>
@@ -1861,7 +1868,7 @@ function PlayerDetailView({
                       <Pressable style={styles.seriesGroupHeader} onPress={toggleExpanded}>
                         <View style={styles.seriesGroupHeaderLeft}>
                           <Text style={styles.seriesGroupDay}>{summary.dayName}</Text>
-                          <Text style={styles.seriesGroupTime}>{summary.startTime}</Text>
+                          <Text style={styles.seriesGroupTime}>{formatSeriesTime(summary.startTime)}</Text>
                           <View style={styles.seriesGroupCount}>
                             <Text style={styles.seriesGroupCountText}>{seriesRecords.length}</Text>
                           </View>
