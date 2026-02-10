@@ -34,7 +34,6 @@
         "bundleIdentifier": "com.glowupsports.app"
       },
       "android": {
-        "supportsTablet": true,
         "adaptiveIcon": {
           "backgroundColor": "#1A1A1A",
           "foregroundImage": "./assets/images/android-icon-foreground.png",
