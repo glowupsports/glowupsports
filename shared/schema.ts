@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { pgTable, text, varchar, timestamp, integer, numeric, boolean, date, jsonb, index, unique } from "drizzle-orm/pg-core";
+import { pgTable, text, varchar, timestamp, integer, numeric, boolean, date, jsonb, json, index, unique } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -5790,3 +5790,17 @@ export const coachWellnessLogs = pgTable("coach_wellness_logs", {
 export const insertCoachWellnessLogSchema = createInsertSchema(coachWellnessLogs).omit({ id: true, createdAt: true, updatedAt: true });
 export type InsertCoachWellnessLog = z.infer<typeof insertCoachWellnessLogSchema>;
 export type CoachWellnessLog = typeof coachWellnessLogs.$inferSelect;
+
+// ==================== PLAYER NOTIFICATIONS ====================
+
+export const playerNotifications = pgTable("player_notifications", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  playerId: varchar("player_id").notNull(),
+  title: varchar("title", { length: 255 }).notNull(),
+  body: text("body").notNull(),
+  type: varchar("type", { length: 50 }).notNull().default("general"),
+  data: json("data"),
+  read: boolean("read").notNull().default(false),
+  readAt: timestamp("read_at"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});

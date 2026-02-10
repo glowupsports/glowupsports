@@ -6,7 +6,7 @@ import path from "path";
 import fs from "fs";
 import { storage, getSessionTypeByPlayerCount, updateSeriesSessionType, recalculateSeriesCredits } from "./storage";
 import { db } from "./db";
-import { playerHolidays, coachWellnessLogs, insertCoachWellnessLogSchema, levelUpEvents, playerXpEvents, ballLevels } from "@shared/schema";
+import { playerHolidays, coachWellnessLogs, insertCoachWellnessLogSchema, levelUpEvents, playerXpEvents, ballLevels, playerNotifications } from "@shared/schema";
 import { eq, sql, desc, and, ne, gt, gte, asc, inArray, notInArray, isNull, isNotNull, or, count, ilike, lte } from "drizzle-orm";
 import { 
   invoices, payments, sessionPlayers, sessionWaitlist, creditTransactions, players, 
@@ -6738,6 +6738,80 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error fetching session feedback:", error);
       res.status(500).json({ error: "Failed to fetch session feedback" });
+    }
+  });
+
+  // ==================== PLAYER NOTIFICATIONS ====================
+
+  // GET /api/player/me/notifications - Get player's notifications
+  app.get("/api/player/me/notifications", authMiddleware, requirePlayerOrOwner, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const playerId = req.user!.playerId;
+      if (!playerId) return res.status(400).json({ error: "Player not found" });
+      
+      const limit = parseInt(req.query.limit as string) || 50;
+      const notifications = await db.select()
+        .from(playerNotifications)
+        .where(eq(playerNotifications.playerId, playerId))
+        .orderBy(desc(playerNotifications.createdAt))
+        .limit(limit);
+      
+      res.json(notifications);
+    } catch (error) {
+      console.error("Error fetching notifications:", error);
+      res.status(500).json({ error: "Failed to fetch notifications" });
+    }
+  });
+
+  // GET /api/player/me/notifications/unread-count
+  app.get("/api/player/me/notifications/unread-count", authMiddleware, requirePlayerOrOwner, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const playerId = req.user!.playerId;
+      if (!playerId) return res.status(400).json({ error: "Player not found" });
+      
+      const [result] = await db.select({ count: count() })
+        .from(playerNotifications)
+        .where(and(
+          eq(playerNotifications.playerId, playerId),
+          eq(playerNotifications.read, false)
+        ));
+      
+      res.json({ count: result?.count || 0 });
+    } catch (error) {
+      console.error("Error fetching unread count:", error);
+      res.status(500).json({ error: "Failed to fetch unread count" });
+    }
+  });
+
+  // POST /api/player/me/notifications/mark-read
+  app.post("/api/player/me/notifications/mark-read", authMiddleware, requirePlayerOrOwner, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const playerId = req.user!.playerId;
+      if (!playerId) return res.status(400).json({ error: "Player not found" });
+      
+      const { notificationIds } = req.body;
+      
+      if (notificationIds && Array.isArray(notificationIds)) {
+        await db.update(playerNotifications)
+          .set({ read: true, readAt: new Date() })
+          .where(and(
+            eq(playerNotifications.playerId, playerId),
+            inArray(playerNotifications.id, notificationIds)
+          ));
+      } else {
+        // Mark all as read
+        await db.update(playerNotifications)
+          .set({ read: true, readAt: new Date() })
+          .where(and(
+            eq(playerNotifications.playerId, playerId),
+            eq(playerNotifications.read, false)
+          ));
+      }
+      
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error marking notifications read:", error);
+      res.status(500).json({ error: "Failed to mark notifications read" });
     }
   });
 

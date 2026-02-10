@@ -130,7 +130,8 @@ export async function sendPushNotification(
   tokens: string[],
   title: string,
   body: string,
-  data?: Record<string, unknown>
+  data?: Record<string, unknown>,
+  playerId?: string
 ): Promise<ExpoPushTicket[]> {
   if (tokens.length === 0) return [];
 
@@ -168,6 +169,22 @@ export async function sendPushNotification(
   } else if (fcmTokens.length > 0) {
     // FCM tokens but Firebase not initialized - log warning
     console.warn(`[Push] ${fcmTokens.length} FCM tokens but Firebase not initialized`);
+  }
+
+  // Store notification in playerNotifications table
+  try {
+    const { playerNotifications } = await import("../shared/schema");
+    if (playerId) {
+      await db.insert(playerNotifications).values({
+        playerId,
+        title: title || "",
+        body: body || "",
+        type: (data?.type as string) || "general",
+        data: data || {},
+      });
+    }
+  } catch (storeErr) {
+    console.error("[Push] Failed to store notification:", storeErr);
   }
 
   return results;
@@ -255,7 +272,8 @@ export async function sendSessionReminder(
     tokens,
     `${typeLabel}${locationStr}`,
     `With ${coachName} - ${timeStr}`,
-    { type: "session_reminder", playerId }
+    { type: "session_reminder", playerId },
+    playerId
   );
 }
 
@@ -271,7 +289,8 @@ export async function sendFeedbackNotification(
     tokens,
     "New Feedback Received",
     `${coachName} has added feedback for your session "${sessionName}"`,
-    { type: "feedback_received", playerId }
+    { type: "feedback_received", playerId },
+    playerId
   );
 }
 
@@ -287,7 +306,8 @@ export async function sendBadgeEarnedNotification(
     tokens,
     "Badge Earned!",
     `Congratulations! You earned the "${badgeName}" badge: ${badgeDescription}`,
-    { type: "badge_earned", playerId, badgeName }
+    { type: "badge_earned", playerId, badgeName },
+    playerId
   );
 }
 
@@ -303,7 +323,8 @@ export async function sendLevelUpNotification(
     tokens,
     "Level Up!",
     `Congratulations! You've reached Level ${newLevel} - ${levelName}!`,
-    { type: "level_up", playerId, newLevel }
+    { type: "level_up", playerId, newLevel },
+    playerId
   );
 }
 
@@ -319,7 +340,8 @@ export async function sendXPGainNotification(
     tokens,
     `+${xpAmount} XP`,
     reason,
-    { type: "xp_gain", playerId, xpAmount }
+    { type: "xp_gain", playerId, xpAmount },
+    playerId
   );
 }
 
