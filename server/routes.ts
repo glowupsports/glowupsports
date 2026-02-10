@@ -6548,6 +6548,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
         xpAwarded,
         pillarId: pillarId || null,
       }).returning();
+
+      // Send push notification to player about new feedback
+      try {
+        const coachUser = await storage.getUserById(coachUserId);
+        const coachName = coachUser?.fullName || "Your coach";
+        const sessionName = session.name || "Training session";
+        await sendFeedbackNotification(playerId, coachName, sessionName);
+
+        if (xpAwarded > 0) {
+          await sendXPGainNotification(playerId, xpAwarded, `Coach feedback: ${feedbackType}`);
+        }
+      } catch (notifErr) {
+        console.error("Error sending feedback notification:", notifErr);
+      }
       
       res.json({ success: true, feedback, xpAwarded });
     } catch (error) {

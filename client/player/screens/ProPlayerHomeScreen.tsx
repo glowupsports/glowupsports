@@ -21,6 +21,7 @@ import PinEntryModal from "@/components/PinEntryModal";
 import Svg, { Line, Rect } from "react-native-svg";
 import { BirthdayConfettiOverlay } from "@/player/components/BirthdayThemeOverlay";
 import { BirthdayBanner, BirthdayXPBonusCard } from "@/player/components/BirthdayThemeOverlay";
+import { RecentFeedbackCard } from "@/player/components/RecentFeedbackCard";
 
 interface DashboardData {
   player: {
@@ -211,6 +212,9 @@ function PlayerHomeContent() {
 
         {/* TRACKING BANNER - Coach is watching */}
         <TrackingBanner />
+
+        {/* RECENT COACH FEEDBACK */}
+        <RecentFeedbackCard />
 
         {/* DISCOVERY SECTION - Horizontal scrolling rows */}
         <View style={styles.discoverySection}>
