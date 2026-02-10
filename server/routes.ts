@@ -6499,7 +6499,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { id } = req.params;
       const { playerId, feedbackType, message, visibility, pillarId } = req.body;
-      const coachId = req.user!.coachId || req.user!.userId;
+      const coachUserId = req.user!.userId;
       const academyId = req.user!.academyId;
       
       const { valid, session } = await validateSessionOwnership(id, academyId, storage);
@@ -6541,7 +6541,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const [feedback] = await db.insert(inSessionFeedback).values({
         sessionId: id,
         playerId,
-        coachId,
+        coachId: coachUserId,
         feedbackType,
         message,
         visibility: feedbackVisibility,
