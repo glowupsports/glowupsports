@@ -11,17 +11,9 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
-import { BlurView } from "expo-blur";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import * as Haptics from "expo-haptics";
 import Animated, {
-  useSharedValue,
-  useAnimatedStyle,
-  withSpring,
-  withTiming,
-  runOnJS,
-  FadeIn,
-  FadeOut,
   SlideInRight,
   SlideOutLeft,
 } from "react-native-reanimated";
@@ -46,8 +38,6 @@ export function FreelanceLicenseWizard({ visible, onClose, onSuccess }: Freelanc
   const queryClient = useQueryClient();
   const { coach } = useCoach();
   const [currentSlide, setCurrentSlide] = useState(0);
-  const [shouldRender, setShouldRender] = useState(visible);
-
   const [businessName, setBusinessName] = useState("");
   const [tagline, setTagline] = useState("");
   const [bio, setBio] = useState("");
@@ -55,9 +45,6 @@ export function FreelanceLicenseWizard({ visible, onClose, onSuccess }: Freelanc
   const [contactPhone, setContactPhone] = useState("");
   const [website, setWebsite] = useState("");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-
-  const slideAnim = useSharedValue(0);
-  const overlayOpacity = useSharedValue(0);
 
   const { data: freelanceData } = useQuery<{
     hasFreelanceLicense: boolean;
@@ -95,13 +82,7 @@ export function FreelanceLicenseWizard({ visible, onClose, onSuccess }: Freelanc
 
   useEffect(() => {
     if (visible) {
-      setShouldRender(true);
       setCurrentSlide(0);
-      overlayOpacity.value = withTiming(1, { duration: 200 });
-    } else {
-      overlayOpacity.value = withTiming(0, { duration: 200 }, () => {
-        runOnJS(setShouldRender)(false);
-      });
     }
   }, [visible]);
 
@@ -111,14 +92,9 @@ export function FreelanceLicenseWizard({ visible, onClose, onSuccess }: Freelanc
     }
   }, [coach?.name]);
 
-  const overlayStyle = useAnimatedStyle(() => ({
-    opacity: overlayOpacity.value,
-  }));
-
   const handleClose = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    overlayOpacity.value = withTiming(0, { duration: 200 });
-    setTimeout(onClose, 200);
+    onClose();
   };
 
   const handleNext = () => {
@@ -160,7 +136,7 @@ export function FreelanceLicenseWizard({ visible, onClose, onSuccess }: Freelanc
     }
   };
 
-  if (!shouldRender) return null;
+  if (!visible) return null;
 
   const renderSlide = () => {
     switch (currentSlide) {
@@ -397,19 +373,15 @@ export function FreelanceLicenseWizard({ visible, onClose, onSuccess }: Freelanc
 
   return (
     <Modal
-      visible={shouldRender}
+      visible={visible}
       transparent
-      animationType="none"
+      animationType="fade"
       onRequestClose={handleClose}
     >
       <View style={styles.container}>
-        <Animated.View style={[styles.overlay, overlayStyle]}>
-          <BlurView intensity={20} style={StyleSheet.absoluteFill} />
-          <Pressable style={StyleSheet.absoluteFill} onPress={handleClose} />
-        </Animated.View>
+        <Pressable style={styles.overlay} onPress={handleClose} />
 
-        <Animated.View 
-          entering={FadeIn.duration(200)}
+        <View 
           style={[styles.modal, { paddingBottom: insets.bottom + Spacing.lg }]}
         >
           <LinearGradient
@@ -485,7 +457,7 @@ export function FreelanceLicenseWizard({ visible, onClose, onSuccess }: Freelanc
               </Pressable>
             </View>
           </LinearGradient>
-        </Animated.View>
+        </View>
       </View>
     </Modal>
   );

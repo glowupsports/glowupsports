@@ -1686,6 +1686,8 @@ function CommentsModal({ visible, postId, onClose }: CommentsModalProps) {
       console.log("Comment error:", error);
       if (Platform.OS === "web" && typeof window !== "undefined") {
         window.alert("Failed to post comment. Please try again.");
+      } else {
+        Alert.alert("Error", "Failed to post comment. Please try again.");
       }
     } finally {
       setIsSubmitting(false);

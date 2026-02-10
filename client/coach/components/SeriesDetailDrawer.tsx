@@ -626,6 +626,8 @@ export default function SeriesDetailDrawer({
     onError: () => {
       if (Platform.OS === "web") {
         window.alert("Failed to create package. Please try again.");
+      } else {
+        Alert.alert("Error", "Failed to create package. Please try again.");
       }
     },
   });
@@ -1219,6 +1221,8 @@ export default function SeriesDetailDrawer({
       console.error("Error completing series:", error);
       if (Platform.OS === "web" && typeof window !== "undefined") {
         window.alert("Failed to complete class series. Please try again.");
+      } else {
+        Alert.alert("Error", "Failed to complete class series. Please try again.");
       }
     } finally {
       setCompletingSeries(false);
@@ -1259,6 +1263,8 @@ export default function SeriesDetailDrawer({
       console.error("Error deleting series:", error);
       if (Platform.OS === "web" && typeof window !== "undefined") {
         window.alert("Failed to delete class series. Please try again.");
+      } else {
+        Alert.alert("Error", "Failed to delete class series. Please try again.");
       }
     } finally {
       setDeletingSeries(false);
