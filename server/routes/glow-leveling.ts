@@ -14,7 +14,7 @@ import {
   coachCalibration,
   players
 } from "../../shared/schema";
-import { eq, and, desc, sql, inArray } from "drizzle-orm";
+import { eq, and, or, desc, sql, inArray } from "drizzle-orm";
 import { AuthenticatedRequest, authMiddlewareWithFreshData as authMiddleware, requireAcademy } from "../auth";
 import { awardXP } from "../services/xp-service";
 import { ADULT_GLOW_SKILLS_BY_LEVEL } from "../seeds/adult-glow-skills-seed";
@@ -535,7 +535,7 @@ router.get("/api/glow/players/:playerId/suggested-skills", authMiddleware, requi
       return res.status(404).json({ error: "Player not found" });
     }
     
-    // Get player's current level
+    // Get player's current level from playerBallLevels
     const [playerLevel] = await db
       .select({
         levelId: playerBallLevels.levelId,
@@ -547,7 +547,31 @@ router.get("/api/glow/players/:playerId/suggested-skills", authMiddleware, requi
       ))
       .limit(1);
     
-    if (!playerLevel?.levelId) {
+    let resolvedLevelId = playerLevel?.levelId;
+    
+    if (!resolvedLevelId) {
+      const [player] = await db
+        .select({ ballLevel: players.ballLevel })
+        .from(players)
+        .where(eq(players.id, playerId))
+        .limit(1);
+      
+      if (player?.ballLevel) {
+        const stageMap: Record<string, string> = {
+          red: "RED_3",
+          orange: "ORANGE_3",
+          green: "GREEN_3",
+          yellow: "YELLOW_3",
+          glow: "GREEN_3",
+        };
+        const mappedLevel = stageMap[player.ballLevel.toLowerCase()];
+        if (mappedLevel) {
+          resolvedLevelId = mappedLevel;
+        }
+      }
+    }
+    
+    if (!resolvedLevelId) {
       return res.json([]);
     }
     
@@ -562,7 +586,7 @@ router.get("/api/glow/players/:playerId/suggested-skills", authMiddleware, requi
       })
       .from(levelSkills)
       .innerJoin(glowSkills, eq(levelSkills.skillId, glowSkills.id))
-      .where(eq(levelSkills.levelId, playerLevel.levelId))
+      .where(eq(levelSkills.levelId, resolvedLevelId))
       .orderBy(glowSkills.pillar, glowSkills.name);
     
     // Map pillar names
