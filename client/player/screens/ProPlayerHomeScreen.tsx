@@ -1,5 +1,5 @@
 import React, { useCallback, useState, useEffect, useMemo } from "react";
-import { View, Text, StyleSheet, ScrollView, ActivityIndicator, RefreshControl } from "react-native";
+import { View, Text, StyleSheet, ScrollView, ActivityIndicator, RefreshControl, Pressable } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useFocusEffect, useNavigation } from "@react-navigation/native";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -22,6 +22,9 @@ import Svg, { Line, Rect } from "react-native-svg";
 import { BirthdayConfettiOverlay } from "@/player/components/BirthdayThemeOverlay";
 import { BirthdayBanner, BirthdayXPBonusCard } from "@/player/components/BirthdayThemeOverlay";
 import { RecentFeedbackCard } from "@/player/components/RecentFeedbackCard";
+import { FeedbackToast } from "@/player/components/FeedbackToast";
+import Ionicons from "@expo/vector-icons/Ionicons";
+import * as Haptics from "expo-haptics";
 
 interface DashboardData {
   player: {
@@ -87,6 +90,13 @@ function PlayerHomeContent() {
     queryKey: ["/api/player/me/dashboard"],
     enabled: !!user?.playerId,
   });
+
+  const { data: unreadData } = useQuery<{ count: number }>({
+    queryKey: ["/api/player/me/notifications/unread-count"],
+    enabled: !!user?.playerId,
+    refetchInterval: 30000,
+  });
+  const unreadCount = unreadData?.count || 0;
 
   useEffect(() => {
     if (dashboardData && !hasSeenScreen("Home")) {
@@ -162,8 +172,25 @@ function PlayerHomeContent() {
   return (
     <View style={styles.container}>
       <BroadcastBackground />
+
+      <Pressable 
+        style={[styles.notificationBell, { top: insets.top + 8 }]}
+        onPress={() => {
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+          navigation.navigate("PlayerNotifications");
+        }}
+      >
+        <Ionicons name="notifications-outline" size={22} color={Colors.dark.text} />
+        {unreadCount > 0 ? (
+          <View style={styles.bellBadge}>
+            <Text style={styles.bellBadgeText}>{unreadCount > 99 ? "99+" : unreadCount}</Text>
+          </View>
+        ) : null}
+      </Pressable>
       
       {isBirthday && <BirthdayConfettiOverlay />}
+      
+      <FeedbackToast />
       
       <ScrollView
         style={styles.scrollView}
@@ -307,5 +334,34 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.lg,
     marginBottom: -Spacing.sm,
     textTransform: "uppercase",
+  },
+  notificationBell: {
+    position: "absolute",
+    top: 0,
+    right: Spacing.lg,
+    zIndex: 100,
+    width: 44,
+    height: 44,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  bellBadge: {
+    position: "absolute",
+    top: 4,
+    right: 2,
+    backgroundColor: "#FF3B30",
+    borderRadius: 10,
+    minWidth: 18,
+    height: 18,
+    justifyContent: "center",
+    alignItems: "center",
+    paddingHorizontal: 4,
+    borderWidth: 2,
+    borderColor: Backgrounds.root,
+  },
+  bellBadgeText: {
+    fontSize: 10,
+    fontWeight: "800",
+    color: "#FFFFFF",
   },
 });
