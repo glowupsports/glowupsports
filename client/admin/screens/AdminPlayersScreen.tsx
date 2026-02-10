@@ -469,6 +469,7 @@ export default function AdminPlayersScreen() {
   const [showCreditStoreModal, setShowCreditStoreModal] = useState(false);
   const [showRecordPaymentModal, setShowRecordPaymentModal] = useState(false);
   const [showMarkPaidModal, setShowMarkPaidModal] = useState(false);
+  const [progressExpanded, setProgressExpanded] = useState(false);
   const [selectedPackageForPayment, setSelectedPackageForPayment] = useState<PlayerPackage | null>(null);
   const [paymentMethod, setPaymentMethod] = useState<"cash" | "bank_transfer">("cash");
   const [paymentDate, setPaymentDate] = useState(new Date());
@@ -897,34 +898,51 @@ export default function AdminPlayersScreen() {
                 </View>
               </View>
 
-              <View style={[styles.section, CardStyles.elevated]}>
-                <Text style={styles.sectionTitle}>Progress</Text>
-                <View style={styles.progressHeader}>
-                  <View style={styles.levelBadge}>
-                    <Text style={styles.levelNumber}>{stats.progress.level}</Text>
-                    <Text style={styles.levelLabel}>Level</Text>
-                  </View>
-                  <View style={styles.xpInfo}>
-                    <Text style={styles.xpText}>{stats.progress.xp} / {stats.progress.xpToNextLevel} XP</Text>
-                    <View style={styles.xpBar}>
-                      <View 
-                        style={[
-                          styles.xpFill, 
-                          { width: `${(stats.progress.xp / stats.progress.xpToNextLevel) * 100}%` }
-                        ]} 
-                      />
+              <Pressable 
+                style={[styles.section, CardStyles.elevated]}
+                onPress={() => {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  setProgressExpanded(!progressExpanded);
+                }}
+              >
+                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <Text style={styles.sectionTitle}>Progress</Text>
+                  <Ionicons 
+                    name={progressExpanded ? "chevron-up" : "chevron-down"} 
+                    size={20} 
+                    color={Colors.dark.textMuted} 
+                  />
+                </View>
+                {progressExpanded ? (
+                  <>
+                    <View style={styles.progressHeader}>
+                      <View style={styles.levelBadge}>
+                        <Text style={styles.levelNumber}>{stats.progress.level}</Text>
+                        <Text style={styles.levelLabel}>Level</Text>
+                      </View>
+                      <View style={styles.xpInfo}>
+                        <Text style={styles.xpText}>{stats.progress.xp} / {stats.progress.xpToNextLevel} XP</Text>
+                        <View style={styles.xpBar}>
+                          <View 
+                            style={[
+                              styles.xpFill, 
+                              { width: `${(stats.progress.xp / stats.progress.xpToNextLevel) * 100}%` }
+                            ]} 
+                          />
+                        </View>
+                      </View>
                     </View>
-                  </View>
-                </View>
 
-                <View style={styles.skillsSection}>
-                  <SkillBar label="Technical" value={stats.progress.skills.technical} color={Colors.dark.xpCyan} />
-                  <SkillBar label="Tactical" value={stats.progress.skills.tactical} color={Colors.dark.primary} />
-                  <SkillBar label="Physical" value={stats.progress.skills.physical} color={Colors.dark.orange} />
-                  <SkillBar label="Mental" value={stats.progress.skills.mental} color={Colors.dark.gold} />
-                  <SkillBar label="Social" value={stats.progress.skills.social} color={Colors.dark.successNeon} />
-                </View>
-              </View>
+                    <View style={styles.skillsSection}>
+                      <SkillBar label="Technical" value={stats.progress.skills.technical} color={Colors.dark.xpCyan} />
+                      <SkillBar label="Tactical" value={stats.progress.skills.tactical} color={Colors.dark.primary} />
+                      <SkillBar label="Physical" value={stats.progress.skills.physical} color={Colors.dark.orange} />
+                      <SkillBar label="Mental" value={stats.progress.skills.mental} color={Colors.dark.gold} />
+                      <SkillBar label="Social" value={stats.progress.skills.social} color={Colors.dark.successNeon} />
+                    </View>
+                  </>
+                ) : null}
+              </Pressable>
 
               <View style={[styles.section, CardStyles.elevated]}>
                 <Text style={styles.sectionTitle}>Payments</Text>
@@ -1520,35 +1538,52 @@ export default function AdminPlayersScreen() {
               </View>
             </View>
 
-            {/* Progress Section */}
-            <View style={[styles.section, CardStyles.elevated]}>
-              <Text style={styles.sectionTitle}>Progress</Text>
-              <View style={styles.progressHeader}>
-                <View style={styles.levelBadge}>
-                  <Text style={styles.levelNumber}>{stats.progress.level}</Text>
-                  <Text style={styles.levelLabel}>Level</Text>
-                </View>
-                <View style={styles.xpInfo}>
-                  <Text style={styles.xpText}>{stats.progress.xp} / {stats.progress.xpToNextLevel} XP</Text>
-                  <View style={styles.xpBar}>
-                    <View 
-                      style={[
-                        styles.xpFill, 
-                        { width: `${(stats.progress.xp / stats.progress.xpToNextLevel) * 100}%` }
-                      ]} 
-                    />
+            {/* Progress Section - Collapsible */}
+            <Pressable 
+              style={[styles.section, CardStyles.elevated]}
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                setProgressExpanded(!progressExpanded);
+              }}
+            >
+              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                <Text style={styles.sectionTitle}>Progress</Text>
+                <Ionicons 
+                  name={progressExpanded ? "chevron-up" : "chevron-down"} 
+                  size={20} 
+                  color={Colors.dark.textMuted} 
+                />
+              </View>
+              {progressExpanded ? (
+                <>
+                  <View style={styles.progressHeader}>
+                    <View style={styles.levelBadge}>
+                      <Text style={styles.levelNumber}>{stats.progress.level}</Text>
+                      <Text style={styles.levelLabel}>Level</Text>
+                    </View>
+                    <View style={styles.xpInfo}>
+                      <Text style={styles.xpText}>{stats.progress.xp} / {stats.progress.xpToNextLevel} XP</Text>
+                      <View style={styles.xpBar}>
+                        <View 
+                          style={[
+                            styles.xpFill, 
+                            { width: `${(stats.progress.xp / stats.progress.xpToNextLevel) * 100}%` }
+                          ]} 
+                        />
+                      </View>
+                    </View>
                   </View>
-                </View>
-              </View>
 
-              <View style={styles.skillsSection}>
-                <SkillBar label="Technical" value={stats.progress.skills.technical} color={Colors.dark.xpCyan} />
-                <SkillBar label="Tactical" value={stats.progress.skills.tactical} color={Colors.dark.primary} />
-                <SkillBar label="Physical" value={stats.progress.skills.physical} color={Colors.dark.orange} />
-                <SkillBar label="Mental" value={stats.progress.skills.mental} color={Colors.dark.gold} />
-                <SkillBar label="Social" value={stats.progress.skills.social} color={Colors.dark.successNeon} />
-              </View>
-            </View>
+                  <View style={styles.skillsSection}>
+                    <SkillBar label="Technical" value={stats.progress.skills.technical} color={Colors.dark.xpCyan} />
+                    <SkillBar label="Tactical" value={stats.progress.skills.tactical} color={Colors.dark.primary} />
+                    <SkillBar label="Physical" value={stats.progress.skills.physical} color={Colors.dark.orange} />
+                    <SkillBar label="Mental" value={stats.progress.skills.mental} color={Colors.dark.gold} />
+                    <SkillBar label="Social" value={stats.progress.skills.social} color={Colors.dark.successNeon} />
+                  </View>
+                </>
+              ) : null}
+            </Pressable>
 
             {/* Payments Section */}
             <View style={[styles.section, CardStyles.elevated]}>
@@ -1584,26 +1619,12 @@ export default function AdminPlayersScreen() {
               <View style={styles.paymentActions}>
                 <Pressable 
                   style={styles.recordPaymentButton}
-                  onPress={async () => {
+                  onPress={() => {
                     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-                    const unpaidPackages = stats.packages?.filter((p: PlayerPackage) => !p.isPaid) || [];
-                    if (unpaidPackages.length === 0) {
-                      return;
-                    }
-                    try {
-                      await Promise.all(
-                        unpaidPackages.map((pkg: PlayerPackage) => 
-                          apiRequest("PATCH", `/api/packages/${pkg.id}`, { isPaid: true })
-                        )
-                      );
-                      queryClient.invalidateQueries({ queryKey: [`/api/admin/players/${selectedPlayer?.id}/stats`] });
-                      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-                    } catch (error) {
-                      console.error("Failed to record payment:", error);
-                      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-                    }
+                    setShowRecordPaymentModal(true);
                   }}
                 >
+                  <Ionicons name="card-outline" size={16} color="#000" />
                   <Text style={styles.recordPaymentText}>Record Payment</Text>
                 </Pressable>
                 <Pressable 
