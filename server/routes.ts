@@ -16074,6 +16074,149 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // COMPREHENSIVE TEST: Send ALL notification types to the logged-in user
+  app.post("/api/push/test-all-types", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const userId = req.user!.userId;
+      const playerId = req.user!.playerId;
+      const coachId = req.user!.coachId;
+      const { sendPushNotification, getUserPushTokens, getPlayerPushTokens, getCoachPushTokens } = await import("./pushNotifications");
+      const { isFirebaseInitialized } = await import("./fcm");
+
+      // Collect ALL tokens for this user across all roles
+      const tokenSets: { source: string; tokens: string[] }[] = [];
+      
+      const userTokens = await getUserPushTokens(userId);
+      tokenSets.push({ source: "userId", tokens: userTokens });
+      
+      if (playerId) {
+        const playerTokens = await getPlayerPushTokens(playerId);
+        tokenSets.push({ source: "playerId", tokens: playerTokens });
+      }
+      if (coachId) {
+        const coachTokens = await getCoachPushTokens(coachId);
+        tokenSets.push({ source: "coachId", tokens: coachTokens });
+      }
+
+      // Deduplicate all tokens
+      const allTokens = [...new Set(tokenSets.flatMap(ts => ts.tokens))];
+
+      if (allTokens.length === 0) {
+        return res.status(400).json({
+          error: "No push tokens found for your account",
+          userId,
+          playerId,
+          coachId,
+          firebaseInitialized: isFirebaseInitialized(),
+          tokenSets: tokenSets.map(ts => ({ source: ts.source, count: ts.tokens.length })),
+          hint: "Open the app on your phone, make sure notifications are enabled, then close and reopen the app. The app must register its push token with the server first."
+        });
+      }
+
+      console.log(`[TestAllTypes] Sending ALL notification types to ${allTokens.length} devices for user ${userId}`);
+
+      const notificationTypes = [
+        {
+          type: "basic_test",
+          title: "Glow Up Sports",
+          body: "Push notifications are working! Your device is connected.",
+          data: { type: "test" },
+          delay: 0,
+        },
+        {
+          type: "feedback_received",
+          title: "New Coach Feedback",
+          body: 'Coach Ahmad has added feedback for your session "Tuesday Group Training"',
+          data: { type: "feedback_received", screen: "CoachFeedbackHistory" },
+          delay: 2000,
+        },
+        {
+          type: "xp_gained",
+          title: "XP Earned! +15 XP",
+          body: "Great effort today! You earned 15 XP from coach feedback.",
+          data: { type: "xp_gained", screen: "XPHistory" },
+          delay: 4000,
+        },
+        {
+          type: "level_up",
+          title: "LEVEL UP!",
+          body: "Congratulations! You've reached Level 5 - Challenger! New features unlocked.",
+          data: { type: "level_up", screen: "LevelUpHistory" },
+          delay: 6000,
+        },
+        {
+          type: "badge_earned",
+          title: "Badge Earned!",
+          body: 'You earned the "First Serve" badge: Complete your first training session!',
+          data: { type: "badge_earned", screen: "Collection" },
+          delay: 8000,
+        },
+        {
+          type: "session_reminder",
+          title: "Session Starting Soon",
+          body: "Your Group Training with Coach Ahmad starts in 30 minutes at Court 1.",
+          data: { type: "session_reminder", screen: "Schedule" },
+          delay: 10000,
+        },
+        {
+          type: "session_booked",
+          title: "Session Confirmed",
+          body: "You've been added to Private Training on Thursday 6:00 PM with Coach Sara.",
+          data: { type: "session_booked", screen: "Schedule" },
+          delay: 12000,
+        },
+        {
+          type: "new_message",
+          title: "New Message from Coach Ahmad",
+          body: "Great work today! Keep practicing your backhand.",
+          data: { type: "new_message", screen: "Messages" },
+          delay: 14000,
+        },
+        {
+          type: "credits_low",
+          title: "Credits Running Low",
+          body: "You have only 2 group credits remaining. Time to top up!",
+          data: { type: "credits_low" },
+          delay: 16000,
+        },
+      ];
+
+      const results = [];
+      
+      for (const notif of notificationTypes) {
+        await new Promise(resolve => setTimeout(resolve, notif.delay > 0 ? 2000 : 0));
+        try {
+          const result = await sendPushNotification(
+            allTokens,
+            notif.title,
+            notif.body,
+            notif.data
+          );
+          results.push({ type: notif.type, success: true, result });
+          console.log(`[TestAllTypes] Sent: ${notif.type}`);
+        } catch (err: any) {
+          results.push({ type: notif.type, success: false, error: err?.message });
+          console.error(`[TestAllTypes] Failed: ${notif.type}`, err?.message);
+        }
+      }
+
+      res.json({
+        success: true,
+        userId,
+        playerId,
+        coachId,
+        devicesNotified: allTokens.length,
+        firebaseInitialized: isFirebaseInitialized(),
+        tokenSets: tokenSets.map(ts => ({ source: ts.source, count: ts.tokens.length })),
+        notificationsSent: results.length,
+        results,
+      });
+    } catch (error: any) {
+      console.error("Error in test-all-types:", error);
+      res.status(500).json({ error: "Failed to send test notifications", details: error?.message });
+    }
+  });
+
   app.post("/api/platform/test/academy-signup", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
     try {
       const userRole = req.user!.role;

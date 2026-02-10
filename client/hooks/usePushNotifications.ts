@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { Platform } from 'react-native';
+import { Platform, Alert } from 'react-native';
 import * as Notifications from 'expo-notifications';
 import * as Device from 'expo-device';
 import Constants from 'expo-constants';
@@ -47,6 +47,9 @@ export function usePushNotifications() {
   
   const notificationListener = useRef<Notifications.EventSubscription | null>(null);
   const responseListener = useRef<Notifications.EventSubscription | null>(null);
+  const registrationAttempted = useRef(false);
+  const retryCount = useRef(0);
+  const MAX_RETRIES = 3;
 
   const handleDeepLink = useCallback((data: DeepLinkData) => {
     if (!data || !navigation) return;
@@ -99,36 +102,49 @@ export function usePushNotifications() {
           case 'XPHistory':
             navigation.navigate('XPHistory');
             break;
+          case 'CoachFeedbackHistory':
+            navigation.navigate('CoachFeedbackHistory');
+            break;
           default:
-            console.log('Unknown deep link screen:', data.screen);
+            console.log('[Push] Unknown deep link screen:', data.screen);
         }
       }
     } catch (error) {
-      console.error('Error handling deep link:', error);
+      console.error('[Push] Error handling deep link:', error);
     }
   }, [navigation]);
 
   const registerForPushNotificationsAsync = useCallback(async (): Promise<string | null> => {
     if (Platform.OS === 'web') {
+      console.log('[Push] Skipping - web platform');
       return null;
     }
 
     if (!Device.isDevice) {
+      console.log('[Push] Skipping - not a real device (simulator/emulator)');
       return null;
     }
 
     setState(prev => ({ ...prev, isLoading: true, error: null }));
 
     try {
+      console.log('[Push] Starting push notification registration...');
+      console.log('[Push] Device:', Device.brand, Device.modelName, '| OS:', Platform.OS, Platform.Version);
+      console.log('[Push] App ownership:', Constants.appOwnership || 'standalone');
+
       const { status: existingStatus } = await Notifications.getPermissionsAsync();
       let finalStatus = existingStatus;
+      console.log('[Push] Existing permission status:', existingStatus);
 
       if (existingStatus !== 'granted') {
+        console.log('[Push] Requesting permission...');
         const { status } = await Notifications.requestPermissionsAsync();
         finalStatus = status;
+        console.log('[Push] New permission status:', status);
       }
 
       if (finalStatus !== 'granted') {
+        console.log('[Push] Permission NOT granted - user denied notifications');
         setState(prev => ({ 
           ...prev, 
           isLoading: false, 
@@ -138,12 +154,34 @@ export function usePushNotifications() {
       }
 
       if (Platform.OS === 'android') {
+        console.log('[Push] Setting up Android notification channels...');
         await Notifications.setNotificationChannelAsync('default', {
-          name: 'default',
+          name: 'General',
           importance: Notifications.AndroidImportance.MAX,
           vibrationPattern: [0, 250, 250, 250],
           lightColor: '#2ECC40',
+          sound: 'default',
         });
+        await Notifications.setNotificationChannelAsync('feedback', {
+          name: 'Coach Feedback',
+          importance: Notifications.AndroidImportance.HIGH,
+          vibrationPattern: [0, 250, 250, 250],
+          lightColor: '#00E5FF',
+          sound: 'default',
+        });
+        await Notifications.setNotificationChannelAsync('sessions', {
+          name: 'Sessions & Bookings',
+          importance: Notifications.AndroidImportance.HIGH,
+          vibrationPattern: [0, 250, 250, 250],
+          lightColor: '#FFD700',
+          sound: 'default',
+        });
+        await Notifications.setNotificationChannelAsync('xp', {
+          name: 'XP & Achievements',
+          importance: Notifications.AndroidImportance.DEFAULT,
+          lightColor: '#FFD700',
+        });
+        console.log('[Push] Android channels created');
       }
 
       let token: string | null = null;
@@ -151,41 +189,56 @@ export function usePushNotifications() {
 
       if (!isExpoGo) {
         try {
-          console.log('[Push] Production build detected - getting native FCM token...');
+          console.log('[Push] Native build detected - getting FCM device token...');
           const nativeToken = await Notifications.getDevicePushTokenAsync();
           token = nativeToken.data as string;
-          console.log('[Push] Got native FCM token:', token?.substring(0, 40) + '...');
-        } catch (fcmError) {
-          console.warn('[Push] Failed to get native FCM token:', fcmError);
+          console.log('[Push] SUCCESS: Got FCM token:', token?.substring(0, 50) + '...');
+          console.log('[Push] FCM token length:', token?.length);
+        } catch (fcmError: any) {
+          console.error('[Push] FAILED to get FCM device token:', fcmError?.message || fcmError);
+          console.error('[Push] FCM error details:', JSON.stringify(fcmError));
         }
+      } else {
+        console.log('[Push] Expo Go detected - skipping FCM, will try Expo token');
       }
 
       if (!token) {
         const projectId = Constants.expoConfig?.extra?.eas?.projectId;
+        console.log('[Push] Trying Expo push token. ProjectId:', projectId || 'NOT SET');
         if (projectId) {
           try {
-            console.log('[Push] Trying Expo push token with projectId:', projectId);
             const tokenData = await Notifications.getExpoPushTokenAsync({ projectId });
             token = tokenData.data;
             console.log('[Push] Got Expo push token:', token?.substring(0, 30) + '...');
-          } catch (expoError) {
-            console.error('[Push] Failed to get Expo push token:', expoError);
+          } catch (expoError: any) {
+            console.error('[Push] FAILED to get Expo push token:', expoError?.message || expoError);
           }
         } else {
-          console.warn('[Push] No EAS projectId configured');
+          console.warn('[Push] No EAS projectId - cannot get Expo push token');
+          try {
+            console.log('[Push] Last resort - trying getDevicePushTokenAsync even in Expo Go...');
+            const fallbackToken = await Notifications.getDevicePushTokenAsync();
+            token = fallbackToken.data as string;
+            console.log('[Push] Got fallback device token:', token?.substring(0, 50) + '...');
+          } catch (fallbackErr: any) {
+            console.error('[Push] Fallback also failed:', fallbackErr?.message);
+          }
         }
       }
 
       if (!token) {
+        const errorMsg = 'Could not obtain push token - check Firebase configuration in app';
+        console.error('[Push] FINAL FAILURE:', errorMsg);
         setState(prev => ({
           ...prev,
           isLoading: false,
-          error: 'Could not obtain push token',
+          error: errorMsg,
         }));
         return null;
       }
 
-      console.log('[Push] Final token type:', token.startsWith('ExponentPushToken[') ? 'EXPO' : 'FCM', '| isExpoGo:', isExpoGo);
+      const tokenType = token.startsWith('ExponentPushToken[') ? 'EXPO' : 'FCM';
+      console.log('[Push] Final token type:', tokenType, '| Length:', token.length, '| isExpoGo:', isExpoGo);
 
       setState(prev => ({ 
         ...prev, 
@@ -196,28 +249,46 @@ export function usePushNotifications() {
       return token;
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Failed to get push token';
-      console.error('[Push] FAILED to get push token:', message, error);
+      console.error('[Push] UNEXPECTED ERROR in registration:', message, error);
       setState(prev => ({ ...prev, isLoading: false, error: message }));
       return null;
     }
   }, []);
 
   const registerTokenWithServer = useCallback(async (token: string) => {
-    if (!user?.id) return;
+    if (!user?.id) {
+      console.log('[Push] Cannot register with server - no user id');
+      return;
+    }
 
-    console.log('[Push] Registering token with server:', token.substring(0, 30) + '...');
+    console.log('[Push] Registering token with server for user:', user.id);
+    console.log('[Push] Token preview:', token.substring(0, 40) + '...');
+    console.log('[Push] Platform:', Platform.OS, '| Device:', Device.brand, Device.modelName);
+
     try {
       const url = new URL('/api/push/register', getApiUrl());
-      await apiRequest('POST', url.toString(), {
+      const response = await apiRequest('POST', url.toString(), {
         token,
         platform: Platform.OS,
         deviceName: `${Device.brand || 'Unknown'} ${Device.modelName || 'Device'}`,
       });
       
       setState(prev => ({ ...prev, isRegistered: true }));
-      console.log('Push token registered successfully');
-    } catch (error) {
-      console.error('[Push] FAILED to register token with server:', error);
+      retryCount.current = 0;
+      console.log('[Push] SUCCESS: Token registered with server');
+    } catch (error: any) {
+      console.error('[Push] FAILED to register token with server:', error?.message || error);
+      
+      if (retryCount.current < MAX_RETRIES) {
+        retryCount.current++;
+        const delay = retryCount.current * 3000;
+        console.log(`[Push] Will retry in ${delay}ms (attempt ${retryCount.current}/${MAX_RETRIES})`);
+        setTimeout(() => {
+          registerTokenWithServer(token);
+        }, delay);
+      } else {
+        console.error('[Push] Max retries reached - token registration failed');
+      }
     }
   }, [user?.id]);
 
@@ -228,8 +299,9 @@ export function usePushNotifications() {
       const url = new URL('/api/push/unregister', getApiUrl());
       await apiRequest('DELETE', url.toString(), { token: state.expoPushToken });
       setState(prev => ({ ...prev, isRegistered: false, expoPushToken: null }));
+      registrationAttempted.current = false;
     } catch (error) {
-      console.error('Failed to unregister push token:', error);
+      console.error('[Push] Failed to unregister push token:', error);
     }
   }, [state.expoPushToken]);
 
@@ -245,12 +317,12 @@ export function usePushNotifications() {
     if (Platform.OS === 'web') return;
 
     notificationListener.current = Notifications.addNotificationReceivedListener((notification: Notifications.Notification) => {
-      console.log('Notification received:', notification);
+      console.log('[Push] Notification received in foreground:', notification.request.content.title);
     });
 
     responseListener.current = Notifications.addNotificationResponseReceivedListener((response: Notifications.NotificationResponse) => {
       const data = response.notification.request.content.data as DeepLinkData;
-      console.log('Notification response:', data);
+      console.log('[Push] Notification tapped:', data);
       handleDeepLink(data);
     });
 
@@ -265,19 +337,36 @@ export function usePushNotifications() {
   }, [handleDeepLink]);
 
   useEffect(() => {
-    if (user?.id && Platform.OS !== 'web' && Device.isDevice) {
-      console.log('[Push] Auto-registering push notifications for user:', user.id);
-      registerForPushNotificationsAsync().then(token => {
-        if (token) {
-          console.log('[Push] Got token, registering with server...');
-          registerTokenWithServer(token);
-        } else {
-          console.log('[Push] No token obtained - check permissions and projectId');
-        }
-      });
-    } else {
-      console.log('[Push] Skipping push registration - web:', Platform.OS === 'web', 'isDevice:', Device.isDevice, 'userId:', user?.id);
+    if (!user?.id || Platform.OS === 'web') {
+      return;
     }
+
+    if (registrationAttempted.current) {
+      return;
+    }
+
+    if (!Device.isDevice) {
+      console.log('[Push] Not a real device - skipping push registration');
+      return;
+    }
+
+    registrationAttempted.current = true;
+    console.log('[Push] ===== AUTO-REGISTERING push notifications =====');
+    console.log('[Push] User:', user.id, '| Role:', user.role);
+
+    const doRegister = async () => {
+      await new Promise(resolve => setTimeout(resolve, 2000));
+      
+      const token = await registerForPushNotificationsAsync();
+      if (token) {
+        console.log('[Push] Got token, registering with server...');
+        await registerTokenWithServer(token);
+      } else {
+        console.log('[Push] No token obtained after registration attempt');
+      }
+    };
+
+    doRegister();
   }, [user?.id, registerForPushNotificationsAsync, registerTokenWithServer]);
 
   return {
