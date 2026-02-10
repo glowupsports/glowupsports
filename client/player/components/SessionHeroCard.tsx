@@ -336,6 +336,21 @@ export function SessionHeroCard({
     },
   });
 
+  const checkInMutation = useMutation({
+    mutationFn: async () => {
+      return apiRequest("POST", `/api/player/me/sessions/${sessionId}/check-in`, {});
+    },
+    onSuccess: (response: any) => {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      queryClient.invalidateQueries({ queryKey: ["/api/player/me/dashboard"] });
+      const xpMsg = response?.xpAwarded ? `\n+${response.xpAwarded} XP earned!` : "";
+      Alert.alert("Checked In!", `You're checked in for this session!${xpMsg}`);
+    },
+    onError: (error: any) => {
+      Alert.alert("Check-In Failed", error?.message || "Failed to check in. Please try again.");
+    },
+  });
+
   const handleReportSubmit = () => {
     if (!sessionId) {
       Alert.alert("Error", "No active session found. Please try again.");
@@ -439,11 +454,11 @@ export function SessionHeroCard({
   };
 
   const handleCheckIn = () => {
-    if (onCheckIn) {
-      onCheckIn();
+    if (sessionId) {
+      checkInMutation.mutate();
     } else {
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      Alert.alert("Checked In", "You're checked in for this session!");
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      Alert.alert("Error", "No session found to check into.");
     }
   };
 
@@ -1202,15 +1217,16 @@ export function SessionHeroCard({
                 pressed && styles.buttonPressed,
               ]}
               onPress={handleCheckIn}
+              disabled={checkInMutation.isPending}
             >
               <LinearGradient
                 colors={[ProTennisColors.electricGreen, `${ProTennisColors.electricGreen}CC`]}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 1 }}
-                style={styles.gamingButtonGradient}
+                style={[styles.gamingButtonGradient, checkInMutation.isPending && { opacity: 0.7 }]}
               >
                 <Feather name="check-circle" size={20} color={ProTennisColors.midnightBlue} />
-                <Text style={styles.gamingPrimaryButtonText}>CHECK IN EARLY</Text>
+                <Text style={styles.gamingPrimaryButtonText}>{checkInMutation.isPending ? "CHECKING IN..." : "CHECK IN EARLY"}</Text>
               </LinearGradient>
             </Pressable>
           )}

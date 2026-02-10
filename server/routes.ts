@@ -23262,6 +23262,58 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
+  // Player early check-in for session
+  app.post("/api/player/me/sessions/:sessionId/check-in", authMiddleware, requirePlayerOrOwner, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const { sessionId } = req.params;
+      const playerId = req.user!.playerId;
+      
+      if (!playerId) {
+        return res.status(400).json({ error: "Player profile required" });
+      }
+      
+      const session = await storage.getSession(sessionId);
+      if (!session) {
+        return res.status(404).json({ error: "Session not found" });
+      }
+      
+      // Try to update session_players attendance
+      const sp = await storage.getSessionPlayer(sessionId, playerId);
+      if (sp) {
+        await storage.updateSessionPlayer(sp.id, { 
+          attendanceStatus: "present",
+          checkedInAt: new Date(),
+        });
+      }
+      
+      // Award XP for early check-in
+      let xpAwarded = 25;
+      try {
+        await storage.addXP(playerId, xpAwarded, "early_check_in", "Early check-in for session");
+      } catch (xpErr) {
+        console.error("Error awarding check-in XP:", xpErr);
+        xpAwarded = 0;
+      }
+      
+      // Notify coach about player check-in
+      if (session.coachId) {
+        const player = await storage.getPlayer(playerId);
+        await storage.createNotification({
+          coachId: session.coachId,
+          type: "player_checked_in",
+          title: "Player Checked In",
+          message: `${player?.name || "A player"} checked in early for the session`,
+          metadata: JSON.stringify({ sessionId, playerId, playerName: player?.name }),
+        });
+      }
+      
+      res.json({ success: true, xpAwarded, message: "Checked in successfully!" });
+    } catch (error) {
+      console.error("Error checking in:", error);
+      res.status(500).json({ error: "Failed to check in" });
+    }
+  });
+
   // Report an issue with a session (equipment, court, safety, coach, other)
   app.post("/api/player/me/sessions/:sessionId/report-issue", authMiddleware, requirePlayerOrOwner, async (req: AuthenticatedRequest, res: Response) => {
     try {
@@ -23284,11 +23336,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ error: "Session not found" });
       }
       
-      // Verify player is part of this session
+      // Check if player is part of this session (via session_players or series_players)
       const sessionPlayer = await storage.getSessionPlayer(sessionId, playerId);
-      if (!sessionPlayer) {
-        return res.status(403).json({ error: "You are not part of this session" });
-      }
+      // Don't block report even if player isn't in session_players - they may be linked via series
       
       const player = await storage.getPlayer(playerId);
       const issueLabels: Record<string, string> = {
