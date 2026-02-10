@@ -1226,12 +1226,14 @@ async function processAutoSessionCompletion(): Promise<void> {
             if (existingDebt.length === 0) {
               // Map session type to credit type
               const creditType = session.sessionType.includes("semi") ? "semi_private" : 
-                                 session.sessionType.includes("group") ? "group" : "private";
+                                 session.sessionType.includes("group") ? "group" : 
+                                 session.sessionType === "private_adjusted" ? "private" : "private";
               
               await db.insert(creditTransactions).values({
                 id: debtId,
                 playerId: sp.playerId,
                 packageId: null,
+                type: "debit",
                 amount: -1,
                 reason: "session_debt",
                 creditType: creditType,

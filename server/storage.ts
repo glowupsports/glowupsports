@@ -10985,7 +10985,11 @@ async function ensureCreditProcessed(sessionPlayerId: string): Promise<{
           isOriginallyPrivate = true;
         }
       } else if (sessionType === "private_adjusted") {
-        isOriginallyPrivate = true;
+        const playerCountResult = await tx.execute(sql`
+          SELECT COUNT(*) as count FROM session_players WHERE session_id = ${sp.session_id}
+        `);
+        const playerCount = parseInt((playerCountResult.rows[0] as any)?.count || '1');
+        isOriginallyPrivate = playerCount <= 1;
       }
       
       const isChargeable = isOriginallyPrivate

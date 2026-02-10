@@ -13122,7 +13122,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     // Normalize session type - handle variations: "semi", "semi_private", "semi-private"
     const normalizeSessionType = (type: string): string => {
       const cleaned = type.toLowerCase().replace(/-/g, "_").trim();
-      if (cleaned === "semi" || cleaned === "semi_private") return "semi_private";
+      if (cleaned === "semi" || cleaned === "semi_private" || cleaned === "semi_private_adjusted") return "semi_private";
+      if (cleaned === "private_adjusted") return "private";
+      if (cleaned === "group_adjusted") return "group";
       return cleaned;
     };
     const sessionType = normalizeSessionType(rawSessionType);
@@ -22588,20 +22590,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
       };
       
       // Build response - let Express JSON serialize dates to ISO strings
-      const playerSessions = sessions.map((session) => ({
-        id: session.sessionPlayerId,
-        sessionId: session.id,
-        attendanceStatus: session.attendanceStatus || "pending",
-        session: {
-          id: session.id,
-          startTime: session.startTime,
-          endTime: session.endTime,
-          sessionType: session.sessionType,
-          courtName: session.courtId ? courtMap[session.courtId] || null : null,
-          title: getSessionTitle(session.sessionType),
-        },
-        coachName: session.coachId ? coachMap[session.coachId] || null : null,
-      }));
+      const playerSessions = sessions.map((session) => {
+        let displaySessionType = session.sessionType;
+        if (session.sessionType === "private_adjusted" && (session.attendanceStatus || "").toLowerCase() === "absent") {
+          displaySessionType = "semi_private";
+        }
+        return {
+          id: session.sessionPlayerId,
+          sessionId: session.id,
+          attendanceStatus: session.attendanceStatus || "pending",
+          session: {
+            id: session.id,
+            startTime: session.startTime,
+            endTime: session.endTime,
+            sessionType: displaySessionType,
+            courtName: session.courtId ? courtMap[session.courtId] || null : null,
+            title: getSessionTitle(displaySessionType),
+          },
+          coachName: session.coachId ? coachMap[session.coachId] || null : null,
+        };
+      });
       
       res.json(playerSessions);
     } catch (error) {
@@ -24836,10 +24844,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       const domains = await storage.listSkillDomains();
       
+      let trainingType = sessionData.sessionType || "training";
+      if (sessionData.sessionType === "private_adjusted" && (sessionData.attendanceStatus || "").toLowerCase() === "absent") {
+        trainingType = "semi_private";
+      }
       res.json({
         id: sessionData.id,
         date: sessionData.startTime,
-        type: sessionData.sessionType || "training",
+        type: trainingType,
         duration: 60,
         coachName: "Coach",
         xpEarned: 50,
@@ -35144,6 +35156,79 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+
+  app.post("/api/admin/repair-private-adjusted", async (req: Request, res: Response) => {
+    try {
+      console.log('[RepairPrivateAdjusted] Starting repair of wrongly charged absent players in private_adjusted sessions...');
+
+      const badTransactions = await db.execute(sql`
+        SELECT ct.id as transaction_id, ct.player_id, ct.session_id, ct.amount, ct.credit_type,
+               sp.id as session_player_id, sp.attendance_status, sp.credit_deducted_at,
+               s.session_type, cs.session_type as series_type
+        FROM credit_transactions ct
+        JOIN session_players sp ON sp.session_id = ct.session_id AND sp.player_id = ct.player_id
+        JOIN sessions s ON s.id = ct.session_id
+        LEFT JOIN coaching_series cs ON cs.id = s.series_id
+        WHERE s.session_type = 'private_adjusted'
+          AND sp.attendance_status = 'absent'
+          AND ct.type = 'debit'
+          AND (ct.metadata IS NULL OR (ct.metadata->>'cancelled')::boolean IS NOT TRUE)
+          AND (cs.session_type = 'semi_private' OR (cs.session_type IS NULL AND (
+            SELECT COUNT(*) FROM session_players sp2 WHERE sp2.session_id = s.id
+          ) >= 2))
+      `);
+
+      const rows = badTransactions.rows as any[];
+      console.log(`[RepairPrivateAdjusted] Found ${rows.length} bad transactions to fix`);
+
+      let transactionsCancelled = 0;
+      let sessionPlayersReset = 0;
+      const details: any[] = [];
+
+      for (const row of rows) {
+        await db.execute(sql`
+          UPDATE credit_transactions
+          SET amount = 0,
+              metadata = jsonb_set(
+                COALESCE(metadata, '{}'::jsonb),
+                '{cancelled}',
+                'true'::jsonb
+              ) || jsonb_build_object(
+                'cancelledAt', NOW()::text,
+                'cancelReason', 'repair_private_adjusted_absent_semi_private'
+              )
+          WHERE id = ${row.transaction_id}
+        `);
+        transactionsCancelled++;
+
+        await db.execute(sql`
+          UPDATE session_players
+          SET credit_deducted_at = NULL, credit_transaction_id = NULL
+          WHERE id = ${row.session_player_id}
+        `);
+        sessionPlayersReset++;
+
+        details.push({
+          transactionId: row.transaction_id,
+          playerId: row.player_id,
+          sessionId: row.session_id,
+          originalCreditType: row.credit_type,
+          seriesType: row.series_type,
+        });
+      }
+
+      console.log(`[RepairPrivateAdjusted] Complete: ${transactionsCancelled} transactions cancelled, ${sessionPlayersReset} session_players reset`);
+      res.json({
+        success: true,
+        transactionsCancelled,
+        sessionPlayersReset,
+        details,
+      });
+    } catch (error: any) {
+      console.error('[RepairPrivateAdjusted] Error:', error);
+      res.status(500).json({ error: error.message || 'Repair failed' });
+    }
+  });
 
   // One-time fix: repair series titles with "undefined" and merge duplicate flexible series
   app.post("/api/admin/fix-series-titles-and-merge", async (req: Request, res: Response) => {
