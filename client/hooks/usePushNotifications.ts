@@ -187,42 +187,32 @@ export function usePushNotifications() {
       let token: string | null = null;
       const isExpoGo = Constants.appOwnership === 'expo';
 
-      if (!isExpoGo) {
-        try {
-          console.log('[Push] Native build detected - getting FCM device token...');
-          const nativeToken = await Notifications.getDevicePushTokenAsync();
-          token = nativeToken.data as string;
-          console.log('[Push] SUCCESS: Got FCM token:', token?.substring(0, 50) + '...');
-          console.log('[Push] FCM token length:', token?.length);
-        } catch (fcmError: any) {
-          console.error('[Push] FAILED to get FCM device token:', fcmError?.message || fcmError);
-          console.error('[Push] FCM error details:', JSON.stringify(fcmError));
-        }
-      } else {
-        console.log('[Push] Expo Go detected - skipping FCM, will try Expo token');
-      }
+      console.log('[Push] App ownership:', Constants.appOwnership, '| isExpoGo:', isExpoGo);
 
-      if (!token) {
-        const projectId = Constants.expoConfig?.extra?.eas?.projectId;
-        console.log('[Push] Trying Expo push token. ProjectId:', projectId || 'NOT SET');
-        if (projectId) {
-          try {
-            const tokenData = await Notifications.getExpoPushTokenAsync({ projectId });
-            token = tokenData.data;
-            console.log('[Push] Got Expo push token:', token?.substring(0, 30) + '...');
-          } catch (expoError: any) {
-            console.error('[Push] FAILED to get Expo push token:', expoError?.message || expoError);
+      try {
+        console.log('[Push] Getting native FCM device token...');
+        const nativeToken = await Notifications.getDevicePushTokenAsync();
+        token = nativeToken.data as string;
+        console.log('[Push] SUCCESS: Got FCM device token:', token?.substring(0, 50) + '...');
+        console.log('[Push] FCM token length:', token?.length);
+      } catch (fcmError: any) {
+        console.error('[Push] FAILED to get FCM device token:', fcmError?.message || fcmError);
+        
+        if (isExpoGo) {
+          console.log('[Push] Running in Expo Go - FCM not available, trying Expo push token as fallback...');
+          const projectId = Constants.expoConfig?.extra?.eas?.projectId;
+          if (projectId) {
+            try {
+              const tokenData = await Notifications.getExpoPushTokenAsync({ projectId });
+              token = tokenData.data;
+              console.log('[Push] Got Expo push token (Expo Go only):', token?.substring(0, 30) + '...');
+            } catch (expoError: any) {
+              console.error('[Push] FAILED to get Expo push token:', expoError?.message || expoError);
+            }
           }
         } else {
-          console.warn('[Push] No EAS projectId - cannot get Expo push token');
-          try {
-            console.log('[Push] Last resort - trying getDevicePushTokenAsync even in Expo Go...');
-            const fallbackToken = await Notifications.getDevicePushTokenAsync();
-            token = fallbackToken.data as string;
-            console.log('[Push] Got fallback device token:', token?.substring(0, 50) + '...');
-          } catch (fallbackErr: any) {
-            console.error('[Push] Fallback also failed:', fallbackErr?.message);
-          }
+          console.error('[Push] NATIVE BUILD: FCM token failed! Check google-services.json is in android/app/');
+          console.error('[Push] Make sure Firebase is properly configured in the Android build');
         }
       }
 
