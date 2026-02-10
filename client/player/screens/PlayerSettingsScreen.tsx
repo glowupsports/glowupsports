@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { View, Text, StyleSheet, ScrollView, Pressable, Switch, Alert, Platform, ActivityIndicator } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
@@ -6,7 +6,8 @@ import Ionicons from "@expo/vector-icons/Ionicons";
 import * as Haptics from "expo-haptics";
 import { Colors, Spacing, Typography, BorderRadius, CardStyles, Backgrounds, GlowColors } from "@/constants/theme";
 import { useAuth } from "@/coach/context/AuthContext";
-import { apiRequest } from "@/lib/query-client";
+import { apiRequest, getApiUrl } from "@/lib/query-client";
+import { usePushNotifications } from "@/hooks/usePushNotifications";
 
 interface SettingItem {
   id: string;
@@ -17,18 +18,88 @@ interface SettingItem {
   onPress?: () => void;
 }
 
+interface PushDebugInfo {
+  userId: string;
+  playerId: string | null;
+  coachId: string | null;
+  activeTokens: number;
+  totalTokens: number;
+  firebaseInitialized: boolean;
+  tokens: Array<{
+    platform: string;
+    deviceName: string;
+    tokenType: string;
+    tokenPreview: string;
+    lastUsedAt: string;
+  }>;
+  diagnostics: {
+    hasActiveExpoTokens: boolean;
+    hasActiveFCMTokens: boolean;
+    playerTokensLinked: boolean;
+    coachTokensLinked: boolean;
+  };
+}
+
 export default function PlayerSettingsScreen() {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation();
   const { logout } = useAuth();
+  const { expoPushToken, isRegistered, enableNotifications } = usePushNotifications();
 
   const [notifications, setNotifications] = useState(true);
   const [sessionReminders, setSessionReminders] = useState(true);
   const [progressUpdates, setProgressUpdates] = useState(true);
   const [coachMessages, setCoachMessages] = useState(true);
   const [testPushLoading, setTestPushLoading] = useState(false);
+  const [testAllLoading, setTestAllLoading] = useState(false);
   const [testFeedbackLoading, setTestFeedbackLoading] = useState(false);
+  const [reRegisterLoading, setReRegisterLoading] = useState(false);
   const [messageLanguage, setMessageLanguage] = useState<"player" | "coach" | "parent">("player");
+  const [debugInfo, setDebugInfo] = useState<PushDebugInfo | null>(null);
+  const [debugLoading, setDebugLoading] = useState(false);
+
+  const showAlert = (title: string, message: string) => {
+    if (Platform.OS === "web") {
+      window.alert(`${title}\n\n${message}`);
+    } else {
+      Alert.alert(title, message);
+    }
+  };
+
+  const fetchDebugInfo = async () => {
+    setDebugLoading(true);
+    try {
+      const url = new URL('/api/push/debug', getApiUrl());
+      const response = await apiRequest("GET", url.toString());
+      setDebugInfo(response as unknown as PushDebugInfo);
+    } catch (error) {
+      console.error("Failed to fetch push debug info:", error);
+    } finally {
+      setDebugLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchDebugInfo();
+  }, []);
+
+  const handleReRegister = async () => {
+    setReRegisterLoading(true);
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    try {
+      const success = await enableNotifications();
+      if (success) {
+        showAlert("Success", "Push token re-registered successfully! Try sending a test notification now.");
+        fetchDebugInfo();
+      } else {
+        showAlert("Failed", "Could not register push token. Make sure notifications are enabled in your device settings.");
+      }
+    } catch (error) {
+      showAlert("Error", "Failed to re-register. Check device notification settings.");
+    } finally {
+      setReRegisterLoading(false);
+    }
+  };
 
   const handleTestPushNotification = async () => {
     setTestPushLoading(true);
@@ -37,21 +108,32 @@ export default function PlayerSettingsScreen() {
       const response = await apiRequest("POST", "/api/push/test", {});
       const data = response as unknown as { success: boolean; devicesNotified?: number };
       const deviceCount = data.devicesNotified ?? 1;
-      const message = `Test notification sent to ${deviceCount} device(s). Check your phone!`;
-      if (Platform.OS === "web") {
-        window.alert(message);
-      } else {
-        Alert.alert("Success", message);
-      }
+      showAlert("Success", `Test notification sent to ${deviceCount} device(s). Check your phone!`);
     } catch (error) {
       const errMsg = error instanceof Error ? error.message : "Failed to send test notification";
-      if (Platform.OS === "web") {
-        window.alert(errMsg);
-      } else {
-        Alert.alert("Error", errMsg);
-      }
+      showAlert("Error", errMsg);
     } finally {
       setTestPushLoading(false);
+    }
+  };
+
+  const handleTestAllNotifications = async () => {
+    setTestAllLoading(true);
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+    try {
+      const response = await apiRequest("POST", "/api/push/test-all-types", {});
+      const data = response as unknown as { success: boolean; devicesNotified: number; notificationsSent: number; results: any[] };
+      const succeeded = data.results?.filter((r: any) => r.success).length || 0;
+      const failed = data.results?.filter((r: any) => !r.success).length || 0;
+      showAlert(
+        "All Notifications Sent",
+        `Sent ${succeeded} notification types to ${data.devicesNotified} device(s).\n\n${failed > 0 ? `${failed} failed.` : "All succeeded!"}\n\nYou should receive them over the next 20 seconds.`
+      );
+    } catch (error: any) {
+      const errData = error?.message || "Failed";
+      showAlert("Error", `Could not send test notifications: ${errData}`);
+    } finally {
+      setTestAllLoading(false);
     }
   };
 
@@ -64,18 +146,10 @@ export default function PlayerSettingsScreen() {
       const message = data.simulation.notificationSent 
         ? `Simulated: Feedback from "${data.simulation.coachName}" (+${data.simulation.xpGained} XP)! Push notification sent.`
         : `Simulated feedback received. (No push token - open app on phone first)`;
-      if (Platform.OS === "web") {
-        window.alert(message);
-      } else {
-        Alert.alert("Simulation Complete", message);
-      }
+      showAlert("Simulation Complete", message);
     } catch (error) {
       const errMsg = error instanceof Error ? error.message : "Failed to simulate feedback";
-      if (Platform.OS === "web") {
-        window.alert(errMsg);
-      } else {
-        Alert.alert("Error", errMsg);
-      }
+      showAlert("Error", errMsg);
     } finally {
       setTestFeedbackLoading(false);
     }
@@ -281,12 +355,81 @@ export default function PlayerSettingsScreen() {
         </View>
 
         <View style={styles.section}>
-          <Text style={[styles.sectionTitle, { color: "#E67E22" }]}>Developer Tools</Text>
+          <Text style={[styles.sectionTitle, { color: "#E67E22" }]}>Notification Debug</Text>
           <View style={styles.devToolsCard}>
-            <Text style={styles.devToolsNote}>
-              Test push notifications and simulate events. Requires Expo Go with notifications enabled.
-            </Text>
-            
+            {debugLoading ? (
+              <ActivityIndicator size="small" color="#E67E22" />
+            ) : debugInfo ? (
+              <View style={styles.debugInfoContainer}>
+                <View style={styles.debugStatusRow}>
+                  <Ionicons 
+                    name={debugInfo.firebaseInitialized ? "checkmark-circle" : "close-circle"} 
+                    size={16} 
+                    color={debugInfo.firebaseInitialized ? "#00E676" : "#FF4C4D"} 
+                  />
+                  <Text style={styles.debugLabel}>Firebase: {debugInfo.firebaseInitialized ? "Connected" : "Not Connected"}</Text>
+                </View>
+                <View style={styles.debugStatusRow}>
+                  <Ionicons 
+                    name={debugInfo.activeTokens > 0 ? "checkmark-circle" : "close-circle"} 
+                    size={16} 
+                    color={debugInfo.activeTokens > 0 ? "#00E676" : "#FF4C4D"} 
+                  />
+                  <Text style={styles.debugLabel}>
+                    Registered Devices: {debugInfo.activeTokens}
+                    {debugInfo.activeTokens === 0 ? " (tap Re-Register below)" : ""}
+                  </Text>
+                </View>
+                {debugInfo.tokens.map((t, i) => (
+                  <View key={i} style={styles.debugTokenRow}>
+                    <Ionicons name={t.platform === "android" ? "logo-android" : "phone-portrait"} size={14} color="#E67E22" />
+                    <Text style={styles.debugTokenText}>
+                      {t.tokenType.toUpperCase()} | {t.deviceName || t.platform} | {t.tokenPreview}
+                    </Text>
+                  </View>
+                ))}
+                <View style={styles.debugStatusRow}>
+                  <Ionicons 
+                    name={debugInfo.diagnostics.hasActiveFCMTokens ? "checkmark-circle" : "alert-circle"} 
+                    size={16} 
+                    color={debugInfo.diagnostics.hasActiveFCMTokens ? "#00E676" : "#FFD700"} 
+                  />
+                  <Text style={styles.debugLabel}>FCM Token: {debugInfo.diagnostics.hasActiveFCMTokens ? "Yes" : "No"}</Text>
+                </View>
+                <View style={styles.debugStatusRow}>
+                  <Ionicons 
+                    name={debugInfo.diagnostics.playerTokensLinked ? "checkmark-circle" : "alert-circle"} 
+                    size={16} 
+                    color={debugInfo.diagnostics.playerTokensLinked ? "#00E676" : "#FFD700"} 
+                  />
+                  <Text style={styles.debugLabel}>Player Linked: {debugInfo.diagnostics.playerTokensLinked ? "Yes" : "No"}</Text>
+                </View>
+                {expoPushToken ? (
+                  <View style={styles.debugStatusRow}>
+                    <Ionicons name="checkmark-circle" size={16} color="#00E676" />
+                    <Text style={styles.debugLabel}>Client Token: {expoPushToken.substring(0, 30)}...</Text>
+                  </View>
+                ) : null}
+              </View>
+            ) : (
+              <Text style={styles.devToolsNote}>Could not load push debug info</Text>
+            )}
+
+            <Pressable
+              style={[styles.devToolsButton, { backgroundColor: "rgba(0, 230, 118, 0.12)", borderColor: "rgba(0, 230, 118, 0.3)" }, reRegisterLoading && styles.devToolsButtonDisabled]}
+              onPress={handleReRegister}
+              disabled={reRegisterLoading}
+            >
+              {reRegisterLoading ? (
+                <ActivityIndicator size="small" color="#00E676" />
+              ) : (
+                <>
+                  <Ionicons name="refresh" size={20} color="#00E676" />
+                  <Text style={[styles.devToolsButtonText, { color: "#00E676" }]}>Re-Register Push Token</Text>
+                </>
+              )}
+            </Pressable>
+
             <Pressable
               style={[styles.devToolsButton, testPushLoading && styles.devToolsButtonDisabled]}
               onPress={handleTestPushNotification}
@@ -297,7 +440,22 @@ export default function PlayerSettingsScreen() {
               ) : (
                 <>
                   <Ionicons name="notifications" size={20} color="#E67E22" />
-                  <Text style={styles.devToolsButtonText}>Test Push Notification</Text>
+                  <Text style={styles.devToolsButtonText}>Test Single Notification</Text>
+                </>
+              )}
+            </Pressable>
+
+            <Pressable
+              style={[styles.devToolsButton, { backgroundColor: "rgba(255, 0, 128, 0.12)", borderColor: "rgba(255, 0, 128, 0.3)" }, testAllLoading && styles.devToolsButtonDisabled]}
+              onPress={handleTestAllNotifications}
+              disabled={testAllLoading}
+            >
+              {testAllLoading ? (
+                <ActivityIndicator size="small" color="#FF0080" />
+              ) : (
+                <>
+                  <Ionicons name="rocket" size={20} color="#FF0080" />
+                  <Text style={[styles.devToolsButtonText, { color: "#FF0080" }]}>Test ALL Notification Types</Text>
                 </>
               )}
             </Pressable>
@@ -315,6 +473,14 @@ export default function PlayerSettingsScreen() {
                   <Text style={styles.devToolsButtonText}>Simulate Coach Feedback</Text>
                 </>
               )}
+            </Pressable>
+
+            <Pressable
+              style={[styles.devToolsButton, { backgroundColor: "rgba(0, 212, 255, 0.12)", borderColor: "rgba(0, 212, 255, 0.3)" }]}
+              onPress={fetchDebugInfo}
+            >
+              <Ionicons name="sync" size={20} color="#00D4FF" />
+              <Text style={[styles.devToolsButtonText, { color: "#00D4FF" }]}>Refresh Debug Info</Text>
             </Pressable>
           </View>
         </View>
@@ -463,6 +629,35 @@ const styles = StyleSheet.create({
     ...Typography.small,
     color: Colors.dark.textMuted,
     marginBottom: Spacing.sm,
+  },
+  debugInfoContainer: {
+    gap: 6,
+    paddingBottom: Spacing.sm,
+    borderBottomWidth: 1,
+    borderBottomColor: "rgba(255,255,255,0.06)",
+    marginBottom: Spacing.xs,
+  },
+  debugStatusRow: {
+    flexDirection: "row" as const,
+    alignItems: "center" as const,
+    gap: 6,
+  },
+  debugLabel: {
+    fontSize: 12,
+    color: Colors.dark.textSecondary,
+    flex: 1,
+  },
+  debugTokenRow: {
+    flexDirection: "row" as const,
+    alignItems: "center" as const,
+    gap: 6,
+    paddingLeft: 22,
+  },
+  debugTokenText: {
+    fontSize: 10,
+    color: Colors.dark.textMuted,
+    fontFamily: Platform.OS === "ios" ? "Menlo" : "monospace",
+    flex: 1,
   },
   devToolsButton: {
     flexDirection: "row",
