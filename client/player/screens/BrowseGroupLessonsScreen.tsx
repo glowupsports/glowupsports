@@ -316,7 +316,8 @@ export default function BrowseGroupLessonsScreen() {
             
             {filteredSessions.map((session, index) => {
               const levelColor = session.ballLevel ? getBallLevelColor(session.ballLevel) : ProTennisColors.electricGreen;
-              const spotsLeft = session.spotsLeft;
+              const effectiveMax = session.type === "semi_private" ? Math.min(session.maxPlayers, 2) : session.maxPlayers;
+              const spotsLeft = Math.min(session.spotsLeft, effectiveMax - (session.participants?.length || 0));
               const isFull = spotsLeft <= 0;
               const isEnrolling = enrollingId === session.id;
               const participantCount = session.participants?.length || 0;
@@ -373,7 +374,7 @@ export default function BrowseGroupLessonsScreen() {
                           <View style={styles.detailItem}>
                             <Feather name="users" size={14} color={levelColor} />
                             <Text style={[styles.detailText, { color: isFull ? ProTennisColors.error : levelColor }]}>
-                              {participantCount}/{session.maxPlayers} players
+                              {participantCount}/{effectiveMax} players
                             </Text>
                           </View>
                         </View>
@@ -479,7 +480,11 @@ export default function BrowseGroupLessonsScreen() {
                       <View style={styles.sessionDetailRow}>
                         <Feather name="users" size={16} color={ProTennisColors.electricGreen} />
                         <Text style={[styles.sessionDetailText, { color: ProTennisColors.electricGreen }]}>
-                          {selectedSession.spotsLeft} spot{selectedSession.spotsLeft !== 1 ? "s" : ""} left of {selectedSession.maxPlayers}
+                          {(() => {
+                            const detailMax = selectedSession.type === "semi_private" ? Math.min(selectedSession.maxPlayers, 2) : selectedSession.maxPlayers;
+                            const detailSpots = Math.min(selectedSession.spotsLeft, detailMax - (selectedSession.participants?.length || 0));
+                            return `${Math.max(0, detailSpots)} spot${detailSpots !== 1 ? "s" : ""} left of ${detailMax}`;
+                          })()}
                         </Text>
                       </View>
                     </View>

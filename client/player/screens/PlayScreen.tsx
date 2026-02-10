@@ -88,14 +88,13 @@ function getBallLevelLabel(level: string): string {
   // Return the full level with sub-level number (e.g. "GLOW 6", "YELLOW 3")
   if (l) {
     // Extract level name and number if present
-    const match = l.match(/^(blue|red|orange|green|yellow|glow)\s*(\d+)?$/i);
+    const match = l.match(/^(blue|red|orange|green|yellow)\s*(\d+)?$/i);
     if (match) {
       const baseName = match[1].toUpperCase();
       const subLevel = match[2];
       return subLevel ? `${baseName} ${subLevel}` : baseName;
     }
-    // Fallback for formats like "glow_6" or "glow-6"
-    const altMatch = l.match(/^(blue|red|orange|green|yellow|glow)[_-]?(\d+)?$/i);
+    const altMatch = l.match(/^(blue|red|orange|green|yellow)[_-]?(\d+)?$/i);
     if (altMatch) {
       const baseName = altMatch[1].toUpperCase();
       const subLevel = altMatch[2];
@@ -107,7 +106,6 @@ function getBallLevelLabel(level: string): string {
   if (l.includes("orange")) return "ORANGE";
   if (l.includes("green")) return "GREEN";
   if (l.includes("yellow")) return "YELLOW";
-  if (l.includes("glow")) return "GLOW";
   return "";
 }
 
@@ -342,10 +340,11 @@ export default function PlayScreen() {
   };
 
   const getStatusBadge = (session: PlaySession) => {
-    const spotsLeft = session.maxPlayers - session.currentPlayers;
-    const playerCount = `${session.currentPlayers}/${session.maxPlayers}`;
+    const effectiveMax = session.sessionType === "semi_private" ? Math.min(session.maxPlayers, 2) : session.maxPlayers;
+    const spotsLeft = effectiveMax - session.currentPlayers;
+    const playerCount = `${session.currentPlayers}/${effectiveMax}`;
     
-    if (spotsLeft === 0) {
+    if (spotsLeft <= 0) {
       return { text: `Full (${playerCount})`, color: Colors.dark.error, bgColor: Colors.dark.error + "40" };
     }
     if (spotsLeft === 1) {
@@ -365,7 +364,8 @@ export default function PlayScreen() {
 
   const renderSessionCard = (session: PlaySession) => {
     const statusBadge = getStatusBadge(session);
-    const isFull = session.currentPlayers >= session.maxPlayers;
+    const effectiveMax = session.sessionType === "semi_private" ? Math.min(session.maxPlayers, 2) : session.maxPlayers;
+    const isFull = session.currentPlayers >= effectiveMax;
     const isJoining = joiningSessionId === session.id;
     const backgroundImage = session.courtImageUrl ? { uri: session.courtImageUrl } : courtBackground;
     const sessionLevelColor = getBallLevelColor(session.ballLevel || "");
@@ -878,7 +878,7 @@ export default function PlayScreen() {
                 >
                   <View style={[styles.filterDot, { backgroundColor: getBallLevelColor(playerBallLevel) }]} />
                   <Text style={[styles.filterChipText, selectedBallLevel === "my_level" && { color: getBallLevelColor(playerBallLevel) }]}>
-                    My Level ({playerBallLevel.charAt(0).toUpperCase() + playerBallLevel.slice(1)})
+                    My Level{playerBallLevel !== "glow" ? ` (${playerBallLevel.charAt(0).toUpperCase() + playerBallLevel.slice(1)})` : ""}
                   </Text>
                 </Pressable>
                 
