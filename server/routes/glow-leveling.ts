@@ -562,7 +562,7 @@ router.get("/api/glow/players/:playerId/suggested-skills", authMiddleware, requi
           orange: "ORANGE_3",
           green: "GREEN_3",
           yellow: "YELLOW_3",
-          glow: "GREEN_3",
+          glow: "GLOW_9",
         };
         const mappedLevel = stageMap[player.ballLevel.toLowerCase()];
         if (mappedLevel) {
@@ -575,7 +575,29 @@ router.get("/api/glow/players/:playerId/suggested-skills", authMiddleware, requi
       return res.json([]);
     }
     
-    // Get skills for this level
+    const pillarNames: Record<string, string> = {
+      TECHNIQUE: "Technical",
+      TACTICAL: "Tactical",
+      PHYSICAL: "Physical",
+      MENTAL: "Mental",
+      SOCIAL: "Social",
+      MATCH: "Match Play",
+    };
+    
+    if (resolvedLevelId.startsWith("GLOW_")) {
+      const glowLevel = ADULT_GLOW_SKILLS_BY_LEVEL[resolvedLevelId];
+      if (glowLevel?.skills) {
+        return res.json(glowLevel.skills.map(s => ({
+          id: s.id,
+          name: s.name,
+          pillarId: s.pillar.toLowerCase(),
+          pillarName: pillarNames[s.pillar] || s.pillar,
+          description: s.description,
+        })));
+      }
+      return res.json([]);
+    }
+    
     const skills = await db
       .select({
         id: glowSkills.id,
@@ -588,16 +610,6 @@ router.get("/api/glow/players/:playerId/suggested-skills", authMiddleware, requi
       .innerJoin(glowSkills, eq(levelSkills.skillId, glowSkills.id))
       .where(eq(levelSkills.levelId, resolvedLevelId))
       .orderBy(glowSkills.pillar, glowSkills.name);
-    
-    // Map pillar names
-    const pillarNames: Record<string, string> = {
-      TECHNIQUE: "Technical",
-      TACTICAL: "Tactical",
-      PHYSICAL: "Physical",
-      MENTAL: "Mental",
-      SOCIAL: "Social",
-      MATCH: "Match Play",
-    };
     
     res.json(skills.map(s => ({
       id: s.id,
