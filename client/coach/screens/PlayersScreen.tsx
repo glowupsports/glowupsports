@@ -271,33 +271,38 @@ function GamingPlayerCard({
               {(() => {
                 const credits = player.remainingCredits;
                 const byType = player.creditsByType;
-                const hasCredits = credits !== undefined && credits > 0;
-                const creditColor = credits === undefined 
-                  ? Colors.dark.tabIconDefault 
-                  : credits === 0 
-                    ? Colors.dark.error 
-                    : credits <= 3 
-                      ? Colors.dark.gold 
-                      : Colors.dark.primary;
-                
-                const formatCreditText = () => {
-                  if (credits === undefined) return "No pkg";
-                  if (!byType) return credits === 0 ? "0 credits" : `${credits}`;
-                  
-                  const parts: string[] = [];
-                  // Show ALL credit types including negative (debt)
-                  if (byType.private !== 0) parts.push(`${byType.private} Prv`);
-                  if (byType.group !== 0) parts.push(`${byType.group} Grp`);
-                  if (byType.semiPrivate !== 0) parts.push(`${byType.semiPrivate} Semi`);
-                  return parts.length > 0 ? parts.join(" | ") : "0 credits";
+
+                const getCreditColor = (val: number) =>
+                  val < 0 ? Colors.dark.error
+                  : val === 0 ? Colors.dark.error
+                  : val <= 2 ? Colors.dark.gold
+                  : "#22c55e";
+
+                const overallColor = credits === undefined
+                  ? Colors.dark.tabIconDefault
+                  : getCreditColor(credits);
+
+                const formatCreditParts = () => {
+                  if (credits === undefined) return [{ text: "No pkg", color: Colors.dark.tabIconDefault }];
+                  if (!byType) return [{ text: credits === 0 ? "0 credits" : `${credits}`, color: getCreditColor(credits) }];
+
+                  const parts: { text: string; color: string }[] = [];
+                  if (byType.private !== 0) parts.push({ text: `${byType.private} Prv`, color: getCreditColor(byType.private) });
+                  if (byType.group !== 0) parts.push({ text: `${byType.group} Grp`, color: getCreditColor(byType.group) });
+                  if (byType.semiPrivate !== 0) parts.push({ text: `${byType.semiPrivate} Semi`, color: getCreditColor(byType.semiPrivate) });
+                  return parts.length > 0 ? parts : [{ text: "0 credits", color: Colors.dark.error }];
                 };
-                
+
+                const parts = formatCreditParts();
+
                 return (
-                  <View style={[styles.creditsBadge, { backgroundColor: creditColor + "20" }]}>
-                    <Ionicons name="ticket-outline" size={12} color={creditColor} />
-                    <Text style={[styles.creditsText, { color: creditColor }]}>
-                      {formatCreditText()}
-                    </Text>
+                  <View style={[styles.creditsBadge, { backgroundColor: overallColor + "20" }]}>
+                    <Ionicons name="ticket-outline" size={12} color={overallColor} />
+                    {parts.map((p, i) => (
+                      <Text key={i} style={[styles.creditsText, { color: p.color }]}>
+                        {i > 0 ? " | " : ""}{p.text}
+                      </Text>
+                    ))}
                   </View>
                 );
               })()}

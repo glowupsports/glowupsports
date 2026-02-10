@@ -414,9 +414,10 @@ export default function PackagesCard({ playerId, playerName }: PackagesCardProps
       <View style={styles.creditTypeRow}>
         {(["group", "private", "semi_private"] as CreditType[]).map((type) => {
           const balance = creditBalance ? creditBalance[type] : creditsByType[type];
+          const dynamicColor = balance < 0 ? Colors.dark.error : balance === 0 ? Colors.dark.error : balance <= 2 ? Colors.dark.gold : "#22c55e";
           return (
             <View key={type} style={styles.creditTypeItem}>
-              <Text style={[styles.creditTypeValue, balance < 0 && styles.debtValue]}>{balance}</Text>
+              <Text style={[styles.creditTypeValue, { color: dynamicColor }]}>{balance}</Text>
               <Text style={styles.creditTypeLabel}>{CREDIT_TYPE_LABELS[type]}</Text>
             </View>
           );
