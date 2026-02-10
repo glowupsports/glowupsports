@@ -6686,7 +6686,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         rating: deepAssessmentPillarSummaries.currentScore,
         comment: deepAssessmentPillarSummaries.notes,
         coachId: deepAssessmentPillarSummaries.assessedBy,
-        coachName: users.fullName,
+        coachName: coaches.name,
         createdAt: deepAssessmentPillarSummaries.updatedAt,
       })
         .from(deepAssessmentPillarSummaries)
@@ -6713,7 +6713,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const feedback = await db.select({
         id: inSessionFeedback.id,
         sessionId: inSessionFeedback.sessionId,
-        sessionDate: sessions.date,
+        sessionDate: sessions.startTime,
         sessionType: sessions.sessionType,
         feedbackType: inSessionFeedback.feedbackType,
         message: inSessionFeedback.message,
@@ -6721,12 +6721,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         visibility: inSessionFeedback.visibility,
         pillarId: inSessionFeedback.pillarId,
         coachId: inSessionFeedback.coachId,
-        coachName: users.fullName,
+        coachName: coaches.name,
         createdAt: inSessionFeedback.createdAt,
       })
         .from(inSessionFeedback)
         .leftJoin(sessions, eq(sessions.id, inSessionFeedback.sessionId))
-        .leftJoin(users, eq(users.id, inSessionFeedback.coachId))
+        .leftJoin(coaches, eq(coaches.id, inSessionFeedback.coachId))
         .where(and(
           eq(inSessionFeedback.playerId, playerId),
           eq(inSessionFeedback.visibility, "public")
