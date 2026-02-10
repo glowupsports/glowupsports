@@ -107,6 +107,7 @@ const generateInvoicePDF = (invoice: {
   total: number;
   currency: string;
   notes?: string;
+  terms?: string[];
 }) => {
   const lineItemsHTML = invoice.lineItems.map((item, index) => `
     <tr style="border-bottom: 1px solid #2a2d35;">
@@ -427,6 +428,15 @@ const generateInvoicePDF = (invoice: {
             ${invoice.bankIban ? `<p><strong style="color: #6b7280;">IBAN:</strong><br/><span style="color: #C8FF3D; font-weight: 600; font-family: monospace;">${invoice.bankIban}</span></p>` : ""}
             ${invoice.bankSwiftCode ? `<p><strong style="color: #6b7280;">SWIFT/BIC:</strong><br/><span style="color: #ffffff; font-weight: 500; font-family: monospace;">${invoice.bankSwiftCode}</span></p>` : ""}
           </div>
+        </div>
+        ` : ""}
+
+        ${invoice.terms && invoice.terms.length > 0 ? `
+        <div class="notes-section" style="margin-top: 24px; border-top: 1px solid #2a2d35; padding-top: 20px;">
+          <h4 style="color: #C8FF3D; margin-bottom: 12px;">Terms & Conditions</h4>
+          <ol style="color: #9ca3af; font-size: 12px; line-height: 1.8; padding-left: 16px; margin: 0;">
+            ${invoice.terms.map(t => `<li style="margin-bottom: 4px;">${t}</li>`).join("")}
+          </ol>
         </div>
         ` : ""}
 
@@ -764,6 +774,15 @@ export default function CreateInvoiceModal({
   const [notes, setNotes] = useState("");
   const [currency] = useState("AED");
   const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
+  const [showTerms, setShowTerms] = useState(true);
+
+  const defaultTerms = [
+    "All lessons are scheduled on a weekly basis.",
+    "In case of absence, the lesson is still counted.",
+    "Lessons will not be counted only during official holidays.",
+    "Court bookings are subject to availability and may be adjusted based on scheduling needs.",
+    "Payment is due within 7 days of the invoice date.",
+  ];
 
   const subtotal = lineItems.reduce((sum, item) => sum + item.total, 0);
   const taxAmount = (subtotal * taxRate) / 100;
@@ -851,6 +870,7 @@ export default function CreateInvoiceModal({
         total,
         currency,
         notes,
+        terms: showTerms ? defaultTerms : undefined,
       });
 
       if (Platform.OS === "web") {
@@ -1303,6 +1323,46 @@ export default function CreateInvoiceModal({
               multiline
               numberOfLines={3}
             />
+          </View>
+
+          <View style={styles.section}>
+            <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: Spacing.sm }}>
+              <Text style={styles.sectionTitle}>Terms & Conditions</Text>
+              <Pressable
+                onPress={() => {
+                  setShowTerms(!showTerms);
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                }}
+                style={{
+                  paddingHorizontal: 12,
+                  paddingVertical: 6,
+                  borderRadius: BorderRadius.sm,
+                  backgroundColor: showTerms ? Colors.dark.primary + "20" : Colors.dark.cardAlt,
+                  borderWidth: 1,
+                  borderColor: showTerms ? Colors.dark.primary : Colors.dark.border,
+                }}
+              >
+                <Text style={{ color: showTerms ? Colors.dark.primary : Colors.dark.textMuted, fontSize: 12, fontWeight: "600" }}>
+                  {showTerms ? "Included" : "Excluded"}
+                </Text>
+              </Pressable>
+            </View>
+            {showTerms && (
+              <View style={{
+                backgroundColor: Colors.dark.cardAlt,
+                borderRadius: BorderRadius.md,
+                padding: Spacing.md,
+                borderWidth: 1,
+                borderColor: Colors.dark.border,
+              }}>
+                {defaultTerms.map((term, index) => (
+                  <View key={index} style={{ flexDirection: "row", marginBottom: index < defaultTerms.length - 1 ? 8 : 0 }}>
+                    <Text style={{ color: Colors.dark.primary, fontSize: 12, fontWeight: "700", marginRight: 8, minWidth: 16 }}>{index + 1}.</Text>
+                    <Text style={{ color: Colors.dark.textSecondary, fontSize: 12, lineHeight: 18, flex: 1 }}>{term}</Text>
+                  </View>
+                ))}
+              </View>
+            )}
           </View>
 
           <View style={styles.totalsSection}>
