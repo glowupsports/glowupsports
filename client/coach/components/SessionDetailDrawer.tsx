@@ -165,6 +165,11 @@ export default function SessionDetailDrawer({
   const [showRemovePlayer, setShowRemovePlayer] = useState<Player | null>(null);
   const [removeReason, setRemoveReason] = useState("");
   const [removeFromDate, setRemoveFromDate] = useState<"today" | "next_session">("today");
+  const [removedPlayerIds, setRemovedPlayerIds] = useState<Set<string>>(new Set());
+  const currentSessionId = session?.id;
+  React.useEffect(() => {
+    setRemovedPlayerIds(new Set());
+  }, [currentSessionId]);
   
   // Credit mismatch warning state
   const [creditMismatchWarning, setCreditMismatchWarning] = useState<{
@@ -181,7 +186,7 @@ export default function SessionDetailDrawer({
   });
   const allPlayers = Array.isArray(allPlayersData) ? allPlayersData : [];
 
-  const existingPlayerIds = session?.players?.map(p => p.id) || [];
+  const existingPlayerIds = session?.players?.filter(p => !removedPlayerIds.has(p.id)).map(p => p.id) || [];
   const availablePlayers = allPlayers.filter(p => !existingPlayerIds.includes(p.id));
   
   // Filter players by search query
@@ -446,8 +451,9 @@ export default function SessionDetailDrawer({
         : `/api/coach/sessions/${session.id}/players/${playerId}`;
       return apiRequest("DELETE", url);
     },
-    onSuccess: (data: any) => {
+    onSuccess: (data: any, variables: { playerId: string; reason: string; fromDate: string }) => {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      setRemovedPlayerIds(prev => new Set(prev).add(variables.playerId));
       queryClient.invalidateQueries({ 
         predicate: (query) => {
           const key = query.queryKey[0];
@@ -700,10 +706,10 @@ export default function SessionDetailDrawer({
       ) : null}
 
       <View style={styles.playersSection}>
-        <Text style={styles.sectionTitle}>Players ({session.players?.length || 0})</Text>
-        {session.players && session.players.length > 0 ? (
+        <Text style={styles.sectionTitle}>Players ({(session.players?.filter(p => !removedPlayerIds.has(p.id))?.length) || 0})</Text>
+        {session.players && session.players.filter(p => !removedPlayerIds.has(p.id)).length > 0 ? (
           <View style={styles.playersGrid}>
-            {session.players.map(player => {
+            {session.players.filter(p => !removedPlayerIds.has(p.id)).map(player => {
               const isGuest = player.name.includes("(Guest)");
               const isPastSession = new Date(session.endTime) < new Date();
               const levelColor = getPlayerLevelColor(player.ballLevel || player.level);
@@ -1014,7 +1020,7 @@ export default function SessionDetailDrawer({
       </Pressable>
 
       {/* Quick Feedback Button - In-Session */}
-      {session.players && session.players.length > 0 && (
+      {session.players && session.players.filter(p => !removedPlayerIds.has(p.id)).length > 0 && (
         <Pressable 
           style={styles.quickFeedbackCard} 
           onPress={() => {
@@ -1644,7 +1650,7 @@ export default function SessionDetailDrawer({
       <InSessionFeedbackDrawer
         visible={showQuickFeedback}
         sessionId={session.id}
-        players={session.players || []}
+        players={(session.players || []).filter(p => !removedPlayerIds.has(p.id))}
         onClose={() => setShowQuickFeedback(false)}
       />
     </>
