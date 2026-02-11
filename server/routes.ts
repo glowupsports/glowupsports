@@ -22976,6 +22976,63 @@ export async function registerRoutes(app: Express): Promise<Server> {
         coachNotifiedAt: new Date(),
       });
       
+      // LATE CANCELLATION: Deduct credits and apply XP penalties
+      if (isLateCancellation) {
+        const creditType = session.sessionType.includes('semi') ? 'semi_private' : 
+                           session.sessionType.includes('group') ? 'group' : 'private';
+        
+        // Determine penalty tier based on hours until session
+        let creditsToDeduct = 0;
+        let xpPenalty = 0;
+        let penaltyTier = '';
+        
+        if (hoursUntilSession < 2) {
+          creditsToDeduct = 1;
+          xpPenalty = -50;
+          penaltyTier = 'critical';
+        } else if (hoursUntilSession < 24) {
+          creditsToDeduct = 1;
+          xpPenalty = -25;
+          penaltyTier = 'late';
+        }
+        
+        if (creditsToDeduct > 0) {
+          const transactionId = `late-cancel-${sessionId}-${playerId}-${Date.now()}`;
+          
+          await db.insert(creditTransactions).values({
+            id: transactionId,
+            playerId: playerId,
+            sessionId: sessionId,
+            type: 'debit',
+            amount: -creditsToDeduct,
+            reason: 'late_cancellation',
+            creditType: creditType,
+            metadata: { 
+              hoursNotice: Math.round(hoursUntilSession),
+              penaltyTier,
+              sessionType: session.sessionType,
+              cancelledAt: new Date().toISOString(),
+            },
+          });
+          
+          await db.update(sessionPlayers)
+            .set({ 
+              creditDeductedAt: new Date(), 
+              creditTransactionId: transactionId,
+              billingStatus: 'charged',
+            })
+            .where(eq(sessionPlayers.id, sessionPlayer.id));
+          
+          console.log(`[LateCancellation] Player ${playerId} charged ${creditsToDeduct} ${creditType} credit(s) for late cancellation (${Math.round(hoursUntilSession)}h notice, tier: ${penaltyTier})`);
+        }
+        
+        if (xpPenalty !== 0) {
+          await storage.addPlayerXP(playerId, xpPenalty, sessionId, 
+            `Late cancellation penalty (${Math.round(hoursUntilSession)}h notice)`);
+          console.log(`[LateCancellation] Player ${playerId} XP penalty: ${xpPenalty} (tier: ${penaltyTier})`);
+        }
+      }
+      
       // Handle semi-private auto-transformation
       // Business rule: When 1 player cancels a semi-private session, upgrade to private for remaining player
       let semiPrivateUpgraded = false;
