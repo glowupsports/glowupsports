@@ -10,6 +10,10 @@ pnpm-lock.yaml
 # Server / Backend (not needed for mobile build)
 server/
 
+# Native directories (CNG/Prebuild generates these)
+/android
+/ios
+
 # Expo / Metro
 .expo/
 .expo-shared/
