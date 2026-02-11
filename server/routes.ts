@@ -22820,8 +22820,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       };
       
+      // Filter out future sessions where player cancelled
+      const activeSessions = sessions.filter((session) => {
+        if (session.attendanceStatus === "absent") {
+          const sessionTime = new Date(session.startTime);
+          if (sessionTime > new Date()) return false;
+        }
+        if (session.sessionStatus === "cancelled") return false;
+        return true;
+      });
+
       // Build response - let Express JSON serialize dates to ISO strings
-      const playerSessions = sessions.map((session) => {
+      const playerSessions = activeSessions.map((session) => {
         let displaySessionType = session.sessionType;
         if (session.sessionType === "private_adjusted" && (session.attendanceStatus || "").toLowerCase() === "absent") {
           displaySessionType = "semi_private";
