@@ -63,6 +63,7 @@ export function generateProgressReportHtml(data: ProgressReportData): string {
     if (level.startsWith('ORANGE')) return '#F97316';
     if (level.startsWith('GREEN')) return '#22C55E';
     if (level.startsWith('YELLOW')) return '#EAB308';
+    if (level.startsWith('GLOW')) return '#E040FB';
     return '#6B7280';
   };
 
