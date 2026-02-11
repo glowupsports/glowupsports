@@ -5,7 +5,7 @@ import {
   StyleSheet,
   ScrollView,
   Pressable,
-  Dimensions,
+  useWindowDimensions,
   ActivityIndicator,
   Alert,
   Platform,
@@ -72,10 +72,8 @@ interface CoachData {
   academyId: string | null;
 }
 
-const { width: SCREEN_WIDTH } = Dimensions.get("window");
 const TIME_COLUMN_WIDTH = 50;
-const MIN_COURT_LANE_WIDTH = 90; // Minimum width per court for readability
-const COURT_LANE_WIDTH = (SCREEN_WIDTH - TIME_COLUMN_WIDTH - Spacing.lg * 2) / 3;
+const MIN_COURT_LANE_WIDTH = 90;
 const HOUR_HEIGHT_60 = 80;
 const HOUR_HEIGHT_30 = 60;
 const START_HOUR = 6;
@@ -588,6 +586,7 @@ const dragStyles = StyleSheet.create({
 });
 
 export default function CalendarScreen() {
+  const { width: screenWidth } = useWindowDimensions();
   const insets = useSafeAreaInsets();
   const queryClient = useQueryClient();
   const route = useRoute<RouteProp<CalendarRouteParams, "Calendar">>();
@@ -782,7 +781,7 @@ export default function CalendarScreen() {
   
   // Calculate dynamic lane width based on number of visible courts
   // Use scrollable layout if courts don't fit, with minimum width per court
-  const availableWidth = SCREEN_WIDTH - TIME_COLUMN_WIDTH - Spacing.lg * 2;
+  const availableWidth = screenWidth - TIME_COLUMN_WIDTH - Spacing.lg * 2;
   const dynamicLaneWidth = courts.length === 1 
     ? availableWidth
     : courts.length <= 3
@@ -878,7 +877,7 @@ export default function CalendarScreen() {
     currentCourtIndex: number
   ) => {
     const hoursChanged = deltaY / hourHeight;
-    const courtsChanged = Math.round(deltaX / COURT_LANE_WIDTH);
+    const courtsChanged = Math.round(deltaX / dynamicLaneWidth);
     
     const originalStart = parseUTCTimestamp(session.startTime);
     const originalEnd = parseUTCTimestamp(session.endTime);
@@ -1111,7 +1110,7 @@ export default function CalendarScreen() {
     }
     
     const hoursChanged = deltaY / hourHeight;
-    const courtsChanged = Math.round(deltaX / COURT_LANE_WIDTH);
+    const courtsChanged = Math.round(deltaX / dynamicLaneWidth);
     
     const originalStart = parseUTCTimestamp(session.startTime);
     const originalEnd = parseUTCTimestamp(session.endTime);
@@ -2125,7 +2124,7 @@ export default function CalendarScreen() {
                             sessionLabel={sessionLabel}
                             formattedTime={formatTimeInTimezone(session.startTime, academyTimezone)}
                             hourHeight={hourHeight}
-                            courtLaneWidth={COURT_LANE_WIDTH}
+                            courtLaneWidth={dynamicLaneWidth}
                             onTap={() => handleSessionTap(session)}
                             onLongPress={() => handleSessionLongPress(session)}
                             onDragEnd={(deltaY, deltaX) => handleSessionDragEnd(session, deltaY, deltaX, courtIndex)}
@@ -2519,7 +2518,7 @@ export default function CalendarScreen() {
                             const sessionLabel = typeLabel;
                             const sessionSubtitle = playerNames || locationShortName;
                             
-                            const dayColumnWidth = (SCREEN_WIDTH - TIME_COLUMN_WIDTH - Spacing.lg * 2) / 7;
+                            const dayColumnWidth = (screenWidth - TIME_COLUMN_WIDTH - Spacing.lg * 2) / 7;
                             
                             return (
                               <WeekDraggableSessionBlock
@@ -3863,7 +3862,6 @@ const styles = StyleSheet.create({
     fontWeight: "700",
   },
   courtHeader: {
-    width: COURT_LANE_WIDTH,
     alignItems: "center",
     justifyContent: "center",
     paddingVertical: 10,
@@ -3915,7 +3913,6 @@ const styles = StyleSheet.create({
     overflow: "visible",
   },
   courtLane: {
-    width: COURT_LANE_WIDTH,
     position: "relative",
     backgroundColor: Backgrounds.elevated,
     overflow: "visible",
