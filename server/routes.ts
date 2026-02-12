@@ -17941,9 +17941,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
           const sessions = await storage.getSessionsByAcademy(academy.id);
           for (const session of sessions) {
             const sessionDateUTC = new Date(session.startTime);
-        const sessionDateDubai = toDubaiTime(sessionDateUTC);
-            if (sessionDate >= sevenDaysAgo && sessionDate <= now) {
-              const dayIndex = sessionDate.getDay();
+            const sessionDateDubai = toDubaiTime(sessionDateUTC);
+            if (sessionDateDubai >= sevenDaysAgo && sessionDateDubai <= now) {
+              const dayIndex = sessionDateDubai.getDay();
               activityByDay[dayIndex]++;
             }
           }
