@@ -12,6 +12,7 @@ import { Colors, Spacing, BorderRadius, Typography, CardStyles, Backgrounds, Glo
 import { apiRequest } from "@/lib/query-client";
 import { getEnv } from "@/lib/env";
 import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollViewCompat";
+import { useAuth } from "@/coach/context/AuthContext";
 import type { PlatformStackParamList } from "@/platform/navigation/PlatformNavigator";
 
 const PLATFORM_COLOR = "#9B59B6";
@@ -45,6 +46,8 @@ export default function AcademyDetailScreen() {
   const route = useRoute<AcademyDetailRouteProp>();
   const { academyId, academyName } = route.params;
   const queryClient = useQueryClient();
+  const { startImpersonation } = useAuth();
+  const [isImpersonating, setIsImpersonatingLocal] = useState(false);
 
   const [isEditing, setIsEditing] = useState(false);
   const [editName, setEditName] = useState(academyName);
@@ -318,6 +321,25 @@ export default function AcademyDetailScreen() {
     });
   };
 
+  const handleImpersonate = async () => {
+    setIsImpersonatingLocal(true);
+    try {
+      const result = await startImpersonation(academyId, academyName);
+      if (!result.success) {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+        if (Platform.OS === "web") {
+          window.alert(result.error || "Failed to view as owner");
+        } else {
+          Alert.alert("Error", result.error || "Failed to view as owner");
+        }
+      }
+    } catch (error) {
+      console.error("Impersonation error:", error);
+    } finally {
+      setIsImpersonatingLocal(false);
+    }
+  };
+
   const handleDelete = () => {
     const confirmDelete = () => {
       deleteMutation.mutate();
@@ -380,6 +402,28 @@ export default function AcademyDetailScreen() {
         contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 100 }]}
         showsVerticalScrollIndicator={false}
       >
+        <Pressable
+          style={[styles.impersonateButton, isImpersonating && { opacity: 0.6 }]}
+          onPress={handleImpersonate}
+          disabled={isImpersonating}
+        >
+          <LinearGradient
+            colors={["#9B59B6", "#8E44AD"]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 0 }}
+            style={styles.impersonateGradient}
+          >
+            {isImpersonating ? (
+              <ActivityIndicator size="small" color="#fff" />
+            ) : (
+              <Ionicons name="eye-outline" size={20} color="#fff" />
+            )}
+            <Text style={styles.impersonateText}>
+              {isImpersonating ? "Switching..." : "View as Owner"}
+            </Text>
+          </LinearGradient>
+        </Pressable>
+
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Academy Details</Text>
           <View style={[styles.card, CardStyles.elevated]}>
@@ -867,6 +911,24 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: Colors.dark.backgroundRoot,
+  },
+  impersonateButton: {
+    marginBottom: Spacing.lg,
+    borderRadius: BorderRadius.lg,
+    overflow: "hidden",
+  },
+  impersonateGradient: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 14,
+    paddingHorizontal: Spacing.lg,
+    gap: 8,
+  },
+  impersonateText: {
+    ...Typography.bodyBold,
+    color: "#fff",
+    fontSize: 16,
   },
   centered: {
     justifyContent: "center",

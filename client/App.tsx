@@ -13,6 +13,7 @@ import RootStackNavigator from "@/navigation/RootStackNavigator";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { UpdateController } from "@/components/UpdateController";
 import { AnimatedSplashScreen } from "@/components/AnimatedSplashScreen";
+import { ImpersonationBanner } from "@/components/ImpersonationBanner";
 
 import { PlayerProvider } from "@/context/PlayerContext";
 import { AppModeProvider } from "@/context/AppModeContext";
@@ -79,6 +80,7 @@ export default function App() {
                             <UIInteractionProvider>
                               <TabNavigationProvider>
                                 <View style={styles.root}>
+                                  <ImpersonationBanner />
                                   <NavigationContainerWithRef />
                                 </View>
                               </TabNavigationProvider>

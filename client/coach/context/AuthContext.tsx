@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback, useRef } from "react";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useQueryClient } from "@tanstack/react-query";
-import { getApiUrl } from "@/lib/query-client";
+import { getApiUrl, apiRequest } from "@/lib/query-client";
 import { 
   loadAuthState, 
   saveAuthState, 
@@ -57,6 +58,10 @@ interface AuthContextType {
   registerPlayer: (data: PlayerRegisterData) => Promise<{ success: boolean; error?: string; requiresOTP?: boolean }>;
   logout: () => Promise<void>;
   refreshAuth: () => Promise<void>;
+  isImpersonating: boolean;
+  impersonatedAcademyName: string | null;
+  startImpersonation: (academyId: string, academyName: string) => Promise<{ success: boolean; error?: string }>;
+  stopImpersonation: () => Promise<void>;
 }
 
 interface RegisterData {
@@ -68,12 +73,18 @@ interface RegisterData {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+const IMPERSONATION_ORIGINAL_TOKEN_KEY = "@impersonation_original_token";
+const IMPERSONATION_ORIGINAL_USER_KEY = "@impersonation_original_user";
+const IMPERSONATION_ACADEMY_NAME_KEY = "@impersonation_academy_name";
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [user, setUser] = useState<AuthUser | null>(null);
   const [coach, setCoach] = useState<Coach | null>(null);
   const [academy, setAcademy] = useState<Academy | null>(null);
+  const [isImpersonating, setIsImpersonating] = useState(false);
+  const [impersonatedAcademyName, setImpersonatedAcademyName] = useState<string | null>(null);
   const { setMode, setAvailableModes } = useAppMode();
   const setAvailableModesRef = useRef(setAvailableModes);
   setAvailableModesRef.current = setAvailableModes;
@@ -147,6 +158,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const initAuth = async () => {
       console.log("[AuthContext] Starting auth init...");
       try {
+        const impersonationAcademy = await AsyncStorage.getItem(IMPERSONATION_ACADEMY_NAME_KEY);
+        if (impersonationAcademy) {
+          setIsImpersonating(true);
+          setImpersonatedAcademyName(impersonationAcademy);
+        }
+
         const authState = await loadAuthState();
         console.log("[AuthContext] Loaded auth state:", { hasToken: !!authState.token, hasUser: !!authState.user });
         
@@ -292,6 +309,83 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  const startImpersonation = async (academyId: string, academyName: string): Promise<{ success: boolean; error?: string }> => {
+    try {
+      const currentAuthState = await loadAuthState();
+      if (!currentAuthState.token || !currentAuthState.user) {
+        return { success: false, error: "Not authenticated" };
+      }
+
+      await AsyncStorage.setItem(IMPERSONATION_ORIGINAL_TOKEN_KEY, currentAuthState.token);
+      await AsyncStorage.setItem(IMPERSONATION_ORIGINAL_USER_KEY, JSON.stringify(currentAuthState.user));
+
+      const response = await apiRequest("POST", `/api/platform/impersonate/${academyId}`);
+      const data = await response.json();
+
+      if (!data.success) {
+        await AsyncStorage.removeItem(IMPERSONATION_ORIGINAL_TOKEN_KEY);
+        await AsyncStorage.removeItem(IMPERSONATION_ORIGINAL_USER_KEY);
+        return { success: false, error: data.error || "Impersonation failed" };
+      }
+
+      await AsyncStorage.setItem(IMPERSONATION_ACADEMY_NAME_KEY, academyName);
+      await saveAuthState(data.token, {
+        id: currentAuthState.user.id,
+        username: currentAuthState.user.username,
+        email: currentAuthState.user.email,
+        role: "academy_owner",
+        academyId: academyId,
+        coachId: data.coachId || null,
+        playerId: data.playerId || null,
+      });
+
+      setAuthToken(data.token);
+      queryClient.clear();
+      setIsImpersonating(true);
+      setImpersonatedAcademyName(academyName);
+
+      await fetchUserData(data.token, true);
+      setIsAuthenticated(true);
+
+      return { success: true };
+    } catch (error) {
+      console.error("[AuthContext] Impersonation error:", error);
+      await AsyncStorage.removeItem(IMPERSONATION_ORIGINAL_TOKEN_KEY);
+      await AsyncStorage.removeItem(IMPERSONATION_ORIGINAL_USER_KEY);
+      return { success: false, error: "Network error" };
+    }
+  };
+
+  const stopImpersonation = async () => {
+    try {
+      const originalToken = await AsyncStorage.getItem(IMPERSONATION_ORIGINAL_TOKEN_KEY);
+      const originalUserStr = await AsyncStorage.getItem(IMPERSONATION_ORIGINAL_USER_KEY);
+
+      await AsyncStorage.removeItem(IMPERSONATION_ORIGINAL_TOKEN_KEY);
+      await AsyncStorage.removeItem(IMPERSONATION_ORIGINAL_USER_KEY);
+      await AsyncStorage.removeItem(IMPERSONATION_ACADEMY_NAME_KEY);
+
+      if (originalToken && originalUserStr) {
+        const originalUser = JSON.parse(originalUserStr);
+        await saveAuthState(originalToken, originalUser);
+        setAuthToken(originalToken);
+        queryClient.clear();
+        setIsImpersonating(false);
+        setImpersonatedAcademyName(null);
+        await fetchUserData(originalToken, true);
+        setIsAuthenticated(true);
+      } else {
+        setIsImpersonating(false);
+        setImpersonatedAcademyName(null);
+        await logout();
+      }
+    } catch (error) {
+      console.error("[AuthContext] Stop impersonation error:", error);
+      setIsImpersonating(false);
+      setImpersonatedAcademyName(null);
+    }
+  };
+
   return (
     <AuthContext.Provider
       value={{
@@ -305,6 +399,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         registerPlayer,
         logout,
         refreshAuth,
+        isImpersonating,
+        impersonatedAcademyName,
+        startImpersonation,
+        stopImpersonation,
       }}
     >
       {children}
