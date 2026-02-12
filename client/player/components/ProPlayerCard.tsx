@@ -18,6 +18,7 @@ import { getStaticAssetsUrl } from "@/lib/query-client";
 import { usePlayerLevel } from "../hooks/usePlayerLevel";
 import { useNavigation } from "@react-navigation/native";
 import { SkillProgressRing } from "./SkillProgressRing";
+import { InfoTooltip } from "@/components/InfoTooltip";
 
 interface PlayerData {
   id: string;
@@ -197,6 +198,11 @@ export function ProPlayerCard({
           <View style={styles.formBarContainer}>
             <View style={styles.formLabelRow}>
               <Text style={styles.formLabelLeft}>FORM</Text>
+              <InfoTooltip 
+                title="Your Glow Score" 
+                description="Your Glow Score reflects your overall tennis development. It combines your session attendance, skill assessments from coaches, match performance, and engagement with the platform. Keep attending sessions and getting coach feedback to boost it!"
+                size={14}
+              />
               <View style={styles.signalBars}>
                 {[1, 2, 3, 4, 5].map((bar) => (
                   <View

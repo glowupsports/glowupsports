@@ -6,6 +6,7 @@ import { LinearGradient } from "expo-linear-gradient";
 import * as Haptics from "expo-haptics";
 import { Colors, Typography, Spacing, Backgrounds, GlowColors } from "@/constants/theme";
 import { useCoach } from "@/coach/context/CoachContext";
+import { InfoTooltip } from "@/components/InfoTooltip";
 
 interface BurnoutRiskData {
   riskScore: number;
@@ -103,6 +104,10 @@ export function BurnoutRiskCard({ onPress }: Props) {
           <View style={styles.titleRow}>
             <Ionicons name="fitness-outline" size={18} color={riskColor} />
             <Text style={styles.title}>Wellbeing</Text>
+            <InfoTooltip 
+              title="Wellness Score" 
+              description="Your wellness score tracks your coaching energy over time. It considers session volume, rest days, and your self-reported mood. A lower score means you should take it easy - consider scheduling fewer sessions or taking a day off."
+            />
           </View>
           <View style={[styles.riskBadge, { backgroundColor: riskColor + "20" }]}>
             <Ionicons name={getRiskIcon(data.riskLevel)} size={14} color={riskColor} />

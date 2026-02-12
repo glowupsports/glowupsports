@@ -25,6 +25,7 @@ import { useNetwork } from "@/context/NetworkContext";
 import { showOfflineAlert } from "@/hooks/useOfflineGuard";
 import { SessionSummaryModal } from "@/components/SessionSummaryModal";
 import { AnimatedCheck } from "@/components/AnimatedCheck";
+import { InfoTooltip } from "@/components/InfoTooltip";
 
 type AttendanceStatus = "present" | "late" | "absent" | "holiday";
 type LateMinutes = 5 | 10 | 15 | 20 | 30 | 999;
@@ -362,7 +363,13 @@ export default function AttendanceDrawer({
             <Ionicons name="close" size={24} color={Colors.dark.text} />
           </Pressable>
           <View style={styles.headerCenter}>
-            <Text style={styles.title}>Attendance</Text>
+            <View style={{flexDirection: 'row', alignItems: 'center'}}>
+              <Text style={styles.title}>Attendance</Text>
+              <InfoTooltip 
+                title="Attendance Rules" 
+                description="Important: Absent players are still charged - the lesson counts as used. Only players marked as 'Vacation' or 'Holiday' skip credit deduction. For semi-private sessions with only 1 player present, the session auto-converts to a private session and charges a private credit."
+              />
+            </View>
             <Text style={styles.sessionInfo}>
               {formatTime(session.startTime)} - {formatTime(session.endTime)}
             </Text>

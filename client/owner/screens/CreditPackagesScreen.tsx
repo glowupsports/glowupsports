@@ -15,6 +15,7 @@ import * as Haptics from "expo-haptics";
 import { useQuery } from "@tanstack/react-query";
 import { useNavigation } from "@react-navigation/native";
 import { Colors, Spacing, BorderRadius, Typography } from "@/constants/theme";
+import { InfoTooltip } from "@/components/InfoTooltip";
 
 interface CreditPackage {
   creditType: string;
@@ -157,6 +158,10 @@ export default function CreditPackagesScreen() {
             <Ionicons name="arrow-back" size={24} color={Colors.dark.text} />
           </Pressable>
           <Text style={styles.headerTitle}>CREDIT PACKAGES</Text>
+          <InfoTooltip 
+            title="Credit Types" 
+            description="Credits come in 3 types: Private (1-on-1 sessions), Semi-Private (2-3 players), and Group (4+ players). Each credit type can only be used for its matching session type. Credits expire based on the package expiry date."
+          />
           <View style={{ width: 40 }} />
         </View>
       </LinearGradient>

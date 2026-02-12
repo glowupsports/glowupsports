@@ -5,6 +5,7 @@ import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import { Colors, Typography, Spacing, BorderRadius, Backgrounds, GlowColors } from "@/constants/theme";
 import { useCoach } from "@/coach/context/CoachContext";
+import { InfoTooltip } from "@/components/InfoTooltip";
 
 interface EarningsSummary {
   realized: {
@@ -98,6 +99,10 @@ export function CoachEarningsCard({ onPress }: Props) {
           <View style={styles.titleRow}>
             <Ionicons name="wallet-outline" size={18} color={GlowColors.primary} />
             <Text style={styles.title}>Coach Earnings</Text>
+            <InfoTooltip 
+              title="How Earnings Work" 
+              description="Your earnings are calculated from completed sessions. Private sessions earn the full rate, while group sessions split the rate among participants. Earnings appear here once sessions are marked complete."
+            />
           </View>
           <View style={styles.periodBadge}>
             <Text style={styles.periodText}>{data.period.monthName}</Text>
