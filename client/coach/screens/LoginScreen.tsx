@@ -790,13 +790,12 @@ export default function LoginScreen() {
         
         // Trigger app navigation by refreshing auth
         await refreshAuth();
-      } else if (data.user) {
-        // Fallback for endpoints that don't return a token (legacy)
+      } else if (data.user || data.success) {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
         resetForm();
-        const message = inviteData?.isPlayerInvite
+        const message = data.message || (inviteData?.isPlayerInvite
           ? `Your player account has been created successfully. You can now sign in with username "${normalizedUsername}".`
-          : `Your account has been created successfully. You can now sign in with username "${normalizedUsername}".`;
+          : `Your account has been created successfully! You can now sign in with username "${normalizedUsername}".`);
         Alert.alert(
           "Welcome to the team!",
           message,
