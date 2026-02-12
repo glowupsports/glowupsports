@@ -19391,28 +19391,32 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.delete("/api/admin/series/:id", authMiddleware, requireRole("admin", "academy_owner", "platform_owner"), async (req: AuthenticatedRequest, res: Response) => {
     try {
       const { id } = req.params;
-      const academyId = req.user?.academyId;
-
-      if (!academyId) {
-        return res.status(400).json({ error: "Academy context required" });
-      }
+      const userRole = req.user?.role;
+      const academyId = req.user?.academyId || req.header("X-Academy-Id");
 
       const series = await storage.getCoachingSeriesById(id);
       if (!series) {
         return res.status(404).json({ error: "Series not found" });
       }
 
-      if (series.academyId !== academyId) {
-        return res.status(403).json({ error: "Not authorized to delete this series" });
+      if (userRole !== "platform_owner") {
+        if (!academyId) {
+          return res.status(400).json({ error: "Academy context required" });
+        }
+        if (series.academyId !== academyId) {
+          return res.status(403).json({ error: "Not authorized to delete this series" });
+        }
       }
 
+      const seriesCoachId = series.coachId;
       await storage.deleteCoachingSeries(id);
       
-      // Invalidate cache after deletion so list refreshes properly
-      apiCache.invalidate(`series:${coachId}`);
-      apiCache.invalidate(`coach_earnings_${coachId}`);
-      apiCache.invalidate(`coach_calendar_${coachId}`);
-      console.log("[Series DELETE] Cache invalidated for coach:", coachId);
+      if (seriesCoachId) {
+        apiCache.invalidate(`series:${seriesCoachId}`);
+        apiCache.invalidate(`coach_earnings_${seriesCoachId}`);
+        apiCache.invalidate(`coach_calendar_${seriesCoachId}`);
+        console.log("[Series DELETE] Cache invalidated for coach:", seriesCoachId);
+      }
 
       res.json({ success: true });
     } catch (error) {
