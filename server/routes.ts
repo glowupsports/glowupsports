@@ -17171,11 +17171,47 @@ export async function registerRoutes(app: Express): Promise<Server> {
         completedAt: new Date().toISOString(),
       };
 
-      // Mark user as onboarding completed
-      await storage.updateCoach(userId, { 
-        onboardingCompleted: true,
-        onboardingCompletedAt: new Date(),
-      });
+      // Auto-activate coach and player roles for the owner
+      const user = await storage.getUserById(userId);
+      let coachId = user?.coachId;
+      let playerId = user?.playerId;
+
+      if (!coachId && user) {
+        const coach = await storage.createCoach({
+          name: user.username,
+          email: user.email,
+          phone: null,
+          academyId: academyId,
+          role: "head_coach",
+          level: 1,
+          totalXp: 0,
+        });
+        coachId = coach.id;
+        await storage.updateAcademy(academyId, { ownerId: coach.id });
+      }
+
+      if (!playerId && user) {
+        const player = await storage.createPlayer({
+          name: user.username,
+          email: user.email,
+          phone: null,
+          academyId: academyId,
+          coachId: coachId,
+        });
+        playerId = player.id;
+      }
+
+      if (user && (coachId !== user.coachId || playerId !== user.playerId)) {
+        await storage.updateUser(userId, { coachId, playerId });
+      }
+
+      // Mark coach as onboarding completed
+      if (coachId) {
+        await storage.updateCoach(coachId, { 
+          onboardingCompleted: true,
+          onboardingCompletedAt: new Date(),
+        });
+      }
 
       // Log the onboarding feedback for product improvement
       console.log(`[Onboarding] Academy ${academyId} completed onboarding:`, {
@@ -17187,6 +17223,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         success: true, 
         message: "Onboarding completed successfully",
         onboardingData,
+        coachId,
+        playerId,
       });
     } catch (error) {
       console.error("Error completing owner onboarding:", error);
