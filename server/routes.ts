@@ -19418,7 +19418,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const sessionIds = orphanSessions.map(s => s.id);
         const orphanCoachId = orphanSessions[0]?.coachId;
 
-        // Delete related data then sessions
+        // Delete related data then sessions (order matters for foreign keys)
+        await db.delete(xpTransactions).where(inArray(xpTransactions.sessionId, sessionIds));
         await db.delete(coachXpTransactions).where(inArray(coachXpTransactions.sessionId, sessionIds));
         await db.delete(creditTransactions).where(inArray(creditTransactions.sessionId, sessionIds));
         await db.delete(sessionPlayers).where(inArray(sessionPlayers.sessionId, sessionIds));
