@@ -3,7 +3,7 @@ import { eq, and, gte, lte, inArray, isNull, lt, ne } from "drizzle-orm";
 import { pushDeviceTokens, notificationPreferences, users, players, coaches, sessions, sessionPlayers, seriesPlayers, coachXpTransactions, creditTransactions } from "@shared/schema";
 import { storage } from "./storage";
 import { sendSessionReminderEmail } from "./emailService";
-import { initializeFirebase, isFirebaseInitialized, isFCMToken, sendFCMNotification } from "./fcm";
+import { initializeFirebase, isFirebaseInitialized, isFCMToken, sendFCMNotification, getChannelIdForNotificationType } from "./fcm";
 
 // Initialize Firebase on module load
 initializeFirebase();
@@ -75,6 +75,9 @@ async function sendExpoPushNotification(
 ): Promise<ExpoPushTicket[]> {
   if (tokens.length === 0) return [];
 
+  const notificationType = data?.type as string | undefined;
+  const channelId = getChannelIdForNotificationType(notificationType);
+
   const messages: ExpoPushMessage[] = tokens.map((token) => ({
     to: token,
     title,
@@ -82,7 +85,7 @@ async function sendExpoPushNotification(
     data,
     sound: "default",
     priority: "high",
-    channelId: "default",
+    channelId,
   }));
 
   try {
@@ -195,7 +198,9 @@ export async function sendPushNotification(
 
   // Send to FCM (if Firebase is initialized)
   if (fcmTokens.length > 0 && isFirebaseInitialized()) {
-    const fcmResults = await sendFCMNotification(fcmTokens, title, body, data);
+    const notificationType = data?.type as string | undefined;
+    const channelId = getChannelIdForNotificationType(notificationType);
+    const fcmResults = await sendFCMNotification(fcmTokens, title, body, data, channelId);
     // Convert FCM results to ExpoPushTicket format
     for (const result of fcmResults) {
       results.push({

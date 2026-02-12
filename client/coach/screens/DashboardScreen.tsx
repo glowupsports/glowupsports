@@ -131,21 +131,21 @@ export default function DashboardScreen() {
       queryClient.invalidateQueries({ queryKey: ["/api/coach/unread-count"] });
     }, [queryClient]),
     onNewSession: useCallback(() => {
+      queryClient.invalidateQueries({ queryKey: ["/api/coach/calendar"], refetchType: "all" });
+      queryClient.invalidateQueries({ queryKey: ["/api/coach/sessions"], refetchType: "all" });
       if (refetchCalendar) refetchCalendar();
       refetchWeeklyCalendar();
-      queryClient.invalidateQueries({ queryKey: ["/api/coach/sessions"] });
     }, [queryClient, refetchCalendar, refetchWeeklyCalendar]),
     onSessionUpdate: useCallback(() => {
+      queryClient.invalidateQueries({ queryKey: ["/api/coach/calendar"], refetchType: "all" });
+      queryClient.invalidateQueries({ queryKey: ["/api/coach/sessions"], refetchType: "all" });
       if (refetchCalendar) refetchCalendar();
       refetchWeeklyCalendar();
-      queryClient.invalidateQueries({ queryKey: ["/api/coach/sessions"] });
     }, [queryClient, refetchCalendar, refetchWeeklyCalendar]),
     onConnected: useCallback(() => {
-      // Refresh calendar data when WebSocket reconnects
-      if (refetchCalendar) {
-        refetchCalendar();
-      }
+      queryClient.invalidateQueries({ queryKey: ["/api/coach/calendar"], refetchType: "all" });
       queryClient.invalidateQueries({ queryKey: ["/api/coach/notifications"] });
+      if (refetchCalendar) refetchCalendar();
     }, [queryClient, refetchCalendar]),
   });
 

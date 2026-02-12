@@ -58,6 +58,29 @@ interface FCMSendResult {
   error?: string;
 }
 
+export function getChannelIdForNotificationType(type?: string): string {
+  if (!type) return "default";
+  switch (type) {
+    case "session_confirmed":
+    case "session_cancelled":
+    case "session_reminder":
+    case "session_reminder_coach":
+    case "new_session_available":
+    case "booking_request":
+      return "sessions";
+    case "feedback_received":
+      return "feedback";
+    case "badge_earned":
+    case "level_up":
+    case "xp_gained":
+    case "glow_rank_update":
+    case "streak_alert":
+      return "xp";
+    default:
+      return "default";
+  }
+}
+
 export async function sendFCMNotification(
   tokens: string[],
   title: string,
@@ -107,7 +130,8 @@ export async function sendFCMNotification(
             priority: "high",
             defaultVibrateTimings: true,
             defaultSound: true,
-            color: "#00E676",
+            color: "#000000",
+            vibrateTimingsMillis: [0, 250, 250, 250],
           },
         },
       };
@@ -190,7 +214,10 @@ export async function sendFCMNotificationBatch(
           channelId,
           sound: "default",
           priority: "high",
-          color: "#00E676",
+          color: "#000000",
+          vibrateTimingsMillis: [0, 250, 250, 250],
+          defaultVibrateTimings: true,
+          defaultSound: true,
         },
       },
     };
