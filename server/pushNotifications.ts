@@ -8,6 +8,44 @@ import { initializeFirebase, isFirebaseInitialized, isFCMToken, sendFCMNotificat
 // Initialize Firebase on module load
 initializeFirebase();
 
+function formatSessionDateTime(startTime: Date | string, timezone: string): { date: string; time: string } {
+  const dt = typeof startTime === "string" ? new Date(startTime) : startTime;
+  const date = dt.toLocaleDateString("en-GB", {
+    weekday: "short",
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+    timeZone: timezone,
+  });
+  const time = dt.toLocaleTimeString("en-US", {
+    hour: "numeric",
+    minute: "2-digit",
+    hour12: true,
+    timeZone: timezone,
+  });
+  return { date, time };
+}
+
+function formatSessionType(type: string): string {
+  switch (type) {
+    case "private": return "Private";
+    case "semi_private": return "Semi-Private";
+    case "group": return "Group";
+    case "private_adjusted": return "Private";
+    default: return type.charAt(0).toUpperCase() + type.slice(1).replace(/_/g, " ");
+  }
+}
+
+async function getAcademyTimezone(academyId?: string | null): Promise<string> {
+  if (!academyId) return "UTC";
+  try {
+    const academy = await storage.getAcademy(academyId);
+    return academy?.timezone || "UTC";
+  } catch {
+    return "UTC";
+  }
+}
+
 interface ExpoPushMessage {
   to: string;
   title: string;
@@ -784,43 +822,53 @@ export function stopReminderScheduler(): void {
 
 // ==================== ADDITIONAL NOTIFICATION TYPES ====================
 
-// Session confirmed - when coach accepts booking
 export async function sendSessionConfirmedNotification(
   playerId: string,
+  sessionType: string,
+  startTime: Date | string,
   coachName: string,
-  sessionDate: string,
-  sessionTime: string
+  academyId?: string | null
 ): Promise<void> {
   const tokens = await getPlayerPushTokens(playerId);
   if (tokens.length === 0) return;
+
+  const timezone = await getAcademyTimezone(academyId);
+  const { date, time } = formatSessionDateTime(startTime, timezone);
+  const typeLabel = formatSessionType(sessionType);
 
   await sendPushNotification(
     tokens,
-    "Booking Confirmed!",
-    `${coachName} confirmed your session for ${sessionDate} at ${sessionTime}`,
-    { type: "session_confirmed", playerId, screen: "Schedule" }
+    "Session Confirmed",
+    `Your ${typeLabel} session with ${coachName} is booked for ${date} at ${time}.`,
+    { type: "session_confirmed", playerId, screen: "Schedule" },
+    playerId
   );
 }
 
-// Session cancelled notification
 export async function sendSessionCancelledNotification(
   playerId: string,
   sessionType: string,
-  sessionDate: string,
-  reason?: string
+  startTime: Date | string,
+  reason?: string,
+  academyId?: string | null
 ): Promise<void> {
   const tokens = await getPlayerPushTokens(playerId);
   if (tokens.length === 0) return;
 
+  const timezone = await getAcademyTimezone(academyId);
+  const { date, time } = formatSessionDateTime(startTime, timezone);
+  const typeLabel = formatSessionType(sessionType);
+
   const body = reason 
-    ? `Your ${sessionType} on ${sessionDate} has been cancelled: ${reason}`
-    : `Your ${sessionType} on ${sessionDate} has been cancelled`;
+    ? `Your ${typeLabel} session on ${date} at ${time} has been cancelled. Reason: ${reason}`
+    : `Your ${typeLabel} session on ${date} at ${time} has been cancelled.`;
 
   await sendPushNotification(
     tokens,
     "Session Cancelled",
     body,
-    { type: "session_cancelled", playerId, screen: "Schedule" }
+    { type: "session_cancelled", playerId, screen: "Schedule" },
+    playerId
   );
 }
 
@@ -841,20 +889,24 @@ export async function sendNewSessionAvailableNotification(
   );
 }
 
-// Booking request notification for coach
 export async function sendBookingRequestNotification(
   coachId: string,
   playerName: string,
   sessionType: string,
-  requestedDate: string
+  requestedDate: Date | string,
+  academyId?: string | null
 ): Promise<void> {
   const tokens = await getCoachPushTokens(coachId);
   if (tokens.length === 0) return;
 
+  const timezone = await getAcademyTimezone(academyId);
+  const { date, time } = formatSessionDateTime(requestedDate, timezone);
+  const typeLabel = formatSessionType(sessionType);
+
   await sendPushNotification(
     tokens,
     "New Booking Request",
-    `${playerName} wants to book a ${sessionType} on ${requestedDate}`,
+    `${playerName} has requested a ${typeLabel} session on ${date} at ${time}.`,
     { type: "booking_request", coachId, screen: "Calendar" }
   );
 }

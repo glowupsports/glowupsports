@@ -5123,20 +5123,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
 
-      // Send push notifications to players added to the session (non-blocking)
       if (playerIds && Array.isArray(playerIds) && playerIds.length > 0) {
         const coachData = await storage.getCoach(coachId!);
         const coachName = coachData?.firstName ? `${coachData.firstName} ${coachData.lastName || ""}`.trim() : "Your coach";
         const firstSession = createdSessions[0];
-        const sessionDate = firstSession.startTime ? new Date(firstSession.startTime).toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short" }) : "";
-        const sessionTime = firstSession.startTime ? new Date(firstSession.startTime).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" }) : "";
         
         for (const playerId of playerIds) {
           sendSessionConfirmedNotification(
             playerId,
             sessionType,
             firstSession.startTime || new Date(),
-            coachName
+            coachName,
+            academyId
           ).catch(err => console.error("[PushNotification] Failed to send session notification:", err));
         }
       }
@@ -5539,20 +5537,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const coachData = coachId ? await storage.getCoach(coachId) : null;
       const coachName = coachData?.firstName ? `${coachData.firstName} ${coachData.lastName || ""}`.trim() : "Your coach";
       
-      // Send push notifications to all players in the cancelled session (non-blocking)
-      const sessionDateStr = new Date(session.startTime).toLocaleDateString("en-GB", {
-        weekday: "short",
-        day: "numeric",
-        month: "short",
-        timeZone: "Asia/Dubai"
-      });
       for (const p of playersInSession) {
         if (p.playerId) {
           sendSessionCancelledNotification(
             p.playerId,
             session.sessionType,
-            sessionDateStr,
-            reason || `Cancelled by ${coachName}`
+            session.startTime,
+            reason || `Cancelled by ${coachName}`,
+            academyId
           ).catch(err => console.error("[PushNotification] Failed to send cancellation notification:", err));
         }
       }
@@ -5881,7 +5873,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
 
-      // Send push notification to player about new session booking
       if (playerId && !isGuest && isNewEnrollment) {
         const coachId = req.user?.coachId;
         const coachData = coachId ? await storage.getCoach(coachId) : null;
@@ -5890,7 +5881,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
           playerId,
           session.sessionType,
           session.startTime,
-          coachName
+          coachName,
+          req.user?.academyId
         ).catch(err => console.error("[PushNotification] Failed to send session notification:", err));
       }
       res.status(201).json({ 
