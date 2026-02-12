@@ -19394,6 +19394,48 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const userRole = req.user?.role;
       const academyId = req.user?.academyId || req.header("X-Academy-Id");
 
+      // Handle virtual series (orphan/transferred sessions grouped under virtual-{seriesKey})
+      if (id.startsWith("virtual-")) {
+        const originalSeriesKey = id.replace("virtual-", "");
+        console.log(`[Series DELETE] Deleting virtual series: ${id}, original key: ${originalSeriesKey}`);
+
+        // Find orphan sessions matching this virtual series key
+        let orphanSessions;
+        if (originalSeriesKey === "standalone") {
+          orphanSessions = await db.select({ id: sessions.id, coachId: sessions.coachId })
+            .from(sessions)
+            .where(isNull(sessions.seriesId));
+        } else {
+          orphanSessions = await db.select({ id: sessions.id, coachId: sessions.coachId })
+            .from(sessions)
+            .where(eq(sessions.seriesId, originalSeriesKey));
+        }
+
+        if (orphanSessions.length === 0) {
+          return res.status(404).json({ error: "No sessions found for this virtual series" });
+        }
+
+        const sessionIds = orphanSessions.map(s => s.id);
+        const orphanCoachId = orphanSessions[0]?.coachId;
+
+        // Delete related data then sessions
+        await db.delete(coachXpTransactions).where(inArray(coachXpTransactions.sessionId, sessionIds));
+        await db.delete(creditTransactions).where(inArray(creditTransactions.sessionId, sessionIds));
+        await db.delete(sessionPlayers).where(inArray(sessionPlayers.sessionId, sessionIds));
+        await db.delete(sessions).where(inArray(sessions.id, sessionIds));
+
+        console.log(`[Series DELETE] Deleted ${sessionIds.length} orphan sessions for virtual series ${id}`);
+
+        if (orphanCoachId) {
+          apiCache.invalidate(`series:${orphanCoachId}`);
+          apiCache.invalidate(`coach_earnings_${orphanCoachId}`);
+          apiCache.invalidate(`coach_calendar_${orphanCoachId}`);
+        }
+
+        return res.json({ success: true, deletedSessions: sessionIds.length });
+      }
+
+      // Handle regular series
       const series = await storage.getCoachingSeriesById(id);
       if (!series) {
         return res.status(404).json({ error: "Series not found" });
