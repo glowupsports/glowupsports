@@ -23,6 +23,7 @@ import { AuthProvider } from "@/coach/context/AuthContext";
 import { UIInteractionProvider } from "@/contexts/UIInteractionContext";
 import { TabNavigationProvider, useTabNavigation } from "@/components/TabNavigationContext";
 import { CoachMarksProvider } from "@/components/CoachMarks";
+import { CelebrationProvider } from "@/contexts/CelebrationContext";
 
 function NavigationContainerWithRef() {
   const navigationRef = useRef<NavigationContainerRef<any>>(null);
@@ -81,10 +82,12 @@ export default function App() {
                             <UIInteractionProvider>
                               <TabNavigationProvider>
                                 <CoachMarksProvider>
-                                  <View style={styles.root}>
-                                    <ImpersonationBanner />
-                                    <NavigationContainerWithRef />
-                                  </View>
+                                  <CelebrationProvider>
+                                    <View style={styles.root}>
+                                      <ImpersonationBanner />
+                                      <NavigationContainerWithRef />
+                                    </View>
+                                  </CelebrationProvider>
                                 </CoachMarksProvider>
                               </TabNavigationProvider>
                             </UIInteractionProvider>

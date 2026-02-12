@@ -31,6 +31,7 @@ import { HelpButton } from "@/components/HelpButton";
 import { QuickTipsBanner } from "@/components/QuickTipsBanner";
 import { PlatformUsageProgress } from "@/components/PlatformUsageProgress";
 import { WhatsNewFeed } from "@/components/WhatsNewFeed";
+import { WhatsNewBellButton } from "@/components/WhatsNewBellButton";
 import { NotificationGuideModal } from "@/components/NotificationGuideModal";
 import { FirstActionCelebration } from "@/components/FirstActionCelebration";
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -340,20 +341,23 @@ function PlayerHomeContent() {
     <View style={styles.container}>
       <BroadcastBackground />
 
-      <Pressable 
-        style={[styles.notificationBell, { top: insets.top + 8 }]}
-        onPress={() => {
-          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-          navigation.navigate("PlayerNotifications");
-        }}
-      >
-        <Ionicons name="notifications-outline" size={22} color={Colors.dark.text} />
-        {unreadCount > 0 ? (
-          <View style={styles.bellBadge}>
-            <Text style={styles.bellBadgeText}>{unreadCount > 99 ? "99+" : unreadCount}</Text>
-          </View>
-        ) : null}
-      </Pressable>
+      <View style={[styles.headerIconsRow, { top: insets.top + 8 }]}>
+        <WhatsNewBellButton style={{ marginRight: 8 }} />
+        <Pressable 
+          style={styles.notificationBell}
+          onPress={() => {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+            navigation.navigate("PlayerNotifications");
+          }}
+        >
+          <Ionicons name="notifications-outline" size={22} color={Colors.dark.text} />
+          {unreadCount > 0 ? (
+            <View style={styles.bellBadge}>
+              <Text style={styles.bellBadgeText}>{unreadCount > 99 ? "99+" : unreadCount}</Text>
+            </View>
+          ) : null}
+        </Pressable>
+      </View>
       
       {isBirthday && <BirthdayConfettiOverlay />}
       
@@ -553,11 +557,15 @@ const styles = StyleSheet.create({
     marginBottom: -Spacing.sm,
     textTransform: "uppercase",
   },
-  notificationBell: {
+  headerIconsRow: {
     position: "absolute",
     top: 0,
     right: Spacing.lg,
     zIndex: 100,
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  notificationBell: {
     width: 44,
     height: 44,
     justifyContent: "center",
