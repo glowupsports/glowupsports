@@ -33,9 +33,10 @@ export default function AcademyProfileScreen() {
   const [isEditing, setIsEditing] = useState(false);
   const [formData, setFormData] = useState<Partial<AcademyData>>({});
 
-  const { data: academy, isLoading } = useQuery<AcademyData>({
+  const { data: academyResponse, isLoading } = useQuery<{academy: AcademyData}>({
     queryKey: ["/api/owner/academy"],
   });
+  const academy = academyResponse?.academy;
 
   const updateMutation = useMutation({
     mutationFn: async (data: Partial<AcademyData>) => {

@@ -83,7 +83,7 @@ export default function AdminReportsScreen() {
     totalSessions: sessions.length,
     activeSessions: sessions.filter((s: any) => s.status === "scheduled").length,
     monthlyRevenue: revenueData?.totalRevenue || 0,
-    attendanceRate: 87,
+    attendanceRate: sessions.length > 0 ? Math.round((sessions.filter((s: any) => s.status === "completed").length / sessions.length) * 100) : 0,
   };
 
   const handlePreviousMonth = () => {

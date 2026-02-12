@@ -160,13 +160,13 @@ export default function OwnerDashboardScreen() {
     revenueTarget: 50000,
     outstandingPayments: 0,
     cashFlow: 0,
-    healthScore: 75,
+    healthScore: 0,
   };
 
   const growth = dashboardData?.growth || {
     newSignups: 0,
     signupChange: 0,
-    retentionRate: 85,
+    retentionRate: 0,
     retentionChange: 0,
     churnRate: 0,
     activeGrowth: 0,

@@ -17092,6 +17092,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { 
         academyName, 
         location, 
+        country,
+        city,
         theme, 
         accentColor, 
         lessonTypes, 
@@ -17101,10 +17103,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         additionalFeedback 
       } = req.body;
 
-      // Update academy with name if provided
+      // Update academy with name, country, and city if provided
       if (academyName?.trim()) {
         await storage.updateAcademy(academyId, { 
           name: academyName.trim(),
+          country: country || null,
+          city: city || null,
         });
       }
 
@@ -17330,8 +17334,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         ((1 - Math.min(outstandingPayments / 10000, 1)) * 100 * 0.3)
       ));
 
-      const newSignups = Math.floor(Math.random() * 10) + 2;
-      const retentionRate = activePlayers.length > 0 ? Math.min(95, Math.round((activePlayers.length / players.length) * 100)) : 85;
+      const newSignups = players.filter((p: any) => {
+        const created = p.createdAt ? new Date(p.createdAt) : null;
+        return created && created >= thirtyDaysAgo;
+      }).length;
+      const retentionRate = activePlayers.length > 0 ? Math.min(95, Math.round((activePlayers.length / players.length) * 100)) : 0;
 
       const staffPerformance = activeCoaches.map((coach: any) => {
         const coachSessions = allSessions.filter((s: any) => s.coachId === coach.id && new Date(s.startTime) >= thirtyDaysAgo);
@@ -17343,7 +17350,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           sessionsThisMonth: coachSessions.length,
           playersManaged: coachPlayers.length,
           earnings: coachSessions.length * (coach.hourlyRate || 100),
-          rating: coach.rating || (4 + Math.random()),
+          rating: coach.rating || 0,
           trend: coachSessions.length > 10 ? "up" as const : coachSessions.length < 5 ? "down" as const : "stable" as const,
         };
       });
@@ -17444,8 +17451,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const academyFees = activeAcademies.length * 500;
       const mrr = monthlyPlayerFees + academyFees;
 
-      const newSignups = Math.floor(Math.random() * 20) + 5;
-      const churnRate = Math.random() * 5;
+      const thirtyDaysAgo = new Date();
+      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+      const newSignups = academies.filter((a: any) => {
+        const created = a.createdAt ? new Date(a.createdAt) : null;
+        return created && created >= thirtyDaysAgo;
+      }).length;
+      const churnRate = 0;
 
       const academyHealthData = await Promise.all(
         academies.slice(0, 10).map(async (academy: any) => {
@@ -17477,7 +17489,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const days = ["M", "T", "W", "T", "F", "S", "S"];
       const weekActivity = days.map(day => ({
         day,
-        intensity: Math.floor(Math.random() * 5) + 1,
+        intensity: 0,
       }));
 
       const insights: any[] = [];
@@ -17539,8 +17551,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
           activeCount: activeAcademies.length,
           trialCount: trialAcademies.length,
           pausedCount: pausedAcademies.length,
-          churnedThisMonth: Math.floor(Math.random() * 3),
-          conversionRate: 75 + Math.floor(Math.random() * 15),
+          churnedThisMonth: 0,
+          conversionRate: 0,
         },
         academies: academyHealthData,
         weekActivity,
