@@ -27,6 +27,8 @@ import Ionicons from "@expo/vector-icons/Ionicons";
 import * as Haptics from "expo-haptics";
 import { GettingStartedChecklist } from "@/components/GettingStartedChecklist";
 import { WelcomeIntroModal } from "@/components/WelcomeIntroModal";
+import { HelpButton } from "@/components/HelpButton";
+import { QuickTipsBanner } from "@/components/QuickTipsBanner";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
 interface DashboardData {
@@ -195,6 +197,23 @@ function PlayerHomeContent() {
     ];
   }, [dashboardData, navigation, setShowBookingWizard]);
 
+  const playerTips = [
+    { id: "tip_xp", icon: "star", text: "Tip: Attend sessions regularly to earn XP and level up faster" },
+    { id: "tip_profile", icon: "person", text: "Tip: Complete your profile to unlock more features" },
+    { id: "tip_community", icon: "people", text: "Tip: Check the Community tab to find players near you" },
+    { id: "tip_feedback", icon: "chatbubble", text: "Tip: Check your Feedback Center after each session for coach insights" },
+    { id: "tip_credits", icon: "card", text: "Tip: Keep an eye on your credits to make sure you have enough for bookings" },
+  ];
+
+  const playerFAQs = [
+    { question: "How do I book a session?", answer: "Tap 'Book Lesson' on your home screen or go to the Schedule tab to see available sessions.", category: "Booking" },
+    { question: "What is my Glow Score?", answer: "Your Glow Score reflects your overall tennis skill level. It's calculated from coach assessments across 6 skill pillars.", category: "Progress" },
+    { question: "How do I earn XP?", answer: "You earn XP by attending sessions, completing challenges, and achieving milestones. XP increases your player level.", category: "Progress" },
+    { question: "What are credits?", answer: "Credits are prepaid lesson tokens. You use them to book sessions. Different session types use different credit types (private, semi-private, group).", category: "Billing" },
+    { question: "How do I find other players?", answer: "Go to the Community tab to see players near you, or check the Play tab for open matches and social games.", category: "Social" },
+    { question: "What is my Ball Level?", answer: "Ball Level indicates your skill stage: Red (beginner), Orange, Green, Yellow (advanced), or Adult DSS for competitive adults.", category: "Progress" },
+  ];
+
   const playerWelcomeSlides = [
     {
       icon: "tennisball",
@@ -308,6 +327,8 @@ function PlayerHomeContent() {
           steps={playerChecklistSteps}
         />
 
+        <QuickTipsBanner role="player" tips={playerTips} />
+
         {/* PLAYER HEADER - Identity card */}
         <View style={styles.headerSection}>
           <ProPlayerCard
@@ -381,6 +402,12 @@ function PlayerHomeContent() {
         role="player"
         slides={playerWelcomeSlides}
         onComplete={() => {}}
+      />
+      <HelpButton
+        role="player"
+        faqs={playerFAQs}
+        supportEmail="support@glowupsports.com"
+        bottomOffset={120}
       />
     </View>
   );

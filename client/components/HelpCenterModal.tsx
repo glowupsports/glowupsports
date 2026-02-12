@@ -32,7 +32,7 @@ if (
   UIManager.setLayoutAnimationEnabledExperimental(true);
 }
 
-interface FAQItem {
+export interface FAQItem {
   question: string;
   answer: string;
   category?: string;
@@ -44,7 +44,7 @@ interface GlossaryTerm {
   icon?: string;
 }
 
-interface VideoTutorial {
+export interface VideoTutorial {
   title: string;
   description: string;
   url: string;

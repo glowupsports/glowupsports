@@ -52,6 +52,9 @@ import { CoachInsightsPanel } from "@/coach/components/CoachInsightsPanel";
 import { useTabNavigation } from "@/components/TabNavigationContext";
 import { GettingStartedChecklist, ChecklistStep } from "@/components/GettingStartedChecklist";
 import { WelcomeIntroModal } from "@/components/WelcomeIntroModal";
+import { HelpButton } from "@/components/HelpButton";
+import { QuickTipsBanner } from "@/components/QuickTipsBanner";
+import { RoleSwitchingGuide } from "@/components/RoleSwitchingGuide";
 
 interface Player {
   id: string;
@@ -673,6 +676,25 @@ export default function DashboardScreen() {
     ];
   }, [coach, calendarData, navigation, navigateToTab]);
 
+  const coachTips = [
+    { id: "tip_feedback", icon: "chatbubble-ellipses", text: "Tip: Give feedback right after a session for the most accurate assessment" },
+    { id: "tip_templates", icon: "document-text", text: "Tip: Use lesson templates to save time planning your sessions" },
+    { id: "tip_attendance", icon: "checkmark-circle", text: "Tip: Mark attendance before the session ends for auto credit deduction" },
+    { id: "tip_wellness", icon: "heart", text: "Tip: Log your wellness regularly to track your coaching energy levels" },
+    { id: "tip_calendar", icon: "calendar", text: "Tip: Swipe on the calendar to see your full week schedule" },
+  ];
+
+  const coachFAQs = [
+    { question: "How do I create a new session?", answer: "Go to your Calendar tab and tap the + button. Choose the session type, add players, select a court and time, then confirm.", category: "Sessions" },
+    { question: "How do I give feedback to a player?", answer: "After completing a session, go to Coaching tab. Select the session and tap on a player to rate their performance across the 6 skill pillars.", category: "Feedback" },
+    { question: "What are the skill pillars?", answer: "The 6 pillars are: Serve, Return, Forehand, Backhand, Net Play, and Movement. Each is rated 0-2 to track player development.", category: "Progress" },
+    { question: "How do credits work?", answer: "Players buy credit packages (private, semi-private, group). When you mark attendance, the appropriate credit is automatically deducted.", category: "Billing" },
+    { question: "How do I switch between roles?", answer: "If you have multiple roles (coach + player), tap the mode switcher at the top of your screen to switch views.", category: "General" },
+    { question: "How do I mark attendance?", answer: "Open a session from your calendar, tap 'Attendance', and mark each player as Present, Absent, or Late.", category: "Sessions" },
+  ];
+
+  const [showRoleSwitchGuide, setShowRoleSwitchGuide] = useState(false);
+
   const coachWelcomeSlides = [
     {
       icon: "tennisball",
@@ -730,6 +752,8 @@ export default function DashboardScreen() {
           role="coach"
           steps={coachChecklistSteps}
         />
+
+        <QuickTipsBanner role="coach" tips={coachTips} />
 
         {/* === GAMING PLAYER CARD HEADER === */}
         <View style={styles.playerCard}>
@@ -1583,6 +1607,17 @@ export default function DashboardScreen() {
         role="coach"
         slides={coachWelcomeSlides}
         onComplete={() => {}}
+      />
+      <HelpButton
+        role="coach"
+        faqs={coachFAQs}
+        supportEmail="support@glowupsports.com"
+        bottomOffset={120}
+      />
+      <RoleSwitchingGuide
+        visible={showRoleSwitchGuide}
+        onClose={() => setShowRoleSwitchGuide(false)}
+        availableRoles={["coach", "player"]}
       />
     </View>
   );

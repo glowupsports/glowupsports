@@ -31,6 +31,8 @@ import { TodayOperationsPanel } from "@/admin/components/TodayOperationsPanel";
 import { AnimatedKpiCard } from "@/admin/components/AnimatedKpiCard";
 import { GettingStartedChecklist } from "@/components/GettingStartedChecklist";
 import { WelcomeIntroModal } from "@/components/WelcomeIntroModal";
+import { HelpButton } from "@/components/HelpButton";
+import { QuickTipsBanner } from "@/components/QuickTipsBanner";
 
 type AdminNavProp = CompositeNavigationProp<
   BottomTabNavigationProp<AdminTabParamList>,
@@ -188,6 +190,23 @@ export default function AdminDashboardScreen() {
     ];
   }, [operationsData, navigation, navigateToTab]);
 
+  const adminTips = [
+    { id: "tip_checkin", icon: "log-in", text: "Tip: Check the Check-In Stream to see who's arriving for sessions" },
+    { id: "tip_schedule", icon: "calendar", text: "Tip: Use the Schedule tab to drag and drop sessions to new times" },
+    { id: "tip_reports", icon: "document-text", text: "Tip: Monthly reports are auto-generated on the 1st of each month" },
+    { id: "tip_players", icon: "people", text: "Tip: Use the Players tab to search and filter your academy roster" },
+    { id: "tip_courts", icon: "tennisball", text: "Tip: Set court availability hours to prevent bookings outside operating times" },
+  ];
+
+  const adminFAQs = [
+    { question: "How do I add a new coach?", answer: "Go to the Coaches tab and tap 'Invite Coach'. Enter their email and they'll receive an invitation to join your academy.", category: "Staff" },
+    { question: "How do I register a new player?", answer: "Go to the Players tab and tap 'Add Player'. Fill in their details including name, email, and ball level.", category: "Players" },
+    { question: "How do I create a session?", answer: "Go to the Schedule tab, tap the + button, select a coach, court, time slot, and add players.", category: "Schedule" },
+    { question: "How do credit packages work?", answer: "Credit packages are prepaid lesson bundles. Go to Payments to create packages with specific credit types (private, semi-private, group) and expiry dates.", category: "Billing" },
+    { question: "How do I view reports?", answer: "Go to the Reports tab to see monthly performance reports, attendance statistics, and financial summaries.", category: "Reports" },
+    { question: "How do I manage courts?", answer: "Go to Courts settings to add, edit, or deactivate courts. Set availability hours and maintenance schedules.", category: "Settings" },
+  ];
+
   const adminWelcomeSlides = [
     {
       icon: "business",
@@ -245,6 +264,8 @@ export default function AdminDashboardScreen() {
           role="admin"
           steps={adminChecklistSteps}
         />
+
+        <QuickTipsBanner role="admin" tips={adminTips} />
 
         <OperationsHubHero
           activeSessions={liveStats.activeSessions}
@@ -419,6 +440,12 @@ export default function AdminDashboardScreen() {
         role="admin"
         slides={adminWelcomeSlides}
         onComplete={() => {}}
+      />
+      <HelpButton
+        role="admin"
+        faqs={adminFAQs}
+        supportEmail="support@glowupsports.com"
+        bottomOffset={120}
       />
     </View>
   );
