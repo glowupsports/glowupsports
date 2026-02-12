@@ -15,7 +15,7 @@ import Ionicons from "@expo/vector-icons/Ionicons";
 import * as Haptics from "expo-haptics";
 import * as Clipboard from "expo-clipboard";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Colors, Spacing, BorderRadius, Typography, CardStyles } from "@/constants/theme";
+import { Colors, Spacing, BorderRadius, Typography, CardStyles, Backgrounds } from "@/constants/theme";
 import { apiRequest } from "@/lib/query-client";
 import { getEnv } from "@/lib/env";
 import type { OwnerStackParamList } from "@/owner/navigation/OwnerNavigator";
@@ -68,7 +68,7 @@ function InviteCard({ invite, onCopy }: InviteCardProps) {
         </View>
         <View style={styles.inviteInfo}>
           <Text style={styles.inviteRole}>
-            {invite.role === "coach" ? "Coach Invite" : invite.role === "admin" ? "Admin Invite" : "Academy Owner Invite"}
+            {invite.role === "head_coach" ? "Head Coach Invite" : invite.role === "coach" ? "Coach Invite" : invite.role === "assistant" ? "Assistant Coach Invite" : invite.role === "admin" ? "Admin Invite" : "Academy Owner Invite"}
           </Text>
           {invite.invitedEmail ? (
             <Text style={styles.inviteEmail}>{invite.invitedEmail}</Text>
@@ -124,6 +124,7 @@ export default function InviteManagementScreen() {
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [email, setEmail] = useState("");
   const [expiresInDays, setExpiresInDays] = useState("7");
+  const [coachRole, setCoachRole] = useState("coach");
   
   const inviteRole = route.params?.role || "coach";
   const isAdminInvite = inviteRole === "admin";
@@ -136,7 +137,7 @@ export default function InviteManagementScreen() {
   const createInviteMutation = useMutation({
     mutationFn: async (data: { email?: string; expiresInDays: number }) => {
       const response = await apiRequest("POST", "/api/invites", {
-        role: inviteRole,
+        role: isAdminInvite ? inviteRole : coachRole,
         email: data.email || undefined,
         expiresInDays: data.expiresInDays,
       });
@@ -147,6 +148,7 @@ export default function InviteManagementScreen() {
       setShowCreateForm(false);
       setEmail("");
       setExpiresInDays("7");
+      setCoachRole("coach");
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       
       const { EXPO_PUBLIC_DOMAIN, EXPO_PUBLIC_API_URL } = getEnv();
@@ -189,7 +191,7 @@ export default function InviteManagementScreen() {
   };
 
   const allInvites = invitesData?.invites || [];
-  const invites = allInvites.filter((i) => i.role === inviteRole);
+  const invites = allInvites.filter((i) => isAdminInvite ? i.role === "admin" : ["coach", "head_coach", "assistant"].includes(i.role));
   const activeInvites = invites.filter(
     (i) => !i.usedAt && new Date(i.expiresAt) >= new Date()
   );
@@ -237,6 +239,40 @@ export default function InviteManagementScreen() {
         <View style={[styles.createForm, CardStyles.elevated]}>
           <Text style={styles.formTitle}>Create New Invite</Text>
           
+          {!isAdminInvite ? (
+            <View style={styles.inputGroup}>
+              <Text style={styles.inputLabel}>Coach Role</Text>
+              <View style={styles.roleSelector}>
+                {[
+                  { value: "head_coach", label: "Head Coach", icon: "star" as const },
+                  { value: "coach", label: "Coach", icon: "tennisball" as const },
+                  { value: "assistant", label: "Assistant", icon: "person" as const },
+                ].map((roleOption) => (
+                  <Pressable
+                    key={roleOption.value}
+                    style={[
+                      styles.roleOption,
+                      coachRole === roleOption.value && styles.roleOptionActive,
+                    ]}
+                    onPress={() => setCoachRole(roleOption.value)}
+                  >
+                    <Ionicons 
+                      name={roleOption.icon} 
+                      size={16} 
+                      color={coachRole === roleOption.value ? Colors.dark.gold : Colors.dark.textMuted} 
+                    />
+                    <Text style={[
+                      styles.roleOptionText,
+                      coachRole === roleOption.value && styles.roleOptionTextActive,
+                    ]}>
+                      {roleOption.label}
+                    </Text>
+                  </Pressable>
+                ))}
+              </View>
+            </View>
+          ) : null}
+
           <View style={styles.inputGroup}>
             <Text style={styles.inputLabel}>Email (optional)</Text>
             <TextInput
@@ -620,5 +656,34 @@ const styles = StyleSheet.create({
     ...Typography.small,
     color: Colors.dark.gold,
     fontWeight: "600",
+  },
+  roleSelector: {
+    flexDirection: "row",
+    gap: Spacing.sm,
+  },
+  roleOption: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: Spacing.xs,
+    paddingVertical: Spacing.sm,
+    paddingHorizontal: Spacing.sm,
+    borderRadius: BorderRadius.md,
+    borderWidth: 1,
+    borderColor: Colors.dark.border,
+    backgroundColor: Backgrounds.card,
+  },
+  roleOptionActive: {
+    borderColor: Colors.dark.gold,
+    backgroundColor: `${Colors.dark.gold}15`,
+  },
+  roleOptionText: {
+    fontSize: 12,
+    color: Colors.dark.textMuted,
+    fontWeight: "500" as const,
+  },
+  roleOptionTextActive: {
+    color: Colors.dark.gold,
   },
 });

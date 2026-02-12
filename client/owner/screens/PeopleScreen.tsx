@@ -46,6 +46,15 @@ interface PersonCardProps {
   isDeleting?: boolean;
 }
 
+function formatCoachRole(role: string): string {
+  switch (role) {
+    case "head_coach": return "Head Coach";
+    case "assistant": return "Assistant Coach";
+    case "coach": return "Coach";
+    default: return role.charAt(0).toUpperCase() + role.slice(1);
+  }
+}
+
 function PersonCard({ id, name, role, status, stats, onPress, onDelete, isDeleting }: PersonCardProps) {
   const statusColors = {
     active: Colors.dark.primary,
@@ -61,7 +70,7 @@ function PersonCard({ id, name, role, status, stats, onPress, onDelete, isDeleti
         </View>
         <View style={styles.personInfo}>
           <Text style={styles.personName}>{name}</Text>
-          <Text style={styles.personRole}>{role}</Text>
+          <Text style={styles.personRole}>{formatCoachRole(role)}</Text>
         </View>
         <View style={styles.cardActions}>
           <View style={[styles.statusBadge, { backgroundColor: `${statusColors[status]}20` }]}>
@@ -559,7 +568,9 @@ export default function PeopleScreen() {
 
             <Text style={[styles.sectionTitle, { marginTop: Spacing.xl }]}>Promote a Coach</Text>
             <Text style={styles.sectionSubtitle}>Select a coach to give them admin privileges</Text>
-            {coaches.filter(c => !admins.find(a => a.id === c.id)).length === 0 ? (
+            {coaches.length === 0 ? (
+              <Text style={styles.noCoachesText}>Add coaches first to promote them to admin</Text>
+            ) : coaches.filter(c => !admins.find(a => a.id === c.id)).length === 0 ? (
               <Text style={styles.noCoachesText}>All coaches are already admins</Text>
             ) : (
               <View style={styles.list}>
@@ -575,7 +586,7 @@ export default function PeopleScreen() {
                       </View>
                       <View style={styles.personInfo}>
                         <Text style={styles.personName}>{coach.name}</Text>
-                        <Text style={styles.personRole}>{coach.role}</Text>
+                        <Text style={styles.personRole}>{formatCoachRole(coach.role)}</Text>
                       </View>
                       <View style={styles.promoteButton}>
                         <Ionicons name="arrow-up" size={16} color={Colors.dark.primary} />
