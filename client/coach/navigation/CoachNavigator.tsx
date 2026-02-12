@@ -1,5 +1,5 @@
-import React, { useState, useCallback, useMemo } from "react";
-import { StyleSheet, View, Platform, ActivityIndicator } from "react-native";
+import React, { useState, useCallback, useMemo, useEffect } from "react";
+import { StyleSheet, View, Platform, ActivityIndicator, Text, Pressable } from "react-native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { SwipeableTabBar, TabConfig } from "@/components/SwipeableTabBar";
@@ -296,10 +296,28 @@ interface CoachProfile {
 }
 
 export default function CoachNavigator() {
-  const { user } = useAuth();
+  const { user, logout } = useAuth();
   const queryClient = useQueryClient();
   const [onboardingComplete, setOnboardingComplete] = useState<boolean | null>(null);
+  const [activatingRoles, setActivatingRoles] = useState(false);
 
+  useEffect(() => {
+    if (user && !user.coachId && (user.role === "academy_owner" || user.role === "owner") && !activatingRoles) {
+      setActivatingRoles(true);
+      const activateRoles = async () => {
+        try {
+          const { apiRequest } = await import("@/lib/query-client");
+          await apiRequest("POST", "/api/owner/activate-roles");
+          queryClient.invalidateQueries({ queryKey: ["/api/me"] });
+        } catch (e) {
+          console.error("Failed to activate roles:", e);
+        } finally {
+          setActivatingRoles(false);
+        }
+      };
+      activateRoles();
+    }
+  }, [user?.coachId, user?.role]);
 
   const { data: profile, isLoading } = useQuery<CoachProfile>({
     queryKey: ["/api/coach/me/profile"],
@@ -311,10 +329,16 @@ export default function CoachNavigator() {
     queryClient.invalidateQueries({ queryKey: ["/api/coach/me/profile"] });
   };
 
-  if (isLoading) {
+  if (isLoading || activatingRoles) {
     return (
       <View style={styles.loadingContainer}>
         <ActivityIndicator size="large" color={Colors.dark.primary} />
+        <Pressable
+          onPress={logout}
+          style={{ marginTop: 24, paddingVertical: 12, paddingHorizontal: 24, backgroundColor: "rgba(255,255,255,0.1)", borderRadius: 8 }}
+        >
+          <Text style={{ color: "#fff", fontSize: 14 }}>Log Out</Text>
+        </Pressable>
       </View>
     );
   }
