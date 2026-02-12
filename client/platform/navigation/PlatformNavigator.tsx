@@ -68,7 +68,7 @@ function PlatformTabs() {
       tabs={PLATFORM_TABS}
       primaryColor={PLATFORM_COLOR}
       secondaryColor={Colors.dark.xpCyan}
-      renderOverlay={() => <PlatformQuickActionsFAB />}
+      renderOverlay={(currentTabKey: string) => currentTabKey === "CommandCenter" ? <PlatformQuickActionsFAB /> : null}
     />
   );
 }

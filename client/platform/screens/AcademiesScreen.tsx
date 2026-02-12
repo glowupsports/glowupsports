@@ -414,8 +414,30 @@ export default function AcademiesScreen() {
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.header}>
-          <Text style={styles.title}>Academies</Text>
-          <Text style={styles.subtitle}>{academies.length} total academies</Text>
+          <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
+            <View>
+              <Text style={styles.title}>Academies</Text>
+              <Text style={styles.subtitle}>{academies.length} total academies</Text>
+            </View>
+            <Pressable
+              style={{
+                backgroundColor: PLATFORM_COLOR,
+                flexDirection: "row",
+                alignItems: "center",
+                paddingHorizontal: Spacing.md,
+                paddingVertical: Spacing.sm,
+                borderRadius: BorderRadius.md,
+                gap: 6,
+              }}
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                setShowCreateModal(true);
+              }}
+            >
+              <Ionicons name="add" size={20} color="#fff" />
+              <Text style={{ color: "#fff", fontWeight: "700", fontSize: 14 }}>Add Academy</Text>
+            </Pressable>
+          </View>
         </View>
 
         <View style={styles.searchContainer}>
