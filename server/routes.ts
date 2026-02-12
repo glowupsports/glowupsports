@@ -22044,6 +22044,63 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ error: "Failed to create user" });
     }
   });
+
+  // Platform Owner - Impersonate academy owner
+  app.post("/api/platform/impersonate/:academyId", authMiddleware, requireRole("platform_owner"), async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const { academyId } = req.params;
+
+      // Verify academy exists
+      const academy = await storage.getAcademy(academyId);
+      if (!academy) {
+        return res.status(404).json({ error: "Academy not found" });
+      }
+
+      // Find the academy owner user
+      const ownerUsers = await db.select().from(users).where(and(eq(users.role, "academy_owner"), eq(users.academyId, academyId))).limit(1);
+      
+      let targetCoachId: string | null = null;
+      let targetPlayerId: string | null = null;
+
+      if (ownerUsers.length > 0) {
+        // If academy owner user exists, use their coach and player IDs
+        const ownerUser = ownerUsers[0];
+        targetCoachId = ownerUser.coachId;
+        targetPlayerId = ownerUser.playerId;
+      } else {
+        // If no academy owner user, get first coach and player from academy
+        const coaches = await storage.getCoachesByAcademy(academyId);
+        const players = await storage.getPlayersByAcademy(academyId);
+        
+        targetCoachId = coaches.length > 0 ? coaches[0].id : null;
+        targetPlayerId = players.length > 0 ? players[0].id : null;
+      }
+
+      // Generate impersonation token
+      const impersonationToken = generateToken({
+        userId: req.user!.userId,
+        email: req.user!.email || "platform@glowupsports.com",
+        role: "academy_owner",
+        academyId: academyId,
+        coachId: targetCoachId,
+        playerId: targetPlayerId,
+      });
+
+      // Log the impersonation for audit
+      console.log(`[Impersonation] Platform owner ${req.user!.userId} impersonating academy ${academyId} (${academy.name})`);
+
+      res.json({
+        success: true,
+        token: impersonationToken,
+        academy: { id: academy.id, name: academy.name },
+        coachId: targetCoachId,
+        playerId: targetPlayerId,
+      });
+    } catch (error) {
+      console.error("Impersonate academy error:", error);
+      res.status(500).json({ error: "Failed to create impersonation token" });
+    }
+  });
   
   // Get player dashboard data
   app.get("/api/player/me/dashboard", authMiddleware, requirePlayerOrOwner, async (req: AuthenticatedRequest, res: Response) => {
