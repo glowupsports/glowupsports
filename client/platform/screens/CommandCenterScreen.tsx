@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useMemo } from "react";
 import { View, Text, StyleSheet, ScrollView, Pressable, Alert, Platform, ActivityIndicator, RefreshControl } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
@@ -15,6 +15,8 @@ import { AcademyHealthCards } from "@/platform/components/AcademyHealthCards";
 import { SubscriptionFunnel } from "@/platform/components/SubscriptionFunnel";
 import { AnimatedKpiCard } from "@/admin/components/AnimatedKpiCard";
 import { SmartInsightsPanel, Insight } from "@/admin/components/SmartInsightsPanel";
+import { GettingStartedChecklist } from "@/components/GettingStartedChecklist";
+import { WelcomeIntroModal } from "@/components/WelcomeIntroModal";
 
 const PLATFORM_PURPLE = "#9B59B6";
 
@@ -159,6 +161,83 @@ export default function CommandCenterScreen() {
 
   const currency = platformData?.platform?.currency || "$";
 
+  const [showWelcome, setShowWelcome] = useState(false);
+
+  const platformChecklistSteps = useMemo(() => {
+    const hasAcademies = (platformData?.metrics?.activeAcademies || 0) > 0;
+    const hasCoaches = (platformData?.metrics?.totalCoaches || 0) > 0;
+    const hasPlayers = (platformData?.metrics?.totalPlayers || 0) > 0;
+    
+    return [
+      {
+        id: "review_platform",
+        icon: "grid" as const,
+        title: "Review Your Platform",
+        description: "Check the Command Center for an overview of all academies",
+        isCompleted: true,
+      },
+      {
+        id: "onboard_academy",
+        icon: "business" as const,
+        title: "Onboard Your First Academy",
+        description: "Add an academy to the platform and configure their settings",
+        actionLabel: "View Academies",
+        onAction: () => navigateToTab("Academies"),
+        isCompleted: hasAcademies,
+      },
+      {
+        id: "verify_coaches",
+        icon: "people" as const,
+        title: "Verify Coach Registrations",
+        description: "Review and approve coaches joining your academies",
+        isCompleted: hasCoaches,
+      },
+      {
+        id: "monitor_growth",
+        icon: "trending-up" as const,
+        title: "Monitor Player Growth",
+        description: "Track total players across all academies",
+        isCompleted: hasPlayers,
+      },
+      {
+        id: "configure_billing",
+        icon: "card" as const,
+        title: "Configure Billing",
+        description: "Set up subscription plans and pricing for academies",
+        actionLabel: "System Settings",
+        onAction: () => navigateToTab("System"),
+        isCompleted: false,
+      },
+    ];
+  }, [platformData, navigateToTab]);
+
+  const platformWelcomeSlides = [
+    {
+      icon: "planet",
+      iconColor: "#9B59B6",
+      title: "Welcome, Platform Owner!",
+      description: "You have full control over Glow Up Sports. Monitor all academies, coaches, and players from your Command Center.",
+    },
+    {
+      icon: "business",
+      iconColor: "#FF9800",
+      title: "Academy Management",
+      description: "Onboard new academies, configure their settings, and monitor their health scores and performance metrics.",
+    },
+    {
+      icon: "analytics",
+      iconColor: "#00BCD4",
+      title: "Platform Analytics",
+      description: "Track MRR, churn rates, subscription funnels, and player growth across all your academies.",
+    },
+    {
+      icon: "rocket",
+      iconColor: "#2ECC40",
+      title: "You're in Control!",
+      description: "Use the Getting Started checklist to set everything up. You can also impersonate any user to troubleshoot issues.",
+    },
+  ];
+
   if (isLoading) {
     return (
       <View style={[styles.container, styles.centered, { paddingTop: insets.top }]}>
@@ -185,6 +264,12 @@ export default function CommandCenterScreen() {
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={PLATFORM_PURPLE} />
         }
       >
+        {/* GETTING STARTED CHECKLIST */}
+        <GettingStartedChecklist
+          role="platform_owner"
+          steps={platformChecklistSteps}
+        />
+
         <PlatformCommandCenter
           platformName={platformData?.platform?.name || "Glow Up Sports"}
           totalMrr={metrics.mrr}
@@ -328,6 +413,11 @@ export default function CommandCenterScreen() {
           </View>
         )}
       </ScrollView>
+      <WelcomeIntroModal
+        role="platform_owner"
+        slides={platformWelcomeSlides}
+        onComplete={() => {}}
+      />
     </View>
   );
 }

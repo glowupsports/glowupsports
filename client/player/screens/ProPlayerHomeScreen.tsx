@@ -25,6 +25,9 @@ import { RecentFeedbackCard } from "@/player/components/RecentFeedbackCard";
 import { FeedbackToast } from "@/player/components/FeedbackToast";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import * as Haptics from "expo-haptics";
+import { GettingStartedChecklist } from "@/components/GettingStartedChecklist";
+import { WelcomeIntroModal } from "@/components/WelcomeIntroModal";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
 interface DashboardData {
   player: {
@@ -85,6 +88,7 @@ function PlayerHomeContent() {
   const [showBookingWizard, setShowBookingWizard] = useState(false);
   const [showPinModal, setShowPinModal] = useState(false);
   const { hasSeenScreen, startWalkthrough } = useWalkthrough();
+  const [showWelcome, setShowWelcome] = useState(false);
 
   const { data: dashboardData, isLoading, refetch, isRefetching } = useQuery<DashboardData>({
     queryKey: ["/api/player/me/dashboard"],
@@ -135,6 +139,88 @@ function PlayerHomeContent() {
     }
     return age;
   }, [dashboardData?.player?.dateOfBirth]);
+
+  const playerChecklistSteps = useMemo(() => {
+    const hasAcademy = !!dashboardData?.academy;
+    const hasCoach = !!dashboardData?.coach;
+    const hasNextSession = !!dashboardData?.nextSession;
+    const hasProfile = !!dashboardData?.player?.profilePhotoUrl;
+    
+    return [
+      {
+        id: "complete_profile",
+        icon: "person-circle" as const,
+        title: "Complete Your Profile",
+        description: "Add a photo and personalise your tennis profile",
+        actionLabel: "Go to Profile",
+        onAction: () => navigation.navigate("PlayerProfile" as never),
+        isCompleted: hasProfile,
+      },
+      {
+        id: "join_academy",
+        icon: "business" as const,
+        title: "Join an Academy",
+        description: "Connect with a tennis academy near you",
+        actionLabel: "Browse Academies",
+        onAction: () => navigation.navigate("AcademyBrowser" as never),
+        isCompleted: hasAcademy,
+      },
+      {
+        id: "book_session",
+        icon: "calendar" as const,
+        title: "Book Your First Session",
+        description: "Schedule a training session with your coach",
+        actionLabel: "Book Now",
+        onAction: () => setShowBookingWizard(true),
+        isCompleted: hasNextSession,
+      },
+      {
+        id: "check_progress",
+        icon: "trending-up" as const,
+        title: "Check Your Progress",
+        description: "See your skill ratings and Glow Score",
+        actionLabel: "View Progress",
+        onAction: () => navigation.navigate("PlayerProgress" as never),
+        isCompleted: false,
+      },
+      {
+        id: "explore_community",
+        icon: "people" as const,
+        title: "Meet Other Players",
+        description: "Find players near you and join the community",
+        actionLabel: "Explore",
+        onAction: () => navigation.navigate("Community" as never),
+        isCompleted: false,
+      },
+    ];
+  }, [dashboardData, navigation, setShowBookingWizard]);
+
+  const playerWelcomeSlides = [
+    {
+      icon: "tennisball",
+      iconColor: "#2ECC40",
+      title: "Welcome to Glow Up Sports!",
+      description: "Your personal tennis companion. Track your progress, connect with coaches, and level up your game.",
+    },
+    {
+      icon: "trending-up",
+      iconColor: "#00BCD4",
+      title: "Track Your Progress",
+      description: "Every session earns you XP. Watch your Glow Score grow as you improve across all skill areas.",
+    },
+    {
+      icon: "people",
+      iconColor: "#FF9800",
+      title: "Connect & Compete",
+      description: "Find other players near you, book courts, join matches, and climb the leaderboard.",
+    },
+    {
+      icon: "rocket",
+      iconColor: "#9B59B6",
+      title: "Ready to Play?",
+      description: "Complete your Getting Started checklist on the home screen to set everything up. Let's go!",
+    },
+  ];
 
   if (isLoading || !dashboardData) {
     return (
@@ -216,6 +302,12 @@ function PlayerHomeContent() {
           />
         )}
 
+        {/* GETTING STARTED CHECKLIST */}
+        <GettingStartedChecklist
+          role="player"
+          steps={playerChecklistSteps}
+        />
+
         {/* PLAYER HEADER - Identity card */}
         <View style={styles.headerSection}>
           <ProPlayerCard
@@ -283,6 +375,12 @@ function PlayerHomeContent() {
           setShowPinModal(false);
           navigation.navigate("ParentCreditStore", { playerId: player?.id });
         }}
+      />
+
+      <WelcomeIntroModal
+        role="player"
+        slides={playerWelcomeSlides}
+        onComplete={() => {}}
       />
     </View>
   );

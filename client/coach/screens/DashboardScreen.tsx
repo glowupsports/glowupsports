@@ -50,6 +50,8 @@ import { useWebSocket } from "@/lib/useWebSocket";
 import { ActionNeededCard } from "@/components/ActionNeededCard";
 import { CoachInsightsPanel } from "@/coach/components/CoachInsightsPanel";
 import { useTabNavigation } from "@/components/TabNavigationContext";
+import { GettingStartedChecklist, ChecklistStep } from "@/components/GettingStartedChecklist";
+import { WelcomeIntroModal } from "@/components/WelcomeIntroModal";
 
 interface Player {
   id: string;
@@ -107,6 +109,8 @@ export default function DashboardScreen() {
   const [currentSecond, setCurrentSecond] = useState(() => Math.floor(Date.now() / 1000));
   const [selectedSessionForDetail, setSelectedSessionForDetail] = useState<Session | null>(null);
   const [selectedSessionForAttendance, setSelectedSessionForAttendance] = useState<Session | null>(null);
+  const [showWelcome, setShowWelcome] = useState(false);
+  const [showHelpCenter, setShowHelpCenter] = useState(false);
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -615,6 +619,87 @@ export default function DashboardScreen() {
     );
   }
 
+  const coachChecklistSteps: ChecklistStep[] = useMemo(() => {
+    const hasPlayers = (calendarData?.ownSessions || []).some(s => s.players && s.players.length > 0);
+    const hasSessions = (calendarData?.ownSessions || []).length > 0;
+    const hasProfile = !!coach?.name;
+    
+    return [
+      {
+        id: "complete_profile",
+        icon: "person-circle",
+        title: "Complete Your Profile",
+        description: "Add your photo, bio, and coaching specialties",
+        actionLabel: "Go to Profile",
+        onAction: () => navigation.navigate("CoachProfile" as never),
+        isCompleted: hasProfile && !!coach?.photoUrl,
+      },
+      {
+        id: "view_players",
+        icon: "people",
+        title: "View Your Players",
+        description: "See who's assigned to you and their progress",
+        actionLabel: "View Players",
+        onAction: () => navigateToTab("Players"),
+        isCompleted: hasPlayers,
+      },
+      {
+        id: "create_session",
+        icon: "calendar",
+        title: "Create Your First Session",
+        description: "Schedule a training session with your players",
+        actionLabel: "Go to Calendar",
+        onAction: () => navigateToTab("Calendar"),
+        isCompleted: hasSessions,
+      },
+      {
+        id: "give_feedback",
+        icon: "chatbubble-ellipses",
+        title: "Give Your First Feedback",
+        description: "Rate a player's performance after a session",
+        actionLabel: "View Sessions",
+        onAction: () => navigateToTab("Coaching"),
+        isCompleted: false,
+      },
+      {
+        id: "explore_templates",
+        icon: "document-text",
+        title: "Explore Lesson Templates",
+        description: "Use pre-built lesson plans to structure your sessions",
+        actionLabel: "View Templates",
+        onAction: () => navigation.navigate("Templates" as never),
+        isCompleted: false,
+      },
+    ];
+  }, [coach, calendarData, navigation, navigateToTab]);
+
+  const coachWelcomeSlides = [
+    {
+      icon: "tennisball",
+      iconColor: "#2ECC40",
+      title: "Welcome, Coach!",
+      description: "You're now part of Glow Up Sports. This app helps you manage your players, track their progress, and deliver world-class coaching.",
+    },
+    {
+      icon: "calendar",
+      iconColor: "#00BCD4",
+      title: "Manage Your Schedule",
+      description: "View your calendar, create sessions, and track attendance. Your players will be notified automatically when you schedule or update sessions.",
+    },
+    {
+      icon: "stats-chart",
+      iconColor: "#FF9800",
+      title: "Track Player Progress",
+      description: "Give detailed feedback after each session. Rate players across 6 skill pillars and watch them grow through the Glow leveling system.",
+    },
+    {
+      icon: "rocket",
+      iconColor: "#9B59B6",
+      title: "Let's Get Started!",
+      description: "Check your dashboard for your Getting Started checklist. Complete each step to set up your coaching profile and start making an impact!",
+    },
+  ];
+
   const focusMessage = getFocusMessage();
 
   return (
@@ -640,6 +725,12 @@ export default function DashboardScreen() {
           />
         }
       >
+        {/* GETTING STARTED CHECKLIST */}
+        <GettingStartedChecklist
+          role="coach"
+          steps={coachChecklistSteps}
+        />
+
         {/* === GAMING PLAYER CARD HEADER === */}
         <View style={styles.playerCard}>
           {/* Neon border glow effect */}
@@ -1486,6 +1577,12 @@ export default function DashboardScreen() {
         onSave={() => {
           setSelectedSessionForAttendance(null);
         }}
+      />
+
+      <WelcomeIntroModal
+        role="coach"
+        slides={coachWelcomeSlides}
+        onComplete={() => {}}
       />
     </View>
   );

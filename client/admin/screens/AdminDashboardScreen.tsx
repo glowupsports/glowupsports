@@ -29,6 +29,8 @@ import { CheckInStream } from "@/admin/components/CheckInStream";
 import { TaskAlertsList } from "@/admin/components/TaskAlertsList";
 import { TodayOperationsPanel } from "@/admin/components/TodayOperationsPanel";
 import { AnimatedKpiCard } from "@/admin/components/AnimatedKpiCard";
+import { GettingStartedChecklist } from "@/components/GettingStartedChecklist";
+import { WelcomeIntroModal } from "@/components/WelcomeIntroModal";
 
 type AdminNavProp = CompositeNavigationProp<
   BottomTabNavigationProp<AdminTabParamList>,
@@ -90,6 +92,7 @@ export default function AdminDashboardScreen() {
   const { user } = useAuth();
   const [refreshing, setRefreshing] = useState(false);
   const [selectedDate, setSelectedDate] = useState(new Date());
+  const [showWelcome, setShowWelcome] = useState(false);
 
   const dateQueryStr = selectedDate.toISOString().split('T')[0];
   const { data: operationsData, isLoading, isFetching, refetch } = useQuery<AdminOperationsData>({
@@ -121,6 +124,97 @@ export default function AdminDashboardScreen() {
     upcomingSessions: 0,
   };
 
+  const adminChecklistSteps = useMemo(() => {
+    const hasData = !!operationsData;
+    const hasSessions = (operationsData?.todayOperations?.totalSessions || 0) > 0;
+    const hasCoaches = (operationsData?.quickStats?.todayCoaches || 0) > 0;
+    const hasPlayers = (operationsData?.quickStats?.todayPlayers || 0) > 0;
+    
+    return [
+      {
+        id: "setup_academy",
+        icon: "business" as const,
+        title: "Set Up Academy Profile",
+        description: "Configure your academy name, timezone, currency, and logo",
+        actionLabel: "Academy Settings",
+        onAction: () => navigation.navigate("AdminSettings" as never),
+        isCompleted: !!operationsData?.academy,
+      },
+      {
+        id: "add_coaches",
+        icon: "people" as const,
+        title: "Add Your Coaches",
+        description: "Invite coaches to join your academy",
+        actionLabel: "Manage Coaches",
+        onAction: () => navigateToTab("AdminCoaches"),
+        isCompleted: hasCoaches,
+      },
+      {
+        id: "add_players",
+        icon: "person-add" as const,
+        title: "Register Players",
+        description: "Add players to your academy roster",
+        actionLabel: "Manage Players",
+        onAction: () => navigateToTab("AdminPlayers"),
+        isCompleted: hasPlayers,
+      },
+      {
+        id: "create_schedule",
+        icon: "calendar" as const,
+        title: "Create Your Schedule",
+        description: "Set up your first training sessions",
+        actionLabel: "Go to Schedule",
+        onAction: () => navigateToTab("AdminSchedule"),
+        isCompleted: hasSessions,
+      },
+      {
+        id: "configure_courts",
+        icon: "tennisball" as const,
+        title: "Configure Courts",
+        description: "Add your courts and set availability",
+        actionLabel: "Manage Courts",
+        onAction: () => navigation.navigate("AdminCourts" as never),
+        isCompleted: false,
+      },
+      {
+        id: "setup_billing",
+        icon: "card" as const,
+        title: "Set Up Billing",
+        description: "Configure credit packages and payment settings",
+        actionLabel: "Billing Settings",
+        onAction: () => navigation.navigate("AdminPayments" as never),
+        isCompleted: false,
+      },
+    ];
+  }, [operationsData, navigation, navigateToTab]);
+
+  const adminWelcomeSlides = [
+    {
+      icon: "business",
+      iconColor: "#FF9800",
+      title: "Welcome, Academy Owner!",
+      description: "You're now running your academy on Glow Up Sports. Let's get you set up to manage coaches, players, and sessions.",
+    },
+    {
+      icon: "people",
+      iconColor: "#00BCD4",
+      title: "Manage Your Team",
+      description: "Add coaches and players to your academy. They'll get access to their own dashboards with everything they need.",
+    },
+    {
+      icon: "calendar",
+      iconColor: "#2ECC40",
+      title: "Schedule & Track",
+      description: "Create training sessions, track attendance, manage payments, and monitor your academy's performance in real-time.",
+    },
+    {
+      icon: "rocket",
+      iconColor: "#9B59B6",
+      title: "Let's Build Your Academy!",
+      description: "Follow the Getting Started checklist on your dashboard. Each step brings you closer to a fully set up academy!",
+    },
+  ];
+
   if (isLoading && !operationsData) {
     return (
       <View style={[styles.container, styles.loadingContainer, { paddingTop: insets.top }]}>
@@ -147,6 +241,11 @@ export default function AdminDashboardScreen() {
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.dark.orange} />
         }
       >
+        <GettingStartedChecklist
+          role="admin"
+          steps={adminChecklistSteps}
+        />
+
         <OperationsHubHero
           activeSessions={liveStats.activeSessions}
           waitingCheckIns={liveStats.waitingCheckIns}
@@ -316,6 +415,11 @@ export default function AdminDashboardScreen() {
           </Pressable>
         </View>
       </ScrollView>
+      <WelcomeIntroModal
+        role="admin"
+        slides={adminWelcomeSlides}
+        onComplete={() => {}}
+      />
     </View>
   );
 }

@@ -36,7 +36,7 @@ if (
   UIManager.setLayoutAnimationEnabledExperimental(true);
 }
 
-interface ChecklistStep {
+export interface ChecklistStep {
   id: string;
   icon: string;
   title: string;
