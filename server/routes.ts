@@ -7254,49 +7254,93 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!freshUser) {
         return res.status(401).json({ error: "User not found" });
       }
+
+      const isImpersonating = freshUser.role === "platform_owner" && tokenUser.role === "academy_owner";
       
       let coach = null;
       let academy = null;
       
-      // Use fresh database values, not stale JWT claims
-      if (freshUser.coachId) {
-        coach = await storage.getCoach(freshUser.coachId);
+      if (isImpersonating) {
+        const impersonatedCoachId = tokenUser.coachId;
+        const impersonatedAcademyId = tokenUser.academyId;
+        const impersonatedPlayerId = tokenUser.playerId;
+
+        if (impersonatedCoachId) {
+          coach = await storage.getCoach(impersonatedCoachId);
+        }
+        if (impersonatedAcademyId) {
+          academy = await storage.getAcademy(impersonatedAcademyId);
+        }
+
+        res.json({
+          user: {
+            id: freshUser.id,
+            email: freshUser.email,
+            role: "academy_owner",
+            academyId: impersonatedAcademyId,
+            coachId: impersonatedCoachId,
+            playerId: impersonatedPlayerId,
+          },
+          coach: coach ? {
+            id: coach.id,
+            name: coach.name,
+            email: coach.email,
+            phone: coach.phone,
+            role: coach.role,
+            level: coach.level,
+            totalXp: coach.totalXp,
+            academyId: coach.academyId,
+            onboardingCompleted: coach.onboardingCompleted,
+            photoUrl: coach.photoUrl,
+            specialty: coach.specialty,
+            bio: coach.bio,
+          } : null,
+          academy: academy ? {
+            id: academy.id,
+            name: academy.name,
+            slug: academy.slug,
+            timezone: academy.timezone || "Asia/Dubai",
+          } : null,
+        });
+      } else {
+        if (freshUser.coachId) {
+          coach = await storage.getCoach(freshUser.coachId);
+        }
+        if (freshUser.academyId) {
+          academy = await storage.getAcademy(freshUser.academyId);
+        }
+        
+        res.json({
+          user: {
+            id: freshUser.id,
+            email: freshUser.email,
+            role: freshUser.role,
+            academyId: freshUser.academyId,
+            coachId: freshUser.coachId,
+            playerId: freshUser.playerId,
+          },
+          coach: coach ? {
+            id: coach.id,
+            name: coach.name,
+            email: coach.email,
+            phone: coach.phone,
+            role: coach.role,
+            level: coach.level,
+            totalXp: coach.totalXp,
+            academyId: coach.academyId,
+            onboardingCompleted: coach.onboardingCompleted,
+            photoUrl: coach.photoUrl,
+            specialty: coach.specialty,
+            bio: coach.bio,
+          } : null,
+          academy: academy ? {
+            id: academy.id,
+            name: academy.name,
+            slug: academy.slug,
+            timezone: academy.timezone || "Asia/Dubai",
+          } : null,
+        });
       }
-      
-      if (freshUser.academyId) {
-        academy = await storage.getAcademy(freshUser.academyId);
-      }
-      
-      res.json({
-        user: {
-          id: freshUser.id,
-          email: freshUser.email,
-          role: freshUser.role,
-          academyId: freshUser.academyId,
-          coachId: freshUser.coachId,
-          playerId: freshUser.playerId,
-        },
-        coach: coach ? {
-          id: coach.id,
-          name: coach.name,
-          email: coach.email,
-          phone: coach.phone,
-          role: coach.role,
-          level: coach.level,
-          totalXp: coach.totalXp,
-          academyId: coach.academyId,
-          onboardingCompleted: coach.onboardingCompleted,
-          photoUrl: coach.photoUrl,
-          specialty: coach.specialty,
-          bio: coach.bio,
-        } : null,
-        academy: academy ? {
-          id: academy.id,
-          name: academy.name,
-          slug: academy.slug,
-          timezone: academy.timezone || "Asia/Dubai",
-        } : null,
-      });
     } catch (error) {
       console.error("Error fetching current user:", error);
       res.status(500).json({ error: "Failed to fetch current user" });

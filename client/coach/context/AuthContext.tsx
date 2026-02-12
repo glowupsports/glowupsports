@@ -76,6 +76,7 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 const IMPERSONATION_ORIGINAL_TOKEN_KEY = "@impersonation_original_token";
 const IMPERSONATION_ORIGINAL_USER_KEY = "@impersonation_original_user";
 const IMPERSONATION_ACADEMY_NAME_KEY = "@impersonation_academy_name";
+const IMPERSONATION_ORIGINAL_MODE_KEY = "@impersonation_original_mode";
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -85,7 +86,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [academy, setAcademy] = useState<Academy | null>(null);
   const [isImpersonating, setIsImpersonating] = useState(false);
   const [impersonatedAcademyName, setImpersonatedAcademyName] = useState<string | null>(null);
-  const { setMode, setAvailableModes } = useAppMode();
+  const { mode, setMode, setAvailableModes } = useAppMode();
   const setAvailableModesRef = useRef(setAvailableModes);
   setAvailableModesRef.current = setAvailableModes;
   const setModeRef = useRef(setMode);
@@ -318,6 +319,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       await AsyncStorage.setItem(IMPERSONATION_ORIGINAL_TOKEN_KEY, currentAuthState.token);
       await AsyncStorage.setItem(IMPERSONATION_ORIGINAL_USER_KEY, JSON.stringify(currentAuthState.user));
+      await AsyncStorage.setItem(IMPERSONATION_ORIGINAL_MODE_KEY, mode);
 
       const response = await apiRequest("POST", `/api/platform/impersonate/${academyId}`);
       const data = await response.json();
@@ -325,6 +327,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (!data.success) {
         await AsyncStorage.removeItem(IMPERSONATION_ORIGINAL_TOKEN_KEY);
         await AsyncStorage.removeItem(IMPERSONATION_ORIGINAL_USER_KEY);
+        await AsyncStorage.removeItem(IMPERSONATION_ORIGINAL_MODE_KEY);
         return { success: false, error: data.error || "Impersonation failed" };
       }
 
@@ -344,6 +347,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setIsImpersonating(true);
       setImpersonatedAcademyName(academyName);
 
+      const ownerModes = getModesForRole("academy_owner");
+      setAvailableModesRef.current(ownerModes);
+      setModeRef.current("academy_owner");
+
       await fetchUserData(data.token, true);
       setIsAuthenticated(true);
 
@@ -352,6 +359,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       console.error("[AuthContext] Impersonation error:", error);
       await AsyncStorage.removeItem(IMPERSONATION_ORIGINAL_TOKEN_KEY);
       await AsyncStorage.removeItem(IMPERSONATION_ORIGINAL_USER_KEY);
+      await AsyncStorage.removeItem(IMPERSONATION_ORIGINAL_MODE_KEY);
       return { success: false, error: "Network error" };
     }
   };
@@ -360,10 +368,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       const originalToken = await AsyncStorage.getItem(IMPERSONATION_ORIGINAL_TOKEN_KEY);
       const originalUserStr = await AsyncStorage.getItem(IMPERSONATION_ORIGINAL_USER_KEY);
+      const originalMode = await AsyncStorage.getItem(IMPERSONATION_ORIGINAL_MODE_KEY);
 
       await AsyncStorage.removeItem(IMPERSONATION_ORIGINAL_TOKEN_KEY);
       await AsyncStorage.removeItem(IMPERSONATION_ORIGINAL_USER_KEY);
       await AsyncStorage.removeItem(IMPERSONATION_ACADEMY_NAME_KEY);
+      await AsyncStorage.removeItem(IMPERSONATION_ORIGINAL_MODE_KEY);
 
       if (originalToken && originalUserStr) {
         const originalUser = JSON.parse(originalUserStr);
@@ -372,6 +382,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         queryClient.clear();
         setIsImpersonating(false);
         setImpersonatedAcademyName(null);
+
+        const platformModes = getModesForRole("platform_owner");
+        setAvailableModesRef.current(platformModes);
+        setModeRef.current((originalMode as any) || "platform");
+
         await fetchUserData(originalToken, true);
         setIsAuthenticated(true);
       } else {
