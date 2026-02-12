@@ -117,6 +117,9 @@ import lessonGroupsRoutes from "./routes/lesson-groups";
 import matchIntelligenceRoutes from "./routes/match-intelligence";
 import playerLevelRoutes from "./routes/player-level";
 import roleMessagesRoutes from "./routes/role-messages";
+import { filterProfanity } from "./profanityFilter";
+import { isPlayerMinor, getPlayerParentalControls } from "./childSafety";
+import { chatRateLimiter, postRateLimiter } from "./rateLimiter";
 
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
@@ -14978,12 +14981,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "body and senderType required" });
       }
 
-      const sanitizedBody = sanitizeMessage(body);
+      const sanitizedBody = filterProfanity(sanitizeMessage(body) || "");
       if (!sanitizedBody) {
         return res.status(400).json({ error: "Message body is required after sanitization" });
       }
+
+      if (coachId && chatRateLimiter.isRateLimited(coachId)) {
+        return res.status(429).json({ error: "You're sending messages too quickly. Please wait a moment." });
+      }
+      if (coachId) {
+        chatRateLimiter.recordRequest(coachId);
+      }
       
-      // Verify coach has access to this conversation within their academy
       const conversation = await storage.getConversation(conversationId, coachId ?? undefined, academyId);
       if (!conversation) {
         const participants = await storage.getConversationParticipants(conversationId, coachId!, academyId);
@@ -25727,6 +25736,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "Conversation type required" });
       }
 
+      if (type === "player_player") {
+        const playerIsMinor = await isPlayerMinor(playerId);
+        if (playerIsMinor) {
+          const controls = await getPlayerParentalControls(playerId);
+          if (!controls.chatEnabled) {
+            return res.status(403).json({ 
+              error: "Chat with other players requires parental approval. Ask a parent to enable chat in the Family Lobby.",
+              code: "MINOR_CHAT_RESTRICTED"
+            });
+          }
+        }
+      }
+
       if (type === "player_player" && otherPlayerId) {
         const otherPlayer = await storage.getPlayer(otherPlayerId, academyId);
         if (!otherPlayer) {
@@ -25864,6 +25886,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "Message body required" });
       }
 
+      if (chatRateLimiter.isRateLimited(playerId)) {
+        return res.status(429).json({ error: "You're sending messages too quickly. Please wait a moment." });
+      }
+      chatRateLimiter.recordRequest(playerId);
+
+      const filteredBody = filterProfanity(body.trim());
+
       const conversation = await storage.getConversationForPlayer(id, playerId, academyId);
       if (!conversation) {
         return res.status(404).json({ error: "Conversation not found" });
@@ -25874,17 +25903,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
         senderType: "player",
         senderCoachId: null,
         senderPlayerId: playerId,
-        body: body.trim(),
+        body: filteredBody,
         messageType: messageType || "text",
       });
 
       await storage.updateConversation(id, {
         lastMessageAt: new Date(),
-        lastMessagePreview: body.trim().substring(0, 100),
+        lastMessagePreview: filteredBody.substring(0, 100),
       });
 
 
-      // Send push notification to coach when player sends a message (non-blocking)
       const participants = await storage.getConversationParticipants(id, undefined, academyId);
       for (const participant of participants) {
         if (participant.coachId) {
@@ -25893,7 +25921,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             sendPushNotification(
               tokens,
               `New message from ${player.name || "Player"}`,
-              body.trim().substring(0, 100),
+              filteredBody.substring(0, 100),
               { screen: "Messages", conversationId: id }
             ).catch(err => console.error("[PushNotification] Failed to send coach message notification:", err));
           }
@@ -32861,12 +32889,31 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/social/posts", authMiddleware, requireFeatureUnlock("community_feed"), async (req: AuthenticatedRequest, res: Response) => {
     try {
       const userId = req.user!.userId;
+      const playerId = req.user!.playerId;
       const academyId = req.user!.academyId;
       
       if (!academyId) {
         return res.status(400).json({ error: "Academy context required" });
       }
       
+      if (playerId) {
+        const posterIsMinor = await isPlayerMinor(playerId);
+        if (posterIsMinor) {
+          const controls = await getPlayerParentalControls(playerId);
+          if (!controls.communityEnabled) {
+            return res.status(403).json({
+              error: "Posting in the community requires parental approval. Ask a parent to enable community access in the Family Lobby.",
+              code: "MINOR_COMMUNITY_RESTRICTED"
+            });
+          }
+        }
+      }
+
+      if (postRateLimiter.isRateLimited(playerId || userId)) {
+        return res.status(429).json({ error: "You're posting too quickly. Please wait a moment." });
+      }
+      postRateLimiter.recordRequest(playerId || userId);
+
       const { 
         contextType, contextId, caption, mediaUrls = [], mediaTypes = [],
         visibility = "academy", groupId, taggedUserIds = [], locationName 
@@ -32876,17 +32923,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "Context type is required" });
       }
       
-      // Validate caption length
       if (caption && caption.length > 280) {
         return res.status(400).json({ error: "Caption too long (max 280 characters)" });
       }
+      
+      const filteredCaption = caption ? filterProfanity(caption) : caption;
       
       const [newPost] = await db.insert(postsTable).values({
         authorId: userId,
         academyId,
         contextType,
         contextId,
-        caption,
+        caption: filteredCaption,
         mediaUrls,
         mediaTypes,
         visibility,
@@ -33165,9 +33213,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { id: postId } = req.params;
       const userId = req.user!.userId;
+      const playerId = req.user!.playerId;
       const { text, isQuickComment, quickCommentType, parentId } = req.body;
+
+      if (playerId) {
+        const commenterIsMinor = await isPlayerMinor(playerId);
+        if (commenterIsMinor) {
+          const controls = await getPlayerParentalControls(playerId);
+          if (!controls.communityEnabled) {
+            return res.status(403).json({
+              error: "Posting in the community requires parental approval. Ask a parent to enable community access in the Family Lobby.",
+              code: "MINOR_COMMUNITY_RESTRICTED"
+            });
+          }
+        }
+      }
+
+      if (chatRateLimiter.isRateLimited(playerId || userId)) {
+        return res.status(429).json({ error: "You're sending messages too quickly. Please wait a moment." });
+      }
+      chatRateLimiter.recordRequest(playerId || userId);
       
-      // Quick comments for kids
       const quickComments = {
         nice: "Nice!",
         lets_play: "Let's play!",
@@ -33183,11 +33249,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!commentText && !isQuickComment) {
         return res.status(400).json({ error: "Comment text is required" });
       }
+
+      const filteredCommentText = commentText ? filterProfanity(commentText) : commentText;
       
       const [newComment] = await db.insert(postCommentsTable).values({
         postId,
         authorId: userId,
-        text: commentText,
+        text: filteredCommentText,
         isQuickComment: !!isQuickComment,
         quickCommentType,
         parentId,

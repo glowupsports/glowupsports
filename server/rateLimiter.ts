@@ -1,0 +1,30 @@
+export class RateLimiter {
+  private requests: Map<string, number[]> = new Map();
+  private maxRequests: number;
+  private windowMs: number;
+
+  constructor(maxRequests: number, windowMs: number) {
+    this.maxRequests = maxRequests;
+    this.windowMs = windowMs;
+  }
+
+  isRateLimited(userId: string): boolean {
+    const now = Date.now();
+    const timestamps = this.requests.get(userId);
+    if (!timestamps) return false;
+    const valid = timestamps.filter(t => now - t < this.windowMs);
+    this.requests.set(userId, valid);
+    return valid.length >= this.maxRequests;
+  }
+
+  recordRequest(userId: string): void {
+    const now = Date.now();
+    const timestamps = this.requests.get(userId) || [];
+    const valid = timestamps.filter(t => now - t < this.windowMs);
+    valid.push(now);
+    this.requests.set(userId, valid);
+  }
+}
+
+export const chatRateLimiter = new RateLimiter(5, 10000);
+export const postRateLimiter = new RateLimiter(3, 60000);

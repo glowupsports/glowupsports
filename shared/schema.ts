@@ -975,6 +975,10 @@ export const players = pgTable("players", {
   // Family Lobby - Link multiple players to same parent account
   parentEmail: text("parent_email"), // Parent's email for family account linking
   
+  // Child Safety - Parental Controls
+  chatEnabled: boolean("chat_enabled"),
+  communityEnabled: boolean("community_enabled"),
+  
   // Social Profile Fields (Game Character)
   profilePhotoUrl: text("profile_photo_url"),
   displayName: text("display_name"), // Optional nickname
