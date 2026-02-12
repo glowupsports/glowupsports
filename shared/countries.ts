@@ -289,3 +289,21 @@ export function getCitiesForCountry(countryCode: string): string[] {
   const country = getCountryByCode(countryCode);
   return country?.cities || [];
 }
+
+export const countryToCurrency: Record<string, string> = {
+  AE: "AED", US: "USD", GB: "GBP", AU: "AUD", CA: "CAD",
+  FR: "EUR", DE: "EUR", ES: "EUR", IT: "EUR", JP: "JPY",
+  KR: "KRW", CN: "CNY", IN: "INR", BR: "BRL", MX: "MXN",
+  SA: "SAR", QA: "QAR", KW: "KWD", BH: "BHD", OM: "OMR",
+  EG: "EGP", ZA: "ZAR", SG: "SGD", MY: "MYR", TH: "THB",
+  ID: "IDR", PH: "PHP", VN: "VND", NZ: "NZD", IE: "EUR",
+  NL: "EUR", BE: "EUR", CH: "CHF", AT: "EUR", SE: "SEK",
+  NO: "NOK", DK: "DKK", FI: "EUR", PL: "PLN", CZ: "CZK",
+  PT: "EUR", GR: "EUR", TR: "TRY", IL: "ILS", JO: "JOD",
+  LB: "LBP", AR: "ARS", CL: "CLP", CO: "COP", PE: "PEN",
+  RU: "RUB", UA: "UAH", RO: "RON", HU: "HUF",
+};
+
+export function getCurrencyForCountry(countryCode: string): string {
+  return countryToCurrency[countryCode] || "USD";
+}

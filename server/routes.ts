@@ -102,6 +102,7 @@ import { sendFeedbackNotificationEmail, sendLevelUpEmail, sendWelcomeEmail, send
 import { createCalendarEvent, updateCalendarEvent, deleteCalendarEvent, checkConnection as checkCalendarConnection, SessionEventData } from "./googleCalendarService";
 import { generateInvoiceHtml, parseLineItems } from "./services/invoicePdf";
 import { apiCache, CACHE_KEYS, CACHE_TTL } from "./cache";
+import { getCurrencyForCountry } from "@shared/countries";
 import shopRoutes from "./shop-routes";
 import marketplaceRoutes from "./marketplace-routes";
 import glowLevelingRoutes from "./routes/glow-leveling";
@@ -17122,8 +17123,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       };
 
       // Store onboarding preferences in academy settings
+      const currency = country ? getCurrencyForCountry(country) : "AED";
       await storage.upsertAcademySettings(academyId, {
-        city: location || null,
+        city: city || location || null,
+        country: country || null,
+        currency,
         primaryColor: accentColorMap[accentColor] || "#2ECC40",
       });
 

@@ -56,6 +56,15 @@ interface Step2Props extends StepProps {
   setShowCityPicker: (show: boolean) => void;
 }
 
+function getContrastTextColor(hexColor: string): string {
+  const hex = hexColor.replace('#', '');
+  const r = parseInt(hex.substring(0, 2), 16);
+  const g = parseInt(hex.substring(2, 4), 16);
+  const b = parseInt(hex.substring(4, 6), 16);
+  const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+  return luminance > 0.5 ? '#1a1a2e' : '#FFFFFF';
+}
+
 const ACCENT_COLORS = [
   { id: "green", label: "Glow Green", color: "#2ECC40" },
   { id: "purple", label: "Purple", color: "#9B59B6" },
@@ -484,17 +493,47 @@ function Step3Style({ data, setData, onNext, onBack }: StepProps) {
                   }}
                 >
                   {data.accentColor === color.id ? (
-                    <Ionicons name="checkmark" size={20} color={Colors.dark.text} />
+                    <Ionicons name="checkmark" size={20} color={getContrastTextColor(color.color)} />
                   ) : null}
                 </Pressable>
               ))}
             </View>
           </View>
           
-          <View style={styles.previewCard}>
-            <Text style={styles.previewLabel}>Preview</Text>
+          <View style={[
+            styles.previewCard,
+            data.theme === "light" ? { backgroundColor: "#F5F5F5", borderColor: "rgba(0, 0, 0, 0.1)" } : null,
+          ]}>
+            <Text style={[
+              styles.previewLabel,
+              data.theme === "light" ? { color: "#666666" } : null,
+            ]}>Preview</Text>
             <View style={[styles.previewHeader, { backgroundColor: ACCENT_COLORS.find(c => c.id === data.accentColor)?.color || Colors.dark.primary }]}>
-              <Text style={styles.previewHeaderText}>{data.academyName || "Your Academy"}</Text>
+              <Text style={[
+                styles.previewHeaderText,
+                { color: getContrastTextColor(ACCENT_COLORS.find(c => c.id === data.accentColor)?.color || Colors.dark.primary) },
+              ]}>{data.academyName || "Your Academy"}</Text>
+            </View>
+            <View style={[
+              styles.previewThemeSample,
+              data.theme === "light" 
+                ? { backgroundColor: "#FFFFFF" } 
+                : { backgroundColor: "#1a1a2e" },
+            ]}>
+              <View style={{ flexDirection: "row", alignItems: "center", gap: Spacing.sm }}>
+                <View style={[
+                  styles.previewAccentDot,
+                  { backgroundColor: ACCENT_COLORS.find(c => c.id === data.accentColor)?.color || Colors.dark.primary },
+                ]} />
+                <Text style={[
+                  styles.previewSampleText,
+                  data.theme === "light" ? { color: "#1a1a2e" } : { color: "#FFFFFF" },
+                ]}>Dashboard</Text>
+              </View>
+              <Text style={[
+                styles.previewSampleSubtext,
+                data.theme === "light" ? { color: "#666666" } : { color: "rgba(255,255,255,0.6)" },
+              ]}>This is how your app will feel</Text>
             </View>
           </View>
         </Animated.View>
@@ -1035,6 +1074,24 @@ const styles = StyleSheet.create({
     color: Colors.dark.text,
     fontSize: 16,
     fontWeight: "600" as const,
+  },
+  previewThemeSample: {
+    padding: Spacing.lg,
+    borderRadius: BorderRadius.sm,
+    marginTop: Spacing.md,
+  },
+  previewAccentDot: {
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+  },
+  previewSampleText: {
+    fontSize: 16,
+    fontWeight: "600" as const,
+  },
+  previewSampleSubtext: {
+    fontSize: 13,
+    marginTop: Spacing.xs,
   },
   themeOptions: {
     flexDirection: "row",
