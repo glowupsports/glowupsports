@@ -2,7 +2,7 @@ import { db } from "./db";
 import { eq, and, gte, lte, inArray, isNull, lt, ne } from "drizzle-orm";
 import { pushDeviceTokens, notificationPreferences, users, players, coaches, sessions, sessionPlayers, seriesPlayers, coachXpTransactions, creditTransactions } from "@shared/schema";
 import { storage } from "./storage";
-import { sendSessionReminderEmail } from "./emailService";
+import { sendSessionReminderEmail, sendOnboardingDay3Email, sendOnboardingDay7Email } from "./emailService";
 import { initializeFirebase, isFirebaseInitialized, isFCMToken, sendFCMNotification, getChannelIdForNotificationType } from "./fcm";
 
 // Initialize Firebase on module load
@@ -1483,3 +1483,93 @@ export function stopMonthlyReportScheduler(): void {
 
 // Export for manual triggering
 export { processMonthlyReports };
+
+// ==================== ONBOARDING EMAIL SEQUENCE ====================
+
+let onboardingEmailInterval: ReturnType<typeof setInterval> | null = null;
+
+const onboardingEmailsSent = new Set<string>();
+
+async function processOnboardingEmails(): Promise<void> {
+  try {
+    const now = new Date();
+
+    const allUsers = await db.select({
+      id: users.id,
+      email: users.email,
+      username: users.username,
+      role: users.role,
+      createdAt: users.createdAt,
+    }).from(users);
+
+    let day3Count = 0;
+    let day7Count = 0;
+
+    for (const user of allUsers) {
+      if (!user.email || !user.createdAt) continue;
+
+      const createdAt = new Date(user.createdAt);
+      const daysSinceCreation = (now.getTime() - createdAt.getTime()) / (24 * 60 * 60 * 1000);
+
+      const day3Key = `day3_${user.id}`;
+      if (!onboardingEmailsSent.has(day3Key) && daysSinceCreation >= 3 && daysSinceCreation < 5) {
+        try {
+          const result = await sendOnboardingDay3Email({
+            to: user.email,
+            userName: user.username || 'there',
+            role: user.role || 'player',
+          });
+          if (result.success) {
+            onboardingEmailsSent.add(day3Key);
+            day3Count++;
+          }
+        } catch (err) {
+          console.error(`[OnboardingEmails] Day 3 email failed for ${user.email}:`, err);
+        }
+      }
+
+      const day7Key = `day7_${user.id}`;
+      if (!onboardingEmailsSent.has(day7Key) && daysSinceCreation >= 7 && daysSinceCreation < 9) {
+        try {
+          const result = await sendOnboardingDay7Email({
+            to: user.email,
+            userName: user.username || 'there',
+            role: user.role || 'player',
+          });
+          if (result.success) {
+            onboardingEmailsSent.add(day7Key);
+            day7Count++;
+          }
+        } catch (err) {
+          console.error(`[OnboardingEmails] Day 7 email failed for ${user.email}:`, err);
+        }
+      }
+    }
+
+    if (day3Count > 0 || day7Count > 0) {
+      console.log(`[OnboardingEmails] Sent ${day3Count} day-3 emails, ${day7Count} day-7 emails`);
+    }
+  } catch (error) {
+    console.error("[OnboardingEmails] Scheduler error:", error);
+  }
+}
+
+export function startOnboardingEmailScheduler(): void {
+  console.log("[OnboardingEmails] Starting onboarding email scheduler (runs every 6 hours)");
+
+  setTimeout(() => {
+    processOnboardingEmails().catch(console.error);
+  }, 60 * 1000);
+
+  onboardingEmailInterval = setInterval(() => {
+    processOnboardingEmails().catch(console.error);
+  }, 6 * 60 * 60 * 1000);
+}
+
+export function stopOnboardingEmailScheduler(): void {
+  if (onboardingEmailInterval) {
+    clearInterval(onboardingEmailInterval);
+    onboardingEmailInterval = null;
+    console.log("[OnboardingEmails] Scheduler stopped");
+  }
+}

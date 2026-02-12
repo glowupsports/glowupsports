@@ -20,7 +20,6 @@ import Animated, {
 } from "react-native-reanimated";
 import { Colors, Spacing, BorderRadius, Typography } from "@/constants/theme";
 import { CoachingSeriesCard } from "./CoachingSeriesCard";
-import { NeoLoadoutPanel, NeoGlowBadge } from "@/components/NeoLoadoutPanel";
 import { GuidedEmptyState } from "@/components/GuidedEmptyState";
 import { apiRequest } from "@/lib/query-client";
 

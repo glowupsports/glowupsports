@@ -876,3 +876,230 @@ export async function sendMonthlyReportEmail(data: MonthlyReportData): Promise<{
     html,
   });
 }
+
+export async function sendOnboardingDay3Email(params: {
+  to: string;
+  userName: string;
+  role: string;
+  academyName?: string;
+}): Promise<{ success: boolean; error?: string }> {
+  const { to, userName, role, academyName } = params;
+
+  const roleTips: Record<string, { tips: string[]; cta: string }> = {
+    coach: {
+      tips: [
+        "Set up your coaching profile with a photo and bio",
+        "Create your first recurring training series",
+        "Check the attendance system to track player sessions",
+        "Use the feedback tools to give players detailed progress reports",
+      ],
+      cta: "Open the app and explore your Coach Dashboard",
+    },
+    player: {
+      tips: [
+        "Complete your player profile for a personalized experience",
+        "Check your upcoming sessions on the home screen",
+        "Explore the Players Near You section to connect with others",
+        "Keep an eye out for coach feedback after your sessions",
+      ],
+      cta: "Open the app and check your Player Card",
+    },
+    academy_owner: {
+      tips: [
+        "Follow the Getting Started checklist on your dashboard",
+        "Set up credit packages for your players",
+        "Invite your coaches using the Staff section",
+        "Configure your academy settings and welcome video",
+      ],
+      cta: "Open the app and complete your setup checklist",
+    },
+    admin: {
+      tips: [
+        "Review the Operations Hub for daily session overview",
+        "Set up credit packages for different session types",
+        "Use the attendance system to track check-ins",
+        "Monitor the live activity stream during session times",
+      ],
+      cta: "Open the app and check your Admin Dashboard",
+    },
+  };
+
+  const tips = roleTips[role] || roleTips.player;
+
+  const html = `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #0a0a0a; color: #ffffff; margin: 0; padding: 20px; }
+        .container { max-width: 600px; margin: 0 auto; background: #1a1a1a; border-radius: 16px; padding: 40px; }
+        .logo { text-align: center; margin-bottom: 30px; }
+        .logo h1 { color: #2ECC40; margin: 0; font-size: 28px; }
+        h2 { color: #ffffff; margin-bottom: 8px; }
+        .subtitle { color: #00D4FF; font-size: 16px; margin-bottom: 24px; }
+        p { color: #a0a0a0; line-height: 1.6; margin-bottom: 16px; }
+        .tip-card { background: #252525; border-radius: 12px; padding: 20px; margin: 16px 0; }
+        .tip-item { display: flex; align-items: flex-start; margin-bottom: 14px; color: #a0a0a0; line-height: 1.5; }
+        .tip-number { display: inline-block; min-width: 28px; height: 28px; background: #2ECC40; color: #000; border-radius: 50%; text-align: center; line-height: 28px; font-weight: 700; font-size: 14px; margin-right: 12px; flex-shrink: 0; }
+        .cta { display: inline-block; background: linear-gradient(135deg, #2ECC40, #27ae60); color: #000000; padding: 14px 32px; border-radius: 8px; text-decoration: none; font-weight: 600; margin-top: 20px; }
+        .footer { margin-top: 40px; padding-top: 20px; border-top: 1px solid #333; text-align: center; color: #666; font-size: 12px; }
+      </style>
+    </head>
+    <body>
+      <div class="container">
+        <div class="logo">
+          <h1>Glow Up Sports</h1>
+        </div>
+        <h2>Getting Started Tips</h2>
+        <p class="subtitle">Day 3 of your journey${academyName ? ` with ${academyName}` : ''}</p>
+        <p>Hi <strong style="color: #ffffff;">${userName}</strong>,</p>
+        <p>It's been a few days since you joined. Here are some tips to help you get the most out of the platform:</p>
+        <div class="tip-card">
+          ${tips.tips.map((tip, i) => `
+            <div class="tip-item">
+              <span class="tip-number">${i + 1}</span>
+              <span>${tip}</span>
+            </div>
+          `).join('')}
+        </div>
+        <p style="color: #ffffff; font-weight: 600;">${tips.cta}</p>
+        <p>Need help? Tap the floating help button (?) on any screen for FAQs and tutorials.</p>
+        <div class="footer">
+          <p>Glow Up Sports - Level Up Your Game</p>
+          <p style="color: #444; font-size: 11px;">You received this email because you signed up for Glow Up Sports.</p>
+        </div>
+      </div>
+    </body>
+    </html>
+  `;
+
+  return sendEmail({
+    to,
+    subject: `Quick tips to get started - Glow Up Sports`,
+    html,
+    text: `Hi ${userName}, here are some tips to get started: ${tips.tips.join('. ')}. ${tips.cta}`,
+  });
+}
+
+export async function sendOnboardingDay7Email(params: {
+  to: string;
+  userName: string;
+  role: string;
+  academyName?: string;
+  sessionsCount?: number;
+  xpEarned?: number;
+}): Promise<{ success: boolean; error?: string }> {
+  const { to, userName, role, academyName, sessionsCount = 0, xpEarned = 0 } = params;
+
+  const roleHighlights: Record<string, { features: Array<{ icon: string; title: string; desc: string }> }> = {
+    coach: {
+      features: [
+        { icon: "calendar", title: "Session Series", desc: "Create recurring training blocks that auto-generate sessions weekly" },
+        { icon: "chart", title: "Earnings Tracker", desc: "Monitor your monthly earnings, session count, and payment status" },
+        { icon: "heart", title: "Wellness Check", desc: "Track your coaching energy and prevent burnout with our wellness score" },
+        { icon: "star", title: "Glow Leveling", desc: "Assess players across 6 skill pillars with our 12-level certification system" },
+      ],
+    },
+    player: {
+      features: [
+        { icon: "trophy", title: "XP System", desc: "Earn XP from sessions, feedback, and matches to level up your player card" },
+        { icon: "people", title: "Social Features", desc: "Connect with nearby players, join open sessions, and build your squad" },
+        { icon: "stats", title: "Progress Tracking", desc: "View detailed feedback from coaches and track your skill development" },
+        { icon: "game", title: "Match Logging", desc: "Record match scores and performance to track your competitive progress" },
+      ],
+    },
+    academy_owner: {
+      features: [
+        { icon: "business", title: "Command Center", desc: "Monitor MRR, player count, retention, and growth metrics at a glance" },
+        { icon: "card", title: "Credit System", desc: "Sell training credits with auto-expiry, type-matching, and package management" },
+        { icon: "people", title: "Staff Management", desc: "Track coach performance, earnings, and workload across your academy" },
+        { icon: "document", title: "Monthly Reports", desc: "Automated progress reports sent to players and parents each month" },
+      ],
+    },
+    admin: {
+      features: [
+        { icon: "clipboard", title: "Operations Hub", desc: "Daily session overview with real-time check-in tracking" },
+        { icon: "checkmark", title: "Attendance System", desc: "Mark attendance with absent-charged rules and vacation exceptions" },
+        { icon: "cash", title: "Credit Management", desc: "Manage player credit packages with auto-deduction on session completion" },
+        { icon: "notifications", title: "Smart Notifications", desc: "Automated reminders for sessions, feedback, and important updates" },
+      ],
+    },
+  };
+
+  const highlights = roleHighlights[role] || roleHighlights.player;
+
+  const html = `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #0a0a0a; color: #ffffff; margin: 0; padding: 20px; }
+        .container { max-width: 600px; margin: 0 auto; background: #1a1a1a; border-radius: 16px; padding: 40px; }
+        .logo { text-align: center; margin-bottom: 30px; }
+        .logo h1 { color: #2ECC40; margin: 0; font-size: 28px; }
+        h2 { color: #ffffff; margin-bottom: 8px; }
+        .subtitle { color: #00D4FF; font-size: 16px; margin-bottom: 24px; }
+        p { color: #a0a0a0; line-height: 1.6; margin-bottom: 16px; }
+        .stats-row { display: flex; gap: 16px; margin: 24px 0; }
+        .stat-card { flex: 1; background: #252525; border-radius: 12px; padding: 16px; text-align: center; }
+        .stat-value { font-size: 28px; font-weight: 800; color: #2ECC40; }
+        .stat-label { font-size: 12px; color: #666; margin-top: 4px; text-transform: uppercase; }
+        .feature-grid { margin: 24px 0; }
+        .feature-item { background: #252525; border-radius: 12px; padding: 16px; margin-bottom: 12px; border-left: 3px solid #2ECC40; }
+        .feature-title { color: #ffffff; font-weight: 600; font-size: 16px; margin-bottom: 4px; }
+        .feature-desc { color: #a0a0a0; font-size: 14px; line-height: 1.4; }
+        .footer { margin-top: 40px; padding-top: 20px; border-top: 1px solid #333; text-align: center; color: #666; font-size: 12px; }
+      </style>
+    </head>
+    <body>
+      <div class="container">
+        <div class="logo">
+          <h1>Glow Up Sports</h1>
+        </div>
+        <h2>Your First Week</h2>
+        <p class="subtitle">Feature highlights${academyName ? ` for ${academyName}` : ''}</p>
+        <p>Hi <strong style="color: #ffffff;">${userName}</strong>,</p>
+        <p>You've been with us for a week now! Here's a quick look at what you might have missed:</p>
+        
+        ${(sessionsCount > 0 || xpEarned > 0) ? `
+        <table width="100%" cellpadding="0" cellspacing="8" style="margin: 24px 0;">
+          <tr>
+            <td style="background: #252525; border-radius: 12px; padding: 16px; text-align: center; width: 50%;">
+              <div style="font-size: 28px; font-weight: 800; color: #2ECC40;">${sessionsCount}</div>
+              <div style="font-size: 12px; color: #666; margin-top: 4px; text-transform: uppercase;">Sessions</div>
+            </td>
+            <td style="background: #252525; border-radius: 12px; padding: 16px; text-align: center; width: 50%;">
+              <div style="font-size: 28px; font-weight: 800; color: #00D4FF;">${xpEarned}</div>
+              <div style="font-size: 12px; color: #666; margin-top: 4px; text-transform: uppercase;">XP Earned</div>
+            </td>
+          </tr>
+        </table>
+        ` : ''}
+        
+        <p style="color: #ffffff; font-weight: 600;">Features you should try:</p>
+        <div class="feature-grid">
+          ${highlights.features.map(f => `
+            <div class="feature-item">
+              <div class="feature-title">${f.title}</div>
+              <div class="feature-desc">${f.desc}</div>
+            </div>
+          `).join('')}
+        </div>
+        
+        <p>We're here to help you succeed! Tap the (?) help button in the app anytime.</p>
+        <div class="footer">
+          <p>Glow Up Sports - Level Up Your Game</p>
+          <p style="color: #444; font-size: 11px;">You received this email because you signed up for Glow Up Sports.</p>
+        </div>
+      </div>
+    </body>
+    </html>
+  `;
+
+  return sendEmail({
+    to,
+    subject: `Your first week recap - Glow Up Sports`,
+    html,
+    text: `Hi ${userName}, you've been with us for a week! Here are some features to explore: ${highlights.features.map(f => f.title).join(', ')}. Open the app to try them out.`,
+  });
+}
