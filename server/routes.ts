@@ -2002,14 +2002,41 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Create user based on role
       if (invite.role === "academy_owner") {
-        // Create user as academy owner
+        const fullName = `${firstName} ${lastName}`;
+        
+        // Create coach profile for owner (they are also a head coach)
+        const coach = await storage.createCoach({
+          name: fullName,
+          email: userEmail,
+          phone: phone || null,
+          academyId: invite.academyId,
+          role: "head_coach",
+          level: 1,
+          totalXp: 0,
+        });
+
+        // Create player profile for owner (they can also play)
+        const player = await storage.createPlayer({
+          name: fullName,
+          email: userEmail,
+          phone: phone || null,
+          academyId: invite.academyId,
+          coachId: coach.id,
+        });
+
+        // Create user as academy owner with coach and player links
         const user = await storage.createUser({
           username: normalizedUsername,
           email: userEmail,
           password: hashedPassword,
           role: "academy_owner",
           academyId: invite.academyId,
+          coachId: coach.id,
+          playerId: player.id,
         });
+
+        // Update academy ownerId to link to the coach
+        await storage.updateAcademy(invite.academyId, { ownerId: coach.id });
 
         // Mark invite as used
         await storage.markInviteUsed(invite.id, user.id);
@@ -17164,6 +17191,72 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error completing owner onboarding:", error);
       res.status(500).json({ error: "Failed to complete onboarding" });
+    }
+  });
+
+  // Activate coach and player roles for existing academy owners
+  app.post("/api/owner/activate-roles", authMiddleware, requireRole("owner", "academy_owner", "platform_owner"), async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const userId = req.user!.userId;
+      const academyId = req.user?.academyId;
+      
+      if (!academyId) {
+        return res.status(400).json({ error: "No academy associated with this account" });
+      }
+
+      // Get fresh user data
+      const user = await storage.getUserById(userId);
+      if (!user) {
+        return res.status(404).json({ error: "User not found" });
+      }
+
+      let coachId = user.coachId;
+      let playerId = user.playerId;
+
+      // Create coach profile if not exists
+      if (!coachId) {
+        const coach = await storage.createCoach({
+          name: user.username,
+          email: user.email,
+          phone: null,
+          academyId: academyId,
+          role: "head_coach",
+          level: 1,
+          totalXp: 0,
+        });
+        coachId = coach.id;
+        
+        // Update academy ownerId
+        await storage.updateAcademy(academyId, { ownerId: coach.id });
+      }
+
+      // Create player profile if not exists
+      if (!playerId) {
+        const player = await storage.createPlayer({
+          name: user.username,
+          email: user.email,
+          phone: null,
+          academyId: academyId,
+          coachId: coachId,
+        });
+        playerId = player.id;
+      }
+
+      // Update user with both coachId and playerId
+      await storage.updateUser(userId, {
+        coachId,
+        playerId,
+      });
+
+      res.json({
+        success: true,
+        message: "Coach and player roles activated",
+        coachId,
+        playerId,
+      });
+    } catch (error) {
+      console.error("Error activating owner roles:", error);
+      res.status(500).json({ error: "Failed to activate roles" });
     }
   });
 

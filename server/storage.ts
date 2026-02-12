@@ -319,6 +319,7 @@ export const storage = {
     role: string; 
     academyId?: string | null; 
     coachId?: string | null; 
+    playerId?: string | null; 
   }): Promise<User> {
     const result = await db.insert(users).values({
       username: data.username.toLowerCase(),
@@ -327,6 +328,7 @@ export const storage = {
       role: data.role,
       academyId: data.academyId || null,
       coachId: data.coachId || null,
+      playerId: data.playerId || null,
     }).returning();
     return result[0];
   },
