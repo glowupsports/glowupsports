@@ -15,6 +15,8 @@ export interface FamilyMember {
   } | null;
   outstandingBalance: number;
   lastActiveAt: string | null;
+  chatEnabled: boolean | null;
+  communityEnabled: boolean | null;
 }
 
 interface FamilyData {

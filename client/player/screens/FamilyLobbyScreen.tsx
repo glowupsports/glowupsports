@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState } from "react";
 import {
   View,
   Text,
@@ -7,6 +7,8 @@ import {
   ScrollView,
   ActivityIndicator,
   Alert,
+  Switch,
+  Modal,
 } from "react-native";
 import { useNavigation } from "@react-navigation/native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -155,11 +157,77 @@ function ChildCard({ member, onPress, index }: ChildCardProps) {
   );
 }
 
+function ParentalControlsCard({ member, onToggle }: { member: FamilyMember; onToggle: (field: "chatEnabled" | "communityEnabled", value: boolean) => void }) {
+  return (
+    <View style={styles.controlCard}>
+      <View style={styles.controlHeader}>
+        {member.avatarUrl ? (
+          <Image
+            source={{ uri: `${getStaticAssetsUrl()}${member.avatarUrl}` }}
+            style={styles.controlAvatar}
+            contentFit="cover"
+          />
+        ) : (
+          <View style={[styles.controlAvatar, styles.controlAvatarPlaceholder]}>
+            <Ionicons name="person" size={16} color={Colors.dark.textMuted} />
+          </View>
+        )}
+        <Text style={styles.controlName}>{member.name}</Text>
+      </View>
+      <View style={styles.controlRow}>
+        <View style={styles.controlLabelRow}>
+          <Ionicons name="chatbubbles-outline" size={18} color="#00BCD4" />
+          <Text style={styles.controlLabel}>Player-to-Player Chat</Text>
+        </View>
+        <Switch
+          value={member.chatEnabled ?? false}
+          onValueChange={(val) => onToggle("chatEnabled", val)}
+          trackColor={{ false: Colors.dark.backgroundSecondary, true: "#00E676" + "60" }}
+          thumbColor={member.chatEnabled ? "#00E676" : Colors.dark.textMuted}
+        />
+      </View>
+      <View style={styles.controlRow}>
+        <View style={styles.controlLabelRow}>
+          <Ionicons name="people-outline" size={18} color="#00BCD4" />
+          <Text style={styles.controlLabel}>Community Posting</Text>
+        </View>
+        <Switch
+          value={member.communityEnabled ?? false}
+          onValueChange={(val) => onToggle("communityEnabled", val)}
+          trackColor={{ false: Colors.dark.backgroundSecondary, true: "#00E676" + "60" }}
+          thumbColor={member.communityEnabled ? "#00E676" : Colors.dark.textMuted}
+        />
+      </View>
+    </View>
+  );
+}
+
 export default function FamilyLobbyScreen() {
   const navigation = useNavigation();
   const insets = useSafeAreaInsets();
   const queryClient = useQueryClient();
-  const { familyData, setActivePlayer, isLoading } = useFamily();
+  const { familyData, setActivePlayer, isLoading, refreshFamily } = useFamily();
+  const [showControls, setShowControls] = useState(false);
+
+  const controlsMutation = useMutation({
+    mutationFn: async ({ playerId, field, value }: { playerId: string; field: string; value: boolean }) => {
+      return apiRequest(`${getApiUrl()}/api/family/parental-controls/${playerId}`, {
+        method: "PUT",
+        body: JSON.stringify({ [field]: value }),
+      });
+    },
+    onSuccess: () => {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      refreshFamily();
+    },
+    onError: (error: any) => {
+      Alert.alert("Error", error.message || "Could not update setting.");
+    },
+  });
+
+  const handleToggleControl = (playerId: string, field: "chatEnabled" | "communityEnabled", value: boolean) => {
+    controlsMutation.mutate({ playerId, field, value });
+  };
 
   const payAllMutation = useMutation({
     mutationFn: async () => {
@@ -292,6 +360,18 @@ export default function FamilyLobbyScreen() {
             />
           ))}
         </View>
+
+        <Pressable
+          style={styles.parentalControlsButton}
+          onPress={() => {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+            setShowControls(true);
+          }}
+        >
+          <Ionicons name="shield-checkmark" size={20} color="#00BCD4" />
+          <Text style={styles.parentalControlsText}>Parental Controls</Text>
+          <Ionicons name="chevron-forward" size={18} color={Colors.dark.textMuted} />
+        </Pressable>
       </ScrollView>
 
       <View style={[styles.footer, { paddingBottom: insets.bottom + Spacing.md }]}>
@@ -302,6 +382,34 @@ export default function FamilyLobbyScreen() {
           </Text>
         </View>
       </View>
+
+      <Modal visible={showControls} transparent animationType="slide">
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContainer}>
+            <View style={styles.modalHeader}>
+              <View style={styles.modalTitleRow}>
+                <Ionicons name="shield-checkmark" size={24} color="#00BCD4" />
+                <Text style={styles.modalTitle}>Parental Controls</Text>
+              </View>
+              <Pressable onPress={() => setShowControls(false)}>
+                <Ionicons name="close-circle" size={28} color={Colors.dark.textMuted} />
+              </Pressable>
+            </View>
+            <Text style={styles.modalSubtitle}>
+              Manage what your children can do in the app
+            </Text>
+            <ScrollView style={styles.modalScroll} showsVerticalScrollIndicator={false}>
+              {familyData.members.map((member) => (
+                <ParentalControlsCard
+                  key={member.id}
+                  member={member}
+                  onToggle={(field, value) => handleToggleControl(member.id, field, value)}
+                />
+              ))}
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -538,5 +646,102 @@ const styles = StyleSheet.create({
   footerText: {
     fontSize: FontSizes.sm,
     color: Colors.dark.textMuted,
+  },
+  parentalControlsButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+    backgroundColor: "rgba(0,188,212,0.1)",
+    borderRadius: BorderRadius.lg,
+    padding: Spacing.md,
+    marginTop: Spacing.xl,
+    borderWidth: 1,
+    borderColor: "rgba(0,188,212,0.2)",
+  },
+  parentalControlsText: {
+    flex: 1,
+    fontSize: FontSizes.md,
+    fontWeight: "600",
+    color: "#00BCD4",
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.85)",
+    justifyContent: "flex-end",
+  },
+  modalContainer: {
+    backgroundColor: Colors.dark.backgroundDefault,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    maxHeight: "80%",
+    padding: Spacing.lg,
+  },
+  modalHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: Spacing.xs,
+  },
+  modalTitleRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+  },
+  modalTitle: {
+    fontSize: FontSizes.xl,
+    fontWeight: "700",
+    color: Colors.dark.text,
+  },
+  modalSubtitle: {
+    fontSize: FontSizes.sm,
+    color: Colors.dark.textMuted,
+    marginBottom: Spacing.lg,
+  },
+  modalScroll: {
+    maxHeight: 400,
+  },
+  controlCard: {
+    backgroundColor: Colors.dark.backgroundSecondary,
+    borderRadius: BorderRadius.lg,
+    padding: Spacing.md,
+    marginBottom: Spacing.md,
+    gap: Spacing.sm,
+  },
+  controlHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+    marginBottom: Spacing.xs,
+  },
+  controlAvatar: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    borderWidth: 2,
+    borderColor: Colors.dark.primary,
+  },
+  controlAvatarPlaceholder: {
+    backgroundColor: Colors.dark.backgroundDefault,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  controlName: {
+    fontSize: FontSizes.md,
+    fontWeight: "600",
+    color: Colors.dark.text,
+  },
+  controlRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  controlLabelRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+  },
+  controlLabel: {
+    fontSize: FontSizes.sm,
+    color: Colors.dark.textSecondary,
   },
 });

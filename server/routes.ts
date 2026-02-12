@@ -6652,6 +6652,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
           glowMmr: player.glowMmr || 1000,
           glowRank: player.glowRank || 9,
           totalMatchesPlayed: player.totalMatchesPlayed || 0,
+          chatEnabled: player.chatEnabled ?? null,
+          communityEnabled: player.communityEnabled ?? null,
         },
         coach,
         academy,
