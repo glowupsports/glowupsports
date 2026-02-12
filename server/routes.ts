@@ -19399,31 +19399,48 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const originalSeriesKey = id.replace("virtual-", "");
         console.log(`[Series DELETE] Deleting virtual series: ${id}, original key: ${originalSeriesKey}`);
 
-        // Find orphan sessions matching this virtual series key
-        let orphanSessions;
+        // First, find the ORIGINAL series to know the original coach
+        const originalSeries = originalSeriesKey !== "standalone" 
+          ? await storage.getCoachingSeriesById(originalSeriesKey) 
+          : null;
+        const originalCoachId = originalSeries?.coachId;
+
+        // Find sessions matching this series key
+        let allMatchingSessions;
         if (originalSeriesKey === "standalone") {
-          orphanSessions = await db.select({ id: sessions.id, coachId: sessions.coachId })
-            .from(sessions)
+          allMatchingSessions = await db.select().from(sessions)
             .where(isNull(sessions.seriesId));
         } else {
-          orphanSessions = await db.select({ id: sessions.id, coachId: sessions.coachId })
-            .from(sessions)
+          allMatchingSessions = await db.select().from(sessions)
             .where(eq(sessions.seriesId, originalSeriesKey));
         }
 
+        // CRITICAL: Only target sessions that are NOT owned by the original coach
+        // Virtual/transferred sessions are ones that belong to a DIFFERENT coach than the series owner
+        let orphanSessions;
+        if (originalCoachId) {
+          orphanSessions = allMatchingSessions.filter(s => s.coachId !== originalCoachId);
+          console.log(`[Series DELETE] Original coach: ${originalCoachId}, total sessions: ${allMatchingSessions.length}, orphan/transferred: ${orphanSessions.length}`);
+        } else {
+          orphanSessions = allMatchingSessions;
+          console.log(`[Series DELETE] No original series found, targeting all ${allMatchingSessions.length} sessions`);
+        }
+
         if (orphanSessions.length === 0) {
-          return res.status(404).json({ error: "No sessions found for this virtual series" });
+          return res.status(404).json({ error: "No transferred/orphan sessions found for this virtual series" });
         }
 
         const sessionIds = orphanSessions.map(s => s.id);
         const orphanCoachId = orphanSessions[0]?.coachId;
 
-        // Delete related data then sessions (order matters for foreign keys)
-        await db.delete(xpTransactions).where(inArray(xpTransactions.sessionId, sessionIds));
-        await db.delete(coachXpTransactions).where(inArray(coachXpTransactions.sessionId, sessionIds));
-        await db.delete(creditTransactions).where(inArray(creditTransactions.sessionId, sessionIds));
-        await db.delete(sessionPlayers).where(inArray(sessionPlayers.sessionId, sessionIds));
-        await db.delete(sessions).where(inArray(sessions.id, sessionIds));
+        // Use a transaction to ensure all-or-nothing deletion
+        await db.transaction(async (tx) => {
+          await tx.delete(xpTransactions).where(inArray(xpTransactions.sessionId, sessionIds));
+          await tx.delete(coachXpTransactions).where(inArray(coachXpTransactions.sessionId, sessionIds));
+          await tx.delete(creditTransactions).where(inArray(creditTransactions.sessionId, sessionIds));
+          await tx.delete(sessionPlayers).where(inArray(sessionPlayers.sessionId, sessionIds));
+          await tx.delete(sessions).where(inArray(sessions.id, sessionIds));
+        });
 
         console.log(`[Series DELETE] Deleted ${sessionIds.length} orphan sessions for virtual series ${id}`);
 

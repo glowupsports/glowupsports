@@ -3668,28 +3668,19 @@ export const storage = {
     
     const sessionIds = seriesSessions.map(s => s.id);
     
-    if (sessionIds.length > 0) {
-      // Delete xp_transactions for all sessions in this series (must be before sessions)
-      await db.delete(xpTransactions).where(inArray(xpTransactions.sessionId, sessionIds));
+    // Use transaction for all-or-nothing deletion
+    await db.transaction(async (tx) => {
+      if (sessionIds.length > 0) {
+        await tx.delete(xpTransactions).where(inArray(xpTransactions.sessionId, sessionIds));
+        await tx.delete(coachXpTransactions).where(inArray(coachXpTransactions.sessionId, sessionIds));
+        await tx.delete(creditTransactions).where(inArray(creditTransactions.sessionId, sessionIds));
+        await tx.delete(sessionPlayers).where(inArray(sessionPlayers.sessionId, sessionIds));
+        await tx.delete(sessions).where(eq(sessions.seriesId, id));
+      }
       
-      // Delete coach_xp_transactions for all sessions in this series (must be before sessions)
-      await db.delete(coachXpTransactions).where(inArray(coachXpTransactions.sessionId, sessionIds));
-      
-      // Delete credit_transactions for all sessions in this series (must be before sessions)
-      await db.delete(creditTransactions).where(inArray(creditTransactions.sessionId, sessionIds));
-      
-      // Delete session_players for all sessions in this series
-      await db.delete(sessionPlayers).where(inArray(sessionPlayers.sessionId, sessionIds));
-    }
-    
-    // Delete all sessions for this series
-    await db.delete(sessions).where(eq(sessions.seriesId, id));
-    
-    // Delete all series players
-    await db.delete(seriesPlayers).where(eq(seriesPlayers.seriesId, id));
-    
-    // Finally delete the series itself
-    await db.delete(coachingSeries).where(eq(coachingSeries.id, id));
+      await tx.delete(seriesPlayers).where(eq(seriesPlayers.seriesId, id));
+      await tx.delete(coachingSeries).where(eq(coachingSeries.id, id));
+    });
   },
 
   // ==================== SERIES PLAYERS ====================
