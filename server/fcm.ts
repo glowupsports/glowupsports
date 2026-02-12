@@ -107,6 +107,7 @@ export async function sendFCMNotification(
             priority: "high",
             defaultVibrateTimings: true,
             defaultSound: true,
+            color: "#00E676",
           },
         },
       };
@@ -189,6 +190,7 @@ export async function sendFCMNotificationBatch(
           channelId,
           sound: "default",
           priority: "high",
+          color: "#00E676",
         },
       },
     };
