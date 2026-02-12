@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import {
   View,
   Text,
@@ -37,6 +37,7 @@ import { PlatformUsageProgress } from "@/components/PlatformUsageProgress";
 import { WhatsNewFeed } from "@/components/WhatsNewFeed";
 import { NotificationGuideModal } from "@/components/NotificationGuideModal";
 import { FirstActionCelebration } from "@/components/FirstActionCelebration";
+import { useCoachMarks, CoachMarkTarget } from "@/components/CoachMarks";
 
 type AdminNavProp = CompositeNavigationProp<
   BottomTabNavigationProp<AdminTabParamList>,
@@ -99,12 +100,49 @@ export default function AdminDashboardScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [showWelcome, setShowWelcome] = useState(false);
+  const { startTour, isActive } = useCoachMarks();
+
+  const adminTourSteps = useMemo(() => [
+    {
+      id: "admin_checklist",
+      title: "Setup Checklist",
+      description: "Follow these steps to get your academy fully configured. Each completed step unlocks more features.",
+      position: "bottom" as const,
+    },
+    {
+      id: "admin_ops",
+      title: "Operations Hub",
+      description: "Today's sessions, check-ins, and attendance at a glance. This is your daily command center.",
+      position: "bottom" as const,
+    },
+    {
+      id: "admin_stream",
+      title: "Live Activity",
+      description: "Real-time check-in stream shows who's arriving for sessions right now.",
+      position: "top" as const,
+    },
+    {
+      id: "admin_help",
+      title: "Need Help?",
+      description: "Tap here anytime for FAQs, tutorials, and support.",
+      position: "left" as const,
+    },
+  ], []);
 
   const dateQueryStr = selectedDate.toISOString().split('T')[0];
   const { data: operationsData, isLoading, isFetching, refetch } = useQuery<AdminOperationsData>({
     queryKey: [`/api/admin/dashboard/operations?date=${dateQueryStr}`],
     placeholderData: (prev) => prev,
   });
+
+  useEffect(() => {
+    if (!isLoading && operationsData && !isActive) {
+      const timer = setTimeout(() => {
+        startTour("admin_dashboard", adminTourSteps);
+      }, 1500);
+      return () => clearTimeout(timer);
+    }
+  }, [isLoading, operationsData]);
 
   const handleDateChange = (newDate: Date) => {
     setSelectedDate(newDate);
@@ -283,10 +321,12 @@ export default function AdminDashboardScreen() {
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.dark.orange} />
         }
       >
-        <GettingStartedChecklist
-          role="admin"
-          steps={adminChecklistSteps}
-        />
+        <CoachMarkTarget id="admin_checklist">
+          <GettingStartedChecklist
+            role="admin"
+            steps={adminChecklistSteps}
+          />
+        </CoachMarkTarget>
 
         <QuickTipsBanner role="admin" tips={adminTips} />
 
@@ -295,13 +335,15 @@ export default function AdminDashboardScreen() {
           features={adminFeatureUsage}
         />
 
-        <OperationsHubHero
-          activeSessions={liveStats.activeSessions}
-          waitingCheckIns={liveStats.waitingCheckIns}
-          activeCoaches={liveStats.activeCoaches}
-          nextSessionIn={liveStats.nextSessionIn}
-          onViewSchedule={() => navigateToTab("AdminSchedule")}
-        />
+        <CoachMarkTarget id="admin_ops">
+          <OperationsHubHero
+            activeSessions={liveStats.activeSessions}
+            waitingCheckIns={liveStats.waitingCheckIns}
+            activeCoaches={liveStats.activeCoaches}
+            nextSessionIn={liveStats.nextSessionIn}
+            onViewSchedule={() => navigateToTab("AdminSchedule")}
+          />
+        </CoachMarkTarget>
 
         <TodayOperationsPanel
           currentDate={selectedDate}
@@ -320,15 +362,17 @@ export default function AdminDashboardScreen() {
           onViewAll={() => navigateToTab("AdminSchedule")}
         />
 
-        <View style={styles.twoColumnRow}>
-          <View style={styles.columnHalf}>
-            <CheckInStream
-              checkIns={operationsData?.checkIns || []}
-              onConfirm={(id) => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)}
-              onViewPlayer={(id) => navigateToTab("AdminPlayers")}
-            />
+        <CoachMarkTarget id="admin_stream">
+          <View style={styles.twoColumnRow}>
+            <View style={styles.columnHalf}>
+              <CheckInStream
+                checkIns={operationsData?.checkIns || []}
+                onConfirm={(id) => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)}
+                onViewPlayer={(id) => navigateToTab("AdminPlayers")}
+              />
+            </View>
           </View>
-        </View>
+        </CoachMarkTarget>
 
         <TaskAlertsList
           alerts={operationsData?.taskAlerts || []}
@@ -469,12 +513,14 @@ export default function AdminDashboardScreen() {
         slides={adminWelcomeSlides}
         onComplete={() => {}}
       />
-      <HelpButton
-        role="admin"
-        faqs={adminFAQs}
-        supportEmail="support@glowupsports.com"
-        bottomOffset={120}
-      />
+      <CoachMarkTarget id="admin_help">
+        <HelpButton
+          role="admin"
+          faqs={adminFAQs}
+          supportEmail="support@glowupsports.com"
+          bottomOffset={120}
+        />
+      </CoachMarkTarget>
       <WhatsNewFeed
         visible={showWhatsNew}
         onClose={() => setShowWhatsNew(false)}

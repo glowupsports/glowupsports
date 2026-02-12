@@ -34,6 +34,7 @@ import { WhatsNewFeed } from "@/components/WhatsNewFeed";
 import { NotificationGuideModal } from "@/components/NotificationGuideModal";
 import { FirstActionCelebration } from "@/components/FirstActionCelebration";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { useCoachMarks, CoachMarkTarget } from "@/components/CoachMarks";
 
 interface DashboardData {
   player: {
@@ -95,6 +96,34 @@ function PlayerHomeContent() {
   const [showPinModal, setShowPinModal] = useState(false);
   const { hasSeenScreen, startWalkthrough } = useWalkthrough();
   const [showWelcome, setShowWelcome] = useState(false);
+  const { startTour, isActive } = useCoachMarks();
+
+  const playerTourSteps = useMemo(() => [
+    {
+      id: "player_card",
+      title: "Your Player Card",
+      description: "Your level, XP, and Glow Score at a glance. Keep playing to level up!",
+      position: "bottom" as const,
+    },
+    {
+      id: "player_sessions",
+      title: "Your Sessions",
+      description: "See your upcoming training sessions. Tap to view details or check in.",
+      position: "bottom" as const,
+    },
+    {
+      id: "player_discovery",
+      title: "Discover",
+      description: "Find other players nearby, open sessions to join, and training opportunities.",
+      position: "top" as const,
+    },
+    {
+      id: "player_help",
+      title: "Need Help?",
+      description: "Tap here anytime for FAQs, tutorials, and support.",
+      position: "left" as const,
+    },
+  ], []);
 
   const { data: dashboardData, isLoading, refetch, isRefetching } = useQuery<DashboardData>({
     queryKey: ["/api/player/me/dashboard"],
@@ -116,6 +145,15 @@ function PlayerHomeContent() {
       return () => clearTimeout(timer);
     }
   }, [dashboardData, hasSeenScreen, startWalkthrough]);
+
+  useEffect(() => {
+    if (dashboardData && !isActive) {
+      const timer = setTimeout(() => {
+        startTour("player_home", playerTourSteps);
+      }, 2000);
+      return () => clearTimeout(timer);
+    }
+  }, [dashboardData]);
 
   useFocusEffect(
     useCallback(() => {
@@ -359,16 +397,18 @@ function PlayerHomeContent() {
         />
 
         {/* PLAYER HEADER - Identity card */}
-        <View style={styles.headerSection}>
-          <ProPlayerCard
-            player={player}
-            credits={credits}
-            onAvatarPress={handleAvatarPress}
-            onWalletPress={handleWalletPress}
-            onSquadPress={handleSquadPress}
-            showSquadSwitch={true}
-          />
-        </View>
+        <CoachMarkTarget id="player_card">
+          <View style={styles.headerSection}>
+            <ProPlayerCard
+              player={player}
+              credits={credits}
+              onAvatarPress={handleAvatarPress}
+              onWalletPress={handleWalletPress}
+              onSquadPress={handleSquadPress}
+              showSquadSwitch={true}
+            />
+          </View>
+        </CoachMarkTarget>
 
         {/* BIRTHDAY XP BONUS - 2x XP message on birthday */}
         {isBirthday && <BirthdayXPBonusCard />}
@@ -377,7 +417,9 @@ function PlayerHomeContent() {
         <NewsTicker />
 
         {/* HERO CTA - Next Session (PRIMARY ACTION) */}
-        <SessionHeroCard onBookSession={handleBookLesson} />
+        <CoachMarkTarget id="player_sessions">
+          <SessionHeroCard onBookSession={handleBookLesson} />
+        </CoachMarkTarget>
 
         {/* TRACKING BANNER - Coach is watching */}
         <TrackingBanner />
@@ -386,18 +428,20 @@ function PlayerHomeContent() {
         <RecentFeedbackCard />
 
         {/* DISCOVERY SECTION - Horizontal scrolling rows */}
-        <View style={styles.discoverySection}>
-          <Text style={styles.discoverySectionTitle}>DISCOVER</Text>
-          
-          {/* Players Near You - Horizontal avatar carousel (filtered by ball level) */}
-          <PlayersNearYouRow />
-          
-          {/* Open Sessions - Join now cards */}
-          <OpenSessionsRow />
-          
-          {/* Trainings - Quick access to lessons */}
-          <TrainingSessionsRow />
-        </View>
+        <CoachMarkTarget id="player_discovery">
+          <View style={styles.discoverySection}>
+            <Text style={styles.discoverySectionTitle}>DISCOVER</Text>
+            
+            {/* Players Near You - Horizontal avatar carousel (filtered by ball level) */}
+            <PlayersNearYouRow />
+            
+            {/* Open Sessions - Join now cards */}
+            <OpenSessionsRow />
+            
+            {/* Trainings - Quick access to lessons */}
+            <TrainingSessionsRow />
+          </View>
+        </CoachMarkTarget>
 
         {/* COMMUNITY - Activity feed */}
         <MiniFeed />
@@ -432,12 +476,14 @@ function PlayerHomeContent() {
         slides={playerWelcomeSlides}
         onComplete={() => {}}
       />
-      <HelpButton
-        role="player"
-        faqs={playerFAQs}
-        supportEmail="support@glowupsports.com"
-        bottomOffset={120}
-      />
+      <CoachMarkTarget id="player_help">
+        <HelpButton
+          role="player"
+          faqs={playerFAQs}
+          supportEmail="support@glowupsports.com"
+          bottomOffset={120}
+        />
+      </CoachMarkTarget>
       <WhatsNewFeed
         visible={showWhatsNew}
         onClose={() => setShowWhatsNew(false)}
