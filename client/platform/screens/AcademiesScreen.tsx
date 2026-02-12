@@ -475,15 +475,6 @@ export default function AcademiesScreen() {
         ) : null}
       </ScrollView>
 
-      <Pressable 
-        style={[styles.fab, { bottom: insets.bottom + 100 }]}
-        onPress={() => {
-          if (Platform.OS !== "web") Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-          setShowCreateModal(true);
-        }}
-      >
-        <Ionicons name="add" size={28} color={Colors.dark.backgroundRoot} />
-      </Pressable>
 
       <CreateAcademyModal
         visible={showCreateModal}
@@ -658,21 +649,6 @@ const styles = StyleSheet.create({
     ...Typography.body,
     color: Colors.dark.textMuted,
     marginTop: Spacing.md,
-  },
-  fab: {
-    position: "absolute",
-    right: Spacing.lg,
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: PLATFORM_COLOR,
-    justifyContent: "center",
-    alignItems: "center",
-    elevation: 4,
-    shadowColor: PLATFORM_COLOR,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
   },
   modalOverlay: {
     flex: 1,
