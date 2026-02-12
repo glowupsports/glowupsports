@@ -55,6 +55,10 @@ import { WelcomeIntroModal } from "@/components/WelcomeIntroModal";
 import { HelpButton } from "@/components/HelpButton";
 import { QuickTipsBanner } from "@/components/QuickTipsBanner";
 import { RoleSwitchingGuide } from "@/components/RoleSwitchingGuide";
+import { PlatformUsageProgress } from "@/components/PlatformUsageProgress";
+import { WhatsNewFeed } from "@/components/WhatsNewFeed";
+import { NotificationGuideModal } from "@/components/NotificationGuideModal";
+import { FirstActionCelebration } from "@/components/FirstActionCelebration";
 
 interface Player {
   id: string;
@@ -694,6 +698,24 @@ export default function DashboardScreen() {
   ];
 
   const [showRoleSwitchGuide, setShowRoleSwitchGuide] = useState(false);
+  const [showWhatsNew, setShowWhatsNew] = useState(false);
+  const [showNotificationGuide, setShowNotificationGuide] = useState(false);
+  const [showFirstCelebration, setShowFirstCelebration] = useState(false);
+  const [celebrationData, setCelebrationData] = useState({ title: "", description: "", icon: "trophy", xpReward: 0 });
+
+  const coachFeatureUsage = useMemo(() => [
+    { id: "sessions", name: "Session Management", icon: "calendar", isUsed: true },
+    { id: "feedback", name: "Player Feedback", icon: "chatbubble-ellipses", isUsed: false },
+    { id: "templates", name: "Lesson Templates", icon: "document-text", isUsed: false },
+    { id: "wellness", name: "Wellness Tracking", icon: "heart", isUsed: false },
+    { id: "attendance", name: "Attendance", icon: "checkmark-circle", isUsed: true },
+  ], []);
+
+  const whatsNewItems = [
+    { id: "v2_onboarding", date: "2026-02-12", title: "New Onboarding Experience", description: "Getting Started checklists and guided walkthroughs to help you learn the platform faster.", icon: "rocket", iconColor: "#2ECC40", tag: "new" as const },
+    { id: "v2_help", date: "2026-02-10", title: "In-App Help Center", description: "Access FAQs, glossary, and video tutorials anytime from the help button.", icon: "help-circle", iconColor: "#00BCD4", tag: "new" as const },
+    { id: "v2_tips", date: "2026-02-08", title: "Quick Tips", description: "Rotating tips on your dashboard to help you get the most out of every feature.", icon: "bulb", iconColor: "#FF9800", tag: "improved" as const },
+  ];
 
   const coachWelcomeSlides = [
     {
@@ -754,6 +776,11 @@ export default function DashboardScreen() {
         />
 
         <QuickTipsBanner role="coach" tips={coachTips} />
+
+        <PlatformUsageProgress
+          role="coach"
+          features={coachFeatureUsage}
+        />
 
         {/* === GAMING PLAYER CARD HEADER === */}
         <View style={styles.playerCard}>
@@ -1618,6 +1645,24 @@ export default function DashboardScreen() {
         visible={showRoleSwitchGuide}
         onClose={() => setShowRoleSwitchGuide(false)}
         availableRoles={["coach", "player"]}
+      />
+      <WhatsNewFeed
+        visible={showWhatsNew}
+        onClose={() => setShowWhatsNew(false)}
+        items={whatsNewItems}
+      />
+      <NotificationGuideModal
+        visible={showNotificationGuide}
+        onClose={() => setShowNotificationGuide(false)}
+        role="coach"
+      />
+      <FirstActionCelebration
+        visible={showFirstCelebration}
+        onClose={() => setShowFirstCelebration(false)}
+        title={celebrationData.title}
+        description={celebrationData.description}
+        icon={celebrationData.icon}
+        xpReward={celebrationData.xpReward}
       />
     </View>
   );

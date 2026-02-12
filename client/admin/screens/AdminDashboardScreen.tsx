@@ -33,6 +33,10 @@ import { GettingStartedChecklist } from "@/components/GettingStartedChecklist";
 import { WelcomeIntroModal } from "@/components/WelcomeIntroModal";
 import { HelpButton } from "@/components/HelpButton";
 import { QuickTipsBanner } from "@/components/QuickTipsBanner";
+import { PlatformUsageProgress } from "@/components/PlatformUsageProgress";
+import { WhatsNewFeed } from "@/components/WhatsNewFeed";
+import { NotificationGuideModal } from "@/components/NotificationGuideModal";
+import { FirstActionCelebration } from "@/components/FirstActionCelebration";
 
 type AdminNavProp = CompositeNavigationProp<
   BottomTabNavigationProp<AdminTabParamList>,
@@ -190,6 +194,25 @@ export default function AdminDashboardScreen() {
     ];
   }, [operationsData, navigation, navigateToTab]);
 
+  const [showWhatsNew, setShowWhatsNew] = useState(false);
+  const [showNotificationGuide, setShowNotificationGuide] = useState(false);
+  const [showFirstCelebration, setShowFirstCelebration] = useState(false);
+  const [celebrationData, setCelebrationData] = useState({ title: "", description: "", icon: "trophy", xpReward: 0 });
+
+  const adminFeatureUsage = useMemo(() => [
+    { id: "coaches", name: "Coach Management", icon: "people", isUsed: true },
+    { id: "players", name: "Player Registry", icon: "person-add", isUsed: true },
+    { id: "schedule", name: "Session Scheduling", icon: "calendar", isUsed: false },
+    { id: "courts", name: "Court Management", icon: "tennisball", isUsed: false },
+    { id: "billing", name: "Billing & Payments", icon: "card", isUsed: false },
+    { id: "reports", name: "Reports", icon: "document-text", isUsed: false },
+  ], []);
+
+  const whatsNewItems = [
+    { id: "v2_onboarding", date: "2026-02-12", title: "Admin Setup Guide", description: "New Getting Started checklist and walkthrough to configure your academy faster.", icon: "rocket", iconColor: "#2ECC40", tag: "new" as const },
+    { id: "v2_help", date: "2026-02-10", title: "In-App Help Center", description: "Access FAQs, glossary, and contact support from the help button.", icon: "help-circle", iconColor: "#00BCD4", tag: "new" as const },
+  ];
+
   const adminTips = [
     { id: "tip_checkin", icon: "log-in", text: "Tip: Check the Check-In Stream to see who's arriving for sessions" },
     { id: "tip_schedule", icon: "calendar", text: "Tip: Use the Schedule tab to drag and drop sessions to new times" },
@@ -266,6 +289,11 @@ export default function AdminDashboardScreen() {
         />
 
         <QuickTipsBanner role="admin" tips={adminTips} />
+
+        <PlatformUsageProgress
+          role="admin"
+          features={adminFeatureUsage}
+        />
 
         <OperationsHubHero
           activeSessions={liveStats.activeSessions}
@@ -446,6 +474,24 @@ export default function AdminDashboardScreen() {
         faqs={adminFAQs}
         supportEmail="support@glowupsports.com"
         bottomOffset={120}
+      />
+      <WhatsNewFeed
+        visible={showWhatsNew}
+        onClose={() => setShowWhatsNew(false)}
+        items={whatsNewItems}
+      />
+      <NotificationGuideModal
+        visible={showNotificationGuide}
+        onClose={() => setShowNotificationGuide(false)}
+        role="admin"
+      />
+      <FirstActionCelebration
+        visible={showFirstCelebration}
+        onClose={() => setShowFirstCelebration(false)}
+        title={celebrationData.title}
+        description={celebrationData.description}
+        icon={celebrationData.icon}
+        xpReward={celebrationData.xpReward}
       />
     </View>
   );
