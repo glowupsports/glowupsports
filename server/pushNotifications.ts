@@ -289,27 +289,21 @@ export async function sendSessionReminder(
   sessionType: string,
   startTime: Date,
   coachName: string,
-  location?: string
+  location?: string,
+  academyId?: string | null
 ): Promise<void> {
   const tokens = await getPlayerPushTokens(playerId);
   if (tokens.length === 0) return;
 
-  const timeStr = startTime.toLocaleTimeString("en-US", {
-    hour: "2-digit",
-    minute: "2-digit",
-    timeZone: "Asia/Dubai",
-  });
-
-  // Format session type nicely
-  const typeLabel = sessionType.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
-  
-  // Build location string
-  const locationStr = location ? ` @ ${location}` : "";
+  const timezone = await getAcademyTimezone(academyId);
+  const { time } = formatSessionDateTime(startTime, timezone);
+  const typeLabel = formatSessionType(sessionType);
+  const locationStr = location ? ` at ${location}` : "";
 
   await sendPushNotification(
     tokens,
-    `${typeLabel}${locationStr}`,
-    `With ${coachName} - ${timeStr}`,
+    `Upcoming: ${typeLabel} Session`,
+    `${time} with ${coachName}${locationStr}. See you on court!`,
     { type: "session_reminder", playerId },
     playerId
   );
@@ -400,32 +394,26 @@ export async function sendSessionReminderToCoach(
   sessionType: string,
   startTime: Date,
   playerNames: string[],
-  location?: string
+  location?: string,
+  academyId?: string | null
 ): Promise<void> {
   const tokens = await getCoachPushTokens(coachId);
   if (tokens.length === 0) return;
 
-  const timeStr = startTime.toLocaleTimeString("en-US", {
-    hour: "2-digit",
-    minute: "2-digit",
-    timeZone: "Asia/Dubai",
-  });
-
-  // Format session type nicely
-  const typeLabel = sessionType.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+  const timezone = await getAcademyTimezone(academyId);
+  const { time } = formatSessionDateTime(startTime, timezone);
+  const typeLabel = formatSessionType(sessionType);
   
-  // Build player names string (max 3 names shown)
   const displayNames = playerNames.slice(0, 3).join(", ");
   const extraCount = playerNames.length > 3 ? ` +${playerNames.length - 3}` : "";
-  const playersStr = playerNames.length > 0 ? `${displayNames}${extraCount}` : "No players";
+  const playersStr = playerNames.length > 0 ? `${displayNames}${extraCount}` : "No players assigned";
   
-  // Build location string
-  const locationStr = location ? ` @ ${location}` : "";
+  const locationStr = location ? ` at ${location}` : "";
 
   await sendPushNotification(
     tokens,
-    `${typeLabel}${locationStr}`,
-    `${playersStr} - ${timeStr}`,
+    `Upcoming: ${typeLabel} Session`,
+    `${time}${locationStr} - ${playersStr}`,
     { type: "session_reminder_coach", coachId }
   );
 }
@@ -505,16 +493,16 @@ export async function processScheduledReminders(): Promise<void> {
               session.sessionType,
               session.startTime,
               coachName,
-              session.location || undefined
+              session.location || undefined,
+              session.academyId
             ).catch(err => console.error("[SessionReminders] Failed to send player reminder:", err));
             playerNotificationsSent++;
           }
           
-          // Always try to send email reminder regardless of push tokens
           const player = await db.select().from(players).where(eq(players.id, sp.playerId)).limit(1);
           if (player[0]?.email) {
-            const sessionDate = session.startTime.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric", timeZone: "Asia/Dubai" });
-            const sessionTime = session.startTime.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", timeZone: "Asia/Dubai" });
+            const tz = session.academyId ? (await getAcademyTimezone(session.academyId)) : "UTC";
+            const { date: sessionDate, time: sessionTime } = formatSessionDateTime(session.startTime, tz);
             sendSessionReminderEmail({
               to: player[0].email,
               playerName: player[0].name,
@@ -551,7 +539,8 @@ export async function processScheduledReminders(): Promise<void> {
             session.sessionType,
             session.startTime,
             playerNames,
-            session.location || undefined
+            session.location || undefined,
+            session.academyId
           ).catch(err => console.error("[SessionReminders] Failed to send coach reminder:", err));
         }
       }
