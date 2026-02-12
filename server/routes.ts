@@ -3748,6 +3748,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Get courts - filtered by academy
       const courts = await storage.getAllCourts(academyId ?? undefined);
       const locations = await storage.getAllLocations(academyId ?? undefined);
+      console.log(`[Calendar] academyId=${academyId}, coachId=${coachId}, courts=${courts.length}, locations=${locations.length}`);
 
       res.json({
         ownSessions: sessionsWithPlayers,
