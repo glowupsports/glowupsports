@@ -10,6 +10,7 @@ import Animated, { FadeInDown, FadeIn, FadeInUp, useAnimatedStyle, useSharedValu
 import DateTimePicker from "@react-native-community/datetimepicker";
 import { Colors, Spacing, BorderRadius } from "@/constants/theme";
 import { apiRequest } from "@/lib/query-client";
+import { GuidedEmptyState } from "@/components/GuidedEmptyState";
 import { useWalkthrough } from "@/player/context/WalkthroughContext";
 
 const ProTennisColors = {
@@ -750,15 +751,19 @@ export default function PlayerScheduleScreen() {
           </View>
 
           {selectedDateItems.length === 0 ? (
-            <View style={styles.emptyDay}>
-              <View style={styles.emptyDayIcon}>
-                <Feather name="calendar" size={32} color={ProTennisColors.textMuted} />
-              </View>
-              <Text style={styles.emptyDayText}>Nothing scheduled</Text>
-              <Pressable style={styles.emptyDayButton} onPress={handleBookLesson}>
-                <Text style={styles.emptyDayButtonText}>Book a Lesson</Text>
-              </Pressable>
-            </View>
+            <GuidedEmptyState
+              icon="calendar-outline"
+              title="No Sessions Yet"
+              description="Your training schedule will appear here once your coach adds you to sessions."
+              tips={[
+                "Ask your coach about available session times",
+                "Check the Open Sessions section on your home screen",
+                "Sessions update automatically when your coach creates them",
+              ]}
+              actionLabel="Book a Lesson"
+              onAction={handleBookLesson}
+              compact
+            />
           ) : (
             <View style={styles.sessionsList}>
               {selectedDateItems.map((item, index) => (

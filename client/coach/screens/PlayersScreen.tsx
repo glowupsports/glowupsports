@@ -41,6 +41,7 @@ import { convertUTCTimeToLocal } from "@/lib/dateUtils";
 import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollViewCompat";
 import PackagesCard from "@/coach/components/PackagesCard";
 import QuickBaselineDrawer from "@/coach/components/QuickBaselineDrawer";
+import { GuidedEmptyState } from "@/components/GuidedEmptyState";
 import { PremiumBaselineFlow } from "@/coach/components/PremiumBaselineFlow";
 import { DeepAssessmentDrawer } from "@/coach/components/DeepAssessmentDrawer";
 import { PremiumAddPlayerFlow } from "@/coach/components/PremiumAddPlayerFlow";
@@ -713,15 +714,23 @@ export default function PlayersScreen() {
           <ActivityIndicator size="large" color={Colors.dark.xpCyan} />
         </View>
       ) : filteredPlayers.length === 0 ? (
-        <View style={styles.emptyContainer}>
-          <Ionicons name="people-outline" size={48} color={Colors.dark.xpCyan + "60"} />
-          <Text style={styles.emptyText}>
-            {searchQuery ? "No players found" : "No players yet"}
-          </Text>
-          <Text style={styles.emptySubtext}>
-            {searchQuery ? "Try a different search" : "Add your first player to get started"}
-          </Text>
-        </View>
+        searchQuery ? (
+          <View style={styles.emptyContainer}>
+            <Ionicons name="search-outline" size={48} color={Colors.dark.xpCyan + "60"} />
+            <Text style={styles.emptyText}>No players found</Text>
+            <Text style={styles.emptySubtext}>Try a different search</Text>
+          </View>
+        ) : (
+          <GuidedEmptyState
+            icon="people-outline"
+            title="No Players Yet"
+            description="Players will appear here once they're assigned to your sessions by the academy admin."
+            tips={[
+              "Contact your academy admin to get players assigned",
+              "Players are automatically linked when added to your sessions",
+            ]}
+          />
+        )
       ) : (
         <ScrollView style={styles.playerList} showsVerticalScrollIndicator={false}>
           {filteredPlayers.map((player) => (

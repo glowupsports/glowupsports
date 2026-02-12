@@ -21,6 +21,7 @@ import Animated, {
 import { Colors, Spacing, BorderRadius, Typography } from "@/constants/theme";
 import { CoachingSeriesCard } from "./CoachingSeriesCard";
 import { NeoLoadoutPanel, NeoGlowBadge } from "@/components/NeoLoadoutPanel";
+import { GuidedEmptyState } from "@/components/GuidedEmptyState";
 import { apiRequest } from "@/lib/query-client";
 
 interface CoachingSeries {
@@ -294,60 +295,16 @@ export function CoachingSeriesSection({ onSeriesPress, onCreatePress }: Props) {
 
       {filteredSeries.length === 0 ? (
         <View style={styles.emptyContainer}>
-          <NeoLoadoutPanel variant="card" accentColor={Colors.dark.primary} tone="calm">
-            <View style={styles.emptyContent}>
-              <NeoGlowBadge accentColor={Colors.dark.primary}>
-                <Ionicons name="layers-outline" size={24} color={Colors.dark.primary} />
-              </NeoGlowBadge>
-              <Text style={styles.emptyTitle}>No Classes</Text>
-              <Text style={styles.emptySubtitle}>
-                {filter === "all" 
-                  ? "Create your first recurring class to get started"
-                  : `No ${filter} classes found`}
-              </Text>
-              <Pressable 
-                onPress={() => {
-                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-                  onCreatePress();
-                }}
-                style={styles.createButton}
-              >
-                <LinearGradient
-                  colors={[Colors.dark.primary, Colors.dark.primaryGlow]}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 1 }}
-                  style={styles.createButtonGradient}
-                >
-                  <Ionicons name="add" size={20} color={Colors.dark.buttonText} />
-                  <Text style={styles.createButtonText}>Create Class</Text>
-                </LinearGradient>
-              </Pressable>
-              <Pressable 
-                onPress={() => {
-                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-                  Alert.alert(
-                    "Import Recurring Sessions",
-                    "This will convert your existing recurring sessions into classes. Sessions will be grouped by their recurring pattern.",
-                    [
-                      { text: "Cancel", style: "cancel" },
-                      { text: "Migrate", onPress: () => migrateMutation.mutate() },
-                    ]
-                  );
-                }}
-                disabled={migrateMutation.isPending}
-                style={styles.migrateButton}
-              >
-                {migrateMutation.isPending ? (
-                  <ActivityIndicator size="small" color={Colors.dark.gold} />
-                ) : (
-                  <>
-                    <Ionicons name="sync-outline" size={16} color={Colors.dark.gold} />
-                    <Text style={styles.migrateButtonText}>Import Recurring Sessions</Text>
-                  </>
-                )}
-              </Pressable>
-            </View>
-          </NeoLoadoutPanel>
+          <GuidedEmptyState
+            icon="layers-outline"
+            title="No Series Created"
+            description={filter === "all" 
+              ? "Recurring training series help you organize your weekly schedule. Create one to get started!"
+              : `No ${filter} classes found`}
+            actionLabel="Create Series"
+            onAction={() => onCreatePress()}
+            compact
+          />
         </View>
       ) : (
         <View style={styles.seriesListContainer}>

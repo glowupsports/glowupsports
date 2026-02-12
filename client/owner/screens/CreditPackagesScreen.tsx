@@ -16,6 +16,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useNavigation } from "@react-navigation/native";
 import { Colors, Spacing, BorderRadius, Typography } from "@/constants/theme";
 import { InfoTooltip } from "@/components/InfoTooltip";
+import { GuidedEmptyState } from "@/components/GuidedEmptyState";
 
 interface CreditPackage {
   creditType: string;
@@ -182,6 +183,19 @@ export default function CreditPackagesScreen() {
             <Ionicons name="alert-circle" size={40} color={Colors.dark.error} />
             <Text style={styles.errorText}>Failed to load credit packages</Text>
           </View>
+        ) : creditPackages.length === 0 ? (
+          <GuidedEmptyState
+            icon="card-outline"
+            title="No Credit Packages"
+            description="Set up credit packages so players can purchase training credits for your academy."
+            tips={[
+              "Create packages for Private, Semi-Private, and Group sessions",
+              "Set expiry dates to keep credits active",
+              "Players purchase credits through their app",
+            ]}
+            actionLabel="Configure Pricing"
+            onAction={() => (navigation as any).navigate("Pricing")}
+          />
         ) : (
           <View style={styles.sectionsContainer}>
             {Object.keys(CREDIT_TYPE_INFO).map(renderCreditTypeSection)}
