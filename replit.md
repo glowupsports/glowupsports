@@ -56,6 +56,19 @@ The application utilizes a dark-themed gaming aesthetic, incorporating neon gree
 - **Token Refresh Mechanism**: Automatic client-side token refresh before logging out on 401 errors, supported by a server-side `refreshAuthMiddleware` that accepts expired tokens.
 - **Player Onboarding V2**: A comprehensive 17-step onboarding flow adapted for age, including Welcome, Birthday, Gender selection (Male/Female/Prefer not to say), Photo upload, Ball Level Reveal (with age-based mapping: Red 4-6, Orange 7-8, Green 9-10, Yellow 11-17, Adult DSS 18+), level adjustment option, Why Tennis motivation, Experience (including 10-15, 15-20, 20+ years options), About Yourself, Tennis Idol (featuring new generation players: Alcaraz, Sinner, Swiatek, Rune, Sabalenka), Enjoyment tags, Focus goals, Availability, Academy selection, Goal setting, Parent connect/Quiz, and Completion.
 - **Academy Settings Welcome Video**: Academy owners can configure a welcome video URL in settings, displayed to new players during onboarding.
+- **User Onboarding & Guidance System**: Comprehensive onboarding system for all user roles with the following components:
+  - `GettingStartedChecklist` - Role-specific setup checklists with progress tracking (AsyncStorage: `@glow_getting_started_{role}`)
+  - `WelcomeIntroModal` - Swipeable welcome slides shown on first login (AsyncStorage: `@glow_welcome_seen_{role}`)
+  - `HelpCenterModal` - FAQ, platform glossary, video tutorials, and contact support (email/WhatsApp)
+  - `HelpButton` - Floating help FAB (bottom-right) that opens HelpCenterModal
+  - `QuickTipsBanner` - Rotating role-specific tips with dismiss persistence (AsyncStorage: `@glow_dismissed_tips_{role}`)
+  - `RoleSwitchingGuide` - Modal explaining role switching for multi-role users
+  - `SettingsWalkthroughModal` - Guided academy settings setup with "why this matters" explanations
+  - `FirstActionCelebration` - Confetti celebration modal for milestone achievements (AsyncStorage: `@glow_celebrations_shown`)
+  - `WhatsNewFeed` - Platform updates feed with unseen badge counts (AsyncStorage: `@glow_whats_new_last_seen`)
+  - `NotificationGuideModal` - Role-specific notification type explanations (AsyncStorage: `@glow_notification_guide_seen_{role}`)
+  - `PlatformUsageProgress` - Feature adoption progress card with circular indicator (AsyncStorage: `@glow_platform_usage_dismissed_{role}`)
+  - All components integrated into: Coach Dashboard, Player Home, Admin Dashboard, Platform Owner Command Center
 
 ## CRITICAL: Database Configuration
 
