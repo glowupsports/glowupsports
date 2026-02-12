@@ -1210,6 +1210,9 @@ var init_schema = __esm({
       // Family Lobby - Link multiple players to same parent account
       parentEmail: text("parent_email"),
       // Parent's email for family account linking
+      // Child Safety - Parental Controls
+      chatEnabled: boolean("chat_enabled"),
+      communityEnabled: boolean("community_enabled"),
       // Social Profile Fields (Game Character)
       profilePhotoUrl: text("profile_photo_url"),
       displayName: text("display_name"),
@@ -13334,6 +13337,7 @@ var init_emailService = __esm({
 // server/fcm.ts
 var fcm_exports = {};
 __export(fcm_exports, {
+  getChannelIdForNotificationType: () => getChannelIdForNotificationType,
   initializeFirebase: () => initializeFirebase,
   isFCMToken: () => isFCMToken,
   isFirebaseInitialized: () => isFirebaseInitialized,
@@ -13367,6 +13371,28 @@ function isFirebaseInitialized() {
 }
 function isFCMToken(token) {
   return !token.startsWith("ExponentPushToken[") && token.length > 100;
+}
+function getChannelIdForNotificationType(type) {
+  if (!type) return "default";
+  switch (type) {
+    case "session_confirmed":
+    case "session_cancelled":
+    case "session_reminder":
+    case "session_reminder_coach":
+    case "new_session_available":
+    case "booking_request":
+      return "sessions";
+    case "feedback_received":
+      return "feedback";
+    case "badge_earned":
+    case "level_up":
+    case "xp_gained":
+    case "glow_rank_update":
+    case "streak_alert":
+      return "xp";
+    default:
+      return "default";
+  }
 }
 async function sendFCMNotification(tokens, title, body, data, channelId = "default") {
   if (!firebaseApp) {
@@ -13404,7 +13430,9 @@ async function sendFCMNotification(tokens, title, body, data, channelId = "defau
             sound: "default",
             priority: "high",
             defaultVibrateTimings: true,
-            defaultSound: true
+            defaultSound: true,
+            color: "#000000",
+            vibrateTimingsMillis: [0, 250, 250, 250]
           }
         }
       };
@@ -13427,8 +13455,8 @@ async function sendFCMNotification(tokens, title, body, data, channelId = "defau
         try {
           const { db: db2 } = await Promise.resolve().then(() => (init_db(), db_exports));
           const { pushDeviceTokens: pushDeviceTokens2 } = await Promise.resolve().then(() => (init_schema(), schema_exports));
-          const { eq: eq23 } = await import("drizzle-orm");
-          await db2.update(pushDeviceTokens2).set({ isActive: false }).where(eq23(pushDeviceTokens2.token, token));
+          const { eq: eq24 } = await import("drizzle-orm");
+          await db2.update(pushDeviceTokens2).set({ isActive: false }).where(eq24(pushDeviceTokens2.token, token));
         } catch (deactivateErr) {
           console.error("[FCM] Failed to deactivate invalid token:", deactivateErr);
         }
@@ -13465,7 +13493,11 @@ async function sendFCMNotificationBatch(tokens, title, body, data, channelId = "
         notification: {
           channelId,
           sound: "default",
-          priority: "high"
+          priority: "high",
+          color: "#000000",
+          vibrateTimingsMillis: [0, 250, 250, 250],
+          defaultVibrateTimings: true,
+          defaultSound: true
         }
       }
     };
@@ -13541,8 +13573,50 @@ __export(pushNotifications_exports, {
   stopReminderScheduler: () => stopReminderScheduler
 });
 import { eq as eq2, and as and2, gte as gte2, lte as lte2 } from "drizzle-orm";
+function formatSessionDateTime(startTime, timezone) {
+  const dt = typeof startTime === "string" ? new Date(startTime) : startTime;
+  const date2 = dt.toLocaleDateString("en-GB", {
+    weekday: "short",
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+    timeZone: timezone
+  });
+  const time = dt.toLocaleTimeString("en-US", {
+    hour: "numeric",
+    minute: "2-digit",
+    hour12: true,
+    timeZone: timezone
+  });
+  return { date: date2, time };
+}
+function formatSessionType(type) {
+  switch (type) {
+    case "private":
+      return "Private";
+    case "semi_private":
+      return "Semi-Private";
+    case "group":
+      return "Group";
+    case "private_adjusted":
+      return "Private";
+    default:
+      return type.charAt(0).toUpperCase() + type.slice(1).replace(/_/g, " ");
+  }
+}
+async function getAcademyTimezone(academyId) {
+  if (!academyId) return "UTC";
+  try {
+    const academy = await storage.getAcademy(academyId);
+    return academy?.timezone || "UTC";
+  } catch {
+    return "UTC";
+  }
+}
 async function sendExpoPushNotification(tokens, title, body, data) {
   if (tokens.length === 0) return [];
+  const notificationType = data?.type;
+  const channelId = getChannelIdForNotificationType(notificationType);
   const messages3 = tokens.map((token) => ({
     to: token,
     title,
@@ -13550,7 +13624,7 @@ async function sendExpoPushNotification(tokens, title, body, data) {
     data,
     sound: "default",
     priority: "high",
-    channelId: "default"
+    channelId
   }));
   try {
     const response = await fetch(EXPO_PUSH_URL, {
@@ -13635,7 +13709,9 @@ async function sendPushNotification(tokens, title, body, data, playerId) {
     results.push(...expoResults);
   }
   if (fcmTokens.length > 0 && isFirebaseInitialized()) {
-    const fcmResults = await sendFCMNotification(fcmTokens, title, body, data);
+    const notificationType = data?.type;
+    const channelId = getChannelIdForNotificationType(notificationType);
+    const fcmResults = await sendFCMNotification(fcmTokens, title, body, data, channelId);
     for (const result of fcmResults) {
       results.push({
         status: result.success ? "ok" : "error",
@@ -13698,20 +13774,17 @@ async function getPlayerPushTokens(playerId) {
   if (user.length === 0) return [];
   return getUserPushTokens(user[0].id);
 }
-async function sendSessionReminder(playerId, sessionType, startTime, coachName, location) {
+async function sendSessionReminder(playerId, sessionType, startTime, coachName, location, academyId) {
   const tokens = await getPlayerPushTokens(playerId);
   if (tokens.length === 0) return;
-  const timeStr = startTime.toLocaleTimeString("en-US", {
-    hour: "2-digit",
-    minute: "2-digit",
-    timeZone: "Asia/Dubai"
-  });
-  const typeLabel = sessionType.replace(/_/g, " ").replace(/\b\w/g, (l) => l.toUpperCase());
-  const locationStr = location ? ` @ ${location}` : "";
+  const timezone = await getAcademyTimezone(academyId);
+  const { time } = formatSessionDateTime(startTime, timezone);
+  const typeLabel = formatSessionType(sessionType);
+  const locationStr = location ? ` at ${location}` : "";
   await sendPushNotification(
     tokens,
-    `${typeLabel}${locationStr}`,
-    `With ${coachName} - ${timeStr}`,
+    `Upcoming: ${typeLabel} Session`,
+    `${time} with ${coachName}${locationStr}. See you on court!`,
     { type: "session_reminder", playerId },
     playerId
   );
@@ -13765,23 +13838,20 @@ async function sendCoachNotification(coachId, title, body, data) {
   if (tokens.length === 0) return;
   await sendPushNotification(tokens, title, body, data);
 }
-async function sendSessionReminderToCoach(coachId, sessionType, startTime, playerNames, location) {
+async function sendSessionReminderToCoach(coachId, sessionType, startTime, playerNames, location, academyId) {
   const tokens = await getCoachPushTokens(coachId);
   if (tokens.length === 0) return;
-  const timeStr = startTime.toLocaleTimeString("en-US", {
-    hour: "2-digit",
-    minute: "2-digit",
-    timeZone: "Asia/Dubai"
-  });
-  const typeLabel = sessionType.replace(/_/g, " ").replace(/\b\w/g, (l) => l.toUpperCase());
+  const timezone = await getAcademyTimezone(academyId);
+  const { time } = formatSessionDateTime(startTime, timezone);
+  const typeLabel = formatSessionType(sessionType);
   const displayNames = playerNames.slice(0, 3).join(", ");
   const extraCount = playerNames.length > 3 ? ` +${playerNames.length - 3}` : "";
-  const playersStr = playerNames.length > 0 ? `${displayNames}${extraCount}` : "No players";
-  const locationStr = location ? ` @ ${location}` : "";
+  const playersStr = playerNames.length > 0 ? `${displayNames}${extraCount}` : "No players assigned";
+  const locationStr = location ? ` at ${location}` : "";
   await sendPushNotification(
     tokens,
-    `${typeLabel}${locationStr}`,
-    `${playersStr} - ${timeStr}`,
+    `Upcoming: ${typeLabel} Session`,
+    `${time}${locationStr} - ${playersStr}`,
     { type: "session_reminder_coach", coachId }
   );
 }
@@ -13831,14 +13901,15 @@ async function processScheduledReminders() {
               session.sessionType,
               session.startTime,
               coachName,
-              session.location || void 0
+              session.location || void 0,
+              session.academyId
             ).catch((err) => console.error("[SessionReminders] Failed to send player reminder:", err));
             playerNotificationsSent++;
           }
           const player2 = await db.select().from(players).where(eq2(players.id, sp.playerId)).limit(1);
           if (player2[0]?.email) {
-            const sessionDate2 = session.startTime.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric", timeZone: "Asia/Dubai" });
-            const sessionTime = session.startTime.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", timeZone: "Asia/Dubai" });
+            const tz = session.academyId ? await getAcademyTimezone(session.academyId) : "UTC";
+            const { date: sessionDate2, time: sessionTime } = formatSessionDateTime(session.startTime, tz);
             sendSessionReminderEmail({
               to: player2[0].email,
               playerName: player2[0].name,
@@ -13871,7 +13942,8 @@ async function processScheduledReminders() {
             session.sessionType,
             session.startTime,
             playerNames,
-            session.location || void 0
+            session.location || void 0,
+            session.academyId
           ).catch((err) => console.error("[SessionReminders] Failed to send coach reminder:", err));
         }
       }
@@ -14063,25 +14135,33 @@ function stopReminderScheduler() {
     console.log("[SessionReminders] Scheduler stopped");
   }
 }
-async function sendSessionConfirmedNotification(playerId, coachName, sessionDate2, sessionTime) {
+async function sendSessionConfirmedNotification(playerId, sessionType, startTime, coachName, academyId) {
   const tokens = await getPlayerPushTokens(playerId);
   if (tokens.length === 0) return;
+  const timezone = await getAcademyTimezone(academyId);
+  const { date: date2, time } = formatSessionDateTime(startTime, timezone);
+  const typeLabel = formatSessionType(sessionType);
   await sendPushNotification(
     tokens,
-    "Booking Confirmed!",
-    `${coachName} confirmed your session for ${sessionDate2} at ${sessionTime}`,
-    { type: "session_confirmed", playerId, screen: "Schedule" }
+    "Session Confirmed",
+    `Your ${typeLabel} session with ${coachName} is booked for ${date2} at ${time}.`,
+    { type: "session_confirmed", playerId, screen: "Schedule" },
+    playerId
   );
 }
-async function sendSessionCancelledNotification(playerId, sessionType, sessionDate2, reason) {
+async function sendSessionCancelledNotification(playerId, sessionType, startTime, reason, academyId) {
   const tokens = await getPlayerPushTokens(playerId);
   if (tokens.length === 0) return;
-  const body = reason ? `Your ${sessionType} on ${sessionDate2} has been cancelled: ${reason}` : `Your ${sessionType} on ${sessionDate2} has been cancelled`;
+  const timezone = await getAcademyTimezone(academyId);
+  const { date: date2, time } = formatSessionDateTime(startTime, timezone);
+  const typeLabel = formatSessionType(sessionType);
+  const body = reason ? `Your ${typeLabel} session on ${date2} at ${time} has been cancelled. Reason: ${reason}` : `Your ${typeLabel} session on ${date2} at ${time} has been cancelled.`;
   await sendPushNotification(
     tokens,
     "Session Cancelled",
     body,
-    { type: "session_cancelled", playerId, screen: "Schedule" }
+    { type: "session_cancelled", playerId, screen: "Schedule" },
+    playerId
   );
 }
 async function sendNewSessionAvailableNotification(playerId, coachName, sessionType) {
@@ -14094,13 +14174,16 @@ async function sendNewSessionAvailableNotification(playerId, coachName, sessionT
     { type: "new_session_available", playerId, screen: "LessonBooking" }
   );
 }
-async function sendBookingRequestNotification(coachId, playerName, sessionType, requestedDate) {
+async function sendBookingRequestNotification(coachId, playerName, sessionType, requestedDate, academyId) {
   const tokens = await getCoachPushTokens(coachId);
   if (tokens.length === 0) return;
+  const timezone = await getAcademyTimezone(academyId);
+  const { date: date2, time } = formatSessionDateTime(requestedDate, timezone);
+  const typeLabel = formatSessionType(sessionType);
   await sendPushNotification(
     tokens,
     "New Booking Request",
-    `${playerName} wants to book a ${sessionType} on ${requestedDate}`,
+    `${playerName} has requested a ${typeLabel} session on ${date2} at ${time}.`,
     { type: "booking_request", coachId, screen: "Calendar" }
   );
 }
@@ -14267,7 +14350,7 @@ async function processAutoSessionCompletion() {
   try {
     const { db: db2 } = await Promise.resolve().then(() => (init_db(), db_exports));
     const { sessions: sessions3, sessionPlayers: sessionPlayers2, players: players3, packages: packages2 } = await Promise.resolve().then(() => (init_schema(), schema_exports));
-    const { eq: eq23, and: and23, lt: lt3, isNull: isNull7, inArray: inArray9 } = await import("drizzle-orm");
+    const { eq: eq24, and: and23, lt: lt3, isNull: isNull7, inArray: inArray9 } = await import("drizzle-orm");
     const { storage: storage2 } = await Promise.resolve().then(() => (init_storage(), storage_exports));
     const dubaiNow = new Date((/* @__PURE__ */ new Date()).toLocaleString("en-US", { timeZone: "Asia/Dubai" }));
     console.log(`[AutoComplete] Running auto session completion check at ${dubaiNow.toISOString()}`);
@@ -14279,7 +14362,7 @@ async function processAutoSessionCompletion() {
       endTime: sessions3.endTime
     }).from(sessions3).where(and23(
       lt3(sessions3.endTime, dubaiNow),
-      eq23(sessions3.status, "scheduled")
+      eq24(sessions3.status, "scheduled")
     ));
     if (incompleteSessions.length === 0) {
       console.log("[AutoComplete] No sessions to auto-complete");
@@ -14295,7 +14378,7 @@ async function processAutoSessionCompletion() {
           playerId: sessionPlayers2.playerId,
           attendanceStatus: sessionPlayers2.attendanceStatus,
           creditDeductedAt: sessionPlayers2.creditDeductedAt
-        }).from(sessionPlayers2).where(eq23(sessionPlayers2.sessionId, session.id));
+        }).from(sessionPlayers2).where(eq24(sessionPlayers2.sessionId, session.id));
         for (const sp of enrolledPlayers) {
           if (sp.attendanceStatus === "present" || sp.attendanceStatus === "absent" || sp.creditDeductedAt) {
             continue;
@@ -14303,7 +14386,7 @@ async function processAutoSessionCompletion() {
           await db2.update(sessionPlayers2).set({
             attendanceStatus: "present",
             attended: true
-          }).where(eq23(sessionPlayers2.id, sp.id));
+          }).where(eq24(sessionPlayers2.id, sp.id));
           totalPlayersMarked++;
           const creditResult = await storage2.deductTypedCreditsForSession(
             sp.playerId,
@@ -14318,7 +14401,7 @@ async function processAutoSessionCompletion() {
           } else {
             const { creditTransactions: creditTransactions3 } = await Promise.resolve().then(() => (init_schema(), schema_exports));
             const debtId = `debt-auto-${session.id}-${sp.playerId}`;
-            const existingDebt = await db2.select().from(creditTransactions3).where(eq23(creditTransactions3.id, debtId)).limit(1);
+            const existingDebt = await db2.select().from(creditTransactions3).where(eq24(creditTransactions3.id, debtId)).limit(1);
             if (existingDebt.length === 0) {
               const creditType = session.sessionType.includes("semi") ? "semi_private" : session.sessionType.includes("group") ? "group" : session.sessionType === "private_adjusted" ? "private" : "private";
               await db2.insert(creditTransactions3).values({
@@ -14337,13 +14420,13 @@ async function processAutoSessionCompletion() {
                   reason: creditResult.reason
                 }
               });
-              await db2.update(sessionPlayers2).set({ creditDeductedAt: /* @__PURE__ */ new Date() }).where(eq23(sessionPlayers2.id, sp.id));
+              await db2.update(sessionPlayers2).set({ creditDeductedAt: /* @__PURE__ */ new Date() }).where(eq24(sessionPlayers2.id, sp.id));
               totalCreditsDeducted++;
               console.log(`[AutoComplete] Recorded debt for player ${sp.playerId} in session ${session.id}`);
             }
           }
         }
-        await db2.update(sessions3).set({ status: "completed" }).where(eq23(sessions3.id, session.id));
+        await db2.update(sessions3).set({ status: "completed" }).where(eq24(sessions3.id, session.id));
         console.log(`[AutoComplete] Completed session ${session.id} (${session.sessionType})`);
       } catch (sessionError) {
         console.error(`[AutoComplete] Error processing session ${session.id}:`, sessionError);
@@ -28413,7 +28496,7 @@ var demo_data_seed_exports = {};
 __export(demo_data_seed_exports, {
   seedDemoDataForTheLaw: () => seedDemoDataForTheLaw
 });
-import { eq as eq21, and as and21, or as or8, ilike as ilike3, ne as ne4 } from "drizzle-orm";
+import { eq as eq22, and as and21, or as or8, ilike as ilike3, ne as ne4 } from "drizzle-orm";
 async function seedDemoDataForTheLaw() {
   console.log("[DemoSeed] Starting demo data seed for TheLaw...");
   try {
@@ -28431,14 +28514,14 @@ async function seedDemoDataForTheLaw() {
     const academyId = theLawPlayer[0].academyId;
     const userId = theLawPlayer[0].userId;
     console.log("[DemoSeed] Found TheLaw player:", playerId, "academy:", academyId);
-    const coachResult = await db.select().from(coaches).where(eq21(coaches.academyId, academyId)).limit(1);
+    const coachResult = await db.select().from(coaches).where(eq22(coaches.academyId, academyId)).limit(1);
     const coachId = coachResult.length > 0 ? coachResult[0].id : null;
     console.log("[DemoSeed] Found coach:", coachId);
     console.log("[DemoSeed] Adding pillar progress data...");
     for (const pillar of PILLARS2) {
       const existing2 = await db.select().from(playerPillarProgress).where(and21(
-        eq21(playerPillarProgress.playerId, playerId),
-        eq21(playerPillarProgress.pillar, pillar.name)
+        eq22(playerPillarProgress.playerId, playerId),
+        eq22(playerPillarProgress.pillar, pillar.name)
       )).limit(1);
       const scoreValue = pillar.percentage / 100 * 2;
       const trend = pillar.percentage > 60 ? "improving" : "stable";
@@ -28449,7 +28532,7 @@ async function seedDemoDataForTheLaw() {
           lastSessionDelta: "+",
           lastUpdatedAt: /* @__PURE__ */ new Date(),
           updatedAt: /* @__PURE__ */ new Date()
-        }).where(eq21(playerPillarProgress.id, existing2[0].id));
+        }).where(eq22(playerPillarProgress.id, existing2[0].id));
       } else {
         await db.insert(playerPillarProgress).values({
           id: `pillar-${playerId}-${pillar.name.toLowerCase()}`,
@@ -28471,8 +28554,8 @@ async function seedDemoDataForTheLaw() {
       const assessedSkills = Math.floor(totalSkills * 0.7);
       const avgScore = pillar.percentage / 100 * 3;
       const existing2 = await db.select().from(deepAssessmentPillarSummaries2).where(and21(
-        eq21(deepAssessmentPillarSummaries2.playerId, playerId),
-        eq21(deepAssessmentPillarSummaries2.pillar, pillar.name)
+        eq22(deepAssessmentPillarSummaries2.playerId, playerId),
+        eq22(deepAssessmentPillarSummaries2.pillar, pillar.name)
       )).limit(1);
       if (existing2.length > 0) {
         await db.update(deepAssessmentPillarSummaries2).set({
@@ -28488,7 +28571,7 @@ async function seedDemoDataForTheLaw() {
           highConfidenceCount: Math.floor(assessedSkills * 0.5),
           lastAssessedAt: /* @__PURE__ */ new Date(),
           updatedAt: /* @__PURE__ */ new Date()
-        }).where(eq21(deepAssessmentPillarSummaries2.id, existing2[0].id));
+        }).where(eq22(deepAssessmentPillarSummaries2.id, existing2[0].id));
       } else {
         await db.insert(deepAssessmentPillarSummaries2).values({
           id: `deep-${playerId}-${pillar.name.toLowerCase()}`,
@@ -28533,8 +28616,8 @@ async function seedDemoDataForTheLaw() {
         console.log("[DemoSeed] Created skill domain:", pillar.domainName);
       }
       const existingState = await db.select().from(playerSkillState).where(and21(
-        eq21(playerSkillState.playerId, playerId),
-        eq21(playerSkillState.domainId, domain.id)
+        eq22(playerSkillState.playerId, playerId),
+        eq22(playerSkillState.domainId, domain.id)
       )).limit(1);
       const trend = pillar.percentage > 60 ? "improving" : pillar.percentage > 40 ? "stable" : "focus";
       const momentum = pillar.percentage > 70 ? "strong" : pillar.percentage > 50 ? "building" : "slowing";
@@ -28551,7 +28634,7 @@ async function seedDemoDataForTheLaw() {
           upCountRecent: Math.floor(pillar.percentage / 15),
           downCountRecent: Math.floor((100 - pillar.percentage) / 30),
           updatedAt: /* @__PURE__ */ new Date()
-        }).where(eq21(playerSkillState.id, existingState[0].id));
+        }).where(eq22(playerSkillState.id, existingState[0].id));
       } else {
         await db.insert(playerSkillState).values({
           id: `skill-${playerId}-${pillar.domainName}`,
@@ -28574,14 +28657,14 @@ async function seedDemoDataForTheLaw() {
     console.log("[DemoSeed] Player skill state added");
     console.log("[DemoSeed] Finding other players to add as friends...");
     const otherPlayers = await db.select().from(players).where(and21(
-      eq21(players.academyId, academyId),
+      eq22(players.academyId, academyId),
       ne4(players.id, playerId)
     )).limit(5);
     console.log("[DemoSeed] Found", otherPlayers.length, "other players");
     for (const otherPlayer of otherPlayers) {
       const existingConnection = await db.select().from(playerConnections).where(or8(
-        and21(eq21(playerConnections.player1Id, playerId), eq21(playerConnections.player2Id, otherPlayer.id)),
-        and21(eq21(playerConnections.player1Id, otherPlayer.id), eq21(playerConnections.player2Id, playerId))
+        and21(eq22(playerConnections.player1Id, playerId), eq22(playerConnections.player2Id, otherPlayer.id)),
+        and21(eq22(playerConnections.player1Id, otherPlayer.id), eq22(playerConnections.player2Id, playerId))
       )).limit(1);
       if (existingConnection.length === 0) {
         await db.insert(playerConnections).values({
@@ -28600,7 +28683,7 @@ async function seedDemoDataForTheLaw() {
     }
     console.log("[DemoSeed] Creating training group...");
     const existingGroup = await db.select().from(communityGroups).where(and21(
-      eq21(communityGroups.academyId, academyId),
+      eq22(communityGroups.academyId, academyId),
       ilike3(communityGroups.name, "%Yellow Ball%")
     )).limit(1);
     let groupId;
@@ -28625,8 +28708,8 @@ async function seedDemoDataForTheLaw() {
     }
     if (userId) {
       const existingMember = await db.select().from(groupMembers).where(and21(
-        eq21(groupMembers.groupId, groupId),
-        eq21(groupMembers.userId, userId)
+        eq22(groupMembers.groupId, groupId),
+        eq22(groupMembers.userId, userId)
       )).limit(1);
       if (existingMember.length === 0) {
         await db.insert(groupMembers).values({
@@ -28642,8 +28725,8 @@ async function seedDemoDataForTheLaw() {
     for (const otherPlayer of otherPlayers.slice(0, 3)) {
       if (otherPlayer.userId) {
         const existingOtherMember = await db.select().from(groupMembers).where(and21(
-          eq21(groupMembers.groupId, groupId),
-          eq21(groupMembers.userId, otherPlayer.userId)
+          eq22(groupMembers.groupId, groupId),
+          eq22(groupMembers.userId, otherPlayer.userId)
         )).limit(1);
         if (existingOtherMember.length === 0) {
           await db.insert(groupMembers).values({
@@ -28660,7 +28743,7 @@ async function seedDemoDataForTheLaw() {
     console.log("[DemoSeed] Training group created/updated");
     console.log("[DemoSeed] Adding social posts...");
     if (userId) {
-      const existingPosts = await db.select().from(posts2).where(eq21(posts2.authorId, userId)).limit(1);
+      const existingPosts = await db.select().from(posts2).where(eq22(posts2.authorId, userId)).limit(1);
       if (existingPosts.length === 0) {
         const postTexts = [
           "Great training session today! Worked on my backhand and feeling the improvement",
@@ -28731,7 +28814,7 @@ import rateLimit from "express-rate-limit";
 import multer3 from "multer";
 import path3 from "path";
 import fs3 from "fs";
-import { eq as eq22, sql as sql21, desc as desc18, and as and22, ne as ne5, gte as gte11, asc as asc4, inArray as inArray8, notInArray, isNull as isNull6, isNotNull as isNotNull3, or as or9, count as count3, ilike as ilike4, lte as lte4 } from "drizzle-orm";
+import { eq as eq23, sql as sql21, desc as desc18, and as and22, ne as ne5, gte as gte11, asc as asc4, inArray as inArray8, notInArray, isNull as isNull6, isNotNull as isNotNull3, or as or9, count as count3, ilike as ilike4, lte as lte4 } from "drizzle-orm";
 
 // server/websocket.ts
 init_storage();
@@ -37489,6 +37572,259 @@ router14.post("/api/role-messages/get-all-roles", authMiddlewareWithFreshData, a
 });
 var role_messages_default = router14;
 
+// server/profanityFilter.ts
+var PROFANITY_LIST = [
+  "fuck",
+  "fucking",
+  "fucker",
+  "fuckers",
+  "fucked",
+  "fucks",
+  "motherfucker",
+  "motherfucking",
+  "shit",
+  "shitty",
+  "shitting",
+  "bullshit",
+  "horseshit",
+  "dipshit",
+  "ass",
+  "asshole",
+  "assholes",
+  "asses",
+  "dumbass",
+  "fatass",
+  "jackass",
+  "smartass",
+  "bitch",
+  "bitches",
+  "bitchy",
+  "sonofabitch",
+  "damn",
+  "damned",
+  "dammit",
+  "goddamn",
+  "goddamnit",
+  "hell",
+  "bastard",
+  "bastards",
+  "dick",
+  "dicks",
+  "dickhead",
+  "dickheads",
+  "cock",
+  "cocks",
+  "cocksucker",
+  "cocksuckers",
+  "cunt",
+  "cunts",
+  "pussy",
+  "pussies",
+  "whore",
+  "whores",
+  "slut",
+  "sluts",
+  "piss",
+  "pissed",
+  "pissing",
+  "crap",
+  "crappy",
+  "wanker",
+  "wankers",
+  "tosser",
+  "tossers",
+  "twat",
+  "twats",
+  "bollocks",
+  "bugger",
+  "nigger",
+  "niggers",
+  "nigga",
+  "niggas",
+  "faggot",
+  "faggots",
+  "fag",
+  "fags",
+  "retard",
+  "retarded",
+  "retards",
+  "spic",
+  "spics",
+  "chink",
+  "chinks",
+  "kike",
+  "kikes",
+  "wetback",
+  "gook",
+  "gooks",
+  "tranny",
+  "trannies",
+  "porn",
+  "porno",
+  "pornography",
+  "dildo",
+  "vibrator",
+  "jerkoff",
+  "jackoff",
+  "wankstain",
+  "skank",
+  "skanky",
+  "boobs",
+  "tits",
+  "titties",
+  "anus",
+  "anal",
+  "blowjob",
+  "handjob",
+  "cumshot",
+  "creampie",
+  "cum",
+  "jizz",
+  "semen",
+  "spunk",
+  "godverdomme",
+  "verdomme",
+  "kut",
+  "kanker",
+  "kankerlijer",
+  "tering",
+  "teringlijer",
+  "hoer",
+  "hoeren",
+  "slet",
+  "klootzak",
+  "klootzakken",
+  "lul",
+  "eikel",
+  "mongool",
+  "debiel",
+  "sukkel",
+  "drol",
+  "schijt",
+  "stront",
+  "mierenneuker",
+  "kutwijf",
+  "tyfus",
+  "tyfuslijer",
+  "pleuris",
+  "pleurislijer",
+  "godnondeju",
+  "krijg de klere",
+  "oprotten",
+  "optieven",
+  "opflikkeren",
+  "kuss",
+  "kos",
+  "kosomak",
+  "kosommak",
+  "sharmouta",
+  "sharmout",
+  "sharmuta",
+  "manyak",
+  "manyake",
+  "ibn el sharmouta",
+  "yel3an",
+  "yelaan",
+  "ya kalb",
+  "ya hmar",
+  "ya khara",
+  "khara",
+  "kharah",
+  "zebi",
+  "zebbi",
+  "nikk",
+  "nik",
+  "ayre",
+  "ayri",
+  "eyre",
+  "ya ibn el",
+  "ya wiskha",
+  "wisekh",
+  "telhas",
+  "tizi",
+  "ahbal",
+  "khanzeera",
+  "khanzeir"
+];
+var profanityRegex = new RegExp(
+  `\\b(${PROFANITY_LIST.map((w) => w.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("|")})\\b`,
+  "gi"
+);
+function filterProfanity(text2) {
+  return text2.replace(profanityRegex, "***");
+}
+
+// server/childSafety.ts
+init_db();
+init_schema();
+import { eq as eq21 } from "drizzle-orm";
+function isMinor(dateOfBirth) {
+  if (!dateOfBirth) return false;
+  const birth = new Date(dateOfBirth);
+  const today = /* @__PURE__ */ new Date();
+  let age = today.getFullYear() - birth.getFullYear();
+  const monthDiff = today.getMonth() - birth.getMonth();
+  if (monthDiff < 0 || monthDiff === 0 && today.getDate() < birth.getDate()) {
+    age--;
+  }
+  return age < 18;
+}
+function isMinorByAge(age) {
+  if (age == null) return false;
+  return age < 18;
+}
+async function getPlayerParentalControls(playerId) {
+  const player2 = await db.query.players.findFirst({
+    where: eq21(players.id, playerId)
+  });
+  if (!player2) {
+    return { chatEnabled: false, communityEnabled: false };
+  }
+  const minor = isMinor(player2.dateOfBirth) || isMinorByAge(player2.age);
+  if (!minor) {
+    return { chatEnabled: true, communityEnabled: true };
+  }
+  return {
+    chatEnabled: player2.chatEnabled ?? false,
+    communityEnabled: player2.communityEnabled ?? false
+  };
+}
+async function isPlayerMinor(playerId) {
+  const player2 = await db.query.players.findFirst({
+    where: eq21(players.id, playerId)
+  });
+  if (!player2) return false;
+  return isMinor(player2.dateOfBirth) || isMinorByAge(player2.age);
+}
+
+// server/rateLimiter.ts
+var RateLimiter = class {
+  requests = /* @__PURE__ */ new Map();
+  maxRequests;
+  windowMs;
+  constructor(maxRequests, windowMs) {
+    this.maxRequests = maxRequests;
+    this.windowMs = windowMs;
+  }
+  isRateLimited(userId) {
+    const now = Date.now();
+    const timestamps = this.requests.get(userId);
+    if (!timestamps) return false;
+    const valid = timestamps.filter((t) => now - t < this.windowMs);
+    this.requests.set(userId, valid);
+    return valid.length >= this.maxRequests;
+  }
+  recordRequest(userId) {
+    const now = Date.now();
+    const timestamps = this.requests.get(userId) || [];
+    const valid = timestamps.filter((t) => now - t < this.windowMs);
+    valid.push(now);
+    this.requests.set(userId, valid);
+  }
+};
+var chatRateLimiter = new RateLimiter(5, 1e4);
+var postRateLimiter = new RateLimiter(3, 6e4);
+
 // server/routes.ts
 var authLimiter = rateLimit({
   windowMs: 15 * 60 * 1e3,
@@ -37611,11 +37947,11 @@ async function registerRoutes(app2) {
   setFeatureUnlockChecker({
     isFeatureUnlocked: async (playerId, featureKey) => {
       try {
-        const [player2] = await db.select({ level: players.level }).from(players).where(eq22(players.id, playerId));
+        const [player2] = await db.select({ level: players.level }).from(players).where(eq23(players.id, playerId));
         if (!player2) return false;
         const playerLevel = player2.level || 1;
         const { playerFeatureUnlocks: playerFeatureUnlocks2 } = await Promise.resolve().then(() => (init_schema(), schema_exports));
-        const [feature] = await db.select().from(playerFeatureUnlocks2).where(eq22(playerFeatureUnlocks2.featureKey, featureKey));
+        const [feature] = await db.select().from(playerFeatureUnlocks2).where(eq23(playerFeatureUnlocks2.featureKey, featureKey));
         if (!feature) return true;
         if (!feature.isActive) return true;
         return playerLevel >= feature.requiredLevel;
@@ -37693,7 +38029,7 @@ async function registerRoutes(app2) {
       for (const player2 of allPlayers) {
         const attendanceData = await db.select({
           status: sessionPlayers.attendanceStatus
-        }).from(sessionPlayers).where(eq22(sessionPlayers.playerId, player2.id));
+        }).from(sessionPlayers).where(eq23(sessionPlayers.playerId, player2.id));
         const presentCount = attendanceData.filter((a) => a.status === "present" || a.status === "late").length;
         const absentCount = attendanceData.filter((a) => a.status === "absent").length;
         const vacationCount = attendanceData.filter((a) => a.status === "vacation").length;
@@ -37707,8 +38043,8 @@ async function registerRoutes(app2) {
           createdAt: creditTransactions.createdAt,
           packageId: creditTransactions.packageId
         }).from(creditTransactions).where(and22(
-          eq22(creditTransactions.playerId, player2.id),
-          eq22(creditTransactions.type, "debit")
+          eq23(creditTransactions.playerId, player2.id),
+          eq23(creditTransactions.type, "debit")
         )).orderBy(creditTransactions.createdAt);
         const debitsBySession = /* @__PURE__ */ new Map();
         for (const debit of allDebits) {
@@ -37739,7 +38075,7 @@ async function registerRoutes(app2) {
           const toKeep = sorted[0];
           const toDelete = sorted.slice(1);
           for (const dup of toDelete) {
-            await db.delete(creditTransactions).where(eq22(creditTransactions.id, dup.id));
+            await db.delete(creditTransactions).where(eq23(creditTransactions.id, dup.id));
             duplicatesRemoved++;
             totalDuplicatesRemoved++;
           }
@@ -37747,7 +38083,7 @@ async function registerRoutes(app2) {
         const afterDebits = await db.select({
           amount: creditTransactions.amount,
           creditType: creditTransactions.creditType
-        }).from(creditTransactions).where(eq22(creditTransactions.playerId, player2.id));
+        }).from(creditTransactions).where(eq23(creditTransactions.playerId, player2.id));
         const balance = { group: 0, semi_private: 0, private: 0 };
         for (const tx of afterDebits) {
           const ct = tx.creditType || "group";
@@ -37812,8 +38148,8 @@ async function registerRoutes(app2) {
           createdAt: creditTransactions.createdAt,
           packageId: creditTransactions.packageId
         }).from(creditTransactions).where(and22(
-          eq22(creditTransactions.playerId, player2.id),
-          eq22(creditTransactions.type, "debit")
+          eq23(creditTransactions.playerId, player2.id),
+          eq23(creditTransactions.type, "debit")
         )).orderBy(creditTransactions.createdAt);
         const totalDebits = allDebits.length;
         if (totalDebits <= chargeableCount) {
@@ -37841,7 +38177,7 @@ async function registerRoutes(app2) {
         }
         let removedCount = 0;
         for (const orphan of orphanDebits) {
-          await db.delete(creditTransactions).where(eq22(creditTransactions.id, orphan.id));
+          await db.delete(creditTransactions).where(eq23(creditTransactions.id, orphan.id));
           removedCount++;
         }
         for (const [sessionId, debitsForSession] of debitsBySession) {
@@ -37856,7 +38192,7 @@ async function registerRoutes(app2) {
             return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
           });
           for (let i = 1; i < sorted.length; i++) {
-            await db.delete(creditTransactions).where(eq22(creditTransactions.id, sorted[i].id));
+            await db.delete(creditTransactions).where(eq23(creditTransactions.id, sorted[i].id));
             removedCount++;
           }
         }
@@ -37864,7 +38200,7 @@ async function registerRoutes(app2) {
         const afterTx = await db.select({
           amount: creditTransactions.amount,
           creditType: creditTransactions.creditType
-        }).from(creditTransactions).where(eq22(creditTransactions.playerId, player2.id));
+        }).from(creditTransactions).where(eq23(creditTransactions.playerId, player2.id));
         const balance = { group: 0, semi_private: 0, private: 0 };
         for (const tx of afterTx) {
           const ct = tx.creditType || "group";
@@ -37969,19 +38305,19 @@ async function registerRoutes(app2) {
         creditTransactionId: sessionPlayers.creditTransactionId,
         sessionType: sessions.sessionType,
         startTime: sessions.startTime
-      }).from(sessionPlayers).innerJoin(sessions, eq22(sessionPlayers.sessionId, sessions.id)).where(and22(
-        eq22(sessionPlayers.playerId, playerId),
+      }).from(sessionPlayers).innerJoin(sessions, eq23(sessionPlayers.sessionId, sessions.id)).where(and22(
+        eq23(sessionPlayers.playerId, playerId),
         or9(
-          eq22(sessionPlayers.attendanceStatus, "present"),
-          eq22(sessionPlayers.attendanceStatus, "late")
+          eq23(sessionPlayers.attendanceStatus, "present"),
+          eq23(sessionPlayers.attendanceStatus, "late")
         )
       ));
       const sessionsWithoutTransaction = [];
       for (const session of allAttendedSessions) {
         const existingTransactions = await db.select({ id: creditTransactions.id }).from(creditTransactions).where(and22(
-          eq22(creditTransactions.playerId, playerId),
-          eq22(creditTransactions.sessionId, session.sessionId),
-          eq22(creditTransactions.type, "debit")
+          eq23(creditTransactions.playerId, playerId),
+          eq23(creditTransactions.sessionId, session.sessionId),
+          eq23(creditTransactions.type, "debit")
         )).limit(1);
         if (existingTransactions.length === 0) {
           sessionsWithoutTransaction.push(session);
@@ -38011,7 +38347,7 @@ async function registerRoutes(app2) {
             sessionId: session.sessionId,
             metadata: { isDebt: true, fixedManually: true, sessionType: session.sessionType }
           });
-          await db.update(sessionPlayers).set({ creditDeductedAt: /* @__PURE__ */ new Date(), creditTransactionId: debtId }).where(eq22(sessionPlayers.id, session.sessionPlayerId));
+          await db.update(sessionPlayers).set({ creditDeductedAt: /* @__PURE__ */ new Date(), creditTransactionId: debtId }).where(eq23(sessionPlayers.id, session.sessionPlayerId));
           fixedCount++;
           console.log(`[FixUnpaid] Recorded debt for session ${session.sessionId} (type: ${creditType})`);
         } catch (e) {
@@ -38043,16 +38379,16 @@ async function registerRoutes(app2) {
         creditDeductedAt: sessionPlayers.creditDeductedAt,
         sessionType: sessions.sessionType,
         startTime: sessions.startTime
-      }).from(sessionPlayers).innerJoin(sessions, eq22(sessionPlayers.sessionId, sessions.id)).where(or9(
-        eq22(sessionPlayers.attendanceStatus, "present"),
-        eq22(sessionPlayers.attendanceStatus, "late")
+      }).from(sessionPlayers).innerJoin(sessions, eq23(sessionPlayers.sessionId, sessions.id)).where(or9(
+        eq23(sessionPlayers.attendanceStatus, "present"),
+        eq23(sessionPlayers.attendanceStatus, "late")
       ));
       const sessionsWithoutTransaction = [];
       for (const session of allAttendedSessions) {
         const existingTransactions = await db.select({ id: creditTransactions.id }).from(creditTransactions).where(and22(
-          eq22(creditTransactions.playerId, session.playerId),
-          eq22(creditTransactions.sessionId, session.sessionId),
-          eq22(creditTransactions.type, "debit")
+          eq23(creditTransactions.playerId, session.playerId),
+          eq23(creditTransactions.sessionId, session.sessionId),
+          eq23(creditTransactions.type, "debit")
         )).limit(1);
         if (existingTransactions.length === 0) {
           sessionsWithoutTransaction.push(session);
@@ -38094,7 +38430,7 @@ async function registerRoutes(app2) {
               sessionId: session.sessionId,
               metadata: { isDebt: true, fixedManually: true, sessionType: session.sessionType }
             });
-            await db.update(sessionPlayers).set({ creditDeductedAt: /* @__PURE__ */ new Date(), creditTransactionId: debtId }).where(eq22(sessionPlayers.id, session.sessionPlayerId));
+            await db.update(sessionPlayers).set({ creditDeductedAt: /* @__PURE__ */ new Date(), creditTransactionId: debtId }).where(eq23(sessionPlayers.id, session.sessionPlayerId));
             fixedCount++;
             totalFixed++;
             console.log(`[FixAllUnpaid] Recorded debt for session ${session.sessionId} (type: ${creditType})`);
@@ -38170,24 +38506,24 @@ async function registerRoutes(app2) {
       const startDate2 = new Date(reportYear, reportMonth, 1);
       const endDate = new Date(reportYear, reportMonth + 1, 0, 23, 59, 59);
       const monthName = startDate2.toLocaleString("en-US", { month: "long", year: "numeric" });
-      const [player2] = await db.select().from(players).where(eq22(players.id, playerId));
+      const [player2] = await db.select().from(players).where(eq23(players.id, playerId));
       if (!player2) {
         return res.status(404).json({ error: "Player not found" });
       }
-      const [user] = await db.select().from(users).where(eq22(users.id, player2.userId));
+      const [user] = await db.select().from(users).where(eq23(users.id, player2.userId));
       if (!user?.email) {
         return res.status(400).json({ error: "Player has no email address" });
       }
-      const [academy] = player2.academyId ? await db.select().from(academies).where(eq22(academies.id, player2.academyId)) : [null];
+      const [academy] = player2.academyId ? await db.select().from(academies).where(eq23(academies.id, player2.academyId)) : [null];
       const sessionAttendance = await db.select({
         sessionId: sessionPlayers.sessionId,
         attendanceStatus: sessionPlayers.attendanceStatus,
         sessionType: sessions.sessionType,
         coachId: sessions.coachId,
         startTime: sessions.startTime
-      }).from(sessionPlayers).innerJoin(sessions, eq22(sessionPlayers.sessionId, sessions.id)).where(
+      }).from(sessionPlayers).innerJoin(sessions, eq23(sessionPlayers.sessionId, sessions.id)).where(
         and22(
-          eq22(sessionPlayers.playerId, playerId),
+          eq23(sessionPlayers.playerId, playerId),
           gte11(sessions.startTime, startDate2),
           lte4(sessions.startTime, endDate)
         )
@@ -38214,7 +38550,7 @@ async function registerRoutes(app2) {
         durationMinutes: courtBookings.durationMinutes
       }).from(courtBookings).where(
         and22(
-          eq22(courtBookings.playerId, playerId),
+          eq23(courtBookings.playerId, playerId),
           gte11(courtBookings.date, startDate2.toISOString().split("T")[0]),
           lte4(courtBookings.date, endDate.toISOString().split("T")[0])
         )
@@ -38226,7 +38562,7 @@ async function registerRoutes(app2) {
         didWin: matchLogs.didWin
       }).from(matchLogs).where(
         and22(
-          eq22(matchLogs.playerId, playerId),
+          eq23(matchLogs.playerId, playerId),
           gte11(matchLogs.createdAt, startDate2),
           lte4(matchLogs.createdAt, endDate)
         )
@@ -38236,7 +38572,7 @@ async function registerRoutes(app2) {
       const matchesLost = matchesPlayed - matchesWon;
       const xpData = await db.select({ xpAmount: xpTransactions.xpAmount }).from(xpTransactions).where(
         and22(
-          eq22(xpTransactions.playerId, playerId),
+          eq23(xpTransactions.playerId, playerId),
           gte11(xpTransactions.createdAt, startDate2),
           lte4(xpTransactions.createdAt, endDate)
         )
@@ -38257,7 +38593,7 @@ async function registerRoutes(app2) {
         amount: creditTransactions.amount
       }).from(creditTransactions).where(
         and22(
-          eq22(creditTransactions.playerId, playerId),
+          eq23(creditTransactions.playerId, playerId),
           gte11(creditTransactions.createdAt, startDate2),
           lte4(creditTransactions.createdAt, endDate)
         )
@@ -38268,8 +38604,8 @@ async function registerRoutes(app2) {
         remainingCredits: playerCreditPackages.remainingCredits
       }).from(playerCreditPackages).where(
         and22(
-          eq22(playerCreditPackages.playerId, playerId),
-          eq22(playerCreditPackages.status, "active")
+          eq23(playerCreditPackages.playerId, playerId),
+          eq23(playerCreditPackages.status, "active")
         )
       );
       const creditsRemaining = playerPackages.reduce((sum, p) => sum + (p.remainingCredits || 0), 0);
@@ -38295,7 +38631,7 @@ async function registerRoutes(app2) {
         used: data.used,
         remaining: data.remaining
       }));
-      const [ballLevel2] = await db.select({ ballLevel: playerBallLevels.ballLevel }).from(playerBallLevels).where(eq22(playerBallLevels.playerId, playerId)).limit(1);
+      const [ballLevel2] = await db.select({ ballLevel: playerBallLevels.ballLevel }).from(playerBallLevels).where(eq23(playerBallLevels.playerId, playerId)).limit(1);
       const glowLevel = ballLevel2?.ballLevel ? ballLevel2.ballLevel.charAt(0).toUpperCase() + ballLevel2.ballLevel.slice(1) : void 0;
       const { sendMonthlyReportEmail: sendMonthlyReportEmail2 } = await Promise.resolve().then(() => (init_emailService(), emailService_exports));
       const result = await sendMonthlyReportEmail2({
@@ -39609,9 +39945,9 @@ async function registerRoutes(app2) {
         return res.status(401).json({ error: "Player profile required" });
       }
       const { ballLevel: ballLevel2, sessionType, invitedFriendIds } = req2.body;
-      const player2 = await db.select().from(players).where(eq22(players.id, playerId)).limit(1);
+      const player2 = await db.select().from(players).where(eq23(players.id, playerId)).limit(1);
       const playerName = player2[0]?.name || "A player";
-      const academyCoaches = academyId ? await db.select().from(coaches).where(eq22(coaches.academyId, academyId)) : [];
+      const academyCoaches = academyId ? await db.select().from(coaches).where(eq23(coaches.academyId, academyId)) : [];
       for (const coach of academyCoaches) {
         await db.insert(notifications).values({
           id: `notif-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
@@ -40174,7 +40510,7 @@ async function registerRoutes(app2) {
           hostBallLevel: players.ballLevel,
           playerBallLevel: players.ballLevel,
           profilePhotoUrl: players.profilePhotoUrl
-        }).from(sessionPlayers).leftJoin(players, eq22(sessionPlayers.playerId, players.id)).where(inArray8(sessionPlayers.sessionId, sessionIds)) : Promise.resolve([]),
+        }).from(sessionPlayers).leftJoin(players, eq23(sessionPlayers.playerId, players.id)).where(inArray8(sessionPlayers.sessionId, sessionIds)) : Promise.resolve([]),
         seriesIds.length > 0 ? db.select({
           seriesId: seriesPlayers.seriesId,
           playerId: seriesPlayers.playerId,
@@ -40183,7 +40519,7 @@ async function registerRoutes(app2) {
           hostBallLevel: players.ballLevel,
           playerBallLevel: players.ballLevel,
           profilePhotoUrl: players.profilePhotoUrl
-        }).from(seriesPlayers).leftJoin(players, eq22(seriesPlayers.playerId, players.id)).where(and22(inArray8(seriesPlayers.seriesId, seriesIds), eq22(seriesPlayers.status, "active"))) : Promise.resolve([])
+        }).from(seriesPlayers).leftJoin(players, eq23(seriesPlayers.playerId, players.id)).where(and22(inArray8(seriesPlayers.seriesId, seriesIds), eq23(seriesPlayers.status, "active"))) : Promise.resolve([])
       ]);
       const sessionPlayersMap = /* @__PURE__ */ new Map();
       for (const p of allSessionPlayers) {
@@ -40254,8 +40590,8 @@ async function registerRoutes(app2) {
       let courtBlockedSlots = [];
       if (view === "day") {
         courtBlockedSlots = await db.select().from(courtAvailability).where(and22(
-          eq22(courtAvailability.date, dateStrForQuery),
-          eq22(courtAvailability.status, "blocked")
+          eq23(courtAvailability.date, dateStrForQuery),
+          eq23(courtAvailability.status, "blocked")
         ));
       } else if (view === "week") {
         const weekStartStr = `${startDate2.getUTCFullYear()}-${(startDate2.getUTCMonth() + 1).toString().padStart(2, "0")}-${startDate2.getUTCDate().toString().padStart(2, "0")}`;
@@ -40263,7 +40599,7 @@ async function registerRoutes(app2) {
         courtBlockedSlots = await db.select().from(courtAvailability).where(and22(
           gte11(courtAvailability.date, weekStartStr),
           lte4(courtAvailability.date, weekEndStr),
-          eq22(courtAvailability.status, "blocked")
+          eq23(courtAvailability.status, "blocked")
         ));
       }
       const courtBlockedForResponse = courtBlockedSlots.map((slot) => {
@@ -40285,9 +40621,9 @@ async function registerRoutes(app2) {
         const cbStartStr = `${startDate2.getUTCFullYear()}-${(startDate2.getUTCMonth() + 1).toString().padStart(2, "0")}-${startDate2.getUTCDate().toString().padStart(2, "0")}`;
         const cbEndStr = `${endDate.getUTCFullYear()}-${(endDate.getUTCMonth() + 1).toString().padStart(2, "0")}-${endDate.getUTCDate().toString().padStart(2, "0")}`;
         const rawCoachBlocks = await db.select().from(coachTimeBlocks).where(and22(
-          eq22(coachTimeBlocks.coachId, coachId),
-          eq22(coachTimeBlocks.sourceType, "blocked"),
-          eq22(coachTimeBlocks.status, "confirmed"),
+          eq23(coachTimeBlocks.coachId, coachId),
+          eq23(coachTimeBlocks.sourceType, "blocked"),
+          eq23(coachTimeBlocks.status, "confirmed"),
           gte11(coachTimeBlocks.date, cbStartStr),
           lte4(coachTimeBlocks.date, cbEndStr)
         ));
@@ -40335,7 +40671,7 @@ async function registerRoutes(app2) {
       const sessionsWithDetails = await Promise.all(
         todaySessions.map(async (session) => {
           const players3 = await storage.getSessionRoster(session.id, session.seriesId || null, academyId ?? void 0);
-          const [plan] = await db.select({ id: sessionPlans.id, status: sessionPlans.status }).from(sessionPlans).where(eq22(sessionPlans.sessionId, session.id));
+          const [plan] = await db.select({ id: sessionPlans.id, status: sessionPlans.status }).from(sessionPlans).where(eq23(sessionPlans.sessionId, session.id));
           const firstPlayer = players3[0];
           return {
             id: session.id,
@@ -40358,7 +40694,7 @@ async function registerRoutes(app2) {
   });
   app2.get("/api/world-chat", authMiddlewareWithFreshData, async (req2, res) => {
     try {
-      let worldConv = await db.select().from(conversations).where(eq22(conversations.type, "world")).limit(1);
+      let worldConv = await db.select().from(conversations).where(eq23(conversations.type, "world")).limit(1);
       if (worldConv.length === 0) {
         const created = await db.insert(conversations).values({
           type: "world",
@@ -40377,7 +40713,7 @@ async function registerRoutes(app2) {
   });
   app2.get("/api/world-chat/messages", authMiddlewareWithFreshData, async (req2, res) => {
     try {
-      const worldConvResult = await db.select().from(conversations).where(eq22(conversations.type, "world")).limit(1);
+      const worldConvResult = await db.select().from(conversations).where(eq23(conversations.type, "world")).limit(1);
       if (worldConvResult.length === 0) {
         return res.json([]);
       }
@@ -40393,8 +40729,8 @@ async function registerRoutes(app2) {
         messageType: messages.messageType,
         createdAt: messages.createdAt
       }).from(messages).where(and22(
-        eq22(messages.conversationId, worldConvId),
-        eq22(messages.isDeleted, false)
+        eq23(messages.conversationId, worldConvId),
+        eq23(messages.isDeleted, false)
       )).orderBy(desc18(messages.createdAt)).limit(limit);
       const orderedMsgs = msgs.reverse();
       const coachIds = [...new Set(orderedMsgs.filter((m) => m.senderCoachId).map((m) => m.senderCoachId))];
@@ -40473,7 +40809,7 @@ async function registerRoutes(app2) {
       if (!sanitizedBody) {
         return res.status(400).json({ error: "Message body required after sanitization" });
       }
-      let worldConvResult = await db.select().from(conversations).where(eq22(conversations.type, "world")).limit(1);
+      let worldConvResult = await db.select().from(conversations).where(eq23(conversations.type, "world")).limit(1);
       if (worldConvResult.length === 0) {
         const created = await db.insert(conversations).values({
           type: "world",
@@ -40498,7 +40834,7 @@ async function registerRoutes(app2) {
       await db.update(conversations).set({
         lastMessageAt: /* @__PURE__ */ new Date(),
         lastMessagePreview: sanitizedBody.substring(0, 100)
-      }).where(eq22(conversations.id, worldConvId));
+      }).where(eq23(conversations.id, worldConvId));
       let senderName = "Unknown";
       let academyName = "";
       if (senderType === "coach" && coachId) {
@@ -40507,11 +40843,11 @@ async function registerRoutes(app2) {
           firstName: coaches.firstName,
           lastName: coaches.lastName,
           academyId: coaches.academyId
-        }).from(coaches).where(eq22(coaches.id, coachId)).limit(1);
+        }).from(coaches).where(eq23(coaches.id, coachId)).limit(1);
         if (coachData.length > 0) {
           senderName = coachData[0].name || `${coachData[0].firstName || ""} ${coachData[0].lastName || ""}`.trim() || "Coach";
           if (coachData[0].academyId) {
-            const acad = await db.select({ name: academies.name }).from(academies).where(eq22(academies.id, coachData[0].academyId)).limit(1);
+            const acad = await db.select({ name: academies.name }).from(academies).where(eq23(academies.id, coachData[0].academyId)).limit(1);
             academyName = acad[0]?.name || "";
           }
         }
@@ -40521,11 +40857,11 @@ async function registerRoutes(app2) {
           firstName: players.firstName,
           lastName: players.lastName,
           academyId: players.academyId
-        }).from(players).where(eq22(players.id, playerId)).limit(1);
+        }).from(players).where(eq23(players.id, playerId)).limit(1);
         if (playerData.length > 0) {
           senderName = playerData[0].name || `${playerData[0].firstName || ""} ${playerData[0].lastName || ""}`.trim() || "Player";
           if (playerData[0].academyId) {
-            const acad = await db.select({ name: academies.name }).from(academies).where(eq22(academies.id, playerData[0].academyId)).limit(1);
+            const acad = await db.select({ name: academies.name }).from(academies).where(eq23(academies.id, playerData[0].academyId)).limit(1);
             academyName = acad[0]?.name || "";
           }
         }
@@ -40551,7 +40887,7 @@ async function registerRoutes(app2) {
         name: players.name,
         firstName: players.firstName,
         lastName: players.lastName
-      }).from(players).where(eq22(players.academyId, academyId));
+      }).from(players).where(eq23(players.academyId, academyId));
       const playerIds = academyPlayers.map((p) => p.id);
       const playerMap = new Map(academyPlayers.map((p) => [p.id, p.name || `${p.firstName || ""} ${p.lastName || ""}`.trim() || "Player"]));
       if (playerIds.length === 0) {
@@ -40593,8 +40929,8 @@ async function registerRoutes(app2) {
           startTime: sessions.startTime,
           status: sessions.status
         }).from(sessions).where(and22(
-          eq22(sessions.academyId, academyId),
-          eq22(sessions.status, "completed"),
+          eq23(sessions.academyId, academyId),
+          eq23(sessions.status, "completed"),
           gte11(sessions.startTime, sevenDaysAgo)
         )).orderBy(desc18(sessions.startTime)).limit(10)
       ]);
@@ -40673,7 +41009,7 @@ async function registerRoutes(app2) {
         dateOfBirth: players.dateOfBirth
       }).from(players).where(
         and22(
-          eq22(players.coachId, coachId),
+          eq23(players.coachId, coachId),
           isNotNull3(players.dateOfBirth)
         )
       );
@@ -41029,7 +41365,7 @@ async function registerRoutes(app2) {
               await db.update(coachingSeries).set({
                 seriesEndDate: lastNewDate,
                 weekCount: (matchingFlexSeries.weekCount || 0) + flexibleDates.length
-              }).where(eq22(coachingSeries.id, matchingFlexSeries.id));
+              }).where(eq23(coachingSeries.id, matchingFlexSeries.id));
             }
           }
           if (!seriesId) {
@@ -41384,14 +41720,13 @@ Skill Level: ${skillLevel || "Not specified"}`,
         const coachData = await storage.getCoach(coachId);
         const coachName = coachData?.firstName ? `${coachData.firstName} ${coachData.lastName || ""}`.trim() : "Your coach";
         const firstSession = createdSessions[0];
-        const sessionDate2 = firstSession.startTime ? new Date(firstSession.startTime).toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short" }) : "";
-        const sessionTime = firstSession.startTime ? new Date(firstSession.startTime).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" }) : "";
         for (const playerId of playerIds) {
           sendSessionConfirmedNotification(
             playerId,
             sessionType,
             firstSession.startTime || /* @__PURE__ */ new Date(),
-            coachName
+            coachName,
+            academyId
           ).catch((err) => console.error("[PushNotification] Failed to send session notification:", err));
         }
       }
@@ -41685,8 +42020,8 @@ Skill Level: ${updates.skillLevel || session.skillLevel || "Not specified"}`,
         return res.status(403).json({ error: "Not authorized" });
       }
       const usedCredits = await db.select().from(creditTransactions).where(and22(
-        eq22(creditTransactions.sessionId, id),
-        eq22(creditTransactions.type, "use")
+        eq23(creditTransactions.sessionId, id),
+        eq23(creditTransactions.type, "use")
       ));
       for (const tx of usedCredits) {
         await db.insert(creditTransactions).values({
@@ -41702,48 +42037,43 @@ Skill Level: ${updates.skillLevel || session.skillLevel || "Not specified"}`,
         if (tx.packageId) {
           await db.update(packages).set({
             creditsRemaining: sql21`credits_remaining + ${Math.abs(tx.amount)}`
-          }).where(eq22(packages.id, tx.packageId));
+          }).where(eq23(packages.id, tx.packageId));
         }
       }
-      await db.update(creditTransactions).set({ sessionId: null }).where(eq22(creditTransactions.sessionId, id));
-      await db.update(xpTransactions).set({ sessionId: null }).where(eq22(xpTransactions.sessionId, id));
-      await db.update(coachXpTransactions).set({ sessionId: null }).where(eq22(coachXpTransactions.sessionId, id));
-      await db.update(playerPillarProgress).set({ lastSessionId: null }).where(eq22(playerPillarProgress.lastSessionId, id));
-      const playersInSession = await db.select({ playerId: sessionPlayers.playerId }).from(sessionPlayers).where(eq22(sessionPlayers.sessionId, id));
+      await db.update(creditTransactions).set({ sessionId: null }).where(eq23(creditTransactions.sessionId, id));
+      await db.update(xpTransactions).set({ sessionId: null }).where(eq23(xpTransactions.sessionId, id));
+      await db.update(coachXpTransactions).set({ sessionId: null }).where(eq23(coachXpTransactions.sessionId, id));
+      await db.update(playerPillarProgress).set({ lastSessionId: null }).where(eq23(playerPillarProgress.lastSessionId, id));
+      const playersInSession = await db.select({ playerId: sessionPlayers.playerId }).from(sessionPlayers).where(eq23(sessionPlayers.sessionId, id));
       const coachData = coachId ? await storage.getCoach(coachId) : null;
       const coachName = coachData?.firstName ? `${coachData.firstName} ${coachData.lastName || ""}`.trim() : "Your coach";
-      const sessionDateStr = new Date(session.startTime).toLocaleDateString("en-GB", {
-        weekday: "short",
-        day: "numeric",
-        month: "short",
-        timeZone: "Asia/Dubai"
-      });
       for (const p of playersInSession) {
         if (p.playerId) {
           sendSessionCancelledNotification(
             p.playerId,
             session.sessionType,
-            sessionDateStr,
-            reason || `Cancelled by ${coachName}`
+            session.startTime,
+            reason || `Cancelled by ${coachName}`,
+            academyId
           ).catch((err) => console.error("[PushNotification] Failed to send cancellation notification:", err));
         }
       }
-      const sessionPlayerRecords = await db.select({ id: sessionPlayers.id }).from(sessionPlayers).where(eq22(sessionPlayers.sessionId, id));
+      const sessionPlayerRecords = await db.select({ id: sessionPlayers.id }).from(sessionPlayers).where(eq23(sessionPlayers.sessionId, id));
       if (sessionPlayerRecords.length > 0) {
         const spIds = sessionPlayerRecords.map((sp) => sp.id);
         await db.update(creditTransactions).set({ sessionPlayerId: null }).where(inArray8(creditTransactions.sessionPlayerId, spIds));
       }
-      await db.delete(sessionPlayers).where(eq22(sessionPlayers.sessionId, id));
-      await db.delete(sessionSkillObservations).where(eq22(sessionSkillObservations.sessionId, id));
-      await db.delete(sessionSkillFeedback).where(eq22(sessionSkillFeedback.sessionId, id));
-      await db.delete(sessionPlans).where(eq22(sessionPlans.sessionId, id));
-      await db.delete(playerSessionCancellations).where(eq22(playerSessionCancellations.sessionId, id));
-      await db.delete(sessionWaitlist).where(eq22(sessionWaitlist.sessionId, id));
+      await db.delete(sessionPlayers).where(eq23(sessionPlayers.sessionId, id));
+      await db.delete(sessionSkillObservations).where(eq23(sessionSkillObservations.sessionId, id));
+      await db.delete(sessionSkillFeedback).where(eq23(sessionSkillFeedback.sessionId, id));
+      await db.delete(sessionPlans).where(eq23(sessionPlans.sessionId, id));
+      await db.delete(playerSessionCancellations).where(eq23(playerSessionCancellations.sessionId, id));
+      await db.delete(sessionWaitlist).where(eq23(sessionWaitlist.sessionId, id));
       await storage.deleteCoachTimeBlockBySession(id);
       if (session.googleCalendarEventId) {
         deleteCalendarEvent(session.googleCalendarEventId).catch((err) => console.error("[GoogleCalendar] Delete sync error:", err));
       }
-      await db.delete(sessions).where(eq22(sessions.id, id));
+      await db.delete(sessions).where(eq23(sessions.id, id));
       await storage.createAuditLog({
         entityType: "session",
         entityId: id,
@@ -41985,7 +42315,8 @@ Skill Level: ${updates.skillLevel || session.skillLevel || "Not specified"}`,
           playerId,
           session.sessionType,
           session.startTime,
-          coachName
+          coachName,
+          req2.user?.academyId
         ).catch((err) => console.error("[PushNotification] Failed to send session notification:", err));
       }
       res.status(201).json({
@@ -42170,9 +42501,9 @@ Skill Level: ${updates.skillLevel || session.skillLevel || "Not specified"}`,
           sessionCompletionXp = COACH_XP_REWARDS_BATCH[session.sessionType] || 20;
           try {
             const existingSessionXp = await db.select().from(coachXpTransactions).where(and22(
-              eq22(coachXpTransactions.coachId, coachId),
-              eq22(coachXpTransactions.source, "session_completion"),
-              eq22(coachXpTransactions.sessionId, id)
+              eq23(coachXpTransactions.coachId, coachId),
+              eq23(coachXpTransactions.source, "session_completion"),
+              eq23(coachXpTransactions.sessionId, id)
             ));
             if (existingSessionXp.length === 0) {
               await db.insert(coachXpTransactions).values({
@@ -42469,7 +42800,7 @@ Skill Level: ${updates.skillLevel || session.skillLevel || "Not specified"}`,
       if (!valid) {
         return res.status(404).json({ error: "Session not found" });
       }
-      const feedback = await db.select().from(inSessionFeedback).leftJoin(players, eq22(inSessionFeedback.playerId, players.id)).where(eq22(inSessionFeedback.sessionId, id)).orderBy(desc18(inSessionFeedback.createdAt));
+      const feedback = await db.select().from(inSessionFeedback).leftJoin(players, eq23(inSessionFeedback.playerId, players.id)).where(eq23(inSessionFeedback.sessionId, id)).orderBy(desc18(inSessionFeedback.createdAt));
       res.json(feedback.map((f) => ({
         ...f.in_session_feedback,
         player: f.players ? { id: f.players.id, name: f.players.name } : null
@@ -42611,8 +42942,8 @@ Skill Level: ${updates.skillLevel || session.skillLevel || "Not specified"}`,
         createdAt: inSessionFeedback.createdAt,
         sessionId: inSessionFeedback.sessionId
       }).from(inSessionFeedback).where(and22(
-        eq22(inSessionFeedback.playerId, playerId),
-        eq22(inSessionFeedback.visibility, "public")
+        eq23(inSessionFeedback.playerId, playerId),
+        eq23(inSessionFeedback.visibility, "public")
       )).orderBy(desc18(inSessionFeedback.createdAt)).limit(50);
       res.json(feedback);
     } catch (error) {
@@ -42636,7 +42967,7 @@ Skill Level: ${updates.skillLevel || session.skillLevel || "Not specified"}`,
         coachId: deepAssessmentPillarSummaries.assessedBy,
         coachName: coaches.name,
         createdAt: deepAssessmentPillarSummaries.updatedAt
-      }).from(deepAssessmentPillarSummaries).leftJoin(skillDomains, eq22(skillDomains.pillarKey, deepAssessmentPillarSummaries.pillarId)).leftJoin(users, eq22(users.id, deepAssessmentPillarSummaries.assessedBy)).where(eq22(deepAssessmentPillarSummaries.playerId, playerId)).orderBy(desc18(deepAssessmentPillarSummaries.updatedAt)).limit(100);
+      }).from(deepAssessmentPillarSummaries).leftJoin(skillDomains, eq23(skillDomains.pillarKey, deepAssessmentPillarSummaries.pillarId)).leftJoin(users, eq23(users.id, deepAssessmentPillarSummaries.assessedBy)).where(eq23(deepAssessmentPillarSummaries.playerId, playerId)).orderBy(desc18(deepAssessmentPillarSummaries.updatedAt)).limit(100);
       res.json(assessments);
     } catch (error) {
       console.error("Error fetching skill assessments:", error);
@@ -42662,9 +42993,9 @@ Skill Level: ${updates.skillLevel || session.skillLevel || "Not specified"}`,
         coachId: inSessionFeedback.coachId,
         coachName: coaches.name,
         createdAt: inSessionFeedback.createdAt
-      }).from(inSessionFeedback).leftJoin(sessions, eq22(sessions.id, inSessionFeedback.sessionId)).leftJoin(coaches, eq22(coaches.id, inSessionFeedback.coachId)).where(and22(
-        eq22(inSessionFeedback.playerId, playerId),
-        eq22(inSessionFeedback.visibility, "public")
+      }).from(inSessionFeedback).leftJoin(sessions, eq23(sessions.id, inSessionFeedback.sessionId)).leftJoin(coaches, eq23(coaches.id, inSessionFeedback.coachId)).where(and22(
+        eq23(inSessionFeedback.playerId, playerId),
+        eq23(inSessionFeedback.visibility, "public")
       )).orderBy(desc18(inSessionFeedback.createdAt)).limit(100);
       res.json(feedback);
     } catch (error) {
@@ -42677,7 +43008,7 @@ Skill Level: ${updates.skillLevel || session.skillLevel || "Not specified"}`,
       const playerId = req2.user.playerId;
       if (!playerId) return res.status(400).json({ error: "Player not found" });
       const limit = parseInt(req2.query.limit) || 50;
-      const notifications2 = await db.select().from(playerNotifications).where(eq22(playerNotifications.playerId, playerId)).orderBy(desc18(playerNotifications.createdAt)).limit(limit);
+      const notifications2 = await db.select().from(playerNotifications).where(eq23(playerNotifications.playerId, playerId)).orderBy(desc18(playerNotifications.createdAt)).limit(limit);
       res.json(notifications2);
     } catch (error) {
       console.error("Error fetching notifications:", error);
@@ -42689,8 +43020,8 @@ Skill Level: ${updates.skillLevel || session.skillLevel || "Not specified"}`,
       const playerId = req2.user.playerId;
       if (!playerId) return res.status(400).json({ error: "Player not found" });
       const [result] = await db.select({ count: count3() }).from(playerNotifications).where(and22(
-        eq22(playerNotifications.playerId, playerId),
-        eq22(playerNotifications.read, false)
+        eq23(playerNotifications.playerId, playerId),
+        eq23(playerNotifications.read, false)
       ));
       res.json({ count: result?.count || 0 });
     } catch (error) {
@@ -42705,13 +43036,13 @@ Skill Level: ${updates.skillLevel || session.skillLevel || "Not specified"}`,
       const { notificationIds } = req2.body;
       if (notificationIds && Array.isArray(notificationIds)) {
         await db.update(playerNotifications).set({ read: true, readAt: /* @__PURE__ */ new Date() }).where(and22(
-          eq22(playerNotifications.playerId, playerId),
+          eq23(playerNotifications.playerId, playerId),
           inArray8(playerNotifications.id, notificationIds)
         ));
       } else {
         await db.update(playerNotifications).set({ read: true, readAt: /* @__PURE__ */ new Date() }).where(and22(
-          eq22(playerNotifications.playerId, playerId),
-          eq22(playerNotifications.read, false)
+          eq23(playerNotifications.playerId, playerId),
+          eq23(playerNotifications.read, false)
         ));
       }
       res.json({ success: true });
@@ -43034,44 +43365,87 @@ Skill Level: ${updates.skillLevel || session.skillLevel || "Not specified"}`,
       if (!freshUser) {
         return res.status(401).json({ error: "User not found" });
       }
+      const isImpersonating = freshUser.role === "platform_owner" && tokenUser.role === "academy_owner";
       let coach = null;
       let academy = null;
-      if (freshUser.coachId) {
-        coach = await storage.getCoach(freshUser.coachId);
+      if (isImpersonating) {
+        const impersonatedCoachId = tokenUser.coachId;
+        const impersonatedAcademyId = tokenUser.academyId;
+        const impersonatedPlayerId = tokenUser.playerId;
+        if (impersonatedCoachId) {
+          coach = await storage.getCoach(impersonatedCoachId);
+        }
+        if (impersonatedAcademyId) {
+          academy = await storage.getAcademy(impersonatedAcademyId);
+        }
+        res.json({
+          user: {
+            id: freshUser.id,
+            email: freshUser.email,
+            role: "academy_owner",
+            academyId: impersonatedAcademyId,
+            coachId: impersonatedCoachId,
+            playerId: impersonatedPlayerId
+          },
+          coach: coach ? {
+            id: coach.id,
+            name: coach.name,
+            email: coach.email,
+            phone: coach.phone,
+            role: coach.role,
+            level: coach.level,
+            totalXp: coach.totalXp,
+            academyId: coach.academyId,
+            onboardingCompleted: coach.onboardingCompleted,
+            photoUrl: coach.photoUrl,
+            specialty: coach.specialty,
+            bio: coach.bio
+          } : null,
+          academy: academy ? {
+            id: academy.id,
+            name: academy.name,
+            slug: academy.slug,
+            timezone: academy.timezone || "Asia/Dubai"
+          } : null
+        });
+      } else {
+        if (freshUser.coachId) {
+          coach = await storage.getCoach(freshUser.coachId);
+        }
+        if (freshUser.academyId) {
+          academy = await storage.getAcademy(freshUser.academyId);
+        }
+        res.json({
+          user: {
+            id: freshUser.id,
+            email: freshUser.email,
+            role: freshUser.role,
+            academyId: freshUser.academyId,
+            coachId: freshUser.coachId,
+            playerId: freshUser.playerId
+          },
+          coach: coach ? {
+            id: coach.id,
+            name: coach.name,
+            email: coach.email,
+            phone: coach.phone,
+            role: coach.role,
+            level: coach.level,
+            totalXp: coach.totalXp,
+            academyId: coach.academyId,
+            onboardingCompleted: coach.onboardingCompleted,
+            photoUrl: coach.photoUrl,
+            specialty: coach.specialty,
+            bio: coach.bio
+          } : null,
+          academy: academy ? {
+            id: academy.id,
+            name: academy.name,
+            slug: academy.slug,
+            timezone: academy.timezone || "Asia/Dubai"
+          } : null
+        });
       }
-      if (freshUser.academyId) {
-        academy = await storage.getAcademy(freshUser.academyId);
-      }
-      res.json({
-        user: {
-          id: freshUser.id,
-          email: freshUser.email,
-          role: freshUser.role,
-          academyId: freshUser.academyId,
-          coachId: freshUser.coachId,
-          playerId: freshUser.playerId
-        },
-        coach: coach ? {
-          id: coach.id,
-          name: coach.name,
-          email: coach.email,
-          phone: coach.phone,
-          role: coach.role,
-          level: coach.level,
-          totalXp: coach.totalXp,
-          academyId: coach.academyId,
-          onboardingCompleted: coach.onboardingCompleted,
-          photoUrl: coach.photoUrl,
-          specialty: coach.specialty,
-          bio: coach.bio
-        } : null,
-        academy: academy ? {
-          id: academy.id,
-          name: academy.name,
-          slug: academy.slug,
-          timezone: academy.timezone || "Asia/Dubai"
-        } : null
-      });
     } catch (error) {
       console.error("Error fetching current user:", error);
       res.status(500).json({ error: "Failed to fetch current user" });
@@ -43088,7 +43462,7 @@ Skill Level: ${updates.skillLevel || session.skillLevel || "Not specified"}`,
       if (!player2 || !player2.email) {
         return res.json({ isFamily: false });
       }
-      const familyMembers = await db.select().from(players).where(eq22(players.email, player2.email));
+      const familyMembers = await db.select().from(players).where(eq23(players.email, player2.email));
       if (familyMembers.length <= 1) {
         return res.json({ isFamily: false });
       }
@@ -43098,7 +43472,7 @@ Skill Level: ${updates.skillLevel || session.skillLevel || "Not specified"}`,
           date: nextSessionResult[0].date,
           type: nextSessionResult[0].sessionType || "training"
         } : null;
-        const debitTransactions = await db.select().from(creditTransactions).where(eq22(creditTransactions.playerId, member.id));
+        const debitTransactions = await db.select().from(creditTransactions).where(eq23(creditTransactions.playerId, member.id));
         const outstandingBalance = debitTransactions.reduce((sum, tx) => {
           const amount = Number(tx.amount) || 0;
           return sum + (amount < 0 ? Math.abs(amount) : 0);
@@ -43112,7 +43486,9 @@ Skill Level: ${updates.skillLevel || session.skillLevel || "Not specified"}`,
           ballLevel: member.ballLevel,
           nextSession,
           outstandingBalance,
-          lastActiveAt: member.lastActiveAt?.toISOString() || null
+          lastActiveAt: member.lastActiveAt?.toISOString() || null,
+          chatEnabled: member.chatEnabled ?? null,
+          communityEnabled: member.communityEnabled ?? null
         };
       }));
       const outstandingTotal = memberData.reduce((sum, m) => sum + m.outstandingBalance, 0);
@@ -43129,6 +43505,36 @@ Skill Level: ${updates.skillLevel || session.skillLevel || "Not specified"}`,
       res.status(500).json({ error: "Failed to fetch family status" });
     }
   });
+  app2.put("/api/family/parental-controls/:playerId", authMiddlewareWithFreshData, async (req2, res) => {
+    try {
+      const tokenUser = req2.user;
+      const { playerId } = req2.params;
+      const { chatEnabled, communityEnabled } = req2.body;
+      const freshUser = await storage.getUserById(tokenUser.userId);
+      if (!freshUser || !freshUser.playerId) {
+        return res.status(403).json({ error: "Player profile required" });
+      }
+      const parentPlayer = await storage.getPlayer(freshUser.playerId);
+      if (!parentPlayer || !parentPlayer.email) {
+        return res.status(403).json({ error: "Account not found" });
+      }
+      const targetPlayer = await storage.getPlayer(playerId);
+      if (!targetPlayer || targetPlayer.email !== parentPlayer.email) {
+        return res.status(403).json({ error: "You can only manage family members" });
+      }
+      const updates = {};
+      if (typeof chatEnabled === "boolean") updates.chatEnabled = chatEnabled;
+      if (typeof communityEnabled === "boolean") updates.communityEnabled = communityEnabled;
+      if (Object.keys(updates).length === 0) {
+        return res.status(400).json({ error: "No valid settings provided" });
+      }
+      await db.update(players).set(updates).where(eq23(players.id, playerId));
+      res.json({ success: true, ...updates });
+    } catch (error) {
+      console.error("Error updating parental controls:", error);
+      res.status(500).json({ error: "Failed to update parental controls" });
+    }
+  });
   app2.post("/api/billing/pay-bulk", authMiddlewareWithFreshData, async (req2, res) => {
     try {
       const { playerIds } = req2.body;
@@ -43138,7 +43544,7 @@ Skill Level: ${updates.skillLevel || session.skillLevel || "Not specified"}`,
       const debitTransactions = await db.select().from(creditTransactions).where(
         and22(
           inArray8(creditTransactions.playerId, playerIds),
-          eq22(creditTransactions.type, "debit")
+          eq23(creditTransactions.type, "debit")
         )
       );
       const totalOwed = debitTransactions.reduce((sum, tx) => {
@@ -43878,7 +44284,7 @@ Skill Level: ${updates.skillLevel || session.skillLevel || "Not specified"}`,
           });
         }
         if (deepSkillScores && typeof deepSkillScores === "object") {
-          await db.delete(playerBaselineSkillScores).where(eq22(playerBaselineSkillScores.baselineId, existingBaseline.id));
+          await db.delete(playerBaselineSkillScores).where(eq23(playerBaselineSkillScores.baselineId, existingBaseline.id));
           const scoreEntries = Object.entries(deepSkillScores);
           for (const [skillId, scoreData] of scoreEntries) {
             if (scoreData.rating !== null || scoreData.notObserved) {
@@ -43913,8 +44319,8 @@ Skill Level: ${updates.skillLevel || session.skillLevel || "Not specified"}`,
         if (checkedSkillIds && Array.isArray(checkedSkillIds) && checkedSkillIds.length > 0) {
           for (const skillId of checkedSkillIds) {
             const existing2 = await db.select().from(playerSkillScores).where(and22(
-              eq22(playerSkillScores.playerId, id),
-              eq22(playerSkillScores.skillId, skillId)
+              eq23(playerSkillScores.playerId, id),
+              eq23(playerSkillScores.skillId, skillId)
             )).limit(1);
             if (existing2.length === 0) {
               await db.insert(playerSkillScores).values({
@@ -43995,8 +44401,8 @@ Skill Level: ${updates.skillLevel || session.skillLevel || "Not specified"}`,
         if (checkedSkillIds && Array.isArray(checkedSkillIds) && checkedSkillIds.length > 0) {
           for (const skillId of checkedSkillIds) {
             const existing2 = await db.select().from(playerSkillScores).where(and22(
-              eq22(playerSkillScores.playerId, id),
-              eq22(playerSkillScores.skillId, skillId)
+              eq23(playerSkillScores.playerId, id),
+              eq23(playerSkillScores.skillId, skillId)
             )).limit(1);
             if (existing2.length === 0) {
               await db.insert(playerSkillScores).values({
@@ -44080,8 +44486,8 @@ Skill Level: ${updates.skillLevel || session.skillLevel || "Not specified"}`,
       if (!baseline) {
         return res.status(404).json({ error: "No baseline found for this player" });
       }
-      await db.delete(playerBaselineSkillScores).where(eq22(playerBaselineSkillScores.baselineId, baseline.id));
-      await db.delete(playerBaselines).where(eq22(playerBaselines.id, baseline.id));
+      await db.delete(playerBaselineSkillScores).where(eq23(playerBaselineSkillScores.baselineId, baseline.id));
+      await db.delete(playerBaselines).where(eq23(playerBaselines.id, baseline.id));
       res.json({ success: true, message: "Baseline reset successfully" });
     } catch (error) {
       console.error("Error resetting baseline:", error);
@@ -44849,7 +45255,7 @@ Skill Level: ${updates.skillLevel || session.skillLevel || "Not specified"}`,
         lateMinutes: sessionPlayers.lateMinutes,
         creditDeductedAt: sessionPlayers.creditDeductedAt,
         creditTransactionId: sessionPlayers.creditTransactionId
-      }).from(sessionPlayers).where(eq22(sessionPlayers.playerId, id));
+      }).from(sessionPlayers).where(eq23(sessionPlayers.playerId, id));
       const sessionIds = playerRecords.map((r) => r.sessionId).filter(Boolean);
       let sessionMap = {};
       if (sessionIds.length > 0) {
@@ -45024,7 +45430,7 @@ Skill Level: ${updates.skillLevel || session.skillLevel || "Not specified"}`,
         attendanceStatus: sessionPlayers.attendanceStatus,
         lateMinutes: sessionPlayers.lateMinutes,
         sessionStatus: sessions.status
-      }).from(sessionPlayers).innerJoin(sessions, eq22(sessionPlayers.sessionId, sessions.id)).where(eq22(sessionPlayers.playerId, playerId));
+      }).from(sessionPlayers).innerJoin(sessions, eq23(sessionPlayers.sessionId, sessions.id)).where(eq23(sessionPlayers.playerId, playerId));
       const totalLessons = sessionPlayerRecords.length;
       const nonCancelledRecords = sessionPlayerRecords.filter((r) => r.sessionStatus !== "cancelled");
       const presentCount = nonCancelledRecords.filter((r) => r.attendanceStatus === "present").length;
@@ -45065,7 +45471,7 @@ Skill Level: ${updates.skillLevel || session.skillLevel || "Not specified"}`,
         sessionId: sessionPlayers.sessionId,
         attendanceStatus: sessionPlayers.attendanceStatus,
         lateMinutes: sessionPlayers.lateMinutes
-      }).from(sessionPlayers).where(eq22(sessionPlayers.playerId, playerId));
+      }).from(sessionPlayers).where(eq23(sessionPlayers.playerId, playerId));
       const sessionIds = playerRecords.map((r) => r.sessionId).filter(Boolean);
       let sessionMap = {};
       if (sessionIds.length > 0) {
@@ -45203,8 +45609,8 @@ Skill Level: ${updates.skillLevel || session.skillLevel || "Not specified"}`,
         return res.status(404).json({ error: "Player not found" });
       }
       const [spRecord] = await db.select().from(sessionPlayers).where(and22(
-        eq22(sessionPlayers.playerId, playerId),
-        eq22(sessionPlayers.sessionId, sessionId)
+        eq23(sessionPlayers.playerId, playerId),
+        eq23(sessionPlayers.sessionId, sessionId)
       )).limit(1);
       if (!spRecord) {
         return res.status(404).json({ error: "Session enrollment not found" });
@@ -45212,7 +45618,7 @@ Skill Level: ${updates.skillLevel || session.skillLevel || "Not specified"}`,
       const oldStatus = spRecord.attendanceStatus;
       const [sessionInfo] = await db.select({
         sessionType: sessions.sessionType
-      }).from(sessions).where(eq22(sessions.id, sessionId)).limit(1);
+      }).from(sessions).where(eq23(sessions.id, sessionId)).limit(1);
       if (!sessionInfo) {
         return res.status(404).json({ error: "Session not found" });
       }
@@ -45231,7 +45637,7 @@ Skill Level: ${updates.skillLevel || session.skillLevel || "Not specified"}`,
       await db.update(sessionPlayers).set({
         attendanceStatus: newStatus,
         creditDeductedAt: willBeCharged ? spRecord.creditDeductedAt || /* @__PURE__ */ new Date() : null
-      }).where(eq22(sessionPlayers.id, spRecord.id));
+      }).where(eq23(sessionPlayers.id, spRecord.id));
       if (creditAdjustment !== 0) {
         const transactionId = `attendance-correction-${sessionId}-${playerId}-${Date.now()}`;
         await db.insert(creditTransactions).values({
@@ -45778,19 +46184,19 @@ Skill Level: ${updates.skillLevel || session.skillLevel || "Not specified"}`,
           playerName: players.name,
           hostBallLevel: players.ballLevel,
           playerBallLevel: players.ballLevel
-        }).from(seriesPlayers).leftJoin(players, eq22(seriesPlayers.playerId, players.id)).where(and22(inArray8(seriesPlayers.seriesId, seriesIds), eq22(seriesPlayers.status, "active"))) : Promise.resolve([]),
+        }).from(seriesPlayers).leftJoin(players, eq23(seriesPlayers.playerId, players.id)).where(and22(inArray8(seriesPlayers.seriesId, seriesIds), eq23(seriesPlayers.status, "active"))) : Promise.resolve([]),
         // Batch fetch all completed sessions for all series
         seriesIds.length > 0 ? db.select({
           seriesId: sessions.seriesId,
           id: sessions.id
-        }).from(sessions).where(and22(inArray8(sessions.seriesId, seriesIds), eq22(sessions.status, "completed"))) : Promise.resolve([]),
+        }).from(sessions).where(and22(inArray8(sessions.seriesId, seriesIds), eq23(sessions.status, "completed"))) : Promise.resolve([]),
         // Batch fetch next scheduled session for each series (use subquery approach)
         seriesIds.length > 0 ? db.select({
           seriesId: sessions.seriesId,
           startTime: sql21`MIN(${sessions.startTime})`
         }).from(sessions).where(and22(
           inArray8(sessions.seriesId, seriesIds),
-          eq22(sessions.status, "scheduled"),
+          eq23(sessions.status, "scheduled"),
           gte11(sessions.startTime, /* @__PURE__ */ new Date())
         )).groupBy(sessions.seriesId) : Promise.resolve([])
       ]);
@@ -45850,7 +46256,7 @@ Skill Level: ${updates.skillLevel || session.skillLevel || "Not specified"}`,
       });
       const ownSeriesIds = series.map((s) => s.id);
       const orphanSessions = await db.select().from(sessions).where(and22(
-        eq22(sessions.coachId, coachId),
+        eq23(sessions.coachId, coachId),
         or9(
           // Sessions with a seriesId not in this coach's series
           ownSeriesIds.length > 0 ? and22(isNotNull3(sessions.seriesId), notInArray(sessions.seriesId, ownSeriesIds)) : isNotNull3(sessions.seriesId),
@@ -45874,7 +46280,7 @@ Skill Level: ${updates.skillLevel || session.skillLevel || "Not specified"}`,
           const DUBAI_OFFSET = 4;
           const dubaiNow = new Date(now.getTime() + DUBAI_OFFSET * 60 * 60 * 1e3);
           const nextSession = sessionsGroup.find((s) => s.status === "scheduled" && new Date(s.startTime) > now);
-          const sessionPlayersList = await db.select().from(sessionPlayers).where(eq22(sessionPlayers.sessionId, firstSession.id));
+          const sessionPlayersList = await db.select().from(sessionPlayers).where(eq23(sessionPlayers.sessionId, firstSession.id));
           const playerDetails = await Promise.all(sessionPlayersList.slice(0, 4).map(async (sp) => {
             const player2 = await storage.getPlayer(sp.playerId);
             return {
@@ -45958,7 +46364,7 @@ Skill Level: ${updates.skillLevel || session.skillLevel || "Not specified"}`,
           credits
         };
       }));
-      const seriesSessions = await db.select().from(sessions).where(and22(eq22(sessions.seriesId, id), eq22(sessions.coachId, coachId))).orderBy(asc4(sessions.startTime));
+      const seriesSessions = await db.select().from(sessions).where(and22(eq23(sessions.seriesId, id), eq23(sessions.coachId, coachId))).orderBy(asc4(sessions.startTime));
       let locationName = null;
       if (series.locationId) {
         const location = await storage.getLocationById(series.locationId);
@@ -46601,12 +47007,12 @@ Skill Level: ${updates.skillLevel || session.skillLevel || "Not specified"}`,
       if (existing2.coachId !== coachId) {
         return res.status(403).json({ error: "Not authorized to extend this series" });
       }
-      const allSessions = await db.select().from(sessions).where(eq22(sessions.seriesId, id)).orderBy(desc18(sessions.startTime)).limit(1);
+      const allSessions = await db.select().from(sessions).where(eq23(sessions.seriesId, id)).orderBy(desc18(sessions.startTime)).limit(1);
       if (allSessions.length === 0) {
         return res.status(400).json({ error: "No sessions found in series" });
       }
       const lastSession = allSessions[0];
-      const maxWeekResult = await db.select({ maxWeek: sql21`COALESCE(MAX(${sessions.weekNumber}), 0)` }).from(sessions).where(eq22(sessions.seriesId, id));
+      const maxWeekResult = await db.select({ maxWeek: sql21`COALESCE(MAX(${sessions.weekNumber}), 0)` }).from(sessions).where(eq23(sessions.seriesId, id));
       const maxWeekNumber = maxWeekResult[0]?.maxWeek || 0;
       const seriesMembers = await storage.getSeriesPlayers(id);
       const activeMembers = seriesMembers.filter((m) => m.status === "active");
@@ -46918,7 +47324,7 @@ Skill Level: ${updates.skillLevel || session.skillLevel || "Not specified"}`,
               }
             }
           }
-          const allSeriesSessions = await db.select().from(sessions).where(eq22(sessions.seriesId, id));
+          const allSeriesSessions = await db.select().from(sessions).where(eq23(sessions.seriesId, id));
           const dateParam = req2.query.date;
           const now = dateParam ? new Date(dateParam) : /* @__PURE__ */ new Date();
           const DUBAI_OFFSET = 4;
@@ -46976,7 +47382,7 @@ Skill Level: ${updates.skillLevel || session.skillLevel || "Not specified"}`,
           }
         }
       }
-      const newPlayerSeriesSessions = await db.select().from(sessions).where(eq22(sessions.seriesId, id));
+      const newPlayerSeriesSessions = await db.select().from(sessions).where(eq23(sessions.seriesId, id));
       const nowTime = /* @__PURE__ */ new Date();
       const newPlayerFutureSessions = newPlayerSeriesSessions.filter((s) => new Date(s.startTime) > nowTime);
       for (const futureSession of newPlayerFutureSessions) {
@@ -47161,8 +47567,8 @@ Skill Level: ${updates.skillLevel || session.skillLevel || "Not specified"}`,
         return res.status(403).json({ error: "Not authorized to manage this class" });
       }
       const updated = await db.update(seriesPlayers).set({ joinedAt: new Date(joinDate) }).where(and22(
-        eq22(seriesPlayers.seriesId, id),
-        eq22(seriesPlayers.playerId, playerId)
+        eq23(seriesPlayers.seriesId, id),
+        eq23(seriesPlayers.playerId, playerId)
       )).returning();
       if (!updated.length) {
         return res.status(404).json({ error: "Player not found in this class" });
@@ -47233,7 +47639,7 @@ Skill Level: ${updates.skillLevel || session.skillLevel || "Not specified"}`,
       if (series.coachId !== coachId) {
         return res.status(403).json({ error: "Not authorized to view this series" });
       }
-      const seriesSessions = await db.select().from(sessions).where(eq22(sessions.seriesId, id));
+      const seriesSessions = await db.select().from(sessions).where(eq23(sessions.seriesId, id));
       const sessionIds = seriesSessions.map((s) => s.id);
       if (sessionIds.length === 0) {
         return res.json({ feedback: [], summary: { total: 0, withFeedback: 0, intensity: {} } });
@@ -47274,7 +47680,7 @@ Skill Level: ${updates.skillLevel || session.skillLevel || "Not specified"}`,
       if (series.coachId !== coachId) {
         return res.status(403).json({ error: "Not authorized to view this series" });
       }
-      const seriesSessions = await db.select().from(sessions).where(eq22(sessions.seriesId, id));
+      const seriesSessions = await db.select().from(sessions).where(eq23(sessions.seriesId, id));
       const sessionIds = seriesSessions.map((s) => s.id);
       const seriesPlayersData = await storage.getSeriesPlayers(id);
       const playerIds = seriesPlayersData.map((sp) => sp.playerId);
@@ -47341,7 +47747,7 @@ Skill Level: ${updates.skillLevel || session.skillLevel || "Not specified"}`,
       if (series.coachId !== coachId) {
         return res.status(403).json({ error: "Not authorized to view this series" });
       }
-      const seriesSessions = await db.select().from(sessions).where(and22(eq22(sessions.seriesId, id), eq22(sessions.coachId, coachId))).orderBy(asc4(sessions.weekNumber), asc4(sessions.startTime));
+      const seriesSessions = await db.select().from(sessions).where(and22(eq23(sessions.seriesId, id), eq23(sessions.coachId, coachId))).orderBy(asc4(sessions.weekNumber), asc4(sessions.startTime));
       const sessionIds = seriesSessions.map((s) => s.id);
       let feedbackMap = {};
       if (sessionIds.length > 0) {
@@ -47396,8 +47802,8 @@ Skill Level: ${updates.skillLevel || session.skillLevel || "Not specified"}`,
       const recurringGroups = await db.select({
         recurringGroupId: sessions.recurringGroupId
       }).from(sessions).where(and22(
-        eq22(sessions.coachId, coachId),
-        eq22(sessions.isRecurring, true),
+        eq23(sessions.coachId, coachId),
+        eq23(sessions.isRecurring, true),
         isNotNull3(sessions.recurringGroupId),
         isNull6(sessions.seriesId)
       )).groupBy(sessions.recurringGroupId);
@@ -47411,7 +47817,7 @@ Skill Level: ${updates.skillLevel || session.skillLevel || "Not specified"}`,
       const migratedSeries = [];
       for (const group of recurringGroups) {
         if (!group.recurringGroupId) continue;
-        const groupSessions = await db.select().from(sessions).where(eq22(sessions.recurringGroupId, group.recurringGroupId)).orderBy(asc4(sessions.startTime));
+        const groupSessions = await db.select().from(sessions).where(eq23(sessions.recurringGroupId, group.recurringGroupId)).orderBy(asc4(sessions.startTime));
         if (groupSessions.length === 0) continue;
         const firstSession = groupSessions[0];
         const lastSession = groupSessions[groupSessions.length - 1];
@@ -47464,7 +47870,7 @@ Skill Level: ${updates.skillLevel || session.skillLevel || "Not specified"}`,
           await db.update(sessions).set({
             seriesId: newSeries.id,
             weekNumber
-          }).where(eq22(sessions.id, session.id));
+          }).where(eq23(sessions.id, session.id));
         }
         const allSessionIds = groupSessions.map((s) => s.id);
         const allSessionPlayers = await db.select({ playerId: sessionPlayers.playerId }).from(sessionPlayers).where(inArray8(sessionPlayers.sessionId, allSessionIds));
@@ -49001,9 +49407,15 @@ Skill Level: ${updates.skillLevel || session.skillLevel || "Not specified"}`,
       if (!body || !senderType) {
         return res.status(400).json({ error: "body and senderType required" });
       }
-      const sanitizedBody = sanitizeMessage(body);
+      const sanitizedBody = filterProfanity(sanitizeMessage(body) || "");
       if (!sanitizedBody) {
         return res.status(400).json({ error: "Message body is required after sanitization" });
+      }
+      if (coachId && chatRateLimiter.isRateLimited(coachId)) {
+        return res.status(429).json({ error: "You're sending messages too quickly. Please wait a moment." });
+      }
+      if (coachId) {
+        chatRateLimiter.recordRequest(coachId);
       }
       const conversation = await storage.getConversation(conversationId, coachId ?? void 0, academyId);
       if (!conversation) {
@@ -49349,7 +49761,7 @@ Skill Level: ${updates.skillLevel || session.skillLevel || "Not specified"}`,
       const startDate2 = /* @__PURE__ */ new Date();
       startDate2.setDate(startDate2.getDate() - days);
       const logs = await db.select().from(coachWellnessLogs).where(and22(
-        eq22(coachWellnessLogs.coachId, id),
+        eq23(coachWellnessLogs.coachId, id),
         gte11(coachWellnessLogs.date, startDate2.toISOString().split("T")[0])
       )).orderBy(desc18(coachWellnessLogs.date));
       const avgSleep = logs.length > 0 ? logs.reduce((acc, l) => acc + (parseFloat(l.sleepHours) || 0), 0) / logs.filter((l) => l.sleepHours).length : null;
@@ -49377,8 +49789,8 @@ Skill Level: ${updates.skillLevel || session.skillLevel || "Not specified"}`,
         return res.status(403).json({ error: "Access denied" });
       }
       const [log2] = await db.select().from(coachWellnessLogs).where(and22(
-        eq22(coachWellnessLogs.coachId, id),
-        eq22(coachWellnessLogs.date, date2)
+        eq23(coachWellnessLogs.coachId, id),
+        eq23(coachWellnessLogs.date, date2)
       )).limit(1);
       res.json({ log: log2 || null });
     } catch (error) {
@@ -49399,8 +49811,8 @@ Skill Level: ${updates.skillLevel || session.skillLevel || "Not specified"}`,
         return res.status(400).json({ error: "Date is required" });
       }
       const [existing2] = await db.select().from(coachWellnessLogs).where(and22(
-        eq22(coachWellnessLogs.coachId, id),
-        eq22(coachWellnessLogs.date, date2)
+        eq23(coachWellnessLogs.coachId, id),
+        eq23(coachWellnessLogs.date, date2)
       )).limit(1);
       if (existing2) {
         const [updated] = await db.update(coachWellnessLogs).set({
@@ -49416,7 +49828,7 @@ Skill Level: ${updates.skillLevel || session.skillLevel || "Not specified"}`,
           painNotes,
           notes,
           updatedAt: /* @__PURE__ */ new Date()
-        }).where(eq22(coachWellnessLogs.id, existing2.id)).returning();
+        }).where(eq23(coachWellnessLogs.id, existing2.id)).returning();
         res.json({ log: updated, updated: true });
       } else {
         const [created] = await db.insert(coachWellnessLogs).values({
@@ -49872,8 +50284,8 @@ Skill Level: ${updates.skillLevel || session.skillLevel || "Not specified"}`,
     try {
       const userId = req2.user.userId;
       const allTokens = await db.select().from(pushDeviceTokens).where(and22(
-        eq22(pushDeviceTokens.userId, userId),
-        eq22(pushDeviceTokens.isActive, true)
+        eq23(pushDeviceTokens.userId, userId),
+        eq23(pushDeviceTokens.isActive, true)
       ));
       if (allTokens.length === 0) {
         return res.status(400).json({
@@ -49917,7 +50329,7 @@ Skill Level: ${updates.skillLevel || session.skillLevel || "Not specified"}`,
       const userId = req2.user.userId;
       const coachId = req2.user.coachId;
       const playerId = req2.user.playerId;
-      const allTokens = await db.select().from(pushDeviceTokens).where(eq22(pushDeviceTokens.userId, userId));
+      const allTokens = await db.select().from(pushDeviceTokens).where(eq23(pushDeviceTokens.userId, userId));
       const activeTokens = allTokens.filter((t) => t.isActive);
       const tokenSummary = activeTokens.map((t) => ({
         id: t.id,
@@ -52181,7 +52593,7 @@ Skill Level: ${updates.skillLevel || session.skillLevel || "Not specified"}`,
       const [updated] = await db.update(players).set({
         onboardingCompleted: false,
         profilePhotoUrl: null
-      }).where(eq22(players.id, playerId)).returning({ id: players.id, name: players.name, onboardingCompleted: players.onboardingCompleted });
+      }).where(eq23(players.id, playerId)).returning({ id: players.id, name: players.name, onboardingCompleted: players.onboardingCompleted });
       if (!updated) {
         return res.status(404).json({ error: "Player not found" });
       }
@@ -52349,8 +52761,8 @@ Skill Level: ${updates.skillLevel || session.skillLevel || "Not specified"}`,
         const seriesPlayersWithDetails = await storage.getSeriesPlayersWithDetails(s.id);
         const activePlayers = seriesPlayersWithDetails.filter((p) => p.status === "active");
         const sessionsForSeries = await db.select().from(sessions).where(and22(
-          eq22(sessions.seriesId, s.id),
-          eq22(sessions.status, "completed")
+          eq23(sessions.seriesId, s.id),
+          eq23(sessions.status, "completed")
         ));
         const completedSessionIds = sessionsForSeries.map((sess) => sess.id);
         let pendingFeedback = 0;
@@ -52372,8 +52784,8 @@ Skill Level: ${updates.skillLevel || session.skillLevel || "Not specified"}`,
       if (coachId && typeof coachId === "string") {
         const ownSeriesIds = allSeries.map((s) => s.id);
         const orphanSessions = await db.select().from(sessions).where(and22(
-          eq22(sessions.coachId, coachId),
-          eq22(sessions.academyId, academyId),
+          eq23(sessions.coachId, coachId),
+          eq23(sessions.academyId, academyId),
           // Filter by academy to ensure correct data
           or9(
             ownSeriesIds.length > 0 ? and22(isNotNull3(sessions.seriesId), notInArray(sessions.seriesId, ownSeriesIds)) : isNotNull3(sessions.seriesId),
@@ -52396,7 +52808,7 @@ Skill Level: ${updates.skillLevel || session.skillLevel || "Not specified"}`,
             const DUBAI_OFFSET = 4;
             const dubaiNow = new Date(now.getTime() + DUBAI_OFFSET * 60 * 60 * 1e3);
             const nextSession = sessionsGroup.find((s) => s.status === "scheduled" && new Date(s.startTime) > now);
-            const sessionPlayersList = await db.select().from(sessionPlayers).where(eq22(sessionPlayers.sessionId, firstSession.id));
+            const sessionPlayersList = await db.select().from(sessionPlayers).where(eq23(sessionPlayers.sessionId, firstSession.id));
             const playerDetails = await Promise.all(sessionPlayersList.slice(0, 4).map(async (sp) => {
               const player2 = await storage.getPlayer(sp.playerId);
               return { id: sp.playerId, name: player2?.name || "Unknown" };
@@ -52473,7 +52885,7 @@ Skill Level: ${updates.skillLevel || session.skillLevel || "Not specified"}`,
           credits
         };
       }));
-      const seriesSessions = await db.select().from(sessions).where(eq22(sessions.seriesId, id)).orderBy(asc4(sessions.startTime));
+      const seriesSessions = await db.select().from(sessions).where(eq23(sessions.seriesId, id)).orderBy(asc4(sessions.startTime));
       let locationName = null;
       if (series.locationId) {
         const location = await storage.getLocationById(series.locationId);
@@ -52729,7 +53141,7 @@ Skill Level: ${updates.skillLevel || session.skillLevel || "Not specified"}`,
         if (originalSeriesKey === "standalone") {
           allMatchingSessions = await db.select().from(sessions).where(isNull6(sessions.seriesId));
         } else {
-          allMatchingSessions = await db.select().from(sessions).where(eq22(sessions.seriesId, originalSeriesKey));
+          allMatchingSessions = await db.select().from(sessions).where(eq23(sessions.seriesId, originalSeriesKey));
         }
         let orphanSessions;
         if (originalCoachId) {
@@ -52922,7 +53334,7 @@ Skill Level: ${updates.skillLevel || session.skillLevel || "Not specified"}`,
       if (series.academyId !== academyId) {
         return res.status(403).json({ error: "Not authorized" });
       }
-      const seriesSessions = await db.select().from(sessions).where(eq22(sessions.seriesId, id));
+      const seriesSessions = await db.select().from(sessions).where(eq23(sessions.seriesId, id));
       const sessionIds = seriesSessions.map((s) => s.id);
       if (sessionIds.length === 0) {
         return res.json({ friends: [], pendingRequests: [] });
@@ -52991,7 +53403,7 @@ Skill Level: ${updates.skillLevel || session.skillLevel || "Not specified"}`,
       if (series.academyId !== academyId) {
         return res.status(403).json({ error: "Not authorized" });
       }
-      const seriesSessions = await db.select().from(sessions).where(eq22(sessions.seriesId, id)).orderBy(asc4(sessions.startTime));
+      const seriesSessions = await db.select().from(sessions).where(eq23(sessions.seriesId, id)).orderBy(asc4(sessions.startTime));
       const timeline = seriesSessions.map((s, index2) => ({
         id: s.id,
         weekNumber: s.weekNumber || index2 + 1,
@@ -54159,10 +54571,10 @@ Skill Level: ${updates.skillLevel || session.skillLevel || "Not specified"}`,
         creditDeductedAt: sessionPlayers.creditDeductedAt,
         sessionType: sessions.sessionType,
         startTime: sessions.startTime
-      }).from(sessionPlayers).innerJoin(sessions, eq22(sessionPlayers.sessionId, sessions.id)).where(and22(
-        eq22(sessionPlayers.playerId, playerId),
+      }).from(sessionPlayers).innerJoin(sessions, eq23(sessionPlayers.sessionId, sessions.id)).where(and22(
+        eq23(sessionPlayers.playerId, playerId),
         or9(
-          eq22(sessionPlayers.attendanceStatus, "present")
+          eq23(sessionPlayers.attendanceStatus, "present")
         ),
         isNull6(sessionPlayers.creditDeductedAt)
       ));
@@ -54176,7 +54588,7 @@ Skill Level: ${updates.skillLevel || session.skillLevel || "Not specified"}`,
       let fixedCount = 0;
       for (const session of unpaidSessions) {
         const debtId = `debt-fix-${session.sessionId}-${session.playerId}`;
-        const existingDebt = await db.select().from(creditTransactions).where(eq22(creditTransactions.id, debtId)).limit(1);
+        const existingDebt = await db.select().from(creditTransactions).where(eq23(creditTransactions.id, debtId)).limit(1);
         if (existingDebt.length === 0) {
           const creditType = session.sessionType.includes("semi") ? "semi_private" : session.sessionType.includes("group") ? "group" : "private";
           await db.insert(creditTransactions).values({
@@ -54195,7 +54607,7 @@ Skill Level: ${updates.skillLevel || session.skillLevel || "Not specified"}`,
               originalDate: session.startTime
             }
           });
-          await db.update(sessionPlayers).set({ creditDeductedAt: /* @__PURE__ */ new Date() }).where(eq22(sessionPlayers.id, session.sessionPlayerId));
+          await db.update(sessionPlayers).set({ creditDeductedAt: /* @__PURE__ */ new Date() }).where(eq23(sessionPlayers.id, session.sessionPlayerId));
           fixedCount++;
         }
       }
@@ -54310,9 +54722,9 @@ Skill Level: ${updates.skillLevel || session.skillLevel || "Not specified"}`,
       for (const player2 of allPlayers) {
         const attendedSessions = await db.select({
           sessionType: sessions.sessionType
-        }).from(sessionPlayers).innerJoin(sessions, eq22(sessionPlayers.sessionId, sessions.id)).where(and22(
-          eq22(sessionPlayers.playerId, player2.id),
-          eq22(sessionPlayers.attendanceStatus, "present")
+        }).from(sessionPlayers).innerJoin(sessions, eq23(sessionPlayers.sessionId, sessions.id)).where(and22(
+          eq23(sessionPlayers.playerId, player2.id),
+          eq23(sessionPlayers.attendanceStatus, "present")
         ));
         const sessionsByType = { group: 0, semi_private: 0, private: 0 };
         for (const s of attendedSessions) {
@@ -54371,16 +54783,16 @@ Skill Level: ${updates.skillLevel || session.skillLevel || "Not specified"}`,
         creditDeductedAt: sessionPlayers.creditDeductedAt,
         sessionType: sessions.sessionType,
         startTime: sessions.startTime
-      }).from(sessionPlayers).innerJoin(sessions, eq22(sessionPlayers.sessionId, sessions.id)).where(or9(
-        eq22(sessionPlayers.attendanceStatus, "present"),
-        eq22(sessionPlayers.attendanceStatus, "late")
+      }).from(sessionPlayers).innerJoin(sessions, eq23(sessionPlayers.sessionId, sessions.id)).where(or9(
+        eq23(sessionPlayers.attendanceStatus, "present"),
+        eq23(sessionPlayers.attendanceStatus, "late")
       ));
       const sessionsWithoutTransaction = [];
       for (const session of allAttendedSessions) {
         const existingTransactions = await db.select({ id: creditTransactions.id }).from(creditTransactions).where(and22(
-          eq22(creditTransactions.playerId, session.playerId),
-          eq22(creditTransactions.sessionId, session.sessionId),
-          eq22(creditTransactions.type, "debit")
+          eq23(creditTransactions.playerId, session.playerId),
+          eq23(creditTransactions.sessionId, session.sessionId),
+          eq23(creditTransactions.type, "debit")
         )).limit(1);
         if (existingTransactions.length === 0) {
           sessionsWithoutTransaction.push(session);
@@ -54422,7 +54834,7 @@ Skill Level: ${updates.skillLevel || session.skillLevel || "Not specified"}`,
               sessionId: session.sessionId,
               metadata: { isDebt: true, fixedManually: true, sessionType: session.sessionType }
             });
-            await db.update(sessionPlayers).set({ creditDeductedAt: /* @__PURE__ */ new Date(), creditTransactionId: debtId }).where(eq22(sessionPlayers.id, session.sessionPlayerId));
+            await db.update(sessionPlayers).set({ creditDeductedAt: /* @__PURE__ */ new Date(), creditTransactionId: debtId }).where(eq23(sessionPlayers.id, session.sessionPlayerId));
             fixedCount++;
             totalFixed++;
             console.log(`[FixAllUnpaid] Recorded debt for session ${session.sessionId} (type: ${creditType})`);
@@ -54738,7 +55150,7 @@ Skill Level: ${updates.skillLevel || session.skillLevel || "Not specified"}`,
       if (!academy) {
         return res.status(404).json({ error: "Academy not found" });
       }
-      const ownerUsers = await db.select().from(users).where(and22(eq22(users.role, "academy_owner"), eq22(users.academyId, academyId))).limit(1);
+      const ownerUsers = await db.select().from(users).where(and22(eq23(users.role, "academy_owner"), eq23(users.academyId, academyId))).limit(1);
       let targetCoachId = null;
       let targetPlayerId = null;
       if (ownerUsers.length > 0) {
@@ -55071,9 +55483,9 @@ Skill Level: ${updates.skillLevel || session.skillLevel || "Not specified"}`,
         currentLevel: players.currentLevel
       }).from(players).where(
         and22(
-          eq22(players.academyId, academyId),
-          eq22(players.status, "active"),
-          eq22(players.currentLevel, ballLevel2),
+          eq23(players.academyId, academyId),
+          eq23(players.status, "active"),
+          eq23(players.currentLevel, ballLevel2),
           req2.user?.playerId ? ne5(players.id, req2.user.playerId) : sql21`1=1`
         )
       ).limit(parseInt(limit)).orderBy(sql21`RANDOM()`);
@@ -55213,11 +55625,11 @@ Skill Level: ${updates.skillLevel || session.skillLevel || "Not specified"}`,
           playerName: players.name,
           hostBallLevel: players.ballLevel,
           playerAvatar: players.profilePhotoUrl
-        }).from(matchRequests).leftJoin(players, eq22(matchRequests.playerId, players.id)).where(and22(
-          eq22(matchRequests.status, "open"),
-          eq22(players.ballLevel, player2.ballLevel),
+        }).from(matchRequests).leftJoin(players, eq23(matchRequests.playerId, players.id)).where(and22(
+          eq23(matchRequests.status, "open"),
+          eq23(players.ballLevel, player2.ballLevel),
           or9(
-            eq22(matchRequests.academyId, player2.academyId),
+            eq23(matchRequests.academyId, player2.academyId),
             isNull6(matchRequests.academyId)
           )
         )).limit(6);
@@ -55249,7 +55661,7 @@ Skill Level: ${updates.skillLevel || session.skillLevel || "Not specified"}`,
       }
       const communityEvents = [];
       if (player2.academyId) {
-        const recentPosts = await db.select().from(posts2).where(eq22(posts2.academyId, player2.academyId)).orderBy(desc18(posts2.createdAt)).limit(3);
+        const recentPosts = await db.select().from(posts2).where(eq23(posts2.academyId, player2.academyId)).orderBy(desc18(posts2.createdAt)).limit(3);
         for (const post of recentPosts) {
           const created = new Date(post.createdAt);
           const dateParam = req2.query.date;
@@ -55681,7 +56093,7 @@ Skill Level: ${updates.skillLevel || session.skillLevel || "Not specified"}`,
             creditDeductedAt: /* @__PURE__ */ new Date(),
             creditTransactionId: transactionId,
             billingStatus: "charged"
-          }).where(eq22(sessionPlayers.id, sessionPlayer.id));
+          }).where(eq23(sessionPlayers.id, sessionPlayer.id));
           console.log(`[LateCancellation] Player ${playerId} charged ${creditsToDeduct} ${creditType} credit(s) for late cancellation (${Math.round(hoursUntilSession)}h notice, tier: ${penaltyTier})`);
         }
         if (xpPenalty !== 0) {
@@ -56165,7 +56577,7 @@ Skill Level: ${updates.skillLevel || session.skillLevel || "Not specified"}`,
       if (!holiday) {
         return res.status(404).json({ error: "Vacation not found" });
       }
-      await db.delete(playerHolidays).where(eq22(playerHolidays.id, id));
+      await db.delete(playerHolidays).where(eq23(playerHolidays.id, id));
       res.json({
         success: true,
         message: "Vacation cancelled. Welcome back!"
@@ -56357,7 +56769,7 @@ Skill Level: ${updates.skillLevel || session.skillLevel || "Not specified"}`,
         status: seriesPlayers.status,
         joinedAt: seriesPlayers.joinedAt,
         leftAt: seriesPlayers.leftAt
-      }).from(seriesPlayers).where(eq22(seriesPlayers.playerId, playerId));
+      }).from(seriesPlayers).where(eq23(seriesPlayers.playerId, playerId));
       if (playerSeriesRecords.length === 0) {
         return res.json({ classes: [], summary: { totalPresent: 0, totalSessions: 0, attendanceRate: 0 } });
       }
@@ -56365,14 +56777,14 @@ Skill Level: ${updates.skillLevel || session.skillLevel || "Not specified"}`,
       const seriesDetails = await db.select().from(coachingSeries).where(inArray8(coachingSeries.id, seriesIds));
       const classes = await Promise.all(seriesDetails.map(async (series) => {
         const seriesRecord = playerSeriesRecords.find((r) => r.seriesId === series.id);
-        const seriesSessions = await db.select({ id: sessions.id, startTime: sessions.startTime }).from(sessions).where(eq22(sessions.seriesId, series.id));
+        const seriesSessions = await db.select({ id: sessions.id, startTime: sessions.startTime }).from(sessions).where(eq23(sessions.seriesId, series.id));
         const sessionIds = seriesSessions.map((s) => s.id);
         const attendanceRecords = sessionIds.length > 0 ? await db.select({
           status: sessionPlayers.attendanceStatus,
           count: count3()
         }).from(sessionPlayers).where(and22(
           inArray8(sessionPlayers.sessionId, sessionIds),
-          eq22(sessionPlayers.playerId, playerId)
+          eq23(sessionPlayers.playerId, playerId)
         )).groupBy(sessionPlayers.attendanceStatus) : [];
         const presentOnTimeCount = Number(attendanceRecords.find((r) => r.status === "present")?.count || 0);
         const lateCount = Number(attendanceRecords.find((r) => r.status === "late")?.count || 0);
@@ -56830,9 +57242,9 @@ Skill Level: ${updates.skillLevel || session.skillLevel || "Not specified"}`,
       if (!player2 || !player2.academyId) {
         return res.status(404).json({ error: "Player not found" });
       }
-      const memberRows = await db.select().from(groupMembers).where(eq22(groupMembers.userId, req2.user.userId));
+      const memberRows = await db.select().from(groupMembers).where(eq23(groupMembers.userId, req2.user.userId));
       const myGroupIds = memberRows.map((m) => m.groupId);
-      const academyGroups = await db.select().from(communityGroups).where(eq22(communityGroups.academyId, player2.academyId));
+      const academyGroups = await db.select().from(communityGroups).where(eq23(communityGroups.academyId, player2.academyId));
       const groups = academyGroups.map((g) => ({
         ...g,
         isMember: myGroupIds.includes(g.id),
@@ -56856,7 +57268,7 @@ Skill Level: ${updates.skillLevel || session.skillLevel || "Not specified"}`,
       if (!player2 || !player2.academyId) {
         return res.status(403).json({ error: "Player must be in an academy" });
       }
-      const [group] = await db.select().from(communityGroups).where(eq22(communityGroups.id, groupId));
+      const [group] = await db.select().from(communityGroups).where(eq23(communityGroups.id, groupId));
       if (!group) {
         return res.status(404).json({ error: "Group not found" });
       }
@@ -56864,8 +57276,8 @@ Skill Level: ${updates.skillLevel || session.skillLevel || "Not specified"}`,
         return res.status(404).json({ error: "Group not found" });
       }
       const [membership] = await db.select().from(groupMembers).where(and22(
-        eq22(groupMembers.groupId, groupId),
-        eq22(groupMembers.userId, userId)
+        eq23(groupMembers.groupId, groupId),
+        eq23(groupMembers.userId, userId)
       ));
       if (group.isPrivate && !membership) {
         return res.status(403).json({ error: "This is a private group" });
@@ -56873,7 +57285,7 @@ Skill Level: ${updates.skillLevel || session.skillLevel || "Not specified"}`,
       const membersData = await db.select({
         member: groupMembers,
         user: users
-      }).from(groupMembers).leftJoin(users, eq22(groupMembers.userId, users.id)).where(eq22(groupMembers.groupId, groupId));
+      }).from(groupMembers).leftJoin(users, eq23(groupMembers.userId, users.id)).where(eq23(groupMembers.groupId, groupId));
       const members = membersData.map((m) => ({
         id: m.member.id,
         userId: m.member.userId,
@@ -56898,15 +57310,15 @@ Skill Level: ${updates.skillLevel || session.skillLevel || "Not specified"}`,
       const { groupId } = req2.params;
       const userId = req2.user.userId;
       const [membership] = await db.select().from(groupMembers).where(and22(
-        eq22(groupMembers.groupId, groupId),
-        eq22(groupMembers.userId, userId)
+        eq23(groupMembers.groupId, groupId),
+        eq23(groupMembers.userId, userId)
       ));
       if (!membership) {
         return res.status(403).json({ error: "Not a member of this group" });
       }
-      const groupPosts = await db.select().from(posts).where(eq22(posts.groupId, groupId)).orderBy(desc18(posts.createdAt)).limit(50);
+      const groupPosts = await db.select().from(posts).where(eq23(posts.groupId, groupId)).orderBy(desc18(posts.createdAt)).limit(50);
       const postsWithAuthor = await Promise.all(groupPosts.map(async (post) => {
-        const [author] = await db.select().from(users).where(eq22(users.id, post.authorId));
+        const [author] = await db.select().from(users).where(eq23(users.id, post.authorId));
         return {
           ...post,
           authorName: author?.email?.split("@")[0] || "Unknown"
@@ -56927,7 +57339,7 @@ Skill Level: ${updates.skillLevel || session.skillLevel || "Not specified"}`,
       if (!player2 || !player2.academyId) {
         return res.status(403).json({ error: "Player must be in an academy" });
       }
-      const [group] = await db.select().from(communityGroups).where(eq22(communityGroups.id, groupId));
+      const [group] = await db.select().from(communityGroups).where(eq23(communityGroups.id, groupId));
       if (!group) {
         return res.status(404).json({ error: "Group not found" });
       }
@@ -56938,8 +57350,8 @@ Skill Level: ${updates.skillLevel || session.skillLevel || "Not specified"}`,
         return res.status(403).json({ error: "This is a private group. You need an invitation to join." });
       }
       const [existing2] = await db.select().from(groupMembers).where(and22(
-        eq22(groupMembers.groupId, groupId),
-        eq22(groupMembers.userId, userId)
+        eq23(groupMembers.groupId, groupId),
+        eq23(groupMembers.userId, userId)
       ));
       if (existing2) {
         return res.status(400).json({ error: "Already a member" });
@@ -56949,7 +57361,7 @@ Skill Level: ${updates.skillLevel || session.skillLevel || "Not specified"}`,
         userId,
         role: "member"
       });
-      await db.update(communityGroups).set({ memberCount: sql21`${communityGroups.memberCount} + 1` }).where(eq22(communityGroups.id, groupId));
+      await db.update(communityGroups).set({ memberCount: sql21`${communityGroups.memberCount} + 1` }).where(eq23(communityGroups.id, groupId));
       res.json({ success: true, message: "Joined group" });
     } catch (error) {
       console.error("Error joining group:", error);
@@ -56961,8 +57373,8 @@ Skill Level: ${updates.skillLevel || session.skillLevel || "Not specified"}`,
       const { groupId } = req2.params;
       const userId = req2.user.userId;
       const [membership] = await db.select().from(groupMembers).where(and22(
-        eq22(groupMembers.groupId, groupId),
-        eq22(groupMembers.userId, userId)
+        eq23(groupMembers.groupId, groupId),
+        eq23(groupMembers.userId, userId)
       ));
       if (!membership) {
         return res.status(400).json({ error: "Not a member" });
@@ -56971,10 +57383,10 @@ Skill Level: ${updates.skillLevel || session.skillLevel || "Not specified"}`,
         return res.status(400).json({ error: "Admins must transfer ownership before leaving" });
       }
       await db.delete(groupMembers).where(and22(
-        eq22(groupMembers.groupId, groupId),
-        eq22(groupMembers.userId, userId)
+        eq23(groupMembers.groupId, groupId),
+        eq23(groupMembers.userId, userId)
       ));
-      await db.update(communityGroups).set({ memberCount: sql21`${communityGroups.memberCount} - 1` }).where(eq22(communityGroups.id, groupId));
+      await db.update(communityGroups).set({ memberCount: sql21`${communityGroups.memberCount} - 1` }).where(eq23(communityGroups.id, groupId));
       res.json({ success: true, message: "Left group" });
     } catch (error) {
       console.error("Error leaving group:", error);
@@ -57549,6 +57961,18 @@ Skill Level: ${updates.skillLevel || session.skillLevel || "Not specified"}`,
       if (!type) {
         return res.status(400).json({ error: "Conversation type required" });
       }
+      if (type === "player_player") {
+        const playerIsMinor = await isPlayerMinor(playerId);
+        if (playerIsMinor) {
+          const controls = await getPlayerParentalControls(playerId);
+          if (!controls.chatEnabled) {
+            return res.status(403).json({
+              error: "Chat with other players requires parental approval. Ask a parent to enable chat in the Family Lobby.",
+              code: "MINOR_CHAT_RESTRICTED"
+            });
+          }
+        }
+      }
       if (type === "player_player" && otherPlayerId) {
         const otherPlayer = await storage.getPlayer(otherPlayerId, academyId);
         if (!otherPlayer) {
@@ -57672,6 +58096,11 @@ Skill Level: ${updates.skillLevel || session.skillLevel || "Not specified"}`,
       if (!body || !body.trim()) {
         return res.status(400).json({ error: "Message body required" });
       }
+      if (chatRateLimiter.isRateLimited(playerId)) {
+        return res.status(429).json({ error: "You're sending messages too quickly. Please wait a moment." });
+      }
+      chatRateLimiter.recordRequest(playerId);
+      const filteredBody = filterProfanity(body.trim());
       const conversation = await storage.getConversationForPlayer(id, playerId, academyId);
       if (!conversation) {
         return res.status(404).json({ error: "Conversation not found" });
@@ -57681,12 +58110,12 @@ Skill Level: ${updates.skillLevel || session.skillLevel || "Not specified"}`,
         senderType: "player",
         senderCoachId: null,
         senderPlayerId: playerId,
-        body: body.trim(),
+        body: filteredBody,
         messageType: messageType || "text"
       });
       await storage.updateConversation(id, {
         lastMessageAt: /* @__PURE__ */ new Date(),
-        lastMessagePreview: body.trim().substring(0, 100)
+        lastMessagePreview: filteredBody.substring(0, 100)
       });
       const participants = await storage.getConversationParticipants(id, void 0, academyId);
       for (const participant of participants) {
@@ -57696,7 +58125,7 @@ Skill Level: ${updates.skillLevel || session.skillLevel || "Not specified"}`,
             sendPushNotification(
               tokens,
               `New message from ${player2.name || "Player"}`,
-              body.trim().substring(0, 100),
+              filteredBody.substring(0, 100),
               { screen: "Messages", conversationId: id }
             ).catch((err) => console.error("[PushNotification] Failed to send coach message notification:", err));
           }
@@ -59393,14 +59822,14 @@ Skill Level: ${updates.skillLevel || session.skillLevel || "Not specified"}`,
       const futureDate = /* @__PURE__ */ new Date();
       futureDate.setDate(futureDate.getDate() + 14);
       const sessions3 = await db.query.sessions.findMany({
-        where: (s, { and: and23, or: or10, eq: eq23, gte: gte12, lte: lte5, inArray: inArray9 }) => and23(
+        where: (s, { and: and23, or: or10, eq: eq24, gte: gte12, lte: lte5, inArray: inArray9 }) => and23(
           or10(
-            eq23(s.academyId, academyId || ""),
-            eq23(s.academyId, null)
+            eq24(s.academyId, academyId || ""),
+            eq24(s.academyId, null)
             // Public sessions
           ),
           inArray9(s.sessionType, ["group", "semi_private"]),
-          eq23(s.status, "scheduled"),
+          eq24(s.status, "scheduled"),
           gte12(s.startTime, now),
           lte5(s.startTime, futureDate)
         ),
@@ -59408,7 +59837,7 @@ Skill Level: ${updates.skillLevel || session.skillLevel || "Not specified"}`,
       });
       const enrichedSessions = await Promise.all(sessions3.map(async (session) => {
         const sessionPlayerRecords = await db.query.sessionPlayers.findMany({
-          where: (sp, { eq: eq23 }) => eq23(sp.sessionId, session.id)
+          where: (sp, { eq: eq24 }) => eq24(sp.sessionId, session.id)
         });
         let playerIds = sessionPlayerRecords.map((sp) => sp.playerId).filter(Boolean);
         if (playerIds.length === 0 && session.seriesId) {
@@ -59434,7 +59863,7 @@ Skill Level: ${updates.skillLevel || session.skillLevel || "Not specified"}`,
         let locationId = session.locationId;
         if (!locationId && session.seriesId) {
           const series = await db.query.coachingSeries.findFirst({
-            where: (s, { eq: eq23 }) => eq23(s.id, session.seriesId)
+            where: (s, { eq: eq24 }) => eq24(s.id, session.seriesId)
           });
           if (series?.locationId) {
             locationId = series.locationId;
@@ -59448,9 +59877,9 @@ Skill Level: ${updates.skillLevel || session.skillLevel || "Not specified"}`,
           locationName = location?.name || "Location TBD";
         }
         const waitlistRecords = await db.query.sessionWaitlist.findMany({
-          where: (w, { and: and23, eq: eq23 }) => and23(
-            eq23(w.sessionId, session.id),
-            eq23(w.status, "waiting")
+          where: (w, { and: and23, eq: eq24 }) => and23(
+            eq24(w.sessionId, session.id),
+            eq24(w.status, "waiting")
           )
         });
         const maxPlayers = session.maxPlayers || 6;
@@ -59501,13 +59930,13 @@ Skill Level: ${updates.skillLevel || session.skillLevel || "Not specified"}`,
         return res.status(403).json({ error: "Player access required" });
       }
       const currentPlayer = await db.query.players.findFirst({
-        where: (p, { eq: eq23 }) => eq23(p.id, playerId)
+        where: (p, { eq: eq24 }) => eq24(p.id, playerId)
       });
       const academyId = currentPlayer?.academyId;
       console.log(`[NearbyPlayers] Player ${playerId} academyId: ${academyId}`);
       const players3 = await db.query.players.findMany({
-        where: (p, { and: and23, eq: eq23, ne: ne6 }) => and23(
-          eq23(p.academyId, academyId || ""),
+        where: (p, { and: and23, eq: eq24, ne: ne6 }) => and23(
+          eq24(p.academyId, academyId || ""),
           ne6(p.id, playerId)
         )
       });
@@ -59592,16 +60021,16 @@ Skill Level: ${updates.skillLevel || session.skillLevel || "Not specified"}`,
         return res.status(404).json({ error: "Session not found" });
       }
       const existingPlayer = await db.query.sessionPlayers.findFirst({
-        where: (sp, { and: and23, eq: eq23 }) => and23(
-          eq23(sp.sessionId, sessionId),
-          eq23(sp.playerId, playerId)
+        where: (sp, { and: and23, eq: eq24 }) => and23(
+          eq24(sp.sessionId, sessionId),
+          eq24(sp.playerId, playerId)
         )
       });
       if (existingPlayer) {
         return res.status(400).json({ error: "Already joined this session" });
       }
       const currentPlayers = await db.query.sessionPlayers.findMany({
-        where: (sp, { eq: eq23 }) => eq23(sp.sessionId, sessionId)
+        where: (sp, { eq: eq24 }) => eq24(sp.sessionId, sessionId)
       });
       const maxPlayers = session.maxPlayers || 6;
       if (currentPlayers.length >= maxPlayers) {
@@ -59683,8 +60112,8 @@ Skill Level: ${updates.skillLevel || session.skillLevel || "Not specified"}`,
       }
       await db.delete(sessionPlayers).where(
         and22(
-          eq22(sessionPlayers.sessionId, sessionId),
-          eq22(sessionPlayers.playerId, playerId)
+          eq23(sessionPlayers.sessionId, sessionId),
+          eq23(sessionPlayers.playerId, playerId)
         )
       );
       await storage.createPlayerSessionCancellation({
@@ -59770,7 +60199,7 @@ Skill Level: ${updates.skillLevel || session.skillLevel || "Not specified"}`,
             await db.transaction(async (tx) => {
               if (useMakeUp) {
                 const result = await tx.update(players).set({ makeUpCredits: sql21`GREATEST(0, COALESCE(make_up_credits, 0) - 1)` }).where(and22(
-                  eq22(players.id, waitlistPlayer.id),
+                  eq23(players.id, waitlistPlayer.id),
                   sql21`COALESCE(make_up_credits, 0) > 0`
                 )).returning({ id: players.id });
                 if (result.length === 0) {
@@ -59778,7 +60207,7 @@ Skill Level: ${updates.skillLevel || session.skillLevel || "Not specified"}`,
                 }
               } else {
                 const result = await tx.update(players).set({ credits: sql21`GREATEST(0, COALESCE(credits, 0) - ${sessionCredits})` }).where(and22(
-                  eq22(players.id, waitlistPlayer.id),
+                  eq23(players.id, waitlistPlayer.id),
                   sql21`COALESCE(credits, 0) >= ${sessionCredits}`
                 )).returning({ id: players.id });
                 if (result.length === 0) {
@@ -59803,7 +60232,7 @@ Skill Level: ${updates.skillLevel || session.skillLevel || "Not specified"}`,
                   promotedFromWaitlist: true
                 })
               });
-              await tx.update(sessionWaitlist).set({ status: "promoted" }).where(eq22(sessionWaitlist.id, waitlistEntry.id));
+              await tx.update(sessionWaitlist).set({ status: "promoted" }).where(eq23(sessionWaitlist.id, waitlistEntry.id));
             });
             waitlistPromoted = true;
             if (waitlistPlayer.userId) {
@@ -59843,7 +60272,7 @@ Skill Level: ${updates.skillLevel || session.skillLevel || "Not specified"}`,
               scheduledFor: /* @__PURE__ */ new Date()
             });
           }
-          await db.update(sessionWaitlist).set({ status: "insufficient_credits" }).where(eq22(sessionWaitlist.id, waitlistEntry.id));
+          await db.update(sessionWaitlist).set({ status: "insufficient_credits" }).where(eq23(sessionWaitlist.id, waitlistEntry.id));
         }
       }
       const academyId = session.academyId || player2.academyId;
@@ -59895,19 +60324,19 @@ Skill Level: ${updates.skillLevel || session.skillLevel || "Not specified"}`,
         return res.status(403).json({ error: "Player access required" });
       }
       const existingWaitlist = await db.query.sessionWaitlist.findFirst({
-        where: (w, { and: and23, eq: eq23 }) => and23(
-          eq23(w.sessionId, sessionId),
-          eq23(w.playerId, playerId),
-          eq23(w.status, "waiting")
+        where: (w, { and: and23, eq: eq24 }) => and23(
+          eq24(w.sessionId, sessionId),
+          eq24(w.playerId, playerId),
+          eq24(w.status, "waiting")
         )
       });
       if (existingWaitlist) {
         return res.status(400).json({ error: "Already on the waitlist" });
       }
       const waitlistCount = await db.query.sessionWaitlist.findMany({
-        where: (w, { and: and23, eq: eq23 }) => and23(
-          eq23(w.sessionId, sessionId),
-          eq23(w.status, "waiting")
+        where: (w, { and: and23, eq: eq24 }) => and23(
+          eq24(w.sessionId, sessionId),
+          eq24(w.status, "waiting")
         )
       });
       const position = waitlistCount.length + 1;
@@ -60109,7 +60538,7 @@ Skill Level: ${updates.skillLevel || session.skillLevel || "Not specified"}`,
       const academyId = req2.user?.academyId || "default-academy";
       const { availability, settings } = req2.body;
       const isActive = settings?.availabilityPaused !== void 0 ? !settings.availabilityPaused : void 0;
-      await db.delete(coachAvailability).where(eq22(coachAvailability.coachId, coachId));
+      await db.delete(coachAvailability).where(eq23(coachAvailability.coachId, coachId));
       if (availability && Array.isArray(availability)) {
         for (const day of availability) {
           if (day.isAvailable && day.timeBlocks?.length > 0) {
@@ -60129,9 +60558,9 @@ Skill Level: ${updates.skillLevel || session.skillLevel || "Not specified"}`,
         }
       }
       if (isActive !== void 0) {
-        const [existing2] = await db.select().from(coachSettings).where(eq22(coachSettings.coachId, coachId));
+        const [existing2] = await db.select().from(coachSettings).where(eq23(coachSettings.coachId, coachId));
         if (existing2) {
-          await db.update(coachSettings).set({ availabilityPaused: !isActive, updatedAt: /* @__PURE__ */ new Date() }).where(eq22(coachSettings.coachId, coachId));
+          await db.update(coachSettings).set({ availabilityPaused: !isActive, updatedAt: /* @__PURE__ */ new Date() }).where(eq23(coachSettings.coachId, coachId));
         } else {
           await db.insert(coachSettings).values({
             id: crypto2.randomUUID(),
@@ -60154,7 +60583,7 @@ Skill Level: ${updates.skillLevel || session.skillLevel || "Not specified"}`,
   app2.get("/api/coaches/:coachId/settings", authMiddlewareWithFreshData, async (req2, res) => {
     try {
       const { coachId } = req2.params;
-      const [settings] = await db.select().from(coachSettings).where(eq22(coachSettings.coachId, coachId));
+      const [settings] = await db.select().from(coachSettings).where(eq23(coachSettings.coachId, coachId));
       if (!settings) {
         return res.json({
           minSessionLength: 60,
@@ -60176,14 +60605,14 @@ Skill Level: ${updates.skillLevel || session.skillLevel || "Not specified"}`,
     try {
       const { coachId } = req2.params;
       const { minSessionLength, bufferBetweenSessions, availabilityPaused } = req2.body;
-      const [existing2] = await db.select().from(coachSettings).where(eq22(coachSettings.coachId, coachId));
+      const [existing2] = await db.select().from(coachSettings).where(eq23(coachSettings.coachId, coachId));
       if (existing2) {
         await db.update(coachSettings).set({
           minSessionLength: minSessionLength ?? existing2.minSessionLength,
           bufferBetweenSessions: bufferBetweenSessions ?? existing2.bufferBetweenSessions,
           availabilityPaused: availabilityPaused ?? existing2.availabilityPaused,
           updatedAt: /* @__PURE__ */ new Date()
-        }).where(eq22(coachSettings.coachId, coachId));
+        }).where(eq23(coachSettings.coachId, coachId));
       } else {
         await db.insert(coachSettings).values({
           id: crypto2.randomUUID(),
@@ -60204,7 +60633,7 @@ Skill Level: ${updates.skillLevel || session.skillLevel || "Not specified"}`,
   app2.get("/api/coaches/:coachId/availability-exceptions", authMiddlewareWithFreshData, async (req2, res) => {
     try {
       const { coachId } = req2.params;
-      const exceptions = await db.select().from(availabilityExceptions).where(eq22(availabilityExceptions.coachId, coachId)).orderBy(desc18(availabilityExceptions.startDate));
+      const exceptions = await db.select().from(availabilityExceptions).where(eq23(availabilityExceptions.coachId, coachId)).orderBy(desc18(availabilityExceptions.startDate));
       res.json(exceptions);
     } catch (error) {
       console.error("Availability exceptions error:", error);
@@ -60235,7 +60664,7 @@ Skill Level: ${updates.skillLevel || session.skillLevel || "Not specified"}`,
   app2.delete("/api/coaches/:coachId/availability-exceptions/:id", authMiddlewareWithFreshData, async (req2, res) => {
     try {
       const { id } = req2.params;
-      await db.delete(availabilityExceptions).where(eq22(availabilityExceptions.id, id));
+      await db.delete(availabilityExceptions).where(eq23(availabilityExceptions.id, id));
       res.json({ success: true });
     } catch (error) {
       console.error("Delete exception error:", error);
@@ -60250,8 +60679,8 @@ Skill Level: ${updates.skillLevel || session.skillLevel || "Not specified"}`,
         return res.status(403).json({ error: "Coach access required" });
       }
       const travelTimes = await db.select().from(locationTravelTimes).where(and22(
-        eq22(locationTravelTimes.coachId, coachId),
-        eq22(locationTravelTimes.academyId, academyId)
+        eq23(locationTravelTimes.coachId, coachId),
+        eq23(locationTravelTimes.academyId, academyId)
       ));
       res.json(travelTimes);
     } catch (error) {
@@ -60281,17 +60710,17 @@ Skill Level: ${updates.skillLevel || session.skillLevel || "Not specified"}`,
       const results = [];
       for (const dir of directions) {
         const existing2 = await db.select().from(locationTravelTimes).where(and22(
-          eq22(locationTravelTimes.coachId, coachId),
-          eq22(locationTravelTimes.academyId, academyId),
-          eq22(locationTravelTimes.fromLocationId, dir.from),
-          eq22(locationTravelTimes.toLocationId, dir.to)
+          eq23(locationTravelTimes.coachId, coachId),
+          eq23(locationTravelTimes.academyId, academyId),
+          eq23(locationTravelTimes.fromLocationId, dir.from),
+          eq23(locationTravelTimes.toLocationId, dir.to)
         )).limit(1);
         let result;
         if (existing2.length > 0) {
           [result] = await db.update(locationTravelTimes).set({
             travelTimeMinutes,
             updatedAt: /* @__PURE__ */ new Date()
-          }).where(eq22(locationTravelTimes.id, existing2[0].id)).returning();
+          }).where(eq23(locationTravelTimes.id, existing2[0].id)).returning();
         } else {
           [result] = await db.insert(locationTravelTimes).values({
             coachId,
@@ -60317,8 +60746,8 @@ Skill Level: ${updates.skillLevel || session.skillLevel || "Not specified"}`,
         return res.status(403).json({ error: "Coach access required" });
       }
       await db.delete(locationTravelTimes).where(and22(
-        eq22(locationTravelTimes.id, id),
-        eq22(locationTravelTimes.coachId, coachId)
+        eq23(locationTravelTimes.id, id),
+        eq23(locationTravelTimes.coachId, coachId)
       ));
       res.json({ success: true });
     } catch (error) {
@@ -61725,8 +62154,8 @@ Skill Level: ${updates.skillLevel || session.skillLevel || "Not specified"}`,
       const { blockId } = req2.params;
       const realId = blockId.replace("coach-block-", "");
       await db.delete(coachTimeBlocks).where(and22(
-        eq22(coachTimeBlocks.id, realId),
-        eq22(coachTimeBlocks.coachId, coachId)
+        eq23(coachTimeBlocks.id, realId),
+        eq23(coachTimeBlocks.coachId, coachId)
       ));
       res.json({ success: true });
     } catch (error) {
@@ -61837,7 +62266,7 @@ Skill Level: ${updates.skillLevel || session.skillLevel || "Not specified"}`,
       if (!playerId) {
         return res.status(401).json({ error: "Player profile required" });
       }
-      const invites2 = await db.select().from(bookingInviteGuests).innerJoin(bookingInvites, eq22(bookingInviteGuests.inviteId, bookingInvites.id)).where(eq22(bookingInviteGuests.playerId, playerId));
+      const invites2 = await db.select().from(bookingInviteGuests).innerJoin(bookingInvites, eq23(bookingInviteGuests.inviteId, bookingInvites.id)).where(eq23(bookingInviteGuests.playerId, playerId));
       res.json(invites2);
     } catch (error) {
       console.error("Get booking invites error:", error);
@@ -61856,8 +62285,8 @@ Skill Level: ${updates.skillLevel || session.skillLevel || "Not specified"}`,
         return res.status(400).json({ error: "Action must be 'accept' or 'decline'" });
       }
       const [guest] = await db.select().from(bookingInviteGuests).where(and22(
-        eq22(bookingInviteGuests.inviteId, inviteId),
-        eq22(bookingInviteGuests.playerId, playerId)
+        eq23(bookingInviteGuests.inviteId, inviteId),
+        eq23(bookingInviteGuests.playerId, playerId)
       ));
       if (!guest) {
         return res.status(404).json({ error: "Invite not found" });
@@ -61865,9 +62294,9 @@ Skill Level: ${updates.skillLevel || session.skillLevel || "Not specified"}`,
       await db.update(bookingInviteGuests).set({
         status: action === "accept" ? "accepted" : "declined",
         respondedAt: /* @__PURE__ */ new Date()
-      }).where(eq22(bookingInviteGuests.id, guest.id));
+      }).where(eq23(bookingInviteGuests.id, guest.id));
       if (action === "accept") {
-        await db.update(bookingInvites).set({ totalAccepted: sql21`total_accepted + 1` }).where(eq22(bookingInvites.id, inviteId));
+        await db.update(bookingInvites).set({ totalAccepted: sql21`total_accepted + 1` }).where(eq23(bookingInvites.id, inviteId));
       }
       res.json({ success: true, message: `Invite ${action}ed` });
     } catch (error) {
@@ -61900,7 +62329,7 @@ Skill Level: ${updates.skillLevel || session.skillLevel || "Not specified"}`,
         hostBallLevel: players.ballLevel,
         playerLevel: players.skillLevel,
         playerBallLevel: players.ballLevel
-      }).from(matchRequests).leftJoin(players, eq22(matchRequests.playerId, players.id)).where(eq22(matchRequests.status, "open"));
+      }).from(matchRequests).leftJoin(players, eq23(matchRequests.playerId, players.id)).where(eq23(matchRequests.status, "open"));
       let filteredMatches = matches2;
       if (matchType && matchType !== "all") {
         filteredMatches = filteredMatches.filter((m) => m.matchType === matchType);
@@ -62007,7 +62436,7 @@ Skill Level: ${updates.skillLevel || session.skillLevel || "Not specified"}`,
         playerAvatar: players.profilePhotoUrl,
         playerLevel: players.skillLevel,
         playerBallLevel: players.ballLevel
-      }).from(matchRequests).leftJoin(players, eq22(matchRequests.playerId, players.id)).where(eq22(matchRequests.id, matchId));
+      }).from(matchRequests).leftJoin(players, eq23(matchRequests.playerId, players.id)).where(eq23(matchRequests.id, matchId));
       if (!matchRequest) {
         return res.status(404).json({ error: "Match not found" });
       }
@@ -62070,14 +62499,14 @@ Skill Level: ${updates.skillLevel || session.skillLevel || "Not specified"}`,
       if (!playerId) {
         return res.status(401).json({ error: "Player profile required" });
       }
-      const [matchRequest] = await db.select().from(matchRequests).where(eq22(matchRequests.id, matchId));
+      const [matchRequest] = await db.select().from(matchRequests).where(eq23(matchRequests.id, matchId));
       if (!matchRequest) {
         return res.status(404).json({ error: "Match not found" });
       }
       if (matchRequest.playerId !== playerId) {
         return res.status(403).json({ error: "You can only cancel your own matches" });
       }
-      await db.update(matchRequests).set({ status: "cancelled" }).where(eq22(matchRequests.id, matchId));
+      await db.update(matchRequests).set({ status: "cancelled" }).where(eq23(matchRequests.id, matchId));
       res.json({ success: true, message: "Match cancelled successfully" });
     } catch (error) {
       console.error("Cancel open match error:", error);
@@ -62145,7 +62574,7 @@ Skill Level: ${updates.skillLevel || session.skillLevel || "Not specified"}`,
       if (!playerId) {
         return res.status(401).json({ error: "Player profile required" });
       }
-      const [match] = await db.select().from(openMatches).where(eq22(openMatches.id, matchId));
+      const [match] = await db.select().from(openMatches).where(eq23(openMatches.id, matchId));
       if (!match) {
         return res.status(404).json({ error: "Match not found" });
       }
@@ -62156,8 +62585,8 @@ Skill Level: ${updates.skillLevel || session.skillLevel || "Not specified"}`,
         return res.status(400).json({ error: "Match is already full" });
       }
       const [existing2] = await db.select().from(openMatchSlots).where(and22(
-        eq22(openMatchSlots.matchId, matchId),
-        eq22(openMatchSlots.playerId, playerId)
+        eq23(openMatchSlots.matchId, matchId),
+        eq23(openMatchSlots.playerId, playerId)
       ));
       if (existing2) {
         return res.status(400).json({ error: "Already joined this match" });
@@ -62173,7 +62602,7 @@ Skill Level: ${updates.skillLevel || session.skillLevel || "Not specified"}`,
       await db.update(openMatches).set({
         currentPlayers: newCount,
         status: newStatus
-      }).where(eq22(openMatches.id, matchId));
+      }).where(eq23(openMatches.id, matchId));
       await storage.createNotification({
         type: "open_match_join",
         title: "Player Joined",
@@ -62197,8 +62626,8 @@ Skill Level: ${updates.skillLevel || session.skillLevel || "Not specified"}`,
         return res.status(401).json({ error: "Player profile required" });
       }
       const [slot] = await db.select().from(openMatchSlots).where(and22(
-        eq22(openMatchSlots.matchId, matchId),
-        eq22(openMatchSlots.playerId, playerId)
+        eq23(openMatchSlots.matchId, matchId),
+        eq23(openMatchSlots.playerId, playerId)
       ));
       if (!slot) {
         return res.status(404).json({ error: "Not in this match" });
@@ -62206,8 +62635,8 @@ Skill Level: ${updates.skillLevel || session.skillLevel || "Not specified"}`,
       if (slot.role === "host") {
         return res.status(400).json({ error: "Host cannot leave. Cancel the match instead." });
       }
-      await db.update(openMatchSlots).set({ status: "cancelled", cancelledAt: /* @__PURE__ */ new Date() }).where(eq22(openMatchSlots.id, slot.id));
-      await db.update(openMatches).set({ currentPlayers: sql21`current_players - 1` }).where(eq22(openMatches.id, matchId));
+      await db.update(openMatchSlots).set({ status: "cancelled", cancelledAt: /* @__PURE__ */ new Date() }).where(eq23(openMatchSlots.id, slot.id));
+      await db.update(openMatches).set({ currentPlayers: sql21`current_players - 1` }).where(eq23(openMatches.id, matchId));
       res.json({ success: true, message: "Left match" });
     } catch (error) {
       console.error("Leave open match error:", error);
@@ -62225,7 +62654,7 @@ Skill Level: ${updates.skillLevel || session.skillLevel || "Not specified"}`,
       if (!playerId) {
         return res.status(400).json({ error: "Player ID required" });
       }
-      const [match] = await db.select().from(openMatches).where(eq22(openMatches.id, matchId));
+      const [match] = await db.select().from(openMatches).where(eq23(openMatches.id, matchId));
       if (!match) {
         return res.status(404).json({ error: "Match not found" });
       }
@@ -62236,9 +62665,9 @@ Skill Level: ${updates.skillLevel || session.skillLevel || "Not specified"}`,
         return res.status(400).json({ error: "Match is already full" });
       }
       const [existingSlot] = await db.select().from(openMatchSlots).where(and22(
-        eq22(openMatchSlots.matchId, matchId),
-        eq22(openMatchSlots.playerId, playerId),
-        eq22(openMatchSlots.status, "confirmed")
+        eq23(openMatchSlots.matchId, matchId),
+        eq23(openMatchSlots.playerId, playerId),
+        eq23(openMatchSlots.status, "confirmed")
       ));
       if (existingSlot) {
         return res.status(400).json({ error: "Player is already in this match" });
@@ -62311,14 +62740,14 @@ Skill Level: ${updates.skillLevel || session.skillLevel || "Not specified"}`,
       const playerId = req2.user?.playerId;
       const requests = await db.select().from(matchRequests).where(
         and22(
-          eq22(matchRequests.status, "open"),
-          eq22(players.ballLevel, player.ballLevel),
-          academyId ? eq22(matchRequests.academyId, academyId) : void 0,
+          eq23(matchRequests.status, "open"),
+          eq23(players.ballLevel, player.ballLevel),
+          academyId ? eq23(matchRequests.academyId, academyId) : void 0,
           playerId ? ne5(matchRequests.playerId, playerId) : void 0
         )
       ).orderBy(desc18(matchRequests.createdAt));
       const enrichedRequests = await Promise.all(requests.map(async (request) => {
-        const [player2] = await db.select().from(players).where(eq22(players.id, request.playerId));
+        const [player2] = await db.select().from(players).where(eq23(players.id, request.playerId));
         return {
           ...request,
           player: player2 ? {
@@ -62341,7 +62770,7 @@ Skill Level: ${updates.skillLevel || session.skillLevel || "Not specified"}`,
       if (!playerId) {
         return res.status(401).json({ error: "Player profile required" });
       }
-      const requests = await db.select().from(matchRequests).where(eq22(matchRequests.playerId, playerId)).orderBy(desc18(matchRequests.createdAt));
+      const requests = await db.select().from(matchRequests).where(eq23(matchRequests.playerId, playerId)).orderBy(desc18(matchRequests.createdAt));
       res.json(requests);
     } catch (error) {
       console.error("Get my match requests error:", error);
@@ -62356,13 +62785,13 @@ Skill Level: ${updates.skillLevel || session.skillLevel || "Not specified"}`,
         return res.status(401).json({ error: "Player profile required" });
       }
       const [request] = await db.select().from(matchRequests).where(and22(
-        eq22(matchRequests.id, requestId),
-        eq22(matchRequests.playerId, playerId)
+        eq23(matchRequests.id, requestId),
+        eq23(matchRequests.playerId, playerId)
       ));
       if (!request) {
         return res.status(404).json({ error: "Match request not found" });
       }
-      await db.update(matchRequests).set({ status: "cancelled", updatedAt: /* @__PURE__ */ new Date() }).where(eq22(matchRequests.id, requestId));
+      await db.update(matchRequests).set({ status: "cancelled", updatedAt: /* @__PURE__ */ new Date() }).where(eq23(matchRequests.id, requestId));
       res.json({ success: true, message: "Match request cancelled" });
     } catch (error) {
       console.error("Cancel match request error:", error);
@@ -62375,7 +62804,7 @@ Skill Level: ${updates.skillLevel || session.skillLevel || "Not specified"}`,
       if (!playerId) {
         return res.status(401).json({ error: "Player profile required" });
       }
-      const [prefs] = await db.select().from(playerBookingPreferences).where(eq22(playerBookingPreferences.playerId, playerId));
+      const [prefs] = await db.select().from(playerBookingPreferences).where(eq23(playerBookingPreferences.playerId, playerId));
       res.json(prefs || null);
     } catch (error) {
       console.error("Get booking preferences error:", error);
@@ -62399,7 +62828,7 @@ Skill Level: ${updates.skillLevel || session.skillLevel || "Not specified"}`,
         notifyOnOpenMatches,
         notifyOnFriendBookings
       } = req2.body;
-      const [existing2] = await db.select().from(playerBookingPreferences).where(eq22(playerBookingPreferences.playerId, playerId));
+      const [existing2] = await db.select().from(playerBookingPreferences).where(eq23(playerBookingPreferences.playerId, playerId));
       let result;
       if (existing2) {
         [result] = await db.update(playerBookingPreferences).set({
@@ -62413,7 +62842,7 @@ Skill Level: ${updates.skillLevel || session.skillLevel || "Not specified"}`,
           notifyOnOpenMatches,
           notifyOnFriendBookings,
           updatedAt: /* @__PURE__ */ new Date()
-        }).where(eq22(playerBookingPreferences.playerId, playerId)).returning();
+        }).where(eq23(playerBookingPreferences.playerId, playerId)).returning();
       } else {
         [result] = await db.insert(playerBookingPreferences).values({
           playerId,
@@ -63125,7 +63554,7 @@ Skill Level: ${updates.skillLevel || session.skillLevel || "Not specified"}`,
             postId: postReactions.postId,
             reactionType: postReactions.reactionType
           }).from(postReactions).where(and22(
-            eq22(postReactions.userId, userId),
+            eq23(postReactions.userId, userId),
             inArray8(postReactions.postId, postIds)
           ));
           userReactions.forEach((r) => reactionMap.set(r.postId, r.reactionType));
@@ -63179,10 +63608,27 @@ Skill Level: ${updates.skillLevel || session.skillLevel || "Not specified"}`,
   app2.post("/api/social/posts", authMiddlewareWithFreshData, requireFeatureUnlock("community_feed"), async (req2, res) => {
     try {
       const userId = req2.user.userId;
+      const playerId = req2.user.playerId;
       const academyId = req2.user.academyId;
       if (!academyId) {
         return res.status(400).json({ error: "Academy context required" });
       }
+      if (playerId) {
+        const posterIsMinor = await isPlayerMinor(playerId);
+        if (posterIsMinor) {
+          const controls = await getPlayerParentalControls(playerId);
+          if (!controls.communityEnabled) {
+            return res.status(403).json({
+              error: "Posting in the community requires parental approval. Ask a parent to enable community access in the Family Lobby.",
+              code: "MINOR_COMMUNITY_RESTRICTED"
+            });
+          }
+        }
+      }
+      if (postRateLimiter.isRateLimited(playerId || userId)) {
+        return res.status(429).json({ error: "You're posting too quickly. Please wait a moment." });
+      }
+      postRateLimiter.recordRequest(playerId || userId);
       const {
         contextType,
         contextId,
@@ -63200,12 +63646,13 @@ Skill Level: ${updates.skillLevel || session.skillLevel || "Not specified"}`,
       if (caption && caption.length > 280) {
         return res.status(400).json({ error: "Caption too long (max 280 characters)" });
       }
+      const filteredCaption = caption ? filterProfanity(caption) : caption;
       const [newPost] = await db.insert(posts2).values({
         authorId: userId,
         academyId,
         contextType,
         contextId,
-        caption,
+        caption: filteredCaption,
         mediaUrls,
         mediaTypes,
         visibility,
@@ -63213,7 +63660,7 @@ Skill Level: ${updates.skillLevel || session.skillLevel || "Not specified"}`,
         taggedUserIds,
         locationName
       }).returning();
-      await db.update(userSocialProfiles).set({ postCount: sql21`post_count + 1` }).where(eq22(userSocialProfiles.userId, userId));
+      await db.update(userSocialProfiles).set({ postCount: sql21`post_count + 1` }).where(eq23(userSocialProfiles.userId, userId));
       res.status(201).json(newPost);
     } catch (error) {
       console.error("Error creating post:", error);
@@ -63237,17 +63684,17 @@ Skill Level: ${updates.skillLevel || session.skillLevel || "Not specified"}`,
           ballLevel: players.ballLevel,
           academyId: players.academyId
         }
-      }).from(posts2).leftJoin(players, eq22(users.playerId, players.id)).where(eq22(posts2.id, id));
+      }).from(posts2).leftJoin(players, eq23(users.playerId, players.id)).where(eq23(posts2.id, id));
       if (!post) {
         return res.status(404).json({ error: "Post not found" });
       }
       const reactions = await db.select({
         type: postReactions.reactionType,
         count: count3()
-      }).from(postReactions).where(eq22(postReactions.postId, id)).groupBy(postReactions.reactionType);
+      }).from(postReactions).where(eq23(postReactions.postId, id)).groupBy(postReactions.reactionType);
       const [userReaction] = await db.select().from(postReactions).where(and22(
-        eq22(postReactions.postId, id),
-        eq22(postReactions.userId, userId)
+        eq23(postReactions.postId, id),
+        eq23(postReactions.userId, userId)
       ));
       res.json({
         ...post.post,
@@ -63270,15 +63717,15 @@ Skill Level: ${updates.skillLevel || session.skillLevel || "Not specified"}`,
     try {
       const { id } = req2.params;
       const userId = req2.user.userId;
-      const [post] = await db.select().from(posts2).where(eq22(posts2.id, id));
+      const [post] = await db.select().from(posts2).where(eq23(posts2.id, id));
       if (!post) {
         return res.status(404).json({ error: "Post not found" });
       }
       if (post.authorId !== userId && req2.user.role !== "platform_owner") {
         return res.status(403).json({ error: "Not authorized to delete this post" });
       }
-      await db.delete(posts2).where(eq22(posts2.id, id));
-      await db.update(userSocialProfiles).set({ postCount: sql21`GREATEST(0, post_count - 1)` }).where(eq22(userSocialProfiles.userId, post.authorId));
+      await db.delete(posts2).where(eq23(posts2.id, id));
+      await db.update(userSocialProfiles).set({ postCount: sql21`GREATEST(0, post_count - 1)` }).where(eq23(userSocialProfiles.userId, post.authorId));
       res.json({ success: true });
     } catch (error) {
       console.error("Error deleting post:", error);
@@ -63295,18 +63742,18 @@ Skill Level: ${updates.skillLevel || session.skillLevel || "Not specified"}`,
         return res.status(400).json({ error: "Invalid reaction type" });
       }
       const [existing2] = await db.select().from(postReactions).where(and22(
-        eq22(postReactions.postId, postId),
-        eq22(postReactions.userId, userId)
+        eq23(postReactions.postId, postId),
+        eq23(postReactions.userId, userId)
       ));
       if (existing2) {
-        await db.update(postReactions).set({ reactionType }).where(eq22(postReactions.id, existing2.id));
+        await db.update(postReactions).set({ reactionType }).where(eq23(postReactions.id, existing2.id));
       } else {
         await db.insert(postReactions).values({
           postId,
           userId,
           reactionType
         });
-        await db.update(posts2).set({ cheerCount: sql21`cheer_count + 1` }).where(eq22(posts2.id, postId));
+        await db.update(posts2).set({ cheerCount: sql21`cheer_count + 1` }).where(eq23(posts2.id, postId));
       }
       res.json({ success: true, reactionType });
     } catch (error) {
@@ -63319,11 +63766,11 @@ Skill Level: ${updates.skillLevel || session.skillLevel || "Not specified"}`,
       const { id: postId } = req2.params;
       const userId = req2.user.userId;
       const result = await db.delete(postReactions).where(and22(
-        eq22(postReactions.postId, postId),
-        eq22(postReactions.userId, userId)
+        eq23(postReactions.postId, postId),
+        eq23(postReactions.userId, userId)
       ));
       if (result.rowCount && result.rowCount > 0) {
-        await db.update(posts2).set({ cheerCount: sql21`GREATEST(0, cheer_count - 1)` }).where(eq22(posts2.id, postId));
+        await db.update(posts2).set({ cheerCount: sql21`GREATEST(0, cheer_count - 1)` }).where(eq23(posts2.id, postId));
       }
       res.json({ success: true });
     } catch (error) {
@@ -63335,18 +63782,18 @@ Skill Level: ${updates.skillLevel || session.skillLevel || "Not specified"}`,
     try {
       const { id: postId } = req2.params;
       const rawComments = await db.select().from(postComments).where(and22(
-        eq22(postComments.postId, postId),
-        eq22(postComments.isHidden, false)
+        eq23(postComments.postId, postId),
+        eq23(postComments.isHidden, false)
       )).orderBy(asc4(postComments.createdAt));
       const comments = await Promise.all(rawComments.map(async (comment) => {
         let authorData = { id: comment.authorId, username: "Player", name: "Player", photoUrl: null };
         try {
-          const [user] = await db.select().from(users).where(eq22(users.id, comment.authorId)).limit(1);
+          const [user] = await db.select().from(users).where(eq23(users.id, comment.authorId)).limit(1);
           if (user) {
             authorData.username = user.username;
             authorData.name = user.username;
             if (user.playerId) {
-              const [player2] = await db.select().from(players).where(eq22(players.id, user.playerId)).limit(1);
+              const [player2] = await db.select().from(players).where(eq23(players.id, user.playerId)).limit(1);
               if (player2) {
                 authorData.name = player2.name;
                 authorData.photoUrl = player2.profilePhotoUrl || player2.photoUrl;
@@ -63355,18 +63802,18 @@ Skill Level: ${updates.skillLevel || session.skillLevel || "Not specified"}`,
           }
         } catch (e) {
         }
-        const [likeResult] = await db.select({ count: sql21`count(*)` }).from(commentLikes).where(eq22(commentLikes.commentId, comment.id));
+        const [likeResult] = await db.select({ count: sql21`count(*)` }).from(commentLikes).where(eq23(commentLikes.commentId, comment.id));
         const likeCount = Number(likeResult?.count || 0);
         let replyToName = null;
         if (comment.parentId) {
           const parentComment = rawComments.find((c) => c.id === comment.parentId);
           if (parentComment) {
             try {
-              const [parentUser] = await db.select().from(users).where(eq22(users.id, parentComment.authorId)).limit(1);
+              const [parentUser] = await db.select().from(users).where(eq23(users.id, parentComment.authorId)).limit(1);
               if (parentUser) {
                 replyToName = parentUser.username;
                 if (parentUser.playerId) {
-                  const [parentPlayer] = await db.select().from(players).where(eq22(players.id, parentUser.playerId)).limit(1);
+                  const [parentPlayer] = await db.select().from(players).where(eq23(players.id, parentUser.playerId)).limit(1);
                   if (parentPlayer) {
                     replyToName = parentPlayer.name;
                   }
@@ -63401,7 +63848,24 @@ Skill Level: ${updates.skillLevel || session.skillLevel || "Not specified"}`,
     try {
       const { id: postId } = req2.params;
       const userId = req2.user.userId;
+      const playerId = req2.user.playerId;
       const { text: text2, isQuickComment, quickCommentType, parentId } = req2.body;
+      if (playerId) {
+        const commenterIsMinor = await isPlayerMinor(playerId);
+        if (commenterIsMinor) {
+          const controls = await getPlayerParentalControls(playerId);
+          if (!controls.communityEnabled) {
+            return res.status(403).json({
+              error: "Posting in the community requires parental approval. Ask a parent to enable community access in the Family Lobby.",
+              code: "MINOR_COMMUNITY_RESTRICTED"
+            });
+          }
+        }
+      }
+      if (chatRateLimiter.isRateLimited(playerId || userId)) {
+        return res.status(429).json({ error: "You're sending messages too quickly. Please wait a moment." });
+      }
+      chatRateLimiter.recordRequest(playerId || userId);
       const quickComments = {
         nice: "Nice!",
         lets_play: "Let's play!",
@@ -63415,15 +63879,16 @@ Skill Level: ${updates.skillLevel || session.skillLevel || "Not specified"}`,
       if (!commentText && !isQuickComment) {
         return res.status(400).json({ error: "Comment text is required" });
       }
+      const filteredCommentText = commentText ? filterProfanity(commentText) : commentText;
       const [newComment] = await db.insert(postComments).values({
         postId,
         authorId: userId,
-        text: commentText,
+        text: filteredCommentText,
         isQuickComment: !!isQuickComment,
         quickCommentType,
         parentId
       }).returning();
-      await db.update(posts2).set({ commentCount: sql21`comment_count + 1` }).where(eq22(posts2.id, postId));
+      await db.update(posts2).set({ commentCount: sql21`comment_count + 1` }).where(eq23(posts2.id, postId));
       res.status(201).json(newComment);
     } catch (error) {
       console.error("Error adding comment:", error);
@@ -63435,13 +63900,13 @@ Skill Level: ${updates.skillLevel || session.skillLevel || "Not specified"}`,
       const { commentId } = req2.params;
       const userId = req2.user.userId;
       const existingLike = await db.select().from(commentLikes).where(and22(
-        eq22(commentLikes.commentId, commentId),
-        eq22(commentLikes.userId, userId)
+        eq23(commentLikes.commentId, commentId),
+        eq23(commentLikes.userId, userId)
       )).limit(1);
       if (existingLike.length > 0) {
         await db.delete(commentLikes).where(and22(
-          eq22(commentLikes.commentId, commentId),
-          eq22(commentLikes.userId, userId)
+          eq23(commentLikes.commentId, commentId),
+          eq23(commentLikes.userId, userId)
         ));
         res.json({ liked: false, message: "Like removed" });
       } else {
@@ -63460,15 +63925,15 @@ Skill Level: ${updates.skillLevel || session.skillLevel || "Not specified"}`,
     try {
       const { commentId } = req2.params;
       const userId = req2.user.userId;
-      const [comment] = await db.select().from(postComments).where(eq22(postComments.id, commentId)).limit(1);
+      const [comment] = await db.select().from(postComments).where(eq23(postComments.id, commentId)).limit(1);
       if (!comment) {
         return res.status(404).json({ error: "Comment not found" });
       }
       if (comment.authorId !== userId) {
         return res.status(403).json({ error: "You can only delete your own comments" });
       }
-      await db.delete(postComments).where(eq22(postComments.id, commentId));
-      await db.update(posts2).set({ commentCount: sql21`GREATEST(comment_count - 1, 0)` }).where(eq22(posts2.id, comment.postId));
+      await db.delete(postComments).where(eq23(postComments.id, commentId));
+      await db.update(posts2).set({ commentCount: sql21`GREATEST(comment_count - 1, 0)` }).where(eq23(posts2.id, comment.postId));
       res.json({ success: true, message: "Comment deleted" });
     } catch (error) {
       console.error("Error deleting comment:", error);
@@ -63481,9 +63946,9 @@ Skill Level: ${updates.skillLevel || session.skillLevel || "Not specified"}`,
       const userId = req2.user.userId;
       const likedComments = await db.select({
         commentId: commentLikes.commentId
-      }).from(commentLikes).innerJoin(postComments, eq22(commentLikes.commentId, postComments.id)).where(and22(
-        eq22(postComments.postId, postId),
-        eq22(commentLikes.userId, userId)
+      }).from(commentLikes).innerJoin(postComments, eq23(commentLikes.commentId, postComments.id)).where(and22(
+        eq23(postComments.postId, postId),
+        eq23(commentLikes.userId, userId)
       ));
       res.json({ likedCommentIds: likedComments.map((l) => l.commentId) });
     } catch (error) {
@@ -63498,10 +63963,10 @@ Skill Level: ${updates.skillLevel || session.skillLevel || "Not specified"}`,
       const userGroups = await db.select({
         group: communityGroups,
         membership: groupMembers
-      }).from(groupMembers).innerJoin(communityGroups, eq22(groupMembers.groupId, communityGroups.id)).where(eq22(groupMembers.userId, userId));
+      }).from(groupMembers).innerJoin(communityGroups, eq23(groupMembers.groupId, communityGroups.id)).where(eq23(groupMembers.userId, userId));
       const academyGroups = await db.select().from(communityGroups).where(and22(
-        eq22(communityGroups.academyId, academyId || ""),
-        eq22(communityGroups.type, "academy")
+        eq23(communityGroups.academyId, academyId || ""),
+        eq23(communityGroups.type, "academy")
       ));
       const allGroups = [
         ...userGroups.map((g) => ({ ...g.group, role: g.membership.role })),
@@ -63533,9 +63998,9 @@ Skill Level: ${updates.skillLevel || session.skillLevel || "Not specified"}`,
           ballLevel: players.ballLevel,
           academyId: players.academyId
         }
-      }).from(openToPlay).leftJoin(players, eq22(users.playerId, players.id)).where(and22(
-        eq22(openToPlay.academyId, academyId || ""),
-        eq22(openToPlay.isActive, true),
+      }).from(openToPlay).leftJoin(players, eq23(users.playerId, players.id)).where(and22(
+        eq23(openToPlay.academyId, academyId || ""),
+        eq23(openToPlay.isActive, true),
         gte11(openToPlay.availableUntil, now)
       )).orderBy(asc4(openToPlay.availableFrom));
       res.json(openPlayers.map((op) => ({
@@ -63562,8 +64027,8 @@ Skill Level: ${updates.skillLevel || session.skillLevel || "Not specified"}`,
       }
       const { availableFrom, availableUntil, intent = "match", locationId, locationName, message, levelRange } = req2.body;
       await db.update(openToPlay).set({ isActive: false }).where(and22(
-        eq22(openToPlay.userId, userId),
-        eq22(openToPlay.isActive, true)
+        eq23(openToPlay.userId, userId),
+        eq23(openToPlay.isActive, true)
       ));
       const [newStatus] = await db.insert(openToPlay).values({
         userId,
@@ -63587,8 +64052,8 @@ Skill Level: ${updates.skillLevel || session.skillLevel || "Not specified"}`,
     try {
       const userId = req2.user.userId;
       await db.update(openToPlay).set({ isActive: false }).where(and22(
-        eq22(openToPlay.userId, userId),
-        eq22(openToPlay.isActive, true)
+        eq23(openToPlay.userId, userId),
+        eq23(openToPlay.isActive, true)
       ));
       res.json({ success: true });
     } catch (error) {
@@ -63606,13 +64071,13 @@ Skill Level: ${updates.skillLevel || session.skillLevel || "Not specified"}`,
       const dubaiNow = new Date(now.getTime() + DUBAI_OFFSET * 60 * 60 * 1e3);
       const oneDayAgo = new Date(now.getTime() - 24 * 60 * 60 * 1e3);
       const [momentCount] = await db.select({ count: count3() }).from(posts2).where(and22(
-        eq22(posts2.academyId, academyId || ""),
+        eq23(posts2.academyId, academyId || ""),
         gte11(posts2.createdAt, oneDayAgo),
-        eq22(posts2.isHidden, false)
+        eq23(posts2.isHidden, false)
       ));
       const [openToPlayCount] = await db.select({ count: count3() }).from(openToPlay).where(and22(
-        eq22(openToPlay.academyId, academyId || ""),
-        eq22(openToPlay.isActive, true),
+        eq23(openToPlay.academyId, academyId || ""),
+        eq23(openToPlay.isActive, true),
         gte11(openToPlay.availableUntil, now)
       ));
       res.json({
@@ -63636,13 +64101,13 @@ Skill Level: ${updates.skillLevel || session.skillLevel || "Not specified"}`,
       const activeQuests = await db.select({
         quest: playerQuests,
         template: questTemplates
-      }).from(playerQuests).innerJoin(questTemplates, eq22(playerQuests.questTemplateId, questTemplates.id)).where(and22(
-        eq22(playerQuests.playerId, playerId),
+      }).from(playerQuests).innerJoin(questTemplates, eq23(playerQuests.questTemplateId, questTemplates.id)).where(and22(
+        eq23(playerQuests.playerId, playerId),
         inArray8(playerQuests.status, ["active", "completed"])
       )).orderBy(asc4(questTemplates.order));
       const [dailySlot] = await db.select().from(dailyQuestSlots).where(and22(
-        eq22(dailyQuestSlots.playerId, playerId),
-        eq22(dailyQuestSlots.slotDate, today)
+        eq23(dailyQuestSlots.playerId, playerId),
+        eq23(dailyQuestSlots.slotDate, today)
       ));
       const dailyQuests = activeQuests.filter((q) => q.template.questType === "daily");
       const weeklyQuests = activeQuests.filter((q) => q.template.questType === "weekly");
@@ -63699,18 +64164,18 @@ Skill Level: ${updates.skillLevel || session.skillLevel || "Not specified"}`,
       const endOfDay = /* @__PURE__ */ new Date();
       endOfDay.setHours(23, 59, 59, 999);
       const [existingSlot] = await db.select().from(dailyQuestSlots).where(and22(
-        eq22(dailyQuestSlots.playerId, playerId),
-        eq22(dailyQuestSlots.slotDate, today)
+        eq23(dailyQuestSlots.playerId, playerId),
+        eq23(dailyQuestSlots.slotDate, today)
       ));
       if (existingSlot) {
         return res.json({ message: "Daily quests already assigned", alreadyAssigned: true });
       }
       const templates = await db.select().from(questTemplates).where(and22(
-        eq22(questTemplates.questType, "daily"),
-        eq22(questTemplates.isActive, true),
+        eq23(questTemplates.questType, "daily"),
+        eq23(questTemplates.isActive, true),
         or9(
           isNull6(questTemplates.academyId),
-          eq22(questTemplates.academyId, academyId || "")
+          eq23(questTemplates.academyId, academyId || "")
         )
       )).orderBy(asc4(questTemplates.order)).limit(3);
       if (templates.length === 0) {
@@ -63764,20 +64229,20 @@ Skill Level: ${updates.skillLevel || session.skillLevel || "Not specified"}`,
       const endOfWeek = new Date(weekStart);
       endOfWeek.setDate(weekStart.getDate() + 6);
       endOfWeek.setHours(23, 59, 59, 999);
-      const existingWeeklyQuests = await db.select().from(playerQuests).innerJoin(questTemplates, eq22(playerQuests.questTemplateId, questTemplates.id)).where(and22(
-        eq22(playerQuests.playerId, playerId),
-        eq22(questTemplates.questType, "weekly"),
+      const existingWeeklyQuests = await db.select().from(playerQuests).innerJoin(questTemplates, eq23(playerQuests.questTemplateId, questTemplates.id)).where(and22(
+        eq23(playerQuests.playerId, playerId),
+        eq23(questTemplates.questType, "weekly"),
         gte11(playerQuests.expiresAt, now)
       ));
       if (existingWeeklyQuests.length > 0) {
         return res.json({ message: "Weekly quests already assigned", alreadyAssigned: true });
       }
       const templates = await db.select().from(questTemplates).where(and22(
-        eq22(questTemplates.questType, "weekly"),
-        eq22(questTemplates.isActive, true),
+        eq23(questTemplates.questType, "weekly"),
+        eq23(questTemplates.isActive, true),
         or9(
           isNull6(questTemplates.academyId),
-          eq22(questTemplates.academyId, academyId || "")
+          eq23(questTemplates.academyId, academyId || "")
         )
       )).orderBy(asc4(questTemplates.order)).limit(3);
       if (templates.length === 0) {
@@ -63815,9 +64280,9 @@ Skill Level: ${updates.skillLevel || session.skillLevel || "Not specified"}`,
       const [quest] = await db.select({
         quest: playerQuests,
         template: questTemplates
-      }).from(playerQuests).innerJoin(questTemplates, eq22(playerQuests.questTemplateId, questTemplates.id)).where(and22(
-        eq22(playerQuests.id, id),
-        eq22(playerQuests.playerId, playerId)
+      }).from(playerQuests).innerJoin(questTemplates, eq23(playerQuests.questTemplateId, questTemplates.id)).where(and22(
+        eq23(playerQuests.id, id),
+        eq23(playerQuests.playerId, playerId)
       ));
       if (!quest) {
         return res.status(404).json({ error: "Quest not found" });
@@ -63834,7 +64299,7 @@ Skill Level: ${updates.skillLevel || session.skillLevel || "Not specified"}`,
         currentProgress: newProgress,
         status: isComplete ? "completed" : "active",
         completedAt: isComplete ? /* @__PURE__ */ new Date() : null
-      }).where(eq22(playerQuests.id, id)).returning();
+      }).where(eq23(playerQuests.id, id)).returning();
       if (isComplete && quest.template.questType === "daily") {
         const today = (/* @__PURE__ */ new Date()).toISOString().split("T")[0];
         await db.update(dailyQuestSlots).set({
@@ -63842,8 +64307,8 @@ Skill Level: ${updates.skillLevel || session.skillLevel || "Not specified"}`,
           allCompleted: sql21`completed_count + 1 >= 3`,
           bonusUnlocked: sql21`completed_count + 1 >= 3`
         }).where(and22(
-          eq22(dailyQuestSlots.playerId, playerId),
-          eq22(dailyQuestSlots.slotDate, today)
+          eq23(dailyQuestSlots.playerId, playerId),
+          eq23(dailyQuestSlots.slotDate, today)
         ));
       }
       res.json({
@@ -63871,9 +64336,9 @@ Skill Level: ${updates.skillLevel || session.skillLevel || "Not specified"}`,
       const [quest] = await db.select({
         quest: playerQuests,
         template: questTemplates
-      }).from(playerQuests).innerJoin(questTemplates, eq22(playerQuests.questTemplateId, questTemplates.id)).where(and22(
-        eq22(playerQuests.id, id),
-        eq22(playerQuests.playerId, playerId)
+      }).from(playerQuests).innerJoin(questTemplates, eq23(playerQuests.questTemplateId, questTemplates.id)).where(and22(
+        eq23(playerQuests.id, id),
+        eq23(playerQuests.playerId, playerId)
       ));
       if (!quest) {
         return res.status(404).json({ error: "Quest not found" });
@@ -63887,10 +64352,10 @@ Skill Level: ${updates.skillLevel || session.skillLevel || "Not specified"}`,
       await db.update(playerQuests).set({
         status: "claimed",
         claimedAt: /* @__PURE__ */ new Date()
-      }).where(eq22(playerQuests.id, id));
+      }).where(eq23(playerQuests.id, id));
       const xpReward = quest.quest.xpReward || quest.template.xpReward || 0;
       if (xpReward > 0) {
-        await db.update(players).set({ xp: sql21`COALESCE(xp, 0) + ${xpReward}` }).where(eq22(players.id, playerId));
+        await db.update(players).set({ xp: sql21`COALESCE(xp, 0) + ${xpReward}` }).where(eq23(players.id, playerId));
       }
       res.json({
         success: true,
@@ -63904,7 +64369,7 @@ Skill Level: ${updates.skillLevel || session.skillLevel || "Not specified"}`,
   });
   app2.get("/api/badges", authMiddlewareWithFreshData, async (req2, res) => {
     try {
-      const allBadges = await db.select().from(badges).where(eq22(badges.isActive, true)).orderBy(asc4(badges.order));
+      const allBadges = await db.select().from(badges).where(eq23(badges.isActive, true)).orderBy(asc4(badges.order));
       res.json(allBadges);
     } catch (error) {
       console.error("Error fetching badges:", error);
@@ -63917,17 +64382,17 @@ Skill Level: ${updates.skillLevel || session.skillLevel || "Not specified"}`,
       if (!playerId) {
         return res.status(400).json({ error: "Player context required" });
       }
-      const allBadges = await db.select().from(badges).where(eq22(badges.isActive, true));
+      const allBadges = await db.select().from(badges).where(eq23(badges.isActive, true));
       const earnedBadges = await db.select({
         playerBadge: playerBadges,
         badge: badges
-      }).from(playerBadges).innerJoin(badges, eq22(playerBadges.badgeId, badges.id)).where(eq22(playerBadges.playerId, playerId)).orderBy(desc18(playerBadges.earnedAt));
+      }).from(playerBadges).innerJoin(badges, eq23(playerBadges.badgeId, badges.id)).where(eq23(playerBadges.playerId, playerId)).orderBy(desc18(playerBadges.earnedAt));
       const earnedBadgeMap = new Map(earnedBadges.map((eb) => [eb.badge.id, eb.playerBadge.earnedAt]));
-      const allTitles = await db.select().from(titles).where(eq22(titles.isActive, true));
+      const allTitles = await db.select().from(titles).where(eq23(titles.isActive, true));
       const unlockedTitles = await db.select({
         playerTitle: playerTitles,
         title: titles
-      }).from(playerTitles).innerJoin(titles, eq22(playerTitles.titleId, titles.id)).where(eq22(playerTitles.playerId, playerId));
+      }).from(playerTitles).innerJoin(titles, eq23(playerTitles.titleId, titles.id)).where(eq23(playerTitles.playerId, playerId));
       const unlockedTitleMap = new Map(unlockedTitles.map((ut) => [ut.title.id, { unlockedAt: ut.playerTitle.unlockedAt, isEquipped: ut.playerTitle.isEquipped }]));
       const badges2 = allBadges.map((badge) => ({
         ...badge,
@@ -63955,7 +64420,7 @@ Skill Level: ${updates.skillLevel || session.skillLevel || "Not specified"}`,
   });
   app2.get("/api/titles", authMiddlewareWithFreshData, async (req2, res) => {
     try {
-      const allTitles = await db.select().from(titles).where(eq22(titles.isActive, true)).orderBy(asc4(titles.order));
+      const allTitles = await db.select().from(titles).where(eq23(titles.isActive, true)).orderBy(asc4(titles.order));
       res.json(allTitles);
     } catch (error) {
       console.error("Error fetching titles:", error);
@@ -63971,7 +64436,7 @@ Skill Level: ${updates.skillLevel || session.skillLevel || "Not specified"}`,
       const unlockedTitles = await db.select({
         playerTitle: playerTitles,
         title: titles
-      }).from(playerTitles).innerJoin(titles, eq22(playerTitles.titleId, titles.id)).where(eq22(playerTitles.playerId, playerId)).orderBy(desc18(playerTitles.unlockedAt));
+      }).from(playerTitles).innerJoin(titles, eq23(playerTitles.titleId, titles.id)).where(eq23(playerTitles.playerId, playerId)).orderBy(desc18(playerTitles.unlockedAt));
       res.json(unlockedTitles.map((ut) => ({
         ...ut.title,
         unlockedAt: ut.playerTitle.unlockedAt,
@@ -63990,14 +64455,14 @@ Skill Level: ${updates.skillLevel || session.skillLevel || "Not specified"}`,
         return res.status(400).json({ error: "Player context required" });
       }
       const [playerTitle] = await db.select().from(playerTitles).where(and22(
-        eq22(playerTitles.playerId, playerId),
-        eq22(playerTitles.titleId, titleId)
+        eq23(playerTitles.playerId, playerId),
+        eq23(playerTitles.titleId, titleId)
       ));
       if (!playerTitle) {
         return res.status(404).json({ error: "Title not unlocked" });
       }
-      await db.update(playerTitles).set({ isEquipped: false }).where(eq22(playerTitles.playerId, playerId));
-      await db.update(playerTitles).set({ isEquipped: true }).where(eq22(playerTitles.id, playerTitle.id));
+      await db.update(playerTitles).set({ isEquipped: false }).where(eq23(playerTitles.playerId, playerId));
+      await db.update(playerTitles).set({ isEquipped: true }).where(eq23(playerTitles.id, playerTitle.id));
       res.json({ success: true, message: "Title equipped" });
     } catch (error) {
       console.error("Error equipping title:", error);
@@ -64007,20 +64472,20 @@ Skill Level: ${updates.skillLevel || session.skillLevel || "Not specified"}`,
   app2.get("/api/player/:playerId/achievements", authMiddlewareWithFreshData, async (req2, res) => {
     try {
       const { playerId } = req2.params;
-      const [targetPlayer] = await db.select().from(players).where(eq22(players.id, playerId));
+      const [targetPlayer] = await db.select().from(players).where(eq23(players.id, playerId));
       if (!targetPlayer) {
         return res.status(404).json({ error: "Player not found" });
       }
       const earnedBadges = await db.select({
         playerBadge: playerBadges,
         badge: badges
-      }).from(playerBadges).innerJoin(badges, eq22(playerBadges.badgeId, badges.id)).where(eq22(playerBadges.playerId, playerId)).orderBy(desc18(playerBadges.earnedAt));
+      }).from(playerBadges).innerJoin(badges, eq23(playerBadges.badgeId, badges.id)).where(eq23(playerBadges.playerId, playerId)).orderBy(desc18(playerBadges.earnedAt));
       const [equippedTitle] = await db.select({
         playerTitle: playerTitles,
         title: titles
-      }).from(playerTitles).innerJoin(titles, eq22(playerTitles.titleId, titles.id)).where(and22(
-        eq22(playerTitles.playerId, playerId),
-        eq22(playerTitles.isEquipped, true)
+      }).from(playerTitles).innerJoin(titles, eq23(playerTitles.titleId, titles.id)).where(and22(
+        eq23(playerTitles.playerId, playerId),
+        eq23(playerTitles.isEquipped, true)
       ));
       res.json({
         badges: earnedBadges.map((eb) => ({
@@ -64043,13 +64508,13 @@ Skill Level: ${updates.skillLevel || session.skillLevel || "Not specified"}`,
       if (!playerId) {
         return res.status(400).json({ error: "Player context required" });
       }
-      const [player2] = await db.select().from(players).where(eq22(players.id, playerId));
+      const [player2] = await db.select().from(players).where(eq23(players.id, playerId));
       if (!player2) {
         return res.status(404).json({ error: "Player not found" });
       }
-      const [sessionCount] = await db.select({ count: count3() }).from(sessionPlayers).where(eq22(sessionPlayers.playerId, playerId));
-      const allBadges = await db.select().from(badges).where(eq22(badges.isActive, true));
-      const earnedBadgeIds = (await db.select({ badgeId: playerBadges.badgeId }).from(playerBadges).where(eq22(playerBadges.playerId, playerId))).map((eb) => eb.badgeId);
+      const [sessionCount] = await db.select({ count: count3() }).from(sessionPlayers).where(eq23(sessionPlayers.playerId, playerId));
+      const allBadges = await db.select().from(badges).where(eq23(badges.isActive, true));
+      const earnedBadgeIds = (await db.select({ badgeId: playerBadges.badgeId }).from(playerBadges).where(eq23(playerBadges.playerId, playerId))).map((eb) => eb.badgeId);
       const newlyEarnedBadges = [];
       for (const badge of allBadges) {
         if (earnedBadgeIds.includes(badge.id)) continue;
@@ -64084,8 +64549,8 @@ Skill Level: ${updates.skillLevel || session.skillLevel || "Not specified"}`,
           }
         }
       }
-      const allTitles = await db.select().from(titles).where(eq22(titles.isActive, true));
-      const earnedTitleIds = (await db.select({ titleId: playerTitles.titleId }).from(playerTitles).where(eq22(playerTitles.playerId, playerId))).map((et) => et.titleId);
+      const allTitles = await db.select().from(titles).where(eq23(titles.isActive, true));
+      const earnedTitleIds = (await db.select({ titleId: playerTitles.titleId }).from(playerTitles).where(eq23(playerTitles.playerId, playerId))).map((et) => et.titleId);
       const newlyUnlockedTitles = [];
       for (const title of allTitles) {
         if (earnedTitleIds.includes(title.id)) continue;
@@ -64140,16 +64605,16 @@ Skill Level: ${updates.skillLevel || session.skillLevel || "Not specified"}`,
       const dubaiNow = new Date(now.getTime() + DUBAI_OFFSET * 60 * 60 * 1e3);
       const today = now.toISOString().split("T")[0];
       const oneDayAgo = new Date(now.getTime() - 24 * 60 * 60 * 1e3);
-      const [player2] = await db.select().from(players).where(eq22(players.id, playerId));
+      const [player2] = await db.select().from(players).where(eq23(players.id, playerId));
       const playerQuestRows = await db.select().from(playerQuests).where(and22(
-        eq22(playerQuests.playerId, playerId),
+        eq23(playerQuests.playerId, playerId),
         inArray8(playerQuests.status, ["active", "completed"])
       )).limit(10);
       const templateIds = playerQuestRows.map((q) => q.questTemplateId).filter(Boolean);
       const questTemplateRows = templateIds.length > 0 ? await db.select().from(questTemplates).where(
         and22(
           inArray8(questTemplates.id, templateIds),
-          eq22(questTemplates.questType, "daily")
+          eq23(questTemplates.questType, "daily")
         )
       ) : [];
       const todayQuests = playerQuestRows.map((quest) => {
@@ -64158,7 +64623,7 @@ Skill Level: ${updates.skillLevel || session.skillLevel || "Not specified"}`,
       }).filter((q) => q !== null).sort((a, b) => (a.template.order || 0) - (b.template.order || 0)).slice(0, 3);
       let upcomingSessions = [];
       try {
-        const playerSessionLinks = await db.select({ sessionId: sessionPlayers.sessionId }).from(sessionPlayers).where(eq22(sessionPlayers.playerId, playerId));
+        const playerSessionLinks = await db.select({ sessionId: sessionPlayers.sessionId }).from(sessionPlayers).where(eq23(sessionPlayers.playerId, playerId));
         const sessionIds = playerSessionLinks.map((ps) => ps.sessionId).filter((id) => id !== null);
         if (sessionIds.length > 0) {
           const allSessions = await db.select().from(sessions).where(inArray8(sessions.id, sessionIds));
@@ -64172,13 +64637,13 @@ Skill Level: ${updates.skillLevel || session.skillLevel || "Not specified"}`,
       try {
         if (academyId) {
           const momentResult = await db.select({ count: count3() }).from(posts2).where(and22(
-            eq22(posts2.academyId, academyId),
-            eq22(posts2.isHidden, false)
+            eq23(posts2.academyId, academyId),
+            eq23(posts2.isHidden, false)
           ));
           momentCount = momentResult[0] || { count: 0 };
           const otpResult = await db.select({ count: count3() }).from(openToPlay).where(and22(
-            eq22(openToPlay.academyId, academyId),
-            eq22(openToPlay.isActive, true)
+            eq23(openToPlay.academyId, academyId),
+            eq23(openToPlay.isActive, true)
           ));
           openToPlayCount = otpResult[0] || { count: 0 };
         }
@@ -64234,12 +64699,12 @@ Skill Level: ${updates.skillLevel || session.skillLevel || "Not specified"}`,
       const playerId = req2.user.playerId;
       const scope = req2.query.scope || "academy";
       const category = req2.query.category || "glow_score";
-      const conditions = [eq22(players.status, "active")];
+      const conditions = [eq23(players.status, "active")];
       if (scope === "academy" && academyId) {
-        conditions.push(eq22(players.academyId, academyId));
+        conditions.push(eq23(players.academyId, academyId));
       }
       if (category === "dss_rating") {
-        conditions.push(eq22(players.isAdult, true));
+        conditions.push(eq23(players.isAdult, true));
         conditions.push(sql21`COALESCE(${players.glowMmr}, 0) > 0`);
       } else if (category === "ball_level") {
         conditions.push(sql21`${players.ballLevel} IS NOT NULL`);
@@ -64345,9 +64810,9 @@ Skill Level: ${updates.skillLevel || session.skillLevel || "Not specified"}`,
       const searchQuery = req2.query.q || "";
       const skillLevel = req2.query.skill;
       const openToPlayOnly = req2.query.openToPlay === "true";
-      let conditions = [eq22(players.status, "active")];
+      let conditions = [eq23(players.status, "active")];
       if (academyId) {
-        conditions.push(eq22(players.academyId, academyId));
+        conditions.push(eq23(players.academyId, academyId));
       }
       if (playerId) {
         conditions.push(sql21`${players.id} != ${playerId}`);
@@ -64356,10 +64821,10 @@ Skill Level: ${updates.skillLevel || session.skillLevel || "Not specified"}`,
         conditions.push(sql21`LOWER(${players.name}) LIKE LOWER(${"%" + searchQuery + "%"})`);
       }
       if (skillLevel) {
-        conditions.push(eq22(players.ballLevel, skillLevel));
+        conditions.push(eq23(players.ballLevel, skillLevel));
       }
       if (openToPlayOnly) {
-        conditions.push(eq22(players.openToPlay, true));
+        conditions.push(eq23(players.openToPlay, true));
       }
       const results = await db.select({
         id: players.id,
@@ -64402,31 +64867,31 @@ Skill Level: ${updates.skillLevel || session.skillLevel || "Not specified"}`,
         profilePhotoUrl: players.profilePhotoUrl,
         academyId: players.academyId,
         glowScore: players.glowScore
-      }).from(players).where(eq22(players.id, playerId)).limit(1);
+      }).from(players).where(eq23(players.id, playerId)).limit(1);
       const currentPlayer = currentPlayerResult[0];
       if (!currentPlayer) {
         return res.status(404).json({ error: "Player not found" });
       }
       let conditions = [
-        eq22(players.status, "active"),
+        eq23(players.status, "active"),
         sql21`${players.id} != ${playerId}`
       ];
       let orderBy = desc18(players.glowScore);
       if (filter === "academy") {
         if (academyId) {
-          conditions.push(eq22(players.academyId, academyId));
+          conditions.push(eq23(players.academyId, academyId));
         }
       } else if (filter === "sameLevel") {
         const playerLevel = currentPlayer.level || 1;
         conditions.push(sql21`${players.level} >= ${Math.max(1, playerLevel - 2)}`);
         conditions.push(sql21`${players.level} <= ${playerLevel + 2}`);
         if (academyId) {
-          conditions.push(eq22(players.academyId, academyId));
+          conditions.push(eq23(players.academyId, academyId));
         }
         orderBy = desc18(players.glowScore);
       } else {
         if (academyId) {
-          conditions.push(eq22(players.academyId, academyId));
+          conditions.push(eq23(players.academyId, academyId));
         }
         orderBy = desc18(players.glowScore);
       }
@@ -64453,11 +64918,11 @@ Skill Level: ${updates.skillLevel || session.skillLevel || "Not specified"}`,
       const academyId = req2.user.academyId;
       const playerId = req2.user.playerId;
       const playerConditions = [
-        eq22(players.status, "active"),
-        eq22(players.openToPlay, true)
+        eq23(players.status, "active"),
+        eq23(players.openToPlay, true)
       ];
       if (academyId) {
-        playerConditions.push(eq22(players.academyId, academyId));
+        playerConditions.push(eq23(players.academyId, academyId));
       }
       if (playerId) {
         playerConditions.push(sql21`${players.id} != ${playerId}`);
@@ -64474,11 +64939,11 @@ Skill Level: ${updates.skillLevel || session.skillLevel || "Not specified"}`,
       let listings = [];
       try {
         const listingConditions = [
-          eq22(openToPlay.isActive, true),
+          eq23(openToPlay.isActive, true),
           gte11(openToPlay.availableUntil, /* @__PURE__ */ new Date())
         ];
         if (academyId) {
-          listingConditions.push(eq22(openToPlay.academyId, academyId));
+          listingConditions.push(eq23(openToPlay.academyId, academyId));
         }
         listings = await db.select({
           id: openToPlay.id,
@@ -64522,8 +64987,8 @@ Skill Level: ${updates.skillLevel || session.skillLevel || "Not specified"}`,
         createdAt: playerConnections.createdAt,
         acceptedAt: playerConnections.acceptedAt
       }).from(playerConnections).where(or9(
-        eq22(playerConnections.player1Id, playerId),
-        eq22(playerConnections.player2Id, playerId)
+        eq23(playerConnections.player1Id, playerId),
+        eq23(playerConnections.player2Id, playerId)
       )).orderBy(desc18(playerConnections.createdAt));
       const enrichedConnections = await Promise.all(allConnections.map(async (conn) => {
         const otherId = conn.player1Id === playerId ? conn.player2Id : conn.player1Id;
@@ -64537,7 +65002,7 @@ Skill Level: ${updates.skillLevel || session.skillLevel || "Not specified"}`,
           ballLevel: players.ballLevel,
           academyId: players.academyId,
           openToPlay: players.openToPlay
-        }).from(players).where(eq22(players.id, otherId));
+        }).from(players).where(eq23(players.id, otherId));
         return {
           id: conn.id,
           status: conn.status,
@@ -64587,8 +65052,8 @@ Skill Level: ${updates.skillLevel || session.skillLevel || "Not specified"}`,
         return res.status(400).json({ error: "Cannot send friend request to yourself" });
       }
       const existingConnection = await db.select().from(playerConnections).where(or9(
-        and22(eq22(playerConnections.player1Id, playerId), eq22(playerConnections.player2Id, targetPlayerId)),
-        and22(eq22(playerConnections.player1Id, targetPlayerId), eq22(playerConnections.player2Id, playerId))
+        and22(eq23(playerConnections.player1Id, playerId), eq23(playerConnections.player2Id, targetPlayerId)),
+        and22(eq23(playerConnections.player1Id, targetPlayerId), eq23(playerConnections.player2Id, playerId))
       )).limit(1);
       if (existingConnection.length > 0) {
         const existing2 = existingConnection[0];
@@ -64622,7 +65087,7 @@ Skill Level: ${updates.skillLevel || session.skillLevel || "Not specified"}`,
       if (!["accept", "decline"].includes(action)) {
         return res.status(400).json({ error: "Invalid action" });
       }
-      const [connection] = await db.select().from(playerConnections).where(eq22(playerConnections.id, connectionId));
+      const [connection] = await db.select().from(playerConnections).where(eq23(playerConnections.id, connectionId));
       if (!connection) {
         return res.status(404).json({ error: "Connection not found" });
       }
@@ -64633,9 +65098,9 @@ Skill Level: ${updates.skillLevel || session.skillLevel || "Not specified"}`,
         return res.status(400).json({ error: "Request already responded to" });
       }
       if (action === "accept") {
-        await db.update(playerConnections).set({ status: "accepted", acceptedAt: /* @__PURE__ */ new Date() }).where(eq22(playerConnections.id, connectionId));
+        await db.update(playerConnections).set({ status: "accepted", acceptedAt: /* @__PURE__ */ new Date() }).where(eq23(playerConnections.id, connectionId));
       } else {
-        await db.delete(playerConnections).where(eq22(playerConnections.id, connectionId));
+        await db.delete(playerConnections).where(eq23(playerConnections.id, connectionId));
       }
       res.json({ success: true, action });
     } catch (error) {
@@ -64650,14 +65115,14 @@ Skill Level: ${updates.skillLevel || session.skillLevel || "Not specified"}`,
         return res.status(403).json({ error: "Player access required" });
       }
       const { connectionId } = req2.params;
-      const [connection] = await db.select().from(playerConnections).where(eq22(playerConnections.id, connectionId));
+      const [connection] = await db.select().from(playerConnections).where(eq23(playerConnections.id, connectionId));
       if (!connection) {
         return res.status(404).json({ error: "Connection not found" });
       }
       if (connection.player1Id !== playerId && connection.player2Id !== playerId) {
         return res.status(403).json({ error: "Not authorized" });
       }
-      await db.delete(playerConnections).where(eq22(playerConnections.id, connectionId));
+      await db.delete(playerConnections).where(eq23(playerConnections.id, connectionId));
       res.json({ success: true });
     } catch (error) {
       console.error("Error removing connection:", error);
@@ -64672,8 +65137,8 @@ Skill Level: ${updates.skillLevel || session.skillLevel || "Not specified"}`,
       }
       const { targetPlayerId } = req2.params;
       const [connection] = await db.select().from(playerConnections).where(or9(
-        and22(eq22(playerConnections.player1Id, playerId), eq22(playerConnections.player2Id, targetPlayerId)),
-        and22(eq22(playerConnections.player1Id, targetPlayerId), eq22(playerConnections.player2Id, playerId))
+        and22(eq23(playerConnections.player1Id, playerId), eq23(playerConnections.player2Id, targetPlayerId)),
+        and22(eq23(playerConnections.player1Id, targetPlayerId), eq23(playerConnections.player2Id, playerId))
       )).limit(1);
       if (!connection) {
         return res.json({ status: "none", connectionId: null });
@@ -64796,7 +65261,7 @@ Skill Level: ${updates.skillLevel || session.skillLevel || "Not specified"}`,
         academyId: players.academyId,
         profilePhotoUrl: players.profilePhotoUrl,
         onboardingCompleted: players.onboardingCompleted
-      }).from(players).where(eq22(players.id, playerId)).limit(1);
+      }).from(players).where(eq23(players.id, playerId)).limit(1);
       if (player2.length === 0) {
         return res.status(404).json({ error: "Player not found" });
       }
@@ -64813,14 +65278,14 @@ Skill Level: ${updates.skillLevel || session.skillLevel || "Not specified"}`,
         onboardingCompleted: false,
         academyId: null,
         profilePhotoUrl: null
-      }).where(eq22(players.id, playerId));
+      }).where(eq23(players.id, playerId));
       const updatedPlayer = await db.select({
         id: players.id,
         name: players.name,
         onboardingCompleted: players.onboardingCompleted,
         academyId: players.academyId,
         profilePhotoUrl: players.profilePhotoUrl
-      }).from(players).where(eq22(players.id, playerId)).limit(1);
+      }).from(players).where(eq23(players.id, playerId)).limit(1);
       res.json({
         success: true,
         message: "Onboarding reset successfully",
@@ -64882,7 +65347,7 @@ Skill Level: ${updates.skillLevel || session.skillLevel || "Not specified"}`,
         const [updated] = await db.update(players).set({
           onboardingCompleted: false,
           profilePhotoUrl: null
-        }).where(eq22(players.id, playerId)).returning({ id: players.id, name: players.name, onboardingCompleted: players.onboardingCompleted });
+        }).where(eq23(players.id, playerId)).returning({ id: players.id, name: players.name, onboardingCompleted: players.onboardingCompleted });
         if (!updated) {
           return res.status(404).json({ error: "Player not found" });
         }
@@ -64900,7 +65365,7 @@ Skill Level: ${updates.skillLevel || session.skillLevel || "Not specified"}`,
         sessionId: sessionPlayers.sessionId,
         playerId: sessionPlayers.playerId,
         status: sessionPlayers.attendanceStatus
-      }).from(sessionPlayers).where(eq22(sessionPlayers.attendanceStatus, "vacation"));
+      }).from(sessionPlayers).where(eq23(sessionPlayers.attendanceStatus, "vacation"));
       console.log(`[VacationDebtFix] Found ${vacationRecords.length} vacation attendance records`);
       let totalCancelled = 0;
       const results = [];
@@ -64933,7 +65398,7 @@ Skill Level: ${updates.skillLevel || session.skillLevel || "Not specified"}`,
     try {
       console.log("[V3DebtFix] Starting recalculation of V3 debts...");
       const v3Debts = await db.select().from(creditTransactions).where(and22(
-        eq22(creditTransactions.reason, "session_debt"),
+        eq23(creditTransactions.reason, "session_debt"),
         isNull6(creditTransactions.sessionId)
       ));
       console.log(`[V3DebtFix] Found ${v3Debts.length} V3 debt transactions to review`);
@@ -64943,17 +65408,17 @@ Skill Level: ${updates.skillLevel || session.skillLevel || "Not specified"}`,
         const creditType = debt.creditType || "group";
         const oldDebtAmount = Math.abs(debt.amount);
         const sessionTypesForCredit = creditType === "group" ? ["group"] : creditType === "semi_private" ? ["semi_private", "semi-private"] : ["private"];
-        const presentSessions = await db.select({ count: sql21`count(*)` }).from(sessionPlayers).innerJoin(sessions, eq22(sessionPlayers.sessionId, sessions.id)).where(and22(
-          eq22(sessionPlayers.playerId, debt.playerId),
-          eq22(sessionPlayers.attendanceStatus, "present"),
+        const presentSessions = await db.select({ count: sql21`count(*)` }).from(sessionPlayers).innerJoin(sessions, eq23(sessionPlayers.sessionId, sessions.id)).where(and22(
+          eq23(sessionPlayers.playerId, debt.playerId),
+          eq23(sessionPlayers.attendanceStatus, "present"),
           inArray8(sessions.sessionType, sessionTypesForCredit)
         ));
         const presentCount = Number(presentSessions[0]?.count || 0);
         const playerPackages = await db.select({
           totalCredits: sql21`COALESCE(SUM(total_credits), 0)`
         }).from(packages).where(and22(
-          eq22(packages.playerId, debt.playerId),
-          eq22(packages.creditType, creditType)
+          eq23(packages.playerId, debt.playerId),
+          eq23(packages.creditType, creditType)
         ));
         const totalPurchased = Number(playerPackages[0]?.totalCredits || 0);
         const newDebtAmount = Math.max(0, presentCount - totalPurchased);
@@ -64969,7 +65434,7 @@ Skill Level: ${updates.skillLevel || session.skillLevel || "Not specified"}`,
                 oldAmount: debt.amount,
                 reason: "v3_debt_recalculation"
               }
-            }).where(eq22(creditTransactions.id, debt.id));
+            }).where(eq23(creditTransactions.id, debt.id));
           } else {
             await db.update(creditTransactions).set({
               amount: -newDebtAmount,
@@ -64981,7 +65446,7 @@ Skill Level: ${updates.skillLevel || session.skillLevel || "Not specified"}`,
                 totalPurchased,
                 reason: "v3_debt_recalculation"
               }
-            }).where(eq22(creditTransactions.id, debt.id));
+            }).where(eq23(creditTransactions.id, debt.id));
           }
           results.push({
             playerId: debt.playerId,
@@ -65009,7 +65474,7 @@ Skill Level: ${updates.skillLevel || session.skillLevel || "Not specified"}`,
     try {
       console.log("[VacationV3Fix] Starting vacation debt adjustment...");
       const v3Debts = await db.select().from(creditTransactions).where(and22(
-        eq22(creditTransactions.reason, "session_debt"),
+        eq23(creditTransactions.reason, "session_debt"),
         isNull6(creditTransactions.sessionId)
       ));
       console.log(`[VacationV3Fix] Found ${v3Debts.length} V3 debt transactions`);
@@ -65021,9 +65486,9 @@ Skill Level: ${updates.skillLevel || session.skillLevel || "Not specified"}`,
         const creditType = debt.creditType || "group";
         const oldDebtAmount = Math.abs(debt.amount);
         const sessionTypesForCredit = creditType === "group" ? ["group"] : creditType === "semi_private" ? ["semi_private", "semi-private"] : ["private"];
-        const vacationSessions = await db.select({ count: sql21`count(*)` }).from(sessionPlayers).innerJoin(sessions, eq22(sessionPlayers.sessionId, sessions.id)).where(and22(
-          eq22(sessionPlayers.playerId, debt.playerId),
-          eq22(sessionPlayers.attendanceStatus, "vacation"),
+        const vacationSessions = await db.select({ count: sql21`count(*)` }).from(sessionPlayers).innerJoin(sessions, eq23(sessionPlayers.sessionId, sessions.id)).where(and22(
+          eq23(sessionPlayers.playerId, debt.playerId),
+          eq23(sessionPlayers.attendanceStatus, "vacation"),
           inArray8(sessions.sessionType, sessionTypesForCredit)
         ));
         const vacationCount = Number(vacationSessions[0]?.count || 0);
@@ -65039,7 +65504,7 @@ Skill Level: ${updates.skillLevel || session.skillLevel || "Not specified"}`,
               adjustedAt: (/* @__PURE__ */ new Date()).toISOString(),
               oldAmount: debt.amount
             }
-          }).where(eq22(creditTransactions.id, debt.id));
+          }).where(eq23(creditTransactions.id, debt.id));
         } else {
           await db.update(creditTransactions).set({
             amount: -newDebtAmount,
@@ -65049,7 +65514,7 @@ Skill Level: ${updates.skillLevel || session.skillLevel || "Not specified"}`,
               adjustedAt: (/* @__PURE__ */ new Date()).toISOString(),
               oldAmount: debt.amount
             }
-          }).where(eq22(creditTransactions.id, debt.id));
+          }).where(eq23(creditTransactions.id, debt.id));
         }
         results.push({
           playerId: debt.playerId,
@@ -65415,7 +65880,7 @@ Skill Level: ${updates.skillLevel || session.skillLevel || "Not specified"}`,
           activity: "Activity"
         };
         const newTitle = `${sessionTypeLabels[s.sessionType || ""] || s.sessionType || "Session"}${playerNameSuffix}`;
-        await db.update(coachingSeries).set({ title: newTitle }).where(eq22(coachingSeries.id, s.id));
+        await db.update(coachingSeries).set({ title: newTitle }).where(eq23(coachingSeries.id, s.id));
         fixes.push(`Renamed "${s.title}" \u2192 "${newTitle}" (ID: ${s.id})`);
       }
       const activeSeries = allSeries.filter((s) => s.status === "active" && s.dayOfWeek === -1);
@@ -65443,14 +65908,14 @@ Skill Level: ${updates.skillLevel || session.skillLevel || "Not specified"}`,
           const primary = duplicates[0];
           const toMerge = duplicates.slice(1);
           for (const dup of toMerge) {
-            const dupSessions = await db.select().from(sessions).where(eq22(sessions.seriesId, dup.series.id));
+            const dupSessions = await db.select().from(sessions).where(eq23(sessions.seriesId, dup.series.id));
             for (const sess of dupSessions) {
-              await db.update(sessions).set({ seriesId: primary.series.id }).where(eq22(sessions.id, sess.id));
+              await db.update(sessions).set({ seriesId: primary.series.id }).where(eq23(sessions.id, sess.id));
             }
-            await db.update(coachingSeries).set({ status: "ended" }).where(eq22(coachingSeries.id, dup.series.id));
+            await db.update(coachingSeries).set({ status: "ended" }).where(eq23(coachingSeries.id, dup.series.id));
             fixes.push(`Merged series "${dup.series.title}" (ID: ${dup.series.id}) \u2192 "${primary.series.title}" (ID: ${primary.series.id}), moved ${dupSessions.length} sessions`);
           }
-          const allPrimarySessions = await db.select().from(sessions).where(eq22(sessions.seriesId, primary.series.id));
+          const allPrimarySessions = await db.select().from(sessions).where(eq23(sessions.seriesId, primary.series.id));
           let latestDate = primary.series.seriesEndDate;
           for (const sess of allPrimarySessions) {
             const sessDate = sess.startTime ? new Date(sess.startTime).toISOString().split("T")[0] : null;
@@ -65461,7 +65926,7 @@ Skill Level: ${updates.skillLevel || session.skillLevel || "Not specified"}`,
           await db.update(coachingSeries).set({
             weekCount: allPrimarySessions.length,
             seriesEndDate: latestDate
-          }).where(eq22(coachingSeries.id, primary.series.id));
+          }).where(eq23(coachingSeries.id, primary.series.id));
         }
       }
       console.log(`[SeriesFix] Completed. ${fixes.length} changes made.`);

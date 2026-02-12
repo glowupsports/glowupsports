@@ -17,6 +17,8 @@ import * as Haptics from "expo-haptics";
 import { Colors, Spacing, Typography, BorderRadius, Backgrounds, GlowColors } from "@/constants/theme";
 import { getStaticAssetsUrl } from "@/lib/query-client";
 import { EmptyStateCard } from "@/components/EmptyStateCard";
+import { usePlayer } from "@/player/context/PlayerContext";
+import OnlineSafetyModal, { hasShownSafetyReminder } from "@/player/components/OnlineSafetyModal";
 
 interface Conversation {
   id: string;
@@ -35,10 +37,16 @@ export default function PlayerMessagesScreen() {
   const navigation = useNavigation<any>();
   const queryClient = useQueryClient();
   const [refreshing, setRefreshing] = useState(false);
+  const { isMinor, chatEnabled } = usePlayer();
+  const [showSafetyModal, setShowSafetyModal] = useState(isMinor && !hasShownSafetyReminder());
 
   const { data: conversations = [], isLoading, isError, refetch } = useQuery<Conversation[]>({
     queryKey: ["/api/player/me/conversations"],
   });
+
+  const filteredConversations = isMinor && !chatEnabled
+    ? conversations.filter((c: Conversation) => c.type === "coach_player" || c.type === "academy")
+    : conversations;
 
   const handleRefresh = async () => {
     setRefreshing(true);
@@ -152,6 +160,15 @@ export default function PlayerMessagesScreen() {
         </View>
       </View>
 
+      {isMinor && !chatEnabled ? (
+        <View style={styles.restrictedBanner}>
+          <Ionicons name="shield-checkmark" size={18} color="#00BCD4" />
+          <Text style={styles.restrictedText}>
+            You can chat with your coach. Ask a parent to enable player-to-player chat.
+          </Text>
+        </View>
+      ) : null}
+
       {isLoading ? (
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={Colors.dark.primary} />
@@ -166,13 +183,13 @@ export default function PlayerMessagesScreen() {
         </View>
       ) : (
         <FlatList
-          data={conversations}
+          data={filteredConversations}
           keyExtractor={(item) => item.id}
           renderItem={renderConversation}
           contentContainerStyle={[
             styles.listContent,
             { paddingBottom: insets.bottom + Spacing.xl },
-            conversations.length === 0 && styles.emptyListContent,
+            filteredConversations.length === 0 && styles.emptyListContent,
           ]}
           ListEmptyComponent={renderEmpty}
           refreshControl={
@@ -185,6 +202,11 @@ export default function PlayerMessagesScreen() {
           ItemSeparatorComponent={() => <View style={styles.separator} />}
         />
       )}
+
+      <OnlineSafetyModal
+        visible={showSafetyModal}
+        onAccept={() => setShowSafetyModal(false)}
+      />
     </View>
   );
 }
@@ -363,5 +385,20 @@ const styles = StyleSheet.create({
   retryText: {
     ...Typography.body,
     color: Colors.dark.text,
+  },
+  restrictedBanner: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "rgba(0,188,212,0.1)",
+    borderRadius: 12,
+    padding: 12,
+    marginHorizontal: 16,
+    marginBottom: 8,
+    gap: 8,
+  },
+  restrictedText: {
+    flex: 1,
+    fontSize: 12,
+    color: "rgba(255,255,255,0.7)",
   },
 });

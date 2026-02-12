@@ -7403,6 +7403,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
           nextSession,
           outstandingBalance,
           lastActiveAt: member.lastActiveAt?.toISOString() || null,
+          chatEnabled: member.chatEnabled ?? null,
+          communityEnabled: member.communityEnabled ?? null,
         };
       }));
       
@@ -7419,6 +7421,44 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error fetching family status:", error);
       res.status(500).json({ error: "Failed to fetch family status" });
+    }
+  });
+
+  app.put("/api/family/parental-controls/:playerId", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const tokenUser = req.user!;
+      const { playerId } = req.params;
+      const { chatEnabled, communityEnabled } = req.body;
+      
+      const freshUser = await storage.getUserById(tokenUser.userId);
+      if (!freshUser || !freshUser.playerId) {
+        return res.status(403).json({ error: "Player profile required" });
+      }
+      
+      const parentPlayer = await storage.getPlayer(freshUser.playerId);
+      if (!parentPlayer || !parentPlayer.email) {
+        return res.status(403).json({ error: "Account not found" });
+      }
+      
+      const targetPlayer = await storage.getPlayer(playerId);
+      if (!targetPlayer || targetPlayer.email !== parentPlayer.email) {
+        return res.status(403).json({ error: "You can only manage family members" });
+      }
+      
+      const updates: Record<string, any> = {};
+      if (typeof chatEnabled === "boolean") updates.chatEnabled = chatEnabled;
+      if (typeof communityEnabled === "boolean") updates.communityEnabled = communityEnabled;
+      
+      if (Object.keys(updates).length === 0) {
+        return res.status(400).json({ error: "No valid settings provided" });
+      }
+      
+      await db.update(players).set(updates).where(eq(players.id, playerId));
+      
+      res.json({ success: true, ...updates });
+    } catch (error) {
+      console.error("Error updating parental controls:", error);
+      res.status(500).json({ error: "Failed to update parental controls" });
     }
   });
 

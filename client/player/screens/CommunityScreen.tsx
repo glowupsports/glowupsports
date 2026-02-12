@@ -40,6 +40,8 @@ import { LockedScreen } from "../components/LockedScreen";
 import * as Clipboard from "expo-clipboard";
 import * as WebBrowser from "expo-web-browser";
 import { useWalkthrough } from "@/player/context/WalkthroughContext";
+import { usePlayer } from "@/player/context/PlayerContext";
+import OnlineSafetyModal, { hasShownSafetyReminder } from "@/player/components/OnlineSafetyModal";
 
 type FeedFilter = "for_you" | "news" | "academy" | "moments" | "events";
 type MainTab = "feed" | "friends" | "groups";
@@ -3215,6 +3217,9 @@ export default function CommunityScreen() {
   const queryClient = useQueryClient();
   const { user } = useAuth();
   const { hasSeenScreen, startWalkthrough } = useWalkthrough();
+  const { isMinor, communityEnabled } = usePlayer();
+  const [showSafetyModal, setShowSafetyModal] = useState(isMinor && !hasShownSafetyReminder());
+  const canInteract = !isMinor || communityEnabled;
   const [mainTab, setMainTab] = useState<MainTab>("feed");
   const [filter, setFilter] = useState<FeedFilter>("for_you");
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -3449,7 +3454,7 @@ export default function CommunityScreen() {
         <ThemedText style={styles.title}>Social</ThemedText>
         
         <View style={styles.headerActions}>
-          {mainTab === "feed" ? (
+          {mainTab === "feed" && canInteract ? (
             <Pressable 
               style={styles.headerButton}
               onPress={handleCreateMoment}
@@ -3464,6 +3469,15 @@ export default function CommunityScreen() {
       </View>
       
       <MainTabBar active={mainTab} onChange={setMainTab} friendRequestCount={friendRequestCount} />
+
+      {!canInteract ? (
+        <View style={styles.restrictedBanner}>
+          <Ionicons name="shield-checkmark" size={18} color="#00BCD4" />
+          <ThemedText style={styles.restrictedText}>
+            You can browse the community. Ask a parent to enable posting and commenting.
+          </ThemedText>
+        </View>
+      ) : null}
       
       {mainTab === "feed" ? (
         <>
@@ -3560,6 +3574,11 @@ export default function CommunityScreen() {
         onCheer={(postId) => {
           console.log("Cheer post:", postId);
         }}
+      />
+
+      <OnlineSafetyModal
+        visible={showSafetyModal}
+        onAccept={() => setShowSafetyModal(false)}
       />
       </ThemedView>
     </LockedScreen>
@@ -5331,5 +5350,20 @@ const newsStyles = StyleSheet.create({
     minHeight: 120,
     alignItems: "center",
     justifyContent: "center",
+  },
+  restrictedBanner: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "rgba(0,188,212,0.1)",
+    borderRadius: 12,
+    padding: 12,
+    marginHorizontal: 16,
+    marginBottom: 8,
+    gap: 8,
+  },
+  restrictedText: {
+    flex: 1,
+    fontSize: 12,
+    color: "rgba(255,255,255,0.7)",
   },
 });

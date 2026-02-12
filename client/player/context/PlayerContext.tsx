@@ -19,6 +19,8 @@ interface PlayerContextData {
   glowRank: number;
   totalMatchesPlayed: number;
   isBirthday: boolean;
+  chatEnabled: boolean;
+  communityEnabled: boolean;
 }
 
 function calculateAge(dateOfBirth: string | null): number {
@@ -65,6 +67,8 @@ interface PlayerProfile {
     glowMmr?: number;
     glowRank?: number;
     totalMatchesPlayed?: number;
+    chatEnabled?: boolean | null;
+    communityEnabled?: boolean | null;
   };
   coach?: {
     id: string;
@@ -106,6 +110,8 @@ export function PlayerProvider({ children }: PlayerProviderProps) {
     glowRank: profile?.player?.glowRank ?? 9,
     totalMatchesPlayed: profile?.player?.totalMatchesPlayed ?? 0,
     isBirthday,
+    chatEnabled: age <= 17 ? (profile?.player?.chatEnabled ?? false) : true,
+    communityEnabled: age <= 17 ? (profile?.player?.communityEnabled ?? false) : true,
   };
 
   return (
