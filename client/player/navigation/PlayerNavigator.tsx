@@ -8,6 +8,7 @@ import { BlurView } from "expo-blur";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { SwipeableTabBar, TabConfig } from "@/components/SwipeableTabBar";
 import { TabNavigationProvider } from "@/components/TabNavigationContext";
+import { ChatStateProvider, useChatState } from "@/coach/context/ChatStateContext";
 import ProPlayerHomeScreen from "@/player/screens/ProPlayerHomeScreen";
 import PlayerJourneyScreen from "@/player/screens/PlayerJourneyScreen";
 import PlayScreen from "@/player/screens/PlayScreen";
@@ -950,27 +951,32 @@ export default function PlayerNavigator() {
   const playerId = user?.playerId || dashboard?.player?.id || null;
 
   return (
-    <TabNavigationProvider>
-      <PlayerDataProvider>
-        <CartProvider>
-          <FamilyProvider playerId={playerId}>
-            <PlayerLevelProvider playerId={playerId}>
-              <WalkthroughProvider>
-                <View style={styles.container}>
-                  <PlayerStackNavigator />
-                  <WalkthroughOverlay />
-                </View>
-              </WalkthroughProvider>
-            </PlayerLevelProvider>
-          </FamilyProvider>
-        </CartProvider>
-      </PlayerDataProvider>
-    </TabNavigationProvider>
+    <ChatStateProvider>
+      <TabNavigationProvider>
+        <PlayerDataProvider>
+          <CartProvider>
+            <FamilyProvider playerId={playerId}>
+              <PlayerLevelProvider playerId={playerId}>
+                <WalkthroughProvider>
+                  <View style={styles.container}>
+                    <PlayerStackNavigator />
+                    <WalkthroughOverlay />
+                  </View>
+                </WalkthroughProvider>
+              </PlayerLevelProvider>
+            </FamilyProvider>
+          </CartProvider>
+        </PlayerDataProvider>
+      </TabNavigationProvider>
+    </ChatStateProvider>
   );
 }
 
 function PlayerQuickActionsFAB() {
   const navigation = useNavigation<any>();
+  const { isChatExpanded } = useChatState();
+
+  if (isChatExpanded) return null;
 
   const playerActions: QuickAction[] = [
     {
