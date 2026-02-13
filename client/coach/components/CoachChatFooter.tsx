@@ -157,6 +157,7 @@ export function CoachChatFooter({ mode = "coach" }: ChatFooterProps) {
   const [showCoachSelector, setShowCoachSelector] = useState(false);
   const [typingUsers, setTypingUsers] = useState<Map<string, Set<string>>>(new Map());
   const [academyConvCreated, setAcademyConvCreated] = useState<Conversation | null>(null);
+  const [squadAutoCreated, setSquadAutoCreated] = useState(false);
   const flatListRef = useRef<FlatList>(null);
   const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -515,6 +516,23 @@ export function CoachChatFooter({ mode = "coach" }: ChatFooterProps) {
       }
     }
   }, [currentTab, conversations, selectedConversation, createConversationMutation.isPending, academyConvCreated]);
+
+  useEffect(() => {
+    if (currentTab === "squad" && isPlayerMode && !createConversationMutation.isPending && !squadAutoCreated) {
+      const squadConv = conversations.find(c => c.type === "squad" || c.type === "group");
+      if (squadConv) {
+        if (!selectedConversation || selectedConversation.id !== squadConv.id) {
+          setSelectedConversation(squadConv);
+        }
+      } else {
+        setSquadAutoCreated(true);
+        createConversationMutation.mutate({
+          type: "squad",
+          title: "My Training Group",
+        });
+      }
+    }
+  }, [currentTab, conversations, selectedConversation, createConversationMutation.isPending, isPlayerMode, squadAutoCreated]);
 
   const renderMessage = ({ item }: { item: Message }) => {
     const isOwn = isPlayerMode
