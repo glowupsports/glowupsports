@@ -35,6 +35,7 @@ import { useAppMode } from "@/context/AppModeContext";
 import { useAuth } from "@/coach/context/AuthContext";
 import { Colors, Spacing, BorderRadius, Typography, Backgrounds, GlowColors, FunctionColors } from "@/constants/theme";
 import { apiRequest } from "@/lib/query-client";
+import { useCoachMarks, CoachMarkTarget } from "@/components/CoachMarks";
 import { useNavigation } from "@react-navigation/native";
 import { useNetwork } from "@/context/NetworkContext";
 import { showOfflineAlert } from "@/hooks/useOfflineGuard";
@@ -217,6 +218,14 @@ export default function SettingsScreen() {
   const { setMode } = useAppMode();
   const { logout } = useAuth();
   const { isOffline, logOfflineAttempt } = useNetwork();
+  const { startTour, isActive: tourIsActive } = useCoachMarks();
+
+  const settingsTourSteps = useMemo(() => [
+    { id: "settings_profile", title: "Your Profile", description: "View and manage your coach profile information.", position: "bottom" as const },
+    { id: "settings_defaults", title: "Default Settings", description: "Set your preferred lesson duration and recurring weeks to save time.", position: "bottom" as const },
+    { id: "settings_locations", title: "Locations & Courts", description: "Manage your training locations and courts here.", position: "top" as const },
+  ], []);
+
   const [settings, setSettings] = useState<CoachSettings>(defaultSettings);
   const [hasChanges, setHasChanges] = useState(false);
   const [showCourtModal, setShowCourtModal] = useState(false);
@@ -726,6 +735,13 @@ export default function SettingsScreen() {
     loadSettings();
   }, []);
 
+  useEffect(() => {
+    if (coach && !tourIsActive) {
+      const timer = setTimeout(() => startTour("coach_settings_tour", settingsTourSteps), 1500);
+      return () => clearTimeout(timer);
+    }
+  }, [coach?.id]);
+
   const loadSettings = async () => {
     try {
       const stored = await AsyncStorage.getItem(SETTINGS_KEY);
@@ -846,6 +862,7 @@ export default function SettingsScreen() {
         showsVerticalScrollIndicator={false}
       >
         {coach ? (
+          <CoachMarkTarget id="settings_profile">
           <View style={styles.profileCard}>
             <LinearGradient
               colors={[Colors.dark.primary, Colors.dark.xpCyan]}
@@ -867,8 +884,10 @@ export default function SettingsScreen() {
               </View>
             </View>
           </View>
+          </CoachMarkTarget>
         ) : null}
 
+        <CoachMarkTarget id="settings_defaults">
         <View style={styles.section}>
           <SectionHeader title="Default Settings" icon="options-outline" />
 
@@ -971,7 +990,9 @@ export default function SettingsScreen() {
             </View>
           </View>
         </View>
+        </CoachMarkTarget>
 
+        <CoachMarkTarget id="settings_locations">
         <View style={styles.section}>
           <Pressable 
             style={styles.sectionHeaderRow}
@@ -1054,6 +1075,7 @@ export default function SettingsScreen() {
             )
           ) : null}
         </View>
+        </CoachMarkTarget>
 
         <View style={styles.section}>
           <Pressable 

@@ -29,6 +29,7 @@ import Animated, {
 import { useCoach } from "@/coach/context/CoachContext";
 import { Colors, Spacing, BorderRadius, Typography, Backgrounds, GlowColors } from "@/constants/theme";
 import { apiRequest } from "@/lib/query-client";
+import { useCoachMarks, CoachMarkTarget } from "@/components/CoachMarks";
 import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollViewCompat";
 import { ObservationTrendChart } from "@/components/ObservationTrendChart";
 import { NeoLoadoutPanel, NeoGlowBadge } from "@/components/NeoLoadoutPanel";
@@ -138,6 +139,13 @@ export default function CoachingScreen() {
   const navigation = useNavigation<any>();
   const [activeTab, setActiveTab] = useState<TabType>("series");
   const { coach } = useCoach();
+  const { startTour, isActive: tourIsActive } = useCoachMarks();
+
+  const coachingTourSteps = useMemo(() => [
+    { id: "coaching_header", title: "Your Coaching HQ", description: "Track your XP level and total sessions at a glance.", position: "bottom" as const },
+    { id: "coaching_tabs", title: "Classes & Plans", description: "Switch between your coaching classes and training plans here.", position: "bottom" as const },
+    { id: "coaching_tools", title: "Coaching Tools", description: "Quick access to templates, level cards, video evidence, and more.", position: "bottom" as const },
+  ], []);
 
   // Fetch coach XP and stats
   const { data: xpData } = useQuery<{ level: number; totalXp: number; currentLevelXp: number; nextLevelXp: number; xpProgress: number }>({
@@ -149,6 +157,13 @@ export default function CoachingScreen() {
     queryKey: [`/api/coach/${coach?.id}/stats`],
     enabled: !!coach?.id,
   });
+
+  useEffect(() => {
+    if (coach && !tourIsActive) {
+      const timer = setTimeout(() => startTour("coach_coaching_tour", coachingTourSteps), 1500);
+      return () => clearTimeout(timer);
+    }
+  }, [coach?.id]);
 
   const headerPulse = useSharedValue(0.4);
   const iconGlow = useSharedValue(1);
@@ -188,6 +203,7 @@ export default function CoachingScreen() {
       />
 
       {/* Compact Header */}
+      <CoachMarkTarget id="coaching_header">
       <View style={styles.compactHeader}>
         <View style={styles.compactHeaderLeft}>
           <View style={styles.compactLevelBadge}>
@@ -208,8 +224,10 @@ export default function CoachingScreen() {
           <Text style={styles.compactStatLabel}>SESSIONS</Text>
         </View>
       </View>
+      </CoachMarkTarget>
 
       {/* Compact Pill Tabs */}
+      <CoachMarkTarget id="coaching_tabs">
       <View style={styles.pillTabContainer}>
         <ScrollView 
           horizontal 
@@ -248,8 +266,10 @@ export default function CoachingScreen() {
           })}
         </ScrollView>
       </View>
+      </CoachMarkTarget>
 
       {/* Glow Tools Quick Access Row */}
+      <CoachMarkTarget id="coaching_tools">
       <View style={styles.glowToolsContainer}>
         <ScrollView 
           horizontal 
@@ -322,6 +342,7 @@ export default function CoachingScreen() {
           </Pressable>
         </ScrollView>
       </View>
+      </CoachMarkTarget>
 
       {activeTab === "series" ? (
         <SeriesTab insets={insets} tabBarHeight={tabBarHeight} />

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { View, Text, StyleSheet, ScrollView, ActivityIndicator, Pressable, Modal, FlatList } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
@@ -13,6 +13,7 @@ import PillarProgressRings from "@/components/PillarProgressRings";
 import { EmptyStateCard } from "@/components/EmptyStateCard";
 import { getStageFromLevel, type BallStage } from "@shared/language-switch";
 import { useWalkthrough } from "@/player/context/WalkthroughContext";
+import { useCoachMarks, CoachMarkTarget } from "@/components/CoachMarks";
 
 interface DomainInsights {
   recentHighlights: string[];
@@ -1555,6 +1556,14 @@ export default function PlayerProgressScreen() {
   const [showAdultGlowModal, setShowAdultGlowModal] = useState(false);
   const [showPillarModal, setShowPillarModal] = useState(false);
   const [selectedPillar, setSelectedPillar] = useState<SkillDomain | null>(null);
+  const { startTour, isActive } = useCoachMarks();
+
+  const progressTourSteps = useMemo(() => [
+    { id: "progress_ball_level", title: "Your Ball Level", description: "This shows your current playing level. Tap to learn how levels work.", position: "bottom" as const },
+    { id: "progress_stats", title: "Your Stats", description: "Track your Glow Score, level, and XP all in one place.", position: "bottom" as const },
+    { id: "progress_pillars", title: "The 6 Pillars", description: "Your coach rates you across 6 skill areas. Tap any pillar for details.", position: "bottom" as const },
+    { id: "progress_radar", title: "Skill Radar", description: "A visual snapshot of your strengths and areas to improve.", position: "top" as const },
+  ], []);
 
   useEffect(() => {
     if (!hasSeenScreen("Progress")) {
@@ -1564,6 +1573,15 @@ export default function PlayerProgressScreen() {
       return () => clearTimeout(timer);
     }
   }, [hasSeenScreen, startWalkthrough]);
+
+  useEffect(() => {
+    if (!isActive && !isLoading && data) {
+      const timer = setTimeout(() => {
+        startTour("player_progress_tour", progressTourSteps);
+      }, 1500);
+      return () => clearTimeout(timer);
+    }
+  }, [isLoading, data]);
   
   const isAdultPlayer = (level: string | null) => {
     if (!level) return false;
@@ -1701,6 +1719,7 @@ export default function PlayerProgressScreen() {
         </View>
 
         {/* Ball Level Badge - Always Shown with Neon Border */}
+        <CoachMarkTarget id="progress_ball_level">
         <View style={styles.ballLevelSection}>
           <LinearGradient
             colors={["rgba(200, 255, 61, 0.3)", "rgba(0, 229, 255, 0.3)", "rgba(224, 64, 251, 0.3)"]}
@@ -1724,8 +1743,10 @@ export default function PlayerProgressScreen() {
             </Pressable>
           </LinearGradient>
         </View>
+        </CoachMarkTarget>
 
         {/* Stats Row - Premium Gaming Cards */}
+        <CoachMarkTarget id="progress_stats">
         <View style={styles.statsRow}>
           <Pressable 
             style={[styles.statCard, styles.statCardGlow]}
@@ -1776,6 +1797,7 @@ export default function PlayerProgressScreen() {
             {isNewPlayer && <Text style={styles.statHint}>Tap to learn</Text>}
           </Pressable>
         </View>
+        </CoachMarkTarget>
 
         <View style={styles.xpSection}>
           <View style={styles.xpHeader}>
@@ -1859,6 +1881,7 @@ export default function PlayerProgressScreen() {
         ) : null}
 
         {/* Pillar Progress Rings - 6 Core Pillars - ALWAYS SHOWN */}
+        <CoachMarkTarget id="progress_pillars">
         <View style={styles.pillarRingsSection}>
           <View style={styles.pillarHeaderRow}>
             <Text style={styles.sectionTitle}>THE 6 PILLARS</Text>
@@ -1926,8 +1949,10 @@ export default function PlayerProgressScreen() {
             <Ionicons name="chevron-forward" size={20} color={Colors.dark.textMuted} />
           </Pressable>
         </View>
+        </CoachMarkTarget>
 
         {/* Skill Radar - Always shown, with placeholder for new players */}
+        <CoachMarkTarget id="progress_radar">
         <View style={styles.radarSection}>
           <View style={styles.radarHeader}>
             <Text style={styles.sectionTitle}>SKILL RADAR</Text>
@@ -1946,6 +1971,7 @@ export default function PlayerProgressScreen() {
             ]} />
           </View>
         </View>
+        </CoachMarkTarget>
 
 
         {data.overallInsights.strengths.length > 0 ? (

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { View, Text, StyleSheet, ScrollView, Pressable, ActivityIndicator, Alert, Platform, Linking, Switch, Image as RNImage, Modal, FlatList } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
@@ -18,6 +18,7 @@ import { apiRequest, getApiUrl, getStaticAssetsUrl } from "@/lib/query-client";
 import { getAuthToken } from "@/lib/auth";
 import { useWalkthrough } from "@/player/context/WalkthroughContext";
 import { usePlayer } from "@/player/context/PlayerContext";
+import { useCoachMarks, CoachMarkTarget } from "@/components/CoachMarks";
 
 interface ProfileData {
   player: {
@@ -158,6 +159,14 @@ export default function PlayerProfileScreen() {
   const [activeTab, setActiveTab] = useState<ProfileTab>("moments");
   const [showTitlesModal, setShowTitlesModal] = useState(false);
   const queryClient = useQueryClient();
+  const { startTour, isActive } = useCoachMarks();
+
+  const profileTourSteps = useMemo(() => [
+    { id: "profile_avatar", title: "Your Profile", description: "Tap your photo to change it. Your level badge and title show here too.", position: "bottom" as const },
+    { id: "profile_credits", title: "My Credits", description: "See how many lesson credits you have and buy more when needed.", position: "bottom" as const },
+    { id: "profile_tabs", title: "Moments & Friends", description: "View your moments, manage friends, and explore groups.", position: "bottom" as const },
+    { id: "profile_stats", title: "Your Stats", description: "Check your streak, matches played, and overall progress.", position: "top" as const },
+  ], []);
 
   useEffect(() => {
     if (!hasSeenScreen("Profile")) {
@@ -167,6 +176,15 @@ export default function PlayerProfileScreen() {
       return () => clearTimeout(timer);
     }
   }, [hasSeenScreen, startWalkthrough]);
+
+  useEffect(() => {
+    if (!isActive && !isLoading && data) {
+      const timer = setTimeout(() => {
+        startTour("player_profile_tour", profileTourSteps);
+      }, 1500);
+      return () => clearTimeout(timer);
+    }
+  }, [isLoading, data]);
 
   const { data, isLoading, error } = useQuery<ProfileData>({
     queryKey: ["/api/player/me/profile"],
@@ -367,6 +385,7 @@ export default function PlayerProfileScreen() {
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.header}>
+          <CoachMarkTarget id="profile_avatar">
           <View style={styles.avatarSection}>
             <Pressable 
               style={styles.avatarContainer} 
@@ -428,6 +447,7 @@ export default function PlayerProfileScreen() {
               </View>
             )}
           </View>
+          </CoachMarkTarget>
 
           {earnedBadges.length > 0 && (
             <View style={styles.badgeShowcase}>
@@ -606,6 +626,7 @@ export default function PlayerProfileScreen() {
 
         {/* My Credits Section - matches Home screen design */}
         {dashboardData?.credits ? (
+          <CoachMarkTarget id="profile_credits">
           <View style={styles.creditsCard}>
             <View style={styles.creditsHeader}>
               <Ionicons name="ticket-outline" size={14} color={Colors.dark.gold} />
@@ -653,9 +674,11 @@ export default function PlayerProfileScreen() {
               </LinearGradient>
             </Pressable>
           </View>
+          </CoachMarkTarget>
         ) : null}
 
         {/* Profile Tabs: Moments, Friends, Groups */}
+        <CoachMarkTarget id="profile_tabs">
         <View style={styles.profileTabs}>
           <Pressable
             style={[styles.profileTab, activeTab === "moments" && styles.profileTabActive]}
@@ -706,6 +729,7 @@ export default function PlayerProfileScreen() {
             </Text>
           </Pressable>
         </View>
+        </CoachMarkTarget>
 
         {/* Tab Content */}
         {activeTab === "moments" ? (
@@ -796,6 +820,7 @@ export default function PlayerProfileScreen() {
           </View>
         ) : null}
 
+        <CoachMarkTarget id="profile_stats">
         <View style={styles.statsCard}>
           <View style={styles.statsGridCompact}>
             <StatItem 
@@ -810,6 +835,7 @@ export default function PlayerProfileScreen() {
             />
           </View>
         </View>
+        </CoachMarkTarget>
 
         {coach ? (
           <View style={styles.coachCard}>

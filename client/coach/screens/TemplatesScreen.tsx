@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import {
   View,
   Text,
@@ -22,6 +22,7 @@ import Animated, {
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useCoach } from "@/coach/context/CoachContext";
 import { apiRequest, apiFetch, getApiUrl } from "@/lib/query-client";
+import { useCoachMarks, CoachMarkTarget } from "@/components/CoachMarks";
 import { Colors, Spacing, BorderRadius, Typography } from "@/constants/theme";
 import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollViewCompat";
 
@@ -95,6 +96,14 @@ export default function TemplatesScreen() {
   const [skillLevel, setSkillLevel] = useState<number | null>(null);
   const [notes, setNotes] = useState("");
 
+  const { startTour, isActive: tourIsActive } = useCoachMarks();
+
+  const templatesTourSteps = useMemo(() => [
+    { id: "templates_header", title: "Session Templates", description: "Create reusable templates to book sessions faster.", position: "bottom" as const },
+    { id: "templates_add", title: "Create a Template", description: "Tap the plus button to build a new session template.", position: "bottom" as const },
+    { id: "templates_list", title: "Your Templates", description: "Tap a template to edit, or swipe to delete it.", position: "top" as const },
+  ], []);
+
   const { data: templates = [], isLoading } = useQuery<SessionTemplate[]>({
     queryKey: ["/api/coach/templates", coach?.id],
     queryFn: async () => {
@@ -104,6 +113,13 @@ export default function TemplatesScreen() {
     },
     enabled: !!coach?.id,
   });
+
+  useEffect(() => {
+    if (!isLoading && !tourIsActive) {
+      const timer = setTimeout(() => startTour("coach_templates_tour", templatesTourSteps), 1500);
+      return () => clearTimeout(timer);
+    }
+  }, [isLoading]);
 
   const createMutation = useMutation({
     mutationFn: async (data: any) => {
@@ -276,8 +292,10 @@ export default function TemplatesScreen() {
           end={{ x: 1, y: 0 }}
           style={styles.headerTopLine}
         />
+        <CoachMarkTarget id="templates_header">
         <View style={styles.header}>
           <Text style={styles.headerTitle}>SESSION TEMPLATES</Text>
+          <CoachMarkTarget id="templates_add">
           <AnimatedButton onPress={() => openModal()} style={styles.addButton}>
             <LinearGradient
               colors={[Colors.dark.primary, Colors.dark.xpCyan]}
@@ -288,7 +306,9 @@ export default function TemplatesScreen() {
               <Ionicons name="add" size={24} color={Colors.dark.text} />
             </LinearGradient>
           </AnimatedButton>
+          </CoachMarkTarget>
         </View>
+        </CoachMarkTarget>
       </LinearGradient>
 
       {templates.length === 0 && !isLoading ? (
@@ -316,6 +336,7 @@ export default function TemplatesScreen() {
           </AnimatedButton>
         </View>
       ) : (
+        <CoachMarkTarget id="templates_list">
         <FlatList
           data={templates}
           keyExtractor={(item) => item.id}
@@ -323,6 +344,7 @@ export default function TemplatesScreen() {
           contentContainerStyle={[styles.list, { paddingBottom: insets.bottom + Spacing.xl }]}
           showsVerticalScrollIndicator={false}
         />
+        </CoachMarkTarget>
       )}
 
       <Modal visible={showModal} animationType="slide" transparent>

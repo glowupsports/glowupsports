@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import {
   View,
   Text,
@@ -36,6 +36,7 @@ import Animated, {
 } from "react-native-reanimated";
 import { Colors, Spacing, BorderRadius, Typography, FontSizes, getPlayerLevelColor, Backgrounds, GlowColors } from "@/constants/theme";
 import { apiRequest, getStaticAssetsUrl, getApiUrl, getAuthHeaders } from "@/lib/query-client";
+import { useCoachMarks, CoachMarkTarget } from "@/components/CoachMarks";
 import { useCoach } from "@/coach/context/CoachContext";
 import { convertUTCTimeToLocal } from "@/lib/dateUtils";
 import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollViewCompat";
@@ -341,6 +342,14 @@ export default function PlayersScreen() {
   const [baselinePlayer, setBaselinePlayer] = useState<Player | null>(null);
   const [showBaselineDrawer, setShowBaselineDrawer] = useState(false);
 
+  const { startTour, isActive: tourIsActive } = useCoachMarks();
+
+  const playersTourSteps = useMemo(() => [
+    { id: "players_search", title: "Find Players", description: "Search your roster by name to quickly find any player.", position: "bottom" as const },
+    { id: "players_filters", title: "Filter by Level", description: "Tap a ball level to filter players. Tap again to show everyone.", position: "bottom" as const },
+    { id: "players_list", title: "Player Roster", description: "Tap any player to view their profile, credits, and session history.", position: "top" as const },
+  ], []);
+
   const { data: players = [], isLoading } = useQuery<Player[]>({
     queryKey: ["/api/players?withCredits=true"],
   });
@@ -469,6 +478,13 @@ export default function PlayersScreen() {
     return d.toLocaleDateString("en-US", { day: "numeric", month: "short" });
   };
 
+  useEffect(() => {
+    if (!isLoading && players.length > 0 && !tourIsActive) {
+      const timer = setTimeout(() => startTour("coach_players_tour", playersTourSteps), 1500);
+      return () => clearTimeout(timer);
+    }
+  }, [isLoading, players.length]);
+
   const handleSelectPlayer = (player: Player) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     setSelectedPlayer(player);
@@ -511,6 +527,7 @@ export default function PlayersScreen() {
       </LinearGradient>
 
       {/* === GAMING SEARCH BAR === */}
+      <CoachMarkTarget id="players_search">
       <View style={styles.gamingSearchContainer}>
         <View style={styles.gamingSearchBar}>
           <View style={styles.searchIconBg}>
@@ -543,6 +560,7 @@ export default function PlayersScreen() {
           <Ionicons name="chevron-down" size={14} color={Colors.dark.tabIconDefault} />
         </Pressable>
       </View>
+      </CoachMarkTarget>
 
       {/* Sort Modal */}
       <Modal visible={showSortDropdown} animationType="fade" transparent>
@@ -586,6 +604,7 @@ export default function PlayersScreen() {
       </Modal>
 
       {/* === GAMING FILTER PILLS === */}
+      <CoachMarkTarget id="players_filters">
       <ScrollView 
         horizontal 
         showsHorizontalScrollIndicator={false} 
@@ -671,6 +690,7 @@ export default function PlayersScreen() {
           );
         })}
       </ScrollView>
+      </CoachMarkTarget>
 
       {/* Sublevel filter for kids ball stages */}
       {filterLevel && ["blue", "red", "orange", "green", "yellow"].includes(filterLevel) ? (
@@ -732,6 +752,7 @@ export default function PlayersScreen() {
           />
         )
       ) : (
+        <CoachMarkTarget id="players_list">
         <ScrollView style={styles.playerList} showsVerticalScrollIndicator={false}>
           {filteredPlayers.map((player) => (
             <GamingPlayerCard 
@@ -748,6 +769,7 @@ export default function PlayersScreen() {
           ))}
           <View style={{ height: insets.bottom + Spacing.xl + 80 }} />
         </ScrollView>
+        </CoachMarkTarget>
       )}
 
       {/* === GAMING FAB === */}

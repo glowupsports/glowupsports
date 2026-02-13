@@ -12,6 +12,7 @@ import { Colors, Spacing, Typography, BorderRadius, Backgrounds, GlowColors } fr
 import { formatSessionTimeWithRelativeDay } from "@/lib/dateUtils";
 import { apiRequest, getStaticAssetsUrl } from "@/lib/query-client";
 import { useWalkthrough } from "@/player/context/WalkthroughContext";
+import { useCoachMarks, CoachMarkTarget } from "@/components/CoachMarks";
 
 const courtBackground = require("@/assets/images/courts/court-night-default.png");
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
@@ -135,6 +136,13 @@ export default function PlayScreen() {
   const [selectedPlayerLevel, setSelectedPlayerLevel] = useState<string>("all");
   const [discoverFilter, setDiscoverFilter] = useState<DiscoverFilter>("all");
   const [selectedSession, setSelectedSession] = useState<PlaySession | null>(null);
+  const { startTour, isActive } = useCoachMarks();
+
+  const playTourSteps = useMemo(() => [
+    { id: "play_find_match", title: "Find a Match", description: "Tap here to create a match and challenge other players nearby.", position: "bottom" as const },
+    { id: "play_booking_tools", title: "Manage Bookings", description: "Check your invites and set your play preferences here.", position: "bottom" as const },
+    { id: "play_tabs", title: "Browse Options", description: "Switch between group lessons and discovering players near you.", position: "bottom" as const },
+  ], []);
 
   useEffect(() => {
     if (!hasSeenScreen("Play")) {
@@ -144,6 +152,15 @@ export default function PlayScreen() {
       return () => clearTimeout(timer);
     }
   }, [hasSeenScreen, startWalkthrough]);
+
+  useEffect(() => {
+    if (!isActive) {
+      const timer = setTimeout(() => {
+        startTour("player_play_tour", playTourSteps);
+      }, 1500);
+      return () => clearTimeout(timer);
+    }
+  }, []);
 
   const { data: profileData } = useQuery<{ player: { ballLevel?: string } }>({
     queryKey: ["/api/player/me/profile"],
@@ -772,45 +789,48 @@ export default function PlayScreen() {
         </View>
       </View>
 
-      <View style={styles.quickActions}>
-        <Pressable 
-          style={styles.findMatchButton}
-          onPress={() => {
-            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-            navigation.navigate("CreateMatch" as never);
-          }}
-        >
-          <LinearGradient
-            colors={[Colors.dark.primary, Colors.dark.primaryGlow]}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 0 }}
-            style={styles.findMatchGradient}
+      <CoachMarkTarget id="play_find_match">
+        <View style={styles.quickActions}>
+          <Pressable 
+            style={styles.findMatchButton}
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+              navigation.navigate("CreateMatch" as never);
+            }}
           >
-            <Ionicons name="flame" size={22} color={Colors.dark.backgroundRoot} />
-            <Text style={styles.findMatchText}>Find a Match</Text>
-          </LinearGradient>
-        </Pressable>
+            <LinearGradient
+              colors={[Colors.dark.primary, Colors.dark.primaryGlow]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+              style={styles.findMatchGradient}
+            >
+              <Ionicons name="flame" size={22} color={Colors.dark.backgroundRoot} />
+              <Text style={styles.findMatchText}>Find a Match</Text>
+            </LinearGradient>
+          </Pressable>
 
-        <Pressable 
-          style={styles.openMatchesButton}
-          onPress={() => {
-            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-            navigation.navigate("OpenMatches" as never);
-          }}
-        >
-          <LinearGradient
-            colors={[Colors.dark.xpCyan, "#00A3D9"]}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 0 }}
-            style={styles.findMatchGradient}
+          <Pressable 
+            style={styles.openMatchesButton}
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+              navigation.navigate("OpenMatches" as never);
+            }}
           >
-            <Ionicons name="tennisball" size={20} color={Colors.dark.backgroundRoot} />
-            <Text style={styles.findMatchText}>Open Matches</Text>
-          </LinearGradient>
-        </Pressable>
-      </View>
+            <LinearGradient
+              colors={[Colors.dark.xpCyan, "#00A3D9"]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+              style={styles.findMatchGradient}
+            >
+              <Ionicons name="tennisball" size={20} color={Colors.dark.backgroundRoot} />
+              <Text style={styles.findMatchText}>Open Matches</Text>
+            </LinearGradient>
+          </Pressable>
+        </View>
+      </CoachMarkTarget>
 
-      <View style={styles.bookingToolsRow}>
+      <CoachMarkTarget id="play_booking_tools">
+        <View style={styles.bookingToolsRow}>
         <Pressable 
           style={[styles.bookingToolButton, pendingInvitesCount > 0 && styles.bookingToolButtonActive]}
           onPress={() => {
@@ -844,8 +864,10 @@ export default function PlayScreen() {
           <Text style={styles.bookingToolText}>Preferences</Text>
         </Pressable>
       </View>
+      </CoachMarkTarget>
 
-      <View style={styles.tabs}>
+      <CoachMarkTarget id="play_tabs">
+        <View style={styles.tabs}>
         {TAB_OPTIONS.map((tab) => (
           <Pressable
             key={tab}
@@ -855,7 +877,8 @@ export default function PlayScreen() {
             <Text style={[styles.tabText, activeTab === tab && styles.tabTextActive]}>{tab}</Text>
           </Pressable>
         ))}
-      </View>
+        </View>
+      </CoachMarkTarget>
 
       <ScrollView 
         style={styles.content}

@@ -50,6 +50,7 @@ import { PremiumSessionWizard } from "@/coach/components/PremiumSessionWizard";
 import AttendanceDrawer from "@/coach/components/AttendanceDrawer";
 import SessionDetailDrawer from "@/coach/components/SessionDetailDrawer";
 import QuickFeedbackModal from "@/coach/components/QuickFeedbackModal";
+import { useCoachMarks, CoachMarkTarget } from "@/components/CoachMarks";
 
 type CalendarRouteParams = {
   Calendar: {
@@ -606,6 +607,22 @@ export default function CalendarScreen() {
     isFetching,
     academy,
   } = useCoach();
+
+  const { startTour, isActive: tourIsActive } = useCoachMarks();
+
+  const calendarTourSteps = useMemo(() => [
+    { id: "cal_date_nav", title: "Navigate Dates", description: "Swipe or tap the arrows to move between days. Long press to jump back to today.", position: "bottom" as const },
+    { id: "cal_view_toggle", title: "Day, Week & Month", description: "Switch between day, week and month views to see your schedule at a glance.", position: "bottom" as const },
+    { id: "cal_court_grid", title: "Court Grid", description: "Each column is a court. Tap an empty slot to create a new session there.", position: "top" as const },
+    { id: "cal_header_actions", title: "Quick Actions", description: "Export your calendar, toggle focus mode, or undo a drag-and-drop move.", position: "bottom" as const },
+  ], []);
+
+  useEffect(() => {
+    if (!isLoading && calendarData && !tourIsActive) {
+      const timer = setTimeout(() => startTour("coach_calendar_tour", calendarTourSteps), 1500);
+      return () => clearTimeout(timer);
+    }
+  }, [isLoading, calendarData]);
 
   // Academy timezone for correct local time display - default to Dubai if not set
   const academyTimezone = academy?.timezone || "Asia/Dubai";
@@ -1741,7 +1758,7 @@ export default function CalendarScreen() {
         />
         <View style={styles.headerTop}>
           <Text style={styles.headerTitle}>COACH CALENDAR</Text>
-          <View style={styles.headerActions}>
+          <CoachMarkTarget id="cal_header_actions"><View style={styles.headerActions}>
             <Pressable
               style={[styles.toggleButton, isExporting && styles.toggleActive]}
               onPress={exportCalendarToICS}
@@ -1789,7 +1806,7 @@ export default function CalendarScreen() {
                 </Pressable>
               </>
             )}
-          </View>
+          </View></CoachMarkTarget>
           {viewMode === "week" && (
             <View style={styles.weekModeToggle}>
               <Pressable
@@ -1811,6 +1828,7 @@ export default function CalendarScreen() {
         </View>
 
         {/* Date Navigation - Gaming Style - Tap to collapse/expand filters */}
+        <CoachMarkTarget id="cal_date_nav">
         <View style={styles.dateNavGaming}>
           <Pressable 
             style={styles.dateNavButtonGaming} 
@@ -1864,9 +1882,11 @@ export default function CalendarScreen() {
             <Ionicons name="chevron-forward" size={22} color="#00D4FF" />
           </Pressable>
         </View>
+        </CoachMarkTarget>
 
         {/* View Mode Toggle - Gaming Style - Collapsible */}
         {!headerCollapsed && (
+          <CoachMarkTarget id="cal_view_toggle">
           <View style={styles.viewToggleGaming}>
             {(["day", "week", "month"] as const).map((mode) => (
               <Pressable
@@ -1896,6 +1916,7 @@ export default function CalendarScreen() {
               </Pressable>
             ))}
           </View>
+          </CoachMarkTarget>
         )}
       </View>
 
@@ -2000,6 +2021,7 @@ export default function CalendarScreen() {
           )}
 
           {/* Court Headers - Clean minimal style */}
+          <CoachMarkTarget id="cal_court_grid">
           <View style={styles.courtHeaders}>
             <View style={styles.timeColumnHeader} />
             <ScrollView
@@ -2029,6 +2051,7 @@ export default function CalendarScreen() {
               })}
             </ScrollView>
           </View>
+          </CoachMarkTarget>
 
           {/* Calendar Grid */}
           <ScrollView style={styles.calendarScroll} showsVerticalScrollIndicator={false}>
