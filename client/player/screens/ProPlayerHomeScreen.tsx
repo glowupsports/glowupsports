@@ -8,6 +8,7 @@ import { useAuth } from "@/coach/context/AuthContext";
 import { usePlayerDrawer } from "@/player/context/PlayerDrawerContext";
 import { useWalkthrough } from "@/player/context/WalkthroughContext";
 import { PlayerStateProvider } from "@/player/context/PlayerStateContext";
+import { useTabNavigation } from "@/components/TabNavigationContext";
 import { ProPlayerCard } from "@/player/components/ProPlayerCard";
 import { PlayersNearYouRow, OpenSessionsRow, TrainingSessionsRow } from "@/player/components/DiscoveryRows";
 import { MiniFeed } from "@/player/components/MiniFeed";
@@ -30,7 +31,6 @@ import { WelcomeIntroModal } from "@/components/WelcomeIntroModal";
 import { HelpButton } from "@/components/HelpButton";
 import { QuickTipsBanner } from "@/components/QuickTipsBanner";
 import { PlatformUsageProgress } from "@/components/PlatformUsageProgress";
-import { WhatsNewFeed } from "@/components/WhatsNewFeed";
 import { WhatsNewBellButton } from "@/components/WhatsNewBellButton";
 import { NotificationGuideModal } from "@/components/NotificationGuideModal";
 import { FirstActionCelebration } from "@/components/FirstActionCelebration";
@@ -93,6 +93,7 @@ function PlayerHomeContent() {
   const { user } = useAuth();
   const { openDrawer } = usePlayerDrawer();
   const navigation = useNavigation<any>();
+  const { navigateToTab } = useTabNavigation();
   const [showBookingWizard, setShowBookingWizard] = useState(false);
   const [showPinModal, setShowPinModal] = useState(false);
   const { hasSeenScreen, startWalkthrough } = useWalkthrough();
@@ -198,7 +199,7 @@ function PlayerHomeContent() {
         title: "Complete Your Profile",
         description: "Add a photo and personalise your tennis profile",
         actionLabel: "Go to Profile",
-        onAction: () => navigation.navigate("PlayerProfile" as never),
+        onAction: () => navigateToTab("Profile"),
         isCompleted: hasProfile,
       },
       {
@@ -225,7 +226,7 @@ function PlayerHomeContent() {
         title: "Check Your Progress",
         description: "See your skill ratings and Glow Score",
         actionLabel: "View Progress",
-        onAction: () => navigation.navigate("PlayerProgress" as never),
+        onAction: () => navigateToTab("Progress"),
         isCompleted: false,
       },
       {
@@ -234,13 +235,12 @@ function PlayerHomeContent() {
         title: "Meet Other Players",
         description: "Find players near you and join the community",
         actionLabel: "Explore",
-        onAction: () => navigation.navigate("Community" as never),
+        onAction: () => navigateToTab("Community"),
         isCompleted: false,
       },
     ];
   }, [dashboardData, navigation, setShowBookingWizard]);
 
-  const [showWhatsNew, setShowWhatsNew] = useState(false);
   const [showNotificationGuide, setShowNotificationGuide] = useState(false);
   const [showFirstCelebration, setShowFirstCelebration] = useState(false);
   const [celebrationData, setCelebrationData] = useState({ title: "", description: "", icon: "trophy", xpReward: 0 });
@@ -253,12 +253,6 @@ function PlayerHomeContent() {
     { id: "progress", name: "Progress Tracking", icon: "trending-up", isUsed: true },
     { id: "shop", name: "Glow Market", icon: "cart", isUsed: false },
   ], []);
-
-  const whatsNewItems = [
-    { id: "v2_onboarding", date: "2026-02-12", title: "New Player Onboarding", description: "A guided experience to help you set up your profile and discover features.", icon: "rocket", iconColor: "#2ECC40", tag: "new" as const },
-    { id: "v2_help", date: "2026-02-10", title: "In-App Help Center", description: "Access FAQs and tutorials anytime from the help button.", icon: "help-circle", iconColor: "#00BCD4", tag: "new" as const },
-    { id: "v2_xp", date: "2026-02-05", title: "XP System Improvements", description: "Earn XP faster with new bonus activities and daily challenges.", icon: "star", iconColor: "#FF9800", tag: "improved" as const },
-  ];
 
   const playerTips = [
     { id: "tip_xp", icon: "star", text: "Tip: Attend sessions regularly to earn XP and level up faster" },
@@ -488,11 +482,6 @@ function PlayerHomeContent() {
           bottomOffset={120}
         />
       </CoachMarkTarget>
-      <WhatsNewFeed
-        visible={showWhatsNew}
-        onClose={() => setShowWhatsNew(false)}
-        items={whatsNewItems}
-      />
       <NotificationGuideModal
         visible={showNotificationGuide}
         onClose={() => setShowNotificationGuide(false)}
