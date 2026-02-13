@@ -10,7 +10,6 @@ import {
   View,
   Text,
   Pressable,
-  Modal,
   Dimensions,
   StyleSheet,
 } from "react-native";
@@ -43,7 +42,7 @@ export interface CoachMarkStep {
   id: string;
   title: string;
   description: string;
-  targetRef: React.RefObject<View>;
+  targetRef?: React.RefObject<View>;
   position?: "top" | "bottom" | "left" | "right" | "auto";
   arrowDirection?: "up" | "down" | "left" | "right";
   highlightShape?: "circle" | "rect";
@@ -183,12 +182,14 @@ function CoachMarksOverlayContent({
   onNext,
   onPrevious,
   onSkip,
+  targetsMap,
 }: {
   steps: CoachMarkStep[];
   currentStepIndex: number;
   onNext: () => void;
   onPrevious: () => void;
   onSkip: () => void;
+  targetsMap: Map<string, React.RefObject<View>>;
 }) {
   const [targetLayout, setTargetLayout] = useState<TargetLayout | null>(null);
   const step = steps[currentStepIndex];
@@ -196,17 +197,19 @@ function CoachMarksOverlayContent({
   const isFirstStep = currentStepIndex === 0;
 
   useEffect(() => {
-    if (!step?.targetRef?.current) {
-      setTargetLayout(null);
-      return;
-    }
+    setTargetLayout(null);
+
+    if (!step) return;
+
+    const ref = step.targetRef || targetsMap.get(step.id);
+    if (!ref?.current) return;
 
     const measureTarget = () => {
       try {
-        step.targetRef.current?.measure(
-          (_x: number, _y: number, width: number, height: number, pageX: number, pageY: number) => {
+        ref.current?.measureInWindow(
+          (x: number, y: number, width: number, height: number) => {
             if (width > 0 && height > 0) {
-              setTargetLayout({ x: pageX, y: pageY, width, height });
+              setTargetLayout({ x, y, width, height });
             }
           }
         );
@@ -215,14 +218,14 @@ function CoachMarksOverlayContent({
       }
     };
 
-    const timer = setTimeout(measureTarget, 100);
+    const timer = setTimeout(measureTarget, 150);
     return () => clearTimeout(timer);
-  }, [step, currentStepIndex]);
+  }, [step, currentStepIndex, targetsMap]);
 
   if (!step || !targetLayout) {
     return (
-      <View style={styles.overlayFull}>
-        <View style={styles.loadingContainer}>
+      <Pressable style={styles.overlayFull} onPress={onSkip}>
+        <Pressable onPress={(e) => e.stopPropagation()} style={styles.loadingContainer}>
           <Animated.View entering={FadeIn.duration(300)} style={styles.tooltipCard}>
             <Text style={styles.tooltipTitle}>{step?.title}</Text>
             <Text style={styles.tooltipDescription}>{step?.description}</Text>
@@ -240,8 +243,8 @@ function CoachMarksOverlayContent({
               </Pressable>
             </View>
           </Animated.View>
-        </View>
-      </View>
+        </Pressable>
+      </Pressable>
     );
   }
 
@@ -270,9 +273,9 @@ function CoachMarksOverlayContent({
           : SlideInRight.duration(300);
 
   return (
-    <View style={styles.overlayContainer} pointerEvents="box-none">
-      <View style={[styles.overlayStrip, { top: 0, left: 0, right: 0, height: cutout.y }]} />
-      <View
+    <>
+      <Pressable style={[styles.overlayStrip, { top: 0, left: 0, right: 0, height: cutout.y }]} onPress={onSkip} />
+      <Pressable
         style={[
           styles.overlayStrip,
           {
@@ -282,8 +285,9 @@ function CoachMarksOverlayContent({
             bottom: 0,
           },
         ]}
+        onPress={onSkip}
       />
-      <View
+      <Pressable
         style={[
           styles.overlayStrip,
           {
@@ -293,8 +297,9 @@ function CoachMarksOverlayContent({
             height: cutout.height,
           },
         ]}
+        onPress={onSkip}
       />
-      <View
+      <Pressable
         style={[
           styles.overlayStrip,
           {
@@ -304,6 +309,7 @@ function CoachMarksOverlayContent({
             height: cutout.height,
           },
         ]}
+        onPress={onSkip}
       />
 
       <PulsingHighlight layout={cutout} shape={shape} />
@@ -348,7 +354,7 @@ function CoachMarksOverlayContent({
           </View>
         </View>
       </Animated.View>
-    </View>
+    </>
   );
 }
 
@@ -477,7 +483,6 @@ export function CoachMarksProvider({ children }: { children: React.ReactNode }) 
     try {
       await AsyncStorage.setItem(`@glow_coach_marks_completed_${id}`, "true");
     } catch {
-      // silently fail
     }
   }, []);
 
@@ -543,31 +548,27 @@ export function CoachMarksProvider({ children }: { children: React.ReactNode }) 
   return (
     <CoachMarksContext.Provider value={contextValue}>
       {children}
-      <Modal
-        visible={isActive}
-        transparent
-        animationType="fade"
-        onRequestClose={skip}
-        statusBarTranslucent
-      >
-        {isActive && steps.length > 0 ? (
+      {isActive && steps.length > 0 ? (
+        <View style={styles.overlayContainer} pointerEvents="box-none">
           <CoachMarksOverlayContent
             steps={steps}
             currentStepIndex={currentStepIndex}
             onNext={next}
             onPrevious={previous}
             onSkip={skip}
+            targetsMap={targetsRef.current}
           />
-        ) : null}
-      </Modal>
+        </View>
+      ) : null}
     </CoachMarksContext.Provider>
   );
 }
 
 const styles = StyleSheet.create({
   overlayContainer: {
-    flex: 1,
-    position: "relative",
+    ...StyleSheet.absoluteFillObject,
+    zIndex: 9999,
+    elevation: 9999,
   },
   overlayFull: {
     flex: 1,
