@@ -205,53 +205,73 @@ function CoachMarksOverlayContent({
     if (!ref?.current) return;
 
     let attempts = 0;
+    let cancelled = false;
     let retryTimer: ReturnType<typeof setTimeout> | null = null;
 
     const measureTarget = () => {
+      if (cancelled) return;
       attempts++;
       try {
         ref.current?.measureInWindow(
           (x: number, y: number, width: number, height: number) => {
-            if (width > 0 && height > 0 && (x > 0 || y > 0)) {
+            if (cancelled) return;
+            if (width > 0 && height > 0) {
               setTargetLayout({ x, y, width, height });
-            } else if (attempts < 8) {
-              retryTimer = setTimeout(measureTarget, 200);
+            } else if (attempts < 12) {
+              retryTimer = setTimeout(measureTarget, 250);
             }
           }
         );
       } catch {
-        if (attempts < 8) {
-          retryTimer = setTimeout(measureTarget, 200);
+        if (!cancelled && attempts < 12) {
+          retryTimer = setTimeout(measureTarget, 250);
         }
       }
     };
 
-    const timer = setTimeout(measureTarget, 200);
+    const timer = setTimeout(measureTarget, 300);
     return () => {
+      cancelled = true;
       clearTimeout(timer);
       if (retryTimer) clearTimeout(retryTimer);
     };
   }, [step, currentStepIndex, targetsMap]);
 
-  if (!step || !targetLayout) {
+  if (!step) return null;
+
+  if (!targetLayout) {
     return (
       <Pressable style={styles.overlayFull} onPress={onSkip}>
-        <Pressable onPress={(e) => e.stopPropagation()} style={styles.loadingContainer}>
+        <Pressable onPress={(e) => e.stopPropagation()} style={styles.centeredTooltipContainer}>
           <Animated.View entering={FadeIn.duration(300)} style={styles.tooltipCard}>
-            <Text style={styles.tooltipTitle}>{step?.title}</Text>
-            <Text style={styles.tooltipDescription}>{step?.description}</Text>
+            <View style={styles.stepCounterRow}>
+              <Text style={styles.stepCounter}>
+                Step {currentStepIndex + 1} of {steps.length}
+              </Text>
+            </View>
+            <Text style={styles.tooltipTitle}>{step.title}</Text>
+            <Text style={styles.tooltipDescription}>{step.description}</Text>
+            <ProgressDots current={currentStepIndex} total={steps.length} />
             <View style={styles.tooltipFooter}>
               <Pressable onPress={onSkip}>
                 <Text style={styles.skipText}>Skip tour</Text>
               </Pressable>
-              <Pressable onPress={onNext} style={styles.nextButton}>
-                <Text style={styles.nextButtonText}>
-                  {isLastStep ? "Got it!" : "Next"}
-                </Text>
-                {!isLastStep ? (
-                  <Ionicons name="arrow-forward" size={14} color={Backgrounds.root} />
+              <View style={styles.navButtons}>
+                {!isFirstStep ? (
+                  <Pressable onPress={onPrevious} style={styles.prevButton}>
+                    <Ionicons name="arrow-back" size={14} color={TextColors.secondary} />
+                    <Text style={styles.prevButtonText}>Back</Text>
+                  </Pressable>
                 ) : null}
-              </Pressable>
+                <Pressable onPress={onNext} style={styles.nextButton}>
+                  <Text style={styles.nextButtonText}>
+                    {isLastStep ? "Got it!" : "Next"}
+                  </Text>
+                  {!isLastStep ? (
+                    <Ionicons name="arrow-forward" size={14} color={Backgrounds.root} />
+                  ) : null}
+                </Pressable>
+              </View>
             </View>
           </Animated.View>
         </Pressable>
@@ -587,7 +607,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
   },
-  loadingContainer: {
+  centeredTooltipContainer: {
     paddingHorizontal: Spacing.xl,
     width: "100%",
   },

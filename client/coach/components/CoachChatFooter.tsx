@@ -1090,6 +1090,13 @@ export function CoachChatFooter({ mode = "coach" }: ChatFooterProps) {
             </View>
           ) : null}
 
+          <View style={styles.safetyBanner}>
+            <Ionicons name="shield-checkmark" size={14} color="#4FC3F7" />
+            <ThemedText style={styles.safetyBannerText}>
+              Chats are monitored. Never share personal or financial info. Beware of scams.
+            </ThemedText>
+          </View>
+
           {loadingMessages ? (
             <View style={styles.loadingContainer}>
               <ActivityIndicator color={Colors.dark.primary} />
@@ -1867,5 +1874,20 @@ const styles = StyleSheet.create({
     fontSize: 10,
     fontWeight: "600",
     color: Colors.dark.successNeon,
+  },
+  safetyBanner: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "rgba(79, 195, 247, 0.08)",
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    gap: 6,
+    borderBottomWidth: 1,
+    borderBottomColor: "rgba(79, 195, 247, 0.15)",
+  },
+  safetyBannerText: {
+    fontSize: 11,
+    color: "#4FC3F7",
+    flex: 1,
   },
 });

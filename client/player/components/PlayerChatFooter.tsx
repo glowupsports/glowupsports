@@ -518,14 +518,14 @@ export function PlayerChatFooter() {
                   {selectedConversation.coachName || selectedConversation.title || (currentTab === "coaches" ? "Coach" : currentTab === "academy" ? "Academy" : "Chat")}
                 </ThemedText>
               </View>
-              {isMinor ? (
-                <View style={styles.safetyBanner}>
-                  <Ionicons name="shield-checkmark" size={14} color="#4FC3F7" />
-                  <ThemedText style={styles.safetyBannerText}>
-                    This conversation is monitored for safety
-                  </ThemedText>
-                </View>
-              ) : null}
+              <View style={styles.safetyBanner}>
+                <Ionicons name="shield-checkmark" size={14} color="#4FC3F7" />
+                <ThemedText style={styles.safetyBannerText}>
+                  {isMinor
+                    ? "This conversation is monitored for child safety"
+                    : "Chats are monitored. Never share personal or financial info. Beware of scams."}
+                </ThemedText>
+              </View>
               {loadingMessages ? (
                 <View style={styles.loadingContainer}>
                   <ActivityIndicator size="small" color={Colors.dark.primary} />
