@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import {
   View,
   Text,
@@ -18,6 +18,7 @@ import { Colors, Spacing, BorderRadius, Typography, Backgrounds, GlowColors } fr
 import { usePlayer } from "@/player/context/PlayerContext";
 import { usePlayerLevelContext } from "@/player/context/PlayerLevelContext";
 import { LockedScreen } from "../components/LockedScreen";
+import { useCoachMarks, CoachMarkTarget } from "@/components/CoachMarks";
 
 interface XPEvent {
   id: string;
@@ -60,6 +61,22 @@ export default function XPHistoryScreen() {
   const { level, currentXp, xpForNextLevel } = usePlayerLevelContext();
   const queryClient = useQueryClient();
   const [refreshing, setRefreshing] = useState(false);
+  const { startTour, isActive } = useCoachMarks();
+
+  const xpHistoryTourSteps = useMemo(() => [
+    { id: "xp_history_summary", title: "Your XP Overview", description: "See your current level, progress to next level, and total XP earned.", position: "bottom" as const },
+    { id: "xp_history_stats", title: "Activity Stats", description: "Track your total XP, number of activities, and level-ups over time.", position: "bottom" as const },
+    { id: "xp_history_events", title: "XP Timeline", description: "Every XP-earning action is logged here, grouped by day.", position: "top" as const },
+  ], []);
+
+  useEffect(() => {
+    if (!isActive) {
+      const timer = setTimeout(() => {
+        startTour("player_xp_history_tour", xpHistoryTourSteps);
+      }, 1500);
+      return () => clearTimeout(timer);
+    }
+  }, []);
 
   const { data: xpHistory = [], isLoading } = useQuery<XPEvent[]>({
     queryKey: [`/api/player-level/player/${player?.id}/xp-history`],
@@ -175,6 +192,7 @@ export default function XPHistoryScreen() {
           <View style={styles.headerSpacer} />
         </View>
 
+      <CoachMarkTarget id="xp_history_summary">
       <View style={styles.summaryCard}>
         <LinearGradient
           colors={[Colors.dark.xpCyan + "20", "transparent"]}
@@ -202,6 +220,7 @@ export default function XPHistoryScreen() {
             </View>
           </View>
 
+          <CoachMarkTarget id="xp_history_stats">
           <View style={styles.statsRow}>
             <View style={styles.statItem}>
               <Text style={styles.statValue}>{totalXpEarned.toLocaleString()}</Text>
@@ -218,8 +237,10 @@ export default function XPHistoryScreen() {
               <Text style={styles.statLabel}>Level Ups</Text>
             </View>
           </View>
+          </CoachMarkTarget>
         </LinearGradient>
       </View>
+      </CoachMarkTarget>
 
       {isLoading ? (
         <ActivityIndicator color={Colors.dark.primary} style={styles.loader} />
@@ -232,6 +253,7 @@ export default function XPHistoryScreen() {
           </Text>
         </View>
       ) : (
+        <CoachMarkTarget id="xp_history_events">
         <FlatList
           data={groupedEvents}
           keyExtractor={([date]) => date}
@@ -246,6 +268,7 @@ export default function XPHistoryScreen() {
             />
           }
         />
+        </CoachMarkTarget>
       )}
       </View>
     </LockedScreen>

@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from "react";
+import React, { useState, useCallback, useMemo, useEffect } from "react";
 import { View, StyleSheet, ScrollView, Pressable } from "react-native";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { LinearGradient } from "expo-linear-gradient";
@@ -20,6 +20,7 @@ import { Colors, Spacing, BorderRadius, Backgrounds, GlowColors } from "@/consta
 import { ThemedText } from "@/components/ThemedText";
 import { Card } from "@/components/Card";
 import { useQuests, useClaimQuestReward, useAssignWeeklyQuests, Quest } from "@/player/hooks/useQuests";
+import { useCoachMarks, CoachMarkTarget } from "@/components/CoachMarks";
 
 type QuestType = "daily" | "weekly";
 
@@ -258,6 +259,22 @@ export default function QuestsScreen() {
   const headerHeight = useHeaderHeight();
   const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState<QuestType>("daily");
+  const { startTour, isActive } = useCoachMarks();
+
+  const questsTourSteps = useMemo(() => [
+    { id: "player_quests_tabs", title: "Daily & Weekly Quests", description: "Switch between daily and weekly quests to see what's available.", position: "bottom" as const },
+    { id: "player_quests_chain", title: "Chain Progress", description: "Complete all quests in a chain to earn bonus XP rewards.", position: "bottom" as const },
+    { id: "player_quests_list", title: "Your Quests", description: "Track progress on each quest and claim rewards when complete.", position: "top" as const },
+  ], []);
+
+  useEffect(() => {
+    if (!isActive) {
+      const timer = setTimeout(() => {
+        startTour("player_quests_tour", questsTourSteps);
+      }, 1500);
+      return () => clearTimeout(timer);
+    }
+  }, []);
   
   const { data: questsData, isLoading, refetch } = useQuests();
   const claimReward = useClaimQuestReward();
@@ -295,6 +312,7 @@ export default function QuestsScreen() {
         ]}
         showsVerticalScrollIndicator={false}
       >
+        <CoachMarkTarget id="player_quests_tabs">
         <View style={styles.tabBar}>
           <Pressable
             style={[styles.tab, activeTab === "daily" && styles.tabActive]}
@@ -340,13 +358,16 @@ export default function QuestsScreen() {
             ) : null}
           </Pressable>
         </View>
+        </CoachMarkTarget>
         
+        <CoachMarkTarget id="player_quests_chain">
         <ChainProgressHeader
           completedCount={activeCompletedCount}
           totalCount={activeTotalCount}
           type={activeTab}
           bonusUnlocked={activeTab === "daily" ? dailySlot?.bonusUnlocked : false}
         />
+        </CoachMarkTarget>
         
         {activeTotalCount > 0 ? (
           <StepIndicator steps={activeTotalCount} current={activeCompletedCount} />
@@ -358,6 +379,7 @@ export default function QuestsScreen() {
             <ThemedText style={styles.loadingText}>Loading quests...</ThemedText>
           </View>
         ) : activeQuests.length === 0 ? (
+          <CoachMarkTarget id="player_quests_list">
           <Animated.View entering={FadeIn} style={styles.emptyState}>
             <LinearGradient
               colors={[Colors.dark.primary + "10", "transparent"]}
@@ -378,7 +400,9 @@ export default function QuestsScreen() {
               </ThemedText>
             </LinearGradient>
           </Animated.View>
+          </CoachMarkTarget>
         ) : (
+          <CoachMarkTarget id="player_quests_list">
           <View style={styles.questList}>
             {activeQuests.map((quest, index) => (
               <QuestCard 
@@ -390,6 +414,7 @@ export default function QuestsScreen() {
               />
             ))}
           </View>
+          </CoachMarkTarget>
         )}
         
         {dailySlot?.allCompleted && activeTab === "daily" ? (

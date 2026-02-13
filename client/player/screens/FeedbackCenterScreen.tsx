@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useMemo, useEffect } from "react";
 import { View, Text, StyleSheet, ScrollView, ActivityIndicator, Pressable } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
@@ -7,6 +7,7 @@ import Ionicons from "@expo/vector-icons/Ionicons";
 import { Colors, Spacing, Typography, BorderRadius, Backgrounds, GlowColors, TextColors } from "@/constants/theme";
 import { Card } from "@/components/Card";
 import { EmptyStateCard } from "@/components/EmptyStateCard";
+import { useCoachMarks, CoachMarkTarget } from "@/components/CoachMarks";
 
 interface SkillAssessment {
   id: string;
@@ -128,6 +129,22 @@ function PillarSection({ group }: { group: PillarGroup }) {
 export default function FeedbackCenterScreen() {
   const navigation = useNavigation();
   const insets = useSafeAreaInsets();
+  const { startTour, isActive } = useCoachMarks();
+
+  const feedbackTourSteps = useMemo(() => [
+    { id: "player_feedback_header", title: "Feedback Center", description: "View all skill assessments and feedback from your coaches.", position: "bottom" as const },
+    { id: "player_feedback_pillars", title: "Skill Pillars", description: "Assessments are grouped by skill area like forehand, serve, and tactics.", position: "top" as const },
+    { id: "player_feedback_ratings", title: "Your Ratings", description: "See how your coach rated each skill and read their comments.", position: "top" as const },
+  ], []);
+
+  useEffect(() => {
+    if (!isActive) {
+      const timer = setTimeout(() => {
+        startTour("player_feedback_tour", feedbackTourSteps);
+      }, 1500);
+      return () => clearTimeout(timer);
+    }
+  }, []);
 
   const { data: assessments, isLoading, error } = useQuery<SkillAssessment[]>({
     queryKey: ["/api/player/me/skill-assessments"],
@@ -162,6 +179,7 @@ export default function FeedbackCenterScreen() {
 
   return (
     <View style={styles.container}>
+      <CoachMarkTarget id="player_feedback_header">
       <View style={[styles.header, { paddingTop: insets.top + Spacing.md }]}>
         <Pressable onPress={handleGoBack} style={styles.backButton}>
           <Ionicons name="chevron-back" size={24} color={GlowColors.primary} />
@@ -171,6 +189,7 @@ export default function FeedbackCenterScreen() {
           <Text style={styles.headerSubtitle}>Skill assessments from your coaches</Text>
         </View>
       </View>
+      </CoachMarkTarget>
 
       <ScrollView 
         style={styles.scrollView}
@@ -188,6 +207,7 @@ export default function FeedbackCenterScreen() {
             <Text style={styles.errorText}>Failed to load assessments</Text>
           </Card>
         ) : groupedByPillar.length === 0 ? (
+          <CoachMarkTarget id="player_feedback_pillars">
           <EmptyStateCard
             icon="school"
             title="No Assessments Yet"
@@ -196,12 +216,15 @@ export default function FeedbackCenterScreen() {
             onPress={() => navigation.goBack()}
             variant="info"
           />
+          </CoachMarkTarget>
         ) : (
+          <CoachMarkTarget id="player_feedback_pillars">
           <View style={styles.pillarsList}>
             {groupedByPillar.map((group) => (
               <PillarSection key={group.pillarId} group={group} />
             ))}
           </View>
+          </CoachMarkTarget>
         )}
       </ScrollView>
     </View>

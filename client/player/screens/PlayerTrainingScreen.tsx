@@ -1,10 +1,11 @@
-import React from "react";
+import React, { useMemo, useEffect } from "react";
 import { View, Text, StyleSheet, FlatList, ActivityIndicator, Pressable } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
 import { useQuery } from "@tanstack/react-query";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { Colors, Spacing, Typography, BorderRadius, CardStyles, Backgrounds, GlowColors } from "@/constants/theme";
+import { useCoachMarks, CoachMarkTarget } from "@/components/CoachMarks";
 
 interface TrainingSession {
   id: string;
@@ -163,6 +164,23 @@ export default function PlayerTrainingScreen() {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<any>();
 
+  const { startTour, isActive } = useCoachMarks();
+
+  const trainingTourSteps = useMemo(() => [
+    { id: "training_header", title: "Training History", description: "View all your past training sessions and track your progress over time.", position: "bottom" as const },
+    { id: "training_session_card", title: "Session Details", description: "Each card shows session type, XP earned, coach feedback, and domain breakdown.", position: "bottom" as const },
+    { id: "training_feedback", title: "Coach Feedback", description: "See focus and effort ratings from your coach along with their notes.", position: "top" as const },
+  ], []);
+
+  useEffect(() => {
+    if (!isActive) {
+      const timer = setTimeout(() => {
+        startTour("player_training_tour", trainingTourSteps);
+      }, 1500);
+      return () => clearTimeout(timer);
+    }
+  }, []);
+
   const { data: sessions, isLoading } = useQuery<TrainingSession[]>({
     queryKey: ["/api/player/training-history"],
   });
@@ -185,11 +203,15 @@ export default function PlayerTrainingScreen() {
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
+      <CoachMarkTarget id="training_header">
       <View style={styles.header}>
         <Text style={styles.title}>Training History</Text>
         <Text style={styles.subtitle}>Your progress is based on coach sessions</Text>
       </View>
+      </CoachMarkTarget>
 
+      <CoachMarkTarget id="training_session_card">
+      <CoachMarkTarget id="training_feedback">
       <FlatList
         data={data}
         keyExtractor={(item) => item.id}
@@ -217,6 +239,8 @@ export default function PlayerTrainingScreen() {
           </View>
         }
       />
+      </CoachMarkTarget>
+      </CoachMarkTarget>
     </View>
   );
 }

@@ -1,4 +1,4 @@
-import React, { useState, useRef } from "react";
+import React, { useState, useRef, useMemo, useEffect } from "react";
 import {
   View,
   Text,
@@ -22,6 +22,7 @@ import { usePlayer } from "@/player/context/PlayerContext";
 import { apiRequest, getApiUrl } from "@/lib/query-client";
 import { LockedScreen } from "../components/LockedScreen";
 import { VideoPlayerModal } from "@/components/VideoPlayerModal";
+import { useCoachMarks, CoachMarkTarget } from "@/components/CoachMarks";
 
 interface Skill {
   id: string;
@@ -75,6 +76,22 @@ export default function SkillEvidenceScreen() {
   const timerRef = useRef<NodeJS.Timeout | null>(null);
   const [permission, requestPermission] = useCameraPermissions();
   const [selectedVideo, setSelectedVideo] = useState<Evidence | null>(null);
+  const { startTour, isActive } = useCoachMarks();
+
+  const skillEvidenceTourSteps = useMemo(() => [
+    { id: "skill_evidence_capture", title: "Record Evidence", description: "Select a skill and record a short video to show your coach what you can do.", position: "bottom" as const },
+    { id: "skill_evidence_skills", title: "Pick a Skill", description: "Choose which skill you want to demonstrate from this list.", position: "bottom" as const },
+    { id: "skill_evidence_history", title: "Your Evidence", description: "View past recordings and see coach feedback on your submissions.", position: "top" as const },
+  ], []);
+
+  useEffect(() => {
+    if (!isActive) {
+      const timer = setTimeout(() => {
+        startTour("player_skill_evidence_tour", skillEvidenceTourSteps);
+      }, 1500);
+      return () => clearTimeout(timer);
+    }
+  }, []);
 
   const { data: evidence = [], isLoading: loadingEvidence } = useQuery<Evidence[]>({
     queryKey: [`/api/players/${player?.id}/evidence`],
@@ -373,6 +390,7 @@ export default function SkillEvidenceScreen() {
           contentContainerStyle={styles.contentContainer}
           showsVerticalScrollIndicator={false}
         >
+          <CoachMarkTarget id="skill_evidence_capture">
           <View style={styles.captureSection}>
             <LinearGradient
               colors={[Colors.dark.xpCyan + "20", "transparent"]}
@@ -387,6 +405,7 @@ export default function SkillEvidenceScreen() {
                 Capture a 10-second video demonstrating a skill for coach review
               </Text>
 
+              <CoachMarkTarget id="skill_evidence_skills">
               <ScrollView 
                 horizontal 
                 showsHorizontalScrollIndicator={false}
@@ -419,6 +438,7 @@ export default function SkillEvidenceScreen() {
                   </Pressable>
                 ))}
               </ScrollView>
+              </CoachMarkTarget>
 
               <Pressable
                 style={[styles.captureButton, !selectedSkill && styles.captureButtonDisabled]}
@@ -442,7 +462,9 @@ export default function SkillEvidenceScreen() {
               </Pressable>
             </LinearGradient>
           </View>
+          </CoachMarkTarget>
 
+          <CoachMarkTarget id="skill_evidence_history">
           <View style={styles.historySection}>
             <Text style={styles.sectionTitle}>My Evidence</Text>
             
@@ -460,6 +482,7 @@ export default function SkillEvidenceScreen() {
               evidence.map(renderEvidenceCard)
             )}
           </View>
+          </CoachMarkTarget>
         </ScrollView>
       </View>
 

@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import { View, Text, StyleSheet, FlatList, Pressable, ActivityIndicator, RefreshControl } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
@@ -13,6 +13,7 @@ import { Card } from "@/components/Card";
 import { getStaticAssetsUrl, apiFetch } from "@/lib/query-client";
 import * as Haptics from "expo-haptics";
 import { LockedScreen } from "../components/LockedScreen";
+import { useCoachMarks, CoachMarkTarget } from "@/components/CoachMarks";
 
 interface RankedPlayer {
   rank: number;
@@ -178,6 +179,22 @@ export default function GlowLeaderboardScreen() {
   const navigation = useNavigation();
   const [scope, setScope] = useState<"academy" | "global">("academy");
   const [category, setCategory] = useState<CategoryKey>("glow_score");
+  const { startTour, isActive } = useCoachMarks();
+
+  const leaderboardTourSteps = useMemo(() => [
+    { id: "player_leaderboard_scope", title: "Choose Scope", description: "Switch between your academy rankings and the global leaderboard.", position: "bottom" as const },
+    { id: "player_leaderboard_categories", title: "Ranking Categories", description: "View rankings by Glow Score, XP, DSS Rating, or Ball Level.", position: "bottom" as const },
+    { id: "player_leaderboard_rankings", title: "Top Players", description: "See the top players and find where you rank among them.", position: "top" as const },
+  ], []);
+
+  useEffect(() => {
+    if (!isActive) {
+      const timer = setTimeout(() => {
+        startTour("player_leaderboard_tour", leaderboardTourSteps);
+      }, 1500);
+      return () => clearTimeout(timer);
+    }
+  }, []);
   
   const { data, isLoading, refetch, isRefetching, isError } = useQuery<LeaderboardData>({
     queryKey: ["/api/player/leaderboard", scope, category],
@@ -191,6 +208,7 @@ export default function GlowLeaderboardScreen() {
   return (
     <LockedScreen featureKey="glow_leaderboard">
       <View style={styles.container}>
+        <CoachMarkTarget id="player_leaderboard_scope">
         <View style={styles.scopeToggle}>
           <Pressable
             style={[styles.scopeButton, scope === "academy" && styles.scopeButtonActive]}
@@ -209,7 +227,9 @@ export default function GlowLeaderboardScreen() {
             </ThemedText>
           </Pressable>
         </View>
+        </CoachMarkTarget>
         
+        <CoachMarkTarget id="player_leaderboard_categories">
         <View style={styles.categoryTabs}>
           {CATEGORIES.map((cat) => (
             <Pressable
@@ -224,6 +244,7 @@ export default function GlowLeaderboardScreen() {
             </Pressable>
           ))}
         </View>
+        </CoachMarkTarget>
 
       {isLoading ? (
         <View style={styles.loadingContainer}>
@@ -238,6 +259,7 @@ export default function GlowLeaderboardScreen() {
           </Pressable>
         </View>
       ) : (
+        <CoachMarkTarget id="player_leaderboard_rankings">
         <FlatList
           data={restOfRankings}
           keyExtractor={(item) => item.id}
@@ -281,6 +303,7 @@ export default function GlowLeaderboardScreen() {
             </View>
           }
         />
+        </CoachMarkTarget>
         )}
       </View>
     </LockedScreen>

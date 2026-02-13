@@ -22,6 +22,7 @@ import { Colors, Spacing, BorderRadius } from "@/constants/theme";
 import type { ScheduleStackParamList } from "@/player/navigation/PlayerNavigator";
 import { LockedScreen } from "../components/LockedScreen";
 import { getApiUrl } from "@/lib/query-client";
+import { useCoachMarks, CoachMarkTarget } from "@/components/CoachMarks";
 
 type NavigationProp = NativeStackNavigationProp<ScheduleStackParamList>;
 
@@ -236,7 +237,23 @@ function CourtCard({ court, onPress, surfaceConfig }: { court: Court; onPress: (
 export default function CourtBookingScreen() {
   const navigation = useNavigation<NavigationProp>();
   const insets = useSafeAreaInsets();
+  const { startTour, isActive } = useCoachMarks();
   
+  const courtBookingTourSteps = useMemo(() => [
+    { id: "player_court_booking_date", title: "Pick a Date", description: "Choose a date to see which courts are available. Swipe to see more days.", position: "bottom" as const },
+    { id: "player_court_booking_filter", title: "Filter by Surface", description: "Narrow down courts by surface type like hard, clay, or grass.", position: "bottom" as const },
+    { id: "player_court_booking_list", title: "Browse Courts", description: "Tap any court to see available time slots and book your session.", position: "top" as const },
+  ], []);
+
+  useEffect(() => {
+    if (!isActive) {
+      const timer = setTimeout(() => {
+        startTour("player_court_booking_tour", courtBookingTourSteps);
+      }, 1500);
+      return () => clearTimeout(timer);
+    }
+  }, []);
+
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedSurface, setSelectedSurface] = useState<keyof typeof SURFACE_CONFIG>("all");
   const [selectedDate, setSelectedDate] = useState<string>(() => {
@@ -341,6 +358,7 @@ export default function CourtBookingScreen() {
           </View>
         </View>
 
+        <CoachMarkTarget id="player_court_booking_date">
         <View style={styles.dateSection}>
           <ScrollView 
             horizontal 
@@ -372,7 +390,9 @@ export default function CourtBookingScreen() {
             })}
           </ScrollView>
         </View>
+        </CoachMarkTarget>
 
+        <CoachMarkTarget id="player_court_booking_filter">
         <View style={styles.filterSection}>
           <ScrollView 
             horizontal 
@@ -407,7 +427,9 @@ export default function CourtBookingScreen() {
             })}
           </ScrollView>
         </View>
+        </CoachMarkTarget>
 
+        <CoachMarkTarget id="player_court_booking_list">
         <ScrollView 
           style={styles.courtsList} 
           contentContainerStyle={[styles.courtsListContent, { paddingBottom: 85 + 100 }]}
@@ -459,6 +481,7 @@ export default function CourtBookingScreen() {
             </>
           )}
         </ScrollView>
+        </CoachMarkTarget>
       </View>
     </LockedScreen>
   );

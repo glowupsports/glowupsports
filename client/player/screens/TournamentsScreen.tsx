@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import {
   View,
   Text,
@@ -23,6 +23,7 @@ import {
 } from "@/constants/theme";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import type { PlayerStackParamList } from "@/player/navigation/PlayerNavigator";
+import { useCoachMarks, CoachMarkTarget } from "@/components/CoachMarks";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 
@@ -326,6 +327,22 @@ export default function TournamentsScreen() {
   const navigation = useNavigation<NavigationProp>();
   const insets = useSafeAreaInsets();
   const [activeTab, setActiveTab] = useState<TabType>("upcoming");
+  const { startTour, isActive } = useCoachMarks();
+
+  const tournamentsTourSteps = useMemo(() => [
+    { id: "tournaments_tabs", title: "Browse Events", description: "Switch between upcoming tournaments, your registered events, and challenge ladders.", position: "bottom" as const },
+    { id: "tournaments_list", title: "Tournament Cards", description: "See event details, spots remaining, and entry fees at a glance.", position: "top" as const },
+    { id: "tournaments_register", title: "Register & Join", description: "Tap Register to sign up for tournaments or Join to enter a ladder.", position: "top" as const },
+  ], []);
+
+  useEffect(() => {
+    if (!isActive) {
+      const timer = setTimeout(() => {
+        startTour("player_tournaments_tour", tournamentsTourSteps);
+      }, 1500);
+      return () => clearTimeout(timer);
+    }
+  }, []);
 
   const handleTabPress = (tab: TabType) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -402,6 +419,7 @@ export default function TournamentsScreen() {
         <View style={styles.headerRight} />
       </View>
 
+      <CoachMarkTarget id="tournaments_tabs">
       <View style={styles.tabBar}>
         {tabs.map((tab) => (
           <Pressable
@@ -422,8 +440,11 @@ export default function TournamentsScreen() {
           </Pressable>
         ))}
       </View>
+      </CoachMarkTarget>
 
+      <CoachMarkTarget id="tournaments_list">
       <View style={styles.content}>{renderContent()}</View>
+      </CoachMarkTarget>
     </View>
   );
 }

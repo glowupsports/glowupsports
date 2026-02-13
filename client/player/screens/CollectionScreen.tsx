@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import {
   View,
   Text,
@@ -18,6 +18,7 @@ import Animated, { FadeIn, FadeInDown } from "react-native-reanimated";
 import { Colors, Spacing, BorderRadius, Typography, Backgrounds, GlowColors } from "@/constants/theme";
 import { LockedScreen } from "../components/LockedScreen";
 import { apiRequest } from "@/lib/query-client";
+import { useCoachMarks, CoachMarkTarget } from "@/components/CoachMarks";
 
 interface Badge {
   id: string;
@@ -77,6 +78,22 @@ export default function CollectionScreen() {
   const [activeTab, setActiveTab] = useState<Tab>("badges");
   const [selectedBadge, setSelectedBadge] = useState<Badge | null>(null);
   const [selectedTitle, setSelectedTitle] = useState<Title | null>(null);
+  const { startTour, isActive } = useCoachMarks();
+
+  const collectionTourSteps = useMemo(() => [
+    { id: "collection_stats", title: "Your Collection Stats", description: "See how many badges and titles you've earned at a glance.", position: "bottom" as const },
+    { id: "collection_tabs", title: "Badges & Titles", description: "Switch between badges you've earned and titles you've unlocked.", position: "bottom" as const },
+    { id: "collection_items", title: "Tap to Explore", description: "Tap any badge or title to see details, rarity, and when you earned it.", position: "top" as const },
+  ], []);
+
+  useEffect(() => {
+    if (!isActive) {
+      const timer = setTimeout(() => {
+        startTour("player_collection_tour", collectionTourSteps);
+      }, 1500);
+      return () => clearTimeout(timer);
+    }
+  }, []);
 
   const { data, isLoading } = useQuery<CollectionData>({
     queryKey: ["/api/player/badges"],
@@ -205,6 +222,7 @@ export default function CollectionScreen() {
           <View style={styles.headerSpacer} />
         </View>
 
+      <CoachMarkTarget id="collection_stats">
       <View style={styles.statsRow}>
         <View style={styles.statCard}>
           <Ionicons name="ribbon" size={24} color={Colors.dark.gold} />
@@ -221,7 +239,9 @@ export default function CollectionScreen() {
           <Text style={styles.statLabel}>Titles</Text>
         </View>
       </View>
+      </CoachMarkTarget>
 
+      <CoachMarkTarget id="collection_tabs">
       <View style={styles.tabsContainer}>
         <Pressable
           style={[styles.tab, activeTab === "badges" && styles.tabActive]}
@@ -250,7 +270,9 @@ export default function CollectionScreen() {
           </Text>
         </Pressable>
       </View>
+      </CoachMarkTarget>
 
+      <CoachMarkTarget id="collection_items">
       <ScrollView
         style={styles.content}
         contentContainerStyle={styles.contentContainer}
@@ -316,6 +338,7 @@ export default function CollectionScreen() {
           </>
         )}
       </ScrollView>
+      </CoachMarkTarget>
 
       <Modal
         visible={!!selectedBadge}

@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from "react";
+import React, { useState, useMemo, useEffect, useCallback } from "react";
 import {
   View,
   Text,
@@ -34,6 +34,7 @@ import { ThemedText } from "@/components/ThemedText";
 import { apiRequest, getApiUrl, getStaticAssetsUrl } from "@/lib/query-client";
 import { LockedScreen } from "../components/LockedScreen";
 import { useAuth } from "@/coach/context/AuthContext";
+import { useCoachMarks, CoachMarkTarget } from "@/components/CoachMarks";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 
@@ -465,6 +466,22 @@ export default function OpenMatchFeedScreen() {
   const queryClient = useQueryClient();
   const [activeFilter, setActiveFilter] = useState<FilterType>("all");
   const [joiningMatchId, setJoiningMatchId] = useState<string | null>(null);
+  const { startTour, isActive } = useCoachMarks();
+
+  const openMatchTourSteps = useMemo(() => [
+    { id: "player_open_match_filters", title: "Filter Matches", description: "Switch between all, singles, or doubles matches to find your game.", position: "bottom" as const },
+    { id: "player_open_match_feed", title: "Browse Open Matches", description: "See available matches near you. Tap to join or view details.", position: "top" as const },
+    { id: "player_open_match_create", title: "Create a Match", description: "No matches available? Create your own and invite others to join!", position: "top" as const },
+  ], []);
+
+  useEffect(() => {
+    if (!isActive) {
+      const timer = setTimeout(() => {
+        startTour("player_open_match_tour", openMatchTourSteps);
+      }, 1500);
+      return () => clearTimeout(timer);
+    }
+  }, []);
 
   const { data: matches, isLoading, refetch, isRefetching } = useQuery<OpenMatch[]>({
     queryKey: ["/api/open-matches"],
@@ -520,6 +537,7 @@ export default function OpenMatchFeedScreen() {
   return (
     <LockedScreen featureKey="match_preparation">
       <View style={styles.container}>
+        <CoachMarkTarget id="player_open_match_filters">
         <Animated.View entering={FadeInUp} style={styles.filterSection}>
           <View style={styles.filterRow}>
             {(["all", "singles", "doubles"] as FilterType[]).map((filter, idx) => {
@@ -564,6 +582,7 @@ export default function OpenMatchFeedScreen() {
             </Text>
           </View>
         </Animated.View>
+        </CoachMarkTarget>
 
         {isLoading ? (
           <View style={styles.loading}>
@@ -571,8 +590,11 @@ export default function OpenMatchFeedScreen() {
             <Text style={styles.loadingText}>Finding matches near you...</Text>
           </View>
         ) : filteredMatches.length === 0 ? (
+          <CoachMarkTarget id="player_open_match_create">
           <EmptyState onCreateMatch={handleCreateMatch} />
+          </CoachMarkTarget>
         ) : (
+          <CoachMarkTarget id="player_open_match_feed">
           <FlatList
             data={filteredMatches}
             renderItem={renderMatch}
@@ -587,6 +609,7 @@ export default function OpenMatchFeedScreen() {
               />
             }
           />
+          </CoachMarkTarget>
         )}
       </View>
     </LockedScreen>

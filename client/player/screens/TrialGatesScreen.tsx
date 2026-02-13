@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useMemo, useEffect } from "react";
 import {
   View,
   Text,
@@ -16,6 +16,7 @@ import * as Haptics from "expo-haptics";
 import { Colors, Spacing, BorderRadius, Typography, Backgrounds, GlowColors } from "@/constants/theme";
 import { usePlayer } from "@/player/context/PlayerContext";
 import { LockedScreen } from "../components/LockedScreen";
+import { useCoachMarks, CoachMarkTarget } from "@/components/CoachMarks";
 
 interface BallLevel {
   id: string;
@@ -67,6 +68,22 @@ export default function TrialGatesScreen() {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<any>();
   const { player } = usePlayer();
+  const { startTour, isActive } = useCoachMarks();
+
+  const trialGatesTourSteps = useMemo(() => [
+    { id: "trial_gates_info", title: "What Are Trial Gates?", description: "Trial gates are challenges from your coach to test if you're ready for the next level.", position: "bottom" as const },
+    { id: "trial_gates_active", title: "Active Trials", description: "See your current trials and track how many gates you've passed so far.", position: "bottom" as const },
+    { id: "trial_gates_progress", title: "Gates Progress", description: "Complete all gates within the time limit to advance to the next ball level.", position: "top" as const },
+  ], []);
+
+  useEffect(() => {
+    if (!isActive) {
+      const timer = setTimeout(() => {
+        startTour("player_trial_gates_tour", trialGatesTourSteps);
+      }, 1500);
+      return () => clearTimeout(timer);
+    }
+  }, []);
 
   const { data: trials = [], isLoading } = useQuery<Trial[]>({
     queryKey: [`/api/glow/players/${player?.id}/trials`],
@@ -209,6 +226,7 @@ export default function TrialGatesScreen() {
         contentContainerStyle={styles.contentContainer}
         showsVerticalScrollIndicator={false}
       >
+        <CoachMarkTarget id="trial_gates_info">
         <View style={styles.infoCard}>
           <Ionicons name="information-circle" size={24} color={Colors.dark.xpCyan} />
           <View style={styles.infoContent}>
@@ -219,11 +237,13 @@ export default function TrialGatesScreen() {
             </Text>
           </View>
         </View>
+        </CoachMarkTarget>
 
         {isLoading ? (
           <ActivityIndicator color={Colors.dark.primary} style={styles.loader} />
         ) : (
           <>
+            <CoachMarkTarget id="trial_gates_active">
             {activeTrials.length > 0 ? (
               <View style={styles.section}>
                 <Text style={styles.sectionTitle}>Active Trials</Text>
@@ -238,13 +258,16 @@ export default function TrialGatesScreen() {
                 </Text>
               </View>
             )}
+            </CoachMarkTarget>
 
+            <CoachMarkTarget id="trial_gates_progress">
             {pastTrials.length > 0 ? (
               <View style={styles.section}>
                 <Text style={styles.sectionTitle}>Past Trials</Text>
                 {pastTrials.map(trial => renderTrialCard(trial, false))}
               </View>
             ) : null}
+            </CoachMarkTarget>
           </>
         )}
       </ScrollView>
