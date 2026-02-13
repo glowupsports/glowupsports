@@ -412,7 +412,7 @@ export function CoachChatFooter({ mode = "coach" }: ChatFooterProps) {
   const currentTabConfig = CHAT_TABS.find(t => t.id === currentTab);
   const filteredConversations = conversations.filter(conv => {
     if (currentTab === "players") {
-      return conv.playerId !== null || currentTabConfig?.types.includes(conv.type);
+      return currentTabConfig?.types.includes(conv.type);
     }
     return currentTabConfig?.types.includes(conv.type) ?? false;
   });
@@ -649,7 +649,15 @@ export function CoachChatFooter({ mode = "coach" }: ChatFooterProps) {
     });
   };
 
-  const getConvName = (conv: Conversation) => conv.playerName || conv.title || "Chat";
+  const getConvDisplayName = (conv: Conversation) => {
+    if (conv.type === "academy") return "Academy Chat";
+    if (conv.type === "squad" || conv.type === "group") return conv.title || "Squad Chat";
+    if (conv.type === "coach_coach") return conv.title || "Coach Chat";
+    if (conv.playerName && conv.playerName !== "Chat") return conv.playerName;
+    if (conv.title && conv.title !== "Chat") return conv.title;
+    return "Conversation";
+  };
+  const getConvName = (conv: Conversation) => getConvDisplayName(conv);
   const getInitial = (name: string) => name.charAt(0).toUpperCase();
 
   const getConvIcon = (conv: Conversation): keyof typeof Ionicons.glyphMap => {
@@ -719,37 +727,7 @@ export function CoachChatFooter({ mode = "coach" }: ChatFooterProps) {
   );
 
   const renderQuickContacts = () => {
-    if (currentTab !== "players" && currentTab !== "coaches") return null;
-    if (recentContacts.length === 0) return null;
-
-    return (
-      <View style={styles.quickContactsContainer}>
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.quickContactsScroll}
-        >
-          {recentContacts.map((conv) => {
-            const name = getConvName(conv);
-            return (
-              <Pressable
-                key={conv.id}
-                onPress={() => setSelectedConversation(conv)}
-                style={styles.quickContactItem}
-              >
-                <View style={[
-                  styles.quickContactAvatar,
-                  selectedConversation?.id === conv.id && styles.quickContactAvatarActive,
-                ]}>
-                  <ThemedText style={styles.quickContactInitial}>{getInitial(name)}</ThemedText>
-                </View>
-                <ThemedText style={styles.quickContactName} numberOfLines={1}>{name}</ThemedText>
-              </Pressable>
-            );
-          })}
-        </ScrollView>
-      </View>
-    );
+    return null;
   };
 
   const renderActivityFeed = () => (
@@ -1026,7 +1004,7 @@ export function CoachChatFooter({ mode = "coach" }: ChatFooterProps) {
             </View>
             <View style={styles.conversationInfo}>
               <ThemedText style={styles.conversationName}>
-                {item.playerName || item.title || "Chat"}
+                {getConvDisplayName(item)}
               </ThemedText>
               {item.lastMessagePreview ? (
                 <ThemedText numberOfLines={1} style={styles.conversationPreview}>
@@ -1078,17 +1056,26 @@ export function CoachChatFooter({ mode = "coach" }: ChatFooterProps) {
   );
 
   const renderRightPanel = () => {
+    const safetyBanner = (
+      <View style={styles.safetyBanner}>
+        <Ionicons name="shield-checkmark" size={14} color="#4FC3F7" />
+        <ThemedText style={styles.safetyBannerText}>
+          Chats are monitored. Never share personal or financial info. Beware of scams.
+        </ThemedText>
+      </View>
+    );
+
     if (currentTab === "activity") {
-      return renderActivityFeed();
+      return <>{safetyBanner}{renderActivityFeed()}</>;
     }
 
     if (currentTab === "world") {
-      return renderWorldChat();
+      return <>{safetyBanner}{renderWorldChat()}</>;
     }
 
-    if (showNewMessage) return renderNewMessageSelector();
-    if (showSquadSelector) return renderSquadSelector();
-    if (showCoachSelector) return renderCoachSelector();
+    if (showNewMessage) return <>{safetyBanner}{renderNewMessageSelector()}</>;
+    if (showSquadSelector) return <>{safetyBanner}{renderSquadSelector()}</>;
+    if (showCoachSelector) return <>{safetyBanner}{renderCoachSelector()}</>;
 
     if (selectedConversation) {
       return (
@@ -1099,17 +1086,12 @@ export function CoachChatFooter({ mode = "coach" }: ChatFooterProps) {
                 <Ionicons name="chevron-back" size={20} color={Colors.dark.text} />
               </Pressable>
               <ThemedText style={styles.conversationTitle}>
-                {selectedConversation.playerName || selectedConversation.title || "Chat"}
+                {getConvDisplayName(selectedConversation)}
               </ThemedText>
             </View>
           ) : null}
 
-          <View style={styles.safetyBanner}>
-            <Ionicons name="shield-checkmark" size={14} color="#4FC3F7" />
-            <ThemedText style={styles.safetyBannerText}>
-              Chats are monitored. Never share personal or financial info. Beware of scams.
-            </ThemedText>
-          </View>
+          {safetyBanner}
 
           {loadingMessages ? (
             <View style={styles.loadingContainer}>
@@ -1171,15 +1153,17 @@ export function CoachChatFooter({ mode = "coach" }: ChatFooterProps) {
 
     if (loadingConversations) {
       return (
+        <>{safetyBanner}
         <View style={styles.loadingContainer}>
           <ActivityIndicator color={Colors.dark.primary} />
         </View>
+        </>
       );
     }
 
     return (
       <>
-        {renderQuickContacts()}
+        {safetyBanner}
         {renderConversationListContent()}
       </>
     );
