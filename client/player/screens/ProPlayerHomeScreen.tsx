@@ -135,7 +135,7 @@ function PlayerHomeContent() {
   const { data: unreadData } = useQuery<{ count: number }>({
     queryKey: ["/api/player/me/notifications/unread-count"],
     enabled: !!user?.playerId,
-    refetchInterval: 30000,
+    refetchInterval: 120000,
   });
   const unreadCount = unreadData?.count || 0;
 

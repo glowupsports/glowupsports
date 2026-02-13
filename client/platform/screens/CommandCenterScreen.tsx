@@ -21,7 +21,6 @@ import { WelcomeIntroModal } from "@/components/WelcomeIntroModal";
 import { HelpButton } from "@/components/HelpButton";
 import { QuickTipsBanner } from "@/components/QuickTipsBanner";
 import { PlatformUsageProgress } from "@/components/PlatformUsageProgress";
-import { WhatsNewFeed } from "@/components/WhatsNewFeed";
 import { WhatsNewBellButton } from "@/components/WhatsNewBellButton";
 import { NotificationGuideModal } from "@/components/NotificationGuideModal";
 import { FirstActionCelebration } from "@/components/FirstActionCelebration";
@@ -202,7 +201,6 @@ export default function CommandCenterScreen() {
   const currency = platformData?.platform?.currency || "$";
 
   const [showWelcome, setShowWelcome] = useState(false);
-  const [showWhatsNew, setShowWhatsNew] = useState(false);
   const [showNotificationGuide, setShowNotificationGuide] = useState(false);
   const [showFirstCelebration, setShowFirstCelebration] = useState(false);
   const [celebrationData, setCelebrationData] = useState({ title: "", description: "", icon: "trophy", xpReward: 0 });
@@ -214,11 +212,6 @@ export default function CommandCenterScreen() {
     { id: "audit_logs", name: "Audit Logs", icon: "document-text", isUsed: false },
     { id: "billing_config", name: "Billing Configuration", icon: "card", isUsed: false },
   ], []);
-
-  const whatsNewItems = [
-    { id: "v2_onboarding", date: "2026-02-12", title: "Platform Onboarding", description: "New command center walkthrough and getting started guide for platform owners.", icon: "rocket", iconColor: "#2ECC40", tag: "new" as const },
-    { id: "v2_health", date: "2026-02-08", title: "Academy Health Scores", description: "Monitor each academy's performance with real-time health scoring.", icon: "pulse", iconColor: "#FF9800", tag: "improved" as const },
-  ];
 
   const platformTips = [
     { id: "tip_health", icon: "pulse", text: "Tip: Check Academy Health Cards to spot issues before they become critical" },
@@ -510,11 +503,6 @@ export default function CommandCenterScreen() {
           bottomOffset={120}
         />
       </CoachMarkTarget>
-      <WhatsNewFeed
-        visible={showWhatsNew}
-        onClose={() => setShowWhatsNew(false)}
-        items={whatsNewItems}
-      />
       <NotificationGuideModal
         visible={showNotificationGuide}
         onClose={() => setShowNotificationGuide(false)}

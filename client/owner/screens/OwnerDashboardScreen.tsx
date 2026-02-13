@@ -34,7 +34,6 @@ import { HelpButton } from "@/components/HelpButton";
 import { QuickTipsBanner } from "@/components/QuickTipsBanner";
 import { SettingsWalkthroughModal } from "@/components/SettingsWalkthroughModal";
 import { PlatformUsageProgress } from "@/components/PlatformUsageProgress";
-import { WhatsNewFeed } from "@/components/WhatsNewFeed";
 import { WhatsNewBellButton } from "@/components/WhatsNewBellButton";
 import { NotificationGuideModal } from "@/components/NotificationGuideModal";
 import { FirstActionCelebration } from "@/components/FirstActionCelebration";
@@ -156,7 +155,6 @@ export default function OwnerDashboardScreen() {
   const { navigateToTab } = useTabNavigation();
   const [refreshing, setRefreshing] = useState(false);
   const [showSettingsWalkthrough, setShowSettingsWalkthrough] = useState(false);
-  const [showWhatsNew, setShowWhatsNew] = useState(false);
   const [showNotificationGuide, setShowNotificationGuide] = useState(false);
   const [showFirstCelebration, setShowFirstCelebration] = useState(false);
   const [celebrationData, setCelebrationData] = useState({ title: "", description: "", icon: "trophy", xpReward: 0 });
@@ -392,12 +390,6 @@ export default function OwnerDashboardScreen() {
     },
   ], [dashboardData, navigateToTab]);
 
-  const whatsNewItems = [
-    { id: "v2_owner_dashboard", date: "2026-02-12", title: "Owner Business Dashboard", description: "New command center with revenue health, growth metrics, and staff performance tracking.", icon: "analytics", iconColor: "#FFD700", tag: "new" as const },
-    { id: "v2_onboarding", date: "2026-02-12", title: "Getting Started Guide", description: "Step-by-step checklist to set up your academy quickly and correctly.", icon: "rocket", iconColor: "#2ECC40", tag: "new" as const },
-    { id: "v2_insights", date: "2026-02-08", title: "Smart Insights", description: "AI-powered recommendations based on your academy's performance data.", icon: "bulb", iconColor: "#FF9800", tag: "improved" as const },
-  ];
-
   useEffect(() => {
     if (!isLoading && dashboardData && !isActive) {
       const timer = setTimeout(() => {
@@ -622,12 +614,6 @@ export default function OwnerDashboardScreen() {
         visible={showSettingsWalkthrough}
         onClose={() => setShowSettingsWalkthrough(false)}
         areas={ownerSettingsAreas}
-      />
-
-      <WhatsNewFeed
-        visible={showWhatsNew}
-        onClose={() => setShowWhatsNew(false)}
-        items={whatsNewItems}
       />
 
       <NotificationGuideModal

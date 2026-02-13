@@ -56,7 +56,6 @@ import { HelpButton } from "@/components/HelpButton";
 import { QuickTipsBanner } from "@/components/QuickTipsBanner";
 import { RoleSwitchingGuide } from "@/components/RoleSwitchingGuide";
 import { PlatformUsageProgress } from "@/components/PlatformUsageProgress";
-import { WhatsNewFeed } from "@/components/WhatsNewFeed";
 import { WhatsNewBellButton } from "@/components/WhatsNewBellButton";
 import { NotificationGuideModal } from "@/components/NotificationGuideModal";
 import { FirstActionCelebration } from "@/components/FirstActionCelebration";
@@ -744,7 +743,6 @@ export default function DashboardScreen() {
   ];
 
   const [showRoleSwitchGuide, setShowRoleSwitchGuide] = useState(false);
-  const [showWhatsNew, setShowWhatsNew] = useState(false);
   const [showNotificationGuide, setShowNotificationGuide] = useState(false);
   const [showFirstCelebration, setShowFirstCelebration] = useState(false);
   const [celebrationData, setCelebrationData] = useState({ title: "", description: "", icon: "trophy", xpReward: 0 });
@@ -756,12 +754,6 @@ export default function DashboardScreen() {
     { id: "wellness", name: "Wellness Tracking", icon: "heart", isUsed: false },
     { id: "attendance", name: "Attendance", icon: "checkmark-circle", isUsed: true },
   ], []);
-
-  const whatsNewItems = [
-    { id: "v2_onboarding", date: "2026-02-12", title: "New Onboarding Experience", description: "Getting Started checklists and guided walkthroughs to help you learn the platform faster.", icon: "rocket", iconColor: "#2ECC40", tag: "new" as const },
-    { id: "v2_help", date: "2026-02-10", title: "In-App Help Center", description: "Access FAQs, glossary, and video tutorials anytime from the help button.", icon: "help-circle", iconColor: "#00BCD4", tag: "new" as const },
-    { id: "v2_tips", date: "2026-02-08", title: "Quick Tips", description: "Rotating tips on your dashboard to help you get the most out of every feature.", icon: "bulb", iconColor: "#FF9800", tag: "improved" as const },
-  ];
 
   const coachWelcomeSlides = [
     {
@@ -1703,11 +1695,6 @@ export default function DashboardScreen() {
         visible={showRoleSwitchGuide}
         onClose={() => setShowRoleSwitchGuide(false)}
         availableRoles={["coach", "player"]}
-      />
-      <WhatsNewFeed
-        visible={showWhatsNew}
-        onClose={() => setShowWhatsNew(false)}
-        items={whatsNewItems}
       />
       <NotificationGuideModal
         visible={showNotificationGuide}

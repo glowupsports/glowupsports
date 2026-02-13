@@ -850,6 +850,7 @@ function FriendsSection({ onChallenge, onSelectActivity }: { onChallenge?: (frie
     queryKey: ["/api/social/feed", { filter: "friends" }],
     queryFn: async () => {
       const response = await apiFetch("/api/social/feed?filter=friends");
+      if (response.status === 403) return [];
       if (!response.ok) throw new Error("Failed to load activity");
       return response.json();
     },
@@ -3317,8 +3318,13 @@ export default function CommunityScreen() {
     queryKey: ["/api/social/feed", { filter }],
     queryFn: async () => {
       const response = await apiFetch(`/api/social/feed?filter=${filter}`);
+      if (response.status === 403) return [];
       if (!response.ok) throw new Error("Failed to fetch feed");
       return response.json();
+    },
+    retry: (failureCount, error) => {
+      if (error?.message?.includes("403")) return false;
+      return failureCount < 2;
     },
   });
   

@@ -22,6 +22,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { ThemedText } from "@/components/ThemedText";
 import { Colors, Spacing, BorderRadius } from "@/constants/theme";
 import { useAuth } from "@/coach/context/AuthContext";
+import { usePlayer } from "@/player/context/PlayerContext";
 import { apiRequest } from "@/lib/query-client";
 import { useWebSocket, type NewMessagePayload, type TypingPayload } from "@/lib/useWebSocket";
 
@@ -82,6 +83,7 @@ export function PlayerChatFooter() {
   const tabBarHeight = TAB_BAR_HEIGHT;
   const queryClient = useQueryClient();
   const { user } = useAuth();
+  const { isMinor } = usePlayer();
   const playerId = user?.playerId;
   const [isExpanded, setIsExpanded] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
@@ -516,6 +518,14 @@ export function PlayerChatFooter() {
                   {selectedConversation.coachName || selectedConversation.title || (currentTab === "coaches" ? "Coach" : currentTab === "academy" ? "Academy" : "Chat")}
                 </ThemedText>
               </View>
+              {isMinor ? (
+                <View style={styles.safetyBanner}>
+                  <Ionicons name="shield-checkmark" size={14} color="#4FC3F7" />
+                  <ThemedText style={styles.safetyBannerText}>
+                    This conversation is monitored for safety
+                  </ThemedText>
+                </View>
+              ) : null}
               {loadingMessages ? (
                 <View style={styles.loadingContainer}>
                   <ActivityIndicator size="small" color={Colors.dark.primary} />
@@ -759,6 +769,21 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: Colors.dark.border,
     backgroundColor: Colors.dark.backgroundDefault,
+  },
+  safetyBanner: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    paddingVertical: 6,
+    paddingHorizontal: Spacing.md,
+    backgroundColor: "rgba(79, 195, 247, 0.1)",
+    borderBottomWidth: 1,
+    borderBottomColor: "rgba(79, 195, 247, 0.15)",
+  },
+  safetyBannerText: {
+    fontSize: 11,
+    color: "#4FC3F7",
+    fontWeight: "500",
   },
   backButton: {
     padding: Spacing.sm,
