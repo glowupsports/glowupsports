@@ -19,6 +19,8 @@ import Animated, {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 
+import AsyncStorage from "@react-native-async-storage/async-storage";
+
 import { ThemedText } from "@/components/ThemedText";
 import { Colors, Spacing, BorderRadius, Backgrounds, GlowColors } from "@/constants/theme";
 import { useCoach } from "@/coach/context/CoachContext";
@@ -158,10 +160,22 @@ export function CoachChatFooter({ mode = "coach" }: ChatFooterProps) {
   const [typingUsers, setTypingUsers] = useState<Map<string, Set<string>>>(new Map());
   const [academyConvCreated, setAcademyConvCreated] = useState<Conversation | null>(null);
   const [squadAutoCreated, setSquadAutoCreated] = useState(false);
+  const [safetyBannerDismissed, setSafetyBannerDismissed] = useState(false);
   const flatListRef = useRef<FlatList>(null);
   const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const height = useSharedValue(FOOTER_COLLAPSED);
+
+  useEffect(() => {
+    AsyncStorage.getItem("@glow_safety_banner_dismissed").then(val => {
+      if (val === "true") setSafetyBannerDismissed(true);
+    });
+  }, []);
+
+  const dismissSafetyBanner = useCallback(() => {
+    setSafetyBannerDismissed(true);
+    AsyncStorage.setItem("@glow_safety_banner_dismissed", "true");
+  }, []);
 
   const handleNewMessage = useCallback((payload: NewMessagePayload) => {
     if (isPlayerMode) {
@@ -848,12 +862,7 @@ export function CoachChatFooter({ mode = "coach" }: ChatFooterProps) {
             <ThemedText style={styles.worldOnlineText}>Live</ThemedText>
           </View>
         </View>
-        {loadingWorldMessages && worldMessages.length === 0 ? (
-          <View style={styles.loadingContainer}>
-            <ActivityIndicator color={Colors.dark.xpCyan} />
-          </View>
-        ) : (
-          <FlatList
+        <FlatList
             ref={flatListRef}
             data={worldMessages}
             keyExtractor={(item) => item.id}
@@ -869,7 +878,6 @@ export function CoachChatFooter({ mode = "coach" }: ChatFooterProps) {
               </View>
             }
           />
-        )}
       </View>
       <View style={styles.inputContainer}>
         <TextInput
@@ -1074,12 +1082,15 @@ export function CoachChatFooter({ mode = "coach" }: ChatFooterProps) {
   );
 
   const renderRightPanel = () => {
-    const safetyBanner = (
+    const safetyBanner = safetyBannerDismissed ? null : (
       <View style={styles.safetyBanner}>
         <Ionicons name="shield-checkmark" size={14} color="#4FC3F7" />
         <ThemedText style={styles.safetyBannerText}>
           Chats are monitored. Never share personal or financial info. Beware of scams.
         </ThemedText>
+        <Pressable onPress={dismissSafetyBanner} hitSlop={8} style={{ padding: 2 }}>
+          <Ionicons name="close" size={14} color={Colors.dark.textMuted} />
+        </Pressable>
       </View>
     );
 

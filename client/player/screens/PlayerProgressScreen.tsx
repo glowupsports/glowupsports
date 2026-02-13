@@ -72,6 +72,15 @@ interface ProgressData {
   levelReadiness: LevelReadiness | null;
 }
 
+interface CoachFeedbackItem {
+  id: string;
+  feedbackType: string;
+  message: string;
+  xpAwarded: number;
+  createdAt: string;
+  sessionId: string;
+}
+
 interface SkillDomain {
   id: string;
   name: string;
@@ -1565,6 +1574,18 @@ export default function PlayerProgressScreen() {
     { id: "progress_radar", title: "Skill Radar", description: "A visual snapshot of your strengths and areas to improve.", position: "top" as const },
   ], []);
 
+  const { data, isLoading, error } = useQuery<ProgressData>({
+    queryKey: ["/api/player/me/progress"],
+  });
+
+  const { data: attendanceData } = useQuery<AttendanceData>({
+    queryKey: ["/api/player/me/attendance"],
+  });
+
+  const { data: coachFeedback } = useQuery<CoachFeedbackItem[]>({
+    queryKey: ["/api/player/me/feedback"],
+  });
+
   useEffect(() => {
     if (!hasSeenScreen("Progress")) {
       const timer = setTimeout(() => {
@@ -1622,27 +1643,6 @@ export default function PlayerProgressScreen() {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     }
   };
-
-  const { data, isLoading, error } = useQuery<ProgressData>({
-    queryKey: ["/api/player/me/progress"],
-  });
-
-  const { data: attendanceData } = useQuery<AttendanceData>({
-    queryKey: ["/api/player/me/attendance"],
-  });
-
-  interface CoachFeedbackItem {
-    id: string;
-    feedbackType: string;
-    message: string;
-    xpAwarded: number;
-    createdAt: string;
-    sessionId: string;
-  }
-
-  const { data: coachFeedback } = useQuery<CoachFeedbackItem[]>({
-    queryKey: ["/api/player/me/feedback"],
-  });
 
   if (isLoading) {
     return (
