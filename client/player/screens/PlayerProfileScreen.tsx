@@ -168,24 +168,6 @@ export default function PlayerProfileScreen() {
     { id: "profile_stats", title: "Your Stats", description: "Check your streak, matches played, and overall progress.", position: "top" as const },
   ], []);
 
-  useEffect(() => {
-    if (!hasSeenScreen("Profile")) {
-      const timer = setTimeout(() => {
-        startWalkthrough("Profile");
-      }, 500);
-      return () => clearTimeout(timer);
-    }
-  }, [hasSeenScreen, startWalkthrough]);
-
-  useEffect(() => {
-    if (!isActive && !isLoading && data) {
-      const timer = setTimeout(() => {
-        startTour("player_profile_tour", profileTourSteps);
-      }, 1500);
-      return () => clearTimeout(timer);
-    }
-  }, [isLoading, data]);
-
   const { data, isLoading, error } = useQuery<ProfileData>({
     queryKey: ["/api/player/me/profile"],
   });
@@ -224,6 +206,24 @@ export default function PlayerProfileScreen() {
   const equippedTitle = titlesData?.find(t => t.isEquipped);
   const earnedBadges = badgesData || [];
   const unlockedTitles = titlesData || [];
+
+  useEffect(() => {
+    if (!hasSeenScreen("Profile")) {
+      const timer = setTimeout(() => {
+        startWalkthrough("Profile");
+      }, 500);
+      return () => clearTimeout(timer);
+    }
+  }, [hasSeenScreen, startWalkthrough]);
+
+  useEffect(() => {
+    if (!isActive && !isLoading && data) {
+      const timer = setTimeout(() => {
+        startTour("player_profile_tour", profileTourSteps);
+      }, 1500);
+      return () => clearTimeout(timer);
+    }
+  }, [isLoading, data]);
 
   const equipTitle = useMutation({
     mutationFn: async (titleId: string) => {
