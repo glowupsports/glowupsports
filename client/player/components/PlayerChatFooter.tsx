@@ -28,7 +28,7 @@ import { useWebSocket, type NewMessagePayload, type TypingPayload } from "@/lib/
 
 const { height: SCREEN_HEIGHT } = Dimensions.get("window");
 const FOOTER_COLLAPSED = 60;
-const FOOTER_EXPANDED = Math.min(SCREEN_HEIGHT * 0.5, 350);
+const FOOTER_EXPANDED = Math.min(SCREEN_HEIGHT * 0.55, 420);
 
 interface Message {
   id: string;

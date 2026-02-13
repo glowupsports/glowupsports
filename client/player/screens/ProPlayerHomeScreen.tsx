@@ -228,15 +228,6 @@ function PlayerHomeContent() {
         onAction: () => navigateToTab("Progress"),
         isCompleted: false,
       },
-      {
-        id: "explore_community",
-        icon: "people" as const,
-        title: "Meet Other Players",
-        description: "Find players near you and join the community",
-        actionLabel: "Explore",
-        onAction: () => navigateToTab("Community"),
-        isCompleted: false,
-      },
     ];
   }, [dashboardData, navigation, setShowBookingWizard]);
 
