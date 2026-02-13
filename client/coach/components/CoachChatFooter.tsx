@@ -33,7 +33,7 @@ interface ChatFooterProps {
 
 const { height: SCREEN_HEIGHT } = Dimensions.get("window");
 const FOOTER_COLLAPSED = 60;
-const FOOTER_EXPANDED = Math.min(SCREEN_HEIGHT * 0.6, 450);
+const FOOTER_EXPANDED = SCREEN_HEIGHT - 120;
 const FOOTER_FULLSCREEN = SCREEN_HEIGHT;
 const LEFT_PANEL_WIDTH = 94;
 
@@ -417,14 +417,14 @@ export function CoachChatFooter({ mode = "coach" }: ChatFooterProps) {
     }
     return currentTabConfig?.types.includes(conv.type) ?? false;
   });
-  const displayConversations = filteredConversations.length > 0 ? filteredConversations :
-    (currentTab === "players" ? conversations : []);
+  const displayConversations = filteredConversations;
   const latestConversation = conversations[0];
   const unreadCount = unreadData?.unreadCount || 0;
 
   const recentContacts = useMemo(() => {
     const sorted = [...conversations]
       .filter(c => {
+        if (c.type === "academy") return false;
         if (currentTab === "players") {
           const tabCfg = CHAT_TABS.find(t => t.id === "players");
           return c.playerId !== null || tabCfg?.types.includes(c.type);
@@ -653,6 +653,16 @@ export function CoachChatFooter({ mode = "coach" }: ChatFooterProps) {
   const getConvName = (conv: Conversation) => conv.playerName || conv.title || "Chat";
   const getInitial = (name: string) => name.charAt(0).toUpperCase();
 
+  const getConvIcon = (conv: Conversation): keyof typeof Ionicons.glyphMap => {
+    switch (conv.type) {
+      case "coach_coach": return "ribbon";
+      case "academy": return "home";
+      case "squad":
+      case "group": return "fitness";
+      default: return "person";
+    }
+  };
+
   const getActivityIcon = (type: string): keyof typeof Ionicons.glyphMap => {
     switch (type) {
       case "level_up": return "arrow-up-circle";
@@ -705,18 +715,6 @@ export function CoachChatFooter({ mode = "coach" }: ChatFooterProps) {
             </Pressable>
           );
         })}
-        {(currentTab === "players" || currentTab === "coaches" || currentTab === "squad") ? (
-          <Pressable
-            onPress={() => {
-              if (currentTab === "players") setShowNewMessage(true);
-              else if (currentTab === "coaches") setShowCoachSelector(true);
-              else if (currentTab === "squad") setShowSquadSelector(true);
-            }}
-            style={styles.verticalAddButton}
-          >
-            <Ionicons name="add" size={20} color={Colors.dark.buttonText} />
-          </Pressable>
-        ) : null}
       </ScrollView>
     </View>
   );
@@ -855,7 +853,7 @@ export function CoachChatFooter({ mode = "coach" }: ChatFooterProps) {
             <ThemedText style={styles.worldOnlineText}>Live</ThemedText>
           </View>
         </View>
-        {loadingWorldMessages ? (
+        {loadingWorldMessages && worldMessages.length === 0 ? (
           <View style={styles.loadingContainer}>
             <ActivityIndicator color={Colors.dark.xpCyan} />
           </View>
@@ -999,6 +997,23 @@ export function CoachChatFooter({ mode = "coach" }: ChatFooterProps) {
 
   const renderConversationListContent = () => (
     <>
+      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: Spacing.md, paddingVertical: Spacing.sm }}>
+        <ThemedText style={{ fontSize: 13, fontWeight: '700', color: Colors.dark.textSecondary }}>
+          {currentTabConfig?.name || ''}
+        </ThemedText>
+        {(currentTab === "players" || currentTab === "coaches" || currentTab === "squad") ? (
+          <Pressable
+            onPress={() => {
+              if (currentTab === "players") setShowNewMessage(true);
+              else if (currentTab === "coaches") setShowCoachSelector(true);
+              else if (currentTab === "squad") setShowSquadSelector(true);
+            }}
+            style={{ width: 28, height: 28, borderRadius: 14, backgroundColor: Colors.dark.primary, alignItems: 'center', justifyContent: 'center' }}
+          >
+            <Ionicons name="add" size={18} color={Colors.dark.buttonText} />
+          </Pressable>
+        ) : null}
+      </View>
       <FlatList
         data={displayConversations}
         keyExtractor={(item) => item.id}
@@ -1008,7 +1023,7 @@ export function CoachChatFooter({ mode = "coach" }: ChatFooterProps) {
             style={styles.conversationItem}
           >
             <View style={styles.conversationAvatar}>
-              <Ionicons name="person" size={20} color={Colors.dark.text} />
+              <Ionicons name={getConvIcon(item)} size={20} color={Colors.dark.text} />
             </View>
             <View style={styles.conversationInfo}>
               <ThemedText style={styles.conversationName}>
