@@ -56,7 +56,6 @@ import { HelpButton } from "@/components/HelpButton";
 import { QuickTipsBanner } from "@/components/QuickTipsBanner";
 import { RoleSwitchingGuide } from "@/components/RoleSwitchingGuide";
 import { PlatformUsageProgress } from "@/components/PlatformUsageProgress";
-import { WhatsNewBellButton } from "@/components/WhatsNewBellButton";
 import { NotificationGuideModal } from "@/components/NotificationGuideModal";
 import { FirstActionCelebration } from "@/components/FirstActionCelebration";
 import { useCoachMarks, CoachMarkTarget } from "@/components/CoachMarks";
@@ -793,8 +792,6 @@ export default function DashboardScreen() {
 
       {/* Collapsible Mode Switcher */}
       <CollapsibleModeSwitcher />
-
-      <WhatsNewBellButton style={{ position: "absolute", top: insets.top + 8, right: Spacing.lg, zIndex: 100 }} />
 
       <ScrollView
         style={styles.scrollView}

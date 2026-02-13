@@ -34,7 +34,6 @@ import { HelpButton } from "@/components/HelpButton";
 import { QuickTipsBanner } from "@/components/QuickTipsBanner";
 import { SettingsWalkthroughModal } from "@/components/SettingsWalkthroughModal";
 import { PlatformUsageProgress } from "@/components/PlatformUsageProgress";
-import { WhatsNewBellButton } from "@/components/WhatsNewBellButton";
 import { NotificationGuideModal } from "@/components/NotificationGuideModal";
 import { FirstActionCelebration } from "@/components/FirstActionCelebration";
 import { useCoachMarks, CoachMarkTarget } from "@/components/CoachMarks";
@@ -423,8 +422,6 @@ export default function OwnerDashboardScreen() {
       />
 
       <CollapsibleModeSwitcher />
-
-      <WhatsNewBellButton style={{ position: "absolute", top: insets.top + 8, right: Spacing.lg, zIndex: 100 }} />
 
       <ScrollView
         style={styles.scrollView}

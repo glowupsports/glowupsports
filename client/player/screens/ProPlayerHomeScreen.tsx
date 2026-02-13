@@ -31,7 +31,6 @@ import { WelcomeIntroModal } from "@/components/WelcomeIntroModal";
 import { HelpButton } from "@/components/HelpButton";
 import { QuickTipsBanner } from "@/components/QuickTipsBanner";
 import { PlatformUsageProgress } from "@/components/PlatformUsageProgress";
-import { WhatsNewBellButton } from "@/components/WhatsNewBellButton";
 import { NotificationGuideModal } from "@/components/NotificationGuideModal";
 import { FirstActionCelebration } from "@/components/FirstActionCelebration";
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -336,7 +335,6 @@ function PlayerHomeContent() {
       <BroadcastBackground />
 
       <View style={[styles.headerIconsRow, { top: insets.top + 8 }]}>
-        <WhatsNewBellButton style={{ marginRight: 8 }} />
         <Pressable 
           style={styles.notificationBell}
           onPress={() => {

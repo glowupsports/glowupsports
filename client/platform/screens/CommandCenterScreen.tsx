@@ -21,7 +21,6 @@ import { WelcomeIntroModal } from "@/components/WelcomeIntroModal";
 import { HelpButton } from "@/components/HelpButton";
 import { QuickTipsBanner } from "@/components/QuickTipsBanner";
 import { PlatformUsageProgress } from "@/components/PlatformUsageProgress";
-import { WhatsNewBellButton } from "@/components/WhatsNewBellButton";
 import { NotificationGuideModal } from "@/components/NotificationGuideModal";
 import { FirstActionCelebration } from "@/components/FirstActionCelebration";
 
@@ -319,8 +318,6 @@ export default function CommandCenterScreen() {
       />
 
       <CollapsibleModeSwitcher />
-
-      <WhatsNewBellButton style={{ position: "absolute", top: insets.top + 8, right: Spacing.lg, zIndex: 100 }} />
 
       <ScrollView
         style={styles.scrollView}

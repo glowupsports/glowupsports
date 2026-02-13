@@ -204,22 +204,33 @@ function CoachMarksOverlayContent({
     const ref = step.targetRef || targetsMap.get(step.id);
     if (!ref?.current) return;
 
+    let attempts = 0;
+    let retryTimer: ReturnType<typeof setTimeout> | null = null;
+
     const measureTarget = () => {
+      attempts++;
       try {
         ref.current?.measureInWindow(
           (x: number, y: number, width: number, height: number) => {
-            if (width > 0 && height > 0) {
+            if (width > 0 && height > 0 && (x > 0 || y > 0)) {
               setTargetLayout({ x, y, width, height });
+            } else if (attempts < 8) {
+              retryTimer = setTimeout(measureTarget, 200);
             }
           }
         );
       } catch {
-        setTargetLayout(null);
+        if (attempts < 8) {
+          retryTimer = setTimeout(measureTarget, 200);
+        }
       }
     };
 
-    const timer = setTimeout(measureTarget, 150);
-    return () => clearTimeout(timer);
+    const timer = setTimeout(measureTarget, 200);
+    return () => {
+      clearTimeout(timer);
+      if (retryTimer) clearTimeout(retryTimer);
+    };
   }, [step, currentStepIndex, targetsMap]);
 
   if (!step || !targetLayout) {
