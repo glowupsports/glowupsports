@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useMemo, useEffect } from "react";
 import { View, Text, StyleSheet, ScrollView, Pressable } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
@@ -7,6 +7,7 @@ import Ionicons from "@expo/vector-icons/Ionicons";
 import * as Haptics from "expo-haptics";
 import { Colors, Spacing, BorderRadius, Typography, CardStyles } from "@/constants/theme";
 import type { OwnerStackParamList } from "@/owner/navigation/OwnerNavigator";
+import { useCoachMarks, CoachMarkTarget } from "@/components/CoachMarks";
 
 interface SectionCardProps {
   icon: keyof typeof Ionicons.glyphMap;
@@ -33,6 +34,35 @@ function SectionCard({ icon, title, description, onPress }: SectionCardProps) {
 export default function AcademyScreen() {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<NativeStackNavigationProp<OwnerStackParamList>>();
+  const { startTour, isActive } = useCoachMarks();
+
+  const academyTourSteps = useMemo(() => [
+    {
+      id: "owner_academy_profile",
+      title: "Academy Profile",
+      description: "Set up your academy name, logo, and contact details so players and coaches know who you are.",
+      position: "bottom" as const,
+    },
+    {
+      id: "owner_academy_courts",
+      title: "Your Courts",
+      description: "Add and manage your courts here. Set capacity and availability so coaches can schedule sessions.",
+      position: "bottom" as const,
+    },
+    {
+      id: "owner_academy_rules",
+      title: "Rules & Policies",
+      description: "Define attendance rules, cancellation policies, and how XP is earned across your academy.",
+      position: "top" as const,
+    },
+  ], []);
+
+  useEffect(() => {
+    if (!isActive) {
+      const timer = setTimeout(() => startTour("owner_academy_tour", academyTourSteps), 1500);
+      return () => clearTimeout(timer);
+    }
+  }, []);
 
   const navigateTo = (screen: keyof OwnerStackParamList) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -52,24 +82,30 @@ export default function AcademyScreen() {
         </View>
 
         <View style={styles.section}>
-          <SectionCard
-            icon="business"
-            title="Academy Profile"
-            description="Name, logo, brand colors, contact info"
-            onPress={() => navigateTo("AcademyProfile")}
-          />
-          <SectionCard
-            icon="location"
-            title="Courts"
-            description="Manage courts, capacity, and availability"
-            onPress={() => navigateTo("CourtsManagement")}
-          />
-          <SectionCard
-            icon="document-text"
-            title="Rules & Policies"
-            description="Attendance, cancellation, and XP rules"
-            onPress={() => navigateTo("RulesAndPolicies")}
-          />
+          <CoachMarkTarget id="owner_academy_profile">
+            <SectionCard
+              icon="business"
+              title="Academy Profile"
+              description="Name, logo, brand colors, contact info"
+              onPress={() => navigateTo("AcademyProfile")}
+            />
+          </CoachMarkTarget>
+          <CoachMarkTarget id="owner_academy_courts">
+            <SectionCard
+              icon="location"
+              title="Courts"
+              description="Manage courts, capacity, and availability"
+              onPress={() => navigateTo("CourtsManagement")}
+            />
+          </CoachMarkTarget>
+          <CoachMarkTarget id="owner_academy_rules">
+            <SectionCard
+              icon="document-text"
+              title="Rules & Policies"
+              description="Attendance, cancellation, and XP rules"
+              onPress={() => navigateTo("RulesAndPolicies")}
+            />
+          </CoachMarkTarget>
         </View>
       </ScrollView>
     </View>

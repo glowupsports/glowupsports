@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import {
   View,
   Text,
@@ -18,6 +18,7 @@ import * as Haptics from "expo-haptics";
 import * as Print from "expo-print";
 import * as Sharing from "expo-sharing";
 import { Colors, Spacing, BorderRadius, Typography, CardStyles, Backgrounds, GlowColors } from "@/constants/theme";
+import { useCoachMarks, CoachMarkTarget } from "@/components/CoachMarks";
 
 interface AdminStats {
   totalCoaches: number;
@@ -55,6 +56,7 @@ const MONTHS = [
 
 export default function AdminReportsScreen() {
   const insets = useSafeAreaInsets();
+  const { startTour, isActive } = useCoachMarks();
   const [activeReport, setActiveReport] = useState<ReportType>(null);
   const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth() + 1);
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
@@ -76,6 +78,19 @@ export default function AdminReportsScreen() {
   const { data: revenueData, isLoading: isLoadingRevenue } = useQuery<RevenueData>({
     queryKey: ["/api/admin/revenue", { month: selectedMonth, year: selectedYear }],
   });
+
+  const reportsTourSteps = useMemo(() => [
+    { id: "admin_reports_overview", title: "At a Glance", description: "Key numbers for your academy: coaches, players, sessions, and attendance rate.", position: "bottom" as const },
+    { id: "admin_reports_distribution", title: "Player Distribution", description: "See how your players are spread across different ball levels.", position: "bottom" as const },
+    { id: "admin_reports_quick", title: "Quick Reports", description: "Tap any report to dive deeper into player progress, session history, revenue, or coach performance.", position: "top" as const },
+  ], []);
+
+  useEffect(() => {
+    if (!isActive) {
+      const timer = setTimeout(() => startTour("admin_reports_tour", reportsTourSteps), 1500);
+      return () => clearTimeout(timer);
+    }
+  }, []);
 
   const stats: AdminStats = {
     totalCoaches: coaches.length,
@@ -564,63 +579,68 @@ export default function AdminReportsScreen() {
       >
         <Text style={styles.title}>Reports & Analytics</Text>
 
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Overview</Text>
-          <View style={styles.statsGrid}>
-            <View style={[styles.statCard, CardStyles.elevated]}>
-              <Ionicons name="people" size={24} color={Colors.dark.primary} />
-              <Text style={styles.statValue}>{stats.totalCoaches}</Text>
-              <Text style={styles.statLabel}>Coaches</Text>
-            </View>
-            <View style={[styles.statCard, CardStyles.elevated]}>
-              <Ionicons name="person" size={24} color={Colors.dark.xpCyan} />
-              <Text style={styles.statValue}>{stats.totalPlayers}</Text>
-              <Text style={styles.statLabel}>Players</Text>
-            </View>
-            <View style={[styles.statCard, CardStyles.elevated]}>
-              <Ionicons name="calendar" size={24} color={Colors.dark.orange} />
-              <Text style={styles.statValue}>{stats.totalSessions}</Text>
-              <Text style={styles.statLabel}>Sessions</Text>
-            </View>
-            <View style={[styles.statCard, CardStyles.elevated]}>
-              <Ionicons name="checkmark-circle" size={24} color={Colors.dark.successNeon} />
-              <Text style={styles.statValue}>{stats.attendanceRate}%</Text>
-              <Text style={styles.statLabel}>Attendance</Text>
-            </View>
-          </View>
-        </View>
-
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Player Distribution</Text>
-          <View style={[styles.distributionCard, CardStyles.elevated]}>
-            {Object.entries(ballLevelDistribution).map(([level, count]) => (
-              <View key={level} style={styles.distributionRow}>
-                <View style={styles.distributionLabel}>
-                  <View style={[styles.levelDot, { backgroundColor: getBallLevelColor(level) }]} />
-                  <Text style={styles.levelName}>{level.charAt(0).toUpperCase() + level.slice(1)}</Text>
-                </View>
-                <View style={styles.distributionBarContainer}>
-                  <View
-                    style={[
-                      styles.distributionBar,
-                      {
-                        width: `${((count as number) / stats.totalPlayers) * 100}%`,
-                        backgroundColor: getBallLevelColor(level),
-                      },
-                    ]}
-                  />
-                </View>
-                <Text style={styles.distributionCount}>{count as number}</Text>
+        <CoachMarkTarget id="admin_reports_overview">
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Overview</Text>
+            <View style={styles.statsGrid}>
+              <View style={[styles.statCard, CardStyles.elevated]}>
+                <Ionicons name="people" size={24} color={Colors.dark.primary} />
+                <Text style={styles.statValue}>{stats.totalCoaches}</Text>
+                <Text style={styles.statLabel}>Coaches</Text>
               </View>
-            ))}
-            {Object.keys(ballLevelDistribution).length === 0 ? (
-              <Text style={styles.noDataText}>No player data available</Text>
-            ) : null}
+              <View style={[styles.statCard, CardStyles.elevated]}>
+                <Ionicons name="person" size={24} color={Colors.dark.xpCyan} />
+                <Text style={styles.statValue}>{stats.totalPlayers}</Text>
+                <Text style={styles.statLabel}>Players</Text>
+              </View>
+              <View style={[styles.statCard, CardStyles.elevated]}>
+                <Ionicons name="calendar" size={24} color={Colors.dark.orange} />
+                <Text style={styles.statValue}>{stats.totalSessions}</Text>
+                <Text style={styles.statLabel}>Sessions</Text>
+              </View>
+              <View style={[styles.statCard, CardStyles.elevated]}>
+                <Ionicons name="checkmark-circle" size={24} color={Colors.dark.successNeon} />
+                <Text style={styles.statValue}>{stats.attendanceRate}%</Text>
+                <Text style={styles.statLabel}>Attendance</Text>
+              </View>
+            </View>
           </View>
-        </View>
+        </CoachMarkTarget>
 
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Quick Reports</Text>
+        <CoachMarkTarget id="admin_reports_distribution">
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Player Distribution</Text>
+            <View style={[styles.distributionCard, CardStyles.elevated]}>
+              {Object.entries(ballLevelDistribution).map(([level, count]) => (
+                <View key={level} style={styles.distributionRow}>
+                  <View style={styles.distributionLabel}>
+                    <View style={[styles.levelDot, { backgroundColor: getBallLevelColor(level) }]} />
+                    <Text style={styles.levelName}>{level.charAt(0).toUpperCase() + level.slice(1)}</Text>
+                  </View>
+                  <View style={styles.distributionBarContainer}>
+                    <View
+                      style={[
+                        styles.distributionBar,
+                        {
+                          width: `${((count as number) / stats.totalPlayers) * 100}%`,
+                          backgroundColor: getBallLevelColor(level),
+                        },
+                      ]}
+                    />
+                  </View>
+                  <Text style={styles.distributionCount}>{count as number}</Text>
+                </View>
+              ))}
+              {Object.keys(ballLevelDistribution).length === 0 ? (
+                <Text style={styles.noDataText}>No player data available</Text>
+              ) : null}
+            </View>
+          </View>
+        </CoachMarkTarget>
+
+        <CoachMarkTarget id="admin_reports_quick">
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Quick Reports</Text>
           <Pressable 
             style={[styles.reportCard, CardStyles.elevated]}
             onPress={() => openReport("player-progress")}
@@ -677,6 +697,7 @@ export default function AdminReportsScreen() {
             </View>
           </Pressable>
         </View>
+        </CoachMarkTarget>
       </ScrollView>
 
       {renderReportModal()}

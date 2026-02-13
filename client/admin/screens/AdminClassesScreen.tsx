@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import {
   View,
   Text,
@@ -13,6 +13,7 @@ import { LinearGradient } from "expo-linear-gradient";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { useQuery } from "@tanstack/react-query";
 import * as Haptics from "expo-haptics";
+import { useCoachMarks, CoachMarkTarget } from "@/components/CoachMarks";
 import Animated, {
   useAnimatedStyle,
   withTiming,
@@ -355,6 +356,7 @@ const cardStyles = StyleSheet.create({
 
 export default function AdminClassesScreen() {
   const insets = useSafeAreaInsets();
+  const { startTour, isActive } = useCoachMarks();
   const [filter, setFilter] = useState<FilterType>("active");
   const [selectedCoachId, setSelectedCoachId] = useState<string | null>(null);
   const [expandedDays, setExpandedDays] = useState<Set<number>>(new Set());
@@ -427,6 +429,20 @@ export default function AdminClassesScreen() {
     setSelectedSeriesId(null);
   };
 
+  const classesTourSteps = useMemo(() => [
+    { id: "admin_classes_header", title: "Your Classes", description: "See all your recurring training classes organized by day of the week.", position: "bottom" as const },
+    { id: "admin_classes_coach_filter", title: "Filter by Coach", description: "Tap a coach name to see only their classes.", position: "bottom" as const },
+    { id: "admin_classes_stats", title: "Class Overview", description: "Quick count of active, paused, and ended class series.", position: "bottom" as const },
+    { id: "admin_classes_create", title: "Create a Class", description: "Tap + to set up a new recurring class series.", position: "bottom" as const },
+  ], []);
+
+  useEffect(() => {
+    if (!isActive) {
+      const timer = setTimeout(() => startTour("admin_classes_tour", classesTourSteps), 1500);
+      return () => clearTimeout(timer);
+    }
+  }, []);
+
   const handleCreatePress = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     setShowCreateWizard(true);
@@ -460,65 +476,73 @@ export default function AdminClassesScreen() {
         style={styles.headerGradient}
       />
 
-      <View style={styles.header}>
-        <Text style={styles.title}>Classes</Text>
-        <Pressable style={styles.createButton} onPress={handleCreatePress}>
-          <Ionicons name="add" size={24} color={Colors.dark.text} />
-        </Pressable>
-      </View>
+      <CoachMarkTarget id="admin_classes_header">
+        <View style={styles.header}>
+          <Text style={styles.title}>Classes</Text>
+          <CoachMarkTarget id="admin_classes_create">
+            <Pressable style={styles.createButton} onPress={handleCreatePress}>
+              <Ionicons name="add" size={24} color={Colors.dark.text} />
+            </Pressable>
+          </CoachMarkTarget>
+        </View>
+      </CoachMarkTarget>
 
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        style={styles.coachFilterContainer}
-        contentContainerStyle={styles.coachFilterContent}
-      >
-        <Pressable
-          style={[styles.coachChip, !selectedCoachId && styles.coachChipActive]}
-          onPress={() => {
-            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-            setSelectedCoachId(null);
-          }}
+      <CoachMarkTarget id="admin_classes_coach_filter">
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          style={styles.coachFilterContainer}
+          contentContainerStyle={styles.coachFilterContent}
         >
-          <Text style={[styles.coachChipText, !selectedCoachId && styles.coachChipTextActive]}>
-            All Coaches
-          </Text>
-        </Pressable>
-        {coaches.map((coach) => (
           <Pressable
-            key={coach.id}
-            style={[styles.coachChip, selectedCoachId === coach.id && styles.coachChipActive]}
+            style={[styles.coachChip, !selectedCoachId && styles.coachChipActive]}
             onPress={() => {
               Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-              setSelectedCoachId(coach.id);
+              setSelectedCoachId(null);
             }}
           >
-            <View style={[styles.coachDot, { backgroundColor: Colors.dark.green }]} />
-            <Text style={[styles.coachChipText, selectedCoachId === coach.id && styles.coachChipTextActive]}>
-              {coach.name.split(" ")[0]}
+            <Text style={[styles.coachChipText, !selectedCoachId && styles.coachChipTextActive]}>
+              All Coaches
             </Text>
           </Pressable>
-        ))}
-      </ScrollView>
+          {coaches.map((coach) => (
+            <Pressable
+              key={coach.id}
+              style={[styles.coachChip, selectedCoachId === coach.id && styles.coachChipActive]}
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                setSelectedCoachId(coach.id);
+              }}
+            >
+              <View style={[styles.coachDot, { backgroundColor: Colors.dark.green }]} />
+              <Text style={[styles.coachChipText, selectedCoachId === coach.id && styles.coachChipTextActive]}>
+                {coach.name.split(" ")[0]}
+              </Text>
+            </Pressable>
+          ))}
+        </ScrollView>
+      </CoachMarkTarget>
 
-      <View style={styles.statsRow}>
-        <View style={[styles.statCard, CardStyles.elevated]}>
-          <Text style={styles.statValue}>{stats.active}</Text>
-          <Text style={styles.statLabel}>Active</Text>
+      <CoachMarkTarget id="admin_classes_stats">
+        <View style={styles.statsRow}>
+          <View style={[styles.statCard, CardStyles.elevated]}>
+            <Text style={styles.statValue}>{stats.active}</Text>
+            <Text style={styles.statLabel}>Active</Text>
+          </View>
+          <View style={[styles.statCard, CardStyles.elevated]}>
+            <Text style={styles.statValue}>{stats.paused}</Text>
+            <Text style={styles.statLabel}>Paused</Text>
+          </View>
+          <View style={[styles.statCard, CardStyles.elevated]}>
+            <Text style={styles.statValue}>{stats.ended}</Text>
+            <Text style={styles.statLabel}>Ended</Text>
+          </View>
+          <View style={[styles.statCard, CardStyles.elevated]}>
+            <Text style={styles.statValue}>{stats.total}</Text>
+            <Text style={styles.statLabel}>Total</Text>
+          </View>
         </View>
-        <View style={[styles.statCard, CardStyles.elevated]}>
-          <Text style={styles.statValue}>{stats.paused}</Text>
-          <Text style={styles.statLabel}>Paused</Text>
-        </View>
-        <View style={[styles.statCard, CardStyles.elevated]}>
-          <Text style={styles.statValue}>{stats.ended}</Text>
-          <Text style={styles.statLabel}>Ended</Text>
-        </View>
-        <View style={[styles.statCard, CardStyles.elevated]}>
-          <Text style={styles.statValue}>{stats.total}</Text>
-          <Text style={styles.statLabel}>Total</Text>
-        </View>
-      </View>
+      </CoachMarkTarget>
 
       <View style={styles.filterRow}>
         {(["active", "paused", "ended", "all"] as FilterType[]).map((f) => (

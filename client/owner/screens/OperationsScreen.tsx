@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import { View, Text, StyleSheet, ScrollView, Pressable, ActivityIndicator } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
@@ -7,6 +7,7 @@ import * as Haptics from "expo-haptics";
 import { useQuery } from "@tanstack/react-query";
 import { Colors, Spacing, BorderRadius, Typography, CardStyles } from "@/constants/theme";
 import CreateSessionWizard from "@/coach/components/CreateSessionWizard";
+import { useCoachMarks, CoachMarkTarget } from "@/components/CoachMarks";
 
 interface Coach {
   id: string;
@@ -103,6 +104,41 @@ export default function OperationsScreen() {
   const [viewType, setViewType] = useState<ViewType>("day");
   const [showCreateSession, setShowCreateSession] = useState(false);
   const [selectedCoachId, setSelectedCoachId] = useState<string | undefined>();
+  const { startTour, isActive } = useCoachMarks();
+
+  const opsTourSteps = useMemo(() => [
+    {
+      id: "owner_ops_view_toggle",
+      title: "Time Range",
+      description: "Switch between day, week, and month views to see how your courts are being used.",
+      position: "bottom" as const,
+    },
+    {
+      id: "owner_ops_insights",
+      title: "Quick Insights",
+      description: "See peak hours, court utilization, and any scheduling conflicts at a glance.",
+      position: "bottom" as const,
+    },
+    {
+      id: "owner_ops_courts",
+      title: "Court Allocation",
+      description: "This shows which courts are booked, available, or have conflicts. Scroll sideways to see more time slots.",
+      position: "bottom" as const,
+    },
+    {
+      id: "owner_ops_fab",
+      title: "Create a Session",
+      description: "Tap this button to schedule a new session on any court.",
+      position: "top" as const,
+    },
+  ], []);
+
+  useEffect(() => {
+    if (!isActive) {
+      const timer = setTimeout(() => startTour("owner_operations_tour", opsTourSteps), 1500);
+      return () => clearTimeout(timer);
+    }
+  }, []);
 
   const { data: operationsData, isLoading, isError, refetch } = useQuery<OperationsData>({
     queryKey: [`/api/owner/operations?period=${viewType}`],
@@ -152,50 +188,56 @@ export default function OperationsScreen() {
         <Text style={styles.subtitle}>Court usage and scheduling overview</Text>
       </View>
 
-      <View style={styles.viewToggle}>
-        {(["day", "week", "month"] as ViewType[]).map((view) => (
-          <Pressable
-            key={view}
-            style={[styles.viewButton, viewType === view && styles.viewButtonActive]}
-            onPress={() => handleViewChange(view)}
-          >
-            <Text style={[styles.viewButtonText, viewType === view && styles.viewButtonTextActive]}>
-              {view.charAt(0).toUpperCase() + view.slice(1)}
-            </Text>
-          </Pressable>
-        ))}
-      </View>
+      <CoachMarkTarget id="owner_ops_view_toggle">
+        <View style={styles.viewToggle}>
+          {(["day", "week", "month"] as ViewType[]).map((view) => (
+            <Pressable
+              key={view}
+              style={[styles.viewButton, viewType === view && styles.viewButtonActive]}
+              onPress={() => handleViewChange(view)}
+            >
+              <Text style={[styles.viewButtonText, viewType === view && styles.viewButtonTextActive]}>
+                {view.charAt(0).toUpperCase() + view.slice(1)}
+              </Text>
+            </Pressable>
+          ))}
+        </View>
+      </CoachMarkTarget>
 
       <ScrollView
         style={styles.scrollView}
         contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 100 }]}
         showsVerticalScrollIndicator={false}
       >
-        <View style={styles.insightsRow}>
-          <InsightCard icon="time" title="Peak Hours" value={insights.peakHours} color={Colors.dark.gold} />
-          <InsightCard 
-            icon="analytics" 
-            title="Utilization" 
-            value={`${insights.utilization}%`} 
-            color={Colors.dark.primary} 
-            trend={insights.utilization > 70 ? "up" : "down"} 
-          />
-          <InsightCard 
-            icon="warning" 
-            title="Conflicts" 
-            value={String(insights.conflicts)} 
-            color={insights.conflicts > 0 ? Colors.dark.error : Colors.dark.primary} 
-          />
-        </View>
-
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Court Allocation</Text>
-          <View style={[styles.courtsContainer, CardStyles.elevated]}>
-            {courts.map((court, index) => (
-              <CourtRow key={index} {...court} />
-            ))}
+        <CoachMarkTarget id="owner_ops_insights">
+          <View style={styles.insightsRow}>
+            <InsightCard icon="time" title="Peak Hours" value={insights.peakHours} color={Colors.dark.gold} />
+            <InsightCard 
+              icon="analytics" 
+              title="Utilization" 
+              value={`${insights.utilization}%`} 
+              color={Colors.dark.primary} 
+              trend={insights.utilization > 70 ? "up" : "down"} 
+            />
+            <InsightCard 
+              icon="warning" 
+              title="Conflicts" 
+              value={String(insights.conflicts)} 
+              color={insights.conflicts > 0 ? Colors.dark.error : Colors.dark.primary} 
+            />
           </View>
-        </View>
+        </CoachMarkTarget>
+
+        <CoachMarkTarget id="owner_ops_courts">
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Court Allocation</Text>
+            <View style={[styles.courtsContainer, CardStyles.elevated]}>
+              {courts.map((court, index) => (
+                <CourtRow key={index} {...court} />
+              ))}
+            </View>
+          </View>
+        </CoachMarkTarget>
 
         {courts.length === 0 ? (
           <View style={styles.emptyState}>
@@ -205,23 +247,24 @@ export default function OperationsScreen() {
         ) : null}
       </ScrollView>
       
-      {/* FAB for creating sessions */}
-      <Pressable 
-        style={[styles.fab, { bottom: insets.bottom + 24 }]}
-        onPress={() => {
-          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-          setShowCreateSession(true);
-        }}
-      >
-        <LinearGradient
-          colors={[Colors.dark.gold, Colors.dark.primary]}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={styles.fabGradient}
+      <CoachMarkTarget id="owner_ops_fab">
+        <Pressable 
+          style={[styles.fab, { bottom: insets.bottom + 24 }]}
+          onPress={() => {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+            setShowCreateSession(true);
+          }}
         >
-          <Ionicons name="add" size={28} color={Colors.dark.backgroundRoot} />
-        </LinearGradient>
-      </Pressable>
+          <LinearGradient
+            colors={[Colors.dark.gold, Colors.dark.primary]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={styles.fabGradient}
+          >
+            <Ionicons name="add" size={28} color={Colors.dark.backgroundRoot} />
+          </LinearGradient>
+        </Pressable>
+      </CoachMarkTarget>
       
       <CreateSessionWizard
         visible={showCreateSession}

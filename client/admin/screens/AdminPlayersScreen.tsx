@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import {
   View,
   Text,
@@ -26,6 +26,7 @@ import { ReportIssueModal } from "@/components/ReportIssueModal";
 import CreateInvoiceModal from "@/admin/components/CreateInvoiceModal";
 import CreditStoreModal from "@/admin/components/CreditStoreModal";
 import { GLOW_UP_TENNIS_LOGO } from "@/admin/components/logoBase64";
+import { useCoachMarks, CoachMarkTarget } from "@/components/CoachMarks";
 
 const generateAttendanceReportPDF = (stats: any, player: any) => {
   if (!stats?.sessions || stats.sessions.length === 0) {
@@ -457,6 +458,7 @@ interface Coach {
 export default function AdminPlayersScreen() {
   const insets = useSafeAreaInsets();
   const queryClient = useQueryClient();
+  const { startTour, isActive } = useCoachMarks();
   const [showAddModal, setShowAddModal] = useState(false);
   const [showDetailModal, setShowDetailModal] = useState(false);
   const [showFullDetailsModal, setShowFullDetailsModal] = useState(false);
@@ -518,6 +520,20 @@ export default function AdminPlayersScreen() {
   });
 
   const selectedPlayer = players.find(p => p.id === selectedPlayerId);
+
+  const playersTourSteps = useMemo(() => [
+    { id: "admin_players_header", title: "Player Roster", description: "All your academy players are listed here. Tap any player to see their full profile.", position: "bottom" as const },
+    { id: "admin_players_search", title: "Search & Filter", description: "Quickly find players by name or email. Use the filter icon for advanced options like ball level and age group.", position: "bottom" as const },
+    { id: "admin_players_add", title: "Add a Player", description: "Tap + to register a new player in your academy.", position: "bottom" as const },
+    { id: "admin_players_list", title: "Player Cards", description: "Each card shows the player's ball level, skill level, and remaining credits at a glance.", position: "top" as const },
+  ], []);
+
+  useEffect(() => {
+    if (!isActive) {
+      const timer = setTimeout(() => startTour("admin_players_tour", playersTourSteps), 1500);
+      return () => clearTimeout(timer);
+    }
+  }, []);
 
   const uniqueSeries = useMemo(() => {
     if (!playerStats?.sessions) return [];
@@ -2017,42 +2033,48 @@ export default function AdminPlayersScreen() {
         renderInlinePlayerProfile()
       ) : (
         <>
-          <View style={styles.header}>
-            <Text style={styles.title}>Manage Players</Text>
-            <Pressable style={styles.addButton} onPress={openAddModal}>
-          <Ionicons name="add" size={24} color={Colors.dark.text} />
-        </Pressable>
-      </View>
-
-      <View style={styles.searchContainer}>
-        <Ionicons name="search" size={20} color={Colors.dark.textMuted} />
-        <TextInput
-          style={styles.searchInput}
-          placeholder="Search players..."
-          placeholderTextColor={Colors.dark.textMuted}
-          value={searchQuery}
-          onChangeText={setSearchQuery}
-        />
-        {searchQuery ? (
-          <Pressable onPress={() => setSearchQuery("")}>
-            <Ionicons name="close-circle" size={20} color={Colors.dark.textMuted} />
-          </Pressable>
-        ) : null}
-        <Pressable 
-          style={[styles.filterToggle, showFilters && styles.filterToggleActive]} 
-          onPress={() => {
-            setShowFilters(!showFilters);
-            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-          }}
-        >
-          <Ionicons name="options-outline" size={20} color={showFilters ? Colors.dark.orange : Colors.dark.textMuted} />
-          {activeFilterCount > 0 ? (
-            <View style={styles.filterBadge}>
-              <Text style={styles.filterBadgeText}>{activeFilterCount}</Text>
+          <CoachMarkTarget id="admin_players_header">
+            <View style={styles.header}>
+              <Text style={styles.title}>Manage Players</Text>
+              <CoachMarkTarget id="admin_players_add">
+                <Pressable style={styles.addButton} onPress={openAddModal}>
+                  <Ionicons name="add" size={24} color={Colors.dark.text} />
+                </Pressable>
+              </CoachMarkTarget>
             </View>
+          </CoachMarkTarget>
+
+      <CoachMarkTarget id="admin_players_search">
+        <View style={styles.searchContainer}>
+          <Ionicons name="search" size={20} color={Colors.dark.textMuted} />
+          <TextInput
+            style={styles.searchInput}
+            placeholder="Search players..."
+            placeholderTextColor={Colors.dark.textMuted}
+            value={searchQuery}
+            onChangeText={setSearchQuery}
+          />
+          {searchQuery ? (
+            <Pressable onPress={() => setSearchQuery("")}>
+              <Ionicons name="close-circle" size={20} color={Colors.dark.textMuted} />
+            </Pressable>
           ) : null}
-        </Pressable>
-      </View>
+          <Pressable 
+            style={[styles.filterToggle, showFilters && styles.filterToggleActive]} 
+            onPress={() => {
+              setShowFilters(!showFilters);
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+            }}
+          >
+            <Ionicons name="options-outline" size={20} color={showFilters ? Colors.dark.orange : Colors.dark.textMuted} />
+            {activeFilterCount > 0 ? (
+              <View style={styles.filterBadge}>
+                <Text style={styles.filterBadgeText}>{activeFilterCount}</Text>
+              </View>
+            ) : null}
+          </Pressable>
+        </View>
+      </CoachMarkTarget>
 
       {showFilters ? (
         <View style={styles.filterContainer}>
@@ -2256,17 +2278,18 @@ export default function AdminPlayersScreen() {
         </View>
       ) : null}
 
-      <FlatList
-        data={filteredPlayers}
-        keyExtractor={(item) => item.id}
-        renderItem={renderPlayer}
-        contentContainerStyle={[styles.list, { paddingBottom: insets.bottom + 100 }]}
-        showsVerticalScrollIndicator={false}
-        ListEmptyComponent={
-          <View style={styles.emptyState}>
-            <Ionicons name="person-outline" size={48} color={Colors.dark.textMuted} />
-            <Text style={styles.emptyText}>
-              {searchQuery ? "No players found" : "No players yet"}
+      <CoachMarkTarget id="admin_players_list">
+        <FlatList
+          data={filteredPlayers}
+          keyExtractor={(item) => item.id}
+          renderItem={renderPlayer}
+          contentContainerStyle={[styles.list, { paddingBottom: insets.bottom + 100 }]}
+          showsVerticalScrollIndicator={false}
+          ListEmptyComponent={
+            <View style={styles.emptyState}>
+              <Ionicons name="person-outline" size={48} color={Colors.dark.textMuted} />
+              <Text style={styles.emptyText}>
+                {searchQuery ? "No players found" : "No players yet"}
             </Text>
             <Text style={styles.emptySubtext}>
               {searchQuery ? "Try a different search" : "Tap + to add your first player"}
@@ -2274,7 +2297,8 @@ export default function AdminPlayersScreen() {
           </View>
         }
       />
-        </>
+      </CoachMarkTarget>
+      </>
       )}
 
       {renderDetailModal()}

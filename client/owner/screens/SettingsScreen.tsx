@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import { View, Text, StyleSheet, ScrollView, Pressable, Switch, Alert, Platform, Modal, TextInput, ActivityIndicator } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
@@ -13,6 +13,7 @@ import { useAuth } from "@/coach/context/AuthContext";
 import { apiRequest, getApiUrl } from "@/lib/query-client";
 import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollViewCompat";
 import type { OwnerStackParamList } from "@/owner/navigation/OwnerNavigator";
+import { useCoachMarks, CoachMarkTarget } from "@/components/CoachMarks";
 
 interface ResetOptions {
   sessions: boolean;
@@ -112,6 +113,7 @@ export default function SettingsScreen() {
   const navigation = useNavigation<NavigationProp>();
   const queryClient = useQueryClient();
   const { logout } = useAuth();
+  const { startTour, isActive } = useCoachMarks();
   const [showSessionLengthModal, setShowSessionLengthModal] = useState(false);
   const [sessionLengthInput, setSessionLengthInput] = useState("60");
   const [showWelcomeVideoModal, setShowWelcomeVideoModal] = useState(false);
@@ -139,6 +141,40 @@ export default function SettingsScreen() {
     notificationsEnabled: true,
     welcomeVideoUrl: "",
   };
+
+  const settingsTourSteps = useMemo(() => [
+    {
+      id: "owner_settings_academy",
+      title: "Academy Settings",
+      description: "Set your default session length, toggle XP visibility, and manage notifications here.",
+      position: "bottom" as const,
+    },
+    {
+      id: "owner_settings_billing",
+      title: "Billing & Pricing",
+      description: "Configure session prices, coach payouts, and create credit packages for your players.",
+      position: "bottom" as const,
+    },
+    {
+      id: "owner_settings_team",
+      title: "Team Management",
+      description: "Invite coaches, set permissions, and manage head coach access from here.",
+      position: "bottom" as const,
+    },
+    {
+      id: "owner_settings_data",
+      title: "Data & Export",
+      description: "Export player and session data as CSV files, or manage privacy settings.",
+      position: "top" as const,
+    },
+  ], []);
+
+  useEffect(() => {
+    if (!isActive) {
+      const timer = setTimeout(() => startTour("owner_settings_tour", settingsTourSteps), 1500);
+      return () => clearTimeout(timer);
+    }
+  }, []);
 
   const updateSettingsMutation = useMutation({
     mutationFn: async (updates: Partial<AcademySettings>) => {
@@ -401,96 +437,104 @@ export default function SettingsScreen() {
           <Text style={styles.subtitle}>Academy configuration and preferences</Text>
         </View>
 
-        <Section title="Academy Settings">
-          <SettingRow
-            icon="time"
-            title="Default Session Length"
-            value={`${settings.defaultSessionLength || 60} min`}
-            onPress={handleOpenSessionLengthModal}
-          />
-          <SettingRow
-            icon="eye"
-            title="XP Visible to Players"
-            toggle={settings.xpVisibleToPlayers ?? true}
-            onToggle={handleToggleXpVisible}
-          />
-          <SettingRow
-            icon="notifications"
-            title="Notifications"
-            toggle={settings.notificationsEnabled ?? true}
-            onToggle={handleToggleNotifications}
-          />
-          <SettingRow
-            icon="videocam"
-            title="Welcome Video"
-            subtitle="Shown during player onboarding"
-            value={settings.welcomeVideoUrl ? "Set" : "Not set"}
-            onPress={handleOpenWelcomeVideoModal}
-          />
-        </Section>
+        <CoachMarkTarget id="owner_settings_academy">
+          <Section title="Academy Settings">
+            <SettingRow
+              icon="time"
+              title="Default Session Length"
+              value={`${settings.defaultSessionLength || 60} min`}
+              onPress={handleOpenSessionLengthModal}
+            />
+            <SettingRow
+              icon="eye"
+              title="XP Visible to Players"
+              toggle={settings.xpVisibleToPlayers ?? true}
+              onToggle={handleToggleXpVisible}
+            />
+            <SettingRow
+              icon="notifications"
+              title="Notifications"
+              toggle={settings.notificationsEnabled ?? true}
+              onToggle={handleToggleNotifications}
+            />
+            <SettingRow
+              icon="videocam"
+              title="Welcome Video"
+              subtitle="Shown during player onboarding"
+              value={settings.welcomeVideoUrl ? "Set" : "Not set"}
+              onPress={handleOpenWelcomeVideoModal}
+            />
+          </Section>
+        </CoachMarkTarget>
 
-        <Section title="Billing & Pricing">
-          <SettingRow
-            icon="pricetag"
-            title="Session Pricing"
-            subtitle="Set prices for different session types"
-            onPress={() => navigation.navigate("Pricing")}
-          />
-          <SettingRow
-            icon="wallet"
-            title="Coach Compensation"
-            subtitle="Manage coach payout rates"
-            onPress={() => navigation.navigate("CoachCompensation")}
-          />
-          <SettingRow
-            icon="gift"
-            title="Credit Packages"
-            subtitle="Create packages for players to purchase"
-            onPress={() => navigation.navigate("CreditPackages")}
-          />
-        </Section>
+        <CoachMarkTarget id="owner_settings_billing">
+          <Section title="Billing & Pricing">
+            <SettingRow
+              icon="pricetag"
+              title="Session Pricing"
+              subtitle="Set prices for different session types"
+              onPress={() => navigation.navigate("Pricing")}
+            />
+            <SettingRow
+              icon="wallet"
+              title="Coach Compensation"
+              subtitle="Manage coach payout rates"
+              onPress={() => navigation.navigate("CoachCompensation")}
+            />
+            <SettingRow
+              icon="gift"
+              title="Credit Packages"
+              subtitle="Create packages for players to purchase"
+              onPress={() => navigation.navigate("CreditPackages")}
+            />
+          </Section>
+        </CoachMarkTarget>
 
-        <Section title="Team Management">
-          <SettingRow
-            icon="person-add"
-            title="Coach Invites"
-            subtitle="Invite new coaches to your academy"
-            onPress={() => navigation.navigate("InviteManagement")}
-          />
-          <SettingRow
-            icon="shield-checkmark"
-            title="Coach Permissions"
-            subtitle="Manage what coaches can access"
-            onPress={() => navigation.navigate("RulesAndPolicies")}
-          />
-          <SettingRow
-            icon="key"
-            title="Head Coach Settings"
-            subtitle="Special permissions for head coaches"
-            onPress={() => navigation.navigate("RulesAndPolicies")}
-          />
-        </Section>
+        <CoachMarkTarget id="owner_settings_team">
+          <Section title="Team Management">
+            <SettingRow
+              icon="person-add"
+              title="Coach Invites"
+              subtitle="Invite new coaches to your academy"
+              onPress={() => navigation.navigate("InviteManagement")}
+            />
+            <SettingRow
+              icon="shield-checkmark"
+              title="Coach Permissions"
+              subtitle="Manage what coaches can access"
+              onPress={() => navigation.navigate("RulesAndPolicies")}
+            />
+            <SettingRow
+              icon="key"
+              title="Head Coach Settings"
+              subtitle="Special permissions for head coaches"
+              onPress={() => navigation.navigate("RulesAndPolicies")}
+            />
+          </Section>
+        </CoachMarkTarget>
 
-        <Section title="Data & Export">
-          <SettingRow
-            icon="download"
-            title="Export Players"
-            subtitle="Download player data as CSV"
-            onPress={handleExportPlayers}
-          />
-          <SettingRow
-            icon="document"
-            title="Export Sessions"
-            subtitle="Download session history"
-            onPress={handleExportSessions}
-          />
-          <SettingRow
-            icon="lock-closed"
-            title="GDPR Tools"
-            subtitle="Data privacy and deletion"
-            onPress={handleOpenResetModal}
-          />
-        </Section>
+        <CoachMarkTarget id="owner_settings_data">
+          <Section title="Data & Export">
+            <SettingRow
+              icon="download"
+              title="Export Players"
+              subtitle="Download player data as CSV"
+              onPress={handleExportPlayers}
+            />
+            <SettingRow
+              icon="document"
+              title="Export Sessions"
+              subtitle="Download session history"
+              onPress={handleExportSessions}
+            />
+            <SettingRow
+              icon="lock-closed"
+              title="GDPR Tools"
+              subtitle="Data privacy and deletion"
+              onPress={handleOpenResetModal}
+            />
+          </Section>
+        </CoachMarkTarget>
 
         <Section title="Danger Zone">
           <SettingRow

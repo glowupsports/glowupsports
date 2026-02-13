@@ -1,9 +1,10 @@
-import React from "react";
+import React, { useMemo, useEffect } from "react";
 import { View, Text, StyleSheet, ScrollView, ActivityIndicator } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { useQuery } from "@tanstack/react-query";
 import { Colors, Spacing, BorderRadius, Typography, CardStyles } from "@/constants/theme";
+import { useCoachMarks, CoachMarkTarget } from "@/components/CoachMarks";
 
 interface MetricCardProps {
   icon: keyof typeof Ionicons.glyphMap;
@@ -133,6 +134,35 @@ interface PeopleData {
 
 export default function PerformanceScreen() {
   const insets = useSafeAreaInsets();
+  const { startTour, isActive } = useCoachMarks();
+
+  const perfTourSteps = useMemo(() => [
+    {
+      id: "owner_perf_metrics",
+      title: "Key Metrics",
+      description: "See your total players, coaches, attendance rate, and active count all in one place.",
+      position: "bottom" as const,
+    },
+    {
+      id: "owner_perf_coaches",
+      title: "Coach Performance",
+      description: "Track how each coach is doing: sessions run, feedback given, and player improvement.",
+      position: "bottom" as const,
+    },
+    {
+      id: "owner_perf_players",
+      title: "Player Health",
+      description: "Spot players who need attention. Green means on track, yellow needs a nudge, red needs action.",
+      position: "top" as const,
+    },
+  ], []);
+
+  useEffect(() => {
+    if (!isActive) {
+      const timer = setTimeout(() => startTour("owner_performance_tour", perfTourSteps), 1500);
+      return () => clearTimeout(timer);
+    }
+  }, []);
 
   const { data: peopleData, isLoading } = useQuery<PeopleData>({
     queryKey: ["/api/owner/people"],
@@ -169,62 +199,67 @@ export default function PerformanceScreen() {
           <Text style={styles.subtitle}>Academy metrics and player health</Text>
         </View>
 
-        <View style={styles.metricsGrid}>
-          <MetricCard
-            icon="people"
-            title="Total Players"
-            value={String(players.length)}
-            color={Colors.dark.gold}
-          />
-          <MetricCard
-            icon="tennisball"
-            title="Total Coaches"
-            value={String(coaches.length)}
-            color={Colors.dark.primary}
-          />
-          <MetricCard
-            icon="calendar"
-            title="Avg Attendance"
-            value={`${avgAttendance}%`}
-            color={Colors.dark.xpCyan}
-          />
-          <MetricCard
-            icon="stats-chart"
-            title="Active"
-            value={String(players.filter(p => p.status === "active").length)}
-            color={Colors.dark.orange}
-          />
-        </View>
-
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Coach Performance</Text>
-          <View style={[styles.tableContainer, CardStyles.elevated]}>
-            {coaches.length > 0 ? (
-              coaches.map((coach) => {
-                const sessions = coach.stats.find(s => s.label === "Sessions/wk");
-                const feedback = coach.stats.find(s => s.label === "Feedback %");
-                return (
-                  <CoachPerformanceRow
-                    key={coach.id}
-                    name={coach.name}
-                    sessions={parseInt(sessions?.value || "0")}
-                    feedbackRate={parseInt(feedback?.value || "0")}
-                    playerImprovement={0}
-                  />
-                );
-              })
-            ) : (
-              <View style={styles.emptyState}>
-                <Ionicons name="tennisball-outline" size={32} color={Colors.dark.textMuted} />
-                <Text style={styles.emptyStateText}>No coaches yet</Text>
-              </View>
-            )}
+        <CoachMarkTarget id="owner_perf_metrics">
+          <View style={styles.metricsGrid}>
+            <MetricCard
+              icon="people"
+              title="Total Players"
+              value={String(players.length)}
+              color={Colors.dark.gold}
+            />
+            <MetricCard
+              icon="tennisball"
+              title="Total Coaches"
+              value={String(coaches.length)}
+              color={Colors.dark.primary}
+            />
+            <MetricCard
+              icon="calendar"
+              title="Avg Attendance"
+              value={`${avgAttendance}%`}
+              color={Colors.dark.xpCyan}
+            />
+            <MetricCard
+              icon="stats-chart"
+              title="Active"
+              value={String(players.filter(p => p.status === "active").length)}
+              color={Colors.dark.orange}
+            />
           </View>
-        </View>
+        </CoachMarkTarget>
 
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Player Health Indicators</Text>
-          <View style={[styles.tableContainer, CardStyles.elevated]}>
+        <CoachMarkTarget id="owner_perf_coaches">
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Coach Performance</Text>
+            <View style={[styles.tableContainer, CardStyles.elevated]}>
+              {coaches.length > 0 ? (
+                coaches.map((coach) => {
+                  const sessions = coach.stats.find(s => s.label === "Sessions/wk");
+                  const feedback = coach.stats.find(s => s.label === "Feedback %");
+                  return (
+                    <CoachPerformanceRow
+                      key={coach.id}
+                      name={coach.name}
+                      sessions={parseInt(sessions?.value || "0")}
+                      feedbackRate={parseInt(feedback?.value || "0")}
+                      playerImprovement={0}
+                    />
+                  );
+                })
+              ) : (
+                <View style={styles.emptyState}>
+                  <Ionicons name="tennisball-outline" size={32} color={Colors.dark.textMuted} />
+                  <Text style={styles.emptyStateText}>No coaches yet</Text>
+                </View>
+              )}
+            </View>
+          </View>
+        </CoachMarkTarget>
+
+        <CoachMarkTarget id="owner_perf_players">
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Player Health Indicators</Text>
+            <View style={[styles.tableContainer, CardStyles.elevated]}>
             {players.length > 0 ? (
               players.slice(0, 5).map((player) => {
                 const attendance = player.stats.find(s => s.label === "Attendance");
@@ -255,6 +290,7 @@ export default function PerformanceScreen() {
             )}
           </View>
         </View>
+        </CoachMarkTarget>
       </ScrollView>
     </View>
   );

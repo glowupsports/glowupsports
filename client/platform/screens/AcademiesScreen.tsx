@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import { View, Text, StyleSheet, ScrollView, Pressable, TextInput, ActivityIndicator, Modal, Platform, KeyboardAvoidingView } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
@@ -11,6 +11,7 @@ import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { Colors, Spacing, BorderRadius, Typography, CardStyles, Backgrounds, GlowColors } from "@/constants/theme";
 import { apiRequest } from "@/lib/query-client";
 import type { PlatformStackParamList } from "@/platform/navigation/PlatformNavigator";
+import { useCoachMarks, CoachMarkTarget } from "@/components/CoachMarks";
 
 const PLATFORM_COLOR = "#9B59B6";
 
@@ -371,10 +372,39 @@ export default function AcademiesScreen() {
   const [filterStatus, setFilterStatus] = useState<string | null>(null);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [pendingInvite, setPendingInvite] = useState<InviteData | null>(null);
+  const { startTour, isActive } = useCoachMarks();
 
   const { data: stats, isLoading } = useQuery<PlatformStats>({
     queryKey: ["/api/platform/stats"],
   });
+
+  const academiesTourSteps = useMemo(() => [
+    {
+      id: "platform_academies_header",
+      title: "Your Academies",
+      description: "See all the academies on your platform. Tap any academy to view details and manage their settings.",
+      position: "bottom" as const,
+    },
+    {
+      id: "platform_academies_search",
+      title: "Find Academies Fast",
+      description: "Search by name to quickly find any academy. Use the status filters to narrow results.",
+      position: "bottom" as const,
+    },
+    {
+      id: "platform_academies_list",
+      title: "Academy Cards",
+      description: "Each card shows coaches, players, MRR, and status at a glance. Tap a card for full details.",
+      position: "bottom" as const,
+    },
+  ], []);
+
+  useEffect(() => {
+    if (!isLoading && !isActive) {
+      const timer = setTimeout(() => startTour("platform_academies_tour", academiesTourSteps), 1500);
+      return () => clearTimeout(timer);
+    }
+  }, [isLoading, isActive]);
 
   const academies = stats?.academies || [];
 
@@ -413,69 +443,74 @@ export default function AcademiesScreen() {
         contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 100 }]}
         showsVerticalScrollIndicator={false}
       >
-        <View style={styles.header}>
-          <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
-            <View>
-              <Text style={styles.title}>Academies</Text>
-              <Text style={styles.subtitle}>{academies.length} total academies</Text>
+        <CoachMarkTarget id="platform_academies_header">
+          <View style={styles.header}>
+            <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
+              <View>
+                <Text style={styles.title}>Academies</Text>
+                <Text style={styles.subtitle}>{academies.length} total academies</Text>
+              </View>
+              <Pressable
+                style={{
+                  backgroundColor: PLATFORM_COLOR,
+                  flexDirection: "row",
+                  alignItems: "center",
+                  paddingHorizontal: Spacing.md,
+                  paddingVertical: Spacing.sm,
+                  borderRadius: BorderRadius.md,
+                  gap: 6,
+                }}
+                onPress={() => {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                  setShowCreateModal(true);
+                }}
+              >
+                <Ionicons name="add" size={20} color="#fff" />
+                <Text style={{ color: "#fff", fontWeight: "700", fontSize: 14 }}>Add Academy</Text>
+              </Pressable>
             </View>
-            <Pressable
-              style={{
-                backgroundColor: PLATFORM_COLOR,
-                flexDirection: "row",
-                alignItems: "center",
-                paddingHorizontal: Spacing.md,
-                paddingVertical: Spacing.sm,
-                borderRadius: BorderRadius.md,
-                gap: 6,
-              }}
-              onPress={() => {
-                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-                setShowCreateModal(true);
-              }}
-            >
-              <Ionicons name="add" size={20} color="#fff" />
-              <Text style={{ color: "#fff", fontWeight: "700", fontSize: 14 }}>Add Academy</Text>
-            </Pressable>
           </View>
-        </View>
+        </CoachMarkTarget>
 
-        <View style={styles.searchContainer}>
-          <Ionicons name="search" size={20} color={Colors.dark.textMuted} />
-          <TextInput
-            style={styles.searchInput}
-            placeholder="Search academies..."
-            placeholderTextColor={Colors.dark.textMuted}
-            value={searchQuery}
-            onChangeText={setSearchQuery}
-          />
-        </View>
+        <CoachMarkTarget id="platform_academies_search">
+          <View style={styles.searchContainer}>
+            <Ionicons name="search" size={20} color={Colors.dark.textMuted} />
+            <TextInput
+              style={styles.searchInput}
+              placeholder="Search academies..."
+              placeholderTextColor={Colors.dark.textMuted}
+              value={searchQuery}
+              onChangeText={setSearchQuery}
+            />
+          </View>
 
-        <ScrollView 
-          horizontal 
-          showsHorizontalScrollIndicator={false}
-          style={styles.filtersScroll}
-          contentContainerStyle={styles.filtersContainer}
-        >
-          {statusFilters.map((filter) => (
-            <Pressable
-              key={filter.key || "all"}
-              style={[
-                styles.filterChip,
-                filterStatus === filter.key && styles.filterChipActive
-              ]}
-              onPress={() => setFilterStatus(filter.key)}
-            >
-              <Text style={[
-                styles.filterChipText,
-                filterStatus === filter.key && styles.filterChipTextActive
-              ]}>
-                {filter.label}
-              </Text>
-            </Pressable>
-          ))}
-        </ScrollView>
+          <ScrollView 
+            horizontal 
+            showsHorizontalScrollIndicator={false}
+            style={styles.filtersScroll}
+            contentContainerStyle={styles.filtersContainer}
+          >
+            {statusFilters.map((filter) => (
+              <Pressable
+                key={filter.key || "all"}
+                style={[
+                  styles.filterChip,
+                  filterStatus === filter.key && styles.filterChipActive
+                ]}
+                onPress={() => setFilterStatus(filter.key)}
+              >
+                <Text style={[
+                  styles.filterChipText,
+                  filterStatus === filter.key && styles.filterChipTextActive
+                ]}>
+                  {filter.label}
+                </Text>
+              </Pressable>
+            ))}
+          </ScrollView>
+        </CoachMarkTarget>
 
+        <CoachMarkTarget id="platform_academies_list">
         <View style={styles.academiesList}>
           {filteredAcademies.map((academy) => (
             <AcademyCard 
@@ -488,6 +523,7 @@ export default function AcademiesScreen() {
             />
           ))}
         </View>
+        </CoachMarkTarget>
 
         {filteredAcademies.length === 0 ? (
           <View style={styles.emptyState}>

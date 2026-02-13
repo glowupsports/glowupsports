@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import { View, Text, StyleSheet, ScrollView, Pressable, Alert, Platform, Switch, ActivityIndicator, Modal, TextInput } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
@@ -11,6 +11,7 @@ import { Colors, Spacing, BorderRadius, Typography, CardStyles } from "@/constan
 import { useAuth } from "@/coach/context/AuthContext";
 import { apiRequest } from "@/lib/query-client";
 import type { PlatformStackParamList } from "@/platform/navigation/PlatformNavigator";
+import { useCoachMarks, CoachMarkTarget } from "@/components/CoachMarks";
 
 type NavigationProp = NativeStackNavigationProp<PlatformStackParamList>;
 
@@ -77,10 +78,45 @@ export default function SystemScreen() {
   const navigation = useNavigation<NavigationProp>();
   const { logout } = useAuth();
   const queryClient = useQueryClient();
+  const { startTour, isActive } = useCoachMarks();
 
   const { data: maintenanceStatus, isLoading: maintenanceLoading } = useQuery<{ maintenance: boolean }>({
     queryKey: ["/api/maintenance/status"],
   });
+
+  const systemTourSteps = useMemo(() => [
+    {
+      id: "platform_system_header",
+      title: "System & Settings",
+      description: "Configure your entire platform from here. System status, XP engine, billing, and more.",
+      position: "bottom" as const,
+    },
+    {
+      id: "platform_system_status",
+      title: "System Status",
+      description: "Check if all your services are running smoothly. Green means everything is working.",
+      position: "bottom" as const,
+    },
+    {
+      id: "platform_system_settings",
+      title: "Platform Settings",
+      description: "Manage welcome videos, academy defaults, billing, and notification templates here.",
+      position: "bottom" as const,
+    },
+    {
+      id: "platform_system_danger",
+      title: "Danger Zone",
+      description: "Maintenance mode and kill switch are here for emergencies. Use with care.",
+      position: "top" as const,
+    },
+  ], []);
+
+  useEffect(() => {
+    if (!isActive) {
+      const timer = setTimeout(() => startTour("platform_system_tour", systemTourSteps), 1500);
+      return () => clearTimeout(timer);
+    }
+  }, [isActive]);
 
   const maintenanceMutation = useMutation({
     mutationFn: async (enabled: boolean) => {
@@ -331,19 +367,23 @@ export default function SystemScreen() {
         contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 100 }]}
         showsVerticalScrollIndicator={false}
       >
-        <View style={styles.header}>
-          <Text style={styles.title}>System & Settings</Text>
-          <Text style={styles.subtitle}>Platform configuration and controls</Text>
-        </View>
-
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>System Status</Text>
-          <View style={[styles.statusCard, CardStyles.elevated]}>
-            {systemStatus.map((item, index) => (
-              <StatusIndicator key={index} {...item} />
-            ))}
+        <CoachMarkTarget id="platform_system_header">
+          <View style={styles.header}>
+            <Text style={styles.title}>System & Settings</Text>
+            <Text style={styles.subtitle}>Platform configuration and controls</Text>
           </View>
-        </View>
+        </CoachMarkTarget>
+
+        <CoachMarkTarget id="platform_system_status">
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>System Status</Text>
+            <View style={[styles.statusCard, CardStyles.elevated]}>
+              {systemStatus.map((item, index) => (
+                <StatusIndicator key={index} {...item} />
+              ))}
+            </View>
+          </View>
+        </CoachMarkTarget>
 
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>XP Engine Configuration</Text>
@@ -381,40 +421,42 @@ export default function SystemScreen() {
           </View>
         </View>
 
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Platform Settings</Text>
-          <View style={[styles.settingsCard, CardStyles.elevated]}>
-            <SettingRow 
-              icon="videocam" 
-              label="Welcome Video" 
-              description={welcomeVideoConfig?.value?.url ? "Video configured" : "Set platform intro video"}
-              onPress={handleOpenWelcomeVideoModal}
-            />
-            <SettingRow 
-              icon="business" 
-              label="Academy Defaults" 
-              description="Default settings for new academies"
-              onPress={() => navigation.navigate("AcademyDefaults")}
-            />
-            <SettingRow 
-              icon="card" 
-              label="Billing Configuration" 
-              description="Stripe and payment settings"
-              onPress={() => navigation.navigate("BillingConfig")}
-            />
-            <SettingRow 
-              icon="notifications" 
-              label="Notification Templates" 
-              description="Email and push notification templates"
-              onPress={() => navigation.navigate("NotificationTemplates")}
-            />
-            <SettingRow 
-              icon="document-text" 
-              label="Terms & Privacy" 
-              description="Legal document management"
-            />
+        <CoachMarkTarget id="platform_system_settings">
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Platform Settings</Text>
+            <View style={[styles.settingsCard, CardStyles.elevated]}>
+              <SettingRow 
+                icon="videocam" 
+                label="Welcome Video" 
+                description={welcomeVideoConfig?.value?.url ? "Video configured" : "Set platform intro video"}
+                onPress={handleOpenWelcomeVideoModal}
+              />
+              <SettingRow 
+                icon="business" 
+                label="Academy Defaults" 
+                description="Default settings for new academies"
+                onPress={() => navigation.navigate("AcademyDefaults")}
+              />
+              <SettingRow 
+                icon="card" 
+                label="Billing Configuration" 
+                description="Stripe and payment settings"
+                onPress={() => navigation.navigate("BillingConfig")}
+              />
+              <SettingRow 
+                icon="notifications" 
+                label="Notification Templates" 
+                description="Email and push notification templates"
+                onPress={() => navigation.navigate("NotificationTemplates")}
+              />
+              <SettingRow 
+                icon="document-text" 
+                label="Terms & Privacy" 
+                description="Legal document management"
+              />
+            </View>
           </View>
-        </View>
+        </CoachMarkTarget>
 
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Data & Compliance</Text>
@@ -488,39 +530,41 @@ export default function SystemScreen() {
           </View>
         </View>
 
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Danger Zone</Text>
-          <View style={[styles.settingsCard, CardStyles.elevated]}>
-            <View style={styles.settingRow}>
-              <View style={[styles.settingIcon, { backgroundColor: `${Colors.dark.error}20` }]}>
-                <Ionicons name="pause" size={20} color={Colors.dark.error} />
+        <CoachMarkTarget id="platform_system_danger">
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Danger Zone</Text>
+            <View style={[styles.settingsCard, CardStyles.elevated]}>
+              <View style={styles.settingRow}>
+                <View style={[styles.settingIcon, { backgroundColor: `${Colors.dark.error}20` }]}>
+                  <Ionicons name="pause" size={20} color={Colors.dark.error} />
+                </View>
+                <View style={styles.settingInfo}>
+                  <Text style={[styles.settingLabel, { color: Colors.dark.error }]}>Maintenance Mode</Text>
+                  <Text style={styles.settingDescription}>
+                    {isMaintenanceOn ? "Platform is currently locked" : "Temporarily disable platform access"}
+                  </Text>
+                </View>
+                {maintenanceLoading || maintenanceMutation.isPending ? (
+                  <ActivityIndicator size="small" color={Colors.dark.error} />
+                ) : (
+                  <Switch
+                    value={isMaintenanceOn}
+                    onValueChange={handleMaintenanceToggle}
+                    trackColor={{ false: Colors.dark.backgroundRoot, true: Colors.dark.error + "80" }}
+                    thumbColor={isMaintenanceOn ? Colors.dark.error : Colors.dark.textMuted}
+                  />
+                )}
               </View>
-              <View style={styles.settingInfo}>
-                <Text style={[styles.settingLabel, { color: Colors.dark.error }]}>Maintenance Mode</Text>
-                <Text style={styles.settingDescription}>
-                  {isMaintenanceOn ? "Platform is currently locked" : "Temporarily disable platform access"}
-                </Text>
-              </View>
-              {maintenanceLoading || maintenanceMutation.isPending ? (
-                <ActivityIndicator size="small" color={Colors.dark.error} />
-              ) : (
-                <Switch
-                  value={isMaintenanceOn}
-                  onValueChange={handleMaintenanceToggle}
-                  trackColor={{ false: Colors.dark.backgroundRoot, true: Colors.dark.error + "80" }}
-                  thumbColor={isMaintenanceOn ? Colors.dark.error : Colors.dark.textMuted}
-                />
-              )}
+              <SettingRow 
+                icon="nuclear" 
+                label="Kill Switch" 
+                description="Emergency platform shutdown"
+                danger
+                onPress={handleKillSwitch}
+              />
             </View>
-            <SettingRow 
-              icon="nuclear" 
-              label="Kill Switch" 
-              description="Emergency platform shutdown"
-              danger
-              onPress={handleKillSwitch}
-            />
           </View>
-        </View>
+        </CoachMarkTarget>
 
         <Pressable style={styles.logoutButton} onPress={handleLogout}>
           <Ionicons name="log-out-outline" size={24} color={Colors.dark.error} />

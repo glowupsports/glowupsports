@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import {
   View,
   Text,
@@ -22,6 +22,7 @@ import { Colors, Spacing, BorderRadius, Typography, CardStyles, Backgrounds, Glo
 import { apiRequest } from "@/lib/query-client";
 import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollViewCompat";
 import { useAuth } from "@/coach/context/AuthContext";
+import { useCoachMarks, CoachMarkTarget } from "@/components/CoachMarks";
 
 interface Court {
   id: string;
@@ -36,6 +37,7 @@ export default function AdminSettingsScreen() {
   const queryClient = useQueryClient();
   const navigation = useNavigation<any>();
   const { logout } = useAuth();
+  const { startTour, isActive } = useCoachMarks();
   const [showCourtModal, setShowCourtModal] = useState(false);
   const [editingCourt, setEditingCourt] = useState<Court | null>(null);
   const [showProfileModal, setShowProfileModal] = useState(false);
@@ -56,6 +58,20 @@ export default function AdminSettingsScreen() {
   });
   const [testPushLoading, setTestPushLoading] = useState(false);
   const [testInviteLoading, setTestInviteLoading] = useState(false);
+
+  const settingsTourSteps = useMemo(() => [
+    { id: "admin_settings_profile", title: "Academy Profile", description: "Update your academy name and contact details here.", position: "bottom" as const },
+    { id: "admin_settings_courts", title: "Courts & Facilities", description: "Add and manage your tennis courts. Set surface type and indoor/outdoor.", position: "bottom" as const },
+    { id: "admin_settings_users", title: "User Management", description: "Control roles, permissions, and send invitations to coaches and players.", position: "bottom" as const },
+    { id: "admin_settings_account", title: "Account", description: "Log out of your admin account when you're done.", position: "top" as const },
+  ], []);
+
+  useEffect(() => {
+    if (!isActive) {
+      const timer = setTimeout(() => startTour("admin_settings_tour", settingsTourSteps), 1500);
+      return () => clearTimeout(timer);
+    }
+  }, []);
 
   const { data: courts = [], isLoading: courtsLoading } = useQuery<Court[]>({
     queryKey: ["/api/courts"],
@@ -277,34 +293,37 @@ export default function AdminSettingsScreen() {
       >
         <Text style={styles.title}>Settings</Text>
 
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Academy Profile</Text>
-          <View style={[styles.profileCard, CardStyles.elevated]}>
-            <View style={styles.profileHeader}>
-              <View style={styles.profileAvatar}>
-                <Ionicons name="business" size={32} color={GlowColors.primary} />
+        <CoachMarkTarget id="admin_settings_profile">
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Academy Profile</Text>
+            <View style={[styles.profileCard, CardStyles.elevated]}>
+              <View style={styles.profileHeader}>
+                <View style={styles.profileAvatar}>
+                  <Ionicons name="business" size={32} color={GlowColors.primary} />
+                </View>
+                <View style={styles.profileInfo}>
+                  <Text style={styles.profileName}>{profileData.name}</Text>
+                  <Text style={styles.profileEmail}>{profileData.email}</Text>
+                </View>
               </View>
-              <View style={styles.profileInfo}>
-                <Text style={styles.profileName}>{profileData.name}</Text>
-                <Text style={styles.profileEmail}>{profileData.email}</Text>
-              </View>
+              <Pressable 
+                style={styles.editProfileButton}
+                onPress={() => {
+                  setShowProfileModal(true);
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                }}
+              >
+                <Text style={styles.editProfileText}>Edit Profile</Text>
+                <Ionicons name="chevron-forward" size={16} color={GlowColors.primary} />
+              </Pressable>
             </View>
-            <Pressable 
-              style={styles.editProfileButton}
-              onPress={() => {
-                setShowProfileModal(true);
-                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-              }}
-            >
-              <Text style={styles.editProfileText}>Edit Profile</Text>
-              <Ionicons name="chevron-forward" size={16} color={GlowColors.primary} />
-            </Pressable>
           </View>
-        </View>
+        </CoachMarkTarget>
 
-        <View style={styles.section}>
-          <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Courts & Facilities</Text>
+        <CoachMarkTarget id="admin_settings_courts">
+          <View style={styles.section}>
+            <View style={styles.sectionHeader}>
+              <Text style={styles.sectionTitle}>Courts & Facilities</Text>
             <Pressable
               style={styles.addSmallButton}
               onPress={() => {
@@ -356,40 +375,43 @@ export default function AdminSettingsScreen() {
             ))
           )}
         </View>
+        </CoachMarkTarget>
 
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>User Management</Text>
-          <Pressable 
-            style={[styles.menuCard, CardStyles.elevated]}
-            onPress={handleShowRolesPermissions}
-          >
-            <View style={styles.menuContent}>
-              <Ionicons name="shield-outline" size={24} color={GlowColors.primary} />
-              <View style={styles.menuText}>
-                <Text style={styles.menuTitle}>Roles & Permissions</Text>
-                <Text style={styles.menuSubtitle}>Manage access controls</Text>
+        <CoachMarkTarget id="admin_settings_users">
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>User Management</Text>
+            <Pressable 
+              style={[styles.menuCard, CardStyles.elevated]}
+              onPress={handleShowRolesPermissions}
+            >
+              <View style={styles.menuContent}>
+                <Ionicons name="shield-outline" size={24} color={GlowColors.primary} />
+                <View style={styles.menuText}>
+                  <Text style={styles.menuTitle}>Roles & Permissions</Text>
+                  <Text style={styles.menuSubtitle}>Manage access controls</Text>
+                </View>
+                <Ionicons name="chevron-forward" size={20} color={Colors.dark.textMuted} />
               </View>
-              <Ionicons name="chevron-forward" size={20} color={Colors.dark.textMuted} />
-            </View>
-          </Pressable>
+            </Pressable>
 
-          <Pressable 
-            style={[styles.menuCard, CardStyles.elevated]}
-            onPress={() => {
-              setShowInviteModal(true);
-              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-            }}
-          >
-            <View style={styles.menuContent}>
-              <Ionicons name="mail-outline" size={24} color={FunctionColors.info} />
-              <View style={styles.menuText}>
-                <Text style={styles.menuTitle}>Invite Users</Text>
-                <Text style={styles.menuSubtitle}>Send invitations to coaches and players</Text>
+            <Pressable 
+              style={[styles.menuCard, CardStyles.elevated]}
+              onPress={() => {
+                setShowInviteModal(true);
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              }}
+            >
+              <View style={styles.menuContent}>
+                <Ionicons name="mail-outline" size={24} color={FunctionColors.info} />
+                <View style={styles.menuText}>
+                  <Text style={styles.menuTitle}>Invite Users</Text>
+                  <Text style={styles.menuSubtitle}>Send invitations to coaches and players</Text>
+                </View>
+                <Ionicons name="chevron-forward" size={20} color={Colors.dark.textMuted} />
               </View>
-              <Ionicons name="chevron-forward" size={20} color={Colors.dark.textMuted} />
-            </View>
-          </Pressable>
-        </View>
+            </Pressable>
+          </View>
+        </CoachMarkTarget>
 
         <View style={styles.section}>
           <Text style={[styles.sectionTitle, { color: RoleColors.admin }]}>Developer Tools</Text>
@@ -430,16 +452,18 @@ export default function AdminSettingsScreen() {
           </View>
         </View>
 
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Account</Text>
-          <Pressable
-            style={[styles.logoutButton, CardStyles.elevated]}
-            onPress={handleLogout}
-          >
-            <Ionicons name="log-out-outline" size={24} color={Colors.dark.error} />
-            <Text style={styles.logoutText}>Logout</Text>
-          </Pressable>
-        </View>
+        <CoachMarkTarget id="admin_settings_account">
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Account</Text>
+            <Pressable
+              style={[styles.logoutButton, CardStyles.elevated]}
+              onPress={handleLogout}
+            >
+              <Ionicons name="log-out-outline" size={24} color={Colors.dark.error} />
+              <Text style={styles.logoutText}>Logout</Text>
+            </Pressable>
+          </View>
+        </CoachMarkTarget>
       </ScrollView>
 
       <Modal

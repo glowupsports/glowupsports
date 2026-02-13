@@ -17,6 +17,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import * as Haptics from "expo-haptics";
 import { Colors, Spacing, BorderRadius, Typography, CardStyles, Backgrounds, GlowColors, RoleColors } from "@/constants/theme";
 import CreateSessionWizard from "@/coach/components/CreateSessionWizard";
+import { useCoachMarks, CoachMarkTarget } from "@/components/CoachMarks";
 
 const ADMIN_COLOR = RoleColors.admin;
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
@@ -111,6 +112,22 @@ export default function AdminCalendarScreen() {
   const { data: courts = [] } = useQuery<Court[]>({
     queryKey: ["/api/courts"],
   });
+
+  const { startTour, isActive } = useCoachMarks();
+
+  const calendarTourSteps = useMemo(() => [
+    { id: "admin_cal_view_toggle", title: "Day or Week View", description: "Switch between daily and weekly views to see your schedule differently.", position: "bottom" as const },
+    { id: "admin_cal_date_nav", title: "Navigate Dates", description: "Use the arrows to move between days or weeks. Tap the date to jump to today.", position: "bottom" as const },
+    { id: "admin_cal_stats", title: "Session Overview", description: "Quick look at how many sessions are scheduled, upcoming, and completed.", position: "bottom" as const },
+    { id: "admin_cal_fab", title: "Create a Session", description: "Tap here to schedule a new training session for any coach.", position: "top" as const },
+  ], []);
+
+  useEffect(() => {
+    if (!isActive) {
+      const timer = setTimeout(() => startTour("admin_calendar_tour", calendarTourSteps), 1500);
+      return () => clearTimeout(timer);
+    }
+  }, []);
 
   const handleSlotPress = (hour: number, coachId?: string, courtId?: string, date?: Date) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
@@ -572,20 +589,22 @@ export default function AdminCalendarScreen() {
       <View style={styles.header}>
         <Text style={styles.title}>Schedule</Text>
         <View style={styles.headerToggles}>
-          <View style={styles.viewToggle}>
-            <Pressable
-              style={[styles.viewButton, viewMode === "day" && styles.viewButtonActive]}
-              onPress={() => { setViewMode("day"); Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); }}
-            >
-              <Text style={[styles.viewButtonText, viewMode === "day" && styles.viewButtonTextActive]}>Day</Text>
-            </Pressable>
-            <Pressable
-              style={[styles.viewButton, viewMode === "week" && styles.viewButtonActive]}
-              onPress={() => { setViewMode("week"); Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); }}
-            >
-              <Text style={[styles.viewButtonText, viewMode === "week" && styles.viewButtonTextActive]}>Week</Text>
-            </Pressable>
-          </View>
+          <CoachMarkTarget id="admin_cal_view_toggle">
+            <View style={styles.viewToggle}>
+              <Pressable
+                style={[styles.viewButton, viewMode === "day" && styles.viewButtonActive]}
+                onPress={() => { setViewMode("day"); Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); }}
+              >
+                <Text style={[styles.viewButtonText, viewMode === "day" && styles.viewButtonTextActive]}>Day</Text>
+              </Pressable>
+              <Pressable
+                style={[styles.viewButton, viewMode === "week" && styles.viewButtonActive]}
+                onPress={() => { setViewMode("week"); Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); }}
+              >
+                <Text style={[styles.viewButtonText, viewMode === "week" && styles.viewButtonTextActive]}>Week</Text>
+              </Pressable>
+            </View>
+          </CoachMarkTarget>
         </View>
       </View>
 
@@ -608,39 +627,43 @@ export default function AdminCalendarScreen() {
         </View>
       ) : null}
 
-      <View style={styles.dateNav}>
-        <Pressable style={styles.navButton} onPress={() => navigateDate(-1)}>
-          <Ionicons name="chevron-back" size={24} color={Colors.dark.text} />
-        </Pressable>
-        <Pressable style={styles.dateDisplay} onPress={goToToday}>
-          <Text style={styles.dateText}>
-            {viewMode === "day" ? formatDate(selectedDate) : formatWeekRange()}
-          </Text>
-          {isToday(selectedDate) ? (
-            <View style={styles.todayBadge}>
-              <Text style={styles.todayText}>Today</Text>
-            </View>
-          ) : null}
-        </Pressable>
-        <Pressable style={styles.navButton} onPress={() => navigateDate(1)}>
-          <Ionicons name="chevron-forward" size={24} color={Colors.dark.text} />
-        </Pressable>
-      </View>
+      <CoachMarkTarget id="admin_cal_date_nav">
+        <View style={styles.dateNav}>
+          <Pressable style={styles.navButton} onPress={() => navigateDate(-1)}>
+            <Ionicons name="chevron-back" size={24} color={Colors.dark.text} />
+          </Pressable>
+          <Pressable style={styles.dateDisplay} onPress={goToToday}>
+            <Text style={styles.dateText}>
+              {viewMode === "day" ? formatDate(selectedDate) : formatWeekRange()}
+            </Text>
+            {isToday(selectedDate) ? (
+              <View style={styles.todayBadge}>
+                <Text style={styles.todayText}>Today</Text>
+              </View>
+            ) : null}
+          </Pressable>
+          <Pressable style={styles.navButton} onPress={() => navigateDate(1)}>
+            <Ionicons name="chevron-forward" size={24} color={Colors.dark.text} />
+          </Pressable>
+        </View>
+      </CoachMarkTarget>
 
-      <View style={styles.statsRow}>
-        <View style={[styles.statCard, CardStyles.elevated]}>
-          <Text style={styles.statValue}>{viewMode === "day" ? todaySessions.length : totalWeekSessions}</Text>
-          <Text style={styles.statLabel}>Sessions</Text>
+      <CoachMarkTarget id="admin_cal_stats">
+        <View style={styles.statsRow}>
+          <View style={[styles.statCard, CardStyles.elevated]}>
+            <Text style={styles.statValue}>{viewMode === "day" ? todaySessions.length : totalWeekSessions}</Text>
+            <Text style={styles.statLabel}>Sessions</Text>
+          </View>
+          <View style={[styles.statCard, CardStyles.elevated]}>
+            <Text style={styles.statValue}>{viewMode === "day" ? upcomingSessions.length : weekDays.filter(d => isToday(d.date) || d.date > new Date()).reduce((sum, d) => sum + d.sessions.length, 0)}</Text>
+            <Text style={styles.statLabel}>Upcoming</Text>
+          </View>
+          <View style={[styles.statCard, CardStyles.elevated]}>
+            <Text style={styles.statValue}>{viewMode === "day" ? completedSessions.length : weekDays.reduce((sum, d) => sum + d.sessions.filter(s => s.status === "completed").length, 0)}</Text>
+            <Text style={styles.statLabel}>Completed</Text>
+          </View>
         </View>
-        <View style={[styles.statCard, CardStyles.elevated]}>
-          <Text style={styles.statValue}>{viewMode === "day" ? upcomingSessions.length : weekDays.filter(d => isToday(d.date) || d.date > new Date()).reduce((sum, d) => sum + d.sessions.length, 0)}</Text>
-          <Text style={styles.statLabel}>Upcoming</Text>
-        </View>
-        <View style={[styles.statCard, CardStyles.elevated]}>
-          <Text style={styles.statValue}>{viewMode === "day" ? completedSessions.length : weekDays.reduce((sum, d) => sum + d.sessions.filter(s => s.status === "completed").length, 0)}</Text>
-          <Text style={styles.statLabel}>Completed</Text>
-        </View>
-      </View>
+      </CoachMarkTarget>
 
       <ScrollView 
         horizontal 
@@ -676,23 +699,25 @@ export default function AdminCalendarScreen() {
         {viewMode === "day" ? renderDayView() : renderWeekView()}
       </View>
 
-      <Pressable
-        style={[styles.fab, { bottom: insets.bottom + 90 }]}
-        onPress={() => {
-          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-          setSelectedSlot(null);
-          setShowCreateSession(true);
-        }}
-      >
-        <LinearGradient
-          colors={[ADMIN_COLOR, "#EA580C"]}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={styles.fabGradient}
+      <CoachMarkTarget id="admin_cal_fab">
+        <Pressable
+          style={[styles.fab, { bottom: insets.bottom + 90 }]}
+          onPress={() => {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+            setSelectedSlot(null);
+            setShowCreateSession(true);
+          }}
         >
-          <Ionicons name="add" size={28} color={Colors.dark.backgroundRoot} />
-        </LinearGradient>
-      </Pressable>
+          <LinearGradient
+            colors={[ADMIN_COLOR, "#EA580C"]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={styles.fabGradient}
+          >
+            <Ionicons name="add" size={28} color={Colors.dark.backgroundRoot} />
+          </LinearGradient>
+        </Pressable>
+      </CoachMarkTarget>
 
       <CreateSessionWizard
         visible={showCreateSession}

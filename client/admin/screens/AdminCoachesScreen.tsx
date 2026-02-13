@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import {
   View,
   Text,
@@ -20,6 +20,7 @@ import * as Haptics from "expo-haptics";
 import { Colors, Spacing, BorderRadius, Typography, CardStyles, Backgrounds, GlowColors } from "@/constants/theme";
 import { apiRequest } from "@/lib/query-client";
 import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollViewCompat";
+import { useCoachMarks, CoachMarkTarget } from "@/components/CoachMarks";
 
 interface Coach {
   id: string;
@@ -105,6 +106,7 @@ const PAYMENT_METHODS = [
 export default function AdminCoachesScreen() {
   const insets = useSafeAreaInsets();
   const queryClient = useQueryClient();
+  const { startTour, isActive } = useCoachMarks();
   const [showAddModal, setShowAddModal] = useState(false);
   const [showDetailModal, setShowDetailModal] = useState(false);
   const [showPaymentModal, setShowPaymentModal] = useState(false);
@@ -160,6 +162,19 @@ export default function AdminCoachesScreen() {
     setFormData({ name: "", email: "", phone: "", specialty: "", hourlyRate: "" });
     setEditingCoach(null);
   };
+
+  const coachesTourSteps = useMemo(() => [
+    { id: "admin_coaches_header", title: "Your Coaching Team", description: "View and manage all your academy coaches from here.", position: "bottom" as const },
+    { id: "admin_coaches_add", title: "Add a Coach", description: "Tap the + button to invite a new coach to your academy.", position: "bottom" as const },
+    { id: "admin_coaches_list", title: "Coach Details", description: "Tap any coach to see their stats, payment history, and performance.", position: "bottom" as const },
+  ], []);
+
+  useEffect(() => {
+    if (!isActive) {
+      const timer = setTimeout(() => startTour("admin_coaches_tour", coachesTourSteps), 1500);
+      return () => clearTimeout(timer);
+    }
+  }, []);
 
   const openAddModal = () => {
     resetForm();
@@ -761,27 +776,33 @@ export default function AdminCoachesScreen() {
         style={styles.headerGradient}
       />
 
-      <View style={styles.header}>
-        <Text style={styles.title}>Manage Coaches</Text>
-        <Pressable style={styles.addButton} onPress={openAddModal}>
-          <Ionicons name="add" size={24} color={Colors.dark.text} />
-        </Pressable>
-      </View>
+      <CoachMarkTarget id="admin_coaches_header">
+        <View style={styles.header}>
+          <Text style={styles.title}>Manage Coaches</Text>
+          <CoachMarkTarget id="admin_coaches_add">
+            <Pressable style={styles.addButton} onPress={openAddModal}>
+              <Ionicons name="add" size={24} color={Colors.dark.text} />
+            </Pressable>
+          </CoachMarkTarget>
+        </View>
+      </CoachMarkTarget>
 
-      <FlatList
-        data={coaches}
-        keyExtractor={(item) => item.id}
-        renderItem={renderCoach}
-        contentContainerStyle={[styles.list, { paddingBottom: insets.bottom + 100 }]}
-        showsVerticalScrollIndicator={false}
-        ListEmptyComponent={
-          <View style={styles.emptyState}>
-            <Ionicons name="people-outline" size={48} color={Colors.dark.textMuted} />
-            <Text style={styles.emptyText}>No coaches yet</Text>
-            <Text style={styles.emptySubtext}>Tap + to add your first coach</Text>
-          </View>
-        }
-      />
+      <CoachMarkTarget id="admin_coaches_list">
+        <FlatList
+          data={coaches}
+          keyExtractor={(item) => item.id}
+          renderItem={renderCoach}
+          contentContainerStyle={[styles.list, { paddingBottom: insets.bottom + 100 }]}
+          showsVerticalScrollIndicator={false}
+          ListEmptyComponent={
+            <View style={styles.emptyState}>
+              <Ionicons name="people-outline" size={48} color={Colors.dark.textMuted} />
+              <Text style={styles.emptyText}>No coaches yet</Text>
+              <Text style={styles.emptySubtext}>Tap + to add your first coach</Text>
+            </View>
+          }
+        />
+      </CoachMarkTarget>
 
       {renderDetailModal()}
 
