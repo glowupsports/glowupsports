@@ -85,7 +85,6 @@ const PLAYER_CHAT_TABS: { id: ChatTab; name: string; icon: keyof typeof Ionicons
   { id: "coaches", name: "Coaches", icon: "ribbon-outline", types: ["coach_player", "direct_message"] },
   { id: "academy", name: "Academy", icon: "home-outline", types: ["academy"] },
   { id: "squad", name: "Squad", icon: "fitness-outline", types: ["squad", "group"] },
-  { id: "activity", name: "Activity", icon: "newspaper-outline", types: [] },
   { id: "world", name: "World", icon: "globe-outline", types: ["world"] },
 ];
 
