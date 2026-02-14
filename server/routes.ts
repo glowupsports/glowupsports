@@ -9872,39 +9872,72 @@ export async function registerRoutes(app: Express): Promise<Server> {
         .innerJoin(sessions, eq(sessionPlayers.sessionId, sessions.id))
         .where(eq(sessionPlayers.playerId, playerId));
 
+      // Also find completed sessions from series the player belongs to that are missing sessionPlayers records
+      // This handles cases where "Add Extra Lesson" created sessions without proper sessionPlayers records
+      const playerSeriesIds = await db.select({ seriesId: seriesPlayers.seriesId })
+        .from(seriesPlayers)
+        .where(and(eq(seriesPlayers.playerId, playerId), eq(seriesPlayers.status, "active")));
+      
+      const seriesIdList = playerSeriesIds.map(s => s.seriesId).filter(Boolean) as string[];
+      const existingSessionIds = new Set(sessionPlayerRecords.map(r => r.sessionId));
+      
+      let orphanedCompletedSessions: { sessionId: string; sessionStatus: string }[] = [];
+      if (seriesIdList.length > 0) {
+        const seriesSessions = await db.select({ id: sessions.id, status: sessions.status })
+          .from(sessions)
+          .where(and(
+            inArray(sessions.seriesId, seriesIdList),
+            eq(sessions.status, "completed")
+          ));
+        orphanedCompletedSessions = seriesSessions
+          .filter(s => !existingSessionIds.has(s.id))
+          .map(s => ({ sessionId: s.id, sessionStatus: s.status }));
+      }
+
+      // Combine: all sessionPlayers records + orphaned completed sessions (treated as present)
+      const allRecords = [
+        ...sessionPlayerRecords,
+        ...orphanedCompletedSessions.map(s => ({
+          sessionId: s.sessionId,
+          attendanceStatus: null as string | null,
+          lateMinutes: null as number | null,
+          sessionStatus: s.sessionStatus,
+        })),
+      ];
+
       // Total scheduled lessons (all records)
-      const totalLessons = sessionPlayerRecords.length;
+      const totalLessons = allRecords.length;
       
       // Count by attendance status (excluding cancelled sessions)
-      const nonCancelledRecords = sessionPlayerRecords.filter(r => r.sessionStatus !== "cancelled");
+      const nonCancelledRecords = allRecords.filter(r => r.sessionStatus !== "cancelled");
       const presentCount = nonCancelledRecords.filter(r => r.attendanceStatus === "present").length;
       const absentCount = nonCancelledRecords.filter(r => r.attendanceStatus === "absent").length;
       const lateCount = nonCancelledRecords.filter(r => r.lateMinutes && r.lateMinutes > 0).length;
       
       // Attended sessions = completed sessions OR sessions with explicit attendance
-      // This includes: sessions with attendance recorded (present/late/absent) AND
-      // completed sessions where attendance wasn't explicitly set (e.g., extra lessons added via "Add Extra Lesson")
       const attendedCount = nonCancelledRecords.filter(r => 
         r.attendanceStatus === "present" || r.attendanceStatus === "late" || r.attendanceStatus === "absent" ||
         (r.sessionStatus === "completed" && !r.attendanceStatus)
       ).length;
       
-      // For percentage calculation, treat completed sessions without explicit attendance as "present"
+      // For percentage, treat completed sessions without explicit attendance as "present"
       const effectivePresentCount = presentCount + nonCancelledRecords.filter(r => 
         r.sessionStatus === "completed" && !r.attendanceStatus
       ).length;
       
-      // Actually attended = sessions where player was physically present (present + late + completed without explicit status)
       const actuallyAttendedCount = effectivePresentCount + lateCount;
       const attendancePercentage = attendedCount > 0 ? Math.round((effectivePresentCount / attendedCount) * 100) : 0;
 
+      if (orphanedCompletedSessions.length > 0) {
+        console.log("[AttendanceSummary] Player:", playerId, "Found", orphanedCompletedSessions.length, "orphaned completed sessions without sessionPlayers records");
+      }
       console.log("[AttendanceSummary] Player:", playerId, "Attended:", attendedCount, "Present:", presentCount, "Absent:", absentCount, "Percentage:", attendancePercentage, "%");
       res.json({
         totalLessons,
-        attendedCount,  // Sessions where attendance was recorded (present + late + absent)
-        actuallyAttendedCount,  // Sessions where player was physically present (present + late only)
+        attendedCount,
+        actuallyAttendedCount,
         presentCount,
-        absentCount,    // Sessions marked absent
+        absentCount,
         attendancePercentage,
         lateCount,
       });
@@ -9934,6 +9967,33 @@ export async function registerRoutes(app: Express): Promise<Server> {
         })
         .from(sessionPlayers)
         .where(eq(sessionPlayers.playerId, playerId));
+
+      // Step 1.5: Find orphaned completed sessions (in player's series but no sessionPlayers record)
+      const playerSeriesForHistory = await db.select({ seriesId: seriesPlayers.seriesId })
+        .from(seriesPlayers)
+        .where(and(eq(seriesPlayers.playerId, playerId), eq(seriesPlayers.status, "active")));
+      const seriesIdsForHistory = playerSeriesForHistory.map(s => s.seriesId).filter(Boolean) as string[];
+      const existingSessionIdsForHistory = new Set(playerRecords.map(r => r.sessionId));
+      
+      if (seriesIdsForHistory.length > 0) {
+        const orphanedSessions = await db.select({ id: sessions.id, status: sessions.status })
+          .from(sessions)
+          .where(and(
+            inArray(sessions.seriesId, seriesIdsForHistory),
+            eq(sessions.status, "completed")
+          ));
+        const orphaned = orphanedSessions.filter(s => !existingSessionIdsForHistory.has(s.id));
+        for (const s of orphaned) {
+          playerRecords.push({
+            sessionId: s.id,
+            attendanceStatus: null,
+            lateMinutes: null,
+          });
+        }
+        if (orphaned.length > 0) {
+          console.log(`[AttendanceHistory] Found ${orphaned.length} orphaned completed sessions for player ${playerId}`);
+        }
+      }
 
       // Step 2: Get session details separately to avoid Drizzle LEFT JOIN issues
       const sessionIds = playerRecords.map(r => r.sessionId).filter(Boolean);
@@ -10019,7 +10079,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           startTime: record.sessionStartTime || null,
           endTime: record.sessionEndTime || null,
           sessionType: record.sessionType || "group",
-          status: record.sessionStatus === "cancelled" ? "cancelled" : (record.attendanceStatus || null),
+          status: record.sessionStatus === "cancelled" ? "cancelled" : (record.attendanceStatus || (record.sessionStatus === "completed" ? "present" : null)),
           lateMinutes: record.lateMinutes,
           sessionStatus: record.sessionStatus || "completed",
           seriesId: record.seriesId,
@@ -11988,20 +12048,34 @@ export async function registerRoutes(app: Express): Promise<Server> {
         seriesId: id,
         courtId: courtId || series.courtId || undefined,
         maxPlayers: series.maxPlayers || 6,
-        playerIds: activePlayerIds,
       });
       
+      // Create sessionPlayers records for all active players in the series
+      let playersAdded = 0;
+      for (const playerId of activePlayerIds) {
+        try {
+          await storage.addPlayerToSession({
+            sessionId: session.id,
+            playerId,
+            attendanceStatus: null,
+            isGuest: false,
+          });
+          playersAdded++;
+        } catch (err) {
+          console.error(`[Extra Lesson] Error adding player ${playerId} to session ${session.id}:`, err);
+        }
+      }
       
       // Invalidate cache
       apiCache.invalidate(`series:${coachId}`);
       apiCache.invalidate(`coach_calendar_${coachId}`);
       
-      console.log("[Extra Lesson] Created session:", session.id, "for series:", id);
+      console.log("[Extra Lesson] Created session:", session.id, "for series:", id, "with", playersAdded, "players");
       
       res.json({ 
         success: true, 
         session,
-        playersAdded: activePlayerIds.length 
+        playersAdded 
       });
     } catch (error) {
       console.error("Error adding extra lesson:", error);
