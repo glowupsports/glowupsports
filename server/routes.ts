@@ -9982,20 +9982,32 @@ export async function registerRoutes(app: Express): Promise<Server> {
         .where(eq(sessionPlayers.playerId, playerId));
 
       // Step 1.5: Find orphaned completed sessions (in player's series but no sessionPlayers record)
-      const playerSeriesForHistory = await db.select({ seriesId: seriesPlayers.seriesId })
+      // CRITICAL: Only include sessions that happened AFTER the player joined the series
+      const playerSeriesForHistory = await db.select({ 
+        seriesId: seriesPlayers.seriesId,
+        joinedAt: seriesPlayers.createdAt,
+      })
         .from(seriesPlayers)
         .where(and(eq(seriesPlayers.playerId, playerId), eq(seriesPlayers.status, "active")));
       const seriesIdsForHistory = playerSeriesForHistory.map(s => s.seriesId).filter(Boolean) as string[];
+      const seriesJoinDatesForHistory = new Map(playerSeriesForHistory.map(s => [s.seriesId, s.joinedAt]));
       const existingSessionIdsForHistory = new Set(playerRecords.map(r => r.sessionId));
       
       if (seriesIdsForHistory.length > 0) {
-        const orphanedSessions = await db.select({ id: sessions.id, status: sessions.status })
+        const orphanedSessions = await db.select({ id: sessions.id, status: sessions.status, seriesId: sessions.seriesId, startTime: sessions.startTime })
           .from(sessions)
           .where(and(
             inArray(sessions.seriesId, seriesIdsForHistory),
             eq(sessions.status, "completed")
           ));
-        const orphaned = orphanedSessions.filter(s => !existingSessionIdsForHistory.has(s.id));
+        const orphaned = orphanedSessions.filter(s => {
+          if (existingSessionIdsForHistory.has(s.id)) return false;
+          const joinDate = s.seriesId ? seriesJoinDatesForHistory.get(s.seriesId) : null;
+          if (joinDate && s.startTime) {
+            return new Date(s.startTime) >= new Date(joinDate);
+          }
+          return false;
+        });
         for (const s of orphaned) {
           playerRecords.push({
             sessionId: s.id,
@@ -10004,7 +10016,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           });
         }
         if (orphaned.length > 0) {
-          console.log(`[AttendanceHistory] Found ${orphaned.length} orphaned completed sessions for player ${playerId}`);
+          console.log(`[AttendanceHistory] Found ${orphaned.length} orphaned completed sessions for player ${playerId} (filtered by join date)`);
         }
       }
 
