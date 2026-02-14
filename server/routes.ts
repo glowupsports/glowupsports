@@ -9881,16 +9881,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const absentCount = nonCancelledRecords.filter(r => r.attendanceStatus === "absent").length;
       const lateCount = nonCancelledRecords.filter(r => r.lateMinutes && r.lateMinutes > 0).length;
       
-      // Attended sessions = sessions where player was marked present OR absent (actual attendance recorded)
-      // This excludes: cancelled sessions, future sessions (null attendance), pending
+      // Attended sessions = completed sessions OR sessions with explicit attendance
+      // This includes: sessions with attendance recorded (present/late/absent) AND
+      // completed sessions where attendance wasn't explicitly set (e.g., extra lessons added via "Add Extra Lesson")
       const attendedCount = nonCancelledRecords.filter(r => 
-        r.attendanceStatus === "present" || r.attendanceStatus === "late" || r.attendanceStatus === "absent"
+        r.attendanceStatus === "present" || r.attendanceStatus === "late" || r.attendanceStatus === "absent" ||
+        (r.sessionStatus === "completed" && !r.attendanceStatus)
       ).length;
       
-      // Attendance percentage based on attended sessions (present out of attended)
-      // Actually attended = sessions where player was physically present (present + late, NOT absent)
-      const actuallyAttendedCount = presentCount + lateCount;
-      const attendancePercentage = attendedCount > 0 ? Math.round((presentCount / attendedCount) * 100) : 0;
+      // For percentage calculation, treat completed sessions without explicit attendance as "present"
+      const effectivePresentCount = presentCount + nonCancelledRecords.filter(r => 
+        r.sessionStatus === "completed" && !r.attendanceStatus
+      ).length;
+      
+      // Actually attended = sessions where player was physically present (present + late + completed without explicit status)
+      const actuallyAttendedCount = effectivePresentCount + lateCount;
+      const attendancePercentage = attendedCount > 0 ? Math.round((effectivePresentCount / attendedCount) * 100) : 0;
 
       console.log("[AttendanceSummary] Player:", playerId, "Attended:", attendedCount, "Present:", presentCount, "Absent:", absentCount, "Percentage:", attendancePercentage, "%");
       res.json({
