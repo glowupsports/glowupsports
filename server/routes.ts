@@ -9690,7 +9690,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
             status: sessionInfo.status === "cancelled" ? "cancelled" : (record.attendanceStatus || null),
             lateMinutes: record.lateMinutes,
             seriesId: sessionInfo.seriesId,
-            paymentStatus: sessionInfo.status === "cancelled" ? "cancelled" : (record.creditDeductedAt ? "paid" : "pending"),
+            paymentStatus: sessionInfo.status === "cancelled" ? "cancelled" 
+              : (record.attendanceStatus === "vacation" || record.attendanceStatus === "holiday") ? "no_charge"
+              : record.creditDeductedAt ? "paid" 
+              : "pending",
           };
         })
         .filter(Boolean)

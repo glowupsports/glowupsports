@@ -7,7 +7,7 @@ export interface AttendanceRecord {
   status: string | null;
   lateMinutes: number | null;
   seriesId?: string | null;
-  paymentStatus?: "paid" | "pending" | "cancelled";
+  paymentStatus?: "paid" | "pending" | "cancelled" | "no_charge";
 }
 
 export interface SeriesInfo {
@@ -197,8 +197,8 @@ export function generateAttendanceReportHtml(data: AttendanceReportData): string
           <span class="status-badge compact" style="background: ${getStatusColor(record.status)}20; color: ${getStatusColor(record.status)};">
             ${getStatusLabel(record.status)}
           </span>
-          <span class="payment-badge compact ${record.paymentStatus === 'paid' ? 'paid' : record.paymentStatus === 'cancelled' ? 'cancelled' : 'pending'}">
-            ${record.paymentStatus === 'paid' ? 'Paid' : record.paymentStatus === 'cancelled' ? 'N/A' : 'Pending'}
+          <span class="payment-badge compact ${record.paymentStatus === 'paid' ? 'paid' : record.paymentStatus === 'cancelled' ? 'cancelled' : record.paymentStatus === 'no_charge' ? 'cancelled' : 'pending'}">
+            ${record.paymentStatus === 'paid' ? 'Paid' : record.paymentStatus === 'cancelled' ? 'N/A' : record.paymentStatus === 'no_charge' ? 'No Charge' : 'Pending'}
           </span>
         </div>
       `).join('');
@@ -253,8 +253,8 @@ export function generateAttendanceReportHtml(data: AttendanceReportData): string
           </span>
         </td>
         <td class="payment-cell">
-          <span class="payment-badge ${record.paymentStatus === 'paid' ? 'paid' : record.paymentStatus === 'cancelled' ? 'cancelled' : 'pending'}">
-            ${record.paymentStatus === 'paid' ? 'Paid' : record.paymentStatus === 'cancelled' ? 'N/A' : 'Pending'}
+          <span class="payment-badge ${record.paymentStatus === 'paid' ? 'paid' : record.paymentStatus === 'cancelled' ? 'cancelled' : record.paymentStatus === 'no_charge' ? 'cancelled' : 'pending'}">
+            ${record.paymentStatus === 'paid' ? 'Paid' : record.paymentStatus === 'cancelled' ? 'N/A' : record.paymentStatus === 'no_charge' ? 'No Charge' : 'Pending'}
           </span>
         </td>
       </tr>

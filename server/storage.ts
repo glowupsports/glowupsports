@@ -6549,6 +6549,11 @@ export const storage = {
       )) {
         continue;
       }
+      // Skip orphan debt_settlement transactions (from deleted packages)
+      // When a package is deleted, the purchase is expired but the settlement must also be skipped
+      if (tx.reason === "debt_settlement" && (!tx.packageId || !existingPackageIds.has(tx.packageId))) {
+        continue;
+      }
       
       // Skip transactions with null/invalid credit type - these are data corruption
       if (!tx.creditType) {
