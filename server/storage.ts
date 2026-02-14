@@ -6540,12 +6540,23 @@ export const storage = {
           continue;
         }
       }
-      // Orphan purchase credits (no packageId) - skip if reason is package-related
-      if (tx.amount > 0 && !tx.packageId && (tx.reason === "package_purchased" || tx.reason === "package_purchase")) {
+      // Orphan purchase/refund credits (no packageId) - skip if reason is package-related
+      // This catches ghost credits from deleted packages and orphaned refund transactions
+      if (tx.amount > 0 && !tx.packageId && (
+        tx.reason === "package_purchased" || 
+        tx.reason === "package_purchase" || 
+        tx.reason === "package_deleted_refund"
+      )) {
         continue;
       }
       
-      const creditType = (tx.creditType || "group") as keyof typeof balance;
+      // Skip transactions with null/invalid credit type - these are data corruption
+      if (!tx.creditType) {
+        console.warn(`[CreditBalance] Skipping transaction with null credit_type for player ${playerId}, reason: ${tx.reason}, amount: ${tx.amount}`);
+        continue;
+      }
+      
+      const creditType = tx.creditType as keyof typeof balance;
       if (balance[creditType] !== undefined) {
         balance[creditType] += tx.amount;
       }
