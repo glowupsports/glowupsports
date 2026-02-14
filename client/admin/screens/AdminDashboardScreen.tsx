@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from "react";
+import React, { useState, useMemo, useEffect, useRef } from "react";
 import {
   View,
   Text,
@@ -100,6 +100,7 @@ export default function AdminDashboardScreen() {
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [showWelcome, setShowWelcome] = useState(false);
   const { startTour, isActive } = useCoachMarks();
+  const hasStartedTourRef = useRef(false);
 
   const adminTourSteps = useMemo(() => [
     {
@@ -135,7 +136,8 @@ export default function AdminDashboardScreen() {
   });
 
   useEffect(() => {
-    if (!isLoading && operationsData && !isActive) {
+    if (!isLoading && operationsData && !isActive && !hasStartedTourRef.current) {
+      hasStartedTourRef.current = true;
       const timer = setTimeout(() => {
         startTour("admin_dashboard", adminTourSteps);
       }, 1500);

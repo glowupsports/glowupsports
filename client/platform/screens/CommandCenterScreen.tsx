@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from "react";
+import React, { useState, useMemo, useEffect, useRef } from "react";
 import { View, Text, StyleSheet, ScrollView, Pressable, Alert, Platform, ActivityIndicator, RefreshControl } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
@@ -97,6 +97,7 @@ export default function CommandCenterScreen() {
   const [refreshing, setRefreshing] = useState(false);
 
   const { startTour, isActive } = useCoachMarks();
+  const hasStartedTourRef = useRef(false);
 
   const { data: platformData, isLoading, refetch } = useQuery<PlatformDashboardData>({
     queryKey: ["/api/platform/dashboard/enhanced"],
@@ -124,13 +125,14 @@ export default function CommandCenterScreen() {
   ], []);
 
   useEffect(() => {
-    if (!isLoading && platformData && !isActive) {
+    if (!isLoading && platformData && !isActive && !hasStartedTourRef.current) {
+      hasStartedTourRef.current = true;
       const timer = setTimeout(() => {
         startTour("platform_dashboard", platformTourSteps);
       }, 1500);
       return () => clearTimeout(timer);
     }
-  }, [isLoading, platformData, isActive, startTour, platformTourSteps]);
+  }, [isLoading, platformData]);
 
   const onRefresh = async () => {
     setRefreshing(true);

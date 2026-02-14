@@ -1,4 +1,4 @@
-import React, { useCallback, useState, useEffect, useMemo } from "react";
+import React, { useCallback, useState, useEffect, useMemo, useRef } from "react";
 import { View, Text, StyleSheet, ScrollView, ActivityIndicator, RefreshControl, Pressable } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useFocusEffect, useNavigation } from "@react-navigation/native";
@@ -98,6 +98,7 @@ function PlayerHomeContent() {
   const { hasSeenScreen, startWalkthrough } = useWalkthrough();
   const [showWelcome, setShowWelcome] = useState(false);
   const { startTour, isActive } = useCoachMarks();
+  const hasStartedTourRef = useRef(false);
 
   const playerTourSteps = useMemo(() => [
     {
@@ -148,7 +149,8 @@ function PlayerHomeContent() {
   }, [dashboardData, hasSeenScreen, startWalkthrough]);
 
   useEffect(() => {
-    if (dashboardData && !isActive) {
+    if (dashboardData && !isActive && !hasStartedTourRef.current) {
+      hasStartedTourRef.current = true;
       const timer = setTimeout(() => {
         startTour("player_home", playerTourSteps);
       }, 2000);

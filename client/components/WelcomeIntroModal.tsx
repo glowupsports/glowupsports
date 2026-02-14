@@ -55,6 +55,7 @@ export function WelcomeIntroModal({
   onComplete,
 }: WelcomeIntroModalProps) {
   const [visible, setVisible] = useState(false);
+  const [checked, setChecked] = useState(false);
   const [currentIndex, setCurrentIndex] = useState(0);
   const scrollRef = useRef<ScrollView>(null);
   const buttonScale = useSharedValue(1);
@@ -72,7 +73,8 @@ export function WelcomeIntroModal({
         setVisible(true);
       }
     } catch (error) {
-      setVisible(true);
+    } finally {
+      setChecked(true);
     }
   };
 
@@ -135,7 +137,7 @@ export function WelcomeIntroModal({
 
   const isLastSlide = currentIndex === slides.length - 1;
 
-  if (!visible) return null;
+  if (!checked || !visible) return null;
 
   return (
     <Modal

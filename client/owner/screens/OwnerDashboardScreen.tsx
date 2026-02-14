@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from "react";
+import React, { useState, useMemo, useEffect, useRef } from "react";
 import {
   View,
   Text,
@@ -159,6 +159,7 @@ export default function OwnerDashboardScreen() {
   const [celebrationData, setCelebrationData] = useState({ title: "", description: "", icon: "trophy", xpReward: 0 });
 
   const { startTour, isActive } = useCoachMarks();
+  const hasStartedTourRef = useRef(false);
 
   const ownerTourSteps = useMemo(() => [
     {
@@ -390,7 +391,8 @@ export default function OwnerDashboardScreen() {
   ], [dashboardData, navigateToTab]);
 
   useEffect(() => {
-    if (!isLoading && dashboardData && !isActive) {
+    if (!isLoading && dashboardData && !isActive && !hasStartedTourRef.current) {
+      hasStartedTourRef.current = true;
       const timer = setTimeout(() => {
         startTour("owner_dashboard", ownerTourSteps);
       }, 1500);

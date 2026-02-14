@@ -492,6 +492,25 @@ export function CoachMarksProvider({ children }: { children: React.ReactNode }) 
   const [steps, setSteps] = useState<CoachMarkStep[]>([]);
   const [tourId, setTourId] = useState<string>("");
   const targetsRef = useRef<Map<string, React.RefObject<View>>>(new Map());
+  const completedToursRef = useRef<Set<string>>(new Set());
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const allKeys = await AsyncStorage.getAllKeys();
+        const tourKeys = allKeys.filter((k) => k.startsWith("@glow_coach_marks_completed_"));
+        if (tourKeys.length > 0) {
+          const pairs = await AsyncStorage.multiGet(tourKeys);
+          pairs.forEach(([key, value]) => {
+            if (value === "true") {
+              const tourName = key.replace("@glow_coach_marks_completed_", "");
+              completedToursRef.current.add(tourName);
+            }
+          });
+        }
+      } catch {}
+    })();
+  }, []);
 
   const registerTarget = useCallback((id: string, ref: React.RefObject<View>) => {
     targetsRef.current.set(id, ref);
@@ -501,16 +520,8 @@ export function CoachMarksProvider({ children }: { children: React.ReactNode }) 
     targetsRef.current.delete(id);
   }, []);
 
-  const checkTourCompleted = useCallback(async (id: string): Promise<boolean> => {
-    try {
-      const val = await AsyncStorage.getItem(`@glow_coach_marks_completed_${id}`);
-      return val === "true";
-    } catch {
-      return false;
-    }
-  }, []);
-
   const markTourCompleted = useCallback(async (id: string) => {
+    completedToursRef.current.add(id);
     try {
       await AsyncStorage.setItem(`@glow_coach_marks_completed_${id}`, "true");
     } catch {
@@ -518,15 +529,16 @@ export function CoachMarksProvider({ children }: { children: React.ReactNode }) 
   }, []);
 
   const startTour = useCallback(async (id: string, tourSteps: CoachMarkStep[]) => {
-    const completed = await checkTourCompleted(id);
-    if (completed) return;
+    if (completedToursRef.current.has(id)) return;
+
+    completedToursRef.current.add(id);
 
     setTourId(id);
     setSteps(tourSteps);
     setCurrentStepIndex(0);
     setIsActive(true);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-  }, [checkTourCompleted]);
+  }, []);
 
   const endTour = useCallback(() => {
     if (tourId) {

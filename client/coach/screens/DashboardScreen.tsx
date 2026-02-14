@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useEffect, useCallback } from "react";
+import React, { useMemo, useState, useEffect, useCallback, useRef } from "react";
 import {
   View,
   Text,
@@ -120,6 +120,7 @@ export default function DashboardScreen() {
   const [showHelpCenter, setShowHelpCenter] = useState(false);
 
   const { startTour, isActive } = useCoachMarks();
+  const hasStartedTourRef = useRef(false);
 
   const coachTourSteps = useMemo(() => [
     {
@@ -155,7 +156,8 @@ export default function DashboardScreen() {
   ], []);
 
   useEffect(() => {
-    if (!isLoading && calendarData && !isActive) {
+    if (!isLoading && calendarData && !isActive && !hasStartedTourRef.current) {
+      hasStartedTourRef.current = true;
       const timer = setTimeout(() => {
         startTour("coach_dashboard", coachTourSteps);
       }, 1500);
