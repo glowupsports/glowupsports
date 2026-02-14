@@ -410,6 +410,7 @@ function setupErrorHandler(app: express.Application) {
         log("[DebtRepair] Cancelling debts for players with no packages...");
         const debtResult = await cancelDebtsForPlayersWithNoPackages();
         log(`[DebtRepair] Complete: ${debtResult.playersFixed} players fixed, ${debtResult.debtsCleared} debts cleared`);
+        // NOTE: This repair is idempotent - safe to run on every startup
       } catch (error) {
         console.error("[StartupRepair] Failed:", error);
       }
