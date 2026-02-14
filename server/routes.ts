@@ -9667,9 +9667,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const now = dateParam ? new Date(dateParam) : new Date(); const DUBAI_OFFSET = 4; const dubaiNow = new Date(now.getTime() + DUBAI_OFFSET * 60 * 60 * 1000);
       console.log('[AttendanceReport] Current time (UTC):', now.toISOString());
 
-      // Fetch credit transactions to distinguish real payments from unsettled debts
+      // Fetch credit transactions to determine how many sessions are truly paid
       const txIds = playerRecords.map(r => r.creditTransactionId).filter(Boolean) as string[];
-      let unsettledDebtIds = new Set<string>();
+      let paidTxIds = new Set<string>();
       if (txIds.length > 0) {
         const txDetails = await db.select({
           id: creditTransactions.id,
@@ -9680,33 +9680,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
           .where(inArray(creditTransactions.id, txIds));
         for (const tx of txDetails) {
           const isDebtReason = tx.reason === "session_debt" || tx.reason === "session_join_debt" || tx.reason === "session_unpaid";
-          if (isDebtReason) {
+          if (!isDebtReason) {
+            paidTxIds.add(tx.id);
+          } else {
             const meta = tx.metadata as Record<string, any> | null;
-            const isSettled = meta?.settled === true || meta?.settledByPackage;
-            if (!isSettled) {
-              unsettledDebtIds.add(tx.id);
+            if (meta?.settled === true || meta?.settledByPackage) {
+              paidTxIds.add(tx.id);
             }
           }
         }
       }
-      
-      const records = playerRecords
+
+      // Build records first without payment status
+      const rawRecords = playerRecords
         .map(record => {
           const sessionInfo = record.sessionId ? sessionMap[record.sessionId] : null;
           if (!sessionInfo) return null;
           
           const sessionTime = new Date(sessionInfo.startTime);
-          
-          // Only include sessions that have already started (past sessions)
-          // Session startTime is stored in UTC, so compare directly
-          if (sessionTime > now) {
-            console.log('[AttendanceReport] Filtering out future session:', sessionTime.toISOString());
-            return null;
-          }
+          if (sessionTime > now) return null;
 
-          // Determine payment: "paid" if credit deducted from package OR debt was settled
-          const isUnsettledDebt = record.creditTransactionId && unsettledDebtIds.has(record.creditTransactionId);
-          const isPaid = record.creditDeductedAt && !isUnsettledDebt;
+          const isCancelled = sessionInfo.status === "cancelled";
+          const isNoCharge = record.attendanceStatus === "vacation" || record.attendanceStatus === "holiday";
+          const isPaidByTx = record.creditDeductedAt && record.creditTransactionId && paidTxIds.has(record.creditTransactionId);
           
           return {
             sessionId: record.sessionId,
@@ -9714,17 +9710,49 @@ export async function registerRoutes(app: Express): Promise<Server> {
             startTime: sessionInfo.startTime.toISOString(),
             endTime: sessionInfo.endTime.toISOString(),
             sessionType: sessionInfo.sessionType,
-            status: sessionInfo.status === "cancelled" ? "cancelled" : (record.attendanceStatus || null),
+            status: isCancelled ? "cancelled" : (record.attendanceStatus || null),
             lateMinutes: record.lateMinutes,
             seriesId: sessionInfo.seriesId,
-            paymentStatus: sessionInfo.status === "cancelled" ? "cancelled" 
-              : (record.attendanceStatus === "vacation" || record.attendanceStatus === "holiday") ? "no_charge"
-              : isPaid ? "paid" 
-              : "pending",
+            _isCancelled: isCancelled,
+            _isNoCharge: isNoCharge,
+            _isPaidByTx: isPaidByTx,
+            _creditDeductedAt: record.creditDeductedAt,
           };
         })
-        .filter(Boolean)
-        .sort((a, b) => new Date(b!.date).getTime() - new Date(a!.date).getTime()) as any[];
+        .filter(Boolean) as any[];
+
+      // Count total paid sessions (direct package + settled debts)
+      const totalPaidCount = rawRecords.filter(r => !r._isCancelled && !r._isNoCharge && r._isPaidByTx).length;
+      const totalCreditDeductedCount = rawRecords.filter(r => !r._isCancelled && !r._isNoCharge && r._creditDeductedAt).length;
+      const paidCount = Math.max(totalPaidCount, 0);
+
+      // Sort chargeable sessions by date (oldest first) to assign payment chronologically
+      const chargeableRecords = rawRecords
+        .filter(r => !r._isCancelled && !r._isNoCharge)
+        .sort((a: any, b: any) => new Date(a.date).getTime() - new Date(b.date).getTime());
+
+      // Oldest sessions are "paid", newest are "pending"
+      const paidSessionIds = new Set<string>();
+      for (let i = 0; i < Math.min(paidCount, chargeableRecords.length); i++) {
+        paidSessionIds.add(chargeableRecords[i].sessionId);
+      }
+
+      // Build final records with chronologically consistent payment status
+      const records = rawRecords.map((r: any) => ({
+        sessionId: r.sessionId,
+        date: r.date,
+        startTime: r.startTime,
+        endTime: r.endTime,
+        sessionType: r.sessionType,
+        status: r.status,
+        lateMinutes: r.lateMinutes,
+        seriesId: r.seriesId,
+        paymentStatus: r._isCancelled ? "cancelled"
+          : r._isNoCharge ? "no_charge"
+          : paidSessionIds.has(r.sessionId) ? "paid"
+          : "pending",
+      }))
+      .sort((a: any, b: any) => new Date(b.date).getTime() - new Date(a.date).getTime());
       
       console.log('[AttendanceReport] Total records after filtering:', records.length);
 
