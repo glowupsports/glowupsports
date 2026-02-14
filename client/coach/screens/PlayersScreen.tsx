@@ -752,7 +752,7 @@ export default function PlayersScreen() {
           />
         )
       ) : (
-        <CoachMarkTarget id="players_list">
+        <CoachMarkTarget id="players_list" style={{ flex: 1 }}>
         <ScrollView style={styles.playerList} showsVerticalScrollIndicator={false}>
           {filteredPlayers.map((player) => (
             <GamingPlayerCard 

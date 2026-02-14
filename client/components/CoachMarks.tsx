@@ -470,7 +470,7 @@ interface CoachMarkTargetProps {
   children: React.ReactNode;
 }
 
-export function CoachMarkTarget({ id, children }: CoachMarkTargetProps) {
+export function CoachMarkTarget({ id, children, style }: CoachMarkTargetProps & { style?: any }) {
   const viewRef = useRef<View>(null);
   const { registerTarget, unregisterTarget } = useCoachMarks();
 
@@ -480,7 +480,7 @@ export function CoachMarkTarget({ id, children }: CoachMarkTargetProps) {
   }, [id]);
 
   return (
-    <View ref={viewRef} collapsable={false}>
+    <View ref={viewRef} collapsable={false} style={style}>
       {children}
     </View>
   );
