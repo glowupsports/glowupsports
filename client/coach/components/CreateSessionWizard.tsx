@@ -2221,6 +2221,7 @@ export default function CreateSessionWizard({
 
         {/* Slide Content */}
         <KeyboardAwareScrollViewCompat 
+          style={{ flex: 1 }}
           contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}
         >
@@ -2651,6 +2652,7 @@ const styles = StyleSheet.create({
   scrollContent: {
     flexGrow: 1,
     paddingHorizontal: Spacing.lg,
+    paddingBottom: Spacing.xl,
   },
   slideContent: {
     flexGrow: 1,

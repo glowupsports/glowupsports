@@ -936,6 +936,7 @@ function PlayerDetailView({
   const [isExportingAttendanceReport, setIsExportingAttendanceReport] = useState(false);
   const [showAllHistory, setShowAllHistory] = useState(false);
   const [expandedSeriesIds, setExpandedSeriesIds] = useState<Set<string>>(new Set());
+  const [pillarProgressExpanded, setPillarProgressExpanded] = useState(false);
   const [showDeepAssessment, setShowDeepAssessment] = useState(false);
   const [editingAttendance, setEditingAttendance] = useState<AttendanceHistoryRecord | null>(null);
   const [isUpdatingAttendance, setIsUpdatingAttendance] = useState(false);
@@ -1475,7 +1476,7 @@ function PlayerDetailView({
 
         {pillarProgress ? (
           <View style={styles.levelReadinessCard}>
-            <View style={styles.levelReadinessHeader}>
+            <Pressable onPress={() => setPillarProgressExpanded(!pillarProgressExpanded)} style={styles.levelReadinessHeader}>
               <View style={[styles.levelReadinessIcon, { backgroundColor: Colors.dark.xpCyan + "25", borderColor: Colors.dark.xpCyan + "40" }]}>
                 <Ionicons name="stats-chart" size={18} color={Colors.dark.xpCyan} />
               </View>
@@ -1491,9 +1492,10 @@ function PlayerDetailView({
                   <Text style={styles.xpBadgeText}>{xpData.totalXp} XP</Text>
                 </View>
               ) : null}
-            </View>
+              <Ionicons name={pillarProgressExpanded ? "chevron-up" : "chevron-down"} size={18} color={Colors.dark.tabIconDefault} style={{ marginLeft: 4 }} />
+            </Pressable>
             
-            <View style={styles.pillarGrid}>
+            {pillarProgressExpanded ? <><View style={styles.pillarGrid}>
               {pillarProgress.pillars.map((pillar) => {
                 const pillarColors: Record<string, string> = {
                   TECHNIQUE: Colors.dark.sessionPrivate,
@@ -1547,6 +1549,7 @@ function PlayerDetailView({
                 </Text>
               </View>
             ) : null}
+            </> : null}
           </View>
         ) : null}
 
