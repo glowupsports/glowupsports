@@ -9666,6 +9666,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const dateParam = req.query.date as string | undefined;
       const now = dateParam ? new Date(dateParam) : new Date(); const DUBAI_OFFSET = 4; const dubaiNow = new Date(now.getTime() + DUBAI_OFFSET * 60 * 60 * 1000);
       console.log('[AttendanceReport] Current time (UTC):', now.toISOString());
+
+      // Fetch credit transactions to distinguish real payments from debts
+      const txIds = playerRecords.map(r => r.creditTransactionId).filter(Boolean) as string[];
+      let debtTransactionIds = new Set<string>();
+      if (txIds.length > 0) {
+        const txDetails = await db.select({
+          id: creditTransactions.id,
+          reason: creditTransactions.reason,
+          packageId: creditTransactions.packageId,
+        }).from(creditTransactions)
+          .where(inArray(creditTransactions.id, txIds));
+        for (const tx of txDetails) {
+          const isDebt = tx.reason === "session_debt" || tx.reason === "session_join_debt" || tx.reason === "session_unpaid";
+          const noPackage = !tx.packageId;
+          if (isDebt || noPackage) {
+            debtTransactionIds.add(tx.id);
+          }
+        }
+      }
       
       const records = playerRecords
         .map(record => {
@@ -9680,6 +9699,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
             console.log('[AttendanceReport] Filtering out future session:', sessionTime.toISOString());
             return null;
           }
+
+          // Determine payment: "paid" only if credit was deducted from a real package (not debt)
+          const isDebtPayment = record.creditTransactionId && debtTransactionIds.has(record.creditTransactionId);
+          const isPaid = record.creditDeductedAt && !isDebtPayment;
           
           return {
             sessionId: record.sessionId,
@@ -9692,7 +9715,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             seriesId: sessionInfo.seriesId,
             paymentStatus: sessionInfo.status === "cancelled" ? "cancelled" 
               : (record.attendanceStatus === "vacation" || record.attendanceStatus === "holiday") ? "no_charge"
-              : record.creditDeductedAt ? "paid" 
+              : isPaid ? "paid" 
               : "pending",
           };
         })
