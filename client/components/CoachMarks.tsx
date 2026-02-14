@@ -529,15 +529,7 @@ export function CoachMarksProvider({ children }: { children: React.ReactNode }) 
   }, []);
 
   const startTour = useCallback(async (id: string, tourSteps: CoachMarkStep[]) => {
-    if (completedToursRef.current.has(id)) return;
-
-    completedToursRef.current.add(id);
-
-    setTourId(id);
-    setSteps(tourSteps);
-    setCurrentStepIndex(0);
-    setIsActive(true);
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    return;
   }, []);
 
   const endTour = useCallback(() => {
