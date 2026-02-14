@@ -394,7 +394,7 @@ function setupErrorHandler(app: express.Application) {
       
       // Run bulk credit repair on startup to fix any missing charges
       try {
-        const { repairAllPlayerCredits, auditAllPlayerCredits, repairGroupSessionTypes } = await import("./storage");
+        const { repairAllPlayerCredits, auditAllPlayerCredits, repairGroupSessionTypes, cancelDebtsForPlayersWithNoPackages } = await import("./storage");
         
         log("[RepairGroupTypes] Fixing group sessions wrongly converted...");
         const groupResult = await repairGroupSessionTypes();
@@ -406,6 +406,10 @@ function setupErrorHandler(app: express.Application) {
         
         log("[CreditAudit] Running ghost credit audit for ALL players...");
         await auditAllPlayerCredits();
+        
+        log("[DebtRepair] Cancelling debts for players with no packages...");
+        const debtResult = await cancelDebtsForPlayersWithNoPackages();
+        log(`[DebtRepair] Complete: ${debtResult.playersFixed} players fixed, ${debtResult.debtsCleared} debts cleared`);
       } catch (error) {
         console.error("[StartupRepair] Failed:", error);
       }
