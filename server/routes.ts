@@ -9667,32 +9667,40 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const now = dateParam ? new Date(dateParam) : new Date(); const DUBAI_OFFSET = 4; const dubaiNow = new Date(now.getTime() + DUBAI_OFFSET * 60 * 60 * 1000);
       console.log('[AttendanceReport] Current time (UTC):', now.toISOString());
 
-      // Fetch credit transactions to determine how many sessions are truly paid
-      const txIds = playerRecords.map(r => r.creditTransactionId).filter(Boolean) as string[];
-      let paidTxIds = new Set<string>();
-      if (txIds.length > 0) {
-        const txDetails = await db.select({
-          id: creditTransactions.id,
+      // Look up ALL credit transactions for this player's sessions to determine payment
+      // This covers all paths: direct package deductions, settled debts, retrospective settlements
+      const allSessionIds = playerRecords.map(r => r.sessionId).filter(Boolean) as string[];
+      const paidSessionIdSet = new Set<string>();
+      
+      if (allSessionIds.length > 0) {
+        const sessionTxs = await db.select({
+          sessionId: creditTransactions.sessionId,
           reason: creditTransactions.reason,
           packageId: creditTransactions.packageId,
           metadata: creditTransactions.metadata,
         }).from(creditTransactions)
-          .where(inArray(creditTransactions.id, txIds));
-        for (const tx of txDetails) {
+          .where(and(
+            eq(creditTransactions.playerId, id),
+            inArray(creditTransactions.sessionId, allSessionIds),
+            eq(creditTransactions.type, "debit"),
+          ));
+        
+        for (const tx of sessionTxs) {
+          if (!tx.sessionId) continue;
           const isDebtReason = tx.reason === "session_debt" || tx.reason === "session_join_debt" || tx.reason === "session_unpaid";
-          if (!isDebtReason) {
-            paidTxIds.add(tx.id);
-          } else {
+          
+          if (!isDebtReason && tx.packageId) {
+            paidSessionIdSet.add(tx.sessionId);
+          } else if (isDebtReason) {
             const meta = tx.metadata as Record<string, any> | null;
             if (meta?.settled === true || meta?.settledByPackage) {
-              paidTxIds.add(tx.id);
+              paidSessionIdSet.add(tx.sessionId);
             }
           }
         }
       }
-
-      // Build records first without payment status
-      const rawRecords = playerRecords
+      
+      const records = playerRecords
         .map(record => {
           const sessionInfo = record.sessionId ? sessionMap[record.sessionId] : null;
           if (!sessionInfo) return null;
@@ -9702,7 +9710,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
           const isCancelled = sessionInfo.status === "cancelled";
           const isNoCharge = record.attendanceStatus === "vacation" || record.attendanceStatus === "holiday";
-          const isPaidByTx = record.creditDeductedAt && record.creditTransactionId && paidTxIds.has(record.creditTransactionId);
+          const isPaid = record.sessionId && paidSessionIdSet.has(record.sessionId);
           
           return {
             sessionId: record.sessionId,
@@ -9713,46 +9721,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
             status: isCancelled ? "cancelled" : (record.attendanceStatus || null),
             lateMinutes: record.lateMinutes,
             seriesId: sessionInfo.seriesId,
-            _isCancelled: isCancelled,
-            _isNoCharge: isNoCharge,
-            _isPaidByTx: isPaidByTx,
-            _creditDeductedAt: record.creditDeductedAt,
+            paymentStatus: isCancelled ? "cancelled"
+              : isNoCharge ? "no_charge"
+              : isPaid ? "paid"
+              : "pending",
           };
         })
-        .filter(Boolean) as any[];
-
-      // Count total paid sessions (direct package + settled debts)
-      const totalPaidCount = rawRecords.filter(r => !r._isCancelled && !r._isNoCharge && r._isPaidByTx).length;
-      const totalCreditDeductedCount = rawRecords.filter(r => !r._isCancelled && !r._isNoCharge && r._creditDeductedAt).length;
-      const paidCount = Math.max(totalPaidCount, 0);
-
-      // Sort chargeable sessions by date (oldest first) to assign payment chronologically
-      const chargeableRecords = rawRecords
-        .filter(r => !r._isCancelled && !r._isNoCharge)
-        .sort((a: any, b: any) => new Date(a.date).getTime() - new Date(b.date).getTime());
-
-      // Oldest sessions are "paid", newest are "pending"
-      const paidSessionIds = new Set<string>();
-      for (let i = 0; i < Math.min(paidCount, chargeableRecords.length); i++) {
-        paidSessionIds.add(chargeableRecords[i].sessionId);
-      }
-
-      // Build final records with chronologically consistent payment status
-      const records = rawRecords.map((r: any) => ({
-        sessionId: r.sessionId,
-        date: r.date,
-        startTime: r.startTime,
-        endTime: r.endTime,
-        sessionType: r.sessionType,
-        status: r.status,
-        lateMinutes: r.lateMinutes,
-        seriesId: r.seriesId,
-        paymentStatus: r._isCancelled ? "cancelled"
-          : r._isNoCharge ? "no_charge"
-          : paidSessionIds.has(r.sessionId) ? "paid"
-          : "pending",
-      }))
-      .sort((a: any, b: any) => new Date(b.date).getTime() - new Date(a.date).getTime());
+        .filter(Boolean)
+        .sort((a: any, b: any) => new Date(b!.date).getTime() - new Date(a!.date).getTime()) as any[];
       
       console.log('[AttendanceReport] Total records after filtering:', records.length);
 
