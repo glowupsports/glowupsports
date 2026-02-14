@@ -2653,7 +2653,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.lg,
   },
   slideContent: {
-    flex: 1,
+    flexGrow: 1,
+    flexShrink: 0,
   },
   slideSubtitle: {
     ...Typography.body,
