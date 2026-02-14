@@ -172,9 +172,10 @@ export default function BootScreen({ onBootComplete }: BootScreenProps) {
       setProgress(25);
 
       if (currentRole === "coach") {
+        const todayStr = new Date().toISOString().split("T")[0];
         prefetchPromises.push(
           queryClient.prefetchQuery({
-            queryKey: ["/api/coach/calendar"],
+            queryKey: [`/api/coach/calendar?date=${todayStr}&view=week`],
             staleTime: 2 * 60 * 1000,
           }),
           queryClient.prefetchQuery({

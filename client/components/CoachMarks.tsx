@@ -493,6 +493,7 @@ export function CoachMarksProvider({ children }: { children: React.ReactNode }) 
   const [tourId, setTourId] = useState<string>("");
   const targetsRef = useRef<Map<string, React.RefObject<View>>>(new Map());
   const completedToursRef = useRef<Set<string>>(new Set());
+  const readyRef = useRef(false);
 
   useEffect(() => {
     (async () => {
@@ -509,6 +510,7 @@ export function CoachMarksProvider({ children }: { children: React.ReactNode }) 
           });
         }
       } catch {}
+      readyRef.current = true;
     })();
   }, []);
 
@@ -529,7 +531,16 @@ export function CoachMarksProvider({ children }: { children: React.ReactNode }) 
   }, []);
 
   const startTour = useCallback(async (id: string, tourSteps: CoachMarkStep[]) => {
-    return;
+    if (!readyRef.current) return;
+    if (completedToursRef.current.has(id)) return;
+
+    completedToursRef.current.add(id);
+
+    setTourId(id);
+    setSteps(tourSteps);
+    setCurrentStepIndex(0);
+    setIsActive(true);
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
   }, []);
 
   const endTour = useCallback(() => {
