@@ -9667,21 +9667,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const now = dateParam ? new Date(dateParam) : new Date(); const DUBAI_OFFSET = 4; const dubaiNow = new Date(now.getTime() + DUBAI_OFFSET * 60 * 60 * 1000);
       console.log('[AttendanceReport] Current time (UTC):', now.toISOString());
 
-      // Fetch credit transactions to distinguish real payments from debts
+      // Fetch credit transactions to distinguish real payments from unsettled debts
       const txIds = playerRecords.map(r => r.creditTransactionId).filter(Boolean) as string[];
-      let debtTransactionIds = new Set<string>();
+      let unsettledDebtIds = new Set<string>();
       if (txIds.length > 0) {
         const txDetails = await db.select({
           id: creditTransactions.id,
           reason: creditTransactions.reason,
           packageId: creditTransactions.packageId,
+          metadata: creditTransactions.metadata,
         }).from(creditTransactions)
           .where(inArray(creditTransactions.id, txIds));
         for (const tx of txDetails) {
-          const isDebt = tx.reason === "session_debt" || tx.reason === "session_join_debt" || tx.reason === "session_unpaid";
-          const noPackage = !tx.packageId;
-          if (isDebt || noPackage) {
-            debtTransactionIds.add(tx.id);
+          const isDebtReason = tx.reason === "session_debt" || tx.reason === "session_join_debt" || tx.reason === "session_unpaid";
+          if (isDebtReason) {
+            const meta = tx.metadata as Record<string, any> | null;
+            const isSettled = meta?.settled === true || meta?.settledByPackage;
+            if (!isSettled) {
+              unsettledDebtIds.add(tx.id);
+            }
           }
         }
       }
@@ -9700,9 +9704,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
             return null;
           }
 
-          // Determine payment: "paid" only if credit was deducted from a real package (not debt)
-          const isDebtPayment = record.creditTransactionId && debtTransactionIds.has(record.creditTransactionId);
-          const isPaid = record.creditDeductedAt && !isDebtPayment;
+          // Determine payment: "paid" if credit deducted from package OR debt was settled
+          const isUnsettledDebt = record.creditTransactionId && unsettledDebtIds.has(record.creditTransactionId);
+          const isPaid = record.creditDeductedAt && !isUnsettledDebt;
           
           return {
             sessionId: record.sessionId,
