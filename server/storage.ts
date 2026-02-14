@@ -7038,6 +7038,13 @@ export const storage = {
       if (tx.amount > 0 && !tx.packageId && (tx.reason === "package_purchased" || tx.reason === "package_purchase")) {
         continue;
       }
+      // Skip orphan debt_settlement transactions (from deleted packages)
+      if (tx.reason === "debt_settlement") {
+        const playerPkgIds = existingPackageIdsByPlayer[tx.playerId];
+        if (!tx.packageId || !playerPkgIds || !playerPkgIds.has(tx.packageId)) {
+          continue;
+        }
+      }
       
       const creditType = (tx.creditType || "group") as "group" | "semi_private" | "private";
       if (result[tx.playerId] && result[tx.playerId][creditType] !== undefined) {
