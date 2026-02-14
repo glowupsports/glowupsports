@@ -2245,7 +2245,7 @@ const styles = StyleSheet.create({
   },
   datePickerCell: {
     width: `${100 / 7}%`,
-    aspectRatio: 1,
+    height: 40,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -2632,7 +2632,7 @@ const styles = StyleSheet.create({
   },
   flexibleDayCell: {
     width: `${100 / 7}%`,
-    aspectRatio: 1,
+    height: 40,
     alignItems: "center",
     justifyContent: "center",
   },

@@ -2851,7 +2851,7 @@ const styles = StyleSheet.create({
   },
   flexibleDayCell: {
     width: `${100 / 7}%`,
-    aspectRatio: 1,
+    height: 40,
     justifyContent: "center",
     alignItems: "center",
     borderRadius: BorderRadius.full,
@@ -3910,7 +3910,7 @@ const styles = StyleSheet.create({
   },
   calendarDayCell: {
     width: "14.28%",
-    aspectRatio: 1,
+    height: 40,
     alignItems: "center",
     justifyContent: "center",
   },
