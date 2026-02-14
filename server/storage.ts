@@ -2136,25 +2136,14 @@ export const storage = {
     // Use transaction to cascade delete all dependent records
     // Dependency chain: packages → invoices → payments → refunds, also series_players.linked_package_id
     await db.transaction(async (tx) => {
-      // REFUND: Create a credit refund transaction to restore used credits back to player's balance
+      // REFUND: Only refund if there are genuinely remaining unused credits
+      // SAFETY: Skip refund entirely - deleting a package removes its purchase transaction too,
+      // so adding a refund on top creates ghost credits (the purchase credits vanish when the
+      // package row is deleted, but the refund transaction persists with packageId: null).
+      // The debt restoration below already handles re-opening any settled debts.
       if (creditsUsed > 0 && pkg.playerId) {
-        await tx.insert(creditTransactions).values({
-          id: crypto.randomUUID(),
-          playerId: pkg.playerId,
-          packageId: null,
-          amount: creditsUsed,
-          type: pkg.creditType || "group",
-          reason: "package_deleted_refund",
-          metadata: {
-            deletedPackageId: id,
-            packageName: pkg.packageName || "Unknown",
-            totalCredits: pkg.totalCredits,
-            creditsRefunded: creditsUsed,
-            refundedAt: new Date().toISOString(),
-          },
-          createdAt: new Date(),
-        });
-        console.log(`[PackageDelete] Refunded ${creditsUsed} ${pkg.creditType || "group"} credits to player ${pkg.playerId} for deleted package ${id}`);
+        const validCreditType = pkg.creditType || "group";
+        console.log(`[PackageDelete] Package had ${creditsUsed} credits used (type: ${validCreditType}). Skipping refund to prevent ghost credits - debts will be restored separately.`);
       }
 
       // IMPORTANT: Restore any debts that were settled by this package
