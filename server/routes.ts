@@ -9874,23 +9874,36 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Also find completed sessions from series the player belongs to that are missing sessionPlayers records
       // This handles cases where "Add Extra Lesson" created sessions without proper sessionPlayers records
-      const playerSeriesIds = await db.select({ seriesId: seriesPlayers.seriesId })
+      // CRITICAL: Only include sessions that happened AFTER the player joined the series
+      const playerSeriesData = await db.select({ 
+        seriesId: seriesPlayers.seriesId,
+        joinedAt: seriesPlayers.createdAt,
+      })
         .from(seriesPlayers)
         .where(and(eq(seriesPlayers.playerId, playerId), eq(seriesPlayers.status, "active")));
       
-      const seriesIdList = playerSeriesIds.map(s => s.seriesId).filter(Boolean) as string[];
+      const seriesIdList = playerSeriesData.map(s => s.seriesId).filter(Boolean) as string[];
+      const seriesJoinDates = new Map(playerSeriesData.map(s => [s.seriesId, s.joinedAt]));
       const existingSessionIds = new Set(sessionPlayerRecords.map(r => r.sessionId));
       
       let orphanedCompletedSessions: { sessionId: string; sessionStatus: string }[] = [];
       if (seriesIdList.length > 0) {
-        const seriesSessions = await db.select({ id: sessions.id, status: sessions.status })
+        const seriesSessions = await db.select({ id: sessions.id, status: sessions.status, seriesId: sessions.seriesId, startTime: sessions.startTime })
           .from(sessions)
           .where(and(
             inArray(sessions.seriesId, seriesIdList),
             eq(sessions.status, "completed")
           ));
         orphanedCompletedSessions = seriesSessions
-          .filter(s => !existingSessionIds.has(s.id))
+          .filter(s => {
+            if (existingSessionIds.has(s.id)) return false;
+            // Only include sessions that occurred AFTER the player joined the series
+            const joinDate = s.seriesId ? seriesJoinDates.get(s.seriesId) : null;
+            if (joinDate && s.startTime) {
+              return new Date(s.startTime) >= new Date(joinDate);
+            }
+            return false;
+          })
           .map(s => ({ sessionId: s.id, sessionStatus: s.status }));
       }
 
