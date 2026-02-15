@@ -11749,6 +11749,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       const updated = await storage.updateCoachingSeries(id, updates);
+
+      if (updates.courtId) {
+        const seriesSessions = await db.select({ id: sessions.id })
+          .from(sessions)
+          .where(eq(sessions.seriesId, id));
+        if (seriesSessions.length > 0) {
+          await db.update(sessions)
+            .set({ courtId: updates.courtId })
+            .where(eq(sessions.seriesId, id));
+          console.log(`[SeriesUpdate] Updated court for ${seriesSessions.length} sessions in series ${id}`);
+        }
+      }
+
       res.json(updated);
     } catch (error) {
       console.error("Error updating coaching series:", error);

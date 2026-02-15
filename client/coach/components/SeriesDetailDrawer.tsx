@@ -112,6 +112,7 @@ interface SeriesDetail {
   maxPlayers: number;
   xpPerSession: number;
   locationName?: string;
+  courtId?: string | null;
   courtName?: string;
   players: Player[];
   sessions: SessionInstance[];
@@ -1027,6 +1028,25 @@ export default function SeriesDetailDrawer({
   const [showExtendModal, setShowExtendModal] = useState(false);
   const [weeksToExtend, setWeeksToExtend] = useState(4);
   
+  // Court change
+  const [showSeriesCourtPicker, setShowSeriesCourtPicker] = useState(false);
+
+  const changeSeriesCourtMutation = useMutation({
+    mutationFn: async (newCourtId: string) => {
+      return apiRequest("PATCH", `/api/coach/series/${seriesId}`, { courtId: newCourtId });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [`/api/coach/series/${seriesId}`] });
+      queryClient.invalidateQueries({ queryKey: ["/api/coach/calendar"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/coach/series"] });
+      setShowSeriesCourtPicker(false);
+      Alert.alert("Court Updated", "All sessions in this class have been moved to the new court.");
+    },
+    onError: (err: any) => {
+      Alert.alert("Error", err.message || "Failed to change court");
+    },
+  });
+
   // Extra lesson modal - 3-step wizard
   const [showExtraLessonModal, setShowExtraLessonModal] = useState(false);
   const [extraLessonStep, setExtraLessonStep] = useState(1); // 1=Court, 2=Date, 3=Time
@@ -1041,7 +1061,7 @@ export default function SeriesDetailDrawer({
   // Fetch courts for the academy
   const { data: courtsData } = useQuery<{ id: string; name: string; color: string }[]>({
     queryKey: ["/api/courts"],
-    enabled: showExtraLessonModal,
+    enabled: visible,
   });
   
   // Fetch sessions for selected court and date to show busy slots
@@ -1337,13 +1357,41 @@ export default function SeriesDetailDrawer({
             <Ionicons name="time-outline" size={16} color={Colors.dark.textMuted} />
             <Text style={styles.infoText}>{series.duration} minutes</Text>
           </View>
-          {series.locationName ? (
-            <View style={styles.infoRow}>
-              <Ionicons name="location-outline" size={16} color={Colors.dark.textMuted} />
-              <Text style={styles.infoText}>
-                {series.locationName}
-                {series.courtName ? ` - ${series.courtName}` : ""}
-              </Text>
+          <Pressable style={styles.infoRow} onPress={() => setShowSeriesCourtPicker(!showSeriesCourtPicker)}>
+            <Ionicons name="location-outline" size={16} color={Colors.dark.textMuted} />
+            <Text style={styles.infoText}>
+              {series.locationName ? series.locationName : ""}
+              {series.courtName ? `${series.locationName ? " - " : ""}${series.courtName}` : "No court assigned"}
+            </Text>
+            <Ionicons name="pencil-outline" size={14} color={Colors.dark.disabled} style={{ marginLeft: 6 }} />
+          </Pressable>
+          {showSeriesCourtPicker && courtsData && courtsData.length > 0 ? (
+            <View style={{ backgroundColor: "rgba(255,255,255,0.05)", borderRadius: 8, padding: 12, marginTop: 4 }}>
+              <Text style={{ ...Typography.caption, color: Colors.dark.textMuted, marginBottom: 8, textTransform: "uppercase", letterSpacing: 1 }}>Change Court for All Sessions</Text>
+              {courtsData.map((c) => (
+                <Pressable
+                  key={c.id}
+                  style={{ flexDirection: "row", alignItems: "center", gap: 8, paddingVertical: 8, paddingHorizontal: 8, borderRadius: 6, ...(c.id === series.courtId ? { backgroundColor: "rgba(0, 255, 135, 0.1)" } : {}) }}
+                  onPress={() => {
+                    if (c.id !== series.courtId) {
+                      changeSeriesCourtMutation.mutate(c.id);
+                    } else {
+                      setShowSeriesCourtPicker(false);
+                    }
+                  }}
+                  disabled={changeSeriesCourtMutation.isPending}
+                >
+                  <Ionicons
+                    name={c.id === series.courtId ? "radio-button-on" : "radio-button-off"}
+                    size={18}
+                    color={c.id === series.courtId ? Colors.dark.primary : Colors.dark.disabled}
+                  />
+                  <Text style={{ ...Typography.body, color: c.id === series.courtId ? Colors.dark.primary : Colors.dark.text }}>{c.name}</Text>
+                </Pressable>
+              ))}
+              {changeSeriesCourtMutation.isPending ? (
+                <ActivityIndicator size="small" color={Colors.dark.primary} style={{ marginTop: 8 }} />
+              ) : null}
             </View>
           ) : null}
           <View style={styles.infoRow}>
