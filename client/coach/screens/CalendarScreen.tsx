@@ -824,7 +824,7 @@ export default function CalendarScreen() {
         }
       }
     }
-  }, [route.params?.openSessionId, route.params?.action, calendarData?.ownSessions]);
+  }, [route.params?.openSessionId, route.params?.action, route.params?._ts, calendarData?.ownSessions]);
   
   // Handle opening wizard from Quick Actions FAB
   useEffect(() => {

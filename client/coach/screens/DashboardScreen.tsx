@@ -1190,7 +1190,7 @@ export default function DashboardScreen() {
                       style={styles.actionBarBtn}
                       onPress={() => {
                         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-                        (navigation as any).navigate("CoachTabs", { screen: "Calendar", params: { openSessionId: currentSession.id, action: "attendance" } });
+                        (navigation as any).navigate("CoachTabs", { screen: "Calendar", params: { openSessionId: currentSession.id, action: "attendance", _ts: Date.now() } });
                       }}
                     >
                       <LinearGradient
@@ -1207,7 +1207,7 @@ export default function DashboardScreen() {
                       style={styles.actionBarBtn}
                       onPress={() => {
                         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                        (navigation as any).navigate("CoachTabs", { screen: "Calendar", params: { openSessionId: currentSession.id, action: "extend" } });
+                        (navigation as any).navigate("CoachTabs", { screen: "Calendar", params: { openSessionId: currentSession.id, action: "extend", _ts: Date.now() } });
                       }}
                     >
                       <LinearGradient
@@ -1241,7 +1241,7 @@ export default function DashboardScreen() {
                       style={styles.actionBarBtn}
                       onPress={() => {
                         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                        (navigation as any).navigate("CoachTabs", { screen: "Calendar", params: { openSessionId: currentSession.id, action: "end" } });
+                        (navigation as any).navigate("CoachTabs", { screen: "Calendar", params: { openSessionId: currentSession.id, action: "end", _ts: Date.now() } });
                       }}
                     >
                       <LinearGradient
