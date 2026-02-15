@@ -6651,37 +6651,16 @@ export const storage = {
   }> {
     console.log(`[SettleDebts] Starting for player ${playerId}, creditType ${creditType}, package ${packageId}`);
     
-    // Find ALL unsettled negative transactions for this player and credit type
-    // This includes session_debt, session_join_debt, session_unpaid, 
-    // retrospective_settlement, session_consumed, and any other deductions
-    const unsettledDebts = await db.select().from(creditTransactions)
-      .where(and(
-        eq(creditTransactions.playerId, playerId),
-        eq(creditTransactions.creditType, creditType),
-        isNull(creditTransactions.packageId)
-      ))
-      .orderBy(creditTransactions.createdAt); // Settle oldest debts first
+    const balance = await this.getPlayerCreditBalanceByType(playerId);
+    const currentBalance = balance[creditType as keyof typeof balance] as number;
     
-    console.log(`[SettleDebts] Found ${unsettledDebts.length} debts with packageId=NULL for creditType=${creditType}`);
-    
-    // Filter to only unsettled negative transactions (debts)
-    const trulyUnsettledDebts = unsettledDebts.filter(debt => {
-      if (debt.amount >= 0) return false; // Only negative (deduction) transactions
-      const meta = debt.metadata as Record<string, unknown> | null;
-      if (meta?.settled || meta?.expired || meta?.cancelled) return false;
-      // Skip debt_settlement transactions (these are settlements themselves, not debts)
-      if (debt.reason === "debt_settlement") return false;
-      return true;
-    });
-    
-    console.log(`[SettleDebts] After filtering settled: ${trulyUnsettledDebts.length} truly unsettled debts`);
-    
-    if (trulyUnsettledDebts.length === 0) {
-      console.log(`[SettleDebts] No debts to settle for player ${playerId}`);
+    if (typeof currentBalance !== 'number' || currentBalance >= 0) {
+      console.log(`[SettleDebts] No debt for player ${playerId}, ${creditType} balance: ${currentBalance}`);
       return { settledCount: 0, totalDeducted: 0 };
     }
     
-    // Get the package to update remaining credits
+    const debtAmount = Math.abs(currentBalance);
+    
     const pkg = await db.select().from(packages).where(eq(packages.id, packageId)).limit(1);
     if (pkg.length === 0) {
       console.error(`[SettleDebts] Package ${packageId} not found`);
@@ -6689,47 +6668,14 @@ export const storage = {
     }
     
     const currentRemaining = pkg[0].remainingCredits;
-    
-    // V3: Debt amount represents total sessions owed, not just 1 per record
-    // Calculate total debt amount across all unsettled debts
-    let totalDebtAmount = 0;
-    for (const debt of trulyUnsettledDebts) {
-      totalDebtAmount += Math.abs(debt.amount);
-    }
-    
-    console.log(`[SettleDebts] Total debt amount: ${totalDebtAmount}, available credits: ${currentRemaining}`);
-    
-    // Settle as many credits as we can (up to available)
-    const creditsToUse = Math.min(totalDebtAmount, currentRemaining);
+    const creditsToUse = Math.min(debtAmount, currentRemaining);
     
     if (creditsToUse === 0) {
       return { settledCount: 0, totalDeducted: 0 };
     }
     
-    // Process debts, deducting from their amounts
-    let remainingToSettle = creditsToUse;
-    const debtsToUpdate: Array<{ id: string; originalAmount: number; newAmount: number; fullySettled: boolean }> = [];
-    
-    for (const debt of trulyUnsettledDebts) {
-      if (remainingToSettle <= 0) break;
-      
-      const debtAmount = Math.abs(debt.amount);
-      const settledAmount = Math.min(debtAmount, remainingToSettle);
-      const newAmount = debtAmount - settledAmount;
-      
-      debtsToUpdate.push({
-        id: debt.id,
-        originalAmount: debtAmount,
-        newAmount,
-        fullySettled: newAmount === 0,
-      });
-      
-      remainingToSettle -= settledAmount;
-    }
-    
     const newRemaining = currentRemaining - creditsToUse;
     
-    // Update package remaining credits and status
     await db.update(packages)
       .set({ 
         remainingCredits: newRemaining,
@@ -6737,8 +6683,7 @@ export const storage = {
       })
       .where(eq(packages.id, packageId));
     
-    // Create ONE settlement transaction for ALL debts being settled
-    const settlementTx = await db.insert(creditTransactions).values({
+    await db.insert(creditTransactions).values({
       id: crypto.randomUUID(),
       playerId,
       packageId,
@@ -6747,56 +6692,16 @@ export const storage = {
       amount: -creditsToUse,
       reason: "debt_settlement",
       metadata: {
-        settledDebtsCount: debtsToUpdate.length,
         creditsUsed: creditsToUse,
-        totalDebtBefore: totalDebtAmount,
-        totalDebtAfter: totalDebtAmount - creditsToUse,
-        debtsUpdated: debtsToUpdate.map(d => ({ id: d.id, was: d.originalAmount, now: d.newAmount })),
+        balanceBefore: currentBalance,
+        balanceAfter: currentBalance + creditsToUse,
       },
       createdAt: new Date(),
-    }).returning();
+    });
     
-    const settlementTxId = settlementTx[0]?.id;
+    console.log(`[SettleDebts] Settled ${creditsToUse} credits for player ${playerId}, package ${currentRemaining} -> ${newRemaining}, balance ${currentBalance} -> ${currentBalance + creditsToUse}`);
     
-    // Update or mark debts as settled
-    for (const debtUpdate of debtsToUpdate) {
-      const originalDebt = trulyUnsettledDebts.find(d => d.id === debtUpdate.id);
-      if (!originalDebt) continue;
-      
-      if (debtUpdate.fullySettled) {
-        // Fully settled - mark with metadata
-        await db.update(creditTransactions)
-          .set({ 
-            metadata: { 
-              ...((originalDebt.metadata as object) || {}), 
-              settled: true,
-              settledAt: new Date().toISOString(),
-              settledByPackage: packageId,
-              settledByTransactionId: settlementTxId,
-            }
-          })
-          .where(eq(creditTransactions.id, debtUpdate.id));
-      } else {
-        // Partially settled - update amount to remaining debt
-        await db.update(creditTransactions)
-          .set({ 
-            amount: -debtUpdate.newAmount,
-            metadata: { 
-              ...((originalDebt.metadata as object) || {}), 
-              partiallySettled: true,
-              lastSettledAt: new Date().toISOString(),
-              settledByPackage: packageId,
-              originalAmount: debtUpdate.originalAmount,
-            }
-          })
-          .where(eq(creditTransactions.id, debtUpdate.id));
-      }
-    }
-    
-    const fullySettledCount = debtsToUpdate.filter(d => d.fullySettled).length;
-    console.log(`[SettleDebts] Settled ${creditsToUse} credits worth of debt for player ${playerId}: ${fullySettledCount} debts fully settled, package ${currentRemaining} -> ${newRemaining}`);
-    
-    return { settledCount: fullySettledCount, totalDeducted: creditsToUse };
+    return { settledCount: creditsToUse, totalDeducted: creditsToUse };
   },
 
   // Settle unpaid sessions (creditDeductedAt = null) when a new package is created
