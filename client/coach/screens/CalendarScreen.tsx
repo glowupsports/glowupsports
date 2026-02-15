@@ -1764,6 +1764,23 @@ export default function CalendarScreen() {
           <Text style={styles.headerTitle}>COACH CALENDAR</Text>
           <CoachMarkTarget id="cal_header_actions"><View style={styles.headerActions}>
             <Pressable
+              style={styles.headerBookButton}
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                setShowCreateDrawer(true);
+              }}
+            >
+              <LinearGradient
+                colors={[Colors.dark.xpCyan, Colors.dark.primary]}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={styles.headerBookButtonGradient}
+              >
+                <Ionicons name="add" size={18} color={Colors.dark.backgroundRoot} />
+                <Text style={styles.headerBookButtonText}>Book Court</Text>
+              </LinearGradient>
+            </Pressable>
+            <Pressable
               style={[styles.toggleButton, isExporting && styles.toggleActive]}
               onPress={exportCalendarToICS}
               disabled={isExporting}
@@ -2592,7 +2609,7 @@ export default function CalendarScreen() {
           </View>
 
           {/* Scrollable Time Grid */}
-          <ScrollView style={styles.weekGridScroll} showsVerticalScrollIndicator={false}>
+          <ScrollView style={styles.weekGridScroll} showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 120 }}>
             {(() => {
               // Fixed hour range for week view (never affected by focusMode)
               const weekHours = Array.from({ length: END_HOUR - START_HOUR + 1 }, (_, i) => START_HOUR + i);
@@ -3137,24 +3154,6 @@ export default function CalendarScreen() {
         </View>
       ) : (
         <>
-          {/* FAB Button - Gaming Style with Gradient */}
-          <Pressable
-            style={styles.fabContainer}
-            onPress={() => {
-              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-              setShowCreateDrawer(true);
-            }}
-          >
-            <Animated.View style={styles.fabGlow} />
-            <LinearGradient
-              colors={["#00D4FF", "#2ECC40"]}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-              style={styles.fabGradient}
-            >
-              <Ionicons name="add" size={28} color="#1A1A1A" />
-            </LinearGradient>
-          </Pressable>
         </>
       )}
 
@@ -3943,42 +3942,23 @@ const styles = StyleSheet.create({
     color: "#1A1A1A",
     letterSpacing: 1.2,
   },
-  fabContainer: {
-    position: "absolute",
-    bottom: 100,
-    right: Spacing.lg,
-    width: 60,
-    height: 60,
-    borderRadius: 30,
-    alignItems: "center",
-    justifyContent: "center",
-    ...Platform.select({
-      ios: {
-        shadowColor: "#00D4FF",
-        shadowOffset: { width: 0, height: 0 },
-        shadowOpacity: 0.6,
-        shadowRadius: 16,
-      },
-      android: {
-        elevation: 10,
-      },
-    }),
+  headerBookButton: {
+    borderRadius: 20,
+    overflow: "hidden",
   },
-  fabGlow: {
-    position: "absolute",
-    width: 72,
-    height: 72,
-    borderRadius: 36,
-    backgroundColor: "rgba(0, 212, 255, 0.25)",
-  },
-  fabGradient: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
+  headerBookButtonGradient: {
+    flexDirection: "row",
     alignItems: "center",
-    justifyContent: "center",
-    borderWidth: 2,
-    borderColor: "rgba(255, 255, 255, 0.3)",
+    gap: 4,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 20,
+  },
+  headerBookButtonText: {
+    fontSize: 13,
+    fontWeight: "700",
+    color: Colors.dark.backgroundRoot,
+    letterSpacing: 0.5,
   },
   courtHeaders: {
     flexDirection: "row",
