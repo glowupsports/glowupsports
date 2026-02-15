@@ -4573,6 +4573,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Check conflicts within this academy
       const coachConflict = await storage.checkCoachConflict(coachId, start, end, undefined, academyId ?? undefined, courtId);
       if (coachConflict) {
+        console.log(`[CoachConflict] Coach ${coachId} has conflict at ${start.toISOString()} - ${end.toISOString()}`);
+        const conflictingSessions = await storage.getCoachSessionsInRange(coachId, academyId!, start, end);
+        console.log(`[CoachConflict] Conflicting sessions:`, conflictingSessions.map(s => ({ id: s.id, seriesId: s.seriesId, start: s.startTime, status: s.status })));
         return res.status(409).json({ 
           error: "Coach conflict", 
           level: 3,
