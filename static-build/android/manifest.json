@@ -1,11 +1,11 @@
 {
-  "id": "9d53fe0b-b36a-461a-af5d-c1b84f135906",
-  "createdAt": "2026-02-06T05:39:21.732Z",
+  "id": "f625e6b3-ccd2-4dab-96aa-7546775150a5",
+  "createdAt": "2026-02-15T03:59:01.660Z",
   "runtimeVersion": "1.3.1",
   "launchAsset": {
-    "key": "bundle-1770356361732-28120",
+    "key": "bundle-1771127941660-4485",
     "contentType": "application/javascript",
-    "url": "https://81de32e9-0d70-4ba8-89e4-d7d5a668d2f1-00-mmcbv7admw7g.spock.replit.dev/1770356361732-28120/_expo/static/js/android/bundle.js"
+    "url": "https://81de32e9-0d70-4ba8-89e4-d7d5a668d2f1-00-mmcbv7admw7g.spock.replit.dev/1771127941660-4485/_expo/static/js/android/bundle.js"
   },
   "assets": [],
   "metadata": {},
@@ -49,7 +49,8 @@
         "permissions": [
           "INTERNET",
           "ACCESS_NETWORK_STATE"
-        ]
+        ],
+        "googleServicesFile": "{\n  \"project_info\": {\n    \"project_number\": \"1080592478669\",\n    \"project_id\": \"glowup-sports\",\n    \"storage_bucket\": \"glowup-sports.firebasestorage.app\"\n  },\n  \"client\": [\n    {\n      \"client_info\": {\n        \"mobilesdk_app_id\": \"1:1080592478669:android:1e990a68d626dcba3ad484\",\n        \"android_client_info\": {\n          \"package_name\": \"com.glowupsports.app\"\n        }\n      },\n      \"oauth_client\": [],\n      \"api_key\": [\n        {\n          \"current_key\": \"AIzaSyDig1nmWBrNvftTEoXlS0mrzE8PZEkvm0U\"\n        }\n      ],\n      \"services\": {\n        \"appinvite_service\": {\n          \"other_platform_oauth_client\": []\n        }\n      }\n    }\n  ],\n  \"configuration_version\": \"1\"\n}\n"
       },
       "web": {
         "output": "single",
@@ -130,6 +131,6 @@
       },
       "mainModuleName": "client/index"
     },
-    "scopeKey": "@anonymous/glow-up-sports-qimo0pvm-ks03bklnmcri-abd034fc-2cb1-4519-bbac-7a32003bdc82"
+    "scopeKey": "@anonymous/glow-up-sports-qimo0pvm-ks03bklnmcri-7f3c3040-a88e-4fa8-9fd0-5a993d522376"
   }
 }
