@@ -15,7 +15,7 @@ import Animated, {
 
 import { ThemedText } from "@/components/ThemedText";
 import { Card } from "@/components/Card";
-import { Colors, Spacing, BorderRadius, Backgrounds, GlowColors } from "@/constants/theme";
+import { Colors, Spacing, BorderRadius, GlowColors } from "@/constants/theme";
 import { apiFetch, getAuthHeaders } from "@/lib/query-client";
 
 const MAX_DURATION = 10;

@@ -20,7 +20,7 @@ import Animated, {
   withSpring,
   withTiming,
 } from "react-native-reanimated";
-import { Colors, Spacing, BorderRadius, Typography, Backgrounds, GlowColors } from "@/constants/theme";
+import { Colors, Spacing, BorderRadius, Typography, GlowColors } from "@/constants/theme";
 
 interface EarningsSummary {
   realized: {

@@ -18,7 +18,7 @@ import Ionicons from "@expo/vector-icons/Ionicons";
 import Animated, { FadeIn, FadeInUp } from "react-native-reanimated";
 import { useNavigation } from "@react-navigation/native";
 import * as Haptics from "expo-haptics";
-import { Colors, Spacing, Backgrounds, GlowColors } from "@/constants/theme";
+import { Colors, Spacing, GlowColors } from "@/constants/theme";
 import { useCart } from "../contexts/CartContext";
 import { LockedScreen } from "../components/LockedScreen";
 import { getApiUrl } from "@/lib/query-client";

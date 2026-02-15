@@ -29,7 +29,7 @@ import Animated, {
   withSpring,
   withTiming,
 } from "react-native-reanimated";
-import { Colors, ProTennisColors, Spacing, BorderRadius, Backgrounds, GlowColors } from "@/constants/theme";
+import { Colors, ProTennisColors, Spacing, BorderRadius, GlowColors } from "@/constants/theme";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 

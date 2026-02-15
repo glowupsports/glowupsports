@@ -18,7 +18,7 @@ import Ionicons from "@expo/vector-icons/Ionicons";
 import Animated, { FadeIn, FadeInDown } from "react-native-reanimated";
 import * as Haptics from "expo-haptics";
 import * as ImagePicker from "expo-image-picker";
-import { Colors, Spacing, Backgrounds, GlowColors } from "@/constants/theme";
+import { Colors, Spacing, GlowColors } from "@/constants/theme";
 import { apiRequest, getApiUrl } from "@/lib/query-client";
 import { useNavigation } from "@react-navigation/native";
 
@@ -996,7 +996,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     padding: Spacing.md,
-    backgroundColor: Backgrounds.card,
+    backgroundColor: "rgba(255, 255, 255, 0.06)",
     borderRadius: 12,
     marginBottom: Spacing.sm,
     borderWidth: 1,
@@ -1067,7 +1067,7 @@ const styles = StyleSheet.create({
   },
   orderCard: {
     padding: Spacing.md,
-    backgroundColor: Backgrounds.card,
+    backgroundColor: "rgba(255, 255, 255, 0.06)",
     borderRadius: 12,
     marginBottom: Spacing.sm,
     borderWidth: 1,

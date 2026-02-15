@@ -10,7 +10,7 @@ import Animated, {
   interpolate,
   Extrapolation,
 } from "react-native-reanimated";
-import { Colors, Spacing, BorderRadius, FontSizes, Backgrounds, GlowColors } from "@/constants/theme";
+import { Colors, Spacing, BorderRadius, FontSizes, GlowColors } from "@/constants/theme";
 
 type BadgeSize = "xs" | "sm" | "md" | "lg";
 

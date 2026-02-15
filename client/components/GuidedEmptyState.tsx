@@ -16,7 +16,6 @@ import {
   Spacing,
   BorderRadius,
   Typography,
-  Backgrounds,
   GlowColors,
   TextColors,
   FunctionColors,
@@ -154,7 +153,7 @@ const styles = StyleSheet.create({
     width: 72,
     height: 72,
     borderRadius: 36,
-    backgroundColor: Backgrounds.elevated,
+    backgroundColor: "rgba(255, 255, 255, 0.08)",
     borderWidth: 2,
     justifyContent: "center",
     alignItems: "center",
@@ -215,7 +214,7 @@ const styles = StyleSheet.create({
   },
   actionText: {
     ...Typography.h4,
-    color: Backgrounds.root,
+    color: "rgba(255, 255, 255, 0.06)",
     textAlign: "center",
   },
 });

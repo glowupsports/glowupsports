@@ -18,7 +18,7 @@ import { BlurView } from "expo-blur";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import * as Haptics from "expo-haptics";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Colors, Typography, Spacing, BorderRadius, Backgrounds, GlowColors } from "@/constants/theme";
+import { Colors, Typography, Spacing, BorderRadius, GlowColors } from "@/constants/theme";
 import { useCoach } from "@/coach/context/CoachContext";
 import { apiRequest, apiFetch, getApiUrl, getStaticAssetsUrl } from "@/lib/query-client";
 import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollViewCompat";
@@ -1388,7 +1388,7 @@ const styles = StyleSheet.create({
   guestInput: {
     flex: 1,
     height: 44,
-    backgroundColor: Backgrounds.card,
+    backgroundColor: "rgba(255, 255, 255, 0.06)",
     borderRadius: BorderRadius.md,
     paddingHorizontal: Spacing.md,
     color: Colors.dark.text,
@@ -1436,7 +1436,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: Spacing.sm,
-    backgroundColor: Backgrounds.card,
+    backgroundColor: "rgba(255, 255, 255, 0.06)",
     paddingHorizontal: Spacing.md,
     paddingVertical: Spacing.sm,
     borderRadius: BorderRadius.md,
@@ -1698,7 +1698,7 @@ const styles = StyleSheet.create({
   playerSearchContainer: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: Backgrounds.card,
+    backgroundColor: "rgba(255, 255, 255, 0.06)",
     borderRadius: BorderRadius.md,
     paddingHorizontal: Spacing.md,
     paddingVertical: Spacing.sm,
@@ -1796,7 +1796,7 @@ const styles = StyleSheet.create({
   notesInput: {
     ...Typography.body,
     color: Colors.dark.text,
-    backgroundColor: Backgrounds.card,
+    backgroundColor: "rgba(255, 255, 255, 0.06)",
     borderRadius: BorderRadius.md,
     padding: Spacing.md,
     minHeight: 80,

@@ -26,7 +26,6 @@ import {
   Spacing,
   BorderRadius,
   Typography,
-  Backgrounds,
   GlowColors,
   TextColors,
   FunctionColors,
@@ -151,7 +150,7 @@ export function SessionSummaryModal({
           {/* Success Header */}
           <View style={styles.header}>
             <Animated.View style={[styles.checkCircle, checkStyle]}>
-              <Ionicons name="checkmark" size={32} color={Backgrounds.root} />
+              <Ionicons name="checkmark" size={32} color={"rgba(255, 255, 255, 0.06)"} />
             </Animated.View>
             <Text style={styles.title}>Great Work!</Text>
             <Text style={styles.subtitle}>Session Complete</Text>
@@ -235,16 +234,16 @@ const styles = StyleSheet.create({
   },
   backdrop: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: Backgrounds.overlay,
+    backgroundColor: "rgba(0, 0, 0, 0.6)",
   },
   card: {
     width: "100%",
     maxWidth: 360,
-    backgroundColor: Backgrounds.card,
+    backgroundColor: "rgba(255, 255, 255, 0.06)",
     borderRadius: BorderRadius.xl,
     padding: Spacing.xl,
     borderWidth: 1,
-    borderColor: Backgrounds.surface,
+    borderColor: "rgba(255, 255, 255, 0.04)",
   },
   header: {
     alignItems: "center",
@@ -276,7 +275,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-around",
     alignItems: "center",
-    backgroundColor: Backgrounds.elevated,
+    backgroundColor: "rgba(255, 255, 255, 0.08)",
     borderRadius: BorderRadius.lg,
     padding: Spacing.lg,
     marginBottom: Spacing.lg,
@@ -288,7 +287,7 @@ const styles = StyleSheet.create({
   statDivider: {
     width: 1,
     height: 40,
-    backgroundColor: Backgrounds.surface,
+    backgroundColor: "rgba(255, 255, 255, 0.04)",
   },
   statValue: {
     ...Typography.h3,
@@ -319,7 +318,7 @@ const styles = StyleSheet.create({
   },
   progressBar: {
     height: 8,
-    backgroundColor: Backgrounds.surface,
+    backgroundColor: "rgba(255, 255, 255, 0.04)",
     borderRadius: BorderRadius.full,
     overflow: "hidden",
   },
@@ -371,7 +370,7 @@ const styles = StyleSheet.create({
   continueText: {
     ...Typography.body,
     fontWeight: "600",
-    color: Backgrounds.root,
+    color: "rgba(255, 255, 255, 0.06)",
   },
   doneButton: {
     paddingVertical: Spacing.md,

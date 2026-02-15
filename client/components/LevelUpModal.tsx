@@ -12,7 +12,7 @@ import Animated, {
 import * as Haptics from "expo-haptics";
 
 import { ThemedText } from "@/components/ThemedText";
-import { Colors, Spacing, BorderRadius, Backgrounds, GlowColors } from "@/constants/theme";
+import { Colors, Spacing, BorderRadius, GlowColors } from "@/constants/theme";
 
 interface LevelUpModalProps {
   visible: boolean;
@@ -81,12 +81,12 @@ export function LevelUpModal({ visible, level, onClose }: LevelUpModalProps) {
 const styles = StyleSheet.create({
   overlay: {
     flex: 1,
-    backgroundColor: Backgrounds.overlay,
+    backgroundColor: "rgba(255, 255, 255, 0.06)",
     alignItems: "center",
     justifyContent: "center",
   },
   content: {
-    backgroundColor: Backgrounds.card,
+    backgroundColor: "rgba(255, 255, 255, 0.06)",
     borderRadius: BorderRadius.lg,
     padding: Spacing["2xl"],
     alignItems: "center",

@@ -8,7 +8,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { LinearGradient } from "expo-linear-gradient";
 import * as Haptics from "expo-haptics";
-import { Colors, Spacing, Typography, BorderRadius, Backgrounds, GlowColors } from "@/constants/theme";
+import { Colors, Spacing, Typography, BorderRadius, GlowColors } from "@/constants/theme";
 import { formatSessionTimeWithRelativeDay } from "@/lib/dateUtils";
 import { apiRequest, getStaticAssetsUrl } from "@/lib/query-client";
 import { useWalkthrough } from "@/player/context/WalkthroughContext";

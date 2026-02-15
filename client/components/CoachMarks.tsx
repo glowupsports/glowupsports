@@ -31,7 +31,6 @@ import {
   Spacing,
   BorderRadius,
   Typography,
-  Backgrounds,
   GlowColors,
   TextColors,
 } from "@/constants/theme";
@@ -268,7 +267,7 @@ function CoachMarksOverlayContent({
                     {isLastStep ? "Got it!" : "Next"}
                   </Text>
                   {!isLastStep ? (
-                    <Ionicons name="arrow-forward" size={14} color={Backgrounds.root} />
+                    <Ionicons name="arrow-forward" size={14} color={"rgba(255, 255, 255, 0.06)"} />
                   ) : null}
                 </Pressable>
               </View>
@@ -350,7 +349,7 @@ function CoachMarksOverlayContent({
         key={`tooltip-${currentStepIndex}`}
         style={[styles.tooltipCard, tooltipStyle]}
       >
-        <TooltipArrow direction={resolvedArrow} tooltipBg={Backgrounds.elevated} />
+        <TooltipArrow direction={resolvedArrow} tooltipBg={"rgba(255, 255, 255, 0.08)"} />
 
         <View style={styles.stepCounterRow}>
           <Text style={styles.stepCounter}>
@@ -379,7 +378,7 @@ function CoachMarksOverlayContent({
                 {isLastStep ? "Got it!" : "Next"}
               </Text>
               {!isLastStep ? (
-                <Ionicons name="arrow-forward" size={14} color={Backgrounds.root} />
+                <Ionicons name="arrow-forward" size={14} color={"rgba(255, 255, 255, 0.06)"} />
               ) : null}
             </Pressable>
           </View>
@@ -631,7 +630,7 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(0,0,0,0.75)",
   },
   tooltipCard: {
-    backgroundColor: Backgrounds.elevated,
+    backgroundColor: "rgba(255, 255, 255, 0.08)",
     borderRadius: BorderRadius.md,
     borderWidth: 1,
     borderColor: "rgba(255, 255, 255, 0.08)",
@@ -641,7 +640,7 @@ const styles = StyleSheet.create({
     position: "absolute",
     width: 12,
     height: 12,
-    backgroundColor: Backgrounds.elevated,
+    backgroundColor: "rgba(255, 255, 255, 0.08)",
     borderWidth: 1,
     borderColor: "rgba(255, 255, 255, 0.08)",
     borderRightWidth: 0,
@@ -735,7 +734,7 @@ const styles = StyleSheet.create({
   nextButtonText: {
     ...Typography.small,
     fontWeight: "700",
-    color: Backgrounds.root,
+    color: "rgba(255, 255, 255, 0.06)",
   },
 });
 

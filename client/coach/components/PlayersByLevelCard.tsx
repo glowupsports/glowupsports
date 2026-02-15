@@ -17,7 +17,7 @@ import Animated, {
   withRepeat,
   withSequence,
 } from "react-native-reanimated";
-import { Colors, Spacing, BorderRadius, Typography, Backgrounds, GlowColors } from "@/constants/theme";
+import { Colors, Spacing, BorderRadius, Typography, GlowColors } from "@/constants/theme";
 import { useCoach } from "@/coach/context/CoachContext";
 import * as Haptics from "expo-haptics";
 
@@ -68,7 +68,7 @@ export function PlayersByLevelCard() {
     return (
       <View style={styles.card}>
         <LinearGradient
-          colors={[Backgrounds.card, Backgrounds.cardElevated]}
+          colors={["rgba(255, 255, 255, 0.06)", "rgba(255, 255, 255, 0.06)"Elevated]}
           style={styles.cardGradient}
         >
           <View style={styles.header}>
@@ -102,7 +102,7 @@ export function PlayersByLevelCard() {
         style={styles.cardGlow}
       />
       <LinearGradient
-        colors={[Backgrounds.card, Backgrounds.cardElevated]}
+        colors={["rgba(255, 255, 255, 0.06)", "rgba(255, 255, 255, 0.06)"Elevated]}
         style={styles.cardGradient}
       >
         <View style={styles.header}>
@@ -277,7 +277,7 @@ const styles = StyleSheet.create({
   },
   totalBadge: {
     alignItems: "center",
-    backgroundColor: Backgrounds.surfaceLight,
+    backgroundColor: "rgba(255, 255, 255, 0.04)"Light,
     paddingHorizontal: Spacing.md,
     paddingVertical: Spacing.xs,
     borderRadius: BorderRadius.md,
@@ -307,7 +307,7 @@ const styles = StyleSheet.create({
     overflow: "hidden",
     borderWidth: 1,
     borderColor: "rgba(255, 255, 255, 0.06)",
-    backgroundColor: Backgrounds.surfaceLight,
+    backgroundColor: "rgba(255, 255, 255, 0.04)"Light,
   },
   levelCardGradient: {
     padding: Spacing.md,
@@ -355,7 +355,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 3,
-    backgroundColor: Backgrounds.surface,
+    backgroundColor: "rgba(255, 255, 255, 0.04)",
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: BorderRadius.sm,
@@ -381,7 +381,7 @@ const styles = StyleSheet.create({
     overflow: "hidden",
     borderWidth: 1,
     borderColor: "rgba(255, 255, 255, 0.06)",
-    backgroundColor: Backgrounds.surfaceLight,
+    backgroundColor: "rgba(255, 255, 255, 0.04)"Light,
   },
   adultCardGradient: {
     flexDirection: "row",
@@ -425,7 +425,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     height: 6,
     borderRadius: 3,
-    backgroundColor: Backgrounds.surface,
+    backgroundColor: "rgba(255, 255, 255, 0.04)",
     overflow: "hidden",
   },
   progressSegment: {

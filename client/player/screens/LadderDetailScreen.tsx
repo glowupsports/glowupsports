@@ -17,7 +17,6 @@ import {
   Spacing,
   Typography,
   BorderRadius,
-  Backgrounds,
   GlowColors,
   TextColors,
 } from "@/constants/theme";
@@ -296,7 +295,7 @@ export default function LadderDetailScreen() {
           style={styles.challengeButton}
           onPress={() => handleChallenge(item)}
         >
-          <Ionicons name="flash" size={16} color={Backgrounds.root} />
+          <Ionicons name="flash" size={16} color={"rgba(255, 255, 255, 0.06)"} />
           <Text style={styles.challengeButtonText}>Challenge</Text>
         </Pressable>
       ) : null}
@@ -459,7 +458,7 @@ export default function LadderDetailScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: Backgrounds.root,
+    backgroundColor: "rgba(255, 255, 255, 0.06)",
   },
   header: {
     flexDirection: "row",
@@ -472,7 +471,7 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: BorderRadius.sm,
-    backgroundColor: Backgrounds.card,
+    backgroundColor: "rgba(255, 255, 255, 0.06)",
     alignItems: "center",
     justifyContent: "center",
   },
@@ -497,7 +496,7 @@ const styles = StyleSheet.create({
     marginHorizontal: Spacing.lg,
     marginBottom: Spacing.md,
     padding: Spacing.lg,
-    backgroundColor: Backgrounds.card,
+    backgroundColor: "rgba(255, 255, 255, 0.06)",
     borderRadius: BorderRadius.md,
     borderWidth: 1,
     borderColor: "rgba(255, 255, 255, 0.06)",
@@ -571,7 +570,7 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.md,
   },
   challengeCard: {
-    backgroundColor: Backgrounds.card,
+    backgroundColor: "rgba(255, 255, 255, 0.06)",
     borderRadius: BorderRadius.md,
     padding: Spacing.lg,
     marginBottom: Spacing.sm,
@@ -655,7 +654,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     padding: Spacing.md,
-    backgroundColor: Backgrounds.card,
+    backgroundColor: "rgba(255, 255, 255, 0.06)",
     borderRadius: BorderRadius.sm,
     marginBottom: Spacing.sm,
     borderWidth: 1,
@@ -670,7 +669,7 @@ const styles = StyleSheet.create({
     width: 32,
     height: 32,
     borderRadius: 16,
-    backgroundColor: Backgrounds.elevated,
+    backgroundColor: "rgba(255, 255, 255, 0.08)",
     alignItems: "center",
     justifyContent: "center",
   },
@@ -689,7 +688,7 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: Backgrounds.surface,
+    backgroundColor: "rgba(255, 255, 255, 0.04)",
     alignItems: "center",
     justifyContent: "center",
   },
@@ -741,7 +740,7 @@ const styles = StyleSheet.create({
   },
   meBadgeText: {
     fontSize: 11,
-    color: Backgrounds.root,
+    color: "rgba(255, 255, 255, 0.06)",
     fontWeight: "700",
   },
   challengeButton: {
@@ -755,11 +754,11 @@ const styles = StyleSheet.create({
   },
   challengeButtonText: {
     ...Typography.caption,
-    color: Backgrounds.root,
+    color: "rgba(255, 255, 255, 0.06)",
     fontWeight: "700",
   },
   resultCard: {
-    backgroundColor: Backgrounds.card,
+    backgroundColor: "rgba(255, 255, 255, 0.06)",
     borderRadius: BorderRadius.sm,
     padding: Spacing.md,
     marginBottom: Spacing.sm,
@@ -826,7 +825,7 @@ const modalStyles = StyleSheet.create({
     backgroundColor: "rgba(0, 0, 0, 0.6)",
   },
   content: {
-    backgroundColor: Backgrounds.elevated,
+    backgroundColor: "rgba(255, 255, 255, 0.08)",
     borderTopLeftRadius: BorderRadius.lg,
     borderTopRightRadius: BorderRadius.lg,
     padding: Spacing.xl,
@@ -848,7 +847,7 @@ const modalStyles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     padding: Spacing.lg,
-    backgroundColor: Backgrounds.card,
+    backgroundColor: "rgba(255, 255, 255, 0.06)",
     borderRadius: BorderRadius.md,
     gap: Spacing.lg,
   },
@@ -856,7 +855,7 @@ const modalStyles = StyleSheet.create({
     width: 56,
     height: 56,
     borderRadius: 28,
-    backgroundColor: Backgrounds.surface,
+    backgroundColor: "rgba(255, 255, 255, 0.04)",
     alignItems: "center",
     justifyContent: "center",
   },
@@ -912,7 +911,7 @@ const modalStyles = StyleSheet.create({
   },
   confirmButtonText: {
     ...Typography.body,
-    color: Backgrounds.root,
+    color: "rgba(255, 255, 255, 0.06)",
     fontWeight: "700",
   },
   cancelButton: {

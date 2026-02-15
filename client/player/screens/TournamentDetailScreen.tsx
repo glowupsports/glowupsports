@@ -16,7 +16,6 @@ import {
   Spacing,
   Typography,
   BorderRadius,
-  Backgrounds,
   GlowColors,
   TextColors,
 } from "@/constants/theme";
@@ -476,7 +475,7 @@ export default function TournamentDetailScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: Backgrounds.root,
+    backgroundColor: "rgba(255, 255, 255, 0.06)",
   },
   header: {
     flexDirection: "row",
@@ -488,7 +487,7 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 10,
-    backgroundColor: Backgrounds.card,
+    backgroundColor: "rgba(255, 255, 255, 0.06)",
     alignItems: "center",
     justifyContent: "center",
     borderWidth: 1,
@@ -515,7 +514,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     marginHorizontal: Spacing.md,
     marginBottom: Spacing.sm,
-    backgroundColor: Backgrounds.card,
+    backgroundColor: "rgba(255, 255, 255, 0.06)",
     borderRadius: 10,
     padding: Spacing.sm,
     borderWidth: 1,
@@ -595,7 +594,7 @@ const styles = StyleSheet.create({
   nextMatchRoundText: {
     fontSize: 12,
     fontWeight: "800",
-    color: Backgrounds.root,
+    color: "rgba(255, 255, 255, 0.06)",
   },
   tabBar: {
     flexDirection: "row",
@@ -611,7 +610,7 @@ const styles = StyleSheet.create({
     gap: 4,
     paddingVertical: 8,
     borderRadius: 8,
-    backgroundColor: Backgrounds.card,
+    backgroundColor: "rgba(255, 255, 255, 0.06)",
     borderWidth: 1,
     borderColor: "rgba(255,255,255,0.06)",
   },
@@ -663,7 +662,7 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   matchCard: {
-    backgroundColor: Backgrounds.card,
+    backgroundColor: "rgba(255, 255, 255, 0.06)",
     borderRadius: 8,
     borderWidth: 1,
     borderColor: "rgba(255,255,255,0.06)",
@@ -759,7 +758,7 @@ const styles = StyleSheet.create({
     color: TextColors.primary,
   },
   tableWrapper: {
-    backgroundColor: Backgrounds.card,
+    backgroundColor: "rgba(255, 255, 255, 0.06)",
     borderRadius: 10,
     overflow: "hidden",
     borderWidth: 1,
@@ -769,7 +768,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     paddingVertical: 8,
     paddingHorizontal: 10,
-    backgroundColor: Backgrounds.elevated,
+    backgroundColor: "rgba(255, 255, 255, 0.08)",
   },
   tableHeaderText: {
     fontSize: 10,
@@ -840,7 +839,7 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   scheduleCard: {
-    backgroundColor: Backgrounds.card,
+    backgroundColor: "rgba(255, 255, 255, 0.06)",
     borderRadius: 10,
     padding: Spacing.md,
     borderWidth: 1,
@@ -918,7 +917,7 @@ const styles = StyleSheet.create({
   },
   participantCard: {
     width: (SCREEN_WIDTH - Spacing.md * 2 - 10) / 2,
-    backgroundColor: Backgrounds.card,
+    backgroundColor: "rgba(255, 255, 255, 0.06)",
     borderRadius: 10,
     overflow: "hidden",
     borderWidth: 1,
@@ -936,7 +935,7 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: Backgrounds.elevated,
+    backgroundColor: "rgba(255, 255, 255, 0.08)",
     alignItems: "center",
     justifyContent: "center",
   },

@@ -8,7 +8,7 @@ import * as Print from "expo-print";
 import * as Sharing from "expo-sharing";
 import * as Clipboard from "expo-clipboard";
 import * as Haptics from "expo-haptics";
-import { Colors, Spacing, Typography, BorderRadius, Backgrounds, GlowColors } from "@/constants/theme";
+import { Colors, Spacing, Typography, BorderRadius, GlowColors } from "@/constants/theme";
 import { getApiUrl } from "@/lib/query-client";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 

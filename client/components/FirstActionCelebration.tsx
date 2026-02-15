@@ -23,7 +23,6 @@ import {
   Spacing,
   BorderRadius,
   Typography,
-  Backgrounds,
   GlowColors,
   TextColors,
   FunctionColors,
@@ -238,7 +237,7 @@ const styles = StyleSheet.create({
   celebrationCard: {
     width: "100%",
     maxWidth: 340,
-    backgroundColor: Backgrounds.elevated,
+    backgroundColor: "rgba(255, 255, 255, 0.08)",
     borderRadius: BorderRadius.lg,
     borderWidth: 1,
     borderColor: "rgba(255, 255, 255, 0.08)",
@@ -279,7 +278,7 @@ const styles = StyleSheet.create({
     width: 80,
     height: 80,
     borderRadius: 40,
-    backgroundColor: Backgrounds.card,
+    backgroundColor: "rgba(255, 255, 255, 0.06)",
     borderWidth: 2,
     justifyContent: "center",
     alignItems: "center",
@@ -327,7 +326,7 @@ const styles = StyleSheet.create({
   },
   continueText: {
     ...Typography.h4,
-    color: Backgrounds.root,
+    color: "rgba(255, 255, 255, 0.06)",
   },
 });
 

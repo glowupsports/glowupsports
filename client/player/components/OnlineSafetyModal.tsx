@@ -3,7 +3,7 @@ import { View, Modal, Pressable, StyleSheet, ScrollView } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { ThemedText } from "@/components/ThemedText";
-import { Colors, Spacing, BorderRadius, Backgrounds } from "@/constants/theme";
+import { Colors, Spacing, BorderRadius } from "@/constants/theme";
 
 interface OnlineSafetyModalProps {
   visible: boolean;

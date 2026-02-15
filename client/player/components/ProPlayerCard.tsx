@@ -12,7 +12,7 @@ import Animated, {
   interpolate,
   Extrapolation,
 } from "react-native-reanimated";
-import { ProTennisColors, Spacing, BorderRadius, Typography, Backgrounds, GlowColors } from "@/constants/theme";
+import { ProTennisColors, Spacing, BorderRadius, Typography, GlowColors } from "@/constants/theme";
 import * as Haptics from "expo-haptics";
 import { getStaticAssetsUrl } from "@/lib/query-client";
 import { usePlayerLevel } from "../hooks/usePlayerLevel";

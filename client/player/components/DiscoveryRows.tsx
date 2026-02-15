@@ -15,7 +15,7 @@ import Animated, {
   cancelAnimation 
 } from "react-native-reanimated";
 import { LinearGradient } from "expo-linear-gradient";
-import { ProTennisColors, Spacing, BorderRadius, getPlayerLevelColor, Backgrounds, GlowColors, Colors } from "@/constants/theme";
+import { ProTennisColors, Spacing, BorderRadius, getPlayerLevelColor, GlowColors, Colors } from "@/constants/theme";
 import { usePlayerState } from "@/player/context/PlayerStateContext";
 import { useNavigation } from "@react-navigation/native";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
@@ -1769,7 +1769,7 @@ const styles = StyleSheet.create({
     width: 32,
     height: 32,
     borderRadius: 16,
-    backgroundColor: Backgrounds.card,
+    backgroundColor: "rgba(255, 255, 255, 0.06)",
     alignItems: "center",
     justifyContent: "center",
     marginBottom: 2,

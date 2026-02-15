@@ -5,7 +5,7 @@ import { useNavigation } from "@react-navigation/native";
 import { useQuery } from "@tanstack/react-query";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import * as Haptics from "expo-haptics";
-import { Colors, Spacing, Typography, BorderRadius, CardStyles, Backgrounds, GlowColors } from "@/constants/theme";
+import { Colors, Spacing, Typography, BorderRadius, CardStyles, GlowColors } from "@/constants/theme";
 import Svg, { Polygon, Circle, Text as SvgText, Line, Defs, LinearGradient as SvgLinearGradient, Stop } from "react-native-svg";
 import { LinearGradient } from "expo-linear-gradient";
 import BallLevelBadge from "@/components/BallLevelBadge";
@@ -2116,7 +2116,7 @@ export default function PlayerProgressScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: Backgrounds.root,
+    backgroundColor: "rgba(255, 255, 255, 0.06)",
   },
   centered: {
     justifyContent: "center",
@@ -2586,7 +2586,7 @@ const styles = StyleSheet.create({
   },
   skillBarTrack: {
     height: 6,
-    backgroundColor: Backgrounds.card,
+    backgroundColor: "rgba(255, 255, 255, 0.06)",
     borderRadius: 3,
     overflow: "hidden",
   },
@@ -2799,7 +2799,7 @@ const styles = StyleSheet.create({
   },
   miniProgressBar: {
     height: 6,
-    backgroundColor: Backgrounds.card,
+    backgroundColor: "rgba(255, 255, 255, 0.06)",
     borderRadius: 3,
     overflow: "hidden",
     marginLeft: 24,
@@ -2974,7 +2974,7 @@ const modalStyles = StyleSheet.create({
     backgroundColor: "rgba(0,0,0,0.7)",
   },
   content: {
-    backgroundColor: Backgrounds.root,
+    backgroundColor: "rgba(255, 255, 255, 0.06)",
     borderTopLeftRadius: BorderRadius.xl,
     borderTopRightRadius: BorderRadius.xl,
     paddingTop: Spacing.lg,

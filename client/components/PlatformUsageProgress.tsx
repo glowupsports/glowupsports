@@ -20,7 +20,6 @@ import {
   Spacing,
   BorderRadius,
   Typography,
-  Backgrounds,
   GlowColors,
   TextColors,
   FunctionColors,
@@ -68,7 +67,7 @@ function CircularProgress({
           cx={size / 2}
           cy={size / 2}
           r={radius}
-          stroke={Backgrounds.surface}
+          stroke={"rgba(255, 255, 255, 0.04)"}
           strokeWidth={strokeWidth}
           fill="transparent"
         />
@@ -205,7 +204,7 @@ export function PlatformUsageProgress({
 
 const styles = StyleSheet.create({
   card: {
-    backgroundColor: Backgrounds.card,
+    backgroundColor: "rgba(255, 255, 255, 0.06)",
     borderRadius: BorderRadius.md,
     borderWidth: 1,
     borderColor: "rgba(255, 255, 255, 0.06)",
@@ -247,7 +246,7 @@ const styles = StyleSheet.create({
     width: 28,
     height: 28,
     borderRadius: 14,
-    backgroundColor: Backgrounds.surface,
+    backgroundColor: "rgba(255, 255, 255, 0.04)",
     justifyContent: "center",
     alignItems: "center",
     alignSelf: "flex-start",
@@ -278,7 +277,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.xs,
     marginBottom: Spacing.xs,
     borderRadius: BorderRadius.xs,
-    backgroundColor: Backgrounds.surface,
+    backgroundColor: "rgba(255, 255, 255, 0.04)",
   },
   unusedItemLeft: {
     flexDirection: "row",

@@ -24,7 +24,6 @@ import {
   Spacing,
   BorderRadius,
   Typography,
-  Backgrounds,
   GlowColors,
   TextColors,
 } from "@/constants/theme";
@@ -300,7 +299,7 @@ function StepItem({
               <Ionicons
                 name="checkmark"
                 size={14}
-                color={Backgrounds.root}
+                color={"rgba(255, 255, 255, 0.06)"}
               />
             </Animated.View>
           ) : (
@@ -332,7 +331,7 @@ function StepItem({
           <Ionicons
             name="arrow-forward"
             size={12}
-            color={Backgrounds.root}
+            color={"rgba(255, 255, 255, 0.06)"}
           />
         </Pressable>
       ) : null}
@@ -342,10 +341,10 @@ function StepItem({
 
 const styles = StyleSheet.create({
   container: {
-    backgroundColor: Backgrounds.card,
+    backgroundColor: "rgba(255, 255, 255, 0.06)",
     borderRadius: BorderRadius.md,
     borderWidth: 1,
-    borderColor: Backgrounds.surface,
+    borderColor: "rgba(255, 255, 255, 0.04)",
     overflow: "hidden",
   },
   header: {
@@ -395,7 +394,7 @@ const styles = StyleSheet.create({
   },
   progressBarTrack: {
     height: 4,
-    backgroundColor: Backgrounds.surface,
+    backgroundColor: "rgba(255, 255, 255, 0.04)",
     borderRadius: 2,
     overflow: "hidden",
   },
@@ -415,7 +414,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.md,
     borderRadius: BorderRadius.sm,
     marginBottom: Spacing.xs,
-    backgroundColor: Backgrounds.elevated,
+    backgroundColor: "rgba(255, 255, 255, 0.08)",
   },
   stepItemCompleted: {
     opacity: 0.7,
@@ -431,7 +430,7 @@ const styles = StyleSheet.create({
     height: 28,
     borderRadius: 14,
     borderWidth: 2,
-    borderColor: Backgrounds.surface,
+    borderColor: "rgba(255, 255, 255, 0.04)",
     justifyContent: "center",
     alignItems: "center",
   },
@@ -468,7 +467,7 @@ const styles = StyleSheet.create({
   actionButtonText: {
     ...Typography.caption,
     fontWeight: "600",
-    color: Backgrounds.root,
+    color: "rgba(255, 255, 255, 0.06)",
   },
   celebrationContainer: {
     alignItems: "center",

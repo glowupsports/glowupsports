@@ -22,7 +22,7 @@ import Ionicons from "@expo/vector-icons/Ionicons";
 import * as Haptics from "expo-haptics";
 import Svg, { Circle, Defs, LinearGradient as SvgGradient, Stop } from "react-native-svg";
 import Animated, { FadeIn, FadeInUp, useAnimatedStyle, useSharedValue, withRepeat, withTiming } from "react-native-reanimated";
-import { Colors, Spacing, BorderRadius, getPlayerLevelColor, Backgrounds, GlowColors } from "@/constants/theme";
+import { Colors, Spacing, BorderRadius, getPlayerLevelColor, GlowColors } from "@/constants/theme";
 import { useAuth } from "@/coach/context/AuthContext";
 import { apiRequest, getStaticAssetsUrl } from "@/lib/query-client";
 

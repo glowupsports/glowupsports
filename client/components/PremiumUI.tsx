@@ -24,7 +24,6 @@ import Animated, {
 } from "react-native-reanimated";
 import * as Haptics from "expo-haptics";
 import {
-  Backgrounds,
   TextColors,
   GlowColors,
   FunctionColors,
@@ -290,32 +289,32 @@ export function PremiumCard({
     switch (variant) {
       case "elevated":
         return {
-          backgroundColor: Backgrounds.elevated,
+          backgroundColor: "rgba(255, 255, 255, 0.08)",
           borderWidth: 1,
           borderColor: "rgba(255, 255, 255, 0.08)",
         };
       case "glass":
         return {
-          backgroundColor: Backgrounds.glass,
+          backgroundColor: "rgba(255, 255, 255, 0.08)",
           borderWidth: 1,
           borderColor: "rgba(255, 255, 255, 0.1)",
         };
       case "glow":
         return {
-          backgroundColor: Backgrounds.card,
+          backgroundColor: "rgba(255, 255, 255, 0.06)",
           borderWidth: 1,
           borderColor: "rgba(200, 255, 61, 0.3)",
           ...Shadows.glowSubtle,
         };
       case "admin":
         return {
-          backgroundColor: Backgrounds.card,
+          backgroundColor: "rgba(255, 255, 255, 0.06)",
           borderWidth: 1,
           borderColor: "rgba(255, 133, 27, 0.3)",
         };
       default:
         return {
-          backgroundColor: Backgrounds.card,
+          backgroundColor: "rgba(255, 255, 255, 0.06)",
           borderWidth: 1,
           borderColor: "rgba(255, 255, 255, 0.06)",
         };
@@ -414,7 +413,7 @@ const glassPanelStyles = StyleSheet.create({
     overflow: "hidden",
   },
   webFallback: {
-    backgroundColor: Backgrounds.glass,
+    backgroundColor: "rgba(255, 255, 255, 0.08)",
   },
   highlight: {
     position: "absolute",
@@ -701,7 +700,7 @@ export function ShimmerLoader({
 
 const shimmerStyles = StyleSheet.create({
   base: {
-    backgroundColor: Backgrounds.surface,
+    backgroundColor: "rgba(255, 255, 255, 0.04)",
     overflow: "hidden",
   },
   shimmer: {
@@ -766,7 +765,7 @@ const emptyStyles = StyleSheet.create({
     width: 80,
     height: 80,
     borderRadius: 40,
-    backgroundColor: Backgrounds.surface,
+    backgroundColor: "rgba(255, 255, 255, 0.04)",
     alignItems: "center",
     justifyContent: "center",
     marginBottom: Spacing.lg,

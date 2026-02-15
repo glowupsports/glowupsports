@@ -22,7 +22,6 @@ import {
   Spacing,
   BorderRadius,
   Typography,
-  Backgrounds,
   GlowColors,
   TextColors,
   FunctionColors,
@@ -118,7 +117,7 @@ export function ActionNeededCard({
       )}
 
       <LinearGradient
-        colors={[Backgrounds.elevated, Backgrounds.card]}
+        colors={["rgba(255, 255, 255, 0.08)", "rgba(255, 255, 255, 0.06)"]}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
         style={styles.gradient}
@@ -201,7 +200,7 @@ const styles = StyleSheet.create({
   badgeText: {
     ...Typography.caption,
     fontWeight: "700",
-    color: Backgrounds.root,
+    color: "rgba(255, 255, 255, 0.06)",
   },
   actionsList: {
     gap: Spacing.sm,

@@ -34,7 +34,7 @@ import Animated, {
   interpolate,
   runOnJS,
 } from "react-native-reanimated";
-import { Colors, Spacing, BorderRadius, Typography, FontSizes, getPlayerLevelColor, Backgrounds, GlowColors } from "@/constants/theme";
+import { Colors, Spacing, BorderRadius, Typography, FontSizes, getPlayerLevelColor, GlowColors } from "@/constants/theme";
 import { apiRequest, getStaticAssetsUrl, getApiUrl, getAuthHeaders } from "@/lib/query-client";
 import { useCoachMarks, CoachMarkTarget } from "@/components/CoachMarks";
 import { useCoach } from "@/coach/context/CoachContext";
@@ -2354,7 +2354,7 @@ const styles = StyleSheet.create({
     flex: 1,
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: Backgrounds.card,
+    backgroundColor: "rgba(255, 255, 255, 0.06)",
     borderRadius: BorderRadius.md,
     paddingHorizontal: Spacing.md,
     height: 48,
@@ -2388,7 +2388,7 @@ const styles = StyleSheet.create({
   sortButton: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: Backgrounds.card,
+    backgroundColor: "rgba(255, 255, 255, 0.06)",
     borderRadius: BorderRadius.md,
     paddingHorizontal: Spacing.md,
     height: 48,
@@ -2404,7 +2404,7 @@ const styles = StyleSheet.create({
     padding: Spacing.xl,
   },
   sortModalContent: {
-    backgroundColor: Backgrounds.elevated,
+    backgroundColor: "rgba(255, 255, 255, 0.08)",
     borderRadius: BorderRadius.lg,
     borderWidth: 1,
     borderColor: "rgba(255, 255, 255, 0.08)",
@@ -2452,7 +2452,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     height: 36,
-    backgroundColor: Backgrounds.card,
+    backgroundColor: "rgba(255, 255, 255, 0.06)",
     borderRadius: BorderRadius.full,
     paddingHorizontal: Spacing.md,
     gap: Spacing.xs,
@@ -2514,7 +2514,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     height: 32,
-    backgroundColor: Backgrounds.card,
+    backgroundColor: "rgba(255, 255, 255, 0.06)",
     borderRadius: BorderRadius.full,
     paddingHorizontal: Spacing.sm,
     gap: Spacing.xs,
@@ -2553,7 +2553,7 @@ const styles = StyleSheet.create({
   gamingCardInner: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: Backgrounds.card,
+    backgroundColor: "rgba(255, 255, 255, 0.06)",
     borderRadius: BorderRadius.lg - 2,
     padding: Spacing.md,
     gap: Spacing.md,
@@ -3575,7 +3575,7 @@ const styles = StyleSheet.create({
   playerCard: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: Backgrounds.card,
+    backgroundColor: "rgba(255, 255, 255, 0.06)",
     padding: Spacing.md,
     gap: Spacing.md,
     borderWidth: 1,
@@ -3717,7 +3717,7 @@ const styles = StyleSheet.create({
     letterSpacing: 0.5,
   },
   infoCard: {
-    backgroundColor: Backgrounds.card,
+    backgroundColor: "rgba(255, 255, 255, 0.06)",
     borderRadius: BorderRadius.lg,
     padding: Spacing.lg,
     gap: Spacing.md,
@@ -3831,7 +3831,7 @@ const styles = StyleSheet.create({
     borderRadius: BorderRadius.full,
   },
   addNoteForm: {
-    backgroundColor: Backgrounds.card,
+    backgroundColor: "rgba(255, 255, 255, 0.06)",
     borderRadius: BorderRadius.lg,
     padding: Spacing.lg,
     marginTop: Spacing.sm,
@@ -3905,7 +3905,7 @@ const styles = StyleSheet.create({
     color: Colors.dark.buttonText,
   },
   emptyNotesCard: {
-    backgroundColor: Backgrounds.card,
+    backgroundColor: "rgba(255, 255, 255, 0.06)",
     borderRadius: BorderRadius.lg,
     padding: Spacing.xl,
     alignItems: "center",
@@ -3919,7 +3919,7 @@ const styles = StyleSheet.create({
     gap: Spacing.sm,
   },
   noteCard: {
-    backgroundColor: Backgrounds.card,
+    backgroundColor: "rgba(255, 255, 255, 0.06)",
     borderRadius: BorderRadius.md,
     padding: Spacing.md,
     borderWidth: 1,
@@ -4114,7 +4114,7 @@ const styles = StyleSheet.create({
     fontWeight: "600",
   },
   levelReadinessCard: {
-    backgroundColor: Backgrounds.card,
+    backgroundColor: "rgba(255, 255, 255, 0.06)",
     borderRadius: BorderRadius.lg,
     padding: Spacing.lg,
     marginHorizontal: Spacing.lg,
@@ -4288,7 +4288,7 @@ const styles = StyleSheet.create({
     marginHorizontal: Spacing.lg,
     marginBottom: Spacing.lg,
     padding: Spacing.lg,
-    backgroundColor: Backgrounds.card,
+    backgroundColor: "rgba(255, 255, 255, 0.06)",
     borderRadius: BorderRadius.lg,
     borderWidth: 1,
     borderColor: "rgba(255, 255, 255, 0.06)",
@@ -4351,7 +4351,7 @@ const styles = StyleSheet.create({
   confirmModalContent: {
     width: "100%",
     maxWidth: 320,
-    backgroundColor: Backgrounds.elevated,
+    backgroundColor: "rgba(255, 255, 255, 0.08)",
     borderRadius: BorderRadius.lg,
     padding: Spacing.xl,
     alignItems: "center",
@@ -4413,7 +4413,7 @@ const styles = StyleSheet.create({
     marginHorizontal: Spacing.lg,
     marginBottom: Spacing.lg,
     padding: Spacing.lg,
-    backgroundColor: Backgrounds.card,
+    backgroundColor: "rgba(255, 255, 255, 0.06)",
     borderRadius: BorderRadius.lg,
     borderWidth: 1,
     borderColor: "rgba(255, 255, 255, 0.06)",
@@ -4615,7 +4615,7 @@ const styles = StyleSheet.create({
     marginHorizontal: Spacing.lg,
     marginTop: Spacing.sm,
     padding: Spacing.md,
-    backgroundColor: Backgrounds.card,
+    backgroundColor: "rgba(255, 255, 255, 0.06)",
     borderRadius: BorderRadius.lg,
     borderWidth: 1,
     borderColor: "rgba(255, 255, 255, 0.06)",
@@ -4767,7 +4767,7 @@ const styles = StyleSheet.create({
     color: "#FFFFFF",
   },
   emptyAttendanceCard: {
-    backgroundColor: Backgrounds.card,
+    backgroundColor: "rgba(255, 255, 255, 0.06)",
     borderRadius: BorderRadius.lg,
     padding: Spacing.xl,
     alignItems: "center",
@@ -4790,7 +4790,7 @@ const styles = StyleSheet.create({
   attendanceHistoryRow: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: Backgrounds.card,
+    backgroundColor: "rgba(255, 255, 255, 0.06)",
     borderRadius: BorderRadius.md,
     padding: Spacing.md,
     borderWidth: 1,
@@ -5002,7 +5002,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   editAttendanceModalContent: {
-    backgroundColor: Backgrounds.elevated,
+    backgroundColor: "rgba(255, 255, 255, 0.08)",
     borderRadius: 16,
     padding: 24,
     width: "85%",
@@ -5026,7 +5026,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     padding: 16,
     borderRadius: 12,
-    backgroundColor: Backgrounds.card,
+    backgroundColor: "rgba(255, 255, 255, 0.06)",
     marginBottom: 8,
     gap: 12,
   },

@@ -4,7 +4,7 @@ import Animated, { FadeInUp, FadeOutUp, useAnimatedStyle, useSharedValue, withSp
 import Ionicons from "@expo/vector-icons/Ionicons";
 import * as Notifications from "expo-notifications";
 import * as Haptics from "expo-haptics";
-import { Colors, Spacing, BorderRadius, GlowColors, Backgrounds } from "@/constants/theme";
+import { Colors, Spacing, BorderRadius, GlowColors } from "@/constants/theme";
 
 interface ToastData {
   id: string;
@@ -97,7 +97,7 @@ const styles = StyleSheet.create({
   inner: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: Backgrounds.card,
+    backgroundColor: "rgba(255, 255, 255, 0.06)",
     borderRadius: BorderRadius.xl,
     padding: Spacing.md,
     borderWidth: 1,

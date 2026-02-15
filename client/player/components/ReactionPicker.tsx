@@ -3,7 +3,7 @@ import { View, StyleSheet, Pressable, Modal } from "react-native";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import Animated, { FadeIn, FadeOut, ZoomIn, ZoomOut, useSharedValue, useAnimatedStyle, withSpring } from "react-native-reanimated";
 import { BlurView } from "expo-blur";
-import { Colors, Spacing, BorderRadius, Backgrounds, GlowColors } from "@/constants/theme";
+import { Colors, Spacing, BorderRadius, GlowColors } from "@/constants/theme";
 import { ThemedText } from "@/components/ThemedText";
 
 export interface ReactionType {
@@ -65,7 +65,7 @@ export function ReactionButton({
           { 
             width: containerSize, 
             height: containerSize,
-            backgroundColor: isSelected ? reaction.color + "30" : Backgrounds.card,
+            backgroundColor: isSelected ? reaction.color + "30" : "rgba(255, 255, 255, 0.06)",
             borderColor: isSelected ? reaction.color : "transparent",
             borderWidth: isSelected ? 2 : 0,
           },
@@ -239,7 +239,7 @@ const styles = StyleSheet.create({
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: Backgrounds.overlay,
+    backgroundColor: "rgba(255, 255, 255, 0.06)",
     justifyContent: "center",
     alignItems: "center",
     padding: Spacing.xl,
@@ -247,7 +247,7 @@ const styles = StyleSheet.create({
   modalContent: {
     borderRadius: BorderRadius.lg,
     overflow: "hidden",
-    backgroundColor: Backgrounds.card,
+    backgroundColor: "rgba(255, 255, 255, 0.06)",
     borderWidth: 1,
     borderColor: "rgba(255, 255, 255, 0.06)",
   },
@@ -273,11 +273,11 @@ const styles = StyleSheet.create({
     width: 24,
     height: 24,
     borderRadius: 12,
-    backgroundColor: Backgrounds.card,
+    backgroundColor: "rgba(255, 255, 255, 0.06)",
     justifyContent: "center",
     alignItems: "center",
     borderWidth: 2,
-    borderColor: Backgrounds.root,
+    borderColor: "rgba(255, 255, 255, 0.06)",
   },
   summaryCount: {
     fontSize: 13,

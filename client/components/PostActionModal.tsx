@@ -23,7 +23,6 @@ import {
   Spacing,
   BorderRadius,
   Typography,
-  Backgrounds,
   GlowColors,
   TextColors,
 } from "@/constants/theme";
@@ -182,7 +181,7 @@ export function PostActionModal({
                     size={18}
                     color={
                       action.variant === "primary"
-                        ? Backgrounds.root
+                        ? "rgba(255, 255, 255, 0.06)"
                         : action.variant === "secondary"
                         ? GlowColors.primary
                         : TextColors.muted
@@ -210,17 +209,17 @@ const styles = StyleSheet.create({
   },
   backdrop: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: Backgrounds.overlay,
+    backgroundColor: "rgba(0, 0, 0, 0.6)",
   },
   card: {
     width: "100%",
     maxWidth: 340,
-    backgroundColor: Backgrounds.card,
+    backgroundColor: "rgba(255, 255, 255, 0.06)",
     borderRadius: BorderRadius.xl,
     padding: Spacing.xl,
     alignItems: "center",
     borderWidth: 1,
-    borderColor: Backgrounds.surface,
+    borderColor: "rgba(255, 255, 255, 0.04)",
   },
   iconContainer: {
     width: 72,
@@ -253,7 +252,7 @@ const styles = StyleSheet.create({
     marginTop: Spacing.xl,
     marginBottom: Spacing.md,
     borderTopWidth: 1,
-    borderTopColor: Backgrounds.surface,
+    borderTopColor: "rgba(255, 255, 255, 0.04)",
     paddingTop: Spacing.lg,
   },
   whatsNextLabel: {
@@ -290,7 +289,7 @@ const styles = StyleSheet.create({
   primaryButtonText: {
     ...Typography.body,
     fontWeight: "600",
-    color: Backgrounds.root,
+    color: "rgba(255, 255, 255, 0.06)",
   },
   secondaryButtonText: {
     ...Typography.body,

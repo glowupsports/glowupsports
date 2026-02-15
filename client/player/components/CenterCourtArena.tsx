@@ -15,7 +15,7 @@ import Animated, {
   FadeInDown,
 } from "react-native-reanimated";
 import Svg, { Line, Rect, Circle, Ellipse, Path } from "react-native-svg";
-import { ProTennisColors, Spacing, BorderRadius, Backgrounds, GlowColors, FunctionColors, Colors } from "@/constants/theme";
+import { ProTennisColors, Spacing, BorderRadius, GlowColors, FunctionColors, Colors } from "@/constants/theme";
 import * as Haptics from "expo-haptics";
 import { usePlayerState, BroadcastMode } from "@/player/context/PlayerStateContext";
 
@@ -109,7 +109,7 @@ function CourtSurfaceBackground({ mode }: { mode: BroadcastMode }) {
   }, [mode]);
 
   const lineOpacity = mode === "on_air" ? 0.35 : mode === "pre_game" ? 0.2 : 0.1;
-  const courtColor = mode === "rest_day" ? Backgrounds.root : ProTennisColors.midnightBlue;
+  const courtColor = mode === "rest_day" ? "rgba(255, 255, 255, 0.06)" : ProTennisColors.midnightBlue;
 
   return (
     <Svg 

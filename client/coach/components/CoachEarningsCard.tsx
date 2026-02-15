@@ -3,7 +3,7 @@ import { View, Text, StyleSheet, Pressable, ActivityIndicator } from "react-nati
 import { useQuery } from "@tanstack/react-query";
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
-import { Colors, Typography, Spacing, BorderRadius, Backgrounds, GlowColors } from "@/constants/theme";
+import { Colors, Typography, Spacing, BorderRadius, GlowColors } from "@/constants/theme";
 import { useCoach } from "@/coach/context/CoachContext";
 import { InfoTooltip } from "@/components/InfoTooltip";
 
@@ -166,7 +166,7 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.md,
   },
   loadingCard: {
-    backgroundColor: Backgrounds.card,
+    backgroundColor: "rgba(255, 255, 255, 0.06)",
     borderRadius: BorderRadius.md,
     padding: Spacing.lg,
     flexDirection: "row",
@@ -181,7 +181,7 @@ const styles = StyleSheet.create({
     ...Typography.small,
   },
   errorCard: {
-    backgroundColor: Backgrounds.card,
+    backgroundColor: "rgba(255, 255, 255, 0.06)",
     borderRadius: BorderRadius.md,
     padding: Spacing.lg,
     flexDirection: "row",
@@ -204,7 +204,7 @@ const styles = StyleSheet.create({
     ...Typography.caption,
   },
   card: {
-    backgroundColor: Backgrounds.card,
+    backgroundColor: "rgba(255, 255, 255, 0.06)",
     borderRadius: BorderRadius.md,
     padding: Spacing.lg,
     borderWidth: 1,

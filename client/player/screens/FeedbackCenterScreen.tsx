@@ -4,7 +4,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
 import { useQuery } from "@tanstack/react-query";
 import Ionicons from "@expo/vector-icons/Ionicons";
-import { Colors, Spacing, Typography, BorderRadius, Backgrounds, GlowColors, TextColors } from "@/constants/theme";
+import { Colors, Spacing, Typography, BorderRadius, GlowColors, TextColors } from "@/constants/theme";
 import { Card } from "@/components/Card";
 import { EmptyStateCard } from "@/components/EmptyStateCard";
 import { useCoachMarks, CoachMarkTarget } from "@/components/CoachMarks";
@@ -234,7 +234,7 @@ export default function FeedbackCenterScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: Backgrounds.root,
+    backgroundColor: "rgba(255, 255, 255, 0.06)",
   },
   header: {
     flexDirection: "row",
@@ -242,13 +242,13 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.lg,
     paddingBottom: Spacing.lg,
     borderBottomWidth: 1,
-    borderBottomColor: Backgrounds.surface,
+    borderBottomColor: "rgba(255, 255, 255, 0.04)",
   },
   backButton: {
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: Backgrounds.card,
+    backgroundColor: "rgba(255, 255, 255, 0.06)",
     justifyContent: "center",
     alignItems: "center",
     marginRight: Spacing.md,
@@ -295,11 +295,11 @@ const styles = StyleSheet.create({
     gap: Spacing.xl,
   },
   pillarSection: {
-    backgroundColor: Backgrounds.card,
+    backgroundColor: "rgba(255, 255, 255, 0.06)",
     borderRadius: BorderRadius.lg,
     padding: Spacing.lg,
     borderWidth: 1,
-    borderColor: Backgrounds.surface,
+    borderColor: "rgba(255, 255, 255, 0.04)",
   },
   pillarHeader: {
     flexDirection: "row",
@@ -330,7 +330,7 @@ const styles = StyleSheet.create({
     gap: Spacing.md,
   },
   assessmentCard: {
-    backgroundColor: Backgrounds.elevated,
+    backgroundColor: "rgba(255, 255, 255, 0.08)",
     borderRadius: BorderRadius.md,
     padding: Spacing.md,
   },

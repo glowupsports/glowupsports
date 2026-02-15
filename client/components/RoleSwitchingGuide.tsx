@@ -14,7 +14,6 @@ import {
   Spacing,
   BorderRadius,
   Typography,
-  Backgrounds,
   TextColors,
   GlowColors,
 } from "@/constants/theme";
@@ -156,12 +155,12 @@ export function RoleSwitchingGuide({
 const styles = StyleSheet.create({
   overlay: {
     flex: 1,
-    backgroundColor: Backgrounds.overlay,
+    backgroundColor: "rgba(0, 0, 0, 0.6)",
     justifyContent: "flex-end",
   },
   sheet: {
     height: SCREEN_HEIGHT * 0.6,
-    backgroundColor: Backgrounds.elevated,
+    backgroundColor: "rgba(255, 255, 255, 0.08)",
     borderTopLeftRadius: BorderRadius.lg,
     borderTopRightRadius: BorderRadius.lg,
     overflow: "hidden",
@@ -192,7 +191,7 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: Backgrounds.surface,
+    backgroundColor: "rgba(255, 255, 255, 0.04)",
     justifyContent: "center",
     alignItems: "center",
   },
@@ -216,7 +215,7 @@ const styles = StyleSheet.create({
     padding: Spacing.lg,
     marginBottom: Spacing.sm,
     borderRadius: BorderRadius.sm,
-    backgroundColor: Backgrounds.card,
+    backgroundColor: "rgba(255, 255, 255, 0.06)",
     borderWidth: 1,
     borderColor: "rgba(255, 255, 255, 0.06)",
   },

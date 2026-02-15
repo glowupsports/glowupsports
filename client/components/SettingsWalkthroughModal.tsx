@@ -20,7 +20,6 @@ import {
   Spacing,
   BorderRadius,
   Typography,
-  Backgrounds,
   GlowColors,
   TextColors,
   FunctionColors,
@@ -78,7 +77,7 @@ function AreaCard({ area, index }: { area: SettingsArea; index: number }) {
           <View style={styles.areaCardLeft}>
             <View style={[styles.areaIconContainer, area.isConfigured && styles.areaIconConfigured]}>
               {area.isConfigured ? (
-                <Ionicons name="checkmark" size={20} color={Backgrounds.root} />
+                <Ionicons name="checkmark" size={20} color={"rgba(255, 255, 255, 0.06)"} />
               ) : (
                 <Ionicons
                   name={area.icon as keyof typeof Ionicons.glyphMap}
@@ -113,7 +112,7 @@ function AreaCard({ area, index }: { area: SettingsArea; index: number }) {
             style={styles.actionButton}
           >
             <Text style={styles.actionButtonText}>{area.actionLabel}</Text>
-            <Ionicons name="arrow-forward" size={14} color={Backgrounds.root} />
+            <Ionicons name="arrow-forward" size={14} color={"rgba(255, 255, 255, 0.06)"} />
           </Pressable>
         ) : (
           <View style={styles.configuredBadge}>
@@ -209,12 +208,12 @@ export function SettingsWalkthroughModal({
 const styles = StyleSheet.create({
   overlay: {
     flex: 1,
-    backgroundColor: Backgrounds.overlay,
+    backgroundColor: "rgba(0, 0, 0, 0.6)",
     justifyContent: "flex-end",
   },
   sheet: {
     height: SCREEN_HEIGHT * 0.8,
-    backgroundColor: Backgrounds.elevated,
+    backgroundColor: "rgba(255, 255, 255, 0.08)",
     borderTopLeftRadius: BorderRadius.lg,
     borderTopRightRadius: BorderRadius.lg,
     overflow: "hidden",
@@ -263,7 +262,7 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: Backgrounds.surface,
+    backgroundColor: "rgba(255, 255, 255, 0.04)",
     justifyContent: "center",
     alignItems: "center",
   },
@@ -273,7 +272,7 @@ const styles = StyleSheet.create({
   },
   progressBarTrack: {
     height: 4,
-    backgroundColor: Backgrounds.surface,
+    backgroundColor: "rgba(255, 255, 255, 0.04)",
     borderRadius: 2,
     overflow: "hidden",
   },
@@ -290,7 +289,7 @@ const styles = StyleSheet.create({
     gap: Spacing.md,
   },
   areaCard: {
-    backgroundColor: Backgrounds.card,
+    backgroundColor: "rgba(255, 255, 255, 0.06)",
     borderRadius: BorderRadius.md,
     borderWidth: 1,
     borderColor: "rgba(255, 255, 255, 0.06)",
@@ -341,7 +340,7 @@ const styles = StyleSheet.create({
     lineHeight: 20,
   },
   whySection: {
-    backgroundColor: Backgrounds.surface,
+    backgroundColor: "rgba(255, 255, 255, 0.04)",
     borderRadius: BorderRadius.xs,
     padding: Spacing.md,
     marginBottom: Spacing.md,
@@ -376,7 +375,7 @@ const styles = StyleSheet.create({
   actionButtonText: {
     ...Typography.small,
     fontWeight: "600",
-    color: Backgrounds.root,
+    color: "rgba(255, 255, 255, 0.06)",
   },
   configuredBadge: {
     flexDirection: "row",

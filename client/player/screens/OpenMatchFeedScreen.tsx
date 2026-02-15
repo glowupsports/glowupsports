@@ -29,7 +29,7 @@ import { BlurView } from "expo-blur";
 import { Ionicons, Feather } from "@expo/vector-icons";
 import { Image } from "expo-image";
 import * as Haptics from "expo-haptics";
-import { Colors, Spacing, FontSizes, BorderRadius, Typography, Backgrounds, GlowColors } from "@/constants/theme";
+import { Colors, Spacing, FontSizes, BorderRadius, Typography, GlowColors } from "@/constants/theme";
 import { ThemedText } from "@/components/ThemedText";
 import { apiRequest, getApiUrl, getStaticAssetsUrl } from "@/lib/query-client";
 import { LockedScreen } from "../components/LockedScreen";

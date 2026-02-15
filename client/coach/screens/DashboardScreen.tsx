@@ -30,7 +30,7 @@ import { useNavigation } from "@react-navigation/native";
 import * as Haptics from "expo-haptics";
 import { useCoach } from "@/coach/context/CoachContext";
 import { useAuth } from "@/coach/context/AuthContext";
-import { Colors, Spacing, BorderRadius, Typography, Backgrounds, GlowColors } from "@/constants/theme";
+import { Colors, Spacing, BorderRadius, Typography, GlowColors } from "@/constants/theme";
 import MiniTimeline from "@/coach/components/MiniTimeline";
 import { CoachChatFooter } from "@/coach/components/CoachChatFooter";
 import { CoachStatusPanel } from "@/coach/components/CoachStatusPanel";
@@ -658,21 +658,6 @@ export default function DashboardScreen() {
     return { primary: "Match Point", secondary: "All sessions complete" };
   };
 
-  if (!coach) {
-    return (
-      <View style={[styles.container, { paddingTop: insets.top }]}>
-        <LinearGradient
-          colors={[Colors.dark.backgroundRoot, Colors.dark.backgroundDefault]}
-          style={StyleSheet.absoluteFill}
-        />
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={Colors.dark.primary} />
-          <Text style={styles.loadingText}>Loading...</Text>
-        </View>
-      </View>
-    );
-  }
-
   const coachChecklistSteps: ChecklistStep[] = useMemo(() => {
     const hasPlayers = (calendarData?.ownSessions || []).some(s => s.players && s.players.length > 0);
     const hasSessions = (calendarData?.ownSessions || []).length > 0;
@@ -756,6 +741,21 @@ export default function DashboardScreen() {
     { id: "wellness", name: "Wellness Tracking", icon: "heart", isUsed: false },
     { id: "attendance", name: "Attendance", icon: "checkmark-circle", isUsed: true },
   ], []);
+
+  if (!coach) {
+    return (
+      <View style={[styles.container, { paddingTop: insets.top }]}>
+        <LinearGradient
+          colors={[Colors.dark.backgroundRoot, Colors.dark.backgroundDefault]}
+          style={StyleSheet.absoluteFill}
+        />
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color={Colors.dark.primary} />
+          <Text style={styles.loadingText}>Loading...</Text>
+        </View>
+      </View>
+    );
+  }
 
   const coachWelcomeSlides = [
     {
@@ -3323,7 +3323,7 @@ const styles = StyleSheet.create({
   
   // === TODAY'S SCHEDULE - Unified Gaming HUD ===
   todayScheduleCard: {
-    backgroundColor: Backgrounds.card,
+    backgroundColor: "rgba(255, 255, 255, 0.06)",
     borderRadius: BorderRadius.lg,
     overflow: "hidden",
     marginBottom: Spacing.md,
@@ -3380,7 +3380,7 @@ const styles = StyleSheet.create({
     gap: Spacing.xs,
   },
   todayScheduleStatBadge: {
-    backgroundColor: Backgrounds.glass,
+    backgroundColor: "rgba(255, 255, 255, 0.08)",
     borderWidth: 1,
     borderColor: "rgba(200, 255, 61, 0.25)",
     paddingHorizontal: Spacing.sm,
@@ -3471,7 +3471,7 @@ const styles = StyleSheet.create({
     marginTop: Spacing.md,
   },
   todayScheduleTimeline: {
-    backgroundColor: Backgrounds.surface,
+    backgroundColor: "rgba(255, 255, 255, 0.04)",
     borderRadius: BorderRadius.md,
     padding: Spacing.sm,
     borderWidth: 1,
@@ -3497,7 +3497,7 @@ const styles = StyleSheet.create({
   todayScheduleSession: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: Backgrounds.elevated,
+    backgroundColor: "rgba(255, 255, 255, 0.08)",
     borderRadius: BorderRadius.md,
     padding: Spacing.sm,
     marginBottom: Spacing.xs,

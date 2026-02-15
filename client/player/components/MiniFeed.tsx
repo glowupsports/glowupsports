@@ -15,7 +15,7 @@ import Animated, {
 import { LinearGradient } from "expo-linear-gradient";
 import { Image } from "expo-image";
 import { useQuery } from "@tanstack/react-query";
-import { ProTennisColors, Spacing, BorderRadius, Backgrounds, GlowColors, Colors } from "@/constants/theme";
+import { ProTennisColors, Spacing, BorderRadius, GlowColors, Colors } from "@/constants/theme";
 import { usePlayerState } from "@/player/context/PlayerStateContext";
 import { useNavigation } from "@react-navigation/native";
 import { apiFetch, getStaticAssetsUrl } from "@/lib/query-client";
@@ -416,7 +416,7 @@ const styles = StyleSheet.create({
     borderRadius: BorderRadius.sm,
     overflow: "hidden",
     position: "relative",
-    backgroundColor: Backgrounds.card,
+    backgroundColor: "rgba(255, 255, 255, 0.06)",
   },
   mediaThumb: {
     width: "100%",
@@ -426,7 +426,7 @@ const styles = StyleSheet.create({
     position: "absolute",
     bottom: 6,
     right: 6,
-    backgroundColor: Backgrounds.overlay,
+    backgroundColor: "rgba(255, 255, 255, 0.06)",
     paddingHorizontal: 6,
     paddingVertical: 2,
     borderRadius: 8,

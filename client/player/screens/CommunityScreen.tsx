@@ -30,7 +30,7 @@ import Animated, { FadeIn, FadeInDown, FadeOut, SlideInUp, useSharedValue, useAn
 const { height: SCREEN_HEIGHT } = Dimensions.get("window");
 const DRAWER_HEIGHT = Math.min(SCREEN_HEIGHT * 0.55, 450);
 import { useVideoPlayer, VideoView } from "expo-video";
-import { Colors, Spacing, BorderRadius, Backgrounds, GlowColors } from "@/constants/theme";
+import { Colors, Spacing, BorderRadius, GlowColors } from "@/constants/theme";
 import { ThemedText } from "@/components/ThemedText";
 import { ThemedView } from "@/components/ThemedView";
 import { Card } from "@/components/Card";

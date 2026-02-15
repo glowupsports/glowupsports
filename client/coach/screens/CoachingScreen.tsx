@@ -27,7 +27,7 @@ import Animated, {
   Easing,
 } from "react-native-reanimated";
 import { useCoach } from "@/coach/context/CoachContext";
-import { Colors, Spacing, BorderRadius, Typography, Backgrounds, GlowColors } from "@/constants/theme";
+import { Colors, Spacing, BorderRadius, Typography, GlowColors } from "@/constants/theme";
 import { apiRequest } from "@/lib/query-client";
 import { useCoachMarks, CoachMarkTarget } from "@/components/CoachMarks";
 import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollViewCompat";

@@ -16,7 +16,7 @@ import Ionicons from "@expo/vector-icons/Ionicons";
 import Animated, { FadeIn, FadeInUp } from "react-native-reanimated";
 import * as Haptics from "expo-haptics";
 import { useNavigation } from "@react-navigation/native";
-import { Colors, Spacing, Backgrounds, GlowColors } from "@/constants/theme";
+import { Colors, Spacing, GlowColors } from "@/constants/theme";
 import { apiRequest, getApiUrl } from "@/lib/query-client";
 
 interface MarketplaceListing {
@@ -338,7 +338,7 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.md,
   },
   listingCard: {
-    backgroundColor: Backgrounds.card,
+    backgroundColor: "rgba(255, 255, 255, 0.06)",
     borderRadius: 12,
     padding: Spacing.md,
     marginBottom: Spacing.md,

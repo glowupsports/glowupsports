@@ -2,7 +2,7 @@ import React from "react";
 import { View, Text, StyleSheet, Pressable } from "react-native";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import Animated, { FadeInDown } from "react-native-reanimated";
-import { ProTennisColors, Spacing, BorderRadius, Backgrounds, GlowColors } from "@/constants/theme";
+import { ProTennisColors, Spacing, BorderRadius, GlowColors } from "@/constants/theme";
 import { usePlayerState } from "@/player/context/PlayerStateContext";
 import { useNavigation } from "@react-navigation/native";
 import * as Haptics from "expo-haptics";
@@ -159,7 +159,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     justifyContent: "center",
     alignItems: "center",
-    backgroundColor: Backgrounds.root + "60",
+    backgroundColor: "rgba(255, 255, 255, 0.06)" + "60",
   },
   itemContent: {
     flex: 1,

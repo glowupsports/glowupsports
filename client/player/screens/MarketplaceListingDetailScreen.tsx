@@ -17,7 +17,7 @@ import Ionicons from "@expo/vector-icons/Ionicons";
 import Animated, { FadeIn, FadeInUp } from "react-native-reanimated";
 import * as Haptics from "expo-haptics";
 import { useNavigation, useRoute, RouteProp } from "@react-navigation/native";
-import { Colors, Spacing, Backgrounds, GlowColors } from "@/constants/theme";
+import { Colors, Spacing, GlowColors } from "@/constants/theme";
 import { apiRequest, getApiUrl } from "@/lib/query-client";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
@@ -441,7 +441,7 @@ const styles = StyleSheet.create({
   sellerCard: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: Backgrounds.card,
+    backgroundColor: "rgba(255, 255, 255, 0.06)",
     borderRadius: 12,
     padding: Spacing.md,
     gap: Spacing.md,

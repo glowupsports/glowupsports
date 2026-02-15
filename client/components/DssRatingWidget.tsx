@@ -10,7 +10,7 @@ import Animated, {
   interpolate,
   Extrapolation,
 } from "react-native-reanimated";
-import { Colors, Spacing, BorderRadius, FontSizes, Backgrounds, GlowColors } from "@/constants/theme";
+import { Colors, Spacing, BorderRadius, FontSizes, GlowColors } from "@/constants/theme";
 import { useQuery } from "@tanstack/react-query";
 
 interface DssRatingWidgetProps {
@@ -204,7 +204,7 @@ export function DssRatingWidget({
     >
       <Animated.View style={[animatedStyle]}>
         <LinearGradient
-          colors={[Backgrounds.card, Backgrounds.elevated]}
+          colors={["rgba(255, 255, 255, 0.06)", "rgba(255, 255, 255, 0.08)"]}
           style={[styles.container, style]}
         >
           <View style={styles.header}>
@@ -347,7 +347,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
     minHeight: 60,
-    backgroundColor: Backgrounds.card,
+    backgroundColor: "rgba(255, 255, 255, 0.06)",
   },
   errorText: {
     color: Colors.textSecondary,
@@ -470,7 +470,7 @@ const styles = StyleSheet.create({
   },
   progressBarBg: {
     height: 6,
-    backgroundColor: Backgrounds.elevated,
+    backgroundColor: "rgba(255, 255, 255, 0.08)",
     borderRadius: 3,
     overflow: "hidden",
   },
@@ -512,7 +512,7 @@ const styles = StyleSheet.create({
   compactContainer: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: Backgrounds.card,
+    backgroundColor: "rgba(255, 255, 255, 0.06)",
     borderRadius: BorderRadius.md,
     paddingVertical: 6,
     paddingHorizontal: 10,
@@ -544,7 +544,7 @@ const styles = StyleSheet.create({
   badgeContainer: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: Backgrounds.card,
+    backgroundColor: "rgba(255, 255, 255, 0.06)",
     borderRadius: BorderRadius.md,
     paddingVertical: 4,
     borderWidth: 1,

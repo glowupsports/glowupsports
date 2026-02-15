@@ -14,7 +14,7 @@ import { LinearGradient } from "expo-linear-gradient";
 import * as Haptics from "expo-haptics";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
-import { Colors, Spacing, Backgrounds } from "@/constants/theme";
+import { Colors, Spacing } from "@/constants/theme";
 import { useCoach } from "@/coach/context/CoachContext";
 import { apiRequest } from "@/lib/query-client";
 
@@ -398,7 +398,7 @@ export default function WellnessLogScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: Backgrounds.root,
+    backgroundColor: "rgba(255, 255, 255, 0.06)",
   },
   header: {
     flexDirection: "row",
@@ -407,7 +407,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.md,
     paddingVertical: Spacing.md,
     borderBottomWidth: 1,
-    borderBottomColor: Backgrounds.card,
+    borderBottomColor: "rgba(255, 255, 255, 0.06)",
   },
   backButton: {
     width: 40,
@@ -461,7 +461,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.md,
   },
   dateCard: {
-    backgroundColor: Backgrounds.card,
+    backgroundColor: "rgba(255, 255, 255, 0.06)",
     borderRadius: 12,
     padding: Spacing.md,
     marginRight: Spacing.sm,
@@ -507,7 +507,7 @@ const styles = StyleSheet.create({
     letterSpacing: 1.5,
   },
   card: {
-    backgroundColor: Backgrounds.card,
+    backgroundColor: "rgba(255, 255, 255, 0.06)",
     borderRadius: 12,
     padding: Spacing.md,
     gap: Spacing.md,
@@ -534,7 +534,7 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: Backgrounds.elevated,
+    backgroundColor: "rgba(255, 255, 255, 0.08)",
     alignItems: "center",
     justifyContent: "center",
   },
@@ -556,7 +556,7 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     paddingHorizontal: Spacing.sm,
     borderRadius: 8,
-    backgroundColor: Backgrounds.elevated,
+    backgroundColor: "rgba(255, 255, 255, 0.08)",
     alignItems: "center",
     borderWidth: 1,
     borderColor: "transparent",
@@ -591,7 +591,7 @@ const styles = StyleSheet.create({
     flex: 1,
     height: 8,
     borderRadius: 4,
-    backgroundColor: Backgrounds.elevated,
+    backgroundColor: "rgba(255, 255, 255, 0.08)",
   },
   mealsRow: {
     flexDirection: "row",
@@ -606,7 +606,7 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: Backgrounds.elevated,
+    backgroundColor: "rgba(255, 255, 255, 0.08)",
     alignItems: "center",
     justifyContent: "center",
   },
@@ -630,7 +630,7 @@ const styles = StyleSheet.create({
     width: 24,
     height: 24,
     borderRadius: 6,
-    backgroundColor: Backgrounds.elevated,
+    backgroundColor: "rgba(255, 255, 255, 0.08)",
     borderWidth: 1,
     borderColor: "rgba(255, 255, 255, 0.1)",
     alignItems: "center",
@@ -645,7 +645,7 @@ const styles = StyleSheet.create({
     color: Colors.dark.text,
   },
   textInput: {
-    backgroundColor: Backgrounds.elevated,
+    backgroundColor: "rgba(255, 255, 255, 0.08)",
     borderRadius: 8,
     padding: Spacing.md,
     color: Colors.dark.text,

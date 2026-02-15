@@ -7,7 +7,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { ThemedText } from "@/components/ThemedText";
 import { CurrencyDisplay } from "@/components/CurrencyDisplay";
 import { Card } from "@/components/Card";
-import { Colors, Spacing, BorderRadius, Backgrounds, GlowColors } from "@/constants/theme";
+import { Colors, Spacing, BorderRadius, GlowColors } from "@/constants/theme";
 import { usePlayer } from "@/context/PlayerContext";
 
 interface Transaction {

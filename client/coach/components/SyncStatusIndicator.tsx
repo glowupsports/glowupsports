@@ -19,7 +19,7 @@ import Animated, {
   useSharedValue,
 } from "react-native-reanimated";
 import { useEffect } from "react";
-import { Colors, Spacing, Backgrounds, GlowColors, FunctionColors, TextColors } from "@/constants/theme";
+import { Colors, Spacing, GlowColors, FunctionColors, TextColors } from "@/constants/theme";
 import { useOfflineSync } from "@/lib/useOfflineSync";
 
 export default function SyncStatusIndicator() {
@@ -107,7 +107,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     paddingHorizontal: Spacing.sm,
     paddingVertical: Spacing.xs,
-    backgroundColor: Backgrounds.elevated,
+    backgroundColor: "rgba(255, 255, 255, 0.08)",
     borderRadius: 12,
     marginRight: Spacing.sm,
   },

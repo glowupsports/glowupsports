@@ -17,7 +17,6 @@ import {
   Spacing,
   Typography,
   BorderRadius,
-  Backgrounds,
   GlowColors,
   TextColors,
 } from "@/constants/theme";
@@ -270,7 +269,7 @@ function LadderCard({ ladder, onPress }: { ladder: Ladder; onPress: () => void }
   return (
     <Pressable style={({ pressed }) => [styles.ladderCard, pressed && styles.cardPressed]} onPress={onPress}>
       <LinearGradient
-        colors={[Backgrounds.card, Backgrounds.elevated]}
+        colors={["rgba(255, 255, 255, 0.06)", "rgba(255, 255, 255, 0.08)"]}
         style={styles.ladderGradient}
       >
         <View style={styles.ladderTop}>
@@ -462,7 +461,7 @@ function EmptyState({ icon, title }: { icon: string; title: string }) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: Backgrounds.root,
+    backgroundColor: "rgba(255, 255, 255, 0.06)",
   },
   header: {
     flexDirection: "row",
@@ -475,7 +474,7 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 10,
-    backgroundColor: Backgrounds.card,
+    backgroundColor: "rgba(255, 255, 255, 0.06)",
     alignItems: "center",
     justifyContent: "center",
     borderWidth: 1,
@@ -503,7 +502,7 @@ const styles = StyleSheet.create({
     gap: 4,
     paddingVertical: 10,
     borderRadius: 8,
-    backgroundColor: Backgrounds.card,
+    backgroundColor: "rgba(255, 255, 255, 0.06)",
     borderWidth: 1,
     borderColor: "rgba(255,255,255,0.06)",
   },
@@ -544,7 +543,7 @@ const styles = StyleSheet.create({
     paddingBottom: 100,
   },
   card: {
-    backgroundColor: Backgrounds.card,
+    backgroundColor: "rgba(255, 255, 255, 0.06)",
     borderRadius: 12,
     padding: Spacing.md,
     marginBottom: 10,
@@ -602,7 +601,7 @@ const styles = StyleSheet.create({
   typeBadgeText: {
     fontSize: 9,
     fontWeight: "800",
-    color: Backgrounds.root,
+    color: "rgba(255, 255, 255, 0.06)",
   },
   formatRow: {
     flexDirection: "row",
@@ -689,7 +688,7 @@ const styles = StyleSheet.create({
   registerBtnText: {
     fontSize: 11,
     fontWeight: "700",
-    color: Backgrounds.root,
+    color: "rgba(255, 255, 255, 0.06)",
   },
   registerBtnTextDisabled: {
     color: TextColors.muted,
@@ -794,7 +793,7 @@ const styles = StyleSheet.create({
   joinBtnText: {
     fontSize: 11,
     fontWeight: "700",
-    color: Backgrounds.root,
+    color: "rgba(255, 255, 255, 0.06)",
   },
   empty: {
     alignItems: "center",

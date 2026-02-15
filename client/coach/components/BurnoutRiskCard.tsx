@@ -4,7 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import * as Haptics from "expo-haptics";
-import { Colors, Typography, Spacing, Backgrounds, GlowColors } from "@/constants/theme";
+import { Colors, Typography, Spacing, GlowColors } from "@/constants/theme";
 import { useCoach } from "@/coach/context/CoachContext";
 import { InfoTooltip } from "@/components/InfoTooltip";
 

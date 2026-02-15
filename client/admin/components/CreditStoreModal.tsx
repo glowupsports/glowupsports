@@ -12,7 +12,7 @@ import { LinearGradient } from "expo-linear-gradient";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import * as Haptics from "expo-haptics";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { Colors, Spacing, BorderRadius, Typography, Backgrounds } from "@/constants/theme";
+import { Colors, Spacing, BorderRadius, Typography } from "@/constants/theme";
 import { apiRequest } from "@/lib/query-client";
 
 interface CreditStoreModalProps {
@@ -95,7 +95,7 @@ export default function CreditStoreModal({ visible, onClose, playerId, playerNam
       <Pressable style={styles.overlay} onPress={onClose}>
         <Pressable style={styles.container} onPress={(e) => e.stopPropagation()}>
           <LinearGradient
-            colors={[Backgrounds.card, Colors.dark.backgroundRoot]}
+            colors={["rgba(255, 255, 255, 0.06)", Colors.dark.backgroundRoot]}
             style={styles.content}
           >
             <View style={styles.header}>
@@ -275,7 +275,7 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: Backgrounds.card,
+    backgroundColor: "rgba(255, 255, 255, 0.06)",
     alignItems: "center",
     justifyContent: "center",
   },
@@ -299,7 +299,7 @@ const styles = StyleSheet.create({
     borderRadius: BorderRadius.md,
     borderWidth: 2,
     borderColor: "rgba(255, 255, 255, 0.1)",
-    backgroundColor: Backgrounds.card,
+    backgroundColor: "rgba(255, 255, 255, 0.06)",
   },
   typeIcon: {
     width: 40,
@@ -325,7 +325,7 @@ const styles = StyleSheet.create({
     borderRadius: BorderRadius.md,
     borderWidth: 2,
     borderColor: "rgba(255, 255, 255, 0.1)",
-    backgroundColor: Backgrounds.card,
+    backgroundColor: "rgba(255, 255, 255, 0.06)",
   },
   quantityValue: {
     ...Typography.h2,
@@ -337,7 +337,7 @@ const styles = StyleSheet.create({
     color: Colors.dark.textMuted,
   },
   summaryCard: {
-    backgroundColor: Backgrounds.card,
+    backgroundColor: "rgba(255, 255, 255, 0.06)",
     borderRadius: BorderRadius.md,
     padding: Spacing.md,
     marginBottom: Spacing.lg,
@@ -394,7 +394,7 @@ const styles = StyleSheet.create({
   priceInputContainer: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: Backgrounds.card,
+    backgroundColor: "rgba(255, 255, 255, 0.06)",
     borderRadius: BorderRadius.md,
     borderWidth: 2,
     borderColor: "rgba(255, 255, 255, 0.1)",

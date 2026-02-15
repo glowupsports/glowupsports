@@ -7,7 +7,7 @@ import * as Haptics from "expo-haptics";
 
 import { ThemedText } from "@/components/ThemedText";
 import { ReportIssueModal } from "@/components/ReportIssueModal";
-import { Colors, Spacing, BorderRadius, Backgrounds, GlowColors } from "@/constants/theme";
+import { Colors, Spacing, BorderRadius, GlowColors } from "@/constants/theme";
 import { usePlayer } from "@/context/PlayerContext";
 import { useAuth } from "@/coach/context/AuthContext";
 import { useUIInteraction } from "@/contexts/UIInteractionContext";
@@ -155,13 +155,13 @@ export function DrawerContent({ navigation, state }: DrawerContentComponentProps
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: Backgrounds.root,
+    backgroundColor: "rgba(255, 255, 255, 0.06)",
     paddingHorizontal: Spacing.lg,
   },
   header: {
     paddingVertical: Spacing.lg,
     borderBottomWidth: 1,
-    borderBottomColor: Backgrounds.surface,
+    borderBottomColor: "rgba(255, 255, 255, 0.04)",
   },
   headerInfo: {
     flex: 1,
@@ -190,7 +190,7 @@ const styles = StyleSheet.create({
     borderRadius: BorderRadius.sm,
   },
   menuItemActive: {
-    backgroundColor: Backgrounds.card,
+    backgroundColor: "rgba(255, 255, 255, 0.06)",
   },
   menuItemText: {
     fontSize: 16,
@@ -202,7 +202,7 @@ const styles = StyleSheet.create({
   },
   footer: {
     borderTopWidth: 1,
-    borderTopColor: Backgrounds.surface,
+    borderTopColor: "rgba(255, 255, 255, 0.04)",
     paddingTop: Spacing.lg,
   },
   logoutButton: {

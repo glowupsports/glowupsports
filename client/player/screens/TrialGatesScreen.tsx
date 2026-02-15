@@ -13,7 +13,7 @@ import { useQuery } from "@tanstack/react-query";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { LinearGradient } from "expo-linear-gradient";
 import * as Haptics from "expo-haptics";
-import { Colors, Spacing, BorderRadius, Typography, Backgrounds, GlowColors } from "@/constants/theme";
+import { Colors, Spacing, BorderRadius, Typography, GlowColors } from "@/constants/theme";
 import { usePlayer } from "@/player/context/PlayerContext";
 import { LockedScreen } from "../components/LockedScreen";
 import { useCoachMarks, CoachMarkTarget } from "@/components/CoachMarks";

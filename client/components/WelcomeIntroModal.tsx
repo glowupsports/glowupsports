@@ -24,7 +24,6 @@ import Animated, {
   withTiming,
 } from "react-native-reanimated";
 import {
-  Backgrounds,
   GlowColors,
   TextColors,
   Spacing,
@@ -224,9 +223,9 @@ export function WelcomeIntroModal({
               {isLastSlide ? "Get Started" : "Next"}
             </Text>
             {!isLastSlide ? (
-              <Ionicons name="arrow-forward" size={18} color={Backgrounds.root} />
+              <Ionicons name="arrow-forward" size={18} color={"rgba(255, 255, 255, 0.06)"} />
             ) : (
-              <Ionicons name="checkmark-circle" size={18} color={Backgrounds.root} />
+              <Ionicons name="checkmark-circle" size={18} color={"rgba(255, 255, 255, 0.06)"} />
             )}
           </AnimatedPressable>
         </Animated.View>
@@ -238,7 +237,7 @@ export function WelcomeIntroModal({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: Backgrounds.root,
+    backgroundColor: "rgba(255, 255, 255, 0.06)",
   },
   skipContainer: {
     position: "absolute",
@@ -350,7 +349,7 @@ const styles = StyleSheet.create({
   },
   nextButtonText: {
     ...Typography.h4,
-    color: Backgrounds.root,
+    color: "rgba(255, 255, 255, 0.06)",
   },
 });
 

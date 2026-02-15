@@ -17,7 +17,7 @@ import Ionicons from "@expo/vector-icons/Ionicons";
 import * as Haptics from "expo-haptics";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import DateTimePicker from "@react-native-community/datetimepicker";
-import { Colors, Spacing, BorderRadius, Typography, Backgrounds, GlowColors } from "@/constants/theme";
+import { Colors, Spacing, BorderRadius, Typography, GlowColors } from "@/constants/theme";
 import { apiRequest, getApiUrl, getAuthHeaders } from "@/lib/query-client";
 import { convertUTCTimeToLocal } from "@/lib/dateUtils";
 import { useCoach } from "@/coach/context/CoachContext";
@@ -3008,7 +3008,7 @@ export default function SeriesDetailDrawer({
                       </View>
                       {selectedTargetCoachId === coach.id ? (
                         <View style={styles.transferCheckmark}>
-                          <Ionicons name="checkmark" size={16} color={Backgrounds.root} />
+                          <Ionicons name="checkmark" size={16} color={"rgba(255, 255, 255, 0.06)"} />
                         </View>
                       ) : (
                         <View style={styles.transferRadio} />
@@ -3037,7 +3037,7 @@ export default function SeriesDetailDrawer({
                 >
                   <LinearGradient
                     colors={!selectedTargetCoachId || transferringSession
-                      ? [Backgrounds.surface, Backgrounds.surface]
+                      ? ["rgba(255, 255, 255, 0.04)", "rgba(255, 255, 255, 0.04)"]
                       : [GlowColors.primary, GlowColors.soft]
                     }
                     start={{ x: 0, y: 0 }}
@@ -3047,7 +3047,7 @@ export default function SeriesDetailDrawer({
                     <Ionicons 
                       name={transferringSession ? "hourglass" : "swap-horizontal"} 
                       size={20} 
-                      color={!selectedTargetCoachId || transferringSession ? Colors.dark.textMuted : Backgrounds.root} 
+                      color={!selectedTargetCoachId || transferringSession ? Colors.dark.textMuted : "rgba(255, 255, 255, 0.06)"} 
                     />
                     <Text style={[
                       styles.transferConfirmText,
@@ -4066,11 +4066,11 @@ const styles = StyleSheet.create({
   },
   backdrop: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: Backgrounds.overlay,
+    backgroundColor: "rgba(0, 0, 0, 0.6)",
     zIndex: 1,
   },
   drawer: {
-    backgroundColor: Backgrounds.elevated,
+    backgroundColor: "rgba(255, 255, 255, 0.08)",
     borderTopLeftRadius: BorderRadius.xl,
     borderTopRightRadius: BorderRadius.xl,
     maxHeight: "90%",
@@ -4300,7 +4300,7 @@ const styles = StyleSheet.create({
   playerActionMenuGradient: {
     borderRadius: BorderRadius.lg,
     borderWidth: 1,
-    borderColor: Backgrounds.surface,
+    borderColor: "rgba(255, 255, 255, 0.04)",
     padding: Spacing.sm,
   },
   playerActionMenuHeader: {
@@ -4319,7 +4319,7 @@ const styles = StyleSheet.create({
   },
   playerActionDivider: {
     height: 1,
-    backgroundColor: Backgrounds.elevated,
+    backgroundColor: "rgba(255, 255, 255, 0.08)",
     marginVertical: Spacing.xs,
   },
   playerActionIconWrapper: {
@@ -4338,7 +4338,7 @@ const styles = StyleSheet.create({
     borderRadius: BorderRadius.sm,
   },
   playerActionItemPressed: {
-    backgroundColor: Backgrounds.elevated,
+    backgroundColor: "rgba(255, 255, 255, 0.08)",
   },
   playerActionItemDanger: {
     marginTop: Spacing.xs,
@@ -4916,7 +4916,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "flex-start",
     gap: Spacing.sm,
-    backgroundColor: Backgrounds.surface,
+    backgroundColor: "rgba(255, 255, 255, 0.04)",
     borderRadius: BorderRadius.md,
     padding: Spacing.md,
     marginBottom: Spacing.lg,
@@ -4931,7 +4931,7 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.md,
     borderRadius: BorderRadius.lg,
     overflow: "hidden",
-    backgroundColor: Backgrounds.card,
+    backgroundColor: "rgba(255, 255, 255, 0.06)",
     borderWidth: 1,
     borderColor: "rgba(255, 255, 255, 0.06)",
   },
@@ -5060,7 +5060,7 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.xs,
   },
   formInput: {
-    backgroundColor: Backgrounds.card,
+    backgroundColor: "rgba(255, 255, 255, 0.06)",
     borderRadius: BorderRadius.sm,
     paddingVertical: Spacing.sm,
     paddingHorizontal: Spacing.md,
@@ -5085,7 +5085,7 @@ const styles = StyleSheet.create({
     paddingVertical: Spacing.md,
     alignItems: "center",
     borderRadius: BorderRadius.md,
-    backgroundColor: Backgrounds.surface,
+    backgroundColor: "rgba(255, 255, 255, 0.04)",
   },
   formCancelButtonText: {
     fontSize: Typography.body.fontSize,
@@ -5264,7 +5264,7 @@ const styles = StyleSheet.create({
     color: Colors.dark.accentCyan,
   },
   transferButton: {
-    backgroundColor: Backgrounds.card,
+    backgroundColor: "rgba(255, 255, 255, 0.06)",
     borderRadius: BorderRadius.md,
     padding: Spacing.md,
     alignItems: "center",
@@ -5280,7 +5280,7 @@ const styles = StyleSheet.create({
     color: Colors.dark.text,
   },
   transferModalContent: {
-    backgroundColor: Backgrounds.card,
+    backgroundColor: "rgba(255, 255, 255, 0.06)",
     borderTopLeftRadius: BorderRadius.xl,
     borderTopRightRadius: BorderRadius.xl,
     padding: Spacing.lg,
@@ -5383,7 +5383,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     padding: Spacing.md,
-    backgroundColor: Backgrounds.card,
+    backgroundColor: "rgba(255, 255, 255, 0.06)",
     borderRadius: BorderRadius.lg,
     marginBottom: Spacing.sm,
     borderWidth: 1,
@@ -5462,13 +5462,13 @@ const styles = StyleSheet.create({
   transferConfirmText: {
     fontSize: Typography.body.fontSize,
     fontWeight: "700",
-    color: Backgrounds.root,
+    color: "rgba(255, 255, 255, 0.06)",
   },
   transferConfirmTextDisabled: {
     color: Colors.dark.textMuted,
   },
   restoreModalContent: {
-    backgroundColor: Backgrounds.card,
+    backgroundColor: "rgba(255, 255, 255, 0.06)",
     borderTopLeftRadius: BorderRadius.xl,
     borderTopRightRadius: BorderRadius.xl,
     padding: Spacing.lg,
@@ -5507,7 +5507,7 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: Backgrounds.surface,
+    backgroundColor: "rgba(255, 255, 255, 0.04)",
     alignItems: "center",
     justifyContent: "center",
   },
@@ -5711,7 +5711,7 @@ const styles = StyleSheet.create({
     color: Colors.dark.error,
   },
   modalContent: {
-    backgroundColor: Backgrounds.card,
+    backgroundColor: "rgba(255, 255, 255, 0.06)",
     borderTopLeftRadius: BorderRadius.xl,
     borderTopRightRadius: BorderRadius.xl,
     padding: Spacing.lg,
@@ -5954,10 +5954,10 @@ const styles = StyleSheet.create({
   },
   extendModalBackdrop: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: Backgrounds.overlay,
+    backgroundColor: "rgba(0, 0, 0, 0.6)",
   },
   extendModalContent: {
-    backgroundColor: Backgrounds.elevated,
+    backgroundColor: "rgba(255, 255, 255, 0.08)",
     borderRadius: BorderRadius.xl,
     padding: Spacing.xl,
     width: "100%",
@@ -6006,7 +6006,7 @@ const styles = StyleSheet.create({
     borderRadius: BorderRadius.md,
     borderWidth: 1,
     borderColor: Colors.dark.border,
-    backgroundColor: Backgrounds.card,
+    backgroundColor: "rgba(255, 255, 255, 0.06)",
   },
   weekOptionSelected: {
     borderColor: Colors.dark.accent,

@@ -17,7 +17,7 @@ import { LinearGradient } from "expo-linear-gradient";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import * as Haptics from "expo-haptics";
-import { Colors, Spacing, BorderRadius, Typography, CardStyles, Backgrounds, GlowColors } from "@/constants/theme";
+import { Colors, Spacing, BorderRadius, Typography, CardStyles, GlowColors } from "@/constants/theme";
 import { apiRequest } from "@/lib/query-client";
 import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollViewCompat";
 import { useCoachMarks, CoachMarkTarget } from "@/components/CoachMarks";
@@ -1054,7 +1054,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     padding: Spacing.lg,
     marginBottom: Spacing.md,
-    backgroundColor: Backgrounds.card,
+    backgroundColor: "rgba(255, 255, 255, 0.06)",
     borderWidth: 1,
     borderColor: "rgba(255, 255, 255, 0.06)",
     borderRadius: BorderRadius.md,
@@ -1176,7 +1176,7 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.sm,
   },
   input: {
-    backgroundColor: Backgrounds.card,
+    backgroundColor: "rgba(255, 255, 255, 0.06)",
     borderWidth: 1,
     borderColor: "rgba(255, 255, 255, 0.06)",
     borderRadius: BorderRadius.md,
@@ -1221,7 +1221,7 @@ const styles = StyleSheet.create({
   section: {
     padding: Spacing.lg,
     marginBottom: Spacing.lg,
-    backgroundColor: Backgrounds.card,
+    backgroundColor: "rgba(255, 255, 255, 0.06)",
     borderWidth: 1,
     borderColor: "rgba(255, 255, 255, 0.06)",
     borderRadius: BorderRadius.md,
@@ -1455,7 +1455,7 @@ const styles = StyleSheet.create({
     justifyContent: "flex-end",
   },
   paymentModalContent: {
-    backgroundColor: Backgrounds.card,
+    backgroundColor: "rgba(255, 255, 255, 0.06)",
     borderWidth: 1,
     borderColor: "rgba(255, 255, 255, 0.06)",
     borderTopLeftRadius: BorderRadius.xl,
@@ -1499,7 +1499,7 @@ const styles = StyleSheet.create({
     borderRadius: BorderRadius.md,
     borderWidth: 1,
     borderColor: "rgba(255, 255, 255, 0.06)",
-    backgroundColor: Backgrounds.card,
+    backgroundColor: "rgba(255, 255, 255, 0.06)",
     minWidth: 80,
     gap: Spacing.xs,
   },
@@ -1519,7 +1519,7 @@ const styles = StyleSheet.create({
   paymentReferenceInput: {
     ...Typography.body,
     color: Colors.dark.text,
-    backgroundColor: Backgrounds.card,
+    backgroundColor: "rgba(255, 255, 255, 0.06)",
     borderWidth: 1,
     borderColor: "rgba(255, 255, 255, 0.06)",
     borderRadius: BorderRadius.md,

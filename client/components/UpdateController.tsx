@@ -10,7 +10,7 @@ import {
 import * as Updates from "expo-updates";
 import { LinearGradient } from "expo-linear-gradient";
 import { Feather } from "@expo/vector-icons";
-import { Colors, Spacing, BorderRadius, Backgrounds, GlowColors, TextColors } from "@/constants/theme";
+import { Colors, Spacing, BorderRadius, GlowColors, TextColors } from "@/constants/theme";
 
 interface UpdateControllerProps {
   children: React.ReactNode;
@@ -200,7 +200,7 @@ export function UpdateController({ children }: UpdateControllerProps) {
 
   return (
     <LinearGradient
-      colors={[Backgrounds.root, "#0a1a2e", Backgrounds.root]}
+      colors={["rgba(255, 255, 255, 0.06)", "#0a1a2e", "rgba(255, 255, 255, 0.06)"]}
       style={styles.container}
     >
       <View style={styles.content}>
@@ -341,7 +341,7 @@ export function UpdateController({ children }: UpdateControllerProps) {
           <View style={styles.continueContainer}>
             <Pressable style={styles.continueButton} onPress={continueWithoutUpdate}>
               <LinearGradient
-                colors={[Backgrounds.elevated, Backgrounds.card]}
+                colors={["rgba(255, 255, 255, 0.08)", "rgba(255, 255, 255, 0.06)"]}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 0 }}
                 style={styles.buttonGradient}

@@ -8,7 +8,6 @@ import {
   Spacing,
   BorderRadius,
   Typography,
-  Backgrounds,
   GlowColors,
   TextColors,
 } from "@/constants/theme";
@@ -132,9 +131,9 @@ export function QuickTipsBanner({ tips, role }: QuickTipsBannerProps) {
 
 const styles = StyleSheet.create({
   container: {
-    backgroundColor: Backgrounds.elevated,
+    backgroundColor: "rgba(255, 255, 255, 0.08)",
     borderWidth: 1,
-    borderColor: Backgrounds.surface,
+    borderColor: "rgba(255, 255, 255, 0.04)",
     borderRadius: BorderRadius.sm,
     height: 48,
     justifyContent: "center",

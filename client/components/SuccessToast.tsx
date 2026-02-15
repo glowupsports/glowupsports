@@ -18,7 +18,6 @@ import {
   Spacing,
   BorderRadius,
   Typography,
-  Backgrounds,
   GlowColors,
   TextColors,
 } from "@/constants/theme";
@@ -56,8 +55,8 @@ export function SuccessToast({
         return {
           bg: GlowColors.primary,
           icon: icon || "checkmark-circle",
-          iconColor: Backgrounds.root,
-          textColor: Backgrounds.root,
+          iconColor: "rgba(255, 255, 255, 0.06)",
+          textColor: "rgba(255, 255, 255, 0.06)",
         };
       case "error":
         return {
@@ -70,22 +69,22 @@ export function SuccessToast({
         return {
           bg: Colors.dark.xpCyan,
           icon: icon || "information-circle",
-          iconColor: Backgrounds.root,
-          textColor: Backgrounds.root,
+          iconColor: "rgba(255, 255, 255, 0.06)",
+          textColor: "rgba(255, 255, 255, 0.06)",
         };
       case "warning":
         return {
           bg: Colors.dark.orange,
           icon: icon || "warning",
-          iconColor: Backgrounds.root,
-          textColor: Backgrounds.root,
+          iconColor: "rgba(255, 255, 255, 0.06)",
+          textColor: "rgba(255, 255, 255, 0.06)",
         };
       default:
         return {
           bg: GlowColors.primary,
           icon: icon || "checkmark-circle",
-          iconColor: Backgrounds.root,
-          textColor: Backgrounds.root,
+          iconColor: "rgba(255, 255, 255, 0.06)",
+          textColor: "rgba(255, 255, 255, 0.06)",
         };
     }
   };
@@ -194,7 +193,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.lg,
     borderRadius: BorderRadius.lg,
     zIndex: 9999,
-    shadowColor: Backgrounds.root,
+    shadowColor: "rgba(255, 255, 255, 0.06)",
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 8,

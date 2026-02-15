@@ -35,7 +35,7 @@ import Animated, {
   withDelay,
 } from "react-native-reanimated";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Colors, Typography, Spacing, BorderRadius, Backgrounds, GlowColors } from "@/constants/theme";
+import { Colors, Typography, Spacing, BorderRadius, GlowColors } from "@/constants/theme";
 import { apiRequest, apiFetch, getApiUrl, getStaticAssetsUrl } from "@/lib/query-client";
 import { AnimatedCheck } from "@/components/AnimatedCheck";
 import { SuccessToast } from "@/components/SuccessToast";
@@ -1102,7 +1102,7 @@ export default function PlayerBookingWizard({
         {Platform.OS === "ios" ? (
           <BlurView intensity={80} tint="dark" style={StyleSheet.absoluteFill} />
         ) : (
-          <View style={[StyleSheet.absoluteFill, { backgroundColor: Backgrounds.overlay }]} />
+          <View style={[StyleSheet.absoluteFill, { backgroundColor: "rgba(255, 255, 255, 0.06)" }]} />
         )}
 
         {/* Header */}
@@ -1947,7 +1947,7 @@ const styles = StyleSheet.create({
   },
   calendarOverlay: {
     flex: 1,
-    backgroundColor: Backgrounds.overlay,
+    backgroundColor: "rgba(255, 255, 255, 0.06)",
     justifyContent: "center",
     alignItems: "center",
     padding: Spacing.lg,

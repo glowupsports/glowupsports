@@ -2,7 +2,7 @@ import React from "react";
 import { View, Text, StyleSheet } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import Ionicons from "@expo/vector-icons/Ionicons";
-import { Colors, Spacing, Typography, BorderRadius, Backgrounds, GlowColors, FunctionColors, TextColors } from "@/constants/theme";
+import { Colors, Spacing, Typography, BorderRadius, GlowColors, FunctionColors, TextColors } from "@/constants/theme";
 import { getStageFromLevel, getStageColor, translateLevelLabel } from "@shared/language-switch";
 
 interface BallLevelBadgeProps {
@@ -120,7 +120,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     borderWidth: 1,
-    borderColor: Backgrounds.card,
+    borderColor: "rgba(255, 255, 255, 0.06)",
   },
   labelContainer: {
     alignItems: "center",

@@ -26,7 +26,7 @@ import Animated, {
   SlideOutLeft,
 } from "react-native-reanimated";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Colors, Spacing, BorderRadius, FontSizes, Backgrounds, GlowColors } from "@/constants/theme";
+import { Colors, Spacing, BorderRadius, FontSizes, GlowColors } from "@/constants/theme";
 import { apiRequest } from "@/lib/query-client";
 import { BaselineFlowCard, AnimatedCheckbox, ProgressRing } from "./BaselineFlowCard";
 import { PostActionModal } from "@/components/PostActionModal";
@@ -1023,7 +1023,7 @@ export function PremiumBaselineFlow({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: Backgrounds.root,
+    backgroundColor: "rgba(255, 255, 255, 0.06)",
   },
   header: {
     flexDirection: "row",

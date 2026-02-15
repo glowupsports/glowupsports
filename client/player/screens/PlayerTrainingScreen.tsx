@@ -4,7 +4,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
 import { useQuery } from "@tanstack/react-query";
 import Ionicons from "@expo/vector-icons/Ionicons";
-import { Colors, Spacing, Typography, BorderRadius, CardStyles, Backgrounds, GlowColors } from "@/constants/theme";
+import { Colors, Spacing, Typography, BorderRadius, CardStyles, GlowColors } from "@/constants/theme";
 import { useCoachMarks, CoachMarkTarget } from "@/components/CoachMarks";
 
 interface TrainingSession {
@@ -248,7 +248,7 @@ export default function PlayerTrainingScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: Backgrounds.root,
+    backgroundColor: "rgba(255, 255, 255, 0.06)",
   },
   centerContent: {
     justifyContent: "center",
@@ -317,7 +317,7 @@ const styles = StyleSheet.create({
     fontWeight: "600",
   },
   feedbackSection: {
-    backgroundColor: Backgrounds.card,
+    backgroundColor: "rgba(255, 255, 255, 0.06)",
     borderRadius: BorderRadius.sm,
     padding: Spacing.md,
     marginBottom: Spacing.md,

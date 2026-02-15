@@ -22,7 +22,6 @@ import {
   Spacing,
   BorderRadius,
   Typography,
-  Backgrounds,
   GlowColors,
   TextColors,
 } from "@/constants/theme";
@@ -60,7 +59,7 @@ export function EmptyStateCard({
       case "warning":
         return { accent: Colors.dark.orange, bg: `${Colors.dark.orange}15` };
       default:
-        return { accent: GlowColors.primary, bg: Backgrounds.elevated };
+        return { accent: GlowColors.primary, bg: "rgba(255, 255, 255, 0.08)" };
     }
   };
 
@@ -113,7 +112,7 @@ export function EmptyStateCard({
 
       <View style={[styles.ctaButton, { backgroundColor: colors.accent }]}>
         <Text style={styles.ctaText}>{ctaText}</Text>
-        <Ionicons name="arrow-forward" size={16} color={Backgrounds.root} />
+        <Ionicons name="arrow-forward" size={16} color={"rgba(255, 255, 255, 0.06)"} />
       </View>
     </AnimatedPressable>
   );
@@ -121,12 +120,12 @@ export function EmptyStateCard({
 
 const styles = StyleSheet.create({
   container: {
-    backgroundColor: Backgrounds.card,
+    backgroundColor: "rgba(255, 255, 255, 0.06)",
     borderRadius: BorderRadius.lg,
     padding: Spacing.xl,
     alignItems: "center",
     borderWidth: 1,
-    borderColor: Backgrounds.surface,
+    borderColor: "rgba(255, 255, 255, 0.04)",
   },
   iconContainer: {
     width: 72,
@@ -160,7 +159,7 @@ const styles = StyleSheet.create({
   ctaText: {
     ...Typography.body,
     fontWeight: "600",
-    color: Backgrounds.root,
+    color: "rgba(255, 255, 255, 0.06)",
   },
 });
 

@@ -9,7 +9,7 @@ import Animated, {
 
 import { ThemedText } from "@/components/ThemedText";
 import { useTheme } from "@/hooks/useTheme";
-import { Spacing, BorderRadius, Backgrounds } from "@/constants/theme";
+import { Spacing, BorderRadius } from "@/constants/theme";
 
 interface CardProps {
   elevation?: number;
@@ -34,13 +34,13 @@ const getBackgroundColorForElevation = (
 ): string => {
   switch (elevation) {
     case 1:
-      return Backgrounds.card;
+      return "rgba(255, 255, 255, 0.06)";
     case 2:
-      return Backgrounds.elevated;
+      return "rgba(255, 255, 255, 0.08)";
     case 3:
-      return Backgrounds.surface;
+      return "rgba(255, 255, 255, 0.04)";
     default:
-      return Backgrounds.root;
+      return "rgba(255, 255, 255, 0.06)";
   }
 };
 

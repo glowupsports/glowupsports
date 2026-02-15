@@ -28,7 +28,7 @@ import { Image } from "expo-image";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import * as Haptics from "expo-haptics";
 import Svg, { Circle, Defs, LinearGradient as SvgGradient, Stop } from "react-native-svg";
-import { ProTennisColors, Spacing, BorderRadius, Backgrounds, GlowColors, FunctionColors } from "@/constants/theme";
+import { ProTennisColors, Spacing, BorderRadius, GlowColors, FunctionColors } from "@/constants/theme";
 import { useAuth } from "@/coach/context/AuthContext";
 import { getStaticAssetsUrl } from "@/lib/query-client";
 import { usePlayerLevel } from "@/player/hooks/usePlayerLevel";
@@ -578,7 +578,7 @@ function getPlayerTitle(level: number): string {
 const styles = StyleSheet.create({
   backdrop: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: Backgrounds.overlay,
+    backgroundColor: "rgba(255, 255, 255, 0.06)",
   },
   drawer: {
     position: "absolute",
@@ -586,7 +586,7 @@ const styles = StyleSheet.create({
     top: 0,
     bottom: 0,
     width: DRAWER_WIDTH,
-    backgroundColor: Backgrounds.root,
+    backgroundColor: "rgba(255, 255, 255, 0.06)",
     borderRightWidth: 1,
     borderRightColor: GlowColors.primary + "20",
   },
@@ -651,7 +651,7 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     overflow: "hidden",
     borderWidth: 2,
-    borderColor: Backgrounds.root,
+    borderColor: "rgba(255, 255, 255, 0.06)",
   },
   levelBadgeGradient: {
     flex: 1,
@@ -661,7 +661,7 @@ const styles = StyleSheet.create({
   levelNumber: {
     fontSize: 12,
     fontWeight: "800",
-    color: Backgrounds.root,
+    color: "rgba(255, 255, 255, 0.06)",
   },
   identityInfo: {
     flex: 1,
@@ -709,7 +709,7 @@ const styles = StyleSheet.create({
   xpBarBg: {
     flex: 1,
     height: 6,
-    backgroundColor: Backgrounds.elevated,
+    backgroundColor: "rgba(255, 255, 255, 0.08)",
     borderRadius: 3,
     overflow: "hidden",
   },
@@ -766,9 +766,9 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.sm,
     borderRadius: BorderRadius.md,
     overflow: "hidden",
-    backgroundColor: Backgrounds.card,
+    backgroundColor: "rgba(255, 255, 255, 0.06)",
     borderWidth: 1,
-    borderColor: Backgrounds.elevated,
+    borderColor: "rgba(255, 255, 255, 0.08)",
   },
   sectionExpanded: {
     borderColor: GlowColors.primary + "30",
@@ -789,7 +789,7 @@ const styles = StyleSheet.create({
     width: 32,
     height: 32,
     borderRadius: 8,
-    backgroundColor: Backgrounds.elevated,
+    backgroundColor: "rgba(255, 255, 255, 0.08)",
     justifyContent: "center",
     alignItems: "center",
   },
@@ -803,7 +803,7 @@ const styles = StyleSheet.create({
   },
   sectionItems: {
     paddingBottom: Spacing.sm,
-    backgroundColor: Backgrounds.card,
+    backgroundColor: "rgba(255, 255, 255, 0.06)",
   },
   menuItem: {
     flexDirection: "row",
@@ -814,7 +814,7 @@ const styles = StyleSheet.create({
     borderRadius: BorderRadius.sm,
   },
   menuItemPressed: {
-    backgroundColor: Backgrounds.elevated,
+    backgroundColor: "rgba(255, 255, 255, 0.08)",
   },
   menuItemLocked: {
     opacity: 0.5,
@@ -858,7 +858,7 @@ const styles = StyleSheet.create({
   badgeText: {
     fontSize: 10,
     fontWeight: "700",
-    color: Backgrounds.root,
+    color: "rgba(255, 255, 255, 0.06)",
   },
 
   /* LOGOUT */

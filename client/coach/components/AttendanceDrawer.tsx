@@ -18,7 +18,7 @@ import Ionicons from "@expo/vector-icons/Ionicons";
 import * as Haptics from "expo-haptics";
 import { useMutation, useQueryClient, useQuery } from "@tanstack/react-query";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { Colors, Spacing, BorderRadius, Typography, getPlayerLevelColor, Backgrounds, GlowColors } from "@/constants/theme";
+import { Colors, Spacing, BorderRadius, Typography, getPlayerLevelColor, GlowColors } from "@/constants/theme";
 import { apiRequest, getApiUrl } from "@/lib/query-client";
 import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollViewCompat";
 import { useNetwork } from "@/context/NetworkContext";
@@ -397,7 +397,7 @@ export default function AttendanceDrawer({
             disabled={saveMutation.isPending || isOffline}
           >
             {saveMutation.isPending ? (
-              <ActivityIndicator size="small" color={Backgrounds.root} />
+              <ActivityIndicator size="small" color={"rgba(255, 255, 255, 0.06)"} />
             ) : (
               <Text style={styles.saveButtonText}>Save</Text>
             )}
@@ -457,7 +457,7 @@ export default function AttendanceDrawer({
                 disabled={selectedPlayerIds.length === 0 || addPlayersMutation.isPending}
               >
                 {addPlayersMutation.isPending ? (
-                  <ActivityIndicator size="small" color={Backgrounds.root} />
+                  <ActivityIndicator size="small" color={"rgba(255, 255, 255, 0.06)"} />
                 ) : (
                   <Text style={styles.confirmButtonText}>Add ({selectedPlayerIds.length})</Text>
                 )}
@@ -504,7 +504,7 @@ export default function AttendanceDrawer({
                     </View>
                     <View style={[styles.checkbox, isSelected && styles.checkboxActive]}>
                       {isSelected ? (
-                        <Ionicons name="checkmark" size={16} color={Backgrounds.root} />
+                        <Ionicons name="checkmark" size={16} color={"rgba(255, 255, 255, 0.06)"} />
                       ) : null}
                     </View>
                   </Pressable>
@@ -529,7 +529,7 @@ export default function AttendanceDrawer({
                 setShowAddPlayers(true);
               }}
             >
-              <Ionicons name="person-add" size={20} color={Backgrounds.root} />
+              <Ionicons name="person-add" size={20} color={"rgba(255, 255, 255, 0.06)"} />
               <Text style={styles.addPlayersButtonText}>Add Players</Text>
             </Pressable>
           </View>
@@ -676,7 +676,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.lg,
     paddingVertical: Spacing.md,
     borderBottomWidth: 1,
-    borderBottomColor: Backgrounds.surface,
+    borderBottomColor: "rgba(255, 255, 255, 0.04)",
   },
   closeButton: {
     padding: Spacing.xs,
@@ -709,7 +709,7 @@ const styles = StyleSheet.create({
   saveButtonText: {
     fontSize: Typography.small.fontSize,
     fontWeight: "600",
-    color: Backgrounds.root,
+    color: "rgba(255, 255, 255, 0.06)",
   },
   emptyState: {
     flex: 1,
@@ -733,7 +733,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.lg,
     paddingVertical: Spacing.md,
     borderBottomWidth: 1,
-    borderBottomColor: Backgrounds.surface,
+    borderBottomColor: "rgba(255, 255, 255, 0.04)",
   },
   progressHeader: {
     flexDirection: "row",
@@ -800,7 +800,7 @@ const styles = StyleSheet.create({
   },
   playerGridCard: {
     width: "48%",
-    backgroundColor: Backgrounds.card,
+    backgroundColor: "rgba(255, 255, 255, 0.06)",
     borderRadius: BorderRadius.lg,
     padding: Spacing.md,
     alignItems: "center",
@@ -835,7 +835,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     borderWidth: 2,
-    borderColor: Backgrounds.card,
+    borderColor: "rgba(255, 255, 255, 0.06)",
   },
   gridPlayerName: {
     fontSize: 13,
@@ -945,7 +945,7 @@ const styles = StyleSheet.create({
     paddingBottom: Spacing.xl,
   },
   playerCard: {
-    backgroundColor: Backgrounds.card,
+    backgroundColor: "rgba(255, 255, 255, 0.06)",
     borderRadius: BorderRadius.lg,
     padding: Spacing.md,
     gap: Spacing.sm,
@@ -970,7 +970,7 @@ const styles = StyleSheet.create({
   levelText: {
     fontSize: Typography.caption.fontSize,
     fontWeight: "600",
-    color: Backgrounds.root,
+    color: "rgba(255, 255, 255, 0.06)",
     textTransform: "uppercase",
   },
   playerName: {
@@ -990,7 +990,7 @@ const styles = StyleSheet.create({
     gap: 4,
     paddingVertical: Spacing.sm,
     borderRadius: BorderRadius.md,
-    backgroundColor: Backgrounds.elevated,
+    backgroundColor: "rgba(255, 255, 255, 0.08)",
     borderWidth: 1,
     borderColor: "transparent",
   },
@@ -1017,9 +1017,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.sm,
     paddingVertical: Spacing.xs,
     borderRadius: BorderRadius.sm,
-    backgroundColor: Backgrounds.elevated,
+    backgroundColor: "rgba(255, 255, 255, 0.08)",
     borderWidth: 1,
-    borderColor: Backgrounds.surface,
+    borderColor: "rgba(255, 255, 255, 0.04)",
   },
   optionChipActive: {
     backgroundColor: Colors.dark.orange + "20",
@@ -1102,7 +1102,7 @@ const styles = StyleSheet.create({
   addPlayersButtonText: {
     fontSize: Typography.body.fontSize,
     fontWeight: "600",
-    color: Backgrounds.root,
+    color: "rgba(255, 255, 255, 0.06)",
   },
   addPlayersContainer: {
     flex: 1,
@@ -1114,7 +1114,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.lg,
     paddingVertical: Spacing.md,
     borderBottomWidth: 1,
-    borderBottomColor: Backgrounds.surface,
+    borderBottomColor: "rgba(255, 255, 255, 0.04)",
   },
   backButton: {
     padding: Spacing.xs,
@@ -1138,7 +1138,7 @@ const styles = StyleSheet.create({
   confirmButtonText: {
     fontSize: Typography.small.fontSize,
     fontWeight: "600",
-    color: Backgrounds.root,
+    color: "rgba(255, 255, 255, 0.06)",
   },
   searchContainer: {
     flexDirection: "row",
@@ -1148,7 +1148,7 @@ const styles = StyleSheet.create({
     marginVertical: Spacing.md,
     paddingHorizontal: Spacing.md,
     paddingVertical: Spacing.sm,
-    backgroundColor: Backgrounds.card,
+    backgroundColor: "rgba(255, 255, 255, 0.06)",
     borderRadius: BorderRadius.md,
     borderWidth: 1,
     borderColor: "rgba(255, 255, 255, 0.06)",
@@ -1170,7 +1170,7 @@ const styles = StyleSheet.create({
     paddingVertical: Spacing.md,
     paddingHorizontal: Spacing.md,
     marginBottom: Spacing.xs,
-    backgroundColor: Backgrounds.card,
+    backgroundColor: "rgba(255, 255, 255, 0.06)",
     borderRadius: BorderRadius.md,
     borderWidth: 1,
     borderColor: "rgba(255, 255, 255, 0.06)",

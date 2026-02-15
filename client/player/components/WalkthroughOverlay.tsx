@@ -4,7 +4,7 @@ import Animated, { FadeIn, FadeOut, SlideInDown, Easing } from "react-native-rea
 import * as Haptics from "expo-haptics";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { useWalkthrough } from "../context/WalkthroughContext";
-import { Colors, Spacing, Typography, BorderRadius, GlowColors, Backgrounds } from "@/constants/theme";
+import { Colors, Spacing, Typography, BorderRadius, GlowColors } from "@/constants/theme";
 
 const { width } = Dimensions.get("window");
 
@@ -94,7 +94,7 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(0, 0, 0, 0.7)",
   },
   tooltipCard: {
-    backgroundColor: Backgrounds.card,
+    backgroundColor: "rgba(255, 255, 255, 0.06)",
     borderRadius: BorderRadius.xl,
     padding: Spacing.xl,
     marginHorizontal: Spacing.lg,

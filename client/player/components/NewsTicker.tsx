@@ -12,7 +12,7 @@ import Animated, {
   cancelAnimation,
 } from "react-native-reanimated";
 import { useQuery } from "@tanstack/react-query";
-import { ProTennisColors, Spacing, BorderRadius, Typography, Backgrounds, GlowColors, Colors } from "@/constants/theme";
+import { ProTennisColors, Spacing, BorderRadius, Typography, GlowColors, Colors } from "@/constants/theme";
 
 interface NewsArticle {
   id: string;
@@ -172,7 +172,7 @@ export function NewsTicker({
   return (
     <View style={[styles.container, style]}>
       <LinearGradient
-        colors={[Backgrounds.root + "F2", Backgrounds.card + "E6", Backgrounds.root + "F2"]}
+        colors={["rgba(255, 255, 255, 0.06)" + "F2", "rgba(255, 255, 255, 0.06)" + "E6", "rgba(255, 255, 255, 0.06)" + "F2"]}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 0 }}
         style={styles.gradientBg}
@@ -203,7 +203,7 @@ export function NewsTicker({
       </View>
 
       <LinearGradient
-        colors={["transparent", Backgrounds.root + "F2"]}
+        colors={["transparent", "rgba(255, 255, 255, 0.06)" + "F2"]}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 0 }}
         style={styles.fadeRight}
@@ -302,7 +302,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     paddingHorizontal: Spacing.md,
     paddingLeft: Spacing.sm,
-    backgroundColor: Backgrounds.root + "FA",
+    backgroundColor: "rgba(255, 255, 255, 0.06)" + "FA",
     zIndex: 10,
     gap: 6,
     borderRightWidth: 1,
@@ -408,7 +408,7 @@ const styles = StyleSheet.create({
     fontSize: 12,
   },
   newsCard: {
-    backgroundColor: Backgrounds.card,
+    backgroundColor: "rgba(255, 255, 255, 0.06)",
     borderRadius: BorderRadius.md,
     padding: Spacing.md,
     borderWidth: 1,

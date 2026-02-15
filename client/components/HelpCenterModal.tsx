@@ -20,7 +20,6 @@ import {
   Spacing,
   BorderRadius,
   Typography,
-  Backgrounds,
   GlowColors,
   TextColors,
 } from "@/constants/theme";
@@ -255,7 +254,7 @@ function TutorialsSection({ tutorials }: { tutorials: VideoTutorial[] }) {
           onPress={() => handleOpenTutorial(tutorial.url)}
         >
           <View style={styles.tutorialPlayIcon}>
-            <Ionicons name="play" size={22} color={Backgrounds.root} />
+            <Ionicons name="play" size={22} color={"rgba(255, 255, 255, 0.06)"} />
           </View>
           <View style={styles.tutorialTextContainer}>
             <Text style={styles.tutorialTitle}>{tutorial.title}</Text>
@@ -451,12 +450,12 @@ export function HelpCenterModal({
 const styles = StyleSheet.create({
   overlay: {
     flex: 1,
-    backgroundColor: Backgrounds.overlay,
+    backgroundColor: "rgba(0, 0, 0, 0.6)",
     justifyContent: "flex-end",
   },
   sheet: {
     height: SCREEN_HEIGHT * 0.8,
-    backgroundColor: Backgrounds.elevated,
+    backgroundColor: "rgba(255, 255, 255, 0.08)",
     borderTopLeftRadius: BorderRadius.lg,
     borderTopRightRadius: BorderRadius.lg,
     overflow: "hidden",
@@ -487,7 +486,7 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: Backgrounds.surface,
+    backgroundColor: "rgba(255, 255, 255, 0.04)",
     justifyContent: "center",
     alignItems: "center",
   },
@@ -505,7 +504,7 @@ const styles = StyleSheet.create({
     gap: Spacing.xs,
     paddingVertical: Spacing.sm,
     borderRadius: BorderRadius.sm,
-    backgroundColor: Backgrounds.surface,
+    backgroundColor: "rgba(255, 255, 255, 0.04)",
   },
   tabButtonActive: {
     backgroundColor: `${GlowColors.primary}20`,
@@ -544,7 +543,7 @@ const styles = StyleSheet.create({
   faqItem: {
     marginBottom: Spacing.sm,
     borderRadius: BorderRadius.sm,
-    backgroundColor: Backgrounds.card,
+    backgroundColor: "rgba(255, 255, 255, 0.06)",
     borderWidth: 1,
     borderColor: "rgba(255, 255, 255, 0.06)",
     overflow: "hidden",
@@ -599,7 +598,7 @@ const styles = StyleSheet.create({
     padding: Spacing.lg,
     marginBottom: Spacing.sm,
     borderRadius: BorderRadius.sm,
-    backgroundColor: Backgrounds.card,
+    backgroundColor: "rgba(255, 255, 255, 0.06)",
     borderWidth: 1,
     borderColor: "rgba(255, 255, 255, 0.06)",
   },
@@ -632,7 +631,7 @@ const styles = StyleSheet.create({
     padding: Spacing.lg,
     marginBottom: Spacing.sm,
     borderRadius: BorderRadius.sm,
-    backgroundColor: Backgrounds.card,
+    backgroundColor: "rgba(255, 255, 255, 0.06)",
     borderWidth: 1,
     borderColor: "rgba(255, 255, 255, 0.06)",
   },
@@ -687,7 +686,7 @@ const styles = StyleSheet.create({
     padding: Spacing.lg,
     marginBottom: Spacing.sm,
     borderRadius: BorderRadius.sm,
-    backgroundColor: Backgrounds.card,
+    backgroundColor: "rgba(255, 255, 255, 0.06)",
     borderWidth: 1,
     borderColor: "rgba(255, 255, 255, 0.06)",
   },

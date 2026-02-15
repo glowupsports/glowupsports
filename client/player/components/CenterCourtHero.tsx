@@ -11,7 +11,7 @@ import Animated, {
   withTiming,
   interpolate,
 } from "react-native-reanimated";
-import { ProTennisColors, Spacing, BorderRadius, Backgrounds, GlowColors, Colors } from "@/constants/theme";
+import { ProTennisColors, Spacing, BorderRadius, GlowColors, Colors } from "@/constants/theme";
 import * as Haptics from "expo-haptics";
 import { useNavigation } from "@react-navigation/native";
 

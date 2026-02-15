@@ -9,7 +9,7 @@ import Animated, {
   useSharedValue,
   withSequence,
 } from "react-native-reanimated";
-import { ProTennisColors, BorderRadius, Spacing, Backgrounds, GlowColors, FunctionColors, Colors } from "@/constants/theme";
+import { ProTennisColors, BorderRadius, Spacing, GlowColors, FunctionColors, Colors } from "@/constants/theme";
 
 type GlassCardVariant = "default" | "neon" | "hero" | "subtle" | "premium";
 
@@ -299,7 +299,7 @@ const styles = StyleSheet.create({
     borderRadius: BorderRadius.md - 1,
   },
   floatingCard: {
-    backgroundColor: Backgrounds.card,
+    backgroundColor: "rgba(255, 255, 255, 0.06)",
     borderRadius: BorderRadius.md,
     shadowColor: Colors.dark.backgroundRoot,
     borderWidth: 1,

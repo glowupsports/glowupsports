@@ -7,7 +7,7 @@ import { CustomHeader } from "@/components/CustomHeader";
 import { ChatFooter } from "@/components/ChatFooter";
 import { LevelUpModal } from "@/components/LevelUpModal";
 import { Card } from "@/components/Card";
-import { Colors, Spacing, Backgrounds, GlowColors } from "@/constants/theme";
+import { Colors, Spacing, GlowColors } from "@/constants/theme";
 import { usePlayer } from "@/context/PlayerContext";
 
 const tennisCourtBg = require("../../assets/images/tennis-court-bg.png");

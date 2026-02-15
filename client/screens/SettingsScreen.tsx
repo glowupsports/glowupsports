@@ -9,7 +9,7 @@ import { PlayerAvatar } from "@/components/PlayerAvatar";
 import { Card } from "@/components/Card";
 import { Button } from "@/components/Button";
 import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollViewCompat";
-import { Colors, Spacing, BorderRadius, Backgrounds, GlowColors } from "@/constants/theme";
+import { Colors, Spacing, BorderRadius, GlowColors } from "@/constants/theme";
 import { usePlayer } from "@/context/PlayerContext";
 import { useAppMode } from "@/context/AppModeContext";
 import { AVATAR_PRESETS } from "@/constants/playerData";

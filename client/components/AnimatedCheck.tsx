@@ -12,7 +12,7 @@ import Animated, {
 } from "react-native-reanimated";
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
-import { GlowColors, Backgrounds } from "@/constants/theme";
+import { GlowColors } from "@/constants/theme";
 
 interface AnimatedCheckProps {
   size?: number;
@@ -43,19 +43,19 @@ export function AnimatedCheck({
       case "glow":
         return {
           bg: GlowColors.primary,
-          icon: Backgrounds.root,
+          icon: "rgba(255, 255, 255, 0.06)",
           glow: GlowColors.primary,
         };
       case "subtle":
         return {
-          bg: Backgrounds.elevated,
+          bg: "rgba(255, 255, 255, 0.08)",
           icon: GlowColors.primary,
           glow: GlowColors.primary,
         };
       default:
         return {
           bg: GlowColors.primary,
-          icon: Backgrounds.root,
+          icon: "rgba(255, 255, 255, 0.06)",
           glow: GlowColors.primary,
         };
     }

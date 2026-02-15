@@ -3,7 +3,7 @@ import { View, Text, StyleSheet, ScrollView, ActivityIndicator, RefreshControl, 
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useFocusEffect, useNavigation } from "@react-navigation/native";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Spacing, Backgrounds, GlowColors, BorderRadius, Colors } from "@/constants/theme";
+import { Spacing, GlowColors, BorderRadius, Colors } from "@/constants/theme";
 import { useAuth } from "@/coach/context/AuthContext";
 import { usePlayerDrawer } from "@/player/context/PlayerDrawerContext";
 import { useWalkthrough } from "@/player/context/WalkthroughContext";
@@ -77,7 +77,7 @@ function BroadcastBackground() {
   return (
     <View style={styles.backgroundContainer}>
       <Svg style={StyleSheet.absoluteFill} preserveAspectRatio="none">
-        <Rect x="0" y="0" width="100%" height="100%" fill={Backgrounds.root} />
+        <Rect x="0" y="0" width="100%" height="100%" fill={"rgba(255, 255, 255, 0.06)"} />
         <Line x1="0" y1="25%" x2="100%" y2="25%" stroke={GlowColors.primary} strokeWidth="0.5" opacity="0.015" />
         <Line x1="0" y1="50%" x2="100%" y2="50%" stroke={GlowColors.primary} strokeWidth="0.5" opacity="0.015" />
         <Line x1="0" y1="75%" x2="100%" y2="75%" stroke={GlowColors.primary} strokeWidth="0.5" opacity="0.015" />
@@ -501,7 +501,7 @@ export default function ProPlayerHomeScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: Backgrounds.root,
+    backgroundColor: "rgba(255, 255, 255, 0.06)",
   },
   loadingContainer: {
     justifyContent: "center",
@@ -563,7 +563,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     paddingHorizontal: 4,
     borderWidth: 2,
-    borderColor: Backgrounds.root,
+    borderColor: "rgba(255, 255, 255, 0.06)",
   },
   bellBadgeText: {
     fontSize: 10,

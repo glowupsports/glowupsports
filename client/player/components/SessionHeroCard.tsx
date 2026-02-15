@@ -19,7 +19,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useTabNavigation } from "@/components/TabNavigationContext";
 import { GlassCard } from "./GlassCard";
 import { GlowAvatar } from "./GlowAvatar";
-import { ProTennisColors, Spacing, BorderRadius, Typography, Backgrounds, GlowColors, Colors } from "@/constants/theme";
+import { ProTennisColors, Spacing, BorderRadius, Typography, GlowColors, Colors } from "@/constants/theme";
 import { usePlayerState } from "../context/PlayerStateContext";
 import { apiRequest } from "@/lib/query-client";
 import * as Haptics from "expo-haptics";
@@ -1613,7 +1613,7 @@ const styles = StyleSheet.create({
     paddingVertical: Spacing.sm,
     borderRadius: BorderRadius.md,
     borderWidth: 1,
-    backgroundColor: Backgrounds.card,
+    backgroundColor: "rgba(255, 255, 255, 0.06)",
   },
   nextSessionTextGlow: {
     fontWeight: "800",
@@ -1859,7 +1859,7 @@ const styles = StyleSheet.create({
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: Backgrounds.overlay,
+    backgroundColor: "rgba(255, 255, 255, 0.06)",
     justifyContent: "center",
     alignItems: "center",
     padding: Spacing.lg,

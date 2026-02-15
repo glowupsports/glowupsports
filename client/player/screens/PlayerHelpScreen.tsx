@@ -3,7 +3,7 @@ import { View, Text, StyleSheet, ScrollView, Linking, Platform } from "react-nat
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
 import Ionicons from "@expo/vector-icons/Ionicons";
-import { Colors, Spacing, Typography, BorderRadius, Backgrounds, GlowColors } from "@/constants/theme";
+import { Colors, Spacing, Typography, BorderRadius, GlowColors } from "@/constants/theme";
 import { Pressable } from "react-native";
 import * as Haptics from "expo-haptics";
 

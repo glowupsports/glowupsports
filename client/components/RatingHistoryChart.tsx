@@ -2,7 +2,7 @@ import React from "react";
 import { View, Text, StyleSheet, Dimensions, ActivityIndicator } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import Svg, { Path, Circle, Line, Defs, LinearGradient as SvgGradient, Stop } from "react-native-svg";
-import { Colors, Spacing, BorderRadius, FontSizes, Backgrounds, GlowColors } from "@/constants/theme";
+import { Colors, Spacing, BorderRadius, FontSizes, GlowColors } from "@/constants/theme";
 import { useQuery } from "@tanstack/react-query";
 
 interface RatingHistoryChartProps {
@@ -116,7 +116,7 @@ export function RatingHistoryChart({
 
   return (
     <LinearGradient
-      colors={[Backgrounds.card, Backgrounds.elevated]}
+      colors={["rgba(255, 255, 255, 0.06)", "rgba(255, 255, 255, 0.08)"]}
       style={[styles.container, { height }]}
     >
       <View style={styles.header}>
@@ -184,7 +184,7 @@ export function RatingHistoryChart({
             cy={getY(point.mmrAfter)}
             r={point.didWin ? 4 : 3}
             fill={point.didWin ? GlowColors.primary : "#EF4444"}
-            stroke={Backgrounds.card}
+            stroke={"rgba(255, 255, 255, 0.06)"}
             strokeWidth={2}
           />
         ))}
@@ -194,7 +194,7 @@ export function RatingHistoryChart({
           cy={getY(data.history[data.history.length - 1].mmrAfter)}
           r={6}
           fill={lineColor}
-          stroke={Backgrounds.card}
+          stroke={"rgba(255, 255, 255, 0.06)"}
           strokeWidth={2}
         />
       </Svg>
