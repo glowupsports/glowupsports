@@ -6651,15 +6651,30 @@ export const storage = {
   }> {
     console.log(`[SettleDebts] Starting for player ${playerId}, creditType ${creditType}, package ${packageId}`);
     
-    const balance = await this.getPlayerCreditBalanceByType(playerId);
-    const currentBalance = balance[creditType as keyof typeof balance] as number;
+    const matchingCreditTypes = creditType === "semi_private" || creditType === "semi" 
+      ? ["semi_private", "semi"] 
+      : [creditType];
     
-    if (typeof currentBalance !== 'number' || currentBalance >= 0) {
-      console.log(`[SettleDebts] No debt for player ${playerId}, ${creditType} balance: ${currentBalance}`);
+    const unsettledDebts = await db.select().from(creditTransactions)
+      .where(and(
+        eq(creditTransactions.playerId, playerId),
+        eq(creditTransactions.type, "debit"),
+        or(
+          eq(creditTransactions.reason, "session_debt"),
+          eq(creditTransactions.reason, "session_join_debt"),
+          eq(creditTransactions.reason, "session_unpaid")
+        ),
+        inArray(creditTransactions.creditType, matchingCreditTypes),
+        sql`(${creditTransactions.metadata}->>'cancelled')::boolean IS NOT TRUE`,
+        sql`(${creditTransactions.metadata}->>'settled')::boolean IS NOT TRUE`,
+        sql`COALESCE(${creditTransactions.metadata}->>'isDebt', 'false') = 'true'`
+      ))
+      .orderBy(creditTransactions.createdAt);
+    
+    if (unsettledDebts.length === 0) {
+      console.log(`[SettleDebts] No unsettled debt transactions for player ${playerId}, creditType ${creditType}`);
       return { settledCount: 0, totalDeducted: 0 };
     }
-    
-    const debtAmount = Math.abs(currentBalance);
     
     const pkg = await db.select().from(packages).where(eq(packages.id, packageId)).limit(1);
     if (pkg.length === 0) {
@@ -6667,41 +6682,42 @@ export const storage = {
       return { settledCount: 0, totalDeducted: 0 };
     }
     
-    const currentRemaining = pkg[0].remainingCredits;
-    const creditsToUse = Math.min(debtAmount, currentRemaining);
+    let currentRemaining = pkg[0].remainingCredits;
+    let settledCount = 0;
     
-    if (creditsToUse === 0) {
-      return { settledCount: 0, totalDeducted: 0 };
+    for (const debt of unsettledDebts) {
+      if (currentRemaining <= 0) break;
+      
+      const meta = debt.metadata ? (typeof debt.metadata === 'string' ? JSON.parse(debt.metadata) : debt.metadata) : {};
+      
+      await db.update(creditTransactions)
+        .set({ 
+          metadata: { 
+            ...meta, 
+            settled: true, 
+            settledByPackage: packageId,
+            lastSettledAt: new Date().toISOString(),
+            originalAmount: Math.abs(debt.amount),
+          } 
+        })
+        .where(eq(creditTransactions.id, debt.id));
+      
+      currentRemaining--;
+      settledCount++;
     }
     
-    const newRemaining = currentRemaining - creditsToUse;
+    if (settledCount > 0) {
+      await db.update(packages)
+        .set({ 
+          remainingCredits: currentRemaining,
+          status: currentRemaining <= 0 ? "depleted" : "active",
+        })
+        .where(eq(packages.id, packageId));
+      
+      console.log(`[SettleDebts] Settled ${settledCount} debt(s) for player ${playerId}, package ${pkg[0].remainingCredits} -> ${currentRemaining}`);
+    }
     
-    await db.update(packages)
-      .set({ 
-        remainingCredits: newRemaining,
-        status: newRemaining <= 0 ? "depleted" : "active",
-      })
-      .where(eq(packages.id, packageId));
-    
-    await db.insert(creditTransactions).values({
-      id: crypto.randomUUID(),
-      playerId,
-      packageId,
-      creditType,
-      type: "debit",
-      amount: -creditsToUse,
-      reason: "debt_settlement",
-      metadata: {
-        creditsUsed: creditsToUse,
-        balanceBefore: currentBalance,
-        balanceAfter: currentBalance + creditsToUse,
-      },
-      createdAt: new Date(),
-    });
-    
-    console.log(`[SettleDebts] Settled ${creditsToUse} credits for player ${playerId}, package ${currentRemaining} -> ${newRemaining}, balance ${currentBalance} -> ${currentBalance + creditsToUse}`);
-    
-    return { settledCount: creditsToUse, totalDeducted: creditsToUse };
+    return { settledCount, totalDeducted: settledCount };
   },
 
   // Settle unpaid sessions (creditDeductedAt = null) when a new package is created
