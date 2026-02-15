@@ -5409,6 +5409,8 @@ export const xpActionSources = [
   "skill_validation",
   "court_booking",
   "lesson_booking",
+  "spotlight_weekly_winner",
+  "spotlight_monthly_winner",
 ] as const;
 export type XPActionSource = typeof xpActionSources[number];
 
@@ -5808,3 +5810,61 @@ export const playerNotifications = pgTable("player_notifications", {
   readAt: timestamp("read_at"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
+
+// ==================== PLAYER SPOTLIGHT (Player of the Week / Month) ====================
+
+export const spotlightNominations = pgTable("spotlight_nominations", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  academyId: varchar("academy_id").references(() => academies.id).notNull(),
+  nominatorPlayerId: varchar("nominator_player_id").references(() => players.id).notNull(),
+  nominatedPlayerId: varchar("nominated_player_id").references(() => players.id).notNull(),
+  reason: text("reason").notNull(),
+  weekStart: date("week_start").notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("spotlight_nom_academy_idx").on(table.academyId),
+  index("spotlight_nom_week_idx").on(table.weekStart),
+  index("spotlight_nom_nominator_idx").on(table.nominatorPlayerId),
+  unique("spotlight_nom_unique_vote").on(table.nominatorPlayerId, table.weekStart),
+]);
+
+export const insertSpotlightNominationSchema = createInsertSchema(spotlightNominations).omit({ id: true, createdAt: true });
+export type InsertSpotlightNomination = z.infer<typeof insertSpotlightNominationSchema>;
+export type SpotlightNomination = typeof spotlightNominations.$inferSelect;
+
+export const spotlightWeeklyWinners = pgTable("spotlight_weekly_winners", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  academyId: varchar("academy_id").references(() => academies.id).notNull(),
+  playerId: varchar("player_id").references(() => players.id).notNull(),
+  weekStart: date("week_start").notNull(),
+  totalVotes: integer("total_votes").notNull().default(0),
+  topReason: text("top_reason"),
+  xpAwarded: integer("xp_awarded").default(0),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("spotlight_weekly_academy_idx").on(table.academyId),
+  unique("spotlight_weekly_unique").on(table.academyId, table.weekStart),
+]);
+
+export const insertSpotlightWeeklyWinnerSchema = createInsertSchema(spotlightWeeklyWinners).omit({ id: true, createdAt: true });
+export type InsertSpotlightWeeklyWinner = z.infer<typeof insertSpotlightWeeklyWinnerSchema>;
+export type SpotlightWeeklyWinner = typeof spotlightWeeklyWinners.$inferSelect;
+
+export const spotlightMonthlyWinners = pgTable("spotlight_monthly_winners", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  academyId: varchar("academy_id").references(() => academies.id).notNull(),
+  playerId: varchar("player_id").references(() => players.id).notNull(),
+  month: integer("month").notNull(),
+  year: integer("year").notNull(),
+  totalWeeklyWins: integer("total_weekly_wins").notNull().default(0),
+  totalVotesAllWeeks: integer("total_votes_all_weeks").notNull().default(0),
+  xpAwarded: integer("xp_awarded").default(0),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("spotlight_monthly_academy_idx").on(table.academyId),
+  unique("spotlight_monthly_unique").on(table.academyId, table.month, table.year),
+]);
+
+export const insertSpotlightMonthlyWinnerSchema = createInsertSchema(spotlightMonthlyWinners).omit({ id: true, createdAt: true });
+export type InsertSpotlightMonthlyWinner = z.infer<typeof insertSpotlightMonthlyWinnerSchema>;
+export type SpotlightMonthlyWinner = typeof spotlightMonthlyWinners.$inferSelect;
