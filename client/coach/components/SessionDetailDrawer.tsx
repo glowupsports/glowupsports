@@ -1928,7 +1928,7 @@ const styles = StyleSheet.create({
     marginLeft: Spacing.sm,
   },
   removePlayerSection: {
-    backgroundColor: Backgrounds.card,
+    backgroundColor: "rgba(255, 255, 255, 0.06)",
     borderRadius: BorderRadius.lg,
     padding: Spacing.lg,
     marginBottom: Spacing.md,
@@ -2007,7 +2007,7 @@ const styles = StyleSheet.create({
     fontWeight: "600",
   },
   guestConvertSection: {
-    backgroundColor: Backgrounds.card,
+    backgroundColor: "rgba(255, 255, 255, 0.06)",
     borderRadius: BorderRadius.lg,
     padding: Spacing.lg,
     marginBottom: Spacing.md,
@@ -2124,7 +2124,7 @@ const styles = StyleSheet.create({
   guestCancelBtn: {
     width: 44,
     height: 44,
-    backgroundColor: Backgrounds.card,
+    backgroundColor: "rgba(255, 255, 255, 0.06)",
     borderRadius: BorderRadius.md,
     justifyContent: "center",
     alignItems: "center",
@@ -2139,7 +2139,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: Spacing.md,
     padding: Spacing.lg,
-    backgroundColor: Backgrounds.card,
+    backgroundColor: "rgba(255, 255, 255, 0.06)",
     borderRadius: BorderRadius.lg,
     borderWidth: 1,
     borderColor: "rgba(255, 255, 255, 0.06)",
@@ -2211,7 +2211,7 @@ const styles = StyleSheet.create({
   },
   playerCard: {
     width: "48%",
-    backgroundColor: Backgrounds.card,
+    backgroundColor: "rgba(255, 255, 255, 0.06)",
     borderRadius: BorderRadius.lg,
     padding: Spacing.sm,
     borderWidth: 1,
@@ -2294,7 +2294,7 @@ const styles = StyleSheet.create({
   noPlayersCard: {
     alignItems: "center",
     padding: Spacing.xl,
-    backgroundColor: Backgrounds.card,
+    backgroundColor: "rgba(255, 255, 255, 0.06)",
     borderRadius: BorderRadius.lg,
     borderWidth: 1,
     borderColor: "rgba(255, 255, 255, 0.06)",
@@ -2307,7 +2307,7 @@ const styles = StyleSheet.create({
   },
   quickAddCard: {
     flex: 1,
-    backgroundColor: Backgrounds.card,
+    backgroundColor: "rgba(255, 255, 255, 0.06)",
     borderRadius: BorderRadius.lg,
     padding: Spacing.md,
     alignItems: "center",
@@ -2395,7 +2395,7 @@ const styles = StyleSheet.create({
     color: GlowColors.primary,
   },
   sessionControlsSection: {
-    backgroundColor: Backgrounds.card,
+    backgroundColor: "rgba(255, 255, 255, 0.06)",
     borderRadius: BorderRadius.lg,
     padding: Spacing.md,
     borderWidth: 1,
@@ -2491,13 +2491,13 @@ const styles = StyleSheet.create({
   },
   dropdownOverlay: {
     flex: 1,
-    backgroundColor: Backgrounds.overlay,
+    backgroundColor: "rgba(0, 0, 0, 0.6)",
     justifyContent: "center",
     alignItems: "center",
     padding: Spacing.xl,
   },
   dropdownMenu: {
-    backgroundColor: Backgrounds.card,
+    backgroundColor: "rgba(255, 255, 255, 0.06)",
     borderRadius: BorderRadius.xl,
     width: "100%",
     maxWidth: 400,
@@ -2600,7 +2600,7 @@ const styles = StyleSheet.create({
   },
   endCancelButton: {
     flex: 1,
-    backgroundColor: Backgrounds.card,
+    backgroundColor: "rgba(255, 255, 255, 0.06)",
     borderRadius: BorderRadius.lg,
     padding: Spacing.lg,
     alignItems: "center",
@@ -2683,7 +2683,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: Spacing.md,
     padding: Spacing.lg,
-    backgroundColor: Backgrounds.card,
+    backgroundColor: "rgba(255, 255, 255, 0.06)",
     borderRadius: BorderRadius.lg,
     borderWidth: 1,
     borderColor: GlowColors.primary,
@@ -2707,7 +2707,7 @@ const styles = StyleSheet.create({
     borderRadius: BorderRadius.md,
   },
   dateOptionActive: {
-    backgroundColor: Backgrounds.card,
+    backgroundColor: "rgba(255, 255, 255, 0.06)",
     borderWidth: 1,
     borderColor: GlowColors.primary,
   },
@@ -2833,7 +2833,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   bulkButtonSecondary: {
-    backgroundColor: Backgrounds.card,
+    backgroundColor: "rgba(255, 255, 255, 0.06)",
     borderWidth: 1,
     borderColor: "rgba(255, 255, 255, 0.06)",
   },
@@ -2883,7 +2883,7 @@ const styles = StyleSheet.create({
     borderRadius: BorderRadius.sm,
   },
   catchUpOptionActive: {
-    backgroundColor: Backgrounds.card,
+    backgroundColor: "rgba(255, 255, 255, 0.06)",
   },
   radioSmall: {
     width: 12,
@@ -2905,13 +2905,13 @@ const styles = StyleSheet.create({
   },
   creditWarningOverlay: {
     flex: 1,
-    backgroundColor: Backgrounds.overlay,
+    backgroundColor: "rgba(0, 0, 0, 0.6)",
     justifyContent: "center",
     alignItems: "center",
     padding: Spacing.xl,
   },
   creditWarningContent: {
-    backgroundColor: Backgrounds.card,
+    backgroundColor: "rgba(255, 255, 255, 0.06)",
     borderRadius: BorderRadius.xl,
     padding: Spacing.xl,
     width: "100%",
@@ -2956,7 +2956,7 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingVertical: Spacing.md,
     borderRadius: BorderRadius.lg,
-    backgroundColor: Backgrounds.card,
+    backgroundColor: "rgba(255, 255, 255, 0.06)",
     alignItems: "center",
     borderWidth: 1,
     borderColor: "rgba(255, 255, 255, 0.06)",
