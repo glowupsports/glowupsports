@@ -6,7 +6,7 @@ import path from "path";
 import fs from "fs";
 import { storage, getSessionTypeByPlayerCount, updateSeriesSessionType, recalculateSeriesCredits } from "./storage";
 import { db } from "./db";
-import { playerHolidays, coachWellnessLogs, insertCoachWellnessLogSchema, levelUpEvents, playerXpEvents, ballLevels, playerNotifications } from "@shared/schema";
+import { playerHolidays, coachWellnessLogs, insertCoachWellnessLogSchema, levelUpEvents, playerXpEvents, ballLevels, playerNotifications, spotlightNominations, spotlightWeeklyWinners, spotlightMonthlyWinners } from "@shared/schema";
 import { eq, sql, desc, and, ne, gt, gte, asc, inArray, notInArray, isNull, isNotNull, or, count, ilike, lte } from "drizzle-orm";
 import { 
   invoices, payments, sessionPlayers, sessionWaitlist, creditTransactions, players, 
@@ -36270,6 +36270,423 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ error: error.message || "Fix failed" });
     }
   });
+  // ==================== PLAYER SPOTLIGHT ENDPOINTS ====================
+
+  function getWeekStart(date: Date = new Date()): string {
+    const d = new Date(date);
+    const day = d.getDay();
+    const diff = day === 0 ? 6 : day - 1;
+    d.setDate(d.getDate() - diff);
+    return d.toISOString().split('T')[0];
+  }
+
+  app.post("/api/player/spotlight/nominate", authMiddleware, requirePlayerOrOwner, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const academyId = req.user?.academyId;
+      const playerId = req.user?.playerId;
+      if (!academyId || !playerId) {
+        return res.status(400).json({ error: "Academy and player context required" });
+      }
+
+      const { nominatedPlayerId, reason } = req.body;
+      if (!nominatedPlayerId || !reason) {
+        return res.status(400).json({ error: "nominatedPlayerId and reason are required" });
+      }
+
+      if (nominatedPlayerId === playerId) {
+        return res.status(400).json({ error: "You cannot nominate yourself" });
+      }
+
+      const [nominee] = await db.select({ id: players.id, academyId: players.academyId }).from(players).where(eq(players.id, nominatedPlayerId));
+      if (!nominee || nominee.academyId !== academyId) {
+        return res.status(400).json({ error: "Nominated player must be in the same academy" });
+      }
+
+      const weekStart = getWeekStart();
+
+      const existing = await db.select({ id: spotlightNominations.id }).from(spotlightNominations)
+        .where(and(
+          eq(spotlightNominations.nominatorPlayerId, playerId),
+          eq(spotlightNominations.weekStart, weekStart)
+        ));
+
+      if (existing.length > 0) {
+        return res.status(400).json({ error: "You have already nominated someone this week" });
+      }
+
+      const [nomination] = await db.insert(spotlightNominations).values({
+        academyId,
+        nominatorPlayerId: playerId,
+        nominatedPlayerId,
+        reason,
+        weekStart,
+      }).returning();
+
+      res.json({ success: true, nomination });
+    } catch (error) {
+      console.error("[Spotlight] Nominate error:", error);
+      res.status(500).json({ error: "Failed to submit nomination" });
+    }
+  });
+
+  app.get("/api/player/spotlight/current-week", authMiddleware, requirePlayerOrOwner, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const academyId = req.user?.academyId;
+      const playerId = req.user?.playerId;
+      if (!academyId) {
+        return res.status(400).json({ error: "Academy context required" });
+      }
+
+      const weekStart = getWeekStart();
+
+      const nominations = await db.select({
+        nominatedPlayerId: spotlightNominations.nominatedPlayerId,
+        reason: spotlightNominations.reason,
+        nominatorPlayerId: spotlightNominations.nominatorPlayerId,
+        playerName: players.name,
+        profilePhotoUrl: players.profilePhotoUrl,
+        level: players.level,
+        ballLevel: players.ballLevel,
+      })
+        .from(spotlightNominations)
+        .innerJoin(players, eq(players.id, spotlightNominations.nominatedPlayerId))
+        .where(and(
+          eq(spotlightNominations.academyId, academyId),
+          eq(spotlightNominations.weekStart, weekStart)
+        ));
+
+      const aggregated: Record<string, { playerId: string; playerName: string; profilePhotoUrl: string | null; level: number | null; ballLevel: string | null; totalVotes: number; reasons: string[] }> = {};
+      for (const nom of nominations) {
+        if (!aggregated[nom.nominatedPlayerId]) {
+          aggregated[nom.nominatedPlayerId] = {
+            playerId: nom.nominatedPlayerId,
+            playerName: nom.playerName,
+            profilePhotoUrl: nom.profilePhotoUrl,
+            level: nom.level,
+            ballLevel: nom.ballLevel,
+            totalVotes: 0,
+            reasons: [],
+          };
+        }
+        aggregated[nom.nominatedPlayerId].totalVotes++;
+        aggregated[nom.nominatedPlayerId].reasons.push(nom.reason);
+      }
+
+      const sortedNominations = Object.values(aggregated).sort((a, b) => b.totalVotes - a.totalVotes);
+
+      const myNomination = playerId ? nominations.find(n => n.nominatorPlayerId === playerId) || null : null;
+
+      const today = new Date();
+      const dayOfWeek = today.getDay();
+      const daysRemaining = dayOfWeek === 0 ? 0 : 7 - dayOfWeek;
+
+      const totalVotes = nominations.length;
+
+      res.json({ weekStart, nominations: sortedNominations, myNomination, daysRemaining, totalVotes });
+    } catch (error) {
+      console.error("[Spotlight] Current week error:", error);
+      res.status(500).json({ error: "Failed to fetch current week spotlight" });
+    }
+  });
+
+  app.get("/api/player/spotlight/weekly-winner", authMiddleware, requirePlayerOrOwner, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const academyId = req.user?.academyId;
+      if (!academyId) {
+        return res.status(400).json({ error: "Academy context required" });
+      }
+
+      let targetWeekStart = req.query.weekStart as string | undefined;
+      if (!targetWeekStart) {
+        const lastWeek = new Date();
+        lastWeek.setDate(lastWeek.getDate() - 7);
+        targetWeekStart = getWeekStart(lastWeek);
+      }
+
+      const [existingWinner] = await db.select({
+        playerId: spotlightWeeklyWinners.playerId,
+        totalVotes: spotlightWeeklyWinners.totalVotes,
+        topReason: spotlightWeeklyWinners.topReason,
+        weekStart: spotlightWeeklyWinners.weekStart,
+        playerName: players.name,
+        profilePhotoUrl: players.profilePhotoUrl,
+        level: players.level,
+        ballLevel: players.ballLevel,
+      })
+        .from(spotlightWeeklyWinners)
+        .innerJoin(players, eq(players.id, spotlightWeeklyWinners.playerId))
+        .where(and(
+          eq(spotlightWeeklyWinners.academyId, academyId),
+          eq(spotlightWeeklyWinners.weekStart, targetWeekStart)
+        ));
+
+      if (existingWinner) {
+        return res.json({ winner: existingWinner });
+      }
+
+      const weekEnd = new Date(targetWeekStart);
+      weekEnd.setDate(weekEnd.getDate() + 6);
+      const now = new Date();
+      if (now <= weekEnd) {
+        return res.json({ winner: null });
+      }
+
+      const weekNominations = await db.select({
+        nominatedPlayerId: spotlightNominations.nominatedPlayerId,
+        reason: spotlightNominations.reason,
+      })
+        .from(spotlightNominations)
+        .where(and(
+          eq(spotlightNominations.academyId, academyId),
+          eq(spotlightNominations.weekStart, targetWeekStart)
+        ));
+
+      if (weekNominations.length === 0) {
+        return res.json({ winner: null });
+      }
+
+      const voteCounts: Record<string, { count: number; reasons: string[] }> = {};
+      for (const nom of weekNominations) {
+        if (!voteCounts[nom.nominatedPlayerId]) {
+          voteCounts[nom.nominatedPlayerId] = { count: 0, reasons: [] };
+        }
+        voteCounts[nom.nominatedPlayerId].count++;
+        voteCounts[nom.nominatedPlayerId].reasons.push(nom.reason);
+      }
+
+      const winnerId = Object.entries(voteCounts).sort((a, b) => b[1].count - a[1].count)[0][0];
+      const winnerData = voteCounts[winnerId];
+
+      const [inserted] = await db.insert(spotlightWeeklyWinners).values({
+        academyId,
+        playerId: winnerId,
+        weekStart: targetWeekStart,
+        totalVotes: winnerData.count,
+        topReason: winnerData.reasons[0],
+      }).returning();
+
+      const [winnerPlayer] = await db.select({
+        name: players.name,
+        profilePhotoUrl: players.profilePhotoUrl,
+        level: players.level,
+        ballLevel: players.ballLevel,
+      }).from(players).where(eq(players.id, winnerId));
+
+      res.json({
+        winner: {
+          playerId: winnerId,
+          playerName: winnerPlayer?.name || "Unknown",
+          profilePhotoUrl: winnerPlayer?.profilePhotoUrl || null,
+          level: winnerPlayer?.level || null,
+          ballLevel: winnerPlayer?.ballLevel || null,
+          totalVotes: winnerData.count,
+          topReason: winnerData.reasons[0],
+          weekStart: targetWeekStart,
+        },
+      });
+    } catch (error) {
+      console.error("[Spotlight] Weekly winner error:", error);
+      res.status(500).json({ error: "Failed to fetch weekly winner" });
+    }
+  });
+
+  app.get("/api/player/spotlight/monthly", authMiddleware, requirePlayerOrOwner, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const academyId = req.user?.academyId;
+      if (!academyId) {
+        return res.status(400).json({ error: "Academy context required" });
+      }
+
+      const now = new Date();
+      let month = parseInt(req.query.month as string) || now.getMonth() + 1;
+      let year = parseInt(req.query.year as string) || now.getFullYear();
+
+      if (month === now.getMonth() + 1 && year === now.getFullYear()) {
+        month = now.getMonth() === 0 ? 12 : now.getMonth();
+        year = now.getMonth() === 0 ? now.getFullYear() - 1 : now.getFullYear();
+      }
+
+      const [existingWinner] = await db.select({
+        playerId: spotlightMonthlyWinners.playerId,
+        totalWeeklyWins: spotlightMonthlyWinners.totalWeeklyWins,
+        totalVotesAllWeeks: spotlightMonthlyWinners.totalVotesAllWeeks,
+        month: spotlightMonthlyWinners.month,
+        year: spotlightMonthlyWinners.year,
+        playerName: players.name,
+        profilePhotoUrl: players.profilePhotoUrl,
+      })
+        .from(spotlightMonthlyWinners)
+        .innerJoin(players, eq(players.id, spotlightMonthlyWinners.playerId))
+        .where(and(
+          eq(spotlightMonthlyWinners.academyId, academyId),
+          eq(spotlightMonthlyWinners.month, month),
+          eq(spotlightMonthlyWinners.year, year)
+        ));
+
+      const monthEnd = new Date(year, month, 0);
+      const isMonthOver = now > monthEnd;
+
+      const monthStart = new Date(year, month - 1, 1);
+      const weeklyWinners = await db.select({
+        playerId: spotlightWeeklyWinners.playerId,
+        totalVotes: spotlightWeeklyWinners.totalVotes,
+        weekStart: spotlightWeeklyWinners.weekStart,
+        playerName: players.name,
+        profilePhotoUrl: players.profilePhotoUrl,
+      })
+        .from(spotlightWeeklyWinners)
+        .innerJoin(players, eq(players.id, spotlightWeeklyWinners.playerId))
+        .where(and(
+          eq(spotlightWeeklyWinners.academyId, academyId),
+          gte(spotlightWeeklyWinners.weekStart, monthStart.toISOString().split('T')[0]),
+          lte(spotlightWeeklyWinners.weekStart, monthEnd.toISOString().split('T')[0])
+        ));
+
+      const leaderboardMap: Record<string, { playerId: string; playerName: string; profilePhotoUrl: string | null; totalVotes: number; weeksWon: number }> = {};
+      for (const ww of weeklyWinners) {
+        if (!leaderboardMap[ww.playerId]) {
+          leaderboardMap[ww.playerId] = {
+            playerId: ww.playerId,
+            playerName: ww.playerName,
+            profilePhotoUrl: ww.profilePhotoUrl,
+            totalVotes: 0,
+            weeksWon: 0,
+          };
+        }
+        leaderboardMap[ww.playerId].totalVotes += ww.totalVotes;
+        leaderboardMap[ww.playerId].weeksWon++;
+      }
+      const leaderboard = Object.values(leaderboardMap).sort((a, b) => b.totalVotes - a.totalVotes);
+
+      let winner = existingWinner || null;
+
+      if (!existingWinner && isMonthOver && leaderboard.length > 0) {
+        const topPlayer = leaderboard[0];
+        const [inserted] = await db.insert(spotlightMonthlyWinners).values({
+          academyId,
+          playerId: topPlayer.playerId,
+          month,
+          year,
+          totalWeeklyWins: topPlayer.weeksWon,
+          totalVotesAllWeeks: topPlayer.totalVotes,
+        }).returning();
+
+        winner = {
+          playerId: topPlayer.playerId,
+          playerName: topPlayer.playerName,
+          profilePhotoUrl: topPlayer.profilePhotoUrl,
+          totalWeeklyWins: topPlayer.weeksWon,
+          totalVotesAllWeeks: topPlayer.totalVotes,
+          month,
+          year,
+        };
+      }
+
+      res.json({ winner, leaderboard });
+    } catch (error) {
+      console.error("[Spotlight] Monthly error:", error);
+      res.status(500).json({ error: "Failed to fetch monthly spotlight" });
+    }
+  });
+
+  app.get("/api/player/spotlight/leaderboard", authMiddleware, requirePlayerOrOwner, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const academyId = req.user?.academyId;
+      if (!academyId) {
+        return res.status(400).json({ error: "Academy context required" });
+      }
+
+      const weekStart = getWeekStart();
+
+      const nominations = await db.select({
+        nominatedPlayerId: spotlightNominations.nominatedPlayerId,
+        reason: spotlightNominations.reason,
+        playerName: players.name,
+        profilePhotoUrl: players.profilePhotoUrl,
+        level: players.level,
+        ballLevel: players.ballLevel,
+      })
+        .from(spotlightNominations)
+        .innerJoin(players, eq(players.id, spotlightNominations.nominatedPlayerId))
+        .where(and(
+          eq(spotlightNominations.academyId, academyId),
+          eq(spotlightNominations.weekStart, weekStart)
+        ));
+
+      const aggregated: Record<string, { playerId: string; playerName: string; profilePhotoUrl: string | null; level: number | null; ballLevel: string | null; totalVotes: number; reasons: string[] }> = {};
+      for (const nom of nominations) {
+        if (!aggregated[nom.nominatedPlayerId]) {
+          aggregated[nom.nominatedPlayerId] = {
+            playerId: nom.nominatedPlayerId,
+            playerName: nom.playerName,
+            profilePhotoUrl: nom.profilePhotoUrl,
+            level: nom.level,
+            ballLevel: nom.ballLevel,
+            totalVotes: 0,
+            reasons: [],
+          };
+        }
+        aggregated[nom.nominatedPlayerId].totalVotes++;
+        aggregated[nom.nominatedPlayerId].reasons.push(nom.reason);
+      }
+
+      const leaderboard = Object.values(aggregated).sort((a, b) => b.totalVotes - a.totalVotes);
+
+      res.json({ weekStart, leaderboard });
+    } catch (error) {
+      console.error("[Spotlight] Leaderboard error:", error);
+      res.status(500).json({ error: "Failed to fetch spotlight leaderboard" });
+    }
+  });
+
+  app.get("/api/player/spotlight/history", authMiddleware, requirePlayerOrOwner, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const academyId = req.user?.academyId;
+      if (!academyId) {
+        return res.status(400).json({ error: "Academy context required" });
+      }
+
+      const twelveWeeksAgo = new Date();
+      twelveWeeksAgo.setDate(twelveWeeksAgo.getDate() - 84);
+      const cutoffDate = twelveWeeksAgo.toISOString().split('T')[0];
+
+      const weeklyWinners = await db.select({
+        playerId: spotlightWeeklyWinners.playerId,
+        weekStart: spotlightWeeklyWinners.weekStart,
+        totalVotes: spotlightWeeklyWinners.totalVotes,
+        topReason: spotlightWeeklyWinners.topReason,
+        playerName: players.name,
+        profilePhotoUrl: players.profilePhotoUrl,
+      })
+        .from(spotlightWeeklyWinners)
+        .innerJoin(players, eq(players.id, spotlightWeeklyWinners.playerId))
+        .where(and(
+          eq(spotlightWeeklyWinners.academyId, academyId),
+          gte(spotlightWeeklyWinners.weekStart, cutoffDate)
+        ))
+        .orderBy(desc(spotlightWeeklyWinners.weekStart));
+
+      const monthlyWinners = await db.select({
+        playerId: spotlightMonthlyWinners.playerId,
+        month: spotlightMonthlyWinners.month,
+        year: spotlightMonthlyWinners.year,
+        totalWeeklyWins: spotlightMonthlyWinners.totalWeeklyWins,
+        totalVotesAllWeeks: spotlightMonthlyWinners.totalVotesAllWeeks,
+        playerName: players.name,
+        profilePhotoUrl: players.profilePhotoUrl,
+      })
+        .from(spotlightMonthlyWinners)
+        .innerJoin(players, eq(players.id, spotlightMonthlyWinners.playerId))
+        .where(eq(spotlightMonthlyWinners.academyId, academyId))
+        .orderBy(desc(spotlightMonthlyWinners.year), desc(spotlightMonthlyWinners.month));
+
+      res.json({ weeklyWinners, monthlyWinners });
+    } catch (error) {
+      console.error("[Spotlight] History error:", error);
+      res.status(500).json({ error: "Failed to fetch spotlight history" });
+    }
+  });
+
   const httpServer = createServer(app);
   
   // Set up WebSocket server for real-time chat
