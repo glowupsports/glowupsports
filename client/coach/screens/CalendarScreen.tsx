@@ -1806,27 +1806,27 @@ export default function CalendarScreen() {
                 />
               </Pressable>
             ) : null}
-            {viewMode === "day" && dayMode === "slots" && (
-              <>
-                <Pressable
-                  style={[styles.toggleButton, focusMode && styles.toggleActive]}
-                  onPress={() => setFocusMode(!focusMode)}
-                >
-                  <Ionicons
-                    name="eye-outline"
-                    size={18}
-                    color={focusMode ? Colors.dark.backgroundRoot : Colors.dark.text}
-                  />
-                </Pressable>
-                <Pressable
-                  style={styles.gridToggle}
-                  onPress={() => setTimeGrid(timeGrid === 30 ? 60 : 30)}
-                >
-                  <Text style={styles.gridToggleText}>{timeGrid}m</Text>
-                </Pressable>
-              </>
-            )}
           </View></CoachMarkTarget>
+          {viewMode === "day" && dayMode === "slots" && (
+            <View style={styles.headerSecondRow}>
+              <Pressable
+                style={[styles.toggleButton, focusMode && styles.toggleActive]}
+                onPress={() => setFocusMode(!focusMode)}
+              >
+                <Ionicons
+                  name="eye-outline"
+                  size={18}
+                  color={focusMode ? Colors.dark.backgroundRoot : Colors.dark.text}
+                />
+              </Pressable>
+              <Pressable
+                style={styles.gridToggle}
+                onPress={() => setTimeGrid(timeGrid === 30 ? 60 : 30)}
+              >
+                <Text style={styles.gridToggleText}>{timeGrid}m</Text>
+              </Pressable>
+            </View>
+          )}
           {viewMode === "day" && (
             <View style={styles.weekModeToggle}>
               <Pressable
@@ -3940,6 +3940,12 @@ const styles = StyleSheet.create({
     fontWeight: "800",
     color: "#1A1A1A",
     letterSpacing: 1.2,
+  },
+  headerSecondRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    marginTop: 4,
   },
   headerBookButton: {
     borderRadius: 20,
