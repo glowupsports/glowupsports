@@ -10597,7 +10597,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           status: 'scheduled',
           duration,
         },
-        startDate,
+        firstRecurringDate,
         weekCount,
         dayOfWeek,
         startTime,
