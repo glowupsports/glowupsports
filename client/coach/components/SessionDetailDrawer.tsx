@@ -532,6 +532,23 @@ export default function SessionDetailDrawer({
     addGuestMutation.mutate(guestName.trim());
   };
 
+  const [showCourtPicker, setShowCourtPicker] = useState(false);
+
+  const changeCourtMutation = useMutation({
+    mutationFn: async (newCourtId: string) => {
+      return apiRequest("PUT", `/api/coach/sessions/${session!.id}`, { courtId: newCourtId });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/coach/calendar"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/coach/series"] });
+      setShowCourtPicker(false);
+      Alert.alert("Court Updated", "The session court has been changed.");
+    },
+    onError: (err: any) => {
+      Alert.alert("Error", err.message || "Failed to change court");
+    },
+  });
+
   if (!visible || !session) return null;
 
   const court = courts.find(c => c.id === session.courtId);
@@ -675,10 +692,53 @@ export default function SessionDetailDrawer({
           {sessionDate.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" })}
         </Text>
         
-        {court && (
-          <View style={styles.courtRow}>
+        {court ? (
+          <Pressable style={styles.courtRow} onPress={() => setShowCourtPicker(true)}>
             <Ionicons name="location-outline" size={16} color={Colors.dark.disabled} />
             <Text style={styles.courtName}>{court.name}</Text>
+            <Ionicons name="pencil-outline" size={14} color={Colors.dark.disabled} style={{ marginLeft: 6 }} />
+          </Pressable>
+        ) : (
+          <Pressable style={styles.courtRow} onPress={() => setShowCourtPicker(true)}>
+            <Ionicons name="location-outline" size={16} color={Colors.dark.disabled} />
+            <Text style={[styles.courtName, { color: Colors.dark.disabled }]}>No court assigned</Text>
+            <Ionicons name="add-outline" size={14} color={Colors.dark.primary} style={{ marginLeft: 6 }} />
+          </Pressable>
+        )}
+
+        {showCourtPicker && (
+          <View style={styles.courtPickerContainer}>
+            <Text style={styles.courtPickerTitle}>Change Court</Text>
+            {courts.map((c) => (
+              <Pressable
+                key={c.id}
+                style={[
+                  styles.courtPickerItem,
+                  c.id === session.courtId && styles.courtPickerItemActive,
+                ]}
+                onPress={() => {
+                  if (c.id !== session.courtId) {
+                    changeCourtMutation.mutate(c.id);
+                  } else {
+                    setShowCourtPicker(false);
+                  }
+                }}
+                disabled={changeCourtMutation.isPending}
+              >
+                <Ionicons
+                  name={c.id === session.courtId ? "radio-button-on" : "radio-button-off"}
+                  size={18}
+                  color={c.id === session.courtId ? Colors.dark.primary : Colors.dark.disabled}
+                />
+                <Text style={[
+                  styles.courtPickerItemText,
+                  c.id === session.courtId && { color: Colors.dark.primary },
+                ]}>{c.name}</Text>
+              </Pressable>
+            ))}
+            {changeCourtMutation.isPending && (
+              <ActivityIndicator size="small" color={Colors.dark.primary} style={{ marginTop: 8 }} />
+            )}
           </View>
         )}
       </View>
@@ -1739,6 +1799,34 @@ const styles = StyleSheet.create({
   courtName: {
     ...Typography.body,
     color: Colors.dark.textMuted,
+  },
+  courtPickerContainer: {
+    backgroundColor: Backgrounds.dark.cardAlt,
+    borderRadius: BorderRadius.md,
+    padding: Spacing.md,
+    marginTop: Spacing.sm,
+  },
+  courtPickerTitle: {
+    ...Typography.caption,
+    color: Colors.dark.textMuted,
+    marginBottom: Spacing.sm,
+    textTransform: "uppercase" as const,
+    letterSpacing: 1,
+  },
+  courtPickerItem: {
+    flexDirection: "row" as const,
+    alignItems: "center" as const,
+    gap: Spacing.sm,
+    paddingVertical: Spacing.sm,
+    paddingHorizontal: Spacing.sm,
+    borderRadius: BorderRadius.sm,
+  },
+  courtPickerItemActive: {
+    backgroundColor: "rgba(0, 255, 135, 0.1)",
+  },
+  courtPickerItemText: {
+    ...Typography.body,
+    color: Colors.dark.text,
   },
   playersSection: {
     marginBottom: Spacing.xl,
