@@ -6031,6 +6031,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           
           // REFACTORED: Use ensureCreditProcessed() for bulletproof credit handling
           // Process credits for chargeable players using the single entrypoint
+          const { ensureCreditProcessed: processCredit } = await import("./storage");
           
           // Track original session type BEFORE adjustment for correct charging logic
           const originalSessionType = session.sessionType;
@@ -6058,7 +6059,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             
             if (isChargeable) {
               try {
-                const result = await storage.ensureCreditProcessed(updatedRecord.id);
+                const result = await processCredit(updatedRecord.id);
                 if (result.action === "consumed") creditResults.consumed++;
                 else if (result.action === "debt_created") creditResults.debts++;
                 else if (result.action === "already_processed") creditResults.skipped++;
