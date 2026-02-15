@@ -31,7 +31,7 @@ const CANCELLATION_REASONS = [
   { label: "Other", value: "Other" },
 ];
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Colors, Spacing, BorderRadius, Typography, getPlayerLevelColor, Backgrounds, GlowColors } from "@/constants/theme";
+import { Colors, Spacing, BorderRadius, Typography, getPlayerLevelColor, GlowColors } from "@/constants/theme";
 import { apiRequest, getApiUrl } from "@/lib/query-client";
 import { useNetwork } from "@/context/NetworkContext";
 import { showOfflineAlert } from "@/hooks/useOfflineGuard";
@@ -1801,7 +1801,7 @@ const styles = StyleSheet.create({
     color: Colors.dark.textMuted,
   },
   courtPickerContainer: {
-    backgroundColor: Backgrounds.dark.cardAlt,
+    backgroundColor: "rgba(255, 255, 255, 0.05)",
     borderRadius: BorderRadius.md,
     padding: Spacing.md,
     marginTop: Spacing.sm,
