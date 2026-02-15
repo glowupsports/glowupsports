@@ -36302,6 +36302,94 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
 
+  
+  // DIAGNOSTIC: Check credit processing status for a specific player's semi-private sessions
+  app.get("/api/admin/credits/diagnose/:playerId", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const { playerId } = req.params;
+      
+      // 1. Get all completed sessions where this player participated
+      const sessionData = await db.execute(sql`
+        SELECT 
+          sp.id as session_player_id,
+          sp.session_id,
+          sp.player_id,
+          sp.attendance_status,
+          sp.credit_deducted_at,
+          sp.credit_transaction_id,
+          s.session_type,
+          s.status as session_status,
+          s.start_time,
+          s.series_id,
+          cs.session_type as series_session_type,
+          cs.title as series_title
+        FROM session_players sp
+        JOIN sessions s ON s.id = sp.session_id
+        LEFT JOIN coaching_series cs ON cs.id = s.series_id
+        WHERE sp.player_id = ${playerId}
+          AND s.status = 'completed'
+        ORDER BY s.start_time DESC
+      `);
+      
+      // 2. Get credit transactions for this player
+      const transactions = await db.execute(sql`
+        SELECT id, session_id, session_player_id, type, credit_type, amount, reason, created_at, package_id
+        FROM credit_transactions 
+        WHERE player_id = ${playerId}
+        ORDER BY created_at DESC
+      `);
+      
+      // 3. Get packages for this player
+      const packages = await db.execute(sql`
+        SELECT id, credit_type, total_credits, remaining_credits, status, expiry_date
+        FROM packages 
+        WHERE player_id = ${playerId}
+        ORDER BY created_at DESC
+      `);
+      
+      // 4. Analyze
+      const sessions = sessionData.rows as any[];
+      const semiPrivateSessions = sessions.filter((s: any) => 
+        s.series_session_type === 'semi_private' || s.session_type === 'semi_private'
+      );
+      const semiPrivateWithCredit = semiPrivateSessions.filter((s: any) => s.credit_deducted_at);
+      const semiPrivateWithoutCredit = semiPrivateSessions.filter((s: any) => !s.credit_deducted_at);
+      const privateSessions = sessions.filter((s: any) => 
+        s.session_type === 'private' || s.session_type === 'private_adjusted'
+      );
+      const groupSessions = sessions.filter((s: any) => s.session_type === 'group');
+      
+      res.json({
+        playerId,
+        summary: {
+          totalCompletedSessions: sessions.length,
+          semiPrivate: {
+            total: semiPrivateSessions.length,
+            creditDeducted: semiPrivateWithCredit.length,
+            creditMissing: semiPrivateWithoutCredit.length,
+          },
+          private: { total: privateSessions.length },
+          group: { total: groupSessions.length },
+        },
+        missingSemiPrivateCredits: semiPrivateWithoutCredit.map((s: any) => ({
+          sessionPlayerId: s.session_player_id,
+          sessionId: s.session_id,
+          sessionType: s.session_type,
+          seriesType: s.series_session_type,
+          attendanceStatus: s.attendance_status,
+          startTime: s.start_time,
+          seriesTitle: s.series_title,
+        })),
+        packages: packages.rows,
+        recentTransactions: (transactions.rows as any[]).slice(0, 20),
+      });
+    } catch (error: any) {
+      console.error("[Diagnose] Error:", error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+
   // ==================== PLAYER SPOTLIGHT ENDPOINTS ====================
 
   function getWeekStart(date: Date = new Date()): string {
