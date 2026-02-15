@@ -2467,6 +2467,13 @@ export default function CalendarScreen() {
               const weekSessionsByDay: Record<number, typeof ownSessions> = {};
               const allHours = new Set<number>();
               
+              const getHourInTz = (isoStr: string) => {
+                const d = parseUTCTimestamp(isoStr);
+                const parts = new Intl.DateTimeFormat("en-US", { hour: "numeric", hour12: false, timeZone: academyTimezone }).formatToParts(d);
+                const hourPart = parts.find(p => p.type === "hour");
+                return parseInt(hourPart?.value || "0", 10);
+              };
+
               weekDates.forEach((date, idx) => {
                 const targetDateStr = formatDateObjectInTimezone(date, academyTimezone);
                 const daySessions = filteredSessions.filter((s) => {
@@ -2475,8 +2482,7 @@ export default function CalendarScreen() {
                 });
                 weekSessionsByDay[idx] = daySessions;
                 daySessions.forEach(s => {
-                  const startH = parseUTCTimestamp(s.startTime).getHours();
-                  allHours.add(startH);
+                  allHours.add(getHourInTz(s.startTime));
                 });
               });
 
@@ -2501,8 +2507,7 @@ export default function CalendarScreen() {
                     {weekDates.map((_, dayIdx) => {
                       const daySessions = weekSessionsByDay[dayIdx] || [];
                       const hourSessions = daySessions.filter(s => {
-                        const h = parseUTCTimestamp(s.startTime).getHours();
-                        return h === hour;
+                        return getHourInTz(s.startTime) === hour;
                       });
                       const isToday = weekDates[dayIdx].toDateString() === new Date().toDateString();
 

@@ -3547,11 +3547,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       switch (view) {
         case "week":
           const dayOfWeek = targetDate.getUTCDay();
+          const mondayOffset = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
           startDate = new Date(targetDate);
-          startDate.setUTCDate(targetDate.getUTCDate() - dayOfWeek);
+          startDate.setUTCDate(targetDate.getUTCDate() - mondayOffset);
           startDate.setUTCHours(0, 0, 0, 0);
           endDate = new Date(startDate);
-          endDate.setUTCDate(startDate.getUTCDate() + 7);
+          endDate.setUTCDate(startDate.getUTCDate() + 6);
           endDate.setUTCHours(23, 59, 59, 999);
           break;
         case "month":
