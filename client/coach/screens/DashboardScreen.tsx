@@ -115,6 +115,7 @@ export default function DashboardScreen() {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [currentSecond, setCurrentSecond] = useState(() => Math.floor(Date.now() / 1000));
   const [selectedSessionForDetail, setSelectedSessionForDetail] = useState<Session | null>(null);
+  const [detailInitialAction, setDetailInitialAction] = useState<"attendance" | "detail" | "extend" | "end" | undefined>(undefined);
   const [selectedSessionForAttendance, setSelectedSessionForAttendance] = useState<Session | null>(null);
   const [showWelcome, setShowWelcome] = useState(false);
   const [showHelpCenter, setShowHelpCenter] = useState(false);
@@ -1190,7 +1191,7 @@ export default function DashboardScreen() {
                       style={styles.actionBarBtn}
                       onPress={() => {
                         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-                        (navigation as any).navigate("CoachTabs", { screen: "Calendar", params: { openSessionId: currentSession.id, action: "attendance", _ts: Date.now() } });
+                        setSelectedSessionForAttendance(currentSession);
                       }}
                     >
                       <LinearGradient
@@ -1207,7 +1208,8 @@ export default function DashboardScreen() {
                       style={styles.actionBarBtn}
                       onPress={() => {
                         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                        (navigation as any).navigate("CoachTabs", { screen: "Calendar", params: { openSessionId: currentSession.id, action: "extend", _ts: Date.now() } });
+                        setDetailInitialAction("extend");
+                        setSelectedSessionForDetail(currentSession);
                       }}
                     >
                       <LinearGradient
@@ -1241,7 +1243,8 @@ export default function DashboardScreen() {
                       style={styles.actionBarBtn}
                       onPress={() => {
                         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                        (navigation as any).navigate("CoachTabs", { screen: "Calendar", params: { openSessionId: currentSession.id, action: "end", _ts: Date.now() } });
+                        setDetailInitialAction("end");
+                        setSelectedSessionForDetail(currentSession);
                       }}
                     >
                       <LinearGradient
@@ -1656,7 +1659,8 @@ export default function DashboardScreen() {
         visible={!!selectedSessionForDetail}
         session={selectedSessionForDetail}
         courts={calendarData?.courts || []}
-        onClose={() => setSelectedSessionForDetail(null)}
+        initialAction={detailInitialAction}
+        onClose={() => { setSelectedSessionForDetail(null); setDetailInitialAction(undefined); }}
         onAttendance={() => {
           if (selectedSessionForDetail) {
             const sess = selectedSessionForDetail;
