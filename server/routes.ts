@@ -6,6 +6,7 @@ import path from "path";
 import fs from "fs";
 import { storage, getSessionTypeByPlayerCount, updateSeriesSessionType, recalculateSeriesCredits } from "./storage";
 import { db } from "./db";
+import { awardXP } from "./services/xp-service";
 import { playerHolidays, coachWellnessLogs, insertCoachWellnessLogSchema, levelUpEvents, playerXpEvents, ballLevels, playerNotifications, spotlightNominations, spotlightWeeklyWinners, spotlightMonthlyWinners } from "@shared/schema";
 import { eq, sql, desc, and, ne, gt, gte, asc, inArray, notInArray, isNull, isNotNull, or, count, ilike, lte } from "drizzle-orm";
 import { 
@@ -36503,6 +36504,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
         ballLevel: players.ballLevel,
       }).from(players).where(eq(players.id, winnerId));
 
+      // Award XP for weekly spotlight winner (50 XP)
+      try {
+        await awardXP(winnerId, "spotlight_weekly_winner", "spotlight", inserted.id);
+        console.log("[Spotlight] Awarded 50 XP to weekly winner:", winnerId);
+      } catch (xpErr) {
+        console.log("[Spotlight] XP award skipped (rule may not exist):", xpErr);
+      }
+
       res.json({
         winner: {
           playerId: winnerId,
@@ -36601,6 +36610,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
           totalWeeklyWins: topPlayer.weeksWon,
           totalVotesAllWeeks: topPlayer.totalVotes,
         }).returning();
+
+      // Award XP for monthly spotlight winner (200 XP)
+      try {
+        const monthlyWinnerId = inserted.playerId;
+        await awardXP(monthlyWinnerId, "spotlight_monthly_winner", "spotlight", inserted.id);
+        console.log("[Spotlight] Awarded 200 XP to monthly winner:", monthlyWinnerId);
+      } catch (xpErr) {
+        console.log("[Spotlight] Monthly XP award skipped:", xpErr);
+      }
 
         winner = {
           playerId: topPlayer.playerId,
