@@ -2394,108 +2394,126 @@ export default function CalendarScreen() {
         </>
       )}
 
-      {/* WEEK VIEW - OVERVIEW MODE (Compact Lesson List) */}
+      {/* WEEK VIEW - OVERVIEW MODE (Week Calendar Planner) */}
       {viewMode === "week" && weekMode === "overview" && (
         <ScrollView 
           style={styles.calendarScroll} 
           showsVerticalScrollIndicator={false}
-          contentContainerStyle={styles.weekCardsContainer}
+          contentContainerStyle={{ paddingBottom: Spacing.xl }}
         >
-          {weekDates.map((date, idx) => {
-            const dayNames = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
-            const isToday = date.toDateString() === new Date().toDateString();
-            const daySessions = getSessionsForDate(date)
-              .sort((a, b) => parseUTCTimestamp(a.startTime).getTime() - parseUTCTimestamp(b.startTime).getTime());
-            
-            if (daySessions.length === 0) return null;
-            
-            return (
-              <View key={idx} style={styles.overviewDayBlock}>
+          {/* Week Day Headers */}
+          <View style={styles.weekPlannerHeader}>
+            {weekDates.map((date, idx) => {
+              const dayLetters = ["M", "T", "W", "T", "F", "S", "S"];
+              const isToday = date.toDateString() === new Date().toDateString();
+              const count = getSessionsForDate(date).length;
+              return (
                 <Pressable 
-                  style={[styles.overviewDayHeader, isToday && styles.overviewDayHeaderToday]}
+                  key={idx} 
+                  style={[styles.weekPlannerHeaderCell, isToday && styles.weekPlannerHeaderCellToday]}
                   onPress={() => {
                     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
                     handleDateSelect(date);
                   }}
                 >
-                  <Text style={[styles.overviewDayName, isToday && styles.overviewDayNameToday]}>
+                  <Text style={[styles.weekPlannerDayLetter, isToday && styles.weekPlannerDayLetterToday]}>{dayLetters[idx]}</Text>
+                  <View style={[styles.weekPlannerDateCircle, isToday && styles.weekPlannerDateCircleToday]}>
+                    <Text style={[styles.weekPlannerDateNum, isToday && styles.weekPlannerDateNumToday]}>{date.getDate()}</Text>
+                  </View>
+                  {count > 0 ? (
+                    <Text style={styles.weekPlannerSessionCount}>{count}</Text>
+                  ) : (
+                    <Text style={styles.weekPlannerSessionCountEmpty}>-</Text>
+                  )}
+                </Pressable>
+              );
+            })}
+          </View>
+
+          {/* Week Planner - All days with sessions listed */}
+          {weekDates.map((date, idx) => {
+            const dayNames = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
+            const isToday = date.toDateString() === new Date().toDateString();
+            const daySessions = getSessionsForDate(date)
+              .sort((a, b) => parseUTCTimestamp(a.startTime).getTime() - parseUTCTimestamp(b.startTime).getTime());
+            
+            return (
+              <View key={idx} style={styles.weekPlannerDay}>
+                <Pressable 
+                  style={[styles.weekPlannerDayLabel, isToday && styles.weekPlannerDayLabelToday]}
+                  onPress={() => {
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                    handleDateSelect(date);
+                  }}
+                >
+                  <Text style={[styles.weekPlannerDayText, isToday && styles.weekPlannerDayTextToday]}>
                     {dayNames[idx]}
                   </Text>
-                  <Text style={styles.overviewDayDate}>
+                  <Text style={styles.weekPlannerDayDateText}>
                     {date.getDate()} {date.toLocaleDateString("en-US", { month: "short" })}
                   </Text>
-                  <View style={styles.overviewDayCount}>
-                    <Text style={styles.overviewDayCountText}>{daySessions.length}</Text>
-                  </View>
                 </Pressable>
-                
-                {daySessions.map((session) => {
-                  const typeLabel = session.sessionType === "private" ? "Private" :
-                                    session.sessionType === "semi_private" ? "Semi-Private" :
-                                    session.sessionType === "group" ? "Group" :
-                                    session.sessionType === "physical" ? "Physical" : "Session";
-                  const playerNames = session.players?.map(p => p.name.split(" ")[0]).join(", ") || "";
-                  const courtName = courts.find(c => c.id === session.courtId)?.name || "";
-                  const gradientColors = getSessionTypeGradient(session.sessionType);
-                  const now = new Date();
-                  const sessionStart = parseUTCTimestamp(session.startTime);
-                  const sessionEnd = parseUTCTimestamp(session.endTime);
-                  const isPast = sessionEnd < now;
-                  const isActive = now >= sessionStart && now < sessionEnd;
-                  
-                  return (
-                    <Pressable
-                      key={session.id}
-                      style={[styles.overviewSessionRow, isPast && styles.overviewSessionRowPast]}
-                      onPress={() => {
-                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                        setSelectedSessionForDetail(session as Session);
-                      }}
-                    >
-                      <View style={[styles.overviewSessionAccent, { backgroundColor: gradientColors[0] }]} />
-                      <View style={styles.overviewSessionTime}>
-                        <Text style={[styles.overviewTimeText, isPast && styles.overviewTimePast]}>
-                          {formatTimeInTimezone(session.startTime, academyTimezone)}
-                        </Text>
-                        <Text style={styles.overviewTimeDash}>-</Text>
-                        <Text style={[styles.overviewTimeText, isPast && styles.overviewTimePast]}>
-                          {formatTimeInTimezone(session.endTime, academyTimezone)}
-                        </Text>
-                      </View>
-                      <View style={styles.overviewSessionInfo}>
-                        <View style={styles.overviewSessionTopRow}>
-                          <Text style={[styles.overviewTypeLabel, { color: gradientColors[0] }]}>{typeLabel}</Text>
-                          {isActive ? (
-                            <View style={styles.overviewLiveBadge}>
-                              <View style={styles.overviewLiveDot} />
-                              <Text style={styles.overviewLiveText}>LIVE</Text>
+
+                {daySessions.length === 0 ? (
+                  <View style={styles.weekPlannerNoSessions}>
+                    <Text style={styles.weekPlannerNoSessionsText}>No lessons</Text>
+                  </View>
+                ) : (
+                  <View style={styles.weekPlannerSessions}>
+                    {daySessions.map((session) => {
+                      const typeLabel = session.sessionType === "private" ? "PVT" :
+                                        session.sessionType === "semi_private" ? "SEMI" :
+                                        session.sessionType === "group" ? "GRP" :
+                                        session.sessionType === "physical" ? "FIT" : "SES";
+                      const playerNames = session.players?.map(p => p.name.split(" ")[0]).join(", ") || "";
+                      const courtName = courts.find(c => c.id === session.courtId)?.name || "";
+                      const gradientColors = getSessionTypeGradient(session.sessionType);
+                      const now = new Date();
+                      const sessionEnd = parseUTCTimestamp(session.endTime);
+                      const sessionStart = parseUTCTimestamp(session.startTime);
+                      const isPast = sessionEnd < now;
+                      const isActive = now >= sessionStart && now < sessionEnd;
+                      
+                      return (
+                        <Pressable
+                          key={session.id}
+                          style={[styles.weekPlannerSession, isPast && styles.weekPlannerSessionPast]}
+                          onPress={() => {
+                            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                            setSelectedSessionForDetail(session as Session);
+                          }}
+                        >
+                          <View style={[styles.weekPlannerSessionBar, { backgroundColor: gradientColors[0] }]} />
+                          <View style={styles.weekPlannerSessionContent}>
+                            <View style={styles.weekPlannerSessionRow1}>
+                              <Text style={styles.weekPlannerTimeText}>
+                                {formatTimeInTimezone(session.startTime, academyTimezone)}
+                              </Text>
+                              <View style={[styles.weekPlannerTypeBadge, { backgroundColor: gradientColors[0] + "25" }]}>
+                                <Text style={[styles.weekPlannerTypeText, { color: gradientColors[0] }]}>{typeLabel}</Text>
+                              </View>
+                              {isActive ? (
+                                <View style={styles.overviewLiveBadge}>
+                                  <View style={styles.overviewLiveDot} />
+                                  <Text style={styles.overviewLiveText}>LIVE</Text>
+                                </View>
+                              ) : null}
                             </View>
-                          ) : null}
-                        </View>
-                        <View style={styles.overviewSessionDetails}>
-                          {playerNames ? <Text style={styles.overviewPlayerText} numberOfLines={1}>{playerNames}</Text> : null}
-                          {courtName ? (
-                            <View style={styles.overviewCourtChip}>
-                              <Ionicons name="location-outline" size={10} color={Colors.dark.tabIconDefault} />
-                              <Text style={styles.overviewCourtText}>{courtName}</Text>
-                            </View>
-                          ) : null}
-                        </View>
-                      </View>
-                      <Ionicons name="chevron-forward" size={16} color={Colors.dark.tabIconDefault} />
-                    </Pressable>
-                  );
-                })}
+                            {playerNames ? (
+                              <Text style={styles.weekPlannerPlayerText} numberOfLines={1}>{playerNames}</Text>
+                            ) : null}
+                            {courtName ? (
+                              <Text style={styles.weekPlannerCourtText}>{courtName}</Text>
+                            ) : null}
+                          </View>
+                        </Pressable>
+                      );
+                    })}
+                  </View>
+                )}
               </View>
             );
           })}
-          
-          {weekDates.every(date => getSessionsForDate(date).length === 0) ? (
-            <View style={styles.overviewEmpty}>
-              <Ionicons name="calendar-outline" size={48} color={Colors.dark.tabIconDefault} />
-              <Text style={styles.overviewEmptyText}>No lessons this week</Text>
-            </View>
-          ) : null}
         </ScrollView>
       )}
 
@@ -4842,6 +4860,146 @@ const styles = StyleSheet.create({
   },
   overviewEmptyText: {
     ...Typography.body,
+    color: Colors.dark.tabIconDefault,
+  },
+  weekPlannerHeader: {
+    flexDirection: "row",
+    borderBottomWidth: 1,
+    borderBottomColor: "rgba(255, 255, 255, 0.1)",
+    backgroundColor: Backgrounds.card,
+  },
+  weekPlannerHeaderCell: {
+    flex: 1,
+    alignItems: "center",
+    paddingVertical: Spacing.sm,
+    gap: 4,
+  },
+  weekPlannerHeaderCellToday: {
+    backgroundColor: GlowColors.primary + "10",
+  },
+  weekPlannerDayLetter: {
+    fontSize: 11,
+    fontWeight: "600",
+    color: Colors.dark.tabIconDefault,
+    letterSpacing: 0.5,
+  },
+  weekPlannerDayLetterToday: {
+    color: GlowColors.primary,
+  },
+  weekPlannerDateCircle: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  weekPlannerDateCircleToday: {
+    backgroundColor: GlowColors.primary,
+  },
+  weekPlannerDateNum: {
+    fontSize: 13,
+    fontWeight: "700",
+    color: Colors.dark.text,
+  },
+  weekPlannerDateNumToday: {
+    color: Colors.dark.backgroundRoot,
+  },
+  weekPlannerSessionCount: {
+    fontSize: 10,
+    fontWeight: "700",
+    color: GlowColors.primary,
+  },
+  weekPlannerSessionCountEmpty: {
+    fontSize: 10,
+    color: Colors.dark.tabIconDefault,
+  },
+  weekPlannerDay: {
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: "rgba(255, 255, 255, 0.06)",
+  },
+  weekPlannerDayLabel: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm,
+    backgroundColor: Backgrounds.card + "80",
+  },
+  weekPlannerDayLabelToday: {
+    backgroundColor: GlowColors.primary + "12",
+  },
+  weekPlannerDayText: {
+    ...Typography.body,
+    fontWeight: "700",
+    color: Colors.dark.textSecondary,
+    fontSize: 13,
+  },
+  weekPlannerDayTextToday: {
+    color: GlowColors.primary,
+  },
+  weekPlannerDayDateText: {
+    ...Typography.caption,
+    color: Colors.dark.tabIconDefault,
+    fontSize: 11,
+  },
+  weekPlannerNoSessions: {
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm,
+  },
+  weekPlannerNoSessionsText: {
+    ...Typography.caption,
+    color: Colors.dark.tabIconDefault,
+    fontStyle: "italic",
+    fontSize: 12,
+  },
+  weekPlannerSessions: {
+    gap: 1,
+  },
+  weekPlannerSession: {
+    flexDirection: "row",
+    alignItems: "stretch",
+    paddingVertical: 6,
+    paddingHorizontal: Spacing.md,
+    paddingLeft: Spacing.lg,
+  },
+  weekPlannerSessionPast: {
+    opacity: 0.45,
+  },
+  weekPlannerSessionBar: {
+    width: 3,
+    borderRadius: 2,
+    marginRight: Spacing.sm,
+  },
+  weekPlannerSessionContent: {
+    flex: 1,
+    gap: 1,
+  },
+  weekPlannerSessionRow1: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+  },
+  weekPlannerTimeText: {
+    fontSize: 12,
+    fontWeight: "600",
+    color: Colors.dark.textSecondary,
+  },
+  weekPlannerTypeBadge: {
+    paddingHorizontal: 6,
+    paddingVertical: 1,
+    borderRadius: BorderRadius.sm,
+  },
+  weekPlannerTypeText: {
+    fontSize: 10,
+    fontWeight: "800",
+    letterSpacing: 0.5,
+  },
+  weekPlannerPlayerText: {
+    fontSize: 12,
+    color: Colors.dark.text,
+  },
+  weekPlannerCourtText: {
+    fontSize: 11,
     color: Colors.dark.tabIconDefault,
   },
   monthDayHeaders: {
