@@ -26,6 +26,8 @@ import { RecentFeedbackCard } from "@/player/components/RecentFeedbackCard";
 import { FeedbackToast } from "@/player/components/FeedbackToast";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import * as Haptics from "expo-haptics";
+import { SpotlightCard } from "@/player/components/SpotlightCard";
+import SpotlightNominationModal from "@/player/components/SpotlightNominationModal";
 import { GettingStartedChecklist } from "@/components/GettingStartedChecklist";
 import { WelcomeIntroModal } from "@/components/WelcomeIntroModal";
 import { HelpButton } from "@/components/HelpButton";
@@ -233,6 +235,7 @@ function PlayerHomeContent() {
     ];
   }, [dashboardData, navigation, setShowBookingWizard]);
 
+  const [showSpotlightNomination, setShowSpotlightNomination] = useState(false);
   const [showNotificationGuide, setShowNotificationGuide] = useState(false);
   const [showFirstCelebration, setShowFirstCelebration] = useState(false);
   const [celebrationData, setCelebrationData] = useState({ title: "", description: "", icon: "trophy", xpReward: 0 });
@@ -416,6 +419,12 @@ function PlayerHomeContent() {
         {/* RECENT COACH FEEDBACK */}
         <RecentFeedbackCard />
 
+        {/* PLAYER SPOTLIGHT - Player of the Week / Month */}
+        <SpotlightCard
+          onNominate={() => setShowSpotlightNomination(true)}
+          onViewDetails={() => navigation.navigate("SpotlightDetail" as never)}
+        />
+
         {/* DISCOVERY SECTION - Horizontal scrolling rows */}
         <CoachMarkTarget id="player_discovery">
           <View style={styles.discoverySection}>
@@ -485,6 +494,10 @@ function PlayerHomeContent() {
         description={celebrationData.description}
         icon={celebrationData.icon}
         xpReward={celebrationData.xpReward}
+      />
+      <SpotlightNominationModal
+        visible={showSpotlightNomination}
+        onClose={() => setShowSpotlightNomination(false)}
       />
     </View>
   );

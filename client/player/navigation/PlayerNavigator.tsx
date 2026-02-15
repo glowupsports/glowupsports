@@ -71,6 +71,7 @@ import BookingPreferencesScreen from "@/player/screens/BookingPreferencesScreen"
 import BookingInvitesScreen from "@/player/screens/BookingInvitesScreen";
 import FamilyLobbyScreen from "@/player/screens/FamilyLobbyScreen";
 import NewsScreen from "@/player/screens/NewsScreen";
+import SpotlightDetailScreen from "@/player/screens/SpotlightDetailScreen";
 import PrivacySettingsScreen from "@/player/screens/PrivacySettingsScreen";
 import FeedbackCenterScreen from "@/player/screens/FeedbackCenterScreen";
 import CoachFeedbackHistoryScreen from "@/player/screens/CoachFeedbackHistoryScreen";
@@ -180,6 +181,7 @@ export type PlayerStackParamList = {
   FamilyLobby: undefined;
   News: undefined;
   PrivacySettings: { isOnboarding?: boolean; currentLevel?: string };
+  SpotlightDetail: undefined;
 };
 
 const Stack = createNativeStackNavigator<PlayerStackParamList>();
@@ -675,6 +677,14 @@ function PlayerStackNavigator() {
           headerStyle: { backgroundColor: '#090E17' },
           headerTintColor: '#CCFF00',
           headerTitleStyle: { color: '#ffffff', fontWeight: '600' },
+        }}
+      />
+      <Stack.Screen 
+        name="SpotlightDetail" 
+        component={SpotlightDetailScreen}
+        options={{
+          presentation: "card",
+          headerShown: false,
         }}
       />
       <Stack.Screen 

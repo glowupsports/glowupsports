@@ -36270,6 +36270,37 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ error: error.message || "Fix failed" });
     }
   });
+  
+  // Get academy players for spotlight nomination
+  app.get("/api/player/spotlight/academy-players", authMiddleware, requirePlayerOrOwner, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const academyId = req.user?.academyId;
+      const playerId = req.user?.playerId;
+      if (!academyId) return res.status(400).json({ error: "No academy" });
+      
+      const academyPlayers = await db
+        .select({
+          id: players.id,
+          name: players.name,
+          profilePhotoUrl: players.profilePhotoUrl,
+          level: players.level,
+          ballLevel: players.ballLevel,
+        })
+        .from(players)
+        .where(and(
+          eq(players.academyId, academyId),
+          ne(players.id, playerId || "")
+        ))
+        .orderBy(asc(players.name));
+      
+      res.json(academyPlayers);
+    } catch (error: any) {
+      console.error("[Spotlight] Get academy players error:", error);
+      res.status(500).json({ error: "Failed to get players" });
+    }
+  });
+
+
   // ==================== PLAYER SPOTLIGHT ENDPOINTS ====================
 
   function getWeekStart(date: Date = new Date()): string {
