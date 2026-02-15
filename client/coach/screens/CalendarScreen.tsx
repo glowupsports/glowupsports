@@ -1761,7 +1761,6 @@ export default function CalendarScreen() {
           style={styles.headerGradientOverlay}
         />
         <View style={styles.headerTop}>
-          <Text style={styles.headerTitle}>COACH CALENDAR</Text>
           <CoachMarkTarget id="cal_header_actions"><View style={styles.headerActions}>
             <Pressable
               style={styles.headerBookButton}
