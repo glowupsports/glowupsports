@@ -10,7 +10,7 @@ import Animated, {
   withDelay,
   runOnJS,
 } from "react-native-reanimated";
-import { Colors, Spacing, BorderRadius, Typography, GlowColors } from "@/constants/theme";
+import { Colors, Backgrounds, Spacing, BorderRadius, Typography, GlowColors } from "@/constants/theme";
 import * as Haptics from "expo-haptics";
 import { PendingCelebration } from "../hooks/usePlayerLevel";
 
@@ -186,7 +186,7 @@ const styles = StyleSheet.create({
   container: {
     width: "100%",
     maxWidth: 340,
-    backgroundColor: "rgba(255, 255, 255, 0.06)",
+    backgroundColor: Backgrounds.card,
     borderRadius: BorderRadius.xl,
     overflow: "hidden",
     borderWidth: 1,

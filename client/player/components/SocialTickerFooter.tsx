@@ -3,7 +3,7 @@ import { View, Text, StyleSheet, ScrollView, Pressable, Animated as RNAnimated, 
 import { LinearGradient } from "expo-linear-gradient";
 import { BlurView } from "expo-blur";
 import Ionicons from "@expo/vector-icons/Ionicons";
-import { ProTennisColors, Spacing, BorderRadius, GlowColors, Colors } from "@/constants/theme";
+import { ProTennisColors, Backgrounds, Spacing, BorderRadius, GlowColors, Colors } from "@/constants/theme";
 import * as Haptics from "expo-haptics";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Animated, { FadeIn, SlideInDown } from "react-native-reanimated";
@@ -194,7 +194,7 @@ const styles = StyleSheet.create({
     width: 28,
     height: 28,
     borderRadius: 14,
-    backgroundColor: "rgba(255, 255, 255, 0.08)",
+    backgroundColor: Backgrounds.elevated,
     justifyContent: "center",
     alignItems: "center",
     marginLeft: Spacing.sm,

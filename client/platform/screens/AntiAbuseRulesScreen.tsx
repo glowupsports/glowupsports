@@ -6,7 +6,7 @@ import Ionicons from "@expo/vector-icons/Ionicons";
 import * as Haptics from "expo-haptics";
 import { useNavigation } from "@react-navigation/native";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Colors, Spacing, BorderRadius, Typography, CardStyles, GlowColors } from "@/constants/theme";
+import { Colors, Backgrounds, Spacing, BorderRadius, Typography, CardStyles, GlowColors } from "@/constants/theme";
 import { apiRequest } from "@/lib/query-client";
 
 const PLATFORM_COLOR = "#9B59B6";
@@ -387,7 +387,7 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.lg,
   },
   card: {
-    backgroundColor: "rgba(255, 255, 255, 0.06)",
+    backgroundColor: Backgrounds.card,
     borderRadius: BorderRadius.lg,
     borderWidth: 1,
     borderColor: "rgba(255, 255, 255, 0.06)",
@@ -478,7 +478,7 @@ const styles = StyleSheet.create({
   modalContent: {
     width: "85%",
     maxHeight: "70%",
-    backgroundColor: "rgba(255, 255, 255, 0.06)",
+    backgroundColor: Backgrounds.card,
     borderRadius: BorderRadius.xl,
     borderWidth: 1,
     borderColor: "rgba(255, 255, 255, 0.06)",

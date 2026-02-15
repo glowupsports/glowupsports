@@ -7,7 +7,7 @@ import * as Haptics from "expo-haptics";
 
 import { ThemedText } from "@/components/ThemedText";
 import { ReportIssueModal } from "@/components/ReportIssueModal";
-import { Colors, Spacing, BorderRadius, GlowColors } from "@/constants/theme";
+import { Colors, Backgrounds, Spacing, BorderRadius, GlowColors } from "@/constants/theme";
 import { usePlayer } from "@/context/PlayerContext";
 import { useAuth } from "@/coach/context/AuthContext";
 import { useUIInteraction } from "@/contexts/UIInteractionContext";
@@ -155,7 +155,7 @@ export function DrawerContent({ navigation, state }: DrawerContentComponentProps
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "rgba(255, 255, 255, 0.06)",
+    backgroundColor: Backgrounds.card,
     paddingHorizontal: Spacing.lg,
   },
   header: {
@@ -190,7 +190,7 @@ const styles = StyleSheet.create({
     borderRadius: BorderRadius.sm,
   },
   menuItemActive: {
-    backgroundColor: "rgba(255, 255, 255, 0.06)",
+    backgroundColor: Backgrounds.card,
   },
   menuItemText: {
     fontSize: 16,

@@ -19,7 +19,7 @@ import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import * as ImagePicker from "expo-image-picker";
 import { Image } from "expo-image";
-import { Colors, Spacing, BorderRadius, CardStyles, Typography, GlowColors } from "@/constants/theme";
+import { Colors, Backgrounds, Spacing, BorderRadius, CardStyles, Typography, GlowColors } from "@/constants/theme";
 import { apiRequest, getApiUrl } from "@/lib/query-client";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollViewCompat";
@@ -732,7 +732,7 @@ const styles = StyleSheet.create({
   emptyContainer: {
     padding: Spacing["2xl"],
     alignItems: "center",
-    backgroundColor: "rgba(255, 255, 255, 0.06)",
+    backgroundColor: Backgrounds.card,
     borderRadius: BorderRadius.lg,
     borderWidth: 1,
     borderColor: "rgba(255, 255, 255, 0.06)",
@@ -768,7 +768,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     padding: Spacing.md,
-    backgroundColor: "rgba(255, 255, 255, 0.06)",
+    backgroundColor: Backgrounds.card,
     borderRadius: BorderRadius.md,
     marginBottom: Spacing.sm,
     borderWidth: 1,
@@ -805,7 +805,7 @@ const styles = StyleSheet.create({
     justifyContent: "flex-end",
   },
   modalContent: {
-    backgroundColor: "rgba(255, 255, 255, 0.08)",
+    backgroundColor: Backgrounds.elevated,
     borderTopLeftRadius: BorderRadius.xl,
     borderTopRightRadius: BorderRadius.xl,
     padding: Spacing.lg,
@@ -848,7 +848,7 @@ const styles = StyleSheet.create({
   locationOption: {
     paddingHorizontal: Spacing.md,
     paddingVertical: Spacing.sm,
-    backgroundColor: "rgba(255, 255, 255, 0.06)",
+    backgroundColor: Backgrounds.card,
     borderRadius: BorderRadius.md,
     marginRight: Spacing.sm,
     borderWidth: 1,
@@ -907,7 +907,7 @@ const styles = StyleSheet.create({
     bottom: 0,
     left: 0,
     right: 0,
-    backgroundColor: "rgba(0, 0, 0, 0.6)",
+    backgroundColor: Backgrounds.overlay,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",

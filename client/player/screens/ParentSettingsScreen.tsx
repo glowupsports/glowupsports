@@ -4,7 +4,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Colors, Spacing, Typography, BorderRadius, GlowColors } from "@/constants/theme";
+import { Colors, Backgrounds, Spacing, Typography, BorderRadius, GlowColors } from "@/constants/theme";
 import { apiRequest } from "@/lib/query-client";
 
 interface ParentSettings {
@@ -184,7 +184,7 @@ export default function ParentSettingsScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "rgba(255, 255, 255, 0.06)",
+    backgroundColor: Backgrounds.card,
   },
   header: {
     flexDirection: "row",
@@ -234,7 +234,7 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.md,
   },
   settingsCard: {
-    backgroundColor: "rgba(255, 255, 255, 0.06)",
+    backgroundColor: Backgrounds.card,
     borderRadius: BorderRadius.lg,
     padding: Spacing.lg,
   },
@@ -297,7 +297,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "flex-start",
     gap: Spacing.md,
-    backgroundColor: "rgba(255, 255, 255, 0.06)",
+    backgroundColor: Backgrounds.card,
     borderRadius: BorderRadius.lg,
     padding: Spacing.lg,
   },

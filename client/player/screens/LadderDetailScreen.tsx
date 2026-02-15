@@ -19,7 +19,7 @@ import {
   BorderRadius,
   GlowColors,
   TextColors,
-} from "@/constants/theme";
+ Backgrounds, } from "@/constants/theme";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import type { RouteProp } from "@react-navigation/native";
 import type { PlayerStackParamList } from "@/player/navigation/PlayerNavigator";
@@ -458,7 +458,7 @@ export default function LadderDetailScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "rgba(255, 255, 255, 0.06)",
+    backgroundColor: Backgrounds.card,
   },
   header: {
     flexDirection: "row",
@@ -471,7 +471,7 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: BorderRadius.sm,
-    backgroundColor: "rgba(255, 255, 255, 0.06)",
+    backgroundColor: Backgrounds.card,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -496,7 +496,7 @@ const styles = StyleSheet.create({
     marginHorizontal: Spacing.lg,
     marginBottom: Spacing.md,
     padding: Spacing.lg,
-    backgroundColor: "rgba(255, 255, 255, 0.06)",
+    backgroundColor: Backgrounds.card,
     borderRadius: BorderRadius.md,
     borderWidth: 1,
     borderColor: "rgba(255, 255, 255, 0.06)",
@@ -570,7 +570,7 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.md,
   },
   challengeCard: {
-    backgroundColor: "rgba(255, 255, 255, 0.06)",
+    backgroundColor: Backgrounds.card,
     borderRadius: BorderRadius.md,
     padding: Spacing.lg,
     marginBottom: Spacing.sm,
@@ -654,7 +654,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     padding: Spacing.md,
-    backgroundColor: "rgba(255, 255, 255, 0.06)",
+    backgroundColor: Backgrounds.card,
     borderRadius: BorderRadius.sm,
     marginBottom: Spacing.sm,
     borderWidth: 1,
@@ -669,7 +669,7 @@ const styles = StyleSheet.create({
     width: 32,
     height: 32,
     borderRadius: 16,
-    backgroundColor: "rgba(255, 255, 255, 0.08)",
+    backgroundColor: Backgrounds.elevated,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -688,7 +688,7 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: "rgba(255, 255, 255, 0.04)",
+    backgroundColor: Backgrounds.surface,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -758,7 +758,7 @@ const styles = StyleSheet.create({
     fontWeight: "700",
   },
   resultCard: {
-    backgroundColor: "rgba(255, 255, 255, 0.06)",
+    backgroundColor: Backgrounds.card,
     borderRadius: BorderRadius.sm,
     padding: Spacing.md,
     marginBottom: Spacing.sm,
@@ -822,10 +822,10 @@ const modalStyles = StyleSheet.create({
   },
   backdrop: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: "rgba(0, 0, 0, 0.6)",
+    backgroundColor: Backgrounds.overlay,
   },
   content: {
-    backgroundColor: "rgba(255, 255, 255, 0.08)",
+    backgroundColor: Backgrounds.elevated,
     borderTopLeftRadius: BorderRadius.lg,
     borderTopRightRadius: BorderRadius.lg,
     padding: Spacing.xl,
@@ -847,7 +847,7 @@ const modalStyles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     padding: Spacing.lg,
-    backgroundColor: "rgba(255, 255, 255, 0.06)",
+    backgroundColor: Backgrounds.card,
     borderRadius: BorderRadius.md,
     gap: Spacing.lg,
   },
@@ -855,7 +855,7 @@ const modalStyles = StyleSheet.create({
     width: 56,
     height: 56,
     borderRadius: 28,
-    backgroundColor: "rgba(255, 255, 255, 0.04)",
+    backgroundColor: Backgrounds.surface,
     alignItems: "center",
     justifyContent: "center",
   },

@@ -22,7 +22,7 @@ import Animated, {
   withTiming,
   interpolateColor,
 } from "react-native-reanimated";
-import { Colors, Spacing, BorderRadius, Typography, GlowColors } from "@/constants/theme";
+import { Colors, Backgrounds, Spacing, BorderRadius, Typography, GlowColors } from "@/constants/theme";
 import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollViewCompat";
 import { useAuth } from "@/coach/context/AuthContext";
 import { apiRequest } from "@/lib/query-client";
@@ -1784,7 +1784,7 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: "rgba(255, 255, 255, 0.06)",
+    backgroundColor: Backgrounds.card,
     alignItems: "center",
     justifyContent: "center",
     marginRight: Spacing.md,
@@ -1964,7 +1964,7 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   glassCard: {
-    backgroundColor: "rgba(255, 255, 255, 0.06)",
+    backgroundColor: Backgrounds.card,
     borderRadius: BorderRadius.lg,
     padding: Spacing.xl,
     alignItems: "center",
@@ -2065,7 +2065,7 @@ const styles = StyleSheet.create({
     borderRadius: BorderRadius.md,
   },
   savedAccountItemSelected: {
-    backgroundColor: "rgba(255, 255, 255, 0.06)",
+    backgroundColor: Backgrounds.card,
     borderWidth: 1,
     borderColor: GlowColors.primary,
   },
@@ -2073,7 +2073,7 @@ const styles = StyleSheet.create({
     width: 48,
     height: 48,
     borderRadius: 24,
-    backgroundColor: "rgba(255, 255, 255, 0.06)",
+    backgroundColor: Backgrounds.card,
     borderWidth: 2,
     alignItems: "center",
     justifyContent: "center",

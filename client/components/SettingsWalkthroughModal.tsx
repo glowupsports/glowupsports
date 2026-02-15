@@ -23,7 +23,7 @@ import {
   GlowColors,
   TextColors,
   FunctionColors,
-} from "@/constants/theme";
+Backgrounds, } from "@/constants/theme";
 
 const SCREEN_HEIGHT = Dimensions.get("window").height;
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
@@ -208,12 +208,12 @@ export function SettingsWalkthroughModal({
 const styles = StyleSheet.create({
   overlay: {
     flex: 1,
-    backgroundColor: "rgba(0, 0, 0, 0.6)",
+    backgroundColor: Backgrounds.overlay,
     justifyContent: "flex-end",
   },
   sheet: {
     height: SCREEN_HEIGHT * 0.8,
-    backgroundColor: "rgba(255, 255, 255, 0.08)",
+    backgroundColor: Backgrounds.elevated,
     borderTopLeftRadius: BorderRadius.lg,
     borderTopRightRadius: BorderRadius.lg,
     overflow: "hidden",
@@ -262,7 +262,7 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: "rgba(255, 255, 255, 0.04)",
+    backgroundColor: Backgrounds.surface,
     justifyContent: "center",
     alignItems: "center",
   },
@@ -272,7 +272,7 @@ const styles = StyleSheet.create({
   },
   progressBarTrack: {
     height: 4,
-    backgroundColor: "rgba(255, 255, 255, 0.04)",
+    backgroundColor: Backgrounds.surface,
     borderRadius: 2,
     overflow: "hidden",
   },
@@ -289,7 +289,7 @@ const styles = StyleSheet.create({
     gap: Spacing.md,
   },
   areaCard: {
-    backgroundColor: "rgba(255, 255, 255, 0.06)",
+    backgroundColor: Backgrounds.card,
     borderRadius: BorderRadius.md,
     borderWidth: 1,
     borderColor: "rgba(255, 255, 255, 0.06)",
@@ -340,7 +340,7 @@ const styles = StyleSheet.create({
     lineHeight: 20,
   },
   whySection: {
-    backgroundColor: "rgba(255, 255, 255, 0.04)",
+    backgroundColor: Backgrounds.surface,
     borderRadius: BorderRadius.xs,
     padding: Spacing.md,
     marginBottom: Spacing.md,

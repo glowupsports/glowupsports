@@ -2,7 +2,7 @@ import React from "react";
 import { View, Text, StyleSheet, Pressable, ScrollView } from "react-native";
 import { Feather } from "@expo/vector-icons";
 import Animated, { FadeInRight, FadeIn } from "react-native-reanimated";
-import { ProTennisColors, Spacing, BorderRadius, GlowColors, FunctionColors, Colors } from "@/constants/theme";
+import { ProTennisColors, Backgrounds, Spacing, BorderRadius, GlowColors, FunctionColors, Colors } from "@/constants/theme";
 import { usePlayerState } from "@/player/context/PlayerStateContext";
 import { useNavigation } from "@react-navigation/native";
 import * as Haptics from "expo-haptics";
@@ -318,7 +318,7 @@ const styles = StyleSheet.create({
     borderWidth: 1.5,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "rgba(255, 255, 255, 0.06)" + "4D",
+    backgroundColor: Backgrounds.card + "4D",
   },
   actionTitle: {
     fontSize: 14,

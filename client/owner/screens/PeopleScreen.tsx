@@ -7,7 +7,7 @@ import Ionicons from "@expo/vector-icons/Ionicons";
 import * as Haptics from "expo-haptics";
 import * as Clipboard from "expo-clipboard";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Colors, Spacing, BorderRadius, Typography, CardStyles, GlowColors } from "@/constants/theme";
+import { Colors, Backgrounds, Spacing, BorderRadius, Typography, CardStyles, GlowColors } from "@/constants/theme";
 import type { OwnerStackParamList } from "@/owner/navigation/OwnerNavigator";
 import { apiRequest, getApiUrl } from "@/lib/query-client";
 import { Picker } from "@react-native-picker/picker";
@@ -1013,7 +1013,7 @@ const styles = StyleSheet.create({
   },
   personCard: {
     padding: Spacing.lg,
-    backgroundColor: "rgba(255, 255, 255, 0.06)",
+    backgroundColor: Backgrounds.card,
     borderRadius: BorderRadius.lg,
     borderWidth: 1,
     borderColor: "rgba(255, 255, 255, 0.06)",
@@ -1116,7 +1116,7 @@ const styles = StyleSheet.create({
     ...StyleSheet.absoluteFillObject,
   },
   detailModalContent: {
-    backgroundColor: "rgba(255, 255, 255, 0.06)",
+    backgroundColor: Backgrounds.card,
     borderTopLeftRadius: BorderRadius.xl,
     borderTopRightRadius: BorderRadius.xl,
     padding: Spacing.xl,
@@ -1294,7 +1294,7 @@ const styles = StyleSheet.create({
   },
   // Coach Removal Modal Styles
   removalModalContent: {
-    backgroundColor: "rgba(255, 255, 255, 0.06)",
+    backgroundColor: Backgrounds.card,
     borderTopLeftRadius: BorderRadius.xl,
     borderTopRightRadius: BorderRadius.xl,
     padding: Spacing.xl,

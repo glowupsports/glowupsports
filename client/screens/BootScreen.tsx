@@ -9,7 +9,7 @@ import {
 } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { useQueryClient } from "@tanstack/react-query";
-import { Colors, Spacing, FontSizes } from "@/constants/theme";
+import { Colors, Backgrounds, Spacing, FontSizes } from "@/constants/theme";
 import { useAuth } from "@/coach/context/AuthContext";
 import { useAppMode } from "@/context/AppModeContext";
 import { getApiUrl } from "@/lib/query-client";
@@ -408,7 +408,7 @@ const styles = StyleSheet.create({
     width: "100%",
   },
   tipCard: {
-    backgroundColor: "rgba(255, 255, 255, 0.05)",
+    backgroundColor: Backgrounds.card,
     borderRadius: 16,
     padding: Spacing.lg,
     alignItems: "center",

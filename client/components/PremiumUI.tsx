@@ -33,7 +33,7 @@ import {
   Typography,
   Shadows,
   Gradients,
-} from "@/constants/theme";
+Backgrounds, } from "@/constants/theme";
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
@@ -289,32 +289,32 @@ export function PremiumCard({
     switch (variant) {
       case "elevated":
         return {
-          backgroundColor: "rgba(255, 255, 255, 0.08)",
+          backgroundColor: Backgrounds.elevated,
           borderWidth: 1,
           borderColor: "rgba(255, 255, 255, 0.08)",
         };
       case "glass":
         return {
-          backgroundColor: "rgba(255, 255, 255, 0.08)",
+          backgroundColor: Backgrounds.elevated,
           borderWidth: 1,
           borderColor: "rgba(255, 255, 255, 0.1)",
         };
       case "glow":
         return {
-          backgroundColor: "rgba(255, 255, 255, 0.06)",
+          backgroundColor: Backgrounds.card,
           borderWidth: 1,
           borderColor: "rgba(200, 255, 61, 0.3)",
           ...Shadows.glowSubtle,
         };
       case "admin":
         return {
-          backgroundColor: "rgba(255, 255, 255, 0.06)",
+          backgroundColor: Backgrounds.card,
           borderWidth: 1,
           borderColor: "rgba(255, 133, 27, 0.3)",
         };
       default:
         return {
-          backgroundColor: "rgba(255, 255, 255, 0.06)",
+          backgroundColor: Backgrounds.card,
           borderWidth: 1,
           borderColor: "rgba(255, 255, 255, 0.06)",
         };
@@ -413,7 +413,7 @@ const glassPanelStyles = StyleSheet.create({
     overflow: "hidden",
   },
   webFallback: {
-    backgroundColor: "rgba(255, 255, 255, 0.08)",
+    backgroundColor: Backgrounds.elevated,
   },
   highlight: {
     position: "absolute",
@@ -700,7 +700,7 @@ export function ShimmerLoader({
 
 const shimmerStyles = StyleSheet.create({
   base: {
-    backgroundColor: "rgba(255, 255, 255, 0.04)",
+    backgroundColor: Backgrounds.surface,
     overflow: "hidden",
   },
   shimmer: {
@@ -709,7 +709,7 @@ const shimmerStyles = StyleSheet.create({
     left: 0,
     bottom: 0,
     width: 100,
-    backgroundColor: "rgba(255, 255, 255, 0.05)",
+    backgroundColor: Backgrounds.card,
   },
 });
 
@@ -765,7 +765,7 @@ const emptyStyles = StyleSheet.create({
     width: 80,
     height: 80,
     borderRadius: 40,
-    backgroundColor: "rgba(255, 255, 255, 0.04)",
+    backgroundColor: Backgrounds.surface,
     alignItems: "center",
     justifyContent: "center",
     marginBottom: Spacing.lg,
@@ -809,7 +809,7 @@ export function Divider({ style, withGlow = false }: DividerProps) {
 const dividerStyles = StyleSheet.create({
   base: {
     height: 1,
-    backgroundColor: "rgba(255, 255, 255, 0.06)",
+    backgroundColor: Backgrounds.card,
     marginVertical: Spacing.md,
   },
   glow: {

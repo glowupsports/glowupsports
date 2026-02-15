@@ -20,7 +20,7 @@ import {
   BorderRadius,
   Typography,
   GlowColors,
-} from "@/constants/theme";
+Backgrounds, } from "@/constants/theme";
 import { apiRequest } from "@/lib/query-client";
 import { SuccessToast } from "@/components/SuccessToast";
 
@@ -471,10 +471,10 @@ const styles = StyleSheet.create({
   },
   backdrop: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: "rgba(0, 0, 0, 0.6)",
+    backgroundColor: Backgrounds.overlay,
   },
   drawer: {
-    backgroundColor: "rgba(255, 255, 255, 0.06)",
+    backgroundColor: Backgrounds.card,
     borderTopLeftRadius: BorderRadius.xl,
     borderTopRightRadius: BorderRadius.xl,
     paddingTop: Spacing.sm,
@@ -616,7 +616,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.md,
     paddingVertical: Spacing.sm,
     borderRadius: BorderRadius.lg,
-    backgroundColor: "rgba(255, 255, 255, 0.08)",
+    backgroundColor: Backgrounds.elevated,
     borderWidth: 1,
     borderColor: "rgba(255, 255, 255, 0.1)",
   },
@@ -632,7 +632,7 @@ const styles = StyleSheet.create({
     color: GlowColors.primary,
   },
   messageInput: {
-    backgroundColor: "rgba(255, 255, 255, 0.08)",
+    backgroundColor: Backgrounds.elevated,
     borderRadius: BorderRadius.md,
     padding: Spacing.md,
     fontSize: Typography.body.fontSize,
@@ -666,7 +666,7 @@ const styles = StyleSheet.create({
     gap: Spacing.xs,
     paddingVertical: Spacing.sm,
     borderRadius: BorderRadius.md,
-    backgroundColor: "rgba(255, 255, 255, 0.08)",
+    backgroundColor: Backgrounds.elevated,
     borderWidth: 1,
     borderColor: "rgba(255, 255, 255, 0.1)",
   },

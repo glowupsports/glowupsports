@@ -20,7 +20,7 @@ import Animated, {
   FadeInDown,
 } from "react-native-reanimated";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { Colors, Spacing, BorderRadius, GlowColors } from "@/constants/theme";
+import { Colors, Backgrounds, Spacing, BorderRadius, GlowColors } from "@/constants/theme";
 import { apiRequest } from "@/lib/query-client";
 import { countries, getCitiesForCountry } from "@shared/countries";
 import { useAuth } from "@/coach/context/AuthContext";
@@ -1025,7 +1025,7 @@ const styles = StyleSheet.create({
     marginTop: Spacing.sm,
   },
   previewCard: {
-    backgroundColor: "rgba(255, 255, 255, 0.06)",
+    backgroundColor: Backgrounds.card,
     borderRadius: BorderRadius.md,
     padding: Spacing.lg,
     marginTop: Spacing.lg,
@@ -1162,7 +1162,7 @@ const styles = StyleSheet.create({
   selectableChip: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "rgba(255, 255, 255, 0.06)",
+    backgroundColor: Backgrounds.card,
     padding: Spacing.lg,
     borderRadius: BorderRadius.sm,
     borderWidth: 2,
@@ -1190,7 +1190,7 @@ const styles = StyleSheet.create({
   walkthroughStep: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "rgba(255, 255, 255, 0.06)",
+    backgroundColor: Backgrounds.card,
     padding: Spacing.lg,
     borderRadius: BorderRadius.md,
     borderWidth: 2,
@@ -1251,7 +1251,7 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.xl,
   },
   academySummary: {
-    backgroundColor: "rgba(255, 255, 255, 0.06)",
+    backgroundColor: Backgrounds.card,
     padding: Spacing.xl,
     borderRadius: BorderRadius.md,
     gap: Spacing.md,

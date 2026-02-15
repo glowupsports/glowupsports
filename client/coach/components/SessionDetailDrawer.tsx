@@ -31,7 +31,7 @@ const CANCELLATION_REASONS = [
   { label: "Other", value: "Other" },
 ];
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Colors, Spacing, BorderRadius, Typography, getPlayerLevelColor, GlowColors } from "@/constants/theme";
+import { Colors, Backgrounds, Spacing, BorderRadius, Typography, getPlayerLevelColor, GlowColors } from "@/constants/theme";
 import { apiRequest, getApiUrl } from "@/lib/query-client";
 import { useNetwork } from "@/context/NetworkContext";
 import { showOfflineAlert } from "@/hooks/useOfflineGuard";
@@ -1801,7 +1801,7 @@ const styles = StyleSheet.create({
     color: Colors.dark.textMuted,
   },
   courtPickerContainer: {
-    backgroundColor: "rgba(255, 255, 255, 0.05)",
+    backgroundColor: Backgrounds.card,
     borderRadius: BorderRadius.md,
     padding: Spacing.md,
     marginTop: Spacing.sm,
@@ -1928,7 +1928,7 @@ const styles = StyleSheet.create({
     marginLeft: Spacing.sm,
   },
   removePlayerSection: {
-    backgroundColor: "rgba(255, 255, 255, 0.06)",
+    backgroundColor: Backgrounds.card,
     borderRadius: BorderRadius.lg,
     padding: Spacing.lg,
     marginBottom: Spacing.md,
@@ -2007,7 +2007,7 @@ const styles = StyleSheet.create({
     fontWeight: "600",
   },
   guestConvertSection: {
-    backgroundColor: "rgba(255, 255, 255, 0.06)",
+    backgroundColor: Backgrounds.card,
     borderRadius: BorderRadius.lg,
     padding: Spacing.lg,
     marginBottom: Spacing.md,
@@ -2124,7 +2124,7 @@ const styles = StyleSheet.create({
   guestCancelBtn: {
     width: 44,
     height: 44,
-    backgroundColor: "rgba(255, 255, 255, 0.06)",
+    backgroundColor: Backgrounds.card,
     borderRadius: BorderRadius.md,
     justifyContent: "center",
     alignItems: "center",
@@ -2139,7 +2139,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: Spacing.md,
     padding: Spacing.lg,
-    backgroundColor: "rgba(255, 255, 255, 0.06)",
+    backgroundColor: Backgrounds.card,
     borderRadius: BorderRadius.lg,
     borderWidth: 1,
     borderColor: "rgba(255, 255, 255, 0.06)",
@@ -2211,7 +2211,7 @@ const styles = StyleSheet.create({
   },
   playerCard: {
     width: "48%",
-    backgroundColor: "rgba(255, 255, 255, 0.06)",
+    backgroundColor: Backgrounds.card,
     borderRadius: BorderRadius.lg,
     padding: Spacing.sm,
     borderWidth: 1,
@@ -2294,7 +2294,7 @@ const styles = StyleSheet.create({
   noPlayersCard: {
     alignItems: "center",
     padding: Spacing.xl,
-    backgroundColor: "rgba(255, 255, 255, 0.06)",
+    backgroundColor: Backgrounds.card,
     borderRadius: BorderRadius.lg,
     borderWidth: 1,
     borderColor: "rgba(255, 255, 255, 0.06)",
@@ -2307,7 +2307,7 @@ const styles = StyleSheet.create({
   },
   quickAddCard: {
     flex: 1,
-    backgroundColor: "rgba(255, 255, 255, 0.06)",
+    backgroundColor: Backgrounds.card,
     borderRadius: BorderRadius.lg,
     padding: Spacing.md,
     alignItems: "center",
@@ -2395,7 +2395,7 @@ const styles = StyleSheet.create({
     color: GlowColors.primary,
   },
   sessionControlsSection: {
-    backgroundColor: "rgba(255, 255, 255, 0.06)",
+    backgroundColor: Backgrounds.card,
     borderRadius: BorderRadius.lg,
     padding: Spacing.md,
     borderWidth: 1,
@@ -2420,7 +2420,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     gap: 6,
     paddingVertical: Spacing.sm,
-    backgroundColor: "rgba(255, 255, 255, 0.05)",
+    backgroundColor: Backgrounds.card,
     borderRadius: BorderRadius.md,
   },
   controlButtonText: {
@@ -2491,13 +2491,13 @@ const styles = StyleSheet.create({
   },
   dropdownOverlay: {
     flex: 1,
-    backgroundColor: "rgba(0, 0, 0, 0.6)",
+    backgroundColor: Backgrounds.overlay,
     justifyContent: "center",
     alignItems: "center",
     padding: Spacing.xl,
   },
   dropdownMenu: {
-    backgroundColor: "rgba(255, 255, 255, 0.06)",
+    backgroundColor: Backgrounds.card,
     borderRadius: BorderRadius.xl,
     width: "100%",
     maxWidth: 400,
@@ -2600,7 +2600,7 @@ const styles = StyleSheet.create({
   },
   endCancelButton: {
     flex: 1,
-    backgroundColor: "rgba(255, 255, 255, 0.06)",
+    backgroundColor: Backgrounds.card,
     borderRadius: BorderRadius.lg,
     padding: Spacing.lg,
     alignItems: "center",
@@ -2683,7 +2683,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: Spacing.md,
     padding: Spacing.lg,
-    backgroundColor: "rgba(255, 255, 255, 0.06)",
+    backgroundColor: Backgrounds.card,
     borderRadius: BorderRadius.lg,
     borderWidth: 1,
     borderColor: GlowColors.primary,
@@ -2707,7 +2707,7 @@ const styles = StyleSheet.create({
     borderRadius: BorderRadius.md,
   },
   dateOptionActive: {
-    backgroundColor: "rgba(255, 255, 255, 0.06)",
+    backgroundColor: Backgrounds.card,
     borderWidth: 1,
     borderColor: GlowColors.primary,
   },
@@ -2833,7 +2833,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   bulkButtonSecondary: {
-    backgroundColor: "rgba(255, 255, 255, 0.06)",
+    backgroundColor: Backgrounds.card,
     borderWidth: 1,
     borderColor: "rgba(255, 255, 255, 0.06)",
   },
@@ -2883,7 +2883,7 @@ const styles = StyleSheet.create({
     borderRadius: BorderRadius.sm,
   },
   catchUpOptionActive: {
-    backgroundColor: "rgba(255, 255, 255, 0.06)",
+    backgroundColor: Backgrounds.card,
   },
   radioSmall: {
     width: 12,
@@ -2905,13 +2905,13 @@ const styles = StyleSheet.create({
   },
   creditWarningOverlay: {
     flex: 1,
-    backgroundColor: "rgba(0, 0, 0, 0.6)",
+    backgroundColor: Backgrounds.overlay,
     justifyContent: "center",
     alignItems: "center",
     padding: Spacing.xl,
   },
   creditWarningContent: {
-    backgroundColor: "rgba(255, 255, 255, 0.06)",
+    backgroundColor: Backgrounds.card,
     borderRadius: BorderRadius.xl,
     padding: Spacing.xl,
     width: "100%",
@@ -2956,7 +2956,7 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingVertical: Spacing.md,
     borderRadius: BorderRadius.lg,
-    backgroundColor: "rgba(255, 255, 255, 0.06)",
+    backgroundColor: Backgrounds.card,
     alignItems: "center",
     borderWidth: 1,
     borderColor: "rgba(255, 255, 255, 0.06)",

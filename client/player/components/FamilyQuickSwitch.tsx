@@ -13,7 +13,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { Image } from "expo-image";
 import * as Haptics from "expo-haptics";
 import Animated, { FadeIn, SlideInUp } from "react-native-reanimated";
-import { Colors, Spacing, FontSizes, BorderRadius, GlowColors } from "@/constants/theme";
+import { Colors, Backgrounds, Spacing, FontSizes, BorderRadius, GlowColors } from "@/constants/theme";
 import { useFamily, FamilyMember } from "@/player/context/FamilyContext";
 import { getStaticAssetsUrl } from "@/lib/query-client";
 
@@ -188,7 +188,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.xs,
     paddingVertical: Spacing.xs,
     borderRadius: BorderRadius.full,
-    backgroundColor: "rgba(255, 255, 255, 0.08)",
+    backgroundColor: Backgrounds.elevated,
   },
   avatarContainer: {
     position: "relative",
@@ -201,7 +201,7 @@ const styles = StyleSheet.create({
     borderColor: GlowColors.primary,
   },
   avatarPlaceholder: {
-    backgroundColor: "rgba(255, 255, 255, 0.08)",
+    backgroundColor: Backgrounds.elevated,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -217,11 +217,11 @@ const styles = StyleSheet.create({
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: "rgba(255, 255, 255, 0.06)",
+    backgroundColor: Backgrounds.card,
   },
   dropdown: {
     marginHorizontal: Spacing.lg,
-    backgroundColor: "rgba(255, 255, 255, 0.08)",
+    backgroundColor: Backgrounds.elevated,
     borderRadius: BorderRadius.lg,
     padding: Spacing.md,
     borderWidth: 1,
@@ -274,7 +274,7 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: "rgba(255, 255, 255, 0.06)",
+    backgroundColor: Backgrounds.card,
     alignItems: "center",
     justifyContent: "center",
     overflow: "hidden",

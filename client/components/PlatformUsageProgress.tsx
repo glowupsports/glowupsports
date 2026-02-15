@@ -23,7 +23,7 @@ import {
   GlowColors,
   TextColors,
   FunctionColors,
-} from "@/constants/theme";
+Backgrounds, } from "@/constants/theme";
 
 if (
   Platform.OS === "android" &&
@@ -204,7 +204,7 @@ export function PlatformUsageProgress({
 
 const styles = StyleSheet.create({
   card: {
-    backgroundColor: "rgba(255, 255, 255, 0.06)",
+    backgroundColor: Backgrounds.card,
     borderRadius: BorderRadius.md,
     borderWidth: 1,
     borderColor: "rgba(255, 255, 255, 0.06)",
@@ -246,7 +246,7 @@ const styles = StyleSheet.create({
     width: 28,
     height: 28,
     borderRadius: 14,
-    backgroundColor: "rgba(255, 255, 255, 0.04)",
+    backgroundColor: Backgrounds.surface,
     justifyContent: "center",
     alignItems: "center",
     alignSelf: "flex-start",
@@ -277,7 +277,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.xs,
     marginBottom: Spacing.xs,
     borderRadius: BorderRadius.xs,
-    backgroundColor: "rgba(255, 255, 255, 0.04)",
+    backgroundColor: Backgrounds.surface,
   },
   unusedItemLeft: {
     flexDirection: "row",
@@ -288,7 +288,7 @@ const styles = StyleSheet.create({
     width: 32,
     height: 32,
     borderRadius: 16,
-    backgroundColor: "rgba(255, 255, 255, 0.05)",
+    backgroundColor: Backgrounds.card,
     justifyContent: "center",
     alignItems: "center",
     marginRight: Spacing.sm,

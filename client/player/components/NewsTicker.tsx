@@ -12,7 +12,7 @@ import Animated, {
   cancelAnimation,
 } from "react-native-reanimated";
 import { useQuery } from "@tanstack/react-query";
-import { ProTennisColors, Spacing, BorderRadius, Typography, GlowColors, Colors } from "@/constants/theme";
+import { ProTennisColors, Backgrounds, Spacing, BorderRadius, Typography, GlowColors, Colors } from "@/constants/theme";
 
 interface NewsArticle {
   id: string;
@@ -302,7 +302,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     paddingHorizontal: Spacing.md,
     paddingLeft: Spacing.sm,
-    backgroundColor: "rgba(255, 255, 255, 0.06)" + "FA",
+    backgroundColor: Backgrounds.card + "FA",
     zIndex: 10,
     gap: 6,
     borderRightWidth: 1,
@@ -408,7 +408,7 @@ const styles = StyleSheet.create({
     fontSize: 12,
   },
   newsCard: {
-    backgroundColor: "rgba(255, 255, 255, 0.06)",
+    backgroundColor: Backgrounds.card,
     borderRadius: BorderRadius.md,
     padding: Spacing.md,
     borderWidth: 1,

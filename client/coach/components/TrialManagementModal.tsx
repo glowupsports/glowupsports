@@ -15,7 +15,7 @@ import { LinearGradient } from "expo-linear-gradient";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import * as Haptics from "expo-haptics";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Colors, Spacing, BorderRadius, Typography, getPlayerLevelColor, GlowColors } from "@/constants/theme";
+import { Colors, Backgrounds, Spacing, BorderRadius, Typography, getPlayerLevelColor, GlowColors } from "@/constants/theme";
 import { apiRequest, getApiUrl } from "@/lib/query-client";
 
 interface Player {
@@ -405,7 +405,7 @@ const styles = StyleSheet.create({
   playerCard: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "rgba(255, 255, 255, 0.06)",
+    backgroundColor: Backgrounds.card,
     borderRadius: BorderRadius.lg,
     padding: Spacing.lg,
     marginTop: Spacing.md,
@@ -452,7 +452,7 @@ const styles = StyleSheet.create({
     color: Colors.dark.disabled,
   },
   trialInfoCard: {
-    backgroundColor: "rgba(255, 255, 255, 0.06)",
+    backgroundColor: Backgrounds.card,
     borderRadius: BorderRadius.lg,
     padding: Spacing.lg,
     marginTop: Spacing.lg,
@@ -530,7 +530,7 @@ const styles = StyleSheet.create({
     gap: Spacing.sm,
   },
   testCard: {
-    backgroundColor: "rgba(255, 255, 255, 0.06)",
+    backgroundColor: Backgrounds.card,
     borderRadius: BorderRadius.md,
     padding: Spacing.md,
     borderWidth: 1,
@@ -576,7 +576,7 @@ const styles = StyleSheet.create({
     marginLeft: 32,
   },
   recordPanel: {
-    backgroundColor: "rgba(255, 255, 255, 0.06)",
+    backgroundColor: Backgrounds.card,
     borderRadius: BorderRadius.lg,
     padding: Spacing.lg,
     marginTop: Spacing.lg,
@@ -600,7 +600,7 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.md,
   },
   notesInput: {
-    backgroundColor: "rgba(255, 255, 255, 0.08)",
+    backgroundColor: Backgrounds.elevated,
     borderRadius: BorderRadius.md,
     padding: Spacing.md,
     fontSize: Typography.body.fontSize,
@@ -628,7 +628,7 @@ const styles = StyleSheet.create({
     backgroundColor: GlowColors.primary,
   },
   recordButtonFail: {
-    backgroundColor: "rgba(255, 255, 255, 0.06)",
+    backgroundColor: Backgrounds.card,
     borderWidth: 1,
     borderColor: "rgba(255, 255, 255, 0.06)",
   },
@@ -643,7 +643,7 @@ const styles = StyleSheet.create({
     color: Colors.dark.text,
   },
   completeSection: {
-    backgroundColor: "rgba(255, 255, 255, 0.06)",
+    backgroundColor: Backgrounds.card,
     borderRadius: BorderRadius.lg,
     padding: Spacing.lg,
     marginTop: Spacing.xl,
@@ -678,7 +678,7 @@ const styles = StyleSheet.create({
     backgroundColor: GlowColors.primary,
   },
   completeButtonFail: {
-    backgroundColor: "rgba(255, 255, 255, 0.06)",
+    backgroundColor: Backgrounds.card,
     borderWidth: 1,
     borderColor: "rgba(255, 255, 255, 0.06)",
   },

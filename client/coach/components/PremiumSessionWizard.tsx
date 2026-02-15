@@ -15,7 +15,7 @@ import * as Haptics from "expo-haptics";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest, apiFetch, getStaticAssetsUrl } from "@/lib/query-client";
-import { Colors, Spacing, BorderRadius, FontSizes, GlowColors } from "@/constants/theme";
+import { Colors, Backgrounds, Spacing, BorderRadius, FontSizes, GlowColors } from "@/constants/theme";
 import { useCoach } from "@/coach/context/CoachContext";
 import { BaselineFlowCard } from "./BaselineFlowCard";
 
@@ -2491,7 +2491,7 @@ const styles = StyleSheet.create({
     padding: Spacing.md,
   },
   sessionTypeCardSelected: {
-    backgroundColor: "rgba(255, 255, 255, 0.05)",
+    backgroundColor: Backgrounds.card,
   },
   sessionTypeIcon: {
     width: 48,
@@ -2708,7 +2708,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   ballLevelCardSelected: {
-    backgroundColor: "rgba(255, 255, 255, 0.05)",
+    backgroundColor: Backgrounds.card,
   },
   ballDot: {
     width: 28,
@@ -2747,7 +2747,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     gap: Spacing.xs,
     marginTop: Spacing.lg,
-    backgroundColor: "rgba(255, 255, 255, 0.05)",
+    backgroundColor: Backgrounds.card,
     paddingVertical: Spacing.sm,
     paddingHorizontal: Spacing.md,
     borderRadius: BorderRadius.md,
@@ -2855,7 +2855,7 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.sm,
   },
   playerCardSelected: {
-    backgroundColor: "rgba(255, 255, 255, 0.05)",
+    backgroundColor: Backgrounds.card,
   },
   playerAvatar: {
     width: 44,

@@ -29,7 +29,7 @@ import {
   GlowColors,
   TextColors,
   FunctionColors,
-} from "@/constants/theme";
+Backgrounds, } from "@/constants/theme";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 
@@ -234,12 +234,12 @@ const styles = StyleSheet.create({
   },
   backdrop: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: "rgba(0, 0, 0, 0.6)",
+    backgroundColor: Backgrounds.overlay,
   },
   card: {
     width: "100%",
     maxWidth: 360,
-    backgroundColor: "rgba(255, 255, 255, 0.06)",
+    backgroundColor: Backgrounds.card,
     borderRadius: BorderRadius.xl,
     padding: Spacing.xl,
     borderWidth: 1,
@@ -275,7 +275,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-around",
     alignItems: "center",
-    backgroundColor: "rgba(255, 255, 255, 0.08)",
+    backgroundColor: Backgrounds.elevated,
     borderRadius: BorderRadius.lg,
     padding: Spacing.lg,
     marginBottom: Spacing.lg,
@@ -287,7 +287,7 @@ const styles = StyleSheet.create({
   statDivider: {
     width: 1,
     height: 40,
-    backgroundColor: "rgba(255, 255, 255, 0.04)",
+    backgroundColor: Backgrounds.surface,
   },
   statValue: {
     ...Typography.h3,
@@ -318,7 +318,7 @@ const styles = StyleSheet.create({
   },
   progressBar: {
     height: 8,
-    backgroundColor: "rgba(255, 255, 255, 0.04)",
+    backgroundColor: Backgrounds.surface,
     borderRadius: BorderRadius.full,
     overflow: "hidden",
   },

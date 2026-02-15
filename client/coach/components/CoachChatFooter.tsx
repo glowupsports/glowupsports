@@ -22,7 +22,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
 import { ThemedText } from "@/components/ThemedText";
-import { Colors, Spacing, BorderRadius, GlowColors } from "@/constants/theme";
+import { Colors, Backgrounds, Spacing, BorderRadius, GlowColors } from "@/constants/theme";
 import { useCoach } from "@/coach/context/CoachContext";
 import { useAuth } from "@/coach/context/AuthContext";
 import { apiRequest, getApiUrl } from "@/lib/query-client";
@@ -1282,7 +1282,7 @@ const styles = StyleSheet.create({
     bottom: 0,
     left: 0,
     right: 0,
-    backgroundColor: "rgba(255, 255, 255, 0.06)",
+    backgroundColor: Backgrounds.card,
     borderTopLeftRadius: BorderRadius.lg,
     borderTopRightRadius: BorderRadius.lg,
     zIndex: 100,
@@ -1306,7 +1306,7 @@ const styles = StyleSheet.create({
     height: FOOTER_COLLAPSED,
     borderTopLeftRadius: BorderRadius.lg,
     borderTopRightRadius: BorderRadius.lg,
-    backgroundColor: "rgba(255, 255, 255, 0.06)",
+    backgroundColor: Backgrounds.card,
     borderTopWidth: 2,
     borderTopColor: Colors.dark.primary + "50",
   },
@@ -1392,11 +1392,11 @@ const styles = StyleSheet.create({
   expandedContent: {
     flex: 1,
     flexDirection: "row",
-    backgroundColor: "rgba(255, 255, 255, 0.06)",
+    backgroundColor: Backgrounds.card,
   },
   verticalTabPanel: {
     width: LEFT_PANEL_WIDTH,
-    backgroundColor: "rgba(255, 255, 255, 0.06)",
+    backgroundColor: Backgrounds.card,
     borderRightWidth: 1,
     borderRightColor: Colors.dark.primary + "20",
   },
@@ -1442,13 +1442,13 @@ const styles = StyleSheet.create({
   },
   rightPanel: {
     flex: 1,
-    backgroundColor: "rgba(255, 255, 255, 0.06)",
+    backgroundColor: Backgrounds.card,
   },
   quickContactsContainer: {
     borderBottomWidth: 1,
     borderBottomColor: Colors.dark.primary + "15",
     paddingVertical: Spacing.sm,
-    backgroundColor: "rgba(255, 255, 255, 0.06)" + "80",
+    backgroundColor: Backgrounds.card + "80",
   },
   quickContactsScroll: {
     paddingHorizontal: Spacing.sm,
@@ -1462,7 +1462,7 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: "rgba(255, 255, 255, 0.08)",
+    backgroundColor: Backgrounds.elevated,
     alignItems: "center",
     justifyContent: "center",
     borderWidth: 2,
@@ -1495,7 +1495,7 @@ const styles = StyleSheet.create({
     paddingVertical: Spacing.sm,
     borderBottomWidth: 1,
     borderBottomColor: Colors.dark.primary + "20",
-    backgroundColor: "rgba(255, 255, 255, 0.06)" + "60",
+    backgroundColor: Backgrounds.card + "60",
   },
   activityHeaderText: {
     fontSize: 13,
@@ -1781,7 +1781,7 @@ const styles = StyleSheet.create({
     bottom: 0,
     right: 0,
     borderRadius: 6,
-    backgroundColor: "rgba(255, 255, 255, 0.06)",
+    backgroundColor: Backgrounds.card,
   },
   inputConnectionIndicator: {
     width: 12,

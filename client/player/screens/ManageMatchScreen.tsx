@@ -17,7 +17,7 @@ import Ionicons from "@expo/vector-icons/Ionicons";
 import { LinearGradient } from "expo-linear-gradient";
 import * as Haptics from "expo-haptics";
 import { Image } from "expo-image";
-import { Colors, Spacing, BorderRadius, Typography, FontSizes } from "@/constants/theme";
+import { Colors, Backgrounds, Spacing, BorderRadius, Typography, FontSizes } from "@/constants/theme";
 import { apiRequest, getStaticAssetsUrl } from "@/lib/query-client";
 import { useAuth } from "@/coach/context/AuthContext";
 
@@ -621,7 +621,7 @@ const styles = StyleSheet.create({
     justifyContent: "flex-end",
   },
   modalContent: {
-    backgroundColor: "rgba(255, 255, 255, 0.08)",
+    backgroundColor: Backgrounds.elevated,
     borderTopLeftRadius: BorderRadius.xl,
     borderTopRightRadius: BorderRadius.xl,
     maxHeight: "70%",

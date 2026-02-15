@@ -26,7 +26,7 @@ import {
   Typography,
   GlowColors,
   TextColors,
-} from "@/constants/theme";
+Backgrounds, } from "@/constants/theme";
 
 if (
   Platform.OS === "android" &&
@@ -341,7 +341,7 @@ function StepItem({
 
 const styles = StyleSheet.create({
   container: {
-    backgroundColor: "rgba(255, 255, 255, 0.06)",
+    backgroundColor: Backgrounds.card,
     borderRadius: BorderRadius.md,
     borderWidth: 1,
     borderColor: "rgba(255, 255, 255, 0.04)",
@@ -394,7 +394,7 @@ const styles = StyleSheet.create({
   },
   progressBarTrack: {
     height: 4,
-    backgroundColor: "rgba(255, 255, 255, 0.04)",
+    backgroundColor: Backgrounds.surface,
     borderRadius: 2,
     overflow: "hidden",
   },
@@ -414,7 +414,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.md,
     borderRadius: BorderRadius.sm,
     marginBottom: Spacing.xs,
-    backgroundColor: "rgba(255, 255, 255, 0.08)",
+    backgroundColor: Backgrounds.elevated,
   },
   stepItemCompleted: {
     opacity: 0.7,

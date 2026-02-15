@@ -16,7 +16,7 @@ import {
   Typography,
   TextColors,
   GlowColors,
-} from "@/constants/theme";
+Backgrounds, } from "@/constants/theme";
 
 const SCREEN_HEIGHT = Dimensions.get("window").height;
 
@@ -155,12 +155,12 @@ export function RoleSwitchingGuide({
 const styles = StyleSheet.create({
   overlay: {
     flex: 1,
-    backgroundColor: "rgba(0, 0, 0, 0.6)",
+    backgroundColor: Backgrounds.overlay,
     justifyContent: "flex-end",
   },
   sheet: {
     height: SCREEN_HEIGHT * 0.6,
-    backgroundColor: "rgba(255, 255, 255, 0.08)",
+    backgroundColor: Backgrounds.elevated,
     borderTopLeftRadius: BorderRadius.lg,
     borderTopRightRadius: BorderRadius.lg,
     overflow: "hidden",
@@ -191,7 +191,7 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: "rgba(255, 255, 255, 0.04)",
+    backgroundColor: Backgrounds.surface,
     justifyContent: "center",
     alignItems: "center",
   },
@@ -215,7 +215,7 @@ const styles = StyleSheet.create({
     padding: Spacing.lg,
     marginBottom: Spacing.sm,
     borderRadius: BorderRadius.sm,
-    backgroundColor: "rgba(255, 255, 255, 0.06)",
+    backgroundColor: Backgrounds.card,
     borderWidth: 1,
     borderColor: "rgba(255, 255, 255, 0.06)",
   },

@@ -17,7 +17,7 @@ import Animated, {
 import * as Haptics from "expo-haptics";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest, getStaticAssetsUrl } from "@/lib/query-client";
-import { Colors, Spacing, BorderRadius, FontSizes, GlowColors } from "@/constants/theme";
+import { Colors, Backgrounds, Spacing, BorderRadius, FontSizes, GlowColors } from "@/constants/theme";
 import { BaselineFlowCard } from "./BaselineFlowCard";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
@@ -1000,7 +1000,7 @@ const styles = StyleSheet.create({
   },
   typeCardSelected: {
     borderWidth: 2,
-    backgroundColor: "rgba(255, 255, 255, 0.05)",
+    backgroundColor: Backgrounds.card,
   },
   typeIconWrapper: {
     width: 64,
@@ -1058,7 +1058,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   ballLevelCardSelected: {
-    backgroundColor: "rgba(255, 255, 255, 0.08)",
+    backgroundColor: Backgrounds.elevated,
   },
   ballDot: {
     width: 32,
@@ -1112,7 +1112,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   sublevelCardSelected: {
-    backgroundColor: "rgba(255, 255, 255, 0.05)",
+    backgroundColor: Backgrounds.card,
   },
   sublevelNumber: {
     fontSize: 36,
@@ -1139,7 +1139,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     gap: Spacing.sm,
-    backgroundColor: "rgba(255, 255, 255, 0.05)",
+    backgroundColor: Backgrounds.card,
     paddingVertical: Spacing.md,
     paddingHorizontal: Spacing.lg,
     borderRadius: BorderRadius.md,

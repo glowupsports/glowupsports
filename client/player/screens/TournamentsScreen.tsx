@@ -19,7 +19,7 @@ import {
   BorderRadius,
   GlowColors,
   TextColors,
-} from "@/constants/theme";
+ Backgrounds, } from "@/constants/theme";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import type { PlayerStackParamList } from "@/player/navigation/PlayerNavigator";
 import { useCoachMarks, CoachMarkTarget } from "@/components/CoachMarks";
@@ -461,7 +461,7 @@ function EmptyState({ icon, title }: { icon: string; title: string }) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "rgba(255, 255, 255, 0.06)",
+    backgroundColor: Backgrounds.card,
   },
   header: {
     flexDirection: "row",
@@ -474,7 +474,7 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 10,
-    backgroundColor: "rgba(255, 255, 255, 0.06)",
+    backgroundColor: Backgrounds.card,
     alignItems: "center",
     justifyContent: "center",
     borderWidth: 1,
@@ -502,7 +502,7 @@ const styles = StyleSheet.create({
     gap: 4,
     paddingVertical: 10,
     borderRadius: 8,
-    backgroundColor: "rgba(255, 255, 255, 0.06)",
+    backgroundColor: Backgrounds.card,
     borderWidth: 1,
     borderColor: "rgba(255,255,255,0.06)",
   },
@@ -543,7 +543,7 @@ const styles = StyleSheet.create({
     paddingBottom: 100,
   },
   card: {
-    backgroundColor: "rgba(255, 255, 255, 0.06)",
+    backgroundColor: Backgrounds.card,
     borderRadius: 12,
     padding: Spacing.md,
     marginBottom: 10,

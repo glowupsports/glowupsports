@@ -25,7 +25,7 @@ import {
   Typography,
   GlowColors,
   TextColors,
-} from "@/constants/theme";
+Backgrounds, } from "@/constants/theme";
 
 interface ActionOption {
   id: string;
@@ -209,12 +209,12 @@ const styles = StyleSheet.create({
   },
   backdrop: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: "rgba(0, 0, 0, 0.6)",
+    backgroundColor: Backgrounds.overlay,
   },
   card: {
     width: "100%",
     maxWidth: 340,
-    backgroundColor: "rgba(255, 255, 255, 0.06)",
+    backgroundColor: Backgrounds.card,
     borderRadius: BorderRadius.xl,
     padding: Spacing.xl,
     alignItems: "center",

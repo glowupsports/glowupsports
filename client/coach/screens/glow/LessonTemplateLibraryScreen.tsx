@@ -24,7 +24,7 @@ import Animated, {
 } from "react-native-reanimated";
 
 import { ThemedText } from "@/components/ThemedText";
-import { Colors, Spacing, BorderRadius, GlowColors, TextColors } from "@/constants/theme";
+import { Colors, Backgrounds, Spacing, BorderRadius, GlowColors, TextColors } from "@/constants/theme";
 import { apiFetch } from "@/lib/query-client";
 
 interface DrillBlock {
@@ -498,7 +498,7 @@ export default function LessonTemplateLibraryScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "rgba(255, 255, 255, 0.06)",
+    backgroundColor: Backgrounds.card,
   },
   loadingContainer: {
     justifyContent: "center",
@@ -532,7 +532,7 @@ const styles = StyleSheet.create({
   },
   statCard: {
     flex: 1,
-    backgroundColor: "rgba(255, 255, 255, 0.06)",
+    backgroundColor: Backgrounds.card,
     borderRadius: BorderRadius.md,
     padding: Spacing.md,
     alignItems: "center",
@@ -602,7 +602,7 @@ const styles = StyleSheet.create({
     gap: Spacing.sm,
   },
   emptyTemplates: {
-    backgroundColor: "rgba(255, 255, 255, 0.06)",
+    backgroundColor: Backgrounds.card,
     borderRadius: BorderRadius.md,
     padding: Spacing.xl,
     alignItems: "center",
@@ -614,7 +614,7 @@ const styles = StyleSheet.create({
     marginTop: Spacing.sm,
   },
   templateCard: {
-    backgroundColor: "rgba(255, 255, 255, 0.06)",
+    backgroundColor: Backgrounds.card,
     borderRadius: BorderRadius.md,
     overflow: "hidden",
   },
@@ -663,7 +663,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 4,
-    backgroundColor: "rgba(255, 255, 255, 0.04)",
+    backgroundColor: Backgrounds.surface,
     paddingHorizontal: Spacing.sm,
     paddingVertical: 4,
     borderRadius: BorderRadius.sm,
@@ -702,7 +702,7 @@ const styles = StyleSheet.create({
     padding: Spacing.md,
   },
   drillBlock: {
-    backgroundColor: "rgba(255, 255, 255, 0.08)",
+    backgroundColor: Backgrounds.elevated,
     borderRadius: BorderRadius.md,
     overflow: "hidden",
   },
@@ -774,7 +774,7 @@ const styles = StyleSheet.create({
     gap: Spacing.md,
   },
   instructionSection: {
-    backgroundColor: "rgba(255, 255, 255, 0.04)",
+    backgroundColor: Backgrounds.surface,
     borderRadius: BorderRadius.sm,
     padding: Spacing.sm,
   },
@@ -801,7 +801,7 @@ const styles = StyleSheet.create({
     gap: Spacing.xs,
   },
   skillBadge: {
-    backgroundColor: "rgba(255, 255, 255, 0.04)",
+    backgroundColor: Backgrounds.surface,
     paddingHorizontal: Spacing.sm,
     paddingVertical: 4,
     borderRadius: BorderRadius.sm,

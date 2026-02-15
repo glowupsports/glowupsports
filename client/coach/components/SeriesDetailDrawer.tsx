@@ -17,7 +17,7 @@ import Ionicons from "@expo/vector-icons/Ionicons";
 import * as Haptics from "expo-haptics";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import DateTimePicker from "@react-native-community/datetimepicker";
-import { Colors, Spacing, BorderRadius, Typography, GlowColors } from "@/constants/theme";
+import { Colors, Backgrounds, Spacing, BorderRadius, Typography, GlowColors } from "@/constants/theme";
 import { apiRequest, getApiUrl, getAuthHeaders } from "@/lib/query-client";
 import { convertUTCTimeToLocal } from "@/lib/dateUtils";
 import { useCoach } from "@/coach/context/CoachContext";
@@ -4066,11 +4066,11 @@ const styles = StyleSheet.create({
   },
   backdrop: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: "rgba(0, 0, 0, 0.6)",
+    backgroundColor: Backgrounds.overlay,
     zIndex: 1,
   },
   drawer: {
-    backgroundColor: "rgba(255, 255, 255, 0.08)",
+    backgroundColor: Backgrounds.elevated,
     borderTopLeftRadius: BorderRadius.xl,
     borderTopRightRadius: BorderRadius.xl,
     maxHeight: "90%",
@@ -4319,7 +4319,7 @@ const styles = StyleSheet.create({
   },
   playerActionDivider: {
     height: 1,
-    backgroundColor: "rgba(255, 255, 255, 0.08)",
+    backgroundColor: Backgrounds.elevated,
     marginVertical: Spacing.xs,
   },
   playerActionIconWrapper: {
@@ -4338,7 +4338,7 @@ const styles = StyleSheet.create({
     borderRadius: BorderRadius.sm,
   },
   playerActionItemPressed: {
-    backgroundColor: "rgba(255, 255, 255, 0.08)",
+    backgroundColor: Backgrounds.elevated,
   },
   playerActionItemDanger: {
     marginTop: Spacing.xs,
@@ -4916,7 +4916,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "flex-start",
     gap: Spacing.sm,
-    backgroundColor: "rgba(255, 255, 255, 0.04)",
+    backgroundColor: Backgrounds.surface,
     borderRadius: BorderRadius.md,
     padding: Spacing.md,
     marginBottom: Spacing.lg,
@@ -4931,7 +4931,7 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.md,
     borderRadius: BorderRadius.lg,
     overflow: "hidden",
-    backgroundColor: "rgba(255, 255, 255, 0.06)",
+    backgroundColor: Backgrounds.card,
     borderWidth: 1,
     borderColor: "rgba(255, 255, 255, 0.06)",
   },
@@ -5060,7 +5060,7 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.xs,
   },
   formInput: {
-    backgroundColor: "rgba(255, 255, 255, 0.06)",
+    backgroundColor: Backgrounds.card,
     borderRadius: BorderRadius.sm,
     paddingVertical: Spacing.sm,
     paddingHorizontal: Spacing.md,
@@ -5085,7 +5085,7 @@ const styles = StyleSheet.create({
     paddingVertical: Spacing.md,
     alignItems: "center",
     borderRadius: BorderRadius.md,
-    backgroundColor: "rgba(255, 255, 255, 0.04)",
+    backgroundColor: Backgrounds.surface,
   },
   formCancelButtonText: {
     fontSize: Typography.body.fontSize,
@@ -5264,7 +5264,7 @@ const styles = StyleSheet.create({
     color: Colors.dark.accentCyan,
   },
   transferButton: {
-    backgroundColor: "rgba(255, 255, 255, 0.06)",
+    backgroundColor: Backgrounds.card,
     borderRadius: BorderRadius.md,
     padding: Spacing.md,
     alignItems: "center",
@@ -5280,7 +5280,7 @@ const styles = StyleSheet.create({
     color: Colors.dark.text,
   },
   transferModalContent: {
-    backgroundColor: "rgba(255, 255, 255, 0.06)",
+    backgroundColor: Backgrounds.card,
     borderTopLeftRadius: BorderRadius.xl,
     borderTopRightRadius: BorderRadius.xl,
     padding: Spacing.lg,
@@ -5383,7 +5383,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     padding: Spacing.md,
-    backgroundColor: "rgba(255, 255, 255, 0.06)",
+    backgroundColor: Backgrounds.card,
     borderRadius: BorderRadius.lg,
     marginBottom: Spacing.sm,
     borderWidth: 1,
@@ -5468,7 +5468,7 @@ const styles = StyleSheet.create({
     color: Colors.dark.textMuted,
   },
   restoreModalContent: {
-    backgroundColor: "rgba(255, 255, 255, 0.06)",
+    backgroundColor: Backgrounds.card,
     borderTopLeftRadius: BorderRadius.xl,
     borderTopRightRadius: BorderRadius.xl,
     padding: Spacing.lg,
@@ -5507,7 +5507,7 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: "rgba(255, 255, 255, 0.04)",
+    backgroundColor: Backgrounds.surface,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -5711,7 +5711,7 @@ const styles = StyleSheet.create({
     color: Colors.dark.error,
   },
   modalContent: {
-    backgroundColor: "rgba(255, 255, 255, 0.06)",
+    backgroundColor: Backgrounds.card,
     borderTopLeftRadius: BorderRadius.xl,
     borderTopRightRadius: BorderRadius.xl,
     padding: Spacing.lg,
@@ -5954,10 +5954,10 @@ const styles = StyleSheet.create({
   },
   extendModalBackdrop: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: "rgba(0, 0, 0, 0.6)",
+    backgroundColor: Backgrounds.overlay,
   },
   extendModalContent: {
-    backgroundColor: "rgba(255, 255, 255, 0.08)",
+    backgroundColor: Backgrounds.elevated,
     borderRadius: BorderRadius.xl,
     padding: Spacing.xl,
     width: "100%",
@@ -6006,7 +6006,7 @@ const styles = StyleSheet.create({
     borderRadius: BorderRadius.md,
     borderWidth: 1,
     borderColor: Colors.dark.border,
-    backgroundColor: "rgba(255, 255, 255, 0.06)",
+    backgroundColor: Backgrounds.card,
   },
   weekOptionSelected: {
     borderColor: Colors.dark.accent,

@@ -17,7 +17,7 @@ import Ionicons from "@expo/vector-icons/Ionicons";
 import * as Haptics from "expo-haptics";
 import Animated, { FadeIn, SlideInDown } from "react-native-reanimated";
 
-import { Colors, Spacing, BorderRadius, GlowColors } from "@/constants/theme";
+import { Colors, Backgrounds, Spacing, BorderRadius, GlowColors } from "@/constants/theme";
 import { getStaticAssetsUrl } from "@/lib/query-client";
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get("window");
@@ -293,7 +293,7 @@ const styles = StyleSheet.create({
   },
   backdrop: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: "rgba(0, 0, 0, 0.6)",
+    backgroundColor: Backgrounds.overlay,
   },
   drawer: {
     backgroundColor: Colors.dark.backgroundRoot,

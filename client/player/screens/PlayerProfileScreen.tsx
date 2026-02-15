@@ -7,7 +7,7 @@ import Ionicons from "@expo/vector-icons/Ionicons";
 import * as Haptics from "expo-haptics";
 import * as ImagePicker from "expo-image-picker";
 import { Image } from "expo-image";
-import { Colors, Spacing, Typography, BorderRadius, CardStyles, GlowColors } from "@/constants/theme";
+import { Colors, Backgrounds, Spacing, Typography, BorderRadius, CardStyles, GlowColors } from "@/constants/theme";
 import { LinearGradient } from "expo-linear-gradient";
 import { useAppMode } from "@/context/AppModeContext";
 import { useAuth } from "@/coach/context/AuthContext";
@@ -1107,7 +1107,7 @@ export default function PlayerProfileScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "rgba(255, 255, 255, 0.06)",
+    backgroundColor: Backgrounds.card,
   },
   centered: {
     justifyContent: "center",
@@ -1167,13 +1167,13 @@ const styles = StyleSheet.create({
     width: 100,
     height: 100,
     borderRadius: 50,
-    backgroundColor: "rgba(255, 255, 255, 0.06)",
+    backgroundColor: Backgrounds.card,
   },
   avatarImageWithBorder: {
     width: 100,
     height: 100,
     borderRadius: 50,
-    backgroundColor: "rgba(255, 255, 255, 0.06)",
+    backgroundColor: Backgrounds.card,
   },
   cameraIconOverlay: {
     position: "absolute",
@@ -1260,7 +1260,7 @@ const styles = StyleSheet.create({
     padding: Spacing.sm,
     borderRadius: BorderRadius.md,
     borderWidth: 1,
-    backgroundColor: "rgba(255, 255, 255, 0.06)",
+    backgroundColor: Backgrounds.card,
     width: 72,
   },
   badgeIconCircle: {
@@ -1368,7 +1368,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: Spacing.md,
-    backgroundColor: "rgba(255, 255, 255, 0.06)",
+    backgroundColor: Backgrounds.card,
     padding: Spacing.md,
     borderRadius: BorderRadius.sm,
   },
@@ -1513,7 +1513,7 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: "rgba(255, 255, 255, 0.06)",
+    backgroundColor: Backgrounds.card,
     justifyContent: "center",
     alignItems: "center",
     marginRight: Spacing.md,
@@ -1541,7 +1541,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     gap: Spacing.md,
-    backgroundColor: "rgba(255, 255, 255, 0.06)",
+    backgroundColor: Backgrounds.card,
     borderRadius: BorderRadius.lg,
     padding: Spacing.lg,
     marginHorizontal: Spacing.xl,
@@ -1690,7 +1690,7 @@ const styles = StyleSheet.create({
     fontWeight: "600",
   },
   partnerAvatarMore: {
-    backgroundColor: "rgba(255, 255, 255, 0.06)",
+    backgroundColor: Backgrounds.card,
   },
   partnerAvatarMoreText: {
     ...Typography.small,
@@ -1783,7 +1783,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     marginHorizontal: Spacing.xl,
     marginBottom: Spacing.lg,
-    backgroundColor: "rgba(255, 255, 255, 0.06)",
+    backgroundColor: Backgrounds.card,
     borderRadius: BorderRadius.md,
     padding: 4,
   },
@@ -1833,7 +1833,7 @@ const styles = StyleSheet.create({
   friendItem: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "rgba(255, 255, 255, 0.06)",
+    backgroundColor: Backgrounds.card,
     padding: Spacing.md,
     borderRadius: BorderRadius.md,
     marginBottom: Spacing.sm,
@@ -1867,7 +1867,7 @@ const styles = StyleSheet.create({
   groupItem: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "rgba(255, 255, 255, 0.06)",
+    backgroundColor: Backgrounds.card,
     padding: Spacing.md,
     borderRadius: BorderRadius.md,
     marginBottom: Spacing.sm,
@@ -1899,7 +1899,7 @@ const styles = StyleSheet.create({
     justifyContent: "flex-end",
   },
   titlesModalContent: {
-    backgroundColor: "rgba(255, 255, 255, 0.08)",
+    backgroundColor: Backgrounds.elevated,
     borderTopLeftRadius: BorderRadius.xl,
     borderTopRightRadius: BorderRadius.xl,
     maxHeight: "70%",
@@ -1924,7 +1924,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    backgroundColor: "rgba(255, 255, 255, 0.06)",
+    backgroundColor: Backgrounds.card,
     padding: Spacing.md,
     borderRadius: BorderRadius.md,
     marginBottom: Spacing.sm,

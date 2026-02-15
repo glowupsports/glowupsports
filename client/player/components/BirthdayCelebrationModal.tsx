@@ -11,7 +11,7 @@ import Animated, {
   withRepeat,
   withTiming,
 } from "react-native-reanimated";
-import { Colors, Spacing, BorderRadius, Typography } from "@/constants/theme";
+import { Colors, Backgrounds, Spacing, BorderRadius, Typography } from "@/constants/theme";
 import * as Haptics from "expo-haptics";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
@@ -243,7 +243,7 @@ const styles = StyleSheet.create({
     maxWidth: 340,
     borderRadius: BorderRadius.xl,
     overflow: "hidden",
-    backgroundColor: "rgba(255, 255, 255, 0.06)",
+    backgroundColor: Backgrounds.card,
   },
   header: {
     padding: Spacing.xl,

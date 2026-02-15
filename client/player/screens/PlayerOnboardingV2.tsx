@@ -41,7 +41,7 @@ import {
   GlowColors,
   BallLevelColors,
   Shadows,
-} from "@/constants/theme";
+ Backgrounds, } from "@/constants/theme";
 import { apiRequest, getApiUrl, apiFetch } from "@/lib/query-client";
 import { saveAuthState, setAuthToken, AuthUser } from "@/lib/auth";
 import { useAuth } from "@/coach/context/AuthContext";
@@ -2037,7 +2037,7 @@ export default function PlayerOnboardingV2Screen({ onComplete }: Props) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "rgba(255, 255, 255, 0.06)",
+    backgroundColor: Backgrounds.card,
   },
   gradient: {
     position: "absolute",
@@ -2058,7 +2058,7 @@ const styles = StyleSheet.create({
     width: 8,
     height: 8,
     borderRadius: 4,
-    backgroundColor: "rgba(255, 255, 255, 0.04)",
+    backgroundColor: Backgrounds.surface,
   },
   progressDotActive: {
     backgroundColor: GlowColors.primary,
@@ -2102,7 +2102,7 @@ const styles = StyleSheet.create({
     width: 140,
     height: 140,
     borderRadius: 70,
-    backgroundColor: "rgba(255, 255, 255, 0.06)",
+    backgroundColor: Backgrounds.card,
     justifyContent: "center",
     alignItems: "center",
     marginBottom: Spacing["2xl"],
@@ -2138,7 +2138,7 @@ const styles = StyleSheet.create({
     ...Shadows.glow,
   },
   primaryButtonSecondary: {
-    backgroundColor: "rgba(255, 255, 255, 0.08)",
+    backgroundColor: Backgrounds.elevated,
     ...Shadows.none,
   },
   primaryButtonText: {
@@ -2169,7 +2169,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: Spacing.md,
     padding: Spacing.lg,
-    backgroundColor: "rgba(255, 255, 255, 0.06)",
+    backgroundColor: Backgrounds.card,
     borderRadius: BorderRadius.lg,
     borderWidth: 2,
     borderColor: "transparent",
@@ -2202,7 +2202,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: Spacing.md,
     padding: Spacing.lg,
-    backgroundColor: "rgba(255, 255, 255, 0.06)",
+    backgroundColor: Backgrounds.card,
     borderRadius: BorderRadius.lg,
     marginTop: Spacing.lg,
     borderWidth: 1,
@@ -2215,14 +2215,14 @@ const styles = StyleSheet.create({
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: "rgba(0, 0, 0, 0.6)",
+    backgroundColor: Backgrounds.overlay,
     justifyContent: "center",
     alignItems: "center",
   },
   datePickerModal: {
     width: "90%",
     maxWidth: 400,
-    backgroundColor: "rgba(255, 255, 255, 0.08)",
+    backgroundColor: Backgrounds.elevated,
     borderRadius: BorderRadius.xl,
     padding: Spacing.lg,
   },
@@ -2250,7 +2250,7 @@ const styles = StyleSheet.create({
   },
   datePickerScroll: {
     flex: 1,
-    backgroundColor: "rgba(255, 255, 255, 0.06)",
+    backgroundColor: Backgrounds.card,
     borderRadius: BorderRadius.md,
   },
   datePickerItem: {
@@ -2278,7 +2278,7 @@ const styles = StyleSheet.create({
     flex: 1,
     padding: Spacing.md,
     alignItems: "center",
-    backgroundColor: "rgba(255, 255, 255, 0.06)",
+    backgroundColor: Backgrounds.card,
     borderRadius: BorderRadius.md,
   },
   datePickerCancelText: {
@@ -2309,7 +2309,7 @@ const styles = StyleSheet.create({
     width: 150,
     height: 150,
     borderRadius: 75,
-    backgroundColor: "rgba(255, 255, 255, 0.06)",
+    backgroundColor: Backgrounds.card,
     justifyContent: "center",
     alignItems: "center",
     borderWidth: 3,
@@ -2333,7 +2333,7 @@ const styles = StyleSheet.create({
     gap: Spacing.sm,
     paddingHorizontal: Spacing.lg,
     paddingVertical: Spacing.md,
-    backgroundColor: "rgba(255, 255, 255, 0.06)",
+    backgroundColor: Backgrounds.card,
     borderRadius: BorderRadius.lg,
     borderWidth: 1,
     borderColor: "rgba(255, 255, 255, 0.04)",
@@ -2355,7 +2355,7 @@ const styles = StyleSheet.create({
   ballLevelCard: {
     alignItems: "center",
     padding: Spacing["2xl"],
-    backgroundColor: "rgba(255, 255, 255, 0.06)",
+    backgroundColor: Backgrounds.card,
     borderRadius: BorderRadius.xl,
     marginVertical: Spacing["2xl"],
     width: "100%",
@@ -2395,7 +2395,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: Spacing.md,
     padding: Spacing.lg,
-    backgroundColor: "rgba(255, 255, 255, 0.06)",
+    backgroundColor: Backgrounds.card,
     borderRadius: BorderRadius.lg,
     borderWidth: 2,
     borderColor: "transparent",
@@ -2428,7 +2428,7 @@ const styles = StyleSheet.create({
   chip: {
     paddingHorizontal: Spacing.lg,
     paddingVertical: Spacing.md,
-    backgroundColor: "rgba(255, 255, 255, 0.06)",
+    backgroundColor: Backgrounds.card,
     borderRadius: BorderRadius.lg,
     borderWidth: 2,
     borderColor: "transparent",
@@ -2459,7 +2459,7 @@ const styles = StyleSheet.create({
     letterSpacing: 1,
   },
   textInput: {
-    backgroundColor: "rgba(255, 255, 255, 0.06)",
+    backgroundColor: Backgrounds.card,
     borderRadius: BorderRadius.lg,
     paddingHorizontal: Spacing.lg,
     paddingVertical: Spacing.md,
@@ -2487,7 +2487,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     gap: Spacing.sm,
     padding: Spacing.lg,
-    backgroundColor: "rgba(255, 255, 255, 0.06)",
+    backgroundColor: Backgrounds.card,
     borderRadius: BorderRadius.lg,
     borderWidth: 2,
     borderColor: "transparent",
@@ -2514,7 +2514,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     gap: Spacing.sm,
     padding: Spacing.lg,
-    backgroundColor: "rgba(255, 255, 255, 0.06)",
+    backgroundColor: Backgrounds.card,
     borderRadius: BorderRadius.lg,
     borderWidth: 2,
     borderColor: "transparent",
@@ -2542,7 +2542,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     gap: Spacing.sm,
     padding: Spacing.lg,
-    backgroundColor: "rgba(255, 255, 255, 0.06)",
+    backgroundColor: Backgrounds.card,
     borderRadius: BorderRadius.lg,
     borderWidth: 2,
     borderColor: "transparent",
@@ -2573,7 +2573,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: Spacing.md,
     padding: Spacing.lg,
-    backgroundColor: "rgba(255, 255, 255, 0.06)",
+    backgroundColor: Backgrounds.card,
     borderRadius: BorderRadius.lg,
     borderWidth: 2,
     borderColor: "transparent",
@@ -2586,7 +2586,7 @@ const styles = StyleSheet.create({
     width: 48,
     height: 48,
     borderRadius: BorderRadius.md,
-    backgroundColor: "rgba(255, 255, 255, 0.04)",
+    backgroundColor: Backgrounds.surface,
     justifyContent: "center",
     alignItems: "center",
   },
@@ -2626,7 +2626,7 @@ const styles = StyleSheet.create({
     width: 120,
     height: 120,
     borderRadius: 60,
-    backgroundColor: "rgba(255, 255, 255, 0.06)",
+    backgroundColor: Backgrounds.card,
     justifyContent: "center",
     alignItems: "center",
     borderWidth: 4,
@@ -2674,7 +2674,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: Spacing.md,
     padding: Spacing.md,
-    backgroundColor: "rgba(255, 255, 255, 0.06)",
+    backgroundColor: Backgrounds.card,
     borderRadius: BorderRadius.md,
   },
   summaryText: {
@@ -2742,7 +2742,7 @@ const styles = StyleSheet.create({
     color: Colors.dark.textMuted,
   },
   adjustModal: {
-    backgroundColor: "rgba(255, 255, 255, 0.06)",
+    backgroundColor: Backgrounds.card,
     borderRadius: BorderRadius.xl,
     padding: Spacing.xl,
     width: SCREEN_WIDTH - Spacing.xl * 2,
@@ -2769,7 +2769,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: Spacing.md,
     padding: Spacing.md,
-    backgroundColor: "rgba(255, 255, 255, 0.04)",
+    backgroundColor: Backgrounds.surface,
     borderRadius: BorderRadius.lg,
   },
   adjustBallIcon: {
@@ -2807,7 +2807,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: Spacing.md,
     padding: Spacing.lg,
-    backgroundColor: "rgba(255, 255, 255, 0.06)",
+    backgroundColor: Backgrounds.card,
     borderRadius: BorderRadius.lg,
     borderWidth: 2,
     borderColor: "transparent",
@@ -2820,7 +2820,7 @@ const styles = StyleSheet.create({
     width: 48,
     height: 48,
     borderRadius: 24,
-    backgroundColor: "rgba(255, 255, 255, 0.04)",
+    backgroundColor: Backgrounds.surface,
     justifyContent: "center",
     alignItems: "center",
   },
@@ -2873,7 +2873,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: Spacing.md,
     padding: Spacing.md,
-    backgroundColor: "rgba(255, 255, 255, 0.06)",
+    backgroundColor: Backgrounds.card,
     borderRadius: BorderRadius.md,
   },
   videoFeatureIcon: {
@@ -2890,7 +2890,7 @@ const styles = StyleSheet.create({
   academyHighlights: {
     marginTop: Spacing.xl,
     padding: Spacing.lg,
-    backgroundColor: "rgba(255, 255, 255, 0.06)",
+    backgroundColor: Backgrounds.card,
     borderRadius: BorderRadius.lg,
   },
   academyHighlightsTitle: {

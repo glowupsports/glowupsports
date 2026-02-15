@@ -28,7 +28,7 @@ import { Image } from "expo-image";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import * as Haptics from "expo-haptics";
 import Svg, { Circle, Defs, LinearGradient as SvgGradient, Stop } from "react-native-svg";
-import { ProTennisColors, Spacing, BorderRadius, GlowColors, FunctionColors } from "@/constants/theme";
+import { ProTennisColors, Backgrounds, Spacing, BorderRadius, GlowColors, FunctionColors } from "@/constants/theme";
 import { useAuth } from "@/coach/context/AuthContext";
 import { getStaticAssetsUrl } from "@/lib/query-client";
 import { usePlayerLevel } from "@/player/hooks/usePlayerLevel";
@@ -578,7 +578,7 @@ function getPlayerTitle(level: number): string {
 const styles = StyleSheet.create({
   backdrop: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: "rgba(255, 255, 255, 0.06)",
+    backgroundColor: Backgrounds.card,
   },
   drawer: {
     position: "absolute",
@@ -586,7 +586,7 @@ const styles = StyleSheet.create({
     top: 0,
     bottom: 0,
     width: DRAWER_WIDTH,
-    backgroundColor: "rgba(255, 255, 255, 0.06)",
+    backgroundColor: Backgrounds.card,
     borderRightWidth: 1,
     borderRightColor: GlowColors.primary + "20",
   },
@@ -709,7 +709,7 @@ const styles = StyleSheet.create({
   xpBarBg: {
     flex: 1,
     height: 6,
-    backgroundColor: "rgba(255, 255, 255, 0.08)",
+    backgroundColor: Backgrounds.elevated,
     borderRadius: 3,
     overflow: "hidden",
   },
@@ -766,7 +766,7 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.sm,
     borderRadius: BorderRadius.md,
     overflow: "hidden",
-    backgroundColor: "rgba(255, 255, 255, 0.06)",
+    backgroundColor: Backgrounds.card,
     borderWidth: 1,
     borderColor: "rgba(255, 255, 255, 0.08)",
   },
@@ -789,7 +789,7 @@ const styles = StyleSheet.create({
     width: 32,
     height: 32,
     borderRadius: 8,
-    backgroundColor: "rgba(255, 255, 255, 0.08)",
+    backgroundColor: Backgrounds.elevated,
     justifyContent: "center",
     alignItems: "center",
   },
@@ -803,7 +803,7 @@ const styles = StyleSheet.create({
   },
   sectionItems: {
     paddingBottom: Spacing.sm,
-    backgroundColor: "rgba(255, 255, 255, 0.06)",
+    backgroundColor: Backgrounds.card,
   },
   menuItem: {
     flexDirection: "row",
@@ -814,7 +814,7 @@ const styles = StyleSheet.create({
     borderRadius: BorderRadius.sm,
   },
   menuItemPressed: {
-    backgroundColor: "rgba(255, 255, 255, 0.08)",
+    backgroundColor: Backgrounds.elevated,
   },
   menuItemLocked: {
     opacity: 0.5,

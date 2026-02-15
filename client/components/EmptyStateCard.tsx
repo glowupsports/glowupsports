@@ -24,7 +24,7 @@ import {
   Typography,
   GlowColors,
   TextColors,
-} from "@/constants/theme";
+Backgrounds, } from "@/constants/theme";
 
 interface EmptyStateCardProps {
   icon: keyof typeof Ionicons.glyphMap;
@@ -120,7 +120,7 @@ export function EmptyStateCard({
 
 const styles = StyleSheet.create({
   container: {
-    backgroundColor: "rgba(255, 255, 255, 0.06)",
+    backgroundColor: Backgrounds.card,
     borderRadius: BorderRadius.lg,
     padding: Spacing.xl,
     alignItems: "center",

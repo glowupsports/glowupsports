@@ -30,7 +30,7 @@ import { useNavigation } from "@react-navigation/native";
 import * as Haptics from "expo-haptics";
 import { useCoach } from "@/coach/context/CoachContext";
 import { useAuth } from "@/coach/context/AuthContext";
-import { Colors, Spacing, BorderRadius, Typography, GlowColors } from "@/constants/theme";
+import { Colors, Backgrounds, Spacing, BorderRadius, Typography, GlowColors } from "@/constants/theme";
 import MiniTimeline from "@/coach/components/MiniTimeline";
 import { CoachChatFooter } from "@/coach/components/CoachChatFooter";
 import { CoachStatusPanel } from "@/coach/components/CoachStatusPanel";
@@ -1874,7 +1874,7 @@ const styles = StyleSheet.create({
   xpBarContainer: {
     flex: 1,
     height: 6,
-    backgroundColor: "rgba(255, 255, 255, 0.08)",
+    backgroundColor: Backgrounds.elevated,
     borderRadius: 3,
     overflow: "hidden",
     position: "relative" as const,
@@ -2140,7 +2140,7 @@ const styles = StyleSheet.create({
     height: 28,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "rgba(255, 255, 255, 0.05)",
+    backgroundColor: Backgrounds.card,
     borderRadius: BorderRadius.sm,
   },
   dayPills: {
@@ -2687,7 +2687,7 @@ const styles = StyleSheet.create({
     gap: Spacing.xs,
     paddingHorizontal: Spacing.md,
     paddingVertical: Spacing.sm,
-    backgroundColor: "rgba(255, 255, 255, 0.05)",
+    backgroundColor: Backgrounds.card,
     borderRadius: BorderRadius.md,
   },
   sessionActionText: {
@@ -2730,7 +2730,7 @@ const styles = StyleSheet.create({
   },
   focusStatDivider: {
     width: 1,
-    backgroundColor: "rgba(255, 255, 255, 0.08)",
+    backgroundColor: Backgrounds.elevated,
   },
   focusCta: {
     flexDirection: "row",
@@ -3091,7 +3091,7 @@ const styles = StyleSheet.create({
     height: 28,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "rgba(255, 255, 255, 0.05)",
+    backgroundColor: Backgrounds.card,
     borderRadius: BorderRadius.sm,
   },
   gamingCollapsedPreview: {
@@ -3323,7 +3323,7 @@ const styles = StyleSheet.create({
   
   // === TODAY'S SCHEDULE - Unified Gaming HUD ===
   todayScheduleCard: {
-    backgroundColor: "rgba(255, 255, 255, 0.06)",
+    backgroundColor: Backgrounds.card,
     borderRadius: BorderRadius.lg,
     overflow: "hidden",
     marginBottom: Spacing.md,
@@ -3380,7 +3380,7 @@ const styles = StyleSheet.create({
     gap: Spacing.xs,
   },
   todayScheduleStatBadge: {
-    backgroundColor: "rgba(255, 255, 255, 0.08)",
+    backgroundColor: Backgrounds.elevated,
     borderWidth: 1,
     borderColor: "rgba(200, 255, 61, 0.25)",
     paddingHorizontal: Spacing.sm,
@@ -3407,7 +3407,7 @@ const styles = StyleSheet.create({
     width: 32,
     height: 32,
     borderRadius: 8,
-    backgroundColor: "rgba(255, 255, 255, 0.05)",
+    backgroundColor: Backgrounds.card,
     alignItems: "center",
     justifyContent: "center",
     marginLeft: Spacing.xs,
@@ -3471,7 +3471,7 @@ const styles = StyleSheet.create({
     marginTop: Spacing.md,
   },
   todayScheduleTimeline: {
-    backgroundColor: "rgba(255, 255, 255, 0.04)",
+    backgroundColor: Backgrounds.surface,
     borderRadius: BorderRadius.md,
     padding: Spacing.sm,
     borderWidth: 1,
@@ -3486,7 +3486,7 @@ const styles = StyleSheet.create({
   todayScheduleDividerLine: {
     flex: 1,
     height: 1,
-    backgroundColor: "rgba(255, 255, 255, 0.08)",
+    backgroundColor: Backgrounds.elevated,
   },
   todayScheduleDividerText: {
     fontSize: 10,
@@ -3497,7 +3497,7 @@ const styles = StyleSheet.create({
   todayScheduleSession: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "rgba(255, 255, 255, 0.08)",
+    backgroundColor: Backgrounds.elevated,
     borderRadius: BorderRadius.md,
     padding: Spacing.sm,
     marginBottom: Spacing.xs,
@@ -3530,7 +3530,7 @@ const styles = StyleSheet.create({
     color: Colors.dark.text,
   },
   todayScheduleDurationBadge: {
-    backgroundColor: "rgba(255, 255, 255, 0.08)",
+    backgroundColor: Backgrounds.elevated,
     paddingHorizontal: 6,
     paddingVertical: 2,
     borderRadius: 4,

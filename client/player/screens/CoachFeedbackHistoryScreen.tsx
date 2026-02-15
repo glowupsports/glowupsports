@@ -4,7 +4,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
 import { useQuery } from "@tanstack/react-query";
 import Ionicons from "@expo/vector-icons/Ionicons";
-import { Colors, Spacing, Typography, BorderRadius, GlowColors, TextColors } from "@/constants/theme";
+import { Colors, Backgrounds, Spacing, Typography, BorderRadius, GlowColors, TextColors } from "@/constants/theme";
 import { Card } from "@/components/Card";
 import { EmptyStateCard } from "@/components/EmptyStateCard";
 
@@ -218,7 +218,7 @@ export default function CoachFeedbackHistoryScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "rgba(255, 255, 255, 0.06)",
+    backgroundColor: Backgrounds.card,
   },
   header: {
     flexDirection: "row",
@@ -232,7 +232,7 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: "rgba(255, 255, 255, 0.06)",
+    backgroundColor: Backgrounds.card,
     justifyContent: "center",
     alignItems: "center",
     marginRight: Spacing.md,
@@ -255,7 +255,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     paddingVertical: Spacing.lg,
     paddingHorizontal: Spacing.xl,
-    backgroundColor: "rgba(255, 255, 255, 0.06)",
+    backgroundColor: Backgrounds.card,
     borderBottomWidth: 1,
     borderBottomColor: "rgba(255, 255, 255, 0.04)",
   },
@@ -275,7 +275,7 @@ const styles = StyleSheet.create({
   statDivider: {
     width: 1,
     height: 40,
-    backgroundColor: "rgba(255, 255, 255, 0.04)",
+    backgroundColor: Backgrounds.surface,
     marginHorizontal: Spacing.xl,
   },
   scrollView: {
@@ -329,7 +329,7 @@ const styles = StyleSheet.create({
     gap: Spacing.md,
   },
   feedbackCard: {
-    backgroundColor: "rgba(255, 255, 255, 0.06)",
+    backgroundColor: Backgrounds.card,
     borderRadius: BorderRadius.lg,
     padding: Spacing.lg,
     borderWidth: 1,

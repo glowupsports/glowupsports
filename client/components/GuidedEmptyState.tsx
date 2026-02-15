@@ -19,7 +19,7 @@ import {
   GlowColors,
   TextColors,
   FunctionColors,
-} from "@/constants/theme";
+Backgrounds, } from "@/constants/theme";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 
@@ -153,7 +153,7 @@ const styles = StyleSheet.create({
     width: 72,
     height: 72,
     borderRadius: 36,
-    backgroundColor: "rgba(255, 255, 255, 0.08)",
+    backgroundColor: Backgrounds.elevated,
     borderWidth: 2,
     justifyContent: "center",
     alignItems: "center",

@@ -20,7 +20,7 @@ import { LinearGradient } from "expo-linear-gradient";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import * as Haptics from "expo-haptics";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { Colors, Spacing, BorderRadius, FontSizes, GlowColors } from "@/constants/theme";
+import { Colors, Backgrounds, Spacing, BorderRadius, FontSizes, GlowColors } from "@/constants/theme";
 import { apiRequest, queryClient } from "@/lib/query-client";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
@@ -604,7 +604,7 @@ function SkillCheckItem({ skill, score, onScore, color }: SkillCheckItemProps) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "rgba(255, 255, 255, 0.06)",
+    backgroundColor: Backgrounds.card,
   },
   centered: {
     justifyContent: "center",
@@ -658,7 +658,7 @@ const styles = StyleSheet.create({
   levelCard: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "rgba(255, 255, 255, 0.06)",
+    backgroundColor: Backgrounds.card,
     borderRadius: BorderRadius.md,
     padding: Spacing.md,
     borderWidth: 1,
@@ -726,7 +726,7 @@ const styles = StyleSheet.create({
     marginTop: Spacing.md,
   },
   dataDrivenCard: {
-    backgroundColor: "rgba(255, 255, 255, 0.06)",
+    backgroundColor: Backgrounds.card,
     borderRadius: BorderRadius.lg,
     padding: Spacing.xl,
     alignItems: "center",
@@ -784,7 +784,7 @@ const styles = StyleSheet.create({
     letterSpacing: 1,
   },
   skillItem: {
-    backgroundColor: "rgba(255, 255, 255, 0.06)",
+    backgroundColor: Backgrounds.card,
     borderRadius: BorderRadius.md,
     marginBottom: Spacing.sm,
     borderWidth: 1,
@@ -817,7 +817,7 @@ const styles = StyleSheet.create({
   rubricItem: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "rgba(255, 255, 255, 0.04)",
+    backgroundColor: Backgrounds.surface,
     borderRadius: BorderRadius.sm,
     padding: Spacing.sm,
     borderWidth: 1,
@@ -828,7 +828,7 @@ const styles = StyleSheet.create({
     width: 28,
     height: 28,
     borderRadius: 14,
-    backgroundColor: "rgba(255, 255, 255, 0.06)",
+    backgroundColor: Backgrounds.card,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -860,7 +860,7 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: "rgba(255, 255, 255, 0.04)",
+    backgroundColor: Backgrounds.surface,
     alignItems: "center",
     justifyContent: "center",
     borderWidth: 1,
@@ -888,7 +888,7 @@ const styles = StyleSheet.create({
     color: Colors.dark.textMuted,
   },
   summaryCard: {
-    backgroundColor: "rgba(255, 255, 255, 0.06)",
+    backgroundColor: Backgrounds.card,
     borderRadius: BorderRadius.lg,
     padding: Spacing.lg,
     marginTop: Spacing.lg,
@@ -934,7 +934,7 @@ const styles = StyleSheet.create({
   pillarBar: {
     flex: 1,
     height: 8,
-    backgroundColor: "rgba(255, 255, 255, 0.04)",
+    backgroundColor: Backgrounds.surface,
     borderRadius: 4,
     overflow: "hidden",
   },
@@ -950,7 +950,7 @@ const styles = StyleSheet.create({
     textAlign: "right",
   },
   promotionCard: {
-    backgroundColor: "rgba(255, 255, 255, 0.06)",
+    backgroundColor: Backgrounds.card,
     borderRadius: BorderRadius.lg,
     padding: Spacing.lg,
     marginTop: Spacing.md,

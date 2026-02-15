@@ -5,7 +5,7 @@ import { useVideoPlayer, VideoView } from "expo-video";
 import { useEvent } from "expo";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import * as Haptics from "expo-haptics";
-import { Colors, Spacing, BorderRadius, Typography, GlowColors } from "@/constants/theme";
+import { Colors, Backgrounds, Spacing, BorderRadius, Typography, GlowColors } from "@/constants/theme";
 import { getStaticAssetsUrl } from "@/lib/query-client";
 
 interface VideoPlayerModalProps {
@@ -140,7 +140,7 @@ export function VideoPlayerModal({ visible, videoUrl, title, onClose }: VideoPla
 const styles = StyleSheet.create({
   overlay: {
     flex: 1,
-    backgroundColor: "rgba(255, 255, 255, 0.06)",
+    backgroundColor: Backgrounds.card,
     justifyContent: "center",
     alignItems: "center",
   },
@@ -168,13 +168,13 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: "rgba(255, 255, 255, 0.04)",
+    backgroundColor: Backgrounds.surface,
     alignItems: "center",
     justifyContent: "center",
   },
   videoContainer: {
     flex: 1,
-    backgroundColor: "rgba(255, 255, 255, 0.06)",
+    backgroundColor: Backgrounds.card,
     borderRadius: BorderRadius.lg,
     overflow: "hidden",
     justifyContent: "center",
@@ -228,7 +228,7 @@ const styles = StyleSheet.create({
     width: 48,
     height: 48,
     borderRadius: 24,
-    backgroundColor: "rgba(255, 255, 255, 0.04)",
+    backgroundColor: Backgrounds.surface,
     alignItems: "center",
     justifyContent: "center",
   },

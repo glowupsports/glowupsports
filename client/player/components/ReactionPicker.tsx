@@ -3,7 +3,7 @@ import { View, StyleSheet, Pressable, Modal } from "react-native";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import Animated, { FadeIn, FadeOut, ZoomIn, ZoomOut, useSharedValue, useAnimatedStyle, withSpring } from "react-native-reanimated";
 import { BlurView } from "expo-blur";
-import { Colors, Spacing, BorderRadius, GlowColors } from "@/constants/theme";
+import { Colors, Backgrounds, Spacing, BorderRadius, GlowColors } from "@/constants/theme";
 import { ThemedText } from "@/components/ThemedText";
 
 export interface ReactionType {
@@ -239,7 +239,7 @@ const styles = StyleSheet.create({
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: "rgba(255, 255, 255, 0.06)",
+    backgroundColor: Backgrounds.card,
     justifyContent: "center",
     alignItems: "center",
     padding: Spacing.xl,
@@ -247,7 +247,7 @@ const styles = StyleSheet.create({
   modalContent: {
     borderRadius: BorderRadius.lg,
     overflow: "hidden",
-    backgroundColor: "rgba(255, 255, 255, 0.06)",
+    backgroundColor: Backgrounds.card,
     borderWidth: 1,
     borderColor: "rgba(255, 255, 255, 0.06)",
   },
@@ -273,7 +273,7 @@ const styles = StyleSheet.create({
     width: 24,
     height: 24,
     borderRadius: 12,
-    backgroundColor: "rgba(255, 255, 255, 0.06)",
+    backgroundColor: Backgrounds.card,
     justifyContent: "center",
     alignItems: "center",
     borderWidth: 2,

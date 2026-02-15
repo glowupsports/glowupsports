@@ -17,7 +17,7 @@ import { useQuery } from "@tanstack/react-query";
 import * as Haptics from "expo-haptics";
 import * as Print from "expo-print";
 import * as Sharing from "expo-sharing";
-import { Colors, Spacing, BorderRadius, Typography, CardStyles, GlowColors } from "@/constants/theme";
+import { Colors, Backgrounds, Spacing, BorderRadius, Typography, CardStyles, GlowColors } from "@/constants/theme";
 import { useCoachMarks, CoachMarkTarget } from "@/components/CoachMarks";
 
 interface AdminStats {
@@ -782,7 +782,7 @@ const styles = StyleSheet.create({
   distributionBarContainer: {
     flex: 1,
     height: 8,
-    backgroundColor: "rgba(255, 255, 255, 0.06)",
+    backgroundColor: Backgrounds.card,
     borderRadius: 4,
     marginHorizontal: Spacing.md,
   },
@@ -858,7 +858,7 @@ const styles = StyleSheet.create({
   reportStat: {
     alignItems: "center",
     padding: Spacing.lg,
-    backgroundColor: "rgba(255, 255, 255, 0.06)",
+    backgroundColor: Backgrounds.card,
     borderRadius: BorderRadius.lg,
     borderWidth: 1,
     borderColor: "rgba(255, 255, 255, 0.06)",
@@ -1012,7 +1012,7 @@ const styles = StyleSheet.create({
   utilizationBar: {
     width: 60,
     height: 4,
-    backgroundColor: "rgba(255, 255, 255, 0.06)",
+    backgroundColor: Backgrounds.card,
     borderRadius: 2,
   },
   utilizationFill: {
@@ -1025,7 +1025,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "space-between",
     marginBottom: Spacing.lg,
-    backgroundColor: "rgba(255, 255, 255, 0.06)",
+    backgroundColor: Backgrounds.card,
     borderRadius: BorderRadius.md,
     padding: Spacing.sm,
     borderWidth: 1,

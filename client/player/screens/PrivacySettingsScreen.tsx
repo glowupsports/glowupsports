@@ -5,7 +5,7 @@ import Ionicons from "@expo/vector-icons/Ionicons";
 import * as Haptics from "expo-haptics";
 import { LinearGradient } from "expo-linear-gradient";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { Colors, Spacing, Typography, BorderRadius, CardStyles, TextColors } from "@/constants/theme";
+import { Colors, Backgrounds, Spacing, Typography, BorderRadius, CardStyles, TextColors } from "@/constants/theme";
 import { apiRequest } from "@/lib/query-client";
 
 type PrivacyLevel = "everyone" | "platform" | "academy" | "hidden";
@@ -206,7 +206,7 @@ export default function PrivacySettingsScreen({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "rgba(255, 255, 255, 0.06)",
+    backgroundColor: Backgrounds.card,
     paddingHorizontal: Spacing.lg,
   },
   header: {
@@ -300,7 +300,7 @@ const styles = StyleSheet.create({
   infoCard: {
     flexDirection: "row",
     alignItems: "flex-start",
-    backgroundColor: "rgba(255, 255, 255, 0.06)",
+    backgroundColor: Backgrounds.card,
     borderRadius: BorderRadius.md,
     padding: Spacing.md,
     marginTop: Spacing.lg,

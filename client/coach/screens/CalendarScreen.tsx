@@ -36,7 +36,7 @@ import { LinearGradient } from "expo-linear-gradient";
 import { useQuery } from "@tanstack/react-query";
 import { useCoach } from "@/coach/context/CoachContext";
 import { useRoute, RouteProp } from "@react-navigation/native";
-import { Colors, Spacing, BorderRadius, Typography, GlowColors } from "@/constants/theme";
+import { Colors, Backgrounds, Spacing, BorderRadius, Typography, GlowColors } from "@/constants/theme";
 import { 
   getLocalDateString, 
   formatLocalDateToString, 
@@ -3991,7 +3991,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     paddingHorizontal: Spacing.lg,
     paddingVertical: Spacing.md,
-    backgroundColor: "rgba(255, 255, 255, 0.06)",
+    backgroundColor: Backgrounds.card,
     borderBottomWidth: 1,
     borderBottomColor: "rgba(255, 255, 255, 0.06)",
     borderTopWidth: 1,
@@ -4001,7 +4001,7 @@ const styles = StyleSheet.create({
     width: TIME_COLUMN_WIDTH,
   },
   filterSection: {
-    backgroundColor: "rgba(255, 255, 255, 0.06)",
+    backgroundColor: Backgrounds.card,
     borderBottomWidth: 1,
     borderBottomColor: "rgba(255, 255, 255, 0.06)",
   },
@@ -4018,7 +4018,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.md,
     paddingVertical: 6,
     borderRadius: BorderRadius.xs,
-    backgroundColor: "rgba(255, 255, 255, 0.08)",
+    backgroundColor: Backgrounds.elevated,
     borderWidth: 1,
     borderColor: "rgba(255, 255, 255, 0.06)",
   },
@@ -4058,7 +4058,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.md,
     paddingVertical: 6,
     borderRadius: BorderRadius.xs,
-    backgroundColor: "rgba(255, 255, 255, 0.08)",
+    backgroundColor: Backgrounds.elevated,
     borderWidth: 1,
     borderColor: "rgba(255, 255, 255, 0.06)",
   },
@@ -4089,7 +4089,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     paddingVertical: 10,
-    backgroundColor: "rgba(255, 255, 255, 0.08)",
+    backgroundColor: Backgrounds.elevated,
     borderBottomWidth: 1,
     borderBottomColor: "rgba(255, 255, 255, 0.08)",
   },
@@ -4105,7 +4105,7 @@ const styles = StyleSheet.create({
   },
   calendarScroll: {
     flex: 1,
-    backgroundColor: "rgba(255, 255, 255, 0.06)",
+    backgroundColor: Backgrounds.card,
   },
   calendarGrid: {
     flexDirection: "row",
@@ -4114,7 +4114,7 @@ const styles = StyleSheet.create({
   },
   timeColumn: {
     width: TIME_COLUMN_WIDTH,
-    backgroundColor: "rgba(255, 255, 255, 0.06)",
+    backgroundColor: Backgrounds.card,
     borderRightWidth: 1,
     borderRightColor: "rgba(255, 255, 255, 0.15)",
   },
@@ -4138,7 +4138,7 @@ const styles = StyleSheet.create({
   },
   courtLane: {
     position: "relative",
-    backgroundColor: "rgba(255, 255, 255, 0.08)",
+    backgroundColor: Backgrounds.elevated,
     overflow: "visible",
   },
   courtLaneWithDivider: {
@@ -4153,10 +4153,10 @@ const styles = StyleSheet.create({
     overflow: "visible",
   },
   hourSlotEven: {
-    backgroundColor: "rgba(255, 255, 255, 0.08)",
+    backgroundColor: Backgrounds.elevated,
   },
   hourSlotOdd: {
-    backgroundColor: "rgba(255, 255, 255, 0.06)",
+    backgroundColor: Backgrounds.card,
   },
   hourLine: {
     position: "absolute",
@@ -4172,7 +4172,7 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     height: 1,
-    backgroundColor: "rgba(255, 255, 255, 0.08)",
+    backgroundColor: Backgrounds.elevated,
   },
   sessionBlock: {
     position: "absolute",
@@ -4351,7 +4351,7 @@ const styles = StyleSheet.create({
     padding: Spacing.lg,
   },
   blockModalContent: {
-    backgroundColor: "rgba(255, 255, 255, 0.06)",
+    backgroundColor: Backgrounds.card,
     borderRadius: BorderRadius.lg,
     padding: Spacing.xl,
     width: "100%",
@@ -4640,7 +4640,7 @@ const styles = StyleSheet.create({
     position: "absolute",
     top: 120,
     right: Spacing.lg,
-    backgroundColor: "rgba(255, 255, 255, 0.08)" + "E0",
+    backgroundColor: Backgrounds.elevated + "E0",
     padding: Spacing.sm,
     borderRadius: BorderRadius.full,
     borderWidth: 1,
@@ -4654,7 +4654,7 @@ const styles = StyleSheet.create({
   coachItem: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "rgba(255, 255, 255, 0.06)",
+    backgroundColor: Backgrounds.card,
     padding: Spacing.lg,
     borderRadius: BorderRadius.md,
     gap: Spacing.md,
@@ -4677,7 +4677,7 @@ const styles = StyleSheet.create({
     gap: Spacing.sm,
   },
   dayCard: {
-    backgroundColor: "rgba(255, 255, 255, 0.06)",
+    backgroundColor: Backgrounds.card,
     borderRadius: BorderRadius.lg,
     padding: Spacing.md,
     flexDirection: "row",
@@ -4916,7 +4916,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     borderBottomWidth: 1,
     borderBottomColor: "rgba(255, 255, 255, 0.1)",
-    backgroundColor: "rgba(255, 255, 255, 0.06)",
+    backgroundColor: Backgrounds.card,
   },
   weekPlannerHeaderCell: {
     flex: 1,
@@ -4973,7 +4973,7 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     paddingHorizontal: Spacing.md,
     paddingVertical: Spacing.sm,
-    backgroundColor: "rgba(255, 255, 255, 0.06)" + "80",
+    backgroundColor: Backgrounds.card + "80",
   },
   weekPlannerDayLabelToday: {
     backgroundColor: GlowColors.primary + "12",
@@ -5056,7 +5056,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     borderBottomWidth: 1,
     borderBottomColor: "rgba(255, 255, 255, 0.15)",
-    backgroundColor: "rgba(255, 255, 255, 0.06)",
+    backgroundColor: Backgrounds.card,
   },
   weekCalTimeCol: {
     width: 50,
@@ -5153,7 +5153,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     paddingHorizontal: Spacing.lg,
     paddingVertical: Spacing.sm,
-    backgroundColor: "rgba(255, 255, 255, 0.06)",
+    backgroundColor: Backgrounds.card,
     borderBottomWidth: 1,
     borderBottomColor: "rgba(255, 255, 255, 0.08)",
     borderTopWidth: 1,
@@ -5190,7 +5190,7 @@ const styles = StyleSheet.create({
   },
   monthDayEmpty: {
     flex: 1,
-    backgroundColor: "rgba(255, 255, 255, 0.08)",
+    backgroundColor: Backgrounds.elevated,
     borderWidth: 1,
     borderColor: "rgba(255, 255, 255, 0.03)",
     minHeight: 80,
@@ -5199,7 +5199,7 @@ const styles = StyleSheet.create({
     backgroundColor: GlowColors.primary + "12",
   },
   monthDayWeekend: {
-    backgroundColor: "rgba(255, 255, 255, 0.08)",
+    backgroundColor: Backgrounds.elevated,
   },
   monthDaySelected: {
     borderColor: GlowColors.primary,
@@ -5240,7 +5240,7 @@ const styles = StyleSheet.create({
   // Premium Month View styles (Glassmorphism)
   monthModeToggle: {
     flexDirection: "row",
-    backgroundColor: "rgba(255, 255, 255, 0.08)",
+    backgroundColor: Backgrounds.elevated,
     borderRadius: BorderRadius.md,
     padding: 3,
     marginHorizontal: Spacing.lg,
@@ -5305,7 +5305,7 @@ const styles = StyleSheet.create({
   monthDayCard: {
     flex: 1,
     borderRadius: BorderRadius.md,
-    backgroundColor: "rgba(255, 255, 255, 0.06)",
+    backgroundColor: Backgrounds.card,
     minHeight: 70,
     padding: 6,
     overflow: "hidden",
@@ -5327,14 +5327,14 @@ const styles = StyleSheet.create({
   monthDayCardEmpty: {
     flex: 1,
     borderRadius: BorderRadius.md,
-    backgroundColor: "rgba(255, 255, 255, 0.06)",
+    backgroundColor: Backgrounds.card,
     minHeight: 70,
     borderWidth: 1,
     borderColor: "rgba(255, 255, 255, 0.03)",
     opacity: 0.6,
   },
   monthDayCardWeekend: {
-    backgroundColor: "rgba(255, 255, 255, 0.08)",
+    backgroundColor: Backgrounds.elevated,
     borderColor: "rgba(255, 255, 255, 0.04)",
   },
   monthDayCardToday: {
@@ -5471,7 +5471,7 @@ const styles = StyleSheet.create({
   // Week mode toggle styles
   weekModeToggle: {
     flexDirection: "row",
-    backgroundColor: "rgba(255, 255, 255, 0.08)",
+    backgroundColor: Backgrounds.elevated,
     borderRadius: BorderRadius.xs,
     padding: 2,
     borderWidth: 1,
@@ -5504,7 +5504,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     borderBottomWidth: 1,
     borderBottomColor: "rgba(255, 255, 255, 0.08)",
-    backgroundColor: "rgba(255, 255, 255, 0.06)",
+    backgroundColor: Backgrounds.card,
     borderTopWidth: 1,
     borderTopColor: "rgba(255, 255, 255, 0.06)",
   },
@@ -5564,14 +5564,14 @@ const styles = StyleSheet.create({
   },
   weekGridScroll: {
     flex: 1,
-    backgroundColor: "rgba(255, 255, 255, 0.06)",
+    backgroundColor: Backgrounds.card,
   },
   weekGridBody: {
     flexDirection: "row",
   },
   weekTimeColumn: {
     width: TIME_COLUMN_WIDTH,
-    backgroundColor: "rgba(255, 255, 255, 0.06)",
+    backgroundColor: Backgrounds.card,
     borderRightWidth: 1,
     borderRightColor: "rgba(255, 255, 255, 0.08)",
   },
@@ -5709,7 +5709,7 @@ const styles = StyleSheet.create({
   },
   energyBandColumn: {
     flex: 1,
-    backgroundColor: "rgba(255, 255, 255, 0.06)",
+    backgroundColor: Backgrounds.card,
     borderRadius: BorderRadius.md,
     overflow: "hidden",
     minHeight: 280,
@@ -5818,7 +5818,7 @@ const styles = StyleSheet.create({
     paddingVertical: Spacing.md,
     marginHorizontal: Spacing.md,
     marginTop: Spacing.sm,
-    backgroundColor: "rgba(255, 255, 255, 0.06)",
+    backgroundColor: Backgrounds.card,
     borderRadius: BorderRadius.md,
     borderWidth: 1,
     borderColor: "rgba(255, 255, 255, 0.06)",
@@ -5997,7 +5997,7 @@ const dragModalStyles = StyleSheet.create({
     maxWidth: 360,
   },
   card: {
-    backgroundColor: "rgba(255, 255, 255, 0.06)",
+    backgroundColor: Backgrounds.card,
     borderRadius: BorderRadius.xl,
     padding: Spacing.xl,
     borderWidth: 1,
@@ -6060,7 +6060,7 @@ const dragModalStyles = StyleSheet.create({
     color: Colors.dark.textSecondary,
   },
   changesContainer: {
-    backgroundColor: "rgba(255, 255, 255, 0.08)",
+    backgroundColor: Backgrounds.elevated,
     borderRadius: BorderRadius.md,
     padding: Spacing.md,
     gap: Spacing.md,
@@ -6105,7 +6105,7 @@ const dragModalStyles = StyleSheet.create({
     flex: 1,
     paddingVertical: Spacing.md,
     borderRadius: BorderRadius.md,
-    backgroundColor: "rgba(255, 255, 255, 0.08)",
+    backgroundColor: Backgrounds.elevated,
     alignItems: "center",
     justifyContent: "center",
   },

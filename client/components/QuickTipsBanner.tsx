@@ -10,7 +10,7 @@ import {
   Typography,
   GlowColors,
   TextColors,
-} from "@/constants/theme";
+Backgrounds, } from "@/constants/theme";
 
 export interface QuickTip {
   id: string;
@@ -131,7 +131,7 @@ export function QuickTipsBanner({ tips, role }: QuickTipsBannerProps) {
 
 const styles = StyleSheet.create({
   container: {
-    backgroundColor: "rgba(255, 255, 255, 0.08)",
+    backgroundColor: Backgrounds.elevated,
     borderWidth: 1,
     borderColor: "rgba(255, 255, 255, 0.04)",
     borderRadius: BorderRadius.sm,

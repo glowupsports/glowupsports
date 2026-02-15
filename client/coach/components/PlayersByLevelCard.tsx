@@ -17,7 +17,7 @@ import Animated, {
   withRepeat,
   withSequence,
 } from "react-native-reanimated";
-import { Colors, Spacing, BorderRadius, Typography, GlowColors } from "@/constants/theme";
+import { Colors, Backgrounds, Spacing, BorderRadius, Typography, GlowColors } from "@/constants/theme";
 import { useCoach } from "@/coach/context/CoachContext";
 import * as Haptics from "expo-haptics";
 
@@ -277,7 +277,7 @@ const styles = StyleSheet.create({
   },
   totalBadge: {
     alignItems: "center",
-    backgroundColor: "rgba(255, 255, 255, 0.04)"Light,
+    backgroundColor: Backgrounds.surfaceLight,
     paddingHorizontal: Spacing.md,
     paddingVertical: Spacing.xs,
     borderRadius: BorderRadius.md,
@@ -307,7 +307,7 @@ const styles = StyleSheet.create({
     overflow: "hidden",
     borderWidth: 1,
     borderColor: "rgba(255, 255, 255, 0.06)",
-    backgroundColor: "rgba(255, 255, 255, 0.04)"Light,
+    backgroundColor: Backgrounds.surfaceLight,
   },
   levelCardGradient: {
     padding: Spacing.md,
@@ -355,7 +355,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 3,
-    backgroundColor: "rgba(255, 255, 255, 0.04)",
+    backgroundColor: Backgrounds.surface,
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: BorderRadius.sm,
@@ -381,7 +381,7 @@ const styles = StyleSheet.create({
     overflow: "hidden",
     borderWidth: 1,
     borderColor: "rgba(255, 255, 255, 0.06)",
-    backgroundColor: "rgba(255, 255, 255, 0.04)"Light,
+    backgroundColor: Backgrounds.surfaceLight,
   },
   adultCardGradient: {
     flexDirection: "row",
@@ -425,7 +425,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     height: 6,
     borderRadius: 3,
-    backgroundColor: "rgba(255, 255, 255, 0.04)",
+    backgroundColor: Backgrounds.surface,
     overflow: "hidden",
   },
   progressSegment: {

@@ -26,7 +26,7 @@ import {
   GlowColors,
   TextColors,
   FunctionColors,
-} from "@/constants/theme";
+Backgrounds, } from "@/constants/theme";
 
 const CELEBRATIONS_KEY = "@glow_celebrations_shown";
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
@@ -237,7 +237,7 @@ const styles = StyleSheet.create({
   celebrationCard: {
     width: "100%",
     maxWidth: 340,
-    backgroundColor: "rgba(255, 255, 255, 0.08)",
+    backgroundColor: Backgrounds.elevated,
     borderRadius: BorderRadius.lg,
     borderWidth: 1,
     borderColor: "rgba(255, 255, 255, 0.08)",
@@ -278,7 +278,7 @@ const styles = StyleSheet.create({
     width: 80,
     height: 80,
     borderRadius: 40,
-    backgroundColor: "rgba(255, 255, 255, 0.06)",
+    backgroundColor: Backgrounds.card,
     borderWidth: 2,
     justifyContent: "center",
     alignItems: "center",

@@ -3,7 +3,7 @@ import { View, Text, StyleSheet, ScrollView, ActivityIndicator, RefreshControl, 
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useFocusEffect, useNavigation } from "@react-navigation/native";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Spacing, GlowColors, BorderRadius, Colors } from "@/constants/theme";
+import { Spacing, GlowColors, Backgrounds, BorderRadius, Colors } from "@/constants/theme";
 import { useAuth } from "@/coach/context/AuthContext";
 import { usePlayerDrawer } from "@/player/context/PlayerDrawerContext";
 import { useWalkthrough } from "@/player/context/WalkthroughContext";
@@ -501,7 +501,7 @@ export default function ProPlayerHomeScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "rgba(255, 255, 255, 0.06)",
+    backgroundColor: Backgrounds.card,
   },
   loadingContainer: {
     justifyContent: "center",

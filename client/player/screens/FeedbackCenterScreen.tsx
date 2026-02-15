@@ -4,7 +4,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
 import { useQuery } from "@tanstack/react-query";
 import Ionicons from "@expo/vector-icons/Ionicons";
-import { Colors, Spacing, Typography, BorderRadius, GlowColors, TextColors } from "@/constants/theme";
+import { Colors, Backgrounds, Spacing, Typography, BorderRadius, GlowColors, TextColors } from "@/constants/theme";
 import { Card } from "@/components/Card";
 import { EmptyStateCard } from "@/components/EmptyStateCard";
 import { useCoachMarks, CoachMarkTarget } from "@/components/CoachMarks";
@@ -234,7 +234,7 @@ export default function FeedbackCenterScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "rgba(255, 255, 255, 0.06)",
+    backgroundColor: Backgrounds.card,
   },
   header: {
     flexDirection: "row",
@@ -248,7 +248,7 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: "rgba(255, 255, 255, 0.06)",
+    backgroundColor: Backgrounds.card,
     justifyContent: "center",
     alignItems: "center",
     marginRight: Spacing.md,
@@ -295,7 +295,7 @@ const styles = StyleSheet.create({
     gap: Spacing.xl,
   },
   pillarSection: {
-    backgroundColor: "rgba(255, 255, 255, 0.06)",
+    backgroundColor: Backgrounds.card,
     borderRadius: BorderRadius.lg,
     padding: Spacing.lg,
     borderWidth: 1,
@@ -330,7 +330,7 @@ const styles = StyleSheet.create({
     gap: Spacing.md,
   },
   assessmentCard: {
-    backgroundColor: "rgba(255, 255, 255, 0.08)",
+    backgroundColor: Backgrounds.elevated,
     borderRadius: BorderRadius.md,
     padding: Spacing.md,
   },

@@ -12,7 +12,7 @@ import {
 } from "react-native";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import * as Haptics from "expo-haptics";
-import { Colors, Spacing, Typography, BorderRadius, GlowColors } from "@/constants/theme";
+import { Colors, Backgrounds, Spacing, Typography, BorderRadius, GlowColors } from "@/constants/theme";
 import { apiRequest } from "@/lib/query-client";
 
 interface PinEntryModalProps {
@@ -293,13 +293,13 @@ export default function PinEntryModal({
 const styles = StyleSheet.create({
   overlay: {
     flex: 1,
-    backgroundColor: "rgba(255, 255, 255, 0.06)",
+    backgroundColor: Backgrounds.card,
     justifyContent: "center",
     alignItems: "center",
     padding: Spacing.lg,
   },
   modal: {
-    backgroundColor: "rgba(255, 255, 255, 0.06)",
+    backgroundColor: Backgrounds.card,
     borderRadius: BorderRadius.xl,
     padding: Spacing.xl,
     width: "100%",
@@ -344,7 +344,7 @@ const styles = StyleSheet.create({
   pinInput: {
     width: 56,
     height: 64,
-    backgroundColor: "rgba(255, 255, 255, 0.06)",
+    backgroundColor: Backgrounds.card,
     borderRadius: BorderRadius.lg,
     borderWidth: 2,
     borderColor: "rgba(255, 255, 255, 0.04)",

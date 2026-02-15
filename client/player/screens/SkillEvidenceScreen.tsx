@@ -17,7 +17,7 @@ import Ionicons from "@expo/vector-icons/Ionicons";
 import { LinearGradient } from "expo-linear-gradient";
 import * as Haptics from "expo-haptics";
 import { CameraView, useCameraPermissions, CameraType } from "expo-camera";
-import { Colors, Spacing, BorderRadius, Typography, GlowColors } from "@/constants/theme";
+import { Colors, Backgrounds, Spacing, BorderRadius, Typography, GlowColors } from "@/constants/theme";
 import { usePlayer } from "@/player/context/PlayerContext";
 import { apiRequest, getApiUrl } from "@/lib/query-client";
 import { LockedScreen } from "../components/LockedScreen";
@@ -725,7 +725,7 @@ const styles = StyleSheet.create({
   },
   cameraContainer: {
     flex: 1,
-    backgroundColor: "rgba(255, 255, 255, 0.06)",
+    backgroundColor: Backgrounds.card,
   },
   cameraOverlay: {
     ...StyleSheet.absoluteFillObject,

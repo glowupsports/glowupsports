@@ -29,7 +29,7 @@ import {
   Spacing,
   BorderRadius,
   Typography,
-} from "@/constants/theme";
+Backgrounds, } from "@/constants/theme";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 
@@ -237,7 +237,7 @@ export function WelcomeIntroModal({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "rgba(255, 255, 255, 0.06)",
+    backgroundColor: Backgrounds.card,
   },
   skipContainer: {
     position: "absolute",

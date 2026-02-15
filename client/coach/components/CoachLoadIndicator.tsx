@@ -1,7 +1,7 @@
 import React from "react";
 import { View, Text, StyleSheet, Platform } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
-import { Colors, Spacing, BorderRadius, Typography, GlowColors, FunctionColors, TextColors } from "@/constants/theme";
+import { Colors, Backgrounds, Spacing, BorderRadius, Typography, GlowColors, FunctionColors, TextColors } from "@/constants/theme";
 
 interface Session {
   id: string;
@@ -80,7 +80,7 @@ const styles = StyleSheet.create({
   container: {
     paddingHorizontal: Spacing.lg,
     paddingVertical: Spacing.sm,
-    backgroundColor: "rgba(255, 255, 255, 0.06)",
+    backgroundColor: Backgrounds.card,
     borderBottomWidth: 1,
     borderBottomColor: GlowColors.primary + "20",
     borderTopWidth: 1,
@@ -113,7 +113,7 @@ const styles = StyleSheet.create({
   },
   barBackground: {
     height: 8,
-    backgroundColor: "rgba(255, 255, 255, 0.04)",
+    backgroundColor: Backgrounds.surface,
     borderRadius: 4,
     overflow: "hidden",
     borderWidth: 1,

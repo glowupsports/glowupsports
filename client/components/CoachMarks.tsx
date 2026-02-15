@@ -33,7 +33,7 @@ import {
   Typography,
   GlowColors,
   TextColors,
-} from "@/constants/theme";
+Backgrounds, } from "@/constants/theme";
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get("window");
 
@@ -630,7 +630,7 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(0,0,0,0.75)",
   },
   tooltipCard: {
-    backgroundColor: "rgba(255, 255, 255, 0.08)",
+    backgroundColor: Backgrounds.elevated,
     borderRadius: BorderRadius.md,
     borderWidth: 1,
     borderColor: "rgba(255, 255, 255, 0.08)",
@@ -640,7 +640,7 @@ const styles = StyleSheet.create({
     position: "absolute",
     width: 12,
     height: 12,
-    backgroundColor: "rgba(255, 255, 255, 0.08)",
+    backgroundColor: Backgrounds.elevated,
     borderWidth: 1,
     borderColor: "rgba(255, 255, 255, 0.08)",
     borderRightWidth: 0,

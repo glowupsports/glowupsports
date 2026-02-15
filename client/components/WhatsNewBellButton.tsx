@@ -18,7 +18,7 @@ import {
   GlowColors,
   TextColors,
   FunctionColors,
-} from "@/constants/theme";
+Backgrounds, } from "@/constants/theme";
 import { WhatsNewFeed, WhatsNewItem } from "@/components/WhatsNewFeed";
 
 const STORAGE_KEY = "@glow_whats_new_last_seen";
@@ -173,7 +173,7 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: BorderRadius.full,
-    backgroundColor: "rgba(255, 255, 255, 0.08)",
+    backgroundColor: Backgrounds.elevated,
     borderWidth: 1,
     borderColor: "rgba(255, 255, 255, 0.08)",
     justifyContent: "center",

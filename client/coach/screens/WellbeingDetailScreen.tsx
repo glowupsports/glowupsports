@@ -13,7 +13,7 @@ import * as Haptics from "expo-haptics";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
-import { Colors, Spacing } from "@/constants/theme";
+import { Colors, Backgrounds, Spacing } from "@/constants/theme";
 import { useCoach } from "@/coach/context/CoachContext";
 
 interface BurnoutRiskData {
@@ -392,7 +392,7 @@ export default function WellbeingDetailScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "rgba(255, 255, 255, 0.06)",
+    backgroundColor: Backgrounds.card,
   },
   header: {
     flexDirection: "row",
@@ -452,7 +452,7 @@ const styles = StyleSheet.create({
     gap: Spacing.lg,
   },
   riskCard: {
-    backgroundColor: "rgba(255, 255, 255, 0.06)",
+    backgroundColor: Backgrounds.card,
     borderRadius: 16,
     overflow: "hidden",
     borderWidth: 1,
@@ -480,7 +480,7 @@ const styles = StyleSheet.create({
     width: 80,
     height: 80,
     borderRadius: 40,
-    backgroundColor: "rgba(255, 255, 255, 0.06)",
+    backgroundColor: Backgrounds.card,
     alignItems: "center",
     justifyContent: "center",
     borderWidth: 2,
@@ -555,7 +555,7 @@ const styles = StyleSheet.create({
   },
   dayCard: {
     flex: 1,
-    backgroundColor: "rgba(255, 255, 255, 0.06)",
+    backgroundColor: Backgrounds.card,
     borderRadius: 10,
     padding: Spacing.sm,
     alignItems: "center",
@@ -600,7 +600,7 @@ const styles = StyleSheet.create({
   },
   averageCard: {
     flex: 1,
-    backgroundColor: "rgba(255, 255, 255, 0.06)",
+    backgroundColor: Backgrounds.card,
     borderRadius: 12,
     padding: Spacing.md,
     alignItems: "center",
@@ -626,7 +626,7 @@ const styles = StyleSheet.create({
   metricCard: {
     flex: 1,
     minWidth: "45%",
-    backgroundColor: "rgba(255, 255, 255, 0.06)",
+    backgroundColor: Backgrounds.card,
     borderRadius: 12,
     padding: Spacing.md,
     alignItems: "center",
@@ -653,7 +653,7 @@ const styles = StyleSheet.create({
   recommendationCard: {
     flexDirection: "row",
     alignItems: "flex-start",
-    backgroundColor: "rgba(255, 255, 255, 0.06)",
+    backgroundColor: Backgrounds.card,
     borderRadius: 12,
     padding: Spacing.md,
     gap: Spacing.sm,

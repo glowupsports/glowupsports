@@ -9,7 +9,7 @@ import Animated, {
 } from "react-native-reanimated";
 
 import { ThemedText } from "@/components/ThemedText";
-import { Colors, Spacing, BorderRadius, GlowColors } from "@/constants/theme";
+import { Colors, Backgrounds, Spacing, BorderRadius, GlowColors } from "@/constants/theme";
 
 interface XPProgressBarProps {
   currentXP: number;
@@ -83,7 +83,7 @@ const styles = StyleSheet.create({
   },
   track: {
     height: 8,
-    backgroundColor: "rgba(255, 255, 255, 0.08)",
+    backgroundColor: Backgrounds.elevated,
     borderRadius: BorderRadius.full,
     overflow: "hidden",
   },
