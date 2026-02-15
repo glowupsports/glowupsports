@@ -6168,6 +6168,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
 
         const totalXpAwarded = (xpAwarded ? 25 : 0) + sessionCompletionXp;
+        
+        // Invalidate server-side caches so next fetch gets fresh data
+        if (coachId) {
+          apiCache.invalidate(`series:${coachId}`);
+          apiCache.invalidate(`earnings:${coachId}`);
+          apiCache.invalidate(`calendar:${coachId}`);
+          apiCache.invalidate(`stats:${coachId}`);
+        }
+        if (academyId) {
+          apiCache.invalidate(`players:${academyId}`);
+        }
+        // Invalidate player-specific caches
+        for (const r of results) {
+          if (r?.playerId) {
+            apiCache.invalidate(`packages:${r.playerId}`);
+            apiCache.invalidate(`credits:${r.playerId}`);
+          }
+        }
+        
         return res.json({ 
           success: true, 
           updated: results.length, 
@@ -6221,6 +6240,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
         xpAwarded = await rewardCoachForTimelyAttendance(coachId, id, session.endTime);
       }
 
+      // Invalidate server-side caches for single player attendance
+      if (coachId) {
+        apiCache.invalidate(`series:${coachId}`);
+        apiCache.invalidate(`calendar:${coachId}`);
+      }
+      if (academyId) {
+        apiCache.invalidate(`players:${academyId}`);
+      }
+      if (playerId) {
+        apiCache.invalidate(`packages:${playerId}`);
+        apiCache.invalidate(`credits:${playerId}`);
+      }
+      
       res.json({ ...updated, xpAwarded: xpAwarded ? 25 : 0 });
     } catch (error) {
       console.error("Error saving attendance:", error);
@@ -6260,6 +6292,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
 
+      // Invalidate server-side caches
+      const cancelCoachId = req.user!.coachId || session.coachId;
+      if (cancelCoachId) {
+        apiCache.invalidate(`series:${cancelCoachId}`);
+        apiCache.invalidate(`earnings:${cancelCoachId}`);
+        apiCache.invalidate(`calendar:${cancelCoachId}`);
+      }
+      if (academyId) {
+        apiCache.invalidate(`players:${academyId}`);
+      }
+      
       res.json({ 
         success: true, 
         message: refundedCount > 0 

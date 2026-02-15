@@ -949,8 +949,11 @@ export default function SeriesDetailDrawer({
         markCompleted: true,
       });
       queryClient.invalidateQueries({ queryKey: [`/api/coach/series/${seriesId}`] });
+      queryClient.invalidateQueries({ queryKey: ["/api/coach/series"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/coach/calendar"] });
       queryClient.invalidateQueries({ queryKey: ["/api/players?withCredits=true"] });
       queryClient.invalidateQueries({ queryKey: ["/api/players"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/coach/earnings"] });
       
       // Show feedback drawer if there are present players
       if (playersForFeedback.length > 0) {
@@ -983,6 +986,8 @@ export default function SeriesDetailDrawer({
         reason: "Holiday / No Class",
       });
       queryClient.invalidateQueries({ queryKey: [`/api/coach/series/${seriesId}`] });
+      queryClient.invalidateQueries({ queryKey: ["/api/coach/series"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/coach/calendar"] });
     } catch (error) {
       console.error("Error cancelling session:", error);
       Alert.alert("Error", "Failed to cancel session. Please try again.");
