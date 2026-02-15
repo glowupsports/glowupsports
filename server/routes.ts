@@ -30675,63 +30675,80 @@ export async function registerRoutes(app: Express): Promise<Server> {
         courtName: string;
         time: string;
         available: boolean;
+        coachBusy: boolean;
         price?: string;
         currency?: string;
       }> = [];
 
-      // Standard time slots (7am to 10pm)
-      const timeSlots = [
-        "07:00", "08:00", "09:00", "10:00", "11:00", "12:00",
-        "13:00", "14:00", "15:00", "16:00", "17:00", "18:00",
-        "19:00", "20:00", "21:00", "22:00"
-      ];
+      const timeSlots: string[] = [];
+      for (let h = 6; h < 22; h++) {
+        timeSlots.push(`${String(h).padStart(2, '0')}:00`);
+        timeSlots.push(`${String(h).padStart(2, '0')}:30`);
+      }
+      timeSlots.push("22:00");
 
-      // Get all sessions for the academy on this date
-      // Helper to convert UTC to Dubai timezone (UTC+4)
-      const toDubaiTime = (utcDate: Date): Date => {
-        const dubaiOffset = 4 * 60; // minutes
-        const utcTime = utcDate.getTime();
-        return new Date(utcTime + dubaiOffset * 60 * 1000);
-      };
       const allSessions = academyId ? await storage.getSessionsByAcademy(academyId) : [];
       const dateStr = date as string;
-      
-      // Filter sessions for the specified date
-      const dateSessionsMap = new Map<string, Set<number>>();
+
+      const coachIdToCheck = (req.query.coachId as string) || req.user!.coachId;
+
+      const dateSessionsMap = new Map<string, Set<string>>();
+      const coachBusySlots = new Set<string>();
+
       for (const session of allSessions) {
-        if (!session.courtId) continue;
+        if (session.status === "cancelled") continue;
         const sessionDateUTC = new Date(session.startTime);
         const sessionDateDubai = toDubaiTime(sessionDateUTC);
         const sessionDateStr = sessionDateDubai.toISOString().split('T')[0];
         if (sessionDateStr !== dateStr) continue;
-        
-        const startHour = sessionDateDubai.getUTCHours();
+
+        const startH = sessionDateDubai.getUTCHours();
+        const startM = sessionDateDubai.getUTCMinutes();
         const endDateDubai = session.endTime ? toDubaiTime(new Date(session.endTime)) : null;
-        const endHour = endDateDubai ? endDateDubai.getUTCHours() : startHour + 1;
-        
-        if (!dateSessionsMap.has(session.courtId)) {
-          dateSessionsMap.set(session.courtId, new Set());
+        const endTotalMins = endDateDubai
+          ? endDateDubai.getUTCHours() * 60 + endDateDubai.getUTCMinutes()
+          : startH * 60 + startM + 60;
+
+        const sessionSlots: string[] = [];
+        let m = startH * 60 + startM;
+        while (m < endTotalMins) {
+          const hh = Math.floor(m / 60);
+          const mm = m % 60;
+          sessionSlots.push(`${String(hh).padStart(2, '0')}:${String(mm).padStart(2, '0')}`);
+          m += 30;
         }
-        for (let h = startHour; h < endHour; h++) {
-          dateSessionsMap.get(session.courtId)!.add(h);
+
+        if (session.courtId) {
+          if (!dateSessionsMap.has(session.courtId)) {
+            dateSessionsMap.set(session.courtId, new Set());
+          }
+          for (const slot of sessionSlots) {
+            dateSessionsMap.get(session.courtId)!.add(slot);
+          }
+        }
+
+        if (coachIdToCheck && session.coachId === coachIdToCheck) {
+          for (const slot of sessionSlots) {
+            coachBusySlots.add(slot);
+          }
         }
       }
 
       for (const court of courts) {
         const availability = await storage.getCourtAvailability(court.id, date as string);
         const bookedTimes = new Set(availability.filter(a => !a.available).map(a => a.time));
-        const sessionBookedHours = dateSessionsMap.get(court.id) || new Set<number>();
+        const sessionBookedSlots = dateSessionsMap.get(court.id) || new Set<string>();
 
         for (const time of timeSlots) {
-          const hour = parseInt(time.split(':')[0], 10);
-          const isBlockedBySession = sessionBookedHours.has(hour);
+          const isBlockedBySession = sessionBookedSlots.has(time);
           const isBlockedByAvailability = bookedTimes.has(time);
-          
+
           slots.push({
             courtId: court.id,
             courtName: court.name,
             time,
             available: !isBlockedBySession && !isBlockedByAvailability,
+            coachBusy: coachBusySlots.has(time),
             price: court.pricePerHour,
             currency: court.currency || "AED",
           });
