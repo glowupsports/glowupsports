@@ -523,6 +523,26 @@ export default function PlayersScreen() {
               <Text style={styles.gamingCountLabel}>ACTIVE</Text>
             </View>
           </View>
+          <Pressable
+            style={({ pressed }) => [
+              styles.headerAddButton,
+              pressed && { opacity: 0.7 },
+            ]}
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+              setShowAddModal(true);
+            }}
+          >
+            <LinearGradient
+              colors={[Colors.dark.xpCyan, Colors.dark.primary]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={styles.headerAddButtonGradient}
+            >
+              <Ionicons name="add" size={20} color={Colors.dark.backgroundRoot} />
+              <Text style={styles.headerAddButtonText}>Add Player</Text>
+            </LinearGradient>
+          </Pressable>
         </View>
       </LinearGradient>
 
@@ -767,31 +787,10 @@ export default function PlayersScreen() {
               }}
             />
           ))}
-          <View style={{ height: insets.bottom + Spacing.xl + 80 }} />
+          <View style={{ height: insets.bottom + Spacing.xl }} />
         </ScrollView>
         </CoachMarkTarget>
       )}
-
-      {/* === GAMING FAB === */}
-      <Pressable
-        style={({ pressed }) => [
-          styles.gamingFab,
-          pressed && styles.gamingFabPressed,
-        ]}
-        onPress={() => {
-          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-          setShowAddModal(true);
-        }}
-      >
-        <LinearGradient
-          colors={[Colors.dark.xpCyan, Colors.dark.primary]}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={styles.gamingFabGradient}
-        >
-          <Ionicons name="add" size={28} color={Colors.dark.backgroundRoot} />
-        </LinearGradient>
-      </Pressable>
 
       <PremiumAddPlayerFlow
         visible={showAddModal}
@@ -2749,6 +2748,24 @@ const styles = StyleSheet.create({
     borderRadius: 28,
     alignItems: "center",
     justifyContent: "center",
+  },
+  headerAddButton: {
+    borderRadius: 20,
+    overflow: "hidden",
+  },
+  headerAddButtonGradient: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 20,
+  },
+  headerAddButtonText: {
+    fontSize: 13,
+    fontWeight: "700",
+    color: Colors.dark.backgroundRoot,
+    letterSpacing: 0.5,
   },
 
   // === CALM STYLES (60% - Gold Standard like Calendar/Settings) ===
