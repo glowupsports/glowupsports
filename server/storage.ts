@@ -10976,10 +10976,31 @@ async function ensureCreditProcessed(sessionPlayerId: string): Promise<{
       const attendanceStatus = sp.attendance_status?.toLowerCase();
       const sessionType = (sp.session_type || "group").toLowerCase();
       
-      // BUSINESS RULE: Absent = ALWAYS Charged for ALL session types
-      // Each player pays their own credit independently - private, semi-private, and group
-      // Only vacation/holiday status skips credit deduction
-      const isChargeable = ["present", "late", "absent"].includes(attendanceStatus || "");
+      // CRITICAL: Check if this session was originally semi_private by looking at the series
+      // When a semi-private has 1 absent player, session gets adjusted to private_adjusted
+      // But the absent player should NOT be charged - only truly private sessions charge absent
+      let isOriginallyPrivate = sessionType === "private";
+      if (sessionType === "private_adjusted" && sp.series_id) {
+        const seriesResult = await tx.execute(sql`
+          SELECT session_type FROM coaching_series WHERE id = ${sp.series_id} LIMIT 1
+        `);
+        const seriesType = (seriesResult.rows[0] as any)?.session_type;
+        if (seriesType === "semi_private") {
+          isOriginallyPrivate = false;
+        } else {
+          isOriginallyPrivate = true;
+        }
+      } else if (sessionType === "private_adjusted") {
+        const playerCountResult = await tx.execute(sql`
+          SELECT COUNT(*) as count FROM session_players WHERE session_id = ${sp.session_id}
+        `);
+        const playerCount = parseInt((playerCountResult.rows[0] as any)?.count || '1');
+        isOriginallyPrivate = playerCount <= 1;
+      }
+      
+      const isChargeable = isOriginallyPrivate
+        ? ["present", "late", "absent"].includes(attendanceStatus || "")
+        : ["present", "late"].includes(attendanceStatus || "");
       
       if (!isChargeable) {
         return { success: true, action: "not_attended" as const };
@@ -10995,32 +11016,14 @@ async function ensureCreditProcessed(sessionPlayerId: string): Promise<{
         };
       }
       
-      // STEP 4: Determine credit type needed
-      // CRITICAL: For private_adjusted sessions, check the ORIGINAL series type
-      // If the series was semi_private, charge semi_private credits (not private)
-      // Each player in a semi-private pays their own semi-private credit
-      let requiredCreditType: string;
-      if (sessionType === "private_adjusted" && sp.series_id) {
-        const seriesTypeResult = await tx.execute(sql`
-          SELECT session_type FROM coaching_series WHERE id = ${sp.series_id} LIMIT 1
-        `);
-        const originalSeriesType = (seriesTypeResult.rows[0] as any)?.session_type;
-        if (originalSeriesType === "semi_private") {
-          requiredCreditType = "semi_private";
-          console.log(`[EnsureCredit] private_adjusted session from semi_private series - charging semi_private credit`);
-        } else {
-          requiredCreditType = "private";
-        }
-      } else {
-        const normalized = sessionType.toLowerCase().replace("-", "_").replace(" ", "_");
-        if (normalized === "semi" || normalized === "semi_private") {
-          requiredCreditType = "semi_private";
-        } else if (normalized === "private" || normalized === "private_adjusted") {
-          requiredCreditType = "private";
-        } else {
-          requiredCreditType = "group";
-        }
-      }
+      // STEP 4: Determine credit type needed (sessionType already defined in step 2)
+      const normalizeType = (type: string): string => {
+        const normalized = type.toLowerCase().replace("-", "_").replace(" ", "_");
+        if (normalized === "semi" || normalized === "semi_private" || normalized === "semi_private_adjusted") return "semi_private";
+        if (normalized === "private" || normalized === "private_adjusted") return "private";
+        return "group";
+      };
+      const requiredCreditType = normalizeType(sessionType);
       const playerId = sp.player_id;
       const sessionId = sp.session_id;
       const academyId = sp.academy_id;
