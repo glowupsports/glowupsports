@@ -6531,7 +6531,7 @@ export const storage = {
     
     for (const tx of allTransactions) {
       const meta = tx.metadata as { settled?: boolean; cancelled?: boolean; expired?: boolean } | null;
-      if (meta?.settled === true || meta?.cancelled === true || meta?.expired === true) continue;
+      if (tx.reason !== "debt_settlement" && (meta?.settled === true || meta?.cancelled === true || meta?.expired === true)) continue;
       
       // For purchase/package credits, only count if the package EXISTS in the database
       // Depleted/expired packages are still real - only truly deleted packages are ghosts
@@ -7027,7 +7027,7 @@ export const storage = {
     
     for (const tx of allTransactions) {
       const meta = tx.metadata as { settled?: boolean; cancelled?: boolean; expired?: boolean } | null;
-      if (meta?.settled === true || meta?.cancelled === true || meta?.expired === true) continue;
+      if (tx.reason !== "debt_settlement" && (meta?.settled === true || meta?.cancelled === true || meta?.expired === true)) continue;
       
       if (tx.amount > 0 && tx.packageId) {
         const playerPkgIds = existingPackageIdsByPlayer[tx.playerId];
@@ -11388,14 +11388,11 @@ async function auditAllPlayerCredits(): Promise<{
         eq(creditTransactions.creditType, pkg.creditType)
       ));
     
-    // Calculate balance from active transactions only
     let txBalance = 0;
     for (const tx of allPlayerTxs) {
       const meta = tx.metadata as { settled?: boolean; cancelled?: boolean; expired?: boolean } | null;
-      if (meta?.settled || meta?.cancelled || meta?.expired) continue;
-      // Skip orphan purchases (no packageId)
+      if (tx.reason !== "debt_settlement" && (meta?.settled || meta?.cancelled || meta?.expired)) continue;
       if (tx.amount > 0 && !tx.packageId && (tx.reason === "package_purchased" || tx.reason === "package_purchase")) continue;
-      // Skip purchases for DELETED packages (not in DB at all) - depleted/expired packages are real
       if (tx.amount > 0 && tx.packageId && !existingPackageIds.has(tx.packageId)) continue;
       txBalance += tx.amount;
     }
