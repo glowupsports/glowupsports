@@ -1632,7 +1632,17 @@ export default function CalendarScreen() {
             "Are you sure you want to cancel this session?",
             [
               { text: "No", style: "cancel" },
-              { text: "Yes, Cancel", style: "destructive", onPress: () => console.log("Cancel:", session.id) },
+              { text: "Yes, Cancel", style: "destructive", onPress: async () => {
+                try {
+                  await apiRequest("POST", `/api/coach/sessions/${session.id}/cancel`, { reason: "Cancelled by coach" });
+                  queryClient.invalidateQueries({ queryKey: ["/api/coach/calendar"] });
+                  queryClient.invalidateQueries({ queryKey: ["/api/coach/series"] });
+                  setSelectedSession(null);
+                  Alert.alert("Session Cancelled", "The session has been cancelled and players have been notified.");
+                } catch (err: any) {
+                  Alert.alert("Error", err.message || "Failed to cancel session");
+                }
+              }},
             ]
           );
         },

@@ -5563,6 +5563,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           .where(inArray(creditTransactions.sessionPlayerId, spIds));
       }
       // Delete related records
+      await db.delete(inSessionFeedback).where(eq(inSessionFeedback.sessionId, id));
       await db.delete(sessionPlayers).where(eq(sessionPlayers.sessionId, id));
       await db.delete(sessionSkillObservations).where(eq(sessionSkillObservations.sessionId, id));
       await db.delete(sessionSkillFeedback).where(eq(sessionSkillFeedback.sessionId, id));
