@@ -2028,7 +2028,7 @@ export const storage = {
       );
       if (player.length === 0) return [];
     }
-    return db.select().from(packages).where(eq(packages.playerId, playerId));
+    return db.select().from(packages).where(eq(packages.playerId, playerId)).orderBy(desc(packages.createdAt));
   },
 
   async getPlayerPackagesWithCalculatedRemaining(playerId: string, academyId?: string): Promise<(Package & { calculatedRemaining: number })[]> {

@@ -407,10 +407,7 @@ function setupErrorHandler(app: express.Application) {
         log("[CreditAudit] Running ghost credit audit for ALL players...");
         await auditAllPlayerCredits();
         
-        log("[DebtRepair] Cancelling debts for players with no packages...");
-        const debtResult = await cancelDebtsForPlayersWithNoPackages();
-        log(`[DebtRepair] Complete: ${debtResult.playersFixed} players fixed, ${debtResult.debtsCleared} debts cleared`);
-        // NOTE: This repair is idempotent - safe to run on every startup
+        // NOTE: cancelDebtsForPlayersWithNoPackages REMOVED - debts are valid even without packages
       } catch (error) {
         console.error("[StartupRepair] Failed:", error);
       }
