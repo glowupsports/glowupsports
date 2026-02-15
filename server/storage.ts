@@ -6531,7 +6531,16 @@ export const storage = {
     
     for (const tx of allTransactions) {
       const meta = tx.metadata as { settled?: boolean; cancelled?: boolean; expired?: boolean } | null;
-      if (tx.reason !== "debt_settlement" && (meta?.settled === true || meta?.cancelled === true || meta?.expired === true)) continue;
+      
+      // SKIP all debt_settlement transactions entirely
+      // Balance = package_purchased credits - ALL session debts (settled or not)
+      // The package credits naturally cancel out the debts, no need for settlement transactions
+      if (tx.reason === "debt_settlement") {
+        continue;
+      }
+      
+      // Skip cancelled/expired transactions (but NOT settled session_debts - those are real usage)
+      if (meta?.cancelled === true || meta?.expired === true) continue;
       
       // For purchase/package credits, only count if the package EXISTS in the database
       // Depleted/expired packages are still real - only truly deleted packages are ghosts
@@ -6547,11 +6556,6 @@ export const storage = {
         tx.reason === "package_purchase" || 
         tx.reason === "package_deleted_refund"
       )) {
-        continue;
-      }
-      // Skip orphan debt_settlement transactions (from deleted packages)
-      // When a package is deleted, the purchase is expired but the settlement must also be skipped
-      if (tx.reason === "debt_settlement" && (!tx.packageId || !existingPackageIds.has(tx.packageId))) {
         continue;
       }
       
@@ -7027,7 +7031,15 @@ export const storage = {
     
     for (const tx of allTransactions) {
       const meta = tx.metadata as { settled?: boolean; cancelled?: boolean; expired?: boolean } | null;
-      if (tx.reason !== "debt_settlement" && (meta?.settled === true || meta?.cancelled === true || meta?.expired === true)) continue;
+      
+      // SKIP all debt_settlement transactions entirely
+      // Balance = package_purchased credits - ALL session debts (settled or not)
+      if (tx.reason === "debt_settlement") {
+        continue;
+      }
+      
+      // Skip cancelled/expired transactions (but NOT settled session_debts - those are real usage)
+      if (meta?.cancelled === true || meta?.expired === true) continue;
       
       if (tx.amount > 0 && tx.packageId) {
         const playerPkgIds = existingPackageIdsByPlayer[tx.playerId];
@@ -7037,13 +7049,6 @@ export const storage = {
       }
       if (tx.amount > 0 && !tx.packageId && (tx.reason === "package_purchased" || tx.reason === "package_purchase")) {
         continue;
-      }
-      // Skip orphan debt_settlement transactions (from deleted packages)
-      if (tx.reason === "debt_settlement") {
-        const playerPkgIds = existingPackageIdsByPlayer[tx.playerId];
-        if (!tx.packageId || !playerPkgIds || !playerPkgIds.has(tx.packageId)) {
-          continue;
-        }
       }
       
       const creditType = (tx.creditType || "group") as "group" | "semi_private" | "private";
