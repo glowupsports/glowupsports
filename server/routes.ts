@@ -3566,7 +3566,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       // Get own sessions (full data) - filtered by academy
-      const ownSessions = await storage.getSessionsByCoach(coachId as string, startDate, endDate, academyId ?? undefined);
+      let ownSessions = await storage.getSessionsByCoach(coachId as string, startDate, endDate, academyId ?? undefined);
+      
+      // Filter out future sessions from ended/completed series
+      const allSeriesIdsForFilter = [...new Set(ownSessions.map(s => s.seriesId).filter(Boolean))] as string[];
+      if (allSeriesIdsForFilter.length > 0) {
+        const endedSeriesRows = await db.select({ id: coachingSeries.id })
+          .from(coachingSeries)
+          .where(and(
+            inArray(coachingSeries.id, allSeriesIdsForFilter),
+            eq(coachingSeries.status, "ended")
+          ));
+        const endedSeriesIds = new Set(endedSeriesRows.map(s => s.id));
+        if (endedSeriesIds.size > 0) {
+          const now = new Date();
+          ownSessions = ownSessions.filter(s => {
+            if (!s.seriesId || !endedSeriesIds.has(s.seriesId)) return true;
+            // Keep past sessions from ended series (historical), filter out future ones
+            return new Date(s.startTime) < now;
+          });
+        }
+      }
       
       // OPTIMIZED: Batch fetch all session and series players at once
       const sessionIds = ownSessions.map(s => s.id);
