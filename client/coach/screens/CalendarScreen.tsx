@@ -797,18 +797,11 @@ export default function CalendarScreen() {
     return currentLocationId !== prevLocationId;
   };
   
-  // Calculate dynamic lane width based on number of visible courts
-  // Use scrollable layout if courts don't fit, with minimum width per court
   const availableWidth = screenWidth - TIME_COLUMN_WIDTH - Spacing.lg * 2;
-  const dynamicLaneWidth = courts.length === 1 
-    ? availableWidth
-    : courts.length <= 3
-      ? availableWidth / courts.length
-      : MIN_COURT_LANE_WIDTH; // Use minimum width for many courts, allow horizontal scroll
-  
-  // Total width of all court lanes (for scroll content)
+  const evenWidth = courts.length > 0 ? availableWidth / courts.length : availableWidth;
+  const needsHorizontalScroll = evenWidth < MIN_COURT_LANE_WIDTH;
+  const dynamicLaneWidth = needsHorizontalScroll ? MIN_COURT_LANE_WIDTH : evenWidth;
   const totalCourtsWidth = courts.length * dynamicLaneWidth;
-  const needsHorizontalScroll = totalCourtsWidth > availableWidth;
 
   // Handle deep linking from Dashboard quick actions
   useEffect(() => {
