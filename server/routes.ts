@@ -6039,20 +6039,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
           for (const updatedRecord of results) {
             if (!updatedRecord) continue;
             
-            // BUSINESS RULE for credit charging:
-            // - Private sessions: absent = still charged (coach was there waiting)
-            // - Semi-private sessions: absent = NOT charged (only the present player pays, as private)
-            // - Group sessions: absent = still charged (lesson happened regardless)
+            // BUSINESS RULE: Absent = ALWAYS Charged for ALL session types
+            // Each player pays their own credit independently
+            // Only vacation/holiday status skips credit deduction
             const attendanceStatus = (updatedRecord.attendanceStatus || '').toLowerCase();
-            const isAbsent = attendanceStatus === 'absent';
-            const wasSemiPrivate = originalSessionType === 'semi_private';
-            
-            // Skip credit deduction for absent players in semi-private sessions
-            if (isAbsent && wasSemiPrivate) {
-              console.log(`[Credits] Skipping credit for absent player ${updatedRecord.playerId} in semi-private session ${id} (original type: semi_private)`);
-              creditResults.skipped++;
-              continue;
-            }
             
             const isChargeable = ['present', 'late', 'absent'].includes(attendanceStatus);
             
