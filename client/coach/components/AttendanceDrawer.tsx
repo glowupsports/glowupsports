@@ -145,6 +145,17 @@ export default function AttendanceDrawer({
   }, []);
 
   const [coachXpAwarded, setCoachXpAwarded] = useState(0);
+  
+  const { data: coachXpData } = useQuery<{
+    level: number;
+    totalXp: number;
+    currentLevelXp: number;
+    requiredForLevel: number;
+    xpPercent: number;
+  }>({
+    queryKey: [`/api/coach/${session?.coachId}/xp`],
+    enabled: visible && !!session?.coachId,
+  });
 
   useEffect(() => {
     if (session?.players) {
@@ -326,13 +337,16 @@ export default function AttendanceDrawer({
   const getSessionSummaryData = () => {
     const presentCount = getPresentCount();
     const xpEarned = coachXpAwarded || 25;
+    const level = coachXpData?.level || 1;
+    const currentLevelXp = coachXpData?.currentLevelXp || 0;
+    const requiredForLevel = coachXpData?.requiredForLevel || 100;
     return {
       duration: session?.duration || 60,
       skillsPracticed: presentCount,
       xpEarned,
-      currentLevel: 1,
-      currentXP: xpEarned,
-      xpToNextLevel: 100 - xpEarned,
+      currentLevel: level,
+      currentXP: currentLevelXp + xpEarned,
+      xpToNextLevel: Math.max(0, requiredForLevel - (currentLevelXp + xpEarned)),
       nextFocus: presentCount > 0 ? {
         skill: "Session Consistency",
         recommendation: "Keep tracking attendance to build player profiles",
