@@ -5495,38 +5495,78 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(403).json({ error: "Not authorized" });
       }
 
-      // Refund credits if any were used for this session
-      const usedCredits = await db
-        .select()
-        .from(creditTransactions)
-        
-          .where(and(
-          eq(creditTransactions.sessionId, id),
-          eq(creditTransactions.type, "use")
-        ));
+      // Refund credits for this session before deleting
+      // Find all session_player records to locate credit transactions by session_player_id
+      const spRecordsForRefund = await db.select({ id: sessionPlayers.id, playerId: sessionPlayers.playerId, creditDeductedAt: sessionPlayers.creditDeductedAt })
+        .from(sessionPlayers)
+        .where(eq(sessionPlayers.sessionId, id));
       
-      for (const tx of usedCredits) {
-        // Create refund transaction
-        await db.insert(creditTransactions).values({
-          id: crypto.randomUUID(),
-          playerId: tx.playerId,
-          packageId: tx.packageId,
-          type: "refund",
-          amount: Math.abs(tx.amount),
-          sessionId: null,
-          description: `Refund for cancelled session`,
-          createdAt: new Date(),
-        });
+      let refundedCount = 0;
+      for (const sp of spRecordsForRefund) {
+        if (!sp.creditDeductedAt) continue;
         
-        // Update package credits
-        if (tx.packageId) {
-          await db
-            .update(packages)
-            .set({ 
-              creditsRemaining: sql`credits_remaining + ${Math.abs(tx.amount)}` 
-            })
-            .where(eq(packages.id, tx.packageId));
+        // Try using the existing refund method first
+        try {
+          const refundResult = await storage.refundCreditsForSession(sp.playerId, id, academyId);
+          if (refundResult.success) {
+            refundedCount++;
+            console.log(`[DeleteSession] Refunded credit for player ${sp.playerId} via refundCreditsForSession`);
+            continue;
+          }
+        } catch (err) {
+          console.log(`[DeleteSession] refundCreditsForSession failed for ${sp.playerId}, trying direct lookup`);
         }
+        
+        // Fallback: find debit transactions by session_player_id
+        const debitTxns = await db.select().from(creditTransactions)
+          .where(and(
+            eq(creditTransactions.sessionPlayerId, sp.id),
+            eq(creditTransactions.type, "debit"),
+            sql`(${creditTransactions.metadata}->>'cancelled')::boolean IS NOT TRUE`
+          ));
+        
+        for (const tx of debitTxns) {
+          const meta = tx.metadata ? (typeof tx.metadata === 'string' ? JSON.parse(tx.metadata) : tx.metadata) : {};
+          
+          if (meta.isDebt && !meta.settled) {
+            // Unsettled debt - just cancel it
+            await db.update(creditTransactions)
+              .set({ metadata: { ...meta, cancelled: true, cancelledReason: "session_deleted" } })
+              .where(eq(creditTransactions.id, tx.id));
+          } else if (meta.settled) {
+            // Settled debt - cancel it and create refund
+            await db.update(creditTransactions)
+              .set({ metadata: { ...meta, cancelled: true, cancelledReason: "session_deleted" } })
+              .where(eq(creditTransactions.id, tx.id));
+            await db.insert(creditTransactions).values({
+              id: crypto.randomUUID(),
+              playerId: tx.playerId,
+              type: "refund",
+              creditType: tx.creditType,
+              amount: Math.abs(tx.amount),
+              reason: "refund",
+              metadata: { refundedDebtId: tx.id, reason: "Session deleted - credit refund", sessionDeleted: true },
+              createdAt: new Date(),
+            });
+          } else {
+            // Regular debit (credit consumed) - create refund
+            await db.insert(creditTransactions).values({
+              id: crypto.randomUUID(),
+              playerId: tx.playerId,
+              packageId: tx.packageId,
+              type: "refund",
+              creditType: tx.creditType,
+              amount: Math.abs(tx.amount),
+              reason: "refund",
+              metadata: { refundedTransactionId: tx.id, reason: "Session deleted - credit refund", sessionDeleted: true },
+              createdAt: new Date(),
+            });
+          }
+          refundedCount++;
+        }
+      }
+      if (refundedCount > 0) {
+        console.log(`[DeleteSession] Refunded ${refundedCount} credit(s) for session ${id}`);
       }
 
       // Nullify session references in related tables
@@ -5599,7 +5639,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
 
-      res.json({ success: true, deleted: true });
+      // Invalidate server-side caches
+      if (coachId) {
+        apiCache.invalidate(`series:${coachId}`);
+        apiCache.invalidate(`earnings:${coachId}`);
+        apiCache.invalidate(`calendar:${coachId}`);
+        apiCache.invalidate(`stats:${coachId}`);
+      }
+      if (academyId) {
+        apiCache.invalidate(`players:${academyId}`);
+      }
+      
+      res.json({ success: true, deleted: true, creditsRefunded: refundedCount });
     } catch (error) {
       console.error("Error deleting session:", error);
       res.status(500).json({ error: "Failed to delete session" });
