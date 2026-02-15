@@ -2756,12 +2756,26 @@ export const storage = {
     
     const conflicts = await db.select().from(sessions).where(and(...conditions));
     
-    const filteredConflicts = excludeSessionId 
+    let filteredConflicts = excludeSessionId 
       ? conflicts.filter(s => s.id !== excludeSessionId) 
       : conflicts;
     
     if (filteredConflicts.length > 0) {
-      return true;
+      const validConflicts = [];
+      for (const conflict of filteredConflicts) {
+        if (conflict.seriesId) {
+          const series = await db.select({ status: coachingSeries.status }).from(coachingSeries).where(eq(coachingSeries.id, conflict.seriesId)).limit(1);
+          if (series.length > 0 && (series[0].status === "ended" || series[0].status === "completed" || series[0].status === "deleted")) {
+            continue;
+          }
+        }
+        validConflicts.push(conflict);
+      }
+      if (validConflicts.length === 0) {
+        filteredConflicts = validConflicts;
+      } else {
+        return true;
+      }
     }
     
     // Check travel time conflicts - sessions that need travel buffer
@@ -2851,12 +2865,26 @@ export const storage = {
       conditions.push(eq(sessions.academyId, academyId));
     }
     
-    const conflicts = await db.select().from(sessions).where(and(...conditions));
+    let conflicts = await db.select().from(sessions).where(and(...conditions));
     
     if (excludeSessionId) {
-      return conflicts.filter(s => s.id !== excludeSessionId).length > 0;
+      conflicts = conflicts.filter(s => s.id !== excludeSessionId);
     }
-    return conflicts.length > 0;
+    
+    if (conflicts.length > 0) {
+      const validConflicts = [];
+      for (const conflict of conflicts) {
+        if (conflict.seriesId) {
+          const series = await db.select({ status: coachingSeries.status }).from(coachingSeries).where(eq(coachingSeries.id, conflict.seriesId)).limit(1);
+          if (series.length > 0 && (series[0].status === "ended" || series[0].status === "completed" || series[0].status === "deleted")) {
+            continue;
+          }
+        }
+        validConflicts.push(conflict);
+      }
+      return validConflicts.length > 0;
+    }
+    return false;
   },
 
   async checkPlayerConflict(playerId: string, startTime: Date, endTime: Date, excludeSessionId?: string, academyId?: string): Promise<boolean> {
