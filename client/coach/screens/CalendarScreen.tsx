@@ -2294,7 +2294,7 @@ export default function CalendarScreen() {
         </>
       )}
 
-      {/* WEEK VIEW - OVERVIEW MODE */}
+      {/* WEEK VIEW - OVERVIEW MODE (Compact Lesson List) */}
       {viewMode === "week" && weekMode === "overview" && (
         <ScrollView 
           style={styles.calendarScroll} 
@@ -2304,65 +2304,98 @@ export default function CalendarScreen() {
           {weekDates.map((date, idx) => {
             const dayNames = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
             const isToday = date.toDateString() === new Date().toDateString();
-            const stats = getDayStats(date);
-            const energyColor = getEnergyColor(stats.energyLevel);
+            const daySessions = getSessionsForDate(date)
+              .sort((a, b) => parseUTCTimestamp(a.startTime).getTime() - parseUTCTimestamp(b.startTime).getTime());
+            
+            if (daySessions.length === 0) return null;
             
             return (
-              <Pressable 
-                key={idx} 
-                style={[styles.dayCard, isToday && styles.dayCardToday]}
-                onPress={() => {
-                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                  handleDateSelect(date);
-                }}
-              >
-                {/* Card Header */}
-                <View style={styles.dayCardHeader}>
-                  <View style={styles.dayCardDateInfo}>
-                    <Text style={[styles.dayCardDayName, isToday && styles.dayCardDayNameToday]}>
-                      {dayNames[idx]}
-                    </Text>
-                    <Text style={styles.dayCardDate}>{date.getDate()}</Text>
+              <View key={idx} style={styles.overviewDayBlock}>
+                <Pressable 
+                  style={[styles.overviewDayHeader, isToday && styles.overviewDayHeaderToday]}
+                  onPress={() => {
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                    handleDateSelect(date);
+                  }}
+                >
+                  <Text style={[styles.overviewDayName, isToday && styles.overviewDayNameToday]}>
+                    {dayNames[idx]}
+                  </Text>
+                  <Text style={styles.overviewDayDate}>
+                    {date.getDate()} {date.toLocaleDateString("en-US", { month: "short" })}
+                  </Text>
+                  <View style={styles.overviewDayCount}>
+                    <Text style={styles.overviewDayCountText}>{daySessions.length}</Text>
                   </View>
-                  <View style={[styles.energyIndicator, { backgroundColor: energyColor + "30" }]}>
-                    <View style={[styles.energyFill, { backgroundColor: energyColor, width: `${Math.min(100, stats.totalHours * 12.5)}%` }]} />
-                  </View>
-                </View>
-
-                {/* Time Distribution */}
-                <View style={styles.timeDistribution}>
-                  <View style={styles.timeZone}>
-                    <View style={[styles.timeBar, { height: `${stats.morningFill * 100}%`, backgroundColor: stats.morningMinutes > 0 ? Colors.dark.xpCyan : Colors.dark.backgroundTertiary }]} />
-                    <Text style={styles.timeZoneLabel}>AM</Text>
-                  </View>
-                  <View style={styles.timeZone}>
-                    <View style={[styles.timeBar, { height: `${stats.afternoonFill * 100}%`, backgroundColor: stats.afternoonMinutes > 0 ? Colors.dark.primary : Colors.dark.backgroundTertiary }]} />
-                    <Text style={styles.timeZoneLabel}>PM</Text>
-                  </View>
-                  <View style={styles.timeZone}>
-                    <View style={[styles.timeBar, { height: `${stats.eveningFill * 100}%`, backgroundColor: stats.eveningMinutes > 0 ? Colors.dark.gold : Colors.dark.backgroundTertiary }]} />
-                    <Text style={styles.timeZoneLabel}>EVE</Text>
-                  </View>
-                </View>
-
-                {/* Mini Stats */}
-                <View style={styles.dayCardStats}>
-                  <View style={styles.dayCardStat}>
-                    <Ionicons name="calendar-outline" size={12} color={Colors.dark.tabIconDefault} />
-                    <Text style={styles.dayCardStatText}>{stats.sessions}</Text>
-                  </View>
-                  <View style={styles.dayCardStat}>
-                    <Ionicons name="tennisball-outline" size={12} color={Colors.dark.tabIconDefault} />
-                    <Text style={styles.dayCardStatText}>{stats.courts}</Text>
-                  </View>
-                  <View style={styles.dayCardStat}>
-                    <Ionicons name="time-outline" size={12} color={Colors.dark.tabIconDefault} />
-                    <Text style={styles.dayCardStatText}>{stats.totalHours}h</Text>
-                  </View>
-                </View>
-              </Pressable>
+                </Pressable>
+                
+                {daySessions.map((session) => {
+                  const typeLabel = session.sessionType === "private" ? "Private" :
+                                    session.sessionType === "semi_private" ? "Semi-Private" :
+                                    session.sessionType === "group" ? "Group" :
+                                    session.sessionType === "physical" ? "Physical" : "Session";
+                  const playerNames = session.players?.map(p => p.name.split(" ")[0]).join(", ") || "";
+                  const courtName = courts.find(c => c.id === session.courtId)?.name || "";
+                  const gradientColors = getSessionTypeGradient(session.sessionType);
+                  const now = new Date();
+                  const sessionStart = parseUTCTimestamp(session.startTime);
+                  const sessionEnd = parseUTCTimestamp(session.endTime);
+                  const isPast = sessionEnd < now;
+                  const isActive = now >= sessionStart && now < sessionEnd;
+                  
+                  return (
+                    <Pressable
+                      key={session.id}
+                      style={[styles.overviewSessionRow, isPast && styles.overviewSessionRowPast]}
+                      onPress={() => {
+                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                        setSelectedSessionForDetail(session as Session);
+                      }}
+                    >
+                      <View style={[styles.overviewSessionAccent, { backgroundColor: gradientColors[0] }]} />
+                      <View style={styles.overviewSessionTime}>
+                        <Text style={[styles.overviewTimeText, isPast && styles.overviewTimePast]}>
+                          {formatTimeInTimezone(session.startTime, academyTimezone)}
+                        </Text>
+                        <Text style={styles.overviewTimeDash}>-</Text>
+                        <Text style={[styles.overviewTimeText, isPast && styles.overviewTimePast]}>
+                          {formatTimeInTimezone(session.endTime, academyTimezone)}
+                        </Text>
+                      </View>
+                      <View style={styles.overviewSessionInfo}>
+                        <View style={styles.overviewSessionTopRow}>
+                          <Text style={[styles.overviewTypeLabel, { color: gradientColors[0] }]}>{typeLabel}</Text>
+                          {isActive ? (
+                            <View style={styles.overviewLiveBadge}>
+                              <View style={styles.overviewLiveDot} />
+                              <Text style={styles.overviewLiveText}>LIVE</Text>
+                            </View>
+                          ) : null}
+                        </View>
+                        <View style={styles.overviewSessionDetails}>
+                          {playerNames ? <Text style={styles.overviewPlayerText} numberOfLines={1}>{playerNames}</Text> : null}
+                          {courtName ? (
+                            <View style={styles.overviewCourtChip}>
+                              <Ionicons name="location-outline" size={10} color={Colors.dark.tabIconDefault} />
+                              <Text style={styles.overviewCourtText}>{courtName}</Text>
+                            </View>
+                          ) : null}
+                        </View>
+                      </View>
+                      <Ionicons name="chevron-forward" size={16} color={Colors.dark.tabIconDefault} />
+                    </Pressable>
+                  );
+                })}
+              </View>
             );
           })}
+          
+          {weekDates.every(date => getSessionsForDate(date).length === 0) ? (
+            <View style={styles.overviewEmpty}>
+              <Ionicons name="calendar-outline" size={48} color={Colors.dark.tabIconDefault} />
+              <Text style={styles.overviewEmptyText}>No lessons this week</Text>
+            </View>
+          ) : null}
         </ScrollView>
       )}
 
@@ -4561,6 +4594,154 @@ const styles = StyleSheet.create({
   },
   dayCardStatText: {
     ...Typography.caption,
+    color: Colors.dark.tabIconDefault,
+  },
+  overviewDayBlock: {
+    marginBottom: Spacing.md,
+  },
+  overviewDayHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: Spacing.sm,
+    paddingHorizontal: Spacing.xs,
+    gap: Spacing.sm,
+    borderBottomWidth: 1,
+    borderBottomColor: "rgba(255, 255, 255, 0.08)",
+  },
+  overviewDayHeaderToday: {
+    borderBottomColor: GlowColors.primary + "40",
+  },
+  overviewDayName: {
+    ...Typography.h4,
+    color: Colors.dark.textMuted,
+    fontWeight: "700",
+    letterSpacing: 0.5,
+    textTransform: "uppercase",
+    width: 36,
+  },
+  overviewDayNameToday: {
+    color: GlowColors.primary,
+  },
+  overviewDayDate: {
+    ...Typography.body,
+    color: Colors.dark.textSecondary,
+    flex: 1,
+  },
+  overviewDayCount: {
+    backgroundColor: Colors.dark.backgroundTertiary,
+    borderRadius: BorderRadius.full,
+    width: 24,
+    height: 24,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  overviewDayCountText: {
+    ...Typography.caption,
+    color: Colors.dark.text,
+    fontWeight: "700",
+  },
+  overviewSessionRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: Spacing.sm,
+    paddingHorizontal: Spacing.xs,
+    paddingLeft: Spacing.md,
+    gap: Spacing.sm,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: "rgba(255, 255, 255, 0.04)",
+  },
+  overviewSessionRowPast: {
+    opacity: 0.5,
+  },
+  overviewSessionAccent: {
+    width: 3,
+    height: 36,
+    borderRadius: 2,
+  },
+  overviewSessionTime: {
+    width: 90,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 2,
+  },
+  overviewTimeText: {
+    ...Typography.caption,
+    color: Colors.dark.textSecondary,
+    fontWeight: "600",
+    fontSize: 12,
+  },
+  overviewTimePast: {
+    color: Colors.dark.tabIconDefault,
+  },
+  overviewTimeDash: {
+    ...Typography.caption,
+    color: Colors.dark.tabIconDefault,
+    fontSize: 10,
+  },
+  overviewSessionInfo: {
+    flex: 1,
+    gap: 2,
+  },
+  overviewSessionTopRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+  },
+  overviewTypeLabel: {
+    ...Typography.body,
+    fontWeight: "700",
+    fontSize: 13,
+  },
+  overviewLiveBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    backgroundColor: "#FF3B3020",
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: BorderRadius.full,
+  },
+  overviewLiveDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: "#FF3B30",
+  },
+  overviewLiveText: {
+    fontSize: 9,
+    fontWeight: "800",
+    color: "#FF3B30",
+    letterSpacing: 0.5,
+  },
+  overviewSessionDetails: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+    flexWrap: "wrap",
+  },
+  overviewPlayerText: {
+    ...Typography.caption,
+    color: Colors.dark.text,
+    fontSize: 12,
+  },
+  overviewCourtChip: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 3,
+  },
+  overviewCourtText: {
+    ...Typography.caption,
+    color: Colors.dark.tabIconDefault,
+    fontSize: 11,
+  },
+  overviewEmpty: {
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 60,
+    gap: Spacing.md,
+  },
+  overviewEmptyText: {
+    ...Typography.body,
     color: Colors.dark.tabIconDefault,
   },
   monthDayHeaders: {
