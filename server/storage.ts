@@ -3642,12 +3642,11 @@ export const storage = {
   async endCoachingSeries(id: string): Promise<CoachingSeries | undefined> {
     const now = new Date();
     
-    // Step 1: Get all FUTURE scheduled sessions for this series (to be deleted)
     const futureSessions = await db
       .select({ id: sessions.id })
       .from(sessions)
       .where(and(
-        eq(sessions.seriesId, id),
+        or(eq(sessions.seriesId, id), eq(sessions.recurringGroupId, id)),
         eq(sessions.status, "scheduled"),
         gte(sessions.startTime, now)
       ));
@@ -3679,22 +3678,24 @@ export const storage = {
   },
 
   async deleteCoachingSeries(id: string): Promise<void> {
-    // Get all session IDs for this series first
     const seriesSessions = await db
       .select({ id: sessions.id })
       .from(sessions)
-      .where(eq(sessions.seriesId, id));
+      .where(or(
+        eq(sessions.seriesId, id),
+        eq(sessions.recurringGroupId, id)
+      ));
     
     const sessionIds = seriesSessions.map(s => s.id);
+    console.log(`[DeleteSeries] Found ${sessionIds.length} sessions for series ${id} (via seriesId + recurringGroupId)`);
     
-    // Use transaction for all-or-nothing deletion
     await db.transaction(async (tx) => {
       if (sessionIds.length > 0) {
         await tx.delete(xpTransactions).where(inArray(xpTransactions.sessionId, sessionIds));
         await tx.delete(coachXpTransactions).where(inArray(coachXpTransactions.sessionId, sessionIds));
         await tx.delete(creditTransactions).where(inArray(creditTransactions.sessionId, sessionIds));
         await tx.delete(sessionPlayers).where(inArray(sessionPlayers.sessionId, sessionIds));
-        await tx.delete(sessions).where(eq(sessions.seriesId, id));
+        await tx.delete(sessions).where(inArray(sessions.id, sessionIds));
       }
       
       await tx.delete(seriesPlayers).where(eq(seriesPlayers.seriesId, id));
@@ -11549,5 +11550,42 @@ async function cancelDebtsForPlayersWithNoPackages(): Promise<{ playersFixed: nu
   return { playersFixed, debtsCleared };
 }
 
-// Export helper for routes
-export { getSessionTypeByPlayerCount, updateSeriesSessionType, recalculateSeriesCredits, ensureCreditProcessed, repairAllPlayerCredits, auditAllPlayerCredits, repairGroupSessionTypes, cancelDebtsForPlayersWithNoPackages };
+async function cleanupGhostSessions(): Promise<{ cancelled: number }> {
+  const endedSeriesIds = await db
+    .select({ id: coachingSeries.id })
+    .from(coachingSeries)
+    .where(or(
+      eq(coachingSeries.status, "ended"),
+      eq(coachingSeries.status, "completed"),
+      eq(coachingSeries.status, "deleted")
+    ));
+  
+  if (endedSeriesIds.length === 0) return { cancelled: 0 };
+  
+  const ids = endedSeriesIds.map(s => s.id);
+  
+  const ghostSessions = await db
+    .select({ id: sessions.id })
+    .from(sessions)
+    .where(and(
+      or(
+        inArray(sessions.seriesId, ids),
+        inArray(sessions.recurringGroupId, ids)
+      ),
+      eq(sessions.status, "scheduled"),
+      gte(sessions.startTime, new Date())
+    ));
+  
+  if (ghostSessions.length === 0) return { cancelled: 0 };
+  
+  const ghostIds = ghostSessions.map(s => s.id);
+  console.log(`[GhostCleanup] Found ${ghostIds.length} ghost sessions from ${endedSeriesIds.length} ended/deleted series`);
+  
+  await db.delete(creditTransactions).where(inArray(creditTransactions.sessionId, ghostIds));
+  await db.delete(sessionPlayers).where(inArray(sessionPlayers.sessionId, ghostIds));
+  await db.update(sessions).set({ status: "cancelled" }).where(inArray(sessions.id, ghostIds));
+  
+  return { cancelled: ghostIds.length };
+}
+
+export { getSessionTypeByPlayerCount, updateSeriesSessionType, recalculateSeriesCredits, ensureCreditProcessed, repairAllPlayerCredits, auditAllPlayerCredits, repairGroupSessionTypes, cancelDebtsForPlayersWithNoPackages, cleanupGhostSessions };

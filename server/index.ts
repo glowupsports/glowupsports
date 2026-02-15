@@ -400,6 +400,15 @@ function setupErrorHandler(app: express.Application) {
         const groupResult = await repairGroupSessionTypes();
         log(`[RepairGroupTypes] Complete: ${groupResult.fixed} fixed, ${groupResult.errors.length} errors`);
         
+        // Cleanup ghost sessions from ended/deleted series
+        try {
+          const { cleanupGhostSessions } = await import("./storage");
+          const ghostResult = await cleanupGhostSessions();
+          log(`[GhostCleanup] Cancelled ${ghostResult.cancelled} ghost sessions from ended/deleted series`);
+        } catch (err) {
+          console.error("[GhostCleanup] Failed:", err);
+        }
+        
         log("[StartupRepair] Running bulk credit repair...");
         const result = await repairAllPlayerCredits();
         log(`[StartupRepair] Complete: ${result.processed} processed, ${result.consumed} consumed, ${result.debts} debts, ${result.errors} errors`);
