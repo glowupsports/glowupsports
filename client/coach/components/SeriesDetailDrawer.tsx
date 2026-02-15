@@ -1087,17 +1087,21 @@ export default function SeriesDetailDrawer({
     enabled: showExtraLessonModal && extraLessonStep === 3 && !!selectedCourtId,
   });
   
-  // Generate time slots from 6:00 to 22:00 (1-hour intervals)
+  // Generate time slots from 6:00 to 22:00 (30-minute intervals)
   const timeSlots = React.useMemo(() => {
-    const slots: { time: string; available: boolean }[] = [];
+    const slots: { time: string; available: boolean; courtBusy: boolean; coachBusy: boolean }[] = [];
     const courtSlots = courtAvailabilityData?.slots?.filter(s => s.courtId === selectedCourtId) || [];
     
     for (let hour = 6; hour <= 22; hour++) {
-      const timeStr = `${String(hour).padStart(2, '0')}:00`;
-      // Find matching slot from availability API
-      const matchingSlot = courtSlots.find(s => s.time === timeStr);
-      const isAvailable = matchingSlot ? matchingSlot.available : true;
-      slots.push({ time: timeStr, available: isAvailable });
+      for (let min = 0; min < 60; min += 30) {
+        if (hour === 22 && min === 30) break;
+        const timeStr = `${String(hour).padStart(2, '0')}:${String(min).padStart(2, '0')}`;
+        const matchingSlot = courtSlots.find(s => s.time === timeStr);
+        const courtBusy = matchingSlot ? !matchingSlot.available : false;
+        const coachBusy = matchingSlot ? !!(matchingSlot as any).coachBusy : false;
+        const isAvailable = !courtBusy && !coachBusy;
+        slots.push({ time: timeStr, available: isAvailable, courtBusy, coachBusy });
+      }
     }
     return slots;
   }, [courtAvailabilityData, selectedCourtId]);
@@ -3946,23 +3950,26 @@ export default function SeriesDetailDrawer({
                 }}>
                   {timeSlots.map((slot) => {
                     const isSelected = selectedTimeSlot === slot.time;
+                    const busyLabel = slot.coachBusy ? "You're busy" : slot.courtBusy ? "Court busy" : !slot.available ? "Booked" : "";
                     return (
                       <Pressable
                         key={slot.time}
                         style={{
                           width: "23%",
-                          paddingVertical: Spacing.sm,
+                          paddingVertical: Spacing.xs,
                           paddingHorizontal: Spacing.xs,
-                          marginBottom: Spacing.sm,
+                          marginBottom: Spacing.xs,
                           borderRadius: BorderRadius.md,
                           borderWidth: 2,
-                          borderColor: isSelected ? Colors.dark.successNeon : slot.available ? Colors.dark.border : Colors.dark.border,
+                          borderColor: isSelected ? Colors.dark.successNeon : slot.coachBusy ? "#FF6B6B" + "60" : Colors.dark.border,
                           backgroundColor: isSelected 
                             ? Colors.dark.successNeon + "30" 
-                            : slot.available 
-                              ? Colors.dark.backgroundSecondary 
-                              : Colors.dark.backgroundRoot,
-                          opacity: slot.available ? 1 : 0.4,
+                            : slot.coachBusy
+                              ? "#FF6B6B" + "15"
+                              : slot.available 
+                                ? Colors.dark.backgroundSecondary 
+                                : Colors.dark.backgroundRoot,
+                          opacity: slot.available ? 1 : 0.5,
                           alignItems: "center",
                         }}
                         onPress={() => {
@@ -3983,16 +3990,16 @@ export default function SeriesDetailDrawer({
                             : slot.available 
                               ? Colors.dark.text 
                               : Colors.dark.textMuted,
-                          fontSize: 14,
+                          fontSize: 13,
                           fontWeight: isSelected ? "700" : "500",
                         }}>
                           {slot.time}
                         </Text>
-                        {!slot.available && (
-                          <Text style={{ color: Colors.dark.textMuted, fontSize: 9, marginTop: 2 }}>
-                            Booked
+                        {busyLabel ? (
+                          <Text style={{ color: slot.coachBusy ? "#FF6B6B" : Colors.dark.textMuted, fontSize: 8, marginTop: 1 }}>
+                            {busyLabel}
                           </Text>
-                        )}
+                        ) : null}
                       </Pressable>
                     );
                   })}
