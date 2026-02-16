@@ -13927,20 +13927,50 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const month = parseInt(req.query.month as string) || new Date().getMonth() + 1;
       const year = parseInt(req.query.year as string) || new Date().getFullYear();
       
-      // Get all active contracts for this coach
       const contracts = await storage.getCoachContractsByCoach(coachId);
       const primaryContract = contracts[0];
       const currency = primaryContract?.currency || "AED";
       
-      // Get all sessions for the month
       const completedSessions = await storage.getCoachCompletedSessionsForMonth(coachId, month, year);
       
-      // Calculate breakdown using contracts
+      const allSessionIds = completedSessions.map(s => s.id).filter(Boolean) as string[];
+      const allSeriesIds = completedSessions.map(s => (s as any).seriesId).filter(Boolean) as string[];
+      
+      const [sessionPlayersData, seriesPlayersData] = await Promise.all([
+        storage.getSessionPlayersBatch(allSessionIds),
+        storage.getSeriesPlayersBatch(allSeriesIds)
+      ]);
+      
+      const sessionPlayersMap = new Map<string, number>();
+      for (const sp of sessionPlayersData) {
+        const count = sessionPlayersMap.get(sp.sessionId) || 0;
+        sessionPlayersMap.set(sp.sessionId, count + 1);
+      }
+      const seriesPlayersMap = new Map<string, number>();
+      for (const sp of seriesPlayersData) {
+        if (sp.status === "active") {
+          const count = seriesPlayersMap.get(sp.seriesId) || 0;
+          seriesPlayersMap.set(sp.seriesId, count + 1);
+        }
+      }
+      const pricingCache = new Map<string, any>();
+      const getPricingCached = async (academyId: string, sessionType: string) => {
+        const key = `${academyId}_${sessionType}`;
+        if (!pricingCache.has(key)) {
+          pricingCache.set(key, await storage.getAcademyPricingByType(academyId, sessionType));
+        }
+        return pricingCache.get(key);
+      };
+      const cachedData = { sessionPlayersMap, seriesPlayersMap, getPricing: getPricingCached };
+      
+      const earnings = await Promise.all(
+        completedSessions.map(session => calculateSessionEarning(session, coachId, contracts, cachedData).then(e => ({ session, earning: e })))
+      );
+      
       const breakdown = [];
       const totalsByCurrency: Record<string, { amount: number; sessions: number }> = {};
       
-      for (const session of completedSessions) {
-        const earning = await calculateSessionEarning(session, coachId, contracts);
+      for (const { session, earning } of earnings) {
         breakdown.push({
           id: session.id,
           date: session.startTime,
@@ -13958,13 +13988,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         totalsByCurrency[earning.currency].sessions += 1;
       }
       
-      // Use primary contract currency for summary display
       const currencyData = totalsByCurrency[currency] || { amount: 0, sessions: 0 };
       const totalEarned = currencyData.amount;
       const sessionsInCurrency = currencyData.sessions;
       const avgPerLesson = sessionsInCurrency > 0 ? totalEarned / sessionsInCurrency : 0;
       
-      // Build payment rule display for the breakdown page
       let paymentRuleDisplay: { type: string; hourlyRate?: string; percentageRate?: string; currency: string; isDefault: boolean };
       if (primaryContract) {
         paymentRuleDisplay = {
@@ -13983,7 +14011,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
         paymentRuleDisplay = { type: "hourly", hourlyRate: "150", currency: "AED", isDefault: true };
       }
       
-      // Check for other currencies
       const otherCurrencies = Object.keys(totalsByCurrency).filter(c => c !== currency);
       
       res.json({
@@ -13995,11 +14022,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           currency,
         },
         paymentRule: paymentRuleDisplay,
-        period: {
-          month,
-          year,
-        },
-        // Include multi-currency breakdown when applicable
+        period: { month, year },
         ...(otherCurrencies.length > 0 ? {
           multiCurrencyBreakdown: Object.fromEntries(
             Object.entries(totalsByCurrency).map(([cur, data]) => [cur, { amount: data.amount.toFixed(2), sessions: data.sessions }])
@@ -14020,27 +14043,63 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "Coach ID required" });
       }
       
-      // Get all active contracts for this coach
       const contracts = await storage.getCoachContractsByCoach(coachId);
       const primaryContract = contracts[0];
       const currency = primaryContract?.currency || "AED";
       
-      // Get last 6 months of history
-      const history = [];
-      const dateParam = req.query.date as string | undefined;
-      const now = dateParam ? new Date(dateParam) : new Date(); const DUBAI_OFFSET = 4; const dubaiNow = new Date(now.getTime() + DUBAI_OFFSET * 60 * 60 * 1000);
+      const now = new Date();
       
-      for (let i = 0; i < 6; i++) {
+      const months = Array.from({ length: 6 }, (_, i) => {
         const date = new Date(now.getFullYear(), now.getMonth() - i, 1);
-        const month = date.getMonth() + 1;
-        const year = date.getFullYear();
+        return { month: date.getMonth() + 1, year: date.getFullYear(), date };
+      });
+      
+      const allMonthSessions = await Promise.all(
+        months.map(m => storage.getCoachCompletedSessionsForMonth(coachId, m.month, m.year))
+      );
+      
+      const allSessions = allMonthSessions.flat();
+      const allSessionIds = allSessions.map(s => s.id).filter(Boolean) as string[];
+      const allSeriesIds = allSessions.map(s => (s as any).seriesId).filter(Boolean) as string[];
+      
+      const [sessionPlayersData, seriesPlayersData] = await Promise.all([
+        allSessionIds.length > 0 ? storage.getSessionPlayersBatch(allSessionIds) : Promise.resolve([]),
+        allSeriesIds.length > 0 ? storage.getSeriesPlayersBatch(allSeriesIds) : Promise.resolve([])
+      ]);
+      
+      const sessionPlayersMap = new Map<string, number>();
+      for (const sp of sessionPlayersData) {
+        const count = sessionPlayersMap.get(sp.sessionId) || 0;
+        sessionPlayersMap.set(sp.sessionId, count + 1);
+      }
+      const seriesPlayersMap = new Map<string, number>();
+      for (const sp of seriesPlayersData) {
+        if (sp.status === "active") {
+          const count = seriesPlayersMap.get(sp.seriesId) || 0;
+          seriesPlayersMap.set(sp.seriesId, count + 1);
+        }
+      }
+      const pricingCache = new Map<string, any>();
+      const getPricingCached = async (academyId: string, sessionType: string) => {
+        const key = `${academyId}_${sessionType}`;
+        if (!pricingCache.has(key)) {
+          pricingCache.set(key, await storage.getAcademyPricingByType(academyId, sessionType));
+        }
+        return pricingCache.get(key);
+      };
+      const cachedData = { sessionPlayersMap, seriesPlayersMap, getPricing: getPricingCached };
+      
+      const history = [];
+      for (let i = 0; i < months.length; i++) {
+        const { month, year, date } = months[i];
+        const sessions = allMonthSessions[i];
         
-        const sessions = await storage.getCoachCompletedSessionsForMonth(coachId, month, year);
+        const earnings = await Promise.all(
+          sessions.map(session => calculateSessionEarning(session, coachId, contracts, cachedData))
+        );
         
-        // Group by currency for proper multi-currency handling
         const earnedByCurrency: Record<string, { amount: number; sessions: number }> = {};
-        for (const session of sessions) {
-          const earning = await calculateSessionEarning(session, coachId, contracts);
+        for (const earning of earnings) {
           if (!earnedByCurrency[earning.currency]) {
             earnedByCurrency[earning.currency] = { amount: 0, sessions: 0 };
           }
@@ -14048,13 +14107,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
           earnedByCurrency[earning.currency].sessions += 1;
         }
         
-        // Use primary contract currency data for display
         const currencyData = earnedByCurrency[currency] || { amount: 0, sessions: 0 };
         const totalEarned = currencyData.amount;
         const sessionsInCurrency = currencyData.sessions;
         const avgPerLesson = sessionsInCurrency > 0 ? totalEarned / sessionsInCurrency : 0;
         
-        // Check for other currencies
         const otherCurrencies = Object.keys(earnedByCurrency).filter(c => c !== currency);
         
         history.push({
@@ -14065,7 +14122,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
           totalSessions: sessionsInCurrency,
           avgPerLesson: avgPerLesson.toFixed(2),
           currency,
-          // Include multi-currency breakdown when applicable
           ...(otherCurrencies.length > 0 ? {
             multiCurrencyBreakdown: Object.fromEntries(
               Object.entries(earnedByCurrency).map(([cur, data]) => [cur, { amount: data.amount.toFixed(2), sessions: data.sessions }])
