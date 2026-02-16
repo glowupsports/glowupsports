@@ -83,6 +83,30 @@ The application utilizes a dark-themed gaming aesthetic, incorporating neon gree
 All player data, coaches, sessions, academies, and other entities are stored in the Supabase database.
 The `execute_sql_tool` in Replit connects to Replit's database, NOT Supabase - always use API endpoints instead.
 
+## Route Modularization
+The monolithic `server/routes.ts` (originally 37,500+ lines) has been modularized. Extracted route files use Express Router pattern (see `server/shop-routes.ts` as reference). All extracted routers are mounted with `app.use()` in routes.ts.
+
+**Extracted route files:**
+- `server/routes/social-features.ts` - Social posts, reactions, comments, community groups (1,100 lines)
+- `server/routes/player-chat.ts` - Player chat conversations & messaging (392 lines)
+- `server/routes/coach-earnings.ts` - Coach earnings summary, breakdown, analytics (1,044 lines)
+- `server/routes/player-booking.ts` - Booking system, court management, open matches (4,373 lines)
+- `server/routes/player-social.ts` - Quests, badges, titles, friend connections, spotlight (3,151 lines)
+- `server/routes/glow-leveling.ts` - Glow leveling OS
+- `server/routes/session-plans.ts` - Session plans
+- `server/routes/match-logs.ts` - Match logging
+- `server/routes/skill-evidence.ts` - Skill evidence capture
+- `server/routes/level-up-events.ts` - Level-up events
+- `server/routes/coach-calibration.ts` - Coach calibration
+- `server/routes/parent-dashboard.ts` - Parent dashboard
+- `server/routes/adult-glow-rank.ts` - Adult DSS rating
+- `server/routes/lesson-groups.ts` - Lesson groups
+- `server/routes/match-intelligence.ts` - Match intelligence
+- `server/routes/player-level.ts` - Player XP level system
+- `server/routes/role-messages.ts` - Role-specific messages
+- `server/shop-routes.ts` - Shop system (788 lines)
+- `server/marketplace-routes.ts` - Community marketplace
+
 ## External Dependencies
 
 - **Database**: Supabase PostgreSQL (via Drizzle ORM) - ONLY database used
