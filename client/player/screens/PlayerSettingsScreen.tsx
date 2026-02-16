@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from "react";
-import { View, Text, StyleSheet, ScrollView, Pressable, Switch, Alert, Platform, ActivityIndicator } from "react-native";
+import { View, Text, StyleSheet, ScrollView, Pressable, Switch, Alert, Platform, ActivityIndicator, Linking } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import * as Haptics from "expo-haptics";
+import Constants from "expo-constants";
 import { Colors, Backgrounds, Spacing, Typography, BorderRadius, CardStyles, GlowColors } from "@/constants/theme";
 import { useAuth } from "@/coach/context/AuthContext";
 import { apiRequest, getApiUrl } from "@/lib/query-client";
@@ -57,6 +58,9 @@ export default function PlayerSettingsScreen() {
   const [messageLanguage, setMessageLanguage] = useState<"player" | "coach" | "parent">("player");
   const [debugInfo, setDebugInfo] = useState<PushDebugInfo | null>(null);
   const [debugLoading, setDebugLoading] = useState(false);
+  const [deleteLoading, setDeleteLoading] = useState(false);
+
+  const appVersion = Constants.expoConfig?.version || "1.3.1";
 
   const showAlert = (title: string, message: string) => {
     if (Platform.OS === "web") {
@@ -155,6 +159,40 @@ export default function PlayerSettingsScreen() {
     }
   };
 
+  const handleDeleteAccount = async () => {
+    const confirmDelete = () => {
+      setDeleteLoading(true);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+      apiRequest("POST", "/api/delete-account-request", {})
+        .then(() => {
+          showAlert(
+            "Account Deletion Requested",
+            "We've received your request. Your account will be deleted within 30 days. You'll receive a confirmation email. You can continue using the app until then."
+          );
+        })
+        .catch((error: any) => {
+          showAlert("Error", error?.message || "Failed to submit deletion request. Please contact support@glowupsports.com");
+        })
+        .finally(() => setDeleteLoading(false));
+    };
+
+    if (Platform.OS === "web") {
+      const confirmed = window.confirm(
+        "Are you sure you want to delete your account?\n\nThis action cannot be undone. All your data, progress, XP, and match history will be permanently removed within 30 days."
+      );
+      if (confirmed) confirmDelete();
+    } else {
+      Alert.alert(
+        "Delete Account",
+        "Are you sure you want to delete your account?\n\nThis action cannot be undone. All your data, progress, XP, and match history will be permanently removed within 30 days.",
+        [
+          { text: "Cancel", style: "cancel" },
+          { text: "Delete My Account", style: "destructive", onPress: confirmDelete },
+        ]
+      );
+    }
+  };
+
   const notificationSettings: SettingItem[] = [
     {
       id: "notifications",
@@ -245,6 +283,23 @@ export default function PlayerSettingsScreen() {
       icon: "information-circle",
       label: "About Glow Up Tennis",
       type: "link",
+    },
+  ];
+
+  const legalSettings: SettingItem[] = [
+    {
+      id: "privacy-policy",
+      icon: "document-text",
+      label: "Privacy Policy",
+      type: "link",
+      onPress: () => Linking.openURL("https://glowupsports.com/privacy"),
+    },
+    {
+      id: "terms-of-service",
+      icon: "reader",
+      label: "Terms of Service",
+      type: "link",
+      onPress: () => Linking.openURL("https://glowupsports.com/terms"),
     },
   ];
 
@@ -342,6 +397,13 @@ export default function PlayerSettingsScreen() {
         </View>
 
         <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Legal</Text>
+          <View style={styles.sectionCard}>
+            {legalSettings.map(renderSettingItem)}
+          </View>
+        </View>
+
+        <View style={styles.section}>
           <Text style={styles.sectionTitle}>App</Text>
           <View style={styles.sectionCard}>
             <View style={styles.settingItem}>
@@ -349,9 +411,27 @@ export default function PlayerSettingsScreen() {
                 <Ionicons name="code" size={20} color={Colors.dark.xpCyan} />
               </View>
               <Text style={styles.settingLabel}>Version</Text>
-              <Text style={styles.settingValue}>1.0.0</Text>
+              <Text style={styles.settingValue}>{appVersion}</Text>
             </View>
           </View>
+        </View>
+
+        <View style={styles.section}>
+          <Text style={[styles.sectionTitle, { color: Colors.dark.error }]}>Danger Zone</Text>
+          <Pressable
+            style={styles.deleteAccountButton}
+            onPress={handleDeleteAccount}
+            disabled={deleteLoading}
+          >
+            {deleteLoading ? (
+              <ActivityIndicator size="small" color={Colors.dark.error} />
+            ) : (
+              <>
+                <Ionicons name="trash-outline" size={20} color={Colors.dark.error} />
+                <Text style={styles.deleteAccountText}>Delete My Account</Text>
+              </>
+            )}
+          </Pressable>
         </View>
 
         <View style={styles.section}>
@@ -676,6 +756,22 @@ const styles = StyleSheet.create({
   devToolsButtonText: {
     ...Typography.body,
     color: "#E67E22",
+    fontWeight: "600",
+  },
+  deleteAccountButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: Spacing.sm,
+    padding: Spacing.lg,
+    backgroundColor: "rgba(255, 76, 77, 0.08)",
+    borderRadius: BorderRadius.md,
+    borderWidth: 1,
+    borderColor: "rgba(255, 76, 77, 0.25)",
+  },
+  deleteAccountText: {
+    ...Typography.body,
+    color: Colors.dark.error,
     fontWeight: "600",
   },
   logoutButton: {

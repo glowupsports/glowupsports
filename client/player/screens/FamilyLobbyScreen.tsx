@@ -107,9 +107,9 @@ function ChildCard({ member, onPress, index }: ChildCardProps) {
             <View style={[styles.ballBadge, { backgroundColor: getBallColor(member.ballLevel) }]}>
               <Ionicons name="tennisball" size={12} color={Colors.dark.backgroundRoot} />
             </View>
-            {lastActiveText === "Online now" && (
+            {lastActiveText === "Online now" ? (
               <View style={styles.onlineIndicator} />
-            )}
+            ) : null}
           </View>
 
           <Text style={styles.childName} numberOfLines={1}>{member.name}</Text>
@@ -135,18 +135,18 @@ function ChildCard({ member, onPress, index }: ChildCardProps) {
             <Text style={styles.sessionText}>{formatNextSession(member.nextSession)}</Text>
           </View>
 
-          {lastActiveText && lastActiveText !== "Online now" && (
+          {lastActiveText && lastActiveText !== "Online now" ? (
             <Text style={styles.lastActiveText}>{lastActiveText}</Text>
-          )}
+          ) : null}
 
-          {hasOutstanding && (
+          {hasOutstanding ? (
             <View style={styles.outstandingBadge}>
               <Ionicons name="alert-circle" size={12} color={Colors.dark.gold} />
               <Text style={styles.outstandingText}>
                 {member.outstandingBalance.toFixed(2)} open
               </Text>
             </View>
-          )}
+          ) : null}
 
           <View style={styles.diveInButton}>
             <Text style={styles.diveInText}>Dive In</Text>
