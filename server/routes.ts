@@ -14291,16 +14291,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
         .sort((a, b) => b[1].earnings - a[1].earnings)
         .slice(0, 5);
 
-      const topPlayers = await Promise.all(
-        sortedPlayers.map(async ([playerId, data]) => {
-          let playerName = "Unknown Player";
-          try {
-            const user = await storage.getUser(playerId);
-            if (user) playerName = user.username || "Unknown Player";
-          } catch {}
-          return { playerId, playerName, earnings: Math.round(data.earnings), sessions: data.sessions };
-        })
-      );
+      const topPlayerIds = sortedPlayers.map(([pid]) => pid);
+      const topPlayerRecords = topPlayerIds.length > 0 
+        ? await db.select({ id: players.id, name: players.name }).from(players).where(inArray(players.id, topPlayerIds))
+        : [];
+      const playerNameMap = new Map(topPlayerRecords.map(p => [p.id, p.name]));
+      const topPlayers = sortedPlayers.map(([playerId, data]) => ({
+        playerId,
+        playerName: playerNameMap.get(playerId) || "Unknown Player",
+        earnings: Math.round(data.earnings),
+        sessions: data.sessions,
+      }));
 
       const weekdayOrder = [1, 2, 3, 4, 5, 6, 0];
       const weekdayBreakdown = weekdayOrder.map(i => ({
