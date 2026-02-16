@@ -87,6 +87,8 @@ function ChildCard({ member, onPress, index }: ChildCardProps) {
           Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
           onPress();
         }}
+        accessibilityRole="button"
+        accessibilityLabel={`Open player profile for ${member.name}`}
       >
         <LinearGradient
           colors={[Colors.dark.backgroundSecondary, Colors.dark.backgroundDefault]}
@@ -185,6 +187,8 @@ function ParentalControlsCard({ member, onToggle }: { member: FamilyMember; onTo
           onValueChange={(val) => onToggle("chatEnabled", val)}
           trackColor={{ false: Colors.dark.backgroundSecondary, true: "#00E676" + "60" }}
           thumbColor={member.chatEnabled ? "#00E676" : Colors.dark.textMuted}
+          accessibilityRole="switch"
+          accessibilityLabel={`Toggle player-to-player chat for ${member.name}`}
         />
       </View>
       <View style={styles.controlRow}>
@@ -197,6 +201,8 @@ function ParentalControlsCard({ member, onToggle }: { member: FamilyMember; onTo
           onValueChange={(val) => onToggle("communityEnabled", val)}
           trackColor={{ false: Colors.dark.backgroundSecondary, true: "#00E676" + "60" }}
           thumbColor={member.communityEnabled ? "#00E676" : Colors.dark.textMuted}
+          accessibilityRole="switch"
+          accessibilityLabel={`Toggle community posting for ${member.name}`}
         />
       </View>
     </View>
@@ -301,6 +307,8 @@ export default function FamilyLobbyScreen() {
         <Pressable 
           style={{ marginTop: Spacing.lg, paddingHorizontal: Spacing.xl, paddingVertical: Spacing.md, backgroundColor: Colors.dark.primary, borderRadius: BorderRadius.medium }}
           onPress={() => navigation.goBack()}
+          accessibilityRole="button"
+          accessibilityLabel="Go back"
         >
           <Text style={{ color: Colors.dark.textPrimary, fontSize: FontSizes.md, fontWeight: "600" }}>Go Back</Text>
         </Pressable>
@@ -324,6 +332,8 @@ export default function FamilyLobbyScreen() {
             style={styles.payAllCard}
             onPress={handlePayAll}
             disabled={payAllMutation.isPending}
+            accessibilityRole="button"
+            accessibilityLabel={`Pay all outstanding balances totaling ${familyData.outstandingTotal.toFixed(2)}`}
           >
             <LinearGradient
               colors={[Colors.dark.gold + "20", Colors.dark.gold + "10"]}
@@ -368,6 +378,8 @@ export default function FamilyLobbyScreen() {
             Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
             setShowControls(true);
           }}
+          accessibilityRole="button"
+          accessibilityLabel="Open parental controls"
         >
           <Ionicons name="shield-checkmark" size={20} color="#00BCD4" />
           <Text style={styles.parentalControlsText}>Parental Controls</Text>
@@ -403,7 +415,7 @@ export default function FamilyLobbyScreen() {
                 <Ionicons name="shield-checkmark" size={24} color="#00BCD4" />
                 <Text style={styles.modalTitle}>Parental Controls</Text>
               </View>
-              <Pressable onPress={() => setShowControls(false)}>
+              <Pressable onPress={() => setShowControls(false)} accessibilityRole="button" accessibilityLabel="Close parental controls">
                 <Ionicons name="close-circle" size={28} color={Colors.dark.textMuted} />
               </Pressable>
             </View>

@@ -385,6 +385,7 @@ function PlayerHomeContent() {
                 navigation.navigate("PlayerNotifications");
               }}
               unreadNotificationCount={unreadCount}
+              accessibilityLabel={`Player card for ${player.name}, Level ${player.level}, ${player.xp} XP`}
             />
           </View>
         </CoachMarkTarget>
@@ -408,6 +409,7 @@ function PlayerHomeContent() {
         <SpotlightCard
           onNominate={() => setShowSpotlightNomination(true)}
           onViewDetails={() => navigation.navigate("SpotlightDetail" as never)}
+          accessibilityLabel="Player spotlight card"
         />
 
         {/* DISCOVERY SECTION - Horizontal scrolling rows */}

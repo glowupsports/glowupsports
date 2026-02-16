@@ -309,6 +309,8 @@ export default function PlayerSettingsScreen() {
       style={styles.settingItem}
       onPress={item.onPress}
       disabled={item.type === "toggle"}
+      accessibilityRole={item.type === "toggle" ? undefined : "button"}
+      accessibilityLabel={item.type === "toggle" ? undefined : item.label}
     >
       <View style={styles.settingIcon}>
         <Ionicons name={item.icon as any} size={20} color={Colors.dark.xpCyan} />
@@ -320,6 +322,8 @@ export default function PlayerSettingsScreen() {
           onValueChange={item.onPress}
           trackColor={{ false: Colors.dark.backgroundTertiary, true: Colors.dark.primary }}
           thumbColor={Colors.dark.text}
+          accessibilityRole="switch"
+          accessibilityLabel={`Toggle ${item.label}`}
         />
       ) : (
         <Ionicons name="chevron-forward" size={20} color={Colors.dark.textMuted} />
@@ -330,7 +334,7 @@ export default function PlayerSettingsScreen() {
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
       <View style={styles.header}>
-        <Pressable onPress={() => navigation.goBack()} style={styles.backButton}>
+        <Pressable onPress={() => navigation.goBack()} style={styles.backButton} accessibilityRole="button" accessibilityLabel="Go back">
           <Ionicons name="chevron-back" size={24} color={Colors.dark.text} />
         </Pressable>
         <Text style={styles.headerTitle}>Settings</Text>
@@ -359,6 +363,8 @@ export default function PlayerSettingsScreen() {
                   Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
                   setMessageLanguage(option.id as "player" | "coach" | "parent");
                 }}
+                accessibilityRole="button"
+                accessibilityLabel={`Select ${option.label} message style`}
               >
                 <View style={styles.settingIcon}>
                   <Ionicons 
@@ -422,6 +428,8 @@ export default function PlayerSettingsScreen() {
             style={styles.deleteAccountButton}
             onPress={handleDeleteAccount}
             disabled={deleteLoading}
+            accessibilityRole="button"
+            accessibilityLabel="Delete my account"
           >
             {deleteLoading ? (
               <ActivityIndicator size="small" color={Colors.dark.error} />
@@ -499,6 +507,8 @@ export default function PlayerSettingsScreen() {
               style={[styles.devToolsButton, { backgroundColor: "rgba(0, 230, 118, 0.12)", borderColor: "rgba(0, 230, 118, 0.3)" }, reRegisterLoading && styles.devToolsButtonDisabled]}
               onPress={handleReRegister}
               disabled={reRegisterLoading}
+              accessibilityRole="button"
+              accessibilityLabel="Re-register push token"
             >
               {reRegisterLoading ? (
                 <ActivityIndicator size="small" color="#00E676" />
@@ -514,6 +524,8 @@ export default function PlayerSettingsScreen() {
               style={[styles.devToolsButton, testPushLoading && styles.devToolsButtonDisabled]}
               onPress={handleTestPushNotification}
               disabled={testPushLoading}
+              accessibilityRole="button"
+              accessibilityLabel="Test single notification"
             >
               {testPushLoading ? (
                 <ActivityIndicator size="small" color="#E67E22" />
@@ -529,6 +541,8 @@ export default function PlayerSettingsScreen() {
               style={[styles.devToolsButton, { backgroundColor: "rgba(255, 0, 128, 0.12)", borderColor: "rgba(255, 0, 128, 0.3)" }, testAllLoading && styles.devToolsButtonDisabled]}
               onPress={handleTestAllNotifications}
               disabled={testAllLoading}
+              accessibilityRole="button"
+              accessibilityLabel="Test all notification types"
             >
               {testAllLoading ? (
                 <ActivityIndicator size="small" color="#FF0080" />
@@ -544,6 +558,8 @@ export default function PlayerSettingsScreen() {
               style={[styles.devToolsButton, testFeedbackLoading && styles.devToolsButtonDisabled]}
               onPress={handleTestFeedback}
               disabled={testFeedbackLoading}
+              accessibilityRole="button"
+              accessibilityLabel="Simulate coach feedback"
             >
               {testFeedbackLoading ? (
                 <ActivityIndicator size="small" color="#E67E22" />
@@ -558,6 +574,8 @@ export default function PlayerSettingsScreen() {
             <Pressable
               style={[styles.devToolsButton, { backgroundColor: "rgba(0, 212, 255, 0.12)", borderColor: "rgba(0, 212, 255, 0.3)" }]}
               onPress={fetchDebugInfo}
+              accessibilityRole="button"
+              accessibilityLabel="Refresh debug info"
             >
               <Ionicons name="sync" size={20} color="#00D4FF" />
               <Text style={[styles.devToolsButtonText, { color: "#00D4FF" }]}>Refresh Debug Info</Text>
@@ -567,6 +585,8 @@ export default function PlayerSettingsScreen() {
 
         <Pressable 
           style={styles.logoutButton}
+          accessibilityRole="button"
+          accessibilityLabel="Sign out"
           onPress={() => {
             if (Platform.OS === "web") {
               const confirmed = window.confirm("Are you sure you want to sign out?");
