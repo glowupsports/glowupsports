@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useCallback, useEffect, useRef, ReactNode } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { getApiUrl, getAuthHeaders } from "@/lib/query-client";
+import { getApiUrl, getAuthHeaders, setActivePlayerOverride } from "@/lib/query-client";
 
 export interface FamilyMember {
   id: string;
@@ -55,8 +55,13 @@ export function FamilyProvider({ children, playerId }: FamilyProviderProps) {
 
   const setActivePlayer = useCallback((newPlayerId: string) => {
     setActivePlayerId(newPlayerId);
+    if (newPlayerId !== playerId) {
+      setActivePlayerOverride(newPlayerId);
+    } else {
+      setActivePlayerOverride(null);
+    }
     queryClient.clear();
-  }, [queryClient]);
+  }, [queryClient, playerId]);
 
   const refreshFamily = useCallback(async (): Promise<boolean> => {
     try {
@@ -90,12 +95,15 @@ export function FamilyProvider({ children, playerId }: FamilyProviderProps) {
       
       if (data.isFamily && data.family) {
         setFamilyData(data.family);
-        const currentMember = data.family.members.find((m: FamilyMember) => m.id === playerId);
-        if (currentMember) {
-          setActivePlayerId(currentMember.id);
-        } else if (data.family.members.length > 0) {
-          setActivePlayerId(data.family.members[0].id);
-        }
+        setActivePlayerId((prev) => {
+          if (prev && data.family.members.some((m: FamilyMember) => m.id === prev)) {
+            return prev;
+          }
+          const currentMember = data.family.members.find((m: FamilyMember) => m.id === playerId);
+          if (currentMember) return currentMember.id;
+          if (data.family.members.length > 0) return data.family.members[0].id;
+          return prev;
+        });
       } else {
         setFamilyData(null);
         if (playerId) {

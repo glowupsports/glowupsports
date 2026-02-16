@@ -7962,6 +7962,15 @@ export const storage = {
     return config?.value === true || (config?.value as any)?.enabled === true;
   },
   
+  async getPlayerEmail(playerId: string): Promise<string | null> {
+    const result = await db
+      .select({ email: players.email })
+      .from(players)
+      .where(eq(players.id, playerId))
+      .limit(1);
+    return result[0]?.email || null;
+  },
+
   async isUserAcademyOwner(userId: string, academyId: string): Promise<boolean> {
     // Check path 3 first (most common, simplest) - User's default academy with academy_owner role
     const defaultAcademyOwnership = await db

@@ -57,6 +57,16 @@ async function throwIfResNotOk(res: Response) {
   }
 }
 
+let _activePlayerOverride: string | null = null;
+
+export function setActivePlayerOverride(playerId: string | null) {
+  _activePlayerOverride = playerId;
+}
+
+export function getActivePlayerOverride(): string | null {
+  return _activePlayerOverride;
+}
+
 export function getAuthHeaders(): Record<string, string> {
   const headers: Record<string, string> = {};
   
@@ -68,6 +78,10 @@ export function getAuthHeaders(): Record<string, string> {
   const academyId = getCurrentAcademyId();
   if (academyId) {
     headers["X-Academy-Id"] = academyId;
+  }
+
+  if (_activePlayerOverride) {
+    headers["X-Active-Player-Id"] = _activePlayerOverride;
   }
   
   return headers;

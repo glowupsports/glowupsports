@@ -24,6 +24,7 @@ export interface UserStorageInterface {
   getUserById(id: string): Promise<{ id: string; email: string; role: string; academyId: string | null; coachId: string | null; playerId: string | null } | null>;
   isMaintenanceMode(): Promise<boolean>;
   isUserAcademyOwner(userId: string, academyId: string): Promise<boolean>;
+  getPlayerEmail(playerId: string): Promise<string | null>;
 }
 
 export interface PasswordValidationResult {
@@ -190,14 +191,30 @@ export async function authMiddlewareWithFreshData(req: AuthenticatedRequest, res
           }
         }
         
+        let effectivePlayerId = freshUser.playerId;
+        const requestedPlayerId = req.headers["x-active-player-id"] as string | undefined;
+        if (requestedPlayerId && requestedPlayerId !== freshUser.playerId && freshUser.playerId) {
+          try {
+            const parentEmail = await freshUserStorage.getPlayerEmail(freshUser.playerId);
+            if (parentEmail) {
+              const childEmail = await freshUserStorage.getPlayerEmail(requestedPlayerId);
+              if (childEmail === parentEmail) {
+                effectivePlayerId = requestedPlayerId;
+              }
+            }
+          } catch (familyErr) {
+            console.error("[Auth] Family player switch error:", familyErr);
+          }
+        }
+
         req.user = {
           userId: freshUser.id,
           email: freshUser.email,
           role: freshUser.role,
           academyId: freshUser.academyId,
           coachId: freshUser.coachId,
-          playerId: freshUser.playerId,
-          currentAcademyId: effectiveAcademyId, // The active academy context
+          playerId: effectivePlayerId,
+          currentAcademyId: effectiveAcademyId,
         };
         
         // Check maintenance mode for non-platform_owner users

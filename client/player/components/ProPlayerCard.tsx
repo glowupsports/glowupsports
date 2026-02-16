@@ -274,7 +274,6 @@ export function ProPlayerCard({
         </View>
       </View>
       
-      <View style={styles.bottomBorder} />
     </View>
   );
 }
