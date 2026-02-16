@@ -655,7 +655,7 @@ export default function CalendarScreen() {
   const [selectedLocationFilter, setSelectedLocationFilter] = useState<string | null>(null); // null = all locations
   const [selectedCourtFilter, setSelectedCourtFilter] = useState<string | null>(null); // null = all courts
   const [isExporting, setIsExporting] = useState(false);
-  const [headerCollapsed, setHeaderCollapsed] = useState(false); // Collapse DAY/WEEK/MONTH and court filters
+  const [showFilterOverlay, setShowFilterOverlay] = useState(false);
   const [selectionMode, setSelectionMode] = useState(false);
   const [selectedCells, setSelectedCells] = useState<Array<{ courtId: string; courtName: string; hour: number }>>([]);
   const [selectionStart, setSelectionStart] = useState<{ courtIndex: number; hour: number } | null>(null);
@@ -1776,7 +1776,7 @@ export default function CalendarScreen() {
                 style={styles.headerBookButtonGradient}
               >
                 <Ionicons name="add" size={18} color={Colors.dark.backgroundRoot} />
-                <Text style={styles.headerBookButtonText}>Book Court</Text>
+                <Text style={styles.headerBookButtonText}>Book</Text>
               </LinearGradient>
             </Pressable>
             <Pressable
@@ -1787,11 +1787,7 @@ export default function CalendarScreen() {
               {isExporting ? (
                 <ActivityIndicator size="small" color={Colors.dark.primary} />
               ) : (
-                <Ionicons
-                  name="download-outline"
-                  size={18}
-                  color={Colors.dark.primary}
-                />
+                <Ionicons name="download-outline" size={16} color={Colors.dark.primary} />
               )}
             </Pressable>
             {viewMode === "day" && dayMode === "slots" && lastMove ? (
@@ -1799,77 +1795,46 @@ export default function CalendarScreen() {
                 style={[styles.toggleButton, styles.undoButton]}
                 onPress={undoLastMove}
               >
-                <Ionicons
-                  name="arrow-undo-outline"
-                  size={18}
-                  color={Colors.dark.gold}
-                />
+                <Ionicons name="arrow-undo-outline" size={16} color={Colors.dark.gold} />
               </Pressable>
             ) : null}
           </View></CoachMarkTarget>
-          {viewMode === "day" && dayMode === "slots" && (
-            <View style={styles.headerSecondRow}>
+          <View style={styles.headerActions}>
+            {viewMode === "day" && dayMode === "slots" ? (
+              <>
+                <Pressable
+                  style={[styles.toggleButton, focusMode && styles.toggleActive]}
+                  onPress={() => setFocusMode(!focusMode)}
+                >
+                  <Ionicons name="eye-outline" size={16} color={focusMode ? Colors.dark.backgroundRoot : Colors.dark.text} />
+                </Pressable>
+                <Pressable
+                  style={styles.gridToggle}
+                  onPress={() => setTimeGrid(timeGrid === 30 ? 60 : 30)}
+                >
+                  <Text style={styles.gridToggleText}>{timeGrid}m</Text>
+                </Pressable>
+              </>
+            ) : null}
+            {viewMode === "day" && dayMode === "slots" && (allLocations.length > 0 || allCourts.length > 1) ? (
               <Pressable
-                style={[styles.toggleButton, focusMode && styles.toggleActive]}
-                onPress={() => setFocusMode(!focusMode)}
+                style={styles.toggleButton}
+                onPress={() => {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  setShowFilterOverlay(true);
+                }}
               >
-                <Ionicons
-                  name="eye-outline"
-                  size={18}
-                  color={focusMode ? Colors.dark.backgroundRoot : Colors.dark.text}
-                />
+                <Ionicons name="funnel-outline" size={16} color={Colors.dark.primary} />
+                {(selectedLocationFilter || selectedCourtFilter) ? <View style={styles.filterDot} /> : null}
               </Pressable>
-              <Pressable
-                style={styles.gridToggle}
-                onPress={() => setTimeGrid(timeGrid === 30 ? 60 : 30)}
-              >
-                <Text style={styles.gridToggleText}>{timeGrid}m</Text>
-              </Pressable>
-            </View>
-          )}
-          {viewMode === "day" && (
-            <View style={styles.weekModeToggle}>
-              <Pressable
-                style={[styles.weekModeButton, dayMode === "overview" && styles.weekModeButtonActive]}
-                onPress={() => setDayMode("overview")}
-              >
-                <Ionicons name="list-outline" size={14} color={dayMode === "overview" ? Colors.dark.backgroundRoot : Colors.dark.text} />
-                <Text style={[styles.weekModeText, dayMode === "overview" && styles.weekModeTextActive]}>Overview</Text>
-              </Pressable>
-              <Pressable
-                style={[styles.weekModeButton, dayMode === "slots" && styles.weekModeButtonActive]}
-                onPress={() => setDayMode("slots")}
-              >
-                <Ionicons name="grid-outline" size={14} color={dayMode === "slots" ? Colors.dark.backgroundRoot : Colors.dark.text} />
-                <Text style={[styles.weekModeText, dayMode === "slots" && styles.weekModeTextActive]}>Slots</Text>
-              </Pressable>
-            </View>
-          )}
-          {viewMode === "week" && (
-            <View style={styles.weekModeToggle}>
-              <Pressable
-                style={[styles.weekModeButton, weekMode === "overview" && styles.weekModeButtonActive]}
-                onPress={() => setWeekMode("overview")}
-              >
-                <Ionicons name="analytics-outline" size={14} color={weekMode === "overview" ? Colors.dark.backgroundRoot : Colors.dark.text} />
-                <Text style={[styles.weekModeText, weekMode === "overview" && styles.weekModeTextActive]}>Overview</Text>
-              </Pressable>
-              <Pressable
-                style={[styles.weekModeButton, weekMode === "availability" && styles.weekModeButtonActive]}
-                onPress={() => setWeekMode("availability")}
-              >
-                <Ionicons name="time-outline" size={14} color={weekMode === "availability" ? Colors.dark.backgroundRoot : Colors.dark.text} />
-                <Text style={[styles.weekModeText, weekMode === "availability" && styles.weekModeTextActive]}>Slots</Text>
-              </Pressable>
-            </View>
-          )}
+            ) : null}
+          </View>
         </View>
 
-        {/* Date Navigation - Gaming Style - Tap to collapse/expand filters */}
         <CoachMarkTarget id="cal_date_nav">
-        <View style={styles.dateNavGaming}>
-          <Pressable 
-            style={styles.dateNavButtonGaming} 
+        <View style={styles.compactDateRow}>
+          <Pressable
+            style={styles.dateNavButtonGaming}
             onPress={() => {
               Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
               if (viewMode === "day") changeDate(-1);
@@ -1877,39 +1842,22 @@ export default function CalendarScreen() {
               else changeMonth(-1);
             }}
           >
-            <Ionicons name="chevron-back" size={22} color="#00D4FF" />
+            <Ionicons name="chevron-back" size={20} color="#00D4FF" />
           </Pressable>
-          <Pressable 
-            style={[styles.dateDisplayGaming, headerCollapsed && styles.dateDisplayCollapsed]} 
-            onPress={() => {
-              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-              setHeaderCollapsed(!headerCollapsed);
-            }}
-            onLongPress={goToToday}
-          >
+          <Pressable style={styles.dateDisplayCompact} onPress={goToToday}>
             <Text style={styles.dateTextGaming}>
               {viewMode === "day" && formatDate(selectedDate)}
               {viewMode === "week" && formatWeekRange(weekDates)}
               {viewMode === "month" && formatMonthYear(selectedDate)}
             </Text>
-            {selectedDate.toDateString() === new Date().toDateString() && viewMode === "day" && (
+            {selectedDate.toDateString() === new Date().toDateString() && viewMode === "day" ? (
               <View style={styles.todayBadgeGaming}>
                 <Text style={styles.todayBadgeTextGaming}>TODAY</Text>
               </View>
-            )}
-            <View style={[styles.collapseIndicator, headerCollapsed && styles.collapseIndicatorExpanded]}>
-              {headerCollapsed && (
-                <Text style={styles.collapseHintText}>TAP TO SHOW FILTERS</Text>
-              )}
-              <Ionicons 
-                name={headerCollapsed ? "chevron-down" : "chevron-up"} 
-                size={16} 
-                color={headerCollapsed ? "#00D4FF" : Colors.dark.textMuted} 
-              />
-            </View>
+            ) : null}
           </Pressable>
-          <Pressable 
-            style={styles.dateNavButtonGaming} 
+          <Pressable
+            style={styles.dateNavButtonGaming}
             onPress={() => {
               Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
               if (viewMode === "day") changeDate(1);
@@ -1917,45 +1865,62 @@ export default function CalendarScreen() {
               else changeMonth(1);
             }}
           >
-            <Ionicons name="chevron-forward" size={22} color="#00D4FF" />
+            <Ionicons name="chevron-forward" size={20} color="#00D4FF" />
           </Pressable>
-        </View>
-        </CoachMarkTarget>
 
-        {/* View Mode Toggle - Gaming Style - Collapsible */}
-        {!headerCollapsed && (
           <CoachMarkTarget id="cal_view_toggle">
-          <View style={styles.viewToggleGaming}>
+          <View style={styles.viewToggleCompact}>
             {(["day", "week", "month"] as const).map((mode) => (
               <Pressable
                 key={mode}
-                style={[styles.viewButtonGaming, viewMode === mode && styles.viewButtonGamingActive]}
+                style={[styles.viewButtonCompact, viewMode === mode && styles.viewButtonCompactActive]}
                 onPress={() => {
                   Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
                   setViewMode(mode);
                 }}
               >
-                {viewMode === mode ? (
-                  <LinearGradient
-                    colors={["#00D4FF", "#2ECC40"]}
-                    start={{ x: 0, y: 0 }}
-                    end={{ x: 1, y: 0 }}
-                    style={styles.viewButtonGamingGradient}
-                  >
-                    <Text style={styles.viewButtonTextGamingActive}>
-                      {mode.toUpperCase()}
-                    </Text>
-                  </LinearGradient>
-                ) : (
-                  <Text style={styles.viewButtonTextGaming}>
-                    {mode.toUpperCase()}
-                  </Text>
-                )}
+                <Text style={[styles.viewButtonTextCompact, viewMode === mode && styles.viewButtonTextCompactActive]}>
+                  {mode.charAt(0).toUpperCase()}
+                </Text>
               </Pressable>
             ))}
           </View>
           </CoachMarkTarget>
-        )}
+
+          {viewMode === "day" ? (
+            <View style={styles.viewToggleCompact}>
+              <Pressable
+                style={[styles.viewButtonCompact, dayMode === "overview" && styles.viewButtonCompactActive]}
+                onPress={() => setDayMode("overview")}
+              >
+                <Ionicons name="list-outline" size={12} color={dayMode === "overview" ? "#1A1A1A" : Colors.dark.textMuted} />
+              </Pressable>
+              <Pressable
+                style={[styles.viewButtonCompact, dayMode === "slots" && styles.viewButtonCompactActive]}
+                onPress={() => setDayMode("slots")}
+              >
+                <Ionicons name="grid-outline" size={12} color={dayMode === "slots" ? "#1A1A1A" : Colors.dark.textMuted} />
+              </Pressable>
+            </View>
+          ) : null}
+          {viewMode === "week" ? (
+            <View style={styles.viewToggleCompact}>
+              <Pressable
+                style={[styles.viewButtonCompact, weekMode === "overview" && styles.viewButtonCompactActive]}
+                onPress={() => setWeekMode("overview")}
+              >
+                <Ionicons name="analytics-outline" size={12} color={weekMode === "overview" ? "#1A1A1A" : Colors.dark.textMuted} />
+              </Pressable>
+              <Pressable
+                style={[styles.viewButtonCompact, weekMode === "availability" && styles.viewButtonCompactActive]}
+                onPress={() => setWeekMode("availability")}
+              >
+                <Ionicons name="time-outline" size={12} color={weekMode === "availability" ? "#1A1A1A" : Colors.dark.textMuted} />
+              </Pressable>
+            </View>
+          ) : null}
+        </View>
+        </CoachMarkTarget>
       </View>
 
       {/* DAY VIEW - OVERVIEW MODE (Compact Lesson List for selected date) */}
@@ -2042,102 +2007,66 @@ export default function CalendarScreen() {
       {/* DAY VIEW - SLOTS MODE */}
       {viewMode === "day" && dayMode === "slots" && (
         <>
-          {/* Location & Court Filters - Collapsible */}
-          {!headerCollapsed && (allLocations.length > 0 || allCourts.length > 1) && (
-            <View style={styles.filterSection}>
-              {/* Location Filter Row */}
-              {allLocations.length > 0 && (
-                <ScrollView 
-                  horizontal 
-                  showsHorizontalScrollIndicator={false}
-                  style={styles.locationFilterContainer}
-                  contentContainerStyle={styles.courtFilterContent}
-                >
-                  <Pressable
-                    style={[
-                      styles.locationFilterChip,
-                      !selectedLocationFilter && styles.locationFilterChipActive,
-                    ]}
-                    onPress={() => {
-                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                      setSelectedLocationFilter(null);
-                      setSelectedCourtFilter(null); // Reset court filter when changing location
-                    }}
-                  >
-                    <Ionicons name="location" size={12} color={!selectedLocationFilter ? Colors.dark.gold : Colors.dark.textMuted} style={{ marginRight: 4 }} />
-                    <Text style={[
-                      styles.locationFilterText,
-                      !selectedLocationFilter && styles.locationFilterTextActive,
-                    ]}>All Locations</Text>
+          <Modal visible={showFilterOverlay} transparent animationType="fade" onRequestClose={() => setShowFilterOverlay(false)}>
+            <Pressable style={styles.filterOverlayBackdrop} onPress={() => setShowFilterOverlay(false)}>
+              <View style={styles.filterOverlayContent} onStartShouldSetResponder={() => true}>
+                <View style={styles.filterOverlayHeader}>
+                  <Text style={styles.filterOverlayTitle}>FILTERS</Text>
+                  <Pressable onPress={() => setShowFilterOverlay(false)}>
+                    <Ionicons name="close" size={20} color={Colors.dark.text} />
                   </Pressable>
-                  {allLocations.map((location) => (
-                    <Pressable
-                      key={location.id}
-                      style={[
-                        styles.locationFilterChip,
-                        selectedLocationFilter === location.id && styles.locationFilterChipActive,
-                      ]}
-                      onPress={() => {
-                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                        setSelectedLocationFilter(location.id);
-                        setSelectedCourtFilter(null); // Reset court filter when changing location
-                      }}
-                    >
-                      <Ionicons name="location" size={12} color={selectedLocationFilter === location.id ? Colors.dark.gold : Colors.dark.textMuted} style={{ marginRight: 4 }} />
-                      <Text style={[
-                        styles.locationFilterText,
-                        selectedLocationFilter === location.id && styles.locationFilterTextActive,
-                      ]}>{location.name}</Text>
-                    </Pressable>
-                  ))}
-                </ScrollView>
-              )}
-              
-              {/* Court Filter Row */}
-              {locationFilteredCourts.length > 1 && (
-                <ScrollView 
-                  horizontal 
-                  showsHorizontalScrollIndicator={false}
-                  style={styles.courtFilterContainer}
-                  contentContainerStyle={styles.courtFilterContent}
-                >
-                  <Pressable
-                    style={[
-                      styles.courtFilterChip,
-                      !selectedCourtFilter && styles.courtFilterChipActive,
-                    ]}
-                    onPress={() => {
-                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                      setSelectedCourtFilter(null);
-                    }}
-                  >
-                    <Text style={[
-                      styles.courtFilterText,
-                      !selectedCourtFilter && styles.courtFilterTextActive,
-                    ]}>All Courts</Text>
-                  </Pressable>
-                  {locationFilteredCourts.map((court) => (
-                    <Pressable
-                      key={court.id}
-                      style={[
-                        styles.courtFilterChip,
-                        selectedCourtFilter === court.id && styles.courtFilterChipActive,
-                      ]}
-                      onPress={() => {
-                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                        setSelectedCourtFilter(court.id);
-                      }}
-                    >
-                      <Text style={[
-                        styles.courtFilterText,
-                        selectedCourtFilter === court.id && styles.courtFilterTextActive,
-                      ]}>{court.name}</Text>
-                    </Pressable>
-                  ))}
-                </ScrollView>
-              )}
-            </View>
-          )}
+                </View>
+
+                {allLocations.length > 0 ? (
+                  <>
+                    <Text style={styles.filterSectionLabel}>LOCATION</Text>
+                    <View style={styles.filterChipsWrap}>
+                      <Pressable
+                        style={[styles.locationFilterChip, !selectedLocationFilter && styles.locationFilterChipActive]}
+                        onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); setSelectedLocationFilter(null); setSelectedCourtFilter(null); }}
+                      >
+                        <Ionicons name="location" size={12} color={!selectedLocationFilter ? Colors.dark.gold : Colors.dark.textMuted} style={{ marginRight: 4 }} />
+                        <Text style={[styles.locationFilterText, !selectedLocationFilter && styles.locationFilterTextActive]}>All</Text>
+                      </Pressable>
+                      {allLocations.map((location) => (
+                        <Pressable
+                          key={location.id}
+                          style={[styles.locationFilterChip, selectedLocationFilter === location.id && styles.locationFilterChipActive]}
+                          onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); setSelectedLocationFilter(location.id); setSelectedCourtFilter(null); }}
+                        >
+                          <Ionicons name="location" size={12} color={selectedLocationFilter === location.id ? Colors.dark.gold : Colors.dark.textMuted} style={{ marginRight: 4 }} />
+                          <Text style={[styles.locationFilterText, selectedLocationFilter === location.id && styles.locationFilterTextActive]}>{location.name}</Text>
+                        </Pressable>
+                      ))}
+                    </View>
+                  </>
+                ) : null}
+
+                {locationFilteredCourts.length > 1 ? (
+                  <>
+                    <Text style={styles.filterSectionLabel}>COURT</Text>
+                    <View style={styles.filterChipsWrap}>
+                      <Pressable
+                        style={[styles.courtFilterChip, !selectedCourtFilter && styles.courtFilterChipActive]}
+                        onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); setSelectedCourtFilter(null); }}
+                      >
+                        <Text style={[styles.courtFilterText, !selectedCourtFilter && styles.courtFilterTextActive]}>All Courts</Text>
+                      </Pressable>
+                      {locationFilteredCourts.map((court) => (
+                        <Pressable
+                          key={court.id}
+                          style={[styles.courtFilterChip, selectedCourtFilter === court.id && styles.courtFilterChipActive]}
+                          onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); setSelectedCourtFilter(court.id); }}
+                        >
+                          <Text style={[styles.courtFilterText, selectedCourtFilter === court.id && styles.courtFilterTextActive]}>{court.name}</Text>
+                        </Pressable>
+                      ))}
+                    </View>
+                  </>
+                ) : null}
+              </View>
+            </Pressable>
+          </Modal>
 
           {/* Court Headers - Clean minimal style */}
           <CoachMarkTarget id="cal_court_grid">
@@ -3638,8 +3567,8 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    marginBottom: Spacing.xs,
-    paddingTop: Spacing.xs,
+    marginBottom: 2,
+    paddingTop: 4,
   },
   headerTitle: {
     fontSize: 14,
@@ -3653,8 +3582,8 @@ const styles = StyleSheet.create({
     gap: Spacing.sm,
   },
   toggleButton: {
-    width: 32,
-    height: 32,
+    width: 30,
+    height: 30,
     borderRadius: 6,
     backgroundColor: Colors.dark.primary + "15",
     justifyContent: "center",
@@ -3681,7 +3610,7 @@ const styles = StyleSheet.create({
   },
   gridToggle: {
     paddingHorizontal: Spacing.sm,
-    height: 32,
+    height: 30,
     borderRadius: 6,
     backgroundColor: Colors.dark.primary + "15",
     justifyContent: "center",
@@ -3854,7 +3783,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    marginBottom: Spacing.xs,
+    marginBottom: 0,
     gap: Spacing.xs,
   },
   dateNavButtonGaming: {
@@ -3955,15 +3884,104 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 4,
-    paddingHorizontal: 14,
-    paddingVertical: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
     borderRadius: 20,
   },
   headerBookButtonText: {
-    fontSize: 13,
+    fontSize: 11,
     fontWeight: "700",
     color: Colors.dark.backgroundRoot,
     letterSpacing: 0.5,
+  },
+  compactDateRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 4,
+    paddingBottom: 4,
+  },
+  dateDisplayCompact: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    gap: 6,
+  },
+  viewToggleCompact: {
+    flexDirection: "row",
+    backgroundColor: "rgba(15, 15, 20, 0.85)",
+    borderRadius: 8,
+    padding: 2,
+    borderWidth: 1,
+    borderColor: "rgba(0, 212, 255, 0.2)",
+  },
+  viewButtonCompact: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  viewButtonCompactActive: {
+    backgroundColor: "#00D4FF",
+  },
+  viewButtonTextCompact: {
+    fontSize: 11,
+    fontWeight: "700",
+    color: "rgba(255, 255, 255, 0.5)",
+  },
+  viewButtonTextCompactActive: {
+    color: "#1A1A1A",
+    fontWeight: "800",
+  },
+  filterDot: {
+    position: "absolute",
+    top: 4,
+    right: 4,
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: Colors.dark.gold,
+  },
+  filterOverlayBackdrop: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.6)",
+    justifyContent: "flex-start",
+    paddingTop: 120,
+  },
+  filterOverlayContent: {
+    marginHorizontal: 16,
+    backgroundColor: "rgba(20, 20, 28, 0.98)",
+    borderRadius: 16,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: "rgba(0, 212, 255, 0.25)",
+  },
+  filterOverlayHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 16,
+  },
+  filterOverlayTitle: {
+    fontSize: 14,
+    fontWeight: "800",
+    color: Colors.dark.text,
+    letterSpacing: 1.5,
+  },
+  filterSectionLabel: {
+    fontSize: 10,
+    fontWeight: "700",
+    color: Colors.dark.textMuted,
+    letterSpacing: 1,
+    marginBottom: 8,
+    marginTop: 12,
+  },
+  filterChipsWrap: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
   },
   courtHeaders: {
     flexDirection: "row",
