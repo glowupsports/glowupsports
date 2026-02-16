@@ -12,7 +12,6 @@ import { useTabNavigation } from "@/components/TabNavigationContext";
 import { ProPlayerCard } from "@/player/components/ProPlayerCard";
 import { PlayersNearYouRow, OpenSessionsRow, TrainingSessionsRow } from "@/player/components/DiscoveryRows";
 import { MiniFeed } from "@/player/components/MiniFeed";
-import { TrackingBanner } from "@/player/components/TrackingBanner";
 import { SessionHeroCard } from "@/player/components/SessionHeroCard";
 import { NewsTicker } from "@/player/components/NewsTicker";
 import { QuickServeFAB } from "@/player/components/QuickServeFAB";
