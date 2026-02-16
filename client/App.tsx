@@ -1,11 +1,27 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
-import { StyleSheet, View } from "react-native";
+import { StyleSheet, View, Platform } from "react-native";
 import { NavigationContainer, NavigationContainerRef, LinkingOptions } from "@react-navigation/native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { KeyboardProvider } from "react-native-keyboard-controller";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { StatusBar } from "expo-status-bar";
 import * as Linking from "expo-linking";
+import * as Sentry from "@sentry/react-native";
+
+const SENTRY_DSN = process.env.EXPO_PUBLIC_SENTRY_DSN || "";
+
+if (SENTRY_DSN) {
+  Sentry.init({
+    dsn: SENTRY_DSN,
+    enabled: !__DEV__,
+    tracesSampleRate: 0.2,
+    environment: __DEV__ ? "development" : "production",
+    beforeSend(event) {
+      if (__DEV__) return null;
+      return event;
+    },
+  });
+}
 
 import { QueryClientProvider } from "@tanstack/react-query";
 import { queryClient } from "@/lib/query-client";

@@ -1,12 +1,25 @@
 import express from "express";
 import type { Request, Response, NextFunction } from "express";
 import helmet from "helmet";
+import * as Sentry from "@sentry/node";
 import { registerRoutes } from "./routes";
 import * as fs from "fs";
 import * as path from "path";
 import { createProxyMiddleware } from "http-proxy-middleware";
 import { startReminderScheduler, startDailyTipScheduler, startAutoSessionCompletionScheduler, startMonthlyReportScheduler, startOnboardingEmailScheduler } from "./pushNotifications";
-// DB-SYNC removed - using single Supabase database for both dev and production
+
+if (process.env.SENTRY_DSN) {
+  Sentry.init({
+    dsn: process.env.SENTRY_DSN,
+    environment: process.env.NODE_ENV || "development",
+    tracesSampleRate: 0.2,
+    beforeSend(event) {
+      if (process.env.NODE_ENV === "development") return null;
+      return event;
+    },
+  });
+  console.log("[Sentry] Server-side error tracking initialized");
+}
 
 const app = express();
 app.set('trust proxy', 1);
@@ -357,9 +370,15 @@ function setupErrorHandler(app: express.Application) {
     const status = error.status || error.statusCode || 500;
     const message = error.message || "Internal Server Error";
 
+    if (process.env.SENTRY_DSN && status >= 500) {
+      Sentry.captureException(err);
+    }
+
     res.status(status).json({ message });
 
-    throw err;
+    if (status >= 500) {
+      console.error("[ServerError]", err);
+    }
   });
 }
 
