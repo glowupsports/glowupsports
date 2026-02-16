@@ -68,7 +68,7 @@ export function PlayersByLevelCard() {
     return (
       <View style={styles.card}>
         <LinearGradient
-          colors={["rgba(255, 255, 255, 0.06)", "rgba(255, 255, 255, 0.06)"Elevated]}
+          colors={["rgba(255, 255, 255, 0.06)", "rgba(255, 255, 255, 0.03)"]}
           style={styles.cardGradient}
         >
           <View style={styles.header}>
@@ -102,7 +102,7 @@ export function PlayersByLevelCard() {
         style={styles.cardGlow}
       />
       <LinearGradient
-        colors={["rgba(255, 255, 255, 0.06)", "rgba(255, 255, 255, 0.06)"Elevated]}
+        colors={["rgba(255, 255, 255, 0.06)", "rgba(255, 255, 255, 0.03)"]}
         style={styles.cardGradient}
       >
         <View style={styles.header}>
