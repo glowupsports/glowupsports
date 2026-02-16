@@ -45,6 +45,8 @@ interface ProPlayerCardProps {
   onWalletPress?: () => void;
   onSquadPress?: () => void;
   showSquadSwitch?: boolean;
+  onNotificationPress?: () => void;
+  unreadNotificationCount?: number;
 }
 
 function getPlayerTitle(level: number, streak: number, glowScore: number): string {
@@ -63,7 +65,9 @@ export function ProPlayerCard({
   onAvatarPress,
   onWalletPress,
   onSquadPress,
-  showSquadSwitch = false
+  showSquadSwitch = false,
+  onNotificationPress,
+  unreadNotificationCount = 0,
 }: ProPlayerCardProps) {
   const navigation = useNavigation<any>();
   const glowPulse = useSharedValue(0);
@@ -145,6 +149,18 @@ export function ProPlayerCard({
       )}
       
       <View style={styles.cardContent}>
+        {onNotificationPress ? (
+          <Pressable style={styles.notificationBell} onPress={onNotificationPress}>
+            <Ionicons name="notifications-outline" size={20} color={ProTennisColors.white} />
+            {unreadNotificationCount > 0 ? (
+              <View style={styles.bellBadge}>
+                <Text style={styles.bellBadgeText}>
+                  {unreadNotificationCount > 99 ? "99+" : unreadNotificationCount}
+                </Text>
+              </View>
+            ) : null}
+          </Pressable>
+        ) : null}
         <Pressable style={styles.avatarSection} onPress={handleAvatarPress}>
           <View style={styles.avatarWrapper}>
             <Animated.View style={[styles.glowRing, glowRingStyle]} />
@@ -464,6 +480,35 @@ const styles = StyleSheet.create({
     alignItems: "center",
     borderWidth: 1,
     borderColor: ProTennisColors.neonCyan + "40",
+  },
+  notificationBell: {
+    position: "absolute",
+    top: Spacing.sm,
+    right: Spacing.sm,
+    width: 36,
+    height: 36,
+    justifyContent: "center",
+    alignItems: "center",
+    zIndex: 10,
+  },
+  bellBadge: {
+    position: "absolute",
+    top: 2,
+    right: 0,
+    backgroundColor: "#FF3B30",
+    borderRadius: 10,
+    minWidth: 16,
+    height: 16,
+    justifyContent: "center",
+    alignItems: "center",
+    paddingHorizontal: 3,
+    borderWidth: 1.5,
+    borderColor: ProTennisColors.surfaceDark,
+  },
+  bellBadgeText: {
+    fontSize: 9,
+    fontWeight: "800",
+    color: "#FFFFFF",
   },
   bottomBorder: {
     height: 2,

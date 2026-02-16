@@ -330,23 +330,6 @@ function PlayerHomeContent() {
     <View style={styles.container}>
       <BroadcastBackground />
 
-      <View style={[styles.headerIconsRow, { top: insets.top + 8 }]}>
-        <Pressable 
-          style={styles.notificationBell}
-          onPress={() => {
-            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-            navigation.navigate("PlayerNotifications");
-          }}
-        >
-          <Ionicons name="notifications-outline" size={22} color={Colors.dark.text} />
-          {unreadCount > 0 ? (
-            <View style={styles.bellBadge}>
-              <Text style={styles.bellBadgeText}>{unreadCount > 99 ? "99+" : unreadCount}</Text>
-            </View>
-          ) : null}
-        </Pressable>
-      </View>
-      
       {isBirthday && <BirthdayConfettiOverlay />}
       
       <FeedbackToast />
@@ -398,6 +381,11 @@ function PlayerHomeContent() {
               onWalletPress={handleWalletPress}
               onSquadPress={handleSquadPress}
               showSquadSwitch={true}
+              onNotificationPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                navigation.navigate("PlayerNotifications");
+              }}
+              unreadNotificationCount={unreadCount}
             />
           </View>
         </CoachMarkTarget>
@@ -413,8 +401,6 @@ function PlayerHomeContent() {
           <SessionHeroCard onBookSession={handleBookLesson} />
         </CoachMarkTarget>
 
-        {/* TRACKING BANNER - Coach is watching */}
-        <TrackingBanner />
 
         {/* RECENT COACH FEEDBACK */}
         <RecentFeedbackCard />
@@ -549,38 +535,5 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.lg,
     marginBottom: -Spacing.sm,
     textTransform: "uppercase",
-  },
-  headerIconsRow: {
-    position: "absolute",
-    top: 0,
-    right: Spacing.lg,
-    zIndex: 100,
-    flexDirection: "row",
-    alignItems: "center",
-  },
-  notificationBell: {
-    width: 44,
-    height: 44,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  bellBadge: {
-    position: "absolute",
-    top: 4,
-    right: 2,
-    backgroundColor: "#FF3B30",
-    borderRadius: 10,
-    minWidth: 18,
-    height: 18,
-    justifyContent: "center",
-    alignItems: "center",
-    paddingHorizontal: 4,
-    borderWidth: 2,
-    borderColor: "rgba(255, 255, 255, 0.06)",
-  },
-  bellBadgeText: {
-    fontSize: 10,
-    fontWeight: "800",
-    color: "#FFFFFF",
   },
 });

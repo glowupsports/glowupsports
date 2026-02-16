@@ -9,6 +9,7 @@ import {
   Alert,
   Switch,
   Modal,
+  Platform,
 } from "react-native";
 import { useNavigation } from "@react-navigation/native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -250,26 +251,37 @@ export default function FamilyLobbyScreen() {
 
   const handleSelectChild = (member: FamilyMember) => {
     setActivePlayer(member.id);
-    navigation.reset({
-      index: 0,
-      routes: [{ name: "PlayerTabs" as never }],
-    });
+    setTimeout(() => {
+      navigation.reset({
+        index: 0,
+        routes: [{ name: "PlayerTabs" as never }],
+      });
+    }, 50);
   };
 
   const handlePayAll = () => {
     if (!familyData || familyData.outstandingTotal <= 0) return;
-    
-    Alert.alert(
-      "Pay All Balances",
-      `Pay all outstanding balances totaling ${familyData.outstandingTotal.toFixed(2)}?`,
-      [
-        { text: "Cancel", style: "cancel" },
-        { 
-          text: "Pay Now", 
-          onPress: () => payAllMutation.mutate(),
-        },
-      ]
-    );
+
+    if (Platform.OS === "web") {
+      const confirmed = window.confirm(
+        `Pay all outstanding balances totaling ${familyData.outstandingTotal.toFixed(2)}?`
+      );
+      if (confirmed) {
+        payAllMutation.mutate();
+      }
+    } else {
+      Alert.alert(
+        "Pay All Balances",
+        `Pay all outstanding balances totaling ${familyData.outstandingTotal.toFixed(2)}?`,
+        [
+          { text: "Cancel", style: "cancel" },
+          {
+            text: "Pay Now",
+            onPress: () => payAllMutation.mutate(),
+          },
+        ]
+      );
+    }
   };
 
   if (isLoading) {
@@ -350,17 +362,6 @@ export default function FamilyLobbyScreen() {
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        <View style={styles.cardsGrid}>
-          {familyData.members.map((member, index) => (
-            <ChildCard
-              key={member.id}
-              member={member}
-              onPress={() => handleSelectChild(member)}
-              index={index}
-            />
-          ))}
-        </View>
-
         <Pressable
           style={styles.parentalControlsButton}
           onPress={() => {
@@ -372,6 +373,17 @@ export default function FamilyLobbyScreen() {
           <Text style={styles.parentalControlsText}>Parental Controls</Text>
           <Ionicons name="chevron-forward" size={18} color={Colors.dark.textMuted} />
         </Pressable>
+
+        <View style={styles.cardsGrid}>
+          {familyData.members.map((member, index) => (
+            <ChildCard
+              key={member.id}
+              member={member}
+              onPress={() => handleSelectChild(member)}
+              index={index}
+            />
+          ))}
+        </View>
       </ScrollView>
 
       <View style={[styles.footer, { paddingBottom: insets.bottom + Spacing.md }]}>
@@ -654,7 +666,7 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(0,188,212,0.1)",
     borderRadius: BorderRadius.lg,
     padding: Spacing.md,
-    marginTop: Spacing.xl,
+    marginBottom: Spacing.lg,
     borderWidth: 1,
     borderColor: "rgba(0,188,212,0.2)",
   },

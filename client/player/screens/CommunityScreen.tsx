@@ -547,54 +547,7 @@ function AchievementShowcase({ onSelectAchievement }: { onSelectAchievement: (ac
     queryKey: ["/api/player/me/achievements"],
   });
   
-  const DEMO_ACHIEVEMENTS: Achievement[] = [
-    {
-      id: "demo-1",
-      type: "level_up",
-      title: "Level Up!",
-      description: "You reached Level 50 - Tennis Legend status unlocked!",
-      icon: "arrow-up-circle",
-      date: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(),
-      value: "Level 50",
-    },
-    {
-      id: "demo-2",
-      type: "match_won",
-      title: "Match Victory",
-      description: "Won 3 consecutive matches this week",
-      icon: "trophy",
-      date: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString(),
-      value: "3 Wins",
-    },
-    {
-      id: "demo-3",
-      type: "streak",
-      title: "Training Streak",
-      description: "7 days of consistent training - keep it up!",
-      icon: "flame",
-      date: new Date(Date.now() - 3 * 60 * 60 * 1000).toISOString(),
-      value: "7 Days",
-    },
-    {
-      id: "demo-4",
-      type: "badge",
-      title: "Technique Master",
-      description: "Achieved 70%+ in Technical skills assessment",
-      icon: "ribbon",
-      date: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString(),
-    },
-    {
-      id: "demo-5",
-      type: "rating_up",
-      title: "Rating Boost",
-      description: "Your Glow Rating increased by 125 points",
-      icon: "trending-up",
-      date: new Date(Date.now() - 12 * 60 * 60 * 1000).toISOString(),
-      value: "+125",
-    },
-  ];
-
-  const achievements = achievementsData?.achievements?.length ? achievementsData.achievements : DEMO_ACHIEVEMENTS;
+  const achievements = achievementsData?.achievements || [];
   
   const handleShare = async (achievement: Achievement) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
@@ -717,7 +670,7 @@ function AchievementShowcase({ onSelectAchievement }: { onSelectAchievement: (ac
           <Ionicons name="trophy-outline" size={48} color={Colors.dark.textMuted} />
           <ThemedText style={achievementStyles.emptyTitle}>No Achievements Yet</ThemedText>
           <ThemedText style={achievementStyles.emptyText}>
-            Start playing matches to earn achievements!
+            Complete sessions and earn achievements to see them here
           </ThemedText>
         </View>
       }

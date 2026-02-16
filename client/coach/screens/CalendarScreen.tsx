@@ -1867,7 +1867,10 @@ export default function CalendarScreen() {
           >
             <Ionicons name="chevron-forward" size={20} color="#00D4FF" />
           </Pressable>
+        </View>
+        </CoachMarkTarget>
 
+        <View style={styles.togglesRow}>
           <CoachMarkTarget id="cal_view_toggle">
           <View style={styles.viewToggleCompact}>
             {(["day", "week", "month"] as const).map((mode) => (
@@ -1920,7 +1923,6 @@ export default function CalendarScreen() {
             </View>
           ) : null}
         </View>
-        </CoachMarkTarget>
       </View>
 
       {/* DAY VIEW - OVERVIEW MODE (Compact Lesson List for selected date) */}
@@ -3899,6 +3901,13 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     gap: 4,
+    paddingBottom: 2,
+  },
+  togglesRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
     paddingBottom: 4,
   },
   dateDisplayCompact: {
