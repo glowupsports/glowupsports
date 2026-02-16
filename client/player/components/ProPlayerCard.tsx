@@ -149,18 +149,6 @@ export function ProPlayerCard({
       )}
       
       <View style={styles.cardContent}>
-        {onNotificationPress ? (
-          <Pressable style={styles.notificationBell} onPress={onNotificationPress}>
-            <Ionicons name="notifications-outline" size={20} color={ProTennisColors.white} />
-            {unreadNotificationCount > 0 ? (
-              <View style={styles.bellBadge}>
-                <Text style={styles.bellBadgeText}>
-                  {unreadNotificationCount > 99 ? "99+" : unreadNotificationCount}
-                </Text>
-              </View>
-            ) : null}
-          </Pressable>
-        ) : null}
         <Pressable style={styles.avatarSection} onPress={handleAvatarPress}>
           <View style={styles.avatarWrapper}>
             <Animated.View style={[styles.glowRing, glowRingStyle]} />
@@ -245,6 +233,18 @@ export function ProPlayerCard({
         </View>
 
         <View style={styles.lockerSection}>
+          {onNotificationPress ? (
+            <Pressable style={styles.notificationBtn} onPress={onNotificationPress}>
+              <Ionicons name="notifications" size={18} color={ProTennisColors.neonCyan} />
+              {unreadNotificationCount > 0 ? (
+                <View style={styles.bellBadge}>
+                  <Text style={styles.bellBadgeText}>
+                    {unreadNotificationCount > 99 ? "99+" : unreadNotificationCount}
+                  </Text>
+                </View>
+              ) : null}
+            </Pressable>
+          ) : null}
           <Pressable 
             style={[
               styles.walletButton,
@@ -266,11 +266,11 @@ export function ProPlayerCard({
             ]}>{credits?.total ?? 0}</Text>
           </Pressable>
           
-          {showSquadSwitch && (
+          {showSquadSwitch ? (
             <Pressable style={styles.squadButton} onPress={handleSquadPress}>
               <Ionicons name="people-outline" size={18} color={ProTennisColors.neonCyan} />
             </Pressable>
-          )}
+          ) : null}
         </View>
       </View>
       
@@ -481,20 +481,20 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: ProTennisColors.neonCyan + "40",
   },
-  notificationBell: {
-    position: "absolute",
-    top: Spacing.sm,
-    right: Spacing.sm,
+  notificationBtn: {
     width: 36,
     height: 36,
+    borderRadius: 18,
+    backgroundColor: ProTennisColors.neonCyan + "15",
     justifyContent: "center",
     alignItems: "center",
-    zIndex: 10,
+    borderWidth: 1,
+    borderColor: ProTennisColors.neonCyan + "30",
   },
   bellBadge: {
     position: "absolute",
-    top: 2,
-    right: 0,
+    top: -2,
+    right: -2,
     backgroundColor: "#FF3B30",
     borderRadius: 10,
     minWidth: 16,
