@@ -163,7 +163,7 @@ export default function PlayerSettingsScreen() {
     const confirmDelete = () => {
       setDeleteLoading(true);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
-      apiRequest("POST", "/api/delete-account-request", {})
+      apiRequest("POST", "/api/delete-account-request", { email: user?.email || "", name: user?.name || user?.username || "" })
         .then(() => {
           showAlert(
             "Account Deletion Requested",

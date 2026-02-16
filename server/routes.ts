@@ -35896,7 +35896,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // ==================== DELETE ACCOUNT REQUEST API ====================
   // Public endpoint - no auth required
-  app.post("/api/delete-account-request", async (req: Request, res: Response) => {
+  app.post("/api/delete-account-request", authLimiter, async (req: Request, res: Response) => {
     try {
       const { email, name, reason, comments } = req.body;
       
