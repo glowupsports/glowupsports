@@ -6894,12 +6894,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const playerId = req.user!.playerId;
       if (!playerId) return res.status(400).json({ error: "Player not found" });
       
-      const limit = parseInt(req.query.limit as string) || 50;
+      const limit = Math.min(parseInt(req.query.limit as string) || 50, 100);
+      const offset = parseInt(req.query.offset as string) || 0;
       const notifications = await db.select()
         .from(playerNotifications)
         .where(eq(playerNotifications.playerId, playerId))
         .orderBy(desc(playerNotifications.createdAt))
-        .limit(limit);
+        .limit(limit)
+        .offset(offset);
       
       res.json(notifications);
     } catch (error) {
