@@ -1,10 +1,11 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import { StyleSheet, View } from "react-native";
-import { NavigationContainer, NavigationContainerRef } from "@react-navigation/native";
+import { NavigationContainer, NavigationContainerRef, LinkingOptions } from "@react-navigation/native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { KeyboardProvider } from "react-native-keyboard-controller";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { StatusBar } from "expo-status-bar";
+import * as Linking from "expo-linking";
 
 import { QueryClientProvider } from "@tanstack/react-query";
 import { queryClient } from "@/lib/query-client";
@@ -25,6 +26,37 @@ import { TabNavigationProvider, useTabNavigation } from "@/components/TabNavigat
 import { CoachMarksProvider } from "@/components/CoachMarks";
 import { CelebrationProvider } from "@/contexts/CelebrationContext";
 
+const linking: LinkingOptions<any> = {
+  prefixes: [Linking.createURL("/"), "glowupsports://"],
+  config: {
+    screens: {
+      Player: {
+        path: "player",
+        screens: {
+          Home: "home",
+          Community: "community",
+          Schedule: "schedule",
+          Progress: "progress",
+          Profile: "profile",
+          PlayerNotifications: "notifications",
+          PlayerMessages: "messages",
+          Settings: "settings",
+          SpotlightDetail: "spotlight/:spotlightId",
+          MatchDetail: "match/:matchId",
+          PlayerPublicProfile: "player-profile/:playerId",
+          Shop: "shop",
+          FamilyLobby: "family",
+          News: "news",
+        },
+      },
+      Coach: {
+        path: "coach",
+      },
+      Login: "login",
+    },
+  },
+};
+
 function NavigationContainerWithRef() {
   const navigationRef = useRef<NavigationContainerRef<any>>(null);
   const { registerNavigation } = useTabNavigation();
@@ -37,7 +69,7 @@ function NavigationContainerWithRef() {
   }, [registerNavigation]);
   
   return (
-    <NavigationContainer ref={navigationRef} onReady={handleReady}>
+    <NavigationContainer ref={navigationRef} onReady={handleReady} linking={linking}>
       <RootStackNavigator />
     </NavigationContainer>
   );
