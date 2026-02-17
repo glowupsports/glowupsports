@@ -2469,7 +2469,20 @@ export default function CalendarScreen() {
                       const isToday = weekDates[dayIdx].toDateString() === new Date().toDateString();
 
                       return (
-                        <View key={dayIdx} style={[styles.weekCalCell, isToday && styles.weekCalCellToday]}>
+                        <Pressable
+                          key={dayIdx}
+                          style={[styles.weekCalCell, isToday && styles.weekCalCellToday]}
+                          onPress={() => {
+                            if (hourSessions.length === 0) {
+                              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                              const slotDate = weekDates[dayIdx];
+                              const slotTime = new Date(slotDate);
+                              slotTime.setHours(hour, 0, 0, 0);
+                              setSelectedSlot({ courtId: courts[0]?.id || "", time: slotTime });
+                              setShowCreateDrawer(true);
+                            }
+                          }}
+                        >
                           {hourSessions.map(session => {
                             const gradientColors = getSessionTypeGradient(session.sessionType);
                             const typeLabel = session.sessionType === "private" ? "PVT" :
@@ -2503,7 +2516,7 @@ export default function CalendarScreen() {
                               </Pressable>
                             );
                           })}
-                        </View>
+                        </Pressable>
                       );
                     })}
                   </View>

@@ -775,7 +775,7 @@ export function PremiumSessionWizard({
           onPress={() => setDontShowAgain(!dontShowAgain)}
         >
           <View style={[styles.skipCheckbox, dontShowAgain && styles.skipCheckboxChecked]}>
-            {dontShowAgain && <Ionicons name="checkmark" size={14} color="#FFFFFF" />}
+            {dontShowAgain ? <Ionicons name="checkmark" size={14} color="#FFFFFF" /> : null}
           </View>
           <Text style={styles.skipIntroText}>Don't show this intro again</Text>
         </Pressable>
@@ -831,11 +831,11 @@ export function PremiumSessionWizard({
                   </Text>
                   <Text style={styles.sessionTypeSubtitle}>{type.subtitle}</Text>
                 </View>
-                {sessionType === type.id && (
+                {sessionType === type.id ? (
                   <View style={[styles.sessionTypeCheck, { backgroundColor: type.color }]}>
                     <Ionicons name="checkmark" size={16} color="#FFFFFF" />
                   </View>
-                )}
+                ) : null}
               </Pressable>
             ))}
           </View>
@@ -939,7 +939,7 @@ export function PremiumSessionWizard({
           </Pressable>
         </View>
 
-        {isRecurring && (
+        {isRecurring ? (
           <Animated.View entering={FadeIn.duration(300)} style={styles.weekCountSection}>
             <Text style={styles.weekCountLabel}>Number of weeks</Text>
             <View style={styles.weekCountRow}>
@@ -968,9 +968,9 @@ export function PremiumSessionWizard({
               {weekCount} sessions total
             </Text>
           </Animated.View>
-        )}
+        ) : null}
         
-        {isFlexible && (
+        {isFlexible ? (
           <Animated.View entering={FadeIn.duration(300)} style={styles.flexibleSection}>
             <Text style={styles.weekCountLabel}>Select dates ({flexibleDates.length} selected)</Text>
             
@@ -1039,7 +1039,7 @@ export function PremiumSessionWizard({
               })}
             </View>
             
-            {flexibleDates.length > 0 && (
+            {flexibleDates.length > 0 ? (
               <View style={styles.flexibleSummary}>
                 <Text style={styles.flexibleSummaryLabel}>
                   {flexibleDates.length} date{flexibleDates.length !== 1 ? 's' : ''} selected
@@ -1063,9 +1063,9 @@ export function PremiumSessionWizard({
                   })}
                 </ScrollView>
               </View>
-            )}
+            ) : null}
           </Animated.View>
-        )}
+        ) : null}
       </ScrollView>
     </BaselineFlowCard>
   );
@@ -1119,24 +1119,24 @@ export function PremiumSessionWizard({
                   </Text>
                   <Text style={styles.ballLevelDesc}>{level.description}</Text>
                   <Text style={styles.playerCountBadge}>{playerCount} players</Text>
-                  {groupLevel === level.id && (
+                  {groupLevel === level.id ? (
                     <View style={[styles.ballCheck, { backgroundColor: level.color }]}>
                       <Ionicons name="checkmark" size={14} color="#FFFFFF" />
                     </View>
-                  )}
+                  ) : null}
                 </Pressable>
               );
             })}
           </View>
           
-          {groupLevel && (
+          {groupLevel ? (
             <View style={styles.levelInfo}>
               <Ionicons name="information-circle" size={18} color={Colors.dark.textMuted} />
               <Text style={styles.levelInfoText}>
                 Only {groupLevel.toUpperCase()} players will be shown in the next step
               </Text>
             </View>
-          )}
+          ) : null}
         </View>
       </BaselineFlowCard>
     );
@@ -1236,7 +1236,7 @@ export function PremiumSessionWizard({
             <Text style={styles.addGuestButtonText}>Add Guest Player</Text>
           </Pressable>
 
-          {sessionType === "group" && groupLevel && (
+          {sessionType === "group" && groupLevel ? (
             <View style={styles.filterRow}>
               <View style={[styles.filterBadge, { backgroundColor: getLevelColor(groupLevel) + "20", flex: 1 }]}>
                 <View style={[styles.filterDot, { backgroundColor: getLevelColor(groupLevel) }]} />
@@ -1267,10 +1267,10 @@ export function PremiumSessionWizard({
                 </Text>
               </Pressable>
             </View>
-          )}
+          ) : null}
 
           {/* Selected Players (including guests) */}
-          {selectedPlayers.length > 0 && (
+          {selectedPlayers.length > 0 ? (
             <View style={styles.selectedPlayersRow}>
               {selectedPlayers.map(player => (
                 <Pressable
@@ -1281,17 +1281,17 @@ export function PremiumSessionWizard({
                   }}
                   style={[styles.selectedPlayerChip, player.isGuest && styles.selectedPlayerChipGuest]}
                 >
-                  {player.isGuest && (
+                  {player.isGuest ? (
                     <View style={styles.guestBadge}>
                       <Text style={styles.guestBadgeText}>GUEST</Text>
                     </View>
-                  )}
+                  ) : null}
                   <Text style={[styles.selectedPlayerName, player.isGuest && { color: Colors.dark.orange }]}>{player.name}</Text>
                   <Ionicons name="close" size={14} color={Colors.dark.error} />
                 </Pressable>
               ))}
             </View>
-          )}
+          ) : null}
           
           <ScrollView style={styles.playersList} showsVerticalScrollIndicator={false}>
             {filteredPlayers.length === 0 ? (
@@ -1338,12 +1338,12 @@ export function PremiumSessionWizard({
                             {player.skillLevel ? `_${player.skillLevel}` : ""}
                           </Text>
                         </View>
-                        {player.level && (
+                        {player.level ? (
                           <View style={styles.playerXpBadge}>
                             <Ionicons name="flash" size={10} color={Colors.dark.xpCyan} />
                             <Text style={styles.playerXpText}>Lvl {player.level}</Text>
                           </View>
-                        )}
+                        ) : null}
                         {player.streak && player.streak > 0 ? (
                           <View style={styles.playerStreakBadge}>
                             <Ionicons name="flame" size={10} color={Colors.dark.orange} />
@@ -1361,7 +1361,7 @@ export function PremiumSessionWizard({
                       styles.playerCheckbox,
                       isSelected && { backgroundColor: levelColor, borderColor: levelColor },
                     ]}>
-                      {isSelected && <Ionicons name="checkmark" size={16} color="#FFFFFF" />}
+                      {isSelected ? <Ionicons name="checkmark" size={16} color="#FFFFFF" /> : null}
                     </View>
                   </Pressable>
                 );
@@ -1411,7 +1411,7 @@ export function PremiumSessionWizard({
         glowColor="#8B5CF6"
       >
         <ScrollView style={styles.cardScrollFull} contentContainerStyle={styles.cardScrollFullContent} showsVerticalScrollIndicator={false}>
-          {courtName && (
+          {courtName ? (
             <Pressable 
               style={styles.courtChangeChip}
               onPress={() => {
@@ -1429,9 +1429,9 @@ export function PremiumSessionWizard({
                 color={Colors.dark.gold} 
               />
             </Pressable>
-          )}
+          ) : null}
           
-          {showCourtChange && (
+          {showCourtChange ? (
             <View style={styles.courtChangeList}>
               {courts.map((court) => (
                 <Pressable
@@ -1447,13 +1447,13 @@ export function PremiumSessionWizard({
                   }}
                 >
                   <Text style={styles.courtChangeItemText}>{court.name}</Text>
-                  {selectedCourtId === court.id && (
+                  {selectedCourtId === court.id ? (
                     <Ionicons name="checkmark" size={16} color={Colors.dark.gold} />
-                  )}
+                  ) : null}
                 </Pressable>
               ))}
             </View>
-          )}
+          ) : null}
           
           <Pressable 
             style={styles.selectedDateChip}
@@ -1473,7 +1473,7 @@ export function PremiumSessionWizard({
             />
           </Pressable>
           
-          {isCalendarExpanded && (
+          {isCalendarExpanded ? (
             <View style={styles.datePickerContainer}>
               <View style={styles.datePickerNav}>
                 <Pressable
@@ -1540,7 +1540,7 @@ export function PremiumSessionWizard({
                 })}
               </View>
             </View>
-          )}
+          ) : null}
           
           <Text style={styles.sectionLabel}>Duration</Text>
           <View style={styles.durationGrid}>
@@ -1566,17 +1566,17 @@ export function PremiumSessionWizard({
             ))}
           </View>
           
-          {isRecurring && (
+          {isRecurring ? (
             <View style={styles.recurringBanner}>
               <Ionicons name="repeat" size={16} color="#8B5CF6" />
               <Text style={styles.recurringBannerText}>
                 Checking availability for {weekCount} weeks
               </Text>
-              {isCheckingAvailability && (
+              {isCheckingAvailability ? (
                 <ActivityIndicator size="small" color="#8B5CF6" />
-              )}
+              ) : null}
             </View>
-          )}
+          ) : null}
           
           <View style={styles.availableTimesHeader}>
             <Text style={styles.sectionLabel}>Available Times</Text>
@@ -1643,7 +1643,7 @@ export function PremiumSessionWizard({
       glowColor={Colors.dark.gold}
     >
       <ScrollView style={styles.cardScroll} showsVerticalScrollIndicator={false}>
-        {sessionType === "group" && (
+        {sessionType === "group" ? (
           <>
             <Text style={styles.sectionLabel}>Max Players</Text>
             <View style={styles.maxPlayersRow}>
@@ -1669,7 +1669,7 @@ export function PremiumSessionWizard({
               ))}
             </View>
           </>
-        )}
+        ) : null}
         
         <Text style={styles.sectionLabel}>Ball Level</Text>
         <View style={styles.sessionBallLevelRow}>
@@ -1701,7 +1701,7 @@ export function PremiumSessionWizard({
           ))}
         </View>
         
-        {sessionType === "group" && (
+        {sessionType === "group" ? (
           <>
             <View style={styles.toggleRow}>
               <View style={styles.toggleInfo}>
@@ -1729,7 +1729,7 @@ export function PremiumSessionWizard({
               />
             </View>
           </>
-        )}
+        ) : null}
         
         <Text style={styles.sectionLabel}>Notes (optional)</Text>
         <TextInput
@@ -1771,11 +1771,11 @@ export function PremiumSessionWizard({
         >
           <Ionicons name="help-circle-outline" size={24} color={Colors.dark.textMuted} />
           <Text style={styles.courtName}>No specific court</Text>
-          {selectedCourtId === null && (
+          {selectedCourtId === null ? (
             <View style={[styles.courtCheck, { backgroundColor: Colors.dark.gold }]}>
               <Ionicons name="checkmark" size={14} color="#FFFFFF" />
             </View>
-          )}
+          ) : null}
         </Pressable>
         
         {courts.map((court) => (
@@ -1792,19 +1792,19 @@ export function PremiumSessionWizard({
           >
             <Ionicons name="tennisball" size={24} color={Colors.dark.gold} />
             <Text style={styles.courtName}>{court.name}</Text>
-            {selectedCourtId === court.id && (
+            {selectedCourtId === court.id ? (
               <View style={[styles.courtCheck, { backgroundColor: Colors.dark.gold }]}>
                 <Ionicons name="checkmark" size={14} color="#FFFFFF" />
               </View>
-            )}
+            ) : null}
           </Pressable>
         ))}
         
-        {courts.length === 0 && (
+        {courts.length === 0 ? (
           <View style={styles.noCourts}>
             <Text style={styles.noCourtsText}>No courts available</Text>
           </View>
-        )}
+        ) : null}
       </ScrollView>
     </BaselineFlowCard>
   );
@@ -1856,7 +1856,7 @@ export function PremiumSessionWizard({
               </View>
             </View>
             
-            {sessionType === "group" && groupLevel && (
+            {sessionType === "group" && groupLevel ? (
               <View style={styles.summaryRow}>
                 <View style={[styles.summaryIcon, { backgroundColor: levelColor + "20" }]}>
                   <View style={[styles.summaryDot, { backgroundColor: levelColor }]} />
@@ -1868,7 +1868,7 @@ export function PremiumSessionWizard({
                   </Text>
                 </View>
               </View>
-            )}
+            ) : null}
             
             <View style={styles.summaryRow}>
               <View style={[styles.summaryIcon, { backgroundColor: "#3B82F620" }]}>
@@ -1899,11 +1899,11 @@ export function PremiumSessionWizard({
                         </Text>
                       );
                     })}
-                    {flexibleDates.length > 3 && (
+                    {flexibleDates.length > 3 ? (
                       <Text style={[styles.summaryValue, { color: Colors.dark.textMuted }]}>
                         +{flexibleDates.length - 3} more dates
                       </Text>
-                    )}
+                    ) : null}
                   </View>
                 ) : (
                   <Text style={styles.summaryValue}>
@@ -1933,7 +1933,7 @@ export function PremiumSessionWizard({
               </View>
             </View>
             
-            {notes.trim() && (
+            {notes.trim() ? (
               <View style={styles.summaryRow}>
                 <View style={[styles.summaryIcon, { backgroundColor: "#6B728020" }]}>
                   <Ionicons name="document-text" size={20} color="#6B7280" />
@@ -1943,7 +1943,7 @@ export function PremiumSessionWizard({
                   <Text style={styles.summaryValue}>{notes}</Text>
                 </View>
               </View>
-            )}
+            ) : null}
           </View>
         </ScrollView>
       </BaselineFlowCard>
@@ -2013,11 +2013,11 @@ export function PremiumSessionWizard({
           </Pressable>
           <View style={styles.headerCenter}>
             <Text style={styles.headerTitle}>New Session</Text>
-            {sessionType && step !== "intro" && step !== "complete" && (
+            {sessionType && step !== "intro" && step !== "complete" ? (
               <Text style={styles.headerSubtitle}>
                 {SESSION_TYPES.find(t => t.id === sessionType)?.label}
               </Text>
-            )}
+            ) : null}
           </View>
           <View style={styles.headerRight} />
         </View>
