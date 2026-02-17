@@ -7,9 +7,13 @@ import {
   Pressable,
   FlatList,
   Dimensions,
+  ActivityIndicator,
+  RefreshControl,
+  Alert,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { LinearGradient } from "expo-linear-gradient";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import * as Haptics from "expo-haptics";
@@ -23,6 +27,7 @@ import {
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import type { PlayerStackParamList } from "@/player/navigation/PlayerNavigator";
 import { useCoachMarks, CoachMarkTarget } from "@/components/CoachMarks";
+import { apiRequest } from "@/lib/query-client";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 
@@ -46,6 +51,12 @@ interface Tournament {
   status: "upcoming" | "in_progress" | "completed";
 }
 
+interface TournamentData {
+  upcoming: Tournament[];
+  myTournaments: Tournament[];
+  completed: Tournament[];
+}
+
 interface Ladder {
   id: string;
   name: string;
@@ -56,91 +67,6 @@ interface Ladder {
   challengeWindow: string;
   lastActivity: string;
 }
-
-const MOCK_TOURNAMENTS: Tournament[] = [
-  {
-    id: "1",
-    name: "Summer Singles Championship",
-    type: "singles",
-    format: "knockout",
-    startDate: "2026-02-15",
-    endDate: "2026-02-22",
-    location: "Central Tennis Club",
-    entryFee: 25,
-    spotsTotal: 32,
-    spotsTaken: 24,
-    isRegistered: false,
-    status: "upcoming",
-  },
-  {
-    id: "2",
-    name: "Mixed Doubles Classic",
-    type: "mixed",
-    format: "round_robin",
-    startDate: "2026-02-28",
-    endDate: "2026-03-07",
-    location: "Riverside Courts",
-    entryFee: 40,
-    spotsTotal: 16,
-    spotsTaken: 12,
-    isRegistered: false,
-    status: "upcoming",
-  },
-  {
-    id: "3",
-    name: "Winter Box League",
-    type: "singles",
-    format: "box_league",
-    startDate: "2026-03-01",
-    endDate: "2026-04-30",
-    location: "Various Venues",
-    entryFee: null,
-    spotsTotal: 48,
-    spotsTaken: 36,
-    isRegistered: false,
-    status: "upcoming",
-  },
-];
-
-const MOCK_MY_TOURNAMENTS: Tournament[] = [
-  {
-    id: "5",
-    name: "Club Championship 2026",
-    type: "singles",
-    format: "knockout",
-    startDate: "2026-02-01",
-    endDate: "2026-02-08",
-    location: "Home Club",
-    entryFee: 15,
-    spotsTotal: 32,
-    spotsTaken: 32,
-    isRegistered: true,
-    status: "in_progress",
-  },
-];
-
-const MOCK_LADDERS: Ladder[] = [
-  {
-    id: "l1",
-    name: "Academy Singles Ladder",
-    type: "singles",
-    playerCount: 45,
-    myPosition: 12,
-    isJoined: true,
-    challengeWindow: "Mon-Sun",
-    lastActivity: "2 days ago",
-  },
-  {
-    id: "l2",
-    name: "Junior Challenge Ladder",
-    type: "singles",
-    playerCount: 32,
-    myPosition: 5,
-    isJoined: true,
-    challengeWindow: "Daily",
-    lastActivity: "Today",
-  },
-];
 
 function getTypeColor(type: TournamentType): string {
   switch (type) {
@@ -173,7 +99,7 @@ function formatDateRange(start: string, end: string): string {
   return `${startDate.toLocaleDateString("en-US", options)} - ${endDate.toLocaleDateString("en-US", options)}`;
 }
 
-function TournamentCard({ tournament, onPress }: { tournament: Tournament; onPress: () => void }) {
+function TournamentCard({ tournament, onPress, onRegister, isRegistering }: { tournament: Tournament; onPress: () => void; onRegister: (id: string) => void; isRegistering: boolean }) {
   const typeColor = getTypeColor(tournament.type);
   const spotsRemaining = tournament.spotsTotal - tournament.spotsTaken;
   const isFull = spotsRemaining <= 0;
@@ -181,12 +107,12 @@ function TournamentCard({ tournament, onPress }: { tournament: Tournament; onPre
 
   return (
     <Pressable style={({ pressed }) => [styles.card, pressed && styles.cardPressed]} onPress={onPress}>
-      {tournament.status === "in_progress" && (
+      {tournament.status === "in_progress" ? (
         <View style={styles.liveBadge}>
           <View style={styles.liveDot} />
           <Text style={styles.liveText}>LIVE</Text>
         </View>
-      )}
+      ) : null}
       
       <View style={styles.cardTop}>
         <View style={styles.cardHeader}>
@@ -236,7 +162,7 @@ function TournamentCard({ tournament, onPress }: { tournament: Tournament; onPre
           </View>
           <View style={styles.spotsBadge}>
             <Ionicons name="people" size={12} color={isFull ? "#FF4D4D" : TextColors.secondary} />
-            <Text style={[styles.spotsText, isFull && { color: "#FF4D4D" }]}>
+            <Text style={[styles.spotsText, isFull ? { color: "#FF4D4D" } : undefined]}>
               {isFull ? "Full" : `${spotsRemaining} spots`}
             </Text>
           </View>
@@ -249,13 +175,21 @@ function TournamentCard({ tournament, onPress }: { tournament: Tournament; onPre
           </View>
         ) : (
           <Pressable
-            style={[styles.registerBtn, isFull && styles.registerBtnDisabled]}
-            disabled={isFull}
-            onPress={(e) => { e.stopPropagation(); Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); }}
+            style={[styles.registerBtn, isFull ? styles.registerBtnDisabled : undefined]}
+            disabled={isFull || isRegistering}
+            onPress={(e) => {
+              e.stopPropagation();
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+              onRegister(tournament.id);
+            }}
           >
-            <Text style={[styles.registerBtnText, isFull && styles.registerBtnTextDisabled]}>
-              {isFull ? "Full" : "Register"}
-            </Text>
+            {isRegistering ? (
+              <ActivityIndicator size="small" color="rgba(255, 255, 255, 0.06)" />
+            ) : (
+              <Text style={[styles.registerBtnText, isFull ? styles.registerBtnTextDisabled : undefined]}>
+                {isFull ? "Full" : "Register"}
+              </Text>
+            )}
           </Pressable>
         )}
       </View>
@@ -263,7 +197,7 @@ function TournamentCard({ tournament, onPress }: { tournament: Tournament; onPre
   );
 }
 
-function LadderCard({ ladder, onPress }: { ladder: Ladder; onPress: () => void }) {
+function LadderCard({ ladder, onPress, onJoin, isJoining }: { ladder: Ladder; onPress: () => void; onJoin: (id: string) => void; isJoining: boolean }) {
   const typeColor = getTypeColor(ladder.type);
 
   return (
@@ -289,12 +223,12 @@ function LadderCard({ ladder, onPress }: { ladder: Ladder; onPress: () => void }
             <Text style={styles.ladderStatValue}>{ladder.playerCount}</Text>
             <Text style={styles.ladderStatLabel}>Players</Text>
           </View>
-          {ladder.myPosition && (
+          {ladder.myPosition ? (
             <View style={styles.ladderStat}>
               <Text style={[styles.ladderStatValue, { color: GlowColors.primary }]}>#{ladder.myPosition}</Text>
               <Text style={styles.ladderStatLabel}>Rank</Text>
             </View>
-          )}
+          ) : null}
           <View style={styles.ladderStat}>
             <Text style={styles.ladderStatValue}>{ladder.challengeWindow}</Text>
             <Text style={styles.ladderStatLabel}>Challenge</Text>
@@ -312,8 +246,20 @@ function LadderCard({ ladder, onPress }: { ladder: Ladder; onPress: () => void }
               <Text style={styles.joinedText}>Joined</Text>
             </View>
           ) : (
-            <Pressable style={styles.joinBtn} onPress={(e) => { e.stopPropagation(); }}>
-              <Text style={styles.joinBtnText}>Join</Text>
+            <Pressable
+              style={styles.joinBtn}
+              disabled={isJoining}
+              onPress={(e) => {
+                e.stopPropagation();
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                onJoin(ladder.id);
+              }}
+            >
+              {isJoining ? (
+                <ActivityIndicator size="small" color="rgba(255, 255, 255, 0.06)" />
+              ) : (
+                <Text style={styles.joinBtnText}>Join</Text>
+              )}
             </Pressable>
           )}
         </View>
@@ -325,8 +271,57 @@ function LadderCard({ ladder, onPress }: { ladder: Ladder; onPress: () => void }
 export default function TournamentsScreen() {
   const navigation = useNavigation<NavigationProp>();
   const insets = useSafeAreaInsets();
+  const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState<TabType>("upcoming");
   const { startTour, isActive } = useCoachMarks();
+  const [registeringId, setRegisteringId] = useState<string | null>(null);
+  const [joiningId, setJoiningId] = useState<string | null>(null);
+
+  const { data: tournamentData, isLoading: tournamentsLoading, refetch: refetchTournaments, isRefetching: tournamentsRefetching, isError: tournamentsError } = useQuery<TournamentData>({
+    queryKey: ["/api/player/tournaments"],
+  });
+
+  const { data: laddersData, isLoading: laddersLoading, refetch: refetchLadders, isRefetching: laddersRefetching, isError: laddersError } = useQuery<Ladder[]>({
+    queryKey: ["/api/player/ladders"],
+  });
+
+  const registerMutation = useMutation({
+    mutationFn: (tournamentId: string) => apiRequest("POST", `/api/player/tournaments/${tournamentId}/register`),
+    onMutate: (tournamentId) => {
+      setRegisteringId(tournamentId);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/player/tournaments"] });
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    },
+    onError: (error: Error) => {
+      Alert.alert("Registration Failed", error.message || "Could not register for this tournament.");
+    },
+    onSettled: () => {
+      setRegisteringId(null);
+    },
+  });
+
+  const joinLadderMutation = useMutation({
+    mutationFn: (ladderId: string) => apiRequest("POST", `/api/player/ladders/${ladderId}/join`),
+    onMutate: (ladderId) => {
+      setJoiningId(ladderId);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/player/ladders"] });
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    },
+    onError: (error: Error) => {
+      Alert.alert("Join Failed", error.message || "Could not join this ladder.");
+    },
+    onSettled: () => {
+      setJoiningId(null);
+    },
+  });
+
+  const upcomingTournaments = tournamentData?.upcoming || [];
+  const myTournaments = tournamentData?.myTournaments || [];
+  const ladders = laddersData || [];
 
   const tournamentsTourSteps = useMemo(() => [
     { id: "tournaments_tabs", title: "Browse Events", description: "Switch between upcoming tournaments, your registered events, and challenge ladders.", position: "bottom" as const },
@@ -358,50 +353,122 @@ export default function TournamentsScreen() {
     navigation.navigate("LadderDetail", { ladderId: id });
   };
 
+  const handleRegister = (tournamentId: string) => {
+    registerMutation.mutate(tournamentId);
+  };
+
+  const handleJoinLadder = (ladderId: string) => {
+    joinLadderMutation.mutate(ladderId);
+  };
+
+  const handleRefresh = () => {
+    refetchTournaments();
+    refetchLadders();
+  };
+
+  const isLoading = tournamentsLoading || laddersLoading;
+  const isRefetching = tournamentsRefetching || laddersRefetching;
+
   const tabs = [
-    { key: "upcoming" as TabType, label: "Upcoming", count: MOCK_TOURNAMENTS.length },
-    { key: "my_tournaments" as TabType, label: "My Events", count: MOCK_MY_TOURNAMENTS.length },
-    { key: "ladders" as TabType, label: "Ladders", count: MOCK_LADDERS.filter(l => l.isJoined).length },
+    { key: "upcoming" as TabType, label: "Upcoming", count: upcomingTournaments.length },
+    { key: "my_tournaments" as TabType, label: "My Events", count: myTournaments.length },
+    { key: "ladders" as TabType, label: "Ladders", count: ladders.filter(l => l.isJoined).length },
   ];
 
   const renderContent = () => {
+    if (isLoading) {
+      return (
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color={GlowColors.primary} />
+        </View>
+      );
+    }
+
+    if (tournamentsError && activeTab !== "ladders") {
+      return (
+        <View style={styles.loadingContainer}>
+          <Ionicons name="alert-circle-outline" size={48} color="#FF4D4D" />
+          <Text style={styles.errorTitle}>Failed to load tournaments</Text>
+          <Pressable onPress={() => refetchTournaments()} style={styles.retryBtn}>
+            <Text style={styles.retryBtnText}>Try Again</Text>
+          </Pressable>
+        </View>
+      );
+    }
+
+    if (laddersError && activeTab === "ladders") {
+      return (
+        <View style={styles.loadingContainer}>
+          <Ionicons name="alert-circle-outline" size={48} color="#FF4D4D" />
+          <Text style={styles.errorTitle}>Failed to load ladders</Text>
+          <Pressable onPress={() => refetchLadders()} style={styles.retryBtn}>
+            <Text style={styles.retryBtnText}>Try Again</Text>
+          </Pressable>
+        </View>
+      );
+    }
+
     switch (activeTab) {
       case "upcoming":
         return (
           <FlatList
-            data={MOCK_TOURNAMENTS}
+            data={upcomingTournaments}
             keyExtractor={(item) => item.id}
             renderItem={({ item }) => (
-              <TournamentCard tournament={item} onPress={() => handleTournamentPress(item.id)} />
+              <TournamentCard
+                tournament={item}
+                onPress={() => handleTournamentPress(item.id)}
+                onRegister={handleRegister}
+                isRegistering={registeringId === item.id}
+              />
             )}
             contentContainerStyle={styles.listContent}
             showsVerticalScrollIndicator={false}
+            refreshControl={
+              <RefreshControl refreshing={isRefetching} onRefresh={handleRefresh} tintColor={GlowColors.primary} />
+            }
             ListEmptyComponent={<EmptyState icon="trophy-outline" title="No Upcoming Tournaments" />}
           />
         );
       case "my_tournaments":
         return (
           <FlatList
-            data={MOCK_MY_TOURNAMENTS}
+            data={myTournaments}
             keyExtractor={(item) => item.id}
             renderItem={({ item }) => (
-              <TournamentCard tournament={item} onPress={() => handleTournamentPress(item.id)} />
+              <TournamentCard
+                tournament={item}
+                onPress={() => handleTournamentPress(item.id)}
+                onRegister={handleRegister}
+                isRegistering={registeringId === item.id}
+              />
             )}
             contentContainerStyle={styles.listContent}
             showsVerticalScrollIndicator={false}
+            refreshControl={
+              <RefreshControl refreshing={isRefetching} onRefresh={handleRefresh} tintColor={GlowColors.primary} />
+            }
             ListEmptyComponent={<EmptyState icon="calendar-outline" title="No Registered Events" />}
           />
         );
       case "ladders":
         return (
           <FlatList
-            data={MOCK_LADDERS}
+            data={ladders}
             keyExtractor={(item) => item.id}
             renderItem={({ item }) => (
-              <LadderCard ladder={item} onPress={() => handleLadderPress(item.id)} />
+              <LadderCard
+                ladder={item}
+                onPress={() => handleLadderPress(item.id)}
+                onJoin={handleJoinLadder}
+                isJoining={joiningId === item.id}
+              />
             )}
             contentContainerStyle={styles.listContent}
             showsVerticalScrollIndicator={false}
+            refreshControl={
+              <RefreshControl refreshing={isRefetching} onRefresh={handleRefresh} tintColor={GlowColors.primary} />
+            }
             ListEmptyComponent={<EmptyState icon="podium-outline" title="No Ladders Available" />}
           />
         );
@@ -423,19 +490,19 @@ export default function TournamentsScreen() {
         {tabs.map((tab) => (
           <Pressable
             key={tab.key}
-            style={[styles.tab, activeTab === tab.key && styles.tabActive]}
+            style={[styles.tab, activeTab === tab.key ? styles.tabActive : undefined]}
             onPress={() => handleTabPress(tab.key)}
           >
-            <Text style={[styles.tabText, activeTab === tab.key && styles.tabTextActive]}>
+            <Text style={[styles.tabText, activeTab === tab.key ? styles.tabTextActive : undefined]}>
               {tab.label}
             </Text>
-            {tab.count > 0 && (
-              <View style={[styles.tabCount, activeTab === tab.key && styles.tabCountActive]}>
-                <Text style={[styles.tabCountText, activeTab === tab.key && styles.tabCountTextActive]}>
+            {tab.count > 0 ? (
+              <View style={[styles.tabCount, activeTab === tab.key ? styles.tabCountActive : undefined]}>
+                <Text style={[styles.tabCountText, activeTab === tab.key ? styles.tabCountTextActive : undefined]}>
                   {tab.count}
                 </Text>
               </View>
-            )}
+            ) : null}
           </Pressable>
         ))}
       </View>
@@ -541,6 +608,30 @@ const styles = StyleSheet.create({
   listContent: {
     padding: Spacing.md,
     paddingBottom: 100,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    gap: Spacing.md,
+  },
+  errorTitle: {
+    fontSize: 16,
+    fontWeight: "700",
+    color: TextColors.primary,
+    marginTop: 12,
+  },
+  retryBtn: {
+    backgroundColor: GlowColors.primary,
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 8,
+    marginTop: 8,
+  },
+  retryBtnText: {
+    fontSize: 13,
+    fontWeight: "700",
+    color: Backgrounds.card,
   },
   card: {
     backgroundColor: Backgrounds.card,

@@ -7,11 +7,15 @@ import {
   Pressable,
   FlatList,
   Modal,
+  ActivityIndicator,
+  RefreshControl,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation, useRoute } from "@react-navigation/native";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import * as Haptics from "expo-haptics";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { apiRequest } from "@/lib/query-client";
 import {
   Colors,
   Spacing,
@@ -29,13 +33,14 @@ type RouteProps = RouteProp<PlayerStackParamList, "LadderDetail">;
 
 interface LadderPlayer {
   id: string;
+  playerId: string;
   position: number;
   name: string;
-  photo?: string;
+  photoUrl: string | null;
   wins: number;
   losses: number;
-  isMe?: boolean;
-  canChallenge?: boolean;
+  isMe: boolean;
+  canChallenge: boolean;
 }
 
 interface Challenge {
@@ -56,121 +61,39 @@ interface RecentResult {
   loser: string;
   score: string;
   date: string;
-  positionChange?: { player: string; from: number; to: number };
+  positionChange?: { player: string; from: number; to: number } | null;
 }
 
-const MOCK_LADDER = {
-  id: "l1",
-  name: "Academy Singles Ladder",
-  type: "singles" as const,
-  playerCount: 45,
-  challengeWindow: "Mon-Sun",
-  challengeRange: 3,
-  description:
-    "Challenge players up to 3 positions above you. Win to take their position. All players below shift down.",
-  rules: [
-    "Challenge up to 3 positions above",
-    "7 days to complete match",
-    "Best of 3 sets",
-    "Winner reports score",
-    "No-show = forfeit",
-  ],
-};
-
-const MOCK_PLAYERS: LadderPlayer[] = [
-  { id: "1", position: 1, name: "J. Smith", wins: 12, losses: 2 },
-  { id: "2", position: 2, name: "T. Davis", wins: 10, losses: 3 },
-  { id: "3", position: 3, name: "E. White", wins: 9, losses: 4 },
-  { id: "4", position: 4, name: "C. Taylor", wins: 8, losses: 4 },
-  { id: "5", position: 5, name: "M. Johnson", wins: 8, losses: 5 },
-  { id: "6", position: 6, name: "A. Williams", wins: 7, losses: 5 },
-  { id: "7", position: 7, name: "R. Brown", wins: 7, losses: 6 },
-  { id: "8", position: 8, name: "K. Miller", wins: 6, losses: 6 },
-  { id: "9", position: 9, name: "You", wins: 6, losses: 7, isMe: true },
-  { id: "10", position: 10, name: "P. Wilson", wins: 5, losses: 7 },
-  { id: "11", position: 11, name: "L. Anderson", wins: 5, losses: 8 },
-  { id: "12", position: 12, name: "H. Thomas", wins: 4, losses: 8 },
-  { id: "13", position: 13, name: "N. Jackson", wins: 4, losses: 9 },
-  { id: "14", position: 14, name: "D. Harris", wins: 3, losses: 9 },
-  { id: "15", position: 15, name: "S. Martin", wins: 2, losses: 10 },
-];
-
-const MOCK_CHALLENGES: Challenge[] = [
-  {
-    id: "c1",
-    challenger: "You",
-    challenged: "K. Miller",
-    challengerPosition: 9,
-    challengedPosition: 8,
-    status: "pending",
-    deadline: "Feb 5, 2026",
-    isMyChallenge: true,
-  },
-  {
-    id: "c2",
-    challenger: "P. Wilson",
-    challenged: "You",
-    challengerPosition: 10,
-    challengedPosition: 9,
-    status: "pending",
-    deadline: "Feb 6, 2026",
-    isMyChallenge: true,
-  },
-  {
-    id: "c3",
-    challenger: "L. Anderson",
-    challenged: "P. Wilson",
-    challengerPosition: 11,
-    challengedPosition: 10,
-    status: "accepted",
-    deadline: "Feb 4, 2026",
-  },
-];
-
-const MOCK_RESULTS: RecentResult[] = [
-  {
-    id: "r1",
-    winner: "J. Smith",
-    loser: "T. Davis",
-    score: "6-4, 7-5",
-    date: "Jan 28, 2026",
-    positionChange: { player: "J. Smith", from: 2, to: 1 },
-  },
-  {
-    id: "r2",
-    winner: "C. Taylor",
-    loser: "M. Johnson",
-    score: "6-3, 6-2",
-    date: "Jan 27, 2026",
-    positionChange: { player: "C. Taylor", from: 5, to: 4 },
-  },
-  {
-    id: "r3",
-    winner: "You",
-    loser: "P. Wilson",
-    score: "7-6, 6-4",
-    date: "Jan 25, 2026",
-    positionChange: { player: "You", from: 10, to: 9 },
-  },
-  {
-    id: "r4",
-    winner: "R. Brown",
-    loser: "A. Williams",
-    score: "6-2, 3-6, 6-4",
-    date: "Jan 24, 2026",
-  },
-];
+interface LadderDetailData {
+  ladder: {
+    id: string;
+    name: string;
+    type: string;
+    description: string;
+    challengeRange: number;
+    challengeWindowDays: number;
+    rules: string[];
+    status: string;
+  };
+  players: LadderPlayer[];
+  myChallenges: Challenge[];
+  recentResults: RecentResult[];
+  myPosition: number | null;
+  playerCount: number;
+}
 
 function ChallengeModal({
   visible,
   onClose,
   player,
   onConfirm,
+  isLoading,
 }: {
   visible: boolean;
   onClose: () => void;
   player: LadderPlayer | null;
   onConfirm: () => void;
+  isLoading?: boolean;
 }) {
   const insets = useSafeAreaInsets();
 
@@ -218,14 +141,18 @@ function ChallengeModal({
             </View>
 
             <Pressable
-              style={modalStyles.confirmButton}
+              style={[modalStyles.confirmButton, isLoading ? { opacity: 0.6 } : null]}
+              disabled={isLoading}
               onPress={() => {
                 Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
                 onConfirm();
-                onClose();
               }}
             >
-              <Text style={modalStyles.confirmButtonText}>Send Challenge</Text>
+              {isLoading ? (
+                <ActivityIndicator color="rgba(255, 255, 255, 0.06)" />
+              ) : (
+                <Text style={modalStyles.confirmButtonText}>Send Challenge</Text>
+              )}
             </Pressable>
 
             <Pressable style={modalStyles.cancelButton} onPress={onClose}>
@@ -242,34 +169,70 @@ export default function LadderDetailScreen() {
   const navigation = useNavigation<NavigationProp>();
   const route = useRoute<RouteProps>();
   const insets = useSafeAreaInsets();
+  const queryClient = useQueryClient();
   const [selectedPlayer, setSelectedPlayer] = useState<LadderPlayer | null>(null);
   const [showRules, setShowRules] = useState(false);
 
-  const ladder = MOCK_LADDER;
-  const myPosition = MOCK_PLAYERS.find((p) => p.isMe)?.position || 0;
+  const ladderId = route.params.ladderId;
 
-  const playersWithChallenge = MOCK_PLAYERS.map((player) => ({
-    ...player,
-    canChallenge:
-      !player.isMe &&
-      player.position < myPosition &&
-      player.position >= myPosition - ladder.challengeRange,
-  }));
+  const { data, isLoading, refetch } = useQuery<LadderDetailData>({
+    queryKey: ["/api/player/ladders", ladderId],
+  });
 
-  const myChallenges = MOCK_CHALLENGES.filter((c) => c.isMyChallenge);
+  const [refreshing, setRefreshing] = useState(false);
+
+  const onRefresh = async () => {
+    setRefreshing(true);
+    await refetch();
+    setRefreshing(false);
+  };
+
+  const challengeMutation = useMutation({
+    mutationFn: (playerId: string) =>
+      apiRequest("POST", `/api/player/ladders/${ladderId}/challenge`, { challengedPlayerId: playerId }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/player/ladders", ladderId] });
+      setSelectedPlayer(null);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    },
+  });
+
+  const respondMutation = useMutation({
+    mutationFn: ({ challengeId, action }: { challengeId: string; action: "accept" | "decline" }) =>
+      apiRequest("POST", `/api/player/ladders/challenges/${challengeId}/respond`, { action }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/player/ladders", ladderId] });
+    },
+  });
+
+  if (isLoading || !data) {
+    return (
+      <View style={[styles.container, { paddingTop: insets.top, alignItems: "center", justifyContent: "center" }]}>
+        <ActivityIndicator size="large" color={GlowColors.primary} />
+      </View>
+    );
+  }
+
+  const ladder = data.ladder;
+  const players = data.players || [];
+  const myChallenges = data.myChallenges || [];
+  const recentResults = data.recentResults || [];
+  const myPosition = data.myPosition || 0;
 
   const handleChallenge = (player: LadderPlayer) => {
     setSelectedPlayer(player);
   };
 
   const handleConfirmChallenge = () => {
-    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    if (selectedPlayer) {
+      challengeMutation.mutate(selectedPlayer.playerId);
+    }
   };
 
-  const renderPlayerItem = ({ item }: { item: LadderPlayer & { canChallenge?: boolean } }) => (
-    <View style={[styles.playerCard, item.isMe && styles.myPlayerCard]}>
-      <View style={[styles.positionBadge, item.position <= 3 && styles.topPosition]}>
-        <Text style={[styles.positionText, item.position <= 3 && styles.topPositionText]}>
+  const renderPlayerItem = ({ item }: { item: LadderPlayer }) => (
+    <View style={[styles.playerCard, item.isMe ? styles.myPlayerCard : null]}>
+      <View style={[styles.positionBadge, item.position <= 3 ? styles.topPosition : null]}>
+        <Text style={[styles.positionText, item.position <= 3 ? styles.topPositionText : null]}>
           {item.position}
         </Text>
       </View>
@@ -277,7 +240,7 @@ export default function LadderDetailScreen() {
         <Text style={styles.playerInitial}>{item.name.charAt(0)}</Text>
       </View>
       <View style={styles.playerInfo}>
-        <Text style={[styles.playerName, item.isMe && styles.myName]}>{item.name}</Text>
+        <Text style={[styles.playerName, item.isMe ? styles.myName : null]}>{item.name}</Text>
         <View style={styles.recordRow}>
           <Text style={styles.recordLabel}>W</Text>
           <Text style={styles.recordWins}>{item.wins}</Text>
@@ -312,42 +275,44 @@ export default function LadderDetailScreen() {
           <Text style={styles.headerTitle} numberOfLines={1}>
             {ladder.name}
           </Text>
-          <Text style={styles.headerSubtitle}>{ladder.playerCount} players</Text>
+          <Text style={styles.headerSubtitle}>{data.playerCount} players</Text>
         </View>
         <Pressable style={styles.rulesButton} onPress={() => setShowRules(!showRules)}>
           <Ionicons name="help-circle-outline" size={24} color={TextColors.secondary} />
         </Pressable>
       </View>
 
-      {showRules && (
+      {showRules ? (
         <View style={styles.rulesCard}>
           <Text style={styles.rulesTitle}>Ladder Rules</Text>
-          {ladder.rules.map((rule, index) => (
+          {(ladder.rules || []).map((rule, index) => (
             <View key={index} style={styles.ruleRow}>
               <View style={styles.ruleBullet} />
               <Text style={styles.ruleText}>{rule}</Text>
             </View>
           ))}
         </View>
-      )}
+      ) : null}
 
-      <View style={styles.myPositionCard}>
-        <View style={styles.myPositionLeft}>
-          <Ionicons name="podium" size={32} color={GlowColors.primary} />
-          <View>
-            <Text style={styles.myPositionLabel}>Your Position</Text>
-            <Text style={styles.myPositionValue}>#{myPosition}</Text>
+      {myPosition ? (
+        <View style={styles.myPositionCard}>
+          <View style={styles.myPositionLeft}>
+            <Ionicons name="podium" size={32} color={GlowColors.primary} />
+            <View>
+              <Text style={styles.myPositionLabel}>Your Position</Text>
+              <Text style={styles.myPositionValue}>#{myPosition}</Text>
+            </View>
+          </View>
+          <View style={styles.myPositionRight}>
+            <Text style={styles.challengeRangeLabel}>Can challenge</Text>
+            <Text style={styles.challengeRangeValue}>
+              #{Math.max(1, myPosition - ladder.challengeRange)} - #{myPosition - 1}
+            </Text>
           </View>
         </View>
-        <View style={styles.myPositionRight}>
-          <Text style={styles.challengeRangeLabel}>Can challenge</Text>
-          <Text style={styles.challengeRangeValue}>
-            #{myPosition - ladder.challengeRange} - #{myPosition - 1}
-          </Text>
-        </View>
-      </View>
+      ) : null}
 
-      {myChallenges.length > 0 && (
+      {myChallenges.length > 0 ? (
         <View style={styles.challengesSection}>
           <Text style={styles.sectionTitle}>Active Challenges</Text>
           {myChallenges.map((challenge) => (
@@ -357,27 +322,27 @@ export default function LadderDetailScreen() {
                   <View
                     style={[
                       styles.statusDot,
-                      challenge.status === "pending" && styles.statusPending,
-                      challenge.status === "accepted" && styles.statusAccepted,
+                      challenge.status === "pending" ? styles.statusPending : null,
+                      challenge.status === "accepted" ? styles.statusAccepted : null,
                     ]}
                   />
                   <Text style={styles.statusText}>
                     {challenge.status.charAt(0).toUpperCase() + challenge.status.slice(1)}
                   </Text>
                 </View>
-                {challenge.deadline && (
+                {challenge.deadline ? (
                   <View style={styles.deadlineRow}>
                     <Ionicons name="time-outline" size={12} color={TextColors.muted} />
                     <Text style={styles.deadlineText}>Due: {challenge.deadline}</Text>
                   </View>
-                )}
+                ) : null}
               </View>
               <View style={styles.challengeMatch}>
                 <View style={styles.challengePlayer}>
                   <Text
                     style={[
                       styles.challengePlayerName,
-                      challenge.challenger === "You" && styles.myChallengeName,
+                      challenge.challenger === "You" ? styles.myChallengeName : null,
                     ]}
                   >
                     {challenge.challenger}
@@ -391,7 +356,7 @@ export default function LadderDetailScreen() {
                   <Text
                     style={[
                       styles.challengePlayerName,
-                      challenge.challenged === "You" && styles.myChallengeName,
+                      challenge.challenged === "You" ? styles.myChallengeName : null,
                     ]}
                   >
                     {challenge.challenged}
@@ -402,28 +367,35 @@ export default function LadderDetailScreen() {
             </View>
           ))}
         </View>
-      )}
+      ) : null}
 
       <ScrollView
         style={styles.content}
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scrollContent}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor={GlowColors.primary}
+          />
+        }
       >
         <Text style={styles.sectionTitle}>Rankings</Text>
-        {playersWithChallenge.map((player) => renderPlayerItem({ item: player }))}
+        {players.map((player) => renderPlayerItem({ item: player }))}
 
         <Text style={[styles.sectionTitle, { marginTop: Spacing.xl }]}>Recent Results</Text>
-        {MOCK_RESULTS.map((result) => (
+        {recentResults.map((result) => (
           <View key={result.id} style={styles.resultCard}>
             <View style={styles.resultMatch}>
               <Text
-                style={[styles.resultWinner, result.winner === "You" && styles.myResultName]}
+                style={[styles.resultWinner, result.winner === "You" ? styles.myResultName : null]}
               >
                 {result.winner}
               </Text>
               <Text style={styles.resultDef}>def.</Text>
               <Text
-                style={[styles.resultLoser, result.loser === "You" && styles.myResultName]}
+                style={[styles.resultLoser, result.loser === "You" ? styles.myResultName : null]}
               >
                 {result.loser}
               </Text>
@@ -432,7 +404,7 @@ export default function LadderDetailScreen() {
               <Text style={styles.resultScore}>{result.score}</Text>
               <Text style={styles.resultDate}>{result.date}</Text>
             </View>
-            {result.positionChange && (
+            {result.positionChange ? (
               <View style={styles.positionChangeRow}>
                 <Ionicons name="arrow-up" size={14} color="#00E676" />
                 <Text style={styles.positionChangeText}>
@@ -440,7 +412,7 @@ export default function LadderDetailScreen() {
                   {result.positionChange.to}
                 </Text>
               </View>
-            )}
+            ) : null}
           </View>
         ))}
       </ScrollView>
@@ -450,6 +422,7 @@ export default function LadderDetailScreen() {
         onClose={() => setSelectedPlayer(null)}
         player={selectedPlayer}
         onConfirm={handleConfirmChallenge}
+        isLoading={challengeMutation.isPending}
       />
     </View>
   );

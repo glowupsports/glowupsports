@@ -6,12 +6,14 @@ import {
   ScrollView,
   Pressable,
   Dimensions,
+  ActivityIndicator,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation, useRoute } from "@react-navigation/native";
 import { LinearGradient } from "expo-linear-gradient";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import * as Haptics from "expo-haptics";
+import { useQuery } from "@tanstack/react-query";
 import {
   Spacing,
   Typography,
@@ -30,102 +32,85 @@ type RouteProps = RouteProp<PlayerStackParamList, "TournamentDetail">;
 
 type ViewMode = "draw" | "groups" | "schedule" | "participants";
 
-interface Match {
+interface PlayerRef {
+  id: string;
+  name: string;
+}
+
+interface DrawMatch {
   id: string;
   round: string;
-  player1: { name: string; seed?: number } | null;
-  player2: { name: string; seed?: number } | null;
+  matchOrder: number;
+  player1Id: string | null;
+  player2Id: string | null;
+  player1: PlayerRef | null;
+  player2: PlayerRef | null;
+  winner: PlayerRef | null;
+  winnerId: string | null;
   score: string | null;
-  winner: 1 | 2 | null;
-  court?: string;
-  time?: string;
+  court: string | null;
+  scheduledTime: string | null;
+  status: string;
   isMyMatch?: boolean;
 }
 
 interface GroupStanding {
-  position: number;
-  playerName: string;
-  played: number;
-  won: number;
-  lost: number;
+  playerId: string;
+  name: string;
+  wins: number;
+  losses: number;
   setsWon: number;
   setsLost: number;
-  gamesWon: number;
-  gamesLost: number;
 }
 
 interface ScheduleMatch {
   id: string;
-  time: string;
-  court: string;
-  player1: string;
-  player2: string;
   round: string;
-  isMyMatch?: boolean;
+  matchOrder: number;
+  player1Id: string | null;
+  player2Id: string | null;
+  player1: PlayerRef | null;
+  player2: PlayerRef | null;
+  score: string | null;
+  winnerId: string | null;
+  court: string | null;
+  scheduledTime: string | null;
+  status: string;
 }
 
-const MOCK_TOURNAMENT = {
-  id: "1",
-  name: "Summer Singles Championship",
-  type: "singles" as const,
-  format: "knockout" as const,
-  startDate: "2026-02-15",
-  endDate: "2026-02-22",
-  location: "Central Tennis Club",
-  address: "123 Tennis Way, Sports City",
-  entryFee: 25,
-  spotsTotal: 32,
-  spotsTaken: 32,
-  isRegistered: true,
-  description: "Annual championship open to all club members.",
-};
+interface ParticipantEntry {
+  participant: {
+    id: string;
+    tournamentId: string;
+    playerId: string;
+    seed: number | null;
+  };
+  player: {
+    id: string;
+    name: string;
+    photoUrl: string | null;
+  };
+}
 
-const MOCK_DRAW: Match[][] = [
-  [
-    { id: "r32-1", round: "R32", player1: { name: "J. Smith", seed: 1 }, player2: { name: "M. Johnson" }, score: "6-3, 6-2", winner: 1 },
-    { id: "r32-2", round: "R32", player1: { name: "A. Williams" }, player2: { name: "R. Brown" }, score: "7-5, 6-4", winner: 1 },
-    { id: "r32-3", round: "R32", player1: { name: "T. Davis", seed: 4 }, player2: { name: "K. Miller" }, score: "6-1, 6-0", winner: 1 },
-    { id: "r32-4", round: "R32", player1: { name: "You" }, player2: { name: "P. Wilson" }, score: "6-4, 7-6", winner: 1, isMyMatch: true },
-  ],
-  [
-    { id: "r16-1", round: "R16", player1: { name: "J. Smith", seed: 1 }, player2: { name: "A. Williams" }, score: "6-4, 6-3", winner: 1 },
-    { id: "r16-2", round: "R16", player1: { name: "T. Davis", seed: 4 }, player2: { name: "You" }, score: null, winner: null, isMyMatch: true, time: "14:00", court: "Court 1" },
-  ],
-  [
-    { id: "qf-1", round: "QF", player1: { name: "J. Smith", seed: 1 }, player2: null, score: null, winner: null },
-  ],
-  [
-    { id: "sf-1", round: "SF", player1: null, player2: null, score: null, winner: null },
-  ],
-  [
-    { id: "f-1", round: "F", player1: null, player2: null, score: null, winner: null },
-  ],
-];
-
-const MOCK_GROUPS: { name: string; standings: GroupStanding[] }[] = [
-  {
-    name: "Group A",
-    standings: [
-      { position: 1, playerName: "J. Smith", played: 3, won: 3, lost: 0, setsWon: 6, setsLost: 1, gamesWon: 38, gamesLost: 22 },
-      { position: 2, playerName: "You", played: 3, won: 2, lost: 1, setsWon: 5, setsLost: 2, gamesWon: 35, gamesLost: 28 },
-      { position: 3, playerName: "M. Johnson", played: 3, won: 1, lost: 2, setsWon: 3, setsLost: 4, gamesWon: 28, gamesLost: 32 },
-      { position: 4, playerName: "A. Williams", played: 3, won: 0, lost: 3, setsWon: 0, setsLost: 6, gamesWon: 18, gamesLost: 36 },
-    ],
-  },
-];
-
-const MOCK_SCHEDULE: ScheduleMatch[] = [
-  { id: "s1", time: "10:00", court: "Court 1", player1: "J. Smith", player2: "A. Williams", round: "R16" },
-  { id: "s2", time: "12:00", court: "Court 1", player1: "E. White", player2: "S. Martin", round: "R16" },
-  { id: "s3", time: "14:00", court: "Court 1", player1: "T. Davis", player2: "You", round: "R16", isMyMatch: true },
-];
-
-const MOCK_PARTICIPANTS = [
-  { id: "1", name: "J. Smith", seed: 1 },
-  { id: "2", name: "E. White", seed: 2 },
-  { id: "3", name: "T. Davis", seed: 4 },
-  { id: "9", name: "You", isMe: true },
-];
+interface TournamentDetail {
+  id: string;
+  name: string;
+  type: string;
+  format: string;
+  startDate: string;
+  endDate: string;
+  location: string;
+  address: string | null;
+  description: string | null;
+  entryFee: string | null;
+  spotsTotal: number;
+  spotsTaken: number;
+  isRegistered: boolean;
+  status: string;
+  nextMatch: any | null;
+  participants: ParticipantEntry[];
+  matches: any[];
+}
 
 const ROUND_LABELS: Record<string, string> = {
   R32: "R32",
@@ -135,7 +120,7 @@ const ROUND_LABELS: Record<string, string> = {
   F: "Final",
 };
 
-function DrawBracket({ matches }: { matches: Match[][] }) {
+function DrawBracket({ matches }: { matches: DrawMatch[][] }) {
   return (
     <ScrollView 
       horizontal 
@@ -154,70 +139,65 @@ function DrawBracket({ matches }: { matches: Match[][] }) {
               <View style={styles.matchesColumn}>
                 {round.map((match) => {
                   const spacing = Math.pow(2, roundIndex) * 8;
+                  const isPlayer1Winner = match.winnerId != null && match.player1 != null && match.winnerId === match.player1.id;
+                  const isPlayer2Winner = match.winnerId != null && match.player2 != null && match.winnerId === match.player2.id;
                   return (
                     <View
                       key={match.id}
                       style={[
                         styles.matchCard,
-                        match.isMyMatch && styles.myMatchCard,
+                        match.isMyMatch ? styles.myMatchCard : null,
                         { marginTop: roundIndex > 0 ? spacing : 0 },
                       ]}
                     >
-                      <View style={[styles.playerSlot, match.winner === 1 && styles.winnerSlot]}>
+                      <View style={[styles.playerSlot, isPlayer1Winner ? styles.winnerSlot : null]}>
                         <View style={styles.playerInfo}>
-                          {match.player1?.seed && (
-                            <View style={styles.seedBadge}>
-                              <Text style={styles.seedText}>{match.player1.seed}</Text>
-                            </View>
-                          )}
+                          {match.player1?.name === "You" ? null : null}
                           <Text
                             style={[
                               styles.playerName,
-                              match.winner === 1 && styles.winnerName,
-                              match.player1?.name === "You" && styles.myName,
+                              isPlayer1Winner ? styles.winnerName : null,
+                              match.player1?.name === "You" ? styles.myName : null,
                             ]}
                             numberOfLines={1}
                           >
                             {match.player1?.name || "TBD"}
                           </Text>
                         </View>
-                        {match.score && (
-                          <Text style={[styles.scoreText, match.winner === 1 && styles.winnerScore]}>
+                        {match.score ? (
+                          <Text style={[styles.scoreText, isPlayer1Winner ? styles.winnerScore : null]}>
                             {match.score.split(",")[0]}
                           </Text>
-                        )}
+                        ) : null}
                       </View>
                       <View style={styles.matchDivider} />
-                      <View style={[styles.playerSlot, match.winner === 2 && styles.winnerSlot]}>
+                      <View style={[styles.playerSlot, isPlayer2Winner ? styles.winnerSlot : null]}>
                         <View style={styles.playerInfo}>
-                          {match.player2?.seed && (
-                            <View style={styles.seedBadge}>
-                              <Text style={styles.seedText}>{match.player2.seed}</Text>
-                            </View>
-                          )}
                           <Text
                             style={[
                               styles.playerName,
-                              match.winner === 2 && styles.winnerName,
-                              match.player2?.name === "You" && styles.myName,
+                              isPlayer2Winner ? styles.winnerName : null,
+                              match.player2?.name === "You" ? styles.myName : null,
                             ]}
                             numberOfLines={1}
                           >
                             {match.player2?.name || "TBD"}
                           </Text>
                         </View>
-                        {match.score && (
-                          <Text style={[styles.scoreText, match.winner === 2 && styles.winnerScore]}>
+                        {match.score ? (
+                          <Text style={[styles.scoreText, isPlayer2Winner ? styles.winnerScore : null]}>
                             {match.score.split(",")[1]?.trim() || ""}
                           </Text>
-                        )}
+                        ) : null}
                       </View>
-                      {!match.score && match.time && (
+                      {!match.score && match.scheduledTime ? (
                         <View style={styles.liveIndicator}>
                           <View style={styles.liveDot} />
-                          <Text style={styles.liveText}>{match.time}</Text>
+                          <Text style={styles.liveText}>
+                            {new Date(match.scheduledTime).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                          </Text>
                         </View>
-                      )}
+                      ) : null}
                     </View>
                   );
                 })}
@@ -247,27 +227,26 @@ function GroupTable({ group }: { group: { name: string; standings: GroupStanding
         </View>
         {group.standings.map((standing, index) => (
           <View
-            key={standing.playerName}
+            key={standing.playerId}
             style={[
               styles.tableRow,
-              standing.playerName === "You" && styles.myRow,
-              index === group.standings.length - 1 && styles.lastRow,
+              index === group.standings.length - 1 ? styles.lastRow : null,
             ]}
           >
             <View style={[styles.posCol, styles.posWrapper]}>
-              <Text style={[styles.tableCell, standing.position <= 2 && styles.qualifyPos]}>
-                {standing.position}
+              <Text style={[styles.tableCell, index < 2 ? styles.qualifyPos : null]}>
+                {index + 1}
               </Text>
-              {standing.position <= 2 && <View style={styles.qualifyDot} />}
+              {index < 2 ? <View style={styles.qualifyDot} /> : null}
             </View>
             <Text
-              style={[styles.tableCell, styles.playerCol, standing.playerName === "You" && styles.myNameCell]}
+              style={[styles.tableCell, styles.playerCol]}
               numberOfLines={1}
             >
-              {standing.playerName}
+              {standing.name}
             </Text>
-            <Text style={[styles.tableCell, styles.statCol, styles.wonCell]}>{standing.won}</Text>
-            <Text style={[styles.tableCell, styles.statCol, styles.lostCell]}>{standing.lost}</Text>
+            <Text style={[styles.tableCell, styles.statCol, styles.wonCell]}>{standing.wins}</Text>
+            <Text style={[styles.tableCell, styles.statCol, styles.lostCell]}>{standing.losses}</Text>
             <Text style={[styles.tableCell, styles.setsCol]}>
               {standing.setsWon}-{standing.setsLost}
             </Text>
@@ -282,29 +261,33 @@ function ScheduleList({ schedule }: { schedule: ScheduleMatch[] }) {
   return (
     <View style={styles.scheduleContainer}>
       {schedule.map((match) => (
-        <Pressable key={match.id} style={[styles.scheduleCard, match.isMyMatch && styles.myScheduleCard]}>
+        <Pressable key={match.id} style={[styles.scheduleCard]}>
           <View style={styles.scheduleTimeBlock}>
-            <Text style={styles.scheduleTime}>{match.time}</Text>
+            <Text style={styles.scheduleTime}>
+              {match.scheduledTime
+                ? new Date(match.scheduledTime).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+                : "--:--"}
+            </Text>
             <View style={styles.scheduleBadge}>
               <Text style={styles.scheduleBadgeText}>{match.round}</Text>
             </View>
           </View>
           <View style={styles.scheduleMatchInfo}>
-            <Text style={[styles.schedulePlayer, match.player1 === "You" && styles.myScheduleName]}>
-              {match.player1}
+            <Text style={styles.schedulePlayer}>
+              {match.player1?.name || "TBD"}
             </Text>
             <View style={styles.vsContainer}>
               <View style={styles.vsLine} />
               <Text style={styles.vsText}>VS</Text>
               <View style={styles.vsLine} />
             </View>
-            <Text style={[styles.schedulePlayer, match.player2 === "You" && styles.myScheduleName]}>
-              {match.player2}
+            <Text style={styles.schedulePlayer}>
+              {match.player2?.name || "TBD"}
             </Text>
           </View>
           <View style={styles.scheduleCourtBlock}>
             <Ionicons name="location" size={12} color={TextColors.muted} />
-            <Text style={styles.scheduleCourtText}>{match.court}</Text>
+            <Text style={styles.scheduleCourtText}>{match.court || "TBD"}</Text>
           </View>
         </Pressable>
       ))}
@@ -312,29 +295,46 @@ function ScheduleList({ schedule }: { schedule: ScheduleMatch[] }) {
   );
 }
 
-function ParticipantsList({ participants }: { participants: typeof MOCK_PARTICIPANTS }) {
+function ParticipantsList({ participants }: { participants: ParticipantEntry[] }) {
   return (
     <View style={styles.participantsGrid}>
-      {participants.map((player) => (
-        <View key={player.id} style={[styles.participantCard, player.isMe && styles.myParticipantCard]}>
+      {participants.map((entry) => (
+        <View key={entry.player.id} style={[styles.participantCard]}>
           <LinearGradient
-            colors={player.isMe ? [GlowColors.primary + "30", "transparent"] : ["transparent", "transparent"]}
+            colors={["transparent", "transparent"]}
             style={styles.participantGradient}
           >
-            <View style={[styles.participantAvatar, player.isMe && styles.myAvatar]}>
-              <Text style={styles.participantInitial}>{player.name.charAt(0)}</Text>
+            <View style={[styles.participantAvatar]}>
+              <Text style={styles.participantInitial}>{entry.player.name.charAt(0)}</Text>
             </View>
-            <Text style={[styles.participantName, player.isMe && styles.myParticipantName]} numberOfLines={1}>
-              {player.name}
+            <Text style={[styles.participantName]} numberOfLines={1}>
+              {entry.player.name}
             </Text>
-            {player.seed && (
+            {entry.participant.seed ? (
               <View style={styles.participantSeedBadge}>
-                <Text style={styles.participantSeedText}>#{player.seed}</Text>
+                <Text style={styles.participantSeedText}>#{entry.participant.seed}</Text>
               </View>
-            )}
+            ) : null}
           </LinearGradient>
         </View>
       ))}
+    </View>
+  );
+}
+
+function LoadingView() {
+  return (
+    <View style={styles.loadingContainer}>
+      <ActivityIndicator size="large" color={GlowColors.primary} />
+    </View>
+  );
+}
+
+function ErrorView({ message }: { message: string }) {
+  return (
+    <View style={styles.loadingContainer}>
+      <Ionicons name="warning-outline" size={32} color={TextColors.muted} />
+      <Text style={styles.errorText}>{message}</Text>
     </View>
   );
 }
@@ -345,8 +345,66 @@ export default function TournamentDetailScreen() {
   const insets = useSafeAreaInsets();
   const [viewMode, setViewMode] = useState<ViewMode>("draw");
 
-  const tournament = MOCK_TOURNAMENT;
+  const tournamentId = route.params.tournamentId;
+
+  const { data: tournament, isLoading: tournamentLoading, error: tournamentError } = useQuery<TournamentDetail>({
+    queryKey: ["/api/player/tournaments", tournamentId],
+  });
+
+  const { data: drawData, isLoading: drawLoading } = useQuery<Record<string, DrawMatch[]>>({
+    queryKey: ["/api/player/tournaments", tournamentId, "draw"],
+    enabled: viewMode === "draw" && tournament?.format === "knockout",
+  });
+
+  const { data: groupsData, isLoading: groupsLoading } = useQuery<Record<string, GroupStanding[]>>({
+    queryKey: ["/api/player/tournaments", tournamentId, "groups"],
+    enabled: viewMode === "groups" && tournament?.format !== "knockout",
+  });
+
+  const { data: scheduleData, isLoading: scheduleLoading } = useQuery<ScheduleMatch[]>({
+    queryKey: ["/api/player/tournaments", tournamentId, "schedule"],
+    enabled: viewMode === "schedule",
+  });
+
+  const { data: participantsData, isLoading: participantsLoading } = useQuery<ParticipantEntry[]>({
+    queryKey: ["/api/player/tournaments", tournamentId, "participants"],
+    enabled: viewMode === "participants",
+  });
+
+  if (tournamentLoading) {
+    return (
+      <View style={[styles.container, { paddingTop: insets.top }]}>
+        <LoadingView />
+      </View>
+    );
+  }
+
+  if (tournamentError || !tournament) {
+    return (
+      <View style={[styles.container, { paddingTop: insets.top }]}>
+        <View style={styles.header}>
+          <Pressable style={styles.backButton} onPress={() => navigation.goBack()}>
+            <Ionicons name="chevron-back" size={22} color={GlowColors.primary} />
+          </Pressable>
+          <View style={styles.headerCenter}>
+            <Text style={styles.headerTitle}>Tournament</Text>
+          </View>
+          <View style={styles.headerRight} />
+        </View>
+        <ErrorView message="Failed to load tournament details" />
+      </View>
+    );
+  }
+
   const isKnockout = tournament.format === "knockout";
+
+  const drawRounds: DrawMatch[][] = drawData
+    ? Object.keys(drawData).map((round) => drawData[round])
+    : [];
+
+  const groups = groupsData
+    ? Object.entries(groupsData).map(([name, standings]) => ({ name, standings }))
+    : [];
 
   const tabs = [
     { key: "draw" as ViewMode, label: "Draw", icon: "git-network-outline" as const, show: isKnockout },
@@ -360,30 +418,52 @@ export default function TournamentDetailScreen() {
     setViewMode(key);
   };
 
+  const nextMatch = tournament.nextMatch;
+
   const renderContent = () => {
     switch (viewMode) {
       case "draw":
-        return <DrawBracket matches={MOCK_DRAW} />;
+        return drawLoading ? (
+          <LoadingView />
+        ) : drawRounds.length > 0 ? (
+          <DrawBracket matches={drawRounds} />
+        ) : (
+          <ErrorView message="Draw not available yet" />
+        );
       case "groups":
-        return (
+        return groupsLoading ? (
+          <LoadingView />
+        ) : groups.length > 0 ? (
           <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.contentPadding}>
-            {MOCK_GROUPS.map((group) => <GroupTable key={group.name} group={group} />)}
+            {groups.map((group) => <GroupTable key={group.name} group={group} />)}
           </ScrollView>
+        ) : (
+          <ErrorView message="Group standings not available yet" />
         );
       case "schedule":
-        return (
+        return scheduleLoading ? (
+          <LoadingView />
+        ) : scheduleData && scheduleData.length > 0 ? (
           <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.contentPadding}>
-            <ScheduleList schedule={MOCK_SCHEDULE} />
+            <ScheduleList schedule={scheduleData} />
           </ScrollView>
+        ) : (
+          <ErrorView message="Schedule not available yet" />
         );
       case "participants":
-        return (
+        return participantsLoading ? (
+          <LoadingView />
+        ) : participantsData && participantsData.length > 0 ? (
           <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.contentPadding}>
-            <ParticipantsList participants={MOCK_PARTICIPANTS} />
+            <ParticipantsList participants={participantsData} />
           </ScrollView>
+        ) : (
+          <ErrorView message="No participants yet" />
         );
     }
   };
+
+  const formatLabel = tournament.format === "knockout" ? "Knockout" : tournament.format === "round_robin" ? "Round Robin" : tournament.format;
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
@@ -404,7 +484,7 @@ export default function TournamentDetailScreen() {
         <View style={styles.statItem}>
           <Ionicons name="trophy" size={16} color={GlowColors.primary} />
           <Text style={styles.statLabel}>Format</Text>
-          <Text style={styles.statValue}>Knockout</Text>
+          <Text style={styles.statValue}>{formatLabel}</Text>
         </View>
         <View style={styles.statDivider} />
         <View style={styles.statItem}>
@@ -416,11 +496,11 @@ export default function TournamentDetailScreen() {
         <View style={styles.statItem}>
           <Ionicons name="cash" size={16} color="#FFB020" />
           <Text style={styles.statLabel}>Fee</Text>
-          <Text style={styles.statValue}>${tournament.entryFee}</Text>
+          <Text style={styles.statValue}>{tournament.entryFee ? `$${tournament.entryFee}` : "Free"}</Text>
         </View>
       </View>
 
-      {tournament.isRegistered && (
+      {tournament.isRegistered && nextMatch ? (
         <View style={styles.nextMatchCard}>
           <LinearGradient
             colors={[GlowColors.primary + "25", GlowColors.primary + "08"]}
@@ -433,26 +513,36 @@ export default function TournamentDetailScreen() {
                 <Ionicons name="flash" size={12} color={GlowColors.primary} />
                 <Text style={styles.nextMatchLabelText}>NEXT MATCH</Text>
               </View>
-              <Text style={styles.nextMatchOpponent}>vs T. Davis [4]</Text>
+              <Text style={styles.nextMatchOpponent}>
+                vs {nextMatch.opponentName || "Opponent"}
+              </Text>
               <View style={styles.nextMatchMeta}>
                 <Ionicons name="time-outline" size={12} color={TextColors.secondary} />
-                <Text style={styles.nextMatchMetaText}>Today 14:00</Text>
-                <Ionicons name="location-outline" size={12} color={TextColors.secondary} style={{ marginLeft: 8 }} />
-                <Text style={styles.nextMatchMetaText}>Court 1</Text>
+                <Text style={styles.nextMatchMetaText}>
+                  {nextMatch.scheduledTime
+                    ? new Date(nextMatch.scheduledTime).toLocaleString([], { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })
+                    : "TBD"}
+                </Text>
+                {nextMatch.court ? (
+                  <>
+                    <Ionicons name="location-outline" size={12} color={TextColors.secondary} style={{ marginLeft: 8 }} />
+                    <Text style={styles.nextMatchMetaText}>{nextMatch.court}</Text>
+                  </>
+                ) : null}
               </View>
             </View>
             <View style={styles.nextMatchRound}>
-              <Text style={styles.nextMatchRoundText}>R16</Text>
+              <Text style={styles.nextMatchRoundText}>{nextMatch.round || ""}</Text>
             </View>
           </LinearGradient>
         </View>
-      )}
+      ) : null}
 
       <View style={styles.tabBar}>
         {tabs.map((tab) => (
           <Pressable
             key={tab.key}
-            style={[styles.tab, viewMode === tab.key && styles.tabActive]}
+            style={[styles.tab, viewMode === tab.key ? styles.tabActive : null]}
             onPress={() => handleTabPress(tab.key)}
           >
             <Ionicons
@@ -460,7 +550,7 @@ export default function TournamentDetailScreen() {
               size={16}
               color={viewMode === tab.key ? GlowColors.primary : TextColors.muted}
             />
-            <Text style={[styles.tabText, viewMode === tab.key && styles.tabTextActive]}>
+            <Text style={[styles.tabText, viewMode === tab.key ? styles.tabTextActive : null]}>
               {tab.label}
             </Text>
           </Pressable>
@@ -967,5 +1057,17 @@ const styles = StyleSheet.create({
     fontSize: 10,
     fontWeight: "700",
     color: GlowColors.primary,
+  },
+  loadingContainer: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 12,
+  },
+  errorText: {
+    fontSize: 14,
+    color: TextColors.muted,
+    textAlign: "center",
+    marginTop: 8,
   },
 });
