@@ -1,17 +1,16 @@
 import React, { useState, useEffect } from "react";
-import { View, Text, StyleSheet, ScrollView, Pressable, Switch, Alert, Platform, ActivityIndicator, Linking, I18nManager } from "react-native";
+import { View, Text, StyleSheet, ScrollView, Pressable, Switch, Alert, Platform, ActivityIndicator, Linking } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import * as Haptics from "expo-haptics";
 import Constants from "expo-constants";
-import { reloadAppAsync } from "expo";
 import { useTranslation } from "react-i18next";
 import { Colors, Backgrounds, Spacing, Typography, BorderRadius, CardStyles, GlowColors } from "@/constants/theme";
 import { useAuth } from "@/coach/context/AuthContext";
 import { apiRequest, getApiUrl } from "@/lib/query-client";
 import { usePushNotifications } from "@/hooks/usePushNotifications";
-import { SUPPORTED_LANGUAGES, setStoredLanguage, isRTL, type LanguageCode } from "@/i18n";
+import { SUPPORTED_LANGUAGES, setStoredLanguage, type LanguageCode } from "@/i18n";
 
 interface SettingItem {
   id: string;
@@ -241,21 +240,8 @@ export default function PlayerSettingsScreen() {
   const handleLanguageChange = async (langCode: LanguageCode) => {
     if (langCode === i18n.language) return;
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    const currentIsRTL = isRTL(i18n.language);
-    const newIsRTL = isRTL(langCode);
     await setStoredLanguage(langCode);
     await i18n.changeLanguage(langCode);
-    if (currentIsRTL !== newIsRTL) {
-      I18nManager.allowRTL(newIsRTL);
-      I18nManager.forceRTL(newIsRTL);
-      if (Platform.OS === "web") {
-        window.location.reload();
-      } else {
-        Alert.alert(t('player.settings.languageChanged'), t('player.settings.restartRequired'), [
-          { text: t('common.ok'), onPress: () => reloadAppAsync() },
-        ]);
-      }
-    }
   };
 
   const discoverySettings: SettingItem[] = [

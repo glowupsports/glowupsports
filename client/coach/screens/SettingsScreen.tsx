@@ -14,7 +14,6 @@ import {
   ActivityIndicator,
   Dimensions,
   Linking,
-  I18nManager,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
@@ -41,8 +40,7 @@ import { useNavigation } from "@react-navigation/native";
 import { useNetwork } from "@/context/NetworkContext";
 import { showOfflineAlert } from "@/hooks/useOfflineGuard";
 import { useTranslation } from "react-i18next";
-import { reloadAppAsync } from "expo";
-import { SUPPORTED_LANGUAGES, setStoredLanguage, isRTL, type LanguageCode } from "@/i18n";
+import { SUPPORTED_LANGUAGES, setStoredLanguage, type LanguageCode } from "@/i18n";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 
@@ -227,21 +225,8 @@ export default function SettingsScreen() {
 
   const handleLanguageChange = async (langCode: LanguageCode) => {
     if (langCode === i18n.language) return;
-    const currentIsRTL = isRTL(i18n.language);
-    const newIsRTL = isRTL(langCode);
     await setStoredLanguage(langCode);
     await i18n.changeLanguage(langCode);
-    if (currentIsRTL !== newIsRTL) {
-      I18nManager.allowRTL(newIsRTL);
-      I18nManager.forceRTL(newIsRTL);
-      if (Platform.OS === "web") {
-        window.location.reload();
-      } else {
-        Alert.alert(t('player.settings.languageChanged'), t('player.settings.restartRequired'), [
-          { text: t('common.ok'), onPress: () => reloadAppAsync() },
-        ]);
-      }
-    }
   };
 
   const settingsTourSteps = useMemo(() => [

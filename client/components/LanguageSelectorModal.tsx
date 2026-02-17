@@ -5,18 +5,14 @@ import {
   StyleSheet,
   Modal,
   Pressable,
-  Platform,
-  I18nManager,
 } from "react-native";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { BlurView } from "expo-blur";
 import { useTranslation } from "react-i18next";
-import { reloadAppAsync } from "expo";
 import * as Haptics from "expo-haptics";
 import {
   SUPPORTED_LANGUAGES,
   setStoredLanguage,
-  isRTL,
   type LanguageCode,
 } from "@/i18n";
 import { Colors } from "@/constants/theme";
@@ -38,22 +34,9 @@ export function LanguageSelectorModal({
       return;
     }
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    const currentIsRTL = isRTL(i18n.language);
-    const newIsRTL = isRTL(langCode);
     await setStoredLanguage(langCode);
     await i18n.changeLanguage(langCode);
-    if (currentIsRTL !== newIsRTL) {
-      I18nManager.allowRTL(newIsRTL);
-      I18nManager.forceRTL(newIsRTL);
-      onClose();
-      if (Platform.OS === "web") {
-        window.location.reload();
-      } else {
-        setTimeout(() => reloadAppAsync(), 300);
-      }
-    } else {
-      onClose();
-    }
+    onClose();
   };
 
   return (
