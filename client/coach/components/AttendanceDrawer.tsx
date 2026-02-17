@@ -118,7 +118,7 @@ export default function AttendanceDrawer({
     },
     onSuccess: () => {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      queryClient.invalidateQueries({ queryKey: ["/api/coach/calendar"] });
+      queryClient.invalidateQueries({ predicate: (q) => typeof q.queryKey[0] === "string" && (q.queryKey[0] as string).includes("/api/coach/calendar"), refetchType: "all" });
       setShowAddPlayers(false);
       setSelectedPlayerIds([]);
       setSearchQuery("");
@@ -183,7 +183,7 @@ export default function AttendanceDrawer({
     },
     onSuccess: (data: any) => {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      queryClient.invalidateQueries({ queryKey: ["/api/coach/calendar"] });
+      queryClient.invalidateQueries({ predicate: (q) => typeof q.queryKey[0] === "string" && (q.queryKey[0] as string).includes("/api/coach/calendar"), refetchType: "all" });
       queryClient.invalidateQueries({ queryKey: ["/api/coach/dashboard"] });
       queryClient.invalidateQueries({ queryKey: ["/api/coach/profile"] });
       if (data?.xpAwarded) {

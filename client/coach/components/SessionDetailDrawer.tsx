@@ -539,7 +539,7 @@ export default function SessionDetailDrawer({
       return apiRequest("PUT", `/api/coach/sessions/${session!.id}`, { courtId: newCourtId });
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/coach/calendar"] });
+      queryClient.invalidateQueries({ predicate: (q) => typeof q.queryKey[0] === "string" && (q.queryKey[0] as string).includes("/api/coach/calendar"), refetchType: "all" });
       queryClient.invalidateQueries({ queryKey: ["/api/coach/series"] });
       setShowCourtPicker(false);
       Alert.alert("Court Updated", "The session court has been changed.");

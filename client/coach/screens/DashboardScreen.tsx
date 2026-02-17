@@ -192,19 +192,19 @@ export default function DashboardScreen() {
       queryClient.invalidateQueries({ queryKey: ["/api/coach/unread-count"] });
     }, [queryClient]),
     onNewSession: useCallback(() => {
-      queryClient.invalidateQueries({ queryKey: ["/api/coach/calendar"], refetchType: "all" });
+      queryClient.invalidateQueries({ predicate: (q) => typeof q.queryKey[0] === "string" && (q.queryKey[0] as string).includes("/api/coach/calendar"), refetchType: "all" });
       queryClient.invalidateQueries({ queryKey: ["/api/coach/sessions"], refetchType: "all" });
       if (refetchCalendar) refetchCalendar();
       refetchWeeklyCalendar();
     }, [queryClient, refetchCalendar, refetchWeeklyCalendar]),
     onSessionUpdate: useCallback(() => {
-      queryClient.invalidateQueries({ queryKey: ["/api/coach/calendar"], refetchType: "all" });
+      queryClient.invalidateQueries({ predicate: (q) => typeof q.queryKey[0] === "string" && (q.queryKey[0] as string).includes("/api/coach/calendar"), refetchType: "all" });
       queryClient.invalidateQueries({ queryKey: ["/api/coach/sessions"], refetchType: "all" });
       if (refetchCalendar) refetchCalendar();
       refetchWeeklyCalendar();
     }, [queryClient, refetchCalendar, refetchWeeklyCalendar]),
     onConnected: useCallback(() => {
-      queryClient.invalidateQueries({ queryKey: ["/api/coach/calendar"], refetchType: "all" });
+      queryClient.invalidateQueries({ predicate: (q) => typeof q.queryKey[0] === "string" && (q.queryKey[0] as string).includes("/api/coach/calendar"), refetchType: "all" });
       queryClient.invalidateQueries({ queryKey: ["/api/coach/notifications"] });
       if (refetchCalendar) refetchCalendar();
     }, [queryClient, refetchCalendar]),

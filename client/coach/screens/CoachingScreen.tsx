@@ -927,7 +927,7 @@ function TodayFeedbackTab({ insets, tabBarHeight }: { insets: { bottom: number }
     },
     onSuccess: () => {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      queryClient.invalidateQueries({ queryKey: ["/api/coach/calendar"] });
+      queryClient.invalidateQueries({ predicate: (q) => typeof q.queryKey[0] === "string" && (q.queryKey[0] as string).includes("/api/coach/calendar"), refetchType: "all" });
       queryClient.invalidateQueries({ queryKey: ["/api/progress/domains"] });
       // Show success overlay briefly
       setShowSuccess(true);
@@ -2435,7 +2435,7 @@ function ProgressTab({ insets, tabBarHeight }: { insets: { bottom: number }; tab
         onComplete={() => {
           setShowFeedbackModal(false);
           setFeedbackSession(null);
-          queryClient.invalidateQueries({ queryKey: ["/api/coach/calendar"] });
+          queryClient.invalidateQueries({ predicate: (q) => typeof q.queryKey[0] === "string" && (q.queryKey[0] as string).includes("/api/coach/calendar"), refetchType: "all" });
         }}
       />
     </ScrollView>

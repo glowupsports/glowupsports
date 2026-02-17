@@ -462,7 +462,7 @@ export default function SeriesDetailDrawer({
     onSuccess: () => {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       queryClient.invalidateQueries({ queryKey: [`/api/coach/series/${seriesId}`] });
-      queryClient.invalidateQueries({ queryKey: ["/api/coach/calendar"] });
+      queryClient.invalidateQueries({ predicate: (q) => typeof q.queryKey[0] === "string" && (q.queryKey[0] as string).includes("/api/coach/calendar"), refetchType: "all" });
       queryClient.invalidateQueries({ queryKey: ["/api/coach/series"] });
       setAttendanceModalView("attendance");
       setShowAttendanceModal(false);
@@ -950,7 +950,7 @@ export default function SeriesDetailDrawer({
       });
       queryClient.invalidateQueries({ queryKey: [`/api/coach/series/${seriesId}`] });
       queryClient.invalidateQueries({ queryKey: ["/api/coach/series"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/coach/calendar"] });
+      queryClient.invalidateQueries({ predicate: (q) => typeof q.queryKey[0] === "string" && (q.queryKey[0] as string).includes("/api/coach/calendar"), refetchType: "all" });
       queryClient.invalidateQueries({ queryKey: ["/api/players?withCredits=true"] });
       queryClient.invalidateQueries({ queryKey: ["/api/players"] });
       queryClient.invalidateQueries({ queryKey: ["/api/coach/earnings"] });
@@ -987,7 +987,7 @@ export default function SeriesDetailDrawer({
       });
       queryClient.invalidateQueries({ queryKey: [`/api/coach/series/${seriesId}`] });
       queryClient.invalidateQueries({ queryKey: ["/api/coach/series"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/coach/calendar"] });
+      queryClient.invalidateQueries({ predicate: (q) => typeof q.queryKey[0] === "string" && (q.queryKey[0] as string).includes("/api/coach/calendar"), refetchType: "all" });
     } catch (error) {
       console.error("Error cancelling session:", error);
       Alert.alert("Error", "Failed to cancel session. Please try again.");
@@ -1009,7 +1009,7 @@ export default function SeriesDetailDrawer({
     try {
       await apiRequest("DELETE", `/api/coach/sessions/${sessionId}`);
       queryClient.invalidateQueries({ queryKey: [`/api/coach/series/${seriesId}`] });
-      queryClient.invalidateQueries({ queryKey: ["/api/coach/calendar"] });
+      queryClient.invalidateQueries({ predicate: (q) => typeof q.queryKey[0] === "string" && (q.queryKey[0] as string).includes("/api/coach/calendar"), refetchType: "all" });
     } catch (error) {
       console.error("Error deleting session:", error);
       Alert.alert("Error", "Failed to delete session. Please try again.");
@@ -1050,7 +1050,7 @@ export default function SeriesDetailDrawer({
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [`/api/coach/series/${seriesId}`] });
-      queryClient.invalidateQueries({ queryKey: ["/api/coach/calendar"] });
+      queryClient.invalidateQueries({ predicate: (q) => typeof q.queryKey[0] === "string" && (q.queryKey[0] as string).includes("/api/coach/calendar"), refetchType: "all" });
       queryClient.invalidateQueries({ queryKey: ["/api/coach/series"] });
       setShowSeriesCourtPicker(false);
       Alert.alert("Court Updated", "All sessions in this class have been moved to the new court.");
@@ -1293,7 +1293,7 @@ export default function SeriesDetailDrawer({
     try {
       await apiRequest("DELETE", `/api/coach/series/${seriesId}`);
       await queryClient.invalidateQueries({ queryKey: ["/api/coach/series"] });
-      await queryClient.invalidateQueries({ queryKey: ["/api/coach/calendar"] });
+      await queryClient.invalidateQueries({ predicate: (q) => typeof q.queryKey[0] === "string" && (q.queryKey[0] as string).includes("/api/coach/calendar"), refetchType: "all" });
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       onClose();
     } catch (error) {

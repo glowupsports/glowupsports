@@ -839,8 +839,13 @@ export default function CalendarScreen() {
       return { response, originalData, sessionId };
     },
     onSuccess: (data) => {
-      queryClient.invalidateQueries({ queryKey: ["/api/coach/calendar"], refetchType: "all" });
-      queryClient.refetchQueries({ queryKey: ["/api/coach/calendar"] });
+      queryClient.invalidateQueries({ 
+        predicate: (query) => {
+          const key = query.queryKey[0];
+          return typeof key === "string" && key.includes("/api/coach/calendar");
+        },
+        refetchType: "all",
+      });
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       if (data.originalData) {
         setLastMove({
@@ -1277,7 +1282,7 @@ export default function CalendarScreen() {
       await Promise.all(promises);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/coach/calendar"] });
+      queryClient.invalidateQueries({ predicate: (q) => typeof q.queryKey[0] === "string" && (q.queryKey[0] as string).includes("/api/coach/calendar"), refetchType: "all" });
       clearSelection();
       setShowBlockActionModal(false);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
@@ -1292,7 +1297,7 @@ export default function CalendarScreen() {
       return apiRequest("POST", "/api/coach/time-blocks", data);
     },
     onSuccess: (data: any) => {
-      queryClient.invalidateQueries({ queryKey: ["/api/coach/calendar"] });
+      queryClient.invalidateQueries({ predicate: (q) => typeof q.queryKey[0] === "string" && (q.queryKey[0] as string).includes("/api/coach/calendar"), refetchType: "all" });
       clearSelection();
       setShowBlockActionModal(false);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
@@ -1308,7 +1313,7 @@ export default function CalendarScreen() {
       return apiRequest("DELETE", `/api/coach/time-blocks/${blockId}`);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/coach/calendar"] });
+      queryClient.invalidateQueries({ predicate: (q) => typeof q.queryKey[0] === "string" && (q.queryKey[0] as string).includes("/api/coach/calendar"), refetchType: "all" });
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     },
     onError: (error: any) => {
@@ -1330,7 +1335,7 @@ export default function CalendarScreen() {
       });
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/coach/calendar"] });
+      queryClient.invalidateQueries({ predicate: (q) => typeof q.queryKey[0] === "string" && (q.queryKey[0] as string).includes("/api/coach/calendar"), refetchType: "all" });
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     },
     onError: (error: any) => {
@@ -1629,7 +1634,7 @@ export default function CalendarScreen() {
               { text: "Yes, Cancel", style: "destructive", onPress: async () => {
                 try {
                   await apiRequest("POST", `/api/coach/sessions/${session.id}/cancel`, { reason: "Cancelled by coach" });
-                  queryClient.invalidateQueries({ queryKey: ["/api/coach/calendar"] });
+                  queryClient.invalidateQueries({ predicate: (q) => typeof q.queryKey[0] === "string" && (q.queryKey[0] as string).includes("/api/coach/calendar"), refetchType: "all" });
                   queryClient.invalidateQueries({ queryKey: ["/api/coach/series"] });
                   setSelectedSession(null);
                   Alert.alert("Session Cancelled", "The session has been cancelled and players have been notified.");

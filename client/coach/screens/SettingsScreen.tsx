@@ -360,7 +360,7 @@ export default function SettingsScreen() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/courts"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/coach/calendar"], refetchType: "all" });
+      queryClient.invalidateQueries({ predicate: (q) => typeof q.queryKey[0] === "string" && (q.queryKey[0] as string).includes("/api/coach/calendar"), refetchType: "all" });
       setShowCourtModal(false);
       setNewCourtName("");
       setNewCourtColor(COURT_COLORS[0]);
@@ -379,7 +379,7 @@ export default function SettingsScreen() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/courts"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/coach/calendar"], refetchType: "all" });
+      queryClient.invalidateQueries({ predicate: (q) => typeof q.queryKey[0] === "string" && (q.queryKey[0] as string).includes("/api/coach/calendar"), refetchType: "all" });
       setEditingCourt(null);
       setNewCourtName("");
       setNewCourtColor(COURT_COLORS[0]);
@@ -394,7 +394,7 @@ export default function SettingsScreen() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/courts"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/coach/calendar"], refetchType: "all" });
+      queryClient.invalidateQueries({ predicate: (q) => typeof q.queryKey[0] === "string" && (q.queryKey[0] as string).includes("/api/coach/calendar"), refetchType: "all" });
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     },
     onError: (error: any) => {
@@ -483,7 +483,7 @@ export default function SettingsScreen() {
     },
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/courts"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/coach/calendar"], refetchType: "all" });
+      queryClient.invalidateQueries({ predicate: (q) => typeof q.queryKey[0] === "string" && (q.queryKey[0] as string).includes("/api/coach/calendar"), refetchType: "all" });
     },
   });
 

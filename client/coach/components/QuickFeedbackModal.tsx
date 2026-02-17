@@ -183,7 +183,7 @@ export default function QuickFeedbackModal({
     },
     onSuccess: () => {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      queryClient.invalidateQueries({ queryKey: ["/api/coach/calendar"] });
+      queryClient.invalidateQueries({ predicate: (q) => typeof q.queryKey[0] === "string" && (q.queryKey[0] as string).includes("/api/coach/calendar"), refetchType: "all" });
       setShowSuccessAnimation(true);
       setSuccessToastVisible(true);
       setTimeout(() => {

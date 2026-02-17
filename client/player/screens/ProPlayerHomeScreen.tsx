@@ -324,7 +324,7 @@ function PlayerHomeContent() {
   const handleBookingSuccess = () => {
     setShowBookingWizard(false);
     queryClient.invalidateQueries({ queryKey: ["/api/player/me/dashboard"] });
-    queryClient.invalidateQueries({ queryKey: ["/api/coach/calendar"] });
+    queryClient.invalidateQueries({ predicate: (q) => typeof q.queryKey[0] === "string" && (q.queryKey[0] as string).includes("/api/coach/calendar"), refetchType: "all" });
   };
 
   return (
