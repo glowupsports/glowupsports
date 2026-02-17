@@ -1199,9 +1199,9 @@ export default function SeriesDetailDrawer({
       
       await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       
-      // Refresh data
       queryClient.invalidateQueries({ queryKey: ["/api/coach/series"] });
       queryClient.invalidateQueries({ queryKey: [`/api/coach/series/${seriesId}`] });
+      queryClient.invalidateQueries({ predicate: (q) => typeof q.queryKey[0] === "string" && (q.queryKey[0] as string).includes("/api/coach/calendar"), refetchType: "all" });
       
       if (Platform.OS === "web" && typeof window !== "undefined") {
         window.alert("Extra lesson added successfully!");

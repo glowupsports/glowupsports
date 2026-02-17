@@ -1,16 +1,16 @@
-const { getDefaultConfig } = require('expo/metro-config');
-const { createProxyMiddleware } = require('http-proxy-middleware');
-const path = require('path');
+const { createProxyMiddleware } = require("http-proxy-middleware");
+const path = require("path");
+const { getSentryExpoConfig } = require("@sentry/react-native/metro");
 
-const config = getDefaultConfig(__dirname);
+const config = getSentryExpoConfig(__dirname);
 
 config.server = {
   ...config.server,
   enhanceMiddleware: (middleware) => {
     return (req, res, next) => {
-      if (req.url.startsWith('/api') || req.url.startsWith('/auth')) {
+      if (req.url.startsWith("/api") || req.url.startsWith("/auth")) {
         const proxy = createProxyMiddleware({
-          target: 'http://localhost:5000',
+          target: "http://localhost:5000",
           changeOrigin: true,
         });
         return proxy(req, res, next);
@@ -23,10 +23,13 @@ config.server = {
 config.resolver = {
   ...config.resolver,
   resolveRequest: (context, moduleName, platform) => {
-    if (platform === 'web' && moduleName === 'react-native-pager-view') {
+    if (platform === "web" && moduleName === "react-native-pager-view") {
       return {
-        filePath: path.resolve(__dirname, 'client/shims/react-native-pager-view.web.tsx'),
-        type: 'sourceFile',
+        filePath: path.resolve(
+          __dirname,
+          "client/shims/react-native-pager-view.web.tsx",
+        ),
+        type: "sourceFile",
       };
     }
     return context.resolveRequest(context, moduleName, platform);

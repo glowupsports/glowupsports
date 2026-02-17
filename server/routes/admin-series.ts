@@ -600,8 +600,8 @@ function requirePlayerOrOwner(req: AuthenticatedRequest, res: Response, next: Ne
 
         if (orphanCoachId) {
           apiCache.invalidate(`series:${orphanCoachId}`);
-          apiCache.invalidate(`coach_earnings_${orphanCoachId}`);
-          apiCache.invalidate(`coach_calendar_${orphanCoachId}`);
+          apiCache.invalidate(`earnings:${orphanCoachId}`);
+          apiCache.invalidate(`calendar:${orphanCoachId}`);
         }
 
         return res.json({ success: true, deletedSessions: sessionIds.length });
@@ -627,8 +627,8 @@ function requirePlayerOrOwner(req: AuthenticatedRequest, res: Response, next: Ne
       
       if (seriesCoachId) {
         apiCache.invalidate(`series:${seriesCoachId}`);
-        apiCache.invalidate(`coach_earnings_${seriesCoachId}`);
-        apiCache.invalidate(`coach_calendar_${seriesCoachId}`);
+        apiCache.invalidate(`earnings:${seriesCoachId}`);
+        apiCache.invalidate(`calendar:${seriesCoachId}`);
         console.log("[Series DELETE] Cache invalidated for coach:", seriesCoachId);
       }
 
