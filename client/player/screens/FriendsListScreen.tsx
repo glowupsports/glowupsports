@@ -168,7 +168,7 @@ function RequestCard({
             onPress={onDecline}
             disabled={isLoading}
           >
-            <Ionicons name="close" size={18} color={Colors.dark.danger} />
+            <Ionicons name="close" size={18} color={Colors.dark.error} />
             <ThemedText style={styles.declineText}>Decline</ThemedText>
           </Pressable>
           
@@ -201,7 +201,6 @@ export default function FriendsListScreen() {
   
   const { data, isLoading, refetch, isRefetching, isError } = useQuery<ConnectionsData>({
     queryKey: ["/api/player/connections"],
-    queryFn: () => apiFetch("/api/player/connections"),
   });
   
   const respondMutation = useMutation({
@@ -243,7 +242,7 @@ export default function FriendsListScreen() {
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
       <LinearGradient
-        colors={[Colors.dark.background, "#0a1a2e", Colors.dark.background]}
+        colors={[Colors.dark.backgroundRoot, "#0a1a2e", Colors.dark.backgroundRoot]}
         style={StyleSheet.absoluteFill}
       />
       
@@ -309,7 +308,7 @@ export default function FriendsListScreen() {
         </View>
       ) : isError ? (
         <View style={styles.loadingContainer}>
-          <Ionicons name="alert-circle-outline" size={48} color={Colors.dark.danger} />
+          <Ionicons name="alert-circle-outline" size={48} color={Colors.dark.error} />
           <ThemedText style={styles.emptyTitle}>Failed to load friends</ThemedText>
           <Pressable onPress={() => refetch()} style={styles.retryButton}>
             <ThemedText style={styles.retryText}>Try Again</ThemedText>
@@ -361,7 +360,7 @@ export default function FriendsListScreen() {
             pendingSent.length > 0 ? (
               <View style={styles.sentSection}>
                 <ThemedText style={styles.sectionTitle}>Sent Requests ({pendingSent.length})</ThemedText>
-                {pendingSent.map((conn) => (
+                {pendingSent.map((conn: Connection) => (
                   <View key={conn.id} style={styles.sentRequest}>
                     <View style={styles.sentAvatar}>
                       {conn.player?.photoUrl ? (
@@ -436,7 +435,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     marginHorizontal: Spacing.md,
     marginVertical: Spacing.sm,
-    backgroundColor: Colors.dark.cardLight,
+    backgroundColor: Colors.dark.backgroundSecondary,
     borderRadius: BorderRadius.md,
     padding: 4,
   },
@@ -461,7 +460,7 @@ const styles = StyleSheet.create({
     color: Colors.dark.text,
   },
   badgeCount: {
-    backgroundColor: Colors.dark.danger,
+    backgroundColor: Colors.dark.error,
     paddingHorizontal: 6,
     paddingVertical: 2,
     borderRadius: 10,
@@ -487,7 +486,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     padding: Spacing.md,
-    backgroundColor: Colors.dark.cardLight,
+    backgroundColor: Colors.dark.backgroundSecondary,
     borderRadius: BorderRadius.md,
     marginBottom: Spacing.sm,
     gap: Spacing.md,
@@ -499,7 +498,7 @@ const styles = StyleSheet.create({
     width: 48,
     height: 48,
     borderRadius: 24,
-    backgroundColor: Colors.dark.cardLight,
+    backgroundColor: Colors.dark.backgroundSecondary,
   },
   playerAvatarPlaceholder: {
     width: 48,
@@ -520,7 +519,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
     borderWidth: 2,
-    borderColor: Colors.dark.cardLight,
+    borderColor: Colors.dark.backgroundSecondary,
   },
   playerInfo: {
     flex: 1,
@@ -600,7 +599,7 @@ const styles = StyleSheet.create({
     borderRadius: BorderRadius.md,
   },
   declineButton: {
-    backgroundColor: Colors.dark.danger + "20",
+    backgroundColor: Colors.dark.error + "20",
   },
   acceptButton: {
     backgroundColor: Colors.dark.primary,
@@ -608,7 +607,7 @@ const styles = StyleSheet.create({
   declineText: {
     fontSize: 14,
     fontWeight: "600",
-    color: Colors.dark.danger,
+    color: Colors.dark.error,
   },
   acceptText: {
     fontSize: 14,
@@ -629,7 +628,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     padding: Spacing.sm,
-    backgroundColor: Colors.dark.cardLight,
+    backgroundColor: Colors.dark.backgroundSecondary,
     borderRadius: BorderRadius.sm,
     marginBottom: Spacing.xs,
     gap: Spacing.sm,

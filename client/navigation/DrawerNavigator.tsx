@@ -7,7 +7,7 @@ import LessonsScreen from "@/screens/LessonsScreen";
 import QuestScreen from "@/screens/QuestScreen";
 import MatchScreen from "@/screens/MatchScreen";
 import RankingScreen from "@/screens/RankingScreen";
-import FriendsScreen from "@/screens/FriendsScreen";
+import FriendsScreen from "@/player/screens/FriendsListScreen";
 import GameLobbyScreen from "@/screens/GameLobbyScreen";
 import EventsScreen from "@/screens/EventsScreen";
 import PaymentsScreen from "@/screens/PaymentsScreen";
