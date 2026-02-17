@@ -751,7 +751,7 @@ function isBirthdayToday(dateOfBirth: string | Date | null): boolean {
       
       const FLEXIBLE_DAY = -1;
 
-      if (!coachId || !courtId || !startTime || !duration || !sessionType) {
+      if (!coachId || !startTime || !duration || !sessionType) {
         return res.status(400).json({ error: "Missing required fields" });
       }
 
@@ -801,13 +801,15 @@ function isBirthdayToday(dateOfBirth: string | Date | null): boolean {
         });
       }
 
-      const courtConflict = await storage.checkCourtConflict(courtId, start, end, undefined, academyId ?? undefined);
-      if (courtConflict) {
-        return res.status(409).json({ 
-          error: "Court conflict", 
-          level: 3,
-          message: "Court is already booked for this time slot" 
-        });
+      if (courtId) {
+        const courtConflict = await storage.checkCourtConflict(courtId, start, end, undefined, academyId ?? undefined);
+        if (courtConflict) {
+          return res.status(409).json({ 
+            error: "Court conflict", 
+            level: 3,
+            message: "Court is already booked for this time slot" 
+          });
+        }
       }
 
       // Smart Rules Validation: Check coach settings for minimum session length and buffer

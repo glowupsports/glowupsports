@@ -239,19 +239,19 @@ export default function PlayerSettingsScreen() {
   ];
 
   const handleLanguageChange = async (langCode: LanguageCode) => {
+    if (langCode === i18n.language) return;
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    const currentIsRTL = isRTL(i18n.language);
+    const newIsRTL = isRTL(langCode);
     await setStoredLanguage(langCode);
     await i18n.changeLanguage(langCode);
-    const rtl = isRTL(langCode);
-    if (I18nManager.isRTL !== rtl) {
-      I18nManager.allowRTL(rtl);
-      I18nManager.forceRTL(rtl);
-      const msg = t('player.settings.restartRequired');
+    if (currentIsRTL !== newIsRTL) {
+      I18nManager.allowRTL(newIsRTL);
+      I18nManager.forceRTL(newIsRTL);
       if (Platform.OS === "web") {
-        window.alert(msg);
         window.location.reload();
       } else {
-        Alert.alert(t('player.settings.languageChanged'), msg, [
+        Alert.alert(t('player.settings.languageChanged'), t('player.settings.restartRequired'), [
           { text: t('common.ok'), onPress: () => reloadAppAsync() },
         ]);
       }

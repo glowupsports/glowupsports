@@ -56,6 +56,7 @@ import {
   playerBallLevels,
   academies,
   pushDeviceTokens,
+  platformConfig,
 
 } from "@shared/schema";
 import { setupWebSocket, broadcastNewMessage, broadcastNewSession, broadcastFeedbackReceived, broadcastSessionUpdate } from "./websocket";
@@ -324,6 +325,44 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.use(tournamentsLaddersRouter);
   app.use(worldChatRouter);
   app.use(adminSeriesRouter);
+
+  // ==================== USER ONBOARDING STATE ====================
+
+  app.get("/api/user/onboarding-state", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const userId = req.user!.id;
+      const key = `user_onboarding_${userId}`;
+      const existing = await db.select().from(platformConfig).where(eq(platformConfig.key, key)).limit(1);
+      const state = existing.length > 0 ? (existing[0].value as Record<string, any>) : {};
+      res.json({ state });
+    } catch (error) {
+      console.error("[OnboardingState] GET error:", error);
+      res.status(500).json({ error: "Failed to fetch onboarding state" });
+    }
+  });
+
+  app.post("/api/user/onboarding-state", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const userId = req.user!.id;
+      const { key: bodyKey, value: bodyValue } = req.body;
+      if (!bodyKey) {
+        return res.status(400).json({ error: "key is required" });
+      }
+      const configKey = `user_onboarding_${userId}`;
+      const existing = await db.select().from(platformConfig).where(eq(platformConfig.key, configKey)).limit(1);
+      const currentState = existing.length > 0 ? (existing[0].value as Record<string, any>) : {};
+      const updatedState = { ...currentState, [bodyKey]: bodyValue };
+      if (existing.length > 0) {
+        await db.update(platformConfig).set({ value: updatedState, updatedAt: new Date() }).where(eq(platformConfig.key, configKey));
+      } else {
+        await db.insert(platformConfig).values({ key: configKey, value: updatedState, updatedBy: userId });
+      }
+      res.json({ state: updatedState });
+    } catch (error) {
+      console.error("[OnboardingState] POST error:", error);
+      res.status(500).json({ error: "Failed to update onboarding state" });
+    }
+  });
 
   // ==================== HEALTH CHECK ====================
   

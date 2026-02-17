@@ -10,6 +10,7 @@ import {
 } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import Ionicons from "@expo/vector-icons/Ionicons";
+import { getApiUrl } from "@/lib/query-client";
 import * as Haptics from "expo-haptics";
 import Animated, {
   FadeIn,
@@ -63,8 +64,8 @@ export function GettingStartedChecklist({
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
 
-  const storageKey = `@glow_getting_started_${role}`;
-  const dismissKey = `${storageKey}_dismissed`;
+  const stateKey = `getting_started_${role}`;
+  const dismissStateKey = `getting_started_${role}_dismissed`;
 
   const chevronRotation = useSharedValue(0);
 
@@ -74,15 +75,21 @@ export function GettingStartedChecklist({
 
   const loadState = async () => {
     try {
-      const [storedSteps, storedDismissed] = await Promise.all([
-        AsyncStorage.getItem(storageKey),
-        AsyncStorage.getItem(dismissKey),
-      ]);
-      if (storedSteps) {
-        setCompletedSteps(new Set(JSON.parse(storedSteps)));
-      }
-      if (storedDismissed === "true") {
-        setIsDismissed(true);
+      const token = await AsyncStorage.getItem("authToken");
+      const apiUrl = getApiUrl();
+      const response = await fetch(new URL('/api/user/onboarding-state', apiUrl).toString(), {
+        headers: { "Authorization": `Bearer ${token}` },
+      });
+      if (response.ok) {
+        const data = await response.json();
+        if (data.state) {
+          if (Array.isArray(data.state[stateKey])) {
+            setCompletedSteps(new Set(data.state[stateKey]));
+          }
+          if (data.state[dismissStateKey] === true) {
+            setIsDismissed(true);
+          }
+        }
       }
     } catch (error) {
       console.warn("Failed to load getting started state:", error);
@@ -93,10 +100,13 @@ export function GettingStartedChecklist({
 
   const saveCompletedSteps = async (newCompleted: Set<string>) => {
     try {
-      await AsyncStorage.setItem(
-        storageKey,
-        JSON.stringify([...newCompleted])
-      );
+      const token = await AsyncStorage.getItem("authToken");
+      const apiUrl = getApiUrl();
+      await fetch(new URL('/api/user/onboarding-state', apiUrl).toString(), {
+        method: "POST",
+        headers: { "Authorization": `Bearer ${token}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ key: stateKey, value: [...newCompleted] }),
+      });
     } catch (error) {
       console.warn("Failed to save getting started state:", error);
     }
@@ -120,13 +130,19 @@ export function GettingStartedChecklist({
   const handleDismiss = useCallback(async () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     try {
-      await AsyncStorage.setItem(dismissKey, "true");
+      const token = await AsyncStorage.getItem("authToken");
+      const apiUrl = getApiUrl();
+      await fetch(new URL('/api/user/onboarding-state', apiUrl).toString(), {
+        method: "POST",
+        headers: { "Authorization": `Bearer ${token}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ key: dismissStateKey, value: true }),
+      });
     } catch (error) {
       console.warn("Failed to save dismiss state:", error);
     }
     setIsDismissed(true);
     onDismiss?.();
-  }, [dismissKey, onDismiss]);
+  }, [dismissStateKey, onDismiss]);
 
   const toggleCollapse = useCallback(() => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);

@@ -39,12 +39,13 @@ export function LanguageSelectorModal({
       return;
     }
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    const currentIsRTL = isRTL(i18n.language);
+    const newIsRTL = isRTL(langCode);
     await setStoredLanguage(langCode);
     await i18n.changeLanguage(langCode);
-    const needsRTLChange = I18nManager.isRTL !== isRTL(langCode);
-    if (needsRTLChange) {
-      I18nManager.allowRTL(isRTL(langCode));
-      I18nManager.forceRTL(isRTL(langCode));
+    if (currentIsRTL !== newIsRTL) {
+      I18nManager.allowRTL(newIsRTL);
+      I18nManager.forceRTL(newIsRTL);
       onClose();
       if (Platform.OS === "web") {
         window.location.reload();

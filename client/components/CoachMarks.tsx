@@ -15,6 +15,7 @@ import {
 } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import Ionicons from "@expo/vector-icons/Ionicons";
+import { getApiUrl } from "@/lib/query-client";
 import * as Haptics from "expo-haptics";
 import Animated, {
   useSharedValue,
@@ -497,16 +498,21 @@ export function CoachMarksProvider({ children }: { children: React.ReactNode }) 
   useEffect(() => {
     (async () => {
       try {
-        const allKeys = await AsyncStorage.getAllKeys();
-        const tourKeys = allKeys.filter((k) => k.startsWith("@glow_coach_marks_completed_"));
-        if (tourKeys.length > 0) {
-          const pairs = await AsyncStorage.multiGet(tourKeys);
-          pairs.forEach(([key, value]) => {
-            if (value === "true") {
-              const tourName = key.replace("@glow_coach_marks_completed_", "");
-              completedToursRef.current.add(tourName);
-            }
+        const token = await AsyncStorage.getItem("authToken");
+        if (token) {
+          const apiUrl = getApiUrl();
+          const resp = await fetch(new URL("/api/user/onboarding-state", apiUrl).toString(), {
+            headers: { Authorization: `Bearer ${token}` },
           });
+          if (resp.ok) {
+            const data = await resp.json();
+            const state = data.state || {};
+            Object.keys(state).forEach((key) => {
+              if (key.startsWith("tour_completed_") && state[key] === true) {
+                completedToursRef.current.add(key.replace("tour_completed_", ""));
+              }
+            });
+          }
         }
       } catch {}
       readyRef.current = true;
@@ -524,7 +530,15 @@ export function CoachMarksProvider({ children }: { children: React.ReactNode }) 
   const markTourCompleted = useCallback(async (id: string) => {
     completedToursRef.current.add(id);
     try {
-      await AsyncStorage.setItem(`@glow_coach_marks_completed_${id}`, "true");
+      const token = await AsyncStorage.getItem("authToken");
+      if (token) {
+        const apiUrl = getApiUrl();
+        await fetch(new URL("/api/user/onboarding-state", apiUrl).toString(), {
+          method: "POST",
+          headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+          body: JSON.stringify({ key: `tour_completed_${id}`, value: true }),
+        });
+      }
     } catch {
     }
   }, []);

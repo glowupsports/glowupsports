@@ -12,6 +12,7 @@ import {
 } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import Ionicons from "@expo/vector-icons/Ionicons";
+import { getApiUrl } from "@/lib/query-client";
 import { LinearGradient } from "expo-linear-gradient";
 import * as Haptics from "expo-haptics";
 import Animated, {
@@ -59,7 +60,7 @@ export function WelcomeIntroModal({
   const scrollRef = useRef<ScrollView>(null);
   const buttonScale = useSharedValue(1);
 
-  const storageKey = `@glow_welcome_seen_${role}`;
+  const stateKey = `welcome_seen_${role}`;
 
   useEffect(() => {
     checkIfSeen();
@@ -67,11 +68,21 @@ export function WelcomeIntroModal({
 
   const checkIfSeen = async () => {
     try {
-      const seen = await AsyncStorage.getItem(storageKey);
-      if (seen !== "true") {
-        setVisible(true);
+      const token = await AsyncStorage.getItem("authToken");
+      const apiUrl = getApiUrl();
+      const response = await fetch(new URL('/api/user/onboarding-state', apiUrl).toString(), {
+        headers: { "Authorization": `Bearer ${token}` },
+      });
+      if (response.ok) {
+        const data = await response.json();
+        if (data.state && data.state[stateKey] === true) {
+          setChecked(true);
+          return;
+        }
       }
+      setVisible(true);
     } catch (error) {
+      setVisible(true);
     } finally {
       setChecked(true);
     }
@@ -79,7 +90,13 @@ export function WelcomeIntroModal({
 
   const markAsSeen = async () => {
     try {
-      await AsyncStorage.setItem(storageKey, "true");
+      const token = await AsyncStorage.getItem("authToken");
+      const apiUrl = getApiUrl();
+      await fetch(new URL('/api/user/onboarding-state', apiUrl).toString(), {
+        method: "POST",
+        headers: { "Authorization": `Bearer ${token}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ key: stateKey, value: true }),
+      });
     } catch (error) {
       console.warn("Failed to save welcome seen state:", error);
     }
@@ -90,7 +107,7 @@ export function WelcomeIntroModal({
     await markAsSeen();
     setVisible(false);
     onComplete();
-  }, [onComplete, storageKey]);
+  }, [onComplete, stateKey]);
 
   const handleNext = useCallback(() => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);

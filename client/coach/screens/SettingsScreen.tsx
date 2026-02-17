@@ -226,12 +226,14 @@ export default function SettingsScreen() {
   const { t, i18n } = useTranslation();
 
   const handleLanguageChange = async (langCode: LanguageCode) => {
+    if (langCode === i18n.language) return;
+    const currentIsRTL = isRTL(i18n.language);
+    const newIsRTL = isRTL(langCode);
     await setStoredLanguage(langCode);
     await i18n.changeLanguage(langCode);
-    const rtl = isRTL(langCode);
-    if (I18nManager.isRTL !== rtl) {
-      I18nManager.allowRTL(rtl);
-      I18nManager.forceRTL(rtl);
+    if (currentIsRTL !== newIsRTL) {
+      I18nManager.allowRTL(newIsRTL);
+      I18nManager.forceRTL(newIsRTL);
       if (Platform.OS === "web") {
         window.location.reload();
       } else {
