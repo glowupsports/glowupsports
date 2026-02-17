@@ -16,11 +16,10 @@ if (SENTRY_DSN) {
   Sentry.init({
     dsn: SENTRY_DSN,
     sendDefaultPii: true,
-    enableLogs: true,
     tracesSampleRate: 0.2,
     replaysSessionSampleRate: 0.1,
     replaysOnErrorSampleRate: 1,
-    integrations: [Sentry.mobileReplayIntegration(), Sentry.feedbackIntegration()],
+    integrations: [Sentry.mobileReplayIntegration()],
     environment: __DEV__ ? "development" : "production",
     beforeSend(event) {
       if (__DEV__) return null;
