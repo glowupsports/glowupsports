@@ -1,14 +1,17 @@
 import React, { useState, useEffect } from "react";
-import { View, Text, StyleSheet, ScrollView, Pressable, Switch, Alert, Platform, ActivityIndicator, Linking } from "react-native";
+import { View, Text, StyleSheet, ScrollView, Pressable, Switch, Alert, Platform, ActivityIndicator, Linking, I18nManager } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import * as Haptics from "expo-haptics";
 import Constants from "expo-constants";
+import { reloadAppAsync } from "expo";
+import { useTranslation } from "react-i18next";
 import { Colors, Backgrounds, Spacing, Typography, BorderRadius, CardStyles, GlowColors } from "@/constants/theme";
 import { useAuth } from "@/coach/context/AuthContext";
 import { apiRequest, getApiUrl } from "@/lib/query-client";
 import { usePushNotifications } from "@/hooks/usePushNotifications";
+import { SUPPORTED_LANGUAGES, setStoredLanguage, isRTL, type LanguageCode } from "@/i18n";
 
 interface SettingItem {
   id: string;
@@ -46,6 +49,7 @@ export default function PlayerSettingsScreen() {
   const navigation = useNavigation();
   const { logout } = useAuth();
   const { expoPushToken, isRegistered, enableNotifications } = usePushNotifications();
+  const { t, i18n } = useTranslation();
 
   const [notifications, setNotifications] = useState(true);
   const [sessionReminders, setSessionReminders] = useState(true);
@@ -229,10 +233,30 @@ export default function PlayerSettingsScreen() {
   ];
 
   const languageOptions = [
-    { id: "player", label: "Fun & Encouraging", description: "Kid-friendly messages" },
-    { id: "coach", label: "Technical", description: "Coach-style technical terms" },
-    { id: "parent", label: "Informative", description: "Parent-friendly updates" },
+    { id: "player", label: t('player.settings.funEncouraging'), description: t('player.settings.kidFriendly') },
+    { id: "coach", label: t('player.settings.technical'), description: t('player.settings.coachStyle') },
+    { id: "parent", label: t('player.settings.informative'), description: t('player.settings.parentFriendly') },
   ];
+
+  const handleLanguageChange = async (langCode: LanguageCode) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    await setStoredLanguage(langCode);
+    await i18n.changeLanguage(langCode);
+    const rtl = isRTL(langCode);
+    if (I18nManager.isRTL !== rtl) {
+      I18nManager.allowRTL(rtl);
+      I18nManager.forceRTL(rtl);
+      const msg = t('player.settings.restartRequired');
+      if (Platform.OS === "web") {
+        window.alert(msg);
+        window.location.reload();
+      } else {
+        Alert.alert(t('player.settings.languageChanged'), msg, [
+          { text: t('common.ok'), onPress: () => reloadAppAsync() },
+        ]);
+      }
+    }
+  };
 
   const discoverySettings: SettingItem[] = [
     {
@@ -337,7 +361,7 @@ export default function PlayerSettingsScreen() {
         <Pressable onPress={() => navigation.goBack()} style={styles.backButton} accessibilityRole="button" accessibilityLabel="Go back">
           <Ionicons name="chevron-back" size={24} color={Colors.dark.text} />
         </Pressable>
-        <Text style={styles.headerTitle}>Settings</Text>
+        <Text style={styles.headerTitle}>{t('player.settings.title')}</Text>
         <View style={{ width: 40 }} />
       </View>
 
@@ -346,14 +370,14 @@ export default function PlayerSettingsScreen() {
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Notifications</Text>
+          <Text style={styles.sectionTitle}>{t('player.settings.notifications')}</Text>
           <View style={styles.sectionCard}>
             {notificationSettings.map(renderSettingItem)}
           </View>
         </View>
 
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Message Style</Text>
+          <Text style={styles.sectionTitle}>{t('player.settings.messageTone')}</Text>
           <View style={styles.sectionCard}>
             {languageOptions.map((option) => (
               <Pressable
@@ -389,14 +413,43 @@ export default function PlayerSettingsScreen() {
         </View>
 
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Discover</Text>
+          <Text style={styles.sectionTitle}>{t('player.settings.language')}</Text>
+          <View style={styles.sectionCard}>
+            {SUPPORTED_LANGUAGES.map((lang) => (
+              <Pressable
+                key={lang.code}
+                style={styles.settingItem}
+                onPress={() => handleLanguageChange(lang.code as LanguageCode)}
+                accessibilityRole="button"
+                accessibilityLabel={`Select ${lang.label} language`}
+              >
+                <View style={styles.settingIcon}>
+                  <Ionicons name="language" size={20} color={Colors.dark.xpCyan} />
+                </View>
+                <View style={styles.languageTextContainer}>
+                  <Text style={styles.settingLabel}>{lang.nativeLabel}</Text>
+                  <Text style={styles.languageDescription}>{lang.label}</Text>
+                </View>
+                <View style={[
+                  styles.radioOuter,
+                  i18n.language === lang.code && styles.radioOuterSelected
+                ]}>
+                  {i18n.language === lang.code ? <View style={styles.radioInner} /> : null}
+                </View>
+              </Pressable>
+            ))}
+          </View>
+        </View>
+
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>{t('player.settings.discovery')}</Text>
           <View style={styles.sectionCard}>
             {discoverySettings.map(renderSettingItem)}
           </View>
         </View>
 
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Account</Text>
+          <Text style={styles.sectionTitle}>{t('player.settings.account')}</Text>
           <View style={styles.sectionCard}>
             {accountSettings.map(renderSettingItem)}
           </View>

@@ -13,6 +13,7 @@ import Animated, { FadeIn, FadeInDown } from "react-native-reanimated";
 import { Colors, Spacing, BorderRadius } from "@/constants/theme";
 import { ThemedText } from "@/components/ThemedText";
 import { getApiUrl } from "@/lib/query-client";
+import { useTranslation } from "react-i18next";
 import {
   type FeedFilter,
   type MainTab,
@@ -58,16 +59,17 @@ export function MomentCard({
   onDelete: (postId: string) => void;
   currentUserId?: string;
 }) {
+  const { t } = useTranslation();
   const [showCheerPicker, setShowCheerPicker] = useState(false);
   const [showMenu, setShowMenu] = useState(false);
   const isOwnPost = currentUserId && post.authorId === currentUserId;
 
   const contextLabel = useMemo(() => {
     switch (post.contextType) {
-      case "training": return "Training";
+      case "training": return t('player.community.training');
       case "match": return "Match";
-      case "event": return "Event";
-      case "group": return "Group";
+      case "event": return t('player.community.events');
+      case "group": return t('player.community.groups');
       case "achievement": return "Achievement";
       case "free_play": return "Free Play";
       case "session_completed": return "Session";
@@ -77,7 +79,7 @@ export function MomentCard({
       case "milestone": return "Milestone";
       default: return "";
     }
-  }, [post.contextType]);
+  }, [post.contextType, t]);
 
   const contextStyle = CONTEXT_BADGE_STYLES[post.contextType] || CONTEXT_BADGE_STYLES.training;
   const hasMedia = post.mediaUrls && post.mediaUrls.length > 0;
@@ -243,6 +245,7 @@ export function MomentCard({
 }
 
 export function EmptyFeed({ filter }: { filter: FeedFilter }) {
+  const { t } = useTranslation();
   const getMessage = () => {
     switch (filter) {
       case "academy":
@@ -250,7 +253,7 @@ export function EmptyFeed({ filter }: { filter: FeedFilter }) {
       case "events":
         return "No event updates yet. Check back during events!";
       default:
-        return "Complete a session or achieve something to share your first Moment!";
+        return t('player.community.beFirst');
     }
   };
 
@@ -259,17 +262,18 @@ export function EmptyFeed({ filter }: { filter: FeedFilter }) {
       <View style={styles.emptyIcon}>
         <Ionicons name="sparkles" size={48} color={Colors.dark.primary} />
       </View>
-      <ThemedText style={styles.emptyTitle}>No Moments Yet</ThemedText>
+      <ThemedText style={styles.emptyTitle}>{t('player.community.noPostsYet')}</ThemedText>
       <ThemedText style={styles.emptySubtitle}>{getMessage()}</ThemedText>
     </View>
   );
 }
 
-export function MainTabBar({ active, onChange, friendRequestCount = 0 }: { active: MainTab; onChange: (t: MainTab) => void; friendRequestCount?: number }) {
+export function MainTabBar({ active, onChange, friendRequestCount = 0 }: { active: MainTab; onChange: (tab: MainTab) => void; friendRequestCount?: number }) {
+  const { t } = useTranslation();
   const tabs: { key: MainTab; label: string; icon: string }[] = [
-    { key: "feed", label: "Feed", icon: "newspaper" },
-    { key: "friends", label: "Friends", icon: "people" },
-    { key: "groups", label: "Groups", icon: "grid" },
+    { key: "feed", label: t('player.community.feed'), icon: "newspaper" },
+    { key: "friends", label: t('player.community.friends'), icon: "people" },
+    { key: "groups", label: t('player.community.groups'), icon: "grid" },
   ];
 
   return (
@@ -306,12 +310,13 @@ export function MainTabBar({ active, onChange, friendRequestCount = 0 }: { activ
 }
 
 export function FeedFilterTabs({ active, onChange }: { active: FeedFilter; onChange: (f: FeedFilter) => void }) {
+  const { t } = useTranslation();
   const filters: { key: FeedFilter; label: string; icon: string }[] = [
-    { key: "for_you", label: "For You", icon: "trophy" },
-    { key: "news", label: "News", icon: "newspaper" },
-    { key: "academy", label: "Academy", icon: "tennisball" },
-    { key: "moments", label: "Moments", icon: "camera" },
-    { key: "events", label: "Events", icon: "calendar" },
+    { key: "for_you", label: t('player.community.forYou'), icon: "trophy" },
+    { key: "news", label: t('player.community.news'), icon: "newspaper" },
+    { key: "academy", label: t('player.community.academy'), icon: "tennisball" },
+    { key: "moments", label: t('player.community.moments'), icon: "camera" },
+    { key: "events", label: t('player.community.events'), icon: "calendar" },
   ];
 
   return (

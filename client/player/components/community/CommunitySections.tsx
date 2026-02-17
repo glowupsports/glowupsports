@@ -22,6 +22,7 @@ import Animated, { FadeInDown, FadeIn } from "react-native-reanimated";
 import { Colors, Spacing, BorderRadius } from "@/constants/theme";
 import { ThemedText } from "@/components/ThemedText";
 import { apiRequest, apiFetch, getApiUrl } from "@/lib/query-client";
+import { useTranslation } from "react-i18next";
 import { useAuth } from "@/coach/context/AuthContext";
 import {
   type Achievement,
@@ -39,6 +40,7 @@ import {
 } from "./CommunityTypes";
 
 export function AchievementShowcase({ onSelectAchievement }: { onSelectAchievement: (achievement: Achievement) => void }) {
+  const { t } = useTranslation();
   const insets = useSafeAreaInsets();
   const tabBarHeight = TAB_BAR_HEIGHT;
   const { user } = useAuth();
@@ -159,7 +161,7 @@ export function AchievementShowcase({ onSelectAchievement }: { onSelectAchieveme
           >
             <Ionicons name="trophy" size={28} color="#000" />
           </LinearGradient>
-          <ThemedText style={achievementStyles.headerTitle}>Your Achievements</ThemedText>
+          <ThemedText style={achievementStyles.headerTitle}>{t('player.profile.achievements')}</ThemedText>
           <ThemedText style={achievementStyles.headerSubtitle}>
             Share your victories with friends
           </ThemedText>
@@ -180,6 +182,7 @@ export function AchievementShowcase({ onSelectAchievement }: { onSelectAchieveme
 }
 
 export function NewsSection() {
+  const { t } = useTranslation();
   const insets = useSafeAreaInsets();
   const tabBarHeight = TAB_BAR_HEIGHT;
 
@@ -277,7 +280,7 @@ export function NewsSection() {
         <View style={newsStyles.header}>
           <View style={newsStyles.headerRow}>
             <Ionicons name="newspaper" size={24} color={Colors.dark.primary} />
-            <ThemedText style={newsStyles.headerTitle}>Tennis News</ThemedText>
+            <ThemedText style={newsStyles.headerTitle}>{t('player.community.news')}</ThemedText>
           </View>
           <ThemedText style={newsStyles.headerSubtitle}>
             Latest from ATP, WTA & Tennis World
@@ -290,6 +293,7 @@ export function NewsSection() {
 }
 
 export function FriendsSection({ onChallenge, onSelectActivity }: { onChallenge?: (friend: Friend) => void; onSelectActivity?: (activity: FriendActivity) => void }) {
+  const { t } = useTranslation();
   const navigation = useNavigation<any>();
   const queryClient = useQueryClient();
   const insets = useSafeAreaInsets();
@@ -659,7 +663,7 @@ export function FriendsSection({ onChallenge, onSelectActivity }: { onChallenge?
         >
           <Ionicons name="pulse" size={16} color={activeTab === "activity" ? Colors.dark.primary : Colors.dark.textSecondary} />
           <ThemedText style={[friendStyles.sectionTabText, activeTab === "activity" && friendStyles.sectionTabTextActive]}>
-            Activity
+            {t('player.community.feed')}
           </ThemedText>
         </Pressable>
         <Pressable
@@ -668,7 +672,7 @@ export function FriendsSection({ onChallenge, onSelectActivity }: { onChallenge?
         >
           <Ionicons name="people" size={16} color={activeTab === "friends" ? Colors.dark.primary : Colors.dark.textSecondary} />
           <ThemedText style={[friendStyles.sectionTabText, activeTab === "friends" && friendStyles.sectionTabTextActive]}>
-            Friends ({friends.length})
+            {t('player.community.friends')} ({friends.length})
           </ThemedText>
         </Pressable>
         <Pressable
@@ -677,7 +681,7 @@ export function FriendsSection({ onChallenge, onSelectActivity }: { onChallenge?
         >
           <Ionicons name="mail" size={16} color={activeTab === "requests" ? Colors.dark.primary : Colors.dark.textSecondary} />
           <ThemedText style={[friendStyles.sectionTabText, activeTab === "requests" && friendStyles.sectionTabTextActive]}>
-            Requests {requests.length > 0 ? `(${requests.length})` : ""}
+            {t('player.community.friendRequests')} {requests.length > 0 ? `(${requests.length})` : ""}
           </ThemedText>
           {requests.length > 0 ? <View style={friendStyles.requestDot} /> : null}
         </Pressable>
@@ -715,13 +719,13 @@ export function FriendsSection({ onChallenge, onSelectActivity }: { onChallenge?
               <View style={friendStyles.emptyIcon}>
                 <Ionicons name="people" size={48} color={Colors.dark.primary} />
               </View>
-              <ThemedText style={friendStyles.emptyTitle}>No friends yet</ThemedText>
+              <ThemedText style={friendStyles.emptyTitle}>{t('player.community.noFriends')}</ThemedText>
               <ThemedText style={friendStyles.emptySubtitle}>Find and connect with other players at your academy</ThemedText>
               <Pressable
                 style={friendStyles.findPlayersBtn}
                 onPress={() => navigation.navigate("PlayStack", { screen: "OpenMatches" })}
               >
-                <ThemedText style={friendStyles.findPlayersBtnText}>Find Players</ThemedText>
+                <ThemedText style={friendStyles.findPlayersBtnText}>{t('player.community.findPlayers')}</ThemedText>
                 <Ionicons name="arrow-forward" size={16} color={Colors.dark.backgroundRoot} />
               </Pressable>
             </View>
@@ -751,6 +755,7 @@ export function FriendsSection({ onChallenge, onSelectActivity }: { onChallenge?
 }
 
 export function GroupsSection() {
+  const { t } = useTranslation();
   const navigation = useNavigation<any>();
   const insets = useSafeAreaInsets();
   const tabBarHeight = TAB_BAR_HEIGHT;
@@ -951,7 +956,7 @@ export function GroupsSection() {
                   }}
                 >
                   <Ionicons name="add" size={18} color={Colors.dark.primary} />
-                  <ThemedText style={groupStyles.createGroupBtnText}>Create Group</ThemedText>
+                  <ThemedText style={groupStyles.createGroupBtnText}>{t('player.community.createGroup')}</ThemedText>
                 </Pressable>
               ) : null}
             </View>
@@ -976,7 +981,7 @@ export function GroupsSection() {
         <View style={groupStyles.createGroupModalOverlay}>
           <Animated.View entering={FadeInDown.springify()} style={groupStyles.createGroupModalContent}>
             <View style={groupStyles.createGroupModalHeader}>
-              <ThemedText style={groupStyles.createGroupModalTitle}>Create Group</ThemedText>
+              <ThemedText style={groupStyles.createGroupModalTitle}>{t('player.community.createGroup')}</ThemedText>
               <Pressable onPress={() => setShowCreateModal(false)}>
                 <Ionicons name="close" size={24} color={Colors.dark.textSecondary} />
               </Pressable>
@@ -1017,14 +1022,14 @@ export function GroupsSection() {
                     onPress={() => setNewGroupType("social")}
                   >
                     <Ionicons name="people" size={18} color={newGroupType === "social" ? Colors.dark.background : Colors.dark.textSecondary} />
-                    <ThemedText style={[groupStyles.createGroupTypeText, newGroupType === "social" && groupStyles.createGroupTypeTextActive]}>Social</ThemedText>
+                    <ThemedText style={[groupStyles.createGroupTypeText, newGroupType === "social" && groupStyles.createGroupTypeTextActive]}>{t('player.community.social')}</ThemedText>
                   </Pressable>
                   <Pressable
                     style={[groupStyles.createGroupTypeBtn, newGroupType === "friends" && groupStyles.createGroupTypeBtnActive]}
                     onPress={() => setNewGroupType("friends")}
                   >
                     <Ionicons name="heart" size={18} color={newGroupType === "friends" ? Colors.dark.background : Colors.dark.textSecondary} />
-                    <ThemedText style={[groupStyles.createGroupTypeText, newGroupType === "friends" && groupStyles.createGroupTypeTextActive]}>Friends</ThemedText>
+                    <ThemedText style={[groupStyles.createGroupTypeText, newGroupType === "friends" && groupStyles.createGroupTypeTextActive]}>{t('player.community.friends')}</ThemedText>
                   </Pressable>
                 </View>
               </View>
@@ -1038,7 +1043,7 @@ export function GroupsSection() {
               {createGroupMutation.isPending ? (
                 <ActivityIndicator size="small" color={Colors.dark.background} />
               ) : (
-                <ThemedText style={groupStyles.createGroupSubmitText}>Create Group</ThemedText>
+                <ThemedText style={groupStyles.createGroupSubmitText}>{t('player.community.createGroup')}</ThemedText>
               )}
             </Pressable>
           </Animated.View>

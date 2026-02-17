@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from "react";
+import React, { useState, useCallback, useMemo } from "react";
 import { useNavigation, useNavigationState } from "@react-navigation/native";
 import { HeaderButton } from "@react-navigation/elements";
 import { StyleSheet, View, Platform, ActivityIndicator, ViewStyle } from "react-native";
@@ -6,6 +6,7 @@ import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { BlurView } from "expo-blur";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useTranslation } from "react-i18next";
 import { SwipeableTabBar, TabConfig } from "@/components/SwipeableTabBar";
 import { TabNavigationProvider } from "@/components/TabNavigationContext";
 import { ChatStateProvider, useChatState } from "@/coach/context/ChatStateContext";
@@ -190,6 +191,7 @@ const ScheduleStack = createNativeStackNavigator<ScheduleStackParamList>();
 const ProgressStack = createNativeStackNavigator<ProgressStackParamList>();
 
 function PlayStackNavigator() {
+  const { t } = useTranslation();
   return (
     <PlayStack.Navigator screenOptions={{ headerShown: false }}>
       <PlayStack.Screen name="Play" component={PlayScreen} />
@@ -198,7 +200,7 @@ function PlayStackNavigator() {
         component={OpenMatchFeedScreen}
         options={{
           headerShown: true,
-          headerTitle: "Open Matches",
+          headerTitle: t('player.booking.openMatch'),
           headerStyle: { backgroundColor: '#090E17' },
           headerTintColor: '#CCFF00',
           headerTitleStyle: { color: '#ffffff', fontWeight: '600' },
@@ -221,7 +223,7 @@ function PlayStackNavigator() {
         component={BookingInvitesScreen}
         options={{
           headerShown: true,
-          headerTitle: "Invites",
+          headerTitle: t('player.booking.invites'),
           headerStyle: { backgroundColor: '#090E17' },
           headerTintColor: '#E040FB',
           headerTitleStyle: { color: '#ffffff', fontWeight: '600' },
@@ -232,7 +234,7 @@ function PlayStackNavigator() {
         component={BookingPreferencesScreen}
         options={{
           headerShown: true,
-          headerTitle: "Preferences",
+          headerTitle: t('player.booking.preferences'),
           headerStyle: { backgroundColor: '#090E17' },
           headerTintColor: '#CCFF00',
           headerTitleStyle: { color: '#ffffff', fontWeight: '600' },
@@ -243,7 +245,7 @@ function PlayStackNavigator() {
         component={ManageMatchScreen}
         options={{
           headerShown: true,
-          headerTitle: "Manage Match",
+          headerTitle: t('player.booking.manageMatch'),
           headerStyle: { backgroundColor: '#090E17' },
           headerTintColor: '#CCFF00',
           headerTitleStyle: { color: '#ffffff', fontWeight: '600' },
@@ -255,6 +257,7 @@ function PlayStackNavigator() {
 }
 
 function ScheduleStackNavigator() {
+  const { t } = useTranslation();
   return (
     <ScheduleStack.Navigator screenOptions={{ headerShown: false }}>
       <ScheduleStack.Screen name="ScheduleMain" component={PlayerScheduleScreen} />
@@ -267,7 +270,7 @@ function ScheduleStackNavigator() {
         component={MatchScreen}
         options={{
           headerShown: true,
-          headerTitle: "Matches",
+          headerTitle: t('nav.matches'),
           headerStyle: { backgroundColor: '#0a0f1a' },
           headerTintColor: '#00ff88',
           headerTitleStyle: { color: '#ffffff', fontWeight: '600' },
@@ -289,6 +292,7 @@ function ScheduleStackNavigator() {
 }
 
 function ProgressStackNavigator() {
+  const { t } = useTranslation();
   return (
     <ProgressStack.Navigator screenOptions={{ headerShown: false }}>
       <ProgressStack.Screen name="ProgressMain" component={PlayerProgressScreen} />
@@ -308,7 +312,7 @@ function ProgressStackNavigator() {
         component={QuestsScreen}
         options={{
           headerShown: true,
-          headerTitle: "Quests",
+          headerTitle: t('nav.quests'),
           headerStyle: { backgroundColor: Colors.dark.backgroundRoot },
           headerTintColor: Colors.dark.text,
           headerBackTitle: "Back",
@@ -408,19 +412,20 @@ function ProgressStackNavigator() {
   );
 }
 
-const PLAYER_TABS: TabConfig[] = [
-  { key: "Home", label: "Home", icon: "home-outline", iconFocused: "home", component: ProPlayerHomeScreen },
-  { key: "Community", label: "Social", icon: "people-outline", iconFocused: "people", component: CommunityScreen },
-  { key: "PlayStack", label: "Play", icon: "game-controller-outline", iconFocused: "game-controller", component: PlayStackNavigator },
-  { key: "Schedule", label: "Schedule", icon: "calendar-outline", iconFocused: "calendar", component: ScheduleStackNavigator },
-  { key: "Progress", label: "Progress", icon: "stats-chart-outline", iconFocused: "stats-chart", component: ProgressStackNavigator },
-  { key: "Profile", label: "Profile", icon: "person-outline", iconFocused: "person", component: PlayerProfileScreen },
-];
-
 const HIDE_CHAT_TABS = ["PlayStack", "Community"];
 
 function PlayerTabsContent({ onEdgeSwipeLeft }: { onEdgeSwipeLeft?: () => void }) {
+  const { t } = useTranslation();
   const [currentTabKey, setCurrentTabKey] = useState("Home");
+
+  const playerTabs: TabConfig[] = useMemo(() => [
+    { key: "Home", label: t('nav.home'), icon: "home-outline", iconFocused: "home", component: ProPlayerHomeScreen },
+    { key: "Community", label: t('nav.community'), icon: "people-outline", iconFocused: "people", component: CommunityScreen },
+    { key: "PlayStack", label: t('nav.play'), icon: "game-controller-outline", iconFocused: "game-controller", component: PlayStackNavigator },
+    { key: "Schedule", label: t('nav.schedule'), icon: "calendar-outline", iconFocused: "calendar", component: ScheduleStackNavigator },
+    { key: "Progress", label: t('player.progress.title'), icon: "stats-chart-outline", iconFocused: "stats-chart", component: ProgressStackNavigator },
+    { key: "Profile", label: t('nav.profile'), icon: "person-outline", iconFocused: "person", component: PlayerProfileScreen },
+  ], [t]);
   
   const hideChat = HIDE_CHAT_TABS.includes(currentTabKey);
   
@@ -442,7 +447,7 @@ function PlayerTabsContent({ onEdgeSwipeLeft }: { onEdgeSwipeLeft?: () => void }
   
   return (
     <SwipeableTabBar
-      tabs={PLAYER_TABS}
+      tabs={playerTabs}
       primaryColor={Colors.dark.primary}
       secondaryColor={Colors.dark.xpCyan}
       onEdgeSwipeLeft={onEdgeSwipeLeft}
@@ -508,6 +513,7 @@ function PlayerTabs() {
 }
 
 function PlayerStackNavigator() {
+  const { t } = useTranslation();
   return (
     <Stack.Navigator screenOptions={{ headerShown: false }}>
       <Stack.Screen name="PlayerTabs" component={PlayerTabs} />
@@ -565,7 +571,7 @@ function PlayerStackNavigator() {
         component={CoachDirectoryScreen}
         options={{
           presentation: "card",
-          headerTitle: "Find Coaches",
+          headerTitle: t('player.settings.findCoaches'),
           headerTransparent: true,
           headerTintColor: Colors.dark.text,
         }}
@@ -632,7 +638,7 @@ function PlayerStackNavigator() {
         options={{
           presentation: "fullScreenModal",
           headerShown: true,
-          headerTitle: "Book Lesson",
+          headerTitle: t('player.booking.bookSession'),
           headerStyle: { backgroundColor: '#090E17' },
           headerTintColor: '#CCFF00',
           headerTitleStyle: { color: '#ffffff', fontWeight: '600' },
@@ -673,7 +679,7 @@ function PlayerStackNavigator() {
         options={{
           presentation: "card",
           headerShown: true,
-          headerTitle: "Tennis News",
+          headerTitle: t('player.home.newsFeed'),
           headerStyle: { backgroundColor: '#090E17' },
           headerTintColor: '#CCFF00',
           headerTitleStyle: { color: '#ffffff', fontWeight: '600' },
@@ -849,7 +855,7 @@ function PlayerStackNavigator() {
         options={{
           presentation: "card",
           headerShown: true,
-          headerTitle: "Preferences",
+          headerTitle: t('player.booking.preferences'),
           headerStyle: { backgroundColor: '#0B0D10' },
           headerTintColor: '#C8FF3D',
           headerTitleStyle: { color: '#ffffff', fontWeight: '700' },
@@ -861,7 +867,7 @@ function PlayerStackNavigator() {
         options={{
           presentation: "card",
           headerShown: true,
-          headerTitle: "Booking Invites",
+          headerTitle: t('player.booking.invites'),
           headerStyle: { backgroundColor: '#090E17' },
           headerTintColor: '#CCFF00',
           headerTitleStyle: { color: '#ffffff', fontWeight: '600' },

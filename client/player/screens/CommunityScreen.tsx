@@ -22,6 +22,7 @@ import { apiRequest, apiFetch } from "@/lib/query-client";
 import { useAuth } from "@/coach/context/AuthContext";
 import { LockedScreen } from "../components/LockedScreen";
 import * as Clipboard from "expo-clipboard";
+import { useTranslation } from "react-i18next";
 import { useWalkthrough } from "@/player/context/WalkthroughContext";
 import { usePlayer } from "@/player/context/PlayerContext";
 import OnlineSafetyModal, { hasShownSafetyReminder } from "@/player/components/OnlineSafetyModal";
@@ -58,6 +59,7 @@ import {
 } from "../components/community/CommunityModals";
 
 export default function CommunityScreen() {
+  const { t } = useTranslation();
   const insets = useSafeAreaInsets();
   const tabBarHeight = TAB_BAR_HEIGHT;
   const queryClient = useQueryClient();
@@ -314,7 +316,7 @@ export default function CommunityScreen() {
         />
 
       <View style={[styles.header, { paddingTop: insets.top + Spacing.sm }]}>
-        <ThemedText style={styles.title}>Social</ThemedText>
+        <ThemedText style={styles.title}>{t('player.community.title')}</ThemedText>
 
         <View style={styles.headerActions}>
           {mainTab === "feed" && canInteract ? (

@@ -1,4 +1,5 @@
 import React, { useCallback, useState, useEffect, useMemo, useRef } from "react";
+import { useTranslation } from "react-i18next";
 import { View, Text, StyleSheet, ScrollView, ActivityIndicator, RefreshControl, Pressable } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useFocusEffect, useNavigation } from "@react-navigation/native";
@@ -88,6 +89,7 @@ function BroadcastBackground() {
 }
 
 function PlayerHomeContent() {
+  const { t } = useTranslation();
   const insets = useSafeAreaInsets();
   const queryClient = useQueryClient();
   const { user } = useAuth();
@@ -209,7 +211,7 @@ function PlayerHomeContent() {
         icon: "business" as const,
         title: "Join an Academy",
         description: "Connect with a tennis academy near you",
-        actionLabel: "Browse Academies",
+        actionLabel: t("player.home.browseAcademies"),
         onAction: () => navigation.navigate("AcademyBrowser" as never),
         isCompleted: hasAcademy,
       },
@@ -218,7 +220,7 @@ function PlayerHomeContent() {
         icon: "calendar" as const,
         title: "Book Your First Session",
         description: "Schedule a training session with your coach",
-        actionLabel: "Book Now",
+        actionLabel: t("player.home.bookSession"),
         onAction: () => setShowBookingWizard(true),
         isCompleted: hasNextSession,
       },
@@ -385,7 +387,7 @@ function PlayerHomeContent() {
                 navigation.navigate("PlayerNotifications");
               }}
               unreadNotificationCount={unreadCount}
-              accessibilityLabel={`Player card for ${player.name}, Level ${player.level}, ${player.xp} XP`}
+              accessibilityLabel={`Player card for ${player.name}, ${t("player.home.glowLevel")} ${player.level}, ${player.xp} ${t("player.home.xpPoints")}`}
             />
           </View>
         </CoachMarkTarget>
@@ -415,7 +417,7 @@ function PlayerHomeContent() {
         {/* DISCOVERY SECTION - Horizontal scrolling rows */}
         <CoachMarkTarget id="player_discovery">
           <View style={styles.discoverySection}>
-            <Text style={styles.discoverySectionTitle}>DISCOVER</Text>
+            <Text style={styles.discoverySectionTitle}>{t("player.home.quickActions")}</Text>
             
             {/* Players Near You - Horizontal avatar carousel (filtered by ball level) */}
             <PlayersNearYouRow />

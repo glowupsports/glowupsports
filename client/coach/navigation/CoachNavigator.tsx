@@ -40,6 +40,7 @@ import { useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { Colors } from "@/constants/theme";
 import { ChatStateProvider, useChatState } from "@/coach/context/ChatStateContext";
+import { useTranslation } from "react-i18next";
 
 export type CoachTabParamList = {
   Dashboard: undefined;
@@ -49,13 +50,12 @@ export type CoachTabParamList = {
   Settings: undefined;
 };
 
-// Tab configuration using shared SwipeableTabBar component pattern
-const COACH_TABS: TabConfig[] = [
-  { key: "Dashboard", label: "Home", icon: "home-outline", iconFocused: "home", component: DashboardScreen },
-  { key: "Calendar", label: "Calendar", icon: "calendar-outline", iconFocused: "calendar", component: CalendarScreen },
-  { key: "Players", label: "Players", icon: "people-outline", iconFocused: "people", component: PlayersScreen },
-  { key: "Coaching", label: "Coaching", icon: "clipboard-outline", iconFocused: "clipboard", component: CoachingScreen },
-  { key: "Settings", label: "Settings", icon: "settings-outline", iconFocused: "settings", component: SettingsScreen },
+const BASE_COACH_TABS: Omit<TabConfig, 'label'>[] = [
+  { key: "Dashboard", icon: "home-outline", iconFocused: "home", component: DashboardScreen },
+  { key: "Calendar", icon: "calendar-outline", iconFocused: "calendar", component: CalendarScreen },
+  { key: "Players", icon: "people-outline", iconFocused: "people", component: PlayersScreen },
+  { key: "Coaching", icon: "clipboard-outline", iconFocused: "clipboard", component: CoachingScreen },
+  { key: "Settings", icon: "settings-outline", iconFocused: "settings", component: SettingsScreen },
 ];
 
 export type CoachStackParamList = {
@@ -88,10 +88,24 @@ const Stack = createNativeStackNavigator<CoachStackParamList>();
 
 // Custom animated tab bar item
 function CoachTabs() {
+  const { t } = useTranslation();
   const [showAddPlayerModal, setShowAddPlayerModal] = useState(false);
   const [currentTabKey, setCurrentTabKey] = useState("Dashboard");
   const queryClient = useQueryClient();
   const { isChatExpanded } = useChatState();
+
+  const TAB_LABELS: Record<string, string> = {
+    Dashboard: t("nav.home"),
+    Calendar: t("coach.calendar.title"),
+    Players: t("nav.players"),
+    Coaching: t("nav.coaching"),
+    Settings: t("nav.settings"),
+  };
+
+  const COACH_TABS: TabConfig[] = BASE_COACH_TABS.map((tab) => ({
+    ...tab,
+    label: TAB_LABELS[tab.key] || tab.key,
+  }));
 
   const handlePageChange = useCallback((index: number, key: string) => {
     setCurrentTabKey(key);
@@ -127,6 +141,7 @@ function CoachTabs() {
 }
 
 function CoachStackNavigator() {
+  const { t } = useTranslation();
   return (
     <Stack.Navigator screenOptions={{ headerShown: false }}>
       <Stack.Screen name="CoachTabs" component={CoachTabs} />
@@ -184,7 +199,7 @@ function CoachStackNavigator() {
         component={LessonTemplateLibraryScreen}
         options={{
           headerShown: true,
-          headerTitle: "Lesson Templates",
+          headerTitle: t("coach.settings.templates"),
         }}
       />
       <Stack.Screen 

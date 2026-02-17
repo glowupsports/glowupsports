@@ -59,6 +59,7 @@ import { PlatformUsageProgress } from "@/components/PlatformUsageProgress";
 import { NotificationGuideModal } from "@/components/NotificationGuideModal";
 import { FirstActionCelebration } from "@/components/FirstActionCelebration";
 import { useCoachMarks, CoachMarkTarget } from "@/components/CoachMarks";
+import { useTranslation } from "react-i18next";
 
 interface Player {
   id: string;
@@ -100,6 +101,7 @@ interface WeeklyCalendarData {
 }
 
 export default function DashboardScreen() {
+  const { t } = useTranslation();
   const insets = useSafeAreaInsets();
   const navigation = useNavigation();
   const queryClient = useQueryClient();
@@ -751,7 +753,7 @@ export default function DashboardScreen() {
         />
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={Colors.dark.primary} />
-          <Text style={styles.loadingText}>Loading...</Text>
+          <Text style={styles.loadingText}>{t("common.loading")}</Text>
         </View>
       </View>
     );

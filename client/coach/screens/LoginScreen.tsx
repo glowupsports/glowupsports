@@ -22,6 +22,7 @@ import Animated, {
   withTiming,
   interpolateColor,
 } from "react-native-reanimated";
+import { useTranslation } from "react-i18next";
 import { Colors, Backgrounds, Spacing, BorderRadius, Typography, GlowColors } from "@/constants/theme";
 import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollViewCompat";
 import { useAuth } from "@/coach/context/AuthContext";
@@ -290,6 +291,7 @@ const premiumButtonStyles = StyleSheet.create({
 });
 
 export default function LoginScreen() {
+  const { t } = useTranslation();
   const insets = useSafeAreaInsets();
   const { login, registerPlayer, refreshAuth } = useAuth();
 
@@ -559,7 +561,7 @@ export default function LoginScreen() {
         );
         loadSavedAccounts();
       } else if (!result.success) {
-        Alert.alert("Login Failed", result.error || "Please check your credentials");
+        Alert.alert(t("common.error"), result.error || t("auth.invalidCredentials"));
       }
     } catch (error) {
       Alert.alert("Error", "Something went wrong. Please try again.");
@@ -799,7 +801,7 @@ export default function LoginScreen() {
         Alert.alert(
           "Welcome to the team!",
           message,
-          [{ text: "Sign In", onPress: () => handleModeChange("login") }]
+          [{ text: t("auth.loginButton"), onPress: () => handleModeChange("login") }]
         );
       } else {
         Alert.alert("Registration Failed", data.error || "Please try again");
@@ -862,7 +864,7 @@ export default function LoginScreen() {
 
     return (
       <View style={styles.savedAccountsSection}>
-        <Text style={styles.savedAccountsTitle}>QUICK LOGIN</Text>
+        <Text style={styles.savedAccountsTitle}>{t("auth.savedAccounts")}</Text>
         <Text style={styles.savedAccountsHint}>
           Tap to select, hold to remove
         </Text>
@@ -900,7 +902,7 @@ export default function LoginScreen() {
         </View>
         <View style={styles.savedAccountsDivider}>
           <View style={styles.dividerLine} />
-          <Text style={styles.dividerText}>or enter manually</Text>
+          <Text style={styles.dividerText}>{t("auth.switchAccount")}</Text>
           <View style={styles.dividerLine} />
         </View>
       </View>
@@ -915,7 +917,7 @@ export default function LoginScreen() {
         <PremiumInput
           value={username}
           onChangeText={setUsername}
-          placeholder="Username"
+          placeholder={t("auth.usernamePlaceholder")}
           icon="person-outline"
           iconColor={Colors.dark.primary}
           autoComplete="username"
@@ -924,7 +926,7 @@ export default function LoginScreen() {
         <PremiumInput
           value={password}
           onChangeText={setPassword}
-          placeholder="Password"
+          placeholder={t("auth.passwordPlaceholder")}
           icon="lock-closed-outline"
           iconColor={Colors.dark.primary}
           secureTextEntry
@@ -937,14 +939,14 @@ export default function LoginScreen() {
 
       <PremiumButton
         onPress={handleLogin}
-        title="Sign In"
+        title={t("auth.loginButton")}
         isLoading={isSubmitting}
         disabled={isSubmitting}
       />
 
       <View style={styles.divider}>
         <View style={styles.dividerLine} />
-        <Text style={styles.dividerText}>New here?</Text>
+        <Text style={styles.dividerText}>{t("auth.noAccount")}</Text>
         <View style={styles.dividerLine} />
       </View>
 
@@ -952,14 +954,14 @@ export default function LoginScreen() {
         <View style={styles.roleRow}>
           <RoleOption
             icon="person"
-            title="Player"
+            title={t("auth.rolePlayer")}
             color={Colors.dark.xpCyan}
             onPress={() => handleModeChange("player_register")}
             compact
           />
           <RoleOption
             icon="tennisball"
-            title="Coach"
+            title={t("auth.roleCoach")}
             color={Colors.dark.primary}
             onPress={() => handleModeChange("coach_info")}
             compact
@@ -968,14 +970,14 @@ export default function LoginScreen() {
         <View style={styles.roleRow}>
           <RoleOption
             icon="business"
-            title="Academy"
+            title={t("auth.roleAdmin")}
             color={Colors.dark.gold}
             onPress={() => handleModeChange("academy_apply")}
             compact
           />
           <RoleOption
             icon="key"
-            title="Invite Code"
+            title={t("auth.enterPin")}
             color="#9B59B6"
             onPress={() => handleModeChange("invite_code")}
             compact
@@ -991,17 +993,17 @@ export default function LoginScreen() {
         <Pressable style={styles.backButton} onPress={() => handleModeChange("login")}>
           <Ionicons name="arrow-back" size={24} color={Colors.dark.text} />
         </Pressable>
-        <Text style={styles.formTitle}>CREATE PLAYER ACCOUNT</Text>
+        <Text style={styles.formTitle}>{t("auth.registerTitle")}</Text>
       </View>
 
       <View style={styles.inputGroup}>
-        <Text style={styles.label}>USERNAME</Text>
+        <Text style={styles.label}>{t("auth.usernameLabel")}</Text>
         <View style={styles.glassInput}>
           <Ionicons name="at-outline" size={18} color={Colors.dark.xpCyan} style={styles.inputIcon} />
           <TextInput
             value={username}
             onChangeText={handleUsernameChange}
-            placeholder="Choose a unique username"
+            placeholder={t("auth.usernamePlaceholder")}
             placeholderTextColor={Colors.dark.textMuted}
             autoCapitalize="none"
             autoComplete="username"
@@ -1186,13 +1188,13 @@ export default function LoginScreen() {
       </View>
 
       <View style={styles.inputGroup}>
-        <Text style={styles.label}>PASSWORD</Text>
+        <Text style={styles.label}>{t("auth.passwordLabel")}</Text>
         <View style={styles.glassInput}>
           <Ionicons name="lock-closed-outline" size={18} color={Colors.dark.xpCyan} style={styles.inputIcon} />
           <TextInput
             value={password}
             onChangeText={setPassword}
-            placeholder="Create a secure password"
+            placeholder={t("auth.passwordPlaceholder")}
             placeholderTextColor={Colors.dark.textMuted}
             secureTextEntry={!showPassword}
             autoCapitalize="none"
@@ -1214,7 +1216,7 @@ export default function LoginScreen() {
 
       <PremiumButton
         onPress={handlePlayerRegister}
-        title="CREATE ACCOUNT"
+        title={t("auth.registerButton")}
         isLoading={isSubmitting}
         disabled={isSubmitting}
         colors={[Colors.dark.xpCyan, "#00A8CC"]}
@@ -1231,7 +1233,7 @@ export default function LoginScreen() {
         onPress={() => handleModeChange("invite_code")}
       >
         <Ionicons name="key" size={18} color="#9B59B6" />
-        <Text style={styles.inviteButtonText}>I have an invite code</Text>
+        <Text style={styles.inviteButtonText}>{t("auth.addAccount")}</Text>
       </Pressable>
     </>
   );
@@ -1269,7 +1271,7 @@ export default function LoginScreen() {
         style={styles.secondaryButton}
         onPress={() => handleModeChange("login")}
       >
-        <Text style={styles.secondaryButtonText}>Back to Login</Text>
+        <Text style={styles.secondaryButtonText}>{t("common.logIn")}</Text>
       </Pressable>
     </>
   );
@@ -1444,7 +1446,7 @@ export default function LoginScreen() {
           </View>
 
           <View style={styles.inputGroup}>
-            <Text style={styles.label}>{inviteData.email ? "EMAIL (FROM INVITE)" : "EMAIL"}</Text>
+            <Text style={styles.label}>{inviteData.email ? `${t("common.email")} (${t("common.invite")})` : t("common.email")}</Text>
             <View style={[styles.glassInput, inviteData.email ? { opacity: 0.7 } : undefined]}>
               <Ionicons name="mail-outline" size={18} color="#9B59B6" style={styles.inputIcon} />
               <TextInput
@@ -1461,13 +1463,13 @@ export default function LoginScreen() {
           </View>
 
           <View style={styles.inputGroup}>
-            <Text style={styles.label}>USERNAME</Text>
+            <Text style={styles.label}>{t("auth.usernameLabel")}</Text>
             <View style={styles.glassInput}>
               <Ionicons name="at-outline" size={18} color="#9B59B6" style={styles.inputIcon} />
               <TextInput
                 value={username}
                 onChangeText={handleUsernameChange}
-                placeholder="Choose a unique username"
+                placeholder={t("auth.usernamePlaceholder")}
                 placeholderTextColor={Colors.dark.textMuted}
                 autoCapitalize="none"
                 style={[styles.input, styles.usernameInput]}
@@ -1557,13 +1559,13 @@ export default function LoginScreen() {
           </View>
 
           <View style={styles.inputGroup}>
-            <Text style={styles.label}>PASSWORD</Text>
+            <Text style={styles.label}>{t("auth.passwordLabel")}</Text>
             <View style={styles.glassInput}>
               <Ionicons name="lock-closed-outline" size={18} color="#9B59B6" style={styles.inputIcon} />
               <TextInput
                 value={password}
                 onChangeText={setPassword}
-                placeholder="Create a secure password"
+                placeholder={t("auth.passwordPlaceholder")}
                 placeholderTextColor={Colors.dark.textMuted}
                 secureTextEntry={!showPassword}
                 autoCapitalize="none"
@@ -1584,7 +1586,7 @@ export default function LoginScreen() {
 
           <PremiumButton
             onPress={handleInviteRegister}
-            title="CREATE ACCOUNT"
+            title={t("auth.registerButton")}
             isLoading={isSubmitting}
             disabled={isSubmitting}
             colors={["#9B59B6", "#8E44AD"]}
@@ -1644,7 +1646,7 @@ export default function LoginScreen() {
           style={styles.secondaryButton}
           onPress={() => handleModeChange("login")}
         >
-          <Text style={styles.secondaryButtonText}>Back to Login</Text>
+          <Text style={styles.secondaryButtonText}>{t("common.logIn")}</Text>
         </Pressable>
       </>
     );
@@ -1671,7 +1673,7 @@ export default function LoginScreen() {
               style={styles.headerLogo}
               resizeMode="contain"
             />
-            <Text style={styles.subtitle}>Sign in to continue</Text>
+            <Text style={styles.subtitle}>{t("auth.loginTitle")}</Text>
           </View>
         ) : null}
 
@@ -1685,7 +1687,7 @@ export default function LoginScreen() {
 
         {mode !== "login" ? (
           <Pressable style={styles.toggleButton} onPress={() => handleModeChange("login")}>
-            <Text style={styles.toggleText}>Already have an account? Sign in</Text>
+            <Text style={styles.toggleText}>{t("auth.hasAccount")} {t("auth.signInLink")}</Text>
           </Pressable>
         ) : null}
       </KeyboardAwareScrollViewCompat>

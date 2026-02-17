@@ -1,6 +1,7 @@
 import React from "react";
 import { createDrawerNavigator } from "@react-navigation/drawer";
 import { Dimensions } from "react-native";
+import { useTranslation } from "react-i18next";
 
 import HomeScreen from "@/screens/HomeScreen";
 import LessonsScreen from "@/screens/LessonsScreen";
@@ -38,6 +39,7 @@ const Drawer = createDrawerNavigator<DrawerParamList>();
 const { width } = Dimensions.get("window");
 
 export default function DrawerNavigator() {
+  const { t } = useTranslation();
   return (
     <Drawer.Navigator
       drawerContent={(props) => <DrawerContent {...props} />}
@@ -65,62 +67,62 @@ export default function DrawerNavigator() {
       <Drawer.Screen
         name="Lessons"
         component={LessonsScreen}
-        options={{ headerShown: true, headerTitle: "Lessons" }}
+        options={{ headerShown: true, headerTitle: t('nav.lessons') }}
       />
       <Drawer.Screen
         name="Quest"
         component={QuestScreen}
-        options={{ headerShown: true, headerTitle: "Quests" }}
+        options={{ headerShown: true, headerTitle: t('nav.quests') }}
       />
       <Drawer.Screen
         name="Match"
         component={MatchScreen}
-        options={{ headerShown: true, headerTitle: "Matches" }}
+        options={{ headerShown: true, headerTitle: t('nav.matches') }}
       />
       <Drawer.Screen
         name="Ranking"
         component={RankingScreen}
-        options={{ headerShown: true, headerTitle: "Ranking" }}
+        options={{ headerShown: true, headerTitle: t('nav.ranking') }}
       />
       <Drawer.Screen
         name="AdultGlowRank"
         component={AdultGlowRankScreen}
-        options={{ headerShown: true, headerTitle: "Glow Rank" }}
+        options={{ headerShown: true, headerTitle: t('nav.glowRank') }}
       />
       <Drawer.Screen
         name="AdultRanksList"
         component={AdultRanksListScreen}
-        options={{ headerShown: true, headerTitle: "All Ranks" }}
+        options={{ headerShown: true, headerTitle: t('nav.allRanks') }}
       />
       <Drawer.Screen
         name="RecordAdultMatch"
         component={RecordAdultMatchScreen}
-        options={{ headerShown: true, headerTitle: "Record Match" }}
+        options={{ headerShown: true, headerTitle: t('nav.recordMatch') }}
       />
       <Drawer.Screen
         name="Friends"
         component={FriendsScreen}
-        options={{ headerShown: true, headerTitle: "Friends" }}
+        options={{ headerShown: true, headerTitle: t('nav.friends') }}
       />
       <Drawer.Screen
         name="GameLobby"
         component={GameLobbyScreen}
-        options={{ headerShown: true, headerTitle: "Game Lobby" }}
+        options={{ headerShown: true, headerTitle: t('nav.gameLobby') }}
       />
       <Drawer.Screen
         name="Events"
         component={EventsScreen}
-        options={{ headerShown: true, headerTitle: "Events" }}
+        options={{ headerShown: true, headerTitle: t('nav.events') }}
       />
       <Drawer.Screen
         name="Payments"
         component={PaymentsScreen}
-        options={{ headerShown: true, headerTitle: "Payments" }}
+        options={{ headerShown: true, headerTitle: t('nav.payments') }}
       />
       <Drawer.Screen
         name="Settings"
         component={SettingsScreen}
-        options={{ headerShown: true, headerTitle: "Settings" }}
+        options={{ headerShown: true, headerTitle: t('nav.settings') }}
       />
     </Drawer.Navigator>
   );
