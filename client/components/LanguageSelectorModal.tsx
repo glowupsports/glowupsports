@@ -41,10 +41,10 @@ export function LanguageSelectorModal({
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     await setStoredLanguage(langCode);
     await i18n.changeLanguage(langCode);
-    const rtl = isRTL(langCode);
-    if (I18nManager.isRTL !== rtl) {
-      I18nManager.allowRTL(rtl);
-      I18nManager.forceRTL(rtl);
+    const needsRTLChange = I18nManager.isRTL !== isRTL(langCode);
+    if (needsRTLChange) {
+      I18nManager.allowRTL(isRTL(langCode));
+      I18nManager.forceRTL(isRTL(langCode));
       onClose();
       if (Platform.OS === "web") {
         window.location.reload();

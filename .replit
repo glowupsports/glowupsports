@@ -61,6 +61,7 @@ ensurePreviewReachable = "/status"
 
 [userenv.shared]
 EXPO_PUBLIC_DOMAIN = "glow-up-sports--ltvjeugd.replit.app"
+EXPO_PUBLIC_SENTRY_DSN = "https://e16898b13be10a8c4d1d87c59199791d@o4510895209119744.ingest.us.sentry.io/4510895220260864"
 
 [userenv.development]
 EXPO_PUBLIC_ENV = "development"
