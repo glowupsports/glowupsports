@@ -19,6 +19,7 @@ import { usePlayerLevel } from "../hooks/usePlayerLevel";
 import { useNavigation } from "@react-navigation/native";
 import { SkillProgressRing } from "./SkillProgressRing";
 import { InfoTooltip } from "@/components/InfoTooltip";
+import { LanguageHeaderButton } from "@/components/LanguageSelectorModal";
 
 interface PlayerData {
   id: string;
@@ -233,6 +234,7 @@ export function ProPlayerCard({
         </View>
 
         <View style={styles.lockerSection}>
+          <LanguageHeaderButton />
           {onNotificationPress ? (
             <Pressable style={styles.notificationBtn} onPress={onNotificationPress}>
               <Ionicons name="notifications" size={18} color={ProTennisColors.neonCyan} />

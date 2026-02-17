@@ -25,6 +25,7 @@ import Animated, {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
 import Ionicons from "@expo/vector-icons/Ionicons";
+import { LanguageHeaderButton } from "@/components/LanguageSelectorModal";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigation } from "@react-navigation/native";
 import * as Haptics from "expo-haptics";
@@ -938,6 +939,7 @@ export default function DashboardScreen() {
               
               {/* Right: Quick Actions */}
               <View style={styles.playerActions}>
+                <LanguageHeaderButton />
                 <Pressable
                   style={styles.actionBtnGlow}
                   onPress={() => handleNavigate("Notifications")}
