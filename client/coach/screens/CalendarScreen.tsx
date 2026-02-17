@@ -839,7 +839,8 @@ export default function CalendarScreen() {
       return { response, originalData, sessionId };
     },
     onSuccess: (data) => {
-      queryClient.invalidateQueries({ queryKey: ["/api/coach/calendar"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/coach/calendar"], refetchType: "all" });
+      queryClient.refetchQueries({ queryKey: ["/api/coach/calendar"] });
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       if (data.originalData) {
         setLastMove({
@@ -2423,7 +2424,7 @@ export default function CalendarScreen() {
               })}
             </View>
 
-            {/* Calendar Grid - continuous time grid with proper session durations */}
+            {/* Calendar Grid - dynamic: only shows hours that have sessions */}
             {(() => {
               const filteredSessions = selectedCourtFilter 
                 ? ownSessions.filter(s => s.courtId === selectedCourtFilter)
@@ -2431,18 +2432,14 @@ export default function CalendarScreen() {
 
               const weekSessionsByDay: Record<number, typeof ownSessions> = {};
               
-              const getTimeInTz = (isoStr: string) => {
+              const getHourInTz = (isoStr: string) => {
                 const d = parseUTCTimestamp(isoStr);
-                const parts = new Intl.DateTimeFormat("en-US", { hour: "numeric", minute: "numeric", hour12: false, timeZone: academyTimezone }).formatToParts(d);
+                const parts = new Intl.DateTimeFormat("en-US", { hour: "numeric", hour12: false, timeZone: academyTimezone }).formatToParts(d);
                 const hourPart = parts.find(p => p.type === "hour");
-                const minutePart = parts.find(p => p.type === "minute");
-                const h = parseInt(hourPart?.value || "0", 10);
-                const m = parseInt(minutePart?.value || "0", 10);
-                return h + m / 60;
+                return parseInt(hourPart?.value || "0", 10);
               };
 
-              let minHour = 24;
-              let maxHour = 0;
+              const activeHoursSet = new Set<number>();
 
               weekDates.forEach((date, idx) => {
                 const targetDateStr = formatDateObjectInTimezone(date, academyTimezone);
@@ -2452,14 +2449,17 @@ export default function CalendarScreen() {
                 });
                 weekSessionsByDay[idx] = daySessions;
                 daySessions.forEach(s => {
-                  const startH = Math.floor(getTimeInTz(s.startTime));
-                  const endH = Math.ceil(getTimeInTz(s.endTime));
-                  if (startH < minHour) minHour = startH;
-                  if (endH > maxHour) maxHour = endH;
+                  const startH = getHourInTz(s.startTime);
+                  const endH = getHourInTz(s.endTime);
+                  for (let h = startH; h <= endH; h++) {
+                    activeHoursSet.add(h);
+                  }
                 });
               });
 
-              if (minHour >= maxHour) {
+              const activeHours = Array.from(activeHoursSet).sort((a, b) => a - b);
+
+              if (activeHours.length === 0) {
                 return (
                   <View style={styles.overviewEmpty}>
                     <Ionicons name="calendar-outline" size={48} color={Colors.dark.tabIconDefault} />
@@ -2468,97 +2468,100 @@ export default function CalendarScreen() {
                 );
               }
 
+              const hourToRowIndex = new Map<number, number>();
+              activeHours.forEach((h, i) => hourToRowIndex.set(h, i));
+
               const OVERVIEW_ROW_HEIGHT = 56;
-              const allHours: number[] = [];
-              for (let h = minHour; h < maxHour; h++) allHours.push(h);
+              const colCount = 7;
+              const timeColWidth = 48;
+              const cellWidth = (screenWidth - timeColWidth - 16) / colCount;
 
               return (
                 <View style={{ position: "relative" }}>
-                  {allHours.map(hour => {
+                  {activeHours.map((hour, rowIdx) => {
                     const timeStr = `${hour.toString().padStart(2, "0")}:00`;
+                    const prevHour = rowIdx > 0 ? activeHours[rowIdx - 1] : null;
+                    const hasGap = prevHour !== null && hour - prevHour > 1;
+
                     return (
-                      <View key={hour} style={[styles.weekCalRow, { height: OVERVIEW_ROW_HEIGHT }]}>
-                        <View style={styles.weekCalTimeCol}>
-                          <Text style={styles.weekCalTimeText}>{timeStr}</Text>
+                      <React.Fragment key={hour}>
+                        {hasGap ? (
+                          <View style={{ height: 8, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: "rgba(255,255,255,0.06)", marginBottom: 2, marginTop: 2 }} />
+                        ) : null}
+                        <View style={[styles.weekCalRow, { height: OVERVIEW_ROW_HEIGHT }]}>
+                          <View style={styles.weekCalTimeCol}>
+                            <Text style={styles.weekCalTimeText}>{timeStr}</Text>
+                          </View>
+                          {weekDates.map((_, dayIdx) => {
+                            const isToday = weekDates[dayIdx].toDateString() === new Date().toDateString();
+                            const daySessions = weekSessionsByDay[dayIdx] || [];
+                            const hourSessions = daySessions.filter(s => {
+                              const sH = getHourInTz(s.startTime);
+                              return sH === hour;
+                            });
+
+                            return (
+                              <Pressable
+                                key={dayIdx}
+                                style={[styles.weekCalCell, isToday && styles.weekCalCellToday]}
+                                onPress={() => {
+                                  if (hourSessions.length === 0) {
+                                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                                    const slotDate = weekDates[dayIdx];
+                                    const slotTime = new Date(slotDate);
+                                    slotTime.setHours(hour, 0, 0, 0);
+                                    setSelectedSlot({ courtId: courts[0]?.id || "", time: slotTime });
+                                    setShowCreateDrawer(true);
+                                  }
+                                }}
+                              >
+                                {hourSessions.map(session => {
+                                  const gradientColors = getSessionTypeGradient(session.sessionType);
+                                  const typeLabel = session.sessionType === "private" || session.sessionType === "private_adjusted" ? "PVT" :
+                                                    session.sessionType === "semi_private" ? "SEMI" :
+                                                    session.sessionType === "group" ? "GRP" :
+                                                    session.sessionType === "activity" ? "ACT" :
+                                                    session.sessionType === "physical" ? "FIT" : "SES";
+                                  const playerName = session.players?.[0]?.name?.split(" ")[0] || "";
+                                  const now = new Date();
+                                  const sessionEnd = parseUTCTimestamp(session.endTime);
+                                  const sessionStart = parseUTCTimestamp(session.startTime);
+                                  const isPast = sessionEnd < now;
+                                  const isActive = now >= sessionStart && now < sessionEnd;
+                                  const showTitle = session.title && (session.sessionType === "activity" || session.sessionType === "physical");
+                                  const playerCount = session.players?.length || 0;
+                                  const extraPlayers = playerCount > 1 ? `, +${playerCount - 1}` : "";
+                                  const displayName = showTitle ? (session.title || "") : (playerName ? `${playerName}${extraPlayers}` : "");
+
+                                  return (
+                                    <Pressable
+                                      key={session.id}
+                                      style={[
+                                        styles.weekCalSessionBlock,
+                                        {
+                                          backgroundColor: gradientColors[0] + "30",
+                                          borderLeftColor: gradientColors[0],
+                                        },
+                                        isPast ? styles.weekCalSessionPast : null,
+                                        isActive ? styles.weekCalSessionActive : null,
+                                      ]}
+                                      onPress={() => {
+                                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                                        setSelectedSessionForDetail(session as Session);
+                                      }}
+                                    >
+                                      <Text style={[styles.weekCalSessionType, { color: gradientColors[0] }]} numberOfLines={1}>{typeLabel}</Text>
+                                      {displayName ? <Text style={styles.weekCalSessionPlayer} numberOfLines={1}>{displayName}</Text> : null}
+                                      {isActive ? <View style={styles.weekCalLiveDot} /> : null}
+                                    </Pressable>
+                                  );
+                                })}
+                              </Pressable>
+                            );
+                          })}
                         </View>
-                        {weekDates.map((_, dayIdx) => {
-                          const isToday = weekDates[dayIdx].toDateString() === new Date().toDateString();
-                          return (
-                            <Pressable
-                              key={dayIdx}
-                              style={[styles.weekCalCell, isToday && styles.weekCalCellToday]}
-                              onPress={() => {
-                                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                                const slotDate = weekDates[dayIdx];
-                                const slotTime = new Date(slotDate);
-                                slotTime.setHours(hour, 0, 0, 0);
-                                setSelectedSlot({ courtId: courts[0]?.id || "", time: slotTime });
-                                setShowCreateDrawer(true);
-                              }}
-                            />
-                          );
-                        })}
-                      </View>
+                      </React.Fragment>
                     );
-                  })}
-
-                  {weekDates.map((_, dayIdx) => {
-                    const daySessions = weekSessionsByDay[dayIdx] || [];
-                    const colCount = 7;
-                    const timeColWidth = 48;
-
-                    return daySessions.map(session => {
-                      const startFrac = getTimeInTz(session.startTime);
-                      const endFrac = getTimeInTz(session.endTime);
-                      const durationHours = endFrac - startFrac;
-                      const topOffset = (startFrac - minHour) * OVERVIEW_ROW_HEIGHT;
-                      const blockHeight = Math.max(durationHours * OVERVIEW_ROW_HEIGHT, 28);
-
-                      const gradientColors = getSessionTypeGradient(session.sessionType);
-                      const typeLabel = session.sessionType === "private" || session.sessionType === "private_adjusted" ? "PVT" :
-                                        session.sessionType === "semi_private" ? "SEMI" :
-                                        session.sessionType === "group" ? "GRP" :
-                                        session.sessionType === "activity" ? "ACT" :
-                                        session.sessionType === "physical" ? "FIT" : "SES";
-                      const playerName = session.players?.[0]?.name?.split(" ")[0] || "";
-                      const now = new Date();
-                      const sessionEnd = parseUTCTimestamp(session.endTime);
-                      const sessionStart = parseUTCTimestamp(session.startTime);
-                      const isPast = sessionEnd < now;
-                      const isActive = now >= sessionStart && now < sessionEnd;
-                      const showTitle = session.title && (session.sessionType === "activity" || session.sessionType === "physical");
-
-                      return (
-                        <Pressable
-                          key={session.id}
-                          style={[
-                            styles.weekCalSessionBlock,
-                            {
-                              position: "absolute",
-                              top: topOffset,
-                              left: timeColWidth + 2 + (dayIdx * ((screenWidth - timeColWidth - 16) / colCount)),
-                              width: ((screenWidth - timeColWidth - 16) / colCount) - 4,
-                              height: blockHeight,
-                              backgroundColor: gradientColors[0] + "30",
-                              borderLeftColor: gradientColors[0],
-                              zIndex: 10,
-                              overflow: "hidden",
-                            },
-                            isPast ? styles.weekCalSessionPast : null,
-                            isActive ? styles.weekCalSessionActive : null,
-                          ]}
-                          onPress={() => {
-                            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                            setSelectedSessionForDetail(session as Session);
-                          }}
-                        >
-                          <Text style={[styles.weekCalSessionType, { color: gradientColors[0] }]} numberOfLines={1}>{typeLabel}</Text>
-                          {showTitle ? <Text style={styles.weekCalSessionPlayer} numberOfLines={1}>{session.title}</Text> : null}
-                          {playerName && !showTitle ? <Text style={styles.weekCalSessionPlayer} numberOfLines={1}>{playerName}</Text> : null}
-                          {isActive ? <View style={styles.weekCalLiveDot} /> : null}
-                        </Pressable>
-                      );
-                    });
                   })}
                 </View>
               );
