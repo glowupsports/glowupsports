@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
-import { StyleSheet, View, Platform } from "react-native";
+import { StyleSheet, View, Platform, I18nManager } from "react-native";
 import { NavigationContainer, NavigationContainerRef, LinkingOptions } from "@react-navigation/native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { KeyboardProvider } from "react-native-keyboard-controller";
@@ -7,6 +7,8 @@ import { SafeAreaProvider } from "react-native-safe-area-context";
 import { StatusBar } from "expo-status-bar";
 import * as Linking from "expo-linking";
 import * as Sentry from "@sentry/react-native";
+import { I18nextProvider } from "react-i18next";
+import i18n, { initializeI18n, isRTL } from "@/i18n";
 
 const SENTRY_DSN = process.env.EXPO_PUBLIC_SENTRY_DSN || "";
 
@@ -98,6 +100,12 @@ export default function App() {
   useEffect(() => {
     async function prepare() {
       try {
+        await initializeI18n();
+        const rtl = isRTL(i18n.language);
+        if (I18nManager.isRTL !== rtl) {
+          I18nManager.allowRTL(rtl);
+          I18nManager.forceRTL(rtl);
+        }
         await Promise.all([
           new Promise(resolve => setTimeout(resolve, 500)),
         ]);
@@ -116,41 +124,43 @@ export default function App() {
 
   return (
     <ErrorBoundary>
-      <QueryClientProvider client={queryClient}>
-        <SafeAreaProvider>
-          <GestureHandlerRootView style={styles.root}>
-            <KeyboardProvider>
-              <AnimatedSplashScreen isReady={isReady} onComplete={handleSplashComplete}>
-                <UpdateController>
-                  <NetworkProvider>
-                    <AppModeProvider>
-                      <AuthProvider>
-                        <PlayerProvider>
-                          <CoachProvider>
-                            <UIInteractionProvider>
-                              <TabNavigationProvider>
-                                <CoachMarksProvider>
-                                  <CelebrationProvider>
-                                    <View style={styles.root}>
-                                      <ImpersonationBanner />
-                                      <NavigationContainerWithRef />
-                                    </View>
-                                  </CelebrationProvider>
-                                </CoachMarksProvider>
-                              </TabNavigationProvider>
-                            </UIInteractionProvider>
-                          </CoachProvider>
-                        </PlayerProvider>
-                      </AuthProvider>
-                    </AppModeProvider>
-                  </NetworkProvider>
-                </UpdateController>
-              </AnimatedSplashScreen>
-              <StatusBar style="light" />
-            </KeyboardProvider>
-          </GestureHandlerRootView>
-        </SafeAreaProvider>
-      </QueryClientProvider>
+      <I18nextProvider i18n={i18n}>
+        <QueryClientProvider client={queryClient}>
+          <SafeAreaProvider>
+            <GestureHandlerRootView style={styles.root}>
+              <KeyboardProvider>
+                <AnimatedSplashScreen isReady={isReady} onComplete={handleSplashComplete}>
+                  <UpdateController>
+                    <NetworkProvider>
+                      <AppModeProvider>
+                        <AuthProvider>
+                          <PlayerProvider>
+                            <CoachProvider>
+                              <UIInteractionProvider>
+                                <TabNavigationProvider>
+                                  <CoachMarksProvider>
+                                    <CelebrationProvider>
+                                      <View style={styles.root}>
+                                        <ImpersonationBanner />
+                                        <NavigationContainerWithRef />
+                                      </View>
+                                    </CelebrationProvider>
+                                  </CoachMarksProvider>
+                                </TabNavigationProvider>
+                              </UIInteractionProvider>
+                            </CoachProvider>
+                          </PlayerProvider>
+                        </AuthProvider>
+                      </AppModeProvider>
+                    </NetworkProvider>
+                  </UpdateController>
+                </AnimatedSplashScreen>
+                <StatusBar style="light" />
+              </KeyboardProvider>
+            </GestureHandlerRootView>
+          </SafeAreaProvider>
+        </QueryClientProvider>
+      </I18nextProvider>
     </ErrorBoundary>
   );
 }
