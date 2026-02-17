@@ -26,6 +26,7 @@ import { NeonEdgeCard } from "./GlassCard";
 import { getStaticAssetsUrl, apiRequest } from "@/lib/query-client";
 import { SwipeBlocker } from "@/components/SwipeBlocker";
 import { formatSessionDateShort, formatSessionTimeWithRelativeDay } from "@/lib/dateUtils";
+import { useTranslation } from "react-i18next";
 
 // Helper to get color for ball level
 function getBallLevelColor(level: string): string {
@@ -91,6 +92,7 @@ function SectionHeader({ title, count, actionLabel, onAction, accentColor = ProT
 }
 
 export function PlayersNearYouRow() {
+  const { t } = useTranslation();
   const { state } = usePlayerState();
   const navigation = useNavigation<any>();
   const { navigateToTab } = useTabNavigation();
@@ -126,9 +128,9 @@ export function PlayersNearYouRow() {
 
   const getStatusLabel = (status: string) => {
     switch (status) {
-      case "available": return "Available";
-      case "playing": return "On Court";
-      case "online": return "Online";
+      case "available": return t("player.home.available");
+      case "playing": return t("player.home.onCourt");
+      case "online": return t("common.online");
       default: return "";
     }
   };
@@ -140,9 +142,9 @@ export function PlayersNearYouRow() {
   return (
     <View style={styles.section}>
       <SectionHeader
-        title="Players Near You"
+        title={t("player.home.playersNearYou")}
         count={availablePlayers.length}
-        actionLabel="Find More"
+        actionLabel={t("player.home.findMore")}
         onAction={handleSeeAll}
         accentColor={ProTennisColors.neonCyan}
       />
@@ -197,7 +199,7 @@ export function PlayersNearYouRow() {
                 <View style={styles.moreCircle}>
                   <Text style={styles.moreNumber}>+{availablePlayers.length - 8}</Text>
                 </View>
-                <Text style={styles.moreLabel}>See All</Text>
+                <Text style={styles.moreLabel}>{t("common.seeAll")}</Text>
               </View>
             </Pressable>
           </Animated.View>
@@ -246,6 +248,7 @@ function getCountdownText(startTime: string): { text: string; urgent: boolean } 
 
 // Group Lessons Row - Play screen style cards for coaching sessions
 export function GroupLessonsRow() {
+  const { t } = useTranslation();
   const { state } = usePlayerState();
   const navigation = useNavigation<any>();
   const { navigateToTab } = useTabNavigation();
@@ -273,12 +276,12 @@ export function GroupLessonsRow() {
     },
     onSuccess: (data: { success?: boolean; message?: string }) => {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      Alert.alert("Joined!", data.message || "You're in the session!");
+      Alert.alert(t("player.home.joined"), data.message || t("player.home.joinedMsg"));
       queryClient.invalidateQueries({ queryKey: ["/api/player/me/social"] });
       queryClient.invalidateQueries({ queryKey: ["/api/play/sessions"] });
     },
     onError: (error: Error) => {
-      Alert.alert("Oops", error.message || "Could not join session");
+      Alert.alert(t("common.error"), error.message || t("player.home.couldNotJoin"));
     },
     onSettled: () => setJoiningSessionId(null),
   });
@@ -290,12 +293,12 @@ export function GroupLessonsRow() {
     },
     onSuccess: (data: { success?: boolean; message?: string }) => {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      Alert.alert("Left Session", data.message || "You've left the session");
+      Alert.alert(t("player.home.leftSession"), data.message || t("player.home.leftSessionMsg"));
       queryClient.invalidateQueries({ queryKey: ["/api/player/me/social"] });
       queryClient.invalidateQueries({ queryKey: ["/api/play/sessions"] });
     },
     onError: (error: Error) => {
-      Alert.alert("Oops", error.message || "Could not leave session");
+      Alert.alert(t("common.error"), error.message || t("player.home.couldNotLeave"));
     },
     onSettled: () => setJoiningSessionId(null),
   });
@@ -325,15 +328,15 @@ export function GroupLessonsRow() {
       <View style={styles.section}>
         <SectionHeader
           title={`${ballLevelLabel} Lessons`}
-          actionLabel="View All"
+          actionLabel={t("common.viewAll")}
           onAction={handleSeeAll}
           accentColor={ballLevelColor}
         />
         <View style={styles.emptyRow}>
           <Feather name="users" size={24} color={ProTennisColors.textMuted} />
-          <Text style={styles.emptyText}>No {ballLevelLabel} lessons available</Text>
+          <Text style={styles.emptyText}>{t("empty.noSessions")}</Text>
           <Pressable style={styles.emptyButton} onPress={handleSeeAll}>
-            <Text style={styles.emptyButtonText}>Browse All Lessons</Text>
+            <Text style={styles.emptyButtonText}>{t("player.home.browseAllLessons")}</Text>
           </Pressable>
         </View>
       </View>
@@ -345,7 +348,7 @@ export function GroupLessonsRow() {
       <SectionHeader
         title={`${ballLevelLabel} Lessons`}
         count={groupLessons.length}
-        actionLabel="View All"
+        actionLabel={t("common.viewAll")}
         onAction={handleSeeAll}
         accentColor={ballLevelColor}
       />
@@ -361,9 +364,9 @@ export function GroupLessonsRow() {
           const isEnrolled = (session as any).isEnrolled || false;
           
           const getStatusBadge = () => {
-            if (spotsLeft === 0) return { text: "Full", color: "#EF4444", bgColor: "#EF444440" };
-            if (spotsLeft === 1) return { text: "1 Almost Full", color: "#F97316", bgColor: "#F9731640" };
-            return { text: `${spotsLeft} Open`, color: Colors.dark.primary, bgColor: Colors.dark.primary + "40" };
+            if (spotsLeft === 0) return { text: t("common.full"), color: "#EF4444", bgColor: "#EF444440" };
+            if (spotsLeft === 1) return { text: t("player.home.almostFull"), color: "#F97316", bgColor: "#F9731640" };
+            return { text: `${spotsLeft} ${t("player.home.open")}`, color: Colors.dark.primary, bgColor: Colors.dark.primary + "40" };
           };
           const statusBadge = getStatusBadge();
           
@@ -381,15 +384,15 @@ export function GroupLessonsRow() {
                   <View style={styles.playCardHeader}>
                     <Text style={styles.playCardTitle} numberOfLines={1}>
                       {session.coachName 
-                        ? `Group Class with Coach ${session.coachName.split(' ')[0]}` 
-                        : "Group Training"}
+                        ? t("player.home.groupClassWithCoach", { name: session.coachName.split(' ')[0] }) 
+                        : t("player.home.groupTraining")}
                     </Text>
                     <Text style={[styles.playCardBallLevel, { color: levelColor }]}>
                       {(session.ballLevel || "ALL").toUpperCase()}
                     </Text>
                     <View style={styles.playCardLocationRow}>
                       <Ionicons name="location" size={12} color={Colors.dark.primary} />
-                      <Text style={styles.playCardLocationText}>{(session as any).location || (session as any).locationName || "TBA"}</Text>
+                      <Text style={styles.playCardLocationText}>{(session as any).location || (session as any).locationName || t("common.tba")}</Text>
                     </View>
                     <View style={styles.playCardMetaRow}>
                       <Ionicons name="time-outline" size={12} color={Colors.dark.textMuted} />
@@ -397,10 +400,10 @@ export function GroupLessonsRow() {
                       <Text style={styles.playCardMetaDot}>·</Text>
                       <View style={[styles.ballLevelDot, { backgroundColor: levelColor }]} />
                       <Text style={[styles.playCardMetaText, { color: levelColor }]}>
-                        {session.ballLevel ? session.ballLevel.charAt(0).toUpperCase() + session.ballLevel.slice(1) : "All Levels"}
+                        {session.ballLevel ? session.ballLevel.charAt(0).toUpperCase() + session.ballLevel.slice(1) : t("player.home.allLevels")}
                       </Text>
                       <Text style={styles.playCardMetaDot}>·</Text>
-                      <Text style={styles.playCardMetaText}>{(session as any).skillLevel || "Competitive"}</Text>
+                      <Text style={styles.playCardMetaText}>{(session as any).skillLevel || t("player.home.competitive")}</Text>
                     </View>
                   </View>
 
@@ -437,7 +440,7 @@ export function GroupLessonsRow() {
                         ) : (
                           <>
                             <Ionicons name="close-circle-outline" size={16} color="#FF6B6B" />
-                            <Text style={styles.playCardCancelText}>Cancel</Text>
+                            <Text style={styles.playCardCancelText}>{t("common.cancel")}</Text>
                           </>
                         )}
                       </Pressable>
@@ -451,13 +454,13 @@ export function GroupLessonsRow() {
                         ) : (
                           <>
                             <Ionicons name="enter-outline" size={16} color="#0B0D10" />
-                            <Text style={styles.playCardJoinText}>Join Session</Text>
+                            <Text style={styles.playCardJoinText}>{t("common.join")}</Text>
                           </>
                         )}
                       </Pressable>
                     ) : (
                       <Pressable style={styles.playCardWaitlistButton}>
-                        <Text style={styles.playCardWaitlistText}>Join Waitlist</Text>
+                        <Text style={styles.playCardWaitlistText}>{t("common.joinWaitlist")}</Text>
                       </Pressable>
                     )}
                   </View>
@@ -465,7 +468,7 @@ export function GroupLessonsRow() {
                   {/* Credit cost */}
                   <View style={styles.playCardCreditRow}>
                     <Ionicons name="ticket-outline" size={12} color={Colors.dark.textMuted} />
-                    <Text style={styles.playCardCreditText}>1 Group Credit</Text>
+                    <Text style={styles.playCardCreditText}>{t("player.home.groupCredit")}</Text>
                   </View>
 
                   {/* Participants avatars */}
@@ -519,6 +522,7 @@ export function GroupLessonsRow() {
 
 // Open Matches Row - for finding players to play with (not coaching)
 export function OpenMatchesRow() {
+  const { t } = useTranslation();
   const { state } = usePlayerState();
   const navigation = useNavigation<any>();
   const { navigateToTab } = useTabNavigation();
@@ -569,16 +573,16 @@ export function OpenMatchesRow() {
     return (
       <View style={styles.section}>
         <SectionHeader
-          title="Open Matches"
-          actionLabel="Find Players"
+          title={t("player.home.openMatches")}
+          actionLabel={t("player.home.findPlayers")}
           onAction={handleSeeAll}
           accentColor={ProTennisColors.neonCyan}
         />
         <View style={styles.emptyRow}>
           <Feather name="target" size={24} color={ProTennisColors.textMuted} />
-          <Text style={styles.emptyText}>No open matches right now</Text>
+          <Text style={styles.emptyText}>{t("player.home.noOpenMatches")}</Text>
           <Pressable style={styles.emptyButton} onPress={handleCreateMatch}>
-            <Text style={styles.emptyButtonText}>Create a Match</Text>
+            <Text style={styles.emptyButtonText}>{t("player.home.createMatch")}</Text>
           </Pressable>
         </View>
       </View>
@@ -588,9 +592,9 @@ export function OpenMatchesRow() {
   return (
     <View style={styles.section}>
       <SectionHeader
-        title="Open Matches"
+        title={t("player.home.openMatches")}
         count={openMatches.length}
-        actionLabel="See All"
+        actionLabel={t("common.seeAll")}
         onAction={handleSeeAll}
         accentColor={ProTennisColors.neonCyan}
       />
@@ -629,7 +633,7 @@ export function OpenMatchesRow() {
                         color="#fff" 
                       />
                       <Text style={styles.matchTypePillTextWhite}>
-                        {isDoubles ? "Doubles" : "Singles"}
+                        {isDoubles ? t("player.home.doubles") : t("player.home.singles")}
                       </Text>
                     </LinearGradient>
 
@@ -667,7 +671,7 @@ export function OpenMatchesRow() {
                     
                     <View style={styles.premiumMatchHostInfo}>
                       <Text style={styles.premiumMatchHostName} numberOfLines={1}>
-                        {match.participants?.[0]?.name || "Looking for players"}
+                        {match.participants?.[0]?.name || t("player.home.lookingForPlayers")}
                       </Text>
                       <View style={[styles.premiumMatchLevelBadge, { backgroundColor: ballColor + "20", borderColor: ballColor }]}>
                         <View style={[styles.premiumMatchLevelDot, { backgroundColor: ballColor }]} />
@@ -739,7 +743,7 @@ export function OpenMatchesRow() {
                         );
                       })}
                       <Text style={styles.premiumMatchSlotsText}>
-                        {slotsLeft} {slotsLeft === 1 ? "spot" : "spots"} left
+                        {slotsLeft === 1 ? t("player.home.spotLeft", { count: slotsLeft }) : t("player.home.spotsLeft", { count: slotsLeft })}
                       </Text>
                     </View>
 
@@ -747,7 +751,7 @@ export function OpenMatchesRow() {
                       style={[styles.premiumMatchJoinBtn, { backgroundColor: ballColor }]}
                       onPress={() => handleMatchPress(match.id)}
                     >
-                      <Text style={styles.premiumMatchJoinText}>Join</Text>
+                      <Text style={styles.premiumMatchJoinText}>{t("common.join")}</Text>
                       <Feather name="arrow-right" size={14} color="#0A0A12" />
                     </Pressable>
                   </View>
@@ -772,6 +776,7 @@ export function OpenSessionsRow() {
 }
 
 export function TrainingSessionsRow() {
+  const { t } = useTranslation();
   const { state } = usePlayerState();
   const navigation = useNavigation<any>();
   const { navigateToTab } = useTabNavigation();
@@ -791,7 +796,7 @@ export function TrainingSessionsRow() {
   return (
     <View style={styles.section}>
       <SectionHeader
-        title="Book & Train"
+        title={t("player.home.bookAndTrain")}
         accentColor={ProTennisColors.warning}
       />
 
@@ -811,13 +816,13 @@ export function TrainingSessionsRow() {
                 <View style={styles.trainingIconWrap}>
                   <Feather name="calendar" size={18} color={ProTennisColors.warning} />
                 </View>
-                <Text style={styles.trainingTitle}>Group</Text>
+                <Text style={styles.trainingTitle}>{t("player.home.groupTraining")}</Text>
                 <Text style={styles.trainingSubtitle}>
-                  {availability.groupSessions} available
+                  {availability.groupSessions} {t("player.home.available")}
                 </Text>
                 <View style={styles.trainingChips}>
                   <View style={styles.trainingChip}>
-                    <Text style={styles.trainingChipText}>This week</Text>
+                    <Text style={styles.trainingChipText}>{t("player.home.thisWeek")}</Text>
                   </View>
                 </View>
               </View>
@@ -836,13 +841,13 @@ export function TrainingSessionsRow() {
                 <View style={styles.trainingIconWrap}>
                   <Feather name="user" size={18} color="#9C27B0" />
                 </View>
-                <Text style={styles.trainingTitle}>Private</Text>
+                <Text style={styles.trainingTitle}>{t("common.private")}</Text>
                 <Text style={styles.trainingSubtitle}>
-                  {availability.privateLessons} available
+                  {availability.privateLessons} {t("player.home.available")}
                 </Text>
                 <View style={styles.trainingChips}>
                   <View style={[styles.trainingChip, { backgroundColor: "rgba(156, 39, 176, 0.2)" }]}>
-                    <Text style={[styles.trainingChipText, { color: "#9C27B0" }]}>Book now</Text>
+                    <Text style={[styles.trainingChipText, { color: "#9C27B0" }]}>{t("player.home.bookNow")}</Text>
                   </View>
                 </View>
               </View>
@@ -861,13 +866,13 @@ export function TrainingSessionsRow() {
                 <View style={styles.trainingIconWrap}>
                   <Feather name="grid" size={18} color={ProTennisColors.neonCyan} />
                 </View>
-                <Text style={styles.trainingTitle}>Courts</Text>
+                <Text style={styles.trainingTitle}>{t("player.home.courts")}</Text>
                 <Text style={styles.trainingSubtitle}>
-                  {availability.courtsAvailable} free tonight
+                  {t("player.home.freeTonight", { count: availability.courtsAvailable })}
                 </Text>
                 <View style={styles.trainingChips}>
                   <View style={[styles.trainingChip, { backgroundColor: "rgba(0, 255, 255, 0.2)" }]}>
-                    <Text style={[styles.trainingChipText, { color: ProTennisColors.neonCyan }]}>Reserve</Text>
+                    <Text style={[styles.trainingChipText, { color: ProTennisColors.neonCyan }]}>{t("player.home.reserve")}</Text>
                   </View>
                 </View>
               </View>
@@ -880,6 +885,7 @@ export function TrainingSessionsRow() {
 }
 
 export function CommunityFeedPreview() {
+  const { t } = useTranslation();
   const { state } = usePlayerState();
   const navigation = useNavigation<any>();
   const { navigateToTab } = useTabNavigation();
@@ -920,8 +926,8 @@ export function CommunityFeedPreview() {
   return (
     <View style={styles.section}>
       <SectionHeader
-        title="Community"
-        actionLabel="Open Feed"
+        title={t("player.home.community")}
+        actionLabel={t("player.home.openFeed")}
         onAction={handlePress}
         accentColor={ProTennisColors.electricGreen}
       />
@@ -947,7 +953,7 @@ export function CommunityFeedPreview() {
       {communityEvents.length > 3 && (
         <Pressable onPress={handlePress} style={styles.moreEventsButton}>
           <Text style={styles.moreEventsText}>
-            +{communityEvents.length - 3} more updates
+            {t("player.home.moreUpdates", { count: communityEvents.length - 3 })}
           </Text>
         </Pressable>
       )}

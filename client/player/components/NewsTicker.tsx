@@ -12,6 +12,7 @@ import Animated, {
   cancelAnimation,
 } from "react-native-reanimated";
 import { useQuery } from "@tanstack/react-query";
+import { useTranslation } from "react-i18next";
 import { ProTennisColors, Backgrounds, Spacing, BorderRadius, Typography, GlowColors, Colors } from "@/constants/theme";
 
 interface NewsArticle {
@@ -32,8 +33,9 @@ interface NewsTickerProps {
 export function NewsTicker({
   style,
   autoScroll = true,
-  scrollSpeed = 35, // Slower scroll for better readability
+  scrollSpeed = 35,
 }: NewsTickerProps) {
+  const { t } = useTranslation();
   const translateX = useSharedValue(0);
   const glowPulse = useSharedValue(0);
   const [measuredWidth, setMeasuredWidth] = useState(0);
@@ -122,10 +124,10 @@ export function NewsTicker({
     const now = new Date();
     const diffHours = Math.floor((now.getTime() - date.getTime()) / (1000 * 60 * 60));
     
-    if (diffHours < 1) return "Just now";
-    if (diffHours < 24) return `${diffHours}h ago`;
+    if (diffHours < 1) return t("news.justNow");
+    if (diffHours < 24) return t("news.hoursAgo", { count: diffHours });
     const diffDays = Math.floor(diffHours / 24);
-    return `${diffDays}d ago`;
+    return t("news.daysAgo", { count: diffDays });
   };
 
   if (isLoading) {
@@ -133,7 +135,7 @@ export function NewsTicker({
       <View style={[styles.container, style]}>
         <View style={styles.loadingContainer}>
           <View style={styles.loadingDot} />
-          <Text style={styles.loadingText}>Loading tennis news...</Text>
+          <Text style={styles.loadingText}>{t("news.loadingNews")}</Text>
         </View>
       </View>
     );
@@ -183,7 +185,7 @@ export function NewsTicker({
       <View style={styles.labelContainer}>
         <Animated.View style={[styles.liveDot, liveDotStyle]} />
         <View style={styles.liveDotRing} />
-        <Text style={styles.labelText}>TENNIS</Text>
+        <Text style={styles.labelText}>{t("news.tennis")}</Text>
       </View>
 
       <View style={styles.tickerContainer}>
@@ -219,6 +221,7 @@ interface NewsCardProps {
 }
 
 export function NewsCard({ article, style }: NewsCardProps) {
+  const { t } = useTranslation();
   const handlePress = async () => {
     if (article.link && article.link !== "#") {
       try {
@@ -234,10 +237,10 @@ export function NewsCard({ article, style }: NewsCardProps) {
     const now = new Date();
     const diffHours = Math.floor((now.getTime() - date.getTime()) / (1000 * 60 * 60));
     
-    if (diffHours < 1) return "Just now";
-    if (diffHours < 24) return `${diffHours}h ago`;
+    if (diffHours < 1) return t("news.justNow");
+    if (diffHours < 24) return t("news.hoursAgo", { count: diffHours });
     const diffDays = Math.floor(diffHours / 24);
-    return `${diffDays}d ago`;
+    return t("news.daysAgo", { count: diffDays });
   };
 
   return (
@@ -260,7 +263,7 @@ export function NewsCard({ article, style }: NewsCardProps) {
         {article.title}
       </Text>
       <View style={styles.readMoreRow}>
-        <Text style={styles.readMoreText}>Read more</Text>
+        <Text style={styles.readMoreText}>{t("news.readMore")}</Text>
         <Feather name="arrow-right" size={12} color={ProTennisColors.neonCyan} />
       </View>
     </Pressable>

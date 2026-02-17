@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from "react";
+import { useTranslation } from "react-i18next";
 import { View, Text, StyleSheet, ScrollView, Pressable, ActivityIndicator, Image, Alert, ImageBackground, Dimensions, Platform, Image as RNImage, TextInput, Modal } from "react-native";
 import { Image as ExpoImage } from "expo-image";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -120,6 +121,7 @@ function getCleanSessionTitle(session: PlaySession): string {
 }
 
 export default function PlayScreen() {
+  const { t } = useTranslation();
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<any>();
   const route = useRoute<RouteProp<PlayStackParamList, "Play">>();
@@ -139,10 +141,10 @@ export default function PlayScreen() {
   const { startTour, isActive } = useCoachMarks();
 
   const playTourSteps = useMemo(() => [
-    { id: "play_find_match", title: "Find a Match", description: "Tap here to create a match and challenge other players nearby.", position: "bottom" as const },
-    { id: "play_booking_tools", title: "Manage Bookings", description: "Check your invites and set your play preferences here.", position: "bottom" as const },
-    { id: "play_tabs", title: "Browse Options", description: "Switch between group lessons and discovering players near you.", position: "bottom" as const },
-  ], []);
+    { id: "play_find_match", title: t("player.play.tourFindMatch"), description: t("player.play.tourFindMatchDesc"), position: "bottom" as const },
+    { id: "play_booking_tools", title: t("player.play.tourManageBookings"), description: t("player.play.tourManageBookingsDesc"), position: "bottom" as const },
+    { id: "play_tabs", title: t("player.play.tourBrowseOptions"), description: t("player.play.tourBrowseOptionsDesc"), position: "bottom" as const },
+  ], [t]);
 
   useEffect(() => {
     if (!hasSeenScreen("Play")) {
@@ -784,7 +786,7 @@ export default function PlayScreen() {
       <View style={styles.header}>
         <View style={styles.headerTitleRow}>
           <View style={styles.headerLine} />
-          <Text style={styles.headerTitle}>Play</Text>
+          <Text style={styles.headerTitle}>{t("player.play.title")}</Text>
           <View style={styles.headerLine} />
         </View>
       </View>
@@ -805,7 +807,7 @@ export default function PlayScreen() {
               style={styles.findMatchGradient}
             >
               <Ionicons name="flame" size={22} color={Colors.dark.backgroundRoot} />
-              <Text style={styles.findMatchText}>Find a Match</Text>
+              <Text style={styles.findMatchText}>{t("player.play.findMatch")}</Text>
             </LinearGradient>
           </Pressable>
 
@@ -823,7 +825,7 @@ export default function PlayScreen() {
               style={styles.findMatchGradient}
             >
               <Ionicons name="tennisball" size={20} color={Colors.dark.backgroundRoot} />
-              <Text style={styles.findMatchText}>Open Matches</Text>
+              <Text style={styles.findMatchText}>{t("player.play.openMatches")}</Text>
             </LinearGradient>
           </Pressable>
         </View>
@@ -847,7 +849,7 @@ export default function PlayScreen() {
             ) : null}
           </View>
           <Text style={[styles.bookingToolText, pendingInvitesCount > 0 && { color: Colors.dark.primary }]}>
-            Invites{pendingInvitesCount > 0 ? ` (${pendingInvitesCount})` : ""}
+            {t("player.play.invites")}{pendingInvitesCount > 0 ? ` (${pendingInvitesCount})` : ""}
           </Text>
         </Pressable>
 
@@ -861,7 +863,7 @@ export default function PlayScreen() {
           <View style={styles.bookingToolIcon}>
             <Ionicons name="options" size={18} color={Colors.dark.primary} />
           </View>
-          <Text style={styles.bookingToolText}>Preferences</Text>
+          <Text style={styles.bookingToolText}>{t("player.play.preferences")}</Text>
         </Pressable>
       </View>
       </CoachMarkTarget>
@@ -874,7 +876,7 @@ export default function PlayScreen() {
             style={[styles.tab, activeTab === tab && styles.tabActive]}
             onPress={() => setActiveTab(tab)}
           >
-            <Text style={[styles.tabText, activeTab === tab && styles.tabTextActive]}>{tab}</Text>
+            <Text style={[styles.tabText, activeTab === tab && styles.tabTextActive]}>{tab === "Group Lessons" ? t("player.play.groupLessons") : t("player.play.players")}</Text>
           </Pressable>
         ))}
         </View>
@@ -927,7 +929,7 @@ export default function PlayScreen() {
                     color={showOtherLevels ? Colors.dark.primary : Colors.dark.textMuted} 
                   />
                   <Text style={[styles.otherLevelsToggleText, showOtherLevels && { color: Colors.dark.primary }]}>
-                    {showOtherLevels ? "Browsing all levels" : "Looking for someone else?"}
+                    {showOtherLevels ? t("player.play.browsingAllLevels") : t("player.play.lookingForSomeoneElse")}
                   </Text>
                   <Ionicons 
                     name={showOtherLevels ? "chevron-up" : "chevron-down"} 
@@ -947,7 +949,7 @@ export default function PlayScreen() {
                   {(["all", "blue", "red", "orange", "green", "yellow", "glow"] as const).map((level) => {
                     const isSelected = selectedBallLevel === level;
                     const color = level === "all" ? Colors.dark.textMuted : getBallLevelColor(level);
-                    const label = level === "all" ? "All Levels" : level.charAt(0).toUpperCase() + level.slice(1);
+                    const label = level === "all" ? t("player.play.allLevels") : level.charAt(0).toUpperCase() + level.slice(1);
                     
                     return (
                       <Pressable
@@ -977,7 +979,7 @@ export default function PlayScreen() {
               >
                 {DAY_LABELS.map((day) => {
                   const isSelected = selectedDay === day;
-                  const label = day === "all" ? "All Days" : day.toUpperCase();
+                  const label = day === "all" ? t("player.play.allDays") : day.toUpperCase();
                   
                   return (
                     <Pressable
@@ -1000,20 +1002,20 @@ export default function PlayScreen() {
             {sessionsLoading ? (
               <View style={styles.loadingContainer}>
                 <ActivityIndicator size="large" color={Colors.dark.primary} />
-                <Text style={styles.loadingText}>Finding group lessons...</Text>
+                <Text style={styles.loadingText}>{t("player.play.findingGroupLessons")}</Text>
               </View>
             ) : filteredSessions.length > 0 ? (
               filteredSessions.map(renderSessionCard)
             ) : (
               <View style={styles.emptyState}>
                 <Ionicons name="calendar-outline" size={48} color={Colors.dark.textMuted} />
-                <Text style={styles.emptyTitle}>No Group Lessons</Text>
+                <Text style={styles.emptyTitle}>{t("player.play.noGroupLessons")}</Text>
                 <Text style={styles.emptySubtitle}>
                   {selectedBallLevel === "my_level" 
-                    ? `No ${playerBallLevel.toUpperCase()} level lessons available`
+                    ? `${t("player.play.noLevelLessons", { level: playerBallLevel.toUpperCase() })}`
                     : selectedBallLevel !== "all" 
-                    ? `No ${selectedBallLevel.toUpperCase()} level lessons available` 
-                    : "Check back soon for new group lessons"}
+                    ? `${t("player.play.noLevelLessons", { level: selectedBallLevel.toUpperCase() })}` 
+                    : t("player.play.checkBackSoon")}
                 </Text>
               </View>
             )}
@@ -1023,7 +1025,7 @@ export default function PlayScreen() {
             <View style={styles.sectionHeader}>
               <View style={styles.sectionTitleRow}>
                 <Ionicons name="people" size={20} color={Colors.dark.textMuted} />
-                <Text style={styles.sectionTitle}>Players nearby</Text>
+                <Text style={styles.sectionTitle}>{t("player.play.playersNearby")}</Text>
                 {nearbyPlayers && nearbyPlayers.length > 0 ? (
                   <Text style={styles.playerCount}>({nearbyPlayers.length})</Text>
                 ) : null}
@@ -1038,10 +1040,10 @@ export default function PlayScreen() {
               contentContainerStyle={styles.discoverFilterContent}
             >
               {[
-                { id: "all", label: "All", icon: "people" },
-                { id: "recommended", label: "Recommended", icon: "star" },
-                { id: "sameLevel", label: "Same Level", icon: "bar-chart" },
-                { id: "openToPlay", label: "Open to Play", icon: "tennisball" },
+                { id: "all", label: t("player.play.allFilter"), icon: "people" },
+                { id: "recommended", label: t("player.play.recommended"), icon: "star" },
+                { id: "sameLevel", label: t("player.play.sameLevel"), icon: "bar-chart" },
+                { id: "openToPlay", label: t("player.play.openToPlayFilter"), icon: "tennisball" },
               ].map((filter) => {
                 const isSelected = discoverFilter === filter.id;
                 return (
@@ -1077,7 +1079,7 @@ export default function PlayScreen() {
               <Ionicons name="search" size={18} color={Colors.dark.textMuted} />
               <TextInput
                 style={styles.playerSearchInput}
-                placeholder="Search players..."
+                placeholder={t("player.play.searchPlayers")}
                 placeholderTextColor={Colors.dark.textMuted}
                 value={playerSearchQuery}
                 onChangeText={setPlayerSearchQuery}
@@ -1137,14 +1139,14 @@ export default function PlayScreen() {
             ) : nearbyPlayers && nearbyPlayers.length > 0 && playerSearchQuery ? (
               <View style={styles.emptyState}>
                 <Ionicons name="search-outline" size={48} color={Colors.dark.textMuted} />
-                <Text style={styles.emptyTitle}>No Results</Text>
-                <Text style={styles.emptySubtitle}>No players match "{playerSearchQuery}"</Text>
+                <Text style={styles.emptyTitle}>{t("player.play.noResults")}</Text>
+                <Text style={styles.emptySubtitle}>{t("player.play.noPlayersMatch", { query: playerSearchQuery })}</Text>
               </View>
             ) : (
               <View style={styles.emptyState}>
                 <Ionicons name="people-outline" size={48} color={Colors.dark.textMuted} />
-                <Text style={styles.emptyTitle}>No Players Found</Text>
-                <Text style={styles.emptySubtitle}>Players in your academy will appear here</Text>
+                <Text style={styles.emptyTitle}>{t("player.play.noPlayersFound")}</Text>
+                <Text style={styles.emptySubtitle}>{t("player.play.playersWillAppear")}</Text>
               </View>
             )}
           </>

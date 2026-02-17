@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, ScrollView, Pressable, ActivityIndicator, Alert
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useTranslation } from "react-i18next";
 import { Feather } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import { LinearGradient } from "expo-linear-gradient";
@@ -153,6 +154,7 @@ function StatCard({ icon, label, value, color, subtext }: { icon: string; label:
 }
 
 export default function PlayerScheduleScreen() {
+  const { t } = useTranslation();
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<any>();
   const queryClient = useQueryClient();
@@ -477,12 +479,12 @@ export default function PlayerScheduleScreen() {
 
   const getTypeLabel = (type: string) => {
     switch (type) {
-      case "private": return "Private Lesson";
-      case "group": return "Group Lesson";
-      case "semi_private": return "Semi-Private";
-      case "court": return "Court Booking";
-      case "match": return "Match";
-      default: return "Training";
+      case "private": return t("player.schedule.privateLessonLabel");
+      case "group": return t("player.schedule.groupLessonLabel");
+      case "semi_private": return t("player.schedule.semiPrivateLabel");
+      case "court": return t("player.schedule.courtBookingLabel");
+      case "match": return t("player.schedule.matchLabel");
+      default: return t("player.schedule.trainingLabel");
     }
   };
 
@@ -594,7 +596,7 @@ export default function PlayerScheduleScreen() {
     return (
       <View style={[styles.container, styles.centered, { paddingTop: insets.top }]}>
         <ActivityIndicator size="large" color={ProTennisColors.neonCyan} />
-        <Text style={styles.loadingText}>Loading your schedule...</Text>
+        <Text style={styles.loadingText}>{t("player.schedule.loadingSchedule")}</Text>
       </View>
     );
   }
@@ -603,7 +605,7 @@ export default function PlayerScheduleScreen() {
     return (
       <View style={[styles.container, styles.centered, { paddingTop: insets.top }]}>
         <Feather name="alert-circle" size={48} color={ProTennisColors.error} />
-        <Text style={styles.errorText}>Unable to load schedule</Text>
+        <Text style={styles.errorText}>{t("player.schedule.unableToLoadSchedule")}</Text>
       </View>
     );
   }
@@ -622,10 +624,10 @@ export default function PlayerScheduleScreen() {
         <Animated.View entering={FadeInDown.delay(150).duration(400)}>
           <CoachMarkTarget id="schedule_quick_actions">
             <View style={styles.quickActionsRow}>
-              <QuickActionButton icon="book" label="Book Lesson" color={ProTennisColors.neonGreen} onPress={handleBookLesson} />
-              <QuickActionButton icon="grid" label="Book Court" color={ProTennisColors.neonCyan} onPress={handleBookCourt} />
-              <QuickActionButton icon="users" label="Find Match" color={ProTennisColors.neonPurple} onPress={handleFindMatch} />
-              <QuickActionButton icon="sun" label="Vacation" color={ProTennisColors.vacationBlue} onPress={handleSetVacation} />
+              <QuickActionButton icon="book" label={t("player.schedule.bookLesson")} color={ProTennisColors.neonGreen} onPress={handleBookLesson} />
+              <QuickActionButton icon="grid" label={t("player.schedule.bookCourt")} color={ProTennisColors.neonCyan} onPress={handleBookCourt} />
+              <QuickActionButton icon="users" label={t("player.schedule.findMatch")} color={ProTennisColors.neonPurple} onPress={handleFindMatch} />
+              <QuickActionButton icon="sun" label={t("player.schedule.vacation")} color={ProTennisColors.vacationBlue} onPress={handleSetVacation} />
             </View>
           </CoachMarkTarget>
         </Animated.View>
@@ -634,24 +636,24 @@ export default function PlayerScheduleScreen() {
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.statsRow}>
             <StatCard
               icon="clock"
-              label="Next Lesson"
+              label={t("player.schedule.nextLesson")}
               value={getNextSessionCountdown() || "-"}
               color={ProTennisColors.neonCyan}
               subtext={nextSession?.type ? getTypeLabel(nextSession.type).split(' ')[0] : undefined}
             />
             <StatCard
               icon="calendar"
-              label="This Month"
+              label={t("player.schedule.thisMonth")}
               value={thisMonthCount}
               color={ProTennisColors.neonGreen}
-              subtext="Activities"
+              subtext={t("player.schedule.activities")}
             />
             <StatCard
               icon="check-circle"
-              label="Attendance"
+              label={t("player.schedule.attendance")}
               value={`${attendanceStats.percentage}%`}
               color={attendanceStats.percentage >= 80 ? ProTennisColors.neonGreen : ProTennisColors.neonOrange}
-              subtext={`${attendanceStats.streak} streak`}
+              subtext={`${attendanceStats.streak} ${t("player.schedule.streak")}`}
             />
           </ScrollView>
         </Animated.View>
@@ -666,7 +668,7 @@ export default function PlayerScheduleScreen() {
                   </View>
                   <View style={styles.vacationInfo}>
                     <Text style={styles.vacationTitle}>
-                      {vacationData.activeVacation ? "On Vacation" : "Upcoming Vacation"}
+                      {vacationData.activeVacation ? t("player.schedule.onVacation") : t("player.schedule.upcomingVacation")}
                     </Text>
                     <Text style={styles.vacationDates}>
                       {formatVacationDate(vacationData.activeVacation?.startDate || vacationData.upcomingVacation!.startDate)} - {formatVacationDate(vacationData.activeVacation?.endDate || vacationData.upcomingVacation!.endDate)}
@@ -746,19 +748,19 @@ export default function PlayerScheduleScreen() {
             <View style={styles.legendRow}>
               <View style={styles.legendItem}>
                 <View style={[styles.legendDot, { backgroundColor: ProTennisColors.neonGreen }]} />
-                <Text style={styles.legendText}>Lesson</Text>
+                <Text style={styles.legendText}>{t("player.schedule.lesson")}</Text>
               </View>
               <View style={styles.legendItem}>
                 <View style={[styles.legendDot, { backgroundColor: ProTennisColors.neonCyan }]} />
-                <Text style={styles.legendText}>Court</Text>
+                <Text style={styles.legendText}>{t("player.schedule.court")}</Text>
               </View>
               <View style={styles.legendItem}>
                 <View style={[styles.legendDot, { backgroundColor: ProTennisColors.neonPurple }]} />
-                <Text style={styles.legendText}>Match</Text>
+                <Text style={styles.legendText}>{t("player.schedule.matchLabel")}</Text>
               </View>
               <View style={styles.legendItem}>
                 <View style={[styles.legendDot, { backgroundColor: ProTennisColors.vacationBlue }]} />
-                <Text style={styles.legendText}>Vacation</Text>
+                <Text style={styles.legendText}>{t("player.schedule.vacation")}</Text>
               </View>
             </View>
           </NeonBorderCard>
@@ -769,20 +771,20 @@ export default function PlayerScheduleScreen() {
           <CoachMarkTarget id="schedule_upcoming">
           <View style={styles.sectionHeader}>
             <Text style={styles.sectionTitle}>{formatSelectedDate()}</Text>
-            <Text style={styles.sectionCount}>{selectedDateItems.length} {selectedDateItems.length === 1 ? "item" : "items"}</Text>
+            <Text style={styles.sectionCount}>{selectedDateItems.length} {selectedDateItems.length === 1 ? t("player.schedule.item") : t("player.schedule.items")}</Text>
           </View>
 
           {selectedDateItems.length === 0 ? (
             <GuidedEmptyState
               icon="calendar-outline"
-              title="No Sessions Yet"
-              description="Your training schedule will appear here once your coach adds you to sessions."
+              title={t("player.schedule.noSessionsYet")}
+              description={t("player.schedule.noSessionsDesc")}
               tips={[
-                "Ask your coach about available session times",
-                "Check the Open Sessions section on your home screen",
-                "Sessions update automatically when your coach creates them",
+                t("player.schedule.askCoachAboutSessions"),
+                t("player.schedule.checkOpenSessions"),
+                t("player.schedule.sessionsUpdateAutomatically"),
               ]}
-              actionLabel="Book a Lesson"
+              actionLabel={t("player.schedule.bookLesson")}
               onAction={handleBookLesson}
               compact
             />
@@ -834,7 +836,7 @@ export default function PlayerScheduleScreen() {
         {upcomingItems.length > 0 ? (
           <Animated.View entering={FadeInDown.delay(500).duration(400)}>
             <View style={styles.sectionHeader}>
-              <Text style={styles.sectionTitle}>Upcoming</Text>
+              <Text style={styles.sectionTitle}>{t("player.schedule.upcoming")}</Text>
               <Text style={styles.sectionCount}>{upcomingItems.length} scheduled</Text>
             </View>
             <View style={styles.upcomingList}>
@@ -860,23 +862,23 @@ export default function PlayerScheduleScreen() {
 
         <Animated.View entering={FadeInDown.delay(600).duration(400)}>
           <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Attendance History</Text>
+            <Text style={styles.sectionTitle}>{t("player.schedule.attendanceHistory")}</Text>
           </View>
           <NeonBorderCard accentColor={ProTennisColors.neonGreen} onPress={() => setShowAttendanceModal(true)}>
             <View style={styles.attendanceStats}>
               <View style={styles.attendanceStat}>
                 <Text style={[styles.attendanceValue, { color: ProTennisColors.neonGreen }]}>{attendanceStats.attended}</Text>
-                <Text style={styles.attendanceLabel}>Attended</Text>
+                <Text style={styles.attendanceLabel}>{t("player.schedule.attended")}</Text>
               </View>
               <View style={styles.attendanceDivider} />
               <View style={styles.attendanceStat}>
                 <Text style={[styles.attendanceValue, { color: ProTennisColors.error }]}>{attendanceStats.missed}</Text>
-                <Text style={styles.attendanceLabel}>Missed</Text>
+                <Text style={styles.attendanceLabel}>{t("player.schedule.missed")}</Text>
               </View>
               <View style={styles.attendanceDivider} />
               <View style={styles.attendanceStat}>
                 <Text style={[styles.attendanceValue, { color: ProTennisColors.gold }]}>{attendanceStats.streak}</Text>
-                <Text style={styles.attendanceLabel}>Streak</Text>
+                <Text style={styles.attendanceLabel}>{t("player.schedule.streak")}</Text>
               </View>
             </View>
             <View style={styles.attendanceProgressContainer}>
@@ -889,10 +891,10 @@ export default function PlayerScheduleScreen() {
                 />
               </View>
               <View style={styles.attendanceTapRow}>
-                <Text style={styles.attendancePercentage}>{attendanceStats.percentage}% attendance rate</Text>
+                <Text style={styles.attendancePercentage}>{attendanceStats.percentage}% {t("player.schedule.attendanceRate")}</Text>
                 <View style={styles.attendanceTapHint}>
                   <Feather name="chevron-right" size={16} color={ProTennisColors.neonGreen} />
-                  <Text style={styles.attendanceTapText}>See All</Text>
+                  <Text style={styles.attendanceTapText}>{t("player.schedule.seeAll")}</Text>
                 </View>
               </View>
             </View>
@@ -909,19 +911,19 @@ export default function PlayerScheduleScreen() {
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Set Vacation</Text>
+              <Text style={styles.modalTitle}>{t("player.schedule.setVacation")}</Text>
               <Pressable onPress={() => setShowVacationModal(false)}>
                 <Feather name="x" size={24} color={ProTennisColors.white} />
               </Pressable>
             </View>
             
-            <Text style={styles.modalSubtitle}>Your lessons will be paused during this period</Text>
+            <Text style={styles.modalSubtitle}>{t("player.schedule.lessonsWillBePaused")}</Text>
 
             <Pressable style={styles.datePickerButton} onPress={() => setShowStartPicker(true)}>
               <Feather name="calendar" size={18} color={ProTennisColors.neonCyan} />
-              <Text style={styles.datePickerLabel}>Start Date</Text>
+              <Text style={styles.datePickerLabel}>{t("player.schedule.startDate")}</Text>
               <Text style={styles.datePickerValue}>
-                {vacationStartDate ? vacationStartDate.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : "Select date"}
+                {vacationStartDate ? vacationStartDate.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : t("player.schedule.selectDate")}
               </Text>
             </Pressable>
 
@@ -941,9 +943,9 @@ export default function PlayerScheduleScreen() {
 
             <Pressable style={styles.datePickerButton} onPress={() => setShowEndPicker(true)}>
               <Feather name="calendar" size={18} color={ProTennisColors.neonCyan} />
-              <Text style={styles.datePickerLabel}>End Date</Text>
+              <Text style={styles.datePickerLabel}>{t("player.schedule.endDate")}</Text>
               <Text style={styles.datePickerValue}>
-                {vacationEndDate ? vacationEndDate.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : "Select date"}
+                {vacationEndDate ? vacationEndDate.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : t("player.schedule.selectDate")}
               </Text>
             </Pressable>
 
@@ -977,7 +979,7 @@ export default function PlayerScheduleScreen() {
                 ) : (
                   <>
                     <Feather name="sun" size={18} color={ProTennisColors.white} />
-                    <Text style={styles.saveVacationButtonText}>Set Vacation</Text>
+                    <Text style={styles.saveVacationButtonText}>{t("player.schedule.setVacation")}</Text>
                   </>
                 )}
               </LinearGradient>
@@ -994,7 +996,7 @@ export default function PlayerScheduleScreen() {
         <View style={styles.attendanceModalContainer}>
           <View style={[styles.attendanceModalHeader, { paddingTop: insets.top + Spacing.md }]}>
             <View style={styles.attendanceModalTitleRow}>
-              <Text style={styles.attendanceModalTitle}>Attendance History</Text>
+              <Text style={styles.attendanceModalTitle}>{t("player.schedule.attendanceHistory")}</Text>
               <Pressable onPress={() => setShowAttendanceModal(false)} style={styles.attendanceModalClose}>
                 <Feather name="x" size={24} color={ProTennisColors.white} />
               </Pressable>
@@ -1027,25 +1029,25 @@ export default function PlayerScheduleScreen() {
                 <Text style={[styles.attendanceModalStatValue, { color: ProTennisColors.neonGreen }]}>
                   {filteredAttendanceRecords.filter(r => r.status === "present").length}
                 </Text>
-                <Text style={styles.attendanceModalStatLabel}>Present</Text>
+                <Text style={styles.attendanceModalStatLabel}>{t("player.schedule.present")}</Text>
               </View>
               <View style={styles.attendanceModalStatItem}>
                 <Text style={[styles.attendanceModalStatValue, { color: ProTennisColors.error }]}>
                   {filteredAttendanceRecords.filter(r => r.status === "absent").length}
                 </Text>
-                <Text style={styles.attendanceModalStatLabel}>Absent</Text>
+                <Text style={styles.attendanceModalStatLabel}>{t("player.schedule.absent")}</Text>
               </View>
               <View style={styles.attendanceModalStatItem}>
                 <Text style={[styles.attendanceModalStatValue, { color: ProTennisColors.neonOrange }]}>
                   {filteredAttendanceRecords.filter(r => r.status === "late").length}
                 </Text>
-                <Text style={styles.attendanceModalStatLabel}>Late</Text>
+                <Text style={styles.attendanceModalStatLabel}>{t("player.schedule.late")}</Text>
               </View>
               <View style={styles.attendanceModalStatItem}>
                 <Text style={[styles.attendanceModalStatValue, { color: ProTennisColors.white }]}>
                   {filteredAttendanceRecords.length}
                 </Text>
-                <Text style={styles.attendanceModalStatLabel}>Total</Text>
+                <Text style={styles.attendanceModalStatLabel}>{t("player.schedule.total")}</Text>
               </View>
             </View>
           </View>
@@ -1057,7 +1059,7 @@ export default function PlayerScheduleScreen() {
             {filteredAttendanceRecords.length === 0 ? (
               <View style={styles.attendanceEmptyState}>
                 <Feather name="calendar" size={48} color={ProTennisColors.textMuted} />
-                <Text style={styles.attendanceEmptyText}>No lessons in {attendanceFilterMonth.toLocaleDateString("en-US", { month: "long" })}</Text>
+                <Text style={styles.attendanceEmptyText}>{t("player.schedule.noLessonsIn")} {attendanceFilterMonth.toLocaleDateString("en-US", { month: "long" })}</Text>
               </View>
             ) : (
               filteredAttendanceRecords.map((record, index) => (

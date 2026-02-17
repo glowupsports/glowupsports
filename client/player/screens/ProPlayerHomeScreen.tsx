@@ -106,29 +106,29 @@ function PlayerHomeContent() {
   const playerTourSteps = useMemo(() => [
     {
       id: "player_card",
-      title: "Your Player Card",
-      description: "Your level, XP, and Glow Score at a glance. Keep playing to level up!",
+      title: t("player.home.tourPlayerCard"),
+      description: t("player.home.tourPlayerCardDesc"),
       position: "bottom" as const,
     },
     {
       id: "player_sessions",
-      title: "Your Sessions",
-      description: "See your upcoming training sessions. Tap to view details or check in.",
+      title: t("player.home.tourSessions"),
+      description: t("player.home.tourSessionsDesc"),
       position: "bottom" as const,
     },
     {
       id: "player_discovery",
-      title: "Discover",
-      description: "Find other players nearby, open sessions to join, and training opportunities.",
+      title: t("player.home.tourDiscover"),
+      description: t("player.home.tourDiscoverDesc"),
       position: "top" as const,
     },
     {
       id: "player_help",
-      title: "Need Help?",
-      description: "Tap here anytime for FAQs, tutorials, and support.",
+      title: t("player.home.tourHelp"),
+      description: t("player.home.tourHelpDesc"),
       position: "left" as const,
     },
-  ], []);
+  ], [t]);
 
   const { data: dashboardData, isLoading, refetch, isRefetching } = useQuery<DashboardData>({
     queryKey: ["/api/player/me/dashboard"],
@@ -200,17 +200,17 @@ function PlayerHomeContent() {
       {
         id: "complete_profile",
         icon: "person-circle" as const,
-        title: "Complete Your Profile",
-        description: "Add a photo and personalise your tennis profile",
-        actionLabel: "Go to Profile",
+        title: t("player.home.completeProfile"),
+        description: t("player.home.completeProfileDesc"),
+        actionLabel: t("player.home.goToProfile"),
         onAction: () => navigateToTab("Profile"),
         isCompleted: hasProfile,
       },
       {
         id: "join_academy",
         icon: "business" as const,
-        title: "Join an Academy",
-        description: "Connect with a tennis academy near you",
+        title: t("player.home.joinAcademy"),
+        description: t("player.home.joinAcademyDesc"),
         actionLabel: t("player.home.browseAcademies"),
         onAction: () => navigation.navigate("AcademyBrowser" as never),
         isCompleted: hasAcademy,
@@ -218,8 +218,8 @@ function PlayerHomeContent() {
       {
         id: "book_session",
         icon: "calendar" as const,
-        title: "Book Your First Session",
-        description: "Schedule a training session with your coach",
+        title: t("player.home.bookFirstSession"),
+        description: t("player.home.bookFirstSessionDesc"),
         actionLabel: t("player.home.bookSession"),
         onAction: () => setShowBookingWizard(true),
         isCompleted: hasNextSession,
@@ -227,9 +227,9 @@ function PlayerHomeContent() {
       {
         id: "check_progress",
         icon: "trending-up" as const,
-        title: "Check Your Progress",
-        description: "See your skill ratings and Glow Score",
-        actionLabel: "View Progress",
+        title: t("player.home.checkProgress"),
+        description: t("player.home.checkProgressDesc"),
+        actionLabel: t("player.home.viewProgress"),
         onAction: () => navigateToTab("Progress"),
         isCompleted: false,
       },
@@ -242,55 +242,55 @@ function PlayerHomeContent() {
   const [celebrationData, setCelebrationData] = useState({ title: "", description: "", icon: "trophy", xpReward: 0 });
 
   const playerFeatureUsage = useMemo(() => [
-    { id: "profile", name: "Profile Setup", icon: "person", isUsed: true },
-    { id: "sessions", name: "Session Booking", icon: "calendar", isUsed: false },
-    { id: "feedback", name: "Feedback Center", icon: "chatbubble-ellipses", isUsed: false },
-    { id: "community", name: "Community", icon: "people", isUsed: false },
-    { id: "progress", name: "Progress Tracking", icon: "trending-up", isUsed: true },
-    { id: "shop", name: "Glow Market", icon: "cart", isUsed: false },
-  ], []);
+    { id: "profile", name: t("player.home.profileSetup"), icon: "person", isUsed: true },
+    { id: "sessions", name: t("player.home.sessionBooking"), icon: "calendar", isUsed: false },
+    { id: "feedback", name: t("player.home.feedbackCenter"), icon: "chatbubble-ellipses", isUsed: false },
+    { id: "community", name: t("player.community.title"), icon: "people", isUsed: false },
+    { id: "progress", name: t("player.home.progressTracking"), icon: "trending-up", isUsed: true },
+    { id: "shop", name: t("player.home.glowMarket"), icon: "cart", isUsed: false },
+  ], [t]);
 
   const playerTips = [
-    { id: "tip_xp", icon: "star", text: "Tip: Attend sessions regularly to earn XP and level up faster" },
-    { id: "tip_profile", icon: "person", text: "Tip: Complete your profile to unlock more features" },
-    { id: "tip_community", icon: "people", text: "Tip: Check the Community tab to find players near you" },
-    { id: "tip_feedback", icon: "chatbubble", text: "Tip: Check your Feedback Center after each session for coach insights" },
-    { id: "tip_credits", icon: "card", text: "Tip: Keep an eye on your credits to make sure you have enough for bookings" },
+    { id: "tip_xp", icon: "star", text: t("player.home.tipXp") },
+    { id: "tip_profile", icon: "person", text: t("player.home.tipProfile") },
+    { id: "tip_community", icon: "people", text: t("player.home.tipCommunity") },
+    { id: "tip_feedback", icon: "chatbubble", text: t("player.home.tipFeedback") },
+    { id: "tip_credits", icon: "card", text: t("player.home.tipCredits") },
   ];
 
   const playerFAQs = [
-    { question: "How do I book a session?", answer: "Tap 'Book Lesson' on your home screen or go to the Schedule tab to see available sessions.", category: "Booking" },
-    { question: "What is my Glow Score?", answer: "Your Glow Score reflects your overall tennis skill level. It's calculated from coach assessments across 6 skill pillars.", category: "Progress" },
-    { question: "How do I earn XP?", answer: "You earn XP by attending sessions, completing challenges, and achieving milestones. XP increases your player level.", category: "Progress" },
-    { question: "What are credits?", answer: "Credits are prepaid lesson tokens. You use them to book sessions. Different session types use different credit types (private, semi-private, group).", category: "Billing" },
-    { question: "How do I find other players?", answer: "Go to the Community tab to see players near you, or check the Play tab for open matches and social games.", category: "Social" },
-    { question: "What is my Ball Level?", answer: "Ball Level indicates your skill stage: Red (beginner), Orange, Green, Yellow (advanced), or Adult DSS for competitive adults.", category: "Progress" },
+    { question: t("player.home.faqBookSession"), answer: t("player.home.faqBookSessionAnswer"), category: "Booking" },
+    { question: t("player.home.faqGlowScore"), answer: t("player.home.faqGlowScoreAnswer"), category: "Progress" },
+    { question: t("player.home.faqEarnXp"), answer: t("player.home.faqEarnXpAnswer"), category: "Progress" },
+    { question: t("player.home.faqCredits"), answer: t("player.home.faqCreditsAnswer"), category: "Billing" },
+    { question: t("player.home.faqFindPlayers"), answer: t("player.home.faqFindPlayersAnswer"), category: "Social" },
+    { question: t("player.home.faqBallLevel"), answer: t("player.home.faqBallLevelAnswer"), category: "Progress" },
   ];
 
   const playerWelcomeSlides = [
     {
       icon: "tennisball",
       iconColor: "#2ECC40",
-      title: "Welcome to Glow Up Sports!",
-      description: "Your personal tennis companion. Track your progress, connect with coaches, and level up your game.",
+      title: t("player.home.welcomeTitle"),
+      description: t("player.home.welcomeDesc"),
     },
     {
       icon: "trending-up",
       iconColor: "#00BCD4",
-      title: "Track Your Progress",
-      description: "Every session earns you XP. Watch your Glow Score grow as you improve across all skill areas.",
+      title: t("player.home.trackProgressTitle"),
+      description: t("player.home.trackProgressDesc"),
     },
     {
       icon: "people",
       iconColor: "#FF9800",
-      title: "Connect & Compete",
-      description: "Find other players near you, book courts, join matches, and climb the leaderboard.",
+      title: t("player.home.connectCompeteTitle"),
+      description: t("player.home.connectCompeteDesc"),
     },
     {
       icon: "rocket",
       iconColor: "#9B59B6",
-      title: "Ready to Play?",
-      description: "Complete your Getting Started checklist on the home screen to set everything up. Let's go!",
+      title: t("player.home.readyToPlayTitle"),
+      description: t("player.home.readyToPlayDesc"),
     },
   ];
 

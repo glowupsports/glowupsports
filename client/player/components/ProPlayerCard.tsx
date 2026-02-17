@@ -20,6 +20,7 @@ import { useNavigation } from "@react-navigation/native";
 import { SkillProgressRing } from "./SkillProgressRing";
 import { InfoTooltip } from "@/components/InfoTooltip";
 import { LanguageHeaderButton } from "@/components/LanguageSelectorModal";
+import { useTranslation } from "react-i18next";
 
 interface PlayerData {
   id: string;
@@ -50,14 +51,14 @@ interface ProPlayerCardProps {
   unreadNotificationCount?: number;
 }
 
-function getPlayerTitle(level: number, streak: number, glowScore: number): string {
-  if (level >= 15) return "ELITE CHAMPION";
-  if (level >= 12) return "PRO PLAYER";
-  if (level >= 10) return "RISING STAR";
-  if (level >= 7) return "COURT WARRIOR";
-  if (level >= 5) return "ACADEMY ACE";
-  if (level >= 3) return "TENNIS TALENT";
-  return "ROOKIE";
+function getPlayerTitle(level: number, streak: number, glowScore: number, t: (key: string) => string): string {
+  if (level >= 15) return t("player.titles.eliteChampion");
+  if (level >= 12) return t("player.titles.proPlayer");
+  if (level >= 10) return t("player.titles.risingStar");
+  if (level >= 7) return t("player.titles.courtWarrior");
+  if (level >= 5) return t("player.titles.academyAce");
+  if (level >= 3) return t("player.titles.tennisTalent");
+  return t("player.titles.rookie");
 }
 
 export function ProPlayerCard({ 
@@ -70,6 +71,7 @@ export function ProPlayerCard({
   onNotificationPress,
   unreadNotificationCount = 0,
 }: ProPlayerCardProps) {
+  const { t } = useTranslation();
   const navigation = useNavigation<any>();
   const glowPulse = useSharedValue(0);
   const profilePhotoUri = player.profilePhotoUrl ? `${getStaticAssetsUrl()}${player.profilePhotoUrl}` : null;
@@ -85,7 +87,7 @@ export function ProPlayerCard({
   }, []);
   
   const currentLevel = levelStatus?.level ?? player.level;
-  const playerTitle = levelStatus?.title || getPlayerTitle(currentLevel, player.streak, player.glowScore);
+  const playerTitle = levelStatus?.title || getPlayerTitle(currentLevel, player.streak, player.glowScore, t);
   const xpInLevel = levelStatus?.xpInCurrentLevel ?? 0;
   const xpNeeded = levelStatus?.xpNeededForNextLevel ?? 100;
   const xpProgress = xpNeeded > 0 ? Math.min(xpInLevel / xpNeeded, 1) : 0;
@@ -202,10 +204,10 @@ export function ProPlayerCard({
           
           <View style={styles.formBarContainer}>
             <View style={styles.formLabelRow}>
-              <Text style={styles.formLabelLeft}>FORM</Text>
+              <Text style={styles.formLabelLeft}>{t("player.card.form")}</Text>
               <InfoTooltip 
-                title="Your Glow Score" 
-                description="Your Glow Score reflects your overall tennis development. It combines your session attendance, skill assessments from coaches, match performance, and engagement with the platform. Keep attending sessions and getting coach feedback to boost it!"
+                title={t("player.card.glowScoreTitle")} 
+                description={t("player.card.glowScoreDesc")}
                 size={14}
               />
               <View style={styles.signalBars}>
@@ -229,7 +231,7 @@ export function ProPlayerCard({
                 ]} 
               />
             </View>
-            <Text style={styles.formLabel}>{xpInLevel}/{xpNeeded} XP</Text>
+            <Text style={styles.formLabel}>{xpInLevel}/{xpNeeded} {t("player.card.xp")}</Text>
           </View>
         </View>
 

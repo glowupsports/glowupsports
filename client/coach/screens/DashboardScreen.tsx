@@ -566,9 +566,9 @@ export default function DashboardScreen() {
 
   const getGreeting = () => {
     const hour = new Date().getHours();
-    if (hour < 12) return "Good morning";
-    if (hour < 18) return "Good afternoon";
-    return "Good evening";
+    if (hour < 12) return t("coach.dashboard.goodMorning");
+    if (hour < 18) return t("coach.dashboard.goodAfternoon");
+    return t("coach.dashboard.goodEvening");
   };
 
   const dayPersonality = useMemo(() => {
@@ -576,32 +576,32 @@ export default function DashboardScreen() {
     const totalMinutes = coachStats.totalMinutes;
     
     if (sessionCount === 0) {
-      return { label: "Rest Day", color: Colors.dark.xpCyan };
+      return { label: t("coach.dashboard.restDay"), color: Colors.dark.xpCyan };
     }
     if (totalMinutes <= 120) {
-      return { label: "Light Day", color: Colors.dark.primary };
+      return { label: t("coach.dashboard.lightDay"), color: Colors.dark.primary };
     }
     if (totalMinutes <= 240) {
-      return { label: "Normal Day", color: Colors.dark.gold };
+      return { label: t("coach.dashboard.normalDay"), color: Colors.dark.gold };
     }
-    return { label: "Heavy Day", color: Colors.dark.orange };
-  }, [todaysSessions.length, coachStats.totalMinutes]);
+    return { label: t("coach.dashboard.heavyDay"), color: Colors.dark.orange };
+  }, [todaysSessions.length, coachStats.totalMinutes, t]);
 
   const selectedDayPersonality = useMemo(() => {
     const sessions = selectedDaySessions;
     const totalMinutes = sessions.reduce((acc, s) => acc + s.duration, 0);
     
     if (sessions.length === 0) {
-      return { label: "Rest Day", color: Colors.dark.xpCyan };
+      return { label: t("coach.dashboard.restDay"), color: Colors.dark.xpCyan };
     }
     if (totalMinutes <= 120) {
-      return { label: "Light Day", color: Colors.dark.primary };
+      return { label: t("coach.dashboard.lightDay"), color: Colors.dark.primary };
     }
     if (totalMinutes <= 240) {
-      return { label: "Normal Day", color: Colors.dark.gold };
+      return { label: t("coach.dashboard.normalDay"), color: Colors.dark.gold };
     }
-    return { label: "Heavy Day", color: Colors.dark.orange };
-  }, [selectedDaySessions]);
+    return { label: t("coach.dashboard.heavyDay"), color: Colors.dark.orange };
+  }, [selectedDaySessions, t]);
   
   const selectedDayStats = useMemo(() => {
     const totalMinutes = selectedDaySessions.reduce((acc, s) => acc + s.duration, 0);
@@ -610,7 +610,7 @@ export default function DashboardScreen() {
   
   const getSelectedDayFocusMessage = () => {
     if (selectedDaySessions.length === 0) {
-      return { primary: "Rest Day", secondary: "No sessions scheduled" };
+      return { primary: t("coach.dashboard.restDay"), secondary: t("coach.dashboard.noSessionsScheduled") };
     }
     const firstSession = selectedDaySessions.sort((a, b) => 
       new Date(a.startTime).getTime() - new Date(b.startTime).getTime()
@@ -624,10 +624,10 @@ export default function DashboardScreen() {
 
   const getSessionTypeLabel = (type: string) => {
     switch (type) {
-      case "private": return "Private";
-      case "semi_private": return "Semi-Private";
-      case "group": return "Group";
-      case "physical": return "Physical";
+      case "private": return t("coach.dashboard.sessionTypePrivate");
+      case "semi_private": return t("coach.dashboard.sessionTypeSemiPrivate");
+      case "group": return t("coach.dashboard.sessionTypeGroup");
+      case "physical": return t("coach.dashboard.sessionTypePhysical");
       default: return type;
     }
   };
@@ -646,19 +646,19 @@ export default function DashboardScreen() {
   const getFocusMessage = () => {
     if (currentSession) {
       const context = getSessionContext(currentSession);
-      return { primary: "In Session", secondary: context || `${formatTime(currentSession.startTime)} - ${formatTime(currentSession.endTime)}` };
+      return { primary: t("coach.dashboard.inSession"), secondary: context || `${formatTime(currentSession.startTime)} - ${formatTime(currentSession.endTime)}` };
     }
     if (nextSession) {
       const context = getSessionContext(nextSession);
-      return { primary: `Next session in ${getTimeUntil(nextSession.startTime)}`, secondary: context };
+      return { primary: t("coach.dashboard.nextSessionIn", { time: getTimeUntil(nextSession.startTime) }), secondary: context };
     }
     if (todaysSessions.length === 0) {
       if (pendingFeedbackCount > 0) {
-        return { primary: "XP Available", secondary: `Complete ${pendingFeedbackCount} feedback to earn XP` };
+        return { primary: t("coach.dashboard.xpAvailable"), secondary: t("coach.dashboard.completeFeedbackForXp", { count: pendingFeedbackCount }) };
       }
-      return { primary: "Off Court", secondary: "Perfect time to review player progress" };
+      return { primary: t("coach.dashboard.offCourt"), secondary: t("coach.dashboard.perfectTimeToReview") };
     }
-    return { primary: "Match Point", secondary: "All sessions complete" };
+    return { primary: t("coach.dashboard.matchPoint"), secondary: t("coach.dashboard.allSessionsComplete") };
   };
 
   const coachChecklistSteps: ChecklistStep[] = useMemo(() => {
@@ -910,7 +910,7 @@ export default function DashboardScreen() {
               
               {/* Center: Player Info */}
               <View style={styles.playerInfo}>
-                <Text style={styles.playerRank}>COACH</Text>
+                <Text style={styles.playerRank}>{t("coach.dashboard.coachLabel")}</Text>
                 <Text style={styles.playerName}>{coach.name}</Text>
                 <View style={styles.academyRow}>
                   <Ionicons name="shield" size={12} color={Colors.dark.xpCyan} />
@@ -966,7 +966,7 @@ export default function DashboardScreen() {
               <View style={styles.birthdayHeader}>
                 <Text style={styles.birthdayEmoji}>🎂</Text>
                 <View style={styles.birthdayTitleRow}>
-                  <Text style={styles.birthdayTitle}>Today's Birthdays</Text>
+                  <Text style={styles.birthdayTitle}>{t("coach.dashboard.todaysBirthdays")}</Text>
                   <View style={styles.birthdayCount}>
                     <Text style={styles.birthdayCountText}>{birthdaysData.count}</Text>
                   </View>
@@ -976,11 +976,11 @@ export default function DashboardScreen() {
                 {birthdaysData.birthdays.map((player) => (
                   <View key={player.id} style={styles.birthdayPlayer}>
                     <Text style={styles.birthdayPlayerName}>{player.name}</Text>
-                    <Text style={styles.birthdayPlayerAge}>turns {player.turningAge}</Text>
+                    <Text style={styles.birthdayPlayerAge}>{t("coach.dashboard.turnsAge", { age: player.turningAge })}</Text>
                   </View>
                 ))}
               </View>
-              <Text style={styles.birthdayNote}>They get 2x XP today!</Text>
+              <Text style={styles.birthdayNote}>{t("coach.dashboard.birthdayXpBonus")}</Text>
             </LinearGradient>
           </View>
         )}
@@ -989,13 +989,13 @@ export default function DashboardScreen() {
         {(pendingFeedbackCount > 0 || alerts.length > 0) && (
           <View style={styles.actionNeededSection}>
             <ActionNeededCard
-              title="Action Needed"
+              title={t("coach.dashboard.actionNeeded")}
               actions={[
                 ...(pendingFeedbackCount > 0
                   ? [
                       {
                         id: "feedback",
-                        label: "sessions need feedback",
+                        label: t("coach.dashboard.sessionsNeedFeedback"),
                         count: pendingFeedbackCount,
                         icon: "chatbubble-ellipses" as const,
                         priority: "high" as const,
@@ -1019,7 +1019,7 @@ export default function DashboardScreen() {
                 Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
                 handleNavigate("Players");
               }}
-              ctaText="Review Now"
+              ctaText={t("coach.dashboard.reviewNow")}
             />
           </View>
         )}
@@ -1047,7 +1047,7 @@ export default function DashboardScreen() {
                 <View style={styles.missionIconWrapper}>
                   <Ionicons name="tennisball" size={16} color={Colors.dark.xpCyan} />
                 </View>
-                <Text style={styles.missionTitle}>COURT COMMAND</Text>
+                <Text style={styles.missionTitle}>{t("coach.dashboard.courtCommand")}</Text>
               </View>
               
               {/* Day Navigation Pills + Collapse Toggle */}
@@ -1121,7 +1121,7 @@ export default function DashboardScreen() {
                 }}
               >
                 <Ionicons name="return-down-back" size={12} color={Colors.dark.primary} />
-                <Text style={styles.backToTodayLabel}>RETURN TO TODAY</Text>
+                <Text style={styles.backToTodayLabel}>{t("coach.dashboard.returnToToday")}</Text>
               </Pressable>
             ) : null}
 
@@ -1141,7 +1141,7 @@ export default function DashboardScreen() {
                         <View style={styles.liveHudContent}>
                           <View style={styles.liveHudLeft}>
                             <Text style={styles.countdownTimer}>{sessionTimeRemaining}</Text>
-                            <Text style={styles.countdownLabel}>REMAINING</Text>
+                            <Text style={styles.countdownLabel}>{t("coach.dashboard.remaining")}</Text>
                             
                             <View style={styles.sessionMeta}>
                               <Text style={styles.sessionMetaText}>
@@ -1153,8 +1153,8 @@ export default function DashboardScreen() {
                           <View style={styles.liveHudRight}>
                             <Animated.View style={[styles.liveCircleGlow, pulseAnimatedStyle]} />
                             <View style={styles.liveCircleBadge}>
-                              <Text style={styles.liveCircleText}>LIVE</Text>
-                              <Text style={styles.liveCircleSubtext}>IN SESSION</Text>
+                              <Text style={styles.liveCircleText}>{t("coach.dashboard.live")}</Text>
+                              <Text style={styles.liveCircleSubtext}>{t("coach.dashboard.inSessionLabel")}</Text>
                             </View>
                           </View>
                         </View>

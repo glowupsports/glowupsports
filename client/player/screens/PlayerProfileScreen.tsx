@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from "react";
+import { useTranslation } from "react-i18next";
 import { View, Text, StyleSheet, ScrollView, Pressable, ActivityIndicator, Alert, Platform, Linking, Switch, Image as RNImage, Modal, FlatList } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
@@ -148,6 +149,7 @@ const RARITY_COLORS: Record<string, string> = {
 type ProfileTab = "moments" | "friends" | "groups";
 
 export default function PlayerProfileScreen() {
+  const { t } = useTranslation();
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<any>();
   const { setMode } = useAppMode();
@@ -348,7 +350,7 @@ export default function PlayerProfileScreen() {
     return (
       <View style={[styles.container, styles.centered, { paddingTop: insets.top }]}>
         <ActivityIndicator size="large" color={Colors.dark.xpCyan} />
-        <Text style={styles.loadingText}>Loading your profile...</Text>
+        <Text style={styles.loadingText}>{t("player.profile.loadingProfile")}</Text>
       </View>
     );
   }
@@ -630,29 +632,29 @@ export default function PlayerProfileScreen() {
           <View style={styles.creditsCard}>
             <View style={styles.creditsHeader}>
               <Ionicons name="ticket-outline" size={14} color={Colors.dark.gold} />
-              <Text style={styles.creditsTitle}>My Credits</Text>
+              <Text style={styles.creditsTitle}>{t("player.profile.myCredits")}</Text>
             </View>
             <View style={styles.creditsTotalRow}>
               <Text style={styles.creditsTotalValue}>{dashboardData.credits.total}</Text>
-              <Text style={styles.creditsTotalLabel}>Total Available</Text>
+              <Text style={styles.creditsTotalLabel}>{t("player.profile.totalAvailable")}</Text>
             </View>
             {dashboardData.credits.total > 0 ? (
               <View style={styles.creditsTypeRow}>
                 <View style={styles.creditsTypeItem}>
                   <Text style={styles.creditsTypeValue}>{dashboardData.credits.group}</Text>
-                  <Text style={styles.creditsTypeLabel}>Group</Text>
+                  <Text style={styles.creditsTypeLabel}>{t("player.profile.group")}</Text>
                 </View>
                 <View style={styles.creditsTypeItem}>
                   <Text style={styles.creditsTypeValue}>{dashboardData.credits.private}</Text>
-                  <Text style={styles.creditsTypeLabel}>Private</Text>
+                  <Text style={styles.creditsTypeLabel}>{t("player.profile.private")}</Text>
                 </View>
                 <View style={styles.creditsTypeItem}>
                   <Text style={styles.creditsTypeValue}>{dashboardData.credits.semi_private}</Text>
-                  <Text style={styles.creditsTypeLabel}>Semi-Private</Text>
+                  <Text style={styles.creditsTypeLabel}>{t("player.profile.semiPrivate")}</Text>
                 </View>
               </View>
             ) : (
-              <Text style={styles.creditsEmptyText}>No credits available</Text>
+              <Text style={styles.creditsEmptyText}>{t("player.profile.noCreditsAvailable")}</Text>
             )}
             <Pressable 
               style={styles.buyCreditsButton}
@@ -670,7 +672,7 @@ export default function PlayerProfileScreen() {
                 style={styles.buyCreditsGradient}
               >
                 <Ionicons name="cart-outline" size={14} color={Colors.dark.backgroundRoot} />
-                <Text style={styles.buyCreditsText}>Buy Credits</Text>
+                <Text style={styles.buyCreditsText}>{t("player.profile.buyCredits")}</Text>
               </LinearGradient>
             </Pressable>
           </View>
@@ -693,7 +695,7 @@ export default function PlayerProfileScreen() {
               color={activeTab === "moments" ? Colors.dark.xpCyan : Colors.dark.textMuted} 
             />
             <Text style={[styles.profileTabText, activeTab === "moments" && styles.profileTabTextActive]}>
-              Moments
+              {t("player.profile.moments")}
             </Text>
           </Pressable>
           <Pressable
@@ -709,7 +711,7 @@ export default function PlayerProfileScreen() {
               color={activeTab === "friends" ? Colors.dark.xpCyan : Colors.dark.textMuted} 
             />
             <Text style={[styles.profileTabText, activeTab === "friends" && styles.profileTabTextActive]}>
-              Friends ({connectionsData?.friends?.length || 0})
+              {t("player.profile.friends")} ({connectionsData?.friends?.length || 0})
             </Text>
           </Pressable>
           <Pressable
@@ -725,7 +727,7 @@ export default function PlayerProfileScreen() {
               color={activeTab === "groups" ? Colors.dark.xpCyan : Colors.dark.textMuted} 
             />
             <Text style={[styles.profileTabText, activeTab === "groups" && styles.profileTabTextActive]}>
-              Groups ({groupsData?.myGroups?.length || 0})
+              {t("player.profile.groups")} ({groupsData?.myGroups?.length || 0})
             </Text>
           </Pressable>
         </View>
@@ -736,8 +738,8 @@ export default function PlayerProfileScreen() {
           <View style={styles.tabContent}>
             <View style={styles.emptyTabContent}>
               <Ionicons name="images" size={40} color={Colors.dark.textMuted} />
-              <Text style={styles.emptyTabText}>No moments yet</Text>
-              <Text style={styles.emptyTabSubtext}>Complete sessions and achievements to share Moments!</Text>
+              <Text style={styles.emptyTabText}>{t("player.profile.noMomentsYet")}</Text>
+              <Text style={styles.emptyTabSubtext}>{t("player.profile.momentsHint")}</Text>
             </View>
           </View>
         ) : null}
@@ -770,9 +772,9 @@ export default function PlayerProfileScreen() {
               <View style={styles.emptyTabContent}>
                 <EmptyStateCard
                   icon="people"
-                  title="No friends yet"
-                  description="Find and connect with other players at your academy"
-                  ctaText="Find Players"
+                  title={t("player.profile.noFriendsYet")}
+                  description={t("player.profile.findPlayersConnect")}
+                  ctaText={t("player.profile.findPlayers")}
                   onPress={() => {
                     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
                     navigation.navigate("PlayerFinder");
@@ -813,8 +815,8 @@ export default function PlayerProfileScreen() {
             ) : (
               <View style={styles.emptyTabContent}>
                 <Ionicons name="people-circle" size={40} color={Colors.dark.textMuted} />
-                <Text style={styles.emptyTabText}>No groups yet</Text>
-                <Text style={styles.emptyTabSubtext}>Join a group to connect with other players!</Text>
+                <Text style={styles.emptyTabText}>{t("player.profile.noGroupsYet")}</Text>
+                <Text style={styles.emptyTabSubtext}>{t("player.profile.groupsHint")}</Text>
               </View>
             )}
           </View>
@@ -824,12 +826,12 @@ export default function PlayerProfileScreen() {
         <View style={styles.statsCard}>
           <View style={styles.statsGridCompact}>
             <StatItem 
-              label="Streak" 
-              value={`${player.streak} days`} 
+              label={t("player.profile.streak")} 
+              value={`${player.streak} ${t("player.profile.days")}`} 
               icon="flame" 
             />
             <StatItem 
-              label="Sessions" 
+              label={t("player.profile.sessions")} 
               value={stats.sessionsAttended} 
               icon="tennisball" 
             />
@@ -839,7 +841,7 @@ export default function PlayerProfileScreen() {
 
         {coach ? (
           <View style={styles.coachCard}>
-            <Text style={styles.sectionTitle}>Your Coach</Text>
+            <Text style={styles.sectionTitle}>{t("player.profile.yourCoach")}</Text>
             <View style={styles.coachInfo}>
               <View style={styles.coachAvatar}>
                 <Text style={styles.coachAvatarText}>{coach.name.charAt(0)}</Text>
@@ -871,15 +873,15 @@ export default function PlayerProfileScreen() {
               <View style={styles.academyIcon}>
                 <Ionicons name="tennisball" size={28} color={Colors.dark.primary} />
               </View>
-              <Text style={styles.memberOfLabel}>Member of</Text>
+              <Text style={styles.memberOfLabel}>{t("player.profile.memberOf")}</Text>
               <Text style={styles.academyNameLarge}>{academy.name}</Text>
-              <Text style={styles.memberSinceSmall}>Since {memberSince}</Text>
+              <Text style={styles.memberSinceSmall}>{t("player.profile.since")} {memberSince}</Text>
             </LinearGradient>
           </View>
         ) : null}
 
         <View style={styles.settingsSection}>
-          <Text style={styles.sectionTitle}>Settings</Text>
+          <Text style={styles.sectionTitle}>{t("player.profile.settings")}</Text>
           
           <Pressable 
             style={styles.settingsItem}
@@ -889,7 +891,7 @@ export default function PlayerProfileScreen() {
                 window.alert("Notification settings are available in the Expo Go app on your device.");
               } else {
                 Alert.alert(
-                  "Notifications",
+                  t("player.profile.notifications"),
                   "Notification preferences can be managed in your device settings.",
                   [
                     { text: "Cancel", style: "cancel" },
@@ -911,7 +913,7 @@ export default function PlayerProfileScreen() {
             <View style={styles.settingsIcon}>
               <Ionicons name="notifications-outline" size={20} color={Colors.dark.text} />
             </View>
-            <Text style={styles.settingsLabel}>Notifications</Text>
+            <Text style={styles.settingsLabel}>{t("player.profile.notifications")}</Text>
             <Ionicons name="chevron-forward" size={20} color={Colors.dark.textMuted} />
           </Pressable>
 
@@ -935,7 +937,7 @@ export default function PlayerProfileScreen() {
             <View style={styles.settingsIcon}>
               <Ionicons name="help-circle-outline" size={20} color={Colors.dark.text} />
             </View>
-            <Text style={styles.settingsLabel}>Help & Support</Text>
+            <Text style={styles.settingsLabel}>{t("player.profile.helpSupport")}</Text>
             <Ionicons name="chevron-forward" size={20} color={Colors.dark.textMuted} />
           </Pressable>
 
@@ -949,7 +951,7 @@ export default function PlayerProfileScreen() {
             <View style={[styles.settingsIcon, { backgroundColor: "rgba(138, 43, 226, 0.15)" }]}>
               <Ionicons name="wallet-outline" size={20} color="#8A2BE2" />
             </View>
-            <Text style={styles.settingsLabel}>Parent Dashboard</Text>
+            <Text style={styles.settingsLabel}>{t("player.profile.parentDashboard")}</Text>
             <View style={styles.newBadge}>
               <Text style={styles.newBadgeText}>NEW</Text>
             </View>
@@ -959,7 +961,7 @@ export default function PlayerProfileScreen() {
         </View>
 
         <View style={styles.settingsSection}>
-          <Text style={styles.sectionTitle}>Discover</Text>
+          <Text style={styles.sectionTitle}>{t("player.profile.discover")}</Text>
           
           <Pressable 
             style={styles.settingsItem}
@@ -971,7 +973,7 @@ export default function PlayerProfileScreen() {
             <View style={[styles.settingsIcon, { backgroundColor: "rgba(0, 212, 255, 0.15)" }]}>
               <Ionicons name="people-outline" size={20} color={Colors.dark.xpCyan} />
             </View>
-            <Text style={styles.settingsLabel}>Find Coaches</Text>
+            <Text style={styles.settingsLabel}>{t("player.profile.findCoaches")}</Text>
             <Ionicons name="chevron-forward" size={20} color={Colors.dark.textMuted} />
           </Pressable>
 
@@ -985,7 +987,7 @@ export default function PlayerProfileScreen() {
             <View style={[styles.settingsIcon, { backgroundColor: "rgba(46, 204, 64, 0.15)" }]}>
               <Ionicons name="school-outline" size={20} color={Colors.dark.primary} />
             </View>
-            <Text style={styles.settingsLabel}>Browse Academies</Text>
+            <Text style={styles.settingsLabel}>{t("player.profile.browseAcademies")}</Text>
             <Ionicons name="chevron-forward" size={20} color={Colors.dark.textMuted} />
           </Pressable>
 
@@ -999,14 +1001,14 @@ export default function PlayerProfileScreen() {
             <View style={[styles.settingsIcon, { backgroundColor: "rgba(255, 165, 0, 0.15)" }]}>
               <Ionicons name="swap-horizontal-outline" size={20} color={Colors.dark.orange} />
             </View>
-            <Text style={styles.settingsLabel}>Transfer Academy</Text>
+            <Text style={styles.settingsLabel}>{t("player.profile.transferAcademy")}</Text>
             <Ionicons name="chevron-forward" size={20} color={Colors.dark.textMuted} />
           </Pressable>
         </View>
 
         <Pressable style={styles.logoutButton} onPress={handleLogout}>
           <Ionicons name="log-out-outline" size={24} color={Colors.dark.error} />
-          <Text style={styles.logoutText}>Sign Out</Text>
+          <Text style={styles.logoutText}>{t("player.profile.signOut")}</Text>
         </Pressable>
       </ScrollView>
 
@@ -1020,7 +1022,7 @@ export default function PlayerProfileScreen() {
           <Pressable style={StyleSheet.absoluteFill} onPress={() => setShowTitlesModal(false)} />
           <View style={styles.titlesModalContent}>
             <View style={styles.titlesModalHeader}>
-              <Text style={styles.titlesModalTitle}>Your Titles</Text>
+              <Text style={styles.titlesModalTitle}>{t("player.profile.yourTitles")}</Text>
               <Pressable onPress={() => setShowTitlesModal(false)}>
                 <Ionicons name="close" size={24} color={Colors.dark.text} />
               </Pressable>
@@ -1029,8 +1031,8 @@ export default function PlayerProfileScreen() {
             {unlockedTitles.length === 0 ? (
               <View style={styles.emptyTitles}>
                 <Ionicons name="ribbon-outline" size={48} color={Colors.dark.textMuted} />
-                <Text style={styles.emptyTitlesText}>No titles unlocked yet</Text>
-                <Text style={styles.emptyTitlesSubtext}>Keep playing to unlock titles!</Text>
+                <Text style={styles.emptyTitlesText}>{t("player.profile.noTitlesYet")}</Text>
+                <Text style={styles.emptyTitlesSubtext}>{t("player.profile.keepPlaying")}</Text>
               </View>
             ) : (
               <FlatList
@@ -1069,7 +1071,7 @@ export default function PlayerProfileScreen() {
                     {title.isEquipped ? (
                       <View style={styles.equippedBadge}>
                         <Ionicons name="checkmark-circle" size={20} color={Colors.dark.primary} />
-                        <Text style={styles.equippedText}>Equipped</Text>
+                        <Text style={styles.equippedText}>{t("player.profile.equipped")}</Text>
                       </View>
                     ) : (
                       <Pressable 
@@ -1080,7 +1082,7 @@ export default function PlayerProfileScreen() {
                         }}
                         disabled={equipTitle.isPending}
                       >
-                        <Text style={styles.equipButtonText}>Equip</Text>
+                        <Text style={styles.equipButtonText}>{t("player.profile.equip")}</Text>
                       </Pressable>
                     )}
                   </Pressable>

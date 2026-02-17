@@ -23,6 +23,7 @@ import { ProTennisColors, Backgrounds, Spacing, BorderRadius, Typography, GlowCo
 import { usePlayerState } from "../context/PlayerStateContext";
 import { apiRequest } from "@/lib/query-client";
 import * as Haptics from "expo-haptics";
+import { useTranslation } from "react-i18next";
 
 interface SessionHeroCardProps {
   onCheckIn?: () => void;
@@ -33,19 +34,19 @@ interface SessionHeroCardProps {
 }
 
 const ISSUE_TYPES = [
-  { id: "equipment", label: "Equipment issue", icon: "tool" as const },
-  { id: "court", label: "Court problem", icon: "grid" as const },
-  { id: "safety", label: "Safety concern", icon: "alert-triangle" as const },
-  { id: "coach", label: "Coaching feedback", icon: "user" as const },
-  { id: "other", label: "Other issue", icon: "more-horizontal" as const },
+  { id: "equipment", labelKey: "player.home.equipmentIssue", icon: "tool" as const },
+  { id: "court", labelKey: "player.home.courtProblem", icon: "grid" as const },
+  { id: "safety", labelKey: "player.home.safetyConcern", icon: "alert-triangle" as const },
+  { id: "coach", labelKey: "player.home.coachingFeedback", icon: "user" as const },
+  { id: "other", labelKey: "player.home.otherIssue", icon: "more-horizontal" as const },
 ];
 
 const CANCEL_REASONS = [
-  { id: "sick", label: "Feeling unwell", icon: "thermometer" as const },
-  { id: "schedule_conflict", label: "Schedule conflict", icon: "calendar" as const },
-  { id: "family_event", label: "Family event", icon: "users" as const },
-  { id: "work_trip", label: "Work/School trip", icon: "briefcase" as const },
-  { id: "other", label: "Other reason", icon: "more-horizontal" as const },
+  { id: "sick", labelKey: "player.home.feelingUnwell", icon: "thermometer" as const },
+  { id: "schedule_conflict", labelKey: "player.home.scheduleConflict", icon: "calendar" as const },
+  { id: "family_event", labelKey: "player.home.familyEvent", icon: "users" as const },
+  { id: "work_trip", labelKey: "player.home.workTrip", icon: "briefcase" as const },
+  { id: "other", labelKey: "player.home.otherReason", icon: "more-horizontal" as const },
 ];
 
 const LATE_MINUTES_OPTIONS = [5, 10, 15, 20, 30];
@@ -258,6 +259,7 @@ export function SessionHeroCard({
   onBookSession,
   onFindMatch,
 }: SessionHeroCardProps) {
+  const { t } = useTranslation();
   const navigation = useNavigation<any>();
   const { navigateToTab } = useTabNavigation();
   const queryClient = useQueryClient();
@@ -285,10 +287,10 @@ export function SessionHeroCard({
       setSelectedIssueType(null);
       setIssueDescription("");
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      Alert.alert("Issue Reported", "Your coach will be notified about this issue.");
+      Alert.alert(t("player.home.issueReported"), t("player.home.issueReportedMsg"));
     },
     onError: (error: any) => {
-      Alert.alert("Error", error?.message || "Failed to report issue");
+      Alert.alert(t("common.error"), error?.message || t("player.home.failedReportIssue"));
     },
   });
 
@@ -307,14 +309,14 @@ export function SessionHeroCard({
         onCancel();
       }
       Alert.alert(
-        "Session Cancelled",
+        t("player.home.sessionCancelled"),
         response?.isLateCancellation 
-          ? "This counts as a late cancellation. -50 XP"
-          : "Your session has been cancelled."
+          ? t("player.home.lateCancellationMsg")
+          : t("player.home.sessionCancelledMsg")
       );
     },
     onError: (error: any) => {
-      Alert.alert("Error", error?.message || "Failed to cancel session");
+      Alert.alert(t("common.error"), error?.message || t("player.home.failedCancelSession"));
     },
   });
 
@@ -329,10 +331,10 @@ export function SessionHeroCard({
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       queryClient.invalidateQueries({ queryKey: ["/api/player/me/dashboard"] });
       queryClient.invalidateQueries({ queryKey: ["/api/coach/calendar"] });
-      Alert.alert("Coach Notified", "Your coach has been notified that you're running late.");
+      Alert.alert(t("player.home.coachNotified"), t("player.home.coachNotifiedMsg"));
     },
     onError: (error: any) => {
-      Alert.alert("Error", error?.message || "Failed to notify coach");
+      Alert.alert(t("common.error"), error?.message || t("player.home.failedNotifyCoach"));
     },
   });
 
@@ -343,21 +345,21 @@ export function SessionHeroCard({
     onSuccess: (response: any) => {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       queryClient.invalidateQueries({ queryKey: ["/api/player/me/dashboard"] });
-      const xpMsg = response?.xpAwarded ? `\n+${response.xpAwarded} XP earned!` : "";
-      Alert.alert("Checked In!", `You're checked in for this session!${xpMsg}`);
+      const xpMsg = response?.xpAwarded ? `\n+${response.xpAwarded} XP` : "";
+      Alert.alert(t("player.home.checkedIn"), `${t("player.home.checkedInMsg")}${xpMsg}`);
     },
     onError: (error: any) => {
-      Alert.alert("Check-In Failed", error?.message || "Failed to check in. Please try again.");
+      Alert.alert(t("player.home.checkInFailed"), error?.message || t("player.home.failedCheckIn"));
     },
   });
 
   const handleReportSubmit = () => {
     if (!sessionId) {
-      Alert.alert("Error", "No active session found. Please try again.");
+      Alert.alert(t("common.error"), t("player.home.noActiveSession"));
       return;
     }
     if (!selectedIssueType) {
-      Alert.alert("Select Issue Type", "Please select the type of issue you're experiencing.");
+      Alert.alert(t("player.home.selectIssueType"), t("player.home.selectIssueTypeMsg"));
       return;
     }
     reportIssueMutation.mutate({ issueType: selectedIssueType, description: issueDescription });
@@ -458,7 +460,7 @@ export function SessionHeroCard({
       checkInMutation.mutate();
     } else {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-      Alert.alert("Error", "No session found to check into.");
+      Alert.alert(t("common.error"), t("player.home.noSessionFound"));
     }
   };
 
@@ -466,7 +468,7 @@ export function SessionHeroCard({
     if (onExtend) {
       onExtend();
     } else {
-      Alert.alert("Extend Session", "Contact your coach to extend this session.");
+      Alert.alert(t("player.home.extendSession"), t("player.home.contactCoachExtend"));
     }
   };
 
@@ -477,34 +479,34 @@ export function SessionHeroCard({
 
   const handleCancelSubmit = () => {
     if (!sessionId) {
-      Alert.alert("Error", "No active session found.");
+      Alert.alert(t("common.error"), t("player.home.noActiveSession"));
       return;
     }
     if (!cancelReason) {
-      Alert.alert("Select Reason", "Please select a reason for cancellation.");
+      Alert.alert(t("player.home.selectReason"), t("player.home.selectReasonMsg"));
       return;
     }
     if (cancelReason === "other" && !cancelReasonText.trim()) {
-      Alert.alert("Enter Reason", "Please explain why you need to cancel.");
+      Alert.alert(t("player.home.enterReason"), t("player.home.enterReasonMsg"));
       return;
     }
     
     if (Platform.OS === "web") {
-      const confirmed = window.confirm("Are you sure you want to cancel this session? This action cannot be undone.");
+      const confirmed = window.confirm(t("player.home.confirmCancelMsg"));
       if (confirmed) {
         cancelSessionMutation.mutate({ reason: cancelReason, reasonText: cancelReasonText });
       }
     } else {
       Alert.alert(
-        "Confirm Cancellation",
-        "Are you sure you want to cancel this session? This action cannot be undone.",
+        t("player.home.confirmCancellation"),
+        t("player.home.confirmCancelMsg"),
         [
           {
-            text: "Go Back",
+            text: t("player.home.goBack"),
             style: "cancel",
           },
           {
-            text: "Yes, Cancel Session",
+            text: t("player.home.yesCancelSession"),
             style: "destructive",
             onPress: () => {
               cancelSessionMutation.mutate({ reason: cancelReason, reasonText: cancelReasonText });
@@ -522,11 +524,11 @@ export function SessionHeroCard({
 
   const handleLateSubmit = () => {
     if (!sessionId) {
-      Alert.alert("Error", "No active session found.");
+      Alert.alert(t("common.error"), t("player.home.noActiveSession"));
       return;
     }
     if (!lateMinutes || lateMinutes < 1) {
-      Alert.alert("Select Time", "Please select how late you'll be.");
+      Alert.alert(t("player.home.selectTime"), t("player.home.selectTimeMsg"));
       return;
     }
     notifyLateMutation.mutate({ minutes: lateMinutes, message: lateMessage });
@@ -556,8 +558,8 @@ export function SessionHeroCard({
               <View style={styles.tennisCourtPulse} />
             </View>
             <View style={styles.openDayTextContainer}>
-              <Text style={styles.openDayTitleGlow}>COURT TIME</Text>
-              <Text style={styles.openDaySubtitle}>No sessions today - hit the court!</Text>
+              <Text style={styles.openDayTitleGlow}>{t("player.home.courtTime")}</Text>
+              <Text style={styles.openDaySubtitle}>{t("player.home.noSessionsToday")}</Text>
             </View>
           </View>
 
@@ -567,13 +569,13 @@ export function SessionHeroCard({
               <View style={[styles.tennisStakeIconCircle, { backgroundColor: `${ProTennisColors.warning}15` }]}>
                 <Ionicons name="flash" size={14} color={ProTennisColors.warning} />
               </View>
-              <Text style={[styles.tennisStakeText, { color: ProTennisColors.warning }]}>+50 XP for booking</Text>
+              <Text style={[styles.tennisStakeText, { color: ProTennisColors.warning }]}>{t("player.home.xpForBooking")}</Text>
             </View>
             <View style={styles.tennisStakeCard}>
               <View style={[styles.tennisStakeIconCircle, { backgroundColor: `${ProTennisColors.electricGreen}15` }]}>
                 <Ionicons name="flame" size={14} color={ProTennisColors.electricGreen} />
               </View>
-              <Text style={[styles.tennisStakeText, { color: ProTennisColors.electricGreen }]}>Keep streak alive</Text>
+              <Text style={[styles.tennisStakeText, { color: ProTennisColors.electricGreen }]}>{t("player.home.keepStreakAlive")}</Text>
             </View>
           </View>
 
@@ -600,7 +602,7 @@ export function SessionHeroCard({
                       <Ionicons name="tennisball-outline" size={10} color={ProTennisColors.midnightBlue} />
                     </View>
                   </View>
-                  <Text style={styles.tennisPrimaryButtonText}>BOOK LESSON</Text>
+                  <Text style={styles.tennisPrimaryButtonText}>{t("player.home.bookLesson")}</Text>
                 </LinearGradient>
               </Pressable>
 
@@ -621,7 +623,7 @@ export function SessionHeroCard({
                   <View style={styles.tennisButtonIconWrapper}>
                     <Ionicons name="grid" size={18} color={ProTennisColors.midnightBlue} />
                   </View>
-                  <Text style={styles.tennisPrimaryButtonText}>BOOK COURT</Text>
+                  <Text style={styles.tennisPrimaryButtonText}>{t("player.home.bookCourt")}</Text>
                 </LinearGradient>
               </Pressable>
             </SwipeBlocker>
@@ -636,7 +638,7 @@ export function SessionHeroCard({
                 onPress={handleFindMatch}
               >
                 <Ionicons name="people" size={16} color={ProTennisColors.neonCyan} />
-                <Text style={[styles.tennisSecondaryText, { color: ProTennisColors.neonCyan }]}>FIND PLAYERS</Text>
+                <Text style={[styles.tennisSecondaryText, { color: ProTennisColors.neonCyan }]}>{t("player.home.findPlayers").toUpperCase()}</Text>
               </Pressable>
 
               <Pressable
@@ -647,7 +649,7 @@ export function SessionHeroCard({
                 onPress={handleJoinOpenGroup}
               >
                 <Ionicons name="globe" size={16} color={ProTennisColors.electricGreen} />
-                <Text style={[styles.tennisSecondaryText, { color: ProTennisColors.electricGreen }]}>JOIN OPEN GROUP</Text>
+                <Text style={[styles.tennisSecondaryText, { color: ProTennisColors.electricGreen }]}>{t("player.home.joinOpenGroup")}</Text>
               </Pressable>
             </SwipeBlocker>
           </View>
@@ -665,19 +667,19 @@ export function SessionHeroCard({
               <Feather name="sun" size={32} color={ProTennisColors.electricGreen} />
             </View>
             <View style={styles.openDayTextContainer}>
-              <Text style={styles.openDayTitle}>TODAY IS OPEN</Text>
-              <Text style={styles.openDaySubtitle}>No sessions scheduled - make it count!</Text>
+              <Text style={styles.openDayTitle}>{t("player.home.courtTime")}</Text>
+              <Text style={styles.openDaySubtitle}>{t("player.home.noSessionsToday")}</Text>
             </View>
           </View>
 
           <View style={styles.openDayStakes}>
             <View style={styles.stakeItem}>
               <Feather name="zap" size={14} color={ProTennisColors.warning} />
-              <Text style={styles.stakeText}>+50 XP for booking</Text>
+              <Text style={styles.stakeText}>{t("player.home.xpForBooking")}</Text>
             </View>
             <View style={styles.stakeItem}>
               <Feather name="trending-up" size={14} color={ProTennisColors.electricGreen} />
-              <Text style={styles.stakeText}>Keep your streak alive</Text>
+              <Text style={styles.stakeText}>{t("player.home.keepStreakAlive")}</Text>
             </View>
           </View>
 
@@ -691,7 +693,7 @@ export function SessionHeroCard({
               onPress={handleBookSession}
             >
               <Feather name="calendar" size={18} color={ProTennisColors.midnightBlue} />
-              <Text style={styles.primaryButtonText}>BOOK SESSION</Text>
+              <Text style={styles.primaryButtonText}>{t("player.home.bookLesson")}</Text>
             </Pressable>
 
             <View style={styles.openDaySecondaryRow}>
@@ -703,7 +705,7 @@ export function SessionHeroCard({
                 onPress={handleFindMatch}
               >
                 <Feather name="users" size={16} color={ProTennisColors.neonCyan} />
-                <Text style={styles.openDaySmallButtonText}>FIND PLAYERS</Text>
+                <Text style={styles.openDaySmallButtonText}>{t("player.home.findPlayers").toUpperCase()}</Text>
               </Pressable>
 
               <Pressable
@@ -714,7 +716,7 @@ export function SessionHeroCard({
                 onPress={handleJoinOpenGroup}
               >
                 <Feather name="play-circle" size={16} color={ProTennisColors.electricGreen} />
-                <Text style={[styles.openDaySmallButtonText, { color: ProTennisColors.electricGreen }]}>JOIN OPEN GROUP</Text>
+                <Text style={[styles.openDaySmallButtonText, { color: ProTennisColors.electricGreen }]}>{t("player.home.joinOpenGroup")}</Text>
               </Pressable>
             </View>
           </View>
@@ -730,16 +732,16 @@ export function SessionHeroCard({
           <View style={styles.liveHeader}>
             <View style={styles.liveIndicatorRow}>
               <Animated.View style={[styles.liveDot, livePulseStyle]} />
-              <Text style={styles.liveTextGlow}>LIVE NOW</Text>
+              <Text style={styles.liveTextGlow}>{t("player.home.liveNow")}</Text>
             </View>
             <View style={styles.liveTimerContainer}>
-              <Text style={styles.liveTimerLabel}>TIME LEFT</Text>
+              <Text style={styles.liveTimerLabel}>{t("player.home.timeLeft")}</Text>
               <View style={styles.liveCountdownRow}>
-                <GradientCountdownDigit value={countdown.hours} label="HRS" />
+                <GradientCountdownDigit value={countdown.hours} label={t("player.home.hrs")} />
                 <Text style={gamingStyles.countdownSeparatorText}>:</Text>
-                <GradientCountdownDigit value={countdown.minutes} label="MIN" />
+                <GradientCountdownDigit value={countdown.minutes} label={t("player.home.min")} />
                 <Text style={gamingStyles.countdownSeparatorText}>:</Text>
-                <GradientCountdownDigit value={countdown.seconds} label="SEC" />
+                <GradientCountdownDigit value={countdown.seconds} label={t("player.home.sec")} />
               </View>
             </View>
           </View>
@@ -754,8 +756,8 @@ export function SessionHeroCard({
               pulsing
             />
             <View style={styles.sessionDetails}>
-              <Text style={styles.sessionTypeGlow}>{sessionType || "Training"}</Text>
-              <Text style={styles.coachLabel}>with {coachName || "Your Coach"}</Text>
+              <Text style={styles.sessionTypeGlow}>{sessionType || t("player.home.trainingSession")}</Text>
+              <Text style={styles.coachLabel}>{t("player.home.withCoach", { name: coachName || t("common.coach") })}</Text>
               {sessionCourtName && (
                 <Text style={styles.courtLabel}>{sessionCourtName}</Text>
               )}
@@ -765,13 +767,13 @@ export function SessionHeroCard({
           <View style={styles.gamingStakesRow}>
             <AnimatedStakeCard 
               icon="eye" 
-              text="Coach tracking progress" 
+              text={t("player.home.coachTrackingProgress")} 
               color={ProTennisColors.neonCyan} 
               positive
             />
             <AnimatedStakeCard 
               icon="zap" 
-              text="+100 XP completion" 
+              text={t("player.home.xpCompletion")} 
               color={ProTennisColors.electricGreen} 
               positive
             />
@@ -787,7 +789,7 @@ export function SessionHeroCard({
               onPress={handleCheckIn}
             >
               <Feather name="check-circle" size={18} color={ProTennisColors.midnightBlue} />
-              <Text style={styles.attendButtonText}>ATTEND</Text>
+              <Text style={styles.attendButtonText}>{t("player.home.attend")}</Text>
             </Pressable>
             <Pressable
               style={({ pressed }) => [
@@ -798,7 +800,7 @@ export function SessionHeroCard({
               onPress={handleExtend}
             >
               <Feather name="plus-circle" size={18} color={ProTennisColors.neonCyan} />
-              <Text style={[styles.liveButtonText, { color: ProTennisColors.neonCyan }]}>EXTEND</Text>
+              <Text style={[styles.liveButtonText, { color: ProTennisColors.neonCyan }]}>{t("player.home.extend")}</Text>
             </Pressable>
             <Pressable
               style={({ pressed }) => [
@@ -812,7 +814,7 @@ export function SessionHeroCard({
               }}
             >
               <Feather name="alert-circle" size={18} color={ProTennisColors.warning} />
-              <Text style={[styles.liveButtonText, { color: ProTennisColors.warning }]}>REPORT</Text>
+              <Text style={[styles.liveButtonText, { color: ProTennisColors.warning }]}>{t("player.home.report")}</Text>
             </Pressable>
           </View>
 
@@ -827,7 +829,7 @@ export function SessionHeroCard({
               <View style={[styles.actionGlow, { backgroundColor: ProTennisColors.danger + "15" }]}>
                 <Feather name="x-circle" size={20} color={ProTennisColors.danger} />
               </View>
-              <Text style={[styles.actionLabel, { color: ProTennisColors.danger }]}>CANCEL</Text>
+              <Text style={[styles.actionLabel, { color: ProTennisColors.danger }]}>{t("common.cancel").toUpperCase()}</Text>
             </Pressable>
             <View style={styles.actionDivider} />
             <Pressable
@@ -840,7 +842,7 @@ export function SessionHeroCard({
               <View style={[styles.actionGlow, { backgroundColor: ProTennisColors.warning + "15" }]}>
                 <Feather name="clock" size={20} color={ProTennisColors.warning} />
               </View>
-              <Text style={[styles.actionLabel, { color: ProTennisColors.warning }]}>DELAY</Text>
+              <Text style={[styles.actionLabel, { color: ProTennisColors.warning }]}>{t("player.home.delay")}</Text>
             </Pressable>
           </View>
 
@@ -859,13 +861,13 @@ export function SessionHeroCard({
                   keyboardShouldPersistTaps="handled"
                 >
                   <View style={styles.modalHeader}>
-                    <Text style={styles.modalTitle}>Report Issue</Text>
+                    <Text style={styles.modalTitle}>{t("player.home.reportIssue")}</Text>
                     <Pressable onPress={() => setShowReportModal(false)}>
                       <Feather name="x" size={24} color={ProTennisColors.textMuted} />
                     </Pressable>
                   </View>
                   
-                  <Text style={styles.modalSubtitle}>What's the issue?</Text>
+                  <Text style={styles.modalSubtitle}>{t("player.home.whatsTheIssue")}</Text>
                   <View style={styles.issueTypesContainer}>
                     {ISSUE_TYPES.map((type) => (
                       <Pressable
@@ -890,16 +892,16 @@ export function SessionHeroCard({
                             selectedIssueType === type.id && styles.issueTypeTextSelected,
                           ]}
                         >
-                          {type.label}
+                          {t(type.labelKey)}
                         </Text>
                       </Pressable>
                     ))}
                   </View>
 
-                  <Text style={styles.modalSubtitle}>Details (optional)</Text>
+                  <Text style={styles.modalSubtitle}>{t("player.home.detailsOptional")}</Text>
                   <TextInput
                     style={styles.issueInput}
-                    placeholder="Describe the issue..."
+                    placeholder={t("player.home.describeIssue")}
                     placeholderTextColor={ProTennisColors.textMuted}
                     multiline
                     numberOfLines={3}
@@ -912,7 +914,7 @@ export function SessionHeroCard({
                       style={[styles.modalButton, styles.modalCancelButton]}
                       onPress={() => setShowReportModal(false)}
                     >
-                      <Text style={styles.modalCancelButtonText}>Cancel</Text>
+                      <Text style={styles.modalCancelButtonText}>{t("common.cancel")}</Text>
                     </Pressable>
                     <Pressable
                       style={[styles.modalButton, styles.modalSubmitButton, !sessionId && styles.modalButtonDisabled]}
@@ -920,7 +922,7 @@ export function SessionHeroCard({
                       disabled={reportIssueMutation.isPending || !sessionId}
                     >
                       <Text style={styles.modalSubmitButtonText}>
-                        {reportIssueMutation.isPending ? "Sending..." : "Report Issue"}
+                        {reportIssueMutation.isPending ? t("player.home.sending") : t("player.home.reportIssue")}
                       </Text>
                     </Pressable>
                   </View>
@@ -944,22 +946,22 @@ export function SessionHeroCard({
                   keyboardShouldPersistTaps="handled"
                 >
                   <View style={styles.modalHeader}>
-                    <Text style={styles.modalTitle}>Cancel Session?</Text>
+                    <Text style={styles.modalTitle}>{t("player.home.cancelSession")}</Text>
                     <Pressable onPress={() => setShowCancelModal(false)}>
                       <Feather name="x" size={24} color={ProTennisColors.textMuted} />
                     </Pressable>
                   </View>
                   
                   <View style={styles.policySection}>
-                    <Text style={styles.policySectionTitle}>CANCELLATION POLICY</Text>
+                    <Text style={styles.policySectionTitle}>{t("player.home.cancellationPolicy")}</Text>
                     
                     <View style={styles.policyRule}>
                       <View style={[styles.policyBadge, { backgroundColor: ProTennisColors.electricGreen + "20" }]}>
                         <Feather name="check-circle" size={14} color={ProTennisColors.electricGreen} />
                       </View>
                       <View style={styles.policyRuleContent}>
-                        <Text style={styles.policyRuleTitle}>24+ hours before</Text>
-                        <Text style={styles.policyRuleDesc}>Free cancellation - No charge</Text>
+                        <Text style={styles.policyRuleTitle}>{t("player.home.hoursBeforeFull")}</Text>
+                        <Text style={styles.policyRuleDesc}>{t("player.home.freeCancellation")}</Text>
                       </View>
                     </View>
                     
@@ -968,8 +970,8 @@ export function SessionHeroCard({
                         <Feather name="alert-circle" size={14} color={ProTennisColors.warning} />
                       </View>
                       <View style={styles.policyRuleContent}>
-                        <Text style={styles.policyRuleTitle}>2-24 hours before</Text>
-                        <Text style={styles.policyRuleDesc}>50% session fee charged, -25 XP</Text>
+                        <Text style={styles.policyRuleTitle}>{t("player.home.hoursBeforePartial")}</Text>
+                        <Text style={styles.policyRuleDesc}>{t("player.home.partialCharge")}</Text>
                       </View>
                     </View>
                     
@@ -978,8 +980,8 @@ export function SessionHeroCard({
                         <Feather name="x-circle" size={14} color={ProTennisColors.danger} />
                       </View>
                       <View style={styles.policyRuleContent}>
-                        <Text style={styles.policyRuleTitle}>Less than 2 hours</Text>
-                        <Text style={styles.policyRuleDesc}>100% session fee charged, -50 XP</Text>
+                        <Text style={styles.policyRuleTitle}>{t("player.home.lessThan2Hours")}</Text>
+                        <Text style={styles.policyRuleDesc}>{t("player.home.fullCharge")}</Text>
                       </View>
                     </View>
                     
@@ -987,7 +989,7 @@ export function SessionHeroCard({
                       <View style={styles.currentPenaltyNotice}>
                         <Feather name="alert-triangle" size={16} color={ProTennisColors.danger} />
                         <Text style={styles.currentPenaltyText}>
-                          Cancelling now = Full payment + -50 XP
+                          {t("player.home.cancellingNowFull")}
                         </Text>
                       </View>
                     )}
@@ -995,13 +997,13 @@ export function SessionHeroCard({
                       <View style={styles.partialPenaltyNotice}>
                         <Feather name="alert-circle" size={16} color={ProTennisColors.warning} />
                         <Text style={styles.partialPenaltyText}>
-                          Cancelling now = 50% payment + -25 XP
+                          {t("player.home.cancellingNowPartial")}
                         </Text>
                       </View>
                     )}
                   </View>
                   
-                  <Text style={styles.modalSubtitle}>Reason for cancellation</Text>
+                  <Text style={styles.modalSubtitle}>{t("player.home.reasonForCancellation")}</Text>
                   <View style={styles.issueTypesContainer}>
                     {CANCEL_REASONS.map((reason) => (
                       <Pressable
@@ -1026,7 +1028,7 @@ export function SessionHeroCard({
                             cancelReason === reason.id && styles.issueTypeTextSelected,
                           ]}
                         >
-                          {reason.label}
+                          {t(reason.labelKey)}
                         </Text>
                       </Pressable>
                     ))}
@@ -1034,10 +1036,10 @@ export function SessionHeroCard({
 
                   {cancelReason === "other" && (
                     <>
-                      <Text style={styles.modalSubtitle}>Please explain</Text>
+                      <Text style={styles.modalSubtitle}>{t("player.home.pleaseExplain")}</Text>
                       <TextInput
                         style={styles.issueInput}
-                        placeholder="Why do you need to cancel?"
+                        placeholder={t("player.home.whyCancel")}
                         placeholderTextColor={ProTennisColors.textMuted}
                         multiline
                         numberOfLines={2}
@@ -1052,7 +1054,7 @@ export function SessionHeroCard({
                       style={[styles.modalButton, styles.modalCancelButton]}
                       onPress={() => { setShowCancelModal(false); setCancelReason(null); setCancelReasonText(""); }}
                     >
-                      <Text style={styles.modalCancelButtonText}>Never Mind</Text>
+                      <Text style={styles.modalCancelButtonText}>{t("player.home.neverMind")}</Text>
                     </Pressable>
                     <Pressable
                       style={[styles.modalButton, styles.modalDangerButton, !cancelReason && styles.modalButtonDisabled]}
@@ -1060,7 +1062,7 @@ export function SessionHeroCard({
                       disabled={cancelSessionMutation.isPending || !cancelReason}
                     >
                       <Text style={styles.modalSubmitButtonText}>
-                        {cancelSessionMutation.isPending ? "Cancelling..." : "Confirm Cancel"}
+                        {cancelSessionMutation.isPending ? t("player.home.cancelling") : t("player.home.confirmCancel")}
                       </Text>
                     </Pressable>
                   </View>
@@ -1086,7 +1088,7 @@ export function SessionHeroCard({
                   <View style={styles.modalHeader}>
                     <View style={styles.modalTitleRow}>
                       <Feather name="clock" size={24} color={ProTennisColors.warning} />
-                      <Text style={styles.modalTitle}>Running Late?</Text>
+                      <Text style={styles.modalTitle}>{t("player.home.runningLate")}</Text>
                     </View>
                     <Pressable onPress={() => setShowLateModal(false)}>
                       <Feather name="x" size={24} color={ProTennisColors.textMuted} />
@@ -1094,7 +1096,7 @@ export function SessionHeroCard({
                   </View>
                   
                   <Text style={styles.lateModalDescription}>
-                    Let your coach know you're on the way. How late will you be?
+                    {t("player.home.lateDescription")}
                   </Text>
                   
                   <View style={styles.lateMinutesPicker}>
@@ -1116,16 +1118,16 @@ export function SessionHeroCard({
                             lateMinutes === mins && styles.lateMinutesTextSelected,
                           ]}
                         >
-                          {mins} min
+                          {t("player.home.minLabel", { count: mins })}
                         </Text>
                       </Pressable>
                     ))}
                   </View>
 
-                  <Text style={styles.modalSubtitle}>Message (optional)</Text>
+                  <Text style={styles.modalSubtitle}>{t("player.home.messageOptional")}</Text>
                   <TextInput
                     style={styles.issueInput}
-                    placeholder="e.g. Traffic, will be there soon!"
+                    placeholder={t("player.home.latePlaceholder")}
                     placeholderTextColor={ProTennisColors.textMuted}
                     value={lateMessage}
                     onChangeText={setLateMessage}
@@ -1136,7 +1138,7 @@ export function SessionHeroCard({
                       style={[styles.modalButton, styles.modalCancelButton]}
                       onPress={() => setShowLateModal(false)}
                     >
-                      <Text style={styles.modalCancelButtonText}>Cancel</Text>
+                      <Text style={styles.modalCancelButtonText}>{t("common.cancel")}</Text>
                     </Pressable>
                     <Pressable
                       style={[styles.modalButton, styles.modalWarningButton]}
@@ -1144,7 +1146,7 @@ export function SessionHeroCard({
                       disabled={notifyLateMutation.isPending}
                     >
                       <Text style={styles.modalSubmitButtonText}>
-                        {notifyLateMutation.isPending ? "Notifying..." : "Notify Coach"}
+                        {notifyLateMutation.isPending ? t("player.home.notifying") : t("player.home.notifyCoach")}
                       </Text>
                     </Pressable>
                   </View>
@@ -1168,7 +1170,7 @@ export function SessionHeroCard({
             <View style={[styles.nextSessionBadgeGaming, { borderColor: `${borderColor}50` }]}>
               <Feather name="clock" size={14} color={borderColor} />
               <Text style={[styles.nextSessionTextGlow, { color: borderColor, textShadowColor: borderColor }]}>
-                {isSoon ? "STARTING SOON" : "NEXT SESSION"}
+                {isSoon ? t("player.home.startingSoon") : t("player.home.nextSession")}
               </Text>
             </View>
             {isSoon && (
@@ -1177,25 +1179,25 @@ export function SessionHeroCard({
           </View>
 
           <View style={styles.gamingCountdownRow}>
-            <GradientCountdownDigit value={countdown.hours} label="HRS" />
+            <GradientCountdownDigit value={countdown.hours} label={t("player.home.hrs")} />
             <Text style={gamingStyles.countdownSeparatorText}>:</Text>
-            <GradientCountdownDigit value={countdown.minutes} label="MIN" />
+            <GradientCountdownDigit value={countdown.minutes} label={t("player.home.min")} />
             <Text style={gamingStyles.countdownSeparatorText}>:</Text>
-            <GradientCountdownDigit value={countdown.seconds} label="SEC" />
+            <GradientCountdownDigit value={countdown.seconds} label={t("player.home.sec")} />
           </View>
 
           <View style={styles.sessionInfo}>
             <GlowAvatar
               source={coachPhotoUrl}
-              name={coachName || "Coach"}
+              name={coachName || t("common.coach")}
               size="lg"
               showGlow
               glowColor={borderColor}
               pulsing={isSoon}
             />
             <View style={styles.sessionDetails}>
-              <Text style={styles.sessionTypeGlow}>{sessionType || "Training Session"}</Text>
-              <Text style={styles.coachLabel}>with {coachName || "Your Coach"}</Text>
+              <Text style={styles.sessionTypeGlow}>{sessionType || t("player.home.trainingSession")}</Text>
+              <Text style={styles.coachLabel}>{t("player.home.withCoach", { name: coachName || t("common.coach") })}</Text>
               {sessionCourtName && (
                 <Text style={styles.courtLabel}>{sessionCourtName}</Text>
               )}
@@ -1203,10 +1205,10 @@ export function SessionHeroCard({
           </View>
 
           <View style={styles.upcomingStakes}>
-            <Text style={styles.stakesTitle}>WHAT'S AT STAKE</Text>
+            <Text style={styles.stakesTitle}>{t("player.home.whatsAtStake")}</Text>
             <View style={styles.gamingStakesRow}>
-              <AnimatedStakeCard icon="zap" text="+75 XP Attendance" color={ProTennisColors.electricGreen} positive />
-              <AnimatedStakeCard icon="trending-up" text="Level Progress" color={ProTennisColors.neonCyan} positive />
+              <AnimatedStakeCard icon="zap" text={t("player.home.xpAttendance")} color={ProTennisColors.electricGreen} positive />
+              <AnimatedStakeCard icon="trending-up" text={t("player.home.levelProgress")} color={ProTennisColors.neonCyan} positive />
             </View>
           </View>
 
@@ -1226,7 +1228,7 @@ export function SessionHeroCard({
                 style={[styles.gamingButtonGradient, checkInMutation.isPending && { opacity: 0.7 }]}
               >
                 <Feather name="check-circle" size={20} color={ProTennisColors.midnightBlue} />
-                <Text style={styles.gamingPrimaryButtonText}>{checkInMutation.isPending ? "CHECKING IN..." : "CHECK IN EARLY"}</Text>
+                <Text style={styles.gamingPrimaryButtonText}>{checkInMutation.isPending ? t("player.home.checkingIn") : t("player.home.checkInEarly")}</Text>
               </LinearGradient>
             </Pressable>
           )}
@@ -1242,7 +1244,7 @@ export function SessionHeroCard({
               <View style={[styles.actionGlow, { backgroundColor: ProTennisColors.danger + "15" }]}>
                 <Feather name="x-circle" size={20} color={ProTennisColors.danger} />
               </View>
-              <Text style={[styles.actionLabel, { color: ProTennisColors.danger }]}>CANCEL</Text>
+              <Text style={[styles.actionLabel, { color: ProTennisColors.danger }]}>{t("common.cancel").toUpperCase()}</Text>
             </Pressable>
             <View style={styles.actionDivider} />
             <Pressable
@@ -1255,7 +1257,7 @@ export function SessionHeroCard({
               <View style={[styles.actionGlow, { backgroundColor: ProTennisColors.warning + "15" }]}>
                 <Feather name="clock" size={20} color={ProTennisColors.warning} />
               </View>
-              <Text style={[styles.actionLabel, { color: ProTennisColors.warning }]}>DELAY</Text>
+              <Text style={[styles.actionLabel, { color: ProTennisColors.warning }]}>{t("player.home.delay")}</Text>
             </Pressable>
           </View>
 
@@ -1274,22 +1276,22 @@ export function SessionHeroCard({
                   keyboardShouldPersistTaps="handled"
                 >
                   <View style={styles.modalHeader}>
-                    <Text style={styles.modalTitle}>Cancel Session?</Text>
+                    <Text style={styles.modalTitle}>{t("player.home.cancelSession")}</Text>
                     <Pressable onPress={() => setShowCancelModal(false)}>
                       <Feather name="x" size={24} color={ProTennisColors.textMuted} />
                     </Pressable>
                   </View>
                   
                   <View style={styles.policySection}>
-                    <Text style={styles.policySectionTitle}>CANCELLATION POLICY</Text>
+                    <Text style={styles.policySectionTitle}>{t("player.home.cancellationPolicy")}</Text>
                     
                     <View style={styles.policyRule}>
                       <View style={[styles.policyBadge, { backgroundColor: ProTennisColors.electricGreen + "20" }]}>
                         <Feather name="check-circle" size={14} color={ProTennisColors.electricGreen} />
                       </View>
                       <View style={styles.policyRuleContent}>
-                        <Text style={styles.policyRuleTitle}>24+ hours before</Text>
-                        <Text style={styles.policyRuleDesc}>Free cancellation - No charge</Text>
+                        <Text style={styles.policyRuleTitle}>{t("player.home.hoursBeforeFull")}</Text>
+                        <Text style={styles.policyRuleDesc}>{t("player.home.freeCancellation")}</Text>
                       </View>
                     </View>
                     
@@ -1298,8 +1300,8 @@ export function SessionHeroCard({
                         <Feather name="alert-circle" size={14} color={ProTennisColors.warning} />
                       </View>
                       <View style={styles.policyRuleContent}>
-                        <Text style={styles.policyRuleTitle}>2-24 hours before</Text>
-                        <Text style={styles.policyRuleDesc}>50% session fee charged, -25 XP</Text>
+                        <Text style={styles.policyRuleTitle}>{t("player.home.hoursBeforePartial")}</Text>
+                        <Text style={styles.policyRuleDesc}>{t("player.home.partialCharge")}</Text>
                       </View>
                     </View>
                     
@@ -1308,8 +1310,8 @@ export function SessionHeroCard({
                         <Feather name="x-circle" size={14} color={ProTennisColors.danger} />
                       </View>
                       <View style={styles.policyRuleContent}>
-                        <Text style={styles.policyRuleTitle}>Less than 2 hours</Text>
-                        <Text style={styles.policyRuleDesc}>100% session fee charged, -50 XP</Text>
+                        <Text style={styles.policyRuleTitle}>{t("player.home.lessThan2Hours")}</Text>
+                        <Text style={styles.policyRuleDesc}>{t("player.home.fullCharge")}</Text>
                       </View>
                     </View>
                     
@@ -1317,7 +1319,7 @@ export function SessionHeroCard({
                       <View style={styles.currentPenaltyNotice}>
                         <Feather name="alert-triangle" size={16} color={ProTennisColors.danger} />
                         <Text style={styles.currentPenaltyText}>
-                          Cancelling now = Full payment + -50 XP
+                          {t("player.home.cancellingNowFull")}
                         </Text>
                       </View>
                     )}
@@ -1325,13 +1327,13 @@ export function SessionHeroCard({
                       <View style={styles.partialPenaltyNotice}>
                         <Feather name="alert-circle" size={16} color={ProTennisColors.warning} />
                         <Text style={styles.partialPenaltyText}>
-                          Cancelling now = 50% payment + -25 XP
+                          {t("player.home.cancellingNowPartial")}
                         </Text>
                       </View>
                     )}
                   </View>
                   
-                  <Text style={styles.modalSubtitle}>Reason for cancellation</Text>
+                  <Text style={styles.modalSubtitle}>{t("player.home.reasonForCancellation")}</Text>
                   <View style={styles.issueTypesContainer}>
                     {CANCEL_REASONS.map((reason) => (
                       <Pressable
@@ -1356,7 +1358,7 @@ export function SessionHeroCard({
                             cancelReason === reason.id && styles.issueTypeTextSelected,
                           ]}
                         >
-                          {reason.label}
+                          {t(reason.labelKey)}
                         </Text>
                       </Pressable>
                     ))}
@@ -1364,10 +1366,10 @@ export function SessionHeroCard({
 
                   {cancelReason === "other" && (
                     <>
-                      <Text style={styles.modalSubtitle}>Please explain</Text>
+                      <Text style={styles.modalSubtitle}>{t("player.home.pleaseExplain")}</Text>
                       <TextInput
                         style={styles.issueInput}
-                        placeholder="Why do you need to cancel?"
+                        placeholder={t("player.home.whyCancel")}
                         placeholderTextColor={ProTennisColors.textMuted}
                         multiline
                         numberOfLines={2}
@@ -1382,7 +1384,7 @@ export function SessionHeroCard({
                       style={[styles.modalButton, styles.modalCancelButton]}
                       onPress={() => { setShowCancelModal(false); setCancelReason(null); setCancelReasonText(""); }}
                     >
-                      <Text style={styles.modalCancelButtonText}>Never Mind</Text>
+                      <Text style={styles.modalCancelButtonText}>{t("player.home.neverMind")}</Text>
                     </Pressable>
                     <Pressable
                       style={[styles.modalButton, styles.modalDangerButton, !cancelReason && styles.modalButtonDisabled]}
@@ -1390,7 +1392,7 @@ export function SessionHeroCard({
                       disabled={cancelSessionMutation.isPending || !cancelReason}
                     >
                       <Text style={styles.modalSubmitButtonText}>
-                        {cancelSessionMutation.isPending ? "Cancelling..." : "Confirm Cancel"}
+                        {cancelSessionMutation.isPending ? t("player.home.cancelling") : t("player.home.confirmCancel")}
                       </Text>
                     </Pressable>
                   </View>
@@ -1416,7 +1418,7 @@ export function SessionHeroCard({
                   <View style={styles.modalHeader}>
                     <View style={styles.modalTitleRow}>
                       <Feather name="clock" size={24} color={ProTennisColors.warning} />
-                      <Text style={styles.modalTitle}>Running Late?</Text>
+                      <Text style={styles.modalTitle}>{t("player.home.runningLate")}</Text>
                     </View>
                     <Pressable onPress={() => setShowLateModal(false)}>
                       <Feather name="x" size={24} color={ProTennisColors.textMuted} />
@@ -1424,7 +1426,7 @@ export function SessionHeroCard({
                   </View>
                   
                   <Text style={styles.lateModalDescription}>
-                    Let your coach know you're on the way. How late will you be?
+                    {t("player.home.lateDescription")}
                   </Text>
                   
                   <View style={styles.lateMinutesPicker}>
@@ -1446,16 +1448,16 @@ export function SessionHeroCard({
                             lateMinutes === mins && styles.lateMinutesTextSelected,
                           ]}
                         >
-                          {mins} min
+                          {t("player.home.minLabel", { count: mins })}
                         </Text>
                       </Pressable>
                     ))}
                   </View>
 
-                  <Text style={styles.modalSubtitle}>Message (optional)</Text>
+                  <Text style={styles.modalSubtitle}>{t("player.home.messageOptional")}</Text>
                   <TextInput
                     style={styles.issueInput}
-                    placeholder="e.g. Traffic, will be there soon!"
+                    placeholder={t("player.home.latePlaceholder")}
                     placeholderTextColor={ProTennisColors.textMuted}
                     value={lateMessage}
                     onChangeText={setLateMessage}
@@ -1466,7 +1468,7 @@ export function SessionHeroCard({
                       style={[styles.modalButton, styles.modalCancelButton]}
                       onPress={() => setShowLateModal(false)}
                     >
-                      <Text style={styles.modalCancelButtonText}>Cancel</Text>
+                      <Text style={styles.modalCancelButtonText}>{t("common.cancel")}</Text>
                     </Pressable>
                     <Pressable
                       style={[styles.modalButton, styles.modalWarningButton]}
@@ -1474,7 +1476,7 @@ export function SessionHeroCard({
                       disabled={notifyLateMutation.isPending}
                     >
                       <Text style={styles.modalSubmitButtonText}>
-                        {notifyLateMutation.isPending ? "Notifying..." : "Notify Coach"}
+                        {notifyLateMutation.isPending ? t("player.home.notifying") : t("player.home.notifyCoach")}
                       </Text>
                     </Pressable>
                   </View>
