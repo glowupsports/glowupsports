@@ -62,6 +62,16 @@ type FilterType = "all" | "active" | "paused" | "ended";
 const DAY_NAMES = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 const FLEXIBLE_DAY = -1;
 
+function getBallColor(level: string): string {
+  const l = level.toLowerCase();
+  if (l.includes("red")) return "#FF4444";
+  if (l.includes("orange")) return "#FF8C00";
+  if (l.includes("green")) return "#00C853";
+  if (l.includes("yellow")) return "#FFD700";
+  if (l.includes("adult") || l.includes("dss")) return "#8E24AA";
+  return Colors.dark.textMuted;
+}
+
 interface CollapsibleDaySectionProps {
   dayOfWeek: number;
   series: CoachingSeries[];
@@ -244,6 +254,35 @@ export function CoachingSeriesSection({ onSeriesPress, onCreatePress }: Props) {
 
   const flexibleSeries = filteredSeries.filter(s => s.dayOfWeek === FLEXIBLE_DAY);
   const regularSeries = filteredSeries.filter(s => s.dayOfWeek !== FLEXIBLE_DAY);
+
+  const flexibleGroupedByPlayer = useMemo(() => {
+    const playerMap = new Map<string, { playerName: string; ballLevel: string | null; series: CoachingSeries[] }>();
+    const ungrouped: CoachingSeries[] = [];
+
+    for (const s of flexibleSeries) {
+      const players = s.playerPreview || [];
+      if (players.length === 0) {
+        ungrouped.push(s);
+        continue;
+      }
+      for (const p of players) {
+        const key = p.id;
+        if (!playerMap.has(key)) {
+          playerMap.set(key, { playerName: p.name, ballLevel: p.ballLevel || null, series: [] });
+        }
+        const existing = playerMap.get(key)!;
+        if (!existing.series.find(ex => ex.id === s.id)) {
+          existing.series.push(s);
+        }
+      }
+    }
+
+    const groups = Array.from(playerMap.values())
+      .filter(g => g.series.length > 0)
+      .sort((a, b) => a.playerName.localeCompare(b.playerName));
+
+    return { groups, ungrouped };
+  }, [flexibleSeries]);
   
   const groupedByDay = regularSeries.reduce((acc, series) => {
     const day = series.dayOfWeek;
@@ -430,15 +469,53 @@ export function CoachingSeriesSection({ onSeriesPress, onCreatePress }: Props) {
         </View>
       ) : (
         <View style={styles.seriesListContainer}>
-          <CollapsibleDaySection
-            key="flexible"
-            dayOfWeek={FLEXIBLE_DAY}
-            series={flexibleSeries}
-            isExpanded={expandedDays.has(FLEXIBLE_DAY)}
-            onToggle={() => toggleDay(FLEXIBLE_DAY)}
-            onSeriesPress={onSeriesPress}
-            isFlexible
-          />
+          {flexibleSeries.length > 0 ? (
+            <View style={collapsibleStyles.container}>
+              <Pressable 
+                onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); toggleDay(FLEXIBLE_DAY); }} 
+                style={[collapsibleStyles.header, { borderColor: `${Colors.dark.cyan}30` }]}
+              >
+                <View style={collapsibleStyles.headerLeft}>
+                  <Animated.View style={{ transform: [{ rotate: expandedDays.has(FLEXIBLE_DAY) ? '0deg' : '-90deg' }] }}>
+                    <Ionicons name="chevron-down" size={20} color={Colors.dark.cyan} />
+                  </Animated.View>
+                  <Ionicons name="calendar-outline" size={18} color={Colors.dark.cyan} />
+                  <Text style={[collapsibleStyles.dayTitle, { color: Colors.dark.cyan }]}>Flexible Schedule</Text>
+                </View>
+                <View style={collapsibleStyles.headerRight}>
+                  <Text style={[collapsibleStyles.classCount, { color: Colors.dark.cyan }]}>{flexibleSeries.length}</Text>
+                  <Text style={collapsibleStyles.classLabel}>{flexibleSeries.length === 1 ? "class" : "classes"}</Text>
+                </View>
+              </Pressable>
+
+              {expandedDays.has(FLEXIBLE_DAY) ? (
+                <View style={collapsibleStyles.content}>
+                  {flexibleGroupedByPlayer.groups.map((group) => (
+                    <View key={group.playerName} style={playerGroupStyles.playerGroup}>
+                      <View style={playerGroupStyles.playerHeader}>
+                        <View style={playerGroupStyles.playerAvatar}>
+                          <Text style={playerGroupStyles.playerInitial}>{group.playerName.charAt(0).toUpperCase()}</Text>
+                        </View>
+                        <Text style={playerGroupStyles.playerName}>{group.playerName}</Text>
+                        {group.ballLevel ? (
+                          <View style={[playerGroupStyles.ballBadge, { backgroundColor: getBallColor(group.ballLevel) + "25" }]}>
+                            <Text style={[playerGroupStyles.ballText, { color: getBallColor(group.ballLevel) }]}>{group.ballLevel}</Text>
+                          </View>
+                        ) : null}
+                        <Text style={playerGroupStyles.classCount}>{group.series.length} {group.series.length === 1 ? "class" : "classes"}</Text>
+                      </View>
+                      {group.series.sort((a, b) => a.startTime.localeCompare(b.startTime)).map((s) => (
+                        <CoachingSeriesCard key={s.id} series={s} onPress={onSeriesPress} />
+                      ))}
+                    </View>
+                  ))}
+                  {flexibleGroupedByPlayer.ungrouped.map((s) => (
+                    <CoachingSeriesCard key={s.id} series={s} onPress={onSeriesPress} />
+                  ))}
+                </View>
+              ) : null}
+            </View>
+          ) : null}
           
           {sortedDays.map((dayOfWeek) => (
             <CollapsibleDaySection
@@ -731,6 +808,59 @@ const searchStyles = StyleSheet.create({
   },
   noResultsText: {
     ...Typography.body,
+    color: Colors.dark.textMuted,
+  },
+});
+
+const playerGroupStyles = StyleSheet.create({
+  playerGroup: {
+    marginBottom: Spacing.lg,
+  },
+  playerHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+    marginBottom: Spacing.sm,
+    paddingVertical: Spacing.sm,
+    paddingHorizontal: Spacing.sm,
+    backgroundColor: `${Colors.dark.cyan}10`,
+    borderRadius: BorderRadius.md,
+    borderLeftWidth: 3,
+    borderLeftColor: Colors.dark.cyan,
+  },
+  playerAvatar: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: `${Colors.dark.cyan}30`,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  playerInitial: {
+    ...Typography.caption,
+    color: Colors.dark.cyan,
+    fontWeight: "700",
+    fontSize: 13,
+  },
+  playerName: {
+    ...Typography.body,
+    color: Colors.dark.text,
+    fontWeight: "600",
+    flex: 1,
+  },
+  ballBadge: {
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 2,
+    borderRadius: BorderRadius.sm,
+  },
+  ballText: {
+    ...Typography.caption,
+    fontWeight: "600",
+    fontSize: 10,
+    textTransform: "capitalize",
+  },
+  classCount: {
+    ...Typography.caption,
     color: Colors.dark.textMuted,
   },
 });
