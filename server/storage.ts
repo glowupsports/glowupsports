@@ -11132,9 +11132,10 @@ async function repairAllPlayerCredits(): Promise<{
   consumed: number;
   debts: number;
   alreadyProcessed: number;
+  notAttended: number;
   errors: string[];
 }> {
-  const results = { processed: 0, consumed: 0, debts: 0, alreadyProcessed: 0, errors: [] as string[] };
+  const results = { processed: 0, consumed: 0, debts: 0, alreadyProcessed: 0, notAttended: 0, errors: [] as string[] };
   
   // Find all unprocessed session_players with chargeable attendance:
   // - present/late for any session type
@@ -11170,6 +11171,11 @@ async function repairAllPlayerCredits(): Promise<{
         console.log(`[RepairCredits] ${sp.player_name}: Created debt (no ${result.creditType} credits)`);
       } else if (result.action === "already_processed") {
         results.alreadyProcessed++;
+      } else if (result.action === "not_attended") {
+        results.notAttended++;
+        await db.execute(sql`
+          UPDATE session_players SET credit_deducted_at = NOW() WHERE id = ${sp.id}
+        `);
       } else if (result.action === "error") {
         results.errors.push(`${sp.player_name}: ${result.error}`);
       }
@@ -11179,29 +11185,45 @@ async function repairAllPlayerCredits(): Promise<{
   }
   
   // Also re-link any session_players that have creditDeductedAt but no creditTransactionId
+  // Exclude session_players that already have any transaction linked via session_player_id
   const needsRelink = await db.execute(sql`
     SELECT sp.id, sp.player_id, sp.session_id
     FROM session_players sp
     WHERE sp.credit_deducted_at IS NOT NULL
       AND sp.credit_transaction_id IS NULL
+      AND NOT EXISTS (
+        SELECT 1 FROM credit_transactions ct 
+        WHERE ct.session_player_id = sp.id
+      )
   `);
   
   console.log(`[RepairCredits] Found ${needsRelink.rows.length} session_players needing transaction re-link`);
   
+  let relinked = 0;
   for (const row of needsRelink.rows) {
     const sp = row as any;
     
-    // Find matching transaction
-    const txResult = await db.execute(sql`
+    // First try to find by session_player_id (more reliable)
+    let txResult = await db.execute(sql`
       SELECT id FROM credit_transactions
-      WHERE player_id = ${sp.player_id}
-        AND session_id = ${sp.session_id}
-        AND amount = -1
-        AND package_id IS NOT NULL
-        AND reason IN ('session_join', 'session_consumed', 'session_booking')
+      WHERE session_player_id = ${sp.id}
       ORDER BY created_at DESC
       LIMIT 1
     `);
+    
+    // Fallback: find matching consume transaction by player_id + session_id
+    if (txResult.rows.length === 0) {
+      txResult = await db.execute(sql`
+        SELECT id FROM credit_transactions
+        WHERE player_id = ${sp.player_id}
+          AND session_id = ${sp.session_id}
+          AND amount = -1
+          AND package_id IS NOT NULL
+          AND reason IN ('session_join', 'session_consumed', 'session_booking')
+        ORDER BY created_at DESC
+        LIMIT 1
+      `);
+    }
     
     if (txResult.rows.length > 0) {
       const txId = (txResult.rows[0] as any).id;
@@ -11210,9 +11232,13 @@ async function repairAllPlayerCredits(): Promise<{
         SET credit_transaction_id = ${txId}
         WHERE id = ${sp.id}
       `);
+      relinked++;
       console.log(`[RepairCredits] Re-linked session_player ${sp.id} to transaction ${txId}`);
     }
   }
+  
+  console.log(`[RepairCredits] Re-linked ${relinked} of ${needsRelink.rows.length} session_players`);
+  console.log(`[RepairCredits] Summary: ${results.processed} processed, ${results.consumed} consumed, ${results.debts} debts, ${results.notAttended} not_attended, ${results.alreadyProcessed} already_processed, ${results.errors.length} errors`);
   
   return results;
 }
