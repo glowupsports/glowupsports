@@ -6,7 +6,6 @@ import {
   Modal,
   Pressable,
   Platform,
-  Alert,
   I18nManager,
 } from "react-native";
 import Ionicons from "@expo/vector-icons/Ionicons";
@@ -50,11 +49,7 @@ export function LanguageSelectorModal({
       if (Platform.OS === "web") {
         window.location.reload();
       } else {
-        Alert.alert(
-          t("player.settings.languageChanged"),
-          t("player.settings.restartRequired"),
-          [{ text: t("common.ok"), onPress: () => reloadAppAsync() }]
-        );
+        setTimeout(() => reloadAppAsync(), 300);
       }
     } else {
       onClose();
