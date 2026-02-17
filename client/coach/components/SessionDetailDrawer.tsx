@@ -536,7 +536,7 @@ export default function SessionDetailDrawer({
 
   const changeCourtMutation = useMutation({
     mutationFn: async (newCourtId: string) => {
-      return apiRequest("PUT", `/api/coach/sessions/${session!.id}`, { courtId: newCourtId });
+      return apiRequest("PATCH", `/api/coach/sessions/${session!.id}/edit-single`, { courtId: newCourtId });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ predicate: (q) => typeof q.queryKey[0] === "string" && (q.queryKey[0] as string).includes("/api/coach/calendar"), refetchType: "all" });
