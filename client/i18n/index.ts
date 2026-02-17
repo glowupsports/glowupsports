@@ -1,0 +1,78 @@
+import i18n from "i18next";
+import { initReactI18next } from "react-i18next";
+import * as Localization from "expo-localization";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+
+import en from "./locales/en.json";
+import ar from "./locales/ar.json";
+import id from "./locales/id.json";
+
+const LANGUAGE_STORAGE_KEY = "@glow_app_language";
+
+export const SUPPORTED_LANGUAGES = [
+  { code: "en", label: "English", nativeLabel: "English", rtl: false },
+  { code: "ar", label: "Arabic", nativeLabel: "العربية", rtl: true },
+  { code: "id", label: "Indonesian", nativeLabel: "Bahasa Indonesia", rtl: false },
+] as const;
+
+export type LanguageCode = "en" | "ar" | "id";
+
+const resources = {
+  en: { translation: en },
+  ar: { translation: ar },
+  id: { translation: id },
+};
+
+const getDeviceLanguage = (): LanguageCode => {
+  try {
+    const locales = Localization.getLocales();
+    if (locales && locales.length > 0) {
+      const deviceLang = locales[0].languageCode;
+      if (deviceLang === "ar" || deviceLang === "id") {
+        return deviceLang;
+      }
+    }
+  } catch (e) {}
+  return "en";
+};
+
+export const getStoredLanguage = async (): Promise<LanguageCode | null> => {
+  try {
+    const lang = await AsyncStorage.getItem(LANGUAGE_STORAGE_KEY);
+    if (lang === "en" || lang === "ar" || lang === "id") return lang;
+    return null;
+  } catch {
+    return null;
+  }
+};
+
+export const setStoredLanguage = async (lang: LanguageCode): Promise<void> => {
+  try {
+    await AsyncStorage.setItem(LANGUAGE_STORAGE_KEY, lang);
+  } catch {}
+};
+
+export const initializeI18n = async () => {
+  const storedLang = await getStoredLanguage();
+  const fallbackLang = getDeviceLanguage();
+
+  await i18n.use(initReactI18next).init({
+    resources,
+    lng: storedLang || fallbackLang,
+    fallbackLng: "en",
+    interpolation: {
+      escapeValue: false,
+    },
+    react: {
+      useSuspense: false,
+    },
+  });
+
+  return i18n;
+};
+
+export const isRTL = (lang?: string): boolean => {
+  return (lang || i18n.language) === "ar";
+};
+
+export default i18n;
