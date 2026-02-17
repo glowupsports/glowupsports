@@ -2536,8 +2536,8 @@ export default function CalendarScreen() {
                             {
                               position: "absolute",
                               top: topOffset,
-                              left: timeColWidth + 2 + (dayIdx * ((Dimensions.get("window").width - timeColWidth - 16) / colCount)),
-                              width: ((Dimensions.get("window").width - timeColWidth - 16) / colCount) - 4,
+                              left: timeColWidth + 2 + (dayIdx * ((screenWidth - timeColWidth - 16) / colCount)),
+                              width: ((screenWidth - timeColWidth - 16) / colCount) - 4,
                               height: blockHeight,
                               backgroundColor: gradientColors[0] + "30",
                               borderLeftColor: gradientColors[0],

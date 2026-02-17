@@ -66,6 +66,7 @@ export function GettingStartedChecklist({
 
   const stateKey = `getting_started_${role}`;
   const dismissStateKey = `getting_started_${role}_dismissed`;
+  const localDismissKey = `@glow_getting_started_dismissed_${role}`;
 
   const chevronRotation = useSharedValue(0);
 
@@ -75,7 +76,18 @@ export function GettingStartedChecklist({
 
   const loadState = async () => {
     try {
+      const localDismissed = await AsyncStorage.getItem(localDismissKey);
+      if (localDismissed === "true") {
+        setIsDismissed(true);
+        setIsLoading(false);
+        return;
+      }
+
       const token = await AsyncStorage.getItem("authToken");
+      if (!token) {
+        setIsLoading(false);
+        return;
+      }
       const apiUrl = getApiUrl();
       const response = await fetch(new URL('/api/user/onboarding-state', apiUrl).toString(), {
         headers: { "Authorization": `Bearer ${token}` },
@@ -88,6 +100,7 @@ export function GettingStartedChecklist({
           }
           if (data.state[dismissStateKey] === true) {
             setIsDismissed(true);
+            await AsyncStorage.setItem(localDismissKey, "true").catch(() => {});
           }
         }
       }
@@ -129,20 +142,23 @@ export function GettingStartedChecklist({
 
   const handleDismiss = useCallback(async () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    setIsDismissed(true);
+    await AsyncStorage.setItem(localDismissKey, "true").catch(() => {});
     try {
       const token = await AsyncStorage.getItem("authToken");
-      const apiUrl = getApiUrl();
-      await fetch(new URL('/api/user/onboarding-state', apiUrl).toString(), {
-        method: "POST",
-        headers: { "Authorization": `Bearer ${token}`, "Content-Type": "application/json" },
-        body: JSON.stringify({ key: dismissStateKey, value: true }),
-      });
+      if (token) {
+        const apiUrl = getApiUrl();
+        await fetch(new URL('/api/user/onboarding-state', apiUrl).toString(), {
+          method: "POST",
+          headers: { "Authorization": `Bearer ${token}`, "Content-Type": "application/json" },
+          body: JSON.stringify({ key: dismissStateKey, value: true }),
+        });
+      }
     } catch (error) {
       console.warn("Failed to save dismiss state:", error);
     }
-    setIsDismissed(true);
     onDismiss?.();
-  }, [dismissStateKey, onDismiss]);
+  }, [dismissStateKey, localDismissKey, onDismiss]);
 
   const toggleCollapse = useCallback(() => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);

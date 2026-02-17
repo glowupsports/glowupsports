@@ -498,6 +498,16 @@ export function CoachMarksProvider({ children }: { children: React.ReactNode }) 
   useEffect(() => {
     (async () => {
       try {
+        const localTours = await AsyncStorage.getItem("@glow_completed_tours");
+        if (localTours) {
+          try {
+            const parsed = JSON.parse(localTours);
+            if (Array.isArray(parsed)) {
+              parsed.forEach((id: string) => completedToursRef.current.add(id));
+            }
+          } catch {}
+        }
+
         const token = await AsyncStorage.getItem("authToken");
         if (token) {
           const apiUrl = getApiUrl();
@@ -512,6 +522,8 @@ export function CoachMarksProvider({ children }: { children: React.ReactNode }) 
                 completedToursRef.current.add(key.replace("tour_completed_", ""));
               }
             });
+            const allCompleted = Array.from(completedToursRef.current);
+            await AsyncStorage.setItem("@glow_completed_tours", JSON.stringify(allCompleted)).catch(() => {});
           }
         }
       } catch {}
@@ -529,6 +541,8 @@ export function CoachMarksProvider({ children }: { children: React.ReactNode }) 
 
   const markTourCompleted = useCallback(async (id: string) => {
     completedToursRef.current.add(id);
+    const allCompleted = Array.from(completedToursRef.current);
+    await AsyncStorage.setItem("@glow_completed_tours", JSON.stringify(allCompleted)).catch(() => {});
     try {
       const token = await AsyncStorage.getItem("authToken");
       if (token) {

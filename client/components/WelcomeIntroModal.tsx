@@ -61,6 +61,7 @@ export function WelcomeIntroModal({
   const buttonScale = useSharedValue(1);
 
   const stateKey = `welcome_seen_${role}`;
+  const localStorageKey = `@glow_welcome_seen_${role}`;
 
   useEffect(() => {
     checkIfSeen();
@@ -68,7 +69,17 @@ export function WelcomeIntroModal({
 
   const checkIfSeen = async () => {
     try {
+      const localSeen = await AsyncStorage.getItem(localStorageKey);
+      if (localSeen === "true") {
+        setChecked(true);
+        return;
+      }
+
       const token = await AsyncStorage.getItem("authToken");
+      if (!token) {
+        setChecked(true);
+        return;
+      }
       const apiUrl = getApiUrl();
       const response = await fetch(new URL('/api/user/onboarding-state', apiUrl).toString(), {
         headers: { "Authorization": `Bearer ${token}` },
@@ -76,12 +87,18 @@ export function WelcomeIntroModal({
       if (response.ok) {
         const data = await response.json();
         if (data.state && data.state[stateKey] === true) {
+          await AsyncStorage.setItem(localStorageKey, "true");
           setChecked(true);
           return;
         }
       }
       setVisible(true);
     } catch (error) {
+      const localSeen = await AsyncStorage.getItem(localStorageKey).catch(() => null);
+      if (localSeen === "true") {
+        setChecked(true);
+        return;
+      }
       setVisible(true);
     } finally {
       setChecked(true);
@@ -89,8 +106,10 @@ export function WelcomeIntroModal({
   };
 
   const markAsSeen = async () => {
+    await AsyncStorage.setItem(localStorageKey, "true").catch(() => {});
     try {
       const token = await AsyncStorage.getItem("authToken");
+      if (!token) return;
       const apiUrl = getApiUrl();
       await fetch(new URL('/api/user/onboarding-state', apiUrl).toString(), {
         method: "POST",
@@ -98,7 +117,7 @@ export function WelcomeIntroModal({
         body: JSON.stringify({ key: stateKey, value: true }),
       });
     } catch (error) {
-      console.warn("Failed to save welcome seen state:", error);
+      console.warn("Failed to save welcome seen state to server:", error);
     }
   };
 
