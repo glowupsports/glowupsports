@@ -18,7 +18,8 @@
       "env": {
         "EXPO_PUBLIC_API_URL": "https://glow-up-sports--ltvjeugd.replit.app",
         "EXPO_PUBLIC_DOMAIN": "glow-up-sports--ltvjeugd.replit.app",
-        "EXPO_PUBLIC_ENV": "preview"
+        "EXPO_PUBLIC_ENV": "preview",
+        "SENTRY_DISABLE_AUTO_UPLOAD": "true"
       }
     },
     "production": {
@@ -31,7 +32,8 @@
         "EXPO_PUBLIC_API_URL": "https://glow-up-sports--ltvjeugd.replit.app",
         "EXPO_PUBLIC_DOMAIN": "glow-up-sports--ltvjeugd.replit.app",
         "EXPO_PUBLIC_ENV": "production",
-        "EAS_BUILD_NO_EXPO_GO_WARNING": "true"
+        "EAS_BUILD_NO_EXPO_GO_WARNING": "true",
+        "SENTRY_DISABLE_AUTO_UPLOAD": "true"
       }
     }
   },
