@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useMemo } from "react";
 import {
   View,
   Text,
@@ -7,6 +7,7 @@ import {
   ActivityIndicator,
   FlatList,
   Alert,
+  TextInput,
 } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import Ionicons from "@expo/vector-icons/Ionicons";
@@ -22,6 +23,14 @@ import { Colors, Spacing, BorderRadius, Typography } from "@/constants/theme";
 import { CoachingSeriesCard } from "./CoachingSeriesCard";
 import { GuidedEmptyState } from "@/components/GuidedEmptyState";
 import { apiRequest } from "@/lib/query-client";
+import { useCoach } from "@/coach/context/CoachContext";
+import { convertUTCTimeToLocal } from "@/lib/dateUtils";
+
+interface PlayerPreview {
+  id: string;
+  name: string;
+  ballLevel?: string | null;
+}
 
 interface CoachingSeries {
   id: string;
@@ -40,6 +49,7 @@ interface CoachingSeries {
   playerCount: number;
   sessionsCompleted: number;
   pendingFeedback: number;
+  playerPreview?: PlayerPreview[];
 }
 
 interface Props {
@@ -176,7 +186,11 @@ const collapsibleStyles = StyleSheet.create({
 export function CoachingSeriesSection({ onSeriesPress, onCreatePress }: Props) {
   const [filter, setFilter] = useState<FilterType>("active");
   const [expandedDays, setExpandedDays] = useState<Set<number>>(new Set());
+  const [searchText, setSearchText] = useState("");
+  const [showSearch, setShowSearch] = useState(false);
   const queryClient = useQueryClient();
+  const { academy } = useCoach();
+  const timezone = academy?.timezone || "Asia/Dubai";
 
   const { data: seriesList, isLoading, error, refetch } = useQuery<CoachingSeries[]>({
     queryKey: ["/api/coach/series"],
@@ -213,6 +227,15 @@ export function CoachingSeriesSection({ onSeriesPress, onCreatePress }: Props) {
       Alert.alert("Migration Failed", error.message);
     },
   });
+
+  const searchResults = useMemo(() => {
+    if (!searchText.trim() || !seriesList) return [];
+    const q = searchText.toLowerCase().trim();
+    return seriesList.filter(s => {
+      const players = s.playerPreview || [];
+      return players.some(p => p.name.toLowerCase().includes(q)) || s.title.toLowerCase().includes(q);
+    });
+  }, [searchText, seriesList]);
 
   const filteredSeries = seriesList?.filter(series => {
     if (filter === "all") return true;
@@ -270,8 +293,108 @@ export function CoachingSeriesSection({ onSeriesPress, onCreatePress }: Props) {
     );
   }
 
+  const SESSION_TYPE_LABELS: Record<string, string> = {
+    private: "Private",
+    semi_private: "Semi-Private",
+    group: "Group",
+    activity: "Activity",
+    physical: "Fitness",
+  };
+
   return (
     <View style={styles.container}>
+      <View style={searchStyles.searchRow}>
+        <View style={searchStyles.searchInputContainer}>
+          <Ionicons name="search" size={18} color={Colors.dark.textMuted} style={searchStyles.searchIcon} />
+          <TextInput
+            style={searchStyles.searchInput}
+            placeholder="Search player or class name..."
+            placeholderTextColor={Colors.dark.textMuted}
+            value={searchText}
+            onChangeText={setSearchText}
+            returnKeyType="search"
+            autoCorrect={false}
+          />
+          {searchText.length > 0 ? (
+            <Pressable onPress={() => setSearchText("")} hitSlop={8}>
+              <Ionicons name="close-circle" size={18} color={Colors.dark.textMuted} />
+            </Pressable>
+          ) : null}
+        </View>
+      </View>
+
+      {searchText.trim().length > 0 ? (
+        <View style={searchStyles.resultsContainer}>
+          <Text style={searchStyles.resultsTitle}>
+            {searchResults.length} {searchResults.length === 1 ? "class" : "classes"} found
+          </Text>
+          {searchResults.map(series => {
+            const typeConfig: Record<string, { color: string }> = {
+              private: { color: Colors.dark.sessionPrivate },
+              semi_private: { color: Colors.dark.sessionSemiPrivate },
+              group: { color: Colors.dark.sessionGroup },
+              activity: { color: Colors.dark.sessionActivity },
+              physical: { color: Colors.dark.sessionPhysical },
+            };
+            const config = typeConfig[series.sessionType] || typeConfig.private;
+            const isFlexible = series.dayOfWeek === -1;
+            const dayName = isFlexible ? "Flexible" : DAY_NAMES[series.dayOfWeek];
+            const localTime = convertUTCTimeToLocal(series.startTime, timezone);
+            const matchedPlayers = (series.playerPreview || []).filter(p => 
+              p.name.toLowerCase().includes(searchText.toLowerCase().trim())
+            );
+
+            return (
+              <Pressable
+                key={series.id}
+                style={searchStyles.resultCard}
+                onPress={() => {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                  setSearchText("");
+                  onSeriesPress(series);
+                }}
+              >
+                <View style={[searchStyles.resultAccent, { backgroundColor: config.color }]} />
+                <View style={searchStyles.resultContent}>
+                  <View style={searchStyles.resultHeader}>
+                    <Text style={searchStyles.resultTitle} numberOfLines={1}>{series.title}</Text>
+                    <View style={[searchStyles.typeBadge, { backgroundColor: config.color + "25" }]}>
+                      <Text style={[searchStyles.typeText, { color: config.color }]}>
+                        {SESSION_TYPE_LABELS[series.sessionType] || series.sessionType}
+                      </Text>
+                    </View>
+                  </View>
+                  <View style={searchStyles.resultMeta}>
+                    <Ionicons name="time-outline" size={13} color={Colors.dark.textMuted} />
+                    <Text style={searchStyles.resultMetaText}>
+                      {dayName} {localTime} - {series.duration}min
+                    </Text>
+                  </View>
+                  {matchedPlayers.length > 0 ? (
+                    <View style={searchStyles.matchedPlayersRow}>
+                      <Ionicons name="person" size={13} color={Colors.dark.primary} />
+                      {matchedPlayers.map(p => (
+                        <View key={p.id} style={searchStyles.matchedPlayerBadge}>
+                          <Text style={searchStyles.matchedPlayerName}>{p.name}</Text>
+                        </View>
+                      ))}
+                    </View>
+                  ) : null}
+                </View>
+                <Ionicons name="chevron-forward" size={18} color={Colors.dark.textMuted} />
+              </Pressable>
+            );
+          })}
+          {searchResults.length === 0 ? (
+            <View style={searchStyles.noResults}>
+              <Ionicons name="search-outline" size={32} color={Colors.dark.textMuted} />
+              <Text style={searchStyles.noResultsText}>No classes found for "{searchText}"</Text>
+            </View>
+          ) : null}
+        </View>
+      ) : (
+        <>
+
       <View style={styles.filterRow}>
         {(["active", "paused", "ended", "all"] as FilterType[]).map((f) => (
           <Pressable
@@ -339,6 +462,9 @@ export function CoachingSeriesSection({ onSeriesPress, onCreatePress }: Props) {
             <Text style={styles.addMoreText}>Add New Class</Text>
           </Pressable>
         </View>
+      )}
+
+        </>
       )}
     </View>
   );
@@ -494,5 +620,117 @@ const styles = StyleSheet.create({
     ...Typography.body,
     color: Colors.dark.primary,
     fontWeight: "600",
+  },
+});
+
+const searchStyles = StyleSheet.create({
+  searchRow: {
+    paddingHorizontal: Spacing.lg,
+    marginBottom: Spacing.md,
+  },
+  searchInputContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: Colors.dark.backgroundSecondary,
+    borderRadius: BorderRadius.lg,
+    borderWidth: 1,
+    borderColor: Colors.dark.border,
+    paddingHorizontal: Spacing.md,
+    height: 42,
+  },
+  searchIcon: {
+    marginRight: Spacing.sm,
+  },
+  searchInput: {
+    flex: 1,
+    ...Typography.body,
+    color: Colors.dark.text,
+    height: 42,
+    paddingVertical: 0,
+  },
+  resultsContainer: {
+    paddingHorizontal: Spacing.lg,
+  },
+  resultsTitle: {
+    ...Typography.caption,
+    color: Colors.dark.textMuted,
+    marginBottom: Spacing.md,
+  },
+  resultCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: Colors.dark.backgroundSecondary,
+    borderRadius: BorderRadius.md,
+    marginBottom: Spacing.sm,
+    overflow: "hidden",
+  },
+  resultAccent: {
+    width: 4,
+    alignSelf: "stretch",
+  },
+  resultContent: {
+    flex: 1,
+    paddingVertical: Spacing.md,
+    paddingHorizontal: Spacing.md,
+    gap: 4,
+  },
+  resultHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: Spacing.sm,
+  },
+  resultTitle: {
+    ...Typography.body,
+    color: Colors.dark.text,
+    fontWeight: "600",
+    flex: 1,
+  },
+  typeBadge: {
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 2,
+    borderRadius: BorderRadius.sm,
+  },
+  typeText: {
+    ...Typography.caption,
+    fontWeight: "600",
+    fontSize: 10,
+  },
+  resultMeta: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+  },
+  resultMetaText: {
+    ...Typography.caption,
+    color: Colors.dark.textMuted,
+  },
+  matchedPlayersRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    flexWrap: "wrap",
+    marginTop: 2,
+  },
+  matchedPlayerBadge: {
+    backgroundColor: `${Colors.dark.primary}20`,
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 2,
+    borderRadius: BorderRadius.sm,
+  },
+  matchedPlayerName: {
+    ...Typography.caption,
+    color: Colors.dark.primary,
+    fontWeight: "600",
+    fontSize: 11,
+  },
+  noResults: {
+    alignItems: "center",
+    paddingVertical: Spacing["2xl"],
+    gap: Spacing.sm,
+  },
+  noResultsText: {
+    ...Typography.body,
+    color: Colors.dark.textMuted,
   },
 });
