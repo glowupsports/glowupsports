@@ -204,7 +204,7 @@ const socialPostUpload = multer({
               
               if (friendPlayerIds.length > 0) {
                 const rawFriendUsers = await db.execute(sql`
-                  SELECT id FROM users WHERE player_id = ANY(${sql.raw(`ARRAY[${friendPlayerIds.map(id => `'${id}'`).join(',')}]`)})
+                  SELECT id FROM users WHERE player_id = ANY(${friendPlayerIds}::text[])
                 `);
                 forYouFriendIds = (rawFriendUsers.rows || []).map(r => r.id);
               }

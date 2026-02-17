@@ -92,6 +92,9 @@ The monolithic `server/routes.ts` (originally 37,500+ lines) has been modularize
 - `server/routes/coach-earnings.ts` - Coach earnings summary, breakdown, analytics (1,044 lines)
 - `server/routes/player-booking.ts` - Booking system, court management, open matches (4,373 lines)
 - `server/routes/player-social.ts` - Quests, badges, titles, friend connections, spotlight (3,151 lines)
+- `server/routes/world-chat.ts` - World chat, coach sessions CRUD, attendance, feedback (~2,770 lines)
+- `server/routes/admin-series.ts` - Admin series management, player management (~4,134 lines)
+- `server/routes/tournaments-ladders.ts` - Tournaments and ladder system (20+ endpoints)
 - `server/routes/glow-leveling.ts` - Glow leveling OS
 - `server/routes/session-plans.ts` - Session plans
 - `server/routes/match-logs.ts` - Match logging
