@@ -14,6 +14,7 @@ import {
   ActivityIndicator,
   Dimensions,
   Linking,
+  I18nManager,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
@@ -39,6 +40,9 @@ import { useCoachMarks, CoachMarkTarget } from "@/components/CoachMarks";
 import { useNavigation } from "@react-navigation/native";
 import { useNetwork } from "@/context/NetworkContext";
 import { showOfflineAlert } from "@/hooks/useOfflineGuard";
+import { useTranslation } from "react-i18next";
+import { reloadAppAsync } from "expo";
+import { SUPPORTED_LANGUAGES, setStoredLanguage, isRTL, type LanguageCode } from "@/i18n";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 
@@ -219,6 +223,24 @@ export default function SettingsScreen() {
   const { logout } = useAuth();
   const { isOffline, logOfflineAttempt } = useNetwork();
   const { startTour, isActive: tourIsActive } = useCoachMarks();
+  const { t, i18n } = useTranslation();
+
+  const handleLanguageChange = async (langCode: LanguageCode) => {
+    await setStoredLanguage(langCode);
+    await i18n.changeLanguage(langCode);
+    const rtl = isRTL(langCode);
+    if (I18nManager.isRTL !== rtl) {
+      I18nManager.allowRTL(rtl);
+      I18nManager.forceRTL(rtl);
+      if (Platform.OS === "web") {
+        window.location.reload();
+      } else {
+        Alert.alert(t('player.settings.languageChanged'), t('player.settings.restartRequired'), [
+          { text: t('common.ok'), onPress: () => reloadAppAsync() },
+        ]);
+      }
+    }
+  };
 
   const settingsTourSteps = useMemo(() => [
     { id: "settings_profile", title: "Your Profile", description: "View and manage your coach profile information.", position: "bottom" as const },
@@ -851,7 +873,7 @@ export default function SettingsScreen() {
             <View style={styles.headerIconWrapper}>
               <Ionicons name="settings" size={20} color={Colors.dark.xpCyan} />
             </View>
-            <Text style={styles.title}>SETTINGS</Text>
+            <Text style={styles.title}>{t('coach.settings.title').toUpperCase()}</Text>
           </View>
         </LinearGradient>
       </View>
@@ -1468,7 +1490,7 @@ export default function SettingsScreen() {
                 <Ionicons name="star" size={20} color={Colors.dark.gold} />
               </View>
               <View>
-                <Text style={styles.settingLabel}>My Reviews</Text>
+                <Text style={styles.settingLabel}>{t('coach.settings.reviews')}</Text>
                 <Text style={styles.settingDescription}>View and respond to player feedback</Text>
               </View>
             </View>
@@ -1487,12 +1509,41 @@ export default function SettingsScreen() {
                 <Ionicons name="mail-outline" size={20} color={Colors.dark.xpCyan} />
               </View>
               <View>
-                <Text style={styles.settingLabel}>Coach Invitations</Text>
+                <Text style={styles.settingLabel}>{t('coach.settings.invitations')}</Text>
                 <Text style={styles.settingDescription}>Manage invitations to/from academies</Text>
               </View>
             </View>
             <Ionicons name="chevron-forward" size={20} color={Colors.dark.xpCyan} />
           </Pressable>
+        </View>
+
+        <View style={styles.section}>
+          <SectionHeader title={t('player.settings.language')} icon="language-outline" />
+          {SUPPORTED_LANGUAGES.map((lang) => (
+            <Pressable
+              key={lang.code}
+              style={styles.settingRow}
+              onPress={() => handleLanguageChange(lang.code as LanguageCode)}
+              accessibilityRole="button"
+              accessibilityLabel={`Select ${lang.label} language`}
+            >
+              <View style={styles.settingInfo}>
+                <View style={styles.settingIconWrapper}>
+                  <Ionicons name="language" size={20} color={Colors.dark.xpCyan} />
+                </View>
+                <View style={styles.languageTextContainer}>
+                  <Text style={styles.settingLabel}>{lang.nativeLabel}</Text>
+                  <Text style={styles.settingDescription}>{lang.label}</Text>
+                </View>
+              </View>
+              <View style={[
+                styles.radioOuter,
+                i18n.language === lang.code && styles.radioOuterSelected
+              ]}>
+                {i18n.language === lang.code ? <View style={styles.radioInner} /> : null}
+              </View>
+            </Pressable>
+          ))}
         </View>
 
         <View style={styles.section}>
@@ -1581,7 +1632,7 @@ export default function SettingsScreen() {
               style={styles.logoutButtonGradient}
             >
               <Ionicons name="log-out-outline" size={22} color={Colors.dark.text} />
-              <Text style={styles.logoutText}>Sign Out</Text>
+              <Text style={styles.logoutText}>{t('common.logOut')}</Text>
             </LinearGradient>
             <View style={styles.logoutGlow} />
           </Pressable>
@@ -3006,5 +3057,26 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: "700",
     color: Colors.dark.backgroundRoot,
+  },
+  languageTextContainer: {
+    flex: 1,
+  },
+  radioOuter: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    borderWidth: 2,
+    borderColor: Colors.dark.tabIconDefault,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  radioOuterSelected: {
+    borderColor: GlowColors.primary,
+  },
+  radioInner: {
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    backgroundColor: GlowColors.primary,
   },
 });

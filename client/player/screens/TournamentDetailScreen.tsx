@@ -8,6 +8,7 @@ import {
   Dimensions,
   ActivityIndicator,
 } from "react-native";
+import { useTranslation } from "react-i18next";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation, useRoute } from "@react-navigation/native";
 import { LinearGradient } from "expo-linear-gradient";
@@ -340,6 +341,7 @@ function ErrorView({ message }: { message: string }) {
 }
 
 export default function TournamentDetailScreen() {
+  const { t } = useTranslation();
   const navigation = useNavigation<NavigationProp>();
   const route = useRoute<RouteProps>();
   const insets = useSafeAreaInsets();
@@ -387,11 +389,11 @@ export default function TournamentDetailScreen() {
             <Ionicons name="chevron-back" size={22} color={GlowColors.primary} />
           </Pressable>
           <View style={styles.headerCenter}>
-            <Text style={styles.headerTitle}>Tournament</Text>
+            <Text style={styles.headerTitle}>{t("player.tournaments.title")}</Text>
           </View>
           <View style={styles.headerRight} />
         </View>
-        <ErrorView message="Failed to load tournament details" />
+        <ErrorView message={t("common.error")} />
       </View>
     );
   }
@@ -407,11 +409,11 @@ export default function TournamentDetailScreen() {
     : [];
 
   const tabs = [
-    { key: "draw" as ViewMode, label: "Draw", icon: "git-network-outline" as const, show: isKnockout },
-    { key: "groups" as ViewMode, label: "Groups", icon: "grid-outline" as const, show: !isKnockout },
-    { key: "schedule" as ViewMode, label: "Schedule", icon: "time-outline" as const, show: true },
-    { key: "participants" as ViewMode, label: "Players", icon: "people-outline" as const, show: true },
-  ].filter(t => t.show);
+    { key: "draw" as ViewMode, label: t("player.tournaments.draw"), icon: "git-network-outline" as const, show: isKnockout },
+    { key: "groups" as ViewMode, label: t("player.tournaments.groups"), icon: "grid-outline" as const, show: !isKnockout },
+    { key: "schedule" as ViewMode, label: t("player.tournaments.schedule"), icon: "time-outline" as const, show: true },
+    { key: "participants" as ViewMode, label: t("player.tournaments.participants"), icon: "people-outline" as const, show: true },
+  ].filter(tab => tab.show);
 
   const handleTabPress = (key: ViewMode) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -463,7 +465,7 @@ export default function TournamentDetailScreen() {
     }
   };
 
-  const formatLabel = tournament.format === "knockout" ? "Knockout" : tournament.format === "round_robin" ? "Round Robin" : tournament.format;
+  const formatLabel = tournament.format === "knockout" ? t("player.tournaments.knockout") : tournament.format === "round_robin" ? t("player.tournaments.roundRobin") : tournament.format;
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
@@ -483,7 +485,7 @@ export default function TournamentDetailScreen() {
       <View style={styles.statsBar}>
         <View style={styles.statItem}>
           <Ionicons name="trophy" size={16} color={GlowColors.primary} />
-          <Text style={styles.statLabel}>Format</Text>
+          <Text style={styles.statLabel}>{t("player.tournaments.format")}</Text>
           <Text style={styles.statValue}>{formatLabel}</Text>
         </View>
         <View style={styles.statDivider} />
@@ -495,8 +497,8 @@ export default function TournamentDetailScreen() {
         <View style={styles.statDivider} />
         <View style={styles.statItem}>
           <Ionicons name="cash" size={16} color="#FFB020" />
-          <Text style={styles.statLabel}>Fee</Text>
-          <Text style={styles.statValue}>{tournament.entryFee ? `$${tournament.entryFee}` : "Free"}</Text>
+          <Text style={styles.statLabel}>{t("player.tournaments.entryFee")}</Text>
+          <Text style={styles.statValue}>{tournament.entryFee ? `$${tournament.entryFee}` : t("common.free")}</Text>
         </View>
       </View>
 
@@ -511,7 +513,7 @@ export default function TournamentDetailScreen() {
             <View style={styles.nextMatchLeft}>
               <View style={styles.nextMatchLabel}>
                 <Ionicons name="flash" size={12} color={GlowColors.primary} />
-                <Text style={styles.nextMatchLabelText}>NEXT MATCH</Text>
+                <Text style={styles.nextMatchLabelText}>{t("player.tournaments.nextMatch")}</Text>
               </View>
               <Text style={styles.nextMatchOpponent}>
                 vs {nextMatch.opponentName || "Opponent"}

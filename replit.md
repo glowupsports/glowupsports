@@ -110,6 +110,44 @@ The monolithic `server/routes.ts` (originally 37,500+ lines) has been modularize
 - `server/shop-routes.ts` - Shop system (788 lines)
 - `server/marketplace-routes.ts` - Community marketplace
 
+## Internationalization (i18n)
+
+### Architecture
+- **Library**: i18next + react-i18next
+- **Languages**: English (en), Arabic (ar - RTL), Indonesian (id)
+- **Config**: `client/i18n/index.ts` - initialization, RTL support, language persistence
+- **Translations**: `client/i18n/locales/{en,ar,id}.json` - comprehensive translation files
+- **Storage**: Language preference stored in AsyncStorage (`@glow_app_language`)
+- **RTL**: Arabic uses I18nManager.forceRTL() with app restart for layout direction change
+- **Device Detection**: Falls back to device language via expo-localization
+
+### Usage Pattern
+```typescript
+import { useTranslation } from "react-i18next";
+const { t } = useTranslation();
+// Use: t('nav.home'), t('player.settings.title'), etc.
+```
+
+### Translation Key Structure
+- `common.*` - Shared strings (save, cancel, loading, etc.)
+- `auth.*` - Login, register, PIN, role selection
+- `nav.*` - Navigation labels (home, schedule, play, etc.)
+- `player.*` - Player screens (home, schedule, progress, community, profile, settings, booking, tournaments, shop, family)
+- `coach.*` - Coach screens (dashboard, calendar, players, sessions, earnings, settings)
+- `admin.*` - Admin screens (dashboard, players, coaches, settings)
+- `onboarding.*` - Onboarding flow strings
+- `feedback.*` - Feedback/rating strings
+- `notifications.*` - Notification types
+- `errors.*` - Error messages
+- `empty.*` - Empty state messages
+- `time.*` - Time formatting
+
+### Translated Screens
+Login, PlayerSettings, CoachSettings, PlayerNavigator (all tabs), DrawerNavigator, CoachNavigator, ProPlayerHomeScreen, CommunityScreen (+ sub-components), TournamentsScreen, TournamentDetailScreen, LadderDetailScreen, DashboardScreen (Coach)
+
+### Language Selector
+Available in both Player Settings and Coach Settings screens with radio button UI showing native language labels (English, العربية, Bahasa Indonesia).
+
 ## External Dependencies
 
 - **Database**: Supabase PostgreSQL (via Drizzle ORM) - ONLY database used

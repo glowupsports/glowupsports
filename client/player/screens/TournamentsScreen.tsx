@@ -1,4 +1,5 @@
 import React, { useState, useMemo, useEffect } from "react";
+import { useTranslation } from "react-i18next";
 import {
   View,
   Text,
@@ -100,6 +101,7 @@ function formatDateRange(start: string, end: string): string {
 }
 
 function TournamentCard({ tournament, onPress, onRegister, isRegistering }: { tournament: Tournament; onPress: () => void; onRegister: (id: string) => void; isRegistering: boolean }) {
+  const { t } = useTranslation();
   const typeColor = getTypeColor(tournament.type);
   const spotsRemaining = tournament.spotsTotal - tournament.spotsTaken;
   const isFull = spotsRemaining <= 0;
@@ -125,7 +127,7 @@ function TournamentCard({ tournament, onPress, onRegister, isRegistering }: { to
         <View style={styles.formatRow}>
           <Ionicons name={getFormatIcon(tournament.format) as any} size={12} color={TextColors.muted} />
           <Text style={styles.formatText}>
-            {tournament.format === "knockout" ? "Knockout" : tournament.format === "round_robin" ? "Round Robin" : "Box League"}
+            {tournament.format === "knockout" ? t("player.tournaments.knockout") : tournament.format === "round_robin" ? t("player.tournaments.roundRobin") : "Box League"}
           </Text>
         </View>
       </View>
@@ -156,14 +158,14 @@ function TournamentCard({ tournament, onPress, onRegister, isRegistering }: { to
             ) : (
               <>
                 <Ionicons name="gift" size={12} color="#00E676" />
-                <Text style={[styles.priceText, { color: "#00E676" }]}>Free</Text>
+                <Text style={[styles.priceText, { color: "#00E676" }]}>{t("common.free")}</Text>
               </>
             )}
           </View>
           <View style={styles.spotsBadge}>
             <Ionicons name="people" size={12} color={isFull ? "#FF4D4D" : TextColors.secondary} />
             <Text style={[styles.spotsText, isFull ? { color: "#FF4D4D" } : undefined]}>
-              {isFull ? "Full" : `${spotsRemaining} spots`}
+              {isFull ? t("player.booking.spotsFull") : t("player.tournaments.spotsAvailable", { count: spotsRemaining })}
             </Text>
           </View>
         </View>
@@ -171,7 +173,7 @@ function TournamentCard({ tournament, onPress, onRegister, isRegistering }: { to
         {tournament.isRegistered ? (
           <View style={styles.registeredBadge}>
             <Ionicons name="checkmark-circle" size={14} color={GlowColors.primary} />
-            <Text style={styles.registeredText}>Entered</Text>
+            <Text style={styles.registeredText}>{t("player.tournaments.registered")}</Text>
           </View>
         ) : (
           <Pressable
@@ -187,7 +189,7 @@ function TournamentCard({ tournament, onPress, onRegister, isRegistering }: { to
               <ActivityIndicator size="small" color="rgba(255, 255, 255, 0.06)" />
             ) : (
               <Text style={[styles.registerBtnText, isFull ? styles.registerBtnTextDisabled : undefined]}>
-                {isFull ? "Full" : "Register"}
+                {isFull ? t("player.booking.spotsFull") : t("player.tournaments.register")}
               </Text>
             )}
           </Pressable>
@@ -198,6 +200,7 @@ function TournamentCard({ tournament, onPress, onRegister, isRegistering }: { to
 }
 
 function LadderCard({ ladder, onPress, onJoin, isJoining }: { ladder: Ladder; onPress: () => void; onJoin: (id: string) => void; isJoining: boolean }) {
+  const { t } = useTranslation();
   const typeColor = getTypeColor(ladder.type);
 
   return (
@@ -243,7 +246,7 @@ function LadderCard({ ladder, onPress, onJoin, isJoining }: { ladder: Ladder; on
           {ladder.isJoined ? (
             <View style={styles.joinedBadge}>
               <Ionicons name="checkmark-circle" size={14} color={GlowColors.primary} />
-              <Text style={styles.joinedText}>Joined</Text>
+              <Text style={styles.joinedText}>{t("player.tournaments.registered")}</Text>
             </View>
           ) : (
             <Pressable
@@ -258,7 +261,7 @@ function LadderCard({ ladder, onPress, onJoin, isJoining }: { ladder: Ladder; on
               {isJoining ? (
                 <ActivityIndicator size="small" color="rgba(255, 255, 255, 0.06)" />
               ) : (
-                <Text style={styles.joinBtnText}>Join</Text>
+                <Text style={styles.joinBtnText}>{t("player.tournaments.joinLadder")}</Text>
               )}
             </Pressable>
           )}
@@ -269,6 +272,7 @@ function LadderCard({ ladder, onPress, onJoin, isJoining }: { ladder: Ladder; on
 }
 
 export default function TournamentsScreen() {
+  const { t } = useTranslation();
   const navigation = useNavigation<NavigationProp>();
   const insets = useSafeAreaInsets();
   const queryClient = useQueryClient();
@@ -370,9 +374,9 @@ export default function TournamentsScreen() {
   const isRefetching = tournamentsRefetching || laddersRefetching;
 
   const tabs = [
-    { key: "upcoming" as TabType, label: "Upcoming", count: upcomingTournaments.length },
-    { key: "my_tournaments" as TabType, label: "My Events", count: myTournaments.length },
-    { key: "ladders" as TabType, label: "Ladders", count: ladders.filter(l => l.isJoined).length },
+    { key: "upcoming" as TabType, label: t("player.tournaments.upcoming"), count: upcomingTournaments.length },
+    { key: "my_tournaments" as TabType, label: t("player.tournaments.myTournaments"), count: myTournaments.length },
+    { key: "ladders" as TabType, label: t("player.tournaments.ladders"), count: ladders.filter(l => l.isJoined).length },
   ];
 
   const renderContent = () => {
@@ -388,9 +392,9 @@ export default function TournamentsScreen() {
       return (
         <View style={styles.loadingContainer}>
           <Ionicons name="alert-circle-outline" size={48} color="#FF4D4D" />
-          <Text style={styles.errorTitle}>Failed to load tournaments</Text>
+          <Text style={styles.errorTitle}>{t("common.error")}</Text>
           <Pressable onPress={() => refetchTournaments()} style={styles.retryBtn}>
-            <Text style={styles.retryBtnText}>Try Again</Text>
+            <Text style={styles.retryBtnText}>{t("common.retry")}</Text>
           </Pressable>
         </View>
       );
@@ -400,9 +404,9 @@ export default function TournamentsScreen() {
       return (
         <View style={styles.loadingContainer}>
           <Ionicons name="alert-circle-outline" size={48} color="#FF4D4D" />
-          <Text style={styles.errorTitle}>Failed to load ladders</Text>
+          <Text style={styles.errorTitle}>{t("common.error")}</Text>
           <Pressable onPress={() => refetchLadders()} style={styles.retryBtn}>
-            <Text style={styles.retryBtnText}>Try Again</Text>
+            <Text style={styles.retryBtnText}>{t("common.retry")}</Text>
           </Pressable>
         </View>
       );
@@ -427,7 +431,7 @@ export default function TournamentsScreen() {
             refreshControl={
               <RefreshControl refreshing={isRefetching} onRefresh={handleRefresh} tintColor={GlowColors.primary} />
             }
-            ListEmptyComponent={<EmptyState icon="trophy-outline" title="No Upcoming Tournaments" />}
+            ListEmptyComponent={<EmptyState icon="trophy-outline" title={t("player.tournaments.noTournaments")} />}
           />
         );
       case "my_tournaments":
@@ -448,7 +452,7 @@ export default function TournamentsScreen() {
             refreshControl={
               <RefreshControl refreshing={isRefetching} onRefresh={handleRefresh} tintColor={GlowColors.primary} />
             }
-            ListEmptyComponent={<EmptyState icon="calendar-outline" title="No Registered Events" />}
+            ListEmptyComponent={<EmptyState icon="calendar-outline" title={t("player.tournaments.noTournaments")} />}
           />
         );
       case "ladders":
@@ -469,7 +473,7 @@ export default function TournamentsScreen() {
             refreshControl={
               <RefreshControl refreshing={isRefetching} onRefresh={handleRefresh} tintColor={GlowColors.primary} />
             }
-            ListEmptyComponent={<EmptyState icon="podium-outline" title="No Ladders Available" />}
+            ListEmptyComponent={<EmptyState icon="podium-outline" title={t("player.tournaments.noTournaments")} />}
           />
         );
     }
@@ -481,7 +485,7 @@ export default function TournamentsScreen() {
         <Pressable style={styles.backBtn} onPress={() => navigation.goBack()}>
           <Ionicons name="chevron-back" size={22} color={GlowColors.primary} />
         </Pressable>
-        <Text style={styles.headerTitle}>Tournaments</Text>
+        <Text style={styles.headerTitle}>{t("player.tournaments.title")}</Text>
         <View style={styles.headerRight} />
       </View>
 
@@ -520,7 +524,7 @@ function EmptyState({ icon, title }: { icon: string; title: string }) {
     <View style={styles.empty}>
       <Ionicons name={icon as any} size={48} color={TextColors.muted} />
       <Text style={styles.emptyTitle}>{title}</Text>
-      <Text style={styles.emptyText}>Check back later for new events</Text>
+      <Text style={styles.emptyText}></Text>
     </View>
   );
 }

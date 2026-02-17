@@ -10,6 +10,7 @@ import {
   ActivityIndicator,
   RefreshControl,
 } from "react-native";
+import { useTranslation } from "react-i18next";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation, useRoute } from "@react-navigation/native";
 import Ionicons from "@expo/vector-icons/Ionicons";
@@ -95,6 +96,7 @@ function ChallengeModal({
   onConfirm: () => void;
   isLoading?: boolean;
 }) {
+  const { t } = useTranslation();
   const insets = useSafeAreaInsets();
 
   if (!player) return null;
@@ -105,7 +107,7 @@ function ChallengeModal({
         <Pressable style={modalStyles.backdrop} onPress={onClose} />
         <View style={[modalStyles.content, { paddingBottom: insets.bottom + 20 }]}>
           <View style={modalStyles.header}>
-            <Text style={modalStyles.title}>Challenge Player</Text>
+            <Text style={modalStyles.title}>{t("player.tournaments.challenge")}</Text>
             <Pressable onPress={onClose}>
               <Ionicons name="close-circle" size={28} color={TextColors.muted} />
             </Pressable>
@@ -118,9 +120,9 @@ function ChallengeModal({
               </View>
               <View style={modalStyles.playerInfo}>
                 <Text style={modalStyles.playerName}>{player.name}</Text>
-                <Text style={modalStyles.playerPosition}>Position #{player.position}</Text>
+                <Text style={modalStyles.playerPosition}>{t("player.tournaments.position")} #{player.position}</Text>
                 <Text style={modalStyles.playerRecord}>
-                  Record: {player.wins}W - {player.losses}L
+                  {t("player.tournaments.wins")}: {player.wins} - {t("player.tournaments.losses")}: {player.losses}
                 </Text>
               </View>
             </View>
@@ -151,12 +153,12 @@ function ChallengeModal({
               {isLoading ? (
                 <ActivityIndicator color="rgba(255, 255, 255, 0.06)" />
               ) : (
-                <Text style={modalStyles.confirmButtonText}>Send Challenge</Text>
+                <Text style={modalStyles.confirmButtonText}>{t("player.tournaments.challenge")}</Text>
               )}
             </Pressable>
 
             <Pressable style={modalStyles.cancelButton} onPress={onClose}>
-              <Text style={modalStyles.cancelButtonText}>Cancel</Text>
+              <Text style={modalStyles.cancelButtonText}>{t("common.cancel")}</Text>
             </Pressable>
           </View>
         </View>
@@ -166,6 +168,7 @@ function ChallengeModal({
 }
 
 export default function LadderDetailScreen() {
+  const { t } = useTranslation();
   const navigation = useNavigation<NavigationProp>();
   const route = useRoute<RouteProps>();
   const insets = useSafeAreaInsets();
@@ -259,7 +262,7 @@ export default function LadderDetailScreen() {
           onPress={() => handleChallenge(item)}
         >
           <Ionicons name="flash" size={16} color={"rgba(255, 255, 255, 0.06)"} />
-          <Text style={styles.challengeButtonText}>Challenge</Text>
+          <Text style={styles.challengeButtonText}>{t("player.tournaments.challenge")}</Text>
         </Pressable>
       ) : null}
     </View>
@@ -284,7 +287,7 @@ export default function LadderDetailScreen() {
 
       {showRules ? (
         <View style={styles.rulesCard}>
-          <Text style={styles.rulesTitle}>Ladder Rules</Text>
+          <Text style={styles.rulesTitle}>{t("player.tournaments.rules")}</Text>
           {(ladder.rules || []).map((rule, index) => (
             <View key={index} style={styles.ruleRow}>
               <View style={styles.ruleBullet} />
@@ -299,7 +302,7 @@ export default function LadderDetailScreen() {
           <View style={styles.myPositionLeft}>
             <Ionicons name="podium" size={32} color={GlowColors.primary} />
             <View>
-              <Text style={styles.myPositionLabel}>Your Position</Text>
+              <Text style={styles.myPositionLabel}>{t("player.tournaments.position")}</Text>
               <Text style={styles.myPositionValue}>#{myPosition}</Text>
             </View>
           </View>
@@ -314,7 +317,7 @@ export default function LadderDetailScreen() {
 
       {myChallenges.length > 0 ? (
         <View style={styles.challengesSection}>
-          <Text style={styles.sectionTitle}>Active Challenges</Text>
+          <Text style={styles.sectionTitle}>{t("player.tournaments.activeChallenges")}</Text>
           {myChallenges.map((challenge) => (
             <View key={challenge.id} style={styles.challengeCard}>
               <View style={styles.challengeHeader}>
@@ -381,10 +384,10 @@ export default function LadderDetailScreen() {
           />
         }
       >
-        <Text style={styles.sectionTitle}>Rankings</Text>
+        <Text style={styles.sectionTitle}>{t("player.tournaments.position")}</Text>
         {players.map((player) => renderPlayerItem({ item: player }))}
 
-        <Text style={[styles.sectionTitle, { marginTop: Spacing.xl }]}>Recent Results</Text>
+        <Text style={[styles.sectionTitle, { marginTop: Spacing.xl }]}>{t("player.tournaments.recentResults")}</Text>
         {recentResults.map((result) => (
           <View key={result.id} style={styles.resultCard}>
             <View style={styles.resultMatch}>
