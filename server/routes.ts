@@ -123,6 +123,7 @@ import playerChatRoutes from "./routes/player-chat";
 import coachEarningsRoutes from "./routes/coach-earnings";
 import playerBookingRoutes from "./routes/player-booking";
 import playerSocialRoutes from "./routes/player-social";
+import tournamentsLaddersRouter from "./routes/tournaments-ladders";
 import { filterProfanity } from "./profanityFilter";
 import { isPlayerMinor, getPlayerParentalControls } from "./childSafety";
 import { chatRateLimiter, postRateLimiter } from "./rateLimiter";
@@ -318,6 +319,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.use(coachEarningsRoutes);
   app.use(playerBookingRoutes);
   app.use(playerSocialRoutes);
+  app.use(tournamentsLaddersRouter);
 
   // ==================== HEALTH CHECK ====================
   

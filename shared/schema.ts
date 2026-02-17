@@ -5868,3 +5868,134 @@ export const spotlightMonthlyWinners = pgTable("spotlight_monthly_winners", {
 export const insertSpotlightMonthlyWinnerSchema = createInsertSchema(spotlightMonthlyWinners).omit({ id: true, createdAt: true });
 export type InsertSpotlightMonthlyWinner = z.infer<typeof insertSpotlightMonthlyWinnerSchema>;
 export type SpotlightMonthlyWinner = typeof spotlightMonthlyWinners.$inferSelect;
+
+// ==================== TOURNAMENTS & LADDERS ====================
+
+export const tournaments = pgTable("tournaments", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  academyId: varchar("academy_id").references(() => academies.id).notNull(),
+  name: text("name").notNull(),
+  type: text("type").notNull(),
+  format: text("format").notNull(),
+  startDate: date("start_date").notNull(),
+  endDate: date("end_date").notNull(),
+  location: text("location").notNull(),
+  address: text("address"),
+  description: text("description"),
+  entryFee: numeric("entry_fee"),
+  spotsTotal: integer("spots_total").notNull().default(32),
+  status: text("status").notNull().default("upcoming"),
+  createdBy: varchar("created_by").references(() => users.id).notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("tournaments_academy_idx").on(table.academyId),
+  index("tournaments_status_idx").on(table.status),
+]);
+
+export const insertTournamentSchema = createInsertSchema(tournaments).omit({ id: true, createdAt: true, updatedAt: true });
+export type InsertTournament = z.infer<typeof insertTournamentSchema>;
+export type Tournament = typeof tournaments.$inferSelect;
+
+export const tournamentParticipants = pgTable("tournament_participants", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  tournamentId: varchar("tournament_id").references(() => tournaments.id).notNull(),
+  playerId: varchar("player_id").references(() => players.id).notNull(),
+  seed: integer("seed"),
+  status: text("status").notNull().default("registered"),
+  registeredAt: timestamp("registered_at").defaultNow(),
+}, (table) => [
+  index("tp_tournament_idx").on(table.tournamentId),
+  index("tp_player_idx").on(table.playerId),
+  unique("tp_unique_entry").on(table.tournamentId, table.playerId),
+]);
+
+export const insertTournamentParticipantSchema = createInsertSchema(tournamentParticipants).omit({ id: true, registeredAt: true });
+export type InsertTournamentParticipant = z.infer<typeof insertTournamentParticipantSchema>;
+export type TournamentParticipant = typeof tournamentParticipants.$inferSelect;
+
+export const tournamentMatches = pgTable("tournament_matches", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  tournamentId: varchar("tournament_id").references(() => tournaments.id).notNull(),
+  round: text("round").notNull(),
+  matchOrder: integer("match_order").notNull().default(0),
+  player1Id: varchar("player1_id").references(() => players.id),
+  player2Id: varchar("player2_id").references(() => players.id),
+  score: text("score"),
+  winnerId: varchar("winner_id").references(() => players.id),
+  court: text("court"),
+  scheduledTime: timestamp("scheduled_time"),
+  completedAt: timestamp("completed_at"),
+  status: text("status").notNull().default("scheduled"),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("tm_tournament_idx").on(table.tournamentId),
+  index("tm_player1_idx").on(table.player1Id),
+  index("tm_player2_idx").on(table.player2Id),
+]);
+
+export const insertTournamentMatchSchema = createInsertSchema(tournamentMatches).omit({ id: true, createdAt: true });
+export type InsertTournamentMatch = z.infer<typeof insertTournamentMatchSchema>;
+export type TournamentMatch = typeof tournamentMatches.$inferSelect;
+
+export const ladders = pgTable("ladders", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  academyId: varchar("academy_id").references(() => academies.id).notNull(),
+  name: text("name").notNull(),
+  type: text("type").notNull(),
+  description: text("description"),
+  challengeRange: integer("challenge_range").notNull().default(3),
+  challengeWindowDays: integer("challenge_window_days").notNull().default(7),
+  rules: jsonb("rules").$type<string[]>(),
+  status: text("status").notNull().default("active"),
+  createdBy: varchar("created_by").references(() => users.id).notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("ladders_academy_idx").on(table.academyId),
+]);
+
+export const insertLadderSchema = createInsertSchema(ladders).omit({ id: true, createdAt: true, updatedAt: true });
+export type InsertLadder = z.infer<typeof insertLadderSchema>;
+export type Ladder = typeof ladders.$inferSelect;
+
+export const ladderPlayers = pgTable("ladder_players", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  ladderId: varchar("ladder_id").references(() => ladders.id).notNull(),
+  playerId: varchar("player_id").references(() => players.id).notNull(),
+  position: integer("position").notNull(),
+  wins: integer("wins").notNull().default(0),
+  losses: integer("losses").notNull().default(0),
+  joinedAt: timestamp("joined_at").defaultNow(),
+}, (table) => [
+  index("lp_ladder_idx").on(table.ladderId),
+  index("lp_player_idx").on(table.playerId),
+  unique("lp_unique_entry").on(table.ladderId, table.playerId),
+]);
+
+export const insertLadderPlayerSchema = createInsertSchema(ladderPlayers).omit({ id: true, joinedAt: true });
+export type InsertLadderPlayer = z.infer<typeof insertLadderPlayerSchema>;
+export type LadderPlayer = typeof ladderPlayers.$inferSelect;
+
+export const ladderChallenges = pgTable("ladder_challenges", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  ladderId: varchar("ladder_id").references(() => ladders.id).notNull(),
+  challengerId: varchar("challenger_id").references(() => players.id).notNull(),
+  challengedId: varchar("challenged_id").references(() => players.id).notNull(),
+  challengerPosition: integer("challenger_position").notNull(),
+  challengedPosition: integer("challenged_position").notNull(),
+  status: text("status").notNull().default("pending"),
+  winnerId: varchar("winner_id").references(() => players.id),
+  score: text("score"),
+  deadline: timestamp("deadline"),
+  completedAt: timestamp("completed_at"),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("lc_ladder_idx").on(table.ladderId),
+  index("lc_challenger_idx").on(table.challengerId),
+  index("lc_challenged_idx").on(table.challengedId),
+]);
+
+export const insertLadderChallengeSchema = createInsertSchema(ladderChallenges).omit({ id: true, createdAt: true });
+export type InsertLadderChallenge = z.infer<typeof insertLadderChallengeSchema>;
+export type LadderChallenge = typeof ladderChallenges.$inferSelect;
