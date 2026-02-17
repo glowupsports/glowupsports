@@ -8408,8 +8408,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const pendingFeedback = Math.max(0, sessionsCompleted - sessionsWithFeedback);
         const nextSessionDate = nextSessionMap.get(s.id) || null;
         
-        // Get player preview data (first 4 players with names and ball levels)
-        const playerPreview = activePlayers.slice(0, 4).map(p => ({
+        const playerPreview = activePlayers.map(p => ({
           id: p.playerId,
           name: p.playerName || "Unknown",
           ballLevel: p.playerBallLevel || null,
