@@ -1873,7 +1873,9 @@ export default function CalendarScreen() {
         <View style={styles.togglesRow}>
           <CoachMarkTarget id="cal_view_toggle">
           <View style={styles.viewToggleCompact}>
-            {(["day", "week", "month"] as const).map((mode) => (
+            {(["day", "week", "month"] as const).map((mode) => {
+              const modeLabels = { day: "Day", week: "Week", month: "Month" };
+              return (
               <Pressable
                 key={mode}
                 style={[styles.viewButtonCompact, viewMode === mode && styles.viewButtonCompactActive]}
@@ -1883,10 +1885,11 @@ export default function CalendarScreen() {
                 }}
               >
                 <Text style={[styles.viewButtonTextCompact, viewMode === mode && styles.viewButtonTextCompactActive]}>
-                  {mode.charAt(0).toUpperCase()}
+                  {modeLabels[mode]}
                 </Text>
               </Pressable>
-            ))}
+              );
+            })}
           </View>
           </CoachMarkTarget>
 
@@ -1897,12 +1900,14 @@ export default function CalendarScreen() {
                 onPress={() => setDayMode("overview")}
               >
                 <Ionicons name="list-outline" size={12} color={dayMode === "overview" ? "#1A1A1A" : Colors.dark.textMuted} />
+                <Text style={[styles.viewButtonTextCompact, { marginLeft: 4 }, dayMode === "overview" && styles.viewButtonTextCompactActive]}>List</Text>
               </Pressable>
               <Pressable
                 style={[styles.viewButtonCompact, dayMode === "slots" && styles.viewButtonCompactActive]}
                 onPress={() => setDayMode("slots")}
               >
                 <Ionicons name="grid-outline" size={12} color={dayMode === "slots" ? "#1A1A1A" : Colors.dark.textMuted} />
+                <Text style={[styles.viewButtonTextCompact, { marginLeft: 4 }, dayMode === "slots" && styles.viewButtonTextCompactActive]}>Slots</Text>
               </Pressable>
             </View>
           ) : null}
@@ -1913,12 +1918,14 @@ export default function CalendarScreen() {
                 onPress={() => setWeekMode("overview")}
               >
                 <Ionicons name="analytics-outline" size={12} color={weekMode === "overview" ? "#1A1A1A" : Colors.dark.textMuted} />
+                <Text style={[styles.viewButtonTextCompact, { marginLeft: 4 }, weekMode === "overview" && styles.viewButtonTextCompactActive]}>Overview</Text>
               </Pressable>
               <Pressable
                 style={[styles.viewButtonCompact, weekMode === "availability" && styles.viewButtonCompactActive]}
                 onPress={() => setWeekMode("availability")}
               >
                 <Ionicons name="time-outline" size={12} color={weekMode === "availability" ? "#1A1A1A" : Colors.dark.textMuted} />
+                <Text style={[styles.viewButtonTextCompact, { marginLeft: 4 }, weekMode === "availability" && styles.viewButtonTextCompactActive]}>Availability</Text>
               </Pressable>
             </View>
           ) : null}
