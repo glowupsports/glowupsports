@@ -2777,7 +2777,7 @@ router.get("/api/player/spotlight/current-week", authMiddleware, requirePlayerOr
       const academyId = req.user?.academyId;
       const playerId = req.user?.playerId;
       if (!academyId) {
-        return res.status(400).json({ error: "Academy context required" });
+        return res.json({ weekStart: getWeekStart(), nominations: [], myNomination: null, daysRemaining: 0, totalVotes: 0 });
       }
 
       const weekStart = getWeekStart();
@@ -2836,7 +2836,7 @@ router.get("/api/player/spotlight/weekly-winner", authMiddleware, requirePlayerO
     try {
       const academyId = req.user?.academyId;
       if (!academyId) {
-        return res.status(400).json({ error: "Academy context required" });
+        return res.json({ winner: null });
       }
 
       let targetWeekStart = req.query.weekStart as string | undefined;
@@ -2945,7 +2945,7 @@ router.get("/api/player/spotlight/monthly", authMiddleware, requirePlayerOrOwner
     try {
       const academyId = req.user?.academyId;
       if (!academyId) {
-        return res.status(400).json({ error: "Academy context required" });
+        return res.json({ winner: null, leaderboard: [], weeklyWinners: [], month: new Date().getMonth() + 1, year: new Date().getFullYear() });
       }
 
       const now = new Date();
@@ -3053,7 +3053,7 @@ router.get("/api/player/spotlight/leaderboard", authMiddleware, requirePlayerOrO
     try {
       const academyId = req.user?.academyId;
       if (!academyId) {
-        return res.status(400).json({ error: "Academy context required" });
+        return res.json({ leaderboard: [], weekStart: getWeekStart() });
       }
 
       const weekStart = getWeekStart();
@@ -3103,7 +3103,7 @@ router.get("/api/player/spotlight/history", authMiddleware, requirePlayerOrOwner
     try {
       const academyId = req.user?.academyId;
       if (!academyId) {
-        return res.status(400).json({ error: "Academy context required" });
+        return res.json({ history: [] });
       }
 
       const twelveWeeksAgo = new Date();
