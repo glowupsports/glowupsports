@@ -225,37 +225,6 @@ function serveLandingPage({
   res.status(200).send(html);
 }
 
-function startExpoDevServer() {
-  if (process.env.NODE_ENV !== 'development') {
-    return;
-  }
-
-  const { spawn } = require('child_process');
-
-  log("[Expo] Starting Metro bundler on port 8081...");
-
-  const env = {
-    ...process.env,
-    EXPO_PACKAGER_PROXY_URL: `https://${process.env.REPLIT_DEV_DOMAIN}`,
-    REACT_NATIVE_PACKAGER_HOSTNAME: process.env.REPLIT_DEV_DOMAIN,
-    EXPO_PUBLIC_DOMAIN: `${process.env.REPLIT_DEV_DOMAIN}:5000`,
-  };
-
-  const expo = spawn('npx', ['expo', 'start', '--localhost'], {
-    env,
-    stdio: 'inherit',
-    shell: true,
-  });
-
-  expo.on('error', (err: Error) => {
-    log(`[Expo] Failed to start Metro: ${err.message}`);
-  });
-
-  expo.on('exit', (code: number) => {
-    log(`[Expo] Metro exited with code ${code}`);
-  });
-}
-
 function setupExpoDevProxy(app: express.Application) {
   if (process.env.NODE_ENV !== 'development') {
     return;
@@ -427,8 +396,6 @@ function setupErrorHandler(app: express.Application) {
     },
     async () => {
       log(`express server serving on port ${port}`);
-      
-      startExpoDevServer();
       
       startReminderScheduler();
       startDailyTipScheduler();
