@@ -225,6 +225,37 @@ function serveLandingPage({
   res.status(200).send(html);
 }
 
+function startExpoDevServer() {
+  if (process.env.NODE_ENV !== 'development') {
+    return;
+  }
+
+  const { spawn } = require('child_process');
+
+  log("[Expo] Starting Metro bundler on port 8081...");
+
+  const env = {
+    ...process.env,
+    EXPO_PACKAGER_PROXY_URL: `https://${process.env.REPLIT_DEV_DOMAIN}`,
+    REACT_NATIVE_PACKAGER_HOSTNAME: process.env.REPLIT_DEV_DOMAIN,
+    EXPO_PUBLIC_DOMAIN: `${process.env.REPLIT_DEV_DOMAIN}:5000`,
+  };
+
+  const expo = spawn('npx', ['expo', 'start', '--localhost'], {
+    env,
+    stdio: 'inherit',
+    shell: true,
+  });
+
+  expo.on('error', (err: Error) => {
+    log(`[Expo] Failed to start Metro: ${err.message}`);
+  });
+
+  expo.on('exit', (code: number) => {
+    log(`[Expo] Metro exited with code ${code}`);
+  });
+}
+
 function setupExpoDevProxy(app: express.Application) {
   if (process.env.NODE_ENV !== 'development') {
     return;
@@ -232,40 +263,17 @@ function setupExpoDevProxy(app: express.Application) {
 
   log("Setting up Expo dev server proxy on port 5000 -> 8081");
 
-  let metroAvailable = false;
-
-  const checkMetro = async () => {
-    try {
-      const http = await import('http');
-      return new Promise<boolean>((resolve) => {
-        const req = http.default.get('http://localhost:8081/status', { timeout: 1000 }, (res) => {
-          resolve(res.statusCode === 200);
-        });
-        req.on('error', () => resolve(false));
-        req.on('timeout', () => { req.destroy(); resolve(false); });
-      });
-    } catch {
-      return false;
-    }
-  };
-
-  setInterval(async () => {
-    metroAvailable = await checkMetro();
-  }, 5000);
-  checkMetro().then(v => { metroAvailable = v; });
-
   const expoProxy = createProxyMiddleware({
     target: 'http://localhost:8081',
     changeOrigin: true,
     ws: true,
     logger: console,
     on: {
-      error: (err, _req, res) => {
-        log(`Expo proxy error: ${err.message} - falling back to static files`);
-        metroAvailable = false;
-        if (res && 'writeHead' in res && typeof (res as any).writeHead === 'function' && !(res as any).headersSent) {
-          (res as any).writeHead(502);
-          (res as any).end('Metro bundler not running - using static build');
+      error: (err, req, res) => {
+        log(`Expo proxy error: ${err.message} - Metro may still be starting`);
+        if (res && typeof (res as any).writeHead === 'function' && !(res as any).headersSent) {
+          (res as any).writeHead(503);
+          (res as any).end('Metro bundler is starting up, please refresh in a moment...');
         }
       }
     }
@@ -276,9 +284,6 @@ function setupExpoDevProxy(app: express.Application) {
       return next();
     }
     if (req.path === '/manifest' && req.header('expo-platform')) {
-      return next();
-    }
-    if (!metroAvailable) {
       return next();
     }
     if (req.path.includes('.bundle')) {
@@ -422,6 +427,8 @@ function setupErrorHandler(app: express.Application) {
     },
     async () => {
       log(`express server serving on port ${port}`);
+      
+      startExpoDevServer();
       
       startReminderScheduler();
       startDailyTipScheduler();
