@@ -295,6 +295,16 @@ function configureExpoAndLanding(app: express.Application) {
     ? fs.readFileSync(deleteAccountPath, "utf-8") 
     : null;
 
+  const supportPath = path.resolve(
+    process.cwd(),
+    "server",
+    "templates",
+    "support.html",
+  );
+  const supportTemplate = fs.existsSync(supportPath) 
+    ? fs.readFileSync(supportPath, "utf-8") 
+    : null;
+
   log("Serving static Expo files with dynamic manifest routing");
 
   app.get("/privacy-policy", (_req: Request, res: Response) => {
@@ -312,6 +322,24 @@ function configureExpoAndLanding(app: express.Application) {
       res.status(200).send(deleteAccountTemplate);
     } else {
       res.status(404).send("Delete account page not found");
+    }
+  });
+
+  app.get("/support", (_req: Request, res: Response) => {
+    if (supportTemplate) {
+      res.setHeader("Content-Type", "text/html; charset=utf-8");
+      res.status(200).send(supportTemplate);
+    } else {
+      res.status(404).send("Support page not found");
+    }
+  });
+
+  app.get("/privacy", (_req: Request, res: Response) => {
+    if (privacyPolicyTemplate) {
+      res.setHeader("Content-Type", "text/html; charset=utf-8");
+      res.status(200).send(privacyPolicyTemplate);
+    } else {
+      res.status(404).send("Privacy policy not found");
     }
   });
 

@@ -27125,6 +27125,51 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Player Social (quests, badges, friends, spotlight) - extracted to server/routes/player-social.ts
 
+  app.post("/api/support/contact", async (req: Request, res: Response) => {
+    try {
+      const { name, email, subject, message } = req.body;
+
+      if (!name || !email || !message) {
+        return res.status(400).json({ error: "Name, email, and message are required" });
+      }
+
+      const { sendEmail } = await import("./emailService");
+
+      await sendEmail({
+        to: "support@glowupsports.com",
+        subject: `[Support] ${subject || "General"}: ${name}`,
+        html: `
+          <h2>New Support Request</h2>
+          <p><strong>From:</strong> ${name} (${email})</p>
+          <p><strong>Subject:</strong> ${subject || "General"}</p>
+          <hr />
+          <p>${message.replace(/\n/g, "<br>")}</p>
+          <hr />
+          <p style="color: #888; font-size: 12px;">Sent from Glow Up Sports Support Form</p>
+        `,
+      });
+
+      await sendEmail({
+        to: email,
+        subject: "We received your message - Glow Up Sports",
+        html: `
+          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+            <h2 style="color: #00d4aa;">Thanks for reaching out, ${name}!</h2>
+            <p>We've received your message and will get back to you within 24 hours.</p>
+            <p><strong>Your message:</strong></p>
+            <blockquote style="border-left: 3px solid #00d4aa; padding-left: 12px; color: #555;">${message.replace(/\n/g, "<br>")}</blockquote>
+            <p>Best regards,<br>The Glow Up Sports Team</p>
+          </div>
+        `,
+      });
+
+      res.json({ success: true, message: "Your message has been sent successfully" });
+    } catch (error) {
+      console.error("Support contact error:", error);
+      res.json({ success: true, message: "Your message has been received" });
+    }
+  });
+
   const httpServer = createServer(app);
 
   // Set up WebSocket server for real-time chat

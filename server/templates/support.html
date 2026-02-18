@@ -1,0 +1,761 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Support - Glow Up Sports</title>
+  <meta name="description" content="Get help with Glow Up Sports tennis coaching app. Contact support, browse FAQs, and find answers to common questions.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    :root {
+      --primary-green: #00FF88;
+      --primary-cyan: #00D4FF;
+      --primary-purple: #A855F7;
+      --primary-pink: #FF1493;
+      --bg-dark: #0a0a1a;
+      --bg-card: rgba(255,255,255,0.05);
+      --text-primary: #ffffff;
+      --text-secondary: rgba(255,255,255,0.7);
+      --text-muted: rgba(255,255,255,0.5);
+      --border-color: rgba(255,255,255,0.1);
+    }
+
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      background: linear-gradient(135deg, #0a0a1a 0%, #1a0a2e 50%, #0a1a2e 100%);
+      color: var(--text-primary);
+      line-height: 1.6;
+      min-height: 100vh;
+    }
+
+    .container {
+      max-width: 800px;
+      margin: 0 auto;
+      padding: 0 24px;
+    }
+
+    nav {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      z-index: 1000;
+      background: rgba(10,10,26,0.95);
+      backdrop-filter: blur(10px);
+      border-bottom: 1px solid var(--border-color);
+    }
+
+    .nav-container {
+      max-width: 800px;
+      margin: 0 auto;
+      padding: 16px 24px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .logo {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      text-decoration: none;
+      color: var(--text-primary);
+      font-weight: 700;
+      font-size: 18px;
+    }
+
+    .logo-icon {
+      width: 36px;
+      height: 36px;
+      background: linear-gradient(135deg, var(--primary-green), var(--primary-cyan));
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 18px;
+    }
+
+    .nav-back {
+      color: var(--text-secondary);
+      text-decoration: none;
+      font-size: 14px;
+      font-weight: 500;
+      transition: color 0.2s;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .nav-back:hover {
+      color: var(--primary-green);
+    }
+
+    .hero {
+      padding: 120px 0 48px;
+      text-align: center;
+    }
+
+    .hero h1 {
+      font-size: 40px;
+      font-weight: 800;
+      margin-bottom: 12px;
+      background: linear-gradient(135deg, var(--primary-green), var(--primary-cyan));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .hero p {
+      color: var(--text-secondary);
+      font-size: 17px;
+      max-width: 500px;
+      margin: 0 auto;
+    }
+
+    .section-title {
+      font-size: 24px;
+      font-weight: 700;
+      margin-bottom: 24px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .section-title-icon {
+      width: 32px;
+      height: 32px;
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 16px;
+      flex-shrink: 0;
+    }
+
+    .contact-section {
+      padding: 0 0 64px;
+    }
+
+    .contact-form {
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: 16px;
+      padding: 32px;
+      backdrop-filter: blur(10px);
+    }
+
+    .form-group {
+      margin-bottom: 20px;
+    }
+
+    .form-group label {
+      display: block;
+      font-size: 14px;
+      font-weight: 600;
+      margin-bottom: 8px;
+      color: var(--text-secondary);
+    }
+
+    .form-group label .required {
+      color: var(--primary-green);
+      margin-left: 2px;
+    }
+
+    .form-input,
+    .form-select,
+    .form-textarea {
+      width: 100%;
+      padding: 14px 16px;
+      background: rgba(255,255,255,0.06);
+      border: 1px solid var(--border-color);
+      border-radius: 10px;
+      color: var(--text-primary);
+      font-family: 'Inter', sans-serif;
+      font-size: 15px;
+      transition: border-color 0.2s, box-shadow 0.2s;
+      outline: none;
+    }
+
+    .form-input::placeholder,
+    .form-textarea::placeholder {
+      color: var(--text-muted);
+    }
+
+    .form-input:focus,
+    .form-select:focus,
+    .form-textarea:focus {
+      border-color: var(--primary-green);
+      box-shadow: 0 0 0 3px rgba(0,255,136,0.1);
+    }
+
+    .form-input.error,
+    .form-select.error,
+    .form-textarea.error {
+      border-color: #FF4444;
+      box-shadow: 0 0 0 3px rgba(255,68,68,0.1);
+    }
+
+    .form-error-text {
+      color: #FF4444;
+      font-size: 12px;
+      margin-top: 6px;
+      display: none;
+    }
+
+    .form-error-text.visible {
+      display: block;
+    }
+
+    .form-select {
+      appearance: none;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23ffffff80' d='M6 8L1 3h10z'/%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 16px center;
+      padding-right: 40px;
+      cursor: pointer;
+    }
+
+    .form-select option {
+      background: #1a1a2e;
+      color: #fff;
+    }
+
+    .form-textarea {
+      min-height: 140px;
+      resize: vertical;
+    }
+
+    .btn-submit {
+      width: 100%;
+      padding: 16px 24px;
+      background: linear-gradient(135deg, var(--primary-green), var(--primary-cyan));
+      color: #000;
+      border: none;
+      border-radius: 10px;
+      font-family: 'Inter', sans-serif;
+      font-size: 16px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: transform 0.2s, box-shadow 0.2s, opacity 0.2s;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+    }
+
+    .btn-submit:hover:not(:disabled) {
+      transform: translateY(-2px);
+      box-shadow: 0 10px 30px rgba(0,255,136,0.3);
+    }
+
+    .btn-submit:disabled {
+      opacity: 0.7;
+      cursor: not-allowed;
+    }
+
+    .spinner {
+      width: 18px;
+      height: 18px;
+      border: 2px solid rgba(0,0,0,0.2);
+      border-top-color: #000;
+      border-radius: 50%;
+      animation: spin 0.6s linear infinite;
+      display: none;
+    }
+
+    .btn-submit.loading .spinner {
+      display: block;
+    }
+
+    .btn-submit.loading .btn-text {
+      display: none;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    .form-message {
+      padding: 14px 16px;
+      border-radius: 10px;
+      font-size: 14px;
+      font-weight: 500;
+      margin-bottom: 20px;
+      display: none;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .form-message.visible {
+      display: flex;
+    }
+
+    .form-message.success {
+      background: rgba(0,255,136,0.1);
+      border: 1px solid rgba(0,255,136,0.3);
+      color: var(--primary-green);
+    }
+
+    .form-message.error-msg {
+      background: rgba(255,68,68,0.1);
+      border: 1px solid rgba(255,68,68,0.3);
+      color: #FF6666;
+    }
+
+    .faq-section {
+      padding: 0 0 64px;
+    }
+
+    .faq-list {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .faq-item {
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: 12px;
+      overflow: hidden;
+      transition: border-color 0.2s;
+    }
+
+    .faq-item:hover {
+      border-color: rgba(255,255,255,0.2);
+    }
+
+    .faq-question {
+      width: 100%;
+      padding: 18px 20px;
+      background: none;
+      border: none;
+      color: var(--text-primary);
+      font-family: 'Inter', sans-serif;
+      font-size: 15px;
+      font-weight: 600;
+      text-align: left;
+      cursor: pointer;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 16px;
+      transition: color 0.2s;
+    }
+
+    .faq-question:hover {
+      color: var(--primary-green);
+    }
+
+    .faq-chevron {
+      width: 20px;
+      height: 20px;
+      flex-shrink: 0;
+      transition: transform 0.3s ease;
+    }
+
+    .faq-item.open .faq-chevron {
+      transform: rotate(180deg);
+    }
+
+    .faq-answer {
+      max-height: 0;
+      overflow: hidden;
+      transition: max-height 0.3s ease, padding 0.3s ease;
+    }
+
+    .faq-item.open .faq-answer {
+      max-height: 300px;
+    }
+
+    .faq-answer-inner {
+      padding: 0 20px 18px;
+      color: var(--text-secondary);
+      font-size: 14px;
+      line-height: 1.7;
+    }
+
+    .quick-contact {
+      padding: 0 0 64px;
+    }
+
+    .quick-contact-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+    }
+
+    .quick-contact-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: 12px;
+      padding: 24px;
+      transition: border-color 0.2s;
+    }
+
+    .quick-contact-card:hover {
+      border-color: rgba(255,255,255,0.2);
+    }
+
+    .quick-contact-card .card-icon {
+      width: 40px;
+      height: 40px;
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 18px;
+      margin-bottom: 14px;
+    }
+
+    .card-icon.green { background: rgba(0,255,136,0.15); }
+    .card-icon.cyan { background: rgba(0,212,255,0.15); }
+    .card-icon.purple { background: rgba(168,85,247,0.15); }
+    .card-icon.pink { background: rgba(255,20,147,0.15); }
+
+    .quick-contact-card h3 {
+      font-size: 14px;
+      font-weight: 600;
+      margin-bottom: 4px;
+      color: var(--text-secondary);
+    }
+
+    .quick-contact-card p {
+      font-size: 15px;
+      font-weight: 600;
+    }
+
+    .quick-contact-card a {
+      color: var(--primary-cyan);
+      text-decoration: none;
+      font-size: 15px;
+      font-weight: 600;
+      transition: color 0.2s;
+    }
+
+    .quick-contact-card a:hover {
+      color: var(--primary-green);
+    }
+
+    footer {
+      padding: 32px 0;
+      border-top: 1px solid var(--border-color);
+      text-align: center;
+    }
+
+    .footer-text {
+      color: var(--text-muted);
+      font-size: 13px;
+    }
+
+    @media (max-width: 640px) {
+      .hero h1 {
+        font-size: 30px;
+      }
+
+      .hero p {
+        font-size: 15px;
+      }
+
+      .contact-form {
+        padding: 24px 20px;
+      }
+
+      .quick-contact-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .section-title {
+        font-size: 20px;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <nav>
+    <div class="nav-container">
+      <a href="/" class="logo">
+        <div class="logo-icon">&#127934;</div>
+        <span>Glow Up Sports</span>
+      </a>
+      <a href="/" class="nav-back">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M10 12L6 8l4-4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        Back to Home
+      </a>
+    </div>
+  </nav>
+
+  <section class="hero">
+    <div class="container">
+      <h1>How can we help?</h1>
+      <p>We're here to make sure your experience with Glow Up Sports is nothing short of amazing. Browse our FAQs or send us a message.</p>
+    </div>
+  </section>
+
+  <section class="contact-section">
+    <div class="container">
+      <div class="section-title">
+        <div class="section-title-icon" style="background: rgba(0,255,136,0.15);">&#9993;</div>
+        Contact Us
+      </div>
+      <div class="contact-form">
+        <div id="formMessage" class="form-message">
+          <span id="formMessageIcon"></span>
+          <span id="formMessageText"></span>
+        </div>
+        <form id="supportForm" novalidate>
+          <div class="form-group">
+            <label for="name">Name <span class="required">*</span></label>
+            <input type="text" id="name" class="form-input" placeholder="Your full name" required>
+            <div class="form-error-text" id="nameError">Please enter your name.</div>
+          </div>
+          <div class="form-group">
+            <label for="email">Email <span class="required">*</span></label>
+            <input type="email" id="email" class="form-input" placeholder="you@example.com" required>
+            <div class="form-error-text" id="emailError">Please enter a valid email address.</div>
+          </div>
+          <div class="form-group">
+            <label for="subject">Subject</label>
+            <select id="subject" class="form-select">
+              <option value="General Question">General Question</option>
+              <option value="Bug Report">Bug Report</option>
+              <option value="Feature Request">Feature Request</option>
+              <option value="Account Issue">Account Issue</option>
+              <option value="Billing">Billing</option>
+              <option value="Other">Other</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="message">Message <span class="required">*</span></label>
+            <textarea id="message" class="form-textarea" placeholder="Tell us how we can help..." required></textarea>
+            <div class="form-error-text" id="messageError">Please enter your message.</div>
+          </div>
+          <button type="submit" class="btn-submit" id="submitBtn">
+            <span class="btn-text">Send Message</span>
+            <div class="spinner"></div>
+          </button>
+        </form>
+      </div>
+    </div>
+  </section>
+
+  <section class="faq-section">
+    <div class="container">
+      <div class="section-title">
+        <div class="section-title-icon" style="background: rgba(0,212,255,0.15);">&#10067;</div>
+        Frequently Asked Questions
+      </div>
+      <div class="faq-list">
+        <div class="faq-item">
+          <button class="faq-question" aria-expanded="false">
+            <span>How do I book a lesson?</span>
+            <svg class="faq-chevron" viewBox="0 0 20 20" fill="none"><path d="M5 7.5L10 12.5L15 7.5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </button>
+          <div class="faq-answer"><div class="faq-answer-inner">You can book lessons through the app. Go to the Book tab, select your preferred coach, choose a time slot, and confirm your booking.</div></div>
+        </div>
+        <div class="faq-item">
+          <button class="faq-question" aria-expanded="false">
+            <span>How does the credit system work?</span>
+            <svg class="faq-chevron" viewBox="0 0 20 20" fill="none"><path d="M5 7.5L10 12.5L15 7.5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </button>
+          <div class="faq-answer"><div class="faq-answer-inner">Credits are used to pay for lessons. Your academy assigns credit packages. Private lessons cost 1 private credit, semi-private lessons cost 1 semi-private credit per player, and group lessons cost 1 group credit.</div></div>
+        </div>
+        <div class="faq-item">
+          <button class="faq-question" aria-expanded="false">
+            <span>How do I track my progress?</span>
+            <svg class="faq-chevron" viewBox="0 0 20 20" fill="none"><path d="M5 7.5L10 12.5L15 7.5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </button>
+          <div class="faq-answer"><div class="faq-answer-inner">Your progress is automatically tracked after each session. Your coach provides feedback and skill assessments. View your progress in the Progress tab.</div></div>
+        </div>
+        <div class="faq-item">
+          <button class="faq-question" aria-expanded="false">
+            <span>Can I cancel a booked session?</span>
+            <svg class="faq-chevron" viewBox="0 0 20 20" fill="none"><path d="M5 7.5L10 12.5L15 7.5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </button>
+          <div class="faq-answer"><div class="faq-answer-inner">Contact your coach or academy to cancel a session. Cancellation policies vary by academy.</div></div>
+        </div>
+        <div class="faq-item">
+          <button class="faq-question" aria-expanded="false">
+            <span>How do I change my password?</span>
+            <svg class="faq-chevron" viewBox="0 0 20 20" fill="none"><path d="M5 7.5L10 12.5L15 7.5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </button>
+          <div class="faq-answer"><div class="faq-answer-inner">Go to Settings in the app and select "Change Password" to update your credentials.</div></div>
+        </div>
+        <div class="faq-item">
+          <button class="faq-question" aria-expanded="false">
+            <span>What is the Glow Leveling system?</span>
+            <svg class="faq-chevron" viewBox="0 0 20 20" fill="none"><path d="M5 7.5L10 12.5L15 7.5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </button>
+          <div class="faq-answer"><div class="faq-answer-inner">The Glow Leveling system tracks your tennis skills across 6 pillars (Forehand, Backhand, Serve, Volley, Movement, Tactical). You level up by demonstrating skills during sessions.</div></div>
+        </div>
+        <div class="faq-item">
+          <button class="faq-question" aria-expanded="false">
+            <span>How do I contact my coach?</span>
+            <svg class="faq-chevron" viewBox="0 0 20 20" fill="none"><path d="M5 7.5L10 12.5L15 7.5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </button>
+          <div class="faq-answer"><div class="faq-answer-inner">Use the in-app chat feature to message your coach directly. You can also view their profile for contact information.</div></div>
+        </div>
+        <div class="faq-item">
+          <button class="faq-question" aria-expanded="false">
+            <span>Is my data safe?</span>
+            <svg class="faq-chevron" viewBox="0 0 20 20" fill="none"><path d="M5 7.5L10 12.5L15 7.5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </button>
+          <div class="faq-answer"><div class="faq-answer-inner">Yes! We use encryption and secure servers to protect your data. Read our full <a href="/privacy-policy" style="color: var(--primary-cyan); text-decoration: underline;">Privacy Policy</a> for details.</div></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="quick-contact">
+    <div class="container">
+      <div class="section-title">
+        <div class="section-title-icon" style="background: rgba(168,85,247,0.15);">&#128172;</div>
+        Quick Contact
+      </div>
+      <div class="quick-contact-grid">
+        <div class="quick-contact-card">
+          <div class="card-icon green">&#9993;</div>
+          <h3>Email Us</h3>
+          <a href="mailto:support@glowupsports.com">support@glowupsports.com</a>
+        </div>
+        <div class="quick-contact-card">
+          <div class="card-icon cyan">&#9200;</div>
+          <h3>Response Time</h3>
+          <p>Within 24 hours</p>
+        </div>
+        <div class="quick-contact-card">
+          <div class="card-icon purple">&#128274;</div>
+          <h3>Privacy Policy</h3>
+          <a href="/privacy-policy">View Privacy Policy</a>
+        </div>
+        <div class="quick-contact-card">
+          <div class="card-icon pink">&#128100;</div>
+          <h3>Delete Account</h3>
+          <a href="/delete-account">Request Account Deletion</a>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <footer>
+    <div class="container">
+      <p class="footer-text">&copy; 2026 Glow Up Sports. All rights reserved.</p>
+    </div>
+  </footer>
+
+  <script>
+    (function() {
+      var faqItems = document.querySelectorAll('.faq-item');
+      faqItems.forEach(function(item) {
+        var btn = item.querySelector('.faq-question');
+        btn.addEventListener('click', function() {
+          var isOpen = item.classList.contains('open');
+          faqItems.forEach(function(other) {
+            other.classList.remove('open');
+            other.querySelector('.faq-question').setAttribute('aria-expanded', 'false');
+          });
+          if (!isOpen) {
+            item.classList.add('open');
+            btn.setAttribute('aria-expanded', 'true');
+          }
+        });
+      });
+
+      var form = document.getElementById('supportForm');
+      var submitBtn = document.getElementById('submitBtn');
+      var formMessage = document.getElementById('formMessage');
+      var formMessageIcon = document.getElementById('formMessageIcon');
+      var formMessageText = document.getElementById('formMessageText');
+
+      function showMessage(type, text) {
+        formMessage.className = 'form-message visible ' + type;
+        formMessageIcon.textContent = type === 'success' ? '\u2713' : '\u2717';
+        formMessageText.textContent = text;
+        formMessage.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      }
+
+      function hideMessage() {
+        formMessage.className = 'form-message';
+      }
+
+      function validateEmail(email) {
+        return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+      }
+
+      function setFieldError(id, show) {
+        var input = document.getElementById(id);
+        var error = document.getElementById(id + 'Error');
+        if (show) {
+          input.classList.add('error');
+          error.classList.add('visible');
+        } else {
+          input.classList.remove('error');
+          error.classList.remove('visible');
+        }
+      }
+
+      ['name', 'email', 'message'].forEach(function(id) {
+        document.getElementById(id).addEventListener('input', function() {
+          setFieldError(id, false);
+          hideMessage();
+        });
+      });
+
+      form.addEventListener('submit', function(e) {
+        e.preventDefault();
+        hideMessage();
+
+        var name = document.getElementById('name').value.trim();
+        var email = document.getElementById('email').value.trim();
+        var subject = document.getElementById('subject').value;
+        var message = document.getElementById('message').value.trim();
+
+        var hasError = false;
+
+        if (!name) { setFieldError('name', true); hasError = true; }
+        else { setFieldError('name', false); }
+
+        if (!email || !validateEmail(email)) { setFieldError('email', true); hasError = true; }
+        else { setFieldError('email', false); }
+
+        if (!message) { setFieldError('message', true); hasError = true; }
+        else { setFieldError('message', false); }
+
+        if (hasError) return;
+
+        submitBtn.classList.add('loading');
+        submitBtn.disabled = true;
+
+        fetch('/api/support/contact', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name: name, email: email, subject: subject, message: message })
+        })
+        .then(function(res) {
+          if (!res.ok) throw new Error('Request failed');
+          return res.json();
+        })
+        .then(function() {
+          showMessage('success', 'Thank you! Your message has been sent. We\'ll get back to you within 24 hours.');
+          form.reset();
+        })
+        .catch(function() {
+          showMessage('error-msg', 'Something went wrong. Please try again or email us directly at support@glowupsports.com.');
+        })
+        .finally(function() {
+          submitBtn.classList.remove('loading');
+          submitBtn.disabled = false;
+        });
+      });
+    })();
+  </script>
+</body>
+</html>
