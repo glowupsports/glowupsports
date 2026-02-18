@@ -22,6 +22,7 @@ import PinEntryModal from "@/components/PinEntryModal";
 import Svg, { Line, Rect } from "react-native-svg";
 import { BirthdayConfettiOverlay } from "@/player/components/BirthdayThemeOverlay";
 import { BirthdayBanner, BirthdayXPBonusCard } from "@/player/components/BirthdayThemeOverlay";
+import { RamadanConfettiOverlay, RamadanBanner, RamadanBonusCard } from "@/player/components/RamadanCelebrationOverlay";
 import { RecentFeedbackCard } from "@/player/components/RecentFeedbackCard";
 import { FeedbackToast } from "@/player/components/FeedbackToast";
 import Ionicons from "@expo/vector-icons/Ionicons";
@@ -190,6 +191,25 @@ function PlayerHomeContent() {
     return age;
   }, [dashboardData?.player?.dateOfBirth]);
 
+  const isRamadan = useMemo(() => {
+    const today = new Date();
+    const year = today.getFullYear();
+    const ramadanDates: Record<number, { start: [number, number]; end: [number, number] }> = {
+      2025: { start: [2, 1], end: [2, 30] },
+      2026: { start: [1, 18], end: [2, 19] },
+      2027: { start: [1, 8], end: [1, 6] },
+      2028: { start: [11, 27], end: [0, 25] },
+    };
+    const dates = ramadanDates[year];
+    if (!dates) return false;
+    const start = new Date(year, dates.start[0], dates.start[1]);
+    const end = new Date(year, dates.end[0], dates.end[1]);
+    if (end < start) {
+      return today >= start || today <= end;
+    }
+    return today >= start && today <= end;
+  }, []);
+
   const playerChecklistSteps = useMemo(() => {
     const hasAcademy = !!dashboardData?.academy;
     const hasCoach = !!dashboardData?.coach;
@@ -332,6 +352,7 @@ function PlayerHomeContent() {
       <BroadcastBackground />
 
       {isBirthday && <BirthdayConfettiOverlay />}
+      {isRamadan && !isBirthday && <RamadanConfettiOverlay />}
       
       <FeedbackToast />
       
@@ -357,6 +378,11 @@ function PlayerHomeContent() {
             playerName={player.name || "Champion"} 
             playerAge={playerAge}
           />
+        )}
+
+        {/* RAMADAN BANNER - Festive celebration during Ramadan */}
+        {isRamadan && !isBirthday && (
+          <RamadanBanner playerName={player.name || "Champion"} />
         )}
 
         {/* GETTING STARTED CHECKLIST */}
@@ -394,6 +420,9 @@ function PlayerHomeContent() {
 
         {/* BIRTHDAY XP BONUS - 2x XP message on birthday */}
         {isBirthday && <BirthdayXPBonusCard />}
+
+        {/* RAMADAN BONUS CARD - Blessings card during Ramadan */}
+        {isRamadan && !isBirthday && <RamadanBonusCard />}
 
         {/* TENNIS NEWS - Below header, above Today is Open */}
         <NewsTicker />
