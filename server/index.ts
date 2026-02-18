@@ -248,8 +248,12 @@ function setupExpoDevProxy(app: express.Application) {
     }
   });
 
+  const templateRoutes = ['/support', '/privacy', '/privacy-policy', '/delete-account'];
   app.use((req, res, next) => {
     if (req.path.startsWith('/api') || req.path.startsWith('/auth') || req.path.startsWith('/uploads') || req.path.startsWith('/assets')) {
+      return next();
+    }
+    if (templateRoutes.includes(req.path)) {
       return next();
     }
     if (req.path === '/manifest' && req.header('expo-platform')) {
