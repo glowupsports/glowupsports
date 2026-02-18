@@ -224,9 +224,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setIsAuthenticated(true);
       
       return { success: true, user: data.user };
-    } catch (error) {
+    } catch (error: any) {
       console.error("Login error:", error);
-      return { success: false, error: "Network error. Please try again." };
+      const isNetworkError = error?.message?.includes("fetch") || error?.message?.includes("network") || error?.message?.includes("Failed");
+      const errorMsg = isNetworkError 
+        ? "Cannot reach the server. Please check your connection and try again."
+        : (error?.message || "Login failed. Please try again.");
+      return { success: false, error: errorMsg };
     }
   };
 

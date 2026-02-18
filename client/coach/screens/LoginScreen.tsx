@@ -614,10 +614,12 @@ export default function LoginScreen() {
         );
         loadSavedAccounts();
       } else if (!result.success) {
-        Alert.alert(t("common.error"), result.error || t("auth.invalidCredentials"));
+        const errorMsg = result.error || t("auth.invalidCredentials");
+        Alert.alert(t("common.error"), errorMsg);
       }
-    } catch (error) {
-      Alert.alert("Error", "Something went wrong. Please try again.");
+    } catch (error: any) {
+      const msg = error?.message || "Something went wrong. Please try again.";
+      Alert.alert("Login Failed", `Could not connect to the server.\n\n${msg}`);
     } finally {
       setIsSubmitting(false);
     }
