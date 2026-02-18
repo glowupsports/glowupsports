@@ -61,12 +61,13 @@ export function GettingStartedChecklist({
 }: GettingStartedChecklistProps) {
   const [completedSteps, setCompletedSteps] = useState<Set<string>>(new Set());
   const [isDismissed, setIsDismissed] = useState(false);
-  const [isCollapsed, setIsCollapsed] = useState(false);
+  const [isCollapsed, setIsCollapsed] = useState(true);
   const [isLoading, setIsLoading] = useState(true);
 
   const stateKey = `getting_started_${role}`;
   const dismissStateKey = `getting_started_${role}_dismissed`;
   const localDismissKey = `@glow_getting_started_dismissed_${role}`;
+  const localCollapseKey = `@glow_getting_started_collapsed_${role}`;
 
   const chevronRotation = useSharedValue(0);
 
@@ -81,6 +82,11 @@ export function GettingStartedChecklist({
         setIsDismissed(true);
         setIsLoading(false);
         return;
+      }
+
+      const savedCollapse = await AsyncStorage.getItem(localCollapseKey);
+      if (savedCollapse !== null) {
+        setIsCollapsed(savedCollapse === "true");
       }
 
       const token = await AsyncStorage.getItem("authToken");
@@ -163,9 +169,13 @@ export function GettingStartedChecklist({
   const toggleCollapse = useCallback(() => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
-    setIsCollapsed((prev) => !prev);
+    setIsCollapsed((prev) => {
+      const newVal = !prev;
+      AsyncStorage.setItem(localCollapseKey, String(newVal)).catch(() => {});
+      return newVal;
+    });
     chevronRotation.value = withTiming(isCollapsed ? 0 : 1, { duration: 300 });
-  }, [isCollapsed]);
+  }, [isCollapsed, localCollapseKey]);
 
   const chevronStyle = useAnimatedStyle(() => ({
     transform: [

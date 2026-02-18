@@ -94,12 +94,7 @@ export function WelcomeIntroModal({
       }
       setVisible(true);
     } catch (error) {
-      const localSeen = await AsyncStorage.getItem(localStorageKey).catch(() => null);
-      if (localSeen === "true") {
-        setChecked(true);
-        return;
-      }
-      setVisible(true);
+      console.warn("Failed to check welcome state, defaulting to hidden:", error);
     } finally {
       setChecked(true);
     }
