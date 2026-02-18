@@ -3,6 +3,7 @@ import { db } from "../db";
 import { eq, desc, and, gte, sql } from "drizzle-orm";
 import {
   players,
+  users,
   playerLevelThresholds,
   playerLevelXpRules,
   playerFeatureUnlocks,
@@ -11,6 +12,7 @@ import {
   playerFeatureUnlockHistory,
 } from "@shared/schema";
 import { sendLevelUpNotification, sendXPGainNotification } from "../pushNotifications";
+import { isAppleReviewAccount } from "../auth";
 
 const router = Router();
 
@@ -268,6 +270,22 @@ router.get("/player/:playerId/status", async (req: Request, res: Response) => {
 
     if (!player) {
       return res.status(404).json({ error: "Player not found" });
+    }
+
+    const [playerUser] = await db.select({ email: users.email }).from(users).where(eq(users.playerId, playerId));
+    if (isAppleReviewAccount(playerUser?.email)) {
+      const allFeatures = await db.select().from(playerFeatureUnlocks).orderBy(playerFeatureUnlocks.requiredLevel);
+      return res.json({
+        level: 20,
+        title: "Grand Champion",
+        totalXp: 50000,
+        xpInCurrentLevel: 0,
+        xpNeededForNextLevel: 999999,
+        progressPercent: 100,
+        unlockedFeatures: allFeatures.map(f => f.featureKey),
+        pendingCelebrations: [],
+        pendingOnboardings: [],
+      });
     }
 
     const currentLevel = player.level || 1;

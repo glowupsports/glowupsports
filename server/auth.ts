@@ -418,7 +418,12 @@ export function setFeatureUnlockChecker(checker: FeatureUnlockChecker): void {
   featureUnlockChecker = checker;
 }
 
-// Middleware factory to require a specific feature to be unlocked for the player
+const APPLE_REVIEW_EMAIL = "review@glowupsports.com";
+
+export function isAppleReviewAccount(email?: string | null): boolean {
+  return email === APPLE_REVIEW_EMAIL;
+}
+
 export function requireFeatureUnlock(featureKey: string) {
   return async (req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> => {
     if (!req.user) {
@@ -426,9 +431,11 @@ export function requireFeatureUnlock(featureKey: string) {
       return;
     }
 
-    // Only apply to players
+    if (isAppleReviewAccount(req.user.email)) {
+      return next();
+    }
+
     if (!req.user.playerId) {
-      // Non-players (coaches, owners) bypass feature gates
       return next();
     }
 
