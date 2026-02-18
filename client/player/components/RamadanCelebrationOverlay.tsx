@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo } from "react";
-import { View, Text, StyleSheet, Dimensions } from "react-native";
+import { View, Text, StyleSheet, Dimensions, Pressable } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import Animated, {
@@ -101,9 +101,10 @@ export function RamadanConfettiOverlay() {
 
 interface RamadanBannerProps {
   playerName: string;
+  onDismiss?: () => void;
 }
 
-export function RamadanBanner({ playerName }: RamadanBannerProps) {
+export function RamadanBanner({ playerName, onDismiss }: RamadanBannerProps) {
   const { t } = useTranslation();
   const scale = useSharedValue(0.8);
   const sparkleOpacity = useSharedValue(0.3);
@@ -174,12 +175,18 @@ export function RamadanBanner({ playerName }: RamadanBannerProps) {
           <Ionicons name="moon" size={12} color="#0A0A0A" />
           <Text style={styles.bonusBadgeText}>Blessed Month</Text>
         </View>
+
+        {onDismiss ? (
+          <Pressable style={styles.dismissButton} onPress={onDismiss} hitSlop={8}>
+            <Ionicons name="close" size={16} color="rgba(255,255,255,0.7)" />
+          </Pressable>
+        ) : null}
       </LinearGradient>
     </Animated.View>
   );
 }
 
-export function RamadanBonusCard() {
+export function RamadanBonusCard({ onDismiss }: { onDismiss?: () => void }) {
   const { t } = useTranslation();
 
   return (
@@ -201,6 +208,11 @@ export function RamadanBonusCard() {
           <Ionicons name="moon" size={14} color="#0A0A0A" />
           <Ionicons name="star" size={12} color="#0A0A0A" style={{ marginLeft: 2 }} />
         </View>
+        {onDismiss ? (
+          <Pressable style={styles.bonusCardDismiss} onPress={onDismiss} hitSlop={8}>
+            <Ionicons name="close" size={14} color="rgba(255,255,255,0.5)" />
+          </Pressable>
+        ) : null}
       </LinearGradient>
     </Animated.View>
   );
@@ -340,5 +352,27 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: "800",
     color: "#0A0A0A",
+  },
+  dismissButton: {
+    position: "absolute",
+    top: 8,
+    right: 8,
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: "rgba(0,0,0,0.3)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  bonusCardDismiss: {
+    position: "absolute",
+    top: 8,
+    right: 8,
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: "rgba(0,0,0,0.3)",
+    alignItems: "center",
+    justifyContent: "center",
   },
 });
