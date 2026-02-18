@@ -10,6 +10,7 @@ import {
   Platform,
   Image,
 } from "react-native";
+import * as AppleAuthentication from "expo-apple-authentication";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
 import { BlurView } from "expo-blur";
@@ -344,7 +345,7 @@ const strengthStyles = StyleSheet.create({
 export default function LoginScreen() {
   const { t } = useTranslation();
   const insets = useSafeAreaInsets();
-  const { login, registerPlayer, refreshAuth } = useAuth();
+  const { login, loginWithApple, registerPlayer, refreshAuth } = useAuth();
 
   const [mode, setMode] = useState<AuthMode>("login");
   const [username, setUsername] = useState("");
@@ -617,6 +618,53 @@ export default function LoginScreen() {
       }
     } catch (error) {
       Alert.alert("Error", "Something went wrong. Please try again.");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleAppleSignIn = async () => {
+    try {
+      const credential = await AppleAuthentication.signInAsync({
+        requestedScopes: [
+          AppleAuthentication.AppleAuthenticationScope.FULL_NAME,
+          AppleAuthentication.AppleAuthenticationScope.EMAIL,
+        ],
+      });
+
+      if (!credential.identityToken || !credential.user) {
+        Alert.alert(t("common.error"), "Apple Sign-In did not return required information.");
+        return;
+      }
+
+      setIsSubmitting(true);
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+
+      const result = await loginWithApple(credential.identityToken, credential.user);
+
+      if (result.success && result.user) {
+        await saveAccount(
+          result.user.username || "apple_user",
+          result.user.displayName || "Apple User",
+          result.user.role as "coach" | "player" | "owner" | "parent",
+          result.user.profilePhotoUrl || undefined
+        );
+        loadSavedAccounts();
+      } else if (result.code === "APPLE_NOT_LINKED") {
+        Alert.alert(
+          "Apple ID Not Linked",
+          "No account is linked to this Apple ID. Please log in with your username and password first, then link your Apple ID in Settings.",
+          [{ text: "OK" }]
+        );
+      } else {
+        Alert.alert(t("common.error"), result.error || "Apple Sign-In failed");
+      }
+    } catch (error: any) {
+      if (error.code === "ERR_REQUEST_CANCELED") {
+        return;
+      }
+      console.error("Apple Sign-In error:", error);
+      Alert.alert(t("common.error"), "Apple Sign-In failed. Please try again.");
     } finally {
       setIsSubmitting(false);
     }
@@ -995,6 +1043,23 @@ export default function LoginScreen() {
         isLoading={isSubmitting}
         disabled={isSubmitting}
       />
+
+      {Platform.OS === "ios" ? (
+        <View style={styles.appleSignInContainer}>
+          <View style={styles.divider}>
+            <View style={styles.dividerLine} />
+            <Text style={styles.dividerText}>{t("auth.orContinueWith") || "or"}</Text>
+            <View style={styles.dividerLine} />
+          </View>
+          <AppleAuthentication.AppleAuthenticationButton
+            buttonType={AppleAuthentication.AppleAuthenticationButtonType.SIGN_IN}
+            buttonStyle={AppleAuthentication.AppleAuthenticationButtonStyle.WHITE}
+            cornerRadius={12}
+            style={styles.appleButton}
+            onPress={handleAppleSignIn}
+          />
+        </View>
+      ) : null}
 
       <View style={styles.divider}>
         <View style={styles.dividerLine} />
@@ -2230,5 +2295,12 @@ const styles = StyleSheet.create({
     ...Typography.small,
     color: Colors.dark.xpCyan,
     fontWeight: "600",
+  },
+  appleSignInContainer: {
+    marginTop: Spacing.md,
+  },
+  appleButton: {
+    width: "100%",
+    height: 50,
   },
 });

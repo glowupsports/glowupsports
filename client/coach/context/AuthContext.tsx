@@ -54,6 +54,7 @@ interface AuthContextType {
   coach: Coach | null;
   academy: Academy | null;
   login: (username: string, password: string) => Promise<{ success: boolean; error?: string; user?: AuthUser }>;
+  loginWithApple: (identityToken: string, appleUser: string) => Promise<{ success: boolean; error?: string; code?: string; user?: AuthUser }>;
   register: (data: RegisterData) => Promise<{ success: boolean; error?: string }>;
   registerPlayer: (data: PlayerRegisterData) => Promise<{ success: boolean; error?: string; requiresOTP?: boolean }>;
   logout: () => Promise<void>;
@@ -225,6 +226,35 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return { success: true, user: data.user };
     } catch (error) {
       console.error("Login error:", error);
+      return { success: false, error: "Network error. Please try again." };
+    }
+  };
+
+  const loginWithApple = async (identityToken: string, appleUser: string): Promise<{ success: boolean; error?: string; code?: string; user?: AuthUser }> => {
+    try {
+      queryClient.clear();
+      
+      const apiUrl = getApiUrl();
+      const response = await fetch(new URL("/auth/apple/login", apiUrl).toString(), {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ identityToken, user: appleUser }),
+      });
+      
+      const data = await response.json();
+      
+      if (!response.ok) {
+        return { success: false, error: data.error || "Apple Sign-In failed", code: data.code };
+      }
+      
+      await saveAuthState(data.token, data.user);
+      setAuthToken(data.token);
+      await fetchUserData(data.token, true);
+      setIsAuthenticated(true);
+      
+      return { success: true, user: data.user };
+    } catch (error) {
+      console.error("Apple login error:", error);
       return { success: false, error: "Network error. Please try again." };
     }
   };
@@ -410,6 +440,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         coach,
         academy,
         login,
+        loginWithApple,
         register,
         registerPlayer,
         logout,
