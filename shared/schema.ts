@@ -19,6 +19,7 @@ export const users = pgTable("users", {
   playerId: varchar("player_id"), // references players.id (links user to player profile)
   createdAt: timestamp("created_at").defaultNow(),
   lastLoginAt: timestamp("last_login_at"),
+  appleId: text("apple_id").unique(), // Apple Sign-In user identifier
 });
 
 export const insertUserSchema = createInsertSchema(users).pick({
