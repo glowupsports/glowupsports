@@ -23,6 +23,7 @@ import Animated, {
   interpolateColor,
 } from "react-native-reanimated";
 import { useTranslation } from "react-i18next";
+import { LanguageSelectorModal } from "@/components/LanguageSelectorModal";
 import { Colors, Backgrounds, Spacing, BorderRadius, Typography, GlowColors } from "@/constants/theme";
 import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollViewCompat";
 import { useAuth } from "@/coach/context/AuthContext";
@@ -359,6 +360,7 @@ export default function LoginScreen() {
   const [description, setDescription] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [showLanguageModal, setShowLanguageModal] = useState(false);
   const [applicationSubmitted, setApplicationSubmitted] = useState(false);
   const [inviteCode, setInviteCode] = useState("");
   const [inviteData, setInviteData] = useState<{ academyName: string; email: string | null; role: string; isPlayerInvite?: boolean; playerId?: string; playerName?: string | null } | null>(null);
@@ -1710,6 +1712,20 @@ export default function LoginScreen() {
         locations={[0, 0.5, 1]}
         style={StyleSheet.absoluteFillObject}
       />
+
+      <Pressable
+        style={[styles.languageButton, { top: insets.top + 12 }]}
+        onPress={() => setShowLanguageModal(true)}
+        hitSlop={8}
+      >
+        <Ionicons name="globe-outline" size={22} color={Colors.dark.textSecondary} />
+      </Pressable>
+
+      <LanguageSelectorModal
+        visible={showLanguageModal}
+        onClose={() => setShowLanguageModal(false)}
+      />
+
       <KeyboardAwareScrollViewCompat
         style={styles.scrollView}
         contentContainerStyle={[
@@ -1749,6 +1765,17 @@ export default function LoginScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+  },
+  languageButton: {
+    position: "absolute",
+    right: 16,
+    zIndex: 10,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: "rgba(255,255,255,0.08)",
+    alignItems: "center",
+    justifyContent: "center",
   },
   scrollView: {
     flex: 1,
