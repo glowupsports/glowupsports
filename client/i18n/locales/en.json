@@ -1052,5 +1052,11 @@
     "minutesAgo": "{{count}}m ago",
     "hoursAgo": "{{count}}h ago",
     "daysAgo": "{{count}}d ago"
+  },
+  "ramadan": {
+    "mubarak": "RAMADAN MUBARAK!",
+    "blessedMonth": "Blessed Month",
+    "blessingsActive": "Ramadan Blessings!",
+    "blessingsSubtitle": "Wishing you peace and joy this holy month"
   }
 }

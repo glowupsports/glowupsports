@@ -1051,5 +1051,11 @@
     "minutesAgo": "منذ {{count}} دقيقة",
     "hoursAgo": "منذ {{count}} ساعة",
     "daysAgo": "منذ {{count}} يوم"
+  },
+  "ramadan": {
+    "mubarak": "!رمضان مبارك",
+    "blessedMonth": "شهر مبارك",
+    "blessingsActive": "بركات رمضان!",
+    "blessingsSubtitle": "نتمنى لك السلام والسعادة في هذا الشهر الفضيل"
   }
 }
