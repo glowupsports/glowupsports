@@ -409,7 +409,7 @@ function setupErrorHandler(app: express.Application) {
       startDailyTipScheduler();
       startAutoSessionCompletionScheduler();
       startMonthlyReportScheduler();
-      startOnboardingEmailScheduler();
+      // Onboarding email scheduler DISABLED - was sending duplicate emails on every server restart
       
       // Run bulk credit repair on startup to fix any missing charges
       try {
