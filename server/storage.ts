@@ -342,6 +342,21 @@ export const storage = {
     await db.update(users).set({ lastLoginAt: new Date() }).where(eq(users.id, id));
   },
 
+  async getUserByAppleId(appleId: string): Promise<User | undefined> {
+    const result = await db.select().from(users).where(eq(users.appleId, appleId));
+    return result[0];
+  },
+
+  async linkAppleId(userId: string, appleId: string): Promise<User | undefined> {
+    const result = await db.update(users).set({ appleId }).where(eq(users.id, userId)).returning();
+    return result[0];
+  },
+
+  async unlinkAppleId(userId: string): Promise<User | undefined> {
+    const result = await db.update(users).set({ appleId: null }).where(eq(users.id, userId)).returning();
+    return result[0];
+  },
+
   async getUserByPlayerId(playerId: string): Promise<User | undefined> {
     const result = await db.select().from(users).where(eq(users.playerId, playerId));
     return result[0];

@@ -2020,6 +2020,145 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // ==================== APPLE SIGN-IN AUTH ====================
+
+  app.post("/auth/apple/login", authLimiter, async (req: Request, res: Response) => {
+    try {
+      const { identityToken, user: appleUser } = req.body;
+
+      if (!identityToken || !appleUser) {
+        return res.status(400).json({ error: "Apple identity token and user identifier are required" });
+      }
+
+      const existingUser = await storage.getUserByAppleId(appleUser);
+      if (!existingUser) {
+        return res.status(404).json({
+          error: "No account linked to this Apple ID",
+          code: "APPLE_NOT_LINKED",
+          message: "Please log in with your username first and link your Apple ID in Settings."
+        });
+      }
+
+      await storage.updateUserLastLogin(existingUser.id);
+
+      let profilePhotoUrl: string | null = null;
+      let displayName = existingUser.username;
+      let effectiveAcademyId = existingUser.academyId;
+
+      if (existingUser.coachId) {
+        const coach = await storage.getCoach(existingUser.coachId);
+        if (coach) {
+          profilePhotoUrl = coach.profilePhotoUrl || null;
+          displayName = coach.name || existingUser.username;
+        }
+      } else if (existingUser.playerId) {
+        const player = await storage.getPlayer(existingUser.playerId);
+        if (player) {
+          profilePhotoUrl = (player as any).profilePhotoUrl || null;
+          displayName = player.name || existingUser.username;
+          effectiveAcademyId = player.academyId || existingUser.academyId;
+        }
+      }
+
+      const token = generateToken({
+        userId: existingUser.id,
+        email: existingUser.email,
+        role: existingUser.role,
+        academyId: effectiveAcademyId,
+        coachId: existingUser.coachId,
+        playerId: existingUser.playerId,
+      });
+
+      res.json({
+        token,
+        user: {
+          id: existingUser.id,
+          username: existingUser.username,
+          email: existingUser.email,
+          role: existingUser.role,
+          academyId: effectiveAcademyId,
+          coachId: existingUser.coachId,
+          playerId: existingUser.playerId,
+          profilePhotoUrl,
+          displayName,
+        },
+      });
+    } catch (error) {
+      console.error("Apple login error:", error);
+      res.status(500).json({ error: "Apple Sign-In failed" });
+    }
+  });
+
+  app.post("/auth/apple/link", authMiddlewareWithFreshData, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const userId = req.user?.userId;
+      if (!userId) {
+        return res.status(401).json({ error: "Authentication required" });
+      }
+
+      const { identityToken, user: appleUser } = req.body;
+      if (!identityToken || !appleUser) {
+        return res.status(400).json({ error: "Apple identity token and user identifier are required" });
+      }
+
+      const existingLink = await storage.getUserByAppleId(appleUser);
+      if (existingLink) {
+        if (existingLink.id === userId) {
+          return res.status(400).json({ error: "This Apple ID is already linked to your account" });
+        }
+        return res.status(409).json({ error: "This Apple ID is already linked to another account" });
+      }
+
+      const currentUser = await storage.getUserById(userId);
+      if (currentUser?.appleId) {
+        return res.status(400).json({ error: "Your account already has an Apple ID linked. Unlink it first." });
+      }
+
+      await storage.linkAppleId(userId, appleUser);
+
+      res.json({ success: true, message: "Apple ID linked successfully" });
+    } catch (error) {
+      console.error("Apple link error:", error);
+      res.status(500).json({ error: "Failed to link Apple ID" });
+    }
+  });
+
+  app.post("/auth/apple/unlink", authMiddlewareWithFreshData, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const userId = req.user?.userId;
+      if (!userId) {
+        return res.status(401).json({ error: "Authentication required" });
+      }
+
+      const currentUser = await storage.getUserById(userId);
+      if (!currentUser?.appleId) {
+        return res.status(400).json({ error: "No Apple ID is linked to your account" });
+      }
+
+      await storage.unlinkAppleId(userId);
+
+      res.json({ success: true, message: "Apple ID unlinked successfully" });
+    } catch (error) {
+      console.error("Apple unlink error:", error);
+      res.status(500).json({ error: "Failed to unlink Apple ID" });
+    }
+  });
+
+  app.get("/auth/apple/status", authMiddlewareWithFreshData, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const userId = req.user?.userId;
+      if (!userId) {
+        return res.status(401).json({ error: "Authentication required" });
+      }
+
+      const currentUser = await storage.getUserById(userId);
+      res.json({ linked: !!currentUser?.appleId });
+    } catch (error) {
+      console.error("Apple status error:", error);
+      res.status(500).json({ error: "Failed to check Apple ID status" });
+    }
+  });
+
   // Email OTP verification endpoints
   app.post(
     "/auth/otp/send",
