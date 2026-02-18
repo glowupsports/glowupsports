@@ -232,41 +232,59 @@ function setupExpoDevProxy(app: express.Application) {
 
   log("Setting up Expo dev server proxy on port 5000 -> 8081");
 
+  let metroAvailable = false;
+
+  const checkMetro = async () => {
+    try {
+      const http = await import('http');
+      return new Promise<boolean>((resolve) => {
+        const req = http.default.get('http://localhost:8081/status', { timeout: 1000 }, (res) => {
+          resolve(res.statusCode === 200);
+        });
+        req.on('error', () => resolve(false));
+        req.on('timeout', () => { req.destroy(); resolve(false); });
+      });
+    } catch {
+      return false;
+    }
+  };
+
+  setInterval(async () => {
+    metroAvailable = await checkMetro();
+  }, 5000);
+  checkMetro().then(v => { metroAvailable = v; });
+
   const expoProxy = createProxyMiddleware({
     target: 'http://localhost:8081',
     changeOrigin: true,
     ws: true,
     logger: console,
     on: {
-      error: (err, req, res) => {
+      error: (err, _req, res) => {
         log(`Expo proxy error: ${err.message} - falling back to static files`);
-        // Fall back to next middleware (static files) when proxy fails
-        if (res && typeof (res as any).redirect === 'function') {
-          return (res as any).redirect(req.url);
+        metroAvailable = false;
+        if (res && 'writeHead' in res && typeof (res as any).writeHead === 'function' && !(res as any).headersSent) {
+          (res as any).writeHead(502);
+          (res as any).end('Metro bundler not running - using static build');
         }
       }
     }
   });
 
   app.use((req, res, next) => {
-    log(`[Proxy] ${req.method} ${req.path}`);
-    // Skip proxy for API, auth, uploads, assets
     if (req.path.startsWith('/api') || req.path.startsWith('/auth') || req.path.startsWith('/uploads') || req.path.startsWith('/assets')) {
-      log(`[Proxy] Skipping proxy for ${req.path}`);
       return next();
     }
-    // Skip proxy for manifest requests
     if (req.path === '/manifest' && req.header('expo-platform')) {
       return next();
     }
-    // Skip proxy for static file requests - let static middleware handle them
-    // BUT always proxy bundle requests to Expo dev server
+    if (!metroAvailable) {
+      return next();
+    }
     if (req.path.includes('.bundle')) {
-      log(`[Proxy] Proxying bundle request to Expo: ${req.path}`);
       return expoProxy(req, res, next);
     }
     if (req.path === '/' || req.path.endsWith('.html') || req.path.endsWith('.js') || req.path.endsWith('.css') || req.path.endsWith('.json') || req.path.endsWith('.png') || req.path.endsWith('.ico')) {
-      log(`[Proxy] Skipping proxy for static file: ${req.path}`);
       return next();
     }
     return expoProxy(req, res, next);
