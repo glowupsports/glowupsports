@@ -594,6 +594,7 @@ export default function LoginScreen() {
   };
 
   const handleLogin = async () => {
+    console.log("[Login] handleLogin called, username:", username, "hasPassword:", !!password);
     if (!username || !password) {
       Alert.alert("Error", "Please fill in all required fields");
       return;
@@ -604,7 +605,9 @@ export default function LoginScreen() {
 
     try {
       const normalizedUsername = username.toLowerCase();
+      console.log("[Login] Attempting login for:", normalizedUsername);
       const result = await login(normalizedUsername, password);
+      console.log("[Login] Login result:", { success: result.success, hasUser: !!result.user, error: result.error });
       if (result.success && result.user) {
         await saveAccount(
           normalizedUsername,
@@ -615,9 +618,11 @@ export default function LoginScreen() {
         loadSavedAccounts();
       } else if (!result.success) {
         const errorMsg = result.error || t("auth.invalidCredentials");
+        console.log("[Login] Login failed:", errorMsg);
         Alert.alert(t("common.error"), errorMsg);
       }
     } catch (error: any) {
+      console.error("[Login] Login exception:", error);
       const msg = error?.message || "Something went wrong. Please try again.";
       Alert.alert("Login Failed", `Could not connect to the server.\n\n${msg}`);
     } finally {
