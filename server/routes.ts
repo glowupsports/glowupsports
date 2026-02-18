@@ -2089,7 +2089,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/auth/apple/link", authMiddlewareWithFreshData, async (req: AuthenticatedRequest, res: Response) => {
+  app.post("/auth/apple/link", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
     try {
       const userId = req.user?.userId;
       if (!userId) {
@@ -2123,7 +2123,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/auth/apple/unlink", authMiddlewareWithFreshData, async (req: AuthenticatedRequest, res: Response) => {
+  app.post("/auth/apple/unlink", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
     try {
       const userId = req.user?.userId;
       if (!userId) {
@@ -2144,7 +2144,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/auth/apple/status", authMiddlewareWithFreshData, async (req: AuthenticatedRequest, res: Response) => {
+  app.get("/auth/apple/status", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
     try {
       const userId = req.user?.userId;
       if (!userId) {
