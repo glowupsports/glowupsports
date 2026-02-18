@@ -290,6 +290,56 @@ const premiumButtonStyles = StyleSheet.create({
   },
 });
 
+function PasswordStrengthIndicator({ password }: { password: string }) {
+  const checks = [
+    { label: "8+ characters", met: password.length >= 8 },
+    { label: "Uppercase letter", met: /[A-Z]/.test(password) },
+    { label: "Lowercase letter", met: /[a-z]/.test(password) },
+    { label: "Number", met: /[0-9]/.test(password) },
+    { label: "Special character", met: /[^A-Za-z0-9]/.test(password) },
+  ];
+  const metCount = checks.filter((c) => c.met).length;
+  const strength = metCount <= 1 ? "Weak" : metCount <= 3 ? "Fair" : metCount <= 4 ? "Good" : "Strong";
+  const strengthColor = metCount <= 1 ? "#FF4444" : metCount <= 3 ? "#FFAA00" : metCount <= 4 ? "#00CCFF" : "#00FF88";
+  const progress = metCount / checks.length;
+
+  if (!password) return null;
+
+  return (
+    <View style={strengthStyles.container}>
+      <View style={strengthStyles.barTrack}>
+        <View style={[strengthStyles.barFill, { width: `${progress * 100}%`, backgroundColor: strengthColor }]} />
+      </View>
+      <Text style={[strengthStyles.label, { color: strengthColor }]}>{strength}</Text>
+      <View style={strengthStyles.checkList}>
+        {checks.map((check) => (
+          <View key={check.label} style={strengthStyles.checkRow}>
+            <Ionicons
+              name={check.met ? "checkmark-circle" : "ellipse-outline"}
+              size={14}
+              color={check.met ? "#00FF88" : "rgba(255,255,255,0.25)"}
+            />
+            <Text style={[strengthStyles.checkText, check.met && strengthStyles.checkTextMet]}>
+              {check.label}
+            </Text>
+          </View>
+        ))}
+      </View>
+    </View>
+  );
+}
+
+const strengthStyles = StyleSheet.create({
+  container: { marginTop: 8, gap: 6 },
+  barTrack: { height: 4, backgroundColor: "rgba(255,255,255,0.08)", borderRadius: 2, overflow: "hidden" },
+  barFill: { height: "100%", borderRadius: 2 },
+  label: { fontSize: 11, fontWeight: "700", letterSpacing: 0.5 },
+  checkList: { flexDirection: "row", flexWrap: "wrap", gap: 4, rowGap: 4 },
+  checkRow: { flexDirection: "row", alignItems: "center", gap: 4, width: "48%" },
+  checkText: { fontSize: 11, color: "rgba(255,255,255,0.35)" },
+  checkTextMet: { color: "rgba(255,255,255,0.7)" },
+});
+
 export default function LoginScreen() {
   const { t } = useTranslation();
   const insets = useSafeAreaInsets();
@@ -1211,7 +1261,7 @@ export default function LoginScreen() {
             />
           </Pressable>
         </View>
-        <Text style={styles.hintText}>At least 8 characters</Text>
+        <PasswordStrengthIndicator password={password} />
       </View>
 
       <PremiumButton
@@ -1582,6 +1632,7 @@ export default function LoginScreen() {
                 />
               </Pressable>
             </View>
+            <PasswordStrengthIndicator password={password} />
           </View>
 
           <PremiumButton
