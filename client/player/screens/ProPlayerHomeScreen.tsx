@@ -99,6 +99,7 @@ function PlayerHomeContent() {
   const { navigateToTab } = useTabNavigation();
   const [showBookingWizard, setShowBookingWizard] = useState(false);
   const [showPinModal, setShowPinModal] = useState(false);
+  const [ramadanDismissed, setRamadanDismissed] = useState(false);
   const { hasSeenScreen, startWalkthrough } = useWalkthrough();
   const [showWelcome, setShowWelcome] = useState(false);
   const { startTour, isActive } = useCoachMarks();
@@ -208,6 +209,21 @@ function PlayerHomeContent() {
       return today >= start || today <= end;
     }
     return today >= start && today <= end;
+  }, []);
+
+  useEffect(() => {
+    if (isRamadan) {
+      const key = `@glow_ramadan_dismissed_${new Date().getFullYear()}`;
+      AsyncStorage.getItem(key).then((val) => {
+        if (val === "true") setRamadanDismissed(true);
+      });
+    }
+  }, [isRamadan]);
+
+  const handleDismissRamadan = useCallback(() => {
+    setRamadanDismissed(true);
+    const key = `@glow_ramadan_dismissed_${new Date().getFullYear()}`;
+    AsyncStorage.setItem(key, "true");
   }, []);
 
   const playerChecklistSteps = useMemo(() => {
@@ -352,7 +368,7 @@ function PlayerHomeContent() {
       <BroadcastBackground />
 
       {isBirthday && <BirthdayConfettiOverlay />}
-      {isRamadan && !isBirthday && <RamadanConfettiOverlay />}
+      {isRamadan && !isBirthday && !ramadanDismissed && <RamadanConfettiOverlay />}
       
       <FeedbackToast />
       
@@ -381,8 +397,8 @@ function PlayerHomeContent() {
         )}
 
         {/* RAMADAN BANNER - Festive celebration during Ramadan */}
-        {isRamadan && !isBirthday && (
-          <RamadanBanner playerName={player.name || "Champion"} />
+        {isRamadan && !isBirthday && !ramadanDismissed && (
+          <RamadanBanner playerName={player.name || "Champion"} onDismiss={handleDismissRamadan} />
         )}
 
         {/* GETTING STARTED CHECKLIST */}
@@ -422,7 +438,7 @@ function PlayerHomeContent() {
         {isBirthday && <BirthdayXPBonusCard />}
 
         {/* RAMADAN BONUS CARD - Blessings card during Ramadan */}
-        {isRamadan && !isBirthday && <RamadanBonusCard />}
+        {isRamadan && !isBirthday && !ramadanDismissed && <RamadanBonusCard onDismiss={handleDismissRamadan} />}
 
         {/* TENNIS NEWS - Below header, above Today is Open */}
         <NewsTicker />
