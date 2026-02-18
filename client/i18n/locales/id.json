@@ -135,7 +135,10 @@
     "switchAccount": "Ganti Akun",
     "savedAccounts": "Akun Tersimpan",
     "addAccount": "Tambah Akun Lain",
-    "lastLogin": "Login terakhir"
+    "lastLogin": "Login terakhir",
+    "orContinueWith": "atau",
+    "appleNotLinked": "Tidak ada akun yang terhubung dengan Apple ID ini. Silakan masuk dengan nama pengguna Anda terlebih dahulu, lalu hubungkan Apple ID di Pengaturan.",
+    "appleSignIn": "Masuk dengan Apple"
   },
   "nav": {
     "home": "Beranda",

@@ -4,6 +4,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import * as Haptics from "expo-haptics";
+import * as AppleAuthentication from "expo-apple-authentication";
 import Constants from "expo-constants";
 import { useTranslation } from "react-i18next";
 import { Colors, Backgrounds, Spacing, Typography, BorderRadius, CardStyles, GlowColors } from "@/constants/theme";
@@ -62,6 +63,97 @@ export default function PlayerSettingsScreen() {
   const [debugInfo, setDebugInfo] = useState<PushDebugInfo | null>(null);
   const [debugLoading, setDebugLoading] = useState(false);
   const [deleteLoading, setDeleteLoading] = useState(false);
+  const [appleLinked, setAppleLinked] = useState(false);
+  const [appleLoading, setAppleLoading] = useState(false);
+
+  useEffect(() => {
+    if (Platform.OS === 'ios') {
+      checkAppleStatus();
+    }
+  }, []);
+
+  const checkAppleStatus = async () => {
+    try {
+      const apiUrl = getApiUrl();
+      const token = await import('@/lib/auth').then(m => m.getAuthToken());
+      const response = await fetch(new URL("/auth/apple/status", apiUrl).toString(), {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = await response.json();
+      setAppleLinked(data.linked);
+    } catch (error) {
+      console.error("Apple status check error:", error);
+    }
+  };
+
+  const handleLinkApple = async () => {
+    try {
+      const credential = await AppleAuthentication.signInAsync({
+        requestedScopes: [
+          AppleAuthentication.AppleAuthenticationScope.FULL_NAME,
+          AppleAuthentication.AppleAuthenticationScope.EMAIL,
+        ],
+      });
+      if (!credential.identityToken || !credential.user) return;
+
+      setAppleLoading(true);
+      const apiUrl = getApiUrl();
+      const token = await import('@/lib/auth').then(m => m.getAuthToken());
+      const response = await fetch(new URL("/auth/apple/link", apiUrl).toString(), {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ identityToken: credential.identityToken, user: credential.user }),
+      });
+      const data = await response.json();
+      if (response.ok) {
+        setAppleLinked(true);
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        Alert.alert("Success", "Apple ID linked successfully");
+      } else {
+        Alert.alert("Error", data.error || "Failed to link Apple ID");
+      }
+    } catch (error: any) {
+      if (error.code === "ERR_REQUEST_CANCELED") return;
+      Alert.alert("Error", "Failed to link Apple ID");
+    } finally {
+      setAppleLoading(false);
+    }
+  };
+
+  const handleUnlinkApple = () => {
+    Alert.alert(
+      "Unlink Apple ID",
+      "Are you sure you want to unlink your Apple ID? You will no longer be able to sign in with Apple.",
+      [
+        { text: "Cancel", style: "cancel" },
+        { text: "Unlink", style: "destructive", onPress: confirmUnlinkApple },
+      ]
+    );
+  };
+
+  const confirmUnlinkApple = async () => {
+    try {
+      setAppleLoading(true);
+      const apiUrl = getApiUrl();
+      const token = await import('@/lib/auth').then(m => m.getAuthToken());
+      const response = await fetch(new URL("/auth/apple/unlink", apiUrl).toString(), {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+      });
+      const data = await response.json();
+      if (response.ok) {
+        setAppleLinked(false);
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        Alert.alert("Success", "Apple ID unlinked successfully");
+      } else {
+        Alert.alert("Error", data.error || "Failed to unlink Apple ID");
+      }
+    } catch (error) {
+      Alert.alert("Error", "Failed to unlink Apple ID");
+    } finally {
+      setAppleLoading(false);
+    }
+  };
 
   const appVersion = Constants.expoConfig?.version || "1.3.1";
 
@@ -460,6 +552,43 @@ export default function PlayerSettingsScreen() {
             </View>
           </View>
         </View>
+
+        {Platform.OS === "ios" ? (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Apple Sign-In</Text>
+            <View style={styles.sectionCard}>
+              <View style={styles.settingItem}>
+                <View style={styles.settingIcon}>
+                  <Ionicons name="logo-apple" size={20} color={Colors.dark.xpCyan} />
+                </View>
+                <Text style={styles.settingLabel}>
+                  {appleLinked ? "Apple ID Linked" : "Link Apple ID"}
+                </Text>
+                {appleLoading ? (
+                  <ActivityIndicator size="small" color={Colors.dark.xpCyan} />
+                ) : (
+                  <Pressable
+                    onPress={appleLinked ? handleUnlinkApple : handleLinkApple}
+                    style={{
+                      paddingHorizontal: Spacing.md,
+                      paddingVertical: Spacing.xs,
+                      borderRadius: BorderRadius.sm,
+                      backgroundColor: appleLinked ? "rgba(255,76,77,0.15)" : "rgba(0,230,118,0.15)",
+                    }}
+                  >
+                    <Text style={{
+                      ...Typography.small,
+                      fontWeight: "600",
+                      color: appleLinked ? Colors.dark.error : "#00E676",
+                    }}>
+                      {appleLinked ? "Unlink" : "Link"}
+                    </Text>
+                  </Pressable>
+                )}
+              </View>
+            </View>
+          </View>
+        ) : null}
 
         <View style={styles.section}>
           <Text style={[styles.sectionTitle, { color: Colors.dark.error }]}>Danger Zone</Text>

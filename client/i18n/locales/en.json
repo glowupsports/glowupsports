@@ -135,7 +135,10 @@
     "switchAccount": "Switch Account",
     "savedAccounts": "Saved Accounts",
     "addAccount": "Add Another Account",
-    "lastLogin": "Last login"
+    "lastLogin": "Last login",
+    "orContinueWith": "or",
+    "appleNotLinked": "No account is linked to this Apple ID. Please log in with your username first, then link your Apple ID in Settings.",
+    "appleSignIn": "Sign in with Apple"
   },
   "nav": {
     "home": "Home",

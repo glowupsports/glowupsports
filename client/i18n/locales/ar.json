@@ -135,7 +135,10 @@
     "switchAccount": "تبديل الحساب",
     "savedAccounts": "الحسابات المحفوظة",
     "addAccount": "إضافة حساب آخر",
-    "lastLogin": "آخر تسجيل دخول"
+    "lastLogin": "آخر تسجيل دخول",
+    "orContinueWith": "أو",
+    "appleNotLinked": "لا يوجد حساب مرتبط بمعرف Apple هذا. يرجى تسجيل الدخول باسم المستخدم أولاً، ثم ربط معرف Apple في الإعدادات.",
+    "appleSignIn": "تسجيل الدخول باستخدام Apple"
   },
   "nav": {
     "home": "الرئيسية",

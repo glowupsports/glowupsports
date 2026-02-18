@@ -15,6 +15,7 @@ import {
   Dimensions,
   Linking,
 } from "react-native";
+import * as AppleAuthentication from "expo-apple-authentication";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
 
@@ -34,7 +35,7 @@ import { useCoach } from "@/coach/context/CoachContext";
 import { useAppMode } from "@/context/AppModeContext";
 import { useAuth } from "@/coach/context/AuthContext";
 import { Colors, Backgrounds, Spacing, BorderRadius, Typography, GlowColors, FunctionColors } from "@/constants/theme";
-import { apiRequest } from "@/lib/query-client";
+import { apiRequest, getApiUrl } from "@/lib/query-client";
 import { useCoachMarks, CoachMarkTarget } from "@/components/CoachMarks";
 import { useNavigation } from "@react-navigation/native";
 import { useNetwork } from "@/context/NetworkContext";
@@ -237,6 +238,97 @@ export default function SettingsScreen() {
 
   const [settings, setSettings] = useState<CoachSettings>(defaultSettings);
   const [hasChanges, setHasChanges] = useState(false);
+  const [appleLinked, setAppleLinked] = useState(false);
+  const [appleLoading, setAppleLoading] = useState(false);
+
+  useEffect(() => {
+    if (Platform.OS === 'ios') {
+      checkAppleStatus();
+    }
+  }, []);
+
+  const checkAppleStatus = async () => {
+    try {
+      const apiUrl = getApiUrl();
+      const token = await import('@/lib/auth').then(m => m.getAuthToken());
+      const response = await fetch(new URL("/auth/apple/status", apiUrl).toString(), {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = await response.json();
+      setAppleLinked(data.linked);
+    } catch (error) {
+      console.error("Apple status check error:", error);
+    }
+  };
+
+  const handleLinkApple = async () => {
+    try {
+      const credential = await AppleAuthentication.signInAsync({
+        requestedScopes: [
+          AppleAuthentication.AppleAuthenticationScope.FULL_NAME,
+          AppleAuthentication.AppleAuthenticationScope.EMAIL,
+        ],
+      });
+      if (!credential.identityToken || !credential.user) return;
+
+      setAppleLoading(true);
+      const apiUrl = getApiUrl();
+      const token = await import('@/lib/auth').then(m => m.getAuthToken());
+      const response = await fetch(new URL("/auth/apple/link", apiUrl).toString(), {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ identityToken: credential.identityToken, user: credential.user }),
+      });
+      const data = await response.json();
+      if (response.ok) {
+        setAppleLinked(true);
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        Alert.alert("Success", "Apple ID linked successfully");
+      } else {
+        Alert.alert("Error", data.error || "Failed to link Apple ID");
+      }
+    } catch (error: any) {
+      if (error.code === "ERR_REQUEST_CANCELED") return;
+      Alert.alert("Error", "Failed to link Apple ID");
+    } finally {
+      setAppleLoading(false);
+    }
+  };
+
+  const handleUnlinkApple = () => {
+    Alert.alert(
+      "Unlink Apple ID",
+      "Are you sure you want to unlink your Apple ID? You will no longer be able to sign in with Apple.",
+      [
+        { text: "Cancel", style: "cancel" },
+        { text: "Unlink", style: "destructive", onPress: confirmUnlinkApple },
+      ]
+    );
+  };
+
+  const confirmUnlinkApple = async () => {
+    try {
+      setAppleLoading(true);
+      const apiUrl = getApiUrl();
+      const token = await import('@/lib/auth').then(m => m.getAuthToken());
+      const response = await fetch(new URL("/auth/apple/unlink", apiUrl).toString(), {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+      });
+      const data = await response.json();
+      if (response.ok) {
+        setAppleLinked(false);
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        Alert.alert("Success", "Apple ID unlinked successfully");
+      } else {
+        Alert.alert("Error", data.error || "Failed to unlink Apple ID");
+      }
+    } catch (error) {
+      Alert.alert("Error", "Failed to unlink Apple ID");
+    } finally {
+      setAppleLoading(false);
+    }
+  };
   const [showCourtModal, setShowCourtModal] = useState(false);
   const [editingCourt, setEditingCourt] = useState<Court | null>(null);
   const [newCourtName, setNewCourtName] = useState("");
@@ -1580,6 +1672,48 @@ export default function SettingsScreen() {
             </Pressable>
           </View>
         </View>
+
+        {Platform.OS === "ios" ? (
+          <View style={styles.section}>
+            <SectionHeader title="Apple Sign-In" icon="logo-apple" />
+            <View style={styles.card}>
+              <View style={styles.settingRow}>
+                <View style={styles.settingInfo}>
+                  <Ionicons name="logo-apple" size={22} color={Colors.dark.xpCyan} />
+                  <View>
+                    <Text style={styles.settingLabel}>
+                      {appleLinked ? "Apple ID Linked" : "Link Apple ID"}
+                    </Text>
+                    <Text style={styles.settingDescription}>
+                      {appleLinked ? "Your Apple ID is connected" : "Connect your Apple ID for quick sign-in"}
+                    </Text>
+                  </View>
+                </View>
+                {appleLoading ? (
+                  <ActivityIndicator size="small" color={Colors.dark.xpCyan} />
+                ) : (
+                  <Pressable
+                    onPress={appleLinked ? handleUnlinkApple : handleLinkApple}
+                    style={{
+                      paddingHorizontal: Spacing.md,
+                      paddingVertical: Spacing.xs,
+                      borderRadius: BorderRadius.sm,
+                      backgroundColor: appleLinked ? "rgba(255,76,77,0.15)" : "rgba(0,230,118,0.15)",
+                    }}
+                  >
+                    <Text style={{
+                      ...Typography.small,
+                      fontWeight: "600",
+                      color: appleLinked ? Colors.dark.error : "#00E676",
+                    }}>
+                      {appleLinked ? "Unlink" : "Link"}
+                    </Text>
+                  </Pressable>
+                )}
+              </View>
+            </View>
+          </View>
+        ) : null}
 
         <View style={styles.section}>
           <Pressable
