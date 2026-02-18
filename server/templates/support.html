@@ -617,6 +617,45 @@
   <section class="quick-contact">
     <div class="container">
       <div class="section-title">
+        <div class="section-title-icon" style="background: rgba(0,212,255,0.15);">&#128736;</div>
+        Technical Support
+      </div>
+      <div class="contact-form" style="margin-bottom: 48px;">
+        <p style="color: var(--text-secondary); margin-bottom: 16px; font-size: 15px;">Experiencing bugs, crashes, or unexpected behavior? Try these steps first:</p>
+        <ul style="list-style: none; padding: 0; margin: 0;">
+          <li style="padding: 12px 16px; background: rgba(255,255,255,0.03); border: 1px solid var(--border-color); border-radius: 10px; margin-bottom: 8px; color: var(--text-secondary); font-size: 14px; display: flex; align-items: center; gap: 12px;">
+            <span style="background: rgba(0,255,136,0.15); color: var(--primary-green); width: 28px; height: 28px; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 13px; flex-shrink: 0;">1</span>
+            Make sure you are using the latest version of the app
+          </li>
+          <li style="padding: 12px 16px; background: rgba(255,255,255,0.03); border: 1px solid var(--border-color); border-radius: 10px; margin-bottom: 8px; color: var(--text-secondary); font-size: 14px; display: flex; align-items: center; gap: 12px;">
+            <span style="background: rgba(0,255,136,0.15); color: var(--primary-green); width: 28px; height: 28px; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 13px; flex-shrink: 0;">2</span>
+            Restart the app and your device
+          </li>
+          <li style="padding: 12px 16px; background: rgba(255,255,255,0.03); border: 1px solid var(--border-color); border-radius: 10px; margin-bottom: 8px; color: var(--text-secondary); font-size: 14px; display: flex; align-items: center; gap: 12px;">
+            <span style="background: rgba(0,255,136,0.15); color: var(--primary-green); width: 28px; height: 28px; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 13px; flex-shrink: 0;">3</span>
+            Check your internet connection
+          </li>
+          <li style="padding: 12px 16px; background: rgba(255,255,255,0.03); border: 1px solid var(--border-color); border-radius: 10px; color: var(--text-secondary); font-size: 14px; display: flex; align-items: center; gap: 12px;">
+            <span style="background: rgba(0,255,136,0.15); color: var(--primary-green); width: 28px; height: 28px; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 13px; flex-shrink: 0;">4</span>
+            If the issue persists, contact us at <a href="mailto:support@glowupsports.com" style="color: var(--primary-cyan); margin-left: 4px;">support@glowupsports.com</a>
+          </li>
+        </ul>
+      </div>
+
+      <div class="section-title">
+        <div class="section-title-icon" style="background: rgba(168,85,247,0.15);">&#127934;</div>
+        Coach &amp; Academy Support
+      </div>
+      <div class="contact-form" style="margin-bottom: 48px;">
+        <p style="color: var(--text-secondary); margin-bottom: 12px; font-size: 15px;">If you are a coach or academy owner and need assistance with your dashboard, player data, or academy settings, contact our dedicated academy support team:</p>
+        <div style="background: rgba(168,85,247,0.08); border: 1px solid rgba(168,85,247,0.2); padding: 16px 20px; border-radius: 12px;">
+          <p style="color: var(--text-primary); font-weight: 600; font-size: 15px; margin: 0;">
+            &#9993; <a href="mailto:support@glowupsports.com" style="color: var(--primary-cyan); text-decoration: none;">support@glowupsports.com</a>
+          </p>
+        </div>
+      </div>
+
+      <div class="section-title">
         <div class="section-title-icon" style="background: rgba(168,85,247,0.15);">&#128172;</div>
         Quick Contact
       </div>
@@ -629,7 +668,7 @@
         <div class="quick-contact-card">
           <div class="card-icon cyan">&#9200;</div>
           <h3>Response Time</h3>
-          <p>Within 24 hours</p>
+          <p>Within 48 hours</p>
         </div>
         <div class="quick-contact-card">
           <div class="card-icon purple">&#128274;</div>
@@ -744,7 +783,7 @@
           return res.json();
         })
         .then(function() {
-          showMessage('success', 'Thank you! Your message has been sent. We\'ll get back to you within 24 hours.');
+          showMessage('success', 'Thank you! Your message has been sent. We\'ll get back to you within 48 hours.');
           form.reset();
         })
         .catch(function() {
