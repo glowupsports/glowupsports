@@ -264,7 +264,7 @@ function AccordionSection({
                     {item.title}
                   </Text>
                   <Text style={styles.itemSubtitle}>
-                    {isLocked ? `Unlock at Level ${item.unlockLevel}` : item.comingSoon ? "Coming Soon" : item.subtitle}
+                    {isLocked ? `Unlock at Level ${item.unlockLevel}` : item.comingSoon ? "Available Soon" : item.subtitle}
                   </Text>
                 </View>
                 {badgeCount && badgeCount > 0 && !isLocked ? (

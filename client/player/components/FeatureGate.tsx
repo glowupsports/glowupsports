@@ -161,7 +161,7 @@ export function UpcomingUnlocksList({
     <View style={styles.upcomingContainer}>
       <View style={styles.upcomingHeader}>
         <Ionicons name="gift-outline" size={16} color={Colors.dark.xpCyan} />
-        <Text style={styles.upcomingTitle}>Coming Soon</Text>
+        <Text style={styles.upcomingTitle}>Upcoming Unlocks</Text>
       </View>
       
       <View style={styles.upcomingList}>

@@ -345,9 +345,9 @@ export default function ShopScreen() {
               style={styles.emptyCard}
             >
               <Ionicons name="storefront-outline" size={64} color={Colors.dark.primary + "60"} />
-              <Text style={styles.emptyTitle}>Coming Soon</Text>
+              <Text style={styles.emptyTitle}>No Items Yet</Text>
               <Text style={styles.emptyText}>
-                Your academy's shop is being set up. Check back soon for premium gear, services, and exclusive deals!
+                Browse back later for premium gear, services, and exclusive deals from your academy!
               </Text>
             </LinearGradient>
           </Animated.View>
@@ -503,7 +503,7 @@ export default function ShopScreen() {
               >
                 <View style={styles.marketplaceBadge}>
                   <Ionicons name="rocket" size={16} color={Colors.dark.xpCyan} />
-                  <Text style={styles.marketplaceBadgeText}>COMING SOON</Text>
+                  <Text style={styles.marketplaceBadgeText}>NEW</Text>
                 </View>
                 <Text style={styles.marketplaceTitle}>Player Marketplace</Text>
                 <Text style={styles.marketplaceText}>
