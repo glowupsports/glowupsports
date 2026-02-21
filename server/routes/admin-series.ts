@@ -3247,6 +3247,7 @@ function requirePlayerOrOwner(req: AuthenticatedRequest, res: Response, next: Ne
       
       res.json({
         isOnboarding: needsOnboarding,
+        isFreePlayer: !player.academyId,
         player: {
           id: player.id,
           name: player.name,

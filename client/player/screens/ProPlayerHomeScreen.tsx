@@ -74,6 +74,7 @@ interface DashboardData {
     private: number;
     semi_private: number;
   };
+  isFreePlayer?: boolean;
 }
 
 function BroadcastBackground() {
@@ -226,13 +227,15 @@ function PlayerHomeContent() {
     AsyncStorage.setItem(key, "true");
   }, []);
 
+  const isFreePlayer = dashboardData?.isFreePlayer ?? !dashboardData?.academy;
+
   const playerChecklistSteps = useMemo(() => {
     const hasAcademy = !!dashboardData?.academy;
     const hasCoach = !!dashboardData?.coach;
     const hasNextSession = !!dashboardData?.nextSession;
     const hasProfile = !!dashboardData?.player?.profilePhotoUrl;
     
-    return [
+    const steps = [
       {
         id: "complete_profile",
         icon: "person-circle" as const,
@@ -242,7 +245,29 @@ function PlayerHomeContent() {
         onAction: () => navigateToTab("Profile"),
         isCompleted: hasProfile,
       },
-      {
+    ];
+
+    if (isFreePlayer) {
+      steps.push({
+        id: "book_court",
+        icon: "tennisball" as const,
+        title: "Book a Court",
+        description: "Find and book a court near you",
+        actionLabel: "Browse Courts",
+        onAction: () => navigation.navigate("CourtBooking" as never),
+        isCompleted: false,
+      });
+      steps.push({
+        id: "join_academy",
+        icon: "business" as const,
+        title: t("player.home.joinAcademy"),
+        description: "Optional - join an academy for coaching and training sessions",
+        actionLabel: t("player.home.browseAcademies"),
+        onAction: () => navigation.navigate("AcademyBrowser" as never),
+        isCompleted: hasAcademy,
+      });
+    } else {
+      steps.push({
         id: "join_academy",
         icon: "business" as const,
         title: t("player.home.joinAcademy"),
@@ -250,8 +275,8 @@ function PlayerHomeContent() {
         actionLabel: t("player.home.browseAcademies"),
         onAction: () => navigation.navigate("AcademyBrowser" as never),
         isCompleted: hasAcademy,
-      },
-      {
+      });
+      steps.push({
         id: "book_session",
         icon: "calendar" as const,
         title: t("player.home.bookFirstSession"),
@@ -259,18 +284,21 @@ function PlayerHomeContent() {
         actionLabel: t("player.home.bookSession"),
         onAction: () => setShowBookingWizard(true),
         isCompleted: hasNextSession,
-      },
-      {
-        id: "check_progress",
-        icon: "trending-up" as const,
-        title: t("player.home.checkProgress"),
-        description: t("player.home.checkProgressDesc"),
-        actionLabel: t("player.home.viewProgress"),
-        onAction: () => navigateToTab("Progress"),
-        isCompleted: false,
-      },
-    ];
-  }, [dashboardData, navigation, setShowBookingWizard]);
+      });
+    }
+
+    steps.push({
+      id: "check_progress",
+      icon: "trending-up" as const,
+      title: t("player.home.checkProgress"),
+      description: t("player.home.checkProgressDesc"),
+      actionLabel: t("player.home.viewProgress"),
+      onAction: () => navigateToTab("Progress"),
+      isCompleted: false,
+    });
+
+    return steps;
+  }, [dashboardData, navigation, setShowBookingWizard, isFreePlayer]);
 
   const [showSpotlightNomination, setShowSpotlightNomination] = useState(false);
   const [showNotificationGuide, setShowNotificationGuide] = useState(false);
@@ -443,6 +471,26 @@ function PlayerHomeContent() {
         {/* TENNIS NEWS - Below header, above Today is Open */}
         <NewsTicker />
 
+        {/* FREE PLAYER CTA - Court booking for players without academy */}
+        {isFreePlayer && (
+          <Pressable
+            style={styles.freePlayerCta}
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+              navigation.navigate("CourtBooking" as never);
+            }}
+          >
+            <View style={styles.freePlayerCtaIcon}>
+              <Ionicons name="tennisball" size={28} color={GlowColors.primary} />
+            </View>
+            <View style={styles.freePlayerCtaContent}>
+              <Text style={styles.freePlayerCtaTitle}>Find & Book Courts</Text>
+              <Text style={styles.freePlayerCtaSubtitle}>Browse available courts near you</Text>
+            </View>
+            <Ionicons name="chevron-forward" size={20} color={Colors.dark.textMuted} />
+          </Pressable>
+        )}
+
         {/* HERO CTA - Next Session (PRIMARY ACTION) */}
         <CoachMarkTarget id="player_sessions">
           <SessionHeroCard onBookSession={handleBookLesson} />
@@ -583,5 +631,37 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.lg,
     marginBottom: -Spacing.sm,
     textTransform: "uppercase",
+  },
+  freePlayerCta: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "rgba(0, 212, 255, 0.08)",
+    borderWidth: 1,
+    borderColor: "rgba(0, 212, 255, 0.2)",
+    borderRadius: BorderRadius.lg,
+    marginHorizontal: Spacing.lg,
+    padding: Spacing.lg,
+    gap: Spacing.md,
+  },
+  freePlayerCtaIcon: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: "rgba(0, 212, 255, 0.15)",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  freePlayerCtaContent: {
+    flex: 1,
+  },
+  freePlayerCtaTitle: {
+    fontSize: 16,
+    fontWeight: "700",
+    color: Colors.dark.text,
+  },
+  freePlayerCtaSubtitle: {
+    fontSize: 13,
+    color: Colors.dark.textMuted,
+    marginTop: 2,
   },
 });
