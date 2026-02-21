@@ -216,6 +216,29 @@ function PlayerHomeContent() {
     const hasNextSession = !!effectiveData?.nextSession;
     const hasProfile = !!effectiveData?.player?.profilePhotoUrl;
     
+    if (isGuest) {
+      return [
+        {
+          id: "create_account",
+          icon: "person-add" as const,
+          title: "Create Your Account",
+          description: "Sign up to unlock all features and track your progress",
+          actionLabel: "Sign Up",
+          onAction: () => guardAction(() => {}),
+          isCompleted: false,
+        },
+        {
+          id: "browse_courts",
+          icon: "tennisball" as const,
+          title: "Browse Courts",
+          description: "Explore available courts near you",
+          actionLabel: "Browse",
+          onAction: () => guardAction(() => navigation.navigate("CourtBooking" as never)),
+          isCompleted: false,
+        },
+      ];
+    }
+
     const steps = [
       {
         id: "complete_profile",
