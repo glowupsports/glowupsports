@@ -307,8 +307,8 @@ export async function sendSessionReminder(
 
   await sendPushNotification(
     tokens,
-    `Upcoming: ${typeLabel} Session`,
-    `${time} with ${coachName}${locationStr}. See you on court!`,
+    `Session in 1 Hour`,
+    `${typeLabel} at ${time} with ${coachName}${locationStr}. See you on court!`,
     { type: "session_reminder", playerId },
     playerId
   );
@@ -417,8 +417,8 @@ export async function sendSessionReminderToCoach(
 
   await sendPushNotification(
     tokens,
-    `Upcoming: ${typeLabel} Session`,
-    `${time}${locationStr} - ${playersStr}`,
+    `Session in 1 Hour`,
+    `${typeLabel} at ${time}${locationStr} - ${playersStr}`,
     { type: "session_reminder_coach", coachId }
   );
 }
@@ -427,8 +427,8 @@ const sentReminders = new Set<string>();
 
 export async function processScheduledReminders(): Promise<void> {
   const now = new Date();
-  const thirtyMinutesFromNow = new Date(now.getTime() + 30 * 60 * 1000);
-  const twentyFiveMinutesFromNow = new Date(now.getTime() + 25 * 60 * 1000);
+  const sixtyMinutesFromNow = new Date(now.getTime() + 60 * 60 * 1000);
+  const fiftyFiveMinutesFromNow = new Date(now.getTime() + 55 * 60 * 1000);
 
   try {
     const upcomingSessions = await db
@@ -436,13 +436,13 @@ export async function processScheduledReminders(): Promise<void> {
       .from(sessions)
       .where(
         and(
-          gte(sessions.startTime, twentyFiveMinutesFromNow),
-          lte(sessions.startTime, thirtyMinutesFromNow),
+          gte(sessions.startTime, fiftyFiveMinutesFromNow),
+          lte(sessions.startTime, sixtyMinutesFromNow),
           eq(sessions.status, "scheduled")
         )
       );
 
-    console.log(`[SessionReminders] Found ${upcomingSessions.length} sessions starting in ~30 minutes`);
+    console.log(`[SessionReminders] Found ${upcomingSessions.length} sessions starting in ~1 hour`);
 
     for (const session of upcomingSessions) {
       const reminderKey = `${session.id}-${session.startTime?.toISOString()}`;
@@ -504,18 +504,6 @@ export async function processScheduledReminders(): Promise<void> {
             playerNotificationsSent++;
           }
           
-          const player = await db.select().from(players).where(eq(players.id, sp.playerId)).limit(1);
-          if (player[0]?.email) {
-            const tz = session.academyId ? (await getAcademyTimezone(session.academyId)) : "UTC";
-            const { date: sessionDate, time: sessionTime } = formatSessionDateTime(session.startTime, tz);
-            sendSessionReminderEmail({
-              to: player[0].email,
-              playerName: player[0].name,
-              sessionDate,
-              sessionTime,
-              coachName,
-            }).catch(err => console.error("[SessionReminders] Failed to send player email reminder:", err));
-          }
         }
       }
 
