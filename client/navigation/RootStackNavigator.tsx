@@ -44,17 +44,8 @@ function NavigationController({
   const prevAuthRef = useRef(isAuthenticated);
   const prevBootRef = useRef(bootComplete);
   const prevModeRef = useRef(mode);
-  const initializedRef = useRef(false);
 
   useEffect(() => {
-    if (!initializedRef.current) {
-      initializedRef.current = true;
-      prevAuthRef.current = isAuthenticated;
-      prevBootRef.current = bootComplete;
-      prevModeRef.current = mode;
-      return;
-    }
-
     const authChanged = prevAuthRef.current !== isAuthenticated;
     const bootChanged = prevBootRef.current !== bootComplete;
     const modeChanged = prevModeRef.current !== mode;
@@ -62,8 +53,6 @@ function NavigationController({
     prevAuthRef.current = isAuthenticated;
     prevBootRef.current = bootComplete;
     prevModeRef.current = mode;
-
-    if (!authChanged && !bootChanged && !modeChanged) return;
 
     let targetRoute: keyof RootStackParamList;
     if (!isAuthenticated) {
@@ -80,6 +69,12 @@ function NavigationController({
         default: targetRoute = "Player"; break;
       }
     }
+
+    const navState = navigation.getState?.();
+    const currentRoute = navState?.routes?.[navState.index]?.name;
+    const needsNavigation = authChanged || bootChanged || modeChanged || currentRoute !== targetRoute;
+
+    if (!needsNavigation) return;
 
     navigation.dispatch(
       CommonActions.reset({
