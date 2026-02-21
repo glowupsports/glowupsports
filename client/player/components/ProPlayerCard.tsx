@@ -12,13 +12,11 @@ import Animated, {
   interpolate,
   Extrapolation,
 } from "react-native-reanimated";
-import { ProTennisColors, Spacing, BorderRadius, Typography, GlowColors } from "@/constants/theme";
+import { ProTennisColors, Spacing, BorderRadius, GlowColors, Backgrounds } from "@/constants/theme";
 import * as Haptics from "expo-haptics";
 import { getStaticAssetsUrl } from "@/lib/query-client";
 import { usePlayerLevel } from "../hooks/usePlayerLevel";
 import { useNavigation } from "@react-navigation/native";
-import { SkillProgressRing } from "./SkillProgressRing";
-import { InfoTooltip } from "@/components/InfoTooltip";
 import { LanguageHeaderButton } from "@/components/LanguageSelectorModal";
 import { useTranslation } from "react-i18next";
 
@@ -43,6 +41,7 @@ interface Credits {
 interface ProPlayerCardProps {
   player: PlayerData;
   credits?: Credits | null;
+  academyName?: string | null;
   onAvatarPress?: () => void;
   onWalletPress?: () => void;
   onSquadPress?: () => void;
@@ -64,6 +63,7 @@ function getPlayerTitle(level: number, streak: number, glowScore: number, t: (ke
 export function ProPlayerCard({ 
   player, 
   credits, 
+  academyName,
   onAvatarPress,
   onWalletPress,
   onSquadPress,
@@ -91,19 +91,15 @@ export function ProPlayerCard({
   const xpInLevel = levelStatus?.xpInCurrentLevel ?? 0;
   const xpNeeded = levelStatus?.xpNeededForNextLevel ?? 100;
   const xpProgress = xpNeeded > 0 ? Math.min(xpInLevel / xpNeeded, 1) : 0;
-  
-  const glowIntensity = Math.min(1, player.streak / 7);
-  
+
   const glowRingStyle = useAnimatedStyle(() => {
     const opacity = interpolate(
       glowPulse.value,
       [0, 0.5, 1],
-      [0.6, 0.9, 0.6],
+      [0.5, 0.8, 0.5],
       Extrapolation.CLAMP
     );
-    return {
-      opacity,
-    };
+    return { opacity };
   });
 
   const handleAvatarPress = () => {
@@ -136,141 +132,132 @@ export function ProPlayerCard({
       {Platform.OS === "ios" ? (
         <BlurView intensity={40} tint="dark" style={StyleSheet.absoluteFill}>
           <LinearGradient
-            colors={[ProTennisColors.surfaceDark + "E0", ProTennisColors.midnightBlue + "F0"]}
+            colors={[Backgrounds.card + "F0", Backgrounds.root + "F8"]}
             style={StyleSheet.absoluteFill}
           />
         </BlurView>
       ) : (
-        <View style={[StyleSheet.absoluteFill, { backgroundColor: ProTennisColors.surfaceDark + "F5" }]} />
+        <View style={[StyleSheet.absoluteFill, { backgroundColor: Backgrounds.card + "F8" }]} />
       )}
       
       <View style={styles.cardContent}>
-        <Pressable style={styles.avatarSection} onPress={handleAvatarPress}>
-          <View style={styles.avatarWrapper}>
-            <Animated.View style={[styles.glowRing, glowRingStyle]} />
-            {profilePhotoUri ? (
-              Platform.OS === 'web' ? (
-                <RNImage
-                  source={{ uri: profilePhotoUri }}
-                  style={styles.avatarPhoto}
-                  resizeMode="cover"
-                />
-              ) : (
-                <Image
-                  source={{ uri: profilePhotoUri }}
-                  style={styles.avatarPhoto}
-                  contentFit="cover"
-                />
-              )
-            ) : (
-              <LinearGradient
-                colors={ProTennisColors.gradientElectric as [string, string]}
-                style={styles.avatarGradient}
-              >
-                <View style={styles.avatarInner}>
-                  <Text style={styles.avatarText}>{(player.name || "P").charAt(0).toUpperCase()}</Text>
-                </View>
-              </LinearGradient>
-            )}
-            {player.streak >= 3 && (
-              <View style={styles.streakBadge}>
-                <Ionicons name="flame" size={12} color={ProTennisColors.electricGreen} />
-              </View>
-            )}
-          </View>
-        </Pressable>
-
-        <View style={styles.statsSection}>
-          <Text style={styles.playerName}>{(player.name || "PLAYER").toUpperCase()}</Text>
-          <View style={styles.titleRow}>
-            <View style={styles.titleBadge}>
-              <Text style={styles.titleText}>{playerTitle}</Text>
-            </View>
-            <SkillProgressRing
-              currentXp={xpInLevel}
-              xpForNextLevel={xpNeeded}
-              level={currentLevel}
-              size={36}
-              strokeWidth={3}
-            />
-          </View>
-          
-          <View style={styles.formBarContainer}>
-            <View style={styles.formLabelRow}>
-              <Text style={styles.formLabelLeft}>{t("player.card.form")}</Text>
-              <InfoTooltip 
-                title={t("player.card.glowScoreTitle")} 
-                description={t("player.card.glowScoreDesc")}
-                size={14}
-              />
-              <View style={styles.signalBars}>
-                {[1, 2, 3, 4, 5].map((bar) => (
-                  <View
-                    key={bar}
-                    style={[
-                      styles.signalBar,
-                      { height: 4 + bar * 2 },
-                      player.streak >= bar ? styles.signalBarActive : styles.signalBarInactive,
-                    ]}
+        <View style={styles.topRow}>
+          <Pressable style={styles.avatarSection} onPress={handleAvatarPress}>
+            <View style={styles.avatarWrapper}>
+              <Animated.View style={[styles.glowRing, glowRingStyle]} />
+              {profilePhotoUri ? (
+                Platform.OS === 'web' ? (
+                  <RNImage
+                    source={{ uri: profilePhotoUri }}
+                    style={styles.avatarPhoto}
+                    resizeMode="cover"
                   />
-                ))}
+                ) : (
+                  <Image
+                    source={{ uri: profilePhotoUri }}
+                    style={styles.avatarPhoto}
+                    contentFit="cover"
+                  />
+                )
+              ) : (
+                <LinearGradient
+                  colors={[GlowColors.primary, GlowColors.soft]}
+                  style={styles.avatarGradient}
+                >
+                  <View style={styles.avatarInner}>
+                    <Text style={styles.avatarText}>{(player.name || "P").charAt(0).toUpperCase()}</Text>
+                  </View>
+                </LinearGradient>
+              )}
+              <View style={styles.levelBadgeOnAvatar}>
+                <Text style={styles.levelBadgeText}>{currentLevel}</Text>
               </View>
             </View>
-            <View style={styles.formBarTrack}>
-              <Animated.View 
-                style={[
-                  styles.formBarFill, 
-                  { width: `${xpProgress * 100}%` }
-                ]} 
-              />
+          </Pressable>
+
+          <View style={styles.identitySection}>
+            <Text style={styles.roleLabel}>PLAYER</Text>
+            <Text style={styles.playerName} numberOfLines={1}>{player.name || "Player"}</Text>
+            <View style={styles.subtitleRow}>
+              <Ionicons name="tennisball" size={12} color={GlowColors.primary} />
+              <Text style={styles.academyText} numberOfLines={1}>
+                {academyName || "Free Player"}
+              </Text>
             </View>
-            <Text style={styles.formLabel}>{xpInLevel}/{xpNeeded} {t("player.card.xp")}</Text>
+          </View>
+
+          <View style={styles.iconsRow}>
+            <LanguageHeaderButton />
+            {onNotificationPress ? (
+              <Pressable style={styles.iconBtn} onPress={onNotificationPress}>
+                <Ionicons name="notifications" size={18} color="#B8BCC6" />
+                {unreadNotificationCount > 0 ? (
+                  <View style={styles.bellBadge}>
+                    <Text style={styles.bellBadgeText}>
+                      {unreadNotificationCount > 99 ? "99+" : unreadNotificationCount}
+                    </Text>
+                  </View>
+                ) : null}
+              </Pressable>
+            ) : null}
           </View>
         </View>
 
-        <View style={styles.lockerSection}>
-          <LanguageHeaderButton />
-          {onNotificationPress ? (
-            <Pressable style={styles.notificationBtn} onPress={onNotificationPress}>
-              <Ionicons name="notifications" size={18} color={ProTennisColors.neonCyan} />
-              {unreadNotificationCount > 0 ? (
-                <View style={styles.bellBadge}>
-                  <Text style={styles.bellBadgeText}>
-                    {unreadNotificationCount > 99 ? "99+" : unreadNotificationCount}
-                  </Text>
-                </View>
-              ) : null}
-            </Pressable>
-          ) : null}
-          <Pressable 
-            style={[
-              styles.walletButton,
-              (credits?.total ?? 0) <= 0 && styles.walletButtonDanger,
-            ]} 
-            onPress={handleWalletPress}
-          >
-            {(credits?.total ?? 0) <= 0 && (
-              <Ionicons name="alert-circle" size={16} color="#DC2626" />
-            )}
-            <Ionicons 
-              name="wallet-outline" 
-              size={18} 
-              color={(credits?.total ?? 0) <= 0 ? "#DC2626" : ProTennisColors.electricGreen} 
+        <View style={styles.bottomSection}>
+          <View style={styles.xpRow}>
+            <Text style={styles.xpText}>
+              <Text style={styles.xpValue}>{xpInLevel}</Text>
+              <Text style={styles.xpDivider}> / {xpNeeded}</Text>
+            </Text>
+          </View>
+          <View style={styles.xpBarTrack}>
+            <LinearGradient
+              colors={[GlowColors.primary, GlowColors.soft]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+              style={[styles.xpBarFill, { width: `${Math.max(xpProgress * 100, 2)}%` }]}
             />
-            <Text style={[
-              styles.walletText,
-              (credits?.total ?? 0) <= 0 && styles.walletTextDanger,
-            ]}>{credits?.total ?? 0}</Text>
-          </Pressable>
-          
-          {showSquadSwitch ? (
-            <Pressable style={styles.squadButton} onPress={handleSquadPress}>
-              <Ionicons name="people-outline" size={18} color={ProTennisColors.neonCyan} />
+          </View>
+
+          <View style={styles.statsRow}>
+            <Pressable 
+              style={[
+                styles.walletChip,
+                (credits?.total ?? 0) <= 0 && styles.walletChipDanger,
+              ]} 
+              onPress={handleWalletPress}
+            >
+              {(credits?.total ?? 0) <= 0 ? (
+                <Ionicons name="alert-circle" size={14} color="#FF4D4D" />
+              ) : null}
+              <Ionicons 
+                name="wallet-outline" 
+                size={14} 
+                color={(credits?.total ?? 0) <= 0 ? "#FF4D4D" : GlowColors.primary} 
+              />
+              <Text style={[
+                styles.walletText,
+                (credits?.total ?? 0) <= 0 && styles.walletTextDanger,
+              ]}>{credits?.total ?? 0}</Text>
             </Pressable>
-          ) : null}
+
+            {player.streak > 0 ? (
+              <View style={styles.streakChip}>
+                <Ionicons name="flame" size={14} color={player.streak >= 5 ? "#FF6B35" : GlowColors.primary} />
+                <Text style={[styles.streakText, { color: player.streak >= 5 ? "#FF6B35" : GlowColors.primary }]}>
+                  {player.streak}
+                </Text>
+              </View>
+            ) : null}
+
+            {showSquadSwitch ? (
+              <Pressable style={styles.iconChip} onPress={handleSquadPress}>
+                <Ionicons name="people-outline" size={14} color="#B8BCC6" />
+              </Pressable>
+            ) : null}
+          </View>
         </View>
       </View>
-      
     </View>
   );
 }
@@ -282,194 +269,115 @@ const styles = StyleSheet.create({
     borderBottomRightRadius: BorderRadius.lg,
   },
   cardContent: {
-    flexDirection: "row",
-    alignItems: "center",
     paddingHorizontal: Spacing.lg,
     paddingTop: Spacing.md,
     paddingBottom: Spacing.lg,
+    gap: Spacing.md,
+  },
+  topRow: {
+    flexDirection: "row",
+    alignItems: "center",
     gap: Spacing.md,
   },
   avatarSection: {
     position: "relative",
   },
   avatarWrapper: {
-    width: 72,
-    height: 72,
+    width: 60,
+    height: 60,
     justifyContent: "center",
     alignItems: "center",
   },
   glowRing: {
     position: "absolute",
-    width: 76,
-    height: 76,
-    borderRadius: 38,
+    width: 64,
+    height: 64,
+    borderRadius: 32,
     borderWidth: 2,
-    borderColor: "rgba(200, 255, 61, 0.5)",
+    borderColor: "rgba(200, 255, 61, 0.35)",
   },
   avatarPhoto: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
+    width: 54,
+    height: 54,
+    borderRadius: 27,
     borderWidth: 2,
-    borderColor: ProTennisColors.surfaceElevated,
+    borderColor: "rgba(255, 255, 255, 0.12)",
   },
   avatarGradient: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
+    width: 54,
+    height: 54,
+    borderRadius: 27,
     justifyContent: "center",
     alignItems: "center",
   },
   avatarInner: {
-    width: 58,
-    height: 58,
-    borderRadius: 29,
-    backgroundColor: ProTennisColors.midnightBlue,
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: Backgrounds.root,
     justifyContent: "center",
     alignItems: "center",
   },
   avatarText: {
-    fontSize: 24,
+    fontSize: 20,
     fontWeight: "700",
-    color: ProTennisColors.electricGreen,
+    color: GlowColors.primary,
   },
-  streakBadge: {
+  levelBadgeOnAvatar: {
     position: "absolute",
-    bottom: 0,
-    right: 0,
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    backgroundColor: ProTennisColors.surfaceDark,
-    borderWidth: 2,
-    borderColor: ProTennisColors.electricGreen,
+    bottom: -2,
+    right: -2,
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    backgroundColor: GlowColors.primary,
     justifyContent: "center",
     alignItems: "center",
+    borderWidth: 2,
+    borderColor: Backgrounds.card,
   },
-  statsSection: {
-    flex: 1,
-    gap: 4,
-  },
-  playerName: {
-    fontSize: 18,
+  levelBadgeText: {
+    fontSize: 10,
     fontWeight: "800",
-    color: ProTennisColors.white,
-    letterSpacing: 1,
+    color: Backgrounds.root,
   },
-  titleRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: Spacing.sm,
-  },
-  titleBadge: {
-    backgroundColor: "rgba(200, 255, 61, 0.12)",
-    paddingHorizontal: Spacing.sm,
-    paddingVertical: 2,
-    borderRadius: BorderRadius.xs,
-  },
-  titleText: {
-    fontSize: 10,
-    fontWeight: "600",
-    color: ProTennisColors.electricGreen,
-    letterSpacing: 0.5,
-  },
-  levelBadge: {
-    backgroundColor: ProTennisColors.neonCyan + "20",
-    paddingHorizontal: Spacing.sm,
-    paddingVertical: 2,
-    borderRadius: BorderRadius.xs,
-  },
-  levelText: {
-    fontSize: 10,
-    fontWeight: "700",
-    color: ProTennisColors.neonCyan,
-  },
-  formBarContainer: {
-    marginTop: 4,
-    gap: 3,
-  },
-  formLabelRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-  },
-  formLabelLeft: {
-    fontSize: 8,
-    fontWeight: "700",
-    color: ProTennisColors.textMuted,
-    letterSpacing: 1,
-  },
-  signalBars: {
-    flexDirection: "row",
-    alignItems: "flex-end",
+  identitySection: {
+    flex: 1,
     gap: 2,
   },
-  signalBar: {
-    width: 4,
-    borderRadius: 1,
+  roleLabel: {
+    fontSize: 10,
+    fontWeight: "700",
+    color: GlowColors.primary,
+    letterSpacing: 1.5,
   },
-  signalBarActive: {
-    backgroundColor: ProTennisColors.electricGreen,
+  playerName: {
+    fontSize: 20,
+    fontWeight: "800",
+    color: "#FFFFFF",
+    letterSpacing: 0.3,
   },
-  signalBarInactive: {
-    backgroundColor: ProTennisColors.surfaceElevated,
-  },
-  formBarTrack: {
-    height: 6,
-    backgroundColor: ProTennisColors.formBarBackground,
-    borderRadius: 3,
-    overflow: "hidden",
-  },
-  formBarFill: {
-    height: "100%",
-    backgroundColor: ProTennisColors.electricGreen,
-    borderRadius: 3,
-  },
-  formLabel: {
-    fontSize: 9,
-    fontWeight: "600",
-    color: ProTennisColors.textMuted,
-    textAlign: "right",
-  },
-  lockerSection: {
-    alignItems: "flex-end",
-    gap: Spacing.sm,
-  },
-  walletButton: {
+  subtitleRow: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: ProTennisColors.surfaceElevated,
-    paddingHorizontal: Spacing.md,
-    paddingVertical: Spacing.sm,
-    borderRadius: BorderRadius.sm,
-    gap: Spacing.xs,
+    gap: 4,
+    marginTop: 1,
   },
-  walletText: {
-    fontSize: 14,
-    fontWeight: "700",
-    color: ProTennisColors.electricGreen,
+  academyText: {
+    fontSize: 12,
+    fontWeight: "500",
+    color: "#7C8290",
   },
-  walletButtonDanger: {
-    backgroundColor: "rgba(220, 38, 38, 0.15)",
-    borderWidth: 1,
-    borderColor: "rgba(220, 38, 38, 0.4)",
-  },
-  walletTextDanger: {
-    color: "#DC2626",
-  },
-  squadButton: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: "rgba(255, 255, 255, 0.08)",
-    justifyContent: "center",
+  iconsRow: {
+    flexDirection: "row",
     alignItems: "center",
+    gap: 6,
   },
-  notificationBtn: {
+  iconBtn: {
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: "rgba(255, 255, 255, 0.08)",
+    backgroundColor: "rgba(255, 255, 255, 0.06)",
     justifyContent: "center",
     alignItems: "center",
   },
@@ -485,16 +393,88 @@ const styles = StyleSheet.create({
     alignItems: "center",
     paddingHorizontal: 3,
     borderWidth: 1.5,
-    borderColor: ProTennisColors.surfaceDark,
+    borderColor: Backgrounds.card,
   },
   bellBadgeText: {
     fontSize: 9,
     fontWeight: "800",
     color: "#FFFFFF",
   },
-  bottomBorder: {
-    height: 2,
-    backgroundColor: ProTennisColors.electricGreen,
-    opacity: 0.3,
+  bottomSection: {
+    gap: 6,
+  },
+  xpRow: {
+    flexDirection: "row",
+    alignItems: "baseline",
+  },
+  xpText: {
+    fontSize: 13,
+  },
+  xpValue: {
+    fontWeight: "700",
+    color: GlowColors.primary,
+    fontSize: 14,
+  },
+  xpDivider: {
+    fontWeight: "500",
+    color: "#7C8290",
+    fontSize: 12,
+  },
+  xpBarTrack: {
+    height: 6,
+    backgroundColor: "rgba(255, 255, 255, 0.08)",
+    borderRadius: 3,
+    overflow: "hidden",
+  },
+  xpBarFill: {
+    height: "100%",
+    borderRadius: 3,
+  },
+  statsRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+    marginTop: 2,
+  },
+  walletChip: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "rgba(255, 255, 255, 0.06)",
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: BorderRadius.sm,
+    gap: 4,
+  },
+  walletChipDanger: {
+    backgroundColor: "rgba(255, 77, 77, 0.12)",
+  },
+  walletText: {
+    fontSize: 13,
+    fontWeight: "700",
+    color: GlowColors.primary,
+  },
+  walletTextDanger: {
+    color: "#FF4D4D",
+  },
+  streakChip: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "rgba(255, 255, 255, 0.06)",
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: BorderRadius.sm,
+    gap: 4,
+  },
+  streakText: {
+    fontSize: 13,
+    fontWeight: "700",
+  },
+  iconChip: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    backgroundColor: "rgba(255, 255, 255, 0.06)",
+    justifyContent: "center",
+    alignItems: "center",
   },
 });

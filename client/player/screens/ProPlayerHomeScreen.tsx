@@ -451,6 +451,7 @@ function PlayerHomeContent() {
             <ProPlayerCard
               player={player}
               credits={credits}
+              academyName={effectiveData?.academy?.name}
               onAvatarPress={handleAvatarPress}
               onWalletPress={handleWalletPress}
               onSquadPress={handleSquadPress}
