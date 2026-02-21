@@ -98,8 +98,12 @@ function toDubaiTime(utcDate: Date): Date {
       const playerId = req.user?.playerId;
       const academyId = req.user?.academyId;
       
-      if (!playerId || !academyId) {
+      if (!playerId) {
         return res.status(403).json({ error: "Player access required" });
+      }
+
+      if (!academyId) {
+        return res.json([]);
       }
 
       // Get all coaches from this academy with extended details for booking
@@ -210,8 +214,12 @@ function toDubaiTime(utcDate: Date): Date {
       const playerId = req.user?.playerId;
       const academyId = req.user?.academyId;
       
-      if (!playerId || !academyId) {
+      if (!playerId) {
         return res.status(403).json({ error: "Player access required" });
+      }
+
+      if (!academyId) {
+        return res.json({ sessions: [] });
       }
 
       const player = await storage.getPlayer(playerId, academyId);

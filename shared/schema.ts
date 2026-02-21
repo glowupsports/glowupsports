@@ -173,6 +173,9 @@ export const academies = pgTable("academies", {
   xpVisibleToPlayers: boolean("xp_visible_to_players").default(true),
   notificationsEnabled: boolean("notifications_enabled").default(true),
   
+  // Academy Type: academy (full coaching), venue (court rental only), club (social/membership)
+  academyType: text("academy_type").default("academy"), // academy | venue | club
+  
   // Freelance Support
   isFreelance: boolean("is_freelance").default(false), // True if this is a coach's personal freelance academy
   freelanceOwnerCoachId: varchar("freelance_owner_coach_id"), // Coach ID who owns this freelance academy
