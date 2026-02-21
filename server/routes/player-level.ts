@@ -700,9 +700,9 @@ router.post("/seed-defaults", async (req: Request, res: Response) => {
       { featureKey: "match_analysis", requiredLevel: 8, featureName: "Match Analysis", featureIcon: "analytics", onboardingTitle: "Match Analysis Unlocked!", onboardingDescription: "Deep dive into your match performance" },
       // Level 9 - Marketplace
       { featureKey: "academy_shop", requiredLevel: 9, featureName: "Academy Shop", featureIcon: "storefront", onboardingTitle: "Shop Unlocked!", onboardingDescription: "Browse products and services from your academy" },
-      // Level 10 - Court booking
-      { featureKey: "court_booking", requiredLevel: 10, featureName: "Court Booking", featureIcon: "tennisball", onboardingTitle: "Court Booking Unlocked!", onboardingDescription: "Book courts for practice sessions" },
-      { featureKey: "my_court_bookings", requiredLevel: 10, featureName: "My Bookings", featureIcon: "calendar-number" },
+      // Level 1 - Court booking (available to all players)
+      { featureKey: "court_booking", requiredLevel: 1, featureName: "Court Booking", featureIcon: "tennisball", onboardingTitle: "Court Booking Unlocked!", onboardingDescription: "Book courts for practice sessions" },
+      { featureKey: "my_court_bookings", requiredLevel: 1, featureName: "My Bookings", featureIcon: "calendar-number" },
       // Level 12 - Marketplace
       { featureKey: "marketplace", requiredLevel: 12, featureName: "Marketplace", featureIcon: "pricetag", onboardingTitle: "Marketplace Unlocked!", onboardingDescription: "Buy and sell tennis equipment" },
       { featureKey: "my_listings", requiredLevel: 12, featureName: "My Listings", featureIcon: "list-circle" },

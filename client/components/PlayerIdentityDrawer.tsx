@@ -155,7 +155,7 @@ const DRAWER_SECTIONS: DrawerSection[] = [
     icon: "calendar",
     items: [
       { id: "lessonbooking", title: "Lesson Booking", subtitle: "Book with coach", icon: "person-add", screen: "LessonBooking" },
-      { id: "courtbooking", title: "Court Booking", subtitle: "Reserve courts", icon: "tennisball", screen: "CourtBooking", unlockLevel: 10 },
+      { id: "courtbooking", title: "Court Booking", subtitle: "Reserve courts", icon: "tennisball", screen: "CourtBooking", unlockLevel: 1 },
       { id: "mybookings", title: "My Bookings", subtitle: "Manage reservations", icon: "bookmark", screen: "MyCourtBookings" },
       { id: "vacation", title: "Vacation Mode", subtitle: "Set availability", icon: "airplane", screen: "Settings" },
     ],
