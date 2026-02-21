@@ -353,7 +353,6 @@ function PlayerHomeContent() {
   if (!isGuest && (isLoading || !effectiveData)) {
     return (
       <View style={[styles.container, styles.loadingContainer]}>
-        <BroadcastBackground />
         <ActivityIndicator size="large" color={GlowColors.primary} />
       </View>
     );
