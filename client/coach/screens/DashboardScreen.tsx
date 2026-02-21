@@ -787,7 +787,7 @@ export default function DashboardScreen() {
         {/* === GAMING PLAYER CARD HEADER === */}
         <View style={styles.playerCard}>
           {/* Neon border glow effect */}
-          <Animated.View style={[styles.playerCardGlow, glowAnimatedStyle]} pointerEvents="none" />
+          <Animated.View style={[styles.playerCardGlow, glowAnimatedStyle, { pointerEvents: "none" }]} />
           
           {/* Glass panel background */}
           <LinearGradient
