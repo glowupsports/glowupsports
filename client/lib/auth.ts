@@ -14,7 +14,47 @@ export interface AuthUser {
   playerId: string | null;
   profilePhotoUrl?: string | null;
   displayName?: string;
+  isGuest?: boolean;
 }
+
+const GUEST_MODE_KEY = "@guest_mode";
+
+export async function saveGuestMode(): Promise<void> {
+  try {
+    await AsyncStorage.setItem(GUEST_MODE_KEY, "true");
+  } catch (error) {
+    console.error("Failed to save guest mode:", error);
+  }
+}
+
+export async function clearGuestMode(): Promise<void> {
+  try {
+    await AsyncStorage.removeItem(GUEST_MODE_KEY);
+  } catch (error) {
+    console.error("Failed to clear guest mode:", error);
+  }
+}
+
+export async function isGuestMode(): Promise<boolean> {
+  try {
+    const val = await AsyncStorage.getItem(GUEST_MODE_KEY);
+    return val === "true";
+  } catch {
+    return false;
+  }
+}
+
+export const GUEST_USER: AuthUser = {
+  id: "guest",
+  username: "guest",
+  email: "",
+  role: "player",
+  academyId: null,
+  coachId: null,
+  playerId: null,
+  isGuest: true,
+  displayName: "Guest",
+};
 
 export interface AuthState {
   token: string | null;

@@ -8,7 +8,11 @@ import {
   clearAuthState, 
   setAuthToken,
   setOnUnauthorizedCallback,
-  AuthUser 
+  AuthUser,
+  GUEST_USER,
+  saveGuestMode,
+  clearGuestMode,
+  isGuestMode,
 } from "@/lib/auth";
 import { useAppMode, getModesForRole, getDefaultModeForRole } from "@/context/AppModeContext";
 import { TshirtSize } from "@shared/schema";
@@ -53,8 +57,10 @@ interface AuthContextType {
   user: AuthUser | null;
   coach: Coach | null;
   academy: Academy | null;
+  isGuest: boolean;
   login: (username: string, password: string) => Promise<{ success: boolean; error?: string; user?: AuthUser }>;
   loginWithApple: (identityToken: string, appleUser: string) => Promise<{ success: boolean; error?: string; code?: string; user?: AuthUser }>;
+  loginAsGuest: () => Promise<void>;
   register: (data: RegisterData) => Promise<{ success: boolean; error?: string }>;
   registerPlayer: (data: PlayerRegisterData) => Promise<{ success: boolean; error?: string; requiresOTP?: boolean }>;
   logout: () => Promise<void>;
@@ -85,6 +91,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [coach, setCoach] = useState<Coach | null>(null);
   const [academy, setAcademy] = useState<Academy | null>(null);
+  const [isGuest, setIsGuest] = useState(false);
   const [isImpersonating, setIsImpersonating] = useState(false);
   const [impersonatedAcademyName, setImpersonatedAcademyName] = useState<string | null>(null);
   const { mode, setMode, setAvailableModes } = useAppMode();
@@ -166,23 +173,35 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           setImpersonatedAcademyName(impersonationAcademy);
         }
 
-        const authState = await loadAuthState();
-        console.log("[AuthContext] Loaded auth state:", { hasToken: !!authState.token, hasUser: !!authState.user });
-        
-        if (authState.token && authState.user && isMounted) {
-          setAuthToken(authState.token);
-          console.log("[AuthContext] Fetching user data...");
-          const success = await fetchUserData(authState.token);
-          console.log("[AuthContext] Fetch user data result:", success);
-          if (success && isMounted) {
-            setIsAuthenticated(true);
-            console.log("[AuthContext] User authenticated successfully");
-          } else {
-            console.log("[AuthContext] Clearing auth state due to failed fetch");
-            await clearAuthState();
-          }
+        const guestMode = await isGuestMode();
+        if (guestMode && isMounted) {
+          console.log("[AuthContext] Restoring guest session");
+          setUser(GUEST_USER);
+          setIsGuest(true);
+          setIsAuthenticated(true);
+          const availableModes = getModesForRole("player");
+          const defaultMode = getDefaultModeForRole("player");
+          setAvailableModesRef.current(availableModes, defaultMode);
+          setModeRef.current(defaultMode);
         } else {
-          console.log("[AuthContext] No stored auth state, showing login");
+          const authState = await loadAuthState();
+          console.log("[AuthContext] Loaded auth state:", { hasToken: !!authState.token, hasUser: !!authState.user });
+          
+          if (authState.token && authState.user && isMounted) {
+            setAuthToken(authState.token);
+            console.log("[AuthContext] Fetching user data...");
+            const success = await fetchUserData(authState.token);
+            console.log("[AuthContext] Fetch user data result:", success);
+            if (success && isMounted) {
+              setIsAuthenticated(true);
+              console.log("[AuthContext] User authenticated successfully");
+            } else {
+              console.log("[AuthContext] Clearing auth state due to failed fetch");
+              await clearAuthState();
+            }
+          } else {
+            console.log("[AuthContext] No stored auth state, showing login");
+          }
         }
       } catch (error) {
         console.error("[AuthContext] Auth init error:", error);
@@ -200,6 +219,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       isMounted = false;
     };
   }, [fetchUserData]);
+
+  const loginAsGuest = async () => {
+    console.log("[AuthContext] Guest login");
+    queryClient.clear();
+    setUser(GUEST_USER);
+    setIsGuest(true);
+    setCoach(null);
+    setAcademy(null);
+    await saveGuestMode();
+    const availableModes = getModesForRole("player");
+    const defaultMode = getDefaultModeForRole("player");
+    setAvailableModesRef.current(availableModes, defaultMode);
+    setModeRef.current(defaultMode);
+    setIsAuthenticated(true);
+  };
 
   const login = async (username: string, password: string): Promise<{ success: boolean; error?: string; user?: AuthUser }> => {
     try {
@@ -326,8 +360,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       queryClient.clear();
       await clearAuthState();
+      await clearGuestMode();
       setAuthToken(null);
       setIsAuthenticated(false);
+      setIsGuest(false);
       setUser(null);
       setCoach(null);
       setAcademy(null);
@@ -443,8 +479,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         user,
         coach,
         academy,
+        isGuest,
         login,
         loginWithApple,
+        loginAsGuest,
         register,
         registerPlayer,
         logout,
