@@ -17,7 +17,10 @@
     "newArchEnabled": true,
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.glowupsports.app"
+      "bundleIdentifier": "com.glowupsports.app",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
     },
     "android": {
       "adaptiveIcon": {
@@ -29,7 +32,10 @@
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
       "package": "com.glowupsports.app",
-      "permissions": ["INTERNET", "ACCESS_NETWORK_STATE"],
+      "permissions": [
+        "INTERNET",
+        "ACCESS_NETWORK_STATE"
+      ],
       "googleServicesFile": "./google-services.json"
     },
     "web": {
