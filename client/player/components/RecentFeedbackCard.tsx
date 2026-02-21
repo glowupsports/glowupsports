@@ -89,12 +89,6 @@ export function RecentFeedbackCard() {
                   <Text style={styles.timeText}>{timeAgo(item.createdAt)}</Text>
                 </View>
                 <Text style={styles.feedbackMessage} numberOfLines={2}>{item.message}</Text>
-                {item.xpAwarded > 0 ? (
-                  <View style={styles.xpBadge}>
-                    <Ionicons name="flash" size={10} color="#FFD700" />
-                    <Text style={styles.xpText}>+{item.xpAwarded} XP</Text>
-                  </View>
-                ) : null}
               </View>
             </View>
           );

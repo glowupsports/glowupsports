@@ -525,17 +525,6 @@ export function SessionHeroCard({
             </View>
           </View>
 
-          <View style={styles.cleanStakesRow}>
-            <View style={styles.coachStakeChip}>
-              <Feather name="zap" size={12} color={ProTennisColors.warning} />
-              <Text style={styles.cleanStakeText}>{t("player.home.xpForBooking")}</Text>
-            </View>
-            <View style={styles.coachStakeChip}>
-              <Feather name="trending-up" size={12} color={GlowColors.primary} />
-              <Text style={styles.cleanStakeText}>{t("player.home.keepStreakAlive")}</Text>
-            </View>
-          </View>
-
           <View style={styles.cleanActionsContainer}>
             <SwipeBlocker>
               <Pressable
@@ -612,17 +601,6 @@ export function SessionHeroCard({
             <View style={styles.openDayTextContainer}>
               <Text style={styles.openDayTitle}>{t("player.home.courtTime")}</Text>
               <Text style={styles.openDaySubtitle}>{t("player.home.noSessionsToday")}</Text>
-            </View>
-          </View>
-
-          <View style={styles.openDayStakes}>
-            <View style={styles.stakeItem}>
-              <Feather name="zap" size={14} color={ProTennisColors.warning} />
-              <Text style={styles.stakeText}>{t("player.home.xpForBooking")}</Text>
-            </View>
-            <View style={styles.stakeItem}>
-              <Feather name="trending-up" size={14} color={ProTennisColors.electricGreen} />
-              <Text style={styles.stakeText}>{t("player.home.keepStreakAlive")}</Text>
             </View>
           </View>
 
@@ -717,17 +695,6 @@ export function SessionHeroCard({
               {sessionCourtName ? (
                 <Text style={styles.cleanCourtLabel}>{sessionCourtName}</Text>
               ) : null}
-            </View>
-          </View>
-
-          <View style={styles.cleanStakesRow}>
-            <View style={styles.cleanStakeChip}>
-              <Feather name="eye" size={12} color="#B8BCC6" />
-              <Text style={styles.cleanStakeText}>{t("player.home.coachTrackingProgress")}</Text>
-            </View>
-            <View style={styles.cleanStakeChip}>
-              <Feather name="zap" size={12} color={GlowColors.primary} />
-              <Text style={styles.cleanStakeText}>{t("player.home.xpCompletion")}</Text>
             </View>
           </View>
 
@@ -1160,17 +1127,6 @@ export function SessionHeroCard({
               {sessionCourtName ? (
                 <Text style={styles.cleanCourtLabel}>{sessionCourtName}</Text>
               ) : null}
-            </View>
-          </View>
-
-          <View style={styles.cleanStakesRow}>
-            <View style={styles.cleanStakeChip}>
-              <Feather name="zap" size={12} color={GlowColors.primary} />
-              <Text style={styles.cleanStakeText}>{t("player.home.xpAttendance")}</Text>
-            </View>
-            <View style={styles.cleanStakeChip}>
-              <Feather name="trending-up" size={12} color="#B8BCC6" />
-              <Text style={styles.cleanStakeText}>{t("player.home.levelProgress")}</Text>
             </View>
           </View>
 
