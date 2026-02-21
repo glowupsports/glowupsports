@@ -268,7 +268,7 @@ function CoachMarksOverlayContent({
                     {isLastStep ? "Got it!" : "Next"}
                   </Text>
                   {!isLastStep ? (
-                    <Ionicons name="arrow-forward" size={14} color={"rgba(255, 255, 255, 0.06)"} />
+                    <Ionicons name="arrow-forward" size={14} color={"#000"} />
                   ) : null}
                 </Pressable>
               </View>
@@ -379,7 +379,7 @@ function CoachMarksOverlayContent({
                 {isLastStep ? "Got it!" : "Next"}
               </Text>
               {!isLastStep ? (
-                <Ionicons name="arrow-forward" size={14} color={"rgba(255, 255, 255, 0.06)"} />
+                <Ionicons name="arrow-forward" size={14} color={"#000"} />
               ) : null}
             </Pressable>
           </View>
@@ -762,7 +762,7 @@ const styles = StyleSheet.create({
   nextButtonText: {
     ...Typography.small,
     fontWeight: "700",
-    color: "rgba(255, 255, 255, 0.06)",
+    color: "#000",
   },
 });
 

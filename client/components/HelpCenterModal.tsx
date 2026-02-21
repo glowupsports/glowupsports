@@ -254,7 +254,7 @@ function TutorialsSection({ tutorials }: { tutorials: VideoTutorial[] }) {
           onPress={() => handleOpenTutorial(tutorial.url)}
         >
           <View style={styles.tutorialPlayIcon}>
-            <Ionicons name="play" size={22} color={"rgba(255, 255, 255, 0.06)"} />
+            <Ionicons name="play" size={22} color={"#000"} />
           </View>
           <View style={styles.tutorialTextContainer}>
             <Text style={styles.tutorialTitle}>{tutorial.title}</Text>

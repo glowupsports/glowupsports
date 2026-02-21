@@ -341,7 +341,7 @@ function StepItem({
               <Ionicons
                 name="checkmark"
                 size={14}
-                color={"rgba(255, 255, 255, 0.06)"}
+                color={"#000"}
               />
             </Animated.View>
           ) : (
@@ -373,7 +373,7 @@ function StepItem({
           <Ionicons
             name="arrow-forward"
             size={12}
-            color={"rgba(255, 255, 255, 0.06)"}
+            color={"#000"}
           />
         </Pressable>
       ) : null}
@@ -509,7 +509,7 @@ const styles = StyleSheet.create({
   actionButtonText: {
     ...Typography.caption,
     fontWeight: "600",
-    color: "rgba(255, 255, 255, 0.06)",
+    color: "#000",
   },
   celebrationContainer: {
     alignItems: "center",

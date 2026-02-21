@@ -181,7 +181,7 @@ export function PostActionModal({
                     size={18}
                     color={
                       action.variant === "primary"
-                        ? "rgba(255, 255, 255, 0.06)"
+                        ? "#000"
                         : action.variant === "secondary"
                         ? GlowColors.primary
                         : TextColors.muted
@@ -289,7 +289,7 @@ const styles = StyleSheet.create({
   primaryButtonText: {
     ...Typography.body,
     fontWeight: "600",
-    color: "rgba(255, 255, 255, 0.06)",
+    color: "#000",
   },
   secondaryButtonText: {
     ...Typography.body,

@@ -200,7 +200,7 @@ const styles = StyleSheet.create({
   badgeText: {
     ...Typography.caption,
     fontWeight: "700",
-    color: "rgba(255, 255, 255, 0.06)",
+    color: "#000",
   },
   actionsList: {
     gap: Spacing.sm,

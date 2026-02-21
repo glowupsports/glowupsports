@@ -40,7 +40,7 @@ export function GuestPromptModal({ visible, onClose, message }: GuestPromptModal
             style={({ pressed }) => [styles.primaryButton, { opacity: pressed ? 0.8 : 1 }]}
             onPress={handleSignIn}
           >
-            <Ionicons name="person-add-outline" size={18} color="#fff" />
+            <Ionicons name="person-add-outline" size={18} color="#000" />
             <Text style={styles.primaryButtonText}>Sign Up / Sign In</Text>
           </Pressable>
 
@@ -134,7 +134,7 @@ const styles = StyleSheet.create({
   },
   primaryButtonText: {
     ...Typography.body,
-    color: "#fff",
+    color: "#000",
     fontWeight: "700",
   },
   secondaryButton: {

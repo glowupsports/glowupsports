@@ -858,7 +858,7 @@ const styles = StyleSheet.create({
   badgeText: {
     fontSize: 10,
     fontWeight: "700",
-    color: "rgba(255, 255, 255, 0.06)",
+    color: "#000",
   },
 
   /* LOGOUT */

@@ -51,7 +51,7 @@ export function Button({
       case "primary":
         return {
           backgroundColor: GlowColors.primary,
-          textColor: "rgba(255, 255, 255, 0.06)",
+          textColor: "#000000",
           borderColor: "transparent",
           pressedBg: GlowColors.soft,
         };
@@ -79,7 +79,7 @@ export function Button({
       default:
         return {
           backgroundColor: GlowColors.primary,
-          textColor: "rgba(255, 255, 255, 0.06)",
+          textColor: "#000000",
           borderColor: "transparent",
           pressedBg: GlowColors.soft,
         };
