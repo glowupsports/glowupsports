@@ -345,7 +345,7 @@ const strengthStyles = StyleSheet.create({
 export default function LoginScreen() {
   const { t } = useTranslation();
   const insets = useSafeAreaInsets();
-  const { login, loginWithApple, registerPlayer, refreshAuth } = useAuth();
+  const { login, loginWithApple, loginAsGuest, registerPlayer, refreshAuth } = useAuth();
 
   const [mode, setMode] = useState<AuthMode>("login");
   const [username, setUsername] = useState("");
@@ -1108,6 +1108,21 @@ export default function LoginScreen() {
           />
         </View>
       </View>
+
+      <View style={styles.divider}>
+        <View style={styles.dividerLine} />
+        <Text style={styles.dividerText}>or</Text>
+        <View style={styles.dividerLine} />
+      </View>
+
+      <Pressable
+        style={({ pressed }) => [styles.guestButton, { opacity: pressed ? 0.8 : 1 }]}
+        onPress={loginAsGuest}
+      >
+        <Ionicons name="eye-outline" size={18} color={Colors.dark.textSecondary} />
+        <Text style={styles.guestButtonText}>Explore as Guest</Text>
+        <Ionicons name="chevron-forward" size={16} color={Colors.dark.textMuted} />
+      </Pressable>
     </>
   );
 
@@ -2309,5 +2324,25 @@ const styles = StyleSheet.create({
   appleButton: {
     width: "100%",
     height: 50,
+  },
+  guestButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: Spacing.sm,
+    paddingVertical: Spacing.md,
+    paddingHorizontal: Spacing.lg,
+    borderRadius: BorderRadius.md,
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.1)",
+    backgroundColor: "rgba(255,255,255,0.04)",
+    marginBottom: Spacing.md,
+  },
+  guestButtonText: {
+    ...Typography.body,
+    color: Colors.dark.textSecondary,
+    fontWeight: "500",
+    flex: 1,
+    textAlign: "center",
   },
 });
