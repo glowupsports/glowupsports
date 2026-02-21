@@ -601,7 +601,7 @@ export default function ProPlayerHomeScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: Backgrounds.card,
+    backgroundColor: Backgrounds.root,
   },
   loadingContainer: {
     justifyContent: "center",
