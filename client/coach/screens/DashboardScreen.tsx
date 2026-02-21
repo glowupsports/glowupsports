@@ -128,6 +128,13 @@ export default function DashboardScreen() {
     return () => clearInterval(interval);
   }, []);
   
+  const { data: notificationsData } = useQuery<{ id: string; isRead: boolean | null }[]>({
+    queryKey: ["/api/coach/notifications"],
+    enabled: !!coach?.id,
+    staleTime: 30000,
+  });
+  const unreadNotificationCount = notificationsData?.filter(n => !n.isRead)?.length ?? 0;
+
   const todayDateStr = new Date().toISOString().split("T")[0];
   const weeklyCalendarPath = coach?.id 
     ? `/api/coach/calendar?coachId=${coach.id}&date=${todayDateStr}&view=week` 
@@ -780,7 +787,7 @@ export default function DashboardScreen() {
         {/* === GAMING PLAYER CARD HEADER === */}
         <View style={styles.playerCard}>
           {/* Neon border glow effect */}
-          <Animated.View style={[styles.playerCardGlow, glowAnimatedStyle]} />
+          <Animated.View style={[styles.playerCardGlow, glowAnimatedStyle]} pointerEvents="none" />
           
           {/* Glass panel background */}
           <LinearGradient
@@ -899,6 +906,13 @@ export default function DashboardScreen() {
                   <View style={styles.actionBtnInner}>
                     <Ionicons name="notifications" size={20} color={Colors.dark.xpCyan} />
                   </View>
+                  {unreadNotificationCount > 0 ? (
+                    <View style={styles.notifBadge}>
+                      <Text style={styles.notifBadgeText}>
+                        {unreadNotificationCount > 99 ? "99+" : unreadNotificationCount}
+                      </Text>
+                    </View>
+                  ) : null}
                 </Pressable>
               </View>
             </View>
@@ -2034,6 +2048,25 @@ const styles = StyleSheet.create({
   actionBtnInner: {
     alignItems: "center",
     justifyContent: "center",
+  },
+  notifBadge: {
+    position: "absolute" as const,
+    top: -2,
+    right: -2,
+    backgroundColor: "#FF3B30",
+    borderRadius: 10,
+    minWidth: 18,
+    height: 18,
+    justifyContent: "center" as const,
+    alignItems: "center" as const,
+    paddingHorizontal: 4,
+    borderWidth: 2,
+    borderColor: "#1a1a1a",
+  },
+  notifBadgeText: {
+    fontSize: 9,
+    fontWeight: "800" as const,
+    color: "#FFFFFF",
   },
   
   // === MISSION CONSOLE STYLES ===
