@@ -4,7 +4,7 @@ import { LinearGradient } from "expo-linear-gradient";
 import Animated, { useAnimatedStyle, useSharedValue, withRepeat, withSequence, withTiming, FadeIn, FadeInDown } from "react-native-reanimated";
 import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/coach/context/AuthContext";
-import { Spacing, Backgrounds, GlowColors, Colors, BorderRadius, TextColors, CardElevation } from "@/constants/theme";
+import { Spacing, Backgrounds, GlowColors, Colors, BorderRadius, TextColors } from "@/constants/theme";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { Image } from "expo-image";
 import { getStaticAssetsUrl } from "@/lib/query-client";
@@ -146,8 +146,9 @@ export function SpotlightCard({ onNominate, onViewDetails, onShareWinner }: Spot
 
   return (
     <Animated.View entering={FadeInDown.delay(200).duration(600)} style={[styles.outerContainer, glowStyle]}>
+      <View style={styles.accentLine} />
       <LinearGradient
-        colors={["rgba(255, 215, 0, 0.05)", "rgba(255, 215, 0, 0.01)", "rgba(17, 20, 26, 0.95)"]}
+        colors={["rgba(255, 215, 0, 0.05)", "rgba(17, 20, 26, 0.95)"]}
         style={styles.gradient}
       >
         <View style={styles.headerRow}>
@@ -271,11 +272,16 @@ export function SpotlightCard({ onNominate, onViewDetails, onShareWinner }: Spot
 const styles = StyleSheet.create({
   outerContainer: {
     marginHorizontal: Spacing.lg,
-    ...CardElevation.base,
-    ...CardElevation.shadow,
-    borderRadius: BorderRadius.xl,
-    overflow: "hidden",
+    borderWidth: 1,
     borderColor: "rgba(255, 215, 0, 0.12)",
+    backgroundColor: Backgrounds.card,
+    borderRadius: BorderRadius.lg,
+    overflow: "hidden",
+  },
+  accentLine: {
+    height: 2,
+    backgroundColor: "#FFD700",
+    opacity: 0.5,
   },
   gradient: {
     padding: Spacing.md,

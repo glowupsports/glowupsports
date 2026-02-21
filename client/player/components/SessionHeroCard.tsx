@@ -507,11 +507,17 @@ export function SessionHeroCard({
 
   if (sessionStatus === "none") {
     return (
-      <View style={[styles.heroCard, styles.cleanCard]}>
-        <View style={styles.noSessionContent}>
+      <View style={styles.coachStyleCard}>
+        <View style={styles.coachCardAccentLine} />
+        <LinearGradient
+          colors={["rgba(200, 255, 61, 0.06)", "rgba(26, 26, 26, 0.95)", Backgrounds.card]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 0.3, y: 1 }}
+          style={styles.coachCardGradient}
+        >
           <View style={styles.cleanHeader}>
-            <View style={styles.cleanIconContainer}>
-              <Feather name="calendar" size={22} color={GlowColors.primary} />
+            <View style={styles.coachIconContainer}>
+              <Feather name="calendar" size={20} color={GlowColors.primary} />
             </View>
             <View style={styles.openDayTextContainer}>
               <Text style={styles.cleanTitle}>{t("player.home.courtTime")}</Text>
@@ -520,11 +526,11 @@ export function SessionHeroCard({
           </View>
 
           <View style={styles.cleanStakesRow}>
-            <View style={styles.cleanStakeChip}>
+            <View style={styles.coachStakeChip}>
               <Feather name="zap" size={12} color={ProTennisColors.warning} />
               <Text style={styles.cleanStakeText}>{t("player.home.xpForBooking")}</Text>
             </View>
-            <View style={styles.cleanStakeChip}>
+            <View style={styles.coachStakeChip}>
               <Feather name="trending-up" size={12} color={GlowColors.primary} />
               <Text style={styles.cleanStakeText}>{t("player.home.keepStreakAlive")}</Text>
             </View>
@@ -554,7 +560,7 @@ export function SessionHeroCard({
             <SwipeBlocker>
               <Pressable
                 style={({ pressed }) => [
-                  styles.cleanSecondaryButton,
+                  styles.coachSecondaryButton,
                   pressed && styles.buttonPressed,
                 ]}
                 onPress={handleBookCourt}
@@ -571,6 +577,7 @@ export function SessionHeroCard({
                   pressed && { opacity: 0.6 },
                 ]}
                 onPress={handleFindMatch}
+                hitSlop={16}
               >
                 <Feather name="users" size={14} color="#B8BCC6" />
                 <Text style={styles.cleanTextButtonLabel}>{t("player.home.findPlayers")}</Text>
@@ -582,13 +589,14 @@ export function SessionHeroCard({
                   pressed && { opacity: 0.6 },
                 ]}
                 onPress={handleJoinOpenGroup}
+                hitSlop={16}
               >
                 <Feather name="play-circle" size={14} color="#B8BCC6" />
                 <Text style={styles.cleanTextButtonLabel}>{t("player.home.joinOpenGroup")}</Text>
               </Pressable>
             </SwipeBlocker>
           </View>
-        </View>
+        </LinearGradient>
       </View>
     );
   }
@@ -662,8 +670,14 @@ export function SessionHeroCard({
 
   if (sessionStatus === "live") {
     return (
-      <View style={[styles.heroCard, styles.cleanCard, styles.liveAccentBorder]}>
-        <View style={styles.liveContent}>
+      <View style={styles.coachStyleCard}>
+        <View style={[styles.coachCardAccentLine, { backgroundColor: ProTennisColors.live }]} />
+        <LinearGradient
+          colors={["rgba(255, 68, 68, 0.06)", "rgba(26, 26, 26, 0.95)", Backgrounds.card]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 0.3, y: 1 }}
+          style={styles.coachCardGradient}
+        >
           <View style={styles.liveHeader}>
             <View style={styles.liveIndicatorRow}>
               <Animated.View style={[styles.cleanLiveDot, livePulseStyle]} />
@@ -1087,7 +1101,7 @@ export function SessionHeroCard({
               </View>
             </View>
           </Modal>
-        </View>
+        </LinearGradient>
       </View>
     );
   }
@@ -1096,8 +1110,14 @@ export function SessionHeroCard({
     const isSoon = sessionStatus === "soon";
     
     return (
-      <View style={[styles.heroCard, styles.cleanCard]}>
-        <View style={styles.upcomingContent}>
+      <View style={styles.coachStyleCard}>
+        <View style={[styles.coachCardAccentLine, isSoon ? { backgroundColor: ProTennisColors.warning } : undefined]} />
+        <LinearGradient
+          colors={isSoon ? ["rgba(255, 165, 0, 0.06)", "rgba(26, 26, 26, 0.95)", Backgrounds.card] : ["rgba(200, 255, 61, 0.06)", "rgba(26, 26, 26, 0.95)", Backgrounds.card]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 0.3, y: 1 }}
+          style={styles.coachCardGradient}
+        >
           <View style={styles.upcomingHeader}>
             <View style={styles.cleanBadge}>
               <Feather name="clock" size={14} color={isSoon ? ProTennisColors.warning : "#B8BCC6"} />
@@ -1423,7 +1443,7 @@ export function SessionHeroCard({
               </View>
             </View>
           </Modal>
-        </View>
+        </LinearGradient>
       </View>
     );
   }
@@ -2237,6 +2257,59 @@ const styles = StyleSheet.create({
     ...CardElevation.base,
     ...CardElevation.shadow,
     borderRadius: BorderRadius.lg,
+  },
+  coachStyleCard: {
+    marginHorizontal: Spacing.lg,
+    marginVertical: Spacing.md,
+    borderRadius: BorderRadius.lg,
+    overflow: "hidden",
+    borderWidth: 1,
+    borderColor: "rgba(200, 255, 61, 0.10)",
+    backgroundColor: Backgrounds.card,
+  },
+  coachCardAccentLine: {
+    height: 2,
+    backgroundColor: GlowColors.primary,
+    borderTopLeftRadius: BorderRadius.lg,
+    borderTopRightRadius: BorderRadius.lg,
+    opacity: 0.6,
+  },
+  coachCardGradient: {
+    padding: Spacing.lg,
+  },
+  coachIconContainer: {
+    width: 44,
+    height: 44,
+    borderRadius: 12,
+    backgroundColor: "rgba(200, 255, 61, 0.08)",
+    borderWidth: 1,
+    borderColor: "rgba(200, 255, 61, 0.15)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  coachStakeChip: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.xs,
+    backgroundColor: "rgba(200, 255, 61, 0.04)",
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.06)",
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: Spacing.sm,
+    borderRadius: BorderRadius.md,
+  },
+  coachSecondaryButton: {
+    width: "100%",
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: Spacing.sm,
+    paddingVertical: 12,
+    borderRadius: BorderRadius.md,
+    borderWidth: 1,
+    borderColor: "rgba(200, 255, 61, 0.15)",
+    backgroundColor: "rgba(200, 255, 61, 0.04)",
   },
   liveAccentBorder: {
     borderLeftWidth: 3,

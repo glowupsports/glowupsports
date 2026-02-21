@@ -4,7 +4,8 @@ import { useQuery } from "@tanstack/react-query";
 import { useNavigation } from "@react-navigation/native";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import Animated, { FadeInDown } from "react-native-reanimated";
-import { Colors, Backgrounds, Spacing, BorderRadius, GlowColors, CardElevation } from "@/constants/theme";
+import { LinearGradient } from "expo-linear-gradient";
+import { Colors, Backgrounds, Spacing, BorderRadius, GlowColors } from "@/constants/theme";
 import { useAuth } from "@/coach/context/AuthContext";
 
 interface FeedbackItem {
@@ -57,40 +58,48 @@ export function RecentFeedbackCard() {
 
   return (
     <Animated.View entering={FadeInDown.delay(200).duration(400)} style={styles.wrapper}>
-      <Pressable onPress={() => navigation.navigate("CoachFeedbackHistory")} style={styles.headerRow}>
-        <View style={styles.headerLeft}>
-          <Ionicons name="chatbubbles" size={16} color={GlowColors.primary} />
-          <Text style={styles.sectionTitle}>COACH FEEDBACK</Text>
-        </View>
-        <View style={styles.headerRight}>
-          <Text style={styles.viewAll}>View All</Text>
-          <Ionicons name="chevron-forward" size={14} color={Colors.dark.textMuted} />
-        </View>
-      </Pressable>
-
-      {recentFeedback.map((item, index) => {
-        const config = getConfig(item.feedbackType);
-        return (
-          <View key={item.id} style={[styles.feedbackItem, index < recentFeedback.length - 1 && styles.itemBorder]}>
-            <View style={[styles.iconCircle, { backgroundColor: config.color + "20" }]}>
-              <Ionicons name={config.icon as any} size={16} color={config.color} />
-            </View>
-            <View style={styles.feedbackContent}>
-              <View style={styles.feedbackTop}>
-                <Text style={styles.feedbackLabel}>{config.label}</Text>
-                <Text style={styles.timeText}>{timeAgo(item.createdAt)}</Text>
-              </View>
-              <Text style={styles.feedbackMessage} numberOfLines={2}>{item.message}</Text>
-              {item.xpAwarded > 0 ? (
-                <View style={styles.xpBadge}>
-                  <Ionicons name="flash" size={10} color="#FFD700" />
-                  <Text style={styles.xpText}>+{item.xpAwarded} XP</Text>
-                </View>
-              ) : null}
-            </View>
+      <View style={styles.accentLine} />
+      <LinearGradient
+        colors={["rgba(200, 255, 61, 0.06)", "rgba(26, 26, 26, 0.95)", Backgrounds.card]}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 0.3, y: 1 }}
+        style={styles.gradientInner}
+      >
+        <Pressable onPress={() => navigation.navigate("CoachFeedbackHistory")} style={styles.headerRow}>
+          <View style={styles.headerLeft}>
+            <Ionicons name="chatbubbles" size={16} color={GlowColors.primary} />
+            <Text style={styles.sectionTitle}>COACH FEEDBACK</Text>
           </View>
-        );
-      })}
+          <View style={styles.headerRight}>
+            <Text style={styles.viewAll}>View All</Text>
+            <Ionicons name="chevron-forward" size={14} color={Colors.dark.textMuted} />
+          </View>
+        </Pressable>
+
+        {recentFeedback.map((item, index) => {
+          const config = getConfig(item.feedbackType);
+          return (
+            <View key={item.id} style={[styles.feedbackItem, index < recentFeedback.length - 1 && styles.itemBorder]}>
+              <View style={[styles.iconCircle, { backgroundColor: config.color + "20" }]}>
+                <Ionicons name={config.icon as any} size={16} color={config.color} />
+              </View>
+              <View style={styles.feedbackContent}>
+                <View style={styles.feedbackTop}>
+                  <Text style={styles.feedbackLabel}>{config.label}</Text>
+                  <Text style={styles.timeText}>{timeAgo(item.createdAt)}</Text>
+                </View>
+                <Text style={styles.feedbackMessage} numberOfLines={2}>{item.message}</Text>
+                {item.xpAwarded > 0 ? (
+                  <View style={styles.xpBadge}>
+                    <Ionicons name="flash" size={10} color="#FFD700" />
+                    <Text style={styles.xpText}>+{item.xpAwarded} XP</Text>
+                  </View>
+                ) : null}
+              </View>
+            </View>
+          );
+        })}
+      </LinearGradient>
     </Animated.View>
   );
 }
@@ -98,9 +107,18 @@ export function RecentFeedbackCard() {
 const styles = StyleSheet.create({
   wrapper: {
     marginHorizontal: Spacing.lg,
-    ...CardElevation.base,
-    ...CardElevation.shadow,
-    borderRadius: BorderRadius.xl,
+    borderWidth: 1,
+    borderColor: "rgba(200, 255, 61, 0.10)",
+    backgroundColor: Backgrounds.card,
+    borderRadius: BorderRadius.lg,
+    overflow: "hidden",
+  },
+  accentLine: {
+    height: 2,
+    backgroundColor: GlowColors.primary,
+    opacity: 0.6,
+  },
+  gradientInner: {
     padding: Spacing.md,
   },
   headerRow: {

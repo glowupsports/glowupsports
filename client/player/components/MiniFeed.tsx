@@ -240,29 +240,50 @@ export function MiniFeed() {
   if (!latestPost && events.length === 0) return null;
 
   return (
-    <Animated.View entering={FadeInUp.delay(150).duration(400)} style={styles.container}>
-      <View style={styles.header}>
-        <View style={styles.titleRow}>
-          <Text style={styles.titleGaming}>COMMUNITY</Text>
-          <View style={styles.titleGlow} />
+    <Animated.View entering={FadeInUp.delay(150).duration(400)} style={styles.outerCard}>
+      <View style={styles.accentLine} />
+      <LinearGradient
+        colors={["rgba(200, 255, 61, 0.06)", "rgba(26, 26, 26, 0.95)", Backgrounds.card]}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 0.3, y: 1 }}
+        style={styles.container}
+      >
+        <View style={styles.header}>
+          <View style={styles.titleRow}>
+            <Text style={styles.titleGaming}>COMMUNITY</Text>
+            <View style={styles.titleGlow} />
+          </View>
+          <Pressable onPress={handleSeeAll} style={styles.seeAllButton}>
+            <Text style={styles.seeAllGaming}>See all</Text>
+            <Ionicons name="chevron-forward" size={12} color={ProTennisColors.electricGreen} />
+          </Pressable>
         </View>
-        <Pressable onPress={handleSeeAll} style={styles.seeAllButton}>
-          <Text style={styles.seeAllGaming}>See all</Text>
-          <Ionicons name="chevron-forward" size={12} color={ProTennisColors.electricGreen} />
-        </Pressable>
-      </View>
 
-      {latestPost && (
-        <LatestPostCard post={latestPost} onPress={handlePress} />
-      )}
+        {latestPost && (
+          <LatestPostCard post={latestPost} onPress={handlePress} />
+        )}
 
+      </LinearGradient>
     </Animated.View>
   );
 }
 
 const styles = StyleSheet.create({
+  outerCard: {
+    marginHorizontal: Spacing.lg,
+    borderWidth: 1,
+    borderColor: "rgba(200, 255, 61, 0.10)",
+    backgroundColor: Backgrounds.card,
+    borderRadius: BorderRadius.lg,
+    overflow: "hidden",
+  },
+  accentLine: {
+    height: 2,
+    backgroundColor: GlowColors.primary,
+    opacity: 0.6,
+  },
   container: {
-    paddingHorizontal: Spacing.lg,
+    padding: Spacing.md,
     gap: Spacing.md,
   },
   header: {
