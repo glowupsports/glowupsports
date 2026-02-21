@@ -37,7 +37,6 @@ import { PlatformUsageProgress } from "@/components/PlatformUsageProgress";
 import { NotificationGuideModal } from "@/components/NotificationGuideModal";
 import { FirstActionCelebration } from "@/components/FirstActionCelebration";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { useCoachMarks, CoachMarkTarget } from "@/components/CoachMarks";
 
 interface DashboardData {
   player: {
@@ -103,35 +102,6 @@ function PlayerHomeContent() {
   const [ramadanDismissed, setRamadanDismissed] = useState(false);
   const { hasSeenScreen, startWalkthrough } = useWalkthrough();
   const [showWelcome, setShowWelcome] = useState(false);
-  const { startTour, isActive } = useCoachMarks();
-  const hasStartedTourRef = useRef(false);
-
-  const playerTourSteps = useMemo(() => [
-    {
-      id: "player_card",
-      title: t("player.home.tourPlayerCard"),
-      description: t("player.home.tourPlayerCardDesc"),
-      position: "bottom" as const,
-    },
-    {
-      id: "player_sessions",
-      title: t("player.home.tourSessions"),
-      description: t("player.home.tourSessionsDesc"),
-      position: "bottom" as const,
-    },
-    {
-      id: "player_discovery",
-      title: t("player.home.tourDiscover"),
-      description: t("player.home.tourDiscoverDesc"),
-      position: "top" as const,
-    },
-    {
-      id: "player_help",
-      title: t("player.home.tourHelp"),
-      description: t("player.home.tourHelpDesc"),
-      position: "left" as const,
-    },
-  ], [t]);
 
   const { data: dashboardData, isLoading, refetch, isRefetching } = useQuery<DashboardData>({
     queryKey: ["/api/player/me/dashboard"],
@@ -154,15 +124,6 @@ function PlayerHomeContent() {
     }
   }, [dashboardData, hasSeenScreen, startWalkthrough]);
 
-  useEffect(() => {
-    if (dashboardData && !isActive && !hasStartedTourRef.current) {
-      hasStartedTourRef.current = true;
-      const timer = setTimeout(() => {
-        startTour("player_home", playerTourSteps);
-      }, 2000);
-      return () => clearTimeout(timer);
-    }
-  }, [dashboardData]);
 
   useFocusEffect(
     useCallback(() => {
@@ -443,8 +404,7 @@ function PlayerHomeContent() {
         />
 
         {/* PLAYER HEADER - Identity card */}
-        <CoachMarkTarget id="player_card">
-          <View style={styles.headerSection}>
+        <View style={styles.headerSection}>
             <ProPlayerCard
               player={player}
               credits={credits}
@@ -460,7 +420,6 @@ function PlayerHomeContent() {
               accessibilityLabel={`Player card for ${player.name}, ${t("player.home.glowLevel")} ${player.level}, ${player.xp} ${t("player.home.xpPoints")}`}
             />
           </View>
-        </CoachMarkTarget>
 
         {/* BIRTHDAY XP BONUS - 2x XP message on birthday */}
         {isBirthday && <BirthdayXPBonusCard />}
@@ -492,9 +451,7 @@ function PlayerHomeContent() {
         )}
 
         {/* HERO CTA - Next Session (PRIMARY ACTION) */}
-        <CoachMarkTarget id="player_sessions">
-          <SessionHeroCard onBookSession={handleBookLesson} />
-        </CoachMarkTarget>
+        <SessionHeroCard onBookSession={handleBookLesson} />
 
 
         {/* RECENT COACH FEEDBACK */}
@@ -508,8 +465,7 @@ function PlayerHomeContent() {
         />
 
         {/* DISCOVERY SECTION - Horizontal scrolling rows */}
-        <CoachMarkTarget id="player_discovery">
-          <View style={styles.discoverySection}>
+        <View style={styles.discoverySection}>
             <Text style={styles.discoverySectionTitle}>{t("player.home.quickActions")}</Text>
             
             {/* Players Near You - Horizontal avatar carousel (filtered by ball level) */}
@@ -521,7 +477,6 @@ function PlayerHomeContent() {
             {/* Trainings - Quick access to lessons */}
             <TrainingSessionsRow />
           </View>
-        </CoachMarkTarget>
 
         {/* COMMUNITY - Activity feed */}
         <MiniFeed />
@@ -556,14 +511,12 @@ function PlayerHomeContent() {
         slides={playerWelcomeSlides}
         onComplete={() => {}}
       />
-      <CoachMarkTarget id="player_help">
-        <HelpButton
+      <HelpButton
           role="player"
           faqs={playerFAQs}
           supportEmail="support@glowupsports.com"
           bottomOffset={120}
         />
-      </CoachMarkTarget>
       <NotificationGuideModal
         visible={showNotificationGuide}
         onClose={() => setShowNotificationGuide(false)}

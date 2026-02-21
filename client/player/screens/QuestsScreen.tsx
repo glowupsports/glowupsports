@@ -20,7 +20,6 @@ import { Colors, Spacing, BorderRadius, GlowColors } from "@/constants/theme";
 import { ThemedText } from "@/components/ThemedText";
 import { Card } from "@/components/Card";
 import { useQuests, useClaimQuestReward, useAssignWeeklyQuests, Quest } from "@/player/hooks/useQuests";
-import { useCoachMarks, CoachMarkTarget } from "@/components/CoachMarks";
 
 type QuestType = "daily" | "weekly";
 
@@ -259,22 +258,6 @@ export default function QuestsScreen() {
   const headerHeight = useHeaderHeight();
   const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState<QuestType>("daily");
-  const { startTour, isActive } = useCoachMarks();
-
-  const questsTourSteps = useMemo(() => [
-    { id: "player_quests_tabs", title: "Daily & Weekly Quests", description: "Switch between daily and weekly quests to see what's available.", position: "bottom" as const },
-    { id: "player_quests_chain", title: "Chain Progress", description: "Complete all quests in a chain to earn bonus XP rewards.", position: "bottom" as const },
-    { id: "player_quests_list", title: "Your Quests", description: "Track progress on each quest and claim rewards when complete.", position: "top" as const },
-  ], []);
-
-  useEffect(() => {
-    if (!isActive) {
-      const timer = setTimeout(() => {
-        startTour("player_quests_tour", questsTourSteps);
-      }, 1500);
-      return () => clearTimeout(timer);
-    }
-  }, []);
   
   const { data: questsData, isLoading, refetch } = useQuests();
   const claimReward = useClaimQuestReward();

@@ -26,7 +26,6 @@ import { useTranslation } from "react-i18next";
 import { useWalkthrough } from "@/player/context/WalkthroughContext";
 import { usePlayer } from "@/player/context/PlayerContext";
 import OnlineSafetyModal, { hasShownSafetyReminder } from "@/player/components/OnlineSafetyModal";
-import { useCoachMarks, CoachMarkTarget } from "@/components/CoachMarks";
 
 import {
   type FeedFilter,
@@ -76,13 +75,6 @@ export default function CommunityScreen() {
   const [showPostDetailModal, setShowPostDetailModal] = useState(false);
   const [selectedFriendActivity, setSelectedFriendActivity] = useState<FriendActivity | null>(null);
   const chatFooterHeight = 70;
-  const { startTour, isActive } = useCoachMarks();
-
-  const communityTourSteps = useMemo(() => [
-    { id: "community_tabs", title: "Explore Social", description: "Switch between your feed, friends, and groups to stay connected.", position: "bottom" as const },
-    { id: "community_feed_filters", title: "Filter Your Feed", description: "See what matters most - achievements, news, academy updates, and more.", position: "bottom" as const },
-    { id: "community_create", title: "Share a Moment", description: "Tap here to post updates, share achievements, or celebrate wins.", position: "bottom" as const },
-  ], []);
 
   useEffect(() => {
     if (!hasSeenScreen("Social")) {
@@ -93,14 +85,6 @@ export default function CommunityScreen() {
     }
   }, [hasSeenScreen, startWalkthrough]);
 
-  useEffect(() => {
-    if (!isActive) {
-      const timer = setTimeout(() => {
-        startTour("player_community_tour", communityTourSteps);
-      }, 1500);
-      return () => clearTimeout(timer);
-    }
-  }, []);
 
   const { data: friendsData } = useQuery<{ friends: any[]; pendingRequests: any[] }>({
     queryKey: ["/api/player/me/friends"],
@@ -320,7 +304,6 @@ export default function CommunityScreen() {
 
         <View style={styles.headerActions}>
           {mainTab === "feed" && canInteract ? (
-            <CoachMarkTarget id="community_create">
               <Pressable
                 style={styles.headerButton}
                 onPress={handleCreateMoment}
@@ -330,14 +313,11 @@ export default function CommunityScreen() {
                   <Ionicons name="add" size={22} color={Colors.dark.buttonText} />
                 </View>
               </Pressable>
-            </CoachMarkTarget>
           ) : null}
         </View>
       </View>
 
-      <CoachMarkTarget id="community_tabs">
         <MainTabBar active={mainTab} onChange={setMainTab} friendRequestCount={friendRequestCount} />
-      </CoachMarkTarget>
 
       {!canInteract ? (
         <View style={styles.restrictedBanner}>
@@ -350,9 +330,7 @@ export default function CommunityScreen() {
 
       {mainTab === "feed" ? (
         <>
-          <CoachMarkTarget id="community_feed_filters">
             <FeedFilterTabs active={filter} onChange={setFilter} />
-          </CoachMarkTarget>
 
           {filter === "for_you" ? (
             <AchievementShowcase

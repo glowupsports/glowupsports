@@ -13,7 +13,6 @@ import { Colors, Spacing, BorderRadius } from "@/constants/theme";
 import { apiRequest } from "@/lib/query-client";
 import { GuidedEmptyState } from "@/components/GuidedEmptyState";
 import { useWalkthrough } from "@/player/context/WalkthroughContext";
-import { useCoachMarks, CoachMarkTarget } from "@/components/CoachMarks";
 
 const ProTennisColors = {
   midnightBlue: "#0B0D10",
@@ -168,13 +167,6 @@ export default function PlayerScheduleScreen() {
   const [vacationEndDate, setVacationEndDate] = useState<Date | null>(null);
   const [showStartPicker, setShowStartPicker] = useState(false);
   const [showEndPicker, setShowEndPicker] = useState(false);
-  const { startTour, isActive } = useCoachMarks();
-
-  const scheduleTourSteps = useMemo(() => [
-    { id: "schedule_quick_actions", title: "Quick Actions", description: "Book lessons, reserve courts, find matches, or set vacation time.", position: "bottom" as const },
-    { id: "schedule_calendar", title: "Your Calendar", description: "See all your upcoming sessions at a glance. Tap any day to view details.", position: "bottom" as const },
-    { id: "schedule_upcoming", title: "Upcoming Sessions", description: "Your next sessions show up here with times, coaches, and locations.", position: "top" as const },
-  ], []);
 
   // Walkthrough effect - only run once on mount using ref to prevent re-triggers
   const walkthroughTriggered = React.useRef(false);
@@ -188,14 +180,6 @@ export default function PlayerScheduleScreen() {
     }
   }, []);
 
-  useEffect(() => {
-    if (!isActive) {
-      const timer = setTimeout(() => {
-        startTour("player_schedule_tour", scheduleTourSteps);
-      }, 1500);
-      return () => clearTimeout(timer);
-    }
-  }, []);
 
   const { data: rawSessions, isLoading: sessionsLoading, error: sessionsError } = useQuery<SessionData[]>({
     queryKey: ["/api/player/me/sessions"],
@@ -622,14 +606,12 @@ export default function PlayerScheduleScreen() {
         </Animated.View>
 
         <Animated.View entering={FadeInDown.delay(150).duration(400)}>
-          <CoachMarkTarget id="schedule_quick_actions">
             <View style={styles.quickActionsRow}>
               <QuickActionButton icon="book" label={t("player.schedule.bookLesson")} color={ProTennisColors.neonGreen} onPress={handleBookLesson} />
               <QuickActionButton icon="grid" label={t("player.schedule.bookCourt")} color={ProTennisColors.neonCyan} onPress={handleBookCourt} />
               <QuickActionButton icon="users" label={t("player.schedule.findMatch")} color={ProTennisColors.neonPurple} onPress={handleFindMatch} />
               <QuickActionButton icon="sun" label={t("player.schedule.vacation")} color={ProTennisColors.vacationBlue} onPress={handleSetVacation} />
             </View>
-          </CoachMarkTarget>
         </Animated.View>
 
         <Animated.View entering={FadeInDown.delay(200).duration(400)}>
@@ -687,7 +669,6 @@ export default function PlayerScheduleScreen() {
         ) : null}
 
         <Animated.View entering={FadeInDown.delay(300).duration(400)}>
-          <CoachMarkTarget id="schedule_calendar">
           <NeonBorderCard accentColor={ProTennisColors.neonPurple} style={styles.calendarCard}>
             <View style={styles.calendarHeader}>
               <Pressable onPress={() => navigateMonth(-1)} style={styles.monthNavButton}>
@@ -764,11 +745,9 @@ export default function PlayerScheduleScreen() {
               </View>
             </View>
           </NeonBorderCard>
-          </CoachMarkTarget>
         </Animated.View>
 
         <Animated.View entering={FadeInDown.delay(400).duration(400)}>
-          <CoachMarkTarget id="schedule_upcoming">
           <View style={styles.sectionHeader}>
             <Text style={styles.sectionTitle}>{formatSelectedDate()}</Text>
             <Text style={styles.sectionCount}>{selectedDateItems.length} {selectedDateItems.length === 1 ? t("player.schedule.item") : t("player.schedule.items")}</Text>
@@ -830,7 +809,6 @@ export default function PlayerScheduleScreen() {
               ))}
             </View>
           )}
-          </CoachMarkTarget>
         </Animated.View>
 
         {upcomingItems.length > 0 ? (

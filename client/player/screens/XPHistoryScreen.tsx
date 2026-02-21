@@ -18,7 +18,6 @@ import { Colors, Spacing, BorderRadius, Typography, GlowColors } from "@/constan
 import { usePlayer } from "@/player/context/PlayerContext";
 import { usePlayerLevelContext } from "@/player/context/PlayerLevelContext";
 import { LockedScreen } from "../components/LockedScreen";
-import { useCoachMarks, CoachMarkTarget } from "@/components/CoachMarks";
 
 interface XPEvent {
   id: string;
@@ -61,22 +60,6 @@ export default function XPHistoryScreen() {
   const { level, currentXp, xpForNextLevel } = usePlayerLevelContext();
   const queryClient = useQueryClient();
   const [refreshing, setRefreshing] = useState(false);
-  const { startTour, isActive } = useCoachMarks();
-
-  const xpHistoryTourSteps = useMemo(() => [
-    { id: "xp_history_summary", title: "Your XP Overview", description: "See your current level, progress to next level, and total XP earned.", position: "bottom" as const },
-    { id: "xp_history_stats", title: "Activity Stats", description: "Track your total XP, number of activities, and level-ups over time.", position: "bottom" as const },
-    { id: "xp_history_events", title: "XP Timeline", description: "Every XP-earning action is logged here, grouped by day.", position: "top" as const },
-  ], []);
-
-  useEffect(() => {
-    if (!isActive) {
-      const timer = setTimeout(() => {
-        startTour("player_xp_history_tour", xpHistoryTourSteps);
-      }, 1500);
-      return () => clearTimeout(timer);
-    }
-  }, []);
 
   const { data: xpHistory = [], isLoading } = useQuery<XPEvent[]>({
     queryKey: [`/api/player-level/player/${player?.id}/xp-history`],

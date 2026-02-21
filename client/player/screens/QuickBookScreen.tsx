@@ -25,7 +25,6 @@ import { TimeSlotGrid, CourtRow, TimeSlot } from "../components/TimeSlotGrid";
 import { BookingConfirmationCard } from "../components/BookingConfirmationCard";
 import FriendSelector from "../components/FriendSelector";
 import { apiRequest, getApiUrl, getStaticAssetsUrl } from "@/lib/query-client";
-import { useCoachMarks, CoachMarkTarget } from "@/components/CoachMarks";
 
 interface SelectedFriend {
   id: string;
@@ -65,22 +64,6 @@ export default function QuickBookScreen() {
   const navigation = useNavigation<NavigationProp>();
   const insets = useSafeAreaInsets();
   const queryClient = useQueryClient();
-  const { startTour, isActive } = useCoachMarks();
-
-  const quickBookTourSteps = useMemo(() => [
-    { id: "player_quick_book_date", title: "Choose a Date", description: "Pick a day for your session. Swipe to browse upcoming dates.", position: "bottom" as const },
-    { id: "player_quick_book_slots", title: "Select a Time Slot", description: "Tap an available slot to pick your court and time in one tap.", position: "bottom" as const },
-    { id: "player_quick_book_progress", title: "Track Your Progress", description: "Follow the 3-step flow: date, time, then confirm your booking.", position: "bottom" as const },
-  ], []);
-
-  useEffect(() => {
-    if (!isActive) {
-      const timer = setTimeout(() => {
-        startTour("player_quick_book_tour", quickBookTourSteps);
-      }, 1500);
-      return () => clearTimeout(timer);
-    }
-  }, []);
 
   const [selectedDate, setSelectedDate] = useState<Date>(() => {
     const today = new Date();
@@ -276,7 +259,6 @@ export default function QuickBookScreen() {
           </Pressable>
         </View>
 
-        <CoachMarkTarget id="player_quick_book_progress">
         <View style={styles.progressContainer}>
           <View style={styles.progressTrack}>
             <View
@@ -298,7 +280,6 @@ export default function QuickBookScreen() {
             </View>
           </View>
         </View>
-        </CoachMarkTarget>
 
         <ScrollView
           style={styles.content}
@@ -308,15 +289,12 @@ export default function QuickBookScreen() {
           ]}
           showsVerticalScrollIndicator={false}
         >
-          <CoachMarkTarget id="player_quick_book_date">
           <DateRailSelector
             selectedDate={selectedDate}
             onDateSelect={handleDateSelect}
             daysToShow={14}
           />
-          </CoachMarkTarget>
 
-          <CoachMarkTarget id="player_quick_book_slots">
           {selectedDate ? (
             <Animated.View entering={FadeInDown.delay(100).duration(300)}>
               <TimeSlotGrid
@@ -327,7 +305,6 @@ export default function QuickBookScreen() {
               />
             </Animated.View>
           ) : null}
-          </CoachMarkTarget>
 
           {selectedSlot && bookingStep === 3 ? (
             <BookingConfirmationCard

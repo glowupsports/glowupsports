@@ -13,7 +13,6 @@ import { Colors, Spacing, Typography, BorderRadius, GlowColors } from "@/constan
 import { formatSessionTimeWithRelativeDay } from "@/lib/dateUtils";
 import { apiRequest, getStaticAssetsUrl } from "@/lib/query-client";
 import { useWalkthrough } from "@/player/context/WalkthroughContext";
-import { useCoachMarks, CoachMarkTarget } from "@/components/CoachMarks";
 
 const courtBackground = require("@/assets/images/courts/court-night-default.png");
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
@@ -138,13 +137,6 @@ export default function PlayScreen() {
   const [selectedPlayerLevel, setSelectedPlayerLevel] = useState<string>("all");
   const [discoverFilter, setDiscoverFilter] = useState<DiscoverFilter>("all");
   const [selectedSession, setSelectedSession] = useState<PlaySession | null>(null);
-  const { startTour, isActive } = useCoachMarks();
-
-  const playTourSteps = useMemo(() => [
-    { id: "play_find_match", title: t("player.play.tourFindMatch"), description: t("player.play.tourFindMatchDesc"), position: "bottom" as const },
-    { id: "play_booking_tools", title: t("player.play.tourManageBookings"), description: t("player.play.tourManageBookingsDesc"), position: "bottom" as const },
-    { id: "play_tabs", title: t("player.play.tourBrowseOptions"), description: t("player.play.tourBrowseOptionsDesc"), position: "bottom" as const },
-  ], [t]);
 
   useEffect(() => {
     if (!hasSeenScreen("Play")) {
@@ -155,14 +147,6 @@ export default function PlayScreen() {
     }
   }, [hasSeenScreen, startWalkthrough]);
 
-  useEffect(() => {
-    if (!isActive) {
-      const timer = setTimeout(() => {
-        startTour("player_play_tour", playTourSteps);
-      }, 1500);
-      return () => clearTimeout(timer);
-    }
-  }, []);
 
   const { data: profileData } = useQuery<{ player: { ballLevel?: string } }>({
     queryKey: ["/api/player/me/profile"],
@@ -791,7 +775,6 @@ export default function PlayScreen() {
         </View>
       </View>
 
-      <CoachMarkTarget id="play_find_match">
         <View style={styles.quickActions}>
           <Pressable 
             style={styles.findMatchButton}
@@ -829,9 +812,7 @@ export default function PlayScreen() {
             </LinearGradient>
           </Pressable>
         </View>
-      </CoachMarkTarget>
 
-      <CoachMarkTarget id="play_booking_tools">
         <View style={styles.bookingToolsRow}>
         <Pressable 
           style={[styles.bookingToolButton, pendingInvitesCount > 0 && styles.bookingToolButtonActive]}
@@ -866,9 +847,7 @@ export default function PlayScreen() {
           <Text style={styles.bookingToolText}>{t("player.play.preferences")}</Text>
         </Pressable>
       </View>
-      </CoachMarkTarget>
 
-      <CoachMarkTarget id="play_tabs">
         <View style={styles.tabs}>
         {TAB_OPTIONS.map((tab) => (
           <Pressable
@@ -880,7 +859,6 @@ export default function PlayScreen() {
           </Pressable>
         ))}
         </View>
-      </CoachMarkTarget>
 
       <ScrollView 
         style={styles.content}
