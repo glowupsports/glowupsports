@@ -70,18 +70,22 @@ function NavigationController({
       }
     }
 
-    const navState = navigation.getState?.();
-    const currentRoute = navState?.routes?.[navState.index]?.name;
-    const needsNavigation = authChanged || bootChanged || modeChanged || currentRoute !== targetRoute;
+    try {
+      const navState = navigation.getState?.();
+      const currentRoute = navState?.routes?.[navState.index]?.name;
+      const needsNavigation = authChanged || bootChanged || modeChanged || currentRoute !== targetRoute;
 
-    if (!needsNavigation) return;
+      if (!needsNavigation) return;
 
-    navigation.dispatch(
-      CommonActions.reset({
-        index: 0,
-        routes: [{ name: targetRoute }],
-      })
-    );
+      navigation.dispatch(
+        CommonActions.reset({
+          index: 0,
+          routes: [{ name: targetRoute }],
+        })
+      );
+    } catch {
+      // Navigation not ready yet, will retry on next state change
+    }
   }, [isAuthenticated, bootComplete, mode, navigation]);
 
   return null;

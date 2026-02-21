@@ -43,6 +43,8 @@ The application utilizes a dark-themed gaming aesthetic with neon green and cyan
 - **Timezone Handling**: Academy-specific IANA timezones.
 - **Role-Specific Applications**: Dedicated apps for Coaches, Players, and Platform Owners.
 - **Glow Market & Community Marketplace**: Academy and Player Shops (XP-based discounts) and a Community Marketplace for used equipment.
+- **Free Player Mode**: Players can use the app without joining an academy. Free players get court booking (Level 1), discovery, and social features. Dashboard returns `isFreePlayer: true` flag. Home screen shows "Find & Book Courts" CTA for free players.
+- **Venue/Club System**: Academies have `academyType` field: "academy" (full coaching), "venue" (court rental only), or "club" (social/membership). Venues can list courts without coaching infrastructure.
 - **Playtomic-Style Court Booking System**: Multi-phase booking (Quick, Social, Open Matches) with friend invites, cost splitting, and smart availability.
 - **Family Lobby System**: Netflix-style multi-account management with profile cards, quick-switching, and bulk payment.
 - **Player Level System (XP Engine)**: 20-level gamification system with non-linear XP progression and feature unlocks.
