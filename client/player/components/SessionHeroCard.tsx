@@ -124,44 +124,20 @@ function AnimatedStakeCard({ icon, text, color, positive = true }: { icon: strin
 }
 
 function NeonBorderGlow({ color, children, style }: { color: string; children: React.ReactNode; style?: any }) {
-  const glowValue = useSharedValue(0.4);
-  
-  useEffect(() => {
-    glowValue.value = withRepeat(
-      withSequence(
-        withTiming(0.8, { duration: 1200 }),
-        withTiming(0.4, { duration: 1200 })
-      ),
-      -1,
-      true
-    );
-  }, [glowValue]);
-
-  const animatedGlowStyle = useAnimatedStyle(() => ({
-    shadowOpacity: glowValue.value,
-  }));
-
   return (
-    <Animated.View
+    <View
       style={[
         gamingStyles.neonBorderContainer,
         {
-          shadowColor: color,
-          borderColor: color,
+          borderColor: "rgba(255, 255, 255, 0.08)",
         },
-        animatedGlowStyle,
         style,
       ]}
     >
-      <LinearGradient
-        colors={[`${color}15`, `${color}05`, `${color}10`]}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-        style={gamingStyles.neonBorderInner}
-      >
+      <View style={gamingStyles.neonBorderInner}>
         {children}
-      </LinearGradient>
-    </Animated.View>
+      </View>
+    </View>
   );
 }
 
@@ -211,9 +187,6 @@ const gamingStyles = StyleSheet.create({
   stakeCard: {
     borderRadius: BorderRadius.sm,
     overflow: "hidden",
-    shadowOffset: { width: 0, height: 0 },
-    shadowRadius: 8,
-    elevation: 4,
     flex: 1,
   },
   stakeCardGradient: {
@@ -242,9 +215,7 @@ const gamingStyles = StyleSheet.create({
     borderRadius: BorderRadius.md,
     borderWidth: 1,
     overflow: "hidden",
-    shadowOffset: { width: 0, height: 0 },
-    shadowRadius: 12,
-    elevation: 6,
+    backgroundColor: Backgrounds.card,
   },
   neonBorderInner: {
     borderRadius: BorderRadius.md - 1,
@@ -1169,7 +1140,7 @@ export function SessionHeroCard({
           <View style={styles.upcomingHeader}>
             <View style={[styles.nextSessionBadgeGaming, { borderColor: `${borderColor}50` }]}>
               <Feather name="clock" size={14} color={borderColor} />
-              <Text style={[styles.nextSessionTextGlow, { color: borderColor, textShadowColor: borderColor }]}>
+              <Text style={[styles.nextSessionTextGlow, { color: borderColor }]}>
                 {isSoon ? t("player.home.startingSoon") : t("player.home.nextSession")}
               </Text>
             </View>
@@ -1579,19 +1550,13 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontWeight: "900",
     color: ProTennisColors.electricGreen,
-    letterSpacing: 2,
-    textShadowColor: ProTennisColors.electricGreen,
-    textShadowOffset: { width: 0, height: 0 },
-    textShadowRadius: 8,
+    letterSpacing: 1,
   },
   liveTextGlow: {
     color: ProTennisColors.live,
     fontWeight: "900",
     fontSize: 16,
-    letterSpacing: 2,
-    textShadowColor: ProTennisColors.live,
-    textShadowOffset: { width: 0, height: 0 },
-    textShadowRadius: 10,
+    letterSpacing: 1,
   },
   liveCountdownRow: {
     flexDirection: "row",
@@ -1603,9 +1568,6 @@ const styles = StyleSheet.create({
     fontWeight: "800",
     color: ProTennisColors.white,
     marginBottom: Spacing.xs,
-    textShadowColor: ProTennisColors.neonCyan,
-    textShadowOffset: { width: 0, height: 0 },
-    textShadowRadius: 6,
   },
   nextSessionBadgeGaming: {
     flexDirection: "row",
@@ -1620,9 +1582,7 @@ const styles = StyleSheet.create({
   nextSessionTextGlow: {
     fontWeight: "800",
     fontSize: 12,
-    letterSpacing: 1.5,
-    textShadowOffset: { width: 0, height: 0 },
-    textShadowRadius: 6,
+    letterSpacing: 1,
   },
   gamingCountdownRow: {
     flexDirection: "row",
@@ -2324,17 +2284,10 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     borderWidth: 1,
-    borderColor: `${ProTennisColors.electricGreen}30`,
+    borderColor: "rgba(255, 255, 255, 0.08)",
   },
   tennisCourtPulse: {
-    position: "absolute",
-    top: -4,
-    left: -4,
-    right: -4,
-    bottom: -4,
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: `${ProTennisColors.electricGreen}15`,
+    display: "none",
   },
   miniCourtContainer: {
     width: 36,
@@ -2346,7 +2299,7 @@ const styles = StyleSheet.create({
     width: 32,
     height: 32,
     borderWidth: 1.5,
-    borderColor: ProTennisColors.electricGreen,
+    borderColor: "rgba(200, 255, 61, 0.5)",
     borderRadius: 4,
     alignItems: "center",
     justifyContent: "center",
@@ -2359,7 +2312,7 @@ const styles = StyleSheet.create({
     top: 4,
     bottom: 4,
     width: 1,
-    backgroundColor: `${ProTennisColors.electricGreen}60`,
+    backgroundColor: "rgba(200, 255, 61, 0.3)",
   },
   miniCourtInner: {
     width: 20,
@@ -2406,13 +2359,8 @@ const styles = StyleSheet.create({
   },
   tennisPrimaryButton: {
     flex: 1,
-    borderRadius: BorderRadius.lg,
+    borderRadius: BorderRadius.sm,
     overflow: "hidden",
-    shadowColor: ProTennisColors.electricGreen,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 4,
   },
   tennisPrimaryGradient: {
     flexDirection: "row",
@@ -2452,10 +2400,8 @@ const styles = StyleSheet.create({
     gap: Spacing.xs,
     paddingVertical: Spacing.md,
     paddingHorizontal: Spacing.sm,
-    borderRadius: BorderRadius.lg,
-    backgroundColor: `${ProTennisColors.surfaceElevated}40`,
-    borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.08)",
+    borderRadius: BorderRadius.sm,
+    backgroundColor: "rgba(255, 255, 255, 0.06)",
   },
   tennisSecondaryPressed: {
     opacity: 0.7,

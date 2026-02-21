@@ -142,20 +142,13 @@ export function PlayerStatusBar({ player, coach, lastFeedback, onAvatarPress }: 
   const xpProgress = xpNeeded > 0 ? Math.min(xpInLevel / xpNeeded, 1) : 0;
   
   const glowRingStyle = useAnimatedStyle(() => {
-    const scale = interpolate(
-      glowPulse.value,
-      [0, 1],
-      [1, 1.12],
-      Extrapolation.CLAMP
-    );
     const opacity = interpolate(
       glowPulse.value,
       [0, 0.5, 1],
-      [0.4, 0.85, 0.4],
+      [0.5, 0.8, 0.5],
       Extrapolation.CLAMP
     );
     return {
-      transform: [{ scale }],
       opacity,
     };
   });
@@ -222,7 +215,7 @@ export function PlayerStatusBar({ player, coach, lastFeedback, onAvatarPress }: 
               )
             ) : (
               <LinearGradient
-                colors={[Colors.dark.xpCyan, Colors.dark.primary]}
+                colors={[Colors.dark.primary, "#A8E063"]}
                 style={styles.avatarGradient}
               >
                 <View style={styles.avatarInner}>
@@ -241,36 +234,23 @@ export function PlayerStatusBar({ player, coach, lastFeedback, onAvatarPress }: 
             <Text style={styles.playerName} numberOfLines={1}>{player.name || "Player"}</Text>
           </View>
           <View style={styles.titleRow}>
-            <Ionicons name="ribbon-outline" size={12} color={Colors.dark.xpCyan} />
+            <Ionicons name="ribbon-outline" size={12} color={Colors.dark.textMuted} />
             <Text style={styles.earnedTitle}>{earnedTitle}</Text>
           </View>
           
           <View style={styles.xpBarContainer}>
             <View style={styles.xpBarTrackGaming}>
-              {xpProgress > 0.05 ? (
-                <LinearGradient
-                  colors={[ProTennisColors.neonCyan, ProTennisColors.electricGreen, ProTennisColors.neonCyan]}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 0 }}
-                  style={[styles.xpBarFillGaming, { width: `${Math.max(xpProgress * 100, 8)}%` }]}
-                >
-                  {xpProgress > 0.15 ? (
-                    <Animated.View style={[styles.xpBarShimmer, shimmerStyle]}>
-                      <LinearGradient
-                        colors={["transparent", "rgba(255, 255, 255, 0.4)", "transparent"]}
-                        start={{ x: 0, y: 0 }}
-                        end={{ x: 1, y: 0 }}
-                        style={styles.shimmerGradient}
-                      />
-                    </Animated.View>
-                  ) : null}
-                </LinearGradient>
+              {xpProgress > 0.02 ? (
+                <View
+                  style={[styles.xpBarFillGaming, { 
+                    width: `${Math.max(xpProgress * 100, 5)}%`,
+                    backgroundColor: Colors.dark.primary,
+                    borderRadius: 3,
+                  }]}
+                />
               ) : (
                 <View style={[styles.xpBarFillMinimal, { width: 4 }]} />
               )}
-              {xpProgress > 0.1 ? (
-                <View style={[styles.xpBarGlowEffect, { width: `${xpProgress * 100}%` }]} />
-              ) : null}
             </View>
             <View style={styles.xpLabelsGaming}>
               <View style={styles.levelBadgeGaming}>
@@ -402,7 +382,7 @@ export function PlayerStatusBar({ player, coach, lastFeedback, onAvatarPress }: 
                 )
               ) : (
                 <LinearGradient
-                  colors={[Colors.dark.xpCyan, Colors.dark.primary]}
+                  colors={[Colors.dark.primary, "#A8E063"]}
                   style={styles.playerAvatarLarge}
                 >
                   <View style={styles.playerAvatarInner}>
@@ -412,7 +392,7 @@ export function PlayerStatusBar({ player, coach, lastFeedback, onAvatarPress }: 
               )}
               <Text style={styles.playerModalName}>{player.name || "Player"}</Text>
               <View style={styles.titleBadge}>
-                <Ionicons name="ribbon-outline" size={14} color={Colors.dark.xpCyan} />
+                <Ionicons name="ribbon-outline" size={14} color={Colors.dark.textMuted} />
                 <Text style={styles.titleBadgeText}>{earnedTitle}</Text>
               </View>
             </View>
@@ -424,7 +404,7 @@ export function PlayerStatusBar({ player, coach, lastFeedback, onAvatarPress }: 
                 <Text style={styles.playerStatLabel}>Progress</Text>
               </View>
               <View style={styles.playerStatBox}>
-                <Ionicons name="flash" size={20} color={Colors.dark.xpCyan} />
+                <Ionicons name="flash" size={20} color={Colors.dark.primary} />
                 <Text style={styles.playerStatValue}>{player.glowScore}</Text>
                 <Text style={styles.playerStatLabel}>Glow Score</Text>
               </View>
@@ -480,7 +460,7 @@ const styles = StyleSheet.create({
     marginHorizontal: Spacing.md,
     marginBottom: Spacing.md,
     borderWidth: 1,
-    borderColor: `${Colors.dark.xpCyan}20`,
+    borderColor: "rgba(255, 255, 255, 0.06)",
   },
   mainRow: {
     flexDirection: "row",
@@ -499,10 +479,12 @@ const styles = StyleSheet.create({
   },
   glowRing: {
     position: "absolute",
-    width: 62,
-    height: 62,
-    borderRadius: 31,
-    backgroundColor: Colors.dark.xpCyan,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    borderWidth: 2,
+    borderColor: "rgba(200, 255, 61, 0.4)",
+    backgroundColor: "transparent",
   },
   avatarGradient: {
     width: 50,
@@ -529,7 +511,7 @@ const styles = StyleSheet.create({
   avatarText: {
     fontSize: 18,
     fontWeight: "700",
-    color: Colors.dark.xpCyan,
+    color: Colors.dark.backgroundRoot,
   },
   levelBadge: {
     position: "absolute",
@@ -569,7 +551,7 @@ const styles = StyleSheet.create({
   },
   earnedTitle: {
     fontSize: 12,
-    color: Colors.dark.xpCyan,
+    color: Colors.dark.textMuted,
     fontWeight: "500",
   },
   xpBarContainer: {
@@ -587,7 +569,7 @@ const styles = StyleSheet.create({
     left: 0,
     top: 0,
     bottom: 0,
-    backgroundColor: Colors.dark.xpCyan,
+    backgroundColor: Colors.dark.primary,
     borderRadius: 3,
   },
   xpBarGlow: {
@@ -611,16 +593,14 @@ const styles = StyleSheet.create({
   xpValueLabel: {
     fontSize: 10,
     fontWeight: "500",
-    color: Colors.dark.xpCyan,
+    color: Colors.dark.textMuted,
   },
   xpBarTrackGaming: {
-    height: 8,
-    backgroundColor: "rgba(0, 240, 255, 0.15)",
-    borderRadius: 4,
+    height: 6,
+    backgroundColor: "rgba(255, 255, 255, 0.08)",
+    borderRadius: 3,
     overflow: "hidden",
     position: "relative",
-    borderWidth: 1,
-    borderColor: "rgba(0, 240, 255, 0.25)",
   },
   xpBarFillGaming: {
     position: "absolute",
@@ -651,14 +631,9 @@ const styles = StyleSheet.create({
   xpBarGlowEffect: {
     position: "absolute",
     left: 0,
-    top: -2,
-    bottom: -2,
-    borderRadius: 6,
-    shadowColor: "#00F0FF",
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.5,
-    shadowRadius: 8,
-    elevation: 4,
+    top: 0,
+    bottom: 0,
+    borderRadius: 3,
     backgroundColor: "transparent",
   },
   xpLabelsGaming: {
@@ -668,12 +643,10 @@ const styles = StyleSheet.create({
     marginTop: 6,
   },
   levelBadgeGaming: {
-    backgroundColor: "rgba(255, 215, 0, 0.2)",
+    backgroundColor: "rgba(255, 215, 0, 0.12)",
     paddingHorizontal: 8,
     paddingVertical: 2,
     borderRadius: BorderRadius.sm,
-    borderWidth: 1,
-    borderColor: "rgba(255, 215, 0, 0.3)",
   },
   xpLevelLabelGaming: {
     fontSize: 10,
@@ -684,10 +657,7 @@ const styles = StyleSheet.create({
   xpValueLabelGaming: {
     fontSize: 11,
     fontWeight: "700",
-    color: "#00F0FF",
-    textShadowColor: "#00F0FF",
-    textShadowOffset: { width: 0, height: 0 },
-    textShadowRadius: 4,
+    color: Colors.dark.textMuted,
   },
   streakSection: {
     alignItems: "center",
@@ -702,7 +672,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 8,
     borderRadius: BorderRadius.md,
-    borderWidth: 2,
+    borderWidth: 1,
   },
   streakValue: {
     fontSize: 18,
@@ -816,14 +786,14 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.md,
   },
   philosophyTag: {
-    backgroundColor: `${Colors.dark.xpCyan}20`,
+    backgroundColor: "rgba(255, 255, 255, 0.06)",
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: BorderRadius.sm,
   },
   philosophyTagText: {
     fontSize: 11,
-    color: Colors.dark.xpCyan,
+    color: Colors.dark.textSecondary,
     fontWeight: "500",
   },
   quoteSection: {
@@ -884,7 +854,7 @@ const styles = StyleSheet.create({
     width: "100%",
     maxWidth: 340,
     borderWidth: 1,
-    borderColor: `${Colors.dark.xpCyan}30`,
+    borderColor: "rgba(255, 255, 255, 0.08)",
   },
   playerModalHeader: {
     alignItems: "center",
@@ -914,7 +884,7 @@ const styles = StyleSheet.create({
   playerAvatarText: {
     fontSize: 28,
     fontWeight: "700",
-    color: Colors.dark.xpCyan,
+    color: Colors.dark.backgroundRoot,
   },
   playerModalName: {
     ...Typography.h2,
@@ -925,14 +895,14 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 6,
-    backgroundColor: `${Colors.dark.xpCyan}15`,
+    backgroundColor: "rgba(255, 255, 255, 0.06)",
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: BorderRadius.full,
   },
   titleBadgeText: {
     fontSize: 13,
-    color: Colors.dark.xpCyan,
+    color: Colors.dark.textSecondary,
     fontWeight: "600",
   },
   playerStatsGrid: {

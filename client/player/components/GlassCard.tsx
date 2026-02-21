@@ -53,33 +53,18 @@ export function GlassCard({
     switch (variant) {
       case "neon":
         return {
-          borderWidth: 1.5,
-          borderColor: neonColor,
-          shadowColor: neonColor,
-          shadowOffset: { width: 0, height: 0 },
-          shadowOpacity: 0.5,
-          shadowRadius: 12,
-          elevation: 8,
+          borderWidth: 1,
+          borderColor: `${neonColor}40`,
         };
       case "hero":
         return {
-          borderWidth: 2,
-          borderColor: ProTennisColors.electricGreen,
-          shadowColor: ProTennisColors.electricGreen,
-          shadowOffset: { width: 0, height: 4 },
-          shadowOpacity: 0.4,
-          shadowRadius: 16,
-          elevation: 12,
+          borderWidth: 1,
+          borderColor: "rgba(200, 255, 61, 0.2)",
         };
       case "premium":
         return {
           borderWidth: 1,
-          borderColor: `${ProTennisColors.neonCyan}40`,
-          shadowColor: ProTennisColors.neonCyan,
-          shadowOffset: { width: 0, height: 2 },
-          shadowOpacity: 0.3,
-          shadowRadius: 8,
-          elevation: 6,
+          borderColor: "rgba(255, 255, 255, 0.1)",
         };
       case "subtle":
         return {
@@ -89,12 +74,7 @@ export function GlassCard({
       default:
         return {
           borderWidth: 1,
-          borderColor: "rgba(255, 255, 255, 0.12)",
-          shadowColor: "#000",
-          shadowOffset: { width: 0, height: 4 },
-          shadowOpacity: 0.2,
-          shadowRadius: 8,
-          elevation: 4,
+          borderColor: "rgba(255, 255, 255, 0.08)",
         };
     }
   };
@@ -191,11 +171,8 @@ export function NeonEdgeCard({
       style={[
         styles.neonCard,
         {
-          borderColor: color,
-          shadowColor: color,
-          shadowRadius: getGlowRadius(),
+          borderColor: `${color}40`,
         },
-        pulsing ? animatedGlowStyle : { shadowOpacity: glowIntensity === "high" ? 0.7 : 0.5 },
         style,
       ]}
     >
@@ -236,17 +213,17 @@ export function FloatingCard({
         };
       case "high":
         return {
-          shadowOffset: { width: 0, height: 8 },
-          shadowOpacity: 0.35,
-          shadowRadius: 16,
-          elevation: 12,
+          shadowOffset: { width: 0, height: 4 },
+          shadowOpacity: 0.15,
+          shadowRadius: 8,
+          elevation: 6,
         };
       default:
         return {
-          shadowOffset: { width: 0, height: 4 },
-          shadowOpacity: 0.25,
-          shadowRadius: 8,
-          elevation: 6,
+          shadowOffset: { width: 0, height: 2 },
+          shadowOpacity: 0.1,
+          shadowRadius: 4,
+          elevation: 3,
         };
     }
   };
@@ -290,9 +267,8 @@ const styles = StyleSheet.create({
   },
   neonCard: {
     borderRadius: BorderRadius.md,
-    borderWidth: 1.5,
+    borderWidth: 1,
     overflow: "hidden",
-    shadowOffset: { width: 0, height: 0 },
   },
   neonInner: {
     flex: 1,

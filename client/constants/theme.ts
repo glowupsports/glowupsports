@@ -27,9 +27,8 @@ export const GlowColors = {
   primary: "#C8FF3D",     // XP, Level, Active, Primary CTA
   soft: "#A6E92A",        // Subtle accents, hover
   dark: "#7FB300",        // Pressed, muted glow
-  // Glow shadows
-  shadow: "rgba(200, 255, 61, 0.35)",
-  shadowSubtle: "rgba(200, 255, 61, 0.15)",
+  shadow: "rgba(200, 255, 61, 0.12)",
+  shadowSubtle: "rgba(200, 255, 61, 0.06)",
 };
 
 // Function Colors (1 meaning = 1 color)
@@ -433,12 +432,11 @@ export const CardStyles = {
     borderWidth: 1,
     borderColor: "rgba(255, 255, 255, 0.08)",
   },
-  // Premium glow card (selected, important)
   glow: {
     backgroundColor: Backgrounds.card,
     borderRadius: BorderRadius.md,
     borderWidth: 1,
-    borderColor: "rgba(200, 255, 61, 0.3)",
+    borderColor: "rgba(200, 255, 61, 0.15)",
   },
   // Glass effect card
   glass: {
@@ -454,13 +452,12 @@ export const CardStyles = {
     borderWidth: 1,
     borderColor: "rgba(255, 255, 255, 0.04)",
   },
-  // Legacy compatibility
   glowCard: {
     backgroundColor: Backgrounds.card,
     borderRadius: BorderRadius.md,
     borderWidth: 1,
-    borderColor: "rgba(200, 255, 61, 0.2)",
-    borderTopColor: "rgba(200, 255, 61, 0.25)",
+    borderColor: "rgba(200, 255, 61, 0.12)",
+    borderTopColor: "rgba(200, 255, 61, 0.15)",
   },
   statusCard: {
     backgroundColor: Backgrounds.elevated,
@@ -496,37 +493,33 @@ export const Shadows = {
     shadowRadius: 8,
     elevation: 4,
   },
-  // Glow shadow (primary accent)
   glow: {
     shadowColor: GlowColors.primary,
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.35,
-    shadowRadius: 16,
-    elevation: 8,
-  },
-  // Subtle glow
-  glowSubtle: {
-    shadowColor: GlowColors.primary,
-    shadowOffset: { width: 0, height: 0 },
+    shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.15,
-    shadowRadius: 8,
+    shadowRadius: 6,
     elevation: 4,
   },
-  // Admin glow (orange)
+  glowSubtle: {
+    shadowColor: GlowColors.primary,
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.08,
+    shadowRadius: 4,
+    elevation: 2,
+  },
   glowAdmin: {
     shadowColor: RoleColors.admin,
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.3,
-    shadowRadius: 12,
-    elevation: 6,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 6,
+    elevation: 4,
   },
-  // Error glow
   glowError: {
     shadowColor: FunctionColors.error,
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.25,
-    shadowRadius: 10,
-    elevation: 5,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.12,
+    shadowRadius: 6,
+    elevation: 3,
   },
 };
 

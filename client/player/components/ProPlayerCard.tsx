@@ -95,20 +95,13 @@ export function ProPlayerCard({
   const glowIntensity = Math.min(1, player.streak / 7);
   
   const glowRingStyle = useAnimatedStyle(() => {
-    const scale = interpolate(
-      glowPulse.value,
-      [0, 1],
-      [1, 1.08],
-      Extrapolation.CLAMP
-    );
     const opacity = interpolate(
       glowPulse.value,
       [0, 0.5, 1],
-      [0.4 + glowIntensity * 0.3, 0.7 + glowIntensity * 0.2, 0.4 + glowIntensity * 0.3],
+      [0.6, 0.9, 0.6],
       Extrapolation.CLAMP
     );
     return {
-      transform: [{ scale }],
       opacity,
     };
   });
@@ -310,12 +303,8 @@ const styles = StyleSheet.create({
     width: 76,
     height: 76,
     borderRadius: 38,
-    borderWidth: 3,
-    borderColor: ProTennisColors.electricGreen,
-    shadowColor: ProTennisColors.electricGreen,
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.8,
-    shadowRadius: 12,
+    borderWidth: 2,
+    borderColor: "rgba(200, 255, 61, 0.5)",
   },
   avatarPhoto: {
     width: 64,
@@ -373,12 +362,10 @@ const styles = StyleSheet.create({
     gap: Spacing.sm,
   },
   titleBadge: {
-    backgroundColor: ProTennisColors.electricGreen + "20",
+    backgroundColor: "rgba(200, 255, 61, 0.12)",
     paddingHorizontal: Spacing.sm,
     paddingVertical: 2,
     borderRadius: BorderRadius.xs,
-    borderWidth: 1,
-    borderColor: ProTennisColors.electricGreen + "40",
   },
   titleText: {
     fontSize: 10,
@@ -437,10 +424,6 @@ const styles = StyleSheet.create({
     height: "100%",
     backgroundColor: ProTennisColors.electricGreen,
     borderRadius: 3,
-    shadowColor: ProTennisColors.electricGreen,
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.6,
-    shadowRadius: 4,
   },
   formLabel: {
     fontSize: 9,
@@ -478,21 +461,17 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: ProTennisColors.surfaceElevated,
+    backgroundColor: "rgba(255, 255, 255, 0.08)",
     justifyContent: "center",
     alignItems: "center",
-    borderWidth: 1,
-    borderColor: ProTennisColors.neonCyan + "40",
   },
   notificationBtn: {
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: ProTennisColors.neonCyan + "15",
+    backgroundColor: "rgba(255, 255, 255, 0.08)",
     justifyContent: "center",
     alignItems: "center",
-    borderWidth: 1,
-    borderColor: ProTennisColors.neonCyan + "30",
   },
   bellBadge: {
     position: "absolute",
