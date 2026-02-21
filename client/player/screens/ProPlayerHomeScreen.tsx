@@ -8,6 +8,7 @@ import { Spacing, GlowColors, Backgrounds, BorderRadius, Colors } from "@/consta
 import { useAuth } from "@/coach/context/AuthContext";
 import { usePlayerDrawer } from "@/player/context/PlayerDrawerContext";
 import { useWalkthrough } from "@/player/context/WalkthroughContext";
+import { GuestPromptModal, useGuestGuard } from "@/components/GuestPromptModal";
 import { PlayerStateProvider } from "@/player/context/PlayerStateContext";
 import { useTabNavigation } from "@/components/TabNavigationContext";
 import { ProPlayerCard } from "@/player/components/ProPlayerCard";
@@ -93,36 +94,55 @@ function PlayerHomeContent() {
   const { t } = useTranslation();
   const insets = useSafeAreaInsets();
   const queryClient = useQueryClient();
-  const { user } = useAuth();
+  const { user, isGuest } = useAuth();
   const { openDrawer } = usePlayerDrawer();
   const navigation = useNavigation<any>();
   const { navigateToTab } = useTabNavigation();
+  const { guardAction, promptProps } = useGuestGuard();
   const [showBookingWizard, setShowBookingWizard] = useState(false);
   const [showPinModal, setShowPinModal] = useState(false);
   const [ramadanDismissed, setRamadanDismissed] = useState(false);
   const { hasSeenScreen, startWalkthrough } = useWalkthrough();
   const [showWelcome, setShowWelcome] = useState(false);
 
+  const guestDashboard: DashboardData = useMemo(() => ({
+    player: {
+      id: "guest",
+      name: "Guest",
+      level: 1,
+      xp: 0,
+      glowScore: 0,
+      ballLevel: null,
+      streak: 0,
+    },
+    coach: null,
+    academy: null,
+    nextSession: null,
+    isFreePlayer: true,
+  }), []);
+
   const { data: dashboardData, isLoading, refetch, isRefetching } = useQuery<DashboardData>({
     queryKey: ["/api/player/me/dashboard"],
-    enabled: !!user?.playerId,
+    enabled: !!user?.playerId && !isGuest,
   });
+
+  const effectiveData = isGuest ? guestDashboard : dashboardData;
 
   const { data: unreadData } = useQuery<{ count: number }>({
     queryKey: ["/api/player/me/notifications/unread-count"],
-    enabled: !!user?.playerId,
+    enabled: !!user?.playerId && !isGuest,
     refetchInterval: 120000,
   });
   const unreadCount = unreadData?.count || 0;
 
   useEffect(() => {
-    if (dashboardData && !hasSeenScreen("Home")) {
+    if (effectiveData && !hasSeenScreen("Home")) {
       const timer = setTimeout(() => {
         startWalkthrough("Home");
       }, 1000);
       return () => clearTimeout(timer);
     }
-  }, [dashboardData, hasSeenScreen, startWalkthrough]);
+  }, [effectiveData, hasSeenScreen, startWalkthrough]);
 
 
   useFocusEffect(
@@ -134,15 +154,15 @@ function PlayerHomeContent() {
   );
 
   const isBirthday = useMemo(() => {
-    const dateOfBirth = dashboardData?.player?.dateOfBirth;
+    const dateOfBirth = effectiveData?.player?.dateOfBirth;
     if (!dateOfBirth) return false;
     const today = new Date();
     const dob = new Date(dateOfBirth);
     return today.getMonth() === dob.getMonth() && today.getDate() === dob.getDate();
-  }, [dashboardData?.player?.dateOfBirth]);
+  }, [effectiveData?.player?.dateOfBirth]);
 
   const playerAge = useMemo(() => {
-    const dateOfBirth = dashboardData?.player?.dateOfBirth;
+    const dateOfBirth = effectiveData?.player?.dateOfBirth;
     if (!dateOfBirth) return undefined;
     const today = new Date();
     const dob = new Date(dateOfBirth);
@@ -152,7 +172,7 @@ function PlayerHomeContent() {
       age--;
     }
     return age;
-  }, [dashboardData?.player?.dateOfBirth]);
+  }, [effectiveData?.player?.dateOfBirth]);
 
   const isRamadan = useMemo(() => {
     const today = new Date();
@@ -188,13 +208,13 @@ function PlayerHomeContent() {
     AsyncStorage.setItem(key, "true");
   }, []);
 
-  const isFreePlayer = dashboardData?.isFreePlayer ?? !dashboardData?.academy;
+  const isFreePlayer = effectiveData?.isFreePlayer ?? !effectiveData?.academy;
 
   const playerChecklistSteps = useMemo(() => {
-    const hasAcademy = !!dashboardData?.academy;
-    const hasCoach = !!dashboardData?.coach;
-    const hasNextSession = !!dashboardData?.nextSession;
-    const hasProfile = !!dashboardData?.player?.profilePhotoUrl;
+    const hasAcademy = !!effectiveData?.academy;
+    const hasCoach = !!effectiveData?.coach;
+    const hasNextSession = !!effectiveData?.nextSession;
+    const hasProfile = !!effectiveData?.player?.profilePhotoUrl;
     
     const steps = [
       {
@@ -259,7 +279,7 @@ function PlayerHomeContent() {
     });
 
     return steps;
-  }, [dashboardData, navigation, setShowBookingWizard, isFreePlayer]);
+  }, [effectiveData, navigation, setShowBookingWizard, isFreePlayer]);
 
   const [showSpotlightNomination, setShowSpotlightNomination] = useState(false);
   const [showNotificationGuide, setShowNotificationGuide] = useState(false);
@@ -319,7 +339,7 @@ function PlayerHomeContent() {
     },
   ];
 
-  if (isLoading || !dashboardData) {
+  if (!isGuest && (isLoading || !effectiveData)) {
     return (
       <View style={[styles.container, styles.loadingContainer]}>
         <BroadcastBackground />
@@ -328,22 +348,22 @@ function PlayerHomeContent() {
     );
   }
 
-  const { player, credits } = dashboardData;
+  const { player, credits } = effectiveData!;
   
   const handleAvatarPress = () => {
-    openDrawer();
+    guardAction(() => openDrawer());
   };
 
   const handleWalletPress = () => {
-    setShowPinModal(true);
+    guardAction(() => setShowPinModal(true));
   };
 
   const handleSquadPress = () => {
-    navigation.navigate("FamilyLobby");
+    guardAction(() => navigation.navigate("FamilyLobby"));
   };
 
   const handleBookLesson = () => {
-    setShowBookingWizard(true);
+    guardAction(() => setShowBookingWizard(true));
   };
 
   const handleBookingSuccess = () => {
@@ -413,8 +433,10 @@ function PlayerHomeContent() {
               onSquadPress={handleSquadPress}
               showSquadSwitch={true}
               onNotificationPress={() => {
-                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                navigation.navigate("PlayerNotifications");
+                guardAction(() => {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  navigation.navigate("PlayerNotifications");
+                });
               }}
               unreadNotificationCount={unreadCount}
               accessibilityLabel={`Player card for ${player.name}, ${t("player.home.glowLevel")} ${player.level}, ${player.xp} ${t("player.home.xpPoints")}`}
@@ -435,8 +457,10 @@ function PlayerHomeContent() {
           <Pressable
             style={styles.freePlayerCta}
             onPress={() => {
-              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-              navigation.navigate("CourtBooking" as never);
+              guardAction(() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                navigation.navigate("CourtBooking" as never);
+              });
             }}
           >
             <View style={styles.freePlayerCtaIcon}>
@@ -534,6 +558,7 @@ function PlayerHomeContent() {
         visible={showSpotlightNomination}
         onClose={() => setShowSpotlightNomination(false)}
       />
+      <GuestPromptModal {...promptProps} />
     </View>
   );
 }
