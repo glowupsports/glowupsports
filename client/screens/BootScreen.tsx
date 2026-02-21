@@ -121,7 +121,7 @@ interface BootScreenProps {
 
 export default function BootScreen({ onBootComplete }: BootScreenProps) {
   const queryClient = useQueryClient();
-  const { user } = useAuth();
+  const { user, isGuest } = useAuth();
   const { mode } = useAppMode();
   
   const [currentTipIndex, setCurrentTipIndex] = useState(0);
@@ -219,6 +219,11 @@ export default function BootScreen({ onBootComplete }: BootScreenProps) {
   }, [currentRole, queryClient, checkAndComplete]);
 
   useEffect(() => {
+    if (isGuest) {
+      setTimeout(onBootComplete, 300);
+      return;
+    }
+
     Animated.timing(fadeAnim, {
       toValue: 1,
       duration: 400,

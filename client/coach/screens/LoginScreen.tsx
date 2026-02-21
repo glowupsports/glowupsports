@@ -973,38 +973,45 @@ export default function LoginScreen() {
       <View style={styles.savedAccountsSection}>
         <Text style={styles.savedAccountsTitle}>{t("auth.savedAccounts")}</Text>
         <Text style={styles.savedAccountsHint}>
-          Tap to select, hold to remove
+          Tap to select
         </Text>
         <View style={styles.savedAccountsList}>
           {savedAccounts.map((account) => (
-            <Pressable
-              key={account.username}
-              style={[
-                styles.savedAccountItem,
-                username === account.username && styles.savedAccountItemSelected,
-              ]}
-              onPress={() => handleQuickLogin(account)}
-              onLongPress={() => handleRemoveAccount(account)}
-            >
-              <View style={[styles.savedAccountAvatar, { borderColor: getRoleColor(account.role) }]}>
-                {account.avatarUrl ? (
-                  <Image 
-                    source={{ uri: account.avatarUrl }} 
-                    style={styles.savedAccountPhoto}
-                  />
-                ) : (
-                  <Ionicons 
-                    name={getRoleIcon(account.role)} 
-                    size={20} 
-                    color={getRoleColor(account.role)} 
-                  />
-                )}
-              </View>
-              <Text style={styles.savedAccountName} numberOfLines={1}>
-                {account.displayName}
-              </Text>
-              <Text style={styles.savedAccountRole}>{account.role}</Text>
-            </Pressable>
+            <View key={account.username} style={{ position: "relative" }}>
+              <Pressable
+                style={[
+                  styles.savedAccountItem,
+                  username === account.username && styles.savedAccountItemSelected,
+                ]}
+                onPress={() => handleQuickLogin(account)}
+              >
+                <View style={[styles.savedAccountAvatar, { borderColor: getRoleColor(account.role) }]}>
+                  {account.avatarUrl ? (
+                    <Image 
+                      source={{ uri: account.avatarUrl }} 
+                      style={styles.savedAccountPhoto}
+                    />
+                  ) : (
+                    <Ionicons 
+                      name={getRoleIcon(account.role)} 
+                      size={20} 
+                      color={getRoleColor(account.role)} 
+                    />
+                  )}
+                </View>
+                <Text style={styles.savedAccountName} numberOfLines={1}>
+                  {account.displayName}
+                </Text>
+                <Text style={styles.savedAccountRole}>{account.role}</Text>
+              </Pressable>
+              <Pressable
+                style={styles.savedAccountDeleteButton}
+                onPress={() => handleRemoveAccount(account)}
+                hitSlop={6}
+              >
+                <Ionicons name="close" size={12} color={Colors.dark.text} />
+              </Pressable>
+            </View>
           ))}
         </View>
         <View style={styles.savedAccountsDivider}>
@@ -1117,7 +1124,16 @@ export default function LoginScreen() {
 
       <Pressable
         style={({ pressed }) => [styles.guestButton, { opacity: pressed ? 0.8 : 1 }]}
-        onPress={loginAsGuest}
+        onPress={async () => {
+          if (isSubmitting) return;
+          setIsSubmitting(true);
+          try {
+            await loginAsGuest();
+          } finally {
+            setIsSubmitting(false);
+          }
+        }}
+        disabled={isSubmitting}
       >
         <Ionicons name="eye-outline" size={18} color={Colors.dark.textSecondary} />
         <Text style={styles.guestButtonText}>Explore as Guest</Text>
@@ -2264,6 +2280,18 @@ const styles = StyleSheet.create({
     fontSize: 10,
     color: Colors.dark.textMuted,
     textTransform: "capitalize",
+  },
+  savedAccountDeleteButton: {
+    position: "absolute",
+    top: 0,
+    right: 0,
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: "rgba(255, 60, 60, 0.85)",
+    alignItems: "center",
+    justifyContent: "center",
+    zIndex: 10,
   },
   savedAccountsDivider: {
     flexDirection: "row",
