@@ -19,7 +19,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useTabNavigation } from "@/components/TabNavigationContext";
 import { GlassCard } from "./GlassCard";
 import { GlowAvatar } from "./GlowAvatar";
-import { ProTennisColors, Backgrounds, Spacing, BorderRadius, Typography, GlowColors, Colors } from "@/constants/theme";
+import { ProTennisColors, Backgrounds, Spacing, BorderRadius, Typography, GlowColors, Colors, CardElevation } from "@/constants/theme";
 import { usePlayerState } from "../context/PlayerStateContext";
 import { apiRequest } from "@/lib/query-client";
 import * as Haptics from "expo-haptics";
@@ -2234,9 +2234,8 @@ const styles = StyleSheet.create({
   },
 
   cleanCard: {
-    backgroundColor: Backgrounds.card,
-    borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.08)",
+    ...CardElevation.base,
+    ...CardElevation.shadow,
     borderRadius: BorderRadius.lg,
   },
   liveAccentBorder: {

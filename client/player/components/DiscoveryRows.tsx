@@ -166,10 +166,10 @@ export function PlayersNearYouRow() {
                   <GlowAvatar
                     source={getAvatarSource(player)}
                     name={player.name}
-                    size="lg"
+                    size="md"
                     ballLevel={player.level}
                     showGlow={true}
-                    glowIntensity="medium"
+                    glowIntensity="low"
                     status={player.status as any}
                     pulsing={false}
                   />

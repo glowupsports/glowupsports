@@ -4,7 +4,7 @@ import { View, Text, StyleSheet, ScrollView, ActivityIndicator, RefreshControl, 
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useFocusEffect, useNavigation } from "@react-navigation/native";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Spacing, GlowColors, Backgrounds, BorderRadius, Colors } from "@/constants/theme";
+import { Spacing, GlowColors, Backgrounds, BorderRadius, Colors, SectionAccents } from "@/constants/theme";
 import { useAuth } from "@/coach/context/AuthContext";
 import { usePlayerDrawer } from "@/player/context/PlayerDrawerContext";
 import { useWalkthrough } from "@/player/context/WalkthroughContext";
@@ -502,18 +502,24 @@ function PlayerHomeContent() {
         )}
 
         {/* HERO CTA - Next Session (PRIMARY ACTION) */}
-        <SessionHeroCard onBookSession={handleBookLesson} />
+        <View style={styles.sectionAccentSession}>
+          <SessionHeroCard onBookSession={handleBookLesson} />
+        </View>
 
 
         {/* RECENT COACH FEEDBACK */}
-        <RecentFeedbackCard />
+        <View style={styles.sectionAccentFeedback}>
+          <RecentFeedbackCard />
+        </View>
 
         {/* PLAYER SPOTLIGHT - Player of the Week / Month */}
-        <SpotlightCard
-          onNominate={() => setShowSpotlightNomination(true)}
-          onViewDetails={() => navigation.navigate("SpotlightDetail" as never)}
-          accessibilityLabel="Player spotlight card"
-        />
+        <View style={styles.sectionAccentSpotlight}>
+          <SpotlightCard
+            onNominate={() => setShowSpotlightNomination(true)}
+            onViewDetails={() => navigation.navigate("SpotlightDetail" as never)}
+            accessibilityLabel="Player spotlight card"
+          />
+        </View>
 
         {/* DISCOVERY SECTION - Horizontal scrolling rows */}
         <View style={styles.discoverySection}>
@@ -530,7 +536,9 @@ function PlayerHomeContent() {
           </View>
 
         {/* COMMUNITY - Activity feed */}
-        <MiniFeed />
+        <View style={styles.sectionAccentCommunity}>
+          <MiniFeed />
+        </View>
       </ScrollView>
       
       <QuickServeFAB bottomOffset={48} />
@@ -614,7 +622,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
-    gap: Spacing.lg,
+    gap: Spacing.xl,
   },
   headerSection: {
     position: "relative",
@@ -625,8 +633,40 @@ const styles = StyleSheet.create({
     right: Spacing.md,
     zIndex: 10,
   },
+  sectionAccentSession: {
+    backgroundColor: SectionAccents.session,
+    paddingVertical: 4,
+    paddingHorizontal: 0,
+    borderRadius: 20,
+    marginHorizontal: 0,
+  },
+  sectionAccentFeedback: {
+    backgroundColor: SectionAccents.feedback,
+    paddingVertical: 4,
+    paddingHorizontal: 0,
+    borderRadius: 20,
+    marginHorizontal: 0,
+  },
+  sectionAccentSpotlight: {
+    backgroundColor: SectionAccents.spotlight,
+    paddingVertical: 4,
+    paddingHorizontal: 0,
+    borderRadius: 20,
+    marginHorizontal: 0,
+  },
+  sectionAccentCommunity: {
+    backgroundColor: SectionAccents.community,
+    paddingVertical: 4,
+    paddingHorizontal: 0,
+    borderRadius: 20,
+    marginHorizontal: 0,
+  },
   discoverySection: {
     gap: Spacing.xl,
+    marginTop: 8,
+    backgroundColor: SectionAccents.discovery,
+    borderRadius: 20,
+    paddingVertical: 4,
   },
   discoverySectionTitle: {
     fontSize: 11,

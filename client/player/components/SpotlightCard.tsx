@@ -4,7 +4,7 @@ import { LinearGradient } from "expo-linear-gradient";
 import Animated, { useAnimatedStyle, useSharedValue, withRepeat, withSequence, withTiming, FadeIn, FadeInDown } from "react-native-reanimated";
 import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/coach/context/AuthContext";
-import { Spacing, Backgrounds, GlowColors, Colors, BorderRadius, TextColors } from "@/constants/theme";
+import { Spacing, Backgrounds, GlowColors, Colors, BorderRadius, TextColors, CardElevation } from "@/constants/theme";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { Image } from "expo-image";
 import { getStaticAssetsUrl } from "@/lib/query-client";
@@ -147,7 +147,7 @@ export function SpotlightCard({ onNominate, onViewDetails, onShareWinner }: Spot
   return (
     <Animated.View entering={FadeInDown.delay(200).duration(600)} style={[styles.outerContainer, glowStyle]}>
       <LinearGradient
-        colors={["rgba(255, 215, 0, 0.08)", "rgba(255, 215, 0, 0.02)", "rgba(17, 20, 26, 0.95)"]}
+        colors={["rgba(255, 215, 0, 0.05)", "rgba(255, 215, 0, 0.01)", "rgba(17, 20, 26, 0.95)"]}
         style={styles.gradient}
       >
         <View style={styles.headerRow}>
@@ -271,18 +271,15 @@ export function SpotlightCard({ onNominate, onViewDetails, onShareWinner }: Spot
 const styles = StyleSheet.create({
   outerContainer: {
     marginHorizontal: Spacing.lg,
+    ...CardElevation.base,
+    ...CardElevation.shadow,
     borderRadius: BorderRadius.xl,
     overflow: "hidden",
-    borderWidth: 1,
-    borderColor: "rgba(255, 215, 0, 0.2)",
-    shadowColor: "#FFD700",
-    shadowOffset: { width: 0, height: 0 },
-    shadowRadius: 20,
-    elevation: 8,
+    borderColor: "rgba(255, 215, 0, 0.12)",
   },
   gradient: {
-    padding: Spacing.lg,
-    gap: Spacing.md,
+    padding: Spacing.md,
+    gap: Spacing.sm,
   },
   headerRow: {
     flexDirection: "row",
@@ -295,21 +292,21 @@ const styles = StyleSheet.create({
     gap: Spacing.sm,
   },
   trophyContainer: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: "rgba(255, 215, 0, 0.12)",
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: "rgba(255, 215, 0, 0.08)",
     justifyContent: "center",
     alignItems: "center",
   },
   headerTitle: {
-    fontSize: 11,
+    fontSize: 10,
     fontWeight: "800",
     color: "#FFD700",
     letterSpacing: 2,
   },
   headerSubtitle: {
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: "600",
     color: TextColors.secondary,
     marginTop: 1,
@@ -346,7 +343,7 @@ const styles = StyleSheet.create({
     letterSpacing: 1.5,
   },
   winnerName: {
-    fontSize: 17,
+    fontSize: 15,
     fontWeight: "800",
     color: "#FFFFFF",
   },
@@ -471,8 +468,8 @@ const styles = StyleSheet.create({
     borderRadius: BorderRadius.lg,
   },
   nominateText: {
-    fontSize: 14,
-    fontWeight: "800",
+    fontSize: 13,
+    fontWeight: "700",
     color: "#000",
   },
   votedButton: {

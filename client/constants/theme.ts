@@ -585,6 +585,36 @@ export const ButtonStyles = {
   },
 };
 
+export const CardElevation = {
+  base: {
+    backgroundColor: '#151A22',
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.06)',
+    borderTopColor: 'rgba(255, 255, 255, 0.12)',
+  },
+  shadow: Platform.select({
+    ios: {
+      shadowColor: '#000000',
+      shadowOffset: { width: 0, height: 10 },
+      shadowOpacity: 0.4,
+      shadowRadius: 15,
+    },
+    android: {
+      elevation: 8,
+    },
+    default: {},
+  }),
+};
+
+export const SectionAccents = {
+  session: 'rgba(200, 255, 61, 0.04)',
+  feedback: 'rgba(255, 176, 32, 0.04)',
+  spotlight: 'rgba(255, 215, 0, 0.04)',
+  discovery: 'rgba(77, 163, 255, 0.04)',
+  community: 'rgba(155, 89, 182, 0.04)',
+};
+
 export const Fonts = Platform.select({
   ios: {
     sans: "system-ui",

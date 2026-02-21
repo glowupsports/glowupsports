@@ -4,7 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useNavigation } from "@react-navigation/native";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import Animated, { FadeInDown } from "react-native-reanimated";
-import { Colors, Backgrounds, Spacing, BorderRadius, GlowColors } from "@/constants/theme";
+import { Colors, Backgrounds, Spacing, BorderRadius, GlowColors, CardElevation } from "@/constants/theme";
 import { useAuth } from "@/coach/context/AuthContext";
 
 interface FeedbackItem {
@@ -98,11 +98,10 @@ export function RecentFeedbackCard() {
 const styles = StyleSheet.create({
   wrapper: {
     marginHorizontal: Spacing.lg,
-    backgroundColor: Backgrounds.card,
+    ...CardElevation.base,
+    ...CardElevation.shadow,
     borderRadius: BorderRadius.xl,
     padding: Spacing.md,
-    borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.06)",
   },
   headerRow: {
     flexDirection: "row",
