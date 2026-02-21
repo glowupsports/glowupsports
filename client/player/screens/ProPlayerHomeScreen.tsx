@@ -16,6 +16,7 @@ import { PlayersNearYouRow, OpenSessionsRow, TrainingSessionsRow } from "@/playe
 import { MiniFeed } from "@/player/components/MiniFeed";
 import { SessionHeroCard } from "@/player/components/SessionHeroCard";
 import { NewsTicker } from "@/player/components/NewsTicker";
+import { SocialActivityBar } from "@/player/components/SocialActivityBar";
 import { QuickServeFAB } from "@/player/components/QuickServeFAB";
 import PlayerBookingWizard from "@/player/components/PlayerBookingWizard";
 import CollapsibleModeSwitcher from "@/components/CollapsibleModeSwitcher";
@@ -466,6 +467,8 @@ function PlayerHomeContent() {
               accessibilityLabel={`Player card for ${player.name}, ${t("player.home.glowLevel")} ${player.level}, ${player.xp} ${t("player.home.xpPoints")}`}
             />
           </View>
+
+        <SocialActivityBar />
 
         {/* BIRTHDAY XP BONUS - 2x XP message on birthday */}
         {isBirthday && <BirthdayXPBonusCard />}
