@@ -21,7 +21,6 @@ import { QuickServeFAB } from "@/player/components/QuickServeFAB";
 import PlayerBookingWizard from "@/player/components/PlayerBookingWizard";
 import CollapsibleModeSwitcher from "@/components/CollapsibleModeSwitcher";
 import PinEntryModal from "@/components/PinEntryModal";
-import Svg, { Line, Rect } from "react-native-svg";
 import { BirthdayConfettiOverlay } from "@/player/components/BirthdayThemeOverlay";
 import { BirthdayBanner, BirthdayXPBonusCard } from "@/player/components/BirthdayThemeOverlay";
 import { RamadanConfettiOverlay, RamadanBanner, RamadanBonusCard } from "@/player/components/RamadanCelebrationOverlay";
@@ -78,18 +77,6 @@ interface DashboardData {
   isFreePlayer?: boolean;
 }
 
-function BroadcastBackground() {
-  return (
-    <View style={styles.backgroundContainer}>
-      <Svg style={StyleSheet.absoluteFill} preserveAspectRatio="none">
-        <Rect x="0" y="0" width="100%" height="100%" fill={"rgba(255, 255, 255, 0.06)"} />
-        <Line x1="0" y1="25%" x2="100%" y2="25%" stroke={GlowColors.primary} strokeWidth="0.5" opacity="0.015" />
-        <Line x1="0" y1="50%" x2="100%" y2="50%" stroke={GlowColors.primary} strokeWidth="0.5" opacity="0.015" />
-        <Line x1="0" y1="75%" x2="100%" y2="75%" stroke={GlowColors.primary} strokeWidth="0.5" opacity="0.015" />
-      </Svg>
-    </View>
-  );
-}
 
 function PlayerHomeContent() {
   const { t } = useTranslation();
@@ -398,8 +385,6 @@ function PlayerHomeContent() {
 
   return (
     <View style={styles.container}>
-      <BroadcastBackground />
-
       {isBirthday && <BirthdayConfettiOverlay />}
       {isRamadan && !isBirthday && !ramadanDismissed && <RamadanConfettiOverlay />}
       
@@ -606,9 +591,6 @@ const styles = StyleSheet.create({
   loadingContainer: {
     justifyContent: "center",
     alignItems: "center",
-  },
-  backgroundContainer: {
-    ...StyleSheet.absoluteFillObject,
   },
   scrollView: {
     flex: 1,
