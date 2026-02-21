@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { StyleSheet, View, Platform } from "react-native";
-import { NavigationContainer, NavigationContainerRef, LinkingOptions } from "@react-navigation/native";
+import { NavigationContainer, NavigationContainerRef, LinkingOptions, useNavigationContainerRef } from "@react-navigation/native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { KeyboardProvider } from "react-native-keyboard-controller";
 import { SafeAreaProvider } from "react-native-safe-area-context";
@@ -79,19 +79,19 @@ const linking: LinkingOptions<any> = {
 };
 
 function NavigationContainerWithRef() {
-  const navigationRef = useRef<NavigationContainerRef<any>>(null);
+  const navigationRef = useNavigationContainerRef();
   const { registerNavigation } = useTabNavigation();
+  const [navReady, setNavReady] = useState(false);
   
   const handleReady = useCallback(() => {
-    if (navigationRef.current) {
-      console.log("[NavigationContainerWithRef] Navigation ready, registering ref");
-      registerNavigation(navigationRef.current);
-    }
-  }, [registerNavigation]);
+    console.log("[NavigationContainerWithRef] Navigation ready, registering ref");
+    registerNavigation(navigationRef);
+    setNavReady(true);
+  }, [registerNavigation, navigationRef]);
   
   return (
     <NavigationContainer ref={navigationRef} onReady={handleReady} linking={linking}>
-      <RootStackNavigator />
+      <RootStackNavigator navigationRef={navReady ? navigationRef : null} />
     </NavigationContainer>
   );
 }

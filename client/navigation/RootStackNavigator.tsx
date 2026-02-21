@@ -1,7 +1,7 @@
 import React, { useState, useCallback, useEffect, useRef } from "react";
 import { ActivityIndicator, View, StyleSheet } from "react-native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
-import { useNavigation, CommonActions } from "@react-navigation/native";
+import { CommonActions, useNavigationContainerRef } from "@react-navigation/native";
 import CoachNavigator from "@/coach/navigation/CoachNavigator";
 import PlayerNavigator from "@/player/navigation/PlayerNavigator";
 import AdminNavigator from "@/admin/navigation/AdminNavigator";
@@ -31,21 +31,19 @@ function BootScreenWrapper({ onBootComplete }: { onBootComplete: () => void }) {
   return <BootScreen onBootComplete={onBootComplete} />;
 }
 
-function NavigationController({ 
-  isAuthenticated, 
-  bootComplete, 
-  mode 
-}: { 
-  isAuthenticated: boolean; 
-  bootComplete: boolean; 
-  mode: string;
-}) {
-  const navigation = useNavigation();
+function useNavigationEffect(
+  isAuthenticated: boolean,
+  bootComplete: boolean,
+  mode: string,
+  navigationRef: ReturnType<typeof useNavigationContainerRef> | null
+) {
   const prevAuthRef = useRef(isAuthenticated);
   const prevBootRef = useRef(bootComplete);
   const prevModeRef = useRef(mode);
 
   useEffect(() => {
+    if (!navigationRef?.isReady()) return;
+
     const authChanged = prevAuthRef.current !== isAuthenticated;
     const bootChanged = prevBootRef.current !== bootComplete;
     const modeChanged = prevModeRef.current !== mode;
@@ -71,27 +69,24 @@ function NavigationController({
     }
 
     try {
-      const navState = navigation.getState?.();
+      const navState = navigationRef.getState?.();
       const currentRoute = navState?.routes?.[navState.index]?.name;
       const needsNavigation = authChanged || bootChanged || modeChanged || currentRoute !== targetRoute;
 
       if (!needsNavigation) return;
 
-      navigation.dispatch(
+      navigationRef.dispatch(
         CommonActions.reset({
           index: 0,
           routes: [{ name: targetRoute }],
         })
       );
     } catch {
-      // Navigation not ready yet, will retry on next state change
     }
-  }, [isAuthenticated, bootComplete, mode, navigation]);
-
-  return null;
+  }, [isAuthenticated, bootComplete, mode, navigationRef]);
 }
 
-export default function RootStackNavigator() {
+export default function RootStackNavigator({ navigationRef }: { navigationRef?: ReturnType<typeof useNavigationContainerRef> | null }) {
   const screenOptions = useScreenOptions();
   const { mode } = useAppMode();
   const { isAuthenticated, isLoading } = useAuth();
@@ -102,6 +97,7 @@ export default function RootStackNavigator() {
   }, []);
 
   usePushNotifications();
+  useNavigationEffect(isAuthenticated, bootComplete, mode, navigationRef ?? null);
 
   if (isLoading) {
     return (
@@ -125,54 +121,47 @@ export default function RootStackNavigator() {
   };
 
   return (
-    <>
-      <NavigationController 
-        isAuthenticated={isAuthenticated} 
-        bootComplete={bootComplete} 
-        mode={mode} 
+    <Stack.Navigator 
+      screenOptions={screenOptions}
+      initialRouteName={getInitialRoute()}
+    >
+      <Stack.Screen
+        name="Login"
+        component={LoginScreen}
+        options={{ headerShown: false }}
       />
-      <Stack.Navigator 
-        screenOptions={screenOptions}
-        initialRouteName={getInitialRoute()}
+      <Stack.Screen
+        name="Boot"
+        options={{ headerShown: false }}
       >
-        <Stack.Screen
-          name="Login"
-          component={LoginScreen}
-          options={{ headerShown: false }}
-        />
-        <Stack.Screen
-          name="Boot"
-          options={{ headerShown: false }}
-        >
-          {() => <BootScreenWrapper onBootComplete={handleBootComplete} />}
-        </Stack.Screen>
-        <Stack.Screen
-          name="Platform"
-          component={PlatformNavigator}
-          options={{ headerShown: false }}
-        />
-        <Stack.Screen
-          name="AcademyOwner"
-          component={OwnerNavigator}
-          options={{ headerShown: false }}
-        />
-        <Stack.Screen
-          name="Admin"
-          component={AdminNavigator}
-          options={{ headerShown: false }}
-        />
-        <Stack.Screen
-          name="Coach"
-          component={CoachNavigator}
-          options={{ headerShown: false }}
-        />
-        <Stack.Screen
-          name="Player"
-          component={PlayerNavigator}
-          options={{ headerShown: false }}
-        />
-      </Stack.Navigator>
-    </>
+        {() => <BootScreenWrapper onBootComplete={handleBootComplete} />}
+      </Stack.Screen>
+      <Stack.Screen
+        name="Platform"
+        component={PlatformNavigator}
+        options={{ headerShown: false }}
+      />
+      <Stack.Screen
+        name="AcademyOwner"
+        component={OwnerNavigator}
+        options={{ headerShown: false }}
+      />
+      <Stack.Screen
+        name="Admin"
+        component={AdminNavigator}
+        options={{ headerShown: false }}
+      />
+      <Stack.Screen
+        name="Coach"
+        component={CoachNavigator}
+        options={{ headerShown: false }}
+      />
+      <Stack.Screen
+        name="Player"
+        component={PlayerNavigator}
+        options={{ headerShown: false }}
+      />
+    </Stack.Navigator>
   );
 }
 

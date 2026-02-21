@@ -10,9 +10,7 @@ import {
   setOnUnauthorizedCallback,
   AuthUser,
   GUEST_USER,
-  saveGuestMode,
   clearGuestMode,
-  isGuestMode,
 } from "@/lib/auth";
 import { useAppMode, getModesForRole, getDefaultModeForRole } from "@/context/AppModeContext";
 import { TshirtSize } from "@shared/schema";
@@ -173,35 +171,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           setImpersonatedAcademyName(impersonationAcademy);
         }
 
-        const guestMode = await isGuestMode();
-        if (guestMode && isMounted) {
-          console.log("[AuthContext] Restoring guest session");
-          setUser(GUEST_USER);
-          setIsGuest(true);
-          setIsAuthenticated(true);
-          const availableModes = getModesForRole("player");
-          const defaultMode = getDefaultModeForRole("player");
-          setAvailableModesRef.current(availableModes, defaultMode);
-          setModeRef.current(defaultMode);
-        } else {
-          const authState = await loadAuthState();
-          console.log("[AuthContext] Loaded auth state:", { hasToken: !!authState.token, hasUser: !!authState.user });
-          
-          if (authState.token && authState.user && isMounted) {
-            setAuthToken(authState.token);
-            console.log("[AuthContext] Fetching user data...");
-            const success = await fetchUserData(authState.token);
-            console.log("[AuthContext] Fetch user data result:", success);
-            if (success && isMounted) {
-              setIsAuthenticated(true);
-              console.log("[AuthContext] User authenticated successfully");
-            } else {
-              console.log("[AuthContext] Clearing auth state due to failed fetch");
-              await clearAuthState();
-            }
+        await clearGuestMode();
+
+        const authState = await loadAuthState();
+        console.log("[AuthContext] Loaded auth state:", { hasToken: !!authState.token, hasUser: !!authState.user });
+        
+        if (authState.token && authState.user && isMounted) {
+          setAuthToken(authState.token);
+          console.log("[AuthContext] Fetching user data...");
+          const success = await fetchUserData(authState.token);
+          console.log("[AuthContext] Fetch user data result:", success);
+          if (success && isMounted) {
+            setIsAuthenticated(true);
+            console.log("[AuthContext] User authenticated successfully");
           } else {
-            console.log("[AuthContext] No stored auth state, showing login");
+            console.log("[AuthContext] Clearing auth state due to failed fetch");
+            await clearAuthState();
           }
+        } else {
+          console.log("[AuthContext] No stored auth state, showing login");
         }
       } catch (error) {
         console.error("[AuthContext] Auth init error:", error);
@@ -227,7 +215,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setIsGuest(true);
     setCoach(null);
     setAcademy(null);
-    await saveGuestMode();
     const availableModes = getModesForRole("player");
     const defaultMode = getDefaultModeForRole("player");
     setAvailableModesRef.current(availableModes, defaultMode);
