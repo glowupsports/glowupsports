@@ -506,12 +506,11 @@ export default function DashboardScreen() {
       EditProfile: "CoachProfile",
     };
     const targetScreen = screenMap[screen] || screen;
-    // Use tab navigation for main tabs, regular navigation for nested screens
     const tabNames = ["Dashboard", "Players", "Calendar", "Coaching"];
     if (tabNames.includes(targetScreen)) {
       navigateToTab(targetScreen);
     } else {
-      (navigation as any).navigate("CoachTabs", { screen: targetScreen, params });
+      (navigation as any).navigate(targetScreen, params);
     }
   };
 
