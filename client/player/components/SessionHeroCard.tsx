@@ -507,125 +507,89 @@ export function SessionHeroCard({
 
   if (sessionStatus === "none") {
     return (
-      <NeonBorderGlow color={ProTennisColors.electricGreen} style={styles.heroCard}>
+      <View style={[styles.heroCard, styles.cleanCard]}>
         <View style={styles.noSessionContent}>
-          {/* Premium Tennis Header */}
-          <View style={styles.tennisOpenDayHeader}>
-            <View style={styles.tennisCourtIconWrapper}>
-              <LinearGradient
-                colors={[`${ProTennisColors.electricGreen}25`, `${ProTennisColors.electricGreen}08`]}
-                style={styles.tennisCourtIconBg}
-              >
-                {/* Tennis Court SVG-style icon using nested views */}
-                <View style={styles.miniCourtContainer}>
-                  <View style={styles.miniCourtOuter}>
-                    <View style={styles.miniCourtNet} />
-                    <View style={styles.miniCourtInner}>
-                      <Ionicons name="tennisball" size={16} color={ProTennisColors.electricGreen} />
-                    </View>
-                  </View>
-                </View>
-              </LinearGradient>
-              <View style={styles.tennisCourtPulse} />
+          <View style={styles.cleanHeader}>
+            <View style={styles.cleanIconContainer}>
+              <Feather name="calendar" size={22} color={GlowColors.primary} />
             </View>
             <View style={styles.openDayTextContainer}>
-              <Text style={styles.openDayTitleGlow}>{t("player.home.courtTime")}</Text>
-              <Text style={styles.openDaySubtitle}>{t("player.home.noSessionsToday")}</Text>
+              <Text style={styles.cleanTitle}>{t("player.home.courtTime")}</Text>
+              <Text style={styles.cleanSubtitle}>{t("player.home.noSessionsToday")}</Text>
             </View>
           </View>
 
-          {/* XP Stakes with tennis ball accent */}
-          <View style={styles.tennisStakesRow}>
-            <View style={styles.tennisStakeCard}>
-              <View style={[styles.tennisStakeIconCircle, { backgroundColor: `${ProTennisColors.warning}15` }]}>
-                <Ionicons name="flash" size={14} color={ProTennisColors.warning} />
-              </View>
-              <Text style={[styles.tennisStakeText, { color: ProTennisColors.warning }]}>{t("player.home.xpForBooking")}</Text>
+          <View style={styles.cleanStakesRow}>
+            <View style={styles.cleanStakeChip}>
+              <Feather name="zap" size={12} color={ProTennisColors.warning} />
+              <Text style={styles.cleanStakeText}>{t("player.home.xpForBooking")}</Text>
             </View>
-            <View style={styles.tennisStakeCard}>
-              <View style={[styles.tennisStakeIconCircle, { backgroundColor: `${ProTennisColors.electricGreen}15` }]}>
-                <Ionicons name="flame" size={14} color={ProTennisColors.electricGreen} />
-              </View>
-              <Text style={[styles.tennisStakeText, { color: ProTennisColors.electricGreen }]}>{t("player.home.keepStreakAlive")}</Text>
+            <View style={styles.cleanStakeChip}>
+              <Feather name="trending-up" size={12} color={GlowColors.primary} />
+              <Text style={styles.cleanStakeText}>{t("player.home.keepStreakAlive")}</Text>
             </View>
           </View>
 
-          {/* Premium Action Buttons */}
-          <View style={styles.tennisActionsContainer}>
-            <SwipeBlocker style={styles.tennisPrimaryRow}>
-              {/* Book Lesson - Tennis Racket Theme */}
+          <View style={styles.cleanActionsContainer}>
+            <SwipeBlocker>
               <Pressable
                 style={({ pressed }) => [
-                  styles.tennisPrimaryButton,
+                  styles.cleanPrimaryButton,
                   pressed && styles.buttonPressed,
                 ]}
                 onPress={handleBookSession}
               >
                 <LinearGradient
-                  colors={[ProTennisColors.electricGreen, "#9AE62E"]}
+                  colors={[GlowColors.primary, GlowColors.soft]}
                   start={{ x: 0, y: 0 }}
                   end={{ x: 1, y: 1 }}
-                  style={styles.tennisPrimaryGradient}
+                  style={styles.cleanPrimaryGradient}
                 >
-                  <View style={styles.tennisButtonIconWrapper}>
-                    <Ionicons name="person" size={18} color={ProTennisColors.midnightBlue} />
-                    <View style={styles.tennisRacketAccent}>
-                      <Ionicons name="tennisball-outline" size={10} color={ProTennisColors.midnightBlue} />
-                    </View>
-                  </View>
-                  <Text style={styles.tennisPrimaryButtonText}>{t("player.home.bookLesson")}</Text>
+                  <Feather name="calendar" size={18} color={Backgrounds.root} />
+                  <Text style={styles.cleanPrimaryButtonText}>{t("player.home.bookLesson")}</Text>
                 </LinearGradient>
               </Pressable>
+            </SwipeBlocker>
 
-              {/* Book Court - Court Theme */}
+            <SwipeBlocker>
               <Pressable
                 style={({ pressed }) => [
-                  styles.tennisPrimaryButton,
+                  styles.cleanSecondaryButton,
                   pressed && styles.buttonPressed,
                 ]}
                 onPress={handleBookCourt}
               >
-                <LinearGradient
-                  colors={[ProTennisColors.neonCyan, "#00D4FF"]}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 1 }}
-                  style={styles.tennisPrimaryGradient}
-                >
-                  <View style={styles.tennisButtonIconWrapper}>
-                    <Ionicons name="grid" size={18} color={ProTennisColors.midnightBlue} />
-                  </View>
-                  <Text style={styles.tennisPrimaryButtonText}>{t("player.home.bookCourt")}</Text>
-                </LinearGradient>
+                <Feather name="grid" size={16} color={GlowColors.primary} />
+                <Text style={styles.cleanSecondaryButtonText}>{t("player.home.bookCourt")}</Text>
               </Pressable>
             </SwipeBlocker>
 
-            {/* Secondary Actions - Clean Glass Style */}
-            <SwipeBlocker style={styles.tennisSecondaryRow}>
+            <SwipeBlocker style={styles.cleanTextButtonRow}>
               <Pressable
                 style={({ pressed }) => [
-                  styles.tennisSecondaryButton,
-                  pressed && styles.tennisSecondaryPressed,
+                  styles.cleanTextButton,
+                  pressed && { opacity: 0.6 },
                 ]}
                 onPress={handleFindMatch}
               >
-                <Ionicons name="people" size={16} color={ProTennisColors.neonCyan} />
-                <Text style={[styles.tennisSecondaryText, { color: ProTennisColors.neonCyan }]}>{t("player.home.findPlayers").toUpperCase()}</Text>
+                <Feather name="users" size={14} color="#B8BCC6" />
+                <Text style={styles.cleanTextButtonLabel}>{t("player.home.findPlayers")}</Text>
               </Pressable>
 
               <Pressable
                 style={({ pressed }) => [
-                  styles.tennisSecondaryButton,
-                  pressed && styles.tennisSecondaryPressed,
+                  styles.cleanTextButton,
+                  pressed && { opacity: 0.6 },
                 ]}
                 onPress={handleJoinOpenGroup}
               >
-                <Ionicons name="globe" size={16} color={ProTennisColors.electricGreen} />
-                <Text style={[styles.tennisSecondaryText, { color: ProTennisColors.electricGreen }]}>{t("player.home.joinOpenGroup")}</Text>
+                <Feather name="play-circle" size={14} color="#B8BCC6" />
+                <Text style={styles.cleanTextButtonLabel}>{t("player.home.joinOpenGroup")}</Text>
               </Pressable>
             </SwipeBlocker>
           </View>
         </View>
-      </NeonBorderGlow>
+      </View>
     );
   }
 
@@ -698,21 +662,30 @@ export function SessionHeroCard({
 
   if (sessionStatus === "live") {
     return (
-      <NeonBorderGlow color={ProTennisColors.live} style={styles.heroCard}>
+      <View style={[styles.heroCard, styles.cleanCard, styles.liveAccentBorder]}>
         <View style={styles.liveContent}>
           <View style={styles.liveHeader}>
             <View style={styles.liveIndicatorRow}>
-              <Animated.View style={[styles.liveDot, livePulseStyle]} />
-              <Text style={styles.liveTextGlow}>{t("player.home.liveNow")}</Text>
+              <Animated.View style={[styles.cleanLiveDot, livePulseStyle]} />
+              <Text style={styles.cleanLiveText}>{t("player.home.liveNow")}</Text>
             </View>
             <View style={styles.liveTimerContainer}>
               <Text style={styles.liveTimerLabel}>{t("player.home.timeLeft")}</Text>
               <View style={styles.liveCountdownRow}>
-                <GradientCountdownDigit value={countdown.hours} label={t("player.home.hrs")} />
-                <Text style={gamingStyles.countdownSeparatorText}>:</Text>
-                <GradientCountdownDigit value={countdown.minutes} label={t("player.home.min")} />
-                <Text style={gamingStyles.countdownSeparatorText}>:</Text>
-                <GradientCountdownDigit value={countdown.seconds} label={t("player.home.sec")} />
+                <View style={styles.cleanCountdownDigit}>
+                  <Text style={styles.cleanCountdownValue}>{String(countdown.hours).padStart(2, "0")}</Text>
+                  <Text style={styles.cleanCountdownLabel}>{t("player.home.hrs")}</Text>
+                </View>
+                <Text style={styles.cleanCountdownSep}>:</Text>
+                <View style={styles.cleanCountdownDigit}>
+                  <Text style={styles.cleanCountdownValue}>{String(countdown.minutes).padStart(2, "0")}</Text>
+                  <Text style={styles.cleanCountdownLabel}>{t("player.home.min")}</Text>
+                </View>
+                <Text style={styles.cleanCountdownSep}>:</Text>
+                <View style={styles.cleanCountdownDigit}>
+                  <Text style={styles.cleanCountdownValue}>{String(countdown.seconds).padStart(2, "0")}</Text>
+                  <Text style={styles.cleanCountdownLabel}>{t("player.home.sec")}</Text>
+                </View>
               </View>
             </View>
           </View>
@@ -722,61 +695,55 @@ export function SessionHeroCard({
               source={coachPhotoUrl}
               name={coachName || "Coach"}
               size="lg"
-              showGlow
-              glowColor={ProTennisColors.live}
-              pulsing
+              showGlow={false}
             />
             <View style={styles.sessionDetails}>
-              <Text style={styles.sessionTypeGlow}>{sessionType || t("player.home.trainingSession")}</Text>
+              <Text style={styles.cleanSessionType}>{sessionType || t("player.home.trainingSession")}</Text>
               <Text style={styles.coachLabel}>{t("player.home.withCoach", { name: coachName || t("common.coach") })}</Text>
-              {sessionCourtName && (
-                <Text style={styles.courtLabel}>{sessionCourtName}</Text>
-              )}
+              {sessionCourtName ? (
+                <Text style={styles.cleanCourtLabel}>{sessionCourtName}</Text>
+              ) : null}
             </View>
           </View>
 
-          <View style={styles.gamingStakesRow}>
-            <AnimatedStakeCard 
-              icon="eye" 
-              text={t("player.home.coachTrackingProgress")} 
-              color={ProTennisColors.neonCyan} 
-              positive
-            />
-            <AnimatedStakeCard 
-              icon="zap" 
-              text={t("player.home.xpCompletion")} 
-              color={ProTennisColors.electricGreen} 
-              positive
-            />
+          <View style={styles.cleanStakesRow}>
+            <View style={styles.cleanStakeChip}>
+              <Feather name="eye" size={12} color="#B8BCC6" />
+              <Text style={styles.cleanStakeText}>{t("player.home.coachTrackingProgress")}</Text>
+            </View>
+            <View style={styles.cleanStakeChip}>
+              <Feather name="zap" size={12} color={GlowColors.primary} />
+              <Text style={styles.cleanStakeText}>{t("player.home.xpCompletion")}</Text>
+            </View>
           </View>
 
           <View style={styles.liveButtonsRow}>
             <Pressable
               style={({ pressed }) => [
                 styles.liveButton,
-                styles.attendButton,
+                styles.cleanAttendButton,
                 pressed && styles.buttonPressed,
               ]}
               onPress={handleCheckIn}
             >
-              <Feather name="check-circle" size={18} color={ProTennisColors.midnightBlue} />
-              <Text style={styles.attendButtonText}>{t("player.home.attend")}</Text>
+              <Feather name="check-circle" size={18} color={Backgrounds.root} />
+              <Text style={styles.cleanAttendButtonText}>{t("player.home.attend")}</Text>
             </Pressable>
             <Pressable
               style={({ pressed }) => [
                 styles.liveButton,
-                styles.extendButton,
+                styles.cleanMutedButton,
                 pressed && styles.buttonPressed,
               ]}
               onPress={handleExtend}
             >
-              <Feather name="plus-circle" size={18} color={ProTennisColors.neonCyan} />
-              <Text style={[styles.liveButtonText, { color: ProTennisColors.neonCyan }]}>{t("player.home.extend")}</Text>
+              <Feather name="plus-circle" size={16} color="#B8BCC6" />
+              <Text style={styles.cleanMutedButtonText}>{t("player.home.extend")}</Text>
             </Pressable>
             <Pressable
               style={({ pressed }) => [
                 styles.liveButton,
-                styles.reportButton,
+                styles.cleanMutedButton,
                 pressed && styles.buttonPressed,
               ]}
               onPress={() => {
@@ -784,36 +751,31 @@ export function SessionHeroCard({
                 setShowReportModal(true);
               }}
             >
-              <Feather name="alert-circle" size={18} color={ProTennisColors.warning} />
-              <Text style={[styles.liveButtonText, { color: ProTennisColors.warning }]}>{t("player.home.report")}</Text>
+              <Feather name="alert-circle" size={16} color="#B8BCC6" />
+              <Text style={styles.cleanMutedButtonText}>{t("player.home.report")}</Text>
             </Pressable>
           </View>
 
-          <View style={styles.sessionActionRow}>
+          <View style={styles.cleanTextButtonRow}>
             <Pressable
               style={({ pressed }) => [
-                styles.sessionActionButton,
-                pressed && styles.buttonPressed,
+                styles.cleanTextButton,
+                pressed && { opacity: 0.6 },
               ]}
               onPress={handleCancel}
             >
-              <View style={[styles.actionGlow, { backgroundColor: ProTennisColors.danger + "15" }]}>
-                <Feather name="x-circle" size={20} color={ProTennisColors.danger} />
-              </View>
-              <Text style={[styles.actionLabel, { color: ProTennisColors.danger }]}>{t("common.cancel").toUpperCase()}</Text>
+              <Feather name="x-circle" size={14} color={ProTennisColors.danger} />
+              <Text style={[styles.cleanTextButtonLabel, { color: ProTennisColors.danger }]}>{t("common.cancel")}</Text>
             </Pressable>
-            <View style={styles.actionDivider} />
             <Pressable
               style={({ pressed }) => [
-                styles.sessionActionButton,
-                pressed && styles.buttonPressed,
+                styles.cleanTextButton,
+                pressed && { opacity: 0.6 },
               ]}
               onPress={handleLate}
             >
-              <View style={[styles.actionGlow, { backgroundColor: ProTennisColors.warning + "15" }]}>
-                <Feather name="clock" size={20} color={ProTennisColors.warning} />
-              </View>
-              <Text style={[styles.actionLabel, { color: ProTennisColors.warning }]}>{t("player.home.delay")}</Text>
+              <Feather name="clock" size={14} color={ProTennisColors.warning} />
+              <Text style={[styles.cleanTextButtonLabel, { color: ProTennisColors.warning }]}>{t("player.home.delay")}</Text>
             </Pressable>
           </View>
 
@@ -1126,35 +1088,43 @@ export function SessionHeroCard({
             </View>
           </Modal>
         </View>
-      </NeonBorderGlow>
+      </View>
     );
   }
 
   if (sessionStatus === "soon" || sessionStatus === "upcoming") {
     const isSoon = sessionStatus === "soon";
-    const borderColor = isSoon ? ProTennisColors.warning : ProTennisColors.neonCyan;
     
     return (
-      <NeonBorderGlow color={borderColor} style={styles.heroCard}>
+      <View style={[styles.heroCard, styles.cleanCard]}>
         <View style={styles.upcomingContent}>
           <View style={styles.upcomingHeader}>
-            <View style={[styles.nextSessionBadgeGaming, { borderColor: `${borderColor}50` }]}>
-              <Feather name="clock" size={14} color={borderColor} />
-              <Text style={[styles.nextSessionTextGlow, { color: borderColor }]}>
+            <View style={styles.cleanBadge}>
+              <Feather name="clock" size={14} color={isSoon ? ProTennisColors.warning : "#B8BCC6"} />
+              <Text style={[styles.cleanBadgeText, { color: isSoon ? ProTennisColors.warning : "#B8BCC6" }]}>
                 {isSoon ? t("player.home.startingSoon") : t("player.home.nextSession")}
               </Text>
             </View>
-            {isSoon && (
+            {isSoon ? (
               <Animated.View style={[styles.soonPulse, livePulseStyle]} />
-            )}
+            ) : null}
           </View>
 
-          <View style={styles.gamingCountdownRow}>
-            <GradientCountdownDigit value={countdown.hours} label={t("player.home.hrs")} />
-            <Text style={gamingStyles.countdownSeparatorText}>:</Text>
-            <GradientCountdownDigit value={countdown.minutes} label={t("player.home.min")} />
-            <Text style={gamingStyles.countdownSeparatorText}>:</Text>
-            <GradientCountdownDigit value={countdown.seconds} label={t("player.home.sec")} />
+          <View style={styles.cleanCountdownRow}>
+            <View style={styles.cleanCountdownDigit}>
+              <Text style={styles.cleanCountdownValue}>{String(countdown.hours).padStart(2, "0")}</Text>
+              <Text style={styles.cleanCountdownLabel}>{t("player.home.hrs")}</Text>
+            </View>
+            <Text style={styles.cleanCountdownSep}>:</Text>
+            <View style={styles.cleanCountdownDigit}>
+              <Text style={styles.cleanCountdownValue}>{String(countdown.minutes).padStart(2, "0")}</Text>
+              <Text style={styles.cleanCountdownLabel}>{t("player.home.min")}</Text>
+            </View>
+            <Text style={styles.cleanCountdownSep}>:</Text>
+            <View style={styles.cleanCountdownDigit}>
+              <Text style={styles.cleanCountdownValue}>{String(countdown.seconds).padStart(2, "0")}</Text>
+              <Text style={styles.cleanCountdownLabel}>{t("player.home.sec")}</Text>
+            </View>
           </View>
 
           <View style={styles.sessionInfo}>
@@ -1162,73 +1132,71 @@ export function SessionHeroCard({
               source={coachPhotoUrl}
               name={coachName || t("common.coach")}
               size="lg"
-              showGlow
-              glowColor={borderColor}
-              pulsing={isSoon}
+              showGlow={false}
             />
             <View style={styles.sessionDetails}>
-              <Text style={styles.sessionTypeGlow}>{sessionType || t("player.home.trainingSession")}</Text>
+              <Text style={styles.cleanSessionType}>{sessionType || t("player.home.trainingSession")}</Text>
               <Text style={styles.coachLabel}>{t("player.home.withCoach", { name: coachName || t("common.coach") })}</Text>
-              {sessionCourtName && (
-                <Text style={styles.courtLabel}>{sessionCourtName}</Text>
-              )}
+              {sessionCourtName ? (
+                <Text style={styles.cleanCourtLabel}>{sessionCourtName}</Text>
+              ) : null}
             </View>
           </View>
 
-          <View style={styles.upcomingStakes}>
-            <Text style={styles.stakesTitle}>{t("player.home.whatsAtStake")}</Text>
-            <View style={styles.gamingStakesRow}>
-              <AnimatedStakeCard icon="zap" text={t("player.home.xpAttendance")} color={ProTennisColors.electricGreen} positive />
-              <AnimatedStakeCard icon="trending-up" text={t("player.home.levelProgress")} color={ProTennisColors.neonCyan} positive />
+          <View style={styles.cleanStakesRow}>
+            <View style={styles.cleanStakeChip}>
+              <Feather name="zap" size={12} color={GlowColors.primary} />
+              <Text style={styles.cleanStakeText}>{t("player.home.xpAttendance")}</Text>
+            </View>
+            <View style={styles.cleanStakeChip}>
+              <Feather name="trending-up" size={12} color="#B8BCC6" />
+              <Text style={styles.cleanStakeText}>{t("player.home.levelProgress")}</Text>
             </View>
           </View>
 
-          {isSoon && (
-            <Pressable
-              style={({ pressed }) => [
-                styles.gamingPrimaryButton,
-                pressed && styles.buttonPressed,
-              ]}
-              onPress={handleCheckIn}
-              disabled={checkInMutation.isPending}
-            >
-              <LinearGradient
-                colors={[ProTennisColors.electricGreen, `${ProTennisColors.electricGreen}CC`]}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 1 }}
-                style={[styles.gamingButtonGradient, checkInMutation.isPending && { opacity: 0.7 }]}
+          {isSoon ? (
+            <SwipeBlocker>
+              <Pressable
+                style={({ pressed }) => [
+                  styles.cleanPrimaryButton,
+                  pressed && styles.buttonPressed,
+                ]}
+                onPress={handleCheckIn}
+                disabled={checkInMutation.isPending}
               >
-                <Feather name="check-circle" size={20} color={ProTennisColors.midnightBlue} />
-                <Text style={styles.gamingPrimaryButtonText}>{checkInMutation.isPending ? t("player.home.checkingIn") : t("player.home.checkInEarly")}</Text>
-              </LinearGradient>
-            </Pressable>
-          )}
+                <LinearGradient
+                  colors={[GlowColors.primary, GlowColors.soft]}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 1 }}
+                  style={[styles.cleanPrimaryGradient, checkInMutation.isPending ? { opacity: 0.7 } : undefined]}
+                >
+                  <Feather name="check-circle" size={18} color={Backgrounds.root} />
+                  <Text style={styles.cleanPrimaryButtonText}>{checkInMutation.isPending ? t("player.home.checkingIn") : t("player.home.checkInEarly")}</Text>
+                </LinearGradient>
+              </Pressable>
+            </SwipeBlocker>
+          ) : null}
 
-          <View style={styles.sessionActionRow}>
+          <View style={styles.cleanTextButtonRow}>
             <Pressable
               style={({ pressed }) => [
-                styles.sessionActionButton,
-                pressed && styles.buttonPressed,
+                styles.cleanTextButton,
+                pressed && { opacity: 0.6 },
               ]}
               onPress={handleCancel}
             >
-              <View style={[styles.actionGlow, { backgroundColor: ProTennisColors.danger + "15" }]}>
-                <Feather name="x-circle" size={20} color={ProTennisColors.danger} />
-              </View>
-              <Text style={[styles.actionLabel, { color: ProTennisColors.danger }]}>{t("common.cancel").toUpperCase()}</Text>
+              <Feather name="x-circle" size={14} color={ProTennisColors.danger} />
+              <Text style={[styles.cleanTextButtonLabel, { color: ProTennisColors.danger }]}>{t("common.cancel")}</Text>
             </Pressable>
-            <View style={styles.actionDivider} />
             <Pressable
               style={({ pressed }) => [
-                styles.sessionActionButton,
-                pressed && styles.buttonPressed,
+                styles.cleanTextButton,
+                pressed && { opacity: 0.6 },
               ]}
               onPress={handleLate}
             >
-              <View style={[styles.actionGlow, { backgroundColor: ProTennisColors.warning + "15" }]}>
-                <Feather name="clock" size={20} color={ProTennisColors.warning} />
-              </View>
-              <Text style={[styles.actionLabel, { color: ProTennisColors.warning }]}>{t("player.home.delay")}</Text>
+              <Feather name="clock" size={14} color={ProTennisColors.warning} />
+              <Text style={[styles.cleanTextButtonLabel, { color: ProTennisColors.warning }]}>{t("player.home.delay")}</Text>
             </Pressable>
           </View>
 
@@ -1456,7 +1424,7 @@ export function SessionHeroCard({
             </View>
           </Modal>
         </View>
-      </NeonBorderGlow>
+      </View>
     );
   }
 
@@ -2265,151 +2233,203 @@ const styles = StyleSheet.create({
     color: ProTennisColors.warning,
   },
 
-  // Premium Tennis Redesign Styles
-  tennisOpenDayHeader: {
+  cleanCard: {
+    backgroundColor: Backgrounds.card,
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.08)",
+    borderRadius: BorderRadius.lg,
+  },
+  liveAccentBorder: {
+    borderLeftWidth: 3,
+    borderLeftColor: ProTennisColors.live,
+  },
+  cleanHeader: {
     flexDirection: "row",
     alignItems: "center",
     gap: Spacing.md,
     marginBottom: Spacing.lg,
   },
-  tennisCourtIconWrapper: {
-    position: "relative",
-    width: 56,
-    height: 56,
-  },
-  tennisCourtIconBg: {
-    width: 56,
-    height: 56,
-    borderRadius: 16,
-    alignItems: "center",
-    justifyContent: "center",
-    borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.08)",
-  },
-  tennisCourtPulse: {
-    display: "none",
-  },
-  miniCourtContainer: {
-    width: 36,
-    height: 36,
+  cleanIconContainer: {
+    width: 48,
+    height: 48,
+    borderRadius: 14,
+    backgroundColor: "rgba(255, 255, 255, 0.06)",
     alignItems: "center",
     justifyContent: "center",
   },
-  miniCourtOuter: {
-    width: 32,
-    height: 32,
-    borderWidth: 1.5,
-    borderColor: "rgba(200, 255, 61, 0.5)",
-    borderRadius: 4,
-    alignItems: "center",
-    justifyContent: "center",
-    position: "relative",
+  cleanTitle: {
+    fontSize: 18,
+    fontWeight: "700",
+    color: "#FFFFFF",
+    letterSpacing: 0.3,
   },
-  miniCourtNet: {
-    position: "absolute",
-    left: "50%",
-    marginLeft: -0.5,
-    top: 4,
-    bottom: 4,
-    width: 1,
-    backgroundColor: "rgba(200, 255, 61, 0.3)",
+  cleanSubtitle: {
+    ...Typography.small,
+    color: "#8A8F9E",
+    marginTop: 2,
   },
-  miniCourtInner: {
-    width: 20,
-    height: 20,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  tennisStakesRow: {
+  cleanStakesRow: {
     flexDirection: "row",
     gap: Spacing.sm,
     marginBottom: Spacing.lg,
   },
-  tennisStakeCard: {
+  cleanStakeChip: {
     flex: 1,
     flexDirection: "row",
     alignItems: "center",
     gap: Spacing.xs,
-    backgroundColor: `${ProTennisColors.surfaceElevated}50`,
+    backgroundColor: "rgba(255, 255, 255, 0.04)",
     paddingHorizontal: Spacing.sm,
     paddingVertical: Spacing.sm,
-    borderRadius: BorderRadius.lg,
-    borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.05)",
+    borderRadius: BorderRadius.md,
   },
-  tennisStakeIconCircle: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    alignItems: "center",
-    justifyContent: "center",
+  cleanStakeText: {
+    fontSize: 11,
+    fontWeight: "500",
+    color: "#8A8F9E",
+    letterSpacing: 0.2,
   },
-  tennisStakeText: {
-    fontSize: 12,
-    fontWeight: "600",
-    letterSpacing: 0.3,
-  },
-  tennisActionsContainer: {
+  cleanActionsContainer: {
     gap: Spacing.md,
     width: "100%",
   },
-  tennisPrimaryRow: {
-    flexDirection: "row",
-    gap: Spacing.md,
-  },
-  tennisPrimaryButton: {
-    flex: 1,
-    borderRadius: BorderRadius.sm,
+  cleanPrimaryButton: {
+    width: "100%",
+    borderRadius: BorderRadius.md,
     overflow: "hidden",
   },
-  tennisPrimaryGradient: {
+  cleanPrimaryGradient: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    paddingVertical: Spacing.md,
-    paddingHorizontal: Spacing.md,
+    paddingVertical: 14,
+    paddingHorizontal: Spacing.xl,
     gap: Spacing.sm,
   },
-  tennisButtonIconWrapper: {
-    width: 24,
-    height: 24,
-    alignItems: "center",
-    justifyContent: "center",
-    position: "relative",
+  cleanPrimaryButtonText: {
+    color: Backgrounds.root,
+    fontWeight: "700",
+    fontSize: 15,
+    letterSpacing: 0.3,
   },
-  tennisRacketAccent: {
-    position: "absolute",
-    top: -4,
-    right: -6,
-  },
-  tennisPrimaryButtonText: {
-    fontSize: 13,
-    fontWeight: "800",
-    color: ProTennisColors.midnightBlue,
-    letterSpacing: 0.8,
-  },
-  tennisSecondaryRow: {
-    flexDirection: "row",
-    gap: Spacing.md,
-  },
-  tennisSecondaryButton: {
-    flex: 1,
+  cleanSecondaryButton: {
+    width: "100%",
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
+    gap: Spacing.sm,
+    paddingVertical: 12,
+    borderRadius: BorderRadius.md,
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.12)",
+    backgroundColor: "rgba(255, 255, 255, 0.04)",
+  },
+  cleanSecondaryButtonText: {
+    color: GlowColors.primary,
+    fontWeight: "600",
+    fontSize: 14,
+    letterSpacing: 0.2,
+  },
+  cleanTextButtonRow: {
+    flexDirection: "row",
+    justifyContent: "center",
+    gap: Spacing.xl,
+    marginTop: Spacing.xs,
+  },
+  cleanTextButton: {
+    flexDirection: "row",
+    alignItems: "center",
     gap: Spacing.xs,
-    paddingVertical: Spacing.md,
-    paddingHorizontal: Spacing.sm,
-    borderRadius: BorderRadius.sm,
+    paddingVertical: Spacing.sm,
+  },
+  cleanTextButtonLabel: {
+    fontSize: 13,
+    fontWeight: "500",
+    color: "#B8BCC6",
+  },
+  cleanLiveDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: ProTennisColors.live,
+  },
+  cleanLiveText: {
+    color: ProTennisColors.live,
+    fontWeight: "700",
+    fontSize: 13,
+    letterSpacing: 0.5,
+  },
+  cleanCountdownRow: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    justifyContent: "center",
+    marginVertical: Spacing.lg,
+  },
+  cleanCountdownDigit: {
+    alignItems: "center",
+    minWidth: 50,
+  },
+  cleanCountdownValue: {
+    fontSize: 32,
+    fontWeight: "700",
+    color: "#FFFFFF",
+    fontVariant: ["tabular-nums"],
+  },
+  cleanCountdownLabel: {
+    fontSize: 10,
+    fontWeight: "500",
+    color: "#8A8F9E",
+    letterSpacing: 0.5,
+    marginTop: -2,
+  },
+  cleanCountdownSep: {
+    fontSize: 28,
+    fontWeight: "300",
+    color: "#8A8F9E",
+    marginTop: 2,
+    marginHorizontal: 2,
+  },
+  cleanSessionType: {
+    fontSize: 18,
+    fontWeight: "700",
+    color: "#FFFFFF",
+    marginBottom: Spacing.xs,
+  },
+  cleanCourtLabel: {
+    ...Typography.caption,
+    color: "#B8BCC6",
+    marginTop: 2,
+  },
+  cleanAttendButton: {
+    backgroundColor: GlowColors.primary,
+    borderRadius: BorderRadius.md,
+  },
+  cleanAttendButtonText: {
+    color: Backgrounds.root,
+    fontWeight: "700",
+    fontSize: 14,
+  },
+  cleanMutedButton: {
+    backgroundColor: "rgba(255, 255, 255, 0.06)",
+    borderRadius: BorderRadius.md,
+  },
+  cleanMutedButtonText: {
+    color: "#B8BCC6",
+    fontWeight: "600",
+    fontSize: 13,
+  },
+  cleanBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm,
+    borderRadius: BorderRadius.md,
     backgroundColor: "rgba(255, 255, 255, 0.06)",
   },
-  tennisSecondaryPressed: {
-    opacity: 0.7,
-    backgroundColor: `${ProTennisColors.surfaceElevated}60`,
-  },
-  tennisSecondaryText: {
-    fontSize: 11,
-    fontWeight: "700",
-    letterSpacing: 0.5,
+  cleanBadgeText: {
+    fontWeight: "600",
+    fontSize: 12,
+    letterSpacing: 0.3,
   },
 });
