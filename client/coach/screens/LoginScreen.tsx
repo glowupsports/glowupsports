@@ -415,23 +415,24 @@ export default function LoginScreen() {
     setUsername(account.username);
   };
 
-  const handleRemoveAccount = (account: SavedAccount) => {
-    Alert.alert(
-      "Remove Account",
-      `Remove ${account.displayName} from quick login?`,
-      [
-        { text: "Cancel", style: "cancel" },
-        {
-          text: "Remove",
-          style: "destructive",
-          onPress: async () => {
-            await removeAccount(account.username);
-            loadSavedAccounts();
-            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-          },
-        },
-      ]
-    );
+  const handleRemoveAccount = async (account: SavedAccount) => {
+    const confirmed = Platform.OS === "web"
+      ? window.confirm(`Remove ${account.displayName} from saved accounts?`)
+      : await new Promise<boolean>((resolve) => {
+          Alert.alert(
+            "Remove Account",
+            `Remove ${account.displayName} from quick login?`,
+            [
+              { text: "Cancel", style: "cancel", onPress: () => resolve(false) },
+              { text: "Remove", style: "destructive", onPress: () => resolve(true) },
+            ]
+          );
+        });
+    if (confirmed) {
+      await removeAccount(account.username);
+      loadSavedAccounts();
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    }
   };
 
   const resetForm = () => {

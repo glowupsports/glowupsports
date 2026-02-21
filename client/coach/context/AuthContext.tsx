@@ -142,6 +142,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const handleUnauthorized = useCallback(async () => {
+    if (isGuest) {
+      console.log("[AuthContext] Ignoring 401 in guest mode");
+      return;
+    }
     console.log("[AuthContext] Handling unauthorized - clearing auth state and forcing re-login");
     queryClient.clear();
     await clearAuthState();
@@ -150,7 +154,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(null);
     setCoach(null);
     setAcademy(null);
-  }, [queryClient]);
+  }, [queryClient, isGuest]);
 
   useEffect(() => {
     setOnUnauthorizedCallback(handleUnauthorized);
