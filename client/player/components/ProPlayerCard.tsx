@@ -232,46 +232,51 @@ export function ProPlayerCard({
               ) : null}
             </View>
           </View>
+
+          <View style={styles.cardDivider} />
+
+          <View style={styles.cardBottomRow}>
+            <Pressable 
+              style={[
+                styles.walletChip,
+                (credits?.total ?? 0) <= 0 && styles.walletChipDanger,
+              ]} 
+              onPress={handleWalletPress}
+            >
+              {(credits?.total ?? 0) <= 0 ? (
+                <Ionicons name="alert-circle" size={14} color="#FF4D4D" />
+              ) : null}
+              <Ionicons 
+                name="wallet-outline" 
+                size={14} 
+                color={(credits?.total ?? 0) <= 0 ? "#FF4D4D" : GlowColors.primary} 
+              />
+              <Text style={[
+                styles.walletText,
+                (credits?.total ?? 0) <= 0 && styles.walletTextDanger,
+              ]}>{credits?.total ?? 0} {t("player.home.credits")}</Text>
+            </Pressable>
+
+            {player.streak > 0 ? (
+              <View style={styles.streakChip}>
+                <Ionicons name="flame" size={14} color={player.streak >= 5 ? "#FF6B35" : GlowColors.primary} />
+                <Text style={[styles.streakText, { color: player.streak >= 5 ? "#FF6B35" : GlowColors.primary }]}>
+                  {player.streak}
+                </Text>
+              </View>
+            ) : null}
+
+            <View style={{ flex: 1 }} />
+
+            {showSquadSwitch ? (
+              <Pressable style={styles.familyChip} onPress={handleSquadPress}>
+                <Ionicons name="people" size={14} color="#00D4FF" />
+                <Text style={styles.familyChipText}>{t("player.home.family")}</Text>
+              </Pressable>
+            ) : null}
+          </View>
         </LinearGradient>
         </View>
-      </View>
-
-      <View style={styles.statsRow}>
-        <Pressable 
-          style={[
-            styles.walletChip,
-            (credits?.total ?? 0) <= 0 && styles.walletChipDanger,
-          ]} 
-          onPress={handleWalletPress}
-        >
-          {(credits?.total ?? 0) <= 0 ? (
-            <Ionicons name="alert-circle" size={14} color="#FF4D4D" />
-          ) : null}
-          <Ionicons 
-            name="wallet-outline" 
-            size={14} 
-            color={(credits?.total ?? 0) <= 0 ? "#FF4D4D" : GlowColors.primary} 
-          />
-          <Text style={[
-            styles.walletText,
-            (credits?.total ?? 0) <= 0 && styles.walletTextDanger,
-          ]}>{credits?.total ?? 0}</Text>
-        </Pressable>
-
-        {player.streak > 0 ? (
-          <View style={styles.streakChip}>
-            <Ionicons name="flame" size={14} color={player.streak >= 5 ? "#FF6B35" : GlowColors.primary} />
-            <Text style={[styles.streakText, { color: player.streak >= 5 ? "#FF6B35" : GlowColors.primary }]}>
-              {player.streak}
-            </Text>
-          </View>
-        ) : null}
-
-        {showSquadSwitch ? (
-          <Pressable style={styles.iconChip} onPress={handleSquadPress}>
-            <Ionicons name="people-outline" size={14} color="#B8BCC6" />
-          </Pressable>
-        ) : null}
       </View>
     </View>
   );
@@ -467,21 +472,26 @@ const styles = StyleSheet.create({
     fontWeight: "800",
     color: "#FFFFFF",
   },
-  statsRow: {
+  cardDivider: {
+    height: 1,
+    backgroundColor: "rgba(255, 255, 255, 0.06)",
+    marginHorizontal: Spacing.md,
+  },
+  cardBottomRow: {
     flexDirection: "row",
     alignItems: "center",
     gap: Spacing.sm,
-    paddingHorizontal: Spacing.lg,
-    paddingTop: Spacing.sm,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm,
   },
   walletChip: {
     flexDirection: "row",
     alignItems: "center",
     backgroundColor: "rgba(255, 255, 255, 0.06)",
     paddingHorizontal: 10,
-    paddingVertical: 5,
+    paddingVertical: 6,
     borderRadius: BorderRadius.sm,
-    gap: 4,
+    gap: 5,
   },
   walletChipDanger: {
     backgroundColor: "rgba(255, 77, 77, 0.12)",
@@ -499,7 +509,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     backgroundColor: "rgba(255, 255, 255, 0.06)",
     paddingHorizontal: 10,
-    paddingVertical: 5,
+    paddingVertical: 6,
     borderRadius: BorderRadius.sm,
     gap: 4,
   },
@@ -507,12 +517,21 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: "700",
   },
-  iconChip: {
-    width: 30,
-    height: 30,
-    borderRadius: 15,
-    backgroundColor: "rgba(255, 255, 255, 0.06)",
-    justifyContent: "center",
+  familyChip: {
+    flexDirection: "row",
     alignItems: "center",
+    backgroundColor: "rgba(0, 212, 255, 0.10)",
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: BorderRadius.sm,
+    borderWidth: 1,
+    borderColor: "rgba(0, 212, 255, 0.20)",
+    gap: 6,
+  },
+  familyChipText: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: "#00D4FF",
+    letterSpacing: 0.5,
   },
 });
