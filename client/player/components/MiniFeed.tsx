@@ -250,12 +250,14 @@ export function MiniFeed() {
       >
         <View style={styles.header}>
           <View style={styles.titleRow}>
+            <View style={styles.headerIconWrap}>
+              <Ionicons name="people" size={13} color={GlowColors.primary} />
+            </View>
             <Text style={styles.titleGaming}>COMMUNITY</Text>
-            <View style={styles.titleGlow} />
           </View>
           <Pressable onPress={handleSeeAll} style={styles.seeAllButton}>
             <Text style={styles.seeAllGaming}>See all</Text>
-            <Ionicons name="chevron-forward" size={12} color={ProTennisColors.electricGreen} />
+            <Ionicons name="chevron-forward" size={12} color={Colors.dark.textMuted} />
           </Pressable>
         </View>
 
@@ -298,16 +300,19 @@ const styles = StyleSheet.create({
     gap: Spacing.sm,
     marginRight: Spacing.md,
   },
+  headerIconWrap: {
+    width: 28,
+    height: 28,
+    borderRadius: 8,
+    backgroundColor: "rgba(200, 255, 61, 0.12)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
   titleGaming: {
     fontSize: 12,
     fontWeight: "800",
-    color: ProTennisColors.textSecondary,
-    letterSpacing: 3,
-  },
-  titleGlow: {
-    flex: 1,
-    height: 1,
-    backgroundColor: `${ProTennisColors.electricGreen}30`,
+    color: GlowColors.primary,
+    letterSpacing: 2,
   },
   seeAllButton: {
     flexDirection: "row",

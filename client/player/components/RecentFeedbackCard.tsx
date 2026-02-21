@@ -67,7 +67,9 @@ export function RecentFeedbackCard() {
       >
         <Pressable onPress={() => navigation.navigate("CoachFeedbackHistory")} style={styles.headerRow}>
           <View style={styles.headerLeft}>
-            <Ionicons name="chatbubbles" size={16} color={GlowColors.primary} />
+            <View style={styles.headerIconWrap}>
+              <Ionicons name="chatbubbles" size={13} color={GlowColors.primary} />
+            </View>
             <Text style={styles.sectionTitle}>COACH FEEDBACK</Text>
           </View>
           <View style={styles.headerRight}>
@@ -127,7 +129,15 @@ const styles = StyleSheet.create({
   headerLeft: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 6,
+    gap: Spacing.sm,
+  },
+  headerIconWrap: {
+    width: 28,
+    height: 28,
+    borderRadius: 8,
+    backgroundColor: "rgba(200, 255, 61, 0.12)",
+    alignItems: "center",
+    justifyContent: "center",
   },
   headerRight: {
     flexDirection: "row",
@@ -135,9 +145,9 @@ const styles = StyleSheet.create({
     gap: 2,
   },
   sectionTitle: {
-    fontSize: 11,
-    fontWeight: "700",
-    color: Colors.dark.textMuted,
+    fontSize: 12,
+    fontWeight: "800",
+    color: GlowColors.primary,
     letterSpacing: 2,
   },
   viewAll: {

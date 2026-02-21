@@ -154,7 +154,7 @@ export function SpotlightCard({ onNominate, onViewDetails, onShareWinner }: Spot
         <View style={styles.headerRow}>
           <View style={styles.headerLeft}>
             <View style={styles.trophyContainer}>
-              <Ionicons name="trophy" size={22} color="#FFD700" />
+              <Ionicons name="trophy" size={14} color="#FFD700" />
             </View>
             <View>
               <Text style={styles.headerTitle}>SPOTLIGHT</Text>
@@ -298,15 +298,15 @@ const styles = StyleSheet.create({
     gap: Spacing.sm,
   },
   trophyContainer: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: "rgba(255, 215, 0, 0.08)",
+    width: 28,
+    height: 28,
+    borderRadius: 8,
+    backgroundColor: "rgba(255, 215, 0, 0.12)",
     justifyContent: "center",
     alignItems: "center",
   },
   headerTitle: {
-    fontSize: 10,
+    fontSize: 12,
     fontWeight: "800",
     color: "#FFD700",
     letterSpacing: 2,

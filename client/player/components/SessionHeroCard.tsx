@@ -515,17 +515,21 @@ export function SessionHeroCard({
           end={{ x: 0.3, y: 1 }}
           style={styles.coachCardGradient}
         >
-          <View style={styles.cleanHeader}>
-            <View style={styles.coachIconContainer}>
-              <Feather name="calendar" size={20} color={GlowColors.primary} />
-            </View>
-            <View style={styles.openDayTextContainer}>
-              <Text style={styles.cleanTitle}>{t("player.home.courtTime")}</Text>
-              <Text style={styles.cleanSubtitle}>{t("player.home.noSessionsToday")}</Text>
+          <View style={styles.commandHeader}>
+            <View style={styles.commandTitleSection}>
+              <View style={styles.commandIconWrap}>
+                <Feather name="calendar" size={14} color={GlowColors.primary} />
+              </View>
+              <Text style={styles.commandLabel}>{t("player.home.courtTime")}</Text>
             </View>
           </View>
 
-          <View style={styles.cleanActionsContainer}>
+          <View style={styles.commandDisplay}>
+            <Text style={styles.commandPrimary}>{t("player.home.noSessionsToday")}</Text>
+            <Text style={styles.commandSecondary}>{t("player.home.hitTheCourt")}</Text>
+          </View>
+
+          <View style={styles.commandActions}>
             <SwipeBlocker>
               <Pressable
                 style={({ pressed }) => [
@@ -549,41 +553,45 @@ export function SessionHeroCard({
             <SwipeBlocker>
               <Pressable
                 style={({ pressed }) => [
-                  styles.coachSecondaryButton,
+                  styles.commandOutlineButton,
                   pressed && styles.buttonPressed,
                 ]}
                 onPress={handleBookCourt}
               >
                 <Feather name="grid" size={16} color={GlowColors.primary} />
-                <Text style={styles.cleanSecondaryButtonText}>{t("player.home.bookCourt")}</Text>
+                <Text style={styles.commandOutlineButtonText}>{t("player.home.bookCourt")}</Text>
               </Pressable>
             </SwipeBlocker>
 
-            <SwipeBlocker style={styles.cleanTextButtonRow}>
-              <Pressable
-                style={({ pressed }) => [
-                  styles.cleanTextButton,
-                  pressed && { opacity: 0.6 },
-                ]}
-                onPress={handleFindMatch}
-                hitSlop={16}
-              >
-                <Feather name="users" size={14} color="#B8BCC6" />
-                <Text style={styles.cleanTextButtonLabel}>{t("player.home.findPlayers")}</Text>
-              </Pressable>
+            <View style={styles.commandLinkRow}>
+              <SwipeBlocker>
+                <Pressable
+                  style={({ pressed }) => [
+                    styles.commandLink,
+                    pressed && { opacity: 0.6 },
+                  ]}
+                  onPress={handleFindMatch}
+                  hitSlop={16}
+                >
+                  <Feather name="users" size={14} color="#B8BCC6" />
+                  <Text style={styles.commandLinkText}>{t("player.home.findPlayers")}</Text>
+                </Pressable>
+              </SwipeBlocker>
 
-              <Pressable
-                style={({ pressed }) => [
-                  styles.cleanTextButton,
-                  pressed && { opacity: 0.6 },
-                ]}
-                onPress={handleJoinOpenGroup}
-                hitSlop={16}
-              >
-                <Feather name="play-circle" size={14} color="#B8BCC6" />
-                <Text style={styles.cleanTextButtonLabel}>{t("player.home.joinOpenGroup")}</Text>
-              </Pressable>
-            </SwipeBlocker>
+              <SwipeBlocker>
+                <Pressable
+                  style={({ pressed }) => [
+                    styles.commandLink,
+                    pressed && { opacity: 0.6 },
+                  ]}
+                  onPress={handleJoinOpenGroup}
+                  hitSlop={16}
+                >
+                  <Feather name="play-circle" size={14} color="#B8BCC6" />
+                  <Text style={styles.commandLinkText}>{t("player.home.joinOpenGroup")}</Text>
+                </Pressable>
+              </SwipeBlocker>
+            </View>
           </View>
         </LinearGradient>
       </View>
@@ -656,28 +664,30 @@ export function SessionHeroCard({
           end={{ x: 0.3, y: 1 }}
           style={styles.coachCardGradient}
         >
-          <View style={styles.liveHeader}>
-            <View style={styles.liveIndicatorRow}>
-              <Animated.View style={[styles.cleanLiveDot, livePulseStyle]} />
-              <Text style={styles.cleanLiveText}>{t("player.home.liveNow")}</Text>
+          <View style={styles.commandHeader}>
+            <View style={styles.commandTitleSection}>
+              <View style={[styles.commandIconWrap, { backgroundColor: "rgba(255, 68, 68, 0.12)" }]}>
+                <Animated.View style={[styles.cleanLiveDot, livePulseStyle]} />
+              </View>
+              <Text style={[styles.commandLabel, { color: ProTennisColors.live }]}>{t("player.home.liveNow")}</Text>
             </View>
-            <View style={styles.liveTimerContainer}>
-              <Text style={styles.liveTimerLabel}>{t("player.home.timeLeft")}</Text>
-              <View style={styles.liveCountdownRow}>
-                <View style={styles.cleanCountdownDigit}>
-                  <Text style={styles.cleanCountdownValue}>{String(countdown.hours).padStart(2, "0")}</Text>
-                  <Text style={styles.cleanCountdownLabel}>{t("player.home.hrs")}</Text>
-                </View>
-                <Text style={styles.cleanCountdownSep}>:</Text>
-                <View style={styles.cleanCountdownDigit}>
-                  <Text style={styles.cleanCountdownValue}>{String(countdown.minutes).padStart(2, "0")}</Text>
-                  <Text style={styles.cleanCountdownLabel}>{t("player.home.min")}</Text>
-                </View>
-                <Text style={styles.cleanCountdownSep}>:</Text>
-                <View style={styles.cleanCountdownDigit}>
-                  <Text style={styles.cleanCountdownValue}>{String(countdown.seconds).padStart(2, "0")}</Text>
-                  <Text style={styles.cleanCountdownLabel}>{t("player.home.sec")}</Text>
-                </View>
+          </View>
+
+          <View style={styles.commandDisplay}>
+            <View style={styles.liveCountdownRow}>
+              <View style={styles.cleanCountdownDigit}>
+                <Text style={styles.cleanCountdownValue}>{String(countdown.hours).padStart(2, "0")}</Text>
+                <Text style={styles.cleanCountdownLabel}>{t("player.home.hrs")}</Text>
+              </View>
+              <Text style={styles.cleanCountdownSep}>:</Text>
+              <View style={styles.cleanCountdownDigit}>
+                <Text style={styles.cleanCountdownValue}>{String(countdown.minutes).padStart(2, "0")}</Text>
+                <Text style={styles.cleanCountdownLabel}>{t("player.home.min")}</Text>
+              </View>
+              <Text style={styles.cleanCountdownSep}>:</Text>
+              <View style={styles.cleanCountdownDigit}>
+                <Text style={styles.cleanCountdownValue}>{String(countdown.seconds).padStart(2, "0")}</Text>
+                <Text style={styles.cleanCountdownLabel}>{t("player.home.sec")}</Text>
               </View>
             </View>
           </View>
@@ -1085,10 +1095,12 @@ export function SessionHeroCard({
           end={{ x: 0.3, y: 1 }}
           style={styles.coachCardGradient}
         >
-          <View style={styles.upcomingHeader}>
-            <View style={styles.cleanBadge}>
-              <Feather name="clock" size={14} color={isSoon ? ProTennisColors.warning : "#B8BCC6"} />
-              <Text style={[styles.cleanBadgeText, { color: isSoon ? ProTennisColors.warning : "#B8BCC6" }]}>
+          <View style={styles.commandHeader}>
+            <View style={styles.commandTitleSection}>
+              <View style={[styles.commandIconWrap, isSoon ? { backgroundColor: "rgba(255, 165, 0, 0.12)" } : undefined]}>
+                <Feather name="clock" size={14} color={isSoon ? ProTennisColors.warning : GlowColors.primary} />
+              </View>
+              <Text style={[styles.commandLabel, { color: isSoon ? ProTennisColors.warning : GlowColors.primary }]}>
                 {isSoon ? t("player.home.startingSoon") : t("player.home.nextSession")}
               </Text>
             </View>
@@ -2266,6 +2278,85 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: "rgba(200, 255, 61, 0.15)",
     backgroundColor: "rgba(200, 255, 61, 0.04)",
+  },
+  commandHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: Spacing.sm,
+  },
+  commandTitleSection: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+  },
+  commandIconWrap: {
+    width: 28,
+    height: 28,
+    borderRadius: 8,
+    backgroundColor: "rgba(200, 255, 61, 0.12)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  commandLabel: {
+    fontSize: 12,
+    fontWeight: "800",
+    color: GlowColors.primary,
+    letterSpacing: 2,
+  },
+  commandDisplay: {
+    alignItems: "center",
+    paddingVertical: Spacing.lg,
+  },
+  commandPrimary: {
+    fontSize: 28,
+    fontWeight: "800",
+    color: "#FFFFFF",
+    textAlign: "center",
+    letterSpacing: -0.5,
+  },
+  commandSecondary: {
+    fontSize: 14,
+    color: "#8A8F9E",
+    textAlign: "center",
+    marginTop: Spacing.xs,
+  },
+  commandActions: {
+    gap: Spacing.sm,
+  },
+  commandOutlineButton: {
+    width: "100%",
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: Spacing.sm,
+    paddingVertical: 14,
+    borderRadius: BorderRadius.md,
+    borderWidth: 1,
+    borderColor: "rgba(200, 255, 61, 0.15)",
+    backgroundColor: "rgba(200, 255, 61, 0.04)",
+  },
+  commandOutlineButtonText: {
+    fontSize: 13,
+    fontWeight: "700",
+    color: GlowColors.primary,
+    letterSpacing: 1,
+  },
+  commandLinkRow: {
+    flexDirection: "row",
+    justifyContent: "center",
+    gap: Spacing.xl,
+    paddingTop: Spacing.sm,
+  },
+  commandLink: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+  },
+  commandLinkText: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: "#8A8F9E",
   },
   liveAccentBorder: {
     borderLeftWidth: 3,
