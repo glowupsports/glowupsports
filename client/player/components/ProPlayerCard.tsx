@@ -118,15 +118,15 @@ export function ProPlayerCard({
 
   return (
     <View>
-      <View style={styles.container}>
+      <View style={styles.cardContainer}>
         <Animated.View style={[styles.cardGlow, glowRingStyle, { pointerEvents: "none" as const }]} />
-
-        <LinearGradient
-          colors={["rgba(46, 204, 64, 0.08)", "rgba(0, 212, 255, 0.04)", "rgba(26, 26, 26, 0.95)"]}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={styles.cardGradient}
-        >
+        <View style={styles.container}>
+          <LinearGradient
+            colors={["rgba(46, 204, 64, 0.08)", "rgba(0, 212, 255, 0.04)", "rgba(26, 26, 26, 0.95)"]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={styles.cardGradient}
+          >
           <LinearGradient
             colors={[GlowColors.primary, "#00D4FF", GlowColors.primary]}
             start={{ x: 0, y: 0 }}
@@ -233,6 +233,7 @@ export function ProPlayerCard({
             </View>
           </View>
         </LinearGradient>
+        </View>
       </View>
 
       <View style={styles.statsRow}>
@@ -277,9 +278,11 @@ export function ProPlayerCard({
 }
 
 const styles = StyleSheet.create({
-  container: {
+  cardContainer: {
     position: "relative",
     marginHorizontal: Spacing.md,
+  },
+  container: {
     borderRadius: BorderRadius.lg,
     overflow: "hidden",
   },
