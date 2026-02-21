@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect, useRef } from "react";
+import React, { useState, useMemo } from "react";
 import {
   View,
   Text,
@@ -36,8 +36,6 @@ import { SettingsWalkthroughModal } from "@/components/SettingsWalkthroughModal"
 import { PlatformUsageProgress } from "@/components/PlatformUsageProgress";
 import { NotificationGuideModal } from "@/components/NotificationGuideModal";
 import { FirstActionCelebration } from "@/components/FirstActionCelebration";
-import { useCoachMarks, CoachMarkTarget } from "@/components/CoachMarks";
-
 type NavigationProp = NativeStackNavigationProp<OwnerTabParamList>;
 
 interface OwnerBusinessDashboardData {
@@ -157,43 +155,6 @@ export default function OwnerDashboardScreen() {
   const [showNotificationGuide, setShowNotificationGuide] = useState(false);
   const [showFirstCelebration, setShowFirstCelebration] = useState(false);
   const [celebrationData, setCelebrationData] = useState({ title: "", description: "", icon: "trophy", xpReward: 0 });
-
-  const { startTour, isActive } = useCoachMarks();
-  const hasStartedTourRef = useRef(false);
-
-  const ownerTourSteps = useMemo(() => [
-    {
-      id: "owner_checklist",
-      title: "Your Setup Checklist",
-      description: "Follow these steps to get your academy fully set up. Complete each one to unlock the full platform.",
-      position: "bottom" as const,
-    },
-    {
-      id: "owner_command",
-      title: "Business Command Center",
-      description: "Your academy's health at a glance. Revenue, targets, and alerts all in one place.",
-      position: "bottom" as const,
-    },
-    {
-      id: "owner_kpis",
-      title: "Key Metrics",
-      description: "Track your total players, coaches, and attendance rate. Tap any card to dig deeper.",
-      position: "bottom" as const,
-    },
-    {
-      id: "owner_growth",
-      title: "Growth Metrics",
-      description: "Monitor new signups, retention rate, and churn. These numbers tell you how your academy is growing.",
-      position: "bottom" as const,
-    },
-    {
-      id: "owner_quick_actions",
-      title: "Quick Actions",
-      description: "Jump directly to Reports, Staff, Payments, or Settings from here.",
-      position: "top" as const,
-    },
-  ], []);
-
   const { data: dashboardData, isLoading, refetch } = useQuery<OwnerBusinessDashboardData>({
     queryKey: ["/api/owner/dashboard/business"],
   });
@@ -389,17 +350,6 @@ export default function OwnerDashboardScreen() {
       isConfigured: false,
     },
   ], [dashboardData, navigateToTab]);
-
-  useEffect(() => {
-    if (!isLoading && dashboardData && !isActive && !hasStartedTourRef.current) {
-      hasStartedTourRef.current = true;
-      const timer = setTimeout(() => {
-        startTour("owner_dashboard", ownerTourSteps);
-      }, 1500);
-      return () => clearTimeout(timer);
-    }
-  }, [isLoading, dashboardData]);
-
   const insights: Insight[] = useMemo(() => {
     return (dashboardData?.insights || []).map(i => ({
       ...i,
@@ -433,12 +383,12 @@ export default function OwnerDashboardScreen() {
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.dark.gold} />
         }
       >
-        <CoachMarkTarget id="owner_checklist">
+        
           <GettingStartedChecklist
             role="academy_owner"
             steps={ownerChecklistSteps}
           />
-        </CoachMarkTarget>
+        
 
         <QuickTipsBanner role="academy_owner" tips={ownerTips} />
 
@@ -447,7 +397,7 @@ export default function OwnerDashboardScreen() {
           features={ownerFeatureUsage}
         />
 
-        <CoachMarkTarget id="owner_command">
+        
           <BusinessCommandCenter
             academyName={dashboardData?.academy?.name || "My Academy"}
             monthlyRevenue={financials.monthlyRevenue}
@@ -457,9 +407,9 @@ export default function OwnerDashboardScreen() {
             notificationCount={dashboardData?.alerts?.length || 0}
             onNotificationPress={() => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)}
           />
-        </CoachMarkTarget>
+        
 
-        <CoachMarkTarget id="owner_kpis">
+        
           <View style={styles.kpiRow}>
             <View style={styles.kpiItem}>
               <AnimatedKpiCard
@@ -480,9 +430,9 @@ export default function OwnerDashboardScreen() {
               />
             </View>
           </View>
-        </CoachMarkTarget>
+        
 
-        <CoachMarkTarget id="owner_growth">
+        
           <GrowthMetricsPanel
             newSignups={growth.newSignups}
             signupChange={growth.signupChange}
@@ -491,7 +441,7 @@ export default function OwnerDashboardScreen() {
             churnRate={growth.churnRate}
             activeGrowth={growth.activeGrowth}
           />
-        </CoachMarkTarget>
+        
 
         <RevenueHealthGauge
           monthlyRevenue={financials.monthlyRevenue}
@@ -541,7 +491,7 @@ export default function OwnerDashboardScreen() {
 
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Quick Actions</Text>
-          <CoachMarkTarget id="owner_quick_actions">
+          
             <View style={styles.quickActionsGrid}>
               <Pressable 
                 style={styles.quickAction}
@@ -592,7 +542,7 @@ export default function OwnerDashboardScreen() {
                 <Text style={styles.quickActionLabel}>Settings</Text>
               </Pressable>
             </View>
-          </CoachMarkTarget>
+          
         </View>
       </ScrollView>
 

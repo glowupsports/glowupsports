@@ -1,4 +1,4 @@
-import React, { useMemo, useEffect } from "react";
+import React, { } from "react";
 import { View, Text, StyleSheet, ScrollView, Pressable, ActivityIndicator, Alert, Platform } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
@@ -6,8 +6,6 @@ import Ionicons from "@expo/vector-icons/Ionicons";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/query-client";
 import { Colors, Spacing, BorderRadius, Typography, CardStyles } from "@/constants/theme";
-import { useCoachMarks, CoachMarkTarget } from "@/components/CoachMarks";
-
 const PLATFORM_COLOR = "#9B59B6";
 
 interface PendingBio {
@@ -295,40 +293,9 @@ function CoachRow({ name, academy, sessions, players, xpAwarded, burnoutRisk, la
 export default function CoachHealthScreen() {
   const insets = useSafeAreaInsets();
   const queryClient = useQueryClient();
-  const { startTour, isActive } = useCoachMarks();
-
   const { data: coachHealthData, isLoading: loadingCoachHealth } = useQuery<CoachHealthData>({
     queryKey: ["/api/platform/coach-health"],
   });
-
-  const coachTourSteps = useMemo(() => [
-    {
-      id: "platform_coach_header",
-      title: "Coach Health Overview",
-      description: "Monitor how your coaches are doing across all academies. Keep an eye on workload and wellness.",
-      position: "bottom" as const,
-    },
-    {
-      id: "platform_coach_stats",
-      title: "Key Metrics",
-      description: "See total coaches, who is active this week, and how many might be at risk of burnout.",
-      position: "bottom" as const,
-    },
-    {
-      id: "platform_coach_averages",
-      title: "Performance Averages",
-      description: "Track average sessions per coach and XP awarded to spot trends early.",
-      position: "bottom" as const,
-    },
-  ], []);
-
-  useEffect(() => {
-    if (!loadingCoachHealth && !isActive) {
-      const timer = setTimeout(() => startTour("platform_coach_health_tour", coachTourSteps), 1500);
-      return () => clearTimeout(timer);
-    }
-  }, [loadingCoachHealth, isActive]);
-
   const { data: pendingBiosData, isLoading: loadingPendingBios } = useQuery<{ pendingBios: PendingBio[] }>({
     queryKey: ["/api/platform/pending-bios"],
   });
@@ -437,12 +404,12 @@ export default function CoachHealthScreen() {
         contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 100 }]}
         showsVerticalScrollIndicator={false}
       >
-        <CoachMarkTarget id="platform_coach_header">
+        
           <View style={styles.header}>
             <Text style={styles.title}>Coach Health</Text>
             <Text style={styles.subtitle}>Monitor coach workload and bio approvals</Text>
           </View>
-        </CoachMarkTarget>
+        
 
         {pendingBios.length > 0 ? (
           <View style={styles.section}>
@@ -498,7 +465,7 @@ export default function CoachHealthScreen() {
           </View>
         ) : null}
 
-        <CoachMarkTarget id="platform_coach_stats">
+        
           <View style={styles.statsGrid}>
             <View style={[styles.statCard, CardStyles.elevated]}>
               <Text style={[styles.statNumber, { color: Colors.dark.primary }]}>{healthStats.totalCoaches}</Text>
@@ -513,9 +480,9 @@ export default function CoachHealthScreen() {
               <Text style={styles.statLabel}>At Risk</Text>
             </View>
           </View>
-        </CoachMarkTarget>
+        
 
-        <CoachMarkTarget id="platform_coach_averages">
+        
           <View style={[styles.avgCard, CardStyles.elevated]}>
             <View style={styles.avgRow}>
               <View style={styles.avgItem}>
@@ -534,7 +501,7 @@ export default function CoachHealthScreen() {
               </View>
             </View>
           </View>
-        </CoachMarkTarget>
+        
 
         {atRiskCoaches.length > 0 ? (
           <View style={styles.section}>

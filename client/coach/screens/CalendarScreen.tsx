@@ -50,8 +50,6 @@ import { PremiumSessionWizard } from "@/coach/components/PremiumSessionWizard";
 import AttendanceDrawer from "@/coach/components/AttendanceDrawer";
 import SessionDetailDrawer from "@/coach/components/SessionDetailDrawer";
 import QuickFeedbackModal from "@/coach/components/QuickFeedbackModal";
-import { useCoachMarks, CoachMarkTarget } from "@/components/CoachMarks";
-
 type CalendarRouteParams = {
   Calendar: {
     openSessionId?: string;
@@ -80,7 +78,6 @@ const HOUR_HEIGHT_30 = 60;
 const START_HOUR = 6;
 const END_HOUR = 21;
 
-
 // Compare dates by UTC date string to avoid timezone issues
 const isSameUTCDate = (date1: Date, date2: Date): boolean => {
   return date1.getUTCFullYear() === date2.getUTCFullYear() &&
@@ -97,533 +94,6 @@ const getUTCDateString = (timestamp: string | Date): string => {
 function PulsingDot() {
   const opacity = useSharedValue(1);
   const scale = useSharedValue(1);
-
-  useEffect(() => {
-    opacity.value = withRepeat(
-      withTiming(0.3, { duration: 1000, easing: Easing.inOut(Easing.ease) }),
-      -1,
-      true
-    );
-    scale.value = withRepeat(
-      withTiming(1.3, { duration: 1000, easing: Easing.inOut(Easing.ease) }),
-      -1,
-      true
-    );
-  }, []);
-
-  const animatedStyle = useAnimatedStyle(() => ({
-    opacity: opacity.value,
-    transform: [{ scale: scale.value }],
-  }));
-
-  return (
-    <View style={pulsingStyles.container}>
-      <Animated.View style={[pulsingStyles.outer, animatedStyle]} />
-      <View style={pulsingStyles.inner} />
-    </View>
-  );
-}
-
-const pulsingStyles = StyleSheet.create({
-  container: {
-    width: 16,
-    height: 16,
-    justifyContent: "center",
-    alignItems: "center",
-    marginLeft: -8,
-  },
-  outer: {
-    position: "absolute",
-    width: 16,
-    height: 16,
-    borderRadius: 8,
-    backgroundColor: Colors.dark.error,
-  },
-  inner: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: Colors.dark.error,
-  },
-});
-
-interface SessionPlayer {
-  id: string;
-  name: string;
-}
-
-interface Session {
-  id: string;
-  coachId: string | null;
-  courtId: string | null;
-  startTime: string;
-  endTime: string;
-  duration: number;
-  sessionType: string;
-  status: string | null;
-  players?: SessionPlayer[];
-  location?: string;
-}
-
-interface BlockedSession {
-  id: string;
-  courtId: string | null;
-  startTime: string;
-  endTime: string;
-  blocked: true;
-}
-
-interface Court {
-  id: string;
-  name: string;
-}
-
-interface DraggableSessionProps {
-  session: Session;
-  top: number;
-  height: number;
-  isPast: boolean;
-  isActive: boolean;
-  gradientColors: readonly [string, string, ...string[]];
-  sessionLabel: string;
-  formattedTime: string; // Pre-formatted time in academy timezone
-  hourHeight: number;
-  onTap: () => void;
-  onLongPress: () => void;
-  onDragEnd: (deltaY: number, deltaX: number) => void;
-  courtLaneWidth: number;
-  onDragUpdate?: (deltaY: number, deltaX: number, isDragging: boolean) => void;
-  hasConflict?: boolean;
-}
-
-function DraggableSessionBlock({
-  session,
-  top,
-  height,
-  isPast,
-  isActive,
-  gradientColors,
-  sessionLabel,
-  formattedTime,
-  hourHeight,
-  onTap,
-  onLongPress,
-  onDragEnd,
-  courtLaneWidth,
-  onDragUpdate,
-  hasConflict,
-}: DraggableSessionProps) {
-  const translateX = useSharedValue(0);
-  const translateY = useSharedValue(0);
-  const scale = useSharedValue(1);
-  const zIndex = useSharedValue(1);
-  const isDragging = useSharedValue(false);
-
-  const panGesture = Gesture.Pan()
-    .activateAfterLongPress(400)
-    .enabled(!isPast)
-    .onStart(() => {
-      isDragging.value = true;
-      scale.value = withSpring(1.05);
-      zIndex.value = 100;
-    })
-    .onUpdate((event) => {
-      translateX.value = event.translationX;
-      translateY.value = event.translationY;
-      if (onDragUpdate) {
-        const snapY = Math.round(event.translationY / (hourHeight / 2)) * (hourHeight / 2);
-        const snapX = Math.round(event.translationX / courtLaneWidth) * courtLaneWidth;
-        runOnJS(onDragUpdate)(snapY, snapX, true);
-      }
-    })
-    .onEnd((event) => {
-      isDragging.value = false;
-      scale.value = withSpring(1);
-      zIndex.value = 1;
-      
-      if (onDragUpdate) {
-        runOnJS(onDragUpdate)(0, 0, false);
-      }
-      
-      const snapY = Math.round(event.translationY / (hourHeight / 2)) * (hourHeight / 2);
-      const snapX = Math.round(event.translationX / courtLaneWidth) * courtLaneWidth;
-      
-      if (Math.abs(snapY) >= hourHeight / 4 || Math.abs(snapX) >= courtLaneWidth / 2) {
-        runOnJS(onDragEnd)(snapY, snapX);
-      }
-      
-      translateX.value = withSpring(0);
-      translateY.value = withSpring(0);
-    });
-
-  const tapGesture = Gesture.Tap()
-    .onEnd(() => {
-      runOnJS(onTap)();
-    });
-
-  const longPressGesture = Gesture.LongPress()
-    .minDuration(300)
-    .onEnd(() => {
-      if (!isDragging.value) {
-        runOnJS(onLongPress)();
-      }
-    });
-
-  const composed = Gesture.Race(panGesture, Gesture.Exclusive(longPressGesture, tapGesture));
-
-  const animatedStyle = useAnimatedStyle(() => ({
-    transform: [
-      { translateX: translateX.value },
-      { translateY: translateY.value },
-      { scale: scale.value },
-    ],
-    zIndex: zIndex.value,
-    shadowOpacity: isDragging.value ? 0.3 : 0,
-    shadowRadius: isDragging.value ? 8 : 0,
-    elevation: isDragging.value ? 8 : 0,
-  }));
-
-  return (
-    <GestureDetector gesture={composed}>
-      <Animated.View
-        style={[
-          dragStyles.sessionBlock,
-          {
-            top,
-            height: height - 4,
-            opacity: isPast ? 0.5 : 1,
-          },
-          isActive && dragStyles.sessionBlockActive,
-          hasConflict && dragStyles.sessionBlockConflict,
-          isPast && dragStyles.sessionBlockLocked,
-          animatedStyle,
-        ]}
-      >
-        <LinearGradient
-          colors={gradientColors}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={dragStyles.sessionGradient}
-        >
-          {sessionLabel.includes("\n") ? (
-            <>
-              <Text style={dragStyles.sessionText} numberOfLines={1}>
-                {sessionLabel.split("\n")[0]}
-              </Text>
-              <Text style={dragStyles.sessionPlayerName} numberOfLines={1}>
-                {sessionLabel.split("\n")[1]}
-              </Text>
-            </>
-          ) : (
-            <Text style={dragStyles.sessionText} numberOfLines={1}>
-              {sessionLabel}
-            </Text>
-          )}
-        </LinearGradient>
-      </Animated.View>
-    </GestureDetector>
-  );
-}
-
-interface WeekDraggableSessionProps {
-  session: Session;
-  top: number;
-  height: number;
-  isPast: boolean;
-  isActive: boolean;
-  gradientColors: readonly [string, string, ...string[]];
-  sessionLabel: string;
-  formattedTime: string; // Pre-formatted time in academy timezone
-  hourHeight: number;
-  onTap: () => void;
-  onLongPress: () => void;
-  onDragEnd: (deltaY: number, deltaX: number) => void;
-  dayColumnWidth: number;
-  hasConflict?: boolean;
-}
-
-function WeekDraggableSessionBlock({
-  session,
-  top,
-  height,
-  isPast,
-  isActive,
-  gradientColors,
-  sessionLabel,
-  formattedTime,
-  hourHeight,
-  onTap,
-  onLongPress,
-  onDragEnd,
-  dayColumnWidth,
-  hasConflict,
-}: WeekDraggableSessionProps) {
-  const translateX = useSharedValue(0);
-  const translateY = useSharedValue(0);
-  const scale = useSharedValue(1);
-  const zIndex = useSharedValue(1);
-  const isDragging = useSharedValue(false);
-
-  const panGesture = Gesture.Pan()
-    .activateAfterLongPress(400)
-    .enabled(!isPast)
-    .onStart(() => {
-      isDragging.value = true;
-      scale.value = withSpring(1.1);
-      zIndex.value = 100;
-    })
-    .onUpdate((event) => {
-      translateX.value = event.translationX;
-      translateY.value = event.translationY;
-    })
-    .onEnd((event) => {
-      isDragging.value = false;
-      scale.value = withSpring(1);
-      zIndex.value = 1;
-      
-      const snapY = Math.round(event.translationY / (hourHeight / 2)) * (hourHeight / 2);
-      const snapX = Math.round(event.translationX / dayColumnWidth) * dayColumnWidth;
-      
-      if (Math.abs(snapY) >= hourHeight / 4 || Math.abs(snapX) >= dayColumnWidth / 2) {
-        runOnJS(onDragEnd)(snapY, snapX);
-      }
-      
-      translateX.value = withSpring(0);
-      translateY.value = withSpring(0);
-    });
-
-  const tapGesture = Gesture.Tap()
-    .onEnd(() => {
-      runOnJS(onTap)();
-    });
-
-  const composed = Gesture.Race(panGesture, tapGesture);
-
-  const animatedStyle = useAnimatedStyle(() => ({
-    transform: [
-      { translateX: translateX.value },
-      { translateY: translateY.value },
-      { scale: scale.value },
-    ],
-    zIndex: zIndex.value,
-    shadowOpacity: isDragging.value ? 0.4 : 0,
-    shadowRadius: isDragging.value ? 10 : 0,
-    elevation: isDragging.value ? 10 : 0,
-  }));
-
-  return (
-    <GestureDetector gesture={composed}>
-      <Animated.View
-        style={[
-          dragStyles.weekSessionBlock,
-          {
-            top,
-            height: Math.max(height - 2, 20),
-            opacity: isPast ? 0.5 : 1,
-          },
-          isActive && dragStyles.weekSessionBlockActive,
-          hasConflict && dragStyles.weekSessionBlockConflict,
-          isPast && dragStyles.weekSessionBlockLocked,
-          animatedStyle,
-        ]}
-      >
-        <LinearGradient
-          colors={gradientColors}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={dragStyles.weekSessionGradient}
-        >
-          <Text style={dragStyles.weekSessionText} numberOfLines={1}>
-            {sessionLabel}
-          </Text>
-          {height > 40 && (
-            <Text style={dragStyles.weekSessionTime} numberOfLines={1}>
-              {formattedTime}
-            </Text>
-          )}
-        </LinearGradient>
-      </Animated.View>
-    </GestureDetector>
-  );
-}
-
-const dragStyles = StyleSheet.create({
-  sessionBlock: {
-    position: "absolute",
-    left: 2,
-    right: 2,
-    borderRadius: 8,
-    overflow: "hidden",
-    borderWidth: 1,
-    borderColor: Colors.dark.primary + "30",
-    ...Platform.select({
-      ios: {
-        shadowColor: "#000",
-        shadowOffset: { width: 0, height: 3 },
-        shadowOpacity: 0.3,
-        shadowRadius: 6,
-      },
-      android: {
-        elevation: 6,
-      },
-    }),
-  },
-  sessionBlockActive: {
-    borderWidth: 2,
-    borderColor: Colors.dark.primary,
-    ...Platform.select({
-      ios: {
-        shadowColor: Colors.dark.primary,
-        shadowOffset: { width: 0, height: 0 },
-        shadowOpacity: 0.8,
-        shadowRadius: 12,
-      },
-      android: {
-        elevation: 12,
-      },
-    }),
-  },
-  sessionBlockConflict: {
-    borderWidth: 2,
-    borderColor: Colors.dark.error,
-    borderStyle: "dashed",
-  },
-  sessionBlockLocked: {
-    borderWidth: 1,
-    borderColor: Colors.dark.disabled,
-    borderStyle: "dotted",
-  },
-  sessionGradient: {
-    flex: 1,
-    padding: Spacing.xs,
-    justifyContent: "center",
-  },
-  sessionText: {
-    fontSize: 12,
-    fontWeight: "900",
-    color: "#000000",
-    letterSpacing: 0.5,
-    textTransform: "uppercase",
-  },
-  sessionTime: {
-    fontSize: 10,
-    fontWeight: "700",
-    color: "rgba(0, 0, 0, 0.9)",
-    letterSpacing: 0.3,
-    marginTop: 1,
-  },
-  sessionPlayerName: {
-    fontSize: 9,
-    fontWeight: "600",
-    color: "rgba(0, 0, 0, 0.7)",
-    letterSpacing: 0.2,
-    marginTop: 1,
-    textTransform: "capitalize",
-  },
-  weekSessionBlock: {
-    position: "absolute",
-    left: 1,
-    right: 1,
-    borderRadius: 6,
-    overflow: "hidden",
-    borderWidth: 1,
-    borderColor: Colors.dark.primary + "25",
-    ...Platform.select({
-      ios: {
-        shadowColor: "#000",
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.25,
-        shadowRadius: 4,
-      },
-      android: {
-        elevation: 4,
-      },
-    }),
-  },
-  weekSessionBlockActive: {
-    borderWidth: 2,
-    borderColor: Colors.dark.primary,
-    ...Platform.select({
-      ios: {
-        shadowColor: Colors.dark.primary,
-        shadowOffset: { width: 0, height: 0 },
-        shadowOpacity: 0.8,
-        shadowRadius: 10,
-      },
-      android: {
-        elevation: 8,
-      },
-    }),
-  },
-  weekSessionBlockConflict: {
-    borderWidth: 1,
-    borderColor: Colors.dark.error,
-  },
-  weekSessionBlockLocked: {
-    borderWidth: 1,
-    borderColor: Colors.dark.disabled,
-    borderStyle: "dotted",
-  },
-  weekSessionGradient: {
-    flex: 1,
-    padding: 2,
-    justifyContent: "center",
-  },
-  weekSessionText: {
-    fontSize: 8,
-    fontWeight: "900",
-    color: "#000000",
-    letterSpacing: 0.3,
-    textTransform: "uppercase",
-    textAlign: "center",
-  },
-  weekSessionTime: {
-    fontSize: 7,
-    fontWeight: "600",
-    color: "rgba(0, 0, 0, 0.85)",
-    letterSpacing: 0,
-    textAlign: "center",
-  },
-});
-
-export default function CalendarScreen() {
-  const { width: screenWidth } = useWindowDimensions();
-  const insets = useSafeAreaInsets();
-  const queryClient = useQueryClient();
-  const route = useRoute<RouteProp<CalendarRouteParams, "Calendar">>();
-  const {
-    coach,
-    setCoach,
-    selectedDate,
-    setSelectedDate,
-    viewMode,
-    setViewMode,
-    timeGrid,
-    setTimeGrid,
-    focusMode,
-    setFocusMode,
-    calendarData,
-    isLoading,
-    isFetching,
-    academy,
-  } = useCoach();
-
-  const { startTour, isActive: tourIsActive } = useCoachMarks();
-
-  const calendarTourSteps = useMemo(() => [
-    { id: "cal_date_nav", title: "Navigate Dates", description: "Swipe or tap the arrows to move between days. Long press to jump back to today.", position: "bottom" as const },
-    { id: "cal_view_toggle", title: "Day, Week & Month", description: "Switch between day, week and month views to see your schedule at a glance.", position: "bottom" as const },
-    { id: "cal_court_grid", title: "Court Grid", description: "Each column is a court. Tap an empty slot to create a new session there.", position: "top" as const },
-    { id: "cal_header_actions", title: "Quick Actions", description: "Export your calendar, toggle focus mode, or undo a drag-and-drop move.", position: "bottom" as const },
-  ], []);
-
-  useEffect(() => {
-    if (!isLoading && calendarData && !tourIsActive) {
-      const timer = setTimeout(() => startTour("coach_calendar_tour", calendarTourSteps), 1500);
-      return () => clearTimeout(timer);
-    }
-  }, [isLoading, calendarData]);
-
   // Academy timezone for correct local time display - default to Dubai if not set
   const academyTimezone = academy?.timezone || "Asia/Dubai";
 
@@ -1773,7 +1243,7 @@ export default function CalendarScreen() {
           style={styles.headerGradientOverlay}
         />
         <View style={styles.headerTop}>
-          <CoachMarkTarget id="cal_header_actions"><View style={styles.headerActions}>
+          <View style={styles.headerActions}>
             <Pressable
               style={styles.headerBookButton}
               onPress={() => {
@@ -1810,7 +1280,7 @@ export default function CalendarScreen() {
                 <Ionicons name="arrow-undo-outline" size={16} color={Colors.dark.gold} />
               </Pressable>
             ) : null}
-          </View></CoachMarkTarget>
+          </View>
           <View style={styles.headerActions}>
             {viewMode === "day" && dayMode === "slots" ? (
               <>
@@ -1843,7 +1313,7 @@ export default function CalendarScreen() {
           </View>
         </View>
 
-        <CoachMarkTarget id="cal_date_nav">
+        
         <View style={styles.compactDateRow}>
           <Pressable
             style={styles.dateNavButtonGaming}
@@ -1880,10 +1350,10 @@ export default function CalendarScreen() {
             <Ionicons name="chevron-forward" size={20} color="#00D4FF" />
           </Pressable>
         </View>
-        </CoachMarkTarget>
+        
 
         <View style={styles.togglesRow}>
-          <CoachMarkTarget id="cal_view_toggle">
+          
           <View style={styles.viewToggleCompact}>
             {(["day", "week", "month"] as const).map((mode) => {
               const modeLabels = { day: "Day", week: "Week", month: "Month" };
@@ -1903,7 +1373,7 @@ export default function CalendarScreen() {
               );
             })}
           </View>
-          </CoachMarkTarget>
+          
 
           {viewMode === "day" ? (
             <View style={styles.viewToggleCompact}>
@@ -2091,7 +1561,7 @@ export default function CalendarScreen() {
           </Modal>
 
           {/* Court Headers - Clean minimal style */}
-          <CoachMarkTarget id="cal_court_grid">
+          
           <View style={styles.courtHeaders}>
             <View style={styles.timeColumnHeader} />
             <ScrollView
@@ -2121,7 +1591,7 @@ export default function CalendarScreen() {
               })}
             </ScrollView>
           </View>
-          </CoachMarkTarget>
+          
 
           {/* Calendar Grid */}
           <ScrollView style={styles.calendarScroll} showsVerticalScrollIndicator={false}>

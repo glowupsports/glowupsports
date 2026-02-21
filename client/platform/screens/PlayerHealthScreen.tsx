@@ -1,12 +1,10 @@
-import React, { useMemo, useEffect } from "react";
+import React, { } from "react";
 import { View, Text, StyleSheet, ScrollView, ActivityIndicator } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { useQuery } from "@tanstack/react-query";
 import { Colors, Spacing, BorderRadius, Typography, CardStyles } from "@/constants/theme";
-import { useCoachMarks, CoachMarkTarget } from "@/components/CoachMarks";
-
 const PLATFORM_COLOR = "#9B59B6";
 
 interface PlayerRowProps {
@@ -104,40 +102,9 @@ function LevelDistribution({ levels }: LevelDistributionProps) {
 
 export default function PlayerHealthScreen() {
   const insets = useSafeAreaInsets();
-  const { startTour, isActive } = useCoachMarks();
-
   const { data, isLoading, error } = useQuery<PlayerHealthData>({
     queryKey: ["/api/platform/player-health"],
   });
-
-  const playerTourSteps = useMemo(() => [
-    {
-      id: "platform_player_header",
-      title: "Player Health Dashboard",
-      description: "Track how players are doing across all your academies. Spot engagement trends and growth patterns.",
-      position: "bottom" as const,
-    },
-    {
-      id: "platform_player_stats",
-      title: "Player Metrics",
-      description: "See total players, weekly activity, and how many need attention at a glance.",
-      position: "bottom" as const,
-    },
-    {
-      id: "platform_player_averages",
-      title: "Growth Indicators",
-      description: "Average level, XP, and streaks tell you how engaged players are across academies.",
-      position: "bottom" as const,
-    },
-  ], []);
-
-  useEffect(() => {
-    if (!isLoading && !isActive) {
-      const timer = setTimeout(() => startTour("platform_player_health_tour", playerTourSteps), 1500);
-      return () => clearTimeout(timer);
-    }
-  }, [isLoading, isActive]);
-
   const healthStats = data?.healthStats || {
     totalPlayers: 0,
     activeThisWeek: 0,
@@ -183,14 +150,14 @@ export default function PlayerHealthScreen() {
         contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 100 }]}
         showsVerticalScrollIndicator={false}
       >
-        <CoachMarkTarget id="platform_player_header">
+        
           <View style={styles.header}>
             <Text style={styles.title}>Player Health</Text>
             <Text style={styles.subtitle}>Monitor player engagement and progress</Text>
           </View>
-        </CoachMarkTarget>
+        
 
-        <CoachMarkTarget id="platform_player_stats">
+        
           <View style={styles.statsGrid}>
             <View style={[styles.statCard, CardStyles.elevated]}>
               <Text style={[styles.statNumber, { color: Colors.dark.xpCyan }]}>{healthStats.totalPlayers}</Text>
@@ -205,9 +172,9 @@ export default function PlayerHealthScreen() {
               <Text style={styles.statLabel}>At Risk</Text>
             </View>
           </View>
-        </CoachMarkTarget>
+        
 
-        <CoachMarkTarget id="platform_player_averages">
+        
           <View style={[styles.avgCard, CardStyles.elevated]}>
             <View style={styles.avgRow}>
               <View style={styles.avgItem}>
@@ -233,7 +200,7 @@ export default function PlayerHealthScreen() {
               </View>
             </View>
           </View>
-        </CoachMarkTarget>
+        
 
         {levelDistribution.length > 0 ? (
           <LevelDistribution levels={levelDistribution} />

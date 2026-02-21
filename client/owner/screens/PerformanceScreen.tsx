@@ -1,11 +1,9 @@
-import React, { useMemo, useEffect } from "react";
+import React, { } from "react";
 import { View, Text, StyleSheet, ScrollView, ActivityIndicator } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { useQuery } from "@tanstack/react-query";
 import { Colors, Spacing, BorderRadius, Typography, CardStyles } from "@/constants/theme";
-import { useCoachMarks, CoachMarkTarget } from "@/components/CoachMarks";
-
 interface MetricCardProps {
   icon: keyof typeof Ionicons.glyphMap;
   title: string;
@@ -134,36 +132,6 @@ interface PeopleData {
 
 export default function PerformanceScreen() {
   const insets = useSafeAreaInsets();
-  const { startTour, isActive } = useCoachMarks();
-
-  const perfTourSteps = useMemo(() => [
-    {
-      id: "owner_perf_metrics",
-      title: "Key Metrics",
-      description: "See your total players, coaches, attendance rate, and active count all in one place.",
-      position: "bottom" as const,
-    },
-    {
-      id: "owner_perf_coaches",
-      title: "Coach Performance",
-      description: "Track how each coach is doing: sessions run, feedback given, and player improvement.",
-      position: "bottom" as const,
-    },
-    {
-      id: "owner_perf_players",
-      title: "Player Health",
-      description: "Spot players who need attention. Green means on track, yellow needs a nudge, red needs action.",
-      position: "top" as const,
-    },
-  ], []);
-
-  useEffect(() => {
-    if (!isActive) {
-      const timer = setTimeout(() => startTour("owner_performance_tour", perfTourSteps), 1500);
-      return () => clearTimeout(timer);
-    }
-  }, []);
-
   const { data: peopleData, isLoading } = useQuery<PeopleData>({
     queryKey: ["/api/owner/people"],
   });
@@ -199,7 +167,7 @@ export default function PerformanceScreen() {
           <Text style={styles.subtitle}>Academy metrics and player health</Text>
         </View>
 
-        <CoachMarkTarget id="owner_perf_metrics">
+        
           <View style={styles.metricsGrid}>
             <MetricCard
               icon="people"
@@ -226,9 +194,9 @@ export default function PerformanceScreen() {
               color={Colors.dark.orange}
             />
           </View>
-        </CoachMarkTarget>
+        
 
-        <CoachMarkTarget id="owner_perf_coaches">
+        
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Coach Performance</Text>
             <View style={[styles.tableContainer, CardStyles.elevated]}>
@@ -254,9 +222,9 @@ export default function PerformanceScreen() {
               )}
             </View>
           </View>
-        </CoachMarkTarget>
+        
 
-        <CoachMarkTarget id="owner_perf_players">
+        
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Player Health Indicators</Text>
             <View style={[styles.tableContainer, CardStyles.elevated]}>
@@ -290,7 +258,7 @@ export default function PerformanceScreen() {
             )}
           </View>
         </View>
-        </CoachMarkTarget>
+        
       </ScrollView>
     </View>
   );

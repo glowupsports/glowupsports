@@ -175,7 +175,6 @@ export default function XPHistoryScreen() {
           <View style={styles.headerSpacer} />
         </View>
 
-      <CoachMarkTarget id="xp_history_summary">
       <View style={styles.summaryCard}>
         <LinearGradient
           colors={[Colors.dark.xpCyan + "20", "transparent"]}
@@ -203,7 +202,6 @@ export default function XPHistoryScreen() {
             </View>
           </View>
 
-          <CoachMarkTarget id="xp_history_stats">
           <View style={styles.statsRow}>
             <View style={styles.statItem}>
               <Text style={styles.statValue}>{totalXpEarned.toLocaleString()}</Text>
@@ -220,10 +218,8 @@ export default function XPHistoryScreen() {
               <Text style={styles.statLabel}>Level Ups</Text>
             </View>
           </View>
-          </CoachMarkTarget>
         </LinearGradient>
       </View>
-      </CoachMarkTarget>
 
       {isLoading ? (
         <ActivityIndicator color={Colors.dark.primary} style={styles.loader} />
@@ -236,7 +232,6 @@ export default function XPHistoryScreen() {
           </Text>
         </View>
       ) : (
-        <CoachMarkTarget id="xp_history_events">
         <FlatList
           data={groupedEvents}
           keyExtractor={([date]) => date}
@@ -251,7 +246,6 @@ export default function XPHistoryScreen() {
             />
           }
         />
-        </CoachMarkTarget>
       )}
       </View>
     </LockedScreen>

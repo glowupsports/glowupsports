@@ -119,10 +119,10 @@ export function QuickTipsBanner({ tips, role }: QuickTipsBannerProps) {
         ) : null}
         <Pressable
           onPress={() => dismissTip(currentTip.id)}
-          hitSlop={8}
+          hitSlop={16}
           style={styles.closeButton}
         >
-          <Ionicons name="close" size={16} color={TextColors.muted} />
+          <Ionicons name="close" size={18} color={TextColors.secondary} />
         </Pressable>
       </Animated.View>
     </Animated.View>
@@ -160,7 +160,7 @@ const styles = StyleSheet.create({
     marginRight: Spacing.sm,
   },
   closeButton: {
-    padding: Spacing.xs,
+    padding: Spacing.sm,
     marginLeft: Spacing.xs,
   },
 });

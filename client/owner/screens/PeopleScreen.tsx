@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState } from "react";
 import { View, Text, StyleSheet, ScrollView, Pressable, ActivityIndicator, Modal, Alert, Platform } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
@@ -12,8 +12,6 @@ import type { OwnerStackParamList } from "@/owner/navigation/OwnerNavigator";
 import { apiRequest, getApiUrl } from "@/lib/query-client";
 import { Picker } from "@react-native-picker/picker";
 import PackagesCard from "@/coach/components/PackagesCard";
-import { useCoachMarks, CoachMarkTarget } from "@/components/CoachMarks";
-
 type TabType = "coaches" | "players" | "admins";
 
 interface PersonData {
@@ -125,7 +123,6 @@ export default function PeopleScreen() {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<NativeStackNavigationProp<OwnerStackParamList>>();
   const queryClient = useQueryClient();
-  const { startTour, isActive } = useCoachMarks();
   const [activeTab, setActiveTab] = useState<TabType>("coaches");
   const [selectedPerson, setSelectedPerson] = useState<PersonData | null>(null);
   const [showDetailModal, setShowDetailModal] = useState(false);
@@ -142,35 +139,6 @@ export default function PeopleScreen() {
   const [generatedInviteLink, setGeneratedInviteLink] = useState<string | null>(null);
   const [isGeneratingLink, setIsGeneratingLink] = useState(false);
   const [linkCopied, setLinkCopied] = useState(false);
-
-  const peopleTourSteps = useMemo(() => [
-    {
-      id: "owner_people_tabs",
-      title: "Switch Between Roles",
-      description: "Use these tabs to view your coaches, players, or admins. Each tab shows a different group.",
-      position: "bottom" as const,
-    },
-    {
-      id: "owner_people_actions",
-      title: "Add New People",
-      description: "Invite coaches or add players to your academy from here.",
-      position: "bottom" as const,
-    },
-    {
-      id: "owner_people_list",
-      title: "Your Roster",
-      description: "See everyone at a glance. Tap a person to view details, or use the delete button to remove them.",
-      position: "bottom" as const,
-    },
-  ], []);
-
-  useEffect(() => {
-    if (!isActive) {
-      const timer = setTimeout(() => startTour("owner_people_tour", peopleTourSteps), 1500);
-      return () => clearTimeout(timer);
-    }
-  }, []);
-
   const { data: peopleData, isLoading, isError, refetch } = useQuery<PeopleData>({
     queryKey: ["/api/owner/people"],
   });
@@ -494,7 +462,7 @@ export default function PeopleScreen() {
         <Text style={styles.subtitle}>Manage your coaches and players</Text>
       </View>
 
-      <CoachMarkTarget id="owner_people_tabs">
+      
         <View style={styles.tabContainer}>
           <Pressable
             style={[styles.tab, activeTab === "coaches" && styles.tabActive]}
@@ -536,7 +504,7 @@ export default function PeopleScreen() {
             </Text>
           </Pressable>
         </View>
-      </CoachMarkTarget>
+      
 
       <ScrollView
         style={styles.scrollView}
@@ -544,7 +512,7 @@ export default function PeopleScreen() {
         showsVerticalScrollIndicator={false}
       >
         {activeTab !== "admins" ? (
-          <CoachMarkTarget id="owner_people_actions">
+          
             <View style={styles.actionsRow}>
               <Pressable 
                 style={styles.addButton}
@@ -556,7 +524,7 @@ export default function PeopleScreen() {
                 </Text>
               </Pressable>
             </View>
-          </CoachMarkTarget>
+          
         ) : null}
 
         {activeTab === "admins" ? (
@@ -634,7 +602,7 @@ export default function PeopleScreen() {
           </View>
         ) : (
           <>
-            <CoachMarkTarget id="owner_people_list">
+            
               <View style={styles.list}>
                 {(activeTab === "coaches" ? coaches : players).map((person) => (
                   <PersonCard 
@@ -646,7 +614,7 @@ export default function PeopleScreen() {
                   />
                 ))}
               </View>
-            </CoachMarkTarget>
+            
 
             {(activeTab === "coaches" ? coaches : players).length === 0 ? (
               <View style={styles.emptyState}>

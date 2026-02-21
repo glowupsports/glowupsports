@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from "react";
+import React, { useState } from "react";
 import { View, Text, StyleSheet, ScrollView, Pressable, TextInput, ActivityIndicator, Modal, Platform, KeyboardAvoidingView } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
@@ -11,8 +11,6 @@ import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { Colors, Backgrounds, Spacing, BorderRadius, Typography, CardStyles, GlowColors } from "@/constants/theme";
 import { apiRequest } from "@/lib/query-client";
 import type { PlatformStackParamList } from "@/platform/navigation/PlatformNavigator";
-import { useCoachMarks, CoachMarkTarget } from "@/components/CoachMarks";
-
 const PLATFORM_COLOR = "#9B59B6";
 
 interface AcademyData {
@@ -372,40 +370,9 @@ export default function AcademiesScreen() {
   const [filterStatus, setFilterStatus] = useState<string | null>(null);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [pendingInvite, setPendingInvite] = useState<InviteData | null>(null);
-  const { startTour, isActive } = useCoachMarks();
-
   const { data: stats, isLoading } = useQuery<PlatformStats>({
     queryKey: ["/api/platform/stats"],
   });
-
-  const academiesTourSteps = useMemo(() => [
-    {
-      id: "platform_academies_header",
-      title: "Your Academies",
-      description: "See all the academies on your platform. Tap any academy to view details and manage their settings.",
-      position: "bottom" as const,
-    },
-    {
-      id: "platform_academies_search",
-      title: "Find Academies Fast",
-      description: "Search by name to quickly find any academy. Use the status filters to narrow results.",
-      position: "bottom" as const,
-    },
-    {
-      id: "platform_academies_list",
-      title: "Academy Cards",
-      description: "Each card shows coaches, players, MRR, and status at a glance. Tap a card for full details.",
-      position: "bottom" as const,
-    },
-  ], []);
-
-  useEffect(() => {
-    if (!isLoading && !isActive) {
-      const timer = setTimeout(() => startTour("platform_academies_tour", academiesTourSteps), 1500);
-      return () => clearTimeout(timer);
-    }
-  }, [isLoading, isActive]);
-
   const academies = stats?.academies || [];
 
   const filteredAcademies = academies.filter(academy => {
@@ -443,7 +410,7 @@ export default function AcademiesScreen() {
         contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 100 }]}
         showsVerticalScrollIndicator={false}
       >
-        <CoachMarkTarget id="platform_academies_header">
+        
           <View style={styles.header}>
             <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
               <View>
@@ -470,9 +437,9 @@ export default function AcademiesScreen() {
               </Pressable>
             </View>
           </View>
-        </CoachMarkTarget>
+        
 
-        <CoachMarkTarget id="platform_academies_search">
+        
           <View style={styles.searchContainer}>
             <Ionicons name="search" size={20} color={Colors.dark.textMuted} />
             <TextInput
@@ -508,9 +475,9 @@ export default function AcademiesScreen() {
               </Pressable>
             ))}
           </ScrollView>
-        </CoachMarkTarget>
+        
 
-        <CoachMarkTarget id="platform_academies_list">
+        
         <View style={styles.academiesList}>
           {filteredAcademies.map((academy) => (
             <AcademyCard 
@@ -523,7 +490,7 @@ export default function AcademiesScreen() {
             />
           ))}
         </View>
-        </CoachMarkTarget>
+        
 
         {filteredAcademies.length === 0 ? (
           <View style={styles.emptyState}>
@@ -532,7 +499,6 @@ export default function AcademiesScreen() {
           </View>
         ) : null}
       </ScrollView>
-
 
       <CreateAcademyModal
         visible={showCreateModal}

@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from "react";
+import React, { useState } from "react";
 import { View, Text, StyleSheet, ScrollView, Pressable, Switch, Alert, Platform, Modal, TextInput, ActivityIndicator } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
@@ -13,8 +13,6 @@ import { useAuth } from "@/coach/context/AuthContext";
 import { apiRequest, getApiUrl } from "@/lib/query-client";
 import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollViewCompat";
 import type { OwnerStackParamList } from "@/owner/navigation/OwnerNavigator";
-import { useCoachMarks, CoachMarkTarget } from "@/components/CoachMarks";
-
 interface ResetOptions {
   sessions: boolean;
   attendance: boolean;
@@ -113,7 +111,6 @@ export default function SettingsScreen() {
   const navigation = useNavigation<NavigationProp>();
   const queryClient = useQueryClient();
   const { logout } = useAuth();
-  const { startTour, isActive } = useCoachMarks();
   const [showSessionLengthModal, setShowSessionLengthModal] = useState(false);
   const [sessionLengthInput, setSessionLengthInput] = useState("60");
   const [showWelcomeVideoModal, setShowWelcomeVideoModal] = useState(false);
@@ -141,41 +138,6 @@ export default function SettingsScreen() {
     notificationsEnabled: true,
     welcomeVideoUrl: "",
   };
-
-  const settingsTourSteps = useMemo(() => [
-    {
-      id: "owner_settings_academy",
-      title: "Academy Settings",
-      description: "Set your default session length, toggle XP visibility, and manage notifications here.",
-      position: "bottom" as const,
-    },
-    {
-      id: "owner_settings_billing",
-      title: "Billing & Pricing",
-      description: "Configure session prices, coach payouts, and create credit packages for your players.",
-      position: "bottom" as const,
-    },
-    {
-      id: "owner_settings_team",
-      title: "Team Management",
-      description: "Invite coaches, set permissions, and manage head coach access from here.",
-      position: "bottom" as const,
-    },
-    {
-      id: "owner_settings_data",
-      title: "Data & Export",
-      description: "Export player and session data as CSV files, or manage privacy settings.",
-      position: "top" as const,
-    },
-  ], []);
-
-  useEffect(() => {
-    if (!isActive) {
-      const timer = setTimeout(() => startTour("owner_settings_tour", settingsTourSteps), 1500);
-      return () => clearTimeout(timer);
-    }
-  }, []);
-
   const updateSettingsMutation = useMutation({
     mutationFn: async (updates: Partial<AcademySettings>) => {
       return apiRequest("PATCH", "/api/owner/academy-settings", updates);
@@ -437,7 +399,7 @@ export default function SettingsScreen() {
           <Text style={styles.subtitle}>Academy configuration and preferences</Text>
         </View>
 
-        <CoachMarkTarget id="owner_settings_academy">
+        
           <Section title="Academy Settings">
             <SettingRow
               icon="time"
@@ -465,9 +427,9 @@ export default function SettingsScreen() {
               onPress={handleOpenWelcomeVideoModal}
             />
           </Section>
-        </CoachMarkTarget>
+        
 
-        <CoachMarkTarget id="owner_settings_billing">
+        
           <Section title="Billing & Pricing">
             <SettingRow
               icon="pricetag"
@@ -488,9 +450,9 @@ export default function SettingsScreen() {
               onPress={() => navigation.navigate("CreditPackages")}
             />
           </Section>
-        </CoachMarkTarget>
+        
 
-        <CoachMarkTarget id="owner_settings_team">
+        
           <Section title="Team Management">
             <SettingRow
               icon="person-add"
@@ -511,9 +473,9 @@ export default function SettingsScreen() {
               onPress={() => navigation.navigate("RulesAndPolicies")}
             />
           </Section>
-        </CoachMarkTarget>
+        
 
-        <CoachMarkTarget id="owner_settings_data">
+        
           <Section title="Data & Export">
             <SettingRow
               icon="download"
@@ -534,7 +496,7 @@ export default function SettingsScreen() {
               onPress={handleOpenResetModal}
             />
           </Section>
-        </CoachMarkTarget>
+        
 
         <Section title="Danger Zone">
           <SettingRow

@@ -191,7 +191,6 @@ export default function GlowLeaderboardScreen() {
   return (
     <LockedScreen featureKey="glow_leaderboard">
       <View style={styles.container}>
-        <CoachMarkTarget id="player_leaderboard_scope">
         <View style={styles.scopeToggle}>
           <Pressable
             style={[styles.scopeButton, scope === "academy" && styles.scopeButtonActive]}
@@ -210,9 +209,7 @@ export default function GlowLeaderboardScreen() {
             </ThemedText>
           </Pressable>
         </View>
-        </CoachMarkTarget>
         
-        <CoachMarkTarget id="player_leaderboard_categories">
         <View style={styles.categoryTabs}>
           {CATEGORIES.map((cat) => (
             <Pressable
@@ -227,7 +224,6 @@ export default function GlowLeaderboardScreen() {
             </Pressable>
           ))}
         </View>
-        </CoachMarkTarget>
 
       {isLoading ? (
         <View style={styles.loadingContainer}>
@@ -242,7 +238,6 @@ export default function GlowLeaderboardScreen() {
           </Pressable>
         </View>
       ) : (
-        <CoachMarkTarget id="player_leaderboard_rankings">
         <FlatList
           data={restOfRankings}
           keyExtractor={(item) => item.id}
@@ -286,7 +281,6 @@ export default function GlowLeaderboardScreen() {
             </View>
           }
         />
-        </CoachMarkTarget>
         )}
       </View>
     </LockedScreen>

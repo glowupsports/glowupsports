@@ -209,7 +209,6 @@ export default function TrialGatesScreen() {
         contentContainerStyle={styles.contentContainer}
         showsVerticalScrollIndicator={false}
       >
-        <CoachMarkTarget id="trial_gates_info">
         <View style={styles.infoCard}>
           <Ionicons name="information-circle" size={24} color={Colors.dark.xpCyan} />
           <View style={styles.infoContent}>
@@ -220,13 +219,11 @@ export default function TrialGatesScreen() {
             </Text>
           </View>
         </View>
-        </CoachMarkTarget>
 
         {isLoading ? (
           <ActivityIndicator color={Colors.dark.primary} style={styles.loader} />
         ) : (
           <>
-            <CoachMarkTarget id="trial_gates_active">
             {activeTrials.length > 0 ? (
               <View style={styles.section}>
                 <Text style={styles.sectionTitle}>Active Trials</Text>
@@ -241,16 +238,13 @@ export default function TrialGatesScreen() {
                 </Text>
               </View>
             )}
-            </CoachMarkTarget>
 
-            <CoachMarkTarget id="trial_gates_progress">
             {pastTrials.length > 0 ? (
               <View style={styles.section}>
                 <Text style={styles.sectionTitle}>Past Trials</Text>
                 {pastTrials.map(trial => renderTrialCard(trial, false))}
               </View>
             ) : null}
-            </CoachMarkTarget>
           </>
         )}
       </ScrollView>

@@ -341,7 +341,6 @@ export default function CourtBookingScreen() {
           </View>
         </View>
 
-        <CoachMarkTarget id="player_court_booking_date">
         <View style={styles.dateSection}>
           <ScrollView 
             horizontal 
@@ -373,9 +372,7 @@ export default function CourtBookingScreen() {
             })}
           </ScrollView>
         </View>
-        </CoachMarkTarget>
 
-        <CoachMarkTarget id="player_court_booking_filter">
         <View style={styles.filterSection}>
           <ScrollView 
             horizontal 
@@ -410,9 +407,7 @@ export default function CourtBookingScreen() {
             })}
           </ScrollView>
         </View>
-        </CoachMarkTarget>
 
-        <CoachMarkTarget id="player_court_booking_list">
         <ScrollView 
           style={styles.courtsList} 
           contentContainerStyle={[styles.courtsListContent, { paddingBottom: 85 + 100 }]}
@@ -464,7 +459,6 @@ export default function CourtBookingScreen() {
             </>
           )}
         </ScrollView>
-        </CoachMarkTarget>
       </View>
     </LockedScreen>
   );

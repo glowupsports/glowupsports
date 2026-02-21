@@ -1,12 +1,10 @@
-import React, { useMemo, useEffect } from "react";
+import React, { } from "react";
 import { View, Text, StyleSheet, ScrollView, ActivityIndicator } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { useQuery } from "@tanstack/react-query";
 import { Colors, Spacing, BorderRadius, Typography, CardStyles } from "@/constants/theme";
-import { useCoachMarks, CoachMarkTarget } from "@/components/CoachMarks";
-
 const PLATFORM_COLOR = "#9B59B6";
 
 interface TransactionRowProps {
@@ -88,40 +86,9 @@ interface FinancialsData {
 
 export default function FinancialsScreen() {
   const insets = useSafeAreaInsets();
-  const { startTour, isActive } = useCoachMarks();
-
   const { data, isLoading, error } = useQuery<FinancialsData>({
     queryKey: ["/api/platform/financials"],
   });
-
-  const financialsTourSteps = useMemo(() => [
-    {
-      id: "platform_financials_header",
-      title: "Financial Overview",
-      description: "Your platform revenue dashboard. Track income, payments, and billing health across all academies.",
-      position: "bottom" as const,
-    },
-    {
-      id: "platform_financials_mrr",
-      title: "Monthly Revenue",
-      description: "Your MRR and ARR at a glance. This is the heartbeat of your platform business.",
-      position: "bottom" as const,
-    },
-    {
-      id: "platform_financials_alerts",
-      title: "Payment Alerts",
-      description: "Pending and failed payments need your attention. Stay on top of these to keep cash flowing.",
-      position: "bottom" as const,
-    },
-  ], []);
-
-  useEffect(() => {
-    if (!isLoading && !isActive) {
-      const timer = setTimeout(() => startTour("platform_financials_tour", financialsTourSteps), 1500);
-      return () => clearTimeout(timer);
-    }
-  }, [isLoading, isActive]);
-
   const financialStats = data?.financialStats || {
     mrr: 0,
     arr: 0,
@@ -165,14 +132,14 @@ export default function FinancialsScreen() {
         contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 100 }]}
         showsVerticalScrollIndicator={false}
       >
-        <CoachMarkTarget id="platform_financials_header">
+        
           <View style={styles.header}>
             <Text style={styles.title}>Financials</Text>
             <Text style={styles.subtitle}>Platform revenue and payments (AED)</Text>
           </View>
-        </CoachMarkTarget>
+        
 
-        <CoachMarkTarget id="platform_financials_mrr">
+        
           <View style={[styles.mrrCard, CardStyles.elevated]}>
             <View style={styles.mrrMain}>
               <Text style={styles.mrrLabel}>Monthly Recurring Revenue</Text>
@@ -189,9 +156,9 @@ export default function FinancialsScreen() {
               </View>
             </View>
           </View>
-        </CoachMarkTarget>
+        
 
-        <CoachMarkTarget id="platform_financials_alerts">
+        
           <View style={styles.alertCards}>
             <View style={[styles.alertCard, CardStyles.elevated, { borderLeftColor: Colors.dark.orange }]}>
               <Ionicons name="time" size={24} color={Colors.dark.orange} />
@@ -208,7 +175,7 @@ export default function FinancialsScreen() {
               </View>
             </View>
           </View>
-        </CoachMarkTarget>
+        
 
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Revenue Trend</Text>

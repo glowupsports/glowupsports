@@ -295,7 +295,6 @@ export default function QuestsScreen() {
         ]}
         showsVerticalScrollIndicator={false}
       >
-        <CoachMarkTarget id="player_quests_tabs">
         <View style={styles.tabBar}>
           <Pressable
             style={[styles.tab, activeTab === "daily" && styles.tabActive]}
@@ -341,16 +340,13 @@ export default function QuestsScreen() {
             ) : null}
           </Pressable>
         </View>
-        </CoachMarkTarget>
         
-        <CoachMarkTarget id="player_quests_chain">
         <ChainProgressHeader
           completedCount={activeCompletedCount}
           totalCount={activeTotalCount}
           type={activeTab}
           bonusUnlocked={activeTab === "daily" ? dailySlot?.bonusUnlocked : false}
         />
-        </CoachMarkTarget>
         
         {activeTotalCount > 0 ? (
           <StepIndicator steps={activeTotalCount} current={activeCompletedCount} />
@@ -362,7 +358,6 @@ export default function QuestsScreen() {
             <ThemedText style={styles.loadingText}>Loading quests...</ThemedText>
           </View>
         ) : activeQuests.length === 0 ? (
-          <CoachMarkTarget id="player_quests_list">
           <Animated.View entering={FadeIn} style={styles.emptyState}>
             <LinearGradient
               colors={[Colors.dark.primary + "10", "transparent"]}
@@ -383,9 +378,7 @@ export default function QuestsScreen() {
               </ThemedText>
             </LinearGradient>
           </Animated.View>
-          </CoachMarkTarget>
         ) : (
-          <CoachMarkTarget id="player_quests_list">
           <View style={styles.questList}>
             {activeQuests.map((quest, index) => (
               <QuestCard 
@@ -397,7 +390,6 @@ export default function QuestsScreen() {
               />
             ))}
           </View>
-          </CoachMarkTarget>
         )}
         
         {dailySlot?.allCompleted && activeTab === "daily" ? (

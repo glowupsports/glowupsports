@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect, useRef } from "react";
+import React, { useState, useMemo } from "react";
 import { View, Text, StyleSheet, ScrollView, Pressable, Alert, Platform, ActivityIndicator, RefreshControl } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
@@ -9,8 +9,6 @@ import { Colors, Spacing, BorderRadius, Typography } from "@/constants/theme";
 import { useAuth } from "@/coach/context/AuthContext";
 import CollapsibleModeSwitcher from "@/components/CollapsibleModeSwitcher";
 import { useTabNavigation } from "@/components/TabNavigationContext";
-import { useCoachMarks, CoachMarkTarget } from "@/components/CoachMarks";
-
 import { PlatformCommandCenter } from "@/platform/components/PlatformCommandCenter";
 import { AcademyHealthCards } from "@/platform/components/AcademyHealthCards";
 import { SubscriptionFunnel } from "@/platform/components/SubscriptionFunnel";
@@ -95,45 +93,9 @@ export default function CommandCenterScreen() {
   const { logout } = useAuth();
   const { navigateToTab } = useTabNavigation();
   const [refreshing, setRefreshing] = useState(false);
-
-  const { startTour, isActive } = useCoachMarks();
-  const hasStartedTourRef = useRef(false);
-
   const { data: platformData, isLoading, refetch } = useQuery<PlatformDashboardData>({
     queryKey: ["/api/platform/dashboard/enhanced"],
   });
-
-  const platformTourSteps = useMemo(() => [
-    {
-      id: "platform_checklist",
-      title: "Getting Started",
-      description: "Follow these steps to set up your platform. Each completed step unlocks more capabilities.",
-      position: "bottom" as const,
-    },
-    {
-      id: "platform_command",
-      title: "Command Center",
-      description: "Your platform overview. MRR, active academies, churn rate, and system health all in one view.",
-      position: "bottom" as const,
-    },
-    {
-      id: "platform_help",
-      title: "Need Help?",
-      description: "Tap here anytime for FAQs, tutorials, and platform support.",
-      position: "left" as const,
-    },
-  ], []);
-
-  useEffect(() => {
-    if (!isLoading && platformData && !isActive && !hasStartedTourRef.current) {
-      hasStartedTourRef.current = true;
-      const timer = setTimeout(() => {
-        startTour("platform_dashboard", platformTourSteps);
-      }, 1500);
-      return () => clearTimeout(timer);
-    }
-  }, [isLoading, platformData]);
-
   const onRefresh = async () => {
     setRefreshing(true);
     await refetch();
@@ -330,12 +292,12 @@ export default function CommandCenterScreen() {
         }
       >
         {/* GETTING STARTED CHECKLIST */}
-        <CoachMarkTarget id="platform_checklist">
+        
           <GettingStartedChecklist
             role="platform_owner"
             steps={platformChecklistSteps}
           />
-        </CoachMarkTarget>
+        
 
         <QuickTipsBanner role="platform_owner" tips={platformTips} />
 
@@ -344,7 +306,7 @@ export default function CommandCenterScreen() {
           features={platformFeatureUsage}
         />
 
-        <CoachMarkTarget id="platform_command">
+        
           <PlatformCommandCenter
             platformName={platformData?.platform?.name || "Glow Up Sports"}
             totalMrr={metrics.mrr}
@@ -354,7 +316,7 @@ export default function CommandCenterScreen() {
             onLogoutPress={handleLogout}
             onSettingsPress={() => navigateToTab("System")}
           />
-        </CoachMarkTarget>
+        
 
         <View style={styles.kpiRow}>
           <View style={styles.kpiItem}>
@@ -494,14 +456,14 @@ export default function CommandCenterScreen() {
         slides={platformWelcomeSlides}
         onComplete={() => {}}
       />
-      <CoachMarkTarget id="platform_help">
+      
         <HelpButton
           role="platform_owner"
           faqs={platformFAQs}
           supportEmail="support@glowupsports.com"
           bottomOffset={120}
         />
-      </CoachMarkTarget>
+      
       <NotificationGuideModal
         visible={showNotificationGuide}
         onClose={() => setShowNotificationGuide(false)}

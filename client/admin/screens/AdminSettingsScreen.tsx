@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState } from "react";
 import {
   View,
   Text,
@@ -22,8 +22,6 @@ import { Colors, Backgrounds, Spacing, BorderRadius, Typography, CardStyles, Glo
 import { apiRequest } from "@/lib/query-client";
 import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollViewCompat";
 import { useAuth } from "@/coach/context/AuthContext";
-import { useCoachMarks, CoachMarkTarget } from "@/components/CoachMarks";
-
 interface Court {
   id: string;
   name: string;
@@ -37,7 +35,6 @@ export default function AdminSettingsScreen() {
   const queryClient = useQueryClient();
   const navigation = useNavigation<any>();
   const { logout } = useAuth();
-  const { startTour, isActive } = useCoachMarks();
   const [showCourtModal, setShowCourtModal] = useState(false);
   const [editingCourt, setEditingCourt] = useState<Court | null>(null);
   const [showProfileModal, setShowProfileModal] = useState(false);
@@ -58,21 +55,6 @@ export default function AdminSettingsScreen() {
   });
   const [testPushLoading, setTestPushLoading] = useState(false);
   const [testInviteLoading, setTestInviteLoading] = useState(false);
-
-  const settingsTourSteps = useMemo(() => [
-    { id: "admin_settings_profile", title: "Academy Profile", description: "Update your academy name and contact details here.", position: "bottom" as const },
-    { id: "admin_settings_courts", title: "Courts & Facilities", description: "Add and manage your tennis courts. Set surface type and indoor/outdoor.", position: "bottom" as const },
-    { id: "admin_settings_users", title: "User Management", description: "Control roles, permissions, and send invitations to coaches and players.", position: "bottom" as const },
-    { id: "admin_settings_account", title: "Account", description: "Log out of your admin account when you're done.", position: "top" as const },
-  ], []);
-
-  useEffect(() => {
-    if (!isActive) {
-      const timer = setTimeout(() => startTour("admin_settings_tour", settingsTourSteps), 1500);
-      return () => clearTimeout(timer);
-    }
-  }, []);
-
   const { data: courts = [], isLoading: courtsLoading } = useQuery<Court[]>({
     queryKey: ["/api/courts"],
   });
@@ -293,7 +275,7 @@ export default function AdminSettingsScreen() {
       >
         <Text style={styles.title}>Settings</Text>
 
-        <CoachMarkTarget id="admin_settings_profile">
+        
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Academy Profile</Text>
             <View style={[styles.profileCard, CardStyles.elevated]}>
@@ -318,9 +300,9 @@ export default function AdminSettingsScreen() {
               </Pressable>
             </View>
           </View>
-        </CoachMarkTarget>
+        
 
-        <CoachMarkTarget id="admin_settings_courts">
+        
           <View style={styles.section}>
             <View style={styles.sectionHeader}>
               <Text style={styles.sectionTitle}>Courts & Facilities</Text>
@@ -375,9 +357,9 @@ export default function AdminSettingsScreen() {
             ))
           )}
         </View>
-        </CoachMarkTarget>
+        
 
-        <CoachMarkTarget id="admin_settings_users">
+        
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>User Management</Text>
             <Pressable 
@@ -411,7 +393,7 @@ export default function AdminSettingsScreen() {
               </View>
             </Pressable>
           </View>
-        </CoachMarkTarget>
+        
 
         <View style={styles.section}>
           <Text style={[styles.sectionTitle, { color: RoleColors.admin }]}>Developer Tools</Text>
@@ -452,7 +434,7 @@ export default function AdminSettingsScreen() {
           </View>
         </View>
 
-        <CoachMarkTarget id="admin_settings_account">
+        
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Account</Text>
             <Pressable
@@ -463,7 +445,7 @@ export default function AdminSettingsScreen() {
               <Text style={styles.logoutText}>Logout</Text>
             </Pressable>
           </View>
-        </CoachMarkTarget>
+        
       </ScrollView>
 
       <Modal

@@ -205,7 +205,6 @@ export default function CollectionScreen() {
           <View style={styles.headerSpacer} />
         </View>
 
-      <CoachMarkTarget id="collection_stats">
       <View style={styles.statsRow}>
         <View style={styles.statCard}>
           <Ionicons name="ribbon" size={24} color={Colors.dark.gold} />
@@ -222,9 +221,7 @@ export default function CollectionScreen() {
           <Text style={styles.statLabel}>Titles</Text>
         </View>
       </View>
-      </CoachMarkTarget>
 
-      <CoachMarkTarget id="collection_tabs">
       <View style={styles.tabsContainer}>
         <Pressable
           style={[styles.tab, activeTab === "badges" && styles.tabActive]}
@@ -253,9 +250,7 @@ export default function CollectionScreen() {
           </Text>
         </Pressable>
       </View>
-      </CoachMarkTarget>
 
-      <CoachMarkTarget id="collection_items">
       <ScrollView
         style={styles.content}
         contentContainerStyle={styles.contentContainer}
@@ -321,7 +316,6 @@ export default function CollectionScreen() {
           </>
         )}
       </ScrollView>
-      </CoachMarkTarget>
 
       <Modal
         visible={!!selectedBadge}

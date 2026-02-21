@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from "react";
+import React, { useState } from "react";
 import { View, Text, StyleSheet, ScrollView, Pressable, Alert, Platform, Switch, ActivityIndicator, Modal, TextInput } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
@@ -11,8 +11,6 @@ import { Colors, Spacing, BorderRadius, Typography, CardStyles } from "@/constan
 import { useAuth } from "@/coach/context/AuthContext";
 import { apiRequest } from "@/lib/query-client";
 import type { PlatformStackParamList } from "@/platform/navigation/PlatformNavigator";
-import { useCoachMarks, CoachMarkTarget } from "@/components/CoachMarks";
-
 type NavigationProp = NativeStackNavigationProp<PlatformStackParamList>;
 
 const PLATFORM_COLOR = "#9B59B6";
@@ -78,46 +76,9 @@ export default function SystemScreen() {
   const navigation = useNavigation<NavigationProp>();
   const { logout } = useAuth();
   const queryClient = useQueryClient();
-  const { startTour, isActive } = useCoachMarks();
-
   const { data: maintenanceStatus, isLoading: maintenanceLoading } = useQuery<{ maintenance: boolean }>({
     queryKey: ["/api/maintenance/status"],
   });
-
-  const systemTourSteps = useMemo(() => [
-    {
-      id: "platform_system_header",
-      title: "System & Settings",
-      description: "Configure your entire platform from here. System status, XP engine, billing, and more.",
-      position: "bottom" as const,
-    },
-    {
-      id: "platform_system_status",
-      title: "System Status",
-      description: "Check if all your services are running smoothly. Green means everything is working.",
-      position: "bottom" as const,
-    },
-    {
-      id: "platform_system_settings",
-      title: "Platform Settings",
-      description: "Manage welcome videos, academy defaults, billing, and notification templates here.",
-      position: "bottom" as const,
-    },
-    {
-      id: "platform_system_danger",
-      title: "Danger Zone",
-      description: "Maintenance mode and kill switch are here for emergencies. Use with care.",
-      position: "top" as const,
-    },
-  ], []);
-
-  useEffect(() => {
-    if (!isActive) {
-      const timer = setTimeout(() => startTour("platform_system_tour", systemTourSteps), 1500);
-      return () => clearTimeout(timer);
-    }
-  }, [isActive]);
-
   const maintenanceMutation = useMutation({
     mutationFn: async (enabled: boolean) => {
       return apiRequest("POST", "/api/platform/maintenance", { enabled });
@@ -367,14 +328,14 @@ export default function SystemScreen() {
         contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 100 }]}
         showsVerticalScrollIndicator={false}
       >
-        <CoachMarkTarget id="platform_system_header">
+        
           <View style={styles.header}>
             <Text style={styles.title}>System & Settings</Text>
             <Text style={styles.subtitle}>Platform configuration and controls</Text>
           </View>
-        </CoachMarkTarget>
+        
 
-        <CoachMarkTarget id="platform_system_status">
+        
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>System Status</Text>
             <View style={[styles.statusCard, CardStyles.elevated]}>
@@ -383,7 +344,7 @@ export default function SystemScreen() {
               ))}
             </View>
           </View>
-        </CoachMarkTarget>
+        
 
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>XP Engine Configuration</Text>
@@ -421,7 +382,7 @@ export default function SystemScreen() {
           </View>
         </View>
 
-        <CoachMarkTarget id="platform_system_settings">
+        
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Platform Settings</Text>
             <View style={[styles.settingsCard, CardStyles.elevated]}>
@@ -456,7 +417,7 @@ export default function SystemScreen() {
               />
             </View>
           </View>
-        </CoachMarkTarget>
+        
 
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Data & Compliance</Text>
@@ -530,7 +491,7 @@ export default function SystemScreen() {
           </View>
         </View>
 
-        <CoachMarkTarget id="platform_system_danger">
+        
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Danger Zone</Text>
             <View style={[styles.settingsCard, CardStyles.elevated]}>
@@ -564,7 +525,7 @@ export default function SystemScreen() {
               />
             </View>
           </View>
-        </CoachMarkTarget>
+        
 
         <Pressable style={styles.logoutButton} onPress={handleLogout}>
           <Ionicons name="log-out-outline" size={24} color={Colors.dark.error} />

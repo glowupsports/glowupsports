@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from "react";
+import React, { useState, useMemo } from "react";
 import {
   View,
   Text,
@@ -26,8 +26,6 @@ import { ReportIssueModal } from "@/components/ReportIssueModal";
 import CreateInvoiceModal from "@/admin/components/CreateInvoiceModal";
 import CreditStoreModal from "@/admin/components/CreditStoreModal";
 import { GLOW_UP_TENNIS_LOGO } from "@/admin/components/logoBase64";
-import { useCoachMarks, CoachMarkTarget } from "@/components/CoachMarks";
-
 const generateAttendanceReportPDF = (stats: any, player: any) => {
   if (!stats?.sessions || stats.sessions.length === 0) {
     Alert.alert("No Sessions", "There are no sessions to include in the report.");
@@ -458,7 +456,6 @@ interface Coach {
 export default function AdminPlayersScreen() {
   const insets = useSafeAreaInsets();
   const queryClient = useQueryClient();
-  const { startTour, isActive } = useCoachMarks();
   const [showAddModal, setShowAddModal] = useState(false);
   const [showDetailModal, setShowDetailModal] = useState(false);
   const [showFullDetailsModal, setShowFullDetailsModal] = useState(false);
@@ -520,21 +517,6 @@ export default function AdminPlayersScreen() {
   });
 
   const selectedPlayer = players.find(p => p.id === selectedPlayerId);
-
-  const playersTourSteps = useMemo(() => [
-    { id: "admin_players_header", title: "Player Roster", description: "All your academy players are listed here. Tap any player to see their full profile.", position: "bottom" as const },
-    { id: "admin_players_search", title: "Search & Filter", description: "Quickly find players by name or email. Use the filter icon for advanced options like ball level and age group.", position: "bottom" as const },
-    { id: "admin_players_add", title: "Add a Player", description: "Tap + to register a new player in your academy.", position: "bottom" as const },
-    { id: "admin_players_list", title: "Player Cards", description: "Each card shows the player's ball level, skill level, and remaining credits at a glance.", position: "top" as const },
-  ], []);
-
-  useEffect(() => {
-    if (!isActive) {
-      const timer = setTimeout(() => startTour("admin_players_tour", playersTourSteps), 1500);
-      return () => clearTimeout(timer);
-    }
-  }, []);
-
   const uniqueSeries = useMemo(() => {
     if (!playerStats?.sessions) return [];
     const seriesMap = new Map();
@@ -2033,18 +2015,18 @@ export default function AdminPlayersScreen() {
         renderInlinePlayerProfile()
       ) : (
         <>
-          <CoachMarkTarget id="admin_players_header">
+          
             <View style={styles.header}>
               <Text style={styles.title}>Manage Players</Text>
-              <CoachMarkTarget id="admin_players_add">
+              
                 <Pressable style={styles.addButton} onPress={openAddModal}>
                   <Ionicons name="add" size={24} color={Colors.dark.text} />
                 </Pressable>
-              </CoachMarkTarget>
+              
             </View>
-          </CoachMarkTarget>
+          
 
-      <CoachMarkTarget id="admin_players_search">
+      
         <View style={styles.searchContainer}>
           <Ionicons name="search" size={20} color={Colors.dark.textMuted} />
           <TextInput
@@ -2074,7 +2056,7 @@ export default function AdminPlayersScreen() {
             ) : null}
           </Pressable>
         </View>
-      </CoachMarkTarget>
+      
 
       {showFilters ? (
         <View style={styles.filterContainer}>
@@ -2278,7 +2260,7 @@ export default function AdminPlayersScreen() {
         </View>
       ) : null}
 
-      <CoachMarkTarget id="admin_players_list">
+      
         <FlatList
           data={filteredPlayers}
           keyExtractor={(item) => item.id}
@@ -2297,7 +2279,7 @@ export default function AdminPlayersScreen() {
           </View>
         }
       />
-      </CoachMarkTarget>
+      
       </>
       )}
 

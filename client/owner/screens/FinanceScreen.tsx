@@ -1,11 +1,9 @@
-import React, { useState, useMemo, useEffect } from "react";
+import React, { useState } from "react";
 import { View, Text, StyleSheet, ScrollView, Pressable, ActivityIndicator, Modal } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { useQuery } from "@tanstack/react-query";
 import { Colors, Spacing, BorderRadius, Typography, CardStyles } from "@/constants/theme";
-import { useCoachMarks, CoachMarkTarget } from "@/components/CoachMarks";
-
 interface FinanceData {
   currency: string;
   collected: {
@@ -135,42 +133,6 @@ function PaymentRow({ playerName, amount, status, paymentMethod, date, currency 
 
 export default function FinanceScreen() {
   const insets = useSafeAreaInsets();
-  const { startTour, isActive } = useCoachMarks();
-
-  const financeTourSteps = useMemo(() => [
-    {
-      id: "owner_fin_collected",
-      title: "Collected Revenue",
-      description: "This shows money you have already received this month, broken down by cash and bank transfers.",
-      position: "bottom" as const,
-    },
-    {
-      id: "owner_fin_pending",
-      title: "Pending Payments",
-      description: "Payments that are waiting to be confirmed. Follow up on these to keep your cash flow healthy.",
-      position: "bottom" as const,
-    },
-    {
-      id: "owner_fin_estimated",
-      title: "Monthly Forecast",
-      description: "An estimate of your monthly revenue based on active subscriptions and packages.",
-      position: "bottom" as const,
-    },
-    {
-      id: "owner_fin_recent",
-      title: "Recent Payments",
-      description: "A list of the latest payments from your players. Check status and payment method at a glance.",
-      position: "top" as const,
-    },
-  ], []);
-
-  useEffect(() => {
-    if (!isActive) {
-      const timer = setTimeout(() => startTour("owner_finance_tour", financeTourSteps), 1500);
-      return () => clearTimeout(timer);
-    }
-  }, []);
-
   const { data: financeData, isLoading, isError, refetch } = useQuery<FinanceData>({
     queryKey: ["/api/owner/finance"],
   });
@@ -229,7 +191,7 @@ export default function FinanceScreen() {
           <Text style={styles.subtitle}>Revenue tracking in 3 clear sections</Text>
         </View>
 
-        <CoachMarkTarget id="owner_fin_collected">
+        
         <FinanceSectionCard
           icon="checkmark-circle"
           iconColor={Colors.dark.primary}
@@ -272,9 +234,9 @@ export default function FinanceScreen() {
             </View>
           </View>
         </FinanceSectionCard>
-        </CoachMarkTarget>
+        
 
-        <CoachMarkTarget id="owner_fin_pending">
+        
         <FinanceSectionCard
           icon="time"
           iconColor={Colors.dark.orange}
@@ -294,9 +256,9 @@ export default function FinanceScreen() {
             </View>
           </View>
         </FinanceSectionCard>
-        </CoachMarkTarget>
+        
 
-        <CoachMarkTarget id="owner_fin_estimated">
+        
         <FinanceSectionCard
           icon="trending-up"
           iconColor={Colors.dark.xpCyan}
@@ -331,9 +293,9 @@ export default function FinanceScreen() {
             </View>
           )}
         </FinanceSectionCard>
-        </CoachMarkTarget>
+        
 
-        <CoachMarkTarget id="owner_fin_recent">
+        
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
             <Text style={styles.sectionTitle}>Recent Payments</Text>
@@ -359,7 +321,7 @@ export default function FinanceScreen() {
             </View>
           )}
         </View>
-        </CoachMarkTarget>
+        
       </ScrollView>
     </View>
   );

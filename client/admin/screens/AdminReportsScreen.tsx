@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState } from "react";
 import {
   View,
   Text,
@@ -18,8 +18,6 @@ import * as Haptics from "expo-haptics";
 import * as Print from "expo-print";
 import * as Sharing from "expo-sharing";
 import { Colors, Backgrounds, Spacing, BorderRadius, Typography, CardStyles, GlowColors } from "@/constants/theme";
-import { useCoachMarks, CoachMarkTarget } from "@/components/CoachMarks";
-
 interface AdminStats {
   totalCoaches: number;
   totalPlayers: number;
@@ -56,7 +54,6 @@ const MONTHS = [
 
 export default function AdminReportsScreen() {
   const insets = useSafeAreaInsets();
-  const { startTour, isActive } = useCoachMarks();
   const [activeReport, setActiveReport] = useState<ReportType>(null);
   const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth() + 1);
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
@@ -78,20 +75,6 @@ export default function AdminReportsScreen() {
   const { data: revenueData, isLoading: isLoadingRevenue } = useQuery<RevenueData>({
     queryKey: ["/api/admin/revenue", { month: selectedMonth, year: selectedYear }],
   });
-
-  const reportsTourSteps = useMemo(() => [
-    { id: "admin_reports_overview", title: "At a Glance", description: "Key numbers for your academy: coaches, players, sessions, and attendance rate.", position: "bottom" as const },
-    { id: "admin_reports_distribution", title: "Player Distribution", description: "See how your players are spread across different ball levels.", position: "bottom" as const },
-    { id: "admin_reports_quick", title: "Quick Reports", description: "Tap any report to dive deeper into player progress, session history, revenue, or coach performance.", position: "top" as const },
-  ], []);
-
-  useEffect(() => {
-    if (!isActive) {
-      const timer = setTimeout(() => startTour("admin_reports_tour", reportsTourSteps), 1500);
-      return () => clearTimeout(timer);
-    }
-  }, []);
-
   const stats: AdminStats = {
     totalCoaches: coaches.length,
     totalPlayers: players.length,
@@ -579,7 +562,7 @@ export default function AdminReportsScreen() {
       >
         <Text style={styles.title}>Reports & Analytics</Text>
 
-        <CoachMarkTarget id="admin_reports_overview">
+        
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Overview</Text>
             <View style={styles.statsGrid}>
@@ -605,9 +588,9 @@ export default function AdminReportsScreen() {
               </View>
             </View>
           </View>
-        </CoachMarkTarget>
+        
 
-        <CoachMarkTarget id="admin_reports_distribution">
+        
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Player Distribution</Text>
             <View style={[styles.distributionCard, CardStyles.elevated]}>
@@ -636,9 +619,9 @@ export default function AdminReportsScreen() {
               ) : null}
             </View>
           </View>
-        </CoachMarkTarget>
+        
 
-        <CoachMarkTarget id="admin_reports_quick">
+        
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Quick Reports</Text>
           <Pressable 
@@ -697,7 +680,7 @@ export default function AdminReportsScreen() {
             </View>
           </Pressable>
         </View>
-        </CoachMarkTarget>
+        
       </ScrollView>
 
       {renderReportModal()}

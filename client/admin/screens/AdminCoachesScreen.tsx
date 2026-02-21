@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState } from "react";
 import {
   View,
   Text,
@@ -20,8 +20,6 @@ import * as Haptics from "expo-haptics";
 import { Colors, Backgrounds, Spacing, BorderRadius, Typography, CardStyles, GlowColors } from "@/constants/theme";
 import { apiRequest } from "@/lib/query-client";
 import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollViewCompat";
-import { useCoachMarks, CoachMarkTarget } from "@/components/CoachMarks";
-
 interface Coach {
   id: string;
   name: string;
@@ -106,7 +104,6 @@ const PAYMENT_METHODS = [
 export default function AdminCoachesScreen() {
   const insets = useSafeAreaInsets();
   const queryClient = useQueryClient();
-  const { startTour, isActive } = useCoachMarks();
   const [showAddModal, setShowAddModal] = useState(false);
   const [showDetailModal, setShowDetailModal] = useState(false);
   const [showPaymentModal, setShowPaymentModal] = useState(false);
@@ -162,20 +159,6 @@ export default function AdminCoachesScreen() {
     setFormData({ name: "", email: "", phone: "", specialty: "", hourlyRate: "" });
     setEditingCoach(null);
   };
-
-  const coachesTourSteps = useMemo(() => [
-    { id: "admin_coaches_header", title: "Your Coaching Team", description: "View and manage all your academy coaches from here.", position: "bottom" as const },
-    { id: "admin_coaches_add", title: "Add a Coach", description: "Tap the + button to invite a new coach to your academy.", position: "bottom" as const },
-    { id: "admin_coaches_list", title: "Coach Details", description: "Tap any coach to see their stats, payment history, and performance.", position: "bottom" as const },
-  ], []);
-
-  useEffect(() => {
-    if (!isActive) {
-      const timer = setTimeout(() => startTour("admin_coaches_tour", coachesTourSteps), 1500);
-      return () => clearTimeout(timer);
-    }
-  }, []);
-
   const openAddModal = () => {
     resetForm();
     setShowAddModal(true);
@@ -776,18 +759,18 @@ export default function AdminCoachesScreen() {
         style={styles.headerGradient}
       />
 
-      <CoachMarkTarget id="admin_coaches_header">
+      
         <View style={styles.header}>
           <Text style={styles.title}>Manage Coaches</Text>
-          <CoachMarkTarget id="admin_coaches_add">
+          
             <Pressable style={styles.addButton} onPress={openAddModal}>
               <Ionicons name="add" size={24} color={Colors.dark.text} />
             </Pressable>
-          </CoachMarkTarget>
+          
         </View>
-      </CoachMarkTarget>
+      
 
-      <CoachMarkTarget id="admin_coaches_list">
+      
         <FlatList
           data={coaches}
           keyExtractor={(item) => item.id}
@@ -802,7 +785,7 @@ export default function AdminCoachesScreen() {
             </View>
           }
         />
-      </CoachMarkTarget>
+      
 
       {renderDetailModal()}
 

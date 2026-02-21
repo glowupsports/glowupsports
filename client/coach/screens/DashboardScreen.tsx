@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useEffect, useCallback, useRef } from "react";
+import React, { useMemo, useState, useEffect, useCallback } from "react";
 import {
   View,
   Text,
@@ -59,7 +59,6 @@ import { RoleSwitchingGuide } from "@/components/RoleSwitchingGuide";
 import { PlatformUsageProgress } from "@/components/PlatformUsageProgress";
 import { NotificationGuideModal } from "@/components/NotificationGuideModal";
 import { FirstActionCelebration } from "@/components/FirstActionCelebration";
-import { useCoachMarks, CoachMarkTarget } from "@/components/CoachMarks";
 import { useTranslation } from "react-i18next";
 
 interface Player {
@@ -122,53 +121,6 @@ export default function DashboardScreen() {
   const [selectedSessionForAttendance, setSelectedSessionForAttendance] = useState<Session | null>(null);
   const [showWelcome, setShowWelcome] = useState(false);
   const [showHelpCenter, setShowHelpCenter] = useState(false);
-
-  const { startTour, isActive } = useCoachMarks();
-  const hasStartedTourRef = useRef(false);
-
-  const coachTourSteps = useMemo(() => [
-    {
-      id: "coach_calendar",
-      title: "Your Calendar",
-      description: "View all your upcoming sessions here. Swipe to see different days and weeks.",
-      position: "bottom" as const,
-    },
-    {
-      id: "coach_earnings",
-      title: "Track Your Earnings",
-      description: "See how much you've earned this month, your session count, and payment status.",
-      position: "bottom" as const,
-    },
-    {
-      id: "coach_wellness",
-      title: "Your Wellness",
-      description: "Log how you're feeling before and after coaching. This helps track your energy levels over time.",
-      position: "bottom" as const,
-    },
-    {
-      id: "coach_players",
-      title: "Your Players",
-      description: "Quick access to all players you're coaching. Tap any player to see their progress.",
-      position: "top" as const,
-    },
-    {
-      id: "coach_help",
-      title: "Need Help?",
-      description: "Tap this button anytime for FAQs, tutorials, and support contacts.",
-      position: "left" as const,
-    },
-  ], []);
-
-  useEffect(() => {
-    if (!isLoading && calendarData && !isActive && !hasStartedTourRef.current) {
-      hasStartedTourRef.current = true;
-      const timer = setTimeout(() => {
-        startTour("coach_dashboard", coachTourSteps);
-      }, 1500);
-      return () => clearTimeout(timer);
-    }
-  }, [isLoading, calendarData]);
-
   useEffect(() => {
     const interval = setInterval(() => {
       setCurrentSecond(Math.floor(Date.now() / 1000));
@@ -953,7 +905,6 @@ export default function DashboardScreen() {
           </LinearGradient>
         </View>
 
-
         {/* === BIRTHDAY NOTIFICATIONS === */}
         {birthdaysData && birthdaysData.count > 0 && (
           <View style={styles.birthdaySection}>
@@ -1025,7 +976,7 @@ export default function DashboardScreen() {
         )}
 
         {/* === COURT COMMAND - Tennis Control Centre === */}
-        <CoachMarkTarget id="coach_calendar">
+        
         <View style={styles.missionConsole}>
           {/* Neon frame */}
           <View style={styles.missionFrame}>
@@ -1292,7 +1243,7 @@ export default function DashboardScreen() {
             )}
           </LinearGradient>
         </View>
-        </CoachMarkTarget>
+        
 
         {/* === POWER GAUGE - Gaming Energy HUD === */}
         <View style={styles.gamingCard}>
@@ -1447,14 +1398,14 @@ export default function DashboardScreen() {
         </View>
 
         {/* === SMART INSIGHTS - Quick contextual tips === */}
-        <CoachMarkTarget id="coach_players">
+        
         <CoachInsightsPanel 
           insights={coachInsights}
           onInsightPress={(insight) => {
             Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
           }}
         />
-        </CoachMarkTarget>
+        
 
         {/* === COACH ANALYTICS - Gaming Insights HUD === */}
         <View style={styles.gamingCard}>
@@ -1499,22 +1450,22 @@ export default function DashboardScreen() {
               </View>
             ) : (
               <View style={styles.gamingInsightsContent}>
-                <CoachMarkTarget id="coach_earnings">
+                
                 <CoachEarningsCard 
                   onPress={() => {
                     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
                     navigation.navigate("CoachEarnings" as never);
                   }}
                 />
-                </CoachMarkTarget>
-                <CoachMarkTarget id="coach_wellness">
+                
+                
                 <BurnoutRiskCard 
                   onPress={() => {
                     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
                     navigation.navigate("WellbeingDetail" as never);
                   }}
                 />
-                </CoachMarkTarget>
+                
                 <LoadForecastCard 
                   onDayPress={(date) => {
                     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -1525,7 +1476,6 @@ export default function DashboardScreen() {
             )}
           </LinearGradient>
         </View>
-
 
         {/* === ACTION QUEUE - Gaming Alerts HUD === */}
         {alerts.length > 0 ? (
@@ -1690,14 +1640,14 @@ export default function DashboardScreen() {
         slides={coachWelcomeSlides}
         onComplete={() => {}}
       />
-      <CoachMarkTarget id="coach_help">
+      
       <HelpButton
         role="coach"
         faqs={coachFAQs}
         supportEmail="support@glowupsports.com"
         bottomOffset={120}
       />
-      </CoachMarkTarget>
+      
       <RoleSwitchingGuide
         visible={showRoleSwitchGuide}
         onClose={() => setShowRoleSwitchGuide(false)}
