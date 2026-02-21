@@ -902,6 +902,7 @@ export default function DashboardScreen() {
                 <Pressable
                   style={styles.actionBtnGlow}
                   onPress={() => handleNavigate("Notifications")}
+                  hitSlop={{ top: 16, bottom: 16, left: 16, right: 16 }}
                 >
                   <View style={styles.actionBtnInner}>
                     <Ionicons name="notifications" size={20} color={Colors.dark.xpCyan} />

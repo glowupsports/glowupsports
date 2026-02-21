@@ -1,7 +1,6 @@
 import React from "react";
 import { View, Text, StyleSheet, Pressable, Platform, Image as RNImage } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
-import { BlurView } from "expo-blur";
 import { Image } from "expo-image";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import Animated, {
@@ -12,7 +11,7 @@ import Animated, {
   interpolate,
   Extrapolation,
 } from "react-native-reanimated";
-import { ProTennisColors, Spacing, BorderRadius, GlowColors, Backgrounds } from "@/constants/theme";
+import { Spacing, BorderRadius, GlowColors, Backgrounds } from "@/constants/theme";
 import * as Haptics from "expo-haptics";
 import { getStaticAssetsUrl } from "@/lib/query-client";
 import { usePlayerLevel } from "../hooks/usePlayerLevel";
@@ -48,16 +47,7 @@ interface ProPlayerCardProps {
   showSquadSwitch?: boolean;
   onNotificationPress?: () => void;
   unreadNotificationCount?: number;
-}
-
-function getPlayerTitle(level: number, streak: number, glowScore: number, t: (key: string) => string): string {
-  if (level >= 15) return t("player.titles.eliteChampion");
-  if (level >= 12) return t("player.titles.proPlayer");
-  if (level >= 10) return t("player.titles.risingStar");
-  if (level >= 7) return t("player.titles.courtWarrior");
-  if (level >= 5) return t("player.titles.academyAce");
-  if (level >= 3) return t("player.titles.tennisTalent");
-  return t("player.titles.rookie");
+  accessibilityLabel?: string;
 }
 
 export function ProPlayerCard({ 
@@ -87,7 +77,6 @@ export function ProPlayerCard({
   }, []);
   
   const currentLevel = levelStatus?.level ?? player.level;
-  const playerTitle = levelStatus?.title || getPlayerTitle(currentLevel, player.streak, player.glowScore, t);
   const xpInLevel = levelStatus?.xpInCurrentLevel ?? 0;
   const xpNeeded = levelStatus?.xpNeededForNextLevel ?? 100;
   const xpProgress = xpNeeded > 0 ? Math.min(xpInLevel / xpNeeded, 1) : 0;
@@ -128,135 +117,160 @@ export function ProPlayerCard({
   };
 
   return (
-    <View style={styles.container}>
-      {Platform.OS === "ios" ? (
-        <BlurView intensity={40} tint="dark" style={StyleSheet.absoluteFill}>
+    <View>
+      <View style={styles.container}>
+        <Animated.View style={[styles.cardGlow, glowRingStyle, { pointerEvents: "none" as const }]} />
+
+        <LinearGradient
+          colors={["rgba(46, 204, 64, 0.08)", "rgba(0, 212, 255, 0.04)", "rgba(26, 26, 26, 0.95)"]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.cardGradient}
+        >
           <LinearGradient
-            colors={[Backgrounds.card + "F0", Backgrounds.root + "F8"]}
-            style={StyleSheet.absoluteFill}
+            colors={[GlowColors.primary, "#00D4FF", GlowColors.primary]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 0 }}
+            style={styles.topAccentLine}
           />
-        </BlurView>
-      ) : (
-        <View style={[StyleSheet.absoluteFill, { backgroundColor: Backgrounds.card + "F8" }]} />
-      )}
-      
-      <View style={styles.cardContent}>
-        <View style={styles.topRow}>
-          <Pressable style={styles.avatarSection} onPress={handleAvatarPress}>
-            <View style={styles.avatarWrapper}>
-              <Animated.View style={[styles.glowRing, glowRingStyle]} />
-              {profilePhotoUri ? (
-                Platform.OS === 'web' ? (
-                  <RNImage
-                    source={{ uri: profilePhotoUri }}
-                    style={styles.avatarPhoto}
-                    resizeMode="cover"
-                  />
-                ) : (
-                  <Image
-                    source={{ uri: profilePhotoUri }}
-                    style={styles.avatarPhoto}
-                    contentFit="cover"
-                  />
-                )
-              ) : (
+
+          <View style={styles.cardContent}>
+            <Pressable style={styles.avatarContainer} onPress={handleAvatarPress}>
+              <Animated.View style={[styles.avatarOuterGlow, glowRingStyle]}>
                 <LinearGradient
-                  colors={[GlowColors.primary, GlowColors.soft]}
-                  style={styles.avatarGradient}
+                  colors={[GlowColors.primary + "60", "#00D4FF40", GlowColors.primary + "60"]}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 1 }}
+                  style={styles.avatarGlowGradient}
+                />
+              </Animated.View>
+
+              <View style={styles.avatarFrame}>
+                <LinearGradient
+                  colors={[GlowColors.primary, "#00D4FF"]}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 1 }}
+                  style={styles.avatarBorder}
                 >
-                  <View style={styles.avatarInner}>
-                    <Text style={styles.avatarText}>{(player.name || "P").charAt(0).toUpperCase()}</Text>
-                  </View>
+                  {profilePhotoUri ? (
+                    Platform.OS === 'web' ? (
+                      <RNImage
+                        source={{ uri: profilePhotoUri }}
+                        style={styles.avatarPhoto}
+                        resizeMode="cover"
+                      />
+                    ) : (
+                      <Image
+                        source={{ uri: profilePhotoUri }}
+                        style={styles.avatarPhoto}
+                        contentFit="cover"
+                      />
+                    )
+                  ) : (
+                    <View style={styles.avatarInner}>
+                      <Text style={styles.avatarText}>{(player.name || "P").charAt(0).toUpperCase()}</Text>
+                    </View>
+                  )}
                 </LinearGradient>
-              )}
-              <View style={styles.levelBadgeOnAvatar}>
-                <Text style={styles.levelBadgeText}>{currentLevel}</Text>
               </View>
-            </View>
-          </Pressable>
 
-          <View style={styles.identitySection}>
-            <Text style={styles.roleLabel}>PLAYER</Text>
-            <Text style={styles.playerName} numberOfLines={1}>{player.name || "Player"}</Text>
-            <View style={styles.subtitleRow}>
-              <Ionicons name="tennisball" size={12} color={GlowColors.primary} />
-              <Text style={styles.academyText} numberOfLines={1}>
-                {academyName || "Free Player"}
-              </Text>
-            </View>
-          </View>
-
-          <View style={styles.iconsRow}>
-            <LanguageHeaderButton />
-            {onNotificationPress ? (
-              <Pressable style={styles.iconBtn} onPress={onNotificationPress}>
-                <Ionicons name="notifications" size={18} color="#B8BCC6" />
-                {unreadNotificationCount > 0 ? (
-                  <View style={styles.bellBadge}>
-                    <Text style={styles.bellBadgeText}>
-                      {unreadNotificationCount > 99 ? "99+" : unreadNotificationCount}
-                    </Text>
-                  </View>
-                ) : null}
-              </Pressable>
-            ) : null}
-          </View>
-        </View>
-
-        <View style={styles.bottomSection}>
-          <View style={styles.xpRow}>
-            <Text style={styles.xpText}>
-              <Text style={styles.xpValue}>{xpInLevel}</Text>
-              <Text style={styles.xpDivider}> / {xpNeeded}</Text>
-            </Text>
-          </View>
-          <View style={styles.xpBarTrack}>
-            <LinearGradient
-              colors={[GlowColors.primary, GlowColors.soft]}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 0 }}
-              style={[styles.xpBarFill, { width: `${Math.max(xpProgress * 100, 2)}%` }]}
-            />
-          </View>
-
-          <View style={styles.statsRow}>
-            <Pressable 
-              style={[
-                styles.walletChip,
-                (credits?.total ?? 0) <= 0 && styles.walletChipDanger,
-              ]} 
-              onPress={handleWalletPress}
-            >
-              {(credits?.total ?? 0) <= 0 ? (
-                <Ionicons name="alert-circle" size={14} color="#FF4D4D" />
-              ) : null}
-              <Ionicons 
-                name="wallet-outline" 
-                size={14} 
-                color={(credits?.total ?? 0) <= 0 ? "#FF4D4D" : GlowColors.primary} 
-              />
-              <Text style={[
-                styles.walletText,
-                (credits?.total ?? 0) <= 0 && styles.walletTextDanger,
-              ]}>{credits?.total ?? 0}</Text>
+              <View style={styles.levelBadge}>
+                <LinearGradient
+                  colors={[GlowColors.primary, GlowColors.soft, GlowColors.primary]}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 1 }}
+                  style={styles.levelBadgeGradient}
+                >
+                  <Text style={styles.levelBadgeText}>{currentLevel}</Text>
+                </LinearGradient>
+              </View>
             </Pressable>
 
-            {player.streak > 0 ? (
-              <View style={styles.streakChip}>
-                <Ionicons name="flame" size={14} color={player.streak >= 5 ? "#FF6B35" : GlowColors.primary} />
-                <Text style={[styles.streakText, { color: player.streak >= 5 ? "#FF6B35" : GlowColors.primary }]}>
-                  {player.streak}
+            <View style={styles.identitySection}>
+              <Text style={styles.roleLabel}>PLAYER</Text>
+              <Text style={styles.playerName} numberOfLines={1}>{player.name || "Player"}</Text>
+              <View style={styles.academyRow}>
+                <Ionicons name="tennisball" size={12} color={GlowColors.primary} />
+                <Text style={styles.academyText} numberOfLines={1}>
+                  {academyName || "Free Player"}
                 </Text>
               </View>
-            ) : null}
 
-            {showSquadSwitch ? (
-              <Pressable style={styles.iconChip} onPress={handleSquadPress}>
-                <Ionicons name="people-outline" size={14} color="#B8BCC6" />
-              </Pressable>
-            ) : null}
+              <View style={styles.xpSection}>
+                <View style={styles.xpBarTrack}>
+                  <LinearGradient
+                    colors={[GlowColors.primary, "#00D4FF"]}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 0 }}
+                    style={[styles.xpBarFill, { width: `${Math.max(xpProgress * 100, 2)}%` }]}
+                  />
+                </View>
+                <View style={styles.xpLabels}>
+                  <Text style={styles.xpCurrent}>{xpInLevel} XP</Text>
+                  <Text style={styles.xpRequired}>/ {xpNeeded}</Text>
+                </View>
+              </View>
+            </View>
+
+            <View style={styles.actionsColumn}>
+              <LanguageHeaderButton />
+              {onNotificationPress ? (
+                <Pressable
+                  style={styles.actionBtn}
+                  onPress={onNotificationPress}
+                  hitSlop={{ top: 16, bottom: 16, left: 16, right: 16 }}
+                >
+                  <Ionicons name="notifications" size={20} color="#00D4FF" />
+                  {unreadNotificationCount > 0 ? (
+                    <View style={styles.notifBadge}>
+                      <Text style={styles.notifBadgeText}>
+                        {unreadNotificationCount > 99 ? "99+" : unreadNotificationCount}
+                      </Text>
+                    </View>
+                  ) : null}
+                </Pressable>
+              ) : null}
+            </View>
           </View>
-        </View>
+        </LinearGradient>
+      </View>
+
+      <View style={styles.statsRow}>
+        <Pressable 
+          style={[
+            styles.walletChip,
+            (credits?.total ?? 0) <= 0 && styles.walletChipDanger,
+          ]} 
+          onPress={handleWalletPress}
+        >
+          {(credits?.total ?? 0) <= 0 ? (
+            <Ionicons name="alert-circle" size={14} color="#FF4D4D" />
+          ) : null}
+          <Ionicons 
+            name="wallet-outline" 
+            size={14} 
+            color={(credits?.total ?? 0) <= 0 ? "#FF4D4D" : GlowColors.primary} 
+          />
+          <Text style={[
+            styles.walletText,
+            (credits?.total ?? 0) <= 0 && styles.walletTextDanger,
+          ]}>{credits?.total ?? 0}</Text>
+        </Pressable>
+
+        {player.streak > 0 ? (
+          <View style={styles.streakChip}>
+            <Ionicons name="flame" size={14} color={player.streak >= 5 ? "#FF6B35" : GlowColors.primary} />
+            <Text style={[styles.streakText, { color: player.streak >= 5 ? "#FF6B35" : GlowColors.primary }]}>
+              {player.streak}
+            </Text>
+          </View>
+        ) : null}
+
+        {showSquadSwitch ? (
+          <Pressable style={styles.iconChip} onPress={handleSquadPress}>
+            <Ionicons name="people-outline" size={14} color="#B8BCC6" />
+          </Pressable>
+        ) : null}
       </View>
     </View>
   );
@@ -264,56 +278,78 @@ export function ProPlayerCard({
 
 const styles = StyleSheet.create({
   container: {
+    position: "relative",
+    marginHorizontal: Spacing.md,
+    borderRadius: BorderRadius.lg,
     overflow: "hidden",
-    borderBottomLeftRadius: BorderRadius.lg,
-    borderBottomRightRadius: BorderRadius.lg,
+  },
+  cardGlow: {
+    position: "absolute",
+    top: -2,
+    left: -2,
+    right: -2,
+    bottom: -2,
+    borderRadius: BorderRadius.lg + 2,
+    borderWidth: 2,
+    borderColor: GlowColors.primary,
+    opacity: 0.5,
+  },
+  cardGradient: {
+    borderRadius: BorderRadius.lg,
+    borderWidth: 1,
+    borderColor: GlowColors.primary + "40",
+    overflow: "hidden",
+  },
+  topAccentLine: {
+    height: 3,
+    width: "100%",
   },
   cardContent: {
-    paddingHorizontal: Spacing.lg,
-    paddingTop: Spacing.md,
-    paddingBottom: Spacing.lg,
-    gap: Spacing.md,
-  },
-  topRow: {
     flexDirection: "row",
     alignItems: "center",
+    padding: Spacing.md,
     gap: Spacing.md,
   },
-  avatarSection: {
+  avatarContainer: {
     position: "relative",
+    width: 70,
+    height: 70,
+    alignItems: "center",
+    justifyContent: "center",
   },
-  avatarWrapper: {
+  avatarOuterGlow: {
+    position: "absolute",
+    width: 70,
+    height: 70,
+    borderRadius: 35,
+    overflow: "hidden",
+  },
+  avatarGlowGradient: {
+    width: "100%",
+    height: "100%",
+  },
+  avatarFrame: {
     width: 60,
     height: 60,
+    borderRadius: 30,
+    overflow: "hidden",
+  },
+  avatarBorder: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
     justifyContent: "center",
     alignItems: "center",
-  },
-  glowRing: {
-    position: "absolute",
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    borderWidth: 2,
-    borderColor: "rgba(200, 255, 61, 0.35)",
   },
   avatarPhoto: {
     width: 54,
     height: 54,
     borderRadius: 27,
-    borderWidth: 2,
-    borderColor: "rgba(255, 255, 255, 0.12)",
   },
-  avatarGradient: {
+  avatarInner: {
     width: 54,
     height: 54,
     borderRadius: 27,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  avatarInner: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
     backgroundColor: Backgrounds.root,
     justifyContent: "center",
     alignItems: "center",
@@ -323,23 +359,24 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     color: GlowColors.primary,
   },
-  levelBadgeOnAvatar: {
+  levelBadge: {
     position: "absolute",
-    bottom: -2,
-    right: -2,
+    bottom: 0,
+    left: 0,
+    borderRadius: 10,
+    overflow: "hidden",
+  },
+  levelBadgeGradient: {
     width: 22,
     height: 22,
     borderRadius: 11,
-    backgroundColor: GlowColors.primary,
     justifyContent: "center",
     alignItems: "center",
-    borderWidth: 2,
-    borderColor: Backgrounds.card,
   },
   levelBadgeText: {
     fontSize: 10,
     fontWeight: "800",
-    color: Backgrounds.root,
+    color: "#000000",
   },
   identitySection: {
     flex: 1,
@@ -352,89 +389,87 @@ const styles = StyleSheet.create({
     letterSpacing: 1.5,
   },
   playerName: {
-    fontSize: 20,
+    fontSize: 18,
     fontWeight: "800",
     color: "#FFFFFF",
-    letterSpacing: 0.3,
   },
-  subtitleRow: {
+  academyRow: {
     flexDirection: "row",
     alignItems: "center",
     gap: 4,
-    marginTop: 1,
   },
   academyText: {
     fontSize: 12,
     fontWeight: "500",
     color: "#7C8290",
   },
-  iconsRow: {
+  xpSection: {
+    marginTop: 4,
+    gap: 2,
+  },
+  xpBarTrack: {
+    height: 4,
+    backgroundColor: "rgba(255, 255, 255, 0.08)",
+    borderRadius: 2,
+    overflow: "hidden",
+  },
+  xpBarFill: {
+    height: "100%",
+    borderRadius: 2,
+  },
+  xpLabels: {
     flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
+    gap: 4,
   },
-  iconBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: "rgba(255, 255, 255, 0.06)",
+  xpCurrent: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: GlowColors.primary,
+  },
+  xpRequired: {
+    fontSize: 11,
+    color: "#7C8290",
+    fontWeight: "500",
+  },
+  actionsColumn: {
+    alignItems: "center",
+    gap: Spacing.sm,
+  },
+  actionBtn: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: "rgba(0, 212, 255, 0.15)",
+    alignItems: "center",
     justifyContent: "center",
-    alignItems: "center",
+    borderWidth: 1,
+    borderColor: "rgba(0, 212, 255, 0.30)",
   },
-  bellBadge: {
+  notifBadge: {
     position: "absolute",
     top: -2,
     right: -2,
     backgroundColor: "#FF3B30",
     borderRadius: 10,
-    minWidth: 16,
-    height: 16,
+    minWidth: 18,
+    height: 18,
     justifyContent: "center",
     alignItems: "center",
-    paddingHorizontal: 3,
-    borderWidth: 1.5,
-    borderColor: Backgrounds.card,
+    paddingHorizontal: 4,
+    borderWidth: 2,
+    borderColor: "#1a1a1a",
   },
-  bellBadgeText: {
+  notifBadgeText: {
     fontSize: 9,
     fontWeight: "800",
     color: "#FFFFFF",
-  },
-  bottomSection: {
-    gap: 6,
-  },
-  xpRow: {
-    flexDirection: "row",
-    alignItems: "baseline",
-  },
-  xpText: {
-    fontSize: 13,
-  },
-  xpValue: {
-    fontWeight: "700",
-    color: GlowColors.primary,
-    fontSize: 14,
-  },
-  xpDivider: {
-    fontWeight: "500",
-    color: "#7C8290",
-    fontSize: 12,
-  },
-  xpBarTrack: {
-    height: 6,
-    backgroundColor: "rgba(255, 255, 255, 0.08)",
-    borderRadius: 3,
-    overflow: "hidden",
-  },
-  xpBarFill: {
-    height: "100%",
-    borderRadius: 3,
   },
   statsRow: {
     flexDirection: "row",
     alignItems: "center",
     gap: Spacing.sm,
-    marginTop: 2,
+    paddingHorizontal: Spacing.lg,
+    paddingTop: Spacing.sm,
   },
   walletChip: {
     flexDirection: "row",
