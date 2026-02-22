@@ -295,7 +295,8 @@ export async function sendSessionReminder(
   startTime: Date,
   coachName: string,
   location?: string,
-  academyId?: string | null
+  academyId?: string | null,
+  reminderType: "1h" | "30m" = "1h"
 ): Promise<void> {
   const tokens = await getPlayerPushTokens(playerId);
   if (tokens.length === 0) return;
@@ -304,10 +305,11 @@ export async function sendSessionReminder(
   const { time } = formatSessionDateTime(startTime, timezone);
   const typeLabel = formatSessionType(sessionType);
   const locationStr = location ? ` at ${location}` : "";
+  const timeLabel = reminderType === "1h" ? "1 Hour" : "30 Minutes";
 
   await sendPushNotification(
     tokens,
-    `Session in 1 Hour`,
+    `Session in ${timeLabel}`,
     `${typeLabel} at ${time} with ${coachName}${locationStr}. See you on court!`,
     { type: "session_reminder", playerId },
     playerId
@@ -478,7 +480,8 @@ async function sendRemindersForSession(
           session.startTime,
           coachName,
           undefined,
-          session.academyId
+          session.academyId,
+          reminderType
         ).catch(err => console.error(`[SessionReminders] Failed to send player ${reminderType} reminder:`, err));
         playerNotificationsSent++;
       }
