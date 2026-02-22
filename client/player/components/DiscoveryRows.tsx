@@ -398,7 +398,7 @@ export function GroupLessonsRow() {
                       <Text style={styles.playCardMetaDot}>·</Text>
                       <View style={[styles.ballLevelDot, { backgroundColor: levelColor }]} />
                       <Text style={[styles.playCardMetaText, { color: levelColor }]}>
-                        {session.ballLevel ? session.ballLevel.charAt(0).toUpperCase() + session.ballLevel.slice(1) : t("player.home.allLevels")}
+                        {session.ballLevel ? session.ballLevel.charAt(0).toUpperCase() + session.ballLevel.slice(1) : t("player.play.allLevels")}
                       </Text>
                       <Text style={styles.playCardMetaDot}>·</Text>
                       <Text style={styles.playCardMetaText}>{(session as any).skillLevel || t("player.home.competitive")}</Text>
@@ -458,7 +458,7 @@ export function GroupLessonsRow() {
                       </Pressable>
                     ) : (
                       <Pressable style={styles.playCardWaitlistButton}>
-                        <Text style={styles.playCardWaitlistText}>{t("common.joinWaitlist")}</Text>
+                        <Text style={styles.playCardWaitlistText}>{t("player.play.joinWaitlist")}</Text>
                       </Pressable>
                     )}
                   </View>

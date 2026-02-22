@@ -17,8 +17,8 @@ import { Image } from "expo-image";
 import { useQuery } from "@tanstack/react-query";
 import { ProTennisColors, Backgrounds, Spacing, BorderRadius, GlowColors, Colors } from "@/constants/theme";
 import { usePlayerState } from "@/player/context/PlayerStateContext";
-import { useNavigation } from "@react-navigation/native";
 import { apiFetch, getStaticAssetsUrl } from "@/lib/query-client";
+import { useTabNavigation } from "@/components/TabNavigationContext";
 import * as Haptics from "expo-haptics";
 
 interface Post {
@@ -210,7 +210,7 @@ function AnimatedEventCard({
 
 export function MiniFeed() {
   const { state } = usePlayerState();
-  const navigation = useNavigation<any>();
+  const { navigateToTab } = useTabNavigation();
 
   const { data: feedData } = useQuery<Post[]>({
     queryKey: ["/api/social/feed", "dashboard-preview"],
@@ -227,12 +227,12 @@ export function MiniFeed() {
 
   const handlePress = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    navigation.navigate("PlayerTabs", { screen: "Community" });
+    navigateToTab("Community");
   };
 
   const handleSeeAll = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    navigation.navigate("PlayerTabs", { screen: "Community" });
+    navigateToTab("Community");
   };
 
   const events = state.communityEvents.slice(0, 2);

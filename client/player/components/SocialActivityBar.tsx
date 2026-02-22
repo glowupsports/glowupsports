@@ -2,26 +2,15 @@ import React from "react";
 import { View, Text, StyleSheet } from "react-native";
 import { Feather } from "@expo/vector-icons";
 import { Backgrounds, Spacing, BorderRadius, GlowColors, FunctionColors } from "@/constants/theme";
-import { useQuery } from "@tanstack/react-query";
-
-interface CommunityStats {
-  activePlayers: number;
-  matchesToday: number;
-  communityStreak: number;
-}
+import { usePlayerState } from "@/player/context/PlayerStateContext";
 
 export function SocialActivityBar() {
-  const { data } = useQuery<CommunityStats>({
-    queryKey: ["/api/player/community-stats"],
-    staleTime: 60000,
-    retry: false,
-  });
+  const { state } = usePlayerState();
 
-  const activePlayers = data?.activePlayers ?? 0;
-  const matchesToday = data?.matchesToday ?? 0;
-  const communityStreak = data?.communityStreak ?? 0;
+  const activePlayers = state.nearbyPlayers?.length ?? 0;
+  const matchesToday = state.openSessions?.filter(s => s.type === "open_match")?.length ?? 0;
 
-  if (activePlayers === 0 && matchesToday === 0 && communityStreak === 0) {
+  if (activePlayers === 0 && matchesToday === 0) {
     return null;
   }
 
@@ -42,17 +31,6 @@ export function SocialActivityBar() {
             <Feather name="zap" size={12} color={FunctionColors.social} />
             <Text style={styles.statValue}>{matchesToday}</Text>
             <Text style={styles.statLabel}>matches today</Text>
-          </View>
-        </>
-      ) : null}
-
-      {communityStreak > 0 ? (
-        <>
-          <View style={styles.dot} />
-          <View style={styles.stat}>
-            <Feather name="trending-up" size={12} color={GlowColors.primary} />
-            <Text style={styles.statValue}>{communityStreak}d</Text>
-            <Text style={styles.statLabel}>streak</Text>
           </View>
         </>
       ) : null}

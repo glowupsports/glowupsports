@@ -1,12 +1,13 @@
 import React from "react";
 import { View, Text, StyleSheet, Pressable } from "react-native";
 import { useQuery } from "@tanstack/react-query";
-import { useNavigation } from "@react-navigation/native";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import Animated, { FadeInDown } from "react-native-reanimated";
 import { LinearGradient } from "expo-linear-gradient";
 import { Colors, Backgrounds, Spacing, BorderRadius, GlowColors } from "@/constants/theme";
 import { useAuth } from "@/coach/context/AuthContext";
+import { useTabNavigation } from "@/components/TabNavigationContext";
+import * as Haptics from "expo-haptics";
 
 interface FeedbackItem {
   id: string;
@@ -45,7 +46,7 @@ function timeAgo(dateStr: string): string {
 
 export function RecentFeedbackCard() {
   const { user } = useAuth();
-  const navigation = useNavigation<any>();
+  const { navigateToTab } = useTabNavigation();
 
   const { data: feedbackList } = useQuery<FeedbackItem[]>({
     queryKey: ["/api/player/me/session-feedback"],
@@ -65,7 +66,7 @@ export function RecentFeedbackCard() {
         end={{ x: 0.3, y: 1 }}
         style={styles.gradientInner}
       >
-        <Pressable onPress={() => navigation.navigate("PlayerTabs", { screen: "Progress", params: { screen: "CoachFeedbackHistory" } })} style={styles.headerRow}>
+        <Pressable onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); navigateToTab("Progress", { screen: "CoachFeedbackHistory" }); }} style={styles.headerRow}>
           <View style={styles.headerLeft}>
             <View style={styles.headerIconWrap}>
               <Ionicons name="chatbubbles" size={13} color={GlowColors.primary} />

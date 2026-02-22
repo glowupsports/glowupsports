@@ -3662,14 +3662,14 @@ function requirePlayerOrOwner(req: AuthenticatedRequest, res: Response, next: Ne
         
         const academySessions = await storage.getSessionsByAcademy(player.academyId);
         
-        // Build a map of seriesId -> requiredBallLevel for proper level filtering
+        // Build a map of seriesId -> ballLevel for proper level filtering
         const seriesLevelMap = new Map<string, string>();
         const seriesIds = [...new Set(academySessions.map(s => (s as any).seriesId).filter(Boolean))];
         for (const sid of seriesIds) {
           try {
             const series = await storage.getCoachingSeriesById(sid);
-            if (series?.requiredBallLevel) {
-              seriesLevelMap.set(sid, series.requiredBallLevel.toLowerCase());
+            if (series?.ballLevel) {
+              seriesLevelMap.set(sid, series.ballLevel.toLowerCase());
             }
           } catch (e) {}
         }
