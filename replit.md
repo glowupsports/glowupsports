@@ -55,7 +55,7 @@ The application utilizes a dark-themed gaming aesthetic with neon green and cyan
 
 ## External Dependencies
 
-- **Database**: Supabase PostgreSQL (via Drizzle ORM)
+- **Database**: Supabase PostgreSQL (via Drizzle ORM). IMPORTANT: `pool` is exported from `server/db.ts` for raw SQL queries. Use `pool.query()` with `$1` params instead of Drizzle's `db.execute(sql`...`)` for timestamp/array comparisons, as Drizzle template literals have issues with `::timestamp` casts and `ANY($1::text[])` array params. The Replit built-in DB (`heliumdb`) is separate from the Supabase DB (`postgres`) used by the app.
 - **Deployment**: Replit
 - **Push Notifications**: Expo Push API
 - **Email Service**: Resend API

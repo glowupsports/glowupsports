@@ -49,5 +49,6 @@ pool.query('SELECT 1').then(async () => {
 });
 
 export const db = drizzle(pool, { schema });
+export { pool };
 
 console.log(`[Database] Drizzle ORM initialized with Supabase PostgreSQL`);

@@ -1,5 +1,5 @@
 import { Router, Request, Response } from "express";
-import { db } from "../db";
+import { db, pool } from "../db";
 import {
   posts as postsTable,
   postReactions as postReactionsTable,
@@ -203,10 +203,11 @@ const socialPostUpload = multer({
               const friendPlayerIds = (rawFriends.rows || []).map(r => r.friend_id);
               
               if (friendPlayerIds.length > 0) {
-                const rawFriendUsers = await db.execute(sql`
-                  SELECT id FROM users WHERE player_id = ANY(${friendPlayerIds}::text[])
-                `);
-                forYouFriendIds = (rawFriendUsers.rows || []).map(r => r.id);
+                const rawFriendUsers = await pool.query(
+                  `SELECT id FROM users WHERE player_id = ANY($1::text[])`,
+                  [friendPlayerIds]
+                );
+                forYouFriendIds = rawFriendUsers.rows.map((r: any) => r.id);
               }
             }
             

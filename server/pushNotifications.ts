@@ -1,5 +1,5 @@
-import { db } from "./db";
-import { eq, and, gte, lte, inArray, isNull, lt, ne, or } from "drizzle-orm";
+import { db, pool } from "./db";
+import { eq, and, gte, lte, inArray, isNull, lt, ne, or, sql } from "drizzle-orm";
 import { pushDeviceTokens, notificationPreferences, users, players, coaches, sessions, sessionPlayers, seriesPlayers, coachXpTransactions, creditTransactions, coachNotifications } from "@shared/schema";
 import { storage } from "./storage";
 import { sendSessionReminderEmail, sendOnboardingDay3Email, sendOnboardingDay7Email } from "./emailService";
@@ -558,21 +558,40 @@ export async function processScheduledReminders(): Promise<void> {
   const thirtyFiveMinutesFromNow = new Date(now.getTime() + 35 * 60 * 1000);
 
   try {
-    const upcomingSessions = await db
-      .select()
-      .from(sessions)
-      .where(
-        and(
-          gte(sessions.startTime, now),
-          lte(sessions.startTime, sixtyFiveMinutesFromNow),
-          eq(sessions.status, "scheduled")
-        )
-      );
+    const nowStr = now.toISOString().replace("T", " ").substring(0, 19);
+    const futureStr = sixtyFiveMinutesFromNow.toISOString().replace("T", " ").substring(0, 19);
+    console.log(`[SessionReminders] Checking window: ${nowStr} to ${futureStr}`);
+
+    const rawResult = await pool.query(
+      `SELECT * FROM sessions WHERE start_time >= $1::timestamp AND start_time <= $2::timestamp AND status = 'scheduled'`,
+      [nowStr, futureStr]
+    );
+    const upcomingSessions = rawResult.rows;
+
+    console.log(`[SessionReminders] Found ${upcomingSessions.length} sessions in window (params: ${nowStr}, ${futureStr})`);
+    for (const s of upcomingSessions) {
+      const startTime = s.start_time ? new Date(s.start_time) : s.startTime;
+      console.log(`[SessionReminders]   - ${s.id} starts ${startTime} type=${s.session_type || s.sessionType} level=${s.ball_level || s.ballLevel}`);
+    }
 
     let sent1h = 0;
     let sent30m = 0;
 
-    for (const session of upcomingSessions) {
+    for (const raw of upcomingSessions) {
+      const session = {
+        id: raw.id,
+        startTime: new Date(raw.start_time || raw.startTime),
+        endTime: new Date(raw.end_time || raw.endTime),
+        sessionType: raw.session_type || raw.sessionType,
+        coachId: raw.coach_id || raw.coachId,
+        academyId: raw.academy_id || raw.academyId,
+        ballLevel: raw.ball_level || raw.ballLevel,
+        reminder1hSent: raw.reminder_1h_sent ?? raw.reminder1hSent,
+        reminder30mSent: raw.reminder_30m_sent ?? raw.reminder30mSent,
+        seriesId: raw.series_id || raw.seriesId,
+        maxPlayers: raw.max_players || raw.maxPlayers,
+        status: raw.status,
+      };
       const minutesUntil = (session.startTime.getTime() - now.getTime()) / (60 * 1000);
 
       if (minutesUntil <= 65 && minutesUntil > 35 && !session.reminder1hSent) {
@@ -825,20 +844,15 @@ async function catchUpMissedReminders(): Promise<void> {
     const thirtyMinAgo = new Date(now.getTime() - 30 * 60 * 1000);
     const twoHoursFromNow = new Date(now.getTime() + 2 * 60 * 60 * 1000);
 
-    const missedSessions = await db
-      .select()
-      .from(sessions)
-      .where(
-        and(
-          gte(sessions.startTime, thirtyMinAgo),
-          lte(sessions.startTime, twoHoursFromNow),
-          eq(sessions.status, "scheduled"),
-          or(
-            eq(sessions.reminder1hSent, false),
-            eq(sessions.reminder30mSent, false)
-          )
-        )
-      );
+    const thirtyMinAgoStr = thirtyMinAgo.toISOString().replace("T", " ").substring(0, 19);
+    const twoHoursStr = twoHoursFromNow.toISOString().replace("T", " ").substring(0, 19);
+    console.log(`[SessionReminders] Catch-up window: ${thirtyMinAgoStr} to ${twoHoursStr}`);
+
+    const rawMissed = await pool.query(
+      `SELECT * FROM sessions WHERE start_time >= $1::timestamp AND start_time <= $2::timestamp AND status = 'scheduled' AND (reminder_1h_sent = false OR reminder_30m_sent = false)`,
+      [thirtyMinAgoStr, twoHoursStr]
+    );
+    const missedSessions = rawMissed.rows;
 
     if (missedSessions.length === 0) {
       console.log("[SessionReminders] Startup catch-up: no missed reminders");
@@ -847,7 +861,21 @@ async function catchUpMissedReminders(): Promise<void> {
 
     console.log(`[SessionReminders] Startup catch-up: found ${missedSessions.length} sessions with unsent reminders`);
 
-    for (const session of missedSessions) {
+    for (const raw of missedSessions) {
+      const session = {
+        id: raw.id,
+        startTime: new Date(raw.start_time),
+        endTime: new Date(raw.end_time),
+        sessionType: raw.session_type,
+        coachId: raw.coach_id,
+        academyId: raw.academy_id,
+        ballLevel: raw.ball_level,
+        reminder1hSent: raw.reminder_1h_sent,
+        reminder30mSent: raw.reminder_30m_sent,
+        seriesId: raw.series_id,
+        maxPlayers: raw.max_players,
+        status: raw.status,
+      };
       const minutesUntil = (session.startTime.getTime() - now.getTime()) / (60 * 1000);
 
       if (!session.reminder1hSent) {
