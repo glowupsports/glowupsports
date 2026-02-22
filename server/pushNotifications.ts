@@ -822,6 +822,7 @@ export async function rewardCoachForTimelyAttendance(
 async function catchUpMissedReminders(): Promise<void> {
   try {
     const now = new Date();
+    const thirtyMinAgo = new Date(now.getTime() - 30 * 60 * 1000);
     const twoHoursFromNow = new Date(now.getTime() + 2 * 60 * 60 * 1000);
 
     const missedSessions = await db
@@ -829,7 +830,7 @@ async function catchUpMissedReminders(): Promise<void> {
       .from(sessions)
       .where(
         and(
-          gte(sessions.startTime, now),
+          gte(sessions.startTime, thirtyMinAgo),
           lte(sessions.startTime, twoHoursFromNow),
           eq(sessions.status, "scheduled"),
           or(
@@ -849,13 +850,13 @@ async function catchUpMissedReminders(): Promise<void> {
     for (const session of missedSessions) {
       const minutesUntil = (session.startTime.getTime() - now.getTime()) / (60 * 1000);
 
-      if (minutesUntil <= 65 && !session.reminder1hSent) {
-        console.log(`[SessionReminders] Catch-up: sending 1h reminder for session ${session.id} (starts in ${Math.round(minutesUntil)}m)`);
+      if (!session.reminder1hSent) {
+        console.log(`[SessionReminders] Catch-up: sending 1h reminder for session ${session.id} (${minutesUntil > 0 ? `starts in ${Math.round(minutesUntil)}m` : `started ${Math.round(-minutesUntil)}m ago`})`);
         await sendRemindersForSession(session, "1h");
       }
 
-      if (minutesUntil <= 35 && !session.reminder30mSent) {
-        console.log(`[SessionReminders] Catch-up: sending 30m reminder for session ${session.id} (starts in ${Math.round(minutesUntil)}m)`);
+      if (!session.reminder30mSent) {
+        console.log(`[SessionReminders] Catch-up: sending 30m reminder for session ${session.id} (${minutesUntil > 0 ? `starts in ${Math.round(minutesUntil)}m` : `started ${Math.round(-minutesUntil)}m ago`})`);
         await sendRemindersForSession(session, "30m");
       }
     }
