@@ -1,6 +1,6 @@
 import { db } from "./db";
 import { eq, and, gte, lte, inArray, isNull, lt, ne } from "drizzle-orm";
-import { pushDeviceTokens, notificationPreferences, users, players, coaches, sessions, sessionPlayers, seriesPlayers, coachXpTransactions, creditTransactions } from "@shared/schema";
+import { pushDeviceTokens, notificationPreferences, users, players, coaches, sessions, sessionPlayers, seriesPlayers, coachXpTransactions, creditTransactions, coachNotifications } from "@shared/schema";
 import { storage } from "./storage";
 import { sendSessionReminderEmail, sendOnboardingDay3Email, sendOnboardingDay7Email } from "./emailService";
 import { initializeFirebase, isFirebaseInitialized, isFCMToken, sendFCMNotification, getChannelIdForNotificationType } from "./fcm";
@@ -423,12 +423,128 @@ export async function sendSessionReminderToCoach(
   );
 }
 
-const sentReminders = new Set<string>();
+async function getSessionPlayersForReminder(session: any) {
+  let sessionPlayersList = await db
+    .select()
+    .from(sessionPlayers)
+    .where(eq(sessionPlayers.sessionId, session.id));
+
+  if (sessionPlayersList.length === 0 && session.seriesId) {
+    const seriesPlayersList = await db
+      .select()
+      .from(seriesPlayers)
+      .where(eq(seriesPlayers.seriesId, session.seriesId));
+    
+    sessionPlayersList = seriesPlayersList.map(sp => ({
+      id: sp.id,
+      sessionId: session.id,
+      playerId: sp.playerId,
+      status: 'enrolled' as const,
+      bookingSource: 'series' as const,
+      createdAt: sp.enrolledAt,
+    }));
+  }
+  return sessionPlayersList;
+}
+
+async function sendRemindersForSession(
+  session: any,
+  reminderType: "1h" | "30m"
+): Promise<void> {
+  const sessionPlayersList = await getSessionPlayersForReminder(session);
+
+  const coach = session.coachId ? await db
+    .select()
+    .from(coaches)
+    .where(eq(coaches.id, session.coachId))
+    .limit(1) : [];
+
+  const coachName = coach[0]?.name || "Your coach";
+  const sessionName = `${formatSessionType(session.sessionType)} session`;
+  const timeLabel = reminderType === "1h" ? "1 hour" : "30 minutes";
+
+  let playerNotificationsSent = 0;
+  let playersWithNoTokens = 0;
+
+  for (const sp of sessionPlayersList) {
+    if (sp.playerId) {
+      const tokens = await getPlayerPushTokens(sp.playerId);
+      if (tokens.length === 0) {
+        playersWithNoTokens++;
+      } else {
+        sendSessionReminder(
+          sp.playerId,
+          session.sessionType,
+          session.startTime,
+          coachName,
+          undefined,
+          session.academyId
+        ).catch(err => console.error(`[SessionReminders] Failed to send player ${reminderType} reminder:`, err));
+        playerNotificationsSent++;
+      }
+    }
+  }
+
+  if (playersWithNoTokens > 0) {
+    console.log(`[SessionReminders] ${playersWithNoTokens} player(s) have no push tokens for ${sessionName}`);
+  }
+
+  if (session.coachId) {
+    const coachTokens = await getCoachPushTokens(session.coachId);
+    if (coachTokens.length === 0) {
+      console.log(`[SessionReminders] Coach has no push tokens for ${sessionName}`);
+    } else {
+      const playerNames: string[] = [];
+      for (const sp of sessionPlayersList) {
+        if (sp.playerId) {
+          const playerData = await db.select().from(players).where(eq(players.id, sp.playerId)).limit(1);
+          if (playerData[0]?.name) {
+            playerNames.push(playerData[0].name.split(' ')[0]);
+          }
+        }
+      }
+      
+      const timezone = await getAcademyTimezone(session.academyId);
+      const { time } = formatSessionDateTime(session.startTime, timezone);
+      const typeLabel = formatSessionType(session.sessionType);
+      const displayNames = playerNames.slice(0, 3).join(", ");
+      const extraCount = playerNames.length > 3 ? ` +${playerNames.length - 3}` : "";
+      const playersStr = playerNames.length > 0 ? `${displayNames}${extraCount}` : "No players assigned";
+
+      await sendPushNotification(
+        coachTokens,
+        `Session in ${timeLabel}`,
+        `${typeLabel} at ${time} - ${playersStr}`,
+        { type: "session_reminder_coach", coachId: session.coachId }
+      );
+
+      try {
+        await db.insert(coachNotifications).values({
+          coachId: session.coachId,
+          type: "reminder",
+          title: `Session in ${timeLabel}`,
+          message: `${typeLabel} at ${time} - ${playersStr}`,
+          priority: reminderType === "30m" ? "high" : "medium",
+          metadata: { sessionId: session.id, reminderType },
+        });
+      } catch (err) {
+        console.error("[SessionReminders] Failed to create in-app notification:", err);
+      }
+    }
+  }
+
+  const flagColumn = reminderType === "1h" ? "reminder_1h_sent" : "reminder_30m_sent";
+  await db.update(sessions)
+    .set({ [flagColumn]: true })
+    .where(eq(sessions.id, session.id));
+
+  console.log(`[SessionReminders] ${reminderType} reminder for "${sessionName}" - ${playerNotificationsSent} player push sent, ${playersWithNoTokens} without tokens, coach notified`);
+}
 
 export async function processScheduledReminders(): Promise<void> {
   const now = new Date();
-  const sixtyMinutesFromNow = new Date(now.getTime() + 60 * 60 * 1000);
-  const fiftyFiveMinutesFromNow = new Date(now.getTime() + 55 * 60 * 1000);
+  const sixtyFiveMinutesFromNow = new Date(now.getTime() + 65 * 60 * 1000);
+  const thirtyFiveMinutesFromNow = new Date(now.getTime() + 35 * 60 * 1000);
 
   try {
     const upcomingSessions = await db
@@ -436,116 +552,33 @@ export async function processScheduledReminders(): Promise<void> {
       .from(sessions)
       .where(
         and(
-          gte(sessions.startTime, fiftyFiveMinutesFromNow),
-          lte(sessions.startTime, sixtyMinutesFromNow),
+          gte(sessions.startTime, now),
+          lte(sessions.startTime, sixtyFiveMinutesFromNow),
           eq(sessions.status, "scheduled")
         )
       );
 
-    console.log(`[SessionReminders] Found ${upcomingSessions.length} sessions starting in ~1 hour`);
+    let sent1h = 0;
+    let sent30m = 0;
 
     for (const session of upcomingSessions) {
-      const reminderKey = `${session.id}-${session.startTime?.toISOString()}`;
-      
-      if (sentReminders.has(reminderKey)) {
-        continue;
+      const minutesUntil = (session.startTime.getTime() - now.getTime()) / (60 * 1000);
+
+      if (minutesUntil <= 65 && minutesUntil > 35 && !session.reminder1hSent) {
+        await sendRemindersForSession(session, "1h");
+        sent1h++;
       }
 
-      let sessionPlayersList = await db
-        .select()
-        .from(sessionPlayers)
-        .where(eq(sessionPlayers.sessionId, session.id));
-
-      // For recurring sessions, fallback to seriesPlayers if no session-specific players
-      if (sessionPlayersList.length === 0 && session.seriesId) {
-        const seriesPlayersList = await db
-          .select()
-          .from(seriesPlayers)
-          .where(eq(seriesPlayers.seriesId, session.seriesId));
-        
-        // Map seriesPlayers to same format as sessionPlayers
-        sessionPlayersList = seriesPlayersList.map(sp => ({
-          id: sp.id,
-          sessionId: session.id,
-          playerId: sp.playerId,
-          status: 'enrolled' as const,
-          bookingSource: 'series' as const,
-          createdAt: sp.enrolledAt,
-        }));
+      if (minutesUntil <= 35 && !session.reminder30mSent) {
+        await sendRemindersForSession(session, "30m");
+        sent30m++;
       }
+    }
 
-      const coach = session.coachId ? await db
-        .select()
-        .from(coaches)
-        .where(eq(coaches.id, session.coachId))
-        .limit(1) : [];
-
-      const coachName = coach[0]?.name || "Your coach";
-
-      const sessionName = `${session.sessionType.replace(/_/g, ' ')} session`;
-
-      let playerNotificationsSent = 0;
-      let playersWithNoTokens = 0;
-
-      for (const sp of sessionPlayersList) {
-        if (sp.playerId) {
-          const tokens = await getPlayerPushTokens(sp.playerId);
-          if (tokens.length === 0) {
-            playersWithNoTokens++;
-          } else {
-            sendSessionReminder(
-              sp.playerId,
-              session.sessionType,
-              session.startTime,
-              coachName,
-              session.location || undefined,
-              session.academyId
-            ).catch(err => console.error("[SessionReminders] Failed to send player reminder:", err));
-            playerNotificationsSent++;
-          }
-          
-        }
-      }
-
-      if (playersWithNoTokens > 0) {
-        console.log(`[SessionReminders] ${playersWithNoTokens} player(s) have no push tokens for session "${sessionName}"`);
-      }
-
-      if (session.coachId) {
-        const coachTokens = await getCoachPushTokens(session.coachId);
-        if (coachTokens.length === 0) {
-          console.log(`[SessionReminders] Coach has no push tokens for session "${sessionName}"`);
-        } else {
-          // Get player names for coach notification
-          const playerNames: string[] = [];
-          for (const sp of sessionPlayersList) {
-            if (sp.playerId) {
-              const playerData = await db.select().from(players).where(eq(players.id, sp.playerId)).limit(1);
-              if (playerData[0]?.name) {
-                playerNames.push(playerData[0].name.split(' ')[0]); // First name only
-              }
-            }
-          }
-          
-          sendSessionReminderToCoach(
-            session.coachId,
-            session.sessionType,
-            session.startTime,
-            playerNames,
-            session.location || undefined,
-            session.academyId
-          ).catch(err => console.error("[SessionReminders] Failed to send coach reminder:", err));
-        }
-      }
-
-      sentReminders.add(reminderKey);
-
-      if (sentReminders.size > 1000) {
-        const oldKeys = Array.from(sentReminders).slice(0, 500);
-        oldKeys.forEach(key => sentReminders.delete(key));
-      }
-
-      console.log(`[SessionReminders] Processed session "${sessionName}" - ${playerNotificationsSent} notifications sent, ${playersWithNoTokens} players without tokens`);
+    if (upcomingSessions.length > 0 || sent1h > 0 || sent30m > 0) {
+      console.log(`[SessionReminders] Checked ${upcomingSessions.length} upcoming sessions, sent ${sent1h} 1h reminders, ${sent30m} 30m reminders`);
+    } else {
+      console.log(`[SessionReminders] No upcoming sessions in next 65 minutes`);
     }
   } catch (error) {
     console.error("[SessionReminders] Error processing reminders:", error);
