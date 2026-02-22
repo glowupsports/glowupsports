@@ -101,11 +101,9 @@ export function PlayersNearYouRow() {
   const playerBallLevel = state.player?.ballLevel?.toLowerCase() || "glow";
 
   const nearbyPlayers = state.nearbyPlayers ?? [];
-  // Filter by same ball level only (show all players at same level)
   const availablePlayers = nearbyPlayers.filter(p => {
     const playerLevel = (p.ballLevel || p.level || "").toLowerCase();
-    const matchesBallLevel = playerLevel.includes(playerBallLevel) || playerBallLevel.includes(playerLevel) || playerLevel === playerBallLevel;
-    return matchesBallLevel;
+    return playerLevel === playerBallLevel;
   });
 
   const handlePlayerPress = (playerId: string) => {
@@ -258,12 +256,10 @@ export function GroupLessonsRow() {
   // Get player's ball level from state
   const playerBallLevel = state.player?.ballLevel?.toLowerCase() || "glow";
 
-  // Filter for group sessions that match player's ball level
   const allGroupLessons = (state.openSessions ?? []).filter(s => s.type === "group");
   const groupLessons = allGroupLessons.filter(s => {
     const sessionLevel = s.ballLevel?.toLowerCase() || "";
-    // Show sessions with no level set (open to all), or exact level match only
-    if (!sessionLevel || sessionLevel === "all" || sessionLevel === "any") return true;
+    if (!sessionLevel) return false;
     return sessionLevel === playerBallLevel;
   });
 

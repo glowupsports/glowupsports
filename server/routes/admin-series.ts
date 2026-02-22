@@ -3674,19 +3674,15 @@ function requirePlayerOrOwner(req: AuthenticatedRequest, res: Response, next: Ne
           } catch (e) {}
         }
 
-        // Filter sessions: only show sessions matching player's ball level
         const levelFilteredSessions = academySessions.filter(s => {
-          if (new Date(s.startTime) <= now) return false; // Only upcoming
+          if (new Date(s.startTime) <= now) return false;
           
-          // Get the actual ball level from the series, not from the session itself
+          const sessionBallLevel = ((s as any).ballLevel || "").toLowerCase();
           const seriesLevel = (s as any).seriesId ? seriesLevelMap.get((s as any).seriesId) || "" : "";
-          const sessionLevel = ((s as any).targetBallLevel || seriesLevel || "").toLowerCase();
+          const effectiveLevel = sessionBallLevel || seriesLevel;
           
-          // If session has a specific level requirement, it must match the player's level
-          if (sessionLevel && sessionLevel !== "all" && sessionLevel !== "any" && sessionLevel !== playerBallLevel) return false;
-          
-          // For sessions without specific level, show to all players
-          return true;
+          if (!effectiveLevel) return false;
+          return effectiveLevel === playerBallLevel;
         });
         
         // Sort by start time before slicing
@@ -3752,6 +3748,7 @@ function requirePlayerOrOwner(req: AuthenticatedRequest, res: Response, next: Ne
             if (court) locationName = court.name;
           }
 
+          const effectiveBallLevel = ((session as any).ballLevel || ((session as any).seriesId ? seriesLevelMap.get((session as any).seriesId) : "") || "").toLowerCase();
           openSessions.push({
             id: session.id,
             type: session.sessionType || "group",
@@ -3759,7 +3756,7 @@ function requirePlayerOrOwner(req: AuthenticatedRequest, res: Response, next: Ne
             date: session.startTime.toISOString(),
             spotsLeft: Math.max(0, maxPlayers - actualCurrentPlayers),
             coachName: coach?.name,
-            ballLevel: ((session as any).targetBallLevel || ((session as any).seriesId ? seriesLevelMap.get((session as any).seriesId) : "") || "").toUpperCase() || null,
+            ballLevel: effectiveBallLevel || null,
             participants,
             isEnrolled,
             locationName,
