@@ -299,8 +299,7 @@ function PulsingDot() {
 }
 
 export default function CalendarScreen() {
-  const { coach, academy, calendarData, isLoading, refetchCalendar, setCoach } = useCoach();
-  const isFetching = isLoading;
+  const { coach, academy, calendarData, isLoading, isFetching, refetchCalendar, setCoach, focusMode, setFocusMode, timeGrid, setTimeGrid } = useCoach();
   const route = useRoute<RouteProp<any>>();
   const insets = useSafeAreaInsets();
   const { width: screenWidth } = useWindowDimensions();
@@ -350,8 +349,6 @@ export default function CalendarScreen() {
   const [blockWeekdays, setBlockWeekdays] = useState<number[]>([1, 2, 3, 4, 5]);
   const [showFromPicker, setShowFromPicker] = useState(false);
   const [showToPicker, setShowToPicker] = useState(false);
-  const [timeGrid, setTimeGrid] = useState<30 | 60>(60);
-  const [focusMode, setFocusMode] = useState(false);
 
   // Refs for synchronized horizontal scrolling between court headers and lanes
   const courtHeaderScrollRef = useRef<ScrollView>(null);

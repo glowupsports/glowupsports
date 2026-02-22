@@ -170,7 +170,7 @@ function GradientButton({ onPress, title, label, icon }: { onPress: () => void; 
 }
 
 export default function SettingsScreen() {
-  const { coach, academy } = useCoach();
+  const { coach, academy, calendarData } = useCoach();
   const insets = useSafeAreaInsets();
   const navigation = useNavigation();
   const { t, i18n } = useTranslation();
@@ -207,17 +207,12 @@ export default function SettingsScreen() {
   const queryClient = useQueryClient();
   const tabBarHeight = insets.bottom + 60;
 
-  const { data: courts = [] } = useQuery<any[]>({
-    queryKey: ['/api/coach/courts'],
-  });
+  const courts = calendarData?.courts || [];
+  const locations = calendarData?.locations || [];
 
   const sortedCourts = useMemo(() => {
     return [...courts].sort((a: any, b: any) => (a.position ?? 999) - (b.position ?? 999));
   }, [courts]);
-
-  const { data: locations = [] } = useQuery<any[]>({
-    queryKey: ['/api/coach/locations'],
-  });
 
   const { data: travelTimes = [] } = useQuery<any[]>({
     queryKey: ['/api/coach/travel-times'],
