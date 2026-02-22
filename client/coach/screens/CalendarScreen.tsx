@@ -299,12 +299,10 @@ function PulsingDot() {
 }
 
 export default function CalendarScreen() {
-  const { coach, academy, calendarData, isLoading, isFetching, refetchCalendar, setCoach, focusMode, setFocusMode, timeGrid, setTimeGrid } = useCoach();
+  const { coach, academy, calendarData, isLoading, isFetching, refetchCalendar, setCoach, focusMode, setFocusMode, timeGrid, setTimeGrid, selectedDate, setSelectedDate, viewMode, setViewMode } = useCoach();
   const route = useRoute<RouteProp<any>>();
   const insets = useSafeAreaInsets();
   const { width: screenWidth } = useWindowDimensions();
-  const [selectedDate, setSelectedDate] = useState<Date>(new Date());
-  const [viewMode, setViewMode] = useState<"day" | "week" | "month">("day");
 
   // Academy timezone for correct local time display - default to Dubai if not set
   const academyTimezone = academy?.timezone || "Asia/Dubai";
