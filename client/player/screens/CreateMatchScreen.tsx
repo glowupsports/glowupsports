@@ -327,7 +327,7 @@ export default function CreateMatchScreen() {
               <View style={styles.typeIconContainer}>
                 <Ionicons 
                   name="person" 
-                  size={48} 
+                  size={32} 
                   color={matchType === "singles" ? Colors.dark.backgroundRoot : Colors.dark.primary} 
                 />
               </View>
@@ -353,7 +353,7 @@ export default function CreateMatchScreen() {
               <View style={styles.typeIconContainer}>
                 <Ionicons 
                   name="people" 
-                  size={48} 
+                  size={32} 
                   color={matchType === "doubles" ? Colors.dark.backgroundRoot : Colors.dark.xpCyan} 
                 />
               </View>
@@ -952,7 +952,7 @@ const styles = StyleSheet.create({
   },
   stepContainer: {
     flex: 1,
-    paddingTop: Spacing.xl,
+    paddingTop: Spacing.md,
   },
   stepTitle: {
     ...Typography.h2,
@@ -982,15 +982,15 @@ const styles = StyleSheet.create({
     elevation: 10,
   },
   typeCardGradient: {
-    padding: Spacing.xl,
+    padding: Spacing.md,
     alignItems: "center",
-    minHeight: 180,
+    minHeight: 120,
     justifyContent: "center",
   },
   typeIconContainer: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
     backgroundColor: "rgba(255,255,255,0.1)",
     alignItems: "center",
     justifyContent: "center",
@@ -1012,7 +1012,7 @@ const styles = StyleSheet.create({
     color: "rgba(0,0,0,0.6)",
   },
   intentSection: {
-    marginTop: Spacing.xl,
+    marginTop: Spacing.lg,
   },
   intentLabel: {
     ...Typography.label,
@@ -1045,7 +1045,7 @@ const styles = StyleSheet.create({
     marginTop: Spacing.xs,
   },
   intentCardTextSelected: {
-    color: Colors.dark.backgroundRoot,
+    color: "#000000",
   },
   intentCardDesc: {
     ...Typography.caption,
@@ -1053,21 +1053,22 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   intentCardDescSelected: {
-    color: "rgba(0,0,0,0.6)",
+    color: "rgba(0,0,0,0.7)",
   },
   tipContainer: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
     gap: Spacing.sm,
-    marginTop: Spacing.xl * 2,
+    marginTop: Spacing.lg,
     padding: Spacing.md,
-    backgroundColor: Colors.dark.gold + "15",
+    backgroundColor: Colors.dark.gold + "20",
     borderRadius: BorderRadius.md,
   },
   tipText: {
     ...Typography.caption,
-    color: Colors.dark.gold,
+    color: Colors.dark.text,
+    fontWeight: "600",
   },
   sectionLabel: {
     ...Typography.label,
