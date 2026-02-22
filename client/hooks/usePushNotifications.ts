@@ -47,7 +47,7 @@ export function usePushNotifications() {
   
   const notificationListener = useRef<Notifications.EventSubscription | null>(null);
   const responseListener = useRef<Notifications.EventSubscription | null>(null);
-  const registrationAttempted = useRef(false);
+  const isRegistering = useRef(false);
   const retryCount = useRef(0);
   const MAX_RETRIES = 3;
 
@@ -289,7 +289,6 @@ export function usePushNotifications() {
       const url = new URL('/api/push/unregister', getApiUrl());
       await apiRequest('DELETE', url.toString(), { token: state.expoPushToken });
       setState(prev => ({ ...prev, isRegistered: false, expoPushToken: null }));
-      registrationAttempted.current = false;
     } catch (error) {
       console.error('[Push] Failed to unregister push token:', error);
     }
@@ -331,7 +330,7 @@ export function usePushNotifications() {
       return;
     }
 
-    if (registrationAttempted.current) {
+    if (isRegistering.current) {
       return;
     }
 
@@ -340,19 +339,25 @@ export function usePushNotifications() {
       return;
     }
 
-    registrationAttempted.current = true;
-    console.log('[Push] ===== AUTO-REGISTERING push notifications =====');
+    isRegistering.current = true;
+    console.log('[Push] ===== REGISTERING push notifications (refreshes every app open) =====');
     console.log('[Push] User:', user.id, '| Role:', user.role);
+    console.log('[Push] Build type:', Constants.appOwnership || 'standalone (Play Store/production)');
 
     const doRegister = async () => {
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      
-      const token = await registerForPushNotificationsAsync();
-      if (token) {
-        console.log('[Push] Got token, registering with server...');
-        await registerTokenWithServer(token);
-      } else {
-        console.log('[Push] No token obtained after registration attempt');
+      try {
+        await new Promise(resolve => setTimeout(resolve, 2000));
+        
+        const token = await registerForPushNotificationsAsync();
+        if (token) {
+          const tokenType = token.startsWith('ExponentPushToken[') ? 'EXPO' : 'FCM';
+          console.log(`[Push] Got ${tokenType} token, registering with server...`);
+          await registerTokenWithServer(token);
+        } else {
+          console.log('[Push] No token obtained after registration attempt');
+        }
+      } finally {
+        isRegistering.current = false;
       }
     };
 

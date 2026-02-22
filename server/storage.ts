@@ -5990,6 +5990,12 @@ export const storage = {
   // ==================== PHASE 3: PUSH NOTIFICATIONS ====================
 
   async registerPushToken(data: InsertPushDeviceToken): Promise<PushDeviceToken> {
+    const isFCM = data.token && !data.token.startsWith('ExponentPushToken[') && data.token.length > 100;
+    const isExpo = data.token?.startsWith('ExponentPushToken[');
+    const tokenType = isFCM ? 'FCM' : isExpo ? 'EXPO' : 'UNKNOWN';
+    
+    console.log(`[PushToken] Registering ${tokenType} token for user ${data.userId} (coach: ${data.coachId}, player: ${data.playerId})`);
+
     const existing = await db.select().from(pushDeviceTokens).where(eq(pushDeviceTokens.token, data.token));
     if (existing.length > 0) {
       const updated = await db.update(pushDeviceTokens)
@@ -6001,11 +6007,30 @@ export const storage = {
         })
         .where(eq(pushDeviceTokens.token, data.token))
         .returning();
-      console.log(`[PushToken] Updated existing token for user ${data.userId} (coach: ${data.coachId}, player: ${data.playerId})`);
+      console.log(`[PushToken] Updated existing ${tokenType} token, lastUsedAt refreshed`);
       return updated[0];
     }
+
+    if (isFCM && data.userId) {
+      const oldTokens = await db.select().from(pushDeviceTokens).where(
+        and(
+          eq(pushDeviceTokens.userId, data.userId),
+          eq(pushDeviceTokens.isActive, true)
+        )
+      );
+      const staleExpoTokens = oldTokens.filter(t => t.token.startsWith('ExponentPushToken['));
+      if (staleExpoTokens.length > 0) {
+        for (const stale of staleExpoTokens) {
+          await db.update(pushDeviceTokens)
+            .set({ isActive: false })
+            .where(eq(pushDeviceTokens.id, stale.id));
+          console.log(`[PushToken] Deactivated stale Expo token for user ${data.userId} (replaced by FCM)`);
+        }
+      }
+    }
+
     const result = await db.insert(pushDeviceTokens).values(data).returning();
-    console.log(`[PushToken] Registered new token for user ${data.userId} (coach: ${data.coachId}, player: ${data.playerId}, platform: ${data.platform})`);
+    console.log(`[PushToken] Registered NEW ${tokenType} token for user ${data.userId} (platform: ${data.platform})`);
     return result[0];
   },
 
