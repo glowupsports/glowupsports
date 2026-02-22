@@ -168,6 +168,21 @@ export default function SettingsScreen() {
   const [travelTimeToDelete, setTravelTimeToDelete] = useState<any>(null);
   const [storedLanguage, setStoredLanguage] = useState('en');
 
+  const queryClient = useQueryClient();
+  const tabBarHeight = insets.bottom + 60;
+
+  const { data: courts = [] } = useQuery<any[]>({
+    queryKey: ['/api/coach/courts'],
+  });
+
+  const { data: locations = [] } = useQuery<any[]>({
+    queryKey: ['/api/coach/locations'],
+  });
+
+  const { data: travelTimes = [] } = useQuery<any[]>({
+    queryKey: ['/api/coach/travel-times'],
+  });
+
   const loadSettings = async () => {
     try {
       const stored = await AsyncStorage.getItem(SETTINGS_KEY);
