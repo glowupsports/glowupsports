@@ -65,7 +65,7 @@ export function RecentFeedbackCard() {
         end={{ x: 0.3, y: 1 }}
         style={styles.gradientInner}
       >
-        <Pressable onPress={() => navigation.navigate("CoachFeedbackHistory")} style={styles.headerRow}>
+        <Pressable onPress={() => navigation.navigate("PlayerTabs", { screen: "Progress", params: { screen: "CoachFeedbackHistory" } })} style={styles.headerRow}>
           <View style={styles.headerLeft}>
             <View style={styles.headerIconWrap}>
               <Ionicons name="chatbubbles" size={13} color={GlowColors.primary} />

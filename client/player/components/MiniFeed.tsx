@@ -104,7 +104,7 @@ function LatestPostCard({ post, onPress }: { post: Post; onPress: () => void }) 
 
         {hasMedia && firstMediaUrl && (
           <View style={styles.latestPostMediaPreview}>
-            <Image source={{ uri: firstMediaUrl }} style={styles.mediaThumb} contentFit="contain" />
+            <Image source={{ uri: firstMediaUrl }} style={styles.mediaThumb} contentFit="cover" />
             {post.mediaUrls.length > 1 && (
               <View style={styles.mediaCountBadge}>
                 <Text style={styles.mediaCountText}>+{post.mediaUrls.length - 1}</Text>
