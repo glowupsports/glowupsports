@@ -91,6 +91,194 @@ const getUTCDateString = (timestamp: string | Date): string => {
   return date.toISOString().split('T')[0];
 };
 
+function DraggableSessionBlock({ session, top, height, isPast, isActive, gradientColors, sessionLabel, formattedTime, hourHeight, courtLaneWidth, onTap, onLongPress, onDragEnd, onDragUpdate, hasConflict }: any) {
+  const translateX = useSharedValue(0);
+  const translateY = useSharedValue(0);
+  const isDragging = useSharedValue(false);
+  const startX = useSharedValue(0);
+  const startY = useSharedValue(0);
+
+  const panGesture = Gesture.Pan()
+    .activateAfterLongPress(400)
+    .onStart(() => {
+      isDragging.value = true;
+      startX.value = translateX.value;
+      startY.value = translateY.value;
+      runOnJS(Haptics.impactAsync)(Haptics.ImpactFeedbackStyle.Medium);
+    })
+    .onUpdate((e) => {
+      translateX.value = startX.value + e.translationX;
+      translateY.value = startY.value + e.translationY;
+      if (onDragUpdate) {
+        runOnJS(onDragUpdate)(translateY.value, translateX.value, true);
+      }
+    })
+    .onEnd(() => {
+      isDragging.value = false;
+      if (onDragEnd) {
+        runOnJS(onDragEnd)(translateY.value, translateX.value);
+      }
+      translateX.value = withSpring(0);
+      translateY.value = withSpring(0);
+      if (onDragUpdate) {
+        runOnJS(onDragUpdate)(0, 0, false);
+      }
+    });
+
+  const tapGesture = Gesture.Tap().onEnd(() => {
+    if (onTap) runOnJS(onTap)();
+  });
+
+  const longPressGesture = Gesture.LongPress()
+    .minDuration(600)
+    .onEnd(() => {
+      if (onLongPress) runOnJS(onLongPress)();
+    });
+
+  const composedGesture = Gesture.Race(panGesture, Gesture.Exclusive(longPressGesture, tapGesture));
+
+  const animatedStyle = useAnimatedStyle(() => ({
+    transform: [
+      { translateX: translateX.value },
+      { translateY: translateY.value },
+    ],
+    zIndex: isDragging.value ? 100 : 1,
+    opacity: isDragging.value ? 0.85 : (isPast ? 0.6 : 1),
+  }));
+
+  return (
+    <GestureDetector gesture={composedGesture}>
+      <Animated.View
+        style={[
+          {
+            position: 'absolute',
+            top,
+            left: 2,
+            right: 2,
+            height: height - 2,
+            borderRadius: 6,
+            overflow: 'hidden',
+            borderWidth: hasConflict ? 2 : 0,
+            borderColor: hasConflict ? '#FF4444' : 'transparent',
+          },
+          animatedStyle,
+        ]}
+      >
+        <LinearGradient
+          colors={gradientColors}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={{ flex: 1, padding: 4, borderLeftWidth: 3, borderLeftColor: isActive ? '#00E676' : gradientColors[0] }}
+        >
+          {isActive ? (
+            <View style={{ position: 'absolute', top: 2, right: 2 }}>
+              <PulsingDot />
+            </View>
+          ) : null}
+          <Text style={{ color: '#fff', fontSize: 10, fontWeight: '700', lineHeight: 12 }} numberOfLines={height > 40 ? 2 : 1}>
+            {sessionLabel}
+          </Text>
+          {height > 30 ? (
+            <Text style={{ color: 'rgba(255,255,255,0.7)', fontSize: 9 }} numberOfLines={1}>
+              {formattedTime}
+            </Text>
+          ) : null}
+        </LinearGradient>
+      </Animated.View>
+    </GestureDetector>
+  );
+}
+
+function WeekDraggableSessionBlock({ session, top, height, isPast, isActive, gradientColors, sessionLabel, formattedTime, hourHeight, dayColumnWidth, onTap, onLongPress, onDragEnd }: any) {
+  const translateX = useSharedValue(0);
+  const translateY = useSharedValue(0);
+  const isDragging = useSharedValue(false);
+  const startX = useSharedValue(0);
+  const startY = useSharedValue(0);
+
+  const panGesture = Gesture.Pan()
+    .activateAfterLongPress(400)
+    .onStart(() => {
+      isDragging.value = true;
+      startX.value = translateX.value;
+      startY.value = translateY.value;
+      runOnJS(Haptics.impactAsync)(Haptics.ImpactFeedbackStyle.Medium);
+    })
+    .onUpdate((e) => {
+      translateX.value = startX.value + e.translationX;
+      translateY.value = startY.value + e.translationY;
+    })
+    .onEnd(() => {
+      isDragging.value = false;
+      if (onDragEnd) {
+        runOnJS(onDragEnd)(translateY.value, translateX.value);
+      }
+      translateX.value = withSpring(0);
+      translateY.value = withSpring(0);
+    });
+
+  const tapGesture = Gesture.Tap().onEnd(() => {
+    if (onTap) runOnJS(onTap)();
+  });
+
+  const longPressGesture = Gesture.LongPress()
+    .minDuration(600)
+    .onEnd(() => {
+      if (onLongPress) runOnJS(onLongPress)();
+    });
+
+  const composedGesture = Gesture.Race(panGesture, Gesture.Exclusive(longPressGesture, tapGesture));
+
+  const animatedStyle = useAnimatedStyle(() => ({
+    transform: [
+      { translateX: translateX.value },
+      { translateY: translateY.value },
+    ],
+    zIndex: isDragging.value ? 100 : 1,
+    opacity: isDragging.value ? 0.85 : (isPast ? 0.6 : 1),
+  }));
+
+  return (
+    <GestureDetector gesture={composedGesture}>
+      <Animated.View
+        style={[
+          {
+            position: 'absolute',
+            top,
+            left: 1,
+            right: 1,
+            height: height - 1,
+            borderRadius: 4,
+            overflow: 'hidden',
+          },
+          animatedStyle,
+        ]}
+      >
+        <LinearGradient
+          colors={gradientColors}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={{ flex: 1, padding: 2 }}
+        >
+          {isActive ? (
+            <View style={{ position: 'absolute', top: 1, right: 1 }}>
+              <PulsingDot />
+            </View>
+          ) : null}
+          <Text style={{ color: '#fff', fontSize: 8, fontWeight: '600' }} numberOfLines={1}>
+            {sessionLabel}
+          </Text>
+          {height > 24 ? (
+            <Text style={{ color: 'rgba(255,255,255,0.7)', fontSize: 7 }} numberOfLines={1}>
+              {formattedTime}
+            </Text>
+          ) : null}
+        </LinearGradient>
+      </Animated.View>
+    </GestureDetector>
+  );
+}
+
 function PulsingDot() {
   const opacity = useSharedValue(1);
   const scale = useSharedValue(1);
@@ -162,6 +350,7 @@ export default function CalendarScreen() {
   const [showFromPicker, setShowFromPicker] = useState(false);
   const [showToPicker, setShowToPicker] = useState(false);
   const [timeGrid, setTimeGrid] = useState<30 | 60>(60);
+  const [focusMode, setFocusMode] = useState(false);
 
   // Refs for synchronized horizontal scrolling between court headers and lanes
   const courtHeaderScrollRef = useRef<ScrollView>(null);
@@ -478,6 +667,12 @@ export default function CalendarScreen() {
   const cancelPendingDrag = useCallback(() => {
     setPendingDrag(null);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+  }, []);
+
+  const setSelectedSession = useCallback((session: any) => {
+    setSelectedSessionForAttendance(null);
+    setSelectedSessionForDetail(null);
+    setSelectedSessionForFeedback(null);
   }, []);
 
   // Fetch available coaches

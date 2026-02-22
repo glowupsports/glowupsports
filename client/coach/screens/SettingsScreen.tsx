@@ -152,11 +152,29 @@ function SectionHeader({ title, icon }: { title: string; icon: string }) {
   );
 }
 
+function GradientButton({ onPress, title, label, icon }: { onPress: () => void; title?: string; label?: string; icon?: string }) {
+  const displayText = title || label || '';
+  return (
+    <Pressable onPress={onPress}>
+      <LinearGradient
+        colors={[Colors.dark.xpCyan, Colors.dark.primary]}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 0 }}
+        style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 12, paddingHorizontal: 20, borderRadius: 12, gap: 8 }}
+      >
+        {icon ? <Ionicons name={icon as any} size={18} color={Colors.dark.backgroundRoot} /> : null}
+        <Text style={{ color: Colors.dark.backgroundRoot, fontSize: 14, fontWeight: '700' }}>{displayText}</Text>
+      </LinearGradient>
+    </Pressable>
+  );
+}
+
 export default function SettingsScreen() {
   const { coach, academy } = useCoach();
   const insets = useSafeAreaInsets();
   const navigation = useNavigation();
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
+  const { logout } = useAuth();
   const [settings, setSettings] = useState<CoachSettings>(defaultSettings);
   const [hasChanges, setHasChanges] = useState(false);
   const [focusMode, setFocusMode] = useState(false);
@@ -176,6 +194,15 @@ export default function SettingsScreen() {
   const [selectedTravelTime, setSelectedTravelTime] = useState<any>(null);
   const [travelTimeToDelete, setTravelTimeToDelete] = useState<any>(null);
   const [storedLanguage, setStoredLanguage] = useState('en');
+  const [editingCourt, setEditingCourt] = useState<any>(null);
+  const [editingLocation, setEditingLocation] = useState<any>(null);
+  const [pushPreferences, setPushPreferences] = useState({ sessionReminders: true, feedbackRequests: true, packageExpiry: true, loadWarnings: true, chatMessages: true });
+  const [appleLinked, setAppleLinked] = useState(false);
+  const [appleLoading, setAppleLoading] = useState(false);
+  const [fromCourtId, setFromCourtId] = useState<string>('');
+  const [toCourtId, setToCourtId] = useState<string>('');
+  const [fromLocationId, setFromLocationId] = useState<string>('');
+  const [toLocationId, setToLocationId] = useState<string>('');
 
   const queryClient = useQueryClient();
   const tabBarHeight = insets.bottom + 60;
@@ -195,6 +222,79 @@ export default function SettingsScreen() {
   const { data: travelTimes = [] } = useQuery<any[]>({
     queryKey: ['/api/coach/travel-times'],
   });
+
+  const reorderCourtsMutation = useMutation({
+    mutationFn: async (data: { courtId: string; direction: string }) => {
+      const response = await fetch('/api/coach/courts/reorder', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+      });
+      return response.json();
+    },
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['/api/coach/courts'] }); },
+  });
+
+  const courtsGroupedByLocation = useMemo(() => {
+    const groups: Record<string, any[]> = {};
+    for (const court of sortedCourts) {
+      const locId = court.locationId || 'unassigned';
+      if (!groups[locId]) groups[locId] = [];
+      groups[locId].push(court);
+    }
+    return Object.entries(groups).map(([locId, groupCourts]) => ({
+      location: locId === 'unassigned' ? null : locations.find((l: any) => l.id === locId) || null,
+      courts: groupCourts,
+    }));
+  }, [sortedCourts, locations]);
+
+  const getLocationName = (locationId: string) => {
+    const loc = locations.find((l: any) => l.id === locationId);
+    return loc?.name || 'Unknown Location';
+  };
+
+  const getCourtsForTravelTimeDisplay = (locationId: string) => {
+    return courts.filter((c: any) => c.locationId === locationId).map((c: any) => c.name).join(', ');
+  };
+
+  const getCourtLabel = (courtOrId: any) => {
+    if (typeof courtOrId === 'object') return courtOrId?.name || 'Unknown Court';
+    const court = courts.find((c: any) => c.id === courtOrId);
+    return court?.name || 'Unknown Court';
+  };
+
+  const moveCourt = (courtId: string, direction: string) => {
+    reorderCourtsMutation.mutate({ courtId, direction });
+  };
+
+  const updatePushPref = (key: string, value: boolean) => {
+    setPushPreferences(prev => ({ ...prev, [key]: value }));
+  };
+
+  const handleLanguageChange = async (lang: string) => {
+    try {
+      i18n.changeLanguage(lang);
+      await AsyncStorage.setItem('language', lang);
+      setStoredLanguage(lang);
+    } catch (e) {}
+  };
+
+  const handleAddCourt = () => { setEditingCourt(null); setNewCourtName(''); setNewCourtColor(''); setNewCourtLocationId(''); setShowCourtModal(true); };
+  const handleEditCourt = (court: any) => { setEditingCourt(court); setNewCourtName(court.name || ''); setNewCourtColor(court.color || ''); setNewCourtLocationId(court.locationId || ''); setShowCourtModal(true); };
+  const handleDeleteCourt = (court: any) => { Alert.alert('Delete Court', `Delete "${court.name}"?`, [{ text: 'Cancel' }, { text: 'Delete', style: 'destructive', onPress: () => { fetch(`/api/coach/courts/${court.id}`, { method: 'DELETE' }).then(() => queryClient.invalidateQueries({ queryKey: ['/api/coach/courts'] })); } }]); };
+  const handleSaveCourt = async () => { /* stub */ setShowCourtModal(false); };
+  const handleAddLocation = () => { setEditingLocation(null); setNewLocationName(''); setShowLocationModal(true); };
+  const handleEditLocation = (location: any) => { setEditingLocation(location); setNewLocationName(location.name || ''); setShowLocationModal(true); };
+  const handleDeleteLocation = (location: any) => { Alert.alert('Delete Location', `Delete "${location.name}"?`, [{ text: 'Cancel' }, { text: 'Delete', style: 'destructive', onPress: () => { fetch(`/api/coach/locations/${location.id}`, { method: 'DELETE' }).then(() => queryClient.invalidateQueries({ queryKey: ['/api/coach/locations'] })); } }]); };
+  const handleSaveLocation = async () => { /* stub */ setShowLocationModal(false); };
+  const handleAddTravelTime = () => { setFromCourtId(''); setToCourtId(''); setFromLocationId(''); setToLocationId(''); setShowTravelTimeModal(true); };
+  const handleDeleteTravelTime = (id: any, fromName?: string, toName?: string) => { setTravelTimeToDelete({ id, fromName, toName }); setShowDeleteTravelTimeModal(true); };
+  const confirmDeleteTravelTime = async () => { if (travelTimeToDelete) { await fetch(`/api/coach/travel-times/${travelTimeToDelete.id}`, { method: 'DELETE' }); queryClient.invalidateQueries({ queryKey: ['/api/coach/travel-times'] }); } setShowDeleteTravelTimeModal(false); setTravelTimeToDelete(null); };
+  const handleSelectFromCourt = (court: any) => { setFromCourtId(court.id || court); setFromLocationId(court.locationId || ''); };
+  const handleSelectToCourt = (court: any) => { setToCourtId(court.id || court); setToLocationId(court.locationId || ''); };
+  const handleSaveTravelTime = async () => { setShowTravelTimeModal(false); };
+  const handleLinkApple = async () => { setAppleLoading(true); try { /* stub */ } finally { setAppleLoading(false); } };
+  const handleUnlinkApple = async () => { setAppleLoading(true); try { setAppleLinked(false); } finally { setAppleLoading(false); } };
 
   const loadSettings = async () => {
     try {
