@@ -533,10 +533,15 @@ async function sendRemindersForSession(
     }
   }
 
-  const flagColumn = reminderType === "1h" ? "reminder_1h_sent" : "reminder_30m_sent";
-  await db.update(sessions)
-    .set({ [flagColumn]: true })
-    .where(eq(sessions.id, session.id));
+  if (reminderType === "1h") {
+    await db.update(sessions)
+      .set({ reminder1hSent: true })
+      .where(eq(sessions.id, session.id));
+  } else {
+    await db.update(sessions)
+      .set({ reminder30mSent: true })
+      .where(eq(sessions.id, session.id));
+  }
 
   console.log(`[SessionReminders] ${reminderType} reminder for "${sessionName}" - ${playerNotificationsSent} player push sent, ${playersWithNoTokens} without tokens, coach notified`);
 }
