@@ -143,6 +143,15 @@ function GlowSwitch({ value, onValueChange }: { value: boolean; onValueChange: (
   );
 }
 
+function SectionHeader({ title, icon }: { title: string; icon: string }) {
+  return (
+    <View style={{ flexDirection: "row", alignItems: "center", marginBottom: 12, gap: 8 }}>
+      <Ionicons name={icon as any} size={18} color={Colors.dark.xpCyan} />
+      <Text style={{ color: "#FFFFFF", fontSize: 16, fontWeight: "700" }}>{title}</Text>
+    </View>
+  );
+}
+
 export default function SettingsScreen() {
   const { coach, academy } = useCoach();
   const insets = useSafeAreaInsets();
