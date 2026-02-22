@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from "react";
+import React, { useState, useCallback, useMemo } from "react";
 import {
   View,
   Text,
@@ -183,6 +183,10 @@ export default function SettingsScreen() {
   const { data: courts = [] } = useQuery<any[]>({
     queryKey: ['/api/coach/courts'],
   });
+
+  const sortedCourts = useMemo(() => {
+    return [...courts].sort((a: any, b: any) => (a.position ?? 999) - (b.position ?? 999));
+  }, [courts]);
 
   const { data: locations = [] } = useQuery<any[]>({
     queryKey: ['/api/coach/locations'],

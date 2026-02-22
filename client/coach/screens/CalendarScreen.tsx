@@ -111,7 +111,7 @@ function PulsingDot() {
 }
 
 export default function CalendarScreen() {
-  const { coach, academy, calendarData, isLoading, refetchCalendar } = useCoach();
+  const { coach, academy, calendarData, isLoading, refetchCalendar, setCoach } = useCoach();
   const route = useRoute<RouteProp<any>>();
   const insets = useSafeAreaInsets();
   const { width: screenWidth } = useWindowDimensions();
