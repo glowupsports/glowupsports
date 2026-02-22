@@ -240,12 +240,12 @@ export default function PlayScreen() {
     
     let filtered = sessions;
     
-    // Filter by ball level
     if (selectedBallLevel !== "all") {
-      const filterLevel = selectedBallLevel === "my_level" ? playerBallLevel : selectedBallLevel;
+      const filterLevel = (selectedBallLevel === "my_level" ? playerBallLevel : selectedBallLevel).toLowerCase();
       filtered = filtered.filter(s => {
-        const sessionLevel = s.ballLevel?.toLowerCase() || "";
-        return sessionLevel.includes(filterLevel) || filterLevel.includes(sessionLevel);
+        const sessionLevel = (s.ballLevel || "").toLowerCase();
+        if (!sessionLevel) return false;
+        return sessionLevel === filterLevel;
       });
     }
     
