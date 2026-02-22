@@ -816,6 +816,53 @@ export async function rewardCoachForTimelyAttendance(
   }
 }
 
+async function catchUpMissedReminders(): Promise<void> {
+  try {
+    const now = new Date();
+    const twoHoursFromNow = new Date(now.getTime() + 2 * 60 * 60 * 1000);
+
+    const missedSessions = await db
+      .select()
+      .from(sessions)
+      .where(
+        and(
+          gte(sessions.startTime, now),
+          lte(sessions.startTime, twoHoursFromNow),
+          eq(sessions.status, "scheduled"),
+          or(
+            eq(sessions.reminder1hSent, false),
+            eq(sessions.reminder30mSent, false)
+          )
+        )
+      );
+
+    if (missedSessions.length === 0) {
+      console.log("[SessionReminders] Startup catch-up: no missed reminders");
+      return;
+    }
+
+    console.log(`[SessionReminders] Startup catch-up: found ${missedSessions.length} sessions with unsent reminders`);
+
+    for (const session of missedSessions) {
+      const minutesUntil = (session.startTime.getTime() - now.getTime()) / (60 * 1000);
+
+      if (minutesUntil <= 65 && !session.reminder1hSent) {
+        console.log(`[SessionReminders] Catch-up: sending 1h reminder for session ${session.id} (starts in ${Math.round(minutesUntil)}m)`);
+        await sendRemindersForSession(session, "1h");
+      }
+
+      if (minutesUntil <= 35 && !session.reminder30mSent) {
+        console.log(`[SessionReminders] Catch-up: sending 30m reminder for session ${session.id} (starts in ${Math.round(minutesUntil)}m)`);
+        await sendRemindersForSession(session, "30m");
+      }
+    }
+
+    console.log("[SessionReminders] Startup catch-up complete");
+  } catch (error) {
+    console.error("[SessionReminders] Error in startup catch-up:", error);
+  }
+}
+
 export function startReminderScheduler(): void {
   if (reminderInterval) {
     console.log("[SessionReminders] Scheduler already running");
@@ -824,6 +871,7 @@ export function startReminderScheduler(): void {
 
   console.log("[SessionReminders] Starting reminder scheduler (every 5 minutes)");
   
+  catchUpMissedReminders().catch(console.error);
   processScheduledReminders().catch(console.error);
   processAutoCompleteSession().catch(console.error);
   processAutoAttendance().catch(console.error);
