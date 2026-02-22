@@ -1,5 +1,5 @@
 import { db } from "./db";
-import { eq, and, gte, lte, inArray, isNull, lt, ne } from "drizzle-orm";
+import { eq, and, gte, lte, inArray, isNull, lt, ne, or } from "drizzle-orm";
 import { pushDeviceTokens, notificationPreferences, users, players, coaches, sessions, sessionPlayers, seriesPlayers, coachXpTransactions, creditTransactions, coachNotifications } from "@shared/schema";
 import { storage } from "./storage";
 import { sendSessionReminderEmail, sendOnboardingDay3Email, sendOnboardingDay7Email } from "./emailService";
@@ -473,7 +473,10 @@ async function sendRemindersForSession(
       const tokens = await getPlayerPushTokens(sp.playerId);
       if (tokens.length === 0) {
         playersWithNoTokens++;
+        console.log(`[SessionReminders] Player ${sp.playerId} has 0 push tokens - skipping ${reminderType} reminder`);
       } else {
+        const tokenTypes = tokens.map(t => t.startsWith("ExponentPushToken") ? "expo" : "fcm");
+        console.log(`[SessionReminders] Sending ${reminderType} to player ${sp.playerId} via ${tokens.length} token(s) [${tokenTypes.join(",")}]`);
         sendSessionReminder(
           sp.playerId,
           session.sessionType,
@@ -482,7 +485,7 @@ async function sendRemindersForSession(
           undefined,
           session.academyId,
           reminderType
-        ).catch(err => console.error(`[SessionReminders] Failed to send player ${reminderType} reminder:`, err));
+        ).catch(err => console.error(`[SessionReminders] Failed to send player ${reminderType} reminder to ${sp.playerId}:`, err));
         playerNotificationsSent++;
       }
     }
@@ -495,7 +498,7 @@ async function sendRemindersForSession(
   if (session.coachId) {
     const coachTokens = await getCoachPushTokens(session.coachId);
     if (coachTokens.length === 0) {
-      console.log(`[SessionReminders] Coach has no push tokens for ${sessionName}`);
+      console.log(`[SessionReminders] Coach ${session.coachId} has 0 push tokens - skipping ${reminderType} reminder`);
     } else {
       const playerNames: string[] = [];
       for (const sp of sessionPlayersList) {
