@@ -94,6 +94,24 @@ const getUTCDateString = (timestamp: string | Date): string => {
 function PulsingDot() {
   const opacity = useSharedValue(1);
   const scale = useSharedValue(1);
+
+  React.useEffect(() => {
+    opacity.value = withRepeat(withSequence(withTiming(0.3, { duration: 800 }), withTiming(1, { duration: 800 })), -1, true);
+    scale.value = withRepeat(withSequence(withTiming(1.4, { duration: 800 }), withTiming(1, { duration: 800 })), -1, true);
+  }, []);
+
+  const animatedStyle = useAnimatedStyle(() => ({
+    opacity: opacity.value,
+    transform: [{ scale: scale.value }],
+  }));
+
+  return (
+    <Animated.View style={[{ width: 8, height: 8, borderRadius: 4, backgroundColor: GlowColors.primary, marginRight: -4 }, animatedStyle]} />
+  );
+}
+
+export default function CalendarScreen() {
+  const { coach, academy, calendarData, isLoading, refetchCalendar } = useCoach();
   // Academy timezone for correct local time display - default to Dubai if not set
   const academyTimezone = academy?.timezone || "Asia/Dubai";
 

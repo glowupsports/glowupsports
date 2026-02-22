@@ -85,6 +85,71 @@ function CollapsibleDaySection({
   const rotation = useSharedValue(isExpanded ? 1 : 0);
   const height = useSharedValue(isExpanded ? 1 : 0);
 
+  React.useEffect(() => {
+    rotation.value = withTiming(isExpanded ? 1 : 0, { duration: 200 });
+    height.value = withTiming(isExpanded ? 1 : 0, { duration: 300 });
+  }, [isExpanded]);
+
+  const arrowStyle = useAnimatedStyle(() => ({
+    transform: [{ rotate: `${interpolate(rotation.value, [0, 1], [0, 180])}deg` }],
+  }));
+
+  const contentStyle = useAnimatedStyle(() => ({
+    opacity: height.value,
+    maxHeight: interpolate(height.value, [0, 1], [0, 2000]),
+    overflow: 'hidden' as const,
+  }));
+
+  const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+  const label = isFlexible ? 'Flexible Schedule' : dayNames[dayOfWeek] || `Day ${dayOfWeek}`;
+
+  return (
+    <View style={{ marginBottom: Spacing.sm }}>
+      <Pressable onPress={onToggle} style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: Spacing.md, backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: BorderRadius.md }}>
+        <Text style={{ color: '#fff', fontSize: 16, fontWeight: '600' }}>{label} ({series.length})</Text>
+        <Animated.View style={arrowStyle}>
+          <Ionicons name="chevron-down" size={20} color="#fff" />
+        </Animated.View>
+      </Pressable>
+      <Animated.View style={contentStyle}>
+        {series.map((s) => (
+          <Pressable key={s.id} onPress={() => onSeriesPress(s)} style={{ padding: Spacing.md, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.05)' }}>
+            <Text style={{ color: '#fff', fontSize: 14, fontWeight: '500' }}>{s.title}</Text>
+            <Text style={{ color: 'rgba(255,255,255,0.6)', fontSize: 12, marginTop: 2 }}>{s.coachName} - {s.playerCount} players</Text>
+          </Pressable>
+        ))}
+      </Animated.View>
+    </View>
+  );
+}
+
+export default function AdminClassesScreen() {
+  const insets = useSafeAreaInsets();
+  const [filter, setFilter] = useState('all');
+  const [selectedCoachId, setSelectedCoachId] = useState<string | null>(null);
+  const [showCreateWizard, setShowCreateWizard] = useState(false);
+  const [wizardCoachId, setWizardCoachId] = useState<string | null>(null);
+  const [selectedSeriesId, setSelectedSeriesId] = useState<string | null>(null);
+
+  const { data: seriesData = [], isLoading } = useQuery<CoachingSeries[]>({
+    queryKey: ['/api/admin/series'],
+  });
+
+  const { data: coaches = [] } = useQuery<Coach[]>({
+    queryKey: ['/api/admin/coaches'],
+  });
+
+  const filteredByCoach = useMemo(() => {
+    let filtered = seriesData;
+    if (selectedCoachId) {
+      filtered = filtered.filter(s => s.coachId === selectedCoachId);
+    }
+    if (filter !== 'all') {
+      filtered = filtered.filter(s => s.status === filter);
+    }
+    return filtered;
+  }, [seriesData, selectedCoachId, filter]);
+
   const handleCreatePress = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     setShowCreateWizard(true);

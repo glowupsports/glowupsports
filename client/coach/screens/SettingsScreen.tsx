@@ -117,7 +117,56 @@ const defaultSettings: CoachSettings = {
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
 function GlowSwitch({ value, onValueChange }: { value: boolean; onValueChange: (val: boolean) => void }) {
-  const glowOpacity = useSharedValue(value ? 1 : 0);
+  const translateX = useSharedValue(value ? 20 : 0);
+  const bgColor = useSharedValue(value ? 1 : 0);
+
+  React.useEffect(() => {
+    translateX.value = withSpring(value ? 20 : 0, { damping: 15 });
+    bgColor.value = withTiming(value ? 1 : 0, { duration: 200 });
+  }, [value]);
+
+  const trackStyle = useAnimatedStyle(() => ({
+    backgroundColor: bgColor.value > 0.5 ? Colors.dark.primary : 'rgba(255,255,255,0.15)',
+  }));
+
+  const thumbStyle = useAnimatedStyle(() => ({
+    transform: [{ translateX: translateX.value }],
+  }));
+
+  return (
+    <AnimatedPressable
+      onPress={() => onValueChange(!value)}
+      style={[{ width: 50, height: 30, borderRadius: 15, justifyContent: 'center', paddingHorizontal: 3 }, trackStyle]}
+    >
+      <Animated.View style={[{ width: 24, height: 24, borderRadius: 12, backgroundColor: '#fff' }, thumbStyle]} />
+    </AnimatedPressable>
+  );
+}
+
+export default function SettingsScreen() {
+  const { coach, academy } = useCoach();
+  const insets = useSafeAreaInsets();
+  const navigation = useNavigation();
+  const { t } = useTranslation();
+  const [settings, setSettings] = useState<CoachSettings>(defaultSettings);
+  const [hasChanges, setHasChanges] = useState(false);
+  const [focusMode, setFocusMode] = useState(false);
+  const [testPushLoading, setTestPushLoading] = useState(false);
+  const [testBookingLoading, setTestBookingLoading] = useState(false);
+  const [showCourtModal, setShowCourtModal] = useState(false);
+  const [showLocationModal, setShowLocationModal] = useState(false);
+  const [showTravelTimeModal, setShowTravelTimeModal] = useState(false);
+  const [showDeleteTravelTimeModal, setShowDeleteTravelTimeModal] = useState(false);
+  const [newCourtName, setNewCourtName] = useState('');
+  const [newCourtColor, setNewCourtColor] = useState('');
+  const [newCourtLocationId, setNewCourtLocationId] = useState('');
+  const [newLocationName, setNewLocationName] = useState('');
+  const [courtsCollapsed, setCourtsCollapsed] = useState(false);
+  const [locationsCollapsed, setLocationsCollapsed] = useState(false);
+  const [travelTimesExpanded, setTravelTimesExpanded] = useState(false);
+  const [selectedTravelTime, setSelectedTravelTime] = useState<any>(null);
+  const [travelTimeToDelete, setTravelTimeToDelete] = useState<any>(null);
+  const [storedLanguage, setStoredLanguage] = useState('en');
 
   const loadSettings = async () => {
     try {
