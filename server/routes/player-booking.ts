@@ -342,8 +342,27 @@ function toDubaiTime(utcDate: Date): Date {
         
       });
 
-      // Enrich sessions with player count and player info
-      const enrichedSessions = await Promise.all(sessions.map(async (session) => {
+      // Filter by player's ball level - only show sessions matching their level
+      const playerBallLevel = (currentPlayer?.ballLevel || "green").toLowerCase();
+      const seriesIds = [...new Set(sessions.map(s => s.seriesId).filter(Boolean))];
+      const seriesLevelMap = new Map<string, string>();
+      for (const sid of seriesIds) {
+        try {
+          const series = await storage.getCoachingSeriesById(sid as string);
+          if (series?.ballLevel) {
+            seriesLevelMap.set(sid as string, series.ballLevel.toLowerCase());
+          }
+        } catch (e) {}
+      }
+      const levelFilteredSessions = sessions.filter(s => {
+        const sessionBallLevel = (s.ballLevel || "").toLowerCase();
+        const seriesLevel = s.seriesId ? seriesLevelMap.get(s.seriesId) || "" : "";
+        const effectiveLevel = sessionBallLevel || seriesLevel;
+        if (!effectiveLevel) return false;
+        return effectiveLevel === playerBallLevel;
+      });
+
+      const enrichedSessions = await Promise.all(levelFilteredSessions.map(async (session) => {
         // Get players in this session - first check session_players
         const sessionPlayerRecords = await db.query.sessionPlayers.findMany({
           where: (sp, { eq }) => eq(sp.sessionId, session.id),
