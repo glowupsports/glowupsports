@@ -13,6 +13,8 @@ import { Colors, Spacing, Typography, BorderRadius, GlowColors } from "@/constan
 import { formatSessionTimeWithRelativeDay } from "@/lib/dateUtils";
 import { apiRequest, getStaticAssetsUrl } from "@/lib/query-client";
 import { useWalkthrough } from "@/player/context/WalkthroughContext";
+import { useFamily } from "@/player/context/FamilyContext";
+import FamilyQuickSwitch from "@/player/components/FamilyQuickSwitch";
 
 const courtBackground = require("@/assets/images/courts/court-night-default.png");
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
@@ -126,6 +128,7 @@ export default function PlayScreen() {
   const route = useRoute<RouteProp<PlayStackParamList, "Play">>();
   const queryClient = useQueryClient();
   const { hasSeenScreen, startWalkthrough } = useWalkthrough();
+  const { isFamily, familyData, activePlayerId } = useFamily();
   const initialTab = route.params?.initialTab || "Group Lessons";
   const [activeTab, setActiveTab] = useState<typeof TAB_OPTIONS[number]>(initialTab);
   const [joiningSessionId, setJoiningSessionId] = useState<string | null>(null);
@@ -773,6 +776,16 @@ export default function PlayScreen() {
           <Text style={styles.headerTitle}>{t("player.play.title")}</Text>
           <View style={styles.headerLine} />
         </View>
+        {isFamily ? (
+          <View style={styles.familySwitchRow}>
+            <FamilyQuickSwitch />
+            {activePlayerId && familyData ? (
+              <Text style={styles.familyViewingText}>
+                Viewing for {familyData.members.find(m => m.id === activePlayerId)?.name || ""}
+              </Text>
+            ) : null}
+          </View>
+        ) : null}
       </View>
 
         <View style={styles.quickActions}>
@@ -1163,6 +1176,18 @@ const styles = StyleSheet.create({
     ...Typography.h1,
     color: Colors.dark.text,
     textAlign: "center",
+  },
+  familySwitchRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: Spacing.sm,
+    marginTop: Spacing.xs,
+  },
+  familyViewingText: {
+    ...Typography.caption,
+    color: Colors.dark.primary,
+    fontWeight: "600",
   },
   chatButton: {
     position: "relative",
