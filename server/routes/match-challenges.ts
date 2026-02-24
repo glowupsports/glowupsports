@@ -19,6 +19,10 @@ router.post("/", async (req: Request, res: Response) => {
       return res.status(400).json({ error: "opponentId, matchDate, and matchTime are required" });
     }
 
+    if (String(challengerId) === String(opponentId)) {
+      return res.status(400).json({ error: "You cannot challenge yourself" });
+    }
+
     const [challenger] = await db
       .select()
       .from(players)

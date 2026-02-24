@@ -21,7 +21,7 @@ import { GlassCard } from "./GlassCard";
 import { GlowAvatar } from "./GlowAvatar";
 import { ProTennisColors, Backgrounds, Spacing, BorderRadius, Typography, GlowColors, Colors, CardElevation } from "@/constants/theme";
 import { usePlayerState } from "../context/PlayerStateContext";
-import { apiRequest, getApiUrl, getAuthHeaders } from "@/lib/query-client";
+import { apiRequest, getApiUrl, getAuthHeaders, getEffectivePlayerId } from "@/lib/query-client";
 import { useAuth } from "@/coach/context/AuthContext";
 import * as Haptics from "expo-haptics";
 import { useTranslation } from "react-i18next";
@@ -238,7 +238,7 @@ export function SessionHeroCard({
   const { state } = usePlayerState();
   const { sessionStatus, minutesToNextSession, minutesRemaining, coachName, sessionCourtName, sessionType, coachPhotoUrl, sessionId } = state;
   const { user } = useAuth();
-  const playerId = user?.playerId;
+  const playerId = getEffectivePlayerId(user?.playerId);
 
   interface ChallengeData {
     id: string;

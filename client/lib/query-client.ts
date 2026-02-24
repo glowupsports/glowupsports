@@ -67,6 +67,10 @@ export function getActivePlayerOverride(): string | null {
   return _activePlayerOverride;
 }
 
+export function getEffectivePlayerId(authPlayerId: string | null | undefined): string | null {
+  return _activePlayerOverride || authPlayerId || null;
+}
+
 export function getAuthHeaders(): Record<string, string> {
   const headers: Record<string, string> = {};
   

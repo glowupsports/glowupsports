@@ -19,7 +19,7 @@ import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons, Feather } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import { Colors, Spacing, FontSizes, BorderRadius, Typography, getPlayerLevelColor } from "@/constants/theme";
-import { apiRequest, getApiUrl, getAuthHeaders } from "@/lib/query-client";
+import { apiRequest, getApiUrl, getAuthHeaders, getEffectivePlayerId } from "@/lib/query-client";
 import { useAuth } from "@/coach/context/AuthContext";
 import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollViewCompat";
 
@@ -63,7 +63,7 @@ export default function ChallengePlayerScreen() {
   const [message, setMessage] = useState("");
 
   const academyId = (user as any)?.academyId;
-  const playerId = user?.playerId;
+  const playerId = getEffectivePlayerId(user?.playerId);
 
   const { data: courtsData, isLoading: courtsLoading } = useQuery({
     queryKey: ["/api/courts", academyId],

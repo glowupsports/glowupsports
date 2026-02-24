@@ -7,7 +7,7 @@ import { useNavigation } from "@react-navigation/native";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Colors, Spacing, FontSizes, BorderRadius, Typography, GlowColors, Backgrounds, TextColors } from "@/constants/theme";
 import { useAuth } from "@/coach/context/AuthContext";
-import { apiRequest, getApiUrl, getAuthHeaders } from "@/lib/query-client";
+import { apiRequest, getApiUrl, getAuthHeaders, getEffectivePlayerId } from "@/lib/query-client";
 import * as Haptics from "expo-haptics";
 
 interface Challenge {
@@ -273,7 +273,7 @@ export function ChallengeCard() {
     enabled: !!user?.playerId,
   });
 
-  const playerId = user?.playerId;
+  const playerId = getEffectivePlayerId(user?.playerId);
   if (!playerId) return null;
 
   const incoming = challenges.filter(

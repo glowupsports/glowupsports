@@ -17,7 +17,7 @@ import Animated, { FadeInRight } from "react-native-reanimated";
 import { LinearGradient } from "expo-linear-gradient";
 import { Colors, Spacing, FontSizes, BorderRadius, GlowColors } from "@/constants/theme";
 import { Card } from "@/components/Card";
-import { apiRequest, getApiUrl, getAuthHeaders } from "@/lib/query-client";
+import { apiRequest, getApiUrl, getAuthHeaders, getEffectivePlayerId } from "@/lib/query-client";
 import { useAuth } from "@/coach/context/AuthContext";
 
 interface BookingInvite {
@@ -294,7 +294,7 @@ export default function BookingInvitesScreen() {
   const navigation = useNavigation();
   const queryClient = useQueryClient();
   const { user } = useAuth();
-  const playerId = user?.playerId;
+  const playerId = getEffectivePlayerId(user?.playerId);
   const [respondingId, setRespondingId] = useState<string | null>(null);
   const [respondingChallengeId, setRespondingChallengeId] = useState<string | null>(null);
 
