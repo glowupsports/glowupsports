@@ -269,15 +269,23 @@ export function SessionHeroCard({
     enabled: !!playerId,
   });
 
+  const isChallengeExpired = (c: ChallengeData) => {
+    if (!c.scheduledDate || !c.scheduledTime) return false;
+    const [year, month, day] = c.scheduledDate.split("-").map(Number);
+    const [h, m] = c.scheduledTime.split(":").map(Number);
+    const scheduledMs = new Date(year, month - 1, day, h, m, 0).getTime();
+    return Date.now() > scheduledMs;
+  };
+
   const incomingChallenges = challenges.filter(
-    (c) => c.status === "pending" && String(c.opponentId) === String(playerId)
+    (c) => c.status === "pending" && String(c.opponentId) === String(playerId) && !isChallengeExpired(c)
   );
   const acceptedChallenges = challenges.filter(
     (c) => c.status === "accepted" &&
       (String(c.challengerId) === String(playerId) || String(c.opponentId) === String(playerId))
   );
   const sentPendingChallenges = challenges.filter(
-    (c) => c.status === "pending" && String(c.challengerId) === String(playerId)
+    (c) => c.status === "pending" && String(c.challengerId) === String(playerId) && !isChallengeExpired(c)
   );
 
   const respondToChallengeMutation = useMutation({
