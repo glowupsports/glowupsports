@@ -979,7 +979,7 @@ export function SessionHeroCard({
                     ]}
                     onPress={() => {
                       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-                      navigation.navigate("CreateMatch" as never);
+                      navigateToTab("PlayStack", { screen: "CreateMatch" });
                     }}
                   >
                     <LinearGradient

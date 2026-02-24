@@ -54,6 +54,23 @@ The application utilizes a dark-themed gaming aesthetic with neon green and cyan
 - **Player Onboarding V2**: A 17-step flow adapting for age, including personal details, photo, ball level reveal, motivation, experience, idol selection, goals, availability, academy selection, parent connect, and completion. Academy welcome videos are configurable.
 - **User Onboarding & Guidance System**: Comprehensive system including `GettingStartedChecklist`, `WelcomeIntroModal`, `HelpCenterModal`, `HelpButton`, `QuickTipsBanner`, `RoleSwitchingGuide`, `SettingsWalkthroughModal`, `FirstActionCelebration`, `WhatsNewFeed`, `NotificationGuideModal`, and `PlatformUsageProgress` integrated across all role dashboards.
 
+## Important Patterns & Gotchas
+
+### SwipeBlocker Component
+`SwipeBlocker` (`client/components/SwipeBlocker.tsx`) wraps interactive elements inside `SwipeableTabBar` pages to prevent horizontal swipe gestures from accidentally triggering button presses on native. On web, it renders a plain `View` and does NOT block touches. **Usage rules:**
+- Use `SwipeBlocker` around `Pressable`/buttons that are inside the swipeable tab content (Home, Play, Schedule, etc.)
+- It only disables/enables the pager scroll on native — it does NOT affect tap behavior on any platform
+- If buttons don't respond, the issue is NOT SwipeBlocker — check navigation routes, disabled states, or overlapping views
+
+### Cross-Tab Navigation from SessionHeroCard
+SessionHeroCard is on the "Home" tab. To navigate to screens in other tab stacks, use `navigateToTab(tabKey, { screen: "ScreenName" })`:
+- Play tab screens: `navigateToTab("PlayStack", { screen: "CreateMatch" })`
+- Schedule tab screens: `navigateToTab("Schedule", { screen: "Match" })`
+- Do NOT use `navigation.navigate("ScreenName")` for screens in other tab stacks — it will fail silently
+
+### Family/Parent Active Player Override
+When a parent is managing a child's account via the Family Lobby, `user?.playerId` still returns the parent's ID. Always use `getEffectivePlayerId(user?.playerId)` from `@/lib/query-client` to get the correct active player ID. This applies to ALL player-specific API calls and data filtering.
+
 ## External Dependencies
 
 - **Database**: Supabase PostgreSQL (via Drizzle ORM). IMPORTANT: `pool` is exported from `server/db.ts` for raw SQL queries. Use `pool.query()` with `$1` params instead of Drizzle's `db.execute(sql`...`)` for timestamp/array comparisons, as Drizzle template literals have issues with `::timestamp` casts and `ANY($1::text[])` array params. The Replit built-in DB (`heliumdb`) is separate from the Supabase DB (`postgres`) used by the app.
