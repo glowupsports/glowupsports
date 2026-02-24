@@ -665,6 +665,10 @@ export default function PlayScreen() {
             <View style={[styles.compactLevelBadge, { backgroundColor: ballColor + "25" }]}>
               <Text style={[styles.compactLevelText, { color: ballColor }]}>{ballLabel}</Text>
             </View>
+            <View style={styles.compactXpLevelBadge}>
+              <Ionicons name="star" size={10} color={Colors.dark.gold} />
+              <Text style={styles.compactXpLevelText}>Lvl {player.level}</Text>
+            </View>
             {player.vibe ? (
               <Text style={styles.compactVibeText} numberOfLines={1}>{player.vibe}</Text>
             ) : null}
@@ -691,7 +695,8 @@ export default function PlayScreen() {
               navigation.navigate("CreateMatch", { opponentId: player.id, opponentName: player.name } as never);
             }}
           >
-            <Ionicons name="flash" size={14} color={Colors.dark.backgroundRoot} />
+            <Ionicons name="flash" size={12} color={Colors.dark.backgroundRoot} />
+            <Text style={styles.compactChallengeText}>Challenge</Text>
           </Pressable>
         </View>
       </Pressable>
@@ -1904,12 +1909,34 @@ const styles = StyleSheet.create({
     borderColor: Colors.dark.border,
   },
   compactChallengeBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+    flexDirection: "row",
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 6,
+    borderRadius: BorderRadius.full,
     backgroundColor: Colors.dark.primary,
     alignItems: "center",
     justifyContent: "center",
+    gap: 4,
+  },
+  compactChallengeText: {
+    fontSize: 11,
+    fontWeight: "800",
+    color: Colors.dark.backgroundRoot,
+    letterSpacing: 0.3,
+  },
+  compactXpLevelBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 3,
+    backgroundColor: Colors.dark.gold + "20",
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: BorderRadius.sm,
+  },
+  compactXpLevelText: {
+    fontSize: 10,
+    fontWeight: "700",
+    color: Colors.dark.gold,
   },
   modalOverlay: {
     flex: 1,

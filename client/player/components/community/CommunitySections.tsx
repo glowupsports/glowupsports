@@ -455,7 +455,7 @@ export function FriendsSection({ onChallenge, onSelectActivity }: { onChallenge?
 
   const handleMessage = (friend: Friend) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    navigation.navigate("Messages", { recipientId: friend.id });
+    navigation.navigate("PlayerMessages" as never);
   };
 
   const handleAcceptRequest = async (requestId: string) => {
@@ -528,7 +528,8 @@ export function FriendsSection({ onChallenge, onSelectActivity }: { onChallenge?
               colors={[Colors.dark.primary, Colors.dark.primaryGlow || "#9AE66E"]}
               style={friendStyles.friendChallengeBtnGradient}
             >
-              <Ionicons name="flash" size={16} color={Colors.dark.backgroundRoot} />
+              <Ionicons name="flash" size={14} color={Colors.dark.backgroundRoot} />
+              <ThemedText style={friendStyles.friendChallengeText}>Challenge</ThemedText>
             </LinearGradient>
           </Pressable>
         </View>
@@ -1440,10 +1441,18 @@ const friendStyles = StyleSheet.create({
     overflow: "hidden",
   },
   friendChallengeBtnGradient: {
-    width: 40,
-    height: 40,
+    flexDirection: "row",
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: Spacing.sm,
     alignItems: "center",
     justifyContent: "center",
+    gap: 4,
+  },
+  friendChallengeText: {
+    fontSize: 11,
+    fontWeight: "800",
+    color: Colors.dark.backgroundRoot,
+    letterSpacing: 0.3,
   },
   requestCard: {
     flexDirection: "row",

@@ -116,6 +116,15 @@ function ChildCard({ member, onPress, index }: ChildCardProps) {
 
           <Text style={styles.childName} numberOfLines={1}>{member.name}</Text>
 
+          {member.ballLevel ? (
+            <View style={[styles.ballLevelTextBadge, { backgroundColor: getBallColor(member.ballLevel) + "25" }]}>
+              <Ionicons name="tennisball" size={12} color={getBallColor(member.ballLevel)} />
+              <Text style={[styles.ballLevelTextLabel, { color: getBallColor(member.ballLevel) }]}>
+                {member.ballLevel.charAt(0).toUpperCase() + member.ballLevel.slice(1)} Ball
+              </Text>
+            </View>
+          ) : null}
+
           <View style={styles.levelRow}>
             <View style={styles.levelBadge}>
               <Ionicons name="star" size={14} color={Colors.dark.gold} />
@@ -588,6 +597,21 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     color: Colors.dark.text,
     textAlign: "center",
+  },
+  ballLevelTextBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 3,
+    borderRadius: BorderRadius.full,
+    alignSelf: "center",
+    marginBottom: 2,
+  },
+  ballLevelTextLabel: {
+    fontSize: FontSizes.xs,
+    fontWeight: "700",
+    letterSpacing: 0.3,
   },
   levelRow: {
     flexDirection: "row",
