@@ -40,7 +40,8 @@ The application utilizes a dark-themed gaming aesthetic with neon green and cyan
 - **Skill Evidence Capture**: 10-second video evidence system for skill verification.
 - **Level-Up Events & Celebrations**: Tracks player promotions with XP, badges, title unlocks, and manages celebration queues.
 - **Multi-Language Role Views**: Role-specific messaging with dynamic placeholders.
-- **Timezone Handling**: Academy-specific IANA timezones.
+- **Timezone Handling**: Academy-specific IANA timezones. **CRITICAL RULE**: All time comparisons and displays MUST use the academy's timezone (e.g., Dubai = `Asia/Dubai`, Indonesia = `Asia/Jakarta`), NEVER raw UTC. Session start/end times are stored in UTC in the database but must be converted to local academy time using `Intl.DateTimeFormat` with the academy's `timezone` field before comparing with slot times or displaying to users. The `AT TIME ZONE` PostgreSQL operator should be used in SQL queries when filtering by local date.
+- **Match Challenge System**: 4-step wizard (Match Type/Format -> Court Selection -> Date & Smart Time Slots -> Message & Confirm) with availability checking against player sessions, court bookings, and existing challenges. Server returns camelCase JSON from raw SQL via explicit field mapping.
 - **Role-Specific Applications**: Dedicated apps for Coaches, Players, and Platform Owners.
 - **Glow Market & Community Marketplace**: Academy and Player Shops (XP-based discounts) and a Community Marketplace for used equipment.
 - **Free Player Mode**: Players can use the app without joining an academy. Free players get court booking (Level 1), discovery, and social features. Dashboard returns `isFreePlayer: true` flag. Home screen shows "Find & Book Courts" CTA for free players.

@@ -52,6 +52,7 @@ export default function ChallengePlayerScreen() {
   const levelColor = getPlayerLevelColor(opponentBallLevel);
 
   const [step, setStep] = useState(0);
+  const [showSuccess, setShowSuccess] = useState(false);
   const [matchType, setMatchType] = useState<MatchType>("singles");
   const [matchFormat, setMatchFormat] = useState<MatchFormat>("friendly");
   const [selectedCourt, setSelectedCourt] = useState<CourtOption>(null);
@@ -144,13 +145,10 @@ export default function ChallengePlayerScreen() {
     onSuccess: () => {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       queryClient.invalidateQueries({ queryKey: ["/api/matches/challenges"] });
-      Alert.alert("Challenge Sent!", `Your challenge has been sent to ${opponentName}.`, [
-        { text: "OK", onPress: () => navigation.goBack() },
-      ]);
+      setShowSuccess(true);
     },
     onError: () => {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-      Alert.alert("Error", "Failed to send challenge. Please try again.");
     },
   });
 
@@ -601,6 +599,65 @@ export default function ChallengePlayerScreen() {
     if (step === 3) return "flash";
     return "arrow-forward";
   };
+
+  if (showSuccess) {
+    return (
+      <View style={[styles.container, { backgroundColor: Colors.dark.backgroundRoot }]}>
+        <View style={styles.successContainer}>
+          <Animated.View entering={FadeInDown.duration(500)} style={styles.successContent}>
+            <View style={styles.successIconCircle}>
+              <Ionicons name="checkmark" size={48} color={Colors.dark.backgroundRoot} />
+            </View>
+            <Text style={styles.successTitle}>Challenge Sent!</Text>
+            <Text style={styles.successSubtitle}>
+              Your challenge has been sent to {opponentName}
+            </Text>
+
+            <View style={styles.successSummary}>
+              <View style={styles.successSummaryRow}>
+                <Ionicons name="tennisball" size={16} color={Colors.dark.primary} />
+                <Text style={styles.successSummaryText}>
+                  {matchType.charAt(0).toUpperCase() + matchType.slice(1)} - {matchFormat.charAt(0).toUpperCase() + matchFormat.slice(1)}
+                </Text>
+              </View>
+              <View style={styles.successSummaryRow}>
+                <Ionicons name="calendar" size={16} color={Colors.dark.primary} />
+                <Text style={styles.successSummaryText}>
+                  {formatDateLabel(selectedDate)} at {selectedTime}
+                </Text>
+              </View>
+              {(selectedCourt?.name || customCourtName) ? (
+                <View style={styles.successSummaryRow}>
+                  <Ionicons name="location" size={16} color={Colors.dark.primary} />
+                  <Text style={styles.successSummaryText}>
+                    {selectedCourt?.name || customCourtName}
+                  </Text>
+                </View>
+              ) : null}
+            </View>
+
+            <Text style={styles.successHint}>
+              {opponentName} will be notified and can accept or decline
+            </Text>
+
+            <Pressable
+              style={styles.successButton}
+              onPress={() => navigation.goBack()}
+            >
+              <LinearGradient
+                colors={[Colors.dark.primary, "#A6E92A"]}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+                style={styles.successButtonGradient}
+              >
+                <Text style={styles.successButtonText}>Done</Text>
+              </LinearGradient>
+            </Pressable>
+          </Animated.View>
+        </View>
+      </View>
+    );
+  }
 
   return (
     <View style={[styles.container, { backgroundColor: Colors.dark.backgroundRoot }]}>
@@ -1221,5 +1278,78 @@ const styles = StyleSheet.create({
   },
   nextButtonTextDisabled: {
     color: Colors.dark.textSubtle,
+  },
+
+  successContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    paddingHorizontal: Spacing.xl,
+  },
+  successContent: {
+    alignItems: "center",
+    width: "100%",
+  },
+  successIconCircle: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: Colors.dark.primary,
+    justifyContent: "center",
+    alignItems: "center",
+    marginBottom: Spacing.xl,
+  },
+  successTitle: {
+    fontSize: 28,
+    fontWeight: "800",
+    color: Colors.dark.text,
+    marginBottom: Spacing.sm,
+  },
+  successSubtitle: {
+    fontSize: FontSizes.md,
+    color: Colors.dark.textMuted,
+    textAlign: "center",
+    marginBottom: Spacing.xl,
+  },
+  successSummary: {
+    backgroundColor: Colors.dark.backgroundDefault,
+    borderRadius: BorderRadius.md,
+    borderWidth: 1,
+    borderColor: Colors.dark.border,
+    padding: Spacing.lg,
+    width: "100%",
+    gap: Spacing.md,
+    marginBottom: Spacing.xl,
+  },
+  successSummaryRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+  },
+  successSummaryText: {
+    fontSize: FontSizes.md,
+    color: Colors.dark.text,
+    fontWeight: "500",
+  },
+  successHint: {
+    fontSize: FontSizes.sm,
+    color: Colors.dark.textSubtle,
+    textAlign: "center",
+    marginBottom: Spacing.xl,
+  },
+  successButton: {
+    width: "100%",
+    borderRadius: BorderRadius.md,
+    overflow: "hidden",
+  },
+  successButtonGradient: {
+    paddingVertical: 16,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  successButtonText: {
+    fontSize: FontSizes.lg,
+    fontWeight: "700",
+    color: Colors.dark.backgroundRoot,
   },
 });

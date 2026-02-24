@@ -92,7 +92,33 @@ router.get("/", async (req: Request, res: Response) => {
       [playerId]
     );
 
-    res.json(result.rows);
+    const challenges = result.rows.map((row: any) => ({
+      id: row.id,
+      challengerId: row.challenger_id,
+      opponentId: row.opponent_id,
+      academyId: row.academy_id,
+      matchType: row.match_type,
+      matchFormat: row.match_format,
+      scheduledDate: row.match_date,
+      scheduledTime: row.match_time,
+      courtId: row.court_id,
+      courtName: row.court_name_resolved || row.court_name,
+      customLocation: row.custom_location,
+      message: row.message,
+      status: row.status,
+      respondedAt: row.responded_at,
+      createdAt: row.created_at,
+      challengerName: row.challenger_name,
+      challengerPhoto: row.challenger_photo,
+      challengerBallLevel: row.challenger_ball_level,
+      challengerLevel: row.challenger_level,
+      opponentName: row.opponent_name,
+      opponentPhoto: row.opponent_photo,
+      opponentBallLevel: row.opponent_ball_level,
+      opponentLevel: row.opponent_level,
+    }));
+
+    res.json(challenges);
   } catch (error) {
     console.error("Error fetching challenges:", error);
     res.status(500).json({ error: "Failed to fetch challenges" });
@@ -246,17 +272,40 @@ router.get("/availability", async (req: Request, res: Response) => {
     const slotStatus: Record<string, { available: boolean; reason?: string }> = {};
     ALL_SLOTS.forEach((s) => (slotStatus[s] = { available: true }));
 
-    const dateStart = `${date}T00:00:00`;
-    const dateEnd = `${date}T23:59:59`;
+    const playerResult = await pool.query(
+      `SELECT p.academy_id, a.timezone 
+       FROM players p 
+       LEFT JOIN academies a ON p.academy_id = a.id 
+       WHERE p.id = $1`,
+      [playerId]
+    );
+    const academyTimezone = playerResult.rows[0]?.timezone || "Asia/Dubai";
+
+    const getLocalHours = (utcDate: Date, tz: string): { hours: number; minutes: number } => {
+      const parts = new Intl.DateTimeFormat("en-US", {
+        timeZone: tz,
+        hour: "numeric",
+        minute: "numeric",
+        hour12: false,
+      }).formatToParts(utcDate);
+      const h = parseInt(parts.find((p: any) => p.type === "hour")?.value || "0");
+      const m = parseInt(parts.find((p: any) => p.type === "minute")?.value || "0");
+      return { hours: h === 24 ? 0 : h, minutes: m };
+    };
+
+    const getLocalDateStr = (utcDate: Date, tz: string): string => {
+      return utcDate.toLocaleDateString("en-CA", { timeZone: tz });
+    };
 
     const playerSessionsQuery = pool.query(
       `SELECT s.start_time, s.end_time, s.session_type, s.status
        FROM sessions s
        JOIN session_players sp ON sp.session_id = s.id
        WHERE sp.player_id = $1
-         AND s.start_time >= $2::timestamp AND s.start_time <= $3::timestamp
+         AND s.start_time AT TIME ZONE $4 >= ($2 || ' 00:00:00')::timestamp
+         AND s.start_time AT TIME ZONE $4 <= ($3 || ' 23:59:59')::timestamp
          AND s.status != 'cancelled'`,
-      [playerId, dateStart, dateEnd]
+      [playerId, date, date, academyTimezone]
     );
 
     const opponentSessionsQuery = pool.query(
@@ -264,9 +313,10 @@ router.get("/availability", async (req: Request, res: Response) => {
        FROM sessions s
        JOIN session_players sp ON sp.session_id = s.id
        WHERE sp.player_id = $1
-         AND s.start_time >= $2::timestamp AND s.start_time <= $3::timestamp
+         AND s.start_time AT TIME ZONE $4 >= ($2 || ' 00:00:00')::timestamp
+         AND s.start_time AT TIME ZONE $4 <= ($3 || ' 23:59:59')::timestamp
          AND s.status != 'cancelled'`,
-      [opponentId, dateStart, dateEnd]
+      [opponentId, date, date, academyTimezone]
     );
 
     const courtBookingsQuery = courtId
@@ -287,14 +337,17 @@ router.get("/availability", async (req: Request, res: Response) => {
       [playerId, opponentId, date]
     );
 
-    const coachSessionsPlayerQuery = pool.query(
-      `SELECT s.start_time, s.end_time
-       FROM sessions s
-       WHERE s.court_id = $1
-         AND s.start_time >= $2::timestamp AND s.start_time <= $3::timestamp
-         AND s.status != 'cancelled'`,
-      [courtId || 'no-court', dateStart, dateEnd]
-    );
+    const coachSessionsPlayerQuery = courtId
+      ? pool.query(
+          `SELECT s.start_time, s.end_time
+           FROM sessions s
+           WHERE s.court_id = $1
+             AND s.start_time AT TIME ZONE $4 >= ($2 || ' 00:00:00')::timestamp
+             AND s.start_time AT TIME ZONE $4 <= ($3 || ' 23:59:59')::timestamp
+             AND s.status != 'cancelled'`,
+          [courtId, date, date, academyTimezone]
+        )
+      : Promise.resolve({ rows: [] });
 
     const [playerSessions, opponentSessions, courtBookings, existingChallenges, courtSessions] =
       await Promise.all([
@@ -305,13 +358,12 @@ router.get("/availability", async (req: Request, res: Response) => {
         coachSessionsPlayerQuery,
       ]);
 
-    const isSlotBlocked = (slotTime: string, startTime: Date, endTime: Date): boolean => {
+    const isSlotBlocked = (slotTime: string, startTimeUtc: Date, endTimeUtc: Date): boolean => {
       const slotHour = parseInt(slotTime.split(":")[0]);
-      const startHour = startTime.getHours();
-      const endHour = endTime.getHours();
-      const endMin = endTime.getMinutes();
-      const effectiveEnd = endMin > 0 ? endHour + 1 : endHour;
-      return slotHour >= startHour && slotHour < effectiveEnd;
+      const startLocal = getLocalHours(startTimeUtc, academyTimezone);
+      const endLocal = getLocalHours(endTimeUtc, academyTimezone);
+      const effectiveEnd = endLocal.minutes > 0 ? endLocal.hours + 1 : endLocal.hours;
+      return slotHour >= startLocal.hours && slotHour < effectiveEnd;
     };
 
     for (const session of playerSessions.rows) {
@@ -365,12 +417,13 @@ router.get("/availability", async (req: Request, res: Response) => {
     }
 
     const now = new Date();
-    const isToday = date === now.toISOString().split("T")[0];
+    const todayLocal = getLocalDateStr(now, academyTimezone);
+    const isToday = date === todayLocal;
     if (isToday) {
-      const currentHour = now.getHours();
+      const currentLocal = getLocalHours(now, academyTimezone);
       for (const slot of ALL_SLOTS) {
         const slotHour = parseInt(slot.split(":")[0]);
-        if (slotHour <= currentHour && slotStatus[slot].available) {
+        if (slotHour <= currentLocal.hours && slotStatus[slot].available) {
           slotStatus[slot] = { available: false, reason: "Time passed" };
         }
       }
