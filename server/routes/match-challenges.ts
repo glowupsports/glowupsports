@@ -224,4 +224,168 @@ router.get("/head-to-head/:opponentId", async (req: Request, res: Response) => {
   }
 });
 
+router.get("/availability", async (req: Request, res: Response) => {
+  try {
+    const { playerId, opponentId, courtId, date } = req.query as {
+      playerId?: string;
+      opponentId?: string;
+      courtId?: string;
+      date?: string;
+    };
+
+    if (!playerId || !opponentId || !date) {
+      return res.status(400).json({ error: "playerId, opponentId, and date are required" });
+    }
+
+    const ALL_SLOTS = [
+      "06:00", "07:00", "08:00", "09:00", "10:00", "11:00",
+      "12:00", "13:00", "14:00", "15:00", "16:00",
+      "17:00", "18:00", "19:00", "20:00", "21:00", "22:00",
+    ];
+
+    const slotStatus: Record<string, { available: boolean; reason?: string }> = {};
+    ALL_SLOTS.forEach((s) => (slotStatus[s] = { available: true }));
+
+    const dateStart = `${date}T00:00:00`;
+    const dateEnd = `${date}T23:59:59`;
+
+    const playerSessionsQuery = pool.query(
+      `SELECT s.start_time, s.end_time, s.session_type, s.status
+       FROM sessions s
+       JOIN session_players sp ON sp.session_id = s.id
+       WHERE sp.player_id = $1
+         AND s.start_time >= $2::timestamp AND s.start_time <= $3::timestamp
+         AND s.status != 'cancelled'`,
+      [playerId, dateStart, dateEnd]
+    );
+
+    const opponentSessionsQuery = pool.query(
+      `SELECT s.start_time, s.end_time, s.session_type, s.status
+       FROM sessions s
+       JOIN session_players sp ON sp.session_id = s.id
+       WHERE sp.player_id = $1
+         AND s.start_time >= $2::timestamp AND s.start_time <= $3::timestamp
+         AND s.status != 'cancelled'`,
+      [opponentId, dateStart, dateEnd]
+    );
+
+    const courtBookingsQuery = courtId
+      ? pool.query(
+          `SELECT start_time, end_time, status
+           FROM court_bookings
+           WHERE court_id = $1 AND date = $2 AND status NOT IN ('cancelled')`,
+          [courtId, date]
+        )
+      : Promise.resolve({ rows: [] });
+
+    const existingChallengesQuery = pool.query(
+      `SELECT match_date, match_time, status
+       FROM match_challenges
+       WHERE ((challenger_id = $1 AND opponent_id = $2) OR (challenger_id = $2 AND opponent_id = $1))
+         AND match_date = $3
+         AND status IN ('pending', 'accepted')`,
+      [playerId, opponentId, date]
+    );
+
+    const coachSessionsPlayerQuery = pool.query(
+      `SELECT s.start_time, s.end_time
+       FROM sessions s
+       WHERE s.court_id = $1
+         AND s.start_time >= $2::timestamp AND s.start_time <= $3::timestamp
+         AND s.status != 'cancelled'`,
+      [courtId || 'no-court', dateStart, dateEnd]
+    );
+
+    const [playerSessions, opponentSessions, courtBookings, existingChallenges, courtSessions] =
+      await Promise.all([
+        playerSessionsQuery,
+        opponentSessionsQuery,
+        courtBookingsQuery,
+        existingChallengesQuery,
+        coachSessionsPlayerQuery,
+      ]);
+
+    const isSlotBlocked = (slotTime: string, startTime: Date, endTime: Date): boolean => {
+      const slotHour = parseInt(slotTime.split(":")[0]);
+      const startHour = startTime.getHours();
+      const endHour = endTime.getHours();
+      const endMin = endTime.getMinutes();
+      const effectiveEnd = endMin > 0 ? endHour + 1 : endHour;
+      return slotHour >= startHour && slotHour < effectiveEnd;
+    };
+
+    for (const session of playerSessions.rows) {
+      const start = new Date(session.start_time);
+      const end = new Date(session.end_time);
+      for (const slot of ALL_SLOTS) {
+        if (isSlotBlocked(slot, start, end) && slotStatus[slot].available) {
+          slotStatus[slot] = { available: false, reason: "You have a session" };
+        }
+      }
+    }
+
+    for (const session of opponentSessions.rows) {
+      const start = new Date(session.start_time);
+      const end = new Date(session.end_time);
+      for (const slot of ALL_SLOTS) {
+        if (isSlotBlocked(slot, start, end) && slotStatus[slot].available) {
+          slotStatus[slot] = { available: false, reason: "Opponent not available" };
+        }
+      }
+    }
+
+    if (courtId) {
+      for (const booking of courtBookings.rows) {
+        const startHour = parseInt(booking.start_time.split(":")[0]);
+        const endHour = parseInt(booking.end_time.split(":")[0]);
+        for (const slot of ALL_SLOTS) {
+          const slotHour = parseInt(slot.split(":")[0]);
+          if (slotHour >= startHour && slotHour < endHour && slotStatus[slot].available) {
+            slotStatus[slot] = { available: false, reason: "Court booked" };
+          }
+        }
+      }
+
+      for (const session of courtSessions.rows) {
+        const start = new Date(session.start_time);
+        const end = new Date(session.end_time);
+        for (const slot of ALL_SLOTS) {
+          if (isSlotBlocked(slot, start, end) && slotStatus[slot].available) {
+            slotStatus[slot] = { available: false, reason: "Court in use" };
+          }
+        }
+      }
+    }
+
+    for (const challenge of existingChallenges.rows) {
+      const challengeTime = challenge.match_time;
+      if (slotStatus[challengeTime]) {
+        slotStatus[challengeTime] = { available: false, reason: "Challenge already exists" };
+      }
+    }
+
+    const now = new Date();
+    const isToday = date === now.toISOString().split("T")[0];
+    if (isToday) {
+      const currentHour = now.getHours();
+      for (const slot of ALL_SLOTS) {
+        const slotHour = parseInt(slot.split(":")[0]);
+        if (slotHour <= currentHour && slotStatus[slot].available) {
+          slotStatus[slot] = { available: false, reason: "Time passed" };
+        }
+      }
+    }
+
+    const slots = ALL_SLOTS.map((time) => ({
+      time,
+      ...slotStatus[time],
+    }));
+
+    res.json({ date, slots });
+  } catch (error) {
+    console.error("Error checking availability:", error);
+    res.status(500).json({ error: "Failed to check availability" });
+  }
+});
+
 export default router;
