@@ -214,6 +214,7 @@ import parentDashboardRoutes from "./routes/parent-dashboard";
 import adultGlowRankRoutes from "./routes/adult-glow-rank";
 import lessonGroupsRoutes from "./routes/lesson-groups";
 import matchIntelligenceRoutes from "./routes/match-intelligence";
+import matchChallengeRoutes from "./routes/match-challenges";
 import playerLevelRoutes from "./routes/player-level";
 import roleMessagesRoutes from "./routes/role-messages";
 import socialFeaturesRoutes from "./routes/social-features";
@@ -472,6 +473,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.use(parentDashboardRoutes);
   app.use("/api/lesson-groups", lessonGroupsRoutes);
   app.use("/api/match-intelligence", matchIntelligenceRoutes);
+  app.use("/api/matches/challenge", matchChallengeRoutes);
   app.use("/api/player-level", playerLevelRoutes);
   app.use(roleMessagesRoutes);
   app.use(socialFeaturesRoutes);

@@ -692,7 +692,7 @@ export default function PlayScreen() {
             onPress={(e) => {
               e.stopPropagation();
               Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
-              navigation.navigate("CreateMatch", { opponentId: player.id, opponentName: player.name } as never);
+              navigation.navigate("ChallengePlayer", { opponentId: player.id, opponentName: player.name, opponentBallLevel: player.ballLevel, opponentLevel: player.level } as never);
             }}
           >
             <Ionicons name="flash" size={12} color={Colors.dark.backgroundRoot} />

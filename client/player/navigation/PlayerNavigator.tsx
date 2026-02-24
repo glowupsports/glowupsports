@@ -42,6 +42,7 @@ import MyLessonRequestsScreen from "@/player/screens/MyLessonRequestsScreen";
 import PlayerFinderScreen from "@/player/screens/PlayerFinderScreen";
 import GlowLeaderboardScreen from "@/player/screens/GlowLeaderboardScreen";
 import CreateMatchScreen from "@/player/screens/CreateMatchScreen";
+import ChallengePlayerScreen from "@/player/screens/ChallengePlayerScreen";
 import GroupDetailScreen from "@/player/screens/GroupDetailScreen";
 import GroupsScreen from "@/player/screens/GroupsScreen";
 import PlayerMessagesScreen from "@/player/screens/PlayerMessagesScreen";
@@ -108,6 +109,13 @@ export type PlayStackParamList = {
   Play: { initialTab?: "Group Lessons" | "Players" } | undefined;
   OpenMatches: undefined;
   CreateMatch: undefined;
+  ChallengePlayer: {
+    opponentId: string;
+    opponentName: string;
+    opponentPhoto?: string;
+    opponentBallLevel?: string;
+    opponentLevel?: number;
+  };
   ManageMatch: { matchId: string };
   BookingInvites: undefined;
   BookingPreferences: undefined;
@@ -213,6 +221,17 @@ function PlayStackNavigator() {
         options={{
           headerShown: true,
           headerTitle: "Find a Match",
+          headerStyle: { backgroundColor: '#090E17' },
+          headerTintColor: '#CCFF00',
+          headerTitleStyle: { color: '#ffffff', fontWeight: '600' },
+        }}
+      />
+      <PlayStack.Screen 
+        name="ChallengePlayer" 
+        component={ChallengePlayerScreen}
+        options={{
+          headerShown: true,
+          headerTitle: "Challenge",
           headerStyle: { backgroundColor: '#090E17' },
           headerTintColor: '#CCFF00',
           headerTitleStyle: { color: '#ffffff', fontWeight: '600' },

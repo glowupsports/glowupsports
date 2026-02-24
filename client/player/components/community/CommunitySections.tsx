@@ -357,8 +357,8 @@ export function FriendsSection({ onChallenge, onSelectActivity }: { onChallenge?
   const handleChallenge = (friend: Friend) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
     navigation.navigate("PlayStack", {
-      screen: "CreateMatch",
-      params: { opponentId: friend.id, opponentName: friend.name }
+      screen: "ChallengePlayer",
+      params: { opponentId: friend.id, opponentName: friend.name, opponentBallLevel: friend.ballLevel, opponentLevel: friend.skillLevel }
     });
   };
 

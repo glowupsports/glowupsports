@@ -90,7 +90,9 @@ export default function ChallengePlayerScreen() {
 
   const challengeMutation = useMutation({
     mutationFn: async () => {
-      return await apiRequest("POST", "/api/matches/challenge", {
+      const playerId = user?.playerId;
+      if (!playerId) throw new Error("No player profile");
+      return await apiRequest("POST", `/api/matches/challenge?playerId=${playerId}`, {
         opponentId,
         matchType,
         matchFormat,
