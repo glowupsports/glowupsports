@@ -1,9 +1,9 @@
-import React, { useState } from "react";
+import React, { useState, useMemo } from "react";
 import {
   View,
   Text,
   StyleSheet,
-  FlatList,
+  SectionList,
   Pressable,
   ActivityIndicator,
   RefreshControl,
@@ -11,13 +11,14 @@ import {
 } from "react-native";
 import { useNavigation } from "@react-navigation/native";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Ionicons } from "@expo/vector-icons";
+import { Ionicons, Feather } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import Animated, { FadeInRight } from "react-native-reanimated";
 import { LinearGradient } from "expo-linear-gradient";
 import { Colors, Spacing, FontSizes, BorderRadius, GlowColors } from "@/constants/theme";
 import { Card } from "@/components/Card";
-import { apiRequest, getApiUrl } from "@/lib/query-client";
+import { apiRequest, getApiUrl, getAuthHeaders } from "@/lib/query-client";
+import { useAuth } from "@/coach/context/AuthContext";
 
 interface BookingInvite {
   booking_invite_guests: {
@@ -133,10 +134,169 @@ function InviteCard({
   );
 }
 
+interface ChallengeData {
+  id: string;
+  challengerId: string;
+  opponentId: string;
+  status: string;
+  matchType: string;
+  matchFormat: string;
+  scheduledDate: string;
+  scheduledTime: string;
+  courtName?: string;
+  message?: string;
+  challengerName?: string;
+  opponentName?: string;
+}
+
+function ChallengeInviteCard({
+  challenge,
+  playerId,
+  onAccept,
+  onDecline,
+  isLoading,
+}: {
+  challenge: ChallengeData;
+  playerId: string;
+  onAccept: () => void;
+  onDecline: () => void;
+  isLoading: boolean;
+}) {
+  const isIncoming = String(challenge.opponentId) === String(playerId) && challenge.status === "pending";
+  const isAccepted = challenge.status === "accepted";
+  const isSentPending = String(challenge.challengerId) === String(playerId) && challenge.status === "pending";
+  const isDeclined = challenge.status === "declined";
+  const isChallenger = String(challenge.challengerId) === String(playerId);
+  const opponentName = isChallenger ? challenge.opponentName : challenge.challengerName;
+
+  const formatDate = (dateStr: string) => {
+    const d = new Date(dateStr);
+    return d.toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" });
+  };
+  const formatTime = (timeStr: string) => {
+    if (!timeStr) return "";
+    const [h, m] = timeStr.split(":").map(Number);
+    const ampm = h >= 12 ? "PM" : "AM";
+    const hour = h % 12 || 12;
+    return `${hour}:${String(m).padStart(2, "0")} ${ampm}`;
+  };
+
+  return (
+    <Animated.View entering={FadeInRight.delay(100)}>
+      <Card style={styles.inviteCard}>
+        <View style={styles.inviteHeader}>
+          <View style={[styles.iconContainer, { backgroundColor: isIncoming ? "#FF950020" : isAccepted ? Colors.dark.primary + "20" : Colors.dark.gold + "20" }]}>
+            <Feather
+              name={isIncoming ? "zap" : isAccepted ? "check-circle" : isSentPending ? "send" : "x-circle"}
+              size={22}
+              color={isIncoming ? "#FF9500" : isAccepted ? Colors.dark.primary : isDeclined ? Colors.dark.error : Colors.dark.gold}
+            />
+          </View>
+          <View style={styles.inviteInfo}>
+            <Text style={styles.inviteTitle}>
+              {isIncoming
+                ? `${challenge.challengerName || "Someone"} challenges you!`
+                : isAccepted
+                ? `Match vs ${opponentName || "Opponent"}`
+                : isSentPending
+                ? `Challenge sent to ${challenge.opponentName || "player"}`
+                : `Challenge ${challenge.status}`}
+            </Text>
+            <Text style={styles.inviteSubtitle}>
+              {(challenge.matchType || "Singles").charAt(0).toUpperCase() + (challenge.matchType || "singles").slice(1)} · {(challenge.matchFormat || "Friendly").charAt(0).toUpperCase() + (challenge.matchFormat || "friendly").slice(1)}
+            </Text>
+          </View>
+          <View
+            style={[
+              styles.statusBadge,
+              isAccepted && styles.statusAccepted,
+              isDeclined && styles.statusDeclined,
+            ]}
+          >
+            <Text
+              style={[
+                styles.statusText,
+                isAccepted && styles.statusTextAccepted,
+                isDeclined && styles.statusTextDeclined,
+              ]}
+            >
+              {isIncoming ? "Action Needed" : isAccepted ? "Confirmed" : isSentPending ? "Waiting" : challenge.status}
+            </Text>
+          </View>
+        </View>
+
+        <View style={styles.challengeDetails}>
+          <View style={styles.challengeDetailRow}>
+            <Feather name="calendar" size={14} color={Colors.dark.textMuted} />
+            <Text style={styles.challengeDetailText}>{formatDate(challenge.scheduledDate)}</Text>
+          </View>
+          <View style={styles.challengeDetailRow}>
+            <Feather name="clock" size={14} color={Colors.dark.textMuted} />
+            <Text style={styles.challengeDetailText}>{formatTime(challenge.scheduledTime)}</Text>
+          </View>
+          {challenge.courtName ? (
+            <View style={styles.challengeDetailRow}>
+              <Feather name="map-pin" size={14} color={Colors.dark.textMuted} />
+              <Text style={styles.challengeDetailText}>{challenge.courtName}</Text>
+            </View>
+          ) : null}
+        </View>
+
+        {challenge.message ? (
+          <View style={styles.challengeMessage}>
+            <Text style={styles.challengeMessageText}>"{challenge.message}"</Text>
+          </View>
+        ) : null}
+
+        {isIncoming && (
+          <View style={styles.actions}>
+            <Pressable
+              style={styles.declineButton}
+              onPress={onDecline}
+              disabled={isLoading}
+            >
+              <Ionicons name="close" size={20} color={Colors.dark.error} />
+              <Text style={styles.declineText}>Decline</Text>
+            </Pressable>
+
+            <Pressable style={styles.acceptButton} onPress={onAccept} disabled={isLoading}>
+              {isLoading ? (
+                <ActivityIndicator color={Colors.dark.text} size="small" />
+              ) : (
+                <>
+                  <Ionicons name="checkmark" size={20} color={Colors.dark.text} />
+                  <Text style={styles.acceptText}>Accept</Text>
+                </>
+              )}
+            </Pressable>
+          </View>
+        )}
+
+        {isAccepted && (
+          <View style={styles.confirmedBanner}>
+            <Ionicons name="checkmark-circle" size={18} color={Colors.dark.primary} />
+            <Text style={styles.confirmedText}>Match confirmed! See you on the court.</Text>
+          </View>
+        )}
+
+        {isSentPending && (
+          <View style={styles.confirmedBanner}>
+            <Feather name="clock" size={16} color={Colors.dark.gold} />
+            <Text style={[styles.confirmedText, { color: Colors.dark.gold }]}>Waiting for response...</Text>
+          </View>
+        )}
+      </Card>
+    </Animated.View>
+  );
+}
+
 export default function BookingInvitesScreen() {
   const navigation = useNavigation();
   const queryClient = useQueryClient();
+  const { user } = useAuth();
+  const playerId = user?.playerId;
   const [respondingId, setRespondingId] = useState<string | null>(null);
+  const [respondingChallengeId, setRespondingChallengeId] = useState<string | null>(null);
 
   const {
     data: invites,
@@ -145,6 +305,24 @@ export default function BookingInvitesScreen() {
     isRefetching,
   } = useQuery<BookingInvite[]>({
     queryKey: ["/api/player/booking-invites"],
+  });
+
+  const {
+    data: challenges = [],
+    isLoading: challengesLoading,
+    refetch: refetchChallenges,
+  } = useQuery<ChallengeData[]>({
+    queryKey: ["/api/matches/challenge", playerId],
+    queryFn: async () => {
+      if (!playerId) return [];
+      const res = await fetch(
+        new URL(`/api/matches/challenge?playerId=${playerId}`, getApiUrl()).toString(),
+        { headers: getAuthHeaders(), credentials: "include" }
+      );
+      if (!res.ok) return [];
+      return res.json();
+    },
+    enabled: !!playerId,
   });
 
   const respondMutation = useMutation({
@@ -174,17 +352,96 @@ export default function BookingInvitesScreen() {
     },
   });
 
+  const respondChallengeMutation = useMutation({
+    mutationFn: async ({ challengeId, response }: { challengeId: string; response: "accepted" | "declined" }) => {
+      setRespondingChallengeId(challengeId);
+      return apiRequest(
+        "POST",
+        `/api/matches/challenge/${challengeId}/respond?playerId=${playerId}`,
+        { response }
+      );
+    },
+    onSuccess: (_, { response }) => {
+      Haptics.notificationAsync(
+        response === "accepted"
+          ? Haptics.NotificationFeedbackType.Success
+          : Haptics.NotificationFeedbackType.Warning
+      );
+      queryClient.invalidateQueries({ queryKey: ["/api/matches/challenge"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/player/me/notifications/unread-count"] });
+      Alert.alert(
+        response === "accepted" ? "Challenge Accepted!" : "Challenge Declined",
+        response === "accepted"
+          ? "Your match is confirmed! Get ready to play."
+          : "You've declined the challenge."
+      );
+    },
+    onError: () => {
+      Alert.alert("Error", "Could not respond to challenge. Please try again.");
+    },
+    onSettled: () => {
+      setRespondingChallengeId(null);
+    },
+  });
+
   const pendingInvites = invites?.filter((i) => i.booking_invite_guests.status === "pending") || [];
   const pastInvites = invites?.filter((i) => i.booking_invite_guests.status !== "pending") || [];
 
+  const incomingChallenges = challenges.filter(
+    (c) => c.status === "pending" && String(c.opponentId) === String(playerId)
+  );
+  const otherChallenges = challenges.filter(
+    (c) => !(c.status === "pending" && String(c.opponentId) === String(playerId))
+  );
+
+  type SectionItem = { type: "invite"; data: BookingInvite } | { type: "challenge"; data: ChallengeData };
+
+  const sections = useMemo(() => {
+    const result: { title: string; data: SectionItem[] }[] = [];
+
+    if (incomingChallenges.length > 0) {
+      result.push({
+        title: "Match Challenges",
+        data: incomingChallenges.map((c) => ({ type: "challenge" as const, data: c })),
+      });
+    }
+
+    if (pendingInvites.length > 0) {
+      result.push({
+        title: "Booking Invites",
+        data: pendingInvites.map((i) => ({ type: "invite" as const, data: i })),
+      });
+    }
+
+    if (otherChallenges.length > 0 || pastInvites.length > 0) {
+      const otherItems: SectionItem[] = [
+        ...otherChallenges.map((c) => ({ type: "challenge" as const, data: c })),
+        ...pastInvites.map((i) => ({ type: "invite" as const, data: i })),
+      ];
+      if (otherItems.length > 0) {
+        result.push({ title: "History", data: otherItems });
+      }
+    }
+
+    return result;
+  }, [incomingChallenges, pendingInvites, otherChallenges, pastInvites]);
+
+  const allLoading = isLoading && challengesLoading;
+  const hasNoData = sections.length === 0 && !allLoading;
+
+  const handleRefresh = () => {
+    refetch();
+    refetchChallenges();
+  };
+
   return (
     <View style={styles.container}>
-      {isLoading ? (
+      {allLoading ? (
         <View style={styles.loading}>
           <ActivityIndicator color={Colors.dark.primary} size="large" />
           <Text style={styles.loadingText}>Loading invites...</Text>
         </View>
-      ) : !invites || invites.length === 0 ? (
+      ) : hasNoData ? (
         <View style={styles.empty}>
           <LinearGradient
             colors={["#E040FB20", "#E040FB05"]}
@@ -205,41 +462,59 @@ export default function BookingInvitesScreen() {
           </View>
         </View>
       ) : (
-        <FlatList
-          data={[...pendingInvites, ...pastInvites]}
-          renderItem={({ item }) => (
-            <InviteCard
-              invite={item}
-              onAccept={() =>
-                respondMutation.mutate({
-                  inviteId: item.booking_invite_guests.inviteId,
-                  action: "accept",
-                })
-              }
-              onDecline={() =>
-                respondMutation.mutate({
-                  inviteId: item.booking_invite_guests.inviteId,
-                  action: "decline",
-                })
-              }
-              isLoading={respondingId === item.booking_invite_guests.inviteId}
-            />
+        <SectionList
+          sections={sections}
+          renderItem={({ item }) => {
+            if (item.type === "challenge") {
+              return (
+                <ChallengeInviteCard
+                  challenge={item.data}
+                  playerId={String(playerId)}
+                  onAccept={() =>
+                    respondChallengeMutation.mutate({ challengeId: item.data.id, response: "accepted" })
+                  }
+                  onDecline={() =>
+                    respondChallengeMutation.mutate({ challengeId: item.data.id, response: "declined" })
+                  }
+                  isLoading={respondingChallengeId === item.data.id}
+                />
+              );
+            }
+            return (
+              <InviteCard
+                invite={item.data}
+                onAccept={() =>
+                  respondMutation.mutate({
+                    inviteId: item.data.booking_invite_guests.inviteId,
+                    action: "accept",
+                  })
+                }
+                onDecline={() =>
+                  respondMutation.mutate({
+                    inviteId: item.data.booking_invite_guests.inviteId,
+                    action: "decline",
+                  })
+                }
+                isLoading={respondingId === item.data.booking_invite_guests.inviteId}
+              />
+            );
+          }}
+          renderSectionHeader={({ section: { title } }) => (
+            <Text style={styles.sectionTitle}>{title}</Text>
           )}
-          keyExtractor={(item) => item.booking_invite_guests.id}
+          keyExtractor={(item, index) =>
+            item.type === "challenge" ? `challenge-${item.data.id}` : `invite-${item.data.booking_invite_guests.id}`
+          }
           contentContainerStyle={[styles.list, { paddingBottom: 100 }]}
           showsVerticalScrollIndicator={false}
           refreshControl={
             <RefreshControl
               refreshing={isRefetching}
-              onRefresh={refetch}
+              onRefresh={handleRefresh}
               tintColor={Colors.dark.primary}
             />
           }
-          ListHeaderComponent={
-            pendingInvites.length > 0 ? (
-              <Text style={styles.sectionTitle}>Pending Invites</Text>
-            ) : null
-          }
+          stickySectionHeadersEnabled={false}
         />
       )}
     </View>
@@ -490,5 +765,35 @@ const styles = StyleSheet.create({
     fontSize: FontSizes.sm,
     color: Colors.dark.primary,
     fontWeight: "500",
+  },
+  challengeDetails: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: Spacing.md,
+    marginTop: Spacing.md,
+    paddingTop: Spacing.md,
+    borderTopWidth: 1,
+    borderTopColor: Colors.dark.border,
+  },
+  challengeDetailRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+  },
+  challengeDetailText: {
+    fontSize: FontSizes.sm,
+    color: Colors.dark.textSecondary,
+  },
+  challengeMessage: {
+    backgroundColor: "rgba(255,255,255,0.04)",
+    borderRadius: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    marginTop: Spacing.sm,
+  },
+  challengeMessageText: {
+    fontSize: FontSizes.sm,
+    color: Colors.dark.textSecondary,
+    fontStyle: "italic",
   },
 });

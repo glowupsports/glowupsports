@@ -15,7 +15,6 @@ import { ProPlayerCard } from "@/player/components/ProPlayerCard";
 import { PlayersNearYouRow, OpenSessionsRow, TrainingSessionsRow } from "@/player/components/DiscoveryRows";
 import { MiniFeed } from "@/player/components/MiniFeed";
 import { SessionHeroCard } from "@/player/components/SessionHeroCard";
-import { ChallengeCard } from "@/player/components/ChallengeCard";
 import { NewsTicker } from "@/player/components/NewsTicker";
 import { SocialActivityBar } from "@/player/components/SocialActivityBar";
 import { QuickServeFAB } from "@/player/components/QuickServeFAB";
@@ -489,8 +488,6 @@ function PlayerHomeContent() {
         {/* HERO CTA - Next Session (PRIMARY ACTION) */}
         <SessionHeroCard onBookSession={handleBookLesson} />
 
-        {/* MATCH CHALLENGES - Incoming challenges & upcoming matches */}
-        <ChallengeCard />
 
         {/* RECENT COACH FEEDBACK */}
         <RecentFeedbackCard />
