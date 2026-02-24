@@ -12,6 +12,7 @@ import {
 } from "react-native";
 import { useNavigation, useRoute, RouteProp } from "@react-navigation/native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import Animated, { FadeInDown, FadeInRight, FadeInLeft } from "react-native-reanimated";
 import { LinearGradient } from "expo-linear-gradient";
@@ -44,6 +45,8 @@ export default function ChallengePlayerScreen() {
   const insets = useSafeAreaInsets();
   const queryClient = useQueryClient();
   const { user } = useAuth();
+  let tabBarHeight = 0;
+  try { tabBarHeight = useBottomTabBarHeight(); } catch { tabBarHeight = 80; }
 
   const { opponentId, opponentName, opponentPhoto, opponentBallLevel, opponentLevel } = route.params;
   const levelColor = getPlayerLevelColor(opponentBallLevel);
@@ -603,7 +606,7 @@ export default function ChallengePlayerScreen() {
     <View style={[styles.container, { backgroundColor: Colors.dark.backgroundRoot }]}>
       <KeyboardAwareScrollViewCompat
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom + 120 }]}
+        contentContainerStyle={[styles.scrollContent, { paddingBottom: tabBarHeight + 100 }]}
       >
         {renderOpponentBanner()}
         {renderProgressBar()}
@@ -614,7 +617,7 @@ export default function ChallengePlayerScreen() {
         {step === 3 ? renderStep3() : null}
       </KeyboardAwareScrollViewCompat>
 
-      <View style={[styles.bottomBar, { paddingBottom: insets.bottom + Spacing.md }]}>
+      <View style={[styles.bottomBar, { bottom: tabBarHeight }]}>
         <LinearGradient
           colors={["transparent", Colors.dark.backgroundRoot, Colors.dark.backgroundRoot]}
           style={styles.bottomGradientBg}
@@ -1161,11 +1164,12 @@ const styles = StyleSheet.create({
 
   bottomBar: {
     position: "absolute",
-    bottom: 0,
     left: 0,
     right: 0,
     paddingHorizontal: Spacing.lg,
     paddingTop: Spacing.md,
+    paddingBottom: Spacing.md,
+    backgroundColor: Colors.dark.backgroundRoot,
   },
   bottomGradientBg: {
     position: "absolute",
