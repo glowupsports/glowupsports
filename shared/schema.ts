@@ -5196,6 +5196,37 @@ export const insertMatchSchema = createInsertSchema(matches).omit({ id: true, cr
 export type InsertMatch = z.infer<typeof insertMatchSchema>;
 export type Match = typeof matches.$inferSelect;
 
+// Match Challenges - Player vs Player challenge system
+export const matchChallenges = pgTable("match_challenges", {
+  id: varchar("id")
+    .primaryKey()
+    .default(sql`gen_random_uuid()`),
+  challengerId: varchar("challenger_id").references(() => players.id).notNull(),
+  opponentId: varchar("opponent_id").references(() => players.id).notNull(),
+  academyId: varchar("academy_id").references(() => academies.id),
+  matchType: text("match_type").notNull().default("singles"), // singles, doubles
+  matchFormat: text("match_format").notNull().default("friendly"), // friendly, competitive, ranking
+  matchDate: date("match_date").notNull(),
+  matchTime: text("match_time").notNull(), // HH:MM format
+  courtId: varchar("court_id").references(() => courts.id),
+  courtName: text("court_name"), // for custom/external courts
+  customLocation: text("custom_location"), // address for external courts
+  message: text("message"), // optional challenge message
+  status: text("status").notNull().default("pending"), // pending, accepted, declined, cancelled, completed
+  respondedAt: timestamp("responded_at"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("match_challenges_challenger_idx").on(table.challengerId),
+  index("match_challenges_opponent_idx").on(table.opponentId),
+  index("match_challenges_status_idx").on(table.status),
+  index("match_challenges_date_idx").on(table.matchDate),
+]);
+
+export const insertMatchChallengeSchema = createInsertSchema(matchChallenges).omit({ id: true, createdAt: true, updatedAt: true, respondedAt: true });
+export type InsertMatchChallenge = z.infer<typeof insertMatchChallengeSchema>;
+export type MatchChallenge = typeof matchChallenges.$inferSelect;
+
 // Match Reflections - Post-match player input
 export const matchReflections = pgTable("match_reflections", {
   id: varchar("id")
