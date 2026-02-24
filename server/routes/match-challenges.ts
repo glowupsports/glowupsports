@@ -1,6 +1,6 @@
 import { Router, Request, Response } from "express";
 import { db, pool } from "../db";
-import { matchChallenges, players, courts } from "../../shared/schema";
+import { matchChallenges, players, courts, playerNotifications } from "../../shared/schema";
 import { eq, and, or, desc, sql } from "drizzle-orm";
 import { getPlayerPushTokens, sendPushNotification } from "../pushNotifications";
 
@@ -46,10 +46,11 @@ router.post("/", async (req: Request, res: Response) => {
       })
       .returning();
 
+    const challengerName = challenger.name || "Someone";
+
     try {
       const tokens = await getPlayerPushTokens(opponentId);
       if (tokens.length > 0) {
-        const challengerName = challenger.name || "Someone";
         await sendPushNotification(
           tokens,
           "You've been challenged!",
@@ -60,6 +61,18 @@ router.post("/", async (req: Request, res: Response) => {
       }
     } catch (pushErr) {
       console.error("Error sending challenge push notification:", pushErr);
+    }
+
+    try {
+      await db.insert(playerNotifications).values({
+        playerId: opponentId,
+        title: "You've been challenged!",
+        body: `${challengerName} wants to play ${matchType || "singles"} ${matchFormat || "friendly"} on ${matchDate} at ${matchTime}`,
+        type: "match_challenge",
+        data: { challengeId: challenge.id, challengerId, challengerName },
+      });
+    } catch (notifErr) {
+      console.error("Error creating in-app notification:", notifErr);
     }
 
     res.status(201).json(challenge);
@@ -178,6 +191,27 @@ router.post("/:id/respond", async (req: Request, res: Response) => {
       }
     } catch (pushErr) {
       console.error("Error sending challenge response push notification:", pushErr);
+    }
+
+    try {
+      const [opponent] = await db
+        .select()
+        .from(players)
+        .where(eq(players.id, challenge.opponentId));
+      const opponentName = opponent?.name || "Your opponent";
+      const title = response === "accepted" ? "Challenge Accepted!" : "Challenge Declined";
+      const body = response === "accepted"
+        ? `${opponentName} accepted your challenge! Game on!`
+        : `${opponentName} declined your challenge`;
+      await db.insert(playerNotifications).values({
+        playerId: challenge.challengerId,
+        title,
+        body,
+        type: "match_challenge_response",
+        data: { challengeId: id, response, opponentName },
+      });
+    } catch (notifErr) {
+      console.error("Error creating challenge response notification:", notifErr);
     }
 
     res.json(updated);
