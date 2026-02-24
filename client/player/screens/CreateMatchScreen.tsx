@@ -882,7 +882,7 @@ export default function CreateMatchScreen() {
   );
 
   return (
-    <View style={[styles.container, { paddingTop: headerHeight }]}>
+    <View style={styles.container}>
       <LinearGradient
         colors={[Colors.dark.backgroundRoot, Colors.dark.backgroundSecondary]}
         style={StyleSheet.absoluteFill}
@@ -921,8 +921,8 @@ const styles = StyleSheet.create({
   },
   stepIndicator: {
     paddingHorizontal: Spacing.lg,
-    paddingTop: Spacing.md,
-    paddingBottom: Spacing.sm,
+    paddingTop: Spacing.sm,
+    paddingBottom: Spacing.xs,
   },
   progressBar: {
     height: 4,

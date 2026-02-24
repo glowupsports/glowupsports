@@ -91,75 +91,6 @@ export default function CommunityScreen() {
   });
   const friendRequestCount = friendsData?.pendingRequests?.length || 0;
 
-  const DEMO_ACADEMY_FEED: Post[] = [
-    {
-      id: "academy-post-1",
-      authorId: "coach-1",
-      academyId: "demo-academy",
-      contextType: "event",
-      caption: "Exciting news! Our Summer Tennis Camp registration is now open. Limited spots available for all skill levels.",
-      mediaUrls: [],
-      mediaTypes: [],
-      visibility: "academy",
-      cheerCount: 34,
-      commentCount: 12,
-      createdAt: new Date(Date.now() - 4 * 60 * 60 * 1000).toISOString(),
-      author: {
-        id: "coach-1",
-        name: "Coach Ahmed",
-        photoUrl: undefined,
-        isCoach: true,
-        level: 50,
-        title: "Head Coach",
-      },
-      userReaction: null,
-    },
-    {
-      id: "academy-post-2",
-      authorId: "admin-1",
-      academyId: "demo-academy",
-      contextType: "achievement",
-      caption: "Congratulations to our Yellow Ball team for winning the Dubai Regional Championship! Amazing teamwork!",
-      mediaUrls: [],
-      mediaTypes: [],
-      visibility: "academy",
-      cheerCount: 89,
-      commentCount: 28,
-      createdAt: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString(),
-      author: {
-        id: "admin-1",
-        name: "Glow Up Academy",
-        photoUrl: undefined,
-        isCoach: true,
-        level: 100,
-        title: "Academy",
-      },
-      userReaction: "fire",
-    },
-    {
-      id: "academy-post-3",
-      authorId: "coach-2",
-      academyId: "demo-academy",
-      contextType: "training",
-      caption: "New training schedule is out! Check your app for updated session times. See you on the court!",
-      mediaUrls: [],
-      mediaTypes: [],
-      visibility: "academy",
-      cheerCount: 22,
-      commentCount: 5,
-      createdAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(),
-      author: {
-        id: "coach-2",
-        name: "Coach Maria",
-        photoUrl: undefined,
-        isCoach: true,
-        level: 45,
-        title: "Senior Coach",
-      },
-      userReaction: null,
-    },
-  ];
-
   const { data: rawFeed = [], isLoading, refetch, isFetching } = useQuery<Post[]>({
     queryKey: ["/api/social/feed", { filter }],
     queryFn: async () => {
@@ -174,7 +105,7 @@ export default function CommunityScreen() {
     },
   });
 
-  const feed = rawFeed.length > 0 ? rawFeed : (filter === "academy" || filter === "moments") ? DEMO_ACADEMY_FEED : [];
+  const feed = rawFeed;
 
   const { data: highlights } = useQuery<{ newMoments: number; openToPlay: number }>({
     queryKey: ["/api/social/highlights"],
