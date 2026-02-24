@@ -221,6 +221,170 @@ router.post("/:id/respond", async (req: Request, res: Response) => {
   }
 });
 
+router.post("/:id/cancel", async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const playerId = req.query.playerId as string;
+
+    if (!playerId) {
+      return res.status(400).json({ error: "playerId is required" });
+    }
+
+    const [challenge] = await db
+      .select()
+      .from(matchChallenges)
+      .where(eq(matchChallenges.id, id));
+
+    if (!challenge) {
+      return res.status(404).json({ error: "Challenge not found" });
+    }
+
+    if (String(challenge.challengerId) !== String(playerId) && String(challenge.opponentId) !== String(playerId)) {
+      return res.status(403).json({ error: "Not authorized to cancel this challenge" });
+    }
+
+    const [updated] = await db
+      .update(matchChallenges)
+      .set({
+        status: "cancelled",
+        updatedAt: new Date(),
+      })
+      .where(eq(matchChallenges.id, id))
+      .returning();
+
+    const otherPlayerId = String(challenge.challengerId) === String(playerId)
+      ? challenge.opponentId
+      : challenge.challengerId;
+
+    try {
+      const [canceller] = await db.select().from(players).where(eq(players.id, playerId));
+      const cancellerName = canceller?.name || "Your opponent";
+      const tokens = await getPlayerPushTokens(otherPlayerId);
+      if (tokens.length > 0) {
+        await sendPushNotification(
+          tokens,
+          "Match Cancelled",
+          `${cancellerName} cancelled the match`,
+          { type: "match_challenge_cancelled", challengeId: id },
+          otherPlayerId
+        );
+      }
+      await db.insert(playerNotifications).values({
+        playerId: otherPlayerId,
+        title: "Match Cancelled",
+        body: `${cancellerName} cancelled the match`,
+        type: "match_challenge_cancelled",
+        data: { challengeId: id, cancelledBy: playerId },
+      });
+    } catch (notifErr) {
+      console.error("Error sending cancel notification:", notifErr);
+    }
+
+    res.json(updated);
+  } catch (error) {
+    console.error("Error cancelling challenge:", error);
+    res.status(500).json({ error: "Failed to cancel challenge" });
+  }
+});
+
+router.post("/:id/complete", async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const playerId = req.query.playerId as string;
+
+    if (!playerId) {
+      return res.status(400).json({ error: "playerId is required" });
+    }
+
+    const [challenge] = await db
+      .select()
+      .from(matchChallenges)
+      .where(eq(matchChallenges.id, id));
+
+    if (!challenge) {
+      return res.status(404).json({ error: "Challenge not found" });
+    }
+
+    if (String(challenge.challengerId) !== String(playerId) && String(challenge.opponentId) !== String(playerId)) {
+      return res.status(403).json({ error: "Not authorized to complete this challenge" });
+    }
+
+    const [updated] = await db
+      .update(matchChallenges)
+      .set({
+        status: "completed",
+        updatedAt: new Date(),
+      })
+      .where(eq(matchChallenges.id, id))
+      .returning();
+
+    res.json(updated);
+  } catch (error) {
+    console.error("Error completing challenge:", error);
+    res.status(500).json({ error: "Failed to complete challenge" });
+  }
+});
+
+router.post("/:id/running-late", async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const playerId = req.query.playerId as string;
+    const { minutes, message } = req.body;
+
+    if (!playerId) {
+      return res.status(400).json({ error: "playerId is required" });
+    }
+
+    const [challenge] = await db
+      .select()
+      .from(matchChallenges)
+      .where(eq(matchChallenges.id, id));
+
+    if (!challenge) {
+      return res.status(404).json({ error: "Challenge not found" });
+    }
+
+    if (String(challenge.challengerId) !== String(playerId) && String(challenge.opponentId) !== String(playerId)) {
+      return res.status(403).json({ error: "Not authorized for this challenge" });
+    }
+
+    const otherPlayerId = String(challenge.challengerId) === String(playerId)
+      ? challenge.opponentId
+      : challenge.challengerId;
+
+    const [player] = await db.select().from(players).where(eq(players.id, playerId));
+    const playerName = player?.name || "Your opponent";
+    const lateMsg = `${playerName} will be ${minutes || 10} min late${message ? `: ${message}` : ""}`;
+
+    try {
+      const tokens = await getPlayerPushTokens(otherPlayerId);
+      if (tokens.length > 0) {
+        await sendPushNotification(
+          tokens,
+          "Running Late",
+          lateMsg,
+          { type: "match_running_late", challengeId: id },
+          otherPlayerId
+        );
+      }
+      await db.insert(playerNotifications).values({
+        playerId: otherPlayerId,
+        title: "Running Late",
+        body: lateMsg,
+        type: "match_running_late",
+        data: { challengeId: id, lateBy: playerId, minutes },
+      });
+    } catch (notifErr) {
+      console.error("Error sending late notification:", notifErr);
+    }
+
+    res.json({ success: true });
+  } catch (error) {
+    console.error("Error sending late notification:", error);
+    res.status(500).json({ error: "Failed to send late notification" });
+  }
+});
+
 router.get("/head-to-head/:opponentId", async (req: Request, res: Response) => {
   try {
     const playerId = req.query.playerId as string;

@@ -567,18 +567,56 @@ export function SessionHeroCard({
 
   const primaryChallenge = incomingChallenges[0] || acceptedChallenges[0] || sentPendingChallenges[0];
   const [challengeCountdown, setChallengeCountdown] = useState({ days: 0, hours: 0, minutes: 0, seconds: 0 });
+  const [challengeElapsed, setChallengeElapsed] = useState({ hours: 0, minutes: 0, seconds: 0 });
+  const MATCH_DURATION_MS = 60 * 60 * 1000;
+  const [showCancelMatchModal, setShowCancelMatchModal] = useState(false);
+  const [showLateMatchModal, setShowLateMatchModal] = useState(false);
+  const [matchLateMinutes, setMatchLateMinutes] = useState(10);
+  const [matchLateMessage, setMatchLateMessage] = useState("");
+
+  const getChallengeStartTime = (c: typeof primaryChallenge) => {
+    if (!c) return 0;
+    const dateStr = c.scheduledDate;
+    const timeStr = c.scheduledTime || "00:00";
+    const [year, month, day] = dateStr.split("-").map(Number);
+    const [h, m] = timeStr.split(":").map(Number);
+    return new Date(year, month - 1, day, h, m, 0).getTime();
+  };
+
+  type ChallengeLifecycle = "incoming" | "confirmed" | "sent" | "match_live" | "post_match";
+  const [challengeLifecycle, setChallengeLifecycle] = useState<ChallengeLifecycle>("incoming");
 
   useEffect(() => {
     if (!primaryChallenge) return;
-    const getTargetTime = () => {
-      const dateStr = primaryChallenge.scheduledDate;
-      const timeStr = primaryChallenge.scheduledTime || "00:00";
-      const [year, month, day] = dateStr.split("-").map(Number);
-      const [h, m] = timeStr.split(":").map(Number);
-      return new Date(year, month - 1, day, h, m, 0).getTime();
-    };
+    const startTime = getChallengeStartTime(primaryChallenge);
+    const endTime = startTime + MATCH_DURATION_MS;
+    const isAccepted = acceptedChallenges.some((ac) => ac.id === primaryChallenge.id);
+
     const update = () => {
-      const diff = Math.max(0, getTargetTime() - Date.now());
+      const now = Date.now();
+
+      if (isAccepted && now >= endTime) {
+        setChallengeLifecycle("post_match");
+        setChallengeElapsed({ hours: 0, minutes: 0, seconds: 0 });
+      } else if (isAccepted && now >= startTime && now < endTime) {
+        setChallengeLifecycle("match_live");
+        const elapsed = Math.floor((now - startTime) / 1000);
+        setChallengeElapsed({
+          hours: Math.floor(elapsed / 3600),
+          minutes: Math.floor((elapsed % 3600) / 60),
+          seconds: elapsed % 60,
+        });
+      } else {
+        if (incomingChallenges.length > 0) {
+          setChallengeLifecycle("incoming");
+        } else if (isAccepted) {
+          setChallengeLifecycle("confirmed");
+        } else {
+          setChallengeLifecycle("sent");
+        }
+      }
+
+      const diff = Math.max(0, startTime - now);
       const totalSec = Math.floor(diff / 1000);
       setChallengeCountdown({
         days: Math.floor(totalSec / 86400),
@@ -590,21 +628,82 @@ export function SessionHeroCard({
     update();
     const interval = setInterval(update, 1000);
     return () => clearInterval(interval);
-  }, [primaryChallenge?.id, primaryChallenge?.scheduledDate, primaryChallenge?.scheduledTime]);
+  }, [primaryChallenge?.id, primaryChallenge?.scheduledDate, primaryChallenge?.scheduledTime, acceptedChallenges.length, incomingChallenges.length]);
 
+  const cancelChallengeMutation = useMutation({
+    mutationFn: async (challengeId: string) => {
+      return apiRequest("POST", `/api/matches/challenge/${challengeId}/cancel?playerId=${playerId}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/matches/challenge"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/player/me/dashboard"] });
+      setShowCancelMatchModal(false);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      Alert.alert("Match Cancelled", "The match has been cancelled and your opponent has been notified.");
+    },
+    onError: () => {
+      Alert.alert("Error", "Failed to cancel the match. Please try again.");
+    },
+  });
+
+  const matchLateMutation = useMutation({
+    mutationFn: async ({ challengeId, minutes, message }: { challengeId: string; minutes: number; message: string }) => {
+      return apiRequest("POST", `/api/matches/challenge/${challengeId}/running-late?playerId=${playerId}`, { minutes, message });
+    },
+    onSuccess: () => {
+      setShowLateMatchModal(false);
+      setMatchLateMinutes(10);
+      setMatchLateMessage("");
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      Alert.alert("Notified", "Your opponent has been notified that you're running late.");
+    },
+    onError: () => {
+      Alert.alert("Error", "Failed to send notification. Please try again.");
+    },
+  });
+
+  const completeChallengeMutation = useMutation({
+    mutationFn: async (challengeId: string) => {
+      return apiRequest("POST", `/api/matches/challenge/${challengeId}/complete?playerId=${playerId}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/matches/challenge"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/player/me/dashboard"] });
+    },
+  });
+
+  /* PRIORITY ORDER: Lesson/Session > Challenge > Open Day
+   * Challenges only display when sessionStatus === "none" — lessons ALWAYS take precedence */
   if (sessionStatus === "none" && hasChallenges) {
-    const isIncoming = incomingChallenges.length > 0;
-    const isConfirmed = !isIncoming && acceptedChallenges.length > 0;
-    const isSent = !isIncoming && !isConfirmed && sentPendingChallenges.length > 0;
     const c = primaryChallenge!;
     const isChallenger = String(c.challengerId) === String(playerId);
     const opponentDisplayName = isChallenger ? (c.opponentName || "Opponent") : (c.challengerName || "Challenger");
     const opponentInitial = opponentDisplayName.charAt(0).toUpperCase();
     const totalChallenges = incomingChallenges.length + acceptedChallenges.length + sentPendingChallenges.length;
 
-    const accentColor = isIncoming ? "#FF9500" : isConfirmed ? "#4DA3FF" : GlowColors.primary;
-    const accentBg = isIncoming ? "rgba(255, 149, 0, 0.12)" : isConfirmed ? "rgba(77, 163, 255, 0.12)" : "rgba(200, 255, 61, 0.12)";
-    const gradientStart = isIncoming ? "rgba(255, 149, 0, 0.08)" : isConfirmed ? "rgba(77, 163, 255, 0.08)" : "rgba(200, 255, 61, 0.06)";
+    const lifecycleColors: Record<ChallengeLifecycle, { accent: string; bg: string; gradient: string }> = {
+      incoming: { accent: "#FF9500", bg: "rgba(255, 149, 0, 0.12)", gradient: "rgba(255, 149, 0, 0.08)" },
+      confirmed: { accent: "#4DA3FF", bg: "rgba(77, 163, 255, 0.12)", gradient: "rgba(77, 163, 255, 0.08)" },
+      sent: { accent: GlowColors.primary, bg: "rgba(200, 255, 61, 0.12)", gradient: "rgba(200, 255, 61, 0.06)" },
+      match_live: { accent: "#FF4444", bg: "rgba(255, 68, 68, 0.12)", gradient: "rgba(255, 68, 68, 0.08)" },
+      post_match: { accent: "#A855F7", bg: "rgba(168, 85, 247, 0.12)", gradient: "rgba(168, 85, 247, 0.08)" },
+    };
+    const { accent: accentColor, bg: accentBg, gradient: gradientStart } = lifecycleColors[challengeLifecycle];
+
+    const lifecycleIcons: Record<ChallengeLifecycle, string> = {
+      incoming: "zap",
+      confirmed: "check-circle",
+      sent: "send",
+      match_live: "activity",
+      post_match: "flag",
+    };
+    const lifecycleLabels: Record<ChallengeLifecycle, string> = {
+      incoming: "Challenge Received",
+      confirmed: "Match Confirmed",
+      sent: "Challenge Sent",
+      match_live: "Match in Progress",
+      post_match: "Match Complete",
+    };
 
     const formatChallengeTime12 = (timeStr: string) => {
       if (!timeStr) return "";
@@ -630,10 +729,14 @@ export function SessionHeroCard({
           <View style={styles.commandHeader}>
             <View style={styles.commandTitleSection}>
               <View style={[styles.commandIconWrap, { backgroundColor: accentBg }]}>
-                <Feather name={isIncoming ? "zap" : isConfirmed ? "check-circle" : "send"} size={14} color={accentColor} />
+                {challengeLifecycle === "match_live" ? (
+                  <Animated.View style={[styles.cleanLiveDot, livePulseStyle]} />
+                ) : (
+                  <Feather name={lifecycleIcons[challengeLifecycle] as any} size={14} color={accentColor} />
+                )}
               </View>
               <Text style={[styles.commandLabel, { color: accentColor }]}>
-                {isIncoming ? "Challenge Received" : isConfirmed ? "Match Confirmed" : "Challenge Sent"}
+                {lifecycleLabels[challengeLifecycle]}
               </Text>
             </View>
             {totalChallenges > 1 ? (
@@ -645,7 +748,24 @@ export function SessionHeroCard({
             ) : null}
           </View>
 
-          {(isConfirmed || isSent) ? (
+          {challengeLifecycle === "match_live" ? (
+            <View style={styles.cleanCountdownRow}>
+              <View style={styles.cleanCountdownDigit}>
+                <Text style={[styles.cleanCountdownValue, { color: "#FF4444" }]}>{String(challengeElapsed.hours).padStart(2, "0")}</Text>
+                <Text style={styles.cleanCountdownLabel}>{t("player.home.hrs")}</Text>
+              </View>
+              <Text style={[styles.cleanCountdownSep, { color: "#FF4444" }]}>:</Text>
+              <View style={styles.cleanCountdownDigit}>
+                <Text style={[styles.cleanCountdownValue, { color: "#FF4444" }]}>{String(challengeElapsed.minutes).padStart(2, "0")}</Text>
+                <Text style={styles.cleanCountdownLabel}>{t("player.home.min")}</Text>
+              </View>
+              <Text style={[styles.cleanCountdownSep, { color: "#FF4444" }]}>:</Text>
+              <View style={styles.cleanCountdownDigit}>
+                <Text style={[styles.cleanCountdownValue, { color: "#FF4444" }]}>{String(challengeElapsed.seconds).padStart(2, "0")}</Text>
+                <Text style={styles.cleanCountdownLabel}>{t("player.home.sec")}</Text>
+              </View>
+            </View>
+          ) : (challengeLifecycle === "confirmed" || challengeLifecycle === "sent") ? (
             <View style={styles.cleanCountdownRow}>
               {challengeCountdown.days > 0 ? (
                 <>
@@ -688,9 +808,13 @@ export function SessionHeroCard({
             </View>
             <View style={styles.sessionDetails}>
               <Text style={styles.cleanSessionType}>
-                {isIncoming
+                {challengeLifecycle === "incoming"
                   ? `${opponentDisplayName} challenges you!`
-                  : isConfirmed
+                  : challengeLifecycle === "match_live"
+                  ? `Live: vs ${opponentDisplayName}`
+                  : challengeLifecycle === "post_match"
+                  ? `Played vs ${opponentDisplayName}`
+                  : challengeLifecycle === "confirmed"
                   ? `Match vs ${opponentDisplayName}`
                   : `Sent to ${opponentDisplayName}`}
               </Text>
@@ -716,13 +840,13 @@ export function SessionHeroCard({
             </View>
           </View>
 
-          {c.message ? (
+          {c.message && challengeLifecycle !== "post_match" && challengeLifecycle !== "match_live" ? (
             <View style={{ backgroundColor: "rgba(255,255,255,0.04)", borderRadius: 8, paddingHorizontal: 12, paddingVertical: 8, borderLeftWidth: 2, borderLeftColor: accentColor + "40" }}>
               <Text style={{ fontSize: 12, color: ProTennisColors.textSecondary, fontStyle: "italic", lineHeight: 18 }}>"{c.message}"</Text>
             </View>
           ) : null}
 
-          {isIncoming ? (
+          {challengeLifecycle === "incoming" ? (
             <>
               <View style={{ flexDirection: "row", gap: Spacing.md }}>
                 <SwipeBlocker style={{ flex: 1 }}>
@@ -783,17 +907,239 @@ export function SessionHeroCard({
                 </View>
               ) : null}
             </>
-          ) : isSent ? (
+          ) : challengeLifecycle === "sent" ? (
             <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "center", gap: Spacing.sm, paddingVertical: Spacing.sm }}>
               <Animated.View style={[{ width: 8, height: 8, borderRadius: 4, backgroundColor: GlowColors.primary }, livePulseStyle]} />
               <Text style={{ fontSize: 13, fontWeight: "500", color: ProTennisColors.textMuted }}>Waiting for response...</Text>
             </View>
-          ) : isConfirmed ? (
-            <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "center", gap: Spacing.sm, backgroundColor: "rgba(77, 163, 255, 0.08)", borderRadius: 8, paddingVertical: 10 }}>
-              <Feather name="check-circle" size={16} color="#4DA3FF" />
-              <Text style={{ fontSize: 13, fontWeight: "600", color: "#4DA3FF" }}>Match is on! See you on the court.</Text>
-            </View>
+          ) : challengeLifecycle === "confirmed" ? (
+            <>
+              <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "center", gap: Spacing.sm, backgroundColor: "rgba(77, 163, 255, 0.08)", borderRadius: 8, paddingVertical: 10 }}>
+                <Feather name="check-circle" size={16} color="#4DA3FF" />
+                <Text style={{ fontSize: 13, fontWeight: "600", color: "#4DA3FF" }}>Match is on! See you on the court.</Text>
+              </View>
+              <View style={styles.cleanTextButtonRow}>
+                <Pressable
+                  style={({ pressed }) => [styles.cleanTextButton, pressed && { opacity: 0.6 }]}
+                  onPress={() => {
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                    setShowCancelMatchModal(true);
+                  }}
+                >
+                  <Feather name="x-circle" size={14} color={ProTennisColors.danger} />
+                  <Text style={[styles.cleanTextButtonLabel, { color: ProTennisColors.danger }]}>Cancel Match</Text>
+                </Pressable>
+                <Pressable
+                  style={({ pressed }) => [styles.cleanTextButton, pressed && { opacity: 0.6 }]}
+                  onPress={() => {
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                    setShowLateMatchModal(true);
+                  }}
+                >
+                  <Feather name="clock" size={14} color={ProTennisColors.warning} />
+                  <Text style={[styles.cleanTextButtonLabel, { color: ProTennisColors.warning }]}>Running Late</Text>
+                </Pressable>
+              </View>
+            </>
+          ) : challengeLifecycle === "match_live" ? (
+            <>
+              <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "center", gap: Spacing.sm, backgroundColor: "rgba(255, 68, 68, 0.08)", borderRadius: 8, paddingVertical: 10 }}>
+                <Animated.View style={[{ width: 8, height: 8, borderRadius: 4, backgroundColor: "#FF4444" }, livePulseStyle]} />
+                <Text style={{ fontSize: 13, fontWeight: "600", color: "#FF4444" }}>Give it your all! Focus on every point.</Text>
+              </View>
+              <View style={styles.cleanTextButtonRow}>
+                <Pressable
+                  style={({ pressed }) => [styles.cleanTextButton, pressed && { opacity: 0.6 }]}
+                  onPress={() => {
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                    setShowLateMatchModal(true);
+                  }}
+                >
+                  <Feather name="clock" size={14} color={ProTennisColors.warning} />
+                  <Text style={[styles.cleanTextButtonLabel, { color: ProTennisColors.warning }]}>Notify Opponent</Text>
+                </Pressable>
+              </View>
+            </>
+          ) : challengeLifecycle === "post_match" ? (
+            <>
+              <View style={{ flexDirection: "row", gap: Spacing.md }}>
+                <SwipeBlocker style={{ flex: 1 }}>
+                  <Pressable
+                    style={({ pressed }) => [
+                      styles.cleanPrimaryButton,
+                      pressed && styles.buttonPressed,
+                    ]}
+                    onPress={() => {
+                      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+                      navigation.navigate("CreateMatch" as never);
+                    }}
+                  >
+                    <LinearGradient
+                      colors={["#A855F7", "#C084FC"]}
+                      start={{ x: 0, y: 0 }}
+                      end={{ x: 1, y: 1 }}
+                      style={styles.cleanPrimaryGradient}
+                    >
+                      <Feather name="edit-3" size={18} color="#FFFFFF" />
+                      <Text style={[styles.cleanPrimaryButtonText, { color: "#FFFFFF" }]}>Log Score</Text>
+                    </LinearGradient>
+                  </Pressable>
+                </SwipeBlocker>
+                <SwipeBlocker style={{ flex: 1 }}>
+                  <Pressable
+                    style={({ pressed }) => [
+                      styles.commandOutlineButton,
+                      { borderColor: "rgba(168, 85, 247, 0.2)" },
+                      pressed && styles.buttonPressed,
+                    ]}
+                    onPress={() => {
+                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                      completeChallengeMutation.mutate(c.id);
+                    }}
+                    disabled={completeChallengeMutation.isPending}
+                  >
+                    <Feather name="skip-forward" size={16} color={ProTennisColors.textSecondary} />
+                    <Text style={styles.commandOutlineButtonText}>
+                      {completeChallengeMutation.isPending ? "Skipping..." : "Skip"}
+                    </Text>
+                  </Pressable>
+                </SwipeBlocker>
+              </View>
+            </>
           ) : null}
+
+          <Modal
+            visible={showCancelMatchModal}
+            transparent
+            animationType="fade"
+            onRequestClose={() => setShowCancelMatchModal(false)}
+          >
+            <View style={styles.modalOverlay}>
+              <Pressable style={StyleSheet.absoluteFill} onPress={() => setShowCancelMatchModal(false)} />
+              <View style={styles.modalContent}>
+                <View style={styles.modalHeader}>
+                  <Text style={styles.modalTitle}>Cancel Match</Text>
+                  <Text style={styles.modalSubtitle}>
+                    Are you sure you want to cancel this match vs {opponentDisplayName}? They will be notified.
+                  </Text>
+                </View>
+                <View style={{ flexDirection: "row", gap: Spacing.md, marginTop: Spacing.lg }}>
+                  <Pressable
+                    style={({ pressed }) => [
+                      styles.commandOutlineButton,
+                      { flex: 1, borderColor: "rgba(255,255,255,0.1)" },
+                      pressed && styles.buttonPressed,
+                    ]}
+                    onPress={() => setShowCancelMatchModal(false)}
+                  >
+                    <Text style={styles.commandOutlineButtonText}>Keep Match</Text>
+                  </Pressable>
+                  <Pressable
+                    style={({ pressed }) => [{
+                      flex: 1,
+                      backgroundColor: ProTennisColors.danger,
+                      borderRadius: 8,
+                      paddingVertical: 12,
+                      alignItems: "center",
+                      justifyContent: "center",
+                      flexDirection: "row",
+                      gap: 6,
+                    }, pressed && { opacity: 0.8 }]}
+                    onPress={() => cancelChallengeMutation.mutate(c.id)}
+                    disabled={cancelChallengeMutation.isPending}
+                  >
+                    <Feather name="x-circle" size={16} color="#FFFFFF" />
+                    <Text style={{ fontSize: 14, fontWeight: "700", color: "#FFFFFF" }}>
+                      {cancelChallengeMutation.isPending ? "Cancelling..." : "Cancel Match"}
+                    </Text>
+                  </Pressable>
+                </View>
+              </View>
+            </View>
+          </Modal>
+
+          <Modal
+            visible={showLateMatchModal}
+            transparent
+            animationType="fade"
+            onRequestClose={() => setShowLateMatchModal(false)}
+          >
+            <View style={styles.modalOverlay}>
+              <Pressable style={StyleSheet.absoluteFill} onPress={() => setShowLateMatchModal(false)} />
+              <View style={styles.modalContent}>
+                <KeyboardAwareScrollViewCompat
+                  showsVerticalScrollIndicator={false}
+                  keyboardShouldPersistTaps="handled"
+                >
+                  <View style={styles.modalHeader}>
+                    <Text style={styles.modalTitle}>Running Late</Text>
+                    <Text style={styles.modalSubtitle}>Let {opponentDisplayName} know you'll be late</Text>
+                  </View>
+                  <Text style={{ color: ProTennisColors.textSecondary, fontSize: 13, marginTop: Spacing.md, marginBottom: Spacing.sm }}>How many minutes late?</Text>
+                  <View style={{ flexDirection: "row", gap: Spacing.sm, flexWrap: "wrap" }}>
+                    {[5, 10, 15, 20, 30].map((min) => (
+                      <Pressable
+                        key={min}
+                        style={({ pressed }) => [{
+                          paddingHorizontal: 16,
+                          paddingVertical: 8,
+                          borderRadius: 8,
+                          borderWidth: 1,
+                          borderColor: matchLateMinutes === min ? ProTennisColors.warning : "rgba(255,255,255,0.08)",
+                          backgroundColor: matchLateMinutes === min ? "rgba(255, 165, 0, 0.12)" : "rgba(255,255,255,0.04)",
+                        }, pressed && { opacity: 0.7 }]}
+                        onPress={() => setMatchLateMinutes(min)}
+                      >
+                        <Text style={{ fontSize: 13, fontWeight: "600", color: matchLateMinutes === min ? ProTennisColors.warning : ProTennisColors.textSecondary }}>
+                          {min} min
+                        </Text>
+                      </Pressable>
+                    ))}
+                  </View>
+                  <Text style={{ color: ProTennisColors.textSecondary, fontSize: 13, marginTop: Spacing.md, marginBottom: Spacing.sm }}>Message (optional)</Text>
+                  <TextInput
+                    style={[styles.cancelReasonInput, { minHeight: 60 }]}
+                    placeholder="e.g. Traffic, will be there soon!"
+                    placeholderTextColor={ProTennisColors.textMuted}
+                    value={matchLateMessage}
+                    onChangeText={setMatchLateMessage}
+                    multiline
+                  />
+                  <View style={{ flexDirection: "row", gap: Spacing.md, marginTop: Spacing.lg }}>
+                    <Pressable
+                      style={({ pressed }) => [
+                        styles.commandOutlineButton,
+                        { flex: 1, borderColor: "rgba(255,255,255,0.1)" },
+                        pressed && styles.buttonPressed,
+                      ]}
+                      onPress={() => setShowLateMatchModal(false)}
+                    >
+                      <Text style={styles.commandOutlineButtonText}>Cancel</Text>
+                    </Pressable>
+                    <Pressable
+                      style={({ pressed }) => [{
+                        flex: 1,
+                        backgroundColor: ProTennisColors.warning,
+                        borderRadius: 8,
+                        paddingVertical: 12,
+                        alignItems: "center",
+                        justifyContent: "center",
+                        flexDirection: "row",
+                        gap: 6,
+                      }, pressed && { opacity: 0.8 }]}
+                      onPress={() => matchLateMutation.mutate({ challengeId: c.id, minutes: matchLateMinutes, message: matchLateMessage })}
+                      disabled={matchLateMutation.isPending}
+                    >
+                      <Feather name="clock" size={16} color={Backgrounds.root} />
+                      <Text style={{ fontSize: 14, fontWeight: "700", color: Backgrounds.root }}>
+                        {matchLateMutation.isPending ? "Sending..." : "Notify"}
+                      </Text>
+                    </Pressable>
+                  </View>
+                </KeyboardAwareScrollViewCompat>
+              </View>
+            </View>
+          </Modal>
         </LinearGradient>
       </View>
     );
