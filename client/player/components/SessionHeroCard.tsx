@@ -15,13 +15,14 @@ import Animated, {
   Easing,
 } from "react-native-reanimated";
 import { useNavigation } from "@react-navigation/native";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useTabNavigation } from "@/components/TabNavigationContext";
 import { GlassCard } from "./GlassCard";
 import { GlowAvatar } from "./GlowAvatar";
 import { ProTennisColors, Backgrounds, Spacing, BorderRadius, Typography, GlowColors, Colors, CardElevation } from "@/constants/theme";
 import { usePlayerState } from "../context/PlayerStateContext";
-import { apiRequest } from "@/lib/query-client";
+import { apiRequest, getApiUrl, getAuthHeaders } from "@/lib/query-client";
+import { useAuth } from "@/coach/context/AuthContext";
 import * as Haptics from "expo-haptics";
 import { useTranslation } from "react-i18next";
 
@@ -236,6 +237,63 @@ export function SessionHeroCard({
   const queryClient = useQueryClient();
   const { state } = usePlayerState();
   const { sessionStatus, minutesToNextSession, minutesRemaining, coachName, sessionCourtName, sessionType, coachPhotoUrl, sessionId } = state;
+  const { user } = useAuth();
+  const playerId = user?.playerId;
+
+  interface ChallengeData {
+    id: string;
+    challengerId: string;
+    opponentId: string;
+    status: string;
+    matchType: string;
+    matchFormat: string;
+    scheduledDate: string;
+    scheduledTime: string;
+    courtName?: string;
+    message?: string;
+    challengerName?: string;
+    opponentName?: string;
+  }
+
+  const { data: challenges = [] } = useQuery<ChallengeData[]>({
+    queryKey: ["/api/matches/challenge", playerId],
+    queryFn: async () => {
+      if (!playerId) return [];
+      const res = await fetch(
+        new URL(`/api/matches/challenge?playerId=${playerId}`, getApiUrl()).toString(),
+        { headers: getAuthHeaders(), credentials: "include" }
+      );
+      if (!res.ok) return [];
+      return res.json();
+    },
+    enabled: !!playerId,
+  });
+
+  const incomingChallenges = challenges.filter(
+    (c) => c.status === "pending" && String(c.opponentId) === String(playerId)
+  );
+  const acceptedChallenges = challenges.filter(
+    (c) => c.status === "accepted" &&
+      (String(c.challengerId) === String(playerId) || String(c.opponentId) === String(playerId))
+  );
+  const sentPendingChallenges = challenges.filter(
+    (c) => c.status === "pending" && String(c.challengerId) === String(playerId)
+  );
+
+  const respondToChallengeMutation = useMutation({
+    mutationFn: async ({ challengeId, response }: { challengeId: string; response: "accepted" | "declined" }) => {
+      return apiRequest(
+        "POST",
+        `/api/matches/challenge/${challengeId}/respond?playerId=${playerId}`,
+        { response }
+      );
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/matches/challenge"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/player/me/dashboard"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/player/me/notifications/unread-count"] });
+    },
+  });
 
   const pulseValue = useSharedValue(0);
   const [countdown, setCountdown] = useState({ hours: 0, minutes: 0, seconds: 0 });
@@ -504,6 +562,189 @@ export function SessionHeroCard({
     }
     notifyLateMutation.mutate({ minutes: lateMinutes, message: lateMessage });
   };
+
+  const hasChallenges = incomingChallenges.length > 0 || acceptedChallenges.length > 0 || sentPendingChallenges.length > 0;
+
+  if (sessionStatus === "none" && hasChallenges) {
+    const formatChallengeDate = (dateStr: string) => {
+      const d = new Date(dateStr);
+      return d.toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" });
+    };
+    const formatChallengeTime = (timeStr: string) => {
+      if (!timeStr) return "";
+      const [h, m] = timeStr.split(":").map(Number);
+      const ampm = h >= 12 ? "PM" : "AM";
+      const hour = h % 12 || 12;
+      return `${hour}:${String(m).padStart(2, "0")} ${ampm}`;
+    };
+
+    return (
+      <View style={styles.coachStyleCard}>
+        <View style={[styles.coachCardAccentLine, { backgroundColor: "#FF9500" }]} />
+        <LinearGradient
+          colors={["rgba(255, 149, 0, 0.08)", "rgba(26, 26, 26, 0.95)", Backgrounds.card]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 0.3, y: 1 }}
+          style={styles.coachCardGradient}
+        >
+          <View style={styles.commandHeader}>
+            <View style={styles.commandTitleSection}>
+              <View style={[styles.commandIconWrap, { backgroundColor: "rgba(255, 149, 0, 0.12)" }]}>
+                <Feather name="zap" size={14} color="#FF9500" />
+              </View>
+              <Text style={styles.commandLabel}>{t("player.home.courtTime")}</Text>
+            </View>
+            {(incomingChallenges.length + acceptedChallenges.length + sentPendingChallenges.length) > 0 ? (
+              <View style={{ backgroundColor: "rgba(255, 149, 0, 0.15)", paddingHorizontal: 8, paddingVertical: 3, borderRadius: 12 }}>
+                <Text style={{ fontSize: 10, fontWeight: "700", color: "#FF9500" }}>
+                  {incomingChallenges.length + acceptedChallenges.length + sentPendingChallenges.length} {incomingChallenges.length + acceptedChallenges.length + sentPendingChallenges.length === 1 ? "Match" : "Matches"}
+                </Text>
+              </View>
+            ) : null}
+          </View>
+
+          {incomingChallenges.map((c) => (
+            <View key={c.id} style={{ backgroundColor: "rgba(255, 149, 0, 0.06)", borderRadius: BorderRadius.sm, padding: Spacing.md, gap: Spacing.sm, borderWidth: 1, borderColor: "rgba(255, 149, 0, 0.15)" }}>
+              <View style={{ flexDirection: "row", alignItems: "center", gap: Spacing.sm }}>
+                <View style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: "rgba(255, 149, 0, 0.15)", alignItems: "center", justifyContent: "center" }}>
+                  <Text style={{ color: "#FF9500", fontWeight: "700", fontSize: 16 }}>
+                    {(c.challengerName || "?").charAt(0).toUpperCase()}
+                  </Text>
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={{ color: ProTennisColors.textPrimary, fontSize: 15, fontWeight: "600" }}>
+                    {c.challengerName || "Someone"} challenges you!
+                  </Text>
+                  <Text style={{ color: ProTennisColors.textMuted, fontSize: 12 }}>
+                    {(c.matchType || "Singles").charAt(0).toUpperCase() + (c.matchType || "singles").slice(1)} · {(c.matchFormat || "Friendly").charAt(0).toUpperCase() + (c.matchFormat || "friendly").slice(1)}
+                  </Text>
+                </View>
+              </View>
+              <View style={{ flexDirection: "row", gap: Spacing.md }}>
+                <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
+                  <Feather name="calendar" size={12} color={ProTennisColors.textMuted} />
+                  <Text style={{ fontSize: 11, color: ProTennisColors.textSecondary }}>{formatChallengeDate(c.scheduledDate)}</Text>
+                </View>
+                <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
+                  <Feather name="clock" size={12} color={ProTennisColors.textMuted} />
+                  <Text style={{ fontSize: 11, color: ProTennisColors.textSecondary }}>{formatChallengeTime(c.scheduledTime)}</Text>
+                </View>
+                {c.courtName ? (
+                  <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
+                    <Feather name="map-pin" size={12} color={ProTennisColors.textMuted} />
+                    <Text style={{ fontSize: 11, color: ProTennisColors.textSecondary }}>{c.courtName}</Text>
+                  </View>
+                ) : null}
+              </View>
+              {c.message ? (
+                <View style={{ backgroundColor: "rgba(255,255,255,0.04)", borderRadius: 6, paddingHorizontal: 10, paddingVertical: 6 }}>
+                  <Text style={{ fontSize: 12, color: ProTennisColors.textSecondary, fontStyle: "italic" }}>"{c.message}"</Text>
+                </View>
+              ) : null}
+              <View style={{ flexDirection: "row", gap: Spacing.md }}>
+                <Pressable
+                  style={({ pressed }) => [{ flex: 1, backgroundColor: "rgba(255,255,255,0.06)", borderRadius: 8, paddingVertical: 10, alignItems: "center", borderWidth: 1, borderColor: "rgba(255,255,255,0.08)" }, pressed && { opacity: 0.7 }]}
+                  onPress={() => {
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                    respondToChallengeMutation.mutate({ challengeId: c.id, response: "declined" });
+                  }}
+                  disabled={respondToChallengeMutation.isPending}
+                >
+                  <Text style={{ fontSize: 13, fontWeight: "600", color: ProTennisColors.textSecondary }}>Decline</Text>
+                </Pressable>
+                <Pressable
+                  style={({ pressed }) => [{ flex: 1, borderRadius: 8, overflow: "hidden" }, pressed && { opacity: 0.85 }]}
+                  onPress={() => {
+                    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+                    respondToChallengeMutation.mutate({ challengeId: c.id, response: "accepted" });
+                  }}
+                  disabled={respondToChallengeMutation.isPending}
+                >
+                  <LinearGradient
+                    colors={[GlowColors.primary, GlowColors.soft]}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 1 }}
+                    style={{ flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, paddingVertical: 10, borderRadius: 8 }}
+                  >
+                    <Feather name="check" size={16} color={Backgrounds.root} />
+                    <Text style={{ fontSize: 13, fontWeight: "700", color: Backgrounds.root }}>Accept</Text>
+                  </LinearGradient>
+                </Pressable>
+              </View>
+            </View>
+          ))}
+
+          {acceptedChallenges.map((c) => {
+            const isChallenger = String(c.challengerId) === String(playerId);
+            const opponentName = isChallenger ? c.opponentName : c.challengerName;
+            return (
+              <View key={c.id} style={{ backgroundColor: "rgba(77, 163, 255, 0.06)", borderRadius: BorderRadius.sm, padding: Spacing.md, gap: Spacing.sm, borderWidth: 1, borderColor: "rgba(77, 163, 255, 0.15)" }}>
+                <View style={{ flexDirection: "row", alignItems: "center", gap: Spacing.sm }}>
+                  <View style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: "rgba(77, 163, 255, 0.15)", alignItems: "center", justifyContent: "center" }}>
+                    <Feather name="check-circle" size={18} color="#4DA3FF" />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={{ color: ProTennisColors.textPrimary, fontSize: 15, fontWeight: "600" }}>
+                      Match vs {opponentName || "Opponent"}
+                    </Text>
+                    <Text style={{ color: ProTennisColors.textMuted, fontSize: 12 }}>Confirmed</Text>
+                  </View>
+                </View>
+                <View style={{ flexDirection: "row", gap: Spacing.md }}>
+                  <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
+                    <Feather name="calendar" size={12} color={ProTennisColors.textMuted} />
+                    <Text style={{ fontSize: 11, color: ProTennisColors.textSecondary }}>{formatChallengeDate(c.scheduledDate)}</Text>
+                  </View>
+                  <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
+                    <Feather name="clock" size={12} color={ProTennisColors.textMuted} />
+                    <Text style={{ fontSize: 11, color: ProTennisColors.textSecondary }}>{formatChallengeTime(c.scheduledTime)}</Text>
+                  </View>
+                  {c.courtName ? (
+                    <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
+                      <Feather name="map-pin" size={12} color={ProTennisColors.textMuted} />
+                      <Text style={{ fontSize: 11, color: ProTennisColors.textSecondary }}>{c.courtName}</Text>
+                    </View>
+                  ) : null}
+                </View>
+              </View>
+            );
+          })}
+
+          {sentPendingChallenges.map((c) => (
+            <View key={c.id} style={{ backgroundColor: "rgba(200, 255, 61, 0.04)", borderRadius: BorderRadius.sm, padding: Spacing.md, gap: Spacing.sm, borderWidth: 1, borderColor: "rgba(200, 255, 61, 0.1)" }}>
+              <View style={{ flexDirection: "row", alignItems: "center", gap: Spacing.sm }}>
+                <View style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: "rgba(200, 255, 61, 0.1)", alignItems: "center", justifyContent: "center" }}>
+                  <Feather name="send" size={16} color={GlowColors.primary} />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={{ color: ProTennisColors.textPrimary, fontSize: 15, fontWeight: "600" }}>
+                    Challenge sent to {c.opponentName || "player"}
+                  </Text>
+                  <Text style={{ color: ProTennisColors.textMuted, fontSize: 12 }}>Waiting for response...</Text>
+                </View>
+              </View>
+              <View style={{ flexDirection: "row", gap: Spacing.md }}>
+                <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
+                  <Feather name="calendar" size={12} color={ProTennisColors.textMuted} />
+                  <Text style={{ fontSize: 11, color: ProTennisColors.textSecondary }}>{formatChallengeDate(c.scheduledDate)}</Text>
+                </View>
+                <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
+                  <Feather name="clock" size={12} color={ProTennisColors.textMuted} />
+                  <Text style={{ fontSize: 11, color: ProTennisColors.textSecondary }}>{formatChallengeTime(c.scheduledTime)}</Text>
+                </View>
+                {c.courtName ? (
+                  <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
+                    <Feather name="map-pin" size={12} color={ProTennisColors.textMuted} />
+                    <Text style={{ fontSize: 11, color: ProTennisColors.textSecondary }}>{c.courtName}</Text>
+                  </View>
+                ) : null}
+              </View>
+            </View>
+          ))}
+        </LinearGradient>
+      </View>
+    );
+  }
 
   if (sessionStatus === "none") {
     return (
