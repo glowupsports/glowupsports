@@ -464,6 +464,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.use(glowLevelingRoutes);
   app.use("/api/adult-glow", adultGlowRankRoutes);
 
+  // Match Challenges must be BEFORE matchLogsRoutes (which has /api/matches/:matchId that would catch "challenge" as a matchId)
+  app.use("/api/matches/challenge", matchChallengeRoutes);
+
   // Session Plans, Match Logs, Evidence, Level-Up Events
   app.use(sessionPlansRoutes);
   app.use(matchLogsRoutes);
@@ -473,7 +476,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.use(parentDashboardRoutes);
   app.use("/api/lesson-groups", lessonGroupsRoutes);
   app.use("/api/match-intelligence", matchIntelligenceRoutes);
-  app.use("/api/matches/challenge", matchChallengeRoutes);
   app.use("/api/player-level", playerLevelRoutes);
   app.use(roleMessagesRoutes);
   app.use(socialFeaturesRoutes);
