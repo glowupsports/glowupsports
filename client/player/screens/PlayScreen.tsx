@@ -140,6 +140,8 @@ export default function PlayScreen() {
   const [selectedPlayerLevel, setSelectedPlayerLevel] = useState<string>("all");
   const [discoverFilter, setDiscoverFilter] = useState<DiscoverFilter>("all");
   const [selectedSession, setSelectedSession] = useState<PlaySession | null>(null);
+  const [friendRequestPlayer, setFriendRequestPlayer] = useState<NearbyPlayer | null>(null);
+  const [friendRequestSent, setFriendRequestSent] = useState(false);
 
   useEffect(() => {
     if (!hasSeenScreen("Play")) {
@@ -241,7 +243,7 @@ export default function PlayScreen() {
   const filteredSessions = useMemo(() => {
     if (!sessions) return [];
     
-    let filtered = sessions;
+    let filtered = sessions.filter(s => s.sessionType === "group");
     
     if (selectedBallLevel !== "all") {
       const filterLevel = (selectedBallLevel === "my_level" ? playerBallLevel : selectedBallLevel).toLowerCase();
@@ -252,7 +254,6 @@ export default function PlayScreen() {
       });
     }
     
-    // Filter by day
     if (selectedDay !== "all") {
       filtered = filtered.filter(s => getDayOfWeek(s.startTime) === selectedDay);
     }
@@ -609,161 +610,90 @@ export default function PlayScreen() {
     );
   };
 
+  const sendFriendRequestMutation = useMutation({
+    mutationFn: async (playerId: string) => {
+      const response = await apiRequest("POST", `/api/social/friend-request`, { targetPlayerId: playerId });
+      return await response.json();
+    },
+    onSuccess: () => {
+      setFriendRequestSent(true);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    },
+    onError: (error: Error) => {
+      const msg = error.message.includes(": ") ? error.message.split(": ").slice(1).join(": ") : error.message;
+      if (Platform.OS === "web") {
+        window.alert(msg || "Could not send friend request");
+      } else {
+        Alert.alert("Oops", msg || "Could not send friend request");
+      }
+    },
+  });
+
   const renderPlayerCard = (player: NearbyPlayer) => {
     const ballColor = getBallLevelColor(player.ballLevel || "");
     const baseBallLabel = getBallLevelLabel(player.ballLevel || "");
     const ballLabel = player.skillLevel ? `${baseBallLabel} ${player.skillLevel}` : baseBallLabel;
     
-    // Generate STABLE random values based on player ID (hash function)
-    const hashCode = (str: string) => {
-      let hash = 0;
-      for (let i = 0; i < str.length; i++) {
-        const char = str.charCodeAt(i);
-        hash = ((hash << 5) - hash) + char;
-        hash = hash & hash;
-      }
-      return Math.abs(hash);
-    };
-    const playerHash = hashCode(player.id);
-    const powerLevel = player.glowRating || (playerHash % 500) + 350;
-    const winRate = player.winRate || (playerHash % 40) + 45;
-    const matchesPlayed = player.matchesPlayed || ((playerHash >> 4) % 50) + 10;
-    
-    // Determine threat rank based on power level
-    const getThreatRank = (power: number) => {
-      if (power >= 800) return { rank: "S", color: "#FFD700" };
-      if (power >= 650) return { rank: "A", color: "#FF6B35" };
-      if (power >= 500) return { rank: "B", color: "#C8FF3D" };
-      if (power >= 350) return { rank: "C", color: "#00D4FF" };
-      return { rank: "D", color: "#8B8B8B" };
-    };
-    const threat = getThreatRank(powerLevel);
-    
-    const handleChallenge = (e: any) => {
-      e.stopPropagation();
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
-      // Navigate to CreateMatch with player pre-selected as opponent
-      navigation.navigate("CreateMatch", { opponentId: player.id, opponentName: player.name } as never);
-    };
-    
-    const handleAddFriend = (e: any) => {
-      e.stopPropagation();
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-      if (Platform.OS === "web") {
-        if (window.confirm(`Send friend request to ${player.name}?`)) {
-          window.alert(`Friend request sent to ${player.name}!`);
-        }
-      } else {
-        Alert.alert("Friend Request", `Send friend request to ${player.name}?`, [
-          { text: "Cancel", style: "cancel" },
-          { text: "Send", onPress: () => Alert.alert("Sent!", `Friend request sent to ${player.name}`) }
-        ]);
-      }
-    };
-    
     return (
       <Pressable 
         key={player.id} 
-        style={[styles.bossCard, { shadowColor: ballColor }]}
+        style={styles.compactPlayerCard}
         onPress={() => navigation.navigate("PublicProfile", { playerId: player.id })}
       >
-        {/* Outer glow layer */}
-        <View style={[styles.bossCardOuterGlow, { backgroundColor: ballColor + "15" }]} />
-        
-        <LinearGradient
-          colors={[ballColor + "25", "rgba(20,25,35,0.95)", "rgba(15,18,25,0.98)"]}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 0.5, y: 1 }}
-          style={styles.bossCardGradient}
-        >
-          {/* Glass shine overlay */}
-          <View style={styles.bossCardShine} />
-          {/* Top Row: Rank Badge + Threat Level */}
-          <View style={styles.bossCardHeader}>
-            <View style={[styles.bossRankBadge, { backgroundColor: ballColor }]}>
-              <Text style={styles.bossRankText}>{ballLabel}</Text>
+        <View style={[styles.compactAvatarRing, { borderColor: ballColor }]}>
+          {player.avatarUrl ? (
+            <ExpoImage 
+              source={{ uri: `${getStaticAssetsUrl()}${player.avatarUrl}` }}
+              style={styles.compactAvatarImage}
+              contentFit="cover"
+            />
+          ) : (
+            <View style={[styles.compactAvatarPlaceholder, { backgroundColor: ballColor + "30" }]}>
+              <Text style={[styles.compactAvatarLetter, { color: ballColor }]}>
+                {player.name.charAt(0).toUpperCase()}
+              </Text>
             </View>
-            <View style={[styles.bossThreatBadge, { backgroundColor: threat.color + "30", borderColor: threat.color }]}>
-              <Text style={[styles.bossThreatText, { color: threat.color }]}>{threat.rank}-RANK</Text>
+          )}
+          {player.openToPlay ? (
+            <View style={styles.compactOnlineDot} />
+          ) : null}
+        </View>
+
+        <View style={styles.compactPlayerInfo}>
+          <Text style={styles.compactPlayerName} numberOfLines={1}>{player.name}</Text>
+          <View style={styles.compactBadgeRow}>
+            <View style={[styles.compactLevelBadge, { backgroundColor: ballColor + "25" }]}>
+              <Text style={[styles.compactLevelText, { color: ballColor }]}>{ballLabel}</Text>
             </View>
-          </View>
-          
-          {/* Avatar Section */}
-          <View style={styles.bossAvatarSection}>
-            <View style={[styles.bossAvatarRing, { borderColor: ballColor, shadowColor: ballColor }]}>
-              {player.avatarUrl ? (
-                <ExpoImage 
-                  source={{ uri: `${getStaticAssetsUrl()}${player.avatarUrl}` }}
-                  style={styles.bossAvatarImage}
-                  contentFit="cover"
-                />
-              ) : (
-                <View style={[styles.bossAvatarPlaceholder, { backgroundColor: ballColor + "30" }]}>
-                  <Text style={[styles.bossAvatarLetter, { color: ballColor }]}>
-                    {player.name.charAt(0).toUpperCase()}
-                  </Text>
-                </View>
-              )}
-            </View>
-            {player.openToPlay ? (
-              <View style={styles.bossOnlineIndicator}>
-                <View style={styles.bossOnlineDot} />
-              </View>
+            {player.vibe ? (
+              <Text style={styles.compactVibeText} numberOfLines={1}>{player.vibe}</Text>
             ) : null}
           </View>
-          
-          {/* Player Name */}
-          <Text style={styles.bossPlayerName} numberOfLines={1}>{player.name}</Text>
-          
-          {/* Play Style Tag */}
-          <Text style={styles.bossPlayStyle}>{player.vibe || "Competitive"}</Text>
-          
-          {/* Power Level Meter */}
-          <View style={styles.bossPowerSection}>
-            <View style={styles.bossPowerHeader}>
-              <Ionicons name="flash" size={12} color={Colors.dark.primary} />
-              <Text style={styles.bossPowerLabel}>PWR</Text>
-              <Text style={[styles.bossPowerValue, { color: threat.color }]}>{powerLevel}</Text>
-            </View>
-            <View style={styles.bossPowerBarBg}>
-              <View style={[styles.bossPowerBarFill, { width: `${Math.min(powerLevel / 10, 100)}%`, backgroundColor: threat.color }]} />
-            </View>
-          </View>
-          
-          {/* Stats Row */}
-          <View style={styles.bossStatsRow}>
-            <View style={styles.bossStat}>
-              <Text style={styles.bossStatValue}>{winRate}%</Text>
-              <Text style={styles.bossStatLabel}>Win</Text>
-            </View>
-            <View style={styles.bossStatDivider} />
-            <View style={styles.bossStat}>
-              <Text style={styles.bossStatValue}>{matchesPlayed}</Text>
-              <Text style={styles.bossStatLabel}>Matches</Text>
-            </View>
-          </View>
-          
-          {/* Action Buttons */}
-          <View style={styles.bossButtonRow}>
-            <Pressable style={styles.bossAddFriendBtn} onPress={handleAddFriend}>
-              <Ionicons name="person-add" size={16} color={Colors.dark.text} />
-            </Pressable>
-            <Pressable style={styles.bossChallengeBtn} onPress={handleChallenge}>
-              <LinearGradient
-                colors={[Colors.dark.primary, Colors.dark.primaryGlow]}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 0 }}
-                style={styles.bossChallengeGradient}
-              >
-                <Ionicons name="flash" size={14} color={Colors.dark.backgroundRoot} />
-                <Text style={styles.bossChallengeText}>CHALLENGE</Text>
-              </LinearGradient>
-            </Pressable>
-          </View>
-        </LinearGradient>
-        
-        {/* Outer Glow Border */}
-        <View style={[styles.bossCardGlow, { borderColor: ballColor + "50" }]} />
+        </View>
+
+        <View style={styles.compactActions}>
+          <Pressable 
+            style={styles.compactFriendBtn} 
+            onPress={(e) => {
+              e.stopPropagation();
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+              setFriendRequestPlayer(player);
+              setFriendRequestSent(false);
+            }}
+          >
+            <Ionicons name="person-add" size={16} color={Colors.dark.text} />
+          </Pressable>
+          <Pressable 
+            style={styles.compactChallengeBtn} 
+            onPress={(e) => {
+              e.stopPropagation();
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+              navigation.navigate("CreateMatch", { opponentId: player.id, opponentName: player.name } as never);
+            }}
+          >
+            <Ionicons name="flash" size={14} color={Colors.dark.backgroundRoot} />
+          </Pressable>
+        </View>
       </Pressable>
     );
   };
@@ -788,78 +718,82 @@ export default function PlayScreen() {
         ) : null}
       </View>
 
-        <View style={styles.quickActions}>
-          <Pressable 
-            style={styles.findMatchButton}
-            onPress={() => {
-              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-              navigation.navigate("CreateMatch" as never);
-            }}
-          >
-            <LinearGradient
-              colors={[Colors.dark.primary, Colors.dark.primaryGlow]}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 0 }}
-              style={styles.findMatchGradient}
-            >
-              <Ionicons name="flame" size={22} color={Colors.dark.backgroundRoot} />
-              <Text style={styles.findMatchText}>{t("player.play.findMatch")}</Text>
-            </LinearGradient>
-          </Pressable>
+        {activeTab === "Group Lessons" ? (
+          <>
+            <View style={styles.quickActions}>
+              <Pressable 
+                style={styles.findMatchButton}
+                onPress={() => {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                  navigation.navigate("CreateMatch" as never);
+                }}
+              >
+                <LinearGradient
+                  colors={[Colors.dark.primary, Colors.dark.primaryGlow]}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 0 }}
+                  style={styles.findMatchGradient}
+                >
+                  <Ionicons name="flame" size={22} color={Colors.dark.backgroundRoot} />
+                  <Text style={styles.findMatchText}>{t("player.play.findMatch")}</Text>
+                </LinearGradient>
+              </Pressable>
 
-          <Pressable 
-            style={styles.openMatchesButton}
-            onPress={() => {
-              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-              navigation.navigate("OpenMatches" as never);
-            }}
-          >
-            <LinearGradient
-              colors={[Colors.dark.xpCyan, "#00A3D9"]}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 0 }}
-              style={styles.findMatchGradient}
-            >
-              <Ionicons name="tennisball" size={20} color={Colors.dark.backgroundRoot} />
-              <Text style={styles.findMatchText}>{t("player.play.openMatches")}</Text>
-            </LinearGradient>
-          </Pressable>
-        </View>
+              <Pressable 
+                style={styles.openMatchesButton}
+                onPress={() => {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                  navigation.navigate("OpenMatches" as never);
+                }}
+              >
+                <LinearGradient
+                  colors={[Colors.dark.xpCyan, "#00A3D9"]}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 0 }}
+                  style={styles.findMatchGradient}
+                >
+                  <Ionicons name="tennisball" size={20} color={Colors.dark.backgroundRoot} />
+                  <Text style={styles.findMatchText}>{t("player.play.openMatches")}</Text>
+                </LinearGradient>
+              </Pressable>
+            </View>
 
-        <View style={styles.bookingToolsRow}>
-        <Pressable 
-          style={[styles.bookingToolButton, pendingInvitesCount > 0 && styles.bookingToolButtonActive]}
-          onPress={() => {
-            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-            navigation.navigate("BookingInvites" as never);
-          }}
-        >
-          <View style={styles.bookingToolIcon}>
-            <Ionicons name="mail" size={18} color={pendingInvitesCount > 0 ? Colors.dark.primary : Colors.dark.gold} />
-            {pendingInvitesCount > 0 ? (
-              <View style={styles.invitesBadge}>
-                <Text style={styles.invitesBadgeText}>{pendingInvitesCount}</Text>
-              </View>
-            ) : null}
-          </View>
-          <Text style={[styles.bookingToolText, pendingInvitesCount > 0 && { color: Colors.dark.primary }]}>
-            {t("player.play.invites")}{pendingInvitesCount > 0 ? ` (${pendingInvitesCount})` : ""}
-          </Text>
-        </Pressable>
+            <View style={styles.bookingToolsRow}>
+              <Pressable 
+                style={[styles.bookingToolButton, pendingInvitesCount > 0 && styles.bookingToolButtonActive]}
+                onPress={() => {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  navigation.navigate("BookingInvites" as never);
+                }}
+              >
+                <View style={styles.bookingToolIcon}>
+                  <Ionicons name="mail" size={18} color={pendingInvitesCount > 0 ? Colors.dark.primary : Colors.dark.gold} />
+                  {pendingInvitesCount > 0 ? (
+                    <View style={styles.invitesBadge}>
+                      <Text style={styles.invitesBadgeText}>{pendingInvitesCount}</Text>
+                    </View>
+                  ) : null}
+                </View>
+                <Text style={[styles.bookingToolText, pendingInvitesCount > 0 && { color: Colors.dark.primary }]}>
+                  {t("player.play.invites")}{pendingInvitesCount > 0 ? ` (${pendingInvitesCount})` : ""}
+                </Text>
+              </Pressable>
 
-        <Pressable 
-          style={styles.bookingToolButton}
-          onPress={() => {
-            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-            navigation.navigate("BookingPreferences" as never);
-          }}
-        >
-          <View style={styles.bookingToolIcon}>
-            <Ionicons name="options" size={18} color={Colors.dark.primary} />
-          </View>
-          <Text style={styles.bookingToolText}>{t("player.play.preferences")}</Text>
-        </Pressable>
-      </View>
+              <Pressable 
+                style={styles.bookingToolButton}
+                onPress={() => {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  navigation.navigate("BookingPreferences" as never);
+                }}
+              >
+                <View style={styles.bookingToolIcon}>
+                  <Ionicons name="options" size={18} color={Colors.dark.primary} />
+                </View>
+                <Text style={styles.bookingToolText}>{t("player.play.preferences")}</Text>
+              </Pressable>
+            </View>
+          </>
+        ) : null}
 
         <View style={styles.tabs}>
         {TAB_OPTIONS.map((tab) => (
@@ -1143,6 +1077,89 @@ export default function PlayScreen() {
           </>
         )}
       </ScrollView>
+
+      <Modal
+        visible={!!friendRequestPlayer}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setFriendRequestPlayer(null)}
+      >
+        <Pressable style={styles.modalOverlay} onPress={() => setFriendRequestPlayer(null)}>
+          <View style={styles.friendRequestModal}>
+            {friendRequestPlayer ? (
+              <>
+                <View style={[styles.friendModalAvatarRing, { borderColor: getBallLevelColor(friendRequestPlayer.ballLevel || "") }]}>
+                  {friendRequestPlayer.avatarUrl ? (
+                    <ExpoImage
+                      source={{ uri: `${getStaticAssetsUrl()}${friendRequestPlayer.avatarUrl}` }}
+                      style={styles.friendModalAvatar}
+                      contentFit="cover"
+                    />
+                  ) : (
+                    <View style={[styles.friendModalAvatarPlaceholder, { backgroundColor: getBallLevelColor(friendRequestPlayer.ballLevel || "") + "30" }]}>
+                      <Text style={[styles.friendModalAvatarLetter, { color: getBallLevelColor(friendRequestPlayer.ballLevel || "") }]}>
+                        {friendRequestPlayer.name.charAt(0).toUpperCase()}
+                      </Text>
+                    </View>
+                  )}
+                </View>
+
+                <Text style={styles.friendModalTitle}>
+                  {friendRequestSent ? "Request Sent!" : "Send Friend Request"}
+                </Text>
+                <Text style={styles.friendModalName}>{friendRequestPlayer.name}</Text>
+                
+                {friendRequestPlayer.ballLevel ? (
+                  <View style={[styles.friendModalLevelBadge, { backgroundColor: getBallLevelColor(friendRequestPlayer.ballLevel) + "25" }]}>
+                    <Text style={[styles.friendModalLevelText, { color: getBallLevelColor(friendRequestPlayer.ballLevel) }]}>
+                      {getBallLevelLabel(friendRequestPlayer.ballLevel)}
+                    </Text>
+                  </View>
+                ) : null}
+
+                {friendRequestSent ? (
+                  <View style={styles.friendModalSentContainer}>
+                    <Ionicons name="checkmark-circle" size={48} color={Colors.dark.primary} />
+                    <Text style={styles.friendModalSentText}>Friend request sent successfully</Text>
+                    <Pressable
+                      style={styles.friendModalDoneBtn}
+                      onPress={() => setFriendRequestPlayer(null)}
+                    >
+                      <Text style={styles.friendModalDoneBtnText}>Done</Text>
+                    </Pressable>
+                  </View>
+                ) : (
+                  <View style={styles.friendModalButtons}>
+                    <Pressable
+                      style={styles.friendModalCancelBtn}
+                      onPress={() => setFriendRequestPlayer(null)}
+                    >
+                      <Text style={styles.friendModalCancelText}>Cancel</Text>
+                    </Pressable>
+                    <Pressable
+                      style={[styles.friendModalSendBtn, sendFriendRequestMutation.isPending && { opacity: 0.6 }]}
+                      onPress={() => {
+                        if (!sendFriendRequestMutation.isPending) {
+                          sendFriendRequestMutation.mutate(friendRequestPlayer.id);
+                        }
+                      }}
+                    >
+                      {sendFriendRequestMutation.isPending ? (
+                        <ActivityIndicator size="small" color={Colors.dark.backgroundRoot} />
+                      ) : (
+                        <>
+                          <Ionicons name="person-add" size={18} color={Colors.dark.backgroundRoot} />
+                          <Text style={styles.friendModalSendText}>Send Request</Text>
+                        </>
+                      )}
+                    </Pressable>
+                  </View>
+                )}
+              </>
+            ) : null}
+          </View>
+        </Pressable>
+      </Modal>
     </View>
   );
 }
@@ -1795,229 +1812,222 @@ const styles = StyleSheet.create({
     paddingVertical: 0,
   },
   playersGrid: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: Spacing.md,
-  },
-  bossCard: {
-    width: CARD_WIDTH,
-    borderRadius: BorderRadius.lg,
-    overflow: "hidden",
-    position: "relative",
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.4,
-    shadowRadius: 16,
-    elevation: 12,
-  },
-  bossCardOuterGlow: {
-    position: "absolute",
-    top: -2,
-    left: -2,
-    right: -2,
-    bottom: -2,
-    borderRadius: BorderRadius.lg + 2,
-  },
-  bossCardGradient: {
-    padding: Spacing.md,
     gap: Spacing.sm,
-    borderRadius: BorderRadius.lg,
-    borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.1)",
   },
-  bossCardShine: {
-    position: "absolute",
-    top: 0,
-    left: 0,
-    right: 0,
-    height: 60,
-    backgroundColor: "rgba(255,255,255,0.05)",
-    borderTopLeftRadius: BorderRadius.lg,
-    borderTopRightRadius: BorderRadius.lg,
-  },
-  bossCardHeader: {
+  compactPlayerCard: {
     flexDirection: "row",
-    justifyContent: "space-between",
     alignItems: "center",
-  },
-  bossRankBadge: {
-    paddingHorizontal: Spacing.sm,
-    paddingVertical: 3,
-    borderRadius: BorderRadius.sm,
-  },
-  bossRankText: {
-    fontSize: 10,
-    fontWeight: "800",
-    color: "#0B0D10",
-    letterSpacing: 0.5,
-  },
-  bossThreatBadge: {
-    paddingHorizontal: Spacing.sm,
-    paddingVertical: 3,
-    borderRadius: BorderRadius.sm,
+    backgroundColor: Colors.dark.backgroundSecondary,
+    borderRadius: BorderRadius.md,
+    padding: Spacing.md,
+    gap: Spacing.md,
     borderWidth: 1,
+    borderColor: Colors.dark.border,
   },
-  bossThreatText: {
-    fontSize: 9,
-    fontWeight: "800",
-    letterSpacing: 1,
-  },
-  bossAvatarSection: {
-    alignItems: "center",
-    marginVertical: Spacing.sm,
+  compactAvatarRing: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    borderWidth: 2,
+    padding: 2,
     position: "relative",
   },
-  bossAvatarRing: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    borderWidth: 3,
-    padding: 3,
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.8,
-    shadowRadius: 10,
-    elevation: 8,
-  },
-  bossAvatarImage: {
+  compactAvatarImage: {
     width: "100%",
     height: "100%",
-    borderRadius: 36,
+    borderRadius: 22,
   },
-  bossAvatarPlaceholder: {
+  compactAvatarPlaceholder: {
     width: "100%",
     height: "100%",
-    borderRadius: 36,
+    borderRadius: 22,
     alignItems: "center",
     justifyContent: "center",
   },
-  bossAvatarLetter: {
-    fontSize: 32,
+  compactAvatarLetter: {
+    fontSize: 18,
     fontWeight: "800",
   },
-  bossOnlineIndicator: {
+  compactOnlineDot: {
     position: "absolute",
-    bottom: 4,
-    right: "35%",
-    backgroundColor: Colors.dark.backgroundSecondary,
-    borderRadius: 10,
-    padding: 3,
-  },
-  bossOnlineDot: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
+    bottom: 0,
+    right: 0,
+    width: 12,
+    height: 12,
+    borderRadius: 6,
     backgroundColor: Colors.dark.primary,
+    borderWidth: 2,
+    borderColor: Colors.dark.backgroundSecondary,
   },
-  bossPlayerName: {
-    fontSize: 16,
+  compactPlayerInfo: {
+    flex: 1,
+    gap: 4,
+  },
+  compactPlayerName: {
+    fontSize: 15,
     fontWeight: "700",
     color: Colors.dark.text,
-    textAlign: "center",
   },
-  bossPlayStyle: {
+  compactBadgeRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+  },
+  compactLevelBadge: {
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 2,
+    borderRadius: BorderRadius.sm,
+  },
+  compactLevelText: {
+    fontSize: 10,
+    fontWeight: "700",
+    letterSpacing: 0.5,
+  },
+  compactVibeText: {
     fontSize: 11,
     color: Colors.dark.textMuted,
-    textAlign: "center",
-    textTransform: "uppercase",
-    letterSpacing: 1,
+    flex: 1,
   },
-  bossPowerSection: {
-    marginTop: Spacing.xs,
-  },
-  bossPowerHeader: {
+  compactActions: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 4,
-    marginBottom: 4,
-  },
-  bossPowerLabel: {
-    fontSize: 10,
-    fontWeight: "600",
-    color: Colors.dark.textMuted,
-    letterSpacing: 1,
-  },
-  bossPowerValue: {
-    fontSize: 14,
-    fontWeight: "800",
-    marginLeft: "auto",
-  },
-  bossPowerBarBg: {
-    height: 4,
-    backgroundColor: Colors.dark.backgroundTertiary,
-    borderRadius: 2,
-    overflow: "hidden",
-  },
-  bossPowerBarFill: {
-    height: "100%",
-    borderRadius: 2,
-  },
-  bossStatsRow: {
-    flexDirection: "row",
-    justifyContent: "center",
-    alignItems: "center",
-    gap: Spacing.md,
-    marginTop: Spacing.sm,
-  },
-  bossStat: {
-    alignItems: "center",
-  },
-  bossStatValue: {
-    fontSize: 14,
-    fontWeight: "700",
-    color: Colors.dark.text,
-  },
-  bossStatLabel: {
-    fontSize: 9,
-    color: Colors.dark.textMuted,
-    textTransform: "uppercase",
-    letterSpacing: 0.5,
-  },
-  bossStatDivider: {
-    width: 1,
-    height: 24,
-    backgroundColor: Colors.dark.border,
-  },
-  bossButtonRow: {
-    flexDirection: "row",
     gap: Spacing.sm,
-    marginTop: Spacing.sm,
   },
-  bossAddFriendBtn: {
-    width: 40,
+  compactFriendBtn: {
+    width: 36,
     height: 36,
-    borderRadius: BorderRadius.md,
+    borderRadius: 18,
     backgroundColor: Colors.dark.backgroundTertiary,
     alignItems: "center",
     justifyContent: "center",
     borderWidth: 1,
     borderColor: Colors.dark.border,
   },
-  bossChallengeBtn: {
-    flex: 1,
-    borderRadius: BorderRadius.md,
-    overflow: "hidden",
-  },
-  bossChallengeGradient: {
-    flexDirection: "row",
+  compactChallengeBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: Colors.dark.primary,
     alignItems: "center",
     justifyContent: "center",
-    gap: 6,
-    paddingVertical: Spacing.sm,
   },
-  bossChallengeText: {
-    fontSize: 12,
-    fontWeight: "800",
-    color: "#0B0D10",
-    letterSpacing: 1,
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.7)",
+    justifyContent: "center",
+    alignItems: "center",
+    padding: Spacing.xl,
   },
-  bossCardGlow: {
-    position: "absolute",
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
+  friendRequestModal: {
+    backgroundColor: Colors.dark.backgroundSecondary,
     borderRadius: BorderRadius.lg,
-    borderWidth: 2,
-    pointerEvents: "none",
+    padding: Spacing.xl,
+    alignItems: "center",
+    width: "100%",
+    maxWidth: 340,
+    borderWidth: 1,
+    borderColor: Colors.dark.border,
+  },
+  friendModalAvatarRing: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    borderWidth: 3,
+    padding: 3,
+    marginBottom: Spacing.md,
+  },
+  friendModalAvatar: {
+    width: "100%",
+    height: "100%",
+    borderRadius: 36,
+  },
+  friendModalAvatarPlaceholder: {
+    width: "100%",
+    height: "100%",
+    borderRadius: 36,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  friendModalAvatarLetter: {
+    fontSize: 28,
+    fontWeight: "800",
+  },
+  friendModalTitle: {
+    ...Typography.h3,
+    color: Colors.dark.text,
+    marginBottom: Spacing.xs,
+  },
+  friendModalName: {
+    ...Typography.body,
+    color: Colors.dark.text,
+    fontWeight: "600",
+    marginBottom: Spacing.sm,
+  },
+  friendModalLevelBadge: {
+    paddingHorizontal: Spacing.md,
+    paddingVertical: 4,
+    borderRadius: BorderRadius.full,
+    marginBottom: Spacing.lg,
+  },
+  friendModalLevelText: {
+    fontSize: 12,
+    fontWeight: "700",
+    letterSpacing: 0.5,
+  },
+  friendModalSentContainer: {
+    alignItems: "center",
+    gap: Spacing.md,
+  },
+  friendModalSentText: {
+    ...Typography.body,
+    color: Colors.dark.textMuted,
+    textAlign: "center",
+  },
+  friendModalDoneBtn: {
+    backgroundColor: Colors.dark.primary,
+    paddingHorizontal: Spacing.xl,
+    paddingVertical: Spacing.sm,
+    borderRadius: BorderRadius.md,
+    marginTop: Spacing.sm,
+  },
+  friendModalDoneBtnText: {
+    ...Typography.body,
+    color: Colors.dark.backgroundRoot,
+    fontWeight: "700",
+  },
+  friendModalButtons: {
+    flexDirection: "row",
+    gap: Spacing.md,
+    width: "100%",
+  },
+  friendModalCancelBtn: {
+    flex: 1,
+    paddingVertical: Spacing.sm,
+    borderRadius: BorderRadius.md,
+    backgroundColor: Colors.dark.backgroundTertiary,
+    alignItems: "center",
+    borderWidth: 1,
+    borderColor: Colors.dark.border,
+  },
+  friendModalCancelText: {
+    ...Typography.body,
+    color: Colors.dark.text,
+    fontWeight: "600",
+  },
+  friendModalSendBtn: {
+    flex: 1,
+    flexDirection: "row",
+    paddingVertical: Spacing.sm,
+    borderRadius: BorderRadius.md,
+    backgroundColor: Colors.dark.primary,
+    alignItems: "center",
+    justifyContent: "center",
+    gap: Spacing.xs,
+  },
+  friendModalSendText: {
+    ...Typography.body,
+    color: Colors.dark.backgroundRoot,
+    fontWeight: "700",
   },
   emptyState: {
     alignItems: "center",

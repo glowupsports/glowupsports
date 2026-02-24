@@ -247,10 +247,11 @@ export function CoachChatFooter({ mode = "coach" }: ChatFooterProps) {
     ? ["/api/player/me/conversations"]
     : ["/api/coaches", userId, "conversations"];
 
-  const { data: conversations = [], isLoading: loadingConversations } = useQuery<Conversation[]>({
+  const { data: rawConversations, isLoading: loadingConversations } = useQuery<Conversation[]>({
     queryKey: conversationsQueryKey,
     enabled: !!userId,
   });
+  const conversations = Array.isArray(rawConversations) ? rawConversations : [];
 
   const messagesQueryKey = isPlayerMode
     ? ["/api/player/me/conversations", selectedConversation?.id, "messages"]
