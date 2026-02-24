@@ -670,13 +670,72 @@ export function SessionHeroCard({
     },
   });
 
+  const [showScoreModal, setShowScoreModal] = useState(false);
+  const [scoreStep, setScoreStep] = useState(1);
+  const [scoreResult, setScoreResult] = useState<"win" | "loss" | null>(null);
+  const [scoreText, setScoreText] = useState("");
+  const [scoreWhatWorked, setScoreWhatWorked] = useState<string[]>([]);
+  const [scoreWhatDidnt, setScoreWhatDidnt] = useState<string[]>([]);
+  const [scoreBiggestChallenge, setScoreBiggestChallenge] = useState<string | null>(null);
+  const [scoreEnergy, setScoreEnergy] = useState<string | null>(null);
+  const [scoreMood, setScoreMood] = useState<string | null>(null);
+  const [scoreKeyTakeaway, setScoreKeyTakeaway] = useState("");
+
+  const resetScoreModal = () => {
+    setScoreStep(1);
+    setScoreResult(null);
+    setScoreText("");
+    setScoreWhatWorked([]);
+    setScoreWhatDidnt([]);
+    setScoreBiggestChallenge(null);
+    setScoreEnergy(null);
+    setScoreMood(null);
+    setScoreKeyTakeaway("");
+    setShowScoreModal(false);
+  };
+
+  const toggleScoreChip = (id: string, list: string[], setList: (v: string[]) => void) => {
+    if (list.includes(id)) {
+      setList(list.filter(x => x !== id));
+    } else if (list.length < 3) {
+      setList([...list, id]);
+    }
+  };
+
   const completeChallengeMutation = useMutation({
-    mutationFn: async (challengeId: string) => {
-      return apiRequest("POST", `/api/matches/challenge/${challengeId}/complete?playerId=${playerId}`);
+    mutationFn: async (data: { challengeId: string; withScore?: boolean }) => {
+      const body: any = {};
+      if (data.withScore && scoreResult) {
+        const c = primaryChallenge;
+        const isChallenger = c && String(c.challengerId) === String(playerId);
+        const winnerId = scoreResult === "win" ? playerId : (isChallenger ? c?.opponentId : c?.challengerId);
+        body.winnerPlayerId = winnerId;
+        body.score = scoreText;
+        body.resultStatus = "played";
+        if (scoreWhatWorked.length > 0) body.whatWorked = scoreWhatWorked;
+        if (scoreWhatDidnt.length > 0) body.whatDidntWork = scoreWhatDidnt;
+        if (scoreBiggestChallenge) body.biggestChallenge = scoreBiggestChallenge;
+        if (scoreEnergy) body.postMatchEnergy = scoreEnergy;
+        if (scoreMood) body.postMatchMood = scoreMood;
+        if (scoreKeyTakeaway) body.keyTakeaway = scoreKeyTakeaway;
+      }
+      const res = await fetch(
+        new URL(`/api/matches/challenge/${data.challengeId}/complete?playerId=${playerId}`, getApiUrl()).toString(),
+        {
+          method: "POST",
+          headers: { ...getAuthHeaders(), "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify(body),
+        }
+      );
+      if (!res.ok) throw new Error("Failed to complete challenge");
+      return res.json();
     },
     onSuccess: () => {
+      resetScoreModal();
       queryClient.invalidateQueries({ queryKey: ["/api/matches/challenge"] });
       queryClient.invalidateQueries({ queryKey: ["/api/player/me/dashboard"] });
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     },
   });
 
@@ -955,17 +1014,51 @@ export function SessionHeroCard({
                 <Animated.View style={[{ width: 8, height: 8, borderRadius: 4, backgroundColor: "#FF4444" }, livePulseStyle]} />
                 <Text style={{ fontSize: 13, fontWeight: "600", color: "#FF4444" }}>Give it your all! Focus on every point.</Text>
               </View>
-              <View style={styles.cleanTextButtonRow}>
-                <Pressable
-                  style={({ pressed }) => [styles.cleanTextButton, pressed && { opacity: 0.6 }]}
-                  onPress={() => {
-                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                    setShowLateMatchModal(true);
-                  }}
-                >
-                  <Feather name="clock" size={14} color={ProTennisColors.warning} />
-                  <Text style={[styles.cleanTextButtonLabel, { color: ProTennisColors.warning }]}>Notify Opponent</Text>
-                </Pressable>
+              <View style={{ flexDirection: "row", gap: Spacing.md }}>
+                <SwipeBlocker style={{ flex: 1 }}>
+                  <Pressable
+                    style={({ pressed }) => [
+                      styles.cleanPrimaryButton,
+                      pressed && styles.buttonPressed,
+                    ]}
+                    onPress={() => {
+                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                      navigation.navigate("MatchLive", {
+                        challengeId: c.id,
+                        opponentName: opponentDisplayName,
+                        matchType: c.matchType || "singles",
+                        matchFormat: c.matchFormat || "friendly",
+                        scheduledDate: c.scheduledDate,
+                        scheduledTime: c.scheduledTime,
+                        courtName: c.courtName,
+                        challengerId: c.challengerId,
+                        opponentId: c.opponentId,
+                      });
+                    }}
+                  >
+                    <LinearGradient
+                      colors={["#FF4444", "#FF6B6B"]}
+                      start={{ x: 0, y: 0 }}
+                      end={{ x: 1, y: 1 }}
+                      style={styles.cleanPrimaryGradient}
+                    >
+                      <Feather name="activity" size={18} color="#FFFFFF" />
+                      <Text style={[styles.cleanPrimaryButtonText, { color: "#FFFFFF" }]}>View Match</Text>
+                    </LinearGradient>
+                  </Pressable>
+                </SwipeBlocker>
+                <SwipeBlocker style={{ flex: 1 }}>
+                  <Pressable
+                    style={({ pressed }) => [styles.cleanTextButton, pressed && { opacity: 0.6 }]}
+                    onPress={() => {
+                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                      setShowLateMatchModal(true);
+                    }}
+                  >
+                    <Feather name="clock" size={14} color={ProTennisColors.warning} />
+                    <Text style={[styles.cleanTextButtonLabel, { color: ProTennisColors.warning }]}>Running Late</Text>
+                  </Pressable>
+                </SwipeBlocker>
               </View>
             </>
           ) : challengeLifecycle === "post_match" ? (
@@ -979,7 +1072,7 @@ export function SessionHeroCard({
                     ]}
                     onPress={() => {
                       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-                      navigateToTab("PlayStack", { screen: "CreateMatch" });
+                      setShowScoreModal(true);
                     }}
                   >
                     <LinearGradient
@@ -1002,7 +1095,7 @@ export function SessionHeroCard({
                     ]}
                     onPress={() => {
                       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                      completeChallengeMutation.mutate(c.id);
+                      completeChallengeMutation.mutate({ challengeId: c.id });
                     }}
                     disabled={completeChallengeMutation.isPending}
                   >
@@ -1148,6 +1241,260 @@ export function SessionHeroCard({
               </View>
             </View>
           </Modal>
+
+          <Modal
+            visible={showScoreModal}
+            transparent
+            animationType="slide"
+            onRequestClose={resetScoreModal}
+          >
+            <View style={styles.modalOverlay}>
+              <Pressable style={StyleSheet.absoluteFill} onPress={resetScoreModal} />
+              <View style={[styles.modalContent, { maxHeight: "85%" }]}>
+                <KeyboardAwareScrollViewCompat
+                  showsVerticalScrollIndicator={false}
+                  keyboardShouldPersistTaps="handled"
+                >
+                  <View style={styles.modalHeader}>
+                    <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
+                      <Text style={styles.modalTitle}>
+                        {scoreStep === 1 ? "Match Result" : scoreStep === 2 ? "What Worked?" : "How Do You Feel?"}
+                      </Text>
+                      <Text style={{ color: ProTennisColors.textSecondary, fontSize: 12 }}>
+                        {scoreStep}/3
+                      </Text>
+                    </View>
+                    <Text style={styles.modalSubtitle}>
+                      {scoreStep === 1
+                        ? `Match vs ${opponentDisplayName}`
+                        : scoreStep === 2
+                        ? "Select up to 3 in each category"
+                        : "Quick post-match check-in"}
+                    </Text>
+                  </View>
+
+                  {scoreStep === 1 ? (
+                    <View style={{ gap: Spacing.lg, marginTop: Spacing.md }}>
+                      <View style={{ flexDirection: "row", gap: Spacing.md }}>
+                        <Pressable
+                          style={({ pressed }) => [{
+                            flex: 1, paddingVertical: 20, borderRadius: 12, alignItems: "center", justifyContent: "center",
+                            borderWidth: 2,
+                            borderColor: scoreResult === "win" ? "#4ADE80" : "rgba(255,255,255,0.08)",
+                            backgroundColor: scoreResult === "win" ? "rgba(74, 222, 128, 0.12)" : "rgba(255,255,255,0.03)",
+                          }, pressed && { opacity: 0.8 }]}
+                          onPress={() => setScoreResult("win")}
+                        >
+                          <Feather name="award" size={28} color={scoreResult === "win" ? "#4ADE80" : ProTennisColors.textSecondary} />
+                          <Text style={{ fontSize: 16, fontWeight: "700", color: scoreResult === "win" ? "#4ADE80" : "#FFFFFF", marginTop: 8 }}>I Won</Text>
+                        </Pressable>
+                        <Pressable
+                          style={({ pressed }) => [{
+                            flex: 1, paddingVertical: 20, borderRadius: 12, alignItems: "center", justifyContent: "center",
+                            borderWidth: 2,
+                            borderColor: scoreResult === "loss" ? "#FF6B6B" : "rgba(255,255,255,0.08)",
+                            backgroundColor: scoreResult === "loss" ? "rgba(255, 107, 107, 0.12)" : "rgba(255,255,255,0.03)",
+                          }, pressed && { opacity: 0.8 }]}
+                          onPress={() => setScoreResult("loss")}
+                        >
+                          <Feather name="shield" size={28} color={scoreResult === "loss" ? "#FF6B6B" : ProTennisColors.textSecondary} />
+                          <Text style={{ fontSize: 16, fontWeight: "700", color: scoreResult === "loss" ? "#FF6B6B" : "#FFFFFF", marginTop: 8 }}>I Lost</Text>
+                        </Pressable>
+                      </View>
+                      <View>
+                        <Text style={{ color: ProTennisColors.textSecondary, fontSize: 13, marginBottom: Spacing.sm }}>Score (e.g. 6-4, 7-5)</Text>
+                        <TextInput
+                          style={styles.cancelReasonInput}
+                          placeholder="6-4, 6-3"
+                          placeholderTextColor={ProTennisColors.textMuted}
+                          value={scoreText}
+                          onChangeText={setScoreText}
+                        />
+                      </View>
+                    </View>
+                  ) : scoreStep === 2 ? (
+                    <View style={{ gap: Spacing.lg, marginTop: Spacing.md }}>
+                      <View>
+                        <Text style={{ color: "#4ADE80", fontSize: 13, fontWeight: "600", marginBottom: Spacing.sm }}>What worked well?</Text>
+                        <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
+                          {["Serve", "Return", "Forehand", "Backhand", "Volleys", "Movement", "Tactics", "Mental"].map(item => (
+                            <Pressable
+                              key={item}
+                              style={[{
+                                paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20, borderWidth: 1,
+                                borderColor: scoreWhatWorked.includes(item.toLowerCase()) ? "#4ADE80" : "rgba(255,255,255,0.08)",
+                                backgroundColor: scoreWhatWorked.includes(item.toLowerCase()) ? "rgba(74, 222, 128, 0.12)" : "rgba(255,255,255,0.03)",
+                              }]}
+                              onPress={() => toggleScoreChip(item.toLowerCase(), scoreWhatWorked, setScoreWhatWorked)}
+                            >
+                              <Text style={{ fontSize: 13, fontWeight: "500", color: scoreWhatWorked.includes(item.toLowerCase()) ? "#4ADE80" : ProTennisColors.textSecondary }}>
+                                {item}
+                              </Text>
+                            </Pressable>
+                          ))}
+                        </View>
+                      </View>
+                      <View>
+                        <Text style={{ color: "#FF6B6B", fontSize: 13, fontWeight: "600", marginBottom: Spacing.sm }}>What needs work?</Text>
+                        <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
+                          {["Serve", "Return", "Forehand", "Backhand", "Volleys", "Movement", "Tactics", "Mental"].map(item => (
+                            <Pressable
+                              key={item}
+                              style={[{
+                                paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20, borderWidth: 1,
+                                borderColor: scoreWhatDidnt.includes(item.toLowerCase()) ? "#FF6B6B" : "rgba(255,255,255,0.08)",
+                                backgroundColor: scoreWhatDidnt.includes(item.toLowerCase()) ? "rgba(255, 107, 107, 0.12)" : "rgba(255,255,255,0.03)",
+                              }]}
+                              onPress={() => toggleScoreChip(item.toLowerCase(), scoreWhatDidnt, setScoreWhatDidnt)}
+                            >
+                              <Text style={{ fontSize: 13, fontWeight: "500", color: scoreWhatDidnt.includes(item.toLowerCase()) ? "#FF6B6B" : ProTennisColors.textSecondary }}>
+                                {item}
+                              </Text>
+                            </Pressable>
+                          ))}
+                        </View>
+                      </View>
+                    </View>
+                  ) : (
+                    <View style={{ gap: Spacing.lg, marginTop: Spacing.md }}>
+                      <View>
+                        <Text style={{ color: ProTennisColors.textSecondary, fontSize: 13, fontWeight: "600", marginBottom: Spacing.sm }}>Biggest challenge</Text>
+                        <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
+                          {["Nerves", "Opponent Level", "Focus", "Fatigue", "Tactics", "Errors"].map(item => (
+                            <Pressable
+                              key={item}
+                              style={[{
+                                paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20, borderWidth: 1,
+                                borderColor: scoreBiggestChallenge === item.toLowerCase() ? "#A855F7" : "rgba(255,255,255,0.08)",
+                                backgroundColor: scoreBiggestChallenge === item.toLowerCase() ? "rgba(168, 85, 247, 0.12)" : "rgba(255,255,255,0.03)",
+                              }]}
+                              onPress={() => setScoreBiggestChallenge(scoreBiggestChallenge === item.toLowerCase() ? null : item.toLowerCase())}
+                            >
+                              <Text style={{ fontSize: 13, fontWeight: "500", color: scoreBiggestChallenge === item.toLowerCase() ? "#A855F7" : ProTennisColors.textSecondary }}>
+                                {item}
+                              </Text>
+                            </Pressable>
+                          ))}
+                        </View>
+                      </View>
+                      <View>
+                        <Text style={{ color: ProTennisColors.textSecondary, fontSize: 13, fontWeight: "600", marginBottom: Spacing.sm }}>Post-match energy</Text>
+                        <View style={{ flexDirection: "row", gap: 8 }}>
+                          {[
+                            { id: "drained", label: "Drained" },
+                            { id: "ok", label: "OK" },
+                            { id: "energized", label: "Energized" },
+                          ].map(item => (
+                            <Pressable
+                              key={item.id}
+                              style={[{
+                                flex: 1, paddingVertical: 10, borderRadius: 10, alignItems: "center", borderWidth: 1,
+                                borderColor: scoreEnergy === item.id ? "#4DA3FF" : "rgba(255,255,255,0.08)",
+                                backgroundColor: scoreEnergy === item.id ? "rgba(77, 163, 255, 0.12)" : "rgba(255,255,255,0.03)",
+                              }]}
+                              onPress={() => setScoreEnergy(scoreEnergy === item.id ? null : item.id)}
+                            >
+                              <Text style={{ fontSize: 13, fontWeight: "600", color: scoreEnergy === item.id ? "#4DA3FF" : ProTennisColors.textSecondary }}>
+                                {item.label}
+                              </Text>
+                            </Pressable>
+                          ))}
+                        </View>
+                      </View>
+                      <View>
+                        <Text style={{ color: ProTennisColors.textSecondary, fontSize: 13, fontWeight: "600", marginBottom: Spacing.sm }}>Post-match mood</Text>
+                        <View style={{ flexDirection: "row", gap: 8 }}>
+                          {[
+                            { id: "frustrated", label: "Frustrated" },
+                            { id: "neutral", label: "Neutral" },
+                            { id: "satisfied", label: "Satisfied" },
+                            { id: "happy", label: "Happy" },
+                          ].map(item => (
+                            <Pressable
+                              key={item.id}
+                              style={[{
+                                flex: 1, paddingVertical: 10, borderRadius: 10, alignItems: "center", borderWidth: 1,
+                                borderColor: scoreMood === item.id ? "#FFD700" : "rgba(255,255,255,0.08)",
+                                backgroundColor: scoreMood === item.id ? "rgba(255, 215, 0, 0.12)" : "rgba(255,255,255,0.03)",
+                              }]}
+                              onPress={() => setScoreMood(scoreMood === item.id ? null : item.id)}
+                            >
+                              <Text style={{ fontSize: 12, fontWeight: "600", color: scoreMood === item.id ? "#FFD700" : ProTennisColors.textSecondary }}>
+                                {item.label}
+                              </Text>
+                            </Pressable>
+                          ))}
+                        </View>
+                      </View>
+                      <View>
+                        <Text style={{ color: ProTennisColors.textSecondary, fontSize: 13, fontWeight: "600", marginBottom: Spacing.sm }}>Key takeaway (optional)</Text>
+                        <TextInput
+                          style={[styles.cancelReasonInput, { minHeight: 50 }]}
+                          placeholder="What did you learn from this match?"
+                          placeholderTextColor={ProTennisColors.textMuted}
+                          value={scoreKeyTakeaway}
+                          onChangeText={(t) => setScoreKeyTakeaway(t.slice(0, 100))}
+                          maxLength={100}
+                          multiline
+                        />
+                      </View>
+                    </View>
+                  )}
+
+                  <View style={{ flexDirection: "row", gap: Spacing.md, marginTop: Spacing.xl }}>
+                    {scoreStep > 1 ? (
+                      <Pressable
+                        style={({ pressed }) => [
+                          styles.commandOutlineButton,
+                          { flex: 1, borderColor: "rgba(255,255,255,0.1)" },
+                          pressed && styles.buttonPressed,
+                        ]}
+                        onPress={() => setScoreStep(scoreStep - 1)}
+                      >
+                        <Text style={styles.commandOutlineButtonText}>Back</Text>
+                      </Pressable>
+                    ) : (
+                      <Pressable
+                        style={({ pressed }) => [
+                          styles.commandOutlineButton,
+                          { flex: 1, borderColor: "rgba(255,255,255,0.1)" },
+                          pressed && styles.buttonPressed,
+                        ]}
+                        onPress={resetScoreModal}
+                      >
+                        <Text style={styles.commandOutlineButtonText}>Cancel</Text>
+                      </Pressable>
+                    )}
+                    <Pressable
+                      style={({ pressed }) => [{
+                        flex: 1, borderRadius: 8, paddingVertical: 12,
+                        alignItems: "center", justifyContent: "center",
+                        flexDirection: "row", gap: 6,
+                        backgroundColor: scoreStep === 3 ? "#A855F7" : "rgba(168, 85, 247, 0.8)",
+                        opacity: (scoreStep === 1 && !scoreResult) ? 0.5 : 1,
+                      }, pressed && { opacity: 0.8 }]}
+                      onPress={() => {
+                        if (scoreStep < 3) {
+                          setScoreStep(scoreStep + 1);
+                        } else {
+                          completeChallengeMutation.mutate({ challengeId: c.id, withScore: true });
+                        }
+                      }}
+                      disabled={(scoreStep === 1 && !scoreResult) || completeChallengeMutation.isPending}
+                    >
+                      <Text style={{ fontSize: 14, fontWeight: "700", color: "#FFFFFF" }}>
+                        {scoreStep === 3
+                          ? (completeChallengeMutation.isPending ? "Saving..." : "Submit")
+                          : "Next"}
+                      </Text>
+                      {scoreStep < 3 ? <Feather name="arrow-right" size={16} color="#FFFFFF" /> : null}
+                    </Pressable>
+                  </View>
+                </KeyboardAwareScrollViewCompat>
+              </View>
+            </View>
+          </Modal>
+
         </LinearGradient>
       </View>
     );

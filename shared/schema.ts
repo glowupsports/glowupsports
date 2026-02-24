@@ -5214,6 +5214,9 @@ export const matchChallenges = pgTable("match_challenges", {
   message: text("message"), // optional challenge message
   status: text("status").notNull().default("pending"), // pending, accepted, declined, cancelled, completed
   respondedAt: timestamp("responded_at"),
+  winnerPlayerId: varchar("winner_player_id").references(() => players.id),
+  score: text("score"), // e.g., "6-4, 7-5"
+  resultStatus: text("result_status"), // played, no_show, cancelled, skipped
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 }, (table) => [

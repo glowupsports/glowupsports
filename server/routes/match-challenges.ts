@@ -313,14 +313,43 @@ router.post("/:id/complete", async (req: Request, res: Response) => {
       return res.status(403).json({ error: "Not authorized to complete this challenge" });
     }
 
+    const { winnerPlayerId, score, resultStatus, whatWorked, whatDidntWork, biggestChallenge, postMatchEnergy, postMatchMood, keyTakeaway } = req.body || {};
+
+    const updateData: any = {
+      status: "completed",
+      updatedAt: new Date(),
+    };
+
+    if (winnerPlayerId) updateData.winnerPlayerId = winnerPlayerId;
+    if (score) updateData.score = score;
+    updateData.resultStatus = resultStatus || (score ? "played" : "skipped");
+
     const [updated] = await db
       .update(matchChallenges)
-      .set({
-        status: "completed",
-        updatedAt: new Date(),
-      })
+      .set(updateData)
       .where(eq(matchChallenges.id, id))
       .returning();
+
+    if (score && (whatWorked || whatDidntWork || biggestChallenge || postMatchEnergy)) {
+      try {
+        await pool.query(
+          `INSERT INTO match_reflections (id, match_id, player_id, what_worked, what_didnt_work, biggest_challenge, post_match_energy, post_match_mood, key_takeaway)
+           VALUES (gen_random_uuid(), $1, $2, $3, $4, $5, $6, $7, $8)`,
+          [
+            id,
+            playerId,
+            JSON.stringify(whatWorked || []),
+            JSON.stringify(whatDidntWork || []),
+            biggestChallenge || null,
+            postMatchEnergy || null,
+            postMatchMood || null,
+            keyTakeaway || null,
+          ]
+        );
+      } catch (reflectionErr) {
+        console.error("[MatchChallenge] Failed to save reflection (non-fatal):", reflectionErr);
+      }
+    }
 
     res.json(updated);
   } catch (error) {

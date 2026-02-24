@@ -74,6 +74,7 @@ import BookingInvitesScreen from "@/player/screens/BookingInvitesScreen";
 import FamilyLobbyScreen from "@/player/screens/FamilyLobbyScreen";
 import NewsScreen from "@/player/screens/NewsScreen";
 import SpotlightDetailScreen from "@/player/screens/SpotlightDetailScreen";
+import MatchLiveScreen from "@/player/screens/MatchLiveScreen";
 import PrivacySettingsScreen from "@/player/screens/PrivacySettingsScreen";
 import FeedbackCenterScreen from "@/player/screens/FeedbackCenterScreen";
 import CoachFeedbackHistoryScreen from "@/player/screens/CoachFeedbackHistoryScreen";
@@ -191,6 +192,17 @@ export type PlayerStackParamList = {
   News: undefined;
   PrivacySettings: { isOnboarding?: boolean; currentLevel?: string };
   SpotlightDetail: undefined;
+  MatchLive: {
+    challengeId: string;
+    opponentName: string;
+    matchType: string;
+    matchFormat: string;
+    scheduledDate: string;
+    scheduledTime: string;
+    courtName?: string;
+    challengerId: string;
+    opponentId: string;
+  };
 };
 
 const Stack = createNativeStackNavigator<PlayerStackParamList>();
@@ -710,6 +722,15 @@ function PlayerStackNavigator() {
         options={{
           presentation: "card",
           headerShown: false,
+        }}
+      />
+      <Stack.Screen 
+        name="MatchLive" 
+        component={MatchLiveScreen}
+        options={{
+          presentation: "fullScreenModal",
+          headerShown: false,
+          animation: "slide_from_bottom",
         }}
       />
       <Stack.Screen 
