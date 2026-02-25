@@ -1,13 +1,16 @@
 {
   "cli": {
-    "version": ">= 16.28.0",
+    "version": ">= 18.0.3",
     "appVersionSource": "remote"
   },
   "build": {
     "development": {
       "developmentClient": true,
       "distribution": "internal",
-      "channel": "development"
+      "channel": "development",
+      "env": {
+        "EAS_BUILD_NO_EXPO_GO_WARNING": "true"
+      }
     },
     "preview": {
       "distribution": "internal",
@@ -22,6 +25,7 @@
         "EXPO_PUBLIC_API_URL": "https://glow-up-sports--ltvjeugd.replit.app",
         "EXPO_PUBLIC_DOMAIN": "glow-up-sports--ltvjeugd.replit.app",
         "EXPO_PUBLIC_ENV": "preview",
+        "EAS_BUILD_NO_EXPO_GO_WARNING": "true",
         "SENTRY_DISABLE_AUTO_UPLOAD": "true"
       }
     },
