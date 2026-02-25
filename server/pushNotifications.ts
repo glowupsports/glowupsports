@@ -1682,3 +1682,116 @@ export function stopOnboardingEmailScheduler(): void {
     console.log("[OnboardingEmails] Scheduler stopped");
   }
 }
+
+// ==================== DAILY SCHEDULE NOTIFICATION ====================
+
+let dailyScheduleInterval: ReturnType<typeof setInterval> | null = null;
+const dailyScheduleSentToday = new Set<string>();
+
+async function processDailyScheduleNotifications(): Promise<void> {
+  try {
+    const coachRows = await pool.query(`
+      SELECT c.id as coach_id, a.id as academy_id, a.timezone
+      FROM coaches c
+      JOIN academies a ON c.academy_id = a.id
+    `);
+
+    for (const coach of coachRows.rows) {
+      const tz = coach.timezone || "UTC";
+      const localNow = new Date(new Date().toLocaleString("en-US", { timeZone: tz }));
+      const localHour = localNow.getHours();
+      const localMinute = localNow.getMinutes();
+
+      if (localHour !== 7 || localMinute > 14) continue;
+
+      const todayKey = `${coach.coach_id}-${localNow.toISOString().split("T")[0]}`;
+      if (dailyScheduleSentToday.has(todayKey)) continue;
+
+      const todayStart = new Date(localNow);
+      todayStart.setHours(0, 0, 0, 0);
+      const todayEnd = new Date(localNow);
+      todayEnd.setHours(23, 59, 59, 999);
+
+      const sessionsResult = await pool.query(`
+        SELECT s.id, s.session_type, s.start_time, s.court_name,
+               (SELECT COUNT(*) FROM session_players sp WHERE sp.session_id = s.id AND sp.status != 'cancelled') as player_count
+        FROM sessions s
+        WHERE s.coach_id = $1
+          AND s.status = 'scheduled'
+          AND s.start_time AT TIME ZONE 'UTC' AT TIME ZONE $2 >= $3::date
+          AND s.start_time AT TIME ZONE 'UTC' AT TIME ZONE $2 < ($3::date + interval '1 day')
+        ORDER BY s.start_time ASC
+      `, [coach.coach_id, tz, todayStart.toISOString().split("T")[0]]);
+
+      const sessionsList = sessionsResult.rows;
+      const tokens = await getCoachPushTokens(coach.coach_id);
+
+      let title: string;
+      let body: string;
+
+      if (sessionsList.length === 0) {
+        title = "No Sessions Today";
+        body = "No sessions scheduled today — enjoy your day off!";
+      } else {
+        title = `${sessionsList.length} Session${sessionsList.length > 1 ? "s" : ""} Today`;
+        const summaries = sessionsList.slice(0, 3).map((s: any) => {
+          const startTime = new Date(s.start_time);
+          const timeStr = startTime.toLocaleTimeString("en-US", {
+            hour: "numeric",
+            minute: "2-digit",
+            hour12: true,
+            timeZone: tz,
+          });
+          const typeLabel = formatSessionType(s.session_type);
+          return `${timeStr} ${typeLabel}`;
+        });
+        const extra = sessionsList.length > 3 ? ` +${sessionsList.length - 3} more` : "";
+        body = summaries.join(", ") + extra;
+      }
+
+      if (tokens.length > 0) {
+        await sendPushNotification(tokens, title, body, { type: "daily_schedule", coachId: coach.coach_id });
+      }
+
+      try {
+        await db.insert(coachNotifications).values({
+          coachId: coach.coach_id,
+          type: "session_reminder",
+          title,
+          message: body,
+          priority: "medium",
+        });
+      } catch (err) {
+        console.error(`[DailySchedule] Failed to create in-app notification for ${coach.coach_id}:`, err);
+      }
+
+      dailyScheduleSentToday.add(todayKey);
+      console.log(`[DailySchedule] Sent daily summary to coach ${coach.coach_id}: ${title} - ${body}`);
+    }
+
+    const today = new Date().toISOString().split("T")[0];
+    for (const key of dailyScheduleSentToday) {
+      if (!key.endsWith(today)) {
+        dailyScheduleSentToday.delete(key);
+      }
+    }
+  } catch (error) {
+    console.error("[DailySchedule] Error processing daily schedule notifications:", error);
+  }
+}
+
+export function startDailyScheduleNotifier(): void {
+  console.log("[DailySchedule] Starting daily schedule notifier (checks every 5 minutes)");
+  processDailyScheduleNotifications().catch(console.error);
+  dailyScheduleInterval = setInterval(() => {
+    processDailyScheduleNotifications().catch(console.error);
+  }, 5 * 60 * 1000);
+}
+
+export function stopDailyScheduleNotifier(): void {
+  if (dailyScheduleInterval) {
+    clearInterval(dailyScheduleInterval);
+    dailyScheduleInterval = null;
+    console.log("[DailySchedule] Notifier stopped");
+  }
+}

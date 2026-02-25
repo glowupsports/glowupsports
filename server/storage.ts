@@ -6011,20 +6011,21 @@ export const storage = {
       return updated[0];
     }
 
-    if (isFCM && data.userId) {
+    if (data.userId) {
       const oldTokens = await db.select().from(pushDeviceTokens).where(
         and(
           eq(pushDeviceTokens.userId, data.userId),
           eq(pushDeviceTokens.isActive, true)
         )
       );
-      const staleExpoTokens = oldTokens.filter(t => t.token.startsWith('ExponentPushToken['));
-      if (staleExpoTokens.length > 0) {
-        for (const stale of staleExpoTokens) {
+      const staleTokens = oldTokens.filter(t => t.token !== data.token);
+      if (staleTokens.length > 0) {
+        for (const stale of staleTokens) {
           await db.update(pushDeviceTokens)
             .set({ isActive: false })
             .where(eq(pushDeviceTokens.id, stale.id));
-          console.log(`[PushToken] Deactivated stale Expo token for user ${data.userId} (replaced by FCM)`);
+          const staleType = stale.token.startsWith('ExponentPushToken[') ? 'Expo' : 'FCM';
+          console.log(`[PushToken] Deactivated old ${staleType} token for user ${data.userId} (replaced by new ${tokenType})`);
         }
       }
     }
