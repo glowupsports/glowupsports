@@ -81,6 +81,12 @@ export function getChannelIdForNotificationType(type?: string): string {
   }
 }
 
+function getServerBaseUrl(): string {
+  const domain = process.env.EXPO_PUBLIC_DOMAIN || process.env.REPLIT_DEV_DOMAIN;
+  if (domain) return `https://${domain}`;
+  return `http://localhost:${process.env.PORT || 5000}`;
+}
+
 export async function sendFCMNotification(
   tokens: string[],
   title: string,
@@ -115,11 +121,13 @@ export async function sendFCMNotification(
   // Send to each token individually (for better error tracking)
   for (const token of tokens) {
     try {
+      const notificationLogoUrl = `${getServerBaseUrl()}/images/notification-logo.png`;
       const message: admin.messaging.Message = {
         token,
         notification: {
           title,
           body,
+          imageUrl: notificationLogoUrl,
         },
         data: stringData,
         android: {
@@ -130,8 +138,9 @@ export async function sendFCMNotification(
             priority: "high",
             defaultVibrateTimings: true,
             defaultSound: true,
-            color: "#000000",
+            color: "#0A1628",
             vibrateTimingsMillis: [0, 250, 250, 250],
+            imageUrl: notificationLogoUrl,
           },
         },
       };
