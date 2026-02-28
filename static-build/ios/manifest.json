@@ -1,11 +1,11 @@
 {
-  "id": "e91649df-3f5c-4bd4-b7cd-5a9c667035ec",
-  "createdAt": "2026-02-28T09:34:20.440Z",
+  "id": "dc688b12-f057-4dc8-9c66-67e28965fdb0",
+  "createdAt": "2026-02-28T15:43:01.835Z",
   "runtimeVersion": "1.3.1",
   "launchAsset": {
-    "key": "bundle-1772271260440-1714",
+    "key": "bundle-1772293381835-2102",
     "contentType": "application/javascript",
-    "url": "https://81de32e9-0d70-4ba8-89e4-d7d5a668d2f1-00-mmcbv7admw7g.spock.replit.dev/1772271260440-1714/_expo/static/js/ios/bundle.js"
+    "url": "https://81de32e9-0d70-4ba8-89e4-d7d5a668d2f1-00-mmcbv7admw7g.spock.replit.dev/1772293381835-2102/_expo/static/js/ios/bundle.js"
   },
   "assets": [],
   "metadata": {},
@@ -146,6 +146,6 @@
       },
       "mainModuleName": "client/index"
     },
-    "scopeKey": "@anonymous/glow-up-sports-qimo0pvm-ks03bklnmcri-9cda9b49-6292-431b-907e-740db4bac4c5"
+    "scopeKey": "@anonymous/glow-up-sports-qimo0pvm-ks03bklnmcri-3ed3d549-75c4-403c-a123-5182504e3220"
   }
 }

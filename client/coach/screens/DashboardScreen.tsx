@@ -46,6 +46,7 @@ import { getApiUrl } from "@/lib/query-client";
 import { NextSessionCountdown } from "@/coach/components/NextSessionCountdown";
 import SessionDetailDrawer from "@/coach/components/SessionDetailDrawer";
 import AttendanceDrawer from "@/coach/components/AttendanceDrawer";
+import DaySessionsDrawer from "@/coach/components/DaySessionsDrawer";
 import { PlayersByLevelCard } from "@/coach/components/PlayersByLevelCard";
 import { useWebSocket } from "@/lib/useWebSocket";
 import { ActionNeededCard } from "@/components/ActionNeededCard";
@@ -121,6 +122,7 @@ export default function DashboardScreen() {
   const [selectedSessionForAttendance, setSelectedSessionForAttendance] = useState<Session | null>(null);
   const [showWelcome, setShowWelcome] = useState(false);
   const [showHelpCenter, setShowHelpCenter] = useState(false);
+  const [showDaySessions, setShowDaySessions] = useState(false);
   useEffect(() => {
     const interval = setInterval(() => {
       setCurrentSecond(Math.floor(Date.now() / 1000));
@@ -1141,15 +1143,43 @@ export default function DashboardScreen() {
                       </View>
                     </Pressable>
                   ) : selectedDayOffset === 0 ? (
-                    <View style={styles.missionContent}>
+                    <Pressable
+                      style={styles.missionContent}
+                      onPress={() => {
+                        if (selectedDaySessions.length > 0) {
+                          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                          setShowDaySessions(true);
+                        }
+                      }}
+                    >
                       <Text style={styles.missionPrimary}>{focusMessage.primary}</Text>
                       <Text style={styles.missionSecondary}>{focusMessage.secondary}</Text>
-                    </View>
+                      {selectedDaySessions.length > 0 ? (
+                        <View style={styles.tapHint}>
+                          <Ionicons name="list-outline" size={14} color={Colors.dark.primary} />
+                          <Text style={styles.tapHintText}>TAP TO VIEW SESSIONS</Text>
+                        </View>
+                      ) : null}
+                    </Pressable>
                   ) : (
-                    <View style={styles.missionContent}>
+                    <Pressable
+                      style={styles.missionContent}
+                      onPress={() => {
+                        if (selectedDaySessions.length > 0) {
+                          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                          setShowDaySessions(true);
+                        }
+                      }}
+                    >
                       <Text style={styles.missionPrimary}>{getSelectedDayFocusMessage().primary}</Text>
                       <Text style={styles.missionSecondary}>{getSelectedDayFocusMessage().secondary}</Text>
-                    </View>
+                      {selectedDaySessions.length > 0 ? (
+                        <View style={styles.tapHint}>
+                          <Ionicons name="list-outline" size={14} color={Colors.dark.primary} />
+                          <Text style={styles.tapHintText}>TAP TO VIEW SESSIONS</Text>
+                        </View>
+                      ) : null}
+                    </Pressable>
                   )}
                 </View>
 
@@ -1228,7 +1258,13 @@ export default function DashboardScreen() {
                     </Pressable>
                   </View>
                 ) : selectedDaySessions.length > 0 ? (
-                  <View style={styles.statsBar}>
+                  <Pressable
+                    style={styles.statsBar}
+                    onPress={() => {
+                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                      setShowDaySessions(true);
+                    }}
+                  >
                     <View style={styles.statBlock}>
                       <Text style={styles.statValue}>{selectedDaySessions.length}</Text>
                       <Text style={styles.statLabel}>SESSIONS</Text>
@@ -1240,7 +1276,7 @@ export default function DashboardScreen() {
                       </Text>
                       <Text style={styles.statLabel}>MINUTES</Text>
                     </View>
-                  </View>
+                  </Pressable>
                 ) : (
                   <Pressable
                     style={styles.missionCta}
@@ -1646,6 +1682,19 @@ export default function DashboardScreen() {
         onClose={() => setSelectedSessionForAttendance(null)}
         onSave={() => {
           setSelectedSessionForAttendance(null);
+        }}
+      />
+
+      <DaySessionsDrawer
+        visible={showDaySessions}
+        sessions={selectedDaySessions}
+        dateLabel={selectedDate.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" })}
+        onClose={() => setShowDaySessions(false)}
+        onSelectSession={(session) => {
+          setShowDaySessions(false);
+          setTimeout(() => {
+            setSelectedSessionForDetail(session);
+          }, 300);
         }}
       />
 
