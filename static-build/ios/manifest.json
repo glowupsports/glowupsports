@@ -1,11 +1,11 @@
 {
-  "id": "27c7f357-5061-4b54-bea3-9d15d61bffe4",
-  "createdAt": "2026-02-15T03:59:01.660Z",
+  "id": "e91649df-3f5c-4bd4-b7cd-5a9c667035ec",
+  "createdAt": "2026-02-28T09:34:20.440Z",
   "runtimeVersion": "1.3.1",
   "launchAsset": {
-    "key": "bundle-1771127941660-4485",
+    "key": "bundle-1772271260440-1714",
     "contentType": "application/javascript",
-    "url": "https://81de32e9-0d70-4ba8-89e4-d7d5a668d2f1-00-mmcbv7admw7g.spock.replit.dev/1771127941660-4485/_expo/static/js/ios/bundle.js"
+    "url": "https://81de32e9-0d70-4ba8-89e4-d7d5a668d2f1-00-mmcbv7admw7g.spock.replit.dev/1772271260440-1714/_expo/static/js/ios/bundle.js"
   },
   "assets": [],
   "metadata": {},
@@ -31,7 +31,10 @@
       "newArchEnabled": true,
       "ios": {
         "supportsTablet": true,
-        "bundleIdentifier": "com.glowupsports.app"
+        "bundleIdentifier": "com.glowupsports.app",
+        "infoPlist": {
+          "ITSAppUsesNonExemptEncryption": false
+        }
       },
       "android": {
         "adaptiveIcon": {
@@ -77,6 +80,14 @@
             "color": "#00E676",
             "defaultChannel": "default"
           }
+        ],
+        [
+          "@sentry/react-native/expo",
+          {
+            "url": "https://sentry.io/",
+            "project": "react-native",
+            "organization": "glowupsports"
+          }
         ]
       ],
       "experiments": {
@@ -105,6 +116,10 @@
           "expo-notifications": {
             "name": "expo-notifications",
             "version": "0.32.16"
+          },
+          "@sentry/react-native": {
+            "name": "@sentry/react-native",
+            "version": "7.2.0"
           }
         }
       },
@@ -131,6 +146,6 @@
       },
       "mainModuleName": "client/index"
     },
-    "scopeKey": "@anonymous/glow-up-sports-qimo0pvm-ks03bklnmcri-7f3c3040-a88e-4fa8-9fd0-5a993d522376"
+    "scopeKey": "@anonymous/glow-up-sports-qimo0pvm-ks03bklnmcri-9cda9b49-6292-431b-907e-740db4bac4c5"
   }
 }
