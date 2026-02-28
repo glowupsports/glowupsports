@@ -655,7 +655,7 @@ export default function AttendanceDrawer({
                           <Ionicons
                             name={getStatusIcon(s)}
                             size={14}
-                            color={status === s ? "#fff" : Colors.dark.disabled}
+                            color={status === s ? "#fff" : Colors.dark.textSubtle}
                           />
                         </Pressable>
                       ))}
@@ -952,7 +952,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     backgroundColor: Backgrounds.elevated,
     borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.1)",
+    borderColor: "rgba(255, 255, 255, 0.2)",
   },
   expandedOptions: {
     width: "100%",
