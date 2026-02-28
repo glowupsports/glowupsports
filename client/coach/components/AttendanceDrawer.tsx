@@ -398,7 +398,7 @@ export default function AttendanceDrawer({
             disabled={saveMutation.isPending || isOffline}
           >
             {saveMutation.isPending ? (
-              <ActivityIndicator size="small" color={"rgba(255, 255, 255, 0.06)"} />
+              <ActivityIndicator size="small" color="#000" />
             ) : (
               <Text style={styles.saveButtonText}>Save</Text>
             )}
@@ -458,7 +458,7 @@ export default function AttendanceDrawer({
                 disabled={selectedPlayerIds.length === 0 || addPlayersMutation.isPending}
               >
                 {addPlayersMutation.isPending ? (
-                  <ActivityIndicator size="small" color={"rgba(255, 255, 255, 0.06)"} />
+                  <ActivityIndicator size="small" color="#000" />
                 ) : (
                   <Text style={styles.confirmButtonText}>Add ({selectedPlayerIds.length})</Text>
                 )}
@@ -505,7 +505,7 @@ export default function AttendanceDrawer({
                     </View>
                     <View style={[styles.checkbox, isSelected && styles.checkboxActive]}>
                       {isSelected ? (
-                        <Ionicons name="checkmark" size={16} color={"rgba(255, 255, 255, 0.06)"} />
+                        <Ionicons name="checkmark" size={16} color="#fff" />
                       ) : null}
                     </View>
                   </Pressable>
@@ -530,7 +530,7 @@ export default function AttendanceDrawer({
                 setShowAddPlayers(true);
               }}
             >
-              <Ionicons name="person-add" size={20} color={"rgba(255, 255, 255, 0.06)"} />
+              <Ionicons name="person-add" size={20} color="#000" />
               <Text style={styles.addPlayersButtonText}>Add Players</Text>
             </Pressable>
           </View>
@@ -544,7 +544,7 @@ export default function AttendanceDrawer({
                   setQuickMode(true);
                 }}
               >
-                <Ionicons name="flash" size={16} color={quickMode ? "#fff" : Colors.dark.disabled} />
+                <Ionicons name="flash" size={16} color={quickMode ? "#000" : Colors.dark.disabled} />
                 <Text style={[styles.modeToggleText, quickMode && styles.modeToggleTextActive]}>Quick</Text>
               </Pressable>
               <Pressable
@@ -554,7 +554,7 @@ export default function AttendanceDrawer({
                   setQuickMode(false);
                 }}
               >
-                <Ionicons name="list" size={16} color={!quickMode ? "#fff" : Colors.dark.disabled} />
+                <Ionicons name="list" size={16} color={!quickMode ? "#000" : Colors.dark.disabled} />
                 <Text style={[styles.modeToggleText, !quickMode && styles.modeToggleTextActive]}>Detailed</Text>
               </Pressable>
             </View>
@@ -785,7 +785,7 @@ const styles = StyleSheet.create({
   saveButtonText: {
     fontSize: Typography.small.fontSize,
     fontWeight: "600",
-    color: "rgba(255, 255, 255, 0.06)",
+    color: "#000",
   },
   emptyState: {
     flex: 1,
@@ -1046,7 +1046,7 @@ const styles = StyleSheet.create({
   levelText: {
     fontSize: Typography.caption.fontSize,
     fontWeight: "600",
-    color: "rgba(255, 255, 255, 0.06)",
+    color: "#fff",
     textTransform: "uppercase",
   },
   playerName: {
@@ -1178,7 +1178,7 @@ const styles = StyleSheet.create({
   addPlayersButtonText: {
     fontSize: Typography.body.fontSize,
     fontWeight: "600",
-    color: "rgba(255, 255, 255, 0.06)",
+    color: "#000",
   },
   addPlayersContainer: {
     flex: 1,
@@ -1214,7 +1214,7 @@ const styles = StyleSheet.create({
   confirmButtonText: {
     fontSize: Typography.small.fontSize,
     fontWeight: "600",
-    color: "rgba(255, 255, 255, 0.06)",
+    color: "#000",
   },
   searchContainer: {
     flexDirection: "row",
@@ -1320,7 +1320,7 @@ const styles = StyleSheet.create({
     color: Colors.dark.disabled,
   },
   modeToggleTextActive: {
-    color: "#fff",
+    color: "#000",
   },
   quickModeContainer: {
     paddingHorizontal: Spacing.lg,
