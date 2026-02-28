@@ -18,7 +18,7 @@ import Animated, { FadeInDown, FadeInRight, FadeInLeft } from "react-native-rean
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons, Feather } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
-import { Colors, Spacing, FontSizes, BorderRadius, Typography, getPlayerLevelColor } from "@/constants/theme";
+import { Colors, Spacing, FontSizes, BorderRadius, Typography, getPlayerLevelColor, getPlayerLevelTextColor } from "@/constants/theme";
 import { apiRequest, getApiUrl, getAuthHeaders, getEffectivePlayerId } from "@/lib/query-client";
 import { useAuth } from "@/coach/context/AuthContext";
 import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollViewCompat";
@@ -230,7 +230,7 @@ export default function ChallengePlayerScreen() {
               <Image source={{ uri: opponentPhoto }} style={styles.avatarImage} />
             ) : (
               <View style={[styles.avatarPlaceholder, { backgroundColor: `${levelColor}20` }]}>
-                <Text style={[styles.avatarLetter, { color: levelColor }]}>
+                <Text style={[styles.avatarLetter, { color: getPlayerLevelTextColor(opponentBallLevel) }]}>
                   {opponentName.charAt(0).toUpperCase()}
                 </Text>
               </View>
@@ -243,7 +243,7 @@ export default function ChallengePlayerScreen() {
               {opponentBallLevel ? (
                 <View style={[styles.levelBadge, { backgroundColor: `${levelColor}20`, borderColor: `${levelColor}40` }]}>
                   <View style={[styles.levelDot, { backgroundColor: levelColor }]} />
-                  <Text style={[styles.levelBadgeText, { color: levelColor }]}>
+                  <Text style={[styles.levelBadgeText, { color: getPlayerLevelTextColor(opponentBallLevel) }]}>
                     {opponentBallLevel.charAt(0).toUpperCase() + opponentBallLevel.slice(1)}
                   </Text>
                 </View>

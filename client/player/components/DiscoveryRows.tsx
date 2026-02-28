@@ -15,7 +15,7 @@ import Animated, {
   cancelAnimation 
 } from "react-native-reanimated";
 import { LinearGradient } from "expo-linear-gradient";
-import { ProTennisColors, Backgrounds, Spacing, BorderRadius, getPlayerLevelColor, GlowColors, Colors } from "@/constants/theme";
+import { ProTennisColors, Backgrounds, Spacing, BorderRadius, getPlayerLevelColor, getPlayerLevelTextColor, GlowColors, Colors } from "@/constants/theme";
 import { usePlayerState } from "@/player/context/PlayerStateContext";
 import { useNavigation } from "@react-navigation/native";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
@@ -174,7 +174,7 @@ export function PlayersNearYouRow() {
                   <Text style={styles.playerName} numberOfLines={1}>{player.name.split(" ")[0]}</Text>
                   <View style={[styles.levelBadge, { backgroundColor: `${levelColor}30` }]}>
                     <View style={[styles.levelDot, { backgroundColor: levelColor }]} />
-                    <Text style={[styles.levelText, { color: levelColor }]}>
+                    <Text style={[styles.levelText, { color: getPlayerLevelTextColor(player.level) }]}>
                       {(player.ballLevel || player.level || "").toUpperCase()}{player.skillLevel ? ` ${player.skillLevel}` : ""}
                     </Text>
                   </View>
@@ -381,7 +381,7 @@ export function GroupLessonsRow() {
                         ? t("player.home.groupClassWithCoach", { name: session.coachName.split(' ')[0] }) 
                         : t("player.home.groupTraining")}
                     </Text>
-                    <Text style={[styles.playCardBallLevel, { color: levelColor }]}>
+                    <Text style={[styles.playCardBallLevel, { color: getPlayerLevelTextColor(session.ballLevel) }]}>
                       {(session.ballLevel || "ALL").toUpperCase()}
                     </Text>
                     <View style={styles.playCardLocationRow}>
@@ -393,7 +393,7 @@ export function GroupLessonsRow() {
                       <Text style={styles.playCardMetaText}>{formatSessionTime((session as any).date || (session as any).startTime)}</Text>
                       <Text style={styles.playCardMetaDot}>·</Text>
                       <View style={[styles.ballLevelDot, { backgroundColor: levelColor }]} />
-                      <Text style={[styles.playCardMetaText, { color: levelColor }]}>
+                      <Text style={[styles.playCardMetaText, { color: getPlayerLevelTextColor(session.ballLevel) }]}>
                         {session.ballLevel ? session.ballLevel.charAt(0).toUpperCase() + session.ballLevel.slice(1) : t("player.play.allLevels")}
                       </Text>
                       <Text style={styles.playCardMetaDot}>·</Text>

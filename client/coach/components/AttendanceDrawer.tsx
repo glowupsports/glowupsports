@@ -18,7 +18,7 @@ import Ionicons from "@expo/vector-icons/Ionicons";
 import * as Haptics from "expo-haptics";
 import { useMutation, useQueryClient, useQuery } from "@tanstack/react-query";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { Colors, Backgrounds, Spacing, BorderRadius, Typography, getPlayerLevelColor, GlowColors } from "@/constants/theme";
+import { Colors, Backgrounds, Spacing, BorderRadius, Typography, getPlayerLevelColor, getPlayerLevelTextColor, GlowColors } from "@/constants/theme";
 import { apiRequest, getApiUrl } from "@/lib/query-client";
 import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollViewCompat";
 import { useNetwork } from "@/context/NetworkContext";
@@ -565,13 +565,15 @@ export default function AttendanceDrawer({
                   const record = attendance.get(player.id);
                   const status = record?.status || "present";
                   const isPresent = status === "present" || status === "late";
-                  const levelColor = getPlayerLevelColor(player.ballLevel ?? player.level ?? "green");
+                  const playerBallLevel = player.ballLevel ?? player.level ?? "green";
+                  const levelColor = getPlayerLevelColor(playerBallLevel);
+                  const levelTextColor = getPlayerLevelTextColor(playerBallLevel);
 
                   return (
                     <View key={player.id} style={styles.quickModeRow}>
                       <View style={styles.quickModePlayerInfo}>
                         <View style={[styles.quickModeAvatar, { backgroundColor: levelColor + "30" }]}>
-                          <Text style={[styles.quickModeAvatarText, { color: levelColor }]}>
+                          <Text style={[styles.quickModeAvatarText, { color: levelTextColor }]}>
                             {player.name.charAt(0).toUpperCase()}
                           </Text>
                         </View>
@@ -610,14 +612,16 @@ export default function AttendanceDrawer({
                 const record = attendance.get(player.id);
                 const status = record?.status || "present";
                 const isExpanded = expandedPlayer === player.id;
-                const levelColor = getPlayerLevelColor(player.ballLevel ?? player.level ?? "green");
+                const playerBallLevel = player.ballLevel ?? player.level ?? "green";
+                const levelColor = getPlayerLevelColor(playerBallLevel);
+                const levelTextColor = getPlayerLevelTextColor(playerBallLevel);
 
                 return (
                   <View key={player.id} style={styles.playerGridCard}>
                     {/* Avatar with status ring */}
                     <View style={[styles.avatarContainer, { borderColor: getStatusColor(status) }]}>
                       <View style={[styles.playerAvatar, { backgroundColor: levelColor + "30" }]}>
-                        <Text style={[styles.avatarInitial, { color: levelColor }]}>
+                        <Text style={[styles.avatarInitial, { color: levelTextColor }]}>
                           {player.name.charAt(0).toUpperCase()}
                         </Text>
                       </View>
@@ -631,7 +635,7 @@ export default function AttendanceDrawer({
                     {player.ballLevel ? (
                       <View style={[styles.gridLevelBadge, { backgroundColor: levelColor + "20" }]}>
                         <View style={[styles.gridLevelDot, { backgroundColor: levelColor }]} />
-                        <Text style={[styles.gridLevelText, { color: levelColor }]}>
+                        <Text style={[styles.gridLevelText, { color: levelTextColor }]}>
                           {player.ballLevel?.split("_")[0] || ""}
                         </Text>
                       </View>

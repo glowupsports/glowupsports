@@ -31,7 +31,7 @@ const CANCELLATION_REASONS = [
   { label: "Other", value: "Other" },
 ];
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Colors, Backgrounds, Spacing, BorderRadius, Typography, getPlayerLevelColor, GlowColors } from "@/constants/theme";
+import { Colors, Backgrounds, Spacing, BorderRadius, Typography, getPlayerLevelColor, getPlayerLevelTextColor, GlowColors } from "@/constants/theme";
 import { apiRequest, getApiUrl } from "@/lib/query-client";
 import { useNetwork } from "@/context/NetworkContext";
 import { showOfflineAlert } from "@/hooks/useOfflineGuard";
@@ -773,6 +773,7 @@ export default function SessionDetailDrawer({
               const isGuest = player.name.includes("(Guest)");
               const isPastSession = new Date(session.endTime) < new Date();
               const levelColor = getPlayerLevelColor(player.ballLevel || player.level);
+              const levelTextColor = getPlayerLevelTextColor(player.ballLevel || player.level);
               return (
                 <View 
                   key={player.id} 
@@ -809,7 +810,7 @@ export default function SessionDetailDrawer({
                       isGuest && styles.playerCardAvatarGuest,
                       !isGuest && { backgroundColor: levelColor + "30", borderColor: levelColor }
                     ]}>
-                      <Text style={[styles.playerCardInitial, !isGuest && { color: levelColor }]}>
+                      <Text style={[styles.playerCardInitial, !isGuest && { color: levelTextColor }]}>
                         {player.name.charAt(0).toUpperCase()}
                       </Text>
                     </View>
@@ -819,7 +820,7 @@ export default function SessionDetailDrawer({
                     {player.ballLevel ? (
                       <View style={[styles.playerCardLevel, { backgroundColor: levelColor + "20" }]}>
                         <View style={[styles.playerCardLevelDot, { backgroundColor: levelColor }]} />
-                        <Text style={[styles.playerCardLevelText, { color: levelColor }]}>
+                        <Text style={[styles.playerCardLevelText, { color: levelTextColor }]}>
                           {player.ballLevel.split("_")[0]}
                         </Text>
                       </View>

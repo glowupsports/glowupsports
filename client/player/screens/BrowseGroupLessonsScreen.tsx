@@ -19,7 +19,7 @@ import * as Haptics from "expo-haptics";
 import Animated, { FadeIn, FadeInUp, FadeInDown } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useHeaderHeight } from "@react-navigation/elements";
-import { Colors, Spacing } from "@/constants/theme";
+import { Colors, Spacing, getPlayerLevelTextColor } from "@/constants/theme";
 import { useAuth } from "@/coach/context/AuthContext";
 import { apiRequest, getApiUrl, getStaticAssetsUrl } from "@/lib/query-client";
 
@@ -340,7 +340,7 @@ export default function BrowseGroupLessonsScreen() {
                                 : "Group Session"}
                             </Text>
                             <View style={styles.levelBadge}>
-                              <Text style={[styles.levelText, { color: levelColor }]}>
+                              <Text style={[styles.levelText, { color: getPlayerLevelTextColor(session.ballLevel) }]}>
                                 {session.ballLevel || "All Levels"}
                               </Text>
                             </View>
@@ -373,7 +373,7 @@ export default function BrowseGroupLessonsScreen() {
                           )}
                           <View style={styles.detailItem}>
                             <Feather name="users" size={14} color={levelColor} />
-                            <Text style={[styles.detailText, { color: isFull ? ProTennisColors.error : levelColor }]}>
+                            <Text style={[styles.detailText, { color: isFull ? ProTennisColors.error : getPlayerLevelTextColor(session.ballLevel) }]}>
                               {participantCount}/{effectiveMax} players
                             </Text>
                           </View>

@@ -34,7 +34,7 @@ import Animated, {
   interpolate,
   runOnJS,
 } from "react-native-reanimated";
-import { Colors, Backgrounds, Spacing, BorderRadius, Typography, FontSizes, getPlayerLevelColor, GlowColors } from "@/constants/theme";
+import { Colors, Backgrounds, Spacing, BorderRadius, Typography, FontSizes, getPlayerLevelColor, getPlayerLevelTextColor, GlowColors } from "@/constants/theme";
 import { apiRequest, getStaticAssetsUrl, getApiUrl, getAuthHeaders } from "@/lib/query-client";
 import { useCoach } from "@/coach/context/CoachContext";
 import { convertUTCTimeToLocal } from "@/lib/dateUtils";
@@ -155,6 +155,7 @@ function GamingPlayerCard({
   onStartBaseline?: () => void;
 }) {
   const levelColor = getPlayerLevelColor(player.ballLevel ?? "green");
+  const levelTextColor = getPlayerLevelTextColor(player.ballLevel ?? "green");
   const statusBadge = getStatusBadge(player.status);
   const scale = useSharedValue(1);
   
@@ -265,7 +266,7 @@ function GamingPlayerCard({
             <View style={styles.gamingCardMeta}>
               <View style={[styles.gamingLevelBadge, { borderColor: levelColor + "60" }]}>
                 <View style={[styles.gamingLevelDotSmall, { backgroundColor: levelColor }]} />
-                <Text style={[styles.gamingLevelText, { color: levelColor }]}>
+                <Text style={[styles.gamingLevelText, { color: levelTextColor }]}>
                   {(player.ballLevel ?? "green").toUpperCase()}
                 </Text>
               </View>
@@ -715,12 +716,12 @@ export default function PlayersScreen() {
               >
                 <Text style={[
                   styles.subLevelPillText,
-                  isActive && { color: levelColor },
+                  isActive && { color: getPlayerLevelTextColor(filterLevel) },
                 ]}>
                   {filterLevel.toUpperCase()} {subLevel}
                 </Text>
                 <View style={[styles.subLevelCount, isActive && { backgroundColor: levelColor + "40" }]}>
-                  <Text style={[styles.subLevelCountText, isActive && { color: levelColor }]}>
+                  <Text style={[styles.subLevelCountText, isActive && { color: getPlayerLevelTextColor(filterLevel) }]}>
                     {subLevelCount}
                   </Text>
                 </View>
@@ -1412,7 +1413,7 @@ function PlayerDetailView({
               )
             ) : (
               <View style={[styles.premiumAvatar, { backgroundColor: getPlayerLevelColor(player.ballLevel ?? "green") + "30" }]}>
-                <Text style={[styles.premiumInitial, { color: getPlayerLevelColor(player.ballLevel ?? "green") }]}>{player.name.charAt(0).toUpperCase()}</Text>
+                <Text style={[styles.premiumInitial, { color: getPlayerLevelTextColor(player.ballLevel ?? "green") }]}>{player.name.charAt(0).toUpperCase()}</Text>
               </View>
             )}
           </View>

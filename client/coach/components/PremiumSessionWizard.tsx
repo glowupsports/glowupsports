@@ -719,6 +719,12 @@ export function PremiumSessionWizard({
     return levelColors[level?.toLowerCase() || ""] || Colors.dark.tabIconDefault;
   };
 
+  const getLevelTextColor = (level: string | null | undefined) => {
+    const l = level?.toLowerCase();
+    if (l === "yellow" || l === "green") return "#000";
+    return getLevelColor(level);
+  };
+
   const formatDate = (date: Date) => {
     const days = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
     const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
@@ -1323,7 +1329,7 @@ export function PremiumSessionWizard({
                       />
                     ) : (
                       <View style={[styles.playerAvatarPlaceholder, { backgroundColor: levelColor + "30" }]}>
-                        <Text style={[styles.playerInitial, { color: levelColor }]}>
+                        <Text style={[styles.playerInitial, { color: getLevelTextColor(player.ballLevel) }]}>
                           {player.name.charAt(0).toUpperCase()}
                         </Text>
                       </View>
@@ -1333,7 +1339,7 @@ export function PremiumSessionWizard({
                       <View style={styles.playerMeta}>
                         <View style={[styles.playerLevelBadge, { backgroundColor: levelColor + "20" }]}>
                           <View style={[styles.playerLevelDot, { backgroundColor: levelColor }]} />
-                          <Text style={[styles.playerLevelText, { color: levelColor }]}>
+                          <Text style={[styles.playerLevelText, { color: getLevelTextColor(player.ballLevel) }]}>
                             {(player.ballLevel || "").toUpperCase()}
                             {player.skillLevel ? `_${player.skillLevel}` : ""}
                           </Text>
@@ -1863,7 +1869,7 @@ export function PremiumSessionWizard({
                 </View>
                 <View style={styles.summaryInfo}>
                   <Text style={styles.summaryLabel}>Group Level</Text>
-                  <Text style={[styles.summaryValue, { color: levelColor }]}>
+                  <Text style={[styles.summaryValue, { color: getLevelTextColor(groupLevel) }]}>
                     {groupLevel.toUpperCase()}
                   </Text>
                 </View>
