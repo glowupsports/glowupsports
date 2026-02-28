@@ -6,7 +6,7 @@ import { registerRoutes } from "./routes";
 import * as fs from "fs";
 import * as path from "path";
 import { createProxyMiddleware } from "http-proxy-middleware";
-import { startReminderScheduler, startDailyTipScheduler, startAutoSessionCompletionScheduler, startMonthlyReportScheduler, startOnboardingEmailScheduler, startDailyScheduleNotifier } from "./pushNotifications";
+import { startReminderScheduler, startDailyTipScheduler, startAutoSessionCompletionScheduler, startMonthlyReportScheduler, startOnboardingEmailScheduler, startDailyScheduleNotifier, startCreditExpiryReminderScheduler } from "./pushNotifications";
 
 if (process.env.SENTRY_DSN) {
   Sentry.init({
@@ -434,6 +434,7 @@ function setupErrorHandler(app: express.Application) {
       startAutoSessionCompletionScheduler();
       startMonthlyReportScheduler();
       startDailyScheduleNotifier();
+      startCreditExpiryReminderScheduler();
       // Onboarding email scheduler DISABLED - was sending duplicate emails on every server restart
       
       // Run bulk credit repair on startup to fix any missing charges

@@ -2373,7 +2373,18 @@ function isBirthdayToday(dateOfBirth: string | Date | null): boolean {
           };
           console.log(`[Credits] Session ${id}: consumed ${creditResults.consumed}, debts ${creditResults.debts}, skipped ${creditResults.skipped}`);
 
-          
+          // Send low credit notifications to chargeable players after credit consumption
+          try {
+            const { sendLowCreditNotificationsAfterSession } = await import("../pushNotifications");
+            const chargeablePlayerIds = chargeablePlayers.map((a: { playerId: string }) => a.playerId).filter(Boolean);
+            if (chargeablePlayerIds.length > 0) {
+              sendLowCreditNotificationsAfterSession(chargeablePlayerIds, session.sessionType, academyId)
+                .catch(err => console.error("[LowCredit] Error sending low credit notifications:", err));
+            }
+          } catch (notifErr) {
+            console.error("[LowCredit] Error importing notification function:", notifErr);
+          }
+
           // Award XP ONLY to players marked as present (not absent, not vacation)
           const xpPerSession = session.xpPerSession || 20;
           for (const presentPlayer of presentPlayers) {

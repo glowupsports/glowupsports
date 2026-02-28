@@ -1795,3 +1795,250 @@ export function stopDailyScheduleNotifier(): void {
     console.log("[DailySchedule] Notifier stopped");
   }
 }
+
+export async function sendLowCreditNotificationsAfterSession(
+  playerIds: string[],
+  sessionType: string,
+  academyId?: string | null
+): Promise<void> {
+  if (playerIds.length === 0) return;
+
+  try {
+    const { packages: packagesTable, parentPlayerRelations } = await import("@shared/schema");
+
+    const creditType = sessionType === "private" || sessionType === "private_adjusted"
+      ? "private"
+      : sessionType === "semi_private"
+        ? "semi_private"
+        : "group";
+
+    const creditTypeLabel = creditType === "private"
+      ? "private"
+      : creditType === "semi_private"
+        ? "semi-private"
+        : "group";
+
+    for (const playerId of playerIds) {
+      try {
+        const conditions = [
+          eq(packagesTable.playerId, playerId),
+          eq(packagesTable.status, "active"),
+          eq(packagesTable.creditType, creditType),
+        ];
+        if (academyId) {
+          conditions.push(eq(packagesTable.academyId, academyId));
+        }
+
+        const activePackages = await db
+          .select({
+            remainingCredits: packagesTable.remainingCredits,
+            expiryDate: packagesTable.expiryDate,
+          })
+          .from(packagesTable)
+          .where(and(...conditions));
+
+        const totalRemaining = activePackages.reduce(
+          (sum, pkg) => sum + (pkg.remainingCredits || 0),
+          0
+        );
+
+        if (totalRemaining > 2) continue;
+
+        const playerTokens = await getPlayerPushTokens(playerId);
+
+        const parentTokens: string[] = [];
+        try {
+          const parentRelations = await db
+            .select({ parentUserId: parentPlayerRelations.parentUserId })
+            .from(parentPlayerRelations)
+            .where(
+              and(
+                eq(parentPlayerRelations.playerId, playerId),
+                eq(parentPlayerRelations.canReceiveNotifications, true)
+              )
+            );
+
+          for (const rel of parentRelations) {
+            const tokens = await getUserPushTokens(rel.parentUserId);
+            parentTokens.push(...tokens);
+          }
+        } catch (parentErr) {
+          console.error(`[LowCredit] Error getting parent tokens for player ${playerId}:`, parentErr);
+        }
+
+        const allTokens = [...new Set([...playerTokens, ...parentTokens])];
+        if (allTokens.length === 0) continue;
+
+        let title: string;
+        let body: string;
+
+        if (totalRemaining <= 0) {
+          title = "Out of Credits";
+          body = `You're out of ${creditTypeLabel} credits! Buy a new package to continue training.`;
+        } else {
+          title = "Credits Running Low";
+          body = `You have ${totalRemaining} ${creditTypeLabel} credit${totalRemaining === 1 ? "" : "s"} remaining. Top up to keep booking sessions!`;
+        }
+
+        await sendPushNotification(
+          allTokens,
+          title,
+          body,
+          { type: "credits_low", playerId, screen: "ParentCreditStore", creditType, remainingCredits: totalRemaining },
+          playerId
+        );
+
+        console.log(`[LowCredit] Sent low credit notification for player ${playerId}: ${totalRemaining} ${creditTypeLabel} credits remaining`);
+      } catch (playerErr) {
+        console.error(`[LowCredit] Error processing player ${playerId}:`, playerErr);
+      }
+    }
+  } catch (error) {
+    console.error("[LowCredit] Error sending low credit notifications:", error);
+  }
+}
+
+// ==================== CREDIT EXPIRY REMINDER (7-DAY WARNING) ====================
+
+let creditExpiryInterval: ReturnType<typeof setInterval> | null = null;
+const creditExpiryRemindedToday = new Set<string>();
+
+async function processCreditExpiryReminders(timezone: string): Promise<void> {
+  try {
+    const localNow = new Date(new Date().toLocaleString("en-US", { timeZone: timezone }));
+    const todayStr = localNow.toISOString().split("T")[0];
+    const sevenDaysFromNow = new Date(localNow.getTime() + 7 * 24 * 60 * 60 * 1000);
+    const sevenDaysStr = sevenDaysFromNow.toISOString().split("T")[0];
+
+    const expiringPackages = await pool.query(`
+      SELECT p.id, p.player_id, p.credit_type, p.remaining_credits, p.expiry_date, p.academy_id
+      FROM packages p
+      JOIN academies a ON p.academy_id = a.id
+      WHERE p.status = 'active'
+        AND p.remaining_credits > 0
+        AND p.expiry_date IS NOT NULL
+        AND p.expiry_date > $1
+        AND p.expiry_date <= $2
+        AND a.timezone = $3
+    `, [todayStr, sevenDaysStr, timezone]);
+
+    if (expiringPackages.rows.length === 0) {
+      console.log("[CreditExpiry] No packages expiring in the next 7 days");
+      return;
+    }
+
+    console.log(`[CreditExpiry] Found ${expiringPackages.rows.length} packages expiring within 7 days`);
+
+    let notificationsSent = 0;
+
+    for (const pkg of expiringPackages.rows) {
+      const reminderKey = `${pkg.id}-${todayStr}`;
+      if (creditExpiryRemindedToday.has(reminderKey)) continue;
+
+      const playerId = pkg.player_id;
+      if (!playerId) continue;
+
+      const expiryDate = new Date(pkg.expiry_date);
+      const daysUntilExpiry = Math.ceil((expiryDate.getTime() - now.getTime()) / (24 * 60 * 60 * 1000));
+      const creditType = pkg.credit_type || "group";
+      const remaining = pkg.remaining_credits;
+
+      const formattedDate = expiryDate.toLocaleDateString("en-GB", {
+        day: "numeric",
+        month: "short",
+        year: "numeric",
+      });
+
+      const typeLabel = creditType === "semi_private" ? "Semi-Private" :
+                        creditType.charAt(0).toUpperCase() + creditType.slice(1);
+
+      await sendCreditsExpiringNotification(playerId, typeLabel, remaining, daysUntilExpiry);
+
+      try {
+        const parentRows = await pool.query(`
+          SELECT ppr.parent_user_id
+          FROM parent_player_relations ppr
+          WHERE ppr.player_id = $1
+        `, [playerId]);
+
+        for (const parent of parentRows.rows) {
+          const parentTokens = await getUserPushTokens(parent.parent_user_id);
+          if (parentTokens.length > 0) {
+            const playerRow = await pool.query(`SELECT name, display_name FROM players WHERE id = $1 LIMIT 1`, [playerId]);
+            const playerName = playerRow.rows[0]?.display_name || playerRow.rows[0]?.name || "Your child";
+
+            await sendPushNotification(
+              parentTokens,
+              "Credits Expiring Soon",
+              `${playerName}'s ${typeLabel} credits (${remaining} remaining) expire on ${formattedDate}. Use them or buy a new package!`,
+              { type: "credits_expiring", playerId, screen: "ParentCreditStore" }
+            );
+          }
+        }
+      } catch (parentErr) {
+        console.error(`[CreditExpiry] Error notifying parents for player ${playerId}:`, parentErr);
+      }
+
+      creditExpiryRemindedToday.add(reminderKey);
+      notificationsSent++;
+    }
+
+    const today = new Date().toISOString().split("T")[0];
+    for (const key of creditExpiryRemindedToday) {
+      if (!key.includes(today)) {
+        creditExpiryRemindedToday.delete(key);
+      }
+    }
+
+    console.log(`[CreditExpiry] Sent ${notificationsSent} credit expiry reminders for timezone ${timezone}`);
+  } catch (error) {
+    console.error("[CreditExpiry] Error processing credit expiry reminders:", error);
+  }
+}
+
+const creditExpiryProcessedTimezones = new Set<string>();
+
+export function startCreditExpiryReminderScheduler(): void {
+  if (creditExpiryInterval) {
+    console.log("[CreditExpiry] Scheduler already running");
+    return;
+  }
+
+  console.log("[CreditExpiry] Starting credit expiry reminder scheduler (checks every 15 minutes)");
+
+  creditExpiryInterval = setInterval(async () => {
+    try {
+      const result = await pool.query(`SELECT DISTINCT timezone FROM academies WHERE timezone IS NOT NULL`);
+      const today = new Date().toISOString().split("T")[0];
+
+      for (const row of result.rows) {
+        const tz = row.timezone || "UTC";
+        const localNow = new Date(new Date().toLocaleString("en-US", { timeZone: tz }));
+        const localHour = localNow.getHours();
+        const localMinute = localNow.getMinutes();
+        const tzDayKey = `${tz}-${today}`;
+
+        if (localHour === 9 && localMinute < 15 && !creditExpiryProcessedTimezones.has(tzDayKey)) {
+          creditExpiryProcessedTimezones.add(tzDayKey);
+          await processCreditExpiryReminders(tz);
+        }
+      }
+
+      for (const key of creditExpiryProcessedTimezones) {
+        if (!key.includes(today)) {
+          creditExpiryProcessedTimezones.delete(key);
+        }
+      }
+    } catch (err) {
+      console.error("[CreditExpiry] Scheduler check error:", err);
+    }
+  }, 15 * 60 * 1000);
+}
+
+export function stopCreditExpiryReminderScheduler(): void {
+  if (creditExpiryInterval) {
+    clearInterval(creditExpiryInterval);
+    creditExpiryInterval = null;
+    console.log("[CreditExpiry] Scheduler stopped");
+  }
+}

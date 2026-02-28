@@ -96,6 +96,7 @@ export default function AttendanceDrawer({
   const [lastUsedLateMinutes, setLastUsedLateMinutes] = useState<LateMinutes>(DEFAULT_LATE_MINUTES);
   const [showSuccessAnimation, setShowSuccessAnimation] = useState(false);
   const [showSummaryModal, setShowSummaryModal] = useState(false);
+  const [quickMode, setQuickMode] = useState(true);
 
   const { data: allPlayersData } = useQuery<AvailablePlayer[]>({
     queryKey: ["/api/players"],
@@ -534,9 +535,78 @@ export default function AttendanceDrawer({
             </Pressable>
           </View>
         ) : (
-          <ScrollView style={styles.playerListScroll} contentContainerStyle={styles.playerGridContainer} showsVerticalScrollIndicator={false}>
-            <View style={styles.playersGrid}>
-              {players.map((player) => {
+          <>
+            <View style={styles.modeToggleContainer}>
+              <Pressable
+                style={[styles.modeToggleBtn, quickMode && styles.modeToggleBtnActive]}
+                onPress={() => {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  setQuickMode(true);
+                }}
+              >
+                <Ionicons name="flash" size={16} color={quickMode ? "#fff" : Colors.dark.disabled} />
+                <Text style={[styles.modeToggleText, quickMode && styles.modeToggleTextActive]}>Quick</Text>
+              </Pressable>
+              <Pressable
+                style={[styles.modeToggleBtn, !quickMode && styles.modeToggleBtnActive]}
+                onPress={() => {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  setQuickMode(false);
+                }}
+              >
+                <Ionicons name="list" size={16} color={!quickMode ? "#fff" : Colors.dark.disabled} />
+                <Text style={[styles.modeToggleText, !quickMode && styles.modeToggleTextActive]}>Detailed</Text>
+              </Pressable>
+            </View>
+
+            {quickMode ? (
+              <ScrollView style={styles.playerListScroll} contentContainerStyle={styles.quickModeContainer} showsVerticalScrollIndicator={false}>
+                {players.map((player) => {
+                  const record = attendance.get(player.id);
+                  const status = record?.status || "present";
+                  const isPresent = status === "present" || status === "late";
+                  const levelColor = getPlayerLevelColor(player.ballLevel ?? player.level ?? "green");
+
+                  return (
+                    <View key={player.id} style={styles.quickModeRow}>
+                      <View style={styles.quickModePlayerInfo}>
+                        <View style={[styles.quickModeAvatar, { backgroundColor: levelColor + "30" }]}>
+                          <Text style={[styles.quickModeAvatarText, { color: levelColor }]}>
+                            {player.name.charAt(0).toUpperCase()}
+                          </Text>
+                        </View>
+                        <Text style={styles.quickModePlayerName} numberOfLines={1}>{player.name}</Text>
+                      </View>
+                      <View style={styles.quickModeActions}>
+                        <Pressable
+                          style={[
+                            styles.quickModeBtn,
+                            styles.quickModePresentBtn,
+                            isPresent && styles.quickModePresentBtnActive,
+                          ]}
+                          onPress={() => setPlayerStatus(player.id, "present")}
+                        >
+                          <Ionicons name="checkmark" size={24} color={isPresent ? "#fff" : Colors.dark.primary} />
+                        </Pressable>
+                        <Pressable
+                          style={[
+                            styles.quickModeBtn,
+                            styles.quickModeAbsentBtn,
+                            status === "absent" && styles.quickModeAbsentBtnActive,
+                          ]}
+                          onPress={() => setPlayerStatus(player.id, "absent")}
+                        >
+                          <Ionicons name="close" size={24} color={status === "absent" ? "#fff" : Colors.dark.error} />
+                        </Pressable>
+                      </View>
+                    </View>
+                  );
+                })}
+              </ScrollView>
+            ) : (
+              <ScrollView style={styles.playerListScroll} contentContainerStyle={styles.playerGridContainer} showsVerticalScrollIndicator={false}>
+                <View style={styles.playersGrid}>
+                  {players.map((player) => {
                 const record = attendance.get(player.id);
                 const status = record?.status || "present";
                 const isExpanded = expandedPlayer === player.id;
@@ -635,8 +705,10 @@ export default function AttendanceDrawer({
                   </View>
                 );
               })}
-            </View>
-          </ScrollView>
+                </View>
+              </ScrollView>
+            )}
+          </>
         )}
 
         {/* Offline Warning */}
@@ -1216,5 +1288,102 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
     zIndex: 100,
+  },
+  modeToggleContainer: {
+    flexDirection: "row",
+    marginHorizontal: Spacing.lg,
+    marginTop: Spacing.md,
+    marginBottom: Spacing.xs,
+    backgroundColor: Backgrounds.card,
+    borderRadius: BorderRadius.md,
+    padding: 3,
+  },
+  modeToggleBtn: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: Spacing.xs,
+    paddingVertical: Spacing.sm,
+    borderRadius: BorderRadius.sm,
+  },
+  modeToggleBtnActive: {
+    backgroundColor: Colors.dark.primary,
+  },
+  modeToggleText: {
+    fontSize: Typography.small.fontSize,
+    fontWeight: "600",
+    color: Colors.dark.disabled,
+  },
+  modeToggleTextActive: {
+    color: "#fff",
+  },
+  quickModeContainer: {
+    paddingHorizontal: Spacing.lg,
+    paddingTop: Spacing.sm,
+    paddingBottom: Spacing.xl,
+  },
+  quickModeRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingVertical: Spacing.md,
+    paddingHorizontal: Spacing.md,
+    marginBottom: Spacing.xs,
+    backgroundColor: Backgrounds.card,
+    borderRadius: BorderRadius.md,
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.06)",
+  },
+  quickModePlayerInfo: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.md,
+    flex: 1,
+  },
+  quickModeAvatar: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  quickModeAvatarText: {
+    fontSize: Typography.h4.fontSize,
+    fontWeight: "700",
+  },
+  quickModePlayerName: {
+    fontSize: Typography.body.fontSize,
+    fontWeight: "600",
+    color: Colors.dark.text,
+    flex: 1,
+  },
+  quickModeActions: {
+    flexDirection: "row",
+    gap: Spacing.sm,
+  },
+  quickModeBtn: {
+    width: 48,
+    height: 48,
+    borderRadius: BorderRadius.md,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 2,
+  },
+  quickModePresentBtn: {
+    borderColor: Colors.dark.primary,
+    backgroundColor: Colors.dark.primary + "10",
+  },
+  quickModePresentBtnActive: {
+    backgroundColor: Colors.dark.primary,
+    borderColor: Colors.dark.primary,
+  },
+  quickModeAbsentBtn: {
+    borderColor: Colors.dark.error,
+    backgroundColor: Colors.dark.error + "10",
+  },
+  quickModeAbsentBtnActive: {
+    backgroundColor: Colors.dark.error,
+    borderColor: Colors.dark.error,
   },
 });
