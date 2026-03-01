@@ -7,7 +7,6 @@ uploads/
 dist/
 client/
 shared/
-server/
 migrations/
 scripts/
 android/
@@ -16,3 +15,6 @@ ios/
 .gitignore
 *.md
 node_modules/.cache/
+server/*.ts
+server/routes/
+server/*.backup

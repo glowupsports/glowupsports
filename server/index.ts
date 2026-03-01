@@ -276,7 +276,13 @@ function configureExpoAndLanding(app: express.Application) {
     "templates",
     "landing-page.html",
   );
-  const landingPageTemplate = fs.readFileSync(templatePath, "utf-8");
+  let landingPageTemplate: string;
+  try {
+    landingPageTemplate = fs.readFileSync(templatePath, "utf-8");
+  } catch {
+    log("[Server] Landing page template not found, using fallback");
+    landingPageTemplate = "<html><body><h1>Glow Up Sports</h1><p>Server is running.</p></body></html>";
+  }
   const appName = getAppName();
 
   const privacyPolicyPath = path.resolve(
