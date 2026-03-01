@@ -77,7 +77,8 @@ When a parent is managing a child's account via the Family Lobby, `user?.playerI
 
 - **Database**: Supabase PostgreSQL (via Drizzle ORM). IMPORTANT: `pool` is exported from `server/db.ts` for raw SQL queries. Use `pool.query()` with `$1` params instead of Drizzle's `db.execute(sql`...`)` for timestamp/array comparisons, as Drizzle template literals have issues with `::timestamp` casts and `ANY($1::text[])` array params. The Replit built-in DB (`heliumdb`) is separate from the Supabase DB (`postgres`) used by the app.
 - **Deployment**: Replit
-- **Push Notifications**: Expo Push API
+- **Push Notifications**: Firebase Cloud Messaging (FCM) via Firebase Admin SDK. Session reminders (1h + 30m before) with 4-hour lookback catch-up on restart. Daily schedule summary (7 AM - 12 PM window) with DB-backed dedup via `coach_notifications` table. Low-credit and credit expiry warnings.
+- **EAS Build**: `.easignore` excludes `static-build/`, `uploads/`, `server_dist/`, `migrations/`, `server/`, `node_modules/`, `attached_assets/`, `.cache/`, `.git/` etc. to keep upload under 100 MB (Cloudflare limit).
 - **Email Service**: Resend API
 - **Calendar Integration**: Google Calendar
 - **Server State Management**: TanStack Query

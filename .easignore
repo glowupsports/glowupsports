@@ -60,6 +60,18 @@ docs/
 
 # Database / Migrations (handled server-side)
 drizzle/
+drizzle.config.ts
+migrations/
+
+# Build artifacts (Replit web deployment, not needed for native)
+static-build/
+server_dist/
+
+# Server uploads (user-uploaded files, handled server-side)
+uploads/
+
+# GitHub
+.github/
 
 # Misc
 *.md
@@ -68,3 +80,4 @@ drizzle/
 .eslintrc*
 tsconfig*.json
 vitest.config.ts
+eslint.config.js

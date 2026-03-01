@@ -841,16 +841,16 @@ export async function rewardCoachForTimelyAttendance(
 async function catchUpMissedReminders(): Promise<void> {
   try {
     const now = new Date();
-    const thirtyMinAgo = new Date(now.getTime() - 30 * 60 * 1000);
+    const fourHoursAgo = new Date(now.getTime() - 4 * 60 * 60 * 1000);
     const twoHoursFromNow = new Date(now.getTime() + 2 * 60 * 60 * 1000);
 
-    const thirtyMinAgoStr = thirtyMinAgo.toISOString().replace("T", " ").substring(0, 19);
+    const fourHoursAgoStr = fourHoursAgo.toISOString().replace("T", " ").substring(0, 19);
     const twoHoursStr = twoHoursFromNow.toISOString().replace("T", " ").substring(0, 19);
-    console.log(`[SessionReminders] Catch-up window: ${thirtyMinAgoStr} to ${twoHoursStr}`);
+    console.log(`[SessionReminders] Catch-up window: ${fourHoursAgoStr} to ${twoHoursStr} (4h lookback)`);
 
     const rawMissed = await pool.query(
       `SELECT * FROM sessions WHERE start_time >= $1::timestamp AND start_time <= $2::timestamp AND status = 'scheduled' AND (reminder_1h_sent = false OR reminder_30m_sent = false)`,
-      [thirtyMinAgoStr, twoHoursStr]
+      [fourHoursAgoStr, twoHoursStr]
     );
     const missedSessions = rawMissed.rows;
 
@@ -877,6 +877,11 @@ async function catchUpMissedReminders(): Promise<void> {
         status: raw.status,
       };
       const minutesUntil = (session.startTime.getTime() - now.getTime()) / (60 * 1000);
+
+      if (minutesUntil < -15) {
+        console.log(`[SessionReminders] Catch-up: skipping session ${session.id} (started ${Math.round(-minutesUntil)}m ago — too late)`);
+        continue;
+      }
 
       if (!session.reminder1hSent) {
         console.log(`[SessionReminders] Catch-up: sending 1h reminder for session ${session.id} (${minutesUntil > 0 ? `starts in ${Math.round(minutesUntil)}m` : `started ${Math.round(-minutesUntil)}m ago`})`);
@@ -1702,10 +1707,22 @@ async function processDailyScheduleNotifications(): Promise<void> {
       const localHour = localNow.getHours();
       const localMinute = localNow.getMinutes();
 
-      if (localHour !== 7 || localMinute > 14) continue;
+      if (localHour < 7 || localHour >= 12) continue;
 
-      const todayKey = `${coach.coach_id}-${localNow.toISOString().split("T")[0]}`;
+      const todayStr = localNow.toISOString().split("T")[0];
+      const todayKey = `${coach.coach_id}-${todayStr}`;
       if (dailyScheduleSentToday.has(todayKey)) continue;
+
+      const alreadySent = await pool.query(
+        `SELECT id FROM coach_notifications 
+         WHERE coach_id = $1 AND type = 'session_reminder' AND title LIKE '%Today%'
+         AND created_at >= $2::date AND created_at < ($2::date + interval '1 day')`,
+        [coach.coach_id, todayStr]
+      );
+      if (alreadySent.rows.length > 0) {
+        dailyScheduleSentToday.add(todayKey);
+        continue;
+      }
 
       const todayStart = new Date(localNow);
       todayStart.setHours(0, 0, 0, 0);
