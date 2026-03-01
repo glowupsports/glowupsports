@@ -6,17 +6,9 @@ node_modules/
 npm-debug.log
 yarn-error.log
 pnpm-lock.yaml
-package-lock.json
 
 # Server / Backend (not needed for mobile build)
 server/
-server_dist/
-
-# Static build (server-side Expo bundles, not needed for native build)
-static-build/
-
-# User uploads (not needed for app build)
-uploads/
 
 # Native directories (CNG/Prebuild generates these)
 /android
@@ -27,7 +19,6 @@ uploads/
 .expo-shared/
 web-build/
 dist/
-.metro-cache/
 
 # Git
 .git/
@@ -42,7 +33,6 @@ replit.nix
 .config/
 .env
 .env.*
-.deployignore
 
 # OS / Editor
 .DS_Store
@@ -54,7 +44,6 @@ Thumbs.db
 logs/
 *.log
 *.hprof
-/tmp/
 
 # Tests / Coverage
 __tests__/
@@ -71,15 +60,11 @@ docs/
 
 # Database / Migrations (handled server-side)
 drizzle/
-migrations/
-
-# Build scripts
-scripts/
 
 # Misc
 *.md
 !README.md
-*.pdf
 .prettierrc
 .eslintrc*
+tsconfig*.json
 vitest.config.ts

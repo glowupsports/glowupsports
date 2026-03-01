@@ -6,8 +6,8 @@ channel = "stable-24_05"
 packages = ["imagemagick"]
 
 [deployment]
-deploymentTarget = "vm"
-build = ["sh", "-c", "npm run expo:static:build && esbuild server/index.ts --platform=node --packages=external --bundle --format=cjs --outdir=server_dist"]
+deploymentTarget = "cloudrun"
+build = ["sh", "-c", "npm run expo:static:build && npm run server:build"]
 run = ["npm", "run", "server:prod"]
 
 [[ports]]
@@ -21,10 +21,6 @@ externalPort = 80
 [[ports]]
 localPort = 8082
 externalPort = 3000
-
-[[ports]]
-localPort = 9999
-externalPort = 3002
 
 [env]
 PORT = "5000"

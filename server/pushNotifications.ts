@@ -841,16 +841,16 @@ export async function rewardCoachForTimelyAttendance(
 async function catchUpMissedReminders(): Promise<void> {
   try {
     const now = new Date();
-    const fourHoursAgo = new Date(now.getTime() - 4 * 60 * 60 * 1000);
+    const thirtyMinAgo = new Date(now.getTime() - 30 * 60 * 1000);
     const twoHoursFromNow = new Date(now.getTime() + 2 * 60 * 60 * 1000);
 
-    const fourHoursAgoStr = fourHoursAgo.toISOString().replace("T", " ").substring(0, 19);
+    const thirtyMinAgoStr = thirtyMinAgo.toISOString().replace("T", " ").substring(0, 19);
     const twoHoursStr = twoHoursFromNow.toISOString().replace("T", " ").substring(0, 19);
-    console.log(`[SessionReminders] Catch-up window: ${fourHoursAgoStr} to ${twoHoursStr} (4h lookback)`);
+    console.log(`[SessionReminders] Catch-up window: ${thirtyMinAgoStr} to ${twoHoursStr}`);
 
     const rawMissed = await pool.query(
       `SELECT * FROM sessions WHERE start_time >= $1::timestamp AND start_time <= $2::timestamp AND status = 'scheduled' AND (reminder_1h_sent = false OR reminder_30m_sent = false)`,
-      [fourHoursAgoStr, twoHoursStr]
+      [thirtyMinAgoStr, twoHoursStr]
     );
     const missedSessions = rawMissed.rows;
 
@@ -878,31 +878,13 @@ async function catchUpMissedReminders(): Promise<void> {
       };
       const minutesUntil = (session.startTime.getTime() - now.getTime()) / (60 * 1000);
 
-      if (minutesUntil < -15) {
-        console.log(`[SessionReminders] Catch-up: skipping session ${session.id} — already started ${Math.round(-minutesUntil)}m ago`);
-        await pool.query(
-          `UPDATE sessions SET reminder_1h_sent = true, reminder_30m_sent = true WHERE id = $1`,
-          [session.id]
-        );
-        continue;
-      }
-
-      if (minutesUntil < 0) {
-        console.log(`[SessionReminders] Catch-up: session ${session.id} started ${Math.round(-minutesUntil)}m ago — sending "happening now" reminder`);
-        await sendRemindersForSession(session, "30m");
-        if (!session.reminder1hSent) {
-          await pool.query(`UPDATE sessions SET reminder_1h_sent = true WHERE id = $1`, [session.id]);
-        }
-        continue;
-      }
-
       if (!session.reminder1hSent) {
-        console.log(`[SessionReminders] Catch-up: sending 1h reminder for session ${session.id} (starts in ${Math.round(minutesUntil)}m)`);
+        console.log(`[SessionReminders] Catch-up: sending 1h reminder for session ${session.id} (${minutesUntil > 0 ? `starts in ${Math.round(minutesUntil)}m` : `started ${Math.round(-minutesUntil)}m ago`})`);
         await sendRemindersForSession(session, "1h");
       }
 
       if (!session.reminder30mSent) {
-        console.log(`[SessionReminders] Catch-up: sending 30m reminder for session ${session.id} (starts in ${Math.round(minutesUntil)}m)`);
+        console.log(`[SessionReminders] Catch-up: sending 30m reminder for session ${session.id} (${minutesUntil > 0 ? `starts in ${Math.round(minutesUntil)}m` : `started ${Math.round(-minutesUntil)}m ago`})`);
         await sendRemindersForSession(session, "30m");
       }
     }
@@ -1704,21 +1686,7 @@ export function stopOnboardingEmailScheduler(): void {
 // ==================== DAILY SCHEDULE NOTIFICATION ====================
 
 let dailyScheduleInterval: ReturnType<typeof setInterval> | null = null;
-
-async function hasDailyScheduleBeenSentToday(coachId: string, localDateStr: string, timezone: string): Promise<boolean> {
-  try {
-    const result = await pool.query(
-      `SELECT id FROM coach_notifications 
-       WHERE coach_id = $1 AND type = 'daily_schedule' 
-       AND (created_at AT TIME ZONE 'UTC' AT TIME ZONE $3)::date = $2::date
-       LIMIT 1`,
-      [coachId, localDateStr, timezone]
-    );
-    return result.rows.length > 0;
-  } catch {
-    return false;
-  }
-}
+const dailyScheduleSentToday = new Set<string>();
 
 async function processDailyScheduleNotifications(): Promise<void> {
   try {
@@ -1732,24 +1700,28 @@ async function processDailyScheduleNotifications(): Promise<void> {
       const tz = coach.timezone || "UTC";
       const localNow = new Date(new Date().toLocaleString("en-US", { timeZone: tz }));
       const localHour = localNow.getHours();
+      const localMinute = localNow.getMinutes();
 
-      if (localHour < 7 || localHour >= 12) continue;
+      if (localHour !== 7 || localMinute > 14) continue;
 
-      const localDateStr = `${localNow.getFullYear()}-${String(localNow.getMonth() + 1).padStart(2, "0")}-${String(localNow.getDate()).padStart(2, "0")}`;
+      const todayKey = `${coach.coach_id}-${localNow.toISOString().split("T")[0]}`;
+      if (dailyScheduleSentToday.has(todayKey)) continue;
 
-      const alreadySent = await hasDailyScheduleBeenSentToday(coach.coach_id, localDateStr, tz);
-      if (alreadySent) continue;
+      const todayStart = new Date(localNow);
+      todayStart.setHours(0, 0, 0, 0);
+      const todayEnd = new Date(localNow);
+      todayEnd.setHours(23, 59, 59, 999);
 
       const sessionsResult = await pool.query(`
-        SELECT s.id, s.session_type, s.start_time,
-               (SELECT COUNT(*) FROM session_players sp WHERE sp.session_id = s.id) as player_count
+        SELECT s.id, s.session_type, s.start_time, s.court_name,
+               (SELECT COUNT(*) FROM session_players sp WHERE sp.session_id = s.id AND sp.status != 'cancelled') as player_count
         FROM sessions s
         WHERE s.coach_id = $1
           AND s.status = 'scheduled'
           AND s.start_time AT TIME ZONE 'UTC' AT TIME ZONE $2 >= $3::date
           AND s.start_time AT TIME ZONE 'UTC' AT TIME ZONE $2 < ($3::date + interval '1 day')
         ORDER BY s.start_time ASC
-      `, [coach.coach_id, tz, localDateStr]);
+      `, [coach.coach_id, tz, todayStart.toISOString().split("T")[0]]);
 
       const sessionsList = sessionsResult.rows;
       const tokens = await getCoachPushTokens(coach.coach_id);
@@ -1784,7 +1756,7 @@ async function processDailyScheduleNotifications(): Promise<void> {
       try {
         await db.insert(coachNotifications).values({
           coachId: coach.coach_id,
-          type: "daily_schedule",
+          type: "session_reminder",
           title,
           message: body,
           priority: "medium",
@@ -1793,7 +1765,15 @@ async function processDailyScheduleNotifications(): Promise<void> {
         console.error(`[DailySchedule] Failed to create in-app notification for ${coach.coach_id}:`, err);
       }
 
+      dailyScheduleSentToday.add(todayKey);
       console.log(`[DailySchedule] Sent daily summary to coach ${coach.coach_id}: ${title} - ${body}`);
+    }
+
+    const today = new Date().toISOString().split("T")[0];
+    for (const key of dailyScheduleSentToday) {
+      if (!key.endsWith(today)) {
+        dailyScheduleSentToday.delete(key);
+      }
     }
   } catch (error) {
     console.error("[DailySchedule] Error processing daily schedule notifications:", error);

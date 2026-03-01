@@ -32,12 +32,14 @@ declare module "http" {
 }
 
 function setupSecurityHeaders(app: express.Application) {
+  // Use helmet for comprehensive security headers
   app.use(helmet({
-    contentSecurityPolicy: false,
-    crossOriginEmbedderPolicy: false,
-    crossOriginResourcePolicy: { policy: "cross-origin" },
+    contentSecurityPolicy: false, // Disabled for Expo compatibility
+    crossOriginEmbedderPolicy: false, // Disabled for API compatibility
+    crossOriginResourcePolicy: { policy: "cross-origin" }, // Allow Expo Go to load images
   }));
   
+  // Additional custom headers
   app.use((req, res, next) => {
     res.header("X-Content-Type-Options", "nosniff");
     res.header("X-Frame-Options", "DENY");
@@ -54,10 +56,13 @@ function isAllowedOrigin(origin: string): boolean {
     const url = new URL(origin);
     const hostname = url.hostname;
     
+    // Allow all Replit domains (both .replit.dev and .repl.co variants)
+    // Also allow any port on these domains (e.g., :5000 for API calls)
     if (hostname.endsWith('.replit.dev') || hostname.endsWith('.repl.co') || hostname.endsWith('.replit.app') || hostname.endsWith('.spock.replit.dev')) {
       return true;
     }
     
+    // Allow localhost for development (any port)
     if (hostname === 'localhost' || hostname === '127.0.0.1') {
       return true;
     }
@@ -114,6 +119,7 @@ function setupRequestLogging(app: express.Application) {
     const path = req.path;
     let capturedJsonResponse: Record<string, unknown> | undefined = undefined;
 
+    // Add request ID to response headers for tracing
     res.setHeader("X-Request-Id", requestId);
     (req as any).requestId = requestId;
 
@@ -128,13 +134,25 @@ function setupRequestLogging(app: express.Application) {
 
       const duration = Date.now() - start;
 
+      // Structured log format
+      const logEntry = {
+        timestamp: new Date().toISOString(),
+        requestId,
+        method: req.method,
+        path,
+        status: res.statusCode,
+        duration,
+        userAgent: req.get("user-agent")?.slice(0, 50),
+      };
+
+      // Compact single-line format for console
       let logLine = `[${requestId}] ${req.method} ${path} ${res.statusCode} in ${duration}ms`;
       if (capturedJsonResponse) {
         logLine += ` :: ${JSON.stringify(capturedJsonResponse)}`;
       }
 
       if (logLine.length > 100) {
-        logLine = logLine.slice(0, 99) + "\u2026";
+        logLine = logLine.slice(0, 99) + "…";
       }
 
       log(logLine);
@@ -358,6 +376,7 @@ function configureExpoAndLanding(app: express.Application) {
   app.use("/assets", express.static(path.resolve(process.cwd(), "assets")));
   app.use("/uploads", express.static(path.resolve(process.cwd(), "uploads")));
   app.use("/images", express.static(path.resolve(process.cwd(), "server/public/images")));
+  // Try static-build first, then fall back to dist for static web files
   app.use(express.static(path.resolve(process.cwd(), "static-build")));
   app.use(express.static(path.resolve(process.cwd(), "dist")));
 
@@ -416,7 +435,9 @@ function setupErrorHandler(app: express.Application) {
       startMonthlyReportScheduler();
       startDailyScheduleNotifier();
       startCreditExpiryReminderScheduler();
+      // Onboarding email scheduler DISABLED - was sending duplicate emails on every server restart
       
+      // Run bulk credit repair on startup to fix any missing charges
       try {
         const { repairAllPlayerCredits, auditAllPlayerCredits, repairGroupSessionTypes, cancelDebtsForPlayersWithNoPackages } = await import("./storage");
         
@@ -424,6 +445,7 @@ function setupErrorHandler(app: express.Application) {
         const groupResult = await repairGroupSessionTypes();
         log(`[RepairGroupTypes] Complete: ${groupResult.fixed} fixed, ${groupResult.errors.length} errors`);
         
+        // Cleanup ghost sessions from ended/deleted series
         try {
           const { cleanupGhostSessions } = await import("./storage");
           const ghostResult = await cleanupGhostSessions();
@@ -438,6 +460,8 @@ function setupErrorHandler(app: express.Application) {
         
         log("[CreditAudit] Running ghost credit audit for ALL players...");
         await auditAllPlayerCredits();
+        
+        // NOTE: cancelDebtsForPlayersWithNoPackages REMOVED - debts are valid even without packages
       } catch (error) {
         console.error("[StartupRepair] Failed:", error);
       }
