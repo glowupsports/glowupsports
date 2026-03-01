@@ -774,6 +774,21 @@ export default function CreateInvoiceModal({
   const [notes, setNotes] = useState("");
   const [currency] = useState("AED");
   const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const toastTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const showToast = (message: string) => {
+    if (toastTimeoutRef.current) clearTimeout(toastTimeoutRef.current);
+    setToastMessage(message);
+    toastTimeoutRef.current = setTimeout(() => setToastMessage(null), 4000);
+  };
+
+  useEffect(() => {
+    return () => {
+      if (toastTimeoutRef.current) clearTimeout(toastTimeoutRef.current);
+    };
+  }, []);
+
   const [showTerms, setShowTerms] = useState(true);
 
   const defaultTerms = [
@@ -825,21 +840,13 @@ export default function CreateInvoiceModal({
       onClose();
     },
     onError: (err: Error) => {
-      if (Platform.OS === "web") {
-        window.alert(`Error: ${err.message}`);
-      } else {
-        Alert.alert("Error", err.message);
-      }
+      Alert.alert("Error", err.message);
     },
   });
 
   const handleGeneratePDF = async () => {
     if (lineItems.every(item => !item.description || item.total === 0)) {
-      if (Platform.OS === "web") {
-        window.alert("Please add at least one line item");
-      } else {
-        Alert.alert("Error", "Please add at least one line item");
-      }
+      Alert.alert("Error", "Please add at least one line item");
       return;
     }
 
@@ -893,8 +900,7 @@ export default function CreateInvoiceModal({
         
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
         
-        // Also show a toast/alert that the file was downloaded
-        window.alert(`Invoice downloaded as ${filename}. Open it in your browser and use Print > Save as PDF for a PDF version.`);
+        showToast("Invoice downloaded! Open it and use Print > Save as PDF.");
       } else {
         // Mobile: Generate PDF and share (allows saving to Files)
         console.log("[PDF] Starting mobile PDF generation...");
@@ -915,11 +921,7 @@ export default function CreateInvoiceModal({
       }
     } catch (error) {
       console.error("PDF generation error:", error);
-      if (Platform.OS === "web") {
-        window.alert("Failed to generate PDF");
-      } else {
-        Alert.alert("Error", "Failed to generate PDF");
-      }
+      Alert.alert("Error", "Failed to generate PDF");
     } finally {
       setIsGeneratingPDF(false);
     }
@@ -927,11 +929,7 @@ export default function CreateInvoiceModal({
 
   const handleSaveInvoice = async () => {
     if (lineItems.every(item => !item.description || item.total === 0)) {
-      if (Platform.OS === "web") {
-        window.alert("Please add at least one line item");
-      } else {
-        Alert.alert("Error", "Please add at least one line item");
-      }
+      Alert.alert("Error", "Please add at least one line item");
       return;
     }
 
@@ -958,6 +956,18 @@ export default function CreateInvoiceModal({
           style={styles.headerGradient}
         />
         
+        {toastMessage ? (
+          <View style={styles.toastContainer}>
+            <View style={styles.toastContent}>
+              <Ionicons name="checkmark-circle" size={20} color={Colors.dark.successNeon} />
+              <Text style={styles.toastText}>{toastMessage}</Text>
+              <Pressable onPress={() => setToastMessage(null)} hitSlop={8}>
+                <Ionicons name="close" size={16} color={Colors.dark.textMuted} />
+              </Pressable>
+            </View>
+          </View>
+        ) : null}
+
         <View style={styles.header}>
           <Pressable onPress={onClose} style={styles.closeButton}>
             <Ionicons name="close" size={24} color={Colors.dark.text} />
@@ -1437,6 +1447,31 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     height: 150,
+  },
+  toastContainer: {
+    position: "absolute",
+    top: 60,
+    left: Spacing.lg,
+    right: Spacing.lg,
+    zIndex: 100,
+    alignItems: "center",
+  },
+  toastContent: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+    backgroundColor: `${Colors.dark.successNeon}18`,
+    borderWidth: 1,
+    borderColor: `${Colors.dark.successNeon}40`,
+    borderRadius: BorderRadius.lg,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm,
+  },
+  toastText: {
+    ...Typography.small,
+    color: Colors.dark.successNeon,
+    flex: 1,
+    fontWeight: "600",
   },
   header: {
     flexDirection: "row",

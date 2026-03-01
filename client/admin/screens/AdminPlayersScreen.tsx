@@ -1132,10 +1132,14 @@ export default function AdminPlayersScreen() {
                               onPress={async () => {
                                 Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
                                 try {
-                                  await apiRequest("PATCH", `/api/packages/${pkg.id}`, { isPaid: true });
+                                  await apiRequest("PATCH", `/api/packages/${pkg.id}`, { isPaid: true, paidAt: new Date().toISOString() });
                                   queryClient.invalidateQueries({ queryKey: [`/api/admin/players/${selectedPlayer?.id}/stats`] });
+                                  queryClient.invalidateQueries({ queryKey: [`/api/players/${selectedPlayer?.id}/packages`] });
+                                  Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+                                  Alert.alert("Payment Recorded", "Package marked as paid.");
                                 } catch (error) {
                                   console.error("Failed to mark package as paid:", error);
+                                  Alert.alert("Error", "Failed to mark as paid. Please try again.");
                                 }
                               }}
                             >
@@ -2787,12 +2791,15 @@ export default function AdminPlayersScreen() {
                         onPress={async () => {
                           Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
                           try {
-                            await apiRequest("PATCH", `/api/packages/${pkg.id}`, { isPaid: true });
+                            await apiRequest("PATCH", `/api/packages/${pkg.id}`, { isPaid: true, paidAt: new Date().toISOString() });
                             queryClient.invalidateQueries({ queryKey: [`/api/admin/players/${selectedPlayer?.id}/stats`] });
+                            queryClient.invalidateQueries({ queryKey: [`/api/players/${selectedPlayer?.id}/packages`] });
                             Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+                            Alert.alert("Payment Recorded", `Package marked as paid.`);
                           } catch (error) {
                             console.error("Failed to record payment:", error);
                             Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+                            Alert.alert("Error", "Failed to record payment. Please try again.");
                           }
                         }}
                       >
@@ -4316,7 +4323,7 @@ const styles = StyleSheet.create({
   },
   recordPaymentModalOverlay: {
     flex: 1,
-    backgroundColor: "rgba(0,0,0,0.8)",
+    backgroundColor: Colors.dark.backgroundRoot,
     justifyContent: "flex-end",
   },
   recordPaymentModalContainer: {
