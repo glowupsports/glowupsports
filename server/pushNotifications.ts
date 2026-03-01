@@ -624,33 +624,35 @@ const AUTO_ATTENDANCE_XP_REWARD = 25; // XP for marking attendance during class
 async function processAutoCompleteSession(): Promise<void> {
   try {
     const now = new Date();
-    // Only auto-complete sessions that ended at least 10 minutes ago (to give coach time to mark manually)
+    const nowUtcStr = now.toISOString().replace("T", " ").substring(0, 19);
     const completeThreshold = new Date(now.getTime() - 10 * 60 * 1000);
-    // Don't auto-complete sessions older than 24 hours
+    const completeThresholdStr = completeThreshold.toISOString().replace("T", " ").substring(0, 19);
     const lookbackWindow = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+    const lookbackStr = lookbackWindow.toISOString().replace("T", " ").substring(0, 19);
 
-    const sessionsToComplete = await db.select({
-      id: sessions.id,
-      endTime: sessions.endTime,
-      status: sessions.status,
-    })
-      .from(sessions)
-      .where(and(
-        lte(sessions.endTime, completeThreshold),
-        gte(sessions.endTime, lookbackWindow),
-        eq(sessions.status, "scheduled")
-      ));
+    const result = await pool.query(
+      `SELECT id, end_time, start_time, session_type, coach_id
+       FROM sessions
+       WHERE end_time <= $1::timestamp
+         AND end_time >= $2::timestamp
+         AND status = 'scheduled'`,
+      [completeThresholdStr, lookbackStr]
+    );
 
-    if (sessionsToComplete.length === 0) {
+    if (result.rows.length === 0) {
       return;
     }
 
-    console.log(`[AutoComplete] Auto-completing ${sessionsToComplete.length} sessions that have ended`);
+    console.log(`[AutoComplete] Now UTC: ${nowUtcStr}, threshold: ${completeThresholdStr}`);
+    console.log(`[AutoComplete] Auto-completing ${result.rows.length} sessions that have ended:`);
 
-    for (const session of sessionsToComplete) {
-      await db.update(sessions)
-        .set({ status: "completed" })
-        .where(eq(sessions.id, session.id));
+    for (const row of result.rows) {
+      const endUtc = new Date(row.end_time).toISOString();
+      console.log(`[AutoComplete]   Session ${row.id.substring(0,8)} | end_time(UTC): ${endUtc} | type: ${row.session_type}`);
+      await pool.query(
+        `UPDATE sessions SET status = 'completed' WHERE id = $1 AND end_time <= $2::timestamp`,
+        [row.id, completeThresholdStr]
+      );
     }
 
     console.log("[AutoComplete] Processing complete");
@@ -1325,24 +1327,28 @@ async function processAutoSessionCompletion(): Promise<void> {
     const { eq, and, lt, isNull, inArray } = await import("drizzle-orm");
     const { storage } = await import("./storage");
     
-    const dubaiNow = new Date(new Date().toLocaleString("en-US", { timeZone: "Asia/Dubai" }));
-    console.log(`[AutoComplete] Running auto session completion check at ${dubaiNow.toISOString()}`);
+    const now = new Date();
+    const tenMinAgo = new Date(now.getTime() - 10 * 60 * 1000);
+    const tenMinAgoStr = tenMinAgo.toISOString().replace("T", " ").substring(0, 19);
+    const oneDayAgoStr = new Date(now.getTime() - 24 * 60 * 60 * 1000).toISOString().replace("T", " ").substring(0, 19);
+    console.log(`[AutoComplete] Running auto session completion check at ${now.toISOString()} (UTC), threshold: ${tenMinAgoStr}`);
     
-    // Find all sessions where:
-    // 1. endTime has passed (session is over)
-    // 2. status is still "scheduled" (not yet completed)
-    const incompleteSessions = await db.select({
-      id: sessions.id,
-      sessionType: sessions.sessionType,
-      academyId: sessions.academyId,
-      startTime: sessions.startTime,
-      endTime: sessions.endTime,
-    })
-    .from(sessions)
-    .where(and(
-      lt(sessions.endTime, dubaiNow),
-      eq(sessions.status, "scheduled")
-    ));
+    const result = await pool.query(
+      `SELECT id, session_type, academy_id, start_time, end_time
+       FROM sessions
+       WHERE end_time <= $1::timestamp
+         AND end_time >= $2::timestamp
+         AND status = 'scheduled'`,
+      [tenMinAgoStr, oneDayAgoStr]
+    );
+    
+    const incompleteSessions = result.rows.map((row: any) => ({
+      id: row.id,
+      sessionType: row.session_type,
+      academyId: row.academy_id,
+      startTime: new Date(row.start_time),
+      endTime: new Date(row.end_time),
+    }));
     
     if (incompleteSessions.length === 0) {
       console.log("[AutoComplete] No sessions to auto-complete");
