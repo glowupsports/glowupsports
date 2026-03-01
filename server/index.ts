@@ -1,25 +1,11 @@
 import express from "express";
 import type { Request, Response, NextFunction } from "express";
-import helmet from "helmet";
-import * as Sentry from "@sentry/node";
-import { registerRoutes } from "./routes";
 import * as fs from "fs";
 import * as path from "path";
-import { createProxyMiddleware } from "http-proxy-middleware";
-import { startReminderScheduler, startDailyTipScheduler, startAutoSessionCompletionScheduler, startMonthlyReportScheduler, startOnboardingEmailScheduler, startDailyScheduleNotifier, startCreditExpiryReminderScheduler } from "./pushNotifications";
 
-if (process.env.SENTRY_DSN) {
-  Sentry.init({
-    dsn: process.env.SENTRY_DSN,
-    environment: process.env.NODE_ENV || "development",
-    tracesSampleRate: 0.2,
-    beforeSend(event) {
-      if (process.env.NODE_ENV === "development") return null;
-      return event;
-    },
-  });
-  console.log("[Sentry] Server-side error tracking initialized");
-}
+let helmet: any;
+let Sentry: any;
+let createProxyMiddleware: any;
 
 const app = express();
 app.set('trust proxy', 1);
@@ -400,7 +386,7 @@ function setupErrorHandler(app: express.Application) {
     const status = error.status || error.statusCode || 500;
     const message = error.message || "Internal Server Error";
 
-    if (process.env.SENTRY_DSN && status >= 500) {
+    if (process.env.SENTRY_DSN && Sentry && status >= 500) {
       Sentry.captureException(err);
     }
 
@@ -412,14 +398,69 @@ function setupErrorHandler(app: express.Application) {
   });
 }
 
-(async () => {
-  app.get("/health", (_req: Request, res: Response) => {
-    res.status(200).json({ status: "ok" });
-  });
+app.get("/health", (_req: Request, res: Response) => {
+  res.status(200).json({ status: "ok" });
+});
 
-  app.get("/status", (_req: Request, res: Response) => {
-    res.status(200).json({ status: "ok" });
-  });
+app.get("/status", (_req: Request, res: Response) => {
+  res.status(200).json({ status: "ok" });
+});
+
+app.use((req: Request, res: Response, next: NextFunction) => {
+  if ((app as any)._fullyInitialized) {
+    return next();
+  }
+  if (req.path === "/health" || req.path === "/status") {
+    return next();
+  }
+  if (req.path === "/") {
+    return res.status(200).send("<html><body><h1>Glow Up Sports</h1><p>Server is starting...</p></body></html>");
+  }
+  res.status(503).json({ error: "Server is starting up, please try again in a moment" });
+});
+
+const port = parseInt(process.env.PORT || "5000", 10);
+const httpServer = require("http").createServer(app);
+
+httpServer.listen(
+  {
+    port,
+    host: "0.0.0.0",
+    reusePort: true,
+  },
+  () => {
+    log(`express server serving on port ${port}`);
+    log(`[Health] Server ready to accept health checks`);
+
+    initializeFullServer(httpServer).catch((error) => {
+      console.error("[Server] Full initialization failed:", error);
+    });
+  },
+);
+
+async function initializeFullServer(server: any) {
+  helmet = (await import("helmet")).default;
+  const proxyModule = await import("http-proxy-middleware");
+  createProxyMiddleware = proxyModule.createProxyMiddleware;
+
+  try {
+    Sentry = await import("@sentry/node");
+    if (process.env.SENTRY_DSN) {
+      Sentry.init({
+        dsn: process.env.SENTRY_DSN,
+        environment: process.env.NODE_ENV || "development",
+        tracesSampleRate: 0.2,
+        beforeSend(event: any) {
+          if (process.env.NODE_ENV === "development") return null;
+          return event;
+        },
+      });
+      log("[Sentry] Server-side error tracking initialized");
+    }
+  } catch (err) {
+    console.error("[Server] Sentry initialization failed (non-fatal):", err);
+    Sentry = null;
+  }
 
   setupSecurityHeaders(app);
   setupCors(app);
@@ -429,53 +470,45 @@ function setupErrorHandler(app: express.Application) {
   setupExpoDevProxy(app);
   configureExpoAndLanding(app);
 
-  const server = await registerRoutes(app);
+  const { registerRoutes } = await import("./routes");
+  await registerRoutes(app, server);
 
   setupErrorHandler(app);
+  (app as any)._fullyInitialized = true;
+  log("[Server] Full initialization complete");
 
-  const port = parseInt(process.env.PORT || "5000", 10);
-  server.listen(
-    {
-      port,
-      host: "0.0.0.0",
-      reusePort: true,
-    },
-    () => {
-      log(`express server serving on port ${port}`);
+  const { startReminderScheduler, startDailyTipScheduler, startAutoSessionCompletionScheduler, startMonthlyReportScheduler, startDailyScheduleNotifier, startCreditExpiryReminderScheduler } = await import("./pushNotifications");
+
+  startReminderScheduler();
+  startDailyTipScheduler();
+  startAutoSessionCompletionScheduler();
+  startMonthlyReportScheduler();
+  startDailyScheduleNotifier();
+  startCreditExpiryReminderScheduler();
+
+  setTimeout(async () => {
+    try {
+      const { repairAllPlayerCredits, auditAllPlayerCredits, repairGroupSessionTypes, cleanupGhostSessions } = await import("./storage");
       
-      startReminderScheduler();
-      startDailyTipScheduler();
-      startAutoSessionCompletionScheduler();
-      startMonthlyReportScheduler();
-      startDailyScheduleNotifier();
-      startCreditExpiryReminderScheduler();
-
-      setTimeout(async () => {
-        try {
-          const { repairAllPlayerCredits, auditAllPlayerCredits, repairGroupSessionTypes } = await import("./storage");
-          
-          log("[RepairGroupTypes] Fixing group sessions wrongly converted...");
-          const groupResult = await repairGroupSessionTypes();
-          log(`[RepairGroupTypes] Complete: ${groupResult.fixed} fixed, ${groupResult.errors.length} errors`);
-          
-          try {
-            const { cleanupGhostSessions } = await import("./storage");
-            const ghostResult = await cleanupGhostSessions();
-            log(`[GhostCleanup] Cancelled ${ghostResult.cancelled} ghost sessions from ended/deleted series`);
-          } catch (err) {
-            console.error("[GhostCleanup] Failed:", err);
-          }
-          
-          log("[StartupRepair] Running bulk credit repair...");
-          const result = await repairAllPlayerCredits();
-          log(`[StartupRepair] Complete: ${result.processed} processed, ${result.consumed} consumed, ${result.debts} debts, ${result.errors} errors`);
-          
-          log("[CreditAudit] Running ghost credit audit for ALL players...");
-          await auditAllPlayerCredits();
-        } catch (error) {
-          console.error("[StartupRepair] Failed:", error);
-        }
-      }, 10000);
-    },
-  );
-})();
+      log("[RepairGroupTypes] Fixing group sessions wrongly converted...");
+      const groupResult = await repairGroupSessionTypes();
+      log(`[RepairGroupTypes] Complete: ${groupResult.fixed} fixed, ${groupResult.errors.length} errors`);
+      
+      try {
+        const ghostResult = await cleanupGhostSessions();
+        log(`[GhostCleanup] Cancelled ${ghostResult.cancelled} ghost sessions from ended/deleted series`);
+      } catch (err) {
+        console.error("[GhostCleanup] Failed:", err);
+      }
+      
+      log("[StartupRepair] Running bulk credit repair...");
+      const result = await repairAllPlayerCredits();
+      log(`[StartupRepair] Complete: ${result.processed} processed, ${result.consumed} consumed, ${result.debts} debts, ${result.errors} errors`);
+      
+      log("[CreditAudit] Running ghost credit audit for ALL players...");
+      await auditAllPlayerCredits();
+    } catch (error) {
+      console.error("[StartupRepair] Failed:", error);
+    }
+  }, 15000);
+}
