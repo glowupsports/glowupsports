@@ -74519,15 +74519,15 @@ app.get("/health", (_req, res) => {
 app.get("/status", (_req, res) => {
   res.status(200).json({ status: "ok" });
 });
+app.get("/", (_req, res, next) => {
+  if (!app._fullyInitialized) {
+    return res.status(200).send("<html><body><h1>Glow Up Sports</h1><p>Server is running.</p></body></html>");
+  }
+  next();
+});
 app.use((req2, res, next) => {
   if (app._fullyInitialized) {
     return next();
-  }
-  if (req2.path === "/health" || req2.path === "/status") {
-    return next();
-  }
-  if (req2.path === "/") {
-    return res.status(200).send("<html><body><h1>Glow Up Sports</h1><p>Server is starting...</p></body></html>");
   }
   res.status(503).json({ error: "Server is starting up, please try again in a moment" });
 });
@@ -74542,15 +74542,22 @@ httpServer.listen(
   () => {
     log(`express server serving on port ${port}`);
     log(`[Health] Server ready to accept health checks`);
-    initializeFullServer(httpServer).catch((error) => {
-      console.error("[Server] Full initialization failed:", error);
-    });
+    initializeFullServer(httpServer);
   }
 );
 async function initializeFullServer(server) {
-  helmet = (await import("helmet")).default;
-  const proxyModule = await import("http-proxy-middleware");
-  createProxyMiddleware = proxyModule.createProxyMiddleware;
+  try {
+    helmet = (await import("helmet")).default;
+  } catch (err) {
+    log("[Server] Helmet load failed (non-fatal), using no-op");
+    helmet = () => (_req, _res, next) => next();
+  }
+  try {
+    const proxyModule = await import("http-proxy-middleware");
+    createProxyMiddleware = proxyModule.createProxyMiddleware;
+  } catch (err) {
+    log("[Server] http-proxy-middleware load failed (non-fatal)");
+  }
   try {
     Sentry = await import("@sentry/node");
     if (process.env.SENTRY_DSN) {
@@ -74569,24 +74576,32 @@ async function initializeFullServer(server) {
     console.error("[Server] Sentry initialization failed (non-fatal):", err);
     Sentry = null;
   }
-  setupSecurityHeaders(app);
-  setupCors(app);
-  setupBodyParsing(app);
-  setupRequestLogging(app);
-  setupExpoDevProxy(app);
-  configureExpoAndLanding(app);
-  const { registerRoutes: registerRoutes2 } = await Promise.resolve().then(() => (init_routes(), routes_exports));
-  await registerRoutes2(app, server);
-  setupErrorHandler(app);
+  try {
+    setupSecurityHeaders(app);
+    setupCors(app);
+    setupBodyParsing(app);
+    setupRequestLogging(app);
+    setupExpoDevProxy(app);
+    configureExpoAndLanding(app);
+    const { registerRoutes: registerRoutes2 } = await Promise.resolve().then(() => (init_routes(), routes_exports));
+    await registerRoutes2(app, server);
+    setupErrorHandler(app);
+  } catch (err) {
+    console.error("[Server] Route registration failed:", err);
+  }
   app._fullyInitialized = true;
   log("[Server] Full initialization complete");
-  const { startReminderScheduler: startReminderScheduler2, startDailyTipScheduler: startDailyTipScheduler2, startAutoSessionCompletionScheduler: startAutoSessionCompletionScheduler2, startMonthlyReportScheduler: startMonthlyReportScheduler2, startDailyScheduleNotifier: startDailyScheduleNotifier2, startCreditExpiryReminderScheduler: startCreditExpiryReminderScheduler2 } = await Promise.resolve().then(() => (init_pushNotifications(), pushNotifications_exports));
-  startReminderScheduler2();
-  startDailyTipScheduler2();
-  startAutoSessionCompletionScheduler2();
-  startMonthlyReportScheduler2();
-  startDailyScheduleNotifier2();
-  startCreditExpiryReminderScheduler2();
+  try {
+    const { startReminderScheduler: startReminderScheduler2, startDailyTipScheduler: startDailyTipScheduler2, startAutoSessionCompletionScheduler: startAutoSessionCompletionScheduler2, startMonthlyReportScheduler: startMonthlyReportScheduler2, startDailyScheduleNotifier: startDailyScheduleNotifier2, startCreditExpiryReminderScheduler: startCreditExpiryReminderScheduler2 } = await Promise.resolve().then(() => (init_pushNotifications(), pushNotifications_exports));
+    startReminderScheduler2();
+    startDailyTipScheduler2();
+    startAutoSessionCompletionScheduler2();
+    startMonthlyReportScheduler2();
+    startDailyScheduleNotifier2();
+    startCreditExpiryReminderScheduler2();
+  } catch (err) {
+    console.error("[Server] Scheduler startup failed (non-fatal):", err);
+  }
   setTimeout(async () => {
     try {
       const { repairAllPlayerCredits: repairAllPlayerCredits2, auditAllPlayerCredits: auditAllPlayerCredits2, repairGroupSessionTypes: repairGroupSessionTypes2, cleanupGhostSessions: cleanupGhostSessions2 } = await Promise.resolve().then(() => (init_storage(), storage_exports));
@@ -74607,5 +74622,5 @@ async function initializeFullServer(server) {
     } catch (error) {
       console.error("[StartupRepair] Failed:", error);
     }
-  }, 15e3);
+  }, 3e4);
 }

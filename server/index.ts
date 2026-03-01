@@ -407,15 +407,16 @@ app.get("/status", (_req: Request, res: Response) => {
   res.status(200).json({ status: "ok" });
 });
 
+app.get("/", (_req: Request, res: Response, next: NextFunction) => {
+  if (!(app as any)._fullyInitialized) {
+    return res.status(200).send("<html><body><h1>Glow Up Sports</h1><p>Server is running.</p></body></html>");
+  }
+  next();
+});
+
 app.use((req: Request, res: Response, next: NextFunction) => {
   if ((app as any)._fullyInitialized) {
     return next();
-  }
-  if (req.path === "/health" || req.path === "/status") {
-    return next();
-  }
-  if (req.path === "/") {
-    return res.status(200).send("<html><body><h1>Glow Up Sports</h1><p>Server is starting...</p></body></html>");
   }
   res.status(503).json({ error: "Server is starting up, please try again in a moment" });
 });
@@ -433,16 +434,24 @@ httpServer.listen(
     log(`express server serving on port ${port}`);
     log(`[Health] Server ready to accept health checks`);
 
-    initializeFullServer(httpServer).catch((error) => {
-      console.error("[Server] Full initialization failed:", error);
-    });
+    initializeFullServer(httpServer);
   },
 );
 
 async function initializeFullServer(server: any) {
-  helmet = (await import("helmet")).default;
-  const proxyModule = await import("http-proxy-middleware");
-  createProxyMiddleware = proxyModule.createProxyMiddleware;
+  try {
+    helmet = (await import("helmet")).default;
+  } catch (err) {
+    log("[Server] Helmet load failed (non-fatal), using no-op");
+    helmet = () => (_req: any, _res: any, next: any) => next();
+  }
+
+  try {
+    const proxyModule = await import("http-proxy-middleware");
+    createProxyMiddleware = proxyModule.createProxyMiddleware;
+  } catch (err) {
+    log("[Server] http-proxy-middleware load failed (non-fatal)");
+  }
 
   try {
     Sentry = await import("@sentry/node");
@@ -463,29 +472,38 @@ async function initializeFullServer(server: any) {
     Sentry = null;
   }
 
-  setupSecurityHeaders(app);
-  setupCors(app);
-  setupBodyParsing(app);
-  setupRequestLogging(app);
+  try {
+    setupSecurityHeaders(app);
+    setupCors(app);
+    setupBodyParsing(app);
+    setupRequestLogging(app);
 
-  setupExpoDevProxy(app);
-  configureExpoAndLanding(app);
+    setupExpoDevProxy(app);
+    configureExpoAndLanding(app);
 
-  const { registerRoutes } = await import("./routes");
-  await registerRoutes(app, server);
+    const { registerRoutes } = await import("./routes");
+    await registerRoutes(app, server);
 
-  setupErrorHandler(app);
+    setupErrorHandler(app);
+  } catch (err) {
+    console.error("[Server] Route registration failed:", err);
+  }
+
   (app as any)._fullyInitialized = true;
   log("[Server] Full initialization complete");
 
-  const { startReminderScheduler, startDailyTipScheduler, startAutoSessionCompletionScheduler, startMonthlyReportScheduler, startDailyScheduleNotifier, startCreditExpiryReminderScheduler } = await import("./pushNotifications");
+  try {
+    const { startReminderScheduler, startDailyTipScheduler, startAutoSessionCompletionScheduler, startMonthlyReportScheduler, startDailyScheduleNotifier, startCreditExpiryReminderScheduler } = await import("./pushNotifications");
 
-  startReminderScheduler();
-  startDailyTipScheduler();
-  startAutoSessionCompletionScheduler();
-  startMonthlyReportScheduler();
-  startDailyScheduleNotifier();
-  startCreditExpiryReminderScheduler();
+    startReminderScheduler();
+    startDailyTipScheduler();
+    startAutoSessionCompletionScheduler();
+    startMonthlyReportScheduler();
+    startDailyScheduleNotifier();
+    startCreditExpiryReminderScheduler();
+  } catch (err) {
+    console.error("[Server] Scheduler startup failed (non-fatal):", err);
+  }
 
   setTimeout(async () => {
     try {
@@ -511,5 +529,5 @@ async function initializeFullServer(server: any) {
     } catch (error) {
       console.error("[StartupRepair] Failed:", error);
     }
-  }, 15000);
+  }, 30000);
 }
