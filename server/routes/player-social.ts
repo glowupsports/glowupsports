@@ -2363,7 +2363,7 @@ router.get("/api/admin/dashboard/operations", authMiddleware, requireRole("admin
         quickStats: {
           todayPlayers: Math.min(todaySessions.length * 3, players.length),
           todayCoaches: coaches.filter((c: any) => c.isActive !== false).length,
-          attendanceRate: todaySessions.length > 0 ? Math.round((completedToday.length / todaySessions.length) * 100) : 0,
+          attendanceRate: (() => { const nonCancelled = todaySessions.filter((s: any) => s.status !== "cancelled"); return nonCancelled.length > 0 ? Math.round((completedToday.length / nonCancelled.length) * 100) : 0; })(),
           completedSessions: completedToday.length,
         },
       });

@@ -9008,7 +9008,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
         const recentSessions = playerSessions.filter((ps) => {
           const sessionDate = new Date(ps.session.date);
-          return sessionDate >= threeMonthsAgo && sessionDate <= now;
+          return sessionDate >= threeMonthsAgo && sessionDate <= now && ps.session.status !== "cancelled" && ps.playerRecord.attendanceStatus !== "cancelled";
         });
 
         const attendedSessionsAll = sessions.filter(
@@ -9361,15 +9361,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
           records.length,
         );
 
-        const presentCount = records.filter(
+        const nonCancelledRecords = records.filter((r) => r.status !== "cancelled");
+        const presentCount = nonCancelledRecords.filter(
           (r) => r.status === "present",
         ).length;
-        const absentCount = records.filter((r) => r.status === "absent").length;
+        const absentCount = nonCancelledRecords.filter((r) => r.status === "absent").length;
 
-        // Calculate per-series attendance summaries
         const seriesSummaries = uniqueSeriesIds
           .map((seriesId) => {
-            const seriesRecords = records.filter(
+            const seriesRecords = nonCancelledRecords.filter(
               (r) => r.seriesId === seriesId,
             );
             const seriesPresent = seriesRecords.filter(
@@ -9409,12 +9409,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
             ballLevel: player?.ballLevel || undefined,
           },
           summary: {
-            totalSessions: records.length,
+            totalSessions: nonCancelledRecords.length,
             presentCount,
             absentCount,
             attendanceRate:
-              records.length > 0
-                ? Math.round((presentCount / records.length) * 100)
+              nonCancelledRecords.length > 0
+                ? Math.round((presentCount / nonCancelledRecords.length) * 100)
                 : 0,
           },
           records,
@@ -9960,10 +9960,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
           };
         });
 
-        // Calculate per-series summaries for the header display
+        const nonCancelledHistory = history.filter((r) => r.status !== "cancelled");
         const seriesSummaries = uniqueSeriesIds
           .map((seriesId) => {
-            const seriesRecords = history.filter(
+            const seriesRecords = nonCancelledHistory.filter(
               (r) => r.seriesId === seriesId,
             );
             const presentCount = seriesRecords.filter(
@@ -18473,6 +18473,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             name: academy?.name || "Academy",
             email: settings?.contactEmail || undefined,
             phone: settings?.contactPhone || undefined,
+            vatRegistrationNumber: (settings as any)?.vatRegistrationNumber || undefined,
           },
           player: {
             name: player?.name || "Customer",
@@ -19681,7 +19682,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const thirtyDaysAgo = new Date(now);
         thirtyDaysAgo.setDate(now.getDate() - 30);
         const recentSessions = allSessions.filter(
-          (s: any) => new Date(s.startTime) >= thirtyDaysAgo,
+          (s: any) => new Date(s.startTime) >= thirtyDaysAgo && s.status !== "cancelled",
         );
         const completedSessions = recentSessions.filter(
           (s: any) => s.status === "completed",

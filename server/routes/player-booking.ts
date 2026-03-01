@@ -1954,6 +1954,7 @@ function toDubaiTime(utcDate: Date): Date {
           name: academy?.name || 'Academy',
           email: settings?.contactEmail || undefined,
           phone: settings?.contactPhone || undefined,
+          vatRegistrationNumber: (settings as any)?.vatRegistrationNumber || undefined,
         },
         player: {
           name: player?.name || 'Customer',

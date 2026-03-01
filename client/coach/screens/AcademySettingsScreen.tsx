@@ -45,6 +45,7 @@ interface AcademySettings {
   contactPhone: string | null;
   address: string | null;
   websiteUrl: string | null;
+  vatRegistrationNumber: string | null;
 }
 
 interface AcademyInvite {
@@ -128,6 +129,7 @@ export default function AcademySettingsScreen() {
     paymentInstructions: "",
     acceptsCash: true,
     acceptsBankTransfer: true,
+    vatRegistrationNumber: "",
   });
   const [hasChanges, setHasChanges] = useState(false);
 
@@ -216,6 +218,7 @@ export default function AcademySettingsScreen() {
         paymentInstructions: (settings as any).paymentInstructions || "",
         acceptsCash: (settings as any).acceptsCash !== false,
         acceptsBankTransfer: (settings as any).acceptsBankTransfer !== false,
+        vatRegistrationNumber: (settings as any).vatRegistrationNumber || "",
       });
       setHasChanges(false);
     }
@@ -260,6 +263,7 @@ export default function AcademySettingsScreen() {
       paymentInstructions: formData.paymentInstructions || null,
       acceptsCash: formData.acceptsCash,
       acceptsBankTransfer: formData.acceptsBankTransfer,
+      vatRegistrationNumber: formData.vatRegistrationNumber || null,
     } as any);
   };
 
@@ -518,6 +522,20 @@ export default function AcademySettingsScreen() {
             placeholderTextColor={Colors.dark.textMuted}
             keyboardType="decimal-pad"
           />
+        </View>
+
+        <View style={styles.inputGroup}>
+          <Text style={styles.label}>VAT Registration Number (TRN)</Text>
+          <TextInput
+            style={styles.input}
+            value={formData.vatRegistrationNumber}
+            onChangeText={(text) => updateField("vatRegistrationNumber", text)}
+            placeholder="e.g. 100123456700003"
+            placeholderTextColor={Colors.dark.textMuted}
+          />
+          <Text style={{ color: Colors.dark.textMuted, fontSize: 12, marginTop: 4 }}>
+            If empty, invoices will show "Supplier is not VAT registered"
+          </Text>
         </View>
 
         <View style={styles.inputGroup}>

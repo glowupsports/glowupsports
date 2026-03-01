@@ -1594,7 +1594,7 @@ function requirePlayerOrOwner(req: AuthenticatedRequest, res: Response, next: Ne
       
       const thirtyDaysAgo = new Date(now);
       thirtyDaysAgo.setDate(now.getDate() - 30);
-      const recentSessions = allSessions.filter((s: any) => new Date(s.startTime) >= thirtyDaysAgo);
+      const recentSessions = allSessions.filter((s: any) => new Date(s.startTime) >= thirtyDaysAgo && s.status !== "cancelled");
       const completedSessions = recentSessions.filter((s: any) => s.status === "completed");
       const attendanceRate = recentSessions.length > 0 
         ? Math.round((completedSessions.length / recentSessions.length) * 100) 
@@ -1741,7 +1741,7 @@ function requirePlayerOrOwner(req: AuthenticatedRequest, res: Response, next: Ne
 
       const recentSessions = allSessions.filter((s: any) => {
         const sessionDate = new Date(s.startTime);
-        return sessionDate >= thirtyDaysAgo && sessionDate <= now;
+        return sessionDate >= thirtyDaysAgo && sessionDate <= now && s.status !== "cancelled";
       });
 
       const completedSessions = recentSessions.filter((s: any) => s.status === "completed");
@@ -2152,7 +2152,7 @@ function requirePlayerOrOwner(req: AuthenticatedRequest, res: Response, next: Ne
       const sessions = await storage.getPlayerSessionsWithDetails(playerId, farPast, farFuture);
       const recentSessions = sessions.filter((s: any) => {
         const sessionDate = new Date(s.startTime);
-        return sessionDate >= thirtyDaysAgo;
+        return sessionDate >= thirtyDaysAgo && s.status !== "cancelled" && s.attendanceStatus !== "cancelled";
       });
 
       const attendedSessionsAll = sessions.filter((s: any) => 

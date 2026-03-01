@@ -76,6 +76,12 @@ When a parent is managing a child's account via the Family Lobby, `user?.playerI
 ### Credit System Debt Settlement Guard
 `settlePlayerDebts()` in `server/storage.ts` requires `isNotNull(creditTransactions.sessionId)` to prevent orphan debt transactions (no session_id) from being settled and consuming package credits. Orphan debts can be created by repair scripts or race conditions. Only debts tied to real sessions should be settled.
 
+### Attendance Rate Calculation
+Cancelled sessions are ALWAYS excluded from attendance rate denominators. When filtering `recentSessions` or similar, always add `s.status !== "cancelled"` (for session-level data) and/or `s.attendanceStatus !== "cancelled"` (for player-level session records). This applies to all attendance rate calculations in `server/routes.ts`, `server/routes/admin-series.ts`, and `server/routes/player-social.ts`.
+
+### Invoice VAT Registration Notice
+Invoices show either "TRN: [number]" or "Supplier is not VAT registered" based on the `vatRegistrationNumber` field in `academy_settings` table. Configurable via Academy Settings screen under Billing section. Both client-side PDF (`CreateInvoiceModal.tsx`) and server-side HTML (`invoicePdf.ts`) templates include this notice.
+
 ## External Dependencies
 
 - **Database**: Supabase PostgreSQL (via Drizzle ORM). IMPORTANT: `pool` is exported from `server/db.ts` for raw SQL queries. Use `pool.query()` with `$1` params instead of Drizzle's `db.execute(sql`...`)` for timestamp/array comparisons, as Drizzle template literals have issues with `::timestamp` casts and `ANY($1::text[])` array params. The Replit built-in DB (`heliumdb`) is separate from the Supabase DB (`postgres`) used by the app.

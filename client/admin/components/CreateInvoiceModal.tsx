@@ -92,6 +92,7 @@ const generateInvoicePDF = (invoice: {
   academyAddress?: string;
   academyEmail?: string;
   academyPhone?: string;
+  vatRegistrationNumber?: string;
   bankName?: string;
   bankAccountNumber?: string;
   bankIban?: string;
@@ -350,6 +351,7 @@ const generateInvoicePDF = (invoice: {
             <p class="contact-info">${invoice.academyAddress || "Dubai, UAE"}<br/>
             ${invoice.academyEmail || "info@glowuptennis.com"}<br/>
             ${invoice.academyPhone || ""}</p>
+            <p class="contact-info" style="margin-top: 8px; font-style: italic;">${invoice.vatRegistrationNumber ? `TRN: ${invoice.vatRegistrationNumber}` : "Supplier is not VAT registered"}</p>
           </div>
           <div class="invoice-badge">
             <h2>Invoice</h2>
@@ -716,10 +718,14 @@ export default function CreateInvoiceModal({
   const insets = useSafeAreaInsets();
   const queryClient = useQueryClient();
   
-  // Fetch academy data with bank details if not provided
   const { data: fetchedAcademy } = useQuery<AcademyInfo>({
     queryKey: ["/api/admin/academy"],
     enabled: visible && !academyProp,
+  });
+  
+  const { data: academySettings } = useQuery<{ vatRegistrationNumber?: string }>({
+    queryKey: ["/api/academy/settings"],
+    enabled: visible,
   });
   
   const academy = academyProp || fetchedAcademy;
@@ -862,6 +868,7 @@ export default function CreateInvoiceModal({
         academyAddress: academy?.address,
         academyEmail: academy?.email,
         academyPhone: academy?.phone,
+        vatRegistrationNumber: (academySettings as any)?.vatRegistrationNumber || undefined,
         bankName: academy?.bankName,
         bankAccountNumber: academy?.bankAccountNumber,
         bankIban: academy?.bankIban,

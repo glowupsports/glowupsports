@@ -2407,6 +2407,8 @@ export const academySettings = pgTable("academy_settings", {
   // Onboarding Welcome Video
   welcomeVideoUrl: text("welcome_video_url"), // YouTube or custom video URL for player onboarding
   
+  vatRegistrationNumber: text("vat_registration_number"),
+  
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
