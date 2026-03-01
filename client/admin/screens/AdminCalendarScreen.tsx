@@ -60,6 +60,17 @@ const COACH_COLORS = [
 export default function AdminCalendarScreen() {
   const insets = useSafeAreaInsets();
   const queryClient = useQueryClient();
+
+  const { data: sessions = [], isLoading: sessionsLoading } = useQuery<Session[]>({
+    queryKey: ["/api/sessions"],
+  });
+  const { data: coaches = [] } = useQuery<Coach[]>({
+    queryKey: ["/api/coaches"],
+  });
+  const { data: courts = [] } = useQuery<Court[]>({
+    queryKey: ["/api/courts"],
+  });
+
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [viewMode, setViewMode] = useState<"day" | "week">("day");
   const [gridMode, setGridMode] = useState<"coach" | "court">("coach");
