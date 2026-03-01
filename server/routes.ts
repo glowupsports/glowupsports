@@ -11392,6 +11392,53 @@ export async function registerRoutes(app: Express): Promise<Server> {
           .where(and(eq(sessions.seriesId, id), eq(sessions.coachId, coachId)))
           .orderBy(asc(sessions.startTime));
 
+        // Auto-heal: ensure all active series players are enrolled in every session
+        if (seriesSessions.length > 0 && playerIds.length > 0) {
+          const activePlayerIds = seriesPlayersList
+            .filter((sp) => sp.status === "active")
+            .map((sp) => sp.playerId);
+
+          if (activePlayerIds.length > 0) {
+            try {
+              const sessionIds = seriesSessions.map((s) => s.id);
+              const existingEnrollments = await db
+                .select({
+                  sessionId: sessionPlayers.sessionId,
+                  playerId: sessionPlayers.playerId,
+                })
+                .from(sessionPlayers)
+                .where(inArray(sessionPlayers.sessionId, sessionIds));
+
+              const enrolledSet = new Set(
+                existingEnrollments.map((e) => `${e.sessionId}:${e.playerId}`),
+              );
+
+              let healed = 0;
+              for (const session of seriesSessions) {
+                if (session.status === "cancelled" || session.status === "skipped") continue;
+                for (const playerId of activePlayerIds) {
+                  const key = `${session.id}:${playerId}`;
+                  if (!enrolledSet.has(key)) {
+                    const joinedAt = seriesPlayersList.find((sp) => sp.playerId === playerId)?.joinedAt;
+                    if (joinedAt && new Date(session.startTime) < new Date(joinedAt)) continue;
+                    await storage.addPlayerToSession({
+                      sessionId: session.id,
+                      playerId,
+                      attendanceStatus: null,
+                    });
+                    healed++;
+                  }
+                }
+              }
+              if (healed > 0) {
+                console.log(`[Series Auto-Heal] Fixed ${healed} missing session_players for series ${id}`);
+              }
+            } catch (healErr) {
+              console.error("[Series Auto-Heal] Error:", healErr);
+            }
+          }
+        }
+
         // Get location name if applicable
         let locationName = null;
         if (series.locationId) {

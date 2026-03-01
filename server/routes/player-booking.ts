@@ -1,5 +1,5 @@
 import { Router, Request, Response, NextFunction } from "express";
-import { db } from "../db";
+import { db, pool } from "../db";
 import { storage } from "../storage";
 import {
   players, coaches, users, sessions, packages, coachingSeries, seriesPlayers,
@@ -2774,27 +2774,53 @@ function toDubaiTime(utcDate: Date): Date {
       }
       timeSlots.push("22:00");
 
-      const allSessions = academyId ? await storage.getSessionsByAcademy(academyId) : [];
       const dateStr = date as string;
-
       const coachIdToCheck = (req.query.coachId as string) || req.user!.coachId;
+
+      // Get academy timezone for proper date filtering
+      let academyTimezone = "Asia/Dubai";
+      if (academyId) {
+        try {
+          const academy = await storage.getAcademy(academyId);
+          if (academy?.timezone) academyTimezone = academy.timezone;
+        } catch {}
+      }
+
+      // Use SQL with AT TIME ZONE to correctly filter sessions by local date
+      const dateSessionsResult = academyId ? await pool.query(`
+        SELECT id, start_time, end_time, court_id, coach_id, duration
+        FROM sessions
+        WHERE academy_id = $1
+          AND status != 'cancelled'
+          AND (start_time AT TIME ZONE 'UTC' AT TIME ZONE $2)::date = $3::date
+      `, [academyId, academyTimezone, dateStr]) : { rows: [] };
 
       const dateSessionsMap = new Map<string, Set<string>>();
       const coachBusySlots = new Set<string>();
 
-      for (const session of allSessions) {
-        if (session.status === "cancelled") continue;
-        const sessionDateUTC = new Date(session.startTime);
-        const sessionDateDubai = toDubaiTime(sessionDateUTC);
-        const sessionDateStr = sessionDateDubai.toISOString().split('T')[0];
-        if (sessionDateStr !== dateStr) continue;
+      for (const session of dateSessionsResult.rows) {
+        // Extract local time components using Intl formatter
+        const startUTC = new Date(session.start_time);
+        const localParts = new Intl.DateTimeFormat('en-GB', {
+          timeZone: academyTimezone,
+          hour: '2-digit', minute: '2-digit', hour12: false,
+        }).formatToParts(startUTC);
+        const startH = parseInt(localParts.find((p: any) => p.type === 'hour')?.value || '0');
+        const startM = parseInt(localParts.find((p: any) => p.type === 'minute')?.value || '0');
 
-        const startH = sessionDateDubai.getUTCHours();
-        const startM = sessionDateDubai.getUTCMinutes();
-        const endDateDubai = session.endTime ? toDubaiTime(new Date(session.endTime)) : null;
-        const endTotalMins = endDateDubai
-          ? endDateDubai.getUTCHours() * 60 + endDateDubai.getUTCMinutes()
-          : startH * 60 + startM + 60;
+        let endTotalMins: number;
+        if (session.end_time) {
+          const endUTC = new Date(session.end_time);
+          const endParts = new Intl.DateTimeFormat('en-GB', {
+            timeZone: academyTimezone,
+            hour: '2-digit', minute: '2-digit', hour12: false,
+          }).formatToParts(endUTC);
+          const endH = parseInt(endParts.find((p: any) => p.type === 'hour')?.value || '0');
+          const endM = parseInt(endParts.find((p: any) => p.type === 'minute')?.value || '0');
+          endTotalMins = endH * 60 + endM;
+        } else {
+          endTotalMins = startH * 60 + startM + (session.duration || 60);
+        }
 
         const sessionSlots: string[] = [];
         let m = startH * 60 + startM;
@@ -2805,16 +2831,16 @@ function toDubaiTime(utcDate: Date): Date {
           m += 30;
         }
 
-        if (session.courtId) {
-          if (!dateSessionsMap.has(session.courtId)) {
-            dateSessionsMap.set(session.courtId, new Set());
+        if (session.court_id) {
+          if (!dateSessionsMap.has(session.court_id)) {
+            dateSessionsMap.set(session.court_id, new Set());
           }
           for (const slot of sessionSlots) {
-            dateSessionsMap.get(session.courtId)!.add(slot);
+            dateSessionsMap.get(session.court_id)!.add(slot);
           }
         }
 
-        if (coachIdToCheck && session.coachId === coachIdToCheck) {
+        if (coachIdToCheck && session.coach_id === coachIdToCheck) {
           for (const slot of sessionSlots) {
             coachBusySlots.add(slot);
           }

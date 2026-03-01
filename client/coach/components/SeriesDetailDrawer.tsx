@@ -1078,7 +1078,8 @@ export default function SeriesDetailDrawer({
   });
   
   // Fetch sessions for selected court and date to show busy slots
-  const dateStr = extraLessonDate.toISOString().split('T')[0];
+  // Use local date components to avoid UTC date shift (e.g. user picks Jan 2 in Dubai but toISOString gives Jan 1 UTC)
+  const dateStr = `${extraLessonDate.getFullYear()}-${String(extraLessonDate.getMonth() + 1).padStart(2, '0')}-${String(extraLessonDate.getDate()).padStart(2, '0')}`;
   const { data: courtAvailabilityData, isLoading: loadingAvailability } = useQuery<{
     courts: any[];
     slots: Array<{ courtId: string; courtName: string; time: string; available: boolean }>;
