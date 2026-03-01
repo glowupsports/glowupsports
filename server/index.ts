@@ -2,6 +2,7 @@ import express from "express";
 import type { Request, Response, NextFunction } from "express";
 import * as fs from "fs";
 import * as path from "path";
+import { createServer } from "http";
 
 let helmet: any;
 let Sentry: any;
@@ -420,7 +421,7 @@ app.use((req: Request, res: Response, next: NextFunction) => {
 });
 
 const port = parseInt(process.env.PORT || "5000", 10);
-const httpServer = require("http").createServer(app);
+const httpServer = createServer(app);
 
 httpServer.listen(
   {

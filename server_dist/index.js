@@ -74207,6 +74207,7 @@ var init_routes = __esm({
 import express2 from "express";
 import * as fs5 from "fs";
 import * as path5 from "path";
+import { createServer as createServer2 } from "http";
 var helmet;
 var Sentry;
 var createProxyMiddleware;
@@ -74529,7 +74530,7 @@ app.use((req2, res, next) => {
   res.status(503).json({ error: "Server is starting up, please try again in a moment" });
 });
 var port = parseInt(process.env.PORT || "5000", 10);
-var httpServer = __require("http").createServer(app);
+var httpServer = createServer2(app);
 httpServer.listen(
   {
     port,
