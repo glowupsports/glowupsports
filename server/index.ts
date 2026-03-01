@@ -16,9 +16,11 @@ const httpServer = createServer((req: IncomingMessage, res: ServerResponse) => {
 httpServer.listen({ port, host: "0.0.0.0", reusePort: true }, () => {
   log(`express server serving on port ${port}`);
   log(`[Health] Server ready for health checks`);
-  bootstrapFullServer().catch((err) => {
-    console.error("[Server] Bootstrap failed:", err);
-  });
+  setTimeout(() => {
+    bootstrapFullServer().catch((err) => {
+      console.error("[Server] Bootstrap failed:", err);
+    });
+  }, 100);
 });
 
 async function bootstrapFullServer() {
