@@ -407,6 +407,14 @@ function setupErrorHandler(app: express.Application) {
 }
 
 (async () => {
+  app.get("/health", (_req: Request, res: Response) => {
+    res.status(200).json({ status: "ok" });
+  });
+
+  app.get("/status", (_req: Request, res: Response) => {
+    res.status(200).json({ status: "ok" });
+  });
+
   setupSecurityHeaders(app);
   setupCors(app);
   setupBodyParsing(app);
@@ -426,7 +434,7 @@ function setupErrorHandler(app: express.Application) {
       host: "0.0.0.0",
       reusePort: true,
     },
-    async () => {
+    () => {
       log(`express server serving on port ${port}`);
       
       startReminderScheduler();
@@ -435,36 +443,33 @@ function setupErrorHandler(app: express.Application) {
       startMonthlyReportScheduler();
       startDailyScheduleNotifier();
       startCreditExpiryReminderScheduler();
-      // Onboarding email scheduler DISABLED - was sending duplicate emails on every server restart
-      
-      // Run bulk credit repair on startup to fix any missing charges
-      try {
-        const { repairAllPlayerCredits, auditAllPlayerCredits, repairGroupSessionTypes, cancelDebtsForPlayersWithNoPackages } = await import("./storage");
-        
-        log("[RepairGroupTypes] Fixing group sessions wrongly converted...");
-        const groupResult = await repairGroupSessionTypes();
-        log(`[RepairGroupTypes] Complete: ${groupResult.fixed} fixed, ${groupResult.errors.length} errors`);
-        
-        // Cleanup ghost sessions from ended/deleted series
+
+      setTimeout(async () => {
         try {
-          const { cleanupGhostSessions } = await import("./storage");
-          const ghostResult = await cleanupGhostSessions();
-          log(`[GhostCleanup] Cancelled ${ghostResult.cancelled} ghost sessions from ended/deleted series`);
-        } catch (err) {
-          console.error("[GhostCleanup] Failed:", err);
+          const { repairAllPlayerCredits, auditAllPlayerCredits, repairGroupSessionTypes } = await import("./storage");
+          
+          log("[RepairGroupTypes] Fixing group sessions wrongly converted...");
+          const groupResult = await repairGroupSessionTypes();
+          log(`[RepairGroupTypes] Complete: ${groupResult.fixed} fixed, ${groupResult.errors.length} errors`);
+          
+          try {
+            const { cleanupGhostSessions } = await import("./storage");
+            const ghostResult = await cleanupGhostSessions();
+            log(`[GhostCleanup] Cancelled ${ghostResult.cancelled} ghost sessions from ended/deleted series`);
+          } catch (err) {
+            console.error("[GhostCleanup] Failed:", err);
+          }
+          
+          log("[StartupRepair] Running bulk credit repair...");
+          const result = await repairAllPlayerCredits();
+          log(`[StartupRepair] Complete: ${result.processed} processed, ${result.consumed} consumed, ${result.debts} debts, ${result.errors} errors`);
+          
+          log("[CreditAudit] Running ghost credit audit for ALL players...");
+          await auditAllPlayerCredits();
+        } catch (error) {
+          console.error("[StartupRepair] Failed:", error);
         }
-        
-        log("[StartupRepair] Running bulk credit repair...");
-        const result = await repairAllPlayerCredits();
-        log(`[StartupRepair] Complete: ${result.processed} processed, ${result.consumed} consumed, ${result.debts} debts, ${result.errors} errors`);
-        
-        log("[CreditAudit] Running ghost credit audit for ALL players...");
-        await auditAllPlayerCredits();
-        
-        // NOTE: cancelDebtsForPlayersWithNoPackages REMOVED - debts are valid even without packages
-      } catch (error) {
-        console.error("[StartupRepair] Failed:", error);
-      }
+      }, 10000);
     },
   );
 })();
