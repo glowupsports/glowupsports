@@ -73,6 +73,9 @@ SessionHeroCard is on the "Home" tab. To navigate to screens in other tab stacks
 ### Family/Parent Active Player Override
 When a parent is managing a child's account via the Family Lobby, `user?.playerId` still returns the parent's ID. Always use `getEffectivePlayerId(user?.playerId)` from `@/lib/query-client` to get the correct active player ID. This applies to ALL player-specific API calls and data filtering.
 
+### Credit System Debt Settlement Guard
+`settlePlayerDebts()` in `server/storage.ts` requires `isNotNull(creditTransactions.sessionId)` to prevent orphan debt transactions (no session_id) from being settled and consuming package credits. Orphan debts can be created by repair scripts or race conditions. Only debts tied to real sessions should be settled.
+
 ## External Dependencies
 
 - **Database**: Supabase PostgreSQL (via Drizzle ORM). IMPORTANT: `pool` is exported from `server/db.ts` for raw SQL queries. Use `pool.query()` with `$1` params instead of Drizzle's `db.execute(sql`...`)` for timestamp/array comparisons, as Drizzle template literals have issues with `::timestamp` casts and `ANY($1::text[])` array params. The Replit built-in DB (`heliumdb`) is separate from the Supabase DB (`postgres`) used by the app.

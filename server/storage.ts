@@ -6734,6 +6734,7 @@ export const storage = {
           eq(creditTransactions.reason, "session_join_debt"),
           eq(creditTransactions.reason, "session_unpaid")
         ),
+        isNotNull(creditTransactions.sessionId),
         inArray(creditTransactions.creditType, matchingCreditTypes),
         sql`(${creditTransactions.metadata}->>'cancelled')::boolean IS NOT TRUE`,
         sql`(${creditTransactions.metadata}->>'settled')::boolean IS NOT TRUE`,

@@ -175,11 +175,11 @@ function DraggableSessionBlock({ session, top, height, isPast, isActive, gradien
               <PulsingDot />
             </View>
           ) : null}
-          <Text style={{ color: '#fff', fontSize: 10, fontWeight: '700', lineHeight: 12 }} numberOfLines={height > 40 ? 2 : 1}>
+          <Text style={{ color: '#000', fontSize: 10, fontWeight: '700', lineHeight: 12 }} numberOfLines={height > 40 ? 2 : 1}>
             {sessionLabel}
           </Text>
           {height > 30 ? (
-            <Text style={{ color: 'rgba(255,255,255,0.7)', fontSize: 9 }} numberOfLines={1}>
+            <Text style={{ color: 'rgba(0,0,0,0.6)', fontSize: 9 }} numberOfLines={1}>
               {formattedTime}
             </Text>
           ) : null}
@@ -265,11 +265,11 @@ function WeekDraggableSessionBlock({ session, top, height, isPast, isActive, gra
               <PulsingDot />
             </View>
           ) : null}
-          <Text style={{ color: '#fff', fontSize: 8, fontWeight: '600' }} numberOfLines={1}>
+          <Text style={{ color: '#000', fontSize: 8, fontWeight: '600' }} numberOfLines={1}>
             {sessionLabel}
           </Text>
           {height > 24 ? (
-            <Text style={{ color: 'rgba(255,255,255,0.7)', fontSize: 7 }} numberOfLines={1}>
+            <Text style={{ color: 'rgba(0,0,0,0.6)', fontSize: 7 }} numberOfLines={1}>
               {formattedTime}
             </Text>
           ) : null}
@@ -3699,6 +3699,8 @@ const styles = StyleSheet.create({
   dateDisplayCompact: {
     flexDirection: "row",
     alignItems: "center",
+    justifyContent: "center",
+    minWidth: 160,
     paddingHorizontal: 8,
     paddingVertical: 4,
     gap: 6,
