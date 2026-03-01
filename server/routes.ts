@@ -412,7 +412,7 @@ function toDubaiTime(utcDate: Date): Date {
   return new Date(utcTime + dubaiOffset * 60 * 1000);
 }
 
-export async function registerRoutes(app: Express, existingServer?: Server): Promise<Server> {
+export async function registerRoutes(app: Express): Promise<Server> {
   // Initialize storage for fresh user data fetching in auth middleware
   setFreshUserStorage(storage);
 
@@ -27174,7 +27174,7 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
     }
   });
 
-  const httpServer = existingServer || createServer(app);
+  const httpServer = createServer(app);
 
   setupWebSocket(httpServer);
   console.log("WebSocket server initialized on /ws");
