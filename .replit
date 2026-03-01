@@ -7,7 +7,7 @@ packages = ["imagemagick"]
 
 [deployment]
 deploymentTarget = "vm"
-build = ["sh", "-c", "npm run expo:static:build && npm run server:build"]
+build = ["sh", "-c", "npm run expo:static:build && esbuild server/index.ts --platform=node --packages=external --bundle --format=cjs --outdir=server_dist"]
 run = ["npm", "run", "server:prod"]
 
 [[ports]]
