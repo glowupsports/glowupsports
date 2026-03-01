@@ -300,7 +300,7 @@ export default function SeriesDetailDrawer({
   useEffect(() => {
     if (activeTab === "timeline" && series?.sessions?.length) {
       const now = new Date();
-      const sortedSessions = [...series.sessions].sort(
+      const sortedSessions = [...(series.sessions || [])].sort(
         (a, b) => new Date(b.startTime).getTime() - new Date(a.startTime).getTime()
       );
       
@@ -742,7 +742,7 @@ export default function SeriesDetailDrawer({
     const joinDateOnly = toDateOnly(joinDate);
     const now = new Date();
     
-    return series.sessions.filter(s => {
+    return (series?.sessions || []).filter(s => {
       const sessionDate = new Date(s.startTime);
       const sessionDateOnly = toDateOnly(sessionDate);
       return sessionDateOnly >= joinDateOnly && sessionDate < now && s.status === "completed";
@@ -1772,7 +1772,7 @@ export default function SeriesDetailDrawer({
   const renderTimelineTab = () => {
     if (!series) return null;
 
-    const sortedSessions = [...series.sessions].sort(
+    const sortedSessions = [...(series.sessions || [])].sort(
       (a, b) => new Date(b.startTime).getTime() - new Date(a.startTime).getTime()
     );
     
@@ -2781,7 +2781,7 @@ export default function SeriesDetailDrawer({
                   </View>
                   {selectedSession ? (
                     <Text style={styles.attendanceModalDate}>
-                      {formatDate(selectedSession.startTime)} - Week {selectedSession.weekNumber || ([...series.sessions].sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime()).findIndex(s => s.id === selectedSession.id) + 1)}
+                      {formatDate(selectedSession.startTime)} - Week {selectedSession.weekNumber || ([...(series?.sessions || [])].sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime()).findIndex(s => s.id === selectedSession.id) + 1)}
                     </Text>
                   ) : null}
                 </View>
@@ -3128,7 +3128,7 @@ export default function SeriesDetailDrawer({
                       {formatDate(selectedSession.startTime)}
                     </Text>
                     <Text style={styles.restoreSessionWeek}>
-                      Week {selectedSession.weekNumber || ([...series.sessions].sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime()).findIndex(s => s.id === selectedSession.id) + 1)}
+                      Week {selectedSession.weekNumber || ([...(series?.sessions || [])].sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime()).findIndex(s => s.id === selectedSession.id) + 1)}
                     </Text>
                   </LinearGradient>
                 </View>
