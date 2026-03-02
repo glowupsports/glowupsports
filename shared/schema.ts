@@ -3845,7 +3845,11 @@ export const playerQuests = pgTable("player_quests", {
   expiresAt: timestamp("expires_at"), // For daily/weekly resets
   
   // For streak tracking
-  streakDay: integer("streak_day").default(1), // Which day of streak (for consecutive quests)
+  streakDay: integer("streak_day").default(1),
+  
+  // Evidence (photo/video proof)
+  evidenceUrl: text("evidence_url"),
+  evidenceType: text("evidence_type"), // image | video
   
   // Rewards snapshot (in case template changes)
   xpReward: integer("xp_reward"),
@@ -3890,6 +3894,26 @@ export const dailyQuestSlots = pgTable("daily_quest_slots", {
 export const insertDailyQuestSlotSchema = createInsertSchema(dailyQuestSlots).omit({ id: true, createdAt: true });
 export type InsertDailyQuestSlot = z.infer<typeof insertDailyQuestSlotSchema>;
 export type DailyQuestSlot = typeof dailyQuestSlots.$inferSelect;
+
+// Player Streaks - Track daily quest completion streaks
+export const playerStreaks = pgTable("player_streaks", {
+  id: varchar("id")
+    .primaryKey()
+    .default(sql`gen_random_uuid()`),
+  playerId: varchar("player_id").references(() => players.id).notNull(),
+  currentStreak: integer("current_streak").default(0),
+  longestStreak: integer("longest_streak").default(0),
+  lastActiveDate: date("last_active_date"),
+  streakShields: integer("streak_shields").default(0),
+  totalDaysActive: integer("total_days_active").default(0),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("player_streaks_player_idx").on(table.playerId),
+]);
+
+export const insertPlayerStreakSchema = createInsertSchema(playerStreaks).omit({ id: true, updatedAt: true });
+export type InsertPlayerStreak = z.infer<typeof insertPlayerStreakSchema>;
+export type PlayerStreak = typeof playerStreaks.$inferSelect;
 
 // ==================== GLOW MARKET / SHOP ====================
 

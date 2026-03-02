@@ -20,7 +20,7 @@ import { usePlayerDrawer } from "@/player/context/PlayerDrawerContext";
 import { usePlayer } from "@/player/context/PlayerContext";
 import { BirthdayCelebrationModal, shouldShowBirthdayCelebration } from "@/player/components/BirthdayCelebrationModal";
 import { BirthdayConfettiOverlay, BirthdayBanner, BirthdayXPBonusCard } from "@/player/components/BirthdayThemeOverlay";
-import { useMissionControl, useAssignDailyQuests, useClaimQuestReward } from "@/player/hooks/useQuests";
+import { useMissionControl, useAssignDailyQuests, useClaimQuestReward, useQuests } from "@/player/hooks/useQuests";
 import { apiRequest, getApiUrl, getStaticAssetsUrl } from "@/lib/query-client";
 import Animated, { FadeIn, FadeOut, SlideInUp, useSharedValue, useAnimatedStyle, withSpring, withSequence, withTiming, withRepeat } from "react-native-reanimated";
 import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollViewCompat";
@@ -894,6 +894,7 @@ export default function PlayerHomeScreen() {
   
   // Mission Control hooks (only fetch when player dashboard is active)
   const { data: missionControlData } = useMissionControl(canAccessPlayerMode && showPlayerDashboard);
+  const { data: questsData } = useQuests();
   const assignDailyQuests = useAssignDailyQuests();
   const claimQuestReward = useClaimQuestReward();
   
@@ -1346,6 +1347,8 @@ export default function PlayerHomeScreen() {
           quests={missionControlData?.quests?.today || []}
           completedCount={missionControlData?.quests?.completedCount || 0}
           totalCount={missionControlData?.quests?.totalCount || 0}
+          streak={questsData?.streak?.currentStreak || 0}
+          streakMultiplier={questsData?.streak?.multiplier || 1}
           onClaimReward={(quest) => claimQuestReward.mutate(quest.id)}
           onViewAll={() => navigation.navigate("PlayerTabs", { screen: "Progress", params: { screen: "Quests" } })}
         />

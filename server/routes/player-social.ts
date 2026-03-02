@@ -1,4 +1,7 @@
 import { Router, Request, Response, NextFunction } from "express";
+import multer from "multer";
+import path from "path";
+import fs from "fs";
 import rateLimit from "express-rate-limit";
 import { db } from "../db";
 import { storage } from "../storage";
@@ -7,6 +10,7 @@ import {
   questTemplates as questTemplatesTable,
   playerQuests as playerQuestsTable,
   dailyQuestSlots as dailyQuestSlotsTable,
+  playerStreaks as playerStreaksTable,
   badges as badgesTable,
   playerBadges as playerBadgesTable,
   titles as titlesTable,
@@ -87,64 +91,70 @@ router.get("/api/quests", authMiddleware, async (req: AuthRequest, res: Response
       
       const today = new Date().toISOString().split('T')[0];
       
-      // Get player's active quests with template info
       const activeQuests = await db.select({
         quest: playerQuestsTable,
         template: questTemplatesTable,
       })
       .from(playerQuestsTable)
       .innerJoin(questTemplatesTable, eq(playerQuestsTable.questTemplateId, questTemplatesTable.id))
-      
-          .where(and(
+      .where(and(
         eq(playerQuestsTable.playerId, playerId),
-        inArray(playerQuestsTable.status, ["active", "completed"])
+        inArray(playerQuestsTable.status, ["active", "completed", "claimed"])
       ))
       .orderBy(asc(questTemplatesTable.order));
       
-      // Get today's quest slots
       const [dailySlot] = await db.select()
         .from(dailyQuestSlotsTable)
-        
-          .where(and(
+        .where(and(
           eq(dailyQuestSlotsTable.playerId, playerId),
           eq(dailyQuestSlotsTable.slotDate, today)
         ));
       
-      // Group by type
+      const [streak] = await db.select()
+        .from(playerStreaksTable)
+        .where(eq(playerStreaksTable.playerId, playerId));
+      
       const dailyQuests = activeQuests.filter(q => q.template.questType === "daily");
       const weeklyQuests = activeQuests.filter(q => q.template.questType === "weekly");
+      const monthlyQuests = activeQuests.filter(q => q.template.questType === "monthly");
+      
+      const mapQuest = (q: typeof activeQuests[0]) => ({
+        id: q.quest.id,
+        name: q.template.name,
+        description: q.template.description,
+        iconName: q.template.iconName,
+        iconColor: q.template.iconColor,
+        difficulty: q.template.difficulty,
+        category: q.template.category,
+        currentProgress: q.quest.currentProgress || 0,
+        targetProgress: q.quest.targetProgress,
+        status: q.quest.status,
+        xpReward: q.quest.xpReward || q.template.xpReward,
+        currencyReward: q.quest.currencyReward || q.template.currencyReward,
+        expiresAt: q.quest.expiresAt,
+        evidenceUrl: q.quest.evidenceUrl,
+        evidenceType: q.quest.evidenceType,
+      });
+      
+      const currentStreak = streak?.currentStreak || 0;
+      let multiplier = 1;
+      if (currentStreak >= 30) multiplier = 3;
+      else if (currentStreak >= 14) multiplier = 2.5;
+      else if (currentStreak >= 7) multiplier = 2;
+      else if (currentStreak >= 3) multiplier = 1.5;
       
       res.json({
-        daily: dailyQuests.map(q => ({
-          id: q.quest.id,
-          name: q.template.name,
-          description: q.template.description,
-          iconName: q.template.iconName,
-          iconColor: q.template.iconColor,
-          difficulty: q.template.difficulty,
-          category: q.template.category,
-          currentProgress: q.quest.currentProgress || 0,
-          targetProgress: q.quest.targetProgress,
-          status: q.quest.status,
-          xpReward: q.quest.xpReward || q.template.xpReward,
-          currencyReward: q.quest.currencyReward || q.template.currencyReward,
-          expiresAt: q.quest.expiresAt,
-        })),
-        weekly: weeklyQuests.map(q => ({
-          id: q.quest.id,
-          name: q.template.name,
-          description: q.template.description,
-          iconName: q.template.iconName,
-          iconColor: q.template.iconColor,
-          difficulty: q.template.difficulty,
-          category: q.template.category,
-          currentProgress: q.quest.currentProgress || 0,
-          targetProgress: q.quest.targetProgress,
-          status: q.quest.status,
-          xpReward: q.quest.xpReward || q.template.xpReward,
-          currencyReward: q.quest.currencyReward || q.template.currencyReward,
-          expiresAt: q.quest.expiresAt,
-        })),
+        daily: dailyQuests.map(mapQuest),
+        weekly: weeklyQuests.map(mapQuest),
+        monthly: monthlyQuests.map(mapQuest),
+        streak: {
+          currentStreak,
+          longestStreak: streak?.longestStreak || 0,
+          multiplier,
+          lastActiveDate: streak?.lastActiveDate || null,
+          streakShields: streak?.streakShields || 0,
+          totalDaysActive: streak?.totalDaysActive || 0,
+        },
         dailySlot: dailySlot ? {
           completedCount: dailySlot.completedCount,
           allCompleted: dailySlot.allCompleted,
@@ -184,11 +194,9 @@ router.post("/api/quests/assign-daily", authMiddleware, async (req: AuthRequest,
         return res.json({ message: "Daily quests already assigned", alreadyAssigned: true });
       }
       
-      // Get available daily quest templates
-      const templates = await db.select()
+      const allDailyTemplates = await db.select()
         .from(questTemplatesTable)
-        
-          .where(and(
+        .where(and(
           eq(questTemplatesTable.questType, "daily"),
           eq(questTemplatesTable.isActive, true),
           or(
@@ -196,8 +204,10 @@ router.post("/api/quests/assign-daily", authMiddleware, async (req: AuthRequest,
             eq(questTemplatesTable.academyId, academyId || "")
           )
         ))
-        .orderBy(asc(questTemplatesTable.order))
-        .limit(3);
+        .orderBy(asc(questTemplatesTable.order));
+      
+      const shuffled = allDailyTemplates.sort(() => Math.random() - 0.5);
+      const templates = shuffled.slice(0, 3);
       
       if (templates.length === 0) {
         return res.json({ message: "No quest templates available", quests: [] });
@@ -276,11 +286,9 @@ router.post("/api/quests/assign-weekly", authMiddleware, async (req: AuthRequest
         return res.json({ message: "Weekly quests already assigned", alreadyAssigned: true });
       }
       
-      // Get available weekly quest templates
-      const templates = await db.select()
+      const allWeeklyTemplates = await db.select()
         .from(questTemplatesTable)
-        
-          .where(and(
+        .where(and(
           eq(questTemplatesTable.questType, "weekly"),
           eq(questTemplatesTable.isActive, true),
           or(
@@ -288,8 +296,10 @@ router.post("/api/quests/assign-weekly", authMiddleware, async (req: AuthRequest
             eq(questTemplatesTable.academyId, academyId || "")
           )
         ))
-        .orderBy(asc(questTemplatesTable.order))
-        .limit(3);
+        .orderBy(asc(questTemplatesTable.order));
+      
+      const shuffledWeekly = allWeeklyTemplates.sort(() => Math.random() - 0.5);
+      const templates = shuffledWeekly.slice(0, 3);
       
       if (templates.length === 0) {
         return res.json({ message: "No weekly quest templates available", quests: [] });
@@ -316,6 +326,75 @@ router.post("/api/quests/assign-weekly", authMiddleware, async (req: AuthRequest
     } catch (error) {
       console.error("Error assigning weekly quests:", error);
       res.status(500).json({ error: "Failed to assign weekly quests" });
+    }
+  });
+
+  // Assign monthly quests to player
+router.post("/api/quests/assign-monthly", authMiddleware, async (req: AuthRequest, res: Response) => {
+    try {
+      const playerId = req.user!.playerId;
+      const academyId = req.user!.academyId;
+      
+      if (!playerId) {
+        return res.status(400).json({ error: "Player context required" });
+      }
+      
+      const now = new Date();
+      const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+      const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
+      
+      const existingMonthlyQuests = await db.select()
+        .from(playerQuestsTable)
+        .innerJoin(questTemplatesTable, eq(playerQuestsTable.questTemplateId, questTemplatesTable.id))
+        .where(and(
+          eq(playerQuestsTable.playerId, playerId),
+          eq(questTemplatesTable.questType, "monthly"),
+          gte(playerQuestsTable.expiresAt, now)
+        ));
+      
+      if (existingMonthlyQuests.length > 0) {
+        return res.json({ message: "Monthly quests already assigned", alreadyAssigned: true });
+      }
+      
+      const allMonthlyTemplates = await db.select()
+        .from(questTemplatesTable)
+        .where(and(
+          eq(questTemplatesTable.questType, "monthly"),
+          eq(questTemplatesTable.isActive, true),
+          or(
+            isNull(questTemplatesTable.academyId),
+            eq(questTemplatesTable.academyId, academyId || "")
+          )
+        ))
+        .orderBy(asc(questTemplatesTable.order));
+      
+      const shuffledMonthly = allMonthlyTemplates.sort(() => Math.random() - 0.5);
+      const templates = shuffledMonthly.slice(0, 3);
+      
+      if (templates.length === 0) {
+        return res.json({ message: "No monthly quest templates available", quests: [] });
+      }
+      
+      const createdQuests = [];
+      for (const template of templates) {
+        const [quest] = await db.insert(playerQuestsTable).values({
+          playerId,
+          questTemplateId: template.id,
+          targetProgress: template.targetCount,
+          xpReward: template.xpReward,
+          currencyReward: template.currencyReward,
+          expiresAt: monthEnd,
+        }).returning();
+        createdQuests.push(quest);
+      }
+      
+      res.status(201).json({ 
+        message: "Monthly quests assigned", 
+        questCount: createdQuests.length,
+      });
+    } catch (error) {
+      console.error("Error assigning monthly quests:", error);
+      res.status(500).json({ error: "Failed to assign monthly quests" });
     }
   });
 
@@ -409,15 +488,13 @@ router.post("/api/quests/:id/claim", authMiddleware, async (req: AuthRequest, re
         return res.status(400).json({ error: "Player context required" });
       }
       
-      // Get quest
       const [quest] = await db.select({
         quest: playerQuestsTable,
         template: questTemplatesTable,
       })
       .from(playerQuestsTable)
       .innerJoin(questTemplatesTable, eq(playerQuestsTable.questTemplateId, questTemplatesTable.id))
-      
-          .where(and(
+      .where(and(
         eq(playerQuestsTable.id, id),
         eq(playerQuestsTable.playerId, playerId)
       ));
@@ -434,7 +511,6 @@ router.post("/api/quests/:id/claim", authMiddleware, async (req: AuthRequest, re
         return res.status(400).json({ error: "Reward already claimed" });
       }
       
-      // Mark as claimed
       await db.update(playerQuestsTable)
         .set({
           status: "claimed",
@@ -442,22 +518,158 @@ router.post("/api/quests/:id/claim", authMiddleware, async (req: AuthRequest, re
         })
         .where(eq(playerQuestsTable.id, id));
       
-      // Award XP to player
-      const xpReward = quest.quest.xpReward || quest.template.xpReward || 0;
+      const [streak] = await db.select()
+        .from(playerStreaksTable)
+        .where(eq(playerStreaksTable.playerId, playerId));
+      
+      const currentStreak = streak?.currentStreak || 0;
+      let multiplier = 1;
+      if (currentStreak >= 30) multiplier = 3;
+      else if (currentStreak >= 14) multiplier = 2.5;
+      else if (currentStreak >= 7) multiplier = 2;
+      else if (currentStreak >= 3) multiplier = 1.5;
+      
+      const baseXp = quest.quest.xpReward || quest.template.xpReward || 0;
+      const xpReward = Math.round(baseXp * multiplier);
       if (xpReward > 0) {
         await db.update(players)
           .set({ xp: sql`COALESCE(xp, 0) + ${xpReward}` })
           .where(eq(players.id, playerId));
       }
       
+      const today = new Date().toISOString().split('T')[0];
+      if (streak) {
+        const lastActive = streak.lastActiveDate;
+        const yesterday = new Date();
+        yesterday.setDate(yesterday.getDate() - 1);
+        const yesterdayStr = yesterday.toISOString().split('T')[0];
+        
+        let newStreak = streak.currentStreak || 0;
+        if (lastActive !== today) {
+          if (lastActive === yesterdayStr) {
+            newStreak += 1;
+          } else if (lastActive && lastActive < yesterdayStr) {
+            if ((streak.streakShields || 0) > 0) {
+              newStreak += 1;
+              await db.update(playerStreaksTable)
+                .set({ streakShields: sql`streak_shields - 1` })
+                .where(eq(playerStreaksTable.playerId, playerId));
+            } else {
+              newStreak = 1;
+            }
+          } else if (!lastActive) {
+            newStreak = 1;
+          }
+          
+          await db.update(playerStreaksTable)
+            .set({
+              currentStreak: newStreak,
+              longestStreak: sql`GREATEST(longest_streak, ${newStreak})`,
+              lastActiveDate: today,
+              totalDaysActive: sql`total_days_active + 1`,
+              updatedAt: new Date(),
+            })
+            .where(eq(playerStreaksTable.playerId, playerId));
+        }
+      } else {
+        await db.insert(playerStreaksTable).values({
+          playerId,
+          currentStreak: 1,
+          longestStreak: 1,
+          lastActiveDate: today,
+          totalDaysActive: 1,
+        });
+      }
+      
       res.json({
         success: true,
         xpAwarded: xpReward,
+        baseXp,
+        multiplier,
         currencyAwarded: quest.quest.currencyReward || quest.template.currencyReward || 0,
       });
     } catch (error) {
       console.error("Error claiming quest reward:", error);
       res.status(500).json({ error: "Failed to claim quest reward" });
+    }
+  });
+
+  // Upload quest evidence (photo/video proof)
+  const evidenceDir = path.join(process.cwd(), "uploads", "quest-evidence");
+  if (!fs.existsSync(evidenceDir)) {
+    fs.mkdirSync(evidenceDir, { recursive: true });
+  }
+  const evidenceUpload = multer({
+    storage: multer.diskStorage({
+      destination: evidenceDir,
+      filename: (_req, file, cb) => {
+        const ext = path.extname(file.originalname);
+        cb(null, `evidence-${Date.now()}-${Math.random().toString(36).slice(2)}${ext}`);
+      },
+    }),
+    limits: { fileSize: 25 * 1024 * 1024 },
+  });
+
+router.post("/api/quests/:id/evidence", authMiddleware, evidenceUpload.single("file"), async (req: AuthRequest, res: Response) => {
+    try {
+      const { id } = req.params;
+      const playerId = req.user!.playerId;
+      
+      if (!playerId) {
+        return res.status(400).json({ error: "Player context required" });
+      }
+      
+      if (!req.file) {
+        return res.status(400).json({ error: "No file uploaded" });
+      }
+      
+      const [quest] = await db.select({
+        quest: playerQuestsTable,
+        template: questTemplatesTable,
+      })
+      .from(playerQuestsTable)
+      .innerJoin(questTemplatesTable, eq(playerQuestsTable.questTemplateId, questTemplatesTable.id))
+      .where(and(
+        eq(playerQuestsTable.id, id),
+        eq(playerQuestsTable.playerId, playerId)
+      ));
+      
+      if (!quest) {
+        return res.status(404).json({ error: "Quest not found" });
+      }
+      
+      const evidenceUrl = `/uploads/quest-evidence/${req.file.filename}`;
+      const evidenceType = req.file.mimetype.startsWith("video") ? "video" : "image";
+      
+      await db.update(playerQuestsTable)
+        .set({ evidenceUrl, evidenceType })
+        .where(eq(playerQuestsTable.id, id));
+      
+      try {
+        const userId = req.user!.userId;
+        const academyId = req.user!.academyId;
+        if (userId && academyId) {
+          await db.insert(postsTable).values({
+            authorId: userId,
+            academyId,
+            contextType: "achievement",
+            caption: `Quest Proof: ${quest.template.name}`,
+            mediaUrls: [evidenceUrl],
+            mediaTypes: [evidenceType],
+          });
+        }
+      } catch (postErr) {
+        console.error("Failed to create social post for quest evidence:", postErr);
+      }
+      
+      res.json({
+        success: true,
+        evidenceUrl,
+        evidenceType,
+      });
+    } catch (error) {
+      console.error("Error uploading quest evidence:", error);
+      res.status(500).json({ error: "Failed to upload evidence" });
     }
   });
 

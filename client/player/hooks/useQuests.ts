@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { apiRequest } from "@/lib/query-client";
+import { apiRequest, getApiUrl } from "@/lib/query-client";
 
 export interface Quest {
   id: string;
@@ -15,11 +15,24 @@ export interface Quest {
   xpReward: number;
   currencyReward?: number;
   expiresAt?: string;
+  evidenceUrl?: string;
+  evidenceType?: string;
+}
+
+export interface StreakData {
+  currentStreak: number;
+  longestStreak: number;
+  multiplier: number;
+  lastActiveDate: string | null;
+  streakShields: number;
+  totalDaysActive: number;
 }
 
 export interface QuestsData {
   daily: Quest[];
   weekly: Quest[];
+  monthly: Quest[];
+  streak: StreakData;
   dailySlot: {
     completedCount: number;
     allCompleted: boolean;
@@ -95,6 +108,20 @@ export function useAssignWeeklyQuests() {
   });
 }
 
+export function useAssignMonthlyQuests() {
+  const queryClient = useQueryClient();
+  
+  return useMutation({
+    mutationFn: async () => {
+      return apiRequest("POST", "/api/quests/assign-monthly");
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/quests"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/player/mission-control"] });
+    },
+  });
+}
+
 export function useUpdateQuestProgress() {
   const queryClient = useQueryClient();
   
@@ -120,6 +147,49 @@ export function useClaimQuestReward() {
       queryClient.invalidateQueries({ queryKey: ["/api/quests"] });
       queryClient.invalidateQueries({ queryKey: ["/api/player/mission-control"] });
       queryClient.invalidateQueries({ queryKey: ["/api/player/me/dashboard"] });
+    },
+  });
+}
+
+export function useUploadQuestEvidence() {
+  const queryClient = useQueryClient();
+  
+  return useMutation({
+    mutationFn: async ({ questId, fileUri, fileName, mimeType }: { 
+      questId: string; 
+      fileUri: string; 
+      fileName: string;
+      mimeType: string;
+    }) => {
+      const formData = new FormData();
+      const { Platform } = await import("react-native");
+      
+      if (Platform.OS === "web") {
+        const response = await fetch(fileUri);
+        const blob = await response.blob();
+        formData.append("file", blob, fileName);
+      } else {
+        const { File } = await import("expo-file-system");
+        const file = new File(fileUri);
+        formData.append("file", file);
+      }
+      
+      const url = new URL(`/api/quests/${questId}/evidence`, getApiUrl());
+      const fetchResponse = await fetch(url.toString(), {
+        method: "POST",
+        body: formData,
+        headers: {
+          "Authorization": `Bearer ${(globalThis as any).__authToken || ""}`,
+        },
+      });
+      
+      if (!fetchResponse.ok) {
+        throw new Error("Failed to upload evidence");
+      }
+      return fetchResponse.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/quests"] });
     },
   });
 }
