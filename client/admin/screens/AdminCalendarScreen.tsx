@@ -274,8 +274,8 @@ export default function AdminCalendarScreen() {
   const courtLaneWidth = Math.max(80, (SCREEN_WIDTH - TIME_COLUMN_WIDTH - Spacing.lg * 2) / Math.max(courts.length, 1));
 
   const now = new Date();
-  const isToday = selectedDate.toDateString() === now.toDateString();
-  const showTimeIndicator = isToday && now.getHours() >= START_HOUR && now.getHours() <= END_HOUR;
+  const isTodaySelected = selectedDate.toDateString() === now.toDateString();
+  const showTimeIndicator = isTodaySelected && now.getHours() >= START_HOUR && now.getHours() <= END_HOUR;
   const currentTimePosition = (now.getHours() - START_HOUR + now.getMinutes() / 60) * HOUR_HEIGHT;
 
   const renderDayView = () => (
