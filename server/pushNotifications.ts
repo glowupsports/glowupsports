@@ -1736,7 +1736,7 @@ async function processDailyScheduleNotifications(): Promise<void> {
       todayEnd.setHours(23, 59, 59, 999);
 
       const sessionsResult = await pool.query(`
-        SELECT s.id, s.session_type, s.start_time, s.court_name,
+        SELECT s.id, s.session_type, s.start_time,
                (SELECT COUNT(*) FROM session_players sp WHERE sp.session_id = s.id AND sp.status != 'cancelled') as player_count
         FROM sessions s
         WHERE s.coach_id = $1
