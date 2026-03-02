@@ -25938,7 +25938,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           return res.status(400).json({ error: "Academy ID required" });
         }
 
-        const { name, locationId, color, isActive, pricePerHour } = req.body;
+        const { name, locationId, color, isActive, bookingEnabled, pricePerHour } = req.body;
         if (!name || !name.trim()) {
           return res.status(400).json({ error: "Court name is required" });
         }
@@ -25960,6 +25960,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           locationId: locationId || null,
           color: color || "#2ECC40",
           isActive: isActive !== false,
+          bookingEnabled: bookingEnabled !== false,
           ...(pricePerHour ? { pricePerHour: String(pricePerHour) } : {}),
         });
 
@@ -25999,7 +26000,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           return res.status(404).json({ error: "Court not found" });
         }
 
-        const { name, locationId, color, isActive, pricePerHour } = req.body;
+        const { name, locationId, color, isActive, bookingEnabled, pricePerHour } = req.body;
 
         const updatedCourt = await storage.updateCourt(
           id,
@@ -26010,6 +26011,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
             color: color !== undefined ? color : existingCourt.color,
             isActive:
               isActive !== undefined ? isActive : existingCourt.isActive,
+            bookingEnabled:
+              bookingEnabled !== undefined ? bookingEnabled : existingCourt.bookingEnabled,
             pricePerHour:
               pricePerHour !== undefined ? (pricePerHour ? String(pricePerHour) : null) : existingCourt.pricePerHour,
           },
@@ -26584,9 +26587,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const { playerId } = req.params;
         const viewerId = req.user?.playerId;
 
+        console.log("[PublicProfile] Fetching profile for playerId:", playerId, "viewer:", viewerId);
+
         // Get player basic info
         const player = await storage.getPlayer(playerId);
         if (!player) {
+          console.log("[PublicProfile] Player not found for id:", playerId);
           return res.status(404).json({ error: "Player not found" });
         }
 
@@ -26752,7 +26758,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
         res.json(profile);
       } catch (error) {
-        console.error("Get public player profile error:", error);
+        const { playerId } = req.params;
+        console.error("[PublicProfile] Error for playerId:", playerId, error);
         res.status(500).json({ error: "Failed to get player profile" });
       }
     },

@@ -126,7 +126,7 @@ export type PlayStackParamList = {
 export type ScheduleStackParamList = {
   ScheduleMain: undefined;
   CourtBooking: undefined;
-  CourtDetail: { courtId: string; date: string };
+  CourtDetail: { courtId: string; date: string; time?: string };
   MyCourtBookings: undefined;
   QuickBook: undefined;
   Match: { opponentId?: string } | undefined;

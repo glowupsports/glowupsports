@@ -60,6 +60,7 @@ interface CourtDetails {
     name: string;
     address?: string;
   };
+  bookingEnabled?: boolean;
   canBook: boolean;
   availability: Array<{
     id: string;
@@ -181,9 +182,16 @@ export default function CourtDetailScreen() {
   const queryClient = useQueryClient();
   const apiUrl = getApiUrl();
   
-  const { courtId, date } = route.params;
+  const { courtId, date, time: preselectedTime } = route.params as { courtId: string; date: string; time?: string };
   
-  const [selectedSlot, setSelectedSlot] = useState<{ start: string; end: string } | null>(null);
+  const [selectedSlot, setSelectedSlot] = useState<{ start: string; end: string } | null>(() => {
+    if (preselectedTime) {
+      const endHour = parseInt(preselectedTime.split(":")[0]) + 1;
+      const endTime = `${endHour.toString().padStart(2, "0")}:00`;
+      return { start: preselectedTime, end: endTime };
+    }
+    return null;
+  });
   const [showBookingConfirm, setShowBookingConfirm] = useState(false);
   const [showSuccessAnimation, setShowSuccessAnimation] = useState(false);
   const [showSuccessToast, setShowSuccessToast] = useState(false);
@@ -564,7 +572,19 @@ export default function CourtDetailScreen() {
         </Pressable>
       </ScrollView>
 
-      {selectedSlot && court.canBook && (
+      {court.bookingEnabled === false && (
+        <View style={styles.communityOnlyBar}>
+          <View style={styles.communityOnlyContent}>
+            <Ionicons name="people" size={20} color="#FF9500" />
+            <View style={styles.communityOnlyTextWrap}>
+              <Text style={styles.communityOnlyTitle}>Community Only</Text>
+              <Text style={styles.communityOnlySubtitle}>This court is not available for direct booking</Text>
+            </View>
+          </View>
+        </View>
+      )}
+
+      {selectedSlot && court.canBook && court.bookingEnabled !== false && (
         <View style={[styles.bookingBar, { paddingBottom: Spacing.md }]}>
           <LinearGradient
             colors={["rgba(23, 27, 34, 0.98)", "rgba(17, 20, 26, 0.98)"]}
@@ -1237,6 +1257,35 @@ const styles = StyleSheet.create({
     color: "#7C8290",
   },
 
+  communityOnlyBar: {
+    position: "absolute",
+    bottom: 145,
+    left: 0,
+    right: 0,
+    backgroundColor: "rgba(17, 20, 26, 0.98)",
+    borderTopWidth: 1,
+    borderTopColor: "#FF950040",
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.md,
+  },
+  communityOnlyContent: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+  },
+  communityOnlyTextWrap: {
+    flex: 1,
+  },
+  communityOnlyTitle: {
+    fontSize: 15,
+    fontWeight: "700",
+    color: "#FF9500",
+  },
+  communityOnlySubtitle: {
+    fontSize: 12,
+    color: "#7C8290",
+    marginTop: 2,
+  },
   bookingBar: {
     position: "absolute",
     bottom: 145,

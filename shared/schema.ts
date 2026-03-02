@@ -562,6 +562,7 @@ export const courts = pgTable("courts", {
   cancelWindowHours: integer("cancel_window_hours").default(24), // hours before start time
   guestsAllowed: boolean("guests_allowed").default(false),
   requiresApproval: boolean("requires_approval").default(false), // academy must approve booking
+  bookingEnabled: boolean("booking_enabled").default(true), // false = community-only, visible but not bookable
   
   // Operating Hours (JSON for flexibility)
   operatingHours: jsonb("operating_hours").$type<{

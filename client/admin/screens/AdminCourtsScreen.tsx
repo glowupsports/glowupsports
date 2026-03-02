@@ -31,6 +31,7 @@ interface Court {
   name: string;
   color: string;
   isActive: boolean;
+  bookingEnabled?: boolean;
   createdAt: string;
   locationName?: string;
   photoUrl?: string | null;
@@ -69,6 +70,7 @@ export default function AdminCourtsScreen() {
     locationId: "",
     color: "#2ECC40",
     isActive: true,
+    bookingEnabled: true,
     photoUrl: "" as string | null,
     pricePerHour: "",
   });
@@ -233,6 +235,7 @@ export default function AdminCourtsScreen() {
       locationId: activeLocations.length > 0 ? activeLocations[0].id : "",
       color: "#2ECC40",
       isActive: true,
+      bookingEnabled: true,
       photoUrl: null,
       pricePerHour: "",
     });
@@ -248,6 +251,7 @@ export default function AdminCourtsScreen() {
       locationId: formData.locationId || null,
       color: formData.color,
       isActive: formData.isActive,
+      bookingEnabled: formData.bookingEnabled,
       photoUrl: formData.photoUrl || null,
       pricePerHour: formData.pricePerHour ? formData.pricePerHour : null,
     });
@@ -265,6 +269,7 @@ export default function AdminCourtsScreen() {
         locationId: formData.locationId || null,
         color: formData.color,
         isActive: formData.isActive,
+        bookingEnabled: formData.bookingEnabled,
         photoUrl: formData.photoUrl || null,
         pricePerHour: formData.pricePerHour ? formData.pricePerHour : null,
       },
@@ -295,6 +300,7 @@ export default function AdminCourtsScreen() {
       locationId: court.locationId || "",
       color: court.color || "#2ECC40",
       isActive: court.isActive,
+      bookingEnabled: court.bookingEnabled !== false,
       photoUrl: court.photoUrl || null,
       pricePerHour: court.pricePerHour || "",
     });
@@ -529,6 +535,21 @@ export default function AdminCourtsScreen() {
               </Pressable>
 
               <Pressable
+                style={styles.toggleRow}
+                onPress={() => setFormData({ ...formData, bookingEnabled: !formData.bookingEnabled })}
+              >
+                <View>
+                  <Text style={styles.toggleLabel}>Open for Booking</Text>
+                  <Text style={styles.helperText}>
+                    {formData.bookingEnabled ? "Players can book this court" : "Community only - not bookable"}
+                  </Text>
+                </View>
+                <View style={[styles.toggle, formData.bookingEnabled && styles.toggleActive]}>
+                  <View style={[styles.toggleKnob, formData.bookingEnabled && styles.toggleKnobActive]} />
+                </View>
+              </Pressable>
+
+              <Pressable
                 style={[styles.submitButton, createMutation.isPending && styles.submitButtonDisabled]}
                 onPress={handleCreate}
                 disabled={createMutation.isPending}
@@ -672,6 +693,21 @@ export default function AdminCourtsScreen() {
                 <Text style={styles.toggleLabel}>Active</Text>
                 <View style={[styles.toggle, formData.isActive && styles.toggleActive]}>
                   <View style={[styles.toggleKnob, formData.isActive && styles.toggleKnobActive]} />
+                </View>
+              </Pressable>
+
+              <Pressable
+                style={styles.toggleRow}
+                onPress={() => setFormData({ ...formData, bookingEnabled: !formData.bookingEnabled })}
+              >
+                <View>
+                  <Text style={styles.toggleLabel}>Open for Booking</Text>
+                  <Text style={styles.helperText}>
+                    {formData.bookingEnabled ? "Players can book this court" : "Community only - not bookable"}
+                  </Text>
+                </View>
+                <View style={[styles.toggle, formData.bookingEnabled && styles.toggleActive]}>
+                  <View style={[styles.toggleKnob, formData.bookingEnabled && styles.toggleKnobActive]} />
                 </View>
               </Pressable>
 

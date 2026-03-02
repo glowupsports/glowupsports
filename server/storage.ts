@@ -1680,6 +1680,11 @@ export const storage = {
     return result[0];
   },
 
+  async getPlayerById(id: string): Promise<Player | undefined> {
+    const result = await db.select().from(players).where(eq(players.id, id));
+    return result[0];
+  },
+
   async getAllPlayers(academyId?: string): Promise<Player[]> {
     if (academyId) {
       return db.select().from(players).where(eq(players.academyId, academyId));
@@ -9147,8 +9152,9 @@ export const storage = {
     if (result.length === 0) return null;
 
     const court = result[0];
-    const canBook = court.courts.visibility === "public" || 
+    const visibilityAllowed = court.courts.visibility === "public" || 
       (court.courts.visibility === "academy" && court.courts.academyId === userAcademyId);
+    const canBook = visibilityAllowed && (court.courts.bookingEnabled !== false);
 
     return {
       ...court.courts,

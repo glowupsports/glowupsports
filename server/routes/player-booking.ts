@@ -2942,13 +2942,12 @@ function toDubaiTime(utcDate: Date): Date {
           }
         }
         
-        // Get next 3 available slots for preview
-        const nextAvailableSlots = availableSlots.slice(0, 3);
         const totalAvailable = availableSlots.length;
         
         return {
           ...court,
-          nextAvailableSlots,
+          bookingEnabled: court.bookingEnabled !== false,
+          nextAvailableSlots: availableSlots,
           totalAvailableSlots: totalAvailable,
           hasAvailability: totalAvailable > 0,
         };
@@ -3047,6 +3046,10 @@ function toDubaiTime(utcDate: Date): Date {
       const court = await storage.getCourt(courtId);
       if (!court) {
         return res.status(404).json({ error: "Court not found" });
+      }
+
+      if (court.bookingEnabled === false) {
+        return res.status(403).json({ error: "This court is community-only and not available for direct booking" });
       }
 
       // Check if user can book this court

@@ -53,6 +53,7 @@ interface Court {
     address?: string;
   };
   canBook?: boolean;
+  bookingEnabled?: boolean;
   nextAvailableSlots?: string[];
   totalAvailableSlots?: number;
   hasAvailability?: boolean;
@@ -88,7 +89,7 @@ function PulsingDot({ color }: { color: string }) {
   );
 }
 
-function CourtCard({ court, onPress, surfaceConfig }: { court: Court; onPress: () => void; surfaceConfig: typeof SURFACE_CONFIG[keyof typeof SURFACE_CONFIG] }) {
+function CourtCard({ court, onPress, onSlotPress, surfaceConfig }: { court: Court; onPress: () => void; onSlotPress: (slot: string) => void; surfaceConfig: typeof SURFACE_CONFIG[keyof typeof SURFACE_CONFIG] }) {
   const scaleAnim = useRef(new Animated.Value(1)).current;
   const apiUrl = getApiUrl();
   
@@ -153,6 +154,13 @@ function CourtCard({ court, onPress, surfaceConfig }: { court: Court; onPress: (
                     </Text>
                   </View>
 
+                  {court.bookingEnabled === false && (
+                    <View style={styles.communityBadge}>
+                      <Ionicons name="people" size={10} color="#FF9500" />
+                      <Text style={styles.communityBadgeText}>Community Only</Text>
+                    </View>
+                  )}
+
                   {court.xpRewardPerHour && court.xpRewardPerHour > 0 && (
                     <View style={styles.xpBadge}>
                       <Ionicons name="flash" size={10} color={Colors.dark.primaryGlow} />
@@ -204,16 +212,24 @@ function CourtCard({ court, onPress, surfaceConfig }: { court: Court; onPress: (
                 </View>
 
                 {court.nextAvailableSlots && court.nextAvailableSlots.length > 0 && (
-                  <View style={styles.timeSlotsPreview}>
-                    {court.nextAvailableSlots.map((slot, index) => (
-                      <View key={slot} style={styles.timeSlotChip}>
+                  <ScrollView
+                    horizontal
+                    showsHorizontalScrollIndicator={false}
+                    contentContainerStyle={styles.timeSlotsPreview}
+                  >
+                    {court.nextAvailableSlots.map((slot) => (
+                      <Pressable
+                        key={slot}
+                        style={styles.timeSlotChip}
+                        onPress={() => {
+                          Haptics.selectionAsync();
+                          onSlotPress(slot);
+                        }}
+                      >
                         <Text style={styles.timeSlotText}>{slot}</Text>
-                      </View>
+                      </Pressable>
                     ))}
-                    {(court.totalAvailableSlots || 0) > 3 && (
-                      <Text style={styles.moreSlots}>+{(court.totalAvailableSlots || 0) - 3}</Text>
-                    )}
-                  </View>
+                  </ScrollView>
                 )}
               </View>
             </View>
@@ -263,9 +279,9 @@ export default function CourtBookingScreen() {
     );
   }, [courts, searchQuery]);
 
-  const handleCourtPress = (court: Court) => {
+  const handleCourtPress = (court: Court, time?: string) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    navigation.navigate("CourtDetail", { courtId: court.id, date: selectedDate });
+    navigation.navigate("CourtDetail", { courtId: court.id, date: selectedDate, time });
   };
 
   const getDateOptions = () => {
@@ -453,6 +469,7 @@ export default function CourtBookingScreen() {
                   key={court.id}
                   court={court}
                   onPress={() => handleCourtPress(court)}
+                  onSlotPress={(slot) => handleCourtPress(court, slot)}
                   surfaceConfig={SURFACE_CONFIG[court.surface as keyof typeof SURFACE_CONFIG] || SURFACE_CONFIG.hard}
                 />
               ))}
@@ -742,6 +759,20 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     color: Colors.dark.primaryGlow,
   },
+  communityBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 3,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: BorderRadius.sm,
+    backgroundColor: "#FF950020",
+  },
+  communityBadgeText: {
+    fontSize: 10,
+    fontWeight: "700",
+    color: "#FF9500",
+  },
   courtName: {
     fontSize: 17,
     fontWeight: "700",
@@ -842,7 +873,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: 6,
     marginTop: 8,
-    flexWrap: "wrap",
+    paddingRight: Spacing.md,
   },
   timeSlotChip: {
     paddingHorizontal: 10,
@@ -856,11 +887,5 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: "700",
     color: Colors.dark.xpCyan,
-  },
-  moreSlots: {
-    fontSize: 11,
-    color: "#7C8290",
-    fontWeight: "500",
-    marginLeft: 2,
   },
 });
