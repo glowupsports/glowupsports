@@ -25938,7 +25938,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           return res.status(400).json({ error: "Academy ID required" });
         }
 
-        const { name, locationId, color, isActive } = req.body;
+        const { name, locationId, color, isActive, pricePerHour } = req.body;
         if (!name || !name.trim()) {
           return res.status(400).json({ error: "Court name is required" });
         }
@@ -25960,6 +25960,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           locationId: locationId || null,
           color: color || "#2ECC40",
           isActive: isActive !== false,
+          ...(pricePerHour ? { pricePerHour: String(pricePerHour) } : {}),
         });
 
         await storage.createAuditLog({
@@ -25998,7 +25999,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           return res.status(404).json({ error: "Court not found" });
         }
 
-        const { name, locationId, color, isActive } = req.body;
+        const { name, locationId, color, isActive, pricePerHour } = req.body;
 
         const updatedCourt = await storage.updateCourt(
           id,
@@ -26009,6 +26010,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
             color: color !== undefined ? color : existingCourt.color,
             isActive:
               isActive !== undefined ? isActive : existingCourt.isActive,
+            pricePerHour:
+              pricePerHour !== undefined ? (pricePerHour ? String(pricePerHour) : null) : existingCourt.pricePerHour,
           },
           academyId || undefined,
         );

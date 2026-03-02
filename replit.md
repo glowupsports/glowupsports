@@ -82,6 +82,9 @@ Cancelled sessions are ALWAYS excluded from attendance rate denominators. When f
 ### Invoice VAT Registration Notice
 Invoices show either "TRN: [number]" or "Supplier is not VAT registered" based on the `vatRegistrationNumber` field in `academy_settings` table. Configurable via Academy Settings screen under Billing section. Both client-side PDF (`CreateInvoiceModal.tsx`) and server-side HTML (`invoicePdf.ts`) templates include this notice.
 
+### Court Rental Billing on Invoices
+The `CreateInvoiceModal` has a "Court Rental" section that auto-calculates rental fees based on player session history. It uses `courts.pricePerHour` (configurable in Admin Courts screen) and aggregates sessions by court over a selectable period (30/60/90 days). Rental line items are added as `Court Rental - [Court Name] (X sessions, Yh)`. Manual line items are also supported. Courts with no `pricePerHour` set are excluded from the calculation. The admin player stats endpoint (`/api/admin/players/:playerId/stats`) now returns `courtId`, `status`, and `attendanceStatus` in session data to support this feature.
+
 ## External Dependencies
 
 - **Database**: Supabase PostgreSQL (via Drizzle ORM). IMPORTANT: `pool` is exported from `server/db.ts` for raw SQL queries. Use `pool.query()` with `$1` params instead of Drizzle's `db.execute(sql`...`)` for timestamp/array comparisons, as Drizzle template literals have issues with `::timestamp` casts and `ANY($1::text[])` array params. The Replit built-in DB (`heliumdb`) is separate from the Supabase DB (`postgres`) used by the app.

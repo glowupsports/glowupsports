@@ -328,6 +328,7 @@ interface Player {
   coachName?: string;
   remainingCredits?: number;
   totalCredits?: number;
+  creditsByType?: { private: number; group: number; semiPrivate: number };
   age?: number;
   dateOfBirth?: string;
   status?: string;
@@ -761,18 +762,44 @@ export default function AdminPlayersScreen() {
         </View>
       </View>
       <View style={styles.creditsContainer}>
-        {item.totalCredits && item.totalCredits > 0 ? (
-          <View style={[styles.creditsBadge, { backgroundColor: `${getCreditsColor(item.remainingCredits, item.totalCredits)}15` }]}>
-            <Ionicons 
-              name="ticket-outline" 
-              size={14} 
-              color={getCreditsColor(item.remainingCredits, item.totalCredits)} 
-            />
-            <Text style={[styles.creditsText, { color: getCreditsColor(item.remainingCredits, item.totalCredits) }]}>
-              {item.remainingCredits || 0}
-            </Text>
-          </View>
-        ) : null}
+        {(() => {
+          const credits = item.remainingCredits;
+          const byType = item.creditsByType;
+
+          const getCreditTypeColor = (val: number) =>
+            val < 0 ? Colors.dark.error
+            : val === 0 ? Colors.dark.error
+            : val <= 2 ? Colors.dark.gold
+            : "#22c55e";
+
+          const overallColor = credits === undefined
+            ? Colors.dark.textMuted
+            : getCreditTypeColor(credits);
+
+          const formatCreditParts = () => {
+            if (credits === undefined) return [{ text: "No pkg", color: Colors.dark.textMuted }];
+            if (!byType) return [{ text: credits === 0 ? "0 credits" : `${credits}`, color: getCreditTypeColor(credits) }];
+
+            const parts: { text: string; color: string }[] = [];
+            if (byType.private !== 0) parts.push({ text: `${byType.private} Prv`, color: getCreditTypeColor(byType.private) });
+            if (byType.group !== 0) parts.push({ text: `${byType.group} Grp`, color: getCreditTypeColor(byType.group) });
+            if (byType.semiPrivate !== 0) parts.push({ text: `${byType.semiPrivate} Semi`, color: getCreditTypeColor(byType.semiPrivate) });
+            return parts.length > 0 ? parts : [{ text: "0 credits", color: Colors.dark.error }];
+          };
+
+          const parts = formatCreditParts();
+
+          return (
+            <View style={[styles.creditsBadge, { backgroundColor: overallColor + "20" }]}>
+              <Ionicons name="ticket-outline" size={12} color={overallColor} />
+              {parts.map((p, i) => (
+                <Text key={i} style={[styles.creditsText, { color: p.color }]}>
+                  {i > 0 ? " | " : ""}{p.text}
+                </Text>
+              ))}
+            </View>
+          );
+        })()}
         <Ionicons name="chevron-forward" size={20} color={Colors.dark.textMuted} />
       </View>
     </Pressable>

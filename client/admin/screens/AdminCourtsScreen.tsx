@@ -34,6 +34,7 @@ interface Court {
   createdAt: string;
   locationName?: string;
   photoUrl?: string | null;
+  pricePerHour?: string | null;
 }
 
 interface Location {
@@ -69,6 +70,7 @@ export default function AdminCourtsScreen() {
     color: "#2ECC40",
     isActive: true,
     photoUrl: "" as string | null,
+    pricePerHour: "",
   });
 
   const pickAndUploadPhoto = async (courtId?: string) => {
@@ -232,6 +234,7 @@ export default function AdminCourtsScreen() {
       color: "#2ECC40",
       isActive: true,
       photoUrl: null,
+      pricePerHour: "",
     });
   };
 
@@ -246,6 +249,7 @@ export default function AdminCourtsScreen() {
       color: formData.color,
       isActive: formData.isActive,
       photoUrl: formData.photoUrl || null,
+      pricePerHour: formData.pricePerHour ? formData.pricePerHour : null,
     });
   };
 
@@ -262,6 +266,7 @@ export default function AdminCourtsScreen() {
         color: formData.color,
         isActive: formData.isActive,
         photoUrl: formData.photoUrl || null,
+        pricePerHour: formData.pricePerHour ? formData.pricePerHour : null,
       },
     });
   };
@@ -291,6 +296,7 @@ export default function AdminCourtsScreen() {
       color: court.color || "#2ECC40",
       isActive: court.isActive,
       photoUrl: court.photoUrl || null,
+      pricePerHour: court.pricePerHour || "",
     });
     setShowEditModal(true);
   };
@@ -496,6 +502,22 @@ export default function AdminCourtsScreen() {
                 </Pressable>
               </View>
 
+              <View style={styles.formGroup}>
+                <Text style={styles.label}>Rental Price per Hour</Text>
+                <View style={styles.priceInputRow}>
+                  <Text style={styles.currencyLabel}>AED</Text>
+                  <TextInput
+                    style={[styles.input, styles.priceInput]}
+                    value={formData.pricePerHour}
+                    onChangeText={(text) => setFormData({ ...formData, pricePerHour: text.replace(/[^0-9.]/g, "") })}
+                    placeholder="0"
+                    placeholderTextColor={Colors.dark.textMuted}
+                    keyboardType="decimal-pad"
+                  />
+                </View>
+                <Text style={styles.helperText}>Leave empty if court rental is free</Text>
+              </View>
+
               <Pressable
                 style={styles.toggleRow}
                 onPress={() => setFormData({ ...formData, isActive: !formData.isActive })}
@@ -625,6 +647,22 @@ export default function AdminCourtsScreen() {
                     </View>
                   )}
                 </Pressable>
+              </View>
+
+              <View style={styles.formGroup}>
+                <Text style={styles.label}>Rental Price per Hour</Text>
+                <View style={styles.priceInputRow}>
+                  <Text style={styles.currencyLabel}>AED</Text>
+                  <TextInput
+                    style={[styles.input, styles.priceInput]}
+                    value={formData.pricePerHour}
+                    onChangeText={(text) => setFormData({ ...formData, pricePerHour: text.replace(/[^0-9.]/g, "") })}
+                    placeholder="0"
+                    placeholderTextColor={Colors.dark.textMuted}
+                    keyboardType="decimal-pad"
+                  />
+                </View>
+                <Text style={styles.helperText}>Leave empty if court rental is free</Text>
               </View>
 
               <Pressable
@@ -841,6 +879,25 @@ const styles = StyleSheet.create({
     color: Colors.dark.text,
     borderWidth: 1,
     borderColor: Colors.dark.border,
+  },
+  priceInputRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+  },
+  currencyLabel: {
+    fontSize: Typography.body.fontSize,
+    fontWeight: "600",
+    color: Colors.dark.textSecondary,
+    minWidth: 40,
+  },
+  priceInput: {
+    flex: 1,
+  },
+  helperText: {
+    fontSize: Typography.small.fontSize,
+    color: Colors.dark.textMuted,
+    marginTop: 4,
   },
   locationPicker: {
     flexDirection: "row",

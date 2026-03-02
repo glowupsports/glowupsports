@@ -734,6 +734,96 @@ export default function CreateInvoiceModal({
     queryKey: ["/api/admin/next-invoice-number"],
     enabled: visible,
   });
+
+  const { data: courtsData } = useQuery<any[]>({
+    queryKey: ["/api/courts"],
+    enabled: visible,
+  });
+
+  const { data: playerStatsData } = useQuery<any>({
+    queryKey: ["/api/admin/players", player?.id, "stats"],
+    enabled: visible && !!player?.id,
+  });
+
+  const [showCourtRental, setShowCourtRental] = useState(false);
+  const [courtRentalPeriod, setCourtRentalPeriod] = useState<"30" | "60" | "90">("30");
+
+  const courtRentalSummary = (() => {
+    if (!playerStatsData?.sessions || !courtsData) return [];
+    const now = new Date();
+    const daysBack = parseInt(courtRentalPeriod);
+    const cutoff = new Date(now.getTime() - daysBack * 24 * 60 * 60 * 1000);
+
+    const completedSessions = playerStatsData.sessions.filter((s: any) => {
+      const sessionDate = new Date(s.startTime);
+      return sessionDate >= cutoff && sessionDate <= now && s.courtId &&
+        s.status !== "cancelled" && s.attendanceStatus !== "cancelled";
+    });
+
+    const courtMap: Record<string, { courtName: string; courtId: string; sessions: number; totalHours: number; pricePerHour: number }> = {};
+    completedSessions.forEach((s: any) => {
+      const court = courtsData.find((c: any) => c.id === s.courtId);
+      if (!court) return;
+      const pricePerHour = parseFloat(court.pricePerHour || "0");
+      if (!pricePerHour || isNaN(pricePerHour) || pricePerHour <= 0) return;
+      if (!s.startTime || !s.endTime) return;
+      const start = new Date(s.startTime);
+      const end = new Date(s.endTime);
+      const durationHours = (end.getTime() - start.getTime()) / (1000 * 60 * 60);
+      if (isNaN(durationHours) || durationHours <= 0) return;
+      if (!courtMap[s.courtId]) {
+        courtMap[s.courtId] = {
+          courtName: court.name,
+          courtId: s.courtId,
+          sessions: 0,
+          totalHours: 0,
+          pricePerHour,
+        };
+      }
+      courtMap[s.courtId].sessions += 1;
+      courtMap[s.courtId].totalHours += durationHours;
+    });
+
+    return Object.values(courtMap);
+  })();
+
+  const addCourtRentalLineItem = (rental: { courtName: string; sessions: number; totalHours: number; pricePerHour: number }) => {
+    const hoursFormatted = Math.round(rental.totalHours * 10) / 10;
+    const totalCost = Math.round(rental.totalHours * rental.pricePerHour * 100) / 100;
+    const newItem: LineItem = {
+      id: `court_${Date.now()}`,
+      description: `Court Rental - ${rental.courtName} (${rental.sessions} sessions, ${hoursFormatted}h)`,
+      quantity: 1,
+      unitPrice: totalCost,
+      total: totalCost,
+    };
+    setLineItems(items => {
+      const hasEmptyFirst = items.length === 1 && !items[0].description && items[0].unitPrice === 0;
+      return hasEmptyFirst ? [newItem] : [...items, newItem];
+    });
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+  };
+
+  const addAllCourtRentals = () => {
+    if (courtRentalSummary.length === 0) return;
+    const newItems: LineItem[] = courtRentalSummary.map((rental) => {
+      const hoursFormatted = Math.round(rental.totalHours * 10) / 10;
+      const totalCost = Math.round(rental.totalHours * rental.pricePerHour * 100) / 100;
+      return {
+        id: `court_${rental.courtId}_${Date.now()}`,
+        description: `Court Rental - ${rental.courtName} (${rental.sessions} sessions, ${hoursFormatted}h)`,
+        quantity: 1,
+        unitPrice: totalCost,
+        total: totalCost,
+      };
+    });
+    setLineItems(items => {
+      const hasEmptyFirst = items.length === 1 && !items[0].description && items[0].unitPrice === 0;
+      return hasEmptyFirst ? newItems : [...items, ...newItems];
+    });
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+  };
+
   const invoiceNumber = invoiceNumberData?.invoiceNumber || "...";
   const [issueDate, setIssueDate] = useState(new Date());
   const [dueDate, setDueDate] = useState(() => {
@@ -1244,6 +1334,93 @@ export default function CreateInvoiceModal({
                 })}
               </View>
             )}
+          </View>
+
+          <View style={styles.section}>
+            <Pressable
+              style={styles.courtRentalToggle}
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                setShowCourtRental(!showCourtRental);
+              }}
+            >
+              <View style={styles.sectionHeaderRow}>
+                <Ionicons name="tennisball-outline" size={18} color={Colors.dark.gold} />
+                <Text style={styles.sectionTitle}>Court Rental</Text>
+              </View>
+              <Ionicons
+                name={showCourtRental ? "chevron-up" : "chevron-down"}
+                size={20}
+                color={Colors.dark.textMuted}
+              />
+            </Pressable>
+
+            {showCourtRental ? (
+              <View style={styles.courtRentalContent}>
+                <View style={styles.periodSelector}>
+                  {(["30", "60", "90"] as const).map((period) => (
+                    <Pressable
+                      key={period}
+                      style={[
+                        styles.periodButton,
+                        courtRentalPeriod === period && styles.periodButtonActive,
+                      ]}
+                      onPress={() => setCourtRentalPeriod(period)}
+                    >
+                      <Text
+                        style={[
+                          styles.periodButtonText,
+                          courtRentalPeriod === period && styles.periodButtonTextActive,
+                        ]}
+                      >
+                        {period} days
+                      </Text>
+                    </Pressable>
+                  ))}
+                </View>
+
+                {courtRentalSummary.length > 0 ? (
+                  <>
+                    {courtRentalSummary.map((rental) => {
+                      const hoursFormatted = Math.round(rental.totalHours * 10) / 10;
+                      const totalCost = Math.round(rental.totalHours * rental.pricePerHour * 100) / 100;
+                      return (
+                        <View key={rental.courtId} style={styles.courtRentalCard}>
+                          <View style={styles.courtRentalInfo}>
+                            <Text style={styles.courtRentalName}>{rental.courtName}</Text>
+                            <Text style={styles.courtRentalDetail}>
+                              {rental.sessions} sessions | {hoursFormatted}h | AED {rental.pricePerHour}/hr
+                            </Text>
+                            <Text style={styles.courtRentalTotal}>
+                              Total: AED {totalCost.toLocaleString()}
+                            </Text>
+                          </View>
+                          <Pressable
+                            style={styles.courtRentalAddBtn}
+                            onPress={() => addCourtRentalLineItem(rental)}
+                          >
+                            <Ionicons name="add-circle" size={28} color={Colors.dark.successNeon} />
+                          </Pressable>
+                        </View>
+                      );
+                    })}
+                    {courtRentalSummary.length > 1 ? (
+                      <Pressable style={styles.addAllRentalsBtn} onPress={addAllCourtRentals}>
+                        <Ionicons name="checkmark-done" size={18} color={Colors.dark.buttonText} />
+                        <Text style={styles.addAllRentalsText}>Add All Court Rentals</Text>
+                      </Pressable>
+                    ) : null}
+                  </>
+                ) : (
+                  <View style={styles.courtRentalEmpty}>
+                    <Ionicons name="information-circle-outline" size={20} color={Colors.dark.textMuted} />
+                    <Text style={styles.courtRentalEmptyText}>
+                      {!courtsData ? "Loading courts..." : !playerStatsData?.sessions ? "Loading sessions..." : "No sessions with court rental fees found in this period. Set court prices in Courts management."}
+                    </Text>
+                  </View>
+                )}
+              </View>
+            ) : null}
           </View>
 
           <View style={styles.section}>
@@ -1934,5 +2111,99 @@ const styles = StyleSheet.create({
     fontSize: Typography.caption.fontSize,
     color: Colors.dark.textMuted,
     marginTop: 2,
+  },
+  courtRentalToggle: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
+  courtRentalContent: {
+    marginTop: Spacing.md,
+  },
+  periodSelector: {
+    flexDirection: "row",
+    gap: Spacing.sm,
+    marginBottom: Spacing.md,
+  },
+  periodButton: {
+    flex: 1,
+    paddingVertical: Spacing.sm,
+    borderRadius: BorderRadius.md,
+    backgroundColor: Backgrounds.card,
+    alignItems: "center",
+    borderWidth: 1,
+    borderColor: Colors.dark.border,
+  },
+  periodButtonActive: {
+    backgroundColor: `${Colors.dark.gold}20`,
+    borderColor: Colors.dark.gold,
+  },
+  periodButtonText: {
+    fontSize: Typography.small.fontSize,
+    color: Colors.dark.textMuted,
+    fontWeight: "600",
+  },
+  periodButtonTextActive: {
+    color: Colors.dark.gold,
+  },
+  courtRentalCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: Backgrounds.card,
+    borderRadius: BorderRadius.md,
+    padding: Spacing.md,
+    marginBottom: Spacing.sm,
+    borderWidth: 1,
+    borderColor: Colors.dark.border,
+  },
+  courtRentalInfo: {
+    flex: 1,
+  },
+  courtRentalName: {
+    fontSize: Typography.body.fontSize,
+    fontWeight: "700",
+    color: Colors.dark.text,
+    marginBottom: 2,
+  },
+  courtRentalDetail: {
+    fontSize: Typography.small.fontSize,
+    color: Colors.dark.textMuted,
+  },
+  courtRentalTotal: {
+    fontSize: Typography.body.fontSize,
+    fontWeight: "700",
+    color: Colors.dark.gold,
+    marginTop: 4,
+  },
+  courtRentalAddBtn: {
+    padding: Spacing.xs,
+  },
+  addAllRentalsBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: Spacing.sm,
+    backgroundColor: Colors.dark.gold,
+    borderRadius: BorderRadius.md,
+    paddingVertical: Spacing.sm,
+    marginTop: Spacing.sm,
+  },
+  addAllRentalsText: {
+    fontSize: Typography.body.fontSize,
+    fontWeight: "700",
+    color: Colors.dark.buttonText,
+  },
+  courtRentalEmpty: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+    backgroundColor: Backgrounds.card,
+    borderRadius: BorderRadius.md,
+    padding: Spacing.md,
+  },
+  courtRentalEmptyText: {
+    flex: 1,
+    fontSize: Typography.small.fontSize,
+    color: Colors.dark.textMuted,
   },
 });
