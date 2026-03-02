@@ -23,6 +23,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useNavigation } from "@react-navigation/native";
 import { Colors, Backgrounds, Spacing, BorderRadius, Typography, GlowColors } from "@/constants/theme";
 import { apiRequest } from "@/lib/query-client";
+import { formatCredits } from "@/lib/dateUtils";
 import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollViewCompat";
 
 interface Invoice {
@@ -573,7 +574,7 @@ export default function BillingScreen() {
             <View style={styles.packageDetails}>
               <View style={styles.packageDetailItem}>
                 <Text style={styles.packageDetailLabel}>Credits</Text>
-                <Text style={styles.packageDetailValue}>{pkg.credits}</Text>
+                <Text style={styles.packageDetailValue}>{formatCredits(pkg.credits)}</Text>
               </View>
               <View style={styles.packageDetailItem}>
                 <Text style={styles.packageDetailLabel}>Price/Credit</Text>

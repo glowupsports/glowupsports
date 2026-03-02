@@ -18,7 +18,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import { Colors, Backgrounds, Spacing, BorderRadius, Typography, CardStyles, GlowColors } from "@/constants/theme";
 import { apiRequest } from "@/lib/query-client";
-import { convertUTCTimeToLocal } from "@/lib/dateUtils";
+import { convertUTCTimeToLocal, formatCredits } from "@/lib/dateUtils";
 import { WebCalendarPicker } from "@/components/WebCalendarPicker";
 import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollViewCompat";
 
@@ -453,7 +453,7 @@ export default function AdminSeriesDetailDrawer({
                           <View style={styles.playerActions}>
                             {player.credits?.hasDebt ? (
                               <View style={styles.debtBadge}>
-                                <Text style={styles.debtText}>-{player.credits.totalDebt}</Text>
+                                <Text style={styles.debtText}>-{formatCredits(player.credits.totalDebt)}</Text>
                               </View>
                             ) : null}
                             <Pressable
@@ -878,7 +878,7 @@ export default function AdminSeriesDetailDrawer({
                         <View>
                           <Text style={styles.attendancePlayerName}>{player.name}</Text>
                           <Text style={styles.attendancePlayerCredits}>
-                            Credits: {player.credits ? player.credits.group + player.credits.private + player.credits.semi_private : 0}
+                            Credits: {player.credits ? formatCredits(player.credits.group + player.credits.private + player.credits.semi_private) : 0}
                           </Text>
                         </View>
                       </View>

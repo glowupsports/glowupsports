@@ -1720,7 +1720,7 @@ export const storage = {
     const totalsByPlayer = new Map<string, number>();
     for (const pkg of activePackages) {
       if (!pkg.playerId) continue;
-      totalsByPlayer.set(pkg.playerId, (totalsByPlayer.get(pkg.playerId) || 0) + (pkg.totalCredits || 0));
+      totalsByPlayer.set(pkg.playerId, (totalsByPlayer.get(pkg.playerId) || 0) + (Number(pkg.totalCredits) || 0));
     }
     
     return playerList.map(player => {
@@ -2113,7 +2113,7 @@ export const storage = {
       return pkgCreditType === requiredCreditType;
     });
     
-    const availableCredits = matchingPackages.reduce((sum, pkg) => sum + pkg.remainingCredits, 0);
+    const availableCredits = matchingPackages.reduce((sum, pkg) => sum + Number(pkg.remainingCredits), 0);
     
     return {
       hasCredits: availableCredits > 0,
@@ -2143,7 +2143,7 @@ export const storage = {
       return { success: false, error: "Package not found" };
     }
     
-    const creditsUsed = pkg.totalCredits - pkg.remainingCredits;
+    const creditsUsed = Number(pkg.totalCredits) - Number(pkg.remainingCredits);
     
     if (creditsUsed > 0 && !force) {
       return { 
@@ -2187,7 +2187,7 @@ export const storage = {
       // Restore each debt (mark as unsettled)
       for (const debt of debtsSettledByThisPackage) {
         const meta = debt.metadata as Record<string, unknown> | null;
-        const originalAmount = (meta?.originalAmount as number) || Math.abs(debt.amount);
+        const originalAmount = (meta?.originalAmount as number) || Math.abs(Number(debt.amount));
         const updatedMeta = { ...meta };
         delete updatedMeta.settled;
         delete updatedMeta.settledByPackage;
@@ -2249,13 +2249,17 @@ export const storage = {
     return { success: true };
   },
 
-  async usePackageCredit(packageId: string, academyId?: string): Promise<Package | undefined> {
+  async usePackageCredit(packageId: string, academyId?: string, creditCost: number = 1): Promise<Package | undefined> {
     const pkg = await this.getPackage(packageId, academyId);
-    if (!pkg || pkg.remainingCredits <= 0) return undefined;
+    if (!pkg || Number(pkg.remainingCredits) < creditCost) return undefined;
     
+    const newRemaining = Number(pkg.remainingCredits) - creditCost;
     const result = await db
       .update(packages)
-      .set({ remainingCredits: pkg.remainingCredits - 1 })
+      .set({ 
+        remainingCredits: newRemaining,
+        status: newRemaining <= 0 ? "depleted" : pkg.status,
+      })
       .where(eq(packages.id, packageId))
       .returning();
     return result[0];
@@ -2305,12 +2309,18 @@ export const storage = {
     };
     
     const requiredCreditType = sessionToCreditType[sessionType] || "group";
+    
+    // Fetch session duration for proportional credit charging
+    const sessionResult = await db.select({ duration: sessions.duration }).from(sessions).where(eq(sessions.id, sessionId)).limit(1);
+    const sessionDuration = sessionResult[0]?.duration || 60;
+    const creditCost = sessionDuration / 60;
+    
     const activePackages = await this.getActivePlayerPackages(playerId, academyId);
     
     // Filter packages with matching credit type
     const matchingPackages = activePackages.filter(pkg => {
       const pkgCreditType = pkg.creditType || "group";
-      return pkgCreditType === requiredCreditType && pkg.remainingCredits > 0;
+      return pkgCreditType === requiredCreditType && Number(pkg.remainingCredits) >= creditCost;
     });
     
     if (matchingPackages.length === 0) {
@@ -2330,11 +2340,11 @@ export const storage = {
     });
     
     const packageToUse = sortedPackages[0];
-    const balanceBefore = packageToUse.remainingCredits;
-    const balanceAfter = balanceBefore - 1;
+    const balanceBefore = Number(packageToUse.remainingCredits);
+    const balanceAfter = balanceBefore - creditCost;
     
     // Deduct credit from package
-    const updatedPackage = await this.usePackageCredit(packageToUse.id, academyId);
+    const updatedPackage = await this.usePackageCredit(packageToUse.id, academyId, creditCost);
     
     if (!updatedPackage) {
       return { success: false, reason: "credit_deduction_failed", creditType: requiredCreditType };
@@ -2347,7 +2357,7 @@ export const storage = {
       packageId: packageToUse.id,
       type: "debit",
       creditType: requiredCreditType,
-      amount: -1,
+      amount: -creditCost,
       reason: "session_booking",
       sessionId,
       balanceBefore,
@@ -2355,6 +2365,8 @@ export const storage = {
       metadata: JSON.stringify({
         sessionType,
         bookedBy: "coach",
+        creditCost,
+        sessionDuration,
       }),
     });
     
@@ -2397,21 +2409,29 @@ export const storage = {
     };
     const creditType = sessionToCreditType[sessionType] || "group";
 
+    // Fetch session duration for proportional credit charging
+    const sessionResult = await db.select({ duration: sessions.duration }).from(sessions).where(eq(sessions.id, sessionId)).limit(1);
+    const sessionDuration = sessionResult[0]?.duration || 60;
+    const creditCost = sessionDuration / 60;
+
     const transaction = await this.createCreditTransaction({
       playerId,
       academyId: academyId || null,
       packageId: null,
       type: "debit",
       creditType,
-      amount: -1,
+      amount: -creditCost,
       reason: "session_join_debt",
       sessionId,
       balanceBefore: 0,
-      balanceAfter: -1,
+      balanceAfter: -creditCost,
       metadata: JSON.stringify({
         sessionType,
         debt: true,
         noPackageAvailable: true,
+        isDebt: true,
+        creditCost,
+        sessionDuration,
       }),
     });
 
@@ -2460,8 +2480,9 @@ export const storage = {
           // This debt was already settled by a package purchase - need to refund the package credit
           const pkg = await this.getPackage(meta.settledByPackage);
           if (pkg) {
+            const debtRefundAmount = Math.abs(Number(debtTransaction.amount)) || 1;
             await db.update(packages)
-              .set({ remainingCredits: pkg.remainingCredits + 1 })
+              .set({ remainingCredits: Number(pkg.remainingCredits) + debtRefundAmount })
               .where(eq(packages.id, pkg.id));
             
             // Also undo the debt_settlement transaction if exists
@@ -2547,9 +2568,10 @@ export const storage = {
       return { success: false, reason: "package_not_found" };
     }
     
-    // Refund credit to package
-    const balanceBefore = pkg.remainingCredits;
-    const balanceAfter = balanceBefore + 1;
+    // Refund credit to package - use actual charged amount from original transaction
+    const refundAmount = Math.abs(Number(originalDebit.amount)) || 1;
+    const balanceBefore = Number(pkg.remainingCredits);
+    const balanceAfter = balanceBefore + refundAmount;
     
     await db
       .update(packages)
@@ -2563,7 +2585,7 @@ export const storage = {
       packageId: pkg.id,
       type: "credit",
       creditType: originalDebit.creditType || "group",
-      amount: 1,
+      amount: refundAmount,
       reason: "session_removal_refund",
       sessionId,
       balanceBefore,
@@ -6274,6 +6296,11 @@ export const storage = {
     const series = await this.getCoachingSeriesById(seriesId);
     const academyId = series?.academyId || null;
     
+    // Fetch session duration for proportional credit charging
+    const sessionResult = await db.select({ duration: sessions.duration }).from(sessions).where(eq(sessions.id, sessionId)).limit(1);
+    const sessionDuration = sessionResult[0]?.duration || 60;
+    const creditCost = sessionDuration / 60;
+    
     // Map session type to credit type
     const normalizeType = (type: string | undefined): string => {
       if (!type) return "group";
@@ -6308,7 +6335,7 @@ export const storage = {
                 AND (credit_type = ${requiredCreditType} OR credit_type IS NULL)
               FOR UPDATE
             `);
-            if (linked.rows[0] && (linked.rows[0] as any).remaining_credits > 0) {
+            if (linked.rows[0] && (linked.rows[0] as any).remaining_credits >= creditCost) {
               packageToUse = {
                 id: (linked.rows[0] as any).id,
                 remainingCredits: (linked.rows[0] as any).remaining_credits,
@@ -6323,7 +6350,7 @@ export const storage = {
               SELECT * FROM packages 
               WHERE player_id = ${member.playerId} 
                 AND status = 'active' 
-                AND remaining_credits > 0
+                AND remaining_credits >= ${creditCost}
                 AND (credit_type = ${requiredCreditType} OR credit_type IS NULL)
               ORDER BY CASE WHEN series_id = ${seriesId} THEN 1 ELSE 0 END DESC, expiry_date ASC NULLS LAST
               FOR UPDATE
@@ -6346,8 +6373,8 @@ export const storage = {
           }
           
           creditType = packageToUse.creditType || requiredCreditType;
-          const balanceBefore = packageToUse.remainingCredits;
-          const balanceAfter = balanceBefore - 1;
+          const balanceBefore = Number(packageToUse.remainingCredits);
+          const balanceAfter = balanceBefore - creditCost;
           
           // STEP 1: Try to claim the ledger entry FIRST using ON CONFLICT with the partial unique index
           // The index credit_transactions_unique_session_join enforces uniqueness on (player_id, session_id) where reason='session_join'
@@ -6355,7 +6382,7 @@ export const storage = {
           try {
             const insertResult = await tx.execute(sql`
               INSERT INTO credit_transactions (player_id, academy_id, session_id, package_id, type, credit_type, amount, reason, balance_before, balance_after, metadata)
-              VALUES (${member.playerId}, ${academyId}, ${sessionId}, ${packageToUse.id}, 'debit', ${creditType}, -1, 'session_join', ${balanceBefore}, ${balanceAfter}, 
+              VALUES (${member.playerId}, ${academyId}, ${sessionId}, ${packageToUse.id}, 'debit', ${creditType}, ${-creditCost}, 'session_join', ${balanceBefore}, ${balanceAfter}, 
                      ${JSON.stringify({ packageId: packageToUse.id, seriesId, description: "Credit consumed for class session" })}::jsonb)
               ON CONFLICT DO NOTHING
               RETURNING id
@@ -6415,6 +6442,11 @@ export const storage = {
     const series = await this.getCoachingSeriesById(seriesId);
     const academyId = series?.academyId || null;
     
+    // Fetch session duration for proportional credit charging
+    const sessionResult = await db.select({ duration: sessions.duration }).from(sessions).where(eq(sessions.id, sessionId)).limit(1);
+    const sessionDuration = sessionResult[0]?.duration || 60;
+    const creditCost = sessionDuration / 60;
+    
     // Map session type to credit type with dynamic override
     const normalizeType = (type: string | undefined): string => {
       if (!type) return "group";
@@ -6452,7 +6484,7 @@ export const storage = {
             SELECT * FROM packages 
             WHERE player_id = ${playerId} 
               AND status = 'active' 
-              AND remaining_credits > 0
+              AND remaining_credits >= ${creditCost}
               AND (credit_type = ${requiredCreditType} OR credit_type IS NULL)
             ORDER BY CASE WHEN series_id = ${seriesId} THEN 1 ELSE 0 END DESC, expiry_date ASC NULLS LAST
             FOR UPDATE
@@ -6474,7 +6506,7 @@ export const storage = {
             try {
               const unpaidResult = await tx.execute(sql`
                 INSERT INTO credit_transactions (player_id, academy_id, session_id, package_id, type, credit_type, amount, reason, balance_before, balance_after, metadata)
-                VALUES (${playerId}, ${academyId}, ${sessionId}, NULL, 'debit', ${requiredCreditType}, -1, 'session_unpaid', 0, 0, 
+                VALUES (${playerId}, ${academyId}, ${sessionId}, NULL, 'debit', ${requiredCreditType}, ${-creditCost}, 'session_unpaid', 0, ${-creditCost}, 
                        ${JSON.stringify({ seriesId, description: `Unpaid: ${requiredCreditType} session`, isUnpaid: true, actualCreditType: requiredCreditType })}::jsonb)
                 ON CONFLICT DO NOTHING
                 RETURNING id
@@ -6484,7 +6516,7 @@ export const storage = {
                 results.skipped++;
               } else {
                 results.consumed++;
-                console.log(`[Credits] Player ${playerId}: Session marked as unpaid (no ${requiredCreditType} credits available)`);
+                console.log(`[Credits] Player ${playerId}: Session marked as unpaid (no ${requiredCreditType} credits available), cost: ${creditCost}`);
               }
             } catch (unpaidError: any) {
               if (unpaidError.code === '23505') {
@@ -6498,14 +6530,14 @@ export const storage = {
           }
           
           creditType = packageToUse.creditType || requiredCreditType;
-          const balanceBefore = packageToUse.remainingCredits;
-          const balanceAfter = balanceBefore - 1;
+          const balanceBefore = Number(packageToUse.remainingCredits);
+          const balanceAfter = balanceBefore - creditCost;
           
           // STEP 1: Try to claim the ledger entry FIRST using ON CONFLICT
           try {
             const insertResult = await tx.execute(sql`
               INSERT INTO credit_transactions (player_id, academy_id, session_id, package_id, type, credit_type, amount, reason, balance_before, balance_after, metadata)
-              VALUES (${playerId}, ${academyId}, ${sessionId}, ${packageToUse.id}, 'debit', ${creditType}, -1, 'session_join', ${balanceBefore}, ${balanceAfter}, 
+              VALUES (${playerId}, ${academyId}, ${sessionId}, ${packageToUse.id}, 'debit', ${creditType}, ${-creditCost}, 'session_join', ${balanceBefore}, ${balanceAfter}, 
                      ${JSON.stringify({ packageId: packageToUse.id, seriesId, description: `Credit consumed (${requiredCreditType})`, actualCreditType: requiredCreditType })}::jsonb)
               ON CONFLICT DO NOTHING
               RETURNING id
@@ -6531,6 +6563,7 @@ export const storage = {
             })
             .where(eq(packages.id, packageToUse.id));
           
+          console.log(`[Credits] Player ${playerId}: Consumed ${creditCost} ${creditType} credit(s) for session ${sessionId} (duration: ${sessionDuration}min)`);
           results.consumed++;
         });
       } catch (txError) {
@@ -6550,7 +6583,7 @@ export const storage = {
         eq(packages.status, "active")
       ));
     
-    const total = playerPackages.reduce((sum, p) => sum + p.remainingCredits, 0);
+    const total = playerPackages.reduce((sum, p) => sum + Number(p.remainingCredits), 0);
     const byPackage = playerPackages.map(p => ({
       id: p.id,
       name: p.name,
@@ -6619,14 +6652,14 @@ export const storage = {
       
       // For purchase/package credits, only count if the package EXISTS in the database
       // Depleted/expired packages are still real - only truly deleted packages are ghosts
-      if (tx.amount > 0 && tx.packageId) {
+      if (Number(tx.amount) > 0 && tx.packageId) {
         if (!existingPackageIds.has(tx.packageId)) {
           continue;
         }
       }
       // Orphan purchase/refund credits (no packageId) - skip if reason is package-related
       // This catches ghost credits from deleted packages and orphaned refund transactions
-      if (tx.amount > 0 && !tx.packageId && (
+      if (Number(tx.amount) > 0 && !tx.packageId && (
         tx.reason === "package_purchased" || 
         tx.reason === "package_purchase" || 
         tx.reason === "package_deleted_refund"
@@ -6642,7 +6675,7 @@ export const storage = {
       
       const creditType = tx.creditType as keyof typeof balance;
       if (balance[creditType] !== undefined) {
-        balance[creditType] += tx.amount;
+        balance[creditType] += Number(tx.amount);
       }
     }
     
@@ -6709,7 +6742,7 @@ export const storage = {
         })
         .where(eq(creditTransactions.id, debt.id));
       
-      totalCancelled += Math.abs(debt.amount);
+      totalCancelled += Math.abs(Number(debt.amount));
       console.log(`[CancelDebt] Cancelled debt transaction ${debt.id}, amount: ${debt.amount}`);
     }
     
@@ -6758,11 +6791,13 @@ export const storage = {
       return { settledCount: 0, totalDeducted: 0 };
     }
     
-    let currentRemaining = pkg[0].remainingCredits;
+    let currentRemaining = Number(pkg[0].remainingCredits);
     let settledCount = 0;
     
+    let totalDeducted = 0;
     for (const debt of unsettledDebts) {
-      if (currentRemaining <= 0) break;
+      const debtAmount = Math.abs(Number(debt.amount));
+      if (currentRemaining < debtAmount) break;
       
       const meta = debt.metadata ? (typeof debt.metadata === 'string' ? JSON.parse(debt.metadata) : debt.metadata) : {};
       
@@ -6773,12 +6808,13 @@ export const storage = {
             settled: true, 
             settledByPackage: packageId,
             lastSettledAt: new Date().toISOString(),
-            originalAmount: Math.abs(debt.amount),
+            originalAmount: debtAmount,
           } 
         })
         .where(eq(creditTransactions.id, debt.id));
       
-      currentRemaining--;
+      currentRemaining -= debtAmount;
+      totalDeducted += debtAmount;
       settledCount++;
     }
     
@@ -6790,10 +6826,10 @@ export const storage = {
         })
         .where(eq(packages.id, packageId));
       
-      console.log(`[SettleDebts] Settled ${settledCount} debt(s) for player ${playerId}, package ${pkg[0].remainingCredits} -> ${currentRemaining}`);
+      console.log(`[SettleDebts] Settled ${settledCount} debt(s) for player ${playerId}, deducted ${totalDeducted} credits, package ${pkg[0].remainingCredits} -> ${currentRemaining}`);
     }
     
-    return { settledCount, totalDeducted: settledCount };
+    return { settledCount, totalDeducted };
   },
 
   // Settle unpaid sessions (creditDeductedAt = null) when a new package is created
@@ -6813,14 +6849,13 @@ export const storage = {
     
     const matchingSessionTypes = creditToSessionTypes[creditType] || [creditType];
     
-    // Find all sessions for this player where creditDeductedAt is null
-    // and session type matches the credit type
     const unpaidSessions = await db.select({
       sessionPlayerId: sessionPlayers.id,
       sessionId: sessionPlayers.sessionId,
       playerId: sessionPlayers.playerId,
       sessionType: sessions.sessionType,
       startTime: sessions.startTime,
+      duration: sessions.duration,
     })
     .from(sessionPlayers)
     .innerJoin(sessions, eq(sessionPlayers.sessionId, sessions.id))
@@ -6830,63 +6865,51 @@ export const storage = {
       inArray(sessions.sessionType, matchingSessionTypes),
       academyId ? eq(sessions.academyId, academyId) : undefined
     ))
-    .orderBy(sessions.startTime); // Settle oldest sessions first
+    .orderBy(sessions.startTime);
     
     if (unpaidSessions.length === 0) {
       return { settledCount: 0, totalDeducted: 0, sessionIds: [] };
     }
     
-    // Get the package to update remaining credits
     const pkg = await db.select().from(packages).where(eq(packages.id, packageId)).limit(1);
     if (pkg.length === 0) {
       console.error(`[SettleUnpaidSessions] Package ${packageId} not found`);
       return { settledCount: 0, totalDeducted: 0, sessionIds: [] };
     }
     
-    const currentRemaining = pkg[0].remainingCredits;
-    
-    // Only settle as many sessions as we have credits for
-    const sessionsToSettle = unpaidSessions.slice(0, currentRemaining);
-    const actualDeducted = sessionsToSettle.length;
-    
-    if (actualDeducted === 0) {
-      return { settledCount: 0, totalDeducted: 0, sessionIds: [] };
-    }
-    
-    const newRemaining = currentRemaining - actualDeducted;
+    let currentRemaining = Number(pkg[0].remainingCredits);
+    let totalDeducted = 0;
     const settledSessionIds: string[] = [];
     
-    // Update package remaining credits and status
-    await db.update(packages)
-      .set({ 
-        remainingCredits: newRemaining,
-        status: newRemaining <= 0 ? "depleted" : "active",
-      })
-      .where(eq(packages.id, packageId));
-    
-    // Mark each session as paid and create credit transactions
-    for (const session of sessionsToSettle) {
-      // Create credit transaction for this session
+    for (const session of unpaidSessions) {
+      const creditCost = (Number(session.duration) || 60) / 60;
+      if (currentRemaining < creditCost) break;
+      
+      const balanceBefore = currentRemaining;
+      currentRemaining -= creditCost;
+      totalDeducted += creditCost;
+      
       const transaction = await db.insert(creditTransactions).values({
         playerId,
         academyId: academyId || pkg[0].academyId,
         packageId,
         type: "debit",
         creditType,
-        amount: -1,
+        amount: -creditCost,
         reason: "retrospective_settlement",
         sessionId: session.sessionId,
-        balanceBefore: currentRemaining - settledSessionIds.length,
-        balanceAfter: currentRemaining - settledSessionIds.length - 1,
+        balanceBefore,
+        balanceAfter: currentRemaining,
         metadata: JSON.stringify({
           sessionType: session.sessionType,
           settledAt: new Date().toISOString(),
           settledByPackage: packageId,
           originalSessionDate: session.startTime?.toISOString(),
+          sessionDuration: (session.duration as number) || 60,
+          creditCost,
         }),
       }).returning();
       
-      // Update session_player with creditDeductedAt
       await db.update(sessionPlayers)
         .set({ 
           creditDeductedAt: new Date(),
@@ -6897,9 +6920,18 @@ export const storage = {
       settledSessionIds.push(session.sessionId);
     }
     
-    console.log(`[SettleUnpaidSessions] Settled ${sessionsToSettle.length} of ${unpaidSessions.length} unpaid sessions for player ${playerId}: deducted ${actualDeducted} from package ${packageId} (${currentRemaining} -> ${newRemaining})`);
+    if (settledSessionIds.length > 0) {
+      await db.update(packages)
+        .set({ 
+          remainingCredits: currentRemaining,
+          status: currentRemaining <= 0 ? "depleted" : "active",
+        })
+        .where(eq(packages.id, packageId));
+    }
     
-    return { settledCount: sessionsToSettle.length, totalDeducted: actualDeducted, sessionIds: settledSessionIds };
+    console.log(`[SettleUnpaidSessions] Settled ${settledSessionIds.length} of ${unpaidSessions.length} unpaid sessions for player ${playerId}: deducted ${totalDeducted} credits from package ${packageId} (${pkg[0].remainingCredits} -> ${currentRemaining})`);
+    
+    return { settledCount: settledSessionIds.length, totalDeducted, sessionIds: settledSessionIds };
   },
 
   // Get player pillar progress summary for Glow Leveling OS display
@@ -7038,19 +7070,19 @@ export const storage = {
       // Skip cancelled/expired transactions (but NOT settled session_debts - those are real usage)
       if (meta?.cancelled === true || meta?.expired === true) continue;
       
-      if (tx.amount > 0 && tx.packageId) {
+      if (Number(tx.amount) > 0 && tx.packageId) {
         const playerPkgIds = existingPackageIdsByPlayer[tx.playerId];
         if (!playerPkgIds || !playerPkgIds.has(tx.packageId)) {
           continue;
         }
       }
-      if (tx.amount > 0 && !tx.packageId && (tx.reason === "package_purchased" || tx.reason === "package_purchase")) {
+      if (Number(tx.amount) > 0 && !tx.packageId && (tx.reason === "package_purchased" || tx.reason === "package_purchase")) {
         continue;
       }
       
       const creditType = (tx.creditType || "group") as "group" | "semi_private" | "private";
       if (result[tx.playerId] && result[tx.playerId][creditType] !== undefined) {
-        result[tx.playerId][creditType] += tx.amount;
+        result[tx.playerId][creditType] += Number(tx.amount);
       }
     }
     
@@ -7083,6 +7115,9 @@ export const storage = {
       
       const requiredCreditType = normalizeType(sessionType);
       
+      const sessionData = await db.select({ duration: sessions.duration }).from(sessions).where(eq(sessions.id, sessionId)).limit(1);
+      const creditCost = (Number(sessionData[0]?.duration) || 60) / 60;
+      
       return await db.transaction(async (tx) => {
         // PATCH D: Idempotency guard - check if credit was already deducted for this session/player
         const existingSessionPlayer = await tx.select({
@@ -7107,7 +7142,7 @@ export const storage = {
             SELECT * FROM packages 
             WHERE id = ${linkedPackageId} 
               AND status = 'active' 
-              AND remaining_credits > 0
+              AND remaining_credits >= ${creditCost}
               AND (credit_type = ${requiredCreditType} OR credit_type IS NULL)
             FOR UPDATE
           `);
@@ -7122,7 +7157,7 @@ export const storage = {
             SELECT * FROM packages 
             WHERE player_id = ${playerId} 
               AND status = 'active' 
-              AND remaining_credits > 0
+              AND remaining_credits >= ${creditCost}
               AND (credit_type = ${requiredCreditType} OR credit_type IS NULL)
             ORDER BY expiry_date ASC NULLS LAST
             FOR UPDATE
@@ -7138,15 +7173,15 @@ export const storage = {
           return false;
         }
         
-        const balanceBefore = packageToUse.remaining_credits;
-        const balanceAfter = balanceBefore - 1;
+        const balanceBefore = Number(packageToUse.remaining_credits);
+        const balanceAfter = balanceBefore - creditCost;
         const creditType = packageToUse.credit_type || requiredCreditType;
         
         // Try to insert ledger entry (prevents duplicate deductions)
         try {
           const insertResult = await tx.execute(sql`
             INSERT INTO credit_transactions (player_id, academy_id, session_id, package_id, type, credit_type, amount, reason, balance_before, balance_after, metadata)
-            VALUES (${playerId}, ${academyId || null}, ${sessionId}, ${packageToUse.id}, 'debit', ${creditType}, -1, 'session_join', ${balanceBefore}, ${balanceAfter}, 
+            VALUES (${playerId}, ${academyId || null}, ${sessionId}, ${packageToUse.id}, 'debit', ${creditType}, ${-creditCost}, 'session_join', ${balanceBefore}, ${balanceAfter}, 
                    ${JSON.stringify({ packageId: packageToUse.id, description: "Credit consumed for attended session" })}::jsonb)
             ON CONFLICT DO NOTHING
             RETURNING id
@@ -10725,10 +10760,10 @@ export const storage = {
             inArray(creditTransactions.reason, ["session_join", "retrospective_settlement", "debt_settlement"])
           ));
         
-        const totalDebited = debits.reduce((sum, d) => sum + Math.abs(d.amount), 0);
-        const correctRemaining = Math.max(0, pkg.totalCredits - totalDebited);
+        const totalDebited = debits.reduce((sum, d) => sum + Math.abs(Number(d.amount)), 0);
+        const correctRemaining = Math.max(0, Number(pkg.totalCredits) - totalDebited);
         
-        if (correctRemaining !== pkg.remainingCredits) {
+        if (correctRemaining !== Number(pkg.remainingCredits)) {
           details.push(`Package ${pkg.id}: ${pkg.remainingCredits} -> ${correctRemaining} (debited ${totalDebited} of ${pkg.totalCredits})`);
           await db.update(packages).set({
             remainingCredits: correctRemaining,
@@ -10968,7 +11003,7 @@ async function ensureCreditProcessed(sessionPlayerId: string): Promise<{
         SELECT 
           sp.id, sp.session_id, sp.player_id, sp.attendance_status, 
           sp.credit_deducted_at, sp.credit_transaction_id,
-          s.session_type, s.series_id, s.academy_id
+          s.session_type, s.series_id, s.academy_id, s.duration
         FROM session_players sp
         JOIN sessions s ON s.id = sp.session_id
         WHERE sp.id = ${sessionPlayerId}
@@ -11040,6 +11075,7 @@ async function ensureCreditProcessed(sessionPlayerId: string): Promise<{
       const sessionId = sp.session_id;
       const academyId = sp.academy_id;
       const seriesId = sp.series_id;
+      const creditCost = ((sp as any).duration || 60) / 60;
       
       // STEP 5: Find a package with matching credits
       const packageResult = await tx.execute(sql`
@@ -11047,7 +11083,7 @@ async function ensureCreditProcessed(sessionPlayerId: string): Promise<{
         FROM packages 
         WHERE player_id = ${playerId} 
           AND status = 'active' 
-          AND remaining_credits > 0
+          AND remaining_credits >= ${creditCost}
           AND (credit_type = ${requiredCreditType} OR credit_type IS NULL)
         ORDER BY expiry_date ASC NULLS LAST
         FOR UPDATE
@@ -11071,7 +11107,7 @@ async function ensureCreditProcessed(sessionPlayerId: string): Promise<{
             )
             VALUES (
               ${debtTxId}, ${playerId}, ${academyId}, ${sessionId}, ${sessionPlayerId}, NULL,
-              'debit', ${requiredCreditType}, -1, 'session_debt', ${debtEventKey}, 0, -1,
+              'debit', ${requiredCreditType}, ${-creditCost}, 'session_debt', ${debtEventKey}, 0, ${-creditCost},
               ${JSON.stringify({ 
                 seriesId, 
                 sessionType, 
@@ -11104,8 +11140,8 @@ async function ensureCreditProcessed(sessionPlayerId: string): Promise<{
       
       // STEP 6B: Credits available - consume from package
       const pkg = packageResult.rows[0] as any;
-      const balanceBefore = pkg.remaining_credits;
-      const balanceAfter = balanceBefore - 1;
+      const balanceBefore = Number(pkg.remaining_credits);
+      const balanceAfter = balanceBefore - creditCost;
       const creditType = pkg.credit_type || requiredCreditType;
       
       // Create consumption transaction with unique eventKey
@@ -11118,7 +11154,7 @@ async function ensureCreditProcessed(sessionPlayerId: string): Promise<{
           )
           VALUES (
             ${consumeTxId}, ${playerId}, ${academyId}, ${sessionId}, ${sessionPlayerId}, ${pkg.id},
-            'debit', ${creditType}, -1, 'session_consumed', ${consumeEventKey}, ${balanceBefore}, ${balanceAfter},
+            'debit', ${creditType}, ${-creditCost}, 'session_consumed', ${consumeEventKey}, ${balanceBefore}, ${balanceAfter},
             ${JSON.stringify({ 
               seriesId, 
               sessionType,
@@ -11152,7 +11188,7 @@ async function ensureCreditProcessed(sessionPlayerId: string): Promise<{
         WHERE id = ${sessionPlayerId}
       `);
       
-      console.log(`[EnsureCredit] Consumed 1 ${creditType} credit from package ${pkg.id} for session_player ${sessionPlayerId}`);
+      console.log(`[EnsureCredit] Consumed ${creditCost} ${creditType} credit(s) from package ${pkg.id} for session_player ${sessionPlayerId}`);
       
       return {
         success: true,
@@ -11339,7 +11375,7 @@ async function auditAllPlayerCredits(): Promise<{
   // Ghost credits: positive amounts referencing a packageId that NO LONGER EXISTS in the database
   // Depleted/expired packages are REAL packages - their purchases are valid, not ghosts
   const ghostPurchases = allPositiveTransactions.filter(tx => {
-    if (tx.amount <= 0) return false;
+    if (Number(tx.amount) <= 0) return false;
     if (!tx.packageId) return false;
     if (existingPackageIds.has(tx.packageId)) return false;
     return true;
@@ -11371,7 +11407,7 @@ async function auditAllPlayerCredits(): Promise<{
   
   // Also fix orphan purchase transactions without packageId
   const orphanPurchases = allPositiveTransactions.filter(tx => {
-    if (tx.amount <= 0) return false;
+    if (Number(tx.amount) <= 0) return false;
     if (tx.packageId) return false;
     if (tx.reason !== "package_purchased" && tx.reason !== "package_purchase") return false;
     const meta = tx.metadata as { settled?: boolean; cancelled?: boolean; expired?: boolean } | null;
@@ -11430,18 +11466,18 @@ async function auditAllPlayerCredits(): Promise<{
     for (const tx of allPlayerTxs) {
       const meta = tx.metadata as { settled?: boolean; cancelled?: boolean; expired?: boolean } | null;
       if (tx.reason !== "debt_settlement" && (meta?.settled || meta?.cancelled || meta?.expired)) continue;
-      if (tx.amount > 0 && !tx.packageId && (tx.reason === "package_purchased" || tx.reason === "package_purchase")) continue;
-      if (tx.amount > 0 && tx.packageId && !existingPackageIds.has(tx.packageId)) continue;
-      txBalance += tx.amount;
+      if (Number(tx.amount) > 0 && !tx.packageId && (tx.reason === "package_purchased" || tx.reason === "package_purchase")) continue;
+      if (Number(tx.amount) > 0 && tx.packageId && !existingPackageIds.has(tx.packageId)) continue;
+      txBalance += Number(tx.amount);
     }
     
-    if (txBalance !== pkg.remainingCredits) {
+    if (txBalance !== Number(pkg.remainingCredits)) {
       syncFixes++;
-      console.log(`[CreditAudit] SYNC FIX: ${playerName} - ${pkg.creditType} package remaining ${pkg.remainingCredits} -> ${txBalance} (diff: ${pkg.remainingCredits - txBalance})`);
+      console.log(`[CreditAudit] SYNC FIX: ${playerName} - ${pkg.creditType} package remaining ${pkg.remainingCredits} -> ${txBalance} (diff: ${Number(pkg.remainingCredits) - txBalance})`);
       
       // Find unsettled negative transactions without packageId (orphan debts)
       const unsettledNegative = allPlayerTxs.filter(tx => {
-        if (tx.amount >= 0) return false;
+        if (Number(tx.amount) >= 0) return false;
         if (tx.packageId) return false;
         const meta = tx.metadata as { settled?: boolean; cancelled?: boolean; expired?: boolean } | null;
         if (meta?.settled || meta?.cancelled || meta?.expired) return false;
@@ -11449,11 +11485,11 @@ async function auditAllPlayerCredits(): Promise<{
         return true;
       });
       
-      const orphanDebtTotal = unsettledNegative.reduce((sum, tx) => sum + Math.abs(tx.amount), 0);
+      const orphanDebtTotal = unsettledNegative.reduce((sum, tx) => sum + Math.abs(Number(tx.amount)), 0);
       
       if (unsettledNegative.length > 0 && orphanDebtTotal > 0) {
         // Settle orphan debts properly: mark as settled AND create a settlement transaction
-        const creditsToDeduct = Math.min(orphanDebtTotal, pkg.remainingCredits);
+        const creditsToDeduct = Math.min(orphanDebtTotal, Number(pkg.remainingCredits));
         
         for (const debt of unsettledNegative) {
           const existingMeta = (debt.metadata || {}) as Record<string, unknown>;
@@ -11492,7 +11528,7 @@ async function auditAllPlayerCredits(): Promise<{
         }
         
         // Update package remaining
-        const newRemaining = Math.max(0, pkg.remainingCredits - creditsToDeduct);
+        const newRemaining = Math.max(0, Number(pkg.remainingCredits) - creditsToDeduct);
         await db.update(packages)
           .set({
             remainingCredits: newRemaining,

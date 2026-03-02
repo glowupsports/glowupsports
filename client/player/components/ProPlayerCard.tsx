@@ -14,6 +14,7 @@ import Animated, {
 import { Spacing, BorderRadius, GlowColors, Backgrounds } from "@/constants/theme";
 import * as Haptics from "expo-haptics";
 import { getStaticAssetsUrl } from "@/lib/query-client";
+import { formatCredits } from "@/lib/dateUtils";
 import { usePlayerLevel } from "../hooks/usePlayerLevel";
 import { useNavigation } from "@react-navigation/native";
 import { LanguageHeaderButton } from "@/components/LanguageSelectorModal";
@@ -254,7 +255,7 @@ export function ProPlayerCard({
               <Text style={[
                 styles.walletText,
                 (credits?.total ?? 0) <= 0 && styles.walletTextDanger,
-              ]}>{credits?.total ?? 0} {t("player.home.credits")}</Text>
+              ]}>{formatCredits(credits?.total ?? 0)} {t("player.home.credits")}</Text>
             </Pressable>
 
             {player.streak > 0 ? (

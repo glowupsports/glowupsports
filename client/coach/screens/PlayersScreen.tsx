@@ -37,7 +37,7 @@ import Animated, {
 import { Colors, Backgrounds, Spacing, BorderRadius, Typography, FontSizes, getPlayerLevelColor, getPlayerLevelTextColor, GlowColors } from "@/constants/theme";
 import { apiRequest, getStaticAssetsUrl, getApiUrl, getAuthHeaders } from "@/lib/query-client";
 import { useCoach } from "@/coach/context/CoachContext";
-import { convertUTCTimeToLocal } from "@/lib/dateUtils";
+import { convertUTCTimeToLocal, formatCredits } from "@/lib/dateUtils";
 import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollViewCompat";
 import PackagesCard from "@/coach/components/PackagesCard";
 import QuickBaselineDrawer from "@/coach/components/QuickBaselineDrawer";
@@ -286,12 +286,12 @@ function GamingPlayerCard({
 
                 const formatCreditParts = () => {
                   if (credits === undefined) return [{ text: "No pkg", color: Colors.dark.tabIconDefault }];
-                  if (!byType) return [{ text: credits === 0 ? "0 credits" : `${credits}`, color: getCreditColor(credits) }];
+                  if (!byType) return [{ text: credits === 0 ? "0 credits" : `${formatCredits(credits)}`, color: getCreditColor(credits) }];
 
                   const parts: { text: string; color: string }[] = [];
-                  if (byType.private !== 0) parts.push({ text: `${byType.private} Prv`, color: getCreditColor(byType.private) });
-                  if (byType.group !== 0) parts.push({ text: `${byType.group} Grp`, color: getCreditColor(byType.group) });
-                  if (byType.semiPrivate !== 0) parts.push({ text: `${byType.semiPrivate} Semi`, color: getCreditColor(byType.semiPrivate) });
+                  if (byType.private !== 0) parts.push({ text: `${formatCredits(byType.private)} Prv`, color: getCreditColor(byType.private) });
+                  if (byType.group !== 0) parts.push({ text: `${formatCredits(byType.group)} Grp`, color: getCreditColor(byType.group) });
+                  if (byType.semiPrivate !== 0) parts.push({ text: `${formatCredits(byType.semiPrivate)} Semi`, color: getCreditColor(byType.semiPrivate) });
                   return parts.length > 0 ? parts : [{ text: "0 credits", color: Colors.dark.error }];
                 };
 

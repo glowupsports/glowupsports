@@ -16,6 +16,7 @@ import { EmptyStateCard } from "@/components/EmptyStateCard";
 import PinEntryModal from "@/components/PinEntryModal";
 import Animated, { useSharedValue, useAnimatedStyle, withSpring } from "react-native-reanimated";
 import { apiRequest, getApiUrl, getStaticAssetsUrl } from "@/lib/query-client";
+import { formatCredits } from "@/lib/dateUtils";
 import { getAuthToken } from "@/lib/auth";
 import { useWalkthrough } from "@/player/context/WalkthroughContext";
 import { usePlayer } from "@/player/context/PlayerContext";
@@ -615,21 +616,21 @@ export default function PlayerProfileScreen() {
               <Text style={styles.creditsTitle}>{t("player.profile.myCredits")}</Text>
             </View>
             <View style={styles.creditsTotalRow}>
-              <Text style={styles.creditsTotalValue}>{dashboardData.credits.total}</Text>
+              <Text style={styles.creditsTotalValue}>{formatCredits(dashboardData.credits.total)}</Text>
               <Text style={styles.creditsTotalLabel}>{t("player.profile.totalAvailable")}</Text>
             </View>
             {dashboardData.credits.total > 0 ? (
               <View style={styles.creditsTypeRow}>
                 <View style={styles.creditsTypeItem}>
-                  <Text style={styles.creditsTypeValue}>{dashboardData.credits.group}</Text>
+                  <Text style={styles.creditsTypeValue}>{formatCredits(dashboardData.credits.group)}</Text>
                   <Text style={styles.creditsTypeLabel}>{t("player.profile.group")}</Text>
                 </View>
                 <View style={styles.creditsTypeItem}>
-                  <Text style={styles.creditsTypeValue}>{dashboardData.credits.private}</Text>
+                  <Text style={styles.creditsTypeValue}>{formatCredits(dashboardData.credits.private)}</Text>
                   <Text style={styles.creditsTypeLabel}>{t("player.profile.private")}</Text>
                 </View>
                 <View style={styles.creditsTypeItem}>
-                  <Text style={styles.creditsTypeValue}>{dashboardData.credits.semi_private}</Text>
+                  <Text style={styles.creditsTypeValue}>{formatCredits(dashboardData.credits.semi_private)}</Text>
                   <Text style={styles.creditsTypeLabel}>{t("player.profile.semiPrivate")}</Text>
                 </View>
               </View>

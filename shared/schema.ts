@@ -1395,8 +1395,8 @@ export const packages = pgTable("packages", {
   // If null, credits can be used for any class the player is member of
   seriesId: varchar("series_id"),
   
-  totalCredits: integer("total_credits").notNull(),
-  remainingCredits: integer("remaining_credits").notNull(),
+  totalCredits: numeric("total_credits").notNull(),
+  remainingCredits: numeric("remaining_credits").notNull(),
   
   price: numeric("price"), // Price paid for this package (auto-calculated from academy pricing)
   pricePerCredit: numeric("price_per_credit"), // Unit price snapshot at purchase time
@@ -2751,7 +2751,7 @@ export const creditTransactions = pgTable("credit_transactions", {
   
   type: text("type").notNull(), // credit | debit | refund | make_up_grant | make_up_used
   creditType: text("credit_type"), // group | private | semi_private | court - type of credits being transacted
-  amount: integer("amount").notNull(), // positive for credit, negative for debit
+  amount: numeric("amount").notNull(), // positive for credit, negative for debit (supports 0.5, 1.5 etc)
   reason: text("reason").notNull(), // session_consumed | session_debt | session_settlement | session_cancel | make_up_granted | make_up_lesson_used | package_purchased | admin_adjustment
   
   // Unique event key for idempotency: "consume:<sessionPlayerId>" prevents duplicate consumptions

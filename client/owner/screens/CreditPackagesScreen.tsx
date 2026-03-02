@@ -13,6 +13,7 @@ import { LinearGradient } from "expo-linear-gradient";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import * as Haptics from "expo-haptics";
 import { useQuery } from "@tanstack/react-query";
+import { formatCredits } from "@/lib/dateUtils";
 import { useNavigation } from "@react-navigation/native";
 import { Colors, Spacing, BorderRadius, Typography } from "@/constants/theme";
 import { InfoTooltip } from "@/components/InfoTooltip";
@@ -121,7 +122,7 @@ export default function CreditPackagesScreen() {
                   <View key={`${pkg.creditType}-${pkg.credits}`} style={styles.packageCard}>
                     <View style={styles.packageCredits}>
                       <Text style={[styles.packageCreditsNumber, { color: typeInfo.color }]}>
-                        {pkg.credits}
+                        {formatCredits(pkg.credits)}
                       </Text>
                       <Text style={styles.packageCreditsLabel}>
                         credit{pkg.credits > 1 ? "s" : ""}

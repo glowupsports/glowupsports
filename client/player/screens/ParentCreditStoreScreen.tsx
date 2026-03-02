@@ -8,6 +8,7 @@ import * as Haptics from "expo-haptics";
 import * as Clipboard from "expo-clipboard";
 import { Colors, Spacing, Typography, BorderRadius, GlowColors } from "@/constants/theme";
 import { apiRequest } from "@/lib/query-client";
+import { formatCredits } from "@/lib/dateUtils";
 
 type CreditType = "group" | "private" | "semi_private" | "court";
 
@@ -242,7 +243,7 @@ export default function ParentCreditStoreScreen() {
                 >
                   <View style={styles.packageCredits}>
                     <Text style={[styles.packageCreditsNumber, { color }]}>
-                      {pkg.credits}
+                      {formatCredits(pkg.credits)}
                     </Text>
                     <Text style={styles.packageCreditsLabel}>
                       credit{pkg.credits > 1 ? "s" : ""}
@@ -286,7 +287,7 @@ export default function ParentCreditStoreScreen() {
               <View key={type} style={styles.creditItem}>
                 <View style={[styles.creditBadge, { backgroundColor: CREDIT_TYPE_COLORS[type] + "20" }]}>
                   <Text style={[styles.creditValue, { color: CREDIT_TYPE_COLORS[type] }]}>
-                    {credits[type]}
+                    {formatCredits(credits[type])}
                   </Text>
                 </View>
                 <Text style={styles.creditLabel}>{CREDIT_TYPE_LABELS[type]}</Text>
@@ -331,7 +332,7 @@ export default function ParentCreditStoreScreen() {
                     {CREDIT_TYPE_LABELS[selectedPackage.creditType]}
                   </Text>
                 </View>
-                <Text style={styles.summaryCredits}>{selectedPackage.credits} Credits</Text>
+                <Text style={styles.summaryCredits}>{formatCredits(selectedPackage.credits)} Credits</Text>
                 <Text style={styles.summaryTotal}>
                   {formatCurrency(selectedPackage.totalPrice, selectedPackage.currency)}
                 </Text>

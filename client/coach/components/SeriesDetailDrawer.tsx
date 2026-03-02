@@ -19,7 +19,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import { Colors, Backgrounds, Spacing, BorderRadius, Typography, GlowColors } from "@/constants/theme";
 import { apiRequest, getApiUrl, getAuthHeaders } from "@/lib/query-client";
-import { convertUTCTimeToLocal } from "@/lib/dateUtils";
+import { convertUTCTimeToLocal, formatCredits } from "@/lib/dateUtils";
 import { useCoach } from "@/coach/context/CoachContext";
 import { WebCalendarPicker } from "@/components/WebCalendarPicker";
 import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollViewCompat";
@@ -1534,7 +1534,7 @@ export default function SeriesDetailDrawer({
                               hasNoCredits && styles.creditBadgeTextWarning,
                               hasDebt && styles.creditBadgeTextDebt,
                             ]}>
-                              {hasDebt ? `${relevantCredits}` : relevantCredits}
+                              {hasDebt ? `${formatCredits(relevantCredits)}` : formatCredits(relevantCredits)}
                             </Text>
                           </View>
                         ) : null}

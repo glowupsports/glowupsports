@@ -19,6 +19,7 @@ import DateTimePicker from "@react-native-community/datetimepicker";
 import Animated, { FadeInDown, FadeIn, useSharedValue, useAnimatedStyle, withSpring } from "react-native-reanimated";
 import { Colors, Spacing, BorderRadius, Typography, GlowColors } from "@/constants/theme";
 import { apiRequest, getApiUrl, getAuthHeaders } from "@/lib/query-client";
+import { formatCredits } from "@/lib/dateUtils";
 
 type CreditType = "group" | "private" | "semi_private";
 
@@ -481,9 +482,9 @@ export default function PackagesCard({ playerId, playerName }: PackagesCardProps
                   <Text style={styles.creditsLabel}>Credits</Text>
                   <View style={styles.creditsDisplay}>
                     <Text style={[styles.creditsRemaining, isDepleted && styles.creditsDepleted]}>
-                      {pkg.remainingCredits}
+                      {formatCredits(pkg.remainingCredits)}
                     </Text>
-                    <Text style={styles.creditsTotal}>/ {pkg.totalCredits}</Text>
+                    <Text style={styles.creditsTotal}>/ {formatCredits(pkg.totalCredits)}</Text>
                   </View>
                 </View>
                 
@@ -668,8 +669,8 @@ export default function PackagesCard({ playerId, playerName }: PackagesCardProps
             {packageToDelete && (
               <Text style={styles.deleteMessage}>
                 {packageToDelete.totalCredits - packageToDelete.remainingCredits > 0
-                  ? `This package has ${packageToDelete.totalCredits - packageToDelete.remainingCredits} used and ${packageToDelete.remainingCredits} remaining credits. Delete it?`
-                  : `Delete this package with ${packageToDelete.remainingCredits} credits?`}
+                  ? `This package has ${formatCredits(packageToDelete.totalCredits - packageToDelete.remainingCredits)} used and ${formatCredits(packageToDelete.remainingCredits)} remaining credits. Delete it?`
+                  : `Delete this package with ${formatCredits(packageToDelete.remainingCredits)} credits?`}
               </Text>
             )}
             <View style={styles.modalButtons}>

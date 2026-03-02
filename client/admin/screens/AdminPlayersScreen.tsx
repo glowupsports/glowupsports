@@ -21,6 +21,7 @@ import * as Clipboard from "expo-clipboard";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import { Colors, Backgrounds, Spacing, BorderRadius, Typography, CardStyles, GlowColors } from "@/constants/theme";
 import { apiRequest } from "@/lib/query-client";
+import { formatCredits } from "@/lib/dateUtils";
 import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollViewCompat";
 import { ReportIssueModal } from "@/components/ReportIssueModal";
 import CreateInvoiceModal from "@/admin/components/CreateInvoiceModal";
@@ -778,12 +779,12 @@ export default function AdminPlayersScreen() {
 
           const formatCreditParts = () => {
             if (credits === undefined) return [{ text: "No pkg", color: Colors.dark.textMuted }];
-            if (!byType) return [{ text: credits === 0 ? "0 credits" : `${credits}`, color: getCreditTypeColor(credits) }];
+            if (!byType) return [{ text: credits === 0 ? "0 credits" : `${formatCredits(credits)}`, color: getCreditTypeColor(credits) }];
 
             const parts: { text: string; color: string }[] = [];
-            if (byType.private !== 0) parts.push({ text: `${byType.private} Prv`, color: getCreditTypeColor(byType.private) });
-            if (byType.group !== 0) parts.push({ text: `${byType.group} Grp`, color: getCreditTypeColor(byType.group) });
-            if (byType.semiPrivate !== 0) parts.push({ text: `${byType.semiPrivate} Semi`, color: getCreditTypeColor(byType.semiPrivate) });
+            if (byType.private !== 0) parts.push({ text: `${formatCredits(byType.private)} Prv`, color: getCreditTypeColor(byType.private) });
+            if (byType.group !== 0) parts.push({ text: `${formatCredits(byType.group)} Grp`, color: getCreditTypeColor(byType.group) });
+            if (byType.semiPrivate !== 0) parts.push({ text: `${formatCredits(byType.semiPrivate)} Semi`, color: getCreditTypeColor(byType.semiPrivate) });
             return parts.length > 0 ? parts : [{ text: "0 credits", color: Colors.dark.error }];
           };
 
@@ -1128,7 +1129,7 @@ export default function AdminPlayersScreen() {
                               <View>
                                 <Text style={styles.packageCreditsLabel}>Credits</Text>
                                 <Text style={[styles.packageCreditsValue, { color: typeColor }]}>
-                                  {pkg.remainingCredits} / {pkg.totalCredits}
+                                  {formatCredits(pkg.remainingCredits)} / {formatCredits(pkg.totalCredits)}
                                 </Text>
                               </View>
                               {pkgPrice > 0 && (
@@ -1755,10 +1756,10 @@ export default function AdminPlayersScreen() {
                         <View style={styles.premiumCreditsSection}>
                           <View style={styles.creditsDisplay}>
                             <Text style={[styles.premiumCreditsValue, { color: creditColor }]}>
-                              {remaining}
+                              {formatCredits(remaining)}
                             </Text>
                             <Text style={styles.premiumCreditsDivider}>/</Text>
-                            <Text style={styles.premiumCreditsTotal}>{total}</Text>
+                            <Text style={styles.premiumCreditsTotal}>{formatCredits(total)}</Text>
                             <Text style={styles.premiumCreditsLabel}>credits</Text>
                           </View>
                           <View style={styles.creditsProgressBar}>
@@ -2624,7 +2625,7 @@ export default function AdminPlayersScreen() {
                    (selectedPackageForPayment.packageName || selectedPackageForPayment.creditType || 'Package').slice(1)}
                 </Text>
                 <Text style={{ color: Colors.dark.successNeon, fontSize: 14, marginTop: 4 }}>
-                  {selectedPackageForPayment.totalCredits} credits
+                  {formatCredits(selectedPackageForPayment.totalCredits)} credits
                 </Text>
               </View>
             )}
@@ -2807,7 +2808,7 @@ export default function AdminPlayersScreen() {
                           </Text>
                         </View>
                         <Text style={styles.unpaidPackageCredits}>
-                          {pkg.remainingCredits} / {pkg.totalCredits} credits
+                          {formatCredits(pkg.remainingCredits)} / {formatCredits(pkg.totalCredits)} credits
                         </Text>
                         <Text style={styles.unpaidPackagePrice}>
                           AED {Number(pkg.price || 0).toLocaleString()}

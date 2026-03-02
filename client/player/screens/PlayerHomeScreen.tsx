@@ -22,6 +22,7 @@ import { BirthdayCelebrationModal, shouldShowBirthdayCelebration } from "@/playe
 import { BirthdayConfettiOverlay, BirthdayBanner, BirthdayXPBonusCard } from "@/player/components/BirthdayThemeOverlay";
 import { useMissionControl, useAssignDailyQuests, useClaimQuestReward, useQuests } from "@/player/hooks/useQuests";
 import { apiRequest, getApiUrl, getStaticAssetsUrl } from "@/lib/query-client";
+import { formatCredits } from "@/lib/dateUtils";
 import Animated, { FadeIn, FadeOut, SlideInUp, useSharedValue, useAnimatedStyle, withSpring, withSequence, withTiming, withRepeat } from "react-native-reanimated";
 import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollViewCompat";
 import Svg, { Circle, Defs, RadialGradient, Stop } from "react-native-svg";
@@ -1418,7 +1419,7 @@ export default function PlayerHomeScreen() {
             </View>
             <View style={styles.smartAlertContent}>
               <Text style={styles.smartAlertTitle}>Credits Running Low</Text>
-              <Text style={styles.smartAlertSubtitle}>Only {data.credits.total} credits left - top up to keep training!</Text>
+              <Text style={styles.smartAlertSubtitle}>Only {formatCredits(data.credits.total)} credits left - top up to keep training!</Text>
             </View>
             <Ionicons name="chevron-forward" size={20} color={Colors.dark.orange} />
           </Pressable>

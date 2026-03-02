@@ -1,3 +1,11 @@
+export function formatCredits(value: number | string | undefined | null): string {
+  if (value === undefined || value === null) return "0";
+  const num = typeof value === "string" ? parseFloat(value) : value;
+  if (isNaN(num)) return "0";
+  if (Number.isInteger(num)) return num.toString();
+  return parseFloat(num.toFixed(2)).toString();
+}
+
 export function isSameDay(date1: Date, date2: Date): boolean {
   return date1.toDateString() === date2.toDateString();
 }
