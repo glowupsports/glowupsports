@@ -325,16 +325,13 @@ function ScheduleStackNavigator() {
 function ProgressStackNavigator() {
   const { t } = useTranslation();
   const navigation = useNavigation<any>();
-  const { consumePendingNavigation } = useTabNavigation();
+  const { registerTabCallback } = useTabNavigation();
 
   React.useEffect(() => {
-    const pending = consumePendingNavigation("Progress");
-    if (pending) {
-      setTimeout(() => {
-        navigation.navigate(pending.screen, pending.params);
-      }, 200);
-    }
-  });
+    return registerTabCallback("Progress", (screen, params) => {
+      navigation.navigate(screen, params);
+    });
+  }, [navigation, registerTabCallback]);
 
   return (
     <ProgressStack.Navigator screenOptions={{ headerShown: false }}>
