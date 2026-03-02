@@ -11625,50 +11625,6 @@ async function repairGroupSessionTypes(): Promise<{ fixed: number; errors: strin
   return results;
 }
 
-async function cancelDebtsForPlayersWithNoPackages(): Promise<{ playersFixed: number; debtsCleared: number }> {
-  console.log("[DebtRepair] Cancelling debts for players who never had packages...");
-  
-  const allDebtTxs = await db.execute(sql`
-    SELECT DISTINCT ct.player_id 
-    FROM credit_transactions ct
-    WHERE ct.reason IN ('session_debt', 'session_join_debt', 'session_unpaid')
-    AND (ct.metadata->>'cancelled')::boolean IS NOT TRUE
-    AND (ct.metadata->>'settled')::boolean IS NOT TRUE
-  `);
-  
-  let playersFixed = 0;
-  let debtsCleared = 0;
-  
-  for (const row of allDebtTxs.rows) {
-    const playerId = (row as any).player_id;
-    
-    const pkgCount = await db.execute(sql`
-      SELECT COUNT(*) as count FROM packages WHERE player_id = ${playerId}
-    `);
-    const totalPackages = parseInt((pkgCount.rows[0] as any)?.count || '0');
-    
-    if (totalPackages === 0) {
-      const result = await db.execute(sql`
-        UPDATE credit_transactions 
-        SET metadata = COALESCE(metadata, '{}'::jsonb) || jsonb_build_object('cancelled', true, 'cancelReason', 'no_packages_ever_assigned', 'cancelledAt', NOW()::text)
-        WHERE player_id = ${playerId}
-        AND reason IN ('session_debt', 'session_join_debt', 'session_unpaid')
-        AND (metadata->>'cancelled')::boolean IS NOT TRUE
-        AND (metadata->>'settled')::boolean IS NOT TRUE
-      `);
-      const cleared = result.rowCount || 0;
-      if (cleared > 0) {
-        console.log(`[DebtRepair] Cleared ${cleared} debts for player ${playerId} (no packages ever assigned)`);
-        playersFixed++;
-        debtsCleared += cleared;
-      }
-    }
-  }
-  
-  console.log(`[DebtRepair] Complete: ${playersFixed} players fixed, ${debtsCleared} debts cleared`);
-  return { playersFixed, debtsCleared };
-}
-
 async function cleanupGhostSessions(): Promise<{ cancelled: number }> {
   const endedSeriesIds = await db
     .select({ id: coachingSeries.id })
@@ -11707,4 +11663,4 @@ async function cleanupGhostSessions(): Promise<{ cancelled: number }> {
   return { cancelled: ghostIds.length };
 }
 
-export { getSessionTypeByPlayerCount, updateSeriesSessionType, recalculateSeriesCredits, ensureCreditProcessed, repairAllPlayerCredits, auditAllPlayerCredits, repairGroupSessionTypes, cancelDebtsForPlayersWithNoPackages, cleanupGhostSessions };
+export { getSessionTypeByPlayerCount, updateSeriesSessionType, recalculateSeriesCredits, ensureCreditProcessed, repairAllPlayerCredits, auditAllPlayerCredits, repairGroupSessionTypes, cleanupGhostSessions };
