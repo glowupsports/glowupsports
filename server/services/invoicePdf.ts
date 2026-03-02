@@ -328,7 +328,7 @@ export function generateInvoiceHtml(data: InvoiceData): string {
         ${data.academy.address ? `<p>${data.academy.address}</p>` : ''}
         ${data.academy.email ? `<p>${data.academy.email}</p>` : ''}
         ${data.academy.phone ? `<p>${data.academy.phone}</p>` : ''}
-        <p style="margin-top: 8px; font-style: italic; color: #6B7280; font-size: 12px;">${data.academy.vatRegistrationNumber ? `TRN: ${data.academy.vatRegistrationNumber}` : 'Supplier is not VAT registered'}</p>
+        <p style="margin-top: 8px; font-style: italic; color: #6B7280; font-size: 12px;">${data.academy.vatRegistrationNumber ? `TRN: ${data.academy.vatRegistrationNumber}` : 'Not VAT registered'}</p>
       </div>
       <div class="invoice-title">
         <h2>INVOICE</h2>

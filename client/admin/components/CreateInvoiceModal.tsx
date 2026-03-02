@@ -351,7 +351,7 @@ const generateInvoicePDF = (invoice: {
             <p class="contact-info">${invoice.academyAddress || "Dubai, UAE"}<br/>
             ${invoice.academyEmail || "info@glowuptennis.com"}<br/>
             ${invoice.academyPhone || ""}</p>
-            <p class="contact-info" style="margin-top: 8px; font-style: italic;">${invoice.vatRegistrationNumber ? `TRN: ${invoice.vatRegistrationNumber}` : "Supplier is not VAT registered"}</p>
+            <p class="contact-info" style="margin-top: 8px; font-style: italic;">${invoice.vatRegistrationNumber ? `TRN: ${invoice.vatRegistrationNumber}` : "Not VAT registered"}</p>
           </div>
           <div class="invoice-badge">
             <h2>Invoice</h2>

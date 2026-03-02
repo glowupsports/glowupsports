@@ -8,7 +8,7 @@ import { BlurView } from "expo-blur";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { SwipeableTabBar, TabConfig } from "@/components/SwipeableTabBar";
-import { TabNavigationProvider } from "@/components/TabNavigationContext";
+import { TabNavigationProvider, useTabNavigation } from "@/components/TabNavigationContext";
 import { ChatStateProvider, useChatState } from "@/coach/context/ChatStateContext";
 import ProPlayerHomeScreen from "@/player/screens/ProPlayerHomeScreen";
 import PlayerJourneyScreen from "@/player/screens/PlayerJourneyScreen";
@@ -492,6 +492,7 @@ function PlayerTabsWithDrawer() {
   const [drawerVisible, setDrawerVisible] = useState(false);
   const navigation = useNavigation<any>();
   const { setOpenDrawer } = usePlayerDrawer();
+  const { navigateToTab } = useTabNavigation();
   
   React.useEffect(() => {
     setOpenDrawer(() => setDrawerVisible(true));
@@ -500,19 +501,16 @@ function PlayerTabsWithDrawer() {
   const navigateToProfile = () => {
     setDrawerVisible(false);
     setTimeout(() => {
-      navigation.navigate("PlayerTabs", { screen: "Profile" });
+      navigateToTab("Profile");
     }, 100);
   };
 
   const handleDrawerNavigate = (screen: string, params?: any) => {
-    // Navigate first using the Stack navigator context
     if (screen === "PlayerTabs" && params?.screen) {
-      // Pass full nested params for deep navigation (e.g., Progress -> Tournaments)
-      navigation.navigate("PlayerTabs", params);
+      navigateToTab(params.screen, params.params ? { screen: params.params.screen, params: params.params } : undefined);
     } else {
       navigation.navigate(screen, params);
     }
-    // Then close drawer
     setTimeout(() => {
       setDrawerVisible(false);
     }, 100);
