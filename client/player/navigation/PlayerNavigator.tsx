@@ -102,6 +102,7 @@ export type PlayerTabParamList = {
   Community: undefined;
   PlayStack: undefined;
   Schedule: undefined;
+  Quests: undefined;
   Progress: undefined;
   Profile: undefined;
 };
@@ -464,12 +465,13 @@ function PlayerTabsContent({ onEdgeSwipeLeft }: { onEdgeSwipeLeft?: () => void }
   const [currentTabKey, setCurrentTabKey] = useState("Home");
 
   const playerTabs: TabConfig[] = useMemo(() => [
-    { key: "Home", label: t('nav.home'), icon: "home-outline", iconFocused: "home", component: ProPlayerHomeScreen },
-    { key: "Community", label: t('nav.community'), icon: "people-outline", iconFocused: "people", component: CommunityScreen },
-    { key: "PlayStack", label: t('nav.play'), icon: "game-controller-outline", iconFocused: "game-controller", component: PlayStackNavigator },
-    { key: "Schedule", label: t('nav.schedule'), icon: "calendar-outline", iconFocused: "calendar", component: ScheduleStackNavigator },
-    { key: "Progress", label: t('player.progress.title'), icon: "stats-chart-outline", iconFocused: "stats-chart", component: ProgressStackNavigator },
-    { key: "Profile", label: t('nav.profile'), icon: "person-outline", iconFocused: "person", component: PlayerProfileScreen },
+    { key: "Home", label: "Home", icon: "home-outline", iconFocused: "home", component: ProPlayerHomeScreen },
+    { key: "Community", label: "Social", icon: "people-outline", iconFocused: "people", component: CommunityScreen },
+    { key: "PlayStack", label: "Play", icon: "game-controller-outline", iconFocused: "game-controller", component: PlayStackNavigator },
+    { key: "Schedule", label: "Sched", icon: "calendar-outline", iconFocused: "calendar", component: ScheduleStackNavigator },
+    { key: "Quests", label: "Quests", icon: "flash-outline", iconFocused: "flash", component: QuestsScreen },
+    { key: "Progress", label: "Stats", icon: "stats-chart-outline", iconFocused: "stats-chart", component: ProgressStackNavigator },
+    { key: "Profile", label: "Me", icon: "person-outline", iconFocused: "person", component: PlayerProfileScreen },
   ], [t]);
   
   const hideChat = HIDE_CHAT_TABS.includes(currentTabKey);

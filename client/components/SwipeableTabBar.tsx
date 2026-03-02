@@ -295,9 +295,9 @@ const styles = StyleSheet.create({
     height: 32,
   },
   swipeTabLabel: {
-    fontSize: 10,
+    fontSize: 9,
     fontWeight: "600",
-    letterSpacing: 0.5,
+    letterSpacing: 0.3,
     marginTop: 2,
   },
   tabIndicator: {
