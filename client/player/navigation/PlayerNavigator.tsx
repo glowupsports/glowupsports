@@ -500,6 +500,7 @@ function PlayerTabsContent({ onEdgeSwipeLeft }: { onEdgeSwipeLeft?: () => void }
       onEdgeSwipeLeft={onEdgeSwipeLeft}
       onPageChange={handlePageChange}
       renderOverlay={renderOverlay}
+      dividerAfterIndices={[3, 5]}
     />
   );
 }

@@ -115,6 +115,7 @@ interface SwipeableTabBarProps {
   onEdgeSwipeLeft?: () => void;
   initialPage?: number;
   onPageChange?: (index: number, key: string) => void;
+  dividerAfterIndices?: number[];
 }
 
 export function SwipeableTabBar({ 
@@ -126,6 +127,7 @@ export function SwipeableTabBar({
   onEdgeSwipeLeft,
   initialPage = 0,
   onPageChange,
+  dividerAfterIndices = [],
 }: SwipeableTabBarProps) {
   const insets = useSafeAreaInsets();
   const [currentIndex, setCurrentIndex] = useState(initialPage);
@@ -234,16 +236,20 @@ export function SwipeableTabBar({
         
         <View style={styles.swipeTabRow}>
           {tabs.map((tab, index) => (
-            <SwipeableTabItem
-              key={tab.key}
-              tab={tab}
-              index={index}
-              currentIndex={currentIndex}
-              scrollOffset={scrollOffset}
-              onPress={() => navigateToPage(index)}
-              activeColor={primaryColor}
-              inactiveColor={inactiveColor}
-            />
+            <React.Fragment key={tab.key}>
+              <SwipeableTabItem
+                tab={tab}
+                index={index}
+                currentIndex={currentIndex}
+                scrollOffset={scrollOffset}
+                onPress={() => navigateToPage(index)}
+                activeColor={primaryColor}
+                inactiveColor={inactiveColor}
+              />
+              {dividerAfterIndices.includes(index) ? (
+                <View style={styles.tabDivider} />
+              ) : null}
+            </React.Fragment>
           ))}
         </View>
       </View>
@@ -329,5 +335,11 @@ const styles = StyleSheet.create({
     height: 28,
     borderRadius: 14,
     opacity: 0.2,
+  },
+  tabDivider: {
+    width: 1,
+    height: 28,
+    backgroundColor: "rgba(255,255,255,0.08)",
+    alignSelf: "center",
   },
 });

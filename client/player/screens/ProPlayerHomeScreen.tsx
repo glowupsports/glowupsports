@@ -547,7 +547,7 @@ function PlayerHomeContent() {
           role="player"
           faqs={playerFAQs}
           supportEmail="support@glowupsports.com"
-          bottomOffset={120}
+          bottomOffset={185}
         />
       <NotificationGuideModal
         visible={showNotificationGuide}
