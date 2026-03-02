@@ -9621,13 +9621,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
           })),
         ];
 
-        // Total scheduled lessons (all records)
-        const totalLessons = allRecords.length;
-
         // Count by attendance status (excluding cancelled sessions)
         const nonCancelledRecords = allRecords.filter(
           (r) => r.sessionStatus !== "cancelled",
         );
+
+        // Total lessons = only sessions that actually happened (not cancelled)
+        const totalLessons = nonCancelledRecords.length;
         const presentCount = nonCancelledRecords.filter(
           (r) => r.attendanceStatus === "present",
         ).length;
