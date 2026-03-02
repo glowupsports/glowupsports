@@ -322,8 +322,7 @@ function ScheduleStackNavigator() {
   );
 }
 
-function ProgressStackNavigator() {
-  const { t } = useTranslation();
+function ProgressMainWithCallback(props: any) {
   const navigation = useNavigation<any>();
   const { registerTabCallback } = useTabNavigation();
 
@@ -333,9 +332,15 @@ function ProgressStackNavigator() {
     });
   }, [navigation, registerTabCallback]);
 
+  return <PlayerProgressScreen {...props} />;
+}
+
+function ProgressStackNavigator() {
+  const { t } = useTranslation();
+
   return (
     <ProgressStack.Navigator screenOptions={{ headerShown: false }}>
-      <ProgressStack.Screen name="ProgressMain" component={PlayerProgressScreen} />
+      <ProgressStack.Screen name="ProgressMain" component={ProgressMainWithCallback} />
       <ProgressStack.Screen 
         name="GlowLeaderboard" 
         component={GlowLeaderboardScreen}
