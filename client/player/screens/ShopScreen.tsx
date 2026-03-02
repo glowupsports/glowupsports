@@ -241,8 +241,8 @@ export default function ShopScreen() {
                 >
                   <View style={styles.heroContent}>
                     <Text style={styles.heroLabel}>EXCLUSIVE TENNIS GEAR</Text>
-                    <Text style={styles.heroTitle}>Gear Up.{"\n"}Play Bold.</Text>
-                    <Text style={styles.heroSubtitle}>Premium equipment & pro services for champions</Text>
+                    <Text style={styles.heroTitle}>Glow Up Your{"\n"}Tennis Gear!</Text>
+                    <Text style={styles.heroSubtitle}>Premium equipment & services from your academy</Text>
                   </View>
                   <View style={styles.heroAccent}>
                     <Ionicons name="tennisball" size={120} color={GlowColors.primary + "08"} />

@@ -796,11 +796,7 @@ function PlayerStackNavigator() {
         component={ShopScreen}
         options={{
           presentation: "card",
-          headerShown: true,
-          headerTitle: "Academy Shop",
-          headerStyle: { backgroundColor: '#090E17' },
-          headerTintColor: '#CCFF00',
-          headerTitleStyle: { color: '#ffffff', fontWeight: '600' },
+          headerShown: false,
         }}
       />
       <Stack.Screen 
