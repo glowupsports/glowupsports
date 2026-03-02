@@ -150,6 +150,38 @@ export default function AdminClassesScreen() {
     return filtered;
   }, [seriesData, selectedCoachId, filter]);
 
+  const [expandedDays, setExpandedDays] = useState<Set<number>>(new Set());
+
+  const { groupedByDay, sortedDays, flexibleSeries } = useMemo(() => {
+    const grouped: Record<number, CoachingSeries[]> = {};
+    const flexible: CoachingSeries[] = [];
+
+    for (const s of filteredByCoach) {
+      if (s.dayOfWeek === FLEXIBLE_DAY || s.dayOfWeek == null) {
+        flexible.push(s);
+      } else {
+        if (!grouped[s.dayOfWeek]) grouped[s.dayOfWeek] = [];
+        grouped[s.dayOfWeek].push(s);
+      }
+    }
+
+    const days = Object.keys(grouped).map(Number).sort((a, b) => a - b);
+
+    return { groupedByDay: grouped, sortedDays: days, flexibleSeries: flexible };
+  }, [filteredByCoach]);
+
+  const toggleDay = (day: number) => {
+    setExpandedDays((prev) => {
+      const next = new Set(prev);
+      if (next.has(day)) {
+        next.delete(day);
+      } else {
+        next.add(day);
+      }
+      return next;
+    });
+  };
+
   const handleCreatePress = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     setShowCreateWizard(true);

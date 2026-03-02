@@ -28,6 +28,7 @@ interface Court {
   type?: string;
   surface?: string;
   isIndoor?: boolean;
+  pricePerHour?: number | null;
 }
 
 export default function AdminSettingsScreen() {
@@ -52,6 +53,7 @@ export default function AdminSettingsScreen() {
     type: "standard",
     surface: "hard",
     isIndoor: false,
+    pricePerHour: "",
   });
   const [testPushLoading, setTestPushLoading] = useState(false);
   const [testInviteLoading, setTestInviteLoading] = useState(false);
@@ -59,14 +61,20 @@ export default function AdminSettingsScreen() {
     queryKey: ["/api/courts"],
   });
 
+  const prepareCourtData = (data: typeof courtFormData) => {
+    const { pricePerHour, ...rest } = data;
+    const parsed = pricePerHour ? parseFloat(pricePerHour) : null;
+    return { ...rest, pricePerHour: parsed && !isNaN(parsed) ? parsed : null };
+  };
+
   const addCourtMutation = useMutation({
     mutationFn: async (data: typeof courtFormData) => {
-      return apiRequest("POST", "/api/courts", data);
+      return apiRequest("POST", "/api/courts", prepareCourtData(data));
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/courts"] });
       setShowCourtModal(false);
-      setCourtFormData({ name: "", type: "standard", surface: "hard", isIndoor: false });
+      setCourtFormData({ name: "", type: "standard", surface: "hard", isIndoor: false, pricePerHour: "" });
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     },
     onError: (err: Error) => {
@@ -80,13 +88,13 @@ export default function AdminSettingsScreen() {
 
   const updateCourtMutation = useMutation({
     mutationFn: async ({ id, data }: { id: string; data: typeof courtFormData }) => {
-      return apiRequest("PATCH", `/api/courts/${id}`, data);
+      return apiRequest("PATCH", `/api/courts/${id}`, prepareCourtData(data));
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/courts"] });
       setShowCourtModal(false);
       setEditingCourt(null);
-      setCourtFormData({ name: "", type: "standard", surface: "hard", isIndoor: false });
+      setCourtFormData({ name: "", type: "standard", surface: "hard", isIndoor: false, pricePerHour: "" });
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     },
     onError: (err: Error) => {
@@ -115,6 +123,7 @@ export default function AdminSettingsScreen() {
       type: court.type || "standard",
       surface: court.surface || "hard",
       isIndoor: court.isIndoor || false,
+      pricePerHour: court.pricePerHour ? String(court.pricePerHour) : "",
     });
     setShowCourtModal(true);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -131,7 +140,7 @@ export default function AdminSettingsScreen() {
   const handleCloseCourtModal = () => {
     setShowCourtModal(false);
     setEditingCourt(null);
-    setCourtFormData({ name: "", type: "standard", surface: "hard", isIndoor: false });
+    setCourtFormData({ name: "", type: "standard", surface: "hard", isIndoor: false, pricePerHour: "" });
   };
 
   const handleShowRolesPermissions = () => {
@@ -310,7 +319,7 @@ export default function AdminSettingsScreen() {
               style={styles.addSmallButton}
               onPress={() => {
                 setEditingCourt(null);
-                setCourtFormData({ name: "", type: "standard", surface: "hard", isIndoor: false });
+                setCourtFormData({ name: "", type: "standard", surface: "hard", isIndoor: false, pricePerHour: "" });
                 setShowCourtModal(true);
                 Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
               }}
@@ -328,7 +337,7 @@ export default function AdminSettingsScreen() {
                 style={styles.addFirstButton}
                 onPress={() => {
                   setEditingCourt(null);
-                  setCourtFormData({ name: "", type: "standard", surface: "hard", isIndoor: false });
+                  setCourtFormData({ name: "", type: "standard", surface: "hard", isIndoor: false, pricePerHour: "" });
                   setShowCourtModal(true);
                 }}
               >
@@ -567,6 +576,18 @@ export default function AdminSettingsScreen() {
                   </Text>
                 </Pressable>
               </View>
+            </View>
+
+            <View style={styles.formGroup}>
+              <Text style={styles.label}>Rental Price per Hour (AED)</Text>
+              <TextInput
+                style={styles.input}
+                value={courtFormData.pricePerHour}
+                onChangeText={(text) => setCourtFormData((prev) => ({ ...prev, pricePerHour: text.replace(/[^0-9.]/g, "") }))}
+                placeholder="e.g. 150"
+                placeholderTextColor={Colors.dark.textMuted}
+                keyboardType="decimal-pad"
+              />
             </View>
           </KeyboardAwareScrollViewCompat>
         </View>
