@@ -324,6 +324,18 @@ function ScheduleStackNavigator() {
 
 function ProgressStackNavigator() {
   const { t } = useTranslation();
+  const navigation = useNavigation<any>();
+  const { consumePendingNavigation } = useTabNavigation();
+
+  React.useEffect(() => {
+    const pending = consumePendingNavigation("Progress");
+    if (pending) {
+      setTimeout(() => {
+        navigation.navigate(pending.screen, pending.params);
+      }, 200);
+    }
+  });
+
   return (
     <ProgressStack.Navigator screenOptions={{ headerShown: false }}>
       <ProgressStack.Screen name="ProgressMain" component={PlayerProgressScreen} />

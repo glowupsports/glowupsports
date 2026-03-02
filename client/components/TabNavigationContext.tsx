@@ -3,11 +3,18 @@ import PagerView from "react-native-pager-view";
 import * as Haptics from "expo-haptics";
 import { NavigationContainerRef } from "@react-navigation/native";
 
+interface PendingNavigation {
+  tabKey: string;
+  screen: string;
+  params?: any;
+}
+
 interface TabNavigationContextType {
   navigateToTab: (tabKey: string, screenParams?: { screen: string; params?: any }) => void;
   registerPager: (pagerRef: React.RefObject<PagerView | null>, tabs: { key: string }[]) => void;
   registerNavigation: (navRef: NavigationContainerRef<any>) => void;
   getNavigation: () => NavigationContainerRef<any> | null;
+  consumePendingNavigation: (tabKey: string) => PendingNavigation | null;
   scrollEnabled: boolean;
   setScrollEnabled: (enabled: boolean) => void;
 }
@@ -18,8 +25,8 @@ interface TabNavigationProviderProps {
   children: ReactNode;
 }
 
-// Store navigation ref globally to avoid closure issues
 let globalNavigationRef: NavigationContainerRef<any> | null = null;
+let pendingNav: PendingNavigation | null = null;
 
 export function TabNavigationProvider({ children }: TabNavigationProviderProps) {
   const pagerRefStore = useRef<React.RefObject<PagerView | null> | null>(null);
@@ -32,7 +39,6 @@ export function TabNavigationProvider({ children }: TabNavigationProviderProps) 
   }, []);
 
   const registerNavigation = useCallback((navRef: NavigationContainerRef<any>) => {
-    console.log("[TabNavigation] registerNavigation called, ref:", !!navRef);
     globalNavigationRef = navRef;
   }, []);
   
@@ -40,43 +46,39 @@ export function TabNavigationProvider({ children }: TabNavigationProviderProps) 
     return globalNavigationRef;
   }, []);
 
+  const consumePendingNavigation = useCallback((tabKey: string): PendingNavigation | null => {
+    if (pendingNav && pendingNav.tabKey === tabKey) {
+      const nav = pendingNav;
+      pendingNav = null;
+      return nav;
+    }
+    return null;
+  }, []);
+
   const navigateToTab = useCallback((tabKey: string, screenParams?: { screen: string; params?: any }) => {
-    console.log(`[TabNavigation] navigateToTab called: tabKey=${tabKey}`, screenParams);
-    console.log(`[TabNavigation] pagerRef exists: ${!!pagerRefStore.current?.current}`);
-    console.log(`[TabNavigation] tabs count: ${tabsStore.current.length}`);
-    console.log(`[TabNavigation] globalNavigationRef exists: ${!!globalNavigationRef}`);
-    
     if (!pagerRefStore.current?.current || !tabsStore.current.length) {
-      console.warn("[TabNavigation] Pager not registered yet");
       return;
     }
     
     const tabIndex = tabsStore.current.findIndex(t => t.key === tabKey);
-    console.log(`[TabNavigation] tabIndex for "${tabKey}": ${tabIndex}`);
     if (tabIndex === -1) {
-      console.warn(`[TabNavigation] Tab "${tabKey}" not found`);
       return;
     }
     
-    // First navigate to the tab
+    if (screenParams) {
+      pendingNav = {
+        tabKey,
+        screen: screenParams.screen,
+        params: screenParams.params,
+      };
+    }
+    
     pagerRefStore.current.current.setPage(tabIndex);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    console.log(`[TabNavigation] Tab switched to index ${tabIndex}`);
-    
-    // If screen params provided, navigate to nested screen after tab switch
-    if (screenParams && globalNavigationRef) {
-      // Small delay to let tab switch animation complete
-      setTimeout(() => {
-        if (globalNavigationRef) {
-          console.log(`[TabNavigation] Navigating to nested screen:`, tabKey, screenParams);
-          globalNavigationRef.navigate(tabKey, screenParams);
-        }
-      }, 150);
-    }
   }, []);
 
   return (
-    <TabNavigationContext.Provider value={{ navigateToTab, registerPager, registerNavigation, getNavigation, scrollEnabled, setScrollEnabled }}>
+    <TabNavigationContext.Provider value={{ navigateToTab, registerPager, registerNavigation, getNavigation, consumePendingNavigation, scrollEnabled, setScrollEnabled }}>
       {children}
     </TabNavigationContext.Provider>
   );
@@ -92,6 +94,7 @@ export function useTabNavigation(): TabNavigationContextType {
       registerPager: () => {},
       registerNavigation: () => {},
       getNavigation: () => globalNavigationRef,
+      consumePendingNavigation: () => null,
       scrollEnabled: true,
       setScrollEnabled: () => {}
     };
