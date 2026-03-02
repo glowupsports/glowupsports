@@ -131,8 +131,10 @@ function TimeSlot({
     }
   };
 
+  const slotWidth = (SCREEN_WIDTH - Spacing.md * 2 - Spacing.sm * 3) / 4;
+
   return (
-    <Animated.View style={{ transform: [{ scale: scaleAnim }] }}>
+    <Animated.View style={{ transform: [{ scale: scaleAnim }], width: slotWidth }}>
       <Pressable
         style={[styles.slotButton, getSlotStyle()]}
         onPress={onPress}
@@ -1141,7 +1143,7 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.md,
   },
   slotButton: {
-    width: (SCREEN_WIDTH - Spacing.md * 2 - Spacing.sm * 3) / 4,
+    width: "100%",
     height: 48,
     alignItems: "center",
     justifyContent: "center",
