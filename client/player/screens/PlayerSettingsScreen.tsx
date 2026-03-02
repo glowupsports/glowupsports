@@ -636,7 +636,7 @@ export default function PlayerSettingsScreen() {
                     {debugInfo.activeTokens === 0 ? " (tap Re-Register below)" : ""}
                   </Text>
                 </View>
-                {debugInfo.tokens.map((t, i) => (
+                {(debugInfo.tokens || []).map((t, i) => (
                   <View key={i} style={styles.debugTokenRow}>
                     <Ionicons name={t.platform === "android" ? "logo-android" : "phone-portrait"} size={14} color="#E67E22" />
                     <Text style={styles.debugTokenText}>

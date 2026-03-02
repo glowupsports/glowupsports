@@ -188,7 +188,7 @@ const DRAWER_SECTIONS: DrawerSection[] = [
     title: "SETTINGS & SUPPORT",
     icon: "settings",
     items: [
-      { id: "profile", title: "My Profile", subtitle: "Edit your info", icon: "person", screen: "PlayerTabs", params: { screen: "Profile" } },
+      { id: "profile", title: "My Profile", subtitle: "Edit your info", icon: "person", screen: "Settings" },
       { id: "preferences", title: "Preferences", subtitle: "Goals & playstyle", icon: "options", screen: "Settings" },
       { id: "notifications", title: "Notifications", subtitle: "Alert settings", icon: "notifications", screen: "PlayerNotifications" },
       { id: "support", title: "Support", subtitle: "Get help", icon: "help-circle", screen: "PlayerHelp" },
