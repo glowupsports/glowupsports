@@ -13,6 +13,7 @@ import { PlayerStateProvider } from "@/player/context/PlayerStateContext";
 import { useTabNavigation } from "@/components/TabNavigationContext";
 import { ProPlayerCard } from "@/player/components/ProPlayerCard";
 import { PlayersNearYouRow, OpenSessionsRow, TrainingSessionsRow } from "@/player/components/DiscoveryRows";
+import { GlowMarketSpotlight } from "@/player/components/GlowMarketSpotlight";
 import { MiniFeed } from "@/player/components/MiniFeed";
 import { SessionHeroCard } from "@/player/components/SessionHeroCard";
 import { NewsTicker } from "@/player/components/NewsTicker";
@@ -509,6 +510,9 @@ function PlayerHomeContent() {
             {/* Trainings - Quick access to lessons */}
             <TrainingSessionsRow />
           </View>
+
+        {/* GLOW MARKET - Featured products spotlight */}
+        <GlowMarketSpotlight />
 
         {/* COMMUNITY - Activity feed */}
         <MiniFeed />

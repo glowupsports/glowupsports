@@ -311,7 +311,7 @@ const styles = StyleSheet.create({
   titleGaming: {
     fontSize: 12,
     fontWeight: "800",
-    color: GlowColors.primary,
+    color: "#FFFFFF",
     letterSpacing: 2,
   },
   seeAllButton: {
