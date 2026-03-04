@@ -27,6 +27,7 @@ import Animated, { FadeIn, FadeOut, SlideInUp, useSharedValue, useAnimatedStyle,
 import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollViewCompat";
 import Svg, { Circle, Defs, RadialGradient, Stop } from "react-native-svg";
 import { useWebSocket } from "@/lib/useWebSocket";
+import { GlowMarketSpotlight } from "@/player/components/GlowMarketSpotlight";
 
 interface VacationData {
   active: boolean;
@@ -1499,6 +1500,8 @@ export default function PlayerHomeScreen() {
           </View>
         ) : null}
 
+        <GlowMarketSpotlight />
+
         <Pressable 
           style={styles.courtBookingCard}
           onPress={() => navigation.navigate("QuickBook")}
@@ -1517,27 +1520,6 @@ export default function PlayerHomeScreen() {
               <Text style={styles.courtBookingSubtitle}>3-tap booking - Book in seconds</Text>
             </View>
             <Ionicons name="chevron-forward" size={20} color={Colors.dark.xpCyan} />
-          </LinearGradient>
-        </Pressable>
-
-        <Pressable 
-          style={styles.courtBookingCard}
-          onPress={() => navigation.navigate("Shop")}
-        >
-          <LinearGradient
-            colors={[Colors.dark.primary + "15", Colors.dark.backgroundSecondary]}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={styles.courtBookingGradient}
-          >
-            <View style={[styles.courtBookingIcon, { backgroundColor: Colors.dark.primary + "20" }]}>
-              <Ionicons name="storefront" size={24} color={Colors.dark.primary} />
-            </View>
-            <View style={styles.courtBookingContent}>
-              <Text style={styles.courtBookingTitle}>Glow Market</Text>
-              <Text style={styles.courtBookingSubtitle}>Gear, services & exclusive deals</Text>
-            </View>
-            <Ionicons name="chevron-forward" size={20} color={Colors.dark.primary} />
           </LinearGradient>
         </Pressable>
 
