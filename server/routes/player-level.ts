@@ -25,7 +25,8 @@ async function getXpForNextLevel(currentLevel: number): Promise<number> {
     .where(eq(playerLevelThresholds.level, currentLevel + 1));
   
   if (threshold?.xpRequired) return threshold.xpRequired;
-  return Math.round(1500 * Math.pow(1.1, currentLevel - 20));
+  if (currentLevel >= 50) return 999999;
+  return Math.max(10, Math.round(10 + currentLevel * 5));
 }
 
 async function getTitleForLevel(level: number): Promise<string> {
@@ -306,9 +307,16 @@ router.get("/player/:playerId/status", async (req: Request, res: Response) => {
       }
     }
 
+    const maxLevel = allThresholds.length > 0 ? Math.max(...allThresholds.map(t => t.level)) : 50;
+
     // Current progress in this level
-    const xpInCurrentLevel = totalXp - xpForPreviousLevels;
-    const xpNeededForNextLevel = await getXpForNextLevel(currentLevel);
+    let xpInCurrentLevel = totalXp - xpForPreviousLevels;
+    let xpNeededForNextLevel = await getXpForNextLevel(currentLevel);
+
+    if (currentLevel >= maxLevel) {
+      xpNeededForNextLevel = allThresholds.find(t => t.level === maxLevel)?.xpRequired || 300;
+      xpInCurrentLevel = xpNeededForNextLevel;
+    }
     const currentTitle = await getTitleForLevel(currentLevel);
 
     // Get all unlocked features for this player
@@ -611,59 +619,63 @@ router.post("/seed-defaults", async (req: Request, res: Response) => {
     // Seed level thresholds
     const defaultThresholds = [
       { level: 1, xpRequired: 0, title: "Rookie" },
-      { level: 2, xpRequired: 50, title: "Rookie" },
-      { level: 3, xpRequired: 75, title: "Rookie" },
-      { level: 4, xpRequired: 100, title: "Player" },
-      { level: 5, xpRequired: 125, title: "Player" },
-      { level: 6, xpRequired: 150, title: "Player" },
-      { level: 7, xpRequired: 180, title: "Competitor" },
-      { level: 8, xpRequired: 220, title: "Competitor" },
-      { level: 9, xpRequired: 260, title: "Competitor" },
-      { level: 10, xpRequired: 300, title: "Strategist" },
-      { level: 11, xpRequired: 350, title: "Strategist" },
-      { level: 12, xpRequired: 400, title: "Strategist" },
-      { level: 13, xpRequired: 500, title: "Champion" },
-      { level: 14, xpRequired: 600, title: "Champion" },
-      { level: 15, xpRequired: 700, title: "Champion" },
-      { level: 16, xpRequired: 850, title: "Legend" },
-      { level: 17, xpRequired: 1000, title: "Legend" },
-      { level: 18, xpRequired: 1150, title: "Legend" },
-      { level: 19, xpRequired: 1300, title: "Elite" },
-      { level: 20, xpRequired: 1500, title: "Elite" },
-      { level: 21, xpRequired: 1750, title: "Master" },
-      { level: 22, xpRequired: 1900, title: "Master" },
-      { level: 23, xpRequired: 2100, title: "Master" },
-      { level: 24, xpRequired: 2300, title: "Master" },
-      { level: 25, xpRequired: 2500, title: "Master" },
-      { level: 26, xpRequired: 2750, title: "Grandmaster" },
-      { level: 27, xpRequired: 2900, title: "Grandmaster" },
-      { level: 28, xpRequired: 3100, title: "Grandmaster" },
-      { level: 29, xpRequired: 3300, title: "Grandmaster" },
-      { level: 30, xpRequired: 3500, title: "Grandmaster" },
-      { level: 31, xpRequired: 3750, title: "Pro" },
-      { level: 32, xpRequired: 3950, title: "Pro" },
-      { level: 33, xpRequired: 4150, title: "Pro" },
-      { level: 34, xpRequired: 4350, title: "Pro" },
-      { level: 35, xpRequired: 4500, title: "Pro" },
-      { level: 36, xpRequired: 4750, title: "World Class" },
-      { level: 37, xpRequired: 5000, title: "World Class" },
-      { level: 38, xpRequired: 5250, title: "World Class" },
-      { level: 39, xpRequired: 5500, title: "World Class" },
-      { level: 40, xpRequired: 5500, title: "World Class" },
-      { level: 41, xpRequired: 5750, title: "Legendary" },
-      { level: 42, xpRequired: 6000, title: "Legendary" },
-      { level: 43, xpRequired: 6250, title: "Legendary" },
-      { level: 44, xpRequired: 6500, title: "Legendary" },
-      { level: 45, xpRequired: 6500, title: "Legendary" },
-      { level: 46, xpRequired: 6750, title: "GOAT" },
-      { level: 47, xpRequired: 7000, title: "GOAT" },
-      { level: 48, xpRequired: 7250, title: "GOAT" },
-      { level: 49, xpRequired: 7500, title: "GOAT" },
-      { level: 50, xpRequired: 8000, title: "GOAT" },
+      { level: 2, xpRequired: 10, title: "Rookie" },
+      { level: 3, xpRequired: 15, title: "Rookie" },
+      { level: 4, xpRequired: 20, title: "Rookie" },
+      { level: 5, xpRequired: 25, title: "Rookie" },
+      { level: 6, xpRequired: 30, title: "Player" },
+      { level: 7, xpRequired: 35, title: "Player" },
+      { level: 8, xpRequired: 40, title: "Player" },
+      { level: 9, xpRequired: 50, title: "Player" },
+      { level: 10, xpRequired: 55, title: "Player" },
+      { level: 11, xpRequired: 60, title: "Competitor" },
+      { level: 12, xpRequired: 65, title: "Competitor" },
+      { level: 13, xpRequired: 70, title: "Competitor" },
+      { level: 14, xpRequired: 80, title: "Competitor" },
+      { level: 15, xpRequired: 85, title: "Competitor" },
+      { level: 16, xpRequired: 90, title: "Strategist" },
+      { level: 17, xpRequired: 95, title: "Strategist" },
+      { level: 18, xpRequired: 100, title: "Strategist" },
+      { level: 19, xpRequired: 110, title: "Strategist" },
+      { level: 20, xpRequired: 115, title: "Strategist" },
+      { level: 21, xpRequired: 120, title: "Champion" },
+      { level: 22, xpRequired: 125, title: "Champion" },
+      { level: 23, xpRequired: 130, title: "Champion" },
+      { level: 24, xpRequired: 140, title: "Champion" },
+      { level: 25, xpRequired: 145, title: "Champion" },
+      { level: 26, xpRequired: 150, title: "Legend" },
+      { level: 27, xpRequired: 155, title: "Legend" },
+      { level: 28, xpRequired: 160, title: "Legend" },
+      { level: 29, xpRequired: 170, title: "Legend" },
+      { level: 30, xpRequired: 175, title: "Legend" },
+      { level: 31, xpRequired: 180, title: "Elite" },
+      { level: 32, xpRequired: 185, title: "Elite" },
+      { level: 33, xpRequired: 190, title: "Elite" },
+      { level: 34, xpRequired: 200, title: "Elite" },
+      { level: 35, xpRequired: 205, title: "Elite" },
+      { level: 36, xpRequired: 210, title: "Master" },
+      { level: 37, xpRequired: 215, title: "Master" },
+      { level: 38, xpRequired: 220, title: "Master" },
+      { level: 39, xpRequired: 230, title: "Master" },
+      { level: 40, xpRequired: 235, title: "Master" },
+      { level: 41, xpRequired: 240, title: "Grandmaster" },
+      { level: 42, xpRequired: 245, title: "Grandmaster" },
+      { level: 43, xpRequired: 250, title: "Grandmaster" },
+      { level: 44, xpRequired: 260, title: "Grandmaster" },
+      { level: 45, xpRequired: 265, title: "Grandmaster" },
+      { level: 46, xpRequired: 270, title: "GOAT" },
+      { level: 47, xpRequired: 275, title: "GOAT" },
+      { level: 48, xpRequired: 280, title: "GOAT" },
+      { level: 49, xpRequired: 290, title: "GOAT" },
+      { level: 50, xpRequired: 300, title: "GOAT" },
     ];
 
     for (const threshold of defaultThresholds) {
-      await db.insert(playerLevelThresholds).values(threshold).onConflictDoNothing();
+      await db.insert(playerLevelThresholds).values(threshold)
+        .onConflictDoUpdate({
+          target: playerLevelThresholds.level,
+          set: { xpRequired: threshold.xpRequired, title: threshold.title },
+        });
     }
 
     // Seed XP rules

@@ -225,35 +225,6 @@ export function ProPlayerCard({
               </View>
             </View>
 
-            <View style={styles.actionsColumn}>
-              <LanguageHeaderButton />
-              <Pressable
-                style={styles.actionBtn}
-                onPress={() => {
-                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                  setShowHelp(true);
-                }}
-                hitSlop={{ top: 16, bottom: 16, left: 16, right: 16 }}
-              >
-                <Ionicons name="help-circle-outline" size={20} color="#00D4FF" />
-              </Pressable>
-              {onNotificationPress ? (
-                <Pressable
-                  style={styles.actionBtn}
-                  onPress={onNotificationPress}
-                  hitSlop={{ top: 16, bottom: 16, left: 16, right: 16 }}
-                >
-                  <Ionicons name="notifications" size={20} color="#00D4FF" />
-                  {unreadNotificationCount > 0 ? (
-                    <View style={styles.notifBadge}>
-                      <Text style={styles.notifBadgeText}>
-                        {unreadNotificationCount > 99 ? "99+" : unreadNotificationCount}
-                      </Text>
-                    </View>
-                  ) : null}
-                </Pressable>
-              ) : null}
-            </View>
           </View>
 
           <View style={styles.cardDivider} />
@@ -290,6 +261,32 @@ export function ProPlayerCard({
             ) : null}
 
             <View style={{ flex: 1 }} />
+
+            <LanguageHeaderButton />
+            <Pressable
+              style={styles.bottomActionBtn}
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                setShowHelp(true);
+              }}
+            >
+              <Ionicons name="help-circle-outline" size={18} color="#00D4FF" />
+            </Pressable>
+            {onNotificationPress ? (
+              <Pressable
+                style={styles.bottomActionBtn}
+                onPress={onNotificationPress}
+              >
+                <Ionicons name="notifications" size={18} color="#00D4FF" />
+                {unreadNotificationCount > 0 ? (
+                  <View style={styles.notifBadge}>
+                    <Text style={styles.notifBadgeText}>
+                      {unreadNotificationCount > 99 ? "99+" : unreadNotificationCount}
+                    </Text>
+                  </View>
+                ) : null}
+              </Pressable>
+            ) : null}
 
             {showSquadSwitch ? (
               <Pressable style={styles.familyChip} onPress={handleSquadPress}>
@@ -471,19 +468,13 @@ const styles = StyleSheet.create({
     color: "#7C8290",
     fontWeight: "500",
   },
-  actionsColumn: {
-    alignItems: "center",
-    gap: Spacing.sm,
-  },
-  actionBtn: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: "rgba(0, 212, 255, 0.15)",
+  bottomActionBtn: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: "rgba(0, 212, 255, 0.12)",
     alignItems: "center",
     justifyContent: "center",
-    borderWidth: 1,
-    borderColor: "rgba(0, 212, 255, 0.30)",
   },
   notifBadge: {
     position: "absolute",
