@@ -254,7 +254,7 @@ export function NewsCard({ article, style }: NewsCardProps) {
     >
       <View style={styles.newsCardHeader}>
         <View style={styles.newsSourceBadge}>
-          <Feather name="globe" size={10} color={ProTennisColors.neonCyan} />
+          <Feather name="globe" size={10} color={GlowColors.primary} />
           <Text style={styles.newsSourceText}>{article.source}</Text>
         </View>
         <Text style={styles.newsTimeText}>{formatTimeAgo(article.publishedAt)}</Text>
@@ -264,7 +264,7 @@ export function NewsCard({ article, style }: NewsCardProps) {
       </Text>
       <View style={styles.readMoreRow}>
         <Text style={styles.readMoreText}>{t("news.readMore")}</Text>
-        <Feather name="arrow-right" size={12} color={ProTennisColors.neonCyan} />
+        <Feather name="arrow-right" size={12} color={GlowColors.primary} />
       </View>
     </Pressable>
   );
@@ -276,9 +276,9 @@ const styles = StyleSheet.create({
     overflow: "hidden",
     position: "relative",
     borderTopWidth: 1,
-    borderTopColor: ProTennisColors.neonCyan + "33",
+    borderTopColor: GlowColors.primary + "33",
     borderBottomWidth: 1,
-    borderBottomColor: ProTennisColors.neonCyan + "33",
+    borderBottomColor: GlowColors.primary + "33",
   },
   gradientBg: {
     ...StyleSheet.absoluteFillObject,
@@ -289,8 +289,8 @@ const styles = StyleSheet.create({
     right: 0,
     bottom: 0,
     height: 2,
-    backgroundColor: ProTennisColors.neonCyan,
-    shadowColor: ProTennisColors.neonCyan,
+    backgroundColor: GlowColors.primary,
+    shadowColor: GlowColors.primary,
     shadowOffset: { width: 0, height: 0 },
     shadowOpacity: 0.8,
     shadowRadius: 6,
@@ -309,7 +309,7 @@ const styles = StyleSheet.create({
     zIndex: 10,
     gap: 6,
     borderRightWidth: 1,
-    borderRightColor: ProTennisColors.neonCyan + "4D",
+    borderRightColor: GlowColors.primary + "4D",
   },
   liveDot: {
     width: 8,
@@ -362,13 +362,13 @@ const styles = StyleSheet.create({
     opacity: 0.7,
   },
   sourceTag: {
-    backgroundColor: `${ProTennisColors.neonCyan}20`,
+    backgroundColor: `${GlowColors.primary}20`,
     paddingHorizontal: Spacing.sm,
     paddingVertical: 2,
     borderRadius: BorderRadius.xs,
   },
   sourceText: {
-    color: ProTennisColors.neonCyan,
+    color: GlowColors.primary,
     fontSize: 9,
     fontWeight: "700",
     letterSpacing: 0.5,
@@ -433,7 +433,7 @@ const styles = StyleSheet.create({
     gap: Spacing.xs,
   },
   newsSourceText: {
-    color: ProTennisColors.neonCyan,
+    color: GlowColors.primary,
     fontSize: 10,
     fontWeight: "600",
   },
@@ -454,7 +454,7 @@ const styles = StyleSheet.create({
     gap: Spacing.xs,
   },
   readMoreText: {
-    color: ProTennisColors.neonCyan,
+    color: GlowColors.primary,
     fontSize: 11,
     fontWeight: "600",
   },

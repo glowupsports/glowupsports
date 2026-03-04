@@ -132,9 +132,8 @@ export function SpotlightCard({ onNominate, onViewDetails, onShareWinner }: Spot
   return (
     <Animated.View entering={FadeInDown.delay(200).duration(600)} style={[styles.outerContainer, glowStyle]}>
       <View style={styles.accentLine} />
-      <LinearGradient
-        colors={["rgba(255, 255, 255, 0.03)", "rgba(17, 20, 26, 0.95)"]}
-        style={styles.gradient}
+      <View
+        style={[styles.gradient, { backgroundColor: "#0F141B" }]}
       >
         <View style={styles.headerRow}>
           <View style={styles.headerLeft}>
@@ -249,7 +248,7 @@ export function SpotlightCard({ onNominate, onViewDetails, onShareWinner }: Spot
             </Pressable>
           </View>
         </View>
-      </LinearGradient>
+      </View>
     </Animated.View>
   );
 }
@@ -259,7 +258,7 @@ const styles = StyleSheet.create({
     marginHorizontal: Spacing.lg,
     borderWidth: 1,
     borderColor: "rgba(255, 255, 255, 0.06)",
-    backgroundColor: Backgrounds.card,
+    backgroundColor: "#0F141B",
     borderRadius: BorderRadius.lg,
     overflow: "hidden",
   },

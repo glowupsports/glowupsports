@@ -489,8 +489,8 @@ function PlayerHomeContent() {
 
         {/* ── IMPROVE SECTION ── Feedback, progress, recognition */}
         <View style={styles.sectionDivider}>
-          <Ionicons name="trending-up" size={12} color="#00D4FF" />
-          <Text style={[styles.sectionDividerText, { color: "#00D4FF" }]}>IMPROVE</Text>
+          <Ionicons name="trending-up" size={12} color={GlowColors.primary} />
+          <Text style={[styles.sectionDividerText, { color: GlowColors.primary }]}>IMPROVE</Text>
         </View>
 
         <RecentFeedbackCard />
@@ -507,7 +507,7 @@ function PlayerHomeContent() {
         <GlowMarketSpotlight />
       </ScrollView>
       
-      <QuickServeFAB bottomOffset={48} />
+      <QuickServeFAB bottomOffset={100} />
       
       {/* MODE SWITCHER - Dashboard switching button (top left) */}
       <CollapsibleModeSwitcher />
@@ -607,9 +607,9 @@ const styles = StyleSheet.create({
   freePlayerCta: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "rgba(0, 212, 255, 0.08)",
+    backgroundColor: "rgba(200, 255, 61, 0.08)",
     borderWidth: 1,
-    borderColor: "rgba(0, 212, 255, 0.2)",
+    borderColor: "rgba(200, 255, 61, 0.2)",
     borderRadius: BorderRadius.lg,
     marginHorizontal: Spacing.lg,
     padding: Spacing.lg,
@@ -619,7 +619,7 @@ const styles = StyleSheet.create({
     width: 48,
     height: 48,
     borderRadius: 24,
-    backgroundColor: "rgba(0, 212, 255, 0.15)",
+    backgroundColor: "rgba(200, 255, 61, 0.15)",
     justifyContent: "center",
     alignItems: "center",
   },

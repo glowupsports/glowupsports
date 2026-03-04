@@ -48,7 +48,7 @@ interface SectionHeaderProps {
   accentColor?: string;
 }
 
-function SectionHeader({ title, count, actionLabel, onAction, accentColor = ProTennisColors.neonCyan }: SectionHeaderProps) {
+function SectionHeader({ title, count, actionLabel, onAction, accentColor = "#FFFFFF" }: SectionHeaderProps) {
   const glowValue = useSharedValue(0.4);
   
   useEffect(() => {
@@ -144,7 +144,7 @@ export function PlayersNearYouRow() {
         count={availablePlayers.length}
         actionLabel={t("player.home.findMore")}
         onAction={handleSeeAll}
-        accentColor={ProTennisColors.neonCyan}
+        accentColor={GlowColors.primary}
       />
 
       <ScrollView
@@ -570,7 +570,7 @@ export function OpenMatchesRow() {
           title={t("player.home.openMatches")}
           actionLabel={t("player.home.findPlayers")}
           onAction={handleSeeAll}
-          accentColor={ProTennisColors.neonCyan}
+          accentColor={GlowColors.primary}
         />
         <View style={styles.emptyRow}>
           <Feather name="target" size={24} color={ProTennisColors.textMuted} />
@@ -590,7 +590,7 @@ export function OpenMatchesRow() {
         count={openMatches.length}
         actionLabel={t("common.seeAll")}
         onAction={handleSeeAll}
-        accentColor={ProTennisColors.neonCyan}
+        accentColor={GlowColors.primary}
       />
 
       <View style={styles.matchesFullWidthContainer}>
@@ -851,22 +851,22 @@ export function TrainingSessionsRow() {
 
         <Animated.View entering={FadeInRight.delay(120).duration(300)}>
           <Pressable onPress={handleCourtPress}>
-            <NeonEdgeCard color={ProTennisColors.neonCyan} glowIntensity="low" style={styles.trainingCard}>
+            <NeonEdgeCard color={GlowColors.primary} glowIntensity="low" style={styles.trainingCard}>
               <LinearGradient
-                colors={["rgba(0, 255, 255, 0.06)", "rgba(0, 0, 0, 0)"]}
+                colors={["rgba(200, 255, 61, 0.06)", "rgba(0, 0, 0, 0)"]}
                 style={styles.trainingGradient}
               />
               <View style={styles.trainingContent}>
                 <View style={styles.trainingIconWrap}>
-                  <Feather name="grid" size={18} color={ProTennisColors.neonCyan} />
+                  <Feather name="grid" size={18} color={GlowColors.primary} />
                 </View>
                 <Text style={styles.trainingTitle}>{t("player.home.courts")}</Text>
                 <Text style={styles.trainingSubtitle}>
                   {t("player.home.freeTonight", { count: availability.courtsAvailable })}
                 </Text>
                 <View style={styles.trainingChips}>
-                  <View style={[styles.trainingChip, { backgroundColor: "rgba(0, 255, 255, 0.2)" }]}>
-                    <Text style={[styles.trainingChipText, { color: ProTennisColors.neonCyan }]}>{t("player.home.reserve")}</Text>
+                  <View style={[styles.trainingChip, { backgroundColor: "rgba(200, 255, 61, 0.2)" }]}>
+                    <Text style={[styles.trainingChipText, { color: GlowColors.primary }]}>{t("player.home.reserve")}</Text>
                   </View>
                 </View>
               </View>
@@ -909,7 +909,7 @@ export function CommunityFeedPreview() {
 
   const getEventColor = (type: string) => {
     switch (type) {
-      case "new_member": return ProTennisColors.neonCyan;
+      case "new_member": return ProTennisColors.electricGreen;
       case "new_group": return ProTennisColors.electricGreen;
       case "tournament": return ProTennisColors.warning;
       case "challenge": return "#FF6B6B";
@@ -1091,12 +1091,12 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     borderWidth: 2,
-    borderColor: ProTennisColors.neonCyan + "40",
+    borderColor: GlowColors.primary + "40",
   },
   moreNumber: {
     fontSize: 18,
     fontWeight: "700",
-    color: ProTennisColors.neonCyan,
+    color: GlowColors.primary,
   },
   moreLabel: {
     fontSize: 12,
@@ -1707,7 +1707,7 @@ const styles = StyleSheet.create({
   matchTypeText: {
     fontSize: 10,
     fontWeight: "700",
-    color: ProTennisColors.neonCyan,
+    color: "#FFFFFF",
   },
   matchTime: {
     fontSize: 18,
@@ -1737,7 +1737,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     gap: 4,
-    backgroundColor: ProTennisColors.neonCyan,
+    backgroundColor: GlowColors.primary,
     paddingVertical: Spacing.sm,
     paddingHorizontal: Spacing.md,
     borderRadius: BorderRadius.md,

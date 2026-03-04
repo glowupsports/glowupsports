@@ -3,7 +3,6 @@ import { View, Text, StyleSheet, Pressable } from "react-native";
 import { useQuery } from "@tanstack/react-query";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import Animated, { FadeInDown } from "react-native-reanimated";
-import { LinearGradient } from "expo-linear-gradient";
 import { Colors, Backgrounds, Spacing, BorderRadius, GlowColors } from "@/constants/theme";
 import { useAuth } from "@/coach/context/AuthContext";
 import { useTabNavigation } from "@/components/TabNavigationContext";
@@ -60,11 +59,8 @@ export function RecentFeedbackCard() {
   return (
     <Animated.View entering={FadeInDown.delay(200).duration(400)} style={styles.wrapper}>
       <View style={styles.accentLine} />
-      <LinearGradient
-        colors={["rgba(200, 255, 61, 0.06)", "rgba(26, 26, 26, 0.95)", Backgrounds.card]}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 0.3, y: 1 }}
-        style={styles.gradientInner}
+      <View
+        style={[styles.gradientInner, { backgroundColor: "#0F141B" }]}
       >
         <Pressable onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); navigateToTab("Progress", { screen: "CoachFeedbackHistory" }); }} style={styles.headerRow}>
           <View style={styles.headerLeft}>
@@ -96,7 +92,7 @@ export function RecentFeedbackCard() {
             </View>
           );
         })}
-      </LinearGradient>
+      </View>
     </Animated.View>
   );
 }
@@ -106,7 +102,7 @@ const styles = StyleSheet.create({
     marginHorizontal: Spacing.lg,
     borderWidth: 1,
     borderColor: "rgba(255, 255, 255, 0.06)",
-    backgroundColor: Backgrounds.card,
+    backgroundColor: "#0F141B",
     borderRadius: BorderRadius.lg,
     overflow: "hidden",
   },

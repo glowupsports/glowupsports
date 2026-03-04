@@ -39,7 +39,7 @@ interface Post {
 }
 
 const eventTypeConfig: Record<string, { icon: keyof typeof Ionicons.glyphMap; color: string }> = {
-  new_member: { icon: "person-add-outline", color: ProTennisColors.neonCyan },
+  new_member: { icon: "person-add-outline", color: ProTennisColors.electricGreen },
   new_group: { icon: "people-outline", color: ProTennisColors.electricGreen },
   tournament: { icon: "trophy-outline", color: "#FFD93D" },
   challenge: { icon: "flash-outline", color: "#FF6B6B" },
@@ -72,18 +72,15 @@ function LatestPostCard({ post, onPress }: { post: Post; onPress: () => void }) 
 
   return (
     <Pressable onPress={onPress} style={styles.latestPostCard}>
-      <LinearGradient
-        colors={[`${ProTennisColors.neonCyan}15`, "rgba(21, 27, 41, 0.95)"]}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-        style={styles.latestPostGradient}
+      <View
+        style={[styles.latestPostGradient, { backgroundColor: "#0F141B" }]}
       >
         <View style={styles.latestPostHeader}>
           <View style={styles.latestPostAvatar}>
             {avatarUrl ? (
               <Image source={{ uri: avatarUrl }} style={styles.avatarImage} contentFit="cover" />
             ) : (
-              <Ionicons name="person" size={14} color={ProTennisColors.neonCyan} />
+              <Ionicons name="person" size={14} color={Colors.dark.textMuted} />
             )}
           </View>
           <View style={styles.latestPostMeta}>
@@ -124,10 +121,10 @@ function LatestPostCard({ post, onPress }: { post: Post; onPress: () => void }) 
           </View>
           <View style={styles.tapToView}>
             <Text style={styles.tapToViewText}>Tap to view</Text>
-            <Ionicons name="chevron-forward" size={12} color={ProTennisColors.neonCyan} />
+            <Ionicons name="chevron-forward" size={12} color={Colors.dark.textMuted} />
           </View>
         </View>
-      </LinearGradient>
+      </View>
     </Pressable>
   );
 }
@@ -242,11 +239,8 @@ export function MiniFeed() {
   return (
     <Animated.View entering={FadeInUp.delay(150).duration(400)} style={styles.outerCard}>
       <View style={styles.accentLine} />
-      <LinearGradient
-        colors={["rgba(200, 255, 61, 0.06)", "rgba(26, 26, 26, 0.95)", Backgrounds.card]}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 0.3, y: 1 }}
-        style={styles.container}
+      <View
+        style={[styles.container, { backgroundColor: "#0F141B" }]}
       >
         <View style={styles.header}>
           <View style={styles.titleRow}>
@@ -265,7 +259,7 @@ export function MiniFeed() {
           <LatestPostCard post={latestPost} onPress={handlePress} />
         )}
 
-      </LinearGradient>
+      </View>
     </Animated.View>
   );
 }
@@ -275,7 +269,7 @@ const styles = StyleSheet.create({
     marginHorizontal: Spacing.lg,
     borderWidth: 1,
     borderColor: "rgba(255, 255, 255, 0.06)",
-    backgroundColor: Backgrounds.card,
+    backgroundColor: "#0F141B",
     borderRadius: BorderRadius.lg,
     overflow: "hidden",
   },
@@ -380,7 +374,7 @@ const styles = StyleSheet.create({
     borderRadius: BorderRadius.md,
     overflow: "hidden",
     borderWidth: 1,
-    borderColor: `${ProTennisColors.neonCyan}30`,
+    borderColor: "rgba(255, 255, 255, 0.08)",
   },
   latestPostGradient: {
     padding: Spacing.md,
@@ -395,7 +389,7 @@ const styles = StyleSheet.create({
     width: 32,
     height: 32,
     borderRadius: 16,
-    backgroundColor: `${ProTennisColors.neonCyan}20`,
+    backgroundColor: "rgba(255, 255, 255, 0.08)",
     alignItems: "center",
     justifyContent: "center",
     overflow: "hidden",
@@ -486,7 +480,7 @@ const styles = StyleSheet.create({
   },
   tapToViewText: {
     fontSize: 11,
-    color: ProTennisColors.neonCyan,
+    color: Colors.dark.textMuted,
     fontWeight: "500",
   },
 });

@@ -59,7 +59,7 @@ export function QuickServeFAB({ bottomOffset = 70 }: QuickServeFABProps) {
       id: "chat-coach",
       label: "Chat Coach",
       icon: "chatbubble-outline",
-      color: ProTennisColors.neonCyan,
+      color: "rgba(255, 255, 255, 0.6)",
       onPress: () => {
         navigation.navigate("PlayerMessages");
       },
@@ -148,7 +148,7 @@ export function QuickServeFAB({ bottomOffset = 70 }: QuickServeFABProps) {
           end={{ x: 1, y: 1 }}
           style={styles.fabGradient}
         >
-          <Ionicons name="add" size={28} color={ProTennisColors.midnightBlue} />
+          <Ionicons name="add" size={24} color={ProTennisColors.midnightBlue} />
         </LinearGradient>
       </AnimatedPressable>
 
@@ -167,7 +167,7 @@ export function QuickServeFAB({ bottomOffset = 70 }: QuickServeFABProps) {
             style={[
               styles.menuContainer, 
               menuContainerStyle,
-              { bottom: bottomOffset + insets.bottom + 70, right: Spacing.lg },
+              { bottom: bottomOffset + insets.bottom + 60, right: Spacing.lg },
             ]}
           >
             {Platform.OS === "ios" ? (
@@ -213,7 +213,7 @@ export function QuickServeFAB({ bottomOffset = 70 }: QuickServeFABProps) {
               end={{ x: 1, y: 1 }}
               style={styles.fabGradient}
             >
-              <Ionicons name="add" size={28} color={ProTennisColors.midnightBlue} />
+              <Ionicons name="add" size={24} color={ProTennisColors.midnightBlue} />
             </LinearGradient>
           </AnimatedPressable>
         </View>
@@ -225,9 +225,9 @@ export function QuickServeFAB({ bottomOffset = 70 }: QuickServeFABProps) {
 const styles = StyleSheet.create({
   fab: {
     position: "absolute",
-    width: 56,
-    height: 56,
-    borderRadius: 28,
+    width: 48,
+    height: 48,
+    borderRadius: 24,
     shadowColor: GlowColors.primary,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.4,
@@ -239,9 +239,9 @@ const styles = StyleSheet.create({
     zIndex: 1000,
   },
   fabGradient: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
+    width: 48,
+    height: 48,
+    borderRadius: 24,
     justifyContent: "center",
     alignItems: "center",
   },

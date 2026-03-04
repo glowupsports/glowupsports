@@ -134,14 +134,11 @@ export function ProPlayerCard({
       <View style={styles.cardContainer}>
         <Animated.View style={[styles.cardGlow, glowRingStyle, { pointerEvents: "none" as const }]} />
         <View style={styles.container}>
-          <LinearGradient
-            colors={["rgba(46, 204, 64, 0.08)", "rgba(0, 212, 255, 0.04)", "rgba(26, 26, 26, 0.95)"]}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={styles.cardGradient}
+          <View
+            style={[styles.cardGradient, { backgroundColor: "#0F141B" }]}
           >
           <LinearGradient
-            colors={[GlowColors.primary, "#00D4FF", GlowColors.primary]}
+            colors={[GlowColors.primary, GlowColors.soft, GlowColors.primary]}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 0 }}
             style={styles.topAccentLine}
@@ -151,7 +148,7 @@ export function ProPlayerCard({
             <Pressable style={styles.avatarContainer} onPress={handleAvatarPress}>
               <Animated.View style={[styles.avatarOuterGlow, glowRingStyle]}>
                 <LinearGradient
-                  colors={[GlowColors.primary + "60", "#00D4FF40", GlowColors.primary + "60"]}
+                  colors={[GlowColors.primary + "60", GlowColors.soft + "40", GlowColors.primary + "60"]}
                   start={{ x: 0, y: 0 }}
                   end={{ x: 1, y: 1 }}
                   style={styles.avatarGlowGradient}
@@ -160,7 +157,7 @@ export function ProPlayerCard({
 
               <View style={styles.avatarFrame}>
                 <LinearGradient
-                  colors={[GlowColors.primary, "#00D4FF"]}
+                  colors={[GlowColors.primary, GlowColors.soft]}
                   start={{ x: 0, y: 0 }}
                   end={{ x: 1, y: 1 }}
                   style={styles.avatarBorder}
@@ -212,7 +209,7 @@ export function ProPlayerCard({
               <View style={styles.xpSection}>
                 <View style={styles.xpBarTrack}>
                   <LinearGradient
-                    colors={[GlowColors.primary, "#00D4FF"]}
+                    colors={[GlowColors.primary, GlowColors.soft]}
                     start={{ x: 0, y: 0 }}
                     end={{ x: 1, y: 0 }}
                     style={[styles.xpBarFill, { width: `${Math.max(xpProgress * 100, 2)}%` }]}
@@ -270,14 +267,14 @@ export function ProPlayerCard({
                 setShowHelp(true);
               }}
             >
-              <Ionicons name="help-circle-outline" size={18} color="#00D4FF" />
+              <Ionicons name="help-circle-outline" size={18} color="rgba(255,255,255,0.5)" />
             </Pressable>
             {onNotificationPress ? (
               <Pressable
                 style={styles.bottomActionBtn}
                 onPress={onNotificationPress}
               >
-                <Ionicons name="notifications" size={18} color="#00D4FF" />
+                <Ionicons name="notifications" size={18} color="rgba(255,255,255,0.5)" />
                 {unreadNotificationCount > 0 ? (
                   <View style={styles.notifBadge}>
                     <Text style={styles.notifBadgeText}>
@@ -290,12 +287,12 @@ export function ProPlayerCard({
 
             {showSquadSwitch ? (
               <Pressable style={styles.familyChip} onPress={handleSquadPress}>
-                <Ionicons name="people" size={14} color="#00D4FF" />
+                <Ionicons name="people" size={14} color={GlowColors.primary} />
                 <Text style={styles.familyChipText}>{t("player.home.family")}</Text>
               </Pressable>
             ) : null}
           </View>
-        </LinearGradient>
+        </View>
         </View>
       </View>
       <HelpCenterModal
@@ -472,7 +469,7 @@ const styles = StyleSheet.create({
     width: 32,
     height: 32,
     borderRadius: 16,
-    backgroundColor: "rgba(0, 212, 255, 0.12)",
+    backgroundColor: "rgba(255, 255, 255, 0.08)",
     alignItems: "center",
     justifyContent: "center",
   },
@@ -543,18 +540,18 @@ const styles = StyleSheet.create({
   familyChip: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "rgba(0, 212, 255, 0.10)",
+    backgroundColor: "rgba(200, 255, 61, 0.10)",
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: BorderRadius.sm,
     borderWidth: 1,
-    borderColor: "rgba(0, 212, 255, 0.20)",
+    borderColor: "rgba(200, 255, 61, 0.20)",
     gap: 6,
   },
   familyChipText: {
     fontSize: 12,
     fontWeight: "700",
-    color: "#00D4FF",
+    color: GlowColors.primary,
     letterSpacing: 0.5,
   },
 });

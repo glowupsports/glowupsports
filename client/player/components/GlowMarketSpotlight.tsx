@@ -2,7 +2,6 @@ import React from "react";
 import { View, Text, StyleSheet, ScrollView, Pressable, Dimensions } from "react-native";
 import { useQuery } from "@tanstack/react-query";
 import { useNavigation } from "@react-navigation/native";
-import { LinearGradient } from "expo-linear-gradient";
 import { Image } from "expo-image";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import Animated, { FadeIn } from "react-native-reanimated";
@@ -76,11 +75,8 @@ export function GlowMarketSpotlight() {
 
   return (
     <Animated.View entering={FadeIn.duration(400)} style={styles.container}>
-      <LinearGradient
-        colors={["rgba(255, 255, 255, 0.03)", Backgrounds.card, Backgrounds.card]}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 0, y: 1 }}
-        style={styles.card}
+      <View
+        style={[styles.card, { backgroundColor: "#0F141B" }]}
       >
         <View style={styles.header}>
           <View style={styles.headerLeft}>
@@ -157,7 +153,7 @@ export function GlowMarketSpotlight() {
             <Ionicons name="chevron-forward" size={16} color={GlowColors.primary} />
           </Pressable>
         )}
-      </LinearGradient>
+      </View>
     </Animated.View>
   );
 }
@@ -236,7 +232,7 @@ const styles = StyleSheet.create({
   },
   productCard: {
     width: PRODUCT_CARD_WIDTH,
-    backgroundColor: Backgrounds.elevated,
+    backgroundColor: "#151920",
     borderRadius: 12,
     overflow: "hidden",
   },

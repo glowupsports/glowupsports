@@ -70,7 +70,7 @@ function GradientCountdownDigit({ value, label }: { value: number; label: string
   return (
     <View style={gamingStyles.countdownDigitBox}>
       <LinearGradient
-        colors={[ProTennisColors.neonCyan, ProTennisColors.electricGreen, ProTennisColors.neonCyan]}
+        colors={[ProTennisColors.electricGreen, GlowColors.soft, ProTennisColors.electricGreen]}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
         style={gamingStyles.countdownGradientBg}
@@ -180,7 +180,7 @@ const gamingStyles = StyleSheet.create({
   countdownSeparatorText: {
     fontSize: 24,
     fontWeight: "300",
-    color: ProTennisColors.neonCyan,
+    color: GlowColors.primary,
     alignSelf: "center",
     marginBottom: 12,
     opacity: 0.7,
@@ -787,11 +787,8 @@ export function SessionHeroCard({
     return (
       <View style={styles.coachStyleCard}>
         <View style={[styles.coachCardAccentLine, { backgroundColor: accentColor }]} />
-        <LinearGradient
-          colors={[gradientStart, "rgba(26, 26, 26, 0.95)", Backgrounds.card]}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 0.3, y: 1 }}
-          style={styles.coachCardGradient}
+        <View
+          style={[styles.coachCardGradient, { backgroundColor: "#0F141B" }]}
         >
           <View style={styles.commandHeader}>
             <View style={styles.commandTitleSection}>
@@ -1495,7 +1492,7 @@ export function SessionHeroCard({
             </View>
           </Modal>
 
-        </LinearGradient>
+        </View>
       </View>
     );
   }
@@ -1504,11 +1501,8 @@ export function SessionHeroCard({
     return (
       <View style={styles.coachStyleCard}>
         <View style={styles.coachCardAccentLine} />
-        <LinearGradient
-          colors={["rgba(200, 255, 61, 0.06)", "rgba(26, 26, 26, 0.95)", Backgrounds.card]}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 0.3, y: 1 }}
-          style={styles.coachCardGradient}
+        <View
+          style={[styles.coachCardGradient, { backgroundColor: "#0F141B" }]}
         >
           <View style={styles.commandHeader}>
             <View style={styles.commandTitleSection}>
@@ -1588,7 +1582,7 @@ export function SessionHeroCard({
               </SwipeBlocker>
             </View>
           </View>
-        </LinearGradient>
+        </View>
       </View>
     );
   }
@@ -1653,11 +1647,8 @@ export function SessionHeroCard({
     return (
       <View style={styles.coachStyleCard}>
         <View style={[styles.coachCardAccentLine, { backgroundColor: ProTennisColors.live }]} />
-        <LinearGradient
-          colors={["rgba(255, 68, 68, 0.06)", "rgba(26, 26, 26, 0.95)", Backgrounds.card]}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 0.3, y: 1 }}
-          style={styles.coachCardGradient}
+        <View
+          style={[styles.coachCardGradient, { backgroundColor: "#0F141B" }]}
         >
           <View style={styles.commandHeader}>
             <View style={styles.commandTitleSection}>
@@ -2073,7 +2064,7 @@ export function SessionHeroCard({
               </View>
             </View>
           </Modal>
-        </LinearGradient>
+        </View>
       </View>
     );
   }
@@ -2084,11 +2075,8 @@ export function SessionHeroCard({
     return (
       <View style={styles.coachStyleCard}>
         <View style={[styles.coachCardAccentLine, isSoon ? { backgroundColor: ProTennisColors.warning } : undefined]} />
-        <LinearGradient
-          colors={isSoon ? ["rgba(255, 165, 0, 0.06)", "rgba(26, 26, 26, 0.95)", Backgrounds.card] : ["rgba(200, 255, 61, 0.06)", "rgba(26, 26, 26, 0.95)", Backgrounds.card]}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 0.3, y: 1 }}
-          style={styles.coachCardGradient}
+        <View
+          style={[styles.coachCardGradient, { backgroundColor: "#0F141B" }]}
         >
           <View style={styles.commandHeader}>
             <View style={styles.commandTitleSection}>
@@ -2406,7 +2394,7 @@ export function SessionHeroCard({
               </View>
             </View>
           </Modal>
-        </LinearGradient>
+        </View>
       </View>
     );
   }
@@ -3228,7 +3216,7 @@ const styles = StyleSheet.create({
     overflow: "hidden",
     borderWidth: 1,
     borderColor: "rgba(255, 255, 255, 0.06)",
-    backgroundColor: Backgrounds.card,
+    backgroundColor: "#0F141B",
   },
   coachCardAccentLine: {
     height: 2,
