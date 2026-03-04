@@ -486,36 +486,34 @@ function PlayerHomeContent() {
         {/* HERO CTA - Next Session (PRIMARY ACTION) */}
         <SessionHeroCard onBookSession={handleBookLesson} />
 
+        {/* ── PLAY SECTION ── Book, find players, join matches */}
+        <View style={styles.sectionDivider}>
+          <Ionicons name="tennisball" size={12} color={GlowColors.primary} />
+          <Text style={[styles.sectionDividerText, { color: GlowColors.primary }]}>PLAY</Text>
+        </View>
 
-        {/* RECENT COACH FEEDBACK */}
+        <TrainingSessionsRow />
+        <PlayersNearYouRow />
+        <OpenSessionsRow />
+
+        {/* ── IMPROVE SECTION ── Feedback, progress, recognition */}
+        <View style={styles.sectionDivider}>
+          <Ionicons name="trending-up" size={12} color="#00D4FF" />
+          <Text style={[styles.sectionDividerText, { color: "#00D4FF" }]}>IMPROVE</Text>
+        </View>
+
         <RecentFeedbackCard />
-
-        {/* PLAYER SPOTLIGHT - Player of the Week / Month */}
         <SpotlightCard
           onNominate={() => setShowSpotlightNomination(true)}
           onViewDetails={() => navigation.navigate("SpotlightDetail" as never)}
           accessibilityLabel="Player spotlight card"
         />
 
-        {/* DISCOVERY SECTION - Horizontal scrolling rows */}
-        <View style={styles.discoverySection}>
-            <Text style={styles.discoverySectionTitle}>{t("player.home.quickActions")}</Text>
-            
-            {/* Players Near You - Horizontal avatar carousel (filtered by ball level) */}
-            <PlayersNearYouRow />
-            
-            {/* Open Sessions - Join now cards */}
-            <OpenSessionsRow />
-            
-            {/* Trainings - Quick access to lessons */}
-            <TrainingSessionsRow />
-          </View>
-
-        {/* GLOW MARKET - Featured products spotlight */}
-        <GlowMarketSpotlight />
-
-        {/* COMMUNITY - Activity feed */}
+        {/* ── COMMUNITY ── Social feed (has its own header) */}
         <MiniFeed />
+
+        {/* ── SHOP ── Marketplace (has its own header) */}
+        <GlowMarketSpotlight />
       </ScrollView>
       
       <QuickServeFAB bottomOffset={48} />
@@ -607,19 +605,18 @@ const styles = StyleSheet.create({
     right: Spacing.md,
     zIndex: 10,
   },
-  discoverySection: {
-    gap: Spacing.xl,
-    marginTop: 8,
-    borderRadius: 20,
-    paddingVertical: 4,
+  sectionDivider: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    paddingHorizontal: Spacing.lg,
+    marginTop: Spacing.sm,
+    marginBottom: -Spacing.sm,
   },
-  discoverySectionTitle: {
+  sectionDividerText: {
     fontSize: 11,
     fontWeight: "700",
-    color: Colors.dark.textMuted,
     letterSpacing: 2.5,
-    paddingHorizontal: Spacing.lg,
-    marginBottom: -Spacing.sm,
     textTransform: "uppercase",
   },
   freePlayerCta: {
