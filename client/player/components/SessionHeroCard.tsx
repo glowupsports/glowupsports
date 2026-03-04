@@ -3227,7 +3227,7 @@ const styles = StyleSheet.create({
     borderRadius: BorderRadius.lg,
     overflow: "hidden",
     borderWidth: 1,
-    borderColor: "rgba(200, 255, 61, 0.10)",
+    borderColor: "rgba(255, 255, 255, 0.06)",
     backgroundColor: Backgrounds.card,
   },
   coachCardAccentLine: {
@@ -3235,7 +3235,7 @@ const styles = StyleSheet.create({
     backgroundColor: GlowColors.primary,
     borderTopLeftRadius: BorderRadius.lg,
     borderTopRightRadius: BorderRadius.lg,
-    opacity: 0.6,
+    opacity: 0.2,
   },
   coachCardGradient: {
     padding: Spacing.lg,

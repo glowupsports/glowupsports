@@ -1,7 +1,7 @@
 import React, { useCallback, useRef } from "react";
 import { View, Text, StyleSheet, Pressable, Platform } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
-import Animated, { useAnimatedStyle, useSharedValue, withRepeat, withSequence, withTiming, FadeIn, FadeInDown } from "react-native-reanimated";
+import Animated, { FadeIn, FadeInDown } from "react-native-reanimated";
 import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/coach/context/AuthContext";
 import { Spacing, Backgrounds, GlowColors, Colors, BorderRadius, TextColors } from "@/constants/theme";
@@ -107,22 +107,7 @@ const countdownStyles = StyleSheet.create({
 
 export function SpotlightCard({ onNominate, onViewDetails, onShareWinner }: SpotlightCardProps) {
   const { user } = useAuth();
-  const glowPulse = useSharedValue(0.15);
-
-  React.useEffect(() => {
-    glowPulse.value = withRepeat(
-      withSequence(
-        withTiming(0.35, { duration: 2000 }),
-        withTiming(0.15, { duration: 2000 })
-      ),
-      -1,
-      true
-    );
-  }, []);
-
-  const glowStyle = useAnimatedStyle(() => ({
-    shadowOpacity: glowPulse.value,
-  }));
+  const glowStyle = {};
 
   const { data: currentWeek } = useQuery<CurrentWeekData>({
     queryKey: ["/api/player/spotlight/current-week"],
@@ -148,7 +133,7 @@ export function SpotlightCard({ onNominate, onViewDetails, onShareWinner }: Spot
     <Animated.View entering={FadeInDown.delay(200).duration(600)} style={[styles.outerContainer, glowStyle]}>
       <View style={styles.accentLine} />
       <LinearGradient
-        colors={["rgba(255, 215, 0, 0.05)", "rgba(17, 20, 26, 0.95)"]}
+        colors={["rgba(255, 255, 255, 0.03)", "rgba(17, 20, 26, 0.95)"]}
         style={styles.gradient}
       >
         <View style={styles.headerRow}>
@@ -273,7 +258,7 @@ const styles = StyleSheet.create({
   outerContainer: {
     marginHorizontal: Spacing.lg,
     borderWidth: 1,
-    borderColor: "rgba(255, 215, 0, 0.12)",
+    borderColor: "rgba(255, 255, 255, 0.06)",
     backgroundColor: Backgrounds.card,
     borderRadius: BorderRadius.lg,
     overflow: "hidden",
@@ -281,7 +266,7 @@ const styles = StyleSheet.create({
   accentLine: {
     height: 2,
     backgroundColor: "#FFD700",
-    opacity: 0.5,
+    opacity: 0.2,
   },
   gradient: {
     padding: Spacing.md,

@@ -29,7 +29,8 @@ async function getXpForNextLevel(currentLevel: number): Promise<number> {
     .from(playerLevelThresholds)
     .where(eq(playerLevelThresholds.level, currentLevel + 1));
   
-  return threshold?.xpRequired || 100;
+  if (threshold?.xpRequired) return threshold.xpRequired;
+  return Math.round(1500 * Math.pow(1.1, currentLevel - 20));
 }
 
 async function getTitleForLevel(level: number): Promise<string> {

@@ -77,7 +77,7 @@ export function GlowMarketSpotlight() {
   return (
     <Animated.View entering={FadeIn.duration(400)} style={styles.container}>
       <LinearGradient
-        colors={[GlowColors.primary + "08", Backgrounds.card, Backgrounds.card]}
+        colors={["rgba(255, 255, 255, 0.03)", Backgrounds.card, Backgrounds.card]}
         start={{ x: 0, y: 0 }}
         end={{ x: 0, y: 1 }}
         style={styles.card}
@@ -168,9 +168,9 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.md,
   },
   card: {
-    borderRadius: 16,
+    borderRadius: 24,
     borderWidth: 1,
-    borderColor: GlowColors.primary + "15",
+    borderColor: "rgba(255, 255, 255, 0.06)",
     overflow: "hidden",
     paddingTop: Spacing.md,
     paddingBottom: Spacing.sm,

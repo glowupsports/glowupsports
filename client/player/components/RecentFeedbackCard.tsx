@@ -105,7 +105,7 @@ const styles = StyleSheet.create({
   wrapper: {
     marginHorizontal: Spacing.lg,
     borderWidth: 1,
-    borderColor: "rgba(200, 255, 61, 0.10)",
+    borderColor: "rgba(255, 255, 255, 0.06)",
     backgroundColor: Backgrounds.card,
     borderRadius: BorderRadius.lg,
     overflow: "hidden",
@@ -113,7 +113,7 @@ const styles = StyleSheet.create({
   accentLine: {
     height: 2,
     backgroundColor: GlowColors.primary,
-    opacity: 0.6,
+    opacity: 0.2,
   },
   gradientInner: {
     padding: Spacing.md,

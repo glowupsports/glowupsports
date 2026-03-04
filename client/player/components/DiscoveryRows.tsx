@@ -803,7 +803,7 @@ export function TrainingSessionsRow() {
           <Pressable onPress={handleBookPress}>
             <NeonEdgeCard color={ProTennisColors.warning} glowIntensity="low" style={styles.trainingCard}>
               <LinearGradient
-                colors={["rgba(255, 193, 7, 0.15)", "rgba(0, 0, 0, 0)"]}
+                colors={["rgba(255, 193, 7, 0.06)", "rgba(0, 0, 0, 0)"]}
                 style={styles.trainingGradient}
               />
               <View style={styles.trainingContent}>
@@ -828,7 +828,7 @@ export function TrainingSessionsRow() {
           <Pressable onPress={handleBookPress}>
             <NeonEdgeCard color={GlowColors.primary} glowIntensity="low" style={styles.trainingCard}>
               <LinearGradient
-                colors={[`${GlowColors.primary}15`, "rgba(0, 0, 0, 0)"]}
+                colors={[`${GlowColors.primary}08`, "rgba(0, 0, 0, 0)"]}
                 style={styles.trainingGradient}
               />
               <View style={styles.trainingContent}>
@@ -853,7 +853,7 @@ export function TrainingSessionsRow() {
           <Pressable onPress={handleCourtPress}>
             <NeonEdgeCard color={ProTennisColors.neonCyan} glowIntensity="low" style={styles.trainingCard}>
               <LinearGradient
-                colors={["rgba(0, 255, 255, 0.15)", "rgba(0, 0, 0, 0)"]}
+                colors={["rgba(0, 255, 255, 0.06)", "rgba(0, 0, 0, 0)"]}
                 style={styles.trainingGradient}
               />
               <View style={styles.trainingContent}>

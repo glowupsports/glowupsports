@@ -32,7 +32,6 @@ import { SpotlightCard } from "@/player/components/SpotlightCard";
 import SpotlightNominationModal from "@/player/components/SpotlightNominationModal";
 import { GettingStartedChecklist } from "@/components/GettingStartedChecklist";
 import { WelcomeIntroModal } from "@/components/WelcomeIntroModal";
-import { HelpButton } from "@/components/HelpButton";
 import { QuickTipsBanner } from "@/components/QuickTipsBanner";
 import { PlatformUsageProgress } from "@/components/PlatformUsageProgress";
 import { NotificationGuideModal } from "@/components/NotificationGuideModal";
@@ -314,14 +313,6 @@ function PlayerHomeContent() {
     { id: "tip_credits", icon: "card", text: t("player.home.tipCredits") },
   ];
 
-  const playerFAQs = [
-    { question: t("player.home.faqBookSession"), answer: t("player.home.faqBookSessionAnswer"), category: "Booking" },
-    { question: t("player.home.faqGlowScore"), answer: t("player.home.faqGlowScoreAnswer"), category: "Progress" },
-    { question: t("player.home.faqEarnXp"), answer: t("player.home.faqEarnXpAnswer"), category: "Progress" },
-    { question: t("player.home.faqCredits"), answer: t("player.home.faqCreditsAnswer"), category: "Billing" },
-    { question: t("player.home.faqFindPlayers"), answer: t("player.home.faqFindPlayersAnswer"), category: "Social" },
-    { question: t("player.home.faqBallLevel"), answer: t("player.home.faqBallLevelAnswer"), category: "Progress" },
-  ];
 
   const playerWelcomeSlides = [
     {
@@ -493,8 +484,8 @@ function PlayerHomeContent() {
         </View>
 
         <TrainingSessionsRow />
-        <PlayersNearYouRow />
         <OpenSessionsRow />
+        <PlayersNearYouRow />
 
         {/* ── IMPROVE SECTION ── Feedback, progress, recognition */}
         <View style={styles.sectionDivider}>
@@ -545,12 +536,6 @@ function PlayerHomeContent() {
         slides={playerWelcomeSlides}
         onComplete={() => {}}
       />
-      <HelpButton
-          role="player"
-          faqs={playerFAQs}
-          supportEmail="support@glowupsports.com"
-          bottomOffset={185}
-        />
       <NotificationGuideModal
         visible={showNotificationGuide}
         onClose={() => setShowNotificationGuide(false)}
@@ -610,8 +595,8 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: 6,
     paddingHorizontal: Spacing.lg,
-    marginTop: Spacing.sm,
-    marginBottom: -Spacing.sm,
+    marginTop: 4,
+    marginBottom: 2,
   },
   sectionDividerText: {
     fontSize: 11,

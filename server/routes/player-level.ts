@@ -24,7 +24,8 @@ async function getXpForNextLevel(currentLevel: number): Promise<number> {
     .from(playerLevelThresholds)
     .where(eq(playerLevelThresholds.level, currentLevel + 1));
   
-  return threshold?.xpRequired || 100; // Default 100 XP if not configured
+  if (threshold?.xpRequired) return threshold.xpRequired;
+  return Math.round(1500 * Math.pow(1.1, currentLevel - 20));
 }
 
 async function getTitleForLevel(level: number): Promise<string> {
@@ -629,6 +630,36 @@ router.post("/seed-defaults", async (req: Request, res: Response) => {
       { level: 18, xpRequired: 1150, title: "Legend" },
       { level: 19, xpRequired: 1300, title: "Elite" },
       { level: 20, xpRequired: 1500, title: "Elite" },
+      { level: 21, xpRequired: 1750, title: "Master" },
+      { level: 22, xpRequired: 1900, title: "Master" },
+      { level: 23, xpRequired: 2100, title: "Master" },
+      { level: 24, xpRequired: 2300, title: "Master" },
+      { level: 25, xpRequired: 2500, title: "Master" },
+      { level: 26, xpRequired: 2750, title: "Grandmaster" },
+      { level: 27, xpRequired: 2900, title: "Grandmaster" },
+      { level: 28, xpRequired: 3100, title: "Grandmaster" },
+      { level: 29, xpRequired: 3300, title: "Grandmaster" },
+      { level: 30, xpRequired: 3500, title: "Grandmaster" },
+      { level: 31, xpRequired: 3750, title: "Pro" },
+      { level: 32, xpRequired: 3950, title: "Pro" },
+      { level: 33, xpRequired: 4150, title: "Pro" },
+      { level: 34, xpRequired: 4350, title: "Pro" },
+      { level: 35, xpRequired: 4500, title: "Pro" },
+      { level: 36, xpRequired: 4750, title: "World Class" },
+      { level: 37, xpRequired: 5000, title: "World Class" },
+      { level: 38, xpRequired: 5250, title: "World Class" },
+      { level: 39, xpRequired: 5500, title: "World Class" },
+      { level: 40, xpRequired: 5500, title: "World Class" },
+      { level: 41, xpRequired: 5750, title: "Legendary" },
+      { level: 42, xpRequired: 6000, title: "Legendary" },
+      { level: 43, xpRequired: 6250, title: "Legendary" },
+      { level: 44, xpRequired: 6500, title: "Legendary" },
+      { level: 45, xpRequired: 6500, title: "Legendary" },
+      { level: 46, xpRequired: 6750, title: "GOAT" },
+      { level: 47, xpRequired: 7000, title: "GOAT" },
+      { level: 48, xpRequired: 7250, title: "GOAT" },
+      { level: 49, xpRequired: 7500, title: "GOAT" },
+      { level: 50, xpRequired: 8000, title: "GOAT" },
     ];
 
     for (const threshold of defaultThresholds) {

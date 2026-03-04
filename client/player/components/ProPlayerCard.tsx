@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState } from "react";
 import { View, Text, StyleSheet, Pressable, Platform, Image as RNImage } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { Image } from "expo-image";
@@ -19,6 +19,8 @@ import { usePlayerLevel } from "../hooks/usePlayerLevel";
 import { useNavigation } from "@react-navigation/native";
 import { LanguageHeaderButton } from "@/components/LanguageSelectorModal";
 import { useTranslation } from "react-i18next";
+import { HelpCenterModal } from "@/components/HelpCenterModal";
+import type { FAQItem } from "@/components/HelpCenterModal";
 
 interface PlayerData {
   id: string;
@@ -66,6 +68,16 @@ export function ProPlayerCard({
   const navigation = useNavigation<any>();
   const glowPulse = useSharedValue(0);
   const profilePhotoUri = player.profilePhotoUrl ? `${getStaticAssetsUrl()}${player.profilePhotoUrl}` : null;
+  const [showHelp, setShowHelp] = useState(false);
+
+  const playerFAQs: FAQItem[] = [
+    { question: t("player.home.faqBookSession"), answer: t("player.home.faqBookSessionAnswer"), category: "Booking" },
+    { question: t("player.home.faqGlowScore"), answer: t("player.home.faqGlowScoreAnswer"), category: "Progress" },
+    { question: t("player.home.faqEarnXp"), answer: t("player.home.faqEarnXpAnswer"), category: "Progress" },
+    { question: t("player.home.faqCredits"), answer: t("player.home.faqCreditsAnswer"), category: "Billing" },
+    { question: t("player.home.faqFindPlayers"), answer: t("player.home.faqFindPlayersAnswer"), category: "Social" },
+    { question: t("player.home.faqBallLevel"), answer: t("player.home.faqBallLevelAnswer"), category: "Progress" },
+  ];
   
   const { data: levelStatus } = usePlayerLevel(player.id);
   
@@ -215,6 +227,16 @@ export function ProPlayerCard({
 
             <View style={styles.actionsColumn}>
               <LanguageHeaderButton />
+              <Pressable
+                style={styles.actionBtn}
+                onPress={() => {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  setShowHelp(true);
+                }}
+                hitSlop={{ top: 16, bottom: 16, left: 16, right: 16 }}
+              >
+                <Ionicons name="help-circle-outline" size={20} color="#00D4FF" />
+              </Pressable>
               {onNotificationPress ? (
                 <Pressable
                   style={styles.actionBtn}
@@ -279,6 +301,15 @@ export function ProPlayerCard({
         </LinearGradient>
         </View>
       </View>
+      <HelpCenterModal
+        visible={showHelp}
+        onClose={() => setShowHelp(false)}
+        role="player"
+        faqs={playerFAQs}
+        glossary={[]}
+        tutorials={[]}
+        supportEmail="support@glowupsports.com"
+      />
     </View>
   );
 }

@@ -139,14 +139,14 @@ export function NeonEdgeCard({
   glowIntensity = "medium",
   pulsing = false,
 }: NeonEdgeCardProps) {
-  const glowOpacity = useSharedValue(0.5);
+  const glowOpacity = useSharedValue(0.2);
 
   React.useEffect(() => {
     if (pulsing) {
       glowOpacity.value = withRepeat(
         withSequence(
-          withTiming(0.8, { duration: 1000 }),
-          withTiming(0.4, { duration: 1000 })
+          withTiming(0.3, { duration: 1000 }),
+          withTiming(0.1, { duration: 1000 })
         ),
         -1,
         true
@@ -171,14 +171,14 @@ export function NeonEdgeCard({
       style={[
         styles.neonCard,
         {
-          borderColor: `${color}40`,
+          borderColor: `${color}18`,
         },
         style,
       ]}
     >
       <LinearGradient
         colors={[
-          `${color}15`,
+          `${color}08`,
           "rgba(21, 27, 41, 0.95)",
         ]}
         start={{ x: 0, y: 0 }}
