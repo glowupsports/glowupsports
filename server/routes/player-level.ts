@@ -18,6 +18,72 @@ const router = Router();
 
 // ==================== HELPER FUNCTIONS ====================
 
+function getXpForLevelFormula(level: number): number {
+  if (level <= 1) return 0;
+  if (level <= 50) {
+    const fallbackXp = [0,0,10,15,20,25,30,40,50,60,70,80,90,100,110,120,130,140,150,160,170,180,190,200,210,220,230,240,250,260,270,280,290,300,300,300,300,300,300,300,300,300,300,300,300,300,300,300,300,300,300];
+    return fallbackXp[level] || Math.max(10, level * 5);
+  }
+  return Math.round(300 + (level - 50) * 15);
+}
+
+function getTitleForLevelFormula(level: number): string {
+  if (level <= 5) return "Rookie";
+  if (level <= 10) return "Player";
+  if (level <= 15) return "Competitor";
+  if (level <= 20) return "Strategist";
+  if (level <= 25) return "Champion";
+  if (level <= 30) return "Legend";
+  if (level <= 35) return "Elite";
+  if (level <= 40) return "Master";
+  if (level <= 45) return "Grandmaster";
+  if (level <= 75) return "GOAT";
+  if (level <= 100) return "GOAT II";
+  if (level <= 150) return "GOAT III";
+  if (level <= 200) return "Immortal";
+  if (level <= 300) return "Immortal II";
+  return "Transcendent";
+}
+
+interface ThresholdRow {
+  level: number;
+  xpRequired: number;
+  title: string | null;
+}
+
+function calculateLevelFromXp(totalXp: number, dbThresholds: ThresholdRow[]): { level: number; xpUsedByPreviousLevels: number; xpForCurrentLevel: number } {
+  let cumulativeXp = 0;
+  let level = 1;
+
+  for (const threshold of dbThresholds) {
+    cumulativeXp += threshold.xpRequired;
+    if (totalXp >= cumulativeXp) {
+      level = threshold.level;
+    } else {
+      const xpUsed = cumulativeXp - threshold.xpRequired;
+      return { level, xpUsedByPreviousLevels: xpUsed, xpForCurrentLevel: threshold.xpRequired };
+    }
+  }
+
+  const lastSeededLevel = dbThresholds.length > 0 ? dbThresholds[dbThresholds.length - 1].level : 1;
+  let currentLevel = lastSeededLevel;
+
+  const MAX_SAFE_LEVEL = 10000;
+  while (currentLevel < MAX_SAFE_LEVEL) {
+    const nextLevelXp = getXpForLevelFormula(currentLevel + 1);
+    if (nextLevelXp <= 0) {
+      return { level: currentLevel, xpUsedByPreviousLevels: cumulativeXp, xpForCurrentLevel: Math.max(1, getXpForLevelFormula(currentLevel + 1)) };
+    }
+    if (totalXp >= cumulativeXp + nextLevelXp) {
+      cumulativeXp += nextLevelXp;
+      currentLevel++;
+    } else {
+      return { level: currentLevel, xpUsedByPreviousLevels: cumulativeXp, xpForCurrentLevel: nextLevelXp };
+    }
+  }
+  return { level: currentLevel, xpUsedByPreviousLevels: cumulativeXp, xpForCurrentLevel: getXpForLevelFormula(currentLevel + 1) };
+}
+
 async function getXpForNextLevel(currentLevel: number): Promise<number> {
   const [threshold] = await db
     .select()
@@ -25,8 +91,7 @@ async function getXpForNextLevel(currentLevel: number): Promise<number> {
     .where(eq(playerLevelThresholds.level, currentLevel + 1));
   
   if (threshold?.xpRequired) return threshold.xpRequired;
-  if (currentLevel >= 50) return 999999;
-  return Math.max(10, Math.round(10 + currentLevel * 5));
+  return getXpForLevelFormula(currentLevel + 1);
 }
 
 async function getTitleForLevel(level: number): Promise<string> {
@@ -35,7 +100,7 @@ async function getTitleForLevel(level: number): Promise<string> {
     .from(playerLevelThresholds)
     .where(eq(playerLevelThresholds.level, level));
   
-  return threshold?.title || "Rookie";
+  return threshold?.title || getTitleForLevelFormula(level);
 }
 
 async function getUnlockedFeaturesAtLevel(level: number): Promise<string[]> {
@@ -150,41 +215,14 @@ router.post("/award-xp", async (req: Request, res: Response) => {
     const xpToAward = rule.xpAmount;
     const newTotalXp = currentXp + xpToAward;
 
-    // Calculate XP within current level
-    let xpInCurrentLevel = currentXp;
-    let tempLevel = 1;
-    
-    // Calculate how much XP is "used" by previous levels
     const allThresholds = await db
       .select()
       .from(playerLevelThresholds)
       .orderBy(playerLevelThresholds.level);
-    
-    let xpUsedByPreviousLevels = 0;
-    for (const threshold of allThresholds) {
-      if (threshold.level <= currentLevel) {
-        xpUsedByPreviousLevels += threshold.xpRequired;
-      }
-    }
-    
-    // XP progress in current level
-    const xpProgressInLevel = currentXp - xpUsedByPreviousLevels + (allThresholds.find(t => t.level === currentLevel)?.xpRequired || 0);
-    
-    // Check for level up
-    const xpNeeded = await getXpForNextLevel(currentLevel);
-    let newLevel = currentLevel;
-    let triggeredLevelUp = false;
-    let featuresUnlocked: string[] = [];
 
-    // Simple level calculation: check if we crossed threshold
-    let cumulativeXpNeeded = 0;
-    for (const threshold of allThresholds) {
-      cumulativeXpNeeded += threshold.xpRequired;
-      if (newTotalXp >= cumulativeXpNeeded && threshold.level > newLevel) {
-        newLevel = threshold.level;
-        triggeredLevelUp = true;
-      }
-    }
+    const { level: newLevel } = calculateLevelFromXp(newTotalXp, allThresholds);
+    const triggeredLevelUp = newLevel > currentLevel;
+    let featuresUnlocked: string[] = [];
 
     // Record XP event
     await db.insert(playerXpEvents).values({
@@ -290,33 +328,22 @@ router.get("/player/:playerId/status", async (req: Request, res: Response) => {
       });
     }
 
-    const currentLevel = player.level || 1;
     const totalXp = player.totalXp || 0;
 
-    // Get all thresholds up to current level
     const allThresholds = await db
       .select()
       .from(playerLevelThresholds)
       .orderBy(playerLevelThresholds.level);
 
-    // Calculate XP used by previous levels (cumulative)
-    let xpForPreviousLevels = 0;
-    for (const threshold of allThresholds) {
-      if (threshold.level < currentLevel) {
-        xpForPreviousLevels += threshold.xpRequired;
-      }
+    const { level: calculatedLevel, xpUsedByPreviousLevels, xpForCurrentLevel } = calculateLevelFromXp(totalXp, allThresholds);
+    const currentLevel = calculatedLevel;
+
+    if (currentLevel !== (player.level || 1)) {
+      await db.update(players).set({ level: currentLevel, updatedAt: new Date() }).where(eq(players.id, playerId));
     }
 
-    const maxLevel = allThresholds.length > 0 ? Math.max(...allThresholds.map(t => t.level)) : 50;
-
-    // Current progress in this level
-    let xpInCurrentLevel = totalXp - xpForPreviousLevels;
-    let xpNeededForNextLevel = await getXpForNextLevel(currentLevel);
-
-    if (currentLevel >= maxLevel) {
-      xpNeededForNextLevel = allThresholds.find(t => t.level === maxLevel)?.xpRequired || 300;
-      xpInCurrentLevel = xpNeededForNextLevel;
-    }
+    const xpInCurrentLevel = totalXp - xpUsedByPreviousLevels;
+    const xpNeededForNextLevel = xpForCurrentLevel;
     const currentTitle = await getTitleForLevel(currentLevel);
 
     // Get all unlocked features for this player

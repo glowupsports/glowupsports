@@ -23,6 +23,72 @@ export interface XPAwardResult {
   xpNeededForNextLevel: number;
 }
 
+function getXpForLevelFormula(level: number): number {
+  if (level <= 1) return 0;
+  if (level <= 50) {
+    const fallbackXp = [0,0,10,15,20,25,30,40,50,60,70,80,90,100,110,120,130,140,150,160,170,180,190,200,210,220,230,240,250,260,270,280,290,300,300,300,300,300,300,300,300,300,300,300,300,300,300,300,300,300,300];
+    return fallbackXp[level] || Math.max(10, level * 5);
+  }
+  return Math.round(300 + (level - 50) * 15);
+}
+
+function getTitleForLevelFormula(level: number): string {
+  if (level <= 5) return "Rookie";
+  if (level <= 10) return "Player";
+  if (level <= 15) return "Competitor";
+  if (level <= 20) return "Strategist";
+  if (level <= 25) return "Champion";
+  if (level <= 30) return "Legend";
+  if (level <= 35) return "Elite";
+  if (level <= 40) return "Master";
+  if (level <= 45) return "Grandmaster";
+  if (level <= 75) return "GOAT";
+  if (level <= 100) return "GOAT II";
+  if (level <= 150) return "GOAT III";
+  if (level <= 200) return "Immortal";
+  if (level <= 300) return "Immortal II";
+  return "Transcendent";
+}
+
+interface ThresholdRow {
+  level: number;
+  xpRequired: number;
+  title: string | null;
+}
+
+function calculateLevelFromXp(totalXp: number, dbThresholds: ThresholdRow[]): { level: number; xpUsedByPreviousLevels: number; xpForCurrentLevel: number } {
+  let cumulativeXp = 0;
+  let level = 1;
+
+  for (const threshold of dbThresholds) {
+    cumulativeXp += threshold.xpRequired;
+    if (totalXp >= cumulativeXp) {
+      level = threshold.level;
+    } else {
+      const xpUsed = cumulativeXp - threshold.xpRequired;
+      return { level, xpUsedByPreviousLevels: xpUsed, xpForCurrentLevel: threshold.xpRequired };
+    }
+  }
+
+  const lastSeededLevel = dbThresholds.length > 0 ? dbThresholds[dbThresholds.length - 1].level : 1;
+  let currentLevel = lastSeededLevel;
+
+  const MAX_SAFE_LEVEL = 10000;
+  while (currentLevel < MAX_SAFE_LEVEL) {
+    const nextLevelXp = getXpForLevelFormula(currentLevel + 1);
+    if (nextLevelXp <= 0) {
+      return { level: currentLevel, xpUsedByPreviousLevels: cumulativeXp, xpForCurrentLevel: Math.max(1, getXpForLevelFormula(currentLevel + 1)) };
+    }
+    if (totalXp >= cumulativeXp + nextLevelXp) {
+      cumulativeXp += nextLevelXp;
+      currentLevel++;
+    } else {
+      return { level: currentLevel, xpUsedByPreviousLevels: cumulativeXp, xpForCurrentLevel: nextLevelXp };
+    }
+  }
+  return { level: currentLevel, xpUsedByPreviousLevels: cumulativeXp, xpForCurrentLevel: getXpForLevelFormula(currentLevel + 1) };
+}
+
 async function getXpForNextLevel(currentLevel: number): Promise<number> {
   const [threshold] = await db
     .select()
@@ -30,8 +96,7 @@ async function getXpForNextLevel(currentLevel: number): Promise<number> {
     .where(eq(playerLevelThresholds.level, currentLevel + 1));
   
   if (threshold?.xpRequired) return threshold.xpRequired;
-  if (currentLevel >= 50) return 999999;
-  return Math.max(10, Math.round(10 + currentLevel * 5));
+  return getXpForLevelFormula(currentLevel + 1);
 }
 
 async function getTitleForLevel(level: number): Promise<string> {
@@ -40,7 +105,7 @@ async function getTitleForLevel(level: number): Promise<string> {
     .from(playerLevelThresholds)
     .where(eq(playerLevelThresholds.level, level));
   
-  return threshold?.title || "Rookie";
+  return threshold?.title || getTitleForLevelFormula(level);
 }
 
 async function getUnlockedFeaturesAtLevel(level: number): Promise<string[]> {
@@ -180,17 +245,7 @@ export async function awardXP(
     .from(playerLevelThresholds)
     .orderBy(playerLevelThresholds.level);
 
-  let newLevel = 1;
-  let cumulativeXp = 0;
-  for (const threshold of allThresholds) {
-    cumulativeXp += threshold.xpRequired;
-    if (newTotalXp >= cumulativeXp) {
-      newLevel = threshold.level;
-    } else {
-      break;
-    }
-  }
-
+  const { level: newLevel } = calculateLevelFromXp(newTotalXp, allThresholds);
   const leveledUp = newLevel > currentLevel;
   let featuresUnlocked: string[] = [];
 
@@ -242,14 +297,8 @@ export async function awardXP(
     updatedAt: new Date(),
   }).where(eq(players.id, playerId));
 
-  let xpUsedByCompletedLevels = 0;
-  for (const threshold of allThresholds) {
-    if (threshold.level <= newLevel) {
-      xpUsedByCompletedLevels += threshold.xpRequired;
-    }
-  }
+  const { xpUsedByPreviousLevels: xpUsedByCompletedLevels, xpForCurrentLevel: xpNeededForNextLevel } = calculateLevelFromXp(newTotalXp, allThresholds);
   const xpProgressInLevel = newTotalXp - xpUsedByCompletedLevels;
-  const xpNeededForNextLevel = await getXpForNextLevel(newLevel);
 
   return {
     success: true,
@@ -272,7 +321,6 @@ export async function getPlayerLevelStatus(playerId: string) {
     return null;
   }
 
-  const currentLevel = player.level || 1;
   const totalXp = player.totalXp || 0;
 
   const allThresholds = await db
@@ -280,15 +328,14 @@ export async function getPlayerLevelStatus(playerId: string) {
     .from(playerLevelThresholds)
     .orderBy(playerLevelThresholds.level);
 
-  let xpUsedByCompletedLevels = 0;
-  for (const threshold of allThresholds) {
-    if (threshold.level <= currentLevel) {
-      xpUsedByCompletedLevels += threshold.xpRequired;
-    }
+  const { level: currentLevel, xpUsedByPreviousLevels, xpForCurrentLevel } = calculateLevelFromXp(totalXp, allThresholds);
+
+  if (currentLevel !== (player.level || 1)) {
+    await db.update(players).set({ level: currentLevel, updatedAt: new Date() }).where(eq(players.id, playerId));
   }
 
-  const xpProgressInLevel = totalXp - xpUsedByCompletedLevels;
-  const xpNeededForNextLevel = await getXpForNextLevel(currentLevel);
+  const xpProgressInLevel = totalXp - xpUsedByPreviousLevels;
+  const xpNeededForNextLevel = xpForCurrentLevel;
   const title = await getTitleForLevel(currentLevel);
 
   const unlockedFeatures = await db
