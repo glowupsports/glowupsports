@@ -27,6 +27,7 @@ import { Card } from "@/components/Card";
 import { 
   useQuests, 
   useClaimQuestReward, 
+  useAssignDailyQuests,
   useAssignWeeklyQuests, 
   useAssignMonthlyQuests,
   useUploadQuestEvidence,
@@ -454,6 +455,7 @@ export default function QuestsScreen() {
   
   const { data: questsData, isLoading } = useQuests();
   const claimReward = useClaimQuestReward();
+  const assignDailyQuests = useAssignDailyQuests();
   const assignWeeklyQuests = useAssignWeeklyQuests();
   const assignMonthlyQuests = useAssignMonthlyQuests();
   const uploadEvidence = useUploadQuestEvidence();
@@ -461,6 +463,7 @@ export default function QuestsScreen() {
   useFocusEffect(
     useCallback(() => {
       queryClient.invalidateQueries({ queryKey: ["/api/quests"] });
+      assignDailyQuests.mutate();
       assignWeeklyQuests.mutate();
       assignMonthlyQuests.mutate();
     }, [queryClient])
