@@ -1472,7 +1472,7 @@ export default function PlayerHomeScreen() {
             onPress={() => navigation.navigate("Progress")}
           >
             <View style={styles.feedbackHeader}>
-              <Ionicons name="chatbubble" size={20} color={Colors.dark.xpCyan} />
+              <Ionicons name="chatbubble" size={20} color={GlowColors.primary} />
               <Text style={styles.feedbackTitle}>Coach Feedback</Text>
             </View>
             <Text style={styles.feedbackMessage}>"{lastFeedback.message}"</Text>
@@ -2435,7 +2435,7 @@ const styles = StyleSheet.create({
     marginHorizontal: Spacing.xl,
     marginBottom: Spacing.lg,
     padding: Spacing.lg,
-    borderColor: "rgba(0, 212, 255, 0.3)",
+    borderColor: GlowColors.primary + "25",
   },
   feedbackHeader: {
     flexDirection: "row",
@@ -2445,7 +2445,7 @@ const styles = StyleSheet.create({
   },
   feedbackTitle: {
     ...Typography.h4,
-    color: Colors.dark.xpCyan,
+    color: GlowColors.primary,
     flex: 1,
   },
   feedbackMessage: {

@@ -51,8 +51,6 @@ export function GlowMarketSpotlight() {
 
   const featuredProducts = shopData?.featuredProducts || [];
 
-  if (featuredProducts.length === 0) return null;
-
   const getDiscountPercent = (product: ShopProduct): number | null => {
     if (!product.compareAtPrice || !product.price) return null;
     const compare = Number(product.compareAtPrice);
@@ -106,52 +104,59 @@ export function GlowMarketSpotlight() {
           </View>
         ) : null}
 
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.productsScroll}
-        >
-          {featuredProducts.slice(0, 6).map((product) => {
-            const discount = getDiscountPercent(product);
-            return (
-              <Pressable
-                key={product.id}
-                style={styles.productCard}
-                onPress={handleProductPress}
-              >
-                <View style={styles.productImageContainer}>
-                  {product.imageUrl ? (
-                    <Image
-                      source={{ uri: product.imageUrl }}
-                      style={styles.productImage}
-                      contentFit="cover"
-                    />
-                  ) : (
-                    <View style={styles.productImagePlaceholder}>
-                      <Ionicons name="tennisball" size={28} color={Colors.dark.textSubtle} />
-                    </View>
-                  )}
-                  {discount ? (
-                    <View style={styles.saleBadge}>
-                      <Text style={styles.saleBadgeText}>-{discount}%</Text>
-                    </View>
-                  ) : null}
-                </View>
-                <Text style={styles.productName} numberOfLines={2}>{product.name}</Text>
-                <View style={styles.priceRow}>
-                  <Text style={styles.productPrice}>
-                    {formatPrice(product.price, product.currency)}
-                  </Text>
-                  {product.compareAtPrice && discount ? (
-                    <Text style={styles.comparePrice}>
-                      {Number(product.compareAtPrice).toFixed(0)}
+        {featuredProducts.length > 0 ? (
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.productsScroll}
+          >
+            {featuredProducts.slice(0, 6).map((product) => {
+              const discount = getDiscountPercent(product);
+              return (
+                <Pressable
+                  key={product.id}
+                  style={styles.productCard}
+                  onPress={handleProductPress}
+                >
+                  <View style={styles.productImageContainer}>
+                    {product.imageUrl ? (
+                      <Image
+                        source={{ uri: product.imageUrl }}
+                        style={styles.productImage}
+                        contentFit="cover"
+                      />
+                    ) : (
+                      <View style={styles.productImagePlaceholder}>
+                        <Ionicons name="tennisball" size={28} color={Colors.dark.textSubtle} />
+                      </View>
+                    )}
+                    {discount ? (
+                      <View style={styles.saleBadge}>
+                        <Text style={styles.saleBadgeText}>-{discount}%</Text>
+                      </View>
+                    ) : null}
+                  </View>
+                  <Text style={styles.productName} numberOfLines={2}>{product.name}</Text>
+                  <View style={styles.priceRow}>
+                    <Text style={styles.productPrice}>
+                      {formatPrice(product.price, product.currency)}
                     </Text>
-                  ) : null}
-                </View>
-              </Pressable>
-            );
-          })}
-        </ScrollView>
+                    {product.compareAtPrice && discount ? (
+                      <Text style={styles.comparePrice}>
+                        {Number(product.compareAtPrice).toFixed(0)}
+                      </Text>
+                    ) : null}
+                  </View>
+                </Pressable>
+              );
+            })}
+          </ScrollView>
+        ) : (
+          <Pressable onPress={handleViewAll} style={styles.fallbackRow}>
+            <Text style={styles.fallbackText}>Gear, services & exclusive deals</Text>
+            <Ionicons name="chevron-forward" size={16} color={GlowColors.primary} />
+          </Pressable>
+        )}
       </LinearGradient>
     </Animated.View>
   );
@@ -292,5 +297,18 @@ const styles = StyleSheet.create({
     fontWeight: "500",
     color: Colors.dark.textSubtle,
     textDecorationLine: "line-through",
+  },
+  fallbackRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: Spacing.md,
+    paddingBottom: Spacing.md,
+    paddingTop: Spacing.xs,
+  },
+  fallbackText: {
+    fontSize: 14,
+    fontWeight: "500",
+    color: Colors.dark.textMuted,
   },
 });

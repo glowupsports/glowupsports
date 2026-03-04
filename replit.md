@@ -18,7 +18,7 @@ This rule applies to ALL development work going forward. Always search existing 
 ## System Architecture
 
 ### UI/UX Decisions
-The application features a dark-themed gaming aesthetic with neon green and cyan accents, card-based layouts, drawer navigation, a custom header for persistent player statistics, and a collapsible chat footer. Each user role has dedicated UI themes and navigation. UX elements include animated empty states, success feedback, action prioritization cards, and post-action modals.
+The application features a dark-themed gaming aesthetic with a consistent color system: **Neon Green (#C8FF3D)** for brand identity/primary CTAs, **Cyan (#00D4FF)** for information/stats, **Amber (#FFB020)** for social/group activities, and **White** for section headers. Section titles in DiscoveryRows use white text (no colored text shadows). Session type cards: Group=Amber, Private=Green (brand), Courts=Cyan. Card-based layouts, drawer navigation, a custom header for persistent player statistics, and a collapsible chat footer. Each user role has dedicated UI themes and navigation. UX elements include animated empty states, success feedback, action prioritization cards, and post-action modals. **Glow Market Spotlight** component on player homescreen shows featured shop products with XP discount tier.
 
 ### Technical Implementations
 - **Frontend**: React Native with Expo SDK 54, React Navigation, React Context for state management, `AsyncStorage` for local data persistence, and `React Native Reanimated` for animations.

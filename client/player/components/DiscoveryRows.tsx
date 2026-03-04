@@ -70,7 +70,7 @@ function SectionHeader({ title, count, actionLabel, onAction, accentColor = ProT
   return (
     <View style={styles.sectionHeader}>
       <View style={styles.sectionTitleRow}>
-        <Text style={[styles.sectionTitle, { textShadowColor: accentColor, textShadowRadius: 4 }]}>{title}</Text>
+        <Text style={styles.sectionTitle}>{title}</Text>
         {count !== undefined && count > 0 && (
           <Animated.View style={[
             styles.countChipGaming, 
@@ -826,22 +826,22 @@ export function TrainingSessionsRow() {
 
         <Animated.View entering={FadeInRight.delay(60).duration(300)}>
           <Pressable onPress={handleBookPress}>
-            <NeonEdgeCard color="#9C27B0" glowIntensity="low" style={styles.trainingCard}>
+            <NeonEdgeCard color={GlowColors.primary} glowIntensity="low" style={styles.trainingCard}>
               <LinearGradient
-                colors={["rgba(156, 39, 176, 0.15)", "rgba(0, 0, 0, 0)"]}
+                colors={[`${GlowColors.primary}15`, "rgba(0, 0, 0, 0)"]}
                 style={styles.trainingGradient}
               />
               <View style={styles.trainingContent}>
                 <View style={styles.trainingIconWrap}>
-                  <Feather name="user" size={18} color="#9C27B0" />
+                  <Feather name="user" size={18} color={GlowColors.primary} />
                 </View>
                 <Text style={styles.trainingTitle}>{t("common.private")}</Text>
                 <Text style={styles.trainingSubtitle}>
                   {availability.privateLessons} {t("player.home.available")}
                 </Text>
                 <View style={styles.trainingChips}>
-                  <View style={[styles.trainingChip, { backgroundColor: "rgba(156, 39, 176, 0.2)" }]}>
-                    <Text style={[styles.trainingChipText, { color: "#9C27B0" }]}>{t("player.home.bookNow")}</Text>
+                  <View style={[styles.trainingChip, { backgroundColor: `${GlowColors.primary}20` }]}>
+                    <Text style={[styles.trainingChipText, { color: GlowColors.primary }]}>{t("player.home.bookNow")}</Text>
                   </View>
                 </View>
               </View>
