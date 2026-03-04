@@ -478,9 +478,14 @@ function PlayerHomeContent() {
         <SessionHeroCard onBookSession={handleBookLesson} />
 
         {/* ── PLAY SECTION ── Book, find players, join matches */}
-        <View style={styles.sectionDivider}>
-          <Ionicons name="tennisball" size={12} color={GlowColors.primary} />
-          <Text style={[styles.sectionDividerText, { color: GlowColors.primary }]}>PLAY</Text>
+        <View style={styles.playDivider}>
+          <View style={styles.playDividerLeft}>
+            <View style={styles.playIconGlow}>
+              <Ionicons name="tennisball" size={14} color={GlowColors.primary} />
+            </View>
+            <Text style={styles.playDividerText}>PLAY</Text>
+          </View>
+          <View style={styles.playDividerLine} />
         </View>
 
         <TrainingSessionsRow />
@@ -589,6 +594,39 @@ const styles = StyleSheet.create({
     top: Spacing.md,
     right: Spacing.md,
     zIndex: 10,
+  },
+  playDivider: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    paddingHorizontal: Spacing.lg,
+    marginTop: 8,
+    marginBottom: 4,
+  },
+  playDividerLeft: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+  },
+  playIconGlow: {
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    backgroundColor: "rgba(200, 255, 61, 0.12)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  playDividerText: {
+    fontSize: 13,
+    fontWeight: "800",
+    letterSpacing: 3,
+    color: GlowColors.primary,
+    textTransform: "uppercase" as const,
+  },
+  playDividerLine: {
+    flex: 1,
+    height: 1,
+    backgroundColor: "rgba(200, 255, 61, 0.15)",
   },
   sectionDivider: {
     flexDirection: "row",

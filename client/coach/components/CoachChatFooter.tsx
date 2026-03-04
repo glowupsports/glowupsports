@@ -16,6 +16,7 @@ import Animated, {
   useAnimatedStyle,
   withSpring,
 } from "react-native-reanimated";
+import { BlurView } from "expo-blur";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 
@@ -1201,6 +1202,7 @@ export function CoachChatFooter({ mode = "coach" }: ChatFooterProps) {
 
   return (
     <Animated.View style={[styles.container, { bottom: tabBarHeight, paddingTop: isFullscreen ? insets.top : 0 }, animatedStyle]}>
+      <BlurView intensity={40} tint="dark" style={StyleSheet.absoluteFill} />
       <View style={styles.header}>
         <Pressable
           onPress={() => {
@@ -1283,19 +1285,20 @@ const styles = StyleSheet.create({
     bottom: 0,
     left: 0,
     right: 0,
-    backgroundColor: Backgrounds.card,
+    backgroundColor: "rgba(17, 20, 26, 0.90)",
     borderTopLeftRadius: BorderRadius.lg,
     borderTopRightRadius: BorderRadius.lg,
+    overflow: "hidden",
     zIndex: 100,
     ...Platform.select({
       ios: {
         shadowColor: Colors.dark.primary,
-        shadowOffset: { width: 0, height: -6 },
-        shadowOpacity: 0.25,
-        shadowRadius: 16,
+        shadowOffset: { width: 0, height: -4 },
+        shadowOpacity: 0.15,
+        shadowRadius: 12,
       },
       android: {
-        elevation: 12,
+        elevation: 8,
       },
     }),
   },
@@ -1307,7 +1310,7 @@ const styles = StyleSheet.create({
     height: FOOTER_COLLAPSED,
     borderTopLeftRadius: BorderRadius.lg,
     borderTopRightRadius: BorderRadius.lg,
-    backgroundColor: Backgrounds.card,
+    backgroundColor: "transparent",
     borderTopWidth: 2,
     borderTopColor: Colors.dark.primary + "50",
   },

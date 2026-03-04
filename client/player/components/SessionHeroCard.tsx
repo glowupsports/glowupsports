@@ -1622,7 +1622,7 @@ export function SessionHeroCard({
                 ]}
                 onPress={handleFindMatch}
               >
-                <Feather name="users" size={16} color={ProTennisColors.neonCyan} />
+                <Feather name="users" size={16} color={GlowColors.primary} />
                 <Text style={styles.openDaySmallButtonText}>{t("player.home.findPlayers").toUpperCase()}</Text>
               </Pressable>
 
@@ -2477,8 +2477,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.md,
     borderRadius: BorderRadius.md,
     borderWidth: 1.5,
-    borderColor: `${ProTennisColors.neonCyan}50`,
-    backgroundColor: "rgba(0, 240, 255, 0.05)",
+    borderColor: `${GlowColors.primary}50`,
+    backgroundColor: "rgba(200, 255, 61, 0.05)",
   },
   gamingSecondaryButtonText: {
     fontWeight: "700",
@@ -2580,10 +2580,10 @@ const styles = StyleSheet.create({
   secondaryButton: {
     backgroundColor: "transparent",
     borderWidth: 1.5,
-    borderColor: ProTennisColors.neonCyan,
+    borderColor: GlowColors.primary,
   },
   secondaryButtonText: {
-    color: ProTennisColors.neonCyan,
+    color: GlowColors.primary,
     fontWeight: "700",
     fontSize: 14,
     letterSpacing: 0.5,
@@ -2643,7 +2643,7 @@ const styles = StyleSheet.create({
   },
   courtLabel: {
     ...Typography.caption,
-    color: ProTennisColors.neonCyan,
+    color: GlowColors.primary,
     marginTop: 2,
   },
   courtInfo: {
@@ -2928,7 +2928,7 @@ const styles = StyleSheet.create({
     borderColor: "rgba(255, 255, 255, 0.1)",
   },
   openDaySmallButtonText: {
-    color: ProTennisColors.neonCyan,
+    color: GlowColors.primary,
     fontWeight: "600",
     fontSize: 12,
     letterSpacing: 0.5,
@@ -2958,9 +2958,9 @@ const styles = StyleSheet.create({
     fontSize: 14,
   },
   extendButton: {
-    backgroundColor: `${ProTennisColors.neonCyan}15`,
+    backgroundColor: `${GlowColors.primary}15`,
     borderWidth: 1,
-    borderColor: `${ProTennisColors.neonCyan}40`,
+    borderColor: `${GlowColors.primary}40`,
   },
   liveCancelRow: {
     marginTop: Spacing.md,
@@ -2996,7 +2996,7 @@ const styles = StyleSheet.create({
     borderRadius: BorderRadius.sm,
   },
   nextSessionText: {
-    color: ProTennisColors.neonCyan,
+    color: GlowColors.primary,
     fontWeight: "700",
     fontSize: 12,
     letterSpacing: 0.5,
