@@ -476,7 +476,7 @@ export default function SeriesDetailDrawer({
   });
 
   // Filter players not already in the series
-  const existingPlayerIds = new Set(series?.players?.map(p => p.id) || []);
+  const existingPlayerIds = new Set(series?.players?.filter(p => p.status !== "left").map(p => p.id) || []);
   const filteredPlayers = allPlayers.filter(p => 
     !existingPlayerIds.has(p.id) && 
     p.name.toLowerCase().includes(playerSearch.toLowerCase())

@@ -100,6 +100,7 @@ function DraggableSessionBlock({ session, top, height, isPast, isActive, gradien
 
   const panGesture = Gesture.Pan()
     .activateAfterLongPress(400)
+    .minDistance(10)
     .onStart(() => {
       isDragging.value = true;
       startX.value = translateX.value;
@@ -198,6 +199,7 @@ function WeekDraggableSessionBlock({ session, top, height, isPast, isActive, gra
 
   const panGesture = Gesture.Pan()
     .activateAfterLongPress(400)
+    .minDistance(10)
     .onStart(() => {
       isDragging.value = true;
       startX.value = translateX.value;
@@ -1810,7 +1812,7 @@ export default function CalendarScreen() {
           
 
           {/* Calendar Grid */}
-          <ScrollView style={styles.calendarScroll} showsVerticalScrollIndicator={false}>
+          <ScrollView style={styles.calendarScroll} showsVerticalScrollIndicator={false} nestedScrollEnabled={true}>
             <View style={styles.calendarGrid}>
               {/* Time Column */}
               <View style={styles.timeColumn}>
@@ -1826,6 +1828,7 @@ export default function CalendarScreen() {
                 ref={courtLanesScrollRef}
                 horizontal
                 showsHorizontalScrollIndicator={false}
+                nestedScrollEnabled={true}
                 scrollEventThrottle={16}
                 onScroll={(e) => {
                   // Sync scroll with court headers
