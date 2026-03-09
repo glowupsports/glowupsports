@@ -291,8 +291,6 @@ export function getPlayerLevelColor(ballLevel?: string | null): string {
 }
 
 export function getPlayerLevelTextColor(ballLevel?: string | null): string {
-  const level = ballLevel?.toLowerCase();
-  if (level === "yellow" || level === "green") return "#000";
   return getPlayerLevelColor(ballLevel);
 }
 
