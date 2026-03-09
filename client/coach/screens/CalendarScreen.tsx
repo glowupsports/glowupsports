@@ -528,6 +528,7 @@ export default function CalendarScreen() {
         },
         refetchType: "all",
       });
+      refetchCalendar();
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       if (data.originalData) {
         setLastMove({

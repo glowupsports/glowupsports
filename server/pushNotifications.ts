@@ -1,7 +1,7 @@
 import { db, pool } from "./db";
 import { eq, and, gte, lte, inArray, isNull, lt, ne, or, sql } from "drizzle-orm";
 import { pushDeviceTokens, notificationPreferences, users, players, coaches, sessions, sessionPlayers, seriesPlayers, coachXpTransactions, creditTransactions, coachNotifications } from "@shared/schema";
-import { storage } from "./storage";
+import { storage, ensureCreditProcessed } from "./storage";
 import { sendSessionReminderEmail, sendOnboardingDay3Email, sendOnboardingDay7Email } from "./emailService";
 import { initializeFirebase, isFirebaseInitialized, isFCMToken, sendFCMNotification, getChannelIdForNotificationType } from "./fcm";
 
@@ -665,7 +665,7 @@ async function processAutoAttendance(): Promise<void> {
   try {
     const now = new Date();
     const gracePeriodAgo = new Date(now.getTime() - AUTO_ATTENDANCE_GRACE_PERIOD);
-    const lookbackWindow = new Date(now.getTime() - 2 * 60 * 60 * 1000); // 2 hours back
+    const lookbackWindow = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000); // 7 days back — ensures no completed sessions are missed even after server downtime
 
     const completedSessions = await db.select({
       id: sessions.id,
@@ -732,7 +732,7 @@ async function processAutoAttendance(): Promise<void> {
 
             // REFACTORED: Use ensureCreditProcessed instead of direct deduction
             try {
-              const result = await storage.ensureCreditProcessed(newSessionPlayerId);
+              const result = await ensureCreditProcessed(newSessionPlayerId);
               if (result.action === "consumed") {
                 console.log(`[AutoAttendance] Consumed credit for player ${sp.playerId} in session ${session.id}`);
               } else if (result.action === "debt_created") {
@@ -764,7 +764,7 @@ async function processAutoAttendance(): Promise<void> {
 
           // REFACTORED: Use ensureCreditProcessed instead of direct deduction
           try {
-            const result = await storage.ensureCreditProcessed(player.id);
+            const result = await ensureCreditProcessed(player.id);
             if (result.action === "consumed") {
               console.log(`[AutoAttendance] Consumed credit for player ${player.playerId} in session ${session.id}`);
             } else if (result.action === "debt_created") {
@@ -902,6 +902,76 @@ async function catchUpMissedReminders(): Promise<void> {
   }
 }
 
+async function repairMissingSessionPlayers(): Promise<void> {
+  try {
+    const result = await pool.query(`
+      SELECT s.id as session_id, s.start_time, s.session_type, s.academy_id,
+             sp2.player_id, sp2.joined_at
+      FROM sessions s
+      JOIN series_players sp2 ON sp2.series_id = s.series_id
+      LEFT JOIN session_players sp ON sp.session_id = s.id AND sp.player_id = sp2.player_id
+      WHERE s.status = 'completed' 
+        AND sp.id IS NULL
+        AND sp2.joined_at <= s.start_time
+        AND (sp2.left_at IS NULL OR sp2.left_at > s.start_time)
+        AND sp2.status IN ('active', 'left')
+        AND NOT (
+          sp2.pause_from IS NOT NULL 
+          AND sp2.pause_until IS NOT NULL 
+          AND s.start_time::date >= sp2.pause_from 
+          AND s.start_time::date <= sp2.pause_until
+        )
+      ORDER BY s.start_time ASC
+    `);
+
+    if (result.rows.length === 0) {
+      console.log("[SessionPlayerRepair] No missing session_player records found");
+      return;
+    }
+
+    console.log(`[SessionPlayerRepair] Found ${result.rows.length} missing session_player records — repairing...`);
+    
+    let healed = 0;
+    let creditProcessed = 0;
+    let errors = 0;
+    const sessionIds = new Set<string>();
+
+    for (const row of result.rows) {
+      try {
+        const newId = crypto.randomUUID();
+        await db.insert(sessionPlayers).values({
+          id: newId,
+          sessionId: row.session_id,
+          playerId: row.player_id,
+          attendanceStatus: "present",
+          lateMinutes: 0,
+          isGuest: false,
+          xpAwarded: 0,
+        });
+        healed++;
+        sessionIds.add(row.session_id);
+
+        try {
+          const creditResult = await ensureCreditProcessed(newId);
+          if (creditResult.action === "consumed" || creditResult.action === "debt_created") {
+            creditProcessed++;
+          }
+        } catch (creditErr) {
+          console.error(`[SessionPlayerRepair] Credit processing failed for player ${row.player_id}:`, creditErr);
+        }
+      } catch (insertErr: any) {
+        if (insertErr?.code === '23505') continue;
+        errors++;
+        console.error(`[SessionPlayerRepair] Failed to heal player ${row.player_id} in session ${row.session_id}:`, insertErr);
+      }
+    }
+
+    console.log(`[SessionPlayerRepair] Complete: ${healed} records healed across ${sessionIds.size} sessions, ${creditProcessed} credits processed, ${errors} errors`);
+  } catch (error) {
+    console.error("[SessionPlayerRepair] Error:", error);
+  }
+}
+
 export function startReminderScheduler(): void {
   if (reminderInterval) {
     console.log("[SessionReminders] Scheduler already running");
@@ -914,6 +984,7 @@ export function startReminderScheduler(): void {
   processScheduledReminders().catch(console.error);
   processAutoCompleteSession().catch(console.error);
   processAutoAttendance().catch(console.error);
+  repairMissingSessionPlayers().catch(console.error);
 
   reminderInterval = setInterval(() => {
     processScheduledReminders().catch(console.error);

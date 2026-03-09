@@ -11416,17 +11416,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
               let healed = 0;
               for (const session of seriesSessions) {
                 if (session.status === "cancelled" || session.status === "skipped") continue;
+                const isCompleted = session.status === "completed";
                 for (const playerId of activePlayerIds) {
                   const key = `${session.id}:${playerId}`;
                   if (!enrolledSet.has(key)) {
                     const joinedAt = seriesPlayersList.find((sp) => sp.playerId === playerId)?.joinedAt;
                     if (joinedAt && new Date(session.startTime) < new Date(joinedAt)) continue;
-                    await storage.addPlayerToSession({
+                    const newRecord = await storage.addPlayerToSession({
                       sessionId: session.id,
                       playerId,
-                      attendanceStatus: null,
+                      attendanceStatus: isCompleted ? "present" : null,
                     });
                     healed++;
+                    if (isCompleted && newRecord?.id) {
+                      try {
+                        const { ensureCreditProcessed } = await import("./storage");
+                        await ensureCreditProcessed(newRecord.id);
+                      } catch (creditErr) {
+                        console.error(`[Series Auto-Heal] Credit processing failed for player ${playerId}:`, creditErr);
+                      }
+                    }
                   }
                 }
               }
