@@ -91,6 +91,16 @@ const getUTCDateString = (timestamp: string | Date): string => {
   return date.toISOString().split('T')[0];
 };
 
+function dimColors(colors: string[]): string[] {
+  return colors.map(c => {
+    const hex = c.replace('#', '');
+    const r = Math.round(parseInt(hex.substring(0, 2), 16) * 0.4);
+    const g = Math.round(parseInt(hex.substring(2, 4), 16) * 0.4);
+    const b = Math.round(parseInt(hex.substring(4, 6), 16) * 0.4);
+    return `#${r.toString(16).padStart(2, '0')}${g.toString(16).padStart(2, '0')}${b.toString(16).padStart(2, '0')}`;
+  });
+}
+
 function DraggableSessionBlock({ session, top, height, isPast, isActive, gradientColors, sessionLabel, formattedTime, hourHeight, courtLaneWidth, onTap, onLongPress, onDragEnd, onDragUpdate, hasConflict }: any) {
   const translateX = useSharedValue(0);
   const translateY = useSharedValue(0);
@@ -144,8 +154,10 @@ function DraggableSessionBlock({ session, top, height, isPast, isActive, gradien
       { translateY: translateY.value },
     ],
     zIndex: isDragging.value ? 100 : 1,
-    opacity: isDragging.value ? 0.85 : (isPast ? 0.6 : 1),
+    opacity: isDragging.value ? 0.85 : 1,
   }));
+
+  const displayColors = isPast ? dimColors(gradientColors) : gradientColors;
 
   return (
     <GestureDetector gesture={composedGesture}>
@@ -166,7 +178,7 @@ function DraggableSessionBlock({ session, top, height, isPast, isActive, gradien
         ]}
       >
         <LinearGradient
-          colors={gradientColors}
+          colors={displayColors}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
           style={{ flex: 1, padding: 4, borderLeftWidth: 3, borderLeftColor: isActive ? '#00E676' : gradientColors[0] }}
@@ -237,8 +249,10 @@ function WeekDraggableSessionBlock({ session, top, height, isPast, isActive, gra
       { translateY: translateY.value },
     ],
     zIndex: isDragging.value ? 100 : 1,
-    opacity: isDragging.value ? 0.85 : (isPast ? 0.6 : 1),
+    opacity: isDragging.value ? 0.85 : 1,
   }));
+
+  const displayColors = isPast ? dimColors(gradientColors) : gradientColors;
 
   return (
     <GestureDetector gesture={composedGesture}>
@@ -257,7 +271,7 @@ function WeekDraggableSessionBlock({ session, top, height, isPast, isActive, gra
         ]}
       >
         <LinearGradient
-          colors={gradientColors}
+          colors={displayColors}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
           style={{ flex: 1, padding: 2 }}

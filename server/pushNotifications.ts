@@ -972,6 +972,30 @@ async function repairMissingSessionPlayers(): Promise<void> {
   }
 }
 
+async function cleanupStaleSessionPlayers(): Promise<void> {
+  try {
+    const result = await pool.query(`
+      DELETE FROM session_players sp
+      USING sessions s, series_players srp
+      WHERE sp.session_id = s.id
+        AND s.series_id = srp.series_id
+        AND sp.player_id = srp.player_id
+        AND srp.status = 'left'
+        AND s.status IN ('scheduled', 'upcoming')
+        AND s.start_time > NOW()
+        AND sp.is_guest = false
+        AND (srp.left_at IS NULL OR srp.left_at <= s.start_time)
+    `);
+    if (result.rowCount && result.rowCount > 0) {
+      console.log(`[StalePlayerCleanup] Removed ${result.rowCount} stale session_player records for players who left their series`);
+    } else {
+      console.log("[StalePlayerCleanup] No stale session_player records found");
+    }
+  } catch (error) {
+    console.error("[StalePlayerCleanup] Error:", error);
+  }
+}
+
 export function startReminderScheduler(): void {
   if (reminderInterval) {
     console.log("[SessionReminders] Scheduler already running");
@@ -985,6 +1009,7 @@ export function startReminderScheduler(): void {
   processAutoCompleteSession().catch(console.error);
   processAutoAttendance().catch(console.error);
   repairMissingSessionPlayers().catch(console.error);
+  cleanupStaleSessionPlayers().catch(console.error);
 
   reminderInterval = setInterval(() => {
     processScheduledReminders().catch(console.error);

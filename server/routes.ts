@@ -4842,6 +4842,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
             : Promise.resolve([]),
         ]);
 
+        const leftSeriesPlayers = seriesIds.length > 0
+          ? await db
+              .select({
+                seriesId: seriesPlayers.seriesId,
+                playerId: seriesPlayers.playerId,
+                leftAt: seriesPlayers.leftAt,
+              })
+              .from(seriesPlayers)
+              .where(
+                and(
+                  inArray(seriesPlayers.seriesId, seriesIds),
+                  eq(seriesPlayers.status, "left"),
+                ),
+              )
+          : [];
+
+        const leftPlayersBySeriesMap = new Map<string, { playerId: string; leftAt: Date | null }[]>();
+        for (const lp of leftSeriesPlayers) {
+          if (!lp.seriesId) continue;
+          if (!leftPlayersBySeriesMap.has(lp.seriesId))
+            leftPlayersBySeriesMap.set(lp.seriesId, []);
+          leftPlayersBySeriesMap.get(lp.seriesId)!.push({ playerId: lp.playerId, leftAt: lp.leftAt });
+        }
+
         // Create lookup maps
         const sessionPlayersMap = new Map<string, typeof allSessionPlayers>();
         for (const p of allSessionPlayers) {
@@ -4866,12 +4890,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
             ? seriesPlayersMap.get(session.seriesId) || []
             : [];
 
+          const isCompleted = session.status === "completed";
+          const leftPlayers = session.seriesId
+            ? leftPlayersBySeriesMap.get(session.seriesId) || []
+            : [];
+
+          const sessionStartTime = new Date(session.startTime);
+          const leftPlayerIdsForSession = new Set(
+            leftPlayers
+              .filter(lp => !lp.leftAt || new Date(lp.leftAt) <= sessionStartTime)
+              .map(lp => lp.playerId)
+          );
+
           // Combine: session players override series players
+          // For non-completed sessions, filter out players who left the series before this session
           const sessionPlayerIds = new Set(
             sessionSpecificPlayers.map((p) => p.playerId),
           );
+          const filteredSessionPlayers = isCompleted
+            ? sessionSpecificPlayers
+            : sessionSpecificPlayers.filter((p) => p.isGuest || !leftPlayerIdsForSession.has(p.playerId));
+
           const combinedPlayers = [
-            ...sessionSpecificPlayers.map((p) => ({
+            ...filteredSessionPlayers.map((p) => ({
               id: p.playerId,
               name: p.playerName || "Unknown",
               ballLevel: p.playerBallLevel || null,
