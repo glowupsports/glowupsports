@@ -3974,8 +3974,8 @@ const styles = StyleSheet.create({
     top: 0,
     left: 0,
     right: 0,
-    height: 2,
-    backgroundColor: "#FFFFFF",
+    height: 1,
+    backgroundColor: "rgba(255,255,255,0.15)",
   },
   halfHourLine: {
     position: "absolute",

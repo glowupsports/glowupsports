@@ -10834,6 +10834,46 @@ export const storage = {
         }
       }
       
+      // Step 4: Reconcile package remainingCredits with actual transaction-based balance
+      // This catches unlinked debts (session_debt with no packageId) that the per-package repair misses
+      const balanceByType = await storage.getPlayerCreditBalanceByType(playerId);
+      const updatedPackages = await db.select().from(packages).where(eq(packages.playerId, playerId));
+      
+      const remainingByType: Record<string, number> = { group: 0, semi_private: 0, private: 0 };
+      for (const pkg of updatedPackages) {
+        const ct = (pkg.creditType || "group") as string;
+        remainingByType[ct] = (remainingByType[ct] || 0) + Number(pkg.remainingCredits);
+      }
+      
+      for (const creditType of ["group", "semi_private", "private"] as const) {
+        const txBalance = Math.max(0, balanceByType[creditType]);
+        const pkgRemaining = remainingByType[creditType] || 0;
+        
+        if (pkgRemaining > txBalance) {
+          const excess = pkgRemaining - txBalance;
+          const activeOfType = updatedPackages
+            .filter(p => (p.creditType || "group") === creditType && Number(p.remainingCredits) > 0)
+            .sort((a, b) => Number(a.remainingCredits) - Number(b.remainingCredits));
+          
+          let toReduce = excess;
+          for (const pkg of activeOfType) {
+            if (toReduce <= 0) break;
+            const currentRemaining = Number(pkg.remainingCredits);
+            const reduction = Math.min(toReduce, currentRemaining);
+            const newRemaining = currentRemaining - reduction;
+            
+            await db.update(packages).set({
+              remainingCredits: newRemaining,
+              status: newRemaining <= 0 ? "depleted" : "active",
+            }).where(eq(packages.id, pkg.id));
+            
+            details.push(`Package ${pkg.id} (${creditType}): reconciled ${currentRemaining} -> ${newRemaining} (unlinked debts: ${reduction})`);
+            packagesRepaired++;
+            toReduce -= reduction;
+          }
+        }
+      }
+      
       console.log(`[RepairCredits] Player ${playerId}: ${packagesRepaired} packages, ${debtsMarkedSettled} debts, ${sessionPlayersFixed} session_players`);
       
       return {
@@ -11465,7 +11505,8 @@ async function auditAllPlayerCredits(): Promise<{
     let txBalance = 0;
     for (const tx of allPlayerTxs) {
       const meta = tx.metadata as { settled?: boolean; cancelled?: boolean; expired?: boolean } | null;
-      if (tx.reason !== "debt_settlement" && (meta?.settled || meta?.cancelled || meta?.expired)) continue;
+      if (tx.reason === "debt_settlement") continue;
+      if (meta?.cancelled === true || meta?.expired === true) continue;
       if (Number(tx.amount) > 0 && !tx.packageId && (tx.reason === "package_purchased" || tx.reason === "package_purchase")) continue;
       if (Number(tx.amount) > 0 && tx.packageId && !existingPackageIds.has(tx.packageId)) continue;
       txBalance += Number(tx.amount);
