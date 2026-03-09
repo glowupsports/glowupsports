@@ -653,6 +653,32 @@ async function processAutoCompleteSession(): Promise<void> {
         `UPDATE sessions SET status = 'completed' WHERE id = $1 AND end_time <= $2::timestamp`,
         [row.id, completeThresholdStr]
       );
+
+      const unmarkedPlayers = await pool.query(
+        `SELECT sp.id, sp.player_id FROM session_players sp
+         WHERE sp.session_id = $1 AND (sp.attendance_status IS NULL OR sp.attendance_status = 'pending')`,
+        [row.id]
+      );
+
+      if (unmarkedPlayers.rows.length > 0) {
+        console.log(`[AutoComplete]   Setting attendance for ${unmarkedPlayers.rows.length} players in session ${row.id.substring(0,8)}`);
+        for (const sp of unmarkedPlayers.rows) {
+          await pool.query(
+            `UPDATE session_players SET attendance_status = 'present', late_minutes = 0 WHERE id = $1`,
+            [sp.id]
+          );
+          try {
+            const creditResult = await ensureCreditProcessed(sp.id);
+            if (creditResult.action === "consumed") {
+              console.log(`[AutoComplete]   Consumed credit for player ${sp.player_id}`);
+            } else if (creditResult.action === "debt_created") {
+              console.log(`[AutoComplete]   Created debt for player ${sp.player_id}`);
+            }
+          } catch (creditError) {
+            console.error(`[AutoComplete]   Failed credit processing for player ${sp.player_id}:`, creditError);
+          }
+        }
+      }
     }
 
     console.log("[AutoComplete] Processing complete");
@@ -663,31 +689,29 @@ async function processAutoCompleteSession(): Promise<void> {
 
 async function processAutoAttendance(): Promise<void> {
   try {
-    const now = new Date();
-    const gracePeriodAgo = new Date(now.getTime() - AUTO_ATTENDANCE_GRACE_PERIOD);
-    const lookbackWindow = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000); // 7 days back — ensures no completed sessions are missed even after server downtime
+    const completedSessionsWithNullAttendance = await pool.query(
+      `SELECT DISTINCT s.id, s.coach_id, s.end_time, s.series_id, s.session_type, s.academy_id
+       FROM sessions s
+       LEFT JOIN session_players sp ON sp.session_id = s.id
+       WHERE s.status = 'completed'
+         AND (sp.attendance_status IS NULL OR sp.attendance_status = 'pending' OR sp.id IS NULL)
+       ORDER BY s.end_time`
+    );
 
-    const completedSessions = await db.select({
-      id: sessions.id,
-      coachId: sessions.coachId,
-      endTime: sessions.endTime,
-      seriesId: sessions.seriesId,
-      sessionType: sessions.sessionType,
-      academyId: sessions.academyId,
-    })
-      .from(sessions)
-      .where(and(
-        lte(sessions.endTime, gracePeriodAgo),
-        gte(sessions.endTime, lookbackWindow),
-        eq(sessions.status, "completed")
-      ));
+    const completedSessions = completedSessionsWithNullAttendance.rows.map((r: any) => ({
+      id: r.id,
+      coachId: r.coach_id,
+      endTime: r.end_time,
+      seriesId: r.series_id,
+      sessionType: r.session_type,
+      academyId: r.academy_id,
+    }));
 
     if (completedSessions.length === 0) {
-      console.log("[AutoAttendance] No completed sessions to process");
       return;
     }
 
-    console.log(`[AutoAttendance] Processing ${completedSessions.length} completed sessions`);
+    console.log(`[AutoAttendance] Processing ${completedSessions.length} completed sessions with unmarked attendance`);
 
     for (const session of completedSessions) {
       // First, check if there are existing session_players with unmarked attendance
@@ -996,6 +1020,58 @@ async function cleanupStaleSessionPlayers(): Promise<void> {
   }
 }
 
+export async function repairNullAttendance(): Promise<void> {
+  try {
+    const nullAttendance = await pool.query(`
+      SELECT sp.id, sp.player_id, sp.session_id, s.start_time, s.session_type, p.name as player_name
+      FROM session_players sp
+      JOIN sessions s ON s.id = sp.session_id
+      JOIN players p ON p.id = sp.player_id
+      WHERE s.status = 'completed'
+        AND sp.attendance_status IS NULL
+      ORDER BY s.start_time
+    `);
+
+    if (nullAttendance.rows.length === 0) {
+      console.log("[NullAttendanceRepair] No completed sessions with NULL attendance found");
+      return;
+    }
+
+    console.log(`[NullAttendanceRepair] Found ${nullAttendance.rows.length} completed session_player records with NULL attendance — fixing now`);
+
+    let fixed = 0;
+    let creditsProcessed = 0;
+    let debtsCreated = 0;
+
+    for (const row of nullAttendance.rows) {
+      await pool.query(
+        `UPDATE session_players SET attendance_status = 'present', late_minutes = 0 WHERE id = $1`,
+        [row.id]
+      );
+
+      try {
+        const result = await ensureCreditProcessed(row.id);
+        if (result.action === "consumed") {
+          creditsProcessed++;
+          console.log(`[NullAttendanceRepair] ${row.player_name} | session ${row.session_id.substring(0,8)} (${new Date(row.start_time).toISOString().substring(0,10)}) | credit consumed`);
+        } else if (result.action === "debt_created") {
+          debtsCreated++;
+          console.log(`[NullAttendanceRepair] ${row.player_name} | session ${row.session_id.substring(0,8)} (${new Date(row.start_time).toISOString().substring(0,10)}) | debt created`);
+        } else if (result.action === "already_processed") {
+          console.log(`[NullAttendanceRepair] ${row.player_name} | session ${row.session_id.substring(0,8)} | already processed`);
+        }
+      } catch (creditError) {
+        console.error(`[NullAttendanceRepair] Failed credit processing for ${row.player_name}:`, creditError);
+      }
+      fixed++;
+    }
+
+    console.log(`[NullAttendanceRepair] Complete: ${fixed} attendance records fixed, ${creditsProcessed} credits consumed, ${debtsCreated} debts created`);
+  } catch (error) {
+    console.error("[NullAttendanceRepair] Error:", error);
+  }
+}
+
 export function startReminderScheduler(): void {
   if (reminderInterval) {
     console.log("[SessionReminders] Scheduler already running");
@@ -1005,16 +1081,22 @@ export function startReminderScheduler(): void {
   console.log("[SessionReminders] Starting reminder scheduler (every 5 minutes)");
   
   catchUpMissedReminders().catch(console.error);
-  processScheduledReminders().catch(console.error);
-  processAutoCompleteSession().catch(console.error);
-  processAutoAttendance().catch(console.error);
+  (async () => {
+    try {
+      await processScheduledReminders();
+      await processAutoCompleteSession();
+      await processAutoAttendance();
+    } catch (e) { console.error("[Scheduler] Startup sequence error:", e); }
+  })();
   repairMissingSessionPlayers().catch(console.error);
   cleanupStaleSessionPlayers().catch(console.error);
 
-  reminderInterval = setInterval(() => {
-    processScheduledReminders().catch(console.error);
-    processAutoCompleteSession().catch(console.error);
-    processAutoAttendance().catch(console.error);
+  reminderInterval = setInterval(async () => {
+    try {
+      await processScheduledReminders();
+      await processAutoCompleteSession();
+      await processAutoAttendance();
+    } catch (e) { console.error("[Scheduler] Interval error:", e); }
   }, 5 * 60 * 1000);
 }
 

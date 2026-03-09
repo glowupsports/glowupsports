@@ -6,7 +6,7 @@ import { registerRoutes } from "./routes";
 import * as fs from "fs";
 import * as path from "path";
 import { createProxyMiddleware } from "http-proxy-middleware";
-import { startReminderScheduler, startDailyTipScheduler, startAutoSessionCompletionScheduler, startMonthlyReportScheduler, startOnboardingEmailScheduler, startDailyScheduleNotifier, startCreditExpiryReminderScheduler } from "./pushNotifications";
+import { startReminderScheduler, startDailyTipScheduler, startMonthlyReportScheduler, startOnboardingEmailScheduler, startDailyScheduleNotifier, startCreditExpiryReminderScheduler, repairNullAttendance } from "./pushNotifications";
 
 if (process.env.SENTRY_DSN) {
   Sentry.init({
@@ -431,7 +431,8 @@ function setupErrorHandler(app: express.Application) {
       
       startReminderScheduler();
       startDailyTipScheduler();
-      startAutoSessionCompletionScheduler();
+      // Legacy startAutoSessionCompletionScheduler DISABLED — processAutoCompleteSession now handles
+      // both session completion AND attendance+credit processing atomically (every 5 min)
       startMonthlyReportScheduler();
       startDailyScheduleNotifier();
       startCreditExpiryReminderScheduler();
@@ -453,6 +454,9 @@ function setupErrorHandler(app: express.Application) {
         } catch (err) {
           console.error("[GhostCleanup] Failed:", err);
         }
+        
+        log("[NullAttendanceRepair] Fixing completed sessions with NULL attendance...");
+        await repairNullAttendance();
         
         log("[StartupRepair] Running bulk credit repair...");
         const result = await repairAllPlayerCredits();
