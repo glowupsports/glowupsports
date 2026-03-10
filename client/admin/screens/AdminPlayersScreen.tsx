@@ -421,6 +421,18 @@ interface PlayerStats {
     lastPaymentDate?: string;
     status: "paid" | "partial" | "overdue";
     currency: string;
+    invoices?: {
+      id: string;
+      invoiceNumber: string;
+      amount: number;
+      currency: string;
+      status: string;
+      dueDate?: string;
+      paidAt?: string;
+      createdAt?: string;
+      notes?: string;
+      isOverdue: boolean;
+    }[];
   };
   credits?: {
     total: number;
@@ -1064,6 +1076,104 @@ export default function AdminPlayersScreen() {
                     <Text style={styles.createInvoiceText}>Create Invoice</Text>
                   </Pressable>
                 </View>
+
+                {stats.payments.invoices && stats.payments.invoices.length > 0 ? (
+                  <View style={{ marginTop: Spacing.md }}>
+                    <Text style={{ ...Typography.caption, color: Colors.dark.textMuted, fontWeight: "700", letterSpacing: 1, marginBottom: Spacing.sm }}>
+                      INVOICES ({stats.payments.invoices.length})
+                    </Text>
+                    {stats.payments.invoices.map((inv: any) => {
+                      const isOverdue = inv.isOverdue;
+                      const isPaid = inv.status === "paid";
+                      const statusColor = isPaid ? Colors.dark.successNeon : isOverdue ? Colors.dark.error : "#FFD700";
+                      const statusLabel = isPaid ? "PAID" : isOverdue ? "OVERDUE" : "PENDING";
+                      return (
+                        <View key={inv.id} style={{
+                          backgroundColor: "rgba(255,255,255,0.04)",
+                          borderRadius: BorderRadius.sm,
+                          padding: Spacing.sm,
+                          marginBottom: 6,
+                          borderLeftWidth: 3,
+                          borderLeftColor: statusColor,
+                        }}>
+                          <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
+                            <View style={{ flex: 1 }}>
+                              <Text style={{ fontSize: 13, color: Colors.dark.text, fontWeight: "600" }}>
+                                #{inv.invoiceNumber}
+                              </Text>
+                              <Text style={{ fontSize: 12, color: Colors.dark.textMuted, marginTop: 2 }}>
+                                Due: {inv.dueDate ? new Date(inv.dueDate).toLocaleDateString() : "No date"}
+                              </Text>
+                            </View>
+                            <Text style={{ fontSize: 15, fontWeight: "700", color: statusColor }}>
+                              {inv.currency} {inv.amount.toLocaleString()}
+                            </Text>
+                          </View>
+                          <View style={{ flexDirection: "row", alignItems: "center", marginTop: 6, gap: 6 }}>
+                            <View style={{
+                              backgroundColor: `${statusColor}20`,
+                              paddingHorizontal: 6,
+                              paddingVertical: 2,
+                              borderRadius: BorderRadius.xs,
+                            }}>
+                              <Text style={{ fontSize: 10, fontWeight: "700", color: statusColor }}>{statusLabel}</Text>
+                            </View>
+                            {!isPaid ? (
+                              <View style={{ flexDirection: "row", gap: 6, marginLeft: "auto" }}>
+                                <Pressable
+                                  style={{
+                                    flexDirection: "row",
+                                    alignItems: "center",
+                                    gap: 4,
+                                    backgroundColor: "rgba(255,255,255,0.08)",
+                                    paddingHorizontal: 8,
+                                    paddingVertical: 4,
+                                    borderRadius: BorderRadius.xs,
+                                  }}
+                                  onPress={async () => {
+                                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                                    try {
+                                      await apiRequest("PATCH", `/api/billing/invoices/${inv.id}`, { status: "paid", paidAt: new Date().toISOString() });
+                                      queryClient.invalidateQueries({ queryKey: ["/api/admin/players", selectedPlayerId, "stats"] });
+                                      queryClient.invalidateQueries({ queryKey: ["/api/billing/invoices"] });
+                                      queryClient.invalidateQueries({ queryKey: ["/api/players?withCredits=true"] });
+                                      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+                                    } catch (error) {
+                                      Alert.alert("Error", "Failed to mark invoice as paid");
+                                    }
+                                  }}
+                                >
+                                  <Ionicons name="checkmark-circle" size={12} color={Colors.dark.successNeon} />
+                                  <Text style={{ fontSize: 11, color: Colors.dark.successNeon, fontWeight: "600" }}>Paid</Text>
+                                </Pressable>
+                                <Pressable
+                                  style={{
+                                    flexDirection: "row",
+                                    alignItems: "center",
+                                    gap: 4,
+                                    backgroundColor: `${isOverdue ? Colors.dark.error : "#FFD700"}15`,
+                                    paddingHorizontal: 8,
+                                    paddingVertical: 4,
+                                    borderRadius: BorderRadius.xs,
+                                    borderWidth: 1,
+                                    borderColor: `${isOverdue ? Colors.dark.error : "#FFD700"}30`,
+                                  }}
+                                  onPress={() => {
+                                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                                    setShowInvoiceModal(true);
+                                  }}
+                                >
+                                  <Ionicons name="mail-outline" size={12} color={isOverdue ? Colors.dark.error : "#FFD700"} />
+                                  <Text style={{ fontSize: 11, color: isOverdue ? Colors.dark.error : "#FFD700", fontWeight: "600" }}>Reminder</Text>
+                                </Pressable>
+                              </View>
+                            ) : null}
+                          </View>
+                        </View>
+                      );
+                    })}
+                  </View>
+                ) : null}
               </View>
 
               {/* Credits/Packages Section */}
@@ -1711,6 +1821,104 @@ export default function AdminPlayersScreen() {
                   <Text style={styles.createInvoiceText}>Create Invoice</Text>
                 </Pressable>
               </View>
+
+              {stats.payments.invoices && stats.payments.invoices.length > 0 ? (
+                <View style={{ marginTop: Spacing.md }}>
+                  <Text style={{ ...Typography.caption, color: Colors.dark.textMuted, fontWeight: "700", letterSpacing: 1, marginBottom: Spacing.sm }}>
+                    INVOICES ({stats.payments.invoices.length})
+                  </Text>
+                  {stats.payments.invoices.map((inv: any) => {
+                    const isOverdue = inv.isOverdue;
+                    const isPaid = inv.status === "paid";
+                    const statusColor = isPaid ? Colors.dark.successNeon : isOverdue ? Colors.dark.error : "#FFD700";
+                    const statusLabel = isPaid ? "PAID" : isOverdue ? "OVERDUE" : "PENDING";
+                    return (
+                      <View key={inv.id} style={{
+                        backgroundColor: "rgba(255,255,255,0.04)",
+                        borderRadius: BorderRadius.sm,
+                        padding: Spacing.sm,
+                        marginBottom: 6,
+                        borderLeftWidth: 3,
+                        borderLeftColor: statusColor,
+                      }}>
+                        <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
+                          <View style={{ flex: 1 }}>
+                            <Text style={{ fontSize: 13, color: Colors.dark.text, fontWeight: "600" }}>
+                              #{inv.invoiceNumber}
+                            </Text>
+                            <Text style={{ fontSize: 12, color: Colors.dark.textMuted, marginTop: 2 }}>
+                              Due: {inv.dueDate ? new Date(inv.dueDate).toLocaleDateString() : "No date"}
+                            </Text>
+                          </View>
+                          <Text style={{ fontSize: 15, fontWeight: "700", color: statusColor }}>
+                            {inv.currency} {inv.amount.toLocaleString()}
+                          </Text>
+                        </View>
+                        <View style={{ flexDirection: "row", alignItems: "center", marginTop: 6, gap: 6 }}>
+                          <View style={{
+                            backgroundColor: `${statusColor}20`,
+                            paddingHorizontal: 6,
+                            paddingVertical: 2,
+                            borderRadius: BorderRadius.xs,
+                          }}>
+                            <Text style={{ fontSize: 10, fontWeight: "700", color: statusColor }}>{statusLabel}</Text>
+                          </View>
+                          {!isPaid ? (
+                            <View style={{ flexDirection: "row", gap: 6, marginLeft: "auto" }}>
+                              <Pressable
+                                style={{
+                                  flexDirection: "row",
+                                  alignItems: "center",
+                                  gap: 4,
+                                  backgroundColor: "rgba(255,255,255,0.08)",
+                                  paddingHorizontal: 8,
+                                  paddingVertical: 4,
+                                  borderRadius: BorderRadius.xs,
+                                }}
+                                onPress={async () => {
+                                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                                  try {
+                                    await apiRequest("PATCH", `/api/billing/invoices/${inv.id}`, { status: "paid", paidAt: new Date().toISOString() });
+                                    queryClient.invalidateQueries({ queryKey: ["/api/admin/players", selectedPlayerId, "stats"] });
+                                    queryClient.invalidateQueries({ queryKey: ["/api/billing/invoices"] });
+                                    queryClient.invalidateQueries({ queryKey: ["/api/players?withCredits=true"] });
+                                    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+                                  } catch (error) {
+                                    Alert.alert("Error", "Failed to mark invoice as paid");
+                                  }
+                                }}
+                              >
+                                <Ionicons name="checkmark-circle" size={12} color={Colors.dark.successNeon} />
+                                <Text style={{ fontSize: 11, color: Colors.dark.successNeon, fontWeight: "600" }}>Paid</Text>
+                              </Pressable>
+                              <Pressable
+                                style={{
+                                  flexDirection: "row",
+                                  alignItems: "center",
+                                  gap: 4,
+                                  backgroundColor: `${isOverdue ? Colors.dark.error : "#FFD700"}15`,
+                                  paddingHorizontal: 8,
+                                  paddingVertical: 4,
+                                  borderRadius: BorderRadius.xs,
+                                  borderWidth: 1,
+                                  borderColor: `${isOverdue ? Colors.dark.error : "#FFD700"}30`,
+                                }}
+                                onPress={() => {
+                                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                                  setShowInvoiceModal(true);
+                                }}
+                              >
+                                <Ionicons name="mail-outline" size={12} color={isOverdue ? Colors.dark.error : "#FFD700"} />
+                                <Text style={{ fontSize: 11, color: isOverdue ? Colors.dark.error : "#FFD700", fontWeight: "600" }}>Reminder</Text>
+                              </Pressable>
+                            </View>
+                          ) : null}
+                        </View>
+                      </View>
+                    );
+                  })}
+                </View>
+              ) : null}
             </View>
 
             {/* Packages Section */}

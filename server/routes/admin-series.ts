@@ -2181,7 +2181,7 @@ function requirePlayerOrOwner(req: AuthenticatedRequest, res: Response, next: Ne
       const unpaidPackages = playerPackages.filter((p: any) => !p.isPaid);
       const paidPackages = playerPackages.filter((p: any) => p.isPaid);
       
-      const totalOwed = unpaidPackages.reduce((sum: number, pkg: any) => {
+      const pkgTotalOwed = unpaidPackages.reduce((sum: number, pkg: any) => {
         const pkgPrice = Number(pkg.price) || (Number(pkg.pricePerCredit || 0) * (pkg.totalCredits || 0));
         return sum + pkgPrice;
       }, 0);
@@ -2190,10 +2190,24 @@ function requirePlayerOrOwner(req: AuthenticatedRequest, res: Response, next: Ne
         const pkgPrice = Number(pkg.price) || (Number(pkg.pricePerCredit || 0) * (pkg.totalCredits || 0));
         return sum + pkgPrice;
       }, 0);
+
+      // Get player invoices
+      const playerAcademyId = player.academyId || "";
+      const allInvoices = playerAcademyId ? await storage.getInvoices(playerAcademyId) : [];
+      const playerInvoices = allInvoices.filter((inv: any) => inv.playerId === playerId);
+      const pendingInvoices = playerInvoices.filter((inv: any) => inv.status === "pending" || inv.status === "sent");
+      const invoiceTotalOwed = pendingInvoices.reduce((sum: number, inv: any) => sum + (Number(inv.amount) || 0), 0);
+
+      const totalOwed = pkgTotalOwed + invoiceTotalOwed;
       
       let paymentStatus: "paid" | "partial" | "overdue" = "paid";
       if (totalOwed > 0) {
-        paymentStatus = totalPaid > 0 ? "partial" : "overdue";
+        const hasOverdueInvoice = pendingInvoices.some((inv: any) => inv.dueDate && new Date(inv.dueDate) < new Date());
+        if (hasOverdueInvoice) {
+          paymentStatus = "overdue";
+        } else {
+          paymentStatus = totalPaid > 0 ? "partial" : "overdue";
+        }
       }
 
       res.json({
@@ -2237,6 +2251,18 @@ function requirePlayerOrOwner(req: AuthenticatedRequest, res: Response, next: Ne
           lastPaymentDate: player.lastPaymentDate,
           status: paymentStatus,
           currency: "AED",
+          invoices: playerInvoices.map((inv: any) => ({
+            id: inv.id,
+            invoiceNumber: inv.invoiceNumber,
+            amount: Number(inv.amount) || 0,
+            currency: inv.currency || "AED",
+            status: inv.status,
+            dueDate: inv.dueDate,
+            paidAt: inv.paidAt,
+            createdAt: inv.createdAt,
+            notes: inv.notes,
+            isOverdue: inv.status === "pending" && inv.dueDate && new Date(inv.dueDate) < new Date(),
+          })),
         },
         credits: {
           total: totalCredits,
