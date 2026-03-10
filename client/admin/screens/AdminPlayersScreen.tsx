@@ -1203,8 +1203,9 @@ export default function AdminPlayersScreen() {
                                 Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
                                 try {
                                   await apiRequest("PATCH", `/api/packages/${pkg.id}`, { isPaid: true, paidAt: new Date().toISOString() });
-                                  queryClient.invalidateQueries({ queryKey: [`/api/admin/players/${selectedPlayer?.id}/stats`] });
-                                  queryClient.invalidateQueries({ queryKey: [`/api/players/${selectedPlayer?.id}/packages`] });
+                                  queryClient.invalidateQueries({ queryKey: ["/api/admin/players", selectedPlayerId, "stats"] });
+                                  queryClient.invalidateQueries({ queryKey: ["/api/players?withCredits=true"] });
+                                  queryClient.invalidateQueries({ queryKey: ["/api/billing/invoices"] });
                                   Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
                                   Alert.alert("Payment Recorded", "Package marked as paid.");
                                 } catch (error) {
@@ -2789,7 +2790,9 @@ export default function AdminPlayersScreen() {
                     paymentMethod,
                     paymentDate: paymentDate.toISOString(),
                   });
-                  queryClient.invalidateQueries({ queryKey: [`/api/admin/players/${selectedPlayer?.id}/stats`] });
+                  queryClient.invalidateQueries({ queryKey: ["/api/admin/players", selectedPlayerId, "stats"] });
+                  queryClient.invalidateQueries({ queryKey: ["/api/players?withCredits=true"] });
+                  queryClient.invalidateQueries({ queryKey: ["/api/billing/invoices"] });
                   Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
                   setShowMarkPaidModal(false);
                   setSelectedPackageForPayment(null);
@@ -2862,8 +2865,9 @@ export default function AdminPlayersScreen() {
                           Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
                           try {
                             await apiRequest("PATCH", `/api/packages/${pkg.id}`, { isPaid: true, paidAt: new Date().toISOString() });
-                            queryClient.invalidateQueries({ queryKey: [`/api/admin/players/${selectedPlayer?.id}/stats`] });
-                            queryClient.invalidateQueries({ queryKey: [`/api/players/${selectedPlayer?.id}/packages`] });
+                            queryClient.invalidateQueries({ queryKey: ["/api/admin/players", selectedPlayerId, "stats"] });
+                            queryClient.invalidateQueries({ queryKey: ["/api/players?withCredits=true"] });
+                            queryClient.invalidateQueries({ queryKey: ["/api/billing/invoices"] });
                             Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
                             Alert.alert("Payment Recorded", `Package marked as paid.`);
                           } catch (error) {
