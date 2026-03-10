@@ -776,88 +776,77 @@ export default function AdminPlayersScreen() {
     return Colors.dark.successNeon;
   };
 
-  const renderPlayer = ({ item }: { item: Player }) => (
-    <Pressable
-      style={[styles.playerCard, CardStyles.elevated]}
-      onPress={() => togglePlayerExpansion(item.id)}
-    >
-      <View style={[styles.playerAvatar, { borderColor: getBallLevelColor(item.ballLevel) }]}>
-        <Text style={styles.avatarText}>{item.name?.charAt(0).toUpperCase() || "?"}</Text>
-      </View>
-      <View style={styles.playerInfo}>
-        <Text style={styles.playerName}>{item.name}</Text>
-        <Text style={styles.playerEmail}>{item.email || "No email"}</Text>
-        <View style={styles.playerMeta}>
-          <View style={[styles.ballBadge, { backgroundColor: `${getBallLevelColor(item.ballLevel)}20` }]}>
-            <View style={[styles.ballDot, { backgroundColor: getBallLevelColor(item.ballLevel) }]} />
-            <Text style={[styles.ballText, { color: getBallLevelColor(item.ballLevel) }]}>
-              {item.ballLevel || "N/A"}
-            </Text>
+  const renderPlayer = ({ item }: { item: Player }) => {
+    const credits = item.remainingCredits;
+    const byType = item.creditsByType;
+    const invoiceInfo = invoicesByPlayer.get(item.id);
+    const ballColor = getBallLevelColor(item.ballLevel);
+
+    const getCreditTypeColor = (val: number) =>
+      val < 0 ? Colors.dark.error
+      : val === 0 ? Colors.dark.error
+      : val <= 2 ? Colors.dark.gold
+      : "#22c55e";
+
+    const overallCreditColor = credits === undefined ? Colors.dark.textMuted : getCreditTypeColor(credits);
+
+    const creditParts = (() => {
+      if (credits === undefined) return [{ text: "No pkg", color: Colors.dark.textMuted }];
+      if (!byType) return [{ text: credits === 0 ? "0 credits" : `${formatCredits(credits)}`, color: getCreditTypeColor(credits) }];
+      const parts: { text: string; color: string }[] = [];
+      if (byType.private !== 0) parts.push({ text: `${formatCredits(byType.private)} Prv`, color: getCreditTypeColor(byType.private) });
+      if (byType.group !== 0) parts.push({ text: `${formatCredits(byType.group)} Grp`, color: getCreditTypeColor(byType.group) });
+      if (byType.semiPrivate !== 0) parts.push({ text: `${formatCredits(byType.semiPrivate)} Semi`, color: getCreditTypeColor(byType.semiPrivate) });
+      return parts.length > 0 ? parts : [{ text: "0 credits", color: Colors.dark.error }];
+    })();
+
+    return (
+      <Pressable
+        style={[styles.playerCard, CardStyles.elevated]}
+        onPress={() => togglePlayerExpansion(item.id)}
+      >
+        <View style={styles.playerCardTop}>
+          <View style={[styles.playerAvatar, { borderColor: ballColor }]}>
+            <Text style={styles.avatarText}>{item.name?.charAt(0).toUpperCase() || "?"}</Text>
           </View>
-          {item.level ? (
-            <Text style={styles.levelText}>Level {item.level}</Text>
-          ) : null}
-          {item.coachName ? (
-            <Text style={styles.coachText}>{item.coachName}</Text>
+          <View style={styles.playerInfo}>
+            <Text style={styles.playerName} numberOfLines={1}>{item.name}</Text>
+            <Text style={styles.playerEmail} numberOfLines={1}>{item.email || "No email"}</Text>
+          </View>
+          <Ionicons name="chevron-forward" size={18} color={Colors.dark.textMuted} />
+        </View>
+        <View style={styles.playerCardBottom}>
+          <View style={[styles.ballBadge, { backgroundColor: `${ballColor}20` }]}>
+            <View style={[styles.ballDot, { backgroundColor: ballColor }]} />
+            <Text style={[styles.ballText, { color: ballColor }]}>{item.ballLevel || "N/A"}</Text>
+          </View>
+          {item.level ? <Text style={styles.levelText}>Lvl {item.level}</Text> : null}
+          {item.coachName ? <Text style={styles.coachText} numberOfLines={1}>{item.coachName}</Text> : null}
+          <View style={{ flex: 1 }} />
+          <View style={[styles.creditsBadge, { backgroundColor: overallCreditColor + "20" }]}>
+            <Ionicons name="ticket-outline" size={11} color={overallCreditColor} />
+            {creditParts.map((p, i) => (
+              <Text key={i} style={[styles.creditsText, { color: p.color }]}>
+                {i > 0 ? " | " : ""}{p.text}
+              </Text>
+            ))}
+          </View>
+          {invoiceInfo ? (
+            <View style={[styles.invoiceBadge, { backgroundColor: (invoiceInfo.overdueCount > 0 ? Colors.dark.error : Colors.dark.gold) + "20" }]}>
+              <Ionicons
+                name={invoiceInfo.overdueCount > 0 ? "alert-circle" : "document-text-outline"}
+                size={10}
+                color={invoiceInfo.overdueCount > 0 ? Colors.dark.error : Colors.dark.gold}
+              />
+              <Text style={[styles.invoiceBadgeText, { color: invoiceInfo.overdueCount > 0 ? Colors.dark.error : Colors.dark.gold }]}>
+                {invoiceInfo.overdueCount > 0 ? "Overdue" : "Pending"}
+              </Text>
+            </View>
           ) : null}
         </View>
-      </View>
-      <View style={styles.creditsContainer}>
-        {(() => {
-          const credits = item.remainingCredits;
-          const byType = item.creditsByType;
-
-          const getCreditTypeColor = (val: number) =>
-            val < 0 ? Colors.dark.error
-            : val === 0 ? Colors.dark.error
-            : val <= 2 ? Colors.dark.gold
-            : "#22c55e";
-
-          const overallColor = credits === undefined
-            ? Colors.dark.textMuted
-            : getCreditTypeColor(credits);
-
-          const formatCreditParts = () => {
-            if (credits === undefined) return [{ text: "No pkg", color: Colors.dark.textMuted }];
-            if (!byType) return [{ text: credits === 0 ? "0 credits" : `${formatCredits(credits)}`, color: getCreditTypeColor(credits) }];
-
-            const parts: { text: string; color: string }[] = [];
-            if (byType.private !== 0) parts.push({ text: `${formatCredits(byType.private)} Prv`, color: getCreditTypeColor(byType.private) });
-            if (byType.group !== 0) parts.push({ text: `${formatCredits(byType.group)} Grp`, color: getCreditTypeColor(byType.group) });
-            if (byType.semiPrivate !== 0) parts.push({ text: `${formatCredits(byType.semiPrivate)} Semi`, color: getCreditTypeColor(byType.semiPrivate) });
-            return parts.length > 0 ? parts : [{ text: "0 credits", color: Colors.dark.error }];
-          };
-
-          const parts = formatCreditParts();
-
-          return (
-            <View style={[styles.creditsBadge, { backgroundColor: overallColor + "20" }]}>
-              <Ionicons name="ticket-outline" size={12} color={overallColor} />
-              {parts.map((p, i) => (
-                <Text key={i} style={[styles.creditsText, { color: p.color }]}>
-                  {i > 0 ? " | " : ""}{p.text}
-                </Text>
-              ))}
-            </View>
-          );
-        })()}
-        {(() => {
-          const invoiceInfo = invoicesByPlayer.get(item.id);
-          if (!invoiceInfo) return null;
-          const isOverdue = invoiceInfo.overdueCount > 0;
-          const badgeColor = isOverdue ? Colors.dark.error : Colors.dark.gold;
-          const label = isOverdue ? "Overdue" : "Pending";
-          return (
-            <View style={[styles.invoiceBadge, { backgroundColor: badgeColor + "20" }]}>
-              <Ionicons name={isOverdue ? "alert-circle" : "document-text-outline"} size={11} color={badgeColor} />
-              <Text style={[styles.invoiceBadgeText, { color: badgeColor }]}>{label}</Text>
-            </View>
-          );
-        })()}
-        <Ionicons name="chevron-forward" size={20} color={Colors.dark.textMuted} />
-      </View>
-    </Pressable>
-  );
+      </Pressable>
+    );
+  };
 
   const closeFullDetailsModal = () => {
     setShowFullDetailsModal(false);
@@ -3083,18 +3072,29 @@ const styles = StyleSheet.create({
     paddingTop: 0,
   },
   playerCard: {
-    flexDirection: "row",
-    alignItems: "center",
-    padding: Spacing.lg,
-    marginBottom: Spacing.md,
+    padding: Spacing.md,
+    marginBottom: Spacing.sm,
     backgroundColor: Backgrounds.card,
     borderWidth: 1,
     borderColor: "rgba(255, 255, 255, 0.06)",
     borderRadius: BorderRadius.md,
   },
+  playerCardTop: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.md,
+  },
+  playerCardBottom: {
+    flexDirection: "row",
+    alignItems: "center",
+    flexWrap: "wrap",
+    gap: 6,
+    marginTop: Spacing.sm,
+    paddingLeft: 52,
+  },
   playerAvatar: {
-    width: 48,
-    height: 48,
+    width: 40,
+    height: 40,
     borderRadius: BorderRadius.full,
     backgroundColor: Backgrounds.card,
     borderWidth: 2,
@@ -3102,28 +3102,22 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   avatarText: {
-    ...Typography.h3,
+    fontSize: 16,
+    fontWeight: "700",
     color: Colors.dark.text,
   },
   playerInfo: {
     flex: 1,
-    marginLeft: Spacing.md,
   },
   playerName: {
-    ...Typography.body,
+    fontSize: 15,
     color: Colors.dark.text,
     fontWeight: "600",
   },
   playerEmail: {
-    ...Typography.small,
+    fontSize: 12,
     color: Colors.dark.textMuted,
-    marginTop: 2,
-  },
-  playerMeta: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginTop: Spacing.xs,
-    gap: Spacing.sm,
+    marginTop: 1,
   },
   ballBadge: {
     flexDirection: "row",
@@ -3154,7 +3148,7 @@ const styles = StyleSheet.create({
   creditsContainer: {
     flexDirection: "row",
     alignItems: "center",
-    gap: Spacing.sm,
+    gap: 6,
   },
   creditsBadge: {
     flexDirection: "row",
@@ -3167,11 +3161,10 @@ const styles = StyleSheet.create({
   invoiceBadge: {
     flexDirection: "row",
     alignItems: "center",
-    paddingHorizontal: Spacing.sm,
+    paddingHorizontal: 6,
     paddingVertical: 3,
     borderRadius: BorderRadius.sm,
     gap: 3,
-    marginTop: 4,
   },
   invoiceBadgeText: {
     fontSize: 10,
