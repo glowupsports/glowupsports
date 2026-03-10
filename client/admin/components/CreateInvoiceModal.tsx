@@ -836,7 +836,6 @@ export default function CreateInvoiceModal({
   const [lineItems, setLineItems] = useState<LineItem[]>([
     { id: "1", description: "", quantity: 1, unitPrice: 0, total: 0 }
   ]);
-  const [selectedPackageTemplate, setSelectedPackageTemplate] = useState<string | null>(null);
   const [expandedCategory, setExpandedCategory] = useState<string | null>("private");
   const [taxRate, setTaxRate] = useState(0);
   
@@ -855,14 +854,28 @@ export default function CreateInvoiceModal({
   const selectPackageTemplate = (templateId: string) => {
     const template = PACKAGE_TEMPLATES.find(t => t.id === templateId);
     if (template) {
-      setSelectedPackageTemplate(templateId);
-      setLineItems([{
-        id: "1",
+      const alreadyExists = lineItems.some(item => item.description === template.description);
+      if (alreadyExists) {
+        setLineItems(items => {
+          const filtered = items.filter(item => item.description !== template.description);
+          return filtered.length === 0
+            ? [{ id: "1", description: "", quantity: 1, unitPrice: 0, total: 0 }]
+            : filtered;
+        });
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+        return;
+      }
+      const newItem: LineItem = {
+        id: `pkg_${Date.now()}`,
         description: template.description,
         quantity: template.quantity,
         unitPrice: template.unitPrice,
         total: template.quantity * template.unitPrice,
-      }]);
+      };
+      setLineItems(items => {
+        const hasEmptyFirst = items.length === 1 && !items[0].description && items[0].unitPrice === 0;
+        return hasEmptyFirst ? [newItem] : [...items, newItem];
+      });
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     }
   };
@@ -1221,7 +1234,8 @@ export default function CreateInvoiceModal({
               <View style={styles.packageGrid}>
                 {[5, 10, 20].map((qty) => {
                   const templateId = `private_${qty}`;
-                  const isSelected = selectedPackageTemplate === templateId;
+                  const template = PACKAGE_TEMPLATES.find(t => t.id === templateId);
+                  const isSelected = template ? lineItems.some(item => item.description === template.description) : false;
                   const total = qty * 280;
                   return (
                     <Pressable
@@ -1268,7 +1282,8 @@ export default function CreateInvoiceModal({
               <View style={styles.packageGrid}>
                 {[5, 10, 20].map((qty) => {
                   const templateId = `semi_${qty}`;
-                  const isSelected = selectedPackageTemplate === templateId;
+                  const template = PACKAGE_TEMPLATES.find(t => t.id === templateId);
+                  const isSelected = template ? lineItems.some(item => item.description === template.description) : false;
                   const total = qty * 160;
                   return (
                     <Pressable
@@ -1315,7 +1330,8 @@ export default function CreateInvoiceModal({
               <View style={styles.packageGrid}>
                 {[10, 20, 40].map((qty) => {
                   const templateId = `group_${qty}`;
-                  const isSelected = selectedPackageTemplate === templateId;
+                  const template = PACKAGE_TEMPLATES.find(t => t.id === templateId);
+                  const isSelected = template ? lineItems.some(item => item.description === template.description) : false;
                   const total = qty * 95;
                   return (
                     <Pressable
