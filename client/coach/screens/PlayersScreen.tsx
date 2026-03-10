@@ -24,6 +24,7 @@ import * as Haptics from "expo-haptics";
 import * as Clipboard from "expo-clipboard";
 import * as Print from "expo-print";
 import * as Sharing from "expo-sharing";
+import * as FileSystem from "expo-file-system";
 import * as Linking from "expo-linking";
 import Animated, { 
   useAnimatedStyle, 
@@ -984,23 +985,30 @@ function PlayerDetailView({
       
       const html = await response.text();
       
+      const safeName = player.name.replace(/[^a-zA-Z0-9]/g, "_");
       if (Platform.OS === "web") {
-        const printWindow = window.open("", "_blank");
-        if (printWindow) {
-          printWindow.document.write(html);
-          printWindow.document.close();
-          printWindow.print();
-        }
+        const blob = new Blob([html], { type: "text/html" });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.href = url;
+        link.download = `${safeName}_Progress_Report.html`;
+        link.style.display = "none";
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        setTimeout(() => URL.revokeObjectURL(url), 5000);
       } else {
         const { uri } = await Print.printToFileAsync({ html });
+        const newUri = `${FileSystem.cacheDirectory}${safeName}_Progress_Report_${Date.now()}.pdf`;
+        await FileSystem.moveAsync({ from: uri, to: newUri });
         if (await Sharing.isAvailableAsync()) {
-          await Sharing.shareAsync(uri, {
+          await Sharing.shareAsync(newUri, {
             mimeType: "application/pdf",
             dialogTitle: `${player.name} Progress Report`,
             UTI: "com.adobe.pdf",
           });
         } else {
-          await Print.printAsync({ uri });
+          await Print.printAsync({ uri: newUri });
         }
       }
       
@@ -1030,23 +1038,30 @@ function PlayerDetailView({
       
       const html = await response.text();
       
+      const safeName = player.name.replace(/[^a-zA-Z0-9]/g, "_");
       if (Platform.OS === "web") {
-        const printWindow = window.open("", "_blank");
-        if (printWindow) {
-          printWindow.document.write(html);
-          printWindow.document.close();
-          printWindow.print();
-        }
+        const blob = new Blob([html], { type: "text/html" });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.href = url;
+        link.download = `${safeName}_Attendance_Report.html`;
+        link.style.display = "none";
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        setTimeout(() => URL.revokeObjectURL(url), 5000);
       } else {
         const { uri } = await Print.printToFileAsync({ html });
+        const newUri = `${FileSystem.cacheDirectory}${safeName}_Attendance_Report_${Date.now()}.pdf`;
+        await FileSystem.moveAsync({ from: uri, to: newUri });
         if (await Sharing.isAvailableAsync()) {
-          await Sharing.shareAsync(uri, {
+          await Sharing.shareAsync(newUri, {
             mimeType: "application/pdf",
             dialogTitle: `${player.name} Attendance Report`,
             UTI: "com.adobe.pdf",
           });
         } else {
-          await Print.printAsync({ uri });
+          await Print.printAsync({ uri: newUri });
         }
       }
       

@@ -10181,25 +10181,99 @@ export async function registerRoutes(app: Express): Promise<Server> {
           })
           .where(eq(sessionPlayers.id, spRecord.id));
 
-        // Record credit transaction if there is an adjustment
+        // Record credit transaction and update package balance if there is an adjustment
         if (creditAdjustment !== 0) {
           const transactionId = `attendance-correction-${sessionId}-${playerId}-${Date.now()}`;
 
-          await db.insert(creditTransactions).values({
-            id: transactionId,
-            playerId: playerId,
-            sessionId: sessionId,
-            type: creditAdjustment > 0 ? "refund" : "debit",
-            amount: creditAdjustment,
-            reason: adjustmentReason,
-            creditType: creditType,
-            metadata: {
-              oldStatus,
-              newStatus,
-              correctedBy: req.user!.coachId || req.user!.id,
-              correctedAt: new Date().toISOString(),
-            },
-          });
+          if (creditAdjustment > 0) {
+            // Refund: check if original charge was a debt — if so, cancel the debt instead
+            const cancelResult = await storage.cancelSessionDebt(playerId, sessionId);
+            if (!cancelResult.cancelled) {
+              await db.insert(creditTransactions).values({
+                id: transactionId,
+                playerId: playerId,
+                sessionId: sessionId,
+                type: "refund",
+                amount: creditAdjustment,
+                reason: adjustmentReason,
+                creditType: creditType,
+                metadata: {
+                  oldStatus,
+                  newStatus,
+                  correctedBy: req.user!.coachId || req.user!.id,
+                  correctedAt: new Date().toISOString(),
+                },
+              });
+
+              const [activePackage] = await db
+                .select()
+                .from(packages)
+                .where(
+                  and(
+                    eq(packages.playerId, playerId),
+                    eq(packages.creditType, creditType),
+                    eq(packages.status, "active"),
+                  ),
+                )
+                .limit(1);
+
+              if (activePackage) {
+                await db
+                  .update(packages)
+                  .set({
+                    remainingCredits: String(Number(activePackage.remainingCredits) + 1),
+                  })
+                  .where(eq(packages.id, activePackage.id));
+                console.log(
+                  `[AttendanceCorrection] Refunded 1 ${creditType} credit to package ${activePackage.id} (${Number(activePackage.remainingCredits)} -> ${Number(activePackage.remainingCredits) + 1})`,
+                );
+              }
+            } else {
+              console.log(
+                `[AttendanceCorrection] Cancelled debt for player ${playerId} session ${sessionId} (amount: ${cancelResult.amount})`,
+              );
+            }
+          } else {
+            await db.insert(creditTransactions).values({
+              id: transactionId,
+              playerId: playerId,
+              sessionId: sessionId,
+              type: "debit",
+              amount: creditAdjustment,
+              reason: adjustmentReason,
+              creditType: creditType,
+              metadata: {
+                oldStatus,
+                newStatus,
+                correctedBy: req.user!.coachId || req.user!.id,
+                correctedAt: new Date().toISOString(),
+              },
+            });
+
+            const [activePackage] = await db
+              .select()
+              .from(packages)
+              .where(
+                and(
+                  eq(packages.playerId, playerId),
+                  eq(packages.creditType, creditType),
+                  eq(packages.status, "active"),
+                ),
+              )
+              .limit(1);
+
+            if (activePackage && Number(activePackage.remainingCredits) > 0) {
+              await db
+                .update(packages)
+                .set({
+                  remainingCredits: String(Number(activePackage.remainingCredits) - 1),
+                })
+                .where(eq(packages.id, activePackage.id));
+              console.log(
+                `[AttendanceCorrection] Deducted 1 ${creditType} credit from package ${activePackage.id} (${Number(activePackage.remainingCredits)} -> ${Number(activePackage.remainingCredits) - 1})`,
+              );
+            }
+          }
 
           console.log(
             `[AttendanceCorrection] Player ${playerId} session ${sessionId}: ${oldStatus} -> ${newStatus}, credit adjustment: ${creditAdjustment}`,

@@ -305,15 +305,35 @@ const generateAttendanceReportPDF = (stats: any, player: any) => {
     </html>
   `;
 
+  const safeName = (player?.name || "Player").replace(/[^a-zA-Z0-9]/g, "_");
   if (Platform.OS === "web") {
-    const printWindow = window.open("", "_blank");
-    if (printWindow) {
-      printWindow.document.write(htmlContent);
-      printWindow.document.close();
-    }
+    const blob = new Blob([htmlContent], { type: "text/html" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `${safeName}_Attendance_Report.html`;
+    link.style.display = "none";
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    setTimeout(() => URL.revokeObjectURL(url), 5000);
   } else {
-    import("expo-print").then(({ printAsync }) => {
-      printAsync({ html: htmlContent });
+    import("expo-print").then(async ({ printToFileAsync }) => {
+      const { uri } = await printToFileAsync({ html: htmlContent });
+      const FileSystem = await import("expo-file-system");
+      const Sharing = await import("expo-sharing");
+      const newUri = `${FileSystem.cacheDirectory}${safeName}_Attendance_Report_${Date.now()}.pdf`;
+      await FileSystem.moveAsync({ from: uri, to: newUri });
+      if (await Sharing.isAvailableAsync()) {
+        await Sharing.shareAsync(newUri, {
+          mimeType: "application/pdf",
+          dialogTitle: `${player?.name || "Player"} Attendance Report`,
+          UTI: "com.adobe.pdf",
+        });
+      } else {
+        const Print = await import("expo-print");
+        await Print.printAsync({ uri: newUri });
+      }
     });
   }
 };
