@@ -522,6 +522,26 @@ export default function AdminPlayersScreen() {
     queryKey: ["/api/coaches"],
   });
 
+  const { data: invoicesData = [] } = useQuery<{ id: string; playerId: string | null; status: string; amount: string; dueDate: string | null }[]>({
+    queryKey: ["/api/billing/invoices"],
+  });
+
+  const invoicesByPlayer = useMemo(() => {
+    const map = new Map<string, { pendingCount: number; overdueCount: number; totalOwed: number }>();
+    const now = new Date();
+    for (const inv of invoicesData) {
+      if (!inv.playerId || inv.status !== "pending") continue;
+      const existing = map.get(inv.playerId) || { pendingCount: 0, overdueCount: 0, totalOwed: 0 };
+      existing.pendingCount++;
+      existing.totalOwed += Number(inv.amount) || 0;
+      if (inv.dueDate && new Date(inv.dueDate) < now) {
+        existing.overdueCount++;
+      }
+      map.set(inv.playerId, existing);
+    }
+    return map;
+  }, [invoicesData]);
+
   const { data: playerStats, isLoading: statsLoading, error: statsError, refetch: refetchStats } = useQuery<PlayerStats>({
     queryKey: ["/api/admin/players", selectedPlayerId, "stats"],
     enabled: !!selectedPlayerId && (showDetailModal || showFullDetailsModal),
@@ -818,6 +838,19 @@ export default function AdminPlayersScreen() {
                   {i > 0 ? " | " : ""}{p.text}
                 </Text>
               ))}
+            </View>
+          );
+        })()}
+        {(() => {
+          const invoiceInfo = invoicesByPlayer.get(item.id);
+          if (!invoiceInfo) return null;
+          const isOverdue = invoiceInfo.overdueCount > 0;
+          const badgeColor = isOverdue ? Colors.dark.error : Colors.dark.gold;
+          const label = isOverdue ? "Overdue" : "Pending";
+          return (
+            <View style={[styles.invoiceBadge, { backgroundColor: badgeColor + "20" }]}>
+              <Ionicons name={isOverdue ? "alert-circle" : "document-text-outline"} size={11} color={badgeColor} />
+              <Text style={[styles.invoiceBadgeText, { color: badgeColor }]}>{label}</Text>
             </View>
           );
         })()}
@@ -3130,6 +3163,19 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
     borderRadius: BorderRadius.sm,
     gap: 4,
+  },
+  invoiceBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 3,
+    borderRadius: BorderRadius.sm,
+    gap: 3,
+    marginTop: 4,
+  },
+  invoiceBadgeText: {
+    fontSize: 10,
+    fontWeight: "700",
   },
   creditsText: {
     ...Typography.caption,
