@@ -1125,10 +1125,12 @@ export default function AdminPlayersScreen() {
                                     flexDirection: "row",
                                     alignItems: "center",
                                     gap: 4,
-                                    backgroundColor: "rgba(255,255,255,0.08)",
-                                    paddingHorizontal: 8,
-                                    paddingVertical: 4,
-                                    borderRadius: BorderRadius.xs,
+                                    backgroundColor: `${Colors.dark.successNeon}20`,
+                                    paddingHorizontal: 14,
+                                    paddingVertical: 8,
+                                    borderRadius: BorderRadius.sm,
+                                    borderWidth: 1,
+                                    borderColor: `${Colors.dark.successNeon}40`,
                                   }}
                                   onPress={async () => {
                                     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
@@ -1138,13 +1140,14 @@ export default function AdminPlayersScreen() {
                                       queryClient.invalidateQueries({ queryKey: ["/api/billing/invoices"] });
                                       queryClient.invalidateQueries({ queryKey: ["/api/players?withCredits=true"] });
                                       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+                                      Alert.alert("Invoice Paid", `Invoice #${inv.invoiceNumber} has been marked as paid.`);
                                     } catch (error) {
-                                      Alert.alert("Error", "Failed to mark invoice as paid");
+                                      Alert.alert("Error", "Failed to mark invoice as paid. Please try again.");
                                     }
                                   }}
                                 >
-                                  <Ionicons name="checkmark-circle" size={12} color={Colors.dark.successNeon} />
-                                  <Text style={{ fontSize: 11, color: Colors.dark.successNeon, fontWeight: "600" }}>Paid</Text>
+                                  <Ionicons name="checkmark-circle" size={14} color={Colors.dark.successNeon} />
+                                  <Text style={{ fontSize: 12, color: Colors.dark.successNeon, fontWeight: "700" }}>Paid</Text>
                                 </Pressable>
                                 <Pressable
                                   style={{
@@ -1152,9 +1155,9 @@ export default function AdminPlayersScreen() {
                                     alignItems: "center",
                                     gap: 4,
                                     backgroundColor: `${isOverdue ? Colors.dark.error : "#FFD700"}15`,
-                                    paddingHorizontal: 8,
-                                    paddingVertical: 4,
-                                    borderRadius: BorderRadius.xs,
+                                    paddingHorizontal: 14,
+                                    paddingVertical: 8,
+                                    borderRadius: BorderRadius.sm,
                                     borderWidth: 1,
                                     borderColor: `${isOverdue ? Colors.dark.error : "#FFD700"}30`,
                                   }}
@@ -1163,8 +1166,8 @@ export default function AdminPlayersScreen() {
                                     setShowInvoiceModal(true);
                                   }}
                                 >
-                                  <Ionicons name="mail-outline" size={12} color={isOverdue ? Colors.dark.error : "#FFD700"} />
-                                  <Text style={{ fontSize: 11, color: isOverdue ? Colors.dark.error : "#FFD700", fontWeight: "600" }}>Reminder</Text>
+                                  <Ionicons name="mail-outline" size={14} color={isOverdue ? Colors.dark.error : "#FFD700"} />
+                                  <Text style={{ fontSize: 12, color: isOverdue ? Colors.dark.error : "#FFD700", fontWeight: "700" }}>Reminder</Text>
                                 </Pressable>
                               </View>
                             ) : null}
@@ -1870,10 +1873,12 @@ export default function AdminPlayersScreen() {
                                   flexDirection: "row",
                                   alignItems: "center",
                                   gap: 4,
-                                  backgroundColor: "rgba(255,255,255,0.08)",
-                                  paddingHorizontal: 8,
-                                  paddingVertical: 4,
-                                  borderRadius: BorderRadius.xs,
+                                  backgroundColor: `${Colors.dark.successNeon}20`,
+                                  paddingHorizontal: 14,
+                                  paddingVertical: 8,
+                                  borderRadius: BorderRadius.sm,
+                                  borderWidth: 1,
+                                  borderColor: `${Colors.dark.successNeon}40`,
                                 }}
                                 onPress={async () => {
                                   Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
@@ -1883,13 +1888,14 @@ export default function AdminPlayersScreen() {
                                     queryClient.invalidateQueries({ queryKey: ["/api/billing/invoices"] });
                                     queryClient.invalidateQueries({ queryKey: ["/api/players?withCredits=true"] });
                                     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+                                    Alert.alert("Invoice Paid", `Invoice #${inv.invoiceNumber} has been marked as paid.`);
                                   } catch (error) {
-                                    Alert.alert("Error", "Failed to mark invoice as paid");
+                                    Alert.alert("Error", "Failed to mark invoice as paid. Please try again.");
                                   }
                                 }}
                               >
-                                <Ionicons name="checkmark-circle" size={12} color={Colors.dark.successNeon} />
-                                <Text style={{ fontSize: 11, color: Colors.dark.successNeon, fontWeight: "600" }}>Paid</Text>
+                                <Ionicons name="checkmark-circle" size={14} color={Colors.dark.successNeon} />
+                                <Text style={{ fontSize: 12, color: Colors.dark.successNeon, fontWeight: "700" }}>Paid</Text>
                               </Pressable>
                               <Pressable
                                 style={{
@@ -1897,9 +1903,9 @@ export default function AdminPlayersScreen() {
                                   alignItems: "center",
                                   gap: 4,
                                   backgroundColor: `${isOverdue ? Colors.dark.error : "#FFD700"}15`,
-                                  paddingHorizontal: 8,
-                                  paddingVertical: 4,
-                                  borderRadius: BorderRadius.xs,
+                                  paddingHorizontal: 14,
+                                  paddingVertical: 8,
+                                  borderRadius: BorderRadius.sm,
                                   borderWidth: 1,
                                   borderColor: `${isOverdue ? Colors.dark.error : "#FFD700"}30`,
                                 }}
@@ -1908,8 +1914,8 @@ export default function AdminPlayersScreen() {
                                   setShowInvoiceModal(true);
                                 }}
                               >
-                                <Ionicons name="mail-outline" size={12} color={isOverdue ? Colors.dark.error : "#FFD700"} />
-                                <Text style={{ fontSize: 11, color: isOverdue ? Colors.dark.error : "#FFD700", fontWeight: "600" }}>Reminder</Text>
+                                <Ionicons name="mail-outline" size={14} color={isOverdue ? Colors.dark.error : "#FFD700"} />
+                                <Text style={{ fontSize: 12, color: isOverdue ? Colors.dark.error : "#FFD700", fontWeight: "700" }}>Reminder</Text>
                               </Pressable>
                             </View>
                           ) : null}
