@@ -2069,15 +2069,16 @@ function isBirthdayToday(dateOfBirth: string | Date | null): boolean {
         return res.status(404).json({ error: "Session not found" });
       }
 
-      // Validate player belongs to same academy (unless guest)
-      if (playerId && !isGuest) {
+      // Validate player belongs to same academy
+      if (playerId) {
         const { valid: playerValid } = await validatePlayerOwnership(playerId, academyId, storage);
         if (!playerValid) {
           return res.status(404).json({ error: "Player not found" });
         }
 
         // Credit type validation and ATOMIC deduction - check and deduct credits BEFORE adding player
-        if (!skipCreditCheck) {
+        // Skip credit check for guests (credits handled at session completion by ensureCreditProcessed)
+        if (!isGuest && !skipCreditCheck) {
           const creditCheck = await storage.checkPlayerCreditsForSessionType(
             playerId,
             session.sessionType,
@@ -2085,7 +2086,6 @@ function isBirthdayToday(dateOfBirth: string | Date | null): boolean {
           );
 
           if (!creditCheck.hasCredits) {
-            // Get player info for the response
             const player = await storage.getPlayer(playerId, academyId);
             
             return res.status(200).json({

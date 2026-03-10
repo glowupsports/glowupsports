@@ -152,6 +152,8 @@ export default function SessionDetailDrawer({
   const [catchUpAttendance, setCatchUpAttendance] = useState<Map<string, "present" | "absent" | "holiday">>(new Map());
   const [showPastSessionsConfirm, setShowPastSessionsConfirm] = useState<{weeksDiff: number; startDate: Date} | null>(null);
   const [showGuestInput, setShowGuestInput] = useState(false);
+  const [guestMode, setGuestMode] = useState<"new" | "academy">("new");
+  const [guestSearch, setGuestSearch] = useState("");
   const [guestName, setGuestName] = useState("");
   const [showGuestConvert, setShowGuestConvert] = useState<{id: string; name: string} | null>(null);
   const [guestPhone, setGuestPhone] = useState("");
@@ -318,6 +320,32 @@ export default function SessionDetailDrawer({
       queryClient.invalidateQueries({ queryKey: ["/api/players"] });
       setGuestName("");
       setShowGuestInput(false);
+    },
+    onError: (error: Error) => {
+      Alert.alert("Error", error.message || "Failed to add guest");
+    },
+  });
+
+  const addExistingGuestMutation = useMutation({
+    mutationFn: async (playerId: string) => {
+      if (!session?.id) throw new Error("No session selected");
+      await apiRequest("POST", `/api/coach/sessions/${session.id}/players`, {
+        playerId,
+        isGuest: true,
+        skipCreditCheck: true,
+      });
+    },
+    onSuccess: () => {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      queryClient.invalidateQueries({ 
+        predicate: (query) => {
+          const key = query.queryKey[0];
+          return typeof key === 'string' && key.startsWith('/api/coach/calendar');
+        }
+      });
+      setGuestSearch("");
+      setShowGuestInput(false);
+      setGuestMode("new");
     },
     onError: (error: Error) => {
       Alert.alert("Error", error.message || "Failed to add guest");
@@ -1007,37 +1035,96 @@ export default function SessionDetailDrawer({
       ) : null}
 
       {showGuestInput && (
-        <View style={styles.guestInputRow}>
-          <TextInput
-            style={styles.guestInput}
-            placeholder="Guest name..."
-            placeholderTextColor={Colors.dark.tabIconDefault}
-            value={guestName}
-            onChangeText={setGuestName}
-            onSubmitEditing={handleAddGuest}
-            returnKeyType="done"
-            autoFocus
-          />
-          <Pressable
-            onPress={handleAddGuest}
-            disabled={!guestName.trim() || addGuestMutation.isPending}
-            style={[
-              styles.guestAddBtn,
-              (!guestName.trim() || addGuestMutation.isPending) && styles.guestAddBtnDisabled,
-            ]}
-          >
-            {addGuestMutation.isPending ? (
-              <ActivityIndicator size="small" color={Colors.dark.backgroundRoot} />
-            ) : (
-              <Ionicons name="add" size={20} color={Colors.dark.backgroundRoot} />
-            )}
-          </Pressable>
-          <Pressable
-            onPress={() => { setShowGuestInput(false); setGuestName(""); }}
-            style={styles.guestCancelBtn}
-          >
-            <Ionicons name="close" size={20} color={Colors.dark.tabIconDefault} />
-          </Pressable>
+        <View style={styles.guestPanel}>
+          <View style={styles.guestTabRow}>
+            <Pressable
+              style={[styles.guestTab, guestMode === "new" && styles.guestTabActive]}
+              onPress={() => setGuestMode("new")}
+            >
+              <Ionicons name="person-add-outline" size={14} color={guestMode === "new" ? Colors.dark.backgroundRoot : Colors.dark.textMuted} />
+              <Text style={[styles.guestTabText, guestMode === "new" && styles.guestTabTextActive]}>New Guest</Text>
+            </Pressable>
+            <Pressable
+              style={[styles.guestTab, guestMode === "academy" && styles.guestTabActive]}
+              onPress={() => setGuestMode("academy")}
+            >
+              <Ionicons name="people-outline" size={14} color={guestMode === "academy" ? Colors.dark.backgroundRoot : Colors.dark.textMuted} />
+              <Text style={[styles.guestTabText, guestMode === "academy" && styles.guestTabTextActive]}>From Academy</Text>
+            </Pressable>
+            <Pressable
+              onPress={() => { setShowGuestInput(false); setGuestName(""); setGuestSearch(""); setGuestMode("new"); }}
+              style={styles.guestCancelBtn}
+            >
+              <Ionicons name="close" size={18} color={Colors.dark.tabIconDefault} />
+            </Pressable>
+          </View>
+
+          {guestMode === "new" ? (
+            <View style={styles.guestInputRow}>
+              <TextInput
+                style={styles.guestInput}
+                placeholder="Guest name..."
+                placeholderTextColor={Colors.dark.tabIconDefault}
+                value={guestName}
+                onChangeText={setGuestName}
+                onSubmitEditing={handleAddGuest}
+                returnKeyType="done"
+                autoFocus
+              />
+              <Pressable
+                onPress={handleAddGuest}
+                disabled={!guestName.trim() || addGuestMutation.isPending}
+                style={[
+                  styles.guestAddBtn,
+                  (!guestName.trim() || addGuestMutation.isPending) && styles.guestAddBtnDisabled,
+                ]}
+              >
+                {addGuestMutation.isPending ? (
+                  <ActivityIndicator size="small" color={Colors.dark.backgroundRoot} />
+                ) : (
+                  <Ionicons name="add" size={20} color={Colors.dark.backgroundRoot} />
+                )}
+              </Pressable>
+            </View>
+          ) : (
+            <View>
+              <TextInput
+                style={styles.guestInput}
+                placeholder="Search player..."
+                placeholderTextColor={Colors.dark.tabIconDefault}
+                value={guestSearch}
+                onChangeText={setGuestSearch}
+                autoFocus
+              />
+              <ScrollView style={styles.guestPlayerList} showsVerticalScrollIndicator={false}>
+                {availablePlayers
+                  .filter(p => !p.name.includes("(Guest)") && p.name.toLowerCase().includes(guestSearch.toLowerCase()))
+                  .slice(0, 8)
+                  .map(p => (
+                    <Pressable
+                      key={p.id}
+                      style={styles.guestPlayerItem}
+                      onPress={() => addExistingGuestMutation.mutate(p.id)}
+                      disabled={addExistingGuestMutation.isPending}
+                    >
+                      <View style={[styles.guestPlayerAvatar, { backgroundColor: Colors.dark.xpCyan + "20" }]}>
+                        <Text style={styles.guestPlayerInitial}>{p.name.charAt(0).toUpperCase()}</Text>
+                      </View>
+                      <View style={{ flex: 1 }}>
+                        <Text style={styles.guestPlayerName}>{p.name}</Text>
+                        {p.ballLevel ? <Text style={styles.guestPlayerLevel}>{p.ballLevel}</Text> : null}
+                      </View>
+                      <Ionicons name="add-circle-outline" size={22} color={Colors.dark.xpCyan} />
+                    </Pressable>
+                  ))}
+                {availablePlayers.filter(p => !p.name.includes("(Guest)") && p.name.toLowerCase().includes(guestSearch.toLowerCase())).length === 0 ? (
+                  <Text style={styles.guestNoResults}>
+                    {guestSearch ? `No players match "${guestSearch}"` : "All players are in this session"}
+                  </Text>
+                ) : null}
+              </ScrollView>
+            </View>
+          )}
         </View>
       )}
 
@@ -2096,11 +2183,45 @@ const styles = StyleSheet.create({
     color: Colors.dark.buttonText,
     fontWeight: "600",
   },
-  guestInputRow: {
+  guestPanel: {
+    backgroundColor: Backgrounds.card,
+    borderRadius: BorderRadius.lg,
+    padding: Spacing.md,
+    marginBottom: Spacing.md,
+    borderWidth: 1,
+    borderColor: Colors.dark.xpCyan + "30",
+  },
+  guestTabRow: {
     flexDirection: "row",
     alignItems: "center",
     gap: Spacing.sm,
     marginBottom: Spacing.md,
+  },
+  guestTab: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 6,
+    paddingVertical: 8,
+    borderRadius: BorderRadius.md,
+    backgroundColor: Backgrounds.elevated,
+  },
+  guestTabActive: {
+    backgroundColor: Colors.dark.xpCyan,
+  },
+  guestTabText: {
+    fontSize: 12,
+    fontWeight: "600",
+    color: Colors.dark.textMuted,
+  },
+  guestTabTextActive: {
+    color: Colors.dark.backgroundRoot,
+  },
+  guestInputRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
   },
   guestInput: {
     flex: 1,
@@ -2110,6 +2231,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.md,
     color: Colors.dark.text,
     ...Typography.body,
+    marginBottom: Spacing.sm,
   },
   guestAddBtn: {
     width: 44,
@@ -2123,14 +2245,51 @@ const styles = StyleSheet.create({
     opacity: 0.5,
   },
   guestCancelBtn: {
-    width: 44,
-    height: 44,
-    backgroundColor: Backgrounds.card,
+    width: 36,
+    height: 36,
+    backgroundColor: Backgrounds.elevated,
     borderRadius: BorderRadius.md,
     justifyContent: "center",
     alignItems: "center",
-    borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.06)",
+  },
+  guestPlayerList: {
+    maxHeight: 240,
+  },
+  guestPlayerItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.md,
+    paddingVertical: Spacing.sm,
+    paddingHorizontal: Spacing.sm,
+    borderRadius: BorderRadius.md,
+  },
+  guestPlayerAvatar: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  guestPlayerInitial: {
+    fontSize: 14,
+    fontWeight: "700",
+    color: Colors.dark.xpCyan,
+  },
+  guestPlayerName: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: Colors.dark.text,
+  },
+  guestPlayerLevel: {
+    fontSize: 11,
+    color: Colors.dark.textMuted,
+    marginTop: 1,
+  },
+  guestNoResults: {
+    textAlign: "center",
+    color: Colors.dark.textMuted,
+    fontSize: 13,
+    paddingVertical: Spacing.lg,
   },
   actionsSection: {
     gap: Spacing.md,
