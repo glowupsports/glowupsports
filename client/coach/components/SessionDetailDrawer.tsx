@@ -184,7 +184,7 @@ export default function SessionDetailDrawer({
 
   const { data: allPlayersData } = useQuery<AvailablePlayer[]>({
     queryKey: ["/api/players"],
-    enabled: visible && showAddPlayer,
+    enabled: visible && (showAddPlayer || (showGuestInput && guestMode === "academy")),
   });
   const allPlayers = Array.isArray(allPlayersData) ? allPlayersData : [];
 
