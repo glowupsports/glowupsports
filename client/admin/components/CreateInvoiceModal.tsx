@@ -854,19 +854,8 @@ export default function CreateInvoiceModal({
   const selectPackageTemplate = (templateId: string) => {
     const template = PACKAGE_TEMPLATES.find(t => t.id === templateId);
     if (template) {
-      const alreadyExists = lineItems.some(item => item.description === template.description);
-      if (alreadyExists) {
-        setLineItems(items => {
-          const filtered = items.filter(item => item.description !== template.description);
-          return filtered.length === 0
-            ? [{ id: "1", description: "", quantity: 1, unitPrice: 0, total: 0 }]
-            : filtered;
-        });
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-        return;
-      }
       const newItem: LineItem = {
-        id: `pkg_${Date.now()}`,
+        id: `pkg_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
         description: template.description,
         quantity: template.quantity,
         unitPrice: template.unitPrice,
