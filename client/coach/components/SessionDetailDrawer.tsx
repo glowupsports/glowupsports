@@ -43,6 +43,9 @@ interface Player {
   level?: string;
   ballLevel?: string | null;
   status?: string;
+  isGuest?: boolean;
+  attendanceStatus?: string | null;
+  profilePhotoUrl?: string | null;
 }
 
 interface Session {
@@ -95,6 +98,11 @@ export default function SessionDetailDrawer({
   const isOfflineRef = useRef(isOffline);
   useEffect(() => { isOfflineRef.current = isOffline; }, [isOffline]);
   
+  const [liveSession, setLiveSession] = useState<Session | null>(session);
+  useEffect(() => {
+    if (session) setLiveSession(session);
+  }, [session]);
+
   const [showAddPlayer, setShowAddPlayer] = useState(false);
   const [showExtendOptions, setShowExtendOptions] = useState(false);
   const [showQuickFeedback, setShowQuickFeedback] = useState(false);
@@ -188,7 +196,7 @@ export default function SessionDetailDrawer({
   });
   const allPlayers = Array.isArray(allPlayersData) ? allPlayersData : [];
 
-  const existingPlayerIds = session?.players?.filter(p => !removedPlayerIds.has(p.id)).map(p => p.id) || [];
+  const existingPlayerIds = liveSession?.players?.filter(p => !removedPlayerIds.has(p.id)).map(p => p.id) || [];
   const availablePlayers = allPlayers.filter(p => !existingPlayerIds.includes(p.id));
   
   // Filter players by search query
@@ -327,16 +335,37 @@ export default function SessionDetailDrawer({
   });
 
   const addExistingGuestMutation = useMutation({
-    mutationFn: async (playerId: string) => {
+    mutationFn: async (player: { id: string; name: string; ballLevel?: string | null }) => {
       if (!session?.id) throw new Error("No session selected");
       await apiRequest("POST", `/api/coach/sessions/${session.id}/players`, {
-        playerId,
+        playerId: player.id,
         isGuest: true,
         skipCreditCheck: true,
       });
+      return player;
     },
-    onSuccess: () => {
+    onSuccess: (player) => {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      setLiveSession(prev => {
+        if (!prev) return prev;
+        const alreadyExists = prev.players?.some(p => p.id === player.id);
+        if (alreadyExists) return prev;
+        return {
+          ...prev,
+          players: [
+            ...(prev.players || []),
+            {
+              id: player.id,
+              name: player.name,
+              ballLevel: player.ballLevel || null,
+              status: "active",
+              attendanceStatus: null,
+              isGuest: true,
+              profilePhotoUrl: null,
+            },
+          ],
+        };
+      });
       queryClient.invalidateQueries({ 
         predicate: (query) => {
           const key = query.queryKey[0];
@@ -344,8 +373,6 @@ export default function SessionDetailDrawer({
         }
       });
       setGuestSearch("");
-      setShowGuestInput(false);
-      setGuestMode("new");
     },
     onError: (error: Error) => {
       Alert.alert("Error", error.message || "Failed to add guest");
@@ -794,11 +821,11 @@ export default function SessionDetailDrawer({
       ) : null}
 
       <View style={styles.playersSection}>
-        <Text style={styles.sectionTitle}>Players ({(session.players?.filter(p => !removedPlayerIds.has(p.id))?.length) || 0})</Text>
-        {session.players && session.players.filter(p => !removedPlayerIds.has(p.id)).length > 0 ? (
+        <Text style={styles.sectionTitle}>Players ({(liveSession?.players?.filter(p => !removedPlayerIds.has(p.id))?.length) || 0})</Text>
+        {liveSession?.players && liveSession.players.filter(p => !removedPlayerIds.has(p.id)).length > 0 ? (
           <View style={styles.playersGrid}>
-            {session.players.filter(p => !removedPlayerIds.has(p.id)).map(player => {
-              const isGuest = player.name.includes("(Guest)");
+            {liveSession.players.filter(p => !removedPlayerIds.has(p.id)).map(player => {
+              const isGuest = player.name.includes("(Guest)") || player.isGuest;
               const isPastSession = new Date(session.endTime) < new Date();
               const levelColor = getPlayerLevelColor(player.ballLevel || player.level);
               const levelTextColor = getPlayerLevelTextColor(player.ballLevel || player.level);
@@ -1104,7 +1131,7 @@ export default function SessionDetailDrawer({
                     <Pressable
                       key={p.id}
                       style={styles.guestPlayerItem}
-                      onPress={() => addExistingGuestMutation.mutate(p.id)}
+                      onPress={() => addExistingGuestMutation.mutate({ id: p.id, name: p.name, ballLevel: p.ballLevel })}
                       disabled={addExistingGuestMutation.isPending}
                     >
                       <View style={[styles.guestPlayerAvatar, { backgroundColor: Colors.dark.xpCyan + "20" }]}>
@@ -1160,7 +1187,7 @@ export default function SessionDetailDrawer({
           <View>
             <Text style={styles.attendanceCardTitle}>Take Attendance</Text>
             <Text style={styles.attendanceCardSubtitle}>
-              {session.players?.length || 0} players • Tap to mark present/absent
+              {liveSession?.players?.length || 0} players • Tap to mark present/absent
             </Text>
           </View>
         </View>
@@ -1168,7 +1195,7 @@ export default function SessionDetailDrawer({
       </Pressable>
 
       {/* Quick Feedback Button - In-Session */}
-      {session.players && session.players.filter(p => !removedPlayerIds.has(p.id)).length > 0 && (
+      {liveSession?.players && liveSession.players.filter(p => !removedPlayerIds.has(p.id)).length > 0 && (
         <Pressable 
           style={styles.quickFeedbackCard} 
           onPress={() => {
@@ -1798,7 +1825,7 @@ export default function SessionDetailDrawer({
       <InSessionFeedbackDrawer
         visible={showQuickFeedback}
         sessionId={session.id}
-        players={(session.players || []).filter(p => !removedPlayerIds.has(p.id))}
+        players={(liveSession?.players || []).filter(p => !removedPlayerIds.has(p.id))}
         onClose={() => setShowQuickFeedback(false)}
       />
     </>
