@@ -9628,6 +9628,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             attendanceStatus: sessionPlayers.attendanceStatus,
             lateMinutes: sessionPlayers.lateMinutes,
             sessionStatus: sessions.status,
+            startTime: sessions.startTime,
           })
           .from(sessionPlayers)
           .innerJoin(sessions, eq(sessionPlayers.sessionId, sessions.id))
@@ -9662,6 +9663,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         let orphanedCompletedSessions: {
           sessionId: string;
           sessionStatus: string;
+          startTime: Date | null;
         }[] = [];
         if (seriesIdList.length > 0) {
           const seriesSessions = await db
@@ -9690,7 +9692,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
               }
               return false;
             })
-            .map((s) => ({ sessionId: s.id, sessionStatus: s.status }));
+            .map((s) => ({ sessionId: s.id, sessionStatus: s.status, startTime: s.startTime }));
         }
 
         // Combine: all sessionPlayers records + orphaned completed sessions (treated as present)
@@ -9701,6 +9703,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             attendanceStatus: null as string | null,
             lateMinutes: null as number | null,
             sessionStatus: s.sessionStatus,
+            startTime: s.startTime,
           })),
         ];
 
@@ -9709,32 +9712,36 @@ export async function registerRoutes(app: Express): Promise<Server> {
           (r) => r.sessionStatus !== "cancelled",
         );
 
-        // Total lessons = only sessions that actually happened (not cancelled)
-        const totalLessons = nonCancelledRecords.length;
-        const presentCount = nonCancelledRecords.filter(
+        const now = new Date();
+
+        // A session "happened" = completed, OR has attendance marked, OR start time is in the past
+        const isSessionInPast = (r: { sessionStatus: string; startTime: Date | null; attendanceStatus: string | null }) =>
+          r.sessionStatus === "completed" ||
+          r.attendanceStatus !== null ||
+          (r.startTime !== null && new Date(r.startTime) < now);
+
+        // Only count sessions that have actually happened (exclude future scheduled ones)
+        const happenedRecords = nonCancelledRecords.filter(isSessionInPast);
+
+        const totalLessons = happenedRecords.length;
+        const presentCount = happenedRecords.filter(
           (r) => r.attendanceStatus === "present",
         ).length;
-        const absentCount = nonCancelledRecords.filter(
+        const absentCount = happenedRecords.filter(
           (r) => r.attendanceStatus === "absent",
         ).length;
-        const lateCount = nonCancelledRecords.filter(
+        const lateCount = happenedRecords.filter(
           (r) => r.lateMinutes && r.lateMinutes > 0,
         ).length;
 
-        // Attended sessions = completed sessions OR sessions with explicit attendance
-        const attendedCount = nonCancelledRecords.filter(
-          (r) =>
-            r.attendanceStatus === "present" ||
-            r.attendanceStatus === "late" ||
-            r.attendanceStatus === "absent" ||
-            (r.sessionStatus === "completed" && !r.attendanceStatus),
-        ).length;
+        // attendedCount = sessions that happened (same as totalLessons now)
+        const attendedCount = totalLessons;
 
-        // For percentage, treat completed sessions without explicit attendance as "present"
+        // For percentage: treat sessions without explicit attendance (but in the past/completed) as "present"
         const effectivePresentCount =
           presentCount +
-          nonCancelledRecords.filter(
-            (r) => r.sessionStatus === "completed" && !r.attendanceStatus,
+          happenedRecords.filter(
+            (r) => !r.attendanceStatus || (r.sessionStatus === "completed" && !r.attendanceStatus),
           ).length;
 
         const actuallyAttendedCount = effectivePresentCount + lateCount;

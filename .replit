@@ -73,3 +73,7 @@ EXPO_PUBLIC_SENTRY_DSN = "https://e16898b13be10a8c4d1d87c59199791d@o451089520911
 
 [userenv.development]
 EXPO_PUBLIC_ENV = "development"
+
+[postMerge]
+path = "scripts/post-merge.sh"
+timeoutMs = 60000
