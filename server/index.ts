@@ -262,7 +262,13 @@ function setupExpoDevProxy(app: express.Application) {
     if (req.path.includes('.bundle')) {
       return expoProxy(req, res, next);
     }
-    if (req.path === '/' || req.path.endsWith('.html') || req.path.endsWith('.js') || req.path.endsWith('.css') || req.path.endsWith('.json') || req.path.endsWith('.png') || req.path.endsWith('.ico')) {
+    if (req.path === '/landing') {
+      return next();
+    }
+    if (req.path === '/') {
+      return expoProxy(req, res, next);
+    }
+    if (req.path.endsWith('.html') || req.path.endsWith('.js') || req.path.endsWith('.css') || req.path.endsWith('.json') || req.path.endsWith('.png') || req.path.endsWith('.ico')) {
       return next();
     }
     return expoProxy(req, res, next);
@@ -352,7 +358,7 @@ function configureExpoAndLanding(app: express.Application) {
       return next();
     }
 
-    if (req.path !== "/" && req.path !== "/manifest") {
+    if (req.path !== "/" && req.path !== "/manifest" && req.path !== "/landing") {
       return next();
     }
 
@@ -361,7 +367,7 @@ function configureExpoAndLanding(app: express.Application) {
       return serveExpoManifest(platform, res);
     }
 
-    if (req.path === "/") {
+    if (req.path === "/" || req.path === "/landing") {
       return serveLandingPage({
         req,
         res,
