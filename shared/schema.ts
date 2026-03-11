@@ -1573,6 +1573,10 @@ export const seriesPlayers = pgTable("series_players", {
   // Credit tracking - which package to consume credits from for this membership
   linkedPackageId: varchar("linked_package_id").references(() => packages.id),
   
+  // Guest membership - temporary player in a group (e.g., during merges/holidays)
+  isGuest: boolean("is_guest").default(false),
+  guestUntil: date("guest_until"),
+  
   createdAt: timestamp("created_at").defaultNow(),
 }, (table) => ({
   seriesPlayerIdx: index("series_players_series_player_idx").on(table.seriesId, table.playerId),

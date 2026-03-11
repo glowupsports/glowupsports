@@ -945,6 +945,11 @@ async function repairMissingSessionPlayers(): Promise<void> {
           AND s.start_time::date >= sp2.pause_from 
           AND s.start_time::date <= sp2.pause_until
         )
+        AND NOT (
+          sp2.is_guest = true
+          AND sp2.guest_until IS NOT NULL
+          AND s.start_time::date > sp2.guest_until
+        )
       ORDER BY s.start_time ASC
     `);
 

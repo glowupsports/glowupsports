@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect, useCallback, useRef } from "react";
 import {
   View,
   Text,
@@ -46,6 +46,7 @@ import { GuidedEmptyState } from "@/components/GuidedEmptyState";
 import { PremiumBaselineFlow } from "@/coach/components/PremiumBaselineFlow";
 import { DeepAssessmentDrawer } from "@/coach/components/DeepAssessmentDrawer";
 import { PremiumAddPlayerFlow } from "@/coach/components/PremiumAddPlayerFlow";
+import { useTabNavigation } from "@/components/TabNavigationContext";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
@@ -325,8 +326,10 @@ export default function PlayersScreen() {
   const insets = useSafeAreaInsets();
   const queryClient = useQueryClient();
   const { coach } = useCoach();
+  const { registerTabCallback } = useTabNavigation();
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedPlayer, setSelectedPlayer] = useState<Player | null>(null);
+  const pendingPlayerIdRef = useRef<string | null>(null);
   const [filterLevel, setFilterLevel] = useState<string | null>(null);
   const [sortBy, setSortBy] = useState<"name" | "credits" | "negative" | "lastLesson">("name");
   const [showSortDropdown, setShowSortDropdown] = useState(false);
@@ -353,6 +356,32 @@ export default function PlayersScreen() {
   const playerIdsWithoutBaseline = useMemo(() => {
     return new Set(playersWithoutBaseline.map(p => p.id));
   }, [playersWithoutBaseline]);
+
+  useEffect(() => {
+    const unregister = registerTabCallback("Players", (_screen: string, params?: any) => {
+      if (params?.playerId) {
+        if (players.length > 0) {
+          const player = players.find((p) => p.id === params.playerId || p.id === String(params.playerId));
+          if (player) {
+            setSelectedPlayer(player);
+          }
+        } else {
+          pendingPlayerIdRef.current = params.playerId;
+        }
+      }
+    });
+    return unregister;
+  }, [registerTabCallback, players]);
+
+  useEffect(() => {
+    if (pendingPlayerIdRef.current && players.length > 0) {
+      const player = players.find((p) => p.id === pendingPlayerIdRef.current || p.id === String(pendingPlayerIdRef.current));
+      if (player) {
+        setSelectedPlayer(player);
+      }
+      pendingPlayerIdRef.current = null;
+    }
+  }, [players]);
 
   const createPlayerMutation = useMutation({
     mutationFn: async (data: { name: string; email?: string; phone?: string; ballLevel?: string; skillLevel?: number; coachId?: string; parentName?: string; parentPhone?: string }) => {

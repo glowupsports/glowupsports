@@ -47,6 +47,8 @@ The application features a dark-themed premium sports aesthetic with a simplifie
 - **Family Lobby System**: Netflix-style multi-account management with profile cards and quick-switching.
 - **Quest System**: Supports daily, weekly, and monthly quests with streak tracking, XP multipliers, streak shields, and evidence upload.
 - **Week Planner**: Coach "Week View" tab in Coaching screen shows all active groups organized by day of the week with full player lists, ball levels, capacity, and paused/holiday count. Located in `client/coach/screens/CoachingScreen.tsx` (WeekPlannerTab). Backend returns `pausedCount` and full `playerPreview` in `/api/coach/series`. Pause/unpause endpoints invalidate series cache.
+- **Guest Player System**: Coaches can add temporary "guest" players to a group for a set period (e.g., 2 weeks). DB fields: `series_players.is_guest` (boolean), `series_players.guest_until` (date). Guest players only get enrolled in sessions up to their `guestUntil` date. UI shows "GUEST" badge and end date in player list. Quick-select buttons: 1 week, 2 weeks, 1 month.
+- **Smart Fill**: When a group has open capacity, coaches can use "Smart Fill" to see players on holiday from other groups. Endpoint: `GET /api/coach/series/:id/merge-suggestions`. One-tap adds them as guest players with their holiday end date pre-filled.
 - **Web Container**: `client/components/WebContainer.tsx` wraps the app in a phone-shaped frame (480px max width) on wide desktop screens. Cross-platform shadow system in `theme.ts` uses `createShadow()` helper for iOS/Android/Web. `SwipeableTabBar` supports web with click-to-switch (no PagerView). `TabNavigationContext` has `registerWebTabSetter` for programmatic web tab navigation.
 
 ## External Dependencies

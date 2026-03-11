@@ -25,6 +25,7 @@ import { WebCalendarPicker } from "@/components/WebCalendarPicker";
 import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollViewCompat";
 import InSessionFeedbackDrawer from "./InSessionFeedbackDrawer";
 import { DeepAssessmentDrawer } from "./DeepAssessmentDrawer";
+import { useTabNavigation } from "@/components/TabNavigationContext";
 
 interface PlayerCredits {
   group: number;
@@ -47,6 +48,8 @@ interface Player {
   pauseUntil?: string | null;
   pauseReason?: string | null;
   linkedPackageId?: string | null;
+  isGuest?: boolean;
+  guestUntil?: string | null;
   credits?: PlayerCredits;
 }
 
@@ -207,6 +210,14 @@ export default function SeriesDetailDrawer({
   const insets = useSafeAreaInsets();
   const queryClient = useQueryClient();
   const { academy, coach: currentCoach } = useCoach();
+  const { navigateToTab } = useTabNavigation();
+
+  const handlePlayerTap = (playerId: string) => {
+    onClose();
+    setTimeout(() => {
+      navigateToTab("Players", { screen: "PlayerProfile", params: { playerId } });
+    }, 300);
+  };
   const [activeTab, setActiveTab] = useState<TabId>("overview");
   const [showAddPlayerModal, setShowAddPlayerModal] = useState(false);
   const [showDatePicker, setShowDatePicker] = useState(false);
@@ -215,6 +226,15 @@ export default function SeriesDetailDrawer({
   const [playerSearch, setPlayerSearch] = useState("");
   const [showPackageSelection, setShowPackageSelection] = useState(false);
   const [selectedPackageTemplateId, setSelectedPackageTemplateId] = useState<string | null>(null);
+  const [isGuestAdd, setIsGuestAdd] = useState(false);
+  const getDefaultGuestUntil = () => {
+    const d = new Date();
+    d.setDate(d.getDate() + 14);
+    return d;
+  };
+  const [guestUntilDate, setGuestUntilDate] = useState<Date>(getDefaultGuestUntil());
+  const [showGuestDatePicker, setShowGuestDatePicker] = useState(false);
+  const [showSmartFill, setShowSmartFill] = useState(false);
   const [showAttendanceBackfill, setShowAttendanceBackfill] = useState(false);
   const [selectedAttendance, setSelectedAttendance] = useState<Record<string, boolean>>({});
   const [showAttendanceModal, setShowAttendanceModal] = useState(false);
@@ -451,6 +471,24 @@ export default function SeriesDetailDrawer({
     enabled: attendanceModalView === "transfer" && showAttendanceModal,
   });
 
+  const { data: mergeSuggestions, isLoading: loadingSuggestions } = useQuery<{
+    suggestions: Array<{
+      playerId: string;
+      name: string;
+      ballLevel: string | null;
+      homeSeriesId: string;
+      homeSeriesName: string;
+      homeSeriesDay: number;
+      pauseFrom: string | null;
+      pauseUntil: string | null;
+      pauseReason: string | null;
+    }>;
+    openSlots: number;
+  }>({
+    queryKey: [`/api/coach/series/${seriesId}/merge-suggestions`],
+    enabled: showSmartFill,
+  });
+
   // Transfer session mutation
   const transferSessionMutation = useMutation({
     mutationFn: async ({ sessionId, targetCoachId }: { sessionId: string; targetCoachId: string }) => {
@@ -490,19 +528,23 @@ export default function SeriesDetailDrawer({
       attendedSessionIds: string[];
       packageTemplateId?: string | null;
       creditPackage?: { creditType: string; credits: number } | null;
+      isGuest?: boolean;
+      guestUntil?: string | null;
     }) => {
-      // Add player to class - backend handles package creation if templateId or creditPackage provided
       return apiRequest("POST", `/api/coach/series/${seriesId}/players`, {
         playerId: data.playerId,
         joinDate: data.joinDate,
         attendedSessionIds: data.attendedSessionIds,
         packageTemplateId: data.packageTemplateId,
         creditPackage: data.creditPackage,
+        isGuest: data.isGuest || false,
+        guestUntil: data.guestUntil || null,
       });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [`/api/coach/series/${seriesId}`] });
       queryClient.invalidateQueries({ queryKey: ["/api/billing/package-templates"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/coach/series"] });
       setShowAddPlayerModal(false);
       setShowPackageSelection(false);
       setShowAttendanceBackfill(false);
@@ -513,6 +555,8 @@ export default function SeriesDetailDrawer({
       setJoinDate(new Date());
       setSelectedAttendance({});
       setPlayerSearch("");
+      setIsGuestAdd(false);
+      setGuestUntilDate(getDefaultGuestUntil());
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     },
   });
@@ -809,6 +853,8 @@ export default function SeriesDetailDrawer({
         creditType: selectedCreditPackage.creditType,
         credits: selectedCreditPackage.credits,
       } : null,
+      isGuest: isGuestAdd,
+      guestUntil: isGuestAdd ? formatLocalDate(guestUntilDate) : null,
     });
   };
 
@@ -1470,13 +1516,22 @@ export default function SeriesDetailDrawer({
                     </Pressable>
                   )}
                   {canAddMore && !editingMaxPlayers ? (
-                    <Pressable 
-                      onPress={handleAddPlayerPress}
-                      style={styles.addPlayerButton}
-                    >
-                      <Ionicons name="add-circle" size={20} color={Colors.dark.successNeon} />
-                      <Text style={styles.addPlayerButtonText}>Add</Text>
-                    </Pressable>
+                    <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+                      <Pressable 
+                        onPress={() => setShowSmartFill(true)}
+                        style={[styles.addPlayerButton, { backgroundColor: Colors.dark.orange + "15", borderColor: Colors.dark.orange + "30" }]}
+                      >
+                        <Ionicons name="flash" size={16} color={Colors.dark.orange} />
+                        <Text style={[styles.addPlayerButtonText, { color: Colors.dark.orange }]}>Smart Fill</Text>
+                      </Pressable>
+                      <Pressable 
+                        onPress={handleAddPlayerPress}
+                        style={styles.addPlayerButton}
+                      >
+                        <Ionicons name="add-circle" size={20} color={Colors.dark.successNeon} />
+                        <Text style={styles.addPlayerButtonText}>Add</Text>
+                      </Pressable>
+                    </View>
                   ) : null}
                 </View>
                 {activePlayers.length === 0 ? (
@@ -1513,18 +1568,32 @@ export default function SeriesDetailDrawer({
                     const ballColor = getBallLevelColor(player.ballLevel);
                     return (
                       <View key={player.id} style={[styles.playerRow, isMenuOpen && { zIndex: 999 }]}>
-                        <View style={[styles.playerAvatar, { backgroundColor: ballColor + "30", borderWidth: 2, borderColor: ballColor }]}>
-                          <Text style={[styles.playerInitial, { color: ballColor }]}>
-                            {player.name.charAt(0).toUpperCase()}
-                          </Text>
-                        </View>
-                        <View style={styles.playerInfo}>
-                          <Text style={styles.playerName}>{player.name}</Text>
-                          <Text style={styles.playerStats}>
-                            {player.joinedAt ? `Since ${formatDate(player.joinedAt)}` : ""} 
-                            {player.sessionsAttended ? ` - ${player.sessionsAttended} sessions` : ""}
-                          </Text>
-                        </View>
+                        <Pressable
+                          onPress={() => handlePlayerTap(player.id)}
+                          style={{ flexDirection: "row", alignItems: "center", flex: 1 }}
+                        >
+                          <View style={[styles.playerAvatar, { backgroundColor: ballColor + "30", borderWidth: 2, borderColor: ballColor }]}>
+                            <Text style={[styles.playerInitial, { color: ballColor }]}>
+                              {player.name.charAt(0).toUpperCase()}
+                            </Text>
+                          </View>
+                          <View style={styles.playerInfo}>
+                            <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+                              <Text style={styles.playerName}>{player.name}</Text>
+                              {player.isGuest ? (
+                                <View style={styles.guestBadge}>
+                                  <Text style={styles.guestBadgeText}>GUEST</Text>
+                                </View>
+                              ) : null}
+                            </View>
+                            <Text style={styles.playerStats}>
+                              {player.isGuest && player.guestUntil 
+                                ? `Guest until ${formatDate(player.guestUntil)}`
+                                : `${player.joinedAt ? `Since ${formatDate(player.joinedAt)}` : ""}${player.sessionsAttended ? ` - ${player.sessionsAttended} sessions` : ""}`
+                              }
+                            </Text>
+                          </View>
+                        </Pressable>
                         {credits ? (
                           <View style={[
                             styles.creditBadge, 
@@ -1628,17 +1697,22 @@ export default function SeriesDetailDrawer({
                       const pausedBallColor = getBallLevelColor(player.ballLevel);
                       return (
                       <View key={player.id} style={[styles.playerRow, { opacity: 0.7 }]}>
-                        <View style={[styles.playerAvatar, { backgroundColor: pausedBallColor + "20", borderWidth: 2, borderColor: pausedBallColor }]}>
-                          <Ionicons name="airplane-outline" size={16} color={pausedBallColor} />
-                        </View>
-                        <View style={styles.playerInfo}>
-                          <Text style={styles.playerName}>{player.name}</Text>
-                          <Text style={[styles.playerStats, { color: Colors.dark.gold }]}>
-                            {player.pauseFrom && player.pauseUntil 
-                              ? `${formatDate(player.pauseFrom)} - ${formatDate(player.pauseUntil)}`
-                              : player.pauseReason || "On vacation"}
-                          </Text>
-                        </View>
+                        <Pressable
+                          onPress={() => handlePlayerTap(player.id)}
+                          style={{ flexDirection: "row", alignItems: "center", flex: 1 }}
+                        >
+                          <View style={[styles.playerAvatar, { backgroundColor: pausedBallColor + "20", borderWidth: 2, borderColor: pausedBallColor }]}>
+                            <Ionicons name="airplane-outline" size={16} color={pausedBallColor} />
+                          </View>
+                          <View style={styles.playerInfo}>
+                            <Text style={styles.playerName}>{player.name}</Text>
+                            <Text style={[styles.playerStats, { color: Colors.dark.gold }]}>
+                              {player.pauseFrom && player.pauseUntil 
+                                ? `${formatDate(player.pauseFrom)} - ${formatDate(player.pauseUntil)}`
+                                : player.pauseReason || "On vacation"}
+                            </Text>
+                          </View>
+                        </Pressable>
                         <Pressable 
                           onPress={() => handleReactivatePlayer(player.id)}
                           style={styles.reactivateButton}
@@ -2318,6 +2392,97 @@ export default function SeriesDetailDrawer({
         </View>
       </View>
 
+      {/* Smart Fill Modal */}
+      <Modal
+        visible={showSmartFill}
+        animationType="slide"
+        transparent={true}
+        onRequestClose={() => setShowSmartFill(false)}
+      >
+        <View style={styles.overlay}>
+          <Pressable style={styles.backdrop} onPress={() => setShowSmartFill(false)} />
+          <View style={[styles.drawer, { paddingBottom: insets.bottom + Spacing.md }]}>
+            <View style={styles.handleContainer}>
+              <View style={styles.handle} />
+            </View>
+            <View style={styles.addPlayerHeader}>
+              <View>
+                <Text style={styles.addPlayerTitle}>Smart Fill</Text>
+                <Text style={{ fontSize: 12, color: Colors.dark.textMuted, marginTop: 2 }}>
+                  Players on holiday from other groups
+                </Text>
+              </View>
+              <Pressable onPress={() => setShowSmartFill(false)}>
+                <Ionicons name="close" size={24} color={Colors.dark.text} />
+              </Pressable>
+            </View>
+            <ScrollView style={styles.addPlayerContent} contentContainerStyle={{ paddingBottom: 40 }}>
+              {loadingSuggestions ? (
+                <View style={{ alignItems: "center", padding: Spacing.xl }}>
+                  <ActivityIndicator size="large" color={Colors.dark.orange} />
+                  <Text style={{ color: Colors.dark.textMuted, marginTop: Spacing.md }}>Finding available players...</Text>
+                </View>
+              ) : !mergeSuggestions?.suggestions?.length ? (
+                <View style={{ alignItems: "center", padding: Spacing.xl }}>
+                  <Ionicons name="people-outline" size={48} color={Colors.dark.textMuted} />
+                  <Text style={{ color: Colors.dark.textMuted, marginTop: Spacing.md, textAlign: "center" }}>
+                    No players on holiday from other groups right now
+                  </Text>
+                </View>
+              ) : (
+                <>
+                  <Text style={{ color: Colors.dark.orange, fontSize: 11, fontWeight: "600", textTransform: "uppercase", letterSpacing: 1, marginBottom: Spacing.md }}>
+                    {mergeSuggestions.suggestions.length} available ({mergeSuggestions.openSlots} open slots)
+                  </Text>
+                  {mergeSuggestions.suggestions.map((suggestion) => {
+                    const ballColor = getBallLevelColor(suggestion.ballLevel);
+                    const dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+                    return (
+                      <View key={suggestion.playerId} style={styles.smartFillCard}>
+                        <View style={{ flexDirection: "row", alignItems: "center", flex: 1 }}>
+                          <View style={[styles.playerAvatar, { backgroundColor: ballColor + "30", borderWidth: 2, borderColor: ballColor, width: 36, height: 36 }]}>
+                            <Text style={[styles.playerInitial, { color: ballColor, fontSize: 14 }]}>
+                              {suggestion.name.charAt(0).toUpperCase()}
+                            </Text>
+                          </View>
+                          <View style={{ marginLeft: Spacing.md, flex: 1 }}>
+                            <Text style={styles.playerName}>{suggestion.name}</Text>
+                            <Text style={{ fontSize: 11, color: Colors.dark.textMuted }}>
+                              From: {suggestion.homeSeriesName}
+                            </Text>
+                            {suggestion.pauseFrom && suggestion.pauseUntil ? (
+                              <Text style={{ fontSize: 11, color: Colors.dark.orange }}>
+                                Holiday: {formatDate(suggestion.pauseFrom)} - {formatDate(suggestion.pauseUntil)}
+                              </Text>
+                            ) : null}
+                          </View>
+                        </View>
+                        <Pressable
+                          style={styles.smartFillAddBtn}
+                          onPress={() => {
+                            const guestEnd = suggestion.pauseUntil ? new Date(suggestion.pauseUntil) : getDefaultGuestUntil();
+                            setIsGuestAdd(true);
+                            setGuestUntilDate(guestEnd);
+                            setSelectedPlayerId(suggestion.playerId);
+                            setJoinDate(new Date());
+                            setShowSmartFill(false);
+                            setShowAddPlayerModal(true);
+                            setShowPackageSelection(true);
+                          }}
+                        >
+                          <Ionicons name="add" size={16} color={Colors.dark.backgroundRoot} />
+                          <Text style={{ fontSize: 12, fontWeight: "700", color: Colors.dark.backgroundRoot }}>Add as Guest</Text>
+                        </Pressable>
+                      </View>
+                    );
+                  })}
+                </>
+              )}
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
+
       {/* Add Player Modal */}
       <Modal
         visible={showAddPlayerModal}
@@ -2573,6 +2738,8 @@ export default function SeriesDetailDrawer({
                               creditType: selectedCreditPackage.creditType,
                               credits: selectedCreditPackage.credits,
                             },
+                            isGuest: isGuestAdd,
+                            guestUntil: isGuestAdd ? guestUntilDate.toISOString().split("T")[0] : null,
                           });
                         }}
                         disabled={addPlayerMutation.isPending}
@@ -2679,6 +2846,72 @@ export default function SeriesDetailDrawer({
                     ) : null}
                   </>
                 )}
+                
+                <View style={styles.guestToggleContainer}>
+                  <View style={styles.guestToggleRow}>
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.guestToggleLabel}>Add as Guest</Text>
+                      <Text style={styles.guestToggleSubtext}>Temporary membership with an end date</Text>
+                    </View>
+                    <Pressable
+                      style={[styles.guestToggleSwitch, isGuestAdd && styles.guestToggleSwitchActive]}
+                      onPress={() => setIsGuestAdd(!isGuestAdd)}
+                    >
+                      <View style={[styles.guestToggleKnob, isGuestAdd && styles.guestToggleKnobActive]} />
+                    </Pressable>
+                  </View>
+                  
+                  {isGuestAdd ? (
+                    <View style={styles.guestDateSection}>
+                      <Text style={styles.guestDateLabel}>Guest until</Text>
+                      <View style={styles.guestQuickButtons}>
+                        {[
+                          { label: "1 week", days: 7 },
+                          { label: "2 weeks", days: 14 },
+                          { label: "1 month", days: 30 },
+                        ].map(({ label, days }) => {
+                          const target = new Date();
+                          target.setDate(target.getDate() + days);
+                          const isSelected = Math.abs(guestUntilDate.getTime() - target.getTime()) < 86400000;
+                          return (
+                            <Pressable
+                              key={label}
+                              style={[styles.guestQuickBtn, isSelected && styles.guestQuickBtnActive]}
+                              onPress={() => {
+                                const d = new Date();
+                                d.setDate(d.getDate() + days);
+                                setGuestUntilDate(d);
+                              }}
+                            >
+                              <Text style={[styles.guestQuickBtnText, isSelected && styles.guestQuickBtnTextActive]}>{label}</Text>
+                            </Pressable>
+                          );
+                        })}
+                      </View>
+                      <Pressable 
+                        style={styles.datePickerButton}
+                        onPress={() => setShowGuestDatePicker(true)}
+                      >
+                        <Ionicons name="calendar-outline" size={18} color={Colors.dark.orange} />
+                        <Text style={[styles.datePickerText, { color: Colors.dark.orange }]}>
+                          Until {guestUntilDate.toLocaleDateString()}
+                        </Text>
+                      </Pressable>
+                      {showGuestDatePicker ? (
+                        <DateTimePicker
+                          value={guestUntilDate}
+                          mode="date"
+                          display="default"
+                          onChange={(_, date) => {
+                            setShowGuestDatePicker(false);
+                            if (date) setGuestUntilDate(date);
+                          }}
+                          minimumDate={new Date()}
+                        />
+                      ) : null}
+                    </View>
+                  ) : null}
+                </View>
                 
                 <Pressable
                   style={[styles.saveButton, { marginTop: Spacing.xl }]}
@@ -6086,5 +6319,119 @@ const styles = StyleSheet.create({
     fontSize: Typography.body.fontSize,
     fontWeight: "700",
     color: Colors.dark.backgroundRoot,
+  },
+  guestBadge: {
+    backgroundColor: Colors.dark.orange + "25",
+    borderWidth: 1,
+    borderColor: Colors.dark.orange + "50",
+    borderRadius: BorderRadius.xs,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+  },
+  guestBadgeText: {
+    fontSize: 10,
+    fontWeight: "700",
+    color: Colors.dark.orange,
+    letterSpacing: 0.5,
+  },
+  guestToggleContainer: {
+    marginTop: Spacing.lg,
+    backgroundColor: Colors.dark.backgroundRoot,
+    borderRadius: BorderRadius.md,
+    padding: Spacing.lg,
+    borderWidth: 1,
+    borderColor: Colors.dark.orange + "20",
+  },
+  guestToggleRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  guestToggleLabel: {
+    fontSize: Typography.body.fontSize,
+    fontWeight: "600",
+    color: Colors.dark.text,
+  },
+  guestToggleSubtext: {
+    fontSize: Typography.caption.fontSize,
+    color: Colors.dark.textMuted,
+    marginTop: 2,
+  },
+  guestToggleSwitch: {
+    width: 48,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: Colors.dark.textMuted + "40",
+    justifyContent: "center",
+    padding: 2,
+  },
+  guestToggleSwitchActive: {
+    backgroundColor: Colors.dark.orange,
+  },
+  guestToggleKnob: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: Colors.dark.text,
+  },
+  guestToggleKnobActive: {
+    alignSelf: "flex-end",
+    backgroundColor: Colors.dark.backgroundRoot,
+  },
+  guestDateSection: {
+    marginTop: Spacing.md,
+    gap: Spacing.sm,
+  },
+  guestDateLabel: {
+    fontSize: Typography.caption.fontSize,
+    fontWeight: "600",
+    color: Colors.dark.orange,
+    textTransform: "uppercase",
+    letterSpacing: 1,
+  },
+  guestQuickButtons: {
+    flexDirection: "row",
+    gap: Spacing.sm,
+  },
+  guestQuickBtn: {
+    flex: 1,
+    paddingVertical: Spacing.sm,
+    borderRadius: BorderRadius.sm,
+    backgroundColor: Colors.dark.backgroundCard,
+    borderWidth: 1,
+    borderColor: Colors.dark.textMuted + "30",
+    alignItems: "center",
+  },
+  guestQuickBtnActive: {
+    borderColor: Colors.dark.orange,
+    backgroundColor: Colors.dark.orange + "15",
+  },
+  guestQuickBtnText: {
+    fontSize: Typography.caption.fontSize,
+    fontWeight: "600",
+    color: Colors.dark.textMuted,
+  },
+  guestQuickBtnTextActive: {
+    color: Colors.dark.orange,
+  },
+  smartFillCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    backgroundColor: Colors.dark.backgroundRoot,
+    borderRadius: BorderRadius.md,
+    padding: Spacing.md,
+    marginBottom: Spacing.sm,
+    borderWidth: 1,
+    borderColor: Colors.dark.orange + "20",
+  },
+  smartFillAddBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    backgroundColor: Colors.dark.orange,
+    borderRadius: BorderRadius.sm,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: 6,
   },
 });

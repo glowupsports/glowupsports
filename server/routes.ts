@@ -11519,6 +11519,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
               pauseUntil: sp.pauseUntil || null,
               pauseReason: sp.pauseReason || null,
               linkedPackageId: sp.linkedPackageId || null,
+              isGuest: sp.isGuest || false,
+              guestUntil: sp.guestUntil || null,
               credits,
             };
           }),
@@ -11559,8 +11561,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 for (const playerId of activePlayerIds) {
                   const key = `${session.id}:${playerId}`;
                   if (!enrolledSet.has(key)) {
-                    const joinedAt = seriesPlayersList.find((sp) => sp.playerId === playerId)?.joinedAt;
+                    const sp = seriesPlayersList.find((sp) => sp.playerId === playerId);
+                    const joinedAt = sp?.joinedAt;
                     if (joinedAt && new Date(session.startTime) < new Date(joinedAt)) continue;
+                    if (sp?.isGuest && sp?.guestUntil) {
+                      const guestEnd = new Date(sp.guestUntil + "T23:59:59Z");
+                      if (new Date(session.startTime) > guestEnd) continue;
+                    }
                     const newRecord = await storage.addPlayerToSession({
                       sessionId: session.id,
                       playerId,
@@ -13089,6 +13096,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
           packageTemplateId,
           creditPackage,
           attendedSessionIds = [],
+          isGuest = false,
+          guestUntil,
         } = req.body;
         const coachId = req.user!.coachId;
         const academyId = req.user!.academyId!;
@@ -13245,6 +13254,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 : new Date(),
               leftAt: null,
               linkedPackageId: assignedPackageId,
+              isGuest: isGuest || false,
+              guestUntil: guestUntil || null,
             });
 
             // Backfill attendance for specified sessions
@@ -13303,8 +13314,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
             const dubaiNow = new Date(
               now.getTime() + DUBAI_OFFSET * 60 * 60 * 1000,
             );
+            const guestUntilDate = guestUntil ? new Date(guestUntil + "T23:59:59Z") : null;
             const futureSessions = allSeriesSessions.filter(
-              (s) => new Date(s.startTime) > now,
+              (s) => {
+                const sessionTime = new Date(s.startTime);
+                if (sessionTime <= now) return false;
+                if (guestUntilDate && sessionTime > guestUntilDate) return false;
+                return true;
+              },
             );
             for (const futureSession of futureSessions) {
               try {
@@ -13357,6 +13374,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
             ? new Date(effectiveJoinDate)
             : new Date(),
           linkedPackageId: assignedPackageId,
+          isGuest: isGuest || false,
+          guestUntil: guestUntil || null,
         });
 
         // Backfill attendance for specified sessions (for new players)
@@ -13409,8 +13428,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
           .from(sessions)
           .where(eq(sessions.seriesId, id));
         const nowTime = new Date();
+        const newGuestUntilDate = guestUntil ? new Date(guestUntil + "T23:59:59Z") : null;
         const newPlayerFutureSessions = newPlayerSeriesSessions.filter(
-          (s) => new Date(s.startTime) > nowTime,
+          (s) => {
+            const sessionTime = new Date(s.startTime);
+            if (sessionTime <= nowTime) return false;
+            if (newGuestUntilDate && sessionTime > newGuestUntilDate) return false;
+            return true;
+          },
         );
         for (const futureSession of newPlayerFutureSessions) {
           try {
@@ -13719,6 +13744,82 @@ export async function registerRoutes(app: Express): Promise<Server> {
       } catch (error) {
         console.error("Error unpausing player membership:", error);
         res.status(500).json({ error: "Failed to unpause membership" });
+      }
+    },
+  );
+
+  // Smart merge suggestions - find available players from other groups to fill spots
+  app.get(
+    "/api/coach/series/:id/merge-suggestions",
+    authMiddleware,
+    requireAcademy,
+    async (req: AuthenticatedRequest, res: Response) => {
+      try {
+        const { id } = req.params;
+        const coachId = req.user!.coachId;
+
+        const targetSeries = await storage.getCoachingSeriesById(id);
+        if (!targetSeries) {
+          return res.status(404).json({ error: "Class not found" });
+        }
+        if (targetSeries.coachId !== coachId) {
+          return res.status(403).json({ error: "Not authorized" });
+        }
+
+        const targetPlayers = await storage.getSeriesPlayers(id);
+        const activeCount = targetPlayers.filter(p => p.status === "active").length;
+        const maxPlayers = targetSeries.maxPlayers || 6;
+        const openSlots = maxPlayers - activeCount;
+
+        if (openSlots <= 0) {
+          return res.json({ suggestions: [], openSlots: 0 });
+        }
+
+        const allCoachSeries = await db
+          .select()
+          .from(coachingSeries)
+          .where(and(
+            eq(coachingSeries.coachId, coachId),
+            eq(coachingSeries.status, "active"),
+            sql`${coachingSeries.id} != ${id}`
+          ));
+
+        const seriesIds = allCoachSeries.map(s => s.id);
+        if (seriesIds.length === 0) {
+          return res.json({ suggestions: [], openSlots });
+        }
+
+        const allSeriesPlayers = await storage.getSeriesPlayersBatch(seriesIds);
+        const pausedPlayers = allSeriesPlayers.filter(sp => sp.status === "paused");
+
+        const targetPlayerIds = new Set(targetPlayers.map(p => p.playerId));
+        const suggestions: any[] = [];
+
+        for (const sp of pausedPlayers) {
+          if (targetPlayerIds.has(sp.playerId)) continue;
+
+          const player = await storage.getPlayer(sp.playerId);
+          if (!player) continue;
+
+          const homeSeries = allCoachSeries.find(s => s.id === sp.seriesId);
+
+          suggestions.push({
+            playerId: sp.playerId,
+            name: player.name || "Unknown",
+            ballLevel: player.ballLevel || null,
+            homeSeriesId: sp.seriesId,
+            homeSeriesName: homeSeries?.title || "Unknown Group",
+            homeSeriesDay: homeSeries?.dayOfWeek,
+            pauseFrom: sp.pauseFrom || null,
+            pauseUntil: sp.pauseUntil || null,
+            pauseReason: sp.pauseReason || null,
+          });
+        }
+
+        res.json({ suggestions, openSlots });
+      } catch (error) {
+        console.error("Error getting merge suggestions:", error);
+        res.status(500).json({ error: "Failed to get suggestions" });
       }
     },
   );
