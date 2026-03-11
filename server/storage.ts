@@ -11085,7 +11085,11 @@ async function ensureCreditProcessed(sessionPlayerId: string): Promise<{
         isOriginallyPrivate = playerCount <= 1;
       }
       
-      const isChargeable = isOriginallyPrivate
+      // Group sessions: absent = still charged (lesson happened regardless of attendance)
+      // Semi-private sessions: absent = NOT charged (only present player is charged as private)
+      // Private sessions: absent = charged (coach was there)
+      const isGroupSession = sessionType === "group";
+      const isChargeable = (isOriginallyPrivate || isGroupSession)
         ? ["present", "late", "absent"].includes(attendanceStatus || "")
         : ["present", "late"].includes(attendanceStatus || "");
       
