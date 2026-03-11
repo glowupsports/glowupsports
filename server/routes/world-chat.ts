@@ -1,7 +1,7 @@
 import { Router, Request, Response } from "express";
 import { db } from "../db";
 import { storage } from "../storage";
-import { eq, sql, desc, and, inArray, isNotNull, gte } from "drizzle-orm";
+import { eq, sql, desc, and, inArray, isNotNull, gte, lte, ne, asc } from "drizzle-orm";
 import {
   conversations,
   messages,
@@ -2195,6 +2195,107 @@ function isBirthdayToday(dateOfBirth: string | Date | null): boolean {
     } catch (error) {
       console.error("Error adding player:", error);
       res.status(500).json({ error: "Failed to add player" });
+    }
+  });
+
+  router.post("/api/coach/sessions/:id/players/multi-week", authMiddleware, requireAcademy, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const { id } = req.params;
+      const { playerId, isGuest, skipCreditCheck, weeks } = req.body;
+      const academyId = req.user!.academyId;
+
+      if (!playerId) {
+        return res.status(400).json({ error: "playerId is required" });
+      }
+      const weekCount = Math.min(Math.max(parseInt(weeks) || 1, 1), 4);
+
+      const { valid: sessionValid, session } = await validateSessionOwnership(id, academyId, storage);
+      if (!sessionValid || !session) {
+        return res.status(404).json({ error: "Session not found" });
+      }
+
+      const { valid: playerValid } = await validatePlayerOwnership(playerId, academyId, storage);
+      if (!playerValid) {
+        return res.status(404).json({ error: "Player not found" });
+      }
+
+      const results: { sessionId: string; success: boolean; error?: string; week: number }[] = [];
+
+      const addToSession = async (sessionId: string, weekNum: number) => {
+        try {
+          const existingEnrollment = await storage.getSessionPlayer(sessionId, playerId);
+          if (existingEnrollment) {
+            results.push({ sessionId, success: true, week: weekNum, error: "already_enrolled" });
+            return;
+          }
+          await storage.addPlayerToSession({
+            sessionId,
+            playerId,
+            isGuest: isGuest || false,
+          });
+          results.push({ sessionId, success: true, week: weekNum });
+        } catch (err) {
+          results.push({ sessionId, success: false, week: weekNum, error: "failed" });
+        }
+      };
+
+      await addToSession(id, 1);
+
+      if (weekCount > 1) {
+        const sessionStart = new Date(session.startTime);
+        const sessionHour = sessionStart.getUTCHours();
+        const sessionMinute = sessionStart.getUTCMinutes();
+        const sessionDay = sessionStart.getUTCDay();
+
+        for (let w = 1; w < weekCount; w++) {
+          const targetDate = new Date(sessionStart);
+          targetDate.setUTCDate(targetDate.getUTCDate() + (w * 7));
+
+          const rangeStart = new Date(targetDate);
+          rangeStart.setUTCHours(0, 0, 0, 0);
+          const rangeEnd = new Date(targetDate);
+          rangeEnd.setUTCHours(23, 59, 59, 999);
+
+          const candidateSessions = await storage.getSessionsByDateRange(rangeStart, rangeEnd, academyId);
+
+          const sorted = candidateSessions
+            .filter(s => {
+              const sStart = new Date(s.startTime);
+              return (
+                sStart.getUTCDay() === sessionDay &&
+                sStart.getUTCHours() === sessionHour &&
+                sStart.getUTCMinutes() === sessionMinute &&
+                s.coachId === session.coachId &&
+                s.status !== "cancelled"
+              );
+            })
+            .sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime());
+
+          if (sorted.length > 0) {
+            await addToSession(sorted[0].id, w + 1);
+          } else {
+            results.push({ sessionId: "", success: false, week: w + 1, error: "no_session_found" });
+          }
+        }
+      }
+
+      const added = results.filter(r => r.success && !r.error).length;
+      const alreadyEnrolled = results.filter(r => r.error === "already_enrolled").length;
+      const notFound = results.filter(r => r.error === "no_session_found").length;
+      const failed = results.filter(r => r.error === "failed").length;
+
+      res.status(201).json({
+        success: true,
+        results,
+        added,
+        alreadyEnrolled,
+        notFound,
+        failed,
+        weeksRequested: weekCount,
+      });
+    } catch (error) {
+      console.error("Error adding player to multiple weeks:", error);
+      res.status(500).json({ error: "Failed to add player to sessions" });
     }
   });
 

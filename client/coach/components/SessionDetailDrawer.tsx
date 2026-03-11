@@ -163,6 +163,10 @@ export default function SessionDetailDrawer({
   const [guestMode, setGuestMode] = useState<"new" | "academy">("new");
   const [guestSearch, setGuestSearch] = useState("");
   const [guestName, setGuestName] = useState("");
+  const [guestWeeks, setGuestWeeks] = useState(1);
+  const [showWeeksPicker, setShowWeeksPicker] = useState(false);
+  const [pendingGuestName, setPendingGuestName] = useState("");
+  const [pendingAcademyPlayer, setPendingAcademyPlayer] = useState<{ id: string; name: string; ballLevel?: string | null } | null>(null);
   const [showGuestConvert, setShowGuestConvert] = useState<{id: string; name: string} | null>(null);
   const [guestPhone, setGuestPhone] = useState("");
   const [guestEmail, setGuestEmail] = useState("");
@@ -298,7 +302,7 @@ export default function SessionDetailDrawer({
   });
 
   const addGuestMutation = useMutation({
-    mutationFn: async (name: string) => {
+    mutationFn: async ({ name, weeks }: { name: string; weeks: number }) => {
       const trimmedName = name.trim();
       if (!trimmedName) {
         throw new Error("Guest name is required");
@@ -311,13 +315,23 @@ export default function SessionDetailDrawer({
         membershipType: "guest",
       });
       const guest = await createRes.json();
-      await apiRequest("POST", `/api/coach/sessions/${session.id}/players`, {
-        playerId: guest.id,
-        isGuest: true,
-      });
-      return guest;
+      let multiWeekResult = null;
+      if (weeks > 1) {
+        const res = await apiRequest("POST", `/api/coach/sessions/${session.id}/players/multi-week`, {
+          playerId: guest.id,
+          isGuest: true,
+          weeks,
+        });
+        multiWeekResult = await res.json();
+      } else {
+        await apiRequest("POST", `/api/coach/sessions/${session.id}/players`, {
+          playerId: guest.id,
+          isGuest: true,
+        });
+      }
+      return { guest, weeks, multiWeekResult };
     },
-    onSuccess: () => {
+    onSuccess: ({ weeks, multiWeekResult }) => {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       queryClient.invalidateQueries({ 
         predicate: (query) => {
@@ -326,7 +340,16 @@ export default function SessionDetailDrawer({
         }
       });
       queryClient.invalidateQueries({ queryKey: ["/api/players"] });
+      if (multiWeekResult && weeks > 1) {
+        const { added, notFound } = multiWeekResult;
+        if (notFound > 0) {
+          Alert.alert("Guest Added", `Added to ${added} of ${weeks} weeks. ${notFound} future session(s) not found.`);
+        }
+      }
       setGuestName("");
+      setPendingGuestName("");
+      setShowWeeksPicker(false);
+      setGuestWeeks(1);
       setShowGuestInput(false);
     },
     onError: (error: Error) => {
@@ -335,16 +358,27 @@ export default function SessionDetailDrawer({
   });
 
   const addExistingGuestMutation = useMutation({
-    mutationFn: async (player: { id: string; name: string; ballLevel?: string | null }) => {
+    mutationFn: async ({ player, weeks }: { player: { id: string; name: string; ballLevel?: string | null }; weeks: number }) => {
       if (!session?.id) throw new Error("No session selected");
-      await apiRequest("POST", `/api/coach/sessions/${session.id}/players`, {
-        playerId: player.id,
-        isGuest: true,
-        skipCreditCheck: true,
-      });
-      return player;
+      let multiWeekResult = null;
+      if (weeks > 1) {
+        const res = await apiRequest("POST", `/api/coach/sessions/${session.id}/players/multi-week`, {
+          playerId: player.id,
+          isGuest: true,
+          skipCreditCheck: true,
+          weeks,
+        });
+        multiWeekResult = await res.json();
+      } else {
+        await apiRequest("POST", `/api/coach/sessions/${session.id}/players`, {
+          playerId: player.id,
+          isGuest: true,
+          skipCreditCheck: true,
+        });
+      }
+      return { player, weeks, multiWeekResult };
     },
-    onSuccess: (player) => {
+    onSuccess: ({ player, weeks, multiWeekResult }) => {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       setLiveSession(prev => {
         if (!prev) return prev;
@@ -372,7 +406,16 @@ export default function SessionDetailDrawer({
           return typeof key === 'string' && key.startsWith('/api/coach/calendar');
         }
       });
+      if (multiWeekResult && weeks > 1) {
+        const { added, notFound } = multiWeekResult;
+        if (notFound > 0) {
+          Alert.alert("Guest Added", `Added to ${added} of ${weeks} weeks. ${notFound} future session(s) not found.`);
+        }
+      }
       setGuestSearch("");
+      setPendingAcademyPlayer(null);
+      setShowWeeksPicker(false);
+      setGuestWeeks(1);
     },
     onError: (error: Error) => {
       Alert.alert("Error", error.message || "Failed to add guest");
@@ -584,7 +627,29 @@ export default function SessionDetailDrawer({
       return;
     }
     if (!guestName.trim()) return;
-    addGuestMutation.mutate(guestName.trim());
+    setPendingGuestName(guestName.trim());
+    setPendingAcademyPlayer(null);
+    setGuestWeeks(1);
+    setShowWeeksPicker(true);
+  };
+
+  const handleConfirmGuestWeeks = () => {
+    if (pendingGuestName) {
+      addGuestMutation.mutate({ name: pendingGuestName, weeks: guestWeeks });
+    } else if (pendingAcademyPlayer) {
+      addExistingGuestMutation.mutate({ player: pendingAcademyPlayer, weeks: guestWeeks });
+    }
+  };
+
+  const handleSelectAcademyGuest = (player: { id: string; name: string; ballLevel?: string | null }) => {
+    if (isOffline) {
+      showOfflineAlert();
+      return;
+    }
+    setPendingAcademyPlayer(player);
+    setPendingGuestName("");
+    setGuestWeeks(1);
+    setShowWeeksPicker(true);
   };
 
   const [showCourtPicker, setShowCourtPicker] = useState(false);
@@ -1063,94 +1128,136 @@ export default function SessionDetailDrawer({
 
       {showGuestInput && (
         <View style={styles.guestPanel}>
-          <View style={styles.guestTabRow}>
-            <Pressable
-              style={[styles.guestTab, guestMode === "new" && styles.guestTabActive]}
-              onPress={() => setGuestMode("new")}
-            >
-              <Ionicons name="person-add-outline" size={14} color={guestMode === "new" ? Colors.dark.backgroundRoot : Colors.dark.textMuted} />
-              <Text style={[styles.guestTabText, guestMode === "new" && styles.guestTabTextActive]}>New Guest</Text>
-            </Pressable>
-            <Pressable
-              style={[styles.guestTab, guestMode === "academy" && styles.guestTabActive]}
-              onPress={() => setGuestMode("academy")}
-            >
-              <Ionicons name="people-outline" size={14} color={guestMode === "academy" ? Colors.dark.backgroundRoot : Colors.dark.textMuted} />
-              <Text style={[styles.guestTabText, guestMode === "academy" && styles.guestTabTextActive]}>From Academy</Text>
-            </Pressable>
-            <Pressable
-              onPress={() => { setShowGuestInput(false); setGuestName(""); setGuestSearch(""); setGuestMode("new"); }}
-              style={styles.guestCancelBtn}
-            >
-              <Ionicons name="close" size={18} color={Colors.dark.tabIconDefault} />
-            </Pressable>
-          </View>
-
-          {guestMode === "new" ? (
-            <View style={styles.guestInputRow}>
-              <TextInput
-                style={styles.guestInput}
-                placeholder="Guest name..."
-                placeholderTextColor={Colors.dark.tabIconDefault}
-                value={guestName}
-                onChangeText={setGuestName}
-                onSubmitEditing={handleAddGuest}
-                returnKeyType="done"
-                autoFocus
-              />
+          {showWeeksPicker ? (
+            <View>
+              <View style={styles.guestTabRow}>
+                <Text style={{ color: Colors.dark.text, fontSize: 14, fontWeight: "600" as const, flex: 1 }}>
+                  {pendingGuestName ? `Add "${pendingGuestName}"` : pendingAcademyPlayer ? `Add ${pendingAcademyPlayer.name}` : "Add guest"}
+                </Text>
+                <Pressable
+                  onPress={() => { setShowWeeksPicker(false); setPendingGuestName(""); setPendingAcademyPlayer(null); setGuestWeeks(1); }}
+                  style={styles.guestCancelBtn}
+                >
+                  <Ionicons name="arrow-back" size={18} color={Colors.dark.tabIconDefault} />
+                </Pressable>
+              </View>
+              <Text style={{ color: Colors.dark.textMuted, fontSize: 12, marginBottom: 12 }}>
+                How many weeks will they attend?
+              </Text>
+              <View style={styles.weeksPickerRow}>
+                {[1, 2, 3, 4].map(w => (
+                  <Pressable
+                    key={w}
+                    style={[styles.weekOption, guestWeeks === w && styles.weekOptionActive]}
+                    onPress={() => setGuestWeeks(w)}
+                  >
+                    <Text style={[styles.weekOptionText, guestWeeks === w && styles.weekOptionTextActive]}>
+                      {w === 1 ? "Just this one" : `${w} weeks`}
+                    </Text>
+                  </Pressable>
+                ))}
+              </View>
               <Pressable
-                onPress={handleAddGuest}
-                disabled={!guestName.trim() || addGuestMutation.isPending}
-                style={[
-                  styles.guestAddBtn,
-                  (!guestName.trim() || addGuestMutation.isPending) && styles.guestAddBtnDisabled,
-                ]}
+                style={[styles.guestConfirmBtn, (addGuestMutation.isPending || addExistingGuestMutation.isPending) && styles.guestAddBtnDisabled]}
+                onPress={handleConfirmGuestWeeks}
+                disabled={addGuestMutation.isPending || addExistingGuestMutation.isPending}
               >
-                {addGuestMutation.isPending ? (
+                {(addGuestMutation.isPending || addExistingGuestMutation.isPending) ? (
                   <ActivityIndicator size="small" color={Colors.dark.backgroundRoot} />
                 ) : (
-                  <Ionicons name="add" size={20} color={Colors.dark.backgroundRoot} />
+                  <Text style={styles.guestConfirmBtnText}>
+                    {guestWeeks === 1 ? "Add Guest" : `Add for ${guestWeeks} Weeks`}
+                  </Text>
                 )}
               </Pressable>
             </View>
           ) : (
-            <View>
-              <TextInput
-                style={styles.guestInput}
-                placeholder="Search player..."
-                placeholderTextColor={Colors.dark.tabIconDefault}
-                value={guestSearch}
-                onChangeText={setGuestSearch}
-                autoFocus
-              />
-              <ScrollView style={styles.guestPlayerList} showsVerticalScrollIndicator={false}>
-                {availablePlayers
-                  .filter(p => !p.name.includes("(Guest)") && p.name.toLowerCase().includes(guestSearch.toLowerCase()))
-                  .slice(0, 8)
-                  .map(p => (
-                    <Pressable
-                      key={p.id}
-                      style={styles.guestPlayerItem}
-                      onPress={() => addExistingGuestMutation.mutate({ id: p.id, name: p.name, ballLevel: p.ballLevel })}
-                      disabled={addExistingGuestMutation.isPending}
-                    >
-                      <View style={[styles.guestPlayerAvatar, { backgroundColor: Colors.dark.xpCyan + "20" }]}>
-                        <Text style={styles.guestPlayerInitial}>{p.name.charAt(0).toUpperCase()}</Text>
-                      </View>
-                      <View style={{ flex: 1 }}>
-                        <Text style={styles.guestPlayerName}>{p.name}</Text>
-                        {p.ballLevel ? <Text style={styles.guestPlayerLevel}>{p.ballLevel}</Text> : null}
-                      </View>
-                      <Ionicons name="add-circle-outline" size={22} color={Colors.dark.xpCyan} />
-                    </Pressable>
-                  ))}
-                {availablePlayers.filter(p => !p.name.includes("(Guest)") && p.name.toLowerCase().includes(guestSearch.toLowerCase())).length === 0 ? (
-                  <Text style={styles.guestNoResults}>
-                    {guestSearch ? `No players match "${guestSearch}"` : "All players are in this session"}
-                  </Text>
-                ) : null}
-              </ScrollView>
-            </View>
+            <>
+              <View style={styles.guestTabRow}>
+                <Pressable
+                  style={[styles.guestTab, guestMode === "new" && styles.guestTabActive]}
+                  onPress={() => setGuestMode("new")}
+                >
+                  <Ionicons name="person-add-outline" size={14} color={guestMode === "new" ? Colors.dark.backgroundRoot : Colors.dark.textMuted} />
+                  <Text style={[styles.guestTabText, guestMode === "new" && styles.guestTabTextActive]}>New Guest</Text>
+                </Pressable>
+                <Pressable
+                  style={[styles.guestTab, guestMode === "academy" && styles.guestTabActive]}
+                  onPress={() => setGuestMode("academy")}
+                >
+                  <Ionicons name="people-outline" size={14} color={guestMode === "academy" ? Colors.dark.backgroundRoot : Colors.dark.textMuted} />
+                  <Text style={[styles.guestTabText, guestMode === "academy" && styles.guestTabTextActive]}>From Academy</Text>
+                </Pressable>
+                <Pressable
+                  onPress={() => { setShowGuestInput(false); setGuestName(""); setGuestSearch(""); setGuestMode("new"); setShowWeeksPicker(false); setPendingGuestName(""); setPendingAcademyPlayer(null); setGuestWeeks(1); }}
+                  style={styles.guestCancelBtn}
+                >
+                  <Ionicons name="close" size={18} color={Colors.dark.tabIconDefault} />
+                </Pressable>
+              </View>
+
+              {guestMode === "new" ? (
+                <View style={styles.guestInputRow}>
+                  <TextInput
+                    style={styles.guestInput}
+                    placeholder="Guest name..."
+                    placeholderTextColor={Colors.dark.tabIconDefault}
+                    value={guestName}
+                    onChangeText={setGuestName}
+                    onSubmitEditing={handleAddGuest}
+                    returnKeyType="done"
+                    autoFocus
+                  />
+                  <Pressable
+                    onPress={handleAddGuest}
+                    disabled={!guestName.trim()}
+                    style={[
+                      styles.guestAddBtn,
+                      !guestName.trim() && styles.guestAddBtnDisabled,
+                    ]}
+                  >
+                    <Ionicons name="arrow-forward" size={20} color={Colors.dark.backgroundRoot} />
+                  </Pressable>
+                </View>
+              ) : (
+                <View>
+                  <TextInput
+                    style={styles.guestInput}
+                    placeholder="Search player..."
+                    placeholderTextColor={Colors.dark.tabIconDefault}
+                    value={guestSearch}
+                    onChangeText={setGuestSearch}
+                    autoFocus
+                  />
+                  <ScrollView style={styles.guestPlayerList} showsVerticalScrollIndicator={false}>
+                    {availablePlayers
+                      .filter(p => !p.name.includes("(Guest)") && p.name.toLowerCase().includes(guestSearch.toLowerCase()))
+                      .slice(0, 8)
+                      .map(p => (
+                        <Pressable
+                          key={p.id}
+                          style={styles.guestPlayerItem}
+                          onPress={() => handleSelectAcademyGuest({ id: p.id, name: p.name, ballLevel: p.ballLevel })}
+                        >
+                          <View style={[styles.guestPlayerAvatar, { backgroundColor: Colors.dark.xpCyan + "20" }]}>
+                            <Text style={styles.guestPlayerInitial}>{p.name.charAt(0).toUpperCase()}</Text>
+                          </View>
+                          <View style={{ flex: 1 }}>
+                            <Text style={styles.guestPlayerName}>{p.name}</Text>
+                            {p.ballLevel ? <Text style={styles.guestPlayerLevel}>{p.ballLevel}</Text> : null}
+                          </View>
+                          <Ionicons name="arrow-forward-circle-outline" size={22} color={Colors.dark.xpCyan} />
+                        </Pressable>
+                      ))}
+                    {availablePlayers.filter(p => !p.name.includes("(Guest)") && p.name.toLowerCase().includes(guestSearch.toLowerCase())).length === 0 ? (
+                      <Text style={styles.guestNoResults}>
+                        {guestSearch ? `No players match "${guestSearch}"` : "All players are in this session"}
+                      </Text>
+                    ) : null}
+                  </ScrollView>
+                </View>
+              )}
+            </>
           )}
         </View>
       )}
@@ -2317,6 +2424,43 @@ const styles = StyleSheet.create({
     color: Colors.dark.textMuted,
     fontSize: 13,
     paddingVertical: Spacing.lg,
+  },
+  weeksPickerRow: {
+    flexDirection: "row",
+    gap: 8,
+    marginBottom: 16,
+  },
+  weekOption: {
+    flex: 1,
+    paddingVertical: 10,
+    borderRadius: BorderRadius.md,
+    backgroundColor: Backgrounds.elevated,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  weekOptionActive: {
+    backgroundColor: Colors.dark.xpCyan,
+  },
+  weekOptionText: {
+    fontSize: 11,
+    fontWeight: "600" as const,
+    color: Colors.dark.textMuted,
+    textAlign: "center" as const,
+  },
+  weekOptionTextActive: {
+    color: Colors.dark.backgroundRoot,
+  },
+  guestConfirmBtn: {
+    backgroundColor: GlowColors.primary,
+    borderRadius: BorderRadius.md,
+    paddingVertical: 12,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  guestConfirmBtnText: {
+    color: Colors.dark.backgroundRoot,
+    fontSize: 14,
+    fontWeight: "700" as const,
   },
   actionsSection: {
     gap: Spacing.md,
