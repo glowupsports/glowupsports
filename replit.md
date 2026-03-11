@@ -46,6 +46,8 @@ The application features a dark-themed premium sports aesthetic with a simplifie
 - **Playtomic-Style Court Booking System**: Multi-phase booking with friend invites, cost splitting, and smart availability.
 - **Family Lobby System**: Netflix-style multi-account management with profile cards and quick-switching.
 - **Quest System**: Supports daily, weekly, and monthly quests with streak tracking, XP multipliers, streak shields, and evidence upload.
+- **Week Planner**: Coach "Week View" tab in Coaching screen shows all active groups organized by day of the week with full player lists, ball levels, capacity, and paused/holiday count. Located in `client/coach/screens/CoachingScreen.tsx` (WeekPlannerTab). Backend returns `pausedCount` and full `playerPreview` in `/api/coach/series`. Pause/unpause endpoints invalidate series cache.
+- **Web Container**: `client/components/WebContainer.tsx` wraps the app in a phone-shaped frame (480px max width) on wide desktop screens. Cross-platform shadow system in `theme.ts` uses `createShadow()` helper for iOS/Android/Web. `SwipeableTabBar` supports web with click-to-switch (no PagerView). `TabNavigationContext` has `registerWebTabSetter` for programmatic web tab navigation.
 
 ## External Dependencies
 

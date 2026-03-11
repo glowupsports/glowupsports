@@ -11158,9 +11158,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const seriesIds = series.map((s) => s.id);
 
         // Parallel batch fetch all related data
-        const [allSeriesPlayers, allCompletedSessions, allNextSessions] =
+        const [allSeriesPlayers, allPausedPlayers, allCompletedSessions, allNextSessions] =
           await Promise.all([
-            // Batch fetch all players for all series
+            // Batch fetch all active players for all series
             seriesIds.length > 0
               ? db
                   .select({
@@ -11179,6 +11179,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
                       eq(seriesPlayers.status, "active"),
                     ),
                   )
+              : Promise.resolve([]),
+
+            // Batch fetch paused player counts for all series
+            seriesIds.length > 0
+              ? db
+                  .select({
+                    seriesId: seriesPlayers.seriesId,
+                    count: sql<number>`count(*)::int`,
+                  })
+                  .from(seriesPlayers)
+                  .where(
+                    and(
+                      inArray(seriesPlayers.seriesId, seriesIds),
+                      eq(seriesPlayers.status, "paused"),
+                    ),
+                  )
+                  .groupBy(seriesPlayers.seriesId)
               : Promise.resolve([]),
 
             // Batch fetch all completed sessions for all series
@@ -11230,6 +11247,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
                   inArray(sessionFeedback.sessionId, allCompletedSessionIds),
                 )
             : [];
+
+        // Create paused count map
+        const pausedCountMap = new Map<string, number>();
+        for (const p of allPausedPlayers) {
+          if (p.seriesId) pausedCountMap.set(p.seriesId, p.count);
+        }
 
         // Create lookup maps for O(1) access
         const playersBySeriesMap = new Map<string, typeof allSeriesPlayers>();
@@ -11300,6 +11323,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           return {
             ...s,
             playerCount: activePlayers.length,
+            pausedCount: pausedCountMap.get(s.id) || 0,
             playerNames: activePlayers
               .map((p) => p.playerName || "Unknown")
               .slice(0, 4),
@@ -13653,6 +13677,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             .json({ error: "Player not found in this class" });
         }
 
+        apiCache.invalidate(`series:${coachId}`);
         res.json(updated);
       } catch (error) {
         console.error("Error pausing player membership:", error);
@@ -13689,6 +13714,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             .json({ error: "Player not found in this class" });
         }
 
+        apiCache.invalidate(`series:${coachId}`);
         res.json(updated);
       } catch (error) {
         console.error("Error unpausing player membership:", error);
