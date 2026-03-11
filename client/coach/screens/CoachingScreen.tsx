@@ -29,6 +29,7 @@ import Animated, {
 import { useCoach } from "@/coach/context/CoachContext";
 import { Colors, Spacing, BorderRadius, Typography, GlowColors } from "@/constants/theme";
 import { apiRequest } from "@/lib/query-client";
+import { convertUTCTimeToLocal } from "@/lib/dateUtils";
 import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollViewCompat";
 import { ObservationTrendChart } from "@/components/ObservationTrendChart";
 import { NeoLoadoutPanel, NeoGlowBadge } from "@/components/NeoLoadoutPanel";
@@ -489,10 +490,19 @@ function getSessionTypeBadge(type: string | null | undefined) {
 function WeekPlannerTab({ insets, tabBarHeight }: { insets: { bottom: number }; tabBarHeight: number }) {
   const [selectedSeriesId, setSelectedSeriesId] = useState<string | null>(null);
   const [showSeriesDetail, setShowSeriesDetail] = useState(false);
+  const { academy } = useCoach();
+  const timezone = academy?.timezone || "Asia/Dubai";
 
   const { data: allSeries, isLoading, isError, refetch } = useQuery<any[]>({
     queryKey: ["/api/coach/series"],
   });
+
+  const todayDayIndex = useMemo(() => {
+    const formatter = new Intl.DateTimeFormat("en-US", { weekday: "short", timeZone: timezone });
+    const dayName = formatter.format(new Date());
+    const dayMap: Record<string, number> = { Sun: 0, Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6 };
+    return dayMap[dayName] ?? new Date().getDay();
+  }, [timezone]);
 
   const dayGroups = useMemo(() => {
     if (!allSeries) return [];
@@ -505,21 +515,20 @@ function WeekPlannerTab({ insets, tabBarHeight }: { insets: { bottom: number }; 
     }
     for (const [, items] of grouped) {
       items.sort((a: any, b: any) => {
-        const timeA = a.startTime || "00:00";
-        const timeB = b.startTime || "00:00";
+        const timeA = convertUTCTimeToLocal(a.startTime || "00:00", timezone);
+        const timeB = convertUTCTimeToLocal(b.startTime || "00:00", timezone);
         return timeA.localeCompare(timeB);
       });
     }
-    const today = new Date().getDay();
     const orderedDays = [];
     for (let i = 0; i < 7; i++) {
-      const dayIndex = (today + i) % 7;
+      const dayIndex = (todayDayIndex + i) % 7;
       if (grouped.has(dayIndex)) {
         orderedDays.push({ day: dayIndex, series: grouped.get(dayIndex)! });
       }
     }
     return orderedDays;
-  }, [allSeries]);
+  }, [allSeries, todayDayIndex, timezone]);
 
   const totalActive = useMemo(() => {
     if (!allSeries) return 0;
@@ -602,7 +611,7 @@ function WeekPlannerTab({ insets, tabBarHeight }: { insets: { bottom: number }; 
         </View>
 
         {dayGroups.map(({ day, series: daySeries }) => {
-          const isToday = day === new Date().getDay();
+          const isToday = day === todayDayIndex;
           return (
             <View key={day} style={wpStyles.daySection}>
               <View style={wpStyles.dayHeader}>
@@ -620,9 +629,10 @@ function WeekPlannerTab({ insets, tabBarHeight }: { insets: { bottom: number }; 
               {daySeries.map((s: any) => {
                 const badge = getSessionTypeBadge(s.sessionType);
                 const players = s.playerPreview || [];
+                const localStart = s.startTime ? convertUTCTimeToLocal(s.startTime, timezone) : "?";
                 const endTime = (() => {
-                  if (!s.startTime || !s.duration) return "";
-                  const [h, m] = s.startTime.split(":").map(Number);
+                  if (!localStart || localStart === "?" || !s.duration) return "";
+                  const [h, m] = localStart.split(":").map(Number);
                   const totalMin = h * 60 + m + s.duration;
                   const eh = Math.floor(totalMin / 60) % 24;
                   const em = totalMin % 60;
@@ -639,7 +649,7 @@ function WeekPlannerTab({ insets, tabBarHeight }: { insets: { bottom: number }; 
                       <View style={[wpStyles.typeBadge, { backgroundColor: badge.color + "25", borderColor: badge.color + "50" }]}>
                         <Text style={[wpStyles.typeBadgeText, { color: badge.color }]}>{badge.label}</Text>
                       </View>
-                      <Text style={wpStyles.groupTime}>{s.startTime || "?"} - {endTime}</Text>
+                      <Text style={wpStyles.groupTime}>{localStart} - {endTime}</Text>
                       <View style={wpStyles.groupCapacity}>
                         <Text style={[
                           wpStyles.capacityText,
