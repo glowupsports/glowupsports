@@ -1,5 +1,5 @@
 import React, { useRef, useCallback, useState, useMemo, useEffect } from "react";
-import { StyleSheet, View, Platform, Pressable, Dimensions } from "react-native";
+import { StyleSheet, View, Platform, Pressable, useWindowDimensions, ScrollView } from "react-native";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { BlurView } from "expo-blur";
 import { LinearGradient } from "expo-linear-gradient";
@@ -9,8 +9,6 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import * as Haptics from "expo-haptics";
 import { Colors } from "@/constants/theme";
 import { useTabNavigation } from "./TabNavigationContext";
-
-const { width: SCREEN_WIDTH } = Dimensions.get("window");
 
 export interface TabConfig {
   key: string;
@@ -53,12 +51,16 @@ function SwipeableTabItem({
 
   return (
     <Pressable 
-      style={styles.swipeTabItem} 
+      style={({ hovered }) => [
+        styles.swipeTabItem,
+        Platform.OS === "web" && { cursor: "pointer" as any },
+        Platform.OS === "web" && hovered && !focused && styles.tabItemHovered,
+      ]} 
       onPress={onPress}
       android_ripple={{ color: activeColor + "30", borderless: true }}
     >
       <Animated.View style={[styles.swipeTabIconContainer, animatedStyle]}>
-        {focused && <View style={[styles.tabIconGlow, { backgroundColor: activeColor }]} />}
+        {focused ? <View style={[styles.tabIconGlow, { backgroundColor: activeColor }]} /> : null}
         <Ionicons 
           name={iconName}
           size={24} 
@@ -82,10 +84,11 @@ interface TabIndicatorProps {
   tabCount: number;
   primaryColor: string;
   secondaryColor: string;
+  containerWidth: number;
 }
 
-function TabIndicator({ scrollOffset, tabCount, primaryColor, secondaryColor }: TabIndicatorProps) {
-  const tabWidth = SCREEN_WIDTH / tabCount;
+function TabIndicator({ scrollOffset, tabCount, primaryColor, secondaryColor, containerWidth }: TabIndicatorProps) {
+  const tabWidth = containerWidth / tabCount;
   
   const animatedStyle = useAnimatedStyle(() => {
     return {
@@ -130,17 +133,41 @@ export function SwipeableTabBar({
   dividerAfterIndices = [],
 }: SwipeableTabBarProps) {
   const insets = useSafeAreaInsets();
+  const { width: windowWidth } = useWindowDimensions();
   const [currentIndex, setCurrentIndex] = useState(initialPage);
   const [visitedTabs, setVisitedTabs] = useState<Set<number>>(() => new Set([initialPage]));
   const pagerRef = useRef<PagerView>(null);
   const scrollOffset = useSharedValue(initialPage);
   const lastScrollOffset = useRef(initialPage);
   const edgeSwipeTriggered = useRef(false);
-  const { registerPager, scrollEnabled } = useTabNavigation();
+  const { registerPager, registerWebTabSetter, scrollEnabled } = useTabNavigation();
+
+  const isWeb = Platform.OS === "web";
+  const containerWidth = isWeb ? Math.min(windowWidth, 480) : windowWidth;
 
   useEffect(() => {
     registerPager(pagerRef, tabs);
   }, [registerPager, tabs]);
+
+  const webSetTab = useCallback((index: number) => {
+    setCurrentIndex(index);
+    scrollOffset.value = index;
+    setVisitedTabs(prev => {
+      if (prev.has(index)) return prev;
+      const next = new Set(prev);
+      next.add(index);
+      return next;
+    });
+    if (onPageChange && tabs[index]) {
+      onPageChange(index, tabs[index].key);
+    }
+  }, [scrollOffset, onPageChange, tabs]);
+
+  useEffect(() => {
+    if (isWeb) {
+      registerWebTabSetter(webSetTab);
+    }
+  }, [isWeb, registerWebTabSetter, webSetTab]);
 
   const handlePageSelected = useCallback((e: any) => {
     const newIndex = e.nativeEvent.position;
@@ -153,7 +180,9 @@ export function SwipeableTabBar({
       next.add(newIndex);
       return next;
     });
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    if (Platform.OS !== "web") {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    }
     if (onPageChange) {
       onPageChange(newIndex, tabs[newIndex].key);
     }
@@ -167,7 +196,9 @@ export function SwipeableTabBar({
     if (onEdgeSwipeLeft && position === 0 && offset < 0 && !edgeSwipeTriggered.current) {
       if (lastScrollOffset.current >= 0 && currentOffset < -0.1) {
         edgeSwipeTriggered.current = true;
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+        if (Platform.OS !== "web") {
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+        }
         onEdgeSwipeLeft();
       }
     }
@@ -176,18 +207,19 @@ export function SwipeableTabBar({
   }, [scrollOffset, onEdgeSwipeLeft]);
 
   const navigateToPage = useCallback((index: number) => {
-    pagerRef.current?.setPage(index);
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-  }, []);
+    if (isWeb) {
+      webSetTab(index);
+    } else {
+      pagerRef.current?.setPage(index);
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    }
+  }, [isWeb, webSetTab]);
 
   const currentTabKey = tabs[currentIndex].key;
 
   const screens = useMemo(() => 
     tabs.map((tab, index) => {
       const TabComponent = tab.component;
-      // Only render the CURRENT tab to prevent multiple navigator registration conflicts
-      // Stack navigators (PlayStack, ScheduleStack, ProgressStack) cannot be mounted simultaneously
-      // This trades smooth swiping animation for stability - the tab will mount when it becomes active
       const shouldRender = index === currentIndex;
       return (
         <View key={tab.key} style={styles.pageContainer}>
@@ -197,22 +229,61 @@ export function SwipeableTabBar({
     }), [tabs, currentIndex]
   );
 
+  const tabBarContent = (
+    <>
+      <TabIndicator 
+        scrollOffset={scrollOffset} 
+        tabCount={tabs.length}
+        primaryColor={primaryColor}
+        secondaryColor={secondaryColor}
+        containerWidth={containerWidth}
+      />
+      
+      <View style={styles.swipeTabRow}>
+        {tabs.map((tab, index) => (
+          <React.Fragment key={tab.key}>
+            <SwipeableTabItem
+              tab={tab}
+              index={index}
+              currentIndex={currentIndex}
+              scrollOffset={scrollOffset}
+              onPress={() => navigateToPage(index)}
+              activeColor={primaryColor}
+              inactiveColor={inactiveColor}
+            />
+            {dividerAfterIndices.includes(index) ? (
+              <View style={styles.tabDivider} />
+            ) : null}
+          </React.Fragment>
+        ))}
+      </View>
+    </>
+  );
+
+  const bottomPadding = insets.bottom > 0 ? insets.bottom : 16;
+
   return (
     <View style={styles.container}>
-      <PagerView
-        ref={pagerRef}
-        style={styles.pagerView}
-        initialPage={initialPage}
-        onPageSelected={handlePageSelected}
-        onPageScroll={handlePageScroll}
-        overdrag={true}
-        overScrollMode="never"
-        scrollEnabled={scrollEnabled}
-      >
-        {screens}
-      </PagerView>
+      {isWeb ? (
+        <View style={styles.pageContainer}>
+          {screens[currentIndex]}
+        </View>
+      ) : (
+        <PagerView
+          ref={pagerRef}
+          style={styles.pagerView}
+          initialPage={initialPage}
+          onPageSelected={handlePageSelected}
+          onPageScroll={handlePageScroll}
+          overdrag={true}
+          overScrollMode="never"
+          scrollEnabled={scrollEnabled}
+        >
+          {screens}
+        </PagerView>
+      )}
 
-      <View style={[styles.swipeTabBar, { paddingBottom: insets.bottom > 0 ? insets.bottom : 16 }]}>
+      <View style={[styles.swipeTabBar, { paddingBottom: bottomPadding }]}>
         <View style={styles.swipeTabBarBackground}>
           <LinearGradient
             colors={[primaryColor + "40", "transparent", secondaryColor + "40"]}
@@ -227,31 +298,7 @@ export function SwipeableTabBar({
           )}
         </View>
         
-        <TabIndicator 
-          scrollOffset={scrollOffset} 
-          tabCount={tabs.length}
-          primaryColor={primaryColor}
-          secondaryColor={secondaryColor}
-        />
-        
-        <View style={styles.swipeTabRow}>
-          {tabs.map((tab, index) => (
-            <React.Fragment key={tab.key}>
-              <SwipeableTabItem
-                tab={tab}
-                index={index}
-                currentIndex={currentIndex}
-                scrollOffset={scrollOffset}
-                onPress={() => navigateToPage(index)}
-                activeColor={primaryColor}
-                inactiveColor={inactiveColor}
-              />
-              {dividerAfterIndices.includes(index) ? (
-                <View style={styles.tabDivider} />
-              ) : null}
-            </React.Fragment>
-          ))}
-        </View>
+        {tabBarContent}
       </View>
 
       {renderOverlay ? renderOverlay(currentTabKey) : null}
@@ -293,6 +340,9 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     paddingVertical: 4,
   },
+  tabItemHovered: {
+    opacity: 0.7,
+  },
   swipeTabIconContainer: {
     position: "relative",
     alignItems: "center",
@@ -301,7 +351,7 @@ const styles = StyleSheet.create({
     height: 32,
   },
   swipeTabLabel: {
-    fontSize: 9,
+    fontSize: Platform.OS === "web" ? 10 : 9,
     fontWeight: "600",
     letterSpacing: 0.3,
     marginTop: 2,

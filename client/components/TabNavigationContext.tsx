@@ -1,9 +1,11 @@
 import React, { createContext, useContext, useCallback, useRef, useState, ReactNode } from "react";
+import { Platform } from "react-native";
 import PagerView from "react-native-pager-view";
 import * as Haptics from "expo-haptics";
 import { NavigationContainerRef } from "@react-navigation/native";
 
 type TabNavigationCallback = (screen: string, params?: any) => void;
+type WebTabSetter = (index: number) => void;
 
 interface TabNavigationContextType {
   navigateToTab: (tabKey: string, screenParams?: { screen: string; params?: any }) => void;
@@ -11,6 +13,7 @@ interface TabNavigationContextType {
   registerNavigation: (navRef: NavigationContainerRef<any>) => void;
   getNavigation: () => NavigationContainerRef<any> | null;
   registerTabCallback: (tabKey: string, callback: TabNavigationCallback) => () => void;
+  registerWebTabSetter: (setter: WebTabSetter) => void;
   scrollEnabled: boolean;
   setScrollEnabled: (enabled: boolean) => void;
 }
@@ -27,11 +30,16 @@ export function TabNavigationProvider({ children }: TabNavigationProviderProps) 
   const pagerRefStore = useRef<React.RefObject<PagerView | null> | null>(null);
   const tabsStore = useRef<{ key: string }[]>([]);
   const tabCallbacks = useRef<Map<string, TabNavigationCallback>>(new Map());
+  const webTabSetterRef = useRef<WebTabSetter | null>(null);
   const [scrollEnabled, setScrollEnabled] = useState(true);
 
   const registerPager = useCallback((pagerRef: React.RefObject<PagerView | null>, tabs: { key: string }[]) => {
     pagerRefStore.current = pagerRef;
     tabsStore.current = tabs;
+  }, []);
+
+  const registerWebTabSetter = useCallback((setter: WebTabSetter) => {
+    webTabSetterRef.current = setter;
   }, []);
 
   const registerNavigation = useCallback((navRef: NavigationContainerRef<any>) => {
@@ -50,7 +58,7 @@ export function TabNavigationProvider({ children }: TabNavigationProviderProps) 
   }, []);
 
   const navigateToTab = useCallback((tabKey: string, screenParams?: { screen: string; params?: any }) => {
-    if (!pagerRefStore.current?.current || !tabsStore.current.length) {
+    if (!tabsStore.current.length) {
       return;
     }
     
@@ -58,9 +66,15 @@ export function TabNavigationProvider({ children }: TabNavigationProviderProps) 
     if (tabIndex === -1) {
       return;
     }
-    
-    pagerRefStore.current.current.setPage(tabIndex);
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+
+    if (Platform.OS === "web" && webTabSetterRef.current) {
+      webTabSetterRef.current(tabIndex);
+    } else if (pagerRefStore.current?.current) {
+      pagerRefStore.current.current.setPage(tabIndex);
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    } else {
+      return;
+    }
 
     if (screenParams) {
       setTimeout(() => {
@@ -73,7 +87,7 @@ export function TabNavigationProvider({ children }: TabNavigationProviderProps) 
   }, []);
 
   return (
-    <TabNavigationContext.Provider value={{ navigateToTab, registerPager, registerNavigation, getNavigation, registerTabCallback, scrollEnabled, setScrollEnabled }}>
+    <TabNavigationContext.Provider value={{ navigateToTab, registerPager, registerNavigation, getNavigation, registerTabCallback, registerWebTabSetter, scrollEnabled, setScrollEnabled }}>
       {children}
     </TabNavigationContext.Provider>
   );
@@ -90,6 +104,7 @@ export function useTabNavigation(): TabNavigationContextType {
       registerNavigation: () => {},
       getNavigation: () => globalNavigationRef,
       registerTabCallback: () => () => {},
+      registerWebTabSetter: () => {},
       scrollEnabled: true,
       setScrollEnabled: () => {}
     };

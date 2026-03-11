@@ -328,13 +328,15 @@ export const Spacing = {
   footerExpanded: 400,
 };
 
+const webFontBump = Platform.OS === "web" ? 1 : 0;
+
 export const FontSizes = {
-  xs: 10,
-  sm: 12,
-  md: 14,
-  lg: 16,
-  xl: 18,
-  "2xl": 20,
+  xs: 10 + webFontBump,
+  sm: 12 + webFontBump,
+  md: 14 + webFontBump,
+  lg: 16 + webFontBump,
+  xl: 18 + webFontBump,
+  "2xl": 20 + webFontBump,
   "3xl": 24,
   "4xl": 28,
   "5xl": 32,
@@ -471,60 +473,32 @@ export const CardStyles = {
   },
 };
 
-// Premium Shadow Presets
+// Premium Shadow Presets (cross-platform: iOS shadow*, Android elevation, Web boxShadow)
+function createShadow(color: string, offsetY: number, opacity: number, radius: number, elevation: number) {
+  const base: any = {
+    shadowColor: color,
+    shadowOffset: { width: 0, height: offsetY },
+    shadowOpacity: opacity,
+    shadowRadius: radius,
+    elevation,
+  };
+  if (Platform.OS === "web") {
+    const r = parseInt(color.slice(1, 3), 16) || 0;
+    const g = parseInt(color.slice(3, 5), 16) || 0;
+    const b = parseInt(color.slice(5, 7), 16) || 0;
+    base.boxShadow = `0px ${offsetY}px ${radius * 2}px rgba(${r}, ${g}, ${b}, ${opacity})`;
+  }
+  return base;
+}
+
 export const Shadows = {
-  // No shadow (flat)
-  none: {
-    shadowColor: "transparent",
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0,
-    shadowRadius: 0,
-    elevation: 0,
-  },
-  // Subtle shadow
-  subtle: {
-    shadowColor: "#000000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.15,
-    shadowRadius: 4,
-    elevation: 2,
-  },
-  // Medium shadow
-  medium: {
-    shadowColor: "#000000",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
-    shadowRadius: 8,
-    elevation: 4,
-  },
-  glow: {
-    shadowColor: GlowColors.primary,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.15,
-    shadowRadius: 6,
-    elevation: 4,
-  },
-  glowSubtle: {
-    shadowColor: GlowColors.primary,
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.08,
-    shadowRadius: 4,
-    elevation: 2,
-  },
-  glowAdmin: {
-    shadowColor: RoleColors.admin,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.15,
-    shadowRadius: 6,
-    elevation: 4,
-  },
-  glowError: {
-    shadowColor: FunctionColors.error,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.12,
-    shadowRadius: 6,
-    elevation: 3,
-  },
+  none: createShadow("#000000", 0, 0, 0, 0),
+  subtle: createShadow("#000000", 2, 0.15, 4, 2),
+  medium: createShadow("#000000", 4, 0.2, 8, 4),
+  glow: createShadow(GlowColors.primary, 2, 0.15, 6, 4),
+  glowSubtle: createShadow(GlowColors.primary, 1, 0.08, 4, 2),
+  glowAdmin: createShadow(RoleColors.admin, 2, 0.15, 6, 4),
+  glowError: createShadow(FunctionColors.error, 2, 0.12, 6, 3),
 };
 
 // Gradient presets for premium UI
@@ -606,6 +580,9 @@ export const CardElevation = {
     },
     android: {
       elevation: 8,
+    },
+    web: {
+      boxShadow: '0px 10px 30px rgba(0, 0, 0, 0.4)',
     },
     default: {},
   }),

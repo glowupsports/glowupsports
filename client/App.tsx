@@ -46,6 +46,7 @@ import { UIInteractionProvider } from "@/contexts/UIInteractionContext";
 import { TabNavigationProvider, useTabNavigation } from "@/components/TabNavigationContext";
 import { CoachMarksProvider } from "@/components/CoachMarks";
 import { CelebrationProvider } from "@/contexts/CelebrationContext";
+import { WebContainer } from "@/components/WebContainer";
 
 const linking: LinkingOptions<any> = {
   prefixes: [Linking.createURL("/"), "glowupsports://"],
@@ -145,10 +146,12 @@ export default function App() {
                                 <TabNavigationProvider>
                                   <CoachMarksProvider>
                                     <CelebrationProvider>
-                                      <RTLDirectionWrapper>
-                                        <ImpersonationBanner />
-                                        <NavigationContainerWithRef />
-                                      </RTLDirectionWrapper>
+                                      <WebContainer>
+                                        <RTLDirectionWrapper>
+                                          <ImpersonationBanner />
+                                          <NavigationContainerWithRef />
+                                        </RTLDirectionWrapper>
+                                      </WebContainer>
                                     </CelebrationProvider>
                                   </CoachMarksProvider>
                                 </TabNavigationProvider>
