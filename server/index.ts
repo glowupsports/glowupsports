@@ -266,7 +266,7 @@ function setupExpoDevProxy(app: express.Application) {
       return next();
     }
     if (req.path === '/') {
-      return expoProxy(req, res, next);
+      return next();
     }
     if (req.path.endsWith('.html') || req.path.endsWith('.js') || req.path.endsWith('.css') || req.path.endsWith('.json') || req.path.endsWith('.png') || req.path.endsWith('.ico')) {
       return next();
@@ -367,7 +367,20 @@ function configureExpoAndLanding(app: express.Application) {
       return serveExpoManifest(platform, res);
     }
 
-    if (req.path === "/" || req.path === "/landing") {
+    if (req.path === "/landing") {
+      return serveLandingPage({
+        req,
+        res,
+        landingPageTemplate,
+        appName,
+      });
+    }
+
+    if (req.path === "/") {
+      const distIndexPath = path.resolve(process.cwd(), "dist", "index.html");
+      if (fs.existsSync(distIndexPath)) {
+        return res.sendFile(distIndexPath);
+      }
       return serveLandingPage({
         req,
         res,

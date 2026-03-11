@@ -4842,21 +4842,41 @@ export async function registerRoutes(app: Express): Promise<Server> {
             : Promise.resolve([]),
         ]);
 
-        const leftSeriesPlayers = seriesIds.length > 0
-          ? await db
-              .select({
-                seriesId: seriesPlayers.seriesId,
-                playerId: seriesPlayers.playerId,
-                leftAt: seriesPlayers.leftAt,
-              })
-              .from(seriesPlayers)
-              .where(
-                and(
-                  inArray(seriesPlayers.seriesId, seriesIds),
-                  eq(seriesPlayers.status, "left"),
-                ),
-              )
-          : [];
+        const [leftSeriesPlayers, pausedSeriesPlayers] = await Promise.all([
+          seriesIds.length > 0
+            ? db
+                .select({
+                  seriesId: seriesPlayers.seriesId,
+                  playerId: seriesPlayers.playerId,
+                  leftAt: seriesPlayers.leftAt,
+                })
+                .from(seriesPlayers)
+                .where(
+                  and(
+                    inArray(seriesPlayers.seriesId, seriesIds),
+                    eq(seriesPlayers.status, "left"),
+                  ),
+                )
+            : Promise.resolve([]),
+          seriesIds.length > 0
+            ? db
+                .select({
+                  seriesId: seriesPlayers.seriesId,
+                  playerId: seriesPlayers.playerId,
+                  pauseFrom: seriesPlayers.pauseFrom,
+                  pauseUntil: seriesPlayers.pauseUntil,
+                })
+                .from(seriesPlayers)
+                .where(
+                  and(
+                    inArray(seriesPlayers.seriesId, seriesIds),
+                    eq(seriesPlayers.status, "paused"),
+                    isNotNull(seriesPlayers.pauseFrom),
+                    isNotNull(seriesPlayers.pauseUntil),
+                  ),
+                )
+            : Promise.resolve([]),
+        ]);
 
         const leftPlayersBySeriesMap = new Map<string, { playerId: string; leftAt: Date | null }[]>();
         for (const lp of leftSeriesPlayers) {
@@ -4864,6 +4884,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
           if (!leftPlayersBySeriesMap.has(lp.seriesId))
             leftPlayersBySeriesMap.set(lp.seriesId, []);
           leftPlayersBySeriesMap.get(lp.seriesId)!.push({ playerId: lp.playerId, leftAt: lp.leftAt });
+        }
+
+        const pausedPlayersBySeriesMap = new Map<string, { playerId: string; pauseFrom: string; pauseUntil: string }[]>();
+        for (const pp of pausedSeriesPlayers) {
+          if (!pp.seriesId) continue;
+          if (!pausedPlayersBySeriesMap.has(pp.seriesId))
+            pausedPlayersBySeriesMap.set(pp.seriesId, []);
+          const pFrom = typeof pp.pauseFrom === 'string' ? pp.pauseFrom : pp.pauseFrom!.toISOString().split('T')[0];
+          const pUntil = typeof pp.pauseUntil === 'string' ? pp.pauseUntil : pp.pauseUntil!.toISOString().split('T')[0];
+          pausedPlayersBySeriesMap.get(pp.seriesId)!.push({ playerId: pp.playerId, pauseFrom: pFrom, pauseUntil: pUntil });
         }
 
         // Create lookup maps
@@ -4896,20 +4926,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
             : [];
 
           const sessionStartTime = new Date(session.startTime);
+          const sessionDate = sessionStartTime.toISOString().split('T')[0];
           const leftPlayerIdsForSession = new Set(
             leftPlayers
               .filter(lp => !lp.leftAt || new Date(lp.leftAt) <= sessionStartTime)
               .map(lp => lp.playerId)
           );
 
-          // Combine: session players override series players
-          // For non-completed sessions, filter out players who left the series before this session
+          const pausedPlayersForSeries = session.seriesId
+            ? pausedPlayersBySeriesMap.get(session.seriesId) || []
+            : [];
+          const pausedPlayerIdsForSession = new Set(
+            pausedPlayersForSeries
+              .filter((pp) => sessionDate >= pp.pauseFrom && sessionDate <= pp.pauseUntil)
+              .map((pp) => pp.playerId)
+          );
+
           const sessionPlayerIds = new Set(
             sessionSpecificPlayers.map((p) => p.playerId),
           );
           const filteredSessionPlayers = isCompleted
             ? sessionSpecificPlayers
-            : sessionSpecificPlayers.filter((p) => p.isGuest || !leftPlayerIdsForSession.has(p.playerId));
+            : sessionSpecificPlayers.filter((p) => p.isGuest || (!leftPlayerIdsForSession.has(p.playerId) && !pausedPlayerIdsForSession.has(p.playerId)));
 
           const combinedPlayers = [
             ...filteredSessionPlayers.map((p) => ({
@@ -13700,6 +13738,34 @@ export async function registerRoutes(app: Express): Promise<Server> {
           return res
             .status(404)
             .json({ error: "Player not found in this class" });
+        }
+
+        try {
+          const futureSessions = await db
+            .select({ id: sessions.id })
+            .from(sessions)
+            .where(
+              and(
+                eq(sessions.seriesId, id),
+                eq(sessions.status, "scheduled"),
+                gte(sql`${sessions.startTime}::date`, sql`${pauseFrom}::date`),
+                lte(sql`${sessions.startTime}::date`, sql`${pauseUntil}::date`),
+              )
+            );
+          if (futureSessions.length > 0) {
+            const sessionIds = futureSessions.map(s => s.id);
+            const deleted = await db
+              .delete(sessionPlayers)
+              .where(
+                and(
+                  eq(sessionPlayers.playerId, playerId),
+                  inArray(sessionPlayers.sessionId, sessionIds),
+                )
+              );
+            console.log(`[Pause] Removed session_player records for player ${playerId} from ${futureSessions.length} sessions during pause ${pauseFrom} to ${pauseUntil}`);
+          }
+        } catch (cleanupErr) {
+          console.error("[Pause] Error removing future session_players:", cleanupErr);
         }
 
         apiCache.invalidate(`series:${coachId}`);
