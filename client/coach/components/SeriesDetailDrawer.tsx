@@ -553,6 +553,7 @@ export default function SeriesDetailDrawer({
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [`/api/coach/series/${seriesId}`] });
+      queryClient.invalidateQueries({ queryKey: ["/api/coach/series"] });
       setPausingPlayerId(null);
       setPlayerActionMenuId(null);
       setShowPauseModal(false);
@@ -572,6 +573,7 @@ export default function SeriesDetailDrawer({
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [`/api/coach/series/${seriesId}`] });
+      queryClient.invalidateQueries({ queryKey: ["/api/coach/series"] });
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     },
   });
