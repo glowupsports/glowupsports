@@ -6607,6 +6607,13 @@ export const storage = {
 
   // Get player credit balance by type, including debts (negative balances)
   // Returns balance per credit type: positive = available credits, negative = debt
+  //
+  // Hybrid approach combining three sources to prevent double-counting:
+  //   1. credit_transactions ledger (purchases, debits, adjustments)
+  //   2. packages table fallback: for each existing package without a matching
+  //      positive credit_transaction, adds package.totalCredits to balance
+  //   3. session_players cross-reference: for each attended session without a
+  //      matching debit transaction, adds a debit to balance
   async getPlayerCreditBalanceByType(playerId: string): Promise<{
     group: number;
     semi_private: number;
@@ -6614,51 +6621,66 @@ export const storage = {
     totalDebt: number;
     hasDebt: boolean;
   }> {
+    const normalizeType = (type: string | undefined): string => {
+      if (!type) return "group";
+      const normalized = type.toLowerCase().replace("-", "_").replace(" ", "_");
+      if (normalized === "semi" || normalized === "semi_private" || normalized === "semi_private_adjusted") return "semi_private";
+      if (normalized === "private" || normalized === "private_adjusted") return "private";
+      if (normalized === "group_adjusted") return "group";
+      return "group";
+    };
+
     const allTransactions = await db.select({
       amount: creditTransactions.amount,
       creditType: creditTransactions.creditType,
       reason: creditTransactions.reason,
       metadata: creditTransactions.metadata,
       packageId: creditTransactions.packageId,
+      sessionId: creditTransactions.sessionId,
     }).from(creditTransactions)
       .where(eq(creditTransactions.playerId, playerId));
     
-    // Get ALL packages for this player (any status) to validate purchase credits
-    // Ghost credits are only for DELETED packages (not in DB at all)
-    // Depleted/expired packages are REAL - their purchases are valid
     const allPlayerPackages = await db.select({
       id: packages.id,
       status: packages.status,
       expiryDate: packages.expiryDate,
+      totalCredits: packages.totalCredits,
+      creditType: packages.creditType,
     }).from(packages)
       .where(eq(packages.playerId, playerId));
     
     const existingPackageIds = new Set(allPlayerPackages.map(pkg => pkg.id));
     
+    const attendedSessions = await db.select({
+      sessionId: sessionPlayers.sessionId,
+    }).from(sessionPlayers)
+      .where(and(
+        eq(sessionPlayers.playerId, playerId),
+        or(
+          eq(sessionPlayers.attendanceStatus, "present"),
+          eq(sessionPlayers.attendanceStatus, "late")
+        )
+      ));
+    
     const balance = { group: 0, semi_private: 0, private: 0 };
+    const debitSessionIds = new Set<string>();
+    const packageIdsWithPurchaseTx = new Set<string>();
     
     for (const tx of allTransactions) {
       const meta = tx.metadata as { settled?: boolean; cancelled?: boolean; expired?: boolean } | null;
       
-      // SKIP all debt_settlement transactions entirely
-      // Balance = package_purchased credits - ALL session debts (settled or not)
-      // The package credits naturally cancel out the debts, no need for settlement transactions
       if (tx.reason === "debt_settlement") {
         continue;
       }
       
-      // Skip cancelled/expired transactions (but NOT settled session_debts - those are real usage)
       if (meta?.cancelled === true || meta?.expired === true) continue;
       
-      // For purchase/package credits, only count if the package EXISTS in the database
-      // Depleted/expired packages are still real - only truly deleted packages are ghosts
       if (Number(tx.amount) > 0 && tx.packageId) {
         if (!existingPackageIds.has(tx.packageId)) {
           continue;
         }
+        packageIdsWithPurchaseTx.add(tx.packageId);
       }
-      // Orphan purchase/refund credits (no packageId) - skip if reason is package-related
-      // This catches ghost credits from deleted packages and orphaned refund transactions
       if (Number(tx.amount) > 0 && !tx.packageId && (
         tx.reason === "package_purchased" || 
         tx.reason === "package_purchase" || 
@@ -6667,10 +6689,13 @@ export const storage = {
         continue;
       }
       
-      // Skip transactions with null/invalid credit type - these are data corruption
       if (!tx.creditType) {
         console.warn(`[CreditBalance] Skipping transaction with null credit_type for player ${playerId}, reason: ${tx.reason}, amount: ${tx.amount}`);
         continue;
+      }
+      
+      if (Number(tx.amount) < 0 && tx.sessionId) {
+        debitSessionIds.add(tx.sessionId);
       }
       
       const creditType = tx.creditType as keyof typeof balance;
@@ -6679,7 +6704,38 @@ export const storage = {
       }
     }
     
-    // Calculate total debt (negative balance means player owes credits)
+    for (const pkg of allPlayerPackages) {
+      if (packageIdsWithPurchaseTx.has(pkg.id)) continue;
+      const creditType = normalizeType(pkg.creditType) as keyof typeof balance;
+      if (balance[creditType] !== undefined) {
+        balance[creditType] += Number(pkg.totalCredits);
+      }
+    }
+    
+    const missingSessions: string[] = [];
+    for (const sp of attendedSessions) {
+      if (!debitSessionIds.has(sp.sessionId)) {
+        missingSessions.push(sp.sessionId);
+      }
+    }
+    
+    if (missingSessions.length > 0) {
+      const sessionTypeResults = await db.select({
+        id: sessions.id,
+        sessionType: sessions.sessionType,
+        duration: sessions.duration,
+      }).from(sessions)
+        .where(inArray(sessions.id, missingSessions));
+      
+      for (const sess of sessionTypeResults) {
+        const creditType = normalizeType(sess.sessionType) as keyof typeof balance;
+        const creditCost = (sess.duration || 60) / 60;
+        if (balance[creditType] !== undefined) {
+          balance[creditType] -= creditCost;
+        }
+      }
+    }
+    
     const groupDebt = balance.group < 0 ? Math.abs(balance.group) : 0;
     const semiPrivateDebt = balance.semi_private < 0 ? Math.abs(balance.semi_private) : 0;
     const privateDebt = balance.private < 0 ? Math.abs(balance.private) : 0;

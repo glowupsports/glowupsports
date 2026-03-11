@@ -6141,15 +6141,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
           try {
             // Process each offline action
             switch (action.type) {
-              case "attendance":
-                await storage.updateAttendance(
+              case "attendance": {
+                const spRecord = await storage.updateAttendance(
                   action.sessionId,
                   action.playerId,
                   action.status,
                   action.lateMinutes,
                   action.absenceReason,
                 );
+                const isChargeable = action.status === "present" || action.status === "late";
+                if (isChargeable && spRecord && !spRecord.creditDeductedAt) {
+                  try {
+                    const { ensureCreditProcessed } = await import("./storage");
+                    await ensureCreditProcessed(spRecord.id);
+                  } catch (creditErr) {
+                    console.error(`[OfflineSync] Credit processing failed for player ${action.playerId}:`, creditErr);
+                  }
+                }
                 break;
+              }
               case "feedback":
                 await storage.createSessionFeedback({
                   sessionId: action.sessionId,
@@ -22102,11 +22112,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
 
         // Update session player with late status
+        const wasCharged = sessionPlayer.attendanceStatus === "present" || sessionPlayer.attendanceStatus === "late";
         await storage.updateSessionPlayer(sessionPlayer.id, {
           attendanceStatus: "late",
           lateMinutes: minutes,
           notes: message || `Running ${minutes} min late`,
         });
+        if (!wasCharged && !sessionPlayer.creditDeductedAt) {
+          try {
+            const { ensureCreditProcessed } = await import("./storage");
+            await ensureCreditProcessed(sessionPlayer.id);
+          } catch (creditErr) {
+            console.error(`[Late] Credit processing failed for player ${playerId}:`, creditErr);
+          }
+        }
 
         const player = await storage.getPlayer(playerId);
 
@@ -22170,10 +22189,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
         // Try to update session_players attendance
         const sp = await storage.getSessionPlayer(sessionId, playerId);
         if (sp) {
+          const wasCharged = sp.attendanceStatus === "present" || sp.attendanceStatus === "late";
           await storage.updateSessionPlayer(sp.id, {
             attendanceStatus: "present",
             checkedInAt: new Date(),
           });
+          if (!wasCharged && !sp.creditDeductedAt) {
+            try {
+              const { ensureCreditProcessed } = await import("./storage");
+              await ensureCreditProcessed(sp.id);
+            } catch (creditErr) {
+              console.error(`[CheckIn] Credit processing failed for player ${playerId}:`, creditErr);
+            }
+          }
         }
 
         // Award XP for early check-in
