@@ -4945,9 +4945,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
           const sessionPlayerIds = new Set(
             sessionSpecificPlayers.map((p) => p.playerId),
           );
-          const filteredSessionPlayers = isCompleted
-            ? sessionSpecificPlayers
-            : sessionSpecificPlayers.filter((p) => p.isGuest || (!leftPlayerIdsForSession.has(p.playerId) && !pausedPlayerIdsForSession.has(p.playerId)));
+          const filteredSessionPlayers = sessionSpecificPlayers.filter((p) => {
+            if (pausedPlayerIdsForSession.has(p.playerId)) return false;
+            if (isCompleted) return true;
+            if (p.isGuest) return true;
+            if (leftPlayerIdsForSession.has(p.playerId)) return false;
+            return true;
+          });
 
           const combinedPlayers = [
             ...filteredSessionPlayers.map((p) => ({
@@ -13741,20 +13745,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
 
         try {
-          const futureSessions = await db
+          const affectedSessions = await db
             .select({ id: sessions.id })
             .from(sessions)
             .where(
               and(
                 eq(sessions.seriesId, id),
-                eq(sessions.status, "scheduled"),
+                inArray(sessions.status, ["scheduled", "completed"]),
                 gte(sql`${sessions.startTime}::date`, sql`${pauseFrom}::date`),
                 lte(sql`${sessions.startTime}::date`, sql`${pauseUntil}::date`),
               )
             );
-          if (futureSessions.length > 0) {
-            const sessionIds = futureSessions.map(s => s.id);
-            const deleted = await db
+          if (affectedSessions.length > 0) {
+            const sessionIds = affectedSessions.map(s => s.id);
+            await db
               .delete(sessionPlayers)
               .where(
                 and(
@@ -13762,7 +13766,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
                   inArray(sessionPlayers.sessionId, sessionIds),
                 )
               );
-            console.log(`[Pause] Removed session_player records for player ${playerId} from ${futureSessions.length} sessions during pause ${pauseFrom} to ${pauseUntil}`);
+            console.log(`[Pause] Removed session_player records for player ${playerId} from ${affectedSessions.length} sessions during pause ${pauseFrom} to ${pauseUntil}`);
           }
         } catch (cleanupErr) {
           console.error("[Pause] Error removing future session_players:", cleanupErr);
