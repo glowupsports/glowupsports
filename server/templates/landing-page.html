@@ -3,1302 +3,959 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Glow Up Sports - World's First RPG-Style Tennis Platform</title>
-  <meta name="description" content="Transform your tennis academy into an epic gaming hub. Revolutionary AI analyzes 6 core tennis attributes to create personalized player DNA profiles.">
+  <title>Glow Up Tennis — Dubai's Elite Tennis Academy</title>
+  <meta name="description" content="Join Glow Up Tennis in Dubai — where world-class coaching meets cutting-edge performance tracking. Group training, private sessions, and a unique player development system.">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" media="print" onload="this.media='all'" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap">
+  <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap"></noscript>
   <style>
-    * {
-      margin: 0;
-      padding: 0;
-      box-sizing: border-box;
-    }
+    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
 
     :root {
-      --primary-green: #00FF88;
-      --primary-cyan: #00D4FF;
-      --primary-yellow: #FFD700;
-      --primary-orange: #FF6B35;
-      --primary-purple: #A855F7;
-      --primary-pink: #FF1493;
-      --bg-dark: #0a0a1a;
-      --bg-card: rgba(255,255,255,0.05);
-      --text-primary: #ffffff;
-      --text-secondary: rgba(255,255,255,0.7);
-      --text-muted: rgba(255,255,255,0.5);
+      --bg:        #0C1118;
+      --bg2:       #111820;
+      --bg3:       #161D28;
+      --accent:    #C8FF3D;
+      --accent-dk: #9FCC2A;
+      --text:      #F0F4F8;
+      --muted:     #8A95A3;
+      --border:    rgba(255,255,255,0.07);
+      --radius:    14px;
     }
 
     body {
-      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
-      background: linear-gradient(135deg, #0a0a1a 0%, #1a0a2e 50%, #0a1a2e 100%);
-      color: var(--text-primary);
-      line-height: 1.6;
+      font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.65;
       overflow-x: hidden;
     }
 
+    a { color: inherit; text-decoration: none; }
+
     .container {
-      max-width: 1200px;
+      max-width: 1160px;
       margin: 0 auto;
-      padding: 0 24px;
+      padding: 0 28px;
     }
 
-    /* Navigation */
+    /* ── NAV ─────────────────────────────────── */
     nav {
-      position: fixed;
-      top: 0;
-      left: 0;
-      right: 0;
-      z-index: 1000;
-      background: rgba(10,10,26,0.95);
-      backdrop-filter: blur(10px);
-      border-bottom: 1px solid rgba(255,255,255,0.1);
+      position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+      background: rgba(12,17,24,0.92);
+      backdrop-filter: blur(14px);
+      border-bottom: 1px solid var(--border);
     }
-
-    .nav-container {
-      max-width: 1200px;
-      margin: 0 auto;
-      padding: 16px 24px;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
+    .nav-inner {
+      max-width: 1160px; margin: 0 auto; padding: 0 28px;
+      height: 68px;
+      display: flex; align-items: center; justify-content: space-between;
     }
-
-    .logo {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      font-weight: 700;
-      font-size: 20px;
+    .nav-logo {
+      display: flex; align-items: center; gap: 10px;
+      font-weight: 800; font-size: 17px; letter-spacing: -0.3px;
     }
-
-    .logo-icon {
-      width: 40px;
-      height: 40px;
-      background: linear-gradient(135deg, var(--primary-green), var(--primary-cyan));
-      border-radius: 10px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 20px;
+    .nav-logo-mark {
+      width: 36px; height: 36px; border-radius: 10px;
+      background: var(--accent);
+      display: flex; align-items: center; justify-content: center;
     }
-
-    .logo-badge {
-      background: var(--primary-purple);
-      color: white;
-      font-size: 10px;
-      padding: 2px 8px;
-      border-radius: 20px;
-      font-weight: 600;
+    .nav-logo-mark svg { width: 20px; height: 20px; }
+    .nav-badge {
+      font-size: 10px; font-weight: 700; letter-spacing: 0.8px;
+      background: rgba(200,255,61,0.12);
+      color: var(--accent);
+      padding: 2px 8px; border-radius: 20px;
+      border: 1px solid rgba(200,255,61,0.2);
     }
-
     .nav-links {
-      display: flex;
-      gap: 32px;
-      align-items: center;
+      display: flex; align-items: center; gap: 8px;
     }
-
     .nav-links a {
-      color: var(--text-secondary);
-      text-decoration: none;
-      font-size: 14px;
-      font-weight: 500;
+      font-size: 14px; font-weight: 500; color: var(--muted);
+      padding: 8px 14px; border-radius: 8px;
       transition: color 0.2s;
     }
+    .nav-links a:hover { color: var(--text); }
+    .nav-links .btn-login {
+      color: var(--text);
+      border: 1px solid var(--border);
+      padding: 8px 16px;
+    }
+    .nav-links .btn-login:hover { border-color: rgba(255,255,255,0.2); }
+    .nav-links .btn-join {
+      background: var(--accent); color: #000;
+      font-weight: 700; font-size: 14px;
+      padding: 9px 20px; border-radius: 9px;
+      transition: background 0.2s, transform 0.15s;
+    }
+    .nav-links .btn-join:hover { background: #d6ff5c; transform: translateY(-1px); }
 
-    .nav-links a:hover {
-      color: var(--text-primary);
+    /* mobile nav toggle */
+    .nav-toggle { display: none; cursor: pointer; padding: 6px; }
+    .nav-toggle span {
+      display: block; width: 22px; height: 2px;
+      background: var(--text); border-radius: 2px;
+      margin: 4px 0; transition: 0.3s;
     }
 
-    .btn {
-      display: inline-flex;
-      align-items: center;
-      gap: 8px;
-      padding: 12px 24px;
-      border-radius: 8px;
-      font-weight: 600;
-      font-size: 14px;
-      text-decoration: none;
-      transition: all 0.2s;
-      cursor: pointer;
-      border: none;
-    }
-
-    .btn-primary {
-      background: linear-gradient(135deg, var(--primary-green), var(--primary-cyan));
-      color: #000;
-    }
-
-    .btn-primary:hover {
-      transform: translateY(-2px);
-      box-shadow: 0 10px 30px rgba(0,255,136,0.3);
-    }
-
-    .btn-secondary {
-      background: rgba(255,255,255,0.1);
-      color: var(--text-primary);
-      border: 1px solid rgba(255,255,255,0.2);
-    }
-
-    .btn-secondary:hover {
-      background: rgba(255,255,255,0.15);
-    }
-
-    /* Hero Section */
+    /* ── HERO ────────────────────────────────── */
     .hero {
-      padding: 140px 0 80px;
+      min-height: 100vh;
+      display: flex; align-items: center;
+      padding-top: 68px;
+      position: relative; overflow: hidden;
+    }
+    /* Court geometry background */
+    .hero::before {
+      content: '';
+      position: absolute; inset: 0;
+      background:
+        radial-gradient(ellipse 80% 60% at 70% 50%, rgba(200,255,61,0.05) 0%, transparent 60%),
+        radial-gradient(ellipse 40% 40% at 20% 80%, rgba(200,255,61,0.03) 0%, transparent 50%);
+    }
+    .hero-court {
+      position: absolute; right: -40px; top: 50%; transform: translateY(-50%);
+      width: 560px; height: 480px; opacity: 0.06;
+      pointer-events: none;
+    }
+    .hero-inner {
+      position: relative; z-index: 2;
+      display: grid; grid-template-columns: 1fr 480px; gap: 60px;
+      align-items: center; padding: 80px 0;
+    }
+    .hero-label {
+      display: inline-flex; align-items: center; gap: 8px;
+      font-size: 12px; font-weight: 700; letter-spacing: 1.2px; text-transform: uppercase;
+      color: var(--accent); margin-bottom: 24px;
+    }
+    .hero-label-dot {
+      width: 6px; height: 6px; border-radius: 50%;
+      background: var(--accent);
+    }
+    .hero h1 {
+      font-size: clamp(40px, 5vw, 64px);
+      font-weight: 800; line-height: 1.1; letter-spacing: -2px;
+      margin-bottom: 20px;
+    }
+    .hero h1 em { font-style: normal; color: var(--accent); }
+    .hero-sub {
+      font-size: 18px; color: var(--muted); line-height: 1.7;
+      max-width: 480px; margin-bottom: 36px;
+    }
+    .hero-ctas { display: flex; gap: 14px; flex-wrap: wrap; }
+    .btn-primary {
+      display: inline-flex; align-items: center; gap: 8px;
+      background: var(--accent); color: #000;
+      font-weight: 700; font-size: 15px;
+      padding: 14px 28px; border-radius: 10px;
+      transition: background 0.2s, transform 0.15s;
+    }
+    .btn-primary:hover { background: #d6ff5c; transform: translateY(-2px); }
+    .btn-ghost {
+      display: inline-flex; align-items: center; gap: 8px;
+      color: var(--text); font-weight: 600; font-size: 15px;
+      padding: 14px 28px; border-radius: 10px;
+      border: 1px solid var(--border);
+      transition: border-color 0.2s, transform 0.15s;
+    }
+    .btn-ghost:hover { border-color: rgba(255,255,255,0.2); transform: translateY(-2px); }
+
+    /* Player card floating in hero */
+    .hero-card {
+      background: var(--bg3);
+      border: 1px solid var(--border);
+      border-radius: 20px; padding: 28px;
       position: relative;
     }
+    .hero-card-header {
+      display: flex; align-items: center; gap: 14px;
+      margin-bottom: 24px;
+    }
+    .player-avatar {
+      width: 52px; height: 52px; border-radius: 50%;
+      background: linear-gradient(135deg, var(--accent) 0%, #6EE7B7 100%);
+      display: flex; align-items: center; justify-content: center;
+      font-weight: 800; font-size: 20px; color: #000;
+    }
+    .player-meta { flex: 1; }
+    .player-name { font-weight: 700; font-size: 16px; margin-bottom: 2px; }
+    .player-level-badge {
+      display: inline-flex; align-items: center; gap: 5px;
+      font-size: 11px; font-weight: 700; letter-spacing: 0.5px;
+      background: rgba(200,255,61,0.12); color: var(--accent);
+      padding: 3px 10px; border-radius: 20px;
+      border: 1px solid rgba(200,255,61,0.2);
+    }
+    .glow-score-row {
+      display: flex; align-items: baseline; gap: 8px;
+      margin-bottom: 24px;
+    }
+    .glow-score-num {
+      font-size: 52px; font-weight: 800; letter-spacing: -3px; color: var(--accent);
+    }
+    .glow-score-label { font-size: 13px; color: var(--muted); }
+    .skill-bars { display: flex; flex-direction: column; gap: 10px; }
+    .skill-row { display: flex; align-items: center; gap: 10px; }
+    .skill-name { font-size: 12px; color: var(--muted); width: 72px; flex-shrink: 0; }
+    .skill-track {
+      flex: 1; height: 6px; background: rgba(255,255,255,0.06);
+      border-radius: 3px; overflow: hidden;
+    }
+    .skill-fill { height: 100%; border-radius: 3px; }
+    .skill-score { font-size: 12px; font-weight: 700; width: 28px; text-align: right; }
 
-    .hero-grid {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 60px;
-      align-items: center;
+    /* ── TRUST STRIP ─────────────────────────── */
+    .trust {
+      border-top: 1px solid var(--border);
+      border-bottom: 1px solid var(--border);
+      background: var(--bg2);
+      padding: 36px 0;
+    }
+    .trust-inner {
+      display: flex; align-items: center; justify-content: center;
+      gap: 64px; flex-wrap: wrap;
+    }
+    .trust-label {
+      font-size: 13px; color: var(--muted); font-weight: 500;
+    }
+    .trust-divider {
+      width: 1px; height: 40px; background: var(--border);
+    }
+    .trust-stat { text-align: center; }
+    .trust-stat-num {
+      font-size: 32px; font-weight: 800; color: var(--accent);
+      letter-spacing: -1px; line-height: 1;
+    }
+    .trust-stat-text {
+      font-size: 12px; color: var(--muted); margin-top: 4px;
+      text-transform: uppercase; letter-spacing: 0.6px; font-weight: 600;
     }
 
-    .hero-badge {
+    /* ── SECTIONS SHARED ─────────────────────── */
+    section { padding: 100px 0; }
+    .section-label {
+      font-size: 12px; font-weight: 700; letter-spacing: 1.4px; text-transform: uppercase;
+      color: var(--accent); margin-bottom: 14px;
+    }
+    .section-title {
+      font-size: clamp(28px, 3.5vw, 44px);
+      font-weight: 800; letter-spacing: -1.5px; line-height: 1.15;
+      margin-bottom: 16px;
+    }
+    .section-sub {
+      font-size: 17px; color: var(--muted); max-width: 560px; line-height: 1.7;
+    }
+    .section-head { margin-bottom: 56px; }
+
+    /* ── PROGRAMS ────────────────────────────── */
+    .programs-grid {
+      display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px;
+    }
+    .program-card {
+      background: var(--bg3);
+      border: 1px solid var(--border); border-radius: var(--radius);
+      padding: 32px; position: relative; overflow: hidden;
+      transition: border-color 0.25s, transform 0.2s;
+    }
+    .program-card:hover { border-color: rgba(200,255,61,0.2); transform: translateY(-4px); }
+    .program-card.featured {
+      border-color: rgba(200,255,61,0.25);
+      background: linear-gradient(135deg, rgba(200,255,61,0.04) 0%, var(--bg3) 100%);
+    }
+    .program-tag {
       display: inline-block;
-      background: rgba(168,85,247,0.2);
-      color: var(--primary-purple);
-      padding: 8px 16px;
-      border-radius: 20px;
-      font-size: 12px;
-      font-weight: 600;
-      text-transform: uppercase;
-      letter-spacing: 1px;
-      margin-bottom: 24px;
-    }
-
-    .hero h1 {
-      font-size: 48px;
-      font-weight: 800;
-      line-height: 1.1;
-      margin-bottom: 24px;
-    }
-
-    .hero h1 .gradient {
-      background: linear-gradient(135deg, var(--primary-green), var(--primary-cyan));
-      -webkit-background-clip: text;
-      -webkit-text-fill-color: transparent;
-      background-clip: text;
-    }
-
-    .hero-subtitle {
-      font-size: 18px;
-      color: var(--text-secondary);
-      margin-bottom: 32px;
-    }
-
-    .hero-features {
-      display: flex;
-      flex-direction: column;
-      gap: 12px;
-      margin-bottom: 32px;
-    }
-
-    .hero-feature {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      color: var(--text-secondary);
-      font-size: 14px;
-    }
-
-    .hero-feature-icon {
-      width: 24px;
-      height: 24px;
-      background: rgba(168,85,247,0.2);
-      border-radius: 50%;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 12px;
-    }
-
-    .hero-buttons {
-      display: flex;
-      gap: 16px;
-    }
-
-    /* Glow Score Engine Card */
-    .glow-engine-card {
-      background: var(--bg-card);
-      border: 1px solid rgba(255,255,255,0.1);
-      border-radius: 20px;
-      padding: 32px;
-      backdrop-filter: blur(10px);
-    }
-
-    .glow-engine-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 24px;
-    }
-
-    .glow-engine-title {
-      font-size: 18px;
-      font-weight: 600;
-      display: flex;
-      align-items: center;
-      gap: 8px;
-    }
-
-    .elite-badge {
-      background: linear-gradient(135deg, var(--primary-purple), var(--primary-pink));
-      color: white;
-      padding: 4px 12px;
-      border-radius: 20px;
-      font-size: 12px;
-      font-weight: 600;
-    }
-
-    .skill-bar {
-      margin-bottom: 16px;
-    }
-
-    .skill-bar-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 8px;
-    }
-
-    .skill-bar-label {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      font-size: 14px;
-      color: var(--text-secondary);
-    }
-
-    .skill-bar-value {
-      font-weight: 600;
-      font-size: 14px;
-    }
-
-    .skill-bar-track {
-      height: 8px;
-      background: rgba(255,255,255,0.1);
-      border-radius: 4px;
-      overflow: hidden;
-    }
-
-    .skill-bar-fill {
-      height: 100%;
-      border-radius: 4px;
-      transition: width 1s ease;
-    }
-
-    .skill-forehand .skill-bar-fill { background: linear-gradient(90deg, #00FF88, #00D4FF); }
-    .skill-backhand .skill-bar-fill { background: linear-gradient(90deg, #FFD700, #FF6B35); }
-    .skill-serve .skill-bar-fill { background: linear-gradient(90deg, #A855F7, #FF1493); }
-    .skill-volley .skill-bar-fill { background: linear-gradient(90deg, #00D4FF, #0066FF); }
-    .skill-movement .skill-bar-fill { background: linear-gradient(90deg, #FF6B35, #FF1493); }
-    .skill-gameiq .skill-bar-fill { background: linear-gradient(90deg, #00FF88, #A855F7); }
-
-    .glow-score-container {
-      background: rgba(0,255,136,0.1);
-      border-radius: 16px;
-      padding: 24px;
-      text-align: center;
-      margin-top: 24px;
-    }
-
-    .glow-score-value {
-      font-size: 56px;
-      font-weight: 800;
-      background: linear-gradient(135deg, var(--primary-green), var(--primary-cyan));
-      -webkit-background-clip: text;
-      -webkit-text-fill-color: transparent;
-      background-clip: text;
-    }
-
-    .glow-score-label {
-      color: var(--text-secondary);
-      font-size: 14px;
-      margin-top: 4px;
-    }
-
-    .glow-rank-badge {
-      display: inline-block;
-      background: linear-gradient(135deg, var(--primary-green), var(--primary-cyan));
-      color: #000;
-      padding: 6px 16px;
-      border-radius: 20px;
-      font-size: 12px;
-      font-weight: 700;
-      margin-top: 12px;
-    }
-
-    /* Stats Section */
-    .stats {
-      padding: 60px 0;
-      background: rgba(0,0,0,0.3);
-    }
-
-    .stats-grid {
-      display: grid;
-      grid-template-columns: repeat(4, 1fr);
-      gap: 40px;
-      text-align: center;
-    }
-
-    .stat-item {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-    }
-
-    .stat-icon {
-      width: 48px;
-      height: 48px;
-      background: linear-gradient(135deg, var(--primary-purple), var(--primary-pink));
-      border-radius: 12px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 24px;
-      margin-bottom: 16px;
-    }
-
-    .stat-value {
-      font-size: 36px;
-      font-weight: 800;
-      background: linear-gradient(135deg, var(--primary-green), var(--primary-cyan));
-      -webkit-background-clip: text;
-      -webkit-text-fill-color: transparent;
-      background-clip: text;
-    }
-
-    .stat-label {
-      color: var(--text-secondary);
-      font-size: 14px;
-      margin-top: 4px;
-    }
-
-    /* Features Section */
-    .features {
-      padding: 100px 0;
-    }
-
-    .section-header {
-      text-align: center;
-      margin-bottom: 60px;
-    }
-
-    .section-header h2 {
-      font-size: 40px;
-      font-weight: 800;
-      margin-bottom: 16px;
-    }
-
-    .section-header p {
-      color: var(--text-secondary);
-      font-size: 18px;
-      max-width: 600px;
-      margin: 0 auto;
-    }
-
-    .features-grid {
-      display: grid;
-      grid-template-columns: repeat(3, 1fr);
-      gap: 24px;
-    }
-
-    .feature-card {
-      background: var(--bg-card);
-      border: 1px solid rgba(255,255,255,0.1);
-      border-radius: 16px;
-      padding: 32px;
-      transition: transform 0.2s, box-shadow 0.2s;
-    }
-
-    .feature-card:hover {
-      transform: translateY(-4px);
-      box-shadow: 0 20px 40px rgba(0,0,0,0.3);
-    }
-
-    .feature-icon {
-      width: 56px;
-      height: 56px;
-      background: linear-gradient(135deg, var(--primary-green), var(--primary-cyan));
-      border-radius: 14px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 28px;
+      font-size: 10px; font-weight: 700; letter-spacing: 0.8px; text-transform: uppercase;
+      background: rgba(200,255,61,0.1); color: var(--accent);
+      padding: 3px 10px; border-radius: 20px;
+      border: 1px solid rgba(200,255,61,0.15);
       margin-bottom: 20px;
     }
-
-    .feature-card h3 {
-      font-size: 20px;
-      font-weight: 700;
-      margin-bottom: 12px;
+    .program-icon {
+      width: 52px; height: 52px; border-radius: 14px;
+      background: rgba(200,255,61,0.08);
+      display: flex; align-items: center; justify-content: center;
+      margin-bottom: 20px;
     }
-
-    .feature-card p {
-      color: var(--text-secondary);
-      font-size: 14px;
-      line-height: 1.6;
+    .program-icon svg { width: 26px; height: 26px; stroke: var(--accent); fill: none; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+    .program-title {
+      font-size: 20px; font-weight: 700; margin-bottom: 10px;
     }
-
-    /* Ball Levels Section */
-    .ball-levels {
-      padding: 100px 0;
-      background: rgba(0,0,0,0.3);
+    .program-desc { font-size: 14px; color: var(--muted); line-height: 1.7; margin-bottom: 24px; }
+    .program-link {
+      display: inline-flex; align-items: center; gap: 6px;
+      font-size: 13px; font-weight: 700; color: var(--accent);
+      letter-spacing: 0.2px;
     }
+    .program-link svg { width: 14px; height: 14px; stroke: var(--accent); fill: none; stroke-width: 2.5; stroke-linecap: round; stroke-linejoin: round; }
 
-    .ball-levels-grid {
-      display: grid;
-      grid-template-columns: repeat(6, 1fr);
-      gap: 16px;
+    /* ── GLOW SCORE ──────────────────────────── */
+    .glow-section { background: var(--bg2); }
+    .glow-layout {
+      display: grid; grid-template-columns: 1fr 1fr; gap: 80px; align-items: center;
     }
-
-    .ball-level-card {
-      background: var(--bg-card);
-      border: 1px solid rgba(255,255,255,0.1);
-      border-radius: 16px;
-      padding: 24px;
-      text-align: center;
-      transition: transform 0.2s;
+    .pillars-grid {
+      display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px;
+      margin-top: 36px;
     }
-
-    .ball-level-card:hover {
-      transform: translateY(-4px);
+    .pillar-card {
+      background: var(--bg3); border: 1px solid var(--border);
+      border-radius: 12px; padding: 18px 16px; text-align: center;
     }
-
-    .ball-icon {
-      width: 64px;
-      height: 64px;
-      border-radius: 50%;
-      margin: 0 auto 16px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 32px;
+    .pillar-name {
+      font-size: 12px; font-weight: 600; color: var(--muted);
+      text-transform: uppercase; letter-spacing: 0.6px; margin-bottom: 8px;
     }
-
-    .ball-blue { background: linear-gradient(135deg, #3B82F6, #1D4ED8); }
-    .ball-red { background: linear-gradient(135deg, #EF4444, #B91C1C); }
-    .ball-orange { background: linear-gradient(135deg, #F97316, #C2410C); }
-    .ball-green { background: linear-gradient(135deg, #22C55E, #15803D); }
-    .ball-yellow { background: linear-gradient(135deg, #EAB308, #A16207); }
-    .ball-adult { background: linear-gradient(135deg, var(--primary-purple), var(--primary-pink)); }
-
-    .ball-level-name {
-      font-weight: 700;
-      font-size: 16px;
-      margin-bottom: 4px;
+    .pillar-score {
+      font-size: 26px; font-weight: 800; color: var(--text); letter-spacing: -1px;
     }
-
-    .ball-level-ages {
-      color: var(--text-muted);
-      font-size: 12px;
+    .pillar-bar-wrap {
+      width: 100%; height: 4px; background: rgba(255,255,255,0.06);
+      border-radius: 2px; margin-top: 8px; overflow: hidden;
     }
-
-    /* Dashboards Section */
-    .dashboards {
-      padding: 100px 0;
+    .pillar-bar { height: 100%; border-radius: 2px; background: var(--accent); }
+    .glow-full-card {
+      background: var(--bg3); border: 1px solid rgba(200,255,61,0.15);
+      border-radius: 20px; padding: 36px;
     }
-
-    .dashboards-grid {
-      display: grid;
-      grid-template-columns: repeat(3, 1fr);
-      gap: 24px;
-    }
-
-    .dashboard-card {
-      background: var(--bg-card);
-      border: 1px solid rgba(255,255,255,0.1);
-      border-radius: 20px;
-      padding: 32px;
-      transition: transform 0.2s;
-    }
-
-    .dashboard-card:hover {
-      transform: translateY(-4px);
-    }
-
-    .dashboard-header {
-      display: flex;
-      align-items: center;
-      gap: 12px;
+    .glow-full-card-header {
+      display: flex; align-items: center; justify-content: space-between;
       margin-bottom: 24px;
     }
-
-    .dashboard-icon {
-      width: 48px;
-      height: 48px;
-      border-radius: 12px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 24px;
+    .glow-full-card-title { font-weight: 700; font-size: 15px; color: var(--muted); }
+    .elite-badge {
+      font-size: 10px; font-weight: 700; letter-spacing: 0.8px; text-transform: uppercase;
+      background: var(--accent); color: #000;
+      padding: 3px 10px; border-radius: 20px;
     }
-
-    .dashboard-player .dashboard-icon { background: linear-gradient(135deg, var(--primary-green), var(--primary-cyan)); }
-    .dashboard-coach .dashboard-icon { background: linear-gradient(135deg, var(--primary-orange), var(--primary-pink)); }
-    .dashboard-academy .dashboard-icon { background: linear-gradient(135deg, var(--primary-purple), var(--primary-cyan)); }
-
-    .dashboard-title {
-      font-size: 18px;
-      font-weight: 700;
+    .glow-big-score {
+      font-size: 80px; font-weight: 800; color: var(--accent);
+      letter-spacing: -4px; line-height: 1; margin-bottom: 6px;
     }
-
-    .dashboard-subtitle {
-      color: var(--text-muted);
-      font-size: 12px;
+    .glow-big-label { font-size: 14px; color: var(--muted); margin-bottom: 28px; }
+    .glow-bars { display: flex; flex-direction: column; gap: 12px; }
+    .glow-bar-row { display: flex; align-items: center; gap: 12px; }
+    .glow-bar-name { font-size: 13px; color: var(--muted); width: 80px; flex-shrink: 0; }
+    .glow-bar-track {
+      flex: 1; height: 7px; background: rgba(255,255,255,0.06);
+      border-radius: 4px; overflow: hidden;
     }
+    .glow-bar-fill { height: 100%; border-radius: 4px; }
+    .glow-bar-val { font-size: 13px; font-weight: 700; width: 30px; text-align: right; }
 
-    .dashboard-stats {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 16px;
+    /* ── HOW IT WORKS ────────────────────────── */
+    .steps { display: grid; grid-template-columns: repeat(3, 1fr); gap: 40px; position: relative; }
+    .steps::before {
+      content: '';
+      position: absolute; top: 36px; left: 15%; right: 15%;
+      height: 1px; background: linear-gradient(90deg, transparent, var(--border) 30%, var(--border) 70%, transparent);
     }
-
-    .dashboard-stat {
-      background: rgba(255,255,255,0.05);
-      border-radius: 12px;
-      padding: 16px;
+    .step { text-align: center; }
+    .step-num {
+      width: 72px; height: 72px; border-radius: 50%;
+      background: var(--bg3); border: 1px solid var(--border);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 22px; font-weight: 800; color: var(--accent);
+      margin: 0 auto 20px;
     }
+    .step-title { font-size: 18px; font-weight: 700; margin-bottom: 10px; }
+    .step-desc { font-size: 14px; color: var(--muted); line-height: 1.7; }
 
-    .dashboard-stat-label {
-      color: var(--text-muted);
-      font-size: 11px;
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
-      margin-bottom: 4px;
+    /* ── TESTIMONIALS ────────────────────────── */
+    .testimonials-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px; }
+    .testi-card {
+      background: var(--bg3); border: 1px solid var(--border);
+      border-radius: var(--radius); padding: 28px;
+      transition: border-color 0.2s;
     }
-
-    .dashboard-stat-value {
-      font-size: 24px;
-      font-weight: 700;
+    .testi-card:hover { border-color: rgba(255,255,255,0.12); }
+    .testi-stars { display: flex; gap: 3px; margin-bottom: 16px; }
+    .testi-star {
+      width: 14px; height: 14px; fill: var(--accent);
     }
-
-    /* Testimonials */
-    .testimonials {
-      padding: 100px 0;
-      background: rgba(0,0,0,0.3);
+    .testi-quote { font-size: 15px; color: var(--muted); line-height: 1.75; margin-bottom: 24px; }
+    .testi-quote strong { color: var(--text); font-weight: 600; }
+    .testi-author { display: flex; align-items: center; gap: 12px; }
+    .testi-avatar {
+      width: 42px; height: 42px; border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-weight: 800; font-size: 16px; color: #000;
+      flex-shrink: 0;
     }
+    .testi-name { font-weight: 700; font-size: 14px; margin-bottom: 2px; }
+    .testi-info { font-size: 12px; color: var(--muted); }
 
-    .testimonials-grid {
-      display: grid;
-      grid-template-columns: repeat(3, 1fr);
-      gap: 24px;
+    /* ── FEATURES ────────────────────────────── */
+    .features-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; }
+    .feat-card {
+      background: var(--bg3); border: 1px solid var(--border);
+      border-radius: var(--radius); padding: 24px;
+      display: flex; gap: 16px; align-items: flex-start;
+      transition: border-color 0.2s;
     }
-
-    .testimonial-card {
-      background: var(--bg-card);
-      border: 1px solid rgba(255,255,255,0.1);
-      border-radius: 16px;
-      padding: 32px;
+    .feat-card:hover { border-color: rgba(200,255,61,0.15); }
+    .feat-icon {
+      width: 42px; height: 42px; border-radius: 10px; flex-shrink: 0;
+      background: rgba(200,255,61,0.07);
+      display: flex; align-items: center; justify-content: center;
     }
+    .feat-icon svg { width: 20px; height: 20px; stroke: var(--accent); fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+    .feat-title { font-weight: 700; font-size: 15px; margin-bottom: 6px; }
+    .feat-desc { font-size: 13px; color: var(--muted); line-height: 1.65; }
 
-    .testimonial-stars {
-      color: var(--primary-yellow);
-      font-size: 18px;
-      margin-bottom: 16px;
+    /* ── CTA ─────────────────────────────────── */
+    .cta-section {
+      background: var(--bg2);
+      border-top: 1px solid var(--border);
+      border-bottom: 1px solid var(--border);
+      text-align: center; padding: 100px 0;
     }
+    .cta-section .section-title { max-width: 640px; margin: 0 auto 16px; }
+    .cta-section .section-sub { margin: 0 auto 40px; text-align: center; }
+    .cta-btns { display: flex; gap: 16px; justify-content: center; flex-wrap: wrap; }
 
-    .testimonial-text {
-      color: var(--text-secondary);
-      font-size: 15px;
-      line-height: 1.7;
-      margin-bottom: 24px;
-      font-style: italic;
-    }
-
-    .testimonial-author {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-    }
-
-    .testimonial-avatar {
-      width: 48px;
-      height: 48px;
-      background: linear-gradient(135deg, var(--primary-purple), var(--primary-pink));
-      border-radius: 50%;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-weight: 700;
-      font-size: 16px;
-    }
-
-    .testimonial-name {
-      font-weight: 600;
-      font-size: 14px;
-    }
-
-    .testimonial-role {
-      color: var(--text-muted);
-      font-size: 12px;
-    }
-
-    /* CTA Section */
-    .cta {
-      padding: 100px 0;
-      text-align: center;
-      background: linear-gradient(135deg, rgba(168,85,247,0.2), rgba(0,212,255,0.1));
-    }
-
-    .cta h2 {
-      font-size: 44px;
-      font-weight: 800;
-      margin-bottom: 16px;
-    }
-
-    .cta p {
-      color: var(--text-secondary);
-      font-size: 18px;
-      margin-bottom: 40px;
-      max-width: 600px;
-      margin-left: auto;
-      margin-right: auto;
-    }
-
-    .cta-buttons {
-      display: flex;
-      gap: 16px;
-      justify-content: center;
-      margin-bottom: 40px;
-    }
-
-    .cta-features {
-      display: flex;
-      gap: 48px;
-      justify-content: center;
-    }
-
-    .cta-feature {
-      text-align: center;
-    }
-
-    .cta-feature-value {
-      font-weight: 700;
-      font-size: 18px;
-      margin-bottom: 4px;
-    }
-
-    .cta-feature-label {
-      color: var(--text-muted);
-      font-size: 12px;
-    }
-
-    /* Footer */
+    /* ── FOOTER ──────────────────────────────── */
     footer {
       padding: 60px 0 40px;
-      border-top: 1px solid rgba(255,255,255,0.1);
+      border-top: 1px solid var(--border);
     }
-
-    .footer-grid {
-      display: grid;
-      grid-template-columns: 2fr 1fr 1fr 1fr;
-      gap: 60px;
-      margin-bottom: 40px;
+    .footer-inner {
+      display: grid; grid-template-columns: 1.6fr 1fr 1fr 1fr; gap: 48px;
+      margin-bottom: 48px;
     }
-
-    .footer-brand p {
-      color: var(--text-muted);
-      font-size: 14px;
-      margin-top: 16px;
-      line-height: 1.7;
+    .footer-brand-tagline {
+      font-size: 14px; color: var(--muted); margin-top: 12px; max-width: 240px; line-height: 1.6;
     }
-
-    .footer-badges {
-      display: flex;
-      gap: 12px;
-      margin-top: 20px;
+    .footer-col h5 {
+      font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.8px;
+      color: var(--muted); margin-bottom: 16px;
     }
-
-    .footer-badge {
-      background: rgba(255,255,255,0.1);
-      padding: 6px 12px;
-      border-radius: 6px;
-      font-size: 11px;
-      color: var(--text-muted);
+    .footer-col a {
+      display: block; font-size: 14px; color: var(--muted);
+      margin-bottom: 10px; transition: color 0.2s;
     }
-
-    .footer-column h4 {
-      font-size: 14px;
-      font-weight: 600;
-      margin-bottom: 20px;
-    }
-
-    .footer-column a {
-      display: block;
-      color: var(--text-muted);
-      text-decoration: none;
-      font-size: 14px;
-      margin-bottom: 12px;
-      transition: color 0.2s;
-    }
-
-    .footer-column a:hover {
-      color: var(--text-primary);
-    }
-
+    .footer-col a:hover { color: var(--text); }
     .footer-bottom {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      padding-top: 40px;
-      border-top: 1px solid rgba(255,255,255,0.1);
+      display: flex; align-items: center; justify-content: space-between;
+      border-top: 1px solid var(--border); padding-top: 28px;
+      font-size: 13px; color: var(--muted);
     }
+    .footer-bottom a { color: var(--muted); margin-left: 20px; transition: color 0.2s; }
+    .footer-bottom a:hover { color: var(--text); }
 
-    .footer-copyright {
-      color: var(--text-muted);
-      font-size: 13px;
-    }
-
-    .footer-legal {
-      display: flex;
-      gap: 24px;
-    }
-
-    .footer-legal a {
-      color: var(--text-muted);
-      text-decoration: none;
-      font-size: 13px;
-    }
-
-    /* Responsive */
+    /* ── RESPONSIVE ──────────────────────────── */
     @media (max-width: 1024px) {
-      .hero-grid {
-        grid-template-columns: 1fr;
-        gap: 40px;
-      }
-
-      .features-grid,
-      .dashboards-grid,
-      .testimonials-grid {
-        grid-template-columns: 1fr;
-      }
-
-      .ball-levels-grid {
-        grid-template-columns: repeat(3, 1fr);
-      }
-
-      .stats-grid {
-        grid-template-columns: repeat(2, 1fr);
-      }
-
-      .footer-grid {
-        grid-template-columns: 1fr 1fr;
-      }
-
-      .nav-links {
-        display: none;
-      }
+      .hero-inner { grid-template-columns: 1fr; }
+      .hero-court { display: none; }
+      .hero-card { max-width: 420px; }
+      .glow-layout { grid-template-columns: 1fr; }
+      .footer-inner { grid-template-columns: 1fr 1fr; gap: 32px; }
     }
-
-    @media (max-width: 640px) {
-      .hero h1 {
-        font-size: 32px;
+    @media (max-width: 768px) {
+      .programs-grid, .testimonials-grid, .features-grid { grid-template-columns: 1fr; }
+      .steps { grid-template-columns: 1fr; }
+      .steps::before { display: none; }
+      .pillars-grid { grid-template-columns: repeat(2, 1fr); }
+      .trust-inner { gap: 28px; }
+      .trust-divider { display: none; }
+      .nav-links { display: none; }
+      .nav-toggle { display: block; }
+      .nav-links.open {
+        display: flex; flex-direction: column; align-items: flex-start;
+        position: fixed; top: 68px; left: 0; right: 0;
+        background: rgba(12,17,24,0.98); padding: 20px 28px 28px;
+        border-bottom: 1px solid var(--border); gap: 4px;
       }
-
-      .ball-levels-grid {
-        grid-template-columns: repeat(2, 1fr);
-      }
-
-      .cta-features {
-        flex-direction: column;
-        gap: 24px;
-      }
-
-      .cta-buttons {
-        flex-direction: column;
-        align-items: center;
-      }
-
-      .footer-grid {
-        grid-template-columns: 1fr;
-      }
-
-      .footer-bottom {
-        flex-direction: column;
-        gap: 16px;
-        text-align: center;
-      }
+      .hero-ctas { flex-direction: column; align-items: flex-start; }
+      .footer-inner { grid-template-columns: 1fr; }
+      .footer-bottom { flex-direction: column; gap: 12px; text-align: center; }
     }
   </style>
 </head>
 <body>
 
-  <!-- Navigation -->
-  <nav>
-    <div class="nav-container">
-      <div class="logo">
-        <div class="logo-icon">&#127934;</div>
-        <span>Glow Up Tennis</span>
-        <span class="logo-badge">DUBAI</span>
+<!-- NAV -->
+<nav>
+  <div class="nav-inner">
+    <div class="nav-logo">
+      <div class="nav-logo-mark">
+        <svg viewBox="0 0 24 24" fill="none" stroke="#000" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M6 12a8 8 0 0 0 12 0"/><path d="M12 2a8 8 0 0 0 0 20"/></svg>
       </div>
-      <div class="nav-links">
+      Glow Up Tennis
+      <span class="nav-badge">DUBAI</span>
+    </div>
+    <nav class="nav-links" id="navLinks">
+      <a href="#programs">Programs</a>
+      <a href="#tracking">Glow Score</a>
+      <a href="#how">How It Works</a>
+      <a href="#features">Features</a>
+      <a href="/" class="btn-login">Login</a>
+      <a href="/" class="btn-join">Join the Academy</a>
+    </nav>
+    <div class="nav-toggle" id="navToggle" aria-label="Toggle navigation">
+      <span></span><span></span><span></span>
+    </div>
+  </div>
+</nav>
+
+<!-- HERO -->
+<section class="hero">
+  <svg class="hero-court" viewBox="0 0 560 480" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <rect x="40" y="40" width="480" height="400" stroke="white" stroke-width="2"/>
+    <line x1="40" y1="240" x2="520" y2="240" stroke="white" stroke-width="2"/>
+    <line x1="280" y1="40" x2="280" y2="440" stroke="white" stroke-width="2"/>
+    <rect x="130" y="40" width="300" height="400" stroke="white" stroke-width="1.5"/>
+    <rect x="130" y="140" width="300" height="200" stroke="white" stroke-width="1.5"/>
+    <circle cx="280" cy="240" r="30" stroke="white" stroke-width="1.5"/>
+  </svg>
+  <div class="container">
+    <div class="hero-inner">
+      <div>
+        <div class="hero-label"><span class="hero-label-dot"></span>Dubai &amp; Indonesia</div>
+        <h1>Train Like a<br><em>Champion.</em><br>Track Every Step.</h1>
+        <p class="hero-sub">World-class tennis coaching powered by real-time performance data. Know exactly where you stand — and how to get better.</p>
+        <div class="hero-ctas">
+          <a href="/" class="btn-primary">
+            Join the Academy
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+          </a>
+          <a href="#how" class="btn-ghost">See How It Works</a>
+        </div>
+      </div>
+      <div class="hero-card">
+        <div class="hero-card-header">
+          <div class="player-avatar">A</div>
+          <div class="player-meta">
+            <div class="player-name">Ahmed Al Mansoori</div>
+            <div class="player-level-badge">
+              <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+              Level 8 · Strategist
+            </div>
+          </div>
+        </div>
+        <div class="glow-score-row">
+          <span class="glow-score-num">891</span>
+          <span class="glow-score-label">Overall Glow Score</span>
+        </div>
+        <div class="skill-bars">
+          <div class="skill-row">
+            <span class="skill-name">Forehand</span>
+            <div class="skill-track"><div class="skill-fill" style="width:92%;background:linear-gradient(90deg,#C8FF3D,#6EE7B7)"></div></div>
+            <span class="skill-score">92</span>
+          </div>
+          <div class="skill-row">
+            <span class="skill-name">Backhand</span>
+            <div class="skill-track"><div class="skill-fill" style="width:88%;background:linear-gradient(90deg,#60D9FA,#A78BFA)"></div></div>
+            <span class="skill-score">88</span>
+          </div>
+          <div class="skill-row">
+            <span class="skill-name">Serve</span>
+            <div class="skill-track"><div class="skill-fill" style="width:85%;background:linear-gradient(90deg,#F97316,#FB923C)"></div></div>
+            <span class="skill-score">85</span>
+          </div>
+          <div class="skill-row">
+            <span class="skill-name">Volley</span>
+            <div class="skill-track"><div class="skill-fill" style="width:94%;background:linear-gradient(90deg,#C8FF3D,#6EE7B7)"></div></div>
+            <span class="skill-score">94</span>
+          </div>
+          <div class="skill-row">
+            <span class="skill-name">Movement</span>
+            <div class="skill-track"><div class="skill-fill" style="width:87%;background:linear-gradient(90deg,#60D9FA,#A78BFA)"></div></div>
+            <span class="skill-score">87</span>
+          </div>
+          <div class="skill-row">
+            <span class="skill-name">Game IQ</span>
+            <div class="skill-track"><div class="skill-fill" style="width:91%;background:linear-gradient(90deg,#C8FF3D,#6EE7B7)"></div></div>
+            <span class="skill-score">91</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- TRUST STRIP -->
+<div class="trust">
+  <div class="container">
+    <div class="trust-inner">
+      <span class="trust-label">Trusted by players in Dubai &amp; Indonesia</span>
+      <div class="trust-divider"></div>
+      <div class="trust-stat"><div class="trust-stat-num">500+</div><div class="trust-stat-text">Active Players</div></div>
+      <div class="trust-divider"></div>
+      <div class="trust-stat"><div class="trust-stat-num">12</div><div class="trust-stat-text">Skill Levels</div></div>
+      <div class="trust-divider"></div>
+      <div class="trust-stat"><div class="trust-stat-num">98%</div><div class="trust-stat-text">Retention Rate</div></div>
+      <div class="trust-divider"></div>
+      <div class="trust-stat"><div class="trust-stat-num">6</div><div class="trust-stat-text">Tracked Pillars</div></div>
+    </div>
+  </div>
+</div>
+
+<!-- PROGRAMS -->
+<section id="programs">
+  <div class="container">
+    <div class="section-head">
+      <div class="section-label">Training Programs</div>
+      <div class="section-title">Choose Your Path</div>
+      <p class="section-sub">Whether you're stepping on court for the first time or preparing for competition, we have a program built for you.</p>
+    </div>
+    <div class="programs-grid">
+      <div class="program-card">
+        <div class="program-tag">Beginner · Intermediate</div>
+        <div class="program-icon">
+          <svg viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+        </div>
+        <div class="program-title">Group Training</div>
+        <div class="program-desc">Train alongside players at your level in small groups of 4–8. Build consistency, compete with peers, and enjoy the energy of team progress — all tracked individually.</div>
+        <a href="/" class="program-link">Explore Program <svg viewBox="0 0 24 24"><path d="M5 12h14M12 5l7 7-7 7"/></svg></a>
+      </div>
+      <div class="program-card featured">
+        <div class="program-tag">All Levels</div>
+        <div class="program-icon">
+          <svg viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+        </div>
+        <div class="program-title">Private Coaching</div>
+        <div class="program-desc">One-on-one sessions with an elite coach, fully tailored to your goals and playing style. Fastest path to improvement. Every session includes a detailed Glow Score update.</div>
+        <a href="/" class="program-link">Explore Program <svg viewBox="0 0 24 24"><path d="M5 12h14M12 5l7 7-7 7"/></svg></a>
+      </div>
+      <div class="program-card">
+        <div class="program-tag">Advanced · Competitive</div>
+        <div class="program-icon">
+          <svg viewBox="0 0 24 24"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+        </div>
+        <div class="program-title">Performance Track</div>
+        <div class="program-desc">Intensive training for competitive players. Includes match analysis, video review, fitness integration, and tournament preparation — with weekly performance reports.</div>
+        <a href="/" class="program-link">Explore Program <svg viewBox="0 0 24 24"><path d="M5 12h14M12 5l7 7-7 7"/></svg></a>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- GLOW SCORE SYSTEM -->
+<section id="tracking" class="glow-section">
+  <div class="container">
+    <div class="glow-layout">
+      <div>
+        <div class="section-label">The Glow Score System</div>
+        <div class="section-title">We Track What Other Academies Ignore</div>
+        <p class="section-sub">Most academies give you verbal feedback and hope you remember. We give you data. After every session, your coach scores your performance across 6 core pillars — and your Glow Score tells you exactly where you stand.</p>
+        <div class="pillars-grid">
+          <div class="pillar-card">
+            <div class="pillar-name">Forehand</div>
+            <div class="pillar-score">92</div>
+            <div class="pillar-bar-wrap"><div class="pillar-bar" style="width:92%"></div></div>
+          </div>
+          <div class="pillar-card">
+            <div class="pillar-name">Backhand</div>
+            <div class="pillar-score">88</div>
+            <div class="pillar-bar-wrap"><div class="pillar-bar" style="width:88%"></div></div>
+          </div>
+          <div class="pillar-card">
+            <div class="pillar-name">Serve</div>
+            <div class="pillar-score">85</div>
+            <div class="pillar-bar-wrap"><div class="pillar-bar" style="width:85%"></div></div>
+          </div>
+          <div class="pillar-card">
+            <div class="pillar-name">Volley</div>
+            <div class="pillar-score">94</div>
+            <div class="pillar-bar-wrap"><div class="pillar-bar" style="width:94%"></div></div>
+          </div>
+          <div class="pillar-card">
+            <div class="pillar-name">Movement</div>
+            <div class="pillar-score">87</div>
+            <div class="pillar-bar-wrap"><div class="pillar-bar" style="width:87%"></div></div>
+          </div>
+          <div class="pillar-card">
+            <div class="pillar-name">Game IQ</div>
+            <div class="pillar-score">91</div>
+            <div class="pillar-bar-wrap"><div class="pillar-bar" style="width:91%"></div></div>
+          </div>
+        </div>
+      </div>
+      <div class="glow-full-card">
+        <div class="glow-full-card-header">
+          <span class="glow-full-card-title">Your Player DNA</span>
+          <span class="elite-badge">ELITE PLAYER</span>
+        </div>
+        <div class="glow-big-score">891</div>
+        <div class="glow-big-label">Overall Glow Score</div>
+        <div class="glow-bars">
+          <div class="glow-bar-row">
+            <span class="glow-bar-name">Forehand</span>
+            <div class="glow-bar-track"><div class="glow-bar-fill" style="width:92%;background:linear-gradient(90deg,#C8FF3D,#6EE7B7)"></div></div>
+            <span class="glow-bar-val">92</span>
+          </div>
+          <div class="glow-bar-row">
+            <span class="glow-bar-name">Backhand</span>
+            <div class="glow-bar-track"><div class="glow-bar-fill" style="width:88%;background:linear-gradient(90deg,#60D9FA,#A78BFA)"></div></div>
+            <span class="glow-bar-val">88</span>
+          </div>
+          <div class="glow-bar-row">
+            <span class="glow-bar-name">Serve</span>
+            <div class="glow-bar-track"><div class="glow-bar-fill" style="width:85%;background:linear-gradient(90deg,#F97316,#FB923C)"></div></div>
+            <span class="glow-bar-val">85</span>
+          </div>
+          <div class="glow-bar-row">
+            <span class="glow-bar-name">Volley</span>
+            <div class="glow-bar-track"><div class="glow-bar-fill" style="width:94%;background:linear-gradient(90deg,#C8FF3D,#6EE7B7)"></div></div>
+            <span class="glow-bar-val">94</span>
+          </div>
+          <div class="glow-bar-row">
+            <span class="glow-bar-name">Movement</span>
+            <div class="glow-bar-track"><div class="glow-bar-fill" style="width:87%;background:linear-gradient(90deg,#60D9FA,#A78BFA)"></div></div>
+            <span class="glow-bar-val">87</span>
+          </div>
+          <div class="glow-bar-row">
+            <span class="glow-bar-name">Game IQ</span>
+            <div class="glow-bar-track"><div class="glow-bar-fill" style="width:91%;background:linear-gradient(90deg,#C8FF3D,#6EE7B7)"></div></div>
+            <span class="glow-bar-val">91</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- HOW IT WORKS -->
+<section id="how">
+  <div class="container">
+    <div class="section-head" style="text-align:center">
+      <div class="section-label" style="text-align:center">Simple Process</div>
+      <div class="section-title" style="text-align:center;margin:0 auto 16px">Join → Train → Grow</div>
+      <p class="section-sub" style="margin:0 auto;text-align:center">Three steps from signing up to seeing measurable improvement in your game.</p>
+    </div>
+    <div class="steps">
+      <div class="step">
+        <div class="step-num">1</div>
+        <div class="step-title">Book Your First Session</div>
+        <p class="step-desc">Download the Glow Up app, create your player profile, and book a group or private session at your nearest academy location.</p>
+      </div>
+      <div class="step">
+        <div class="step-num">2</div>
+        <div class="step-title">Get Your Baseline Assessment</div>
+        <p class="step-desc">In your first session, your coach evaluates all 6 skill pillars and builds your personal player DNA profile with your starting Glow Score.</p>
+      </div>
+      <div class="step">
+        <div class="step-num">3</div>
+        <div class="step-title">Watch Your Game Evolve</div>
+        <p class="step-desc">After every session, your Glow Score updates automatically. Track your progress, earn XP, level up, and celebrate every milestone.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- TESTIMONIALS -->
+<section style="background:var(--bg2);padding:100px 0;">
+  <div class="container">
+    <div class="section-head" style="text-align:center">
+      <div class="section-label" style="text-align:center">Player Stories</div>
+      <div class="section-title" style="text-align:center;margin:0 auto 16px">What Our Players Say</div>
+    </div>
+    <div class="testimonials-grid">
+      <div class="testi-card">
+        <div class="testi-stars">
+          <svg class="testi-star" viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+          <svg class="testi-star" viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+          <svg class="testi-star" viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+          <svg class="testi-star" viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+          <svg class="testi-star" viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+        </div>
+        <p class="testi-quote">"I've been playing tennis for 3 years but never knew exactly what to work on. After just two months with Glow Up, <strong>my serve went from 71 to 84</strong> and I actually understand why."</p>
+        <div class="testi-author">
+          <div class="testi-avatar" style="background:linear-gradient(135deg,#C8FF3D,#6EE7B7)">S</div>
+          <div>
+            <div class="testi-name">Sara K.</div>
+            <div class="testi-info">Player · Dubai, UAE</div>
+          </div>
+        </div>
+      </div>
+      <div class="testi-card">
+        <div class="testi-stars">
+          <svg class="testi-star" viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+          <svg class="testi-star" viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+          <svg class="testi-star" viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+          <svg class="testi-star" viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+          <svg class="testi-star" viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+        </div>
+        <p class="testi-quote">"My son was 9 when he joined. Watching his Glow Score climb from 310 to 690 over one year — seeing that progress visualised — <strong>has kept him more motivated than anything else</strong>."</p>
+        <div class="testi-author">
+          <div class="testi-avatar" style="background:linear-gradient(135deg,#60D9FA,#A78BFA)">R</div>
+          <div>
+            <div class="testi-name">Rania M.</div>
+            <div class="testi-info">Parent · Dubai, UAE</div>
+          </div>
+        </div>
+      </div>
+      <div class="testi-card">
+        <div class="testi-stars">
+          <svg class="testi-star" viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+          <svg class="testi-star" viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+          <svg class="testi-star" viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+          <svg class="testi-star" viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+          <svg class="testi-star" viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+        </div>
+        <p class="testi-quote">"I trained at two other academies in Dubai before this. <strong>The feedback system here is on another level.</strong> I get a real breakdown after every session — not just 'good job, keep going'."</p>
+        <div class="testi-author">
+          <div class="testi-avatar" style="background:linear-gradient(135deg,#F97316,#FBBF24)">A</div>
+          <div>
+            <div class="testi-name">Ali H.</div>
+            <div class="testi-info">Competitive Player · Jakarta, Indonesia</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- FEATURES -->
+<section id="features">
+  <div class="container">
+    <div class="section-head">
+      <div class="section-label">Everything You Need</div>
+      <div class="section-title">Built for Players,<br>Not Just Coaches</div>
+      <p class="section-sub">Every feature in the Glow Up app is designed to keep you engaged, informed, and improving.</p>
+    </div>
+    <div class="features-grid">
+      <div class="feat-card">
+        <div class="feat-icon">
+          <svg viewBox="0 0 24 24"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+        </div>
+        <div>
+          <div class="feat-title">Live Progress Tracking</div>
+          <div class="feat-desc">Your Glow Score updates after every session. Watch your 6 skill pillars improve in real time on your personal dashboard.</div>
+        </div>
+      </div>
+      <div class="feat-card">
+        <div class="feat-icon">
+          <svg viewBox="0 0 24 24"><path d="M15 10l4.553-2.276A1 1 0 0 1 21 8.618v6.764a1 1 0 0 1-1.447.894L15 14"/><rect x="1" y="6" width="14" height="12" rx="2"/></svg>
+        </div>
+        <div>
+          <div class="feat-title">Video Skill Evidence</div>
+          <div class="feat-desc">10-second video captures document your technique milestones. Share progress, compare your form over time, and celebrate breakthroughs.</div>
+        </div>
+      </div>
+      <div class="feat-card">
+        <div class="feat-icon">
+          <svg viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+        </div>
+        <div>
+          <div class="feat-title">Coach Feedback After Every Session</div>
+          <div class="feat-desc">Detailed written and scored feedback from your coach — what went well, what to focus on next, and drill recommendations.</div>
+        </div>
+      </div>
+      <div class="feat-card">
+        <div class="feat-icon">
+          <svg viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+        </div>
+        <div>
+          <div class="feat-title">XP &amp; Level System</div>
+          <div class="feat-desc">Earn XP for attending sessions, completing goals, and hitting milestones. Level up through 50 ranks from Rookie to GOAT — tennis meets gaming.</div>
+        </div>
+      </div>
+      <div class="feat-card">
+        <div class="feat-icon">
+          <svg viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+        </div>
+        <div>
+          <div class="feat-title">Skill Certification</div>
+          <div class="feat-desc">Earn official Glow Level certifications (Levels 1–12) as your skills advance. A recognised benchmark you can share and be proud of.</div>
+        </div>
+      </div>
+      <div class="feat-card">
+        <div class="feat-icon">
+          <svg viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+        </div>
+        <div>
+          <div class="feat-title">Player Community</div>
+          <div class="feat-desc">Connect with fellow players, challenge others to matches, follow the leaderboard, and become part of a tennis community that pushes each other forward.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- FINAL CTA -->
+<section class="cta-section">
+  <div class="container">
+    <div class="section-label" style="text-align:center">Ready to Start?</div>
+    <div class="section-title">Start Your Tennis Journey Today</div>
+    <p class="section-sub">Dubai's most data-driven tennis academy. Join hundreds of players already tracking their progress and levelling up their game.</p>
+    <div class="cta-btns">
+      <a href="/" class="btn-primary">
+        Join the Academy
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+      </a>
+      <a href="/" class="btn-ghost">Login to App</a>
+    </div>
+  </div>
+</section>
+
+<!-- FOOTER -->
+<footer>
+  <div class="container">
+    <div class="footer-inner">
+      <div>
+        <div class="nav-logo" style="margin-bottom:12px">
+          <div class="nav-logo-mark">
+            <svg viewBox="0 0 24 24" fill="none" stroke="#000" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M6 12a8 8 0 0 0 12 0"/><path d="M12 2a8 8 0 0 0 0 20"/></svg>
+          </div>
+          Glow Up Tennis
+        </div>
+        <p class="footer-brand-tagline">Dubai's most advanced tennis academy. World-class coaching meets next-gen performance tracking.</p>
+      </div>
+      <div class="footer-col">
+        <h5>Programs</h5>
+        <a href="/">Group Training</a>
+        <a href="/">Private Coaching</a>
+        <a href="/">Performance Track</a>
+        <a href="/">Junior Program</a>
+      </div>
+      <div class="footer-col">
+        <h5>Academy</h5>
+        <a href="#tracking">Glow Score</a>
+        <a href="#how">How It Works</a>
         <a href="#features">Features</a>
-        <a href="#levels">Ball Levels</a>
-        <a href="#dashboards">Dashboards</a>
-        <a href="#testimonials">Testimonials</a>
-        <a href="/" class="btn btn-secondary">Login</a>
-        <a href="#" class="btn btn-primary">Download App</a>
+        <a href="/">About Us</a>
+      </div>
+      <div class="footer-col">
+        <h5>Account</h5>
+        <a href="/">Login</a>
+        <a href="/">Download App</a>
+        <a href="/privacy-policy">Privacy Policy</a>
+        <a href="/delete-account">Delete Account</a>
       </div>
     </div>
-  </nav>
-
-  <!-- Hero Section -->
-  <section class="hero">
-    <div class="container">
-      <div class="hero-grid">
-        <div class="hero-content">
-          <span class="hero-badge">&#127942; REVOLUTIONARY TENNIS TECHNOLOGY</span>
-          <h1>Transform Tennis with<br><span class="gradient">Glow Score Engine&trade;</span></h1>
-          <p class="hero-subtitle">&#127941; WORLD'S FIRST RPG-STYLE TENNIS PLATFORM &#127941;<br><br>
-          Revolutionary AI analyzes 6 core tennis attributes to create personalized player DNA profiles, transforming boring tennis lessons into epic gaming adventures that students actually BEG to attend!</p>
-          
-          <div class="hero-features">
-            <div class="hero-feature">
-              <span class="hero-feature-icon">&#129504;</span>
-              <span>6 Skill Pillar Tracking System</span>
-            </div>
-            <div class="hero-feature">
-              <span class="hero-feature-icon">&#127919;</span>
-              <span>XP & Level Progression (20 Levels)</span>
-            </div>
-            <div class="hero-feature">
-              <span class="hero-feature-icon">&#128200;</span>
-              <span>Real-Time Progress Analytics</span>
-            </div>
-            <div class="hero-feature">
-              <span class="hero-feature-icon">&#127942;</span>
-              <span>Coach Validation & Certifications</span>
-            </div>
-          </div>
-          
-          <div class="hero-buttons">
-            <a href="#" class="btn btn-primary">&#127934; Start Your Journey</a>
-            <a href="#" class="btn btn-secondary">&#128249; See Engine in Action</a>
-          </div>
-        </div>
-        
-        <div class="glow-engine-card">
-          <div class="glow-engine-header">
-            <span class="glow-engine-title">&#127942; Glow Score Engine&trade;</span>
-            <span class="elite-badge">Elite DNA</span>
-          </div>
-          
-          <div class="skill-bar skill-forehand">
-            <div class="skill-bar-header">
-              <span class="skill-bar-label">&#129351; Forehand</span>
-              <span class="skill-bar-value" style="color: #00FF88;">92</span>
-            </div>
-            <div class="skill-bar-track">
-              <div class="skill-bar-fill" style="width: 92%;"></div>
-            </div>
-          </div>
-          
-          <div class="skill-bar skill-backhand">
-            <div class="skill-bar-header">
-              <span class="skill-bar-label">&#129352; Backhand</span>
-              <span class="skill-bar-value" style="color: #FFD700;">88</span>
-            </div>
-            <div class="skill-bar-track">
-              <div class="skill-bar-fill" style="width: 88%;"></div>
-            </div>
-          </div>
-          
-          <div class="skill-bar skill-serve">
-            <div class="skill-bar-header">
-              <span class="skill-bar-label">&#128165; Serve</span>
-              <span class="skill-bar-value" style="color: #A855F7;">85</span>
-            </div>
-            <div class="skill-bar-track">
-              <div class="skill-bar-fill" style="width: 85%;"></div>
-            </div>
-          </div>
-          
-          <div class="skill-bar skill-volley">
-            <div class="skill-bar-header">
-              <span class="skill-bar-label">&#127934; Volley</span>
-              <span class="skill-bar-value" style="color: #00D4FF;">94</span>
-            </div>
-            <div class="skill-bar-track">
-              <div class="skill-bar-fill" style="width: 94%;"></div>
-            </div>
-          </div>
-          
-          <div class="skill-bar skill-movement">
-            <div class="skill-bar-header">
-              <span class="skill-bar-label">&#128694; Movement</span>
-              <span class="skill-bar-value" style="color: #FF6B35;">87</span>
-            </div>
-            <div class="skill-bar-track">
-              <div class="skill-bar-fill" style="width: 87%;"></div>
-            </div>
-          </div>
-          
-          <div class="skill-bar skill-gameiq">
-            <div class="skill-bar-header">
-              <span class="skill-bar-label">&#129504; Game IQ</span>
-              <span class="skill-bar-value" style="color: #00FF88;">91</span>
-            </div>
-            <div class="skill-bar-track">
-              <div class="skill-bar-fill" style="width: 91%;"></div>
-            </div>
-          </div>
-          
-          <div class="glow-score-container">
-            <div class="glow-score-value">891</div>
-            <div class="glow-score-label">Overall Glow Score</div>
-            <span class="glow-rank-badge">&#127942; ELITE PLAYER</span>
-          </div>
-        </div>
+    <div class="footer-bottom">
+      <span>&copy; 2026 Glow Up Tennis. All rights reserved. Dubai, UAE &amp; Jakarta, Indonesia.</span>
+      <div>
+        <a href="/privacy-policy">Privacy</a>
+        <a href="/delete-account">Terms</a>
       </div>
     </div>
-  </section>
+  </div>
+</footer>
 
-  <!-- Stats Section -->
-  <section class="stats">
-    <div class="container">
-      <div class="stats-grid">
-        <div class="stat-item">
-          <div class="stat-icon">&#127934;</div>
-          <div class="stat-value">10K+</div>
-          <div class="stat-label">Tennis Addicts Created</div>
-        </div>
-        <div class="stat-item">
-          <div class="stat-icon">&#11088;</div>
-          <div class="stat-value">50M+</div>
-          <div class="stat-label">XP Points Earned</div>
-        </div>
-        <div class="stat-item">
-          <div class="stat-icon">&#127942;</div>
-          <div class="stat-value">500+</div>
-          <div class="stat-label">Epic Achievements</div>
-        </div>
-        <div class="stat-item">
-          <div class="stat-icon">&#128293;</div>
-          <div class="stat-value">95%</div>
-          <div class="stat-label">BEG for More Tennis</div>
-        </div>
-      </div>
-    </div>
-  </section>
-
-  <!-- Features Section -->
-  <section class="features" id="features">
-    <div class="container">
-      <div class="section-header">
-        <h2>&#127941; WITNESS THE TENNIS REVOLUTION! &#127941;</h2>
-        <p>Transform tennis learning with our REVOLUTIONARY LEVEL SYSTEM that takes students from Blue Ball beginners to elite champions through gamified skill mastery!</p>
-      </div>
-      
-      <div class="features-grid">
-        <div class="feature-card">
-          <div class="feature-icon">&#127919;</div>
-          <h3>Live XP & Level System</h3>
-          <p>Watch students gain XP in real-time during lessons! 20 exciting levels with badges, titles, and exclusive rewards that unlock as they progress.</p>
-        </div>
-        <div class="feature-card">
-          <div class="feature-icon">&#127942;</div>
-          <h3>Achievement Unlocking</h3>
-          <p>Celebrate skill mastery with epic badge ceremonies. Students earn collectible achievements that showcase their tennis journey.</p>
-        </div>
-        <div class="feature-card">
-          <div class="feature-icon">&#127794;</div>
-          <h3>Interactive Skill Trees</h3>
-          <p>Unlock new tennis abilities like an RPG game. Visual progression paths show exactly what skills to develop next.</p>
-        </div>
-        <div class="feature-card">
-          <div class="feature-icon">&#9878;&#65039;</div>
-          <h3>Gamified Challenges</h3>
-          <p>Turn practice drills into exciting competitions. Daily and weekly challenges keep students motivated and engaged.</p>
-        </div>
-        <div class="feature-card">
-          <div class="feature-icon">&#128200;</div>
-          <h3>Real-Time Analytics</h3>
-          <p>Track student progress with beautiful dashboards. Parents and coaches see improvement metrics instantly.</p>
-        </div>
-        <div class="feature-card">
-          <div class="feature-icon">&#127934;</div>
-          <h3>Court Booking System</h3>
-          <p>Book courts, invite friends, and find open matches. Social play features connect players at similar skill levels.</p>
-        </div>
-      </div>
-    </div>
-  </section>
-
-  <!-- Ball Levels Section -->
-  <section class="ball-levels" id="levels">
-    <div class="container">
-      <div class="section-header">
-        <h2>&#127934; TENNIS LEVEL PROGRESSION</h2>
-        <p>Complete Tennis Journey - From absolute beginner to tournament champion!</p>
-      </div>
-      
-      <div class="ball-levels-grid">
-        <div class="ball-level-card">
-          <div class="ball-icon ball-blue">&#127934;</div>
-          <div class="ball-level-name">Blue Ball</div>
-          <div class="ball-level-ages">Beginner - Ages 3-5</div>
-        </div>
-        <div class="ball-level-card">
-          <div class="ball-icon ball-red">&#127934;</div>
-          <div class="ball-level-name">Red Ball</div>
-          <div class="ball-level-ages">Foundation - Ages 4-6</div>
-        </div>
-        <div class="ball-level-card">
-          <div class="ball-icon ball-orange">&#127934;</div>
-          <div class="ball-level-name">Orange Ball</div>
-          <div class="ball-level-ages">Developing - Ages 7-8</div>
-        </div>
-        <div class="ball-level-card">
-          <div class="ball-icon ball-green">&#127934;</div>
-          <div class="ball-level-name">Green Ball</div>
-          <div class="ball-level-ages">Intermediate - Ages 9-10</div>
-        </div>
-        <div class="ball-level-card">
-          <div class="ball-icon ball-yellow">&#127934;</div>
-          <div class="ball-level-name">Yellow Ball</div>
-          <div class="ball-level-ages">Competition - Ages 11-17</div>
-        </div>
-        <div class="ball-level-card">
-          <div class="ball-icon ball-adult">&#127942;</div>
-          <div class="ball-level-name">Adult DSS</div>
-          <div class="ball-level-ages">ELO Rating - 18+</div>
-        </div>
-      </div>
-    </div>
-  </section>
-
-  <!-- Dashboards Section -->
-  <section class="dashboards" id="dashboards">
-    <div class="container">
-      <div class="section-header">
-        <h2>&#128187; STUDENTS ARE OBSESSED! &#128187;</h2>
-        <p>See how we're revolutionizing tennis and creating tennis addicts worldwide!</p>
-      </div>
-      
-      <div class="dashboards-grid">
-        <div class="dashboard-card dashboard-player">
-          <div class="dashboard-header">
-            <div class="dashboard-icon">&#127919;</div>
-            <div>
-              <div class="dashboard-title">PLAYER DASHBOARD</div>
-              <div class="dashboard-subtitle">RPG-Style Tennis Progression</div>
-            </div>
-          </div>
-          <div class="dashboard-stats">
-            <div class="dashboard-stat">
-              <div class="dashboard-stat-label">Current Level</div>
-              <div class="dashboard-stat-value" style="color: var(--primary-green);">Level 12</div>
-            </div>
-            <div class="dashboard-stat">
-              <div class="dashboard-stat-label">XP Progress</div>
-              <div class="dashboard-stat-value">2,847</div>
-            </div>
-            <div class="dashboard-stat">
-              <div class="dashboard-stat-label">Badges Earned</div>
-              <div class="dashboard-stat-value">47</div>
-            </div>
-            <div class="dashboard-stat">
-              <div class="dashboard-stat-label">Skills Mastered</div>
-              <div class="dashboard-stat-value">12</div>
-            </div>
-          </div>
-        </div>
-        
-        <div class="dashboard-card dashboard-coach">
-          <div class="dashboard-header">
-            <div class="dashboard-icon">&#128104;&#8205;&#127891;</div>
-            <div>
-              <div class="dashboard-title">COACH DASHBOARD</div>
-              <div class="dashboard-subtitle">Student Progress Management</div>
-            </div>
-          </div>
-          <div class="dashboard-stats">
-            <div class="dashboard-stat">
-              <div class="dashboard-stat-label">Active Students</div>
-              <div class="dashboard-stat-value" style="color: var(--primary-orange);">24</div>
-            </div>
-            <div class="dashboard-stat">
-              <div class="dashboard-stat-label">Attendance</div>
-              <div class="dashboard-stat-value">89%</div>
-            </div>
-            <div class="dashboard-stat">
-              <div class="dashboard-stat-label">XP Awarded Today</div>
-              <div class="dashboard-stat-value">1,247</div>
-            </div>
-            <div class="dashboard-stat">
-              <div class="dashboard-stat-label">Pending Reviews</div>
-              <div class="dashboard-stat-value">5</div>
-            </div>
-          </div>
-        </div>
-        
-        <div class="dashboard-card dashboard-academy">
-          <div class="dashboard-header">
-            <div class="dashboard-icon">&#127963;&#65039;</div>
-            <div>
-              <div class="dashboard-title">ACADEMY DASHBOARD</div>
-              <div class="dashboard-subtitle">Complete Academy Oversight</div>
-            </div>
-          </div>
-          <div class="dashboard-stats">
-            <div class="dashboard-stat">
-              <div class="dashboard-stat-label">Total Students</div>
-              <div class="dashboard-stat-value" style="color: var(--primary-purple);">847</div>
-            </div>
-            <div class="dashboard-stat">
-              <div class="dashboard-stat-label">Retention Rate</div>
-              <div class="dashboard-stat-value">94%</div>
-            </div>
-            <div class="dashboard-stat">
-              <div class="dashboard-stat-label">Revenue</div>
-              <div class="dashboard-stat-value">$47,293</div>
-            </div>
-            <div class="dashboard-stat">
-              <div class="dashboard-stat-label">Monthly Growth</div>
-              <div class="dashboard-stat-value">+23%</div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-  </section>
-
-  <!-- Testimonials -->
-  <section class="testimonials" id="testimonials">
-    <div class="container">
-      <div class="section-header">
-        <h2>&#127941; STUDENTS & PARENTS ARE BLOWN AWAY! &#127941;</h2>
-        <p>See how we're creating TENNIS ADDICTS and transforming students worldwide!</p>
-      </div>
-      
-      <div class="testimonials-grid">
-        <div class="testimonial-card">
-          <div class="testimonial-stars">&#11088;&#11088;&#11088;&#11088;&#11088;</div>
-          <p class="testimonial-text">"I used to hate tennis practice, but now I can't wait to level up my backhand and unlock new achievements! It feels like playing my favorite video game."</p>
-          <div class="testimonial-author">
-            <div class="testimonial-avatar">ET</div>
-            <div>
-              <div class="testimonial-name">Emma Thompson</div>
-              <div class="testimonial-role">Tennis Student, Age 14 - Level 23 Player</div>
-            </div>
-          </div>
-        </div>
-        
-        <div class="testimonial-card">
-          <div class="testimonial-stars">&#11088;&#11088;&#11088;&#11088;&#11088;</div>
-          <p class="testimonial-text">"My students are more motivated than ever! They actually ask for extra practice time to earn more XP. The gamification has completely transformed their attitude."</p>
-          <div class="testimonial-author">
-            <div class="testimonial-avatar">MS</div>
-            <div>
-              <div class="testimonial-name">Coach Maria Santos</div>
-              <div class="testimonial-role">Tennis Coach & Former Pro - Coach Level 10</div>
-            </div>
-          </div>
-        </div>
-        
-        <div class="testimonial-card">
-          <div class="testimonial-stars">&#11088;&#11088;&#11088;&#11088;&#11088;</div>
-          <p class="testimonial-text">"My son went from complaining about tennis lessons to begging to go every day. He's made more progress in 3 months than in the previous year!"</p>
-          <div class="testimonial-author">
-            <div class="testimonial-avatar">DP</div>
-            <div>
-              <div class="testimonial-name">David Park</div>
-              <div class="testimonial-role">Parent of 12-year-old Student</div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-  </section>
-
-  <!-- CTA Section -->
-  <section class="cta">
-    <div class="container">
-      <h2>&#128640; READY TO CREATE TENNIS ADDICTS? &#128640;</h2>
-      <p>Join 10,000+ OBSESSED STUDENTS worldwide who are BEGGING for more tennis through our REVOLUTIONARY GAMING SYSTEM! Transform your tennis academy into an EPIC GAMING HUB today!</p>
-      
-      <div class="cta-buttons">
-        <a href="#" class="btn btn-primary">&#127934; Start Free Trial</a>
-        <a href="#" class="btn btn-secondary">&#128197; Schedule Demo</a>
-      </div>
-      
-      <div class="cta-features">
-        <div class="cta-feature">
-          <div class="cta-feature-value">14-Day</div>
-          <div class="cta-feature-label">Free Trial</div>
-        </div>
-        <div class="cta-feature">
-          <div class="cta-feature-value">No</div>
-          <div class="cta-feature-label">Setup Fees</div>
-        </div>
-        <div class="cta-feature">
-          <div class="cta-feature-value">24/7</div>
-          <div class="cta-feature-label">Support</div>
-        </div>
-        <div class="cta-feature">
-          <div class="cta-feature-value">Cancel</div>
-          <div class="cta-feature-label">Anytime</div>
-        </div>
-      </div>
-    </div>
-  </section>
-
-  <!-- Footer -->
-  <footer>
-    <div class="container">
-      <div class="footer-grid">
-        <div class="footer-brand">
-          <div class="logo">
-            <div class="logo-icon">&#127934;</div>
-            <span>Glow Up Tennis</span>
-          </div>
-          <p>The leading tennis facility management platform trusted by professionals worldwide. Built for Dubai's premier tennis academies.</p>
-          <div class="footer-badges">
-            <span class="footer-badge">&#128274; PCI DSS Certified</span>
-            <span class="footer-badge">&#9989; AWS Powered</span>
-          </div>
-        </div>
-        
-        <div class="footer-column">
-          <h4>Platform</h4>
-          <a href="#">Features</a>
-          <a href="#">Customers</a>
-          <a href="#">Demo</a>
-          <a href="/">Login</a>
-        </div>
-        
-        <div class="footer-column">
-          <h4>Support</h4>
-          <a href="#">24/7 Customer Support</a>
-          <a href="#">Training & Onboarding</a>
-          <a href="#">Help Center</a>
-          <a href="#">API Documentation</a>
-        </div>
-        
-        <div class="footer-column">
-          <h4>Company</h4>
-          <a href="#">About Us</a>
-          <a href="#">Careers</a>
-          <a href="#">Blog</a>
-          <a href="#">Contact</a>
-        </div>
-      </div>
-      
-      <div class="footer-bottom">
-        <div class="footer-copyright">&copy; 2026 Glow Up Tennis. All rights reserved.</div>
-        <div class="footer-legal">
-          <a href="#">Privacy Policy</a>
-          <a href="#">Terms of Service</a>
-          <a href="#">Security</a>
-        </div>
-      </div>
-    </div>
-  </footer>
-
+<script>
+  // Mobile nav toggle
+  document.getElementById('navToggle').addEventListener('click', function() {
+    var links = document.getElementById('navLinks');
+    links.classList.toggle('open');
+  });
+  // Close nav on link click
+  document.querySelectorAll('#navLinks a').forEach(function(a) {
+    a.addEventListener('click', function() {
+      document.getElementById('navLinks').classList.remove('open');
+    });
+  });
+  // Smooth scroll for anchor links
+  document.querySelectorAll('a[href^="#"]').forEach(function(anchor) {
+    anchor.addEventListener('click', function(e) {
+      e.preventDefault();
+      var target = document.querySelector(this.getAttribute('href'));
+      if (target) target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
+  });
+</script>
 </body>
 </html>
