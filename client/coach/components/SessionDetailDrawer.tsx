@@ -531,7 +531,9 @@ export default function SessionDetailDrawer({
       });
       setShowCancelConfirm(false);
       onClose();
-      Alert.alert("Sessie Verwijderd", "De sessie is volledig verwijderd uit je kalender.");
+      setTimeout(() => {
+        Alert.alert("Session Deleted", "The session has been removed from your calendar.");
+      }, 350);
     },
     onError: (error: Error) => {
       Alert.alert("Error", error.message || "Failed to cancel session");
