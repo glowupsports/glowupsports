@@ -14,7 +14,8 @@ import {
   Play, 
   Trophy, 
   Target,
-  ChevronRight
+  ChevronRight,
+  CheckCircle2
 } from 'lucide-react';
 
 export default function LandingBrightAcademy() {
