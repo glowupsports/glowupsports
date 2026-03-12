@@ -20344,6 +20344,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
           return created >= thirtyDaysAgo;
         }).length;
 
+        const lastLoginRows = await db
+          .select({
+            academyId: users.academyId,
+            lastLogin: sql<string>`MAX(${users.lastLoginAt})`,
+          })
+          .from(users)
+          .where(isNotNull(users.academyId))
+          .groupBy(users.academyId);
+        const lastLoginMap = new Map(
+          lastLoginRows.map((r) => [r.academyId, r.lastLogin]),
+        );
+
         const academyStats = await Promise.all(
           academies.slice(0, 20).map(async (academy) => {
             const players = await storage.getPlayersByAcademy(academy.id);
@@ -20363,7 +20375,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
                     : academy.subscriptionStatus === "overdue"
                       ? "overdue"
                       : "active",
-              lastActivity: academy.updatedAt || academy.createdAt,
+              lastActivity: lastLoginMap.get(academy.id) || academy.createdAt,
             };
           }),
         );

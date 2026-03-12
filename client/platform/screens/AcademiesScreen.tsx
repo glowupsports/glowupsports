@@ -51,10 +51,10 @@ function AcademyCard({ name, coaches, players, mrr, status, lastActivity, onPres
   const config = statusConfig[status];
 
   const formatLastActivity = (dateStr: string) => {
-    if (!dateStr) return "Recently";
+    if (!dateStr) return "Never";
     try {
       const date = new Date(dateStr);
-      if (isNaN(date.getTime())) return "Recently";
+      if (isNaN(date.getTime())) return "Never";
       const now = new Date();
       const diffMs = now.getTime() - date.getTime();
       const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
