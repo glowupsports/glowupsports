@@ -20350,7 +20350,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
             lastLogin: sql<string>`MAX(${users.lastLoginAt})`,
           })
           .from(users)
-          .where(isNotNull(users.academyId))
+          .where(
+            and(
+              isNotNull(users.academyId),
+              inArray(users.role, ["platform_owner", "academy_owner", "coach", "assistant"]),
+            ),
+          )
           .groupBy(users.academyId);
         const lastLoginMap = new Map(
           lastLoginRows.map((r) => [r.academyId, r.lastLogin]),
@@ -20375,7 +20380,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
                     : academy.subscriptionStatus === "overdue"
                       ? "overdue"
                       : "active",
-              lastActivity: lastLoginMap.get(academy.id) || academy.createdAt,
+              lastActivity: lastLoginMap.get(academy.id) || null,
             };
           }),
         );

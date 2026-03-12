@@ -20,7 +20,7 @@ interface AcademyData {
   players: number;
   mrr: number;
   status: "active" | "trial" | "paused" | "overdue";
-  lastActivity: string;
+  lastActivity: string | null;
 }
 
 interface PlatformStats {
@@ -36,7 +36,7 @@ interface AcademyCardProps {
   players: number;
   mrr: number;
   status: "active" | "trial" | "paused" | "overdue";
-  lastActivity: string;
+  lastActivity: string | null;
   onPress?: () => void;
 }
 
