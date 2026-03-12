@@ -271,21 +271,14 @@ export default function PlayerSettingsScreen() {
         .finally(() => setDeleteLoading(false));
     };
 
-    if (Platform.OS === "web") {
-      const confirmed = window.confirm(
-        "Are you sure you want to delete your account?\n\nThis action cannot be undone. All your data, progress, XP, and match history will be permanently removed within 30 days."
-      );
-      if (confirmed) confirmDelete();
-    } else {
-      Alert.alert(
-        "Delete Account",
-        "Are you sure you want to delete your account?\n\nThis action cannot be undone. All your data, progress, XP, and match history will be permanently removed within 30 days.",
-        [
-          { text: "Cancel", style: "cancel" },
-          { text: "Delete My Account", style: "destructive", onPress: confirmDelete },
-        ]
-      );
-    }
+    Alert.alert(
+      "Delete Account",
+      "Are you sure you want to delete your account?\n\nThis action cannot be undone. All your data, progress, XP, and match history will be permanently removed within 30 days.",
+      [
+        { text: "Cancel", style: "cancel" },
+        { text: "Delete My Account", style: "destructive", onPress: confirmDelete },
+      ]
+    );
   };
 
   const notificationSettings: SettingItem[] = [
@@ -756,28 +749,21 @@ export default function PlayerSettingsScreen() {
           accessibilityRole="button"
           accessibilityLabel="Sign out"
           onPress={() => {
-            if (Platform.OS === "web") {
-              const confirmed = window.confirm("Are you sure you want to sign out?");
-              if (confirmed) {
-                logout();
-              }
-            } else {
-              Alert.alert(
-                "Sign Out",
-                "Are you sure you want to sign out?",
-                [
-                  { text: "Cancel", style: "cancel" },
-                  {
-                    text: "Sign Out",
-                    style: "destructive",
-                    onPress: () => {
-                      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-                      logout();
-                    },
+            Alert.alert(
+              "Sign Out",
+              "Are you sure you want to sign out?",
+              [
+                { text: "Cancel", style: "cancel" },
+                {
+                  text: "Sign Out",
+                  style: "destructive",
+                  onPress: () => {
+                    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+                    logout();
                   },
-                ]
-              );
-            }
+                },
+              ]
+            );
           }}
         >
           <Ionicons name="log-out-outline" size={20} color={Colors.dark.error} />

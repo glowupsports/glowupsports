@@ -1575,28 +1575,21 @@ export default function DashboardScreen() {
         onClose={() => setShowStatusPanel(false)}
         onNavigate={(screen) => {
           if (screen === "Logout") {
-            if (Platform.OS === "web") {
-              const confirmed = window.confirm("Are you sure you want to sign out?");
-              if (confirmed) {
-                logout();
-              }
-            } else {
-              RNAlert.alert(
-                "Sign Out",
-                "Are you sure you want to sign out?",
-                [
-                  { text: "Cancel", style: "cancel" },
-                  {
-                    text: "Sign Out",
-                    style: "destructive",
-                    onPress: () => {
-                      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-                      logout();
-                    },
+            RNAlert.alert(
+              "Sign Out",
+              "Are you sure you want to sign out?",
+              [
+                { text: "Cancel", style: "cancel" },
+                {
+                  text: "Sign Out",
+                  style: "destructive",
+                  onPress: () => {
+                    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+                    logout();
                   },
-                ]
-              );
-            }
+                },
+              ]
+            );
             return;
           }
           if (screen === "FreelanceLicense") {

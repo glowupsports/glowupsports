@@ -285,28 +285,21 @@ export default function SystemScreen() {
   };
 
   const handleLogout = () => {
-    if (Platform.OS === "web") {
-      const confirmed = window.confirm("Are you sure you want to sign out?");
-      if (confirmed) {
-        logout();
-      }
-    } else {
-      Alert.alert(
-        "Sign Out",
-        "Are you sure you want to sign out?",
-        [
-          { text: "Cancel", style: "cancel" },
-          {
-            text: "Sign Out",
-            style: "destructive",
-            onPress: () => {
-              Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-              logout();
-            },
+    Alert.alert(
+      "Sign Out",
+      "Are you sure you want to sign out?",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Sign Out",
+          style: "destructive",
+          onPress: () => {
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+            logout();
           },
-        ]
-      );
-    }
+        },
+      ]
+    );
   };
 
   const systemStatus = [
