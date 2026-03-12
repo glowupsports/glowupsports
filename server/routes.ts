@@ -9639,6 +9639,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             lateMinutes: sessionPlayers.lateMinutes,
             sessionStatus: sessions.status,
             startTime: sessions.startTime,
+            sessionType: sessions.sessionType,
           })
           .from(sessionPlayers)
           .innerJoin(sessions, eq(sessionPlayers.sessionId, sessions.id))
@@ -9674,6 +9675,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           sessionId: string;
           sessionStatus: string;
           startTime: Date | null;
+          sessionType: string | null;
         }[] = [];
         if (seriesIdList.length > 0) {
           const seriesSessions = await db
@@ -9682,6 +9684,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
               status: sessions.status,
               seriesId: sessions.seriesId,
               startTime: sessions.startTime,
+              sessionType: sessions.sessionType,
             })
             .from(sessions)
             .where(
@@ -9693,7 +9696,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
           orphanedCompletedSessions = seriesSessions
             .filter((s) => {
               if (existingSessionIds.has(s.id)) return false;
-              // Only include sessions that occurred AFTER the player joined the series
               const joinDate = s.seriesId
                 ? seriesJoinDates.get(s.seriesId)
                 : null;
@@ -9702,7 +9704,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
               }
               return false;
             })
-            .map((s) => ({ sessionId: s.id, sessionStatus: s.status, startTime: s.startTime }));
+            .map((s) => ({ sessionId: s.id, sessionStatus: s.status, startTime: s.startTime, sessionType: s.sessionType }));
         }
 
         // Combine: all sessionPlayers records + orphaned completed sessions (treated as present)
@@ -9714,6 +9716,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             lateMinutes: null as number | null,
             sessionStatus: s.sessionStatus,
             startTime: s.startTime,
+            sessionType: s.sessionType,
           })),
         ];
 
@@ -9725,7 +9728,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const now = new Date();
 
         // A session "happened" = completed, OR has attendance marked, OR start time is in the past
-        const isSessionInPast = (r: { sessionStatus: string; startTime: Date | null; attendanceStatus: string | null }) =>
+        const isSessionInPast = (r: { sessionStatus: string; startTime: Date | null; attendanceStatus: string | null; sessionType: string | null }) =>
           r.sessionStatus === "completed" ||
           r.attendanceStatus !== null ||
           (r.startTime !== null && new Date(r.startTime) < now);
@@ -9744,8 +9747,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
           (r) => r.lateMinutes && r.lateMinutes > 0,
         ).length;
 
-        // attendedCount = sessions that happened (same as totalLessons now)
-        const attendedCount = totalLessons;
+        const isPrivateType = (type: string | null) =>
+          type === "private" || type === "private_adjusted";
+
+        // attendedCount excludes private sessions where the player was absent
+        // (a missed 1-on-1 session didn't happen for the player)
+        const privateAbsentCount = happenedRecords.filter(
+          (r) => isPrivateType(r.sessionType) && r.attendanceStatus === "absent",
+        ).length;
+        const attendedCount = totalLessons - privateAbsentCount;
 
         // For percentage: treat sessions without explicit attendance (but in the past/completed) as "present"
         const effectivePresentCount =
