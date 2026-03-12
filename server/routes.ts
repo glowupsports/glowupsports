@@ -5814,6 +5814,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
           academyId: academyId!,
         });
 
+        if (coachId) {
+          apiCache.invalidate(`calendar:${coachId}`);
+        }
+
         // Broadcast session cancellation via WebSocket
         if (academyId) {
           broadcastSessionUpdate(academyId, {
@@ -5956,6 +5960,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
             chargeAmount,
           }),
         });
+
+        if (coachId) {
+          apiCache.invalidate(`calendar:${coachId}`);
+        }
 
         // Broadcast session cancellation via WebSocket
         if (academyId) {
