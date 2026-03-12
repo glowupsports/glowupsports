@@ -512,6 +512,82 @@ function isBirthdayToday(dateOfBirth: string | Date | null): boolean {
       res.status(500).json({ error: "Failed to fetch birthdays" });
     }
   });
+
+  router.get("/api/coach/birthdays/upcoming", authMiddleware, requireAcademy, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const coachId = req.user!.coachId;
+      if (!coachId) {
+        return res.status(400).json({ error: "Coach ID required" });
+      }
+
+      const coachPlayers = await db
+        .select({
+          id: players.id,
+          name: players.name,
+          ballLevel: players.ballLevel,
+          profilePhotoUrl: players.profilePhotoUrl,
+          dateOfBirth: players.dateOfBirth,
+        })
+        .from(players)
+        .where(
+          and(
+            eq(players.coachId, coachId),
+            isNotNull(players.dateOfBirth)
+          )
+        );
+
+      const today = new Date();
+      const todayMonth = today.getMonth();
+      const todayDate = today.getDate();
+
+      const todayBirthdays: any[] = [];
+      const upcomingBirthdays: any[] = [];
+
+      for (const p of coachPlayers) {
+        if (!p.dateOfBirth) continue;
+        const birth = new Date(p.dateOfBirth);
+        const bMonth = birth.getMonth();
+        const bDate = birth.getDate();
+
+        const thisYearBirthday = new Date(today.getFullYear(), bMonth, bDate);
+        if (thisYearBirthday < new Date(today.getFullYear(), todayMonth, todayDate)) {
+          thisYearBirthday.setFullYear(today.getFullYear() + 1);
+        }
+
+        const diffMs = thisYearBirthday.getTime() - new Date(today.getFullYear(), todayMonth, todayDate).getTime();
+        const daysAway = Math.round(diffMs / (1000 * 60 * 60 * 24));
+        const age = thisYearBirthday.getFullYear() - birth.getFullYear();
+
+        const entry = {
+          id: p.id,
+          name: p.name,
+          ballLevel: p.ballLevel,
+          photoUrl: p.profilePhotoUrl,
+          turningAge: age,
+          daysAway,
+        };
+
+        if (daysAway === 0) {
+          todayBirthdays.push(entry);
+        } else if (daysAway > 0 && daysAway <= 7) {
+          upcomingBirthdays.push(entry);
+        }
+      }
+
+      upcomingBirthdays.sort((a, b) => a.daysAway - b.daysAway);
+
+      res.json({
+        today: todayBirthdays,
+        upcoming: upcomingBirthdays,
+        todayCount: todayBirthdays.length,
+        upcomingCount: upcomingBirthdays.length,
+      });
+    } catch (error) {
+      console.error("Error fetching upcoming birthdays:", error);
+      res.status(500).json({ error: "Failed to fetch upcoming birthdays" });
+    }
+  });
+
   // Check for conflicts before booking
   router.get("/api/coach/sessions/check-conflict", authMiddleware, requireAcademy, async (req: AuthenticatedRequest, res: Response) => {
     try {

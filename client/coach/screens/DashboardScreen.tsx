@@ -37,6 +37,7 @@ import { CoachChatFooter } from "@/coach/components/CoachChatFooter";
 import { CoachStatusPanel } from "@/coach/components/CoachStatusPanel";
 import { FreelanceLicenseWizard } from "@/coach/components/FreelanceLicenseWizard";
 import { BurnoutRiskCard } from "@/coach/components/BurnoutRiskCard";
+import { BirthdayOverviewCard } from "@/coach/components/BirthdayOverviewCard";
 import { LoadForecastCard } from "@/coach/components/LoadForecastCard";
 import { CoachEarningsCard } from "@/coach/components/CoachEarningsCard";
 import { AcademySwitcher } from "@/coach/components/AcademySwitcher";
@@ -411,21 +412,6 @@ export default function DashboardScreen() {
     enabled: !!coach?.id,
   });
   
-  // Fetch today's player birthdays
-  interface BirthdayPlayer {
-    id: string;
-    name: string;
-    ballLevel: string | null;
-    photoUrl: string | null;
-    turningAge: number;
-  }
-  const { data: birthdaysData } = useQuery<{ birthdays: BirthdayPlayer[]; count: number }>({
-    queryKey: ["/api/coach/birthdays/today"],
-    enabled: !!coach?.id,
-    refetchOnWindowFocus: false,
-    staleTime: 1000 * 60 * 30, // 30 minutes
-  });
-
   
   const coachXP = useMemo(() => {
     if (coachXpData) {
@@ -921,36 +907,8 @@ export default function DashboardScreen() {
           </LinearGradient>
         </View>
 
-        {/* === BIRTHDAY NOTIFICATIONS === */}
-        {birthdaysData && birthdaysData.count > 0 && (
-          <View style={styles.birthdaySection}>
-            <LinearGradient
-              colors={["rgba(255, 105, 180, 0.15)", "rgba(255, 215, 0, 0.1)"]}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-              style={styles.birthdayCard}
-            >
-              <View style={styles.birthdayHeader}>
-                <Text style={styles.birthdayEmoji}>🎂</Text>
-                <View style={styles.birthdayTitleRow}>
-                  <Text style={styles.birthdayTitle}>{t("coach.dashboard.todaysBirthdays")}</Text>
-                  <View style={styles.birthdayCount}>
-                    <Text style={styles.birthdayCountText}>{birthdaysData.count}</Text>
-                  </View>
-                </View>
-              </View>
-              <View style={styles.birthdayPlayers}>
-                {birthdaysData.birthdays.map((player) => (
-                  <View key={player.id} style={styles.birthdayPlayer}>
-                    <Text style={styles.birthdayPlayerName}>{player.name}</Text>
-                    <Text style={styles.birthdayPlayerAge}>{t("coach.dashboard.turnsAge", { age: player.turningAge })}</Text>
-                  </View>
-                ))}
-              </View>
-              <Text style={styles.birthdayNote}>{t("coach.dashboard.birthdayXpBonus")}</Text>
-            </LinearGradient>
-          </View>
-        )}
+        {/* === BIRTHDAY OVERVIEW === */}
+        <BirthdayOverviewCard />
 
         {/* === ACTION NEEDED - Primary CTA === */}
         {(pendingFeedbackCount > 0 || alerts.length > 0) && (
@@ -1752,71 +1710,6 @@ const styles = StyleSheet.create({
   },
   content: {
     padding: Spacing.lg,
-  },
-  birthdaySection: {
-    marginBottom: Spacing.md,
-  },
-  birthdayCard: {
-    borderRadius: 16,
-    padding: Spacing.md,
-    borderWidth: 1,
-    borderColor: "rgba(255, 105, 180, 0.3)",
-  },
-  birthdayHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginBottom: Spacing.sm,
-  },
-  birthdayEmoji: {
-    fontSize: 24,
-    marginRight: Spacing.sm,
-  },
-  birthdayTitleRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    flex: 1,
-  },
-  birthdayTitle: {
-    fontSize: 14,
-    fontWeight: "600" as const,
-    color: Colors.dark.text,
-  },
-  birthdayCount: {
-    marginLeft: Spacing.sm,
-    backgroundColor: "rgba(255, 105, 180, 0.3)",
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 10,
-  },
-  birthdayCountText: {
-    fontSize: 12,
-    fontWeight: "700" as const,
-    color: "#FF69B4",
-  },
-  birthdayPlayers: {
-    marginBottom: Spacing.sm,
-  },
-  birthdayPlayer: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    paddingVertical: 6,
-  },
-  birthdayPlayerName: {
-    fontSize: 14,
-    fontWeight: "500" as const,
-    color: Colors.dark.text,
-  },
-  birthdayPlayerAge: {
-    fontSize: 12,
-    color: "#FFD700",
-    fontWeight: "500" as const,
-  },
-  birthdayNote: {
-    fontSize: 10,
-    color: Colors.dark.xpCyan,
-    fontStyle: "italic",
-    textAlign: "center" as const,
   },
   actionNeededSection: {
     marginBottom: Spacing.lg,
