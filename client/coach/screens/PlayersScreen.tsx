@@ -50,6 +50,7 @@ import { useTabNavigation } from "@/components/TabNavigationContext";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
+const BALL_LEVELS = ["blue", "red", "orange", "green", "yellow", "glow"];
 
 interface Player {
   id: string;
@@ -414,7 +415,7 @@ export default function PlayersScreen() {
 
   const getEffectiveBallLevel = (level: string | null) => level || "green";
 
-  const ballLevels = ["blue", "red", "orange", "green", "yellow", "glow"];
+  const ballLevels = BALL_LEVELS;
   const [filterSubLevel, setFilterSubLevel] = useState<number | null>(null);
   const [showSubLevelDropdown, setShowSubLevelDropdown] = useState<string | null>(null);
 
@@ -952,7 +953,12 @@ function PlayerDetailView({
   const [editPhone, setEditPhone] = useState(player.phone ?? "");
   const [editBallLevel, setEditBallLevel] = useState(player.ballLevel ?? "");
 
-  const BALL_LEVELS_EDIT = ["blue", "red", "orange", "green", "yellow", "glow"];
+
+  const [localPlayer, setLocalPlayer] = useState(player);
+
+  useEffect(() => {
+    setLocalPlayer(player);
+  }, [player]);
 
   const updatePlayerMutation = useMutation({
     mutationFn: async () => {
@@ -966,6 +972,20 @@ function PlayerDetailView({
     },
     onSuccess: () => {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      setLocalPlayer((prev) => ({
+        ...prev,
+        name: editName.trim(),
+        email: editEmail.trim() || null,
+        phone: editPhone.trim() || null,
+        ballLevel: editBallLevel || null,
+      }));
+      queryClient.setQueryData<Player[]>(["/api/players?withCredits=true"], (old) =>
+        old?.map((p) =>
+          p.id === player.id
+            ? { ...p, name: editName.trim(), email: editEmail.trim() || null, phone: editPhone.trim() || null, ballLevel: editBallLevel || null }
+            : p
+        )
+      );
       queryClient.invalidateQueries({ queryKey: ["/api/players?withCredits=true"] });
       setShowEditPlayer(false);
       setTimeout(() => {
@@ -1268,7 +1288,7 @@ function PlayerDetailView({
   };
 
   // Calculate level readiness (returns null for max level or invalid level)
-  const levelReadiness = getLevelReadiness(player.ballLevel, xpData?.totalXp || 0);
+  const levelReadiness = getLevelReadiness(localPlayer.ballLevel, xpData?.totalXp || 0);
 
   const addNoteMutation = useMutation({
     mutationFn: async (data: { content: string; category: string }) => {
@@ -1393,10 +1413,10 @@ function PlayerDetailView({
             <Pressable
               style={styles.premiumExportButton}
               onPress={() => {
-                setEditName(player.name);
-                setEditEmail(player.email ?? "");
-                setEditPhone(player.phone ?? "");
-                setEditBallLevel(player.ballLevel ?? "");
+                setEditName(localPlayer.name);
+                setEditEmail(localPlayer.email ?? "");
+                setEditPhone(localPlayer.phone ?? "");
+                setEditBallLevel(localPlayer.ballLevel ?? "");
                 setShowEditPlayer(true);
               }}
             >
@@ -1474,39 +1494,39 @@ function PlayerDetailView({
         <View style={styles.premiumProfileCard}>
           <View style={styles.premiumAvatarContainer}>
             <LinearGradient
-              colors={[getPlayerLevelColor(player.ballLevel ?? "green"), Colors.dark.xpCyan]}
+              colors={[getPlayerLevelColor(localPlayer.ballLevel ?? "green"), Colors.dark.xpCyan]}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 1 }}
               style={styles.premiumAvatarGlow}
             />
-            {player.profilePhotoUrl ? (
+            {localPlayer.profilePhotoUrl ? (
               Platform.OS === 'web' ? (
                 <RNImage
-                  source={{ uri: `${getStaticAssetsUrl()}${player.profilePhotoUrl}` }}
+                  source={{ uri: `${getStaticAssetsUrl()}${localPlayer.profilePhotoUrl}` }}
                   style={styles.premiumAvatarPhoto}
                   resizeMode="cover"
                 />
               ) : (
                 <Image
-                  source={{ uri: `${getStaticAssetsUrl()}${player.profilePhotoUrl}` }}
+                  source={{ uri: `${getStaticAssetsUrl()}${localPlayer.profilePhotoUrl}` }}
                   style={styles.premiumAvatarPhoto}
                   contentFit="cover"
                 />
               )
             ) : (
-              <View style={[styles.premiumAvatar, { backgroundColor: getPlayerLevelColor(player.ballLevel ?? "green") + "30" }]}>
-                <Text style={[styles.premiumInitial, { color: getPlayerLevelTextColor(player.ballLevel ?? "green") }]}>{player.name.charAt(0).toUpperCase()}</Text>
+              <View style={[styles.premiumAvatar, { backgroundColor: getPlayerLevelColor(localPlayer.ballLevel ?? "green") + "30" }]}>
+                <Text style={[styles.premiumInitial, { color: getPlayerLevelTextColor(localPlayer.ballLevel ?? "green") }]}>{localPlayer.name.charAt(0).toUpperCase()}</Text>
               </View>
             )}
           </View>
           
           <View style={styles.premiumProfileInfo}>
-            <Text style={styles.premiumProfileName}>{player.name}</Text>
-            {player.ballLevel ? (
+            <Text style={styles.premiumProfileName}>{localPlayer.name}</Text>
+            {localPlayer.ballLevel ? (
               <View style={styles.premiumLevelBadge}>
-                <View style={[styles.premiumLevelDot, { backgroundColor: getPlayerLevelColor(player.ballLevel) }]} />
+                <View style={[styles.premiumLevelDot, { backgroundColor: getPlayerLevelColor(localPlayer.ballLevel) }]} />
                 <Text style={styles.premiumLevelText}>
-                  {player.ballLevel.charAt(0).toUpperCase() + player.ballLevel.slice(1)} Ball
+                  {localPlayer.ballLevel.charAt(0).toUpperCase() + localPlayer.ballLevel.slice(1)} Ball
                 </Text>
               </View>
             ) : null}
@@ -1613,7 +1633,7 @@ function PlayerDetailView({
           </View>
         ) : null}
 
-        <PackagesCard playerId={player.id} playerName={player.name} />
+        <PackagesCard playerId={player.id} playerName={localPlayer.name} />
 
         {/* Baseline Management Card */}
         <View style={styles.baselineManagementCard}>
@@ -2282,7 +2302,7 @@ function PlayerDetailView({
       {/* Edit Player Modal */}
       <Modal visible={showEditPlayer} transparent animationType="fade" onRequestClose={() => setShowEditPlayer(false)}>
         <Pressable style={styles.editAttendanceModalOverlay} onPress={() => setShowEditPlayer(false)}>
-          <View style={[styles.editAttendanceModalContent, { gap: 12 }]}>
+          <Pressable style={[styles.editAttendanceModalContent, { gap: 12 }]} onPress={(e) => e.stopPropagation()} onStartShouldSetResponder={() => true}>
             <Text style={styles.editAttendanceModalTitle}>Edit Player</Text>
 
             <View style={{ gap: 8 }}>
@@ -2352,7 +2372,7 @@ function PlayerDetailView({
             <View style={{ gap: 8 }}>
               <Text style={{ color: Colors.dark.textSecondary, fontSize: 12, fontWeight: "600" }}>BALL LEVEL</Text>
               <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
-                {BALL_LEVELS_EDIT.map(level => (
+                {BALL_LEVELS.map(level => (
                   <Pressable
                     key={level}
                     style={{
@@ -2402,7 +2422,7 @@ function PlayerDetailView({
                 )}
               </Pressable>
             </View>
-          </View>
+          </Pressable>
         </Pressable>
       </Modal>
 
