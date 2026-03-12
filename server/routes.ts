@@ -21374,6 +21374,132 @@ export async function registerRoutes(app: Express): Promise<Server> {
     },
   );
 
+  app.get(
+    "/api/admin/players/:id/credit-audit",
+    authMiddleware,
+    requireRole("admin", "academy_owner", "platform_owner"),
+    async (req: AuthenticatedRequest, res: Response) => {
+      try {
+        const playerId = req.params.id;
+        const player = await storage.getPlayer(playerId);
+        if (!player) {
+          return res.status(404).json({ error: "Player not found" });
+        }
+
+        const allTransactions = await db.select().from(creditTransactions)
+          .where(eq(creditTransactions.playerId, playerId))
+          .orderBy(creditTransactions.createdAt);
+
+        const allPackages = await db.select().from(packages)
+          .where(eq(packages.playerId, playerId));
+
+        const allSessionPlayers = await db.select({
+          id: sessionPlayers.id,
+          sessionId: sessionPlayers.sessionId,
+          attendanceStatus: sessionPlayers.attendanceStatus,
+        }).from(sessionPlayers)
+          .where(eq(sessionPlayers.playerId, playerId));
+
+        const sessionIds = [...new Set(allSessionPlayers.map(sp => sp.sessionId))];
+        let sessionDetails: Record<string, any> = {};
+        if (sessionIds.length > 0) {
+          const sessRows = await db.select({
+            id: sessions.id,
+            sessionType: sessions.sessionType,
+            date: sessions.date,
+            duration: sessions.duration,
+          }).from(sessions)
+            .where(inArray(sessions.id, sessionIds));
+          for (const s of sessRows) {
+            sessionDetails[s.id] = s;
+          }
+        }
+
+        const balance = await storage.getPlayerCreditBalanceByType(playerId);
+
+        const txSummary = allTransactions.map(tx => ({
+          id: tx.id,
+          amount: Number(tx.amount),
+          creditType: tx.creditType,
+          reason: tx.reason,
+          type: tx.type,
+          packageId: tx.packageId,
+          sessionId: tx.sessionId,
+          metadata: tx.metadata,
+          createdAt: tx.createdAt,
+          includedInBalance: (() => {
+            const meta = tx.metadata as any;
+            if (tx.reason === "debt_settlement") return false;
+            if (meta?.cancelled === true || meta?.expired === true) return false;
+            if (!tx.creditType) return false;
+            if (Number(tx.amount) > 0 && !tx.packageId && (
+              tx.reason === "package_purchased" || tx.reason === "package_purchase" || tx.reason === "package_deleted_refund"
+            )) return false;
+            return true;
+          })(),
+          isSettledDebt: (() => {
+            const meta = tx.metadata as any;
+            return meta?.settled === true;
+          })(),
+        }));
+
+        const attendedSessions = allSessionPlayers
+          .filter(sp => sp.attendanceStatus === "present" || sp.attendanceStatus === "late");
+        const debitSessionIds = new Set(
+          allTransactions
+            .filter(tx => {
+              const meta = tx.metadata as any;
+              return Number(tx.amount) < 0 && tx.sessionId &&
+                tx.reason !== "debt_settlement" &&
+                meta?.cancelled !== true && meta?.expired !== true;
+            })
+            .map(tx => tx.sessionId!)
+        );
+        const missingSessions = attendedSessions
+          .filter(sp => !debitSessionIds.has(sp.sessionId))
+          .map(sp => ({
+            sessionId: sp.sessionId,
+            sessionDetails: sessionDetails[sp.sessionId] || null,
+          }));
+
+        res.json({
+          player: { id: player.id, name: player.name },
+          computedBalance: balance,
+          transactions: txSummary,
+          packages: allPackages.map(pkg => ({
+            id: pkg.id,
+            creditType: pkg.creditType,
+            totalCredits: Number(pkg.totalCredits),
+            remainingCredits: Number(pkg.remainingCredits),
+            status: pkg.status,
+            expiryDate: pkg.expiryDate,
+            createdAt: pkg.createdAt,
+          })),
+          sessionPlayers: attendedSessions.map(sp => ({
+            sessionPlayerId: sp.id,
+            sessionId: sp.sessionId,
+            attendanceStatus: sp.attendanceStatus,
+            sessionDetails: sessionDetails[sp.sessionId] || null,
+            hasDebitTransaction: debitSessionIds.has(sp.sessionId),
+          })),
+          missingSessions,
+          summary: {
+            totalTransactions: allTransactions.length,
+            activeTransactions: txSummary.filter(t => t.includedInBalance).length,
+            settledTransactions: txSummary.filter(t => (t.metadata as any)?.settled === true).length,
+            cancelledTransactions: txSummary.filter(t => (t.metadata as any)?.cancelled === true).length,
+            totalPackages: allPackages.length,
+            totalSessionsAttended: attendedSessions.length,
+            sessionsWithoutDebit: missingSessions.length,
+          },
+        });
+      } catch (error) {
+        console.error("Credit audit error:", error);
+        res.status(500).json({ error: "Failed to generate credit audit" });
+      }
+    },
+  );
+
   // REPAIR JOB: Fix player credit data
   app.post(
     "/api/admin/players/:id/repair-credits",

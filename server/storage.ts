@@ -6683,13 +6683,17 @@ export const storage = {
     const packageIdsWithPurchaseTx = new Set<string>();
     
     for (const tx of allTransactions) {
-      const meta = tx.metadata as { settled?: boolean; cancelled?: boolean; expired?: boolean } | null;
+      const meta = tx.metadata as { settled?: boolean; cancelled?: boolean; expired?: boolean; isDebt?: boolean } | null;
       
       if (tx.reason === "debt_settlement") {
         continue;
       }
       
       if (meta?.cancelled === true || meta?.expired === true) continue;
+      
+      if (Number(tx.amount) < 0 && tx.sessionId) {
+        debitSessionIds.add(tx.sessionId);
+      }
       
       if (Number(tx.amount) > 0 && tx.packageId) {
         if (!existingPackageIds.has(tx.packageId)) {
@@ -6710,8 +6714,8 @@ export const storage = {
         continue;
       }
       
-      if (Number(tx.amount) < 0 && tx.sessionId) {
-        debitSessionIds.add(tx.sessionId);
+      if (Number(tx.amount) < 0 && tx.sessionPlayerId && privateAbsentSpIds.has(tx.sessionPlayerId)) {
+        continue;
       }
       
       const creditType = tx.creditType as keyof typeof balance;
@@ -7148,7 +7152,7 @@ export const storage = {
           continue;
         }
       }
-      if (Number(tx.amount) > 0 && !tx.packageId && (tx.reason === "package_purchased" || tx.reason === "package_purchase")) {
+      if (Number(tx.amount) > 0 && !tx.packageId && (tx.reason === "package_purchased" || tx.reason === "package_purchase" || tx.reason === "package_deleted_refund")) {
         continue;
       }
       

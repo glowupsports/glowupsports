@@ -425,6 +425,21 @@ export default function PackagesCard({ playerId, playerName }: PackagesCardProps
         })}
       </View>
 
+      {creditBalance && (creditBalance.group < 0 || creditBalance.semi_private < 0 || creditBalance.private < 0) ? (
+        <View style={styles.debtExplanation}>
+          <Ionicons name="information-circle-outline" size={14} color={Colors.dark.error} />
+          <Text style={styles.debtExplanationText}>
+            {(() => {
+              const parts: string[] = [];
+              if (creditBalance.group < 0) parts.push(`${Math.abs(creditBalance.group)} group`);
+              if (creditBalance.semi_private < 0) parts.push(`${Math.abs(creditBalance.semi_private)} semi-private`);
+              if (creditBalance.private < 0) parts.push(`${Math.abs(creditBalance.private)} private`);
+              return `${parts.join(", ")} session(s) attended without active package`;
+            })()}
+          </Text>
+        </View>
+      ) : null}
+
       {packages.length === 0 && !isLoading ? (
         <View style={styles.emptyState}>
           <Text style={styles.emptyText}>No packages</Text>
@@ -1112,6 +1127,22 @@ const styles = StyleSheet.create({
     ...Typography.caption,
     color: Colors.dark.tabIconDefault,
     fontSize: 10,
+  },
+  debtExplanation: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    backgroundColor: Colors.dark.error + "15",
+    borderRadius: BorderRadius.sm,
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 6,
+    marginBottom: Spacing.md,
+  },
+  debtExplanationText: {
+    ...Typography.caption,
+    color: Colors.dark.error,
+    fontSize: 11,
+    flex: 1,
   },
   packageTypeBadge: {
     paddingHorizontal: Spacing.sm,
