@@ -9766,8 +9766,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
         const actuallyAttendedCount = effectivePresentCount + lateCount;
         const attendancePercentage =
-          attendedCount > 0
-            ? Math.round((effectivePresentCount / attendedCount) * 100)
+          totalLessons > 0
+            ? Math.round((effectivePresentCount / totalLessons) * 100)
             : 0;
 
         if (orphanedCompletedSessions.length > 0) {
