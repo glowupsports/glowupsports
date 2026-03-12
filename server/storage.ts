@@ -6637,24 +6637,8 @@ export const storage = {
       metadata: creditTransactions.metadata,
       packageId: creditTransactions.packageId,
       sessionId: creditTransactions.sessionId,
-      sessionPlayerId: creditTransactions.sessionPlayerId,
     }).from(creditTransactions)
       .where(eq(creditTransactions.playerId, playerId));
-
-    // Fetch session_player records for private sessions where player was absent —
-    // these should never charge credits (private 1-on-1: no-show = no charge)
-    const privateAbsentSpIds = await db.select({ id: sessionPlayers.id })
-      .from(sessionPlayers)
-      .innerJoin(sessions, eq(sessions.id, sessionPlayers.sessionId))
-      .where(and(
-        eq(sessionPlayers.playerId, playerId),
-        eq(sessionPlayers.attendanceStatus, "absent"),
-        or(
-          eq(sessions.sessionType, "private"),
-          eq(sessions.sessionType, "private_adjusted"),
-        ),
-      ))
-      .then((rows) => new Set(rows.map((r) => r.id)));
     
     const allPlayerPackages = await db.select({
       id: packages.id,
@@ -6711,10 +6695,6 @@ export const storage = {
       }
       
       if (Number(tx.amount) < 0 && tx.sessionId) {
-        // Skip debit transactions for private sessions where player was absent
-        if (tx.sessionPlayerId && privateAbsentSpIds.has(tx.sessionPlayerId)) {
-          continue;
-        }
         debitSessionIds.add(tx.sessionId);
       }
       
@@ -11162,10 +11142,10 @@ async function ensureCreditProcessed(sessionPlayerId: string): Promise<{
       }
       
       // Group sessions: absent = still charged (lesson happened regardless of attendance)
-      // Private sessions: absent = NOT charged (player didn't show up for 1-on-1)
       // Semi-private sessions: absent = NOT charged (only present player is charged as private)
+      // Private sessions: absent = charged (player didn't cancel in time, coach was there)
       const isGroupSession = sessionType === "group";
-      const isChargeable = isGroupSession
+      const isChargeable = (isOriginallyPrivate || isGroupSession)
         ? ["present", "late", "absent"].includes(attendanceStatus || "")
         : ["present", "late"].includes(attendanceStatus || "");
       
