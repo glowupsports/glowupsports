@@ -390,25 +390,30 @@ export function PremiumSessionWizard({
       const blocked = new Set<string>();
       
       try {
-        for (let week = 1; week < weekCount; week++) {
+        const weekPromises = Array.from({ length: weekCount - 1 }, (_, i) => i + 1).map(async (week) => {
           const futureDate = new Date(selectedDate);
           futureDate.setDate(futureDate.getDate() + (week * 7));
           const dateStr = `${futureDate.getFullYear()}-${String(futureDate.getMonth() + 1).padStart(2, '0')}-${String(futureDate.getDate()).padStart(2, '0')}`;
-          
-          const coachIdParam = adminMode ? `&coachId=${effectiveCoach.id}` : '';
-          let data;
+          const coachIdParam = adminMode ? `&coachId=${effectiveCoach!.id}` : '';
           try {
             const res = await apiFetch(`/api/coach/calendar?date=${dateStr}&view=day${coachIdParam}`);
-            if (!res.ok) continue;
-            data = await res.json();
+            if (!res.ok) return { futureDate, sessions: [] as ExistingSession[] };
+            const data = await res.json();
+            return {
+              futureDate,
+              sessions: [
+                ...(data.ownSessions || []),
+                ...(data.blockedSessions || []).filter((s: ExistingSession) => s.courtId === selectedCourtId),
+              ] as ExistingSession[],
+            };
           } catch {
-            continue;
+            return { futureDate, sessions: [] as ExistingSession[] };
           }
-          const allSessions = [
-            ...(data.ownSessions || []),
-            ...(data.blockedSessions || []).filter((s: ExistingSession) => s.courtId === selectedCourtId),
-          ];
-          
+        });
+
+        const weekResults = await Promise.all(weekPromises);
+
+        for (const { futureDate, sessions } of weekResults) {
           for (const time of TIME_SLOTS) {
             const [hours, mins] = time.split(":").map(Number);
             const slotStart = new Date(futureDate);
@@ -416,7 +421,7 @@ export function PremiumSessionWizard({
             const slotEnd = new Date(slotStart);
             slotEnd.setMinutes(slotEnd.getMinutes() + duration);
             
-            for (const session of allSessions) {
+            for (const session of sessions) {
               const sessionStart = new Date(session.startTime.endsWith("Z") ? session.startTime : session.startTime + "Z");
               const sessionEnd = new Date(session.endTime.endsWith("Z") ? session.endTime : session.endTime + "Z");
               
