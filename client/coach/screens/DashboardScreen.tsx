@@ -477,16 +477,8 @@ export default function DashboardScreen() {
 
   const alerts: Alert[] = useMemo(() => {
     const result: Alert[] = [];
-    if (pendingFeedbackCount > 0) {
-      result.push({
-        id: "feedback",
-        type: "feedback",
-        message: `${pendingFeedbackCount} lessons awaiting feedback`,
-        priority: "medium",
-      });
-    }
     return result;
-  }, [pendingFeedbackCount]);
+  }, []);
 
   const handleNavigate = (screen: string, params?: any) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -942,7 +934,7 @@ export default function DashboardScreen() {
               ]}
               onPress={() => {
                 Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-                handleNavigate("Players");
+                handleNavigate("Calendar");
               }}
               ctaText={t("coach.dashboard.reviewNow")}
             />
