@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useCallback, useEffect, useRef } from "react";
-import { Platform, View, Text, Pressable, StyleSheet, Modal, Animated } from "react-native";
+import { Alert as RNAlert, Platform, View, Text, Pressable, StyleSheet, Modal, Animated } from "react-native";
 
 interface AlertButton {
   text: string;
@@ -70,6 +70,7 @@ export function WebAlertProvider({ children }: { children: React.ReactNode }) {
 
     const originalAlert = window.alert;
     const originalConfirm = window.confirm;
+    const originalRNAlert = RNAlert.alert;
 
     window.alert = (msg?: any) => {
       show("", String(msg ?? ""), [{ text: "OK" }]);
@@ -83,9 +84,14 @@ export function WebAlertProvider({ children }: { children: React.ReactNode }) {
       return false;
     };
 
+    RNAlert.alert = (title: string, message?: string, buttons?: AlertButton[]) => {
+      show(title || "", message || "", buttons && buttons.length > 0 ? buttons : [{ text: "OK" }]);
+    };
+
     return () => {
       window.alert = originalAlert;
       window.confirm = originalConfirm;
+      RNAlert.alert = originalRNAlert;
     };
   }, [show]);
 

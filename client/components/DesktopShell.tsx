@@ -1,7 +1,9 @@
 import React, { useState, useCallback, useEffect } from "react";
-import { View, Text, Pressable, StyleSheet, Platform } from "react-native";
+import { Alert, View, Text, Pressable, StyleSheet, Platform } from "react-native";
 import Ionicons from "@expo/vector-icons/Ionicons";
+import * as Haptics from "expo-haptics";
 import { useTabNavigation } from "@/components/TabNavigationContext";
+import { useAuth } from "@/coach/context/AuthContext";
 
 const ACCENT = "#C8FF3D";
 const BG_SIDEBAR = "#0F141B";
@@ -36,6 +38,25 @@ interface DesktopShellProps {
 export function DesktopShell({ children, coachName, academyName }: DesktopShellProps) {
   const [activeIndex, setActiveIndex] = useState(0);
   const { navigateToTab, registerActiveTabListener } = useTabNavigation();
+  const { logout } = useAuth();
+
+  const handleLogout = useCallback(() => {
+    Alert.alert(
+      "Sign Out",
+      "Are you sure you want to sign out?",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Sign Out",
+          style: "destructive",
+          onPress: () => {
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+            logout();
+          },
+        },
+      ]
+    );
+  }, [logout]);
 
   useEffect(() => {
     const unregister = registerActiveTabListener((index: number) => {
@@ -109,6 +130,17 @@ export function DesktopShell({ children, coachName, academyName }: DesktopShellP
                 <Text style={styles.coachBadgeText}>COACH</Text>
               </View>
             </View>
+            <Pressable
+              style={({ hovered }) => [
+                styles.logoutBtn,
+                (hovered as boolean) && styles.logoutBtnHovered,
+              ]}
+              onPress={handleLogout}
+              accessibilityRole="button"
+              accessibilityLabel="Sign out"
+            >
+              <Ionicons name="log-out-outline" size={18} color={MUTED} />
+            </Pressable>
           </View>
         </View>
       </View>
@@ -254,6 +286,16 @@ const styles = StyleSheet.create({
     fontWeight: "700" as const,
     color: ACCENT,
     letterSpacing: 0.8,
+  },
+  logoutBtn: {
+    width: 32,
+    height: 32,
+    borderRadius: 8,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  logoutBtnHovered: {
+    backgroundColor: "rgba(239,68,68,0.12)",
   },
   mainArea: {
     flex: 1,
