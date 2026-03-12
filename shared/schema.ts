@@ -1020,7 +1020,7 @@ export const updatePlayerSchema = z.object({
   phone: z.string().optional().nullable(),
   age: z.number().int().min(0, "Age must be positive").max(120, "Age must be realistic").optional().nullable(),
   dateOfBirth: z.string().optional().nullable(), // ISO date string (YYYY-MM-DD)
-  ballLevel: z.enum(["red", "orange", "green", "yellow", "glow"]).optional().nullable(),
+  ballLevel: z.enum(["blue", "red", "orange", "green", "yellow", "glow"]).optional().nullable(),
   skillLevel: z.number().int().min(1).max(3).optional().nullable(),
   membershipType: z.string().optional().nullable(),
   medicalNotes: z.string().optional().nullable(),
