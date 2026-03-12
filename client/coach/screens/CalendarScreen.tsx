@@ -101,7 +101,7 @@ function dimColors(colors: string[]): string[] {
   });
 }
 
-function DraggableSessionBlock({ session, top, height, isPast, isActive, gradientColors, sessionLabel, formattedTime, hourHeight, courtLaneWidth, onTap, onLongPress, onDragEnd, onDragUpdate, hasConflict }: any) {
+function DraggableSessionBlock({ session, top, height, isPast, isActive, gradientColors, sessionLabel, formattedTime, formattedEndTime, hourHeight, courtLaneWidth, onTap, onLongPress, onDragEnd, onDragUpdate, hasConflict, onHoverIn, onHoverOut }: any) {
   const translateX = useSharedValue(0);
   const translateY = useSharedValue(0);
   const isDragging = useSharedValue(false);
@@ -171,11 +171,13 @@ function DraggableSessionBlock({ session, top, height, isPast, isActive, gradien
             height: height - 2,
             borderRadius: 6,
             overflow: 'hidden',
-            borderWidth: hasConflict ? 2 : 0,
-            borderColor: hasConflict ? '#FF4444' : 'transparent',
+            borderWidth: hasConflict ? 2 : 1,
+            borderColor: hasConflict ? '#FF4444' : 'rgba(255,255,255,0.08)',
+            ...(Platform.OS === 'web' ? { boxShadow: '0 2px 8px rgba(0,0,0,0.35)' } as any : {}),
           },
           animatedStyle,
         ]}
+        {...(Platform.OS === 'web' ? { onMouseEnter: onHoverIn, onMouseLeave: onHoverOut } as any : {})}
       >
         <LinearGradient
           colors={displayColors}
@@ -192,8 +194,8 @@ function DraggableSessionBlock({ session, top, height, isPast, isActive, gradien
             {sessionLabel}
           </Text>
           {height > 30 ? (
-            <Text style={{ color: 'rgba(0,0,0,0.6)', fontSize: 9 }} numberOfLines={1}>
-              {formattedTime}
+            <Text style={{ color: 'rgba(0,0,0,0.65)', fontSize: 9 }} numberOfLines={1}>
+              {formattedEndTime ? `${formattedTime}–${formattedEndTime}` : formattedTime}
             </Text>
           ) : null}
         </LinearGradient>
@@ -340,6 +342,7 @@ export default function CalendarScreen() {
     originalCourtId: string | null;
   } | null>(null);
   const [dragConflict, setDragConflict] = useState<string | null>(null);
+  const [hoveredSession, setHoveredSession] = useState<any | null>(null);
   const [pendingDrag, setPendingDrag] = useState<{
     session: Session;
     newStart: Date;
@@ -1921,6 +1924,7 @@ export default function CalendarScreen() {
                             gradientColors={gradientColors}
                             sessionLabel={sessionLabel}
                             formattedTime={formatTimeInTimezone(session.startTime, academyTimezone)}
+                            formattedEndTime={formatTimeInTimezone(session.endTime, academyTimezone)}
                             hourHeight={hourHeight}
                             courtLaneWidth={dynamicLaneWidth}
                             onTap={() => handleSessionTap(session)}
@@ -1928,6 +1932,8 @@ export default function CalendarScreen() {
                             onDragEnd={(deltaY, deltaX) => handleSessionDragEnd(session, deltaY, deltaX, courtIndex)}
                             onDragUpdate={(deltaY, deltaX, isDragging) => checkDragConflict(session, deltaY, deltaX, courtIndex, isDragging)}
                             hasConflict={dragConflict === session.id}
+                            onHoverIn={Platform.OS === 'web' ? () => setHoveredSession(session) : undefined}
+                            onHoverOut={Platform.OS === 'web' ? () => setHoveredSession(null) : undefined}
                           />
                         );
                       })}
@@ -3290,6 +3296,54 @@ export default function CalendarScreen() {
           </View>
         </View>
       </Modal>
+
+      {/* Web hover popup */}
+      {Platform.OS === 'web' && hoveredSession && (
+        <View style={{ position: 'fixed' as any, bottom: 24, right: 24, zIndex: 999 }} pointerEvents="none">
+          <View style={{
+            backgroundColor: '#1A2030',
+            borderRadius: 12,
+            padding: 14,
+            minWidth: 200,
+            borderWidth: 1,
+            borderColor: 'rgba(255,255,255,0.1)',
+            shadowColor: '#000',
+            shadowOffset: { width: 0, height: 8 },
+            shadowOpacity: 0.5,
+            shadowRadius: 16,
+          }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8, gap: 8 }}>
+              <View style={{
+                width: 8,
+                height: 8,
+                borderRadius: 4,
+                backgroundColor: getSessionTypeGradient(hoveredSession.sessionType)?.[0] || '#C8FF3D',
+              }} />
+              <Text style={{ color: '#fff', fontSize: 13, fontWeight: '700' }}>
+                {hoveredSession.sessionType === 'private' || hoveredSession.sessionType === 'private_adjusted' ? 'Private' :
+                 hoveredSession.sessionType === 'semi_private' ? 'Semi-Private' :
+                 hoveredSession.sessionType === 'group' ? 'Group' :
+                 hoveredSession.sessionType === 'activity' ? 'Activity' :
+                 hoveredSession.sessionType === 'physical' ? 'Physical' : 'Session'}
+              </Text>
+            </View>
+            {hoveredSession.players?.[0]?.name && (
+              <Text style={{ color: '#C8FF3D', fontSize: 12, fontWeight: '600', marginBottom: 4 }}>
+                {hoveredSession.players[0].name}
+                {hoveredSession.players.length > 1 ? ` +${hoveredSession.players.length - 1}` : ''}
+              </Text>
+            )}
+            <Text style={{ color: 'rgba(255,255,255,0.6)', fontSize: 11, marginBottom: 2 }}>
+              {formatTimeInTimezone(hoveredSession.startTime, academyTimezone)} – {formatTimeInTimezone(hoveredSession.endTime, academyTimezone)}
+            </Text>
+            {hoveredSession.courtId && (
+              <Text style={{ color: 'rgba(255,255,255,0.45)', fontSize: 10 }}>
+                {allCourts.find((c: any) => c.id === hoveredSession.courtId)?.name || ''}
+              </Text>
+            )}
+          </View>
+        </View>
+      )}
     </View>
   );
 }
@@ -3905,8 +3959,8 @@ const styles = StyleSheet.create({
     borderBottomColor: "rgba(255, 255, 255, 0.08)",
   },
   courtHeaderWithDivider: {
-    borderLeftWidth: 3,
-    borderLeftColor: "#FFFFFF",
+    borderLeftWidth: 1,
+    borderLeftColor: "rgba(255,255,255,0.12)",
   },
   courtHeaderText: {
     fontSize: 12,
@@ -3975,7 +4029,7 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     height: 1,
-    backgroundColor: "rgba(255,255,255,0.15)",
+    backgroundColor: "rgba(255,255,255,0.05)",
   },
   halfHourLine: {
     position: "absolute",
@@ -3983,7 +4037,7 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     height: 1,
-    backgroundColor: Backgrounds.elevated,
+    backgroundColor: "rgba(255,255,255,0.03)",
   },
   sessionBlock: {
     position: "absolute",

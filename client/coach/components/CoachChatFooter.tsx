@@ -9,6 +9,7 @@ import {
   Platform,
   ActivityIndicator,
   ScrollView,
+  useWindowDimensions,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import Animated, {
@@ -139,7 +140,9 @@ const TAB_BAR_HEIGHT = 85;
 
 export function CoachChatFooter({ mode = "coach" }: ChatFooterProps) {
   const insets = useSafeAreaInsets();
-  const tabBarHeight = TAB_BAR_HEIGHT;
+  const { width: screenWidth } = useWindowDimensions();
+  const isDesktopWeb = Platform.OS === "web" && screenWidth >= 1024;
+  const tabBarHeight = isDesktopWeb ? 0 : TAB_BAR_HEIGHT;
   const queryClient = useQueryClient();
   const { coach } = useCoach();
   const { user } = useAuth();
@@ -1201,7 +1204,7 @@ export function CoachChatFooter({ mode = "coach" }: ChatFooterProps) {
   };
 
   return (
-    <Animated.View style={[styles.container, { bottom: tabBarHeight, paddingTop: isFullscreen ? insets.top : 0 }, animatedStyle]}>
+    <Animated.View style={[styles.container, { bottom: tabBarHeight, paddingTop: isFullscreen ? insets.top : 0 }, isDesktopWeb && { position: "fixed" as any, left: 220, right: 0, bottom: 0 }, animatedStyle]}>
       <BlurView intensity={40} tint="dark" style={StyleSheet.absoluteFill} />
       <View style={styles.header}>
         <Pressable
