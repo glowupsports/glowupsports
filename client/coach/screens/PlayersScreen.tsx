@@ -41,6 +41,7 @@ import { useCoach } from "@/coach/context/CoachContext";
 import { convertUTCTimeToLocal, formatCredits } from "@/lib/dateUtils";
 import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollViewCompat";
 import PackagesCard from "@/coach/components/PackagesCard";
+import CreateInvoiceModal from "@/admin/components/CreateInvoiceModal";
 import QuickBaselineDrawer from "@/coach/components/QuickBaselineDrawer";
 import { GuidedEmptyState } from "@/components/GuidedEmptyState";
 import { PremiumBaselineFlow } from "@/coach/components/PremiumBaselineFlow";
@@ -948,6 +949,8 @@ function PlayerDetailView({
   const [isUpdatingAttendance, setIsUpdatingAttendance] = useState(false);
 
   const [showEditPlayer, setShowEditPlayer] = useState(false);
+  const [showInvoiceModal, setShowInvoiceModal] = useState(false);
+  const [showRecordPaymentModal, setShowRecordPaymentModal] = useState(false);
   const [editName, setEditName] = useState(player.name);
   const [editEmail, setEditEmail] = useState(player.email ?? "");
   const [editPhone, setEditPhone] = useState(player.phone ?? "");
@@ -1195,6 +1198,59 @@ function PlayerDetailView({
   const { data: xpData } = useQuery<PlayerXpData>({
     queryKey: [`/api/players/${player.id}/xp`],
   });
+
+  interface PlayerStatsPayments {
+    totalOwed: number;
+    totalPaid: number;
+    lastPaymentDate?: string;
+    status: "paid" | "partial" | "overdue";
+    currency: string;
+    invoices?: {
+      id: string;
+      invoiceNumber: string;
+      amount: number;
+      currency: string;
+      status: string;
+      dueDate?: string;
+      paidAt?: string;
+      createdAt?: string;
+      notes?: string;
+      isOverdue: boolean;
+    }[];
+  }
+  interface PlayerStatsData {
+    player: {
+      id: string;
+      name: string;
+      email?: string;
+      phone?: string;
+      parentName?: string;
+      parentPhone?: string;
+    };
+    payments: PlayerStatsPayments;
+    packages?: {
+      id: string;
+      creditType: string;
+      totalCredits: number;
+      remainingCredits: number;
+      status: string;
+      isPaid?: boolean;
+      price?: number;
+      packageName?: string;
+    }[];
+  }
+  const { data: playerStats } = useQuery<PlayerStatsData>({
+    queryKey: ["/api/admin/players", player.id, "stats"],
+  });
+
+  const getPaymentStatusColor = (status?: string) => {
+    switch (status) {
+      case "paid": return Colors.dark.successNeon;
+      case "partial": return Colors.dark.orange;
+      case "overdue": return Colors.dark.error;
+      default: return Colors.dark.textMuted;
+    }
+  };
 
   // Fetch baseline status
   interface BaselineData {
@@ -1634,6 +1690,164 @@ function PlayerDetailView({
         ) : null}
 
         <PackagesCard playerId={player.id} playerName={localPlayer.name} />
+
+        {/* Payments Section */}
+        {playerStats?.payments ? (
+          <View style={styles.paymentsSection}>
+            <Text style={styles.paymentsSectionTitle}>Payments</Text>
+            <View style={styles.paymentsSummary}>
+              <View style={[
+                styles.paymentsStatusBadge, 
+                { backgroundColor: `${getPaymentStatusColor(playerStats.payments.status)}20` }
+              ]}>
+                <Text style={[styles.paymentsStatusText, { color: getPaymentStatusColor(playerStats.payments.status) }]}>
+                  {playerStats.payments.status?.toUpperCase() || "N/A"}
+                </Text>
+              </View>
+            </View>
+            <View style={styles.paymentsFinanceRow}>
+              <Text style={styles.paymentsFinanceLabel}>Total Owed</Text>
+              <Text style={[styles.paymentsFinanceValue, { color: Colors.dark.error }]}>
+                {playerStats.payments.currency} {playerStats.payments.totalOwed}
+              </Text>
+            </View>
+            <View style={styles.paymentsFinanceRow}>
+              <Text style={styles.paymentsFinanceLabel}>Total Paid</Text>
+              <Text style={[styles.paymentsFinanceValue, { color: Colors.dark.successNeon }]}>
+                {playerStats.payments.currency} {playerStats.payments.totalPaid}
+              </Text>
+            </View>
+            {playerStats.payments.lastPaymentDate ? (
+              <View style={styles.paymentsFinanceRow}>
+                <Text style={styles.paymentsFinanceLabel}>Last Payment</Text>
+                <Text style={styles.paymentsFinanceValue}>{playerStats.payments.lastPaymentDate}</Text>
+              </View>
+            ) : null}
+            <View style={styles.paymentsActions}>
+              <Pressable 
+                style={styles.paymentsRecordButton}
+                onPress={() => {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                  setShowRecordPaymentModal(true);
+                }}
+              >
+                <Ionicons name="card-outline" size={16} color="#000" />
+                <Text style={styles.paymentsRecordText}>Record Payment</Text>
+              </Pressable>
+              <Pressable 
+                style={styles.paymentsCreateInvoiceButton}
+                onPress={() => {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                  setShowInvoiceModal(true);
+                }}
+              >
+                <Ionicons name="document-text-outline" size={16} color={Colors.dark.successNeon} />
+                <Text style={styles.paymentsCreateInvoiceText}>Create Invoice</Text>
+              </Pressable>
+            </View>
+
+            {playerStats.payments.invoices && playerStats.payments.invoices.length > 0 ? (
+              <View style={{ marginTop: Spacing.md }}>
+                <Text style={{ ...Typography.caption, color: Colors.dark.textMuted, fontWeight: "700" as const, letterSpacing: 1, marginBottom: Spacing.sm }}>
+                  INVOICES ({playerStats.payments.invoices.length})
+                </Text>
+                {playerStats.payments.invoices.map((inv: any) => {
+                  const isOverdue = inv.isOverdue;
+                  const isPaid = inv.status === "paid";
+                  const statusColor = isPaid ? Colors.dark.successNeon : isOverdue ? Colors.dark.error : "#FFD700";
+                  const statusLabel = isPaid ? "PAID" : isOverdue ? "OVERDUE" : "PENDING";
+                  return (
+                    <View key={inv.id} style={{
+                      backgroundColor: "rgba(255,255,255,0.04)",
+                      borderRadius: BorderRadius.sm,
+                      padding: Spacing.sm,
+                      marginBottom: 6,
+                      borderLeftWidth: 3,
+                      borderLeftColor: statusColor,
+                    }}>
+                      <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
+                        <View style={{ flex: 1 }}>
+                          <Text style={{ fontSize: 13, color: Colors.dark.text, fontWeight: "600" as const }}>
+                            #{inv.invoiceNumber}
+                          </Text>
+                          <Text style={{ fontSize: 12, color: Colors.dark.textMuted, marginTop: 2 }}>
+                            Due: {inv.dueDate ? new Date(inv.dueDate).toLocaleDateString() : "No date"}
+                          </Text>
+                        </View>
+                        <Text style={{ fontSize: 15, fontWeight: "700" as const, color: statusColor }}>
+                          {inv.currency} {inv.amount.toLocaleString()}
+                        </Text>
+                      </View>
+                      <View style={{ flexDirection: "row", alignItems: "center", marginTop: 6, gap: 6 }}>
+                        <View style={{
+                          backgroundColor: `${statusColor}20`,
+                          paddingHorizontal: 6,
+                          paddingVertical: 2,
+                          borderRadius: BorderRadius.xs,
+                        }}>
+                          <Text style={{ fontSize: 10, fontWeight: "700" as const, color: statusColor }}>{statusLabel}</Text>
+                        </View>
+                        {!isPaid ? (
+                          <View style={{ flexDirection: "row", gap: 6, marginLeft: "auto" }}>
+                            <Pressable
+                              style={{
+                                flexDirection: "row",
+                                alignItems: "center",
+                                gap: 4,
+                                backgroundColor: `${Colors.dark.successNeon}20`,
+                                paddingHorizontal: 14,
+                                paddingVertical: 8,
+                                borderRadius: BorderRadius.sm,
+                                borderWidth: 1,
+                                borderColor: `${Colors.dark.successNeon}40`,
+                              }}
+                              onPress={async () => {
+                                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                                try {
+                                  await apiRequest("PATCH", `/api/billing/invoices/${inv.id}`, { status: "paid", paidAt: new Date().toISOString() });
+                                  queryClient.invalidateQueries({ queryKey: ["/api/admin/players", player.id, "stats"] });
+                                  queryClient.invalidateQueries({ queryKey: ["/api/billing/invoices"] });
+                                  queryClient.invalidateQueries({ queryKey: ["/api/players?withCredits=true"] });
+                                  Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+                                  Alert.alert("Invoice Paid", `Invoice #${inv.invoiceNumber} has been marked as paid.`);
+                                } catch (error) {
+                                  Alert.alert("Error", "Failed to mark invoice as paid. Please try again.");
+                                }
+                              }}
+                            >
+                              <Ionicons name="checkmark-circle" size={14} color={Colors.dark.successNeon} />
+                              <Text style={{ fontSize: 12, color: Colors.dark.successNeon, fontWeight: "700" as const }}>Paid</Text>
+                            </Pressable>
+                            <Pressable
+                              style={{
+                                flexDirection: "row",
+                                alignItems: "center",
+                                gap: 4,
+                                backgroundColor: `${isOverdue ? Colors.dark.error : "#FFD700"}15`,
+                                paddingHorizontal: 14,
+                                paddingVertical: 8,
+                                borderRadius: BorderRadius.sm,
+                                borderWidth: 1,
+                                borderColor: `${isOverdue ? Colors.dark.error : "#FFD700"}30`,
+                              }}
+                              onPress={() => {
+                                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                                setShowInvoiceModal(true);
+                              }}
+                            >
+                              <Ionicons name="mail-outline" size={14} color={isOverdue ? Colors.dark.error : "#FFD700"} />
+                              <Text style={{ fontSize: 12, color: isOverdue ? Colors.dark.error : "#FFD700", fontWeight: "700" as const }}>Reminder</Text>
+                            </Pressable>
+                          </View>
+                        ) : null}
+                      </View>
+                    </View>
+                  );
+                })}
+              </View>
+            ) : null}
+          </View>
+        ) : null}
 
         {/* Baseline Management Card */}
         <View style={styles.baselineManagementCard}>
@@ -2482,6 +2696,111 @@ function PlayerDetailView({
             </Text>
           </View>
         </Pressable>
+      </Modal>
+
+      <CreateInvoiceModal
+        visible={showInvoiceModal}
+        onClose={() => setShowInvoiceModal(false)}
+        player={playerStats?.player ? {
+          id: playerStats.player.id,
+          name: playerStats.player.name,
+          email: playerStats.player.email,
+          phone: playerStats.player.phone,
+          parentName: playerStats.player.parentName,
+          parentEmail: undefined,
+          parentPhone: playerStats.player.parentPhone,
+        } : null}
+        onSuccess={() => {
+          queryClient.invalidateQueries({ queryKey: ["/api/admin/players", player.id, "stats"] });
+        }}
+      />
+
+      {/* Record Payment Modal */}
+      <Modal
+        visible={showRecordPaymentModal}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setShowRecordPaymentModal(false)}
+      >
+        <View style={styles.recordPaymentOverlay}>
+          <View style={styles.recordPaymentContainer}>
+            <View style={styles.recordPaymentHeader}>
+              <Text style={styles.recordPaymentTitle}>Record Payment</Text>
+              <Pressable 
+                style={styles.recordPaymentClose}
+                onPress={() => setShowRecordPaymentModal(false)}
+              >
+                <Ionicons name="close" size={24} color={Colors.dark.text} />
+              </Pressable>
+            </View>
+            
+            <ScrollView style={styles.recordPaymentContent}>
+              {playerStats?.packages?.filter((p: any) => !p.isPaid).length === 0 ? (
+                <View style={styles.noUnpaidBox}>
+                  <Ionicons name="checkmark-circle" size={48} color={Colors.dark.successNeon} />
+                  <Text style={styles.noUnpaidTitleText}>All Paid!</Text>
+                  <Text style={styles.noUnpaidSubText}>
+                    This player has no outstanding payments.
+                  </Text>
+                </View>
+              ) : (
+                <>
+                  <Text style={styles.unpaidTitle}>Unpaid Packages</Text>
+                  {playerStats?.packages?.filter((p: any) => !p.isPaid).map((pkg: any) => (
+                    <View key={pkg.id} style={styles.unpaidCard}>
+                      <View style={styles.unpaidInfo}>
+                        <View style={styles.unpaidRow}>
+                          <Ionicons 
+                            name={pkg.creditType === "private" ? "person" : pkg.creditType === "semi_private" ? "people" : "people-circle"} 
+                            size={20} 
+                            color={Colors.dark.primary} 
+                          />
+                          <Text style={styles.unpaidType}>
+                            {pkg.creditType === "private" ? "Private" : pkg.creditType === "semi_private" ? "Semi-Private" : "Group"}
+                          </Text>
+                        </View>
+                        <Text style={styles.unpaidCredits}>
+                          {formatCredits(pkg.remainingCredits)} / {formatCredits(pkg.totalCredits)} credits
+                        </Text>
+                        <Text style={styles.unpaidPrice}>
+                          AED {Number(pkg.price || 0).toLocaleString()}
+                        </Text>
+                      </View>
+                      <Pressable
+                        style={styles.markPaidBtn}
+                        onPress={async () => {
+                          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                          try {
+                            await apiRequest("PATCH", `/api/packages/${pkg.id}`, { isPaid: true, paidAt: new Date().toISOString() });
+                            queryClient.invalidateQueries({ queryKey: ["/api/admin/players", player.id, "stats"] });
+                            queryClient.invalidateQueries({ queryKey: ["/api/players?withCredits=true"] });
+                            queryClient.invalidateQueries({ queryKey: ["/api/billing/invoices"] });
+                            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+                            Alert.alert("Payment Recorded", `Package marked as paid.`);
+                          } catch (error) {
+                            console.error("Failed to record payment:", error);
+                            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+                            Alert.alert("Error", "Failed to record payment. Please try again.");
+                          }
+                        }}
+                      >
+                        <Ionicons name="checkmark" size={18} color="#000" />
+                        <Text style={styles.markPaidBtnText}>Mark Paid</Text>
+                      </Pressable>
+                    </View>
+                  ))}
+                </>
+              )}
+            </ScrollView>
+            
+            <Pressable
+              style={styles.recordPaymentDone}
+              onPress={() => setShowRecordPaymentModal(false)}
+            >
+              <Text style={styles.recordPaymentDoneText}>Done</Text>
+            </Pressable>
+          </View>
+        </View>
       </Modal>
     </View>
   );
@@ -5270,5 +5589,201 @@ const styles = StyleSheet.create({
     textAlign: "center",
     marginTop: 16,
     fontStyle: "italic",
+  },
+  paymentsSection: {
+    backgroundColor: Backgrounds.card,
+    borderRadius: BorderRadius.xl,
+    padding: Spacing.lg,
+    marginHorizontal: Spacing.lg,
+    marginBottom: Spacing.md,
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.06)",
+  },
+  paymentsSectionTitle: {
+    ...Typography.h3,
+    color: Colors.dark.text,
+    fontWeight: "700",
+    marginBottom: Spacing.md,
+  },
+  paymentsSummary: {
+    alignItems: "flex-start",
+    marginBottom: Spacing.md,
+  },
+  paymentsStatusBadge: {
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm,
+    borderRadius: BorderRadius.sm,
+    backgroundColor: Backgrounds.card,
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.06)",
+  },
+  paymentsStatusText: {
+    ...Typography.caption,
+    fontWeight: "700",
+  },
+  paymentsFinanceRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingVertical: Spacing.sm,
+  },
+  paymentsFinanceLabel: {
+    ...Typography.body,
+    color: Colors.dark.textMuted,
+  },
+  paymentsFinanceValue: {
+    ...Typography.body,
+    color: Colors.dark.text,
+    fontWeight: "600",
+  },
+  paymentsActions: {
+    flexDirection: "row",
+    gap: Spacing.sm,
+    marginTop: Spacing.lg,
+  },
+  paymentsRecordButton: {
+    flex: 1,
+    flexDirection: "row",
+    backgroundColor: Colors.dark.orange,
+    paddingVertical: Spacing.md,
+    borderRadius: BorderRadius.md,
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+  },
+  paymentsRecordText: {
+    ...Typography.body,
+    color: "#000",
+    fontWeight: "700",
+  },
+  paymentsCreateInvoiceButton: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: Spacing.xs,
+    backgroundColor: Colors.dark.successNeon + "20",
+    borderWidth: 1,
+    borderColor: Colors.dark.successNeon + "40",
+    paddingVertical: Spacing.md,
+    borderRadius: BorderRadius.md,
+  },
+  paymentsCreateInvoiceText: {
+    ...Typography.body,
+    color: Colors.dark.successNeon,
+    fontWeight: "600",
+  },
+  recordPaymentOverlay: {
+    flex: 1,
+    backgroundColor: Colors.dark.backgroundRoot,
+    justifyContent: "flex-end",
+  },
+  recordPaymentContainer: {
+    backgroundColor: Backgrounds.elevated,
+    borderTopLeftRadius: BorderRadius.xl,
+    borderTopRightRadius: BorderRadius.xl,
+    maxHeight: "70%",
+    paddingBottom: 34,
+  },
+  recordPaymentHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    padding: Spacing.lg,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.dark.border,
+  },
+  recordPaymentTitle: {
+    ...Typography.h3,
+    color: Colors.dark.text,
+    fontWeight: "700",
+  },
+  recordPaymentClose: {
+    padding: Spacing.xs,
+  },
+  recordPaymentContent: {
+    padding: Spacing.lg,
+  },
+  noUnpaidBox: {
+    alignItems: "center",
+    paddingVertical: Spacing.xl,
+    gap: Spacing.md,
+  },
+  noUnpaidTitleText: {
+    ...Typography.h3,
+    color: Colors.dark.successNeon,
+    fontWeight: "700",
+  },
+  noUnpaidSubText: {
+    ...Typography.body,
+    color: Colors.dark.textMuted,
+    textAlign: "center",
+  },
+  unpaidTitle: {
+    ...Typography.caption,
+    color: Colors.dark.textMuted,
+    textTransform: "uppercase",
+    letterSpacing: 1,
+    marginBottom: Spacing.md,
+  },
+  unpaidCard: {
+    backgroundColor: Backgrounds.card,
+    borderRadius: BorderRadius.lg,
+    padding: Spacing.lg,
+    marginBottom: Spacing.md,
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    borderWidth: 1,
+    borderColor: `${Colors.dark.error}40`,
+  },
+  unpaidInfo: {
+    flex: 1,
+    gap: 4,
+  },
+  unpaidRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+  },
+  unpaidType: {
+    ...Typography.body,
+    color: Colors.dark.text,
+    fontWeight: "600",
+  },
+  unpaidCredits: {
+    ...Typography.small,
+    color: Colors.dark.textMuted,
+  },
+  unpaidPrice: {
+    ...Typography.body,
+    color: Colors.dark.error,
+    fontWeight: "700",
+  },
+  markPaidBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    backgroundColor: Colors.dark.successNeon,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm,
+    borderRadius: BorderRadius.md,
+  },
+  markPaidBtnText: {
+    ...Typography.caption,
+    color: "#000",
+    fontWeight: "700",
+  },
+  recordPaymentDone: {
+    backgroundColor: Colors.dark.primary,
+    marginHorizontal: Spacing.lg,
+    paddingVertical: Spacing.md,
+    borderRadius: BorderRadius.md,
+    alignItems: "center",
+  },
+  recordPaymentDoneText: {
+    ...Typography.body,
+    color: "#000",
+    fontWeight: "700",
   },
 });

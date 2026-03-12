@@ -18776,7 +18776,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.patch(
     "/api/billing/invoices/:id",
     authMiddleware,
-    requireRole("admin", "academy_owner", "platform_owner"),
+    requireRole("admin", "academy_owner", "platform_owner", "coach"),
     requireAcademy,
     async (req: AuthenticatedRequest, res: Response) => {
       try {
