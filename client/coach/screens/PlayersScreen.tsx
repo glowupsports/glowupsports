@@ -831,24 +831,19 @@ export default function PlayersScreen() {
             </View>
 
             <View style={styles.inviteCodeSection}>
-              <Text style={styles.inviteCodeLabel}>Share this invite link with the player/parent:</Text>
+              <Text style={styles.inviteCodeLabel}>Share this code with the player or parent:</Text>
               <View style={styles.inviteCodeBox}>
                 <Text style={styles.inviteCodeText} selectable>
-                  {`${getApiUrl()}/join/${createdPlayerInvite?.inviteCode}`}
+                  {createdPlayerInvite?.inviteCode}
                 </Text>
               </View>
               <Pressable 
                 style={styles.copyButton}
                 onPress={async () => {
                   if (createdPlayerInvite?.inviteCode) {
-                    const inviteUrl = `${getApiUrl()}/join/${createdPlayerInvite.inviteCode}`;
-                    await Clipboard.setStringAsync(inviteUrl);
+                    await Clipboard.setStringAsync(createdPlayerInvite.inviteCode);
                     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-                    if (Platform.OS === 'web') {
-                      window.alert('Invite link copied to clipboard!');
-                    } else {
-                      Alert.alert('Copied', 'Invite link copied to clipboard!');
-                    }
+                    Alert.alert('Copied', 'Invite code copied to clipboard!');
                   }
                 }}
               >
@@ -859,7 +854,7 @@ export default function PlayersScreen() {
                   style={styles.copyButtonGradient}
                 >
                   <Ionicons name="copy-outline" size={18} color={Colors.dark.backgroundRoot} />
-                  <Text style={styles.copyButtonText}>Copy Invite Link</Text>
+                  <Text style={styles.copyButtonText}>Copy Code</Text>
                 </LinearGradient>
               </Pressable>
             </View>

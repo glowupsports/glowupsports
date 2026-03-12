@@ -776,7 +776,7 @@ export default function LoginScreen() {
       return;
     }
 
-    const code = inviteCode.trim().split("/").pop() || inviteCode.trim();
+    const code = inviteCode.trim().toUpperCase();
 
     setIsSubmitting(true);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
@@ -858,7 +858,7 @@ export default function LoginScreen() {
       return;
     }
 
-    const code = inviteCode.trim().split("/").pop() || inviteCode.trim();
+    const code = inviteCode.trim().toUpperCase();
 
     setIsSubmitting(true);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
@@ -1771,21 +1771,22 @@ export default function LoginScreen() {
           </View>
           <Text style={styles.infoTitle}>Join with Invite Code</Text>
           <Text style={styles.infoText}>
-            Enter the invite code or paste the full invite link you received from the platform owner.
+            Enter the 6-character invite code you received from your coach or academy.
           </Text>
         </View>
 
         <View style={styles.inputGroup}>
-          <Text style={styles.label}>INVITE CODE OR LINK</Text>
+          <Text style={styles.label}>INVITE CODE</Text>
           <View style={styles.glassInput}>
             <Ionicons name="key-outline" size={18} color="#9B59B6" style={styles.inputIcon} />
             <TextInput
               value={inviteCode}
-              onChangeText={setInviteCode}
-              placeholder="Paste your invite code or link"
+              onChangeText={(text) => setInviteCode(text.toUpperCase().replace(/[^A-Z0-9]/g, ""))}
+              placeholder="Enter your invite code"
               placeholderTextColor={Colors.dark.textMuted}
-              autoCapitalize="none"
+              autoCapitalize="characters"
               autoCorrect={false}
+              maxLength={6}
               style={styles.input}
             />
           </View>

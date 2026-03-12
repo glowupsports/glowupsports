@@ -237,6 +237,23 @@ const authLimiter = rateLimit({
   legacyHeaders: false,
 });
 
+const inviteLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 10,
+  message: { error: "Too many invite attempts. Please wait 15 minutes and try again." },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+function generateShortInviteCode(): string {
+  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+  let code = "";
+  for (let i = 0; i < 6; i++) {
+    code += chars[Math.floor(Math.random() * chars.length)];
+  }
+  return code;
+}
+
 // File upload configuration
 const UPLOADS_DIR = path.join(process.cwd(), "uploads");
 const COURT_PHOTOS_DIR = path.join(UPLOADS_DIR, "court-photos");
@@ -2596,7 +2613,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Validate invite token (for checking before showing registration form)
   // Supports both general invites (academy owner, coach) and player invites
-  app.get("/auth/invite/:token", async (req: Request, res: Response) => {
+  app.get("/auth/invite/:token", inviteLimiter, async (req: Request, res: Response) => {
     try {
       const { token } = req.params;
 
@@ -7042,7 +7059,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const player = await storage.createPlayer({ ...req.body, academyId });
 
         // Generate player invite code
-        const inviteCode = crypto.randomBytes(8).toString("hex"); // 16 char code
+        const inviteCode = generateShortInviteCode();
         const playerInvite = await storage.createPlayerInvite({
           playerId: player.id,
           academyId: academyId!,
@@ -7108,7 +7125,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
         // If no pending invite exists, create one
         if (!invite) {
-          const inviteCode = crypto.randomBytes(8).toString("hex");
+          const inviteCode = generateShortInviteCode();
           invite = await storage.createPlayerInvite({
             playerId: id,
             academyId: academyId!,
@@ -7118,22 +7135,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
           });
         }
 
-        // Build invite link using request headers with EXPO_PUBLIC_DOMAIN as override
-        const publicDomain = process.env.EXPO_PUBLIC_DOMAIN;
-        const forwardedHost = req.headers["x-forwarded-host"] as string;
-        const forwardedProto =
-          (req.headers["x-forwarded-proto"] as string) || "https";
-        const host =
-          publicDomain ||
-          forwardedHost ||
-          req.headers.host ||
-          "glowupsports.com";
-        const protocol = publicDomain ? "https" : forwardedProto;
-        const inviteLink = `${protocol}://${host}/invite/player/${invite.inviteCode}`;
-
         res.json({
           inviteCode: invite.inviteCode,
-          inviteLink,
           status: invite.status,
           createdAt: invite.createdAt,
         });
@@ -7173,7 +7176,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
 
         // Create new invite
-        const inviteCode = crypto.randomBytes(8).toString("hex");
+        const inviteCode = generateShortInviteCode();
         const newInvite = await storage.createPlayerInvite({
           playerId: id,
           academyId: academyId!,

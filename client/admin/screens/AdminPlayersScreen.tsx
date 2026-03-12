@@ -561,7 +561,6 @@ export default function AdminPlayersScreen() {
 
   const { data: playerInvite, isLoading: inviteLoading, isError: inviteError, refetch: refetchInvite } = useQuery<{ 
     inviteCode: string; 
-    inviteLink: string;
     status: string;
   }>({
     queryKey: [`/api/players/${selectedPlayerId}/invite`],
@@ -660,8 +659,8 @@ export default function AdminPlayersScreen() {
   };
 
   const handleCopyInviteLink = async () => {
-    if (playerInvite?.inviteLink) {
-      await Clipboard.setStringAsync(playerInvite.inviteLink);
+    if (playerInvite?.inviteCode) {
+      await Clipboard.setStringAsync(playerInvite.inviteCode);
       setInviteCopied(true);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       setTimeout(() => setInviteCopied(false), 3000);
@@ -1497,9 +1496,9 @@ export default function AdminPlayersScreen() {
               ) : null}
 
               <View style={[styles.section, CardStyles.elevated]}>
-                <Text style={styles.sectionTitle}>Player Invite Link</Text>
+                <Text style={styles.sectionTitle}>Player Invite Code</Text>
                 <Text style={styles.inviteDescription}>
-                  Share this link so the player or parent can connect their account
+                  Share this code so the player or parent can connect their account
                 </Text>
                 {inviteError ? (
                   <Pressable 
@@ -1511,19 +1510,19 @@ export default function AdminPlayersScreen() {
                       Failed to load - tap to retry
                     </Text>
                   </Pressable>
-                ) : playerInvite?.inviteLink ? (
+                ) : playerInvite?.inviteCode ? (
                   <Pressable 
                     style={[styles.inviteLinkButton, inviteCopied && styles.inviteLinkButtonCopied]}
                     onPress={handleCopyInviteLink}
                   >
                     <View style={styles.inviteLinkContent}>
                       <Ionicons 
-                        name={inviteCopied ? "checkmark-circle" : "link"} 
+                        name={inviteCopied ? "checkmark-circle" : "key"} 
                         size={20} 
                         color={inviteCopied ? Colors.dark.successNeon : Colors.dark.orange} 
                       />
                       <Text style={[styles.inviteLinkText, inviteCopied && styles.inviteLinkTextCopied]}>
-                        {inviteCopied ? "Link Copied!" : "Copy Invite Link"}
+                        {inviteCopied ? "Copied!" : playerInvite.inviteCode}
                       </Text>
                     </View>
                     <Ionicons name="copy-outline" size={18} color={Colors.dark.textMuted} />
@@ -1531,7 +1530,7 @@ export default function AdminPlayersScreen() {
                 ) : inviteLoading ? (
                   <View style={styles.inviteLoading}>
                     <ActivityIndicator size="small" color={Colors.dark.orange} />
-                    <Text style={styles.inviteLoadingText}>Generating invite link...</Text>
+                    <Text style={styles.inviteLoadingText}>Generating invite code...</Text>
                   </View>
                 ) : null}
               </View>
@@ -2242,7 +2241,7 @@ export default function AdminPlayersScreen() {
                   <ActivityIndicator size="small" color={Colors.dark.orange} />
                   <Text style={styles.inviteLoadingStateText}>Generating invite...</Text>
                 </View>
-              ) : playerInvite?.inviteLink ? (
+              ) : playerInvite?.inviteCode ? (
                 <View style={styles.premiumInviteContainer}>
                   <View style={styles.inviteCodeBox}>
                     <Text style={styles.inviteCodeLabel}>Invite Code</Text>
@@ -2264,14 +2263,14 @@ export default function AdminPlayersScreen() {
                       color={inviteCopied ? Colors.dark.successNeon : Colors.dark.xpCyan} 
                     />
                     <Text style={[styles.premiumCopyButtonText, inviteCopied && styles.premiumCopyButtonTextCopied]}>
-                      {inviteCopied ? "Copied!" : "Copy Invite Link"}
+                      {inviteCopied ? "Copied!" : "Copy Code"}
                     </Text>
                   </Pressable>
                 </View>
               ) : (
                 <View style={styles.noInviteState}>
-                  <Ionicons name="link-outline" size={24} color={Colors.dark.textMuted} />
-                  <Text style={styles.noInviteText}>No invite link available</Text>
+                  <Ionicons name="key-outline" size={24} color={Colors.dark.textMuted} />
+                  <Text style={styles.noInviteText}>No invite code available</Text>
                 </View>
               )}
             </View>
