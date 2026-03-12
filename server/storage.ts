@@ -6637,24 +6637,8 @@ export const storage = {
       metadata: creditTransactions.metadata,
       packageId: creditTransactions.packageId,
       sessionId: creditTransactions.sessionId,
-      sessionPlayerId: creditTransactions.sessionPlayerId,
     }).from(creditTransactions)
       .where(eq(creditTransactions.playerId, playerId));
-
-    // Fetch session_player records for private sessions where player was absent —
-    // these should never charge credits (private 1-on-1: no-show = no charge)
-    const privateAbsentSpIds = await db.select({ id: sessionPlayers.id })
-      .from(sessionPlayers)
-      .innerJoin(sessions, eq(sessions.id, sessionPlayers.sessionId))
-      .where(and(
-        eq(sessionPlayers.playerId, playerId),
-        eq(sessionPlayers.attendanceStatus, "absent"),
-        or(
-          eq(sessions.sessionType, "private"),
-          eq(sessions.sessionType, "private_adjusted"),
-        ),
-      ))
-      .then((rows) => new Set(rows.map((r) => r.id)));
     
     const allPlayerPackages = await db.select({
       id: packages.id,
@@ -6711,10 +6695,6 @@ export const storage = {
       
       if (!tx.creditType) {
         console.warn(`[CreditBalance] Skipping transaction with null credit_type for player ${playerId}, reason: ${tx.reason}, amount: ${tx.amount}`);
-        continue;
-      }
-      
-      if (Number(tx.amount) < 0 && tx.sessionPlayerId && privateAbsentSpIds.has(tx.sessionPlayerId)) {
         continue;
       }
       

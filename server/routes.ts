@@ -9731,9 +9731,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
           })),
         ];
 
-        // Count by attendance status (excluding cancelled sessions and holidays)
+        // Count by attendance status (excluding cancelled sessions, holidays, and vacation)
         const nonCancelledRecords = allRecords.filter(
-          (r) => r.sessionStatus !== "cancelled" && r.attendanceStatus !== "holiday",
+          (r) => r.sessionStatus !== "cancelled" && r.attendanceStatus !== "holiday" && r.attendanceStatus !== "vacation",
         );
 
         const now = new Date();
