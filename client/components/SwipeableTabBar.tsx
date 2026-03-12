@@ -119,6 +119,7 @@ interface SwipeableTabBarProps {
   initialPage?: number;
   onPageChange?: (index: number, key: string) => void;
   dividerAfterIndices?: number[];
+  hideTabBar?: boolean;
 }
 
 export function SwipeableTabBar({ 
@@ -131,6 +132,7 @@ export function SwipeableTabBar({
   initialPage = 0,
   onPageChange,
   dividerAfterIndices = [],
+  hideTabBar = false,
 }: SwipeableTabBarProps) {
   const insets = useSafeAreaInsets();
   const { width: windowWidth } = useWindowDimensions();
@@ -140,7 +142,7 @@ export function SwipeableTabBar({
   const scrollOffset = useSharedValue(initialPage);
   const lastScrollOffset = useRef(initialPage);
   const edgeSwipeTriggered = useRef(false);
-  const { registerPager, registerWebTabSetter, scrollEnabled } = useTabNavigation();
+  const { registerPager, registerWebTabSetter, scrollEnabled, notifyActiveTab } = useTabNavigation();
 
   const isWeb = Platform.OS === "web";
   const containerWidth = isWeb ? Math.min(windowWidth, 480) : windowWidth;
@@ -161,7 +163,8 @@ export function SwipeableTabBar({
     if (onPageChange && tabs[index]) {
       onPageChange(index, tabs[index].key);
     }
-  }, [scrollOffset, onPageChange, tabs]);
+    notifyActiveTab(index, tabs[index]?.key ?? "");
+  }, [scrollOffset, onPageChange, tabs, notifyActiveTab]);
 
   useEffect(() => {
     if (isWeb) {
@@ -283,25 +286,27 @@ export function SwipeableTabBar({
         </PagerView>
       )}
 
-      <View style={[styles.swipeTabBar, { paddingBottom: bottomPadding }]}>
-        <View style={styles.swipeTabBarBackground}>
-          <LinearGradient
-            colors={[primaryColor + "40", "transparent", secondaryColor + "40"]}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 0 }}
-            style={styles.tabBarTopLine}
-          />
-          {Platform.OS === "ios" ? (
-            <BlurView intensity={90} tint="dark" style={StyleSheet.absoluteFill} />
-          ) : (
-            <View style={[StyleSheet.absoluteFill, styles.androidTabBackground]} />
-          )}
+      {!hideTabBar && (
+        <View style={[styles.swipeTabBar, { paddingBottom: bottomPadding }]}>
+          <View style={styles.swipeTabBarBackground}>
+            <LinearGradient
+              colors={[primaryColor + "40", "transparent", secondaryColor + "40"]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+              style={styles.tabBarTopLine}
+            />
+            {Platform.OS === "ios" ? (
+              <BlurView intensity={90} tint="dark" style={StyleSheet.absoluteFill} />
+            ) : (
+              <View style={[StyleSheet.absoluteFill, styles.androidTabBackground]} />
+            )}
+          </View>
+          
+          {tabBarContent}
         </View>
-        
-        {tabBarContent}
-      </View>
+      )}
 
-      {renderOverlay ? renderOverlay(currentTabKey) : null}
+      {!hideTabBar && renderOverlay ? renderOverlay(currentTabKey) : null}
     </View>
   );
 }

@@ -1,0 +1,243 @@
+import React, { createContext, useContext, useState, useCallback, useEffect, useRef } from "react";
+import { Platform, View, Text, Pressable, StyleSheet, Modal, Animated } from "react-native";
+
+interface AlertButton {
+  text: string;
+  onPress?: () => void;
+  style?: "default" | "cancel" | "destructive";
+}
+
+interface AlertState {
+  visible: boolean;
+  title: string;
+  message: string;
+  buttons: AlertButton[];
+}
+
+const INITIAL_STATE: AlertState = {
+  visible: false,
+  title: "",
+  message: "",
+  buttons: [{ text: "OK" }],
+};
+
+const WebAlertContext = createContext<{
+  show: (title: string, message: string, buttons?: AlertButton[]) => void;
+} | null>(null);
+
+export function WebAlertProvider({ children }: { children: React.ReactNode }) {
+  const [state, setState] = useState<AlertState>(INITIAL_STATE);
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+  const scaleAnim = useRef(new Animated.Value(0.92)).current;
+  const confirmResolve = useRef<((value: boolean) => void) | null>(null);
+
+  const show = useCallback((title: string, message: string, buttons?: AlertButton[]) => {
+    setState({
+      visible: true,
+      title,
+      message,
+      buttons: buttons && buttons.length > 0 ? buttons : [{ text: "OK" }],
+    });
+  }, []);
+
+  useEffect(() => {
+    if (state.visible) {
+      Animated.parallel([
+        Animated.timing(fadeAnim, { toValue: 1, duration: 180, useNativeDriver: true }),
+        Animated.spring(scaleAnim, { toValue: 1, tension: 200, friction: 20, useNativeDriver: true }),
+      ]).start();
+    } else {
+      fadeAnim.setValue(0);
+      scaleAnim.setValue(0.92);
+    }
+  }, [state.visible]);
+
+  const dismiss = useCallback(() => {
+    setState(INITIAL_STATE);
+  }, []);
+
+  const handleButton = useCallback((btn: AlertButton) => {
+    dismiss();
+    if (btn.onPress) btn.onPress();
+    if (confirmResolve.current) {
+      confirmResolve.current(btn.style !== "cancel");
+      confirmResolve.current = null;
+    }
+  }, [dismiss]);
+
+  useEffect(() => {
+    if (Platform.OS !== "web") return;
+
+    const originalAlert = window.alert;
+    const originalConfirm = window.confirm;
+
+    window.alert = (msg?: any) => {
+      show("", String(msg ?? ""), [{ text: "OK" }]);
+    };
+
+    window.confirm = (msg?: string): boolean => {
+      show("", String(msg ?? "Are you sure?"), [
+        { text: "Cancel", style: "cancel" },
+        { text: "OK" },
+      ]);
+      return false;
+    };
+
+    return () => {
+      window.alert = originalAlert;
+      window.confirm = originalConfirm;
+    };
+  }, [show]);
+
+  const cancelBtn = state.buttons.find(b => b.style === "cancel");
+  const primaryBtns = state.buttons.filter(b => b.style !== "cancel");
+
+  return (
+    <WebAlertContext.Provider value={{ show }}>
+      {children}
+      {Platform.OS === "web" && state.visible && (
+        <View style={styles.overlay} pointerEvents="box-none">
+          <Animated.View style={[styles.overlay, { opacity: fadeAnim }]}>
+            <Pressable style={styles.backdrop} onPress={() => {
+              if (cancelBtn) handleButton(cancelBtn);
+              else if (state.buttons.length === 1) handleButton(state.buttons[0]);
+            }} />
+          </Animated.View>
+          <Animated.View style={[styles.card, { opacity: fadeAnim, transform: [{ scale: scaleAnim }] }]}>
+            {state.title ? (
+              <Text style={styles.title}>{state.title}</Text>
+            ) : null}
+            {state.message ? (
+              <Text style={[styles.message, !state.title && styles.messageOnly]}>
+                {state.message}
+              </Text>
+            ) : null}
+            <View style={styles.buttons}>
+              {cancelBtn && (
+                <Pressable
+                  style={({ pressed }) => [styles.btn, styles.btnCancel, pressed && styles.btnPressed]}
+                  onPress={() => handleButton(cancelBtn)}
+                >
+                  <Text style={[styles.btnText, styles.btnTextCancel]}>{cancelBtn.text}</Text>
+                </Pressable>
+              )}
+              {primaryBtns.map((btn, i) => (
+                <Pressable
+                  key={i}
+                  style={({ pressed }) => [
+                    styles.btn,
+                    btn.style === "destructive" ? styles.btnDestructive : styles.btnPrimary,
+                    pressed && styles.btnPressed,
+                  ]}
+                  onPress={() => handleButton(btn)}
+                >
+                  <Text style={[
+                    styles.btnText,
+                    btn.style === "destructive" ? styles.btnTextDestructive : styles.btnTextPrimary,
+                  ]}>
+                    {btn.text}
+                  </Text>
+                </Pressable>
+              ))}
+            </View>
+          </Animated.View>
+        </View>
+      )}
+    </WebAlertContext.Provider>
+  );
+}
+
+export function useWebAlert() {
+  const ctx = useContext(WebAlertContext);
+  if (!ctx) return { show: () => {} };
+  return ctx;
+}
+
+const styles = StyleSheet.create({
+  overlay: {
+    position: "absolute" as any,
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    zIndex: 99999,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  backdrop: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: "rgba(0,0,0,0.6)",
+  },
+  card: {
+    backgroundColor: "#1A2030",
+    borderRadius: 16,
+    padding: 24,
+    minWidth: 300,
+    maxWidth: 420,
+    width: "90%" as any,
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.08)",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 20 },
+    shadowOpacity: 0.5,
+    shadowRadius: 40,
+  },
+  title: {
+    fontSize: 16,
+    fontWeight: "700",
+    color: "#F0F4F8",
+    marginBottom: 8,
+  },
+  message: {
+    fontSize: 14,
+    color: "#8A95A3",
+    lineHeight: 21,
+    marginBottom: 20,
+  },
+  messageOnly: {
+    color: "#C8D0DC",
+    fontSize: 15,
+  },
+  buttons: {
+    flexDirection: "row",
+    justifyContent: "flex-end",
+    gap: 10,
+    marginTop: 4,
+  },
+  btn: {
+    paddingHorizontal: 18,
+    paddingVertical: 9,
+    borderRadius: 9,
+    minWidth: 72,
+    alignItems: "center",
+  },
+  btnPrimary: {
+    backgroundColor: "#C8FF3D",
+  },
+  btnCancel: {
+    backgroundColor: "rgba(255,255,255,0.07)",
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.1)",
+  },
+  btnDestructive: {
+    backgroundColor: "rgba(239,68,68,0.15)",
+    borderWidth: 1,
+    borderColor: "rgba(239,68,68,0.3)",
+  },
+  btnPressed: {
+    opacity: 0.75,
+  },
+  btnText: {
+    fontSize: 14,
+    fontWeight: "700",
+  },
+  btnTextPrimary: {
+    color: "#000",
+  },
+  btnTextCancel: {
+    color: "#C8D0DC",
+  },
+  btnTextDestructive: {
+    color: "#F87171",
+  },
+});

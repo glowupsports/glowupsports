@@ -3,7 +3,8 @@ import { View, StyleSheet, Platform, useWindowDimensions } from "react-native";
 import { Backgrounds } from "@/constants/theme";
 
 const WEB_MAX_WIDTH = 480;
-const WEB_BREAKPOINT = 768;
+const WEB_PHONE_BREAKPOINT = 768;
+export const WEB_DESKTOP_BREAKPOINT = 1024;
 
 interface WebContainerProps {
   children: React.ReactNode;
@@ -16,10 +17,15 @@ export function WebContainer({ children }: WebContainerProps) {
     return <View style={styles.nativeRoot}>{children}</View>;
   }
 
-  const isWideScreen = width > WEB_BREAKPOINT;
+  const isWideScreen = width > WEB_PHONE_BREAKPOINT;
+  const isDesktop = width >= WEB_DESKTOP_BREAKPOINT;
 
   if (!isWideScreen) {
     return <View style={styles.nativeRoot}>{children}</View>;
+  }
+
+  if (isDesktop) {
+    return <View style={styles.desktopRoot}>{children}</View>;
   }
 
   return (
@@ -37,6 +43,10 @@ export function WebContainer({ children }: WebContainerProps) {
 const styles = StyleSheet.create({
   nativeRoot: {
     flex: 1,
+  },
+  desktopRoot: {
+    flex: 1,
+    backgroundColor: "#0C1118",
   },
   webRoot: {
     flex: 1,

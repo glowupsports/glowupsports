@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useMemo, useEffect } from "react";
-import { StyleSheet, View, Platform, ActivityIndicator, Text, Pressable } from "react-native";
+import { StyleSheet, View, Platform, ActivityIndicator, Text, Pressable, useWindowDimensions } from "react-native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { SwipeableTabBar, TabConfig } from "@/components/SwipeableTabBar";
@@ -36,11 +36,15 @@ import OfflineBanner from "@/components/OfflineBanner";
 import { QuickActionsFAB, QuickAction } from "@/components/QuickActionsFAB";
 import { PremiumAddPlayerFlow } from "@/coach/components/PremiumAddPlayerFlow";
 import { useAuth } from "@/coach/context/AuthContext";
+import { useCoach } from "@/coach/context/CoachContext";
 import { useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { Colors } from "@/constants/theme";
 import { ChatStateProvider, useChatState } from "@/coach/context/ChatStateContext";
 import { useTranslation } from "react-i18next";
+import { DesktopShell } from "@/components/DesktopShell";
+
+const WEB_DESKTOP_BREAKPOINT = 1024;
 
 export type CoachTabParamList = {
   Dashboard: undefined;
@@ -93,6 +97,10 @@ function CoachTabs() {
   const [currentTabKey, setCurrentTabKey] = useState("Dashboard");
   const queryClient = useQueryClient();
   const { isChatExpanded } = useChatState();
+  const { coach, academy } = useCoach();
+  const { width } = useWindowDimensions();
+
+  const isDesktop = Platform.OS === "web" && width >= WEB_DESKTOP_BREAKPOINT;
 
   const TAB_LABELS: Record<string, string> = {
     Dashboard: t("nav.home"),
@@ -111,23 +119,30 @@ function CoachTabs() {
     setCurrentTabKey(key);
   }, []);
 
-  const showFAB = currentTabKey !== "Calendar" && currentTabKey !== "Players";
-
   const renderOverlay = useCallback((tabKey: string) => {
     const shouldShowFAB = tabKey !== "Calendar" && tabKey !== "Players";
     if (!shouldShowFAB || isChatExpanded) return null;
     return <CoachQuickActionsFAB onAddPlayer={() => setShowAddPlayerModal(true)} />;
   }, [isChatExpanded]);
 
+  const tabBar = (
+    <SwipeableTabBar
+      tabs={COACH_TABS}
+      primaryColor={Colors.dark.primary}
+      secondaryColor={Colors.dark.xpCyan}
+      onPageChange={handlePageChange}
+      renderOverlay={isDesktop ? undefined : renderOverlay}
+      hideTabBar={isDesktop}
+    />
+  );
+
   return (
     <>
-      <SwipeableTabBar
-        tabs={COACH_TABS}
-        primaryColor={Colors.dark.primary}
-        secondaryColor={Colors.dark.xpCyan}
-        onPageChange={handlePageChange}
-        renderOverlay={renderOverlay}
-      />
+      {isDesktop ? (
+        <DesktopShell coachName={coach?.name} academyName={academy?.name}>
+          {tabBar}
+        </DesktopShell>
+      ) : tabBar}
       <PremiumAddPlayerFlow
         visible={showAddPlayerModal}
         onClose={() => setShowAddPlayerModal(false)}

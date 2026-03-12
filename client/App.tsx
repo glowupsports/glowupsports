@@ -47,6 +47,7 @@ import { TabNavigationProvider, useTabNavigation } from "@/components/TabNavigat
 import { CoachMarksProvider } from "@/components/CoachMarks";
 import { CelebrationProvider } from "@/contexts/CelebrationContext";
 import { WebContainer } from "@/components/WebContainer";
+import { WebAlertProvider } from "@/components/WebAlertProvider";
 
 const linking: LinkingOptions<any> = {
   prefixes: [Linking.createURL("/"), "glowupsports://"],
@@ -146,12 +147,14 @@ export default function App() {
                                 <TabNavigationProvider>
                                   <CoachMarksProvider>
                                     <CelebrationProvider>
-                                      <WebContainer>
-                                        <RTLDirectionWrapper>
-                                          <ImpersonationBanner />
-                                          <NavigationContainerWithRef />
-                                        </RTLDirectionWrapper>
-                                      </WebContainer>
+                                      <WebAlertProvider>
+                                        <WebContainer>
+                                          <RTLDirectionWrapper>
+                                            <ImpersonationBanner />
+                                            <NavigationContainerWithRef />
+                                          </RTLDirectionWrapper>
+                                        </WebContainer>
+                                      </WebAlertProvider>
                                     </CelebrationProvider>
                                   </CoachMarksProvider>
                                 </TabNavigationProvider>

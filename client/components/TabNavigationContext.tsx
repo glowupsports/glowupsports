@@ -6,6 +6,7 @@ import { NavigationContainerRef } from "@react-navigation/native";
 
 type TabNavigationCallback = (screen: string, params?: any) => void;
 type WebTabSetter = (index: number) => void;
+type ActiveTabListener = (index: number, key: string) => void;
 
 interface TabNavigationContextType {
   navigateToTab: (tabKey: string, screenParams?: { screen: string; params?: any }) => void;
@@ -14,6 +15,8 @@ interface TabNavigationContextType {
   getNavigation: () => NavigationContainerRef<any> | null;
   registerTabCallback: (tabKey: string, callback: TabNavigationCallback) => () => void;
   registerWebTabSetter: (setter: WebTabSetter) => void;
+  registerActiveTabListener: (listener: ActiveTabListener) => () => void;
+  notifyActiveTab: (index: number, key: string) => void;
   scrollEnabled: boolean;
   setScrollEnabled: (enabled: boolean) => void;
 }
@@ -31,6 +34,7 @@ export function TabNavigationProvider({ children }: TabNavigationProviderProps) 
   const tabsStore = useRef<{ key: string }[]>([]);
   const tabCallbacks = useRef<Map<string, TabNavigationCallback>>(new Map());
   const webTabSetterRef = useRef<WebTabSetter | null>(null);
+  const activeTabListeners = useRef<Set<ActiveTabListener>>(new Set());
   const [scrollEnabled, setScrollEnabled] = useState(true);
 
   const registerPager = useCallback((pagerRef: React.RefObject<PagerView | null>, tabs: { key: string }[]) => {
@@ -55,6 +59,17 @@ export function TabNavigationProvider({ children }: TabNavigationProviderProps) 
     return () => {
       tabCallbacks.current.delete(tabKey);
     };
+  }, []);
+
+  const registerActiveTabListener = useCallback((listener: ActiveTabListener) => {
+    activeTabListeners.current.add(listener);
+    return () => {
+      activeTabListeners.current.delete(listener);
+    };
+  }, []);
+
+  const notifyActiveTab = useCallback((index: number, key: string) => {
+    activeTabListeners.current.forEach(fn => fn(index, key));
   }, []);
 
   const navigateToTab = useCallback((tabKey: string, screenParams?: { screen: string; params?: any }) => {
@@ -87,7 +102,7 @@ export function TabNavigationProvider({ children }: TabNavigationProviderProps) 
   }, []);
 
   return (
-    <TabNavigationContext.Provider value={{ navigateToTab, registerPager, registerNavigation, getNavigation, registerTabCallback, registerWebTabSetter, scrollEnabled, setScrollEnabled }}>
+    <TabNavigationContext.Provider value={{ navigateToTab, registerPager, registerNavigation, getNavigation, registerTabCallback, registerWebTabSetter, registerActiveTabListener, notifyActiveTab, scrollEnabled, setScrollEnabled }}>
       {children}
     </TabNavigationContext.Provider>
   );
@@ -105,6 +120,8 @@ export function useTabNavigation(): TabNavigationContextType {
       getNavigation: () => globalNavigationRef,
       registerTabCallback: () => () => {},
       registerWebTabSetter: () => {},
+      registerActiveTabListener: () => () => {},
+      notifyActiveTab: () => {},
       scrollEnabled: true,
       setScrollEnabled: () => {}
     };
