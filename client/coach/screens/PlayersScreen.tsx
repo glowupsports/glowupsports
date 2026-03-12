@@ -1541,7 +1541,7 @@ function PlayerDetailView({
           {/* Quick Stats Row */}
           <View style={styles.premiumQuickStats}>
             <View style={styles.premiumQuickStat}>
-              <Text style={styles.premiumQuickStatValue}>{attendanceSummary?.attendedCount ?? 0}</Text>
+              <Text style={styles.premiumQuickStatValue}>{attendanceSummary?.totalLessons ?? 0}</Text>
               <Text style={styles.premiumQuickStatLabel}>Sessions</Text>
             </View>
             <View style={styles.premiumQuickStatDivider} />
