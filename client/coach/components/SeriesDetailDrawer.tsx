@@ -1115,6 +1115,7 @@ export default function SeriesDetailDrawer({
   const [extraLessonDate, setExtraLessonDate] = useState<Date>(new Date());
   const [extraLessonTime, setExtraLessonTime] = useState<Date>(new Date());
   const [selectedTimeSlot, setSelectedTimeSlot] = useState<string | null>(null);
+  const [selectedEndTimeSlot, setSelectedEndTimeSlot] = useState<string | null>(null);
   const [showExtraLessonDatePicker, setShowExtraLessonDatePicker] = useState(false);
   const [showExtraLessonTimePicker, setShowExtraLessonTimePicker] = useState(false);
   const [addingExtraLesson, setAddingExtraLesson] = useState(false);
@@ -1161,7 +1162,40 @@ export default function SeriesDetailDrawer({
     setExtraLessonDate(new Date());
     setExtraLessonTime(new Date());
     setSelectedTimeSlot(null);
+    setSelectedEndTimeSlot(null);
     setShowExtraLessonModal(false);
+  };
+
+  // Calculate duration in minutes between two "HH:MM" strings
+  const calcDurationMins = (start: string, end: string): number => {
+    const [sh, sm] = start.split(":").map(Number);
+    const [eh, em] = end.split(":").map(Number);
+    return (eh * 60 + em) - (sh * 60 + sm);
+  };
+
+  // Check if all slots from start to end are available
+  const isRangeClear = (start: string, end: string): boolean => {
+    const [sh, sm] = start.split(":").map(Number);
+    const [eh, em] = end.split(":").map(Number);
+    const startMins = sh * 60 + sm;
+    const endMins = eh * 60 + em;
+    return timeSlots
+      .filter(s => {
+        const [h, m] = s.time.split(":").map(Number);
+        const t = h * 60 + m;
+        return t >= startMins && t < endMins;
+      })
+      .every(s => s.available);
+  };
+
+  // Is a slot inside the selected range (start → end)?
+  const isInRange = (slotTime: string): boolean => {
+    if (!selectedTimeSlot || !selectedEndTimeSlot) return false;
+    const [sh, sm] = selectedTimeSlot.split(":").map(Number);
+    const [eh, em] = selectedEndTimeSlot.split(":").map(Number);
+    const [h, m] = slotTime.split(":").map(Number);
+    const t = h * 60 + m;
+    return t >= sh * 60 + sm && t <= eh * 60 + em;
   };
   
   const weekOptions = [2, 4, 6, 8, 10, 12, 16, 20, 24];
@@ -1236,7 +1270,7 @@ export default function SeriesDetailDrawer({
         },
         body: JSON.stringify({
           startTime: lessonDateTime.toISOString(),
-          duration: series.duration || 60,
+          duration: selectedEndTimeSlot ? calcDurationMins(selectedTimeSlot!, selectedEndTimeSlot) : (series.duration || 60),
           courtId: selectedCourtId,
         }),
       });
@@ -4176,6 +4210,9 @@ export default function SeriesDetailDrawer({
                   <Text style={styles.extendModalSubtitle}>
                     {courtsData?.find(c => c.id === selectedCourtId)?.name || "Court"} - {extraLessonDate.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })}
                   </Text>
+                  <Text style={{ color: Colors.dark.textSecondary, fontSize: 12, marginTop: 4 }}>
+                    Tap a start time, then tap an end time to set duration
+                  </Text>
                 </View>
                 
                 <View style={{ 
@@ -4185,7 +4222,10 @@ export default function SeriesDetailDrawer({
                   marginBottom: Spacing.md,
                 }}>
                   {timeSlots.map((slot) => {
-                    const isSelected = selectedTimeSlot === slot.time;
+                    const isStart = selectedTimeSlot === slot.time;
+                    const isEnd = selectedEndTimeSlot === slot.time;
+                    const inRange = isInRange(slot.time);
+                    const isHighlighted = isStart || isEnd || inRange;
                     const busyLabel = slot.coachBusy ? "You're busy" : slot.courtBusy ? "Court busy" : !slot.available ? "Booked" : "";
                     return (
                       <Pressable
@@ -4197,37 +4237,59 @@ export default function SeriesDetailDrawer({
                           marginBottom: Spacing.xs,
                           borderRadius: BorderRadius.md,
                           borderWidth: 2,
-                          borderColor: isSelected ? Colors.dark.successNeon : slot.coachBusy ? "#FF6B6B" + "60" : Colors.dark.border,
-                          backgroundColor: isSelected 
-                            ? Colors.dark.successNeon + "30" 
+                          borderColor: isHighlighted ? Colors.dark.successNeon : slot.coachBusy ? "#FF6B6B60" : Colors.dark.border,
+                          backgroundColor: isHighlighted
+                            ? Colors.dark.successNeon + "30"
                             : slot.coachBusy
-                              ? "#FF6B6B" + "15"
-                              : slot.available 
-                                ? Colors.dark.backgroundSecondary 
+                              ? "#FF6B6B15"
+                              : slot.available
+                                ? Colors.dark.backgroundSecondary
                                 : Colors.dark.backgroundRoot,
                           opacity: slot.available ? 1 : 0.5,
                           alignItems: "center",
                         }}
                         onPress={() => {
-                          if (slot.available) {
-                            Haptics.selectionAsync();
+                          if (!slot.available) return;
+                          Haptics.selectionAsync();
+                          const slotMins = (() => { const [h, m] = slot.time.split(":").map(Number); return h * 60 + m; })();
+
+                          if (!selectedTimeSlot) {
+                            // No start yet — set start
                             setSelectedTimeSlot(slot.time);
-                            const [hours, minutes] = slot.time.split(':');
+                            setSelectedEndTimeSlot(null);
+                            const [hours, minutes] = slot.time.split(":");
                             const newTime = new Date();
                             newTime.setHours(parseInt(hours), parseInt(minutes || "0"), 0, 0);
                             setExtraLessonTime(newTime);
+                          } else {
+                            const startMins = (() => { const [h, m] = selectedTimeSlot.split(":").map(Number); return h * 60 + m; })();
+                            if (slot.time === selectedTimeSlot) {
+                              // Tap start again — deselect all
+                              setSelectedTimeSlot(null);
+                              setSelectedEndTimeSlot(null);
+                            } else if (slotMins > startMins && isRangeClear(selectedTimeSlot, slot.time)) {
+                              // Valid end time — set range
+                              setSelectedEndTimeSlot(slot.time);
+                            } else {
+                              // Reset: treat tapped slot as new start
+                              setSelectedTimeSlot(slot.time);
+                              setSelectedEndTimeSlot(null);
+                              const [hours, minutes] = slot.time.split(":");
+                              const newTime = new Date();
+                              newTime.setHours(parseInt(hours), parseInt(minutes || "0"), 0, 0);
+                              setExtraLessonTime(newTime);
+                            }
                           }
                         }}
-                        disabled={!slot.available}
                       >
                         <Text style={{
-                          color: isSelected 
-                            ? Colors.dark.successNeon 
-                            : slot.available 
-                              ? Colors.dark.text 
+                          color: isHighlighted
+                            ? Colors.dark.successNeon
+                            : slot.available
+                              ? Colors.dark.text
                               : Colors.dark.textMuted,
                           fontSize: 13,
-                          fontWeight: isSelected ? "700" : "500",
+                          fontWeight: isHighlighted ? "700" : "500",
                         }}>
                           {slot.time}
                         </Text>
@@ -4252,9 +4314,15 @@ export default function SeriesDetailDrawer({
                   }}>
                     <View style={{ flexDirection: "row", alignItems: "center", gap: Spacing.sm }}>
                       <Ionicons name="checkmark-circle" size={20} color={Colors.dark.successNeon} />
-                      <Text style={{ color: Colors.dark.successNeon, fontWeight: "600", fontSize: 14 }}>
-                        Selected: {selectedTimeSlot}
-                      </Text>
+                      {selectedEndTimeSlot ? (
+                        <Text style={{ color: Colors.dark.successNeon, fontWeight: "600", fontSize: 14 }}>
+                          {selectedTimeSlot} → {selectedEndTimeSlot} ({calcDurationMins(selectedTimeSlot, selectedEndTimeSlot)} min)
+                        </Text>
+                      ) : (
+                        <Text style={{ color: Colors.dark.successNeon, fontWeight: "600", fontSize: 14 }}>
+                          Start: {selectedTimeSlot} — tap an end time
+                        </Text>
+                      )}
                     </View>
                   </View>
                 )}
