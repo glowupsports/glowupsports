@@ -103,7 +103,7 @@ export function WebAlertProvider({ children }: { children: React.ReactNode }) {
       {children}
       {Platform.OS === "web" && state.visible && (
         <View style={styles.overlay} pointerEvents="box-none">
-          <Animated.View style={[styles.overlay, { opacity: fadeAnim }]}>
+          <Animated.View style={[StyleSheet.absoluteFill, { opacity: fadeAnim }]}>
             <Pressable style={styles.backdrop} onPress={() => {
               if (cancelBtn) handleButton(cancelBtn);
               else if (state.buttons.length === 1) handleButton(state.buttons[0]);
