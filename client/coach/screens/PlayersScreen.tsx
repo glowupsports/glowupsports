@@ -951,6 +951,37 @@ function PlayerDetailView({
   const [editingAttendance, setEditingAttendance] = useState<AttendanceHistoryRecord | null>(null);
   const [isUpdatingAttendance, setIsUpdatingAttendance] = useState(false);
 
+  const [showEditPlayer, setShowEditPlayer] = useState(false);
+  const [editName, setEditName] = useState(player.name);
+  const [editEmail, setEditEmail] = useState(player.email ?? "");
+  const [editPhone, setEditPhone] = useState(player.phone ?? "");
+  const [editBallLevel, setEditBallLevel] = useState(player.ballLevel ?? "");
+
+  const BALL_LEVELS_EDIT = ["blue", "red", "orange", "green", "yellow", "glow"];
+
+  const updatePlayerMutation = useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest("PATCH", `/api/players/${player.id}`, {
+        name: editName.trim(),
+        email: editEmail.trim() || null,
+        phone: editPhone.trim() || null,
+        ballLevel: editBallLevel || null,
+      });
+      return res.json();
+    },
+    onSuccess: () => {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      queryClient.invalidateQueries({ queryKey: ["/api/players?withCredits=true"] });
+      setShowEditPlayer(false);
+      setTimeout(() => {
+        Alert.alert("Saved", "Player details updated.");
+      }, 300);
+    },
+    onError: (error: Error) => {
+      Alert.alert("Error", error.message || "Failed to update player");
+    },
+  });
+
   const [localAuditVerified, setLocalAuditVerified] = useState<boolean>(!!player.auditVerifiedAt);
   const [verifyFlashText, setVerifyFlashText] = useState<string | null>(null);
   const verifyFlashOpacity = useSharedValue(0);
@@ -1364,6 +1395,18 @@ function PlayerDetailView({
             <Ionicons name="arrow-back" size={22} color={Colors.dark.text} />
           </Pressable>
           <View style={{ flexDirection: "row", gap: Spacing.sm }}>
+            <Pressable
+              style={styles.premiumExportButton}
+              onPress={() => {
+                setEditName(player.name);
+                setEditEmail(player.email ?? "");
+                setEditPhone(player.phone ?? "");
+                setEditBallLevel(player.ballLevel ?? "");
+                setShowEditPlayer(true);
+              }}
+            >
+              <Ionicons name="pencil-outline" size={22} color={Colors.dark.tabIconDefault} />
+            </Pressable>
             <View style={{ alignItems: "center" }}>
               <Animated.View style={verifyButtonAnimStyle}>
                 <Pressable 
@@ -2240,6 +2283,133 @@ function PlayerDetailView({
         player={player}
         onClose={() => setShowDeepAssessment(false)}
       />
+
+      {/* Edit Player Modal */}
+      <Modal visible={showEditPlayer} transparent animationType="fade" onRequestClose={() => setShowEditPlayer(false)}>
+        <Pressable style={styles.editAttendanceModalOverlay} onPress={() => setShowEditPlayer(false)}>
+          <View style={[styles.editAttendanceModalContent, { gap: 12 }]}>
+            <Text style={styles.editAttendanceModalTitle}>Edit Player</Text>
+
+            <View style={{ gap: 8 }}>
+              <Text style={{ color: Colors.dark.textSecondary, fontSize: 12, fontWeight: "600" }}>NAME *</Text>
+              <TextInput
+                style={{
+                  backgroundColor: Colors.dark.backgroundDefault,
+                  borderRadius: 10,
+                  paddingHorizontal: 14,
+                  paddingVertical: 10,
+                  fontSize: 15,
+                  color: Colors.dark.text,
+                  borderWidth: 1,
+                  borderColor: "rgba(255,255,255,0.1)",
+                }}
+                value={editName}
+                onChangeText={setEditName}
+                placeholder="Player name"
+                placeholderTextColor={Colors.dark.tabIconDefault}
+                autoCapitalize="words"
+              />
+            </View>
+
+            <View style={{ gap: 8 }}>
+              <Text style={{ color: Colors.dark.textSecondary, fontSize: 12, fontWeight: "600" }}>EMAIL</Text>
+              <TextInput
+                style={{
+                  backgroundColor: Colors.dark.backgroundDefault,
+                  borderRadius: 10,
+                  paddingHorizontal: 14,
+                  paddingVertical: 10,
+                  fontSize: 15,
+                  color: Colors.dark.text,
+                  borderWidth: 1,
+                  borderColor: "rgba(255,255,255,0.1)",
+                }}
+                value={editEmail}
+                onChangeText={setEditEmail}
+                placeholder="Email address"
+                placeholderTextColor={Colors.dark.tabIconDefault}
+                keyboardType="email-address"
+                autoCapitalize="none"
+              />
+            </View>
+
+            <View style={{ gap: 8 }}>
+              <Text style={{ color: Colors.dark.textSecondary, fontSize: 12, fontWeight: "600" }}>PHONE</Text>
+              <TextInput
+                style={{
+                  backgroundColor: Colors.dark.backgroundDefault,
+                  borderRadius: 10,
+                  paddingHorizontal: 14,
+                  paddingVertical: 10,
+                  fontSize: 15,
+                  color: Colors.dark.text,
+                  borderWidth: 1,
+                  borderColor: "rgba(255,255,255,0.1)",
+                }}
+                value={editPhone}
+                onChangeText={setEditPhone}
+                placeholder="Phone number"
+                placeholderTextColor={Colors.dark.tabIconDefault}
+                keyboardType="phone-pad"
+              />
+            </View>
+
+            <View style={{ gap: 8 }}>
+              <Text style={{ color: Colors.dark.textSecondary, fontSize: 12, fontWeight: "600" }}>BALL LEVEL</Text>
+              <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
+                {BALL_LEVELS_EDIT.map(level => (
+                  <Pressable
+                    key={level}
+                    style={{
+                      paddingHorizontal: 14,
+                      paddingVertical: 8,
+                      borderRadius: 20,
+                      borderWidth: 1.5,
+                      borderColor: editBallLevel === level ? getPlayerLevelColor(level) : "rgba(255,255,255,0.12)",
+                      backgroundColor: editBallLevel === level ? getPlayerLevelColor(level) + "25" : "transparent",
+                    }}
+                    onPress={() => setEditBallLevel(level)}
+                  >
+                    <Text style={{
+                      fontSize: 13,
+                      fontWeight: "600",
+                      color: editBallLevel === level ? getPlayerLevelColor(level) : Colors.dark.textSecondary,
+                    }}>
+                      {level.charAt(0).toUpperCase() + level.slice(1)}
+                    </Text>
+                  </Pressable>
+                ))}
+              </View>
+            </View>
+
+            <View style={{ flexDirection: "row", gap: 10, marginTop: 4 }}>
+              <Pressable
+                style={{ flex: 1, paddingVertical: 13, borderRadius: 12, backgroundColor: "rgba(255,255,255,0.07)", alignItems: "center" }}
+                onPress={() => setShowEditPlayer(false)}
+              >
+                <Text style={{ color: Colors.dark.text, fontWeight: "600", fontSize: 15 }}>Cancel</Text>
+              </Pressable>
+              <Pressable
+                style={{ flex: 1, paddingVertical: 13, borderRadius: 12, backgroundColor: Colors.dark.primary, alignItems: "center", opacity: updatePlayerMutation.isPending ? 0.7 : 1 }}
+                onPress={() => {
+                  if (!editName.trim()) {
+                    Alert.alert("Required", "Player name cannot be empty");
+                    return;
+                  }
+                  updatePlayerMutation.mutate();
+                }}
+                disabled={updatePlayerMutation.isPending}
+              >
+                {updatePlayerMutation.isPending ? (
+                  <ActivityIndicator size="small" color="#000" />
+                ) : (
+                  <Text style={{ color: "#000", fontWeight: "700", fontSize: 15 }}>Save</Text>
+                )}
+              </Pressable>
+            </View>
+          </View>
+        </Pressable>
+      </Modal>
 
       {/* Edit Attendance Modal */}
       <Modal visible={!!editingAttendance} transparent animationType="fade">
