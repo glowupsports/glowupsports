@@ -6654,8 +6654,10 @@ export const storage = {
     const attendedSessions = await db.select({
       sessionId: sessionPlayers.sessionId,
     }).from(sessionPlayers)
+      .innerJoin(sessions, eq(sessions.id, sessionPlayers.sessionId))
       .where(and(
         eq(sessionPlayers.playerId, playerId),
+        ne(sessions.status, "cancelled"),
         or(
           eq(sessionPlayers.attendanceStatus, "present"),
           eq(sessionPlayers.attendanceStatus, "late")
