@@ -6637,8 +6637,10 @@ export const storage = {
       metadata: creditTransactions.metadata,
       packageId: creditTransactions.packageId,
       sessionId: creditTransactions.sessionId,
+      createdAt: creditTransactions.createdAt,
     }).from(creditTransactions)
-      .where(eq(creditTransactions.playerId, playerId));
+      .where(eq(creditTransactions.playerId, playerId))
+      .orderBy(creditTransactions.createdAt);
     
     const allPlayerPackages = await db.select({
       id: packages.id,
@@ -6667,15 +6669,14 @@ export const storage = {
     const balance = { group: 0, semi_private: 0, private: 0 };
     const debitSessionIds = new Set<string>();
     const packageIdsWithPurchaseTx = new Set<string>();
-    const debitSeenBySession = new Map<string, number>();
+    const debitBySession = new Map<string, { amount: number; creditType: keyof typeof balance; createdAt: Date | null }>();
+    
+    const validTransactions: typeof allTransactions = [];
     
     for (const tx of allTransactions) {
       const meta = tx.metadata as { settled?: boolean; cancelled?: boolean; expired?: boolean; isDebt?: boolean } | null;
       
-      if (tx.reason === "debt_settlement") {
-        continue;
-      }
-      
+      if (tx.reason === "debt_settlement") continue;
       if (meta?.cancelled === true || meta?.expired === true) continue;
       
       if (Number(tx.amount) < 0 && tx.sessionId) {
@@ -6683,9 +6684,7 @@ export const storage = {
       }
       
       if (Number(tx.amount) > 0 && tx.packageId) {
-        if (!existingPackageIds.has(tx.packageId)) {
-          continue;
-        }
+        if (!existingPackageIds.has(tx.packageId)) continue;
         packageIdsWithPurchaseTx.add(tx.packageId);
       }
       if (Number(tx.amount) > 0 && !tx.packageId && (
@@ -6701,22 +6700,29 @@ export const storage = {
         continue;
       }
       
-      const creditType = tx.creditType as keyof typeof balance;
-      if (balance[creditType] !== undefined) {
-        if (Number(tx.amount) < 0 && tx.sessionId) {
-          const dedupKey = `${tx.sessionId}:${creditType}`;
-          const prevDebit = debitSeenBySession.get(dedupKey);
-          if (prevDebit !== undefined) {
-            balance[creditType] -= prevDebit;
-            const newDebit = Math.min(prevDebit, Number(tx.amount));
-            balance[creditType] += newDebit;
-            debitSeenBySession.set(dedupKey, newDebit);
-            continue;
+      validTransactions.push(tx);
+    }
+    
+    for (const tx of validTransactions) {
+      const creditType = normalizeType(tx.creditType) as keyof typeof balance;
+      if (balance[creditType] === undefined) continue;
+      
+      if (Number(tx.amount) < 0 && tx.sessionId) {
+        const existing = debitBySession.get(tx.sessionId);
+        if (existing) {
+          const existingTime = existing.createdAt?.getTime() || 0;
+          const currentTime = tx.createdAt?.getTime() || 0;
+          if (currentTime > existingTime) {
+            balance[existing.creditType] -= existing.amount;
+            balance[creditType] += Number(tx.amount);
+            debitBySession.set(tx.sessionId, { amount: Number(tx.amount), creditType, createdAt: tx.createdAt });
           }
-          debitSeenBySession.set(dedupKey, Number(tx.amount));
+          continue;
         }
-        balance[creditType] += Number(tx.amount);
+        debitBySession.set(tx.sessionId, { amount: Number(tx.amount), creditType, createdAt: tx.createdAt });
       }
+      
+      balance[creditType] += Number(tx.amount);
     }
     
     for (const pkg of allPlayerPackages) {
