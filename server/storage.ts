@@ -11597,13 +11597,13 @@ async function auditAllPlayerCredits(): Promise<{
   console.log(`[CreditAudit] Checked ${results.playersChecked} players, found ${results.ghostCreditsFound} ghost credits for ${results.playersWithIssues.length} players`);
   
   // PHASE 3: Package-Transaction Balance Sync
-  // For each active package, calculate expected remaining from package-specific transactions only
-  const activePackagesWithDetails = await db.select().from(packages)
-    .where(eq(packages.status, "active"));
+  // For ALL packages, calculate expected remaining from package-specific transactions only
+  const allPackagesForSync = await db.select().from(packages)
+    .where(inArray(packages.status, ["active", "depleted"]));
   
   let syncFixes = 0;
   
-  for (const pkg of activePackagesWithDetails) {
+  for (const pkg of allPackagesForSync) {
     const playerName = playerNameMap.get(pkg.playerId) || pkg.playerId;
     
     // Calculate correct remaining from THIS package's transactions only
