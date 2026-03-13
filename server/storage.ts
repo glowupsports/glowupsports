@@ -11179,19 +11179,10 @@ async function ensureCreditProcessed(sessionPlayerId: string): Promise<{
         return { success: true, action: "not_attended" as const };
       }
       
-      // STEP 3: Idempotency check - both fields must be null
-      if (sp.credit_deducted_at || sp.credit_transaction_id) {
-        console.log(`[EnsureCredit] Session player ${sessionPlayerId} already processed at ${sp.credit_deducted_at}`);
-        return { 
-          success: true, 
-          action: "already_processed" as const, 
-          transactionId: sp.credit_transaction_id 
-        };
-      }
-      
-      // STEP 3b: Check for existing debit transaction for this player+session
-      // Old-style session_booking transactions never set credit_deducted_at,
-      // so they bypass the check above. Detect them here to prevent double-charging.
+      // STEP 3: Check for existing debit transaction for this player+session
+      // This runs BEFORE the credit_deducted_at check because old-style session_booking
+      // transactions never set credit_deducted_at/credit_transaction_id on session_players.
+      // Detecting them here prevents double-charging and normalizes session_player state.
       const existingDebitResult = await tx.execute(sql`
         SELECT id FROM credit_transactions
         WHERE player_id = ${sp.player_id}
@@ -11213,6 +11204,16 @@ async function ensureCreditProcessed(sessionPlayerId: string): Promise<{
           success: true, 
           action: "already_processed" as const, 
           transactionId: existingTxId 
+        };
+      }
+      
+      // STEP 3b: Idempotency check - both fields must be null
+      if (sp.credit_deducted_at || sp.credit_transaction_id) {
+        console.log(`[EnsureCredit] Session player ${sessionPlayerId} already processed at ${sp.credit_deducted_at}`);
+        return { 
+          success: true, 
+          action: "already_processed" as const, 
+          transactionId: sp.credit_transaction_id 
         };
       }
       
