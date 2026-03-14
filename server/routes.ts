@@ -18792,6 +18792,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         // Don't allow changing academyId
         const { academyId: _, ...updates } = req.body;
 
+        if (updates.paidAt && typeof updates.paidAt === 'string') {
+          updates.paidAt = new Date(updates.paidAt);
+        }
+
         const invoice = await storage.updateInvoice(id, updates);
         res.json(invoice);
       } catch (error) {
