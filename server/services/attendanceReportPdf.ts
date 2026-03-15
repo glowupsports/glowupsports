@@ -131,25 +131,32 @@ export function generateAttendanceReportHtml(data: AttendanceReportData): string
     ? Math.round((lessonPresentCount / nonCancelledLessonRecords.length) * 100)
     : 0;
 
-  const seriesGroups: Map<string, { seriesId: string; info: SeriesInfo | null; records: typeof lessonRecords }> = new Map();
+  const seriesGroupsRaw: Map<string, { seriesId: string; info: SeriesInfo | null; records: typeof lessonRecords }> = new Map();
 
   for (const record of lessonRecords) {
     const key = record.seriesId || '__no_series__';
-    if (!seriesGroups.has(key)) {
+    if (!seriesGroupsRaw.has(key)) {
       const info = record.seriesId && data.seriesMap ? data.seriesMap[record.seriesId] || null : null;
-      seriesGroups.set(key, { seriesId: key, info, records: [] });
+      seriesGroupsRaw.set(key, { seriesId: key, info, records: [] });
     }
-    seriesGroups.get(key)!.records.push(record);
+    seriesGroupsRaw.get(key)!.records.push(record);
   }
 
-  const sortedSeriesGroups = Array.from(seriesGroups.values()).sort((a, b) => {
-    if (!a.info && !b.info) return 0;
-    if (!a.info) return 1;
-    if (!b.info) return -1;
-    return a.info.dayOfWeek - b.info.dayOfWeek;
-  });
+  const realSeriesCount = Array.from(seriesGroupsRaw.keys()).filter(k => k !== '__no_series__').length;
+  const isMultiSeries = realSeriesCount > 1;
 
-  const isMultiSeries = sortedSeriesGroups.length > 1;
+  let sortedSeriesGroups: Array<{ seriesId: string; info: SeriesInfo | null; records: typeof lessonRecords }>;
+
+  if (isMultiSeries) {
+    sortedSeriesGroups = Array.from(seriesGroupsRaw.values()).sort((a, b) => {
+      if (!a.info && !b.info) return 0;
+      if (!a.info) return 1;
+      if (!b.info) return -1;
+      return a.info.dayOfWeek - b.info.dayOfWeek;
+    });
+  } else {
+    sortedSeriesGroups = [{ seriesId: '__combined__', info: null, records: lessonRecords }];
+  }
 
   interface SeriesTableData {
     idx: number;
@@ -205,7 +212,7 @@ export function generateAttendanceReportHtml(data: AttendanceReportData): string
     };
   });
 
-  const seriesBreakdownHtml = data.seriesSummaries && data.seriesSummaries.length > 1 && !isMultiSeries ? `
+  const seriesBreakdownHtml = data.seriesSummaries && data.seriesSummaries.length >= 1 && !isMultiSeries ? `
     <div class="series-breakdown">
       <div class="section-title">Attendance per Lesson Group</div>
       <div class="series-grid">
