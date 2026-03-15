@@ -249,12 +249,12 @@ export function generateAttendanceReportHtml(data: AttendanceReportData): string
 
   const buildSeriesSection = (table: SeriesTableData) => {
     const id = table.idx;
-    const hasHeader = isMultiSeries && (table.dayName || table.title);
+    const hasHeader = isMultiSeries;
 
     const headerHtml = hasHeader ? `
       <div class="series-table-header">
         <div class="series-table-header-left">
-          <span class="series-table-day">${table.dayName}</span>
+          <span class="series-table-day">${table.dayName || 'Other Sessions'}</span>
           ${table.timeLabel ? `<span class="series-table-time">${table.timeLabel}</span>` : ''}
           ${table.title ? `<span class="series-table-title">${table.title}</span>` : ''}
         </div>
