@@ -1010,6 +1010,8 @@ export const players = pgTable("players", {
   auditVerifiedAt: timestamp("audit_verified_at"),
   auditVerifiedBy: varchar("audit_verified_by"),
   
+  attendanceShareToken: varchar("attendance_share_token", { length: 48 }).unique(),
+  
   createdAt: timestamp("created_at").defaultNow(),
 });
 

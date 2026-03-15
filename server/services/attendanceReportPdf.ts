@@ -48,6 +48,10 @@ export interface AttendanceReportData {
 }
 
 export function generateAttendanceReportHtml(data: AttendanceReportData): string {
+  // Filter out vacation/holiday records — they don't count as lessons
+  const vacationStatuses = new Set(['vacation', 'holiday']);
+  const lessonRecords = data.records.filter(r => !vacationStatuses.has(r.status || ''));
+
   const formatDate = (dateStr: string) => {
     const date = new Date(dateStr);
     return date.toLocaleDateString('en-US', { 
@@ -155,130 +159,39 @@ export function generateAttendanceReportHtml(data: AttendanceReportData): string
     </div>
   ` : '';
 
-  // Group records by month
-  const recordsByMonth = new Map<string, AttendanceRecord[]>();
-  data.records.forEach(record => {
-    if (!record.date) return;
-    const date = new Date(record.date);
-    const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
-    const monthLabel = date.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
-    
-    if (!recordsByMonth.has(monthKey)) {
-      recordsByMonth.set(monthKey, []);
-    }
-    recordsByMonth.get(monthKey)!.push(record);
-  });
+  // Sort lesson records: oldest first for numbering, newest first for display
+  const lessonRecordsOldestFirst = [...lessonRecords].sort(
+    (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()
+  );
 
-  // Sort months newest first
-  const sortedMonths = Array.from(recordsByMonth.keys()).sort((a, b) => b.localeCompare(a));
+  // Assign lesson numbers (Lesson 1 = oldest)
+  const numberedLessons = lessonRecordsOldestFirst.map((record, i) => ({
+    ...record,
+    lessonNumber: i + 1,
+  }));
 
-  // Generate month tabs HTML
-  const monthTabsHtml = sortedMonths.map((monthKey, index) => {
-    const date = new Date(monthKey + '-01');
-    const label = date.toLocaleDateString('en-US', { month: 'short', year: '2-digit' });
-    const count = recordsByMonth.get(monthKey)!.length;
-    return `<div class="month-tab ${index === 0 ? 'active' : ''}">${label} (${count})</div>`;
-  }).join('');
+  // For display: newest first (reverse)
+  const numberedLessonsNewestFirst = [...numberedLessons].reverse();
 
-  // Check if player has multiple series - if so, show side-by-side columns
-  const hasMultipleSeries = data.seriesSummaries && data.seriesSummaries.length > 1;
-  
-  // Generate side-by-side columns per series (for players with multiple lesson groups)
-  const seriesColumnsHtml = hasMultipleSeries && data.seriesSummaries ? (() => {
-    const seriesColumns = data.seriesSummaries.map(summary => {
-      const seriesRecords = data.records
-        .filter(r => r.seriesId === summary.series.id)
-        .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-      
-      const rowsHtml = seriesRecords.map(record => `
-        <div class="series-session-row">
-          <div class="series-session-date">${formatShortDate(record.date)}</div>
-          <span class="session-type-badge compact">${getSessionTypeLabel(record.sessionType)}</span>
-          <span class="status-badge compact" style="background: ${getStatusColor(record.status)}20; color: ${getStatusColor(record.status)};">
-            ${getStatusLabel(record.status)}
-          </span>
-          <span class="payment-badge compact ${record.paymentStatus === 'paid' ? 'paid' : record.paymentStatus === 'cancelled' ? 'cancelled' : record.paymentStatus === 'no_charge' ? 'cancelled' : 'pending'}">
-            ${record.paymentStatus === 'paid' ? 'Paid' : record.paymentStatus === 'cancelled' ? 'N/A' : record.paymentStatus === 'no_charge' ? 'No Charge' : 'Pending'}
-          </span>
-        </div>
-      `).join('');
-      
-      return `
-        <div class="series-column">
-          <div class="series-column-header">
-            <div class="series-column-day">${getDayName(summary.series.dayOfWeek)}</div>
-            <div class="series-column-time">${summary.series.startTime}</div>
-          </div>
-          <div class="series-column-stats">
-            <span style="color: #10B981;">${summary.presentCount} Present</span>
-            <span style="color: #EF4444;">${summary.absentCount} Absent</span>
-            <span style="color: ${getAttendanceRateColor(summary.attendanceRate)};">${summary.attendanceRate}%</span>
-          </div>
-          <div class="series-column-sessions">
-            ${rowsHtml}
-          </div>
-        </div>
-      `;
-    }).join('');
-    
-    return `
-      <div class="series-columns-section">
-        <div class="section-title">Sessions per Lesson Group</div>
-        <div class="series-columns-grid">
-          ${seriesColumns}
-        </div>
-      </div>
-    `;
-  })() : '';
+  // Build all lesson rows as JS data for client-side pagination
+  const lessonsJson = JSON.stringify(numberedLessonsNewestFirst.map(r => ({
+    n: r.lessonNumber,
+    date: formatShortDate(r.date),
+    time: formatTime(r.startTime),
+    type: getSessionTypeLabel(r.sessionType),
+    statusColor: getStatusColor(r.status),
+    statusLabel: getStatusLabel(r.status) + (r.lateMinutes && r.lateMinutes > 0 ? ` (+${r.lateMinutes}m)` : ''),
+    paymentClass: r.paymentStatus === 'paid' ? 'paid' : r.paymentStatus === 'cancelled' ? 'cancelled' : r.paymentStatus === 'no_charge' ? 'cancelled' : 'pending',
+    paymentLabel: r.paymentStatus === 'paid' ? 'Paid' : r.paymentStatus === 'cancelled' ? 'N/A' : r.paymentStatus === 'no_charge' ? 'No Charge' : 'Pending',
+  })));
 
-  // Generate attendance rows grouped by month (traditional view for single-series players)
-  const monthSectionsHtml = sortedMonths.map(monthKey => {
-    const records = recordsByMonth.get(monthKey)!;
-    const date = new Date(monthKey + '-01');
-    const monthLabel = date.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
-    
-    const rowsHtml = records.map(record => `
-      <tr>
-        <td class="date-cell">
-          <div class="date-text">${formatShortDate(record.date)}</div>
-          <div class="time-text">${formatTime(record.startTime)}</div>
-        </td>
-        <td class="type-cell">
-          <span class="session-type-badge">${getSessionTypeLabel(record.sessionType)}</span>
-        </td>
-        <td class="status-cell">
-          <span class="status-badge" style="background: ${getStatusColor(record.status)}20; color: ${getStatusColor(record.status)};">
-            ${getStatusLabel(record.status)}
-            ${record.lateMinutes && record.lateMinutes > 0 ? ` (+${record.lateMinutes}m)` : ''}
-          </span>
-        </td>
-        <td class="payment-cell">
-          <span class="payment-badge ${record.paymentStatus === 'paid' ? 'paid' : record.paymentStatus === 'cancelled' ? 'cancelled' : record.paymentStatus === 'no_charge' ? 'cancelled' : 'pending'}">
-            ${record.paymentStatus === 'paid' ? 'Paid' : record.paymentStatus === 'cancelled' ? 'N/A' : record.paymentStatus === 'no_charge' ? 'No Charge' : 'Pending'}
-          </span>
-        </td>
-      </tr>
-    `).join('');
-
-    return `
-      <div class="month-section">
-        <div class="month-header">${monthLabel}</div>
-        <table class="attendance-table">
-          <thead>
-            <tr>
-              <th>Date & Time</th>
-              <th>Type</th>
-              <th>Status</th>
-              <th>Payment</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${rowsHtml}
-          </tbody>
-        </table>
-      </div>
-    `;
-  }).join('');
+  // Recalculate summary from lesson records (excluding vacation/holiday)
+  const nonCancelledLessonRecords = lessonRecords.filter(r => r.status !== 'cancelled');
+  const lessonPresentCount = nonCancelledLessonRecords.filter(r => r.status === 'present').length;
+  const lessonAbsentCount = nonCancelledLessonRecords.filter(r => r.status === 'absent').length;
+  const lessonAttendanceRate = nonCancelledLessonRecords.length > 0
+    ? Math.round((lessonPresentCount / nonCancelledLessonRecords.length) * 100)
+    : 0;
 
   return `
 <!DOCTYPE html>
@@ -733,6 +646,40 @@ export function generateAttendanceReportHtml(data: AttendanceReportData): string
     .download-btn:hover {
       opacity: 0.9;
     }
+
+    .lessons-section {
+      margin-bottom: 32px;
+    }
+
+    .lessons-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 0;
+    }
+
+    .page-btn {
+      background: rgba(200, 255, 61, 0.15);
+      color: #C8FF3D;
+      border: 1px solid rgba(200, 255, 61, 0.4);
+      padding: 8px 18px;
+      border-radius: 8px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      font-family: inherit;
+    }
+
+    .page-btn:hover {
+      background: rgba(200, 255, 61, 0.25);
+    }
+
+    .page-info {
+      font-size: 13px;
+      color: rgba(255, 255, 255, 0.6);
+      min-width: 120px;
+      text-align: center;
+    }
     
     .header-actions {
       display: flex;
@@ -793,26 +740,23 @@ export function generateAttendanceReportHtml(data: AttendanceReportData): string
       </div>
     </div>
     
-    <!-- RAINBOW DEBUG INDICATOR - V2 CODE LOADED -->
-    <div style="height: 8px; background: linear-gradient(90deg, #ff0000, #ff7f00, #ffff00, #00ff00, #0000ff, #4b0082, #8f00ff); border-radius: 4px; margin-bottom: 24px;"></div>
-    
     <div class="player-card">
       <div class="player-name">${data.player.name}</div>
       <div class="stats-row">
         <div class="stat-box">
-          <div class="stat-value total">${data.summary.totalSessions}</div>
-          <div class="stat-label">Total Sessions</div>
+          <div class="stat-value total">${nonCancelledLessonRecords.length}</div>
+          <div class="stat-label">Total Lessons</div>
         </div>
         <div class="stat-box">
-          <div class="stat-value present">${data.summary.presentCount}</div>
+          <div class="stat-value present">${lessonPresentCount}</div>
           <div class="stat-label">Present</div>
         </div>
         <div class="stat-box">
-          <div class="stat-value absent">${data.summary.absentCount}</div>
+          <div class="stat-value absent">${lessonAbsentCount}</div>
           <div class="stat-label">Absent</div>
         </div>
         <div class="stat-box">
-          <div class="stat-value rate">${data.summary.attendanceRate}%</div>
+          <div class="stat-value rate">${lessonAttendanceRate}%</div>
           <div class="stat-label">Attendance Rate</div>
         </div>
       </div>
@@ -820,13 +764,86 @@ export function generateAttendanceReportHtml(data: AttendanceReportData): string
     
     ${seriesBreakdownHtml}
     
-    ${seriesColumnsHtml}
-    
-    <div class="month-tabs">
-      ${monthTabsHtml}
+    <div class="lessons-section">
+      <div class="lessons-header">
+        <div class="section-title" style="margin-bottom:0;">Lessons</div>
+        <div class="pagination-controls" id="paginationControls" style="display:flex;align-items:center;gap:12px;">
+          <button class="page-btn" id="prevBtn" onclick="changePage(-1)">&#8592; Prev</button>
+          <span class="page-info" id="pageInfo"></span>
+          <button class="page-btn" id="nextBtn" onclick="changePage(1)">Next &#8594;</button>
+        </div>
+      </div>
+      <table class="attendance-table" style="margin-top:16px;">
+        <thead>
+          <tr>
+            <th>Lesson</th>
+            <th>Date &amp; Time</th>
+            <th>Type</th>
+            <th>Status</th>
+            <th>Payment</th>
+          </tr>
+        </thead>
+        <tbody id="lessonsTableBody"></tbody>
+      </table>
+      <div id="emptyLessons" style="display:none;text-align:center;padding:32px;color:rgba(255,255,255,0.4);">No lessons recorded yet.</div>
     </div>
-    
-    ${monthSectionsHtml}
+
+    <script>
+      var lessons = ${lessonsJson};
+      var BLOCK = 10;
+      var currentPage = 0;
+      var totalPages = Math.max(1, Math.ceil(lessons.length / BLOCK));
+
+      function renderPage(page) {
+        var tbody = document.getElementById('lessonsTableBody');
+        var empty = document.getElementById('emptyLessons');
+        var info = document.getElementById('pageInfo');
+        var prevBtn = document.getElementById('prevBtn');
+        var nextBtn = document.getElementById('nextBtn');
+
+        tbody.innerHTML = '';
+        if (lessons.length === 0) {
+          empty.style.display = 'block';
+          document.getElementById('paginationControls').style.display = 'none';
+          return;
+        }
+
+        // Display newest first: page 0 = highest lesson numbers
+        var start = page * BLOCK;
+        var end = Math.min(start + BLOCK, lessons.length);
+        var slice = lessons.slice(start, end);
+
+        slice.forEach(function(r) {
+          var tr = document.createElement('tr');
+          tr.innerHTML =
+            '<td class="date-cell" style="width:12%;font-weight:700;color:#C8FF3D;">L' + r.n + '</td>' +
+            '<td class="date-cell"><div class="date-text">' + r.date + '</div><div class="time-text">' + r.time + '</div></td>' +
+            '<td class="type-cell"><span class="session-type-badge">' + r.type + '</span></td>' +
+            '<td class="status-cell"><span class="status-badge" style="background:' + r.statusColor + '20;color:' + r.statusColor + ';">' + r.statusLabel + '</span></td>' +
+            '<td class="payment-cell"><span class="payment-badge ' + r.paymentClass + '">' + r.paymentLabel + '</span></td>';
+          tbody.appendChild(tr);
+        });
+
+        // Calculate lesson range shown
+        var minLesson = slice[slice.length - 1].n;
+        var maxLesson = slice[0].n;
+        info.textContent = 'Lessons ' + minLesson + '\u2013' + maxLesson + ' of ' + lessons.length;
+        prevBtn.disabled = page === 0;
+        nextBtn.disabled = page >= totalPages - 1;
+        prevBtn.style.opacity = prevBtn.disabled ? '0.3' : '1';
+        nextBtn.style.opacity = nextBtn.disabled ? '0.3' : '1';
+      }
+
+      function changePage(dir) {
+        var next = currentPage + dir;
+        if (next >= 0 && next < totalPages) {
+          currentPage = next;
+          renderPage(currentPage);
+        }
+      }
+
+      renderPage(0);
+    </script>
     
     <div class="footer">
       <p>Generated by ${data.academy.name} • ${formatDate(data.reportDate)}</p>

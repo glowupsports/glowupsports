@@ -8,6 +8,13 @@
       "when": 1771136711141,
       "tag": "0000_condemned_ogun",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1773581900000,
+      "tag": "0001_attendance_share_token",
+      "breakpoints": true
     }
   ]
 }

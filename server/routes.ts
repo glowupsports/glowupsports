@@ -9465,7 +9465,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
           records.length,
         );
 
-        const nonCancelledRecords = records.filter((r) => r.status !== "cancelled");
+        // Exclude cancelled, vacation, and holiday from lesson count and stats
+        const nonCancelledRecords = records.filter(
+          (r) => r.status !== "cancelled" && r.status !== "vacation" && r.status !== "holiday",
+        );
         const presentCount = nonCancelledRecords.filter(
           (r) => r.status === "present",
         ).length;
@@ -27756,6 +27759,222 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json({ success: true, message: "Your message has been received" });
     }
   });
+
+  // ==================== PUBLIC ATTENDANCE SHARE LINK ====================
+
+  // Public endpoint - no auth required
+  app.get("/public/attendance/:token", async (req: Request, res: Response) => {
+    try {
+      const { token } = req.params;
+      if (!token || token.length < 16) {
+        return res.status(404).send("<h1>Report not found</h1>");
+      }
+
+      // Look up the player by their share token
+      const [player] = await db
+        .select()
+        .from(players)
+        .where(eq(players.attendanceShareToken, token))
+        .limit(1);
+
+      if (!player) {
+        return res.status(404).send("<h1>Report not found</h1>");
+      }
+
+      const { generateAttendanceReportHtml } = await import("./services/attendanceReportPdf");
+
+      const academyId = player.academyId;
+      const academy = academyId ? await storage.getAcademy(academyId) : null;
+
+      const playerRecords = await db
+        .select({
+          sessionId: sessionPlayers.sessionId,
+          attendanceStatus: sessionPlayers.attendanceStatus,
+          lateMinutes: sessionPlayers.lateMinutes,
+          creditDeductedAt: sessionPlayers.creditDeductedAt,
+          creditTransactionId: sessionPlayers.creditTransactionId,
+        })
+        .from(sessionPlayers)
+        .where(eq(sessionPlayers.playerId, player.id));
+
+      const sessionIds = playerRecords.map((r) => r.sessionId).filter(Boolean);
+      let sessionMap: Record<string, { startTime: Date; endTime: Date; sessionType: string; status: string; seriesId: string | null }> = {};
+
+      if (sessionIds.length > 0) {
+        const sessionDetails = await db
+          .select({ id: sessions.id, startTime: sessions.startTime, endTime: sessions.endTime, sessionType: sessions.sessionType, status: sessions.status, seriesId: sessions.seriesId })
+          .from(sessions)
+          .where(inArray(sessions.id, sessionIds));
+
+        sessionMap = sessionDetails.reduce((acc, s) => {
+          acc[s.id] = { startTime: s.startTime, endTime: s.endTime, sessionType: s.sessionType, status: s.status, seriesId: s.seriesId };
+          return acc;
+        }, {} as typeof sessionMap);
+      }
+
+      const uniqueSeriesIds = [...new Set(Object.values(sessionMap).map((s) => s.seriesId).filter(Boolean))] as string[];
+      let seriesMap: Record<string, { title: string; dayOfWeek: number; startTime: string; sessionType: string }> = {};
+
+      if (uniqueSeriesIds.length > 0) {
+        const seriesDetails = await db
+          .select({ id: coachingSeries.id, title: coachingSeries.title, dayOfWeek: coachingSeries.dayOfWeek, startTime: coachingSeries.startTime, sessionType: coachingSeries.sessionType })
+          .from(coachingSeries)
+          .where(inArray(coachingSeries.id, uniqueSeriesIds));
+
+        seriesMap = seriesDetails.reduce((acc, s) => {
+          acc[s.id] = { title: s.title || "", dayOfWeek: s.dayOfWeek, startTime: s.startTime, sessionType: s.sessionType };
+          return acc;
+        }, {} as typeof seriesMap);
+      }
+
+      const now = new Date();
+      const allSessionIds = playerRecords.map((r) => r.sessionId).filter(Boolean) as string[];
+      const paidSessionIdSet = new Set<string>();
+
+      if (allSessionIds.length > 0) {
+        const sessionTxs = await db
+          .select({ sessionId: creditTransactions.sessionId, reason: creditTransactions.reason, packageId: creditTransactions.packageId, metadata: creditTransactions.metadata })
+          .from(creditTransactions)
+          .where(and(eq(creditTransactions.playerId, player.id), inArray(creditTransactions.sessionId, allSessionIds), eq(creditTransactions.type, "debit")));
+
+        for (const tx of sessionTxs) {
+          if (!tx.sessionId) continue;
+          const isDebtReason = tx.reason === "session_debt" || tx.reason === "session_join_debt" || tx.reason === "session_unpaid";
+          if (!isDebtReason && tx.packageId) {
+            paidSessionIdSet.add(tx.sessionId);
+          } else if (isDebtReason) {
+            const meta = tx.metadata as Record<string, unknown> | null;
+            if (meta?.settled === true || meta?.settledByPackage != null) {
+              paidSessionIdSet.add(tx.sessionId);
+            }
+          }
+        }
+      }
+
+      type PublicAttendanceRecord = {
+        sessionId: string | null;
+        date: string;
+        startTime: string;
+        endTime: string;
+        sessionType: string;
+        status: string | null;
+        lateMinutes: number | null;
+        seriesId: string | null;
+        paymentStatus: "paid" | "pending" | "cancelled" | "no_charge";
+      };
+
+      const records: PublicAttendanceRecord[] = playerRecords
+        .map((record) => {
+          const sessionInfo = record.sessionId ? sessionMap[record.sessionId] : null;
+          if (!sessionInfo) return null;
+          const sessionTime = new Date(sessionInfo.startTime);
+          if (sessionTime > now) return null;
+          const isCancelled = sessionInfo.status === "cancelled";
+          const isNoCharge = record.attendanceStatus === "vacation" || record.attendanceStatus === "holiday";
+          const isPaid = record.sessionId != null && paidSessionIdSet.has(record.sessionId);
+          return {
+            sessionId: record.sessionId,
+            date: sessionInfo.startTime.toISOString().split("T")[0],
+            startTime: sessionInfo.startTime.toISOString(),
+            endTime: sessionInfo.endTime.toISOString(),
+            sessionType: sessionInfo.sessionType,
+            status: isCancelled ? "cancelled" : record.attendanceStatus || null,
+            lateMinutes: record.lateMinutes,
+            seriesId: sessionInfo.seriesId,
+            paymentStatus: (isCancelled ? "cancelled" : isNoCharge ? "no_charge" : isPaid ? "paid" : "pending") as "paid" | "pending" | "cancelled" | "no_charge",
+          };
+        })
+        .filter((r): r is PublicAttendanceRecord => r !== null)
+        .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+
+      // Exclude cancelled, vacation, and holiday from lesson count and stats
+      const nonCancelledRecords = records.filter(
+        (r) => r.status !== "cancelled" && r.status !== "vacation" && r.status !== "holiday",
+      );
+      const presentCount = nonCancelledRecords.filter((r) => r.status === "present").length;
+      const absentCount = nonCancelledRecords.filter((r) => r.status === "absent").length;
+
+      const seriesSummaries = uniqueSeriesIds.map((seriesId) => {
+        const seriesRecords = nonCancelledRecords.filter((r) => r.seriesId === seriesId);
+        const seriesPresent = seriesRecords.filter((r) => r.status === "present").length;
+        const seriesAbsent = seriesRecords.filter((r) => r.status === "absent").length;
+        const seriesInfo = seriesMap[seriesId];
+        return {
+          series: { id: seriesId, title: seriesInfo?.title || "Unknown", dayOfWeek: seriesInfo?.dayOfWeek || 0, startTime: seriesInfo?.startTime || "", sessionType: seriesInfo?.sessionType || "group" },
+          totalSessions: seriesRecords.length,
+          presentCount: seriesPresent,
+          absentCount: seriesAbsent,
+          attendanceRate: seriesRecords.length > 0 ? Math.round((seriesPresent / seriesRecords.length) * 100) : 0,
+        };
+      }).sort((a, b) => a.series.dayOfWeek - b.series.dayOfWeek);
+
+      const reportData = {
+        reportDate: now.toISOString(),
+        academy: { name: academy?.name || "Tennis Academy" },
+        player: { name: player.name, ballLevel: player.ballLevel || undefined },
+        summary: {
+          totalSessions: nonCancelledRecords.length,
+          presentCount,
+          absentCount,
+          attendanceRate: nonCancelledRecords.length > 0 ? Math.round((presentCount / nonCancelledRecords.length) * 100) : 0,
+        },
+        records,
+        seriesMap: Object.fromEntries(Object.entries(seriesMap).map(([id, info]) => [id, { id, ...info }])),
+        seriesSummaries,
+      };
+
+      const html = generateAttendanceReportHtml(reportData);
+      res.setHeader("Content-Type", "text/html");
+      res.send(html);
+    } catch (error) {
+      console.error("Error generating public attendance report:", error);
+      res.status(500).send("<h1>Failed to generate report</h1>");
+    }
+  });
+
+  // Generate (or return existing) attendance share token — auth required
+  app.post(
+    "/api/players/:id/attendance-share-token",
+    authMiddleware,
+    async (req: AuthenticatedRequest, res: Response) => {
+      try {
+        const { id } = req.params;
+        const academyId = req.user?.academyId;
+        const coachId = req.user?.coachId;
+        const userRole = req.user?.role;
+
+        const player = await storage.getPlayer(id);
+        if (!player) return res.status(404).json({ error: "Player not found" });
+
+        // Only coaches, assistants, academy owners and platform owners may generate share tokens
+        const allowedRoles = ["coach", "assistant", "academy_owner", "platform_owner"];
+        if (!allowedRoles.includes(userRole || "")) {
+          return res.status(403).json({ error: "Access denied" });
+        }
+
+        const isPlatformOwner = userRole === "platform_owner";
+        const isFromSameAcademy = academyId && player.academyId === academyId;
+        const isAssignedCoach = coachId && player.coachId === coachId;
+
+        if (!isPlatformOwner && !isFromSameAcademy && !isAssignedCoach) {
+          return res.status(403).json({ error: "Access denied" });
+        }
+
+        let token = player.attendanceShareToken;
+        if (!token) {
+          token = crypto.randomBytes(24).toString("base64url");
+          await db.update(players).set({ attendanceShareToken: token }).where(eq(players.id, id));
+        }
+
+        const baseUrl = (process.env.EXPO_PUBLIC_DOMAIN ? `https://${process.env.EXPO_PUBLIC_DOMAIN}` : `${req.protocol}://${req.get("host")}`);
+        const shareUrl = `${baseUrl}/public/attendance/${token}`;
+        res.json({ token, shareUrl });
+      } catch (error) {
+        console.error("Error generating attendance share token:", error);
+        res.status(500).json({ error: "Failed to generate share token" });
+      }
+    },
+  );
 
   const httpServer = createServer(app);
 

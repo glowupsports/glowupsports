@@ -941,6 +941,7 @@ function PlayerDetailView({
   const [newNoteCategory, setNewNoteCategory] = useState("general");
   const [isExportingReport, setIsExportingReport] = useState(false);
   const [isExportingAttendanceReport, setIsExportingAttendanceReport] = useState(false);
+  const [isSharingAttendanceLink, setIsSharingAttendanceLink] = useState(false);
   const [showAllHistory, setShowAllHistory] = useState(false);
   const [expandedSeriesIds, setExpandedSeriesIds] = useState<Set<string>>(new Set());
   const [pillarProgressExpanded, setPillarProgressExpanded] = useState(false);
@@ -1150,6 +1151,42 @@ function PlayerDetailView({
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
     } finally {
       setIsExportingAttendanceReport(false);
+    }
+  };
+
+  const handleShareAttendanceLink = async () => {
+    try {
+      setIsSharingAttendanceLink(true);
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+
+      const response = await fetch(
+        new URL(`/api/players/${player.id}/attendance-share-token`, getApiUrl()).toString(),
+        { method: "POST", credentials: "include", headers: getAuthHeaders() },
+      );
+
+      if (!response.ok) throw new Error("Failed to generate share link");
+
+      const { shareUrl } = await response.json();
+
+      if (Platform.OS === "web") {
+        await Clipboard.setStringAsync(shareUrl);
+        Alert.alert("Link Copied", "Attendance link copied to clipboard. Share it with the player or parent.");
+      } else {
+        const { Share } = await import("react-native");
+        await Share.share({
+          message: `${player.name}'s attendance report: ${shareUrl}`,
+          url: shareUrl,
+          title: `${player.name} Attendance`,
+        });
+      }
+
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    } catch (error) {
+      console.error("Error sharing attendance link:", error);
+      Alert.alert("Error", "Failed to generate share link. Please try again.");
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+    } finally {
+      setIsSharingAttendanceLink(false);
     }
   };
 
@@ -2106,6 +2143,20 @@ function PlayerDetailView({
                   <>
                     <Ionicons name="document-text-outline" size={14} color={Colors.dark.xpCyan} />
                     <Text style={styles.reportButtonText}>PDF</Text>
+                  </>
+                )}
+              </Pressable>
+              <Pressable
+                style={[styles.reportButton, isSharingAttendanceLink && { opacity: 0.5 }]}
+                onPress={handleShareAttendanceLink}
+                disabled={isSharingAttendanceLink}
+              >
+                {isSharingAttendanceLink ? (
+                  <ActivityIndicator size="small" color="#A78BFA" />
+                ) : (
+                  <>
+                    <Ionicons name="link-outline" size={14} color="#A78BFA" />
+                    <Text style={[styles.reportButtonText, { color: "#A78BFA" }]}>Share Link</Text>
                   </>
                 )}
               </Pressable>
