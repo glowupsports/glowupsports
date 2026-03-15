@@ -1,5 +1,5 @@
 import React, { useEffect } from "react";
-import { View, Text, Pressable, StyleSheet, Dimensions } from "react-native";
+import { View, Text, Pressable, StyleSheet } from "react-native";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import * as Haptics from "expo-haptics";
 import Animated, {
@@ -21,7 +21,6 @@ import {
   FunctionColors,
 Backgrounds, } from "@/constants/theme";
 
-const { width: SCREEN_WIDTH } = Dimensions.get("window");
 
 interface GuidedEmptyStateProps {
   icon: string;
@@ -172,7 +171,7 @@ const styles = StyleSheet.create({
     color: TextColors.secondary,
     textAlign: "center",
     lineHeight: 22,
-    maxWidth: SCREEN_WIDTH * 0.8,
+    maxWidth: "80%",
     marginBottom: Spacing.lg,
   },
   descriptionCompact: {
@@ -181,7 +180,7 @@ const styles = StyleSheet.create({
   },
   tipsContainer: {
     width: "100%",
-    maxWidth: SCREEN_WIDTH * 0.8,
+    maxWidth: "80%",
     marginBottom: Spacing.lg,
   },
   tipRow: {
