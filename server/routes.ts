@@ -27763,7 +27763,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // ==================== PUBLIC ATTENDANCE SHARE LINK ====================
 
   // Public endpoint - no auth required (with optional player name slug for nice URLs)
-  app.get("/public/attendance/:playerSlug/:token", async (req: Request, res: Response) => {
+  app.get("/public/attendance/:token/:playerSlug", async (req: Request, res: Response) => {
     return handlePublicAttendance(req, res);
   });
   app.get("/public/attendance/:token", async (req: Request, res: Response) => {
@@ -27773,7 +27773,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   async function handlePublicAttendance(req: Request, res: Response) {
     try {
       const { token } = req.params;
-      if (!token || token.length < 16) {
+      if (!token || token.length < 8) {
         return res.status(404).send("<h1>Report not found</h1>");
       }
 
@@ -27968,14 +27968,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
 
         let token = player.attendanceShareToken;
-        if (!token) {
-          token = crypto.randomBytes(24).toString("base64url");
+        if (!token || token.length > 15) {
+          token = crypto.randomBytes(8).toString("base64url");
           await db.update(players).set({ attendanceShareToken: token }).where(eq(players.id, id));
         }
 
         const baseUrl = (process.env.EXPO_PUBLIC_DOMAIN ? `https://${process.env.EXPO_PUBLIC_DOMAIN}` : `${req.protocol}://${req.get("host")}`);
-        const playerSlug = player.name.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
-        const shareUrl = `${baseUrl}/public/attendance/${playerSlug}/${token}`;
+        const playerSlug = player.name.toUpperCase().replace(/\s+/g, '-').replace(/[^A-Z0-9-]/g, '');
+        const shareUrl = `${baseUrl}/public/attendance/${token}/${playerSlug}`;
         res.json({ token, shareUrl });
       } catch (error) {
         console.error("Error generating attendance share token:", error);
