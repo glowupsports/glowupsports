@@ -359,7 +359,10 @@ export function generateAttendanceReportHtml(data: AttendanceReportData): string
     `;
   };
 
-  const allSeriesSectionsHtml = seriesTables.map(t => buildSeriesSection(t)).join('\n');
+  const seriesSectionsContent = seriesTables.map(t => buildSeriesSection(t)).join('\n');
+  const allSeriesSectionsHtml = isMultiSeries
+    ? `<div class="series-tables-grid">${seriesSectionsContent}</div>`
+    : seriesSectionsContent;
 
   return `
 <!DOCTYPE html>
@@ -558,6 +561,44 @@ export function generateAttendanceReportHtml(data: AttendanceReportData): string
       text-transform: uppercase;
       letter-spacing: 0.5px;
       margin-top: 2px;
+    }
+
+    .series-tables-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 24px;
+      align-items: start;
+    }
+
+    .series-tables-grid .lessons-section {
+      margin-bottom: 0;
+    }
+
+    .series-tables-grid .attendance-table th,
+    .series-tables-grid .attendance-table td {
+      padding: 10px 8px;
+      font-size: 12px;
+    }
+
+    .series-tables-grid .series-table-header-left {
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .series-tables-grid .series-table-day {
+      font-size: 16px;
+    }
+
+    .series-tables-grid .series-table-header-stats {
+      font-size: 11px;
+      flex-wrap: wrap;
+      gap: 2px;
+    }
+
+    .series-tables-grid .series-table-header {
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 8px;
     }
 
     .series-table-header {
@@ -803,6 +844,12 @@ export function generateAttendanceReportHtml(data: AttendanceReportData): string
     @page {
       size: A4;
       margin: 0;
+    }
+
+    @media (max-width: 900px) {
+      .series-tables-grid {
+        grid-template-columns: 1fr;
+      }
     }
 
     @media (max-width: 600px) {
