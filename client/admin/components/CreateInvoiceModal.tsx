@@ -1502,7 +1502,7 @@ export default function CreateInvoiceModal({
               </View>
               <View style={styles.optionField}>
                 <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-                  <Text style={styles.fieldLabel}>Discount</Text>
+                  <Text style={styles.fieldLabel}>{discountType === 'percent' ? 'Discount (%)' : `Discount (${currency})`}</Text>
                   <View style={{ flexDirection: 'row', borderRadius: 6, overflow: 'hidden', borderWidth: 1, borderColor: Colors.dark.border }}>
                     <Pressable
                       onPress={() => { setDiscountType('flat'); Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); }}
@@ -1600,9 +1600,7 @@ export default function CreateInvoiceModal({
             )}
             {discount > 0 && (
               <View style={styles.totalRow}>
-                <Text style={styles.totalLabel}>
-                  {discountType === 'percent' ? `Discount (${discountInput}%)` : 'Discount'}
-                </Text>
+                <Text style={styles.totalLabel}>Discount</Text>
                 <Text style={[styles.totalValue, { color: Colors.dark.error }]}>
                   -{currency} {discount.toFixed(2)}
                 </Text>
