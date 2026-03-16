@@ -21449,6 +21449,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             sessionType: sessions.sessionType,
             date: sessions.date,
             duration: sessions.duration,
+            status: sessions.status,
           }).from(sessions)
             .where(inArray(sessions.id, sessionIds));
           for (const s of sessRows) {
@@ -21498,6 +21499,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         );
         const missingSessions = attendedSessions
           .filter(sp => !debitSessionIds.has(sp.sessionId))
+          .filter(sp => sessionDetails[sp.sessionId]?.status !== "cancelled")
           .map(sp => ({
             sessionId: sp.sessionId,
             sessionDetails: sessionDetails[sp.sessionId] || null,

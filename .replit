@@ -60,14 +60,11 @@ mode = "parallel"
 
 [[workflows.workflow.tasks]]
 task = "shell.exec"
-args = "npm run server:dev"
+args = "npm run server:dev & npm run expo:dev"
 waitForPort = 5000
 
-[[workflows.workflow.tasks]]
-task = "shell.exec"
-args = "npm run expo:dev"
-waitForPort = 8081
-ensurePreviewReachable = "/status"
+[workflows.workflow.metadata]
+outputType = "webview"
 
 [userenv]
 
