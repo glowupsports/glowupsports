@@ -1521,7 +1521,11 @@ export default function CreateInvoiceModal({
                 <TextInput
                   style={styles.optionInput}
                   value={discountInput.toString()}
-                  onChangeText={(text) => setDiscountInput(parseFloat(text) || 0)}
+                  onChangeText={(text) => {
+                    let val = parseFloat(text) || 0;
+                    if (discountType === 'percent') val = Math.min(100, Math.max(0, val));
+                    setDiscountInput(val);
+                  }}
                   keyboardType="numeric"
                   placeholderTextColor={Colors.dark.textMuted}
                 />
