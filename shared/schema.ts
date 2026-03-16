@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { pgTable, text, varchar, timestamp, integer, numeric, boolean, date, jsonb, json, index, unique } from "drizzle-orm/pg-core";
+import { pgTable, text, varchar, timestamp, integer, numeric, boolean, date, jsonb, json, index, unique, doublePrecision } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -1011,6 +1011,10 @@ export const players = pgTable("players", {
   auditVerifiedBy: varchar("audit_verified_by"),
   
   attendanceShareToken: varchar("attendance_share_token", { length: 48 }).unique(),
+  
+  lastLatitude: doublePrecision("last_latitude"),
+  lastLongitude: doublePrecision("last_longitude"),
+  locationUpdatedAt: timestamp("location_updated_at"),
   
   createdAt: timestamp("created_at").defaultNow(),
 });

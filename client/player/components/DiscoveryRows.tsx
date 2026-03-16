@@ -178,12 +178,17 @@ export function PlayersNearYouRow() {
                       {(player.ballLevel || player.level || "").toUpperCase()}{player.skillLevel ? ` ${player.skillLevel}` : ""}
                     </Text>
                   </View>
-                  {player.status === "available" && (
+                  {player.distanceKm != null ? (
+                    <View style={styles.distanceChip}>
+                      <Feather name="map-pin" size={9} color={ProTennisColors.textSecondary} />
+                      <Text style={styles.distanceText}>{player.distanceKm} km</Text>
+                    </View>
+                  ) : player.status === "available" ? (
                     <View style={styles.statusChip}>
                       <View style={[styles.statusDot, { backgroundColor: ProTennisColors.success }]} />
                       <Text style={styles.statusText}>{getStatusLabel(player.status)}</Text>
                     </View>
-                  )}
+                  ) : null}
                 </View>
               </Pressable>
             </Animated.View>
@@ -1075,6 +1080,20 @@ const styles = StyleSheet.create({
     fontSize: 9,
     fontWeight: "600",
     color: ProTennisColors.success,
+  },
+  distanceChip: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 3,
+    backgroundColor: "rgba(255, 255, 255, 0.08)",
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: BorderRadius.xs,
+  },
+  distanceText: {
+    fontSize: 9,
+    fontWeight: "600",
+    color: ProTennisColors.textSecondary,
   },
   moreCard: {
     justifyContent: "center",

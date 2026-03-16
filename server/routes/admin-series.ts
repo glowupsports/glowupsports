@@ -3635,27 +3635,48 @@ function requirePlayerOrOwner(req: AuthenticatedRequest, res: Response, next: Ne
         return res.status(404).json({ error: "Player not found" });
       }
 
-      // Get nearby players from the same academy with profile photos
-      // Filter by same ball level as current player
+      // Haversine distance calculation (returns km)
+      function haversineKm(lat1: number, lon1: number, lat2: number, lon2: number): number {
+        const R = 6371;
+        const dLat = (lat2 - lat1) * Math.PI / 180;
+        const dLon = (lon2 - lon1) * Math.PI / 180;
+        const a = Math.sin(dLat / 2) ** 2 + Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.sin(dLon / 2) ** 2;
+        return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+      }
+
       const currentPlayerBallLevel = (player.ballLevel || "glow").toLowerCase();
-      const nearbyPlayers: Array<{id: string; name: string; level: string; status: string; playedTogether: number; profilePhotoUrl?: string; playerLevel?: number; ballLevel?: string; skillLevel?: number}> = [];
+      const myLat = player.lastLatitude;
+      const myLon = player.lastLongitude;
+      const nearbyPlayers: Array<{id: string; name: string; level: string; status: string; playedTogether: number; profilePhotoUrl?: string; playerLevel?: number; ballLevel?: string; skillLevel?: number; distanceKm?: number}> = [];
       if (player.academyId) {
         const academyPlayers = await storage.getPlayersByAcademy(player.academyId);
-        // Filter by same ball level and privacy settings, then take up to 20 players
         const sameLevelPlayers = academyPlayers.filter(p => {
           if (p.id === playerId) return false;
           const pBallLevel = (p.ballLevel || "").toLowerCase();
           if (pBallLevel !== currentPlayerBallLevel) return false;
-          
-          // Privacy filtering: hidden players are not visible
           const privacyLevel = (p as any).privacyLevel || "platform";
           if (privacyLevel === "hidden") return false;
-          // Academy-only players are visible since we are in the same academy
           return true;
         });
-        const otherPlayers = sameLevelPlayers.slice(0, 20);
-        
-        for (const p of otherPlayers) {
+
+        const playersWithDistance = sameLevelPlayers.map(p => {
+          const pLat = p.lastLatitude;
+          const pLon = p.lastLongitude;
+          let distanceKm: number | undefined;
+          if (myLat != null && myLon != null && pLat != null && pLon != null) {
+            distanceKm = Math.round(haversineKm(myLat, myLon, pLat, pLon) * 10) / 10;
+          }
+          return { player: p, distanceKm };
+        });
+
+        playersWithDistance.sort((a, b) => {
+          if (a.distanceKm != null && b.distanceKm != null) return a.distanceKm - b.distanceKm;
+          if (a.distanceKm != null) return -1;
+          if (b.distanceKm != null) return 1;
+          return 0;
+        });
+
+        for (const { player: p, distanceKm } of playersWithDistance.slice(0, 20)) {
           nearbyPlayers.push({
             id: p.id,
             name: p.name || "Player",
@@ -3666,6 +3687,7 @@ function requirePlayerOrOwner(req: AuthenticatedRequest, res: Response, next: Ne
             playerLevel: p.level || 1,
             ballLevel: p.ballLevel || undefined,
             skillLevel: p.skillLevel || undefined,
+            distanceKm,
           });
         }
       }
@@ -3959,6 +3981,27 @@ function requirePlayerOrOwner(req: AuthenticatedRequest, res: Response, next: Ne
     } catch (error) {
       console.error("Error updating player social settings:", error);
       res.status(500).json({ error: "Failed to update social settings" });
+    }
+  });
+
+  router.patch("/api/player/me/location", authMiddleware, requirePlayerOrOwner, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      if (!req.user!.playerId) {
+        return res.status(400).json({ error: "No player profile found" });
+      }
+      const playerId = req.user!.playerId!;
+      const { latitude, longitude } = req.body;
+      if (typeof latitude !== "number" || typeof longitude !== "number") {
+        return res.status(400).json({ error: "latitude and longitude are required as numbers" });
+      }
+      if (latitude < -90 || latitude > 90 || longitude < -180 || longitude > 180) {
+        return res.status(400).json({ error: "Invalid coordinates" });
+      }
+      await db.execute(sql`UPDATE players SET last_latitude = ${latitude}, last_longitude = ${longitude}, location_updated_at = NOW() WHERE id = ${playerId}`);
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error updating player location:", error);
+      res.status(500).json({ error: "Failed to update location" });
     }
   });
 
