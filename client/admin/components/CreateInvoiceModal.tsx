@@ -1511,7 +1511,7 @@ export default function CreateInvoiceModal({
                       <Text style={{ fontSize: 11, fontWeight: '700', color: discountType === 'flat' ? '#000' : Colors.dark.textMuted }}>{currency}</Text>
                     </Pressable>
                     <Pressable
-                      onPress={() => { setDiscountType('percent'); Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); }}
+                      onPress={() => { setDiscountType('percent'); if (discountInput > 100) setDiscountInput(0); Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); }}
                       style={{ paddingHorizontal: 10, paddingVertical: 4, backgroundColor: discountType === 'percent' ? Colors.dark.primary : 'transparent' }}
                     >
                       <Text style={{ fontSize: 11, fontWeight: '700', color: discountType === 'percent' ? '#000' : Colors.dark.textMuted }}>%</Text>
