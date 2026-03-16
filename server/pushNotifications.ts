@@ -1166,55 +1166,70 @@ export async function fixHolidayOvercharges(): Promise<void> {
           console.log(`[HolidayOverchargeFix] Cancelled ${debtsCancelled} debt(s) for ${row.player_name} | session ${new Date(row.start_time).toISOString().substring(0, 10)}`);
         }
 
-        if (row.credit_transaction_id) {
-          const txResult = await client.query(
-            `SELECT ct.id, ct.package_id, ct.amount, ct.credit_type
+        let debitTxQuery = row.credit_transaction_id
+          ? `SELECT ct.id, ct.package_id, ct.amount, ct.credit_type
              FROM credit_transactions ct
-             WHERE ct.id = $1 AND ct.amount < 0 AND ct.package_id IS NOT NULL`,
-            [row.credit_transaction_id]
+             WHERE ct.id = $1 AND ct.amount < 0 AND ct.package_id IS NOT NULL`
+          : `SELECT ct.id, ct.package_id, ct.amount, ct.credit_type
+             FROM credit_transactions ct
+             WHERE ct.player_id = $1 AND ct.session_id = $2 AND ct.amount < 0 AND ct.package_id IS NOT NULL
+               AND ct.reason IN ('session_booking', 'session_debt', 'session_join_debt', 'session_unpaid')
+             ORDER BY ct.created_at DESC LIMIT 1`;
+        const debitTxParams = row.credit_transaction_id
+          ? [row.credit_transaction_id]
+          : [row.player_id, row.session_id];
+
+        const txResult = await client.query(debitTxQuery, debitTxParams);
+
+        if (txResult.rows.length > 0) {
+          const origTx = txResult.rows[0];
+          const refundAmount = Math.abs(Number(origTx.amount));
+
+          const pkgResult = await client.query(
+            `SELECT remaining_credits, status FROM packages WHERE id = $1 FOR UPDATE`,
+            [origTx.package_id]
           );
 
-          if (txResult.rows.length > 0) {
-            const origTx = txResult.rows[0];
-            const refundAmount = Math.abs(Number(origTx.amount));
+          if (pkgResult.rows.length > 0) {
+            const currentBalance = Number(pkgResult.rows[0].remaining_credits);
+            const newBalance = currentBalance + refundAmount;
+            const pkgStatus = pkgResult.rows[0].status;
 
-            const pkgResult = await client.query(
-              `SELECT remaining_credits FROM packages WHERE id = $1 FOR UPDATE`,
-              [origTx.package_id]
+            const updateFields: string[] = [`remaining_credits = $1`];
+            const updateParams: any[] = [newBalance, origTx.package_id];
+            if (pkgStatus === "depleted" && newBalance > 0) {
+              updateFields.push(`status = 'active'`);
+            }
+            await client.query(
+              `UPDATE packages SET ${updateFields.join(", ")} WHERE id = $2`,
+              updateParams
             );
 
-            if (pkgResult.rows.length > 0) {
-              const currentBalance = Number(pkgResult.rows[0].remaining_credits);
-              const newBalance = currentBalance + refundAmount;
+            await client.query(
+              `INSERT INTO credit_transactions (id, player_id, academy_id, package_id, type, credit_type, amount, reason, session_id, balance_before, balance_after, metadata)
+               VALUES (gen_random_uuid(), $1, $2, $3, 'credit', $4, $5, 'session_removal_refund', $6, $7, $8, $9)`,
+              [
+                row.player_id,
+                row.academy_id,
+                origTx.package_id,
+                origTx.credit_type || "group",
+                refundAmount,
+                row.session_id,
+                currentBalance,
+                newBalance,
+                JSON.stringify({
+                  originalTransactionId: origTx.id,
+                  refundedBy: "holiday_overcharge_fix",
+                  reason: "player_was_on_holiday",
+                }),
+              ]
+            );
 
-              await client.query(
-                `UPDATE packages SET remaining_credits = $1 WHERE id = $2`,
-                [newBalance, origTx.package_id]
-              );
-
-              await client.query(
-                `INSERT INTO credit_transactions (id, player_id, academy_id, package_id, type, credit_type, amount, reason, session_id, balance_before, balance_after, metadata)
-                 VALUES (gen_random_uuid(), $1, $2, $3, 'credit', $4, $5, 'session_removal_refund', $6, $7, $8, $9)`,
-                [
-                  row.player_id,
-                  row.academy_id,
-                  origTx.package_id,
-                  origTx.credit_type || "group",
-                  refundAmount,
-                  row.session_id,
-                  currentBalance,
-                  newBalance,
-                  JSON.stringify({
-                    originalTransactionId: origTx.id,
-                    refundedBy: "holiday_overcharge_fix",
-                    reason: "player_was_on_holiday",
-                  }),
-                ]
-              );
-
-              packageRefunded++;
-              console.log(`[HolidayOverchargeFix] Refunded ${refundAmount} credits to package ${origTx.package_id} for ${row.player_name}`);
+            packageRefunded++;
+            if (pkgStatus === "depleted" && newBalance > 0) {
+              console.log(`[HolidayOverchargeFix] Reactivated depleted package ${origTx.package_id} for ${row.player_name}`);
             }
+            console.log(`[HolidayOverchargeFix] Refunded ${refundAmount} credits to package ${origTx.package_id} for ${row.player_name}`);
           }
         }
 
