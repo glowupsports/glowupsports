@@ -1093,7 +1093,7 @@ export async function fixHolidayOvercharges(): Promise<void> {
       JOIN players p ON p.id = sp.player_id
       JOIN player_holidays ph ON ph.player_id = sp.player_id
         AND s.start_time::date BETWEEN ph.start_date AND ph.end_date
-      WHERE sp.attendance_status IN ('present', 'absent', 'late')
+      WHERE sp.attendance_status = 'present'
         AND sp.credit_deducted_at IS NOT NULL
       ORDER BY sp.id, s.start_time
     `);
@@ -1120,7 +1120,7 @@ export async function fixHolidayOvercharges(): Promise<void> {
         await client.query("BEGIN");
 
         const guard = await client.query(
-          `SELECT id FROM session_players WHERE id = $1 AND attendance_status IN ('present', 'absent', 'late') AND credit_deducted_at IS NOT NULL FOR UPDATE`,
+          `SELECT id FROM session_players WHERE id = $1 AND attendance_status = 'present' AND credit_deducted_at IS NOT NULL FOR UPDATE`,
           [row.id]
         );
         if (guard.rows.length === 0) {

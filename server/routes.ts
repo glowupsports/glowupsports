@@ -11653,7 +11653,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
               for (const session of seriesSessions) {
                 if (session.status === "cancelled" || session.status === "skipped") continue;
                 const isCompleted = session.status === "completed";
-                const sessionDate = new Date(session.startTime);
                 for (const playerId of activePlayerIds) {
                   const key = `${session.id}:${playerId}`;
                   if (!enrolledSet.has(key)) {
@@ -11665,10 +11664,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
                       if (new Date(session.startTime) > guestEnd) continue;
                     }
                     const holidays = holidaysByPlayer.get(playerId) || [];
+                    const sessionDateStr = new Date(session.startTime).toISOString().substring(0, 10);
                     const isOnHoliday = holidays.some(h => {
-                      const hStart = new Date(h.startDate);
-                      const hEnd = new Date(h.endDate + "T23:59:59Z");
-                      return sessionDate >= hStart && sessionDate <= hEnd;
+                      return sessionDateStr >= h.startDate && sessionDateStr <= h.endDate;
                     });
                     if (isOnHoliday) continue;
                     const newRecord = await storage.addPlayerToSession({
