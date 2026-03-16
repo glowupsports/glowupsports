@@ -11637,10 +11637,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 existingEnrollments.map((e) => `${e.sessionId}:${e.playerId}`),
               );
 
+              const healPlayerHolidays = await db.select({
+                playerId: playerHolidays.playerId,
+                startDate: playerHolidays.startDate,
+                endDate: playerHolidays.endDate,
+              }).from(playerHolidays).where(inArray(playerHolidays.playerId, activePlayerIds));
+              const holidaysByPlayer = new Map<string, { startDate: string; endDate: string }[]>();
+              for (const h of healPlayerHolidays) {
+                if (!h.playerId) continue;
+                if (!holidaysByPlayer.has(h.playerId)) holidaysByPlayer.set(h.playerId, []);
+                holidaysByPlayer.get(h.playerId)!.push({ startDate: h.startDate, endDate: h.endDate });
+              }
+
               let healed = 0;
               for (const session of seriesSessions) {
                 if (session.status === "cancelled" || session.status === "skipped") continue;
                 const isCompleted = session.status === "completed";
+                const sessionDate = new Date(session.startTime);
                 for (const playerId of activePlayerIds) {
                   const key = `${session.id}:${playerId}`;
                   if (!enrolledSet.has(key)) {
@@ -11651,6 +11664,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
                       const guestEnd = new Date(sp.guestUntil + "T23:59:59Z");
                       if (new Date(session.startTime) > guestEnd) continue;
                     }
+                    const holidays = holidaysByPlayer.get(playerId) || [];
+                    const isOnHoliday = holidays.some(h => {
+                      const hStart = new Date(h.startDate);
+                      const hEnd = new Date(h.endDate + "T23:59:59Z");
+                      return sessionDate >= hStart && sessionDate <= hEnd;
+                    });
+                    if (isOnHoliday) continue;
                     const newRecord = await storage.addPlayerToSession({
                       sessionId: session.id,
                       playerId,

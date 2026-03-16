@@ -934,8 +934,11 @@ async function repairMissingSessionPlayers(): Promise<void> {
       FROM sessions s
       JOIN series_players sp2 ON sp2.series_id = s.series_id
       LEFT JOIN session_players sp ON sp.session_id = s.id AND sp.player_id = sp2.player_id
+      LEFT JOIN player_holidays ph ON ph.player_id = sp2.player_id
+        AND s.start_time::date BETWEEN ph.start_date AND ph.end_date
       WHERE s.status = 'completed' 
         AND sp.id IS NULL
+        AND ph.id IS NULL
         AND sp2.joined_at <= s.start_time
         AND (sp2.left_at IS NULL OR sp2.left_at > s.start_time)
         AND sp2.status IN ('active', 'left')
@@ -1032,8 +1035,11 @@ export async function repairNullAttendance(): Promise<void> {
       FROM session_players sp
       JOIN sessions s ON s.id = sp.session_id
       JOIN players p ON p.id = sp.player_id
+      LEFT JOIN player_holidays ph ON ph.player_id = sp.player_id
+        AND s.start_time::date BETWEEN ph.start_date AND ph.end_date
       WHERE s.status = 'completed'
         AND sp.attendance_status IS NULL
+        AND ph.id IS NULL
       ORDER BY s.start_time
     `);
 
@@ -1074,6 +1080,82 @@ export async function repairNullAttendance(): Promise<void> {
     console.log(`[NullAttendanceRepair] Complete: ${fixed} attendance records fixed, ${creditsProcessed} credits consumed, ${debtsCreated} debts created`);
   } catch (error) {
     console.error("[NullAttendanceRepair] Error:", error);
+  }
+}
+
+export async function fixHolidayOvercharges(): Promise<void> {
+  try {
+    const overcharged = await pool.query(`
+      SELECT sp.id, sp.player_id, sp.session_id, sp.attendance_status, sp.credit_deducted_at,
+             sp.credit_transaction_id, p.name as player_name, s.start_time
+      FROM session_players sp
+      JOIN sessions s ON s.id = sp.session_id
+      JOIN players p ON p.id = sp.player_id
+      JOIN player_holidays ph ON ph.player_id = sp.player_id
+        AND s.start_time::date BETWEEN ph.start_date AND ph.end_date
+      WHERE sp.attendance_status IN ('present', 'absent', 'late')
+        AND sp.credit_deducted_at IS NOT NULL
+      ORDER BY s.start_time
+    `);
+
+    if (overcharged.rows.length === 0) {
+      console.log("[HolidayOverchargeFix] No holiday overcharges found");
+      return;
+    }
+
+    console.log(`[HolidayOverchargeFix] Found ${overcharged.rows.length} session_player records wrongly charged during player holidays`);
+
+    let fixed = 0;
+    let debtsRefunded = 0;
+    let creditsRefunded = 0;
+
+    for (const row of overcharged.rows) {
+      try {
+        await pool.query(
+          `UPDATE session_players SET attendance_status = 'vacation', credit_deducted_at = NULL, credit_transaction_id = NULL WHERE id = $1`,
+          [row.id]
+        );
+
+        const debtResult = await pool.query(
+          `UPDATE credit_transactions SET metadata = jsonb_set(COALESCE(metadata, '{}'), '{cancelled}', 'true')
+           WHERE player_id = $1 AND session_id = $2 AND amount < 0
+             AND (metadata->>'cancelled')::text IS DISTINCT FROM 'true'
+           RETURNING id, amount`,
+          [row.player_id, row.session_id]
+        );
+
+        if (debtResult.rows.length > 0) {
+          debtsRefunded++;
+        }
+
+        const packageResult = await pool.query(
+          `SELECT ct.package_id, ct.amount FROM credit_transactions ct
+           WHERE ct.player_id = $1 AND ct.session_id = $2 AND ct.amount < 0 AND ct.package_id IS NOT NULL
+             AND (ct.metadata->>'cancelled')::text = 'true'
+           LIMIT 1`,
+          [row.player_id, row.session_id]
+        );
+
+        if (packageResult.rows.length > 0) {
+          const pkg = packageResult.rows[0];
+          const refundAmount = Math.abs(Number(pkg.amount));
+          await pool.query(
+            `UPDATE packages SET remaining_credits = remaining_credits + $1 WHERE id = $2`,
+            [refundAmount, pkg.package_id]
+          );
+          creditsRefunded++;
+        }
+
+        fixed++;
+        console.log(`[HolidayOverchargeFix] Fixed ${row.player_name} | session ${new Date(row.start_time).toISOString().substring(0, 10)} | was '${row.attendance_status}' → 'vacation'`);
+      } catch (fixErr) {
+        console.error(`[HolidayOverchargeFix] Failed to fix ${row.player_name}:`, fixErr);
+      }
+    }
+
+    console.log(`[HolidayOverchargeFix] Complete: ${fixed} fixed, ${debtsRefunded} debts cancelled, ${creditsRefunded} package credits refunded`);
+  } catch (error) {
+    console.error("[HolidayOverchargeFix] Error:", error);
   }
 }
 
