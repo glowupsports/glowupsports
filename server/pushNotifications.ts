@@ -1086,7 +1086,7 @@ export async function repairNullAttendance(): Promise<void> {
 export async function fixHolidayOvercharges(): Promise<void> {
   try {
     const overcharged = await pool.query(`
-      SELECT sp.id, sp.player_id, sp.session_id, sp.attendance_status, sp.credit_deducted_at,
+      SELECT DISTINCT ON (sp.id) sp.id, sp.player_id, sp.session_id, sp.attendance_status, sp.credit_deducted_at,
              sp.credit_transaction_id, p.name as player_name, s.start_time, s.academy_id
       FROM session_players sp
       JOIN sessions s ON s.id = sp.session_id
@@ -1095,7 +1095,7 @@ export async function fixHolidayOvercharges(): Promise<void> {
         AND s.start_time::date BETWEEN ph.start_date AND ph.end_date
       WHERE sp.attendance_status IN ('present', 'absent', 'late')
         AND sp.credit_deducted_at IS NOT NULL
-      ORDER BY s.start_time
+      ORDER BY sp.id, s.start_time
     `);
 
     if (overcharged.rows.length === 0) {
@@ -1109,23 +1109,66 @@ export async function fixHolidayOvercharges(): Promise<void> {
     let debtsRefunded = 0;
     let packageRefunded = 0;
     let errors = 0;
-
-    const { storage } = await import("./storage");
+    const processedIds = new Set<string>();
 
     for (const row of overcharged.rows) {
+      if (processedIds.has(row.id)) continue;
+      processedIds.add(row.id);
+
       const client = await pool.connect();
       try {
         await client.query("BEGIN");
 
-        const debtResult = await storage.cancelSessionDebt(row.player_id, row.session_id);
-        if (debtResult.cancelled) {
+        const guard = await client.query(
+          `SELECT id FROM session_players WHERE id = $1 AND attendance_status IN ('present', 'absent', 'late') AND credit_deducted_at IS NOT NULL FOR UPDATE`,
+          [row.id]
+        );
+        if (guard.rows.length === 0) {
+          await client.query("ROLLBACK");
+          continue;
+        }
+
+        const existingRefund = await client.query(
+          `SELECT id FROM credit_transactions WHERE session_id = $1 AND player_id = $2 AND reason = 'session_removal_refund'
+             AND metadata->>'refundedBy' = 'holiday_overcharge_fix' LIMIT 1`,
+          [row.session_id, row.player_id]
+        );
+        if (existingRefund.rows.length > 0) {
+          await client.query("ROLLBACK");
+          continue;
+        }
+
+        const debtTxns = await client.query(
+          `SELECT id, amount, metadata, reason, package_id FROM credit_transactions
+           WHERE player_id = $1 AND session_id = $2 AND amount < 0
+             AND reason IN ('session_debt', 'session_join_debt', 'session_unpaid', 'session_booking')`,
+          [row.player_id, row.session_id]
+        );
+
+        let debtsCancelled = 0;
+        for (const debt of debtTxns.rows) {
+          const meta = typeof debt.metadata === "string" ? JSON.parse(debt.metadata) : (debt.metadata || {});
+          if (meta.settled === true || meta.cancelled === true) continue;
+          const isDebt = debt.reason === "session_debt" || debt.reason === "session_join_debt" || debt.reason === "session_unpaid"
+            || (debt.reason === "session_booking" && (meta.isDebt === true || !debt.package_id));
+          if (!isDebt) continue;
+
+          await client.query(
+            `UPDATE credit_transactions SET metadata = jsonb_set(COALESCE(metadata, '{}')::jsonb, '{cancelled}', 'true') || jsonb_build_object('cancelledAt', $2::text, 'cancelReason', 'player_was_on_holiday')
+             WHERE id = $1`,
+            [debt.id, new Date().toISOString()]
+          );
+          debtsCancelled++;
+        }
+
+        if (debtsCancelled > 0) {
           debtsRefunded++;
-          console.log(`[HolidayOverchargeFix] Cancelled debt for ${row.player_name} | session ${new Date(row.start_time).toISOString().substring(0, 10)} | ${debtResult.amount} credits`);
+          console.log(`[HolidayOverchargeFix] Cancelled ${debtsCancelled} debt(s) for ${row.player_name} | session ${new Date(row.start_time).toISOString().substring(0, 10)}`);
         }
 
         if (row.credit_transaction_id) {
           const txResult = await client.query(
-            `SELECT ct.id, ct.package_id, ct.amount, ct.credit_type, ct.balance_before, ct.balance_after
+            `SELECT ct.id, ct.package_id, ct.amount, ct.credit_type
              FROM credit_transactions ct
              WHERE ct.id = $1 AND ct.amount < 0 AND ct.package_id IS NOT NULL`,
             [row.credit_transaction_id]
