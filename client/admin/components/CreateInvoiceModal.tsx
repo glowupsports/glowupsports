@@ -868,7 +868,8 @@ export default function CreateInvoiceModal({
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     }
   };
-  const [discount, setDiscount] = useState(0);
+  const [discountInput, setDiscountInput] = useState(0);
+  const [discountType, setDiscountType] = useState<'flat' | 'percent'>('flat');
   const [notes, setNotes] = useState("");
   const [currency] = useState("AED");
   const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
@@ -899,6 +900,7 @@ export default function CreateInvoiceModal({
 
   const subtotal = lineItems.reduce((sum, item) => sum + item.total, 0);
   const taxAmount = (subtotal * taxRate) / 100;
+  const discount = discountType === 'percent' ? (subtotal * discountInput) / 100 : discountInput;
   const total = subtotal + taxAmount - discount;
 
   const updateLineItem = (id: string, field: keyof LineItem, value: string | number) => {
@@ -1499,14 +1501,35 @@ export default function CreateInvoiceModal({
                 />
               </View>
               <View style={styles.optionField}>
-                <Text style={styles.fieldLabel}>Discount ({currency})</Text>
+                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <Text style={styles.fieldLabel}>Discount</Text>
+                  <View style={{ flexDirection: 'row', borderRadius: 6, overflow: 'hidden', borderWidth: 1, borderColor: Colors.dark.border }}>
+                    <Pressable
+                      onPress={() => { setDiscountType('flat'); Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); }}
+                      style={{ paddingHorizontal: 10, paddingVertical: 4, backgroundColor: discountType === 'flat' ? Colors.dark.primary : 'transparent' }}
+                    >
+                      <Text style={{ fontSize: 11, fontWeight: '700', color: discountType === 'flat' ? '#000' : Colors.dark.textMuted }}>{currency}</Text>
+                    </Pressable>
+                    <Pressable
+                      onPress={() => { setDiscountType('percent'); Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); }}
+                      style={{ paddingHorizontal: 10, paddingVertical: 4, backgroundColor: discountType === 'percent' ? Colors.dark.primary : 'transparent' }}
+                    >
+                      <Text style={{ fontSize: 11, fontWeight: '700', color: discountType === 'percent' ? '#000' : Colors.dark.textMuted }}>%</Text>
+                    </Pressable>
+                  </View>
+                </View>
                 <TextInput
                   style={styles.optionInput}
-                  value={discount.toString()}
-                  onChangeText={(text) => setDiscount(parseFloat(text) || 0)}
+                  value={discountInput.toString()}
+                  onChangeText={(text) => setDiscountInput(parseFloat(text) || 0)}
                   keyboardType="numeric"
                   placeholderTextColor={Colors.dark.textMuted}
                 />
+                {discountType === 'percent' && discountInput > 0 ? (
+                  <Text style={{ fontSize: 11, color: Colors.dark.primary, marginTop: 4 }}>
+                    = {currency} {discount.toFixed(2)}
+                  </Text>
+                ) : null}
               </View>
             </View>
           </View>
@@ -1577,7 +1600,9 @@ export default function CreateInvoiceModal({
             )}
             {discount > 0 && (
               <View style={styles.totalRow}>
-                <Text style={styles.totalLabel}>Discount</Text>
+                <Text style={styles.totalLabel}>
+                  {discountType === 'percent' ? `Discount (${discountInput}%)` : 'Discount'}
+                </Text>
                 <Text style={[styles.totalValue, { color: Colors.dark.error }]}>
                   -{currency} {discount.toFixed(2)}
                 </Text>
