@@ -1087,7 +1087,7 @@ export async function fixHolidayOvercharges(): Promise<void> {
   try {
     const overcharged = await pool.query(`
       SELECT sp.id, sp.player_id, sp.session_id, sp.attendance_status, sp.credit_deducted_at,
-             sp.credit_transaction_id, p.name as player_name, s.start_time
+             sp.credit_transaction_id, p.name as player_name, s.start_time, s.academy_id
       FROM session_players sp
       JOIN sessions s ON s.id = sp.session_id
       JOIN players p ON p.id = sp.player_id
@@ -1107,53 +1107,92 @@ export async function fixHolidayOvercharges(): Promise<void> {
 
     let fixed = 0;
     let debtsRefunded = 0;
-    let creditsRefunded = 0;
+    let packageRefunded = 0;
+    let errors = 0;
+
+    const { storage } = await import("./storage");
 
     for (const row of overcharged.rows) {
+      const client = await pool.connect();
       try {
-        await pool.query(
+        await client.query("BEGIN");
+
+        const debtResult = await storage.cancelSessionDebt(row.player_id, row.session_id);
+        if (debtResult.cancelled) {
+          debtsRefunded++;
+          console.log(`[HolidayOverchargeFix] Cancelled debt for ${row.player_name} | session ${new Date(row.start_time).toISOString().substring(0, 10)} | ${debtResult.amount} credits`);
+        }
+
+        if (row.credit_transaction_id) {
+          const txResult = await client.query(
+            `SELECT ct.id, ct.package_id, ct.amount, ct.credit_type, ct.balance_before, ct.balance_after
+             FROM credit_transactions ct
+             WHERE ct.id = $1 AND ct.amount < 0 AND ct.package_id IS NOT NULL`,
+            [row.credit_transaction_id]
+          );
+
+          if (txResult.rows.length > 0) {
+            const origTx = txResult.rows[0];
+            const refundAmount = Math.abs(Number(origTx.amount));
+
+            const pkgResult = await client.query(
+              `SELECT remaining_credits FROM packages WHERE id = $1 FOR UPDATE`,
+              [origTx.package_id]
+            );
+
+            if (pkgResult.rows.length > 0) {
+              const currentBalance = Number(pkgResult.rows[0].remaining_credits);
+              const newBalance = currentBalance + refundAmount;
+
+              await client.query(
+                `UPDATE packages SET remaining_credits = $1 WHERE id = $2`,
+                [newBalance, origTx.package_id]
+              );
+
+              await client.query(
+                `INSERT INTO credit_transactions (id, player_id, academy_id, package_id, type, credit_type, amount, reason, session_id, balance_before, balance_after, metadata)
+                 VALUES (gen_random_uuid(), $1, $2, $3, 'credit', $4, $5, 'session_removal_refund', $6, $7, $8, $9)`,
+                [
+                  row.player_id,
+                  row.academy_id,
+                  origTx.package_id,
+                  origTx.credit_type || "group",
+                  refundAmount,
+                  row.session_id,
+                  currentBalance,
+                  newBalance,
+                  JSON.stringify({
+                    originalTransactionId: origTx.id,
+                    refundedBy: "holiday_overcharge_fix",
+                    reason: "player_was_on_holiday",
+                  }),
+                ]
+              );
+
+              packageRefunded++;
+              console.log(`[HolidayOverchargeFix] Refunded ${refundAmount} credits to package ${origTx.package_id} for ${row.player_name}`);
+            }
+          }
+        }
+
+        await client.query(
           `UPDATE session_players SET attendance_status = 'vacation', credit_deducted_at = NULL, credit_transaction_id = NULL WHERE id = $1`,
           [row.id]
         );
 
-        const debtResult = await pool.query(
-          `UPDATE credit_transactions SET metadata = jsonb_set(COALESCE(metadata, '{}'), '{cancelled}', 'true')
-           WHERE player_id = $1 AND session_id = $2 AND amount < 0
-             AND (metadata->>'cancelled')::text IS DISTINCT FROM 'true'
-           RETURNING id, amount`,
-          [row.player_id, row.session_id]
-        );
-
-        if (debtResult.rows.length > 0) {
-          debtsRefunded++;
-        }
-
-        const packageResult = await pool.query(
-          `SELECT ct.package_id, ct.amount FROM credit_transactions ct
-           WHERE ct.player_id = $1 AND ct.session_id = $2 AND ct.amount < 0 AND ct.package_id IS NOT NULL
-             AND (ct.metadata->>'cancelled')::text = 'true'
-           LIMIT 1`,
-          [row.player_id, row.session_id]
-        );
-
-        if (packageResult.rows.length > 0) {
-          const pkg = packageResult.rows[0];
-          const refundAmount = Math.abs(Number(pkg.amount));
-          await pool.query(
-            `UPDATE packages SET remaining_credits = remaining_credits + $1 WHERE id = $2`,
-            [refundAmount, pkg.package_id]
-          );
-          creditsRefunded++;
-        }
-
+        await client.query("COMMIT");
         fixed++;
-        console.log(`[HolidayOverchargeFix] Fixed ${row.player_name} | session ${new Date(row.start_time).toISOString().substring(0, 10)} | was '${row.attendance_status}' → 'vacation'`);
+        console.log(`[HolidayOverchargeFix] Fixed ${row.player_name} | session ${new Date(row.start_time).toISOString().substring(0, 10)} | was '${row.attendance_status}' -> 'vacation'`);
       } catch (fixErr) {
-        console.error(`[HolidayOverchargeFix] Failed to fix ${row.player_name}:`, fixErr);
+        await client.query("ROLLBACK");
+        errors++;
+        console.error(`[HolidayOverchargeFix] Failed to fix ${row.player_name} session ${row.session_id}:`, fixErr);
+      } finally {
+        client.release();
       }
     }
 
-    console.log(`[HolidayOverchargeFix] Complete: ${fixed} fixed, ${debtsRefunded} debts cancelled, ${creditsRefunded} package credits refunded`);
+    console.log(`[HolidayOverchargeFix] Complete: ${fixed} fixed, ${debtsRefunded} debts cancelled, ${packageRefunded} package credits refunded, ${errors} errors`);
   } catch (error) {
     console.error("[HolidayOverchargeFix] Error:", error);
   }
