@@ -1041,6 +1041,10 @@ export default function CreateInvoiceModal({
       dueDate: formatDate(dueDate),
       lineItems: lineItems.filter(item => item.description && item.total > 0),
       notes,
+      discount,
+      taxRate,
+      taxAmount,
+      subtotal,
     });
   };
 

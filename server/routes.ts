@@ -199,7 +199,7 @@ import {
   checkConnection as checkCalendarConnection,
   SessionEventData,
 } from "./googleCalendarService";
-import { generateInvoiceHtml, parseLineItems } from "./services/invoicePdf";
+import { generateInvoiceHtml, parseLineItems, parseInvoiceMetadata } from "./services/invoicePdf";
 import { apiCache, CACHE_KEYS, CACHE_TTL } from "./cache";
 import { getCurrencyForCountry } from "@shared/countries";
 import shopRoutes from "./shop-routes";
@@ -18725,6 +18725,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
           dueDate,
           lineItems,
           notes,
+          discount,
+          taxRate,
+          taxAmount,
+          subtotal,
         } = req.body;
 
         // Validate required fields
@@ -18756,6 +18760,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
         const invoiceNumber = await storage.generateInvoiceNumber(academyId);
 
+        const enrichedLineItems = {
+          items: lineItems || [],
+          ...(discount ? { discount: Number(discount) } : {}),
+          ...(taxRate ? { taxRate: Number(taxRate) } : {}),
+          ...(taxAmount ? { taxAmount: Number(taxAmount) } : {}),
+          ...(subtotal ? { subtotal: Number(subtotal) } : {}),
+        };
+
         const invoice = await storage.createInvoice({
           academyId,
           playerId,
@@ -18764,7 +18776,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           amount,
           currency: currency || "AED",
           dueDate,
-          lineItems,
+          lineItems: enrichedLineItems,
           notes,
         });
 
@@ -18829,7 +18841,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
           : null;
 
         const lineItems = parseLineItems(invoice.lineItems);
-        const subtotal = lineItems.reduce((sum, item) => sum + item.total, 0);
+        const metadata = parseInvoiceMetadata(invoice.lineItems);
+        const subtotal = metadata.subtotal || lineItems.reduce((sum, item) => sum + item.total, 0);
 
         const invoiceData = {
           invoiceNumber: invoice.invoiceNumber,
@@ -18859,6 +18872,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
                   },
                 ],
           subtotal: subtotal || parseFloat(invoice.amount || "0"),
+          taxRate: metadata.taxRate,
+          taxAmount: metadata.taxAmount,
+          discount: metadata.discount,
           total: parseFloat(invoice.amount || "0"),
           currency: invoice.currency || "AED",
           notes: invoice.notes || undefined,

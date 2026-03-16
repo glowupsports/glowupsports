@@ -436,7 +436,8 @@ function parseNumericValue(value: unknown): number {
 export function parseLineItems(lineItemsJson: string | null): InvoiceData['lineItems'] {
   if (!lineItemsJson) return [];
   try {
-    const items = JSON.parse(lineItemsJson);
+    const parsed = JSON.parse(lineItemsJson);
+    const items = Array.isArray(parsed) ? parsed : (parsed?.items || []);
     if (!Array.isArray(items)) return [];
     return items.map(item => {
       const unitPrice = parseNumericValue(item.unitPrice);
@@ -451,5 +452,21 @@ export function parseLineItems(lineItemsJson: string | null): InvoiceData['lineI
     });
   } catch {
     return [];
+  }
+}
+
+export function parseInvoiceMetadata(lineItemsJson: string | null): { discount?: number; taxRate?: number; taxAmount?: number; subtotal?: number } {
+  if (!lineItemsJson) return {};
+  try {
+    const parsed = JSON.parse(lineItemsJson);
+    if (Array.isArray(parsed)) return {};
+    return {
+      discount: parsed.discount ? Number(parsed.discount) : undefined,
+      taxRate: parsed.taxRate ? Number(parsed.taxRate) : undefined,
+      taxAmount: parsed.taxAmount ? Number(parsed.taxAmount) : undefined,
+      subtotal: parsed.subtotal ? Number(parsed.subtotal) : undefined,
+    };
+  } catch {
+    return {};
   }
 }
