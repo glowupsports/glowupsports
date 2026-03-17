@@ -44,7 +44,7 @@ import {
   type JWTPayload,
 } from "../auth";
 import { sendBadgeEarnedNotification } from "../pushNotifications";
-import { sendEmail } from "../emailService";
+import { sendEmail, sendDeleteAccountRequestEmail } from "../emailService";
 
 const router = Router();
 
@@ -3191,7 +3191,7 @@ router.delete("/api/player/me/account", authMiddleware, async (req: AuthRequest,
 
     console.log(`[AccountDeletion] User ${userId} (player ${playerId}) account deleted at ${deletedAt.toISOString()}`);
 
-    // Non-blocking: send confirmation email to the player
+    // Non-blocking: send confirmation email to the player and archive notification to support
     if (playerEmailForNotification) {
       sendEmail({
         to: playerEmailForNotification,
@@ -3208,7 +3208,16 @@ router.delete("/api/player/me/account", authMiddleware, async (req: AuthRequest,
         `,
         text: `Hi ${playerNameForNotification},\n\nYour Glow Up Sports account has been permanently deleted.\n\nIf you have questions, contact support@glowupsports.com.`,
       }).catch(emailErr => {
-        console.error("[AccountDeletion] Failed to send confirmation email:", emailErr);
+        console.error("[AccountDeletion] Failed to send player confirmation email:", emailErr);
+      });
+
+      // Archive notification to support for compliance records
+      sendDeleteAccountRequestEmail({
+        userEmail: playerEmailForNotification,
+        userName: playerNameForNotification,
+        reason: "Player-initiated immediate deletion via app",
+      }).catch(supportEmailErr => {
+        console.error("[AccountDeletion] Failed to send support archive email:", supportEmailErr);
       });
     }
 

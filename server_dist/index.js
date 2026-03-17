@@ -47752,7 +47752,14 @@ Your Glow Up Sports account has been permanently deleted.
 
 If you have questions, contact support@glowupsports.com.`
       }).catch((emailErr) => {
-        console.error("[AccountDeletion] Failed to send confirmation email:", emailErr);
+        console.error("[AccountDeletion] Failed to send player confirmation email:", emailErr);
+      });
+      sendDeleteAccountRequestEmail({
+        userEmail: playerEmailForNotification,
+        userName: playerNameForNotification,
+        reason: "Player-initiated immediate deletion via app"
+      }).catch((supportEmailErr) => {
+        console.error("[AccountDeletion] Failed to send support archive email:", supportEmailErr);
       });
     }
     res.json({ success: true, message: "Account successfully deleted" });
