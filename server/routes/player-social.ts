@@ -3268,12 +3268,22 @@ router.post("/api/player/me/report/posts/:postId", authMiddleware, async (req: A
 });
 
 // Block a user: POST /api/player/me/block/:playerId
+// Resolves playerId -> userId so feed filtering (which uses user IDs) works correctly
 router.post("/api/player/me/block/:playerId", authMiddleware, async (req: AuthRequest, res: Response) => {
   try {
     const blockerUserId = req.user!.userId;
-    const blockedUserId = req.params.playerId;
+    const targetPlayerId = req.params.playerId;
 
-    if (!blockedUserId) return res.status(400).json({ error: "User ID required" });
+    if (!targetPlayerId) return res.status(400).json({ error: "Player ID required" });
+
+    // Resolve playerId to userId for consistent feed filtering
+    const [targetUser] = await db.select({ id: users.id })
+      .from(users)
+      .where(eq(users.playerId, targetPlayerId))
+      .limit(1);
+
+    const blockedUserId = targetUser?.id || targetPlayerId;
+
     if (blockerUserId === blockedUserId) return res.status(400).json({ error: "Cannot block yourself" });
 
     await db.insert(playerBlocksTable).values({
@@ -3281,7 +3291,7 @@ router.post("/api/player/me/block/:playerId", authMiddleware, async (req: AuthRe
       blockedUserId,
     }).onConflictDoNothing();
 
-    console.log(`[Block] User ${blockerUserId} blocked user ${blockedUserId}`);
+    console.log(`[Block] User ${blockerUserId} blocked player ${targetPlayerId} (userId: ${blockedUserId})`);
     res.json({ success: true });
   } catch (error) {
     console.error("[Block] Error:", error);
@@ -3290,10 +3300,19 @@ router.post("/api/player/me/block/:playerId", authMiddleware, async (req: AuthRe
 });
 
 // Unblock a user: DELETE /api/player/me/block/:playerId
+// Resolves playerId -> userId to match block entries
 router.delete("/api/player/me/block/:playerId", authMiddleware, async (req: AuthRequest, res: Response) => {
   try {
     const blockerUserId = req.user!.userId;
-    const blockedUserId = req.params.playerId;
+    const targetPlayerId = req.params.playerId;
+
+    // Resolve playerId to userId
+    const [targetUser] = await db.select({ id: users.id })
+      .from(users)
+      .where(eq(users.playerId, targetPlayerId))
+      .limit(1);
+
+    const blockedUserId = targetUser?.id || targetPlayerId;
 
     await db.delete(playerBlocksTable)
       .where(and(

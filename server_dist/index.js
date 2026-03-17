@@ -47796,14 +47796,16 @@ router20.post("/api/player/me/report/posts/:postId", authMiddlewareWithFreshData
 router20.post("/api/player/me/block/:playerId", authMiddlewareWithFreshData, async (req2, res) => {
   try {
     const blockerUserId = req2.user.userId;
-    const blockedUserId = req2.params.playerId;
-    if (!blockedUserId) return res.status(400).json({ error: "User ID required" });
+    const targetPlayerId = req2.params.playerId;
+    if (!targetPlayerId) return res.status(400).json({ error: "Player ID required" });
+    const [targetUser] = await db.select({ id: users.id }).from(users).where(eq26(users.playerId, targetPlayerId)).limit(1);
+    const blockedUserId = targetUser?.id || targetPlayerId;
     if (blockerUserId === blockedUserId) return res.status(400).json({ error: "Cannot block yourself" });
     await db.insert(playerBlocks).values({
       blockerUserId,
       blockedUserId
     }).onConflictDoNothing();
-    console.log(`[Block] User ${blockerUserId} blocked user ${blockedUserId}`);
+    console.log(`[Block] User ${blockerUserId} blocked player ${targetPlayerId} (userId: ${blockedUserId})`);
     res.json({ success: true });
   } catch (error) {
     console.error("[Block] Error:", error);
@@ -47813,7 +47815,9 @@ router20.post("/api/player/me/block/:playerId", authMiddlewareWithFreshData, asy
 router20.delete("/api/player/me/block/:playerId", authMiddlewareWithFreshData, async (req2, res) => {
   try {
     const blockerUserId = req2.user.userId;
-    const blockedUserId = req2.params.playerId;
+    const targetPlayerId = req2.params.playerId;
+    const [targetUser] = await db.select({ id: users.id }).from(users).where(eq26(users.playerId, targetPlayerId)).limit(1);
+    const blockedUserId = targetUser?.id || targetPlayerId;
     await db.delete(playerBlocks).where(and25(
       eq26(playerBlocks.blockerUserId, blockerUserId),
       eq26(playerBlocks.blockedUserId, blockedUserId)
