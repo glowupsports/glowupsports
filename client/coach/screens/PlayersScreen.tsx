@@ -800,7 +800,7 @@ export default function PlayersScreen() {
               }}
             />
           ))}
-          <View style={{ height: insets.bottom + Spacing.xl }} />
+          <View style={{ height: TAB_BAR_HEIGHT + insets.bottom + Spacing.xl }} />
         </ScrollView>
         
       )}

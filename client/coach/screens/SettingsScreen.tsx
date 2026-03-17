@@ -188,8 +188,8 @@ export default function SettingsScreen() {
   const [newCourtColor, setNewCourtColor] = useState('');
   const [newCourtLocationId, setNewCourtLocationId] = useState('');
   const [newLocationName, setNewLocationName] = useState('');
-  const [courtsCollapsed, setCourtsCollapsed] = useState(false);
-  const [locationsCollapsed, setLocationsCollapsed] = useState(false);
+  const [courtsCollapsed, setCourtsCollapsed] = useState(true);
+  const [locationsCollapsed, setLocationsCollapsed] = useState(true);
   const [travelTimesExpanded, setTravelTimesExpanded] = useState(false);
   const [selectedTravelTime, setSelectedTravelTime] = useState<any>(null);
   const [travelTimeToDelete, setTravelTimeToDelete] = useState<any>(null);
