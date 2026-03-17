@@ -17,9 +17,7 @@ if (SENTRY_DSN) {
     dsn: SENTRY_DSN,
     sendDefaultPii: true,
     tracesSampleRate: 0.2,
-    replaysSessionSampleRate: 0.1,
-    replaysOnErrorSampleRate: 1,
-    integrations: [Sentry.mobileReplayIntegration()],
+    integrations: [],
     environment: __DEV__ ? "development" : "production",
     beforeSend(event) {
       if (__DEV__) return null;

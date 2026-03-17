@@ -20,7 +20,10 @@
       "bundleIdentifier": "com.glowupsports.app",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false,
-        "NSLocationWhenInUseUsageDescription": "Glow Up Sports uses your location to find tennis players near you and show how far away they are."
+        "NSLocationWhenInUseUsageDescription": "Glow Up Sports uses your location to find tennis players near you and show how far away they are.",
+        "NSCameraUsageDescription": "Glow Up Sports uses your camera to record skill evidence videos for coach review and to capture photos for your player profile and community posts.",
+        "NSMicrophoneUsageDescription": "Glow Up Sports uses your microphone to record audio during skill evidence videos so your coach can give accurate feedback.",
+        "NSPhotoLibraryUsageDescription": "Glow Up Sports accesses your photo library so you can upload a profile photo, add quest evidence, and share photos in the community feed."
       }
     },
     "android": {
@@ -57,6 +60,8 @@
         }
       ],
       "expo-web-browser",
+      "expo-camera",
+      "expo-image-picker",
       [
         "expo-location",
         {
