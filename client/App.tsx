@@ -17,7 +17,6 @@ if (SENTRY_DSN) {
     dsn: SENTRY_DSN,
     sendDefaultPii: true,
     tracesSampleRate: 0.2,
-    integrations: [],
     environment: __DEV__ ? "development" : "production",
     beforeSend(event) {
       if (__DEV__) return null;
