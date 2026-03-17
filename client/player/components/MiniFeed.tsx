@@ -1,5 +1,5 @@
 import React, { useEffect } from "react";
-import { View, Text, StyleSheet, Pressable } from "react-native";
+import { View, Text, StyleSheet, Pressable, Alert } from "react-native";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import Animated, { 
   FadeInUp, 
@@ -14,10 +14,10 @@ import Animated, {
 } from "react-native-reanimated";
 import { LinearGradient } from "expo-linear-gradient";
 import { Image } from "expo-image";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { ProTennisColors, Backgrounds, Spacing, BorderRadius, GlowColors, Colors } from "@/constants/theme";
 import { usePlayerState } from "@/player/context/PlayerStateContext";
-import { apiFetch, getStaticAssetsUrl } from "@/lib/query-client";
+import { apiFetch, getStaticAssetsUrl, apiRequest } from "@/lib/query-client";
 import { useTabNavigation } from "@/components/TabNavigationContext";
 import * as Haptics from "expo-haptics";
 
@@ -60,7 +60,7 @@ function formatTimeAgo(dateString: string): string {
   return date.toLocaleDateString("en-US", { month: "short", day: "numeric" });
 }
 
-function LatestPostCard({ post, onPress }: { post: Post; onPress: () => void }) {
+function LatestPostCard({ post, onPress, queryClient }: { post: Post; onPress: () => void; queryClient: ReturnType<typeof useQueryClient> }) {
   const authorName = post.player?.name || post.author?.username || "Player";
   const avatarUrl = post.player?.photoUrl 
     ? (post.player.photoUrl.startsWith("http") ? post.player.photoUrl : `${getStaticAssetsUrl()}${post.player.photoUrl}`)
@@ -69,6 +69,71 @@ function LatestPostCard({ post, onPress }: { post: Post; onPress: () => void }) 
   const firstMediaUrl = hasMedia 
     ? (post.mediaUrls[0].startsWith("http") ? post.mediaUrls[0] : `${getStaticAssetsUrl()}${post.mediaUrls[0]}`) 
     : null;
+
+  const handleMoreOptions = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    Alert.alert(
+      "Post Options",
+      undefined,
+      [
+        {
+          text: "Report Post",
+          style: "destructive",
+          onPress: () => {
+            Alert.alert(
+              "Report Post",
+              "Why are you reporting this post?",
+              [
+                { text: "Inappropriate", onPress: () => submitReport("Inappropriate") },
+                { text: "Spam", onPress: () => submitReport("Spam") },
+                { text: "Harassment", onPress: () => submitReport("Harassment") },
+                { text: "Other", onPress: () => submitReport("Other") },
+                { text: "Cancel", style: "cancel" },
+              ]
+            );
+          },
+        },
+        {
+          text: `Block ${authorName}`,
+          style: "destructive",
+          onPress: () => {
+            Alert.alert(
+              "Block User",
+              `Block ${authorName}? Their posts will no longer appear in your feed.`,
+              [
+                {
+                  text: "Block",
+                  style: "destructive",
+                  onPress: async () => {
+                    try {
+                      const userId = post.author?.id;
+                      if (userId) {
+                        await apiRequest("POST", `/api/social/users/${userId}/block`, {});
+                        queryClient.invalidateQueries({ queryKey: ["/api/social/feed"] });
+                      }
+                    } catch {
+                      Alert.alert("Error", "Failed to block user. Please try again.");
+                    }
+                  },
+                },
+                { text: "Cancel", style: "cancel" },
+              ]
+            );
+          },
+        },
+        { text: "Cancel", style: "cancel" },
+      ]
+    );
+  };
+
+  const submitReport = async (reason: string) => {
+    try {
+      await apiRequest("POST", `/api/social/posts/${post.id}/report`, { reason });
+      Alert.alert("Report Submitted", "Thank you for helping keep the community safe.");
+    } catch {
+      Alert.alert("Error", "Failed to submit report. Please try again.");
+    }
+  };
 
   return (
     <Pressable onPress={onPress} style={styles.latestPostCard}>
@@ -87,9 +152,18 @@ function LatestPostCard({ post, onPress }: { post: Post; onPress: () => void }) 
             <Text style={styles.latestPostAuthor} numberOfLines={1}>{authorName}</Text>
             <Text style={styles.latestPostTime}>{formatTimeAgo(post.createdAt)}</Text>
           </View>
-          <View style={styles.latestPostBadge}>
-            <Ionicons name="chatbubble-ellipses" size={12} color={ProTennisColors.electricGreen} />
-            <Text style={styles.latestPostBadgeText}>NEW</Text>
+          <View style={styles.latestPostHeaderRight}>
+            <View style={styles.latestPostBadge}>
+              <Ionicons name="chatbubble-ellipses" size={12} color={ProTennisColors.electricGreen} />
+              <Text style={styles.latestPostBadgeText}>NEW</Text>
+            </View>
+            <Pressable
+              onPress={(e) => { e.stopPropagation(); handleMoreOptions(); }}
+              style={styles.miniMoreButton}
+              accessibilityLabel="More options"
+            >
+              <Ionicons name="ellipsis-horizontal" size={16} color={Colors.dark.textMuted} />
+            </Pressable>
           </View>
         </View>
 
@@ -208,6 +282,7 @@ function AnimatedEventCard({
 export function MiniFeed() {
   const { state } = usePlayerState();
   const { navigateToTab } = useTabNavigation();
+  const queryClient = useQueryClient();
 
   const { data: feedData } = useQuery<Post[]>({
     queryKey: ["/api/social/feed", "dashboard-preview"],
@@ -256,7 +331,7 @@ export function MiniFeed() {
         </View>
 
         {latestPost && (
-          <LatestPostCard post={latestPost} onPress={handlePress} />
+          <LatestPostCard post={latestPost} onPress={handlePress} queryClient={queryClient} />
         )}
 
       </View>
@@ -411,6 +486,11 @@ const styles = StyleSheet.create({
     fontSize: 11,
     color: ProTennisColors.textMuted,
   },
+  latestPostHeaderRight: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+  },
   latestPostBadge: {
     flexDirection: "row",
     alignItems: "center",
@@ -419,6 +499,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
     paddingVertical: 3,
     borderRadius: 10,
+  },
+  miniMoreButton: {
+    padding: 4,
   },
   latestPostBadgeText: {
     fontSize: 9,

@@ -81,7 +81,7 @@ export function MomentCard({
               "Report Post",
               "Why are you reporting this post?",
               [
-                { text: "Inappropriate Content", onPress: () => submitReport("Inappropriate Content") },
+                { text: "Inappropriate", onPress: () => submitReport("Inappropriate") },
                 { text: "Spam", onPress: () => submitReport("Spam") },
                 { text: "Harassment", onPress: () => submitReport("Harassment") },
                 { text: "Other", onPress: () => submitReport("Other") },

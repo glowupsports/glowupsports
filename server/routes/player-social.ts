@@ -35,6 +35,8 @@ import {
   posts as postsTable,
   seriesPlayers,
   academies,
+  contentReports as contentReportsTable,
+  playerBlocks as playerBlocksTable,
 } from "@shared/schema";
 import { eq, and, or, desc, asc, sql, gte, inArray, ne, isNull, count, lte, ilike } from "drizzle-orm";
 import {
@@ -3225,6 +3227,84 @@ router.delete("/api/player/me/account", authMiddleware, async (req: AuthRequest,
   } catch (error) {
     console.error("[AccountDeletion] Error:", error);
     res.status(500).json({ error: "Failed to delete account" });
+  }
+});
+
+// ==================== REPORT & BLOCK (player-scoped aliases) ====================
+
+// Report a post: POST /api/player/me/report/posts/:postId
+router.post("/api/player/me/report/posts/:postId", authMiddleware, async (req: AuthRequest, res: Response) => {
+  try {
+    const userId = req.user!.userId;
+    const postId = req.params.postId;
+    const { reason } = req.body;
+
+    if (!postId) return res.status(400).json({ error: "Post ID required" });
+
+    const existing = await db.select({ id: contentReportsTable.id })
+      .from(contentReportsTable)
+      .where(and(
+        eq(contentReportsTable.reporterUserId, userId),
+        eq(contentReportsTable.contentId, postId),
+        eq(contentReportsTable.contentType, "post")
+      ))
+      .limit(1);
+
+    if (existing.length > 0) return res.json({ success: true, alreadyReported: true });
+
+    await db.insert(contentReportsTable).values({
+      reporterUserId: userId,
+      contentType: "post",
+      contentId: postId,
+      reason: reason || null,
+    });
+
+    console.log(`[Report] User ${userId} reported post ${postId}: ${reason || "no reason"}`);
+    res.json({ success: true });
+  } catch (error) {
+    console.error("[Report] Error:", error);
+    res.status(500).json({ error: "Failed to submit report" });
+  }
+});
+
+// Block a user: POST /api/player/me/block/:playerId
+router.post("/api/player/me/block/:playerId", authMiddleware, async (req: AuthRequest, res: Response) => {
+  try {
+    const blockerUserId = req.user!.userId;
+    const blockedUserId = req.params.playerId;
+
+    if (!blockedUserId) return res.status(400).json({ error: "User ID required" });
+    if (blockerUserId === blockedUserId) return res.status(400).json({ error: "Cannot block yourself" });
+
+    await db.insert(playerBlocksTable).values({
+      blockerUserId,
+      blockedUserId,
+    }).onConflictDoNothing();
+
+    console.log(`[Block] User ${blockerUserId} blocked user ${blockedUserId}`);
+    res.json({ success: true });
+  } catch (error) {
+    console.error("[Block] Error:", error);
+    res.status(500).json({ error: "Failed to block user" });
+  }
+});
+
+// Unblock a user: DELETE /api/player/me/block/:playerId
+router.delete("/api/player/me/block/:playerId", authMiddleware, async (req: AuthRequest, res: Response) => {
+  try {
+    const blockerUserId = req.user!.userId;
+    const blockedUserId = req.params.playerId;
+
+    await db.delete(playerBlocksTable)
+      .where(and(
+        eq(playerBlocksTable.blockerUserId, blockerUserId),
+        eq(playerBlocksTable.blockedUserId, blockedUserId)
+      ));
+
+    res.json({ success: true });
+  } catch (error) {
+    console.error("[Unblock] Error:", error);
+    res.status(500).json({ error: "Failed to unblock user" });
   }
 });
 

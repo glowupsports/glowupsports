@@ -47768,6 +47768,62 @@ If you have questions, contact support@glowupsports.com.`
     res.status(500).json({ error: "Failed to delete account" });
   }
 });
+router20.post("/api/player/me/report/posts/:postId", authMiddlewareWithFreshData, async (req2, res) => {
+  try {
+    const userId = req2.user.userId;
+    const postId = req2.params.postId;
+    const { reason } = req2.body;
+    if (!postId) return res.status(400).json({ error: "Post ID required" });
+    const existing2 = await db.select({ id: contentReports.id }).from(contentReports).where(and25(
+      eq26(contentReports.reporterUserId, userId),
+      eq26(contentReports.contentId, postId),
+      eq26(contentReports.contentType, "post")
+    )).limit(1);
+    if (existing2.length > 0) return res.json({ success: true, alreadyReported: true });
+    await db.insert(contentReports).values({
+      reporterUserId: userId,
+      contentType: "post",
+      contentId: postId,
+      reason: reason || null
+    });
+    console.log(`[Report] User ${userId} reported post ${postId}: ${reason || "no reason"}`);
+    res.json({ success: true });
+  } catch (error) {
+    console.error("[Report] Error:", error);
+    res.status(500).json({ error: "Failed to submit report" });
+  }
+});
+router20.post("/api/player/me/block/:playerId", authMiddlewareWithFreshData, async (req2, res) => {
+  try {
+    const blockerUserId = req2.user.userId;
+    const blockedUserId = req2.params.playerId;
+    if (!blockedUserId) return res.status(400).json({ error: "User ID required" });
+    if (blockerUserId === blockedUserId) return res.status(400).json({ error: "Cannot block yourself" });
+    await db.insert(playerBlocks).values({
+      blockerUserId,
+      blockedUserId
+    }).onConflictDoNothing();
+    console.log(`[Block] User ${blockerUserId} blocked user ${blockedUserId}`);
+    res.json({ success: true });
+  } catch (error) {
+    console.error("[Block] Error:", error);
+    res.status(500).json({ error: "Failed to block user" });
+  }
+});
+router20.delete("/api/player/me/block/:playerId", authMiddlewareWithFreshData, async (req2, res) => {
+  try {
+    const blockerUserId = req2.user.userId;
+    const blockedUserId = req2.params.playerId;
+    await db.delete(playerBlocks).where(and25(
+      eq26(playerBlocks.blockerUserId, blockerUserId),
+      eq26(playerBlocks.blockedUserId, blockedUserId)
+    ));
+    res.json({ success: true });
+  } catch (error) {
+    console.error("[Unblock] Error:", error);
+    res.status(500).json({ error: "Failed to unblock user" });
+  }
+});
 var player_social_default = router20;
 
 // server/routes/tournaments-ladders.ts

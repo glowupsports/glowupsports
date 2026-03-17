@@ -612,9 +612,10 @@ export function PostDetailModal({ visible, post, onClose, onCheer }: PostDetailM
               "Report Post",
               "Why are you reporting this post?",
               [
-                { text: "Inappropriate Content", onPress: () => submitReport("Inappropriate Content") },
+                { text: "Inappropriate", onPress: () => submitReport("Inappropriate") },
                 { text: "Spam", onPress: () => submitReport("Spam") },
                 { text: "Harassment", onPress: () => submitReport("Harassment") },
+                { text: "Other", onPress: () => submitReport("Other") },
                 { text: "Cancel", style: "cancel" },
               ]
             );
