@@ -20,6 +20,8 @@ export const users = pgTable("users", {
   createdAt: timestamp("created_at").defaultNow(),
   lastLoginAt: timestamp("last_login_at"),
   appleId: text("apple_id").unique(), // Apple Sign-In user identifier
+  deleted: boolean("deleted").default(false), // true when account has been deleted
+  deletedAt: timestamp("deleted_at"), // when the account was deleted
 });
 
 export const insertUserSchema = createInsertSchema(users).pick({
@@ -3599,6 +3601,32 @@ export const commentLikes = pgTable("comment_likes", {
 export const insertCommentLikeSchema = createInsertSchema(commentLikes).omit({ id: true, createdAt: true });
 export type InsertCommentLike = z.infer<typeof insertCommentLikeSchema>;
 export type CommentLike = typeof commentLikes.$inferSelect;
+
+// Content reports - tracks user reports of posts/comments
+export const contentReports = pgTable("content_reports", {
+  id: varchar("id")
+    .primaryKey()
+    .default(sql`gen_random_uuid()`),
+  reporterUserId: varchar("reporter_user_id").notNull(),
+  contentType: text("content_type").notNull().default("post"),
+  contentId: varchar("content_id").notNull(),
+  reason: text("reason"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export type ContentReport = typeof contentReports.$inferSelect;
+
+// Player blocks - tracks user block relationships
+export const playerBlocks = pgTable("player_blocks", {
+  id: varchar("id")
+    .primaryKey()
+    .default(sql`gen_random_uuid()`),
+  blockerUserId: varchar("blocker_user_id").notNull(),
+  blockedUserId: varchar("blocked_user_id").notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export type PlayerBlock = typeof playerBlocks.$inferSelect;
 
 // Open to Play status
 export const openToPlay = pgTable("open_to_play", {

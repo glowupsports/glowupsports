@@ -591,8 +591,75 @@ interface CommentData {
 export function PostDetailModal({ visible, post, onClose, onCheer }: PostDetailModalProps) {
   const insets = useSafeAreaInsets();
   const queryClient = useQueryClient();
+  const { user } = useAuth();
   const [commentText, setCommentText] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const isOwnPost = !!user && !!post && user.id === post.playerId;
+
+  const handleMoreOptions = () => {
+    if (!post) return;
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    Alert.alert(
+      "Post Options",
+      undefined,
+      [
+        {
+          text: "Report Post",
+          style: "destructive",
+          onPress: () => {
+            Alert.alert(
+              "Report Post",
+              "Why are you reporting this post?",
+              [
+                { text: "Inappropriate Content", onPress: () => submitReport("Inappropriate Content") },
+                { text: "Spam", onPress: () => submitReport("Spam") },
+                { text: "Harassment", onPress: () => submitReport("Harassment") },
+                { text: "Cancel", style: "cancel" },
+              ]
+            );
+          },
+        },
+        {
+          text: "Block User",
+          style: "destructive",
+          onPress: () => {
+            Alert.alert(
+              "Block User",
+              `Block ${post.playerName}? Their posts will no longer appear in your feed.`,
+              [
+                {
+                  text: "Block",
+                  style: "destructive",
+                  onPress: async () => {
+                    try {
+                      await apiRequest("POST", `/api/social/users/${post.playerId}/block`, {});
+                      queryClient.invalidateQueries({ queryKey: ["/api/social/feed"] });
+                      setTimeout(() => onClose(), 350);
+                    } catch (err) {
+                      Alert.alert("Error", "Failed to block user. Please try again.");
+                    }
+                  },
+                },
+                { text: "Cancel", style: "cancel" },
+              ]
+            );
+          },
+        },
+        { text: "Cancel", style: "cancel" },
+      ]
+    );
+  };
+
+  const submitReport = async (reason: string) => {
+    if (!post) return;
+    try {
+      await apiRequest("POST", `/api/social/posts/${post.id}/report`, { reason });
+      Alert.alert("Report Submitted", "Thank you for helping keep the community safe. We'll review this post.");
+    } catch (err) {
+      Alert.alert("Error", "Failed to submit report. Please try again.");
+    }
+  };
 
   const { data: commentsData, refetch: refetchComments } = useQuery<CommentData[]>({
     queryKey: ["/api/social/posts", post?.id, "comments"],
@@ -687,7 +754,13 @@ export function PostDetailModal({ visible, post, onClose, onCheer }: PostDetailM
             <Ionicons name="close" size={24} color={Colors.dark.text} />
           </Pressable>
           <ThemedText style={postDetailStyles.headerTitle}>Post</ThemedText>
-          <View style={{ width: 40 }} />
+          {isOwnPost ? (
+            <View style={{ width: 40 }} />
+          ) : (
+            <Pressable onPress={handleMoreOptions} style={postDetailStyles.closeBtn} accessibilityLabel="More options">
+              <Ionicons name="ellipsis-horizontal" size={22} color={Colors.dark.text} />
+            </Pressable>
+          )}
         </View>
 
         <ScrollView style={postDetailStyles.content} showsVerticalScrollIndicator={false}>

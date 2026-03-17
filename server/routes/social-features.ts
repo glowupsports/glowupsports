@@ -11,6 +11,8 @@ import {
   userSocialProfiles as userSocialProfilesTable,
   users,
   players,
+  contentReports as contentReportsTable,
+  playerBlocks as playerBlocksTable,
 } from "@shared/schema";
 import { eq, sql, and, desc, asc, inArray, gte, count } from "drizzle-orm";
 import {
@@ -318,6 +320,19 @@ const socialPostUpload = multer({
       } catch (queryError) {
         console.error("Error querying posts:", queryError);
         posts = [];
+      }
+
+      // Filter out posts from users that the current user has blocked
+      try {
+        const blockedRows = await db.select({ blockedUserId: playerBlocksTable.blockedUserId })
+          .from(playerBlocksTable)
+          .where(eq(playerBlocksTable.blockerUserId, userId));
+        if (blockedRows.length > 0) {
+          const blockedIds = new Set(blockedRows.map(r => r.blockedUserId));
+          posts = posts.filter(p => !blockedIds.has(p.authorId));
+        }
+      } catch (blockFilterError) {
+        console.error("Error filtering blocked users:", blockFilterError);
       }
       
       // Get author info using JOIN query for reliability
@@ -1095,6 +1110,94 @@ const socialPostUpload = multer({
     } catch (error) {
       console.error("Error fetching social highlights:", error);
       res.status(500).json({ error: "Failed to fetch highlights" });
+    }
+  });
+
+// ==================== REPORT & BLOCK ====================
+
+  // Report a post
+  router.post("/api/social/posts/:id/report", authMiddleware, async (req: AuthRequest, res: Response) => {
+    try {
+      const userId = req.user!.userId;
+      const postId = req.params.id;
+      const { reason } = req.body;
+
+      if (!postId) {
+        return res.status(400).json({ error: "Post ID required" });
+      }
+
+      // Prevent duplicate reports from the same user
+      const existing = await db.select({ id: contentReportsTable.id })
+        .from(contentReportsTable)
+        .where(and(
+          eq(contentReportsTable.reporterUserId, userId),
+          eq(contentReportsTable.contentId, postId),
+          eq(contentReportsTable.contentType, "post")
+        ))
+        .limit(1);
+
+      if (existing.length > 0) {
+        return res.json({ success: true, alreadyReported: true });
+      }
+
+      await db.insert(contentReportsTable).values({
+        reporterUserId: userId,
+        contentType: "post",
+        contentId: postId,
+        reason: reason || null,
+      });
+
+      console.log(`[Report] User ${userId} reported post ${postId}: ${reason || "no reason"}`);
+      res.json({ success: true });
+    } catch (error) {
+      console.error("[Report] Error:", error);
+      res.status(500).json({ error: "Failed to submit report" });
+    }
+  });
+
+  // Block a user
+  router.post("/api/social/users/:userId/block", authMiddleware, async (req: AuthRequest, res: Response) => {
+    try {
+      const blockerUserId = req.user!.userId;
+      const blockedUserId = req.params.userId;
+
+      if (!blockedUserId) {
+        return res.status(400).json({ error: "User ID required" });
+      }
+
+      if (blockerUserId === blockedUserId) {
+        return res.status(400).json({ error: "Cannot block yourself" });
+      }
+
+      await db.insert(playerBlocksTable).values({
+        blockerUserId,
+        blockedUserId,
+      }).onConflictDoNothing();
+
+      console.log(`[Block] User ${blockerUserId} blocked user ${blockedUserId}`);
+      res.json({ success: true });
+    } catch (error) {
+      console.error("[Block] Error:", error);
+      res.status(500).json({ error: "Failed to block user" });
+    }
+  });
+
+  // Unblock a user
+  router.delete("/api/social/users/:userId/block", authMiddleware, async (req: AuthRequest, res: Response) => {
+    try {
+      const blockerUserId = req.user!.userId;
+      const blockedUserId = req.params.userId;
+
+      await db.delete(playerBlocksTable)
+        .where(and(
+          eq(playerBlocksTable.blockerUserId, blockerUserId),
+          eq(playerBlocksTable.blockedUserId, blockedUserId)
+        ));
+
+      res.json({ success: true });
+    } catch (error) {
+      console.error("[Unblock] Error:", error);
+      res.status(500).json({ error: "Failed to unblock user" });
     }
   });
 

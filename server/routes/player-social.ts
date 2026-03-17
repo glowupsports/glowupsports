@@ -3134,4 +3134,52 @@ router.get("/api/player/spotlight/history", authMiddleware, requirePlayerOrOwner
   });
 
 
+// ==================== ACCOUNT DELETION ====================
+
+router.delete("/api/player/me/account", authMiddleware, async (req: AuthRequest, res: Response) => {
+  try {
+    const userId = req.user?.userId;
+    const playerId = req.user?.playerId;
+
+    if (!userId) {
+      return res.status(401).json({ error: "Authentication required" });
+    }
+
+    if (req.user?.role !== "player") {
+      return res.status(403).json({ error: "Only player accounts can be deleted via this endpoint" });
+    }
+
+    // Anonymize player PII if a player profile exists
+    if (playerId) {
+      await db.update(players)
+        .set({
+          name: "Deleted User",
+          email: null,
+          phone: null,
+          dateOfBirth: null,
+          parentEmail: null,
+          profilePhotoUrl: null,
+        })
+        .where(eq(players.id, playerId));
+    }
+
+    // Mark the user account as deleted (soft delete)
+    await db.update(users)
+      .set({
+        deleted: true,
+        deletedAt: new Date(),
+        email: `deleted_${userId}@deleted.invalid`,
+        appleId: null,
+      } as any)
+      .where(eq(users.id, userId));
+
+    console.log(`[AccountDeletion] User ${userId} (player ${playerId}) account deleted at ${new Date().toISOString()}`);
+
+    res.json({ success: true, message: "Account successfully deleted" });
+  } catch (error) {
+    console.error("[AccountDeletion] Error:", error);
+    res.status(500).json({ error: "Failed to delete account" });
+  }
+});
+
 export default router;

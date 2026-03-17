@@ -1249,6 +1249,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(401).json({ error: "Invalid credentials" });
       }
 
+      if ((user as any).deleted === true) {
+        return res.status(401).json({ error: "ACCOUNT_DELETED", message: "This account has been deleted." });
+      }
+
       const validPassword = await verifyPassword(password, user.password);
       if (!validPassword) {
         return res.status(401).json({ error: "Invalid credentials" });
@@ -1324,6 +1328,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
           code: "APPLE_NOT_LINKED",
           message: "Please log in with your username first and link your Apple ID in Settings."
         });
+      }
+
+      if ((existingUser as any).deleted === true) {
+        return res.status(401).json({ error: "ACCOUNT_DELETED", message: "This account has been deleted." });
       }
 
       await storage.updateUserLastLogin(existingUser.id);

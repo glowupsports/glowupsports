@@ -63,6 +63,7 @@ __export(schema_exports, {
   coachingSeries: () => coachingSeries,
   commentLikes: () => commentLikes,
   communityGroups: () => communityGroups,
+  contentReports: () => contentReports,
   conversationParticipants: () => conversationParticipants,
   conversations: () => conversations,
   courtAvailability: () => courtAvailability,
@@ -305,6 +306,7 @@ __export(schema_exports, {
   playerBallLevels: () => playerBallLevels,
   playerBaselineSkillScores: () => playerBaselineSkillScores,
   playerBaselines: () => playerBaselines,
+  playerBlocks: () => playerBlocks,
   playerBookingPreferences: () => playerBookingPreferences,
   playerConnections: () => playerConnections,
   playerCreditPackages: () => playerCreditPackages,
@@ -407,7 +409,7 @@ function decomposeLevel(compositeLevel) {
   const skillLevel = (clamped - 1) % 3 + 1;
   return { ballLevel: youthBallStages[stageIndex], skillLevel };
 }
-var users, insertUserSchema, loginSchema, usernameSchema, childTshirtSizes, adultTshirtSizes, tshirtSizes, playerRegisterSchema, coachInviteRegisterSchema, registerSchema, academies, insertAcademySchema, academyApplications, insertAcademyApplicationSchema, academyApplicationInputSchema, academyOwnerProfiles, insertAcademyOwnerProfileSchema, invites, insertInviteSchema, joinRequests, insertJoinRequestSchema, joinRequestInputSchema, academyTransferRequests, insertAcademyTransferRequestSchema, transferRequestInputSchema, coachInvitations, insertCoachInvitationSchema, coachInvitationInputSchema, coaches, insertCoachSchema, coachFreelanceProfiles, insertCoachFreelanceProfileSchema, locations, insertLocationSchema, locationTravelTimes, insertLocationTravelTimeSchema, courts, insertCourtSchema, courtAvailability, insertCourtAvailabilitySchema, courtBookings, insertCourtBookingSchema, bookingInvites, insertBookingInviteSchema, bookingInviteGuests, insertBookingInviteGuestSchema, openMatches, insertOpenMatchSchema, openMatchSlots, insertOpenMatchSlotSchema, matchRequests, insertMatchRequestSchema, playerBookingPreferences, insertPlayerBookingPreferencesSchema, courtAvailabilitySnapshots, insertCourtAvailabilitySnapshotSchema, players, insertPlayerSchema, updatePlayerSchema, youthBallStages, lessonGroups, insertLessonGroupSchema, lessonGroupMembers, insertLessonGroupMemberSchema, playerLevelEvents, insertPlayerLevelEventSchema, playerInvites, insertPlayerInviteSchema, playerMatches, insertPlayerMatchSchema, adultGlowMatches, insertAdultGlowMatchSchema, adultSkillAssessments, insertAdultSkillAssessmentSchema, playerConnections, packageTemplates, insertPackageTemplateSchema, packages, insertPackageSchema, playerCreditPackages, sessions, insertSessionSchema, coachingSeries, insertCoachingSeriesSchema, seriesPlayers, insertSeriesPlayerSchema, recurringSeries, insertRecurringSeriesSchema, sessionPlayers, insertSessionPlayerSchema, sessionWaitlist2, insertSessionWaitlistSchema, squads, insertSquadSchema, squadMembers, insertSquadMemberSchema, playerSessionCancellations, insertPlayerSessionCancellationSchema, playerHolidays, insertPlayerHolidaySchema, sessionFeedback, insertSessionFeedbackSchema, inSessionFeedback, insertInSessionFeedbackSchema, auditLogs, insertAuditLogSchema, platformConfig, insertPlatformConfigSchema, offlineQueue, insertOfflineQueueSchema, playerNotes, insertPlayerNoteSchema, playerProgress, insertPlayerProgressSchema, sessionTemplates, insertSessionTemplateSchema, coachNotifications, insertCoachNotificationSchema, skillDomains2, insertSkillDomainSchema, playerSkillState, insertPlayerSkillStateSchema, sessionSkillObservations, insertSessionSkillObservationSchema, levelRequirements, insertLevelRequirementSchema, coachStatsRollup, insertCoachStatsRollupSchema, playerProgressFlags, insertPlayerProgressFlagSchema, domainAssessments, insertDomainAssessmentSchema, xpTransactions2, insertXpTransactionSchema, coachXpTransactions2, insertCoachXpTransactionSchema, conversations, insertConversationSchema, conversationParticipants, insertConversationParticipantSchema, messages, insertMessageSchema, messageReactions, insertMessageReactionSchema, coachAvailability, insertCoachAvailabilitySchema, availabilityExceptions, insertAvailabilityExceptionSchema, coachCourtPreferences, insertCoachCourtPreferenceSchema, coachCourtRules, insertCoachCourtRulesSchema, coachSettings, insertCoachSettingsSchema, academySettings, insertAcademySettingsSchema, academyInvites, insertAcademyInviteSchema, coachAcademyMemberships, insertCoachAcademyMembershipSchema, coachTimeBlocks, insertCoachTimeBlockSchema, pushDeviceTokens, insertPushDeviceTokenSchema, notificationPreferences, insertNotificationPreferenceSchema, scheduledNotifications, insertScheduledNotificationSchema, billingAccounts, insertBillingAccountSchema, subscriptionPlans, insertSubscriptionPlanSchema, subscriptions, insertSubscriptionSchema, invoices, insertInvoiceSchema, payments, insertPaymentSchema, creditTransactions, insertCreditTransactionSchema, playerSubscriptions, insertPlayerSubscriptionSchema, refunds, insertRefundSchema, coachPayouts, insertCoachPayoutSchema, diagnosticReports, insertDiagnosticReportSchema, bookingRequests, insertBookingRequestSchema, parentPlayerRelations, insertParentPlayerRelationSchema, parentSettings, insertParentSettingsSchema, paymentReminders, insertPaymentReminderSchema, coachPaymentRules, insertCoachPaymentRuleSchema, coachEarnings, insertCoachEarningSchema, reviewCategories, reviewerAgeCategories, coachReviews, insertCoachReviewSchema, submitReviewSchema, reviewResponses, insertReviewResponseSchema, reviewFlags, insertReviewFlagSchema, reviewPrompts, insertReviewPromptSchema, coachReviewStats, insertCoachReviewStatsSchema, academyPricing, insertAcademyPricingSchema, coachContracts, insertCoachContractSchema, communityGroups, insertCommunityGroupSchema, groupMembers, insertGroupMemberSchema, posts2, insertPostSchema, postReactions, insertPostReactionSchema, postComments, insertPostCommentSchema, commentLikes, insertCommentLikeSchema, openToPlay, insertOpenToPlaySchema, userSocialProfiles, insertUserSocialProfileSchema, badges, insertBadgeSchema, playerBadges, insertPlayerBadgeSchema, titles, insertTitleSchema, playerTitles, insertPlayerTitleSchema, questTemplates, insertQuestTemplateSchema, playerQuests, insertPlayerQuestSchema, dailyQuestSlots, insertDailyQuestSlotSchema, playerStreaks, insertPlayerStreakSchema, shopCategories, insertShopCategorySchema, shopProducts, insertShopProductSchema, shopServices, insertShopServiceSchema, shopOrders, insertShopOrderSchema, shopOrderItems, insertShopOrderItemSchema, shopWishlist, insertShopWishlistSchema, marketplaceListings, insertMarketplaceListingSchema, marketplaceFavorites, insertMarketplaceFavoriteSchema, marketplaceMessages, insertMarketplaceMessageSchema, sellerProfiles, insertSellerProfileSchema, glowPillars, glowStages, glowLanguageTiers, ballLevels, insertBallLevelSchema, glowSkills, insertGlowSkillSchema, skillRubrics, insertSkillRubricSchema, levelSkills, insertLevelSkillSchema, levelTests, insertLevelTestSchema, playerBallLevels, insertPlayerBallLevelSchema, playerBaselines, insertPlayerBaselineSchema, playerBaselineSkillScores, insertPlayerBaselineSkillScoreSchema, playerSkillScores2, insertPlayerSkillScoreSchema, playerPillarProgress, insertPlayerPillarProgressSchema, levelTrials, insertLevelTrialSchema, sessionSkillFeedback, insertSessionSkillFeedbackSchema, coachCalibration, insertCoachCalibrationSchema, lessonTemplates, insertLessonTemplateSchema, drillBlocks, insertDrillBlockSchema, sessionPlans, insertSessionPlanSchema, matchLogs, insertMatchLogSchema, skillEvidence, insertSkillEvidenceSchema, roleMessageTemplates, insertRoleMessageTemplateSchema, levelUpEvents, insertLevelUpEventSchema, playstyleTags, matchTypes, matchOpponents, insertMatchOpponentSchema, matchPlans, insertMatchPlanSchema, matches, insertMatchSchema, matchChallenges, insertMatchChallengeSchema, matchReflections, insertMatchReflectionSchema, matchPillarScores, insertMatchPillarScoreSchema, coachMatchReviews, insertCoachMatchReviewSchema, pressureMoments, insertPressureMomentSchema, matchTrainingSuggestions, insertMatchTrainingSuggestionSchema, playerLevelTitles, xpActionSources, playerLevelThresholds, insertPlayerLevelThresholdSchema, playerLevelXpRules, insertPlayerLevelXpRuleSchema, featureUnlockKeys, playerFeatureUnlocks, insertPlayerFeatureUnlockSchema, playerXpEvents, insertPlayerXpEventSchema, playerLevelUpCelebrations, insertPlayerLevelUpCelebrationSchema, playerFeatureUnlockHistory, deepAssessmentSkills, insertDeepAssessmentSkillSchema, playerDeepAssessments, insertPlayerDeepAssessmentSchema, deepAssessmentPillarSummaries2, coachWellnessLogs, insertCoachWellnessLogSchema, playerNotifications, spotlightNominations, insertSpotlightNominationSchema, spotlightWeeklyWinners, insertSpotlightWeeklyWinnerSchema, spotlightMonthlyWinners, insertSpotlightMonthlyWinnerSchema, tournaments, insertTournamentSchema, tournamentParticipants, insertTournamentParticipantSchema, tournamentMatches, insertTournamentMatchSchema, ladders, insertLadderSchema, ladderPlayers, insertLadderPlayerSchema, ladderChallenges, insertLadderChallengeSchema;
+var users, insertUserSchema, loginSchema, usernameSchema, childTshirtSizes, adultTshirtSizes, tshirtSizes, playerRegisterSchema, coachInviteRegisterSchema, registerSchema, academies, insertAcademySchema, academyApplications, insertAcademyApplicationSchema, academyApplicationInputSchema, academyOwnerProfiles, insertAcademyOwnerProfileSchema, invites, insertInviteSchema, joinRequests, insertJoinRequestSchema, joinRequestInputSchema, academyTransferRequests, insertAcademyTransferRequestSchema, transferRequestInputSchema, coachInvitations, insertCoachInvitationSchema, coachInvitationInputSchema, coaches, insertCoachSchema, coachFreelanceProfiles, insertCoachFreelanceProfileSchema, locations, insertLocationSchema, locationTravelTimes, insertLocationTravelTimeSchema, courts, insertCourtSchema, courtAvailability, insertCourtAvailabilitySchema, courtBookings, insertCourtBookingSchema, bookingInvites, insertBookingInviteSchema, bookingInviteGuests, insertBookingInviteGuestSchema, openMatches, insertOpenMatchSchema, openMatchSlots, insertOpenMatchSlotSchema, matchRequests, insertMatchRequestSchema, playerBookingPreferences, insertPlayerBookingPreferencesSchema, courtAvailabilitySnapshots, insertCourtAvailabilitySnapshotSchema, players, insertPlayerSchema, updatePlayerSchema, youthBallStages, lessonGroups, insertLessonGroupSchema, lessonGroupMembers, insertLessonGroupMemberSchema, playerLevelEvents, insertPlayerLevelEventSchema, playerInvites, insertPlayerInviteSchema, playerMatches, insertPlayerMatchSchema, adultGlowMatches, insertAdultGlowMatchSchema, adultSkillAssessments, insertAdultSkillAssessmentSchema, playerConnections, packageTemplates, insertPackageTemplateSchema, packages, insertPackageSchema, playerCreditPackages, sessions, insertSessionSchema, coachingSeries, insertCoachingSeriesSchema, seriesPlayers, insertSeriesPlayerSchema, recurringSeries, insertRecurringSeriesSchema, sessionPlayers, insertSessionPlayerSchema, sessionWaitlist2, insertSessionWaitlistSchema, squads, insertSquadSchema, squadMembers, insertSquadMemberSchema, playerSessionCancellations, insertPlayerSessionCancellationSchema, playerHolidays, insertPlayerHolidaySchema, sessionFeedback, insertSessionFeedbackSchema, inSessionFeedback, insertInSessionFeedbackSchema, auditLogs, insertAuditLogSchema, platformConfig, insertPlatformConfigSchema, offlineQueue, insertOfflineQueueSchema, playerNotes, insertPlayerNoteSchema, playerProgress, insertPlayerProgressSchema, sessionTemplates, insertSessionTemplateSchema, coachNotifications, insertCoachNotificationSchema, skillDomains2, insertSkillDomainSchema, playerSkillState, insertPlayerSkillStateSchema, sessionSkillObservations, insertSessionSkillObservationSchema, levelRequirements, insertLevelRequirementSchema, coachStatsRollup, insertCoachStatsRollupSchema, playerProgressFlags, insertPlayerProgressFlagSchema, domainAssessments, insertDomainAssessmentSchema, xpTransactions2, insertXpTransactionSchema, coachXpTransactions2, insertCoachXpTransactionSchema, conversations, insertConversationSchema, conversationParticipants, insertConversationParticipantSchema, messages, insertMessageSchema, messageReactions, insertMessageReactionSchema, coachAvailability, insertCoachAvailabilitySchema, availabilityExceptions, insertAvailabilityExceptionSchema, coachCourtPreferences, insertCoachCourtPreferenceSchema, coachCourtRules, insertCoachCourtRulesSchema, coachSettings, insertCoachSettingsSchema, academySettings, insertAcademySettingsSchema, academyInvites, insertAcademyInviteSchema, coachAcademyMemberships, insertCoachAcademyMembershipSchema, coachTimeBlocks, insertCoachTimeBlockSchema, pushDeviceTokens, insertPushDeviceTokenSchema, notificationPreferences, insertNotificationPreferenceSchema, scheduledNotifications, insertScheduledNotificationSchema, billingAccounts, insertBillingAccountSchema, subscriptionPlans, insertSubscriptionPlanSchema, subscriptions, insertSubscriptionSchema, invoices, insertInvoiceSchema, payments, insertPaymentSchema, creditTransactions, insertCreditTransactionSchema, playerSubscriptions, insertPlayerSubscriptionSchema, refunds, insertRefundSchema, coachPayouts, insertCoachPayoutSchema, diagnosticReports, insertDiagnosticReportSchema, bookingRequests, insertBookingRequestSchema, parentPlayerRelations, insertParentPlayerRelationSchema, parentSettings, insertParentSettingsSchema, paymentReminders, insertPaymentReminderSchema, coachPaymentRules, insertCoachPaymentRuleSchema, coachEarnings, insertCoachEarningSchema, reviewCategories, reviewerAgeCategories, coachReviews, insertCoachReviewSchema, submitReviewSchema, reviewResponses, insertReviewResponseSchema, reviewFlags, insertReviewFlagSchema, reviewPrompts, insertReviewPromptSchema, coachReviewStats, insertCoachReviewStatsSchema, academyPricing, insertAcademyPricingSchema, coachContracts, insertCoachContractSchema, communityGroups, insertCommunityGroupSchema, groupMembers, insertGroupMemberSchema, posts2, insertPostSchema, postReactions, insertPostReactionSchema, postComments, insertPostCommentSchema, commentLikes, insertCommentLikeSchema, contentReports, playerBlocks, openToPlay, insertOpenToPlaySchema, userSocialProfiles, insertUserSocialProfileSchema, badges, insertBadgeSchema, playerBadges, insertPlayerBadgeSchema, titles, insertTitleSchema, playerTitles, insertPlayerTitleSchema, questTemplates, insertQuestTemplateSchema, playerQuests, insertPlayerQuestSchema, dailyQuestSlots, insertDailyQuestSlotSchema, playerStreaks, insertPlayerStreakSchema, shopCategories, insertShopCategorySchema, shopProducts, insertShopProductSchema, shopServices, insertShopServiceSchema, shopOrders, insertShopOrderSchema, shopOrderItems, insertShopOrderItemSchema, shopWishlist, insertShopWishlistSchema, marketplaceListings, insertMarketplaceListingSchema, marketplaceFavorites, insertMarketplaceFavoriteSchema, marketplaceMessages, insertMarketplaceMessageSchema, sellerProfiles, insertSellerProfileSchema, glowPillars, glowStages, glowLanguageTiers, ballLevels, insertBallLevelSchema, glowSkills, insertGlowSkillSchema, skillRubrics, insertSkillRubricSchema, levelSkills, insertLevelSkillSchema, levelTests, insertLevelTestSchema, playerBallLevels, insertPlayerBallLevelSchema, playerBaselines, insertPlayerBaselineSchema, playerBaselineSkillScores, insertPlayerBaselineSkillScoreSchema, playerSkillScores2, insertPlayerSkillScoreSchema, playerPillarProgress, insertPlayerPillarProgressSchema, levelTrials, insertLevelTrialSchema, sessionSkillFeedback, insertSessionSkillFeedbackSchema, coachCalibration, insertCoachCalibrationSchema, lessonTemplates, insertLessonTemplateSchema, drillBlocks, insertDrillBlockSchema, sessionPlans, insertSessionPlanSchema, matchLogs, insertMatchLogSchema, skillEvidence, insertSkillEvidenceSchema, roleMessageTemplates, insertRoleMessageTemplateSchema, levelUpEvents, insertLevelUpEventSchema, playstyleTags, matchTypes, matchOpponents, insertMatchOpponentSchema, matchPlans, insertMatchPlanSchema, matches, insertMatchSchema, matchChallenges, insertMatchChallengeSchema, matchReflections, insertMatchReflectionSchema, matchPillarScores, insertMatchPillarScoreSchema, coachMatchReviews, insertCoachMatchReviewSchema, pressureMoments, insertPressureMomentSchema, matchTrainingSuggestions, insertMatchTrainingSuggestionSchema, playerLevelTitles, xpActionSources, playerLevelThresholds, insertPlayerLevelThresholdSchema, playerLevelXpRules, insertPlayerLevelXpRuleSchema, featureUnlockKeys, playerFeatureUnlocks, insertPlayerFeatureUnlockSchema, playerXpEvents, insertPlayerXpEventSchema, playerLevelUpCelebrations, insertPlayerLevelUpCelebrationSchema, playerFeatureUnlockHistory, deepAssessmentSkills, insertDeepAssessmentSkillSchema, playerDeepAssessments, insertPlayerDeepAssessmentSchema, deepAssessmentPillarSummaries2, coachWellnessLogs, insertCoachWellnessLogSchema, playerNotifications, spotlightNominations, insertSpotlightNominationSchema, spotlightWeeklyWinners, insertSpotlightWeeklyWinnerSchema, spotlightMonthlyWinners, insertSpotlightMonthlyWinnerSchema, tournaments, insertTournamentSchema, tournamentParticipants, insertTournamentParticipantSchema, tournamentMatches, insertTournamentMatchSchema, ladders, insertLadderSchema, ladderPlayers, insertLadderPlayerSchema, ladderChallenges, insertLadderChallengeSchema;
 var init_schema = __esm({
   "shared/schema.ts"() {
     "use strict";
@@ -430,8 +432,12 @@ var init_schema = __esm({
       // references players.id (links user to player profile)
       createdAt: timestamp("created_at").defaultNow(),
       lastLoginAt: timestamp("last_login_at"),
-      appleId: text("apple_id").unique()
+      appleId: text("apple_id").unique(),
       // Apple Sign-In user identifier
+      deleted: boolean("deleted").default(false),
+      // true when account has been deleted
+      deletedAt: timestamp("deleted_at")
+      // when the account was deleted
     });
     insertUserSchema = createInsertSchema(users).pick({
       username: true,
@@ -3147,6 +3153,20 @@ var init_schema = __esm({
       index("comment_likes_user_idx").on(table.userId)
     ]);
     insertCommentLikeSchema = createInsertSchema(commentLikes).omit({ id: true, createdAt: true });
+    contentReports = pgTable("content_reports", {
+      id: varchar("id").primaryKey().default(sql2`gen_random_uuid()`),
+      reporterUserId: varchar("reporter_user_id").notNull(),
+      contentType: text("content_type").notNull().default("post"),
+      contentId: varchar("content_id").notNull(),
+      reason: text("reason"),
+      createdAt: timestamp("created_at").defaultNow()
+    });
+    playerBlocks = pgTable("player_blocks", {
+      id: varchar("id").primaryKey().default(sql2`gen_random_uuid()`),
+      blockerUserId: varchar("blocker_user_id").notNull(),
+      blockedUserId: varchar("blocked_user_id").notNull(),
+      createdAt: timestamp("created_at").defaultNow()
+    });
     openToPlay = pgTable("open_to_play", {
       id: varchar("id").primaryKey().default(sql2`gen_random_uuid()`),
       userId: varchar("user_id").references(() => users.id).notNull(),
@@ -15620,15 +15640,15 @@ function stopAutoSessionCompletionScheduler() {
 async function processMonthlyReports() {
   console.log("[MonthlyReports] Running monthly report check at", (/* @__PURE__ */ new Date()).toISOString());
   try {
-    const { players: players3, users: users4, playerCreditPackages: playerCreditPackages2 } = await Promise.resolve().then(() => (init_schema(), schema_exports));
+    const { players: players3, users: users3, playerCreditPackages: playerCreditPackages2 } = await Promise.resolve().then(() => (init_schema(), schema_exports));
     const activePlayers = await db.select({
       playerId: players3.id,
       userId: players3.userId,
       displayName: players3.displayName,
-      email: users4.email
-    }).from(players3).innerJoin(users4, eq2(players3.userId, users4.id)).where(
+      email: users3.email
+    }).from(players3).innerJoin(users3, eq2(players3.userId, users3.id)).where(
       and2(
-        isNotNull(users4.email),
+        isNotNull(users3.email),
         eq2(players3.isActive, true)
       )
     );
@@ -30200,10 +30220,10 @@ function setupWebSocket(server) {
             academyRooms.delete(socket.academyId);
           }
         }
-        const users4 = onlineUsers.get(socket.academyId);
-        if (users4) {
-          users4.delete(socket.userId);
-          if (users4.size === 0) {
+        const users3 = onlineUsers.get(socket.academyId);
+        if (users3) {
+          users3.delete(socket.userId);
+          if (users3.size === 0) {
             onlineUsers.delete(socket.academyId);
           }
         }
@@ -30398,6 +30418,11 @@ async function authMiddlewareWithFreshData(req2, res, next) {
       if (!freshUser) {
         console.warn(`[Auth] User ${payload.userId} from token not found in database - rejecting`);
         res.status(401).json({ error: "User account not found. Please log in again." });
+        return;
+      }
+      if (freshUser.deleted === true) {
+        console.warn(`[Auth] User ${payload.userId} account has been deleted - rejecting`);
+        res.status(401).json({ error: "ACCOUNT_DELETED", message: "Your account has been deleted. Please create a new account to continue." });
         return;
       }
       if (freshUser) {
@@ -40101,6 +40126,15 @@ router16.get("/api/social/feed", authMiddlewareWithFreshData, requireFeatureUnlo
       console.error("Error querying posts:", queryError);
       posts3 = [];
     }
+    try {
+      const blockedRows = await db.select({ blockedUserId: playerBlocks.blockedUserId }).from(playerBlocks).where(eq23(playerBlocks.blockerUserId, userId));
+      if (blockedRows.length > 0) {
+        const blockedIds = new Set(blockedRows.map((r) => r.blockedUserId));
+        posts3 = posts3.filter((p) => !blockedIds.has(p.authorId));
+      }
+    } catch (blockFilterError) {
+      console.error("Error filtering blocked users:", blockFilterError);
+    }
     const authorIds = [...new Set(posts3.map((p) => p.authorId).filter(Boolean))];
     let authorMap = /* @__PURE__ */ new Map();
     if (authorIds.length > 0) {
@@ -40676,6 +40710,70 @@ router16.get("/api/social/highlights", authMiddlewareWithFreshData, async (req2,
   } catch (error) {
     console.error("Error fetching social highlights:", error);
     res.status(500).json({ error: "Failed to fetch highlights" });
+  }
+});
+router16.post("/api/social/posts/:id/report", authMiddlewareWithFreshData, async (req2, res) => {
+  try {
+    const userId = req2.user.userId;
+    const postId = req2.params.id;
+    const { reason } = req2.body;
+    if (!postId) {
+      return res.status(400).json({ error: "Post ID required" });
+    }
+    const existing2 = await db.select({ id: contentReports.id }).from(contentReports).where(and22(
+      eq23(contentReports.reporterUserId, userId),
+      eq23(contentReports.contentId, postId),
+      eq23(contentReports.contentType, "post")
+    )).limit(1);
+    if (existing2.length > 0) {
+      return res.json({ success: true, alreadyReported: true });
+    }
+    await db.insert(contentReports).values({
+      reporterUserId: userId,
+      contentType: "post",
+      contentId: postId,
+      reason: reason || null
+    });
+    console.log(`[Report] User ${userId} reported post ${postId}: ${reason || "no reason"}`);
+    res.json({ success: true });
+  } catch (error) {
+    console.error("[Report] Error:", error);
+    res.status(500).json({ error: "Failed to submit report" });
+  }
+});
+router16.post("/api/social/users/:userId/block", authMiddlewareWithFreshData, async (req2, res) => {
+  try {
+    const blockerUserId = req2.user.userId;
+    const blockedUserId = req2.params.userId;
+    if (!blockedUserId) {
+      return res.status(400).json({ error: "User ID required" });
+    }
+    if (blockerUserId === blockedUserId) {
+      return res.status(400).json({ error: "Cannot block yourself" });
+    }
+    await db.insert(playerBlocks).values({
+      blockerUserId,
+      blockedUserId
+    }).onConflictDoNothing();
+    console.log(`[Block] User ${blockerUserId} blocked user ${blockedUserId}`);
+    res.json({ success: true });
+  } catch (error) {
+    console.error("[Block] Error:", error);
+    res.status(500).json({ error: "Failed to block user" });
+  }
+});
+router16.delete("/api/social/users/:userId/block", authMiddlewareWithFreshData, async (req2, res) => {
+  try {
+    const blockerUserId = req2.user.userId;
+    const blockedUserId = req2.params.userId;
+    await db.delete(playerBlocks).where(and22(
+      eq23(playerBlocks.blockerUserId, blockerUserId),
+      eq23(playerBlocks.blockedUserId, blockedUserId)
+    ));
+    res.json({ success: true });
+  } catch (error) {
+    console.error("[Unblock] Error:", error);
+    res.status(500).json({ error: "Failed to unblock user" });
   }
 });
 var social_features_default = router16;
@@ -47594,6 +47692,39 @@ router20.get("/api/player/spotlight/history", authMiddlewareWithFreshData, requi
   } catch (error) {
     console.error("[Spotlight] History error:", error);
     res.status(500).json({ error: "Failed to fetch spotlight history" });
+  }
+});
+router20.delete("/api/player/me/account", authMiddlewareWithFreshData, async (req2, res) => {
+  try {
+    const userId = req2.user?.userId;
+    const playerId = req2.user?.playerId;
+    if (!userId) {
+      return res.status(401).json({ error: "Authentication required" });
+    }
+    if (req2.user?.role !== "player") {
+      return res.status(403).json({ error: "Only player accounts can be deleted via this endpoint" });
+    }
+    if (playerId) {
+      await db.update(players).set({
+        name: "Deleted User",
+        email: null,
+        phone: null,
+        dateOfBirth: null,
+        parentEmail: null,
+        profilePhotoUrl: null
+      }).where(eq26(players.id, playerId));
+    }
+    await db.update(users).set({
+      deleted: true,
+      deletedAt: /* @__PURE__ */ new Date(),
+      email: `deleted_${userId}@deleted.invalid`,
+      appleId: null
+    }).where(eq26(users.id, userId));
+    console.log(`[AccountDeletion] User ${userId} (player ${playerId}) account deleted at ${(/* @__PURE__ */ new Date()).toISOString()}`);
+    res.json({ success: true, message: "Account successfully deleted" });
+  } catch (error) {
+    console.error("[AccountDeletion] Error:", error);
+    res.status(500).json({ error: "Failed to delete account" });
   }
 });
 var player_social_default = router20;
@@ -54767,6 +54898,9 @@ async function registerRoutes(app2) {
       if (!user) {
         return res.status(401).json({ error: "Invalid credentials" });
       }
+      if (user.deleted === true) {
+        return res.status(401).json({ error: "ACCOUNT_DELETED", message: "This account has been deleted." });
+      }
       const validPassword = await verifyPassword(password, user.password);
       if (!validPassword) {
         return res.status(401).json({ error: "Invalid credentials" });
@@ -54829,6 +54963,9 @@ async function registerRoutes(app2) {
           code: "APPLE_NOT_LINKED",
           message: "Please log in with your username first and link your Apple ID in Settings."
         });
+      }
+      if (existingUser.deleted === true) {
+        return res.status(401).json({ error: "ACCOUNT_DELETED", message: "This account has been deleted." });
       }
       await storage.updateUserLastLogin(existingUser.id);
       let profilePhotoUrl = null;

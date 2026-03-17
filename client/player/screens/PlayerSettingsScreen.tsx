@@ -254,29 +254,43 @@ export default function PlayerSettingsScreen() {
     }
   };
 
-  const handleDeleteAccount = async () => {
-    const confirmDelete = () => {
-      setDeleteLoading(true);
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
-      apiRequest("POST", "/api/delete-account-request", { email: user?.email || "", name: user?.name || user?.username || "" })
-        .then(() => {
-          showAlert(
-            "Account Deletion Requested",
-            "We've received your request. Your account will be deleted within 30 days. You'll receive a confirmation email. You can continue using the app until then."
-          );
-        })
-        .catch((error: any) => {
-          showAlert("Error", error?.message || "Failed to submit deletion request. Please contact support@glowupsports.com");
-        })
-        .finally(() => setDeleteLoading(false));
-    };
-
+  const handleDeleteAccount = () => {
     Alert.alert(
       "Delete Account",
-      "Are you sure you want to delete your account?\n\nThis action cannot be undone. All your data, progress, XP, and match history will be permanently removed within 30 days.",
+      "Are you sure you want to permanently delete your account?\n\nThis will immediately erase all your data including XP, progress, match history, and profile information. This cannot be undone.",
       [
         { text: "Cancel", style: "cancel" },
-        { text: "Delete My Account", style: "destructive", onPress: confirmDelete },
+        {
+          text: "Continue",
+          style: "destructive",
+          onPress: () => {
+            Alert.alert(
+              "Final Confirmation",
+              "This is your last chance. Your account and all data will be permanently deleted right now. Are you absolutely sure?",
+              [
+                { text: "Cancel", style: "cancel" },
+                {
+                  text: "Yes, Delete My Account",
+                  style: "destructive",
+                  onPress: async () => {
+                    setDeleteLoading(true);
+                    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+                    try {
+                      await apiRequest("DELETE", "/api/player/me/account", undefined);
+                      setTimeout(() => {
+                        logout();
+                      }, 350);
+                    } catch (error: any) {
+                      showAlert("Error", error?.message || "Failed to delete account. Please contact support@glowupsports.com");
+                    } finally {
+                      setDeleteLoading(false);
+                    }
+                  },
+                },
+              ]
+            );
+          },
+        },
       ]
     );
   };

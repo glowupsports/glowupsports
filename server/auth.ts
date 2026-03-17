@@ -170,6 +170,13 @@ export async function authMiddlewareWithFreshData(req: AuthenticatedRequest, res
         return;
       }
       
+      // SECURITY: Reject requests from deleted accounts
+      if ((freshUser as any).deleted === true) {
+        console.warn(`[Auth] User ${payload.userId} account has been deleted - rejecting`);
+        res.status(401).json({ error: "ACCOUNT_DELETED", message: "Your account has been deleted. Please create a new account to continue." });
+        return;
+      }
+      
       if (freshUser) {
         // Determine the effective academy context
         let effectiveAcademyId = freshUser.academyId;
