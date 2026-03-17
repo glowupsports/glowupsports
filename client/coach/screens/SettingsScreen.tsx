@@ -191,6 +191,15 @@ export default function SettingsScreen() {
   const [courtsCollapsed, setCourtsCollapsed] = useState(true);
   const [locationsCollapsed, setLocationsCollapsed] = useState(true);
   const [travelTimesExpanded, setTravelTimesExpanded] = useState(false);
+  const [defaultSettingsCollapsed, setDefaultSettingsCollapsed] = useState(true);
+  const [focusModeCollapsed, setFocusModeCollapsed] = useState(true);
+  const [notificationsCollapsed, setNotificationsCollapsed] = useState(true);
+  const [feedbackCollapsed, setFeedbackCollapsed] = useState(true);
+  const [teamCollapsed, setTeamCollapsed] = useState(true);
+  const [languageCollapsed, setLanguageCollapsed] = useState(true);
+  const [appInfoCollapsed, setAppInfoCollapsed] = useState(true);
+  const [legalCollapsed, setLegalCollapsed] = useState(true);
+  const [appleSignInCollapsed, setAppleSignInCollapsed] = useState(true);
   const [selectedTravelTime, setSelectedTravelTime] = useState<any>(null);
   const [travelTimeToDelete, setTravelTimeToDelete] = useState<any>(null);
   const [storedLanguage, setStoredLanguage] = useState('en');
@@ -438,8 +447,25 @@ export default function SettingsScreen() {
 
         
         <View style={styles.section}>
-          <SectionHeader title="Default Settings" icon="options-outline" />
+          <Pressable
+            style={styles.sectionHeaderRow}
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              setDefaultSettingsCollapsed(!defaultSettingsCollapsed);
+            }}
+          >
+            <View style={styles.sectionHeaderWithChevron}>
+              <SectionHeader title="Default Settings" icon="options-outline" />
+              <Ionicons
+                name={defaultSettingsCollapsed ? "chevron-down" : "chevron-up"}
+                size={20}
+                color={Colors.dark.tabIconDefault}
+                style={{ marginLeft: Spacing.sm }}
+              />
+            </View>
+          </Pressable>
 
+          {!defaultSettingsCollapsed ? <>
           <View style={styles.settingRow}>
             <View style={styles.settingInfo}>
               <View style={styles.settingIconWrapper}>
@@ -538,6 +564,7 @@ export default function SettingsScreen() {
               ))}
             </View>
           </View>
+          </> : null}
         </View>
         
 
@@ -737,8 +764,25 @@ export default function SettingsScreen() {
         </View>
 
         <View style={styles.section}>
-          <SectionHeader title="Focus Mode" icon="eye-outline" />
+          <Pressable
+            style={styles.sectionHeaderRow}
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              setFocusModeCollapsed(!focusModeCollapsed);
+            }}
+          >
+            <View style={styles.sectionHeaderWithChevron}>
+              <SectionHeader title="Focus Mode" icon="eye-outline" />
+              <Ionicons
+                name={focusModeCollapsed ? "chevron-down" : "chevron-up"}
+                size={20}
+                color={Colors.dark.tabIconDefault}
+                style={{ marginLeft: Spacing.sm }}
+              />
+            </View>
+          </Pressable>
 
+          {!focusModeCollapsed ? <>
           <View style={styles.settingRow}>
             <View style={styles.settingInfo}>
               <View style={styles.settingIconWrapper}>
@@ -767,10 +811,28 @@ export default function SettingsScreen() {
               onValueChange={(value) => updateSetting("focusModeAutoOn", value)} 
             />
           </View>
+          </> : null}
         </View>
 
         <View style={styles.section}>
-          <SectionHeader title="Notifications" icon="notifications-outline" />
+          <Pressable
+            style={styles.sectionHeaderRow}
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              setNotificationsCollapsed(!notificationsCollapsed);
+            }}
+          >
+            <View style={styles.sectionHeaderWithChevron}>
+              <SectionHeader title="Notifications" icon="notifications-outline" />
+              <Ionicons
+                name={notificationsCollapsed ? "chevron-down" : "chevron-up"}
+                size={20}
+                color={Colors.dark.tabIconDefault}
+                style={{ marginLeft: Spacing.sm }}
+              />
+            </View>
+          </Pressable>
+          {!notificationsCollapsed ? <>
 
           <View style={styles.settingRow}>
             <View style={styles.settingInfo}>
@@ -902,6 +964,7 @@ export default function SettingsScreen() {
               onValueChange={(value) => updatePushPref("chatMessages", value)} 
             />
           </View>
+          </> : null}
         </View>
 
         <View style={styles.section}>
@@ -1007,7 +1070,24 @@ export default function SettingsScreen() {
         </View>
 
         <View style={styles.section}>
-          <SectionHeader title="Feedback & Reputation" icon="star-outline" />
+          <Pressable
+            style={styles.sectionHeaderRow}
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              setFeedbackCollapsed(!feedbackCollapsed);
+            }}
+          >
+            <View style={styles.sectionHeaderWithChevron}>
+              <SectionHeader title="Feedback & Reputation" icon="star-outline" />
+              <Ionicons
+                name={feedbackCollapsed ? "chevron-down" : "chevron-up"}
+                size={20}
+                color={Colors.dark.tabIconDefault}
+                style={{ marginLeft: Spacing.sm }}
+              />
+            </View>
+          </Pressable>
+          {!feedbackCollapsed ? <>
           <Pressable 
             style={styles.linkRow}
             onPress={() => (navigation.getParent() as any)?.navigate("MyReviews")}
@@ -1023,10 +1103,28 @@ export default function SettingsScreen() {
             </View>
             <Ionicons name="chevron-forward" size={20} color={Colors.dark.xpCyan} />
           </Pressable>
+          </> : null}
         </View>
 
         <View style={styles.section}>
-          <SectionHeader title="Team & Invitations" icon="people-outline" />
+          <Pressable
+            style={styles.sectionHeaderRow}
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              setTeamCollapsed(!teamCollapsed);
+            }}
+          >
+            <View style={styles.sectionHeaderWithChevron}>
+              <SectionHeader title="Team & Invitations" icon="people-outline" />
+              <Ionicons
+                name={teamCollapsed ? "chevron-down" : "chevron-up"}
+                size={20}
+                color={Colors.dark.tabIconDefault}
+                style={{ marginLeft: Spacing.sm }}
+              />
+            </View>
+          </Pressable>
+          {!teamCollapsed ? <>
           <Pressable 
             style={styles.linkRow}
             onPress={() => (navigation.getParent() as any)?.navigate("CoachInvitations")}
@@ -1042,10 +1140,28 @@ export default function SettingsScreen() {
             </View>
             <Ionicons name="chevron-forward" size={20} color={Colors.dark.xpCyan} />
           </Pressable>
+          </> : null}
         </View>
 
         <View style={styles.section}>
-          <SectionHeader title={t('player.settings.language')} icon="language-outline" />
+          <Pressable
+            style={styles.sectionHeaderRow}
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              setLanguageCollapsed(!languageCollapsed);
+            }}
+          >
+            <View style={styles.sectionHeaderWithChevron}>
+              <SectionHeader title={t('player.settings.language')} icon="language-outline" />
+              <Ionicons
+                name={languageCollapsed ? "chevron-down" : "chevron-up"}
+                size={20}
+                color={Colors.dark.tabIconDefault}
+                style={{ marginLeft: Spacing.sm }}
+              />
+            </View>
+          </Pressable>
+          {!languageCollapsed ? <>
           {SUPPORTED_LANGUAGES.map((lang) => (
             <Pressable
               key={lang.code}
@@ -1071,10 +1187,28 @@ export default function SettingsScreen() {
               </View>
             </Pressable>
           ))}
+          </> : null}
         </View>
 
         <View style={styles.section}>
-          <SectionHeader title="App Info" icon="information-circle-outline" />
+          <Pressable
+            style={styles.sectionHeaderRow}
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              setAppInfoCollapsed(!appInfoCollapsed);
+            }}
+          >
+            <View style={styles.sectionHeaderWithChevron}>
+              <SectionHeader title="App Info" icon="information-circle-outline" />
+              <Ionicons
+                name={appInfoCollapsed ? "chevron-down" : "chevron-up"}
+                size={20}
+                color={Colors.dark.tabIconDefault}
+                style={{ marginLeft: Spacing.sm }}
+              />
+            </View>
+          </Pressable>
+          {!appInfoCollapsed ? <>
           <View style={styles.infoCard}>
             <View style={styles.infoRow}>
               <Text style={styles.infoLabel}>Version</Text>
@@ -1086,10 +1220,28 @@ export default function SettingsScreen() {
               <Text style={styles.infoValue}>{new Date().toISOString().split("T")[0]}</Text>
             </View>
           </View>
+          </> : null}
         </View>
 
         <View style={styles.section}>
-          <SectionHeader title="Legal" icon="document-text-outline" />
+          <Pressable
+            style={styles.sectionHeaderRow}
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              setLegalCollapsed(!legalCollapsed);
+            }}
+          >
+            <View style={styles.sectionHeaderWithChevron}>
+              <SectionHeader title="Legal" icon="document-text-outline" />
+              <Ionicons
+                name={legalCollapsed ? "chevron-down" : "chevron-up"}
+                size={20}
+                color={Colors.dark.tabIconDefault}
+                style={{ marginLeft: Spacing.sm }}
+              />
+            </View>
+          </Pressable>
+          {!legalCollapsed ? <>
           <View style={styles.card}>
             <Pressable
               style={styles.settingRow}
@@ -1119,11 +1271,29 @@ export default function SettingsScreen() {
               <Ionicons name="open-outline" size={20} color={Colors.dark.xpCyan} />
             </Pressable>
           </View>
+          </> : null}
         </View>
 
         {Platform.OS === "ios" ? (
           <View style={styles.section}>
-            <SectionHeader title="Apple Sign-In" icon="logo-apple" />
+            <Pressable
+              style={styles.sectionHeaderRow}
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                setAppleSignInCollapsed(!appleSignInCollapsed);
+              }}
+            >
+              <View style={styles.sectionHeaderWithChevron}>
+                <SectionHeader title="Apple Sign-In" icon="logo-apple" />
+                <Ionicons
+                  name={appleSignInCollapsed ? "chevron-down" : "chevron-up"}
+                  size={20}
+                  color={Colors.dark.tabIconDefault}
+                  style={{ marginLeft: Spacing.sm }}
+                />
+              </View>
+            </Pressable>
+            {!appleSignInCollapsed ? <>
             <View style={styles.card}>
               <View style={styles.settingRow}>
                 <View style={styles.settingInfo}>
@@ -1160,6 +1330,7 @@ export default function SettingsScreen() {
                 )}
               </View>
             </View>
+            </> : null}
           </View>
         ) : null}
 
