@@ -1823,7 +1823,7 @@ router.post("/api/delete-account-request", authLimiter, async (req: Request, res
   });
 
   // Admin endpoint to fix vacation attendance debts retroactively
-router.post("/api/admin/fix-vacation-debts", async (req: Request, res: Response) => {
+router.post("/api/admin/fix-vacation-debts", authMiddleware, requireRole("platform_owner"), async (req: Request, res: Response) => {
     try {
       console.log("[VacationDebtFix] Starting retroactive vacation debt cancellation...");
       
@@ -1873,7 +1873,7 @@ router.post("/api/admin/fix-vacation-debts", async (req: Request, res: Response)
 
 
   // Admin endpoint to recalculate V3 debt based on actual attendance (excluding vacation)
-router.post("/api/admin/recalculate-v3-debts", async (req: Request, res: Response) => {
+router.post("/api/admin/recalculate-v3-debts", authMiddleware, requireRole("platform_owner"), async (req: Request, res: Response) => {
     try {
       console.log("[V3DebtFix] Starting recalculation of V3 debts...");
       
@@ -1981,7 +1981,7 @@ router.post("/api/admin/recalculate-v3-debts", async (req: Request, res: Respons
 
 
   // Admin endpoint to subtract vacation sessions from V3 debts
-router.post("/api/admin/fix-vacation-v3-debts", async (req: Request, res: Response) => {
+router.post("/api/admin/fix-vacation-v3-debts", authMiddleware, requireRole("platform_owner"), async (req: Request, res: Response) => {
     try {
       console.log("[VacationV3Fix] Starting vacation debt adjustment...");
       
@@ -2080,7 +2080,7 @@ router.post("/api/admin/fix-vacation-v3-debts", async (req: Request, res: Respon
 
 
   // Admin endpoint to recalculate all player debts from scratch based on actual session attendance
-router.post("/api/admin/recalculate-all-debts", async (req: Request, res: Response) => {
+router.post("/api/admin/recalculate-all-debts", authMiddleware, requireRole("platform_owner"), async (req: Request, res: Response) => {
     try {
       console.log("[RecalculateDebts] Starting full recalculation of all player debts...");
       
