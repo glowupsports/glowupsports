@@ -833,7 +833,7 @@ function isBirthdayToday(dateOfBirth: string | Date | null): boolean {
 
       // Get academy timezone for proper time handling
       const academyData = await storage.getAcademy(academyId!);
-      const academyTimezone = academyData?.timezone || "Asia/Dubai";
+      const academyTimezone = academyData?.timezone || "Europe/Amsterdam";
 
       // Support both ISO timestamp format and separate date/time format
       let start: Date;

@@ -555,23 +555,31 @@ async function sendRemindersForSession(
 export async function processScheduledReminders(): Promise<void> {
   const now = new Date();
   const sixtyFiveMinutesFromNow = new Date(now.getTime() + 65 * 60 * 1000);
-  const thirtyFiveMinutesFromNow = new Date(now.getTime() + 35 * 60 * 1000);
 
   try {
-    const nowStr = now.toISOString().replace("T", " ").substring(0, 19);
-    const futureStr = sixtyFiveMinutesFromNow.toISOString().replace("T", " ").substring(0, 19);
-    console.log(`[SessionReminders] Checking window: ${nowStr} to ${futureStr}`);
+    // sessions.start_time is a naive UTC timestamp column; use explicit UTC-aware
+    // AT TIME ZONE conversion to force comparison in UTC regardless of DB session timezone
+    const nowUtc = now.toISOString();
+    const futureUtc = sixtyFiveMinutesFromNow.toISOString();
+    console.log(`[SessionReminders] Checking window: ${nowUtc} to ${futureUtc}`);
 
     const rawResult = await pool.query(
-      `SELECT * FROM sessions WHERE start_time >= $1::timestamp AND start_time <= $2::timestamp AND status = 'scheduled'`,
-      [nowStr, futureStr]
+      `SELECT s.*, a.timezone AS academy_timezone
+       FROM sessions s
+       LEFT JOIN academies a ON s.academy_id = a.id
+       WHERE (s.start_time AT TIME ZONE 'UTC') >= $1::timestamptz
+         AND (s.start_time AT TIME ZONE 'UTC') <= $2::timestamptz
+         AND s.status = 'scheduled'`,
+      [nowUtc, futureUtc]
     );
     const upcomingSessions = rawResult.rows;
 
-    console.log(`[SessionReminders] Found ${upcomingSessions.length} sessions in window (params: ${nowStr}, ${futureStr})`);
+    console.log(`[SessionReminders] Found ${upcomingSessions.length} sessions in window`);
     for (const s of upcomingSessions) {
       const startTime = s.start_time ? new Date(s.start_time) : s.startTime;
-      console.log(`[SessionReminders]   - ${s.id} starts ${startTime} type=${s.session_type || s.sessionType} level=${s.ball_level || s.ballLevel}`);
+      const minutesUntilPreview = (startTime.getTime() - now.getTime()) / (60 * 1000);
+      const academyTz = s.academy_timezone || "Europe/Amsterdam";
+      console.log(`[SessionReminders]   - ${s.id} start_time(UTC)=${startTime.toISOString()} academy_tz=${academyTz} minutesUntil=${minutesUntilPreview.toFixed(1)} type=${s.session_type || s.sessionType} level=${s.ball_level || s.ballLevel}`);
     }
 
     let sent1h = 0;
@@ -593,6 +601,8 @@ export async function processScheduledReminders(): Promise<void> {
         status: raw.status,
       };
       const minutesUntil = (session.startTime.getTime() - now.getTime()) / (60 * 1000);
+      const academyTz = raw.academy_timezone || "Europe/Amsterdam";
+      console.log(`[SessionReminders] Processing session ${session.id}: start_time(UTC)=${session.startTime.toISOString()} academy_tz=${academyTz} minutesUntil=${minutesUntil.toFixed(1)} 1hSent=${session.reminder1hSent} 30mSent=${session.reminder30mSent}`);
 
       if (minutesUntil <= 65 && minutesUntil > 35 && !session.reminder1hSent) {
         await sendRemindersForSession(session, "1h");

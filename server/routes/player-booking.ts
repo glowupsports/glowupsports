@@ -2779,7 +2779,7 @@ function toDubaiTime(utcDate: Date): Date {
       const coachIdToCheck = (req.query.coachId as string) || req.user!.coachId;
 
       // Get academy timezone for proper date filtering
-      let academyTimezone = "Asia/Dubai";
+      let academyTimezone = "Europe/Amsterdam";
       if (academyId) {
         try {
           const academy = await storage.getAcademy(academyId);

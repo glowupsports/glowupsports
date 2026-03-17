@@ -510,7 +510,7 @@ router.get("/availability", async (req: Request, res: Response) => {
        WHERE p.id = $1`,
       [playerId]
     );
-    const academyTimezone = playerResult.rows[0]?.timezone || "Asia/Dubai";
+    const academyTimezone = playerResult.rows[0]?.timezone || "Europe/Amsterdam";
 
     const getLocalHours = (utcDate: Date, tz: string): { hours: number; minutes: number } => {
       const parts = new Intl.DateTimeFormat("en-US", {

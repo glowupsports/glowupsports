@@ -371,7 +371,7 @@ function requirePlayerOrOwner(req: AuthenticatedRequest, res: Response, next: Ne
       const skippedWeeks: { week: number; reason: string }[] = [];
 
       const academy = await storage.getAcademy(academyId);
-      const academyTimezone = academy?.timezone || "Asia/Dubai";
+      const academyTimezone = academy?.timezone || "Europe/Amsterdam";
 
       const initialResolution = ensureResolvableLocalTime(seriesStartDate, startTime, academyTimezone);
       if (!initialResolution.ok) {

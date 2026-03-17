@@ -9781,7 +9781,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
         // Get academy timezone for proper time handling
         const academyData = await storage.getAcademy(academyId!);
-        const academyTimezone = academyData?.timezone || "Asia/Dubai";
+        const academyTimezone = academyData?.timezone || "Europe/Amsterdam";
 
         // Validate that the start time is resolvable in the academy timezone using consolidated helper
         const initialResolution = ensureResolvableLocalTime(
@@ -11145,7 +11145,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
         // Get academy timezone for proper time handling
         const academy = await storage.getAcademy(academyId);
-        const academyTimezone = academy?.timezone || "Asia/Dubai";
+        const academyTimezone = academy?.timezone || "Europe/Amsterdam";
 
         // FLEXIBLE SERIES: Create sessions for each date in flexibleDates
         if (isFlexible && flexibleDates && flexibleDates.length > 0) {
@@ -12238,7 +12238,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
         // Get academy timezone
         const academy = await storage.getAcademy(academyId);
-        const academyTimezone = academy?.timezone || "Asia/Dubai";
+        const academyTimezone = academy?.timezone || "Europe/Amsterdam";
 
         // Get all active series for this coach
         const allSeries = await storage.getCoachingSeriesByCoach(
