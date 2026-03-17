@@ -45382,6 +45382,7 @@ import rateLimit from "express-rate-limit";
 init_schema();
 import { eq as eq26, and as and25, or as or12, desc as desc21, asc as asc7, sql as sql25, gte as gte14, inArray as inArray11, ne as ne5, isNull as isNull6, count as count5, lte as lte6 } from "drizzle-orm";
 init_pushNotifications();
+init_emailService();
 var router20 = Router19();
 var authLimiter = rateLimit({
   windowMs: 15 * 60 * 1e3,
@@ -47704,6 +47705,15 @@ router20.delete("/api/player/me/account", authMiddlewareWithFreshData, async (re
     if (req2.user?.role !== "player") {
       return res.status(403).json({ error: "Only player accounts can be deleted via this endpoint" });
     }
+    let playerEmailForNotification = null;
+    let playerNameForNotification = "Player";
+    if (playerId) {
+      const [playerRecord] = await db.select({ email: players.email, name: players.name }).from(players).where(eq26(players.id, playerId));
+      if (playerRecord) {
+        playerEmailForNotification = playerRecord.email;
+        playerNameForNotification = playerRecord.name;
+      }
+    }
     if (playerId) {
       await db.update(players).set({
         name: "Deleted User",
@@ -47714,13 +47724,37 @@ router20.delete("/api/player/me/account", authMiddlewareWithFreshData, async (re
         profilePhotoUrl: null
       }).where(eq26(players.id, playerId));
     }
+    const deletedAt = /* @__PURE__ */ new Date();
     await db.update(users).set({
       deleted: true,
-      deletedAt: /* @__PURE__ */ new Date(),
-      email: `deleted_${userId}@deleted.invalid`,
+      deletedAt,
+      email: `deleted_${userId}@glowupsports.invalid`,
       appleId: null
     }).where(eq26(users.id, userId));
-    console.log(`[AccountDeletion] User ${userId} (player ${playerId}) account deleted at ${(/* @__PURE__ */ new Date()).toISOString()}`);
+    console.log(`[AccountDeletion] User ${userId} (player ${playerId}) account deleted at ${deletedAt.toISOString()}`);
+    if (playerEmailForNotification) {
+      sendEmail({
+        to: playerEmailForNotification,
+        subject: "Your Glow Up Sports account has been deleted",
+        html: `
+          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+            <h2 style="color: #C8FF3D;">Account Deletion Confirmed</h2>
+            <p>Hi ${playerNameForNotification},</p>
+            <p>Your Glow Up Sports account has been permanently deleted. All your personal data, including your profile, progress, XP, and match history, has been removed from our systems.</p>
+            <p>If you believe this was done in error or have any questions, please contact us at <a href="mailto:support@glowupsports.com">support@glowupsports.com</a>.</p>
+            <p>Thank you for being part of the Glow Up Sports community.</p>
+            <p style="color: #666; font-size: 12px; margin-top: 20px;">This is an automated message. Please do not reply to this email.</p>
+          </div>
+        `,
+        text: `Hi ${playerNameForNotification},
+
+Your Glow Up Sports account has been permanently deleted.
+
+If you have questions, contact support@glowupsports.com.`
+      }).catch((emailErr) => {
+        console.error("[AccountDeletion] Failed to send confirmation email:", emailErr);
+      });
+    }
     res.json({ success: true, message: "Account successfully deleted" });
   } catch (error) {
     console.error("[AccountDeletion] Error:", error);

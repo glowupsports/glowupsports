@@ -1249,7 +1249,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(401).json({ error: "Invalid credentials" });
       }
 
-      if ((user as any).deleted === true) {
+      if (user.deleted === true) {
         return res.status(401).json({ error: "ACCOUNT_DELETED", message: "This account has been deleted." });
       }
 
@@ -1330,7 +1330,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
 
-      if ((existingUser as any).deleted === true) {
+      if (existingUser.deleted === true) {
         return res.status(401).json({ error: "ACCOUNT_DELETED", message: "This account has been deleted." });
       }
 

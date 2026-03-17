@@ -44,6 +44,7 @@ import {
   type JWTPayload,
 } from "../auth";
 import { sendBadgeEarnedNotification } from "../pushNotifications";
+import { sendEmail } from "../emailService";
 
 const router = Router();
 
@@ -3149,7 +3150,21 @@ router.delete("/api/player/me/account", authMiddleware, async (req: AuthRequest,
       return res.status(403).json({ error: "Only player accounts can be deleted via this endpoint" });
     }
 
-    // Anonymize player PII if a player profile exists
+    // Capture PII before anonymizing for the confirmation email
+    let playerEmailForNotification: string | null = null;
+    let playerNameForNotification = "Player";
+
+    if (playerId) {
+      const [playerRecord] = await db.select({ email: players.email, name: players.name })
+        .from(players)
+        .where(eq(players.id, playerId));
+      if (playerRecord) {
+        playerEmailForNotification = playerRecord.email;
+        playerNameForNotification = playerRecord.name;
+      }
+    }
+
+    // Anonymize player PII
     if (playerId) {
       await db.update(players)
         .set({
@@ -3163,17 +3178,39 @@ router.delete("/api/player/me/account", authMiddleware, async (req: AuthRequest,
         .where(eq(players.id, playerId));
     }
 
-    // Mark the user account as deleted (soft delete)
+    // Soft-delete the user account (email must stay non-null per schema; use a marker value)
+    const deletedAt = new Date();
     await db.update(users)
       .set({
         deleted: true,
-        deletedAt: new Date(),
-        email: `deleted_${userId}@deleted.invalid`,
+        deletedAt,
+        email: `deleted_${userId}@glowupsports.invalid`,
         appleId: null,
-      } as any)
+      })
       .where(eq(users.id, userId));
 
-    console.log(`[AccountDeletion] User ${userId} (player ${playerId}) account deleted at ${new Date().toISOString()}`);
+    console.log(`[AccountDeletion] User ${userId} (player ${playerId}) account deleted at ${deletedAt.toISOString()}`);
+
+    // Non-blocking: send confirmation email to the player
+    if (playerEmailForNotification) {
+      sendEmail({
+        to: playerEmailForNotification,
+        subject: "Your Glow Up Sports account has been deleted",
+        html: `
+          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+            <h2 style="color: #C8FF3D;">Account Deletion Confirmed</h2>
+            <p>Hi ${playerNameForNotification},</p>
+            <p>Your Glow Up Sports account has been permanently deleted. All your personal data, including your profile, progress, XP, and match history, has been removed from our systems.</p>
+            <p>If you believe this was done in error or have any questions, please contact us at <a href="mailto:support@glowupsports.com">support@glowupsports.com</a>.</p>
+            <p>Thank you for being part of the Glow Up Sports community.</p>
+            <p style="color: #666; font-size: 12px; margin-top: 20px;">This is an automated message. Please do not reply to this email.</p>
+          </div>
+        `,
+        text: `Hi ${playerNameForNotification},\n\nYour Glow Up Sports account has been permanently deleted.\n\nIf you have questions, contact support@glowupsports.com.`,
+      }).catch(emailErr => {
+        console.error("[AccountDeletion] Failed to send confirmation email:", emailErr);
+      });
+    }
 
     res.json({ success: true, message: "Account successfully deleted" });
   } catch (error) {

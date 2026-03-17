@@ -277,9 +277,20 @@ export default function PlayerSettingsScreen() {
                     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
                     try {
                       await apiRequest("DELETE", "/api/player/me/account", undefined);
-                      setTimeout(() => {
-                        logout();
-                      }, 350);
+                      Alert.alert(
+                        "Account Deleted",
+                        "Your account has been permanently deleted. A confirmation has been sent to your email address.",
+                        [
+                          {
+                            text: "OK",
+                            onPress: () => {
+                              setTimeout(() => {
+                                logout();
+                              }, 350);
+                            },
+                          },
+                        ]
+                      );
                     } catch (error: any) {
                       showAlert("Error", error?.message || "Failed to delete account. Please contact support@glowupsports.com");
                     } finally {
