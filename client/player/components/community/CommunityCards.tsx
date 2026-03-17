@@ -4,6 +4,7 @@ import {
   StyleSheet,
   Pressable,
   ScrollView,
+  Alert,
 } from "react-native";
 import { Image } from "expo-image";
 import { useVideoPlayer, VideoView } from "expo-video";
@@ -12,7 +13,8 @@ import * as Haptics from "expo-haptics";
 import Animated, { FadeIn, FadeInDown } from "react-native-reanimated";
 import { Colors, Spacing, BorderRadius } from "@/constants/theme";
 import { ThemedText } from "@/components/ThemedText";
-import { getApiUrl } from "@/lib/query-client";
+import { getApiUrl, apiRequest } from "@/lib/query-client";
+import { useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import {
   type FeedFilter,
@@ -60,9 +62,72 @@ export function MomentCard({
   currentUserId?: string;
 }) {
   const { t } = useTranslation();
+  const queryClient = useQueryClient();
   const [showCheerPicker, setShowCheerPicker] = useState(false);
-  const [showMenu, setShowMenu] = useState(false);
   const isOwnPost = currentUserId && post.authorId === currentUserId;
+
+  const handleMoreOptions = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    const authorName = post.author.name || post.author.username || "this user";
+    Alert.alert(
+      "Post Options",
+      undefined,
+      [
+        {
+          text: "Report Post",
+          style: "destructive",
+          onPress: () => {
+            Alert.alert(
+              "Report Post",
+              "Why are you reporting this post?",
+              [
+                { text: "Inappropriate Content", onPress: () => submitReport("Inappropriate Content") },
+                { text: "Spam", onPress: () => submitReport("Spam") },
+                { text: "Harassment", onPress: () => submitReport("Harassment") },
+                { text: "Other", onPress: () => submitReport("Other") },
+                { text: "Cancel", style: "cancel" },
+              ]
+            );
+          },
+        },
+        {
+          text: `Block ${authorName}`,
+          style: "destructive",
+          onPress: () => {
+            Alert.alert(
+              "Block User",
+              `Block ${authorName}? Their posts will no longer appear in your feed.`,
+              [
+                {
+                  text: "Block",
+                  style: "destructive",
+                  onPress: async () => {
+                    try {
+                      await apiRequest("POST", `/api/social/users/${post.authorId}/block`, {});
+                      queryClient.invalidateQueries({ queryKey: ["/api/social/feed"] });
+                    } catch {
+                      Alert.alert("Error", "Failed to block user. Please try again.");
+                    }
+                  },
+                },
+                { text: "Cancel", style: "cancel" },
+              ]
+            );
+          },
+        },
+        { text: "Cancel", style: "cancel" },
+      ]
+    );
+  };
+
+  const submitReport = async (reason: string) => {
+    try {
+      await apiRequest("POST", `/api/social/posts/${post.id}/report`, { reason });
+      Alert.alert("Report Submitted", "Thank you for helping keep the community safe.");
+    } catch {
+      Alert.alert("Error", "Failed to submit report. Please try again.");
+    }
+  };
 
   const contextLabel = useMemo(() => {
     switch (post.contextType) {
@@ -218,7 +283,15 @@ export function MomentCard({
               >
                 <Ionicons name="trash-outline" size={18} color={Colors.dark.error} />
               </Pressable>
-            ) : null}
+            ) : (
+              <Pressable
+                style={styles.moreButton}
+                onPress={handleMoreOptions}
+                accessibilityLabel="More options"
+              >
+                <Ionicons name="ellipsis-horizontal" size={18} color={Colors.dark.textMuted} />
+              </Pressable>
+            )}
           </View>
 
           {showCheerPicker ? (
@@ -578,6 +651,10 @@ const styles = StyleSheet.create({
     padding: 8,
   },
   deleteButton: {
+    padding: 8,
+    marginLeft: "auto",
+  },
+  moreButton: {
     padding: 8,
     marginLeft: "auto",
   },
