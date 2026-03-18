@@ -140,6 +140,17 @@ export default function ProviderBookingDetailScreen() {
   const orderId: string = route.params?.orderId;
   const [completionToast, setCompletionToast] = useState<CompletionToast | null>(null);
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const toastQueue = useRef<CompletionToast[]>([]);
+
+  const showNextToast = (onAllDone: () => void) => {
+    const next = toastQueue.current.shift();
+    if (!next) { onAllDone(); return; }
+    setCompletionToast(next);
+    toastTimer.current = setTimeout(() => {
+      setCompletionToast(null);
+      setTimeout(() => showNextToast(onAllDone), 300);
+    }, 2500);
+  };
 
   useEffect(() => {
     return () => { if (toastTimer.current) clearTimeout(toastTimer.current); };
@@ -161,17 +172,24 @@ export default function ProviderBookingDetailScreen() {
       queryClient.invalidateQueries({ queryKey: ["/api/provider/me/bookings", { date: "today" }] });
       queryClient.invalidateQueries({ queryKey: ["/api/provider/stats"] });
       if (status === "completed" && data && Number(data.xpAwarded) > 0) {
-        setCompletionToast({
-          xpAwarded: Number(data.xpAwarded),
-          leveledUp: Boolean(data.leveledUp),
-          newLevel: Number(data.newLevel),
-          newRank: String(data.newRank ?? ""),
-          newBadges: Array.isArray(data.newBadges) ? data.newBadges : [],
-        });
-        toastTimer.current = setTimeout(() => {
-          setCompletionToast(null);
-          setTimeout(() => navigation.goBack(), 200);
-        }, 3000);
+        const xpAwarded = Number(data.xpAwarded);
+        const didLevelUp = Boolean(data.leveledUp);
+        const newLevel = Number(data.newLevel);
+        const newRank = String(data.newRank ?? "");
+        const newBadges: string[] = Array.isArray(data.newBadges) ? data.newBadges : [];
+
+        toastQueue.current = [];
+        if (didLevelUp) {
+          toastQueue.current.push({ xpAwarded, leveledUp: true, newLevel, newRank, newBadges: [] });
+        }
+        if (newBadges.length > 0) {
+          toastQueue.current.push({ xpAwarded: didLevelUp ? 0 : xpAwarded, leveledUp: false, newLevel, newRank, newBadges });
+        }
+        if (toastQueue.current.length === 0) {
+          toastQueue.current.push({ xpAwarded, leveledUp: false, newLevel, newRank, newBadges: [] });
+        }
+
+        showNextToast(() => setTimeout(() => navigation.goBack(), 200));
       } else {
         setTimeout(() => navigation.goBack(), 350);
       }

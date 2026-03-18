@@ -19,7 +19,9 @@ export function getLocalYesterdayString(timezone = APP_TIMEZONE): string {
   return getLocalDateString(yesterday, timezone);
 }
 
-export type GamificationDb = typeof defaultDb;
+export type GamificationDb =
+  | typeof defaultDb
+  | Parameters<Parameters<typeof defaultDb.transaction>[0]>[0];
 
 export const XP_AWARDS = {
   BOOKING_COMPLETED: 10,

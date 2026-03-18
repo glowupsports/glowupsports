@@ -1293,32 +1293,30 @@ router.patch("/provider/bookings/:orderId/status", authMiddleware, requireServic
           .set({ totalBookings: sql`${serviceProviders.totalBookings} + 1`, updatedAt: new Date() })
           .where(eq(serviceProviders.id, providerRecord.id));
 
-        const txDb = tx as unknown as typeof db;
-
         if (prevTotalBookings === 0) {
-          const result = await awardXP(txDb, providerRecord.id, XP_AWARDS.FIRST_BOOKING, "first_booking");
+          const result = await awardXP(tx, providerRecord.id, XP_AWARDS.FIRST_BOOKING, "first_booking");
           xpAwarded += XP_AWARDS.FIRST_BOOKING;
           leveledUp = result.leveledUp;
           newLevel = result.newLevel;
         }
 
         if (prevTotalBookings + 1 === 100) {
-          const result = await awardXP(txDb, providerRecord.id, XP_AWARDS.CENTURY_BOOKINGS, "century_bookings");
+          const result = await awardXP(tx, providerRecord.id, XP_AWARDS.CENTURY_BOOKINGS, "century_bookings");
           xpAwarded += XP_AWARDS.CENTURY_BOOKINGS;
           if (result.leveledUp) { leveledUp = true; newLevel = result.newLevel; }
         }
 
-        const bookingResult = await awardXP(txDb, providerRecord.id, XP_AWARDS.BOOKING_COMPLETED, "booking_completed");
+        const bookingResult = await awardXP(tx, providerRecord.id, XP_AWARDS.BOOKING_COMPLETED, "booking_completed");
         xpAwarded += XP_AWARDS.BOOKING_COMPLETED;
         if (bookingResult.leveledUp) { leveledUp = true; newLevel = bookingResult.newLevel; }
 
-        const streakResult = await updateStreak(txDb, providerRecord.id);
+        const streakResult = await updateStreak(tx, providerRecord.id);
         if (streakResult.milestoneReached === 7) {
-          const sr = await awardXP(txDb, providerRecord.id, XP_AWARDS.STREAK_7_DAY, "streak_7_day");
+          const sr = await awardXP(tx, providerRecord.id, XP_AWARDS.STREAK_7_DAY, "streak_7_day");
           xpAwarded += XP_AWARDS.STREAK_7_DAY;
           if (sr.leveledUp) { leveledUp = true; newLevel = sr.newLevel; }
         } else if (streakResult.milestoneReached === 30) {
-          const sr = await awardXP(txDb, providerRecord.id, XP_AWARDS.STREAK_30_DAY, "streak_30_day");
+          const sr = await awardXP(tx, providerRecord.id, XP_AWARDS.STREAK_30_DAY, "streak_30_day");
           xpAwarded += XP_AWARDS.STREAK_30_DAY;
           if (sr.leveledUp) { leveledUp = true; newLevel = sr.newLevel; }
         }
@@ -1328,7 +1326,7 @@ router.patch("/provider/bookings/:orderId/status", authMiddleware, requireServic
 
         const currentRating = Number(refreshed?.rating ?? 0);
 
-        newBadges = await checkAndAwardBadges(txDb, providerRecord.id, {
+        newBadges = await checkAndAwardBadges(tx, providerRecord.id, {
           totalBookings: Number(refreshed?.totalBookings ?? prevTotalBookings + 1),
           rating: currentRating,
           streakCurrent: streakResult.streakCurrent,
@@ -1336,12 +1334,12 @@ router.patch("/provider/bookings/:orderId/status", authMiddleware, requireServic
         });
 
         if (newBadges.includes("five_star")) {
-          const fsr = await awardXP(txDb, providerRecord.id, XP_AWARDS.FIVE_STAR_RATING, "five_star_rating");
+          const fsr = await awardXP(tx, providerRecord.id, XP_AWARDS.FIVE_STAR_RATING, "five_star_rating");
           xpAwarded += XP_AWARDS.FIVE_STAR_RATING;
           if (fsr.leveledUp) {
             leveledUp = true;
             newLevel = fsr.newLevel;
-            const secondPassBadges = await checkAndAwardBadges(txDb, providerRecord.id, {
+            const secondPassBadges = await checkAndAwardBadges(tx, providerRecord.id, {
               totalBookings: Number(refreshed?.totalBookings ?? prevTotalBookings + 1),
               rating: currentRating,
               streakCurrent: streakResult.streakCurrent,
