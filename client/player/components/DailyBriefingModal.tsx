@@ -567,7 +567,6 @@ function CoachNotesContent({
       showsVerticalScrollIndicator={false}
     >
       <Text style={s2.eyebrow}>COACH NOTES</Text>
-      <Text style={s2.headline}>Your intel</Text>
 
       {/* Session today highlight row */}
       {sessionToday && nextSession ? (
@@ -642,14 +641,6 @@ function CoachNotesContent({
         </View>
       ) : null}
 
-      {/* All clear state — only after load */}
-      {!feedbackLoading && !hasContent && !activeQuest ? (
-        <View style={s2.emptyWrap}>
-          <Ionicons name="checkmark-circle-outline" size={44} color={GlowColors.primary} />
-          <Text style={s2.emptyTitle}>All clear</Text>
-          <Text style={s2.emptyText}>No pending feedback — keep grinding</Text>
-        </View>
-      ) : null}
     </ScrollView>
   );
 }
@@ -695,9 +686,6 @@ function TodaysOpportunitiesContent({
   visible: boolean;
   isGuest: boolean;
 }) {
-  const today = new Date();
-  const isWeekend = today.getDay() === 0 || today.getDay() === 6;
-
   const { data: sessionsData, isLoading: sessionsLoading } = useQuery<OpenSession[]>({
     queryKey: ["/api/play/sessions"],
     enabled: visible && !isGuest,
@@ -717,12 +705,22 @@ function TodaysOpportunitiesContent({
   });
 
   const isLoading = sessionsLoading || challengesLoading || nearbyLoading;
-  const openSessions = (sessionsData ?? []).slice(0, 2);
+
+  const todayStart = new Date();
+  todayStart.setHours(0, 0, 0, 0);
+  const todayEnd = new Date();
+  todayEnd.setHours(23, 59, 59, 999);
+  const openSessions = (sessionsData ?? []).filter(s => {
+    const d = new Date(s.startTime);
+    return d >= todayStart && d <= todayEnd;
+  }).slice(0, 2);
+
   const pendingChallenges = (challengesData ?? []).filter(
     (c) => c.status === "pending" && c.challengerId !== player?.id
   );
-  const readyPlayers = (nearbyData ?? []).slice(0, 4);
-  const isEmpty = !isLoading && openSessions.length === 0 && pendingChallenges.length === 0 && readyPlayers.length === 0;
+  const allReadyPlayers = nearbyData ?? [];
+  const readyPlayers = allReadyPlayers.slice(0, 4);
+  const isEmpty = !isLoading && openSessions.length === 0 && pendingChallenges.length === 0 && allReadyPlayers.length === 0;
 
   return (
     <ScrollView
@@ -738,13 +736,6 @@ function TodaysOpportunitiesContent({
         <>
           <Text style={s3.eyebrow}>TODAY</Text>
           <Text style={s3.headline}>What's on</Text>
-
-          {isWeekend ? (
-            <View style={s3.xpPill}>
-              <Ionicons name="flash" size={13} color="#FFD700" />
-              <Text style={s3.xpPillText}>1.5x WEEKEND XP ACTIVE</Text>
-            </View>
-          ) : null}
 
           {/* Open Sessions — render after load */}
           {!sessionsLoading && openSessions.length > 0 ? (
@@ -826,7 +817,7 @@ function TodaysOpportunitiesContent({
                   );
                 })}
               </View>
-              <Text style={s3.playersCount}>{`${readyPlayers.length} players open to play`}</Text>
+              <Text style={s3.playersCount}>{`${allReadyPlayers.length} players open to play`}</Text>
             </View>
           ) : null}
         </>
@@ -1321,21 +1312,6 @@ const s2 = StyleSheet.create({
     fontSize: 11,
     color: "rgba(255,255,255,0.4)",
   },
-  emptyWrap: {
-    alignItems: "center",
-    gap: 10,
-    paddingVertical: 32,
-  },
-  emptyTitle: {
-    fontSize: 18,
-    fontWeight: "700",
-    color: "#FFFFFF",
-  },
-  emptyText: {
-    fontSize: 13,
-    color: Colors.dark.textSubtle,
-    textAlign: "center",
-  },
 });
 
 // Card 3 styles
@@ -1359,24 +1335,6 @@ const s3 = StyleSheet.create({
     color: "#FFFFFF",
     letterSpacing: -0.5,
     marginBottom: 4,
-  },
-  xpPill: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-    alignSelf: "flex-start",
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: BorderRadius.full,
-    backgroundColor: "rgba(255,215,0,0.12)",
-    borderWidth: 1,
-    borderColor: "rgba(255,215,0,0.2)",
-  },
-  xpPillText: {
-    fontSize: 11,
-    fontWeight: "700",
-    color: "#FFD700",
-    letterSpacing: 0.5,
   },
   section: {
     gap: 8,
