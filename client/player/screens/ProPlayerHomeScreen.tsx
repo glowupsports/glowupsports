@@ -1,6 +1,6 @@
 import React, { useCallback, useState, useEffect, useMemo, useRef } from "react";
 import { useTranslation } from "react-i18next";
-import { View, Text, StyleSheet, ScrollView, ActivityIndicator, RefreshControl, Pressable } from "react-native";
+import { View, Text, StyleSheet, ScrollView, ActivityIndicator, RefreshControl, Pressable, DimensionValue } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useFocusEffect, useNavigation } from "@react-navigation/native";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -78,8 +78,13 @@ interface DashboardData {
   isFreePlayer?: boolean;
 }
 
+function toIoniconName(name: string | null | undefined, fallback: keyof typeof Ionicons.glyphMap = "star"): keyof typeof Ionicons.glyphMap {
+  if (!name) return fallback;
+  return name as keyof typeof Ionicons.glyphMap;
+}
+
 type PlayStyleKey = "baseline_warrior" | "net_ninja" | "serve_machine" | "all_court_ace" | "counter_puncher" | "tactical_mastermind";
-const PLAY_STYLE_META: Record<PlayStyleKey, { name: string; color: string; icon: string }> = {
+const PLAY_STYLE_META: Record<PlayStyleKey, { name: string; color: string; icon: keyof typeof Ionicons.glyphMap }> = {
   baseline_warrior: { name: "Baseline Warrior", color: "#C8FF3D", icon: "tennisball" },
   net_ninja: { name: "Net Ninja", color: "#00E5FF", icon: "flash" },
   serve_machine: { name: "Serve Machine", color: "#FF8C00", icon: "rocket" },
@@ -100,7 +105,7 @@ function WelcomeHeroRow({ playerName, playStyle }: { playerName: string; playSty
       </View>
       {archetype ? (
         <View style={[hStyles.archetypePill, { borderColor: archetype.color + "50", backgroundColor: archetype.color + "12" }]}>
-          <Ionicons name={archetype.icon as any} size={12} color={archetype.color} />
+          <Ionicons name={archetype.icon} size={12} color={archetype.color} />
           <Text style={[hStyles.archetypePillText, { color: archetype.color }]}>{archetype.name}</Text>
         </View>
       ) : null}
@@ -187,7 +192,7 @@ function ActiveQuestCard({ quest, questType, onViewAll }: { quest: Quest | null;
     <Pressable style={hStyles.questCard} onPress={onViewAll}>
       <View style={hStyles.questCardHeader}>
         <View style={[hStyles.questIconBg, { backgroundColor: (quest.iconColor || GlowColors.primary) + "18" }]}>
-          <Ionicons name={(quest.iconName || "star") as any} size={16} color={quest.iconColor || GlowColors.primary} />
+          <Ionicons name={toIoniconName(quest.iconName, "star")} size={16} color={quest.iconColor || GlowColors.primary} />
         </View>
         <View style={hStyles.questInfoBlock}>
           <View style={hStyles.questTopRow}>
@@ -202,14 +207,14 @@ function ActiveQuestCard({ quest, questType, onViewAll }: { quest: Quest | null;
           </View>
         </View>
         <Pressable style={hStyles.viewAllLink} onPress={onViewAll} hitSlop={8}>
-          <Text style={hStyles.viewAllText}>All</Text>
+          <Text style={hStyles.viewAllText}>View All</Text>
           <Ionicons name="chevron-forward" size={11} color={GlowColors.primary} />
         </Pressable>
       </View>
       <View style={hStyles.questProgressWrap}>
         <View style={hStyles.questProgressBar}>
           <View style={[hStyles.questProgressFill, {
-            width: `${Math.max(progress * 100, 2)}%` as any,
+            width: `${Math.max(progress * 100, 2)}%` as DimensionValue,
             backgroundColor: quest.iconColor || GlowColors.primary,
           }]} />
         </View>
