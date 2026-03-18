@@ -7,6 +7,7 @@ import PlayerNavigator from "@/player/navigation/PlayerNavigator";
 import AdminNavigator from "@/admin/navigation/AdminNavigator";
 import OwnerNavigator from "@/owner/navigation/OwnerNavigator";
 import PlatformNavigator from "@/platform/navigation/PlatformNavigator";
+import ProviderNavigator from "@/provider/navigation/ProviderNavigator";
 import LoginScreen from "@/coach/screens/LoginScreen";
 import BootScreen from "@/screens/BootScreen";
 import { useScreenOptions } from "@/hooks/useScreenOptions";
@@ -22,6 +23,7 @@ export type RootStackParamList = {
   Admin: undefined;
   AcademyOwner: undefined;
   Platform: undefined;
+  Provider: undefined;
   Login: undefined;
 };
 
@@ -63,6 +65,7 @@ function useNavigationEffect(
         case "academy_owner": targetRoute = "AcademyOwner"; break;
         case "admin": targetRoute = "Admin"; break;
         case "coach": targetRoute = "Coach"; break;
+        case "service_provider": targetRoute = "Provider"; break;
         case "player":
         default: targetRoute = "Player"; break;
       }
@@ -115,6 +118,7 @@ export default function RootStackNavigator({ navigationRef }: { navigationRef?: 
       case "academy_owner": return "AcademyOwner";
       case "admin": return "Admin";
       case "coach": return "Coach";
+      case "service_provider": return "Provider";
       case "player":
       default: return "Player";
     }
@@ -159,6 +163,11 @@ export default function RootStackNavigator({ navigationRef }: { navigationRef?: 
       <Stack.Screen
         name="Player"
         component={PlayerNavigator}
+        options={{ headerShown: false }}
+      />
+      <Stack.Screen
+        name="Provider"
+        component={ProviderNavigator}
         options={{ headerShown: false }}
       />
     </Stack.Navigator>

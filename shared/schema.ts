@@ -106,7 +106,7 @@ export const registerSchema = z.object({
   password: z.string().min(8),
   name: z.string().min(2),
   academyName: z.string().min(2).optional(),
-  role: z.enum(["platform_owner", "academy_owner", "coach", "assistant", "player"]).default("coach"),
+  role: z.enum(["platform_owner", "academy_owner", "coach", "assistant", "player", "service_provider"]).default("coach"),
 });
 
 export type InsertUser = z.infer<typeof insertUserSchema>;
@@ -4140,6 +4140,9 @@ export const shopOrders = pgTable("shop_orders", {
   // For services: booking info
   scheduledAt: timestamp("scheduled_at"),
   
+  // Service provider assignment
+  assignedProviderId: varchar("assigned_provider_id"),
+  
   // Audit
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
@@ -4215,6 +4218,37 @@ export const shopWishlist = pgTable("shop_wishlist", {
 export const insertShopWishlistSchema = createInsertSchema(shopWishlist).omit({ id: true, createdAt: true });
 export type InsertShopWishlist = z.infer<typeof insertShopWishlistSchema>;
 export type ShopWishlist = typeof shopWishlist.$inferSelect;
+
+// Service Providers (stringers, massage therapists, video analysts, etc.)
+export const serviceProviders = pgTable("service_providers", {
+  id: varchar("id")
+    .primaryKey()
+    .default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id).notNull().unique(),
+  academyId: varchar("academy_id").references(() => academies.id).notNull(),
+
+  displayName: text("display_name").notNull(),
+  bio: text("bio"),
+  profilePhotoUrl: text("profile_photo_url"),
+  phone: text("phone"),
+
+  specializations: jsonb("specializations").$type<string[]>().default([]),
+  serviceTypes: jsonb("service_types").$type<string[]>().default([]),
+
+  isActive: boolean("is_active").default(true),
+  rating: numeric("rating", { precision: 3, scale: 2 }).default("0"),
+  totalBookings: integer("total_bookings").default(0),
+
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("service_providers_academy_idx").on(table.academyId),
+  index("service_providers_user_idx").on(table.userId),
+]);
+
+export const insertServiceProviderSchema = createInsertSchema(serviceProviders).omit({ id: true, createdAt: true, updatedAt: true });
+export type InsertServiceProvider = z.infer<typeof insertServiceProviderSchema>;
+export type ServiceProvider = typeof serviceProviders.$inferSelect;
 
 // ==================== COMMUNITY MARKETPLACE (C2C) ====================
 

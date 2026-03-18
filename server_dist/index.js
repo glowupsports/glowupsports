@@ -226,6 +226,7 @@ __export(schema_exports, {
   insertScheduledNotificationSchema: () => insertScheduledNotificationSchema,
   insertSellerProfileSchema: () => insertSellerProfileSchema,
   insertSeriesPlayerSchema: () => insertSeriesPlayerSchema,
+  insertServiceProviderSchema: () => insertServiceProviderSchema,
   insertSessionFeedbackSchema: () => insertSessionFeedbackSchema,
   insertSessionPlanSchema: () => insertSessionPlanSchema,
   insertSessionPlayerSchema: () => insertSessionPlayerSchema,
@@ -355,6 +356,7 @@ __export(schema_exports, {
   scheduledNotifications: () => scheduledNotifications,
   sellerProfiles: () => sellerProfiles,
   seriesPlayers: () => seriesPlayers,
+  serviceProviders: () => serviceProviders,
   sessionFeedback: () => sessionFeedback,
   sessionPlans: () => sessionPlans,
   sessionPlayers: () => sessionPlayers,
@@ -409,7 +411,7 @@ function decomposeLevel(compositeLevel) {
   const skillLevel = (clamped - 1) % 3 + 1;
   return { ballLevel: youthBallStages[stageIndex], skillLevel };
 }
-var users, insertUserSchema, loginSchema, usernameSchema, childTshirtSizes, adultTshirtSizes, tshirtSizes, playerRegisterSchema, coachInviteRegisterSchema, registerSchema, academies, insertAcademySchema, academyApplications, insertAcademyApplicationSchema, academyApplicationInputSchema, academyOwnerProfiles, insertAcademyOwnerProfileSchema, invites, insertInviteSchema, joinRequests, insertJoinRequestSchema, joinRequestInputSchema, academyTransferRequests, insertAcademyTransferRequestSchema, transferRequestInputSchema, coachInvitations, insertCoachInvitationSchema, coachInvitationInputSchema, coaches, insertCoachSchema, coachFreelanceProfiles, insertCoachFreelanceProfileSchema, locations, insertLocationSchema, locationTravelTimes, insertLocationTravelTimeSchema, courts, insertCourtSchema, courtAvailability, insertCourtAvailabilitySchema, courtBookings, insertCourtBookingSchema, bookingInvites, insertBookingInviteSchema, bookingInviteGuests, insertBookingInviteGuestSchema, openMatches, insertOpenMatchSchema, openMatchSlots, insertOpenMatchSlotSchema, matchRequests, insertMatchRequestSchema, playerBookingPreferences, insertPlayerBookingPreferencesSchema, courtAvailabilitySnapshots, insertCourtAvailabilitySnapshotSchema, players, insertPlayerSchema, updatePlayerSchema, youthBallStages, lessonGroups, insertLessonGroupSchema, lessonGroupMembers, insertLessonGroupMemberSchema, playerLevelEvents, insertPlayerLevelEventSchema, playerInvites, insertPlayerInviteSchema, playerMatches, insertPlayerMatchSchema, adultGlowMatches, insertAdultGlowMatchSchema, adultSkillAssessments, insertAdultSkillAssessmentSchema, playerConnections, packageTemplates, insertPackageTemplateSchema, packages, insertPackageSchema, playerCreditPackages, sessions, insertSessionSchema, coachingSeries, insertCoachingSeriesSchema, seriesPlayers, insertSeriesPlayerSchema, recurringSeries, insertRecurringSeriesSchema, sessionPlayers, insertSessionPlayerSchema, sessionWaitlist2, insertSessionWaitlistSchema, squads, insertSquadSchema, squadMembers, insertSquadMemberSchema, playerSessionCancellations, insertPlayerSessionCancellationSchema, playerHolidays, insertPlayerHolidaySchema, sessionFeedback, insertSessionFeedbackSchema, inSessionFeedback, insertInSessionFeedbackSchema, auditLogs, insertAuditLogSchema, platformConfig, insertPlatformConfigSchema, offlineQueue, insertOfflineQueueSchema, playerNotes, insertPlayerNoteSchema, playerProgress, insertPlayerProgressSchema, sessionTemplates, insertSessionTemplateSchema, coachNotifications, insertCoachNotificationSchema, skillDomains2, insertSkillDomainSchema, playerSkillState, insertPlayerSkillStateSchema, sessionSkillObservations, insertSessionSkillObservationSchema, levelRequirements, insertLevelRequirementSchema, coachStatsRollup, insertCoachStatsRollupSchema, playerProgressFlags, insertPlayerProgressFlagSchema, domainAssessments, insertDomainAssessmentSchema, xpTransactions2, insertXpTransactionSchema, coachXpTransactions2, insertCoachXpTransactionSchema, conversations, insertConversationSchema, conversationParticipants, insertConversationParticipantSchema, messages, insertMessageSchema, messageReactions, insertMessageReactionSchema, coachAvailability, insertCoachAvailabilitySchema, availabilityExceptions, insertAvailabilityExceptionSchema, coachCourtPreferences, insertCoachCourtPreferenceSchema, coachCourtRules, insertCoachCourtRulesSchema, coachSettings, insertCoachSettingsSchema, academySettings, insertAcademySettingsSchema, academyInvites, insertAcademyInviteSchema, coachAcademyMemberships, insertCoachAcademyMembershipSchema, coachTimeBlocks, insertCoachTimeBlockSchema, pushDeviceTokens, insertPushDeviceTokenSchema, notificationPreferences, insertNotificationPreferenceSchema, scheduledNotifications, insertScheduledNotificationSchema, billingAccounts, insertBillingAccountSchema, subscriptionPlans, insertSubscriptionPlanSchema, subscriptions, insertSubscriptionSchema, invoices, insertInvoiceSchema, payments, insertPaymentSchema, creditTransactions, insertCreditTransactionSchema, playerSubscriptions, insertPlayerSubscriptionSchema, refunds, insertRefundSchema, coachPayouts, insertCoachPayoutSchema, diagnosticReports, insertDiagnosticReportSchema, bookingRequests, insertBookingRequestSchema, parentPlayerRelations, insertParentPlayerRelationSchema, parentSettings, insertParentSettingsSchema, paymentReminders, insertPaymentReminderSchema, coachPaymentRules, insertCoachPaymentRuleSchema, coachEarnings, insertCoachEarningSchema, reviewCategories, reviewerAgeCategories, coachReviews, insertCoachReviewSchema, submitReviewSchema, reviewResponses, insertReviewResponseSchema, reviewFlags, insertReviewFlagSchema, reviewPrompts, insertReviewPromptSchema, coachReviewStats, insertCoachReviewStatsSchema, academyPricing, insertAcademyPricingSchema, coachContracts, insertCoachContractSchema, communityGroups, insertCommunityGroupSchema, groupMembers, insertGroupMemberSchema, posts2, insertPostSchema, postReactions, insertPostReactionSchema, postComments, insertPostCommentSchema, commentLikes, insertCommentLikeSchema, contentReports, playerBlocks, openToPlay, insertOpenToPlaySchema, userSocialProfiles, insertUserSocialProfileSchema, badges, insertBadgeSchema, playerBadges, insertPlayerBadgeSchema, titles, insertTitleSchema, playerTitles, insertPlayerTitleSchema, questTemplates, insertQuestTemplateSchema, playerQuests, insertPlayerQuestSchema, dailyQuestSlots, insertDailyQuestSlotSchema, playerStreaks, insertPlayerStreakSchema, shopCategories, insertShopCategorySchema, shopProducts, insertShopProductSchema, shopServices, insertShopServiceSchema, shopOrders, insertShopOrderSchema, shopOrderItems, insertShopOrderItemSchema, shopWishlist, insertShopWishlistSchema, marketplaceListings, insertMarketplaceListingSchema, marketplaceFavorites, insertMarketplaceFavoriteSchema, marketplaceMessages, insertMarketplaceMessageSchema, sellerProfiles, insertSellerProfileSchema, glowPillars, glowStages, glowLanguageTiers, ballLevels, insertBallLevelSchema, glowSkills, insertGlowSkillSchema, skillRubrics, insertSkillRubricSchema, levelSkills, insertLevelSkillSchema, levelTests, insertLevelTestSchema, playerBallLevels, insertPlayerBallLevelSchema, playerBaselines, insertPlayerBaselineSchema, playerBaselineSkillScores, insertPlayerBaselineSkillScoreSchema, playerSkillScores2, insertPlayerSkillScoreSchema, playerPillarProgress, insertPlayerPillarProgressSchema, levelTrials, insertLevelTrialSchema, sessionSkillFeedback, insertSessionSkillFeedbackSchema, coachCalibration, insertCoachCalibrationSchema, lessonTemplates, insertLessonTemplateSchema, drillBlocks, insertDrillBlockSchema, sessionPlans, insertSessionPlanSchema, matchLogs, insertMatchLogSchema, skillEvidence, insertSkillEvidenceSchema, roleMessageTemplates, insertRoleMessageTemplateSchema, levelUpEvents, insertLevelUpEventSchema, playstyleTags, matchTypes, matchOpponents, insertMatchOpponentSchema, matchPlans, insertMatchPlanSchema, matches, insertMatchSchema, matchChallenges, insertMatchChallengeSchema, matchReflections, insertMatchReflectionSchema, matchPillarScores, insertMatchPillarScoreSchema, coachMatchReviews, insertCoachMatchReviewSchema, pressureMoments, insertPressureMomentSchema, matchTrainingSuggestions, insertMatchTrainingSuggestionSchema, playerLevelTitles, xpActionSources, playerLevelThresholds, insertPlayerLevelThresholdSchema, playerLevelXpRules, insertPlayerLevelXpRuleSchema, featureUnlockKeys, playerFeatureUnlocks, insertPlayerFeatureUnlockSchema, playerXpEvents, insertPlayerXpEventSchema, playerLevelUpCelebrations, insertPlayerLevelUpCelebrationSchema, playerFeatureUnlockHistory, deepAssessmentSkills, insertDeepAssessmentSkillSchema, playerDeepAssessments, insertPlayerDeepAssessmentSchema, deepAssessmentPillarSummaries2, coachWellnessLogs, insertCoachWellnessLogSchema, playerNotifications, spotlightNominations, insertSpotlightNominationSchema, spotlightWeeklyWinners, insertSpotlightWeeklyWinnerSchema, spotlightMonthlyWinners, insertSpotlightMonthlyWinnerSchema, tournaments, insertTournamentSchema, tournamentParticipants, insertTournamentParticipantSchema, tournamentMatches, insertTournamentMatchSchema, ladders, insertLadderSchema, ladderPlayers, insertLadderPlayerSchema, ladderChallenges, insertLadderChallengeSchema;
+var users, insertUserSchema, loginSchema, usernameSchema, childTshirtSizes, adultTshirtSizes, tshirtSizes, playerRegisterSchema, coachInviteRegisterSchema, registerSchema, academies, insertAcademySchema, academyApplications, insertAcademyApplicationSchema, academyApplicationInputSchema, academyOwnerProfiles, insertAcademyOwnerProfileSchema, invites, insertInviteSchema, joinRequests, insertJoinRequestSchema, joinRequestInputSchema, academyTransferRequests, insertAcademyTransferRequestSchema, transferRequestInputSchema, coachInvitations, insertCoachInvitationSchema, coachInvitationInputSchema, coaches, insertCoachSchema, coachFreelanceProfiles, insertCoachFreelanceProfileSchema, locations, insertLocationSchema, locationTravelTimes, insertLocationTravelTimeSchema, courts, insertCourtSchema, courtAvailability, insertCourtAvailabilitySchema, courtBookings, insertCourtBookingSchema, bookingInvites, insertBookingInviteSchema, bookingInviteGuests, insertBookingInviteGuestSchema, openMatches, insertOpenMatchSchema, openMatchSlots, insertOpenMatchSlotSchema, matchRequests, insertMatchRequestSchema, playerBookingPreferences, insertPlayerBookingPreferencesSchema, courtAvailabilitySnapshots, insertCourtAvailabilitySnapshotSchema, players, insertPlayerSchema, updatePlayerSchema, youthBallStages, lessonGroups, insertLessonGroupSchema, lessonGroupMembers, insertLessonGroupMemberSchema, playerLevelEvents, insertPlayerLevelEventSchema, playerInvites, insertPlayerInviteSchema, playerMatches, insertPlayerMatchSchema, adultGlowMatches, insertAdultGlowMatchSchema, adultSkillAssessments, insertAdultSkillAssessmentSchema, playerConnections, packageTemplates, insertPackageTemplateSchema, packages, insertPackageSchema, playerCreditPackages, sessions, insertSessionSchema, coachingSeries, insertCoachingSeriesSchema, seriesPlayers, insertSeriesPlayerSchema, recurringSeries, insertRecurringSeriesSchema, sessionPlayers, insertSessionPlayerSchema, sessionWaitlist2, insertSessionWaitlistSchema, squads, insertSquadSchema, squadMembers, insertSquadMemberSchema, playerSessionCancellations, insertPlayerSessionCancellationSchema, playerHolidays, insertPlayerHolidaySchema, sessionFeedback, insertSessionFeedbackSchema, inSessionFeedback, insertInSessionFeedbackSchema, auditLogs, insertAuditLogSchema, platformConfig, insertPlatformConfigSchema, offlineQueue, insertOfflineQueueSchema, playerNotes, insertPlayerNoteSchema, playerProgress, insertPlayerProgressSchema, sessionTemplates, insertSessionTemplateSchema, coachNotifications, insertCoachNotificationSchema, skillDomains2, insertSkillDomainSchema, playerSkillState, insertPlayerSkillStateSchema, sessionSkillObservations, insertSessionSkillObservationSchema, levelRequirements, insertLevelRequirementSchema, coachStatsRollup, insertCoachStatsRollupSchema, playerProgressFlags, insertPlayerProgressFlagSchema, domainAssessments, insertDomainAssessmentSchema, xpTransactions2, insertXpTransactionSchema, coachXpTransactions2, insertCoachXpTransactionSchema, conversations, insertConversationSchema, conversationParticipants, insertConversationParticipantSchema, messages, insertMessageSchema, messageReactions, insertMessageReactionSchema, coachAvailability, insertCoachAvailabilitySchema, availabilityExceptions, insertAvailabilityExceptionSchema, coachCourtPreferences, insertCoachCourtPreferenceSchema, coachCourtRules, insertCoachCourtRulesSchema, coachSettings, insertCoachSettingsSchema, academySettings, insertAcademySettingsSchema, academyInvites, insertAcademyInviteSchema, coachAcademyMemberships, insertCoachAcademyMembershipSchema, coachTimeBlocks, insertCoachTimeBlockSchema, pushDeviceTokens, insertPushDeviceTokenSchema, notificationPreferences, insertNotificationPreferenceSchema, scheduledNotifications, insertScheduledNotificationSchema, billingAccounts, insertBillingAccountSchema, subscriptionPlans, insertSubscriptionPlanSchema, subscriptions, insertSubscriptionSchema, invoices, insertInvoiceSchema, payments, insertPaymentSchema, creditTransactions, insertCreditTransactionSchema, playerSubscriptions, insertPlayerSubscriptionSchema, refunds, insertRefundSchema, coachPayouts, insertCoachPayoutSchema, diagnosticReports, insertDiagnosticReportSchema, bookingRequests, insertBookingRequestSchema, parentPlayerRelations, insertParentPlayerRelationSchema, parentSettings, insertParentSettingsSchema, paymentReminders, insertPaymentReminderSchema, coachPaymentRules, insertCoachPaymentRuleSchema, coachEarnings, insertCoachEarningSchema, reviewCategories, reviewerAgeCategories, coachReviews, insertCoachReviewSchema, submitReviewSchema, reviewResponses, insertReviewResponseSchema, reviewFlags, insertReviewFlagSchema, reviewPrompts, insertReviewPromptSchema, coachReviewStats, insertCoachReviewStatsSchema, academyPricing, insertAcademyPricingSchema, coachContracts, insertCoachContractSchema, communityGroups, insertCommunityGroupSchema, groupMembers, insertGroupMemberSchema, posts2, insertPostSchema, postReactions, insertPostReactionSchema, postComments, insertPostCommentSchema, commentLikes, insertCommentLikeSchema, contentReports, playerBlocks, openToPlay, insertOpenToPlaySchema, userSocialProfiles, insertUserSocialProfileSchema, badges, insertBadgeSchema, playerBadges, insertPlayerBadgeSchema, titles, insertTitleSchema, playerTitles, insertPlayerTitleSchema, questTemplates, insertQuestTemplateSchema, playerQuests, insertPlayerQuestSchema, dailyQuestSlots, insertDailyQuestSlotSchema, playerStreaks, insertPlayerStreakSchema, shopCategories, insertShopCategorySchema, shopProducts, insertShopProductSchema, shopServices, insertShopServiceSchema, shopOrders, insertShopOrderSchema, shopOrderItems, insertShopOrderItemSchema, shopWishlist, insertShopWishlistSchema, serviceProviders, insertServiceProviderSchema, marketplaceListings, insertMarketplaceListingSchema, marketplaceFavorites, insertMarketplaceFavoriteSchema, marketplaceMessages, insertMarketplaceMessageSchema, sellerProfiles, insertSellerProfileSchema, glowPillars, glowStages, glowLanguageTiers, ballLevels, insertBallLevelSchema, glowSkills, insertGlowSkillSchema, skillRubrics, insertSkillRubricSchema, levelSkills, insertLevelSkillSchema, levelTests, insertLevelTestSchema, playerBallLevels, insertPlayerBallLevelSchema, playerBaselines, insertPlayerBaselineSchema, playerBaselineSkillScores, insertPlayerBaselineSkillScoreSchema, playerSkillScores2, insertPlayerSkillScoreSchema, playerPillarProgress, insertPlayerPillarProgressSchema, levelTrials, insertLevelTrialSchema, sessionSkillFeedback, insertSessionSkillFeedbackSchema, coachCalibration, insertCoachCalibrationSchema, lessonTemplates, insertLessonTemplateSchema, drillBlocks, insertDrillBlockSchema, sessionPlans, insertSessionPlanSchema, matchLogs, insertMatchLogSchema, skillEvidence, insertSkillEvidenceSchema, roleMessageTemplates, insertRoleMessageTemplateSchema, levelUpEvents, insertLevelUpEventSchema, playstyleTags, matchTypes, matchOpponents, insertMatchOpponentSchema, matchPlans, insertMatchPlanSchema, matches, insertMatchSchema, matchChallenges, insertMatchChallengeSchema, matchReflections, insertMatchReflectionSchema, matchPillarScores, insertMatchPillarScoreSchema, coachMatchReviews, insertCoachMatchReviewSchema, pressureMoments, insertPressureMomentSchema, matchTrainingSuggestions, insertMatchTrainingSuggestionSchema, playerLevelTitles, xpActionSources, playerLevelThresholds, insertPlayerLevelThresholdSchema, playerLevelXpRules, insertPlayerLevelXpRuleSchema, featureUnlockKeys, playerFeatureUnlocks, insertPlayerFeatureUnlockSchema, playerXpEvents, insertPlayerXpEventSchema, playerLevelUpCelebrations, insertPlayerLevelUpCelebrationSchema, playerFeatureUnlockHistory, deepAssessmentSkills, insertDeepAssessmentSkillSchema, playerDeepAssessments, insertPlayerDeepAssessmentSchema, deepAssessmentPillarSummaries2, coachWellnessLogs, insertCoachWellnessLogSchema, playerNotifications, spotlightNominations, insertSpotlightNominationSchema, spotlightWeeklyWinners, insertSpotlightWeeklyWinnerSchema, spotlightMonthlyWinners, insertSpotlightMonthlyWinnerSchema, tournaments, insertTournamentSchema, tournamentParticipants, insertTournamentParticipantSchema, tournamentMatches, insertTournamentMatchSchema, ladders, insertLadderSchema, ladderPlayers, insertLadderPlayerSchema, ladderChallenges, insertLadderChallengeSchema;
 var init_schema = __esm({
   "shared/schema.ts"() {
     "use strict";
@@ -485,7 +487,7 @@ var init_schema = __esm({
       password: z.string().min(8),
       name: z.string().min(2),
       academyName: z.string().min(2).optional(),
-      role: z.enum(["platform_owner", "academy_owner", "coach", "assistant", "player"]).default("coach")
+      role: z.enum(["platform_owner", "academy_owner", "coach", "assistant", "player", "service_provider"]).default("coach")
     });
     academies = pgTable("academies", {
       id: varchar("id").primaryKey().default(sql2`gen_random_uuid()`),
@@ -3543,6 +3545,8 @@ var init_schema = __esm({
       notes: text("notes"),
       // For services: booking info
       scheduledAt: timestamp("scheduled_at"),
+      // Service provider assignment
+      assignedProviderId: varchar("assigned_provider_id"),
       // Audit
       createdAt: timestamp("created_at").defaultNow(),
       updatedAt: timestamp("updated_at").defaultNow(),
@@ -3590,6 +3594,26 @@ var init_schema = __esm({
       unique("shop_wishlist_unique_service").on(table.playerId, table.serviceId)
     ]);
     insertShopWishlistSchema = createInsertSchema(shopWishlist).omit({ id: true, createdAt: true });
+    serviceProviders = pgTable("service_providers", {
+      id: varchar("id").primaryKey().default(sql2`gen_random_uuid()`),
+      userId: varchar("user_id").references(() => users.id).notNull().unique(),
+      academyId: varchar("academy_id").references(() => academies.id).notNull(),
+      displayName: text("display_name").notNull(),
+      bio: text("bio"),
+      profilePhotoUrl: text("profile_photo_url"),
+      phone: text("phone"),
+      specializations: jsonb("specializations").$type().default([]),
+      serviceTypes: jsonb("service_types").$type().default([]),
+      isActive: boolean("is_active").default(true),
+      rating: numeric("rating", { precision: 3, scale: 2 }).default("0"),
+      totalBookings: integer("total_bookings").default(0),
+      createdAt: timestamp("created_at").defaultNow(),
+      updatedAt: timestamp("updated_at").defaultNow()
+    }, (table) => [
+      index("service_providers_academy_idx").on(table.academyId),
+      index("service_providers_user_idx").on(table.userId)
+    ]);
+    insertServiceProviderSchema = createInsertSchema(serviceProviders).omit({ id: true, createdAt: true, updatedAt: true });
     marketplaceListings = pgTable("marketplace_listings", {
       id: varchar("id").primaryKey().default(sql2`gen_random_uuid()`),
       // Seller info
@@ -15529,7 +15553,7 @@ async function processAutoSessionCompletion() {
   try {
     const { db: db2 } = await Promise.resolve().then(() => (init_db(), db_exports));
     const { sessions: sessions4, sessionPlayers: sessionPlayers2, players: players3, packages: packages3 } = await Promise.resolve().then(() => (init_schema(), schema_exports));
-    const { eq: eq31, and: and30, lt: lt3, isNull: isNull9, inArray: inArray16 } = await import("drizzle-orm");
+    const { eq: eq31, and: and30, lt: lt3, isNull: isNull9, inArray: inArray17 } = await import("drizzle-orm");
     const { storage: storage2 } = await Promise.resolve().then(() => (init_storage(), storage_exports));
     const now2 = /* @__PURE__ */ new Date();
     const tenMinAgo = new Date(now2.getTime() - 10 * 60 * 1e3);
@@ -27045,7 +27069,7 @@ __export(trial_readiness_engine_exports, {
   checkAndNotifyTrialReady: () => checkAndNotifyTrialReady,
   getPlayersReadyForTrial: () => getPlayersReadyForTrial
 });
-import { eq as eq6, and as and6, desc as desc5, sql as sql8, inArray as inArray3 } from "drizzle-orm";
+import { eq as eq6, and as and6, desc as desc5, sql as sql8, inArray as inArray4 } from "drizzle-orm";
 async function calculateTrialReadiness(playerId) {
   const [player2] = await db.select().from(players).where(eq6(players.id, playerId));
   if (!player2) {
@@ -27163,7 +27187,7 @@ async function getPlayerSkillScores(playerId, levelId) {
     movingAverage: playerSkillScores2.movingAverage
   }).from(playerSkillScores2).where(and6(
     eq6(playerSkillScores2.playerId, playerId),
-    inArray3(playerSkillScores2.skillId, skillIds)
+    inArray4(playerSkillScores2.skillId, skillIds)
   )).orderBy(playerSkillScores2.skillId, desc5(playerSkillScores2.scoredAt));
   const skillScoresMap = {};
   for (const score of scores) {
@@ -27436,7 +27460,7 @@ __export(glow_rank_engine_exports, {
   updatePillarProgressWithEMA: () => updatePillarProgressWithEMA,
   updateSkillScoreWithEMA: () => updateSkillScoreWithEMA
 });
-import { eq as eq8, and as and8, desc as desc7, sql as sql10, inArray as inArray4 } from "drizzle-orm";
+import { eq as eq8, and as and8, desc as desc7, sql as sql10, inArray as inArray5 } from "drizzle-orm";
 async function calculateGlowRank(playerId) {
   const [playerLevel] = await db.select({
     levelId: playerBallLevels.levelId,
@@ -27461,7 +27485,7 @@ async function calculateGlowRank(playerId) {
   const skillIds = levelSkillsData.map((s) => s.skillId);
   const playerSkillScoresData = skillIds.length > 0 ? await db.select().from(playerSkillScores2).where(and8(
     eq8(playerSkillScores2.playerId, playerId),
-    inArray4(playerSkillScores2.skillId, skillIds)
+    inArray5(playerSkillScores2.skillId, skillIds)
   )).orderBy(desc7(playerSkillScores2.scoredAt)) : [];
   const latestScores = /* @__PURE__ */ new Map();
   for (const score of playerSkillScoresData) {
@@ -30140,7 +30164,7 @@ import {
   and as and29,
   gte as gte17,
   asc as asc11,
-  inArray as inArray15,
+  inArray as inArray16,
   notInArray as notInArray2,
   isNull as isNull8,
   isNotNull as isNotNull5,
@@ -31578,7 +31602,7 @@ function getCurrencyForCountry(countryCode) {
 init_db();
 init_schema();
 import { Router } from "express";
-import { eq as eq3, and as and3, desc as desc2, asc as asc2, sql as sql5 } from "drizzle-orm";
+import { eq as eq3, and as and3, desc as desc2, asc as asc2, sql as sql5, inArray as inArray3 } from "drizzle-orm";
 var router = Router();
 function requirePlayerProfile(req2, res, next) {
   if (!req2.user?.playerId) {
@@ -31874,7 +31898,7 @@ router.get("/player/shop/orders/:id", authMiddlewareWithFreshData, requirePlayer
 });
 router.post("/player/shop/orders", authMiddlewareWithFreshData, requirePlayerProfile, requireFeatureUnlock("academy_shop"), async (req2, res) => {
   try {
-    const { items, contactName, contactPhone, contactEmail, notes } = req2.body;
+    const { items, contactName, contactPhone, contactEmail, notes, scheduledAt } = req2.body;
     if (!items || !Array.isArray(items) || items.length === 0) {
       return res.status(400).json({ error: "Cart is empty" });
     }
@@ -31938,7 +31962,8 @@ router.post("/player/shop/orders", authMiddlewareWithFreshData, requirePlayerPro
       contactName,
       contactPhone,
       contactEmail,
-      notes
+      notes,
+      scheduledAt: scheduledAt ? new Date(scheduledAt) : void 0
     }).returning();
     for (const item of orderItems) {
       await db.insert(shopOrderItems).values({
@@ -32124,11 +32149,12 @@ router.get("/academy/shop/orders", authMiddlewareWithFreshData, requireRole("aca
 router.patch("/academy/shop/orders/:id", authMiddlewareWithFreshData, requireRole("academy_owner", "coach"), async (req2, res) => {
   try {
     const { id } = req2.params;
-    const { status, paymentStatus } = req2.body;
+    const { status, paymentStatus, assignedProviderId } = req2.body;
     const updateData = { updatedAt: /* @__PURE__ */ new Date() };
     if (status) updateData.status = status;
     if (paymentStatus) updateData.paymentStatus = paymentStatus;
     if (status === "completed") updateData.completedAt = /* @__PURE__ */ new Date();
+    if (assignedProviderId !== void 0) updateData.assignedProviderId = assignedProviderId;
     const [order] = await db.update(shopOrders).set(updateData).where(and3(
       eq3(shopOrders.id, id),
       eq3(shopOrders.academyId, req2.user.academyId)
@@ -32136,10 +32162,278 @@ router.patch("/academy/shop/orders/:id", authMiddlewareWithFreshData, requireRol
     if (!order) {
       return res.status(404).json({ error: "Order not found" });
     }
+    if (assignedProviderId) {
+      await db.execute(sql5`
+        UPDATE service_providers SET total_bookings = total_bookings + 1, updated_at = NOW()
+        WHERE id = ${assignedProviderId}
+      `);
+    }
     res.json(order);
   } catch (error) {
     console.error("[Shop] Error updating order:", error);
     res.status(500).json({ error: "Failed to update order" });
+  }
+});
+router.get("/academy/shop/orders/detailed", authMiddlewareWithFreshData, requireRole("academy_owner", "coach"), async (req2, res) => {
+  try {
+    if (!req2.user.academyId) {
+      return res.status(400).json({ error: "No academy assigned" });
+    }
+    const { status, type } = req2.query;
+    const whereClauses = [eq3(shopOrders.academyId, req2.user.academyId)];
+    if (status && typeof status === "string") {
+      whereClauses.push(eq3(shopOrders.status, status));
+    }
+    const orders = await db.select().from(shopOrders).where(and3(...whereClauses)).orderBy(desc2(shopOrders.createdAt));
+    const orderIds = orders.map((o) => o.id);
+    const playerIds = [...new Set(orders.filter((o) => o.playerId).map((o) => o.playerId))];
+    const [allItems, allPlayers] = await Promise.all([
+      orderIds.length > 0 ? db.select().from(shopOrderItems).where(inArray3(shopOrderItems.orderId, orderIds)) : [],
+      playerIds.length > 0 ? db.select({ id: players.id, name: players.name, profilePhotoUrl: players.profilePhotoUrl }).from(players).where(inArray3(players.id, playerIds)) : []
+    ]);
+    const playerMap = new Map(allPlayers.map((p) => [p.id, p]));
+    const itemsMap = /* @__PURE__ */ new Map();
+    for (const item of allItems) {
+      if (!itemsMap.has(item.orderId)) itemsMap.set(item.orderId, []);
+      itemsMap.get(item.orderId).push(item);
+    }
+    const enriched = orders.filter((o) => {
+      if (!type) return true;
+      const items = itemsMap.get(o.id) || [];
+      return type === "service" ? items.some((i) => i.itemType === "service") : items.some((i) => i.itemType === "product");
+    }).map((o) => ({
+      ...o,
+      player: o.playerId ? playerMap.get(o.playerId) || null : null,
+      items: itemsMap.get(o.id) || []
+    }));
+    res.json(enriched);
+  } catch (error) {
+    console.error("[Shop] Error fetching detailed orders:", error);
+    res.status(500).json({ error: "Failed to load orders" });
+  }
+});
+router.patch("/academy/shop/categories/:id", authMiddlewareWithFreshData, requireRole("academy_owner"), async (req2, res) => {
+  try {
+    const { id } = req2.params;
+    const [category] = await db.update(shopCategories).set({ ...req2.body, updatedAt: /* @__PURE__ */ new Date() }).where(and3(eq3(shopCategories.id, id), eq3(shopCategories.academyId, req2.user.academyId))).returning();
+    if (!category) return res.status(404).json({ error: "Category not found" });
+    res.json(category);
+  } catch (error) {
+    console.error("[Shop] Error updating category:", error);
+    res.status(500).json({ error: "Failed to update category" });
+  }
+});
+router.delete("/academy/shop/categories/:id", authMiddlewareWithFreshData, requireRole("academy_owner"), async (req2, res) => {
+  try {
+    const { id } = req2.params;
+    await db.delete(shopCategories).where(and3(eq3(shopCategories.id, id), eq3(shopCategories.academyId, req2.user.academyId)));
+    res.json({ success: true });
+  } catch (error) {
+    console.error("[Shop] Error deleting category:", error);
+    res.status(500).json({ error: "Failed to delete category" });
+  }
+});
+router.get("/academy/shop/providers", authMiddlewareWithFreshData, requireRole("academy_owner", "coach"), async (req2, res) => {
+  try {
+    if (!req2.user.academyId) return res.status(400).json({ error: "No academy assigned" });
+    const providers = await db.select({
+      id: serviceProviders.id,
+      userId: serviceProviders.userId,
+      academyId: serviceProviders.academyId,
+      displayName: serviceProviders.displayName,
+      bio: serviceProviders.bio,
+      profilePhotoUrl: serviceProviders.profilePhotoUrl,
+      phone: serviceProviders.phone,
+      specializations: serviceProviders.specializations,
+      serviceTypes: serviceProviders.serviceTypes,
+      isActive: serviceProviders.isActive,
+      rating: serviceProviders.rating,
+      totalBookings: serviceProviders.totalBookings,
+      createdAt: serviceProviders.createdAt,
+      userEmail: users.email
+    }).from(serviceProviders).leftJoin(users, eq3(serviceProviders.userId, users.id)).where(eq3(serviceProviders.academyId, req2.user.academyId)).orderBy(asc2(serviceProviders.displayName));
+    res.json(providers);
+  } catch (error) {
+    console.error("[Shop] Error fetching providers:", error);
+    res.status(500).json({ error: "Failed to load providers" });
+  }
+});
+router.post("/academy/shop/providers", authMiddlewareWithFreshData, requireRole("academy_owner"), async (req2, res) => {
+  try {
+    if (!req2.user.academyId) return res.status(400).json({ error: "No academy assigned" });
+    const { email, displayName, password, bio, phone, serviceTypes, specializations, username } = req2.body;
+    if (!email || !displayName || !password) {
+      return res.status(400).json({ error: "email, displayName, and password are required" });
+    }
+    const emailLower = email.toLowerCase();
+    const existing2 = await db.select().from(users).where(eq3(users.email, emailLower)).limit(1);
+    if (existing2[0]) return res.status(409).json({ error: "A user with this email already exists" });
+    const baseUsername = (username || displayName).toLowerCase().replace(/\s+/g, ".").replace(/[^a-z0-9.]/g, "").slice(0, 20);
+    const finalUsername = `${baseUsername}.${Date.now().toString(36)}`;
+    const hashed = await hashPassword(password);
+    const [newUser] = await db.insert(users).values({
+      username: finalUsername,
+      email: emailLower,
+      password: hashed,
+      role: "service_provider",
+      status: "active",
+      academyId: req2.user.academyId
+    }).returning();
+    const [provider] = await db.insert(serviceProviders).values({
+      userId: newUser.id,
+      academyId: req2.user.academyId,
+      displayName,
+      bio: bio || null,
+      phone: phone || null,
+      serviceTypes: serviceTypes || [],
+      specializations: specializations || []
+    }).returning();
+    res.json({ ...provider, userEmail: emailLower, username: finalUsername });
+  } catch (error) {
+    console.error("[Shop] Error creating provider:", error);
+    res.status(500).json({ error: "Failed to create provider" });
+  }
+});
+router.patch("/academy/shop/providers/:id", authMiddlewareWithFreshData, requireRole("academy_owner"), async (req2, res) => {
+  try {
+    const { id } = req2.params;
+    const { displayName, bio, phone, serviceTypes, specializations, isActive } = req2.body;
+    const updateData = { updatedAt: /* @__PURE__ */ new Date() };
+    if (displayName !== void 0) updateData.displayName = displayName;
+    if (bio !== void 0) updateData.bio = bio;
+    if (phone !== void 0) updateData.phone = phone;
+    if (serviceTypes !== void 0) updateData.serviceTypes = serviceTypes;
+    if (specializations !== void 0) updateData.specializations = specializations;
+    if (isActive !== void 0) updateData.isActive = isActive;
+    const [provider] = await db.update(serviceProviders).set(updateData).where(and3(eq3(serviceProviders.id, id), eq3(serviceProviders.academyId, req2.user.academyId))).returning();
+    if (!provider) return res.status(404).json({ error: "Provider not found" });
+    res.json(provider);
+  } catch (error) {
+    console.error("[Shop] Error updating provider:", error);
+    res.status(500).json({ error: "Failed to update provider" });
+  }
+});
+router.delete("/academy/shop/providers/:id", authMiddlewareWithFreshData, requireRole("academy_owner"), async (req2, res) => {
+  try {
+    const { id } = req2.params;
+    await db.update(serviceProviders).set({ isActive: false, updatedAt: /* @__PURE__ */ new Date() }).where(and3(eq3(serviceProviders.id, id), eq3(serviceProviders.academyId, req2.user.academyId)));
+    res.json({ success: true });
+  } catch (error) {
+    console.error("[Shop] Error deactivating provider:", error);
+    res.status(500).json({ error: "Failed to deactivate provider" });
+  }
+});
+function requireServiceProvider(req2, res, next) {
+  if (!req2.user) {
+    res.status(401).json({ error: "Authentication required" });
+    return;
+  }
+  if (req2.user.role === "service_provider") {
+    next();
+    return;
+  }
+  if (req2.user.role === "academy_owner" || req2.user.role === "platform_owner") {
+    next();
+    return;
+  }
+  res.status(403).json({ error: "Service provider access required" });
+}
+router.get("/provider/me", authMiddlewareWithFreshData, requireServiceProvider, async (req2, res) => {
+  try {
+    const provider = await db.select({
+      id: serviceProviders.id,
+      userId: serviceProviders.userId,
+      academyId: serviceProviders.academyId,
+      displayName: serviceProviders.displayName,
+      bio: serviceProviders.bio,
+      profilePhotoUrl: serviceProviders.profilePhotoUrl,
+      phone: serviceProviders.phone,
+      specializations: serviceProviders.specializations,
+      serviceTypes: serviceProviders.serviceTypes,
+      isActive: serviceProviders.isActive,
+      rating: serviceProviders.rating,
+      totalBookings: serviceProviders.totalBookings,
+      createdAt: serviceProviders.createdAt,
+      userName: users.name,
+      userEmail: users.email
+    }).from(serviceProviders).leftJoin(users, eq3(serviceProviders.userId, users.id)).where(eq3(serviceProviders.userId, req2.user.userId)).limit(1);
+    if (!provider[0]) {
+      return res.status(404).json({ error: "Provider profile not found" });
+    }
+    res.json(provider[0]);
+  } catch (error) {
+    console.error("[Provider] Error fetching profile:", error);
+    res.status(500).json({ error: "Failed to load profile" });
+  }
+});
+router.get("/provider/me/bookings", authMiddlewareWithFreshData, requireServiceProvider, async (req2, res) => {
+  try {
+    const providerRecord = await db.select().from(serviceProviders).where(eq3(serviceProviders.userId, req2.user.userId)).limit(1);
+    if (!providerRecord[0]) {
+      return res.status(404).json({ error: "Provider profile not found" });
+    }
+    const providerId = providerRecord[0].id;
+    const { status, date: date2 } = req2.query;
+    const whereClauses = [eq3(shopOrders.assignedProviderId, providerId)];
+    if (status && typeof status === "string") {
+      whereClauses.push(eq3(shopOrders.status, status));
+    }
+    if (date2 === "today") {
+      const todayStart = /* @__PURE__ */ new Date();
+      todayStart.setHours(0, 0, 0, 0);
+      const todayEnd = /* @__PURE__ */ new Date();
+      todayEnd.setHours(23, 59, 59, 999);
+      whereClauses.push(sql5`(${shopOrders.scheduledAt} >= ${todayStart} AND ${shopOrders.scheduledAt} <= ${todayEnd})`);
+    }
+    const orders = await db.select().from(shopOrders).where(and3(...whereClauses)).orderBy(asc2(shopOrders.scheduledAt));
+    const orderIds = orders.map((o) => o.id);
+    const playerIds = [...new Set(orders.filter((o) => o.playerId).map((o) => o.playerId))];
+    const [allItems, allPlayers] = await Promise.all([
+      orderIds.length > 0 ? db.select().from(shopOrderItems).where(inArray3(shopOrderItems.orderId, orderIds)) : [],
+      playerIds.length > 0 ? db.select({ id: players.id, name: players.name, profilePhotoUrl: players.profilePhotoUrl, level: players.level }).from(players).where(inArray3(players.id, playerIds)) : []
+    ]);
+    const playerMap = new Map(allPlayers.map((p) => [p.id, p]));
+    const itemsMap = /* @__PURE__ */ new Map();
+    for (const item of allItems) {
+      if (!itemsMap.has(item.orderId)) itemsMap.set(item.orderId, []);
+      itemsMap.get(item.orderId).push(item);
+    }
+    const enriched = orders.map((o) => ({
+      ...o,
+      player: o.playerId ? playerMap.get(o.playerId) || null : null,
+      items: itemsMap.get(o.id) || []
+    }));
+    res.json(enriched);
+  } catch (error) {
+    console.error("[Provider] Error fetching bookings:", error);
+    res.status(500).json({ error: "Failed to load bookings" });
+  }
+});
+router.patch("/provider/bookings/:orderId/status", authMiddlewareWithFreshData, requireServiceProvider, async (req2, res) => {
+  try {
+    const { orderId } = req2.params;
+    const { status } = req2.body;
+    const validStatuses = ["confirmed", "completed", "cancelled"];
+    if (!validStatuses.includes(status)) {
+      return res.status(400).json({ error: `Invalid status. Must be one of: ${validStatuses.join(", ")}` });
+    }
+    const providerRecord = await db.select().from(serviceProviders).where(eq3(serviceProviders.userId, req2.user.userId)).limit(1);
+    if (!providerRecord[0]) {
+      return res.status(404).json({ error: "Provider profile not found" });
+    }
+    const updateData = { status, updatedAt: /* @__PURE__ */ new Date() };
+    if (status === "completed") updateData.completedAt = /* @__PURE__ */ new Date();
+    const [order] = await db.update(shopOrders).set(updateData).where(and3(
+      eq3(shopOrders.id, orderId),
+      eq3(shopOrders.assignedProviderId, providerRecord[0].id)
+    )).returning();
+    if (!order) {
+      return res.status(404).json({ error: "Booking not found or not assigned to you" });
+    }
+    res.json(order);
+  } catch (error) {
+    console.error("[Provider] Error updating booking status:", error);
+    res.status(500).json({ error: "Failed to update booking status" });
   }
 });
 var shop_routes_default = router;
@@ -32535,7 +32829,7 @@ var marketplace_routes_default = router2;
 init_db();
 init_schema();
 import { Router as Router3 } from "express";
-import { eq as eq10, and as and10, or as or5, desc as desc8, sql as sql11, inArray as inArray5 } from "drizzle-orm";
+import { eq as eq10, and as and10, or as or5, desc as desc8, sql as sql11, inArray as inArray6 } from "drizzle-orm";
 
 // server/services/xp-service.ts
 init_db();
@@ -32856,7 +33150,7 @@ router3.get("/api/glow/levels/:levelId", async (req2, res) => {
     }).from(levelSkills).innerJoin(glowSkills, eq10(levelSkills.skillId, glowSkills.id)).where(eq10(levelSkills.levelId, levelId));
     const tests = await db.select().from(levelTests).where(eq10(levelTests.levelId, levelId));
     const skillIds = levelSkillsData.map((s) => s.skill.id);
-    const rubrics = skillIds.length > 0 ? await db.select().from(skillRubrics).where(inArray5(skillRubrics.skillId, skillIds)) : [];
+    const rubrics = skillIds.length > 0 ? await db.select().from(skillRubrics).where(inArray6(skillRubrics.skillId, skillIds)) : [];
     const rubricsBySkill = {};
     for (const rubric of rubrics) {
       if (!rubricsBySkill[rubric.skillId]) {
@@ -33363,7 +33657,7 @@ router3.get("/api/glow/players/:playerId/readiness", authMiddlewareWithFreshData
     const skillIds = levelSkillsData.map((s) => s.skillId);
     const playerScores = await db.select().from(playerSkillScores2).where(and10(
       eq10(playerSkillScores2.playerId, playerId),
-      inArray5(playerSkillScores2.skillId, skillIds)
+      inArray6(playerSkillScores2.skillId, skillIds)
     )).orderBy(desc8(playerSkillScores2.createdAt));
     const achievedSkills = [];
     const latestScoreBySkill = {};
@@ -34268,7 +34562,7 @@ var glow_leveling_default = router3;
 init_db();
 init_schema();
 import { Router as Router4 } from "express";
-import { eq as eq11, and as and11, sql as sql12, inArray as inArray6, isNull as isNull4, or as or6 } from "drizzle-orm";
+import { eq as eq11, and as and11, sql as sql12, inArray as inArray7, isNull as isNull4, or as or6 } from "drizzle-orm";
 init_storage();
 var router4 = Router4();
 router4.get("/api/lesson-templates", authMiddlewareWithFreshData, requireAcademy, async (req2, res) => {
@@ -34480,7 +34774,7 @@ async function autoGeneratePlan(sessionId, academyId) {
   const playerLevels = await db.select({
     levelId: playerBallLevels.levelId
   }).from(playerBallLevels).where(and11(
-    inArray6(playerBallLevels.playerId, session.playerIds),
+    inArray7(playerBallLevels.playerId, session.playerIds),
     sql12`${playerBallLevels.status} IN ('active', 'trial')`
   ));
   const levelCount = {};
@@ -39621,7 +39915,7 @@ var role_messages_default = router15;
 init_db();
 init_schema();
 import { Router as Router15 } from "express";
-import { eq as eq23, sql as sql23, and as and22, asc as asc4, inArray as inArray8, gte as gte11, count as count3 } from "drizzle-orm";
+import { eq as eq23, sql as sql23, and as and22, asc as asc4, inArray as inArray9, gte as gte11, count as count3 } from "drizzle-orm";
 
 // server/profanityFilter.ts
 var PROFANITY_LIST = [
@@ -40187,7 +40481,7 @@ router16.get("/api/social/feed", authMiddlewareWithFreshData, requireFeatureUnlo
           reactionType: postReactions.reactionType
         }).from(postReactions).where(and22(
           eq23(postReactions.userId, userId),
-          inArray8(postReactions.postId, postIds)
+          inArray9(postReactions.postId, postIds)
         ));
         userReactions.forEach((r) => reactionMap.set(r.postId, r.reactionType));
       } catch (reactionError) {
@@ -41120,7 +41414,7 @@ init_storage();
 init_db();
 init_schema();
 import { Router as Router17 } from "express";
-import { eq as eq24, and as and23, gte as gte12, lte as lte4, or as or10, asc as asc5, inArray as inArray9 } from "drizzle-orm";
+import { eq as eq24, and as and23, gte as gte12, lte as lte4, or as or10, asc as asc5, inArray as inArray10 } from "drizzle-orm";
 var router18 = Router17();
 function getWarningMessage(code) {
   const messages2 = {
@@ -41715,7 +42009,7 @@ router18.get("/api/coach/earnings/analytics", authMiddlewareWithFreshData, async
     }
     const sortedPlayers = Array.from(playerEarningsMap.entries()).sort((a, b) => b[1].earnings - a[1].earnings).slice(0, 5);
     const topPlayerIds = sortedPlayers.map(([pid]) => pid);
-    const topPlayerRecords = topPlayerIds.length > 0 ? await db.select({ id: players.id, name: players.name }).from(players).where(inArray9(players.id, topPlayerIds)) : [];
+    const topPlayerRecords = topPlayerIds.length > 0 ? await db.select({ id: players.id, name: players.name }).from(players).where(inArray10(players.id, topPlayerIds)) : [];
     const playerNameMap = new Map(topPlayerRecords.map((p) => [p.id, p.name]));
     const topPlayers = sortedPlayers.map(([playerId, data]) => ({
       playerId,
@@ -42247,13 +42541,13 @@ router19.get("/api/play/sessions", authMiddlewareWithFreshData, async (req2, res
     const futureDate = /* @__PURE__ */ new Date();
     futureDate.setDate(futureDate.getDate() + 14);
     const sessions4 = await db.query.sessions.findMany({
-      where: (s, { and: and30, or: or16, eq: eq31, gte: gte18, lte: lte10, inArray: inArray16 }) => and30(
+      where: (s, { and: and30, or: or16, eq: eq31, gte: gte18, lte: lte10, inArray: inArray17 }) => and30(
         or16(
           eq31(s.academyId, academyId || ""),
           eq31(s.academyId, null)
           // Public sessions
         ),
-        inArray16(s.sessionType, ["group", "semi_private"]),
+        inArray17(s.sessionType, ["group", "semi_private"]),
         eq31(s.status, "scheduled"),
         gte18(s.startTime, now2),
         lte10(s.startTime, futureDate)
@@ -42289,7 +42583,7 @@ router19.get("/api/play/sessions", authMiddlewareWithFreshData, async (req2, res
         playerIds = seriesPlayers4.filter((sp) => sp.status === "active").map((sp) => sp.playerId).filter(Boolean);
       }
       const players3 = playerIds.length > 0 ? await db.query.players.findMany({
-        where: (p, { inArray: inArray16 }) => inArray16(p.id, playerIds)
+        where: (p, { inArray: inArray17 }) => inArray17(p.id, playerIds)
       }) : [];
       let coachName = null;
       if (session.coachId) {
@@ -45391,7 +45685,7 @@ import path4 from "path";
 import fs4 from "fs";
 import rateLimit from "express-rate-limit";
 init_schema();
-import { eq as eq26, and as and25, or as or12, desc as desc21, asc as asc7, sql as sql25, gte as gte14, inArray as inArray11, ne as ne5, isNull as isNull6, count as count5, lte as lte6 } from "drizzle-orm";
+import { eq as eq26, and as and25, or as or12, desc as desc21, asc as asc7, sql as sql25, gte as gte14, inArray as inArray12, ne as ne5, isNull as isNull6, count as count5, lte as lte6 } from "drizzle-orm";
 init_pushNotifications();
 init_emailService();
 var router20 = Router19();
@@ -45433,7 +45727,7 @@ router20.get("/api/quests", authMiddlewareWithFreshData, async (req2, res) => {
       template: questTemplates
     }).from(playerQuests).innerJoin(questTemplates, eq26(playerQuests.questTemplateId, questTemplates.id)).where(and25(
       eq26(playerQuests.playerId, playerId),
-      inArray11(playerQuests.status, ["active", "completed", "claimed"])
+      inArray12(playerQuests.status, ["active", "completed", "claimed"])
     )).orderBy(asc7(questTemplates.order));
     const [dailySlot] = await db.select().from(dailyQuestSlots).where(and25(
       eq26(dailyQuestSlots.playerId, playerId),
@@ -46110,12 +46404,12 @@ router20.get("/api/player/mission-control", authMiddlewareWithFreshData, async (
     const [player2] = await db.select().from(players).where(eq26(players.id, playerId));
     const playerQuestRows = await db.select().from(playerQuests).where(and25(
       eq26(playerQuests.playerId, playerId),
-      inArray11(playerQuests.status, ["active", "completed"])
+      inArray12(playerQuests.status, ["active", "completed"])
     )).limit(10);
     const templateIds = playerQuestRows.map((q) => q.questTemplateId).filter(Boolean);
     const questTemplateRows = templateIds.length > 0 ? await db.select().from(questTemplates).where(
       and25(
-        inArray11(questTemplates.id, templateIds),
+        inArray12(questTemplates.id, templateIds),
         eq26(questTemplates.questType, "daily")
       )
     ) : [];
@@ -46128,7 +46422,7 @@ router20.get("/api/player/mission-control", authMiddlewareWithFreshData, async (
       const playerSessionLinks = await db.select({ sessionId: sessionPlayers.sessionId }).from(sessionPlayers).where(eq26(sessionPlayers.playerId, playerId));
       const sessionIds = playerSessionLinks.map((ps) => ps.sessionId).filter((id) => id !== null);
       if (sessionIds.length > 0) {
-        const allSessions = await db.select().from(sessions).where(inArray11(sessions.id, sessionIds));
+        const allSessions = await db.select().from(sessions).where(inArray12(sessions.id, sessionIds));
         upcomingSessions = allSessions.filter((s) => !s.isCancelled && new Date(s.date) >= now2).sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()).slice(0, 1);
       }
     } catch (e) {
@@ -46733,7 +47027,7 @@ router20.post("/api/admin/recalculate-v3-debts", authMiddlewareWithFreshData, re
       const presentSessions = await db.select({ count: sql25`count(*)` }).from(sessionPlayers).innerJoin(sessions, eq26(sessionPlayers.sessionId, sessions.id)).where(and25(
         eq26(sessionPlayers.playerId, debt.playerId),
         eq26(sessionPlayers.attendanceStatus, "present"),
-        inArray11(sessions.sessionType, sessionTypesForCredit)
+        inArray12(sessions.sessionType, sessionTypesForCredit)
       ));
       const presentCount = Number(presentSessions[0]?.count || 0);
       const playerPackages = await db.select({
@@ -46811,7 +47105,7 @@ router20.post("/api/admin/fix-vacation-v3-debts", authMiddlewareWithFreshData, r
       const vacationSessions = await db.select({ count: sql25`count(*)` }).from(sessionPlayers).innerJoin(sessions, eq26(sessionPlayers.sessionId, sessions.id)).where(and25(
         eq26(sessionPlayers.playerId, debt.playerId),
         eq26(sessionPlayers.attendanceStatus, "vacation"),
-        inArray11(sessions.sessionType, sessionTypesForCredit)
+        inArray12(sessions.sessionType, sessionTypesForCredit)
       ));
       const vacationCount = Number(vacationSessions[0]?.count || 0);
       if (vacationCount === 0) continue;
@@ -47845,7 +48139,7 @@ var player_social_default = router20;
 init_db();
 init_schema();
 import { Router as Router20 } from "express";
-import { eq as eq27, and as and26, desc as desc22, asc as asc8, sql as sql26, inArray as inArray12, gte as gte15, lte as lte7 } from "drizzle-orm";
+import { eq as eq27, and as and26, desc as desc22, asc as asc8, sql as sql26, inArray as inArray13, gte as gte15, lte as lte7 } from "drizzle-orm";
 var router21 = Router20();
 router21.get("/api/player/tournaments", authMiddlewareWithFreshData, async (req2, res) => {
   try {
@@ -47866,7 +48160,7 @@ router21.get("/api/player/tournaments", authMiddlewareWithFreshData, async (req2
       registrations = await db.select({
         tournamentId: tournamentParticipants.tournamentId,
         playerId: tournamentParticipants.playerId
-      }).from(tournamentParticipants).where(inArray12(tournamentParticipants.tournamentId, tournamentIds));
+      }).from(tournamentParticipants).where(inArray13(tournamentParticipants.tournamentId, tournamentIds));
     }
     const spotsTakenMap = /* @__PURE__ */ new Map();
     const registeredMap = /* @__PURE__ */ new Map();
@@ -48130,7 +48424,7 @@ router21.get("/api/player/ladders", authMiddlewareWithFreshData, async (req2, re
         ladderId: ladderPlayers.ladderId,
         playerId: ladderPlayers.playerId,
         position: ladderPlayers.position
-      }).from(ladderPlayers).where(inArray12(ladderPlayers.ladderId, ladderIds));
+      }).from(ladderPlayers).where(inArray13(ladderPlayers.ladderId, ladderIds));
     }
     const playerCountMap = /* @__PURE__ */ new Map();
     const myPositionMap = /* @__PURE__ */ new Map();
@@ -48268,7 +48562,7 @@ router21.post("/api/player/ladders/:id/challenge", authMiddlewareWithFreshData, 
     const [existingChallenge] = await db.select().from(ladderChallenges).where(and26(
       eq27(ladderChallenges.ladderId, id),
       eq27(ladderChallenges.challengerId, playerId),
-      inArray12(ladderChallenges.status, ["pending", "accepted"])
+      inArray13(ladderChallenges.status, ["pending", "accepted"])
     ));
     if (existingChallenge) {
       return res.status(400).json({ error: "You already have a pending or active challenge" });
@@ -48545,7 +48839,7 @@ init_db();
 init_storage();
 init_schema();
 import { Router as Router21 } from "express";
-import { eq as eq28, sql as sql27, desc as desc23, and as and27, inArray as inArray13, isNotNull as isNotNull3, gte as gte16 } from "drizzle-orm";
+import { eq as eq28, sql as sql27, desc as desc23, and as and27, inArray as inArray14, isNotNull as isNotNull3, gte as gte16 } from "drizzle-orm";
 init_pushNotifications();
 init_emailService();
 import crypto2 from "crypto";
@@ -48608,9 +48902,9 @@ router22.get("/api/world-chat/messages", authMiddlewareWithFreshData, async (req
         firstName: coaches.firstName,
         lastName: coaches.lastName,
         academyId: coaches.academyId
-      }).from(coaches).where(inArray13(coaches.id, coachIds));
+      }).from(coaches).where(inArray14(coaches.id, coachIds));
       const academyIds = [...new Set(coachData.filter((c) => c.academyId).map((c) => c.academyId))];
-      const academyData = academyIds.length > 0 ? await db.select({ id: academies.id, name: academies.name }).from(academies).where(inArray13(academies.id, academyIds)) : [];
+      const academyData = academyIds.length > 0 ? await db.select({ id: academies.id, name: academies.name }).from(academies).where(inArray14(academies.id, academyIds)) : [];
       const academyNameMap = new Map(academyData.map((a) => [a.id, a.name]));
       for (const c of coachData) {
         const name = c.name || `${c.firstName || ""} ${c.lastName || ""}`.trim() || "Coach";
@@ -48624,9 +48918,9 @@ router22.get("/api/world-chat/messages", authMiddlewareWithFreshData, async (req
         firstName: players.firstName,
         lastName: players.lastName,
         academyId: players.academyId
-      }).from(players).where(inArray13(players.id, playerIds));
+      }).from(players).where(inArray14(players.id, playerIds));
       const academyIds = [...new Set(playerData.filter((p) => p.academyId).map((p) => p.academyId))];
-      const academyData = academyIds.length > 0 ? await db.select({ id: academies.id, name: academies.name }).from(academies).where(inArray13(academies.id, academyIds)) : [];
+      const academyData = academyIds.length > 0 ? await db.select({ id: academies.id, name: academies.name }).from(academies).where(inArray14(academies.id, academyIds)) : [];
       const academyNameMap = new Map(academyData.map((a) => [a.id, a.name]));
       for (const p of playerData) {
         const name = p.name || `${p.firstName || ""} ${p.lastName || ""}`.trim() || "Player";
@@ -48768,7 +49062,7 @@ router22.get("/api/academy/activity-feed", authMiddlewareWithFreshData, requireA
         titleUnlocked: levelUpEvents.titleUnlocked,
         createdAt: levelUpEvents.createdAt
       }).from(levelUpEvents).where(and27(
-        inArray13(levelUpEvents.playerId, playerIds),
+        inArray14(levelUpEvents.playerId, playerIds),
         gte16(levelUpEvents.createdAt, sevenDaysAgo)
       )).orderBy(desc23(levelUpEvents.createdAt)).limit(10),
       // XP events (level ups in XP system)
@@ -48782,7 +49076,7 @@ router22.get("/api/academy/activity-feed", authMiddlewareWithFreshData, requireA
         levelAtEvent: playerXpEvents.levelAtEvent,
         createdAt: playerXpEvents.createdAt
       }).from(playerXpEvents).where(and27(
-        inArray13(playerXpEvents.playerId, playerIds),
+        inArray14(playerXpEvents.playerId, playerIds),
         gte16(playerXpEvents.createdAt, sevenDaysAgo)
       )).orderBy(desc23(playerXpEvents.createdAt)).limit(20),
       // Recently completed sessions
@@ -50024,7 +50318,7 @@ router22.post("/api/coach/sessions/:id/cancel", authMiddlewareWithFreshData, req
     const sessionPlayerRecords = await db.select({ id: sessionPlayers.id }).from(sessionPlayers).where(eq28(sessionPlayers.sessionId, id));
     if (sessionPlayerRecords.length > 0) {
       const spIds = sessionPlayerRecords.map((sp) => sp.id);
-      await db.update(creditTransactions).set({ sessionPlayerId: null }).where(inArray13(creditTransactions.sessionPlayerId, spIds));
+      await db.update(creditTransactions).set({ sessionPlayerId: null }).where(inArray14(creditTransactions.sessionPlayerId, spIds));
     }
     await db.delete(inSessionFeedback).where(eq28(inSessionFeedback.sessionId, id));
     await db.delete(sessionPlayers).where(eq28(sessionPlayers.sessionId, id));
@@ -50895,7 +51189,7 @@ init_storage();
 init_db();
 init_schema();
 import { Router as Router22 } from "express";
-import { eq as eq29, sql as sql28, desc as desc24, and as and28, ne as ne8, asc as asc10, inArray as inArray14, isNull as isNull7, isNotNull as isNotNull4, or as or14 } from "drizzle-orm";
+import { eq as eq29, sql as sql28, desc as desc24, and as and28, ne as ne8, asc as asc10, inArray as inArray15, isNull as isNull7, isNotNull as isNotNull4, or as or14 } from "drizzle-orm";
 import crypto3 from "crypto";
 var router23 = Router22();
 function requirePlayerOrOwner3(req2, res, next) {
@@ -50950,7 +51244,7 @@ router23.get("/api/admin/series", authMiddlewareWithFreshData, requireRole("admi
       const completedSessionIds = sessionsForSeries.map((sess) => sess.id);
       let pendingFeedback = 0;
       if (completedSessionIds.length > 0) {
-        const feedbackCount = await db.select({ count: sql28`count(distinct ${sessionFeedback.sessionId})` }).from(sessionFeedback).where(inArray14(sessionFeedback.sessionId, completedSessionIds));
+        const feedbackCount = await db.select({ count: sql28`count(distinct ${sessionFeedback.sessionId})` }).from(sessionFeedback).where(inArray15(sessionFeedback.sessionId, completedSessionIds));
         pendingFeedback = sessionsForSeries.length - (feedbackCount[0]?.count || 0);
       }
       const coach = coachMap.get(s.coachId);
@@ -51340,11 +51634,11 @@ router23.delete("/api/admin/series/:id", authMiddlewareWithFreshData, requireRol
       const sessionIds = orphanSessions.map((s) => s.id);
       const orphanCoachId = orphanSessions[0]?.coachId;
       await db.transaction(async (tx) => {
-        await tx.delete(xpTransactions).where(inArray14(xpTransactions.sessionId, sessionIds));
-        await tx.delete(coachXpTransactions).where(inArray14(coachXpTransactions.sessionId, sessionIds));
-        await tx.delete(creditTransactions).where(inArray14(creditTransactions.sessionId, sessionIds));
-        await tx.delete(sessionPlayers).where(inArray14(sessionPlayers.sessionId, sessionIds));
-        await tx.delete(sessions).where(inArray14(sessions.id, sessionIds));
+        await tx.delete(xpTransactions).where(inArray15(xpTransactions.sessionId, sessionIds));
+        await tx.delete(coachXpTransactions).where(inArray15(coachXpTransactions.sessionId, sessionIds));
+        await tx.delete(creditTransactions).where(inArray15(creditTransactions.sessionId, sessionIds));
+        await tx.delete(sessionPlayers).where(inArray15(sessionPlayers.sessionId, sessionIds));
+        await tx.delete(sessions).where(inArray15(sessions.id, sessionIds));
       });
       console.log(`[Series DELETE] Deleted ${sessionIds.length} orphan sessions for virtual series ${id}`);
       if (orphanCoachId) {
@@ -51522,7 +51816,7 @@ router23.get("/api/admin/series/:id/feedback", authMiddlewareWithFreshData, requ
     if (sessionIds.length === 0) {
       return res.json({ friends: [], pendingRequests: [] });
     }
-    const feedback = await db.select().from(sessionFeedback).where(inArray14(sessionFeedback.sessionId, sessionIds)).orderBy(desc24(sessionFeedback.createdAt));
+    const feedback = await db.select().from(sessionFeedback).where(inArray15(sessionFeedback.sessionId, sessionIds)).orderBy(desc24(sessionFeedback.createdAt));
     const enrichedFeedback = await Promise.all(feedback.map(async (f) => {
       const player2 = await storage.getPlayer(f.playerId);
       const session = seriesSessions.find((s) => s.id === f.sessionId);
@@ -54592,7 +54886,7 @@ async function registerRoutes(app2) {
         const coachIds = [
           ...new Set(sessionAttendance.map((s) => s.coachId).filter(Boolean))
         ];
-        const coachesData = coachIds.length > 0 ? await db.select({ id: coaches.id, displayName: coaches.displayName }).from(coaches).where(inArray15(coaches.id, coachIds)) : [];
+        const coachesData = coachIds.length > 0 ? await db.select({ id: coaches.id, displayName: coaches.displayName }).from(coaches).where(inArray16(coaches.id, coachIds)) : [];
         const coachNames = coachesData.map((c) => c.displayName || "Coach");
         const courtBookingsData = await db.select({
           id: courtBookings.id,
@@ -57151,7 +57445,7 @@ async function registerRoutes(app2) {
         if (allSeriesIdsForFilter.length > 0) {
           const endedSeriesRows = await db.select({ id: coachingSeries.id }).from(coachingSeries).where(
             and29(
-              inArray15(coachingSeries.id, allSeriesIdsForFilter),
+              inArray16(coachingSeries.id, allSeriesIdsForFilter),
               eq30(coachingSeries.status, "ended")
             )
           );
@@ -57178,7 +57472,7 @@ async function registerRoutes(app2) {
             hostBallLevel: players.ballLevel,
             playerBallLevel: players.ballLevel,
             profilePhotoUrl: players.profilePhotoUrl
-          }).from(sessionPlayers).leftJoin(players, eq30(sessionPlayers.playerId, players.id)).where(inArray15(sessionPlayers.sessionId, sessionIds)) : Promise.resolve([]),
+          }).from(sessionPlayers).leftJoin(players, eq30(sessionPlayers.playerId, players.id)).where(inArray16(sessionPlayers.sessionId, sessionIds)) : Promise.resolve([]),
           seriesIds.length > 0 ? db.select({
             seriesId: seriesPlayers.seriesId,
             playerId: seriesPlayers.playerId,
@@ -57189,7 +57483,7 @@ async function registerRoutes(app2) {
             profilePhotoUrl: players.profilePhotoUrl
           }).from(seriesPlayers).leftJoin(players, eq30(seriesPlayers.playerId, players.id)).where(
             and29(
-              inArray15(seriesPlayers.seriesId, seriesIds),
+              inArray16(seriesPlayers.seriesId, seriesIds),
               eq30(seriesPlayers.status, "active")
             )
           ) : Promise.resolve([])
@@ -57201,7 +57495,7 @@ async function registerRoutes(app2) {
             leftAt: seriesPlayers.leftAt
           }).from(seriesPlayers).where(
             and29(
-              inArray15(seriesPlayers.seriesId, seriesIds),
+              inArray16(seriesPlayers.seriesId, seriesIds),
               eq30(seriesPlayers.status, "left")
             )
           ) : Promise.resolve([]),
@@ -57212,7 +57506,7 @@ async function registerRoutes(app2) {
             pauseUntil: seriesPlayers.pauseUntil
           }).from(seriesPlayers).where(
             and29(
-              inArray15(seriesPlayers.seriesId, seriesIds),
+              inArray16(seriesPlayers.seriesId, seriesIds),
               eq30(seriesPlayers.status, "paused"),
               isNotNull5(seriesPlayers.pauseFrom),
               isNotNull5(seriesPlayers.pauseUntil)
@@ -57834,7 +58128,7 @@ async function registerRoutes(app2) {
           await db.update(playerNotifications).set({ read: true, readAt: /* @__PURE__ */ new Date() }).where(
             and29(
               eq30(playerNotifications.playerId, playerId),
-              inArray15(playerNotifications.id, notificationIds)
+              inArray16(playerNotifications.id, notificationIds)
             )
           );
         } else {
@@ -58445,7 +58739,7 @@ async function registerRoutes(app2) {
         }
         const debitTransactions = await db.select().from(creditTransactions).where(
           and29(
-            inArray15(creditTransactions.playerId, playerIds),
+            inArray16(creditTransactions.playerId, playerIds),
             eq30(creditTransactions.type, "debit")
           )
         );
@@ -60646,7 +60940,7 @@ async function registerRoutes(app2) {
             sessionType: sessions.sessionType,
             status: sessions.status,
             seriesId: sessions.seriesId
-          }).from(sessions).where(inArray15(sessions.id, sessionIds));
+          }).from(sessions).where(inArray16(sessions.id, sessionIds));
           sessionMap = sessionDetails.reduce(
             (acc, s) => {
               acc[s.id] = {
@@ -60674,7 +60968,7 @@ async function registerRoutes(app2) {
             dayOfWeek: coachingSeries.dayOfWeek,
             startTime: coachingSeries.startTime,
             sessionType: coachingSeries.sessionType
-          }).from(coachingSeries).where(inArray15(coachingSeries.id, uniqueSeriesIds));
+          }).from(coachingSeries).where(inArray16(coachingSeries.id, uniqueSeriesIds));
           seriesMap = seriesDetails.reduce(
             (acc, s) => {
               acc[s.id] = {
@@ -60709,7 +61003,7 @@ async function registerRoutes(app2) {
           }).from(creditTransactions).where(
             and29(
               eq30(creditTransactions.playerId, id),
-              inArray15(creditTransactions.sessionId, allSessionIds),
+              inArray16(creditTransactions.sessionId, allSessionIds),
               eq30(creditTransactions.type, "debit")
             )
           );
@@ -60940,7 +61234,7 @@ async function registerRoutes(app2) {
             sessionType: sessions.sessionType
           }).from(sessions).where(
             and29(
-              inArray15(sessions.seriesId, seriesIdList),
+              inArray16(sessions.seriesId, seriesIdList),
               eq30(sessions.status, "completed")
             )
           );
@@ -61072,7 +61366,7 @@ async function registerRoutes(app2) {
             startTime: sessions.startTime
           }).from(sessions).where(
             and29(
-              inArray15(sessions.seriesId, seriesIdsForHistory),
+              inArray16(sessions.seriesId, seriesIdsForHistory),
               eq30(sessions.status, "completed")
             )
           );
@@ -61107,7 +61401,7 @@ async function registerRoutes(app2) {
             sessionType: sessions.sessionType,
             status: sessions.status,
             seriesId: sessions.seriesId
-          }).from(sessions).where(inArray15(sessions.id, sessionIds));
+          }).from(sessions).where(inArray16(sessions.id, sessionIds));
           sessionMap = sessionDetails.reduce(
             (acc, s) => {
               acc[s.id] = {
@@ -61135,7 +61429,7 @@ async function registerRoutes(app2) {
             dayOfWeek: coachingSeries.dayOfWeek,
             startTime: coachingSeries.startTime,
             sessionType: coachingSeries.sessionType
-          }).from(coachingSeries).where(inArray15(coachingSeries.id, uniqueSeriesIds));
+          }).from(coachingSeries).where(inArray16(coachingSeries.id, uniqueSeriesIds));
           seriesMap = seriesDetails.reduce(
             (acc, s) => {
               acc[s.id] = {
@@ -62101,7 +62395,7 @@ async function registerRoutes(app2) {
             playerBallLevel: players.ballLevel
           }).from(seriesPlayers).leftJoin(players, eq30(seriesPlayers.playerId, players.id)).where(
             and29(
-              inArray15(seriesPlayers.seriesId, seriesIds),
+              inArray16(seriesPlayers.seriesId, seriesIds),
               eq30(seriesPlayers.status, "active")
             )
           ) : Promise.resolve([]),
@@ -62111,7 +62405,7 @@ async function registerRoutes(app2) {
             count: sql29`count(*)::int`
           }).from(seriesPlayers).where(
             and29(
-              inArray15(seriesPlayers.seriesId, seriesIds),
+              inArray16(seriesPlayers.seriesId, seriesIds),
               eq30(seriesPlayers.status, "paused")
             )
           ).groupBy(seriesPlayers.seriesId) : Promise.resolve([]),
@@ -62121,7 +62415,7 @@ async function registerRoutes(app2) {
             id: sessions.id
           }).from(sessions).where(
             and29(
-              inArray15(sessions.seriesId, seriesIds),
+              inArray16(sessions.seriesId, seriesIds),
               eq30(sessions.status, "completed")
             )
           ) : Promise.resolve([]),
@@ -62131,7 +62425,7 @@ async function registerRoutes(app2) {
             startTime: sql29`MIN(${sessions.startTime})`
           }).from(sessions).where(
             and29(
-              inArray15(sessions.seriesId, seriesIds),
+              inArray16(sessions.seriesId, seriesIds),
               eq30(sessions.status, "scheduled"),
               gte17(sessions.startTime, /* @__PURE__ */ new Date())
             )
@@ -62141,7 +62435,7 @@ async function registerRoutes(app2) {
         const feedbackCounts = allCompletedSessionIds.length > 0 ? await db.select({
           sessionId: sessionFeedback.sessionId
         }).from(sessionFeedback).where(
-          inArray15(sessionFeedback.sessionId, allCompletedSessionIds)
+          inArray16(sessionFeedback.sessionId, allCompletedSessionIds)
         ) : [];
         const pausedCountMap = /* @__PURE__ */ new Map();
         for (const p of allPausedPlayers) {
@@ -62371,7 +62665,7 @@ async function registerRoutes(app2) {
               const existingEnrollments = await db.select({
                 sessionId: sessionPlayers.sessionId,
                 playerId: sessionPlayers.playerId
-              }).from(sessionPlayers).where(inArray15(sessionPlayers.sessionId, sessionIds));
+              }).from(sessionPlayers).where(inArray16(sessionPlayers.sessionId, sessionIds));
               const enrolledSet = new Set(
                 existingEnrollments.map((e) => `${e.sessionId}:${e.playerId}`)
               );
@@ -62379,7 +62673,7 @@ async function registerRoutes(app2) {
                 playerId: playerHolidays.playerId,
                 startDate: playerHolidays.startDate,
                 endDate: playerHolidays.endDate
-              }).from(playerHolidays).where(inArray15(playerHolidays.playerId, activePlayerIds));
+              }).from(playerHolidays).where(inArray16(playerHolidays.playerId, activePlayerIds));
               const holidaysByPlayer = /* @__PURE__ */ new Map();
               for (const h of healPlayerHolidays) {
                 if (!h.playerId) continue;
@@ -64042,7 +64336,7 @@ async function registerRoutes(app2) {
           const affectedSessions = await db.select({ id: sessions.id }).from(sessions).where(
             and29(
               eq30(sessions.seriesId, id),
-              inArray15(sessions.status, ["scheduled", "completed"]),
+              inArray16(sessions.status, ["scheduled", "completed"]),
               gte17(sql29`${sessions.startTime}::date`, sql29`${pauseFrom}::date`),
               lte9(sql29`${sessions.startTime}::date`, sql29`${pauseUntil}::date`)
             )
@@ -64052,7 +64346,7 @@ async function registerRoutes(app2) {
             await db.delete(sessionPlayers).where(
               and29(
                 eq30(sessionPlayers.playerId, playerId),
-                inArray15(sessionPlayers.sessionId, sessionIds)
+                inArray16(sessionPlayers.sessionId, sessionIds)
               )
             );
             console.log(`[Pause] Removed session_player records for player ${playerId} from ${affectedSessions.length} sessions during pause ${pauseFrom} to ${pauseUntil}`);
@@ -64280,8 +64574,8 @@ async function registerRoutes(app2) {
             summary: { total: 0, withFeedback: 0, intensity: {} }
           });
         }
-        const feedbackList = await db.select().from(sessionFeedback).where(inArray15(sessionFeedback.sessionId, sessionIds));
-        const playerFeedbackList = await db.select().from(inSessionFeedback).where(inArray15(inSessionFeedback.sessionId, sessionIds));
+        const feedbackList = await db.select().from(sessionFeedback).where(inArray16(sessionFeedback.sessionId, sessionIds));
+        const playerFeedbackList = await db.select().from(inSessionFeedback).where(inArray16(inSessionFeedback.sessionId, sessionIds));
         const intensityCounts = {};
         feedbackList.forEach((f) => {
           if (f.intensity) {
@@ -64330,8 +64624,8 @@ async function registerRoutes(app2) {
         }
         const xpData = await db.select().from(xpTransactions2).where(
           and29(
-            inArray15(xpTransactions2.playerId, playerIds),
-            inArray15(xpTransactions2.sessionId, sessionIds)
+            inArray16(xpTransactions2.playerId, playerIds),
+            inArray16(xpTransactions2.sessionId, sessionIds)
           )
         );
         const playerXpMap = {};
@@ -64346,10 +64640,10 @@ async function registerRoutes(app2) {
             sessionCount: sql29`count(*)::int`
           }).from(sessionPlayers).where(
             and29(
-              inArray15(sessionPlayers.playerId, playerIds),
-              inArray15(sessionPlayers.sessionId, completedSessionIds),
+              inArray16(sessionPlayers.playerId, playerIds),
+              inArray16(sessionPlayers.sessionId, completedSessionIds),
               or15(
-                inArray15(sessionPlayers.attendanceStatus, [
+                inArray16(sessionPlayers.attendanceStatus, [
                   "present",
                   "late",
                   "absent"
@@ -64409,7 +64703,7 @@ async function registerRoutes(app2) {
         const sessionIds = seriesSessions.map((s) => s.id);
         let feedbackMap = {};
         if (sessionIds.length > 0) {
-          const feedback = await db.select({ sessionId: sessionFeedback.sessionId }).from(sessionFeedback).where(inArray15(sessionFeedback.sessionId, sessionIds));
+          const feedback = await db.select({ sessionId: sessionFeedback.sessionId }).from(sessionFeedback).where(inArray16(sessionFeedback.sessionId, sessionIds));
           feedback.forEach((f) => {
             if (f.sessionId) feedbackMap[f.sessionId] = true;
           });
@@ -64542,7 +64836,7 @@ async function registerRoutes(app2) {
             }).where(eq30(sessions.id, session.id));
           }
           const allSessionIds = groupSessions.map((s) => s.id);
-          const allSessionPlayers = await db.select({ playerId: sessionPlayers.playerId }).from(sessionPlayers).where(inArray15(sessionPlayers.sessionId, allSessionIds));
+          const allSessionPlayers = await db.select({ playerId: sessionPlayers.playerId }).from(sessionPlayers).where(inArray16(sessionPlayers.sessionId, allSessionIds));
           const uniquePlayerIds = [
             ...new Set(
               allSessionPlayers.map((sp) => sp.playerId).filter(Boolean)
@@ -65616,7 +65910,7 @@ async function registerRoutes(app2) {
             conversationIds,
             coachId
           ) : Promise.resolve([]),
-          playerIds.length > 0 ? db.select({ id: players.id, name: players.name }).from(players).where(inArray15(players.id, playerIds)) : Promise.resolve([])
+          playerIds.length > 0 ? db.select({ id: players.id, name: players.name }).from(players).where(inArray16(players.id, playerIds)) : Promise.resolve([])
         ]);
         const participantsByConv = /* @__PURE__ */ new Map();
         for (const p of allParticipants) {
@@ -69152,7 +69446,7 @@ async function registerRoutes(app2) {
         }).from(users).where(
           and29(
             isNotNull5(users.academyId),
-            inArray15(users.role, ["platform_owner", "academy_owner", "coach", "assistant"])
+            inArray16(users.role, ["platform_owner", "academy_owner", "coach", "assistant"])
           )
         ).groupBy(users.academyId);
         const lastLoginMap = new Map(
@@ -69982,7 +70276,7 @@ async function registerRoutes(app2) {
             date: sessions.date,
             duration: sessions.duration,
             status: sessions.status
-          }).from(sessions).where(inArray15(sessions.id, sessionIds));
+          }).from(sessions).where(inArray16(sessions.id, sessionIds));
           for (const s of sessRows) {
             sessionDetails[s.id] = s;
           }
@@ -71230,7 +71524,7 @@ async function registerRoutes(app2) {
           });
         }
         const seriesIds = playerSeriesRecords.map((r) => r.seriesId);
-        const seriesDetails = await db.select().from(coachingSeries).where(inArray15(coachingSeries.id, seriesIds));
+        const seriesDetails = await db.select().from(coachingSeries).where(inArray16(coachingSeries.id, seriesIds));
         const classes = await Promise.all(
           seriesDetails.map(async (series) => {
             const seriesRecord = playerSeriesRecords.find(
@@ -71243,7 +71537,7 @@ async function registerRoutes(app2) {
               count: count6()
             }).from(sessionPlayers).where(
               and29(
-                inArray15(sessionPlayers.sessionId, sessionIds),
+                inArray16(sessionPlayers.sessionId, sessionIds),
                 eq30(sessionPlayers.playerId, playerId)
               )
             ).groupBy(sessionPlayers.attendanceStatus) : [];
@@ -74997,7 +75291,7 @@ async function registerRoutes(app2) {
       const sessionIds = playerRecords.map((r) => r.sessionId).filter(Boolean);
       let sessionMap = {};
       if (sessionIds.length > 0) {
-        const sessionDetails = await db.select({ id: sessions.id, startTime: sessions.startTime, endTime: sessions.endTime, sessionType: sessions.sessionType, status: sessions.status, seriesId: sessions.seriesId }).from(sessions).where(inArray15(sessions.id, sessionIds));
+        const sessionDetails = await db.select({ id: sessions.id, startTime: sessions.startTime, endTime: sessions.endTime, sessionType: sessions.sessionType, status: sessions.status, seriesId: sessions.seriesId }).from(sessions).where(inArray16(sessions.id, sessionIds));
         sessionMap = sessionDetails.reduce((acc, s) => {
           acc[s.id] = { startTime: s.startTime, endTime: s.endTime, sessionType: s.sessionType, status: s.status, seriesId: s.seriesId };
           return acc;
@@ -75006,7 +75300,7 @@ async function registerRoutes(app2) {
       const uniqueSeriesIds = [...new Set(Object.values(sessionMap).map((s) => s.seriesId).filter(Boolean))];
       let seriesMap = {};
       if (uniqueSeriesIds.length > 0) {
-        const seriesDetails = await db.select({ id: coachingSeries.id, title: coachingSeries.title, dayOfWeek: coachingSeries.dayOfWeek, startTime: coachingSeries.startTime, sessionType: coachingSeries.sessionType }).from(coachingSeries).where(inArray15(coachingSeries.id, uniqueSeriesIds));
+        const seriesDetails = await db.select({ id: coachingSeries.id, title: coachingSeries.title, dayOfWeek: coachingSeries.dayOfWeek, startTime: coachingSeries.startTime, sessionType: coachingSeries.sessionType }).from(coachingSeries).where(inArray16(coachingSeries.id, uniqueSeriesIds));
         seriesMap = seriesDetails.reduce((acc, s) => {
           acc[s.id] = { title: s.title || "", dayOfWeek: s.dayOfWeek, startTime: s.startTime, sessionType: s.sessionType };
           return acc;
@@ -75016,7 +75310,7 @@ async function registerRoutes(app2) {
       const allSessionIds = playerRecords.map((r) => r.sessionId).filter(Boolean);
       const paidSessionIdSet = /* @__PURE__ */ new Set();
       if (allSessionIds.length > 0) {
-        const sessionTxs = await db.select({ sessionId: creditTransactions.sessionId, reason: creditTransactions.reason, packageId: creditTransactions.packageId, metadata: creditTransactions.metadata }).from(creditTransactions).where(and29(eq30(creditTransactions.playerId, player2.id), inArray15(creditTransactions.sessionId, allSessionIds), eq30(creditTransactions.type, "debit")));
+        const sessionTxs = await db.select({ sessionId: creditTransactions.sessionId, reason: creditTransactions.reason, packageId: creditTransactions.packageId, metadata: creditTransactions.metadata }).from(creditTransactions).where(and29(eq30(creditTransactions.playerId, player2.id), inArray16(creditTransactions.sessionId, allSessionIds), eq30(creditTransactions.type, "debit")));
         for (const tx of sessionTxs) {
           if (!tx.sessionId) continue;
           const isDebtReason = tx.reason === "session_debt" || tx.reason === "session_join_debt" || tx.reason === "session_unpaid";

@@ -2,14 +2,16 @@ import { Router, Request, Response, NextFunction } from "express";
 import { db } from "./db";
 import { 
   shopCategories, shopProducts, shopServices, shopOrders, shopOrderItems, shopWishlist,
+  serviceProviders,
   insertShopCategorySchema, insertShopProductSchema, insertShopServiceSchema,
-  players
+  players, users
 } from "../shared/schema";
-import { eq, and, desc, asc, sql } from "drizzle-orm";
+import { eq, and, desc, asc, sql, inArray } from "drizzle-orm";
 import { 
   authMiddlewareWithFreshData as authMiddleware,
   requireRole, 
   requireFeatureUnlock,
+  hashPassword,
   JWTPayload 
 } from "./auth";
 
@@ -413,10 +415,10 @@ router.get("/player/shop/orders/:id", authMiddleware, requirePlayerProfile, requ
   }
 });
 
-// Create order (cart checkout)
+// Create order (cart checkout / service booking)
 router.post("/player/shop/orders", authMiddleware, requirePlayerProfile, requireFeatureUnlock("academy_shop"), async (req: AuthRequest, res: Response) => {
   try {
-    const { items, contactName, contactPhone, contactEmail, notes } = req.body;
+    const { items, contactName, contactPhone, contactEmail, notes, scheduledAt } = req.body;
     
     if (!items || !Array.isArray(items) || items.length === 0) {
       return res.status(400).json({ error: "Cart is empty" });
@@ -502,6 +504,7 @@ router.post("/player/shop/orders", authMiddleware, requirePlayerProfile, require
       contactPhone,
       contactEmail,
       notes,
+      scheduledAt: scheduledAt ? new Date(scheduledAt) : undefined,
     }).returning();
 
     for (const item of orderItems) {
@@ -754,16 +757,17 @@ router.get("/academy/shop/orders", authMiddleware, requireRole("academy_owner", 
   }
 });
 
-// Update order status
+// Update order status + optionally assign provider
 router.patch("/academy/shop/orders/:id", authMiddleware, requireRole("academy_owner", "coach"), async (req: AuthRequest, res: Response) => {
   try {
     const { id } = req.params;
-    const { status, paymentStatus } = req.body;
+    const { status, paymentStatus, assignedProviderId } = req.body;
 
-    const updateData: any = { updatedAt: new Date() };
+    const updateData: Record<string, unknown> = { updatedAt: new Date() };
     if (status) updateData.status = status;
     if (paymentStatus) updateData.paymentStatus = paymentStatus;
     if (status === "completed") updateData.completedAt = new Date();
+    if (assignedProviderId !== undefined) updateData.assignedProviderId = assignedProviderId;
 
     const [order] = await db.update(shopOrders)
       .set(updateData)
@@ -777,10 +781,386 @@ router.patch("/academy/shop/orders/:id", authMiddleware, requireRole("academy_ow
       return res.status(404).json({ error: "Order not found" });
     }
 
+    // If provider assigned, bump their total_bookings
+    if (assignedProviderId) {
+      await db.execute(sql`
+        UPDATE service_providers SET total_bookings = total_bookings + 1, updated_at = NOW()
+        WHERE id = ${assignedProviderId}
+      `);
+    }
+
     res.json(order);
   } catch (error) {
     console.error("[Shop] Error updating order:", error);
     res.status(500).json({ error: "Failed to update order" });
+  }
+});
+
+// Get all orders with player info and items for academy (enhanced view)
+router.get("/academy/shop/orders/detailed", authMiddleware, requireRole("academy_owner", "coach"), async (req: AuthRequest, res: Response) => {
+  try {
+    if (!req.user!.academyId) {
+      return res.status(400).json({ error: "No academy assigned" });
+    }
+    const { status, type } = req.query;
+
+    const whereClauses: ReturnType<typeof eq>[] = [eq(shopOrders.academyId, req.user!.academyId)];
+    if (status && typeof status === "string") {
+      whereClauses.push(eq(shopOrders.status, status));
+    }
+
+    const orders = await db.select().from(shopOrders)
+      .where(and(...whereClauses))
+      .orderBy(desc(shopOrders.createdAt));
+
+    const orderIds = orders.map(o => o.id);
+    const playerIds = [...new Set(orders.filter(o => o.playerId).map(o => o.playerId!))];
+
+    const [allItems, allPlayers] = await Promise.all([
+      orderIds.length > 0
+        ? db.select().from(shopOrderItems).where(inArray(shopOrderItems.orderId, orderIds))
+        : [],
+      playerIds.length > 0
+        ? db.select({ id: players.id, name: players.name, profilePhotoUrl: players.profilePhotoUrl }).from(players).where(inArray(players.id, playerIds))
+        : [],
+    ]);
+
+    const playerMap = new Map(allPlayers.map(p => [p.id, p]));
+    const itemsMap = new Map<string, typeof allItems>();
+    for (const item of allItems) {
+      if (!itemsMap.has(item.orderId)) itemsMap.set(item.orderId, []);
+      itemsMap.get(item.orderId)!.push(item);
+    }
+
+    const enriched = orders
+      .filter(o => {
+        if (!type) return true;
+        const items = itemsMap.get(o.id) || [];
+        return type === "service" ? items.some(i => i.itemType === "service") : items.some(i => i.itemType === "product");
+      })
+      .map(o => ({
+        ...o,
+        player: o.playerId ? playerMap.get(o.playerId) || null : null,
+        items: itemsMap.get(o.id) || [],
+      }));
+
+    res.json(enriched);
+  } catch (error) {
+    console.error("[Shop] Error fetching detailed orders:", error);
+    res.status(500).json({ error: "Failed to load orders" });
+  }
+});
+
+// ==================== CATEGORY PATCH/DELETE ====================
+
+router.patch("/academy/shop/categories/:id", authMiddleware, requireRole("academy_owner"), async (req: AuthRequest, res: Response) => {
+  try {
+    const { id } = req.params;
+    const [category] = await db.update(shopCategories)
+      .set({ ...req.body, updatedAt: new Date() })
+      .where(and(eq(shopCategories.id, id), eq(shopCategories.academyId, req.user!.academyId!)))
+      .returning();
+    if (!category) return res.status(404).json({ error: "Category not found" });
+    res.json(category);
+  } catch (error) {
+    console.error("[Shop] Error updating category:", error);
+    res.status(500).json({ error: "Failed to update category" });
+  }
+});
+
+router.delete("/academy/shop/categories/:id", authMiddleware, requireRole("academy_owner"), async (req: AuthRequest, res: Response) => {
+  try {
+    const { id } = req.params;
+    await db.delete(shopCategories).where(and(eq(shopCategories.id, id), eq(shopCategories.academyId, req.user!.academyId!)));
+    res.json({ success: true });
+  } catch (error) {
+    console.error("[Shop] Error deleting category:", error);
+    res.status(500).json({ error: "Failed to delete category" });
+  }
+});
+
+// ==================== ACADEMY SERVICE PROVIDER MANAGEMENT ====================
+
+// List service providers for academy
+router.get("/academy/shop/providers", authMiddleware, requireRole("academy_owner", "coach"), async (req: AuthRequest, res: Response) => {
+  try {
+    if (!req.user!.academyId) return res.status(400).json({ error: "No academy assigned" });
+
+    const providers = await db.select({
+      id: serviceProviders.id,
+      userId: serviceProviders.userId,
+      academyId: serviceProviders.academyId,
+      displayName: serviceProviders.displayName,
+      bio: serviceProviders.bio,
+      profilePhotoUrl: serviceProviders.profilePhotoUrl,
+      phone: serviceProviders.phone,
+      specializations: serviceProviders.specializations,
+      serviceTypes: serviceProviders.serviceTypes,
+      isActive: serviceProviders.isActive,
+      rating: serviceProviders.rating,
+      totalBookings: serviceProviders.totalBookings,
+      createdAt: serviceProviders.createdAt,
+      userEmail: users.email,
+    })
+      .from(serviceProviders)
+      .leftJoin(users, eq(serviceProviders.userId, users.id))
+      .where(eq(serviceProviders.academyId, req.user!.academyId))
+      .orderBy(asc(serviceProviders.displayName));
+
+    res.json(providers);
+  } catch (error) {
+    console.error("[Shop] Error fetching providers:", error);
+    res.status(500).json({ error: "Failed to load providers" });
+  }
+});
+
+// Create / invite service provider (creates a user + provider record)
+router.post("/academy/shop/providers", authMiddleware, requireRole("academy_owner"), async (req: AuthRequest, res: Response) => {
+  try {
+    if (!req.user!.academyId) return res.status(400).json({ error: "No academy assigned" });
+
+    const { email, displayName, password, bio, phone, serviceTypes, specializations, username } = req.body;
+    if (!email || !displayName || !password) {
+      return res.status(400).json({ error: "email, displayName, and password are required" });
+    }
+
+    const emailLower = email.toLowerCase();
+    const existing = await db.select().from(users).where(eq(users.email, emailLower)).limit(1);
+    if (existing[0]) return res.status(409).json({ error: "A user with this email already exists" });
+
+    // Auto-generate a unique username if not provided
+    const baseUsername = (username || displayName)
+      .toLowerCase()
+      .replace(/\s+/g, ".")
+      .replace(/[^a-z0-9.]/g, "")
+      .slice(0, 20);
+    const finalUsername = `${baseUsername}.${Date.now().toString(36)}`;
+
+    const hashed = await hashPassword(password);
+    const [newUser] = await db.insert(users).values({
+      username: finalUsername,
+      email: emailLower,
+      password: hashed,
+      role: "service_provider",
+      status: "active",
+      academyId: req.user!.academyId,
+    }).returning();
+
+    const [provider] = await db.insert(serviceProviders).values({
+      userId: newUser.id,
+      academyId: req.user!.academyId,
+      displayName,
+      bio: bio || null,
+      phone: phone || null,
+      serviceTypes: serviceTypes || [],
+      specializations: specializations || [],
+    }).returning();
+
+    res.json({ ...provider, userEmail: emailLower, username: finalUsername });
+  } catch (error) {
+    console.error("[Shop] Error creating provider:", error);
+    res.status(500).json({ error: "Failed to create provider" });
+  }
+});
+
+// Update provider profile
+router.patch("/academy/shop/providers/:id", authMiddleware, requireRole("academy_owner"), async (req: AuthRequest, res: Response) => {
+  try {
+    const { id } = req.params;
+    const { displayName, bio, phone, serviceTypes, specializations, isActive } = req.body;
+
+    const updateData: Record<string, unknown> = { updatedAt: new Date() };
+    if (displayName !== undefined) updateData.displayName = displayName;
+    if (bio !== undefined) updateData.bio = bio;
+    if (phone !== undefined) updateData.phone = phone;
+    if (serviceTypes !== undefined) updateData.serviceTypes = serviceTypes;
+    if (specializations !== undefined) updateData.specializations = specializations;
+    if (isActive !== undefined) updateData.isActive = isActive;
+
+    const [provider] = await db.update(serviceProviders)
+      .set(updateData)
+      .where(and(eq(serviceProviders.id, id), eq(serviceProviders.academyId, req.user!.academyId!)))
+      .returning();
+
+    if (!provider) return res.status(404).json({ error: "Provider not found" });
+    res.json(provider);
+  } catch (error) {
+    console.error("[Shop] Error updating provider:", error);
+    res.status(500).json({ error: "Failed to update provider" });
+  }
+});
+
+// Deactivate provider
+router.delete("/academy/shop/providers/:id", authMiddleware, requireRole("academy_owner"), async (req: AuthRequest, res: Response) => {
+  try {
+    const { id } = req.params;
+    await db.update(serviceProviders)
+      .set({ isActive: false, updatedAt: new Date() })
+      .where(and(eq(serviceProviders.id, id), eq(serviceProviders.academyId, req.user!.academyId!)));
+    res.json({ success: true });
+  } catch (error) {
+    console.error("[Shop] Error deactivating provider:", error);
+    res.status(500).json({ error: "Failed to deactivate provider" });
+  }
+});
+
+// ==================== SERVICE PROVIDER DASHBOARD ENDPOINTS ====================
+
+function requireServiceProvider(req: AuthRequest, res: Response, next: NextFunction): void {
+  if (!req.user) {
+    res.status(401).json({ error: "Authentication required" });
+    return;
+  }
+  if (req.user.role === "service_provider") {
+    next();
+    return;
+  }
+  // Also allow academy_owners/platform_owners to view provider data
+  if (req.user.role === "academy_owner" || req.user.role === "platform_owner") {
+    next();
+    return;
+  }
+  res.status(403).json({ error: "Service provider access required" });
+}
+
+// Get my provider profile
+router.get("/provider/me", authMiddleware, requireServiceProvider, async (req: AuthRequest, res: Response) => {
+  try {
+    const provider = await db.select({
+      id: serviceProviders.id,
+      userId: serviceProviders.userId,
+      academyId: serviceProviders.academyId,
+      displayName: serviceProviders.displayName,
+      bio: serviceProviders.bio,
+      profilePhotoUrl: serviceProviders.profilePhotoUrl,
+      phone: serviceProviders.phone,
+      specializations: serviceProviders.specializations,
+      serviceTypes: serviceProviders.serviceTypes,
+      isActive: serviceProviders.isActive,
+      rating: serviceProviders.rating,
+      totalBookings: serviceProviders.totalBookings,
+      createdAt: serviceProviders.createdAt,
+      userName: users.name,
+      userEmail: users.email,
+    })
+      .from(serviceProviders)
+      .leftJoin(users, eq(serviceProviders.userId, users.id))
+      .where(eq(serviceProviders.userId, req.user!.userId))
+      .limit(1);
+
+    if (!provider[0]) {
+      return res.status(404).json({ error: "Provider profile not found" });
+    }
+
+    res.json(provider[0]);
+  } catch (error) {
+    console.error("[Provider] Error fetching profile:", error);
+    res.status(500).json({ error: "Failed to load profile" });
+  }
+});
+
+// Get my bookings (service orders assigned to me)
+router.get("/provider/me/bookings", authMiddleware, requireServiceProvider, async (req: AuthRequest, res: Response) => {
+  try {
+    const providerRecord = await db.select().from(serviceProviders)
+      .where(eq(serviceProviders.userId, req.user!.userId))
+      .limit(1);
+
+    if (!providerRecord[0]) {
+      return res.status(404).json({ error: "Provider profile not found" });
+    }
+
+    const providerId = providerRecord[0].id;
+    const { status, date } = req.query;
+
+    const whereClauses: ReturnType<typeof eq>[] = [eq(shopOrders.assignedProviderId, providerId)];
+
+    if (status && typeof status === "string") {
+      whereClauses.push(eq(shopOrders.status, status));
+    }
+
+    if (date === "today") {
+      const todayStart = new Date();
+      todayStart.setHours(0, 0, 0, 0);
+      const todayEnd = new Date();
+      todayEnd.setHours(23, 59, 59, 999);
+      whereClauses.push(sql`(${shopOrders.scheduledAt} >= ${todayStart} AND ${shopOrders.scheduledAt} <= ${todayEnd})`);
+    }
+
+    const orders = await db.select().from(shopOrders)
+      .where(and(...whereClauses))
+      .orderBy(asc(shopOrders.scheduledAt));
+
+    const orderIds = orders.map(o => o.id);
+    const playerIds = [...new Set(orders.filter(o => o.playerId).map(o => o.playerId!))];
+
+    const [allItems, allPlayers] = await Promise.all([
+      orderIds.length > 0
+        ? db.select().from(shopOrderItems).where(inArray(shopOrderItems.orderId, orderIds))
+        : [],
+      playerIds.length > 0
+        ? db.select({ id: players.id, name: players.name, profilePhotoUrl: players.profilePhotoUrl, level: players.level }).from(players).where(inArray(players.id, playerIds))
+        : [],
+    ]);
+
+    const playerMap = new Map(allPlayers.map(p => [p.id, p]));
+    const itemsMap = new Map<string, typeof allItems>();
+    for (const item of allItems) {
+      if (!itemsMap.has(item.orderId)) itemsMap.set(item.orderId, []);
+      itemsMap.get(item.orderId)!.push(item);
+    }
+
+    const enriched = orders.map(o => ({
+      ...o,
+      player: o.playerId ? playerMap.get(o.playerId) || null : null,
+      items: itemsMap.get(o.id) || [],
+    }));
+
+    res.json(enriched);
+  } catch (error) {
+    console.error("[Provider] Error fetching bookings:", error);
+    res.status(500).json({ error: "Failed to load bookings" });
+  }
+});
+
+// Update booking status (provider confirms/completes/cancels)
+router.patch("/provider/bookings/:orderId/status", authMiddleware, requireServiceProvider, async (req: AuthRequest, res: Response) => {
+  try {
+    const { orderId } = req.params;
+    const { status } = req.body;
+
+    const validStatuses = ["confirmed", "completed", "cancelled"];
+    if (!validStatuses.includes(status)) {
+      return res.status(400).json({ error: `Invalid status. Must be one of: ${validStatuses.join(", ")}` });
+    }
+
+    const providerRecord = await db.select().from(serviceProviders)
+      .where(eq(serviceProviders.userId, req.user!.userId))
+      .limit(1);
+
+    if (!providerRecord[0]) {
+      return res.status(404).json({ error: "Provider profile not found" });
+    }
+
+    const updateData: Record<string, unknown> = { status, updatedAt: new Date() };
+    if (status === "completed") updateData.completedAt = new Date();
+
+    const [order] = await db.update(shopOrders)
+      .set(updateData)
+      .where(and(
+        eq(shopOrders.id, orderId),
+        eq(shopOrders.assignedProviderId, providerRecord[0].id)
+      ))
+      .returning();
+
+    if (!order) {
+      return res.status(404).json({ error: "Booking not found or not assigned to you" });
+    }
+
+    res.json(order);
+  } catch (error) {
+    console.error("[Provider] Error updating booking status:", error);
+    res.status(500).json({ error: "Failed to update booking status" });
   }
 });
 

@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
-export type AppMode = "player" | "coach" | "admin" | "academy_owner" | "platform";
+export type AppMode = "player" | "coach" | "admin" | "academy_owner" | "platform" | "service_provider";
 
 interface AppModeContextType {
   mode: AppMode;
@@ -26,7 +26,14 @@ export function AppModeProvider({ children }: { children: ReactNode }) {
   const loadMode = async () => {
     try {
       const stored = await AsyncStorage.getItem(APP_MODE_KEY);
-      if (stored === "player" || stored === "coach" || stored === "admin" || stored === "academy_owner" || stored === "platform") {
+      if (
+        stored === "player" ||
+        stored === "coach" ||
+        stored === "admin" ||
+        stored === "academy_owner" ||
+        stored === "platform" ||
+        stored === "service_provider"
+      ) {
         setModeState(stored as AppMode);
       }
       setIsInitialized(true);
@@ -82,6 +89,8 @@ export function getModesForRole(role: string): AppMode[] {
       return ["coach", "player"];
     case "player":
       return ["player"];
+    case "service_provider":
+      return ["service_provider"];
     default:
       return ["player"];
   }
@@ -98,6 +107,8 @@ export function getDefaultModeForRole(role: string): AppMode {
       return "admin";
     case "coach":
       return "coach";
+    case "service_provider":
+      return "service_provider";
     default:
       return "player";
   }

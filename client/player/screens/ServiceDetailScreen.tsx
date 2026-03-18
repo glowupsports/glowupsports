@@ -7,6 +7,7 @@ import {
   Pressable,
   TextInput,
   Platform,
+  Alert,
 } from "react-native";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -16,8 +17,7 @@ import Animated, { FadeIn, FadeInUp } from "react-native-reanimated";
 import { useNavigation, useRoute } from "@react-navigation/native";
 import * as Haptics from "expo-haptics";
 import DateTimePicker from "@react-native-community/datetimepicker";
-import { Colors, Spacing, GlowColors } from "@/constants/theme";
-import { useCart } from "../contexts/CartContext";
+import { Colors, Spacing } from "@/constants/theme";
 import { apiRequest } from "@/lib/query-client";
 
 interface Service {
@@ -45,13 +45,11 @@ export default function ServiceDetailScreen() {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<any>();
   const route = useRoute<any>();
-  const { addItem } = useCart();
   const queryClient = useQueryClient();
 
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [notes, setNotes] = useState("");
-  const [addedToCart, setAddedToCart] = useState(false);
 
   const serviceId = route.params?.serviceId;
 
@@ -106,6 +104,26 @@ export default function ServiceDetailScreen() {
     },
   });
 
+  const bookingMutation = useMutation({
+    mutationFn: (payload: {
+      scheduledAt: string;
+      notes?: string;
+      items: Array<{ serviceId: string; quantity: number }>;
+    }) => apiRequest("POST", "/api/player/shop/orders", payload),
+    onSuccess: (order: any) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/player/shop/orders"] });
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      Alert.alert(
+        "Booking Confirmed",
+        `Your booking #${order?.orderNumber ?? ""} has been placed! We'll confirm within 24 hours.`,
+        [{ text: "Done", onPress: () => navigation.goBack() }]
+      );
+    },
+    onError: () => {
+      Alert.alert("Error", "Failed to place booking. Please try again.");
+    },
+  });
+
   const formatPrice = (price: string) => {
     return `AED ${parseFloat(price).toFixed(0)}`;
   };
@@ -125,30 +143,13 @@ export default function ServiceDetailScreen() {
     });
   };
 
-  const handleAddToCart = () => {
+  const handleBookNow = () => {
     if (!service) return;
-
-    const price = xpDiscount?.discountPercent
-      ? parseFloat(service.price) * (1 - xpDiscount.discountPercent / 100)
-      : parseFloat(service.price);
-
-    addItem({
-      type: "service",
-      serviceId: service.id,
-      name: service.name,
-      price,
-      quantity: 1,
-      iconName: service.iconName,
-      durationMinutes: service.durationMinutes,
-      serviceDetails: {
-        preferredDate: selectedDate.toISOString(),
-        notes: notes.trim() || undefined,
-      },
+    bookingMutation.mutate({
+      scheduledAt: selectedDate.toISOString(),
+      notes: notes.trim() || undefined,
+      items: [{ serviceId: service.id, quantity: 1 }],
     });
-
-    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    setAddedToCart(true);
-    setTimeout(() => setAddedToCart(false), 2000);
   };
 
   if (isLoading || !service) {
@@ -332,19 +333,20 @@ export default function ServiceDetailScreen() {
           </Text>
         </View>
         <Pressable
-          onPress={handleAddToCart}
+          onPress={handleBookNow}
+          disabled={bookingMutation.isPending}
           style={[
             styles.bookButton,
-            addedToCart && styles.bookedButton,
+            bookingMutation.isSuccess && styles.bookedButton,
           ]}
         >
           <Ionicons
-            name={addedToCart ? "checkmark" : "calendar-outline"}
+            name={bookingMutation.isPending ? "hourglass-outline" : "calendar-outline"}
             size={20}
             color={Colors.dark.backgroundDefault}
           />
           <Text style={styles.bookButtonText}>
-            {addedToCart ? "Added!" : "Add to Cart"}
+            {bookingMutation.isPending ? "Booking..." : "Book Now"}
           </Text>
         </Pressable>
       </Animated.View>
