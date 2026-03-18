@@ -8,13 +8,17 @@ import {
   StyleSheet,
   Dimensions,
   DimensionValue,
+  ScrollView,
+  Image,
 } from "react-native";
 import PagerView from "react-native-pager-view";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useQuery } from "@tanstack/react-query";
 import { Spacing, BorderRadius, Colors, GlowColors } from "@/constants/theme";
 import { useQuests } from "@/player/hooks/useQuests";
+import { getStaticAssetsUrl } from "@/lib/query-client";
 
 const { width: SCREEN_W, height: SCREEN_H } = Dimensions.get("window");
 
@@ -51,6 +55,23 @@ const LEVEL_TITLES: { min: number; max: number; title: string }[] = [
   { min: 46, max: 999, title: "GOAT" },
 ];
 
+const FEEDBACK_TYPE_COLORS: Record<string, string> = {
+  technical: "#00E5FF",
+  tactical: "#FFD700",
+  effort: "#FF8C00",
+  fitness: "#C8FF3D",
+  mental: "#9B59B6",
+  default: "#C8FF3D",
+};
+
+const BALL_COLORS: Record<string, string> = {
+  red: "#E74C3C",
+  orange: "#FF8C00",
+  green: "#2ECC71",
+  yellow: "#FFD700",
+  purple: "#9B59B6",
+};
+
 function getLevelTitle(level: number): string {
   for (const t of LEVEL_TITLES) {
     if (level >= t.min && level <= t.max) return t.title;
@@ -74,6 +95,37 @@ function formatCountdown(dateStr: string): string | null {
   return `in ${diffM}m`;
 }
 
+function formatRelativeDate(dateStr: string): string {
+  const now = new Date();
+  const d = new Date(dateStr);
+  const diffDays = Math.floor((now.getTime() - d.getTime()) / 86_400_000);
+  if (diffDays === 0) return "Today";
+  if (diffDays === 1) return "Yesterday";
+  if (diffDays < 7) return `${diffDays} days ago`;
+  if (diffDays < 30) return `${Math.floor(diffDays / 7)}w ago`;
+  return `${Math.floor(diffDays / 30)}mo ago`;
+}
+
+function formatSessionTime(isoStr: string): string {
+  try {
+    const d = new Date(isoStr);
+    return d.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", hour12: true });
+  } catch {
+    return "";
+  }
+}
+
+function getBallColor(ball: string | null): string {
+  if (!ball) return GlowColors.primary;
+  return BALL_COLORS[ball.toLowerCase()] ?? GlowColors.primary;
+}
+
+function formatXP(xp: number): string {
+  if (xp >= 1_000_000) return `${(xp / 1_000_000).toFixed(1)}M`;
+  if (xp >= 1_000) return `${(xp / 1_000).toFixed(1)}K`;
+  return String(xp);
+}
+
 interface DashboardPlayer {
   id: string;
   name: string;
@@ -82,6 +134,7 @@ interface DashboardPlayer {
   glowScore?: number;
   profilePhotoUrl?: string | null;
   playStyle?: string | null;
+  ballLevel?: string | null;
 }
 
 interface NextSession {
@@ -132,8 +185,6 @@ export function DailyBriefingModal({
       return br - ar;
     })[0];
   }, [questsData]);
-
-  const recentFeedback = useRef(false);
 
   const archetype = player?.playStyle
     ? ARCHETYPE_META[player.playStyle as PlayStyleKey] ?? null
@@ -247,24 +298,30 @@ export function DailyBriefingModal({
             </View>
           </View>
 
-          {/* ─── CARD 2: TODAY'S BRIEFING ─── */}
+          {/* ─── CARD 2: COACH NOTES ─── */}
           <View key="1" style={styles.card}>
             <HexGrid />
             <View style={[styles.cardContent, { paddingTop: insets.top + 20 }]}>
-              <TodaysBriefingContent
+              <CoachNotesContent
                 nextSession={nextSession}
-                coachName={coachName}
+                player={player}
                 activeQuest={activeQuest}
-                streak={streak?.currentStreak ?? 0}
+                visible={visible}
+                isGuest={isGuest ?? false}
               />
             </View>
           </View>
 
-          {/* ─── CARD 3: ON THE COURT ─── */}
+          {/* ─── CARD 3: TODAY'S OPPORTUNITIES ─── */}
           <View key="2" style={styles.card}>
             <StarField />
             <View style={[styles.cardContent, { paddingTop: insets.top + 20 }]}>
-              <OnTheCourtContent onLetsGo={dismiss} />
+              <TodaysOpportunitiesContent
+                player={player}
+                onLetsGo={dismiss}
+                visible={visible}
+                isGuest={isGuest ?? false}
+              />
             </View>
           </View>
         </PagerView>
@@ -321,15 +378,20 @@ function PlayerStatusContent({
   streak: number;
   glowAnim: Animated.Value;
 }) {
-  const firstName = player?.name?.split(" ")[0] ?? "Player";
-
   const glowOpacity = glowAnim.interpolate({ inputRange: [0.6, 1], outputRange: [0.35, 0.75] });
   const glowScale = glowAnim.interpolate({ inputRange: [0.6, 1], outputRange: [0.94, 1.06] });
+  const ballColor = getBallColor(player?.ballLevel ?? null);
 
   return (
     <View style={s1.wrap}>
-      <Text style={s1.eyebrow}>WELCOME BACK</Text>
-      <Text style={s1.name}>{firstName}</Text>
+      {archetype ? (
+        <View style={[s1.archetypePill, { borderColor: archetype.color + "50", backgroundColor: archetype.color + "12" }]}>
+          <Ionicons name={archetype.icon} size={11} color={archetype.color} />
+          <Text style={[s1.archetypeText, { color: archetype.color }]}>{archetype.name}</Text>
+        </View>
+      ) : null}
+
+      <Text style={s1.name}>{player?.name ?? "Player"}</Text>
 
       <View style={s1.avatarWrap}>
         <Animated.View
@@ -343,23 +405,28 @@ function PlayerStatusContent({
             },
           ]}
         />
-        <View style={[s1.avatarCircle, { borderColor: archetypeColor + "60" }]}>
-          <Ionicons name="person" size={48} color={archetypeColor} />
-        </View>
+        {player?.profilePhotoUrl ? (
+          <Image
+            source={{ uri: player.profilePhotoUrl.startsWith("http") ? player.profilePhotoUrl : `${getStaticAssetsUrl()}${player.profilePhotoUrl}` }}
+            style={[s1.avatarCircle, { borderColor: archetypeColor + "60" }]}
+          />
+        ) : (
+          <View style={[s1.avatarCircle, { borderColor: archetypeColor + "60" }]}>
+            <Ionicons name="person" size={48} color={archetypeColor} />
+          </View>
+        )}
       </View>
 
-      <View style={s1.levelRow}>
-        <View style={[s1.levelBadge, { backgroundColor: archetypeColor + "20", borderColor: archetypeColor + "50" }]}>
-          <Text style={[s1.levelText, { color: archetypeColor }]}>
-            LEVEL {player?.level ?? 1} · {levelTitle.toUpperCase()}
-          </Text>
-        </View>
+      <View style={[s1.levelBadge, { backgroundColor: archetypeColor + "20", borderColor: archetypeColor + "50" }]}>
+        <Text style={[s1.levelText, { color: archetypeColor }]}>
+          LEVEL {player?.level ?? 1} · {levelTitle.toUpperCase()}
+        </Text>
       </View>
 
       <View style={s1.xpSection}>
         <View style={s1.xpLabelRow}>
           <Ionicons name="flash" size={12} color="#FFD700" />
-          <Text style={s1.xpLabel}>{player?.xp ?? 0} XP</Text>
+          <Text style={s1.xpLabel}>{formatXP(player?.xp ?? 0)} XP</Text>
         </View>
         <View style={s1.xpBar}>
           <Animated.View
@@ -377,26 +444,45 @@ function PlayerStatusContent({
         </View>
       </View>
 
-      <View style={s1.streakRow}>
-        <Ionicons
-          name={streak > 0 ? "flame" : "flame-outline"}
-          size={22}
-          color={streak > 0 ? "#FF6B35" : Colors.dark.textSubtle}
-        />
-        <Text style={[s1.streakCount, streak === 0 && { color: Colors.dark.textSubtle }]}>
-          {streak}
-        </Text>
-        <Text style={s1.streakLabel}>
-          {streak === 0 ? "Start your fire today" : `day streak`}
-        </Text>
-      </View>
-
-      {archetype ? (
-        <View style={[s1.archetypePill, { borderColor: archetype.color + "50", backgroundColor: archetype.color + "12" }]}>
-          <Ionicons name={archetype.icon} size={11} color={archetype.color} />
-          <Text style={[s1.archetypeText, { color: archetype.color }]}>{archetype.name}</Text>
+      {/* 2×2 Stats Grid */}
+      <View style={s1.statsGrid}>
+        <View style={s1.statTile}>
+          <Text style={[s1.statValue, { color: GlowColors.primary }]}>{player?.level ?? 1}</Text>
+          <Text style={s1.statLabel}>LEVEL</Text>
         </View>
-      ) : null}
+        <View style={s1.statTile}>
+          <View style={s1.streakValueRow}>
+            <Ionicons
+              name={streak > 0 ? "flame" : "flame-outline"}
+              size={18}
+              color={streak > 0 ? "#FF6B35" : "rgba(255,255,255,0.25)"}
+            />
+            <Text style={[s1.statValue, { color: streak > 0 ? "#FF6B35" : "rgba(255,255,255,0.35)" }]}>
+              {streak}
+            </Text>
+          </View>
+          <Text style={s1.statLabel}>STREAK</Text>
+        </View>
+        <View style={s1.statTile}>
+          <Text style={[s1.statValue, { color: "#FFD700" }]}>{formatXP(player?.xp ?? 0)}</Text>
+          <Text style={s1.statLabel}>TOTAL XP</Text>
+        </View>
+        <View style={s1.statTile}>
+          {player?.ballLevel ? (
+            <>
+              <Ionicons name="tennisball" size={18} color={ballColor} />
+              <Text style={[s1.statLabel, { marginTop: 2, color: ballColor }]}>
+                {player.ballLevel.toUpperCase()}
+              </Text>
+            </>
+          ) : (
+            <>
+              <Text style={[s1.statValue, { color: "rgba(255,255,255,0.3)" }]}>—</Text>
+              <Text style={s1.statLabel}>BALL</Text>
+            </>
+          )}
+        </View>
+      </View>
     </View>
   );
 }
@@ -437,133 +523,316 @@ function LevelUpContent({
   );
 }
 
-// ─── Card 2 sub-component ──────────────────────────────────────────────────
+// ─── Card 2: Coach Notes ─────────────────────────────────────────────────────
 
-function TodaysBriefingContent({
+interface FeedbackItem {
+  id: string;
+  message: string;
+  feedbackType: string;
+  coachName: string;
+  xpAwarded: number;
+  createdAt: string;
+  sessionDate?: string;
+}
+
+function CoachNotesContent({
   nextSession,
-  coachName,
+  player,
   activeQuest,
-  streak,
+  visible,
+  isGuest,
 }: {
   nextSession: NextSession | null;
-  coachName?: string | null;
-  activeQuest: { name: string; xpReward: number } | null;
-  streak: number;
+  player: DashboardPlayer | null;
+  activeQuest: { name: string; xpReward: number; currentProgress: number; targetProgress: number } | null;
+  visible: boolean;
+  isGuest: boolean;
 }) {
+  const { data: feedbackData } = useQuery<FeedbackItem[]>({
+    queryKey: ["/api/player/me/session-feedback"],
+    enabled: visible && !isGuest,
+    staleTime: 5 * 60 * 1000,
+  });
+
+  const recentFeedback = feedbackData?.slice(0, 3) ?? [];
   const countdown = nextSession ? formatCountdown(nextSession.date) : null;
-  const sessionToday = nextSession && countdown !== null;
-
-  const items: { icon: keyof typeof Ionicons.glyphMap; color: string; label: string; sub: string }[] = [];
-
-  if (sessionToday && nextSession) {
-    items.push({
-      icon: "tennisball",
-      color: "#C8FF3D",
-      label: `Session ${countdown}`,
-      sub: [nextSession.coachName && `with ${nextSession.coachName}`, nextSession.courtName].filter(Boolean).join(" · ") || nextSession.type,
-    });
-  }
-
-  if (coachName) {
-    items.push({
-      icon: "chatbubble-ellipses",
-      color: "#00D4FF",
-      label: "Coach feedback waiting",
-      sub: `${coachName} shared notes on your last session`,
-    });
-  }
-
-  if (activeQuest) {
-    items.push({
-      icon: "flash",
-      color: "#FFD700",
-      label: activeQuest.name,
-      sub: `+${activeQuest.xpReward} XP on completion`,
-    });
-  }
-
-  if (streak > 0) {
-    items.push({
-      icon: "flame",
-      color: "#FF6B35",
-      label: `Don't break your ${streak}-day streak`,
-      sub: "Complete any quest before midnight",
-    });
-  }
-
-  const shown = items.slice(0, 4);
-  const isEmpty = shown.length === 0;
+  const sessionToday = !!(nextSession && countdown !== null);
+  const hasContent = sessionToday || recentFeedback.length > 0;
 
   return (
-    <View style={s2.wrap}>
-      <Text style={s2.eyebrow}>TODAY'S BRIEFING</Text>
-      <Text style={s2.headline}>
-        {isEmpty ? "All clear" : "Your day at a glance"}
-      </Text>
+    <ScrollView
+      style={{ flex: 1 }}
+      contentContainerStyle={s2.wrap}
+      showsVerticalScrollIndicator={false}
+    >
+      <Text style={s2.eyebrow}>COACH NOTES</Text>
+      <Text style={s2.headline}>Your intel</Text>
 
-      {isEmpty ? (
-        <View style={s2.emptyWrap}>
-          <Ionicons name="tennisball-outline" size={40} color={Colors.dark.textSubtle} />
-          <Text style={s2.emptyText}>Nothing urgent — enjoy your day and keep grinding</Text>
+      {/* Session today highlight row */}
+      {sessionToday && nextSession ? (
+        <View style={s2.sessionRow}>
+          <View style={s2.sessionDot} />
+          <View style={{ flex: 1 }}>
+            <Text style={s2.sessionTime}>
+              Training {countdown}
+              {nextSession.courtName ? ` · ${nextSession.courtName}` : ""}
+            </Text>
+            {nextSession.coachName ? (
+              <Text style={s2.sessionCoach}>with {nextSession.coachName}</Text>
+            ) : null}
+          </View>
+          <Ionicons name="tennisball" size={16} color={GlowColors.primary} />
         </View>
-      ) : (
-        <View style={s2.itemList}>
-          {shown.map((item, i) => (
-            <View key={i} style={s2.row}>
-              <View style={[s2.iconWrap, { backgroundColor: item.color + "18" }]}>
-                <Ionicons name={item.icon} size={16} color={item.color} />
+      ) : null}
+
+      {/* Feedback quote cards */}
+      {recentFeedback.length > 0 ? (
+        <View style={s2.feedbackList}>
+          {recentFeedback.map((fb) => {
+            const typeColor = FEEDBACK_TYPE_COLORS[fb.feedbackType?.toLowerCase()] ?? FEEDBACK_TYPE_COLORS.default;
+            return (
+              <View key={fb.id} style={[s2.feedbackCard, { borderLeftColor: typeColor }]}>
+                <View style={s2.feedbackHeader}>
+                  <View style={{ flex: 1, gap: 2 }}>
+                    <Text style={s2.feedbackCoach}>{fb.coachName}</Text>
+                    <Text style={s2.feedbackDate}>{formatRelativeDate(fb.createdAt)}</Text>
+                  </View>
+                  <View style={[s2.typeBadge, { backgroundColor: typeColor + "20", borderColor: typeColor + "40" }]}>
+                    <Text style={[s2.typeBadgeText, { color: typeColor }]}>
+                      {fb.feedbackType ? fb.feedbackType.charAt(0).toUpperCase() + fb.feedbackType.slice(1) : "Note"}
+                    </Text>
+                  </View>
+                </View>
+                <Text style={s2.feedbackMessage} numberOfLines={3}>
+                  "{fb.message}"
+                </Text>
+                {Number(fb.xpAwarded) > 0 ? (
+                  <View style={s2.xpChip}>
+                    <Ionicons name="flash" size={10} color={GlowColors.primary} />
+                    <Text style={s2.xpChipText}>+{fb.xpAwarded} XP</Text>
+                  </View>
+                ) : null}
               </View>
-              <View style={s2.rowText}>
-                <Text style={s2.rowLabel}>{item.label}</Text>
-                <Text style={s2.rowSub}>{item.sub}</Text>
+            );
+          })}
+        </View>
+      ) : null}
+
+      {/* Fallback: active quest progress if no feedback and no session */}
+      {!hasContent && activeQuest ? (
+        <View style={s2.questFallback}>
+          <View style={s2.questHeader}>
+            <Ionicons name="flash" size={14} color="#FFD700" />
+            <Text style={s2.questLabel}>Active Quest</Text>
+          </View>
+          <Text style={s2.questName}>{activeQuest.name}</Text>
+          <View style={s2.questBar}>
+            <View
+              style={[
+                s2.questFill,
+                {
+                  width: `${activeQuest.targetProgress > 0 ? Math.min((activeQuest.currentProgress / activeQuest.targetProgress) * 100, 100) : 0}%` as DimensionValue,
+                },
+              ]}
+            />
+          </View>
+          <Text style={s2.questProgress}>
+            {activeQuest.currentProgress} / {activeQuest.targetProgress} · +{activeQuest.xpReward} XP
+          </Text>
+        </View>
+      ) : null}
+
+      {/* All clear state */}
+      {!hasContent && !activeQuest ? (
+        <View style={s2.emptyWrap}>
+          <Ionicons name="checkmark-circle-outline" size={44} color={GlowColors.primary} />
+          <Text style={s2.emptyTitle}>All clear</Text>
+          <Text style={s2.emptyText}>No pending feedback — keep grinding</Text>
+        </View>
+      ) : null}
+    </ScrollView>
+  );
+}
+
+// ─── Card 3: Today's Opportunities ───────────────────────────────────────────
+
+interface OpenSession {
+  id: string;
+  title?: string;
+  startTime: string;
+  courtName?: string;
+  coachName?: string;
+  currentPlayers: number;
+  maxPlayers: number;
+  status?: string;
+}
+
+interface MatchChallenge {
+  id: string;
+  challengerId: string;
+  challengerName: string;
+  challengerPhoto?: string;
+  status: string;
+}
+
+interface NearbyPlayer {
+  id: string;
+  name: string;
+  level: number;
+  avatarUrl?: string;
+  ballLevel?: string;
+}
+
+function TodaysOpportunitiesContent({
+  player,
+  onLetsGo,
+  visible,
+  isGuest,
+}: {
+  player: DashboardPlayer | null;
+  onLetsGo: () => void;
+  visible: boolean;
+  isGuest: boolean;
+}) {
+  const today = new Date();
+  const isWeekend = today.getDay() === 0 || today.getDay() === 6;
+
+  const { data: sessionsData } = useQuery<OpenSession[]>({
+    queryKey: ["/api/play/sessions"],
+    enabled: visible && !isGuest,
+    staleTime: 5 * 60 * 1000,
+  });
+
+  const { data: challengesData } = useQuery<MatchChallenge[]>({
+    queryKey: ["/api/match-challenges?playerId=" + (player?.id ?? "")],
+    enabled: visible && !!player?.id,
+    staleTime: 5 * 60 * 1000,
+  });
+
+  const { data: nearbyData } = useQuery<NearbyPlayer[]>({
+    queryKey: ["/api/play/nearby-players?filter=openToPlay"],
+    enabled: visible && !isGuest,
+    staleTime: 5 * 60 * 1000,
+  });
+
+  const openSessions = (sessionsData ?? []).filter((s) => s.status !== "full").slice(0, 2);
+  const pendingChallenges = (challengesData ?? []).filter(
+    (c) => c.status === "pending" && c.challengerId !== player?.id
+  );
+  const readyPlayers = (nearbyData ?? []).slice(0, 4);
+
+  const isEmpty = openSessions.length === 0 && pendingChallenges.length === 0 && readyPlayers.length === 0;
+
+  return (
+    <ScrollView
+      style={{ flex: 1 }}
+      contentContainerStyle={s3.wrap}
+      showsVerticalScrollIndicator={false}
+    >
+      <Text style={s3.eyebrow}>TODAY</Text>
+      <Text style={s3.headline}>What's on</Text>
+
+      {isWeekend ? (
+        <View style={s3.xpPill}>
+          <Ionicons name="flash" size={13} color="#FFD700" />
+          <Text style={s3.xpPillText}>1.5x WEEKEND XP ACTIVE</Text>
+        </View>
+      ) : null}
+
+      {/* Open Sessions */}
+      {openSessions.length > 0 ? (
+        <View style={s3.section}>
+          <Text style={s3.sectionLabel}>OPEN SESSIONS</Text>
+          {openSessions.map((session) => {
+            const spots = session.maxPlayers - session.currentPlayers;
+            const spotsColor = spots >= 3 ? GlowColors.primary : spots > 0 ? "#FFD700" : "rgba(255,255,255,0.3)";
+            return (
+              <View key={session.id} style={s3.sessionCard}>
+                <Text style={s3.sessionTime}>{formatSessionTime(session.startTime)}</Text>
+                <View style={{ flex: 1 }}>
+                  <Text style={s3.sessionCourt} numberOfLines={1}>
+                    {session.courtName ?? session.title ?? "Group Session"}
+                  </Text>
+                  {session.coachName ? (
+                    <Text style={s3.sessionCoach}>{session.coachName}</Text>
+                  ) : null}
+                </View>
+                <View style={[s3.spotsPill, { backgroundColor: spotsColor + "18", borderColor: spotsColor + "40" }]}>
+                  <Text style={[s3.spotsText, { color: spotsColor }]}>
+                    {spots > 0 ? `${spots} spots` : "Full"}
+                  </Text>
+                </View>
+              </View>
+            );
+          })}
+        </View>
+      ) : null}
+
+      {/* Pending Challenges */}
+      {pendingChallenges.length > 0 ? (
+        <View style={s3.section}>
+          <Text style={s3.sectionLabel}>INCOMING {pendingChallenges.length > 1 ? `CHALLENGES (${pendingChallenges.length})` : "CHALLENGE"}</Text>
+          {pendingChallenges.slice(0, 2).map((ch) => (
+            <View key={ch.id} style={s3.challengeCard}>
+              <View style={s3.challengeAvatar}>
+                {ch.challengerPhoto ? (
+                  <Image source={{ uri: ch.challengerPhoto.startsWith("http") ? ch.challengerPhoto : `${getStaticAssetsUrl()}${ch.challengerPhoto}` }} style={s3.challengeAvatarImg} />
+                ) : (
+                  <Ionicons name="person" size={18} color="rgba(255,255,255,0.5)" />
+                )}
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={s3.challengerName}>{ch.challengerName}</Text>
+                <Text style={s3.challengerSub}>challenged you to a match</Text>
+              </View>
+              <View style={s3.viewPill}>
+                <Text style={s3.viewPillText}>View</Text>
               </View>
             </View>
           ))}
         </View>
-      )}
-    </View>
-  );
-}
+      ) : null}
 
-// ─── Card 3 sub-component ──────────────────────────────────────────────────
-
-function OnTheCourtContent({ onLetsGo }: { onLetsGo: () => void }) {
-  const today = new Date();
-  const isWeekend = today.getDay() === 0 || today.getDay() === 6;
-
-  return (
-    <View style={s3.wrap}>
-      <Text style={s3.eyebrow}>ON THE COURT</Text>
-      <Text style={s3.headline}>Ready to play?</Text>
-      <Text style={s3.sub}>
-        Find open sessions, challenge players, and level up your game — all from your home screen.
-      </Text>
-
-      {isWeekend ? (
-        <View style={s3.xpPill}>
-          <Ionicons name="flash" size={14} color="#FFD700" />
-          <Text style={s3.xpPillText}>1.5x WEEKEND XP BOOST ACTIVE</Text>
+      {/* Players Ready */}
+      {readyPlayers.length > 0 ? (
+        <View style={s3.section}>
+          <Text style={s3.sectionLabel}>PLAYERS READY NOW</Text>
+          <View style={s3.playersRow}>
+            {readyPlayers.map((p) => {
+              const firstNameEnd = p.name.indexOf(" ");
+              const firstName = firstNameEnd > 0 ? p.name.slice(0, firstNameEnd) : p.name;
+              return (
+                <View key={p.id} style={s3.playerBubble}>
+                  <View style={s3.playerAvatar}>
+                    {p.avatarUrl ? (
+                      <Image source={{ uri: p.avatarUrl.startsWith("http") ? p.avatarUrl : `${getStaticAssetsUrl()}${p.avatarUrl}` }} style={s3.playerAvatarImg} />
+                    ) : (
+                      <Ionicons name="person" size={20} color="rgba(255,255,255,0.5)" />
+                    )}
+                  </View>
+                  <Text style={s3.playerName} numberOfLines={1}>{firstName}</Text>
+                  <Text style={s3.playerLevel}>Lv {p.level}</Text>
+                </View>
+              );
+            })}
+          </View>
+          <Text style={s3.playersCount}>{readyPlayers.length} players open to play</Text>
         </View>
       ) : null}
 
-      <View style={s3.featureList}>
-        {[
-          { icon: "tennisball" as const, text: "Open sessions near you" },
-          { icon: "people" as const, text: "Players looking for matches" },
-          { icon: "trophy" as const, text: "Daily quests waiting" },
-        ].map((f, i) => (
-          <View key={i} style={s3.featureRow}>
-            <Ionicons name={f.icon} size={14} color={GlowColors.primary} />
-            <Text style={s3.featureText}>{f.text}</Text>
-          </View>
-        ))}
-      </View>
+      {/* Empty state */}
+      {isEmpty ? (
+        <View style={s3.emptyWrap}>
+          <Ionicons name="moon-outline" size={40} color="rgba(255,255,255,0.2)" />
+          <Text style={s3.emptyText}>Court's quiet today</Text>
+        </View>
+      ) : null}
 
       <Pressable style={s3.letsGoBtn} onPress={onLetsGo}>
         <Text style={s3.letsGoBtnText}>LET'S GO</Text>
         <Ionicons name="arrow-forward" size={18} color="#0D1117" />
       </Pressable>
-    </View>
+    </ScrollView>
   );
 }
 
@@ -572,8 +841,8 @@ function OnTheCourtContent({ onLetsGo }: { onLetsGo: () => void }) {
 function CourtLines({ color }: { color: string }) {
   return (
     <View style={StyleSheet.absoluteFill} pointerEvents="none">
-      <View style={[bg.courtCircle, { borderColor: color + "12" }]} />
-      <View style={[bg.courtCircle2, { borderColor: color + "08" }]} />
+      <View style={[bg.courtCircle, { borderColor: color + "18" }]} />
+      <View style={[bg.courtCircle2, { borderColor: color + "10" }]} />
       <View style={[bg.courtLine, { top: "30%", backgroundColor: color + "08" }]} />
       <View style={[bg.courtLine, { top: "55%", backgroundColor: color + "06" }]} />
     </View>
@@ -592,7 +861,7 @@ function HexGrid() {
               {
                 top: `${top * 100}%` as DimensionValue,
                 left: `${left * 100}%` as DimensionValue,
-                opacity: 0.06 + (((i + j) % 3) * 0.02),
+                opacity: 0.07 + (((i + j) % 3) * 0.02),
               },
             ]}
           />
@@ -655,7 +924,6 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingHorizontal: Spacing.xl,
     paddingBottom: 120,
-    justifyContent: "center",
   },
   skipBtn: {
     position: "absolute",
@@ -720,106 +988,8 @@ const styles = StyleSheet.create({
 const s1 = StyleSheet.create({
   wrap: {
     alignItems: "center",
-    gap: 16,
-  },
-  eyebrow: {
-    fontSize: 10,
-    fontWeight: "700",
-    letterSpacing: 2.5,
-    color: "rgba(255,255,255,0.35)",
-    textTransform: "uppercase",
-  },
-  name: {
-    fontSize: 36,
-    fontWeight: "900",
-    color: "#FFFFFF",
-    letterSpacing: -0.5,
-  },
-  avatarWrap: {
-    width: 110,
-    height: 110,
-    alignItems: "center",
-    justifyContent: "center",
-    marginVertical: 4,
-  },
-  glowRing: {
-    position: "absolute",
-    width: 110,
-    height: 110,
-    borderRadius: 55,
-    borderWidth: 2,
-    shadowRadius: 20,
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 1,
-  },
-  avatarCircle: {
-    width: 90,
-    height: 90,
-    borderRadius: 45,
-    borderWidth: 1,
-    backgroundColor: "rgba(255,255,255,0.04)",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  levelRow: {
-    alignItems: "center",
-  },
-  levelBadge: {
-    paddingHorizontal: 14,
-    paddingVertical: 5,
-    borderRadius: BorderRadius.full,
-    borderWidth: 1,
-  },
-  levelText: {
-    fontSize: 11,
-    fontWeight: "700",
-    letterSpacing: 1.5,
-  },
-  xpSection: {
-    width: "100%",
-    gap: 6,
-  },
-  xpLabelRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 4,
-  },
-  xpLabel: {
-    fontSize: 12,
-    color: "#FFD700",
-    fontWeight: "700",
-  },
-  xpBar: {
-    height: 6,
-    backgroundColor: "rgba(255,255,255,0.08)",
-    borderRadius: 3,
-    overflow: "hidden",
-  },
-  xpFill: {
-    height: 6,
-    borderRadius: 3,
-  },
-  streakRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    backgroundColor: "rgba(255,255,255,0.04)",
-    borderRadius: BorderRadius.md,
-    borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.06)",
-    alignSelf: "center",
-  },
-  streakCount: {
-    fontSize: 22,
-    fontWeight: "900",
-    color: "#FFFFFF",
-  },
-  streakLabel: {
-    fontSize: 12,
-    color: Colors.dark.textSubtle,
-    fontWeight: "500",
+    gap: 14,
+    paddingTop: 8,
   },
   archetypePill: {
     flexDirection: "row",
@@ -834,6 +1004,110 @@ const s1 = StyleSheet.create({
     fontSize: 11,
     fontWeight: "700",
     letterSpacing: 0.3,
+  },
+  name: {
+    fontSize: 32,
+    fontWeight: "900",
+    color: "#FFFFFF",
+    letterSpacing: -0.5,
+    textAlign: "center",
+  },
+  avatarWrap: {
+    width: 100,
+    height: 100,
+    alignItems: "center",
+    justifyContent: "center",
+    marginVertical: 2,
+  },
+  glowRing: {
+    position: "absolute",
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    borderWidth: 2,
+    shadowRadius: 20,
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 1,
+  },
+  avatarCircle: {
+    width: 84,
+    height: 84,
+    borderRadius: 42,
+    borderWidth: 1,
+    backgroundColor: "rgba(255,255,255,0.04)",
+    alignItems: "center",
+    justifyContent: "center",
+    overflow: "hidden",
+  },
+  levelBadge: {
+    paddingHorizontal: 14,
+    paddingVertical: 5,
+    borderRadius: BorderRadius.full,
+    borderWidth: 1,
+  },
+  levelText: {
+    fontSize: 11,
+    fontWeight: "700",
+    letterSpacing: 1.5,
+  },
+  xpSection: {
+    width: "100%",
+    gap: 5,
+  },
+  xpLabelRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+  },
+  xpLabel: {
+    fontSize: 12,
+    color: "#FFD700",
+    fontWeight: "700",
+  },
+  xpBar: {
+    height: 5,
+    backgroundColor: "rgba(255,255,255,0.08)",
+    borderRadius: 3,
+    overflow: "hidden",
+  },
+  xpFill: {
+    height: 5,
+    borderRadius: 3,
+  },
+  statsGrid: {
+    width: "100%",
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+    marginTop: 4,
+  },
+  statTile: {
+    flex: 1,
+    minWidth: "45%",
+    backgroundColor: "#0F1A0A",
+    borderRadius: 8,
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    alignItems: "center",
+    gap: 4,
+  },
+  statValue: {
+    fontSize: 22,
+    fontWeight: "900",
+    color: "#FFFFFF",
+    letterSpacing: -0.5,
+  },
+  streakValueRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+  },
+  statLabel: {
+    fontSize: 9,
+    fontWeight: "700",
+    letterSpacing: 1.2,
+    color: "rgba(255,255,255,0.35)",
+    textTransform: "uppercase",
   },
 });
 
@@ -902,15 +1176,16 @@ const lu = StyleSheet.create({
 // Card 2 styles
 const s2 = StyleSheet.create({
   wrap: {
-    flex: 1,
+    flexGrow: 1,
     justifyContent: "center",
-    gap: 20,
+    gap: 16,
+    paddingBottom: 8,
   },
   eyebrow: {
     fontSize: 10,
     fontWeight: "700",
     letterSpacing: 2.5,
-    color: "rgba(255,255,255,0.3)",
+    color: GlowColors.primary,
     textTransform: "uppercase",
   },
   headline: {
@@ -918,59 +1193,154 @@ const s2 = StyleSheet.create({
     fontWeight: "900",
     color: "#FFFFFF",
     letterSpacing: -0.5,
+    marginBottom: 4,
   },
-  emptyWrap: {
-    alignItems: "center",
-    gap: 12,
-    paddingVertical: 32,
-  },
-  emptyText: {
-    fontSize: 14,
-    color: Colors.dark.textSubtle,
-    textAlign: "center",
-    lineHeight: 20,
-  },
-  itemList: {
-    gap: 12,
-  },
-  row: {
+  sessionRow: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 14,
-    backgroundColor: "rgba(255,255,255,0.04)",
+    gap: 12,
+    backgroundColor: "rgba(200,255,61,0.06)",
     borderRadius: BorderRadius.md,
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.06)",
+    borderColor: "rgba(200,255,61,0.2)",
     padding: 14,
   },
-  iconWrap: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    alignItems: "center",
-    justifyContent: "center",
+  sessionDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: GlowColors.primary,
   },
-  rowText: {
-    flex: 1,
-    gap: 2,
+  sessionTime: {
+    fontSize: 13,
+    fontWeight: "700",
+    color: GlowColors.primary,
   },
-  rowLabel: {
-    fontSize: 14,
+  sessionCoach: {
+    fontSize: 11,
+    color: "rgba(255,255,255,0.5)",
+    marginTop: 2,
+  },
+  feedbackList: {
+    gap: 10,
+  },
+  feedbackCard: {
+    backgroundColor: "#0D1B2A",
+    borderRadius: BorderRadius.md,
+    padding: 14,
+    borderLeftWidth: 3,
+    gap: 8,
+  },
+  feedbackHeader: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: 8,
+  },
+  feedbackCoach: {
+    fontSize: 13,
     fontWeight: "700",
     color: "#FFFFFF",
   },
-  rowSub: {
+  feedbackDate: {
     fontSize: 11,
+    color: "rgba(255,255,255,0.4)",
+  },
+  typeBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: BorderRadius.full,
+    borderWidth: 1,
+  },
+  typeBadgeText: {
+    fontSize: 10,
+    fontWeight: "700",
+    letterSpacing: 0.3,
+  },
+  feedbackMessage: {
+    fontSize: 13,
+    color: "rgba(255,255,255,0.85)",
+    fontStyle: "italic",
+    lineHeight: 19,
+  },
+  xpChip: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    alignSelf: "flex-start",
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: BorderRadius.full,
+    backgroundColor: "rgba(200,255,61,0.1)",
+  },
+  xpChipText: {
+    fontSize: 11,
+    fontWeight: "700",
+    color: GlowColors.primary,
+  },
+  questFallback: {
+    backgroundColor: "rgba(255,215,0,0.05)",
+    borderRadius: BorderRadius.md,
+    borderWidth: 1,
+    borderColor: "rgba(255,215,0,0.12)",
+    padding: 16,
+    gap: 8,
+  },
+  questHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+  },
+  questLabel: {
+    fontSize: 10,
+    fontWeight: "700",
+    letterSpacing: 1.5,
+    color: "#FFD700",
+    textTransform: "uppercase",
+  },
+  questName: {
+    fontSize: 15,
+    fontWeight: "700",
+    color: "#FFFFFF",
+  },
+  questBar: {
+    height: 4,
+    backgroundColor: "rgba(255,255,255,0.08)",
+    borderRadius: 2,
+    overflow: "hidden",
+  },
+  questFill: {
+    height: 4,
+    backgroundColor: "#FFD700",
+    borderRadius: 2,
+  },
+  questProgress: {
+    fontSize: 11,
+    color: "rgba(255,255,255,0.4)",
+  },
+  emptyWrap: {
+    alignItems: "center",
+    gap: 10,
+    paddingVertical: 32,
+  },
+  emptyTitle: {
+    fontSize: 18,
+    fontWeight: "700",
+    color: "#FFFFFF",
+  },
+  emptyText: {
+    fontSize: 13,
     color: Colors.dark.textSubtle,
+    textAlign: "center",
   },
 });
 
 // Card 3 styles
 const s3 = StyleSheet.create({
   wrap: {
-    flex: 1,
+    flexGrow: 1,
     justifyContent: "center",
-    gap: 22,
+    gap: 16,
+    paddingBottom: 8,
   },
   eyebrow: {
     fontSize: 10,
@@ -984,11 +1354,7 @@ const s3 = StyleSheet.create({
     fontWeight: "900",
     color: "#FFFFFF",
     letterSpacing: -0.5,
-  },
-  sub: {
-    fontSize: 14,
-    color: Colors.dark.textSubtle,
-    lineHeight: 20,
+    marginBottom: 4,
   },
   xpPill: {
     flexDirection: "row",
@@ -1008,17 +1374,145 @@ const s3 = StyleSheet.create({
     color: "#FFD700",
     letterSpacing: 0.5,
   },
-  featureList: {
-    gap: 10,
+  section: {
+    gap: 8,
   },
-  featureRow: {
+  sectionLabel: {
+    fontSize: 9,
+    fontWeight: "700",
+    letterSpacing: 1.8,
+    color: "rgba(255,255,255,0.3)",
+    textTransform: "uppercase",
+  },
+  sessionCard: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 10,
+    gap: 12,
+    backgroundColor: "#0F141B",
+    borderRadius: BorderRadius.md,
+    padding: 12,
   },
-  featureText: {
+  sessionTime: {
     fontSize: 14,
-    color: "rgba(255,255,255,0.6)",
+    fontWeight: "800",
+    color: GlowColors.primary,
+    minWidth: 60,
+  },
+  sessionCourt: {
+    fontSize: 13,
+    fontWeight: "700",
+    color: "#FFFFFF",
+  },
+  sessionCoach: {
+    fontSize: 11,
+    color: "rgba(255,255,255,0.5)",
+    marginTop: 2,
+  },
+  spotsPill: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: BorderRadius.full,
+    borderWidth: 1,
+  },
+  spotsText: {
+    fontSize: 10,
+    fontWeight: "700",
+  },
+  challengeCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    backgroundColor: "#0F141B",
+    borderRadius: BorderRadius.md,
+    borderWidth: 1,
+    borderColor: "rgba(255,107,53,0.2)",
+    padding: 12,
+  },
+  challengeAvatar: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: "rgba(255,255,255,0.07)",
+    alignItems: "center",
+    justifyContent: "center",
+    overflow: "hidden",
+  },
+  challengeAvatarImg: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+  },
+  challengerName: {
+    fontSize: 13,
+    fontWeight: "700",
+    color: "#FFFFFF",
+  },
+  challengerSub: {
+    fontSize: 11,
+    color: "rgba(255,255,255,0.45)",
+    marginTop: 1,
+  },
+  viewPill: {
+    paddingHorizontal: 12,
+    paddingVertical: 5,
+    borderRadius: BorderRadius.full,
+    backgroundColor: "rgba(200,255,61,0.15)",
+    borderWidth: 1,
+    borderColor: "rgba(200,255,61,0.3)",
+  },
+  viewPillText: {
+    fontSize: 11,
+    fontWeight: "700",
+    color: GlowColors.primary,
+  },
+  playersRow: {
+    flexDirection: "row",
+    gap: 12,
+  },
+  playerBubble: {
+    alignItems: "center",
+    gap: 4,
+    flex: 1,
+  },
+  playerAvatar: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: "rgba(255,255,255,0.06)",
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.1)",
+    alignItems: "center",
+    justifyContent: "center",
+    overflow: "hidden",
+  },
+  playerAvatarImg: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+  },
+  playerName: {
+    fontSize: 11,
+    fontWeight: "600",
+    color: "#FFFFFF",
+    textAlign: "center",
+  },
+  playerLevel: {
+    fontSize: 10,
+    color: "rgba(255,255,255,0.4)",
+  },
+  playersCount: {
+    fontSize: 11,
+    color: "rgba(255,255,255,0.4)",
+    marginTop: 2,
+  },
+  emptyWrap: {
+    alignItems: "center",
+    gap: 10,
+    paddingVertical: 40,
+  },
+  emptyText: {
+    fontSize: 15,
+    color: "rgba(255,255,255,0.25)",
     fontWeight: "500",
   },
   letsGoBtn: {
