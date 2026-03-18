@@ -31697,9 +31697,7 @@ async function awardXP(db2, providerId, amount, reason) {
   const newXp = Number(updated?.newXp ?? 0);
   const { level: newLevel } = calculateProviderLevel(newXp);
   const leveledUp = newLevel > prevLevel;
-  if (leveledUp) {
-    await db2.update(serviceProviders).set({ level: newLevel, updatedAt: /* @__PURE__ */ new Date() }).where(eq3(serviceProviders.id, providerId));
-  }
+  await db2.update(serviceProviders).set({ level: newLevel, updatedAt: /* @__PURE__ */ new Date() }).where(eq3(serviceProviders.id, providerId));
   console.log(`[ProviderGamification] ${reason}: +${amount} XP \u2192 provider ${providerId} now at ${newXp} XP, Lv.${newLevel}${leveledUp ? " (LEVEL UP!)" : ""}`);
   return { newXp, newLevel, leveledUp };
 }
@@ -32775,6 +32773,9 @@ router.get("/provider/stats", authMiddlewareWithFreshData, requireServiceProvide
     yesterdayUTC.setUTCDate(yesterdayUTC.getUTCDate() - 1);
     const isStreakAlive = lastDate !== null && lastDate >= yesterdayUTC;
     const effectiveStreak = isStreakAlive ? rawStreak : 0;
+    if (!isStreakAlive && rawStreak > 0) {
+      await db.update(serviceProviders).set({ streakCurrent: 0, updatedAt: /* @__PURE__ */ new Date() }).where(eq4(serviceProviders.id, provider.id));
+    }
     res.json({
       xp,
       level,

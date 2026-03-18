@@ -98,12 +98,10 @@ export async function awardXP(
   const { level: newLevel } = calculateProviderLevel(newXp);
   const leveledUp = newLevel > prevLevel;
 
-  if (leveledUp) {
-    await db
-      .update(serviceProviders)
-      .set({ level: newLevel, updatedAt: new Date() })
-      .where(eq(serviceProviders.id, providerId));
-  }
+  await db
+    .update(serviceProviders)
+    .set({ level: newLevel, updatedAt: new Date() })
+    .where(eq(serviceProviders.id, providerId));
 
   console.log(`[ProviderGamification] ${reason}: +${amount} XP → provider ${providerId} now at ${newXp} XP, Lv.${newLevel}${leveledUp ? " (LEVEL UP!)" : ""}`);
 

@@ -1360,6 +1360,12 @@ router.get("/provider/stats", authMiddleware, requireServiceProvider, async (req
     const isStreakAlive = lastDate !== null && lastDate >= yesterdayUTC;
     const effectiveStreak = isStreakAlive ? rawStreak : 0;
 
+    if (!isStreakAlive && rawStreak > 0) {
+      await db.update(serviceProviders)
+        .set({ streakCurrent: 0, updatedAt: new Date() })
+        .where(eq(serviceProviders.id, provider.id));
+    }
+
     res.json({
       xp,
       level,
