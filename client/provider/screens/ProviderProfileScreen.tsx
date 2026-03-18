@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
   View,
   Text,
@@ -176,6 +176,14 @@ function EditSpecializationsModal({
     (current as ProviderSpecialization[]).filter((k) => k in PROVIDER_SPECIALIZATIONS)
   );
   const insets = useSafeAreaInsets();
+
+  useEffect(() => {
+    if (visible) {
+      setSelected(
+        (current as ProviderSpecialization[]).filter((k) => k in PROVIDER_SPECIALIZATIONS)
+      );
+    }
+  }, [visible, current]);
 
   const toggle = (key: ProviderSpecialization) => {
     setSelected((prev) =>
