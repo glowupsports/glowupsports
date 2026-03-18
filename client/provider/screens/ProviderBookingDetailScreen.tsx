@@ -16,6 +16,16 @@ import { useNavigation, useRoute } from "@react-navigation/native";
 import { apiRequest, getStaticAssetsUrl } from "@/lib/query-client";
 import { Colors, Spacing } from "@/constants/theme";
 
+const BADGE_LABELS: Record<string, string> = {
+  first_job: "First Job",
+  ten_bookings: "Getting Started",
+  century: "Century Club",
+  five_star: "5-Star Pro",
+  streak_7: "On Fire",
+  streak_30: "Unstoppable",
+  leveled_up: "Level Up",
+};
+
 interface BookingItem {
   id: string;
   quantity: number;
@@ -404,7 +414,9 @@ export default function ProviderBookingDetailScreen() {
               )}
               <Text style={styles.achievementSub}>
                 +{completionToast.xpAwarded} XP earned
-                {completionToast.newBadges.length > 0 ? `  •  ${completionToast.newBadges.length} badge${completionToast.newBadges.length > 1 ? "s" : ""} unlocked` : ""}
+                {completionToast.newBadges.length > 0
+                  ? `  •  Achievement Unlocked: ${completionToast.newBadges.map((id) => BADGE_LABELS[id] ?? id).join(", ")}`
+                  : ""}
               </Text>
             </View>
           </View>

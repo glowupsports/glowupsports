@@ -32751,6 +32751,13 @@ router.patch("/provider/bookings/:orderId/status", authMiddlewareWithFreshData, 
         if (fsr.leveledUp) {
           leveledUp = true;
           newLevel = fsr.newLevel;
+          const secondPassBadges = await checkAndAwardBadges(providerRecord.id, {
+            totalBookings: Number(refreshed?.totalBookings ?? prevTotalBookings + 1),
+            rating: currentRating,
+            streakCurrent: streakResult.streakCurrent,
+            leveledUp: true
+          });
+          newBadges = [...newBadges, ...secondPassBadges.filter((b) => !newBadges.includes(b))];
         }
       }
     }

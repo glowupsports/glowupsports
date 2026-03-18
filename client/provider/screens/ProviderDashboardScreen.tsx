@@ -14,7 +14,6 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import Animated, {
   FadeInUp,
-  FadeInDown,
   FadeOutDown,
   useSharedValue,
   withRepeat,
@@ -148,7 +147,7 @@ function AchievementToast({ data, onDismiss }: { data: ToastData; onDismiss: () 
 
   return (
     <Animated.View
-      entering={FadeInDown.duration(300)}
+      entering={FadeInUp.duration(300)}
       exiting={FadeOutDown.duration(250)}
       style={styles.toast}
     >

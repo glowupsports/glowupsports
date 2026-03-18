@@ -1323,7 +1323,17 @@ router.patch("/provider/bookings/:orderId/status", authMiddleware, requireServic
       if (newBadges.includes("five_star")) {
         const fsr = await awardXP(providerRecord.id, XP_AWARDS.FIVE_STAR_RATING, "five_star_rating");
         xpAwarded += XP_AWARDS.FIVE_STAR_RATING;
-        if (fsr.leveledUp) { leveledUp = true; newLevel = fsr.newLevel; }
+        if (fsr.leveledUp) {
+          leveledUp = true;
+          newLevel = fsr.newLevel;
+          const secondPassBadges = await checkAndAwardBadges(providerRecord.id, {
+            totalBookings: Number(refreshed?.totalBookings ?? prevTotalBookings + 1),
+            rating: currentRating,
+            streakCurrent: streakResult.streakCurrent,
+            leveledUp: true,
+          });
+          newBadges = [...newBadges, ...secondPassBadges.filter((b) => !newBadges.includes(b))];
+        }
       }
     }
 
