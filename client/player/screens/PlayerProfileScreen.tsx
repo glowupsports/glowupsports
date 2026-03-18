@@ -158,6 +158,7 @@ export default function PlayerProfileScreen() {
   const { isBirthday } = usePlayer();
   const [showPinModal, setShowPinModal] = useState(false);
   const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
+  const [deleteLoading, setDeleteLoading] = useState(false);
   const [activeTab, setActiveTab] = useState<ProfileTab>("moments");
   const [showTitlesModal, setShowTitlesModal] = useState(false);
   const queryClient = useQueryClient();
@@ -233,6 +234,10 @@ export default function PlayerProfileScreen() {
   });
 
   const handleChangePhoto = async () => {
+    if (Platform.OS === "web") {
+      Alert.alert("Change Photo", "Open the app on your phone to change your profile photo.");
+      return;
+    }
     try {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
       
@@ -317,6 +322,46 @@ export default function PlayerProfileScreen() {
           onPress: () => {
             Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
             logout();
+          },
+        },
+      ]
+    );
+  };
+
+  const handleDeleteAccount = () => {
+    Alert.alert(
+      "Delete Account",
+      "Are you sure you want to permanently delete your account?\n\nThis will immediately erase all your data including XP, progress, match history, and profile information. This cannot be undone.",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Continue",
+          style: "destructive",
+          onPress: () => {
+            Alert.alert(
+              "Final Confirmation",
+              "This is your last chance. Your account and all data will be permanently deleted right now. Are you absolutely sure?",
+              [
+                { text: "Cancel", style: "cancel" },
+                {
+                  text: "Yes, Delete My Account",
+                  style: "destructive",
+                  onPress: async () => {
+                    setDeleteLoading(true);
+                    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+                    try {
+                      await apiRequest("DELETE", "/api/player/me/account", undefined);
+                      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+                      logout();
+                    } catch (error) {
+                      const errMsg = error instanceof Error ? error.message : "Failed to delete account";
+                      Alert.alert("Error", errMsg);
+                      setDeleteLoading(false);
+                    }
+                  },
+                },
+              ]
+            );
           },
         },
       ]
@@ -979,6 +1024,21 @@ export default function PlayerProfileScreen() {
           <Ionicons name="log-out-outline" size={24} color={Colors.dark.error} />
           <Text style={styles.logoutText}>{t("player.profile.signOut")}</Text>
         </Pressable>
+
+        <Pressable
+          style={styles.deleteAccountButton}
+          onPress={handleDeleteAccount}
+          disabled={deleteLoading}
+        >
+          {deleteLoading ? (
+            <ActivityIndicator size="small" color={Colors.dark.error} />
+          ) : (
+            <>
+              <Ionicons name="trash-outline" size={18} color={Colors.dark.error} />
+              <Text style={styles.deleteAccountText}>Delete My Account</Text>
+            </>
+          )}
+        </Pressable>
       </ScrollView>
 
       <Modal
@@ -1524,6 +1584,20 @@ const styles = StyleSheet.create({
     fontSize: Typography.body.fontSize,
     fontWeight: "600",
     color: Colors.dark.error,
+  },
+  deleteAccountButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: Spacing.sm,
+    paddingVertical: Spacing.md,
+    paddingHorizontal: Spacing.xl,
+    marginTop: Spacing.xs,
+  },
+  deleteAccountText: {
+    fontSize: Typography.small.fontSize,
+    color: Colors.dark.error,
+    opacity: 0.7,
   },
   openToPlayCard: {
     width: "100%",
