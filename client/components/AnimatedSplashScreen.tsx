@@ -22,6 +22,15 @@ SplashScreen.preventAutoHideAsync();
 
 const { width, height } = Dimensions.get("window");
 
+const SYSTEM_MESSAGES = [
+  "INITIALIZING GLOW PROTOCOL...",
+  "SCANNING PLAYER DATABASE...",
+  "CALIBRATING GLOW RANK...",
+  "LOADING QUEST ENGINE...",
+  "SYNCING ACADEMY NETWORK...",
+  "COURT SYSTEMS ONLINE.",
+];
+
 interface AnimatedSplashScreenProps {
   isReady: boolean;
   onComplete: () => void;
@@ -30,7 +39,15 @@ interface AnimatedSplashScreenProps {
 
 export function AnimatedSplashScreen({ isReady, onComplete, children }: AnimatedSplashScreenProps) {
   const [showSplash, setShowSplash] = useState(true);
+  const [messageIdx, setMessageIdx] = useState(0);
   const hasHiddenNativeSplash = useRef(false);
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setMessageIdx(prev => (prev + 1) % SYSTEM_MESSAGES.length);
+    }, 380);
+    return () => clearInterval(interval);
+  }, []);
   
   const logoScale = useSharedValue(0.3);
   const logoOpacity = useSharedValue(0);
@@ -185,7 +202,7 @@ export function AnimatedSplashScreen({ isReady, onComplete, children }: Animated
                   />
                 </Animated.View>
               </View>
-              <Text style={styles.loadingText}>Loading your experience...</Text>
+              <Text style={styles.loadingText}>{SYSTEM_MESSAGES[messageIdx]}</Text>
             </View>
           </LinearGradient>
         </Animated.View>
@@ -352,9 +369,12 @@ const styles = StyleSheet.create({
     overflow: "hidden",
   },
   loadingText: {
-    marginTop: 12,
-    fontSize: 12,
-    color: Colors.dark.textMuted,
-    letterSpacing: 1,
+    marginTop: 10,
+    fontSize: 11,
+    color: Colors.dark.primary,
+    letterSpacing: 2.5,
+    fontWeight: "600",
+    textTransform: "uppercase",
+    opacity: 0.85,
   },
 });

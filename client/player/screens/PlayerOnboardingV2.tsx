@@ -10,6 +10,7 @@ import {
   Modal,
   Image,
   Platform,
+  ActivityIndicator,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
@@ -1677,15 +1678,32 @@ function TennisQuizStep({ data, setData, onNext }: StepProps) {
   );
 }
 
+const SAVE_MESSAGES = [
+  "BUILDING YOUR PLAYER PROFILE...",
+  "CALIBRATING GLOW RANK...",
+  "LINKING TO ACADEMY NETWORK...",
+  "INITIALIZING XP ENGINE...",
+  "WELCOME TO THE COURT.",
+];
+
 function CompletionStep({ data, playerName, onComplete }: StepProps & { onComplete: () => void }) {
   const [showConfetti, setShowConfetti] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
+  const [saveMessageIdx, setSaveMessageIdx] = useState(0);
 
   useEffect(() => {
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     const timer = setTimeout(() => setShowConfetti(false), 3000);
     return () => clearTimeout(timer);
   }, []);
+
+  useEffect(() => {
+    if (!isSaving) return;
+    const interval = setInterval(() => {
+      setSaveMessageIdx(prev => Math.min(prev + 1, SAVE_MESSAGES.length - 1));
+    }, 700);
+    return () => clearInterval(interval);
+  }, [isSaving]);
 
   const formatExperience = (exp: string | null) => {
     if (!exp) return null;
@@ -1701,6 +1719,16 @@ function CompletionStep({ data, playerName, onComplete }: StepProps & { onComple
     };
     return map[exp] || exp;
   };
+
+  if (isSaving) {
+    return (
+      <View style={styles.cinematicSaveOverlay}>
+        <ActivityIndicator size="large" color={GlowColors.primary} />
+        <Text style={styles.cinematicSaveMessage}>{SAVE_MESSAGES[saveMessageIdx]}</Text>
+        <Text style={styles.cinematicSaveSubtext}>PLAYER PROFILE INITIALIZING</Text>
+      </View>
+    );
+  }
 
   return (
     <View style={styles.completionContainer}>
@@ -1743,16 +1771,15 @@ function CompletionStep({ data, playerName, onComplete }: StepProps & { onComple
 
       <Animated.View entering={FadeInUp.delay(1000).duration(600)}>
         <Pressable
-          style={[styles.completionButton, isSaving ? { opacity: 0.7 } : null]}
-          disabled={isSaving}
+          style={styles.completionButton}
           onPress={() => {
             Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
             setIsSaving(true);
             onComplete();
           }}
         >
-          <Text style={styles.completionButtonText}>{isSaving ? "Saving..." : "Let's Go!"}</Text>
-          <Ionicons name="rocket-outline" size={24} color={Colors.dark.backgroundRoot} />
+          <Text style={styles.completionButtonText}>ENTER THE ARENA</Text>
+          <Ionicons name="rocket-outline" size={22} color={Colors.dark.backgroundRoot} />
         </Pressable>
       </Animated.View>
     </View>
@@ -2693,8 +2720,33 @@ const styles = StyleSheet.create({
     ...Shadows.glow,
   },
   completionButtonText: {
-    ...Typography.h3,
+    fontSize: 16,
+    fontWeight: "800",
     color: Colors.dark.backgroundRoot,
+    letterSpacing: 2,
+    textTransform: "uppercase",
+  },
+  cinematicSaveOverlay: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    gap: Spacing.xl,
+    paddingHorizontal: Spacing.xl,
+  },
+  cinematicSaveMessage: {
+    fontSize: 16,
+    fontWeight: "800",
+    color: GlowColors.primary,
+    letterSpacing: 2,
+    textAlign: "center",
+    textTransform: "uppercase",
+  },
+  cinematicSaveSubtext: {
+    fontSize: 11,
+    fontWeight: "600",
+    color: Colors.dark.textMuted,
+    letterSpacing: 3,
+    textTransform: "uppercase",
   },
   footer: {
     flexDirection: "row",

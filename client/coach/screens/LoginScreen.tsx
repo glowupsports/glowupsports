@@ -1845,7 +1845,12 @@ export default function LoginScreen() {
               style={styles.headerLogo}
               resizeMode="contain"
             />
-            <Text style={styles.subtitle}>{t("auth.loginTitle")}</Text>
+            <View style={styles.heroTaglineRow}>
+              <View style={styles.heroAccentLine} />
+              <Text style={styles.heroTagline}>STEP ONTO THE COURT</Text>
+              <View style={styles.heroAccentLine} />
+            </View>
+            <Text style={styles.heroSubtitle}>Play. Improve. Glow.</Text>
           </View>
         ) : null}
 
@@ -1897,6 +1902,33 @@ const styles = StyleSheet.create({
     width: 200,
     height: 100,
     marginBottom: Spacing.sm,
+  },
+  heroTaglineRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    marginTop: 4,
+    marginBottom: 6,
+    width: "100%",
+  },
+  heroAccentLine: {
+    flex: 1,
+    height: 1,
+    backgroundColor: "#C8FF3D",
+    opacity: 0.45,
+  },
+  heroTagline: {
+    fontSize: 12,
+    fontWeight: "800",
+    color: "#C8FF3D",
+    letterSpacing: 3,
+  },
+  heroSubtitle: {
+    fontSize: 13,
+    color: "#B8BCC6",
+    textAlign: "center",
+    letterSpacing: 0.5,
+    marginBottom: 4,
   },
   logoContainer: {
     width: 64,
