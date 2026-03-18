@@ -22,46 +22,18 @@ interface SettingItem {
   onPress?: () => void;
 }
 
-interface PushDebugInfo {
-  userId: string;
-  playerId: string | null;
-  coachId: string | null;
-  activeTokens: number;
-  totalTokens: number;
-  firebaseInitialized: boolean;
-  tokens: Array<{
-    platform: string;
-    deviceName: string;
-    tokenType: string;
-    tokenPreview: string;
-    lastUsedAt: string;
-  }>;
-  diagnostics: {
-    hasActiveExpoTokens: boolean;
-    hasActiveFCMTokens: boolean;
-    playerTokensLinked: boolean;
-    coachTokensLinked: boolean;
-  };
-}
-
 export default function PlayerSettingsScreen() {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation();
   const { logout } = useAuth();
-  const { expoPushToken, isRegistered, enableNotifications } = usePushNotifications();
+  const { isRegistered } = usePushNotifications();
   const { t, i18n } = useTranslation();
 
   const [notifications, setNotifications] = useState(true);
   const [sessionReminders, setSessionReminders] = useState(true);
   const [progressUpdates, setProgressUpdates] = useState(true);
   const [coachMessages, setCoachMessages] = useState(true);
-  const [testPushLoading, setTestPushLoading] = useState(false);
-  const [testAllLoading, setTestAllLoading] = useState(false);
-  const [testFeedbackLoading, setTestFeedbackLoading] = useState(false);
-  const [reRegisterLoading, setReRegisterLoading] = useState(false);
   const [messageLanguage, setMessageLanguage] = useState<"player" | "coach" | "parent">("player");
-  const [debugInfo, setDebugInfo] = useState<PushDebugInfo | null>(null);
-  const [debugLoading, setDebugLoading] = useState(false);
   const [deleteLoading, setDeleteLoading] = useState(false);
   const [appleLinked, setAppleLinked] = useState(false);
   const [appleLoading, setAppleLoading] = useState(false);
@@ -156,103 +128,6 @@ export default function PlayerSettingsScreen() {
   };
 
   const appVersion = Constants.expoConfig?.version || "1.3.1";
-
-  const showAlert = (title: string, message: string) => {
-    if (Platform.OS === "web") {
-      window.alert(`${title}\n\n${message}`);
-    } else {
-      Alert.alert(title, message);
-    }
-  };
-
-  const fetchDebugInfo = async () => {
-    setDebugLoading(true);
-    try {
-      const url = new URL('/api/push/debug', getApiUrl());
-      const response = await apiRequest("GET", url.toString());
-      setDebugInfo(response as unknown as PushDebugInfo);
-    } catch (error) {
-      console.error("Failed to fetch push debug info:", error);
-    } finally {
-      setDebugLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    fetchDebugInfo();
-  }, []);
-
-  const handleReRegister = async () => {
-    setReRegisterLoading(true);
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    try {
-      const success = await enableNotifications();
-      if (success) {
-        showAlert("Success", "Push token re-registered successfully! Try sending a test notification now.");
-        fetchDebugInfo();
-      } else {
-        showAlert("Failed", "Could not register push token. Make sure notifications are enabled in your device settings.");
-      }
-    } catch (error) {
-      showAlert("Error", "Failed to re-register. Check device notification settings.");
-    } finally {
-      setReRegisterLoading(false);
-    }
-  };
-
-  const handleTestPushNotification = async () => {
-    setTestPushLoading(true);
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    try {
-      const response = await apiRequest("POST", "/api/push/test", {});
-      const data = response as unknown as { success: boolean; devicesNotified?: number };
-      const deviceCount = data.devicesNotified ?? 1;
-      showAlert("Success", `Test notification sent to ${deviceCount} device(s). Check your phone!`);
-    } catch (error) {
-      const errMsg = error instanceof Error ? error.message : "Failed to send test notification";
-      showAlert("Error", errMsg);
-    } finally {
-      setTestPushLoading(false);
-    }
-  };
-
-  const handleTestAllNotifications = async () => {
-    setTestAllLoading(true);
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
-    try {
-      const response = await apiRequest("POST", "/api/push/test-all-types", {});
-      const data = response as unknown as { success: boolean; devicesNotified: number; notificationsSent: number; results: any[] };
-      const succeeded = data.results?.filter((r: any) => r.success).length || 0;
-      const failed = data.results?.filter((r: any) => !r.success).length || 0;
-      showAlert(
-        "All Notifications Sent",
-        `Sent ${succeeded} notification types to ${data.devicesNotified} device(s).\n\n${failed > 0 ? `${failed} failed.` : "All succeeded!"}\n\nYou should receive them over the next 20 seconds.`
-      );
-    } catch (error: any) {
-      const errData = error?.message || "Failed";
-      showAlert("Error", `Could not send test notifications: ${errData}`);
-    } finally {
-      setTestAllLoading(false);
-    }
-  };
-
-  const handleTestFeedback = async () => {
-    setTestFeedbackLoading(true);
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    try {
-      const response = await apiRequest("POST", "/api/player/test/feedback", {});
-      const data = response as unknown as { success: boolean; simulation: { coachName: string; xpGained: number; notificationSent: boolean } };
-      const message = data.simulation.notificationSent 
-        ? `Simulated: Feedback from "${data.simulation.coachName}" (+${data.simulation.xpGained} XP)! Push notification sent.`
-        : `Simulated feedback received. (No push token - open app on phone first)`;
-      showAlert("Simulation Complete", message);
-    } catch (error) {
-      const errMsg = error instanceof Error ? error.message : "Failed to simulate feedback";
-      showAlert("Error", errMsg);
-    } finally {
-      setTestFeedbackLoading(false);
-    }
-  };
 
   const handleDeleteAccount = () => {
     Alert.alert(
@@ -608,167 +483,6 @@ export default function PlayerSettingsScreen() {
           </View>
         ) : null}
 
-        <View style={styles.section}>
-          <Text style={[styles.sectionTitle, { color: Colors.dark.error }]}>Danger Zone</Text>
-          <Pressable
-            style={styles.deleteAccountButton}
-            onPress={handleDeleteAccount}
-            disabled={deleteLoading}
-            accessibilityRole="button"
-            accessibilityLabel="Delete my account"
-          >
-            {deleteLoading ? (
-              <ActivityIndicator size="small" color={Colors.dark.error} />
-            ) : (
-              <>
-                <Ionicons name="trash-outline" size={20} color={Colors.dark.error} />
-                <Text style={styles.deleteAccountText}>Delete My Account</Text>
-              </>
-            )}
-          </Pressable>
-        </View>
-
-        <View style={styles.section}>
-          <Text style={[styles.sectionTitle, { color: "#E67E22" }]}>Notification Debug</Text>
-          <View style={styles.devToolsCard}>
-            {debugLoading ? (
-              <ActivityIndicator size="small" color="#E67E22" />
-            ) : debugInfo ? (
-              <View style={styles.debugInfoContainer}>
-                <View style={styles.debugStatusRow}>
-                  <Ionicons 
-                    name={debugInfo.firebaseInitialized ? "checkmark-circle" : "close-circle"} 
-                    size={16} 
-                    color={debugInfo.firebaseInitialized ? "#00E676" : "#FF4C4D"} 
-                  />
-                  <Text style={styles.debugLabel}>Firebase: {debugInfo.firebaseInitialized ? "Connected" : "Not Connected"}</Text>
-                </View>
-                <View style={styles.debugStatusRow}>
-                  <Ionicons 
-                    name={debugInfo.activeTokens > 0 ? "checkmark-circle" : "close-circle"} 
-                    size={16} 
-                    color={debugInfo.activeTokens > 0 ? "#00E676" : "#FF4C4D"} 
-                  />
-                  <Text style={styles.debugLabel}>
-                    Registered Devices: {debugInfo.activeTokens}
-                    {debugInfo.activeTokens === 0 ? " (tap Re-Register below)" : ""}
-                  </Text>
-                </View>
-                {(debugInfo.tokens || []).map((t, i) => (
-                  <View key={i} style={styles.debugTokenRow}>
-                    <Ionicons name={t.platform === "android" ? "logo-android" : "phone-portrait"} size={14} color="#E67E22" />
-                    <Text style={styles.debugTokenText}>
-                      {t.tokenType.toUpperCase()} | {t.deviceName || t.platform} | {t.tokenPreview}
-                    </Text>
-                  </View>
-                ))}
-                <View style={styles.debugStatusRow}>
-                  <Ionicons 
-                    name={debugInfo.diagnostics.hasActiveFCMTokens ? "checkmark-circle" : "alert-circle"} 
-                    size={16} 
-                    color={debugInfo.diagnostics.hasActiveFCMTokens ? "#00E676" : "#FFD700"} 
-                  />
-                  <Text style={styles.debugLabel}>FCM Token: {debugInfo.diagnostics.hasActiveFCMTokens ? "Yes" : "No"}</Text>
-                </View>
-                <View style={styles.debugStatusRow}>
-                  <Ionicons 
-                    name={debugInfo.diagnostics.playerTokensLinked ? "checkmark-circle" : "alert-circle"} 
-                    size={16} 
-                    color={debugInfo.diagnostics.playerTokensLinked ? "#00E676" : "#FFD700"} 
-                  />
-                  <Text style={styles.debugLabel}>Player Linked: {debugInfo.diagnostics.playerTokensLinked ? "Yes" : "No"}</Text>
-                </View>
-                {expoPushToken ? (
-                  <View style={styles.debugStatusRow}>
-                    <Ionicons name="checkmark-circle" size={16} color="#00E676" />
-                    <Text style={styles.debugLabel}>Client Token: {expoPushToken.substring(0, 30)}...</Text>
-                  </View>
-                ) : null}
-              </View>
-            ) : (
-              <Text style={styles.devToolsNote}>Could not load push debug info</Text>
-            )}
-
-            <Pressable
-              style={[styles.devToolsButton, { backgroundColor: "rgba(0, 230, 118, 0.12)", borderColor: "rgba(0, 230, 118, 0.3)" }, reRegisterLoading && styles.devToolsButtonDisabled]}
-              onPress={handleReRegister}
-              disabled={reRegisterLoading}
-              accessibilityRole="button"
-              accessibilityLabel="Re-register push token"
-            >
-              {reRegisterLoading ? (
-                <ActivityIndicator size="small" color="#00E676" />
-              ) : (
-                <>
-                  <Ionicons name="refresh" size={20} color="#00E676" />
-                  <Text style={[styles.devToolsButtonText, { color: "#00E676" }]}>Re-Register Push Token</Text>
-                </>
-              )}
-            </Pressable>
-
-            <Pressable
-              style={[styles.devToolsButton, testPushLoading && styles.devToolsButtonDisabled]}
-              onPress={handleTestPushNotification}
-              disabled={testPushLoading}
-              accessibilityRole="button"
-              accessibilityLabel="Test single notification"
-            >
-              {testPushLoading ? (
-                <ActivityIndicator size="small" color="#E67E22" />
-              ) : (
-                <>
-                  <Ionicons name="notifications" size={20} color="#E67E22" />
-                  <Text style={styles.devToolsButtonText}>Test Single Notification</Text>
-                </>
-              )}
-            </Pressable>
-
-            <Pressable
-              style={[styles.devToolsButton, { backgroundColor: "rgba(255, 0, 128, 0.12)", borderColor: "rgba(255, 0, 128, 0.3)" }, testAllLoading && styles.devToolsButtonDisabled]}
-              onPress={handleTestAllNotifications}
-              disabled={testAllLoading}
-              accessibilityRole="button"
-              accessibilityLabel="Test all notification types"
-            >
-              {testAllLoading ? (
-                <ActivityIndicator size="small" color="#FF0080" />
-              ) : (
-                <>
-                  <Ionicons name="rocket" size={20} color="#FF0080" />
-                  <Text style={[styles.devToolsButtonText, { color: "#FF0080" }]}>Test ALL Notification Types</Text>
-                </>
-              )}
-            </Pressable>
-
-            <Pressable
-              style={[styles.devToolsButton, testFeedbackLoading && styles.devToolsButtonDisabled]}
-              onPress={handleTestFeedback}
-              disabled={testFeedbackLoading}
-              accessibilityRole="button"
-              accessibilityLabel="Simulate coach feedback"
-            >
-              {testFeedbackLoading ? (
-                <ActivityIndicator size="small" color="#E67E22" />
-              ) : (
-                <>
-                  <Ionicons name="star" size={20} color="#E67E22" />
-                  <Text style={styles.devToolsButtonText}>Simulate Coach Feedback</Text>
-                </>
-              )}
-            </Pressable>
-
-            <Pressable
-              style={[styles.devToolsButton, { backgroundColor: "rgba(0, 212, 255, 0.12)", borderColor: "rgba(0, 212, 255, 0.3)" }]}
-              onPress={fetchDebugInfo}
-              accessibilityRole="button"
-              accessibilityLabel="Refresh debug info"
-            >
-              <Ionicons name="sync" size={20} color="#00D4FF" />
-              <Text style={[styles.devToolsButtonText, { color: "#00D4FF" }]}>Refresh Debug Info</Text>
-            </Pressable>
-          </View>
-        </View>
-
         <Pressable 
           style={styles.logoutButton}
           accessibilityRole="button"
@@ -793,6 +507,23 @@ export default function PlayerSettingsScreen() {
         >
           <Ionicons name="log-out-outline" size={20} color={Colors.dark.error} />
           <Text style={styles.logoutText}>Sign Out</Text>
+        </Pressable>
+
+        <Pressable
+          style={styles.deleteAccountButton}
+          onPress={handleDeleteAccount}
+          disabled={deleteLoading}
+          accessibilityRole="button"
+          accessibilityLabel="Delete my account"
+        >
+          {deleteLoading ? (
+            <ActivityIndicator size="small" color={Colors.dark.error} />
+          ) : (
+            <>
+              <Ionicons name="trash-outline" size={20} color={Colors.dark.error} />
+              <Text style={styles.deleteAccountText}>Delete My Account</Text>
+            </>
+          )}
         </Pressable>
       </ScrollView>
     </View>
@@ -896,77 +627,15 @@ const styles = StyleSheet.create({
     borderRadius: 6,
     backgroundColor: GlowColors.primary,
   },
-  devToolsCard: {
-    backgroundColor: Backgrounds.card,
-    borderRadius: BorderRadius.md,
-    borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.06)",
-    padding: Spacing.lg,
-    gap: Spacing.md,
-  },
-  devToolsNote: {
-    ...Typography.small,
-    color: Colors.dark.textMuted,
-    marginBottom: Spacing.sm,
-  },
-  debugInfoContainer: {
-    gap: 6,
-    paddingBottom: Spacing.sm,
-    borderBottomWidth: 1,
-    borderBottomColor: "rgba(255,255,255,0.06)",
-    marginBottom: Spacing.xs,
-  },
-  debugStatusRow: {
-    flexDirection: "row" as const,
-    alignItems: "center" as const,
-    gap: 6,
-  },
-  debugLabel: {
-    fontSize: 12,
-    color: Colors.dark.textSecondary,
-    flex: 1,
-  },
-  debugTokenRow: {
-    flexDirection: "row" as const,
-    alignItems: "center" as const,
-    gap: 6,
-    paddingLeft: 22,
-  },
-  debugTokenText: {
-    fontSize: 10,
-    color: Colors.dark.textMuted,
-    fontFamily: Platform.OS === "ios" ? "Menlo" : "monospace",
-    flex: 1,
-  },
-  devToolsButton: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: Spacing.sm,
-    padding: Spacing.md,
-    backgroundColor: "rgba(230, 126, 34, 0.12)",
-    borderRadius: BorderRadius.md,
-    borderWidth: 1,
-    borderColor: "rgba(230, 126, 34, 0.2)",
-  },
-  devToolsButtonDisabled: {
-    opacity: 0.6,
-  },
-  devToolsButtonText: {
-    ...Typography.body,
-    color: "#E67E22",
-    fontWeight: "600",
-  },
   deleteAccountButton: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
     gap: Spacing.sm,
     padding: Spacing.lg,
-    backgroundColor: "rgba(255, 76, 77, 0.08)",
+    backgroundColor: "transparent",
     borderRadius: BorderRadius.md,
-    borderWidth: 1,
-    borderColor: "rgba(255, 76, 77, 0.25)",
+    marginTop: Spacing.sm,
   },
   deleteAccountText: {
     ...Typography.body,
