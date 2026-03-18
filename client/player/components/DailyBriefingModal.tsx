@@ -121,9 +121,7 @@ function getBallColor(ball: string | null): string {
 }
 
 function formatXP(xp: number): string {
-  if (xp >= 1_000_000) return `${(xp / 1_000_000).toFixed(1)}M`;
-  if (xp >= 1_000) return `${(xp / 1_000).toFixed(1)}K`;
-  return String(xp);
+  return xp.toLocaleString();
 }
 
 interface DashboardPlayer {
@@ -548,15 +546,18 @@ function CoachNotesContent({
   visible: boolean;
   isGuest: boolean;
 }) {
-  const { data: feedbackData } = useQuery<FeedbackItem[]>({
+  const { data: feedbackData, isLoading: feedbackLoading } = useQuery<FeedbackItem[]>({
     queryKey: ["/api/player/me/session-feedback"],
     enabled: visible && !isGuest,
     staleTime: 5 * 60 * 1000,
   });
 
   const recentFeedback = feedbackData?.slice(0, 3) ?? [];
-  const countdown = nextSession ? formatCountdown(nextSession.date) : null;
-  const sessionToday = !!(nextSession && countdown !== null);
+  const sessionDate = nextSession ? new Date(nextSession.date) : null;
+  const today = new Date();
+  const isToday = sessionDate ? sessionDate.toDateString() === today.toDateString() : false;
+  const sessionTimeStr = nextSession ? formatSessionTime(nextSession.date) : "";
+  const sessionToday = !!(nextSession && isToday);
   const hasContent = sessionToday || recentFeedback.length > 0;
 
   return (
@@ -574,8 +575,7 @@ function CoachNotesContent({
           <View style={s2.sessionDot} />
           <View style={{ flex: 1 }}>
             <Text style={s2.sessionTime}>
-              Training {countdown}
-              {nextSession.courtName ? ` · ${nextSession.courtName}` : ""}
+              {`Training today at ${sessionTimeStr}${nextSession.courtName ? ` · ${nextSession.courtName}` : ""}`}
             </Text>
             {nextSession.coachName ? (
               <Text style={s2.sessionCoach}>with {nextSession.coachName}</Text>
@@ -585,8 +585,8 @@ function CoachNotesContent({
         </View>
       ) : null}
 
-      {/* Feedback quote cards */}
-      {recentFeedback.length > 0 ? (
+      {/* Feedback quote cards — only render once loaded */}
+      {!feedbackLoading && recentFeedback.length > 0 ? (
         <View style={s2.feedbackList}>
           {recentFeedback.map((fb) => {
             const typeColor = FEEDBACK_TYPE_COLORS[fb.feedbackType?.toLowerCase()] ?? FEEDBACK_TYPE_COLORS.default;
@@ -604,12 +604,12 @@ function CoachNotesContent({
                   </View>
                 </View>
                 <Text style={s2.feedbackMessage} numberOfLines={3}>
-                  "{fb.message}"
+                  {`"${fb.message}"`}
                 </Text>
                 {Number(fb.xpAwarded) > 0 ? (
                   <View style={s2.xpChip}>
                     <Ionicons name="flash" size={10} color={GlowColors.primary} />
-                    <Text style={s2.xpChipText}>+{fb.xpAwarded} XP</Text>
+                    <Text style={s2.xpChipText}>{`+${fb.xpAwarded} XP`}</Text>
                   </View>
                 ) : null}
               </View>
@@ -618,8 +618,8 @@ function CoachNotesContent({
         </View>
       ) : null}
 
-      {/* Fallback: active quest progress if no feedback and no session */}
-      {!hasContent && activeQuest ? (
+      {/* Fallback: active quest progress — only after load, no feedback, no session */}
+      {!feedbackLoading && !hasContent && activeQuest ? (
         <View style={s2.questFallback}>
           <View style={s2.questHeader}>
             <Ionicons name="flash" size={14} color="#FFD700" />
@@ -637,13 +637,13 @@ function CoachNotesContent({
             />
           </View>
           <Text style={s2.questProgress}>
-            {activeQuest.currentProgress} / {activeQuest.targetProgress} · +{activeQuest.xpReward} XP
+            {`${activeQuest.currentProgress} / ${activeQuest.targetProgress} · +${activeQuest.xpReward} XP`}
           </Text>
         </View>
       ) : null}
 
-      {/* All clear state */}
-      {!hasContent && !activeQuest ? (
+      {/* All clear state — only after load */}
+      {!feedbackLoading && !hasContent && !activeQuest ? (
         <View style={s2.emptyWrap}>
           <Ionicons name="checkmark-circle-outline" size={44} color={GlowColors.primary} />
           <Text style={s2.emptyTitle}>All clear</Text>
@@ -672,6 +672,7 @@ interface MatchChallenge {
   challengerId: string;
   challengerName: string;
   challengerPhoto?: string;
+  challengerLevel?: number;
   status: string;
 }
 
@@ -697,31 +698,31 @@ function TodaysOpportunitiesContent({
   const today = new Date();
   const isWeekend = today.getDay() === 0 || today.getDay() === 6;
 
-  const { data: sessionsData } = useQuery<OpenSession[]>({
+  const { data: sessionsData, isLoading: sessionsLoading } = useQuery<OpenSession[]>({
     queryKey: ["/api/play/sessions"],
     enabled: visible && !isGuest,
     staleTime: 5 * 60 * 1000,
   });
 
-  const { data: challengesData } = useQuery<MatchChallenge[]>({
+  const { data: challengesData, isLoading: challengesLoading } = useQuery<MatchChallenge[]>({
     queryKey: ["/api/match-challenges?playerId=" + (player?.id ?? "")],
     enabled: visible && !!player?.id,
     staleTime: 5 * 60 * 1000,
   });
 
-  const { data: nearbyData } = useQuery<NearbyPlayer[]>({
+  const { data: nearbyData, isLoading: nearbyLoading } = useQuery<NearbyPlayer[]>({
     queryKey: ["/api/play/nearby-players?filter=openToPlay"],
     enabled: visible && !isGuest,
     staleTime: 5 * 60 * 1000,
   });
 
-  const openSessions = (sessionsData ?? []).filter((s) => s.status !== "full").slice(0, 2);
+  const isLoading = sessionsLoading || challengesLoading || nearbyLoading;
+  const openSessions = (sessionsData ?? []).slice(0, 2);
   const pendingChallenges = (challengesData ?? []).filter(
     (c) => c.status === "pending" && c.challengerId !== player?.id
   );
   const readyPlayers = (nearbyData ?? []).slice(0, 4);
-
-  const isEmpty = openSessions.length === 0 && pendingChallenges.length === 0 && readyPlayers.length === 0;
+  const isEmpty = !isLoading && openSessions.length === 0 && pendingChallenges.length === 0 && readyPlayers.length === 0;
 
   return (
     <ScrollView
@@ -729,104 +730,107 @@ function TodaysOpportunitiesContent({
       contentContainerStyle={s3.wrap}
       showsVerticalScrollIndicator={false}
     >
-      <Text style={s3.eyebrow}>TODAY</Text>
-      <Text style={s3.headline}>What's on</Text>
-
-      {isWeekend ? (
-        <View style={s3.xpPill}>
-          <Ionicons name="flash" size={13} color="#FFD700" />
-          <Text style={s3.xpPillText}>1.5x WEEKEND XP ACTIVE</Text>
+      {isEmpty ? (
+        <View style={s3.quietWrap}>
+          <Text style={s3.quietText}>Court's quiet today</Text>
         </View>
-      ) : null}
+      ) : (
+        <>
+          <Text style={s3.eyebrow}>TODAY</Text>
+          <Text style={s3.headline}>What's on</Text>
 
-      {/* Open Sessions */}
-      {openSessions.length > 0 ? (
-        <View style={s3.section}>
-          <Text style={s3.sectionLabel}>OPEN SESSIONS</Text>
-          {openSessions.map((session) => {
-            const spots = session.maxPlayers - session.currentPlayers;
-            const spotsColor = spots >= 3 ? GlowColors.primary : spots > 0 ? "#FFD700" : "rgba(255,255,255,0.3)";
-            return (
-              <View key={session.id} style={s3.sessionCard}>
-                <Text style={s3.sessionTime}>{formatSessionTime(session.startTime)}</Text>
-                <View style={{ flex: 1 }}>
-                  <Text style={s3.sessionCourt} numberOfLines={1}>
-                    {session.courtName ?? session.title ?? "Group Session"}
-                  </Text>
-                  {session.coachName ? (
-                    <Text style={s3.sessionCoach}>{session.coachName}</Text>
-                  ) : null}
-                </View>
-                <View style={[s3.spotsPill, { backgroundColor: spotsColor + "18", borderColor: spotsColor + "40" }]}>
-                  <Text style={[s3.spotsText, { color: spotsColor }]}>
-                    {spots > 0 ? `${spots} spots` : "Full"}
-                  </Text>
-                </View>
-              </View>
-            );
-          })}
-        </View>
-      ) : null}
-
-      {/* Pending Challenges */}
-      {pendingChallenges.length > 0 ? (
-        <View style={s3.section}>
-          <Text style={s3.sectionLabel}>INCOMING {pendingChallenges.length > 1 ? `CHALLENGES (${pendingChallenges.length})` : "CHALLENGE"}</Text>
-          {pendingChallenges.slice(0, 2).map((ch) => (
-            <View key={ch.id} style={s3.challengeCard}>
-              <View style={s3.challengeAvatar}>
-                {ch.challengerPhoto ? (
-                  <Image source={{ uri: ch.challengerPhoto.startsWith("http") ? ch.challengerPhoto : `${getStaticAssetsUrl()}${ch.challengerPhoto}` }} style={s3.challengeAvatarImg} />
-                ) : (
-                  <Ionicons name="person" size={18} color="rgba(255,255,255,0.5)" />
-                )}
-              </View>
-              <View style={{ flex: 1 }}>
-                <Text style={s3.challengerName}>{ch.challengerName}</Text>
-                <Text style={s3.challengerSub}>challenged you to a match</Text>
-              </View>
-              <View style={s3.viewPill}>
-                <Text style={s3.viewPillText}>View</Text>
-              </View>
+          {isWeekend ? (
+            <View style={s3.xpPill}>
+              <Ionicons name="flash" size={13} color="#FFD700" />
+              <Text style={s3.xpPillText}>1.5x WEEKEND XP ACTIVE</Text>
             </View>
-          ))}
-        </View>
-      ) : null}
+          ) : null}
 
-      {/* Players Ready */}
-      {readyPlayers.length > 0 ? (
-        <View style={s3.section}>
-          <Text style={s3.sectionLabel}>PLAYERS READY NOW</Text>
-          <View style={s3.playersRow}>
-            {readyPlayers.map((p) => {
-              const firstNameEnd = p.name.indexOf(" ");
-              const firstName = firstNameEnd > 0 ? p.name.slice(0, firstNameEnd) : p.name;
-              return (
-                <View key={p.id} style={s3.playerBubble}>
-                  <View style={s3.playerAvatar}>
-                    {p.avatarUrl ? (
-                      <Image source={{ uri: p.avatarUrl.startsWith("http") ? p.avatarUrl : `${getStaticAssetsUrl()}${p.avatarUrl}` }} style={s3.playerAvatarImg} />
+          {/* Open Sessions — render after load */}
+          {!sessionsLoading && openSessions.length > 0 ? (
+            <View style={s3.section}>
+              <Text style={s3.sectionLabel}>OPEN SESSIONS</Text>
+              {openSessions.map((session) => {
+                const spots = session.maxPlayers - session.currentPlayers;
+                const spotsLabel = spots <= 0 ? "Full" : spots <= 2 ? "Almost full" : `${spots} spots`;
+                const spotsColor = spots <= 0 ? "rgba(255,255,255,0.3)" : spots <= 2 ? "#FFD700" : GlowColors.primary;
+                return (
+                  <View key={session.id} style={s3.sessionCard}>
+                    <Text style={s3.sessionTime}>{formatSessionTime(session.startTime)}</Text>
+                    <View style={{ flex: 1 }}>
+                      <Text style={s3.sessionCourt} numberOfLines={1}>
+                        {session.courtName ?? session.title ?? "Group Session"}
+                      </Text>
+                      {session.coachName ? (
+                        <Text style={s3.sessionCoach}>{session.coachName}</Text>
+                      ) : null}
+                    </View>
+                    <View style={[s3.spotsPill, { backgroundColor: spotsColor + "18", borderColor: spotsColor + "40" }]}>
+                      <Text style={[s3.spotsText, { color: spotsColor }]}>{spotsLabel}</Text>
+                    </View>
+                  </View>
+                );
+              })}
+            </View>
+          ) : null}
+
+          {/* Pending Challenges — render after load */}
+          {!challengesLoading && pendingChallenges.length > 0 ? (
+            <View style={s3.section}>
+              <Text style={s3.sectionLabel}>{pendingChallenges.length > 1 ? `INCOMING CHALLENGES (${pendingChallenges.length})` : "INCOMING CHALLENGE"}</Text>
+              {pendingChallenges.slice(0, 2).map((ch) => (
+                <View key={ch.id} style={s3.challengeCard}>
+                  <View style={s3.challengeAvatar}>
+                    {ch.challengerPhoto ? (
+                      <Image source={{ uri: ch.challengerPhoto.startsWith("http") ? ch.challengerPhoto : `${getStaticAssetsUrl()}${ch.challengerPhoto}` }} style={s3.challengeAvatarImg} />
                     ) : (
-                      <Ionicons name="person" size={20} color="rgba(255,255,255,0.5)" />
+                      <Ionicons name="person" size={18} color="rgba(255,255,255,0.5)" />
                     )}
                   </View>
-                  <Text style={s3.playerName} numberOfLines={1}>{firstName}</Text>
-                  <Text style={s3.playerLevel}>Lv {p.level}</Text>
+                  <View style={{ flex: 1 }}>
+                    <Text style={s3.challengerName}>{ch.challengerName}</Text>
+                    {ch.challengerLevel !== undefined ? (
+                      <Text style={s3.challengerSub}>{`Lv ${ch.challengerLevel} · challenged you`}</Text>
+                    ) : (
+                      <Text style={s3.challengerSub}>challenged you to a match</Text>
+                    )}
+                  </View>
+                  <Pressable style={s3.viewPill} onPress={onLetsGo}>
+                    <Text style={s3.viewPillText}>View</Text>
+                  </Pressable>
                 </View>
-              );
-            })}
-          </View>
-          <Text style={s3.playersCount}>{readyPlayers.length} players open to play</Text>
-        </View>
-      ) : null}
+              ))}
+            </View>
+          ) : null}
 
-      {/* Empty state */}
-      {isEmpty ? (
-        <View style={s3.emptyWrap}>
-          <Ionicons name="moon-outline" size={40} color="rgba(255,255,255,0.2)" />
-          <Text style={s3.emptyText}>Court's quiet today</Text>
-        </View>
-      ) : null}
+          {/* Players Ready — render after load */}
+          {!nearbyLoading && readyPlayers.length > 0 ? (
+            <View style={s3.section}>
+              <Text style={s3.sectionLabel}>PLAYERS READY NOW</Text>
+              <View style={s3.playersRow}>
+                {readyPlayers.map((p) => {
+                  const firstNameEnd = p.name.indexOf(" ");
+                  const firstName = firstNameEnd > 0 ? p.name.slice(0, firstNameEnd) : p.name;
+                  return (
+                    <View key={p.id} style={s3.playerBubble}>
+                      <View style={s3.playerAvatar}>
+                        {p.avatarUrl ? (
+                          <Image source={{ uri: p.avatarUrl.startsWith("http") ? p.avatarUrl : `${getStaticAssetsUrl()}${p.avatarUrl}` }} style={s3.playerAvatarImg} />
+                        ) : (
+                          <Ionicons name="person" size={20} color="rgba(255,255,255,0.5)" />
+                        )}
+                      </View>
+                      <Text style={s3.playerName} numberOfLines={1}>{firstName}</Text>
+                      <Text style={s3.playerLevel}>{`Lv ${p.level}`}</Text>
+                    </View>
+                  );
+                })}
+              </View>
+              <Text style={s3.playersCount}>{`${readyPlayers.length} players open to play`}</Text>
+            </View>
+          ) : null}
+        </>
+      )}
 
       <Pressable style={s3.letsGoBtn} onPress={onLetsGo}>
         <Text style={s3.letsGoBtnText}>LET'S GO</Text>
@@ -1505,15 +1509,17 @@ const s3 = StyleSheet.create({
     color: "rgba(255,255,255,0.4)",
     marginTop: 2,
   },
-  emptyWrap: {
+  quietWrap: {
+    flex: 1,
     alignItems: "center",
-    gap: 10,
-    paddingVertical: 40,
+    justifyContent: "center",
+    paddingVertical: 80,
   },
-  emptyText: {
-    fontSize: 15,
-    color: "rgba(255,255,255,0.25)",
-    fontWeight: "500",
+  quietText: {
+    fontSize: 17,
+    color: "rgba(255,255,255,0.3)",
+    fontWeight: "600",
+    textAlign: "center",
   },
   letsGoBtn: {
     flexDirection: "row",
