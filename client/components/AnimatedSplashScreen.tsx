@@ -43,11 +43,12 @@ export function AnimatedSplashScreen({ isReady, onComplete, children }: Animated
   const hasHiddenNativeSplash = useRef(false);
 
   useEffect(() => {
+    if (!showSplash) return;
     const interval = setInterval(() => {
       setMessageIdx(prev => (prev + 1) % SYSTEM_MESSAGES.length);
     }, 380);
     return () => clearInterval(interval);
-  }, []);
+  }, [showSplash]);
   
   const logoScale = useSharedValue(0.3);
   const logoOpacity = useSharedValue(0);
