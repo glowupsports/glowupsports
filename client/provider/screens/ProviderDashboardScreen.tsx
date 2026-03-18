@@ -307,6 +307,8 @@ export default function ProviderDashboardScreen() {
 
   const pendingPulse = useSharedValue(1);
   const pendingAnimStyle = useAnimatedStyle(() => ({ opacity: pendingPulse.value }));
+  const streakFlame = useSharedValue(1);
+  const streakFlameStyle = useAnimatedStyle(() => ({ transform: [{ scale: streakFlame.value }] }));
 
   const { data: profile } = useQuery<ProviderProfile>({
     queryKey: ["/api/provider/me"],
@@ -434,6 +436,21 @@ export default function ProviderDashboardScreen() {
     }
   }, [pendingBookings.length]);
 
+  useEffect(() => {
+    if ((stats?.streakCurrent ?? 0) > 7) {
+      streakFlame.value = withRepeat(
+        withSequence(
+          withTiming(1.25, { duration: 500 }),
+          withTiming(1, { duration: 500 })
+        ),
+        -1,
+        false
+      );
+    } else {
+      streakFlame.value = withTiming(1, { duration: 200 });
+    }
+  }, [stats?.streakCurrent]);
+
   const profilePhotoUri = profile?.profilePhotoUrl
     ? profile.profilePhotoUrl.startsWith("/")
       ? getStaticAssetsUrl() + profile.profilePhotoUrl
@@ -537,7 +554,9 @@ export default function ProviderDashboardScreen() {
         {streakCurrent > 0 ? (
           <Animated.View entering={FadeInUp.delay(100).duration(300)}>
             <View style={styles.streakBanner}>
-              <Ionicons name="flame" size={20} color="#FF8C00" />
+              <Animated.View style={streakFlameStyle}>
+                <Ionicons name="flame" size={20} color="#FF8C00" />
+              </Animated.View>
               <View style={styles.streakBannerBody}>
                 <Text style={styles.streakBannerTitle}>{streakCurrent} days in a row</Text>
                 <Text style={styles.streakBannerSub}>Best: {streakBest} days · Keep it going!</Text>

@@ -11,7 +11,7 @@ import {
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Ionicons from "@expo/vector-icons/Ionicons";
-import Animated, { FadeInUp, FadeInDown, FadeOutDown } from "react-native-reanimated";
+import Animated, { FadeInUp, FadeOutDown } from "react-native-reanimated";
 import { useNavigation, useRoute } from "@react-navigation/native";
 import { apiRequest, getStaticAssetsUrl } from "@/lib/query-client";
 import { Colors, Spacing } from "@/constants/theme";
@@ -388,7 +388,7 @@ export default function ProviderBookingDetailScreen() {
 
       {completionToast ? (
         <Animated.View
-          entering={FadeInDown.duration(350)}
+          entering={FadeInUp.duration(350)}
           exiting={FadeOutDown.duration(300)}
           style={[styles.achievementToast, { bottom: insets.bottom + 90 }]}
         >
