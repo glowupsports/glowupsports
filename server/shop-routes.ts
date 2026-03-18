@@ -100,7 +100,7 @@ router.get("/player/shop/xp-discount", authMiddleware, requirePlayerProfile, req
     let nextTierLevel: number | null = 11;
     let tierName = "Starter";
 
-    if (level >= 51) {
+    if (level >= 50) {
       discountPercent = 25;
       tierName = "GOAT";
       nextTierLevel = null;
@@ -287,14 +287,23 @@ router.get("/player/shop/services", authMiddleware, requirePlayerProfile, requir
     }
     const academyId = player[0].academyId;
 
-    const services = await db.select().from(shopServices)
-      .where(and(
-        eq(shopServices.academyId, academyId),
-        eq(shopServices.isActive, true)
-      ))
-      .orderBy(asc(shopServices.order));
+    const [categories, services] = await Promise.all([
+      db.select().from(shopCategories)
+        .where(and(eq(shopCategories.academyId, academyId), eq(shopCategories.isActive, true)))
+        .orderBy(asc(shopCategories.order)),
+      db.select().from(shopServices)
+        .where(and(eq(shopServices.academyId, academyId), eq(shopServices.isActive, true)))
+        .orderBy(asc(shopServices.order)),
+    ]);
 
-    res.json(services);
+    const grouped = categories.map(cat => ({
+      ...cat,
+      services: services.filter(s => s.categoryId === cat.id),
+    }));
+
+    const uncategorized = services.filter(s => !s.categoryId || !categories.some(c => c.id === s.categoryId));
+
+    res.json({ categories: grouped, uncategorized });
   } catch (error) {
     console.error("[Shop] Error fetching services:", error);
     res.status(500).json({ error: "Failed to load services" });
@@ -544,7 +553,7 @@ router.post("/player/shop/orders", authMiddleware, requirePlayerProfile, require
 // ==================== ACADEMY OWNER SHOP MANAGEMENT ====================
 
 // Get all products for academy
-router.get("/academy/shop/products", authMiddleware, requireRole("academy_owner", "coach"), async (req: AuthRequest, res: Response) => {
+router.get("/academy/shop/products", authMiddleware, requireRole("academy_owner", "coach", "admin", "platform_owner"), async (req: AuthRequest, res: Response) => {
   try {
     if (!req.user!.academyId) {
       return res.status(400).json({ error: "No academy assigned" });
@@ -562,7 +571,7 @@ router.get("/academy/shop/products", authMiddleware, requireRole("academy_owner"
 });
 
 // Create product
-router.post("/academy/shop/products", authMiddleware, requireRole("academy_owner"), async (req: AuthRequest, res: Response) => {
+router.post("/academy/shop/products", authMiddleware, requireRole("academy_owner", "admin", "platform_owner"), async (req: AuthRequest, res: Response) => {
   try {
     if (!req.user!.academyId) {
       return res.status(400).json({ error: "No academy assigned" });
@@ -588,7 +597,7 @@ router.post("/academy/shop/products", authMiddleware, requireRole("academy_owner
 });
 
 // Update product
-router.patch("/academy/shop/products/:id", authMiddleware, requireRole("academy_owner"), async (req: AuthRequest, res: Response) => {
+router.patch("/academy/shop/products/:id", authMiddleware, requireRole("academy_owner", "admin", "platform_owner"), async (req: AuthRequest, res: Response) => {
   try {
     const { id } = req.params;
     
@@ -612,7 +621,7 @@ router.patch("/academy/shop/products/:id", authMiddleware, requireRole("academy_
 });
 
 // Delete product
-router.delete("/academy/shop/products/:id", authMiddleware, requireRole("academy_owner"), async (req: AuthRequest, res: Response) => {
+router.delete("/academy/shop/products/:id", authMiddleware, requireRole("academy_owner", "admin", "platform_owner"), async (req: AuthRequest, res: Response) => {
   try {
     const { id } = req.params;
     
@@ -630,7 +639,7 @@ router.delete("/academy/shop/products/:id", authMiddleware, requireRole("academy
 });
 
 // Get all services for academy
-router.get("/academy/shop/services", authMiddleware, requireRole("academy_owner", "coach"), async (req: AuthRequest, res: Response) => {
+router.get("/academy/shop/services", authMiddleware, requireRole("academy_owner", "coach", "admin", "platform_owner"), async (req: AuthRequest, res: Response) => {
   try {
     if (!req.user!.academyId) {
       return res.status(400).json({ error: "No academy assigned" });
@@ -648,7 +657,7 @@ router.get("/academy/shop/services", authMiddleware, requireRole("academy_owner"
 });
 
 // Create service
-router.post("/academy/shop/services", authMiddleware, requireRole("academy_owner"), async (req: AuthRequest, res: Response) => {
+router.post("/academy/shop/services", authMiddleware, requireRole("academy_owner", "admin", "platform_owner"), async (req: AuthRequest, res: Response) => {
   try {
     if (!req.user!.academyId) {
       return res.status(400).json({ error: "No academy assigned" });
@@ -674,7 +683,7 @@ router.post("/academy/shop/services", authMiddleware, requireRole("academy_owner
 });
 
 // Update service
-router.patch("/academy/shop/services/:id", authMiddleware, requireRole("academy_owner"), async (req: AuthRequest, res: Response) => {
+router.patch("/academy/shop/services/:id", authMiddleware, requireRole("academy_owner", "admin", "platform_owner"), async (req: AuthRequest, res: Response) => {
   try {
     const { id } = req.params;
     
@@ -698,7 +707,7 @@ router.patch("/academy/shop/services/:id", authMiddleware, requireRole("academy_
 });
 
 // Delete service
-router.delete("/academy/shop/services/:id", authMiddleware, requireRole("academy_owner"), async (req: AuthRequest, res: Response) => {
+router.delete("/academy/shop/services/:id", authMiddleware, requireRole("academy_owner", "admin", "platform_owner"), async (req: AuthRequest, res: Response) => {
   try {
     const { id } = req.params;
     
@@ -716,7 +725,7 @@ router.delete("/academy/shop/services/:id", authMiddleware, requireRole("academy
 });
 
 // Get all categories for academy
-router.get("/academy/shop/categories", authMiddleware, requireRole("academy_owner", "coach"), async (req: AuthRequest, res: Response) => {
+router.get("/academy/shop/categories", authMiddleware, requireRole("academy_owner", "coach", "admin", "platform_owner"), async (req: AuthRequest, res: Response) => {
   try {
     if (!req.user!.academyId) {
       return res.status(400).json({ error: "No academy assigned" });
@@ -734,7 +743,7 @@ router.get("/academy/shop/categories", authMiddleware, requireRole("academy_owne
 });
 
 // Create category
-router.post("/academy/shop/categories", authMiddleware, requireRole("academy_owner"), async (req: AuthRequest, res: Response) => {
+router.post("/academy/shop/categories", authMiddleware, requireRole("academy_owner", "admin", "platform_owner"), async (req: AuthRequest, res: Response) => {
   try {
     if (!req.user!.academyId) {
       return res.status(400).json({ error: "No academy assigned" });
@@ -760,7 +769,7 @@ router.post("/academy/shop/categories", authMiddleware, requireRole("academy_own
 });
 
 // Get all orders for academy (enriched with player info, items, and optional filters)
-router.get("/academy/shop/orders", authMiddleware, requireRole("academy_owner", "coach"), async (req: AuthRequest, res: Response) => {
+router.get("/academy/shop/orders", authMiddleware, requireRole("academy_owner", "coach", "admin", "platform_owner"), async (req: AuthRequest, res: Response) => {
   try {
     if (!req.user!.academyId) {
       return res.status(400).json({ error: "No academy assigned" });
@@ -817,7 +826,7 @@ router.get("/academy/shop/orders", authMiddleware, requireRole("academy_owner", 
 });
 
 // Update order status + optionally assign provider
-router.patch("/academy/shop/orders/:id/status", authMiddleware, requireRole("academy_owner", "coach"), async (req: AuthRequest, res: Response) => {
+router.patch("/academy/shop/orders/:id/status", authMiddleware, requireRole("academy_owner", "coach", "admin", "platform_owner"), async (req: AuthRequest, res: Response) => {
   try {
     const { id } = req.params;
     const { status, paymentStatus, assignedProviderId } = req.body;
@@ -857,7 +866,7 @@ router.patch("/academy/shop/orders/:id/status", authMiddleware, requireRole("aca
 
 // ==================== CATEGORY PATCH/DELETE ====================
 
-router.patch("/academy/shop/categories/:id", authMiddleware, requireRole("academy_owner"), async (req: AuthRequest, res: Response) => {
+router.patch("/academy/shop/categories/:id", authMiddleware, requireRole("academy_owner", "admin", "platform_owner"), async (req: AuthRequest, res: Response) => {
   try {
     const { id } = req.params;
     const [category] = await db.update(shopCategories)
@@ -872,7 +881,7 @@ router.patch("/academy/shop/categories/:id", authMiddleware, requireRole("academ
   }
 });
 
-router.delete("/academy/shop/categories/:id", authMiddleware, requireRole("academy_owner"), async (req: AuthRequest, res: Response) => {
+router.delete("/academy/shop/categories/:id", authMiddleware, requireRole("academy_owner", "admin", "platform_owner"), async (req: AuthRequest, res: Response) => {
   try {
     const { id } = req.params;
     await db.delete(shopCategories).where(and(eq(shopCategories.id, id), eq(shopCategories.academyId, req.user!.academyId!)));
@@ -886,7 +895,7 @@ router.delete("/academy/shop/categories/:id", authMiddleware, requireRole("acade
 // ==================== ACADEMY SERVICE PROVIDER MANAGEMENT ====================
 
 // List service providers for academy
-router.get("/academy/shop/providers", authMiddleware, requireRole("academy_owner", "coach"), async (req: AuthRequest, res: Response) => {
+router.get("/academy/shop/providers", authMiddleware, requireRole("academy_owner", "coach", "admin", "platform_owner"), async (req: AuthRequest, res: Response) => {
   try {
     if (!req.user!.academyId) return res.status(400).json({ error: "No academy assigned" });
 
@@ -919,7 +928,7 @@ router.get("/academy/shop/providers", authMiddleware, requireRole("academy_owner
 });
 
 // Create / invite service provider (creates a user + provider record)
-router.post("/academy/shop/providers", authMiddleware, requireRole("academy_owner"), async (req: AuthRequest, res: Response) => {
+router.post("/academy/shop/providers", authMiddleware, requireRole("academy_owner", "admin", "platform_owner"), async (req: AuthRequest, res: Response) => {
   try {
     if (!req.user!.academyId) return res.status(400).json({ error: "No academy assigned" });
 
@@ -968,7 +977,7 @@ router.post("/academy/shop/providers", authMiddleware, requireRole("academy_owne
 });
 
 // Update provider profile
-router.patch("/academy/shop/providers/:id", authMiddleware, requireRole("academy_owner"), async (req: AuthRequest, res: Response) => {
+router.patch("/academy/shop/providers/:id", authMiddleware, requireRole("academy_owner", "admin", "platform_owner"), async (req: AuthRequest, res: Response) => {
   try {
     const { id } = req.params;
     const { displayName, bio, phone, serviceTypes, specializations, isActive } = req.body;
@@ -995,7 +1004,7 @@ router.patch("/academy/shop/providers/:id", authMiddleware, requireRole("academy
 });
 
 // Deactivate provider
-router.delete("/academy/shop/providers/:id", authMiddleware, requireRole("academy_owner"), async (req: AuthRequest, res: Response) => {
+router.delete("/academy/shop/providers/:id", authMiddleware, requireRole("academy_owner", "admin", "platform_owner"), async (req: AuthRequest, res: Response) => {
   try {
     const { id } = req.params;
     await db.update(serviceProviders)
@@ -1016,11 +1025,6 @@ function requireServiceProvider(req: AuthRequest, res: Response, next: NextFunct
     return;
   }
   if (req.user.role === "service_provider") {
-    next();
-    return;
-  }
-  // Also allow academy_owners/platform_owners to view provider data
-  if (req.user.role === "academy_owner" || req.user.role === "platform_owner") {
     next();
     return;
   }
