@@ -118,32 +118,14 @@ function StreakMiniCard({ streak, onPress }: { streak: StreakData; onPress: () =
   const MAX_SHIELDS = 2;
   const hasStreak = streak.currentStreak > 0;
 
-  if (!hasStreak) {
-    return (
-      <Pressable style={[hStyles.streakCard, hStyles.streakCardEmpty]} onPress={onPress}>
-        <View style={hStyles.streakFlameWrap}>
-          <Ionicons name="flame-outline" size={20} color={Colors.dark.textSubtle} />
-        </View>
-        <View style={{ flex: 1 }}>
-          <Text style={hStyles.streakStartTitle}>Start your streak</Text>
-          <Text style={hStyles.streakStartSub}>Complete a quest today to begin</Text>
-        </View>
-        <View style={hStyles.streakStartCta}>
-          <Text style={hStyles.streakStartCtaText}>Start Streak</Text>
-          <Ionicons name="chevron-forward" size={12} color={GlowColors.primary} />
-        </View>
-      </Pressable>
-    );
-  }
-
   return (
     <Pressable style={hStyles.streakCard} onPress={onPress}>
       <View style={hStyles.streakLeft}>
         <View style={hStyles.streakFlameWrap}>
-          <Ionicons name="flame" size={20} color="#FF6B35" />
+          <Ionicons name={hasStreak ? "flame" : "flame-outline"} size={20} color={hasStreak ? "#FF6B35" : Colors.dark.textSubtle} />
         </View>
         <View>
-          <Text style={hStyles.streakCount}>{streak.currentStreak}</Text>
+          <Text style={[hStyles.streakCount, !hasStreak && { color: Colors.dark.textSubtle }]}>{streak.currentStreak}</Text>
           <Text style={hStyles.streakLabel}>day streak</Text>
         </View>
       </View>
@@ -166,6 +148,12 @@ function StreakMiniCard({ streak, onPress }: { streak: StreakData; onPress: () =
         </View>
         <Text style={hStyles.shieldLabel}>{shields}/{MAX_SHIELDS} shields</Text>
       </View>
+      {!hasStreak ? (
+        <View style={hStyles.streakStartCta}>
+          <Text style={hStyles.streakStartCtaText}>Start Streak</Text>
+          <Ionicons name="chevron-forward" size={12} color={GlowColors.primary} />
+        </View>
+      ) : null}
     </Pressable>
   );
 }
@@ -921,19 +909,6 @@ const hStyles = StyleSheet.create({
     marginHorizontal: Spacing.lg,
     paddingHorizontal: Spacing.lg,
     paddingVertical: Spacing.md,
-  },
-  streakCardEmpty: {
-    gap: Spacing.sm,
-  },
-  streakStartTitle: {
-    fontSize: 13,
-    fontWeight: "700",
-    color: Colors.dark.text,
-  },
-  streakStartSub: {
-    fontSize: 11,
-    color: Colors.dark.textSubtle,
-    marginTop: 1,
   },
   streakStartCta: {
     flexDirection: "row",
