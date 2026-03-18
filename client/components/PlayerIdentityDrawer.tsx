@@ -324,6 +324,11 @@ export default function PlayerIdentityDrawer({ visible, onClose, onNavigate }: P
   const isMinor = player?.isMinor ?? false;
 
   useEffect(() => {
+    if (Platform.OS === "web") {
+      translateX.value = visible ? 0 : -DRAWER_WIDTH;
+      backdropOpacity.value = visible ? 1 : 0;
+      return;
+    }
     if (visible) {
       translateX.value = withSpring(0, { damping: 18, stiffness: 180 });
       backdropOpacity.value = withTiming(1, { duration: 250 });
@@ -347,7 +352,6 @@ export default function PlayerIdentityDrawer({ visible, onClose, onNavigate }: P
 
   const backdropStyle = useAnimatedStyle(() => ({
     opacity: backdropOpacity.value,
-    pointerEvents: backdropOpacity.value > 0 ? "auto" : "none",
   }));
 
   const glowRingStyle = useAnimatedStyle(() => ({
@@ -389,7 +393,9 @@ export default function PlayerIdentityDrawer({ visible, onClose, onNavigate }: P
   };
 
   const toggleSection = (sectionId: string) => {
-    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+    if (Platform.OS !== "web") {
+      LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+    }
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     setExpandedSection(expandedSection === sectionId ? null : sectionId);
   };
@@ -408,7 +414,7 @@ export default function PlayerIdentityDrawer({ visible, onClose, onNavigate }: P
 
   return (
     <View style={StyleSheet.absoluteFill} pointerEvents="box-none">
-      <Animated.View style={[styles.backdrop, backdropStyle]}>
+      <Animated.View style={[styles.backdrop, backdropStyle]} pointerEvents={visible ? "auto" : "none"}>
         <Pressable style={StyleSheet.absoluteFill} onPress={handleClose} />
       </Animated.View>
 
