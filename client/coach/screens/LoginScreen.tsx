@@ -147,7 +147,8 @@ const premiumInputStyles = StyleSheet.create({
     fontSize: 16,
     color: Colors.dark.text,
     paddingVertical: 0,
-    outlineStyle: 'none' as any,
+    // @ts-ignore — web-only property to suppress focus outline
+    outlineStyle: Platform.OS === 'web' ? 'none' : undefined,
   },
   toggleButton: {
     padding: 4,
@@ -1941,11 +1942,9 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     paddingVertical: Spacing["2xl"],
     marginBottom: Spacing.lg,
-    borderRadius: BorderRadius.lg,
+    marginHorizontal: -Spacing.lg,
     overflow: "hidden",
-    borderWidth: 1,
-    borderColor: "rgba(200, 255, 61, 0.12)",
-    minHeight: 220,
+    minHeight: 260,
     position: "relative",
   },
   courtDecorLine: {
@@ -2158,7 +2157,8 @@ const styles = StyleSheet.create({
     paddingVertical: Spacing.md + 4,
     color: Colors.dark.text,
     fontSize: 16,
-    outlineStyle: 'none' as any,
+    // @ts-ignore — web-only property to suppress focus outline
+    outlineStyle: Platform.OS === 'web' ? 'none' : undefined,
   },
   usernameInput: {
     paddingRight: 40,

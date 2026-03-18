@@ -10,6 +10,7 @@ import {
   Modal,
   Image,
   Platform,
+  Alert,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
@@ -1685,9 +1686,8 @@ const SAVE_MESSAGES = [
   "WELCOME TO THE COURT.",
 ];
 
-function CompletionStep({ data, playerName, onComplete }: StepProps & { onComplete: () => void }) {
+function CompletionStep({ data, playerName, onComplete, isSaving }: StepProps & { onComplete: () => void; isSaving: boolean }) {
   const [showConfetti, setShowConfetti] = useState(true);
-  const [isSaving, setIsSaving] = useState(false);
   const [saveMessageIdx, setSaveMessageIdx] = useState(0);
 
   const glowPulse = useSharedValue(0.7);
@@ -1790,7 +1790,6 @@ function CompletionStep({ data, playerName, onComplete }: StepProps & { onComple
           style={styles.completionButton}
           onPress={() => {
             Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
-            setIsSaving(true);
             onComplete();
           }}
         >
@@ -1837,6 +1836,8 @@ export default function PlayerOnboardingV2Screen({ onComplete }: Props) {
     quizScore: 0,
     quizAnswers: [],
   });
+
+  const [completionSaving, setCompletionSaving] = useState(false);
 
   const playerName = user?.username || "";
   const age = data.dateOfBirth ? calculateAge(data.dateOfBirth) : null;
@@ -1967,6 +1968,14 @@ export default function PlayerOnboardingV2Screen({ onComplete }: Props) {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       onComplete();
     },
+    onError: () => {
+      setCompletionSaving(false);
+      Alert.alert(
+        "Save Failed",
+        "Could not save your profile. Please check your connection and try again.",
+        [{ text: "OK" }]
+      );
+    },
   });
 
   const handleNext = () => {
@@ -1984,6 +1993,7 @@ export default function PlayerOnboardingV2Screen({ onComplete }: Props) {
   };
 
   const handleComplete = () => {
+    setCompletionSaving(true);
     saveMutation.mutate(data);
   };
 
@@ -2031,8 +2041,8 @@ export default function PlayerOnboardingV2Screen({ onComplete }: Props) {
       case 13: return <AcademySelectionStep {...stepProps} />;
       case 14: return <AcademyWelcomeVideoStep {...stepProps} />;
       case 15: return <GoalSettingStep {...stepProps} />;
-      case 16: return needsParentConnect ? <ParentConnectStep {...stepProps} /> : <CompletionStep {...stepProps} onComplete={handleComplete} />;
-      case 17: return <CompletionStep {...stepProps} onComplete={handleComplete} />;
+      case 16: return needsParentConnect ? <ParentConnectStep {...stepProps} /> : <CompletionStep {...stepProps} onComplete={handleComplete} isSaving={completionSaving} />;
+      case 17: return <CompletionStep {...stepProps} onComplete={handleComplete} isSaving={completionSaving} />;
       default: return null;
     }
   };
