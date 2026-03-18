@@ -75,6 +75,12 @@ function formatDateTime(iso: string | null): string {
   });
 }
 
+function safeIoniconName(name: string): keyof typeof Ionicons.glyphMap {
+  return name in Ionicons.glyphMap
+    ? (name as keyof typeof Ionicons.glyphMap)
+    : "help-circle-outline";
+}
+
 function InfoRow({
   icon,
   label,
@@ -87,7 +93,7 @@ function InfoRow({
   return (
     <View style={styles.infoRow}>
       <View style={styles.infoIconContainer}>
-        <Ionicons name={icon as any} size={16} color={Colors.dark.primary} />
+        <Ionicons name={safeIoniconName(icon)} size={16} color={Colors.dark.primary} />
       </View>
       <View style={styles.infoContent}>
         <Text style={styles.infoLabel}>{label}</Text>
@@ -169,7 +175,7 @@ export default function ProviderBookingDetailScreen() {
 
   const service = booking.items?.[0]?.service;
   const serviceName = service?.name ?? "Service Booking";
-  const serviceIcon = (service?.iconName as any) ?? "build-outline";
+  const serviceIcon = safeIoniconName(service?.iconName ?? "build-outline");
   const statusColor = STATUS_COLORS[booking.status] ?? Colors.dark.textSecondary;
   const statusLabel = STATUS_LABELS[booking.status] ?? booking.status;
   const price = `AED ${parseFloat(booking.totalAmount).toFixed(0)}`;

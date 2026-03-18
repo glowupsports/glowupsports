@@ -27076,7 +27076,7 @@ __export(trial_readiness_engine_exports, {
   checkAndNotifyTrialReady: () => checkAndNotifyTrialReady,
   getPlayersReadyForTrial: () => getPlayersReadyForTrial
 });
-import { eq as eq7, and as and6, desc as desc5, sql as sql8, inArray as inArray4 } from "drizzle-orm";
+import { eq as eq7, and as and6, desc as desc5, sql as sql9, inArray as inArray4 } from "drizzle-orm";
 async function calculateTrialReadiness(playerId) {
   const [player2] = await db.select().from(players).where(eq7(players.id, playerId));
   if (!player2) {
@@ -27220,7 +27220,7 @@ async function getPillarProgress(playerId) {
   return result;
 }
 async function getEvidenceCount(playerId) {
-  const [result] = await db.select({ count: sql8`COUNT(*)` }).from(skillEvidence).where(and6(
+  const [result] = await db.select({ count: sql9`COUNT(*)` }).from(skillEvidence).where(and6(
     eq7(skillEvidence.playerId, playerId),
     eq7(skillEvidence.status, "approved")
   ));
@@ -27301,7 +27301,7 @@ __export(coach_calibration_engine_exports, {
   getCoachCalibrationStats: () => getCoachCalibrationStats,
   updateCoachCalibration: () => updateCoachCalibration
 });
-import { eq as eq8, and as and7, sql as sql9, gte as gte6 } from "drizzle-orm";
+import { eq as eq8, and as and7, sql as sql10, gte as gte6 } from "drizzle-orm";
 async function checkForScoringAnomaly(coachId, skillId, sessionId, playerId, score) {
   const lookbackDate = /* @__PURE__ */ new Date();
   lookbackDate.setDate(lookbackDate.getDate() - CALIBRATION_LOOKBACK_DAYS);
@@ -27310,7 +27310,7 @@ async function checkForScoringAnomaly(coachId, skillId, sessionId, playerId, sco
     coachId: playerSkillScores2.coachId
   }).from(playerSkillScores2).where(and7(
     eq8(playerSkillScores2.skillId, skillId),
-    sql9`${playerSkillScores2.coachId} != ${coachId}`,
+    sql10`${playerSkillScores2.coachId} != ${coachId}`,
     gte6(playerSkillScores2.scoredAt, lookbackDate)
   ));
   if (peerScores.length < 3) {
@@ -27467,14 +27467,14 @@ __export(glow_rank_engine_exports, {
   updatePillarProgressWithEMA: () => updatePillarProgressWithEMA,
   updateSkillScoreWithEMA: () => updateSkillScoreWithEMA
 });
-import { eq as eq9, and as and8, desc as desc7, sql as sql10, inArray as inArray5 } from "drizzle-orm";
+import { eq as eq9, and as and8, desc as desc7, sql as sql11, inArray as inArray5 } from "drizzle-orm";
 async function calculateGlowRank(playerId) {
   const [playerLevel] = await db.select({
     levelId: playerBallLevels.levelId,
     status: playerBallLevels.status
   }).from(playerBallLevels).where(and8(
     eq9(playerBallLevels.playerId, playerId),
-    sql10`${playerBallLevels.status} IN ('active', 'trial')`
+    sql11`${playerBallLevels.status} IN ('active', 'trial')`
   )).limit(1);
   if (!playerLevel) {
     return null;
@@ -30166,7 +30166,7 @@ import path5 from "path";
 import fs5 from "fs";
 import {
   eq as eq31,
-  sql as sql29,
+  sql as sql30,
   desc as desc25,
   and as and29,
   gte as gte17,
@@ -31609,12 +31609,13 @@ function getCurrencyForCountry(countryCode) {
 init_db();
 init_schema();
 import { Router } from "express";
-import { eq as eq4, and as and3, desc as desc2, asc as asc2, sql as sql5, inArray as inArray3 } from "drizzle-orm";
+import { eq as eq4, and as and3, desc as desc2, asc as asc2, sql as sql6, inArray as inArray3 } from "drizzle-orm";
 
 // server/provider-gamification.ts
 init_db();
 init_schema();
 import { eq as eq3 } from "drizzle-orm";
+import { sql as sql5 } from "drizzle-orm";
 var XP_AWARDS = {
   BOOKING_COMPLETED: 10,
   FIVE_STAR_RATING: 25,
@@ -31685,19 +31686,21 @@ function calculateProviderLevel(xp) {
   return { level, rank, xpInLevel, xpToNextLevel };
 }
 async function awardXP(providerId, amount, reason) {
-  const [current] = await db.select({ xp: serviceProviders.xp, level: serviceProviders.level }).from(serviceProviders).where(eq3(serviceProviders.id, providerId));
-  if (!current) {
+  const [before] = await db.select({ level: serviceProviders.level }).from(serviceProviders).where(eq3(serviceProviders.id, providerId));
+  if (!before) {
     return { newXp: 0, newLevel: 1, leveledUp: false };
   }
-  const prevLevel = Number(current.level);
-  const newXp = Number(current.xp) + amount;
+  const prevLevel = Number(before.level);
+  const [updated] = await db.update(serviceProviders).set({
+    xp: sql5`${serviceProviders.xp} + ${amount}`,
+    updatedAt: /* @__PURE__ */ new Date()
+  }).where(eq3(serviceProviders.id, providerId)).returning({ newXp: serviceProviders.xp });
+  const newXp = Number(updated?.newXp ?? 0);
   const { level: newLevel } = calculateProviderLevel(newXp);
   const leveledUp = newLevel > prevLevel;
-  await db.update(serviceProviders).set({
-    xp: newXp,
-    level: newLevel,
-    updatedAt: /* @__PURE__ */ new Date()
-  }).where(eq3(serviceProviders.id, providerId));
+  if (leveledUp) {
+    await db.update(serviceProviders).set({ level: newLevel, updatedAt: /* @__PURE__ */ new Date() }).where(eq3(serviceProviders.id, providerId));
+  }
   console.log(`[ProviderGamification] ${reason}: +${amount} XP \u2192 provider ${providerId} now at ${newXp} XP, Lv.${newLevel}${leveledUp ? " (LEVEL UP!)" : ""}`);
   return { newXp, newLevel, leveledUp };
 }
@@ -31840,12 +31843,12 @@ router.get("/player/shop/search", authMiddlewareWithFreshData, requirePlayerProf
       db.select().from(shopProducts).where(and3(
         eq4(shopProducts.academyId, academyId),
         eq4(shopProducts.isActive, true),
-        sql5`(LOWER(${shopProducts.name}) LIKE ${searchTerm} ESCAPE '\\' OR LOWER(COALESCE(${shopProducts.shortDescription}, '')) LIKE ${searchTerm} ESCAPE '\\')`
+        sql6`(LOWER(${shopProducts.name}) LIKE ${searchTerm} ESCAPE '\\' OR LOWER(COALESCE(${shopProducts.shortDescription}, '')) LIKE ${searchTerm} ESCAPE '\\')`
       )).limit(20),
       db.select().from(shopServices).where(and3(
         eq4(shopServices.academyId, academyId),
         eq4(shopServices.isActive, true),
-        sql5`(LOWER(${shopServices.name}) LIKE ${searchTerm} ESCAPE '\\' OR LOWER(COALESCE(${shopServices.shortDescription}, '')) LIKE ${searchTerm} ESCAPE '\\')`
+        sql6`(LOWER(${shopServices.name}) LIKE ${searchTerm} ESCAPE '\\' OR LOWER(COALESCE(${shopServices.shortDescription}, '')) LIKE ${searchTerm} ESCAPE '\\')`
       )).limit(10)
     ]);
     res.json({ products, services });
@@ -32182,7 +32185,7 @@ router.post("/player/shop/orders", authMiddlewareWithFreshData, requirePlayerPro
       return res.status(400).json({ error: "No valid items in cart" });
     }
     const year = (/* @__PURE__ */ new Date()).getFullYear();
-    const countResult = await db.select({ count: sql5`COUNT(*)` }).from(shopOrders).where(sql5`EXTRACT(YEAR FROM ${shopOrders.createdAt}) = ${year}`);
+    const countResult = await db.select({ count: sql6`COUNT(*)` }).from(shopOrders).where(sql6`EXTRACT(YEAR FROM ${shopOrders.createdAt}) = ${year}`);
     const nextSeq = (Number(countResult[0]?.count) || 0) + 1;
     const orderNumber = `GUS-${year}-${String(nextSeq).padStart(4, "0")}`;
     const total = subtotal;
@@ -32429,7 +32432,7 @@ router.patch("/academy/shop/orders/:id/status", authMiddlewareWithFreshData, req
       return res.status(404).json({ error: "Order not found" });
     }
     if (assignedProviderId) {
-      await db.execute(sql5`
+      await db.execute(sql6`
         UPDATE service_providers SET total_bookings = total_bookings + 1, updated_at = NOW()
         WHERE id = ${assignedProviderId}
       `);
@@ -32628,7 +32631,7 @@ router.get("/provider/me/bookings", authMiddlewareWithFreshData, requireServiceP
       todayStart.setHours(0, 0, 0, 0);
       const todayEnd = /* @__PURE__ */ new Date();
       todayEnd.setHours(23, 59, 59, 999);
-      whereClauses.push(sql5`(${shopOrders.scheduledAt} >= ${todayStart} AND ${shopOrders.scheduledAt} <= ${todayEnd})`);
+      whereClauses.push(sql6`(${shopOrders.scheduledAt} >= ${todayStart} AND ${shopOrders.scheduledAt} <= ${todayEnd})`);
     }
     const orders = await db.select().from(shopOrders).where(and3(...whereClauses)).orderBy(asc2(shopOrders.scheduledAt));
     const orderIds = orders.map((o) => o.id);
@@ -32734,12 +32737,21 @@ router.patch("/provider/bookings/:orderId/status", authMiddlewareWithFreshData, 
         }
       }
       const [refreshed] = await db.select().from(serviceProviders).where(eq4(serviceProviders.id, providerRecord.id)).limit(1);
+      const currentRating = Number(refreshed?.rating ?? 0);
       newBadges = await checkAndAwardBadges(providerRecord.id, {
         totalBookings: Number(refreshed?.totalBookings ?? prevTotalBookings + 1),
-        rating: Number(refreshed?.rating ?? 0),
+        rating: currentRating,
         streakCurrent: streakResult.streakCurrent,
         leveledUp
       });
+      if (newBadges.includes("five_star")) {
+        const fsr = await awardXP(providerRecord.id, XP_AWARDS.FIVE_STAR_RATING, "five_star_rating");
+        xpAwarded += XP_AWARDS.FIVE_STAR_RATING;
+        if (fsr.leveledUp) {
+          leveledUp = true;
+          newLevel = fsr.newLevel;
+        }
+      }
     }
     res.json({ ...order, xpAwarded, leveledUp, newLevel, newBadges });
   } catch (error) {
@@ -32786,7 +32798,7 @@ var shop_routes_default = router;
 init_db();
 init_schema();
 import { Router as Router2 } from "express";
-import { eq as eq5, and as and4, desc as desc3, sql as sql6, or as or3, ilike as ilike2, gte as gte3, lte as lte3 } from "drizzle-orm";
+import { eq as eq5, and as and4, desc as desc3, sql as sql7, or as or3, ilike as ilike2, gte as gte3, lte as lte3 } from "drizzle-orm";
 import multer from "multer";
 import path from "path";
 import fs from "fs";
@@ -32944,7 +32956,7 @@ router2.get("/player/marketplace/:id", authMiddlewareWithFreshData, requirePlaye
     if (!result[0]) {
       return res.status(404).json({ error: "Listing not found" });
     }
-    await db.update(marketplaceListings).set({ viewCount: sql6`${marketplaceListings.viewCount} + 1` }).where(eq5(marketplaceListings.id, id));
+    await db.update(marketplaceListings).set({ viewCount: sql7`${marketplaceListings.viewCount} + 1` }).where(eq5(marketplaceListings.id, id));
     res.json({
       ...result[0].listing,
       seller: result[0].seller
@@ -33036,7 +33048,7 @@ router2.post("/player/marketplace/:id/sold", authMiddlewareWithFreshData, requir
       return res.status(404).json({ error: "Listing not found or unauthorized" });
     }
     await db.update(sellerProfiles).set({
-      totalSales: sql6`${sellerProfiles.totalSales} + 1`,
+      totalSales: sql7`${sellerProfiles.totalSales} + 1`,
       lastActiveAt: /* @__PURE__ */ new Date()
     }).where(eq5(sellerProfiles.playerId, playerId));
     res.json(listing);
@@ -33060,7 +33072,7 @@ router2.post("/player/marketplace/:id/favorite", authMiddlewareWithFreshData, re
       playerId,
       listingId: id
     }).returning();
-    await db.update(marketplaceListings).set({ favoriteCount: sql6`${marketplaceListings.favoriteCount} + 1` }).where(eq5(marketplaceListings.id, id));
+    await db.update(marketplaceListings).set({ favoriteCount: sql7`${marketplaceListings.favoriteCount} + 1` }).where(eq5(marketplaceListings.id, id));
     res.json(favorite);
   } catch (error) {
     console.error("[Marketplace] Error adding favorite:", error);
@@ -33075,7 +33087,7 @@ router2.delete("/player/marketplace/:id/favorite", authMiddlewareWithFreshData, 
       eq5(marketplaceFavorites.playerId, playerId),
       eq5(marketplaceFavorites.listingId, id)
     ));
-    await db.update(marketplaceListings).set({ favoriteCount: sql6`GREATEST(${marketplaceListings.favoriteCount} - 1, 0)` }).where(eq5(marketplaceListings.id, id));
+    await db.update(marketplaceListings).set({ favoriteCount: sql7`GREATEST(${marketplaceListings.favoriteCount} - 1, 0)` }).where(eq5(marketplaceListings.id, id));
     res.json({ success: true });
   } catch (error) {
     console.error("[Marketplace] Error removing favorite:", error);
@@ -33122,7 +33134,7 @@ router2.post("/player/marketplace/:id/message", authMiddlewareWithFreshData, req
       recipientId,
       message: message.trim()
     }).returning();
-    await db.update(marketplaceListings).set({ messageCount: sql6`${marketplaceListings.messageCount} + 1` }).where(eq5(marketplaceListings.id, id));
+    await db.update(marketplaceListings).set({ messageCount: sql7`${marketplaceListings.messageCount} + 1` }).where(eq5(marketplaceListings.id, id));
     res.json(msg);
   } catch (error) {
     console.error("[Marketplace] Error sending message:", error);
@@ -33173,12 +33185,12 @@ var marketplace_routes_default = router2;
 init_db();
 init_schema();
 import { Router as Router3 } from "express";
-import { eq as eq11, and as and10, or as or5, desc as desc8, sql as sql11, inArray as inArray6 } from "drizzle-orm";
+import { eq as eq11, and as and10, or as or5, desc as desc8, sql as sql12, inArray as inArray6 } from "drizzle-orm";
 
 // server/services/xp-service.ts
 init_db();
 init_schema();
-import { eq as eq6, desc as desc4, and as and5, gte as gte4, sql as sql7 } from "drizzle-orm";
+import { eq as eq6, desc as desc4, and as and5, gte as gte4, sql as sql8 } from "drizzle-orm";
 function getXpForLevelFormula(level) {
   if (level <= 1) return 0;
   if (level <= 50) {
@@ -33269,7 +33281,7 @@ async function checkAntiAbuse(playerId, actionSource, rule) {
   if (rule.maxPerDay) {
     const startOfDay = /* @__PURE__ */ new Date();
     startOfDay.setHours(0, 0, 0, 0);
-    const todayCount = await db.select({ count: sql7`count(*)` }).from(playerXpEvents).where(and5(
+    const todayCount = await db.select({ count: sql8`count(*)` }).from(playerXpEvents).where(and5(
       eq6(playerXpEvents.playerId, playerId),
       eq6(playerXpEvents.actionSource, actionSource),
       gte4(playerXpEvents.createdAt, startOfDay)
@@ -33754,9 +33766,9 @@ router3.get("/api/glow/players/:playerId/skills", authMiddlewareWithFreshData, r
     }
     const scores = await db.select({
       skillId: playerSkillScores2.skillId,
-      latestScore: sql11`(SELECT score FROM player_skill_scores ps2 WHERE ps2.skill_id = ${playerSkillScores2.skillId} AND ps2.player_id = ${playerId} ORDER BY created_at DESC LIMIT 1)`,
-      movingAverage: sql11`(SELECT moving_average FROM player_skill_scores ps2 WHERE ps2.skill_id = ${playerSkillScores2.skillId} AND ps2.player_id = ${playerId} ORDER BY created_at DESC LIMIT 1)`,
-      observationCount: sql11`COUNT(*)`,
+      latestScore: sql12`(SELECT score FROM player_skill_scores ps2 WHERE ps2.skill_id = ${playerSkillScores2.skillId} AND ps2.player_id = ${playerId} ORDER BY created_at DESC LIMIT 1)`,
+      movingAverage: sql12`(SELECT moving_average FROM player_skill_scores ps2 WHERE ps2.skill_id = ${playerSkillScores2.skillId} AND ps2.player_id = ${playerId} ORDER BY created_at DESC LIMIT 1)`,
+      observationCount: sql12`COUNT(*)`,
       skill: glowSkills
     }).from(playerSkillScores2).innerJoin(glowSkills, eq11(playerSkillScores2.skillId, glowSkills.id)).where(eq11(playerSkillScores2.playerId, playerId)).groupBy(playerSkillScores2.skillId, glowSkills.id);
     const skillsByPillar = {};
@@ -34906,7 +34918,7 @@ var glow_leveling_default = router3;
 init_db();
 init_schema();
 import { Router as Router4 } from "express";
-import { eq as eq12, and as and11, sql as sql12, inArray as inArray7, isNull as isNull4, or as or6 } from "drizzle-orm";
+import { eq as eq12, and as and11, sql as sql13, inArray as inArray7, isNull as isNull4, or as or6 } from "drizzle-orm";
 init_storage();
 var router4 = Router4();
 router4.get("/api/lesson-templates", authMiddlewareWithFreshData, requireAcademy, async (req2, res) => {
@@ -34914,7 +34926,7 @@ router4.get("/api/lesson-templates", authMiddlewareWithFreshData, requireAcademy
     const academyId = req2.user.academyId;
     const { levelId, focus } = req2.query;
     let query = db.select().from(lessonTemplates).where(
-      sql12`(${lessonTemplates.academyId} IS NULL OR ${lessonTemplates.academyId} = ${academyId}) AND ${lessonTemplates.isActive} = true`
+      sql13`(${lessonTemplates.academyId} IS NULL OR ${lessonTemplates.academyId} = ${academyId}) AND ${lessonTemplates.isActive} = true`
     );
     const templates = await query;
     let filtered = templates;
@@ -34983,7 +34995,7 @@ router4.post("/api/sessions/:sessionId/plan/generate", authMiddlewareWithFreshDa
         equipmentNeeded: b.equipmentNeeded || [],
         status: "pending"
       }));
-      await db.update(lessonTemplates).set({ usageCount: sql12`${lessonTemplates.usageCount} + 1` }).where(eq12(lessonTemplates.id, templateId));
+      await db.update(lessonTemplates).set({ usageCount: sql13`${lessonTemplates.usageCount} + 1` }).where(eq12(lessonTemplates.id, templateId));
     } else if (customBlocks) {
       blocks = customBlocks;
     } else {
@@ -35119,7 +35131,7 @@ async function autoGeneratePlan(sessionId, academyId) {
     levelId: playerBallLevels.levelId
   }).from(playerBallLevels).where(and11(
     inArray7(playerBallLevels.playerId, session.playerIds),
-    sql12`${playerBallLevels.status} IN ('active', 'trial')`
+    sql13`${playerBallLevels.status} IN ('active', 'trial')`
   ));
   const levelCount = {};
   for (const pl of playerLevels) {
@@ -35832,7 +35844,7 @@ var level_up_events_default = router7;
 init_db();
 init_schema();
 import express from "express";
-import { eq as eq16, and as and15, sql as sql16, desc as desc13, gte as gte7, count as count2 } from "drizzle-orm";
+import { eq as eq16, and as and15, sql as sql17, desc as desc13, gte as gte7, count as count2 } from "drizzle-orm";
 init_coach_calibration_engine();
 var router8 = express.Router();
 router8.get("/stats", authMiddlewareWithFreshData, requireRole("coach", "academy_owner"), async (req2, res) => {
@@ -35950,9 +35962,9 @@ router8.get("/anomalies", authMiddlewareWithFreshData, requireRole("coach", "aca
     )).orderBy(desc13(playerSkillScores2.scoredAt)).limit(50);
     const anomalies = [];
     for (const score of recentScores) {
-      const peerScores = await db.select({ avgScore: sql16`AVG(${playerSkillScores2.score})` }).from(playerSkillScores2).where(and15(
+      const peerScores = await db.select({ avgScore: sql17`AVG(${playerSkillScores2.score})` }).from(playerSkillScores2).where(and15(
         eq16(playerSkillScores2.skillId, score.skillId),
-        sql16`${playerSkillScores2.coachId} != ${coachId}`
+        sql17`${playerSkillScores2.coachId} != ${coachId}`
       ));
       const peerAvg = peerScores[0]?.avgScore || 1;
       const deviation = Math.abs(score.score - peerAvg);
@@ -36004,7 +36016,7 @@ var coach_calibration_default = router8;
 init_db();
 init_schema();
 import { Router as Router8 } from "express";
-import { eq as eq17, and as and16, desc as desc14, or as or8, sql as sql17 } from "drizzle-orm";
+import { eq as eq17, and as and16, desc as desc14, or as or8, sql as sql18 } from "drizzle-orm";
 var router9 = Router8();
 router9.get("/api/parent/children", authMiddlewareWithFreshData, async (req2, res) => {
   try {
@@ -36101,7 +36113,7 @@ router9.get("/api/parent/children/:playerId/sessions", authMiddlewareWithFreshDa
       endTime: sessions.endTime,
       status: sessions.status,
       type: sessions.type
-    }).from(sessions).where(sql17`${playerId} = ANY(${sessions.playerIds})`).orderBy(desc14(sessions.date)).limit(parseInt(limit));
+    }).from(sessions).where(sql18`${playerId} = ANY(${sessions.playerIds})`).orderBy(desc14(sessions.date)).limit(parseInt(limit));
     const sessionsWithFeedback = await Promise.all(recentSessions.map(async (session) => {
       const [feedback] = await db.select().from(sessionFeedback).where(and16(
         eq17(sessionFeedback.sessionId, session.id),
@@ -36166,7 +36178,7 @@ var parent_dashboard_default = router9;
 init_db();
 init_schema();
 import { Router as Router9 } from "express";
-import { eq as eq18, and as and17, gte as gte9, desc as desc15, sql as sql18 } from "drizzle-orm";
+import { eq as eq18, and as and17, gte as gte9, desc as desc15, sql as sql19 } from "drizzle-orm";
 
 // server/seeds/adult-glow-rank-seed.ts
 var ADULT_GLOW_RANKS = [
@@ -37813,7 +37825,7 @@ router10.post("/find-or-create-opponent", async (req2, res) => {
       return res.status(400).json({ error: "Opponent name is required" });
     }
     const trimmedName = name.trim();
-    const existingPlayers = await db.select({ id: players.id, name: players.name }).from(players).where(sql18`LOWER(${players.name}) = LOWER(${trimmedName})`).limit(5);
+    const existingPlayers = await db.select({ id: players.id, name: players.name }).from(players).where(sql19`LOWER(${players.name}) = LOWER(${trimmedName})`).limit(5);
     if (existingPlayers.length > 0) {
       return res.json({
         opponent: existingPlayers[0],
@@ -37888,7 +37900,7 @@ router10.get("/player/:playerId/full-profile", async (req2, res) => {
       matchDate: adultGlowMatches.matchDate
     }).from(adultGlowMatches).where(eq18(adultGlowMatches.playerId, playerId)).orderBy(desc15(adultGlowMatches.matchDate)).limit(10);
     const opponentIds = [...new Set(recentMatches.map((m) => m.opponentId))];
-    const opponents = opponentIds.length > 0 ? await db.select({ id: players.id, name: players.name }).from(players).where(sql18`${players.id} IN ${opponentIds}`) : [];
+    const opponents = opponentIds.length > 0 ? await db.select({ id: players.id, name: players.name }).from(players).where(sql19`${players.id} IN ${opponentIds}`) : [];
     const opponentMap = new Map(opponents.map((o) => [o.id, o.name]));
     const assessments = await db.select({
       skillId: adultSkillAssessments.skillId,
@@ -38123,7 +38135,7 @@ router10.post("/doubles-match", async (req2, res) => {
     }
     const allPlayerIds = [team1Player1Id, team1Player2Id, team2Player1Id, team2Player2Id];
     const playersData = await db.select().from(players).where(
-      sql18`${players.id} = ANY(${allPlayerIds})`
+      sql19`${players.id} = ANY(${allPlayerIds})`
     );
     if (playersData.length !== 4) {
       return res.status(404).json({ error: "One or more players not found" });
@@ -38268,7 +38280,7 @@ var adult_glow_rank_default = router10;
 init_db();
 init_schema();
 import { Router as Router10 } from "express";
-import { eq as eq19, and as and18, sql as sql19 } from "drizzle-orm";
+import { eq as eq19, and as and18, sql as sql20 } from "drizzle-orm";
 var router11 = Router10();
 router11.get("/", async (req2, res) => {
   try {
@@ -38279,7 +38291,7 @@ router11.get("/", async (req2, res) => {
     const groups = await db.select().from(lessonGroups).where(eq19(lessonGroups.academyId, academyId));
     const groupsWithCounts = await Promise.all(
       groups.map(async (group) => {
-        const members = await db.select({ count: sql19`count(*)` }).from(lessonGroupMembers).where(
+        const members = await db.select({ count: sql20`count(*)` }).from(lessonGroupMembers).where(
           and18(
             eq19(lessonGroupMembers.groupId, group.id),
             eq19(lessonGroupMembers.status, "active")
@@ -38564,7 +38576,7 @@ router11.get("/players/by-level", async (req2, res) => {
 router11.get("/players/:id/level-history", async (req2, res) => {
   try {
     const { id } = req2.params;
-    const events = await db.select().from(playerLevelEvents).where(eq19(playerLevelEvents.playerId, id)).orderBy(sql19`created_at DESC`);
+    const events = await db.select().from(playerLevelEvents).where(eq19(playerLevelEvents.playerId, id)).orderBy(sql20`created_at DESC`);
     res.json(events);
   } catch (error) {
     console.error("Error fetching level history:", error);
@@ -38577,7 +38589,7 @@ var lesson_groups_default = router11;
 init_db();
 init_schema();
 import { Router as Router11 } from "express";
-import { eq as eq20, and as and19, desc as desc16, sql as sql20 } from "drizzle-orm";
+import { eq as eq20, and as and19, desc as desc16, sql as sql21 } from "drizzle-orm";
 var router12 = Router11();
 router12.get("/opponents", async (req2, res) => {
   try {
@@ -38998,7 +39010,7 @@ router12.get("/coach/:coachId/pending-reviews", async (req2, res) => {
     if (playerIds.length === 0) {
       return res.json([]);
     }
-    const recentMatches = await db.select().from(matches).where(sql20`${matches.playerId} = ANY(${playerIds}) AND ${matches.verifiedBy} IS NULL`).orderBy(desc16(matches.matchDate)).limit(20);
+    const recentMatches = await db.select().from(matches).where(sql21`${matches.playerId} = ANY(${playerIds}) AND ${matches.verifiedBy} IS NULL`).orderBy(desc16(matches.matchDate)).limit(20);
     const matchesWithPlayers = await Promise.all(
       recentMatches.map(async (match) => {
         const [player2] = await db.select().from(players).where(eq20(players.id, match.playerId));
@@ -39021,8 +39033,8 @@ router12.get("/upcoming", async (req2, res) => {
     const upcomingPlans = await db.select().from(matchPlans).where(
       and19(
         eq20(matchPlans.playerId, playerId),
-        sql20`${matchPlans.scheduledDate} >= ${today}`,
-        sql20`${matchPlans.status} != 'completed'`
+        sql21`${matchPlans.scheduledDate} >= ${today}`,
+        sql21`${matchPlans.status} != 'completed'`
       )
     ).orderBy(matchPlans.scheduledDate).limit(5);
     const plansWithOpponents = await Promise.all(
@@ -39648,7 +39660,7 @@ init_db();
 init_schema();
 init_pushNotifications();
 import { Router as Router13 } from "express";
-import { eq as eq22, desc as desc18, and as and21, gte as gte10, sql as sql22 } from "drizzle-orm";
+import { eq as eq22, desc as desc18, and as and21, gte as gte10, sql as sql23 } from "drizzle-orm";
 var router14 = Router13();
 function getXpForLevelFormula2(level) {
   if (level <= 1) return 0;
@@ -39735,7 +39747,7 @@ async function checkAntiAbuse2(playerId, actionSource, rule) {
   if (rule.maxPerDay) {
     const startOfDay = /* @__PURE__ */ new Date();
     startOfDay.setHours(0, 0, 0, 0);
-    const todayCount = await db.select({ count: sql22`count(*)` }).from(playerXpEvents).where(and21(
+    const todayCount = await db.select({ count: sql23`count(*)` }).from(playerXpEvents).where(and21(
       eq22(playerXpEvents.playerId, playerId),
       eq22(playerXpEvents.actionSource, actionSource),
       gte10(playerXpEvents.createdAt, startOfDay)
@@ -39863,7 +39875,7 @@ router14.get("/player/:playerId/status", async (req2, res) => {
     const currentTitle = await getTitleForLevel2(currentLevel);
     const unlockedFeatures = await db.select().from(playerFeatureUnlocks).where(and21(
       eq22(playerFeatureUnlocks.isActive, true),
-      sql22`${playerFeatureUnlocks.requiredLevel} <= ${currentLevel}`
+      sql23`${playerFeatureUnlocks.requiredLevel} <= ${currentLevel}`
     ));
     const pendingCelebrations = await db.select().from(playerLevelUpCelebrations).where(and21(
       eq22(playerLevelUpCelebrations.playerId, playerId),
@@ -40259,7 +40271,7 @@ var role_messages_default = router15;
 init_db();
 init_schema();
 import { Router as Router15 } from "express";
-import { eq as eq24, sql as sql23, and as and22, asc as asc4, inArray as inArray9, gte as gte11, count as count3 } from "drizzle-orm";
+import { eq as eq24, sql as sql24, and as and22, asc as asc4, inArray as inArray9, gte as gte11, count as count3 } from "drizzle-orm";
 
 // server/profanityFilter.ts
 var PROFANITY_LIST = [
@@ -40561,12 +40573,12 @@ router16.get("/api/social/feed", authMiddlewareWithFreshData, requireFeatureUnlo
     let groupIds = [];
     if (filter === "friends") {
       try {
-        const rawUser = await db.execute(sql23`SELECT player_id FROM users WHERE id = ${userId} LIMIT 1`);
+        const rawUser = await db.execute(sql24`SELECT player_id FROM users WHERE id = ${userId} LIMIT 1`);
         const currentPlayerId = rawUser.rows?.[0]?.player_id;
         if (!currentPlayerId) {
           return res.json({ friends: [], pendingRequests: [] });
         }
-        const rawFriends = await db.execute(sql23`
+        const rawFriends = await db.execute(sql24`
             SELECT player2_id as friend_id FROM player_connections 
             WHERE player1_id = ${currentPlayerId} AND status = 'accepted'
             UNION
@@ -40577,7 +40589,7 @@ router16.get("/api/social/feed", authMiddlewareWithFreshData, requireFeatureUnlo
         if (friendPlayerIds.length === 0) {
           return res.json({ friends: [], pendingRequests: [] });
         }
-        const rawFriendUsers = await db.execute(sql23`
+        const rawFriendUsers = await db.execute(sql24`
             SELECT id FROM users WHERE player_id = ANY(${friendPlayerIds})
           `);
         friendUserIds = (rawFriendUsers.rows || []).map((r) => r.id);
@@ -40590,7 +40602,7 @@ router16.get("/api/social/feed", authMiddlewareWithFreshData, requireFeatureUnlo
       }
     } else if (filter === "groups") {
       try {
-        const rawGroups = await db.execute(sql23`
+        const rawGroups = await db.execute(sql24`
             SELECT group_id FROM group_members WHERE user_id = ${userId}
           `);
         groupIds = (rawGroups.rows || []).map((r) => r.group_id);
@@ -40608,7 +40620,7 @@ router16.get("/api/social/feed", authMiddlewareWithFreshData, requireFeatureUnlo
     try {
       let rawPosts;
       if (filter === "friends" && friendUserIds.length > 0) {
-        rawPosts = await db.execute(sql23`
+        rawPosts = await db.execute(sql24`
             SELECT id, author_id, academy_id, context_type, context_id, caption, 
                    media_urls, media_types, visibility, group_id, cheer_count, 
                    comment_count, created_at, is_hidden
@@ -40619,7 +40631,7 @@ router16.get("/api/social/feed", authMiddlewareWithFreshData, requireFeatureUnlo
             OFFSET ${offsetVal}
           `);
       } else if (filter === "groups" && groupIds.length > 0) {
-        rawPosts = await db.execute(sql23`
+        rawPosts = await db.execute(sql24`
             SELECT id, author_id, academy_id, context_type, context_id, caption, 
                    media_urls, media_types, visibility, group_id, cheer_count, 
                    comment_count, created_at, is_hidden
@@ -40630,7 +40642,7 @@ router16.get("/api/social/feed", authMiddlewareWithFreshData, requireFeatureUnlo
             OFFSET ${offsetVal}
           `);
       } else if (filter === "academy") {
-        rawPosts = await db.execute(sql23`
+        rawPosts = await db.execute(sql24`
             SELECT id, author_id, academy_id, context_type, context_id, caption, 
                    media_urls, media_types, visibility, group_id, cheer_count, 
                    comment_count, created_at, is_hidden
@@ -40641,7 +40653,7 @@ router16.get("/api/social/feed", authMiddlewareWithFreshData, requireFeatureUnlo
             OFFSET ${offsetVal}
           `);
       } else if (filter === "events") {
-        rawPosts = await db.execute(sql23`
+        rawPosts = await db.execute(sql24`
             SELECT id, author_id, academy_id, context_type, context_id, caption, 
                    media_urls, media_types, visibility, group_id, cheer_count, 
                    comment_count, created_at, is_hidden
@@ -40655,10 +40667,10 @@ router16.get("/api/social/feed", authMiddlewareWithFreshData, requireFeatureUnlo
         let forYouFriendIds = [];
         let forYouGroupIds = [];
         try {
-          const rawUser = await db.execute(sql23`SELECT player_id FROM users WHERE id = ${userId} LIMIT 1`);
+          const rawUser = await db.execute(sql24`SELECT player_id FROM users WHERE id = ${userId} LIMIT 1`);
           const currentPlayerId = rawUser.rows?.[0]?.player_id;
           if (currentPlayerId) {
-            const rawFriends = await db.execute(sql23`
+            const rawFriends = await db.execute(sql24`
                 SELECT player2_id as friend_id FROM player_connections 
                 WHERE player1_id = ${currentPlayerId} AND status = 'accepted'
                 UNION
@@ -40674,7 +40686,7 @@ router16.get("/api/social/feed", authMiddlewareWithFreshData, requireFeatureUnlo
               forYouFriendIds = rawFriendUsers.rows.map((r) => r.id);
             }
           }
-          const rawGroups = await db.execute(sql23`
+          const rawGroups = await db.execute(sql24`
               SELECT group_id FROM group_members WHERE user_id = ${userId}
             `);
           forYouGroupIds = (rawGroups.rows || []).map((r) => r.group_id);
@@ -40682,7 +40694,7 @@ router16.get("/api/social/feed", authMiddlewareWithFreshData, requireFeatureUnlo
           console.log("Error fetching for_you context:", err);
         }
         if (forYouFriendIds.length > 0 && forYouGroupIds.length > 0) {
-          rawPosts = await db.execute(sql23`
+          rawPosts = await db.execute(sql24`
               SELECT id, author_id, academy_id, context_type, context_id, caption, 
                      media_urls, media_types, visibility, group_id, cheer_count, 
                      comment_count, created_at, is_hidden
@@ -40701,7 +40713,7 @@ router16.get("/api/social/feed", authMiddlewareWithFreshData, requireFeatureUnlo
               OFFSET ${offsetVal}
             `);
         } else if (forYouFriendIds.length > 0) {
-          rawPosts = await db.execute(sql23`
+          rawPosts = await db.execute(sql24`
               SELECT id, author_id, academy_id, context_type, context_id, caption, 
                      media_urls, media_types, visibility, group_id, cheer_count, 
                      comment_count, created_at, is_hidden
@@ -40719,7 +40731,7 @@ router16.get("/api/social/feed", authMiddlewareWithFreshData, requireFeatureUnlo
               OFFSET ${offsetVal}
             `);
         } else if (forYouGroupIds.length > 0) {
-          rawPosts = await db.execute(sql23`
+          rawPosts = await db.execute(sql24`
               SELECT id, author_id, academy_id, context_type, context_id, caption, 
                      media_urls, media_types, visibility, group_id, cheer_count, 
                      comment_count, created_at, is_hidden
@@ -40737,7 +40749,7 @@ router16.get("/api/social/feed", authMiddlewareWithFreshData, requireFeatureUnlo
               OFFSET ${offsetVal}
             `);
         } else {
-          rawPosts = await db.execute(sql23`
+          rawPosts = await db.execute(sql24`
               SELECT id, author_id, academy_id, context_type, context_id, caption, 
                      media_urls, media_types, visibility, group_id, cheer_count, 
                      comment_count, created_at, is_hidden
@@ -40789,7 +40801,7 @@ router16.get("/api/social/feed", authMiddlewareWithFreshData, requireFeatureUnlo
     if (authorIds.length > 0) {
       try {
         for (const authorId of authorIds) {
-          const authorResult = await db.execute(sql23`
+          const authorResult = await db.execute(sql24`
               SELECT u.id, u.username, u.player_id, u.coach_id,
                      p.name as player_name, p.profile_photo_url as player_photo, p.ball_level,
                      c.name as coach_name, c.photo_url as coach_photo
@@ -40930,7 +40942,7 @@ router16.post("/api/social/posts", authMiddlewareWithFreshData, requireFeatureUn
       taggedUserIds,
       locationName
     }).returning();
-    await db.update(userSocialProfiles).set({ postCount: sql23`post_count + 1` }).where(eq24(userSocialProfiles.userId, userId));
+    await db.update(userSocialProfiles).set({ postCount: sql24`post_count + 1` }).where(eq24(userSocialProfiles.userId, userId));
     res.status(201).json(newPost);
   } catch (error) {
     console.error("Error creating post:", error);
@@ -40995,7 +41007,7 @@ router16.delete("/api/social/posts/:id", authMiddlewareWithFreshData, requireFea
       return res.status(403).json({ error: "Not authorized to delete this post" });
     }
     await db.delete(posts2).where(eq24(posts2.id, id));
-    await db.update(userSocialProfiles).set({ postCount: sql23`GREATEST(0, post_count - 1)` }).where(eq24(userSocialProfiles.userId, post.authorId));
+    await db.update(userSocialProfiles).set({ postCount: sql24`GREATEST(0, post_count - 1)` }).where(eq24(userSocialProfiles.userId, post.authorId));
     res.json({ success: true });
   } catch (error) {
     console.error("Error deleting post:", error);
@@ -41023,7 +41035,7 @@ router16.post("/api/social/posts/:id/reactions", authMiddlewareWithFreshData, re
         userId,
         reactionType
       });
-      await db.update(posts2).set({ cheerCount: sql23`cheer_count + 1` }).where(eq24(posts2.id, postId));
+      await db.update(posts2).set({ cheerCount: sql24`cheer_count + 1` }).where(eq24(posts2.id, postId));
     }
     res.json({ success: true, reactionType });
   } catch (error) {
@@ -41040,7 +41052,7 @@ router16.delete("/api/social/posts/:id/reactions", authMiddlewareWithFreshData, 
       eq24(postReactions.userId, userId)
     ));
     if (result.rowCount && result.rowCount > 0) {
-      await db.update(posts2).set({ cheerCount: sql23`GREATEST(0, cheer_count - 1)` }).where(eq24(posts2.id, postId));
+      await db.update(posts2).set({ cheerCount: sql24`GREATEST(0, cheer_count - 1)` }).where(eq24(posts2.id, postId));
     }
     res.json({ success: true });
   } catch (error) {
@@ -41072,7 +41084,7 @@ router16.get("/api/social/posts/:id/comments", authMiddlewareWithFreshData, requ
         }
       } catch (e) {
       }
-      const [likeResult] = await db.select({ count: sql23`count(*)` }).from(commentLikes).where(eq24(commentLikes.commentId, comment.id));
+      const [likeResult] = await db.select({ count: sql24`count(*)` }).from(commentLikes).where(eq24(commentLikes.commentId, comment.id));
       const likeCount = Number(likeResult?.count || 0);
       let replyToName = null;
       if (comment.parentId) {
@@ -41158,7 +41170,7 @@ router16.post("/api/social/posts/:id/comments", authMiddlewareWithFreshData, req
       quickCommentType,
       parentId
     }).returning();
-    await db.update(posts2).set({ commentCount: sql23`comment_count + 1` }).where(eq24(posts2.id, postId));
+    await db.update(posts2).set({ commentCount: sql24`comment_count + 1` }).where(eq24(posts2.id, postId));
     res.status(201).json(newComment);
   } catch (error) {
     console.error("Error adding comment:", error);
@@ -41203,7 +41215,7 @@ router16.delete("/api/social/comments/:commentId", authMiddlewareWithFreshData, 
       return res.status(403).json({ error: "You can only delete your own comments" });
     }
     await db.delete(postComments).where(eq24(postComments.id, commentId));
-    await db.update(posts2).set({ commentCount: sql23`GREATEST(comment_count - 1, 0)` }).where(eq24(posts2.id, comment.postId));
+    await db.update(posts2).set({ commentCount: sql24`GREATEST(comment_count - 1, 0)` }).where(eq24(posts2.id, comment.postId));
     res.json({ success: true, message: "Comment deleted" });
   } catch (error) {
     console.error("Error deleting comment:", error);
@@ -42650,7 +42662,7 @@ init_db();
 init_storage();
 init_schema();
 import { Router as Router18 } from "express";
-import { eq as eq26, sql as sql24, desc as desc20, and as and24, ne as ne4 } from "drizzle-orm";
+import { eq as eq26, sql as sql25, desc as desc20, and as and24, ne as ne4 } from "drizzle-orm";
 import { fromZodError } from "zod-validation-error";
 var router19 = Router18();
 router19.get("/api/player/availability", authMiddlewareWithFreshData, async (req2, res) => {
@@ -43027,7 +43039,7 @@ router19.get("/api/play/nearby-players", authMiddlewareWithFreshData, async (req
       if (playerId && player2.id) {
         try {
           const mutualSessions = await db.execute(
-            sql24`SELECT COUNT(DISTINCT sp1.session_id)::int as count
+            sql25`SELECT COUNT(DISTINCT sp1.session_id)::int as count
                   FROM session_players sp1
                   INNER JOIN session_players sp2 ON sp1.session_id = sp2.session_id
                   WHERE sp1.player_id = ${playerId}
@@ -43041,7 +43053,7 @@ router19.get("/api/play/nearby-players", authMiddlewareWithFreshData, async (req
       let isOpenToPlay = player2.openToPlay || false;
       try {
         const otpRecord = await db.execute(
-          sql24`SELECT id FROM open_to_play 
+          sql25`SELECT id FROM open_to_play 
                 WHERE user_id = (SELECT id FROM users WHERE player_id = ${player2.id} LIMIT 1)
                   AND is_active = true 
                   AND available_until > NOW()
@@ -43280,17 +43292,17 @@ router19.post("/api/play/sessions/:sessionId/leave", authMiddlewareWithFreshData
         try {
           await db.transaction(async (tx) => {
             if (useMakeUp) {
-              const result = await tx.update(players).set({ makeUpCredits: sql24`GREATEST(0, COALESCE(make_up_credits, 0) - 1)` }).where(and24(
+              const result = await tx.update(players).set({ makeUpCredits: sql25`GREATEST(0, COALESCE(make_up_credits, 0) - 1)` }).where(and24(
                 eq26(players.id, waitlistPlayer.id),
-                sql24`COALESCE(make_up_credits, 0) > 0`
+                sql25`COALESCE(make_up_credits, 0) > 0`
               )).returning({ id: players.id });
               if (result.length === 0) {
                 throw new Error("Insufficient make-up credits (concurrent deduction)");
               }
             } else {
-              const result = await tx.update(players).set({ credits: sql24`GREATEST(0, COALESCE(credits, 0) - ${sessionCredits})` }).where(and24(
+              const result = await tx.update(players).set({ credits: sql25`GREATEST(0, COALESCE(credits, 0) - ${sessionCredits})` }).where(and24(
                 eq26(players.id, waitlistPlayer.id),
-                sql24`COALESCE(credits, 0) >= ${sessionCredits}`
+                sql25`COALESCE(credits, 0) >= ${sessionCredits}`
               )).returning({ id: players.id });
               if (result.length === 0) {
                 throw new Error("Insufficient credits (concurrent deduction)");
@@ -45412,7 +45424,7 @@ router19.post("/api/player/booking-invites/:inviteId/respond", authMiddlewareWit
       respondedAt: /* @__PURE__ */ new Date()
     }).where(eq26(bookingInviteGuests.id, guest.id));
     if (action === "accept") {
-      await db.update(bookingInvites).set({ totalAccepted: sql24`total_accepted + 1` }).where(eq26(bookingInvites.id, inviteId));
+      await db.update(bookingInvites).set({ totalAccepted: sql25`total_accepted + 1` }).where(eq26(bookingInvites.id, inviteId));
     }
     res.json({ success: true, message: `Invite ${action}ed` });
   } catch (error) {
@@ -45752,7 +45764,7 @@ router19.post("/api/open-matches/:matchId/leave", authMiddlewareWithFreshData, a
       return res.status(400).json({ error: "Host cannot leave. Cancel the match instead." });
     }
     await db.update(openMatchSlots).set({ status: "cancelled", cancelledAt: /* @__PURE__ */ new Date() }).where(eq26(openMatchSlots.id, slot.id));
-    await db.update(openMatches).set({ currentPlayers: sql24`current_players - 1` }).where(eq26(openMatches.id, matchId));
+    await db.update(openMatches).set({ currentPlayers: sql25`current_players - 1` }).where(eq26(openMatches.id, matchId));
     res.json({ success: true, message: "Left match" });
   } catch (error) {
     console.error("Leave open match error:", error);
@@ -46029,7 +46041,7 @@ import path4 from "path";
 import fs4 from "fs";
 import rateLimit from "express-rate-limit";
 init_schema();
-import { eq as eq27, and as and25, or as or12, desc as desc21, asc as asc7, sql as sql25, gte as gte14, inArray as inArray12, ne as ne5, isNull as isNull6, count as count5, lte as lte6 } from "drizzle-orm";
+import { eq as eq27, and as and25, or as or12, desc as desc21, asc as asc7, sql as sql26, gte as gte14, inArray as inArray12, ne as ne5, isNull as isNull6, count as count5, lte as lte6 } from "drizzle-orm";
 init_pushNotifications();
 init_emailService();
 var router20 = Router19();
@@ -46333,9 +46345,9 @@ router20.post("/api/quests/:id/progress", authMiddlewareWithFreshData, async (re
     if (isComplete && quest.template.questType === "daily") {
       const today = (/* @__PURE__ */ new Date()).toISOString().split("T")[0];
       await db.update(dailyQuestSlots).set({
-        completedCount: sql25`completed_count + 1`,
-        allCompleted: sql25`completed_count + 1 >= 3`,
-        bonusUnlocked: sql25`completed_count + 1 >= 3`
+        completedCount: sql26`completed_count + 1`,
+        allCompleted: sql26`completed_count + 1 >= 3`,
+        bonusUnlocked: sql26`completed_count + 1 >= 3`
       }).where(and25(
         eq27(dailyQuestSlots.playerId, playerId),
         eq27(dailyQuestSlots.slotDate, today)
@@ -46393,7 +46405,7 @@ router20.post("/api/quests/:id/claim", authMiddlewareWithFreshData, async (req2,
     const baseXp = quest.quest.xpReward || quest.template.xpReward || 0;
     const xpReward = Math.round(baseXp * multiplier);
     if (xpReward > 0) {
-      await db.update(players).set({ xp: sql25`COALESCE(xp, 0) + ${xpReward}` }).where(eq27(players.id, playerId));
+      await db.update(players).set({ xp: sql26`COALESCE(xp, 0) + ${xpReward}` }).where(eq27(players.id, playerId));
     }
     const today = (/* @__PURE__ */ new Date()).toISOString().split("T")[0];
     if (streak) {
@@ -46408,7 +46420,7 @@ router20.post("/api/quests/:id/claim", authMiddlewareWithFreshData, async (req2,
         } else if (lastActive && lastActive < yesterdayStr) {
           if ((streak.streakShields || 0) > 0) {
             newStreak += 1;
-            await db.update(playerStreaks).set({ streakShields: sql25`streak_shields - 1` }).where(eq27(playerStreaks.playerId, playerId));
+            await db.update(playerStreaks).set({ streakShields: sql26`streak_shields - 1` }).where(eq27(playerStreaks.playerId, playerId));
           } else {
             newStreak = 1;
           }
@@ -46417,9 +46429,9 @@ router20.post("/api/quests/:id/claim", authMiddlewareWithFreshData, async (req2,
         }
         await db.update(playerStreaks).set({
           currentStreak: newStreak,
-          longestStreak: sql25`GREATEST(longest_streak, ${newStreak})`,
+          longestStreak: sql26`GREATEST(longest_streak, ${newStreak})`,
           lastActiveDate: today,
-          totalDaysActive: sql25`total_days_active + 1`,
+          totalDaysActive: sql26`total_days_active + 1`,
           updatedAt: /* @__PURE__ */ new Date()
         }).where(eq27(playerStreaks.playerId, playerId));
       }
@@ -46845,9 +46857,9 @@ router20.get("/api/player/leaderboard", authMiddlewareWithFreshData, requireFeat
     }
     if (category === "dss_rating") {
       conditions.push(eq27(players.isAdult, true));
-      conditions.push(sql25`COALESCE(${players.glowMmr}, 0) > 0`);
+      conditions.push(sql26`COALESCE(${players.glowMmr}, 0) > 0`);
     } else if (category === "ball_level") {
-      conditions.push(sql25`${players.ballLevel} IS NOT NULL`);
+      conditions.push(sql26`${players.ballLevel} IS NOT NULL`);
     }
     let topPlayers;
     if (category === "xp") {
@@ -46955,10 +46967,10 @@ router20.get("/api/player/search", authMiddlewareWithFreshData, async (req2, res
       conditions.push(eq27(players.academyId, academyId));
     }
     if (playerId) {
-      conditions.push(sql25`${players.id} != ${playerId}`);
+      conditions.push(sql26`${players.id} != ${playerId}`);
     }
     if (searchQuery) {
-      conditions.push(sql25`LOWER(${players.name}) LIKE LOWER(${"%" + searchQuery + "%"})`);
+      conditions.push(sql26`LOWER(${players.name}) LIKE LOWER(${"%" + searchQuery + "%"})`);
     }
     if (skillLevel) {
       conditions.push(eq27(players.ballLevel, skillLevel));
@@ -47014,7 +47026,7 @@ router20.get("/api/player/discover", authMiddlewareWithFreshData, requireFeature
     }
     let conditions = [
       eq27(players.status, "active"),
-      sql25`${players.id} != ${playerId}`
+      sql26`${players.id} != ${playerId}`
     ];
     let orderBy = desc21(players.glowScore);
     if (filter === "academy") {
@@ -47023,8 +47035,8 @@ router20.get("/api/player/discover", authMiddlewareWithFreshData, requireFeature
       }
     } else if (filter === "sameLevel") {
       const playerLevel = currentPlayer.level || 1;
-      conditions.push(sql25`${players.level} >= ${Math.max(1, playerLevel - 2)}`);
-      conditions.push(sql25`${players.level} <= ${playerLevel + 2}`);
+      conditions.push(sql26`${players.level} >= ${Math.max(1, playerLevel - 2)}`);
+      conditions.push(sql26`${players.level} <= ${playerLevel + 2}`);
       if (academyId) {
         conditions.push(eq27(players.academyId, academyId));
       }
@@ -47065,7 +47077,7 @@ router20.get("/api/player/open-to-play", authMiddlewareWithFreshData, requireFea
       playerConditions.push(eq27(players.academyId, academyId));
     }
     if (playerId) {
-      playerConditions.push(sql25`${players.id} != ${playerId}`);
+      playerConditions.push(sql26`${players.id} != ${playerId}`);
     }
     const openPlayers = await db.select({
       id: players.id,
@@ -47368,14 +47380,14 @@ router20.post("/api/admin/recalculate-v3-debts", authMiddlewareWithFreshData, re
       const creditType = debt.creditType || "group";
       const oldDebtAmount = Math.abs(debt.amount);
       const sessionTypesForCredit = creditType === "group" ? ["group"] : creditType === "semi_private" ? ["semi_private", "semi-private"] : ["private"];
-      const presentSessions = await db.select({ count: sql25`count(*)` }).from(sessionPlayers).innerJoin(sessions, eq27(sessionPlayers.sessionId, sessions.id)).where(and25(
+      const presentSessions = await db.select({ count: sql26`count(*)` }).from(sessionPlayers).innerJoin(sessions, eq27(sessionPlayers.sessionId, sessions.id)).where(and25(
         eq27(sessionPlayers.playerId, debt.playerId),
         eq27(sessionPlayers.attendanceStatus, "present"),
         inArray12(sessions.sessionType, sessionTypesForCredit)
       ));
       const presentCount = Number(presentSessions[0]?.count || 0);
       const playerPackages = await db.select({
-        totalCredits: sql25`COALESCE(SUM(total_credits), 0)`
+        totalCredits: sql26`COALESCE(SUM(total_credits), 0)`
       }).from(packages).where(and25(
         eq27(packages.playerId, debt.playerId),
         eq27(packages.creditType, creditType)
@@ -47446,7 +47458,7 @@ router20.post("/api/admin/fix-vacation-v3-debts", authMiddlewareWithFreshData, r
       const creditType = debt.creditType || "group";
       const oldDebtAmount = Math.abs(debt.amount);
       const sessionTypesForCredit = creditType === "group" ? ["group"] : creditType === "semi_private" ? ["semi_private", "semi-private"] : ["private"];
-      const vacationSessions = await db.select({ count: sql25`count(*)` }).from(sessionPlayers).innerJoin(sessions, eq27(sessionPlayers.sessionId, sessions.id)).where(and25(
+      const vacationSessions = await db.select({ count: sql26`count(*)` }).from(sessionPlayers).innerJoin(sessions, eq27(sessionPlayers.sessionId, sessions.id)).where(and25(
         eq27(sessionPlayers.playerId, debt.playerId),
         eq27(sessionPlayers.attendanceStatus, "vacation"),
         inArray12(sessions.sessionType, sessionTypesForCredit)
@@ -47500,7 +47512,7 @@ router20.post("/api/admin/fix-vacation-v3-debts", authMiddlewareWithFreshData, r
 router20.post("/api/admin/recalculate-all-debts", authMiddlewareWithFreshData, requireRole("platform_owner"), async (req2, res) => {
   try {
     console.log("[RecalculateDebts] Starting full recalculation of all player debts...");
-    const sessionsNeedingDebt = await db.execute(sql25`
+    const sessionsNeedingDebt = await db.execute(sql26`
         SELECT 
           sp.id as session_player_id,
           sp.player_id,
@@ -47518,7 +47530,7 @@ router20.post("/api/admin/recalculate-all-debts", authMiddlewareWithFreshData, r
         ORDER BY sp.player_id, s.start_time
       `);
     console.log(`[RecalculateDebts] Found ${sessionsNeedingDebt.rows.length} present/late session records`);
-    const v3DebtsResult = await db.execute(sql25`
+    const v3DebtsResult = await db.execute(sql26`
         UPDATE credit_transactions 
         SET amount = 0,
             metadata = jsonb_set(
@@ -47549,14 +47561,14 @@ router20.post("/api/admin/recalculate-all-debts", authMiddlewareWithFreshData, r
     const results = [];
     for (const [playerId, creditTypes] of playerDebts) {
       for (const [creditType, data] of creditTypes) {
-        const packagesResult = await db.execute(sql25`
+        const packagesResult = await db.execute(sql26`
             SELECT COALESCE(SUM(remaining_credits), 0) as total_credits
             FROM packages 
             WHERE player_id = ${playerId}
               AND status = 'active'
               AND (credit_type = ${creditType} OR credit_type IS NULL)
           `);
-        const consumedResult = await db.execute(sql25`
+        const consumedResult = await db.execute(sql26`
             SELECT COUNT(*) as consumed
             FROM credit_transactions
             WHERE player_id = ${playerId}
@@ -47571,7 +47583,7 @@ router20.post("/api/admin/recalculate-all-debts", authMiddlewareWithFreshData, r
         const debtAmount = Math.max(0, presentCount - totalCreditsEver);
         if (debtAmount > 0) {
           const debtId = crypto.randomUUID();
-          await db.execute(sql25`
+          await db.execute(sql26`
               INSERT INTO credit_transactions (
                 id, player_id, academy_id, type, credit_type, amount, reason, metadata
               )
@@ -47756,7 +47768,7 @@ router20.post("/api/admin/seed-demo-data", authMiddlewareWithFreshData, async (r
 router20.post("/api/admin/repair-private-adjusted", async (req2, res) => {
   try {
     console.log("[RepairPrivateAdjusted] Starting repair of wrongly charged absent players in private_adjusted sessions...");
-    const badTransactions = await db.execute(sql25`
+    const badTransactions = await db.execute(sql26`
         SELECT ct.id as transaction_id, ct.player_id, ct.session_id, ct.amount, ct.credit_type,
                sp.id as session_player_id, sp.attendance_status, sp.credit_deducted_at,
                s.session_type, cs.session_type as series_type
@@ -47778,7 +47790,7 @@ router20.post("/api/admin/repair-private-adjusted", async (req2, res) => {
     let sessionPlayersReset = 0;
     const details = [];
     for (const row of rows) {
-      await db.execute(sql25`
+      await db.execute(sql26`
           UPDATE credit_transactions
           SET amount = 0,
               metadata = jsonb_set(
@@ -47792,7 +47804,7 @@ router20.post("/api/admin/repair-private-adjusted", async (req2, res) => {
           WHERE id = ${row.transaction_id}
         `);
       transactionsCancelled++;
-      await db.execute(sql25`
+      await db.execute(sql26`
           UPDATE session_players
           SET credit_deducted_at = NULL, credit_transaction_id = NULL
           WHERE id = ${row.session_player_id}
@@ -47923,7 +47935,7 @@ router20.get("/api/player/spotlight/academy-players", authMiddlewareWithFreshDat
 router20.get("/api/admin/credits/diagnose/:playerId", authMiddlewareWithFreshData, async (req2, res) => {
   try {
     const { playerId } = req2.params;
-    const sessionData = await db.execute(sql25`
+    const sessionData = await db.execute(sql26`
         SELECT 
           sp.id as session_player_id,
           sp.session_id,
@@ -47944,13 +47956,13 @@ router20.get("/api/admin/credits/diagnose/:playerId", authMiddlewareWithFreshDat
           AND s.status = 'completed'
         ORDER BY s.start_time DESC
       `);
-    const transactions = await db.execute(sql25`
+    const transactions = await db.execute(sql26`
         SELECT id, session_id, session_player_id, type, credit_type, amount, reason, created_at, package_id
         FROM credit_transactions 
         WHERE player_id = ${playerId}
         ORDER BY created_at DESC
       `);
-    const packages3 = await db.execute(sql25`
+    const packages3 = await db.execute(sql26`
         SELECT id, credit_type, total_credits, remaining_credits, status, expiry_date
         FROM packages 
         WHERE player_id = ${playerId}
@@ -48483,7 +48495,7 @@ var player_social_default = router20;
 init_db();
 init_schema();
 import { Router as Router20 } from "express";
-import { eq as eq28, and as and26, desc as desc22, asc as asc8, sql as sql26, inArray as inArray13, gte as gte15, lte as lte7 } from "drizzle-orm";
+import { eq as eq28, and as and26, desc as desc22, asc as asc8, sql as sql27, inArray as inArray13, gte as gte15, lte as lte7 } from "drizzle-orm";
 var router21 = Router20();
 router21.get("/api/player/tournaments", authMiddlewareWithFreshData, async (req2, res) => {
   try {
@@ -48587,7 +48599,7 @@ router21.post("/api/player/tournaments/:id/register", authMiddlewareWithFreshDat
       return res.status(400).json({ error: "Already registered for this tournament" });
     }
     const [countResult] = await db.select({
-      count: sql26`count(*)::int`
+      count: sql27`count(*)::int`
     }).from(tournamentParticipants).where(eq28(tournamentParticipants.tournamentId, id));
     if (countResult.count >= tournament.spotsTotal) {
       return res.status(400).json({ error: "Tournament is full" });
@@ -48856,7 +48868,7 @@ router21.post("/api/player/ladders/:id/join", authMiddlewareWithFreshData, async
       return res.status(400).json({ error: "Already joined this ladder" });
     }
     const [maxPos] = await db.select({
-      maxPosition: sql26`COALESCE(MAX(position), 0)::int`
+      maxPosition: sql27`COALESCE(MAX(position), 0)::int`
     }).from(ladderPlayers).where(eq28(ladderPlayers.ladderId, id));
     const newPosition = (maxPos?.maxPosition || 0) + 1;
     const [ladderPlayer] = await db.insert(ladderPlayers).values({
@@ -48988,7 +49000,7 @@ router21.post("/api/player/ladders/challenges/:id/result", authMiddlewareWithFre
     if (winnerId === challenge.challengerId) {
       const challengerPos = challenge.challengerPosition;
       const challengedPos = challenge.challengedPosition;
-      await db.update(ladderPlayers).set({ position: sql26`position + 1` }).where(and26(
+      await db.update(ladderPlayers).set({ position: sql27`position + 1` }).where(and26(
         eq28(ladderPlayers.ladderId, challenge.ladderId),
         gte15(ladderPlayers.position, challengedPos),
         lte7(ladderPlayers.position, challengerPos - 1)
@@ -48998,12 +49010,12 @@ router21.post("/api/player/ladders/challenges/:id/result", authMiddlewareWithFre
         eq28(ladderPlayers.playerId, challenge.challengerId)
       ));
     }
-    await db.update(ladderPlayers).set({ wins: sql26`wins + 1` }).where(and26(
+    await db.update(ladderPlayers).set({ wins: sql27`wins + 1` }).where(and26(
       eq28(ladderPlayers.ladderId, challenge.ladderId),
       eq28(ladderPlayers.playerId, winnerId)
     ));
     const loserId = winnerId === challenge.challengerId ? challenge.challengedId : challenge.challengerId;
-    await db.update(ladderPlayers).set({ losses: sql26`losses + 1` }).where(and26(
+    await db.update(ladderPlayers).set({ losses: sql27`losses + 1` }).where(and26(
       eq28(ladderPlayers.ladderId, challenge.ladderId),
       eq28(ladderPlayers.playerId, loserId)
     ));
@@ -49183,7 +49195,7 @@ init_db();
 init_storage();
 init_schema();
 import { Router as Router21 } from "express";
-import { eq as eq29, sql as sql27, desc as desc23, and as and27, inArray as inArray14, isNotNull as isNotNull3, gte as gte16 } from "drizzle-orm";
+import { eq as eq29, sql as sql28, desc as desc23, and as and27, inArray as inArray14, isNotNull as isNotNull3, gte as gte16 } from "drizzle-orm";
 init_pushNotifications();
 init_emailService();
 import crypto2 from "crypto";
@@ -50604,7 +50616,7 @@ router22.post("/api/coach/sessions/:id/cancel", authMiddlewareWithFreshData, req
       const debitTxns = await db.select().from(creditTransactions).where(and27(
         eq29(creditTransactions.sessionPlayerId, sp.id),
         eq29(creditTransactions.type, "debit"),
-        sql27`(${creditTransactions.metadata}->>'cancelled')::boolean IS NOT TRUE`
+        sql28`(${creditTransactions.metadata}->>'cancelled')::boolean IS NOT TRUE`
       ));
       for (const tx of debitTxns) {
         const meta = tx.metadata ? typeof tx.metadata === "string" ? JSON.parse(tx.metadata) : tx.metadata : {};
@@ -51533,7 +51545,7 @@ init_storage();
 init_db();
 init_schema();
 import { Router as Router22 } from "express";
-import { eq as eq30, sql as sql28, desc as desc24, and as and28, ne as ne8, asc as asc10, inArray as inArray15, isNull as isNull7, isNotNull as isNotNull4, or as or14 } from "drizzle-orm";
+import { eq as eq30, sql as sql29, desc as desc24, and as and28, ne as ne8, asc as asc10, inArray as inArray15, isNull as isNull7, isNotNull as isNotNull4, or as or14 } from "drizzle-orm";
 import crypto3 from "crypto";
 var router23 = Router22();
 function requirePlayerOrOwner3(req2, res, next) {
@@ -51588,7 +51600,7 @@ router23.get("/api/admin/series", authMiddlewareWithFreshData, requireRole("admi
       const completedSessionIds = sessionsForSeries.map((sess) => sess.id);
       let pendingFeedback = 0;
       if (completedSessionIds.length > 0) {
-        const feedbackCount = await db.select({ count: sql28`count(distinct ${sessionFeedback.sessionId})` }).from(sessionFeedback).where(inArray15(sessionFeedback.sessionId, completedSessionIds));
+        const feedbackCount = await db.select({ count: sql29`count(distinct ${sessionFeedback.sessionId})` }).from(sessionFeedback).where(inArray15(sessionFeedback.sessionId, completedSessionIds));
         pendingFeedback = sessionsForSeries.length - (feedbackCount[0]?.count || 0);
       }
       const coach = coachMap.get(s.coachId);
@@ -54313,9 +54325,9 @@ router23.get("/api/player/squad-preview", authMiddlewareWithFreshData, async (re
         eq30(players.academyId, academyId),
         eq30(players.status, "active"),
         eq30(players.currentLevel, ballLevel2),
-        req2.user?.playerId ? ne8(players.id, req2.user.playerId) : sql28`1=1`
+        req2.user?.playerId ? ne8(players.id, req2.user.playerId) : sql29`1=1`
       )
-    ).limit(parseInt(limit)).orderBy(sql28`RANDOM()`);
+    ).limit(parseInt(limit)).orderBy(sql29`RANDOM()`);
     res.json(similarPlayers);
   } catch (error) {
     console.error("Squad preview error:", error);
@@ -54593,16 +54605,16 @@ router23.patch("/api/player/me/social", authMiddlewareWithFreshData, requirePlay
       if (!validLevels.includes(privacyLevel)) {
         return res.status(400).json({ error: "Invalid privacy level" });
       }
-      await db.execute(sql28`UPDATE players SET privacy_level = ${privacyLevel} WHERE id = ${playerId}`);
+      await db.execute(sql29`UPDATE players SET privacy_level = ${privacyLevel} WHERE id = ${playerId}`);
     }
     if (typeof openToPlay2 === "boolean") {
-      await db.execute(sql28`UPDATE players SET open_to_play = ${openToPlay2} WHERE id = ${playerId}`);
+      await db.execute(sql29`UPDATE players SET open_to_play = ${openToPlay2} WHERE id = ${playerId}`);
     }
     if (displayName !== void 0) {
-      await db.execute(sql28`UPDATE players SET display_name = ${displayName} WHERE id = ${playerId}`);
+      await db.execute(sql29`UPDATE players SET display_name = ${displayName} WHERE id = ${playerId}`);
     }
     if (bio !== void 0) {
-      await db.execute(sql28`UPDATE players SET bio = ${bio} WHERE id = ${playerId}`);
+      await db.execute(sql29`UPDATE players SET bio = ${bio} WHERE id = ${playerId}`);
     }
     res.json({ success: true, message: "Social settings updated" });
   } catch (error) {
@@ -54623,7 +54635,7 @@ router23.patch("/api/player/me/location", authMiddlewareWithFreshData, requirePl
     if (latitude < -90 || latitude > 90 || longitude < -180 || longitude > 180) {
       return res.status(400).json({ error: "Invalid coordinates" });
     }
-    await db.execute(sql28`UPDATE players SET last_latitude = ${latitude}, last_longitude = ${longitude}, location_updated_at = NOW() WHERE id = ${playerId}`);
+    await db.execute(sql29`UPDATE players SET last_latitude = ${latitude}, last_longitude = ${longitude}, location_updated_at = NOW() WHERE id = ${playerId}`);
     res.json({ success: true });
   } catch (error) {
     console.error("Error updating player location:", error);
@@ -59777,7 +59789,7 @@ async function registerRoutes(app2) {
         }
         const isCurrentlyVerified = !!player2.auditVerifiedAt;
         if (isCurrentlyVerified) {
-          await db.execute(sql29`
+          await db.execute(sql30`
           UPDATE players SET audit_verified_at = NULL, audit_verified_by = NULL WHERE id = ${id}
         `);
           res.json({
@@ -59787,7 +59799,7 @@ async function registerRoutes(app2) {
           });
         } else {
           const now2 = /* @__PURE__ */ new Date();
-          await db.execute(sql29`
+          await db.execute(sql30`
           UPDATE players SET audit_verified_at = ${now2}, audit_verified_by = ${coachId} WHERE id = ${id}
         `);
           res.json({
@@ -62746,7 +62758,7 @@ async function registerRoutes(app2) {
           // Batch fetch paused player counts for all series
           seriesIds.length > 0 ? db.select({
             seriesId: seriesPlayers.seriesId,
-            count: sql29`count(*)::int`
+            count: sql30`count(*)::int`
           }).from(seriesPlayers).where(
             and29(
               inArray16(seriesPlayers.seriesId, seriesIds),
@@ -62766,7 +62778,7 @@ async function registerRoutes(app2) {
           // Batch fetch next scheduled session for each series (use subquery approach)
           seriesIds.length > 0 ? db.select({
             seriesId: sessions.seriesId,
-            startTime: sql29`MIN(${sessions.startTime})`
+            startTime: sql30`MIN(${sessions.startTime})`
           }).from(sessions).where(
             and29(
               inArray16(sessions.seriesId, seriesIds),
@@ -63900,7 +63912,7 @@ async function registerRoutes(app2) {
         }
         const lastSession = allSessions[0];
         const maxWeekResult = await db.select({
-          maxWeek: sql29`COALESCE(MAX(${sessions.weekNumber}), 0)`
+          maxWeek: sql30`COALESCE(MAX(${sessions.weekNumber}), 0)`
         }).from(sessions).where(eq31(sessions.seriesId, id));
         const maxWeekNumber = maxWeekResult[0]?.maxWeek || 0;
         const seriesMembers = await storage.getSeriesPlayers(id);
@@ -64681,8 +64693,8 @@ async function registerRoutes(app2) {
             and29(
               eq31(sessions.seriesId, id),
               inArray16(sessions.status, ["scheduled", "completed"]),
-              gte17(sql29`${sessions.startTime}::date`, sql29`${pauseFrom}::date`),
-              lte9(sql29`${sessions.startTime}::date`, sql29`${pauseUntil}::date`)
+              gte17(sql30`${sessions.startTime}::date`, sql30`${pauseFrom}::date`),
+              lte9(sql30`${sessions.startTime}::date`, sql30`${pauseUntil}::date`)
             )
           );
           if (affectedSessions.length > 0) {
@@ -64758,7 +64770,7 @@ async function registerRoutes(app2) {
         const allCoachSeries = await db.select().from(coachingSeries).where(and29(
           eq31(coachingSeries.coachId, coachId),
           eq31(coachingSeries.status, "active"),
-          sql29`${coachingSeries.id} != ${id}`
+          sql30`${coachingSeries.id} != ${id}`
         ));
         const seriesIds = allCoachSeries.map((s) => s.id);
         if (seriesIds.length === 0) {
@@ -64981,7 +64993,7 @@ async function registerRoutes(app2) {
         if (completedSessionIds.length > 0) {
           const attendanceData = await db.select({
             playerId: sessionPlayers.playerId,
-            sessionCount: sql29`count(*)::int`
+            sessionCount: sql30`count(*)::int`
           }).from(sessionPlayers).where(
             and29(
               inArray16(sessionPlayers.playerId, playerIds),
@@ -69786,7 +69798,7 @@ async function registerRoutes(app2) {
         }).length;
         const lastLoginRows = await db.select({
           academyId: users.academyId,
-          lastLogin: sql29`MAX(${users.lastLoginAt})`
+          lastLogin: sql30`MAX(${users.lastLoginAt})`
         }).from(users).where(
           and29(
             isNotNull5(users.academyId),
@@ -72056,18 +72068,18 @@ async function registerRoutes(app2) {
         const sessionsAttended = playerSessions.filter(
           (s) => s.attended === "present"
         ).length;
-        const matchesResult = await db.execute(sql29`
+        const matchesResult = await db.execute(sql30`
         SELECT COUNT(*) as count FROM player_matches 
         WHERE (initiator_id = ${playerId} OR receiver_id = ${playerId})
         AND status = 'completed'
       `);
         const matchesPlayed = Number(matchesResult.rows[0]?.count || 0);
-        const connectionsResult = await db.execute(sql29`
+        const connectionsResult = await db.execute(sql30`
         SELECT COUNT(*) as count FROM player_connections 
         WHERE (player1_id = ${playerId} OR player2_id = ${playerId})
       `);
         const connectionsCount = Number(connectionsResult.rows[0]?.count || 0);
-        const recentPartnersResult = await db.execute(sql29`
+        const recentPartnersResult = await db.execute(sql30`
         SELECT DISTINCT ON (partner_id) 
           partner_id, 
           partner_name,
@@ -72168,47 +72180,47 @@ async function registerRoutes(app2) {
         } = req2.body;
         if (typeof openToPlay2 === "boolean") {
           await db.execute(
-            sql29`UPDATE players SET open_to_play = ${openToPlay2} WHERE id = ${playerId}`
+            sql30`UPDATE players SET open_to_play = ${openToPlay2} WHERE id = ${playerId}`
           );
         }
         if (dominantHand !== void 0) {
           await db.execute(
-            sql29`UPDATE players SET dominant_hand = ${dominantHand} WHERE id = ${playerId}`
+            sql30`UPDATE players SET dominant_hand = ${dominantHand} WHERE id = ${playerId}`
           );
         }
         if (preferredPlayType !== void 0) {
           await db.execute(
-            sql29`UPDATE players SET preferred_play_type = ${preferredPlayType} WHERE id = ${playerId}`
+            sql30`UPDATE players SET preferred_play_type = ${preferredPlayType} WHERE id = ${playerId}`
           );
         }
         if (typicalPlayTimes !== void 0) {
           await db.execute(
-            sql29`UPDATE players SET typical_play_times = ${typicalPlayTimes} WHERE id = ${playerId}`
+            sql30`UPDATE players SET typical_play_times = ${typicalPlayTimes} WHERE id = ${playerId}`
           );
         }
         if (preferredCities !== void 0) {
           await db.execute(
-            sql29`UPDATE players SET preferred_cities = ${preferredCities} WHERE id = ${playerId}`
+            sql30`UPDATE players SET preferred_cities = ${preferredCities} WHERE id = ${playerId}`
           );
         }
         if (matchPreference !== void 0) {
           await db.execute(
-            sql29`UPDATE players SET match_preference = ${matchPreference} WHERE id = ${playerId}`
+            sql30`UPDATE players SET match_preference = ${matchPreference} WHERE id = ${playerId}`
           );
         }
         if (bio !== void 0) {
           await db.execute(
-            sql29`UPDATE players SET bio = ${bio} WHERE id = ${playerId}`
+            sql30`UPDATE players SET bio = ${bio} WHERE id = ${playerId}`
           );
         }
         if (displayName !== void 0) {
           await db.execute(
-            sql29`UPDATE players SET display_name = ${displayName} WHERE id = ${playerId}`
+            sql30`UPDATE players SET display_name = ${displayName} WHERE id = ${playerId}`
           );
         }
         if (privacyLevel !== void 0) {
           await db.execute(
-            sql29`UPDATE players SET privacy_level = ${privacyLevel} WHERE id = ${playerId}`
+            sql30`UPDATE players SET privacy_level = ${privacyLevel} WHERE id = ${playerId}`
           );
         }
         if (req2.body.playStyle !== void 0) {
@@ -72218,7 +72230,7 @@ async function registerRoutes(app2) {
             return res.status(400).json({ error: "Invalid play style value" });
           }
           await db.execute(
-            sql29`UPDATE players SET play_style = ${playStyleValue} WHERE id = ${playerId}`
+            sql30`UPDATE players SET play_style = ${playStyleValue} WHERE id = ${playerId}`
           );
         }
         res.json({ success: true });
@@ -72244,7 +72256,7 @@ async function registerRoutes(app2) {
         }
         const photoUrl = `/uploads/profile-photos/${req2.file.filename}`;
         await db.execute(
-          sql29`UPDATE players SET profile_photo_url = ${photoUrl} WHERE id = ${playerId}`
+          sql30`UPDATE players SET profile_photo_url = ${photoUrl} WHERE id = ${playerId}`
         );
         res.json({
           success: true,
@@ -72268,7 +72280,7 @@ async function registerRoutes(app2) {
           return res.json({ achievements: [] });
         }
         const achievements = [];
-        const earnedBadgesResult = await db.execute(sql29`
+        const earnedBadgesResult = await db.execute(sql30`
         SELECT pb.*, b.name as badge_name, b.description as badge_description, b.category as badge_icon, b.color as badge_color
         FROM player_badges pb
         LEFT JOIN badges b ON pb.badge_id = b.id
@@ -72290,7 +72302,7 @@ async function registerRoutes(app2) {
             value: "Badge"
           });
         }
-        const matchWinsResult = await db.execute(sql29`
+        const matchWinsResult = await db.execute(sql30`
         SELECT agm.*, 
                p.first_name as opponent_first, 
                p.last_name as opponent_last
@@ -72316,7 +72328,7 @@ async function registerRoutes(app2) {
             value: String(setScore)
           });
         }
-        const ratingChangesResult = await db.execute(sql29`
+        const ratingChangesResult = await db.execute(sql30`
         SELECT agm.*, agm.mmr_change
         FROM adult_glow_matches agm
         WHERE agm.player_id = ${playerId} AND agm.mmr_change > 10
@@ -72340,7 +72352,7 @@ async function registerRoutes(app2) {
             });
           }
         }
-        const sessionCountResult = await db.execute(sql29`
+        const sessionCountResult = await db.execute(sql30`
         SELECT COUNT(*) as count 
         FROM session_players sp
         JOIN sessions s ON sp.session_id = s.id
@@ -72363,7 +72375,7 @@ async function registerRoutes(app2) {
             });
           }
         }
-        const playerResult = await db.execute(sql29`
+        const playerResult = await db.execute(sql30`
         SELECT xp_level FROM players WHERE id = ${playerId}
       `);
         const playerLevel = Number(playerResult.rows[0]?.xp_level) || 1;
@@ -72608,7 +72620,7 @@ async function registerRoutes(app2) {
           userId,
           role: "member"
         });
-        await db.update(communityGroups).set({ memberCount: sql29`${communityGroups.memberCount} + 1` }).where(eq31(communityGroups.id, groupId));
+        await db.update(communityGroups).set({ memberCount: sql30`${communityGroups.memberCount} + 1` }).where(eq31(communityGroups.id, groupId));
         res.json({ success: true, message: "Joined group" });
       } catch (error) {
         console.error("Error joining group:", error);
@@ -72643,7 +72655,7 @@ async function registerRoutes(app2) {
             eq31(groupMembers.userId, userId)
           )
         );
-        await db.update(communityGroups).set({ memberCount: sql29`${communityGroups.memberCount} - 1` }).where(eq31(communityGroups.id, groupId));
+        await db.update(communityGroups).set({ memberCount: sql30`${communityGroups.memberCount} - 1` }).where(eq31(communityGroups.id, groupId));
         res.json({ success: true, message: "Left group" });
       } catch (error) {
         console.error("Error leaving group:", error);

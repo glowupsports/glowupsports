@@ -71,28 +71,36 @@ export async function awardXP(
   amount: number,
   reason: string
 ): Promise<{ newXp: number; newLevel: number; leveledUp: boolean }> {
-  const [current] = await db
-    .select({ xp: serviceProviders.xp, level: serviceProviders.level })
+  const [before] = await db
+    .select({ level: serviceProviders.level })
     .from(serviceProviders)
     .where(eq(serviceProviders.id, providerId));
 
-  if (!current) {
+  if (!before) {
     return { newXp: 0, newLevel: 1, leveledUp: false };
   }
 
-  const prevLevel = Number(current.level);
-  const newXp = Number(current.xp) + amount;
+  const prevLevel = Number(before.level);
+
+  const [updated] = await db
+    .update(serviceProviders)
+    .set({
+      xp: sql`${serviceProviders.xp} + ${amount}`,
+      updatedAt: new Date(),
+    })
+    .where(eq(serviceProviders.id, providerId))
+    .returning({ newXp: serviceProviders.xp });
+
+  const newXp = Number(updated?.newXp ?? 0);
   const { level: newLevel } = calculateProviderLevel(newXp);
   const leveledUp = newLevel > prevLevel;
 
-  await db
-    .update(serviceProviders)
-    .set({
-      xp: newXp,
-      level: newLevel,
-      updatedAt: new Date(),
-    })
-    .where(eq(serviceProviders.id, providerId));
+  if (leveledUp) {
+    await db
+      .update(serviceProviders)
+      .set({ level: newLevel, updatedAt: new Date() })
+      .where(eq(serviceProviders.id, providerId));
+  }
 
   console.log(`[ProviderGamification] ${reason}: +${amount} XP → provider ${providerId} now at ${newXp} XP, Lv.${newLevel}${leveledUp ? " (LEVEL UP!)" : ""}`);
 

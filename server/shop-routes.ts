@@ -1312,12 +1312,19 @@ router.patch("/provider/bookings/:orderId/status", authMiddleware, requireServic
       const [refreshed] = await db.select().from(serviceProviders)
         .where(eq(serviceProviders.id, providerRecord.id)).limit(1);
 
+      const currentRating = Number(refreshed?.rating ?? 0);
       newBadges = await checkAndAwardBadges(providerRecord.id, {
         totalBookings: Number(refreshed?.totalBookings ?? prevTotalBookings + 1),
-        rating: Number(refreshed?.rating ?? 0),
+        rating: currentRating,
         streakCurrent: streakResult.streakCurrent,
         leveledUp,
       });
+
+      if (newBadges.includes("five_star")) {
+        const fsr = await awardXP(providerRecord.id, XP_AWARDS.FIVE_STAR_RATING, "five_star_rating");
+        xpAwarded += XP_AWARDS.FIVE_STAR_RATING;
+        if (fsr.leveledUp) { leveledUp = true; newLevel = fsr.newLevel; }
+      }
     }
 
     res.json({ ...order, xpAwarded, leveledUp, newLevel, newBadges });
