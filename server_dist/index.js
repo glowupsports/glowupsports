@@ -31668,7 +31668,8 @@ function calculateProviderLevel(xp) {
       break;
     }
   }
-  if (level > 25) level = 26;
+  const maxThreshold = LEVEL_THRESHOLDS[LEVEL_THRESHOLDS.length - 1];
+  if (xp >= maxThreshold) level = 26;
   const rankLevel = [26, 21, 16, 11, 6, 1].find((r) => level >= r) ?? 1;
   const rank = RANK_NAMES[rankLevel] ?? "Legend";
   let xpInLevel;
