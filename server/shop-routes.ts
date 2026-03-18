@@ -1285,7 +1285,7 @@ router.patch("/provider/bookings/:orderId/status", authMiddleware, requireServic
         const prevTotalBookings = Number(providerRecord.totalBookings);
 
         await tx.update(serviceProviders)
-          .set({ totalBookings: prevTotalBookings + 1, updatedAt: new Date() })
+          .set({ totalBookings: sql`${serviceProviders.totalBookings} + 1`, updatedAt: new Date() })
           .where(eq(serviceProviders.id, providerRecord.id));
 
         const txDb = tx as unknown as typeof db;
@@ -1348,7 +1348,10 @@ router.patch("/provider/bookings/:orderId/status", authMiddleware, requireServic
       }
     });
 
-    res.json({ ...order!, xpAwarded, leveledUp, newLevel, newBadges });
+    const { rank: newRank } = calculateProviderLevel(
+      leveledUp ? (Number(providerRecord.xp) + xpAwarded) : Number(providerRecord.xp)
+    );
+    res.json({ ...order!, xpAwarded, leveledUp, newLevel, newRank, newBadges });
   } catch (error) {
     console.error("[Provider] Error updating booking status:", error);
     res.status(500).json({ error: "Failed to update booking status" });

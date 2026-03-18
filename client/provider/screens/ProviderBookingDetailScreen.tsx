@@ -119,6 +119,7 @@ interface BookingStatusResponse {
   xpAwarded: number;
   leveledUp: boolean;
   newLevel: number;
+  newRank: string;
   newBadges: string[];
   [key: string]: unknown;
 }
@@ -127,6 +128,7 @@ interface CompletionToast {
   xpAwarded: number;
   leveledUp: boolean;
   newLevel: number;
+  newRank: string;
   newBadges: string[];
 }
 
@@ -163,6 +165,7 @@ export default function ProviderBookingDetailScreen() {
           xpAwarded: Number(data.xpAwarded),
           leveledUp: Boolean(data.leveledUp),
           newLevel: Number(data.newLevel),
+          newRank: String(data.newRank ?? ""),
           newBadges: Array.isArray(data.newBadges) ? data.newBadges : [],
         });
         toastTimer.current = setTimeout(() => {
@@ -418,14 +421,20 @@ export default function ProviderBookingDetailScreen() {
             </View>
             <View style={{ flex: 1 }}>
               {completionToast.leveledUp ? (
-                <Text style={styles.achievementTitle}>Level Up! Lv.{completionToast.newLevel}</Text>
+                <Text style={styles.achievementTitle}>
+                  {"Level Up! Lv."}
+                  {completionToast.newLevel}
+                  {completionToast.newRank ? ` · ${completionToast.newRank}` : ""}
+                </Text>
+              ) : completionToast.newBadges.length > 0 ? (
+                <Text style={styles.achievementTitle}>Achievement Unlocked!</Text>
               ) : (
                 <Text style={styles.achievementTitle}>Booking Complete!</Text>
               )}
               <Text style={styles.achievementSub}>
                 +{completionToast.xpAwarded} XP earned
                 {completionToast.newBadges.length > 0
-                  ? `  •  Achievement Unlocked: ${completionToast.newBadges.map((id) => BADGE_LABELS[id] ?? id).join(", ")}`
+                  ? `  •  ${completionToast.newBadges.map((id) => BADGE_LABELS[id] ?? id).join(", ")}`
                   : ""}
               </Text>
             </View>
