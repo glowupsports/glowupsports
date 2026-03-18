@@ -79,7 +79,7 @@ export function useAppMode() {
 export function getModesForRole(role: string): AppMode[] {
   switch (role) {
     case "platform_owner":
-      return ["platform", "academy_owner", "admin", "coach", "player"];
+      return ["platform", "academy_owner", "admin", "coach", "player", "service_provider"];
     case "owner":
     case "academy_owner":
       return ["academy_owner", "admin", "coach", "player"];
