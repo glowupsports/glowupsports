@@ -101,6 +101,22 @@ export default function ShopScreen() {
     queryKey: ["/api/player/shop/xp-discount"],
   });
 
+  const { data: productsData } = useQuery<ShopProduct[]>({
+    queryKey: ["/api/player/shop/products"],
+  });
+
+  const { data: servicesData } = useQuery<{ categories: Array<{ id: string; name: string; services: ShopService[] }>; uncategorized: ShopService[] }>({
+    queryKey: ["/api/player/shop/services"],
+  });
+
+  const allProducts: ShopProduct[] = productsData || shopData?.featuredProducts || [];
+  const allServices: ShopService[] = servicesData
+    ? [
+        ...(servicesData.categories?.flatMap((cat) => cat.services) ?? []),
+        ...(servicesData.uncategorized ?? []),
+      ]
+    : shopData?.featuredServices || [];
+
   const onRefresh = async () => {
     setRefreshing(true);
     await refetch();
@@ -176,9 +192,9 @@ export default function ShopScreen() {
   };
 
   const categories = shopData?.categories || [];
-  const featuredProducts = shopData?.featuredProducts || [];
-  const featuredServices = shopData?.featuredServices || [];
-  const hasContent = categories.length > 0 || featuredProducts.length > 0 || featuredServices.length > 0;
+  const featuredProducts = allProducts;
+  const featuredServices = allServices;
+  const hasContent = categories.length > 0 || allProducts.length > 0 || allServices.length > 0;
   const showSearchResults = searchQuery.length >= 2 && searchResults;
 
   const getDiscount = (price: string, compareAt?: string) => {

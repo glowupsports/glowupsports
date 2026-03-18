@@ -31,13 +31,18 @@ interface Service {
   maxBookingsPerDay?: number;
   requiresApproval?: boolean;
   isFeatured: boolean;
+  isStringingService?: boolean;
+  stringingOptions?: {
+    strings: { name: string; brand: string; price: number }[];
+    tensionRange: { min: number; max: number };
+  } | null;
 }
 
 interface XPDiscount {
   discountPercent: number;
   tierName: string;
   currentXP: number;
-  nextTierXP: number | null;
+  nextTierLevel: number | null;
   level: number;
 }
 
@@ -50,6 +55,8 @@ export default function ServiceDetailScreen() {
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [notes, setNotes] = useState("");
+  const [stringingTension, setStringingTension] = useState("");
+  const [stringingChoice, setStringingChoice] = useState("");
 
   const serviceId = route.params?.serviceId;
 
@@ -105,11 +112,15 @@ export default function ServiceDetailScreen() {
   });
 
   const bookingMutation = useMutation({
-    mutationFn: (payload: {
+    mutationFn: async (payload: {
       scheduledAt: string;
       notes?: string;
       items: Array<{ serviceId: string; quantity: number }>;
-    }) => apiRequest("POST", "/api/player/shop/orders", payload),
+      serviceDetails?: Record<string, string>;
+    }) => {
+      const res = await apiRequest("POST", "/api/player/shop/orders", payload);
+      return res.json();
+    },
     onSuccess: (order: any) => {
       queryClient.invalidateQueries({ queryKey: ["/api/player/shop/orders"] });
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
@@ -145,10 +156,18 @@ export default function ServiceDetailScreen() {
 
   const handleBookNow = () => {
     if (!service) return;
+
+    const serviceDetails: Record<string, string> = {};
+    if (service.isStringingService) {
+      if (stringingTension.trim()) serviceDetails.tension = stringingTension.trim();
+      if (stringingChoice.trim()) serviceDetails.stringChoice = stringingChoice.trim();
+    }
+
     bookingMutation.mutate({
       scheduledAt: selectedDate.toISOString(),
       notes: notes.trim() || undefined,
       items: [{ serviceId: service.id, quantity: 1 }],
+      serviceDetails: Object.keys(serviceDetails).length > 0 ? serviceDetails : undefined,
     });
   };
 
@@ -278,6 +297,27 @@ export default function ServiceDetailScreen() {
                 themeVariant="dark"
               />
             )}
+
+            {service.isStringingService ? (
+              <View style={styles.stringingContainer}>
+                <Text style={styles.notesLabel}>Stringing Details</Text>
+                <TextInput
+                  style={styles.notesInput}
+                  value={stringingTension}
+                  onChangeText={setStringingTension}
+                  placeholder={`Tension (e.g. ${service.stringingOptions?.tensionRange ? `${service.stringingOptions.tensionRange.min}-${service.stringingOptions.tensionRange.max} lbs` : "50-60 lbs"})`}
+                  placeholderTextColor={Colors.dark.textSecondary + "80"}
+                  keyboardType="decimal-pad"
+                />
+                <TextInput
+                  style={[styles.notesInput, { marginTop: Spacing.sm }]}
+                  value={stringingChoice}
+                  onChangeText={setStringingChoice}
+                  placeholder="String choice (brand / model)"
+                  placeholderTextColor={Colors.dark.textSecondary + "80"}
+                />
+              </View>
+            ) : null}
 
             <View style={styles.notesContainer}>
               <Text style={styles.notesLabel}>Special Requests (Optional)</Text>
@@ -528,6 +568,10 @@ const styles = StyleSheet.create({
   },
   notesContainer: {
     marginTop: Spacing.sm,
+  },
+  stringingContainer: {
+    marginTop: Spacing.sm,
+    marginBottom: Spacing.sm,
   },
   notesLabel: {
     fontSize: 14,

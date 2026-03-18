@@ -16,7 +16,7 @@ import { getApiUrl } from "@/lib/query-client";
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get("window");
 
-type UserRole = "coach" | "player" | "academy_owner" | "admin" | "platform";
+type UserRole = "coach" | "player" | "academy_owner" | "admin" | "platform" | "service_provider";
 
 const GAME_MESSAGES_BY_ROLE: Record<UserRole, string[]> = {
   coach: [
@@ -53,6 +53,13 @@ const GAME_MESSAGES_BY_ROLE: Record<UserRole, string[]> = {
     "FETCHING PLATFORM ANALYTICS...",
     "CALIBRATING GROWTH ENGINE...",
     "INITIALIZING COMMAND CENTER...",
+  ],
+  service_provider: [
+    "LOADING PROVIDER DASHBOARD...",
+    "SYNCING BOOKING QUEUE...",
+    "FETCHING TODAY'S SCHEDULE...",
+    "CALIBRATING SERVICE ENGINE...",
+    "INITIALIZING PROVIDER HUB...",
   ],
 };
 

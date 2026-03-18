@@ -173,23 +173,35 @@ export default function ProviderDashboardScreen() {
   const navigation = useNavigation<any>();
   const { user } = useAuth();
 
-  const { data: bookings = [], isLoading, refetch } = useQuery<Booking[]>({
+  const { data: todayBookings = [], isLoading: isLoadingToday, refetch: refetchToday } = useQuery<Booking[]>({
+    queryKey: ["/api/provider/me/bookings", { date: "today" }],
+    queryFn: async () => {
+      const { getApiUrl } = await import("@/lib/query-client");
+      const res = await fetch(`${getApiUrl()}/api/provider/me/bookings?date=today`, { credentials: "include" });
+      if (!res.ok) throw new Error("Failed to fetch today's bookings");
+      return res.json();
+    },
+  });
+
+  const { data: allBookings = [], refetch: refetchAll } = useQuery<Booking[]>({
     queryKey: ["/api/provider/me/bookings"],
   });
 
-  const todayBookings = useMemo(
-    () => bookings.filter((b) => isToday(b.scheduledAt)),
-    [bookings]
-  );
+  const isLoading = isLoadingToday;
+
+  const refetch = () => {
+    refetchToday();
+    refetchAll();
+  };
 
   const pendingCount = useMemo(
-    () => bookings.filter((b) => b.status === "pending").length,
-    [bookings]
+    () => allBookings.filter((b) => b.status === "pending").length,
+    [allBookings]
   );
 
   const weekTotal = useMemo(
-    () => bookings.filter((b) => isThisWeek(b.scheduledAt)).length,
-    [bookings]
+    () => allBookings.filter((b) => isThisWeek(b.scheduledAt)).length,
+    [allBookings]
   );
 
   const greeting = useMemo(() => {
@@ -289,7 +301,7 @@ export default function ProviderDashboardScreen() {
           )}
         </Animated.View>
 
-        {bookings.filter((b) => b.status === "pending").length > 0 && (
+        {allBookings.filter((b) => b.status === "pending").length > 0 ? (
           <Animated.View entering={FadeInUp.delay(200).duration(300)}>
             <View style={styles.sectionHeader}>
               <Ionicons
@@ -301,7 +313,7 @@ export default function ProviderDashboardScreen() {
                 NEEDS ATTENTION
               </Text>
             </View>
-            {bookings
+            {allBookings
               .filter((b) => b.status === "pending" && !isToday(b.scheduledAt))
               .slice(0, 3)
               .map((booking) => (
@@ -316,7 +328,7 @@ export default function ProviderDashboardScreen() {
                 />
               ))}
           </Animated.View>
-        )}
+        ) : null}
       </ScrollView>
     </View>
   );
