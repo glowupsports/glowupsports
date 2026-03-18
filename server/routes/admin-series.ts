@@ -3247,6 +3247,7 @@ function requirePlayerOrOwner(req: AuthenticatedRequest, res: Response, next: Ne
           academyId: player.academyId,
           dateOfBirth: player.dateOfBirth,
           profilePhotoUrl: (player as any).profilePhotoUrl || null,
+          playStyle: (player as any).playStyle || null,
         },
         coach: coach ? {
           id: coach.id,

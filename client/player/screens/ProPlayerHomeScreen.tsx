@@ -37,6 +37,7 @@ import { PlatformUsageProgress } from "@/components/PlatformUsageProgress";
 import { NotificationGuideModal } from "@/components/NotificationGuideModal";
 import { FirstActionCelebration } from "@/components/FirstActionCelebration";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { useQuests, Quest, StreakData } from "@/player/hooks/useQuests";
 
 interface DashboardData {
   player: {
@@ -49,6 +50,7 @@ interface DashboardData {
     streak: number;
     profilePhotoUrl?: string | null;
     dateOfBirth?: string | null;
+    playStyle?: string | null;
   };
   coach: {
     id: string;
@@ -76,6 +78,127 @@ interface DashboardData {
   isFreePlayer?: boolean;
 }
 
+type PlayStyleKey = "baseline_warrior" | "net_ninja" | "serve_machine" | "all_court_ace" | "counter_puncher" | "tactical_mastermind";
+const PLAY_STYLE_META: Record<PlayStyleKey, { name: string; color: string; icon: string }> = {
+  baseline_warrior: { name: "Baseline Warrior", color: "#C8FF3D", icon: "tennisball" },
+  net_ninja: { name: "Net Ninja", color: "#00E5FF", icon: "flash" },
+  serve_machine: { name: "Serve Machine", color: "#FF8C00", icon: "rocket" },
+  all_court_ace: { name: "All-Court Ace", color: "#FFFFFF", icon: "star" },
+  counter_puncher: { name: "Counter-Puncher", color: "#9B59B6", icon: "shield" },
+  tactical_mastermind: { name: "Tactical Mastermind", color: "#FFD700", icon: "bulb" },
+};
+
+function WelcomeHeroRow({ playerName, playStyle }: { playerName: string; playStyle?: string | null }) {
+  const firstName = playerName.split(" ")[0] || playerName;
+  const archetype = playStyle ? PLAY_STYLE_META[playStyle as PlayStyleKey] : null;
+
+  return (
+    <View style={hStyles.welcomeRow}>
+      <View style={hStyles.welcomeTextBlock}>
+        <Text style={hStyles.welcomeLabel}>WELCOME BACK</Text>
+        <Text style={hStyles.welcomeName}>{firstName}</Text>
+      </View>
+      {archetype ? (
+        <View style={[hStyles.archetypePill, { borderColor: archetype.color + "50", backgroundColor: archetype.color + "12" }]}>
+          <Ionicons name={archetype.icon as any} size={12} color={archetype.color} />
+          <Text style={[hStyles.archetypePillText, { color: archetype.color }]}>{archetype.name}</Text>
+        </View>
+      ) : null}
+    </View>
+  );
+}
+
+function StreakMiniCard({ streak, onPress }: { streak: StreakData; onPress: () => void }) {
+  const shields = streak.streakShields ?? 0;
+  const MAX_SHIELDS = 2;
+
+  return (
+    <Pressable style={hStyles.streakCard} onPress={onPress}>
+      <View style={hStyles.streakLeft}>
+        <View style={hStyles.streakFlameWrap}>
+          <Ionicons name="flame" size={20} color={streak.currentStreak > 0 ? "#FF6B35" : Colors.dark.textSubtle} />
+        </View>
+        <View>
+          <Text style={hStyles.streakCount}>{streak.currentStreak}</Text>
+          <Text style={hStyles.streakLabel}>day streak</Text>
+        </View>
+      </View>
+      <View style={hStyles.streakDivider} />
+      <View style={hStyles.streakMid}>
+        <Text style={hStyles.streakBestVal}>{streak.longestStreak}</Text>
+        <Text style={hStyles.streakBestLabel}>best</Text>
+      </View>
+      <View style={hStyles.streakDivider} />
+      <View style={hStyles.streakRight}>
+        <View style={hStyles.shieldRow}>
+          {Array.from({ length: MAX_SHIELDS }).map((_, i) => (
+            <Ionicons
+              key={i}
+              name="shield-checkmark"
+              size={16}
+              color={i < shields ? "#00D4FF" : "rgba(255,255,255,0.15)"}
+            />
+          ))}
+        </View>
+        <Text style={hStyles.shieldLabel}>{shields}/{MAX_SHIELDS} shields</Text>
+      </View>
+    </Pressable>
+  );
+}
+
+function ActiveQuestCard({ quest, onViewAll }: { quest: Quest | null; onViewAll: () => void }) {
+  if (!quest) {
+    return (
+      <Pressable style={hStyles.questCardEmpty} onPress={onViewAll}>
+        <Ionicons name="trophy-outline" size={20} color={Colors.dark.textSubtle} />
+        <Text style={hStyles.questEmptyText}>No active quest — check your missions</Text>
+        <View style={hStyles.questViewAllBtn}>
+          <Text style={hStyles.questViewAllText}>View Missions</Text>
+          <Ionicons name="chevron-forward" size={12} color={GlowColors.primary} />
+        </View>
+      </Pressable>
+    );
+  }
+
+  const progress = quest.targetProgress > 0 ? Math.min(quest.currentProgress / quest.targetProgress, 1) : 0;
+  const typeLabel = quest.id?.includes("weekly") ? "WEEKLY" : "DAILY";
+  const typeColor = typeLabel === "WEEKLY" ? "#9B59B6" : "#00D4FF";
+
+  return (
+    <Pressable style={hStyles.questCard} onPress={onViewAll}>
+      <View style={hStyles.questCardHeader}>
+        <View style={[hStyles.questIconBg, { backgroundColor: (quest.iconColor || GlowColors.primary) + "18" }]}>
+          <Ionicons name={(quest.iconName || "star") as any} size={16} color={quest.iconColor || GlowColors.primary} />
+        </View>
+        <View style={hStyles.questInfoBlock}>
+          <View style={hStyles.questTopRow}>
+            <Text style={hStyles.questName} numberOfLines={1}>{quest.name}</Text>
+            <View style={[hStyles.questTypePill, { backgroundColor: typeColor + "18" }]}>
+              <Text style={[hStyles.questTypeText, { color: typeColor }]}>{typeLabel}</Text>
+            </View>
+          </View>
+          <View style={hStyles.questXpRow}>
+            <Ionicons name="flash" size={12} color="#FFD700" />
+            <Text style={hStyles.questXpText}>+{quest.xpReward} XP</Text>
+          </View>
+        </View>
+        <Pressable style={hStyles.viewAllLink} onPress={onViewAll} hitSlop={8}>
+          <Text style={hStyles.viewAllText}>All</Text>
+          <Ionicons name="chevron-forward" size={11} color={GlowColors.primary} />
+        </Pressable>
+      </View>
+      <View style={hStyles.questProgressWrap}>
+        <View style={hStyles.questProgressBar}>
+          <View style={[hStyles.questProgressFill, {
+            width: `${Math.max(progress * 100, 2)}%` as any,
+            backgroundColor: quest.iconColor || GlowColors.primary,
+          }]} />
+        </View>
+        <Text style={hStyles.questProgressText}>{quest.currentProgress}/{quest.targetProgress}</Text>
+      </View>
+    </Pressable>
+  );
+}
 
 function PlayerHomeContent() {
   const { t } = useTranslation();
@@ -112,6 +235,8 @@ function PlayerHomeContent() {
     queryKey: ["/api/player/me/dashboard"],
     enabled: !!user?.playerId && !isGuest,
   });
+
+  const { data: questsData } = useQuests();
 
   const effectiveData = isGuest ? guestDashboard : dashboardData;
 
@@ -341,6 +466,25 @@ function PlayerHomeContent() {
     },
   ];
 
+  const streakData: StreakData = questsData?.streak ?? {
+    currentStreak: 0, longestStreak: 0, multiplier: 1,
+    lastActiveDate: null, streakShields: 0, totalDaysActive: 0,
+  };
+
+  const activeQuest: Quest | null = useMemo(() => {
+    if (!questsData) return null;
+    const allActive = [
+      ...questsData.daily.filter(q => q.status === "active" || q.status === "in_progress"),
+      ...questsData.weekly.filter(q => q.status === "active" || q.status === "in_progress"),
+    ];
+    if (allActive.length === 0) return null;
+    return allActive.sort((a, b) => {
+      const aRatio = a.targetProgress > 0 ? a.currentProgress / a.targetProgress : 0;
+      const bRatio = b.targetProgress > 0 ? b.currentProgress / b.targetProgress : 0;
+      return bRatio - aRatio;
+    })[0];
+  }, [questsData]);
+
   if (!isGuest && (isLoading || !effectiveData)) {
     return (
       <View style={[styles.container, styles.loadingContainer]}>
@@ -409,6 +553,9 @@ function PlayerHomeContent() {
           <RamadanBanner playerName={player.name || "Champion"} onDismiss={handleDismissRamadan} />
         )}
 
+        {/* WELCOME HERO ROW - Daily re-engagement greeting */}
+        <WelcomeHeroRow playerName={player.name || "Player"} playStyle={player.playStyle} />
+
         {/* GETTING STARTED CHECKLIST */}
         <GettingStartedChecklist
           role="player"
@@ -448,6 +595,17 @@ function PlayerHomeContent() {
 
         {/* RAMADAN BONUS CARD - Blessings card during Ramadan */}
         {isRamadan && !isBirthday && !ramadanDismissed && <RamadanBonusCard onDismiss={handleDismissRamadan} />}
+
+        {/* STREAK MINI CARD - Between ProPlayerCard and PLAY divider */}
+        {!isGuest ? (
+          <StreakMiniCard
+            streak={streakData}
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              navigation.navigate("Quests" as never);
+            }}
+          />
+        ) : null}
 
         {/* TENNIS NEWS - Below header, above Today is Open */}
         <NewsTicker />
@@ -499,6 +657,18 @@ function PlayerHomeContent() {
         </View>
 
         <RecentFeedbackCard />
+
+        {/* ACTIVE QUEST CARD - Most urgent active quest teaser */}
+        {!isGuest ? (
+          <ActiveQuestCard
+            quest={activeQuest}
+            onViewAll={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              navigation.navigate("Quests" as never);
+            }}
+          />
+        ) : null}
+
         <SpotlightCard
           onNominate={() => setShowSpotlightNomination(true)}
           onViewDetails={() => navigation.navigate("SpotlightDetail" as never)}
@@ -673,5 +843,231 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: Colors.dark.textMuted,
     marginTop: 2,
+  },
+});
+
+const hStyles = StyleSheet.create({
+  welcomeRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: Spacing.lg,
+    paddingTop: Spacing.sm,
+  },
+  welcomeTextBlock: {
+    gap: 1,
+  },
+  welcomeLabel: {
+    fontSize: 10,
+    fontWeight: "700",
+    letterSpacing: 2.5,
+    color: Colors.dark.textSubtle,
+  },
+  welcomeName: {
+    fontSize: 22,
+    fontWeight: "800",
+    color: Colors.dark.text,
+    letterSpacing: -0.3,
+  },
+  archetypePill: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: 5,
+    borderRadius: BorderRadius.full,
+    borderWidth: 1,
+  },
+  archetypePillText: {
+    fontSize: 11,
+    fontWeight: "700",
+    letterSpacing: 0.3,
+  },
+  streakCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#0F141B",
+    borderRadius: BorderRadius.md,
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.06)",
+    marginHorizontal: Spacing.lg,
+    paddingHorizontal: Spacing.lg,
+    paddingVertical: Spacing.md,
+  },
+  streakLeft: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+    flex: 1.5,
+  },
+  streakFlameWrap: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    backgroundColor: "rgba(255,107,53,0.12)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  streakCount: {
+    fontSize: 20,
+    fontWeight: "800",
+    color: Colors.dark.text,
+    lineHeight: 22,
+  },
+  streakLabel: {
+    fontSize: 11,
+    color: Colors.dark.textSubtle,
+    fontWeight: "500",
+  },
+  streakDivider: {
+    width: 1,
+    height: 28,
+    backgroundColor: "rgba(255,255,255,0.08)",
+    marginHorizontal: Spacing.md,
+  },
+  streakMid: {
+    alignItems: "center",
+    flex: 1,
+  },
+  streakBestVal: {
+    fontSize: 16,
+    fontWeight: "700",
+    color: Colors.dark.text,
+  },
+  streakBestLabel: {
+    fontSize: 10,
+    color: Colors.dark.textSubtle,
+    fontWeight: "500",
+  },
+  streakRight: {
+    alignItems: "center",
+    flex: 1.5,
+    gap: 4,
+  },
+  shieldRow: {
+    flexDirection: "row",
+    gap: 4,
+  },
+  shieldLabel: {
+    fontSize: 10,
+    color: Colors.dark.textSubtle,
+    fontWeight: "500",
+  },
+  questCard: {
+    backgroundColor: "#0F141B",
+    borderRadius: BorderRadius.md,
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.06)",
+    marginHorizontal: Spacing.lg,
+    padding: Spacing.md,
+    gap: Spacing.sm,
+  },
+  questCardEmpty: {
+    backgroundColor: "#0F141B",
+    borderRadius: BorderRadius.md,
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.06)",
+    marginHorizontal: Spacing.lg,
+    paddingVertical: Spacing.lg,
+    paddingHorizontal: Spacing.md,
+    alignItems: "center",
+    gap: Spacing.sm,
+    flexDirection: "row",
+  },
+  questEmptyText: {
+    flex: 1,
+    fontSize: 13,
+    color: Colors.dark.textMuted,
+    fontWeight: "500",
+  },
+  questViewAllBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 2,
+  },
+  questViewAllText: {
+    fontSize: 12,
+    color: GlowColors.primary,
+    fontWeight: "700",
+  },
+  questCardHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+  },
+  questIconBg: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  questInfoBlock: {
+    flex: 1,
+    gap: 2,
+  },
+  questTopRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+  },
+  questName: {
+    flex: 1,
+    fontSize: 13,
+    fontWeight: "700",
+    color: Colors.dark.text,
+  },
+  questTypePill: {
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: BorderRadius.full,
+  },
+  questTypeText: {
+    fontSize: 9,
+    fontWeight: "800",
+    letterSpacing: 0.5,
+  },
+  questXpRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 3,
+  },
+  questXpText: {
+    fontSize: 11,
+    color: "#FFD700",
+    fontWeight: "700",
+  },
+  viewAllLink: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 1,
+  },
+  viewAllText: {
+    fontSize: 11,
+    color: GlowColors.primary,
+    fontWeight: "700",
+  },
+  questProgressWrap: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+  },
+  questProgressBar: {
+    flex: 1,
+    height: 4,
+    backgroundColor: "rgba(255,255,255,0.08)",
+    borderRadius: 2,
+    overflow: "hidden",
+  },
+  questProgressFill: {
+    height: "100%",
+    borderRadius: 2,
+  },
+  questProgressText: {
+    fontSize: 11,
+    color: Colors.dark.textSubtle,
+    fontWeight: "600",
+    minWidth: 32,
+    textAlign: "right",
   },
 });

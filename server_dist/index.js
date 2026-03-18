@@ -53486,7 +53486,8 @@ router23.get("/api/player/me/dashboard", authMiddlewareWithFreshData, requirePla
         onboardingCompleted,
         academyId: player2.academyId,
         dateOfBirth: player2.dateOfBirth,
-        profilePhotoUrl: player2.profilePhotoUrl || null
+        profilePhotoUrl: player2.profilePhotoUrl || null,
+        playStyle: player2.playStyle || null
       },
       coach: coach ? {
         id: coach.id,
