@@ -559,6 +559,7 @@ function CoachNotesContent({
   const sessionTimeStr = nextSession ? formatSessionTime(nextSession.date) : "";
   const sessionToday = !!(nextSession && isToday);
   const hasContent = sessionToday || recentFeedback.length > 0;
+  const hasAnyContent = sessionToday || (!feedbackLoading && recentFeedback.length > 0) || (!feedbackLoading && !hasContent && activeQuest !== null);
 
   return (
     <ScrollView
@@ -566,7 +567,7 @@ function CoachNotesContent({
       contentContainerStyle={s2.wrap}
       showsVerticalScrollIndicator={false}
     >
-      <Text style={s2.eyebrow}>COACH NOTES</Text>
+      {hasAnyContent ? <Text style={s2.eyebrow}>COACH NOTES</Text> : null}
 
       {/* Session today highlight row */}
       {sessionToday && nextSession ? (
@@ -779,12 +780,15 @@ function TodaysOpportunitiesContent({
                     )}
                   </View>
                   <View style={{ flex: 1 }}>
-                    <Text style={s3.challengerName}>{ch.challengerName}</Text>
-                    {ch.challengerLevel !== undefined ? (
-                      <Text style={s3.challengerSub}>{`Lv ${ch.challengerLevel} · challenged you`}</Text>
-                    ) : (
-                      <Text style={s3.challengerSub}>challenged you to a match</Text>
-                    )}
+                    <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+                      <Text style={s3.challengerName}>{ch.challengerName}</Text>
+                      {ch.challengerLevel !== undefined ? (
+                        <View style={s3.levelBadge}>
+                          <Text style={s3.levelBadgeText}>{`Lv ${ch.challengerLevel}`}</Text>
+                        </View>
+                      ) : null}
+                    </View>
+                    <Text style={s3.challengerSub}>challenged you to a match</Text>
                   </View>
                   <Pressable style={s3.viewPill} onPress={onLetsGo}>
                     <Text style={s3.viewPillText}>View</Text>
@@ -1413,6 +1417,19 @@ const s3 = StyleSheet.create({
     fontSize: 11,
     color: "rgba(255,255,255,0.45)",
     marginTop: 1,
+  },
+  levelBadge: {
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+    backgroundColor: "rgba(200,255,61,0.12)",
+    borderWidth: 1,
+    borderColor: "rgba(200,255,61,0.25)",
+  },
+  levelBadgeText: {
+    fontSize: 10,
+    fontWeight: "700",
+    color: GlowColors.primary,
   },
   viewPill: {
     paddingHorizontal: 12,
