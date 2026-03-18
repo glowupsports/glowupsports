@@ -1243,19 +1243,30 @@ router.patch("/provider/bookings/:orderId/status", authMiddleware, requireServic
       return res.status(404).json({ error: "Provider profile not found" });
     }
 
+    const [existingOrder] = await db.select({ id: shopOrders.id, status: shopOrders.status })
+      .from(shopOrders)
+      .where(and(
+        eq(shopOrders.id, orderId),
+        eq(shopOrders.assignedProviderId, providerRecord.id)
+      ))
+      .limit(1);
+
+    if (!existingOrder) {
+      return res.status(404).json({ error: "Booking not found or not assigned to you" });
+    }
+
+    const isAlreadyCompleted = existingOrder.status === "completed";
+
     const updateData: Record<string, unknown> = { status, updatedAt: new Date() };
     if (status === "completed") updateData.completedAt = new Date();
 
     const [order] = await db.update(shopOrders)
       .set(updateData)
-      .where(and(
-        eq(shopOrders.id, orderId),
-        eq(shopOrders.assignedProviderId, providerRecord.id)
-      ))
+      .where(eq(shopOrders.id, orderId))
       .returning();
 
     if (!order) {
-      return res.status(404).json({ error: "Booking not found or not assigned to you" });
+      return res.status(404).json({ error: "Failed to update booking" });
     }
 
     let xpAwarded = 0;
@@ -1263,7 +1274,7 @@ router.patch("/provider/bookings/:orderId/status", authMiddleware, requireServic
     let newLevel = Number(providerRecord.level);
     let newBadges: string[] = [];
 
-    if (status === "completed") {
+    if (status === "completed" && !isAlreadyCompleted) {
       const prevTotalBookings = Number(providerRecord.totalBookings);
 
       await db.update(serviceProviders)
@@ -1330,13 +1341,22 @@ router.get("/provider/stats", authMiddleware, requireServiceProvider, async (req
     const xp = Number(provider.xp);
     const { level, rank, xpInLevel, xpToNextLevel } = calculateProviderLevel(xp);
 
+    const rawStreak = Number(provider.streakCurrent);
+    const lastDate = provider.streakLastDate ? new Date(provider.streakLastDate) : null;
+    const todayUTC = new Date();
+    todayUTC.setUTCHours(0, 0, 0, 0);
+    const yesterdayUTC = new Date(todayUTC);
+    yesterdayUTC.setUTCDate(yesterdayUTC.getUTCDate() - 1);
+    const isStreakAlive = lastDate !== null && lastDate >= yesterdayUTC;
+    const effectiveStreak = isStreakAlive ? rawStreak : 0;
+
     res.json({
       xp,
       level,
       rank,
       xpInLevel,
       xpToNextLevel,
-      streakCurrent: Number(provider.streakCurrent),
+      streakCurrent: effectiveStreak,
       streakBest: Number(provider.streakBest),
       badges: (provider.badges ?? []) as string[],
       totalBookings: Number(provider.totalBookings),

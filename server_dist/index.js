@@ -32676,20 +32676,25 @@ router.patch("/provider/bookings/:orderId/status", authMiddlewareWithFreshData, 
     if (!providerRecord) {
       return res.status(404).json({ error: "Provider profile not found" });
     }
-    const updateData = { status, updatedAt: /* @__PURE__ */ new Date() };
-    if (status === "completed") updateData.completedAt = /* @__PURE__ */ new Date();
-    const [order] = await db.update(shopOrders).set(updateData).where(and3(
+    const [existingOrder] = await db.select({ id: shopOrders.id, status: shopOrders.status }).from(shopOrders).where(and3(
       eq4(shopOrders.id, orderId),
       eq4(shopOrders.assignedProviderId, providerRecord.id)
-    )).returning();
-    if (!order) {
+    )).limit(1);
+    if (!existingOrder) {
       return res.status(404).json({ error: "Booking not found or not assigned to you" });
+    }
+    const isAlreadyCompleted = existingOrder.status === "completed";
+    const updateData = { status, updatedAt: /* @__PURE__ */ new Date() };
+    if (status === "completed") updateData.completedAt = /* @__PURE__ */ new Date();
+    const [order] = await db.update(shopOrders).set(updateData).where(eq4(shopOrders.id, orderId)).returning();
+    if (!order) {
+      return res.status(404).json({ error: "Failed to update booking" });
     }
     let xpAwarded = 0;
     let leveledUp = false;
     let newLevel = Number(providerRecord.level);
     let newBadges = [];
-    if (status === "completed") {
+    if (status === "completed" && !isAlreadyCompleted) {
       const prevTotalBookings = Number(providerRecord.totalBookings);
       await db.update(serviceProviders).set({ totalBookings: prevTotalBookings + 1, updatedAt: /* @__PURE__ */ new Date() }).where(eq4(serviceProviders.id, providerRecord.id));
       if (prevTotalBookings === 0) {
@@ -32750,13 +32755,21 @@ router.get("/provider/stats", authMiddlewareWithFreshData, requireServiceProvide
     }
     const xp = Number(provider.xp);
     const { level, rank, xpInLevel, xpToNextLevel } = calculateProviderLevel(xp);
+    const rawStreak = Number(provider.streakCurrent);
+    const lastDate = provider.streakLastDate ? new Date(provider.streakLastDate) : null;
+    const todayUTC = /* @__PURE__ */ new Date();
+    todayUTC.setUTCHours(0, 0, 0, 0);
+    const yesterdayUTC = new Date(todayUTC);
+    yesterdayUTC.setUTCDate(yesterdayUTC.getUTCDate() - 1);
+    const isStreakAlive = lastDate !== null && lastDate >= yesterdayUTC;
+    const effectiveStreak = isStreakAlive ? rawStreak : 0;
     res.json({
       xp,
       level,
       rank,
       xpInLevel,
       xpToNextLevel,
-      streakCurrent: Number(provider.streakCurrent),
+      streakCurrent: effectiveStreak,
       streakBest: Number(provider.streakBest),
       badges: provider.badges ?? [],
       totalBookings: Number(provider.totalBookings),
