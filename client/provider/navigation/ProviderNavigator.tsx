@@ -26,7 +26,7 @@ const PROVIDER_TABS: TabConfig[] = [
     key: "Bookings",
     icon: "calendar-outline",
     iconFocused: "calendar",
-    label: "Bookings",
+    label: "All Bookings",
     component: ProviderBookingsScreen,
   },
   {

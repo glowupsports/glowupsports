@@ -106,6 +106,15 @@ export default function ProviderProfileScreen() {
               </View>
             )}
             <Text style={styles.profileName}>{displayName}</Text>
+            <Pressable
+              style={styles.editProfileButton}
+              onPress={() =>
+                Alert.alert("Edit Profile", "Profile editing will be available in a future update.")
+              }
+            >
+              <Ionicons name="pencil-outline" size={14} color={Colors.dark.primary} />
+              <Text style={styles.editProfileText}>Edit Profile</Text>
+            </Pressable>
             {provider?.rating ? (
               <StarRating rating={Number(provider.rating)} />
             ) : null}
@@ -252,6 +261,21 @@ const styles = StyleSheet.create({
     fontSize: 22,
     fontWeight: "700",
     color: Colors.dark.text,
+  },
+  editProfileButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    marginTop: 6,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: 6,
+    borderRadius: 20,
+    backgroundColor: Colors.dark.primary + "15",
+  },
+  editProfileText: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: Colors.dark.primary,
   },
   starRow: {
     flexDirection: "row",

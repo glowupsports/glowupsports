@@ -308,6 +308,7 @@ export default function BootScreen({ onBootComplete }: BootScreenProps) {
           {currentRole === "academy_owner" && "Academy Owner"}
           {currentRole === "admin" && "Admin Mode"}
           {currentRole === "platform" && "Platform Mode"}
+          {currentRole === "service_provider" && "Provider Mode"}
         </Text>
       </Animated.View>
     </LinearGradient>
