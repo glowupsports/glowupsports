@@ -111,12 +111,31 @@ function WelcomeHeroRow({ playerName, playStyle }: { playerName: string; playSty
 function StreakMiniCard({ streak, onPress }: { streak: StreakData; onPress: () => void }) {
   const shields = streak.streakShields ?? 0;
   const MAX_SHIELDS = 2;
+  const hasStreak = streak.currentStreak > 0;
+
+  if (!hasStreak) {
+    return (
+      <Pressable style={[hStyles.streakCard, hStyles.streakCardEmpty]} onPress={onPress}>
+        <View style={hStyles.streakFlameWrap}>
+          <Ionicons name="flame-outline" size={20} color={Colors.dark.textSubtle} />
+        </View>
+        <View style={{ flex: 1 }}>
+          <Text style={hStyles.streakStartTitle}>Start your streak</Text>
+          <Text style={hStyles.streakStartSub}>Complete a quest today to begin</Text>
+        </View>
+        <View style={hStyles.streakStartCta}>
+          <Text style={hStyles.streakStartCtaText}>Start Streak</Text>
+          <Ionicons name="chevron-forward" size={12} color={GlowColors.primary} />
+        </View>
+      </Pressable>
+    );
+  }
 
   return (
     <Pressable style={hStyles.streakCard} onPress={onPress}>
       <View style={hStyles.streakLeft}>
         <View style={hStyles.streakFlameWrap}>
-          <Ionicons name="flame" size={20} color={streak.currentStreak > 0 ? "#FF6B35" : Colors.dark.textSubtle} />
+          <Ionicons name="flame" size={20} color="#FF6B35" />
         </View>
         <View>
           <Text style={hStyles.streakCount}>{streak.currentStreak}</Text>
@@ -146,14 +165,14 @@ function StreakMiniCard({ streak, onPress }: { streak: StreakData; onPress: () =
   );
 }
 
-function ActiveQuestCard({ quest, onViewAll }: { quest: Quest | null; onViewAll: () => void }) {
+function ActiveQuestCard({ quest, questType, onViewAll }: { quest: Quest | null; questType: "daily" | "weekly" | null; onViewAll: () => void }) {
   if (!quest) {
     return (
       <Pressable style={hStyles.questCardEmpty} onPress={onViewAll}>
         <Ionicons name="trophy-outline" size={20} color={Colors.dark.textSubtle} />
         <Text style={hStyles.questEmptyText}>No active quest — check your missions</Text>
         <View style={hStyles.questViewAllBtn}>
-          <Text style={hStyles.questViewAllText}>View Missions</Text>
+          <Text style={hStyles.questViewAllText}>View All</Text>
           <Ionicons name="chevron-forward" size={12} color={GlowColors.primary} />
         </View>
       </Pressable>
@@ -161,7 +180,7 @@ function ActiveQuestCard({ quest, onViewAll }: { quest: Quest | null; onViewAll:
   }
 
   const progress = quest.targetProgress > 0 ? Math.min(quest.currentProgress / quest.targetProgress, 1) : 0;
-  const typeLabel = quest.id?.includes("weekly") ? "WEEKLY" : "DAILY";
+  const typeLabel = questType === "weekly" ? "WEEKLY" : "DAILY";
   const typeColor = typeLabel === "WEEKLY" ? "#9B59B6" : "#00D4FF";
 
   return (
@@ -471,18 +490,21 @@ function PlayerHomeContent() {
     lastActiveDate: null, streakShields: 0, totalDaysActive: 0,
   };
 
-  const activeQuest: Quest | null = useMemo(() => {
-    if (!questsData) return null;
-    const allActive = [
-      ...questsData.daily.filter(q => q.status === "active" || q.status === "in_progress"),
-      ...questsData.weekly.filter(q => q.status === "active" || q.status === "in_progress"),
+  const { activeQuest, activeQuestType } = useMemo(() => {
+    if (!questsData) return { activeQuest: null, activeQuestType: null };
+    const dailyActive = questsData.daily.filter(q => q.status === "active" || q.status === "in_progress");
+    const weeklyActive = questsData.weekly.filter(q => q.status === "active" || q.status === "in_progress");
+    const tagged: { quest: Quest; type: "daily" | "weekly" }[] = [
+      ...dailyActive.map(q => ({ quest: q, type: "daily" as const })),
+      ...weeklyActive.map(q => ({ quest: q, type: "weekly" as const })),
     ];
-    if (allActive.length === 0) return null;
-    return allActive.sort((a, b) => {
-      const aRatio = a.targetProgress > 0 ? a.currentProgress / a.targetProgress : 0;
-      const bRatio = b.targetProgress > 0 ? b.currentProgress / b.targetProgress : 0;
+    if (tagged.length === 0) return { activeQuest: null, activeQuestType: null };
+    const sorted = tagged.sort((a, b) => {
+      const aRatio = a.quest.targetProgress > 0 ? a.quest.currentProgress / a.quest.targetProgress : 0;
+      const bRatio = b.quest.targetProgress > 0 ? b.quest.currentProgress / b.quest.targetProgress : 0;
       return bRatio - aRatio;
-    })[0];
+    });
+    return { activeQuest: sorted[0].quest, activeQuestType: sorted[0].type };
   }, [questsData]);
 
   if (!isGuest && (isLoading || !effectiveData)) {
@@ -662,6 +684,7 @@ function PlayerHomeContent() {
         {!isGuest ? (
           <ActiveQuestCard
             quest={activeQuest}
+            questType={activeQuestType}
             onViewAll={() => {
               Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
               navigation.navigate("Quests" as never);
@@ -893,6 +916,33 @@ const hStyles = StyleSheet.create({
     marginHorizontal: Spacing.lg,
     paddingHorizontal: Spacing.lg,
     paddingVertical: Spacing.md,
+  },
+  streakCardEmpty: {
+    gap: Spacing.sm,
+  },
+  streakStartTitle: {
+    fontSize: 13,
+    fontWeight: "700",
+    color: Colors.dark.text,
+  },
+  streakStartSub: {
+    fontSize: 11,
+    color: Colors.dark.textSubtle,
+    marginTop: 1,
+  },
+  streakStartCta: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 2,
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 4,
+    borderRadius: BorderRadius.full,
+    backgroundColor: "rgba(200,255,61,0.08)",
+  },
+  streakStartCtaText: {
+    fontSize: 11,
+    fontWeight: "700",
+    color: GlowColors.primary,
   },
   streakLeft: {
     flexDirection: "row",
