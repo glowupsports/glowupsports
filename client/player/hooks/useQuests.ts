@@ -67,9 +67,10 @@ export interface MissionControlData {
   };
 }
 
-export function useQuests() {
+export function useQuests(enabled: boolean = true) {
   return useQuery<QuestsData>({
     queryKey: ["/api/quests"],
+    enabled,
   });
 }
 

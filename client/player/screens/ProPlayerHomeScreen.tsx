@@ -260,7 +260,7 @@ function PlayerHomeContent() {
     enabled: !!user?.playerId && !isGuest,
   });
 
-  const { data: questsData } = useQuests();
+  const { data: questsData } = useQuests(!isGuest);
 
   const effectiveData = isGuest ? guestDashboard : dashboardData;
 
