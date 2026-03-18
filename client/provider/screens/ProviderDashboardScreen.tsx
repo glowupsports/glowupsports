@@ -123,15 +123,26 @@ function ActionCard({
   isUpdating: boolean;
 }) {
   const serviceName = booking.items?.[0]?.service?.name ?? booking.items?.[0]?.name ?? "Service Booking";
+  const serviceIcon = (booking.items?.[0]?.service?.iconName as any) ?? "build-outline";
   return (
     <Pressable style={styles.actionCard} onPress={onPress}>
       <View style={styles.actionCardTop}>
-        <PlayerAvatar uri={booking.player?.profilePhotoUrl} size={36} />
+        <View style={styles.actionAvatarContainer}>
+          <PlayerAvatar uri={booking.player?.profilePhotoUrl} size={36} />
+          {booking.player?.level ? (
+            <View style={styles.levelBadge}>
+              <Text style={styles.levelBadgeText}>{booking.player.level}</Text>
+            </View>
+          ) : null}
+        </View>
         <View style={styles.actionCardInfo}>
           <Text style={styles.actionCardPlayer} numberOfLines={1}>
             {booking.player?.name ?? "Unknown Player"}
           </Text>
-          <Text style={styles.actionCardService} numberOfLines={1}>{serviceName}</Text>
+          <View style={styles.actionServiceRow}>
+            <Ionicons name={serviceIcon} size={11} color={Colors.dark.textSecondary} />
+            <Text style={styles.actionCardService} numberOfLines={1}>{serviceName}</Text>
+          </View>
         </View>
         <View style={styles.actionCardTime}>
           <Ionicons name="time-outline" size={12} color={Colors.dark.textSecondary} />
@@ -160,6 +171,7 @@ function ActionCard({
 
 function ScheduleRow({ booking, onPress }: { booking: Booking; onPress: () => void }) {
   const serviceName = booking.items?.[0]?.service?.name ?? booking.items?.[0]?.name ?? "Service";
+  const serviceIcon = (booking.items?.[0]?.service?.iconName as any) ?? "build-outline";
   const statusColor = STATUS_COLORS[booking.status] ?? Colors.dark.textSecondary;
   const statusLabel = STATUS_LABELS[booking.status] ?? booking.status;
   return (
@@ -169,7 +181,10 @@ function ScheduleRow({ booking, onPress }: { booking: Booking; onPress: () => vo
       </View>
       <View style={[styles.scheduleBar, { backgroundColor: statusColor }]} />
       <View style={styles.scheduleBody}>
-        <Text style={styles.scheduleName} numberOfLines={1}>{serviceName}</Text>
+        <View style={styles.scheduleNameRow}>
+          <Ionicons name={serviceIcon} size={13} color={Colors.dark.textSecondary} />
+          <Text style={styles.scheduleName} numberOfLines={1}>{serviceName}</Text>
+        </View>
         {booking.player ? (
           <View style={styles.schedulePlayerRow}>
             <PlayerAvatar uri={booking.player.profilePhotoUrl} size={16} />
@@ -310,9 +325,8 @@ export default function ProviderDashboardScreen() {
                   <Text style={styles.ratingText}>{rating.toFixed(1)}</Text>
                   <Text style={styles.totalBookingsText}>· {profile?.totalBookings ?? 0} bookings</Text>
                 </View>
-              ) : (
-                <Text style={styles.greetingSuffix}>{primary.greetingSuffix}</Text>
-              )}
+              ) : null}
+              <Text style={styles.greetingSuffix}>{primary.greetingSuffix}</Text>
               <View style={styles.rankPlaceholder}>
                 <Ionicons name="ribbon-outline" size={12} color={Colors.dark.textSecondary} />
                 <Text style={styles.rankPlaceholderText}>Rank system coming soon</Text>
@@ -548,8 +562,32 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: Spacing.sm,
   },
+  actionAvatarContainer: {
+    position: "relative",
+  },
+  levelBadge: {
+    position: "absolute",
+    bottom: -3,
+    right: -3,
+    backgroundColor: Colors.dark.primary,
+    borderRadius: 6,
+    paddingHorizontal: 4,
+    paddingVertical: 1,
+    minWidth: 18,
+    alignItems: "center",
+  },
+  levelBadgeText: {
+    fontSize: 9,
+    fontWeight: "800",
+    color: "#000",
+  },
   actionCardInfo: { flex: 1, gap: 2 },
   actionCardPlayer: { fontSize: 14, fontWeight: "700", color: Colors.dark.text },
+  actionServiceRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+  },
   actionCardService: { fontSize: 12, color: Colors.dark.textSecondary },
   actionCardTime: {
     flexDirection: "row",
@@ -605,7 +643,12 @@ const styles = StyleSheet.create({
   scheduleTime: { fontSize: 12, fontWeight: "600", color: Colors.dark.textSecondary, textAlign: "center" },
   scheduleBar: { width: 3, height: 40, borderRadius: 2 },
   scheduleBody: { flex: 1, gap: 4 },
-  scheduleName: { fontSize: 14, fontWeight: "600", color: Colors.dark.text },
+  scheduleNameRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+  },
+  scheduleName: { flex: 1, fontSize: 14, fontWeight: "600", color: Colors.dark.text },
   schedulePlayerRow: { flexDirection: "row", alignItems: "center", gap: 5 },
   schedulePlayerName: { fontSize: 12, color: Colors.dark.textSecondary },
   statusPill: { paddingHorizontal: 8, paddingVertical: 4, borderRadius: 8 },

@@ -32318,7 +32318,7 @@ router.post("/academy/shop/providers", authMiddlewareWithFreshData, requireRole(
 router.patch("/academy/shop/providers/:id", authMiddlewareWithFreshData, requireRole("academy_owner", "coach", "admin", "platform_owner"), async (req2, res) => {
   try {
     const { id } = req2.params;
-    const { displayName, bio, phone, serviceTypes, specializations, isActive } = req2.body;
+    const { displayName, bio, phone, serviceTypes, specializations, isActive, isOnboarded } = req2.body;
     const updateData = { updatedAt: /* @__PURE__ */ new Date() };
     if (displayName !== void 0) updateData.displayName = displayName;
     if (bio !== void 0) updateData.bio = bio;
@@ -32326,6 +32326,7 @@ router.patch("/academy/shop/providers/:id", authMiddlewareWithFreshData, require
     if (serviceTypes !== void 0) updateData.serviceTypes = serviceTypes;
     if (specializations !== void 0) updateData.specializations = specializations;
     if (isActive !== void 0) updateData.isActive = isActive;
+    if (isOnboarded !== void 0) updateData.isOnboarded = isOnboarded;
     const [provider] = await db.update(serviceProviders).set(updateData).where(and3(eq3(serviceProviders.id, id), eq3(serviceProviders.academyId, req2.user.academyId))).returning();
     if (!provider) return res.status(404).json({ error: "Provider not found" });
     res.json(provider);

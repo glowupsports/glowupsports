@@ -1016,7 +1016,7 @@ router.post("/academy/shop/providers", authMiddleware, requireRole("academy_owne
 router.patch("/academy/shop/providers/:id", authMiddleware, requireRole("academy_owner", "coach", "admin", "platform_owner"), async (req: AuthRequest, res: Response) => {
   try {
     const { id } = req.params;
-    const { displayName, bio, phone, serviceTypes, specializations, isActive } = req.body;
+    const { displayName, bio, phone, serviceTypes, specializations, isActive, isOnboarded } = req.body;
 
     const updateData: Record<string, unknown> = { updatedAt: new Date() };
     if (displayName !== undefined) updateData.displayName = displayName;
@@ -1025,6 +1025,7 @@ router.patch("/academy/shop/providers/:id", authMiddleware, requireRole("academy
     if (serviceTypes !== undefined) updateData.serviceTypes = serviceTypes;
     if (specializations !== undefined) updateData.specializations = specializations;
     if (isActive !== undefined) updateData.isActive = isActive;
+    if (isOnboarded !== undefined) updateData.isOnboarded = isOnboarded;
 
     const [provider] = await db.update(serviceProviders)
       .set(updateData)
