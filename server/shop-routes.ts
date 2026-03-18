@@ -1353,7 +1353,7 @@ router.patch("/provider/bookings/:orderId/status", authMiddleware, requireServic
 
     const [postTxProvider] = await db.select({ xp: serviceProviders.xp })
       .from(serviceProviders)
-      .where(eq(serviceProviders.userId, userId))
+      .where(eq(serviceProviders.userId, req.user!.userId))
       .limit(1);
     const { rank: newRank } = calculateProviderLevel(Number(postTxProvider?.xp ?? 0));
     res.json({ ...order!, xpAwarded, leveledUp, newLevel, newRank, newBadges });
