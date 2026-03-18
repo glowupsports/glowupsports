@@ -107,7 +107,7 @@ router.get("/player/shop/xp-discount", authMiddleware, requirePlayerProfile, req
     } else if (level >= 41) {
       discountPercent = 20;
       tierName = "Master";
-      nextTierLevel = 51;
+      nextTierLevel = 50;
     } else if (level >= 31) {
       discountPercent = 15;
       tierName = "Elite";
