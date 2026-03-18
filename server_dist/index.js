@@ -32430,12 +32430,6 @@ router.patch("/academy/shop/orders/:id/status", authMiddlewareWithFreshData, req
     if (!order) {
       return res.status(404).json({ error: "Order not found" });
     }
-    if (assignedProviderId) {
-      await db.execute(sql6`
-        UPDATE service_providers SET total_bookings = total_bookings + 1, updated_at = NOW()
-        WHERE id = ${assignedProviderId}
-      `);
-    }
     res.json(order);
   } catch (error) {
     console.error("[Shop] Error updating order:", error);
@@ -32737,20 +32731,27 @@ router.patch("/provider/bookings/:orderId/status", authMiddlewareWithFreshData, 
       }
       const [refreshed] = await db.select().from(serviceProviders).where(eq4(serviceProviders.id, providerRecord.id)).limit(1);
       const currentRating = Number(refreshed?.rating ?? 0);
-      if (currentRating >= 4.9) {
-        const fsr = await awardXP(db, providerRecord.id, XP_AWARDS.FIVE_STAR_RATING, "five_star_rating");
-        xpAwarded += XP_AWARDS.FIVE_STAR_RATING;
-        if (fsr.leveledUp) {
-          leveledUp = true;
-          newLevel = fsr.newLevel;
-        }
-      }
       newBadges = await checkAndAwardBadges(db, providerRecord.id, {
         totalBookings: Number(refreshed?.totalBookings ?? prevTotalBookings + 1),
         rating: currentRating,
         streakCurrent: streakResult.streakCurrent,
         leveledUp
       });
+      if (newBadges.includes("five_star")) {
+        const fsr = await awardXP(db, providerRecord.id, XP_AWARDS.FIVE_STAR_RATING, "five_star_rating");
+        xpAwarded += XP_AWARDS.FIVE_STAR_RATING;
+        if (fsr.leveledUp) {
+          leveledUp = true;
+          newLevel = fsr.newLevel;
+          const secondPassBadges = await checkAndAwardBadges(db, providerRecord.id, {
+            totalBookings: Number(refreshed?.totalBookings ?? prevTotalBookings + 1),
+            rating: currentRating,
+            streakCurrent: streakResult.streakCurrent,
+            leveledUp: true
+          });
+          newBadges = [...newBadges, ...secondPassBadges.filter((b) => !newBadges.includes(b))];
+        }
+      }
     }
     res.json({ ...order, xpAwarded, leveledUp, newLevel, newBadges });
   } catch (error) {
