@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
   View,
   Text,
@@ -11,7 +11,7 @@ import {
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Ionicons from "@expo/vector-icons/Ionicons";
-import Animated, { FadeInUp } from "react-native-reanimated";
+import Animated, { FadeInUp, FadeInDown, FadeOutDown } from "react-native-reanimated";
 import { useNavigation, useRoute } from "@react-navigation/native";
 import { apiRequest, getStaticAssetsUrl } from "@/lib/query-client";
 import { Colors, Spacing } from "@/constants/theme";
@@ -97,12 +97,25 @@ function InfoRow({
   );
 }
 
+interface CompletionToast {
+  xpAwarded: number;
+  leveledUp: boolean;
+  newLevel: number;
+  newBadges: string[];
+}
+
 export default function ProviderBookingDetailScreen() {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<any>();
   const route = useRoute<any>();
   const queryClient = useQueryClient();
   const orderId: string = route.params?.orderId;
+  const [completionToast, setCompletionToast] = useState<CompletionToast | null>(null);
+  const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    return () => { if (toastTimer.current) clearTimeout(toastTimer.current); };
+  }, []);
 
   const { data: allBookings = [] } = useQuery<Booking[]>({
     queryKey: ["/api/provider/me/bookings"],
@@ -111,14 +124,28 @@ export default function ProviderBookingDetailScreen() {
   const booking = allBookings.find((b) => b.id === orderId);
 
   const statusMutation = useMutation({
-    mutationFn: (status: string) =>
-      apiRequest("PATCH", `/api/provider/bookings/${orderId}/status`, {
-        status,
-      }),
-    onSuccess: () => {
+    mutationFn: async (status: string) => {
+      const res = await apiRequest("PATCH", `/api/provider/bookings/${orderId}/status`, { status });
+      return res.json() as Promise<any>;
+    },
+    onSuccess: (data, status) => {
       queryClient.invalidateQueries({ queryKey: ["/api/provider/me/bookings"] });
       queryClient.invalidateQueries({ queryKey: ["/api/provider/me/bookings", { date: "today" }] });
-      setTimeout(() => navigation.goBack(), 350);
+      queryClient.invalidateQueries({ queryKey: ["/api/provider/stats"] });
+      if (status === "completed" && data && Number(data.xpAwarded) > 0) {
+        setCompletionToast({
+          xpAwarded: Number(data.xpAwarded),
+          leveledUp: Boolean(data.leveledUp),
+          newLevel: Number(data.newLevel),
+          newBadges: Array.isArray(data.newBadges) ? data.newBadges : [],
+        });
+        toastTimer.current = setTimeout(() => {
+          setCompletionToast(null);
+          setTimeout(() => navigation.goBack(), 200);
+        }, 3000);
+      } else {
+        setTimeout(() => navigation.goBack(), 350);
+      }
     },
     onError: () =>
       Alert.alert("Error", "Failed to update booking status. Please try again."),
@@ -352,6 +379,31 @@ export default function ProviderBookingDetailScreen() {
           </Animated.View>
         ) : null}
       </ScrollView>
+
+      {completionToast ? (
+        <Animated.View
+          entering={FadeInDown.duration(350)}
+          exiting={FadeOutDown.duration(300)}
+          style={[styles.achievementToast, { bottom: insets.bottom + 90 }]}
+        >
+          <View style={styles.achievementToastInner}>
+            <View style={styles.achievementIconRow}>
+              <Ionicons name="flash" size={20} color={Colors.dark.primary} />
+            </View>
+            <View style={{ flex: 1 }}>
+              {completionToast.leveledUp ? (
+                <Text style={styles.achievementTitle}>Level Up! Lv.{completionToast.newLevel}</Text>
+              ) : (
+                <Text style={styles.achievementTitle}>Booking Complete!</Text>
+              )}
+              <Text style={styles.achievementSub}>
+                +{completionToast.xpAwarded} XP earned
+                {completionToast.newBadges.length > 0 ? `  •  ${completionToast.newBadges.length} badge${completionToast.newBadges.length > 1 ? "s" : ""} unlocked` : ""}
+              </Text>
+            </View>
+          </View>
+        </Animated.View>
+      ) : null}
 
       {(booking.status === "pending" || booking.status === "confirmed") ? (
         <Animated.View
@@ -629,6 +681,41 @@ const styles = StyleSheet.create({
   },
   actionButtonText: {
     fontSize: 15,
+    fontWeight: "600",
+  },
+  achievementToast: {
+    position: "absolute",
+    left: Spacing.lg,
+    right: Spacing.lg,
+    zIndex: 100,
+  },
+  achievementToastInner: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+    backgroundColor: Colors.dark.backgroundSecondary,
+    borderRadius: 16,
+    padding: Spacing.md,
+    borderWidth: 1,
+    borderColor: Colors.dark.primary + "40",
+  },
+  achievementIconRow: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    backgroundColor: Colors.dark.primary + "20",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  achievementTitle: {
+    fontSize: 15,
+    fontWeight: "700",
+    color: Colors.dark.text,
+  },
+  achievementSub: {
+    fontSize: 12,
+    color: Colors.dark.primary,
+    marginTop: 2,
     fontWeight: "600",
   },
 });
