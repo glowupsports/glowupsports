@@ -4236,6 +4236,7 @@ export const serviceProviders = pgTable("service_providers", {
   serviceTypes: jsonb("service_types").$type<string[]>().default([]),
 
   isActive: boolean("is_active").default(true),
+  isOnboarded: boolean("is_onboarded").default(false),
   rating: numeric("rating", { precision: 3, scale: 2 }).default("0"),
   totalBookings: integer("total_bookings").default(0),
 

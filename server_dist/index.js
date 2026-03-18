@@ -3605,6 +3605,7 @@ var init_schema = __esm({
       specializations: jsonb("specializations").$type().default([]),
       serviceTypes: jsonb("service_types").$type().default([]),
       isActive: boolean("is_active").default(true),
+      isOnboarded: boolean("is_onboarded").default(false),
       rating: numeric("rating", { precision: 3, scale: 2 }).default("0"),
       totalBookings: integer("total_bookings").default(0),
       createdAt: timestamp("created_at").defaultNow(),
@@ -32367,6 +32368,7 @@ router.get("/provider/me", authMiddlewareWithFreshData, requireServiceProvider, 
       specializations: serviceProviders.specializations,
       serviceTypes: serviceProviders.serviceTypes,
       isActive: serviceProviders.isActive,
+      isOnboarded: serviceProviders.isOnboarded,
       rating: serviceProviders.rating,
       totalBookings: serviceProviders.totalBookings,
       createdAt: serviceProviders.createdAt,
@@ -32380,6 +32382,25 @@ router.get("/provider/me", authMiddlewareWithFreshData, requireServiceProvider, 
   } catch (error) {
     console.error("[Provider] Error fetching profile:", error);
     res.status(500).json({ error: "Failed to load profile" });
+  }
+});
+router.patch("/provider/me", authMiddlewareWithFreshData, requireServiceProvider, async (req2, res) => {
+  try {
+    const { displayName, bio, phone, specializations, isOnboarded } = req2.body;
+    const updateData = { updatedAt: /* @__PURE__ */ new Date() };
+    if (displayName !== void 0) updateData.displayName = displayName;
+    if (bio !== void 0) updateData.bio = bio;
+    if (phone !== void 0) updateData.phone = phone;
+    if (specializations !== void 0) updateData.specializations = specializations;
+    if (isOnboarded !== void 0) updateData.isOnboarded = isOnboarded;
+    const [provider] = await db.update(serviceProviders).set(updateData).where(eq3(serviceProviders.userId, req2.user.userId)).returning();
+    if (!provider) {
+      return res.status(404).json({ error: "Provider profile not found" });
+    }
+    res.json(provider);
+  } catch (error) {
+    console.error("[Provider] Error updating profile:", error);
+    res.status(500).json({ error: "Failed to update profile" });
   }
 });
 router.get("/provider/me/bookings", authMiddlewareWithFreshData, requireServiceProvider, async (req2, res) => {

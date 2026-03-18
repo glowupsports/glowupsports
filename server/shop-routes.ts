@@ -1081,6 +1081,7 @@ router.get("/provider/me", authMiddleware, requireServiceProvider, async (req: A
       specializations: serviceProviders.specializations,
       serviceTypes: serviceProviders.serviceTypes,
       isActive: serviceProviders.isActive,
+      isOnboarded: serviceProviders.isOnboarded,
       rating: serviceProviders.rating,
       totalBookings: serviceProviders.totalBookings,
       createdAt: serviceProviders.createdAt,
@@ -1100,6 +1101,34 @@ router.get("/provider/me", authMiddleware, requireServiceProvider, async (req: A
   } catch (error) {
     console.error("[Provider] Error fetching profile:", error);
     res.status(500).json({ error: "Failed to load profile" });
+  }
+});
+
+// Update own provider profile (specializations, isOnboarded, bio, phone)
+router.patch("/provider/me", authMiddleware, requireServiceProvider, async (req: AuthRequest, res: Response) => {
+  try {
+    const { displayName, bio, phone, specializations, isOnboarded } = req.body;
+
+    const updateData: Record<string, unknown> = { updatedAt: new Date() };
+    if (displayName !== undefined) updateData.displayName = displayName;
+    if (bio !== undefined) updateData.bio = bio;
+    if (phone !== undefined) updateData.phone = phone;
+    if (specializations !== undefined) updateData.specializations = specializations;
+    if (isOnboarded !== undefined) updateData.isOnboarded = isOnboarded;
+
+    const [provider] = await db.update(serviceProviders)
+      .set(updateData)
+      .where(eq(serviceProviders.userId, req.user!.userId))
+      .returning();
+
+    if (!provider) {
+      return res.status(404).json({ error: "Provider profile not found" });
+    }
+
+    res.json(provider);
+  } catch (error) {
+    console.error("[Provider] Error updating profile:", error);
+    res.status(500).json({ error: "Failed to update profile" });
   }
 });
 
