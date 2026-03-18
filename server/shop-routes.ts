@@ -1333,6 +1333,8 @@ router.patch("/provider/bookings/:orderId/status", authMiddleware, requireServic
           leveledUp,
         });
 
+        // 5-star XP is intentionally one-time and badge-gated: awarded only when the
+        // `five_star` badge is first unlocked (rating threshold crossed), not per booking.
         if (newBadges.includes("five_star")) {
           const fsr = await awardXP(tx, providerRecord.id, XP_AWARDS.FIVE_STAR_RATING, "five_star_rating");
           xpAwarded += XP_AWARDS.FIVE_STAR_RATING;

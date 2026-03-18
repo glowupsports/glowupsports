@@ -154,6 +154,8 @@ export async function updateStreak(
 
   const prevStreak = streakCurrent;
 
+  // If last booking was yesterday: continue streak. Any older date: streak is broken.
+  // This write-path reset guarantees DB consistency on every booking completion.
   if (current.streakLastDate === yesterdayStr) {
     streakCurrent += 1;
   } else {
