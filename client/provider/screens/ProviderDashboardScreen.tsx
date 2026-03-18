@@ -123,7 +123,10 @@ function ActionCard({
   isUpdating: boolean;
 }) {
   const serviceName = booking.items?.[0]?.service?.name ?? booking.items?.[0]?.name ?? "Service Booking";
-  const serviceIcon = (booking.items?.[0]?.service?.iconName as any) ?? "build-outline";
+  const rawIcon = booking.items?.[0]?.service?.iconName;
+  const serviceIcon: keyof typeof Ionicons.glyphMap = (rawIcon && rawIcon in Ionicons.glyphMap)
+    ? (rawIcon as keyof typeof Ionicons.glyphMap)
+    : "build-outline";
   return (
     <Pressable style={styles.actionCard} onPress={onPress}>
       <View style={styles.actionCardTop}>
@@ -171,7 +174,10 @@ function ActionCard({
 
 function ScheduleRow({ booking, onPress }: { booking: Booking; onPress: () => void }) {
   const serviceName = booking.items?.[0]?.service?.name ?? booking.items?.[0]?.name ?? "Service";
-  const serviceIcon = (booking.items?.[0]?.service?.iconName as any) ?? "build-outline";
+  const rawScheduleIcon = booking.items?.[0]?.service?.iconName;
+  const serviceIcon: keyof typeof Ionicons.glyphMap = (rawScheduleIcon && rawScheduleIcon in Ionicons.glyphMap)
+    ? (rawScheduleIcon as keyof typeof Ionicons.glyphMap)
+    : "build-outline";
   const statusColor = STATUS_COLORS[booking.status] ?? Colors.dark.textSecondary;
   const statusLabel = STATUS_LABELS[booking.status] ?? booking.status;
   return (
