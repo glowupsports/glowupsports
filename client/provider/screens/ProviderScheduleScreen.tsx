@@ -59,8 +59,10 @@ const MONTH_LABELS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "S
 
 function getWeekDays(): Date[] {
   const now = new Date();
+  const dayOfWeek = now.getDay();
+  const mondayOffset = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
   const startOfWeek = new Date(now);
-  startOfWeek.setDate(now.getDate() - now.getDay());
+  startOfWeek.setDate(now.getDate() + mondayOffset);
   return Array.from({ length: 7 }, (_, i) => {
     const d = new Date(startOfWeek);
     d.setDate(startOfWeek.getDate() + i);

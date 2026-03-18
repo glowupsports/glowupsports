@@ -8,6 +8,8 @@ import {
   Alert,
   Image,
   Modal,
+  TextInput,
+  ActivityIndicator,
 } from "react-native";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -28,6 +30,7 @@ interface ProviderProfile {
   userId: string;
   displayName: string;
   bio: string | null;
+  phone: string | null;
   profilePhotoUrl: string | null;
   specializations: string[];
   rating: string | null;
@@ -49,6 +52,112 @@ function StarRating({ rating }: { rating: number }) {
       ))}
       <Text style={styles.ratingText}>{Number(rating).toFixed(1)}</Text>
     </View>
+  );
+}
+
+function EditProfileModal({
+  visible,
+  initialName,
+  initialBio,
+  initialPhone,
+  onClose,
+  onSave,
+}: {
+  visible: boolean;
+  initialName: string;
+  initialBio: string;
+  initialPhone: string;
+  onClose: () => void;
+  onSave: (name: string, bio: string, phone: string) => Promise<void>;
+}) {
+  const insets = useSafeAreaInsets();
+  const [name, setName] = useState(initialName);
+  const [bio, setBio] = useState(initialBio);
+  const [phone, setPhone] = useState(initialPhone);
+  const [saving, setSaving] = useState(false);
+
+  const handleSave = async () => {
+    if (!name.trim()) {
+      Alert.alert("Name required", "Please enter your display name.");
+      return;
+    }
+    setSaving(true);
+    try {
+      await onSave(name.trim(), bio.trim(), phone.trim());
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <Modal visible={visible} animationType="slide" presentationStyle="pageSheet">
+      <View style={[editModalStyles.container, { paddingTop: insets.top + Spacing.sm }]}>
+        <View style={editModalStyles.header}>
+          <Pressable onPress={onClose} style={editModalStyles.cancelBtn}>
+            <Text style={editModalStyles.cancelText}>Cancel</Text>
+          </Pressable>
+          <Text style={editModalStyles.title}>Edit Profile</Text>
+          <Pressable
+            onPress={handleSave}
+            style={[editModalStyles.saveBtn, saving && { opacity: 0.5 }]}
+            disabled={saving}
+          >
+            {saving ? (
+              <ActivityIndicator size="small" color={Colors.dark.primary} />
+            ) : (
+              <Text style={editModalStyles.saveText}>Save</Text>
+            )}
+          </Pressable>
+        </View>
+
+        <ScrollView
+          contentContainerStyle={editModalStyles.body}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+        >
+          <View style={editModalStyles.field}>
+            <Text style={editModalStyles.label}>Display Name</Text>
+            <TextInput
+              style={editModalStyles.input}
+              value={name}
+              onChangeText={setName}
+              placeholder="Your professional name"
+              placeholderTextColor={Colors.dark.textSecondary}
+              maxLength={60}
+            />
+          </View>
+
+          <View style={editModalStyles.field}>
+            <Text style={editModalStyles.label}>Phone</Text>
+            <TextInput
+              style={editModalStyles.input}
+              value={phone}
+              onChangeText={setPhone}
+              placeholder="+971 50 000 0000"
+              placeholderTextColor={Colors.dark.textSecondary}
+              keyboardType="phone-pad"
+              maxLength={20}
+            />
+          </View>
+
+          <View style={editModalStyles.field}>
+            <Text style={editModalStyles.label}>Bio</Text>
+            <TextInput
+              style={[editModalStyles.input, editModalStyles.bioInput]}
+              value={bio}
+              onChangeText={setBio}
+              placeholder="Tell clients about your background and expertise..."
+              placeholderTextColor={Colors.dark.textSecondary}
+              multiline
+              numberOfLines={4}
+              maxLength={300}
+              textAlignVertical="top"
+            />
+            <Text style={editModalStyles.charCount}>{bio.length}/300</Text>
+          </View>
+        </ScrollView>
+      </View>
+    </Modal>
   );
 }
 
@@ -130,6 +239,7 @@ export default function ProviderProfileScreen() {
   const insets = useSafeAreaInsets();
   const { signOut, user } = useAuth();
   const queryClient = useQueryClient();
+  const [showEditProfile, setShowEditProfile] = useState(false);
   const [showEditSpecs, setShowEditSpecs] = useState(false);
 
   const { data: provider, isLoading } = useQuery<ProviderProfile>({
@@ -141,6 +251,21 @@ export default function ProviderProfileScreen() {
       { text: "Cancel", style: "cancel" },
       { text: "Sign Out", style: "destructive", onPress: () => signOut() },
     ]);
+  };
+
+  const handleSaveProfile = async (name: string, bio: string, phone: string) => {
+    try {
+      const res = await apiRequest("PATCH", "/api/provider/me", {
+        displayName: name,
+        bio: bio || null,
+        phone: phone || null,
+      });
+      if (!res.ok) throw new Error("Failed");
+      await queryClient.invalidateQueries({ queryKey: ["/api/provider/me"] });
+      setShowEditProfile(false);
+    } catch {
+      Alert.alert("Error", "Could not save profile. Please try again.");
+    }
   };
 
   const handleSaveSpecs = async (specs: ProviderSpecialization[]) => {
@@ -186,9 +311,7 @@ export default function ProviderProfileScreen() {
             <Text style={styles.profileName}>{displayName}</Text>
             <Pressable
               style={styles.editProfileButton}
-              onPress={() =>
-                Alert.alert("Edit Profile", "Profile editing will be available in a future update.")
-              }
+              onPress={() => setShowEditProfile(true)}
             >
               <Ionicons name="pencil-outline" size={14} color={Colors.dark.primary} />
               <Text style={styles.editProfileText}>Edit Profile</Text>
@@ -244,7 +367,7 @@ export default function ProviderProfileScreen() {
             <Text style={styles.sectionLabel}>ACHIEVEMENTS</Text>
             <View style={styles.achievementsPlaceholder}>
               <Ionicons name="trophy-outline" size={24} color={Colors.dark.textSecondary} />
-              <Text style={styles.achievementsPlaceholderText}>Badges & achievements coming soon</Text>
+              <Text style={styles.achievementsPlaceholderText}>Badges and achievements coming soon</Text>
             </View>
           </View>
         </Animated.View>
@@ -293,6 +416,16 @@ export default function ProviderProfileScreen() {
                 <Text style={styles.accountLabel}>Email</Text>
                 <Text style={styles.accountValue}>{user?.email ?? "—"}</Text>
               </View>
+              {provider?.phone ? (
+                <>
+                  <View style={styles.accountDivider} />
+                  <View style={styles.accountRow}>
+                    <Ionicons name="call-outline" size={18} color={Colors.dark.textSecondary} />
+                    <Text style={styles.accountLabel}>Phone</Text>
+                    <Text style={styles.accountValue}>{provider.phone}</Text>
+                  </View>
+                </>
+              ) : null}
             </View>
           </View>
         </Animated.View>
@@ -305,6 +438,15 @@ export default function ProviderProfileScreen() {
         </Animated.View>
       </ScrollView>
 
+      <EditProfileModal
+        visible={showEditProfile}
+        initialName={displayName}
+        initialBio={provider?.bio ?? ""}
+        initialPhone={provider?.phone ?? ""}
+        onClose={() => setShowEditProfile(false)}
+        onSave={handleSaveProfile}
+      />
+
       <EditSpecializationsModal
         visible={showEditSpecs}
         current={specs}
@@ -314,6 +456,65 @@ export default function ProviderProfileScreen() {
     </View>
   );
 }
+
+const editModalStyles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: Colors.dark.backgroundRoot,
+  },
+  header: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: Spacing.lg,
+    paddingVertical: Spacing.md,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.dark.border,
+  },
+  title: {
+    fontSize: 17,
+    fontWeight: "700",
+    color: Colors.dark.text,
+  },
+  cancelBtn: { paddingVertical: 4, paddingHorizontal: 4 },
+  cancelText: { fontSize: 16, color: Colors.dark.textSecondary },
+  saveBtn: { paddingVertical: 4, paddingHorizontal: 4, minWidth: 44, alignItems: "flex-end" },
+  saveText: { fontSize: 16, fontWeight: "700", color: Colors.dark.primary },
+  body: {
+    paddingHorizontal: Spacing.lg,
+    paddingTop: Spacing.lg,
+    paddingBottom: 120,
+  },
+  field: { marginBottom: Spacing.lg },
+  label: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: Colors.dark.textSecondary,
+    letterSpacing: 0.8,
+    textTransform: "uppercase",
+    marginBottom: Spacing.sm,
+  },
+  input: {
+    backgroundColor: Colors.dark.backgroundSecondary,
+    borderRadius: 12,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: 14,
+    fontSize: 15,
+    color: Colors.dark.text,
+    borderWidth: 1,
+    borderColor: Colors.dark.border,
+  },
+  bioInput: {
+    height: 110,
+    paddingTop: 14,
+  },
+  charCount: {
+    textAlign: "right",
+    fontSize: 11,
+    color: Colors.dark.textSecondary,
+    marginTop: 4,
+  },
+});
 
 const modalStyles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.dark.backgroundRoot },

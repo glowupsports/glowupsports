@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
   View,
   Text,
@@ -12,7 +12,14 @@ import {
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Ionicons from "@expo/vector-icons/Ionicons";
-import Animated, { FadeInUp } from "react-native-reanimated";
+import Animated, {
+  FadeInUp,
+  useSharedValue,
+  withRepeat,
+  withSequence,
+  withTiming,
+  useAnimatedStyle,
+} from "react-native-reanimated";
 import { useNavigation } from "@react-navigation/native";
 import { useAuth } from "@/coach/context/AuthContext";
 import { Colors, Spacing } from "@/constants/theme";
@@ -212,6 +219,8 @@ export default function ProviderDashboardScreen() {
   const { user } = useAuth();
   const queryClient = useQueryClient();
   const [updatingId, setUpdatingId] = useState<string | null>(null);
+  const pendingPulse = useSharedValue(1);
+  const pendingAnimStyle = useAnimatedStyle(() => ({ opacity: pendingPulse.value }));
 
   const { data: profile } = useQuery<ProviderProfile>({
     queryKey: ["/api/provider/me"],
@@ -286,6 +295,21 @@ export default function ProviderDashboardScreen() {
     [todayBookings]
   );
 
+  useEffect(() => {
+    if (pendingBookings.length > 0) {
+      pendingPulse.value = withRepeat(
+        withSequence(
+          withTiming(0.45, { duration: 600 }),
+          withTiming(1, { duration: 600 })
+        ),
+        -1,
+        false
+      );
+    } else {
+      pendingPulse.value = withTiming(1, { duration: 200 });
+    }
+  }, [pendingBookings.length]);
+
   const profilePhotoUri = profile?.profilePhotoUrl
     ? profile.profilePhotoUrl.startsWith("/")
       ? getStaticAssetsUrl() + profile.profilePhotoUrl
@@ -346,12 +370,18 @@ export default function ProviderDashboardScreen() {
             <Text style={styles.statValue}>{todayBookings.length}</Text>
             <Text style={styles.statLabel}>Today</Text>
           </View>
-          <View style={[styles.statCard, pendingBookings.length > 0 && styles.statCardWarning]}>
+          <Animated.View
+            style={[
+              styles.statCard,
+              pendingBookings.length > 0 && styles.statCardWarning,
+              pendingBookings.length > 0 && pendingAnimStyle,
+            ]}
+          >
             <Text style={[styles.statValue, pendingBookings.length > 0 && styles.statValueWarning]}>
               {pendingBookings.length}
             </Text>
             <Text style={styles.statLabel}>Pending</Text>
-          </View>
+          </Animated.View>
           <View style={styles.statCard}>
             <Text style={styles.statValue}>{weekTotal}</Text>
             <Text style={styles.statLabel}>This Week</Text>
