@@ -491,6 +491,11 @@ export default function ProviderDashboardScreen() {
                     <Text style={styles.extraSpecsText}>+{extraSpecs} more</Text>
                   </View>
                 ) : null}
+                {stats ? (
+                  <View style={styles.rankPill}>
+                    <Text style={styles.rankPillText}>{stats.rank}</Text>
+                  </View>
+                ) : null}
               </View>
               {rating > 0 ? (
                 <View style={styles.ratingRow}>
@@ -676,6 +681,15 @@ const styles = StyleSheet.create({
     borderRadius: 8,
   },
   extraSpecsText: { fontSize: 10, color: Colors.dark.textSecondary, fontWeight: "600" },
+  rankPill: {
+    backgroundColor: Colors.dark.primary + "20",
+    borderRadius: 8,
+    paddingHorizontal: 7,
+    paddingVertical: 3,
+    borderWidth: 1,
+    borderColor: Colors.dark.primary + "30",
+  },
+  rankPillText: { fontSize: 10, fontWeight: "700", color: Colors.dark.primary },
   ratingRow: { flexDirection: "row", alignItems: "center", gap: 4 },
   ratingText: { fontSize: 13, fontWeight: "700", color: "#FFD700" },
   totalBookingsText: { fontSize: 12, color: Colors.dark.textSecondary },

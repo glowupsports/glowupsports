@@ -31612,10 +31612,8 @@ import { Router } from "express";
 import { eq as eq4, and as and3, desc as desc2, asc as asc2, sql as sql6, inArray as inArray3 } from "drizzle-orm";
 
 // server/provider-gamification.ts
-init_db();
 init_schema();
-import { eq as eq3 } from "drizzle-orm";
-import { sql as sql5 } from "drizzle-orm";
+import { eq as eq3, sql as sql5 } from "drizzle-orm";
 var XP_AWARDS = {
   BOOKING_COMPLETED: 10,
   FIVE_STAR_RATING: 25,
@@ -31686,13 +31684,13 @@ function calculateProviderLevel(xp) {
   }
   return { level, rank, xpInLevel, xpToNextLevel };
 }
-async function awardXP(providerId, amount, reason) {
-  const [before] = await db.select({ level: serviceProviders.level }).from(serviceProviders).where(eq3(serviceProviders.id, providerId));
+async function awardXP(db2, providerId, amount, reason) {
+  const [before] = await db2.select({ level: serviceProviders.level }).from(serviceProviders).where(eq3(serviceProviders.id, providerId));
   if (!before) {
     return { newXp: 0, newLevel: 1, leveledUp: false };
   }
   const prevLevel = Number(before.level);
-  const [updated] = await db.update(serviceProviders).set({
+  const [updated] = await db2.update(serviceProviders).set({
     xp: sql5`${serviceProviders.xp} + ${amount}`,
     updatedAt: /* @__PURE__ */ new Date()
   }).where(eq3(serviceProviders.id, providerId)).returning({ newXp: serviceProviders.xp });
@@ -31700,13 +31698,13 @@ async function awardXP(providerId, amount, reason) {
   const { level: newLevel } = calculateProviderLevel(newXp);
   const leveledUp = newLevel > prevLevel;
   if (leveledUp) {
-    await db.update(serviceProviders).set({ level: newLevel, updatedAt: /* @__PURE__ */ new Date() }).where(eq3(serviceProviders.id, providerId));
+    await db2.update(serviceProviders).set({ level: newLevel, updatedAt: /* @__PURE__ */ new Date() }).where(eq3(serviceProviders.id, providerId));
   }
   console.log(`[ProviderGamification] ${reason}: +${amount} XP \u2192 provider ${providerId} now at ${newXp} XP, Lv.${newLevel}${leveledUp ? " (LEVEL UP!)" : ""}`);
   return { newXp, newLevel, leveledUp };
 }
-async function updateStreak(providerId) {
-  const [current] = await db.select({
+async function updateStreak(db2, providerId) {
+  const [current] = await db2.select({
     streakCurrent: serviceProviders.streakCurrent,
     streakBest: serviceProviders.streakBest,
     streakLastDate: serviceProviders.streakLastDate
@@ -31737,7 +31735,7 @@ async function updateStreak(providerId) {
   }
   if (streakCurrent === 7 && prevStreak < 7) milestoneReached = 7;
   if (streakCurrent === 30 && prevStreak < 30) milestoneReached = 30;
-  await db.update(serviceProviders).set({
+  await db2.update(serviceProviders).set({
     streakCurrent,
     streakBest,
     streakLastDate: todayStr,
@@ -31796,19 +31794,19 @@ var BADGES = {
     condition: (ctx) => ctx.leveledUp
   }
 };
-async function checkAndAwardBadges(providerId, context) {
-  const [current] = await db.select({ badges: serviceProviders.badges }).from(serviceProviders).where(eq3(serviceProviders.id, providerId));
+async function checkAndAwardBadges(db2, providerId, context) {
+  const [current] = await db2.select({ badges: serviceProviders.badges }).from(serviceProviders).where(eq3(serviceProviders.id, providerId));
   if (!current) return [];
   const existing2 = current.badges ?? [];
   const newBadges = [];
-  for (const [key, badge] of Object.entries(BADGES)) {
+  for (const [, badge] of Object.entries(BADGES)) {
     if (!existing2.includes(badge.id) && badge.condition(context)) {
       newBadges.push(badge.id);
     }
   }
   if (newBadges.length > 0) {
     const updated = [...existing2, ...newBadges];
-    await db.update(serviceProviders).set({ badges: updated, updatedAt: /* @__PURE__ */ new Date() }).where(eq3(serviceProviders.id, providerId));
+    await db2.update(serviceProviders).set({ badges: updated, updatedAt: /* @__PURE__ */ new Date() }).where(eq3(serviceProviders.id, providerId));
     console.log(`[ProviderGamification] Awarded badges to ${providerId}: ${newBadges.join(", ")}`);
   }
   return newBadges;
@@ -32702,35 +32700,35 @@ router.patch("/provider/bookings/:orderId/status", authMiddlewareWithFreshData, 
       const prevTotalBookings = Number(providerRecord.totalBookings);
       await db.update(serviceProviders).set({ totalBookings: prevTotalBookings + 1, updatedAt: /* @__PURE__ */ new Date() }).where(eq4(serviceProviders.id, providerRecord.id));
       if (prevTotalBookings === 0) {
-        const result = await awardXP(providerRecord.id, XP_AWARDS.FIRST_BOOKING, "first_booking");
+        const result = await awardXP(db, providerRecord.id, XP_AWARDS.FIRST_BOOKING, "first_booking");
         xpAwarded += XP_AWARDS.FIRST_BOOKING;
         leveledUp = result.leveledUp;
         newLevel = result.newLevel;
       }
       if (prevTotalBookings + 1 === 100) {
-        const result = await awardXP(providerRecord.id, XP_AWARDS.CENTURY_BOOKINGS, "century_bookings");
+        const result = await awardXP(db, providerRecord.id, XP_AWARDS.CENTURY_BOOKINGS, "century_bookings");
         xpAwarded += XP_AWARDS.CENTURY_BOOKINGS;
         if (result.leveledUp) {
           leveledUp = true;
           newLevel = result.newLevel;
         }
       }
-      const bookingResult = await awardXP(providerRecord.id, XP_AWARDS.BOOKING_COMPLETED, "booking_completed");
+      const bookingResult = await awardXP(db, providerRecord.id, XP_AWARDS.BOOKING_COMPLETED, "booking_completed");
       xpAwarded += XP_AWARDS.BOOKING_COMPLETED;
       if (bookingResult.leveledUp) {
         leveledUp = true;
         newLevel = bookingResult.newLevel;
       }
-      const streakResult = await updateStreak(providerRecord.id);
+      const streakResult = await updateStreak(db, providerRecord.id);
       if (streakResult.milestoneReached === 7) {
-        const sr = await awardXP(providerRecord.id, XP_AWARDS.STREAK_7_DAY, "streak_7_day");
+        const sr = await awardXP(db, providerRecord.id, XP_AWARDS.STREAK_7_DAY, "streak_7_day");
         xpAwarded += XP_AWARDS.STREAK_7_DAY;
         if (sr.leveledUp) {
           leveledUp = true;
           newLevel = sr.newLevel;
         }
       } else if (streakResult.milestoneReached === 30) {
-        const sr = await awardXP(providerRecord.id, XP_AWARDS.STREAK_30_DAY, "streak_30_day");
+        const sr = await awardXP(db, providerRecord.id, XP_AWARDS.STREAK_30_DAY, "streak_30_day");
         xpAwarded += XP_AWARDS.STREAK_30_DAY;
         if (sr.leveledUp) {
           leveledUp = true;
@@ -32739,19 +32737,19 @@ router.patch("/provider/bookings/:orderId/status", authMiddlewareWithFreshData, 
       }
       const [refreshed] = await db.select().from(serviceProviders).where(eq4(serviceProviders.id, providerRecord.id)).limit(1);
       const currentRating = Number(refreshed?.rating ?? 0);
-      newBadges = await checkAndAwardBadges(providerRecord.id, {
+      newBadges = await checkAndAwardBadges(db, providerRecord.id, {
         totalBookings: Number(refreshed?.totalBookings ?? prevTotalBookings + 1),
         rating: currentRating,
         streakCurrent: streakResult.streakCurrent,
         leveledUp
       });
       if (newBadges.includes("five_star")) {
-        const fsr = await awardXP(providerRecord.id, XP_AWARDS.FIVE_STAR_RATING, "five_star_rating");
+        const fsr = await awardXP(db, providerRecord.id, XP_AWARDS.FIVE_STAR_RATING, "five_star_rating");
         xpAwarded += XP_AWARDS.FIVE_STAR_RATING;
         if (fsr.leveledUp) {
           leveledUp = true;
           newLevel = fsr.newLevel;
-          const secondPassBadges = await checkAndAwardBadges(providerRecord.id, {
+          const secondPassBadges = await checkAndAwardBadges(db, providerRecord.id, {
             totalBookings: Number(refreshed?.totalBookings ?? prevTotalBookings + 1),
             rating: currentRating,
             streakCurrent: streakResult.streakCurrent,

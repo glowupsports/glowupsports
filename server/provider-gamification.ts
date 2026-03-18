@@ -1,7 +1,8 @@
-import { db } from "./db";
+import { db as defaultDb } from "./db";
 import { serviceProviders } from "../shared/schema";
-import { eq } from "drizzle-orm";
-import { sql } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
+
+export type GamificationDb = typeof defaultDb;
 
 export const XP_AWARDS = {
   BOOKING_COMPLETED: 10,
@@ -68,6 +69,7 @@ export function calculateProviderLevel(xp: number): {
 }
 
 export async function awardXP(
+  db: GamificationDb,
   providerId: string,
   amount: number,
   reason: string
@@ -109,6 +111,7 @@ export async function awardXP(
 }
 
 export async function updateStreak(
+  db: GamificationDb,
   providerId: string
 ): Promise<{ streakCurrent: number; streakBest: number; milestoneReached: number | null }> {
   const [current] = await db
@@ -235,6 +238,7 @@ export const BADGES: Record<
 };
 
 export async function checkAndAwardBadges(
+  db: GamificationDb,
   providerId: string,
   context: {
     totalBookings: number;
@@ -253,7 +257,7 @@ export async function checkAndAwardBadges(
   const existing = (current.badges ?? []) as string[];
   const newBadges: string[] = [];
 
-  for (const [key, badge] of Object.entries(BADGES)) {
+  for (const [, badge] of Object.entries(BADGES)) {
     if (!existing.includes(badge.id) && badge.condition(context)) {
       newBadges.push(badge.id);
     }
