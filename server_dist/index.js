@@ -31614,6 +31614,20 @@ import { eq as eq4, and as and3, desc as desc2, asc as asc2, sql as sql6, inArra
 // server/provider-gamification.ts
 init_schema();
 import { eq as eq3, sql as sql5 } from "drizzle-orm";
+var APP_TIMEZONE = "Asia/Dubai";
+function getLocalDateString(date2, timezone = APP_TIMEZONE) {
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: timezone,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit"
+  }).format(date2);
+}
+function getLocalYesterdayString(timezone = APP_TIMEZONE) {
+  const yesterday = /* @__PURE__ */ new Date();
+  yesterday.setDate(yesterday.getDate() - 1);
+  return getLocalDateString(yesterday, timezone);
+}
 var XP_AWARDS = {
   BOOKING_COMPLETED: 10,
   FIVE_STAR_RATING: 25,
@@ -31705,8 +31719,9 @@ async function updateStreak(db2, providerId) {
   if (!current) {
     return { streakCurrent: 0, streakBest: 0, milestoneReached: null };
   }
-  const today = /* @__PURE__ */ new Date();
-  const todayStr = today.toISOString().split("T")[0];
+  const now2 = /* @__PURE__ */ new Date();
+  const todayStr = getLocalDateString(now2);
+  const yesterdayStr = getLocalYesterdayString();
   let { streakCurrent, streakBest } = current;
   streakCurrent = Number(streakCurrent);
   streakBest = Number(streakBest);
@@ -31714,9 +31729,6 @@ async function updateStreak(db2, providerId) {
   if (current.streakLastDate === todayStr) {
     return { streakCurrent, streakBest, milestoneReached: null };
   }
-  const yesterday = new Date(today);
-  yesterday.setDate(today.getDate() - 1);
-  const yesterdayStr = yesterday.toISOString().split("T")[0];
   const prevStreak = streakCurrent;
   if (current.streakLastDate === yesterdayStr) {
     streakCurrent += 1;
@@ -32775,12 +32787,10 @@ router.get("/provider/stats", authMiddlewareWithFreshData, requireServiceProvide
     const xp = Number(provider.xp);
     const { level, rank, xpInLevel, xpToNextLevel } = calculateProviderLevel(xp);
     const rawStreak = Number(provider.streakCurrent);
-    const lastDate = provider.streakLastDate ? new Date(provider.streakLastDate) : null;
-    const todayUTC = /* @__PURE__ */ new Date();
-    todayUTC.setUTCHours(0, 0, 0, 0);
-    const yesterdayUTC = new Date(todayUTC);
-    yesterdayUTC.setUTCDate(yesterdayUTC.getUTCDate() - 1);
-    const isStreakAlive = lastDate !== null && lastDate >= yesterdayUTC;
+    const todayStr = getLocalDateString(/* @__PURE__ */ new Date());
+    const yesterdayStr = getLocalYesterdayString();
+    const lastDateStr = provider.streakLastDate ?? "";
+    const isStreakAlive = lastDateStr === todayStr || lastDateStr === yesterdayStr;
     const effectiveStreak = isStreakAlive ? rawStreak : 0;
     if (!isStreakAlive && rawStreak > 0) {
       await db.update(serviceProviders).set({ streakCurrent: 0, updatedAt: /* @__PURE__ */ new Date() }).where(eq4(serviceProviders.id, provider.id));

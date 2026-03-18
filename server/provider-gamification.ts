@@ -2,6 +2,23 @@ import { db as defaultDb } from "./db";
 import { serviceProviders } from "../shared/schema";
 import { eq, sql } from "drizzle-orm";
 
+const APP_TIMEZONE = "Asia/Dubai";
+
+export function getLocalDateString(date: Date, timezone = APP_TIMEZONE): string {
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: timezone,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(date);
+}
+
+export function getLocalYesterdayString(timezone = APP_TIMEZONE): string {
+  const yesterday = new Date();
+  yesterday.setDate(yesterday.getDate() - 1);
+  return getLocalDateString(yesterday, timezone);
+}
+
 export type GamificationDb = typeof defaultDb;
 
 export const XP_AWARDS = {
@@ -120,8 +137,9 @@ export async function updateStreak(
     return { streakCurrent: 0, streakBest: 0, milestoneReached: null };
   }
 
-  const today = new Date();
-  const todayStr = today.toISOString().split("T")[0];
+  const now = new Date();
+  const todayStr = getLocalDateString(now);
+  const yesterdayStr = getLocalYesterdayString();
 
   let { streakCurrent, streakBest } = current;
   streakCurrent = Number(streakCurrent);
@@ -131,10 +149,6 @@ export async function updateStreak(
   if (current.streakLastDate === todayStr) {
     return { streakCurrent, streakBest, milestoneReached: null };
   }
-
-  const yesterday = new Date(today);
-  yesterday.setDate(today.getDate() - 1);
-  const yesterdayStr = yesterday.toISOString().split("T")[0];
 
   const prevStreak = streakCurrent;
 

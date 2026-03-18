@@ -14,6 +14,8 @@ import {
   calculateProviderLevel,
   XP_AWARDS,
   BADGES,
+  getLocalDateString,
+  getLocalYesterdayString,
 } from "./provider-gamification";
 import { 
   authMiddlewareWithFreshData as authMiddleware,
@@ -1368,12 +1370,10 @@ router.get("/provider/stats", authMiddleware, requireServiceProvider, async (req
     const { level, rank, xpInLevel, xpToNextLevel } = calculateProviderLevel(xp);
 
     const rawStreak = Number(provider.streakCurrent);
-    const lastDate = provider.streakLastDate ? new Date(provider.streakLastDate) : null;
-    const todayUTC = new Date();
-    todayUTC.setUTCHours(0, 0, 0, 0);
-    const yesterdayUTC = new Date(todayUTC);
-    yesterdayUTC.setUTCDate(yesterdayUTC.getUTCDate() - 1);
-    const isStreakAlive = lastDate !== null && lastDate >= yesterdayUTC;
+    const todayStr = getLocalDateString(new Date());
+    const yesterdayStr = getLocalYesterdayString();
+    const lastDateStr = provider.streakLastDate ?? "";
+    const isStreakAlive = lastDateStr === todayStr || lastDateStr === yesterdayStr;
     const effectiveStreak = isStreakAlive ? rawStreak : 0;
 
     if (!isStreakAlive && rawStreak > 0) {
