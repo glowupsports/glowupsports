@@ -101,6 +101,8 @@ function getBallLevelColor(ballLevel: string): string {
   return Colors.dark.primary;
 }
 
+type PlayStyleKey = "baseline_warrior" | "net_ninja" | "serve_machine" | "all_court_ace" | "counter_puncher" | "tactical_mastermind";
+
 interface OnboardingData {
   dateOfBirth: string | null;
   gender: string | null;
@@ -126,6 +128,7 @@ interface OnboardingData {
   parentEmail: string | null;
   quizScore: number;
   quizAnswers: string[];
+  playStyle: PlayStyleKey | null;
 }
 
 interface Academy {
@@ -145,7 +148,7 @@ interface StepProps {
   ageGroup?: AgeGroup;
 }
 
-const TOTAL_STEPS = 18;
+const TOTAL_STEPS = 19;
 
 function ProgressBar({ currentStep, totalSteps }: { currentStep: number; totalSteps: number }) {
   return (
@@ -1172,6 +1175,140 @@ function AboutYourselfStep({ data, setData, onNext, ageGroup }: StepProps) {
   );
 }
 
+const PLAY_STYLE_ARCHETYPES: Array<{
+  key: PlayStyleKey;
+  name: string;
+  tagline: string;
+  icon: string;
+  color: string;
+  bgColor: string;
+}> = [
+  {
+    key: "baseline_warrior",
+    name: "Baseline Warrior",
+    tagline: "Grind from the back, outlast everyone",
+    icon: "tennisball",
+    color: GlowColors.primary,
+    bgColor: "rgba(200, 255, 61, 0.12)",
+  },
+  {
+    key: "net_ninja",
+    name: "Net Ninja",
+    tagline: "Rush the net, end it fast",
+    icon: "flash",
+    color: "#00E5FF",
+    bgColor: "rgba(0, 229, 255, 0.12)",
+  },
+  {
+    key: "serve_machine",
+    name: "Serve Machine",
+    tagline: "Ace-heavy, dominate with power",
+    icon: "rocket",
+    color: "#FF8C00",
+    bgColor: "rgba(255, 140, 0, 0.12)",
+  },
+  {
+    key: "all_court_ace",
+    name: "All-Court Ace",
+    tagline: "Adapt to any court, any opponent",
+    icon: "star",
+    color: "#FFFFFF",
+    bgColor: "rgba(255, 255, 255, 0.10)",
+  },
+  {
+    key: "counter_puncher",
+    name: "Counter-Puncher",
+    tagline: "Turn defense into attack",
+    icon: "shield",
+    color: "#9B59B6",
+    bgColor: "rgba(155, 89, 182, 0.12)",
+  },
+  {
+    key: "tactical_mastermind",
+    name: "Tactical Mastermind",
+    tagline: "Outsmart, outmaneuver, outwit",
+    icon: "bulb",
+    color: "#FFD700",
+    bgColor: "rgba(255, 215, 0, 0.12)",
+  },
+];
+
+function PlayStyleStep({ data, setData, onNext }: StepProps) {
+  const selected = data.playStyle;
+
+  return (
+    <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.stepContainer} showsVerticalScrollIndicator={false}>
+      <Animated.View entering={FadeInDown.delay(100).duration(500)}>
+        <Text style={[styles.stepTitle, { letterSpacing: 2, textTransform: "uppercase" }]}>DISCOVER YOUR GAME</Text>
+        <Text style={styles.stepSubtitle}>Every player has a DNA. Which archetype fits how you play?</Text>
+      </Animated.View>
+
+      <Animated.View entering={FadeInDown.delay(200).duration(500)}>
+        <View style={styles.archetypeGrid}>
+          {PLAY_STYLE_ARCHETYPES.map((archetype, idx) => {
+            const isSelected = selected === archetype.key;
+            return (
+              <Pressable
+                key={archetype.key}
+                style={[
+                  styles.archetypeCard,
+                  { borderColor: isSelected ? archetype.color : "rgba(255,255,255,0.08)" },
+                  isSelected ? { backgroundColor: archetype.bgColor } : null,
+                ]}
+                onPress={() => {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                  setData((prev) => ({
+                    ...prev,
+                    playStyle: isSelected ? null : archetype.key,
+                  }));
+                }}
+              >
+                <View style={[styles.archetypeIconCircle, { backgroundColor: archetype.bgColor }]}>
+                  <Ionicons name={archetype.icon as any} size={28} color={archetype.color} />
+                </View>
+                <Text style={[styles.archetypeName, { color: isSelected ? archetype.color : Colors.dark.text }]}>
+                  {archetype.name}
+                </Text>
+                <Text style={styles.archetypeTagline} numberOfLines={2}>{archetype.tagline}</Text>
+                {isSelected ? (
+                  <View style={[styles.archetypeCheck, { backgroundColor: archetype.color }]}>
+                    <Ionicons name="checkmark" size={12} color="#000" />
+                  </View>
+                ) : null}
+              </Pressable>
+            );
+          })}
+        </View>
+      </Animated.View>
+
+      {selected ? (
+        <Animated.View entering={FadeInUp.delay(100).duration(400)}>
+          <Pressable
+            style={styles.primaryButton}
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+              onNext();
+            }}
+          >
+            <Text style={styles.primaryButtonText}>Lock In My Style</Text>
+            <Ionicons name="arrow-forward" size={20} color={Colors.dark.backgroundRoot} />
+          </Pressable>
+        </Animated.View>
+      ) : null}
+
+      <Pressable
+        style={styles.skipButton}
+        onPress={() => {
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+          onNext();
+        }}
+      >
+        <Text style={styles.skipButtonText}>Decide Later</Text>
+      </Pressable>
+    </ScrollView>
+  );
+}
+
 function TennisIdolStep({ data, setData, onNext, ageGroup }: StepProps) {
   const [customIdol, setCustomIdol] = useState(data.customIdol || "");
 
@@ -1835,6 +1972,7 @@ export default function PlayerOnboardingV2Screen({ onComplete }: Props) {
     parentEmail: null,
     quizScore: 0,
     quizAnswers: [],
+    playStyle: null,
   });
 
   const [completionSaving, setCompletionSaving] = useState(false);
@@ -1864,6 +2002,7 @@ export default function PlayerOnboardingV2Screen({ onComplete }: Props) {
         shortTermGoal: onboardingData.shortTermGoal,
         longTermDream: onboardingData.longTermDream,
         quizScore: onboardingData.quizScore,
+        playStyle: onboardingData.playStyle,
       };
       const response = await apiRequest("POST", "/api/player/me/onboarding", payload);
       const result = await response.json();
@@ -2008,15 +2147,16 @@ export default function PlayerOnboardingV2Screen({ onComplete }: Props) {
       case 6: return (data.motivationTypes?.length || 0) > 0; // Why Tennis
       case 7: return !!data.experienceLevel; // Experience
       case 8: return !!data.dominantHand; // About Yourself
-      case 9: return true; // Tennis Idol (optional)
-      case 10: return data.enjoymentTags.length > 0; // Enjoyment
-      case 11: return data.focusGoals.length > 0; // Focus Goals
-      case 12: return data.typicalPlayTimes.length > 0; // Availability
-      case 13: return true; // Academy Selection
-      case 14: return true; // Academy Welcome Video
-      case 15: return true; // Goal Setting
-      case 16: return true; // Parent Connect
-      case 17: return true; // Completion
+      case 9: return true; // Play Style (skippable)
+      case 10: return true; // Tennis Idol (optional)
+      case 11: return data.enjoymentTags.length > 0; // Enjoyment
+      case 12: return data.focusGoals.length > 0; // Focus Goals
+      case 13: return data.typicalPlayTimes.length > 0; // Availability
+      case 14: return true; // Academy Selection
+      case 15: return true; // Academy Welcome Video
+      case 16: return true; // Goal Setting
+      case 17: return true; // Parent Connect
+      case 18: return true; // Completion
       default: return false;
     }
   };
@@ -2034,20 +2174,21 @@ export default function PlayerOnboardingV2Screen({ onComplete }: Props) {
       case 6: return <WhyTennisStep {...stepProps} />;
       case 7: return <ExperienceStep {...stepProps} age={age || undefined} />;
       case 8: return <AboutYourselfStep {...stepProps} />;
-      case 9: return <TennisIdolStep {...stepProps} />;
-      case 10: return <EnjoymentStep {...stepProps} />;
-      case 11: return <FocusGoalsStep {...stepProps} />;
-      case 12: return <AvailabilityStep {...stepProps} />;
-      case 13: return <AcademySelectionStep {...stepProps} />;
-      case 14: return <AcademyWelcomeVideoStep {...stepProps} />;
-      case 15: return <GoalSettingStep {...stepProps} />;
-      case 16: return needsParentConnect ? <ParentConnectStep {...stepProps} /> : <CompletionStep {...stepProps} onComplete={handleComplete} isSaving={completionSaving} />;
-      case 17: return <CompletionStep {...stepProps} onComplete={handleComplete} isSaving={completionSaving} />;
+      case 9: return <PlayStyleStep {...stepProps} />;
+      case 10: return <TennisIdolStep {...stepProps} />;
+      case 11: return <EnjoymentStep {...stepProps} />;
+      case 12: return <FocusGoalsStep {...stepProps} />;
+      case 13: return <AvailabilityStep {...stepProps} />;
+      case 14: return <AcademySelectionStep {...stepProps} />;
+      case 15: return <AcademyWelcomeVideoStep {...stepProps} />;
+      case 16: return <GoalSettingStep {...stepProps} />;
+      case 17: return needsParentConnect ? <ParentConnectStep {...stepProps} /> : <CompletionStep {...stepProps} onComplete={handleComplete} isSaving={completionSaving} />;
+      case 18: return <CompletionStep {...stepProps} onComplete={handleComplete} isSaving={completionSaving} />;
       default: return null;
     }
   };
 
-  const isCompletionStep = currentStep === TOTAL_STEPS - 1 || (currentStep === 16 && !needsParentConnect);
+  const isCompletionStep = currentStep === TOTAL_STEPS - 1 || (currentStep === 17 && !needsParentConnect);
 
   return (
     <View style={[styles.container, { paddingTop: insets.top + Spacing.lg }]}>
@@ -2204,10 +2345,58 @@ const styles = StyleSheet.create({
   },
   skipButton: {
     paddingVertical: Spacing.md,
+    alignSelf: "center",
   },
   skipButtonText: {
     ...Typography.small,
     color: Colors.dark.textMuted,
+  },
+  archetypeGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: Spacing.sm,
+    marginTop: Spacing.md,
+  },
+  archetypeCard: {
+    width: (SCREEN_WIDTH - Spacing.lg * 2 - Spacing.sm * 2) / 2 - 2,
+    backgroundColor: "rgba(255,255,255,0.04)",
+    borderWidth: 1.5,
+    borderRadius: BorderRadius.md,
+    padding: Spacing.md,
+    alignItems: "flex-start",
+    gap: Spacing.xs,
+    position: "relative",
+    minHeight: 110,
+  },
+  archetypeIconCircle: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: Spacing.xs,
+  },
+  archetypeName: {
+    ...Typography.body,
+    fontWeight: "700",
+    fontSize: 13,
+    lineHeight: 18,
+  },
+  archetypeTagline: {
+    ...Typography.small,
+    color: Colors.dark.textMuted,
+    fontSize: 11,
+    lineHeight: 15,
+  },
+  archetypeCheck: {
+    position: "absolute",
+    top: 8,
+    right: 8,
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    alignItems: "center",
+    justifyContent: "center",
   },
   skipLink: {
     alignSelf: "center",

@@ -41,6 +41,7 @@ interface ProfileData {
     bio: string | null;
     displayName: string | null;
     profilePhotoUrl: string | null;
+    playStyle: string | null;
   };
   coach: {
     id: string;
@@ -146,6 +147,19 @@ const RARITY_COLORS: Record<string, string> = {
   legendary: Colors.dark.orange,
 };
 
+type PlayStyleKey = "baseline_warrior" | "net_ninja" | "serve_machine" | "all_court_ace" | "counter_puncher" | "tactical_mastermind";
+
+const PLAY_STYLE_META: Record<PlayStyleKey, { name: string; color: string; icon: string }> = {
+  baseline_warrior: { name: "Baseline Warrior", color: "#C8FF3D", icon: "tennisball" },
+  net_ninja: { name: "Net Ninja", color: "#00E5FF", icon: "flash" },
+  serve_machine: { name: "Serve Machine", color: "#FF8C00", icon: "rocket" },
+  all_court_ace: { name: "All-Court Ace", color: "#FFFFFF", icon: "star" },
+  counter_puncher: { name: "Counter-Puncher", color: "#9B59B6", icon: "shield" },
+  tactical_mastermind: { name: "Tactical Mastermind", color: "#FFD700", icon: "bulb" },
+};
+
+const ALL_ARCHETYPES: PlayStyleKey[] = ["baseline_warrior", "net_ninja", "serve_machine", "all_court_ace", "counter_puncher", "tactical_mastermind"];
+
 type ProfileTab = "moments" | "friends" | "groups";
 
 export default function PlayerProfileScreen() {
@@ -161,6 +175,7 @@ export default function PlayerProfileScreen() {
   const [deleteLoading, setDeleteLoading] = useState(false);
   const [activeTab, setActiveTab] = useState<ProfileTab>("moments");
   const [showTitlesModal, setShowTitlesModal] = useState(false);
+  const [showPlayStyleModal, setShowPlayStyleModal] = useState(false);
   const queryClient = useQueryClient();
 
   const { data, isLoading, error } = useQuery<ProfileData>({
@@ -230,6 +245,20 @@ export default function PlayerProfileScreen() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/player/me/profile"] });
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    },
+  });
+
+  const updatePlayStyle = useMutation({
+    mutationFn: async (playStyle: PlayStyleKey | null) => {
+      return apiRequest("PATCH", "/api/player/me/profile", { playStyle });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/player/me/profile"] });
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      setShowPlayStyleModal(false);
+    },
+    onError: () => {
+      Alert.alert("Error", "Could not update play style. Please try again.");
     },
   });
 
@@ -468,6 +497,36 @@ export default function PlayerProfileScreen() {
                   {equippedTitle.rarity.charAt(0).toUpperCase() + equippedTitle.rarity.slice(1)}
                 </Text>
               </View>
+            )}
+
+            {player.playStyle && PLAY_STYLE_META[player.playStyle as PlayStyleKey] ? (
+              <Pressable
+                style={[styles.playStyleBadge, { borderColor: PLAY_STYLE_META[player.playStyle as PlayStyleKey].color + "60" }]}
+                onPress={() => {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  setShowPlayStyleModal(true);
+                }}
+              >
+                <Ionicons
+                  name={PLAY_STYLE_META[player.playStyle as PlayStyleKey].icon as any}
+                  size={13}
+                  color={PLAY_STYLE_META[player.playStyle as PlayStyleKey].color}
+                />
+                <Text style={[styles.playStyleBadgeText, { color: PLAY_STYLE_META[player.playStyle as PlayStyleKey].color }]}>
+                  {PLAY_STYLE_META[player.playStyle as PlayStyleKey].name}
+                </Text>
+              </Pressable>
+            ) : (
+              <Pressable
+                style={styles.playStyleSetPrompt}
+                onPress={() => {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  setShowPlayStyleModal(true);
+                }}
+              >
+                <Ionicons name="add-circle-outline" size={13} color={Colors.dark.textMuted} />
+                <Text style={styles.playStyleSetPromptText}>Set your play style</Text>
+              </Pressable>
             )}
           </View>
 
@@ -1131,6 +1190,56 @@ export default function PlayerProfileScreen() {
         }}
         title="Parent Dashboard"
       />
+
+      <Modal
+        visible={showPlayStyleModal}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setShowPlayStyleModal(false)}
+      >
+        <Pressable style={styles.modalOverlay} onPress={() => setShowPlayStyleModal(false)}>
+          <Pressable style={styles.playStyleModalContent} onPress={() => {}}>
+            <Text style={styles.playStyleModalTitle}>YOUR PLAY STYLE DNA</Text>
+            <Text style={styles.playStyleModalSubtitle}>
+              Which archetype defines your game on court?
+            </Text>
+            <View style={styles.playStyleModalGrid}>
+              {ALL_ARCHETYPES.map((key) => {
+                const meta = PLAY_STYLE_META[key];
+                const isSelected = player.playStyle === key;
+                return (
+                  <Pressable
+                    key={key}
+                    style={[
+                      styles.playStylePickerCard,
+                      { borderColor: isSelected ? meta.color : "rgba(255,255,255,0.08)" },
+                      isSelected ? { backgroundColor: meta.color + "18" } : null,
+                    ]}
+                    onPress={() => {
+                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                      updatePlayStyle.mutate(isSelected ? null : key);
+                    }}
+                    disabled={updatePlayStyle.isPending}
+                  >
+                    <Ionicons name={meta.icon as any} size={22} color={isSelected ? meta.color : Colors.dark.textMuted} />
+                    <Text style={[styles.playStylePickerName, isSelected ? { color: meta.color } : null]}>
+                      {meta.name}
+                    </Text>
+                    {isSelected ? (
+                      <View style={[styles.playStylePickerCheck, { backgroundColor: meta.color }]}>
+                        <Ionicons name="checkmark" size={10} color="#000" />
+                      </View>
+                    ) : null}
+                  </Pressable>
+                );
+              })}
+            </View>
+            <Pressable style={styles.playStyleModalDismiss} onPress={() => setShowPlayStyleModal(false)}>
+              <Text style={styles.playStyleModalDismissText}>Close</Text>
+            </Pressable>
+          </Pressable>
+        </Pressable>
+      </Modal>
     </View>
   );
 }
@@ -2040,6 +2149,96 @@ const styles = StyleSheet.create({
   },
   emptyTitlesSubtext: {
     ...Typography.small,
+    color: Colors.dark.textMuted,
+  },
+  playStyleBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+    paddingHorizontal: Spacing.sm + 2,
+    paddingVertical: 4,
+    borderRadius: BorderRadius.full,
+    borderWidth: 1,
+    backgroundColor: "rgba(255,255,255,0.04)",
+    marginTop: 4,
+  },
+  playStyleBadgeText: {
+    ...Typography.small,
+    fontWeight: "700",
+    letterSpacing: 0.3,
+    fontSize: 12,
+  },
+  playStyleSetPrompt: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 4,
+    marginTop: 4,
+  },
+  playStyleSetPromptText: {
+    ...Typography.small,
+    color: Colors.dark.textMuted,
+    fontSize: 12,
+  },
+  playStyleModalContent: {
+    backgroundColor: "#141920",
+    borderTopLeftRadius: BorderRadius.xl,
+    borderTopRightRadius: BorderRadius.xl,
+    padding: Spacing.lg,
+    paddingBottom: Spacing["2xl"],
+    marginTop: "auto",
+  },
+  playStyleModalTitle: {
+    ...Typography.h3,
+    letterSpacing: 2,
+    color: Colors.dark.text,
+    marginBottom: Spacing.xs,
+  },
+  playStyleModalSubtitle: {
+    ...Typography.small,
+    color: Colors.dark.textMuted,
+    marginBottom: Spacing.lg,
+  },
+  playStyleModalGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: Spacing.sm,
+    marginBottom: Spacing.lg,
+  },
+  playStylePickerCard: {
+    width: "47%",
+    borderWidth: 1.5,
+    borderRadius: BorderRadius.md,
+    padding: Spacing.md,
+    gap: 6,
+    alignItems: "flex-start",
+    backgroundColor: "rgba(255,255,255,0.03)",
+    position: "relative",
+    minHeight: 80,
+  },
+  playStylePickerName: {
+    ...Typography.small,
+    fontWeight: "700",
+    color: Colors.dark.textMuted,
+    fontSize: 12,
+  },
+  playStylePickerCheck: {
+    position: "absolute",
+    top: 6,
+    right: 6,
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  playStyleModalDismiss: {
+    alignSelf: "center",
+    paddingVertical: Spacing.md,
+  },
+  playStyleModalDismissText: {
+    ...Typography.body,
     color: Colors.dark.textMuted,
   },
 });

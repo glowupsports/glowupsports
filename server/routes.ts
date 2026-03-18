@@ -22652,6 +22652,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             bio: (player as any).bio || null,
             displayName: (player as any).displayName || null,
             profilePhotoUrl: (player as any).profilePhotoUrl || null,
+            playStyle: (player as any).playStyle || null,
           },
           coach: coach
             ? {
@@ -22755,6 +22756,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         if (privacyLevel !== undefined) {
           await db.execute(
             sql`UPDATE players SET privacy_level = ${privacyLevel} WHERE id = ${playerId}`,
+          );
+        }
+        if (req.body.playStyle !== undefined) {
+          await db.execute(
+            sql`UPDATE players SET play_style = ${req.body.playStyle} WHERE id = ${playerId}`,
           );
         }
 
@@ -23516,6 +23522,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           focusGoals,
           ballLevel,
           selfConfidenceFlags,
+          playStyle: req.body.playStyle || null,
         });
 
         // If a new player was created, generate a fresh token with the new playerId

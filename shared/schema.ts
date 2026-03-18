@@ -1008,6 +1008,7 @@ export const players = pgTable("players", {
   weeklyCommitment: text("weekly_commitment"), // 1x/2x/3x/4x+ per week
   nickname: text("nickname"), // Fun nickname for the app
   quizScore: integer("quiz_score"), // Mini tennis rules quiz score
+  playStyle: varchar("play_style"), // Tennis archetype: baseline_warrior | net_ninja | serve_machine | all_court_ace | counter_puncher | tactical_mastermind
   
   auditVerifiedAt: timestamp("audit_verified_at"),
   auditVerifiedBy: varchar("audit_verified_by"),
@@ -1054,6 +1055,7 @@ export const updatePlayerSchema = z.object({
   weeklyCommitment: z.enum(["1x", "2x", "3x", "4x+"]).optional().nullable(),
   nickname: z.string().max(50).optional().nullable(),
   quizScore: z.number().int().min(0).max(100).optional().nullable(),
+  playStyle: z.enum(["baseline_warrior", "net_ninja", "serve_machine", "all_court_ace", "counter_puncher", "tactical_mastermind"]).optional().nullable(),
 }).transform((data) => ({
   ...data,
   email: data.email === "" ? null : data.email,

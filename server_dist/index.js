@@ -1286,6 +1286,8 @@ var init_schema = __esm({
       // Fun nickname for the app
       quizScore: integer("quiz_score"),
       // Mini tennis rules quiz score
+      playStyle: varchar("play_style"),
+      // Tennis archetype: baseline_warrior | net_ninja | serve_machine | all_court_ace | counter_puncher | tactical_mastermind
       auditVerifiedAt: timestamp("audit_verified_at"),
       auditVerifiedBy: varchar("audit_verified_by"),
       attendanceShareToken: varchar("attendance_share_token", { length: 48 }).unique(),
@@ -1327,7 +1329,8 @@ var init_schema = __esm({
       longTermDream: z.string().max(500).optional().nullable(),
       weeklyCommitment: z.enum(["1x", "2x", "3x", "4x+"]).optional().nullable(),
       nickname: z.string().max(50).optional().nullable(),
-      quizScore: z.number().int().min(0).max(100).optional().nullable()
+      quizScore: z.number().int().min(0).max(100).optional().nullable(),
+      playStyle: z.enum(["baseline_warrior", "net_ninja", "serve_machine", "all_court_ace", "counter_puncher", "tactical_mastermind"]).optional().nullable()
     }).transform((data) => ({
       ...data,
       email: data.email === "" ? null : data.email
@@ -14691,20 +14694,26 @@ async function sendRemindersForSession(session, reminderType) {
 async function processScheduledReminders() {
   const now2 = /* @__PURE__ */ new Date();
   const sixtyFiveMinutesFromNow = new Date(now2.getTime() + 65 * 60 * 1e3);
-  const thirtyFiveMinutesFromNow = new Date(now2.getTime() + 35 * 60 * 1e3);
   try {
-    const nowStr = now2.toISOString().replace("T", " ").substring(0, 19);
-    const futureStr = sixtyFiveMinutesFromNow.toISOString().replace("T", " ").substring(0, 19);
-    console.log(`[SessionReminders] Checking window: ${nowStr} to ${futureStr}`);
+    const nowUtc = now2.toISOString();
+    const futureUtc = sixtyFiveMinutesFromNow.toISOString();
+    console.log(`[SessionReminders] Checking window: ${nowUtc} to ${futureUtc}`);
     const rawResult = await pool.query(
-      `SELECT * FROM sessions WHERE start_time >= $1::timestamp AND start_time <= $2::timestamp AND status = 'scheduled'`,
-      [nowStr, futureStr]
+      `SELECT s.*, a.timezone AS academy_timezone
+       FROM sessions s
+       LEFT JOIN academies a ON s.academy_id = a.id
+       WHERE (s.start_time AT TIME ZONE 'UTC') >= $1::timestamptz
+         AND (s.start_time AT TIME ZONE 'UTC') <= $2::timestamptz
+         AND s.status = 'scheduled'`,
+      [nowUtc, futureUtc]
     );
     const upcomingSessions = rawResult.rows;
-    console.log(`[SessionReminders] Found ${upcomingSessions.length} sessions in window (params: ${nowStr}, ${futureStr})`);
+    console.log(`[SessionReminders] Found ${upcomingSessions.length} sessions in window`);
     for (const s of upcomingSessions) {
       const startTime = s.start_time ? new Date(s.start_time) : s.startTime;
-      console.log(`[SessionReminders]   - ${s.id} starts ${startTime} type=${s.session_type || s.sessionType} level=${s.ball_level || s.ballLevel}`);
+      const minutesUntilPreview = (startTime.getTime() - now2.getTime()) / (60 * 1e3);
+      const academyTz = s.academy_timezone || "Europe/Amsterdam";
+      console.log(`[SessionReminders]   - ${s.id} start_time(UTC)=${startTime.toISOString()} academy_tz=${academyTz} minutesUntil=${minutesUntilPreview.toFixed(1)} type=${s.session_type || s.sessionType} level=${s.ball_level || s.ballLevel}`);
     }
     let sent1h = 0;
     let sent30m = 0;
@@ -14724,6 +14733,8 @@ async function processScheduledReminders() {
         status: raw.status
       };
       const minutesUntil = (session.startTime.getTime() - now2.getTime()) / (60 * 1e3);
+      const academyTz = raw.academy_timezone || "Europe/Amsterdam";
+      console.log(`[SessionReminders] Processing session ${session.id}: start_time(UTC)=${session.startTime.toISOString()} academy_tz=${academyTz} minutesUntil=${minutesUntil.toFixed(1)} 1hSent=${session.reminder1hSent} 30mSent=${session.reminder30mSent}`);
       if (minutesUntil <= 65 && minutesUntil > 35 && !session.reminder1hSent) {
         await sendRemindersForSession(session, "1h");
         sent1h++;
@@ -38853,7 +38864,7 @@ router13.get("/availability", async (req2, res) => {
        WHERE p.id = $1`,
       [playerId]
     );
-    const academyTimezone = playerResult.rows[0]?.timezone || "Asia/Dubai";
+    const academyTimezone = playerResult.rows[0]?.timezone || "Europe/Amsterdam";
     const getLocalHours = (utcDate, tz) => {
       const parts = new Intl.DateTimeFormat("en-US", {
         timeZone: tz,
@@ -44115,7 +44126,7 @@ router19.get("/api/courts/availability", authMiddlewareWithFreshData, async (req
     timeSlots.push("22:00");
     const dateStr = date2;
     const coachIdToCheck = req2.query.coachId || req2.user.coachId;
-    let academyTimezone = "Asia/Dubai";
+    let academyTimezone = "Europe/Amsterdam";
     if (academyId) {
       try {
         const academy = await storage.getAcademy(academyId);
@@ -49135,7 +49146,7 @@ router22.post("/api/coach/sessions", authMiddlewareWithFreshData, requireAcademy
       return res.status(400).json({ error: "Missing required fields" });
     }
     const academyData = await storage.getAcademy(academyId);
-    const academyTimezone = academyData?.timezone || "Asia/Dubai";
+    const academyTimezone = academyData?.timezone || "Europe/Amsterdam";
     let start;
     if (date2 && startTime && !startTime.includes("T")) {
       const timeResolution = ensureResolvableLocalTime2(date2, startTime, academyTimezone);
@@ -51156,7 +51167,7 @@ router23.post("/api/admin/series", authMiddlewareWithFreshData, requireRole("adm
     const createdSessions = [];
     const skippedWeeks = [];
     const academy = await storage.getAcademy(academyId);
-    const academyTimezone = academy?.timezone || "Asia/Dubai";
+    const academyTimezone = academy?.timezone || "Europe/Amsterdam";
     const initialResolution = ensureResolvableLocalTime(seriesStartDate, startTime, academyTimezone);
     if (!initialResolution.ok) {
       return res.status(400).json({ error: initialResolution.error });
@@ -61486,7 +61497,7 @@ async function registerRoutes(app2) {
           }
         }
         const academyData = await storage.getAcademy(academyId);
-        const academyTimezone = academyData?.timezone || "Asia/Dubai";
+        const academyTimezone = academyData?.timezone || "Europe/Amsterdam";
         const initialResolution = ensureResolvableLocalTime2(
           seriesStartDate,
           startTime,
@@ -62550,7 +62561,7 @@ async function registerRoutes(app2) {
         const createdSessions = [];
         const skippedWeeks = [];
         const academy = await storage.getAcademy(academyId);
-        const academyTimezone = academy?.timezone || "Asia/Dubai";
+        const academyTimezone = academy?.timezone || "Europe/Amsterdam";
         if (isFlexible && flexibleDates && flexibleDates.length > 0) {
           const sortedDates = [...flexibleDates].sort(
             (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()
@@ -63373,7 +63384,7 @@ async function registerRoutes(app2) {
           return res.status(400).json({ error: "Coach and academy required" });
         }
         const academy = await storage.getAcademy(academyId);
-        const academyTimezone = academy?.timezone || "Asia/Dubai";
+        const academyTimezone = academy?.timezone || "Europe/Amsterdam";
         const allSeries = await storage.getCoachingSeriesByCoach(
           coachId,
           academyId
@@ -71466,7 +71477,8 @@ async function registerRoutes(app2) {
             matchPreference: player2.matchPreference || null,
             bio: player2.bio || null,
             displayName: player2.displayName || null,
-            profilePhotoUrl: player2.profilePhotoUrl || null
+            profilePhotoUrl: player2.profilePhotoUrl || null,
+            playStyle: player2.playStyle || null
           },
           coach: coach ? {
             id: coach.id,
@@ -71558,6 +71570,11 @@ async function registerRoutes(app2) {
         if (privacyLevel !== void 0) {
           await db.execute(
             sql29`UPDATE players SET privacy_level = ${privacyLevel} WHERE id = ${playerId}`
+          );
+        }
+        if (req2.body.playStyle !== void 0) {
+          await db.execute(
+            sql29`UPDATE players SET play_style = ${req2.body.playStyle} WHERE id = ${playerId}`
           );
         }
         res.json({ success: true });
@@ -72097,7 +72114,8 @@ async function registerRoutes(app2) {
           enjoymentTags,
           focusGoals,
           ballLevel: ballLevel2,
-          selfConfidenceFlags
+          selfConfidenceFlags,
+          playStyle: req2.body.playStyle || null
         });
         let token;
         if (newPlayerCreated) {
