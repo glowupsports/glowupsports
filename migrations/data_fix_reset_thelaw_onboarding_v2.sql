@@ -1,11 +1,31 @@
--- Data Fix: Reset onboarding_completed for player-thelaw-001
--- Date: 2026-03-18
--- Task: #52
--- Reason: Player was stuck in completed onboarding state, preventing re-entry of onboarding flow.
--- Status: Applied (confirmed onboarding_completed = f via SELECT)
-
+-- ============================================================
+-- AUDIT TRAIL ONLY — DO NOT AUTO-APPLY
+-- This file documents a one-time manual data fix.
+-- It has already been executed against the live Supabase DB.
+-- Running it again is safe (idempotent) but unnecessary.
+-- ============================================================
+--
+-- Task: #52 — Fix onboarding reset for thelaw account
+-- Date applied: 2026-03-18
+-- Applied by: psql "$SUPABASE_DATABASE_URL" directly
+--
+-- Problem:
+--   player-thelaw-001 (The Law) had onboarding_completed = true
+--   in the live DB, preventing re-entry into the onboarding flow.
+--   Previous task #49 ran in an isolated environment and the
+--   change did not persist to the live database.
+--
+-- Fix:
 UPDATE players SET onboarding_completed = false WHERE id = 'player-thelaw-001';
-
--- Verification:
--- SELECT id, name, onboarding_completed FROM players WHERE id = 'player-thelaw-001';
--- Expected: onboarding_completed = f
+--
+-- Verification (run after applying):
+--   SELECT id, name, onboarding_completed
+--   FROM players
+--   WHERE id = 'player-thelaw-001';
+--
+-- Expected result:
+--   id                | name    | onboarding_completed
+--   player-thelaw-001 | The Law | f
+--
+-- Confirmed result (2026-03-18):
+--   player-thelaw-001 | The Law | f
