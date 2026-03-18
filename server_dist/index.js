@@ -31656,39 +31656,39 @@ router.get("/player/shop/xp-discount", authMiddlewareWithFreshData, requirePlaye
     if (!player2[0]) {
       return res.json({ discountPercent: 0, nextTierXP: 100, currentXP: 0 });
     }
-    const currentXP = player2[0].xp || 0;
+    const currentXP = player2[0].totalXp || 0;
     const level = player2[0].level || 1;
     let discountPercent = 0;
-    let nextTierXP = 500;
+    let nextTierLevel = 11;
     let tierName = "Starter";
-    if (currentXP >= 5e3) {
+    if (level >= 51) {
+      discountPercent = 25;
+      tierName = "GOAT";
+      nextTierLevel = null;
+    } else if (level >= 41) {
+      discountPercent = 20;
+      tierName = "Master";
+      nextTierLevel = 51;
+    } else if (level >= 31) {
       discountPercent = 15;
-      tierName = "Legend";
-      nextTierXP = null;
-    } else if (currentXP >= 2500) {
-      discountPercent = 10;
       tierName = "Elite";
-      nextTierXP = 5e3;
-    } else if (currentXP >= 1e3) {
-      discountPercent = 7;
+      nextTierLevel = 41;
+    } else if (level >= 21) {
+      discountPercent = 10;
       tierName = "Champion";
-      nextTierXP = 2500;
-    } else if (currentXP >= 500) {
+      nextTierLevel = 31;
+    } else if (level >= 11) {
       discountPercent = 5;
-      tierName = "Rising Star";
-      nextTierXP = 1e3;
-    } else if (currentXP >= 100) {
-      discountPercent = 2;
-      tierName = "Rookie";
-      nextTierXP = 500;
+      tierName = "Competitor";
+      nextTierLevel = 21;
     } else {
-      nextTierXP = 100;
+      nextTierLevel = 11;
     }
     res.json({
       discountPercent,
       tierName,
       currentXP,
-      nextTierXP,
+      nextTierLevel,
       level
     });
   } catch (error) {
@@ -31765,10 +31765,12 @@ router.get("/player/shop/products", authMiddlewareWithFreshData, requirePlayerPr
 router.get("/player/shop/products/:id", authMiddlewareWithFreshData, requirePlayerProfile, requireFeatureUnlock("academy_shop"), async (req2, res) => {
   try {
     const { id } = req2.params;
-    const product = await db.select().from(shopProducts).where(eq3(shopProducts.id, id)).limit(1);
-    if (!product[0]) {
-      return res.status(404).json({ error: "Product not found" });
-    }
+    const playerId = req2.user?.playerId;
+    if (!playerId) return res.status(403).json({ error: "Player profile required" });
+    const player2 = await db.select().from(players).where(eq3(players.id, playerId)).limit(1);
+    if (!player2[0]?.academyId) return res.status(400).json({ error: "Player has no academy" });
+    const product = await db.select().from(shopProducts).where(and3(eq3(shopProducts.id, id), eq3(shopProducts.academyId, player2[0].academyId))).limit(1);
+    if (!product[0]) return res.status(404).json({ error: "Product not found" });
     res.json(product[0]);
   } catch (error) {
     console.error("[Shop] Error fetching product:", error);
@@ -31778,10 +31780,12 @@ router.get("/player/shop/products/:id", authMiddlewareWithFreshData, requirePlay
 router.get("/player/shop/services/:id", authMiddlewareWithFreshData, requirePlayerProfile, requireFeatureUnlock("academy_shop"), async (req2, res) => {
   try {
     const { id } = req2.params;
-    const service = await db.select().from(shopServices).where(eq3(shopServices.id, id)).limit(1);
-    if (!service[0]) {
-      return res.status(404).json({ error: "Service not found" });
-    }
+    const playerId = req2.user?.playerId;
+    if (!playerId) return res.status(403).json({ error: "Player profile required" });
+    const player2 = await db.select().from(players).where(eq3(players.id, playerId)).limit(1);
+    if (!player2[0]?.academyId) return res.status(400).json({ error: "Player has no academy" });
+    const service = await db.select().from(shopServices).where(and3(eq3(shopServices.id, id), eq3(shopServices.academyId, player2[0].academyId))).limit(1);
+    if (!service[0]) return res.status(404).json({ error: "Service not found" });
     res.json(service[0]);
   } catch (error) {
     console.error("[Shop] Error fetching service:", error);
@@ -31911,7 +31915,7 @@ router.post("/player/shop/orders", authMiddlewareWithFreshData, requirePlayerPro
     const orderItems = [];
     for (const item of items) {
       if (item.productId) {
-        const product = await db.select().from(shopProducts).where(eq3(shopProducts.id, item.productId)).limit(1);
+        const product = await db.select().from(shopProducts).where(and3(eq3(shopProducts.id, item.productId), eq3(shopProducts.academyId, academyId))).limit(1);
         if (product[0]) {
           const qty = item.quantity || 1;
           const unitPrice = Number(product[0].price);
@@ -31930,7 +31934,7 @@ router.post("/player/shop/orders", authMiddlewareWithFreshData, requirePlayerPro
           });
         }
       } else if (item.serviceId) {
-        const service = await db.select().from(shopServices).where(eq3(shopServices.id, item.serviceId)).limit(1);
+        const service = await db.select().from(shopServices).where(and3(eq3(shopServices.id, item.serviceId), eq3(shopServices.academyId, academyId))).limit(1);
         if (service[0]) {
           const unitPrice = Number(service[0].price);
           subtotal += unitPrice;
@@ -31942,7 +31946,7 @@ router.post("/player/shop/orders", authMiddlewareWithFreshData, requirePlayerPro
             quantity: 1,
             unitPrice: unitPrice.toFixed(2),
             totalPrice: unitPrice.toFixed(2),
-            serviceDetails: item.serviceDetails
+            serviceDetails: item.serviceDetails ? JSON.stringify(item.serviceDetails) : void 0
           });
         }
       }
@@ -31950,7 +31954,10 @@ router.post("/player/shop/orders", authMiddlewareWithFreshData, requirePlayerPro
     if (orderItems.length === 0) {
       return res.status(400).json({ error: "No valid items in cart" });
     }
-    const orderNumber = `GUS-${(/* @__PURE__ */ new Date()).getFullYear()}-${Date.now().toString(36).toUpperCase()}`;
+    const year = (/* @__PURE__ */ new Date()).getFullYear();
+    const countResult = await db.select({ count: sql5`COUNT(*)` }).from(shopOrders).where(sql5`EXTRACT(YEAR FROM ${shopOrders.createdAt}) = ${year}`);
+    const nextSeq = (Number(countResult[0]?.count) || 0) + 1;
+    const orderNumber = `GUS-${year}-${String(nextSeq).padStart(4, "0")}`;
     const total = subtotal;
     const [order] = await db.insert(shopOrders).values({
       academyId,
@@ -32139,14 +32146,40 @@ router.get("/academy/shop/orders", authMiddlewareWithFreshData, requireRole("aca
     if (!req2.user.academyId) {
       return res.status(400).json({ error: "No academy assigned" });
     }
-    const orders = await db.select().from(shopOrders).where(eq3(shopOrders.academyId, req2.user.academyId)).orderBy(desc2(shopOrders.createdAt));
-    res.json(orders);
+    const { status, type } = req2.query;
+    const whereClauses = [eq3(shopOrders.academyId, req2.user.academyId)];
+    if (status && typeof status === "string") {
+      whereClauses.push(eq3(shopOrders.status, status));
+    }
+    const orders = await db.select().from(shopOrders).where(and3(...whereClauses)).orderBy(desc2(shopOrders.createdAt));
+    const orderIds = orders.map((o) => o.id);
+    const playerIds = [...new Set(orders.filter((o) => o.playerId).map((o) => o.playerId))];
+    const [allItems, allPlayers] = await Promise.all([
+      orderIds.length > 0 ? db.select().from(shopOrderItems).where(inArray3(shopOrderItems.orderId, orderIds)) : [],
+      playerIds.length > 0 ? db.select({ id: players.id, name: players.name, profilePhotoUrl: players.profilePhotoUrl }).from(players).where(inArray3(players.id, playerIds)) : []
+    ]);
+    const playerMap = new Map(allPlayers.map((p) => [p.id, p]));
+    const itemsMap = /* @__PURE__ */ new Map();
+    for (const item of allItems) {
+      if (!itemsMap.has(item.orderId)) itemsMap.set(item.orderId, []);
+      itemsMap.get(item.orderId).push(item);
+    }
+    const enriched = orders.filter((o) => {
+      if (!type || typeof type !== "string") return true;
+      const items = itemsMap.get(o.id) || [];
+      return type === "service" ? items.some((i) => i.itemType === "service") : items.some((i) => i.itemType === "product");
+    }).map((o) => ({
+      ...o,
+      player: o.playerId ? playerMap.get(o.playerId) ?? null : null,
+      items: itemsMap.get(o.id) || []
+    }));
+    res.json(enriched);
   } catch (error) {
     console.error("[Shop] Error fetching orders:", error);
     res.status(500).json({ error: "Failed to load orders" });
   }
 });
-router.patch("/academy/shop/orders/:id", authMiddlewareWithFreshData, requireRole("academy_owner", "coach"), async (req2, res) => {
+router.patch("/academy/shop/orders/:id/status", authMiddlewareWithFreshData, requireRole("academy_owner", "coach"), async (req2, res) => {
   try {
     const { id } = req2.params;
     const { status, paymentStatus, assignedProviderId } = req2.body;
@@ -32172,44 +32205,6 @@ router.patch("/academy/shop/orders/:id", authMiddlewareWithFreshData, requireRol
   } catch (error) {
     console.error("[Shop] Error updating order:", error);
     res.status(500).json({ error: "Failed to update order" });
-  }
-});
-router.get("/academy/shop/orders/detailed", authMiddlewareWithFreshData, requireRole("academy_owner", "coach"), async (req2, res) => {
-  try {
-    if (!req2.user.academyId) {
-      return res.status(400).json({ error: "No academy assigned" });
-    }
-    const { status, type } = req2.query;
-    const whereClauses = [eq3(shopOrders.academyId, req2.user.academyId)];
-    if (status && typeof status === "string") {
-      whereClauses.push(eq3(shopOrders.status, status));
-    }
-    const orders = await db.select().from(shopOrders).where(and3(...whereClauses)).orderBy(desc2(shopOrders.createdAt));
-    const orderIds = orders.map((o) => o.id);
-    const playerIds = [...new Set(orders.filter((o) => o.playerId).map((o) => o.playerId))];
-    const [allItems, allPlayers] = await Promise.all([
-      orderIds.length > 0 ? db.select().from(shopOrderItems).where(inArray3(shopOrderItems.orderId, orderIds)) : [],
-      playerIds.length > 0 ? db.select({ id: players.id, name: players.name, profilePhotoUrl: players.profilePhotoUrl }).from(players).where(inArray3(players.id, playerIds)) : []
-    ]);
-    const playerMap = new Map(allPlayers.map((p) => [p.id, p]));
-    const itemsMap = /* @__PURE__ */ new Map();
-    for (const item of allItems) {
-      if (!itemsMap.has(item.orderId)) itemsMap.set(item.orderId, []);
-      itemsMap.get(item.orderId).push(item);
-    }
-    const enriched = orders.filter((o) => {
-      if (!type) return true;
-      const items = itemsMap.get(o.id) || [];
-      return type === "service" ? items.some((i) => i.itemType === "service") : items.some((i) => i.itemType === "product");
-    }).map((o) => ({
-      ...o,
-      player: o.playerId ? playerMap.get(o.playerId) || null : null,
-      items: itemsMap.get(o.id) || []
-    }));
-    res.json(enriched);
-  } catch (error) {
-    console.error("[Shop] Error fetching detailed orders:", error);
-    res.status(500).json({ error: "Failed to load orders" });
   }
 });
 router.patch("/academy/shop/categories/:id", authMiddlewareWithFreshData, requireRole("academy_owner"), async (req2, res) => {
@@ -32354,7 +32349,7 @@ router.get("/provider/me", authMiddlewareWithFreshData, requireServiceProvider, 
       rating: serviceProviders.rating,
       totalBookings: serviceProviders.totalBookings,
       createdAt: serviceProviders.createdAt,
-      userName: users.name,
+      userName: users.username,
       userEmail: users.email
     }).from(serviceProviders).leftJoin(users, eq3(serviceProviders.userId, users.id)).where(eq3(serviceProviders.userId, req2.user.userId)).limit(1);
     if (!provider[0]) {

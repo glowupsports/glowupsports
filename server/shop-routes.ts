@@ -93,42 +93,42 @@ router.get("/player/shop/xp-discount", authMiddleware, requirePlayerProfile, req
       return res.json({ discountPercent: 0, nextTierXP: 100, currentXP: 0 });
     }
 
-    const currentXP = (player[0] as any).xp || 0;
-    const level = (player[0] as any).level || 1;
-    
+    const currentXP = player[0].totalXp || 0;
+    const level = player[0].level || 1;
+
     let discountPercent = 0;
-    let nextTierXP: number | null = 500;
+    let nextTierLevel: number | null = 11;
     let tierName = "Starter";
 
-    if (currentXP >= 5000) {
+    if (level >= 51) {
+      discountPercent = 25;
+      tierName = "GOAT";
+      nextTierLevel = null;
+    } else if (level >= 41) {
+      discountPercent = 20;
+      tierName = "Master";
+      nextTierLevel = 51;
+    } else if (level >= 31) {
       discountPercent = 15;
-      tierName = "Legend";
-      nextTierXP = null;
-    } else if (currentXP >= 2500) {
-      discountPercent = 10;
       tierName = "Elite";
-      nextTierXP = 5000;
-    } else if (currentXP >= 1000) {
-      discountPercent = 7;
+      nextTierLevel = 41;
+    } else if (level >= 21) {
+      discountPercent = 10;
       tierName = "Champion";
-      nextTierXP = 2500;
-    } else if (currentXP >= 500) {
+      nextTierLevel = 31;
+    } else if (level >= 11) {
       discountPercent = 5;
-      tierName = "Rising Star";
-      nextTierXP = 1000;
-    } else if (currentXP >= 100) {
-      discountPercent = 2;
-      tierName = "Rookie";
-      nextTierXP = 500;
+      tierName = "Competitor";
+      nextTierLevel = 21;
     } else {
-      nextTierXP = 100;
+      nextTierLevel = 11;
     }
 
     res.json({
       discountPercent,
       tierName,
       currentXP,
-      nextTierXP,
+      nextTierLevel,
       level,
     });
   } catch (error) {
@@ -227,15 +227,21 @@ router.get("/player/shop/products", authMiddleware, requirePlayerProfile, requir
   }
 });
 
-// Get single product
+// Get single product (scoped to player's academy)
 router.get("/player/shop/products/:id", authMiddleware, requirePlayerProfile, requireFeatureUnlock("academy_shop"), async (req: AuthRequest, res: Response) => {
   try {
     const { id } = req.params;
-    const product = await db.select().from(shopProducts).where(eq(shopProducts.id, id)).limit(1);
-    
-    if (!product[0]) {
-      return res.status(404).json({ error: "Product not found" });
-    }
+    const playerId = req.user?.playerId;
+    if (!playerId) return res.status(403).json({ error: "Player profile required" });
+
+    const player = await db.select().from(players).where(eq(players.id, playerId)).limit(1);
+    if (!player[0]?.academyId) return res.status(400).json({ error: "Player has no academy" });
+
+    const product = await db.select().from(shopProducts)
+      .where(and(eq(shopProducts.id, id), eq(shopProducts.academyId, player[0].academyId)))
+      .limit(1);
+
+    if (!product[0]) return res.status(404).json({ error: "Product not found" });
 
     res.json(product[0]);
   } catch (error) {
@@ -244,15 +250,21 @@ router.get("/player/shop/products/:id", authMiddleware, requirePlayerProfile, re
   }
 });
 
-// Get single service
+// Get single service (scoped to player's academy)
 router.get("/player/shop/services/:id", authMiddleware, requirePlayerProfile, requireFeatureUnlock("academy_shop"), async (req: AuthRequest, res: Response) => {
   try {
     const { id } = req.params;
-    const service = await db.select().from(shopServices).where(eq(shopServices.id, id)).limit(1);
-    
-    if (!service[0]) {
-      return res.status(404).json({ error: "Service not found" });
-    }
+    const playerId = req.user?.playerId;
+    if (!playerId) return res.status(403).json({ error: "Player profile required" });
+
+    const player = await db.select().from(players).where(eq(players.id, playerId)).limit(1);
+    if (!player[0]?.academyId) return res.status(400).json({ error: "Player has no academy" });
+
+    const service = await db.select().from(shopServices)
+      .where(and(eq(shopServices.id, id), eq(shopServices.academyId, player[0].academyId)))
+      .limit(1);
+
+    if (!service[0]) return res.status(404).json({ error: "Service not found" });
 
     res.json(service[0]);
   } catch (error) {
@@ -442,12 +454,14 @@ router.post("/player/shop/orders", authMiddleware, requirePlayerProfile, require
       serviceId?: string;
       variantId?: string;
       variantName?: string;
-      serviceDetails?: any;
+      serviceDetails?: string;
     }[] = [];
 
     for (const item of items) {
       if (item.productId) {
-        const product = await db.select().from(shopProducts).where(eq(shopProducts.id, item.productId)).limit(1);
+        const product = await db.select().from(shopProducts)
+          .where(and(eq(shopProducts.id, item.productId), eq(shopProducts.academyId, academyId)))
+          .limit(1);
         if (product[0]) {
           const qty = item.quantity || 1;
           const unitPrice = Number(product[0].price);
@@ -467,7 +481,9 @@ router.post("/player/shop/orders", authMiddleware, requirePlayerProfile, require
           });
         }
       } else if (item.serviceId) {
-        const service = await db.select().from(shopServices).where(eq(shopServices.id, item.serviceId)).limit(1);
+        const service = await db.select().from(shopServices)
+          .where(and(eq(shopServices.id, item.serviceId), eq(shopServices.academyId, academyId)))
+          .limit(1);
         if (service[0]) {
           const unitPrice = Number(service[0].price);
           subtotal += unitPrice;
@@ -480,7 +496,7 @@ router.post("/player/shop/orders", authMiddleware, requirePlayerProfile, require
             quantity: 1,
             unitPrice: unitPrice.toFixed(2),
             totalPrice: unitPrice.toFixed(2),
-            serviceDetails: item.serviceDetails,
+            serviceDetails: item.serviceDetails ? JSON.stringify(item.serviceDetails) : undefined,
           });
         }
       }
@@ -490,7 +506,11 @@ router.post("/player/shop/orders", authMiddleware, requirePlayerProfile, require
       return res.status(400).json({ error: "No valid items in cart" });
     }
 
-    const orderNumber = `GUS-${new Date().getFullYear()}-${Date.now().toString(36).toUpperCase()}`;
+    const year = new Date().getFullYear();
+    const countResult = await db.select({ count: sql<number>`COUNT(*)` }).from(shopOrders)
+      .where(sql`EXTRACT(YEAR FROM ${shopOrders.createdAt}) = ${year}`);
+    const nextSeq = (Number(countResult[0]?.count) || 0) + 1;
+    const orderNumber = `GUS-${year}-${String(nextSeq).padStart(4, "0")}`;
     const total = subtotal;
 
     const [order] = await db.insert(shopOrders).values({
@@ -739,65 +759,8 @@ router.post("/academy/shop/categories", authMiddleware, requireRole("academy_own
   }
 });
 
-// Get all orders for academy
+// Get all orders for academy (enriched with player info, items, and optional filters)
 router.get("/academy/shop/orders", authMiddleware, requireRole("academy_owner", "coach"), async (req: AuthRequest, res: Response) => {
-  try {
-    if (!req.user!.academyId) {
-      return res.status(400).json({ error: "No academy assigned" });
-    }
-
-    const orders = await db.select().from(shopOrders)
-      .where(eq(shopOrders.academyId, req.user!.academyId))
-      .orderBy(desc(shopOrders.createdAt));
-
-    res.json(orders);
-  } catch (error) {
-    console.error("[Shop] Error fetching orders:", error);
-    res.status(500).json({ error: "Failed to load orders" });
-  }
-});
-
-// Update order status + optionally assign provider
-router.patch("/academy/shop/orders/:id", authMiddleware, requireRole("academy_owner", "coach"), async (req: AuthRequest, res: Response) => {
-  try {
-    const { id } = req.params;
-    const { status, paymentStatus, assignedProviderId } = req.body;
-
-    const updateData: Record<string, unknown> = { updatedAt: new Date() };
-    if (status) updateData.status = status;
-    if (paymentStatus) updateData.paymentStatus = paymentStatus;
-    if (status === "completed") updateData.completedAt = new Date();
-    if (assignedProviderId !== undefined) updateData.assignedProviderId = assignedProviderId;
-
-    const [order] = await db.update(shopOrders)
-      .set(updateData)
-      .where(and(
-        eq(shopOrders.id, id),
-        eq(shopOrders.academyId, req.user!.academyId!)
-      ))
-      .returning();
-
-    if (!order) {
-      return res.status(404).json({ error: "Order not found" });
-    }
-
-    // If provider assigned, bump their total_bookings
-    if (assignedProviderId) {
-      await db.execute(sql`
-        UPDATE service_providers SET total_bookings = total_bookings + 1, updated_at = NOW()
-        WHERE id = ${assignedProviderId}
-      `);
-    }
-
-    res.json(order);
-  } catch (error) {
-    console.error("[Shop] Error updating order:", error);
-    res.status(500).json({ error: "Failed to update order" });
-  }
-});
-
-// Get all orders with player info and items for academy (enhanced view)
-router.get("/academy/shop/orders/detailed", authMiddleware, requireRole("academy_owner", "coach"), async (req: AuthRequest, res: Response) => {
   try {
     if (!req.user!.academyId) {
       return res.status(400).json({ error: "No academy assigned" });
@@ -834,20 +797,61 @@ router.get("/academy/shop/orders/detailed", authMiddleware, requireRole("academy
 
     const enriched = orders
       .filter(o => {
-        if (!type) return true;
+        if (!type || typeof type !== "string") return true;
         const items = itemsMap.get(o.id) || [];
-        return type === "service" ? items.some(i => i.itemType === "service") : items.some(i => i.itemType === "product");
+        return type === "service"
+          ? items.some(i => i.itemType === "service")
+          : items.some(i => i.itemType === "product");
       })
       .map(o => ({
         ...o,
-        player: o.playerId ? playerMap.get(o.playerId) || null : null,
+        player: o.playerId ? playerMap.get(o.playerId) ?? null : null,
         items: itemsMap.get(o.id) || [],
       }));
 
     res.json(enriched);
   } catch (error) {
-    console.error("[Shop] Error fetching detailed orders:", error);
+    console.error("[Shop] Error fetching orders:", error);
     res.status(500).json({ error: "Failed to load orders" });
+  }
+});
+
+// Update order status + optionally assign provider
+router.patch("/academy/shop/orders/:id/status", authMiddleware, requireRole("academy_owner", "coach"), async (req: AuthRequest, res: Response) => {
+  try {
+    const { id } = req.params;
+    const { status, paymentStatus, assignedProviderId } = req.body;
+
+    const updateData: Record<string, unknown> = { updatedAt: new Date() };
+    if (status) updateData.status = status;
+    if (paymentStatus) updateData.paymentStatus = paymentStatus;
+    if (status === "completed") updateData.completedAt = new Date();
+    if (assignedProviderId !== undefined) updateData.assignedProviderId = assignedProviderId;
+
+    const [order] = await db.update(shopOrders)
+      .set(updateData)
+      .where(and(
+        eq(shopOrders.id, id),
+        eq(shopOrders.academyId, req.user!.academyId!)
+      ))
+      .returning();
+
+    if (!order) {
+      return res.status(404).json({ error: "Order not found" });
+    }
+
+    // If provider assigned, bump their total_bookings
+    if (assignedProviderId) {
+      await db.execute(sql`
+        UPDATE service_providers SET total_bookings = total_bookings + 1, updated_at = NOW()
+        WHERE id = ${assignedProviderId}
+      `);
+    }
+
+    res.json(order);
+  } catch (error) {
+    console.error("[Shop] Error updating order:", error);
+    res.status(500).json({ error: "Failed to update order" });
   }
 });
 
@@ -1040,7 +1044,7 @@ router.get("/provider/me", authMiddleware, requireServiceProvider, async (req: A
       rating: serviceProviders.rating,
       totalBookings: serviceProviders.totalBookings,
       createdAt: serviceProviders.createdAt,
-      userName: users.name,
+      userName: users.username,
       userEmail: users.email,
     })
       .from(serviceProviders)
