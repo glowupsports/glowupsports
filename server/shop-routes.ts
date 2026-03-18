@@ -13,7 +13,6 @@ import {
   checkAndAwardBadges,
   calculateProviderLevel,
   XP_AWARDS,
-  BADGES,
   getLocalDateString,
   getLocalYesterdayString,
 } from "./provider-gamification";
@@ -1352,9 +1351,11 @@ router.patch("/provider/bookings/:orderId/status", authMiddleware, requireServic
       }
     });
 
-    const { rank: newRank } = calculateProviderLevel(
-      leveledUp ? (Number(providerRecord.xp) + xpAwarded) : Number(providerRecord.xp)
-    );
+    const [postTxProvider] = await db.select({ xp: serviceProviders.xp })
+      .from(serviceProviders)
+      .where(eq(serviceProviders.userId, userId))
+      .limit(1);
+    const { rank: newRank } = calculateProviderLevel(Number(postTxProvider?.xp ?? 0));
     res.json({ ...order!, xpAwarded, leveledUp, newLevel, newRank, newBadges });
   } catch (error: unknown) {
     const err = error as { statusCode?: number; message?: string };

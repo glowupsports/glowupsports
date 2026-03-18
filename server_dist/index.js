@@ -5829,12 +5829,12 @@ var init_storage = __esm({
         const result = await db.select().from(users).where(eq(users.appleId, appleId));
         return result[0];
       },
-      async linkAppleId(userId, appleId) {
-        const result = await db.update(users).set({ appleId }).where(eq(users.id, userId)).returning();
+      async linkAppleId(userId2, appleId) {
+        const result = await db.update(users).set({ appleId }).where(eq(users.id, userId2)).returning();
         return result[0];
       },
-      async unlinkAppleId(userId) {
-        const result = await db.update(users).set({ appleId: null }).where(eq(users.id, userId)).returning();
+      async unlinkAppleId(userId2) {
+        const result = await db.update(users).set({ appleId: null }).where(eq(users.id, userId2)).returning();
         return result[0];
       },
       async getUserByPlayerId(playerId) {
@@ -6432,9 +6432,9 @@ var init_storage = __esm({
         const result = await db.update(invites).set(data).where(eq(invites.id, id)).returning();
         return result[0];
       },
-      async markInviteUsed(id, userId) {
+      async markInviteUsed(id, userId2) {
         const result = await db.update(invites).set({
-          usedBy: userId,
+          usedBy: userId2,
           usedAt: /* @__PURE__ */ new Date()
         }).where(eq(invites.id, id)).returning();
         return result[0];
@@ -6914,10 +6914,10 @@ var init_storage = __esm({
         const result = await db.update(playerInvites).set(data).where(eq(playerInvites.id, id)).returning();
         return result[0];
       },
-      async claimPlayerInvite(inviteCode, userId) {
+      async claimPlayerInvite(inviteCode, userId2) {
         const result = await db.update(playerInvites).set({
           status: "claimed",
-          claimedBy: userId,
+          claimedBy: userId2,
           claimedAt: /* @__PURE__ */ new Date()
         }).where(and(
           eq(playerInvites.inviteCode, inviteCode),
@@ -10987,9 +10987,9 @@ var init_storage = __esm({
         }
       },
       // Get court bookings for a player/user
-      async getPlayerCourtBookings(userId, playerId) {
+      async getPlayerCourtBookings(userId2, playerId) {
         try {
-          const conditions = playerId ? or(eq(courtBookings.userId, userId), eq(courtBookings.playerId, playerId)) : eq(courtBookings.userId, userId);
+          const conditions = playerId ? or(eq(courtBookings.userId, userId2), eq(courtBookings.playerId, playerId)) : eq(courtBookings.userId, userId2);
           const thirtyDaysAgo = /* @__PURE__ */ new Date();
           thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
           const thirtyDaysAgoStr = thirtyDaysAgo.toISOString().split("T")[0];
@@ -11231,17 +11231,17 @@ var init_storage = __esm({
         const result = await db.select({ email: players.email }).from(players).where(eq(players.id, playerId)).limit(1);
         return result[0]?.email || null;
       },
-      async isUserAcademyOwner(userId, academyId) {
+      async isUserAcademyOwner(userId2, academyId) {
         const defaultAcademyOwnership = await db.select({ id: users.id }).from(users).where(and(
-          eq(users.id, userId),
+          eq(users.id, userId2),
           eq(users.academyId, academyId),
           eq(users.role, "academy_owner")
         )).limit(1);
         if (defaultAcademyOwnership.length > 0) return true;
-        const directOwnership = await db.select({ id: academies.id }).from(academies).innerJoin(coaches, eq(academies.ownerId, coaches.id)).innerJoin(users, eq(users.coachId, coaches.id)).where(and(eq(users.id, userId), eq(academies.id, academyId))).limit(1);
+        const directOwnership = await db.select({ id: academies.id }).from(academies).innerJoin(coaches, eq(academies.ownerId, coaches.id)).innerJoin(users, eq(users.coachId, coaches.id)).where(and(eq(users.id, userId2), eq(academies.id, academyId))).limit(1);
         if (directOwnership.length > 0) return true;
         const membershipOwnership = await db.select({ id: coachAcademyMemberships.id }).from(coachAcademyMemberships).innerJoin(coaches, eq(coachAcademyMemberships.coachId, coaches.id)).innerJoin(users, eq(users.coachId, coaches.id)).where(and(
-          eq(users.id, userId),
+          eq(users.id, userId2),
           eq(coachAcademyMemberships.academyId, academyId),
           eq(coachAcademyMemberships.role, "academy_owner"),
           eq(coachAcademyMemberships.isActive, true)
@@ -11599,8 +11599,8 @@ var init_storage = __esm({
         }
       },
       // Get parent settings
-      async getParentSettings(userId) {
-        const result = await db.select().from(parentSettings).where(eq(parentSettings.userId, userId));
+      async getParentSettings(userId2) {
+        const result = await db.select().from(parentSettings).where(eq(parentSettings.userId, userId2));
         return result[0];
       },
       // Create parent settings with defaults
@@ -11611,8 +11611,8 @@ var init_storage = __esm({
         return result[0];
       },
       // Update parent settings
-      async updateParentSettings(userId, updates) {
-        const result = await db.update(parentSettings).set({ ...updates, updatedAt: /* @__PURE__ */ new Date() }).where(eq(parentSettings.userId, userId)).returning();
+      async updateParentSettings(userId2, updates) {
+        const result = await db.update(parentSettings).set({ ...updates, updatedAt: /* @__PURE__ */ new Date() }).where(eq(parentSettings.userId, userId2)).returning();
         return result[0];
       },
       // Create a parent-player relationship
@@ -11954,7 +11954,7 @@ var init_storage = __esm({
         }));
       },
       // Get court with full details
-      async getCourtWithDetails(courtId, userId, userAcademyId) {
+      async getCourtWithDetails(courtId, userId2, userAcademyId) {
         const result = await db.select().from(courts).leftJoin(academies, eq(courts.academyId, academies.id)).leftJoin(locations, eq(courts.locationId, locations.id)).where(eq(courts.id, courtId)).limit(1);
         if (result.length === 0) return null;
         const court = result[0];
@@ -12083,8 +12083,8 @@ var init_storage = __esm({
         return result[0];
       },
       // Get user's court bookings
-      async getUserCourtBookings(userId, filters) {
-        const conditions = [eq(courtBookings.userId, userId)];
+      async getUserCourtBookings(userId2, filters) {
+        const conditions = [eq(courtBookings.userId, userId2)];
         if (filters.status) {
           conditions.push(eq(courtBookings.status, filters.status));
         }
@@ -14509,10 +14509,10 @@ async function sendPushNotification(tokens, title, body, data, playerId) {
   }
   return results;
 }
-async function getUserPushTokens(userId) {
+async function getUserPushTokens(userId2) {
   const tokens = await db.select({ token: pushDeviceTokens.token }).from(pushDeviceTokens).where(
     and2(
-      eq2(pushDeviceTokens.userId, userId),
+      eq2(pushDeviceTokens.userId, userId2),
       eq2(pushDeviceTokens.isActive, true)
     )
   );
@@ -32776,9 +32776,8 @@ router.patch("/provider/bookings/:orderId/status", authMiddlewareWithFreshData, 
         }
       }
     });
-    const { rank: newRank } = calculateProviderLevel(
-      leveledUp ? Number(providerRecord.xp) + xpAwarded : Number(providerRecord.xp)
-    );
+    const [postTxProvider] = await db.select({ xp: serviceProviders.xp }).from(serviceProviders).where(eq4(serviceProviders.userId, userId)).limit(1);
+    const { rank: newRank } = calculateProviderLevel(Number(postTxProvider?.xp ?? 0));
     res.json({ ...order, xpAwarded, leveledUp, newLevel, newRank, newBadges });
   } catch (error) {
     const err = error;
@@ -36051,14 +36050,14 @@ import { eq as eq17, and as and16, desc as desc14, or as or8, sql as sql18 } fro
 var router9 = Router8();
 router9.get("/api/parent/children", authMiddlewareWithFreshData, async (req2, res) => {
   try {
-    const userId = req2.user.id;
+    const userId2 = req2.user.id;
     const children = await db.select({
       id: players.id,
       firstName: players.firstName,
       lastName: players.lastName,
       photoUrl: players.photoUrl,
       ballLevel: players.ballLevel
-    }).from(players).where(eq17(players.parentUserId, userId));
+    }).from(players).where(eq17(players.parentUserId, userId2));
     const childrenWithProgress = await Promise.all(children.map(async (child) => {
       const [level] = await db.select({
         levelId: playerBallLevels.levelId,
@@ -36086,11 +36085,11 @@ router9.get("/api/parent/children", authMiddlewareWithFreshData, async (req2, re
 });
 router9.get("/api/parent/children/:playerId/progress", authMiddlewareWithFreshData, async (req2, res) => {
   try {
-    const userId = req2.user.id;
+    const userId2 = req2.user.id;
     const { playerId } = req2.params;
     const [child] = await db.select().from(players).where(and16(
       eq17(players.id, playerId),
-      eq17(players.parentUserId, userId)
+      eq17(players.parentUserId, userId2)
     ));
     if (!child) {
       return res.status(403).json({ error: "Access denied" });
@@ -36127,12 +36126,12 @@ router9.get("/api/parent/children/:playerId/progress", authMiddlewareWithFreshDa
 });
 router9.get("/api/parent/children/:playerId/sessions", authMiddlewareWithFreshData, async (req2, res) => {
   try {
-    const userId = req2.user.id;
+    const userId2 = req2.user.id;
     const { playerId } = req2.params;
     const { limit = "10" } = req2.query;
     const [child] = await db.select().from(players).where(and16(
       eq17(players.id, playerId),
-      eq17(players.parentUserId, userId)
+      eq17(players.parentUserId, userId2)
     ));
     if (!child) {
       return res.status(403).json({ error: "Access denied" });
@@ -36163,12 +36162,12 @@ router9.get("/api/parent/children/:playerId/sessions", authMiddlewareWithFreshDa
 });
 router9.get("/api/parent/children/:playerId/feedback", authMiddlewareWithFreshData, async (req2, res) => {
   try {
-    const userId = req2.user.id;
+    const userId2 = req2.user.id;
     const { playerId } = req2.params;
     const { limit = "10" } = req2.query;
     const [child] = await db.select().from(players).where(and16(
       eq17(players.id, playerId),
-      eq17(players.parentUserId, userId)
+      eq17(players.parentUserId, userId2)
     ));
     if (!child) {
       return res.status(403).json({ error: "Access denied" });
@@ -36189,14 +36188,14 @@ router9.get("/api/parent/children/:playerId/feedback", authMiddlewareWithFreshDa
 });
 router9.get("/api/parent/messages", authMiddlewareWithFreshData, async (req2, res) => {
   try {
-    const userId = req2.user.id;
+    const userId2 = req2.user.id;
     const parentMessages = await db.select({
       id: messages.id,
       content: messages.content,
       createdAt: messages.createdAt,
       readAt: messages.readAt,
       senderName: users.displayName
-    }).from(messages).leftJoin(users, eq17(messages.senderId, users.id)).where(eq17(messages.receiverId, userId)).orderBy(desc14(messages.createdAt)).limit(20);
+    }).from(messages).leftJoin(users, eq17(messages.senderId, users.id)).where(eq17(messages.receiverId, userId2)).orderBy(desc14(messages.createdAt)).limit(20);
     res.json(parentMessages);
   } catch (error) {
     console.error("Error fetching parent messages:", error);
@@ -40538,20 +40537,20 @@ var RateLimiter = class {
     this.maxRequests = maxRequests;
     this.windowMs = windowMs;
   }
-  isRateLimited(userId) {
+  isRateLimited(userId2) {
     const now2 = Date.now();
-    const timestamps = this.requests.get(userId);
+    const timestamps = this.requests.get(userId2);
     if (!timestamps) return false;
     const valid = timestamps.filter((t) => now2 - t < this.windowMs);
-    this.requests.set(userId, valid);
+    this.requests.set(userId2, valid);
     return valid.length >= this.maxRequests;
   }
-  recordRequest(userId) {
+  recordRequest(userId2) {
     const now2 = Date.now();
-    const timestamps = this.requests.get(userId) || [];
+    const timestamps = this.requests.get(userId2) || [];
     const valid = timestamps.filter((t) => now2 - t < this.windowMs);
     valid.push(now2);
-    this.requests.set(userId, valid);
+    this.requests.set(userId2, valid);
   }
 };
 var chatRateLimiter = new RateLimiter(5, 1e4);
@@ -40594,7 +40593,7 @@ var socialPostUpload = multer3({
 });
 router16.get("/api/social/feed", authMiddlewareWithFreshData, requireFeatureUnlock("community_feed"), async (req2, res) => {
   try {
-    const userId = req2.user.userId;
+    const userId2 = req2.user.userId;
     const academyId = req2.user.academyId;
     const { limit = "20", offset = "0", filter = "for_you" } = req2.query;
     if (!academyId) {
@@ -40604,7 +40603,7 @@ router16.get("/api/social/feed", authMiddlewareWithFreshData, requireFeatureUnlo
     let groupIds = [];
     if (filter === "friends") {
       try {
-        const rawUser = await db.execute(sql24`SELECT player_id FROM users WHERE id = ${userId} LIMIT 1`);
+        const rawUser = await db.execute(sql24`SELECT player_id FROM users WHERE id = ${userId2} LIMIT 1`);
         const currentPlayerId = rawUser.rows?.[0]?.player_id;
         if (!currentPlayerId) {
           return res.json({ friends: [], pendingRequests: [] });
@@ -40634,7 +40633,7 @@ router16.get("/api/social/feed", authMiddlewareWithFreshData, requireFeatureUnlo
     } else if (filter === "groups") {
       try {
         const rawGroups = await db.execute(sql24`
-            SELECT group_id FROM group_members WHERE user_id = ${userId}
+            SELECT group_id FROM group_members WHERE user_id = ${userId2}
           `);
         groupIds = (rawGroups.rows || []).map((r) => r.group_id);
         if (groupIds.length === 0) {
@@ -40698,7 +40697,7 @@ router16.get("/api/social/feed", authMiddlewareWithFreshData, requireFeatureUnlo
         let forYouFriendIds = [];
         let forYouGroupIds = [];
         try {
-          const rawUser = await db.execute(sql24`SELECT player_id FROM users WHERE id = ${userId} LIMIT 1`);
+          const rawUser = await db.execute(sql24`SELECT player_id FROM users WHERE id = ${userId2} LIMIT 1`);
           const currentPlayerId = rawUser.rows?.[0]?.player_id;
           if (currentPlayerId) {
             const rawFriends = await db.execute(sql24`
@@ -40718,7 +40717,7 @@ router16.get("/api/social/feed", authMiddlewareWithFreshData, requireFeatureUnlo
             }
           }
           const rawGroups = await db.execute(sql24`
-              SELECT group_id FROM group_members WHERE user_id = ${userId}
+              SELECT group_id FROM group_members WHERE user_id = ${userId2}
             `);
           forYouGroupIds = (rawGroups.rows || []).map((r) => r.group_id);
         } catch (err) {
@@ -40733,7 +40732,7 @@ router16.get("/api/social/feed", authMiddlewareWithFreshData, requireFeatureUnlo
               WHERE academy_id = ${academyId} 
                 AND is_hidden = false
                 AND (
-                  author_id = ${userId}
+                  author_id = ${userId2}
                   OR visibility = 'academy'
                   OR visibility = 'public'
                   OR (visibility = 'friends' AND author_id = ANY(${forYouFriendIds}))
@@ -40752,7 +40751,7 @@ router16.get("/api/social/feed", authMiddlewareWithFreshData, requireFeatureUnlo
               WHERE academy_id = ${academyId} 
                 AND is_hidden = false
                 AND (
-                  author_id = ${userId}
+                  author_id = ${userId2}
                   OR visibility = 'academy'
                   OR visibility = 'public'
                   OR (visibility = 'friends' AND author_id = ANY(${forYouFriendIds}))
@@ -40770,7 +40769,7 @@ router16.get("/api/social/feed", authMiddlewareWithFreshData, requireFeatureUnlo
               WHERE academy_id = ${academyId} 
                 AND is_hidden = false
                 AND (
-                  author_id = ${userId}
+                  author_id = ${userId2}
                   OR visibility = 'academy'
                   OR visibility = 'public'
                   OR (visibility = 'group' AND group_id = ANY(${forYouGroupIds}))
@@ -40788,7 +40787,7 @@ router16.get("/api/social/feed", authMiddlewareWithFreshData, requireFeatureUnlo
               WHERE academy_id = ${academyId} 
                 AND is_hidden = false
                 AND (
-                  author_id = ${userId}
+                  author_id = ${userId2}
                   OR visibility = 'academy'
                   OR visibility = 'public'
                 )
@@ -40819,7 +40818,7 @@ router16.get("/api/social/feed", authMiddlewareWithFreshData, requireFeatureUnlo
       posts3 = [];
     }
     try {
-      const blockedRows = await db.select({ blockedUserId: playerBlocks.blockedUserId }).from(playerBlocks).where(eq24(playerBlocks.blockerUserId, userId));
+      const blockedRows = await db.select({ blockedUserId: playerBlocks.blockedUserId }).from(playerBlocks).where(eq24(playerBlocks.blockerUserId, userId2));
       if (blockedRows.length > 0) {
         const blockedIds = new Set(blockedRows.map((r) => r.blockedUserId));
         posts3 = posts3.filter((p) => !blockedIds.has(p.authorId));
@@ -40867,7 +40866,7 @@ router16.get("/api/social/feed", authMiddlewareWithFreshData, requireFeatureUnlo
           postId: postReactions.postId,
           reactionType: postReactions.reactionType
         }).from(postReactions).where(and22(
-          eq24(postReactions.userId, userId),
+          eq24(postReactions.userId, userId2),
           inArray9(postReactions.postId, postIds)
         ));
         userReactions.forEach((r) => reactionMap.set(r.postId, r.reactionType));
@@ -40920,7 +40919,7 @@ router16.post("/api/social/posts/upload-images", authMiddlewareWithFreshData, re
 });
 router16.post("/api/social/posts", authMiddlewareWithFreshData, requireFeatureUnlock("community_feed"), async (req2, res) => {
   try {
-    const userId = req2.user.userId;
+    const userId2 = req2.user.userId;
     const playerId = req2.user.playerId;
     const academyId = req2.user.academyId;
     if (!academyId) {
@@ -40938,10 +40937,10 @@ router16.post("/api/social/posts", authMiddlewareWithFreshData, requireFeatureUn
         }
       }
     }
-    if (postRateLimiter.isRateLimited(playerId || userId)) {
+    if (postRateLimiter.isRateLimited(playerId || userId2)) {
       return res.status(429).json({ error: "You're posting too quickly. Please wait a moment." });
     }
-    postRateLimiter.recordRequest(playerId || userId);
+    postRateLimiter.recordRequest(playerId || userId2);
     const {
       contextType,
       contextId,
@@ -40961,7 +40960,7 @@ router16.post("/api/social/posts", authMiddlewareWithFreshData, requireFeatureUn
     }
     const filteredCaption = caption ? filterProfanity(caption) : caption;
     const [newPost] = await db.insert(posts2).values({
-      authorId: userId,
+      authorId: userId2,
       academyId,
       contextType,
       contextId,
@@ -40973,7 +40972,7 @@ router16.post("/api/social/posts", authMiddlewareWithFreshData, requireFeatureUn
       taggedUserIds,
       locationName
     }).returning();
-    await db.update(userSocialProfiles).set({ postCount: sql24`post_count + 1` }).where(eq24(userSocialProfiles.userId, userId));
+    await db.update(userSocialProfiles).set({ postCount: sql24`post_count + 1` }).where(eq24(userSocialProfiles.userId, userId2));
     res.status(201).json(newPost);
   } catch (error) {
     console.error("Error creating post:", error);
@@ -40983,7 +40982,7 @@ router16.post("/api/social/posts", authMiddlewareWithFreshData, requireFeatureUn
 router16.get("/api/social/posts/:id", authMiddlewareWithFreshData, requireFeatureUnlock("community_feed"), async (req2, res) => {
   try {
     const { id } = req2.params;
-    const userId = req2.user.userId;
+    const userId2 = req2.user.userId;
     const [post] = await db.select({
       post: posts2,
       author: {
@@ -41007,7 +41006,7 @@ router16.get("/api/social/posts/:id", authMiddlewareWithFreshData, requireFeatur
     }).from(postReactions).where(eq24(postReactions.postId, id)).groupBy(postReactions.reactionType);
     const [userReaction] = await db.select().from(postReactions).where(and22(
       eq24(postReactions.postId, id),
-      eq24(postReactions.userId, userId)
+      eq24(postReactions.userId, userId2)
     ));
     res.json({
       ...post.post,
@@ -41029,12 +41028,12 @@ router16.get("/api/social/posts/:id", authMiddlewareWithFreshData, requireFeatur
 router16.delete("/api/social/posts/:id", authMiddlewareWithFreshData, requireFeatureUnlock("community_feed"), async (req2, res) => {
   try {
     const { id } = req2.params;
-    const userId = req2.user.userId;
+    const userId2 = req2.user.userId;
     const [post] = await db.select().from(posts2).where(eq24(posts2.id, id));
     if (!post) {
       return res.status(404).json({ error: "Post not found" });
     }
-    if (post.authorId !== userId && req2.user.role !== "platform_owner") {
+    if (post.authorId !== userId2 && req2.user.role !== "platform_owner") {
       return res.status(403).json({ error: "Not authorized to delete this post" });
     }
     await db.delete(posts2).where(eq24(posts2.id, id));
@@ -41048,7 +41047,7 @@ router16.delete("/api/social/posts/:id", authMiddlewareWithFreshData, requireFea
 router16.post("/api/social/posts/:id/reactions", authMiddlewareWithFreshData, requireFeatureUnlock("community_feed"), async (req2, res) => {
   try {
     const { id: postId } = req2.params;
-    const userId = req2.user.userId;
+    const userId2 = req2.user.userId;
     const { reactionType } = req2.body;
     const validReactions = ["clap", "fire", "tennis", "muscle", "star"];
     if (!validReactions.includes(reactionType)) {
@@ -41056,14 +41055,14 @@ router16.post("/api/social/posts/:id/reactions", authMiddlewareWithFreshData, re
     }
     const [existing2] = await db.select().from(postReactions).where(and22(
       eq24(postReactions.postId, postId),
-      eq24(postReactions.userId, userId)
+      eq24(postReactions.userId, userId2)
     ));
     if (existing2) {
       await db.update(postReactions).set({ reactionType }).where(eq24(postReactions.id, existing2.id));
     } else {
       await db.insert(postReactions).values({
         postId,
-        userId,
+        userId: userId2,
         reactionType
       });
       await db.update(posts2).set({ cheerCount: sql24`cheer_count + 1` }).where(eq24(posts2.id, postId));
@@ -41077,10 +41076,10 @@ router16.post("/api/social/posts/:id/reactions", authMiddlewareWithFreshData, re
 router16.delete("/api/social/posts/:id/reactions", authMiddlewareWithFreshData, requireFeatureUnlock("community_feed"), async (req2, res) => {
   try {
     const { id: postId } = req2.params;
-    const userId = req2.user.userId;
+    const userId2 = req2.user.userId;
     const result = await db.delete(postReactions).where(and22(
       eq24(postReactions.postId, postId),
-      eq24(postReactions.userId, userId)
+      eq24(postReactions.userId, userId2)
     ));
     if (result.rowCount && result.rowCount > 0) {
       await db.update(posts2).set({ cheerCount: sql24`GREATEST(0, cheer_count - 1)` }).where(eq24(posts2.id, postId));
@@ -41160,7 +41159,7 @@ router16.get("/api/social/posts/:id/comments", authMiddlewareWithFreshData, requ
 router16.post("/api/social/posts/:id/comments", authMiddlewareWithFreshData, requireFeatureUnlock("community_feed"), async (req2, res) => {
   try {
     const { id: postId } = req2.params;
-    const userId = req2.user.userId;
+    const userId2 = req2.user.userId;
     const playerId = req2.user.playerId;
     const { text: text2, isQuickComment, quickCommentType, parentId } = req2.body;
     if (playerId) {
@@ -41175,10 +41174,10 @@ router16.post("/api/social/posts/:id/comments", authMiddlewareWithFreshData, req
         }
       }
     }
-    if (chatRateLimiter.isRateLimited(playerId || userId)) {
+    if (chatRateLimiter.isRateLimited(playerId || userId2)) {
       return res.status(429).json({ error: "You're sending messages too quickly. Please wait a moment." });
     }
-    chatRateLimiter.recordRequest(playerId || userId);
+    chatRateLimiter.recordRequest(playerId || userId2);
     const quickComments = {
       nice: "Nice!",
       lets_play: "Let's play!",
@@ -41195,7 +41194,7 @@ router16.post("/api/social/posts/:id/comments", authMiddlewareWithFreshData, req
     const filteredCommentText = commentText ? filterProfanity(commentText) : commentText;
     const [newComment] = await db.insert(postComments).values({
       postId,
-      authorId: userId,
+      authorId: userId2,
       text: filteredCommentText,
       isQuickComment: !!isQuickComment,
       quickCommentType,
@@ -41211,21 +41210,21 @@ router16.post("/api/social/posts/:id/comments", authMiddlewareWithFreshData, req
 router16.post("/api/social/comments/:commentId/like", authMiddlewareWithFreshData, async (req2, res) => {
   try {
     const { commentId } = req2.params;
-    const userId = req2.user.userId;
+    const userId2 = req2.user.userId;
     const existingLike = await db.select().from(commentLikes).where(and22(
       eq24(commentLikes.commentId, commentId),
-      eq24(commentLikes.userId, userId)
+      eq24(commentLikes.userId, userId2)
     )).limit(1);
     if (existingLike.length > 0) {
       await db.delete(commentLikes).where(and22(
         eq24(commentLikes.commentId, commentId),
-        eq24(commentLikes.userId, userId)
+        eq24(commentLikes.userId, userId2)
       ));
       res.json({ liked: false, message: "Like removed" });
     } else {
       await db.insert(commentLikes).values({
         commentId,
-        userId
+        userId: userId2
       });
       res.json({ liked: true, message: "Comment liked" });
     }
@@ -41237,12 +41236,12 @@ router16.post("/api/social/comments/:commentId/like", authMiddlewareWithFreshDat
 router16.delete("/api/social/comments/:commentId", authMiddlewareWithFreshData, async (req2, res) => {
   try {
     const { commentId } = req2.params;
-    const userId = req2.user.userId;
+    const userId2 = req2.user.userId;
     const [comment] = await db.select().from(postComments).where(eq24(postComments.id, commentId)).limit(1);
     if (!comment) {
       return res.status(404).json({ error: "Comment not found" });
     }
-    if (comment.authorId !== userId) {
+    if (comment.authorId !== userId2) {
       return res.status(403).json({ error: "You can only delete your own comments" });
     }
     await db.delete(postComments).where(eq24(postComments.id, commentId));
@@ -41256,12 +41255,12 @@ router16.delete("/api/social/comments/:commentId", authMiddlewareWithFreshData, 
 router16.get("/api/social/posts/:postId/my-liked-comments", authMiddlewareWithFreshData, async (req2, res) => {
   try {
     const { postId } = req2.params;
-    const userId = req2.user.userId;
+    const userId2 = req2.user.userId;
     const likedComments = await db.select({
       commentId: commentLikes.commentId
     }).from(commentLikes).innerJoin(postComments, eq24(commentLikes.commentId, postComments.id)).where(and22(
       eq24(postComments.postId, postId),
-      eq24(commentLikes.userId, userId)
+      eq24(commentLikes.userId, userId2)
     ));
     res.json({ likedCommentIds: likedComments.map((l) => l.commentId) });
   } catch (error) {
@@ -41271,12 +41270,12 @@ router16.get("/api/social/posts/:postId/my-liked-comments", authMiddlewareWithFr
 });
 router16.get("/api/social/groups", authMiddlewareWithFreshData, async (req2, res) => {
   try {
-    const userId = req2.user.userId;
+    const userId2 = req2.user.userId;
     const academyId = req2.user.academyId;
     const userGroups = await db.select({
       group: communityGroups,
       membership: groupMembers
-    }).from(groupMembers).innerJoin(communityGroups, eq24(groupMembers.groupId, communityGroups.id)).where(eq24(groupMembers.userId, userId));
+    }).from(groupMembers).innerJoin(communityGroups, eq24(groupMembers.groupId, communityGroups.id)).where(eq24(groupMembers.userId, userId2));
     const academyGroups = await db.select().from(communityGroups).where(and22(
       eq24(communityGroups.academyId, academyId || ""),
       eq24(communityGroups.type, "academy")
@@ -41333,18 +41332,18 @@ router16.get("/api/social/open-to-play", authMiddlewareWithFreshData, async (req
 });
 router16.post("/api/social/open-to-play", authMiddlewareWithFreshData, async (req2, res) => {
   try {
-    const userId = req2.user.userId;
+    const userId2 = req2.user.userId;
     const academyId = req2.user.academyId;
     if (!academyId) {
       return res.status(400).json({ error: "Academy context required" });
     }
     const { availableFrom, availableUntil, intent = "match", locationId, locationName, message, levelRange } = req2.body;
     await db.update(openToPlay).set({ isActive: false }).where(and22(
-      eq24(openToPlay.userId, userId),
+      eq24(openToPlay.userId, userId2),
       eq24(openToPlay.isActive, true)
     ));
     const [newStatus] = await db.insert(openToPlay).values({
-      userId,
+      userId: userId2,
       academyId,
       availableFrom: new Date(availableFrom),
       availableUntil: new Date(availableUntil),
@@ -41363,9 +41362,9 @@ router16.post("/api/social/open-to-play", authMiddlewareWithFreshData, async (re
 });
 router16.delete("/api/social/open-to-play", authMiddlewareWithFreshData, async (req2, res) => {
   try {
-    const userId = req2.user.userId;
+    const userId2 = req2.user.userId;
     await db.update(openToPlay).set({ isActive: false }).where(and22(
-      eq24(openToPlay.userId, userId),
+      eq24(openToPlay.userId, userId2),
       eq24(openToPlay.isActive, true)
     ));
     res.json({ success: true });
@@ -41376,7 +41375,7 @@ router16.delete("/api/social/open-to-play", authMiddlewareWithFreshData, async (
 });
 router16.get("/api/social/highlights", authMiddlewareWithFreshData, async (req2, res) => {
   try {
-    const userId = req2.user.userId;
+    const userId2 = req2.user.userId;
     const academyId = req2.user.academyId;
     const dateParam = req2.query.date;
     const now2 = dateParam ? new Date(dateParam) : /* @__PURE__ */ new Date();
@@ -41406,14 +41405,14 @@ router16.get("/api/social/highlights", authMiddlewareWithFreshData, async (req2,
 });
 router16.post("/api/social/posts/:id/report", authMiddlewareWithFreshData, async (req2, res) => {
   try {
-    const userId = req2.user.userId;
+    const userId2 = req2.user.userId;
     const postId = req2.params.id;
     const { reason } = req2.body;
     if (!postId) {
       return res.status(400).json({ error: "Post ID required" });
     }
     const existing2 = await db.select({ id: contentReports.id }).from(contentReports).where(and22(
-      eq24(contentReports.reporterUserId, userId),
+      eq24(contentReports.reporterUserId, userId2),
       eq24(contentReports.contentId, postId),
       eq24(contentReports.contentType, "post")
     )).limit(1);
@@ -41421,12 +41420,12 @@ router16.post("/api/social/posts/:id/report", authMiddlewareWithFreshData, async
       return res.json({ success: true, alreadyReported: true });
     }
     await db.insert(contentReports).values({
-      reporterUserId: userId,
+      reporterUserId: userId2,
       contentType: "post",
       contentId: postId,
       reason: reason || null
     });
-    console.log(`[Report] User ${userId} reported post ${postId}: ${reason || "no reason"}`);
+    console.log(`[Report] User ${userId2} reported post ${postId}: ${reason || "no reason"}`);
     res.json({ success: true });
   } catch (error) {
     console.error("[Report] Error:", error);
@@ -43882,9 +43881,9 @@ router19.delete("/api/coach/travel-times/:id", authMiddlewareWithFreshData, requ
 });
 router19.get("/api/parent/children", authMiddlewareWithFreshData, async (req2, res) => {
   try {
-    const userId = req2.user?.userId;
+    const userId2 = req2.user?.userId;
     const playerId = req2.user?.playerId;
-    if (!userId) {
+    if (!userId2) {
       return res.status(401).json({ error: "User not authenticated" });
     }
     if (playerId) {
@@ -43901,7 +43900,7 @@ router19.get("/api/parent/children", authMiddlewareWithFreshData, async (req2, r
         }]
       });
     }
-    const children = await storage.getParentChildren(userId);
+    const children = await storage.getParentChildren(userId2);
     res.json({ children });
   } catch (error) {
     console.error("Get parent children error:", error);
@@ -43910,14 +43909,14 @@ router19.get("/api/parent/children", authMiddlewareWithFreshData, async (req2, r
 });
 router19.get("/api/parent/invoices/:playerId", authMiddlewareWithFreshData, async (req2, res) => {
   try {
-    const userId = req2.user?.userId;
+    const userId2 = req2.user?.userId;
     const userPlayerId = req2.user?.playerId;
     const { playerId } = req2.params;
-    if (!userId) {
+    if (!userId2) {
       return res.status(401).json({ error: "User not authenticated" });
     }
     if (userPlayerId !== playerId) {
-      const hasAccess = await storage.checkParentPlayerAccess(userId, playerId);
+      const hasAccess = await storage.checkParentPlayerAccess(userId2, playerId);
       if (!hasAccess) {
         return res.status(403).json({ error: "Access denied" });
       }
@@ -43936,14 +43935,14 @@ router19.get("/api/parent/invoices/:playerId", authMiddlewareWithFreshData, asyn
 });
 router19.get("/api/parent/invoices/:playerId/:invoiceId", authMiddlewareWithFreshData, async (req2, res) => {
   try {
-    const userId = req2.user?.userId;
+    const userId2 = req2.user?.userId;
     const userPlayerId = req2.user?.playerId;
     const { playerId, invoiceId } = req2.params;
-    if (!userId) {
+    if (!userId2) {
       return res.status(401).json({ error: "User not authenticated" });
     }
     if (userPlayerId !== playerId) {
-      const hasAccess = await storage.checkParentPlayerAccess(userId, playerId);
+      const hasAccess = await storage.checkParentPlayerAccess(userId2, playerId);
       if (!hasAccess) {
         return res.status(403).json({ error: "Access denied" });
       }
@@ -43966,14 +43965,14 @@ router19.get("/api/parent/invoices/:playerId/:invoiceId", authMiddlewareWithFres
 });
 router19.get("/api/parent/payments/:playerId", authMiddlewareWithFreshData, async (req2, res) => {
   try {
-    const userId = req2.user?.userId;
+    const userId2 = req2.user?.userId;
     const userPlayerId = req2.user?.playerId;
     const { playerId } = req2.params;
-    if (!userId) {
+    if (!userId2) {
       return res.status(401).json({ error: "User not authenticated" });
     }
     if (userPlayerId !== playerId) {
-      const hasAccess = await storage.checkParentPlayerAccess(userId, playerId);
+      const hasAccess = await storage.checkParentPlayerAccess(userId2, playerId);
       if (!hasAccess) {
         return res.status(403).json({ error: "Access denied" });
       }
@@ -43987,15 +43986,15 @@ router19.get("/api/parent/payments/:playerId", authMiddlewareWithFreshData, asyn
 });
 router19.get("/api/parent/lessons/:playerId", authMiddlewareWithFreshData, async (req2, res) => {
   try {
-    const userId = req2.user?.userId;
+    const userId2 = req2.user?.userId;
     const userPlayerId = req2.user?.playerId;
     const { playerId } = req2.params;
     const { month, year } = req2.query;
-    if (!userId) {
+    if (!userId2) {
       return res.status(401).json({ error: "User not authenticated" });
     }
     if (userPlayerId !== playerId) {
-      const hasAccess = await storage.checkParentPlayerAccess(userId, playerId);
+      const hasAccess = await storage.checkParentPlayerAccess(userId2, playerId);
       if (!hasAccess) {
         return res.status(403).json({ error: "Access denied" });
       }
@@ -44011,13 +44010,13 @@ router19.get("/api/parent/lessons/:playerId", authMiddlewareWithFreshData, async
 });
 router19.get("/api/parent/settings", authMiddlewareWithFreshData, async (req2, res) => {
   try {
-    const userId = req2.user?.userId;
-    if (!userId) {
+    const userId2 = req2.user?.userId;
+    if (!userId2) {
       return res.status(401).json({ error: "User not authenticated" });
     }
-    let settings = await storage.getParentSettings(userId);
+    let settings = await storage.getParentSettings(userId2);
     if (!settings) {
-      settings = await storage.createParentSettings({ userId });
+      settings = await storage.createParentSettings({ userId: userId2 });
     }
     res.json({ settings });
   } catch (error) {
@@ -44027,12 +44026,12 @@ router19.get("/api/parent/settings", authMiddlewareWithFreshData, async (req2, r
 });
 router19.patch("/api/parent/settings", authMiddlewareWithFreshData, async (req2, res) => {
   try {
-    const userId = req2.user?.userId;
-    if (!userId) {
+    const userId2 = req2.user?.userId;
+    if (!userId2) {
       return res.status(401).json({ error: "User not authenticated" });
     }
     const updates = req2.body;
-    const settings = await storage.updateParentSettings(userId, updates);
+    const settings = await storage.updateParentSettings(userId2, updates);
     res.json({ settings });
   } catch (error) {
     console.error("Update parent settings error:", error);
@@ -44041,14 +44040,14 @@ router19.patch("/api/parent/settings", authMiddlewareWithFreshData, async (req2,
 });
 router19.get("/api/parent/dashboard/:playerId", authMiddlewareWithFreshData, async (req2, res) => {
   try {
-    const userId = req2.user?.userId;
+    const userId2 = req2.user?.userId;
     const userPlayerId = req2.user?.playerId;
     const { playerId } = req2.params;
-    if (!userId) {
+    if (!userId2) {
       return res.status(401).json({ error: "User not authenticated" });
     }
     if (userPlayerId !== playerId) {
-      const hasAccess = await storage.checkParentPlayerAccess(userId, playerId);
+      const hasAccess = await storage.checkParentPlayerAccess(userId2, playerId);
       if (!hasAccess) {
         return res.status(403).json({ error: "Access denied" });
       }
@@ -44101,14 +44100,14 @@ router19.get("/api/parent/dashboard/:playerId", authMiddlewareWithFreshData, asy
 });
 router19.get("/api/parent/packages/:playerId", authMiddlewareWithFreshData, async (req2, res) => {
   try {
-    const userId = req2.user?.userId;
+    const userId2 = req2.user?.userId;
     const userPlayerId = req2.user?.playerId;
     const { playerId } = req2.params;
-    if (!userId) {
+    if (!userId2) {
       return res.status(401).json({ error: "User not authenticated" });
     }
     if (userPlayerId !== playerId) {
-      const hasAccess = await storage.checkParentPlayerAccess(userId, playerId);
+      const hasAccess = await storage.checkParentPlayerAccess(userId2, playerId);
       if (!hasAccess) {
         return res.status(403).json({ error: "Access denied" });
       }
@@ -44140,14 +44139,14 @@ router19.get("/api/parent/packages/:playerId", authMiddlewareWithFreshData, asyn
 });
 router19.get("/api/parent/invoices/:playerId/:invoiceId/html", authMiddlewareWithFreshData, async (req2, res) => {
   try {
-    const userId = req2.user?.userId;
+    const userId2 = req2.user?.userId;
     const userPlayerId = req2.user?.playerId;
     const { playerId, invoiceId } = req2.params;
-    if (!userId) {
+    if (!userId2) {
       return res.status(401).json({ error: "User not authenticated" });
     }
     if (userPlayerId !== playerId) {
-      const hasAccess = await storage.checkParentPlayerAccess(userId, playerId);
+      const hasAccess = await storage.checkParentPlayerAccess(userId2, playerId);
       if (!hasAccess) {
         return res.status(403).json({ error: "Access denied" });
       }
@@ -44199,15 +44198,15 @@ router19.get("/api/parent/invoices/:playerId/:invoiceId/html", authMiddlewareWit
 });
 router19.get("/api/parent/credit-store/:playerId", authMiddlewareWithFreshData, async (req2, res) => {
   try {
-    const userId = req2.user?.userId;
+    const userId2 = req2.user?.userId;
     const userPlayerId = req2.user?.playerId;
     const { playerId } = req2.params;
-    if (!userId) {
+    if (!userId2) {
       return res.status(401).json({ error: "Unauthorized" });
     }
     const player2 = await storage.getPlayer(playerId);
     const isOwnPlayer = userPlayerId === playerId;
-    const isParent = await storage.checkParentPlayerAccess(userId, playerId);
+    const isParent = await storage.checkParentPlayerAccess(userId2, playerId);
     if (!player2 || !isOwnPlayer && !isParent) {
       return res.status(403).json({ error: "Access denied" });
     }
@@ -44268,15 +44267,15 @@ router19.get("/api/parent/credit-store/:playerId", authMiddlewareWithFreshData, 
 });
 router19.get("/api/parent/academy-payment-info/:playerId", authMiddlewareWithFreshData, async (req2, res) => {
   try {
-    const userId = req2.user?.userId;
+    const userId2 = req2.user?.userId;
     const userPlayerId = req2.user?.playerId;
     const { playerId } = req2.params;
-    if (!userId) {
+    if (!userId2) {
       return res.status(401).json({ error: "Unauthorized" });
     }
     const player2 = await storage.getPlayer(playerId);
     const isOwnPlayer = userPlayerId === playerId;
-    const isParent = await storage.checkParentPlayerAccess(userId, playerId);
+    const isParent = await storage.checkParentPlayerAccess(userId2, playerId);
     if (!player2 || !isOwnPlayer && !isParent) {
       return res.status(403).json({ error: "Access denied" });
     }
@@ -44304,9 +44303,9 @@ router19.get("/api/parent/academy-payment-info/:playerId", authMiddlewareWithFre
 });
 router19.post("/api/parent/purchase-credits", authMiddlewareWithFreshData, async (req2, res) => {
   try {
-    const userId = req2.user?.userId;
+    const userId2 = req2.user?.userId;
     const { playerId, templateId, pin, paymentMethod } = req2.body;
-    if (!userId) {
+    if (!userId2) {
       return res.status(401).json({ error: "Unauthorized" });
     }
     if (!playerId || !templateId || !pin) {
@@ -44315,7 +44314,7 @@ router19.post("/api/parent/purchase-credits", authMiddlewareWithFreshData, async
     const player2 = await storage.getPlayer(playerId);
     const userPlayerId = req2.user?.playerId;
     const isOwnPlayer = userPlayerId === playerId;
-    const isParent = await storage.checkParentPlayerAccess(userId, playerId);
+    const isParent = await storage.checkParentPlayerAccess(userId2, playerId);
     if (!player2 || !isOwnPlayer && !isParent) {
       return res.status(403).json({ error: "Access denied" });
     }
@@ -44444,16 +44443,16 @@ router19.post("/api/parent/purchase-credits", authMiddlewareWithFreshData, async
 router19.get("/api/players/:playerId/credits-summary", authMiddlewareWithFreshData, async (req2, res) => {
   try {
     const { playerId } = req2.params;
-    const userId = req2.user?.id;
+    const userId2 = req2.user?.id;
     const coachId = req2.user?.coachId;
-    if (!userId && !coachId) {
+    if (!userId2 && !coachId) {
       return res.status(401).json({ error: "Unauthorized" });
     }
     const player2 = await storage.getPlayer(playerId);
     if (!player2) {
       return res.status(404).json({ error: "Player not found" });
     }
-    if (!coachId && player2.parentUserId !== userId) {
+    if (!coachId && player2.parentUserId !== userId2) {
       return res.status(403).json({ error: "Access denied" });
     }
     const packages3 = await storage.getPlayerPackages(playerId);
@@ -44722,10 +44721,10 @@ router19.get("/api/coach/my-reviews", authMiddlewareWithFreshData, requireRole("
 });
 router19.post("/api/reviews/:reviewId/flag", authMiddlewareWithFreshData, async (req2, res) => {
   try {
-    const userId = req2.user?.userId;
+    const userId2 = req2.user?.userId;
     const { reviewId } = req2.params;
     const { reason, details } = req2.body;
-    if (!userId) {
+    if (!userId2) {
       return res.status(401).json({ error: "Authentication required" });
     }
     if (!reason || !["inappropriate", "fake", "spam", "other"].includes(reason)) {
@@ -44737,7 +44736,7 @@ router19.post("/api/reviews/:reviewId/flag", authMiddlewareWithFreshData, async 
     }
     await storage.createReviewFlag({
       reviewId,
-      flaggedBy: userId,
+      flaggedBy: userId2,
       reason,
       details: details ? sanitizeMessage(details) : null
     });
@@ -44759,7 +44758,7 @@ router19.get("/api/platform/review-flags", authMiddlewareWithFreshData, requireR
 });
 router19.post("/api/platform/reviews/:reviewId/moderate", authMiddlewareWithFreshData, requireRole("platform_owner"), async (req2, res) => {
   try {
-    const userId = req2.user?.userId;
+    const userId2 = req2.user?.userId;
     const { reviewId } = req2.params;
     const { action, reason, internalNote } = req2.body;
     if (!["hide", "unhide", "dismiss_flags"].includes(action)) {
@@ -44770,13 +44769,13 @@ router19.post("/api/platform/reviews/:reviewId/moderate", authMiddlewareWithFres
       return res.status(404).json({ error: "Review not found" });
     }
     if (action === "hide") {
-      await storage.hideReview(reviewId, userId, reason || "Moderation decision");
+      await storage.hideReview(reviewId, userId2, reason || "Moderation decision");
       await storage.updateCoachReviewStats(review.coachId);
     } else if (action === "unhide") {
       await storage.unhideReview(reviewId);
       await storage.updateCoachReviewStats(review.coachId);
     } else if (action === "dismiss_flags") {
-      await storage.dismissReviewFlags(reviewId, userId, internalNote);
+      await storage.dismissReviewFlags(reviewId, userId2, internalNote);
     }
     res.json({ success: true, message: `Review ${action} successful` });
   } catch (error) {
@@ -44786,14 +44785,14 @@ router19.post("/api/platform/reviews/:reviewId/moderate", authMiddlewareWithFres
 });
 router19.get("/api/courts/availability", authMiddlewareWithFreshData, async (req2, res) => {
   try {
-    const userId = req2.user?.userId;
+    const userId2 = req2.user?.userId;
     const academyId = req2.user?.academyId;
     const { date: date2 } = req2.query;
     if (!date2) {
       return res.status(400).json({ error: "date is required" });
     }
     const courts3 = await storage.searchCourts({
-      userId,
+      userId: userId2,
       userAcademyId: academyId,
       limit: 50,
       offset: 0
@@ -44906,7 +44905,7 @@ router19.get("/api/courts/availability", authMiddlewareWithFreshData, async (req
 });
 router19.get("/api/courts/search", authMiddlewareWithFreshData, async (req2, res) => {
   try {
-    const userId = req2.user?.userId;
+    const userId2 = req2.user?.userId;
     const academyId = req2.user?.academyId;
     const {
       date: date2,
@@ -44920,7 +44919,7 @@ router19.get("/api/courts/search", authMiddlewareWithFreshData, async (req2, res
     } = req2.query;
     const searchDate = date2 || (/* @__PURE__ */ new Date()).toISOString().split("T")[0];
     const courts3 = await storage.searchCourts({
-      userId,
+      userId: userId2,
       userAcademyId: academyId,
       date: searchDate,
       surface,
@@ -44970,9 +44969,9 @@ router19.get("/api/courts/:courtId/details", authMiddlewareWithFreshData, async 
   try {
     const { courtId } = req2.params;
     const { date: date2 } = req2.query;
-    const userId = req2.user?.userId;
+    const userId2 = req2.user?.userId;
     const userAcademyId = req2.user?.academyId;
-    const court = await storage.getCourtWithDetails(courtId, userId, userAcademyId);
+    const court = await storage.getCourtWithDetails(courtId, userId2, userAcademyId);
     if (!court) {
       return res.status(404).json({ error: "Court not found" });
     }
@@ -45010,11 +45009,11 @@ router19.get("/api/courts/:courtId/availability", authMiddlewareWithFreshData, a
 });
 router19.post("/api/courts/:courtId/book", authMiddlewareWithFreshData, async (req2, res) => {
   try {
-    const userId = req2.user?.userId;
+    const userId2 = req2.user?.userId;
     const playerId = req2.user?.playerId;
     const { courtId } = req2.params;
     const { date: date2, startTime, endTime, notes } = req2.body;
-    if (!userId) {
+    if (!userId2) {
       return res.status(401).json({ error: "Authentication required" });
     }
     if (!date2 || !startTime || !endTime) {
@@ -45055,7 +45054,7 @@ router19.post("/api/courts/:courtId/book", authMiddlewareWithFreshData, async (r
     const bookingType = court.visibility === "public" ? "public" : "academy";
     const booking = await storage.createCourtBooking({
       courtId,
-      userId,
+      userId: userId2,
       playerId: playerId || null,
       academyId: court.academyId,
       date: date2,
@@ -45152,12 +45151,12 @@ router19.post("/api/courts/:courtId/book", authMiddlewareWithFreshData, async (r
 });
 router19.get("/api/my-court-bookings", authMiddlewareWithFreshData, async (req2, res) => {
   try {
-    const userId = req2.user?.userId;
+    const userId2 = req2.user?.userId;
     const { status, startDate, endDate } = req2.query;
-    if (!userId) {
+    if (!userId2) {
       return res.status(401).json({ error: "Authentication required" });
     }
-    const bookings = await storage.getUserCourtBookings(userId, {
+    const bookings = await storage.getUserCourtBookings(userId2, {
       status,
       startDate,
       endDate
@@ -45170,17 +45169,17 @@ router19.get("/api/my-court-bookings", authMiddlewareWithFreshData, async (req2,
 });
 router19.post("/api/court-bookings/:bookingId/cancel", authMiddlewareWithFreshData, async (req2, res) => {
   try {
-    const userId = req2.user?.userId;
+    const userId2 = req2.user?.userId;
     const { bookingId } = req2.params;
     const { reason } = req2.body;
-    if (!userId) {
+    if (!userId2) {
       return res.status(401).json({ error: "Authentication required" });
     }
     const booking = await storage.getCourtBooking(bookingId);
     if (!booking) {
       return res.status(404).json({ error: "Booking not found" });
     }
-    if (booking.userId !== userId) {
+    if (booking.userId !== userId2) {
       return res.status(403).json({ error: "You can only cancel your own bookings" });
     }
     if (booking.status === "cancelled") {
@@ -45198,7 +45197,7 @@ router19.post("/api/court-bookings/:bookingId/cancel", authMiddlewareWithFreshDa
         error: `Cancellations must be made at least ${court.cancelWindowHours || 24} hours before the booking`
       });
     }
-    await storage.cancelCourtBooking(bookingId, userId, reason);
+    await storage.cancelCourtBooking(bookingId, userId2, reason);
     await storage.updateCourtAvailabilityStatus(
       booking.courtId,
       booking.date,
@@ -45214,7 +45213,7 @@ router19.post("/api/court-bookings/:bookingId/cancel", authMiddlewareWithFreshDa
 });
 router19.post("/api/courts/:courtId/block", authMiddlewareWithFreshData, requireRole("coach", "academy_owner", "platform_owner"), async (req2, res) => {
   try {
-    const userId = req2.user?.userId;
+    const userId2 = req2.user?.userId;
     const { courtId } = req2.params;
     const { date: date2, startTime, endTime, reason } = req2.body;
     if (!date2 || !startTime || !endTime) {
@@ -45239,7 +45238,7 @@ router19.post("/api/courts/:courtId/block", authMiddlewareWithFreshData, require
       endTime,
       status: "blocked",
       blockedReason: reason || "training",
-      blockedBy: userId
+      blockedBy: userId2
     });
     res.status(201).json({ success: true, message: "Court blocked for training" });
   } catch (error) {
@@ -46025,11 +46024,11 @@ router19.put("/api/player/booking-preferences", authMiddlewareWithFreshData, asy
 router19.get("/api/player/booking-suggestions", authMiddlewareWithFreshData, async (req2, res) => {
   try {
     const playerId = req2.user?.playerId;
-    const userId = req2.user?.userId;
-    if (!playerId || !userId) {
+    const userId2 = req2.user?.userId;
+    if (!playerId || !userId2) {
       return res.status(401).json({ error: "Player profile required" });
     }
-    const pastBookings = await storage.getUserCourtBookings(userId, {
+    const pastBookings = await storage.getUserCourtBookings(userId2, {
       status: "completed"
     });
     const dayFrequency = {};
@@ -46525,11 +46524,11 @@ router20.post("/api/quests/:id/evidence", authMiddlewareWithFreshData, evidenceU
     const evidenceType = req2.file.mimetype.startsWith("video") ? "video" : "image";
     await db.update(playerQuests).set({ evidenceUrl, evidenceType }).where(eq27(playerQuests.id, id));
     try {
-      const userId = req2.user.userId;
+      const userId2 = req2.user.userId;
       const academyId = req2.user.academyId;
-      if (userId && academyId) {
+      if (userId2 && academyId) {
         await db.insert(posts2).values({
-          authorId: userId,
+          authorId: userId2,
           academyId,
           contextType: "achievement",
           caption: `Quest Proof: ${quest.template.name}`,
@@ -46776,7 +46775,7 @@ router20.post("/api/player/check-badges", authMiddlewareWithFreshData, async (re
 });
 router20.get("/api/player/mission-control", authMiddlewareWithFreshData, async (req2, res) => {
   try {
-    const userId = req2.user.userId;
+    const userId2 = req2.user.userId;
     const playerId = req2.user.playerId;
     const academyId = req2.user.academyId;
     if (!playerId) {
@@ -48389,9 +48388,9 @@ router20.get("/api/player/spotlight/history", authMiddlewareWithFreshData, requi
 });
 router20.delete("/api/player/me/account", authMiddlewareWithFreshData, async (req2, res) => {
   try {
-    const userId = req2.user?.userId;
+    const userId2 = req2.user?.userId;
     const playerId = req2.user?.playerId;
-    if (!userId) {
+    if (!userId2) {
       return res.status(401).json({ error: "Authentication required" });
     }
     if (req2.user?.role !== "player") {
@@ -48420,10 +48419,10 @@ router20.delete("/api/player/me/account", authMiddlewareWithFreshData, async (re
     await db.update(users).set({
       deleted: true,
       deletedAt,
-      email: `deleted_${userId}@glowupsports.invalid`,
+      email: `deleted_${userId2}@glowupsports.invalid`,
       appleId: null
-    }).where(eq27(users.id, userId));
-    console.log(`[AccountDeletion] User ${userId} (player ${playerId}) account deleted at ${deletedAt.toISOString()}`);
+    }).where(eq27(users.id, userId2));
+    console.log(`[AccountDeletion] User ${userId2} (player ${playerId}) account deleted at ${deletedAt.toISOString()}`);
     if (playerEmailForNotification) {
       sendEmail({
         to: playerEmailForNotification,
@@ -48462,23 +48461,23 @@ If you have questions, contact support@glowupsports.com.`
 });
 router20.post("/api/player/me/report/posts/:postId", authMiddlewareWithFreshData, async (req2, res) => {
   try {
-    const userId = req2.user.userId;
+    const userId2 = req2.user.userId;
     const postId = req2.params.postId;
     const { reason } = req2.body;
     if (!postId) return res.status(400).json({ error: "Post ID required" });
     const existing2 = await db.select({ id: contentReports.id }).from(contentReports).where(and25(
-      eq27(contentReports.reporterUserId, userId),
+      eq27(contentReports.reporterUserId, userId2),
       eq27(contentReports.contentId, postId),
       eq27(contentReports.contentType, "post")
     )).limit(1);
     if (existing2.length > 0) return res.json({ success: true, alreadyReported: true });
     await db.insert(contentReports).values({
-      reporterUserId: userId,
+      reporterUserId: userId2,
       contentType: "post",
       contentId: postId,
       reason: reason || null
     });
-    console.log(`[Report] User ${userId} reported post ${postId}: ${reason || "no reason"}`);
+    console.log(`[Report] User ${userId2} reported post ${postId}: ${reason || "no reason"}`);
     res.json({ success: true });
   } catch (error) {
     console.error("[Report] Error:", error);
@@ -49058,7 +49057,7 @@ router21.post("/api/player/ladders/challenges/:id/result", authMiddlewareWithFre
 });
 router21.post("/api/tournaments", authMiddlewareWithFreshData, async (req2, res) => {
   try {
-    const userId = req2.user.userId;
+    const userId2 = req2.user.userId;
     const academyId = req2.user.academyId;
     const role = req2.user.role;
     if (!["academy_owner", "coach", "platform_owner"].includes(role)) {
@@ -49083,7 +49082,7 @@ router21.post("/api/tournaments", authMiddlewareWithFreshData, async (req2, res)
       description: description || null,
       entryFee: entryFee || null,
       spotsTotal: spotsTotal || 32,
-      createdBy: userId
+      createdBy: userId2
     }).returning();
     res.status(201).json(tournament);
   } catch (error) {
@@ -49162,7 +49161,7 @@ router21.post("/api/tournaments/:id/matches/:matchId/result", authMiddlewareWith
 });
 router21.post("/api/ladders", authMiddlewareWithFreshData, async (req2, res) => {
   try {
-    const userId = req2.user.userId;
+    const userId2 = req2.user.userId;
     const academyId = req2.user.academyId;
     const role = req2.user.role;
     if (!["academy_owner", "coach", "platform_owner"].includes(role)) {
@@ -49183,7 +49182,7 @@ router21.post("/api/ladders", authMiddlewareWithFreshData, async (req2, res) => 
       challengeRange: challengeRange || 3,
       challengeWindowDays: challengeWindowDays || 7,
       rules: rules || null,
-      createdBy: userId
+      createdBy: userId2
     }).returning();
     res.status(201).json(ladder);
   } catch (error) {
@@ -49344,7 +49343,7 @@ router22.get("/api/world-chat/messages", authMiddlewareWithFreshData, async (req
 router22.post("/api/world-chat/messages", authMiddlewareWithFreshData, async (req2, res) => {
   try {
     const { body, messageType } = req2.body;
-    const userId = req2.user.id;
+    const userId2 = req2.user.id;
     const coachId = req2.user.coachId;
     const playerId = req2.user.playerId;
     if (!body || !body.trim()) {
@@ -53884,8 +53883,8 @@ router23.get("/api/platform/users", authMiddlewareWithFreshData, requireRole("pl
 router23.post("/api/platform/academies/:id/members", authMiddlewareWithFreshData, requireRole("platform_owner"), async (req2, res) => {
   try {
     const academyId = req2.params.id;
-    const { userId, role } = req2.body;
-    if (!userId) {
+    const { userId: userId2, role } = req2.body;
+    if (!userId2) {
       return res.status(400).json({ error: "User ID is required" });
     }
     if (!role || !["academy_owner", "coach", "assistant"].includes(role)) {
@@ -53895,7 +53894,7 @@ router23.post("/api/platform/academies/:id/members", authMiddlewareWithFreshData
     if (!academy) {
       return res.status(404).json({ error: "Academy not found" });
     }
-    const user = await storage.getUser(userId);
+    const user = await storage.getUser(userId2);
     if (!user) {
       return res.status(404).json({ error: "User not found" });
     }
@@ -53908,7 +53907,7 @@ router23.post("/api/platform/academies/:id/members", authMiddlewareWithFreshData
         status: "active"
       });
       coachId = newCoach.id;
-      await storage.updateUser(userId, {
+      await storage.updateUser(userId2, {
         coachId,
         role,
         academyId
@@ -53931,12 +53930,12 @@ router23.post("/api/platform/academies/:id/members", authMiddlewareWithFreshData
       });
     }
     if (!user.academyId) {
-      await storage.updateUser(userId, { academyId });
+      await storage.updateUser(userId2, { academyId });
     }
     res.status(201).json({
       success: true,
       message: `User added to academy as ${role}`,
-      membership: { userId, coachId, academyId, role }
+      membership: { userId: userId2, coachId, academyId, role }
     });
   } catch (error) {
     console.error("Add member to academy error:", error);
@@ -54902,12 +54901,12 @@ router23.get("/api/player/me/sessions", authMiddlewareWithFreshData, requirePlay
 });
 router23.get("/api/player/me/court-bookings", authMiddlewareWithFreshData, requirePlayerOrOwner3, requireFeatureUnlock("court_booking"), async (req2, res) => {
   try {
-    const userId = req2.user.userId;
+    const userId2 = req2.user.userId;
     const playerId = req2.user.playerId;
-    if (!userId) {
+    if (!userId2) {
       return res.json({ friends: [], pendingRequests: [] });
     }
-    const bookings = await storage.getPlayerCourtBookings(userId, playerId);
+    const bookings = await storage.getPlayerCourtBookings(userId2, playerId);
     const enrichedBookings = await Promise.all(bookings.map(async (booking) => {
       const court = await storage.getCourt(booking.courtId);
       return {
@@ -55145,8 +55144,8 @@ async function registerRoutes(app2) {
     authMiddlewareWithFreshData,
     async (req2, res) => {
       try {
-        const userId = req2.user.id;
-        const key = `user_onboarding_${userId}`;
+        const userId2 = req2.user.id;
+        const key = `user_onboarding_${userId2}`;
         const existing2 = await db.select().from(platformConfig).where(eq31(platformConfig.key, key)).limit(1);
         const state = existing2.length > 0 ? existing2[0].value : {};
         res.json({ state });
@@ -55161,19 +55160,19 @@ async function registerRoutes(app2) {
     authMiddlewareWithFreshData,
     async (req2, res) => {
       try {
-        const userId = req2.user.id;
+        const userId2 = req2.user.id;
         const { key: bodyKey, value: bodyValue } = req2.body;
         if (!bodyKey) {
           return res.status(400).json({ error: "key is required" });
         }
-        const configKey = `user_onboarding_${userId}`;
+        const configKey = `user_onboarding_${userId2}`;
         const existing2 = await db.select().from(platformConfig).where(eq31(platformConfig.key, configKey)).limit(1);
         const currentState = existing2.length > 0 ? existing2[0].value : {};
         const updatedState = { ...currentState, [bodyKey]: bodyValue };
         if (existing2.length > 0) {
           await db.update(platformConfig).set({ value: updatedState, updatedAt: /* @__PURE__ */ new Date() }).where(eq31(platformConfig.key, configKey));
         } else {
-          await db.insert(platformConfig).values({ key: configKey, value: updatedState, updatedBy: userId });
+          await db.insert(platformConfig).values({ key: configKey, value: updatedState, updatedBy: userId2 });
         }
         res.json({ state: updatedState });
       } catch (error) {
@@ -55476,7 +55475,7 @@ async function registerRoutes(app2) {
       if (existing2) {
         return res.json({ success: true, duplicate: true, id: existing2.id });
       }
-      let userId;
+      let userId2;
       let academyId;
       let userRole;
       const authHeader = req2.headers.authorization;
@@ -55488,7 +55487,7 @@ async function registerRoutes(app2) {
             token,
             process.env.SESSION_SECRET || "dev-secret"
           );
-          userId = decoded.userId;
+          userId2 = decoded.userId;
           academyId = decoded.academyId;
           userRole = decoded.role;
         } catch (e) {
@@ -55496,7 +55495,7 @@ async function registerRoutes(app2) {
       }
       const report = await storage.createDiagnosticReport({
         errorId,
-        userId: userId || null,
+        userId: userId2 || null,
         academyId: academyId || null,
         userRole: userRole || context?.userRole || null,
         severity: severity || "error",
@@ -55524,7 +55523,7 @@ async function registerRoutes(app2) {
     async (req2, res) => {
       try {
         const { severity, message, screen, context, userComment } = req2.body;
-        const userId = req2.user?.id;
+        const userId2 = req2.user?.id;
         const academyId = req2.user?.academyId;
         const userRole = req2.user?.role;
         if (!message) {
@@ -55533,7 +55532,7 @@ async function registerRoutes(app2) {
         const errorId = `ui_issue_${Date.now()}_${Math.random().toString(36).substring(7)}`;
         const report = await storage.createDiagnosticReport({
           errorId,
-          userId: userId || null,
+          userId: userId2 || null,
           academyId: academyId || null,
           userRole: userRole || null,
           severity: "ui_issue",
@@ -55543,7 +55542,7 @@ async function registerRoutes(app2) {
           context: {
             ...context,
             type: "ui_issue",
-            reportedBy: userId
+            reportedBy: userId2
           },
           userComment: userComment || null,
           platform: context?.platform || null,
@@ -55551,7 +55550,7 @@ async function registerRoutes(app2) {
           deviceInfo: context?.deviceInfo || null
         });
         console.log(
-          `[Diagnostics] UI Issue report: ${report.id} from user ${userId} - ${message.slice(0, 50)}...`
+          `[Diagnostics] UI Issue report: ${report.id} from user ${userId2} - ${message.slice(0, 50)}...`
         );
         res.json({ success: true, id: report.id });
       } catch (error) {
@@ -55808,8 +55807,8 @@ async function registerRoutes(app2) {
   });
   app2.post("/auth/apple/link", authMiddlewareWithFreshData, async (req2, res) => {
     try {
-      const userId = req2.user?.userId;
-      if (!userId) {
+      const userId2 = req2.user?.userId;
+      if (!userId2) {
         return res.status(401).json({ error: "Authentication required" });
       }
       const { identityToken, user: appleUser } = req2.body;
@@ -55818,16 +55817,16 @@ async function registerRoutes(app2) {
       }
       const existingLink = await storage.getUserByAppleId(appleUser);
       if (existingLink) {
-        if (existingLink.id === userId) {
+        if (existingLink.id === userId2) {
           return res.status(400).json({ error: "This Apple ID is already linked to your account" });
         }
         return res.status(409).json({ error: "This Apple ID is already linked to another account" });
       }
-      const currentUser = await storage.getUserById(userId);
+      const currentUser = await storage.getUserById(userId2);
       if (currentUser?.appleId) {
         return res.status(400).json({ error: "Your account already has an Apple ID linked. Unlink it first." });
       }
-      await storage.linkAppleId(userId, appleUser);
+      await storage.linkAppleId(userId2, appleUser);
       res.json({ success: true, message: "Apple ID linked successfully" });
     } catch (error) {
       console.error("Apple link error:", error);
@@ -55836,15 +55835,15 @@ async function registerRoutes(app2) {
   });
   app2.post("/auth/apple/unlink", authMiddlewareWithFreshData, async (req2, res) => {
     try {
-      const userId = req2.user?.userId;
-      if (!userId) {
+      const userId2 = req2.user?.userId;
+      if (!userId2) {
         return res.status(401).json({ error: "Authentication required" });
       }
-      const currentUser = await storage.getUserById(userId);
+      const currentUser = await storage.getUserById(userId2);
       if (!currentUser?.appleId) {
         return res.status(400).json({ error: "No Apple ID is linked to your account" });
       }
-      await storage.unlinkAppleId(userId);
+      await storage.unlinkAppleId(userId2);
       res.json({ success: true, message: "Apple ID unlinked successfully" });
     } catch (error) {
       console.error("Apple unlink error:", error);
@@ -55853,11 +55852,11 @@ async function registerRoutes(app2) {
   });
   app2.get("/auth/apple/status", authMiddlewareWithFreshData, async (req2, res) => {
     try {
-      const userId = req2.user?.userId;
-      if (!userId) {
+      const userId2 = req2.user?.userId;
+      if (!userId2) {
         return res.status(401).json({ error: "Authentication required" });
       }
-      const currentUser = await storage.getUserById(userId);
+      const currentUser = await storage.getUserById(userId2);
       res.json({ linked: !!currentUser?.appleId });
     } catch (error) {
       console.error("Apple status error:", error);
@@ -59682,8 +59681,8 @@ async function registerRoutes(app2) {
   );
   app2.post("/api/player-invite/claim", async (req2, res) => {
     try {
-      const { inviteCode, userId } = req2.body;
-      if (!inviteCode || !userId) {
+      const { inviteCode, userId: userId2 } = req2.body;
+      if (!inviteCode || !userId2) {
         return res.status(400).json({ error: "Invite code and user ID are required" });
       }
       const invite = await storage.getPlayerInvite(inviteCode);
@@ -59693,7 +59692,7 @@ async function registerRoutes(app2) {
       if (invite.status !== "pending") {
         return res.status(400).json({ error: "This invite has already been claimed or expired" });
       }
-      const claimedInvite = await storage.claimPlayerInvite(inviteCode, userId);
+      const claimedInvite = await storage.claimPlayerInvite(inviteCode, userId2);
       if (!claimedInvite) {
         return res.status(400).json({ error: "Failed to claim invite" });
       }
@@ -67439,7 +67438,7 @@ async function registerRoutes(app2) {
     async (req2, res) => {
       try {
         const { code } = req2.params;
-        const userId = req2.user.userId;
+        const userId2 = req2.user.userId;
         const userEmail = req2.user.email;
         const invite = await storage.getAcademyInviteByCode(code);
         if (!invite) {
@@ -67466,7 +67465,7 @@ async function registerRoutes(app2) {
         }
         let coachId = req2.user.coachId;
         if (!coachId) {
-          const user = await storage.getUserById(userId);
+          const user = await storage.getUserById(userId2);
           const coach = await storage.createCoach({
             name: user?.email?.split("@")[0] || "New Coach",
             email: user?.email,
@@ -67474,7 +67473,7 @@ async function registerRoutes(app2) {
             role: invite.role || "coach"
           });
           coachId = coach.id;
-          await storage.updateUser(userId, {
+          await storage.updateUser(userId2, {
             coachId: coach.id,
             academyId: invite.academyId
           });
@@ -67610,7 +67609,7 @@ async function registerRoutes(app2) {
     async (req2, res) => {
       try {
         const coachId = req2.user.coachId;
-        const userId = req2.user.userId;
+        const userId2 = req2.user.userId;
         const { academyId } = req2.body;
         if (!coachId) {
           return res.status(400).json({ error: "No coach profile found" });
@@ -67620,7 +67619,7 @@ async function registerRoutes(app2) {
         if (!membership) {
           return res.status(403).json({ error: "Not a member of this academy" });
         }
-        await storage.updateUser(userId, { academyId });
+        await storage.updateUser(userId2, { academyId });
         await storage.updateCoach(coachId, { academyId });
         await storage.setPrimaryAcademy(coachId, academyId);
         res.json({ success: true, academyId });
@@ -67635,7 +67634,7 @@ async function registerRoutes(app2) {
     authMiddlewareWithFreshData,
     async (req2, res) => {
       try {
-        const userId = req2.user.userId;
+        const userId2 = req2.user.userId;
         const coachId = req2.user.coachId;
         const playerId = req2.user.playerId;
         const { token, platform, deviceName } = req2.body;
@@ -67643,7 +67642,7 @@ async function registerRoutes(app2) {
           return res.status(400).json({ error: "Token and platform are required" });
         }
         const deviceToken = await storage.registerPushToken({
-          userId,
+          userId: userId2,
           coachId: coachId || null,
           playerId: playerId || null,
           token,
@@ -67651,7 +67650,7 @@ async function registerRoutes(app2) {
           deviceName
         });
         console.log(
-          `[PushNotifications] Registered token for user ${userId} (coach: ${coachId}, player: ${playerId})`
+          `[PushNotifications] Registered token for user ${userId2} (coach: ${coachId}, player: ${playerId})`
         );
         res.json(deviceToken);
       } catch (error) {
@@ -67727,9 +67726,9 @@ async function registerRoutes(app2) {
     authMiddlewareWithFreshData,
     async (req2, res) => {
       try {
-        const userId = req2.user.userId;
+        const userId2 = req2.user.userId;
         const { sendPushNotification: sendPushNotification2, getUserPushTokens: getUserPushTokens2 } = await Promise.resolve().then(() => (init_pushNotifications(), pushNotifications_exports));
-        const tokens = await getUserPushTokens2(userId);
+        const tokens = await getUserPushTokens2(userId2);
         if (tokens.length === 0) {
           return res.status(400).json({
             error: "No push tokens registered",
@@ -67743,7 +67742,7 @@ async function registerRoutes(app2) {
           { type: "test", timestamp: (/* @__PURE__ */ new Date()).toISOString() }
         );
         console.log(
-          `[PushTest] Sent test notification to user ${userId}, ${tokens.length} devices`
+          `[PushTest] Sent test notification to user ${userId2}, ${tokens.length} devices`
         );
         res.json({ success: true, devicesNotified: tokens.length, result });
       } catch (error) {
@@ -67801,10 +67800,10 @@ async function registerRoutes(app2) {
     authMiddlewareWithFreshData,
     async (req2, res) => {
       try {
-        const userId = req2.user.userId;
+        const userId2 = req2.user.userId;
         const allTokens = await db.select().from(pushDeviceTokens).where(
           and29(
-            eq31(pushDeviceTokens.userId, userId),
+            eq31(pushDeviceTokens.userId, userId2),
             eq31(pushDeviceTokens.isActive, true)
           )
         );
@@ -67853,10 +67852,10 @@ async function registerRoutes(app2) {
     authMiddlewareWithFreshData,
     async (req2, res) => {
       try {
-        const userId = req2.user.userId;
+        const userId2 = req2.user.userId;
         const coachId = req2.user.coachId;
         const playerId = req2.user.playerId;
-        const allTokens = await db.select().from(pushDeviceTokens).where(eq31(pushDeviceTokens.userId, userId));
+        const allTokens = await db.select().from(pushDeviceTokens).where(eq31(pushDeviceTokens.userId, userId2));
         const activeTokens = allTokens.filter((t) => t.isActive);
         const tokenSummary = activeTokens.map((t) => ({
           id: t.id,
@@ -67871,7 +67870,7 @@ async function registerRoutes(app2) {
         }));
         const { isFirebaseInitialized: isFirebaseInitialized2 } = await Promise.resolve().then(() => (init_fcm(), fcm_exports));
         res.json({
-          userId,
+          userId: userId2,
           coachId,
           playerId,
           totalTokens: allTokens.length,
@@ -67903,7 +67902,7 @@ async function registerRoutes(app2) {
     authMiddlewareWithFreshData,
     async (req2, res) => {
       try {
-        const userId = req2.user.userId;
+        const userId2 = req2.user.userId;
         const playerId = req2.user.playerId;
         const coachId = req2.user.coachId;
         const {
@@ -67914,7 +67913,7 @@ async function registerRoutes(app2) {
         } = await Promise.resolve().then(() => (init_pushNotifications(), pushNotifications_exports));
         const { isFirebaseInitialized: isFirebaseInitialized2 } = await Promise.resolve().then(() => (init_fcm(), fcm_exports));
         const tokenSets = [];
-        const userTokens = await getUserPushTokens2(userId);
+        const userTokens = await getUserPushTokens2(userId2);
         tokenSets.push({ source: "userId", tokens: userTokens });
         if (playerId) {
           const playerTokens = await getPlayerPushTokens3(playerId);
@@ -67928,7 +67927,7 @@ async function registerRoutes(app2) {
         if (allTokens.length === 0) {
           return res.status(400).json({
             error: "No push tokens found for your account",
-            userId,
+            userId: userId2,
             playerId,
             coachId,
             firebaseInitialized: isFirebaseInitialized2(),
@@ -67940,7 +67939,7 @@ async function registerRoutes(app2) {
           });
         }
         console.log(
-          `[TestAllTypes] Sending ALL notification types to ${allTokens.length} devices for user ${userId}`
+          `[TestAllTypes] Sending ALL notification types to ${allTokens.length} devices for user ${userId2}`
         );
         const notificationTypes = [
           {
@@ -68032,7 +68031,7 @@ async function registerRoutes(app2) {
         }
         res.json({
           success: true,
-          userId,
+          userId: userId2,
           playerId,
           coachId,
           devicesNotified: allTokens.length,
@@ -68062,9 +68061,9 @@ async function registerRoutes(app2) {
         if (userRole !== "platform_owner") {
           return res.status(403).json({ error: "Platform owner access required" });
         }
-        const userId = req2.user.userId;
+        const userId2 = req2.user.userId;
         const { sendPushNotification: sendPushNotification2, getUserPushTokens: getUserPushTokens2 } = await Promise.resolve().then(() => (init_pushNotifications(), pushNotifications_exports));
-        const tokens = await getUserPushTokens2(userId);
+        const tokens = await getUserPushTokens2(userId2);
         const testAcademyName = `Test Academy ${Date.now().toString().slice(-4)}`;
         const testOwnerName = "John Doe";
         const testEmail = "john.doe@example.com";
@@ -68081,7 +68080,7 @@ async function registerRoutes(app2) {
           );
         }
         console.log(
-          `[PlatformTest] Simulated academy sign-up for user ${userId}`
+          `[PlatformTest] Simulated academy sign-up for user ${userId2}`
         );
         res.json({
           success: true,
@@ -68103,9 +68102,9 @@ async function registerRoutes(app2) {
     authMiddlewareWithFreshData,
     async (req2, res) => {
       try {
-        const userId = req2.user.userId;
+        const userId2 = req2.user.userId;
         const { sendPushNotification: sendPushNotification2, getUserPushTokens: getUserPushTokens2 } = await Promise.resolve().then(() => (init_pushNotifications(), pushNotifications_exports));
-        const tokens = await getUserPushTokens2(userId);
+        const tokens = await getUserPushTokens2(userId2);
         const testCoachName = "Coach Sarah";
         const testFeedbackType = "Great session today!";
         const testXpGained = 25;
@@ -68122,7 +68121,7 @@ async function registerRoutes(app2) {
           );
         }
         console.log(
-          `[PlayerTest] Simulated feedback notification for user ${userId}`
+          `[PlayerTest] Simulated feedback notification for user ${userId2}`
         );
         res.json({
           success: true,
@@ -68148,9 +68147,9 @@ async function registerRoutes(app2) {
         if (userRole !== "coach" && userRole !== "academy_owner" && userRole !== "admin" && userRole !== "platform_owner") {
           return res.status(403).json({ error: "Coach, Admin or Owner access required" });
         }
-        const userId = req2.user.userId;
+        const userId2 = req2.user.userId;
         const { sendPushNotification: sendPushNotification2, getUserPushTokens: getUserPushTokens2 } = await Promise.resolve().then(() => (init_pushNotifications(), pushNotifications_exports));
-        const tokens = await getUserPushTokens2(userId);
+        const tokens = await getUserPushTokens2(userId2);
         const testPlayerName = "Emma Johnson";
         const testSessionType = "Private Lesson";
         const testDate = new Date(
@@ -68168,7 +68167,7 @@ async function registerRoutes(app2) {
             }
           );
         }
-        console.log(`[CoachTest] Simulated booking request for user ${userId}`);
+        console.log(`[CoachTest] Simulated booking request for user ${userId2}`);
         res.json({
           success: true,
           simulation: {
@@ -68193,9 +68192,9 @@ async function registerRoutes(app2) {
         if (userRole !== "admin" && userRole !== "academy_owner" && userRole !== "platform_owner") {
           return res.status(403).json({ error: "Admin or Owner access required" });
         }
-        const userId = req2.user.userId;
+        const userId2 = req2.user.userId;
         const { sendPushNotification: sendPushNotification2, getUserPushTokens: getUserPushTokens2 } = await Promise.resolve().then(() => (init_pushNotifications(), pushNotifications_exports));
-        const tokens = await getUserPushTokens2(userId);
+        const tokens = await getUserPushTokens2(userId2);
         const testCoachName = "Michael Chen";
         const testCoachEmail = "m.chen@example.com";
         const testSpecialization = "Junior Development";
@@ -68212,7 +68211,7 @@ async function registerRoutes(app2) {
           );
         }
         console.log(
-          `[AdminTest] Simulated coach invite acceptance for user ${userId}`
+          `[AdminTest] Simulated coach invite acceptance for user ${userId2}`
         );
         res.json({
           success: true,
@@ -68913,7 +68912,7 @@ async function registerRoutes(app2) {
     requireRole("owner", "academy_owner", "platform_owner"),
     async (req2, res) => {
       try {
-        const userId = req2.user.userId;
+        const userId2 = req2.user.userId;
         const academyId = req2.user?.academyId;
         if (!academyId) {
           return res.status(400).json({ error: "No academy associated with this account" });
@@ -68963,7 +68962,7 @@ async function registerRoutes(app2) {
           additionalFeedback: additionalFeedback || "",
           completedAt: (/* @__PURE__ */ new Date()).toISOString()
         };
-        const user = await storage.getUserById(userId);
+        const user = await storage.getUserById(userId2);
         let coachId = user?.coachId;
         let playerId = user?.playerId;
         if (!coachId && user) {
@@ -68990,7 +68989,7 @@ async function registerRoutes(app2) {
           playerId = player2.id;
         }
         if (user && (coachId !== user.coachId || playerId !== user.playerId)) {
-          await storage.updateUser(userId, { coachId, playerId });
+          await storage.updateUser(userId2, { coachId, playerId });
         }
         if (coachId) {
           await storage.updateCoach(coachId, {
@@ -69021,12 +69020,12 @@ async function registerRoutes(app2) {
     requireRole("owner", "academy_owner", "platform_owner"),
     async (req2, res) => {
       try {
-        const userId = req2.user.userId;
+        const userId2 = req2.user.userId;
         const academyId = req2.user?.academyId;
         if (!academyId) {
           return res.status(400).json({ error: "No academy associated with this account" });
         }
-        const user = await storage.getUserById(userId);
+        const user = await storage.getUserById(userId2);
         if (!user) {
           return res.status(404).json({ error: "User not found" });
         }
@@ -69055,7 +69054,7 @@ async function registerRoutes(app2) {
           });
           playerId = player2.id;
         }
-        await storage.updateUser(userId, {
+        await storage.updateUser(userId2, {
           coachId,
           playerId
         });
@@ -72530,7 +72529,7 @@ async function registerRoutes(app2) {
     async (req2, res) => {
       try {
         const { groupId } = req2.params;
-        const userId = req2.user.userId;
+        const userId2 = req2.user.userId;
         const playerId = req2.user.playerId;
         const player2 = await storage.getPlayer(playerId);
         if (!player2 || !player2.academyId) {
@@ -72546,7 +72545,7 @@ async function registerRoutes(app2) {
         const [membership] = await db.select().from(groupMembers).where(
           and29(
             eq31(groupMembers.groupId, groupId),
-            eq31(groupMembers.userId, userId)
+            eq31(groupMembers.userId, userId2)
           )
         );
         if (group.isPrivate && !membership) {
@@ -72584,11 +72583,11 @@ async function registerRoutes(app2) {
     async (req2, res) => {
       try {
         const { groupId } = req2.params;
-        const userId = req2.user.userId;
+        const userId2 = req2.user.userId;
         const [membership] = await db.select().from(groupMembers).where(
           and29(
             eq31(groupMembers.groupId, groupId),
-            eq31(groupMembers.userId, userId)
+            eq31(groupMembers.userId, userId2)
           )
         );
         if (!membership) {
@@ -72619,7 +72618,7 @@ async function registerRoutes(app2) {
     async (req2, res) => {
       try {
         const { groupId } = req2.params;
-        const userId = req2.user.userId;
+        const userId2 = req2.user.userId;
         const playerId = req2.user.playerId;
         const player2 = await storage.getPlayer(playerId);
         if (!player2 || !player2.academyId) {
@@ -72640,7 +72639,7 @@ async function registerRoutes(app2) {
         const [existing2] = await db.select().from(groupMembers).where(
           and29(
             eq31(groupMembers.groupId, groupId),
-            eq31(groupMembers.userId, userId)
+            eq31(groupMembers.userId, userId2)
           )
         );
         if (existing2) {
@@ -72648,7 +72647,7 @@ async function registerRoutes(app2) {
         }
         await db.insert(groupMembers).values({
           groupId,
-          userId,
+          userId: userId2,
           role: "member"
         });
         await db.update(communityGroups).set({ memberCount: sql30`${communityGroups.memberCount} + 1` }).where(eq31(communityGroups.id, groupId));
@@ -72667,11 +72666,11 @@ async function registerRoutes(app2) {
     async (req2, res) => {
       try {
         const { groupId } = req2.params;
-        const userId = req2.user.userId;
+        const userId2 = req2.user.userId;
         const [membership] = await db.select().from(groupMembers).where(
           and29(
             eq31(groupMembers.groupId, groupId),
-            eq31(groupMembers.userId, userId)
+            eq31(groupMembers.userId, userId2)
           )
         );
         if (!membership) {
@@ -72683,7 +72682,7 @@ async function registerRoutes(app2) {
         await db.delete(groupMembers).where(
           and29(
             eq31(groupMembers.groupId, groupId),
-            eq31(groupMembers.userId, userId)
+            eq31(groupMembers.userId, userId2)
           )
         );
         await db.update(communityGroups).set({ memberCount: sql30`${communityGroups.memberCount} - 1` }).where(eq31(communityGroups.id, groupId));
@@ -72701,7 +72700,7 @@ async function registerRoutes(app2) {
     requireFeatureUnlock("groups"),
     async (req2, res) => {
       try {
-        const userId = req2.user.userId;
+        const userId2 = req2.user.userId;
         const playerId = req2.user.playerId;
         const player2 = await storage.getPlayer(playerId);
         if (!player2 || !player2.academyId) {
@@ -72722,12 +72721,12 @@ async function registerRoutes(app2) {
           description: description?.trim() || null,
           type,
           isPrivate,
-          createdBy: userId,
+          createdBy: userId2,
           memberCount: 1
         }).returning();
         await db.insert(groupMembers).values({
           groupId: newGroup.id,
-          userId,
+          userId: userId2,
           role: "admin"
         });
         res.json({ success: true, group: newGroup });
@@ -74019,7 +74018,7 @@ async function registerRoutes(app2) {
       try {
         const academyId = req2.user?.academyId;
         const playerId = req2.params.id;
-        const userId = req2.user?.coachId || req2.user?.userId;
+        const userId2 = req2.user?.coachId || req2.user?.userId;
         if (!academyId) {
           return res.status(400).json({ error: "Academy ID required" });
         }
@@ -74032,7 +74031,7 @@ async function registerRoutes(app2) {
           entityType: "player",
           entityId: playerId,
           action: "delete",
-          performedBy: userId || null,
+          performedBy: userId2 || null,
           performedByRole: req2.user?.role || null,
           metadata: JSON.stringify({ deletedAt: (/* @__PURE__ */ new Date()).toISOString() })
         });
@@ -74197,7 +74196,7 @@ async function registerRoutes(app2) {
     async (req2, res) => {
       try {
         const academyId = req2.user?.academyId;
-        const userId = req2.user?.coachId || req2.user?.userId;
+        const userId2 = req2.user?.coachId || req2.user?.userId;
         const { id } = req2.params;
         if (!academyId) {
           return res.status(400).json({ error: "Academy ID required" });
@@ -74211,7 +74210,7 @@ async function registerRoutes(app2) {
           entityType: "coach",
           entityId: id,
           action: "delete",
-          performedBy: userId || null,
+          performedBy: userId2 || null,
           performedByRole: req2.user?.role || null,
           metadata: JSON.stringify({ removedAt: (/* @__PURE__ */ new Date()).toISOString() })
         });
@@ -74229,7 +74228,7 @@ async function registerRoutes(app2) {
     async (req2, res) => {
       try {
         const academyId = req2.user?.academyId;
-        const userId = req2.user?.coachId || req2.user?.userId;
+        const userId2 = req2.user?.coachId || req2.user?.userId;
         const { id } = req2.params;
         if (!academyId) {
           return res.status(400).json({ error: "Academy ID required" });
@@ -74243,7 +74242,7 @@ async function registerRoutes(app2) {
           entityType: "player",
           entityId: id,
           action: "delete",
-          performedBy: userId || null,
+          performedBy: userId2 || null,
           performedByRole: req2.user?.role || null,
           metadata: JSON.stringify({ deletedAt: (/* @__PURE__ */ new Date()).toISOString() })
         });
@@ -74304,7 +74303,7 @@ async function registerRoutes(app2) {
     async (req2, res) => {
       try {
         const academyId = req2.user?.academyId;
-        const userId = req2.user?.coachId;
+        const userId2 = req2.user?.coachId;
         if (!academyId) {
           return res.status(400).json({ error: "Academy ID required" });
         }
@@ -74331,7 +74330,7 @@ async function registerRoutes(app2) {
           currency: currency || "AED",
           paymentMethod,
           paymentDate: paymentDate ? new Date(paymentDate) : /* @__PURE__ */ new Date(),
-          receivedBy: receivedBy || userId || null,
+          receivedBy: receivedBy || userId2 || null,
           proofUrl: proofUrl || null,
           notes: notes || null,
           status: status || "pending"
@@ -74341,7 +74340,7 @@ async function registerRoutes(app2) {
           entityType: "payment",
           entityId: payment.id,
           action: "create",
-          performedBy: userId || null,
+          performedBy: userId2 || null,
           performedByRole: req2.user?.role || null,
           afterState: payment
         });
@@ -74360,7 +74359,7 @@ async function registerRoutes(app2) {
       try {
         const { id } = req2.params;
         const academyId = req2.user?.academyId;
-        const userId = req2.user?.coachId;
+        const userId2 = req2.user?.coachId;
         const existingPayment = await storage.getPayment(id);
         if (!existingPayment || academyId && existingPayment.academyId !== academyId) {
           return res.status(404).json({ error: "Payment not found" });
@@ -74395,7 +74394,7 @@ async function registerRoutes(app2) {
           entityType: "payment",
           entityId: id,
           action: "update",
-          performedBy: userId || null,
+          performedBy: userId2 || null,
           performedByRole: req2.user?.role || null,
           beforeState: existingPayment,
           afterState: updatedPayment
@@ -74415,7 +74414,7 @@ async function registerRoutes(app2) {
       try {
         const { id } = req2.params;
         const academyId = req2.user?.academyId;
-        const userId = req2.user?.coachId;
+        const userId2 = req2.user?.coachId;
         const existingPayment = await storage.getPayment(id);
         if (!existingPayment || academyId && existingPayment.academyId !== academyId) {
           return res.status(404).json({ error: "Payment not found" });
@@ -74423,13 +74422,13 @@ async function registerRoutes(app2) {
         if (existingPayment.status !== "pending") {
           return res.status(400).json({ error: "Only pending payments can be confirmed" });
         }
-        const confirmedPayment = await storage.confirmPayment(id, userId || "");
+        const confirmedPayment = await storage.confirmPayment(id, userId2 || "");
         await storage.createAuditLog({
           academyId,
           entityType: "payment",
           entityId: id,
           action: "confirm",
-          performedBy: userId || null,
+          performedBy: userId2 || null,
           performedByRole: req2.user?.role || null,
           beforeState: existingPayment,
           afterState: confirmedPayment
@@ -74450,7 +74449,7 @@ async function registerRoutes(app2) {
         const { id } = req2.params;
         const { reason } = req2.body;
         const academyId = req2.user?.academyId;
-        const userId = req2.user?.coachId;
+        const userId2 = req2.user?.coachId;
         const existingPayment = await storage.getPayment(id);
         if (!existingPayment || academyId && existingPayment.academyId !== academyId) {
           return res.status(404).json({ error: "Payment not found" });
@@ -74460,7 +74459,7 @@ async function registerRoutes(app2) {
         }
         const rejectedPayment = await storage.rejectPayment(
           id,
-          userId || "",
+          userId2 || "",
           reason || "No reason provided"
         );
         await storage.createAuditLog({
@@ -74468,7 +74467,7 @@ async function registerRoutes(app2) {
           entityType: "payment",
           entityId: id,
           action: "reject",
-          performedBy: userId || null,
+          performedBy: userId2 || null,
           performedByRole: req2.user?.role || null,
           beforeState: existingPayment,
           afterState: rejectedPayment,
@@ -74489,7 +74488,7 @@ async function registerRoutes(app2) {
       try {
         const { id } = req2.params;
         const academyId = req2.user?.academyId;
-        const userId = req2.user?.coachId;
+        const userId2 = req2.user?.coachId;
         const existingPayment = await storage.getPayment(id);
         if (!existingPayment || academyId && existingPayment.academyId !== academyId) {
           return res.status(404).json({ error: "Payment not found" });
@@ -74503,7 +74502,7 @@ async function registerRoutes(app2) {
           entityType: "payment",
           entityId: id,
           action: "delete",
-          performedBy: userId || null,
+          performedBy: userId2 || null,
           performedByRole: req2.user?.role || null,
           beforeState: existingPayment
         });
@@ -74600,7 +74599,7 @@ async function registerRoutes(app2) {
     async (req2, res) => {
       try {
         const academyId = req2.user?.academyId;
-        const userId = req2.user?.coachId;
+        const userId2 = req2.user?.coachId;
         if (!academyId) {
           return res.status(400).json({ error: "Academy ID required" });
         }
@@ -74629,7 +74628,7 @@ async function registerRoutes(app2) {
           entityType: "court",
           entityId: court.id,
           action: "create",
-          performedBy: userId || null,
+          performedBy: userId2 || null,
           performedByRole: req2.user?.role || null,
           afterState: court
         });
@@ -74648,7 +74647,7 @@ async function registerRoutes(app2) {
       try {
         const { id } = req2.params;
         const academyId = req2.user?.academyId;
-        const userId = req2.user?.coachId;
+        const userId2 = req2.user?.coachId;
         const existingCourt = await storage.getCourt(
           id,
           academyId || void 0
@@ -74674,7 +74673,7 @@ async function registerRoutes(app2) {
           entityType: "court",
           entityId: id,
           action: "update",
-          performedBy: userId || null,
+          performedBy: userId2 || null,
           performedByRole: req2.user?.role || null,
           beforeState: existingCourt,
           afterState: updatedCourt
@@ -74694,7 +74693,7 @@ async function registerRoutes(app2) {
       try {
         const { id } = req2.params;
         const academyId = req2.user?.academyId;
-        const userId = req2.user?.coachId;
+        const userId2 = req2.user?.coachId;
         const existingCourt = await storage.getCourt(
           id,
           academyId || void 0
@@ -74712,7 +74711,7 @@ async function registerRoutes(app2) {
           entityType: "court",
           entityId: id,
           action: "deactivate",
-          performedBy: userId || null,
+          performedBy: userId2 || null,
           performedByRole: req2.user?.role || null,
           beforeState: existingCourt,
           afterState: { ...existingCourt, isActive: false }
@@ -74830,7 +74829,7 @@ async function registerRoutes(app2) {
     async (req2, res) => {
       try {
         const academyId = req2.user?.academyId;
-        const userId = req2.user?.coachId;
+        const userId2 = req2.user?.coachId;
         if (!academyId) {
           return res.status(400).json({ error: "Academy ID required" });
         }
@@ -74848,7 +74847,7 @@ async function registerRoutes(app2) {
           entityType: "location",
           entityId: location.id,
           action: "create",
-          performedBy: userId || null,
+          performedBy: userId2 || null,
           performedByRole: req2.user?.role || null,
           afterState: location
         });
@@ -74867,7 +74866,7 @@ async function registerRoutes(app2) {
       try {
         const { id } = req2.params;
         const academyId = req2.user?.academyId;
-        const userId = req2.user?.coachId;
+        const userId2 = req2.user?.coachId;
         const existingLocation = await storage.getLocation(
           id,
           academyId || void 0
@@ -74889,7 +74888,7 @@ async function registerRoutes(app2) {
           entityType: "location",
           entityId: id,
           action: "update",
-          performedBy: userId || null,
+          performedBy: userId2 || null,
           performedByRole: req2.user?.role || null,
           beforeState: existingLocation,
           afterState: updatedLocation
@@ -74909,7 +74908,7 @@ async function registerRoutes(app2) {
       try {
         const { id } = req2.params;
         const academyId = req2.user?.academyId;
-        const userId = req2.user?.coachId;
+        const userId2 = req2.user?.coachId;
         const existingLocation = await storage.getLocation(
           id,
           academyId || void 0
@@ -74932,7 +74931,7 @@ async function registerRoutes(app2) {
           entityType: "location",
           entityId: id,
           action: "delete",
-          performedBy: userId || null,
+          performedBy: userId2 || null,
           performedByRole: req2.user?.role || null,
           beforeState: existingLocation
         });
@@ -74977,7 +74976,7 @@ async function registerRoutes(app2) {
     async (req2, res) => {
       try {
         const academyId = req2.user?.academyId;
-        const userId = req2.user?.coachId;
+        const userId2 = req2.user?.coachId;
         if (!academyId) {
           return res.status(400).json({ error: "Academy ID required" });
         }
@@ -75013,7 +75012,7 @@ async function registerRoutes(app2) {
           entityType: "player_subscription",
           entityId: subscription.id,
           action: "create",
-          performedBy: userId || null,
+          performedBy: userId2 || null,
           performedByRole: req2.user?.role || null,
           afterState: subscription
         });
@@ -75032,7 +75031,7 @@ async function registerRoutes(app2) {
       try {
         const { id } = req2.params;
         const academyId = req2.user?.academyId;
-        const userId = req2.user?.coachId;
+        const userId2 = req2.user?.coachId;
         const existingSubscription = await storage.getPlayerSubscriptionById(id);
         if (!existingSubscription || existingSubscription.academyId !== academyId) {
           return res.status(404).json({ error: "Subscription not found" });
@@ -75064,7 +75063,7 @@ async function registerRoutes(app2) {
           entityType: "player_subscription",
           entityId: id,
           action: "update",
-          performedBy: userId || null,
+          performedBy: userId2 || null,
           performedByRole: req2.user?.role || null,
           beforeState: existingSubscription,
           afterState: updated
@@ -75084,7 +75083,7 @@ async function registerRoutes(app2) {
       try {
         const { id } = req2.params;
         const academyId = req2.user?.academyId;
-        const userId = req2.user?.coachId;
+        const userId2 = req2.user?.coachId;
         const existingSubscription = await storage.getPlayerSubscriptionById(id);
         if (!existingSubscription || existingSubscription.academyId !== academyId) {
           return res.status(404).json({ error: "Subscription not found" });
@@ -75095,7 +75094,7 @@ async function registerRoutes(app2) {
           entityType: "player_subscription",
           entityId: id,
           action: "delete",
-          performedBy: userId || null,
+          performedBy: userId2 || null,
           performedByRole: req2.user?.role || null,
           beforeState: existingSubscription
         });
