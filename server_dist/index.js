@@ -31613,7 +31613,7 @@ import { eq as eq4, and as and3, desc as desc2, asc as asc2, sql as sql6, inArra
 
 // server/provider-gamification.ts
 init_schema();
-import { eq as eq3 } from "drizzle-orm";
+import { eq as eq3, sql as sql5 } from "drizzle-orm";
 var XP_AWARDS = {
   BOOKING_COMPLETED: 10,
   FIVE_STAR_RATING: 25,
@@ -31670,30 +31670,29 @@ function calculateProviderLevel(xp) {
   if (xp > maxThreshold) level = 26;
   const rankLevel = [26, 21, 16, 11, 6, 1].find((r) => level >= r) ?? 1;
   const rank = RANK_NAMES[rankLevel] ?? "Legend";
-  let xpInLevel;
-  let xpToNextLevel;
-  if (level >= 26) {
-    const baseFor25 = LEVEL_THRESHOLDS[24];
-    xpInLevel = xp - baseFor25;
-    xpToNextLevel = 0;
-  } else {
-    const currentThreshold = LEVEL_THRESHOLDS[level - 1];
-    const nextThreshold = LEVEL_THRESHOLDS[level];
-    xpInLevel = xp - currentThreshold;
-    xpToNextLevel = nextThreshold - xp;
-  }
+  const maxDefinedLevel = LEVEL_THRESHOLDS.length;
+  const currentThreshold = LEVEL_THRESHOLDS[Math.min(level - 1, maxDefinedLevel - 1)];
+  const nextThreshold = LEVEL_THRESHOLDS[level];
+  const xpInLevel = xp - currentThreshold;
+  const xpToNextLevel = nextThreshold !== void 0 ? Math.max(0, nextThreshold - xp) : 0;
   return { level, rank, xpInLevel, xpToNextLevel };
 }
 async function awardXP(db2, providerId, amount, reason) {
-  const [before] = await db2.select({ xp: serviceProviders.xp, level: serviceProviders.level }).from(serviceProviders).where(eq3(serviceProviders.id, providerId));
+  const [before] = await db2.select({ level: serviceProviders.level }).from(serviceProviders).where(eq3(serviceProviders.id, providerId));
   if (!before) {
     return { newXp: 0, newLevel: 1, leveledUp: false };
   }
   const prevLevel = Number(before.level);
-  const newXp = Number(before.xp) + amount;
+  const [updated] = await db2.update(serviceProviders).set({
+    xp: sql5`${serviceProviders.xp} + ${amount}`,
+    updatedAt: /* @__PURE__ */ new Date()
+  }).where(eq3(serviceProviders.id, providerId)).returning({ newXp: serviceProviders.xp });
+  const newXp = Number(updated?.newXp ?? 0);
   const { level: newLevel } = calculateProviderLevel(newXp);
   const leveledUp = newLevel > prevLevel;
-  await db2.update(serviceProviders).set({ xp: newXp, level: newLevel, updatedAt: /* @__PURE__ */ new Date() }).where(eq3(serviceProviders.id, providerId));
+  if (newLevel !== prevLevel) {
+    await db2.update(serviceProviders).set({ level: newLevel, updatedAt: /* @__PURE__ */ new Date() }).where(eq3(serviceProviders.id, providerId));
+  }
   console.log(`[ProviderGamification] ${reason}: +${amount} XP \u2192 provider ${providerId} now at ${newXp} XP, Lv.${newLevel}${leveledUp ? " (LEVEL UP!)" : ""}`);
   return { newXp, newLevel, leveledUp };
 }

@@ -51,19 +51,12 @@ export function calculateProviderLevel(xp: number): {
   const rankLevel = [26, 21, 16, 11, 6, 1].find((r) => level >= r) ?? 1;
   const rank = RANK_NAMES[rankLevel] ?? "Legend";
 
-  let xpInLevel: number;
-  let xpToNextLevel: number;
+  const maxDefinedLevel = LEVEL_THRESHOLDS.length;
+  const currentThreshold = LEVEL_THRESHOLDS[Math.min(level - 1, maxDefinedLevel - 1)];
+  const nextThreshold = LEVEL_THRESHOLDS[level];
 
-  if (level >= 26) {
-    const baseFor25 = LEVEL_THRESHOLDS[24];
-    xpInLevel = xp - baseFor25;
-    xpToNextLevel = 0;
-  } else {
-    const currentThreshold = LEVEL_THRESHOLDS[level - 1];
-    const nextThreshold = LEVEL_THRESHOLDS[level];
-    xpInLevel = xp - currentThreshold;
-    xpToNextLevel = nextThreshold - xp;
-  }
+  const xpInLevel = xp - currentThreshold;
+  const xpToNextLevel = nextThreshold !== undefined ? Math.max(0, nextThreshold - xp) : 0;
 
   return { level, rank, xpInLevel, xpToNextLevel };
 }
@@ -75,7 +68,7 @@ export async function awardXP(
   reason: string
 ): Promise<{ newXp: number; newLevel: number; leveledUp: boolean }> {
   const [before] = await db
-    .select({ xp: serviceProviders.xp, level: serviceProviders.level })
+    .select({ level: serviceProviders.level })
     .from(serviceProviders)
     .where(eq(serviceProviders.id, providerId));
 
@@ -84,14 +77,26 @@ export async function awardXP(
   }
 
   const prevLevel = Number(before.level);
-  const newXp = Number(before.xp) + amount;
+
+  const [updated] = await db
+    .update(serviceProviders)
+    .set({
+      xp: sql`${serviceProviders.xp} + ${amount}`,
+      updatedAt: new Date(),
+    })
+    .where(eq(serviceProviders.id, providerId))
+    .returning({ newXp: serviceProviders.xp });
+
+  const newXp = Number(updated?.newXp ?? 0);
   const { level: newLevel } = calculateProviderLevel(newXp);
   const leveledUp = newLevel > prevLevel;
 
-  await db
-    .update(serviceProviders)
-    .set({ xp: newXp, level: newLevel, updatedAt: new Date() })
-    .where(eq(serviceProviders.id, providerId));
+  if (newLevel !== prevLevel) {
+    await db
+      .update(serviceProviders)
+      .set({ level: newLevel, updatedAt: new Date() })
+      .where(eq(serviceProviders.id, providerId));
+  }
 
   console.log(`[ProviderGamification] ${reason}: +${amount} XP → provider ${providerId} now at ${newXp} XP, Lv.${newLevel}${leveledUp ? " (LEVEL UP!)" : ""}`);
 
