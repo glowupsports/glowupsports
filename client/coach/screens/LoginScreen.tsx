@@ -21,7 +21,10 @@ import Animated, {
   useAnimatedStyle,
   withSpring,
   withTiming,
+  withRepeat,
+  withSequence,
   interpolateColor,
+  Easing,
 } from "react-native-reanimated";
 import { useTranslation } from "react-i18next";
 import { LanguageSelectorModal } from "@/components/LanguageSelectorModal";
@@ -387,10 +390,33 @@ export default function LoginScreen() {
   const [savedAccounts, setSavedAccounts] = useState<SavedAccount[]>([]);
   const [biometryType, setBiometryType] = useState<string | null>(null);
 
+  const glowRingScale = useSharedValue(1);
+  const glowRingOpacity = useSharedValue(0.5);
+
+  const glowRingStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: glowRingScale.value }],
+    opacity: glowRingOpacity.value,
+  }));
+
   useEffect(() => {
     loadSavedAccounts();
     checkBiometrics();
-    
+    glowRingScale.value = withRepeat(
+      withSequence(
+        withTiming(1.25, { duration: 1800, easing: Easing.inOut(Easing.sin) }),
+        withTiming(1, { duration: 1800, easing: Easing.inOut(Easing.sin) })
+      ),
+      -1,
+      true
+    );
+    glowRingOpacity.value = withRepeat(
+      withSequence(
+        withTiming(0.8, { duration: 1800, easing: Easing.inOut(Easing.sin) }),
+        withTiming(0.3, { duration: 1800, easing: Easing.inOut(Easing.sin) })
+      ),
+      -1,
+      true
+    );
     return () => {
       if (usernameCheckTimeout.current) {
         clearTimeout(usernameCheckTimeout.current);
@@ -1063,16 +1089,18 @@ export default function LoginScreen() {
         <View style={styles.appleSignInContainer}>
           <View style={styles.divider}>
             <View style={styles.dividerLine} />
-            <Text style={styles.dividerText}>{t("auth.orContinueWith") || "or"}</Text>
+            <Text style={styles.dividerText}>OR CONTINUE WITH</Text>
             <View style={styles.dividerLine} />
           </View>
-          <AppleAuthentication.AppleAuthenticationButton
-            buttonType={AppleAuthentication.AppleAuthenticationButtonType.SIGN_IN}
-            buttonStyle={AppleAuthentication.AppleAuthenticationButtonStyle.WHITE}
-            cornerRadius={12}
-            style={styles.appleButton}
-            onPress={handleAppleSignIn}
-          />
+          <View style={styles.appleButtonWrapper}>
+            <AppleAuthentication.AppleAuthenticationButton
+              buttonType={AppleAuthentication.AppleAuthenticationButtonType.SIGN_IN}
+              buttonStyle={AppleAuthentication.AppleAuthenticationButtonStyle.WHITE}
+              cornerRadius={12}
+              style={styles.appleButton}
+              onPress={handleAppleSignIn}
+            />
+          </View>
         </View>
       ) : null}
 
@@ -1839,18 +1867,32 @@ export default function LoginScreen() {
         ]}
       >
         {mode === "login" ? (
-          <View style={styles.header}>
-            <Image 
-              source={require("../../../assets/images/logo.png")} 
-              style={styles.headerLogo}
-              resizeMode="contain"
+          <View style={styles.loginHero}>
+            <LinearGradient
+              colors={["rgba(200,255,61,0.10)", "rgba(200,255,61,0.03)", "rgba(0,0,0,0)"]}
+              style={StyleSheet.absoluteFillObject}
             />
+            <View style={[styles.courtDecorLine, styles.courtDecorH1]} />
+            <View style={[styles.courtDecorLine, styles.courtDecorH2]} />
+            <View style={styles.courtDecorV} />
+            <View style={styles.courtDecorCenter} />
+
+            <View style={styles.heroLogoOuter}>
+              <Animated.View style={[styles.heroGlowRing, glowRingStyle]} />
+              <Image
+                source={require("../../../assets/images/logo.png")}
+                style={styles.heroLogoImg}
+                resizeMode="contain"
+              />
+            </View>
+
+            <Text style={styles.heroHeadline}>STEP ONTO THE COURT</Text>
+
             <View style={styles.heroTaglineRow}>
               <View style={styles.heroAccentLine} />
-              <Text style={styles.heroTagline}>STEP ONTO THE COURT</Text>
+              <Text style={styles.heroSubtitle}>Play. Improve. Glow.</Text>
               <View style={styles.heroAccentLine} />
             </View>
-            <Text style={styles.heroSubtitle}>Play. Improve. Glow.</Text>
           </View>
         ) : null}
 
@@ -1894,6 +1936,98 @@ const styles = StyleSheet.create({
     flexGrow: 1,
     paddingHorizontal: Spacing.lg,
   },
+  loginHero: {
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: Spacing["2xl"],
+    marginBottom: Spacing.lg,
+    borderRadius: BorderRadius.lg,
+    overflow: "hidden",
+    borderWidth: 1,
+    borderColor: "rgba(200, 255, 61, 0.12)",
+    minHeight: 220,
+    position: "relative",
+  },
+  courtDecorLine: {
+    position: "absolute",
+    backgroundColor: "rgba(200, 255, 61, 0.07)",
+  },
+  courtDecorH1: {
+    left: 0,
+    right: 0,
+    height: 1,
+    top: "30%",
+  },
+  courtDecorH2: {
+    left: 0,
+    right: 0,
+    height: 1,
+    top: "70%",
+  },
+  courtDecorV: {
+    top: 0,
+    bottom: 0,
+    width: 1,
+    left: "50%",
+    backgroundColor: "rgba(200, 255, 61, 0.07)",
+  },
+  courtDecorCenter: {
+    position: "absolute",
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    borderWidth: 1,
+    borderColor: "rgba(200, 255, 61, 0.10)",
+    left: "50%",
+    top: "50%",
+    marginLeft: -30,
+    marginTop: -30,
+  },
+  heroLogoOuter: {
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: Spacing.lg,
+  },
+  heroGlowRing: {
+    position: "absolute",
+    width: 140,
+    height: 140,
+    borderRadius: 70,
+    borderWidth: 1.5,
+    borderColor: GlowColors.primary,
+    backgroundColor: "rgba(200, 255, 61, 0.05)",
+  },
+  heroLogoImg: {
+    width: 180,
+    height: 80,
+  },
+  heroHeadline: {
+    fontSize: 14,
+    fontWeight: "900",
+    color: GlowColors.primary,
+    letterSpacing: 3.5,
+    textTransform: "uppercase",
+    marginBottom: Spacing.md,
+  },
+  heroTaglineRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    paddingHorizontal: Spacing.xl,
+    width: "100%",
+  },
+  heroAccentLine: {
+    flex: 1,
+    height: 1,
+    backgroundColor: "#C8FF3D",
+    opacity: 0.3,
+  },
+  heroSubtitle: {
+    fontSize: 12,
+    color: "#B8BCC6",
+    letterSpacing: 1.5,
+    fontWeight: "500",
+  },
   header: {
     alignItems: "center",
     marginBottom: Spacing.md,
@@ -1902,33 +2036,6 @@ const styles = StyleSheet.create({
     width: 200,
     height: 100,
     marginBottom: Spacing.sm,
-  },
-  heroTaglineRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 10,
-    marginTop: 4,
-    marginBottom: 6,
-    width: "100%",
-  },
-  heroAccentLine: {
-    flex: 1,
-    height: 1,
-    backgroundColor: "#C8FF3D",
-    opacity: 0.45,
-  },
-  heroTagline: {
-    fontSize: 12,
-    fontWeight: "800",
-    color: "#C8FF3D",
-    letterSpacing: 3,
-  },
-  heroSubtitle: {
-    fontSize: 13,
-    color: "#B8BCC6",
-    textAlign: "center",
-    letterSpacing: 0.5,
-    marginBottom: 4,
   },
   logoContainer: {
     width: 64,
@@ -2382,6 +2489,12 @@ const styles = StyleSheet.create({
   },
   appleSignInContainer: {
     marginTop: Spacing.md,
+  },
+  appleButtonWrapper: {
+    borderRadius: 12,
+    overflow: "hidden",
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.15)",
   },
   appleButton: {
     width: "100%",

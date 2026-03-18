@@ -10,7 +10,6 @@ import {
   Modal,
   Image,
   Platform,
-  ActivityIndicator,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
@@ -1691,9 +1690,23 @@ function CompletionStep({ data, playerName, onComplete }: StepProps & { onComple
   const [isSaving, setIsSaving] = useState(false);
   const [saveMessageIdx, setSaveMessageIdx] = useState(0);
 
+  const glowPulse = useSharedValue(0.7);
+  const glowPulseStyle = useAnimatedStyle(() => ({
+    opacity: glowPulse.value,
+    transform: [{ scale: 0.9 + glowPulse.value * 0.2 }],
+  }));
+
   useEffect(() => {
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     const timer = setTimeout(() => setShowConfetti(false), 3000);
+    glowPulse.value = withRepeat(
+      withSequence(
+        withTiming(1, { duration: 900 }),
+        withTiming(0.5, { duration: 900 })
+      ),
+      -1,
+      false
+    );
     return () => clearTimeout(timer);
   }, []);
 
@@ -1723,7 +1736,10 @@ function CompletionStep({ data, playerName, onComplete }: StepProps & { onComple
   if (isSaving) {
     return (
       <View style={styles.cinematicSaveOverlay}>
-        <ActivityIndicator size="large" color={GlowColors.primary} />
+        <View style={styles.cinematicGlowOuter}>
+          <Animated.View style={[styles.cinematicGlowRing, glowPulseStyle]} />
+          <View style={styles.cinematicGlowCore} />
+        </View>
         <Text style={styles.cinematicSaveMessage}>{SAVE_MESSAGES[saveMessageIdx]}</Text>
         <Text style={styles.cinematicSaveSubtext}>PLAYER PROFILE INITIALIZING</Text>
       </View>
@@ -2732,6 +2748,32 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: Spacing.xl,
     paddingHorizontal: Spacing.xl,
+  },
+  cinematicGlowOuter: {
+    width: 100,
+    height: 100,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  cinematicGlowRing: {
+    position: "absolute",
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    borderWidth: 2,
+    borderColor: GlowColors.primary,
+    backgroundColor: "rgba(200, 255, 61, 0.06)",
+  },
+  cinematicGlowCore: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: GlowColors.primary,
+    shadowColor: GlowColors.primary,
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.9,
+    shadowRadius: 12,
+    elevation: 8,
   },
   cinematicSaveMessage: {
     fontSize: 16,
