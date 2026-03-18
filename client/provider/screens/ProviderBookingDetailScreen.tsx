@@ -113,6 +113,16 @@ function InfoRow({
   );
 }
 
+interface BookingStatusResponse {
+  id: string;
+  status: string;
+  xpAwarded: number;
+  leveledUp: boolean;
+  newLevel: number;
+  newBadges: string[];
+  [key: string]: unknown;
+}
+
 interface CompletionToast {
   xpAwarded: number;
   leveledUp: boolean;
@@ -140,9 +150,9 @@ export default function ProviderBookingDetailScreen() {
   const booking = allBookings.find((b) => b.id === orderId);
 
   const statusMutation = useMutation({
-    mutationFn: async (status: string) => {
+    mutationFn: async (status: string): Promise<BookingStatusResponse> => {
       const res = await apiRequest("PATCH", `/api/provider/bookings/${orderId}/status`, { status });
-      return res.json() as Promise<any>;
+      return res.json();
     },
     onSuccess: (data, status) => {
       queryClient.invalidateQueries({ queryKey: ["/api/provider/me/bookings"] });
