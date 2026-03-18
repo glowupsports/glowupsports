@@ -7,6 +7,14 @@ import {
   players, users
 } from "../shared/schema";
 import { eq, and, desc, asc, sql, inArray } from "drizzle-orm";
+import {
+  awardXP,
+  updateStreak,
+  checkAndAwardBadges,
+  calculateProviderLevel,
+  XP_AWARDS,
+  BADGES,
+} from "./provider-gamification";
 import { 
   authMiddlewareWithFreshData as authMiddleware,
   requireRole, 
@@ -1227,11 +1235,11 @@ router.patch("/provider/bookings/:orderId/status", authMiddleware, requireServic
       return res.status(400).json({ error: `Invalid status. Must be one of: ${validStatuses.join(", ")}` });
     }
 
-    const providerRecord = await db.select().from(serviceProviders)
+    const [providerRecord] = await db.select().from(serviceProviders)
       .where(eq(serviceProviders.userId, req.user!.userId))
       .limit(1);
 
-    if (!providerRecord[0]) {
+    if (!providerRecord) {
       return res.status(404).json({ error: "Provider profile not found" });
     }
 
@@ -1242,7 +1250,7 @@ router.patch("/provider/bookings/:orderId/status", authMiddleware, requireServic
       .set(updateData)
       .where(and(
         eq(shopOrders.id, orderId),
-        eq(shopOrders.assignedProviderId, providerRecord[0].id)
+        eq(shopOrders.assignedProviderId, providerRecord.id)
       ))
       .returning();
 
@@ -1250,10 +1258,93 @@ router.patch("/provider/bookings/:orderId/status", authMiddleware, requireServic
       return res.status(404).json({ error: "Booking not found or not assigned to you" });
     }
 
-    res.json(order);
+    let xpAwarded = 0;
+    let leveledUp = false;
+    let newLevel = Number(providerRecord.level);
+    let newBadges: string[] = [];
+
+    if (status === "completed") {
+      const prevTotalBookings = Number(providerRecord.totalBookings);
+
+      await db.update(serviceProviders)
+        .set({ totalBookings: prevTotalBookings + 1, updatedAt: new Date() })
+        .where(eq(serviceProviders.id, providerRecord.id));
+
+      if (prevTotalBookings === 0) {
+        const result = await awardXP(providerRecord.id, XP_AWARDS.FIRST_BOOKING, "first_booking");
+        xpAwarded += XP_AWARDS.FIRST_BOOKING;
+        leveledUp = result.leveledUp;
+        newLevel = result.newLevel;
+      }
+
+      if (prevTotalBookings + 1 === 100) {
+        const result = await awardXP(providerRecord.id, XP_AWARDS.CENTURY_BOOKINGS, "century_bookings");
+        xpAwarded += XP_AWARDS.CENTURY_BOOKINGS;
+        if (result.leveledUp) { leveledUp = true; newLevel = result.newLevel; }
+      }
+
+      const bookingResult = await awardXP(providerRecord.id, XP_AWARDS.BOOKING_COMPLETED, "booking_completed");
+      xpAwarded += XP_AWARDS.BOOKING_COMPLETED;
+      if (bookingResult.leveledUp) { leveledUp = true; newLevel = bookingResult.newLevel; }
+
+      const streakResult = await updateStreak(providerRecord.id);
+      if (streakResult.milestoneReached === 7) {
+        const sr = await awardXP(providerRecord.id, XP_AWARDS.STREAK_7_DAY, "streak_7_day");
+        xpAwarded += XP_AWARDS.STREAK_7_DAY;
+        if (sr.leveledUp) { leveledUp = true; newLevel = sr.newLevel; }
+      } else if (streakResult.milestoneReached === 30) {
+        const sr = await awardXP(providerRecord.id, XP_AWARDS.STREAK_30_DAY, "streak_30_day");
+        xpAwarded += XP_AWARDS.STREAK_30_DAY;
+        if (sr.leveledUp) { leveledUp = true; newLevel = sr.newLevel; }
+      }
+
+      const [refreshed] = await db.select().from(serviceProviders)
+        .where(eq(serviceProviders.id, providerRecord.id)).limit(1);
+
+      newBadges = await checkAndAwardBadges(providerRecord.id, {
+        totalBookings: Number(refreshed?.totalBookings ?? prevTotalBookings + 1),
+        rating: Number(refreshed?.rating ?? 0),
+        streakCurrent: streakResult.streakCurrent,
+        leveledUp,
+      });
+    }
+
+    res.json({ ...order, xpAwarded, leveledUp, newLevel, newBadges });
   } catch (error) {
     console.error("[Provider] Error updating booking status:", error);
     res.status(500).json({ error: "Failed to update booking status" });
+  }
+});
+
+// Provider gamification stats
+router.get("/provider/stats", authMiddleware, requireServiceProvider, async (req: AuthRequest, res: Response) => {
+  try {
+    const [provider] = await db.select().from(serviceProviders)
+      .where(eq(serviceProviders.userId, req.user!.userId))
+      .limit(1);
+
+    if (!provider) {
+      return res.status(404).json({ error: "Provider not found" });
+    }
+
+    const xp = Number(provider.xp);
+    const { level, rank, xpInLevel, xpToNextLevel } = calculateProviderLevel(xp);
+
+    res.json({
+      xp,
+      level,
+      rank,
+      xpInLevel,
+      xpToNextLevel,
+      streakCurrent: Number(provider.streakCurrent),
+      streakBest: Number(provider.streakBest),
+      badges: (provider.badges ?? []) as string[],
+      totalBookings: Number(provider.totalBookings),
+      rating: Number(provider.rating),
+    });
+  } catch (error) {
+    console.error("[Provider] Error fetching stats:", error);
+    res.status(500).json({ error: "Failed to fetch provider stats" });
   }
 });
 

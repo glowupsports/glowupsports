@@ -39,6 +39,35 @@ interface ProviderProfile {
   isOnboarded: boolean;
 }
 
+interface ProviderStats {
+  xp: number;
+  level: number;
+  rank: string;
+  xpInLevel: number;
+  xpToNextLevel: number;
+  streakCurrent: number;
+  streakBest: number;
+  badges: string[];
+  totalBookings: number;
+  rating: number;
+}
+
+const CLIENT_BADGES: Array<{
+  id: string;
+  label: string;
+  icon: keyof typeof Ionicons.glyphMap;
+  description: string;
+  color: string;
+}> = [
+  { id: "first_job", label: "First Job", icon: "ribbon-outline", description: "Complete your very first booking", color: Colors.dark.primary },
+  { id: "ten_bookings", label: "Getting Started", icon: "star-outline", description: "Complete 10 bookings", color: "#4A90E2" },
+  { id: "century", label: "Century Club", icon: "trophy-outline", description: "Complete 100 bookings", color: "#FFD700" },
+  { id: "five_star", label: "5-Star Pro", icon: "star-outline", description: "Achieve a 4.9+ average rating", color: "#FFD700" },
+  { id: "streak_7", label: "On Fire", icon: "flame-outline", description: "Maintain a 7-day booking streak", color: "#FF8C00" },
+  { id: "streak_30", label: "Unstoppable", icon: "flash-outline", description: "Maintain a 30-day booking streak", color: "#FF4500" },
+  { id: "leveled_up", label: "Level Up", icon: "trending-up-outline", description: "Reach your next rank level", color: Colors.dark.primary },
+];
+
 function StarRating({ rating }: { rating: number }) {
   return (
     <View style={styles.starRow}>
@@ -249,9 +278,14 @@ export default function ProviderProfileScreen() {
   const queryClient = useQueryClient();
   const [showEditProfile, setShowEditProfile] = useState(false);
   const [showEditSpecs, setShowEditSpecs] = useState(false);
+  const [badgeTooltip, setBadgeTooltip] = useState<typeof CLIENT_BADGES[0] | null>(null);
 
   const { data: provider, isLoading } = useQuery<ProviderProfile>({
     queryKey: ["/api/provider/me"],
+  });
+
+  const { data: stats } = useQuery<ProviderStats>({
+    queryKey: ["/api/provider/stats"],
   });
 
   const handleSignOut = () => {
@@ -372,10 +406,42 @@ export default function ProviderProfileScreen() {
 
         <Animated.View entering={FadeInUp.delay(140).duration(300)}>
           <View style={styles.section}>
-            <Text style={styles.sectionLabel}>ACHIEVEMENTS</Text>
-            <View style={styles.achievementsPlaceholder}>
-              <Ionicons name="trophy-outline" size={24} color={Colors.dark.textSecondary} />
-              <Text style={styles.achievementsPlaceholderText}>Badges and achievements coming soon</Text>
+            <View style={styles.sectionLabelRow}>
+              <Text style={styles.sectionLabel}>ACHIEVEMENTS</Text>
+              {stats ? (
+                <Text style={styles.badgeCountText}>{stats.badges.length}/{CLIENT_BADGES.length} unlocked</Text>
+              ) : null}
+            </View>
+            <View style={styles.badgesGrid}>
+              {CLIENT_BADGES.map((badge) => {
+                const unlocked = stats?.badges.includes(badge.id) ?? false;
+                return (
+                  <Pressable
+                    key={badge.id}
+                    style={[
+                      styles.badgeCard,
+                      unlocked
+                        ? { borderColor: badge.color + "40", backgroundColor: badge.color + "10" }
+                        : { borderColor: Colors.dark.border, backgroundColor: Colors.dark.backgroundSecondary, opacity: 0.5 },
+                    ]}
+                    onPress={() => setBadgeTooltip(badge)}
+                  >
+                    <View style={[styles.badgeIconCircle, { backgroundColor: unlocked ? badge.color + "25" : Colors.dark.backgroundDefault }]}>
+                      <Ionicons
+                        name={unlocked ? badge.icon : "lock-closed-outline"}
+                        size={20}
+                        color={unlocked ? badge.color : Colors.dark.textSecondary}
+                      />
+                    </View>
+                    <Text style={[styles.badgeLabel, { color: unlocked ? Colors.dark.text : Colors.dark.textSecondary }]} numberOfLines={2}>
+                      {badge.label}
+                    </Text>
+                    {unlocked ? (
+                      <View style={[styles.badgeUnlockedDot, { backgroundColor: badge.color }]} />
+                    ) : null}
+                  </Pressable>
+                );
+              })}
             </View>
           </View>
         </Animated.View>
@@ -461,6 +527,36 @@ export default function ProviderProfileScreen() {
         onClose={() => setShowEditSpecs(false)}
         onSave={handleSaveSpecs}
       />
+
+      <Modal
+        visible={badgeTooltip !== null}
+        animationType="fade"
+        transparent
+        onRequestClose={() => setBadgeTooltip(null)}
+      >
+        <Pressable style={styles.tooltipOverlay} onPress={() => setBadgeTooltip(null)}>
+          {badgeTooltip ? (
+            <View style={styles.tooltipCard}>
+              <View style={[styles.tooltipIconBox, { backgroundColor: badgeTooltip.color + "20" }]}>
+                <Ionicons name={badgeTooltip.icon} size={32} color={badgeTooltip.color} />
+              </View>
+              <Text style={styles.tooltipTitle}>{badgeTooltip.label}</Text>
+              <Text style={styles.tooltipDesc}>{badgeTooltip.description}</Text>
+              {stats?.badges.includes(badgeTooltip.id) ? (
+                <View style={[styles.tooltipUnlockedPill, { backgroundColor: badgeTooltip.color + "20" }]}>
+                  <Ionicons name="checkmark-circle" size={14} color={badgeTooltip.color} />
+                  <Text style={[styles.tooltipUnlockedText, { color: badgeTooltip.color }]}>Unlocked</Text>
+                </View>
+              ) : (
+                <View style={styles.tooltipLockedPill}>
+                  <Ionicons name="lock-closed-outline" size={14} color={Colors.dark.textSecondary} />
+                  <Text style={styles.tooltipLockedText}>Locked</Text>
+                </View>
+              )}
+            </View>
+          ) : null}
+        </Pressable>
+      </Modal>
     </View>
   );
 }
@@ -692,19 +788,90 @@ const styles = StyleSheet.create({
     paddingVertical: Spacing.sm,
   },
   addSpecsText: { fontSize: 13, color: Colors.dark.primary, fontWeight: "600" },
-  achievementsPlaceholder: {
-    backgroundColor: Colors.dark.backgroundSecondary,
-    borderRadius: 14,
-    padding: Spacing.lg,
+  badgeCountText: { fontSize: 11, color: Colors.dark.textSecondary, marginBottom: Spacing.sm },
+  badgesGrid: {
     flexDirection: "row",
-    alignItems: "center",
+    flexWrap: "wrap",
     gap: Spacing.sm,
   },
-  achievementsPlaceholderText: {
-    fontSize: 13,
-    color: Colors.dark.textSecondary,
-    fontStyle: "italic",
+  badgeCard: {
+    width: "30%",
+    borderRadius: 14,
+    padding: Spacing.sm,
+    borderWidth: 1.5,
+    alignItems: "center",
+    gap: 6,
+    minHeight: 90,
+    position: "relative",
   },
+  badgeIconCircle: {
+    width: 42,
+    height: 42,
+    borderRadius: 12,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  badgeLabel: {
+    fontSize: 10,
+    fontWeight: "600",
+    textAlign: "center",
+  },
+  badgeUnlockedDot: {
+    position: "absolute",
+    top: 6,
+    right: 6,
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
+  tooltipOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.6)",
+    alignItems: "center",
+    justifyContent: "center",
+    padding: Spacing.xl,
+  },
+  tooltipCard: {
+    backgroundColor: Colors.dark.backgroundSecondary,
+    borderRadius: 20,
+    padding: Spacing.xl,
+    alignItems: "center",
+    gap: Spacing.sm,
+    width: "100%",
+    borderWidth: 1,
+    borderColor: Colors.dark.border,
+  },
+  tooltipIconBox: {
+    width: 60,
+    height: 60,
+    borderRadius: 18,
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: Spacing.xs,
+  },
+  tooltipTitle: { fontSize: 18, fontWeight: "700", color: Colors.dark.text, textAlign: "center" },
+  tooltipDesc: { fontSize: 14, color: Colors.dark.textSecondary, textAlign: "center", lineHeight: 20 },
+  tooltipUnlockedPill: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: 6,
+    borderRadius: 12,
+    marginTop: Spacing.xs,
+  },
+  tooltipUnlockedText: { fontSize: 13, fontWeight: "700" },
+  tooltipLockedPill: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: 6,
+    borderRadius: 12,
+    backgroundColor: Colors.dark.backgroundDefault,
+    marginTop: Spacing.xs,
+  },
+  tooltipLockedText: { fontSize: 13, color: Colors.dark.textSecondary, fontWeight: "600" },
   bioCard: { backgroundColor: Colors.dark.backgroundSecondary, borderRadius: 14, padding: Spacing.md },
   bioText: { fontSize: 14, color: Colors.dark.textSecondary, lineHeight: 20 },
   statsRow: { flexDirection: "row", gap: Spacing.sm },

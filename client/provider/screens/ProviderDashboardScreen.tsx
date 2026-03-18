@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   View,
   Text,
@@ -14,10 +14,13 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import Animated, {
   FadeInUp,
+  FadeInDown,
+  FadeOutDown,
   useSharedValue,
   withRepeat,
   withSequence,
   withTiming,
+  withSpring,
   useAnimatedStyle,
 } from "react-native-reanimated";
 import { useNavigation } from "@react-navigation/native";
@@ -60,6 +63,26 @@ interface ProviderProfile {
   isOnboarded: boolean;
 }
 
+interface ProviderStats {
+  xp: number;
+  level: number;
+  rank: string;
+  xpInLevel: number;
+  xpToNextLevel: number;
+  streakCurrent: number;
+  streakBest: number;
+  badges: string[];
+  totalBookings: number;
+  rating: number;
+}
+
+interface ToastData {
+  message: string;
+  subtext?: string;
+  icon: keyof typeof Ionicons.glyphMap;
+  iconColor: string;
+}
+
 const STATUS_COLORS: Record<string, string> = {
   pending: "#FFD700",
   confirmed: Colors.dark.primary,
@@ -74,6 +97,16 @@ const STATUS_LABELS: Record<string, string> = {
   cancelled: "Cancelled",
 };
 
+const BADGE_LABELS: Record<string, string> = {
+  first_job: "First Job",
+  ten_bookings: "Getting Started",
+  century: "Century Club",
+  five_star: "5-Star Pro",
+  streak_7: "On Fire",
+  streak_30: "Unstoppable",
+  leveled_up: "Level Up",
+};
+
 function formatTime(iso: string | null): string {
   if (!iso) return "No time set";
   return new Date(iso).toLocaleTimeString("en-US", {
@@ -81,13 +114,6 @@ function formatTime(iso: string | null): string {
     minute: "2-digit",
     hour12: true,
   });
-}
-
-function isToday(iso: string | null): boolean {
-  if (!iso) return false;
-  const d = new Date(iso);
-  const now = new Date();
-  return d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth() && d.getDate() === now.getDate();
 }
 
 function isThisWeek(iso: string | null): boolean {
@@ -102,16 +128,74 @@ function isThisWeek(iso: string | null): boolean {
   return d >= weekStart && d < weekEnd;
 }
 
-function PlayerAvatar({ uri, size = 32 }: { uri: string | null | undefined; size?: number }) {
-  const resolvedUri = uri
-    ? uri.startsWith("/") ? getStaticAssetsUrl() + uri : uri
-    : null;
-  if (resolvedUri) {
-    return <Image source={{ uri: resolvedUri }} style={{ width: size, height: size, borderRadius: size / 2 }} />;
+function PlayerAvatar({ uri, size }: { uri: string | null; size: number }) {
+  if (!uri) {
+    return (
+      <View style={[{ width: size, height: size, borderRadius: size / 2, backgroundColor: Colors.dark.backgroundSecondary, alignItems: "center", justifyContent: "center" }]}>
+        <Ionicons name="person" size={size * 0.5} color={Colors.dark.textSecondary} />
+      </View>
+    );
   }
+  const fullUri = uri.startsWith("/") ? getStaticAssetsUrl() + uri : uri;
+  return <Image source={{ uri: fullUri }} style={{ width: size, height: size, borderRadius: size / 2 }} />;
+}
+
+function AchievementToast({ data, onDismiss }: { data: ToastData; onDismiss: () => void }) {
+  useEffect(() => {
+    const timer = setTimeout(onDismiss, 3000);
+    return () => clearTimeout(timer);
+  }, []);
+
   return (
-    <View style={{ width: size, height: size, borderRadius: size / 2, backgroundColor: Colors.dark.backgroundDefault, alignItems: "center", justifyContent: "center" }}>
-      <Ionicons name="person" size={size * 0.45} color={Colors.dark.textSecondary} />
+    <Animated.View
+      entering={FadeInDown.duration(300)}
+      exiting={FadeOutDown.duration(250)}
+      style={styles.toast}
+    >
+      <View style={[styles.toastIconBox, { backgroundColor: data.iconColor + "20" }]}>
+        <Ionicons name={data.icon} size={22} color={data.iconColor} />
+      </View>
+      <View style={styles.toastBody}>
+        <Text style={styles.toastMessage}>{data.message}</Text>
+        {data.subtext ? <Text style={styles.toastSubtext}>{data.subtext}</Text> : null}
+      </View>
+    </Animated.View>
+  );
+}
+
+function XPBar({ xpInLevel, xpToNextLevel, level, rank, color }: {
+  xpInLevel: number;
+  xpToNextLevel: number;
+  level: number;
+  rank: string;
+  color: string;
+}) {
+  const progress = useSharedValue(0);
+  const total = xpInLevel + xpToNextLevel;
+  const ratio = total > 0 ? xpInLevel / total : 1;
+
+  useEffect(() => {
+    progress.value = withSpring(ratio, { damping: 20, stiffness: 90 });
+  }, [ratio]);
+
+  const barStyle = useAnimatedStyle(() => ({
+    width: `${Math.min(progress.value * 100, 100)}%` as `${number}%`,
+  }));
+
+  return (
+    <View style={styles.xpBarSection}>
+      <View style={styles.xpBarHeader}>
+        <View style={[styles.levelBadgePill, { backgroundColor: color + "25" }]}>
+          <Text style={[styles.levelBadgePillText, { color }]}>Lv.{level}</Text>
+        </View>
+        <Text style={styles.rankLabel}>{rank}</Text>
+        <Text style={styles.xpNumbers}>
+          {xpToNextLevel > 0 ? `${xpInLevel} / ${xpInLevel + xpToNextLevel} XP` : `${xpInLevel} XP · MAX`}
+        </Text>
+      </View>
+      <View style={styles.xpBarTrack}>
+        <Animated.View style={[styles.xpBarFill, { backgroundColor: color }, barStyle]} />
+      </View>
     </View>
   );
 }
@@ -138,7 +222,7 @@ function ActionCard({
     <Pressable style={styles.actionCard} onPress={onPress}>
       <View style={styles.actionCardTop}>
         <View style={styles.actionAvatarContainer}>
-          <PlayerAvatar uri={booking.player?.profilePhotoUrl} size={36} />
+          <PlayerAvatar uri={booking.player?.profilePhotoUrl ?? null} size={36} />
           {booking.player?.level ? (
             <View style={styles.levelBadge}>
               <Text style={styles.levelBadgeText}>{booking.player.level}</Text>
@@ -219,11 +303,17 @@ export default function ProviderDashboardScreen() {
   const { user } = useAuth();
   const queryClient = useQueryClient();
   const [updatingId, setUpdatingId] = useState<string | null>(null);
+  const [toast, setToast] = useState<ToastData | null>(null);
+
   const pendingPulse = useSharedValue(1);
   const pendingAnimStyle = useAnimatedStyle(() => ({ opacity: pendingPulse.value }));
 
   const { data: profile } = useQuery<ProviderProfile>({
     queryKey: ["/api/provider/me"],
+  });
+
+  const { data: stats } = useQuery<ProviderStats>({
+    queryKey: ["/api/provider/stats"],
   });
 
   const { data: todayBookings = [], isLoading: loadingToday, refetch: refetchToday } = useQuery<Booking[]>({
@@ -257,12 +347,46 @@ export default function ProviderDashboardScreen() {
 
   const firstName = profile?.displayName?.split(" ")[0] ?? user?.name?.split(" ")[0] ?? "Provider";
 
-  const updateBookingStatus = async (orderId: string, status: "confirmed" | "cancelled") => {
+  const showToast = (data: ToastData) => {
+    setToast(data);
+  };
+
+  const updateBookingStatus = async (orderId: string, status: "confirmed" | "cancelled" | "completed") => {
     setUpdatingId(orderId);
     try {
       const res = await apiRequest("PATCH", `/api/provider/bookings/${orderId}/status`, { status });
       if (!res.ok) throw new Error("Failed");
+      const data = await res.json();
+
       await queryClient.invalidateQueries({ queryKey: ["/api/provider/me/bookings"] });
+      await queryClient.invalidateQueries({ queryKey: ["/api/provider/stats"] });
+      await queryClient.invalidateQueries({ queryKey: ["/api/provider/me"] });
+
+      if (status === "completed") {
+        if (data.leveledUp) {
+          showToast({
+            message: `Level Up! You're now Lv.${data.newLevel}`,
+            subtext: data.xpAwarded ? `+${data.xpAwarded} XP earned` : undefined,
+            icon: "trending-up",
+            iconColor: Colors.dark.primary,
+          });
+        } else if (data.newBadges && data.newBadges.length > 0) {
+          const badgeLabel = BADGE_LABELS[data.newBadges[0]] ?? data.newBadges[0];
+          showToast({
+            message: `Achievement Unlocked: ${badgeLabel}`,
+            subtext: data.xpAwarded ? `+${data.xpAwarded} XP earned` : undefined,
+            icon: "ribbon",
+            iconColor: "#FFD700",
+          });
+        } else if (data.xpAwarded && data.xpAwarded > 0) {
+          showToast({
+            message: `+${data.xpAwarded} XP earned`,
+            subtext: "Keep it up!",
+            icon: "flash",
+            iconColor: Colors.dark.primary,
+          });
+        }
+      }
     } catch {
       Alert.alert("Error", "Could not update booking. Please try again.");
     } finally {
@@ -316,6 +440,9 @@ export default function ProviderDashboardScreen() {
       : profile.profilePhotoUrl
     : null;
 
+  const streakCurrent = stats?.streakCurrent ?? 0;
+  const streakBest = stats?.streakBest ?? 0;
+
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
       <ScrollView
@@ -357,10 +484,23 @@ export default function ProviderDashboardScreen() {
                 </View>
               ) : null}
               <Text style={styles.greetingSuffix}>{primary.greetingSuffix}</Text>
-              <View style={styles.rankPlaceholder}>
-                <Ionicons name="ribbon-outline" size={12} color={Colors.dark.textSecondary} />
-                <Text style={styles.rankPlaceholderText}>Rank system coming soon</Text>
-              </View>
+
+              {stats ? (
+                <XPBar
+                  xpInLevel={stats.xpInLevel}
+                  xpToNextLevel={stats.xpToNextLevel}
+                  level={stats.level}
+                  rank={stats.rank}
+                  color={primary.color}
+                />
+              ) : null}
+
+              {streakCurrent > 0 ? (
+                <View style={styles.streakPill}>
+                  <Ionicons name="flame" size={13} color="#FF8C00" />
+                  <Text style={styles.streakPillText}>{streakCurrent}-day streak</Text>
+                </View>
+              ) : null}
             </View>
           </View>
         </Animated.View>
@@ -393,6 +533,23 @@ export default function ProviderDashboardScreen() {
             <Text style={styles.statLabel}>Rating</Text>
           </View>
         </Animated.View>
+
+        {streakCurrent > 0 ? (
+          <Animated.View entering={FadeInUp.delay(100).duration(300)}>
+            <View style={styles.streakBanner}>
+              <Ionicons name="flame" size={20} color="#FF8C00" />
+              <View style={styles.streakBannerBody}>
+                <Text style={styles.streakBannerTitle}>{streakCurrent} days in a row</Text>
+                <Text style={styles.streakBannerSub}>Best: {streakBest} days · Keep it going!</Text>
+              </View>
+              {streakCurrent >= 7 ? (
+                <View style={styles.streakHotPill}>
+                  <Text style={styles.streakHotText}>HOT</Text>
+                </View>
+              ) : null}
+            </View>
+          </Animated.View>
+        ) : null}
 
         {pendingBookings.length > 0 ? (
           <Animated.View entering={FadeInUp.delay(140).duration(300)}>
@@ -447,6 +604,12 @@ export default function ProviderDashboardScreen() {
           )}
         </Animated.View>
       </ScrollView>
+
+      {toast ? (
+        <View style={[styles.toastContainer, { bottom: insets.bottom + 100 }]}>
+          <AchievementToast data={toast} onDismiss={() => setToast(null)} />
+        </View>
+      ) : null}
     </View>
   );
 }
@@ -476,23 +639,9 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   careerBody: { flex: 1, gap: 5 },
-  careerGreeting: {
-    fontSize: 12,
-    color: Colors.dark.textSecondary,
-    fontWeight: "500",
-  },
-  careerName: {
-    fontSize: 20,
-    fontWeight: "800",
-    color: Colors.dark.text,
-    lineHeight: 24,
-  },
-  careerSpecRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-    flexWrap: "wrap",
-  },
+  careerGreeting: { fontSize: 12, color: Colors.dark.textSecondary, fontWeight: "500" },
+  careerName: { fontSize: 20, fontWeight: "800", color: Colors.dark.text, lineHeight: 24 },
+  careerSpecRow: { flexDirection: "row", alignItems: "center", gap: 6, flexWrap: "wrap" },
   specBadge: {
     flexDirection: "row",
     alignItems: "center",
@@ -509,31 +658,66 @@ const styles = StyleSheet.create({
     borderRadius: 8,
   },
   extraSpecsText: { fontSize: 10, color: Colors.dark.textSecondary, fontWeight: "600" },
-  ratingRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 4,
-  },
+  ratingRow: { flexDirection: "row", alignItems: "center", gap: 4 },
   ratingText: { fontSize: 13, fontWeight: "700", color: "#FFD700" },
   totalBookingsText: { fontSize: 12, color: Colors.dark.textSecondary },
   greetingSuffix: { fontSize: 12, color: Colors.dark.textSecondary },
-  rankPlaceholder: {
+
+  xpBarSection: { marginTop: 4, gap: 5 },
+  xpBarHeader: { flexDirection: "row", alignItems: "center", gap: 6 },
+  levelBadgePill: {
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 8,
+  },
+  levelBadgePillText: { fontSize: 11, fontWeight: "800" },
+  rankLabel: { fontSize: 11, color: Colors.dark.textSecondary, flex: 1, fontWeight: "600" },
+  xpNumbers: { fontSize: 10, color: Colors.dark.textSecondary },
+  xpBarTrack: {
+    height: 5,
+    backgroundColor: Colors.dark.backgroundSecondary,
+    borderRadius: 3,
+    overflow: "hidden",
+  },
+  xpBarFill: { height: 5, borderRadius: 3 },
+
+  streakPill: {
     flexDirection: "row",
     alignItems: "center",
     gap: 4,
-    marginTop: 2,
+    alignSelf: "flex-start",
+    backgroundColor: "#FF8C0015",
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: "#FF8C0030",
   },
-  rankPlaceholderText: {
-    fontSize: 11,
-    color: Colors.dark.textSecondary,
-    fontStyle: "italic",
-  },
+  streakPillText: { fontSize: 11, fontWeight: "700", color: "#FF8C00" },
 
-  statsRow: {
+  streakBanner: {
     flexDirection: "row",
-    gap: Spacing.xs,
+    alignItems: "center",
+    gap: Spacing.sm,
+    backgroundColor: "#FF8C001A",
+    borderRadius: 14,
+    padding: Spacing.md,
     marginBottom: Spacing.md,
+    borderWidth: 1,
+    borderColor: "#FF8C0030",
   },
+  streakBannerBody: { flex: 1 },
+  streakBannerTitle: { fontSize: 14, fontWeight: "700", color: Colors.dark.text },
+  streakBannerSub: { fontSize: 12, color: Colors.dark.textSecondary, marginTop: 2 },
+  streakHotPill: {
+    backgroundColor: "#FF8C00",
+    borderRadius: 6,
+    paddingHorizontal: 7,
+    paddingVertical: 3,
+  },
+  streakHotText: { fontSize: 9, fontWeight: "800", color: "#fff" },
+
+  statsRow: { flexDirection: "row", gap: Spacing.xs, marginBottom: Spacing.md },
   statCard: {
     flex: 1,
     backgroundColor: Colors.dark.backgroundSecondary,
@@ -593,14 +777,8 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: "#FFD700" + "30",
   },
-  actionCardTop: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: Spacing.sm,
-  },
-  actionAvatarContainer: {
-    position: "relative",
-  },
+  actionCardTop: { flexDirection: "row", alignItems: "center", gap: Spacing.sm },
+  actionAvatarContainer: { position: "relative" },
   levelBadge: {
     position: "absolute",
     bottom: -3,
@@ -612,32 +790,15 @@ const styles = StyleSheet.create({
     minWidth: 18,
     alignItems: "center",
   },
-  levelBadgeText: {
-    fontSize: 9,
-    fontWeight: "800",
-    color: "#000",
-  },
+  levelBadgeText: { fontSize: 9, fontWeight: "800", color: "#000" },
   actionCardInfo: { flex: 1, gap: 2 },
   actionCardPlayer: { fontSize: 14, fontWeight: "700", color: Colors.dark.text },
-  actionServiceRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 4,
-  },
+  actionServiceRow: { flexDirection: "row", alignItems: "center", gap: 4 },
   actionCardService: { fontSize: 12, color: Colors.dark.textSecondary },
-  actionCardTime: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 3,
-  },
+  actionCardTime: { flexDirection: "row", alignItems: "center", gap: 3 },
   actionCardTimeText: { fontSize: 11, color: Colors.dark.textSecondary },
   actionButtons: { flexDirection: "row", gap: Spacing.sm },
-  actionBtn: {
-    flex: 1,
-    paddingVertical: 10,
-    borderRadius: 10,
-    alignItems: "center",
-  },
+  actionBtn: { flex: 1, paddingVertical: 10, borderRadius: 10, alignItems: "center" },
   confirmBtn: { backgroundColor: Colors.dark.primary },
   confirmBtnText: { fontSize: 13, fontWeight: "700", color: "#000" },
   declineBtn: {
@@ -647,11 +808,7 @@ const styles = StyleSheet.create({
   },
   declineBtnText: { fontSize: 13, fontWeight: "700", color: Colors.dark.error },
 
-  emptyState: {
-    alignItems: "center",
-    paddingVertical: Spacing.xl,
-    gap: Spacing.sm,
-  },
+  emptyState: { alignItems: "center", paddingVertical: Spacing.xl, gap: Spacing.sm },
   emptyIcon: {
     width: 64,
     height: 64,
@@ -660,11 +817,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   emptyTitle: { fontSize: 16, fontWeight: "700", color: Colors.dark.text },
-  emptySubtitle: {
-    fontSize: 13,
-    color: Colors.dark.textSecondary,
-    textAlign: "center",
-  },
+  emptySubtitle: { fontSize: 13, color: Colors.dark.textSecondary, textAlign: "center" },
 
   scheduleRow: {
     flexDirection: "row",
@@ -679,14 +832,41 @@ const styles = StyleSheet.create({
   scheduleTime: { fontSize: 12, fontWeight: "600", color: Colors.dark.textSecondary, textAlign: "center" },
   scheduleBar: { width: 3, height: 40, borderRadius: 2 },
   scheduleBody: { flex: 1, gap: 4 },
-  scheduleNameRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 5,
-  },
+  scheduleNameRow: { flexDirection: "row", alignItems: "center", gap: 5 },
   scheduleName: { flex: 1, fontSize: 14, fontWeight: "600", color: Colors.dark.text },
   schedulePlayerRow: { flexDirection: "row", alignItems: "center", gap: 5 },
   schedulePlayerName: { fontSize: 12, color: Colors.dark.textSecondary },
   statusPill: { paddingHorizontal: 8, paddingVertical: 4, borderRadius: 8 },
   statusText: { fontSize: 11, fontWeight: "600" },
+
+  toastContainer: {
+    position: "absolute",
+    left: Spacing.lg,
+    right: Spacing.lg,
+  },
+  toast: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+    backgroundColor: Colors.dark.backgroundSecondary,
+    borderRadius: 16,
+    padding: Spacing.md,
+    borderWidth: 1,
+    borderColor: Colors.dark.border,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 8,
+  },
+  toastIconBox: {
+    width: 42,
+    height: 42,
+    borderRadius: 12,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  toastBody: { flex: 1 },
+  toastMessage: { fontSize: 14, fontWeight: "700", color: Colors.dark.text },
+  toastSubtext: { fontSize: 12, color: Colors.dark.textSecondary, marginTop: 2 },
 });

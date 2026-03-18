@@ -4240,6 +4240,13 @@ export const serviceProviders = pgTable("service_providers", {
   rating: numeric("rating", { precision: 3, scale: 2 }).default("0"),
   totalBookings: integer("total_bookings").default(0),
 
+  xp: integer("xp").default(0).notNull(),
+  level: integer("level").default(1).notNull(),
+  streakCurrent: integer("streak_current").default(0).notNull(),
+  streakBest: integer("streak_best").default(0).notNull(),
+  streakLastDate: date("streak_last_date"),
+  badges: jsonb("badges").$type<string[]>().default([]),
+
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 }, (table) => [
