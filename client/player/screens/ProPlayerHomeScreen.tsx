@@ -37,7 +37,8 @@ import { PlatformUsageProgress } from "@/components/PlatformUsageProgress";
 import { NotificationGuideModal } from "@/components/NotificationGuideModal";
 import { FirstActionCelebration } from "@/components/FirstActionCelebration";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { useQuests, Quest, StreakData } from "@/player/hooks/useQuests";
+import { useQuests, Quest } from "@/player/hooks/useQuests";
+import { DailyBriefingModal } from "@/player/components/DailyBriefingModal";
 
 interface DashboardData {
   player: {
@@ -81,81 +82,6 @@ interface DashboardData {
 function toIoniconName(name: string | null | undefined, fallback: keyof typeof Ionicons.glyphMap = "star"): keyof typeof Ionicons.glyphMap {
   if (!name) return fallback;
   return name as keyof typeof Ionicons.glyphMap;
-}
-
-type PlayStyleKey = "baseline_warrior" | "net_ninja" | "serve_machine" | "all_court_ace" | "counter_puncher" | "tactical_mastermind";
-const PLAY_STYLE_META: Record<PlayStyleKey, { name: string; color: string; icon: keyof typeof Ionicons.glyphMap }> = {
-  baseline_warrior: { name: "Baseline Warrior", color: "#C8FF3D", icon: "tennisball" },
-  net_ninja: { name: "Net Ninja", color: "#00E5FF", icon: "flash" },
-  serve_machine: { name: "Serve Machine", color: "#FF8C00", icon: "rocket" },
-  all_court_ace: { name: "All-Court Ace", color: "#FFFFFF", icon: "star" },
-  counter_puncher: { name: "Counter-Puncher", color: "#9B59B6", icon: "shield" },
-  tactical_mastermind: { name: "Tactical Mastermind", color: "#FFD700", icon: "bulb" },
-};
-
-function WelcomeHeroRow({ playerName, playStyle }: { playerName: string; playStyle?: string | null }) {
-  const firstName = playerName.split(" ")[0] || playerName;
-  const archetype = playStyle ? PLAY_STYLE_META[playStyle as PlayStyleKey] : null;
-
-  return (
-    <View style={hStyles.welcomeRow}>
-      <View style={hStyles.welcomeTextBlock}>
-        <Text style={hStyles.welcomeLabel}>WELCOME BACK</Text>
-        <Text style={hStyles.welcomeName}>{firstName}</Text>
-      </View>
-      {archetype ? (
-        <View style={[hStyles.archetypePill, { borderColor: archetype.color + "50", backgroundColor: archetype.color + "12" }]}>
-          <Ionicons name={archetype.icon} size={12} color={archetype.color} />
-          <Text style={[hStyles.archetypePillText, { color: archetype.color }]}>{archetype.name}</Text>
-        </View>
-      ) : null}
-    </View>
-  );
-}
-
-function StreakMiniCard({ streak, onPress }: { streak: StreakData; onPress: () => void }) {
-  const shields = streak.streakShields ?? 0;
-  const MAX_SHIELDS = 2;
-  const hasStreak = streak.currentStreak > 0;
-
-  return (
-    <Pressable style={hStyles.streakCard} onPress={onPress}>
-      <View style={hStyles.streakLeft}>
-        <View style={hStyles.streakFlameWrap}>
-          <Ionicons name={hasStreak ? "flame" : "flame-outline"} size={20} color={hasStreak ? "#FF6B35" : Colors.dark.textSubtle} />
-        </View>
-        <View>
-          <Text style={[hStyles.streakCount, !hasStreak && { color: Colors.dark.textSubtle }]}>{streak.currentStreak}</Text>
-          <Text style={hStyles.streakLabel}>day streak</Text>
-        </View>
-      </View>
-      <View style={hStyles.streakDivider} />
-      <View style={hStyles.streakMid}>
-        <Text style={hStyles.streakBestVal}>{streak.longestStreak}</Text>
-        <Text style={hStyles.streakBestLabel}>best</Text>
-      </View>
-      <View style={hStyles.streakDivider} />
-      <View style={hStyles.streakRight}>
-        <View style={hStyles.shieldRow}>
-          {Array.from({ length: MAX_SHIELDS }).map((_, i) => (
-            <Ionicons
-              key={i}
-              name="shield-checkmark"
-              size={16}
-              color={i < shields ? "#00D4FF" : "rgba(255,255,255,0.15)"}
-            />
-          ))}
-        </View>
-        <Text style={hStyles.shieldLabel}>{shields}/{MAX_SHIELDS} shields</Text>
-      </View>
-      {!hasStreak ? (
-        <View style={hStyles.streakStartCta}>
-          <Text style={hStyles.streakStartCtaText}>Start Streak</Text>
-          <Ionicons name="chevron-forward" size={12} color={GlowColors.primary} />
-        </View>
-      ) : null}
-    </Pressable>
-  );
 }
 
 function ActiveQuestCard({ quest, questType, onViewAll }: { quest: Quest | null; questType: "daily" | "weekly" | null; onViewAll: () => void }) {
@@ -478,11 +404,6 @@ function PlayerHomeContent() {
     },
   ];
 
-  const streakData: StreakData = questsData?.streak ?? {
-    currentStreak: 0, longestStreak: 0, multiplier: 1,
-    lastActiveDate: null, streakShields: 0, totalDaysActive: 0,
-  };
-
   const { activeQuest, activeQuestType } = useMemo(() => {
     if (!questsData) return { activeQuest: null, activeQuestType: null };
     const dailyActive = questsData.daily.filter(q => q.status === "active" || q.status === "in_progress");
@@ -568,9 +489,6 @@ function PlayerHomeContent() {
           <RamadanBanner playerName={player.name || "Champion"} onDismiss={handleDismissRamadan} />
         )}
 
-        {/* WELCOME HERO ROW - Daily re-engagement greeting */}
-        <WelcomeHeroRow playerName={player.name || "Player"} playStyle={player.playStyle} />
-
         {/* GETTING STARTED CHECKLIST */}
         <GettingStartedChecklist
           role="player"
@@ -610,17 +528,6 @@ function PlayerHomeContent() {
 
         {/* RAMADAN BONUS CARD - Blessings card during Ramadan */}
         {isRamadan && !isBirthday && !ramadanDismissed && <RamadanBonusCard onDismiss={handleDismissRamadan} />}
-
-        {/* STREAK MINI CARD - Between ProPlayerCard and PLAY divider */}
-        {!isGuest ? (
-          <StreakMiniCard
-            streak={streakData}
-            onPress={() => {
-              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-              navigation.navigate("Quests" as never);
-            }}
-          />
-        ) : null}
 
         {/* TENNIS NEWS - Below header, above Today is Open */}
         <NewsTicker />
@@ -745,6 +652,14 @@ function PlayerHomeContent() {
         onClose={() => setShowSpotlightNomination(false)}
       />
       <GuestPromptModal {...promptProps} />
+
+      {/* DAILY BRIEFING SPLASH - Cinematic daily opener (once per calendar day) */}
+      <DailyBriefingModal
+        player={isGuest ? null : (effectiveData?.player ?? null)}
+        nextSession={effectiveData?.nextSession ?? null}
+        coachName={effectiveData?.coach?.name ?? null}
+        isGuest={isGuest}
+      />
     </View>
   );
 }
@@ -863,126 +778,6 @@ const styles = StyleSheet.create({
 });
 
 const hStyles = StyleSheet.create({
-  welcomeRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    paddingHorizontal: Spacing.lg,
-    paddingTop: Spacing.sm,
-  },
-  welcomeTextBlock: {
-    gap: 1,
-  },
-  welcomeLabel: {
-    fontSize: 10,
-    fontWeight: "700",
-    letterSpacing: 2.5,
-    color: Colors.dark.textSubtle,
-  },
-  welcomeName: {
-    fontSize: 22,
-    fontWeight: "800",
-    color: Colors.dark.text,
-    letterSpacing: -0.3,
-  },
-  archetypePill: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 5,
-    paddingHorizontal: Spacing.md,
-    paddingVertical: 5,
-    borderRadius: BorderRadius.full,
-    borderWidth: 1,
-  },
-  archetypePillText: {
-    fontSize: 11,
-    fontWeight: "700",
-    letterSpacing: 0.3,
-  },
-  streakCard: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: "#0F141B",
-    borderRadius: BorderRadius.md,
-    borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.06)",
-    marginHorizontal: Spacing.lg,
-    paddingHorizontal: Spacing.lg,
-    paddingVertical: Spacing.md,
-  },
-  streakStartCta: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 2,
-    paddingHorizontal: Spacing.sm,
-    paddingVertical: 4,
-    borderRadius: BorderRadius.full,
-    backgroundColor: "rgba(200,255,61,0.08)",
-  },
-  streakStartCtaText: {
-    fontSize: 11,
-    fontWeight: "700",
-    color: GlowColors.primary,
-  },
-  streakLeft: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: Spacing.sm,
-    flex: 1.5,
-  },
-  streakFlameWrap: {
-    width: 34,
-    height: 34,
-    borderRadius: 17,
-    backgroundColor: "rgba(255,107,53,0.12)",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  streakCount: {
-    fontSize: 20,
-    fontWeight: "800",
-    color: Colors.dark.text,
-    lineHeight: 22,
-  },
-  streakLabel: {
-    fontSize: 11,
-    color: Colors.dark.textSubtle,
-    fontWeight: "500",
-  },
-  streakDivider: {
-    width: 1,
-    height: 28,
-    backgroundColor: "rgba(255,255,255,0.08)",
-    marginHorizontal: Spacing.md,
-  },
-  streakMid: {
-    alignItems: "center",
-    flex: 1,
-  },
-  streakBestVal: {
-    fontSize: 16,
-    fontWeight: "700",
-    color: Colors.dark.text,
-  },
-  streakBestLabel: {
-    fontSize: 10,
-    color: Colors.dark.textSubtle,
-    fontWeight: "500",
-  },
-  streakRight: {
-    alignItems: "center",
-    flex: 1.5,
-    gap: 4,
-  },
-  shieldRow: {
-    flexDirection: "row",
-    gap: 4,
-  },
-  shieldLabel: {
-    fontSize: 10,
-    color: Colors.dark.textSubtle,
-    fontWeight: "500",
-  },
   questCard: {
     backgroundColor: "#0F141B",
     borderRadius: BorderRadius.md,
