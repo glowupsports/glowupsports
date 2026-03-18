@@ -32704,8 +32704,13 @@ router.patch("/provider/bookings/:orderId/status", authMiddlewareWithFreshData, 
     await db.transaction(async (tx) => {
       const updateData = { status, updatedAt: /* @__PURE__ */ new Date() };
       if (status === "completed") updateData.completedAt = /* @__PURE__ */ new Date();
-      const [updated] = await tx.update(shopOrders).set(updateData).where(eq4(shopOrders.id, orderId)).returning();
-      if (!updated) throw new Error("Failed to update booking");
+      const [updated] = await tx.update(shopOrders).set(updateData).where(and3(
+        eq4(shopOrders.id, orderId),
+        eq4(shopOrders.status, existingOrder.status)
+      )).returning();
+      if (!updated) {
+        throw Object.assign(new Error("Booking status already changed"), { statusCode: 409 });
+      }
       order = updated;
       if (status === "completed") {
         const prevTotalBookings = Number(providerRecord.totalBookings);
@@ -32777,6 +32782,10 @@ router.patch("/provider/bookings/:orderId/status", authMiddlewareWithFreshData, 
     );
     res.json({ ...order, xpAwarded, leveledUp, newLevel, newRank, newBadges });
   } catch (error) {
+    const err = error;
+    if (err.statusCode === 409) {
+      return res.status(409).json({ error: err.message ?? "Booking status conflict" });
+    }
     console.error("[Provider] Error updating booking status:", error);
     res.status(500).json({ error: "Failed to update booking status" });
   }

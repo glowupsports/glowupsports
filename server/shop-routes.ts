@@ -1275,10 +1275,15 @@ router.patch("/provider/bookings/:orderId/status", authMiddleware, requireServic
 
       const [updated] = await tx.update(shopOrders)
         .set(updateData)
-        .where(eq(shopOrders.id, orderId))
+        .where(and(
+          eq(shopOrders.id, orderId),
+          eq(shopOrders.status, existingOrder.status),
+        ))
         .returning();
 
-      if (!updated) throw new Error("Failed to update booking");
+      if (!updated) {
+        throw Object.assign(new Error("Booking status already changed"), { statusCode: 409 });
+      }
       order = updated;
 
       if (status === "completed") {
@@ -1352,7 +1357,11 @@ router.patch("/provider/bookings/:orderId/status", authMiddleware, requireServic
       leveledUp ? (Number(providerRecord.xp) + xpAwarded) : Number(providerRecord.xp)
     );
     res.json({ ...order!, xpAwarded, leveledUp, newLevel, newRank, newBadges });
-  } catch (error) {
+  } catch (error: unknown) {
+    const err = error as { statusCode?: number; message?: string };
+    if (err.statusCode === 409) {
+      return res.status(409).json({ error: err.message ?? "Booking status conflict" });
+    }
     console.error("[Provider] Error updating booking status:", error);
     res.status(500).json({ error: "Failed to update booking status" });
   }
