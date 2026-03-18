@@ -1247,90 +1247,106 @@ router.patch("/provider/bookings/:orderId/status", authMiddleware, requireServic
       return res.status(404).json({ error: "Booking not found or not assigned to you" });
     }
 
-    const isAlreadyCompleted = existingOrder.status === "completed";
+    const VALID_TRANSITIONS: Record<string, string[]> = {
+      pending: ["confirmed", "cancelled"],
+      confirmed: ["completed", "cancelled"],
+      completed: [],
+      cancelled: [],
+    };
 
-    const updateData: Record<string, unknown> = { status, updatedAt: new Date() };
-    if (status === "completed") updateData.completedAt = new Date();
-
-    const [order] = await db.update(shopOrders)
-      .set(updateData)
-      .where(eq(shopOrders.id, orderId))
-      .returning();
-
-    if (!order) {
-      return res.status(404).json({ error: "Failed to update booking" });
+    const allowedNext = VALID_TRANSITIONS[existingOrder.status] ?? [];
+    if (!allowedNext.includes(status)) {
+      return res.status(409).json({
+        error: `Cannot transition from '${existingOrder.status}' to '${status}'`,
+      });
     }
 
     let xpAwarded = 0;
     let leveledUp = false;
     let newLevel = Number(providerRecord.level);
     let newBadges: string[] = [];
+    let order: typeof shopOrders.$inferSelect;
 
-    if (status === "completed" && !isAlreadyCompleted) {
-      const prevTotalBookings = Number(providerRecord.totalBookings);
+    await db.transaction(async (tx) => {
+      const updateData: Record<string, unknown> = { status, updatedAt: new Date() };
+      if (status === "completed") updateData.completedAt = new Date();
 
-      await db.update(serviceProviders)
-        .set({ totalBookings: prevTotalBookings + 1, updatedAt: new Date() })
-        .where(eq(serviceProviders.id, providerRecord.id));
+      const [updated] = await tx.update(shopOrders)
+        .set(updateData)
+        .where(eq(shopOrders.id, orderId))
+        .returning();
 
-      if (prevTotalBookings === 0) {
-        const result = await awardXP(db, providerRecord.id, XP_AWARDS.FIRST_BOOKING, "first_booking");
-        xpAwarded += XP_AWARDS.FIRST_BOOKING;
-        leveledUp = result.leveledUp;
-        newLevel = result.newLevel;
-      }
+      if (!updated) throw new Error("Failed to update booking");
+      order = updated;
 
-      if (prevTotalBookings + 1 === 100) {
-        const result = await awardXP(db, providerRecord.id, XP_AWARDS.CENTURY_BOOKINGS, "century_bookings");
-        xpAwarded += XP_AWARDS.CENTURY_BOOKINGS;
-        if (result.leveledUp) { leveledUp = true; newLevel = result.newLevel; }
-      }
+      if (status === "completed") {
+        const prevTotalBookings = Number(providerRecord.totalBookings);
 
-      const bookingResult = await awardXP(db, providerRecord.id, XP_AWARDS.BOOKING_COMPLETED, "booking_completed");
-      xpAwarded += XP_AWARDS.BOOKING_COMPLETED;
-      if (bookingResult.leveledUp) { leveledUp = true; newLevel = bookingResult.newLevel; }
+        await tx.update(serviceProviders)
+          .set({ totalBookings: prevTotalBookings + 1, updatedAt: new Date() })
+          .where(eq(serviceProviders.id, providerRecord.id));
 
-      const streakResult = await updateStreak(db, providerRecord.id);
-      if (streakResult.milestoneReached === 7) {
-        const sr = await awardXP(db, providerRecord.id, XP_AWARDS.STREAK_7_DAY, "streak_7_day");
-        xpAwarded += XP_AWARDS.STREAK_7_DAY;
-        if (sr.leveledUp) { leveledUp = true; newLevel = sr.newLevel; }
-      } else if (streakResult.milestoneReached === 30) {
-        const sr = await awardXP(db, providerRecord.id, XP_AWARDS.STREAK_30_DAY, "streak_30_day");
-        xpAwarded += XP_AWARDS.STREAK_30_DAY;
-        if (sr.leveledUp) { leveledUp = true; newLevel = sr.newLevel; }
-      }
+        const txDb = tx as unknown as typeof db;
 
-      const [refreshed] = await db.select().from(serviceProviders)
-        .where(eq(serviceProviders.id, providerRecord.id)).limit(1);
+        if (prevTotalBookings === 0) {
+          const result = await awardXP(txDb, providerRecord.id, XP_AWARDS.FIRST_BOOKING, "first_booking");
+          xpAwarded += XP_AWARDS.FIRST_BOOKING;
+          leveledUp = result.leveledUp;
+          newLevel = result.newLevel;
+        }
 
-      const currentRating = Number(refreshed?.rating ?? 0);
+        if (prevTotalBookings + 1 === 100) {
+          const result = await awardXP(txDb, providerRecord.id, XP_AWARDS.CENTURY_BOOKINGS, "century_bookings");
+          xpAwarded += XP_AWARDS.CENTURY_BOOKINGS;
+          if (result.leveledUp) { leveledUp = true; newLevel = result.newLevel; }
+        }
 
-      newBadges = await checkAndAwardBadges(db, providerRecord.id, {
-        totalBookings: Number(refreshed?.totalBookings ?? prevTotalBookings + 1),
-        rating: currentRating,
-        streakCurrent: streakResult.streakCurrent,
-        leveledUp,
-      });
+        const bookingResult = await awardXP(txDb, providerRecord.id, XP_AWARDS.BOOKING_COMPLETED, "booking_completed");
+        xpAwarded += XP_AWARDS.BOOKING_COMPLETED;
+        if (bookingResult.leveledUp) { leveledUp = true; newLevel = bookingResult.newLevel; }
 
-      if (newBadges.includes("five_star")) {
-        const fsr = await awardXP(db, providerRecord.id, XP_AWARDS.FIVE_STAR_RATING, "five_star_rating");
-        xpAwarded += XP_AWARDS.FIVE_STAR_RATING;
-        if (fsr.leveledUp) {
-          leveledUp = true;
-          newLevel = fsr.newLevel;
-          const secondPassBadges = await checkAndAwardBadges(db, providerRecord.id, {
-            totalBookings: Number(refreshed?.totalBookings ?? prevTotalBookings + 1),
-            rating: currentRating,
-            streakCurrent: streakResult.streakCurrent,
-            leveledUp: true,
-          });
-          newBadges = [...newBadges, ...secondPassBadges.filter((b) => !newBadges.includes(b))];
+        const streakResult = await updateStreak(txDb, providerRecord.id);
+        if (streakResult.milestoneReached === 7) {
+          const sr = await awardXP(txDb, providerRecord.id, XP_AWARDS.STREAK_7_DAY, "streak_7_day");
+          xpAwarded += XP_AWARDS.STREAK_7_DAY;
+          if (sr.leveledUp) { leveledUp = true; newLevel = sr.newLevel; }
+        } else if (streakResult.milestoneReached === 30) {
+          const sr = await awardXP(txDb, providerRecord.id, XP_AWARDS.STREAK_30_DAY, "streak_30_day");
+          xpAwarded += XP_AWARDS.STREAK_30_DAY;
+          if (sr.leveledUp) { leveledUp = true; newLevel = sr.newLevel; }
+        }
+
+        const [refreshed] = await tx.select().from(serviceProviders)
+          .where(eq(serviceProviders.id, providerRecord.id)).limit(1);
+
+        const currentRating = Number(refreshed?.rating ?? 0);
+
+        newBadges = await checkAndAwardBadges(txDb, providerRecord.id, {
+          totalBookings: Number(refreshed?.totalBookings ?? prevTotalBookings + 1),
+          rating: currentRating,
+          streakCurrent: streakResult.streakCurrent,
+          leveledUp,
+        });
+
+        if (newBadges.includes("five_star")) {
+          const fsr = await awardXP(txDb, providerRecord.id, XP_AWARDS.FIVE_STAR_RATING, "five_star_rating");
+          xpAwarded += XP_AWARDS.FIVE_STAR_RATING;
+          if (fsr.leveledUp) {
+            leveledUp = true;
+            newLevel = fsr.newLevel;
+            const secondPassBadges = await checkAndAwardBadges(txDb, providerRecord.id, {
+              totalBookings: Number(refreshed?.totalBookings ?? prevTotalBookings + 1),
+              rating: currentRating,
+              streakCurrent: streakResult.streakCurrent,
+              leveledUp: true,
+            });
+            newBadges = [...newBadges, ...secondPassBadges.filter((b) => !newBadges.includes(b))];
+          }
         }
       }
-    }
+    });
 
-    res.json({ ...order, xpAwarded, leveledUp, newLevel, newBadges });
+    res.json({ ...order!, xpAwarded, leveledUp, newLevel, newBadges });
   } catch (error) {
     console.error("[Provider] Error updating booking status:", error);
     res.status(500).json({ error: "Failed to update booking status" });
