@@ -1287,20 +1287,21 @@ router.patch("/provider/bookings/:orderId/status", authMiddleware, requireServic
       order = updated;
 
       if (status === "completed") {
-        const prevTotalBookings = Number(providerRecord.totalBookings);
-
-        await tx.update(serviceProviders)
+        const [updatedProvider] = await tx.update(serviceProviders)
           .set({ totalBookings: sql`${serviceProviders.totalBookings} + 1`, updatedAt: new Date() })
-          .where(eq(serviceProviders.id, providerRecord.id));
+          .where(eq(serviceProviders.id, providerRecord.id))
+          .returning({ newTotalBookings: serviceProviders.totalBookings });
 
-        if (prevTotalBookings === 0) {
+        const newTotalBookings = Number(updatedProvider?.newTotalBookings ?? 0);
+
+        if (newTotalBookings === 1) {
           const result = await awardXP(tx, providerRecord.id, XP_AWARDS.FIRST_BOOKING, "first_booking");
           xpAwarded += XP_AWARDS.FIRST_BOOKING;
           leveledUp = result.leveledUp;
           newLevel = result.newLevel;
         }
 
-        if (prevTotalBookings + 1 === 100) {
+        if (newTotalBookings === 100) {
           const result = await awardXP(tx, providerRecord.id, XP_AWARDS.CENTURY_BOOKINGS, "century_bookings");
           xpAwarded += XP_AWARDS.CENTURY_BOOKINGS;
           if (result.leveledUp) { leveledUp = true; newLevel = result.newLevel; }
@@ -1327,7 +1328,7 @@ router.patch("/provider/bookings/:orderId/status", authMiddleware, requireServic
         const currentRating = Number(refreshed?.rating ?? 0);
 
         newBadges = await checkAndAwardBadges(tx, providerRecord.id, {
-          totalBookings: Number(refreshed?.totalBookings ?? prevTotalBookings + 1),
+          totalBookings: Number(refreshed?.totalBookings ?? newTotalBookings),
           rating: currentRating,
           streakCurrent: streakResult.streakCurrent,
           leveledUp,
@@ -1340,7 +1341,7 @@ router.patch("/provider/bookings/:orderId/status", authMiddleware, requireServic
             leveledUp = true;
             newLevel = fsr.newLevel;
             const secondPassBadges = await checkAndAwardBadges(tx, providerRecord.id, {
-              totalBookings: Number(refreshed?.totalBookings ?? prevTotalBookings + 1),
+              totalBookings: Number(refreshed?.totalBookings ?? newTotalBookings),
               rating: currentRating,
               streakCurrent: streakResult.streakCurrent,
               leveledUp: true,
