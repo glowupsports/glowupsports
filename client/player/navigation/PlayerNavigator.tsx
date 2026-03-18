@@ -973,9 +973,9 @@ export default function PlayerNavigator() {
   const [showPrivacySetup, setShowPrivacySetup] = useState(false);
 
 
-  // Fetch dashboard for player users who might need onboarding
-  // Only fetch if user is a player role - owners/coaches viewing player mode have their own playerId
-  const shouldFetchDashboard = user?.role === "player";
+  // Fetch dashboard for player role accounts and any account with a playerId
+  // (multi-role users like platform_owners may have player accounts needing onboarding)
+  const shouldFetchDashboard = user?.role === "player" || !!user?.playerId;
   
   const { data: dashboard, isLoading } = useQuery<PlayerDashboard>({
     queryKey: ["/api/player/me/dashboard"],
@@ -1004,7 +1004,7 @@ export default function PlayerNavigator() {
   // Show onboarding for player users who haven't completed onboarding OR don't have an academy
   // The server's isOnboarding flag now checks both onboardingCompleted and academyId
   const needsOnboarding = dashboard?.isOnboarding === true;
-  const showOnboarding = user?.role === "player" && needsOnboarding && onboardingComplete !== true;
+  const showOnboarding = needsOnboarding && onboardingComplete !== true;
 
   if (showOnboarding) {
     return <PlayerOnboardingV2 onComplete={handleOnboardingComplete} />;
