@@ -9,7 +9,7 @@ import { Colors } from "@/constants/theme";
 
 export type ProviderStackParamList = {
   ProviderTabs: undefined;
-  ProviderBookingDetail: { booking: any };
+  ProviderBookingDetail: { orderId: string };
 };
 
 const Stack = createNativeStackNavigator<ProviderStackParamList>();

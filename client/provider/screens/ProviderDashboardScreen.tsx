@@ -176,9 +176,8 @@ export default function ProviderDashboardScreen() {
   const { data: todayBookings = [], isLoading: isLoadingToday, refetch: refetchToday } = useQuery<Booking[]>({
     queryKey: ["/api/provider/me/bookings", { date: "today" }],
     queryFn: async () => {
-      const { getApiUrl } = await import("@/lib/query-client");
-      const res = await fetch(`${getApiUrl()}/api/provider/me/bookings?date=today`, { credentials: "include" });
-      if (!res.ok) throw new Error("Failed to fetch today's bookings");
+      const { apiRequest } = await import("@/lib/query-client");
+      const res = await apiRequest("GET", "/api/provider/me/bookings?date=today");
       return res.json();
     },
   });
@@ -293,7 +292,7 @@ export default function ProviderDashboardScreen() {
                   booking={booking}
                   onPress={() =>
                     navigation.navigate("ProviderBookingDetail", {
-                      booking,
+                      orderId: booking.id,
                     })
                   }
                 />
@@ -322,7 +321,7 @@ export default function ProviderDashboardScreen() {
                   booking={booking}
                   onPress={() =>
                     navigation.navigate("ProviderBookingDetail", {
-                      booking,
+                      orderId: booking.id,
                     })
                   }
                 />

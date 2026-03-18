@@ -8,13 +8,27 @@ import {
   Alert,
   Image,
 } from "react-native";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import Animated, { FadeInUp } from "react-native-reanimated";
 import { useNavigation, useRoute } from "@react-navigation/native";
 import { apiRequest, getStaticAssetsUrl } from "@/lib/query-client";
 import { Colors, Spacing } from "@/constants/theme";
+
+interface BookingItem {
+  id: string;
+  quantity: number;
+  unitPrice: string;
+  serviceDetails?: string | null;
+  service?: {
+    id: string;
+    name: string;
+    iconName: string;
+    durationMinutes: number | null;
+    description?: string;
+  };
+}
 
 interface Booking {
   id: string;
@@ -23,23 +37,14 @@ interface Booking {
   scheduledAt: string | null;
   notes: string | null;
   totalAmount: string;
-  items: Array<{
-    id: string;
-    quantity: number;
-    unitPrice: string;
-    service?: {
-      id: string;
-      name: string;
-      iconName: string;
-      durationMinutes: number | null;
-      description?: string;
-    };
-  }>;
+  items: BookingItem[];
   player?: {
     id: string;
     name: string;
     profilePhotoUrl: string | null;
     level: number;
+    phone?: string | null;
+    email?: string | null;
   };
 }
 
@@ -97,15 +102,22 @@ export default function ProviderBookingDetailScreen() {
   const navigation = useNavigation<any>();
   const route = useRoute<any>();
   const queryClient = useQueryClient();
-  const booking: Booking = route.params?.booking;
+  const orderId: string = route.params?.orderId;
+
+  const { data: allBookings = [] } = useQuery<Booking[]>({
+    queryKey: ["/api/provider/me/bookings"],
+  });
+
+  const booking = allBookings.find((b) => b.id === orderId);
 
   const statusMutation = useMutation({
     mutationFn: (status: string) =>
-      apiRequest("PATCH", `/api/provider/bookings/${booking.id}/status`, {
+      apiRequest("PATCH", `/api/provider/bookings/${orderId}/status`, {
         status,
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/provider/me/bookings"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/provider/me/bookings", { date: "today" }] });
       setTimeout(() => navigation.goBack(), 350);
     },
     onError: () =>
@@ -283,12 +295,58 @@ export default function ProviderBookingDetailScreen() {
           </Animated.View>
         ) : null}
 
-        {service?.description ? (
-          <Animated.View entering={FadeInUp.delay(240).duration(300)}>
+        {(() => {
+          const firstItem = booking.items?.[0];
+          const rawDetails = firstItem?.serviceDetails;
+          let parsedDetails: Record<string, string> | null = null;
+          if (rawDetails) {
+            try { parsedDetails = JSON.parse(rawDetails); } catch {}
+          }
+          const hasDetails = service?.description || parsedDetails;
+          if (!hasDetails) return null;
+          return (
+            <Animated.View entering={FadeInUp.delay(240).duration(300)}>
+              <View style={styles.section}>
+                <Text style={styles.sectionLabel}>SERVICE DETAILS</Text>
+                <View style={styles.infoCard}>
+                  {service?.description ? (
+                    <View style={styles.detailRow}>
+                      <Text style={styles.detailLabel}>Description</Text>
+                      <Text style={styles.detailValue}>{service.description}</Text>
+                    </View>
+                  ) : null}
+                  {parsedDetails
+                    ? Object.entries(parsedDetails).map(([key, val], idx) => (
+                        <View key={key}>
+                          {idx > 0 || service?.description ? <View style={styles.infoDivider} /> : null}
+                          <InfoRow
+                            icon={key === "tension" ? "speedometer-outline" : "ribbon-outline"}
+                            label={key === "tension" ? "Tension" : key === "stringChoice" ? "String Choice" : key}
+                            value={val}
+                          />
+                        </View>
+                      ))
+                    : null}
+                </View>
+              </View>
+            </Animated.View>
+          );
+        })()}
+
+        {booking.player?.phone || booking.player?.email ? (
+          <Animated.View entering={FadeInUp.delay(280).duration(300)}>
             <View style={styles.section}>
-              <Text style={styles.sectionLabel}>SERVICE DETAILS</Text>
-              <View style={styles.notesCard}>
-                <Text style={styles.notesText}>{service.description}</Text>
+              <Text style={styles.sectionLabel}>CONTACT INFO</Text>
+              <View style={styles.infoCard}>
+                {booking.player.phone ? (
+                  <InfoRow icon="call-outline" label="Phone" value={booking.player.phone} />
+                ) : null}
+                {booking.player.email && booking.player.phone ? (
+                  <View style={styles.infoDivider} />
+                ) : null}
+                {booking.player.email ? (
+                  <InfoRow icon="mail-outline" label="Email" value={booking.player.email} />
+                ) : null}
               </View>
             </View>
           </Animated.View>
@@ -514,6 +572,19 @@ const styles = StyleSheet.create({
     height: 1,
     backgroundColor: Colors.dark.border,
     marginHorizontal: Spacing.md,
+  },
+  detailRow: {
+    padding: Spacing.md,
+  },
+  detailLabel: {
+    fontSize: 11,
+    color: Colors.dark.textSecondary,
+    marginBottom: 4,
+  },
+  detailValue: {
+    fontSize: 14,
+    color: Colors.dark.text,
+    lineHeight: 20,
   },
   notesCard: {
     backgroundColor: Colors.dark.backgroundSecondary,

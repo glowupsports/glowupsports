@@ -204,7 +204,7 @@ export default function ProviderBookingsScreen() {
           <BookingRow
             booking={item}
             onPress={() =>
-              navigation.navigate("ProviderBookingDetail", { booking: item })
+              navigation.navigate("ProviderBookingDetail", { orderId: item.id })
             }
           />
         )}
