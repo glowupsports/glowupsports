@@ -42,7 +42,7 @@ interface XPDiscount {
   discountPercent: number;
   tierName: string;
   currentXP: number;
-  nextTierXP: number | null;
+  nextTierLevel: number | null;
   level: number;
 }
 
@@ -290,7 +290,7 @@ export default function ProductDetailScreen() {
               <View style={styles.xpPromoContent}>
                 <Text style={styles.xpPromoTitle}>Unlock XP Discounts</Text>
                 <Text style={styles.xpPromoText}>
-                  Reach {xpDiscount.nextTierXP} XP to get {xpDiscount.nextTierXP && xpDiscount.nextTierXP >= 5000 ? "15" : xpDiscount.nextTierXP && xpDiscount.nextTierXP >= 2500 ? "10" : "5"}% off
+                  Reach Level {xpDiscount.nextTierLevel} to unlock {xpDiscount.nextTierLevel && xpDiscount.nextTierLevel >= 41 ? "20" : xpDiscount.nextTierLevel && xpDiscount.nextTierLevel >= 31 ? "15" : xpDiscount.nextTierLevel && xpDiscount.nextTierLevel >= 21 ? "10" : "5"}% off
                 </Text>
               </View>
             </LinearGradient>

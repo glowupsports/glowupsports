@@ -31654,7 +31654,7 @@ router.get("/player/shop/xp-discount", authMiddlewareWithFreshData, requirePlaye
     }
     const player2 = await db.select().from(players).where(eq3(players.id, playerId)).limit(1);
     if (!player2[0]) {
-      return res.json({ discountPercent: 0, nextTierXP: 100, currentXP: 0 });
+      return res.json({ discountPercent: 0, tierName: "Starter", nextTierLevel: 11, currentXP: 0, level: 1 });
     }
     const currentXP = player2[0].totalXp || 0;
     const level = player2[0].level || 1;
@@ -32408,11 +32408,21 @@ router.get("/provider/me/bookings", authMiddlewareWithFreshData, requireServiceP
       orderIds.length > 0 ? db.select().from(shopOrderItems).where(inArray3(shopOrderItems.orderId, orderIds)) : [],
       playerIds.length > 0 ? db.select({ id: players.id, name: players.name, profilePhotoUrl: players.profilePhotoUrl, level: players.level }).from(players).where(inArray3(players.id, playerIds)) : []
     ]);
+    const serviceItemIds = allItems.filter((i) => i.itemType === "service" && i.serviceId).map((i) => i.serviceId);
+    const serviceDetailsMap = /* @__PURE__ */ new Map();
+    if (serviceItemIds.length > 0) {
+      const svcRows = await db.select({ id: shopServices.id, iconName: shopServices.iconName, durationMinutes: shopServices.durationMinutes }).from(shopServices).where(inArray3(shopServices.id, serviceItemIds));
+      for (const svc of svcRows) serviceDetailsMap.set(svc.id, svc);
+    }
     const playerMap = new Map(allPlayers.map((p) => [p.id, p]));
     const itemsMap = /* @__PURE__ */ new Map();
     for (const item of allItems) {
       if (!itemsMap.has(item.orderId)) itemsMap.set(item.orderId, []);
-      itemsMap.get(item.orderId).push(item);
+      const svcDetail = item.serviceId ? serviceDetailsMap.get(item.serviceId) : void 0;
+      itemsMap.get(item.orderId).push({
+        ...item,
+        service: svcDetail ? { id: item.serviceId, name: item.name, iconName: svcDetail.iconName ?? "build", durationMinutes: svcDetail.durationMinutes ?? null } : void 0
+      });
     }
     const enriched = orders.map((o) => ({
       ...o,

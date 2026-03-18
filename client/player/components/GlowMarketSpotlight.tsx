@@ -25,7 +25,7 @@ interface XPDiscount {
   discountPercent: number;
   tierName: string;
   currentXP: number;
-  nextTierXP: number | null;
+  nextTierLevel: number | null;
   level: number;
 }
 
