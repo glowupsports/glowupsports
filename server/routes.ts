@@ -22759,8 +22759,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
           );
         }
         if (req.body.playStyle !== undefined) {
+          const VALID_PLAY_STYLES = ["baseline_warrior", "net_ninja", "serve_machine", "all_court_ace", "counter_puncher", "tactical_mastermind"];
+          const playStyleValue = req.body.playStyle;
+          if (playStyleValue !== null && !VALID_PLAY_STYLES.includes(playStyleValue)) {
+            return res.status(400).json({ error: "Invalid play style value" });
+          }
           await db.execute(
-            sql`UPDATE players SET play_style = ${req.body.playStyle} WHERE id = ${playerId}`,
+            sql`UPDATE players SET play_style = ${playStyleValue} WHERE id = ${playerId}`,
           );
         }
 
@@ -23522,7 +23527,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
           focusGoals,
           ballLevel,
           selfConfidenceFlags,
-          playStyle: req.body.playStyle || null,
+          playStyle: (() => {
+            const VALID_PLAY_STYLES = ["baseline_warrior", "net_ninja", "serve_machine", "all_court_ace", "counter_puncher", "tactical_mastermind"];
+            const ps = req.body.playStyle;
+            return ps && VALID_PLAY_STYLES.includes(ps) ? ps : null;
+          })(),
         });
 
         // If a new player was created, generate a fresh token with the new playerId
