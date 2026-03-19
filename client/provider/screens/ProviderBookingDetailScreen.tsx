@@ -425,6 +425,20 @@ export default function ProviderBookingDetailScreen() {
             </View>
           </Animated.View>
         ) : null}
+
+        {(booking.status === "confirmed" || booking.status === "completed") && booking.player ? (
+          <Animated.View entering={FadeInUp.delay(320).duration(300)}>
+            <View style={styles.section}>
+              <Pressable
+                style={styles.chatButton}
+                onPress={() => navigation.navigate("ProviderChat", { orderId: booking.id })}
+              >
+                <Ionicons name="chatbubble-ellipses-outline" size={18} color={Colors.dark.backgroundDefault} />
+                <Text style={styles.chatButtonText}>Chat with Player</Text>
+              </Pressable>
+            </View>
+          </Animated.View>
+        ) : null}
       </ScrollView>
 
       {completionToast ? (
@@ -772,5 +786,19 @@ const styles = StyleSheet.create({
     color: Colors.dark.primary,
     marginTop: 2,
     fontWeight: "600",
+  },
+  chatButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    backgroundColor: Colors.dark.primary,
+    borderRadius: 14,
+    paddingVertical: 14,
+  },
+  chatButtonText: {
+    fontSize: 15,
+    fontWeight: "700",
+    color: Colors.dark.backgroundDefault,
   },
 });

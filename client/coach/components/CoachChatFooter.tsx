@@ -65,14 +65,18 @@ interface Conversation {
   title: string | null;
   playerId: string | null;
   coachId: string | null;
+  providerId?: string | null;
+  orderId?: string | null;
   lastMessageAt: string | null;
   lastMessagePreview: string | null;
   playerName?: string;
+  providerName?: string | null;
+  providerPhoto?: string | null;
 }
 
 const REACTION_EMOJIS = ["thumbsup", "heart", "fire", "trophy", "star"];
 
-type ChatTab = "players" | "coaches" | "academy" | "squad" | "activity" | "admin" | "world";
+type ChatTab = "players" | "coaches" | "academy" | "squad" | "activity" | "admin" | "world" | "providers";
 
 const COACH_CHAT_TABS: { id: ChatTab; name: string; icon: keyof typeof Ionicons.glyphMap; types: string[] }[] = [
   { id: "players", name: "Players", icon: "people-outline", types: ["direct_message", "coach_player"] },
@@ -87,6 +91,7 @@ const COACH_CHAT_TABS: { id: ChatTab; name: string; icon: keyof typeof Ionicons.
 const PLAYER_CHAT_TABS: { id: ChatTab; name: string; icon: keyof typeof Ionicons.glyphMap; types: string[] }[] = [
   { id: "players", name: "Players", icon: "people-outline", types: ["player_player"] },
   { id: "coaches", name: "Coaches", icon: "ribbon-outline", types: ["coach_player", "direct_message"] },
+  { id: "providers", name: "Providers", icon: "storefront-outline", types: ["provider_player"] },
   { id: "academy", name: "Academy", icon: "home-outline", types: ["academy"] },
   { id: "squad", name: "Squad", icon: "fitness-outline", types: ["squad", "group"] },
   { id: "world", name: "World", icon: "globe-outline", types: ["world"] },
@@ -554,6 +559,7 @@ export function CoachChatFooter({ mode = "coach" }: ChatFooterProps) {
   }, [currentTab, conversations, selectedConversation, createConversationMutation.isPending, isPlayerMode, squadAutoCreated]);
 
   const renderMessage = ({ item }: { item: Message }) => {
+    const isProviderConv = selectedConversation?.type === "provider_player";
     const isOwn = isPlayerMode
       ? (item.senderType === "player" && item.senderPlayerId === userId)
       : (item.senderType === "coach" && item.senderCoachId === userId);
@@ -579,7 +585,9 @@ export function CoachChatFooter({ mode = "coach" }: ChatFooterProps) {
               <Ionicons name="person" size={10} color={Colors.dark.text} />
             </View>
             <ThemedText style={styles.senderName}>
-              {selectedConversation?.playerName || "Player"}
+              {isProviderConv
+                ? (selectedConversation?.providerName || "Provider")
+                : (selectedConversation?.playerName || "Player")}
             </ThemedText>
           </View>
         ) : null}
@@ -690,6 +698,7 @@ export function CoachChatFooter({ mode = "coach" }: ChatFooterProps) {
     if (conv.type === "academy") return "Academy Chat";
     if (conv.type === "squad" || conv.type === "group") return conv.title || "Squad Chat";
     if (conv.type === "coach_coach") return conv.title || "Coach Chat";
+    if (conv.type === "provider_player") return conv.providerName || "Service Provider";
     if (conv.playerName && conv.playerName !== "Chat") return conv.playerName;
     if (conv.title && conv.title !== "Chat") return conv.title;
     return "Conversation";
@@ -1079,6 +1088,10 @@ export function CoachChatFooter({ mode = "coach" }: ChatFooterProps) {
                 <Ionicons name="add" size={16} color={Colors.dark.buttonText} />
                 <ThemedText style={styles.startChatButtonText}>Select a Squad</ThemedText>
               </Pressable>
+            ) : currentTab === "providers" ? (
+              <ThemedText style={{ fontSize: 12, color: Colors.dark.textTertiary, marginTop: 8, textAlign: "center", paddingHorizontal: Spacing.lg }}>
+                Chats appear automatically when a booking is confirmed
+              </ThemedText>
             ) : null}
           </View>
         }
@@ -1232,7 +1245,9 @@ export function CoachChatFooter({ mode = "coach" }: ChatFooterProps) {
             {latestConversation && !isExpanded ? (
               <ThemedText numberOfLines={1} style={styles.previewText}>
                 <ThemedText style={styles.previewSender}>
-                  {latestConversation.playerName || "Chat"}:{" "}
+                  {latestConversation.type === "provider_player"
+                    ? (latestConversation.providerName || "Provider")
+                    : (latestConversation.playerName || "Chat")}:{" "}
                 </ThemedText>
                 {latestConversation.lastMessagePreview || "No messages"}
               </ThemedText>

@@ -10,6 +10,9 @@ import { filterProfanity } from "../profanityFilter";
 import { isPlayerMinor, getPlayerParentalControls } from "../childSafety";
 import { chatRateLimiter } from "../rateLimiter";
 import { getCoachPushTokens, sendPushNotification } from "../pushNotifications";
+import { db } from "../db";
+import { serviceProviders } from "../../shared/schema";
+import { eq } from "drizzle-orm";
 
 const router = Router();
 
@@ -64,11 +67,21 @@ router.get("/api/player/me/conversations", authMiddleware, requirePlayerOrOwner,
     const enriched = await Promise.all(
       conversations.map(async (conv) => {
         let coachName = null;
+        let providerName: string | null = null;
+        let providerPhoto: string | null = null;
         if (conv.coachId) {
           const coach = await storage.getCoach(conv.coachId, academyId);
           coachName = coach?.name;
         }
-        return { ...conv, coachName };
+        if (conv.type === "provider_player" && conv.providerId) {
+          const [prov] = await db.select({
+            businessName: serviceProviders.businessName,
+            profilePhotoUrl: serviceProviders.profilePhotoUrl,
+          }).from(serviceProviders).where(eq(serviceProviders.id, conv.providerId)).limit(1);
+          providerName = prov?.businessName ?? null;
+          providerPhoto = prov?.profilePhotoUrl ?? null;
+        }
+        return { ...conv, coachName, providerName, providerPhoto };
       })
     );
 

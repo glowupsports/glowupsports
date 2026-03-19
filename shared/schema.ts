@@ -2172,7 +2172,7 @@ export const conversations = pgTable("conversations", {
   id: varchar("id")
     .primaryKey()
     .default(sql`gen_random_uuid()`),
-  type: text("type").notNull(), // coach_player, coach_parent, coach_coach, group
+  type: text("type").notNull(), // coach_player, coach_parent, coach_coach, group, provider_player
   title: text("title"), // For group chats
   
   // Academy scoping for multi-tenant isolation
@@ -2181,6 +2181,10 @@ export const conversations = pgTable("conversations", {
   // Context for coach_player chats
   playerId: varchar("player_id").references(() => players.id),
   coachId: varchar("coach_id").references(() => coaches.id),
+
+  // Context for provider_player chats (no FK to avoid forward-ref; enforced at app layer)
+  providerId: varchar("provider_id"),
+  orderId: varchar("order_id"), // Links chat to a specific shop order
   
   lastMessageAt: timestamp("last_message_at"),
   lastMessagePreview: text("last_message_preview"),
@@ -2203,10 +2207,11 @@ export const conversationParticipants = pgTable("conversation_participants", {
   // Academy scoping for multi-tenant isolation
   academyId: varchar("academy_id").references(() => academies.id),
   
-  // Participant can be coach, player, or parent (parent links to player)
-  participantType: text("participant_type").notNull(), // coach, player, parent
+  // Participant can be coach, player, parent, or provider
+  participantType: text("participant_type").notNull(), // coach, player, parent, provider
   coachId: varchar("coach_id").references(() => coaches.id),
   playerId: varchar("player_id").references(() => players.id),
+  providerId: varchar("provider_id"), // service_providers.id (no FK to avoid forward-ref)
   
   role: text("role").default("member"), // owner, admin, member
   canPost: boolean("can_post").default(true),
@@ -2232,9 +2237,10 @@ export const messages = pgTable("messages", {
   academyId: varchar("academy_id").references(() => academies.id),
   
   // Sender - null for system messages
-  senderType: text("sender_type"), // coach, player, parent, system
+  senderType: text("sender_type"), // coach, player, parent, provider, system
   senderCoachId: varchar("sender_coach_id").references(() => coaches.id),
   senderPlayerId: varchar("sender_player_id").references(() => players.id),
+  senderProviderId: varchar("sender_provider_id"), // service_providers.id (no FK to avoid forward-ref)
   
   body: text("body").notNull(),
   messageType: text("message_type").default("text"), // text, quick_feedback, system, xp_award

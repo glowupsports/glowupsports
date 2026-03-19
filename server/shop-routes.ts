@@ -4,9 +4,9 @@ import {
   shopCategories, shopProducts, shopServices, shopOrders, shopOrderItems, shopWishlist,
   serviceProviders, providerClientNotes, providerClientPreferences,
   insertShopCategorySchema, insertShopProductSchema, insertShopServiceSchema,
-  players, users, academies
+  players, users, academies, conversations, conversationParticipants, messages
 } from "../shared/schema";
-import { eq, and, desc, asc, sql, inArray, count, max, sum } from "drizzle-orm";
+import { eq, and, desc, asc, sql, inArray, count, max, sum, or } from "drizzle-orm";
 import {
   awardXP,
   updateStreak,
@@ -23,6 +23,7 @@ import {
   hashPassword,
   JWTPayload 
 } from "./auth";
+import { broadcastNewMessage } from "./websocket";
 
 const router = Router();
 
@@ -1404,6 +1405,22 @@ router.patch("/provider/bookings/:orderId/status", authMiddleware, requireServic
       .where(eq(serviceProviders.userId, req.user!.userId))
       .limit(1);
     const { rank: newRank } = calculateProviderLevel(Number(postTxProvider?.xp ?? 0));
+
+    // Auto-create chat conversation when booking is confirmed
+    if (status === "confirmed" && order!.playerId && order!.assignedProviderId) {
+      try {
+        await getOrCreateProviderConversation(
+          order!.assignedProviderId,
+          order!.playerId,
+          order!.id,
+          order!.academyId,
+          order!.orderNumber,
+        );
+      } catch (chatErr) {
+        console.error("[ProviderChat] Failed to auto-create conversation:", chatErr);
+      }
+    }
+
     res.json({ ...order!, xpAwarded, leveledUp, newLevel, newRank, newBadges });
   } catch (error: unknown) {
     const err = error as { statusCode?: number; message?: string };
@@ -1741,5 +1758,270 @@ router.put("/provider/clients/:playerId/preferences", authMiddleware, requireSer
     res.status(500).json({ error: "Failed to save preferences" });
   }
 });
+
+// ==================== PROVIDER CHAT ====================
+
+// Helper: get provider record for the current user (returns null if not found)
+async function getProviderRecord(userId: string) {
+  const [provider] = await db.select().from(serviceProviders)
+    .where(eq(serviceProviders.userId, userId)).limit(1);
+  return provider ?? null;
+}
+
+// Helper: get-or-create a provider_player conversation for a booking
+async function getOrCreateProviderConversation(
+  providerId: string,
+  playerId: string,
+  orderId: string,
+  academyId: string,
+  orderNumber: string,
+) {
+  // Try to find existing conversation for this order
+  const [existing] = await db.select().from(conversations)
+    .where(and(
+      eq(conversations.type, "provider_player"),
+      eq(conversations.orderId, orderId),
+    )).limit(1);
+
+  if (existing) return existing;
+
+  // Create new conversation
+  const [conv] = await db.insert(conversations).values({
+    type: "provider_player",
+    providerId,
+    playerId,
+    orderId,
+    academyId,
+  }).returning();
+
+  // Add provider participant
+  await db.insert(conversationParticipants).values([
+    {
+      conversationId: conv.id,
+      participantType: "provider",
+      providerId,
+      role: "owner",
+      canPost: true,
+      academyId,
+    },
+    {
+      conversationId: conv.id,
+      participantType: "player",
+      playerId,
+      role: "member",
+      canPost: true,
+      academyId,
+    },
+  ]);
+
+  // Post auto system message
+  const systemBody = `Booking #${orderNumber} confirmed — chat here for any questions!`;
+  await db.insert(messages).values({
+    conversationId: conv.id,
+    senderType: "system",
+    body: systemBody,
+    messageType: "system",
+    academyId,
+  });
+
+  await db.update(conversations)
+    .set({ lastMessageAt: new Date(), lastMessagePreview: systemBody })
+    .where(eq(conversations.id, conv.id));
+
+  return conv;
+}
+
+// GET /api/provider/bookings/:orderId/conversation — get or create conversation for a booking
+router.get("/provider/bookings/:orderId/conversation", authMiddleware, requireServiceProvider, async (req: AuthRequest, res: Response) => {
+  try {
+    const { orderId } = req.params;
+    const provider = await getProviderRecord(req.user!.userId);
+    if (!provider) return res.status(404).json({ error: "Provider not found" });
+
+    // Verify this booking is assigned to the provider
+    const [order] = await db.select({
+      id: shopOrders.id,
+      orderNumber: shopOrders.orderNumber,
+      playerId: shopOrders.playerId,
+      academyId: shopOrders.academyId,
+      assignedProviderId: shopOrders.assignedProviderId,
+    }).from(shopOrders).where(and(
+      eq(shopOrders.id, orderId),
+      eq(shopOrders.assignedProviderId, provider.id),
+    )).limit(1);
+
+    if (!order || !order.playerId) {
+      return res.status(404).json({ error: "Booking not found or not assigned to you" });
+    }
+
+    const conv = await getOrCreateProviderConversation(
+      provider.id,
+      order.playerId,
+      order.id,
+      order.academyId,
+      order.orderNumber,
+    );
+
+    res.json(conv);
+  } catch (error) {
+    console.error("[ProviderChat] Error getting conversation:", error);
+    res.status(500).json({ error: "Failed to get conversation" });
+  }
+});
+
+// GET /api/provider/conversations — list all conversations for this provider
+router.get("/provider/conversations", authMiddleware, requireServiceProvider, async (req: AuthRequest, res: Response) => {
+  try {
+    const provider = await getProviderRecord(req.user!.userId);
+    if (!provider) return res.status(404).json({ error: "Provider not found" });
+
+    const convs = await db.select().from(conversations)
+      .where(and(
+        eq(conversations.type, "provider_player"),
+        eq(conversations.providerId, provider.id),
+        eq(conversations.isArchived, false),
+      ))
+      .orderBy(desc(conversations.lastMessageAt));
+
+    // Enrich with player info
+    const enriched = await Promise.all(convs.map(async (conv) => {
+      let playerName: string | null = null;
+      let playerPhoto: string | null = null;
+      let orderNumber: string | null = null;
+      if (conv.playerId) {
+        const [pl] = await db.select({ name: players.name, profilePhotoUrl: players.profilePhotoUrl })
+          .from(players).where(eq(players.id, conv.playerId)).limit(1);
+        playerName = pl?.name ?? null;
+        playerPhoto = pl?.profilePhotoUrl ?? null;
+      }
+      if (conv.orderId) {
+        const [ord] = await db.select({ orderNumber: shopOrders.orderNumber })
+          .from(shopOrders).where(eq(shopOrders.id, conv.orderId)).limit(1);
+        orderNumber = ord?.orderNumber ?? null;
+      }
+      // Unread count for provider
+      const [part] = await db.select({ lastReadAt: conversationParticipants.lastReadAt })
+        .from(conversationParticipants)
+        .where(and(
+          eq(conversationParticipants.conversationId, conv.id),
+          eq(conversationParticipants.participantType, "provider"),
+          eq(conversationParticipants.providerId, provider.id),
+        )).limit(1);
+      const lastRead = part?.lastReadAt ? new Date(part.lastReadAt) : new Date(0);
+      const lastMsg = conv.lastMessageAt ? new Date(conv.lastMessageAt) : null;
+      const hasUnread = lastMsg ? lastMsg > lastRead : false;
+
+      return { ...conv, playerName, playerPhoto, orderNumber, hasUnread };
+    }));
+
+    res.json(enriched);
+  } catch (error) {
+    console.error("[ProviderChat] Error listing conversations:", error);
+    res.status(500).json({ error: "Failed to list conversations" });
+  }
+});
+
+// GET /api/provider/conversations/:id/messages — get messages
+router.get("/provider/conversations/:id/messages", authMiddleware, requireServiceProvider, async (req: AuthRequest, res: Response) => {
+  try {
+    const { id } = req.params;
+    const provider = await getProviderRecord(req.user!.userId);
+    if (!provider) return res.status(404).json({ error: "Provider not found" });
+
+    const [conv] = await db.select().from(conversations)
+      .where(and(
+        eq(conversations.id, id),
+        eq(conversations.providerId, provider.id),
+      )).limit(1);
+    if (!conv) return res.status(404).json({ error: "Conversation not found" });
+
+    const limit = parseInt(req.query.limit as string) || 50;
+    const msgs = await db.select().from(messages)
+      .where(and(eq(messages.conversationId, id), eq(messages.isDeleted, false)))
+      .orderBy(desc(messages.createdAt))
+      .limit(limit);
+
+    res.json(msgs.reverse());
+  } catch (error) {
+    console.error("[ProviderChat] Error getting messages:", error);
+    res.status(500).json({ error: "Failed to get messages" });
+  }
+});
+
+// POST /api/provider/conversations/:id/messages — send a message
+router.post("/provider/conversations/:id/messages", authMiddleware, requireServiceProvider, async (req: AuthRequest, res: Response) => {
+  try {
+    const { id } = req.params;
+    const { body: msgBody } = req.body;
+    if (!msgBody?.trim()) return res.status(400).json({ error: "Message body required" });
+
+    const provider = await getProviderRecord(req.user!.userId);
+    if (!provider) return res.status(404).json({ error: "Provider not found" });
+
+    const [conv] = await db.select().from(conversations)
+      .where(and(
+        eq(conversations.id, id),
+        eq(conversations.providerId, provider.id),
+      )).limit(1);
+    if (!conv) return res.status(404).json({ error: "Conversation not found" });
+
+    const [msg] = await db.insert(messages).values({
+      conversationId: id,
+      senderType: "provider",
+      senderProviderId: provider.id,
+      body: msgBody.trim(),
+      messageType: "text",
+      academyId: conv.academyId ?? undefined,
+    }).returning();
+
+    await db.update(conversations).set({
+      lastMessageAt: new Date(),
+      lastMessagePreview: msgBody.trim().substring(0, 100),
+    }).where(eq(conversations.id, id));
+
+    // Broadcast to academy WebSocket so the player gets real-time notification
+    if (conv.academyId) {
+      broadcastNewMessage(conv.academyId, {
+        conversationId: id,
+        message: {
+          id: msg.id,
+          content: msg.body,
+          senderType: "provider" as any,
+          senderId: provider.id,
+          createdAt: msg.createdAt?.toISOString() ?? new Date().toISOString(),
+        },
+      });
+    }
+
+    res.status(201).json(msg);
+  } catch (error) {
+    console.error("[ProviderChat] Error sending message:", error);
+    res.status(500).json({ error: "Failed to send message" });
+  }
+});
+
+// POST /api/provider/conversations/:id/read — mark conversation as read
+router.post("/provider/conversations/:id/read", authMiddleware, requireServiceProvider, async (req: AuthRequest, res: Response) => {
+  try {
+    const { id } = req.params;
+    const provider = await getProviderRecord(req.user!.userId);
+    if (!provider) return res.status(404).json({ error: "Provider not found" });
+
+    await db.update(conversationParticipants)
+      .set({ lastReadAt: new Date() })
+      .where(and(
+        eq(conversationParticipants.conversationId, id),
+        eq(conversationParticipants.participantType, "provider"),
+        eq(conversationParticipants.providerId, provider.id),
+      ));
+
+    res.json({ success: true });
+  } catch (error) {
+    console.error("[ProviderChat] Error marking read:", error);
+    res.status(500).json({ error: "Failed to mark as read" });
+  }
+});
+
+// ==================== END PROVIDER CHAT ====================
 
 export default router;

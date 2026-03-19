@@ -2150,7 +2150,7 @@ var init_schema = __esm({
     conversations = pgTable("conversations", {
       id: varchar("id").primaryKey().default(sql2`gen_random_uuid()`),
       type: text("type").notNull(),
-      // coach_player, coach_parent, coach_coach, group
+      // coach_player, coach_parent, coach_coach, group, provider_player
       title: text("title"),
       // For group chats
       // Academy scoping for multi-tenant isolation
@@ -2158,6 +2158,10 @@ var init_schema = __esm({
       // Context for coach_player chats
       playerId: varchar("player_id").references(() => players.id),
       coachId: varchar("coach_id").references(() => coaches.id),
+      // Context for provider_player chats (no FK to avoid forward-ref; enforced at app layer)
+      providerId: varchar("provider_id"),
+      orderId: varchar("order_id"),
+      // Links chat to a specific shop order
       lastMessageAt: timestamp("last_message_at"),
       lastMessagePreview: text("last_message_preview"),
       isArchived: boolean("is_archived").default(false),
@@ -2169,11 +2173,13 @@ var init_schema = __esm({
       conversationId: varchar("conversation_id").references(() => conversations.id).notNull(),
       // Academy scoping for multi-tenant isolation
       academyId: varchar("academy_id").references(() => academies.id),
-      // Participant can be coach, player, or parent (parent links to player)
+      // Participant can be coach, player, parent, or provider
       participantType: text("participant_type").notNull(),
-      // coach, player, parent
+      // coach, player, parent, provider
       coachId: varchar("coach_id").references(() => coaches.id),
       playerId: varchar("player_id").references(() => players.id),
+      providerId: varchar("provider_id"),
+      // service_providers.id (no FK to avoid forward-ref)
       role: text("role").default("member"),
       // owner, admin, member
       canPost: boolean("can_post").default(true),
@@ -2189,9 +2195,11 @@ var init_schema = __esm({
       academyId: varchar("academy_id").references(() => academies.id),
       // Sender - null for system messages
       senderType: text("sender_type"),
-      // coach, player, parent, system
+      // coach, player, parent, provider, system
       senderCoachId: varchar("sender_coach_id").references(() => coaches.id),
       senderPlayerId: varchar("sender_player_id").references(() => players.id),
+      senderProviderId: varchar("sender_provider_id"),
+      // service_providers.id (no FK to avoid forward-ref)
       body: text("body").notNull(),
       messageType: text("message_type").default("text"),
       // text, quick_feedback, system, xp_award
@@ -14244,8 +14252,8 @@ async function sendFCMNotification(tokens, title, body, data, channelId = "defau
         try {
           const { db: db2 } = await Promise.resolve().then(() => (init_db(), db_exports));
           const { pushDeviceTokens: pushDeviceTokens2 } = await Promise.resolve().then(() => (init_schema(), schema_exports));
-          const { eq: eq32 } = await import("drizzle-orm");
-          await db2.update(pushDeviceTokens2).set({ isActive: false }).where(eq32(pushDeviceTokens2.token, token));
+          const { eq: eq33 } = await import("drizzle-orm");
+          await db2.update(pushDeviceTokens2).set({ isActive: false }).where(eq33(pushDeviceTokens2.token, token));
         } catch (deactivateErr) {
           console.error("[FCM] Failed to deactivate invalid token:", deactivateErr);
         }
@@ -15587,7 +15595,7 @@ async function processAutoSessionCompletion() {
   try {
     const { db: db2 } = await Promise.resolve().then(() => (init_db(), db_exports));
     const { sessions: sessions4, sessionPlayers: sessionPlayers2, players: players3, packages: packages3 } = await Promise.resolve().then(() => (init_schema(), schema_exports));
-    const { eq: eq32, and: and30, lt: lt3, isNull: isNull9, inArray: inArray17 } = await import("drizzle-orm");
+    const { eq: eq33, and: and30, lt: lt3, isNull: isNull9, inArray: inArray17 } = await import("drizzle-orm");
     const { storage: storage2 } = await Promise.resolve().then(() => (init_storage(), storage_exports));
     const now2 = /* @__PURE__ */ new Date();
     const tenMinAgo = new Date(now2.getTime() - 10 * 60 * 1e3);
@@ -15623,7 +15631,7 @@ async function processAutoSessionCompletion() {
           playerId: sessionPlayers2.playerId,
           attendanceStatus: sessionPlayers2.attendanceStatus,
           creditDeductedAt: sessionPlayers2.creditDeductedAt
-        }).from(sessionPlayers2).where(eq32(sessionPlayers2.sessionId, session.id));
+        }).from(sessionPlayers2).where(eq33(sessionPlayers2.sessionId, session.id));
         for (const sp of enrolledPlayers) {
           if (sp.attendanceStatus === "present" || sp.attendanceStatus === "absent" || sp.creditDeductedAt) {
             continue;
@@ -15631,7 +15639,7 @@ async function processAutoSessionCompletion() {
           await db2.update(sessionPlayers2).set({
             attendanceStatus: "present",
             attended: true
-          }).where(eq32(sessionPlayers2.id, sp.id));
+          }).where(eq33(sessionPlayers2.id, sp.id));
           totalPlayersMarked++;
           const creditResult = await storage2.deductTypedCreditsForSession(
             sp.playerId,
@@ -15646,7 +15654,7 @@ async function processAutoSessionCompletion() {
           } else {
             const { creditTransactions: creditTransactions3 } = await Promise.resolve().then(() => (init_schema(), schema_exports));
             const debtId = `debt-auto-${session.id}-${sp.playerId}`;
-            const existingDebt = await db2.select().from(creditTransactions3).where(eq32(creditTransactions3.id, debtId)).limit(1);
+            const existingDebt = await db2.select().from(creditTransactions3).where(eq33(creditTransactions3.id, debtId)).limit(1);
             if (existingDebt.length === 0) {
               const creditType = session.sessionType.includes("semi") ? "semi_private" : session.sessionType.includes("group") ? "group" : session.sessionType === "private_adjusted" ? "private" : "private";
               await db2.insert(creditTransactions3).values({
@@ -15665,13 +15673,13 @@ async function processAutoSessionCompletion() {
                   reason: creditResult.reason
                 }
               });
-              await db2.update(sessionPlayers2).set({ creditDeductedAt: /* @__PURE__ */ new Date() }).where(eq32(sessionPlayers2.id, sp.id));
+              await db2.update(sessionPlayers2).set({ creditDeductedAt: /* @__PURE__ */ new Date() }).where(eq33(sessionPlayers2.id, sp.id));
               totalCreditsDeducted++;
               console.log(`[AutoComplete] Recorded debt for player ${sp.playerId} in session ${session.id}`);
             }
           }
         }
-        await db2.update(sessions4).set({ status: "completed" }).where(eq32(sessions4.id, session.id));
+        await db2.update(sessions4).set({ status: "completed" }).where(eq33(sessions4.id, session.id));
         console.log(`[AutoComplete] Completed session ${session.id} (${session.sessionType})`);
       } catch (sessionError) {
         console.error(`[AutoComplete] Error processing session ${session.id}:`, sessionError);
@@ -27676,11 +27684,11 @@ __export(role_language_engine_exports, {
   getMessagesForAllRoles: () => getMessagesForAllRoles,
   seedDefaultTemplates: () => seedDefaultTemplates
 });
-import { eq as eq10, and as and9, isNull as isNull3, or as or4 } from "drizzle-orm";
+import { eq as eq10, and as and9, isNull as isNull3, or as or5 } from "drizzle-orm";
 async function getMessage(templateKey, role, context, academyId) {
   let template = await db.select().from(roleMessageTemplates).where(and9(
     eq10(roleMessageTemplates.templateKey, templateKey),
-    academyId ? or4(eq10(roleMessageTemplates.academyId, academyId), isNull3(roleMessageTemplates.academyId)) : isNull3(roleMessageTemplates.academyId),
+    academyId ? or5(eq10(roleMessageTemplates.academyId, academyId), isNull3(roleMessageTemplates.academyId)) : isNull3(roleMessageTemplates.academyId),
     eq10(roleMessageTemplates.isActive, true)
   )).orderBy(
     sql`CASE WHEN ${roleMessageTemplates.academyId} = ${academyId || ""} THEN 0 ELSE 1 END`
@@ -30192,7 +30200,7 @@ import multer5 from "multer";
 import path5 from "path";
 import fs5 from "fs";
 import {
-  eq as eq31,
+  eq as eq32,
   sql as sql30,
   desc as desc25,
   and as and29,
@@ -30202,7 +30210,7 @@ import {
   notInArray as notInArray2,
   isNull as isNull8,
   isNotNull as isNotNull5,
-  or as or15,
+  or as or16,
   count as count7,
   ilike as ilike4,
   lte as lte9
@@ -32843,6 +32851,19 @@ router.patch("/provider/bookings/:orderId/status", authMiddlewareWithFreshData, 
     });
     const [postTxProvider] = await db.select({ xp: serviceProviders.xp }).from(serviceProviders).where(eq4(serviceProviders.userId, req2.user.userId)).limit(1);
     const { rank: newRank } = calculateProviderLevel(Number(postTxProvider?.xp ?? 0));
+    if (status === "confirmed" && order.playerId && order.assignedProviderId) {
+      try {
+        await getOrCreateProviderConversation(
+          order.assignedProviderId,
+          order.playerId,
+          order.id,
+          order.academyId,
+          order.orderNumber
+        );
+      } catch (chatErr) {
+        console.error("[ProviderChat] Failed to auto-create conversation:", chatErr);
+      }
+    }
     res.json({ ...order, xpAwarded, leveledUp, newLevel, newRank, newBadges });
   } catch (error) {
     const err = error;
@@ -33079,13 +33100,204 @@ router.put("/provider/clients/:playerId/preferences", authMiddlewareWithFreshDat
     res.status(500).json({ error: "Failed to save preferences" });
   }
 });
+async function getProviderRecord(userId) {
+  const [provider] = await db.select().from(serviceProviders).where(eq4(serviceProviders.userId, userId)).limit(1);
+  return provider ?? null;
+}
+async function getOrCreateProviderConversation(providerId, playerId, orderId, academyId, orderNumber) {
+  const [existing2] = await db.select().from(conversations).where(and3(
+    eq4(conversations.type, "provider_player"),
+    eq4(conversations.orderId, orderId)
+  )).limit(1);
+  if (existing2) return existing2;
+  const [conv] = await db.insert(conversations).values({
+    type: "provider_player",
+    providerId,
+    playerId,
+    orderId,
+    academyId
+  }).returning();
+  await db.insert(conversationParticipants).values([
+    {
+      conversationId: conv.id,
+      participantType: "provider",
+      providerId,
+      role: "owner",
+      canPost: true,
+      academyId
+    },
+    {
+      conversationId: conv.id,
+      participantType: "player",
+      playerId,
+      role: "member",
+      canPost: true,
+      academyId
+    }
+  ]);
+  const systemBody = `Booking #${orderNumber} confirmed \u2014 chat here for any questions!`;
+  await db.insert(messages).values({
+    conversationId: conv.id,
+    senderType: "system",
+    body: systemBody,
+    messageType: "system",
+    academyId
+  });
+  await db.update(conversations).set({ lastMessageAt: /* @__PURE__ */ new Date(), lastMessagePreview: systemBody }).where(eq4(conversations.id, conv.id));
+  return conv;
+}
+router.get("/provider/bookings/:orderId/conversation", authMiddlewareWithFreshData, requireServiceProvider, async (req2, res) => {
+  try {
+    const { orderId } = req2.params;
+    const provider = await getProviderRecord(req2.user.userId);
+    if (!provider) return res.status(404).json({ error: "Provider not found" });
+    const [order] = await db.select({
+      id: shopOrders.id,
+      orderNumber: shopOrders.orderNumber,
+      playerId: shopOrders.playerId,
+      academyId: shopOrders.academyId,
+      assignedProviderId: shopOrders.assignedProviderId
+    }).from(shopOrders).where(and3(
+      eq4(shopOrders.id, orderId),
+      eq4(shopOrders.assignedProviderId, provider.id)
+    )).limit(1);
+    if (!order || !order.playerId) {
+      return res.status(404).json({ error: "Booking not found or not assigned to you" });
+    }
+    const conv = await getOrCreateProviderConversation(
+      provider.id,
+      order.playerId,
+      order.id,
+      order.academyId,
+      order.orderNumber
+    );
+    res.json(conv);
+  } catch (error) {
+    console.error("[ProviderChat] Error getting conversation:", error);
+    res.status(500).json({ error: "Failed to get conversation" });
+  }
+});
+router.get("/provider/conversations", authMiddlewareWithFreshData, requireServiceProvider, async (req2, res) => {
+  try {
+    const provider = await getProviderRecord(req2.user.userId);
+    if (!provider) return res.status(404).json({ error: "Provider not found" });
+    const convs = await db.select().from(conversations).where(and3(
+      eq4(conversations.type, "provider_player"),
+      eq4(conversations.providerId, provider.id),
+      eq4(conversations.isArchived, false)
+    )).orderBy(desc2(conversations.lastMessageAt));
+    const enriched = await Promise.all(convs.map(async (conv) => {
+      let playerName = null;
+      let playerPhoto = null;
+      let orderNumber = null;
+      if (conv.playerId) {
+        const [pl] = await db.select({ name: players.name, profilePhotoUrl: players.profilePhotoUrl }).from(players).where(eq4(players.id, conv.playerId)).limit(1);
+        playerName = pl?.name ?? null;
+        playerPhoto = pl?.profilePhotoUrl ?? null;
+      }
+      if (conv.orderId) {
+        const [ord] = await db.select({ orderNumber: shopOrders.orderNumber }).from(shopOrders).where(eq4(shopOrders.id, conv.orderId)).limit(1);
+        orderNumber = ord?.orderNumber ?? null;
+      }
+      const [part] = await db.select({ lastReadAt: conversationParticipants.lastReadAt }).from(conversationParticipants).where(and3(
+        eq4(conversationParticipants.conversationId, conv.id),
+        eq4(conversationParticipants.participantType, "provider"),
+        eq4(conversationParticipants.providerId, provider.id)
+      )).limit(1);
+      const lastRead = part?.lastReadAt ? new Date(part.lastReadAt) : /* @__PURE__ */ new Date(0);
+      const lastMsg = conv.lastMessageAt ? new Date(conv.lastMessageAt) : null;
+      const hasUnread = lastMsg ? lastMsg > lastRead : false;
+      return { ...conv, playerName, playerPhoto, orderNumber, hasUnread };
+    }));
+    res.json(enriched);
+  } catch (error) {
+    console.error("[ProviderChat] Error listing conversations:", error);
+    res.status(500).json({ error: "Failed to list conversations" });
+  }
+});
+router.get("/provider/conversations/:id/messages", authMiddlewareWithFreshData, requireServiceProvider, async (req2, res) => {
+  try {
+    const { id } = req2.params;
+    const provider = await getProviderRecord(req2.user.userId);
+    if (!provider) return res.status(404).json({ error: "Provider not found" });
+    const [conv] = await db.select().from(conversations).where(and3(
+      eq4(conversations.id, id),
+      eq4(conversations.providerId, provider.id)
+    )).limit(1);
+    if (!conv) return res.status(404).json({ error: "Conversation not found" });
+    const limit = parseInt(req2.query.limit) || 50;
+    const msgs = await db.select().from(messages).where(and3(eq4(messages.conversationId, id), eq4(messages.isDeleted, false))).orderBy(desc2(messages.createdAt)).limit(limit);
+    res.json(msgs.reverse());
+  } catch (error) {
+    console.error("[ProviderChat] Error getting messages:", error);
+    res.status(500).json({ error: "Failed to get messages" });
+  }
+});
+router.post("/provider/conversations/:id/messages", authMiddlewareWithFreshData, requireServiceProvider, async (req2, res) => {
+  try {
+    const { id } = req2.params;
+    const { body: msgBody } = req2.body;
+    if (!msgBody?.trim()) return res.status(400).json({ error: "Message body required" });
+    const provider = await getProviderRecord(req2.user.userId);
+    if (!provider) return res.status(404).json({ error: "Provider not found" });
+    const [conv] = await db.select().from(conversations).where(and3(
+      eq4(conversations.id, id),
+      eq4(conversations.providerId, provider.id)
+    )).limit(1);
+    if (!conv) return res.status(404).json({ error: "Conversation not found" });
+    const [msg] = await db.insert(messages).values({
+      conversationId: id,
+      senderType: "provider",
+      senderProviderId: provider.id,
+      body: msgBody.trim(),
+      messageType: "text",
+      academyId: conv.academyId ?? void 0
+    }).returning();
+    await db.update(conversations).set({
+      lastMessageAt: /* @__PURE__ */ new Date(),
+      lastMessagePreview: msgBody.trim().substring(0, 100)
+    }).where(eq4(conversations.id, id));
+    if (conv.academyId) {
+      broadcastNewMessage(conv.academyId, {
+        conversationId: id,
+        message: {
+          id: msg.id,
+          content: msg.body,
+          senderType: "provider",
+          senderId: provider.id,
+          createdAt: msg.createdAt?.toISOString() ?? (/* @__PURE__ */ new Date()).toISOString()
+        }
+      });
+    }
+    res.status(201).json(msg);
+  } catch (error) {
+    console.error("[ProviderChat] Error sending message:", error);
+    res.status(500).json({ error: "Failed to send message" });
+  }
+});
+router.post("/provider/conversations/:id/read", authMiddlewareWithFreshData, requireServiceProvider, async (req2, res) => {
+  try {
+    const { id } = req2.params;
+    const provider = await getProviderRecord(req2.user.userId);
+    if (!provider) return res.status(404).json({ error: "Provider not found" });
+    await db.update(conversationParticipants).set({ lastReadAt: /* @__PURE__ */ new Date() }).where(and3(
+      eq4(conversationParticipants.conversationId, id),
+      eq4(conversationParticipants.participantType, "provider"),
+      eq4(conversationParticipants.providerId, provider.id)
+    ));
+    res.json({ success: true });
+  } catch (error) {
+    console.error("[ProviderChat] Error marking read:", error);
+    res.status(500).json({ error: "Failed to mark as read" });
+  }
+});
 var shop_routes_default = router;
 
 // server/marketplace-routes.ts
 init_db();
 init_schema();
 import { Router as Router2 } from "express";
-import { eq as eq5, and as and4, desc as desc3, sql as sql7, or as or3, ilike as ilike2, gte as gte3, lte as lte3 } from "drizzle-orm";
+import { eq as eq5, and as and4, desc as desc3, sql as sql7, or as or4, ilike as ilike2, gte as gte3, lte as lte3 } from "drizzle-orm";
 import multer from "multer";
 import path from "path";
 import fs from "fs";
@@ -33181,7 +33393,7 @@ router2.get("/player/marketplace", authMiddlewareWithFreshData, requirePlayerPro
     if (search && typeof search === "string" && search.trim().length > 0) {
       const searchTerm = `%${search.trim().replace(/[%_]/g, "\\$&")}%`;
       conditions.push(
-        or3(
+        or4(
           ilike2(marketplaceListings.title, searchTerm),
           ilike2(marketplaceListings.description, searchTerm),
           ilike2(marketplaceListings.brand, searchTerm)
@@ -33392,7 +33604,7 @@ router2.get("/player/marketplace/messages", authMiddlewareWithFreshData, require
         price: marketplaceListings.price,
         images: marketplaceListings.images
       }
-    }).from(marketplaceMessages).leftJoin(marketplaceListings, eq5(marketplaceMessages.listingId, marketplaceListings.id)).where(or3(
+    }).from(marketplaceMessages).leftJoin(marketplaceListings, eq5(marketplaceMessages.listingId, marketplaceListings.id)).where(or4(
       eq5(marketplaceMessages.senderId, playerId),
       eq5(marketplaceMessages.recipientId, playerId)
     )).orderBy(desc3(marketplaceMessages.createdAt)).limit(100);
@@ -33472,7 +33684,7 @@ var marketplace_routes_default = router2;
 init_db();
 init_schema();
 import { Router as Router3 } from "express";
-import { eq as eq11, and as and10, or as or5, desc as desc8, sql as sql12, inArray as inArray6 } from "drizzle-orm";
+import { eq as eq11, and as and10, or as or6, desc as desc8, sql as sql12, inArray as inArray6 } from "drizzle-orm";
 
 // server/services/xp-service.ts
 init_db();
@@ -34115,7 +34327,7 @@ router3.get("/api/glow/players/:playerId/suggested-skills", authMiddlewareWithFr
       levelId: playerBallLevels.levelId
     }).from(playerBallLevels).where(and10(
       eq11(playerBallLevels.playerId, playerId),
-      or5(eq11(playerBallLevels.status, "active"), eq11(playerBallLevels.status, "trial"))
+      or6(eq11(playerBallLevels.status, "active"), eq11(playerBallLevels.status, "trial"))
     )).limit(1);
     let resolvedLevelId = playerLevel?.levelId;
     if (!resolvedLevelId) {
@@ -35205,7 +35417,7 @@ var glow_leveling_default = router3;
 init_db();
 init_schema();
 import { Router as Router4 } from "express";
-import { eq as eq12, and as and11, sql as sql13, inArray as inArray7, isNull as isNull4, or as or6 } from "drizzle-orm";
+import { eq as eq12, and as and11, sql as sql13, inArray as inArray7, isNull as isNull4, or as or7 } from "drizzle-orm";
 init_storage();
 var router4 = Router4();
 router4.get("/api/lesson-templates", authMiddlewareWithFreshData, requireAcademy, async (req2, res) => {
@@ -35235,7 +35447,7 @@ router4.get("/api/lesson-templates/:templateId", authMiddlewareWithFreshData, re
     const academyId = req2.user.academyId;
     const [template] = await db.select().from(lessonTemplates).where(and11(
       eq12(lessonTemplates.id, templateId),
-      or6(
+      or7(
         isNull4(lessonTemplates.academyId),
         eq12(lessonTemplates.academyId, academyId)
       )
@@ -35865,7 +36077,7 @@ var skill_evidence_default = router6;
 init_db();
 init_schema();
 import { Router as Router7 } from "express";
-import { eq as eq15, and as and14, desc as desc12, isNull as isNull5, or as or7 } from "drizzle-orm";
+import { eq as eq15, and as and14, desc as desc12, isNull as isNull5, or as or8 } from "drizzle-orm";
 init_storage();
 var router7 = Router7();
 router7.get("/api/players/:playerId/level-ups", authMiddlewareWithFreshData, requireAcademy, async (req2, res) => {
@@ -36002,7 +36214,7 @@ router7.get("/api/messages/:templateKey", authMiddlewareWithFreshData, requireAc
     const academyId = req2.user.academyId;
     const templates = await db.select().from(roleMessageTemplates).where(and14(
       eq15(roleMessageTemplates.templateKey, templateKey),
-      or7(
+      or8(
         eq15(roleMessageTemplates.academyId, academyId),
         isNull5(roleMessageTemplates.academyId)
       ),
@@ -36047,7 +36259,7 @@ router7.get("/api/messages/:templateKey/all-roles", authMiddlewareWithFreshData,
     const academyId = req2.user.academyId;
     const templates = await db.select().from(roleMessageTemplates).where(and14(
       eq15(roleMessageTemplates.templateKey, templateKey),
-      or7(
+      or8(
         eq15(roleMessageTemplates.academyId, academyId),
         isNull5(roleMessageTemplates.academyId)
       ),
@@ -36303,7 +36515,7 @@ var coach_calibration_default = router8;
 init_db();
 init_schema();
 import { Router as Router8 } from "express";
-import { eq as eq17, and as and16, desc as desc14, or as or8, sql as sql18 } from "drizzle-orm";
+import { eq as eq17, and as and16, desc as desc14, or as or9, sql as sql18 } from "drizzle-orm";
 var router9 = Router8();
 router9.get("/api/parent/children", authMiddlewareWithFreshData, async (req2, res) => {
   try {
@@ -36322,7 +36534,7 @@ router9.get("/api/parent/children", authMiddlewareWithFreshData, async (req2, re
         progressPercentage: playerBallLevels.progressPercentage
       }).from(playerBallLevels).where(and16(
         eq17(playerBallLevels.playerId, child.id),
-        or8(
+        or9(
           eq17(playerBallLevels.status, "active"),
           eq17(playerBallLevels.status, "trial")
         )
@@ -36358,7 +36570,7 @@ router9.get("/api/parent/children/:playerId/progress", authMiddlewareWithFreshDa
       trialEndsAt: playerBallLevels.trialEndsAt
     }).from(playerBallLevels).where(and16(
       eq17(playerBallLevels.playerId, playerId),
-      or8(
+      or9(
         eq17(playerBallLevels.status, "active"),
         eq17(playerBallLevels.status, "trial")
       )
@@ -41730,6 +41942,9 @@ var social_features_default = router16;
 init_storage();
 import { Router as Router16 } from "express";
 init_pushNotifications();
+init_db();
+init_schema();
+import { eq as eq25 } from "drizzle-orm";
 var router17 = Router16();
 function requirePlayerOrOwner(req2, res, next) {
   if (!req2.user) {
@@ -41769,11 +41984,21 @@ router17.get("/api/player/me/conversations", authMiddlewareWithFreshData, requir
     const enriched = await Promise.all(
       conversations2.map(async (conv) => {
         let coachName = null;
+        let providerName = null;
+        let providerPhoto = null;
         if (conv.coachId) {
           const coach = await storage.getCoach(conv.coachId, academyId);
           coachName = coach?.name;
         }
-        return { ...conv, coachName };
+        if (conv.type === "provider_player" && conv.providerId) {
+          const [prov] = await db.select({
+            businessName: serviceProviders.businessName,
+            profilePhotoUrl: serviceProviders.profilePhotoUrl
+          }).from(serviceProviders).where(eq25(serviceProviders.id, conv.providerId)).limit(1);
+          providerName = prov?.businessName ?? null;
+          providerPhoto = prov?.profilePhotoUrl ?? null;
+        }
+        return { ...conv, coachName, providerName, providerPhoto };
       })
     );
     res.json(enriched);
@@ -42057,7 +42282,7 @@ init_storage();
 init_db();
 init_schema();
 import { Router as Router17 } from "express";
-import { eq as eq25, and as and23, gte as gte12, lte as lte4, or as or10, asc as asc5, inArray as inArray10 } from "drizzle-orm";
+import { eq as eq26, and as and23, gte as gte12, lte as lte4, or as or11, asc as asc5, inArray as inArray10 } from "drizzle-orm";
 var router18 = Router17();
 function getWarningMessage(code) {
   const messages2 = {
@@ -42545,8 +42770,8 @@ router18.get("/api/coach/earnings/analytics", authMiddlewareWithFreshData, async
     const startOfMonth = new Date(currentYear, currentMonth - 1, 1);
     const endOfMonth = new Date(currentYear, currentMonth, 0, 23, 59, 59);
     const cancelledSessions = await db.select().from(sessions).where(and23(
-      eq25(sessions.coachId, coachId),
-      eq25(sessions.status, "cancelled"),
+      eq26(sessions.coachId, coachId),
+      eq26(sessions.status, "cancelled"),
       gte12(sessions.startTime, startOfMonth),
       lte4(sessions.startTime, endOfMonth)
     ));
@@ -42768,8 +42993,8 @@ router18.get("/api/coach/earnings/analytics", authMiddlewareWithFreshData, async
       avgPerHour
     };
     const allCompletedSessionsEver = await db.select({ startTime: sessions.startTime }).from(sessions).where(and23(
-      eq25(sessions.coachId, coachId),
-      or10(eq25(sessions.status, "completed"), lte4(sessions.endTime, now2))
+      eq26(sessions.coachId, coachId),
+      or11(eq26(sessions.status, "completed"), lte4(sessions.endTime, now2))
     )).orderBy(asc5(sessions.startTime));
     const allDatesSet = /* @__PURE__ */ new Set();
     for (const s of allCompletedSessionsEver) {
@@ -42949,7 +43174,7 @@ init_db();
 init_storage();
 init_schema();
 import { Router as Router18 } from "express";
-import { eq as eq26, sql as sql25, desc as desc20, and as and24, ne as ne4 } from "drizzle-orm";
+import { eq as eq27, sql as sql25, desc as desc20, and as and24, ne as ne4 } from "drizzle-orm";
 import { fromZodError } from "zod-validation-error";
 var router19 = Router18();
 router19.get("/api/player/availability", authMiddlewareWithFreshData, async (req2, res) => {
@@ -43184,14 +43409,14 @@ router19.get("/api/play/sessions", authMiddlewareWithFreshData, async (req2, res
     const futureDate = /* @__PURE__ */ new Date();
     futureDate.setDate(futureDate.getDate() + 14);
     const sessions4 = await db.query.sessions.findMany({
-      where: (s, { and: and30, or: or16, eq: eq32, gte: gte18, lte: lte10, inArray: inArray17 }) => and30(
-        or16(
-          eq32(s.academyId, academyId || ""),
-          eq32(s.academyId, null)
+      where: (s, { and: and30, or: or17, eq: eq33, gte: gte18, lte: lte10, inArray: inArray17 }) => and30(
+        or17(
+          eq33(s.academyId, academyId || ""),
+          eq33(s.academyId, null)
           // Public sessions
         ),
         inArray17(s.sessionType, ["group", "semi_private"]),
-        eq32(s.status, "scheduled"),
+        eq33(s.status, "scheduled"),
         gte18(s.startTime, now2),
         lte10(s.startTime, futureDate)
       ),
@@ -43218,7 +43443,7 @@ router19.get("/api/play/sessions", authMiddlewareWithFreshData, async (req2, res
     });
     const enrichedSessions = await Promise.all(levelFilteredSessions.map(async (session) => {
       const sessionPlayerRecords = await db.query.sessionPlayers.findMany({
-        where: (sp, { eq: eq32 }) => eq32(sp.sessionId, session.id)
+        where: (sp, { eq: eq33 }) => eq33(sp.sessionId, session.id)
       });
       let playerIds = sessionPlayerRecords.map((sp) => sp.playerId).filter(Boolean);
       if (playerIds.length === 0 && session.seriesId) {
@@ -43244,7 +43469,7 @@ router19.get("/api/play/sessions", authMiddlewareWithFreshData, async (req2, res
       let locationId = session.locationId;
       if (!locationId && session.seriesId) {
         const series = await db.query.coachingSeries.findFirst({
-          where: (s, { eq: eq32 }) => eq32(s.id, session.seriesId)
+          where: (s, { eq: eq33 }) => eq33(s.id, session.seriesId)
         });
         if (series?.locationId) {
           locationId = series.locationId;
@@ -43258,9 +43483,9 @@ router19.get("/api/play/sessions", authMiddlewareWithFreshData, async (req2, res
         locationName = location?.name || "Location TBD";
       }
       const waitlistRecords = await db.query.sessionWaitlist.findMany({
-        where: (w, { and: and30, eq: eq32 }) => and30(
-          eq32(w.sessionId, session.id),
-          eq32(w.status, "waiting")
+        where: (w, { and: and30, eq: eq33 }) => and30(
+          eq33(w.sessionId, session.id),
+          eq33(w.status, "waiting")
         )
       });
       const maxPlayers = session.maxPlayers || 6;
@@ -43311,13 +43536,13 @@ router19.get("/api/play/nearby-players", authMiddlewareWithFreshData, async (req
       return res.status(403).json({ error: "Player access required" });
     }
     const currentPlayer = await db.query.players.findFirst({
-      where: (p, { eq: eq32 }) => eq32(p.id, playerId)
+      where: (p, { eq: eq33 }) => eq33(p.id, playerId)
     });
     const academyId = currentPlayer?.academyId;
     console.log(`[NearbyPlayers] Player ${playerId} academyId: ${academyId}`);
     const players3 = await db.query.players.findMany({
-      where: (p, { and: and30, eq: eq32, ne: ne10 }) => and30(
-        eq32(p.academyId, academyId || ""),
+      where: (p, { and: and30, eq: eq33, ne: ne10 }) => and30(
+        eq33(p.academyId, academyId || ""),
         ne10(p.id, playerId)
       )
     });
@@ -43402,16 +43627,16 @@ router19.post("/api/play/sessions/:sessionId/join", authMiddlewareWithFreshData,
       return res.status(404).json({ error: "Session not found" });
     }
     const existingPlayer = await db.query.sessionPlayers.findFirst({
-      where: (sp, { and: and30, eq: eq32 }) => and30(
-        eq32(sp.sessionId, sessionId),
-        eq32(sp.playerId, playerId)
+      where: (sp, { and: and30, eq: eq33 }) => and30(
+        eq33(sp.sessionId, sessionId),
+        eq33(sp.playerId, playerId)
       )
     });
     if (existingPlayer) {
       return res.status(400).json({ error: "Already joined this session" });
     }
     const currentPlayers = await db.query.sessionPlayers.findMany({
-      where: (sp, { eq: eq32 }) => eq32(sp.sessionId, sessionId)
+      where: (sp, { eq: eq33 }) => eq33(sp.sessionId, sessionId)
     });
     const maxPlayers = session.maxPlayers || 6;
     if (currentPlayers.length >= maxPlayers) {
@@ -43493,8 +43718,8 @@ router19.post("/api/play/sessions/:sessionId/leave", authMiddlewareWithFreshData
     }
     await db.delete(sessionPlayers).where(
       and24(
-        eq26(sessionPlayers.sessionId, sessionId),
-        eq26(sessionPlayers.playerId, playerId)
+        eq27(sessionPlayers.sessionId, sessionId),
+        eq27(sessionPlayers.playerId, playerId)
       )
     );
     await storage.createPlayerSessionCancellation({
@@ -43580,7 +43805,7 @@ router19.post("/api/play/sessions/:sessionId/leave", authMiddlewareWithFreshData
           await db.transaction(async (tx) => {
             if (useMakeUp) {
               const result = await tx.update(players).set({ makeUpCredits: sql25`GREATEST(0, COALESCE(make_up_credits, 0) - 1)` }).where(and24(
-                eq26(players.id, waitlistPlayer.id),
+                eq27(players.id, waitlistPlayer.id),
                 sql25`COALESCE(make_up_credits, 0) > 0`
               )).returning({ id: players.id });
               if (result.length === 0) {
@@ -43588,7 +43813,7 @@ router19.post("/api/play/sessions/:sessionId/leave", authMiddlewareWithFreshData
               }
             } else {
               const result = await tx.update(players).set({ credits: sql25`GREATEST(0, COALESCE(credits, 0) - ${sessionCredits})` }).where(and24(
-                eq26(players.id, waitlistPlayer.id),
+                eq27(players.id, waitlistPlayer.id),
                 sql25`COALESCE(credits, 0) >= ${sessionCredits}`
               )).returning({ id: players.id });
               if (result.length === 0) {
@@ -43613,7 +43838,7 @@ router19.post("/api/play/sessions/:sessionId/leave", authMiddlewareWithFreshData
                 promotedFromWaitlist: true
               })
             });
-            await tx.update(sessionWaitlist).set({ status: "promoted" }).where(eq26(sessionWaitlist.id, waitlistEntry.id));
+            await tx.update(sessionWaitlist).set({ status: "promoted" }).where(eq27(sessionWaitlist.id, waitlistEntry.id));
           });
           waitlistPromoted = true;
           if (waitlistPlayer.userId) {
@@ -43653,7 +43878,7 @@ router19.post("/api/play/sessions/:sessionId/leave", authMiddlewareWithFreshData
             scheduledFor: /* @__PURE__ */ new Date()
           });
         }
-        await db.update(sessionWaitlist).set({ status: "insufficient_credits" }).where(eq26(sessionWaitlist.id, waitlistEntry.id));
+        await db.update(sessionWaitlist).set({ status: "insufficient_credits" }).where(eq27(sessionWaitlist.id, waitlistEntry.id));
       }
     }
     const academyId = session.academyId || player2.academyId;
@@ -43705,19 +43930,19 @@ router19.post("/api/play/sessions/:sessionId/waitlist", authMiddlewareWithFreshD
       return res.status(403).json({ error: "Player access required" });
     }
     const existingWaitlist = await db.query.sessionWaitlist.findFirst({
-      where: (w, { and: and30, eq: eq32 }) => and30(
-        eq32(w.sessionId, sessionId),
-        eq32(w.playerId, playerId),
-        eq32(w.status, "waiting")
+      where: (w, { and: and30, eq: eq33 }) => and30(
+        eq33(w.sessionId, sessionId),
+        eq33(w.playerId, playerId),
+        eq33(w.status, "waiting")
       )
     });
     if (existingWaitlist) {
       return res.status(400).json({ error: "Already on the waitlist" });
     }
     const waitlistCount = await db.query.sessionWaitlist.findMany({
-      where: (w, { and: and30, eq: eq32 }) => and30(
-        eq32(w.sessionId, sessionId),
-        eq32(w.status, "waiting")
+      where: (w, { and: and30, eq: eq33 }) => and30(
+        eq33(w.sessionId, sessionId),
+        eq33(w.status, "waiting")
       )
     });
     const position = waitlistCount.length + 1;
@@ -43919,7 +44144,7 @@ router19.put("/api/coaches/:coachId/availability", authMiddlewareWithFreshData, 
     const academyId = req2.user?.academyId || "default-academy";
     const { availability, settings } = req2.body;
     const isActive = settings?.availabilityPaused !== void 0 ? !settings.availabilityPaused : void 0;
-    await db.delete(coachAvailability).where(eq26(coachAvailability.coachId, coachId));
+    await db.delete(coachAvailability).where(eq27(coachAvailability.coachId, coachId));
     if (availability && Array.isArray(availability)) {
       for (const day of availability) {
         if (day.isAvailable && day.timeBlocks?.length > 0) {
@@ -43939,9 +44164,9 @@ router19.put("/api/coaches/:coachId/availability", authMiddlewareWithFreshData, 
       }
     }
     if (isActive !== void 0) {
-      const [existing2] = await db.select().from(coachSettings).where(eq26(coachSettings.coachId, coachId));
+      const [existing2] = await db.select().from(coachSettings).where(eq27(coachSettings.coachId, coachId));
       if (existing2) {
-        await db.update(coachSettings).set({ availabilityPaused: !isActive, updatedAt: /* @__PURE__ */ new Date() }).where(eq26(coachSettings.coachId, coachId));
+        await db.update(coachSettings).set({ availabilityPaused: !isActive, updatedAt: /* @__PURE__ */ new Date() }).where(eq27(coachSettings.coachId, coachId));
       } else {
         await db.insert(coachSettings).values({
           id: crypto.randomUUID(),
@@ -43964,7 +44189,7 @@ router19.put("/api/coaches/:coachId/availability", authMiddlewareWithFreshData, 
 router19.get("/api/coaches/:coachId/settings", authMiddlewareWithFreshData, async (req2, res) => {
   try {
     const { coachId } = req2.params;
-    const [settings] = await db.select().from(coachSettings).where(eq26(coachSettings.coachId, coachId));
+    const [settings] = await db.select().from(coachSettings).where(eq27(coachSettings.coachId, coachId));
     if (!settings) {
       return res.json({
         minSessionLength: 60,
@@ -43986,14 +44211,14 @@ router19.put("/api/coaches/:coachId/settings", authMiddlewareWithFreshData, asyn
   try {
     const { coachId } = req2.params;
     const { minSessionLength, bufferBetweenSessions, availabilityPaused } = req2.body;
-    const [existing2] = await db.select().from(coachSettings).where(eq26(coachSettings.coachId, coachId));
+    const [existing2] = await db.select().from(coachSettings).where(eq27(coachSettings.coachId, coachId));
     if (existing2) {
       await db.update(coachSettings).set({
         minSessionLength: minSessionLength ?? existing2.minSessionLength,
         bufferBetweenSessions: bufferBetweenSessions ?? existing2.bufferBetweenSessions,
         availabilityPaused: availabilityPaused ?? existing2.availabilityPaused,
         updatedAt: /* @__PURE__ */ new Date()
-      }).where(eq26(coachSettings.coachId, coachId));
+      }).where(eq27(coachSettings.coachId, coachId));
     } else {
       await db.insert(coachSettings).values({
         id: crypto.randomUUID(),
@@ -44014,7 +44239,7 @@ router19.put("/api/coaches/:coachId/settings", authMiddlewareWithFreshData, asyn
 router19.get("/api/coaches/:coachId/availability-exceptions", authMiddlewareWithFreshData, async (req2, res) => {
   try {
     const { coachId } = req2.params;
-    const exceptions = await db.select().from(availabilityExceptions).where(eq26(availabilityExceptions.coachId, coachId)).orderBy(desc20(availabilityExceptions.startDate));
+    const exceptions = await db.select().from(availabilityExceptions).where(eq27(availabilityExceptions.coachId, coachId)).orderBy(desc20(availabilityExceptions.startDate));
     res.json(exceptions);
   } catch (error) {
     console.error("Availability exceptions error:", error);
@@ -44045,7 +44270,7 @@ router19.post("/api/coaches/:coachId/availability-exceptions", authMiddlewareWit
 router19.delete("/api/coaches/:coachId/availability-exceptions/:id", authMiddlewareWithFreshData, async (req2, res) => {
   try {
     const { id } = req2.params;
-    await db.delete(availabilityExceptions).where(eq26(availabilityExceptions.id, id));
+    await db.delete(availabilityExceptions).where(eq27(availabilityExceptions.id, id));
     res.json({ success: true });
   } catch (error) {
     console.error("Delete exception error:", error);
@@ -44060,8 +44285,8 @@ router19.get("/api/coach/travel-times", authMiddlewareWithFreshData, requireAcad
       return res.status(403).json({ error: "Coach access required" });
     }
     const travelTimes = await db.select().from(locationTravelTimes).where(and24(
-      eq26(locationTravelTimes.coachId, coachId),
-      eq26(locationTravelTimes.academyId, academyId)
+      eq27(locationTravelTimes.coachId, coachId),
+      eq27(locationTravelTimes.academyId, academyId)
     ));
     res.json(travelTimes);
   } catch (error) {
@@ -44091,17 +44316,17 @@ router19.post("/api/coach/travel-times", authMiddlewareWithFreshData, requireAca
     const results = [];
     for (const dir of directions) {
       const existing2 = await db.select().from(locationTravelTimes).where(and24(
-        eq26(locationTravelTimes.coachId, coachId),
-        eq26(locationTravelTimes.academyId, academyId),
-        eq26(locationTravelTimes.fromLocationId, dir.from),
-        eq26(locationTravelTimes.toLocationId, dir.to)
+        eq27(locationTravelTimes.coachId, coachId),
+        eq27(locationTravelTimes.academyId, academyId),
+        eq27(locationTravelTimes.fromLocationId, dir.from),
+        eq27(locationTravelTimes.toLocationId, dir.to)
       )).limit(1);
       let result;
       if (existing2.length > 0) {
         [result] = await db.update(locationTravelTimes).set({
           travelTimeMinutes,
           updatedAt: /* @__PURE__ */ new Date()
-        }).where(eq26(locationTravelTimes.id, existing2[0].id)).returning();
+        }).where(eq27(locationTravelTimes.id, existing2[0].id)).returning();
       } else {
         [result] = await db.insert(locationTravelTimes).values({
           coachId,
@@ -44127,8 +44352,8 @@ router19.delete("/api/coach/travel-times/:id", authMiddlewareWithFreshData, requ
       return res.status(403).json({ error: "Coach access required" });
     }
     await db.delete(locationTravelTimes).where(and24(
-      eq26(locationTravelTimes.id, id),
-      eq26(locationTravelTimes.coachId, coachId)
+      eq27(locationTravelTimes.id, id),
+      eq27(locationTravelTimes.coachId, coachId)
     ));
     res.json({ success: true });
   } catch (error) {
@@ -45569,8 +45794,8 @@ router19.delete("/api/coach/time-blocks/:blockId", authMiddlewareWithFreshData, 
     const { blockId } = req2.params;
     const realId = blockId.replace("coach-block-", "");
     await db.delete(coachTimeBlocks).where(and24(
-      eq26(coachTimeBlocks.id, realId),
-      eq26(coachTimeBlocks.coachId, coachId)
+      eq27(coachTimeBlocks.id, realId),
+      eq27(coachTimeBlocks.coachId, coachId)
     ));
     res.json({ success: true });
   } catch (error) {
@@ -45681,7 +45906,7 @@ router19.get("/api/player/booking-invites", authMiddlewareWithFreshData, async (
     if (!playerId) {
       return res.status(401).json({ error: "Player profile required" });
     }
-    const invites2 = await db.select().from(bookingInviteGuests).innerJoin(bookingInvites, eq26(bookingInviteGuests.inviteId, bookingInvites.id)).where(eq26(bookingInviteGuests.playerId, playerId));
+    const invites2 = await db.select().from(bookingInviteGuests).innerJoin(bookingInvites, eq27(bookingInviteGuests.inviteId, bookingInvites.id)).where(eq27(bookingInviteGuests.playerId, playerId));
     res.json(invites2);
   } catch (error) {
     console.error("Get booking invites error:", error);
@@ -45700,8 +45925,8 @@ router19.post("/api/player/booking-invites/:inviteId/respond", authMiddlewareWit
       return res.status(400).json({ error: "Action must be 'accept' or 'decline'" });
     }
     const [guest] = await db.select().from(bookingInviteGuests).where(and24(
-      eq26(bookingInviteGuests.inviteId, inviteId),
-      eq26(bookingInviteGuests.playerId, playerId)
+      eq27(bookingInviteGuests.inviteId, inviteId),
+      eq27(bookingInviteGuests.playerId, playerId)
     ));
     if (!guest) {
       return res.status(404).json({ error: "Invite not found" });
@@ -45709,9 +45934,9 @@ router19.post("/api/player/booking-invites/:inviteId/respond", authMiddlewareWit
     await db.update(bookingInviteGuests).set({
       status: action === "accept" ? "accepted" : "declined",
       respondedAt: /* @__PURE__ */ new Date()
-    }).where(eq26(bookingInviteGuests.id, guest.id));
+    }).where(eq27(bookingInviteGuests.id, guest.id));
     if (action === "accept") {
-      await db.update(bookingInvites).set({ totalAccepted: sql25`total_accepted + 1` }).where(eq26(bookingInvites.id, inviteId));
+      await db.update(bookingInvites).set({ totalAccepted: sql25`total_accepted + 1` }).where(eq27(bookingInvites.id, inviteId));
     }
     res.json({ success: true, message: `Invite ${action}ed` });
   } catch (error) {
@@ -45744,7 +45969,7 @@ router19.get("/api/open-matches", authMiddlewareWithFreshData, async (req2, res)
       hostBallLevel: players.ballLevel,
       playerLevel: players.skillLevel,
       playerBallLevel: players.ballLevel
-    }).from(matchRequests).leftJoin(players, eq26(matchRequests.playerId, players.id)).where(eq26(matchRequests.status, "open"));
+    }).from(matchRequests).leftJoin(players, eq27(matchRequests.playerId, players.id)).where(eq27(matchRequests.status, "open"));
     let filteredMatches = matches2;
     if (matchType && matchType !== "all") {
       filteredMatches = filteredMatches.filter((m) => m.matchType === matchType);
@@ -45851,7 +46076,7 @@ router19.get("/api/open-matches/:matchId", authMiddlewareWithFreshData, async (r
       playerAvatar: players.profilePhotoUrl,
       playerLevel: players.skillLevel,
       playerBallLevel: players.ballLevel
-    }).from(matchRequests).leftJoin(players, eq26(matchRequests.playerId, players.id)).where(eq26(matchRequests.id, matchId));
+    }).from(matchRequests).leftJoin(players, eq27(matchRequests.playerId, players.id)).where(eq27(matchRequests.id, matchId));
     if (!matchRequest) {
       return res.status(404).json({ error: "Match not found" });
     }
@@ -45914,14 +46139,14 @@ router19.delete("/api/open-matches/:matchId", authMiddlewareWithFreshData, async
     if (!playerId) {
       return res.status(401).json({ error: "Player profile required" });
     }
-    const [matchRequest] = await db.select().from(matchRequests).where(eq26(matchRequests.id, matchId));
+    const [matchRequest] = await db.select().from(matchRequests).where(eq27(matchRequests.id, matchId));
     if (!matchRequest) {
       return res.status(404).json({ error: "Match not found" });
     }
     if (matchRequest.playerId !== playerId) {
       return res.status(403).json({ error: "You can only cancel your own matches" });
     }
-    await db.update(matchRequests).set({ status: "cancelled" }).where(eq26(matchRequests.id, matchId));
+    await db.update(matchRequests).set({ status: "cancelled" }).where(eq27(matchRequests.id, matchId));
     res.json({ success: true, message: "Match cancelled successfully" });
   } catch (error) {
     console.error("Cancel open match error:", error);
@@ -45989,7 +46214,7 @@ router19.post("/api/open-matches/:matchId/join", authMiddlewareWithFreshData, as
     if (!playerId) {
       return res.status(401).json({ error: "Player profile required" });
     }
-    const [match] = await db.select().from(openMatches).where(eq26(openMatches.id, matchId));
+    const [match] = await db.select().from(openMatches).where(eq27(openMatches.id, matchId));
     if (!match) {
       return res.status(404).json({ error: "Match not found" });
     }
@@ -46000,8 +46225,8 @@ router19.post("/api/open-matches/:matchId/join", authMiddlewareWithFreshData, as
       return res.status(400).json({ error: "Match is already full" });
     }
     const [existing2] = await db.select().from(openMatchSlots).where(and24(
-      eq26(openMatchSlots.matchId, matchId),
-      eq26(openMatchSlots.playerId, playerId)
+      eq27(openMatchSlots.matchId, matchId),
+      eq27(openMatchSlots.playerId, playerId)
     ));
     if (existing2) {
       return res.status(400).json({ error: "Already joined this match" });
@@ -46017,7 +46242,7 @@ router19.post("/api/open-matches/:matchId/join", authMiddlewareWithFreshData, as
     await db.update(openMatches).set({
       currentPlayers: newCount,
       status: newStatus
-    }).where(eq26(openMatches.id, matchId));
+    }).where(eq27(openMatches.id, matchId));
     await storage.createNotification({
       type: "open_match_join",
       title: "Player Joined",
@@ -46041,8 +46266,8 @@ router19.post("/api/open-matches/:matchId/leave", authMiddlewareWithFreshData, a
       return res.status(401).json({ error: "Player profile required" });
     }
     const [slot] = await db.select().from(openMatchSlots).where(and24(
-      eq26(openMatchSlots.matchId, matchId),
-      eq26(openMatchSlots.playerId, playerId)
+      eq27(openMatchSlots.matchId, matchId),
+      eq27(openMatchSlots.playerId, playerId)
     ));
     if (!slot) {
       return res.status(404).json({ error: "Not in this match" });
@@ -46050,8 +46275,8 @@ router19.post("/api/open-matches/:matchId/leave", authMiddlewareWithFreshData, a
     if (slot.role === "host") {
       return res.status(400).json({ error: "Host cannot leave. Cancel the match instead." });
     }
-    await db.update(openMatchSlots).set({ status: "cancelled", cancelledAt: /* @__PURE__ */ new Date() }).where(eq26(openMatchSlots.id, slot.id));
-    await db.update(openMatches).set({ currentPlayers: sql25`current_players - 1` }).where(eq26(openMatches.id, matchId));
+    await db.update(openMatchSlots).set({ status: "cancelled", cancelledAt: /* @__PURE__ */ new Date() }).where(eq27(openMatchSlots.id, slot.id));
+    await db.update(openMatches).set({ currentPlayers: sql25`current_players - 1` }).where(eq27(openMatches.id, matchId));
     res.json({ success: true, message: "Left match" });
   } catch (error) {
     console.error("Leave open match error:", error);
@@ -46069,7 +46294,7 @@ router19.post("/api/open-matches/:matchId/invite", authMiddlewareWithFreshData, 
     if (!playerId) {
       return res.status(400).json({ error: "Player ID required" });
     }
-    const [match] = await db.select().from(openMatches).where(eq26(openMatches.id, matchId));
+    const [match] = await db.select().from(openMatches).where(eq27(openMatches.id, matchId));
     if (!match) {
       return res.status(404).json({ error: "Match not found" });
     }
@@ -46080,9 +46305,9 @@ router19.post("/api/open-matches/:matchId/invite", authMiddlewareWithFreshData, 
       return res.status(400).json({ error: "Match is already full" });
     }
     const [existingSlot] = await db.select().from(openMatchSlots).where(and24(
-      eq26(openMatchSlots.matchId, matchId),
-      eq26(openMatchSlots.playerId, playerId),
-      eq26(openMatchSlots.status, "confirmed")
+      eq27(openMatchSlots.matchId, matchId),
+      eq27(openMatchSlots.playerId, playerId),
+      eq27(openMatchSlots.status, "confirmed")
     ));
     if (existingSlot) {
       return res.status(400).json({ error: "Player is already in this match" });
@@ -46155,14 +46380,14 @@ router19.get("/api/play/match-requests", authMiddlewareWithFreshData, async (req
     const playerId = req2.user?.playerId;
     const requests = await db.select().from(matchRequests).where(
       and24(
-        eq26(matchRequests.status, "open"),
-        eq26(players.ballLevel, player.ballLevel),
-        academyId ? eq26(matchRequests.academyId, academyId) : void 0,
+        eq27(matchRequests.status, "open"),
+        eq27(players.ballLevel, player.ballLevel),
+        academyId ? eq27(matchRequests.academyId, academyId) : void 0,
         playerId ? ne4(matchRequests.playerId, playerId) : void 0
       )
     ).orderBy(desc20(matchRequests.createdAt));
     const enrichedRequests = await Promise.all(requests.map(async (request) => {
-      const [player2] = await db.select().from(players).where(eq26(players.id, request.playerId));
+      const [player2] = await db.select().from(players).where(eq27(players.id, request.playerId));
       return {
         ...request,
         player: player2 ? {
@@ -46185,7 +46410,7 @@ router19.get("/api/play/my-match-requests", authMiddlewareWithFreshData, async (
     if (!playerId) {
       return res.status(401).json({ error: "Player profile required" });
     }
-    const requests = await db.select().from(matchRequests).where(eq26(matchRequests.playerId, playerId)).orderBy(desc20(matchRequests.createdAt));
+    const requests = await db.select().from(matchRequests).where(eq27(matchRequests.playerId, playerId)).orderBy(desc20(matchRequests.createdAt));
     res.json(requests);
   } catch (error) {
     console.error("Get my match requests error:", error);
@@ -46200,13 +46425,13 @@ router19.post("/api/play/match-requests/:requestId/cancel", authMiddlewareWithFr
       return res.status(401).json({ error: "Player profile required" });
     }
     const [request] = await db.select().from(matchRequests).where(and24(
-      eq26(matchRequests.id, requestId),
-      eq26(matchRequests.playerId, playerId)
+      eq27(matchRequests.id, requestId),
+      eq27(matchRequests.playerId, playerId)
     ));
     if (!request) {
       return res.status(404).json({ error: "Match request not found" });
     }
-    await db.update(matchRequests).set({ status: "cancelled", updatedAt: /* @__PURE__ */ new Date() }).where(eq26(matchRequests.id, requestId));
+    await db.update(matchRequests).set({ status: "cancelled", updatedAt: /* @__PURE__ */ new Date() }).where(eq27(matchRequests.id, requestId));
     res.json({ success: true, message: "Match request cancelled" });
   } catch (error) {
     console.error("Cancel match request error:", error);
@@ -46219,7 +46444,7 @@ router19.get("/api/player/booking-preferences", authMiddlewareWithFreshData, asy
     if (!playerId) {
       return res.status(401).json({ error: "Player profile required" });
     }
-    const [prefs] = await db.select().from(playerBookingPreferences).where(eq26(playerBookingPreferences.playerId, playerId));
+    const [prefs] = await db.select().from(playerBookingPreferences).where(eq27(playerBookingPreferences.playerId, playerId));
     res.json(prefs || null);
   } catch (error) {
     console.error("Get booking preferences error:", error);
@@ -46243,7 +46468,7 @@ router19.put("/api/player/booking-preferences", authMiddlewareWithFreshData, asy
       notifyOnOpenMatches,
       notifyOnFriendBookings
     } = req2.body;
-    const [existing2] = await db.select().from(playerBookingPreferences).where(eq26(playerBookingPreferences.playerId, playerId));
+    const [existing2] = await db.select().from(playerBookingPreferences).where(eq27(playerBookingPreferences.playerId, playerId));
     let result;
     if (existing2) {
       [result] = await db.update(playerBookingPreferences).set({
@@ -46257,7 +46482,7 @@ router19.put("/api/player/booking-preferences", authMiddlewareWithFreshData, asy
         notifyOnOpenMatches,
         notifyOnFriendBookings,
         updatedAt: /* @__PURE__ */ new Date()
-      }).where(eq26(playerBookingPreferences.playerId, playerId)).returning();
+      }).where(eq27(playerBookingPreferences.playerId, playerId)).returning();
     } else {
       [result] = await db.insert(playerBookingPreferences).values({
         playerId,
@@ -46328,7 +46553,7 @@ import path4 from "path";
 import fs4 from "fs";
 import rateLimit from "express-rate-limit";
 init_schema();
-import { eq as eq27, and as and25, or as or12, desc as desc21, asc as asc7, sql as sql26, gte as gte14, inArray as inArray12, ne as ne5, isNull as isNull6, count as count6, lte as lte6 } from "drizzle-orm";
+import { eq as eq28, and as and25, or as or13, desc as desc21, asc as asc7, sql as sql26, gte as gte14, inArray as inArray12, ne as ne5, isNull as isNull6, count as count6, lte as lte6 } from "drizzle-orm";
 init_pushNotifications();
 init_emailService();
 var router20 = Router19();
@@ -46368,15 +46593,15 @@ router20.get("/api/quests", authMiddlewareWithFreshData, async (req2, res) => {
     const activeQuests = await db.select({
       quest: playerQuests,
       template: questTemplates
-    }).from(playerQuests).innerJoin(questTemplates, eq27(playerQuests.questTemplateId, questTemplates.id)).where(and25(
-      eq27(playerQuests.playerId, playerId),
+    }).from(playerQuests).innerJoin(questTemplates, eq28(playerQuests.questTemplateId, questTemplates.id)).where(and25(
+      eq28(playerQuests.playerId, playerId),
       inArray12(playerQuests.status, ["active", "completed", "claimed"])
     )).orderBy(asc7(questTemplates.order));
     const [dailySlot] = await db.select().from(dailyQuestSlots).where(and25(
-      eq27(dailyQuestSlots.playerId, playerId),
-      eq27(dailyQuestSlots.slotDate, today)
+      eq28(dailyQuestSlots.playerId, playerId),
+      eq28(dailyQuestSlots.slotDate, today)
     ));
-    const [streak] = await db.select().from(playerStreaks).where(eq27(playerStreaks.playerId, playerId));
+    const [streak] = await db.select().from(playerStreaks).where(eq28(playerStreaks.playerId, playerId));
     const dailyQuests = activeQuests.filter((q) => q.template.questType === "daily");
     const weeklyQuests = activeQuests.filter((q) => q.template.questType === "weekly");
     const monthlyQuests = activeQuests.filter((q) => q.template.questType === "monthly");
@@ -46437,18 +46662,18 @@ router20.post("/api/quests/assign-daily", authMiddlewareWithFreshData, async (re
     const endOfDay = /* @__PURE__ */ new Date();
     endOfDay.setHours(23, 59, 59, 999);
     const [existingSlot] = await db.select().from(dailyQuestSlots).where(and25(
-      eq27(dailyQuestSlots.playerId, playerId),
-      eq27(dailyQuestSlots.slotDate, today)
+      eq28(dailyQuestSlots.playerId, playerId),
+      eq28(dailyQuestSlots.slotDate, today)
     ));
     if (existingSlot) {
       return res.json({ message: "Daily quests already assigned", alreadyAssigned: true });
     }
     const allDailyTemplates = await db.select().from(questTemplates).where(and25(
-      eq27(questTemplates.questType, "daily"),
-      eq27(questTemplates.isActive, true),
-      or12(
+      eq28(questTemplates.questType, "daily"),
+      eq28(questTemplates.isActive, true),
+      or13(
         isNull6(questTemplates.academyId),
-        eq27(questTemplates.academyId, academyId || "")
+        eq28(questTemplates.academyId, academyId || "")
       )
     )).orderBy(asc7(questTemplates.order));
     const shuffled = allDailyTemplates.sort(() => Math.random() - 0.5);
@@ -46504,20 +46729,20 @@ router20.post("/api/quests/assign-weekly", authMiddlewareWithFreshData, async (r
     const endOfWeek = new Date(weekStart);
     endOfWeek.setDate(weekStart.getDate() + 6);
     endOfWeek.setHours(23, 59, 59, 999);
-    const existingWeeklyQuests = await db.select().from(playerQuests).innerJoin(questTemplates, eq27(playerQuests.questTemplateId, questTemplates.id)).where(and25(
-      eq27(playerQuests.playerId, playerId),
-      eq27(questTemplates.questType, "weekly"),
+    const existingWeeklyQuests = await db.select().from(playerQuests).innerJoin(questTemplates, eq28(playerQuests.questTemplateId, questTemplates.id)).where(and25(
+      eq28(playerQuests.playerId, playerId),
+      eq28(questTemplates.questType, "weekly"),
       gte14(playerQuests.expiresAt, now2)
     ));
     if (existingWeeklyQuests.length > 0) {
       return res.json({ message: "Weekly quests already assigned", alreadyAssigned: true });
     }
     const allWeeklyTemplates = await db.select().from(questTemplates).where(and25(
-      eq27(questTemplates.questType, "weekly"),
-      eq27(questTemplates.isActive, true),
-      or12(
+      eq28(questTemplates.questType, "weekly"),
+      eq28(questTemplates.isActive, true),
+      or13(
         isNull6(questTemplates.academyId),
-        eq27(questTemplates.academyId, academyId || "")
+        eq28(questTemplates.academyId, academyId || "")
       )
     )).orderBy(asc7(questTemplates.order));
     const shuffledWeekly = allWeeklyTemplates.sort(() => Math.random() - 0.5);
@@ -46556,20 +46781,20 @@ router20.post("/api/quests/assign-monthly", authMiddlewareWithFreshData, async (
     const now2 = /* @__PURE__ */ new Date();
     const monthStart = new Date(now2.getFullYear(), now2.getMonth(), 1);
     const monthEnd = new Date(now2.getFullYear(), now2.getMonth() + 1, 0, 23, 59, 59, 999);
-    const existingMonthlyQuests = await db.select().from(playerQuests).innerJoin(questTemplates, eq27(playerQuests.questTemplateId, questTemplates.id)).where(and25(
-      eq27(playerQuests.playerId, playerId),
-      eq27(questTemplates.questType, "monthly"),
+    const existingMonthlyQuests = await db.select().from(playerQuests).innerJoin(questTemplates, eq28(playerQuests.questTemplateId, questTemplates.id)).where(and25(
+      eq28(playerQuests.playerId, playerId),
+      eq28(questTemplates.questType, "monthly"),
       gte14(playerQuests.expiresAt, now2)
     ));
     if (existingMonthlyQuests.length > 0) {
       return res.json({ message: "Monthly quests already assigned", alreadyAssigned: true });
     }
     const allMonthlyTemplates = await db.select().from(questTemplates).where(and25(
-      eq27(questTemplates.questType, "monthly"),
-      eq27(questTemplates.isActive, true),
-      or12(
+      eq28(questTemplates.questType, "monthly"),
+      eq28(questTemplates.isActive, true),
+      or13(
         isNull6(questTemplates.academyId),
-        eq27(questTemplates.academyId, academyId || "")
+        eq28(questTemplates.academyId, academyId || "")
       )
     )).orderBy(asc7(questTemplates.order));
     const shuffledMonthly = allMonthlyTemplates.sort(() => Math.random() - 0.5);
@@ -46609,9 +46834,9 @@ router20.post("/api/quests/:id/progress", authMiddlewareWithFreshData, async (re
     const [quest] = await db.select({
       quest: playerQuests,
       template: questTemplates
-    }).from(playerQuests).innerJoin(questTemplates, eq27(playerQuests.questTemplateId, questTemplates.id)).where(and25(
-      eq27(playerQuests.id, id),
-      eq27(playerQuests.playerId, playerId)
+    }).from(playerQuests).innerJoin(questTemplates, eq28(playerQuests.questTemplateId, questTemplates.id)).where(and25(
+      eq28(playerQuests.id, id),
+      eq28(playerQuests.playerId, playerId)
     ));
     if (!quest) {
       return res.status(404).json({ error: "Quest not found" });
@@ -46628,7 +46853,7 @@ router20.post("/api/quests/:id/progress", authMiddlewareWithFreshData, async (re
       currentProgress: newProgress,
       status: isComplete ? "completed" : "active",
       completedAt: isComplete ? /* @__PURE__ */ new Date() : null
-    }).where(eq27(playerQuests.id, id)).returning();
+    }).where(eq28(playerQuests.id, id)).returning();
     if (isComplete && quest.template.questType === "daily") {
       const today = (/* @__PURE__ */ new Date()).toISOString().split("T")[0];
       await db.update(dailyQuestSlots).set({
@@ -46636,8 +46861,8 @@ router20.post("/api/quests/:id/progress", authMiddlewareWithFreshData, async (re
         allCompleted: sql26`completed_count + 1 >= 3`,
         bonusUnlocked: sql26`completed_count + 1 >= 3`
       }).where(and25(
-        eq27(dailyQuestSlots.playerId, playerId),
-        eq27(dailyQuestSlots.slotDate, today)
+        eq28(dailyQuestSlots.playerId, playerId),
+        eq28(dailyQuestSlots.slotDate, today)
       ));
     }
     res.json({
@@ -46665,9 +46890,9 @@ router20.post("/api/quests/:id/claim", authMiddlewareWithFreshData, async (req2,
     const [quest] = await db.select({
       quest: playerQuests,
       template: questTemplates
-    }).from(playerQuests).innerJoin(questTemplates, eq27(playerQuests.questTemplateId, questTemplates.id)).where(and25(
-      eq27(playerQuests.id, id),
-      eq27(playerQuests.playerId, playerId)
+    }).from(playerQuests).innerJoin(questTemplates, eq28(playerQuests.questTemplateId, questTemplates.id)).where(and25(
+      eq28(playerQuests.id, id),
+      eq28(playerQuests.playerId, playerId)
     ));
     if (!quest) {
       return res.status(404).json({ error: "Quest not found" });
@@ -46681,8 +46906,8 @@ router20.post("/api/quests/:id/claim", authMiddlewareWithFreshData, async (req2,
     await db.update(playerQuests).set({
       status: "claimed",
       claimedAt: /* @__PURE__ */ new Date()
-    }).where(eq27(playerQuests.id, id));
-    const [streak] = await db.select().from(playerStreaks).where(eq27(playerStreaks.playerId, playerId));
+    }).where(eq28(playerQuests.id, id));
+    const [streak] = await db.select().from(playerStreaks).where(eq28(playerStreaks.playerId, playerId));
     const currentStreak = streak?.currentStreak || 0;
     let multiplier = 1;
     if (currentStreak >= 30) multiplier = 3;
@@ -46692,7 +46917,7 @@ router20.post("/api/quests/:id/claim", authMiddlewareWithFreshData, async (req2,
     const baseXp = quest.quest.xpReward || quest.template.xpReward || 0;
     const xpReward = Math.round(baseXp * multiplier);
     if (xpReward > 0) {
-      await db.update(players).set({ xp: sql26`COALESCE(xp, 0) + ${xpReward}` }).where(eq27(players.id, playerId));
+      await db.update(players).set({ xp: sql26`COALESCE(xp, 0) + ${xpReward}` }).where(eq28(players.id, playerId));
     }
     const today = (/* @__PURE__ */ new Date()).toISOString().split("T")[0];
     if (streak) {
@@ -46707,7 +46932,7 @@ router20.post("/api/quests/:id/claim", authMiddlewareWithFreshData, async (req2,
         } else if (lastActive && lastActive < yesterdayStr) {
           if ((streak.streakShields || 0) > 0) {
             newStreak += 1;
-            await db.update(playerStreaks).set({ streakShields: sql26`streak_shields - 1` }).where(eq27(playerStreaks.playerId, playerId));
+            await db.update(playerStreaks).set({ streakShields: sql26`streak_shields - 1` }).where(eq28(playerStreaks.playerId, playerId));
           } else {
             newStreak = 1;
           }
@@ -46720,7 +46945,7 @@ router20.post("/api/quests/:id/claim", authMiddlewareWithFreshData, async (req2,
           lastActiveDate: today,
           totalDaysActive: sql26`total_days_active + 1`,
           updatedAt: /* @__PURE__ */ new Date()
-        }).where(eq27(playerStreaks.playerId, playerId));
+        }).where(eq28(playerStreaks.playerId, playerId));
       }
     } else {
       await db.insert(playerStreaks).values({
@@ -46770,16 +46995,16 @@ router20.post("/api/quests/:id/evidence", authMiddlewareWithFreshData, evidenceU
     const [quest] = await db.select({
       quest: playerQuests,
       template: questTemplates
-    }).from(playerQuests).innerJoin(questTemplates, eq27(playerQuests.questTemplateId, questTemplates.id)).where(and25(
-      eq27(playerQuests.id, id),
-      eq27(playerQuests.playerId, playerId)
+    }).from(playerQuests).innerJoin(questTemplates, eq28(playerQuests.questTemplateId, questTemplates.id)).where(and25(
+      eq28(playerQuests.id, id),
+      eq28(playerQuests.playerId, playerId)
     ));
     if (!quest) {
       return res.status(404).json({ error: "Quest not found" });
     }
     const evidenceUrl = `/uploads/quest-evidence/${req2.file.filename}`;
     const evidenceType = req2.file.mimetype.startsWith("video") ? "video" : "image";
-    await db.update(playerQuests).set({ evidenceUrl, evidenceType }).where(eq27(playerQuests.id, id));
+    await db.update(playerQuests).set({ evidenceUrl, evidenceType }).where(eq28(playerQuests.id, id));
     try {
       const userId = req2.user.userId;
       const academyId = req2.user.academyId;
@@ -46808,7 +47033,7 @@ router20.post("/api/quests/:id/evidence", authMiddlewareWithFreshData, evidenceU
 });
 router20.get("/api/badges", authMiddlewareWithFreshData, async (req2, res) => {
   try {
-    const allBadges = await db.select().from(badges).where(eq27(badges.isActive, true)).orderBy(asc7(badges.order));
+    const allBadges = await db.select().from(badges).where(eq28(badges.isActive, true)).orderBy(asc7(badges.order));
     res.json(allBadges);
   } catch (error) {
     console.error("Error fetching badges:", error);
@@ -46821,17 +47046,17 @@ router20.get("/api/player/badges", authMiddlewareWithFreshData, async (req2, res
     if (!playerId) {
       return res.status(400).json({ error: "Player context required" });
     }
-    const allBadges = await db.select().from(badges).where(eq27(badges.isActive, true));
+    const allBadges = await db.select().from(badges).where(eq28(badges.isActive, true));
     const earnedBadges = await db.select({
       playerBadge: playerBadges,
       badge: badges
-    }).from(playerBadges).innerJoin(badges, eq27(playerBadges.badgeId, badges.id)).where(eq27(playerBadges.playerId, playerId)).orderBy(desc21(playerBadges.earnedAt));
+    }).from(playerBadges).innerJoin(badges, eq28(playerBadges.badgeId, badges.id)).where(eq28(playerBadges.playerId, playerId)).orderBy(desc21(playerBadges.earnedAt));
     const earnedBadgeMap = new Map(earnedBadges.map((eb) => [eb.badge.id, eb.playerBadge.earnedAt]));
-    const allTitles = await db.select().from(titles).where(eq27(titles.isActive, true));
+    const allTitles = await db.select().from(titles).where(eq28(titles.isActive, true));
     const unlockedTitles = await db.select({
       playerTitle: playerTitles,
       title: titles
-    }).from(playerTitles).innerJoin(titles, eq27(playerTitles.titleId, titles.id)).where(eq27(playerTitles.playerId, playerId));
+    }).from(playerTitles).innerJoin(titles, eq28(playerTitles.titleId, titles.id)).where(eq28(playerTitles.playerId, playerId));
     const unlockedTitleMap = new Map(unlockedTitles.map((ut) => [ut.title.id, { unlockedAt: ut.playerTitle.unlockedAt, isEquipped: ut.playerTitle.isEquipped }]));
     const badges2 = allBadges.map((badge) => ({
       ...badge,
@@ -46859,7 +47084,7 @@ router20.get("/api/player/badges", authMiddlewareWithFreshData, async (req2, res
 });
 router20.get("/api/titles", authMiddlewareWithFreshData, async (req2, res) => {
   try {
-    const allTitles = await db.select().from(titles).where(eq27(titles.isActive, true)).orderBy(asc7(titles.order));
+    const allTitles = await db.select().from(titles).where(eq28(titles.isActive, true)).orderBy(asc7(titles.order));
     res.json(allTitles);
   } catch (error) {
     console.error("Error fetching titles:", error);
@@ -46875,7 +47100,7 @@ router20.get("/api/player/titles", authMiddlewareWithFreshData, async (req2, res
     const unlockedTitles = await db.select({
       playerTitle: playerTitles,
       title: titles
-    }).from(playerTitles).innerJoin(titles, eq27(playerTitles.titleId, titles.id)).where(eq27(playerTitles.playerId, playerId)).orderBy(desc21(playerTitles.unlockedAt));
+    }).from(playerTitles).innerJoin(titles, eq28(playerTitles.titleId, titles.id)).where(eq28(playerTitles.playerId, playerId)).orderBy(desc21(playerTitles.unlockedAt));
     res.json(unlockedTitles.map((ut) => ({
       ...ut.title,
       unlockedAt: ut.playerTitle.unlockedAt,
@@ -46894,14 +47119,14 @@ router20.post("/api/player/titles/:titleId/equip", authMiddlewareWithFreshData, 
       return res.status(400).json({ error: "Player context required" });
     }
     const [playerTitle] = await db.select().from(playerTitles).where(and25(
-      eq27(playerTitles.playerId, playerId),
-      eq27(playerTitles.titleId, titleId)
+      eq28(playerTitles.playerId, playerId),
+      eq28(playerTitles.titleId, titleId)
     ));
     if (!playerTitle) {
       return res.status(404).json({ error: "Title not unlocked" });
     }
-    await db.update(playerTitles).set({ isEquipped: false }).where(eq27(playerTitles.playerId, playerId));
-    await db.update(playerTitles).set({ isEquipped: true }).where(eq27(playerTitles.id, playerTitle.id));
+    await db.update(playerTitles).set({ isEquipped: false }).where(eq28(playerTitles.playerId, playerId));
+    await db.update(playerTitles).set({ isEquipped: true }).where(eq28(playerTitles.id, playerTitle.id));
     res.json({ success: true, message: "Title equipped" });
   } catch (error) {
     console.error("Error equipping title:", error);
@@ -46911,20 +47136,20 @@ router20.post("/api/player/titles/:titleId/equip", authMiddlewareWithFreshData, 
 router20.get("/api/player/:playerId/achievements", authMiddlewareWithFreshData, async (req2, res) => {
   try {
     const { playerId } = req2.params;
-    const [targetPlayer] = await db.select().from(players).where(eq27(players.id, playerId));
+    const [targetPlayer] = await db.select().from(players).where(eq28(players.id, playerId));
     if (!targetPlayer) {
       return res.status(404).json({ error: "Player not found" });
     }
     const earnedBadges = await db.select({
       playerBadge: playerBadges,
       badge: badges
-    }).from(playerBadges).innerJoin(badges, eq27(playerBadges.badgeId, badges.id)).where(eq27(playerBadges.playerId, playerId)).orderBy(desc21(playerBadges.earnedAt));
+    }).from(playerBadges).innerJoin(badges, eq28(playerBadges.badgeId, badges.id)).where(eq28(playerBadges.playerId, playerId)).orderBy(desc21(playerBadges.earnedAt));
     const [equippedTitle] = await db.select({
       playerTitle: playerTitles,
       title: titles
-    }).from(playerTitles).innerJoin(titles, eq27(playerTitles.titleId, titles.id)).where(and25(
-      eq27(playerTitles.playerId, playerId),
-      eq27(playerTitles.isEquipped, true)
+    }).from(playerTitles).innerJoin(titles, eq28(playerTitles.titleId, titles.id)).where(and25(
+      eq28(playerTitles.playerId, playerId),
+      eq28(playerTitles.isEquipped, true)
     ));
     res.json({
       badges: earnedBadges.map((eb) => ({
@@ -46947,13 +47172,13 @@ router20.post("/api/player/check-badges", authMiddlewareWithFreshData, async (re
     if (!playerId) {
       return res.status(400).json({ error: "Player context required" });
     }
-    const [player2] = await db.select().from(players).where(eq27(players.id, playerId));
+    const [player2] = await db.select().from(players).where(eq28(players.id, playerId));
     if (!player2) {
       return res.status(404).json({ error: "Player not found" });
     }
-    const [sessionCount] = await db.select({ count: count6() }).from(sessionPlayers).where(eq27(sessionPlayers.playerId, playerId));
-    const allBadges = await db.select().from(badges).where(eq27(badges.isActive, true));
-    const earnedBadgeIds = (await db.select({ badgeId: playerBadges.badgeId }).from(playerBadges).where(eq27(playerBadges.playerId, playerId))).map((eb) => eb.badgeId);
+    const [sessionCount] = await db.select({ count: count6() }).from(sessionPlayers).where(eq28(sessionPlayers.playerId, playerId));
+    const allBadges = await db.select().from(badges).where(eq28(badges.isActive, true));
+    const earnedBadgeIds = (await db.select({ badgeId: playerBadges.badgeId }).from(playerBadges).where(eq28(playerBadges.playerId, playerId))).map((eb) => eb.badgeId);
     const newlyEarnedBadges = [];
     for (const badge of allBadges) {
       if (earnedBadgeIds.includes(badge.id)) continue;
@@ -46988,8 +47213,8 @@ router20.post("/api/player/check-badges", authMiddlewareWithFreshData, async (re
         }
       }
     }
-    const allTitles = await db.select().from(titles).where(eq27(titles.isActive, true));
-    const earnedTitleIds = (await db.select({ titleId: playerTitles.titleId }).from(playerTitles).where(eq27(playerTitles.playerId, playerId))).map((et) => et.titleId);
+    const allTitles = await db.select().from(titles).where(eq28(titles.isActive, true));
+    const earnedTitleIds = (await db.select({ titleId: playerTitles.titleId }).from(playerTitles).where(eq28(playerTitles.playerId, playerId))).map((et) => et.titleId);
     const newlyUnlockedTitles = [];
     for (const title of allTitles) {
       if (earnedTitleIds.includes(title.id)) continue;
@@ -47044,16 +47269,16 @@ router20.get("/api/player/mission-control", authMiddlewareWithFreshData, async (
     const dubaiNow = new Date(now2.getTime() + DUBAI_OFFSET * 60 * 60 * 1e3);
     const today = now2.toISOString().split("T")[0];
     const oneDayAgo = new Date(now2.getTime() - 24 * 60 * 60 * 1e3);
-    const [player2] = await db.select().from(players).where(eq27(players.id, playerId));
+    const [player2] = await db.select().from(players).where(eq28(players.id, playerId));
     const playerQuestRows = await db.select().from(playerQuests).where(and25(
-      eq27(playerQuests.playerId, playerId),
+      eq28(playerQuests.playerId, playerId),
       inArray12(playerQuests.status, ["active", "completed"])
     )).limit(10);
     const templateIds = playerQuestRows.map((q) => q.questTemplateId).filter(Boolean);
     const questTemplateRows = templateIds.length > 0 ? await db.select().from(questTemplates).where(
       and25(
         inArray12(questTemplates.id, templateIds),
-        eq27(questTemplates.questType, "daily")
+        eq28(questTemplates.questType, "daily")
       )
     ) : [];
     const todayQuests = playerQuestRows.map((quest) => {
@@ -47062,7 +47287,7 @@ router20.get("/api/player/mission-control", authMiddlewareWithFreshData, async (
     }).filter((q) => q !== null).sort((a, b) => (a.template.order || 0) - (b.template.order || 0)).slice(0, 3);
     let upcomingSessions = [];
     try {
-      const playerSessionLinks = await db.select({ sessionId: sessionPlayers.sessionId }).from(sessionPlayers).where(eq27(sessionPlayers.playerId, playerId));
+      const playerSessionLinks = await db.select({ sessionId: sessionPlayers.sessionId }).from(sessionPlayers).where(eq28(sessionPlayers.playerId, playerId));
       const sessionIds = playerSessionLinks.map((ps) => ps.sessionId).filter((id) => id !== null);
       if (sessionIds.length > 0) {
         const allSessions = await db.select().from(sessions).where(inArray12(sessions.id, sessionIds));
@@ -47076,13 +47301,13 @@ router20.get("/api/player/mission-control", authMiddlewareWithFreshData, async (
     try {
       if (academyId) {
         const momentResult = await db.select({ count: count6() }).from(posts2).where(and25(
-          eq27(posts2.academyId, academyId),
-          eq27(posts2.isHidden, false)
+          eq28(posts2.academyId, academyId),
+          eq28(posts2.isHidden, false)
         ));
         momentCount = momentResult[0] || { count: 0 };
         const otpResult = await db.select({ count: count6() }).from(openToPlay).where(and25(
-          eq27(openToPlay.academyId, academyId),
-          eq27(openToPlay.isActive, true)
+          eq28(openToPlay.academyId, academyId),
+          eq28(openToPlay.isActive, true)
         ));
         openToPlayCount = otpResult[0] || { count: 0 };
       }
@@ -47138,12 +47363,12 @@ router20.get("/api/player/leaderboard", authMiddlewareWithFreshData, requireFeat
     const playerId = req2.user.playerId;
     const scope = req2.query.scope || "academy";
     const category = req2.query.category || "glow_score";
-    const conditions = [eq27(players.status, "active")];
+    const conditions = [eq28(players.status, "active")];
     if (scope === "academy" && academyId) {
-      conditions.push(eq27(players.academyId, academyId));
+      conditions.push(eq28(players.academyId, academyId));
     }
     if (category === "dss_rating") {
-      conditions.push(eq27(players.isAdult, true));
+      conditions.push(eq28(players.isAdult, true));
       conditions.push(sql26`COALESCE(${players.glowMmr}, 0) > 0`);
     } else if (category === "ball_level") {
       conditions.push(sql26`${players.ballLevel} IS NOT NULL`);
@@ -47249,9 +47474,9 @@ router20.get("/api/player/search", authMiddlewareWithFreshData, async (req2, res
     const searchQuery = req2.query.q || "";
     const skillLevel = req2.query.skill;
     const openToPlayOnly = req2.query.openToPlay === "true";
-    let conditions = [eq27(players.status, "active")];
+    let conditions = [eq28(players.status, "active")];
     if (academyId) {
-      conditions.push(eq27(players.academyId, academyId));
+      conditions.push(eq28(players.academyId, academyId));
     }
     if (playerId) {
       conditions.push(sql26`${players.id} != ${playerId}`);
@@ -47260,10 +47485,10 @@ router20.get("/api/player/search", authMiddlewareWithFreshData, async (req2, res
       conditions.push(sql26`LOWER(${players.name}) LIKE LOWER(${"%" + searchQuery + "%"})`);
     }
     if (skillLevel) {
-      conditions.push(eq27(players.ballLevel, skillLevel));
+      conditions.push(eq28(players.ballLevel, skillLevel));
     }
     if (openToPlayOnly) {
-      conditions.push(eq27(players.openToPlay, true));
+      conditions.push(eq28(players.openToPlay, true));
     }
     const results = await db.select({
       id: players.id,
@@ -47306,31 +47531,31 @@ router20.get("/api/player/discover", authMiddlewareWithFreshData, requireFeature
       profilePhotoUrl: players.profilePhotoUrl,
       academyId: players.academyId,
       glowScore: players.glowScore
-    }).from(players).where(eq27(players.id, playerId)).limit(1);
+    }).from(players).where(eq28(players.id, playerId)).limit(1);
     const currentPlayer = currentPlayerResult[0];
     if (!currentPlayer) {
       return res.status(404).json({ error: "Player not found" });
     }
     let conditions = [
-      eq27(players.status, "active"),
+      eq28(players.status, "active"),
       sql26`${players.id} != ${playerId}`
     ];
     let orderBy = desc21(players.glowScore);
     if (filter === "academy") {
       if (academyId) {
-        conditions.push(eq27(players.academyId, academyId));
+        conditions.push(eq28(players.academyId, academyId));
       }
     } else if (filter === "sameLevel") {
       const playerLevel = currentPlayer.level || 1;
       conditions.push(sql26`${players.level} >= ${Math.max(1, playerLevel - 2)}`);
       conditions.push(sql26`${players.level} <= ${playerLevel + 2}`);
       if (academyId) {
-        conditions.push(eq27(players.academyId, academyId));
+        conditions.push(eq28(players.academyId, academyId));
       }
       orderBy = desc21(players.glowScore);
     } else {
       if (academyId) {
-        conditions.push(eq27(players.academyId, academyId));
+        conditions.push(eq28(players.academyId, academyId));
       }
       orderBy = desc21(players.glowScore);
     }
@@ -47357,11 +47582,11 @@ router20.get("/api/player/open-to-play", authMiddlewareWithFreshData, requireFea
     const academyId = req2.user.academyId;
     const playerId = req2.user.playerId;
     const playerConditions = [
-      eq27(players.status, "active"),
-      eq27(players.openToPlay, true)
+      eq28(players.status, "active"),
+      eq28(players.openToPlay, true)
     ];
     if (academyId) {
-      playerConditions.push(eq27(players.academyId, academyId));
+      playerConditions.push(eq28(players.academyId, academyId));
     }
     if (playerId) {
       playerConditions.push(sql26`${players.id} != ${playerId}`);
@@ -47378,11 +47603,11 @@ router20.get("/api/player/open-to-play", authMiddlewareWithFreshData, requireFea
     let listings = [];
     try {
       const listingConditions = [
-        eq27(openToPlay.isActive, true),
+        eq28(openToPlay.isActive, true),
         gte14(openToPlay.availableUntil, /* @__PURE__ */ new Date())
       ];
       if (academyId) {
-        listingConditions.push(eq27(openToPlay.academyId, academyId));
+        listingConditions.push(eq28(openToPlay.academyId, academyId));
       }
       listings = await db.select({
         id: openToPlay.id,
@@ -47425,9 +47650,9 @@ router20.get("/api/player/connections", authMiddlewareWithFreshData, async (req2
       lastPlayedAt: playerConnections.lastPlayedAt,
       createdAt: playerConnections.createdAt,
       acceptedAt: playerConnections.acceptedAt
-    }).from(playerConnections).where(or12(
-      eq27(playerConnections.player1Id, playerId),
-      eq27(playerConnections.player2Id, playerId)
+    }).from(playerConnections).where(or13(
+      eq28(playerConnections.player1Id, playerId),
+      eq28(playerConnections.player2Id, playerId)
     )).orderBy(desc21(playerConnections.createdAt));
     const enrichedConnections = await Promise.all(allConnections.map(async (conn) => {
       const otherId = conn.player1Id === playerId ? conn.player2Id : conn.player1Id;
@@ -47441,7 +47666,7 @@ router20.get("/api/player/connections", authMiddlewareWithFreshData, async (req2
         ballLevel: players.ballLevel,
         academyId: players.academyId,
         openToPlay: players.openToPlay
-      }).from(players).where(eq27(players.id, otherId));
+      }).from(players).where(eq28(players.id, otherId));
       return {
         id: conn.id,
         status: conn.status,
@@ -47490,9 +47715,9 @@ router20.post("/api/player/connections/request", authMiddlewareWithFreshData, as
     if (targetPlayerId === playerId) {
       return res.status(400).json({ error: "Cannot send friend request to yourself" });
     }
-    const existingConnection = await db.select().from(playerConnections).where(or12(
-      and25(eq27(playerConnections.player1Id, playerId), eq27(playerConnections.player2Id, targetPlayerId)),
-      and25(eq27(playerConnections.player1Id, targetPlayerId), eq27(playerConnections.player2Id, playerId))
+    const existingConnection = await db.select().from(playerConnections).where(or13(
+      and25(eq28(playerConnections.player1Id, playerId), eq28(playerConnections.player2Id, targetPlayerId)),
+      and25(eq28(playerConnections.player1Id, targetPlayerId), eq28(playerConnections.player2Id, playerId))
     )).limit(1);
     if (existingConnection.length > 0) {
       const existing2 = existingConnection[0];
@@ -47526,7 +47751,7 @@ router20.post("/api/player/connections/:connectionId/respond", authMiddlewareWit
     if (!["accept", "decline"].includes(action)) {
       return res.status(400).json({ error: "Invalid action" });
     }
-    const [connection] = await db.select().from(playerConnections).where(eq27(playerConnections.id, connectionId));
+    const [connection] = await db.select().from(playerConnections).where(eq28(playerConnections.id, connectionId));
     if (!connection) {
       return res.status(404).json({ error: "Connection not found" });
     }
@@ -47537,9 +47762,9 @@ router20.post("/api/player/connections/:connectionId/respond", authMiddlewareWit
       return res.status(400).json({ error: "Request already responded to" });
     }
     if (action === "accept") {
-      await db.update(playerConnections).set({ status: "accepted", acceptedAt: /* @__PURE__ */ new Date() }).where(eq27(playerConnections.id, connectionId));
+      await db.update(playerConnections).set({ status: "accepted", acceptedAt: /* @__PURE__ */ new Date() }).where(eq28(playerConnections.id, connectionId));
     } else {
-      await db.delete(playerConnections).where(eq27(playerConnections.id, connectionId));
+      await db.delete(playerConnections).where(eq28(playerConnections.id, connectionId));
     }
     res.json({ success: true, action });
   } catch (error) {
@@ -47554,14 +47779,14 @@ router20.delete("/api/player/connections/:connectionId", authMiddlewareWithFresh
       return res.status(403).json({ error: "Player access required" });
     }
     const { connectionId } = req2.params;
-    const [connection] = await db.select().from(playerConnections).where(eq27(playerConnections.id, connectionId));
+    const [connection] = await db.select().from(playerConnections).where(eq28(playerConnections.id, connectionId));
     if (!connection) {
       return res.status(404).json({ error: "Connection not found" });
     }
     if (connection.player1Id !== playerId && connection.player2Id !== playerId) {
       return res.status(403).json({ error: "Not authorized" });
     }
-    await db.delete(playerConnections).where(eq27(playerConnections.id, connectionId));
+    await db.delete(playerConnections).where(eq28(playerConnections.id, connectionId));
     res.json({ success: true });
   } catch (error) {
     console.error("Error removing connection:", error);
@@ -47575,9 +47800,9 @@ router20.get("/api/player/connections/status/:targetPlayerId", authMiddlewareWit
       return res.status(403).json({ error: "Player access required" });
     }
     const { targetPlayerId } = req2.params;
-    const [connection] = await db.select().from(playerConnections).where(or12(
-      and25(eq27(playerConnections.player1Id, playerId), eq27(playerConnections.player2Id, targetPlayerId)),
-      and25(eq27(playerConnections.player1Id, targetPlayerId), eq27(playerConnections.player2Id, playerId))
+    const [connection] = await db.select().from(playerConnections).where(or13(
+      and25(eq28(playerConnections.player1Id, playerId), eq28(playerConnections.player2Id, targetPlayerId)),
+      and25(eq28(playerConnections.player1Id, targetPlayerId), eq28(playerConnections.player2Id, playerId))
     )).limit(1);
     if (!connection) {
       return res.json({ status: "none", connectionId: null });
@@ -47624,7 +47849,7 @@ router20.post("/api/admin/fix-vacation-debts", authMiddlewareWithFreshData, requ
       sessionId: sessionPlayers.sessionId,
       playerId: sessionPlayers.playerId,
       status: sessionPlayers.attendanceStatus
-    }).from(sessionPlayers).where(eq27(sessionPlayers.attendanceStatus, "vacation"));
+    }).from(sessionPlayers).where(eq28(sessionPlayers.attendanceStatus, "vacation"));
     console.log(`[VacationDebtFix] Found ${vacationRecords.length} vacation attendance records`);
     let totalCancelled = 0;
     const results = [];
@@ -47657,7 +47882,7 @@ router20.post("/api/admin/recalculate-v3-debts", authMiddlewareWithFreshData, re
   try {
     console.log("[V3DebtFix] Starting recalculation of V3 debts...");
     const v3Debts = await db.select().from(creditTransactions).where(and25(
-      eq27(creditTransactions.reason, "session_debt"),
+      eq28(creditTransactions.reason, "session_debt"),
       isNull6(creditTransactions.sessionId)
     ));
     console.log(`[V3DebtFix] Found ${v3Debts.length} V3 debt transactions to review`);
@@ -47667,17 +47892,17 @@ router20.post("/api/admin/recalculate-v3-debts", authMiddlewareWithFreshData, re
       const creditType = debt.creditType || "group";
       const oldDebtAmount = Math.abs(debt.amount);
       const sessionTypesForCredit = creditType === "group" ? ["group"] : creditType === "semi_private" ? ["semi_private", "semi-private"] : ["private"];
-      const presentSessions = await db.select({ count: sql26`count(*)` }).from(sessionPlayers).innerJoin(sessions, eq27(sessionPlayers.sessionId, sessions.id)).where(and25(
-        eq27(sessionPlayers.playerId, debt.playerId),
-        eq27(sessionPlayers.attendanceStatus, "present"),
+      const presentSessions = await db.select({ count: sql26`count(*)` }).from(sessionPlayers).innerJoin(sessions, eq28(sessionPlayers.sessionId, sessions.id)).where(and25(
+        eq28(sessionPlayers.playerId, debt.playerId),
+        eq28(sessionPlayers.attendanceStatus, "present"),
         inArray12(sessions.sessionType, sessionTypesForCredit)
       ));
       const presentCount = Number(presentSessions[0]?.count || 0);
       const playerPackages = await db.select({
         totalCredits: sql26`COALESCE(SUM(total_credits), 0)`
       }).from(packages).where(and25(
-        eq27(packages.playerId, debt.playerId),
-        eq27(packages.creditType, creditType)
+        eq28(packages.playerId, debt.playerId),
+        eq28(packages.creditType, creditType)
       ));
       const totalPurchased = Number(playerPackages[0]?.totalCredits || 0);
       const newDebtAmount = Math.max(0, presentCount - totalPurchased);
@@ -47693,7 +47918,7 @@ router20.post("/api/admin/recalculate-v3-debts", authMiddlewareWithFreshData, re
               oldAmount: debt.amount,
               reason: "v3_debt_recalculation"
             }
-          }).where(eq27(creditTransactions.id, debt.id));
+          }).where(eq28(creditTransactions.id, debt.id));
         } else {
           await db.update(creditTransactions).set({
             amount: -newDebtAmount,
@@ -47705,7 +47930,7 @@ router20.post("/api/admin/recalculate-v3-debts", authMiddlewareWithFreshData, re
               totalPurchased,
               reason: "v3_debt_recalculation"
             }
-          }).where(eq27(creditTransactions.id, debt.id));
+          }).where(eq28(creditTransactions.id, debt.id));
         }
         results.push({
           playerId: debt.playerId,
@@ -47733,7 +47958,7 @@ router20.post("/api/admin/fix-vacation-v3-debts", authMiddlewareWithFreshData, r
   try {
     console.log("[VacationV3Fix] Starting vacation debt adjustment...");
     const v3Debts = await db.select().from(creditTransactions).where(and25(
-      eq27(creditTransactions.reason, "session_debt"),
+      eq28(creditTransactions.reason, "session_debt"),
       isNull6(creditTransactions.sessionId)
     ));
     console.log(`[VacationV3Fix] Found ${v3Debts.length} V3 debt transactions`);
@@ -47745,9 +47970,9 @@ router20.post("/api/admin/fix-vacation-v3-debts", authMiddlewareWithFreshData, r
       const creditType = debt.creditType || "group";
       const oldDebtAmount = Math.abs(debt.amount);
       const sessionTypesForCredit = creditType === "group" ? ["group"] : creditType === "semi_private" ? ["semi_private", "semi-private"] : ["private"];
-      const vacationSessions = await db.select({ count: sql26`count(*)` }).from(sessionPlayers).innerJoin(sessions, eq27(sessionPlayers.sessionId, sessions.id)).where(and25(
-        eq27(sessionPlayers.playerId, debt.playerId),
-        eq27(sessionPlayers.attendanceStatus, "vacation"),
+      const vacationSessions = await db.select({ count: sql26`count(*)` }).from(sessionPlayers).innerJoin(sessions, eq28(sessionPlayers.sessionId, sessions.id)).where(and25(
+        eq28(sessionPlayers.playerId, debt.playerId),
+        eq28(sessionPlayers.attendanceStatus, "vacation"),
         inArray12(sessions.sessionType, sessionTypesForCredit)
       ));
       const vacationCount = Number(vacationSessions[0]?.count || 0);
@@ -47763,7 +47988,7 @@ router20.post("/api/admin/fix-vacation-v3-debts", authMiddlewareWithFreshData, r
             adjustedAt: (/* @__PURE__ */ new Date()).toISOString(),
             oldAmount: debt.amount
           }
-        }).where(eq27(creditTransactions.id, debt.id));
+        }).where(eq28(creditTransactions.id, debt.id));
       } else {
         await db.update(creditTransactions).set({
           amount: -newDebtAmount,
@@ -47773,7 +47998,7 @@ router20.post("/api/admin/fix-vacation-v3-debts", authMiddlewareWithFreshData, r
             adjustedAt: (/* @__PURE__ */ new Date()).toISOString(),
             oldAmount: debt.amount
           }
-        }).where(eq27(creditTransactions.id, debt.id));
+        }).where(eq28(creditTransactions.id, debt.id));
       }
       results.push({
         playerId: debt.playerId,
@@ -48142,7 +48367,7 @@ router20.post("/api/admin/fix-series-titles-and-merge", async (req2, res) => {
         activity: "Activity"
       };
       const newTitle = `${sessionTypeLabels[s.sessionType || ""] || s.sessionType || "Session"}${playerNameSuffix}`;
-      await db.update(coachingSeries).set({ title: newTitle }).where(eq27(coachingSeries.id, s.id));
+      await db.update(coachingSeries).set({ title: newTitle }).where(eq28(coachingSeries.id, s.id));
       fixes.push(`Renamed "${s.title}" \u2192 "${newTitle}" (ID: ${s.id})`);
     }
     const activeSeries = allSeries.filter((s) => s.status === "active" && s.dayOfWeek === -1);
@@ -48170,14 +48395,14 @@ router20.post("/api/admin/fix-series-titles-and-merge", async (req2, res) => {
         const primary = duplicates[0];
         const toMerge = duplicates.slice(1);
         for (const dup of toMerge) {
-          const dupSessions = await db.select().from(sessions).where(eq27(sessions.seriesId, dup.series.id));
+          const dupSessions = await db.select().from(sessions).where(eq28(sessions.seriesId, dup.series.id));
           for (const sess of dupSessions) {
-            await db.update(sessions).set({ seriesId: primary.series.id }).where(eq27(sessions.id, sess.id));
+            await db.update(sessions).set({ seriesId: primary.series.id }).where(eq28(sessions.id, sess.id));
           }
-          await db.update(coachingSeries).set({ status: "ended" }).where(eq27(coachingSeries.id, dup.series.id));
+          await db.update(coachingSeries).set({ status: "ended" }).where(eq28(coachingSeries.id, dup.series.id));
           fixes.push(`Merged series "${dup.series.title}" (ID: ${dup.series.id}) \u2192 "${primary.series.title}" (ID: ${primary.series.id}), moved ${dupSessions.length} sessions`);
         }
-        const allPrimarySessions = await db.select().from(sessions).where(eq27(sessions.seriesId, primary.series.id));
+        const allPrimarySessions = await db.select().from(sessions).where(eq28(sessions.seriesId, primary.series.id));
         let latestDate = primary.series.seriesEndDate;
         for (const sess of allPrimarySessions) {
           const sessDate = sess.startTime ? new Date(sess.startTime).toISOString().split("T")[0] : null;
@@ -48188,7 +48413,7 @@ router20.post("/api/admin/fix-series-titles-and-merge", async (req2, res) => {
         await db.update(coachingSeries).set({
           weekCount: allPrimarySessions.length,
           seriesEndDate: latestDate
-        }).where(eq27(coachingSeries.id, primary.series.id));
+        }).where(eq28(coachingSeries.id, primary.series.id));
       }
     }
     console.log(`[SeriesFix] Completed. ${fixes.length} changes made.`);
@@ -48210,7 +48435,7 @@ router20.get("/api/player/spotlight/academy-players", authMiddlewareWithFreshDat
       level: players.level,
       ballLevel: players.ballLevel
     }).from(players).where(and25(
-      eq27(players.academyId, academyId),
+      eq28(players.academyId, academyId),
       ne5(players.id, playerId || "")
     )).orderBy(asc7(players.name));
     res.json(academyPlayers);
@@ -48315,14 +48540,14 @@ router20.post("/api/player/spotlight/nominate", authMiddlewareWithFreshData, req
     if (nominatedPlayerId === playerId) {
       return res.status(400).json({ error: "You cannot nominate yourself" });
     }
-    const [nominee] = await db.select({ id: players.id, academyId: players.academyId }).from(players).where(eq27(players.id, nominatedPlayerId));
+    const [nominee] = await db.select({ id: players.id, academyId: players.academyId }).from(players).where(eq28(players.id, nominatedPlayerId));
     if (!nominee || nominee.academyId !== academyId) {
       return res.status(400).json({ error: "Nominated player must be in the same academy" });
     }
     const weekStart = getWeekStart();
     const existing2 = await db.select({ id: spotlightNominations.id }).from(spotlightNominations).where(and25(
-      eq27(spotlightNominations.nominatorPlayerId, playerId),
-      eq27(spotlightNominations.weekStart, weekStart)
+      eq28(spotlightNominations.nominatorPlayerId, playerId),
+      eq28(spotlightNominations.weekStart, weekStart)
     ));
     if (existing2.length > 0) {
       return res.status(400).json({ error: "You have already nominated someone this week" });
@@ -48356,9 +48581,9 @@ router20.get("/api/player/spotlight/current-week", authMiddlewareWithFreshData, 
       profilePhotoUrl: players.profilePhotoUrl,
       level: players.level,
       ballLevel: players.ballLevel
-    }).from(spotlightNominations).innerJoin(players, eq27(players.id, spotlightNominations.nominatedPlayerId)).where(and25(
-      eq27(spotlightNominations.academyId, academyId),
-      eq27(spotlightNominations.weekStart, weekStart)
+    }).from(spotlightNominations).innerJoin(players, eq28(players.id, spotlightNominations.nominatedPlayerId)).where(and25(
+      eq28(spotlightNominations.academyId, academyId),
+      eq28(spotlightNominations.weekStart, weekStart)
     ));
     const aggregated = {};
     for (const nom of nominations) {
@@ -48409,9 +48634,9 @@ router20.get("/api/player/spotlight/weekly-winner", authMiddlewareWithFreshData,
       profilePhotoUrl: players.profilePhotoUrl,
       level: players.level,
       ballLevel: players.ballLevel
-    }).from(spotlightWeeklyWinners).innerJoin(players, eq27(players.id, spotlightWeeklyWinners.playerId)).where(and25(
-      eq27(spotlightWeeklyWinners.academyId, academyId),
-      eq27(spotlightWeeklyWinners.weekStart, targetWeekStart)
+    }).from(spotlightWeeklyWinners).innerJoin(players, eq28(players.id, spotlightWeeklyWinners.playerId)).where(and25(
+      eq28(spotlightWeeklyWinners.academyId, academyId),
+      eq28(spotlightWeeklyWinners.weekStart, targetWeekStart)
     ));
     if (existingWinner) {
       return res.json({ winner: existingWinner });
@@ -48426,8 +48651,8 @@ router20.get("/api/player/spotlight/weekly-winner", authMiddlewareWithFreshData,
       nominatedPlayerId: spotlightNominations.nominatedPlayerId,
       reason: spotlightNominations.reason
     }).from(spotlightNominations).where(and25(
-      eq27(spotlightNominations.academyId, academyId),
-      eq27(spotlightNominations.weekStart, targetWeekStart)
+      eq28(spotlightNominations.academyId, academyId),
+      eq28(spotlightNominations.weekStart, targetWeekStart)
     ));
     if (weekNominations.length === 0) {
       return res.json({ winner: null });
@@ -48454,7 +48679,7 @@ router20.get("/api/player/spotlight/weekly-winner", authMiddlewareWithFreshData,
       profilePhotoUrl: players.profilePhotoUrl,
       level: players.level,
       ballLevel: players.ballLevel
-    }).from(players).where(eq27(players.id, winnerId));
+    }).from(players).where(eq28(players.id, winnerId));
     try {
       await awardXP2(winnerId, "spotlight_weekly_winner", "spotlight", inserted.id);
       console.log("[Spotlight] Awarded 50 XP to weekly winner:", winnerId);
@@ -48499,10 +48724,10 @@ router20.get("/api/player/spotlight/monthly", authMiddlewareWithFreshData, requi
       year: spotlightMonthlyWinners.year,
       playerName: players.name,
       profilePhotoUrl: players.profilePhotoUrl
-    }).from(spotlightMonthlyWinners).innerJoin(players, eq27(players.id, spotlightMonthlyWinners.playerId)).where(and25(
-      eq27(spotlightMonthlyWinners.academyId, academyId),
-      eq27(spotlightMonthlyWinners.month, month),
-      eq27(spotlightMonthlyWinners.year, year)
+    }).from(spotlightMonthlyWinners).innerJoin(players, eq28(players.id, spotlightMonthlyWinners.playerId)).where(and25(
+      eq28(spotlightMonthlyWinners.academyId, academyId),
+      eq28(spotlightMonthlyWinners.month, month),
+      eq28(spotlightMonthlyWinners.year, year)
     ));
     const monthEnd = new Date(year, month, 0);
     const isMonthOver = now2 > monthEnd;
@@ -48513,8 +48738,8 @@ router20.get("/api/player/spotlight/monthly", authMiddlewareWithFreshData, requi
       weekStart: spotlightWeeklyWinners.weekStart,
       playerName: players.name,
       profilePhotoUrl: players.profilePhotoUrl
-    }).from(spotlightWeeklyWinners).innerJoin(players, eq27(players.id, spotlightWeeklyWinners.playerId)).where(and25(
-      eq27(spotlightWeeklyWinners.academyId, academyId),
+    }).from(spotlightWeeklyWinners).innerJoin(players, eq28(players.id, spotlightWeeklyWinners.playerId)).where(and25(
+      eq28(spotlightWeeklyWinners.academyId, academyId),
       gte14(spotlightWeeklyWinners.weekStart, monthStart.toISOString().split("T")[0]),
       lte6(spotlightWeeklyWinners.weekStart, monthEnd.toISOString().split("T")[0])
     ));
@@ -48581,9 +48806,9 @@ router20.get("/api/player/spotlight/leaderboard", authMiddlewareWithFreshData, r
       profilePhotoUrl: players.profilePhotoUrl,
       level: players.level,
       ballLevel: players.ballLevel
-    }).from(spotlightNominations).innerJoin(players, eq27(players.id, spotlightNominations.nominatedPlayerId)).where(and25(
-      eq27(spotlightNominations.academyId, academyId),
-      eq27(spotlightNominations.weekStart, weekStart)
+    }).from(spotlightNominations).innerJoin(players, eq28(players.id, spotlightNominations.nominatedPlayerId)).where(and25(
+      eq28(spotlightNominations.academyId, academyId),
+      eq28(spotlightNominations.weekStart, weekStart)
     ));
     const aggregated = {};
     for (const nom of nominations) {
@@ -48624,8 +48849,8 @@ router20.get("/api/player/spotlight/history", authMiddlewareWithFreshData, requi
       topReason: spotlightWeeklyWinners.topReason,
       playerName: players.name,
       profilePhotoUrl: players.profilePhotoUrl
-    }).from(spotlightWeeklyWinners).innerJoin(players, eq27(players.id, spotlightWeeklyWinners.playerId)).where(and25(
-      eq27(spotlightWeeklyWinners.academyId, academyId),
+    }).from(spotlightWeeklyWinners).innerJoin(players, eq28(players.id, spotlightWeeklyWinners.playerId)).where(and25(
+      eq28(spotlightWeeklyWinners.academyId, academyId),
       gte14(spotlightWeeklyWinners.weekStart, cutoffDate)
     )).orderBy(desc21(spotlightWeeklyWinners.weekStart));
     const monthlyWinners = await db.select({
@@ -48636,7 +48861,7 @@ router20.get("/api/player/spotlight/history", authMiddlewareWithFreshData, requi
       totalVotesAllWeeks: spotlightMonthlyWinners.totalVotesAllWeeks,
       playerName: players.name,
       profilePhotoUrl: players.profilePhotoUrl
-    }).from(spotlightMonthlyWinners).innerJoin(players, eq27(players.id, spotlightMonthlyWinners.playerId)).where(eq27(spotlightMonthlyWinners.academyId, academyId)).orderBy(desc21(spotlightMonthlyWinners.year), desc21(spotlightMonthlyWinners.month));
+    }).from(spotlightMonthlyWinners).innerJoin(players, eq28(players.id, spotlightMonthlyWinners.playerId)).where(eq28(spotlightMonthlyWinners.academyId, academyId)).orderBy(desc21(spotlightMonthlyWinners.year), desc21(spotlightMonthlyWinners.month));
     res.json({ weeklyWinners, monthlyWinners });
   } catch (error) {
     console.error("[Spotlight] History error:", error);
@@ -48656,7 +48881,7 @@ router20.delete("/api/player/me/account", authMiddlewareWithFreshData, async (re
     let playerEmailForNotification = null;
     let playerNameForNotification = "Player";
     if (playerId) {
-      const [playerRecord] = await db.select({ email: players.email, name: players.name }).from(players).where(eq27(players.id, playerId));
+      const [playerRecord] = await db.select({ email: players.email, name: players.name }).from(players).where(eq28(players.id, playerId));
       if (playerRecord) {
         playerEmailForNotification = playerRecord.email;
         playerNameForNotification = playerRecord.name;
@@ -48670,7 +48895,7 @@ router20.delete("/api/player/me/account", authMiddlewareWithFreshData, async (re
         dateOfBirth: null,
         parentEmail: null,
         profilePhotoUrl: null
-      }).where(eq27(players.id, playerId));
+      }).where(eq28(players.id, playerId));
     }
     const deletedAt = /* @__PURE__ */ new Date();
     await db.update(users).set({
@@ -48678,7 +48903,7 @@ router20.delete("/api/player/me/account", authMiddlewareWithFreshData, async (re
       deletedAt,
       email: `deleted_${userId}@glowupsports.invalid`,
       appleId: null
-    }).where(eq27(users.id, userId));
+    }).where(eq28(users.id, userId));
     console.log(`[AccountDeletion] User ${userId} (player ${playerId}) account deleted at ${deletedAt.toISOString()}`);
     if (playerEmailForNotification) {
       sendEmail({
@@ -48723,9 +48948,9 @@ router20.post("/api/player/me/report/posts/:postId", authMiddlewareWithFreshData
     const { reason } = req2.body;
     if (!postId) return res.status(400).json({ error: "Post ID required" });
     const existing2 = await db.select({ id: contentReports.id }).from(contentReports).where(and25(
-      eq27(contentReports.reporterUserId, userId),
-      eq27(contentReports.contentId, postId),
-      eq27(contentReports.contentType, "post")
+      eq28(contentReports.reporterUserId, userId),
+      eq28(contentReports.contentId, postId),
+      eq28(contentReports.contentType, "post")
     )).limit(1);
     if (existing2.length > 0) return res.json({ success: true, alreadyReported: true });
     await db.insert(contentReports).values({
@@ -48746,7 +48971,7 @@ router20.post("/api/player/me/block/:playerId", authMiddlewareWithFreshData, asy
     const blockerUserId = req2.user.userId;
     const targetPlayerId = req2.params.playerId;
     if (!targetPlayerId) return res.status(400).json({ error: "Player ID required" });
-    const [targetUser] = await db.select({ id: users.id }).from(users).where(eq27(users.playerId, targetPlayerId)).limit(1);
+    const [targetUser] = await db.select({ id: users.id }).from(users).where(eq28(users.playerId, targetPlayerId)).limit(1);
     const blockedUserId = targetUser?.id || targetPlayerId;
     if (blockerUserId === blockedUserId) return res.status(400).json({ error: "Cannot block yourself" });
     await db.insert(playerBlocks).values({
@@ -48764,11 +48989,11 @@ router20.delete("/api/player/me/block/:playerId", authMiddlewareWithFreshData, a
   try {
     const blockerUserId = req2.user.userId;
     const targetPlayerId = req2.params.playerId;
-    const [targetUser] = await db.select({ id: users.id }).from(users).where(eq27(users.playerId, targetPlayerId)).limit(1);
+    const [targetUser] = await db.select({ id: users.id }).from(users).where(eq28(users.playerId, targetPlayerId)).limit(1);
     const blockedUserId = targetUser?.id || targetPlayerId;
     await db.delete(playerBlocks).where(and25(
-      eq27(playerBlocks.blockerUserId, blockerUserId),
-      eq27(playerBlocks.blockedUserId, blockedUserId)
+      eq28(playerBlocks.blockerUserId, blockerUserId),
+      eq28(playerBlocks.blockedUserId, blockedUserId)
     ));
     res.json({ success: true });
   } catch (error) {
@@ -48782,7 +49007,7 @@ var player_social_default = router20;
 init_db();
 init_schema();
 import { Router as Router20 } from "express";
-import { eq as eq28, and as and26, desc as desc22, asc as asc8, sql as sql27, inArray as inArray13, gte as gte15, lte as lte7 } from "drizzle-orm";
+import { eq as eq29, and as and26, desc as desc22, asc as asc8, sql as sql27, inArray as inArray13, gte as gte15, lte as lte7 } from "drizzle-orm";
 var router21 = Router20();
 router21.get("/api/player/tournaments", authMiddlewareWithFreshData, async (req2, res) => {
   try {
@@ -48792,9 +49017,9 @@ router21.get("/api/player/tournaments", authMiddlewareWithFreshData, async (req2
       return res.status(400).json({ error: "Academy context required" });
     }
     const status = req2.query.status;
-    let whereClause = eq28(tournaments.academyId, academyId);
+    let whereClause = eq29(tournaments.academyId, academyId);
     if (status) {
-      whereClause = and26(whereClause, eq28(tournaments.status, status));
+      whereClause = and26(whereClause, eq29(tournaments.status, status));
     }
     const allTournaments = await db.select().from(tournaments).where(whereClause).orderBy(desc22(tournaments.startDate));
     const tournamentIds = allTournaments.map((t) => t.id);
@@ -48828,7 +49053,7 @@ router21.get("/api/player/tournaments/:id", authMiddlewareWithFreshData, async (
   try {
     const { id } = req2.params;
     const playerId = req2.user.playerId;
-    const [tournament] = await db.select().from(tournaments).where(eq28(tournaments.id, id));
+    const [tournament] = await db.select().from(tournaments).where(eq29(tournaments.id, id));
     if (!tournament) {
       return res.status(404).json({ error: "Tournament not found" });
     }
@@ -48839,8 +49064,8 @@ router21.get("/api/player/tournaments/:id", authMiddlewareWithFreshData, async (
         name: players.name,
         photoUrl: players.photoUrl
       }
-    }).from(tournamentParticipants).innerJoin(players, eq28(tournamentParticipants.playerId, players.id)).where(eq28(tournamentParticipants.tournamentId, id)).orderBy(asc8(tournamentParticipants.seed));
-    const matches2 = await db.select().from(tournamentMatches).where(eq28(tournamentMatches.tournamentId, id)).orderBy(asc8(tournamentMatches.round), asc8(tournamentMatches.matchOrder));
+    }).from(tournamentParticipants).innerJoin(players, eq29(tournamentParticipants.playerId, players.id)).where(eq29(tournamentParticipants.tournamentId, id)).orderBy(asc8(tournamentParticipants.seed));
+    const matches2 = await db.select().from(tournamentMatches).where(eq29(tournamentMatches.tournamentId, id)).orderBy(asc8(tournamentMatches.round), asc8(tournamentMatches.matchOrder));
     let nextMatch = null;
     if (playerId) {
       const playerMatches2 = matches2.filter(
@@ -48871,7 +49096,7 @@ router21.post("/api/player/tournaments/:id/register", authMiddlewareWithFreshDat
     if (!playerId) {
       return res.status(400).json({ error: "Player context required" });
     }
-    const [tournament] = await db.select().from(tournaments).where(eq28(tournaments.id, id));
+    const [tournament] = await db.select().from(tournaments).where(eq29(tournaments.id, id));
     if (!tournament) {
       return res.status(404).json({ error: "Tournament not found" });
     }
@@ -48879,15 +49104,15 @@ router21.post("/api/player/tournaments/:id/register", authMiddlewareWithFreshDat
       return res.status(400).json({ error: "Registration is closed for this tournament" });
     }
     const [existing2] = await db.select().from(tournamentParticipants).where(and26(
-      eq28(tournamentParticipants.tournamentId, id),
-      eq28(tournamentParticipants.playerId, playerId)
+      eq29(tournamentParticipants.tournamentId, id),
+      eq29(tournamentParticipants.playerId, playerId)
     ));
     if (existing2) {
       return res.status(400).json({ error: "Already registered for this tournament" });
     }
     const [countResult] = await db.select({
       count: sql27`count(*)::int`
-    }).from(tournamentParticipants).where(eq28(tournamentParticipants.tournamentId, id));
+    }).from(tournamentParticipants).where(eq29(tournamentParticipants.tournamentId, id));
     if (countResult.count >= tournament.spotsTotal) {
       return res.status(400).json({ error: "Tournament is full" });
     }
@@ -48908,7 +49133,7 @@ router21.post("/api/player/tournaments/:id/withdraw", authMiddlewareWithFreshDat
     if (!playerId) {
       return res.status(400).json({ error: "Player context required" });
     }
-    const [tournament] = await db.select().from(tournaments).where(eq28(tournaments.id, id));
+    const [tournament] = await db.select().from(tournaments).where(eq29(tournaments.id, id));
     if (!tournament) {
       return res.status(404).json({ error: "Tournament not found" });
     }
@@ -48916,13 +49141,13 @@ router21.post("/api/player/tournaments/:id/withdraw", authMiddlewareWithFreshDat
       return res.status(400).json({ error: "Cannot withdraw from a tournament that has started" });
     }
     const [existing2] = await db.select().from(tournamentParticipants).where(and26(
-      eq28(tournamentParticipants.tournamentId, id),
-      eq28(tournamentParticipants.playerId, playerId)
+      eq29(tournamentParticipants.tournamentId, id),
+      eq29(tournamentParticipants.playerId, playerId)
     ));
     if (!existing2) {
       return res.status(400).json({ error: "Not registered for this tournament" });
     }
-    await db.delete(tournamentParticipants).where(eq28(tournamentParticipants.id, existing2.id));
+    await db.delete(tournamentParticipants).where(eq29(tournamentParticipants.id, existing2.id));
     res.json({ success: true, message: "Withdrawn from tournament" });
   } catch (error) {
     console.error("Error withdrawing from tournament:", error);
@@ -48938,17 +49163,17 @@ router21.get("/api/player/tournaments/:id/draw", authMiddlewareWithFreshData, as
         id: players.id,
         name: players.name
       }
-    }).from(tournamentMatches).leftJoin(players, eq28(tournamentMatches.player1Id, players.id)).where(eq28(tournamentMatches.tournamentId, id)).orderBy(asc8(tournamentMatches.round), asc8(tournamentMatches.matchOrder));
+    }).from(tournamentMatches).leftJoin(players, eq29(tournamentMatches.player1Id, players.id)).where(eq29(tournamentMatches.tournamentId, id)).orderBy(asc8(tournamentMatches.round), asc8(tournamentMatches.matchOrder));
     const matchesWithPlayer2 = [];
     for (const m of matches2) {
       let player2 = null;
       if (m.match.player2Id) {
-        const [p2] = await db.select({ id: players.id, name: players.name }).from(players).where(eq28(players.id, m.match.player2Id));
+        const [p2] = await db.select({ id: players.id, name: players.name }).from(players).where(eq29(players.id, m.match.player2Id));
         player2 = p2 || null;
       }
       let winner = null;
       if (m.match.winnerId) {
-        const [w] = await db.select({ id: players.id, name: players.name }).from(players).where(eq28(players.id, m.match.winnerId));
+        const [w] = await db.select({ id: players.id, name: players.name }).from(players).where(eq29(players.id, m.match.winnerId));
         winner = w || null;
       }
       matchesWithPlayer2.push({
@@ -48972,7 +49197,7 @@ router21.get("/api/player/tournaments/:id/draw", authMiddlewareWithFreshData, as
 router21.get("/api/player/tournaments/:id/groups", authMiddlewareWithFreshData, async (req2, res) => {
   try {
     const { id } = req2.params;
-    const matches2 = await db.select().from(tournamentMatches).where(eq28(tournamentMatches.tournamentId, id)).orderBy(asc8(tournamentMatches.round));
+    const matches2 = await db.select().from(tournamentMatches).where(eq29(tournamentMatches.tournamentId, id)).orderBy(asc8(tournamentMatches.round));
     const groupMatches = matches2.filter((m) => m.round.startsWith("Group"));
     const standings = {};
     for (const m of groupMatches) {
@@ -48980,7 +49205,7 @@ router21.get("/api/player/tournaments/:id/groups", authMiddlewareWithFreshData, 
       if (!standings[group]) standings[group] = {};
       for (const pid of [m.player1Id, m.player2Id]) {
         if (pid && !standings[group][pid]) {
-          const [p] = await db.select({ id: players.id, name: players.name }).from(players).where(eq28(players.id, pid));
+          const [p] = await db.select({ id: players.id, name: players.name }).from(players).where(eq29(players.id, pid));
           standings[group][pid] = {
             playerId: pid,
             name: p?.name || "Unknown",
@@ -49014,17 +49239,17 @@ router21.get("/api/player/tournaments/:id/groups", authMiddlewareWithFreshData, 
 router21.get("/api/player/tournaments/:id/schedule", authMiddlewareWithFreshData, async (req2, res) => {
   try {
     const { id } = req2.params;
-    const matches2 = await db.select().from(tournamentMatches).where(eq28(tournamentMatches.tournamentId, id)).orderBy(asc8(tournamentMatches.scheduledTime), asc8(tournamentMatches.round), asc8(tournamentMatches.matchOrder));
+    const matches2 = await db.select().from(tournamentMatches).where(eq29(tournamentMatches.tournamentId, id)).orderBy(asc8(tournamentMatches.scheduledTime), asc8(tournamentMatches.round), asc8(tournamentMatches.matchOrder));
     const enrichedMatches = [];
     for (const m of matches2) {
       let player1 = null;
       let player2 = null;
       if (m.player1Id) {
-        const [p] = await db.select({ id: players.id, name: players.name }).from(players).where(eq28(players.id, m.player1Id));
+        const [p] = await db.select({ id: players.id, name: players.name }).from(players).where(eq29(players.id, m.player1Id));
         player1 = p || null;
       }
       if (m.player2Id) {
-        const [p] = await db.select({ id: players.id, name: players.name }).from(players).where(eq28(players.id, m.player2Id));
+        const [p] = await db.select({ id: players.id, name: players.name }).from(players).where(eq29(players.id, m.player2Id));
         player2 = p || null;
       }
       enrichedMatches.push({ ...m, player1, player2 });
@@ -49045,7 +49270,7 @@ router21.get("/api/player/tournaments/:id/participants", authMiddlewareWithFresh
         name: players.name,
         photoUrl: players.photoUrl
       }
-    }).from(tournamentParticipants).innerJoin(players, eq28(tournamentParticipants.playerId, players.id)).where(eq28(tournamentParticipants.tournamentId, id)).orderBy(asc8(tournamentParticipants.seed));
+    }).from(tournamentParticipants).innerJoin(players, eq29(tournamentParticipants.playerId, players.id)).where(eq29(tournamentParticipants.tournamentId, id)).orderBy(asc8(tournamentParticipants.seed));
     res.json(participantsList);
   } catch (error) {
     console.error("Error fetching participants:", error);
@@ -49059,7 +49284,7 @@ router21.get("/api/player/ladders", authMiddlewareWithFreshData, async (req2, re
     if (!academyId) {
       return res.status(400).json({ error: "Academy context required" });
     }
-    const allLadders = await db.select().from(ladders).where(eq28(ladders.academyId, academyId)).orderBy(desc22(ladders.createdAt));
+    const allLadders = await db.select().from(ladders).where(eq29(ladders.academyId, academyId)).orderBy(desc22(ladders.createdAt));
     const ladderIds = allLadders.map((l) => l.id);
     let ladderPlayersList = [];
     if (ladderIds.length > 0) {
@@ -49095,7 +49320,7 @@ router21.get("/api/player/ladders/:id", authMiddlewareWithFreshData, async (req2
   try {
     const { id } = req2.params;
     const playerId = req2.user.playerId;
-    const [ladder] = await db.select().from(ladders).where(eq28(ladders.id, id));
+    const [ladder] = await db.select().from(ladders).where(eq29(ladders.id, id));
     if (!ladder) {
       return res.status(404).json({ error: "Ladder not found" });
     }
@@ -49106,12 +49331,12 @@ router21.get("/api/player/ladders/:id", authMiddlewareWithFreshData, async (req2
         name: players.name,
         photoUrl: players.photoUrl
       }
-    }).from(ladderPlayers).innerJoin(players, eq28(ladderPlayers.playerId, players.id)).where(eq28(ladderPlayers.ladderId, id)).orderBy(asc8(ladderPlayers.position));
-    const challenges = await db.select().from(ladderChallenges).where(eq28(ladderChallenges.ladderId, id)).orderBy(desc22(ladderChallenges.createdAt));
+    }).from(ladderPlayers).innerJoin(players, eq29(ladderPlayers.playerId, players.id)).where(eq29(ladderPlayers.ladderId, id)).orderBy(asc8(ladderPlayers.position));
+    const challenges = await db.select().from(ladderChallenges).where(eq29(ladderChallenges.ladderId, id)).orderBy(desc22(ladderChallenges.createdAt));
     const enrichedChallenges = [];
     for (const c of challenges) {
-      const [challenger] = await db.select({ id: players.id, name: players.name }).from(players).where(eq28(players.id, c.challengerId));
-      const [challenged] = await db.select({ id: players.id, name: players.name }).from(players).where(eq28(players.id, c.challengedId));
+      const [challenger] = await db.select({ id: players.id, name: players.name }).from(players).where(eq29(players.id, c.challengerId));
+      const [challenged] = await db.select({ id: players.id, name: players.name }).from(players).where(eq29(players.id, c.challengedId));
       enrichedChallenges.push({
         ...c,
         challenger: challenger || null,
@@ -49140,7 +49365,7 @@ router21.post("/api/player/ladders/:id/join", authMiddlewareWithFreshData, async
     if (!playerId) {
       return res.status(400).json({ error: "Player context required" });
     }
-    const [ladder] = await db.select().from(ladders).where(eq28(ladders.id, id));
+    const [ladder] = await db.select().from(ladders).where(eq29(ladders.id, id));
     if (!ladder) {
       return res.status(404).json({ error: "Ladder not found" });
     }
@@ -49148,15 +49373,15 @@ router21.post("/api/player/ladders/:id/join", authMiddlewareWithFreshData, async
       return res.status(400).json({ error: "Ladder is not active" });
     }
     const [existing2] = await db.select().from(ladderPlayers).where(and26(
-      eq28(ladderPlayers.ladderId, id),
-      eq28(ladderPlayers.playerId, playerId)
+      eq29(ladderPlayers.ladderId, id),
+      eq29(ladderPlayers.playerId, playerId)
     ));
     if (existing2) {
       return res.status(400).json({ error: "Already joined this ladder" });
     }
     const [maxPos] = await db.select({
       maxPosition: sql27`COALESCE(MAX(position), 0)::int`
-    }).from(ladderPlayers).where(eq28(ladderPlayers.ladderId, id));
+    }).from(ladderPlayers).where(eq29(ladderPlayers.ladderId, id));
     const newPosition = (maxPos?.maxPosition || 0) + 1;
     const [ladderPlayer] = await db.insert(ladderPlayers).values({
       ladderId: id,
@@ -49180,18 +49405,18 @@ router21.post("/api/player/ladders/:id/challenge", authMiddlewareWithFreshData, 
     if (!challengedPlayerId) {
       return res.status(400).json({ error: "challengedPlayerId is required" });
     }
-    const [ladder] = await db.select().from(ladders).where(eq28(ladders.id, id));
+    const [ladder] = await db.select().from(ladders).where(eq29(ladders.id, id));
     if (!ladder) {
       return res.status(404).json({ error: "Ladder not found" });
     }
     if (ladder.status !== "active") {
       return res.status(400).json({ error: "Ladder is not active" });
     }
-    const [challengerEntry] = await db.select().from(ladderPlayers).where(and26(eq28(ladderPlayers.ladderId, id), eq28(ladderPlayers.playerId, playerId)));
+    const [challengerEntry] = await db.select().from(ladderPlayers).where(and26(eq29(ladderPlayers.ladderId, id), eq29(ladderPlayers.playerId, playerId)));
     if (!challengerEntry) {
       return res.status(400).json({ error: "You must join the ladder first" });
     }
-    const [challengedEntry] = await db.select().from(ladderPlayers).where(and26(eq28(ladderPlayers.ladderId, id), eq28(ladderPlayers.playerId, challengedPlayerId)));
+    const [challengedEntry] = await db.select().from(ladderPlayers).where(and26(eq29(ladderPlayers.ladderId, id), eq29(ladderPlayers.playerId, challengedPlayerId)));
     if (!challengedEntry) {
       return res.status(400).json({ error: "Challenged player is not in this ladder" });
     }
@@ -49203,8 +49428,8 @@ router21.post("/api/player/ladders/:id/challenge", authMiddlewareWithFreshData, 
       return res.status(400).json({ error: `You can only challenge players within ${ladder.challengeRange} positions above you` });
     }
     const [existingChallenge] = await db.select().from(ladderChallenges).where(and26(
-      eq28(ladderChallenges.ladderId, id),
-      eq28(ladderChallenges.challengerId, playerId),
+      eq29(ladderChallenges.ladderId, id),
+      eq29(ladderChallenges.challengerId, playerId),
       inArray13(ladderChallenges.status, ["pending", "accepted"])
     ));
     if (existingChallenge) {
@@ -49237,7 +49462,7 @@ router21.post("/api/player/ladders/challenges/:id/respond", authMiddlewareWithFr
     if (!response || !["accepted", "declined"].includes(response)) {
       return res.status(400).json({ error: "Response must be 'accepted' or 'declined'" });
     }
-    const [challenge] = await db.select().from(ladderChallenges).where(eq28(ladderChallenges.id, id));
+    const [challenge] = await db.select().from(ladderChallenges).where(eq29(ladderChallenges.id, id));
     if (!challenge) {
       return res.status(404).json({ error: "Challenge not found" });
     }
@@ -49247,7 +49472,7 @@ router21.post("/api/player/ladders/challenges/:id/respond", authMiddlewareWithFr
     if (challenge.status !== "pending") {
       return res.status(400).json({ error: "Challenge is no longer pending" });
     }
-    const [updated] = await db.update(ladderChallenges).set({ status: response }).where(eq28(ladderChallenges.id, id)).returning();
+    const [updated] = await db.update(ladderChallenges).set({ status: response }).where(eq29(ladderChallenges.id, id)).returning();
     res.json(updated);
   } catch (error) {
     console.error("Error responding to challenge:", error);
@@ -49265,7 +49490,7 @@ router21.post("/api/player/ladders/challenges/:id/result", authMiddlewareWithFre
     if (!winnerId || !score) {
       return res.status(400).json({ error: "winnerId and score are required" });
     }
-    const [challenge] = await db.select().from(ladderChallenges).where(eq28(ladderChallenges.id, id));
+    const [challenge] = await db.select().from(ladderChallenges).where(eq29(ladderChallenges.id, id));
     if (!challenge) {
       return res.status(404).json({ error: "Challenge not found" });
     }
@@ -49283,28 +49508,28 @@ router21.post("/api/player/ladders/challenges/:id/result", authMiddlewareWithFre
       winnerId,
       score,
       completedAt: /* @__PURE__ */ new Date()
-    }).where(eq28(ladderChallenges.id, id));
+    }).where(eq29(ladderChallenges.id, id));
     if (winnerId === challenge.challengerId) {
       const challengerPos = challenge.challengerPosition;
       const challengedPos = challenge.challengedPosition;
       await db.update(ladderPlayers).set({ position: sql27`position + 1` }).where(and26(
-        eq28(ladderPlayers.ladderId, challenge.ladderId),
+        eq29(ladderPlayers.ladderId, challenge.ladderId),
         gte15(ladderPlayers.position, challengedPos),
         lte7(ladderPlayers.position, challengerPos - 1)
       ));
       await db.update(ladderPlayers).set({ position: challengedPos }).where(and26(
-        eq28(ladderPlayers.ladderId, challenge.ladderId),
-        eq28(ladderPlayers.playerId, challenge.challengerId)
+        eq29(ladderPlayers.ladderId, challenge.ladderId),
+        eq29(ladderPlayers.playerId, challenge.challengerId)
       ));
     }
     await db.update(ladderPlayers).set({ wins: sql27`wins + 1` }).where(and26(
-      eq28(ladderPlayers.ladderId, challenge.ladderId),
-      eq28(ladderPlayers.playerId, winnerId)
+      eq29(ladderPlayers.ladderId, challenge.ladderId),
+      eq29(ladderPlayers.playerId, winnerId)
     ));
     const loserId = winnerId === challenge.challengerId ? challenge.challengedId : challenge.challengerId;
     await db.update(ladderPlayers).set({ losses: sql27`losses + 1` }).where(and26(
-      eq28(ladderPlayers.ladderId, challenge.ladderId),
-      eq28(ladderPlayers.playerId, loserId)
+      eq29(ladderPlayers.ladderId, challenge.ladderId),
+      eq29(ladderPlayers.playerId, loserId)
     ));
     res.json({ success: true, message: "Result recorded" });
   } catch (error) {
@@ -49354,7 +49579,7 @@ router21.put("/api/tournaments/:id", authMiddlewareWithFreshData, async (req2, r
     if (!["academy_owner", "coach", "platform_owner"].includes(role)) {
       return res.status(403).json({ error: "Only coaches and academy owners can update tournaments" });
     }
-    const [existing2] = await db.select().from(tournaments).where(eq28(tournaments.id, id));
+    const [existing2] = await db.select().from(tournaments).where(eq29(tournaments.id, id));
     if (!existing2) {
       return res.status(404).json({ error: "Tournament not found" });
     }
@@ -49372,7 +49597,7 @@ router21.put("/api/tournaments/:id", authMiddlewareWithFreshData, async (req2, r
       ...spotsTotal !== void 0 && { spotsTotal },
       ...status !== void 0 && { status },
       updatedAt: /* @__PURE__ */ new Date()
-    }).where(eq28(tournaments.id, id)).returning();
+    }).where(eq29(tournaments.id, id)).returning();
     res.json(updated);
   } catch (error) {
     console.error("Error updating tournament:", error);
@@ -49386,7 +49611,7 @@ router21.post("/api/tournaments/:id/matches/:matchId/result", authMiddlewareWith
     if (!["academy_owner", "coach", "platform_owner"].includes(role)) {
       return res.status(403).json({ error: "Only coaches and academy owners can record match results" });
     }
-    const [match] = await db.select().from(tournamentMatches).where(and26(eq28(tournamentMatches.id, matchId), eq28(tournamentMatches.tournamentId, id)));
+    const [match] = await db.select().from(tournamentMatches).where(and26(eq29(tournamentMatches.id, matchId), eq29(tournamentMatches.tournamentId, id)));
     if (!match) {
       return res.status(404).json({ error: "Match not found" });
     }
@@ -49402,12 +49627,12 @@ router21.post("/api/tournaments/:id/matches/:matchId/result", authMiddlewareWith
       score,
       status: "completed",
       completedAt: /* @__PURE__ */ new Date()
-    }).where(eq28(tournamentMatches.id, matchId)).returning();
+    }).where(eq29(tournamentMatches.id, matchId)).returning();
     const loserId = winnerId === match.player1Id ? match.player2Id : match.player1Id;
     if (loserId) {
       await db.update(tournamentParticipants).set({ status: "eliminated" }).where(and26(
-        eq28(tournamentParticipants.tournamentId, id),
-        eq28(tournamentParticipants.playerId, loserId)
+        eq29(tournamentParticipants.tournamentId, id),
+        eq29(tournamentParticipants.playerId, loserId)
       ));
     }
     res.json(updated);
@@ -49454,7 +49679,7 @@ router21.put("/api/ladders/:id", authMiddlewareWithFreshData, async (req2, res) 
     if (!["academy_owner", "coach", "platform_owner"].includes(role)) {
       return res.status(403).json({ error: "Only coaches and academy owners can update ladders" });
     }
-    const [existing2] = await db.select().from(ladders).where(eq28(ladders.id, id));
+    const [existing2] = await db.select().from(ladders).where(eq29(ladders.id, id));
     if (!existing2) {
       return res.status(404).json({ error: "Ladder not found" });
     }
@@ -49468,7 +49693,7 @@ router21.put("/api/ladders/:id", authMiddlewareWithFreshData, async (req2, res) 
       ...rules !== void 0 && { rules },
       ...status !== void 0 && { status },
       updatedAt: /* @__PURE__ */ new Date()
-    }).where(eq28(ladders.id, id)).returning();
+    }).where(eq29(ladders.id, id)).returning();
     res.json(updated);
   } catch (error) {
     console.error("Error updating ladder:", error);
@@ -49482,7 +49707,7 @@ init_db();
 init_storage();
 init_schema();
 import { Router as Router21 } from "express";
-import { eq as eq29, sql as sql28, desc as desc23, and as and27, inArray as inArray14, isNotNull as isNotNull3, gte as gte16 } from "drizzle-orm";
+import { eq as eq30, sql as sql28, desc as desc23, and as and27, inArray as inArray14, isNotNull as isNotNull3, gte as gte16 } from "drizzle-orm";
 init_pushNotifications();
 init_emailService();
 import crypto2 from "crypto";
@@ -49495,7 +49720,7 @@ function isBirthdayToday(dateOfBirth) {
 }
 router22.get("/api/world-chat", authMiddlewareWithFreshData, async (req2, res) => {
   try {
-    let worldConv = await db.select().from(conversations).where(eq29(conversations.type, "world")).limit(1);
+    let worldConv = await db.select().from(conversations).where(eq30(conversations.type, "world")).limit(1);
     if (worldConv.length === 0) {
       const created = await db.insert(conversations).values({
         type: "world",
@@ -49514,7 +49739,7 @@ router22.get("/api/world-chat", authMiddlewareWithFreshData, async (req2, res) =
 });
 router22.get("/api/world-chat/messages", authMiddlewareWithFreshData, async (req2, res) => {
   try {
-    const worldConvResult = await db.select().from(conversations).where(eq29(conversations.type, "world")).limit(1);
+    const worldConvResult = await db.select().from(conversations).where(eq30(conversations.type, "world")).limit(1);
     if (worldConvResult.length === 0) {
       return res.json([]);
     }
@@ -49530,8 +49755,8 @@ router22.get("/api/world-chat/messages", authMiddlewareWithFreshData, async (req
       messageType: messages.messageType,
       createdAt: messages.createdAt
     }).from(messages).where(and27(
-      eq29(messages.conversationId, worldConvId),
-      eq29(messages.isDeleted, false)
+      eq30(messages.conversationId, worldConvId),
+      eq30(messages.isDeleted, false)
     )).orderBy(desc23(messages.createdAt)).limit(limit);
     const orderedMsgs = msgs.reverse();
     const coachIds = [...new Set(orderedMsgs.filter((m) => m.senderCoachId).map((m) => m.senderCoachId))];
@@ -49610,7 +49835,7 @@ router22.post("/api/world-chat/messages", authMiddlewareWithFreshData, async (re
     if (!sanitizedBody) {
       return res.status(400).json({ error: "Message body required after sanitization" });
     }
-    let worldConvResult = await db.select().from(conversations).where(eq29(conversations.type, "world")).limit(1);
+    let worldConvResult = await db.select().from(conversations).where(eq30(conversations.type, "world")).limit(1);
     if (worldConvResult.length === 0) {
       const created = await db.insert(conversations).values({
         type: "world",
@@ -49635,7 +49860,7 @@ router22.post("/api/world-chat/messages", authMiddlewareWithFreshData, async (re
     await db.update(conversations).set({
       lastMessageAt: /* @__PURE__ */ new Date(),
       lastMessagePreview: sanitizedBody.substring(0, 100)
-    }).where(eq29(conversations.id, worldConvId));
+    }).where(eq30(conversations.id, worldConvId));
     let senderName = "Unknown";
     let academyName = "";
     if (senderType === "coach" && coachId) {
@@ -49644,11 +49869,11 @@ router22.post("/api/world-chat/messages", authMiddlewareWithFreshData, async (re
         firstName: coaches.firstName,
         lastName: coaches.lastName,
         academyId: coaches.academyId
-      }).from(coaches).where(eq29(coaches.id, coachId)).limit(1);
+      }).from(coaches).where(eq30(coaches.id, coachId)).limit(1);
       if (coachData.length > 0) {
         senderName = coachData[0].name || `${coachData[0].firstName || ""} ${coachData[0].lastName || ""}`.trim() || "Coach";
         if (coachData[0].academyId) {
-          const acad = await db.select({ name: academies.name }).from(academies).where(eq29(academies.id, coachData[0].academyId)).limit(1);
+          const acad = await db.select({ name: academies.name }).from(academies).where(eq30(academies.id, coachData[0].academyId)).limit(1);
           academyName = acad[0]?.name || "";
         }
       }
@@ -49658,11 +49883,11 @@ router22.post("/api/world-chat/messages", authMiddlewareWithFreshData, async (re
         firstName: players.firstName,
         lastName: players.lastName,
         academyId: players.academyId
-      }).from(players).where(eq29(players.id, playerId)).limit(1);
+      }).from(players).where(eq30(players.id, playerId)).limit(1);
       if (playerData.length > 0) {
         senderName = playerData[0].name || `${playerData[0].firstName || ""} ${playerData[0].lastName || ""}`.trim() || "Player";
         if (playerData[0].academyId) {
-          const acad = await db.select({ name: academies.name }).from(academies).where(eq29(academies.id, playerData[0].academyId)).limit(1);
+          const acad = await db.select({ name: academies.name }).from(academies).where(eq30(academies.id, playerData[0].academyId)).limit(1);
           academyName = acad[0]?.name || "";
         }
       }
@@ -49688,7 +49913,7 @@ router22.get("/api/academy/activity-feed", authMiddlewareWithFreshData, requireA
       name: players.name,
       firstName: players.firstName,
       lastName: players.lastName
-    }).from(players).where(eq29(players.academyId, academyId));
+    }).from(players).where(eq30(players.academyId, academyId));
     const playerIds = academyPlayers.map((p) => p.id);
     const playerMap = new Map(academyPlayers.map((p) => [p.id, p.name || `${p.firstName || ""} ${p.lastName || ""}`.trim() || "Player"]));
     if (playerIds.length === 0) {
@@ -49730,8 +49955,8 @@ router22.get("/api/academy/activity-feed", authMiddlewareWithFreshData, requireA
         startTime: sessions.startTime,
         status: sessions.status
       }).from(sessions).where(and27(
-        eq29(sessions.academyId, academyId),
-        eq29(sessions.status, "completed"),
+        eq30(sessions.academyId, academyId),
+        eq30(sessions.status, "completed"),
         gte16(sessions.startTime, sevenDaysAgo)
       )).orderBy(desc23(sessions.startTime)).limit(10)
     ]);
@@ -49810,7 +50035,7 @@ router22.get("/api/coach/birthdays/today", authMiddlewareWithFreshData, requireA
       dateOfBirth: players.dateOfBirth
     }).from(players).where(
       and27(
-        eq29(players.coachId, coachId),
+        eq30(players.coachId, coachId),
         isNotNull3(players.dateOfBirth)
       )
     );
@@ -49850,7 +50075,7 @@ router22.get("/api/coach/birthdays/upcoming", authMiddlewareWithFreshData, requi
       dateOfBirth: players.dateOfBirth
     }).from(players).where(
       and27(
-        eq29(players.coachId, coachId),
+        eq30(players.coachId, coachId),
         isNotNull3(players.dateOfBirth)
       )
     );
@@ -50232,7 +50457,7 @@ router22.post("/api/coach/sessions", authMiddlewareWithFreshData, requireAcademy
             await db.update(coachingSeries).set({
               seriesEndDate: lastNewDate,
               weekCount: (matchingFlexSeries.weekCount || 0) + flexibleDates.length
-            }).where(eq29(coachingSeries.id, matchingFlexSeries.id));
+            }).where(eq30(coachingSeries.id, matchingFlexSeries.id));
           }
         }
         if (!seriesId) {
@@ -50886,7 +51111,7 @@ router22.post("/api/coach/sessions/:id/cancel", authMiddlewareWithFreshData, req
     if (session.coachId !== coachId) {
       return res.status(403).json({ error: "Not authorized" });
     }
-    const spRecordsForRefund = await db.select({ id: sessionPlayers.id, playerId: sessionPlayers.playerId, creditDeductedAt: sessionPlayers.creditDeductedAt }).from(sessionPlayers).where(eq29(sessionPlayers.sessionId, id));
+    const spRecordsForRefund = await db.select({ id: sessionPlayers.id, playerId: sessionPlayers.playerId, creditDeductedAt: sessionPlayers.creditDeductedAt }).from(sessionPlayers).where(eq30(sessionPlayers.sessionId, id));
     let refundedCount = 0;
     for (const sp of spRecordsForRefund) {
       if (!sp.creditDeductedAt) continue;
@@ -50901,16 +51126,16 @@ router22.post("/api/coach/sessions/:id/cancel", authMiddlewareWithFreshData, req
         console.log(`[DeleteSession] refundCreditsForSession failed for ${sp.playerId}, trying direct lookup`);
       }
       const debitTxns = await db.select().from(creditTransactions).where(and27(
-        eq29(creditTransactions.sessionPlayerId, sp.id),
-        eq29(creditTransactions.type, "debit"),
+        eq30(creditTransactions.sessionPlayerId, sp.id),
+        eq30(creditTransactions.type, "debit"),
         sql28`(${creditTransactions.metadata}->>'cancelled')::boolean IS NOT TRUE`
       ));
       for (const tx of debitTxns) {
         const meta = tx.metadata ? typeof tx.metadata === "string" ? JSON.parse(tx.metadata) : tx.metadata : {};
         if (meta.isDebt && !meta.settled) {
-          await db.update(creditTransactions).set({ metadata: { ...meta, cancelled: true, cancelledReason: "session_deleted" } }).where(eq29(creditTransactions.id, tx.id));
+          await db.update(creditTransactions).set({ metadata: { ...meta, cancelled: true, cancelledReason: "session_deleted" } }).where(eq30(creditTransactions.id, tx.id));
         } else if (meta.settled) {
-          await db.update(creditTransactions).set({ metadata: { ...meta, cancelled: true, cancelledReason: "session_deleted" } }).where(eq29(creditTransactions.id, tx.id));
+          await db.update(creditTransactions).set({ metadata: { ...meta, cancelled: true, cancelledReason: "session_deleted" } }).where(eq30(creditTransactions.id, tx.id));
           await db.insert(creditTransactions).values({
             id: crypto2.randomUUID(),
             playerId: tx.playerId,
@@ -50940,11 +51165,11 @@ router22.post("/api/coach/sessions/:id/cancel", authMiddlewareWithFreshData, req
     if (refundedCount > 0) {
       console.log(`[DeleteSession] Refunded ${refundedCount} credit(s) for session ${id}`);
     }
-    await db.update(creditTransactions).set({ sessionId: null }).where(eq29(creditTransactions.sessionId, id));
-    await db.update(xpTransactions2).set({ sessionId: null }).where(eq29(xpTransactions2.sessionId, id));
-    await db.update(coachXpTransactions2).set({ sessionId: null }).where(eq29(coachXpTransactions2.sessionId, id));
-    await db.update(playerPillarProgress).set({ lastSessionId: null }).where(eq29(playerPillarProgress.lastSessionId, id));
-    const playersInSession = await db.select({ playerId: sessionPlayers.playerId }).from(sessionPlayers).where(eq29(sessionPlayers.sessionId, id));
+    await db.update(creditTransactions).set({ sessionId: null }).where(eq30(creditTransactions.sessionId, id));
+    await db.update(xpTransactions2).set({ sessionId: null }).where(eq30(xpTransactions2.sessionId, id));
+    await db.update(coachXpTransactions2).set({ sessionId: null }).where(eq30(coachXpTransactions2.sessionId, id));
+    await db.update(playerPillarProgress).set({ lastSessionId: null }).where(eq30(playerPillarProgress.lastSessionId, id));
+    const playersInSession = await db.select({ playerId: sessionPlayers.playerId }).from(sessionPlayers).where(eq30(sessionPlayers.sessionId, id));
     const coachData = coachId ? await storage.getCoach(coachId) : null;
     const coachName = coachData?.firstName ? `${coachData.firstName} ${coachData.lastName || ""}`.trim() : "Your coach";
     for (const p of playersInSession) {
@@ -50958,23 +51183,23 @@ router22.post("/api/coach/sessions/:id/cancel", authMiddlewareWithFreshData, req
         ).catch((err) => console.error("[PushNotification] Failed to send cancellation notification:", err));
       }
     }
-    const sessionPlayerRecords = await db.select({ id: sessionPlayers.id }).from(sessionPlayers).where(eq29(sessionPlayers.sessionId, id));
+    const sessionPlayerRecords = await db.select({ id: sessionPlayers.id }).from(sessionPlayers).where(eq30(sessionPlayers.sessionId, id));
     if (sessionPlayerRecords.length > 0) {
       const spIds = sessionPlayerRecords.map((sp) => sp.id);
       await db.update(creditTransactions).set({ sessionPlayerId: null }).where(inArray14(creditTransactions.sessionPlayerId, spIds));
     }
-    await db.delete(inSessionFeedback).where(eq29(inSessionFeedback.sessionId, id));
-    await db.delete(sessionPlayers).where(eq29(sessionPlayers.sessionId, id));
-    await db.delete(sessionSkillObservations).where(eq29(sessionSkillObservations.sessionId, id));
-    await db.delete(sessionSkillFeedback).where(eq29(sessionSkillFeedback.sessionId, id));
-    await db.delete(sessionPlans).where(eq29(sessionPlans.sessionId, id));
-    await db.delete(playerSessionCancellations).where(eq29(playerSessionCancellations.sessionId, id));
-    await db.delete(sessionWaitlist2).where(eq29(sessionWaitlist2.sessionId, id));
+    await db.delete(inSessionFeedback).where(eq30(inSessionFeedback.sessionId, id));
+    await db.delete(sessionPlayers).where(eq30(sessionPlayers.sessionId, id));
+    await db.delete(sessionSkillObservations).where(eq30(sessionSkillObservations.sessionId, id));
+    await db.delete(sessionSkillFeedback).where(eq30(sessionSkillFeedback.sessionId, id));
+    await db.delete(sessionPlans).where(eq30(sessionPlans.sessionId, id));
+    await db.delete(playerSessionCancellations).where(eq30(playerSessionCancellations.sessionId, id));
+    await db.delete(sessionWaitlist2).where(eq30(sessionWaitlist2.sessionId, id));
     await storage.deleteCoachTimeBlockBySession(id);
     if (session.googleCalendarEventId) {
       deleteCalendarEvent(session.googleCalendarEventId).catch((err) => console.error("[GoogleCalendar] Delete sync error:", err));
     }
-    await db.delete(sessions).where(eq29(sessions.id, id));
+    await db.delete(sessions).where(eq30(sessions.id, id));
     await storage.createAuditLog({
       entityType: "session",
       entityId: id,
@@ -51499,9 +51724,9 @@ router22.post("/api/coach/sessions/:id/attendance", authMiddlewareWithFreshData,
         sessionCompletionXp = COACH_XP_REWARDS_BATCH[session.sessionType] || 20;
         try {
           const existingSessionXp = await db.select().from(coachXpTransactions2).where(and27(
-            eq29(coachXpTransactions2.coachId, coachId),
-            eq29(coachXpTransactions2.source, "session_completion"),
-            eq29(coachXpTransactions2.sessionId, id)
+            eq30(coachXpTransactions2.coachId, coachId),
+            eq30(coachXpTransactions2.source, "session_completion"),
+            eq30(coachXpTransactions2.sessionId, id)
           ));
           if (existingSessionXp.length === 0) {
             await db.insert(coachXpTransactions2).values({
@@ -51832,7 +52057,7 @@ init_storage();
 init_db();
 init_schema();
 import { Router as Router22 } from "express";
-import { eq as eq30, sql as sql29, desc as desc24, and as and28, ne as ne8, asc as asc10, inArray as inArray15, isNull as isNull7, isNotNull as isNotNull4, or as or14 } from "drizzle-orm";
+import { eq as eq31, sql as sql29, desc as desc24, and as and28, ne as ne8, asc as asc10, inArray as inArray15, isNull as isNull7, isNotNull as isNotNull4, or as or15 } from "drizzle-orm";
 import crypto3 from "crypto";
 var router23 = Router22();
 function requirePlayerOrOwner3(req2, res, next) {
@@ -51881,8 +52106,8 @@ router23.get("/api/admin/series", authMiddlewareWithFreshData, requireRole("admi
       const seriesPlayersWithDetails = await storage.getSeriesPlayersWithDetails(s.id);
       const activePlayers = seriesPlayersWithDetails.filter((p) => p.status === "active");
       const sessionsForSeries = await db.select().from(sessions).where(and28(
-        eq30(sessions.seriesId, s.id),
-        eq30(sessions.status, "completed")
+        eq31(sessions.seriesId, s.id),
+        eq31(sessions.status, "completed")
       ));
       const completedSessionIds = sessionsForSeries.map((sess) => sess.id);
       let pendingFeedback = 0;
@@ -51904,10 +52129,10 @@ router23.get("/api/admin/series", authMiddlewareWithFreshData, requireRole("admi
     if (coachId && typeof coachId === "string") {
       const ownSeriesIds = allSeries.map((s) => s.id);
       const orphanSessions = await db.select().from(sessions).where(and28(
-        eq30(sessions.coachId, coachId),
-        eq30(sessions.academyId, academyId),
+        eq31(sessions.coachId, coachId),
+        eq31(sessions.academyId, academyId),
         // Filter by academy to ensure correct data
-        or14(
+        or15(
           ownSeriesIds.length > 0 ? and28(isNotNull4(sessions.seriesId), notInArray(sessions.seriesId, ownSeriesIds)) : isNotNull4(sessions.seriesId),
           isNull7(sessions.seriesId)
         )
@@ -51928,7 +52153,7 @@ router23.get("/api/admin/series", authMiddlewareWithFreshData, requireRole("admi
           const DUBAI_OFFSET = 4;
           const dubaiNow = new Date(now2.getTime() + DUBAI_OFFSET * 60 * 60 * 1e3);
           const nextSession = sessionsGroup.find((s) => s.status === "scheduled" && new Date(s.startTime) > now2);
-          const sessionPlayersList = await db.select().from(sessionPlayers).where(eq30(sessionPlayers.sessionId, firstSession.id));
+          const sessionPlayersList = await db.select().from(sessionPlayers).where(eq31(sessionPlayers.sessionId, firstSession.id));
           const playerDetails = await Promise.all(sessionPlayersList.slice(0, 4).map(async (sp) => {
             const player2 = await storage.getPlayer(sp.playerId);
             return { id: sp.playerId, name: player2?.name || "Unknown" };
@@ -52005,7 +52230,7 @@ router23.get("/api/admin/series/:id", authMiddlewareWithFreshData, requireRole("
         credits
       };
     }));
-    const seriesSessions = await db.select().from(sessions).where(eq30(sessions.seriesId, id)).orderBy(asc10(sessions.startTime));
+    const seriesSessions = await db.select().from(sessions).where(eq31(sessions.seriesId, id)).orderBy(asc10(sessions.startTime));
     let locationName = null;
     if (series.locationId) {
       const location = await storage.getLocationById(series.locationId);
@@ -52261,7 +52486,7 @@ router23.delete("/api/admin/series/:id", authMiddlewareWithFreshData, requireRol
       if (originalSeriesKey === "standalone") {
         allMatchingSessions = await db.select().from(sessions).where(isNull7(sessions.seriesId));
       } else {
-        allMatchingSessions = await db.select().from(sessions).where(eq30(sessions.seriesId, originalSeriesKey));
+        allMatchingSessions = await db.select().from(sessions).where(eq31(sessions.seriesId, originalSeriesKey));
       }
       let orphanSessions;
       if (originalCoachId) {
@@ -52454,7 +52679,7 @@ router23.get("/api/admin/series/:id/feedback", authMiddlewareWithFreshData, requ
     if (series.academyId !== academyId) {
       return res.status(403).json({ error: "Not authorized" });
     }
-    const seriesSessions = await db.select().from(sessions).where(eq30(sessions.seriesId, id));
+    const seriesSessions = await db.select().from(sessions).where(eq31(sessions.seriesId, id));
     const sessionIds = seriesSessions.map((s) => s.id);
     if (sessionIds.length === 0) {
       return res.json({ friends: [], pendingRequests: [] });
@@ -52523,7 +52748,7 @@ router23.get("/api/admin/series/:id/timeline", authMiddlewareWithFreshData, requ
     if (series.academyId !== academyId) {
       return res.status(403).json({ error: "Not authorized" });
     }
-    const seriesSessions = await db.select().from(sessions).where(eq30(sessions.seriesId, id)).orderBy(asc10(sessions.startTime));
+    const seriesSessions = await db.select().from(sessions).where(eq31(sessions.seriesId, id)).orderBy(asc10(sessions.startTime));
     const timeline = seriesSessions.map((s, index2) => ({
       id: s.id,
       weekNumber: s.weekNumber || index2 + 1,
@@ -53717,10 +53942,10 @@ router23.post("/api/admin/players/:playerId/fix-unpaid-sessions", authMiddleware
       creditDeductedAt: sessionPlayers.creditDeductedAt,
       sessionType: sessions.sessionType,
       startTime: sessions.startTime
-    }).from(sessionPlayers).innerJoin(sessions, eq30(sessionPlayers.sessionId, sessions.id)).where(and28(
-      eq30(sessionPlayers.playerId, playerId),
-      or14(
-        eq30(sessionPlayers.attendanceStatus, "present")
+    }).from(sessionPlayers).innerJoin(sessions, eq31(sessionPlayers.sessionId, sessions.id)).where(and28(
+      eq31(sessionPlayers.playerId, playerId),
+      or15(
+        eq31(sessionPlayers.attendanceStatus, "present")
       ),
       isNull7(sessionPlayers.creditDeductedAt)
     ));
@@ -53734,7 +53959,7 @@ router23.post("/api/admin/players/:playerId/fix-unpaid-sessions", authMiddleware
     let fixedCount = 0;
     for (const session of unpaidSessions) {
       const debtId = `debt-fix-${session.sessionId}-${session.playerId}`;
-      const existingDebt = await db.select().from(creditTransactions).where(eq30(creditTransactions.id, debtId)).limit(1);
+      const existingDebt = await db.select().from(creditTransactions).where(eq31(creditTransactions.id, debtId)).limit(1);
       if (existingDebt.length === 0) {
         const creditType = session.sessionType.includes("semi") ? "semi_private" : session.sessionType.includes("group") ? "group" : "private";
         await db.insert(creditTransactions).values({
@@ -53753,7 +53978,7 @@ router23.post("/api/admin/players/:playerId/fix-unpaid-sessions", authMiddleware
             originalDate: session.startTime
           }
         });
-        await db.update(sessionPlayers).set({ creditDeductedAt: /* @__PURE__ */ new Date() }).where(eq30(sessionPlayers.id, session.sessionPlayerId));
+        await db.update(sessionPlayers).set({ creditDeductedAt: /* @__PURE__ */ new Date() }).where(eq31(sessionPlayers.id, session.sessionPlayerId));
         fixedCount++;
       }
     }
@@ -53868,9 +54093,9 @@ router23.get("/api/admin/audit-credits", authMiddlewareWithFreshData, requireRol
     for (const player2 of allPlayers) {
       const attendedSessions = await db.select({
         sessionType: sessions.sessionType
-      }).from(sessionPlayers).innerJoin(sessions, eq30(sessionPlayers.sessionId, sessions.id)).where(and28(
-        eq30(sessionPlayers.playerId, player2.id),
-        eq30(sessionPlayers.attendanceStatus, "present")
+      }).from(sessionPlayers).innerJoin(sessions, eq31(sessionPlayers.sessionId, sessions.id)).where(and28(
+        eq31(sessionPlayers.playerId, player2.id),
+        eq31(sessionPlayers.attendanceStatus, "present")
       ));
       const sessionsByType = { group: 0, semi_private: 0, private: 0 };
       for (const s of attendedSessions) {
@@ -54274,7 +54499,7 @@ router23.post("/api/platform/impersonate/:academyId", authMiddlewareWithFreshDat
     if (!academy) {
       return res.status(404).json({ error: "Academy not found" });
     }
-    const ownerUsers = await db.select().from(users).where(and28(eq30(users.role, "academy_owner"), eq30(users.academyId, academyId))).limit(1);
+    const ownerUsers = await db.select().from(users).where(and28(eq31(users.role, "academy_owner"), eq31(users.academyId, academyId))).limit(1);
     let targetCoachId = null;
     let targetPlayerId = null;
     if (ownerUsers.length > 0) {
@@ -54609,9 +54834,9 @@ router23.get("/api/player/squad-preview", authMiddlewareWithFreshData, async (re
       currentLevel: players.currentLevel
     }).from(players).where(
       and28(
-        eq30(players.academyId, academyId),
-        eq30(players.status, "active"),
-        eq30(players.currentLevel, ballLevel2),
+        eq31(players.academyId, academyId),
+        eq31(players.status, "active"),
+        eq31(players.currentLevel, ballLevel2),
         req2.user?.playerId ? ne8(players.id, req2.user.playerId) : sql29`1=1`
       )
     ).limit(parseInt(limit)).orderBy(sql29`RANDOM()`);
@@ -54790,11 +55015,11 @@ router23.get("/api/player/me/social", authMiddlewareWithFreshData, requirePlayer
         playerName: players.name,
         hostBallLevel: players.ballLevel,
         playerAvatar: players.profilePhotoUrl
-      }).from(matchRequests).leftJoin(players, eq30(matchRequests.playerId, players.id)).where(and28(
-        eq30(matchRequests.status, "open"),
-        eq30(players.ballLevel, player2.ballLevel),
-        or14(
-          eq30(matchRequests.academyId, player2.academyId),
+      }).from(matchRequests).leftJoin(players, eq31(matchRequests.playerId, players.id)).where(and28(
+        eq31(matchRequests.status, "open"),
+        eq31(players.ballLevel, player2.ballLevel),
+        or15(
+          eq31(matchRequests.academyId, player2.academyId),
           isNull7(matchRequests.academyId)
         )
       )).limit(6);
@@ -54826,7 +55051,7 @@ router23.get("/api/player/me/social", authMiddlewareWithFreshData, requirePlayer
     }
     const communityEvents = [];
     if (player2.academyId) {
-      const recentPosts = await db.select().from(posts2).where(eq30(posts2.academyId, player2.academyId)).orderBy(desc24(posts2.createdAt)).limit(3);
+      const recentPosts = await db.select().from(posts2).where(eq31(posts2.academyId, player2.academyId)).orderBy(desc24(posts2.createdAt)).limit(3);
       for (const post of recentPosts) {
         const created = new Date(post.createdAt);
         const dateParam = req2.query.date;
@@ -55359,11 +55584,11 @@ async function registerRoutes(app2) {
   setFeatureUnlockChecker({
     isFeatureUnlocked: async (playerId, featureKey) => {
       try {
-        const [player2] = await db.select({ level: players.level }).from(players).where(eq31(players.id, playerId));
+        const [player2] = await db.select({ level: players.level }).from(players).where(eq32(players.id, playerId));
         if (!player2) return false;
         const playerLevel = player2.level || 1;
         const { playerFeatureUnlocks: playerFeatureUnlocks2 } = await Promise.resolve().then(() => (init_schema(), schema_exports));
-        const [feature] = await db.select().from(playerFeatureUnlocks2).where(eq31(playerFeatureUnlocks2.featureKey, featureKey));
+        const [feature] = await db.select().from(playerFeatureUnlocks2).where(eq32(playerFeatureUnlocks2.featureKey, featureKey));
         if (!feature) return true;
         if (!feature.isActive) return true;
         return playerLevel >= feature.requiredLevel;
@@ -55403,7 +55628,7 @@ async function registerRoutes(app2) {
       try {
         const userId = req2.user.id;
         const key = `user_onboarding_${userId}`;
-        const existing2 = await db.select().from(platformConfig).where(eq31(platformConfig.key, key)).limit(1);
+        const existing2 = await db.select().from(platformConfig).where(eq32(platformConfig.key, key)).limit(1);
         const state = existing2.length > 0 ? existing2[0].value : {};
         res.json({ state });
       } catch (error) {
@@ -55423,11 +55648,11 @@ async function registerRoutes(app2) {
           return res.status(400).json({ error: "key is required" });
         }
         const configKey = `user_onboarding_${userId}`;
-        const existing2 = await db.select().from(platformConfig).where(eq31(platformConfig.key, configKey)).limit(1);
+        const existing2 = await db.select().from(platformConfig).where(eq32(platformConfig.key, configKey)).limit(1);
         const currentState = existing2.length > 0 ? existing2[0].value : {};
         const updatedState = { ...currentState, [bodyKey]: bodyValue };
         if (existing2.length > 0) {
-          await db.update(platformConfig).set({ value: updatedState, updatedAt: /* @__PURE__ */ new Date() }).where(eq31(platformConfig.key, configKey));
+          await db.update(platformConfig).set({ value: updatedState, updatedAt: /* @__PURE__ */ new Date() }).where(eq32(platformConfig.key, configKey));
         } else {
           await db.insert(platformConfig).values({ key: configKey, value: updatedState, updatedBy: userId });
         }
@@ -55480,24 +55705,24 @@ async function registerRoutes(app2) {
           month: "long",
           year: "numeric"
         });
-        const [player2] = await db.select().from(players).where(eq31(players.id, playerId));
+        const [player2] = await db.select().from(players).where(eq32(players.id, playerId));
         if (!player2) {
           return res.status(404).json({ error: "Player not found" });
         }
-        const [user] = await db.select().from(users).where(eq31(users.id, player2.userId));
+        const [user] = await db.select().from(users).where(eq32(users.id, player2.userId));
         if (!user?.email) {
           return res.status(400).json({ error: "Player has no email address" });
         }
-        const [academy] = player2.academyId ? await db.select().from(academies).where(eq31(academies.id, player2.academyId)) : [null];
+        const [academy] = player2.academyId ? await db.select().from(academies).where(eq32(academies.id, player2.academyId)) : [null];
         const sessionAttendance = await db.select({
           sessionId: sessionPlayers.sessionId,
           attendanceStatus: sessionPlayers.attendanceStatus,
           sessionType: sessions.sessionType,
           coachId: sessions.coachId,
           startTime: sessions.startTime
-        }).from(sessionPlayers).innerJoin(sessions, eq31(sessionPlayers.sessionId, sessions.id)).where(
+        }).from(sessionPlayers).innerJoin(sessions, eq32(sessionPlayers.sessionId, sessions.id)).where(
           and29(
-            eq31(sessionPlayers.playerId, playerId),
+            eq32(sessionPlayers.playerId, playerId),
             gte17(sessions.startTime, startDate),
             lte9(sessions.startTime, endDate)
           )
@@ -55536,7 +55761,7 @@ async function registerRoutes(app2) {
           durationMinutes: courtBookings.durationMinutes
         }).from(courtBookings).where(
           and29(
-            eq31(courtBookings.playerId, playerId),
+            eq32(courtBookings.playerId, playerId),
             gte17(courtBookings.date, startDate.toISOString().split("T")[0]),
             lte9(courtBookings.date, endDate.toISOString().split("T")[0])
           )
@@ -55553,7 +55778,7 @@ async function registerRoutes(app2) {
           didWin: matchLogs.didWin
         }).from(matchLogs).where(
           and29(
-            eq31(matchLogs.playerId, playerId),
+            eq32(matchLogs.playerId, playerId),
             gte17(matchLogs.createdAt, startDate),
             lte9(matchLogs.createdAt, endDate)
           )
@@ -55563,7 +55788,7 @@ async function registerRoutes(app2) {
         const matchesLost = matchesPlayed - matchesWon;
         const xpData = await db.select({ xpAmount: xpTransactions2.xpAmount }).from(xpTransactions2).where(
           and29(
-            eq31(xpTransactions2.playerId, playerId),
+            eq32(xpTransactions2.playerId, playerId),
             gte17(xpTransactions2.createdAt, startDate),
             lte9(xpTransactions2.createdAt, endDate)
           )
@@ -55609,7 +55834,7 @@ async function registerRoutes(app2) {
           amount: creditTransactions.amount
         }).from(creditTransactions).where(
           and29(
-            eq31(creditTransactions.playerId, playerId),
+            eq32(creditTransactions.playerId, playerId),
             gte17(creditTransactions.createdAt, startDate),
             lte9(creditTransactions.createdAt, endDate)
           )
@@ -55620,8 +55845,8 @@ async function registerRoutes(app2) {
           remainingCredits: playerCreditPackages.remainingCredits
         }).from(playerCreditPackages).where(
           and29(
-            eq31(playerCreditPackages.playerId, playerId),
-            eq31(playerCreditPackages.status, "active")
+            eq32(playerCreditPackages.playerId, playerId),
+            eq32(playerCreditPackages.status, "active")
           )
         );
         const creditsRemaining = playerPackages.reduce(
@@ -55652,7 +55877,7 @@ async function registerRoutes(app2) {
             remaining: data.remaining
           })
         );
-        const [ballLevel2] = await db.select({ ballLevel: playerBallLevels.ballLevel }).from(playerBallLevels).where(eq31(playerBallLevels.playerId, playerId)).limit(1);
+        const [ballLevel2] = await db.select({ ballLevel: playerBallLevels.ballLevel }).from(playerBallLevels).where(eq32(playerBallLevels.playerId, playerId)).limit(1);
         const glowLevel = ballLevel2?.ballLevel ? ballLevel2.ballLevel.charAt(0).toUpperCase() + ballLevel2.ballLevel.slice(1) : void 0;
         const { sendMonthlyReportEmail: sendMonthlyReportEmail2 } = await Promise.resolve().then(() => (init_emailService(), emailService_exports));
         const result = await sendMonthlyReportEmail2({
@@ -57379,9 +57604,9 @@ async function registerRoutes(app2) {
           return res.status(401).json({ error: "Player profile required" });
         }
         const { ballLevel: ballLevel2, sessionType, invitedFriendIds } = req2.body;
-        const player2 = await db.select().from(players).where(eq31(players.id, playerId)).limit(1);
+        const player2 = await db.select().from(players).where(eq32(players.id, playerId)).limit(1);
         const playerName = player2[0]?.name || "A player";
-        const academyCoaches = academyId ? await db.select().from(coaches).where(eq31(coaches.academyId, academyId)) : [];
+        const academyCoaches = academyId ? await db.select().from(coaches).where(eq32(coaches.academyId, academyId)) : [];
         for (const coach of academyCoaches) {
           await db.insert(notifications).values({
             id: `notif-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
@@ -58089,7 +58314,7 @@ async function registerRoutes(app2) {
           const endedSeriesRows = await db.select({ id: coachingSeries.id }).from(coachingSeries).where(
             and29(
               inArray16(coachingSeries.id, allSeriesIdsForFilter),
-              eq31(coachingSeries.status, "ended")
+              eq32(coachingSeries.status, "ended")
             )
           );
           const endedSeriesIds = new Set(endedSeriesRows.map((s) => s.id));
@@ -58115,7 +58340,7 @@ async function registerRoutes(app2) {
             hostBallLevel: players.ballLevel,
             playerBallLevel: players.ballLevel,
             profilePhotoUrl: players.profilePhotoUrl
-          }).from(sessionPlayers).leftJoin(players, eq31(sessionPlayers.playerId, players.id)).where(inArray16(sessionPlayers.sessionId, sessionIds)) : Promise.resolve([]),
+          }).from(sessionPlayers).leftJoin(players, eq32(sessionPlayers.playerId, players.id)).where(inArray16(sessionPlayers.sessionId, sessionIds)) : Promise.resolve([]),
           seriesIds.length > 0 ? db.select({
             seriesId: seriesPlayers.seriesId,
             playerId: seriesPlayers.playerId,
@@ -58124,10 +58349,10 @@ async function registerRoutes(app2) {
             hostBallLevel: players.ballLevel,
             playerBallLevel: players.ballLevel,
             profilePhotoUrl: players.profilePhotoUrl
-          }).from(seriesPlayers).leftJoin(players, eq31(seriesPlayers.playerId, players.id)).where(
+          }).from(seriesPlayers).leftJoin(players, eq32(seriesPlayers.playerId, players.id)).where(
             and29(
               inArray16(seriesPlayers.seriesId, seriesIds),
-              eq31(seriesPlayers.status, "active")
+              eq32(seriesPlayers.status, "active")
             )
           ) : Promise.resolve([])
         ]);
@@ -58139,7 +58364,7 @@ async function registerRoutes(app2) {
           }).from(seriesPlayers).where(
             and29(
               inArray16(seriesPlayers.seriesId, seriesIds),
-              eq31(seriesPlayers.status, "left")
+              eq32(seriesPlayers.status, "left")
             )
           ) : Promise.resolve([]),
           seriesIds.length > 0 ? db.select({
@@ -58150,7 +58375,7 @@ async function registerRoutes(app2) {
           }).from(seriesPlayers).where(
             and29(
               inArray16(seriesPlayers.seriesId, seriesIds),
-              eq31(seriesPlayers.status, "paused"),
+              eq32(seriesPlayers.status, "paused"),
               isNotNull5(seriesPlayers.pauseFrom),
               isNotNull5(seriesPlayers.pauseUntil)
             )
@@ -58294,8 +58519,8 @@ async function registerRoutes(app2) {
         if (view === "day") {
           courtBlockedSlots = await db.select().from(courtAvailability).where(
             and29(
-              eq31(courtAvailability.date, dateStrForQuery),
-              eq31(courtAvailability.status, "blocked")
+              eq32(courtAvailability.date, dateStrForQuery),
+              eq32(courtAvailability.status, "blocked")
             )
           );
         } else if (view === "week") {
@@ -58305,7 +58530,7 @@ async function registerRoutes(app2) {
             and29(
               gte17(courtAvailability.date, weekStartStr),
               lte9(courtAvailability.date, weekEndStr),
-              eq31(courtAvailability.status, "blocked")
+              eq32(courtAvailability.status, "blocked")
             )
           );
         }
@@ -58333,9 +58558,9 @@ async function registerRoutes(app2) {
           const cbEndStr = `${endDate.getUTCFullYear()}-${(endDate.getUTCMonth() + 1).toString().padStart(2, "0")}-${endDate.getUTCDate().toString().padStart(2, "0")}`;
           const rawCoachBlocks = await db.select().from(coachTimeBlocks).where(
             and29(
-              eq31(coachTimeBlocks.coachId, coachId),
-              eq31(coachTimeBlocks.sourceType, "blocked"),
-              eq31(coachTimeBlocks.status, "confirmed"),
+              eq32(coachTimeBlocks.coachId, coachId),
+              eq32(coachTimeBlocks.sourceType, "blocked"),
+              eq32(coachTimeBlocks.status, "confirmed"),
               gte17(coachTimeBlocks.date, cbStartStr),
               lte9(coachTimeBlocks.date, cbEndStr)
             )
@@ -58421,7 +58646,7 @@ async function registerRoutes(app2) {
               session.seriesId || null,
               academyId ?? void 0
             );
-            const [plan] = await db.select({ id: sessionPlans.id, status: sessionPlans.status }).from(sessionPlans).where(eq31(sessionPlans.sessionId, session.id));
+            const [plan] = await db.select({ id: sessionPlans.id, status: sessionPlans.status }).from(sessionPlans).where(eq32(sessionPlans.sessionId, session.id));
             const firstPlayer = players3[0];
             return {
               id: session.id,
@@ -58459,7 +58684,7 @@ async function registerRoutes(app2) {
         if (!valid) {
           return res.status(404).json({ error: "Session not found" });
         }
-        const feedback = await db.select().from(inSessionFeedback).leftJoin(players, eq31(inSessionFeedback.playerId, players.id)).where(eq31(inSessionFeedback.sessionId, id)).orderBy(desc25(inSessionFeedback.createdAt));
+        const feedback = await db.select().from(inSessionFeedback).leftJoin(players, eq32(inSessionFeedback.playerId, players.id)).where(eq32(inSessionFeedback.sessionId, id)).orderBy(desc25(inSessionFeedback.createdAt));
         res.json(
           feedback.map((f) => ({
             ...f.in_session_feedback,
@@ -58635,8 +58860,8 @@ async function registerRoutes(app2) {
           sessionId: inSessionFeedback.sessionId
         }).from(inSessionFeedback).where(
           and29(
-            eq31(inSessionFeedback.playerId, playerId),
-            eq31(inSessionFeedback.visibility, "public")
+            eq32(inSessionFeedback.playerId, playerId),
+            eq32(inSessionFeedback.visibility, "public")
           )
         ).orderBy(desc25(inSessionFeedback.createdAt)).limit(50);
         res.json(feedback);
@@ -58668,11 +58893,11 @@ async function registerRoutes(app2) {
           createdAt: deepAssessmentPillarSummaries.updatedAt
         }).from(deepAssessmentPillarSummaries).leftJoin(
           skillDomains,
-          eq31(skillDomains.pillarKey, deepAssessmentPillarSummaries.pillarId)
+          eq32(skillDomains.pillarKey, deepAssessmentPillarSummaries.pillarId)
         ).leftJoin(
           users,
-          eq31(users.id, deepAssessmentPillarSummaries.assessedBy)
-        ).where(eq31(deepAssessmentPillarSummaries.playerId, playerId)).orderBy(desc25(deepAssessmentPillarSummaries.updatedAt)).limit(100);
+          eq32(users.id, deepAssessmentPillarSummaries.assessedBy)
+        ).where(eq32(deepAssessmentPillarSummaries.playerId, playerId)).orderBy(desc25(deepAssessmentPillarSummaries.updatedAt)).limit(100);
         res.json(assessments);
       } catch (error) {
         console.error("Error fetching skill assessments:", error);
@@ -58703,10 +58928,10 @@ async function registerRoutes(app2) {
           coachId: inSessionFeedback.coachId,
           coachName: coaches.name,
           createdAt: inSessionFeedback.createdAt
-        }).from(inSessionFeedback).leftJoin(sessions, eq31(sessions.id, inSessionFeedback.sessionId)).leftJoin(coaches, eq31(coaches.id, inSessionFeedback.coachId)).where(
+        }).from(inSessionFeedback).leftJoin(sessions, eq32(sessions.id, inSessionFeedback.sessionId)).leftJoin(coaches, eq32(coaches.id, inSessionFeedback.coachId)).where(
           and29(
-            eq31(inSessionFeedback.playerId, playerId),
-            eq31(inSessionFeedback.visibility, "public")
+            eq32(inSessionFeedback.playerId, playerId),
+            eq32(inSessionFeedback.visibility, "public")
           )
         ).orderBy(desc25(inSessionFeedback.createdAt)).limit(100);
         res.json(feedback);
@@ -58727,7 +58952,7 @@ async function registerRoutes(app2) {
           return res.status(400).json({ error: "Player not found" });
         const limit = Math.min(parseInt(req2.query.limit) || 50, 100);
         const offset = parseInt(req2.query.offset) || 0;
-        const notifications2 = await db.select().from(playerNotifications).where(eq31(playerNotifications.playerId, playerId)).orderBy(desc25(playerNotifications.createdAt)).limit(limit).offset(offset);
+        const notifications2 = await db.select().from(playerNotifications).where(eq32(playerNotifications.playerId, playerId)).orderBy(desc25(playerNotifications.createdAt)).limit(limit).offset(offset);
         res.json(notifications2);
       } catch (error) {
         console.error("Error fetching notifications:", error);
@@ -58746,8 +58971,8 @@ async function registerRoutes(app2) {
           return res.status(400).json({ error: "Player not found" });
         const [result] = await db.select({ count: count7() }).from(playerNotifications).where(
           and29(
-            eq31(playerNotifications.playerId, playerId),
-            eq31(playerNotifications.read, false)
+            eq32(playerNotifications.playerId, playerId),
+            eq32(playerNotifications.read, false)
           )
         );
         res.json({ count: result?.count || 0 });
@@ -58770,15 +58995,15 @@ async function registerRoutes(app2) {
         if (notificationIds && Array.isArray(notificationIds)) {
           await db.update(playerNotifications).set({ read: true, readAt: /* @__PURE__ */ new Date() }).where(
             and29(
-              eq31(playerNotifications.playerId, playerId),
+              eq32(playerNotifications.playerId, playerId),
               inArray16(playerNotifications.id, notificationIds)
             )
           );
         } else {
           await db.update(playerNotifications).set({ read: true, readAt: /* @__PURE__ */ new Date() }).where(
             and29(
-              eq31(playerNotifications.playerId, playerId),
-              eq31(playerNotifications.read, false)
+              eq32(playerNotifications.playerId, playerId),
+              eq32(playerNotifications.read, false)
             )
           );
         }
@@ -59287,7 +59512,7 @@ async function registerRoutes(app2) {
         if (!player2 || !player2.email) {
           return res.json({ isFamily: false });
         }
-        const familyMembers = await db.select().from(players).where(eq31(players.email, player2.email));
+        const familyMembers = await db.select().from(players).where(eq32(players.email, player2.email));
         if (familyMembers.length <= 1) {
           return res.json({ isFamily: false });
         }
@@ -59298,7 +59523,7 @@ async function registerRoutes(app2) {
               date: nextSessionResult[0].date,
               type: nextSessionResult[0].sessionType || "training"
             } : null;
-            const debitTransactions = await db.select().from(creditTransactions).where(eq31(creditTransactions.playerId, member.id));
+            const debitTransactions = await db.select().from(creditTransactions).where(eq32(creditTransactions.playerId, member.id));
             const outstandingBalance = debitTransactions.reduce((sum2, tx) => {
               const amount = Number(tx.amount) || 0;
               return sum2 + (amount < 0 ? Math.abs(amount) : 0);
@@ -59363,7 +59588,7 @@ async function registerRoutes(app2) {
         if (Object.keys(updates).length === 0) {
           return res.status(400).json({ error: "No valid settings provided" });
         }
-        await db.update(players).set(updates).where(eq31(players.id, playerId));
+        await db.update(players).set(updates).where(eq32(players.id, playerId));
         res.json({ success: true, ...updates });
       } catch (error) {
         console.error("Error updating parental controls:", error);
@@ -59383,7 +59608,7 @@ async function registerRoutes(app2) {
         const debitTransactions = await db.select().from(creditTransactions).where(
           and29(
             inArray16(creditTransactions.playerId, playerIds),
-            eq31(creditTransactions.type, "debit")
+            eq32(creditTransactions.type, "debit")
           )
         );
         const totalOwed = debitTransactions.reduce((sum2, tx) => {
@@ -60349,7 +60574,7 @@ async function registerRoutes(app2) {
           }
           if (deepSkillScores && typeof deepSkillScores === "object") {
             await db.delete(playerBaselineSkillScores).where(
-              eq31(playerBaselineSkillScores.baselineId, existingBaseline.id)
+              eq32(playerBaselineSkillScores.baselineId, existingBaseline.id)
             );
             const scoreEntries = Object.entries(deepSkillScores);
             for (const [skillId, scoreData] of scoreEntries) {
@@ -60386,8 +60611,8 @@ async function registerRoutes(app2) {
             for (const skillId of checkedSkillIds) {
               const existing2 = await db.select().from(playerSkillScores).where(
                 and29(
-                  eq31(playerSkillScores.playerId, id),
-                  eq31(playerSkillScores.skillId, skillId)
+                  eq32(playerSkillScores.playerId, id),
+                  eq32(playerSkillScores.skillId, skillId)
                 )
               ).limit(1);
               if (existing2.length === 0) {
@@ -60470,8 +60695,8 @@ async function registerRoutes(app2) {
             for (const skillId of checkedSkillIds) {
               const existing2 = await db.select().from(playerSkillScores).where(
                 and29(
-                  eq31(playerSkillScores.playerId, id),
-                  eq31(playerSkillScores.skillId, skillId)
+                  eq32(playerSkillScores.playerId, id),
+                  eq32(playerSkillScores.skillId, skillId)
                 )
               ).limit(1);
               if (existing2.length === 0) {
@@ -60571,8 +60796,8 @@ async function registerRoutes(app2) {
         if (!baseline) {
           return res.status(404).json({ error: "No baseline found for this player" });
         }
-        await db.delete(playerBaselineSkillScores).where(eq31(playerBaselineSkillScores.baselineId, baseline.id));
-        await db.delete(playerBaselines).where(eq31(playerBaselines.id, baseline.id));
+        await db.delete(playerBaselineSkillScores).where(eq32(playerBaselineSkillScores.baselineId, baseline.id));
+        await db.delete(playerBaselines).where(eq32(playerBaselines.id, baseline.id));
         res.json({ success: true, message: "Baseline reset successfully" });
       } catch (error) {
         console.error("Error resetting baseline:", error);
@@ -61572,7 +61797,7 @@ async function registerRoutes(app2) {
           lateMinutes: sessionPlayers.lateMinutes,
           creditDeductedAt: sessionPlayers.creditDeductedAt,
           creditTransactionId: sessionPlayers.creditTransactionId
-        }).from(sessionPlayers).where(eq31(sessionPlayers.playerId, id));
+        }).from(sessionPlayers).where(eq32(sessionPlayers.playerId, id));
         const sessionIds = playerRecords.map((r) => r.sessionId).filter(Boolean);
         let sessionMap = {};
         if (sessionIds.length > 0) {
@@ -61645,9 +61870,9 @@ async function registerRoutes(app2) {
             metadata: creditTransactions.metadata
           }).from(creditTransactions).where(
             and29(
-              eq31(creditTransactions.playerId, id),
+              eq32(creditTransactions.playerId, id),
               inArray16(creditTransactions.sessionId, allSessionIds),
-              eq31(creditTransactions.type, "debit")
+              eq32(creditTransactions.type, "debit")
             )
           );
           for (const tx of sessionTxs) {
@@ -61850,14 +62075,14 @@ async function registerRoutes(app2) {
           sessionStatus: sessions.status,
           startTime: sessions.startTime,
           sessionType: sessions.sessionType
-        }).from(sessionPlayers).innerJoin(sessions, eq31(sessionPlayers.sessionId, sessions.id)).where(eq31(sessionPlayers.playerId, playerId));
+        }).from(sessionPlayers).innerJoin(sessions, eq32(sessionPlayers.sessionId, sessions.id)).where(eq32(sessionPlayers.playerId, playerId));
         const playerSeriesData = await db.select({
           seriesId: seriesPlayers.seriesId,
           joinedAt: seriesPlayers.createdAt
         }).from(seriesPlayers).where(
           and29(
-            eq31(seriesPlayers.playerId, playerId),
-            eq31(seriesPlayers.status, "active")
+            eq32(seriesPlayers.playerId, playerId),
+            eq32(seriesPlayers.status, "active")
           )
         );
         const seriesIdList = playerSeriesData.map((s) => s.seriesId).filter(Boolean);
@@ -61878,7 +62103,7 @@ async function registerRoutes(app2) {
           }).from(sessions).where(
             and29(
               inArray16(sessions.seriesId, seriesIdList),
-              eq31(sessions.status, "completed")
+              eq32(sessions.status, "completed")
             )
           );
           orphanedCompletedSessions = seriesSessions.filter((s) => {
@@ -61984,14 +62209,14 @@ async function registerRoutes(app2) {
           sessionId: sessionPlayers.sessionId,
           attendanceStatus: sessionPlayers.attendanceStatus,
           lateMinutes: sessionPlayers.lateMinutes
-        }).from(sessionPlayers).where(eq31(sessionPlayers.playerId, playerId));
+        }).from(sessionPlayers).where(eq32(sessionPlayers.playerId, playerId));
         const playerSeriesForHistory = await db.select({
           seriesId: seriesPlayers.seriesId,
           joinedAt: seriesPlayers.createdAt
         }).from(seriesPlayers).where(
           and29(
-            eq31(seriesPlayers.playerId, playerId),
-            eq31(seriesPlayers.status, "active")
+            eq32(seriesPlayers.playerId, playerId),
+            eq32(seriesPlayers.status, "active")
           )
         );
         const seriesIdsForHistory = playerSeriesForHistory.map((s) => s.seriesId).filter(Boolean);
@@ -62010,7 +62235,7 @@ async function registerRoutes(app2) {
           }).from(sessions).where(
             and29(
               inArray16(sessions.seriesId, seriesIdsForHistory),
-              eq31(sessions.status, "completed")
+              eq32(sessions.status, "completed")
             )
           );
           const orphaned = orphanedSessions.filter((s) => {
@@ -62224,8 +62449,8 @@ async function registerRoutes(app2) {
         }
         const [spRecord] = await db.select().from(sessionPlayers).where(
           and29(
-            eq31(sessionPlayers.playerId, playerId),
-            eq31(sessionPlayers.sessionId, sessionId)
+            eq32(sessionPlayers.playerId, playerId),
+            eq32(sessionPlayers.sessionId, sessionId)
           )
         ).limit(1);
         if (!spRecord) {
@@ -62234,7 +62459,7 @@ async function registerRoutes(app2) {
         const oldStatus = spRecord.attendanceStatus;
         const [sessionInfo] = await db.select({
           sessionType: sessions.sessionType
-        }).from(sessions).where(eq31(sessions.id, sessionId)).limit(1);
+        }).from(sessions).where(eq32(sessions.id, sessionId)).limit(1);
         if (!sessionInfo) {
           return res.status(404).json({ error: "Session not found" });
         }
@@ -62253,7 +62478,7 @@ async function registerRoutes(app2) {
         await db.update(sessionPlayers).set({
           attendanceStatus: newStatus,
           creditDeductedAt: willBeCharged ? spRecord.creditDeductedAt || /* @__PURE__ */ new Date() : null
-        }).where(eq31(sessionPlayers.id, spRecord.id));
+        }).where(eq32(sessionPlayers.id, spRecord.id));
         if (creditAdjustment !== 0) {
           const transactionId = `attendance-correction-${sessionId}-${playerId}-${Date.now()}`;
           if (creditAdjustment > 0) {
@@ -62276,15 +62501,15 @@ async function registerRoutes(app2) {
               });
               const [activePackage] = await db.select().from(packages).where(
                 and29(
-                  eq31(packages.playerId, playerId),
-                  eq31(packages.creditType, creditType),
-                  eq31(packages.status, "active")
+                  eq32(packages.playerId, playerId),
+                  eq32(packages.creditType, creditType),
+                  eq32(packages.status, "active")
                 )
               ).limit(1);
               if (activePackage) {
                 await db.update(packages).set({
                   remainingCredits: String(Number(activePackage.remainingCredits) + 1)
-                }).where(eq31(packages.id, activePackage.id));
+                }).where(eq32(packages.id, activePackage.id));
                 console.log(
                   `[AttendanceCorrection] Refunded 1 ${creditType} credit to package ${activePackage.id} (${Number(activePackage.remainingCredits)} -> ${Number(activePackage.remainingCredits) + 1})`
                 );
@@ -62312,15 +62537,15 @@ async function registerRoutes(app2) {
             });
             const [activePackage] = await db.select().from(packages).where(
               and29(
-                eq31(packages.playerId, playerId),
-                eq31(packages.creditType, creditType),
-                eq31(packages.status, "active")
+                eq32(packages.playerId, playerId),
+                eq32(packages.creditType, creditType),
+                eq32(packages.status, "active")
               )
             ).limit(1);
             if (activePackage && Number(activePackage.remainingCredits) > 0) {
               await db.update(packages).set({
                 remainingCredits: String(Number(activePackage.remainingCredits) - 1)
-              }).where(eq31(packages.id, activePackage.id));
+              }).where(eq32(packages.id, activePackage.id));
               console.log(
                 `[AttendanceCorrection] Deducted 1 ${creditType} credit from package ${activePackage.id} (${Number(activePackage.remainingCredits)} -> ${Number(activePackage.remainingCredits) - 1})`
               );
@@ -63036,10 +63261,10 @@ async function registerRoutes(app2) {
             playerName: players.name,
             hostBallLevel: players.ballLevel,
             playerBallLevel: players.ballLevel
-          }).from(seriesPlayers).leftJoin(players, eq31(seriesPlayers.playerId, players.id)).where(
+          }).from(seriesPlayers).leftJoin(players, eq32(seriesPlayers.playerId, players.id)).where(
             and29(
               inArray16(seriesPlayers.seriesId, seriesIds),
-              eq31(seriesPlayers.status, "active")
+              eq32(seriesPlayers.status, "active")
             )
           ) : Promise.resolve([]),
           // Batch fetch paused player counts for all series
@@ -63049,7 +63274,7 @@ async function registerRoutes(app2) {
           }).from(seriesPlayers).where(
             and29(
               inArray16(seriesPlayers.seriesId, seriesIds),
-              eq31(seriesPlayers.status, "paused")
+              eq32(seriesPlayers.status, "paused")
             )
           ).groupBy(seriesPlayers.seriesId) : Promise.resolve([]),
           // Batch fetch all completed sessions for all series
@@ -63059,7 +63284,7 @@ async function registerRoutes(app2) {
           }).from(sessions).where(
             and29(
               inArray16(sessions.seriesId, seriesIds),
-              eq31(sessions.status, "completed")
+              eq32(sessions.status, "completed")
             )
           ) : Promise.resolve([]),
           // Batch fetch next scheduled session for each series (use subquery approach)
@@ -63069,7 +63294,7 @@ async function registerRoutes(app2) {
           }).from(sessions).where(
             and29(
               inArray16(sessions.seriesId, seriesIds),
-              eq31(sessions.status, "scheduled"),
+              eq32(sessions.status, "scheduled"),
               gte17(sessions.startTime, /* @__PURE__ */ new Date())
             )
           ).groupBy(sessions.seriesId) : Promise.resolve([])
@@ -63153,8 +63378,8 @@ async function registerRoutes(app2) {
         const ownSeriesIds = series.map((s) => s.id);
         const orphanSessions = await db.select().from(sessions).where(
           and29(
-            eq31(sessions.coachId, coachId),
-            or15(
+            eq32(sessions.coachId, coachId),
+            or16(
               // Sessions with a seriesId not in this coach's series
               ownSeriesIds.length > 0 ? and29(
                 isNotNull5(sessions.seriesId),
@@ -63192,7 +63417,7 @@ async function registerRoutes(app2) {
             const nextSession = sessionsGroup.find(
               (s) => s.status === "scheduled" && new Date(s.startTime) > now2
             );
-            const sessionPlayersList = await db.select().from(sessionPlayers).where(eq31(sessionPlayers.sessionId, firstSession.id));
+            const sessionPlayersList = await db.select().from(sessionPlayers).where(eq32(sessionPlayers.sessionId, firstSession.id));
             const playerDetails = await Promise.all(
               sessionPlayersList.slice(0, 4).map(async (sp) => {
                 const player2 = await storage.getPlayer(sp.playerId);
@@ -63299,7 +63524,7 @@ async function registerRoutes(app2) {
             };
           })
         );
-        const seriesSessions = await db.select().from(sessions).where(and29(eq31(sessions.seriesId, id), eq31(sessions.coachId, coachId))).orderBy(asc11(sessions.startTime));
+        const seriesSessions = await db.select().from(sessions).where(and29(eq32(sessions.seriesId, id), eq32(sessions.coachId, coachId))).orderBy(asc11(sessions.startTime));
         if (seriesSessions.length > 0 && playerIds.length > 0) {
           const activePlayerIds = seriesPlayersList.filter((sp) => sp.status === "active").map((sp) => sp.playerId);
           if (activePlayerIds.length > 0) {
@@ -63933,9 +64158,9 @@ async function registerRoutes(app2) {
         }
         const updated = await storage.updateCoachingSeries(id, updates);
         if (updates.courtId) {
-          const seriesSessions = await db.select({ id: sessions.id }).from(sessions).where(eq31(sessions.seriesId, id));
+          const seriesSessions = await db.select({ id: sessions.id }).from(sessions).where(eq32(sessions.seriesId, id));
           if (seriesSessions.length > 0) {
-            await db.update(sessions).set({ courtId: updates.courtId }).where(eq31(sessions.seriesId, id));
+            await db.update(sessions).set({ courtId: updates.courtId }).where(eq32(sessions.seriesId, id));
             console.log(
               `[SeriesUpdate] Updated court for ${seriesSessions.length} sessions in series ${id}`
             );
@@ -64193,14 +64418,14 @@ async function registerRoutes(app2) {
         if (existing2.coachId !== coachId) {
           return res.status(403).json({ error: "Not authorized to extend this series" });
         }
-        const allSessions = await db.select().from(sessions).where(eq31(sessions.seriesId, id)).orderBy(desc25(sessions.startTime)).limit(1);
+        const allSessions = await db.select().from(sessions).where(eq32(sessions.seriesId, id)).orderBy(desc25(sessions.startTime)).limit(1);
         if (allSessions.length === 0) {
           return res.status(400).json({ error: "No sessions found in series" });
         }
         const lastSession = allSessions[0];
         const maxWeekResult = await db.select({
           maxWeek: sql30`COALESCE(MAX(${sessions.weekNumber}), 0)`
-        }).from(sessions).where(eq31(sessions.seriesId, id));
+        }).from(sessions).where(eq32(sessions.seriesId, id));
         const maxWeekNumber = maxWeekResult[0]?.maxWeek || 0;
         const seriesMembers = await storage.getSeriesPlayers(id);
         const activeMembers = seriesMembers.filter(
@@ -64664,7 +64889,7 @@ async function registerRoutes(app2) {
                 }
               }
             }
-            const allSeriesSessions = await db.select().from(sessions).where(eq31(sessions.seriesId, id));
+            const allSeriesSessions = await db.select().from(sessions).where(eq32(sessions.seriesId, id));
             const dateParam = req2.query.date;
             const now2 = dateParam ? new Date(dateParam) : /* @__PURE__ */ new Date();
             const DUBAI_OFFSET = 4;
@@ -64755,7 +64980,7 @@ async function registerRoutes(app2) {
             }
           }
         }
-        const newPlayerSeriesSessions = await db.select().from(sessions).where(eq31(sessions.seriesId, id));
+        const newPlayerSeriesSessions = await db.select().from(sessions).where(eq32(sessions.seriesId, id));
         const nowTime = /* @__PURE__ */ new Date();
         const newGuestUntilDate = guestUntil ? /* @__PURE__ */ new Date(guestUntil + "T23:59:59Z") : null;
         const newPlayerFutureSessions = newPlayerSeriesSessions.filter(
@@ -64978,7 +65203,7 @@ async function registerRoutes(app2) {
         try {
           const affectedSessions = await db.select({ id: sessions.id }).from(sessions).where(
             and29(
-              eq31(sessions.seriesId, id),
+              eq32(sessions.seriesId, id),
               inArray16(sessions.status, ["scheduled", "completed"]),
               gte17(sql30`${sessions.startTime}::date`, sql30`${pauseFrom}::date`),
               lte9(sql30`${sessions.startTime}::date`, sql30`${pauseUntil}::date`)
@@ -64988,7 +65213,7 @@ async function registerRoutes(app2) {
             const sessionIds = affectedSessions.map((s) => s.id);
             await db.delete(sessionPlayers).where(
               and29(
-                eq31(sessionPlayers.playerId, playerId),
+                eq32(sessionPlayers.playerId, playerId),
                 inArray16(sessionPlayers.sessionId, sessionIds)
               )
             );
@@ -65055,8 +65280,8 @@ async function registerRoutes(app2) {
           return res.json({ suggestions: [], openSlots: 0 });
         }
         const allCoachSeries = await db.select().from(coachingSeries).where(and29(
-          eq31(coachingSeries.coachId, coachId),
-          eq31(coachingSeries.status, "active"),
+          eq32(coachingSeries.coachId, coachId),
+          eq32(coachingSeries.status, "active"),
           sql30`${coachingSeries.id} != ${id}`
         ));
         const seriesIds = allCoachSeries.map((s) => s.id);
@@ -65112,8 +65337,8 @@ async function registerRoutes(app2) {
         }
         const updated = await db.update(seriesPlayers).set({ joinedAt: new Date(joinDate) }).where(
           and29(
-            eq31(seriesPlayers.seriesId, id),
-            eq31(seriesPlayers.playerId, playerId)
+            eq32(seriesPlayers.seriesId, id),
+            eq32(seriesPlayers.playerId, playerId)
           )
         ).returning();
         if (!updated.length) {
@@ -65209,7 +65434,7 @@ async function registerRoutes(app2) {
         if (series.coachId !== coachId) {
           return res.status(403).json({ error: "Not authorized to view this series" });
         }
-        const seriesSessions = await db.select().from(sessions).where(eq31(sessions.seriesId, id));
+        const seriesSessions = await db.select().from(sessions).where(eq32(sessions.seriesId, id));
         const sessionIds = seriesSessions.map((s) => s.id);
         if (sessionIds.length === 0) {
           return res.json({
@@ -65258,7 +65483,7 @@ async function registerRoutes(app2) {
         if (series.coachId !== coachId) {
           return res.status(403).json({ error: "Not authorized to view this series" });
         }
-        const seriesSessions = await db.select().from(sessions).where(eq31(sessions.seriesId, id));
+        const seriesSessions = await db.select().from(sessions).where(eq32(sessions.seriesId, id));
         const sessionIds = seriesSessions.map((s) => s.id);
         const seriesPlayersData = await storage.getSeriesPlayers(id);
         const playerIds = seriesPlayersData.map((sp) => sp.playerId);
@@ -65285,7 +65510,7 @@ async function registerRoutes(app2) {
             and29(
               inArray16(sessionPlayers.playerId, playerIds),
               inArray16(sessionPlayers.sessionId, completedSessionIds),
-              or15(
+              or16(
                 inArray16(sessionPlayers.attendanceStatus, [
                   "present",
                   "late",
@@ -65342,7 +65567,7 @@ async function registerRoutes(app2) {
         if (series.coachId !== coachId) {
           return res.status(403).json({ error: "Not authorized to view this series" });
         }
-        const seriesSessions = await db.select().from(sessions).where(and29(eq31(sessions.seriesId, id), eq31(sessions.coachId, coachId))).orderBy(asc11(sessions.weekNumber), asc11(sessions.startTime));
+        const seriesSessions = await db.select().from(sessions).where(and29(eq32(sessions.seriesId, id), eq32(sessions.coachId, coachId))).orderBy(asc11(sessions.weekNumber), asc11(sessions.startTime));
         const sessionIds = seriesSessions.map((s) => s.id);
         let feedbackMap = {};
         if (sessionIds.length > 0) {
@@ -65405,8 +65630,8 @@ async function registerRoutes(app2) {
           recurringGroupId: sessions.recurringGroupId
         }).from(sessions).where(
           and29(
-            eq31(sessions.coachId, coachId),
-            eq31(sessions.isRecurring, true),
+            eq32(sessions.coachId, coachId),
+            eq32(sessions.isRecurring, true),
             isNotNull5(sessions.recurringGroupId),
             isNull8(sessions.seriesId)
           )
@@ -65421,7 +65646,7 @@ async function registerRoutes(app2) {
         const migratedSeries = [];
         for (const group of recurringGroups) {
           if (!group.recurringGroupId) continue;
-          const groupSessions = await db.select().from(sessions).where(eq31(sessions.recurringGroupId, group.recurringGroupId)).orderBy(asc11(sessions.startTime));
+          const groupSessions = await db.select().from(sessions).where(eq32(sessions.recurringGroupId, group.recurringGroupId)).orderBy(asc11(sessions.startTime));
           if (groupSessions.length === 0) continue;
           const firstSession = groupSessions[0];
           const lastSession = groupSessions[groupSessions.length - 1];
@@ -65476,7 +65701,7 @@ async function registerRoutes(app2) {
             await db.update(sessions).set({
               seriesId: newSeries.id,
               weekNumber
-            }).where(eq31(sessions.id, session.id));
+            }).where(eq32(sessions.id, session.id));
           }
           const allSessionIds = groupSessions.map((s) => s.id);
           const allSessionPlayers = await db.select({ playerId: sessionPlayers.playerId }).from(sessionPlayers).where(inArray16(sessionPlayers.sessionId, allSessionIds));
@@ -67379,7 +67604,7 @@ async function registerRoutes(app2) {
         startDate.setDate(startDate.getDate() - days);
         const logs = await db.select().from(coachWellnessLogs).where(
           and29(
-            eq31(coachWellnessLogs.coachId, id),
+            eq32(coachWellnessLogs.coachId, id),
             gte17(
               coachWellnessLogs.date,
               startDate.toISOString().split("T")[0]
@@ -67420,8 +67645,8 @@ async function registerRoutes(app2) {
         }
         const [log2] = await db.select().from(coachWellnessLogs).where(
           and29(
-            eq31(coachWellnessLogs.coachId, id),
-            eq31(coachWellnessLogs.date, date2)
+            eq32(coachWellnessLogs.coachId, id),
+            eq32(coachWellnessLogs.date, date2)
           )
         ).limit(1);
         res.json({ log: log2 || null });
@@ -67462,8 +67687,8 @@ async function registerRoutes(app2) {
         }
         const [existing2] = await db.select().from(coachWellnessLogs).where(
           and29(
-            eq31(coachWellnessLogs.coachId, id),
-            eq31(coachWellnessLogs.date, date2)
+            eq32(coachWellnessLogs.coachId, id),
+            eq32(coachWellnessLogs.date, date2)
           )
         ).limit(1);
         if (existing2) {
@@ -67480,7 +67705,7 @@ async function registerRoutes(app2) {
             painNotes,
             notes,
             updatedAt: /* @__PURE__ */ new Date()
-          }).where(eq31(coachWellnessLogs.id, existing2.id)).returning();
+          }).where(eq32(coachWellnessLogs.id, existing2.id)).returning();
           res.json({ log: updated, updated: true });
         } else {
           const [created] = await db.insert(coachWellnessLogs).values({
@@ -68060,8 +68285,8 @@ async function registerRoutes(app2) {
         const userId = req2.user.userId;
         const allTokens = await db.select().from(pushDeviceTokens).where(
           and29(
-            eq31(pushDeviceTokens.userId, userId),
-            eq31(pushDeviceTokens.isActive, true)
+            eq32(pushDeviceTokens.userId, userId),
+            eq32(pushDeviceTokens.isActive, true)
           )
         );
         if (allTokens.length === 0) {
@@ -68112,7 +68337,7 @@ async function registerRoutes(app2) {
         const userId = req2.user.userId;
         const coachId = req2.user.coachId;
         const playerId = req2.user.playerId;
-        const allTokens = await db.select().from(pushDeviceTokens).where(eq31(pushDeviceTokens.userId, userId));
+        const allTokens = await db.select().from(pushDeviceTokens).where(eq32(pushDeviceTokens.userId, userId));
         const activeTokens = allTokens.filter((t) => t.isActive);
         const tokenSummary = activeTokens.map((t) => ({
           id: t.id,
@@ -70812,7 +71037,7 @@ async function registerRoutes(app2) {
           parentEmail: players.parentEmail,
           coachId: players.coachId
         }).from(players).where(
-          or15(
+          or16(
             ilike4(players.name, `%${query}%`),
             ilike4(players.displayName, `%${query}%`),
             ilike4(players.email, `%${query}%`)
@@ -70903,13 +71128,13 @@ async function registerRoutes(app2) {
         if (!player2) {
           return res.status(404).json({ error: "Player not found" });
         }
-        const allTransactions = await db.select().from(creditTransactions).where(eq31(creditTransactions.playerId, playerId)).orderBy(creditTransactions.createdAt);
-        const allPackages = await db.select().from(packages).where(eq31(packages.playerId, playerId));
+        const allTransactions = await db.select().from(creditTransactions).where(eq32(creditTransactions.playerId, playerId)).orderBy(creditTransactions.createdAt);
+        const allPackages = await db.select().from(packages).where(eq32(packages.playerId, playerId));
         const allSessionPlayers = await db.select({
           id: sessionPlayers.id,
           sessionId: sessionPlayers.sessionId,
           attendanceStatus: sessionPlayers.attendanceStatus
-        }).from(sessionPlayers).where(eq31(sessionPlayers.playerId, playerId));
+        }).from(sessionPlayers).where(eq32(sessionPlayers.playerId, playerId));
         const sessionIds = [...new Set(allSessionPlayers.map((sp) => sp.sessionId))];
         let sessionDetails = {};
         if (sessionIds.length > 0) {
@@ -71091,7 +71316,7 @@ async function registerRoutes(app2) {
         const [updated] = await db.update(players).set({
           onboardingCompleted: false,
           profilePhotoUrl: null
-        }).where(eq31(players.id, playerId)).returning({
+        }).where(eq32(players.id, playerId)).returning({
           id: players.id,
           name: players.name,
           onboardingCompleted: players.onboardingCompleted
@@ -71349,7 +71574,7 @@ async function registerRoutes(app2) {
               creditDeductedAt: /* @__PURE__ */ new Date(),
               creditTransactionId: transactionId,
               billingStatus: "charged"
-            }).where(eq31(sessionPlayers.id, sessionPlayer.id));
+            }).where(eq32(sessionPlayers.id, sessionPlayer.id));
             console.log(
               `[LateCancellation] Player ${playerId} charged ${creditsToDeduct} ${creditType} credit(s) for late cancellation (${Math.round(hoursUntilSession)}h notice, tier: ${penaltyTier})`
             );
@@ -71939,7 +72164,7 @@ async function registerRoutes(app2) {
         if (!holiday) {
           return res.status(404).json({ error: "Vacation not found" });
         }
-        await db.delete(playerHolidays).where(eq31(playerHolidays.id, id));
+        await db.delete(playerHolidays).where(eq32(playerHolidays.id, id));
         res.json({
           success: true,
           message: "Vacation cancelled. Welcome back!"
@@ -72159,7 +72384,7 @@ async function registerRoutes(app2) {
           status: seriesPlayers.status,
           joinedAt: seriesPlayers.joinedAt,
           leftAt: seriesPlayers.leftAt
-        }).from(seriesPlayers).where(eq31(seriesPlayers.playerId, playerId));
+        }).from(seriesPlayers).where(eq32(seriesPlayers.playerId, playerId));
         if (playerSeriesRecords.length === 0) {
           return res.json({
             classes: [],
@@ -72173,7 +72398,7 @@ async function registerRoutes(app2) {
             const seriesRecord = playerSeriesRecords.find(
               (r) => r.seriesId === series.id
             );
-            const seriesSessions = await db.select({ id: sessions.id, startTime: sessions.startTime }).from(sessions).where(eq31(sessions.seriesId, series.id));
+            const seriesSessions = await db.select({ id: sessions.id, startTime: sessions.startTime }).from(sessions).where(eq32(sessions.seriesId, series.id));
             const sessionIds = seriesSessions.map((s) => s.id);
             const attendanceRecords = sessionIds.length > 0 ? await db.select({
               status: sessionPlayers.attendanceStatus,
@@ -72181,7 +72406,7 @@ async function registerRoutes(app2) {
             }).from(sessionPlayers).where(
               and29(
                 inArray16(sessionPlayers.sessionId, sessionIds),
-                eq31(sessionPlayers.playerId, playerId)
+                eq32(sessionPlayers.playerId, playerId)
               )
             ).groupBy(sessionPlayers.attendanceStatus) : [];
             const presentOnTimeCount = Number(
@@ -72760,9 +72985,9 @@ async function registerRoutes(app2) {
         if (!player2 || !player2.academyId) {
           return res.status(404).json({ error: "Player not found" });
         }
-        const memberRows = await db.select().from(groupMembers).where(eq31(groupMembers.userId, req2.user.userId));
+        const memberRows = await db.select().from(groupMembers).where(eq32(groupMembers.userId, req2.user.userId));
         const myGroupIds = memberRows.map((m) => m.groupId);
-        const academyGroups = await db.select().from(communityGroups).where(eq31(communityGroups.academyId, player2.academyId));
+        const academyGroups = await db.select().from(communityGroups).where(eq32(communityGroups.academyId, player2.academyId));
         const groups = academyGroups.map((g) => ({
           ...g,
           isMember: myGroupIds.includes(g.id),
@@ -72792,7 +73017,7 @@ async function registerRoutes(app2) {
         if (!player2 || !player2.academyId) {
           return res.status(403).json({ error: "Player must be in an academy" });
         }
-        const [group] = await db.select().from(communityGroups).where(eq31(communityGroups.id, groupId));
+        const [group] = await db.select().from(communityGroups).where(eq32(communityGroups.id, groupId));
         if (!group) {
           return res.status(404).json({ error: "Group not found" });
         }
@@ -72801,8 +73026,8 @@ async function registerRoutes(app2) {
         }
         const [membership] = await db.select().from(groupMembers).where(
           and29(
-            eq31(groupMembers.groupId, groupId),
-            eq31(groupMembers.userId, userId)
+            eq32(groupMembers.groupId, groupId),
+            eq32(groupMembers.userId, userId)
           )
         );
         if (group.isPrivate && !membership) {
@@ -72811,7 +73036,7 @@ async function registerRoutes(app2) {
         const membersData = await db.select({
           member: groupMembers,
           user: users
-        }).from(groupMembers).leftJoin(users, eq31(groupMembers.userId, users.id)).where(eq31(groupMembers.groupId, groupId));
+        }).from(groupMembers).leftJoin(users, eq32(groupMembers.userId, users.id)).where(eq32(groupMembers.groupId, groupId));
         const members = membersData.map((m) => ({
           id: m.member.id,
           userId: m.member.userId,
@@ -72843,17 +73068,17 @@ async function registerRoutes(app2) {
         const userId = req2.user.userId;
         const [membership] = await db.select().from(groupMembers).where(
           and29(
-            eq31(groupMembers.groupId, groupId),
-            eq31(groupMembers.userId, userId)
+            eq32(groupMembers.groupId, groupId),
+            eq32(groupMembers.userId, userId)
           )
         );
         if (!membership) {
           return res.status(403).json({ error: "Not a member of this group" });
         }
-        const groupPosts = await db.select().from(posts).where(eq31(posts.groupId, groupId)).orderBy(desc25(posts.createdAt)).limit(50);
+        const groupPosts = await db.select().from(posts).where(eq32(posts.groupId, groupId)).orderBy(desc25(posts.createdAt)).limit(50);
         const postsWithAuthor = await Promise.all(
           groupPosts.map(async (post) => {
-            const [author] = await db.select().from(users).where(eq31(users.id, post.authorId));
+            const [author] = await db.select().from(users).where(eq32(users.id, post.authorId));
             return {
               ...post,
               authorName: author?.email?.split("@")[0] || "Unknown"
@@ -72881,7 +73106,7 @@ async function registerRoutes(app2) {
         if (!player2 || !player2.academyId) {
           return res.status(403).json({ error: "Player must be in an academy" });
         }
-        const [group] = await db.select().from(communityGroups).where(eq31(communityGroups.id, groupId));
+        const [group] = await db.select().from(communityGroups).where(eq32(communityGroups.id, groupId));
         if (!group) {
           return res.status(404).json({ error: "Group not found" });
         }
@@ -72895,8 +73120,8 @@ async function registerRoutes(app2) {
         }
         const [existing2] = await db.select().from(groupMembers).where(
           and29(
-            eq31(groupMembers.groupId, groupId),
-            eq31(groupMembers.userId, userId)
+            eq32(groupMembers.groupId, groupId),
+            eq32(groupMembers.userId, userId)
           )
         );
         if (existing2) {
@@ -72907,7 +73132,7 @@ async function registerRoutes(app2) {
           userId,
           role: "member"
         });
-        await db.update(communityGroups).set({ memberCount: sql30`${communityGroups.memberCount} + 1` }).where(eq31(communityGroups.id, groupId));
+        await db.update(communityGroups).set({ memberCount: sql30`${communityGroups.memberCount} + 1` }).where(eq32(communityGroups.id, groupId));
         res.json({ success: true, message: "Joined group" });
       } catch (error) {
         console.error("Error joining group:", error);
@@ -72926,8 +73151,8 @@ async function registerRoutes(app2) {
         const userId = req2.user.userId;
         const [membership] = await db.select().from(groupMembers).where(
           and29(
-            eq31(groupMembers.groupId, groupId),
-            eq31(groupMembers.userId, userId)
+            eq32(groupMembers.groupId, groupId),
+            eq32(groupMembers.userId, userId)
           )
         );
         if (!membership) {
@@ -72938,11 +73163,11 @@ async function registerRoutes(app2) {
         }
         await db.delete(groupMembers).where(
           and29(
-            eq31(groupMembers.groupId, groupId),
-            eq31(groupMembers.userId, userId)
+            eq32(groupMembers.groupId, groupId),
+            eq32(groupMembers.userId, userId)
           )
         );
-        await db.update(communityGroups).set({ memberCount: sql30`${communityGroups.memberCount} - 1` }).where(eq31(communityGroups.id, groupId));
+        await db.update(communityGroups).set({ memberCount: sql30`${communityGroups.memberCount} - 1` }).where(eq32(communityGroups.id, groupId));
         res.json({ success: true, message: "Left group" });
       } catch (error) {
         console.error("Error leaving group:", error);
@@ -75917,7 +76142,7 @@ async function registerRoutes(app2) {
       if (!token || token.length < 8) {
         return res.status(404).send("<h1>Report not found</h1>");
       }
-      const [player2] = await db.select().from(players).where(eq31(players.attendanceShareToken, token)).limit(1);
+      const [player2] = await db.select().from(players).where(eq32(players.attendanceShareToken, token)).limit(1);
       if (!player2) {
         return res.status(404).send("<h1>Report not found</h1>");
       }
@@ -75930,7 +76155,7 @@ async function registerRoutes(app2) {
         lateMinutes: sessionPlayers.lateMinutes,
         creditDeductedAt: sessionPlayers.creditDeductedAt,
         creditTransactionId: sessionPlayers.creditTransactionId
-      }).from(sessionPlayers).where(eq31(sessionPlayers.playerId, player2.id));
+      }).from(sessionPlayers).where(eq32(sessionPlayers.playerId, player2.id));
       const sessionIds = playerRecords.map((r) => r.sessionId).filter(Boolean);
       let sessionMap = {};
       if (sessionIds.length > 0) {
@@ -75953,7 +76178,7 @@ async function registerRoutes(app2) {
       const allSessionIds = playerRecords.map((r) => r.sessionId).filter(Boolean);
       const paidSessionIdSet = /* @__PURE__ */ new Set();
       if (allSessionIds.length > 0) {
-        const sessionTxs = await db.select({ sessionId: creditTransactions.sessionId, reason: creditTransactions.reason, packageId: creditTransactions.packageId, metadata: creditTransactions.metadata }).from(creditTransactions).where(and29(eq31(creditTransactions.playerId, player2.id), inArray16(creditTransactions.sessionId, allSessionIds), eq31(creditTransactions.type, "debit")));
+        const sessionTxs = await db.select({ sessionId: creditTransactions.sessionId, reason: creditTransactions.reason, packageId: creditTransactions.packageId, metadata: creditTransactions.metadata }).from(creditTransactions).where(and29(eq32(creditTransactions.playerId, player2.id), inArray16(creditTransactions.sessionId, allSessionIds), eq32(creditTransactions.type, "debit")));
         for (const tx of sessionTxs) {
           if (!tx.sessionId) continue;
           const isDebtReason = tx.reason === "session_debt" || tx.reason === "session_join_debt" || tx.reason === "session_unpaid";
@@ -76051,7 +76276,7 @@ async function registerRoutes(app2) {
         let token = player2.attendanceShareToken;
         if (!token || token.length > 15) {
           token = crypto4.randomBytes(8).toString("base64url");
-          await db.update(players).set({ attendanceShareToken: token }).where(eq31(players.id, id));
+          await db.update(players).set({ attendanceShareToken: token }).where(eq32(players.id, id));
         }
         const baseUrl = process.env.EXPO_PUBLIC_DOMAIN ? `https://${process.env.EXPO_PUBLIC_DOMAIN}` : `${req2.protocol}://${req2.get("host")}`;
         const playerSlug = player2.name.toUpperCase().replace(/\s+/g, "-").replace(/[^A-Z0-9-]/g, "");

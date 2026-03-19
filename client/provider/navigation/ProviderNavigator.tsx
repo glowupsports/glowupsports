@@ -12,6 +12,8 @@ import ProviderEarningsScreen from "@/provider/screens/ProviderEarningsScreen";
 import ProviderClientsScreen from "@/provider/screens/ProviderClientsScreen";
 import ProviderClientDetailScreen from "@/provider/screens/ProviderClientDetailScreen";
 import ProviderOnboardingScreen from "@/provider/screens/ProviderOnboardingScreen";
+import ProviderMessagesScreen from "@/provider/screens/ProviderMessagesScreen";
+import ProviderChatScreen from "@/provider/screens/ProviderChatScreen";
 import { Colors } from "@/constants/theme";
 import { useAuth } from "@/coach/context/AuthContext";
 import { useAppMode, getDefaultModeForRole } from "@/context/AppModeContext";
@@ -20,6 +22,7 @@ export type ProviderStackParamList = {
   ProviderTabs: undefined;
   ProviderBookingDetail: { orderId: string };
   ProviderClientDetail: { playerId: string };
+  ProviderChat: { orderId: string };
 };
 
 const Stack = createNativeStackNavigator<ProviderStackParamList>();
@@ -45,6 +48,13 @@ const PROVIDER_TABS: TabConfig[] = [
     iconFocused: "people",
     label: "Clients",
     component: ProviderClientsScreen,
+  },
+  {
+    key: "Messages",
+    icon: "chatbubble-outline",
+    iconFocused: "chatbubble",
+    label: "Messages",
+    component: ProviderMessagesScreen,
   },
   {
     key: "Earnings",
@@ -129,6 +139,10 @@ export default function ProviderNavigator() {
       <Stack.Screen
         name="ProviderClientDetail"
         component={ProviderClientDetailScreen}
+      />
+      <Stack.Screen
+        name="ProviderChat"
+        component={ProviderChatScreen}
       />
     </Stack.Navigator>
   );
