@@ -204,6 +204,7 @@ function ActionCard({
   onConfirm,
   onDecline,
   onPress,
+  onClientPress,
   isUpdating,
   hasClientData,
 }: {
@@ -211,6 +212,7 @@ function ActionCard({
   onConfirm: () => void;
   onDecline: () => void;
   onPress: () => void;
+  onClientPress?: () => void;
   isUpdating: boolean;
   hasClientData: boolean;
 }) {
@@ -222,23 +224,30 @@ function ActionCard({
   return (
     <Pressable style={styles.actionCard} onPress={onPress}>
       <View style={styles.actionCardTop}>
-        <View style={styles.actionAvatarContainer}>
+        <Pressable
+          style={styles.actionAvatarContainer}
+          onPress={hasClientData && onClientPress ? onClientPress : undefined}
+          hitSlop={6}
+        >
           <PlayerAvatar uri={booking.player?.profilePhotoUrl ?? null} size={36} />
           {booking.player?.level ? (
             <View style={styles.levelBadge}>
               <Text style={styles.levelBadgeText}>{booking.player.level}</Text>
             </View>
           ) : null}
-        </View>
+        </Pressable>
         <View style={styles.actionCardInfo}>
-          <View style={styles.actionNameRow}>
+          <Pressable
+            style={styles.actionNameRow}
+            onPress={hasClientData && onClientPress ? onClientPress : undefined}
+          >
             <Text style={styles.actionCardPlayer} numberOfLines={1}>
               {booking.player?.name ?? "Unknown Player"}
             </Text>
             {hasClientData ? (
               <Ionicons name="document-text-outline" size={12} color={Colors.dark.primary} />
             ) : null}
-          </View>
+          </Pressable>
           <View style={styles.actionServiceRow}>
             <Ionicons name={serviceIcon} size={11} color={Colors.dark.textSecondary} />
             <Text style={styles.actionCardService} numberOfLines={1}>{serviceName}</Text>
@@ -269,7 +278,7 @@ function ActionCard({
   );
 }
 
-function ScheduleRow({ booking, onPress, hasClientData }: { booking: Booking; onPress: () => void; hasClientData: boolean }) {
+function ScheduleRow({ booking, onPress, onClientPress, hasClientData }: { booking: Booking; onPress: () => void; onClientPress?: () => void; hasClientData: boolean }) {
   const serviceName = booking.items?.[0]?.service?.name ?? booking.items?.[0]?.name ?? "Service";
   const rawScheduleIcon = booking.items?.[0]?.service?.iconName;
   const serviceIcon: keyof typeof Ionicons.glyphMap = (rawScheduleIcon && rawScheduleIcon in Ionicons.glyphMap)
@@ -289,13 +298,17 @@ function ScheduleRow({ booking, onPress, hasClientData }: { booking: Booking; on
           <Text style={styles.scheduleName} numberOfLines={1}>{serviceName}</Text>
         </View>
         {booking.player ? (
-          <View style={styles.schedulePlayerRow}>
+          <Pressable
+            style={styles.schedulePlayerRow}
+            onPress={hasClientData && onClientPress ? onClientPress : undefined}
+            hitSlop={4}
+          >
             <PlayerAvatar uri={booking.player.profilePhotoUrl} size={16} />
             <Text style={styles.schedulePlayerName} numberOfLines={1}>{booking.player.name}</Text>
             {hasClientData ? (
               <Ionicons name="document-text-outline" size={11} color={Colors.dark.primary} />
             ) : null}
-          </View>
+          </Pressable>
         ) : null}
       </View>
       <View style={[styles.statusPill, { backgroundColor: statusColor + "20" }]}>
@@ -618,6 +631,7 @@ export default function ProviderDashboardScreen() {
                   isUpdating={updatingId === booking.id}
                   hasClientData={Boolean(booking.player?.id && clientDataMap.get(booking.player.id))}
                   onPress={() => navigation.navigate("ProviderBookingDetail", { orderId: booking.id })}
+                  onClientPress={booking.player?.id ? () => navigation.navigate("ProviderClientDetail", { playerId: booking.player!.id }) : undefined}
                   onConfirm={() => updateBookingStatus(booking.id, "confirmed")}
                   onDecline={() => handleDecline(booking)}
                 />
@@ -647,6 +661,7 @@ export default function ProviderDashboardScreen() {
                 booking={booking}
                 hasClientData={Boolean(booking.player?.id && clientDataMap.get(booking.player.id))}
                 onPress={() => navigation.navigate("ProviderBookingDetail", { orderId: booking.id })}
+                onClientPress={booking.player?.id ? () => navigation.navigate("ProviderClientDetail", { playerId: booking.player!.id }) : undefined}
               />
             ))
           )}

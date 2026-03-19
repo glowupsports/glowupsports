@@ -73,7 +73,9 @@ const STATUS_LABELS: Record<string, string> = {
   cancelled: "Cancelled",
 };
 
-const PREF_FIELDS: Record<string, { key: string; label: string; multiline?: boolean; options?: string[] }[]> = {
+const PROBLEM_AREAS = ["Shoulder", "Back", "Knee", "Ankle", "Wrist"];
+
+const PREF_FIELDS: Record<string, { key: string; label: string; multiline?: boolean; options?: string[]; multiSelect?: boolean }[]> = {
   stringing: [
     { key: "mainString", label: "Main String" },
     { key: "crossString", label: "Cross String" },
@@ -83,12 +85,12 @@ const PREF_FIELDS: Record<string, { key: string; label: string; multiline?: bool
     { key: "notes", label: "Notes", multiline: true },
   ],
   physio: [
-    { key: "problemAreas", label: "Problem Areas", multiline: true },
+    { key: "problemAreas", label: "Problem Areas", options: PROBLEM_AREAS, multiSelect: true },
     { key: "injuryHistory", label: "Injury History", multiline: true },
   ],
   massage: [
-    { key: "problemAreas", label: "Problem Areas", multiline: true },
-    { key: "preferredPressure", label: "Preferred Pressure", options: ["light", "medium", "deep"] },
+    { key: "problemAreas", label: "Problem Areas", options: PROBLEM_AREAS, multiSelect: true },
+    { key: "preferredPressure", label: "Preferred Pressure", options: ["Light", "Medium", "Deep"] },
     { key: "injuryHistory", label: "Injury History", multiline: true },
   ],
   fitness: [
@@ -327,46 +329,57 @@ export default function ProviderClientDetailScreen() {
             </Pressable>
           </View>
 
-          {prefFields.map((field) => (
-            <View key={field.key} style={styles.prefRow}>
-              <Text style={styles.prefLabel}>{field.label}</Text>
-              {field.options ? (
-                <View style={styles.optionChips}>
-                  {field.options.map((opt) => (
-                    <Pressable
-                      key={opt}
-                      style={[
-                        styles.optionChip,
-                        prefValues[field.key] === opt && styles.optionChipActive,
-                      ]}
-                      onPress={() => {
-                        if (prefEditing) setPrefValues((p) => ({ ...p, [field.key]: opt }));
-                      }}
-                    >
-                      <Text
-                        style={[
-                          styles.optionChipText,
-                          prefValues[field.key] === opt && styles.optionChipTextActive,
-                        ]}
-                      >
-                        {opt}
-                      </Text>
-                    </Pressable>
-                  ))}
-                </View>
-              ) : (
-                <TextInput
-                  style={[styles.prefInput, field.multiline && styles.prefInputMulti, !prefEditing && styles.prefInputReadonly]}
-                  value={prefValues[field.key] ?? ""}
-                  onChangeText={(v) => setPrefValues((p) => ({ ...p, [field.key]: v }))}
-                  editable={prefEditing}
-                  multiline={field.multiline}
-                  placeholder={prefEditing ? `Enter ${field.label.toLowerCase()}` : "—"}
-                  placeholderTextColor={Colors.dark.textSecondary}
-                />
-              )}
-            </View>
-          ))}
+          {prefFields.map((field) => {
+            const currentVal = prefValues[field.key] ?? "";
+            const selectedSet = new Set(
+              currentVal ? currentVal.split(",").map((s) => s.trim()).filter(Boolean) : []
+            );
+            const toggleMultiSelect = (opt: string) => {
+              if (!prefEditing) return;
+              const next = new Set(selectedSet);
+              if (next.has(opt)) next.delete(opt); else next.add(opt);
+              setPrefValues((p) => ({ ...p, [field.key]: Array.from(next).join(",") }));
+            };
+            return (
+              <View key={field.key} style={styles.prefRow}>
+                <Text style={styles.prefLabel}>{field.label}</Text>
+                {field.options ? (
+                  <View style={styles.optionChips}>
+                    {field.options.map((opt) => {
+                      const active = field.multiSelect ? selectedSet.has(opt) : currentVal === opt;
+                      return (
+                        <Pressable
+                          key={opt}
+                          style={[styles.optionChip, active && styles.optionChipActive]}
+                          onPress={() => {
+                            if (field.multiSelect) {
+                              toggleMultiSelect(opt);
+                            } else if (prefEditing) {
+                              setPrefValues((p) => ({ ...p, [field.key]: opt }));
+                            }
+                          }}
+                        >
+                          <Text style={[styles.optionChipText, active && styles.optionChipTextActive]}>
+                            {opt}
+                          </Text>
+                        </Pressable>
+                      );
+                    })}
+                  </View>
+                ) : (
+                  <TextInput
+                    style={[styles.prefInput, field.multiline && styles.prefInputMulti, !prefEditing && styles.prefInputReadonly]}
+                    value={currentVal}
+                    onChangeText={(v) => setPrefValues((p) => ({ ...p, [field.key]: v }))}
+                    editable={prefEditing}
+                    multiline={field.multiline}
+                    placeholder={prefEditing ? `Enter ${field.label.toLowerCase()}` : "—"}
+                    placeholderTextColor={Colors.dark.textSecondary}
+                  />
+                )}
+              </View>
+            );
+          })}
         </Animated.View>
 
         {/* Notes */}

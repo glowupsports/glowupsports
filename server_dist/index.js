@@ -32849,6 +32849,18 @@ router.get("/provider/stats", authMiddlewareWithFreshData, requireServiceProvide
     res.status(500).json({ error: "Failed to fetch provider stats" });
   }
 });
+async function assertClientRelationship(providerId, playerId, res) {
+  const [rel] = await db.select({ id: shopOrders.id }).from(shopOrders).where(and3(
+    eq4(shopOrders.assignedProviderId, providerId),
+    eq4(shopOrders.playerId, playerId),
+    inArray3(shopOrders.status, ["completed", "confirmed"])
+  )).limit(1);
+  if (!rel) {
+    res.status(403).json({ error: "No booking relationship found with this client" });
+    return false;
+  }
+  return true;
+}
 router.get("/provider/clients", authMiddlewareWithFreshData, requireServiceProvider, async (req2, res) => {
   try {
     const [provider] = await db.select({ id: serviceProviders.id }).from(serviceProviders).where(eq4(serviceProviders.userId, req2.user.userId)).limit(1);
@@ -32865,27 +32877,39 @@ router.get("/provider/clients", authMiddlewareWithFreshData, requireServiceProvi
     ).groupBy(shopOrders.playerId).orderBy(desc2(max(shopOrders.scheduledAt)));
     if (clientRows.length === 0) return res.json([]);
     const playerIds = clientRows.map((r) => r.playerId).filter((id) => Boolean(id));
-    const [playerRows, noteRows, prefRows] = await Promise.all([
-      db.select({ id: players.id, name: players.name, profilePhotoUrl: players.profilePhotoUrl, level: players.level }).from(players).where(inArray3(players.id, playerIds)),
+    const [allNoteRows, playerRows, prefRows] = await Promise.all([
       db.select({
         playerId: providerClientNotes.playerId,
-        notesCount: count2(providerClientNotes.id),
-        latestContent: max(providerClientNotes.content)
-      }).from(providerClientNotes).where(eq4(providerClientNotes.providerId, provider.id)).groupBy(providerClientNotes.playerId),
+        content: providerClientNotes.content,
+        createdAt: providerClientNotes.createdAt
+      }).from(providerClientNotes).where(and3(
+        eq4(providerClientNotes.providerId, provider.id),
+        inArray3(providerClientNotes.playerId, playerIds)
+      )).orderBy(desc2(providerClientNotes.createdAt)),
+      db.select({ id: players.id, name: players.name, profilePhotoUrl: players.profilePhotoUrl, level: players.level }).from(players).where(inArray3(players.id, playerIds)),
       db.select({ playerId: providerClientPreferences.playerId, preferences: providerClientPreferences.preferences }).from(providerClientPreferences).where(eq4(providerClientPreferences.providerId, provider.id))
     ]);
+    const noteSummary = /* @__PURE__ */ new Map();
+    for (const n of allNoteRows) {
+      if (!n.playerId) continue;
+      const existing2 = noteSummary.get(n.playerId);
+      if (!existing2) {
+        noteSummary.set(n.playerId, { count: 1, latestContent: n.content });
+      } else {
+        existing2.count++;
+      }
+    }
     const playerMap = new Map(playerRows.map((p) => [p.id, p]));
-    const noteMap = new Map(noteRows.map((n) => [n.playerId, n]));
     const prefMap = new Map(prefRows.map((p) => [p.playerId, p.preferences]));
     const result = clientRows.filter((r) => r.playerId && playerMap.has(r.playerId)).map((r) => {
       const player2 = playerMap.get(r.playerId);
-      const note = noteMap.get(r.playerId) ?? null;
+      const noteSummaryEntry = noteSummary.get(r.playerId) ?? null;
       return {
         player: player2,
         totalSessions: Number(r.totalSessions),
         lastVisit: r.lastVisit ? new Date(r.lastVisit).toISOString() : null,
-        notesCount: Number(note?.notesCount ?? 0),
-        latestNote: note?.latestContent ? String(note.latestContent).slice(0, 80) : null,
+        notesCount: Number(noteSummaryEntry?.count ?? 0),
+        latestNote: noteSummaryEntry?.latestContent ? String(noteSummaryEntry.latestContent).slice(0, 80) : null,
         preferences: prefMap.get(r.playerId) ?? {}
       };
     });
@@ -32900,6 +32924,7 @@ router.get("/provider/clients/:playerId", authMiddlewareWithFreshData, requireSe
     const { playerId } = req2.params;
     const [provider] = await db.select({ id: serviceProviders.id }).from(serviceProviders).where(eq4(serviceProviders.userId, req2.user.userId)).limit(1);
     if (!provider) return res.status(404).json({ error: "Provider not found" });
+    if (!await assertClientRelationship(provider.id, playerId, res)) return;
     const [playerRow, bookingRows, noteRows, prefRow] = await Promise.all([
       db.select({ id: players.id, name: players.name, profilePhotoUrl: players.profilePhotoUrl, level: players.level, totalXp: players.totalXp }).from(players).where(eq4(players.id, playerId)).limit(1),
       db.select({
@@ -32962,6 +32987,7 @@ router.post("/provider/clients/:playerId/notes", authMiddlewareWithFreshData, re
     if (!content?.trim()) return res.status(400).json({ error: "Note content is required" });
     const [provider] = await db.select({ id: serviceProviders.id }).from(serviceProviders).where(eq4(serviceProviders.userId, req2.user.userId)).limit(1);
     if (!provider) return res.status(404).json({ error: "Provider not found" });
+    if (!await assertClientRelationship(provider.id, playerId, res)) return;
     const [note] = await db.insert(providerClientNotes).values({
       providerId: provider.id,
       playerId,
@@ -33004,6 +33030,7 @@ router.put("/provider/clients/:playerId/preferences", authMiddlewareWithFreshDat
     }
     const [provider] = await db.select({ id: serviceProviders.id }).from(serviceProviders).where(eq4(serviceProviders.userId, req2.user.userId)).limit(1);
     if (!provider) return res.status(404).json({ error: "Provider not found" });
+    if (!await assertClientRelationship(provider.id, playerId, res)) return;
     const [upserted] = await db.insert(providerClientPreferences).values({ providerId: provider.id, playerId, preferences }).onConflictDoUpdate({
       target: [providerClientPreferences.providerId, providerClientPreferences.playerId],
       set: { preferences, updatedAt: /* @__PURE__ */ new Date() }
