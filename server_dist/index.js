@@ -32485,6 +32485,19 @@ router.patch("/academy/shop/orders/:id/status", authMiddlewareWithFreshData, req
     if (!order) {
       return res.status(404).json({ error: "Order not found" });
     }
+    if (status === "confirmed" && order.playerId && order.assignedProviderId && order.academyId) {
+      try {
+        await getOrCreateProviderConversation(
+          order.assignedProviderId,
+          order.playerId,
+          order.id,
+          order.academyId,
+          order.orderNumber
+        );
+      } catch (chatErr) {
+        console.error("[ProviderChat] Failed to bootstrap booking conversation (academy confirm):", chatErr);
+      }
+    }
     res.json(order);
   } catch (error) {
     console.error("[Shop] Error updating order:", error);
@@ -33120,11 +33133,22 @@ async function getProviderRecord(userId) {
   return provider ?? null;
 }
 async function getOrCreateProviderConversation(providerId, playerId, orderId, academyId, orderNumber) {
+  const confirmationBody = `Your booking #${orderNumber} has been confirmed. Chat here for any questions.`;
   const [existing2] = await db.select().from(conversations).where(and3(
     eq4(conversations.type, "provider_player"),
     eq4(conversations.orderId, orderId)
   )).limit(1);
-  if (existing2) return existing2;
+  if (existing2) {
+    await db.insert(messages).values({
+      conversationId: existing2.id,
+      senderType: "system",
+      body: confirmationBody,
+      messageType: "system",
+      academyId
+    });
+    await db.update(conversations).set({ lastMessageAt: /* @__PURE__ */ new Date(), lastMessagePreview: confirmationBody }).where(eq4(conversations.id, existing2.id));
+    return existing2;
+  }
   const [conv] = await db.insert(conversations).values({
     type: "provider_player",
     providerId,
@@ -33150,15 +33174,14 @@ async function getOrCreateProviderConversation(providerId, playerId, orderId, ac
       academyId
     }
   ]);
-  const systemBody = `Booking #${orderNumber} confirmed \u2014 chat here for any questions!`;
   await db.insert(messages).values({
     conversationId: conv.id,
     senderType: "system",
-    body: systemBody,
+    body: confirmationBody,
     messageType: "system",
     academyId
   });
-  await db.update(conversations).set({ lastMessageAt: /* @__PURE__ */ new Date(), lastMessagePreview: systemBody }).where(eq4(conversations.id, conv.id));
+  await db.update(conversations).set({ lastMessageAt: /* @__PURE__ */ new Date(), lastMessagePreview: confirmationBody }).where(eq4(conversations.id, conv.id));
   return conv;
 }
 router.get("/provider/bookings/:orderId/conversation", authMiddlewareWithFreshData, requireServiceProvider, async (req2, res) => {

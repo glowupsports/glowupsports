@@ -895,6 +895,21 @@ router.patch("/academy/shop/orders/:id/status", authMiddleware, requireRole("aca
       return res.status(404).json({ error: "Order not found" });
     }
 
+    // Auto-create booking chat conversation and post confirmation system message
+    if (status === "confirmed" && order.playerId && order.assignedProviderId && order.academyId) {
+      try {
+        await getOrCreateProviderConversation(
+          order.assignedProviderId,
+          order.playerId,
+          order.id,
+          order.academyId,
+          order.orderNumber,
+        );
+      } catch (chatErr) {
+        console.error("[ProviderChat] Failed to bootstrap booking conversation (academy confirm):", chatErr);
+      }
+    }
+
     res.json(order);
   } catch (error) {
     console.error("[Shop] Error updating order:", error);
@@ -1776,6 +1791,8 @@ async function getOrCreateProviderConversation(
   academyId: string,
   orderNumber: string,
 ) {
+  const confirmationBody = `Your booking #${orderNumber} has been confirmed. Chat here for any questions.`;
+
   // Try to find existing conversation for this order
   const [existing] = await db.select().from(conversations)
     .where(and(
@@ -1783,7 +1800,20 @@ async function getOrCreateProviderConversation(
       eq(conversations.orderId, orderId),
     )).limit(1);
 
-  if (existing) return existing;
+  if (existing) {
+    // Always post the confirmation system message at confirmation time (idempotent: insert regardless)
+    await db.insert(messages).values({
+      conversationId: existing.id,
+      senderType: "system",
+      body: confirmationBody,
+      messageType: "system",
+      academyId,
+    });
+    await db.update(conversations)
+      .set({ lastMessageAt: new Date(), lastMessagePreview: confirmationBody })
+      .where(eq(conversations.id, existing.id));
+    return existing;
+  }
 
   // Create new conversation
   const [conv] = await db.insert(conversations).values({
@@ -1794,7 +1824,7 @@ async function getOrCreateProviderConversation(
     academyId,
   }).returning();
 
-  // Add provider participant
+  // Add participants
   await db.insert(conversationParticipants).values([
     {
       conversationId: conv.id,
@@ -1814,18 +1844,17 @@ async function getOrCreateProviderConversation(
     },
   ]);
 
-  // Post auto system message
-  const systemBody = `Booking #${orderNumber} confirmed — chat here for any questions!`;
+  // Post confirmation system message
   await db.insert(messages).values({
     conversationId: conv.id,
     senderType: "system",
-    body: systemBody,
+    body: confirmationBody,
     messageType: "system",
     academyId,
   });
 
   await db.update(conversations)
-    .set({ lastMessageAt: new Date(), lastMessagePreview: systemBody })
+    .set({ lastMessageAt: new Date(), lastMessagePreview: confirmationBody })
     .where(eq(conversations.id, conv.id));
 
   return conv;
