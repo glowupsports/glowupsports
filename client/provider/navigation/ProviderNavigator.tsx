@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from "react";
+import React, { useState, useCallback, useEffect, useRef } from "react";
 import { View, StyleSheet } from "react-native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { useQuery } from "@tanstack/react-query";
@@ -13,6 +13,8 @@ import ProviderClientsScreen from "@/provider/screens/ProviderClientsScreen";
 import ProviderClientDetailScreen from "@/provider/screens/ProviderClientDetailScreen";
 import ProviderOnboardingScreen from "@/provider/screens/ProviderOnboardingScreen";
 import { Colors } from "@/constants/theme";
+import { useAuth } from "@/coach/context/AuthContext";
+import { useAppMode, getDefaultModeForRole } from "@/context/AppModeContext";
 
 export type ProviderStackParamList = {
   ProviderTabs: undefined;
@@ -83,9 +85,26 @@ function ProviderTabs() {
 }
 
 function ProviderTabsWrapper() {
-  const { data: profile, isLoading } = useQuery<ProviderProfile>({
+  const { user } = useAuth();
+  const { setMode } = useAppMode();
+  const fallbackTriggered = useRef(false);
+
+  const { data: profile, isLoading, error } = useQuery<ProviderProfile>({
     queryKey: ["/api/provider/me"],
   });
+
+  useEffect(() => {
+    if (
+      !fallbackTriggered.current &&
+      error &&
+      (error as Error)?.message?.startsWith("403") &&
+      user?.role === "platform_owner"
+    ) {
+      fallbackTriggered.current = true;
+      const defaultMode = getDefaultModeForRole("platform_owner");
+      setMode(defaultMode);
+    }
+  }, [error, user?.role, setMode]);
 
   if (isLoading) {
     return <View style={styles.loadingContainer} />;

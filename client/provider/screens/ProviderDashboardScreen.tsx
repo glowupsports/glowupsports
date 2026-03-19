@@ -24,6 +24,7 @@ import Animated, {
 } from "react-native-reanimated";
 import { useNavigation } from "@react-navigation/native";
 import { useAuth } from "@/coach/context/AuthContext";
+import { useAppMode, getDefaultModeForRole } from "@/context/AppModeContext";
 import { Colors, Spacing } from "@/constants/theme";
 import { getStaticAssetsUrl, apiRequest } from "@/lib/query-client";
 import {
@@ -323,6 +324,7 @@ export default function ProviderDashboardScreen() {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<any>();
   const { user } = useAuth();
+  const { setMode } = useAppMode();
   const queryClient = useQueryClient();
   const [updatingId, setUpdatingId] = useState<string | null>(null);
   const [toast, setToast] = useState<ToastData | null>(null);
@@ -332,7 +334,7 @@ export default function ProviderDashboardScreen() {
   const streakFlame = useSharedValue(1);
   const streakFlameStyle = useAnimatedStyle(() => ({ transform: [{ scale: streakFlame.value }] }));
 
-  const { data: profile } = useQuery<ProviderProfile>({
+  const { data: profile, error: profileError } = useQuery<ProviderProfile>({
     queryKey: ["/api/provider/me"],
   });
 
@@ -340,7 +342,7 @@ export default function ProviderDashboardScreen() {
     queryKey: ["/api/provider/stats"],
   });
 
-  const { data: todayBookings = [], isLoading: loadingToday, refetch: refetchToday } = useQuery<Booking[]>({
+  const { data: todayBookings = [], isLoading: loadingToday, refetch: refetchToday, error: todayError } = useQuery<Booking[]>({
     queryKey: ["/api/provider/me/bookings", { date: "today" }],
     queryFn: async () => {
       const res = await apiRequest("GET", "/api/provider/me/bookings?date=today");
@@ -348,7 +350,7 @@ export default function ProviderDashboardScreen() {
     },
   });
 
-  const { data: allBookings = [], isLoading: loadingAll, refetch: refetchAll } = useQuery<Booking[]>({
+  const { data: allBookings = [], isLoading: loadingAll, refetch: refetchAll, error: allBookingsError } = useQuery<Booking[]>({
     queryKey: ["/api/provider/me/bookings"],
   });
 
@@ -367,6 +369,47 @@ export default function ProviderDashboardScreen() {
 
   const isLoading = loadingToday || loadingAll;
   const refetch = () => { refetchToday(); refetchAll(); };
+
+  const isPlatformOwner = user?.role === "platform_owner";
+  const hasApiError = !isLoading && (profileError || todayError || allBookingsError);
+  const is403Error = hasApiError && [profileError, todayError, allBookingsError].some(
+    (e) => (e as Error)?.message?.startsWith("403")
+  );
+
+  if (hasApiError && !profile) {
+    return (
+      <View style={[styles.container, styles.errorContainer, { paddingTop: insets.top + Spacing.xl }]}>
+        <View style={styles.errorCard}>
+          <Ionicons name="warning-outline" size={40} color={Colors.dark.error} />
+          <Text style={styles.errorTitle}>
+            {is403Error ? "Access Restricted" : "Something went wrong"}
+          </Text>
+          <Text style={styles.errorMessage}>
+            {is403Error
+              ? "Your account does not have service provider access."
+              : "Unable to load provider dashboard. Please try again."}
+          </Text>
+          {isPlatformOwner ? (
+            <Pressable
+              style={styles.errorButton}
+              onPress={() => setMode(getDefaultModeForRole("platform_owner"))}
+            >
+              <Ionicons name="grid-outline" size={16} color="#000" />
+              <Text style={styles.errorButtonText}>Switch to Platform Mode</Text>
+            </Pressable>
+          ) : (
+            <Pressable
+              style={[styles.errorButton, styles.errorRetryButton]}
+              onPress={refetch}
+            >
+              <Ionicons name="refresh-outline" size={16} color={Colors.dark.primary} />
+              <Text style={[styles.errorButtonText, { color: Colors.dark.primary }]}>Try Again</Text>
+            </Pressable>
+          )}
+        </View>
+      </View>
+    );
+  }
 
   const pendingBookings = useMemo(() => allBookings.filter((b) => b.status === "pending"), [allBookings]);
   const weekTotal = useMemo(() => allBookings.filter((b) => isThisWeek(b.scheduledAt)).length, [allBookings]);
@@ -942,4 +985,50 @@ const styles = StyleSheet.create({
   toastBody: { flex: 1 },
   toastMessage: { fontSize: 14, fontWeight: "700", color: Colors.dark.text },
   toastSubtext: { fontSize: 12, color: Colors.dark.textSecondary, marginTop: 2 },
+
+  errorContainer: { alignItems: "center", justifyContent: "center" },
+  errorCard: {
+    backgroundColor: Colors.dark.backgroundSecondary,
+    borderRadius: 20,
+    padding: Spacing.xl,
+    alignItems: "center",
+    gap: Spacing.md,
+    borderWidth: 1,
+    borderColor: Colors.dark.border,
+    marginHorizontal: Spacing.lg,
+    maxWidth: 360,
+    width: "100%",
+  },
+  errorTitle: {
+    fontSize: 18,
+    fontWeight: "700",
+    color: Colors.dark.text,
+    textAlign: "center",
+  },
+  errorMessage: {
+    fontSize: 14,
+    color: Colors.dark.textSecondary,
+    textAlign: "center",
+    lineHeight: 20,
+  },
+  errorButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    backgroundColor: Colors.dark.primary,
+    paddingHorizontal: Spacing.lg,
+    paddingVertical: Spacing.sm + 2,
+    borderRadius: 12,
+    marginTop: Spacing.xs,
+  },
+  errorRetryButton: {
+    backgroundColor: Colors.dark.primary + "20",
+    borderWidth: 1,
+    borderColor: Colors.dark.primary + "40",
+  },
+  errorButtonText: {
+    fontSize: 14,
+    fontWeight: "700",
+    color: "#000",
+  },
 });
