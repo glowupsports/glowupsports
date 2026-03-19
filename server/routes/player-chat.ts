@@ -11,8 +11,9 @@ import { isPlayerMinor, getPlayerParentalControls } from "../childSafety";
 import { chatRateLimiter } from "../rateLimiter";
 import { getCoachPushTokens, sendPushNotification } from "../pushNotifications";
 import { db } from "../db";
-import { serviceProviders } from "../../shared/schema";
-import { eq } from "drizzle-orm";
+import { serviceProviders, users, shopOrders, conversations, conversationParticipants } from "../../shared/schema";
+import { eq, and } from "drizzle-orm";
+import { broadcastProviderPlayerMessage } from "../websocket";
 
 const router = Router();
 
@@ -309,6 +310,25 @@ router.post("/api/player/me/conversations/:id/messages", authMiddleware, require
 
 
     const participants = await storage.getConversationParticipants(id, undefined, academyId);
+
+    // For provider_player conversations: scoped broadcast to avoid academy-wide content leak
+    if (conversation.type === "provider_player" && conversation.providerId && academyId) {
+      const participantUserIds: string[] = [req.user!.userId];
+      const providerUser = await db.select({ userId: serviceProviders.userId })
+        .from(serviceProviders).where(eq(serviceProviders.id, conversation.providerId)).limit(1);
+      if (providerUser[0]?.userId) participantUserIds.push(providerUser[0].userId);
+      broadcastProviderPlayerMessage(academyId, participantUserIds, {
+        conversationId: id,
+        message: {
+          id: message.id,
+          content: filteredBody,
+          senderType: "player",
+          senderId: playerId,
+          createdAt: message.createdAt?.toISOString() ?? new Date().toISOString(),
+        },
+      });
+    }
+
     for (const participant of participants) {
       if (participant.coachId) {
         const tokens = await getCoachPushTokens(participant.coachId);
@@ -399,6 +419,80 @@ router.post("/api/player/me/messages/:messageId/reactions", authMiddleware, requ
   } catch (error) {
     console.error("Error adding reaction:", error);
     res.status(500).json({ error: "Failed to add reaction" });
+  }
+});
+
+// GET /api/player/me/bookings/:orderId/conversation — get or create booking conversation
+router.get("/api/player/me/bookings/:orderId/conversation", authMiddleware, requirePlayerOrOwner, async (req: AuthRequest, res: Response) => {
+  try {
+    if (!req.user!.playerId) {
+      return res.status(403).json({ error: "Player profile required" });
+    }
+    const playerId = req.user!.playerId!;
+    const player = await storage.getPlayer(playerId);
+    if (!player || !player.academyId) {
+      return res.status(403).json({ error: "Academy membership required" });
+    }
+    const { orderId } = req.params;
+    const academyId = player.academyId;
+
+    // Look up the shop order and verify it belongs to this player
+    const [order] = await db.select().from(shopOrders)
+      .where(eq(shopOrders.id, orderId)).limit(1);
+    if (!order) return res.status(404).json({ error: "Order not found" });
+    if (order.playerId !== playerId) return res.status(403).json({ error: "Not your order" });
+
+    // Try to find an existing conversation for this order
+    const [existing] = await db.select().from(conversations)
+      .where(and(
+        eq(conversations.orderId, orderId),
+        eq(conversations.playerId, playerId),
+        eq(conversations.type, "provider_player"),
+      )).limit(1);
+
+    if (existing) {
+      return res.json(existing);
+    }
+
+    // Find the provider for this order
+    if (!order.assignedProviderId) {
+      return res.status(400).json({ error: "Order has no assigned provider" });
+    }
+    const [provider] = await db.select().from(serviceProviders)
+      .where(eq(serviceProviders.id, order.assignedProviderId)).limit(1);
+    if (!provider) return res.status(404).json({ error: "Provider not found" });
+
+    // Create the conversation
+    const [conv] = await db.insert(conversations).values({
+      type: "provider_player",
+      academyId,
+      playerId,
+      providerId: provider.id,
+      orderId,
+      title: `Booking #${order.orderNumber || orderId.slice(0, 8)}`,
+      lastMessageAt: new Date(),
+    }).returning();
+
+    // Add participants
+    await db.insert(conversationParticipants).values([
+      {
+        conversationId: conv.id,
+        participantType: "player",
+        playerId,
+        academyId,
+      },
+      {
+        conversationId: conv.id,
+        participantType: "provider",
+        providerId: provider.id,
+        academyId,
+      },
+    ]);
+
+    res.status(201).json({ ...conv, providerName: provider.displayName, providerPhoto: provider.profilePhotoUrl });
+  } catch (error) {
+    console.error("[PlayerChat] Error getting booking conversation:", error);
+    res.status(500).json({ error: "Failed to get conversation" });
   }
 });
 

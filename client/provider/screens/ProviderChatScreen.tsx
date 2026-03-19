@@ -16,6 +16,7 @@ import { useNavigation, useRoute } from "@react-navigation/native";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { apiRequest } from "@/lib/query-client";
 import { Colors, Spacing } from "@/constants/theme";
+import { useWebSocket } from "@/lib/useWebSocket";
 
 interface Message {
   id: string;
@@ -62,6 +63,19 @@ export default function ProviderChatScreen() {
     },
     enabled: !!conversation?.id,
     refetchInterval: 8000,
+  });
+
+  // Real-time WebSocket: invalidate query on incoming message for this conversation
+  useWebSocket({
+    onNewMessage: useCallback((payload) => {
+      if (conversation?.id && payload.conversationId === conversation.id) {
+        queryClient.invalidateQueries({
+          queryKey: ["/api/provider/conversations", conversation.id, "messages"],
+        });
+        apiRequest("POST", `/api/provider/conversations/${conversation.id}/read`).catch(() => {});
+        queryClient.invalidateQueries({ queryKey: ["/api/provider/conversations"] });
+      }
+    }, [conversation?.id, queryClient]),
   });
 
   // Mark as read

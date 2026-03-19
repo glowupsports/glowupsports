@@ -36,7 +36,7 @@ interface NewMessagePayload {
   message: {
     id: string;
     content: string;
-    senderType: "coach" | "player" | "system";
+    senderType: "coach" | "player" | "provider" | "system";
     senderId?: string;
     createdAt: string;
   };
@@ -243,8 +243,37 @@ function broadcastToAcademy(
   });
 }
 
+// Broadcast to specific connected users only (participant-scoped, no content leak to academy)
+function broadcastToUserIds(
+  academyId: string,
+  userIds: string[],
+  message: WsMessage,
+) {
+  const room = academyRooms.get(academyId);
+  if (!room) return;
+  const idSet = new Set(userIds);
+  const data = JSON.stringify(message);
+  room.forEach((socket) => {
+    if (idSet.has(socket.userId) && socket.readyState === WebSocket.OPEN) {
+      socket.send(data);
+    }
+  });
+}
+
 export function broadcastNewMessage(academyId: string, payload: NewMessagePayload) {
   broadcastToAcademy(academyId, {
+    type: "new_message",
+    payload,
+  });
+}
+
+// Scoped broadcast for provider-player conversations — only sends to the two participants
+export function broadcastProviderPlayerMessage(
+  academyId: string,
+  participantUserIds: string[],
+  payload: NewMessagePayload,
+) {
+  broadcastToUserIds(academyId, participantUserIds, {
     type: "new_message",
     payload,
   });

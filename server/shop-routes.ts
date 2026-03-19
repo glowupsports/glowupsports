@@ -23,7 +23,7 @@ import {
   hashPassword,
   JWTPayload 
 } from "./auth";
-import { broadcastNewMessage } from "./websocket";
+import { broadcastProviderPlayerMessage } from "./websocket";
 
 const router = Router();
 
@@ -1979,14 +1979,20 @@ router.post("/provider/conversations/:id/messages", authMiddleware, requireServi
       lastMessagePreview: msgBody.trim().substring(0, 100),
     }).where(eq(conversations.id, id));
 
-    // Broadcast to academy WebSocket so the player gets real-time notification
+    // Scoped broadcast — send only to provider + player userIds (no academy-wide leak)
     if (conv.academyId) {
-      broadcastNewMessage(conv.academyId, {
+      const participantUserIds: string[] = [req.user!.userId];
+      if (conv.playerId) {
+        const [playerUser] = await db.select({ id: users.id }).from(users)
+          .where(eq(users.playerId, conv.playerId)).limit(1);
+        if (playerUser?.id) participantUserIds.push(playerUser.id);
+      }
+      broadcastProviderPlayerMessage(conv.academyId, participantUserIds, {
         conversationId: id,
         message: {
           id: msg.id,
           content: msg.body,
-          senderType: "provider" as any,
+          senderType: "provider",
           senderId: provider.id,
           createdAt: msg.createdAt?.toISOString() ?? new Date().toISOString(),
         },
