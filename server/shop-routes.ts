@@ -25,6 +25,7 @@ import {
 } from "./auth";
 import { broadcastProviderPlayerMessage } from "./websocket";
 import { sendPushNotification, getPlayerPushTokens } from "./pushNotifications";
+import { getLocalDayOfWeek } from "./utils/timezone";
 
 const router = Router();
 
@@ -396,8 +397,10 @@ router.get("/player/shop/services/:id/providers", authMiddleware, requirePlayerP
   }
 });
 
-// Get provider availability slots for a specific date
-// Returns time windows in 30-min slots formatted in the academy's local timezone
+// Get provider availability slots for a specific date.
+// Always returns a full-day 30-min slot grid (06:00–21:30) with available=true/false per slot.
+// If provider has no availability configured, all slots are marked available (backend unrestricted).
+// If provider is off that day, all slots are marked unavailable (dayOff=true in response).
 router.get("/player/shop/services/:serviceId/providers/:providerId/availability", authMiddleware, requirePlayerProfile, requireFeatureUnlock("academy_shop"), async (req: AuthRequest, res: Response) => {
   try {
     const { serviceId, providerId } = req.params;
@@ -432,16 +435,8 @@ router.get("/player/shop/services/:serviceId/providers/:providerId/availability"
       .where(eq(academies.id, academyId)).limit(1);
     const tz = academyRecord[0]?.timezone ?? "Asia/Dubai";
 
-    // Determine day-of-week for the requested date in the academy's local timezone
-    // Use midday UTC to avoid DST edge cases
-    const [year, month, day] = date.split("-").map(Number);
-    const middayUtc = new Date(Date.UTC(year, month - 1, day, 12, 0, 0));
-    const localWeekdayShort = new Intl.DateTimeFormat("en-US", {
-      timeZone: tz,
-      weekday: "short",
-    }).format(middayUtc);
-    const weekdayMap: Record<string, number> = { Sun: 0, Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6 };
-    const dayOfWeek = weekdayMap[localWeekdayShort] ?? -1;
+    // Determine day-of-week using shared timezone utility (reuses server/utils/timezone.ts logic)
+    const dayOfWeek = getLocalDayOfWeek(date, tz); // 0=Sun, 1=Mon, ..., 6=Sat
 
     // Fetch all active availability windows for this provider
     const windows = await db.select().from(providerAvailability)
@@ -450,43 +445,44 @@ router.get("/player/shop/services/:serviceId/providers/:providerId/availability"
         eq(providerAvailability.isActive, true),
       ));
 
-    // No windows configured at all → no restriction, return empty slots (client shows free picker)
-    if (windows.length === 0) {
-      return res.json({ hasAvailability: false, slots: [] });
-    }
+    // Build a full-day slot grid (06:00 to 21:30) in 30-min increments
+    const GRID_START = 6 * 60;  // 06:00
+    const GRID_END = 22 * 60;   // 22:00 (last slot starts at 21:30)
+    const allSlots: { time: string; available: boolean }[] = [];
 
-    // Windows for this specific day
-    const dayWindows = windows.filter((w) => w.dayOfWeek === dayOfWeek);
-    if (dayWindows.length === 0) {
-      // Provider has windows but not on this day → provider is off
-      return res.json({ hasAvailability: true, dayOff: true, slots: [] });
-    }
+    // No windows configured → all slots available (backend applies no restriction)
+    const noConfig = windows.length === 0;
 
-    // Build 30-min slots across all active windows for the day
-    const slots: { time: string; available: boolean }[] = [];
+    // Provider has windows configured but none on this day → provider is off that day
+    const dayWindows = noConfig ? [] : windows.filter((w) => w.dayOfWeek === dayOfWeek);
+    const dayOff = !noConfig && dayWindows.length === 0;
+
+    // Build a set of available minute values from dayWindows
+    const availableMinutes = new Set<number>();
     for (const w of dayWindows) {
       const [startH, startM] = w.startTime.split(":").map(Number);
       const [endH, endM] = w.endTime.split(":").map(Number);
-      let current = startH * 60 + startM;
+      let cur = startH * 60 + startM;
       const end = endH * 60 + endM;
-      while (current < end) {
-        const h = String(Math.floor(current / 60)).padStart(2, "0");
-        const m = String(current % 60).padStart(2, "0");
-        slots.push({ time: `${h}:${m}`, available: true });
-        current += 30;
+      while (cur < end) {
+        availableMinutes.add(cur);
+        cur += 30;
       }
     }
 
-    // Sort and deduplicate
-    slots.sort((a, b) => a.time.localeCompare(b.time));
-    const seen = new Set<string>();
-    const uniqueSlots = slots.filter((s) => {
-      if (seen.has(s.time)) return false;
-      seen.add(s.time);
-      return true;
-    });
+    for (let cur = GRID_START; cur < GRID_END; cur += 30) {
+      const h = String(Math.floor(cur / 60)).padStart(2, "0");
+      const m = String(cur % 60).padStart(2, "0");
+      const available = noConfig ? true : (!dayOff && availableMinutes.has(cur));
+      allSlots.push({ time: `${h}:${m}`, available });
+    }
 
-    return res.json({ hasAvailability: true, dayOff: false, slots: uniqueSlots, timezone: tz });
+    return res.json({
+      hasAvailability: !noConfig,
+      dayOff,
+      slots: allSlots,
+      timezone: tz,
+    });
   } catch (error) {
     console.error("[Shop] Error fetching provider availability:", error);
     res.status(500).json({ error: "Failed to load availability" });

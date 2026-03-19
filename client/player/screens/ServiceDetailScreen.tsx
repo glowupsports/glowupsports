@@ -312,14 +312,13 @@ export default function ServiceDetailScreen() {
   const discountedPrice = getDiscountedPrice(service.price);
 
   const isAnyProvider = selectedProviderId === null;
-  const providerHasNoConfig = !isAnyProvider && !!availabilityData && !availabilityData.hasAvailability;
   const providerDayOff = !isAnyProvider && availabilityData?.dayOff === true;
 
-  // Show free time picker (DateTimePicker) when: Any Available OR provider has no config
-  const showFreePicker = isAnyProvider || providerHasNoConfig;
-  // Show slot grid when: specific provider AND availability configured AND not day off
-  const showSlotGrid = !isAnyProvider && !providerHasNoConfig && !providerDayOff && !!availabilityData;
-  // All slots from provider (both available and unavailable for greyed-out display)
+  // Show free time picker (DateTimePicker) only when: "Any Available" selected
+  const showFreePicker = isAnyProvider;
+  // Show slot grid when: specific provider selected AND availability data loaded (no config → all available chips, has config → available/greyed chips)
+  const showSlotGrid = !isAnyProvider && !!availabilityData && !providerDayOff;
+  // All slots from provider response (both available and unavailable for greyed-out display)
   const allProviderSlots: AvailabilitySlot[] = showSlotGrid ? (availabilityData?.slots ?? []) : [];
 
   return (

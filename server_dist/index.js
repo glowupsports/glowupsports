@@ -13775,6 +13775,224 @@ var init_auth = __esm({
   }
 });
 
+// server/utils/timezone.ts
+function formatLocalDateTime(date2, timezone) {
+  const formatter = new Intl.DateTimeFormat("en-US", {
+    timeZone: timezone,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    weekday: "short",
+    hour12: false
+  });
+  const parts = formatter.formatToParts(date2);
+  const getPart = (type) => {
+    const part = parts.find((p) => p.type === type);
+    return part ? part.value : "";
+  };
+  const dayMap = {
+    Sun: 0,
+    Mon: 1,
+    Tue: 2,
+    Wed: 3,
+    Thu: 4,
+    Fri: 5,
+    Sat: 6
+  };
+  let hour = parseInt(getPart("hour"), 10);
+  if (hour === 24) hour = 0;
+  return {
+    year: parseInt(getPart("year"), 10),
+    month: parseInt(getPart("month"), 10),
+    day: parseInt(getPart("day"), 10),
+    hour,
+    minute: parseInt(getPart("minute"), 10),
+    dayOfWeek: dayMap[getPart("weekday")] ?? 0
+  };
+}
+function toLocalMinutes(local) {
+  return local.hour * 60 + local.minute;
+}
+function targetMatches(local, year, month, day, hours, minutes) {
+  return local.year === year && local.month === month && local.day === day && local.hour === hours && local.minute === minutes;
+}
+function resolveLocalTimeToUTC(dateStr, timeStr, timezone) {
+  const [year, month, day] = dateStr.split("-").map(Number);
+  const [hours, minutes] = timeStr.split(":").map(Number);
+  const targetMinutes = hours * 60 + minutes;
+  const startUtc = new Date(Date.UTC(year, month - 1, day - 1, 0, 0, 0, 0));
+  const endUtc = new Date(Date.UTC(year, month - 1, day + 2, 0, 0, 0, 0));
+  const matches2 = [];
+  for (let ms = startUtc.getTime(); ms < endUtc.getTime(); ms += 6e4) {
+    const candidate = new Date(ms);
+    const local = formatLocalDateTime(candidate, timezone);
+    if (targetMatches(local, year, month, day, hours, minutes)) {
+      matches2.push(candidate);
+    }
+  }
+  if (matches2.length === 1) {
+    return { status: "ok", utcDate: matches2[0] };
+  }
+  if (matches2.length > 1) {
+    return {
+      status: "ambiguous",
+      utcDate: matches2[0],
+      alternateUtc: matches2[1],
+      note: `Time occurs twice due to DST. First occurrence selected.`
+    };
+  }
+  let closestAfter = null;
+  for (let ms = startUtc.getTime(); ms < endUtc.getTime(); ms += 6e4) {
+    const candidate = new Date(ms);
+    const local = formatLocalDateTime(candidate, timezone);
+    if (local.year === year && local.month === month && local.day === day) {
+      const localMinutes = toLocalMinutes(local);
+      if (localMinutes > targetMinutes) {
+        if (!closestAfter || localMinutes < toLocalMinutes(formatLocalDateTime(closestAfter.suggestedUtc, timezone))) {
+          const h = String(local.hour).padStart(2, "0");
+          const m = String(local.minute).padStart(2, "0");
+          closestAfter = { suggestedUtc: candidate, suggestedTime: `${h}:${m}` };
+        }
+      }
+    }
+  }
+  if (closestAfter) {
+    return {
+      status: "gap",
+      suggestedTime: closestAfter.suggestedTime,
+      suggestedUtc: closestAfter.suggestedUtc
+    };
+  }
+  return { status: "error", message: `Cannot resolve ${timeStr} on ${dateStr} in ${timezone}` };
+}
+function utcToLocalTime(utcDate, timezone) {
+  try {
+    const dateFormatter = new Intl.DateTimeFormat("en-CA", {
+      timeZone: timezone,
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit"
+    });
+    const timeFormatter = new Intl.DateTimeFormat("en-GB", {
+      timeZone: timezone,
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: false
+    });
+    const local = formatLocalDateTime(utcDate, timezone);
+    return {
+      date: dateFormatter.format(utcDate),
+      time: timeFormatter.format(utcDate),
+      dayOfWeek: local.dayOfWeek
+    };
+  } catch {
+    return {
+      date: `${utcDate.getUTCFullYear()}-${String(utcDate.getUTCMonth() + 1).padStart(2, "0")}-${String(utcDate.getUTCDate()).padStart(2, "0")}`,
+      time: `${String(utcDate.getUTCHours()).padStart(2, "0")}:${String(utcDate.getUTCMinutes()).padStart(2, "0")}`,
+      dayOfWeek: utcDate.getUTCDay()
+    };
+  }
+}
+function getLocalDayOfWeek(dateStr, timezone) {
+  const result = resolveLocalTimeToUTC(dateStr, "12:00", timezone);
+  if (result.status === "ok") {
+    const local = formatLocalDateTime(result.utcDate, timezone);
+    return local.dayOfWeek;
+  }
+  if (result.status === "ambiguous") {
+    const local = formatLocalDateTime(result.utcDate, timezone);
+    return local.dayOfWeek;
+  }
+  if (result.status === "gap") {
+    const local = formatLocalDateTime(result.suggestedUtc, timezone);
+    return local.dayOfWeek;
+  }
+  const [year, month, day] = dateStr.split("-").map(Number);
+  return new Date(Date.UTC(year, month - 1, day)).getUTCDay();
+}
+function addDaysToLocalDate2(dateStr, daysToAdd) {
+  const [year, month, day] = dateStr.split("-").map(Number);
+  const date2 = new Date(Date.UTC(year, month - 1, day + daysToAdd, 12, 0, 0));
+  return `${date2.getUTCFullYear()}-${String(date2.getUTCMonth() + 1).padStart(2, "0")}-${String(date2.getUTCDate()).padStart(2, "0")}`;
+}
+function getFirstSessionDate2(seriesStartDate, targetDayOfWeek, timeStr, timezone) {
+  const startDayOfWeek = getLocalDayOfWeek(seriesStartDate, timezone);
+  let daysUntilTarget = (targetDayOfWeek - startDayOfWeek + 7) % 7;
+  let firstDateStr = daysUntilTarget === 0 ? seriesStartDate : addDaysToLocalDate2(seriesStartDate, daysUntilTarget);
+  const firstResolution = resolveLocalTimeToUTC(firstDateStr, timeStr, timezone);
+  if (firstResolution.status === "gap") {
+    return { status: "gap", dateStr: firstDateStr, suggestedTime: firstResolution.suggestedTime };
+  }
+  if (firstResolution.status === "error") {
+    return { status: "error", message: firstResolution.message };
+  }
+  let firstUtcDate = firstResolution.utcDate;
+  const seriesStartResolution = resolveLocalTimeToUTC(seriesStartDate, timeStr, timezone);
+  if (seriesStartResolution.status === "ok" || seriesStartResolution.status === "ambiguous") {
+    if (firstUtcDate.getTime() < seriesStartResolution.utcDate.getTime()) {
+      firstDateStr = addDaysToLocalDate2(firstDateStr, 7);
+      const nextResolution = resolveLocalTimeToUTC(firstDateStr, timeStr, timezone);
+      if (nextResolution.status === "gap") {
+        return { status: "gap", dateStr: firstDateStr, suggestedTime: nextResolution.suggestedTime };
+      }
+      if (nextResolution.status === "error") {
+        return { status: "error", message: nextResolution.message };
+      }
+      firstUtcDate = nextResolution.utcDate;
+    }
+  }
+  return {
+    status: "ok",
+    dateStr: firstDateStr,
+    utcDate: firstUtcDate
+  };
+}
+function ensureResolvableLocalTime2(dateStr, timeStr, timezone) {
+  const resolution = resolveLocalTimeToUTC(dateStr, timeStr, timezone);
+  if (resolution.status === "ok") {
+    return { ok: true, utcDate: resolution.utcDate };
+  }
+  if (resolution.status === "ambiguous") {
+    return {
+      ok: true,
+      utcDate: resolution.utcDate,
+      ambiguity: {
+        alternateUtc: resolution.alternateUtc,
+        note: resolution.note
+      }
+    };
+  }
+  if (resolution.status === "gap") {
+    return {
+      ok: false,
+      error: {
+        code: "TIME_UNRESOLVABLE",
+        requestedTime: timeStr,
+        date: dateStr,
+        suggestedTime: resolution.suggestedTime,
+        message: `Time ${timeStr} does not exist on ${dateStr} in ${timezone} (DST transition). Please use ${resolution.suggestedTime} instead.`
+      }
+    };
+  }
+  return {
+    ok: false,
+    error: {
+      code: "TIME_UNRESOLVABLE",
+      requestedTime: timeStr,
+      date: dateStr,
+      suggestedTime: timeStr,
+      message: resolution.message
+    }
+  };
+}
+var init_timezone = __esm({
+  "server/utils/timezone.ts"() {
+    "use strict";
+  }
+});
+
 // server/emailService.ts
 var emailService_exports = {};
 __export(emailService_exports, {
@@ -17147,6 +17365,7 @@ var init_shop_routes = __esm({
     init_auth();
     init_websocket();
     init_pushNotifications();
+    init_timezone();
     router = Router();
     router.get("/player/shop/search", authMiddlewareWithFreshData, requirePlayerProfile, requireFeatureUnlock("academy_shop"), async (req2, res) => {
       try {
@@ -17429,46 +17648,40 @@ var init_shop_routes = __esm({
         if (!provider[0]) return res.status(404).json({ error: "Provider not found" });
         const academyRecord = await db.select({ timezone: academies.timezone }).from(academies).where(eq4(academies.id, academyId)).limit(1);
         const tz = academyRecord[0]?.timezone ?? "Asia/Dubai";
-        const [year, month, day] = date2.split("-").map(Number);
-        const middayUtc = new Date(Date.UTC(year, month - 1, day, 12, 0, 0));
-        const localWeekdayShort = new Intl.DateTimeFormat("en-US", {
-          timeZone: tz,
-          weekday: "short"
-        }).format(middayUtc);
-        const weekdayMap = { Sun: 0, Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6 };
-        const dayOfWeek = weekdayMap[localWeekdayShort] ?? -1;
+        const dayOfWeek = getLocalDayOfWeek(date2, tz);
         const windows = await db.select().from(providerAvailability).where(and3(
           eq4(providerAvailability.providerId, providerId),
           eq4(providerAvailability.isActive, true)
         ));
-        if (windows.length === 0) {
-          return res.json({ hasAvailability: false, slots: [] });
-        }
-        const dayWindows = windows.filter((w) => w.dayOfWeek === dayOfWeek);
-        if (dayWindows.length === 0) {
-          return res.json({ hasAvailability: true, dayOff: true, slots: [] });
-        }
-        const slots = [];
+        const GRID_START = 6 * 60;
+        const GRID_END = 22 * 60;
+        const allSlots = [];
+        const noConfig = windows.length === 0;
+        const dayWindows = noConfig ? [] : windows.filter((w) => w.dayOfWeek === dayOfWeek);
+        const dayOff = !noConfig && dayWindows.length === 0;
+        const availableMinutes = /* @__PURE__ */ new Set();
         for (const w of dayWindows) {
           const [startH, startM] = w.startTime.split(":").map(Number);
           const [endH, endM] = w.endTime.split(":").map(Number);
-          let current = startH * 60 + startM;
+          let cur = startH * 60 + startM;
           const end = endH * 60 + endM;
-          while (current < end) {
-            const h = String(Math.floor(current / 60)).padStart(2, "0");
-            const m = String(current % 60).padStart(2, "0");
-            slots.push({ time: `${h}:${m}`, available: true });
-            current += 30;
+          while (cur < end) {
+            availableMinutes.add(cur);
+            cur += 30;
           }
         }
-        slots.sort((a, b) => a.time.localeCompare(b.time));
-        const seen = /* @__PURE__ */ new Set();
-        const uniqueSlots = slots.filter((s) => {
-          if (seen.has(s.time)) return false;
-          seen.add(s.time);
-          return true;
+        for (let cur = GRID_START; cur < GRID_END; cur += 30) {
+          const h = String(Math.floor(cur / 60)).padStart(2, "0");
+          const m = String(cur % 60).padStart(2, "0");
+          const available = noConfig ? true : !dayOff && availableMinutes.has(cur);
+          allSlots.push({ time: `${h}:${m}`, available });
+        }
+        return res.json({
+          hasAvailability: !noConfig,
+          dayOff,
+          slots: allSlots,
+          timezone: tz
         });
-        return res.json({ hasAvailability: true, dayOff: false, slots: uniqueSlots, timezone: tz });
       } catch (error) {
         console.error("[Shop] Error fetching provider availability:", error);
         res.status(500).json({ error: "Failed to load availability" });
@@ -33315,220 +33528,8 @@ function sanitizeTemplateContent(input) {
   return sanitizeFreeText(input, 1e4);
 }
 
-// server/utils/timezone.ts
-function formatLocalDateTime(date2, timezone) {
-  const formatter = new Intl.DateTimeFormat("en-US", {
-    timeZone: timezone,
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-    weekday: "short",
-    hour12: false
-  });
-  const parts = formatter.formatToParts(date2);
-  const getPart = (type) => {
-    const part = parts.find((p) => p.type === type);
-    return part ? part.value : "";
-  };
-  const dayMap = {
-    Sun: 0,
-    Mon: 1,
-    Tue: 2,
-    Wed: 3,
-    Thu: 4,
-    Fri: 5,
-    Sat: 6
-  };
-  let hour = parseInt(getPart("hour"), 10);
-  if (hour === 24) hour = 0;
-  return {
-    year: parseInt(getPart("year"), 10),
-    month: parseInt(getPart("month"), 10),
-    day: parseInt(getPart("day"), 10),
-    hour,
-    minute: parseInt(getPart("minute"), 10),
-    dayOfWeek: dayMap[getPart("weekday")] ?? 0
-  };
-}
-function toLocalMinutes(local) {
-  return local.hour * 60 + local.minute;
-}
-function targetMatches(local, year, month, day, hours, minutes) {
-  return local.year === year && local.month === month && local.day === day && local.hour === hours && local.minute === minutes;
-}
-function resolveLocalTimeToUTC(dateStr, timeStr, timezone) {
-  const [year, month, day] = dateStr.split("-").map(Number);
-  const [hours, minutes] = timeStr.split(":").map(Number);
-  const targetMinutes = hours * 60 + minutes;
-  const startUtc = new Date(Date.UTC(year, month - 1, day - 1, 0, 0, 0, 0));
-  const endUtc = new Date(Date.UTC(year, month - 1, day + 2, 0, 0, 0, 0));
-  const matches2 = [];
-  for (let ms = startUtc.getTime(); ms < endUtc.getTime(); ms += 6e4) {
-    const candidate = new Date(ms);
-    const local = formatLocalDateTime(candidate, timezone);
-    if (targetMatches(local, year, month, day, hours, minutes)) {
-      matches2.push(candidate);
-    }
-  }
-  if (matches2.length === 1) {
-    return { status: "ok", utcDate: matches2[0] };
-  }
-  if (matches2.length > 1) {
-    return {
-      status: "ambiguous",
-      utcDate: matches2[0],
-      alternateUtc: matches2[1],
-      note: `Time occurs twice due to DST. First occurrence selected.`
-    };
-  }
-  let closestAfter = null;
-  for (let ms = startUtc.getTime(); ms < endUtc.getTime(); ms += 6e4) {
-    const candidate = new Date(ms);
-    const local = formatLocalDateTime(candidate, timezone);
-    if (local.year === year && local.month === month && local.day === day) {
-      const localMinutes = toLocalMinutes(local);
-      if (localMinutes > targetMinutes) {
-        if (!closestAfter || localMinutes < toLocalMinutes(formatLocalDateTime(closestAfter.suggestedUtc, timezone))) {
-          const h = String(local.hour).padStart(2, "0");
-          const m = String(local.minute).padStart(2, "0");
-          closestAfter = { suggestedUtc: candidate, suggestedTime: `${h}:${m}` };
-        }
-      }
-    }
-  }
-  if (closestAfter) {
-    return {
-      status: "gap",
-      suggestedTime: closestAfter.suggestedTime,
-      suggestedUtc: closestAfter.suggestedUtc
-    };
-  }
-  return { status: "error", message: `Cannot resolve ${timeStr} on ${dateStr} in ${timezone}` };
-}
-function utcToLocalTime(utcDate, timezone) {
-  try {
-    const dateFormatter = new Intl.DateTimeFormat("en-CA", {
-      timeZone: timezone,
-      year: "numeric",
-      month: "2-digit",
-      day: "2-digit"
-    });
-    const timeFormatter = new Intl.DateTimeFormat("en-GB", {
-      timeZone: timezone,
-      hour: "2-digit",
-      minute: "2-digit",
-      hour12: false
-    });
-    const local = formatLocalDateTime(utcDate, timezone);
-    return {
-      date: dateFormatter.format(utcDate),
-      time: timeFormatter.format(utcDate),
-      dayOfWeek: local.dayOfWeek
-    };
-  } catch {
-    return {
-      date: `${utcDate.getUTCFullYear()}-${String(utcDate.getUTCMonth() + 1).padStart(2, "0")}-${String(utcDate.getUTCDate()).padStart(2, "0")}`,
-      time: `${String(utcDate.getUTCHours()).padStart(2, "0")}:${String(utcDate.getUTCMinutes()).padStart(2, "0")}`,
-      dayOfWeek: utcDate.getUTCDay()
-    };
-  }
-}
-function getLocalDayOfWeek(dateStr, timezone) {
-  const result = resolveLocalTimeToUTC(dateStr, "12:00", timezone);
-  if (result.status === "ok") {
-    const local = formatLocalDateTime(result.utcDate, timezone);
-    return local.dayOfWeek;
-  }
-  if (result.status === "ambiguous") {
-    const local = formatLocalDateTime(result.utcDate, timezone);
-    return local.dayOfWeek;
-  }
-  if (result.status === "gap") {
-    const local = formatLocalDateTime(result.suggestedUtc, timezone);
-    return local.dayOfWeek;
-  }
-  const [year, month, day] = dateStr.split("-").map(Number);
-  return new Date(Date.UTC(year, month - 1, day)).getUTCDay();
-}
-function addDaysToLocalDate2(dateStr, daysToAdd) {
-  const [year, month, day] = dateStr.split("-").map(Number);
-  const date2 = new Date(Date.UTC(year, month - 1, day + daysToAdd, 12, 0, 0));
-  return `${date2.getUTCFullYear()}-${String(date2.getUTCMonth() + 1).padStart(2, "0")}-${String(date2.getUTCDate()).padStart(2, "0")}`;
-}
-function getFirstSessionDate2(seriesStartDate, targetDayOfWeek, timeStr, timezone) {
-  const startDayOfWeek = getLocalDayOfWeek(seriesStartDate, timezone);
-  let daysUntilTarget = (targetDayOfWeek - startDayOfWeek + 7) % 7;
-  let firstDateStr = daysUntilTarget === 0 ? seriesStartDate : addDaysToLocalDate2(seriesStartDate, daysUntilTarget);
-  const firstResolution = resolveLocalTimeToUTC(firstDateStr, timeStr, timezone);
-  if (firstResolution.status === "gap") {
-    return { status: "gap", dateStr: firstDateStr, suggestedTime: firstResolution.suggestedTime };
-  }
-  if (firstResolution.status === "error") {
-    return { status: "error", message: firstResolution.message };
-  }
-  let firstUtcDate = firstResolution.utcDate;
-  const seriesStartResolution = resolveLocalTimeToUTC(seriesStartDate, timeStr, timezone);
-  if (seriesStartResolution.status === "ok" || seriesStartResolution.status === "ambiguous") {
-    if (firstUtcDate.getTime() < seriesStartResolution.utcDate.getTime()) {
-      firstDateStr = addDaysToLocalDate2(firstDateStr, 7);
-      const nextResolution = resolveLocalTimeToUTC(firstDateStr, timeStr, timezone);
-      if (nextResolution.status === "gap") {
-        return { status: "gap", dateStr: firstDateStr, suggestedTime: nextResolution.suggestedTime };
-      }
-      if (nextResolution.status === "error") {
-        return { status: "error", message: nextResolution.message };
-      }
-      firstUtcDate = nextResolution.utcDate;
-    }
-  }
-  return {
-    status: "ok",
-    dateStr: firstDateStr,
-    utcDate: firstUtcDate
-  };
-}
-function ensureResolvableLocalTime2(dateStr, timeStr, timezone) {
-  const resolution = resolveLocalTimeToUTC(dateStr, timeStr, timezone);
-  if (resolution.status === "ok") {
-    return { ok: true, utcDate: resolution.utcDate };
-  }
-  if (resolution.status === "ambiguous") {
-    return {
-      ok: true,
-      utcDate: resolution.utcDate,
-      ambiguity: {
-        alternateUtc: resolution.alternateUtc,
-        note: resolution.note
-      }
-    };
-  }
-  if (resolution.status === "gap") {
-    return {
-      ok: false,
-      error: {
-        code: "TIME_UNRESOLVABLE",
-        requestedTime: timeStr,
-        date: dateStr,
-        suggestedTime: resolution.suggestedTime,
-        message: `Time ${timeStr} does not exist on ${dateStr} in ${timezone} (DST transition). Please use ${resolution.suggestedTime} instead.`
-      }
-    };
-  }
-  return {
-    ok: false,
-    error: {
-      code: "TIME_UNRESOLVABLE",
-      requestedTime: timeStr,
-      date: dateStr,
-      suggestedTime: timeStr,
-      message: resolution.message
-    }
-  };
-}
-
 // server/routes.ts
+init_timezone();
 init_pushNotifications();
 init_emailService();
 
@@ -50740,6 +50741,7 @@ init_schema();
 init_auth();
 import { Router as Router21 } from "express";
 import { eq as eq30, sql as sql28, desc as desc23, and as and28, inArray as inArray14, isNotNull as isNotNull4, gte as gte16 } from "drizzle-orm";
+init_timezone();
 init_websocket();
 init_pushNotifications();
 init_emailService();
