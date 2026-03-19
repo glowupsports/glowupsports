@@ -279,11 +279,16 @@ router.get("/player/shop/services/:id", authMiddleware, requirePlayerProfile, re
 
     // Attach suggestedProviderId: if the academy has exactly one active provider, include it
     // so the client can include it in booking requests for availability enforcement
-    const academyProviders = await db.select({ id: serviceProviders.id }).from(serviceProviders)
-      .where(and(eq(serviceProviders.academyId, player[0].academyId), eq(serviceProviders.isActive, true)));
+    const [academyProviders, academyRecord] = await Promise.all([
+      db.select({ id: serviceProviders.id }).from(serviceProviders)
+        .where(and(eq(serviceProviders.academyId, player[0].academyId), eq(serviceProviders.isActive, true))),
+      db.select({ timezone: academies.timezone }).from(academies)
+        .where(eq(academies.id, player[0].academyId)).limit(1),
+    ]);
     const suggestedProviderId = academyProviders.length === 1 ? academyProviders[0].id : null;
+    const academyTimezone = academyRecord[0]?.timezone ?? "Asia/Dubai";
 
-    res.json({ ...service[0], suggestedProviderId });
+    res.json({ ...service[0], suggestedProviderId, academyTimezone });
   } catch (error) {
     console.error("[Shop] Error fetching service:", error);
     res.status(500).json({ error: "Failed to load service" });

@@ -17323,9 +17323,13 @@ var init_shop_routes = __esm({
         if (!player2[0]?.academyId) return res.status(400).json({ error: "Player has no academy" });
         const service = await db.select().from(shopServices).where(and3(eq4(shopServices.id, id), eq4(shopServices.academyId, player2[0].academyId))).limit(1);
         if (!service[0]) return res.status(404).json({ error: "Service not found" });
-        const academyProviders = await db.select({ id: serviceProviders.id }).from(serviceProviders).where(and3(eq4(serviceProviders.academyId, player2[0].academyId), eq4(serviceProviders.isActive, true)));
+        const [academyProviders, academyRecord] = await Promise.all([
+          db.select({ id: serviceProviders.id }).from(serviceProviders).where(and3(eq4(serviceProviders.academyId, player2[0].academyId), eq4(serviceProviders.isActive, true))),
+          db.select({ timezone: academies.timezone }).from(academies).where(eq4(academies.id, player2[0].academyId)).limit(1)
+        ]);
         const suggestedProviderId = academyProviders.length === 1 ? academyProviders[0].id : null;
-        res.json({ ...service[0], suggestedProviderId });
+        const academyTimezone = academyRecord[0]?.timezone ?? "Asia/Dubai";
+        res.json({ ...service[0], suggestedProviderId, academyTimezone });
       } catch (error) {
         console.error("[Shop] Error fetching service:", error);
         res.status(500).json({ error: "Failed to load service" });
