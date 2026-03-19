@@ -32,6 +32,7 @@ import {
   PROVIDER_SPECIALIZATIONS,
   ProviderSpecialization,
 } from "@/provider/constants/specializations";
+import CollapsibleModeSwitcher from "@/components/CollapsibleModeSwitcher";
 
 interface Booking {
   id: string;
@@ -716,6 +717,7 @@ export default function ProviderDashboardScreen() {
           <AchievementToast data={toast} onDismiss={() => setToast(null)} />
         </View>
       ) : null}
+      <CollapsibleModeSwitcher />
     </View>
   );
 }
