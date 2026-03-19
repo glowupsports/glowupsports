@@ -17,6 +17,7 @@ import Ionicons from "@expo/vector-icons/Ionicons";
 import Animated, { FadeIn, FadeInUp } from "react-native-reanimated";
 import { useNavigation, useRoute } from "@react-navigation/native";
 import * as Haptics from "expo-haptics";
+import { Image } from "expo-image";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import { Colors, Spacing } from "@/constants/theme";
 import { apiRequest } from "@/lib/query-client";
@@ -209,7 +210,7 @@ export default function ServiceDetailScreen() {
       notes: notes.trim() || undefined,
       items: [{ serviceId: service.id, quantity: 1 }],
       serviceDetails: Object.keys(serviceDetails).length > 0 ? serviceDetails : undefined,
-      preferredProviderId: selectedProviderId ?? service.suggestedProviderId ?? undefined,
+      preferredProviderId: selectedProviderId ?? undefined,
     });
   };
 
@@ -354,6 +355,7 @@ export default function ServiceDetailScreen() {
                     const isAny = item.id === null;
                     const isSelected = isAny ? selectedProviderId === null : selectedProviderId === item.id;
                     const initials = item.displayName.split(" ").map((w: string) => w[0]).join("").slice(0, 2).toUpperCase();
+                    const topSpec = item.specializations?.[0];
                     return (
                       <Pressable
                         onPress={() => {
@@ -365,13 +367,24 @@ export default function ServiceDetailScreen() {
                         <View style={[styles.providerAvatar, isSelected && styles.providerAvatarSelected]}>
                           {isAny ? (
                             <Ionicons name="people" size={18} color={isSelected ? Colors.dark.backgroundDefault : Colors.dark.textSecondary} />
+                          ) : item.profilePhotoUrl ? (
+                            <Image
+                              source={{ uri: item.profilePhotoUrl }}
+                              style={styles.providerAvatarImg}
+                              contentFit="cover"
+                            />
                           ) : (
                             <Text style={[styles.providerInitials, isSelected && styles.providerInitialsSelected]}>{initials}</Text>
                           )}
                         </View>
                         <Text style={[styles.providerChipName, isSelected && styles.providerChipNameSelected]} numberOfLines={1}>
-                          {isAny ? "Any" : item.displayName.split(" ")[0]}
+                          {isAny ? "Any Available" : item.displayName.split(" ")[0]}
                         </Text>
+                        {!isAny && topSpec ? (
+                          <Text style={styles.providerSpecText} numberOfLines={1}>
+                            {topSpec.charAt(0).toUpperCase() + topSpec.slice(1)}
+                          </Text>
+                        ) : null}
                         {!isAny && item.rating > 0 ? (
                           <View style={styles.providerRatingRow}>
                             <Ionicons name="star" size={10} color={Colors.dark.gold} />
@@ -813,5 +826,16 @@ const styles = StyleSheet.create({
     fontSize: 10,
     color: Colors.dark.gold,
     fontWeight: "600",
+  },
+  providerAvatarImg: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+  },
+  providerSpecText: {
+    fontSize: 10,
+    color: Colors.dark.textSecondary,
+    textAlign: "center",
+    opacity: 0.8,
   },
 });

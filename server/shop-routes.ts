@@ -799,73 +799,75 @@ router.post("/player/shop/orders", authMiddleware, requirePlayerProfile, require
       }).from(serviceProviders)
         .where(and(eq(serviceProviders.academyId, academyId), eq(serviceProviders.isActive, true)));
 
-      // Identify service tags + category slug for specialization matching
+      // Only auto-assign for service bookings — skip for product-only carts
       const serviceItem = items.find((i: { serviceId?: string }) => i.serviceId);
-      let serviceTags: string[] = [];
-      let serviceSlug = "";
-      let serviceCategorySlug = "";
       if (serviceItem?.serviceId) {
         const svc = await db.select({ tags: shopServices.tags, slug: shopServices.slug, categoryId: shopServices.categoryId })
-          .from(shopServices).where(eq(shopServices.id, serviceItem.serviceId)).limit(1);
-        serviceTags = (svc[0]?.tags as string[]) ?? [];
-        serviceSlug = svc[0]?.slug ?? "";
-        if (svc[0]?.categoryId) {
-          const cat = await db.select({ slug: shopCategories.slug })
-            .from(shopCategories).where(eq(shopCategories.id, svc[0].categoryId)).limit(1);
-          serviceCategorySlug = cat[0]?.slug ?? "";
-        }
-      }
+          .from(shopServices)
+          .where(and(eq(shopServices.id, serviceItem.serviceId), eq(shopServices.academyId, academyId)))
+          .limit(1);
 
-      const matchesService = (p: { specializations: unknown; serviceTypes: unknown }) => {
-        const combined = [
-          ...((p.specializations as string[]) ?? []),
-          ...((p.serviceTypes as string[]) ?? []),
-        ].map((s) => s.toLowerCase());
-        const tagMatch = serviceTags.some((t) => combined.includes(t.toLowerCase()));
-        const slugMatch = combined.some((s) =>
-          (serviceSlug && (serviceSlug.toLowerCase().includes(s) || s.includes(serviceSlug.toLowerCase()))) ||
-          (serviceCategorySlug && (serviceCategorySlug.toLowerCase().includes(s) || s.includes(serviceCategorySlug.toLowerCase())))
-        );
-        return tagMatch || slugMatch;
-      };
-
-      if (academyProviders.length === 1) {
-        // Single provider — check specialization match; if no match keep pending
-        if (matchesService(academyProviders[0]) || (!serviceTags.length && !serviceSlug)) {
-          providerId = academyProviders[0].id;
-          autoAssigned = true;
-        }
-      } else if (academyProviders.length > 1) {
-        // Filter to matching providers — if none match, leave pending (do NOT fall back to all)
-        const matching = academyProviders.filter(matchesService);
-        if (matching.length > 0) {
-          // Get workload counts for matching providers
-          const candidateIds = matching.map((c) => c.id);
-          const workloadRows = await db.select({
-            assignedProviderId: shopOrders.assignedProviderId,
-            cnt: sql<number>`COUNT(*)`,
-          }).from(shopOrders)
-            .where(and(
-              inArray(shopOrders.assignedProviderId, candidateIds),
-              inArray(shopOrders.status, ["pending", "confirmed", "in_progress"] as const),
-            ))
-            .groupBy(shopOrders.assignedProviderId);
-
-          const workloadMap: Record<string, number> = {};
-          for (const row of workloadRows) {
-            if (row.assignedProviderId) workloadMap[row.assignedProviderId] = Number(row.cnt);
+        if (svc[0]) {
+          const serviceTags: string[] = (svc[0].tags as string[]) ?? [];
+          const serviceSlug = svc[0].slug ?? "";
+          let serviceCategorySlug = "";
+          if (svc[0].categoryId) {
+            const cat = await db.select({ slug: shopCategories.slug })
+              .from(shopCategories).where(eq(shopCategories.id, svc[0].categoryId)).limit(1);
+            serviceCategorySlug = cat[0]?.slug ?? "";
           }
 
-          // Pick the provider with fewest active bookings
-          const best = matching.reduce((a, b) =>
-            (workloadMap[a.id] ?? 0) <= (workloadMap[b.id] ?? 0) ? a : b
-          );
-          providerId = best.id;
-          autoAssigned = true;
+          const matchesService = (p: { specializations: unknown; serviceTypes: unknown }) => {
+            const combined = [
+              ...((p.specializations as string[]) ?? []),
+              ...((p.serviceTypes as string[]) ?? []),
+            ].map((s) => s.toLowerCase());
+            const tagMatch = serviceTags.some((t) => combined.includes(t.toLowerCase()));
+            const slugMatch = combined.some((s) =>
+              (serviceSlug && (serviceSlug.toLowerCase().includes(s) || s.includes(serviceSlug.toLowerCase()))) ||
+              (serviceCategorySlug && (serviceCategorySlug.toLowerCase().includes(s) || s.includes(serviceCategorySlug.toLowerCase())))
+            );
+            return tagMatch || slugMatch;
+          };
+
+          if (academyProviders.length === 1) {
+            // Single provider — only auto-assign if specialization matches
+            if (matchesService(academyProviders[0])) {
+              providerId = academyProviders[0].id;
+              autoAssigned = true;
+            }
+          } else if (academyProviders.length > 1) {
+            // Filter to matching providers only — if none match, leave pending
+            const matching = academyProviders.filter(matchesService);
+            if (matching.length > 0) {
+              const candidateIds = matching.map((c) => c.id);
+              const workloadRows = await db.select({
+                assignedProviderId: shopOrders.assignedProviderId,
+                cnt: sql<number>`COUNT(*)`,
+              }).from(shopOrders)
+                .where(and(
+                  inArray(shopOrders.assignedProviderId, candidateIds),
+                  inArray(shopOrders.status, ["pending", "confirmed", "in_progress"] as const),
+                ))
+                .groupBy(shopOrders.assignedProviderId);
+
+              const workloadMap: Record<string, number> = {};
+              for (const row of workloadRows) {
+                if (row.assignedProviderId) workloadMap[row.assignedProviderId] = Number(row.cnt);
+              }
+
+              const best = matching.reduce((a, b) =>
+                (workloadMap[a.id] ?? 0) <= (workloadMap[b.id] ?? 0) ? a : b
+              );
+              providerId = best.id;
+              autoAssigned = true;
+            }
+            // If no matching providers — leave order pending
+          }
+          // If no providers at all — leave as pending
         }
-        // If no matching provider — leave order pending (as per requirement)
       }
-      // If no providers at all — leave as pending
+      // Product-only orders or no service match — leave assignedProviderId null
     }
 
     // Validate availability against resolved provider (if any)
