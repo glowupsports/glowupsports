@@ -4,7 +4,7 @@ import {
   shopCategories, shopProducts, shopServices, shopOrders, shopOrderItems, shopWishlist,
   serviceProviders, providerClientNotes, providerClientPreferences,
   insertShopCategorySchema, insertShopProductSchema, insertShopServiceSchema,
-  players, users
+  players, users, academies
 } from "../shared/schema";
 import { eq, and, desc, asc, sql, inArray, count, max, sum } from "drizzle-orm";
 import {
@@ -1096,6 +1096,47 @@ router.get("/provider/me", authMiddleware, requireServiceProvider, async (req: A
       .limit(1);
 
     if (!provider[0]) {
+      // Auto-create a provider record for platform_owner users on first access
+      if (req.user!.role === "platform_owner") {
+        const [user] = await db.select({ id: users.id, username: users.username })
+          .from(users).where(eq(users.id, req.user!.userId)).limit(1);
+        const [firstAcademy] = await db.select({ id: academies.id })
+          .from(academies).limit(1);
+        if (!firstAcademy) {
+          return res.status(404).json({ error: "No academy found to associate provider with" });
+        }
+        await db.insert(serviceProviders).values({
+          userId: req.user!.userId,
+          academyId: firstAcademy.id,
+          displayName: user?.username ?? "Platform Owner",
+          isActive: true,
+          isOnboarded: false,
+        }).onConflictDoNothing();
+        const [created] = await db.select({
+          id: serviceProviders.id,
+          userId: serviceProviders.userId,
+          academyId: serviceProviders.academyId,
+          displayName: serviceProviders.displayName,
+          bio: serviceProviders.bio,
+          profilePhotoUrl: serviceProviders.profilePhotoUrl,
+          phone: serviceProviders.phone,
+          specializations: serviceProviders.specializations,
+          serviceTypes: serviceProviders.serviceTypes,
+          isActive: serviceProviders.isActive,
+          isOnboarded: serviceProviders.isOnboarded,
+          rating: serviceProviders.rating,
+          totalBookings: serviceProviders.totalBookings,
+          createdAt: serviceProviders.createdAt,
+          userName: users.username,
+          userEmail: users.email,
+        })
+          .from(serviceProviders)
+          .leftJoin(users, eq(serviceProviders.userId, users.id))
+          .where(eq(serviceProviders.userId, req.user!.userId))
+          .limit(1);
+        if (!created) return res.status(500).json({ error: "Failed to create provider profile" });
+        return res.json(created);
+      }
       return res.status(404).json({ error: "Provider profile not found" });
     }
 

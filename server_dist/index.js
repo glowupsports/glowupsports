@@ -32585,7 +32585,7 @@ function requireServiceProvider(req2, res, next) {
     res.status(401).json({ error: "Authentication required" });
     return;
   }
-  if (req2.user.role === "service_provider") {
+  if (req2.user.role === "service_provider" || req2.user.role === "platform_owner") {
     next();
     return;
   }
@@ -32612,6 +32612,40 @@ router.get("/provider/me", authMiddlewareWithFreshData, requireServiceProvider, 
       userEmail: users.email
     }).from(serviceProviders).leftJoin(users, eq4(serviceProviders.userId, users.id)).where(eq4(serviceProviders.userId, req2.user.userId)).limit(1);
     if (!provider[0]) {
+      if (req2.user.role === "platform_owner") {
+        const [user] = await db.select({ id: users.id, username: users.username }).from(users).where(eq4(users.id, req2.user.userId)).limit(1);
+        const [firstAcademy] = await db.select({ id: academies.id }).from(academies).limit(1);
+        if (!firstAcademy) {
+          return res.status(404).json({ error: "No academy found to associate provider with" });
+        }
+        await db.insert(serviceProviders).values({
+          userId: req2.user.userId,
+          academyId: firstAcademy.id,
+          displayName: user?.username ?? "Platform Owner",
+          isActive: true,
+          isOnboarded: false
+        }).onConflictDoNothing();
+        const [created] = await db.select({
+          id: serviceProviders.id,
+          userId: serviceProviders.userId,
+          academyId: serviceProviders.academyId,
+          displayName: serviceProviders.displayName,
+          bio: serviceProviders.bio,
+          profilePhotoUrl: serviceProviders.profilePhotoUrl,
+          phone: serviceProviders.phone,
+          specializations: serviceProviders.specializations,
+          serviceTypes: serviceProviders.serviceTypes,
+          isActive: serviceProviders.isActive,
+          isOnboarded: serviceProviders.isOnboarded,
+          rating: serviceProviders.rating,
+          totalBookings: serviceProviders.totalBookings,
+          createdAt: serviceProviders.createdAt,
+          userName: users.username,
+          userEmail: users.email
+        }).from(serviceProviders).leftJoin(users, eq4(serviceProviders.userId, users.id)).where(eq4(serviceProviders.userId, req2.user.userId)).limit(1);
+        if (!created) return res.status(500).json({ error: "Failed to create provider profile" });
+        return res.json(created);
+      }
       return res.status(404).json({ error: "Provider profile not found" });
     }
     res.json(provider[0]);
@@ -36096,7 +36130,7 @@ import express from "express";
 import { eq as eq16, and as and15, sql as sql17, desc as desc13, gte as gte7, count as count3 } from "drizzle-orm";
 init_coach_calibration_engine();
 var router8 = express.Router();
-router8.get("/stats", authMiddlewareWithFreshData, requireRole("coach", "academy_owner"), async (req2, res) => {
+router8.get("/stats", authMiddlewareWithFreshData, requireRole("coach", "academy_owner", "platform_owner"), async (req2, res) => {
   try {
     const coachId = req2.user?.coachId;
     if (!coachId) {
@@ -36126,7 +36160,7 @@ router8.get("/stats", authMiddlewareWithFreshData, requireRole("coach", "academy
     return res.status(500).json({ error: "Failed to fetch calibration stats" });
   }
 });
-router8.get("/metrics", authMiddlewareWithFreshData, requireRole("coach", "academy_owner"), async (req2, res) => {
+router8.get("/metrics", authMiddlewareWithFreshData, requireRole("coach", "academy_owner", "platform_owner"), async (req2, res) => {
   try {
     const coachId = req2.user?.coachId;
     if (!coachId) {
@@ -36191,7 +36225,7 @@ router8.get("/metrics", authMiddlewareWithFreshData, requireRole("coach", "acade
     return res.status(500).json({ error: "Failed to fetch calibration metrics" });
   }
 });
-router8.get("/anomalies", authMiddlewareWithFreshData, requireRole("coach", "academy_owner"), async (req2, res) => {
+router8.get("/anomalies", authMiddlewareWithFreshData, requireRole("coach", "academy_owner", "platform_owner"), async (req2, res) => {
   try {
     const coachId = req2.user?.coachId;
     if (!coachId) {
@@ -36237,7 +36271,7 @@ router8.get("/anomalies", authMiddlewareWithFreshData, requireRole("coach", "aca
     return res.status(500).json({ error: "Failed to fetch anomalies" });
   }
 });
-router8.get("/academy-report", authMiddlewareWithFreshData, requireRole("academy_owner"), async (req2, res) => {
+router8.get("/academy-report", authMiddlewareWithFreshData, requireRole("academy_owner", "platform_owner"), async (req2, res) => {
   try {
     const academyId = req2.user?.academyId;
     if (!academyId) {
@@ -36250,7 +36284,7 @@ router8.get("/academy-report", authMiddlewareWithFreshData, requireRole("academy
     return res.status(500).json({ error: "Failed to fetch report" });
   }
 });
-router8.post("/anomalies/:id/resolve", authMiddlewareWithFreshData, requireRole("coach", "academy_owner"), async (req2, res) => {
+router8.post("/anomalies/:id/resolve", authMiddlewareWithFreshData, requireRole("coach", "academy_owner", "platform_owner"), async (req2, res) => {
   try {
     const { id } = req2.params;
     return res.json({ success: true, message: "Anomaly resolved" });
@@ -44866,7 +44900,7 @@ router19.get("/api/coaches/:coachId/reviews", async (req2, res) => {
     res.status(500).json({ error: "Failed to get reviews" });
   }
 });
-router19.post("/api/coach/reviews/:reviewId/respond", authMiddlewareWithFreshData, requireRole("coach", "admin", "academy_owner"), async (req2, res) => {
+router19.post("/api/coach/reviews/:reviewId/respond", authMiddlewareWithFreshData, requireRole("coach", "admin", "academy_owner", "platform_owner"), async (req2, res) => {
   try {
     const coachId = req2.user?.coachId;
     const { reviewId } = req2.params;
@@ -44902,7 +44936,7 @@ router19.post("/api/coach/reviews/:reviewId/respond", authMiddlewareWithFreshDat
     res.status(500).json({ error: "Failed to submit response" });
   }
 });
-router19.get("/api/coach/my-reviews", authMiddlewareWithFreshData, requireRole("coach", "admin", "academy_owner"), async (req2, res) => {
+router19.get("/api/coach/my-reviews", authMiddlewareWithFreshData, requireRole("coach", "admin", "academy_owner", "platform_owner"), async (req2, res) => {
   try {
     const coachId = req2.user?.coachId;
     if (!coachId) {
@@ -56937,7 +56971,7 @@ async function registerRoutes(app2) {
   app2.get(
     "/api/academy/join-code",
     authMiddlewareWithFreshData,
-    requireRole("academy_owner", "coach"),
+    requireRole("academy_owner", "coach", "platform_owner"),
     async (req2, res) => {
       try {
         const academyId = req2.user.academyId;
@@ -56965,7 +56999,7 @@ async function registerRoutes(app2) {
   app2.post(
     "/api/academy/join-code/regenerate",
     authMiddlewareWithFreshData,
-    requireRole("academy_owner", "coach"),
+    requireRole("academy_owner", "coach", "platform_owner"),
     async (req2, res) => {
       try {
         const academyId = req2.user.academyId;
@@ -57070,7 +57104,7 @@ async function registerRoutes(app2) {
   app2.put(
     "/api/academy/profile",
     authMiddlewareWithFreshData,
-    requireRole("academy_owner"),
+    requireRole("academy_owner", "platform_owner"),
     async (req2, res) => {
       try {
         const academyId = req2.user.academyId;
@@ -57136,7 +57170,7 @@ async function registerRoutes(app2) {
   app2.put(
     "/api/coach/directory-settings",
     authMiddlewareWithFreshData,
-    requireRole("coach", "academy_owner"),
+    requireRole("coach", "academy_owner", "platform_owner"),
     async (req2, res) => {
       try {
         const coachId = req2.user.coachId;
@@ -57182,7 +57216,7 @@ async function registerRoutes(app2) {
   app2.post(
     "/api/coach/freelance-license",
     authMiddlewareWithFreshData,
-    requireRole("coach", "academy_owner", "admin"),
+    requireRole("coach", "academy_owner", "admin", "platform_owner"),
     async (req2, res) => {
       try {
         const coachId = req2.user.coachId;
@@ -57265,7 +57299,7 @@ async function registerRoutes(app2) {
   app2.put(
     "/api/coach/freelance-profile",
     authMiddlewareWithFreshData,
-    requireRole("coach", "academy_owner", "admin"),
+    requireRole("coach", "academy_owner", "admin", "platform_owner"),
     async (req2, res) => {
       try {
         const coachId = req2.user.coachId;
@@ -57435,7 +57469,7 @@ async function registerRoutes(app2) {
   app2.get(
     "/api/coach/transfer-requests/incoming",
     authMiddlewareWithFreshData,
-    requireRole("coach", "academy_owner"),
+    requireRole("coach", "academy_owner", "platform_owner"),
     async (req2, res) => {
       try {
         const academyId = req2.user.academyId;
@@ -57464,7 +57498,7 @@ async function registerRoutes(app2) {
   app2.get(
     "/api/coach/transfer-requests/outgoing",
     authMiddlewareWithFreshData,
-    requireRole("coach", "academy_owner"),
+    requireRole("coach", "academy_owner", "platform_owner"),
     async (req2, res) => {
       try {
         const academyId = req2.user.academyId;
@@ -57493,7 +57527,7 @@ async function registerRoutes(app2) {
   app2.post(
     "/api/coach/transfer-requests/:id/respond",
     authMiddlewareWithFreshData,
-    requireRole("coach", "academy_owner"),
+    requireRole("coach", "academy_owner", "platform_owner"),
     async (req2, res) => {
       try {
         const { id } = req2.params;
@@ -57557,7 +57591,7 @@ async function registerRoutes(app2) {
   app2.post(
     "/api/coach-invitations",
     authMiddlewareWithFreshData,
-    requireRole("academy_owner"),
+    requireRole("academy_owner", "platform_owner"),
     async (req2, res) => {
       try {
         const academyId = req2.user.academyId;
@@ -57601,7 +57635,7 @@ async function registerRoutes(app2) {
   app2.get(
     "/api/coach-invitations",
     authMiddlewareWithFreshData,
-    requireRole("academy_owner"),
+    requireRole("academy_owner", "platform_owner"),
     async (req2, res) => {
       try {
         const academyId = req2.user.academyId;
@@ -57619,7 +57653,7 @@ async function registerRoutes(app2) {
   app2.get(
     "/api/coach/pending-invitations",
     authMiddlewareWithFreshData,
-    requireRole("coach", "academy_owner"),
+    requireRole("coach", "academy_owner", "platform_owner"),
     async (req2, res) => {
       try {
         const coachId = req2.user.coachId;
@@ -57647,7 +57681,7 @@ async function registerRoutes(app2) {
   app2.post(
     "/api/coach-invitations/:id/respond",
     authMiddlewareWithFreshData,
-    requireRole("coach", "academy_owner"),
+    requireRole("coach", "academy_owner", "platform_owner"),
     async (req2, res) => {
       try {
         const { id } = req2.params;
@@ -57700,7 +57734,7 @@ async function registerRoutes(app2) {
   app2.delete(
     "/api/coach-invitations/:id",
     authMiddlewareWithFreshData,
-    requireRole("academy_owner"),
+    requireRole("academy_owner", "platform_owner"),
     async (req2, res) => {
       try {
         const { id } = req2.params;
@@ -57791,7 +57825,7 @@ async function registerRoutes(app2) {
   app2.get(
     "/api/join-requests",
     authMiddlewareWithFreshData,
-    requireRole("academy_owner", "coach"),
+    requireRole("academy_owner", "coach", "platform_owner"),
     async (req2, res) => {
       try {
         const academyId = req2.user.academyId;
@@ -57813,7 +57847,7 @@ async function registerRoutes(app2) {
   app2.post(
     "/api/join-requests/:id/approve",
     authMiddlewareWithFreshData,
-    requireRole("academy_owner", "coach"),
+    requireRole("academy_owner", "coach", "platform_owner"),
     async (req2, res) => {
       try {
         const { id } = req2.params;
@@ -57852,7 +57886,7 @@ async function registerRoutes(app2) {
   app2.post(
     "/api/join-requests/:id/reject",
     authMiddlewareWithFreshData,
-    requireRole("academy_owner", "coach"),
+    requireRole("academy_owner", "coach", "platform_owner"),
     async (req2, res) => {
       try {
         const { id } = req2.params;
@@ -74735,7 +74769,7 @@ async function registerRoutes(app2) {
   app2.post(
     "/api/coach/payments",
     authMiddlewareWithFreshData,
-    requireRole("coach", "admin", "academy_owner"),
+    requireRole("coach", "admin", "academy_owner", "platform_owner"),
     async (req2, res) => {
       try {
         const academyId = req2.user?.academyId;
