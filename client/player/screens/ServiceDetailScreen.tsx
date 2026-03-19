@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   View,
   Text,
@@ -9,6 +9,7 @@ import {
   Platform,
   Alert,
   FlatList,
+  ActivityIndicator,
 } from "react-native";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -59,9 +60,45 @@ interface ProviderCard {
   activeBookings: number;
 }
 
+interface AvailabilitySlot {
+  time: string;
+  available: boolean;
+}
+
+interface AvailabilityResponse {
+  hasAvailability: boolean;
+  dayOff?: boolean;
+  slots: AvailabilitySlot[];
+  timezone?: string;
+}
+
 type ProviderPickerItem =
   | { kind: "any" }
   | { kind: "provider"; provider: ProviderCard };
+
+const SLOT_STEP_MINUTES = 30;
+const FREE_PICKER_SLOTS = (() => {
+  const slots: string[] = [];
+  for (let h = 6; h < 22; h++) {
+    slots.push(`${String(h).padStart(2, "0")}:00`);
+    slots.push(`${String(h).padStart(2, "0")}:30`);
+  }
+  return slots;
+})();
+
+function formatDateString(date: Date): string {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, "0");
+  const d = String(date.getDate()).padStart(2, "0");
+  return `${y}-${m}-${d}`;
+}
+
+function combineDateAndTime(date: Date, timeStr: string): Date {
+  const [h, m] = timeStr.split(":").map(Number);
+  const combined = new Date(date);
+  combined.setHours(h, m, 0, 0);
+  return combined;
+}
 
 export default function ServiceDetailScreen() {
   const insets = useSafeAreaInsets();
@@ -71,6 +108,7 @@ export default function ServiceDetailScreen() {
 
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [showDatePicker, setShowDatePicker] = useState(false);
+  const [selectedTime, setSelectedTime] = useState<string | null>(null);
   const [notes, setNotes] = useState("");
   const [stringingTension, setStringingTension] = useState("");
   const [stringingChoice, setStringingChoice] = useState("");
@@ -78,22 +116,7 @@ export default function ServiceDetailScreen() {
 
   const serviceId = route.params?.serviceId;
 
-  if (!serviceId) {
-    return (
-      <View style={[styles.container, { paddingTop: insets.top }]}>
-        <View style={styles.header}>
-          <Pressable onPress={() => navigation.goBack()} style={styles.backButton}>
-            <Ionicons name="arrow-back" size={24} color={Colors.dark.text} />
-          </Pressable>
-          <Text style={styles.headerTitle}>Service</Text>
-          <View style={{ width: 44 }} />
-        </View>
-        <View style={styles.loadingContainer}>
-          <Text style={styles.loadingText}>Service not found</Text>
-        </View>
-      </View>
-    );
-  }
+  const selectedDateStr = formatDateString(selectedDate);
 
   const { data: service, isLoading } = useQuery<Service>({
     queryKey: [`/api/player/shop/services/${serviceId}`],
@@ -112,6 +135,20 @@ export default function ServiceDetailScreen() {
     queryKey: [`/api/player/shop/services/${serviceId}/providers`],
     enabled: !!serviceId,
   });
+
+  const {
+    data: availabilityData,
+    isLoading: isLoadingSlots,
+  } = useQuery<AvailabilityResponse>({
+    queryKey: [
+      `/api/player/shop/services/${serviceId}/providers/${selectedProviderId}/availability?date=${selectedDateStr}`,
+    ],
+    enabled: !!serviceId && !!selectedProviderId,
+  });
+
+  useEffect(() => {
+    setSelectedTime(null);
+  }, [selectedDate, selectedProviderId]);
 
   const isInWishlist = wishlistData?.items?.some(
     (item) => item.serviceId === serviceId
@@ -203,20 +240,44 @@ export default function ServiceDetailScreen() {
   const handleBookNow = () => {
     if (!service) return;
 
+    if (!selectedTime) {
+      Alert.alert("Select a Time", "Please pick a time slot before booking.");
+      return;
+    }
+
     const serviceDetails: Record<string, string> = {};
     if (service.isStringingService) {
       if (stringingTension.trim()) serviceDetails.tension = stringingTension.trim();
       if (stringingChoice.trim()) serviceDetails.stringChoice = stringingChoice.trim();
     }
 
+    const combinedDateTime = combineDateAndTime(selectedDate, selectedTime);
+
     bookingMutation.mutate({
-      scheduledAt: selectedDate.toISOString(),
+      scheduledAt: combinedDateTime.toISOString(),
       notes: notes.trim() || undefined,
       items: [{ serviceId: service.id, quantity: 1 }],
       serviceDetails: Object.keys(serviceDetails).length > 0 ? serviceDetails : undefined,
       preferredProviderId: selectedProviderId ?? undefined,
     });
   };
+
+  if (!serviceId) {
+    return (
+      <View style={[styles.container, { paddingTop: insets.top }]}>
+        <View style={styles.header}>
+          <Pressable onPress={() => navigation.goBack()} style={styles.backButton}>
+            <Ionicons name="arrow-back" size={24} color={Colors.dark.text} />
+          </Pressable>
+          <Text style={styles.headerTitle}>Service</Text>
+          <View style={{ width: 44 }} />
+        </View>
+        <View style={styles.loadingContainer}>
+          <Text style={styles.loadingText}>Service not found</Text>
+        </View>
+      </View>
+    );
+  }
 
   if (isLoading || !service) {
     return (
@@ -230,6 +291,22 @@ export default function ServiceDetailScreen() {
   }
 
   const discountedPrice = getDiscountedPrice(service.price);
+
+  const isAnyProvider = selectedProviderId === null;
+  const showFreeSlots = isAnyProvider;
+  const showProviderSlots = !isAnyProvider;
+
+  const providerHasNoConfig = showProviderSlots && availabilityData && !availabilityData.hasAvailability;
+  const providerDayOff = showProviderSlots && availabilityData?.dayOff === true;
+  const providerSlots = showProviderSlots && !providerHasNoConfig && !providerDayOff
+    ? (availabilityData?.slots ?? [])
+    : [];
+
+  const displaySlots: string[] = showFreeSlots
+    ? FREE_PICKER_SLOTS
+    : providerHasNoConfig
+    ? FREE_PICKER_SLOTS
+    : providerSlots.filter((s) => s.available).map((s) => s.time);
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
@@ -279,12 +356,12 @@ export default function ServiceDetailScreen() {
 
           <Text style={styles.serviceName}>{service.name}</Text>
 
-          {service.durationMinutes && (
+          {service.durationMinutes ? (
             <View style={styles.durationRow}>
               <Ionicons name="time-outline" size={16} color={Colors.dark.textSecondary} />
               <Text style={styles.durationText}>{service.durationMinutes} minutes</Text>
             </View>
-          )}
+          ) : null}
 
           <View style={styles.priceContainer}>
             {discountedPrice ? (
@@ -303,20 +380,21 @@ export default function ServiceDetailScreen() {
             )}
           </View>
 
-          {service.shortDescription && (
+          {service.shortDescription ? (
             <Text style={styles.shortDescription}>{service.shortDescription}</Text>
-          )}
+          ) : null}
 
-          {service.description && (
+          {service.description ? (
             <View style={styles.descriptionSection}>
               <Text style={styles.sectionTitle}>About this Service</Text>
               <Text style={styles.description}>{service.description}</Text>
             </View>
-          )}
+          ) : null}
 
           <View style={styles.bookingSection}>
             <Text style={styles.sectionTitle}>Booking Details</Text>
 
+            {/* Date Picker */}
             <Pressable
               onPress={() => setShowDatePicker(true)}
               style={styles.datePickerButton}
@@ -325,13 +403,15 @@ export default function ServiceDetailScreen() {
                 <Ionicons name="calendar-outline" size={20} color={Colors.dark.xpCyan} />
                 <View>
                   <Text style={styles.datePickerLabel}>Preferred Date</Text>
-                  <Text style={styles.datePickerValue}>{formatDate(selectedDate)}</Text>
+                  <Text style={styles.datePickerValue}>
+                    {formatDate(selectedDate)}{selectedTime ? ` at ${selectedTime}` : ""}
+                  </Text>
                 </View>
               </View>
               <Ionicons name="chevron-forward" size={20} color={Colors.dark.textSecondary} />
             </Pressable>
 
-            {showDatePicker && (
+            {showDatePicker ? (
               <DateTimePicker
                 value={selectedDate}
                 mode="date"
@@ -343,8 +423,9 @@ export default function ServiceDetailScreen() {
                 minimumDate={new Date()}
                 themeVariant="dark"
               />
-            )}
+            ) : null}
 
+            {/* Provider Picker */}
             {service ? (
               <View style={styles.providerPickerSection}>
                 <Text style={styles.notesLabel}>Choose Your Provider</Text>
@@ -408,6 +489,58 @@ export default function ServiceDetailScreen() {
               </View>
             ) : null}
 
+            {/* Time Slot Picker */}
+            <View style={styles.timeSlotsSection}>
+              <View style={styles.timeSlotsHeader}>
+                <Ionicons name="time-outline" size={16} color={Colors.dark.xpCyan} />
+                <Text style={styles.notesLabel}>
+                  {showFreeSlots ? "Preferred Time" : "Available Time Slots"}
+                </Text>
+                {isLoadingSlots && showProviderSlots ? (
+                  <ActivityIndicator size="small" color={Colors.dark.xpCyan} style={{ marginLeft: 6 }} />
+                ) : null}
+              </View>
+
+              {providerDayOff ? (
+                <View style={styles.dayOffBanner}>
+                  <Ionicons name="calendar-clear-outline" size={16} color={Colors.dark.textSecondary} />
+                  <Text style={styles.dayOffText}>
+                    This provider is not available on the selected day. Try a different date or choose "Any Available".
+                  </Text>
+                </View>
+              ) : (
+                <FlatList<string>
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+                  data={displaySlots}
+                  keyExtractor={(t) => t}
+                  ItemSeparatorComponent={() => <View style={{ width: 8 }} />}
+                  contentContainerStyle={{ paddingBottom: 4 }}
+                  renderItem={({ item: time }) => {
+                    const isSelected = selectedTime === time;
+                    return (
+                      <Pressable
+                        onPress={() => {
+                          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                          setSelectedTime(isSelected ? null : time);
+                        }}
+                        style={[styles.timeSlotChip, isSelected && styles.timeSlotChipSelected]}
+                      >
+                        <Text style={[styles.timeSlotText, isSelected && styles.timeSlotTextSelected]}>
+                          {time}
+                        </Text>
+                      </Pressable>
+                    );
+                  }}
+                  ListEmptyComponent={
+                    isLoadingSlots ? null : (
+                      <Text style={styles.noSlotsText}>No available slots for this day</Text>
+                    )
+                  }
+                />
+              )}
+            </View>
+
             {service.isStringingService ? (
               <View style={styles.stringingContainer}>
                 <Text style={styles.notesLabel}>Stringing Details</Text>
@@ -444,16 +577,16 @@ export default function ServiceDetailScreen() {
             </View>
           </View>
 
-          {service.requiresApproval && (
+          {service.requiresApproval ? (
             <View style={styles.approvalNote}>
               <Ionicons name="information-circle" size={18} color={Colors.dark.gold} />
               <Text style={styles.approvalNoteText}>
                 This service requires approval. We'll confirm your booking within 24 hours.
               </Text>
             </View>
-          )}
+          ) : null}
 
-          {xpDiscount && !discountedPrice && (
+          {xpDiscount && !discountedPrice ? (
             <LinearGradient
               colors={[Colors.dark.gold + "15", Colors.dark.backgroundSecondary]}
               style={styles.xpPromoCard}
@@ -466,7 +599,7 @@ export default function ServiceDetailScreen() {
                 </Text>
               </View>
             </LinearGradient>
-          )}
+          ) : null}
         </Animated.View>
 
         <View style={{ height: 120 }} />
@@ -847,5 +980,59 @@ const styles = StyleSheet.create({
     color: Colors.dark.textSecondary,
     textAlign: "center",
     opacity: 0.8,
+  },
+  timeSlotsSection: {
+    marginBottom: Spacing.md,
+  },
+  timeSlotsHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    marginBottom: Spacing.sm,
+  },
+  timeSlotChip: {
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 10,
+    backgroundColor: Colors.dark.backgroundSecondary,
+    borderWidth: 1.5,
+    borderColor: Colors.dark.border,
+    minWidth: 60,
+    alignItems: "center",
+  },
+  timeSlotChipSelected: {
+    borderColor: "#C8FF3D",
+    backgroundColor: "#C8FF3D20",
+  },
+  timeSlotText: {
+    fontSize: 13,
+    fontWeight: "500",
+    color: Colors.dark.textSecondary,
+  },
+  timeSlotTextSelected: {
+    color: "#C8FF3D",
+    fontWeight: "700",
+  },
+  dayOffBanner: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: Spacing.sm,
+    backgroundColor: Colors.dark.backgroundSecondary,
+    borderRadius: 12,
+    padding: Spacing.md,
+    borderWidth: 1,
+    borderColor: Colors.dark.border,
+  },
+  dayOffText: {
+    flex: 1,
+    fontSize: 13,
+    color: Colors.dark.textSecondary,
+    lineHeight: 18,
+  },
+  noSlotsText: {
+    fontSize: 13,
+    color: Colors.dark.textSecondary,
+    fontStyle: "italic",
+    paddingVertical: 8,
   },
 });

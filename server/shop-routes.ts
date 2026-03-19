@@ -391,6 +391,103 @@ router.get("/player/shop/services/:id/providers", authMiddleware, requirePlayerP
   }
 });
 
+// Get provider availability slots for a specific date
+// Returns time windows in 30-min slots formatted in the academy's local timezone
+router.get("/player/shop/services/:serviceId/providers/:providerId/availability", authMiddleware, requirePlayerProfile, requireFeatureUnlock("academy_shop"), async (req: AuthRequest, res: Response) => {
+  try {
+    const { serviceId, providerId } = req.params;
+    const { date } = req.query; // YYYY-MM-DD
+    const playerId = req.user?.playerId;
+    if (!playerId) return res.status(403).json({ error: "Player profile required" });
+    if (!date || typeof date !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+      return res.status(400).json({ error: "date query param required (YYYY-MM-DD)" });
+    }
+
+    const player = await db.select({ academyId: players.academyId }).from(players).where(eq(players.id, playerId)).limit(1);
+    if (!player[0]?.academyId) return res.status(400).json({ error: "Player has no academy" });
+    const academyId = player[0].academyId;
+
+    // Verify service belongs to this academy
+    const service = await db.select({ id: shopServices.id }).from(shopServices)
+      .where(and(eq(shopServices.id, serviceId), eq(shopServices.academyId, academyId))).limit(1);
+    if (!service[0]) return res.status(404).json({ error: "Service not found" });
+
+    // Verify provider belongs to this academy and is active/onboarded
+    const provider = await db.select({ id: serviceProviders.id }).from(serviceProviders)
+      .where(and(
+        eq(serviceProviders.id, providerId),
+        eq(serviceProviders.academyId, academyId),
+        eq(serviceProviders.isActive, true),
+        eq(serviceProviders.isOnboarded, true),
+      )).limit(1);
+    if (!provider[0]) return res.status(404).json({ error: "Provider not found" });
+
+    // Fetch academy timezone
+    const academyRecord = await db.select({ timezone: academies.timezone }).from(academies)
+      .where(eq(academies.id, academyId)).limit(1);
+    const tz = academyRecord[0]?.timezone ?? "Asia/Dubai";
+
+    // Determine day-of-week for the requested date in the academy's local timezone
+    // Use midday UTC to avoid DST edge cases
+    const [year, month, day] = date.split("-").map(Number);
+    const middayUtc = new Date(Date.UTC(year, month - 1, day, 12, 0, 0));
+    const localWeekdayShort = new Intl.DateTimeFormat("en-US", {
+      timeZone: tz,
+      weekday: "short",
+    }).format(middayUtc);
+    const weekdayMap: Record<string, number> = { Sun: 0, Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6 };
+    const dayOfWeek = weekdayMap[localWeekdayShort] ?? -1;
+
+    // Fetch all active availability windows for this provider
+    const windows = await db.select().from(providerAvailability)
+      .where(and(
+        eq(providerAvailability.providerId, providerId),
+        eq(providerAvailability.isActive, true),
+      ));
+
+    // No windows configured at all → no restriction, return empty slots (client shows free picker)
+    if (windows.length === 0) {
+      return res.json({ hasAvailability: false, slots: [] });
+    }
+
+    // Windows for this specific day
+    const dayWindows = windows.filter((w) => w.dayOfWeek === dayOfWeek);
+    if (dayWindows.length === 0) {
+      // Provider has windows but not on this day → provider is off
+      return res.json({ hasAvailability: true, dayOff: true, slots: [] });
+    }
+
+    // Build 30-min slots across all active windows for the day
+    const slots: { time: string; available: boolean }[] = [];
+    for (const w of dayWindows) {
+      const [startH, startM] = w.startTime.split(":").map(Number);
+      const [endH, endM] = w.endTime.split(":").map(Number);
+      let current = startH * 60 + startM;
+      const end = endH * 60 + endM;
+      while (current < end) {
+        const h = String(Math.floor(current / 60)).padStart(2, "0");
+        const m = String(current % 60).padStart(2, "0");
+        slots.push({ time: `${h}:${m}`, available: true });
+        current += 30;
+      }
+    }
+
+    // Sort and deduplicate
+    slots.sort((a, b) => a.time.localeCompare(b.time));
+    const seen = new Set<string>();
+    const uniqueSlots = slots.filter((s) => {
+      if (seen.has(s.time)) return false;
+      seen.add(s.time);
+      return true;
+    });
+
+    return res.json({ hasAvailability: true, dayOff: false, slots: uniqueSlots, timezone: tz });
+  } catch (error) {
+    console.error("[Shop] Error fetching provider availability:", error);
+    res.status(500).json({ error: "Failed to load availability" });
+  }
+});
+
 // Get services
 router.get("/player/shop/services", authMiddleware, requirePlayerProfile, requireFeatureUnlock("academy_shop"), async (req: AuthRequest, res: Response) => {
   try {

@@ -17402,6 +17402,74 @@ var init_shop_routes = __esm({
         res.status(500).json({ error: "Failed to load providers" });
       }
     });
+    router.get("/player/shop/services/:serviceId/providers/:providerId/availability", authMiddlewareWithFreshData, requirePlayerProfile, requireFeatureUnlock("academy_shop"), async (req2, res) => {
+      try {
+        const { serviceId, providerId } = req2.params;
+        const { date: date2 } = req2.query;
+        const playerId = req2.user?.playerId;
+        if (!playerId) return res.status(403).json({ error: "Player profile required" });
+        if (!date2 || typeof date2 !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(date2)) {
+          return res.status(400).json({ error: "date query param required (YYYY-MM-DD)" });
+        }
+        const player2 = await db.select({ academyId: players.academyId }).from(players).where(eq4(players.id, playerId)).limit(1);
+        if (!player2[0]?.academyId) return res.status(400).json({ error: "Player has no academy" });
+        const academyId = player2[0].academyId;
+        const service = await db.select({ id: shopServices.id }).from(shopServices).where(and3(eq4(shopServices.id, serviceId), eq4(shopServices.academyId, academyId))).limit(1);
+        if (!service[0]) return res.status(404).json({ error: "Service not found" });
+        const provider = await db.select({ id: serviceProviders.id }).from(serviceProviders).where(and3(
+          eq4(serviceProviders.id, providerId),
+          eq4(serviceProviders.academyId, academyId),
+          eq4(serviceProviders.isActive, true),
+          eq4(serviceProviders.isOnboarded, true)
+        )).limit(1);
+        if (!provider[0]) return res.status(404).json({ error: "Provider not found" });
+        const academyRecord = await db.select({ timezone: academies.timezone }).from(academies).where(eq4(academies.id, academyId)).limit(1);
+        const tz = academyRecord[0]?.timezone ?? "Asia/Dubai";
+        const [year, month, day] = date2.split("-").map(Number);
+        const middayUtc = new Date(Date.UTC(year, month - 1, day, 12, 0, 0));
+        const localWeekdayShort = new Intl.DateTimeFormat("en-US", {
+          timeZone: tz,
+          weekday: "short"
+        }).format(middayUtc);
+        const weekdayMap = { Sun: 0, Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6 };
+        const dayOfWeek = weekdayMap[localWeekdayShort] ?? -1;
+        const windows = await db.select().from(providerAvailability).where(and3(
+          eq4(providerAvailability.providerId, providerId),
+          eq4(providerAvailability.isActive, true)
+        ));
+        if (windows.length === 0) {
+          return res.json({ hasAvailability: false, slots: [] });
+        }
+        const dayWindows = windows.filter((w) => w.dayOfWeek === dayOfWeek);
+        if (dayWindows.length === 0) {
+          return res.json({ hasAvailability: true, dayOff: true, slots: [] });
+        }
+        const slots = [];
+        for (const w of dayWindows) {
+          const [startH, startM] = w.startTime.split(":").map(Number);
+          const [endH, endM] = w.endTime.split(":").map(Number);
+          let current = startH * 60 + startM;
+          const end = endH * 60 + endM;
+          while (current < end) {
+            const h = String(Math.floor(current / 60)).padStart(2, "0");
+            const m = String(current % 60).padStart(2, "0");
+            slots.push({ time: `${h}:${m}`, available: true });
+            current += 30;
+          }
+        }
+        slots.sort((a, b) => a.time.localeCompare(b.time));
+        const seen = /* @__PURE__ */ new Set();
+        const uniqueSlots = slots.filter((s) => {
+          if (seen.has(s.time)) return false;
+          seen.add(s.time);
+          return true;
+        });
+        return res.json({ hasAvailability: true, dayOff: false, slots: uniqueSlots, timezone: tz });
+      } catch (error) {
+        console.error("[Shop] Error fetching provider availability:", error);
+        res.status(500).json({ error: "Failed to load availability" });
+      }
+    });
     router.get("/player/shop/services", authMiddlewareWithFreshData, requirePlayerProfile, requireFeatureUnlock("academy_shop"), async (req2, res) => {
       try {
         const playerId = req2.user?.playerId;
