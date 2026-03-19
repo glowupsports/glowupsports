@@ -59,6 +59,10 @@ interface ProviderCard {
   activeBookings: number;
 }
 
+type ProviderPickerItem =
+  | { kind: "any" }
+  | { kind: "provider"; provider: ProviderCard };
+
 export default function ServiceDetailScreen() {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<any>();
@@ -341,35 +345,41 @@ export default function ServiceDetailScreen() {
               />
             )}
 
-            {providers && providers.length > 0 ? (
+            {service ? (
               <View style={styles.providerPickerSection}>
                 <Text style={styles.notesLabel}>Choose Your Provider</Text>
-                <FlatList
+                <FlatList<ProviderPickerItem>
                   horizontal
                   showsHorizontalScrollIndicator={false}
-                  data={[{ id: null, displayName: "Any Available", profilePhotoUrl: null, specializations: null, rating: 0, totalBookings: 0, activeBookings: 0 } as unknown as ProviderCard, ...providers]}
-                  keyExtractor={(item) => item.id ?? "any"}
+                  data={[
+                    { kind: "any" } as ProviderPickerItem,
+                    ...(providers ?? []).map((p): ProviderPickerItem => ({ kind: "provider", provider: p })),
+                  ]}
+                  keyExtractor={(item) => (item.kind === "any" ? "any" : item.provider.id)}
                   ItemSeparatorComponent={() => <View style={{ width: 10 }} />}
                   contentContainerStyle={{ paddingBottom: 4 }}
                   renderItem={({ item }) => {
-                    const isAny = item.id === null;
-                    const isSelected = isAny ? selectedProviderId === null : selectedProviderId === item.id;
-                    const initials = item.displayName.split(" ").map((w: string) => w[0]).join("").slice(0, 2).toUpperCase();
-                    const topSpec = item.specializations?.[0];
+                    const isAny = item.kind === "any";
+                    const provider = isAny ? null : item.provider;
+                    const isSelected = isAny ? selectedProviderId === null : selectedProviderId === provider!.id;
+                    const initials = provider
+                      ? provider.displayName.split(" ").map((w) => w[0]).join("").slice(0, 2).toUpperCase()
+                      : "";
+                    const topSpec = provider?.specializations?.[0];
                     return (
                       <Pressable
                         onPress={() => {
                           Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                          setSelectedProviderId(isAny ? null : item.id);
+                          setSelectedProviderId(isAny ? null : provider!.id);
                         }}
                         style={[styles.providerChip, isSelected && styles.providerChipSelected]}
                       >
                         <View style={[styles.providerAvatar, isSelected && styles.providerAvatarSelected]}>
                           {isAny ? (
                             <Ionicons name="people" size={18} color={isSelected ? Colors.dark.backgroundDefault : Colors.dark.textSecondary} />
-                          ) : item.profilePhotoUrl ? (
+                          ) : provider?.profilePhotoUrl ? (
                             <Image
-                              source={{ uri: item.profilePhotoUrl }}
+                              source={{ uri: provider.profilePhotoUrl }}
                               style={styles.providerAvatarImg}
                               contentFit="cover"
                             />
@@ -378,17 +388,17 @@ export default function ServiceDetailScreen() {
                           )}
                         </View>
                         <Text style={[styles.providerChipName, isSelected && styles.providerChipNameSelected]} numberOfLines={1}>
-                          {isAny ? "Any Available" : item.displayName.split(" ")[0]}
+                          {isAny ? "Any Available" : provider!.displayName.split(" ")[0]}
                         </Text>
                         {!isAny && topSpec ? (
                           <Text style={styles.providerSpecText} numberOfLines={1}>
                             {topSpec.charAt(0).toUpperCase() + topSpec.slice(1)}
                           </Text>
                         ) : null}
-                        {!isAny && item.rating > 0 ? (
+                        {!isAny && provider && provider.rating > 0 ? (
                           <View style={styles.providerRatingRow}>
                             <Ionicons name="star" size={10} color={Colors.dark.gold} />
-                            <Text style={styles.providerRatingText}>{Number(item.rating).toFixed(1)}</Text>
+                            <Text style={styles.providerRatingText}>{Number(provider.rating).toFixed(1)}</Text>
                           </View>
                         ) : null}
                       </Pressable>
