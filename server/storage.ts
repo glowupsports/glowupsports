@@ -7128,6 +7128,8 @@ export const storage = {
     const allPlayerPackages = await db.select({
       id: packages.id,
       playerId: packages.playerId,
+      creditType: packages.creditType,
+      totalCredits: packages.totalCredits,
     }).from(packages)
       .where(inArray(packages.playerId, playerIds));
     
@@ -7140,6 +7142,9 @@ export const storage = {
     }
     
     // Deduplicate session debits: keep only the latest charge per session per player.
+    // Track which packages have a corresponding credit transaction (to detect packages without any tx)
+    const packageIdsWithPurchaseTxByPlayer: Record<string, Set<string>> = {};
+
     // Repair scripts can create multiple debit records for the same session.
     const debitByPlayerSession = new Map<string, { playerId: string; amount: number; creditType: "group" | "semi_private" | "private"; createdAt: Date | null }>();
 
@@ -7160,6 +7165,9 @@ export const storage = {
         if (!playerPkgIds || !playerPkgIds.has(tx.packageId)) {
           continue;
         }
+        // Track this packageId as having a credit transaction
+        if (!packageIdsWithPurchaseTxByPlayer[tx.playerId]) packageIdsWithPurchaseTxByPlayer[tx.playerId] = new Set();
+        packageIdsWithPurchaseTxByPlayer[tx.playerId].add(tx.packageId);
       }
       if (Number(tx.amount) > 0 && !tx.packageId && (tx.reason === "package_purchased" || tx.reason === "package_purchase" || tx.reason === "package_deleted_refund")) {
         continue;
@@ -7193,6 +7201,23 @@ export const storage = {
         result[debit.playerId][debit.creditType] += debit.amount;
       }
     }
+    // Apply credits from packages that have no corresponding credit transaction.
+    // This matches the fallback in getPlayerCreditBalanceByType (lines 6730-6736).
+    const normalizePackageCreditType = (type: string | null | undefined): "group" | "semi_private" | "private" => {
+      if (!type) return "group";
+      const t = type.toLowerCase().replace("-", "_").replace(" ", "_");
+      if (t === "semi" || t === "semi_private" || t === "semi_private_adjusted") return "semi_private";
+      if (t === "private" || t === "private_adjusted") return "private";
+      return "group";
+    };
+    for (const pkg of allPlayerPackages) {
+      if (!result[pkg.playerId]) continue;
+      const txPkgIds = packageIdsWithPurchaseTxByPlayer[pkg.playerId];
+      if (txPkgIds && txPkgIds.has(pkg.id)) continue;
+      const pkgCreditType = normalizePackageCreditType(pkg.creditType);
+      result[pkg.playerId][pkgCreditType] += Number(pkg.totalCredits);
+    }
+
     
     for (const playerId of playerIds) {
       const balance = result[playerId];

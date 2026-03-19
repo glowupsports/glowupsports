@@ -10650,7 +10650,9 @@ var init_storage = __esm({
         }).from(creditTransactions).where(inArray(creditTransactions.playerId, playerIds));
         const allPlayerPackages = await db.select({
           id: packages.id,
-          playerId: packages.playerId
+          playerId: packages.playerId,
+          creditType: packages.creditType,
+          totalCredits: packages.totalCredits
         }).from(packages).where(inArray(packages.playerId, playerIds));
         const existingPackageIdsByPlayer = {};
         for (const pkg2 of allPlayerPackages) {
@@ -10659,6 +10661,7 @@ var init_storage = __esm({
           }
           existingPackageIdsByPlayer[pkg2.playerId].add(pkg2.id);
         }
+        const packageIdsWithPurchaseTxByPlayer = {};
         const debitByPlayerSession = /* @__PURE__ */ new Map();
         for (const tx of allTransactions) {
           const meta = tx.metadata;
@@ -10671,6 +10674,8 @@ var init_storage = __esm({
             if (!playerPkgIds || !playerPkgIds.has(tx.packageId)) {
               continue;
             }
+            if (!packageIdsWithPurchaseTxByPlayer[tx.playerId]) packageIdsWithPurchaseTxByPlayer[tx.playerId] = /* @__PURE__ */ new Set();
+            packageIdsWithPurchaseTxByPlayer[tx.playerId].add(tx.packageId);
           }
           if (Number(tx.amount) > 0 && !tx.packageId && (tx.reason === "package_purchased" || tx.reason === "package_purchase" || tx.reason === "package_deleted_refund")) {
             continue;
@@ -10697,6 +10702,20 @@ var init_storage = __esm({
           if (result[debit.playerId] && result[debit.playerId][debit.creditType] !== void 0) {
             result[debit.playerId][debit.creditType] += debit.amount;
           }
+        }
+        const normalizePackageCreditType = (type) => {
+          if (!type) return "group";
+          const t = type.toLowerCase().replace("-", "_").replace(" ", "_");
+          if (t === "semi" || t === "semi_private" || t === "semi_private_adjusted") return "semi_private";
+          if (t === "private" || t === "private_adjusted") return "private";
+          return "group";
+        };
+        for (const pkg2 of allPlayerPackages) {
+          if (!result[pkg2.playerId]) continue;
+          const txPkgIds = packageIdsWithPurchaseTxByPlayer[pkg2.playerId];
+          if (txPkgIds && txPkgIds.has(pkg2.id)) continue;
+          const pkgCreditType = normalizePackageCreditType(pkg2.creditType);
+          result[pkg2.playerId][pkgCreditType] += Number(pkg2.totalCredits);
         }
         for (const playerId of playerIds) {
           const balance = result[playerId];
