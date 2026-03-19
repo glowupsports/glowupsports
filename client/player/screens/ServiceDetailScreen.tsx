@@ -8,6 +8,7 @@ import {
   TextInput,
   Platform,
   Alert,
+  FlatList,
 } from "react-native";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -47,6 +48,16 @@ interface XPDiscount {
   level: number;
 }
 
+interface ProviderCard {
+  id: string;
+  displayName: string;
+  profilePhotoUrl?: string | null;
+  specializations?: string[] | null;
+  rating: number;
+  totalBookings: number;
+  activeBookings: number;
+}
+
 export default function ServiceDetailScreen() {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<any>();
@@ -58,6 +69,7 @@ export default function ServiceDetailScreen() {
   const [notes, setNotes] = useState("");
   const [stringingTension, setStringingTension] = useState("");
   const [stringingChoice, setStringingChoice] = useState("");
+  const [selectedProviderId, setSelectedProviderId] = useState<string | null>(null);
 
   const serviceId = route.params?.serviceId;
 
@@ -89,6 +101,11 @@ export default function ServiceDetailScreen() {
 
   const { data: wishlistData } = useQuery<{ items: any[] }>({
     queryKey: ["/api/player/shop/wishlist"],
+  });
+
+  const { data: providers } = useQuery<ProviderCard[]>({
+    queryKey: [`/api/player/shop/services/${serviceId}/providers`],
+    enabled: !!serviceId,
   });
 
   const isInWishlist = wishlistData?.items?.some(
@@ -192,7 +209,7 @@ export default function ServiceDetailScreen() {
       notes: notes.trim() || undefined,
       items: [{ serviceId: service.id, quantity: 1 }],
       serviceDetails: Object.keys(serviceDetails).length > 0 ? serviceDetails : undefined,
-      providerId: service.suggestedProviderId ?? undefined,
+      providerId: selectedProviderId ?? service.suggestedProviderId ?? undefined,
     });
   };
 
@@ -322,6 +339,51 @@ export default function ServiceDetailScreen() {
                 themeVariant="dark"
               />
             )}
+
+            {providers && providers.length > 0 ? (
+              <View style={styles.providerPickerSection}>
+                <Text style={styles.notesLabel}>Choose Your Provider</Text>
+                <FlatList
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+                  data={[{ id: null, displayName: "Any Available", profilePhotoUrl: null, specializations: null, rating: 0, totalBookings: 0, activeBookings: 0 } as unknown as ProviderCard, ...providers]}
+                  keyExtractor={(item) => item.id ?? "any"}
+                  ItemSeparatorComponent={() => <View style={{ width: 10 }} />}
+                  contentContainerStyle={{ paddingBottom: 4 }}
+                  renderItem={({ item }) => {
+                    const isAny = item.id === null;
+                    const isSelected = isAny ? selectedProviderId === null : selectedProviderId === item.id;
+                    const initials = item.displayName.split(" ").map((w: string) => w[0]).join("").slice(0, 2).toUpperCase();
+                    return (
+                      <Pressable
+                        onPress={() => {
+                          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                          setSelectedProviderId(isAny ? null : item.id);
+                        }}
+                        style={[styles.providerChip, isSelected && styles.providerChipSelected]}
+                      >
+                        <View style={[styles.providerAvatar, isSelected && styles.providerAvatarSelected]}>
+                          {isAny ? (
+                            <Ionicons name="people" size={18} color={isSelected ? Colors.dark.backgroundDefault : Colors.dark.textSecondary} />
+                          ) : (
+                            <Text style={[styles.providerInitials, isSelected && styles.providerInitialsSelected]}>{initials}</Text>
+                          )}
+                        </View>
+                        <Text style={[styles.providerChipName, isSelected && styles.providerChipNameSelected]} numberOfLines={1}>
+                          {isAny ? "Any" : item.displayName.split(" ")[0]}
+                        </Text>
+                        {!isAny && item.rating > 0 ? (
+                          <View style={styles.providerRatingRow}>
+                            <Ionicons name="star" size={10} color={Colors.dark.gold} />
+                            <Text style={styles.providerRatingText}>{Number(item.rating).toFixed(1)}</Text>
+                          </View>
+                        ) : null}
+                      </Pressable>
+                    );
+                  }}
+                />
+              </View>
+            ) : null}
 
             {service.isStringingService ? (
               <View style={styles.stringingContainer}>
@@ -694,5 +756,62 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: "600",
     color: Colors.dark.backgroundDefault,
+  },
+  providerPickerSection: {
+    marginBottom: Spacing.md,
+  },
+  providerChip: {
+    alignItems: "center",
+    backgroundColor: Colors.dark.backgroundSecondary,
+    borderRadius: 14,
+    borderWidth: 1.5,
+    borderColor: Colors.dark.border,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    width: 76,
+    gap: 6,
+  },
+  providerChipSelected: {
+    borderColor: "#C8FF3D",
+    backgroundColor: "#C8FF3D15",
+  },
+  providerAvatar: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: Colors.dark.border,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  providerAvatarSelected: {
+    backgroundColor: "#C8FF3D",
+  },
+  providerInitials: {
+    fontSize: 14,
+    fontWeight: "700",
+    color: Colors.dark.text,
+  },
+  providerInitialsSelected: {
+    color: Colors.dark.backgroundDefault,
+  },
+  providerChipName: {
+    fontSize: 11,
+    fontWeight: "500",
+    color: Colors.dark.textSecondary,
+    textAlign: "center",
+  },
+  providerChipNameSelected: {
+    color: "#C8FF3D",
+    fontWeight: "700",
+  },
+  providerRatingRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 2,
+  },
+  providerRatingText: {
+    fontSize: 10,
+    color: Colors.dark.gold,
+    fontWeight: "600",
   },
 });

@@ -290,6 +290,92 @@ router.get("/player/shop/services/:id", authMiddleware, requirePlayerProfile, re
   }
 });
 
+// List providers for a service (player picks provider on booking screen)
+router.get("/player/shop/services/:id/providers", authMiddleware, requirePlayerProfile, requireFeatureUnlock("academy_shop"), async (req: AuthRequest, res: Response) => {
+  try {
+    const { id } = req.params;
+    const playerId = req.user?.playerId;
+    if (!playerId) return res.status(403).json({ error: "Player profile required" });
+
+    const player = await db.select().from(players).where(eq(players.id, playerId)).limit(1);
+    if (!player[0]?.academyId) return res.status(400).json({ error: "Player has no academy" });
+    const academyId = player[0].academyId;
+
+    // Get service tags/slug for matching
+    const service = await db.select({ tags: shopServices.tags, slug: shopServices.slug, categoryId: shopServices.categoryId })
+      .from(shopServices)
+      .where(and(eq(shopServices.id, id), eq(shopServices.academyId, academyId)))
+      .limit(1);
+    if (!service[0]) return res.status(404).json({ error: "Service not found" });
+
+    const serviceTags: string[] = (service[0].tags as string[]) ?? [];
+    const serviceSlug = service[0].slug ?? "";
+
+    // Fetch all active, onboarded providers in this academy
+    const providers = await db.select({
+      id: serviceProviders.id,
+      displayName: serviceProviders.displayName,
+      profilePhotoUrl: serviceProviders.profilePhotoUrl,
+      specializations: serviceProviders.specializations,
+      serviceTypes: serviceProviders.serviceTypes,
+      rating: serviceProviders.rating,
+      totalBookings: serviceProviders.totalBookings,
+    }).from(serviceProviders)
+      .where(and(
+        eq(serviceProviders.academyId, academyId),
+        eq(serviceProviders.isActive, true),
+        eq(serviceProviders.isOnboarded, true),
+      ))
+      .orderBy(asc(serviceProviders.displayName));
+
+    // Compute active booking count per provider for workload display
+    const providerIds = providers.map((p) => p.id);
+    const workloadMap: Record<string, number> = {};
+    if (providerIds.length > 0) {
+      const workloadRows = await db.select({
+        assignedProviderId: shopOrders.assignedProviderId,
+        cnt: sql<number>`COUNT(*)`,
+      }).from(shopOrders)
+        .where(and(
+          inArray(shopOrders.status, ["pending", "confirmed", "in_progress"] as const),
+          sql`${shopOrders.assignedProviderId} IS NOT NULL`,
+        ))
+        .groupBy(shopOrders.assignedProviderId);
+
+      for (const row of workloadRows) {
+        if (row.assignedProviderId) {
+          workloadMap[row.assignedProviderId] = Number(row.cnt);
+        }
+      }
+    }
+
+    // Score providers by specialization relevance (exact tag/slug overlap scores higher)
+    const scored = providers.map((p) => {
+      const pSpecs: string[] = (p.specializations as string[]) ?? [];
+      const pTypes: string[] = (p.serviceTypes as string[]) ?? [];
+      const combined = [...pSpecs, ...pTypes].map((s) => s.toLowerCase());
+      const tagMatch = serviceTags.some((t) => combined.includes(t.toLowerCase()));
+      const slugMatch = combined.some((s) => serviceSlug.toLowerCase().includes(s) || s.includes(serviceSlug.toLowerCase()));
+      const relevance = tagMatch || slugMatch ? 1 : 0;
+      return {
+        ...p,
+        rating: p.rating ? Number(p.rating) : 0,
+        totalBookings: p.totalBookings ?? 0,
+        activeBookings: workloadMap[p.id] ?? 0,
+        relevance,
+      };
+    });
+
+    // Sort: matching providers first, then by rating desc
+    scored.sort((a, b) => b.relevance - a.relevance || b.rating - a.rating);
+
+    res.json(scored);
+  } catch (error) {
+    console.error("[Shop] Error fetching service providers:", error);
+    res.status(500).json({ error: "Failed to load providers" });
+  }
+});
+
 // Get services
 router.get("/player/shop/services", authMiddleware, requirePlayerProfile, requireFeatureUnlock("academy_shop"), async (req: AuthRequest, res: Response) => {
   try {
@@ -674,6 +760,9 @@ router.post("/player/shop/orders", authMiddleware, requirePlayerProfile, require
 
     // Validate and resolve providerId — must belong to the same academy
     let providerId: string | null = null;
+    let preferredProviderId: string | null = null;
+    let autoAssigned = false;
+
     if (rawProviderId) {
       const providerRecord = await db.select().from(serviceProviders)
         .where(and(eq(serviceProviders.id, rawProviderId), eq(serviceProviders.academyId, academyId)))
@@ -682,14 +771,69 @@ router.post("/player/shop/orders", authMiddleware, requirePlayerProfile, require
         return res.status(400).json({ error: "Invalid provider for this academy" });
       }
       providerId = providerRecord[0].id;
-    } else if (scheduledAt) {
-      // No explicit provider given — auto-detect if the academy has exactly one provider
-      const academyProviders = await db.select().from(serviceProviders)
+      preferredProviderId = providerRecord[0].id;
+    } else {
+      // No explicit provider — smart auto-assign: match by specialization + lightest workload
+      const academyProviders = await db.select({
+        id: serviceProviders.id,
+        specializations: serviceProviders.specializations,
+        serviceTypes: serviceProviders.serviceTypes,
+      }).from(serviceProviders)
         .where(and(eq(serviceProviders.academyId, academyId), eq(serviceProviders.isActive, true)));
+
       if (academyProviders.length === 1) {
+        // Single provider — always assign
         providerId = academyProviders[0].id;
+        autoAssigned = true;
+      } else if (academyProviders.length > 1) {
+        // Identify service tags for matching
+        const serviceItem = items.find((i: { serviceId?: string }) => i.serviceId);
+        let serviceTags: string[] = [];
+        let serviceSlug = "";
+        if (serviceItem?.serviceId) {
+          const svc = await db.select({ tags: shopServices.tags, slug: shopServices.slug })
+            .from(shopServices).where(eq(shopServices.id, serviceItem.serviceId)).limit(1);
+          serviceTags = (svc[0]?.tags as string[]) ?? [];
+          serviceSlug = svc[0]?.slug ?? "";
+        }
+
+        // Filter providers by specialization match (inclusive — fallback to all if none match)
+        const matching = academyProviders.filter((p) => {
+          const combined = [
+            ...((p.specializations as string[]) ?? []),
+            ...((p.serviceTypes as string[]) ?? []),
+          ].map((s) => s.toLowerCase());
+          const tagMatch = serviceTags.some((t) => combined.includes(t.toLowerCase()));
+          const slugMatch = combined.some((s) => serviceSlug.toLowerCase().includes(s) || s.includes(serviceSlug.toLowerCase()));
+          return tagMatch || slugMatch;
+        });
+        const candidates = matching.length > 0 ? matching : academyProviders;
+
+        // Get workload counts for candidate providers
+        const candidateIds = candidates.map((c) => c.id);
+        const workloadRows = await db.select({
+          assignedProviderId: shopOrders.assignedProviderId,
+          cnt: sql<number>`COUNT(*)`,
+        }).from(shopOrders)
+          .where(and(
+            inArray(shopOrders.assignedProviderId, candidateIds),
+            inArray(shopOrders.status, ["pending", "confirmed", "in_progress"] as const),
+          ))
+          .groupBy(shopOrders.assignedProviderId);
+
+        const workloadMap: Record<string, number> = {};
+        for (const row of workloadRows) {
+          if (row.assignedProviderId) workloadMap[row.assignedProviderId] = Number(row.cnt);
+        }
+
+        // Pick the provider with fewest active bookings
+        const best = candidates.reduce((a, b) =>
+          (workloadMap[a.id] ?? 0) <= (workloadMap[b.id] ?? 0) ? a : b
+        );
+        providerId = best.id;
+        autoAssigned = true;
       }
-      // Multiple providers or none — skip availability enforcement
+      // If no providers at all — leave as pending
     }
 
     // Validate availability against resolved provider (if any)
@@ -822,6 +966,9 @@ router.post("/player/shop/orders", authMiddleware, requirePlayerProfile, require
     const orderNumber = `GUS-${year}-${String(nextSeq).padStart(4, "0")}`;
     const total = subtotal;
 
+    // Auto-confirm when provider is assigned (explicit choice or auto-assigned)
+    const orderStatus = providerId ? "confirmed" : "pending";
+
     const [order] = await db.insert(shopOrders).values({
       academyId,
       playerId: req.user!.playerId!,
@@ -834,7 +981,9 @@ router.post("/player/shop/orders", authMiddleware, requirePlayerProfile, require
       contactEmail,
       notes,
       scheduledAt: scheduledAt ? new Date(scheduledAt) : undefined,
+      preferredProviderId: preferredProviderId || null,
       assignedProviderId: providerId || null,
+      status: orderStatus,
     }).returning();
 
     for (const item of orderItems) {
@@ -844,7 +993,7 @@ router.post("/player/shop/orders", authMiddleware, requirePlayerProfile, require
       });
     }
 
-    res.json({ order, items: orderItems });
+    res.json({ order, items: orderItems, autoAssigned });
   } catch (error) {
     console.error("[Shop] Error creating order:", error);
     res.status(500).json({ error: "Failed to create order" });

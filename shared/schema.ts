@@ -4166,6 +4166,7 @@ export const shopOrders = pgTable("shop_orders", {
   scheduledAt: timestamp("scheduled_at"),
   
   // Service provider assignment
+  preferredProviderId: varchar("preferred_provider_id").references(() => serviceProviders.id),
   assignedProviderId: varchar("assigned_provider_id"),
   
   // Player rating (submitted after session is completed)

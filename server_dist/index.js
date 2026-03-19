@@ -215,8 +215,10 @@ __export(schema_exports, {
   insertPostReactionSchema: () => insertPostReactionSchema,
   insertPostSchema: () => insertPostSchema,
   insertPressureMomentSchema: () => insertPressureMomentSchema,
+  insertProviderAvailabilitySchema: () => insertProviderAvailabilitySchema,
   insertProviderClientNoteSchema: () => insertProviderClientNoteSchema,
   insertProviderClientPreferencesSchema: () => insertProviderClientPreferencesSchema,
+  insertProviderInviteSchema: () => insertProviderInviteSchema,
   insertPushDeviceTokenSchema: () => insertPushDeviceTokenSchema,
   insertQuestTemplateSchema: () => insertQuestTemplateSchema,
   insertRecurringSeriesSchema: () => insertRecurringSeriesSchema,
@@ -240,6 +242,7 @@ __export(schema_exports, {
   insertShopCategorySchema: () => insertShopCategorySchema,
   insertShopOrderItemSchema: () => insertShopOrderItemSchema,
   insertShopOrderSchema: () => insertShopOrderSchema,
+  insertShopOrderUpsellSchema: () => insertShopOrderUpsellSchema,
   insertShopProductSchema: () => insertShopProductSchema,
   insertShopServiceSchema: () => insertShopServiceSchema,
   insertShopWishlistSchema: () => insertShopWishlistSchema,
@@ -344,8 +347,10 @@ __export(schema_exports, {
   postReactions: () => postReactions,
   posts: () => posts2,
   pressureMoments: () => pressureMoments,
+  providerAvailability: () => providerAvailability,
   providerClientNotes: () => providerClientNotes,
   providerClientPreferences: () => providerClientPreferences,
+  providerInvites: () => providerInvites,
   pushDeviceTokens: () => pushDeviceTokens,
   questTemplates: () => questTemplates,
   recurringSeries: () => recurringSeries,
@@ -371,6 +376,7 @@ __export(schema_exports, {
   sessions: () => sessions,
   shopCategories: () => shopCategories,
   shopOrderItems: () => shopOrderItems,
+  shopOrderUpsells: () => shopOrderUpsells,
   shopOrders: () => shopOrders,
   shopProducts: () => shopProducts,
   shopServices: () => shopServices,
@@ -415,7 +421,7 @@ function decomposeLevel(compositeLevel) {
   const skillLevel = (clamped - 1) % 3 + 1;
   return { ballLevel: youthBallStages[stageIndex], skillLevel };
 }
-var users, insertUserSchema, loginSchema, usernameSchema, childTshirtSizes, adultTshirtSizes, tshirtSizes, playerRegisterSchema, coachInviteRegisterSchema, registerSchema, academies, insertAcademySchema, academyApplications, insertAcademyApplicationSchema, academyApplicationInputSchema, academyOwnerProfiles, insertAcademyOwnerProfileSchema, invites, insertInviteSchema, joinRequests, insertJoinRequestSchema, joinRequestInputSchema, academyTransferRequests, insertAcademyTransferRequestSchema, transferRequestInputSchema, coachInvitations, insertCoachInvitationSchema, coachInvitationInputSchema, coaches, insertCoachSchema, coachFreelanceProfiles, insertCoachFreelanceProfileSchema, locations, insertLocationSchema, locationTravelTimes, insertLocationTravelTimeSchema, courts, insertCourtSchema, courtAvailability, insertCourtAvailabilitySchema, courtBookings, insertCourtBookingSchema, bookingInvites, insertBookingInviteSchema, bookingInviteGuests, insertBookingInviteGuestSchema, openMatches, insertOpenMatchSchema, openMatchSlots, insertOpenMatchSlotSchema, matchRequests, insertMatchRequestSchema, playerBookingPreferences, insertPlayerBookingPreferencesSchema, courtAvailabilitySnapshots, insertCourtAvailabilitySnapshotSchema, players, insertPlayerSchema, updatePlayerSchema, youthBallStages, lessonGroups, insertLessonGroupSchema, lessonGroupMembers, insertLessonGroupMemberSchema, playerLevelEvents, insertPlayerLevelEventSchema, playerInvites, insertPlayerInviteSchema, playerMatches, insertPlayerMatchSchema, adultGlowMatches, insertAdultGlowMatchSchema, adultSkillAssessments, insertAdultSkillAssessmentSchema, playerConnections, packageTemplates, insertPackageTemplateSchema, packages, insertPackageSchema, playerCreditPackages, sessions, insertSessionSchema, coachingSeries, insertCoachingSeriesSchema, seriesPlayers, insertSeriesPlayerSchema, recurringSeries, insertRecurringSeriesSchema, sessionPlayers, insertSessionPlayerSchema, sessionWaitlist2, insertSessionWaitlistSchema, squads, insertSquadSchema, squadMembers, insertSquadMemberSchema, playerSessionCancellations, insertPlayerSessionCancellationSchema, playerHolidays, insertPlayerHolidaySchema, sessionFeedback, insertSessionFeedbackSchema, inSessionFeedback, insertInSessionFeedbackSchema, auditLogs, insertAuditLogSchema, platformConfig, insertPlatformConfigSchema, offlineQueue, insertOfflineQueueSchema, playerNotes, insertPlayerNoteSchema, playerProgress, insertPlayerProgressSchema, sessionTemplates, insertSessionTemplateSchema, coachNotifications, insertCoachNotificationSchema, skillDomains2, insertSkillDomainSchema, playerSkillState, insertPlayerSkillStateSchema, sessionSkillObservations, insertSessionSkillObservationSchema, levelRequirements, insertLevelRequirementSchema, coachStatsRollup, insertCoachStatsRollupSchema, playerProgressFlags, insertPlayerProgressFlagSchema, domainAssessments, insertDomainAssessmentSchema, xpTransactions2, insertXpTransactionSchema, coachXpTransactions2, insertCoachXpTransactionSchema, conversations, insertConversationSchema, conversationParticipants, insertConversationParticipantSchema, messages, insertMessageSchema, messageReactions, insertMessageReactionSchema, coachAvailability, insertCoachAvailabilitySchema, availabilityExceptions, insertAvailabilityExceptionSchema, coachCourtPreferences, insertCoachCourtPreferenceSchema, coachCourtRules, insertCoachCourtRulesSchema, coachSettings, insertCoachSettingsSchema, academySettings, insertAcademySettingsSchema, academyInvites, insertAcademyInviteSchema, coachAcademyMemberships, insertCoachAcademyMembershipSchema, coachTimeBlocks, insertCoachTimeBlockSchema, pushDeviceTokens, insertPushDeviceTokenSchema, notificationPreferences, insertNotificationPreferenceSchema, scheduledNotifications, insertScheduledNotificationSchema, billingAccounts, insertBillingAccountSchema, subscriptionPlans, insertSubscriptionPlanSchema, subscriptions, insertSubscriptionSchema, invoices, insertInvoiceSchema, payments, insertPaymentSchema, creditTransactions, insertCreditTransactionSchema, playerSubscriptions, insertPlayerSubscriptionSchema, refunds, insertRefundSchema, coachPayouts, insertCoachPayoutSchema, diagnosticReports, insertDiagnosticReportSchema, bookingRequests, insertBookingRequestSchema, parentPlayerRelations, insertParentPlayerRelationSchema, parentSettings, insertParentSettingsSchema, paymentReminders, insertPaymentReminderSchema, coachPaymentRules, insertCoachPaymentRuleSchema, coachEarnings, insertCoachEarningSchema, reviewCategories, reviewerAgeCategories, coachReviews, insertCoachReviewSchema, submitReviewSchema, reviewResponses, insertReviewResponseSchema, reviewFlags, insertReviewFlagSchema, reviewPrompts, insertReviewPromptSchema, coachReviewStats, insertCoachReviewStatsSchema, academyPricing, insertAcademyPricingSchema, coachContracts, insertCoachContractSchema, communityGroups, insertCommunityGroupSchema, groupMembers, insertGroupMemberSchema, posts2, insertPostSchema, postReactions, insertPostReactionSchema, postComments, insertPostCommentSchema, commentLikes, insertCommentLikeSchema, contentReports, playerBlocks, openToPlay, insertOpenToPlaySchema, userSocialProfiles, insertUserSocialProfileSchema, badges, insertBadgeSchema, playerBadges, insertPlayerBadgeSchema, titles, insertTitleSchema, playerTitles, insertPlayerTitleSchema, questTemplates, insertQuestTemplateSchema, playerQuests, insertPlayerQuestSchema, dailyQuestSlots, insertDailyQuestSlotSchema, playerStreaks, insertPlayerStreakSchema, shopCategories, insertShopCategorySchema, shopProducts, insertShopProductSchema, shopServices, insertShopServiceSchema, shopOrders, insertShopOrderSchema, shopOrderItems, insertShopOrderItemSchema, shopWishlist, insertShopWishlistSchema, serviceProviders, insertServiceProviderSchema, providerClientNotes, insertProviderClientNoteSchema, providerClientPreferences, insertProviderClientPreferencesSchema, marketplaceListings, insertMarketplaceListingSchema, marketplaceFavorites, insertMarketplaceFavoriteSchema, marketplaceMessages, insertMarketplaceMessageSchema, sellerProfiles, insertSellerProfileSchema, glowPillars, glowStages, glowLanguageTiers, ballLevels, insertBallLevelSchema, glowSkills, insertGlowSkillSchema, skillRubrics, insertSkillRubricSchema, levelSkills, insertLevelSkillSchema, levelTests, insertLevelTestSchema, playerBallLevels, insertPlayerBallLevelSchema, playerBaselines, insertPlayerBaselineSchema, playerBaselineSkillScores, insertPlayerBaselineSkillScoreSchema, playerSkillScores2, insertPlayerSkillScoreSchema, playerPillarProgress, insertPlayerPillarProgressSchema, levelTrials, insertLevelTrialSchema, sessionSkillFeedback, insertSessionSkillFeedbackSchema, coachCalibration, insertCoachCalibrationSchema, lessonTemplates, insertLessonTemplateSchema, drillBlocks, insertDrillBlockSchema, sessionPlans, insertSessionPlanSchema, matchLogs, insertMatchLogSchema, skillEvidence, insertSkillEvidenceSchema, roleMessageTemplates, insertRoleMessageTemplateSchema, levelUpEvents, insertLevelUpEventSchema, playstyleTags, matchTypes, matchOpponents, insertMatchOpponentSchema, matchPlans, insertMatchPlanSchema, matches, insertMatchSchema, matchChallenges, insertMatchChallengeSchema, matchReflections, insertMatchReflectionSchema, matchPillarScores, insertMatchPillarScoreSchema, coachMatchReviews, insertCoachMatchReviewSchema, pressureMoments, insertPressureMomentSchema, matchTrainingSuggestions, insertMatchTrainingSuggestionSchema, playerLevelTitles, xpActionSources, playerLevelThresholds, insertPlayerLevelThresholdSchema, playerLevelXpRules, insertPlayerLevelXpRuleSchema, featureUnlockKeys, playerFeatureUnlocks, insertPlayerFeatureUnlockSchema, playerXpEvents, insertPlayerXpEventSchema, playerLevelUpCelebrations, insertPlayerLevelUpCelebrationSchema, playerFeatureUnlockHistory, deepAssessmentSkills, insertDeepAssessmentSkillSchema, playerDeepAssessments, insertPlayerDeepAssessmentSchema, deepAssessmentPillarSummaries2, coachWellnessLogs, insertCoachWellnessLogSchema, playerNotifications, spotlightNominations, insertSpotlightNominationSchema, spotlightWeeklyWinners, insertSpotlightWeeklyWinnerSchema, spotlightMonthlyWinners, insertSpotlightMonthlyWinnerSchema, tournaments, insertTournamentSchema, tournamentParticipants, insertTournamentParticipantSchema, tournamentMatches, insertTournamentMatchSchema, ladders, insertLadderSchema, ladderPlayers, insertLadderPlayerSchema, ladderChallenges, insertLadderChallengeSchema;
+var users, insertUserSchema, loginSchema, usernameSchema, childTshirtSizes, adultTshirtSizes, tshirtSizes, playerRegisterSchema, coachInviteRegisterSchema, registerSchema, academies, insertAcademySchema, academyApplications, insertAcademyApplicationSchema, academyApplicationInputSchema, academyOwnerProfiles, insertAcademyOwnerProfileSchema, invites, insertInviteSchema, joinRequests, insertJoinRequestSchema, joinRequestInputSchema, academyTransferRequests, insertAcademyTransferRequestSchema, transferRequestInputSchema, coachInvitations, insertCoachInvitationSchema, coachInvitationInputSchema, coaches, insertCoachSchema, coachFreelanceProfiles, insertCoachFreelanceProfileSchema, locations, insertLocationSchema, locationTravelTimes, insertLocationTravelTimeSchema, courts, insertCourtSchema, courtAvailability, insertCourtAvailabilitySchema, courtBookings, insertCourtBookingSchema, bookingInvites, insertBookingInviteSchema, bookingInviteGuests, insertBookingInviteGuestSchema, openMatches, insertOpenMatchSchema, openMatchSlots, insertOpenMatchSlotSchema, matchRequests, insertMatchRequestSchema, playerBookingPreferences, insertPlayerBookingPreferencesSchema, courtAvailabilitySnapshots, insertCourtAvailabilitySnapshotSchema, players, insertPlayerSchema, updatePlayerSchema, youthBallStages, lessonGroups, insertLessonGroupSchema, lessonGroupMembers, insertLessonGroupMemberSchema, playerLevelEvents, insertPlayerLevelEventSchema, playerInvites, insertPlayerInviteSchema, playerMatches, insertPlayerMatchSchema, adultGlowMatches, insertAdultGlowMatchSchema, adultSkillAssessments, insertAdultSkillAssessmentSchema, playerConnections, packageTemplates, insertPackageTemplateSchema, packages, insertPackageSchema, playerCreditPackages, sessions, insertSessionSchema, coachingSeries, insertCoachingSeriesSchema, seriesPlayers, insertSeriesPlayerSchema, recurringSeries, insertRecurringSeriesSchema, sessionPlayers, insertSessionPlayerSchema, sessionWaitlist2, insertSessionWaitlistSchema, squads, insertSquadSchema, squadMembers, insertSquadMemberSchema, playerSessionCancellations, insertPlayerSessionCancellationSchema, playerHolidays, insertPlayerHolidaySchema, sessionFeedback, insertSessionFeedbackSchema, inSessionFeedback, insertInSessionFeedbackSchema, auditLogs, insertAuditLogSchema, platformConfig, insertPlatformConfigSchema, offlineQueue, insertOfflineQueueSchema, playerNotes, insertPlayerNoteSchema, playerProgress, insertPlayerProgressSchema, sessionTemplates, insertSessionTemplateSchema, coachNotifications, insertCoachNotificationSchema, skillDomains2, insertSkillDomainSchema, playerSkillState, insertPlayerSkillStateSchema, sessionSkillObservations, insertSessionSkillObservationSchema, levelRequirements, insertLevelRequirementSchema, coachStatsRollup, insertCoachStatsRollupSchema, playerProgressFlags, insertPlayerProgressFlagSchema, domainAssessments, insertDomainAssessmentSchema, xpTransactions2, insertXpTransactionSchema, coachXpTransactions2, insertCoachXpTransactionSchema, conversations, insertConversationSchema, conversationParticipants, insertConversationParticipantSchema, messages, insertMessageSchema, messageReactions, insertMessageReactionSchema, coachAvailability, insertCoachAvailabilitySchema, availabilityExceptions, insertAvailabilityExceptionSchema, coachCourtPreferences, insertCoachCourtPreferenceSchema, coachCourtRules, insertCoachCourtRulesSchema, coachSettings, insertCoachSettingsSchema, academySettings, insertAcademySettingsSchema, academyInvites, insertAcademyInviteSchema, providerInvites, insertProviderInviteSchema, coachAcademyMemberships, insertCoachAcademyMembershipSchema, coachTimeBlocks, insertCoachTimeBlockSchema, pushDeviceTokens, insertPushDeviceTokenSchema, notificationPreferences, insertNotificationPreferenceSchema, scheduledNotifications, insertScheduledNotificationSchema, billingAccounts, insertBillingAccountSchema, subscriptionPlans, insertSubscriptionPlanSchema, subscriptions, insertSubscriptionSchema, invoices, insertInvoiceSchema, payments, insertPaymentSchema, creditTransactions, insertCreditTransactionSchema, playerSubscriptions, insertPlayerSubscriptionSchema, refunds, insertRefundSchema, coachPayouts, insertCoachPayoutSchema, diagnosticReports, insertDiagnosticReportSchema, bookingRequests, insertBookingRequestSchema, parentPlayerRelations, insertParentPlayerRelationSchema, parentSettings, insertParentSettingsSchema, paymentReminders, insertPaymentReminderSchema, coachPaymentRules, insertCoachPaymentRuleSchema, coachEarnings, insertCoachEarningSchema, reviewCategories, reviewerAgeCategories, coachReviews, insertCoachReviewSchema, submitReviewSchema, reviewResponses, insertReviewResponseSchema, reviewFlags, insertReviewFlagSchema, reviewPrompts, insertReviewPromptSchema, coachReviewStats, insertCoachReviewStatsSchema, academyPricing, insertAcademyPricingSchema, coachContracts, insertCoachContractSchema, communityGroups, insertCommunityGroupSchema, groupMembers, insertGroupMemberSchema, posts2, insertPostSchema, postReactions, insertPostReactionSchema, postComments, insertPostCommentSchema, commentLikes, insertCommentLikeSchema, contentReports, playerBlocks, openToPlay, insertOpenToPlaySchema, userSocialProfiles, insertUserSocialProfileSchema, badges, insertBadgeSchema, playerBadges, insertPlayerBadgeSchema, titles, insertTitleSchema, playerTitles, insertPlayerTitleSchema, questTemplates, insertQuestTemplateSchema, playerQuests, insertPlayerQuestSchema, dailyQuestSlots, insertDailyQuestSlotSchema, playerStreaks, insertPlayerStreakSchema, shopCategories, insertShopCategorySchema, shopProducts, insertShopProductSchema, shopServices, insertShopServiceSchema, shopOrders, insertShopOrderSchema, shopOrderItems, insertShopOrderItemSchema, shopWishlist, insertShopWishlistSchema, serviceProviders, insertServiceProviderSchema, providerClientNotes, insertProviderClientNoteSchema, providerClientPreferences, insertProviderClientPreferencesSchema, providerAvailability, insertProviderAvailabilitySchema, shopOrderUpsells, insertShopOrderUpsellSchema, marketplaceListings, insertMarketplaceListingSchema, marketplaceFavorites, insertMarketplaceFavoriteSchema, marketplaceMessages, insertMarketplaceMessageSchema, sellerProfiles, insertSellerProfileSchema, glowPillars, glowStages, glowLanguageTiers, ballLevels, insertBallLevelSchema, glowSkills, insertGlowSkillSchema, skillRubrics, insertSkillRubricSchema, levelSkills, insertLevelSkillSchema, levelTests, insertLevelTestSchema, playerBallLevels, insertPlayerBallLevelSchema, playerBaselines, insertPlayerBaselineSchema, playerBaselineSkillScores, insertPlayerBaselineSkillScoreSchema, playerSkillScores2, insertPlayerSkillScoreSchema, playerPillarProgress, insertPlayerPillarProgressSchema, levelTrials, insertLevelTrialSchema, sessionSkillFeedback, insertSessionSkillFeedbackSchema, coachCalibration, insertCoachCalibrationSchema, lessonTemplates, insertLessonTemplateSchema, drillBlocks, insertDrillBlockSchema, sessionPlans, insertSessionPlanSchema, matchLogs, insertMatchLogSchema, skillEvidence, insertSkillEvidenceSchema, roleMessageTemplates, insertRoleMessageTemplateSchema, levelUpEvents, insertLevelUpEventSchema, playstyleTags, matchTypes, matchOpponents, insertMatchOpponentSchema, matchPlans, insertMatchPlanSchema, matches, insertMatchSchema, matchChallenges, insertMatchChallengeSchema, matchReflections, insertMatchReflectionSchema, matchPillarScores, insertMatchPillarScoreSchema, coachMatchReviews, insertCoachMatchReviewSchema, pressureMoments, insertPressureMomentSchema, matchTrainingSuggestions, insertMatchTrainingSuggestionSchema, playerLevelTitles, xpActionSources, playerLevelThresholds, insertPlayerLevelThresholdSchema, playerLevelXpRules, insertPlayerLevelXpRuleSchema, featureUnlockKeys, playerFeatureUnlocks, insertPlayerFeatureUnlockSchema, playerXpEvents, insertPlayerXpEventSchema, playerLevelUpCelebrations, insertPlayerLevelUpCelebrationSchema, playerFeatureUnlockHistory, deepAssessmentSkills, insertDeepAssessmentSkillSchema, playerDeepAssessments, insertPlayerDeepAssessmentSchema, deepAssessmentPillarSummaries2, coachWellnessLogs, insertCoachWellnessLogSchema, playerNotifications, spotlightNominations, insertSpotlightNominationSchema, spotlightWeeklyWinners, insertSpotlightWeeklyWinnerSchema, spotlightMonthlyWinners, insertSpotlightMonthlyWinnerSchema, tournaments, insertTournamentSchema, tournamentParticipants, insertTournamentParticipantSchema, tournamentMatches, insertTournamentMatchSchema, ladders, insertLadderSchema, ladderPlayers, insertLadderPlayerSchema, ladderChallenges, insertLadderChallengeSchema;
 var init_schema = __esm({
   "shared/schema.ts"() {
     "use strict";
@@ -2343,6 +2349,22 @@ var init_schema = __esm({
       createdAt: timestamp("created_at").defaultNow()
     });
     insertAcademyInviteSchema = createInsertSchema(academyInvites).omit({ id: true, createdAt: true });
+    providerInvites = pgTable("provider_invites", {
+      id: varchar("id").primaryKey().default(sql2`gen_random_uuid()`),
+      token: text("token").notNull().unique(),
+      invitedEmail: text("invited_email"),
+      // optional — pre-set email
+      invitedName: text("invited_name"),
+      // optional — pre-set display name
+      createdBy: varchar("created_by").notNull(),
+      // userId of platform_owner
+      usedBy: varchar("used_by"),
+      // userId of the new service_provider
+      usedAt: timestamp("used_at"),
+      expiresAt: timestamp("expires_at").notNull(),
+      createdAt: timestamp("created_at").defaultNow()
+    });
+    insertProviderInviteSchema = createInsertSchema(providerInvites).omit({ id: true, createdAt: true, usedBy: true, usedAt: true });
     coachAcademyMemberships = pgTable("coach_academy_memberships", {
       id: varchar("id").primaryKey().default(sql2`gen_random_uuid()`),
       coachId: varchar("coach_id").references(() => coaches.id).notNull(),
@@ -3556,7 +3578,13 @@ var init_schema = __esm({
       // For services: booking info
       scheduledAt: timestamp("scheduled_at"),
       // Service provider assignment
+      preferredProviderId: varchar("preferred_provider_id").references(() => serviceProviders.id),
       assignedProviderId: varchar("assigned_provider_id"),
+      // Player rating (submitted after session is completed)
+      playerRating: integer("player_rating"),
+      // 1-5 star rating by the player
+      playerRatingAt: timestamp("player_rating_at"),
+      // when the rating was submitted
       // Audit
       createdAt: timestamp("created_at").defaultNow(),
       updatedAt: timestamp("updated_at").defaultNow(),
@@ -3654,6 +3682,39 @@ var init_schema = __esm({
       uniqueIndex("provider_client_prefs_unique_idx").on(table.providerId, table.playerId)
     ]);
     insertProviderClientPreferencesSchema = createInsertSchema(providerClientPreferences).omit({ id: true, createdAt: true, updatedAt: true });
+    providerAvailability = pgTable("provider_availability", {
+      id: varchar("id").primaryKey().default(sql2`gen_random_uuid()`),
+      providerId: varchar("provider_id").references(() => serviceProviders.id, { onDelete: "cascade" }).notNull(),
+      dayOfWeek: integer("day_of_week").notNull(),
+      // 0=Sun, 1=Mon, ..., 6=Sat
+      startTime: text("start_time").notNull(),
+      // "09:00"
+      endTime: text("end_time").notNull(),
+      // "18:00"
+      isActive: boolean("is_active").default(true),
+      createdAt: timestamp("created_at").defaultNow(),
+      updatedAt: timestamp("updated_at").defaultNow()
+    }, (table) => [
+      index("provider_availability_provider_idx").on(table.providerId)
+    ]);
+    insertProviderAvailabilitySchema = createInsertSchema(providerAvailability).omit({ id: true, createdAt: true, updatedAt: true });
+    shopOrderUpsells = pgTable("shop_order_upsells", {
+      id: varchar("id").primaryKey().default(sql2`gen_random_uuid()`),
+      orderId: varchar("order_id").references(() => shopOrders.id, { onDelete: "cascade" }).notNull(),
+      providerId: varchar("provider_id").references(() => serviceProviders.id, { onDelete: "cascade" }).notNull(),
+      serviceId: varchar("service_id"),
+      // optional link to catalog service
+      label: text("label").notNull(),
+      price: numeric("price", { precision: 10, scale: 2 }).notNull(),
+      status: text("status").notNull().default("pending"),
+      // pending | approved | declined
+      createdAt: timestamp("created_at").defaultNow(),
+      respondedAt: timestamp("responded_at")
+    }, (table) => [
+      index("shop_order_upsells_order_idx").on(table.orderId),
+      index("shop_order_upsells_provider_idx").on(table.providerId)
+    ]);
+    insertShopOrderUpsellSchema = createInsertSchema(shopOrderUpsells).omit({ id: true, createdAt: true, respondedAt: true });
     marketplaceListings = pgTable("marketplace_listings", {
       id: varchar("id").primaryKey().default(sql2`gen_random_uuid()`),
       // Seller info
@@ -5183,6 +5244,42 @@ var init_db = __esm({
         await pool.query(`ALTER TABLE players ADD COLUMN IF NOT EXISTS audit_verified_by VARCHAR`);
       } catch (e) {
         console.log("[Database] Audit columns already exist or migration skipped");
+      }
+      try {
+        await pool.query(`
+      CREATE TABLE IF NOT EXISTS provider_availability (
+        id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(),
+        provider_id VARCHAR NOT NULL REFERENCES service_providers(id) ON DELETE CASCADE,
+        day_of_week INTEGER NOT NULL,
+        start_time TEXT NOT NULL,
+        end_time TEXT NOT NULL,
+        is_active BOOLEAN DEFAULT true,
+        created_at TIMESTAMP DEFAULT NOW(),
+        updated_at TIMESTAMP DEFAULT NOW()
+      )
+    `);
+        await pool.query(`CREATE INDEX IF NOT EXISTS provider_availability_provider_idx ON provider_availability(provider_id)`);
+      } catch (e) {
+        console.log("[Database] provider_availability migration skipped:", e.message);
+      }
+      try {
+        await pool.query(`
+      CREATE TABLE IF NOT EXISTS shop_order_upsells (
+        id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(),
+        order_id VARCHAR NOT NULL REFERENCES shop_orders(id) ON DELETE CASCADE,
+        provider_id VARCHAR NOT NULL REFERENCES service_providers(id) ON DELETE CASCADE,
+        service_id VARCHAR,
+        label TEXT NOT NULL,
+        price NUMERIC(10,2) NOT NULL,
+        status TEXT NOT NULL DEFAULT 'pending',
+        created_at TIMESTAMP DEFAULT NOW(),
+        responded_at TIMESTAMP
+      )
+    `);
+        await pool.query(`CREATE INDEX IF NOT EXISTS shop_order_upsells_order_idx ON shop_order_upsells(order_id)`);
+        await pool.query(`CREATE INDEX IF NOT EXISTS shop_order_upsells_provider_idx ON shop_order_upsells(provider_id)`);
+      } catch (e) {
+        console.log("[Database] shop_order_upsells migration skipped:", e.message);
       }
     }).catch((err) => {
       console.error("[Database] Connection test FAILED:", err.message);
@@ -31661,7 +31758,7 @@ function getCurrencyForCountry(countryCode) {
 init_db();
 init_schema();
 import { Router } from "express";
-import { eq as eq4, and as and3, desc as desc2, asc as asc2, sql as sql6, inArray as inArray3, count as count2, max } from "drizzle-orm";
+import { eq as eq4, and as and3, desc as desc2, asc as asc2, sql as sql6, inArray as inArray3, count as count2, max, or as or3 } from "drizzle-orm";
 
 // server/provider-gamification.ts
 init_schema();
@@ -31870,6 +31967,7 @@ async function checkAndAwardBadges(db2, providerId, context) {
 }
 
 // server/shop-routes.ts
+init_pushNotifications();
 var router = Router();
 function requirePlayerProfile(req2, res, next) {
   if (!req2.user?.playerId) {
@@ -32053,10 +32151,75 @@ router.get("/player/shop/services/:id", authMiddlewareWithFreshData, requirePlay
     if (!player2[0]?.academyId) return res.status(400).json({ error: "Player has no academy" });
     const service = await db.select().from(shopServices).where(and3(eq4(shopServices.id, id), eq4(shopServices.academyId, player2[0].academyId))).limit(1);
     if (!service[0]) return res.status(404).json({ error: "Service not found" });
-    res.json(service[0]);
+    const academyProviders = await db.select({ id: serviceProviders.id }).from(serviceProviders).where(and3(eq4(serviceProviders.academyId, player2[0].academyId), eq4(serviceProviders.isActive, true)));
+    const suggestedProviderId = academyProviders.length === 1 ? academyProviders[0].id : null;
+    res.json({ ...service[0], suggestedProviderId });
   } catch (error) {
     console.error("[Shop] Error fetching service:", error);
     res.status(500).json({ error: "Failed to load service" });
+  }
+});
+router.get("/player/shop/services/:id/providers", authMiddlewareWithFreshData, requirePlayerProfile, requireFeatureUnlock("academy_shop"), async (req2, res) => {
+  try {
+    const { id } = req2.params;
+    const playerId = req2.user?.playerId;
+    if (!playerId) return res.status(403).json({ error: "Player profile required" });
+    const player2 = await db.select().from(players).where(eq4(players.id, playerId)).limit(1);
+    if (!player2[0]?.academyId) return res.status(400).json({ error: "Player has no academy" });
+    const academyId = player2[0].academyId;
+    const service = await db.select({ tags: shopServices.tags, slug: shopServices.slug, categoryId: shopServices.categoryId }).from(shopServices).where(and3(eq4(shopServices.id, id), eq4(shopServices.academyId, academyId))).limit(1);
+    if (!service[0]) return res.status(404).json({ error: "Service not found" });
+    const serviceTags = service[0].tags ?? [];
+    const serviceSlug = service[0].slug ?? "";
+    const providers = await db.select({
+      id: serviceProviders.id,
+      displayName: serviceProviders.displayName,
+      profilePhotoUrl: serviceProviders.profilePhotoUrl,
+      specializations: serviceProviders.specializations,
+      serviceTypes: serviceProviders.serviceTypes,
+      rating: serviceProviders.rating,
+      totalBookings: serviceProviders.totalBookings
+    }).from(serviceProviders).where(and3(
+      eq4(serviceProviders.academyId, academyId),
+      eq4(serviceProviders.isActive, true),
+      eq4(serviceProviders.isOnboarded, true)
+    )).orderBy(asc2(serviceProviders.displayName));
+    const providerIds = providers.map((p) => p.id);
+    const workloadMap = {};
+    if (providerIds.length > 0) {
+      const workloadRows = await db.select({
+        assignedProviderId: shopOrders.assignedProviderId,
+        cnt: sql6`COUNT(*)`
+      }).from(shopOrders).where(and3(
+        inArray3(shopOrders.status, ["pending", "confirmed", "in_progress"]),
+        sql6`${shopOrders.assignedProviderId} IS NOT NULL`
+      )).groupBy(shopOrders.assignedProviderId);
+      for (const row of workloadRows) {
+        if (row.assignedProviderId) {
+          workloadMap[row.assignedProviderId] = Number(row.cnt);
+        }
+      }
+    }
+    const scored = providers.map((p) => {
+      const pSpecs = p.specializations ?? [];
+      const pTypes = p.serviceTypes ?? [];
+      const combined = [...pSpecs, ...pTypes].map((s) => s.toLowerCase());
+      const tagMatch = serviceTags.some((t) => combined.includes(t.toLowerCase()));
+      const slugMatch = combined.some((s) => serviceSlug.toLowerCase().includes(s) || s.includes(serviceSlug.toLowerCase()));
+      const relevance = tagMatch || slugMatch ? 1 : 0;
+      return {
+        ...p,
+        rating: p.rating ? Number(p.rating) : 0,
+        totalBookings: p.totalBookings ?? 0,
+        activeBookings: workloadMap[p.id] ?? 0,
+        relevance
+      };
+    });
+    scored.sort((a, b) => b.relevance - a.relevance || b.rating - a.rating);
+    res.json(scored);
+  } catch (error) {
+    console.error("[Shop] Error fetching service providers:", error);
+    res.status(500).json({ error: "Failed to load providers" });
   }
 });
 router.get("/player/shop/services", authMiddlewareWithFreshData, requirePlayerProfile, requireFeatureUnlock("academy_shop"), async (req2, res) => {
@@ -32182,6 +32345,114 @@ router.get("/player/shop/orders", authMiddlewareWithFreshData, requirePlayerProf
     res.status(500).json({ error: "Failed to load orders" });
   }
 });
+router.get("/player/shop/provider-bookings", authMiddlewareWithFreshData, requirePlayerProfile, requireFeatureUnlock("academy_shop"), async (req2, res) => {
+  try {
+    const playerId = req2.user.playerId;
+    const cutoffTime = /* @__PURE__ */ new Date();
+    cutoffTime.setHours(cutoffTime.getHours() - 48);
+    const upcomingStatuses = ["pending", "confirmed", "in_progress"];
+    const now2 = /* @__PURE__ */ new Date();
+    const twoWeeksOut = new Date(now2.getTime() + 14 * 24 * 60 * 60 * 1e3);
+    const twoHoursAgo = new Date(now2.getTime() - 2 * 60 * 60 * 1e3);
+    const orders = await db.select({
+      id: shopOrders.id,
+      orderNumber: shopOrders.orderNumber,
+      status: shopOrders.status,
+      scheduledAt: shopOrders.scheduledAt,
+      completedAt: shopOrders.completedAt,
+      assignedProviderId: shopOrders.assignedProviderId,
+      playerRating: shopOrders.playerRating,
+      playerRatingAt: shopOrders.playerRatingAt,
+      notes: shopOrders.notes,
+      createdAt: shopOrders.createdAt
+    }).from(shopOrders).where(
+      and3(
+        eq4(shopOrders.playerId, playerId),
+        // Must have an assigned provider
+        sql6`${shopOrders.assignedProviderId} IS NOT NULL`,
+        // Only include upcoming active orders or recently-completed for rating/rebook
+        or3(
+          and3(
+            inArray3(shopOrders.status, [...upcomingStatuses]),
+            sql6`${shopOrders.scheduledAt} IS NOT NULL`,
+            sql6`${shopOrders.scheduledAt} >= ${twoHoursAgo.toISOString()}`,
+            sql6`${shopOrders.scheduledAt} <= ${twoWeeksOut.toISOString()}`
+          ),
+          and3(
+            eq4(shopOrders.status, "completed"),
+            sql6`${shopOrders.completedAt} >= ${cutoffTime.toISOString()}`
+          )
+        )
+      )
+    ).orderBy(
+      // Upcoming first (ascending by scheduled time), completed after
+      sql6`CASE WHEN ${shopOrders.status} = 'completed' THEN 1 ELSE 0 END`,
+      asc2(shopOrders.scheduledAt)
+    );
+    const relevantOrders = orders;
+    const enriched = await Promise.all(
+      relevantOrders.map(async (order) => {
+        const [items, providerRows] = await Promise.all([
+          db.select({
+            id: shopOrderItems.id,
+            name: shopOrderItems.name,
+            serviceId: shopOrderItems.serviceId,
+            itemType: shopOrderItems.itemType
+          }).from(shopOrderItems).where(and3(eq4(shopOrderItems.orderId, order.id), eq4(shopOrderItems.itemType, "service"))).limit(1),
+          db.select({
+            id: serviceProviders.id,
+            displayName: serviceProviders.displayName,
+            profilePhotoUrl: serviceProviders.profilePhotoUrl,
+            specializations: serviceProviders.specializations,
+            serviceTypes: serviceProviders.serviceTypes
+          }).from(serviceProviders).where(eq4(serviceProviders.id, order.assignedProviderId)).limit(1)
+        ]);
+        return {
+          ...order,
+          serviceName: items[0]?.name ?? null,
+          serviceId: items[0]?.serviceId ?? null,
+          provider: providerRows[0] ?? null
+        };
+      })
+    );
+    res.json(enriched);
+  } catch (error) {
+    console.error("[Shop] Error fetching provider bookings:", error);
+    res.status(500).json({ error: "Failed to load provider bookings" });
+  }
+});
+router.post("/player/shop/orders/:id/rate", authMiddlewareWithFreshData, requirePlayerProfile, requireFeatureUnlock("academy_shop"), async (req2, res) => {
+  try {
+    const { id } = req2.params;
+    const { rating } = req2.body;
+    const playerId = req2.user.playerId;
+    if (!rating || typeof rating !== "number" || rating < 1 || rating > 5) {
+      return res.status(400).json({ error: "Rating must be a number between 1 and 5" });
+    }
+    const order = await db.select().from(shopOrders).where(and3(eq4(shopOrders.id, id), eq4(shopOrders.playerId, playerId))).limit(1);
+    if (!order[0]) {
+      return res.status(404).json({ error: "Order not found" });
+    }
+    if (order[0].status !== "completed") {
+      return res.status(400).json({ error: "Can only rate completed orders" });
+    }
+    if (!order[0].assignedProviderId) {
+      return res.status(400).json({ error: "Can only rate provider service orders" });
+    }
+    if (order[0].playerRating !== null) {
+      return res.status(400).json({ error: "Order already rated" });
+    }
+    await db.update(shopOrders).set({
+      playerRating: rating,
+      playerRatingAt: /* @__PURE__ */ new Date(),
+      updatedAt: /* @__PURE__ */ new Date()
+    }).where(eq4(shopOrders.id, id));
+    res.json({ success: true, rating });
+  } catch (error) {
+    console.error("[Shop] Error rating order:", error);
+    res.status(500).json({ error: "Failed to submit rating" });
+  }
+});
 router.get("/player/shop/orders/:id", authMiddlewareWithFreshData, requirePlayerProfile, requireFeatureUnlock("academy_shop"), async (req2, res) => {
   try {
     const { id } = req2.params;
@@ -32201,7 +32472,7 @@ router.get("/player/shop/orders/:id", authMiddlewareWithFreshData, requirePlayer
 });
 router.post("/player/shop/orders", authMiddlewareWithFreshData, requirePlayerProfile, requireFeatureUnlock("academy_shop"), async (req2, res) => {
   try {
-    const { items, contactName, contactPhone, contactEmail, notes, scheduledAt } = req2.body;
+    const { items, contactName, contactPhone, contactEmail, notes, scheduledAt, providerId: rawProviderId } = req2.body;
     if (!items || !Array.isArray(items) || items.length === 0) {
       return res.status(400).json({ error: "Cart is empty" });
     }
@@ -32210,6 +32481,110 @@ router.post("/player/shop/orders", authMiddlewareWithFreshData, requirePlayerPro
       return res.status(400).json({ error: "Player has no academy" });
     }
     const academyId = player2[0].academyId;
+    let providerId = null;
+    let preferredProviderId = null;
+    let autoAssigned = false;
+    if (rawProviderId) {
+      const providerRecord = await db.select().from(serviceProviders).where(and3(eq4(serviceProviders.id, rawProviderId), eq4(serviceProviders.academyId, academyId))).limit(1);
+      if (!providerRecord[0]) {
+        return res.status(400).json({ error: "Invalid provider for this academy" });
+      }
+      providerId = providerRecord[0].id;
+      preferredProviderId = providerRecord[0].id;
+    } else {
+      const academyProviders = await db.select({
+        id: serviceProviders.id,
+        specializations: serviceProviders.specializations,
+        serviceTypes: serviceProviders.serviceTypes
+      }).from(serviceProviders).where(and3(eq4(serviceProviders.academyId, academyId), eq4(serviceProviders.isActive, true)));
+      if (academyProviders.length === 1) {
+        providerId = academyProviders[0].id;
+        autoAssigned = true;
+      } else if (academyProviders.length > 1) {
+        const serviceItem = items.find((i) => i.serviceId);
+        let serviceTags = [];
+        let serviceSlug = "";
+        if (serviceItem?.serviceId) {
+          const svc = await db.select({ tags: shopServices.tags, slug: shopServices.slug }).from(shopServices).where(eq4(shopServices.id, serviceItem.serviceId)).limit(1);
+          serviceTags = svc[0]?.tags ?? [];
+          serviceSlug = svc[0]?.slug ?? "";
+        }
+        const matching = academyProviders.filter((p) => {
+          const combined = [
+            ...p.specializations ?? [],
+            ...p.serviceTypes ?? []
+          ].map((s) => s.toLowerCase());
+          const tagMatch = serviceTags.some((t) => combined.includes(t.toLowerCase()));
+          const slugMatch = combined.some((s) => serviceSlug.toLowerCase().includes(s) || s.includes(serviceSlug.toLowerCase()));
+          return tagMatch || slugMatch;
+        });
+        const candidates = matching.length > 0 ? matching : academyProviders;
+        const candidateIds = candidates.map((c) => c.id);
+        const workloadRows = await db.select({
+          assignedProviderId: shopOrders.assignedProviderId,
+          cnt: sql6`COUNT(*)`
+        }).from(shopOrders).where(and3(
+          inArray3(shopOrders.assignedProviderId, candidateIds),
+          inArray3(shopOrders.status, ["pending", "confirmed", "in_progress"])
+        )).groupBy(shopOrders.assignedProviderId);
+        const workloadMap = {};
+        for (const row of workloadRows) {
+          if (row.assignedProviderId) workloadMap[row.assignedProviderId] = Number(row.cnt);
+        }
+        const best = candidates.reduce(
+          (a, b) => (workloadMap[a.id] ?? 0) <= (workloadMap[b.id] ?? 0) ? a : b
+        );
+        providerId = best.id;
+        autoAssigned = true;
+      }
+    }
+    if (scheduledAt && providerId) {
+      const requestedDate = new Date(scheduledAt);
+      if (!isNaN(requestedDate.getTime())) {
+        const allProviderWindows = await db.select().from(providerAvailability).where(eq4(providerAvailability.providerId, providerId));
+        if (allProviderWindows.length > 0) {
+          const academyRecord = await db.select({ timezone: academies.timezone }).from(academies).where(eq4(academies.id, academyId)).limit(1);
+          const tz = academyRecord[0]?.timezone ?? "Asia/Dubai";
+          const localParts = new Intl.DateTimeFormat("en-US", {
+            timeZone: tz,
+            weekday: "short",
+            hour: "2-digit",
+            minute: "2-digit",
+            hour12: false
+          }).formatToParts(requestedDate);
+          const localWeekdayShort = localParts.find((p) => p.type === "weekday")?.value ?? "";
+          const localHour = parseInt(localParts.find((p) => p.type === "hour")?.value ?? "0", 10);
+          const localMinute = parseInt(localParts.find((p) => p.type === "minute")?.value ?? "0", 10);
+          const weekdayMap = {
+            Sun: 0,
+            Mon: 1,
+            Tue: 2,
+            Wed: 3,
+            Thu: 4,
+            Fri: 5,
+            Sat: 6
+          };
+          const dayOfWeek = weekdayMap[localWeekdayShort] ?? -1;
+          const requestedMinutes = localHour * 60 + localMinute;
+          const activeWindowsForDay = allProviderWindows.filter(
+            (w) => w.isActive && w.dayOfWeek === dayOfWeek
+          );
+          if (activeWindowsForDay.length === 0) {
+            return res.status(400).json({ error: "The provider is not available on the requested day" });
+          }
+          const inWindow = activeWindowsForDay.some((w) => {
+            const [startH, startM] = w.startTime.split(":").map(Number);
+            const [endH, endM] = w.endTime.split(":").map(Number);
+            const startMinutes = startH * 60 + startM;
+            const endMinutes = endH * 60 + endM;
+            return requestedMinutes >= startMinutes && requestedMinutes < endMinutes;
+          });
+          if (!inWindow) {
+            return res.status(400).json({ error: "The requested time is outside the provider's working hours" });
+          }
+        }
+      }
+    }
     let subtotal = 0;
     const orderItems = [];
     for (const item of items) {
@@ -32258,6 +32633,7 @@ router.post("/player/shop/orders", authMiddlewareWithFreshData, requirePlayerPro
     const nextSeq = (Number(countResult[0]?.count) || 0) + 1;
     const orderNumber = `GUS-${year}-${String(nextSeq).padStart(4, "0")}`;
     const total = subtotal;
+    const orderStatus = providerId ? "confirmed" : "pending";
     const [order] = await db.insert(shopOrders).values({
       academyId,
       playerId: req2.user.playerId,
@@ -32269,7 +32645,10 @@ router.post("/player/shop/orders", authMiddlewareWithFreshData, requirePlayerPro
       contactPhone,
       contactEmail,
       notes,
-      scheduledAt: scheduledAt ? new Date(scheduledAt) : void 0
+      scheduledAt: scheduledAt ? new Date(scheduledAt) : void 0,
+      preferredProviderId: preferredProviderId || null,
+      assignedProviderId: providerId || null,
+      status: orderStatus
     }).returning();
     for (const item of orderItems) {
       await db.insert(shopOrderItems).values({
@@ -32277,7 +32656,7 @@ router.post("/player/shop/orders", authMiddlewareWithFreshData, requirePlayerPro
         ...item
       });
     }
-    res.json({ order, items: orderItems });
+    res.json({ order, items: orderItems, autoAssigned });
   } catch (error) {
     console.error("[Shop] Error creating order:", error);
     res.status(500).json({ error: "Failed to create order" });
@@ -33341,6 +33720,277 @@ router.post("/provider/conversations/:id/read", authMiddlewareWithFreshData, req
   } catch (error) {
     console.error("[ProviderChat] Error marking read:", error);
     res.status(500).json({ error: "Failed to mark as read" });
+  }
+});
+router.get("/provider/availability", authMiddlewareWithFreshData, requireServiceProvider, async (req2, res) => {
+  try {
+    const provider = await getProviderRecord(req2.user.userId);
+    if (!provider) return res.status(404).json({ error: "Provider not found" });
+    const rows = await db.select().from(providerAvailability).where(eq4(providerAvailability.providerId, provider.id)).orderBy(asc2(providerAvailability.dayOfWeek));
+    res.json(rows);
+  } catch (error) {
+    console.error("[Availability] GET error:", error);
+    res.status(500).json({ error: "Failed to load availability" });
+  }
+});
+router.put("/provider/availability", authMiddlewareWithFreshData, requireServiceProvider, async (req2, res) => {
+  try {
+    const provider = await getProviderRecord(req2.user.userId);
+    if (!provider) return res.status(404).json({ error: "Provider not found" });
+    const { windows } = req2.body;
+    if (!Array.isArray(windows)) {
+      return res.status(400).json({ error: "windows array is required" });
+    }
+    const timeRe = /^([01]\d|2[0-3]):[0-5]\d$/;
+    for (const w of windows) {
+      if (typeof w.dayOfWeek !== "number" || w.dayOfWeek < 0 || w.dayOfWeek > 6) {
+        return res.status(400).json({ error: "dayOfWeek must be 0 (Sun) \u2013 6 (Sat)" });
+      }
+      if (!timeRe.test(w.startTime) || !timeRe.test(w.endTime)) {
+        return res.status(400).json({ error: "startTime and endTime must be in HH:mm format" });
+      }
+      const [sh, sm] = w.startTime.split(":").map(Number);
+      const [eh, em] = w.endTime.split(":").map(Number);
+      if (sh * 60 + sm >= eh * 60 + em) {
+        return res.status(400).json({ error: "startTime must be before endTime" });
+      }
+    }
+    await db.transaction(async (tx) => {
+      await tx.delete(providerAvailability).where(eq4(providerAvailability.providerId, provider.id));
+      if (windows.length > 0) {
+        await tx.insert(providerAvailability).values(
+          windows.map((w) => ({
+            providerId: provider.id,
+            dayOfWeek: w.dayOfWeek,
+            startTime: w.startTime,
+            endTime: w.endTime,
+            isActive: w.isActive !== false
+          }))
+        );
+      }
+    });
+    const rows = await db.select().from(providerAvailability).where(eq4(providerAvailability.providerId, provider.id)).orderBy(asc2(providerAvailability.dayOfWeek));
+    res.json(rows);
+  } catch (error) {
+    console.error("[Availability] PUT error:", error);
+    res.status(500).json({ error: "Failed to save availability" });
+  }
+});
+router.get("/providers/:providerId/availability", authMiddlewareWithFreshData, async (req2, res) => {
+  try {
+    const { providerId } = req2.params;
+    const rows = await db.select().from(providerAvailability).where(and3(eq4(providerAvailability.providerId, providerId), eq4(providerAvailability.isActive, true))).orderBy(asc2(providerAvailability.dayOfWeek));
+    res.json(rows);
+  } catch (error) {
+    console.error("[Availability] Public GET error:", error);
+    res.status(500).json({ error: "Failed to load availability" });
+  }
+});
+router.get("/provider/services", authMiddlewareWithFreshData, requireServiceProvider, async (req2, res) => {
+  try {
+    const provider = await getProviderRecord(req2.user.userId);
+    if (!provider) return res.status(404).json({ error: "Provider not found" });
+    const services = await db.select().from(shopServices).where(and3(eq4(shopServices.academyId, provider.academyId), eq4(shopServices.isActive, true))).orderBy(asc2(shopServices.order), asc2(shopServices.name));
+    res.json(services);
+  } catch (error) {
+    console.error("[ServiceMenu] GET error:", error);
+    res.status(500).json({ error: "Failed to load services" });
+  }
+});
+router.post("/provider/services", authMiddlewareWithFreshData, requireServiceProvider, async (req2, res) => {
+  try {
+    const provider = await getProviderRecord(req2.user.userId);
+    if (!provider) return res.status(404).json({ error: "Provider not found" });
+    const { name, description, durationMinutes, price, iconName } = req2.body;
+    if (!name || !price) {
+      return res.status(400).json({ error: "name and price are required" });
+    }
+    const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") + "-" + Date.now();
+    const [service] = await db.insert(shopServices).values({
+      academyId: provider.academyId,
+      name: String(name),
+      slug,
+      description: description ? String(description) : null,
+      price: String(parseFloat(String(price)).toFixed(2)),
+      durationMinutes: durationMinutes ? Number(durationMinutes) : null,
+      iconName: iconName ? String(iconName) : "build",
+      isActive: true,
+      isFeatured: false,
+      requiresBooking: true
+    }).returning();
+    res.status(201).json(service);
+  } catch (error) {
+    console.error("[ServiceMenu] POST error:", error);
+    res.status(500).json({ error: "Failed to create service" });
+  }
+});
+router.patch("/provider/services/:id", authMiddlewareWithFreshData, requireServiceProvider, async (req2, res) => {
+  try {
+    const provider = await getProviderRecord(req2.user.userId);
+    if (!provider) return res.status(404).json({ error: "Provider not found" });
+    const { id } = req2.params;
+    const { name, description, durationMinutes, price, iconName, isActive } = req2.body;
+    const [existing2] = await db.select({ id: shopServices.id }).from(shopServices).where(and3(eq4(shopServices.id, id), eq4(shopServices.academyId, provider.academyId))).limit(1);
+    if (!existing2) return res.status(404).json({ error: "Service not found" });
+    const updateData = { updatedAt: /* @__PURE__ */ new Date() };
+    if (name !== void 0) updateData.name = String(name);
+    if (description !== void 0) updateData.description = description ? String(description) : null;
+    if (durationMinutes !== void 0) updateData.durationMinutes = durationMinutes !== null ? Number(durationMinutes) : null;
+    if (price !== void 0) updateData.price = String(parseFloat(String(price)).toFixed(2));
+    if (iconName !== void 0) updateData.iconName = String(iconName);
+    if (isActive !== void 0) updateData.isActive = Boolean(isActive);
+    const [updated] = await db.update(shopServices).set(updateData).where(and3(eq4(shopServices.id, id), eq4(shopServices.academyId, provider.academyId))).returning();
+    res.json(updated);
+  } catch (error) {
+    console.error("[ServiceMenu] PATCH error:", error);
+    res.status(500).json({ error: "Failed to update service" });
+  }
+});
+router.delete("/provider/services/:id", authMiddlewareWithFreshData, requireServiceProvider, async (req2, res) => {
+  try {
+    const provider = await getProviderRecord(req2.user.userId);
+    if (!provider) return res.status(404).json({ error: "Provider not found" });
+    const { id } = req2.params;
+    const [existing2] = await db.select({ id: shopServices.id }).from(shopServices).where(and3(eq4(shopServices.id, id), eq4(shopServices.academyId, provider.academyId))).limit(1);
+    if (!existing2) return res.status(404).json({ error: "Service not found" });
+    await db.update(shopServices).set({ isActive: false, updatedAt: /* @__PURE__ */ new Date() }).where(and3(eq4(shopServices.id, id), eq4(shopServices.academyId, provider.academyId)));
+    res.json({ success: true });
+  } catch (error) {
+    console.error("[ServiceMenu] DELETE error:", error);
+    res.status(500).json({ error: "Failed to delete service" });
+  }
+});
+router.post("/provider/bookings/:orderId/upsell", authMiddlewareWithFreshData, requireServiceProvider, async (req2, res) => {
+  try {
+    const provider = await getProviderRecord(req2.user.userId);
+    if (!provider) return res.status(404).json({ error: "Provider not found" });
+    const { orderId } = req2.params;
+    const { label, price, serviceId } = req2.body;
+    if (!label || price === void 0) {
+      return res.status(400).json({ error: "label and price are required" });
+    }
+    const parsedPrice = parseFloat(String(price));
+    if (isNaN(parsedPrice) || parsedPrice <= 0) {
+      return res.status(400).json({ error: "price must be a positive number" });
+    }
+    const [order] = await db.select().from(shopOrders).where(and3(
+      eq4(shopOrders.id, orderId),
+      eq4(shopOrders.assignedProviderId, provider.id)
+    )).limit(1);
+    if (!order) return res.status(404).json({ error: "Booking not found" });
+    if (order.status !== "confirmed") {
+      return res.status(409).json({ error: "Can only add extras to confirmed bookings" });
+    }
+    const priceStr = parsedPrice.toFixed(2);
+    const [upsell] = await db.insert(shopOrderUpsells).values({
+      orderId,
+      providerId: provider.id,
+      serviceId: serviceId || null,
+      label: String(label),
+      price: priceStr,
+      status: "pending"
+    }).returning();
+    if (order.playerId) {
+      try {
+        const tokens = await getPlayerPushTokens(order.playerId);
+        if (tokens.length > 0) {
+          await sendPushNotification(
+            tokens,
+            "Extra Service Proposed",
+            `Your provider suggested "${String(label)}" (AED ${priceStr}) for booking #${order.orderNumber}. Tap to accept or decline.`,
+            { type: "upsell_request", orderId, upsellId: upsell.id },
+            order.playerId
+          );
+        }
+      } catch (notifErr) {
+        console.error("[Upsell] Failed to send notification:", notifErr);
+      }
+    }
+    res.json({ upsell });
+  } catch (error) {
+    console.error("[Upsell] POST error:", error);
+    res.status(500).json({ error: "Failed to propose extra" });
+  }
+});
+router.get("/provider/bookings/:orderId/upsells", authMiddlewareWithFreshData, requireServiceProvider, async (req2, res) => {
+  try {
+    const provider = await getProviderRecord(req2.user.userId);
+    if (!provider) return res.status(404).json({ error: "Provider not found" });
+    const { orderId } = req2.params;
+    const [order] = await db.select().from(shopOrders).where(and3(
+      eq4(shopOrders.id, orderId),
+      eq4(shopOrders.assignedProviderId, provider.id)
+    )).limit(1);
+    if (!order) return res.status(404).json({ error: "Booking not found" });
+    const upsells = await db.select().from(shopOrderUpsells).where(eq4(shopOrderUpsells.orderId, orderId)).orderBy(desc2(shopOrderUpsells.createdAt));
+    res.json(upsells);
+  } catch (error) {
+    console.error("[Upsell] GET error:", error);
+    res.status(500).json({ error: "Failed to load upsells" });
+  }
+});
+router.get("/player/shop/orders/:orderId/upsells", authMiddlewareWithFreshData, requirePlayerProfile, async (req2, res) => {
+  try {
+    const { orderId } = req2.params;
+    const [order] = await db.select().from(shopOrders).where(and3(
+      eq4(shopOrders.id, orderId),
+      eq4(shopOrders.playerId, req2.user.playerId)
+    )).limit(1);
+    if (!order) return res.status(404).json({ error: "Order not found" });
+    const upsells = await db.select().from(shopOrderUpsells).where(eq4(shopOrderUpsells.orderId, orderId)).orderBy(desc2(shopOrderUpsells.createdAt));
+    res.json(upsells);
+  } catch (error) {
+    console.error("[Upsell] Player GET error:", error);
+    res.status(500).json({ error: "Failed to load upsells" });
+  }
+});
+router.post("/player/shop/orders/:orderId/upsells/:upsellId/respond", authMiddlewareWithFreshData, requirePlayerProfile, async (req2, res) => {
+  try {
+    const { orderId, upsellId } = req2.params;
+    const { action } = req2.body;
+    if (action !== "approve" && action !== "decline") {
+      return res.status(400).json({ error: "action must be 'approve' or 'decline'" });
+    }
+    const [order] = await db.select().from(shopOrders).where(and3(
+      eq4(shopOrders.id, orderId),
+      eq4(shopOrders.playerId, req2.user.playerId)
+    )).limit(1);
+    if (!order) return res.status(404).json({ error: "Order not found" });
+    const [upsell] = await db.select().from(shopOrderUpsells).where(and3(
+      eq4(shopOrderUpsells.id, upsellId),
+      eq4(shopOrderUpsells.orderId, orderId)
+    )).limit(1);
+    if (!upsell) return res.status(404).json({ error: "Upsell request not found" });
+    if (upsell.status !== "pending") {
+      return res.status(409).json({ error: "This upsell has already been responded to" });
+    }
+    const newStatus = action === "approve" ? "approved" : "declined";
+    await db.transaction(async (tx) => {
+      await tx.update(shopOrderUpsells).set({ status: newStatus, respondedAt: /* @__PURE__ */ new Date() }).where(eq4(shopOrderUpsells.id, upsellId));
+      if (action === "approve") {
+        const priceStr = upsell.price;
+        await tx.insert(shopOrderItems).values({
+          orderId,
+          itemType: "service",
+          name: upsell.label,
+          serviceId: upsell.serviceId || null,
+          quantity: 1,
+          unitPrice: priceStr,
+          totalPrice: priceStr
+        });
+        await tx.update(shopOrders).set({
+          total: sql6`${shopOrders.total} + ${priceStr}::numeric`,
+          subtotal: sql6`${shopOrders.subtotal} + ${priceStr}::numeric`,
+          updatedAt: /* @__PURE__ */ new Date()
+        }).where(eq4(shopOrders.id, orderId));
+      }
+    });
+    const [updatedOrder] = await db.select().from(shopOrders).where(eq4(shopOrders.id, orderId)).limit(1);
+    const items = await db.select().from(shopOrderItems).where(eq4(shopOrderItems.orderId, orderId));
+    res.json({ order: updatedOrder, items, upsellStatus: newStatus });
+  } catch (error) {
+    console.error("[Upsell] Player respond error:", error);
+    res.status(500).json({ error: "Failed to respond to upsell" });
   }
 });
 var shop_routes_default = router;
@@ -57245,6 +57895,236 @@ async function registerRoutes(app2) {
       res.status(500).json({ valid: false, message: "Failed to verify invite" });
     }
   });
+  app2.post(
+    "/api/provider-invites",
+    authMiddlewareWithFreshData,
+    requireRole("platform_owner"),
+    async (req2, res) => {
+      try {
+        const { email, name, expiresInDays = 7 } = req2.body;
+        const createdBy = req2.user.userId;
+        const token = crypto4.randomBytes(32).toString("hex");
+        const expiresAt = /* @__PURE__ */ new Date();
+        expiresAt.setDate(expiresAt.getDate() + Math.min(Number(expiresInDays) || 7, 30));
+        const [invite] = await db.insert(providerInvites).values({
+          token,
+          invitedEmail: email ? email.toLowerCase() : null,
+          invitedName: name || null,
+          createdBy,
+          expiresAt
+        }).returning();
+        res.status(201).json({ invite });
+      } catch (error) {
+        console.error("[ProviderInvite] Create error:", error);
+        res.status(500).json({ error: "Failed to create invite" });
+      }
+    }
+  );
+  app2.get(
+    "/api/provider-invites",
+    authMiddlewareWithFreshData,
+    requireRole("platform_owner"),
+    async (req2, res) => {
+      try {
+        const invites2 = await db.select().from(providerInvites).where(eq32(providerInvites.createdBy, req2.user.userId)).orderBy(desc25(providerInvites.createdAt));
+        res.json({ invites: invites2 });
+      } catch (error) {
+        console.error("[ProviderInvite] List error:", error);
+        res.status(500).json({ error: "Failed to list invites" });
+      }
+    }
+  );
+  app2.get("/api/provider-invites/verify/:token", async (req2, res) => {
+    try {
+      const { token } = req2.params;
+      const [invite] = await db.select().from(providerInvites).where(eq32(providerInvites.token, token)).limit(1);
+      if (!invite) return res.status(404).json({ valid: false, message: "Invite not found" });
+      if (invite.usedAt) return res.status(400).json({ valid: false, message: "Invite has already been used" });
+      if (new Date(invite.expiresAt) < /* @__PURE__ */ new Date()) return res.status(400).json({ valid: false, message: "Invite has expired" });
+      res.json({
+        valid: true,
+        invitedEmail: invite.invitedEmail,
+        invitedName: invite.invitedName,
+        expiresAt: invite.expiresAt
+      });
+    } catch (error) {
+      console.error("[ProviderInvite] Verify error:", error);
+      res.status(500).json({ valid: false, message: "Failed to verify invite" });
+    }
+  });
+  app2.delete(
+    "/api/provider-invites/:id",
+    authMiddlewareWithFreshData,
+    requireRole("platform_owner"),
+    async (req2, res) => {
+      try {
+        const { id } = req2.params;
+        await db.delete(providerInvites).where(and30(eq32(providerInvites.id, id), eq32(providerInvites.createdBy, req2.user.userId)));
+        res.json({ success: true });
+      } catch (error) {
+        console.error("[ProviderInvite] Delete error:", error);
+        res.status(500).json({ error: "Failed to revoke invite" });
+      }
+    }
+  );
+  app2.post(
+    "/api/provider-invites/create-direct",
+    authMiddlewareWithFreshData,
+    requireRole("platform_owner"),
+    async (req2, res) => {
+      try {
+        const { email, name } = req2.body;
+        if (!email || !name) return res.status(400).json({ error: "email and name are required" });
+        const emailLower = email.toLowerCase();
+        const existing2 = await db.select().from(users).where(eq32(users.email, emailLower)).limit(1);
+        if (existing2[0]) return res.status(409).json({ error: "A user with this email already exists" });
+        const baseUsername = name.toLowerCase().replace(/\s+/g, ".").replace(/[^a-z0-9.]/g, "").slice(0, 20);
+        const username = `${baseUsername}.${Date.now().toString(36)}`;
+        const tempPassword = crypto4.randomBytes(6).toString("hex").toUpperCase();
+        const hashedPassword = await hashPassword(tempPassword);
+        const [ownerRecord] = await db.select({ academyId: users.academyId }).from(users).where(eq32(users.id, req2.user.userId)).limit(1);
+        let resolvedAcademyId = ownerRecord?.academyId || null;
+        if (!resolvedAcademyId) {
+          const [firstAcademy] = await db.select({ id: academies.id }).from(academies).limit(1);
+          resolvedAcademyId = firstAcademy?.id || null;
+        }
+        const [newUser] = await db.insert(users).values({
+          username,
+          email: emailLower,
+          password: hashedPassword,
+          role: "service_provider",
+          academyId: resolvedAcademyId
+        }).returning();
+        await db.insert(serviceProviders).values({
+          userId: newUser.id,
+          academyId: resolvedAcademyId,
+          displayName: name,
+          isActive: true,
+          isOnboarded: false
+        });
+        const { sendEmail: sendEmail2 } = await Promise.resolve().then(() => (init_emailService(), emailService_exports));
+        await sendEmail2({
+          to: emailLower,
+          subject: "Your Glow Up Sports Provider Account",
+          html: `
+            <!DOCTYPE html>
+            <html>
+            <head>
+              <style>
+                body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #0a0a0a; color: #ffffff; margin: 0; padding: 20px; }
+                .container { max-width: 600px; margin: 0 auto; background: #1a1a1a; border-radius: 16px; padding: 40px; }
+                .logo h1 { color: #2ECC40; margin: 0; font-size: 28px; }
+                h2 { color: #ffffff; }
+                p { color: #a0a0a0; line-height: 1.6; }
+                .cred-box { background: #252525; border-radius: 12px; padding: 24px; margin: 20px 0; }
+                .cred-label { color: #666; font-size: 12px; margin-bottom: 4px; }
+                .cred-value { color: #2ECC40; font-size: 18px; font-weight: 700; }
+                .footer { margin-top: 40px; padding-top: 20px; border-top: 1px solid #333; text-align: center; color: #666; font-size: 12px; }
+              </style>
+            </head>
+            <body>
+              <div class="container">
+                <div class="logo"><h1>Glow Up Sports</h1></div>
+                <h2>Welcome, ${name}!</h2>
+                <p>Your provider account has been created. Use the credentials below to log in to the Glow Up Sports app.</p>
+                <div class="cred-box">
+                  <div class="cred-label">USERNAME</div>
+                  <div class="cred-value">${username}</div>
+                </div>
+                <div class="cred-box">
+                  <div class="cred-label">TEMPORARY PASSWORD</div>
+                  <div class="cred-value">${tempPassword}</div>
+                </div>
+                <p>Please change your password after your first login.</p>
+                <div class="footer"><p>Glow Up Sports - Level Up Your Game</p></div>
+              </div>
+            </body>
+            </html>
+          `,
+          text: `Welcome ${name}! Your provider account: username: ${username}, temporary password: ${tempPassword}. Please change your password after first login.`
+        });
+        res.status(201).json({ success: true, username, message: "Account created and credentials sent via email" });
+      } catch (error) {
+        console.error("[ProviderInvite] Create-direct error:", error);
+        res.status(500).json({ error: "Failed to create provider account" });
+      }
+    }
+  );
+  app2.post(
+    "/auth/register/provider",
+    authLimiter2,
+    async (req2, res) => {
+      try {
+        const { token, username: rawUsername, name, email, password } = req2.body;
+        if (!token || !rawUsername || !name || !email || !password) {
+          return res.status(400).json({ error: "token, username, name, email, and password are required" });
+        }
+        const passwordValidation = validatePassword(password);
+        if (!passwordValidation.valid) {
+          return res.status(400).json({ error: passwordValidation.errors.join(". ") });
+        }
+        const username = rawUsername.trim().toLowerCase();
+        if (username.length < 3 || !/^[a-z0-9_]+$/.test(username)) {
+          return res.status(400).json({ error: "Username must be at least 3 characters (letters, numbers, underscores only)" });
+        }
+        const usernameExists = await storage.checkUsernameExists(username);
+        if (usernameExists) return res.status(409).json({ error: "Username already taken" });
+        const emailExists = await db.select({ id: users.id }).from(users).where(eq32(users.email, email.toLowerCase())).limit(1);
+        if (emailExists[0]) return res.status(409).json({ error: "An account with this email already exists" });
+        const [invite] = await db.select().from(providerInvites).where(eq32(providerInvites.token, token)).limit(1);
+        if (!invite) return res.status(400).json({ error: "Invalid or expired invite link" });
+        if (invite.usedAt) return res.status(400).json({ error: "This invite has already been used" });
+        if (/* @__PURE__ */ new Date() > new Date(invite.expiresAt)) return res.status(400).json({ error: "This invite has expired" });
+        if (invite.invitedEmail && invite.invitedEmail.toLowerCase() !== email.toLowerCase()) {
+          return res.status(400).json({ error: "Email does not match the invite" });
+        }
+        const hashedPassword = await hashPassword(password);
+        const [inviteCreator] = await db.select({ academyId: users.academyId }).from(users).where(eq32(users.id, invite.createdBy)).limit(1);
+        let resolvedAcademyId = inviteCreator?.academyId || null;
+        if (!resolvedAcademyId) {
+          const [firstAcademy] = await db.select({ id: academies.id }).from(academies).limit(1);
+          resolvedAcademyId = firstAcademy?.id || null;
+        }
+        const [newUser] = await db.insert(users).values({
+          username,
+          email: email.toLowerCase(),
+          password: hashedPassword,
+          role: "service_provider",
+          academyId: resolvedAcademyId
+        }).returning();
+        await db.insert(serviceProviders).values({
+          userId: newUser.id,
+          academyId: resolvedAcademyId,
+          displayName: name.trim(),
+          isActive: true,
+          isOnboarded: false
+        });
+        await db.update(providerInvites).set({ usedBy: newUser.id, usedAt: /* @__PURE__ */ new Date() }).where(eq32(providerInvites.id, invite.id));
+        const authToken = generateToken({
+          userId: newUser.id,
+          email: newUser.email,
+          role: newUser.role,
+          academyId: newUser.academyId,
+          coachId: null,
+          playerId: null
+        });
+        res.status(201).json({
+          token: authToken,
+          user: {
+            id: newUser.id,
+            username: newUser.username,
+            email: newUser.email,
+            role: newUser.role,
+            academyId: newUser.academyId
+          },
+          message: "Welcome to Glow Up Sports!"
+        });
+      } catch (error) {
+        console.error("[ProviderInvite] Register error:", error);
+        res.status(500).json({ error: "Registration failed" });
+      }
+    }
+  );
   app2.get(
     "/api/academies/join-code/:code",
     async (req2, res) => {
