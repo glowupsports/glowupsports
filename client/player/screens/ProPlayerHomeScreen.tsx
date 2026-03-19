@@ -40,6 +40,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useQuests, Quest } from "@/player/hooks/useQuests";
 import { DailyBriefingModal } from "@/player/components/DailyBriefingModal";
 import { UpcomingProviderSessionCard } from "@/player/components/UpcomingProviderSessionCard";
+import { UpcomingAppointmentCard } from "@/player/components/UpcomingAppointmentCard";
 
 interface DashboardData {
   player: {
@@ -583,6 +584,9 @@ function PlayerHomeContent() {
         </View>
 
         <RecentFeedbackCard />
+
+        {/* UPCOMING APPOINTMENT - Soonest confirmed service booking */}
+        {!isGuest ? <UpcomingAppointmentCard /> : null}
 
         {/* ACTIVE QUEST CARD - Most urgent active quest teaser */}
         {!isGuest ? (

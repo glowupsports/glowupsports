@@ -685,6 +685,69 @@ router.get("/player/shop/provider-bookings", authMiddleware, requirePlayerProfil
   }
 });
 
+// Get upcoming confirmed service appointments (for home screen card)
+// Returns only confirmed orders with a provider assigned and scheduledAt in the future, sorted ascending.
+router.get("/player/shop/upcoming-appointments", authMiddleware, requirePlayerProfile, requireFeatureUnlock("academy_shop"), async (req: AuthRequest, res: Response) => {
+  try {
+    const playerId = req.user!.playerId!;
+    const now = new Date();
+
+    const orders = await db.select({
+      id: shopOrders.id,
+      orderNumber: shopOrders.orderNumber,
+      status: shopOrders.status,
+      scheduledAt: shopOrders.scheduledAt,
+      assignedProviderId: shopOrders.assignedProviderId,
+      notes: shopOrders.notes,
+      createdAt: shopOrders.createdAt,
+    })
+      .from(shopOrders)
+      .where(
+        and(
+          eq(shopOrders.playerId, playerId),
+          eq(shopOrders.status, "confirmed"),
+          isNotNull(shopOrders.assignedProviderId),
+          isNotNull(shopOrders.scheduledAt),
+          sql`${shopOrders.scheduledAt} > ${now.toISOString()}`
+        )
+      )
+      .orderBy(asc(shopOrders.scheduledAt));
+
+    const enriched = await Promise.all(
+      orders.map(async (order) => {
+        const [[firstItem], [provider]] = await Promise.all([
+          db.select({ name: shopOrderItems.name, serviceId: shopOrderItems.serviceId })
+            .from(shopOrderItems)
+            .where(and(eq(shopOrderItems.orderId, order.id), eq(shopOrderItems.itemType, "service")))
+            .limit(1),
+          db.select({
+            id: serviceProviders.id,
+            displayName: serviceProviders.displayName,
+            profilePhotoUrl: serviceProviders.profilePhotoUrl,
+            specializations: serviceProviders.specializations,
+            serviceTypes: serviceProviders.serviceTypes,
+          })
+            .from(serviceProviders)
+            .where(eq(serviceProviders.id, order.assignedProviderId!))
+            .limit(1),
+        ]);
+
+        return {
+          ...order,
+          serviceName: firstItem?.name ?? null,
+          serviceId: firstItem?.serviceId ?? null,
+          provider: provider ?? null,
+        };
+      })
+    );
+
+    res.json(enriched);
+  } catch (error) {
+    console.error("[Shop] Error fetching upcoming appointments:", error);
+    res.status(500).json({ error: "Failed to load upcoming appointments" });
+  }
+});
+
 // Submit player rating for a completed provider booking
 router.post("/player/shop/orders/:id/rate", authMiddleware, requirePlayerProfile, requireFeatureUnlock("academy_shop"), async (req: AuthRequest, res: Response) => {
   try {

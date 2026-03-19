@@ -17601,6 +17601,53 @@ var init_shop_routes = __esm({
         res.status(500).json({ error: "Failed to load provider bookings" });
       }
     });
+    router.get("/player/shop/upcoming-appointments", authMiddlewareWithFreshData, requirePlayerProfile, requireFeatureUnlock("academy_shop"), async (req2, res) => {
+      try {
+        const playerId = req2.user.playerId;
+        const now2 = /* @__PURE__ */ new Date();
+        const orders = await db.select({
+          id: shopOrders.id,
+          orderNumber: shopOrders.orderNumber,
+          status: shopOrders.status,
+          scheduledAt: shopOrders.scheduledAt,
+          assignedProviderId: shopOrders.assignedProviderId,
+          notes: shopOrders.notes,
+          createdAt: shopOrders.createdAt
+        }).from(shopOrders).where(
+          and3(
+            eq4(shopOrders.playerId, playerId),
+            eq4(shopOrders.status, "confirmed"),
+            isNotNull3(shopOrders.assignedProviderId),
+            isNotNull3(shopOrders.scheduledAt),
+            sql6`${shopOrders.scheduledAt} > ${now2.toISOString()}`
+          )
+        ).orderBy(asc2(shopOrders.scheduledAt));
+        const enriched = await Promise.all(
+          orders.map(async (order) => {
+            const [[firstItem], [provider]] = await Promise.all([
+              db.select({ name: shopOrderItems.name, serviceId: shopOrderItems.serviceId }).from(shopOrderItems).where(and3(eq4(shopOrderItems.orderId, order.id), eq4(shopOrderItems.itemType, "service"))).limit(1),
+              db.select({
+                id: serviceProviders.id,
+                displayName: serviceProviders.displayName,
+                profilePhotoUrl: serviceProviders.profilePhotoUrl,
+                specializations: serviceProviders.specializations,
+                serviceTypes: serviceProviders.serviceTypes
+              }).from(serviceProviders).where(eq4(serviceProviders.id, order.assignedProviderId)).limit(1)
+            ]);
+            return {
+              ...order,
+              serviceName: firstItem?.name ?? null,
+              serviceId: firstItem?.serviceId ?? null,
+              provider: provider ?? null
+            };
+          })
+        );
+        res.json(enriched);
+      } catch (error) {
+        console.error("[Shop] Error fetching upcoming appointments:", error);
+        res.status(500).json({ error: "Failed to load upcoming appointments" });
+      }
+    });
     router.post("/player/shop/orders/:id/rate", authMiddlewareWithFreshData, requirePlayerProfile, requireFeatureUnlock("academy_shop"), async (req2, res) => {
       try {
         const { id } = req2.params;
