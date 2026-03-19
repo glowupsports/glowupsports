@@ -783,10 +783,15 @@ router.post("/player/shop/orders", authMiddleware, requirePlayerProfile, require
 
     if (rawProviderId) {
       const providerRecord = await db.select().from(serviceProviders)
-        .where(and(eq(serviceProviders.id, rawProviderId), eq(serviceProviders.academyId, academyId)))
+        .where(and(
+          eq(serviceProviders.id, rawProviderId),
+          eq(serviceProviders.academyId, academyId),
+          eq(serviceProviders.isActive, true),
+          eq(serviceProviders.isOnboarded, true),
+        ))
         .limit(1);
       if (!providerRecord[0]) {
-        return res.status(400).json({ error: "Invalid provider for this academy" });
+        return res.status(400).json({ error: "Invalid or unavailable provider for this academy" });
       }
       providerId = providerRecord[0].id;
       preferredProviderId = providerRecord[0].id;
@@ -797,7 +802,7 @@ router.post("/player/shop/orders", authMiddleware, requirePlayerProfile, require
         specializations: serviceProviders.specializations,
         serviceTypes: serviceProviders.serviceTypes,
       }).from(serviceProviders)
-        .where(and(eq(serviceProviders.academyId, academyId), eq(serviceProviders.isActive, true)));
+        .where(and(eq(serviceProviders.academyId, academyId), eq(serviceProviders.isActive, true), eq(serviceProviders.isOnboarded, true)));
 
       // Only auto-assign for service bookings — skip for product-only carts
       const serviceItem = items.find((i: { serviceId?: string }) => i.serviceId);

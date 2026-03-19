@@ -32503,9 +32503,14 @@ router.post("/player/shop/orders", authMiddlewareWithFreshData, requirePlayerPro
     let preferredProviderId = null;
     let autoAssigned = false;
     if (rawProviderId) {
-      const providerRecord = await db.select().from(serviceProviders).where(and3(eq4(serviceProviders.id, rawProviderId), eq4(serviceProviders.academyId, academyId))).limit(1);
+      const providerRecord = await db.select().from(serviceProviders).where(and3(
+        eq4(serviceProviders.id, rawProviderId),
+        eq4(serviceProviders.academyId, academyId),
+        eq4(serviceProviders.isActive, true),
+        eq4(serviceProviders.isOnboarded, true)
+      )).limit(1);
       if (!providerRecord[0]) {
-        return res.status(400).json({ error: "Invalid provider for this academy" });
+        return res.status(400).json({ error: "Invalid or unavailable provider for this academy" });
       }
       providerId = providerRecord[0].id;
       preferredProviderId = providerRecord[0].id;
@@ -32514,7 +32519,7 @@ router.post("/player/shop/orders", authMiddlewareWithFreshData, requirePlayerPro
         id: serviceProviders.id,
         specializations: serviceProviders.specializations,
         serviceTypes: serviceProviders.serviceTypes
-      }).from(serviceProviders).where(and3(eq4(serviceProviders.academyId, academyId), eq4(serviceProviders.isActive, true)));
+      }).from(serviceProviders).where(and3(eq4(serviceProviders.academyId, academyId), eq4(serviceProviders.isActive, true), eq4(serviceProviders.isOnboarded, true)));
       const serviceItem = items.find((i) => i.serviceId);
       if (serviceItem?.serviceId) {
         const svc = await db.select({ tags: shopServices.tags, slug: shopServices.slug, categoryId: shopServices.categoryId }).from(shopServices).where(and3(eq4(shopServices.id, serviceItem.serviceId), eq4(shopServices.academyId, academyId))).limit(1);
