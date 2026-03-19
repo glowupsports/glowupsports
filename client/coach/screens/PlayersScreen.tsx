@@ -964,6 +964,44 @@ function PlayerDetailView({
     setLocalPlayer(player);
   }, [player]);
 
+  const deletePlayerMutation = useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest("DELETE", `/api/players/${player.id}`);
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || "Failed to delete player");
+      }
+    },
+    onSuccess: () => {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      queryClient.setQueryData<Player[]>(["/api/players?withCredits=true"], (old) =>
+        old?.filter((p) => p.id !== player.id)
+      );
+      queryClient.invalidateQueries({ queryKey: ["/api/players?withCredits=true"] });
+      onBack();
+    },
+    onError: (error: Error) => {
+      setTimeout(() => {
+        Alert.alert("Error", error.message || "Failed to delete player");
+      }, 350);
+    },
+  });
+
+  const handleDeletePlayer = () => {
+    Alert.alert(
+      "Delete Player",
+      `This will permanently remove ${localPlayer.name} and all their data from your academy. This cannot be undone.`,
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Delete",
+          style: "destructive",
+          onPress: () => deletePlayerMutation.mutate(),
+        },
+      ]
+    );
+  };
+
   const updatePlayerMutation = useMutation({
     mutationFn: async () => {
       const res = await apiRequest("PATCH", `/api/players/${player.id}`, {
@@ -1503,6 +1541,17 @@ function PlayerDetailView({
             <Ionicons name="arrow-back" size={22} color={Colors.dark.text} />
           </Pressable>
           <View style={{ flexDirection: "row", gap: Spacing.sm }}>
+            <Pressable
+              style={styles.premiumExportButton}
+              onPress={handleDeletePlayer}
+              disabled={deletePlayerMutation.isPending}
+            >
+              {deletePlayerMutation.isPending ? (
+                <ActivityIndicator size="small" color={Colors.dark.error} />
+              ) : (
+                <Ionicons name="trash-outline" size={20} color={Colors.dark.error} />
+              )}
+            </Pressable>
             <Pressable
               style={styles.premiumExportButton}
               onPress={() => {
