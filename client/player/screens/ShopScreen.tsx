@@ -75,6 +75,16 @@ interface SearchResults {
   services: ShopService[];
 }
 
+interface ShopOrder {
+  id: string;
+  status: string;
+  totalAmount: string;
+  currency?: string;
+  createdAt?: string;
+  providerName?: string | null;
+  serviceName?: string | null;
+}
+
 const CATEGORY_ICONS: Record<string, string> = {
   rackets: "tennisball",
   shoes: "footsteps",
@@ -107,6 +117,10 @@ export default function ShopScreen() {
 
   const { data: servicesData } = useQuery<{ categories: Array<{ id: string; name: string; services: ShopService[] }>; uncategorized: ShopService[] }>({
     queryKey: ["/api/player/shop/services"],
+  });
+
+  const { data: myOrders } = useQuery<ShopOrder[]>({
+    queryKey: ["/api/player/shop/orders"],
   });
 
   const allProducts: ShopProduct[] = productsData || shopData?.featuredProducts || [];
@@ -425,6 +439,33 @@ export default function ShopScreen() {
                           </Animated.View>
                         ))}
                       </View>
+                    </Animated.View>
+                  ) : null}
+
+                  {myOrders && myOrders.length > 0 ? (
+                    <Animated.View entering={FadeInUp.delay(520).duration(400)}>
+                      <View style={styles.sectionHeader}>
+                        <Text style={styles.sectionTitle}>My Bookings</Text>
+                      </View>
+                      {myOrders.slice(0, 5).map((order) => (
+                        <View key={order.id} style={styles.orderRow}>
+                          <View style={styles.orderInfo}>
+                            <Text style={styles.orderService} numberOfLines={1}>
+                              {order.serviceName ?? "Service Booking"}
+                            </Text>
+                            <Text style={styles.orderMeta}>
+                              {order.status.toUpperCase()}
+                              {order.providerName ? ` · ${order.providerName}` : ""}
+                            </Text>
+                          </View>
+                          <Pressable
+                            style={styles.orderChatBtn}
+                            onPress={() => navigation.navigate("PlayerBookingChat", { orderId: order.id })}
+                          >
+                            <Ionicons name="chatbubble-ellipses" size={16} color={Colors.dark.backgroundDefault} />
+                          </Pressable>
+                        </View>
+                      ))}
                     </Animated.View>
                   ) : null}
 
@@ -1049,5 +1090,36 @@ const styles = StyleSheet.create({
   searchingText: {
     fontSize: 14,
     color: "#666",
+  },
+  orderRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#0F141B",
+    borderRadius: 12,
+    marginHorizontal: 16,
+    marginTop: 10,
+    padding: 14,
+  },
+  orderInfo: {
+    flex: 1,
+  },
+  orderService: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: "#FFFFFF",
+  },
+  orderMeta: {
+    fontSize: 12,
+    color: "#888",
+    marginTop: 2,
+  },
+  orderChatBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: "#C8FF3D",
+    alignItems: "center",
+    justifyContent: "center",
+    marginLeft: 12,
   },
 });

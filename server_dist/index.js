@@ -32163,7 +32163,20 @@ router.delete("/player/shop/wishlist/:id", authMiddlewareWithFreshData, requireP
 router.get("/player/shop/orders", authMiddlewareWithFreshData, requirePlayerProfile, requireFeatureUnlock("academy_shop"), async (req2, res) => {
   try {
     const orders = await db.select().from(shopOrders).where(eq4(shopOrders.playerId, req2.user.playerId)).orderBy(desc2(shopOrders.createdAt));
-    res.json(orders);
+    const enriched = await Promise.all(orders.map(async (order) => {
+      const [firstItem] = await db.select({ name: shopOrderItems.name }).from(shopOrderItems).where(eq4(shopOrderItems.orderId, order.id)).limit(1);
+      let providerName = null;
+      if (order.assignedProviderId) {
+        const [prov] = await db.select({ displayName: serviceProviders.displayName }).from(serviceProviders).where(eq4(serviceProviders.id, order.assignedProviderId)).limit(1);
+        providerName = prov?.displayName ?? null;
+      }
+      return {
+        ...order,
+        serviceName: firstItem?.name ?? null,
+        providerName
+      };
+    }));
+    res.json(enriched);
   } catch (error) {
     console.error("[Shop] Error fetching orders:", error);
     res.status(500).json({ error: "Failed to load orders" });

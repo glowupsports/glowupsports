@@ -426,7 +426,7 @@ export default function ProviderBookingDetailScreen() {
           </Animated.View>
         ) : null}
 
-        {(booking.status === "confirmed" || booking.status === "completed") && booking.player ? (
+        {booking.player ? (
           <Animated.View entering={FadeInUp.delay(320).duration(300)}>
             <View style={styles.section}>
               <Pressable

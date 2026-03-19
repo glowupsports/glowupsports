@@ -439,7 +439,30 @@ router.get("/player/shop/orders", authMiddleware, requirePlayerProfile, requireF
       .where(eq(shopOrders.playerId, req.user!.playerId!))
       .orderBy(desc(shopOrders.createdAt));
 
-    res.json(orders);
+    // Enrich each order with serviceName (first item) and providerName
+    const enriched = await Promise.all(orders.map(async (order) => {
+      const [firstItem] = await db.select({ name: shopOrderItems.name })
+        .from(shopOrderItems)
+        .where(eq(shopOrderItems.orderId, order.id))
+        .limit(1);
+
+      let providerName: string | null = null;
+      if (order.assignedProviderId) {
+        const [prov] = await db.select({ displayName: serviceProviders.displayName })
+          .from(serviceProviders)
+          .where(eq(serviceProviders.id, order.assignedProviderId))
+          .limit(1);
+        providerName = prov?.displayName ?? null;
+      }
+
+      return {
+        ...order,
+        serviceName: firstItem?.name ?? null,
+        providerName,
+      };
+    }));
+
+    res.json(enriched);
   } catch (error) {
     console.error("[Shop] Error fetching orders:", error);
     res.status(500).json({ error: "Failed to load orders" });

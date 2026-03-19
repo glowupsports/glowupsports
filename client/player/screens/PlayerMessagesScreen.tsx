@@ -27,6 +27,10 @@ interface Conversation {
   coachId?: string | null;
   coachName?: string | null;
   playerId?: string | null;
+  providerId?: string | null;
+  providerName?: string | null;
+  providerPhoto?: string | null;
+  orderId?: string | null;
   lastMessageAt?: string | null;
   lastMessagePreview?: string | null;
   unreadCount?: number;
@@ -72,7 +76,7 @@ export default function PlayerMessagesScreen() {
 
   const getConversationTitle = (conv: Conversation) => {
     if (conv.type === "provider_player") {
-      return (conv as any).providerName ?? conv.title ?? "Service Provider";
+      return conv.providerName ?? conv.title ?? "Service Provider";
     }
     if (conv.title) return conv.title;
     if (conv.coachName) return conv.coachName;
