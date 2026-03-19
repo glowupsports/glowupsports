@@ -205,12 +205,14 @@ function ActionCard({
   onDecline,
   onPress,
   isUpdating,
+  hasClientData,
 }: {
   booking: Booking;
   onConfirm: () => void;
   onDecline: () => void;
   onPress: () => void;
   isUpdating: boolean;
+  hasClientData: boolean;
 }) {
   const serviceName = booking.items?.[0]?.service?.name ?? booking.items?.[0]?.name ?? "Service Booking";
   const rawIcon = booking.items?.[0]?.service?.iconName;
@@ -229,9 +231,14 @@ function ActionCard({
           ) : null}
         </View>
         <View style={styles.actionCardInfo}>
-          <Text style={styles.actionCardPlayer} numberOfLines={1}>
-            {booking.player?.name ?? "Unknown Player"}
-          </Text>
+          <View style={styles.actionNameRow}>
+            <Text style={styles.actionCardPlayer} numberOfLines={1}>
+              {booking.player?.name ?? "Unknown Player"}
+            </Text>
+            {hasClientData ? (
+              <Ionicons name="document-text-outline" size={12} color={Colors.dark.primary} />
+            ) : null}
+          </View>
           <View style={styles.actionServiceRow}>
             <Ionicons name={serviceIcon} size={11} color={Colors.dark.textSecondary} />
             <Text style={styles.actionCardService} numberOfLines={1}>{serviceName}</Text>
@@ -262,7 +269,7 @@ function ActionCard({
   );
 }
 
-function ScheduleRow({ booking, onPress }: { booking: Booking; onPress: () => void }) {
+function ScheduleRow({ booking, onPress, hasClientData }: { booking: Booking; onPress: () => void; hasClientData: boolean }) {
   const serviceName = booking.items?.[0]?.service?.name ?? booking.items?.[0]?.name ?? "Service";
   const rawScheduleIcon = booking.items?.[0]?.service?.iconName;
   const serviceIcon: keyof typeof Ionicons.glyphMap = (rawScheduleIcon && rawScheduleIcon in Ionicons.glyphMap)
@@ -285,6 +292,9 @@ function ScheduleRow({ booking, onPress }: { booking: Booking; onPress: () => vo
           <View style={styles.schedulePlayerRow}>
             <PlayerAvatar uri={booking.player.profilePhotoUrl} size={16} />
             <Text style={styles.schedulePlayerName} numberOfLines={1}>{booking.player.name}</Text>
+            {hasClientData ? (
+              <Ionicons name="document-text-outline" size={11} color={Colors.dark.primary} />
+            ) : null}
           </View>
         ) : null}
       </View>
@@ -328,6 +338,19 @@ export default function ProviderDashboardScreen() {
   const { data: allBookings = [], isLoading: loadingAll, refetch: refetchAll } = useQuery<Booking[]>({
     queryKey: ["/api/provider/me/bookings"],
   });
+
+  const { data: clientList = [] } = useQuery<Array<{ player: { id: string }; notesCount: number; preferences: Record<string, unknown> }>>({
+    queryKey: ["/api/provider/clients"],
+  });
+
+  const clientDataMap = useMemo(() => {
+    const m = new Map<string, boolean>();
+    for (const c of clientList) {
+      const hasData = c.notesCount > 0 || Object.keys(c.preferences ?? {}).length > 0;
+      if (hasData) m.set(c.player.id, true);
+    }
+    return m;
+  }, [clientList]);
 
   const isLoading = loadingToday || loadingAll;
   const refetch = () => { refetchToday(); refetchAll(); };
@@ -593,6 +616,7 @@ export default function ProviderDashboardScreen() {
                   key={booking.id}
                   booking={booking}
                   isUpdating={updatingId === booking.id}
+                  hasClientData={Boolean(booking.player?.id && clientDataMap.get(booking.player.id))}
                   onPress={() => navigation.navigate("ProviderBookingDetail", { orderId: booking.id })}
                   onConfirm={() => updateBookingStatus(booking.id, "confirmed")}
                   onDecline={() => handleDecline(booking)}
@@ -621,6 +645,7 @@ export default function ProviderDashboardScreen() {
               <ScheduleRow
                 key={booking.id}
                 booking={booking}
+                hasClientData={Boolean(booking.player?.id && clientDataMap.get(booking.player.id))}
                 onPress={() => navigation.navigate("ProviderBookingDetail", { orderId: booking.id })}
               />
             ))
@@ -824,7 +849,8 @@ const styles = StyleSheet.create({
   },
   levelBadgeText: { fontSize: 9, fontWeight: "800", color: "#000" },
   actionCardInfo: { flex: 1, gap: 2 },
-  actionCardPlayer: { fontSize: 14, fontWeight: "700", color: Colors.dark.text },
+  actionNameRow: { flexDirection: "row", alignItems: "center", gap: 5 },
+  actionCardPlayer: { fontSize: 14, fontWeight: "700", color: Colors.dark.text, flex: 1 },
   actionServiceRow: { flexDirection: "row", alignItems: "center", gap: 4 },
   actionCardService: { fontSize: 12, color: Colors.dark.textSecondary },
   actionCardTime: { flexDirection: "row", alignItems: "center", gap: 3 },

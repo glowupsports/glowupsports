@@ -215,6 +215,8 @@ __export(schema_exports, {
   insertPostReactionSchema: () => insertPostReactionSchema,
   insertPostSchema: () => insertPostSchema,
   insertPressureMomentSchema: () => insertPressureMomentSchema,
+  insertProviderClientNoteSchema: () => insertProviderClientNoteSchema,
+  insertProviderClientPreferencesSchema: () => insertProviderClientPreferencesSchema,
   insertPushDeviceTokenSchema: () => insertPushDeviceTokenSchema,
   insertQuestTemplateSchema: () => insertQuestTemplateSchema,
   insertRecurringSeriesSchema: () => insertRecurringSeriesSchema,
@@ -342,6 +344,8 @@ __export(schema_exports, {
   postReactions: () => postReactions,
   posts: () => posts2,
   pressureMoments: () => pressureMoments,
+  providerClientNotes: () => providerClientNotes,
+  providerClientPreferences: () => providerClientPreferences,
   pushDeviceTokens: () => pushDeviceTokens,
   questTemplates: () => questTemplates,
   recurringSeries: () => recurringSeries,
@@ -397,7 +401,7 @@ __export(schema_exports, {
   youthBallStages: () => youthBallStages
 });
 import { sql as sql2 } from "drizzle-orm";
-import { pgTable, text, varchar, timestamp, integer, numeric, boolean, date, jsonb, json, index, unique, doublePrecision } from "drizzle-orm/pg-core";
+import { pgTable, text, varchar, timestamp, integer, numeric, boolean, date, jsonb, json, index, uniqueIndex, unique, doublePrecision } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 function getCompositeLevel(ballLevel2, skillLevel) {
@@ -411,7 +415,7 @@ function decomposeLevel(compositeLevel) {
   const skillLevel = (clamped - 1) % 3 + 1;
   return { ballLevel: youthBallStages[stageIndex], skillLevel };
 }
-var users, insertUserSchema, loginSchema, usernameSchema, childTshirtSizes, adultTshirtSizes, tshirtSizes, playerRegisterSchema, coachInviteRegisterSchema, registerSchema, academies, insertAcademySchema, academyApplications, insertAcademyApplicationSchema, academyApplicationInputSchema, academyOwnerProfiles, insertAcademyOwnerProfileSchema, invites, insertInviteSchema, joinRequests, insertJoinRequestSchema, joinRequestInputSchema, academyTransferRequests, insertAcademyTransferRequestSchema, transferRequestInputSchema, coachInvitations, insertCoachInvitationSchema, coachInvitationInputSchema, coaches, insertCoachSchema, coachFreelanceProfiles, insertCoachFreelanceProfileSchema, locations, insertLocationSchema, locationTravelTimes, insertLocationTravelTimeSchema, courts, insertCourtSchema, courtAvailability, insertCourtAvailabilitySchema, courtBookings, insertCourtBookingSchema, bookingInvites, insertBookingInviteSchema, bookingInviteGuests, insertBookingInviteGuestSchema, openMatches, insertOpenMatchSchema, openMatchSlots, insertOpenMatchSlotSchema, matchRequests, insertMatchRequestSchema, playerBookingPreferences, insertPlayerBookingPreferencesSchema, courtAvailabilitySnapshots, insertCourtAvailabilitySnapshotSchema, players, insertPlayerSchema, updatePlayerSchema, youthBallStages, lessonGroups, insertLessonGroupSchema, lessonGroupMembers, insertLessonGroupMemberSchema, playerLevelEvents, insertPlayerLevelEventSchema, playerInvites, insertPlayerInviteSchema, playerMatches, insertPlayerMatchSchema, adultGlowMatches, insertAdultGlowMatchSchema, adultSkillAssessments, insertAdultSkillAssessmentSchema, playerConnections, packageTemplates, insertPackageTemplateSchema, packages, insertPackageSchema, playerCreditPackages, sessions, insertSessionSchema, coachingSeries, insertCoachingSeriesSchema, seriesPlayers, insertSeriesPlayerSchema, recurringSeries, insertRecurringSeriesSchema, sessionPlayers, insertSessionPlayerSchema, sessionWaitlist2, insertSessionWaitlistSchema, squads, insertSquadSchema, squadMembers, insertSquadMemberSchema, playerSessionCancellations, insertPlayerSessionCancellationSchema, playerHolidays, insertPlayerHolidaySchema, sessionFeedback, insertSessionFeedbackSchema, inSessionFeedback, insertInSessionFeedbackSchema, auditLogs, insertAuditLogSchema, platformConfig, insertPlatformConfigSchema, offlineQueue, insertOfflineQueueSchema, playerNotes, insertPlayerNoteSchema, playerProgress, insertPlayerProgressSchema, sessionTemplates, insertSessionTemplateSchema, coachNotifications, insertCoachNotificationSchema, skillDomains2, insertSkillDomainSchema, playerSkillState, insertPlayerSkillStateSchema, sessionSkillObservations, insertSessionSkillObservationSchema, levelRequirements, insertLevelRequirementSchema, coachStatsRollup, insertCoachStatsRollupSchema, playerProgressFlags, insertPlayerProgressFlagSchema, domainAssessments, insertDomainAssessmentSchema, xpTransactions2, insertXpTransactionSchema, coachXpTransactions2, insertCoachXpTransactionSchema, conversations, insertConversationSchema, conversationParticipants, insertConversationParticipantSchema, messages, insertMessageSchema, messageReactions, insertMessageReactionSchema, coachAvailability, insertCoachAvailabilitySchema, availabilityExceptions, insertAvailabilityExceptionSchema, coachCourtPreferences, insertCoachCourtPreferenceSchema, coachCourtRules, insertCoachCourtRulesSchema, coachSettings, insertCoachSettingsSchema, academySettings, insertAcademySettingsSchema, academyInvites, insertAcademyInviteSchema, coachAcademyMemberships, insertCoachAcademyMembershipSchema, coachTimeBlocks, insertCoachTimeBlockSchema, pushDeviceTokens, insertPushDeviceTokenSchema, notificationPreferences, insertNotificationPreferenceSchema, scheduledNotifications, insertScheduledNotificationSchema, billingAccounts, insertBillingAccountSchema, subscriptionPlans, insertSubscriptionPlanSchema, subscriptions, insertSubscriptionSchema, invoices, insertInvoiceSchema, payments, insertPaymentSchema, creditTransactions, insertCreditTransactionSchema, playerSubscriptions, insertPlayerSubscriptionSchema, refunds, insertRefundSchema, coachPayouts, insertCoachPayoutSchema, diagnosticReports, insertDiagnosticReportSchema, bookingRequests, insertBookingRequestSchema, parentPlayerRelations, insertParentPlayerRelationSchema, parentSettings, insertParentSettingsSchema, paymentReminders, insertPaymentReminderSchema, coachPaymentRules, insertCoachPaymentRuleSchema, coachEarnings, insertCoachEarningSchema, reviewCategories, reviewerAgeCategories, coachReviews, insertCoachReviewSchema, submitReviewSchema, reviewResponses, insertReviewResponseSchema, reviewFlags, insertReviewFlagSchema, reviewPrompts, insertReviewPromptSchema, coachReviewStats, insertCoachReviewStatsSchema, academyPricing, insertAcademyPricingSchema, coachContracts, insertCoachContractSchema, communityGroups, insertCommunityGroupSchema, groupMembers, insertGroupMemberSchema, posts2, insertPostSchema, postReactions, insertPostReactionSchema, postComments, insertPostCommentSchema, commentLikes, insertCommentLikeSchema, contentReports, playerBlocks, openToPlay, insertOpenToPlaySchema, userSocialProfiles, insertUserSocialProfileSchema, badges, insertBadgeSchema, playerBadges, insertPlayerBadgeSchema, titles, insertTitleSchema, playerTitles, insertPlayerTitleSchema, questTemplates, insertQuestTemplateSchema, playerQuests, insertPlayerQuestSchema, dailyQuestSlots, insertDailyQuestSlotSchema, playerStreaks, insertPlayerStreakSchema, shopCategories, insertShopCategorySchema, shopProducts, insertShopProductSchema, shopServices, insertShopServiceSchema, shopOrders, insertShopOrderSchema, shopOrderItems, insertShopOrderItemSchema, shopWishlist, insertShopWishlistSchema, serviceProviders, insertServiceProviderSchema, marketplaceListings, insertMarketplaceListingSchema, marketplaceFavorites, insertMarketplaceFavoriteSchema, marketplaceMessages, insertMarketplaceMessageSchema, sellerProfiles, insertSellerProfileSchema, glowPillars, glowStages, glowLanguageTiers, ballLevels, insertBallLevelSchema, glowSkills, insertGlowSkillSchema, skillRubrics, insertSkillRubricSchema, levelSkills, insertLevelSkillSchema, levelTests, insertLevelTestSchema, playerBallLevels, insertPlayerBallLevelSchema, playerBaselines, insertPlayerBaselineSchema, playerBaselineSkillScores, insertPlayerBaselineSkillScoreSchema, playerSkillScores2, insertPlayerSkillScoreSchema, playerPillarProgress, insertPlayerPillarProgressSchema, levelTrials, insertLevelTrialSchema, sessionSkillFeedback, insertSessionSkillFeedbackSchema, coachCalibration, insertCoachCalibrationSchema, lessonTemplates, insertLessonTemplateSchema, drillBlocks, insertDrillBlockSchema, sessionPlans, insertSessionPlanSchema, matchLogs, insertMatchLogSchema, skillEvidence, insertSkillEvidenceSchema, roleMessageTemplates, insertRoleMessageTemplateSchema, levelUpEvents, insertLevelUpEventSchema, playstyleTags, matchTypes, matchOpponents, insertMatchOpponentSchema, matchPlans, insertMatchPlanSchema, matches, insertMatchSchema, matchChallenges, insertMatchChallengeSchema, matchReflections, insertMatchReflectionSchema, matchPillarScores, insertMatchPillarScoreSchema, coachMatchReviews, insertCoachMatchReviewSchema, pressureMoments, insertPressureMomentSchema, matchTrainingSuggestions, insertMatchTrainingSuggestionSchema, playerLevelTitles, xpActionSources, playerLevelThresholds, insertPlayerLevelThresholdSchema, playerLevelXpRules, insertPlayerLevelXpRuleSchema, featureUnlockKeys, playerFeatureUnlocks, insertPlayerFeatureUnlockSchema, playerXpEvents, insertPlayerXpEventSchema, playerLevelUpCelebrations, insertPlayerLevelUpCelebrationSchema, playerFeatureUnlockHistory, deepAssessmentSkills, insertDeepAssessmentSkillSchema, playerDeepAssessments, insertPlayerDeepAssessmentSchema, deepAssessmentPillarSummaries2, coachWellnessLogs, insertCoachWellnessLogSchema, playerNotifications, spotlightNominations, insertSpotlightNominationSchema, spotlightWeeklyWinners, insertSpotlightWeeklyWinnerSchema, spotlightMonthlyWinners, insertSpotlightMonthlyWinnerSchema, tournaments, insertTournamentSchema, tournamentParticipants, insertTournamentParticipantSchema, tournamentMatches, insertTournamentMatchSchema, ladders, insertLadderSchema, ladderPlayers, insertLadderPlayerSchema, ladderChallenges, insertLadderChallengeSchema;
+var users, insertUserSchema, loginSchema, usernameSchema, childTshirtSizes, adultTshirtSizes, tshirtSizes, playerRegisterSchema, coachInviteRegisterSchema, registerSchema, academies, insertAcademySchema, academyApplications, insertAcademyApplicationSchema, academyApplicationInputSchema, academyOwnerProfiles, insertAcademyOwnerProfileSchema, invites, insertInviteSchema, joinRequests, insertJoinRequestSchema, joinRequestInputSchema, academyTransferRequests, insertAcademyTransferRequestSchema, transferRequestInputSchema, coachInvitations, insertCoachInvitationSchema, coachInvitationInputSchema, coaches, insertCoachSchema, coachFreelanceProfiles, insertCoachFreelanceProfileSchema, locations, insertLocationSchema, locationTravelTimes, insertLocationTravelTimeSchema, courts, insertCourtSchema, courtAvailability, insertCourtAvailabilitySchema, courtBookings, insertCourtBookingSchema, bookingInvites, insertBookingInviteSchema, bookingInviteGuests, insertBookingInviteGuestSchema, openMatches, insertOpenMatchSchema, openMatchSlots, insertOpenMatchSlotSchema, matchRequests, insertMatchRequestSchema, playerBookingPreferences, insertPlayerBookingPreferencesSchema, courtAvailabilitySnapshots, insertCourtAvailabilitySnapshotSchema, players, insertPlayerSchema, updatePlayerSchema, youthBallStages, lessonGroups, insertLessonGroupSchema, lessonGroupMembers, insertLessonGroupMemberSchema, playerLevelEvents, insertPlayerLevelEventSchema, playerInvites, insertPlayerInviteSchema, playerMatches, insertPlayerMatchSchema, adultGlowMatches, insertAdultGlowMatchSchema, adultSkillAssessments, insertAdultSkillAssessmentSchema, playerConnections, packageTemplates, insertPackageTemplateSchema, packages, insertPackageSchema, playerCreditPackages, sessions, insertSessionSchema, coachingSeries, insertCoachingSeriesSchema, seriesPlayers, insertSeriesPlayerSchema, recurringSeries, insertRecurringSeriesSchema, sessionPlayers, insertSessionPlayerSchema, sessionWaitlist2, insertSessionWaitlistSchema, squads, insertSquadSchema, squadMembers, insertSquadMemberSchema, playerSessionCancellations, insertPlayerSessionCancellationSchema, playerHolidays, insertPlayerHolidaySchema, sessionFeedback, insertSessionFeedbackSchema, inSessionFeedback, insertInSessionFeedbackSchema, auditLogs, insertAuditLogSchema, platformConfig, insertPlatformConfigSchema, offlineQueue, insertOfflineQueueSchema, playerNotes, insertPlayerNoteSchema, playerProgress, insertPlayerProgressSchema, sessionTemplates, insertSessionTemplateSchema, coachNotifications, insertCoachNotificationSchema, skillDomains2, insertSkillDomainSchema, playerSkillState, insertPlayerSkillStateSchema, sessionSkillObservations, insertSessionSkillObservationSchema, levelRequirements, insertLevelRequirementSchema, coachStatsRollup, insertCoachStatsRollupSchema, playerProgressFlags, insertPlayerProgressFlagSchema, domainAssessments, insertDomainAssessmentSchema, xpTransactions2, insertXpTransactionSchema, coachXpTransactions2, insertCoachXpTransactionSchema, conversations, insertConversationSchema, conversationParticipants, insertConversationParticipantSchema, messages, insertMessageSchema, messageReactions, insertMessageReactionSchema, coachAvailability, insertCoachAvailabilitySchema, availabilityExceptions, insertAvailabilityExceptionSchema, coachCourtPreferences, insertCoachCourtPreferenceSchema, coachCourtRules, insertCoachCourtRulesSchema, coachSettings, insertCoachSettingsSchema, academySettings, insertAcademySettingsSchema, academyInvites, insertAcademyInviteSchema, coachAcademyMemberships, insertCoachAcademyMembershipSchema, coachTimeBlocks, insertCoachTimeBlockSchema, pushDeviceTokens, insertPushDeviceTokenSchema, notificationPreferences, insertNotificationPreferenceSchema, scheduledNotifications, insertScheduledNotificationSchema, billingAccounts, insertBillingAccountSchema, subscriptionPlans, insertSubscriptionPlanSchema, subscriptions, insertSubscriptionSchema, invoices, insertInvoiceSchema, payments, insertPaymentSchema, creditTransactions, insertCreditTransactionSchema, playerSubscriptions, insertPlayerSubscriptionSchema, refunds, insertRefundSchema, coachPayouts, insertCoachPayoutSchema, diagnosticReports, insertDiagnosticReportSchema, bookingRequests, insertBookingRequestSchema, parentPlayerRelations, insertParentPlayerRelationSchema, parentSettings, insertParentSettingsSchema, paymentReminders, insertPaymentReminderSchema, coachPaymentRules, insertCoachPaymentRuleSchema, coachEarnings, insertCoachEarningSchema, reviewCategories, reviewerAgeCategories, coachReviews, insertCoachReviewSchema, submitReviewSchema, reviewResponses, insertReviewResponseSchema, reviewFlags, insertReviewFlagSchema, reviewPrompts, insertReviewPromptSchema, coachReviewStats, insertCoachReviewStatsSchema, academyPricing, insertAcademyPricingSchema, coachContracts, insertCoachContractSchema, communityGroups, insertCommunityGroupSchema, groupMembers, insertGroupMemberSchema, posts2, insertPostSchema, postReactions, insertPostReactionSchema, postComments, insertPostCommentSchema, commentLikes, insertCommentLikeSchema, contentReports, playerBlocks, openToPlay, insertOpenToPlaySchema, userSocialProfiles, insertUserSocialProfileSchema, badges, insertBadgeSchema, playerBadges, insertPlayerBadgeSchema, titles, insertTitleSchema, playerTitles, insertPlayerTitleSchema, questTemplates, insertQuestTemplateSchema, playerQuests, insertPlayerQuestSchema, dailyQuestSlots, insertDailyQuestSlotSchema, playerStreaks, insertPlayerStreakSchema, shopCategories, insertShopCategorySchema, shopProducts, insertShopProductSchema, shopServices, insertShopServiceSchema, shopOrders, insertShopOrderSchema, shopOrderItems, insertShopOrderItemSchema, shopWishlist, insertShopWishlistSchema, serviceProviders, insertServiceProviderSchema, providerClientNotes, insertProviderClientNoteSchema, providerClientPreferences, insertProviderClientPreferencesSchema, marketplaceListings, insertMarketplaceListingSchema, marketplaceFavorites, insertMarketplaceFavoriteSchema, marketplaceMessages, insertMarketplaceMessageSchema, sellerProfiles, insertSellerProfileSchema, glowPillars, glowStages, glowLanguageTiers, ballLevels, insertBallLevelSchema, glowSkills, insertGlowSkillSchema, skillRubrics, insertSkillRubricSchema, levelSkills, insertLevelSkillSchema, levelTests, insertLevelTestSchema, playerBallLevels, insertPlayerBallLevelSchema, playerBaselines, insertPlayerBaselineSchema, playerBaselineSkillScores, insertPlayerBaselineSkillScoreSchema, playerSkillScores2, insertPlayerSkillScoreSchema, playerPillarProgress, insertPlayerPillarProgressSchema, levelTrials, insertLevelTrialSchema, sessionSkillFeedback, insertSessionSkillFeedbackSchema, coachCalibration, insertCoachCalibrationSchema, lessonTemplates, insertLessonTemplateSchema, drillBlocks, insertDrillBlockSchema, sessionPlans, insertSessionPlanSchema, matchLogs, insertMatchLogSchema, skillEvidence, insertSkillEvidenceSchema, roleMessageTemplates, insertRoleMessageTemplateSchema, levelUpEvents, insertLevelUpEventSchema, playstyleTags, matchTypes, matchOpponents, insertMatchOpponentSchema, matchPlans, insertMatchPlanSchema, matches, insertMatchSchema, matchChallenges, insertMatchChallengeSchema, matchReflections, insertMatchReflectionSchema, matchPillarScores, insertMatchPillarScoreSchema, coachMatchReviews, insertCoachMatchReviewSchema, pressureMoments, insertPressureMomentSchema, matchTrainingSuggestions, insertMatchTrainingSuggestionSchema, playerLevelTitles, xpActionSources, playerLevelThresholds, insertPlayerLevelThresholdSchema, playerLevelXpRules, insertPlayerLevelXpRuleSchema, featureUnlockKeys, playerFeatureUnlocks, insertPlayerFeatureUnlockSchema, playerXpEvents, insertPlayerXpEventSchema, playerLevelUpCelebrations, insertPlayerLevelUpCelebrationSchema, playerFeatureUnlockHistory, deepAssessmentSkills, insertDeepAssessmentSkillSchema, playerDeepAssessments, insertPlayerDeepAssessmentSchema, deepAssessmentPillarSummaries2, coachWellnessLogs, insertCoachWellnessLogSchema, playerNotifications, spotlightNominations, insertSpotlightNominationSchema, spotlightWeeklyWinners, insertSpotlightWeeklyWinnerSchema, spotlightMonthlyWinners, insertSpotlightMonthlyWinnerSchema, tournaments, insertTournamentSchema, tournamentParticipants, insertTournamentParticipantSchema, tournamentMatches, insertTournamentMatchSchema, ladders, insertLadderSchema, ladderPlayers, insertLadderPlayerSchema, ladderChallenges, insertLadderChallengeSchema;
 var init_schema = __esm({
   "shared/schema.ts"() {
     "use strict";
@@ -3621,6 +3625,29 @@ var init_schema = __esm({
       index("service_providers_user_idx").on(table.userId)
     ]);
     insertServiceProviderSchema = createInsertSchema(serviceProviders).omit({ id: true, createdAt: true, updatedAt: true });
+    providerClientNotes = pgTable("provider_client_notes", {
+      id: varchar("id").primaryKey().default(sql2`gen_random_uuid()`),
+      providerId: varchar("provider_id").references(() => serviceProviders.id, { onDelete: "cascade" }).notNull(),
+      playerId: varchar("player_id").references(() => players.id, { onDelete: "cascade" }).notNull(),
+      content: text("content").notNull(),
+      noteType: varchar("note_type", { length: 50 }).default("general"),
+      createdAt: timestamp("created_at").defaultNow(),
+      updatedAt: timestamp("updated_at").defaultNow()
+    }, (table) => [
+      index("provider_client_notes_provider_player_idx").on(table.providerId, table.playerId)
+    ]);
+    insertProviderClientNoteSchema = createInsertSchema(providerClientNotes).omit({ id: true, createdAt: true, updatedAt: true });
+    providerClientPreferences = pgTable("provider_client_preferences", {
+      id: varchar("id").primaryKey().default(sql2`gen_random_uuid()`),
+      providerId: varchar("provider_id").references(() => serviceProviders.id, { onDelete: "cascade" }).notNull(),
+      playerId: varchar("player_id").references(() => players.id, { onDelete: "cascade" }).notNull(),
+      preferences: jsonb("preferences").$type().default({}),
+      createdAt: timestamp("created_at").defaultNow(),
+      updatedAt: timestamp("updated_at").defaultNow()
+    }, (table) => [
+      uniqueIndex("provider_client_prefs_unique_idx").on(table.providerId, table.playerId)
+    ]);
+    insertProviderClientPreferencesSchema = createInsertSchema(providerClientPreferences).omit({ id: true, createdAt: true, updatedAt: true });
     marketplaceListings = pgTable("marketplace_listings", {
       id: varchar("id").primaryKey().default(sql2`gen_random_uuid()`),
       // Seller info
@@ -5648,7 +5675,7 @@ async function auditAllPlayerCredits() {
         if (tx.reason === "debt_settlement") return false;
         return true;
       });
-      const orphanDebtTotal = unsettledNegative.reduce((sum, tx) => sum + Math.abs(Number(tx.amount)), 0);
+      const orphanDebtTotal = unsettledNegative.reduce((sum2, tx) => sum2 + Math.abs(Number(tx.amount)), 0);
       if (unsettledNegative.length > 0 && orphanDebtTotal > 0 && txBalance > 0) {
         const creditsToDeduct = Math.min(orphanDebtTotal, txBalance);
         for (const debt of unsettledNegative) {
@@ -7152,7 +7179,7 @@ var init_storage = __esm({
           const pkgCreditType = pkg2.creditType || "group";
           return pkgCreditType === requiredCreditType;
         });
-        const availableCredits = matchingPackages.reduce((sum, pkg2) => sum + Number(pkg2.remainingCredits), 0);
+        const availableCredits = matchingPackages.reduce((sum2, pkg2) => sum2 + Number(pkg2.remainingCredits), 0);
         return {
           hasCredits: availableCredits > 0,
           availableCredits,
@@ -8092,7 +8119,7 @@ var init_storage = __esm({
         const skillAreas = ["forehand", "backhand", "serve", "volley", "movement", "mental"];
         const skills = skillAreas.map((area) => {
           const areaProgress = progress.filter((p) => p.skillArea === area);
-          const avgRating = areaProgress.length > 0 ? areaProgress.reduce((sum, p) => sum + (p.rating || 0), 0) / areaProgress.length : 0;
+          const avgRating = areaProgress.length > 0 ? areaProgress.reduce((sum2, p) => sum2 + (p.rating || 0), 0) / areaProgress.length : 0;
           const latestTrend = areaProgress[0]?.trend || "stable";
           return { skillArea: area, avgRating: Math.round(avgRating * 10) / 10, trend: latestTrend };
         });
@@ -8754,7 +8781,7 @@ var init_storage = __esm({
           if (player2.length === 0) return 0;
         }
         const transactions = await db.select().from(xpTransactions2).where(eq(xpTransactions2.playerId, playerId));
-        return transactions.reduce((sum, t) => sum + t.xpAmount, 0);
+        return transactions.reduce((sum2, t) => sum2 + t.xpAmount, 0);
       },
       // ==================== ANTI-ABUSE RULES ====================
       // Get player XP gained today (for daily cap)
@@ -8765,7 +8792,7 @@ var init_storage = __esm({
           eq(xpTransactions2.playerId, playerId),
           gte(xpTransactions2.createdAt, today)
         ));
-        return transactions.reduce((sum, t) => sum + t.xpAmount, 0);
+        return transactions.reduce((sum2, t) => sum2 + t.xpAmount, 0);
       },
       // Get coach observation patterns for pattern detection
       async getCoachObservationPatterns(coachId, sessionLimit = 30) {
@@ -8841,7 +8868,7 @@ var init_storage = __esm({
       },
       async getCoachTotalXp(coachId) {
         const transactions = await db.select().from(coachXpTransactions2).where(eq(coachXpTransactions2.coachId, coachId));
-        return transactions.reduce((sum, t) => sum + t.xpAmount, 0);
+        return transactions.reduce((sum2, t) => sum2 + t.xpAmount, 0);
       },
       // Progress calculation helper
       async calculatePlayerLevelReadiness(playerId, targetLevel) {
@@ -8864,9 +8891,9 @@ var init_storage = __esm({
             met: currentIndex >= requiredIndex
           };
         });
-        const minSessionsRequired = requirements.reduce((max, req2) => {
+        const minSessionsRequired = requirements.reduce((max2, req2) => {
           const reqSessions = req2.minSessionsAtLevel || 8;
-          return Math.max(max, reqSessions);
+          return Math.max(max2, reqSessions);
         }, 8);
         const allRequirementsMet = results.every((r) => r.met);
         const hasEnoughSessions = playerSessionCount.length >= minSessionsRequired;
@@ -10130,7 +10157,7 @@ var init_storage = __esm({
           eq(packages.playerId, playerId),
           eq(packages.status, "active")
         ));
-        const total = playerPackages.reduce((sum, p) => sum + Number(p.remainingCredits), 0);
+        const total = playerPackages.reduce((sum2, p) => sum2 + Number(p.remainingCredits), 0);
         const byPackage = playerPackages.map((p) => ({
           id: p.id,
           name: p.name,
@@ -10489,7 +10516,7 @@ var init_storage = __esm({
             lastUpdated: pillarData?.lastUpdatedAt?.toISOString() || null
           };
         });
-        const avgScore = pillars.reduce((sum, p) => sum + p.score, 0) / pillars.length;
+        const avgScore = pillars.reduce((sum2, p) => sum2 + p.score, 0) / pillars.length;
         const overallReadiness = Math.min(100, Math.round(avgScore / 2 * 100));
         const trialGateReady = pillars.every((p) => p.score >= 1.5);
         return {
@@ -10865,11 +10892,11 @@ var init_storage = __esm({
       },
       async generateInvoiceNumber(academyId) {
         const year = (/* @__PURE__ */ new Date()).getFullYear();
-        const count7 = await db.select().from(invoices).where(and(
+        const count8 = await db.select().from(invoices).where(and(
           eq(invoices.academyId, academyId),
           gte(invoices.createdAt, /* @__PURE__ */ new Date(`${year}-01-01`))
         ));
-        return `INV-${year}-${String(count7.length + 1).padStart(4, "0")}`;
+        return `INV-${year}-${String(count8.length + 1).padStart(4, "0")}`;
       },
       async getAdminRevenueByMonth(academyId, year, month) {
         try {
@@ -10882,19 +10909,19 @@ var init_storage = __esm({
           ));
           const confirmedPayments = allPayments.filter((p) => p.status === "confirmed");
           const pendingPayments = allPayments.filter((p) => p.status === "pending");
-          const totalRevenue = confirmedPayments.reduce((sum, p) => sum + Number(p.amount || 0), 0);
-          const pendingAmount = pendingPayments.reduce((sum, p) => sum + Number(p.amount || 0), 0);
+          const totalRevenue = confirmedPayments.reduce((sum2, p) => sum2 + Number(p.amount || 0), 0);
+          const pendingAmount = pendingPayments.reduce((sum2, p) => sum2 + Number(p.amount || 0), 0);
           const cashPayments = confirmedPayments.filter((p) => p.paymentMethod === "cash");
           const bankPayments = confirmedPayments.filter((p) => p.paymentMethod === "bank_transfer");
-          const cashTotal = cashPayments.reduce((sum, p) => sum + Number(p.amount || 0), 0);
-          const bankTotal = bankPayments.reduce((sum, p) => sum + Number(p.amount || 0), 0);
+          const cashTotal = cashPayments.reduce((sum2, p) => sum2 + Number(p.amount || 0), 0);
+          const bankTotal = bankPayments.reduce((sum2, p) => sum2 + Number(p.amount || 0), 0);
           const paymentIds = confirmedPayments.map((p) => p.id);
           let refundsTotal = 0;
           if (paymentIds.length > 0) {
             const allRefunds = await db.select().from(refunds).where(
               inArray(refunds.paymentId, paymentIds)
             );
-            refundsTotal = allRefunds.filter((r) => r.status === "succeeded").reduce((sum, r) => sum + Number(r.amount || 0), 0);
+            refundsTotal = allRefunds.filter((r) => r.status === "succeeded").reduce((sum2, r) => sum2 + Number(r.amount || 0), 0);
           }
           const monthSessions = await db.select().from(sessions).where(and(
             eq(sessions.academyId, academyId),
@@ -11110,7 +11137,7 @@ var init_storage = __esm({
             }
           }
         }
-        const totalDelta = observations.reduce((sum, o) => sum + (o.appliedDelta || 0), 0);
+        const totalDelta = observations.reduce((sum2, o) => sum2 + (o.appliedDelta || 0), 0);
         return {
           recentHighlights,
           focusAreas,
@@ -11749,12 +11776,12 @@ var init_storage = __esm({
         }
         const totalReviews = reviews.length;
         const visibleReviews = reviews.length >= 3 ? reviews.length : 0;
-        const avgOverall = reviews.reduce((sum, r) => sum + parseFloat(r.overallScore.toString()), 0) / totalReviews;
-        const avgCoachingQuality = reviews.reduce((sum, r) => sum + r.coachingQuality, 0) / totalReviews;
-        const avgCommunication = reviews.reduce((sum, r) => sum + r.communication, 0) / totalReviews;
-        const avgWithKidsBeginners = reviews.reduce((sum, r) => sum + r.withKidsBeginners, 0) / totalReviews;
-        const avgReliability = reviews.reduce((sum, r) => sum + r.reliability, 0) / totalReviews;
-        const avgFeedbackMotivation = reviews.reduce((sum, r) => sum + r.feedbackMotivation, 0) / totalReviews;
+        const avgOverall = reviews.reduce((sum2, r) => sum2 + parseFloat(r.overallScore.toString()), 0) / totalReviews;
+        const avgCoachingQuality = reviews.reduce((sum2, r) => sum2 + r.coachingQuality, 0) / totalReviews;
+        const avgCommunication = reviews.reduce((sum2, r) => sum2 + r.communication, 0) / totalReviews;
+        const avgWithKidsBeginners = reviews.reduce((sum2, r) => sum2 + r.withKidsBeginners, 0) / totalReviews;
+        const avgReliability = reviews.reduce((sum2, r) => sum2 + r.reliability, 0) / totalReviews;
+        const avgFeedbackMotivation = reviews.reduce((sum2, r) => sum2 + r.feedbackMotivation, 0) / totalReviews;
         const kidReviewCount = reviews.filter((r) => r.reviewerAgeCategory === "kid").length;
         const teenReviewCount = reviews.filter((r) => r.reviewerAgeCategory === "teen").length;
         const adultReviewCount = reviews.filter((r) => r.reviewerAgeCategory === "adult").length;
@@ -15952,7 +15979,7 @@ async function sendLowCreditNotificationsAfterSession(playerIds, sessionType, ac
           expiryDate: packagesTable.expiryDate
         }).from(packagesTable).where(and2(...conditions));
         const totalRemaining = activePackages.reduce(
-          (sum, pkg2) => sum + (pkg2.remainingCredits || 0),
+          (sum2, pkg2) => sum2 + (pkg2.remainingCredits || 0),
           0
         );
         if (totalRemaining > 2) continue;
@@ -27317,8 +27344,8 @@ async function checkForScoringAnomaly(coachId, skillId, sessionId, playerId, sco
     return null;
   }
   const peerScoreValues = peerScores.map((p) => p.score);
-  const peerAvg = peerScoreValues.reduce((sum, s) => sum + s, 0) / peerScoreValues.length;
-  const variance = peerScoreValues.reduce((sum, s) => sum + Math.pow(s - peerAvg, 2), 0) / peerScoreValues.length;
+  const peerAvg = peerScoreValues.reduce((sum2, s) => sum2 + s, 0) / peerScoreValues.length;
+  const variance = peerScoreValues.reduce((sum2, s) => sum2 + Math.pow(s - peerAvg, 2), 0) / peerScoreValues.length;
   const stdDev = Math.sqrt(variance);
   const deviation = score - peerAvg;
   const normalizedDeviation = stdDev > 0 ? Math.abs(deviation) / stdDev : 0;
@@ -27414,8 +27441,8 @@ async function getCoachCalibrationStats(coachId) {
   if (stats && stats.deviationHistory && stats.deviationHistory.length >= 10) {
     const recent = stats.deviationHistory.slice(-5);
     const older = stats.deviationHistory.slice(-10, -5);
-    const recentAvg = recent.reduce((sum, d) => sum + Math.abs(d), 0) / recent.length;
-    const olderAvg = older.reduce((sum, d) => sum + Math.abs(d), 0) / older.length;
+    const recentAvg = recent.reduce((sum2, d) => sum2 + Math.abs(d), 0) / recent.length;
+    const olderAvg = older.reduce((sum2, d) => sum2 + Math.abs(d), 0) / older.length;
     if (recentAvg < olderAvg - 0.1) {
       recentTrend = "improving";
     } else if (recentAvg > olderAvg + 0.1) {
@@ -27441,7 +27468,7 @@ async function getAcademyCalibrationReport(academyId) {
     coachIds.map((id) => getCoachCalibrationStats(id))
   );
   const validCalibrations = calibrations.filter((c) => c !== null);
-  const overallScore = validCalibrations.length > 0 ? validCalibrations.reduce((sum, c) => sum + c.calibrationScore, 0) / validCalibrations.length : 100;
+  const overallScore = validCalibrations.length > 0 ? validCalibrations.reduce((sum2, c) => sum2 + c.calibrationScore, 0) / validCalibrations.length : 100;
   const flaggedCoaches = validCalibrations.filter((c) => c.calibrationScore < 70 || c.anomalyCount > 5).map((c) => c.coachId);
   return {
     coaches: validCalibrations,
@@ -27520,7 +27547,7 @@ async function calculateGlowRank(playerId) {
   const pillarScores = PILLARS.map((pillar) => {
     const pillarSkills = skillScores.filter((s) => s.pillar === pillar);
     const progress = pillarProgressMap.get(pillar);
-    const avgScore = pillarSkills.length > 0 ? pillarSkills.reduce((sum, s) => sum + s.movingAverage, 0) / pillarSkills.length : 0;
+    const avgScore = pillarSkills.length > 0 ? pillarSkills.reduce((sum2, s) => sum2 + s.movingAverage, 0) / pillarSkills.length : 0;
     const finalScore = progress ? Number(progress.currentScore) : avgScore;
     return {
       pillar,
@@ -27532,13 +27559,13 @@ async function calculateGlowRank(playerId) {
   });
   const skillsAchieved = skillScores.filter((s) => s.achieved).length;
   const skillsTotal = skillScores.length;
-  const pillarWeightedSum = pillarScores.reduce((sum, p) => {
+  const pillarWeightedSum = pillarScores.reduce((sum2, p) => {
     const pillarWeight = p.skillCount > 0 ? p.skillCount / Math.max(skillsTotal, 1) : 0;
-    return sum + p.score * pillarWeight;
+    return sum2 + p.score * pillarWeight;
   }, 0);
   const achievementRatio = skillsTotal > 0 ? skillsAchieved / skillsTotal : 0;
   const glowScore = Math.round(achievementRatio * 100);
-  const pillarProgressScore = pillarScores.length > 0 ? pillarScores.reduce((sum, p) => sum + p.score, 0) / pillarScores.length : 0;
+  const pillarProgressScore = pillarScores.length > 0 ? pillarScores.reduce((sum2, p) => sum2 + p.score, 0) / pillarScores.length : 0;
   const promotionReqs = level.promotionRequirements;
   let readyForPromotion = false;
   if (promotionReqs) {
@@ -27690,7 +27717,7 @@ function getDefaultTemplates() {
   return DEFAULT_TEMPLATES;
 }
 async function seedDefaultTemplates() {
-  let count7 = 0;
+  let count8 = 0;
   for (const [key, messages2] of Object.entries(DEFAULT_TEMPLATES)) {
     const existing2 = await db.select().from(roleMessageTemplates).where(and9(
       eq10(roleMessageTemplates.templateKey, key),
@@ -27708,10 +27735,10 @@ async function seedDefaultTemplates() {
         category: getCategoryForKey(key),
         isActive: true
       });
-      count7++;
+      count8++;
     }
   }
-  return count7;
+  return count8;
 }
 function extractPlaceholders(text2) {
   const matches2 = text2.match(/\{(\w+)\}/g) || [];
@@ -30176,7 +30203,7 @@ import {
   isNull as isNull8,
   isNotNull as isNotNull5,
   or as or15,
-  count as count6,
+  count as count7,
   ilike as ilike4,
   lte as lte9
 } from "drizzle-orm";
@@ -31609,7 +31636,7 @@ function getCurrencyForCountry(countryCode) {
 init_db();
 init_schema();
 import { Router } from "express";
-import { eq as eq4, and as and3, desc as desc2, asc as asc2, sql as sql6, inArray as inArray3 } from "drizzle-orm";
+import { eq as eq4, and as and3, desc as desc2, asc as asc2, sql as sql6, inArray as inArray3, count as count2, max } from "drizzle-orm";
 
 // server/provider-gamification.ts
 init_schema();
@@ -32822,6 +32849,171 @@ router.get("/provider/stats", authMiddlewareWithFreshData, requireServiceProvide
     res.status(500).json({ error: "Failed to fetch provider stats" });
   }
 });
+router.get("/provider/clients", authMiddlewareWithFreshData, requireServiceProvider, async (req2, res) => {
+  try {
+    const [provider] = await db.select({ id: serviceProviders.id }).from(serviceProviders).where(eq4(serviceProviders.userId, req2.user.userId)).limit(1);
+    if (!provider) return res.status(404).json({ error: "Provider not found" });
+    const clientRows = await db.select({
+      playerId: shopOrders.playerId,
+      totalSessions: count2(shopOrders.id),
+      lastVisit: max(shopOrders.scheduledAt)
+    }).from(shopOrders).where(
+      and3(
+        eq4(shopOrders.assignedProviderId, provider.id),
+        inArray3(shopOrders.status, ["completed", "confirmed"])
+      )
+    ).groupBy(shopOrders.playerId).orderBy(desc2(max(shopOrders.scheduledAt)));
+    if (clientRows.length === 0) return res.json([]);
+    const playerIds = clientRows.map((r) => r.playerId).filter((id) => Boolean(id));
+    const [playerRows, noteRows, prefRows] = await Promise.all([
+      db.select({ id: players.id, name: players.name, profilePhotoUrl: players.profilePhotoUrl, level: players.level }).from(players).where(inArray3(players.id, playerIds)),
+      db.select({
+        playerId: providerClientNotes.playerId,
+        notesCount: count2(providerClientNotes.id),
+        latestContent: max(providerClientNotes.content)
+      }).from(providerClientNotes).where(eq4(providerClientNotes.providerId, provider.id)).groupBy(providerClientNotes.playerId),
+      db.select({ playerId: providerClientPreferences.playerId, preferences: providerClientPreferences.preferences }).from(providerClientPreferences).where(eq4(providerClientPreferences.providerId, provider.id))
+    ]);
+    const playerMap = new Map(playerRows.map((p) => [p.id, p]));
+    const noteMap = new Map(noteRows.map((n) => [n.playerId, n]));
+    const prefMap = new Map(prefRows.map((p) => [p.playerId, p.preferences]));
+    const result = clientRows.filter((r) => r.playerId && playerMap.has(r.playerId)).map((r) => {
+      const player2 = playerMap.get(r.playerId);
+      const note = noteMap.get(r.playerId) ?? null;
+      return {
+        player: player2,
+        totalSessions: Number(r.totalSessions),
+        lastVisit: r.lastVisit ? new Date(r.lastVisit).toISOString() : null,
+        notesCount: Number(note?.notesCount ?? 0),
+        latestNote: note?.latestContent ? String(note.latestContent).slice(0, 80) : null,
+        preferences: prefMap.get(r.playerId) ?? {}
+      };
+    });
+    res.json(result);
+  } catch (error) {
+    console.error("[Provider] Error fetching clients:", error);
+    res.status(500).json({ error: "Failed to fetch clients" });
+  }
+});
+router.get("/provider/clients/:playerId", authMiddlewareWithFreshData, requireServiceProvider, async (req2, res) => {
+  try {
+    const { playerId } = req2.params;
+    const [provider] = await db.select({ id: serviceProviders.id }).from(serviceProviders).where(eq4(serviceProviders.userId, req2.user.userId)).limit(1);
+    if (!provider) return res.status(404).json({ error: "Provider not found" });
+    const [playerRow, bookingRows, noteRows, prefRow] = await Promise.all([
+      db.select({ id: players.id, name: players.name, profilePhotoUrl: players.profilePhotoUrl, level: players.level, totalXp: players.totalXp }).from(players).where(eq4(players.id, playerId)).limit(1),
+      db.select({
+        id: shopOrders.id,
+        orderNumber: shopOrders.orderNumber,
+        status: shopOrders.status,
+        scheduledAt: shopOrders.scheduledAt,
+        totalAmount: shopOrders.total
+      }).from(shopOrders).where(and3(eq4(shopOrders.assignedProviderId, provider.id), eq4(shopOrders.playerId, playerId))).orderBy(desc2(shopOrders.scheduledAt)),
+      db.select({ id: providerClientNotes.id, content: providerClientNotes.content, noteType: providerClientNotes.noteType, createdAt: providerClientNotes.createdAt }).from(providerClientNotes).where(and3(eq4(providerClientNotes.providerId, provider.id), eq4(providerClientNotes.playerId, playerId))).orderBy(desc2(providerClientNotes.createdAt)),
+      db.select({ preferences: providerClientPreferences.preferences }).from(providerClientPreferences).where(and3(eq4(providerClientPreferences.providerId, provider.id), eq4(providerClientPreferences.playerId, playerId))).limit(1)
+    ]);
+    if (!playerRow[0]) return res.status(404).json({ error: "Player not found" });
+    const orderIds = bookingRows.map((b) => b.id);
+    let serviceNameMap = /* @__PURE__ */ new Map();
+    if (orderIds.length > 0) {
+      const itemRows = await db.select({ orderId: shopOrderItems.orderId, serviceId: shopOrderItems.serviceId }).from(shopOrderItems).where(inArray3(shopOrderItems.orderId, orderIds));
+      const svcIds = itemRows.map((i) => i.serviceId).filter((id) => Boolean(id));
+      if (svcIds.length > 0) {
+        const svcRows = await db.select({ id: shopServices.id, name: shopServices.name }).from(shopServices).where(inArray3(shopServices.id, svcIds));
+        const svcMap = new Map(svcRows.map((s) => [s.id, s.name]));
+        for (const item of itemRows) {
+          if (item.orderId && item.serviceId) {
+            serviceNameMap.set(item.orderId, svcMap.get(item.serviceId) ?? "Service");
+          }
+        }
+      }
+    }
+    const lifetimeSpend = bookingRows.reduce((acc, b) => acc + Number(b.totalAmount ?? 0), 0);
+    res.json({
+      player: { ...playerRow[0], xp: Number(playerRow[0].totalXp) },
+      totalSessions: bookingRows.filter((b) => ["completed", "confirmed"].includes(b.status)).length,
+      lifetimeSpend: `AED ${lifetimeSpend.toFixed(2)}`,
+      bookingHistory: bookingRows.map((b) => ({
+        id: b.id,
+        orderNumber: b.orderNumber,
+        status: b.status,
+        scheduledAt: b.scheduledAt ? new Date(b.scheduledAt).toISOString() : null,
+        serviceName: serviceNameMap.get(b.id) ?? "Service",
+        totalAmount: String(b.totalAmount ?? "0"),
+        rating: null
+      })),
+      notes: noteRows.map((n) => ({
+        id: n.id,
+        content: n.content,
+        noteType: n.noteType ?? "general",
+        createdAt: n.createdAt ? new Date(n.createdAt).toISOString() : (/* @__PURE__ */ new Date()).toISOString()
+      })),
+      preferences: prefRow[0]?.preferences ?? {}
+    });
+  } catch (error) {
+    console.error("[Provider] Error fetching client detail:", error);
+    res.status(500).json({ error: "Failed to fetch client detail" });
+  }
+});
+router.post("/provider/clients/:playerId/notes", authMiddlewareWithFreshData, requireServiceProvider, async (req2, res) => {
+  try {
+    const { playerId } = req2.params;
+    const { content, noteType } = req2.body;
+    if (!content?.trim()) return res.status(400).json({ error: "Note content is required" });
+    const [provider] = await db.select({ id: serviceProviders.id }).from(serviceProviders).where(eq4(serviceProviders.userId, req2.user.userId)).limit(1);
+    if (!provider) return res.status(404).json({ error: "Provider not found" });
+    const [note] = await db.insert(providerClientNotes).values({
+      providerId: provider.id,
+      playerId,
+      content: content.trim(),
+      noteType: noteType ?? "general"
+    }).returning();
+    res.status(201).json({
+      id: note.id,
+      content: note.content,
+      noteType: note.noteType,
+      createdAt: note.createdAt ? new Date(note.createdAt).toISOString() : (/* @__PURE__ */ new Date()).toISOString()
+    });
+  } catch (error) {
+    console.error("[Provider] Error creating note:", error);
+    res.status(500).json({ error: "Failed to create note" });
+  }
+});
+router.delete("/provider/clients/:playerId/notes/:noteId", authMiddlewareWithFreshData, requireServiceProvider, async (req2, res) => {
+  try {
+    const { playerId, noteId } = req2.params;
+    const [provider] = await db.select({ id: serviceProviders.id }).from(serviceProviders).where(eq4(serviceProviders.userId, req2.user.userId)).limit(1);
+    if (!provider) return res.status(404).json({ error: "Provider not found" });
+    await db.delete(providerClientNotes).where(and3(
+      eq4(providerClientNotes.id, noteId),
+      eq4(providerClientNotes.providerId, provider.id),
+      eq4(providerClientNotes.playerId, playerId)
+    ));
+    res.json({ success: true });
+  } catch (error) {
+    console.error("[Provider] Error deleting note:", error);
+    res.status(500).json({ error: "Failed to delete note" });
+  }
+});
+router.put("/provider/clients/:playerId/preferences", authMiddlewareWithFreshData, requireServiceProvider, async (req2, res) => {
+  try {
+    const { playerId } = req2.params;
+    const { preferences } = req2.body;
+    if (!preferences || typeof preferences !== "object") {
+      return res.status(400).json({ error: "preferences object required" });
+    }
+    const [provider] = await db.select({ id: serviceProviders.id }).from(serviceProviders).where(eq4(serviceProviders.userId, req2.user.userId)).limit(1);
+    if (!provider) return res.status(404).json({ error: "Provider not found" });
+    const [upserted] = await db.insert(providerClientPreferences).values({ providerId: provider.id, playerId, preferences }).onConflictDoUpdate({
+      target: [providerClientPreferences.providerId, providerClientPreferences.playerId],
+      set: { preferences, updatedAt: /* @__PURE__ */ new Date() }
+    }).returning({ preferences: providerClientPreferences.preferences });
+    res.json({ preferences: upserted?.preferences ?? {} });
+  } catch (error) {
+    console.error("[Provider] Error saving preferences:", error);
+    res.status(500).json({ error: "Failed to save preferences" });
+  }
+});
 var shop_routes_default = router;
 
 // server/marketplace-routes.ts
@@ -32916,8 +33108,8 @@ router2.get("/player/marketplace", authMiddlewareWithFreshData, requirePlayerPro
       }
     }
     if (maxPrice && typeof maxPrice === "string") {
-      const max = parseFloat(maxPrice);
-      if (!isNaN(max)) {
+      const max2 = parseFloat(maxPrice);
+      if (!isNaN(max2)) {
         conditions.push(lte3(marketplaceListings.price, maxPrice));
       }
     }
@@ -34590,8 +34782,8 @@ router3.post("/api/glow/messages/render-all", authMiddlewareWithFreshData, async
 router3.post("/api/glow/messages/seed", async (_req, res) => {
   try {
     const { seedDefaultTemplates: seedDefaultTemplates2 } = await Promise.resolve().then(() => (init_role_language_engine(), role_language_engine_exports));
-    const count7 = await seedDefaultTemplates2();
-    res.json({ success: true, templatesSeeded: count7 });
+    const count8 = await seedDefaultTemplates2();
+    res.json({ success: true, templatesSeeded: count8 });
   } catch (error) {
     console.error("Error seeding message templates:", error);
     res.status(500).json({ error: "Failed to seed templates" });
@@ -35874,7 +36066,7 @@ var level_up_events_default = router7;
 init_db();
 init_schema();
 import express from "express";
-import { eq as eq16, and as and15, sql as sql17, desc as desc13, gte as gte7, count as count2 } from "drizzle-orm";
+import { eq as eq16, and as and15, sql as sql17, desc as desc13, gte as gte7, count as count3 } from "drizzle-orm";
 init_coach_calibration_engine();
 var router8 = express.Router();
 router8.get("/stats", authMiddlewareWithFreshData, requireRole("coach", "academy_owner"), async (req2, res) => {
@@ -35893,7 +36085,7 @@ router8.get("/stats", authMiddlewareWithFreshData, requireRole("coach", "academy
         calibrationScore: 100
       });
     }
-    const playerCount = await db.select({ count: count2() }).from(players).where(eq16(players.coachId, coachId));
+    const playerCount = await db.select({ count: count3() }).from(players).where(eq16(players.coachId, coachId));
     const totalPlayers = playerCount[0]?.count || 0;
     return res.json({
       totalPlayers,
@@ -36884,8 +37076,8 @@ function getRatingTrend(ratingHistory) {
       recentDelta: delta2
     };
   }
-  const recentAvg = recent.reduce((sum, r) => sum + r.mmr, 0) / recent.length;
-  const previousAvg = previous.reduce((sum, r) => sum + r.mmr, 0) / previous.length;
+  const recentAvg = recent.reduce((sum2, r) => sum2 + r.mmr, 0) / recent.length;
+  const previousAvg = previous.reduce((sum2, r) => sum2 + r.mmr, 0) / previous.length;
   const delta = recentAvg - previousAvg;
   const changePercent = delta / previousAvg * 100;
   return {
@@ -37627,9 +37819,9 @@ router10.post("/match", async (req2, res) => {
         opponentCounts[match.opponentId] = (opponentCounts[match.opponentId] || 0) + 1;
       }
     }
-    const recentOpponents = Object.entries(opponentCounts).map(([id, count7]) => ({
+    const recentOpponents = Object.entries(opponentCounts).map(([id, count8]) => ({
       opponentId: id,
-      matchCount: count7,
+      matchCount: count8,
       lastMatchDate: recentMatchHistory.find((m) => m.opponentId === id)?.matchDate || /* @__PURE__ */ new Date()
     }));
     const playerSkillAssessments = await db.select({
@@ -40301,7 +40493,7 @@ var role_messages_default = router15;
 init_db();
 init_schema();
 import { Router as Router15 } from "express";
-import { eq as eq24, sql as sql24, and as and22, asc as asc4, inArray as inArray9, gte as gte11, count as count3 } from "drizzle-orm";
+import { eq as eq24, sql as sql24, and as and22, asc as asc4, inArray as inArray9, gte as gte11, count as count4 } from "drizzle-orm";
 
 // server/profanityFilter.ts
 var PROFANITY_LIST = [
@@ -41002,7 +41194,7 @@ router16.get("/api/social/posts/:id", authMiddlewareWithFreshData, requireFeatur
     }
     const reactions = await db.select({
       type: postReactions.reactionType,
-      count: count3()
+      count: count4()
     }).from(postReactions).where(eq24(postReactions.postId, id)).groupBy(postReactions.reactionType);
     const [userReaction] = await db.select().from(postReactions).where(and22(
       eq24(postReactions.postId, id),
@@ -41382,12 +41574,12 @@ router16.get("/api/social/highlights", authMiddlewareWithFreshData, async (req2,
     const DUBAI_OFFSET = 4;
     const dubaiNow = new Date(now2.getTime() + DUBAI_OFFSET * 60 * 60 * 1e3);
     const oneDayAgo = new Date(now2.getTime() - 24 * 60 * 60 * 1e3);
-    const [momentCount] = await db.select({ count: count3() }).from(posts2).where(and22(
+    const [momentCount] = await db.select({ count: count4() }).from(posts2).where(and22(
       eq24(posts2.academyId, academyId || ""),
       gte11(posts2.createdAt, oneDayAgo),
       eq24(posts2.isHidden, false)
     ));
-    const [openToPlayCount] = await db.select({ count: count3() }).from(openToPlay).where(and22(
+    const [openToPlayCount] = await db.select({ count: count4() }).from(openToPlay).where(and22(
       eq24(openToPlay.academyId, academyId || ""),
       eq24(openToPlay.isActive, true),
       gte11(openToPlay.availableUntil, now2)
@@ -41954,14 +42146,14 @@ router18.get("/api/coach/earnings/summary", authMiddlewareWithFreshData, async (
     ]);
     const sessionPlayersMap = /* @__PURE__ */ new Map();
     for (const sp of sessionPlayersData) {
-      const count7 = sessionPlayersMap.get(sp.sessionId) || 0;
-      sessionPlayersMap.set(sp.sessionId, count7 + 1);
+      const count8 = sessionPlayersMap.get(sp.sessionId) || 0;
+      sessionPlayersMap.set(sp.sessionId, count8 + 1);
     }
     const seriesPlayersMap = /* @__PURE__ */ new Map();
     for (const sp of seriesPlayersData) {
       if (sp.status === "active") {
-        const count7 = seriesPlayersMap.get(sp.seriesId) || 0;
-        seriesPlayersMap.set(sp.seriesId, count7 + 1);
+        const count8 = seriesPlayersMap.get(sp.seriesId) || 0;
+        seriesPlayersMap.set(sp.seriesId, count8 + 1);
       }
     }
     const pricingCache = /* @__PURE__ */ new Map();
@@ -42097,14 +42289,14 @@ router18.get("/api/coach/earnings/breakdown", authMiddlewareWithFreshData, async
     ]);
     const sessionPlayersMap = /* @__PURE__ */ new Map();
     for (const sp of sessionPlayersData) {
-      const count7 = sessionPlayersMap.get(sp.sessionId) || 0;
-      sessionPlayersMap.set(sp.sessionId, count7 + 1);
+      const count8 = sessionPlayersMap.get(sp.sessionId) || 0;
+      sessionPlayersMap.set(sp.sessionId, count8 + 1);
     }
     const seriesPlayersMap = /* @__PURE__ */ new Map();
     for (const sp of seriesPlayersData) {
       if (sp.status === "active") {
-        const count7 = seriesPlayersMap.get(sp.seriesId) || 0;
-        seriesPlayersMap.set(sp.seriesId, count7 + 1);
+        const count8 = seriesPlayersMap.get(sp.seriesId) || 0;
+        seriesPlayersMap.set(sp.seriesId, count8 + 1);
       }
     }
     const pricingCache = /* @__PURE__ */ new Map();
@@ -42207,14 +42399,14 @@ router18.get("/api/coach/earnings/history", authMiddlewareWithFreshData, async (
     ]);
     const sessionPlayersMap = /* @__PURE__ */ new Map();
     for (const sp of sessionPlayersData) {
-      const count7 = sessionPlayersMap.get(sp.sessionId) || 0;
-      sessionPlayersMap.set(sp.sessionId, count7 + 1);
+      const count8 = sessionPlayersMap.get(sp.sessionId) || 0;
+      sessionPlayersMap.set(sp.sessionId, count8 + 1);
     }
     const seriesPlayersMap = /* @__PURE__ */ new Map();
     for (const sp of seriesPlayersData) {
       if (sp.status === "active") {
-        const count7 = seriesPlayersMap.get(sp.seriesId) || 0;
-        seriesPlayersMap.set(sp.seriesId, count7 + 1);
+        const count8 = seriesPlayersMap.get(sp.seriesId) || 0;
+        seriesPlayersMap.set(sp.seriesId, count8 + 1);
       }
     }
     const pricingCache = /* @__PURE__ */ new Map();
@@ -42311,14 +42503,14 @@ router18.get("/api/coach/earnings/analytics", authMiddlewareWithFreshData, async
     ]);
     const sessionPlayersMap = /* @__PURE__ */ new Map();
     for (const sp of sessionPlayersData) {
-      const count7 = sessionPlayersMap.get(sp.sessionId) || 0;
-      sessionPlayersMap.set(sp.sessionId, count7 + 1);
+      const count8 = sessionPlayersMap.get(sp.sessionId) || 0;
+      sessionPlayersMap.set(sp.sessionId, count8 + 1);
     }
     const seriesPlayersMap = /* @__PURE__ */ new Map();
     for (const sp of seriesPlayersData) {
       if (sp.status === "active") {
-        const count7 = seriesPlayersMap.get(sp.seriesId) || 0;
-        seriesPlayersMap.set(sp.seriesId, count7 + 1);
+        const count8 = seriesPlayersMap.get(sp.seriesId) || 0;
+        seriesPlayersMap.set(sp.seriesId, count8 + 1);
       }
     }
     const pricingCache = /* @__PURE__ */ new Map();
@@ -43170,7 +43362,7 @@ router19.post("/api/play/sessions/:sessionId/join", authMiddlewareWithFreshData,
     });
     const sessionType = session.sessionType || "group";
     const activePackages = await storage.getActivePlayerPackages(playerId, session.academyId || player2.academyId);
-    const remainingCredits = activePackages.reduce((sum, pkg2) => sum + pkg2.remainingCredits, 0);
+    const remainingCredits = activePackages.reduce((sum2, pkg2) => sum2 + pkg2.remainingCredits, 0);
     const matchingPackage = activePackages.find((p) => p.creditType === sessionType);
     res.json({
       success: true,
@@ -44075,7 +44267,7 @@ router19.get("/api/parent/dashboard/:playerId", authMiddlewareWithFreshData, asy
       invoiceSummary: {
         pending: pendingInvoices.length + sessionBilling.unpaidCount,
         overdue: overdueInvoices.length,
-        totalPending: pendingInvoices.reduce((sum, inv) => sum + parseFloat(inv.amount || "0"), 0) + sessionBilling.unpaidTotal
+        totalPending: pendingInvoices.reduce((sum2, inv) => sum2 + parseFloat(inv.amount || "0"), 0) + sessionBilling.unpaidTotal
       },
       pendingInvoices: pendingInvoices.map((inv) => ({
         id: inv.id,
@@ -44116,7 +44308,7 @@ router19.get("/api/parent/packages/:playerId", authMiddlewareWithFreshData, asyn
     const activePackages = packages3.filter(
       (pkg2) => pkg2.status === "active" && pkg2.remainingCredits > 0
     );
-    const totalCredits = activePackages.reduce((sum, pkg2) => sum + pkg2.remainingCredits, 0);
+    const totalCredits = activePackages.reduce((sum2, pkg2) => sum2 + pkg2.remainingCredits, 0);
     res.json({
       packages: packages3.map((pkg2) => ({
         id: pkg2.id,
@@ -44159,7 +44351,7 @@ router19.get("/api/parent/invoices/:playerId/:invoiceId/html", authMiddlewareWit
     const academy = invoice.academyId ? await storage.getAcademy(invoice.academyId) : null;
     const settings = invoice.academyId ? await storage.getAcademySettings(invoice.academyId) : null;
     const lineItems = parseLineItems(invoice.lineItems);
-    const subtotal = lineItems.reduce((sum, item) => sum + item.total, 0);
+    const subtotal = lineItems.reduce((sum2, item) => sum2 + item.total, 0);
     const invoiceData = {
       invoiceNumber: invoice.invoiceNumber,
       issueDate: invoice.createdAt?.toISOString() || (/* @__PURE__ */ new Date()).toISOString(),
@@ -46071,7 +46263,7 @@ import path4 from "path";
 import fs4 from "fs";
 import rateLimit from "express-rate-limit";
 init_schema();
-import { eq as eq27, and as and25, or as or12, desc as desc21, asc as asc7, sql as sql26, gte as gte14, inArray as inArray12, ne as ne5, isNull as isNull6, count as count5, lte as lte6 } from "drizzle-orm";
+import { eq as eq27, and as and25, or as or12, desc as desc21, asc as asc7, sql as sql26, gte as gte14, inArray as inArray12, ne as ne5, isNull as isNull6, count as count6, lte as lte6 } from "drizzle-orm";
 init_pushNotifications();
 init_emailService();
 var router20 = Router19();
@@ -46694,7 +46886,7 @@ router20.post("/api/player/check-badges", authMiddlewareWithFreshData, async (re
     if (!player2) {
       return res.status(404).json({ error: "Player not found" });
     }
-    const [sessionCount] = await db.select({ count: count5() }).from(sessionPlayers).where(eq27(sessionPlayers.playerId, playerId));
+    const [sessionCount] = await db.select({ count: count6() }).from(sessionPlayers).where(eq27(sessionPlayers.playerId, playerId));
     const allBadges = await db.select().from(badges).where(eq27(badges.isActive, true));
     const earnedBadgeIds = (await db.select({ badgeId: playerBadges.badgeId }).from(playerBadges).where(eq27(playerBadges.playerId, playerId))).map((eb) => eb.badgeId);
     const newlyEarnedBadges = [];
@@ -46818,12 +47010,12 @@ router20.get("/api/player/mission-control", authMiddlewareWithFreshData, async (
     let openToPlayCount = { count: 0 };
     try {
       if (academyId) {
-        const momentResult = await db.select({ count: count5() }).from(posts2).where(and25(
+        const momentResult = await db.select({ count: count6() }).from(posts2).where(and25(
           eq27(posts2.academyId, academyId),
           eq27(posts2.isHidden, false)
         ));
         momentCount = momentResult[0] || { count: 0 };
-        const otpResult = await db.select({ count: count5() }).from(openToPlay).where(and25(
+        const otpResult = await db.select({ count: count6() }).from(openToPlay).where(and25(
           eq27(openToPlay.academyId, academyId),
           eq27(openToPlay.isActive, true)
         ));
@@ -47464,7 +47656,7 @@ router20.post("/api/admin/recalculate-v3-debts", authMiddlewareWithFreshData, re
     res.json({
       success: true,
       message: `Recalculated ${results.length} V3 debt records`,
-      totalCreditsRestored: results.reduce((sum, r) => sum + r.change, 0),
+      totalCreditsRestored: results.reduce((sum2, r) => sum2 + r.change, 0),
       details: results
     });
   } catch (error) {
@@ -47531,7 +47723,7 @@ router20.post("/api/admin/fix-vacation-v3-debts", authMiddlewareWithFreshData, r
     res.json({
       success: true,
       message: `Adjusted ${results.length} V3 debt records for vacation sessions`,
-      totalCreditsRestored: results.reduce((sum, r) => sum + (r.oldDebt - r.newDebt), 0),
+      totalCreditsRestored: results.reduce((sum2, r) => sum2 + (r.oldDebt - r.newDebt), 0),
       details: results
     });
   } catch (error) {
@@ -47646,7 +47838,7 @@ router20.post("/api/admin/recalculate-all-debts", authMiddlewareWithFreshData, r
         });
       }
     }
-    const totalDebtCreated = results.reduce((sum, r) => sum + r.debtCreated, 0);
+    const totalDebtCreated = results.reduce((sum2, r) => sum2 + r.debtCreated, 0);
     console.log(`[RecalculateDebts] Complete. Created ${totalDebtCreated} total debt across ${results.filter((r) => r.debtCreated > 0).length} player/type combos`);
     res.json({
       success: true,
@@ -52236,7 +52428,7 @@ router23.get("/api/admin/series/:id/progress", authMiddlewareWithFreshData, requ
     const playerProgress2 = await Promise.all(seriesPlayers4.map(async (sp) => {
       const player2 = await storage.getPlayer(sp.playerId);
       const xpTransactions3 = await storage.getPlayerXPTransactions(sp.playerId, 30);
-      const recentXP = xpTransactions3.reduce((sum, t) => sum + (t.amount || 0), 0);
+      const recentXP = xpTransactions3.reduce((sum2, t) => sum2 + (t.amount || 0), 0);
       return {
         playerId: sp.playerId,
         playerName: player2?.name || "Unknown",
@@ -52820,7 +53012,7 @@ router23.get("/api/admin/dashboard/enhanced", authMiddlewareWithFreshData, requi
     const recentSessions = allSessions.filter((s) => new Date(s.startTime) >= thirtyDaysAgo && s.status !== "cancelled");
     const completedSessions = recentSessions.filter((s) => s.status === "completed");
     const attendanceRate = recentSessions.length > 0 ? Math.round(completedSessions.length / recentSessions.length * 100) : 0;
-    const monthlyRevenue = players3.reduce((sum, p) => sum + (p.monthlyRate || 0), 0);
+    const monthlyRevenue = players3.reduce((sum2, p) => sum2 + (p.monthlyRate || 0), 0);
     const revenueTarget = 5e4;
     if (monthlyRevenue >= revenueTarget * 0.9) {
       insights.push({
@@ -52856,7 +53048,7 @@ router23.get("/api/admin/dashboard/enhanced", authMiddlewareWithFreshData, requi
         description: "You have " + activePlayers.length + " active players in your academy!"
       });
     }
-    const outstandingPayments = players3.filter((p) => (p.balanceDue || 0) > 0).reduce((sum, p) => sum + (p.balanceDue || 0), 0);
+    const outstandingPayments = players3.filter((p) => (p.balanceDue || 0) > 0).reduce((sum2, p) => sum2 + (p.balanceDue || 0), 0);
     if (outstandingPayments > 5e3) {
       insights.push({
         id: "payments-overdue",
@@ -52887,7 +53079,7 @@ router23.get("/api/admin/dashboard/enhanced", authMiddlewareWithFreshData, requi
       kpis: {
         activePlayers: activePlayers.length,
         activeCoaches: activeCoaches.length,
-        sessionsThisWeek: weekData.reduce((sum, d) => sum + d.sessionCount, 0),
+        sessionsThisWeek: weekData.reduce((sum2, d) => sum2 + d.sessionCount, 0),
         attendanceRate,
         outstandingPayments,
         monthlyRevenue,
@@ -52948,12 +53140,12 @@ router23.get("/api/admin/dashboard", authMiddlewareWithFreshData, requireRole("a
     const activePlayers = players3.filter((p) => p.isActive !== false);
     const activeCoaches = coaches6.filter((c) => c.isActive !== false);
     const currency = settings?.currency || "AED";
-    const monthlyRevenue = players3.reduce((sum, p) => {
-      return sum + (p.monthlyRate || 0);
+    const monthlyRevenue = players3.reduce((sum2, p) => {
+      return sum2 + (p.monthlyRate || 0);
     }, 0);
     const outstandingPayments = players3.filter((p) => {
       return (p.balanceDue || 0) > 0;
-    }).reduce((sum, p) => sum + (p.balanceDue || 0), 0);
+    }).reduce((sum2, p) => sum2 + (p.balanceDue || 0), 0);
     const alerts = [];
     const unpaidPlayers = players3.filter((p) => (p.balanceDue || 0) > 0);
     unpaidPlayers.slice(0, 5).forEach((p) => {
@@ -53066,10 +53258,10 @@ router23.get("/api/admin/coaches/:coachId/stats", authMiddlewareWithFreshData, r
     const feedbackCount = await storage.getFeedbackCountByCoach(coachId, thirtyDaysAgo, now2);
     const feedbackCompletionRate = completedSessions.length > 0 ? Math.round(feedbackCount / completedSessions.length * 100) : 0;
     const hourlyRate = coach.hourlyRate || 100;
-    const totalHours = sessionsThisMonth.reduce((sum, s) => {
+    const totalHours = sessionsThisMonth.reduce((sum2, s) => {
       const start = new Date(s.startTime);
       const end = new Date(s.endTime);
-      return sum + (end.getTime() - start.getTime()) / (1e3 * 60 * 60);
+      return sum2 + (end.getTime() - start.getTime()) / (1e3 * 60 * 60);
     }, 0);
     const monthlyHours = await storage.getCoachMonthlyHoursSummary(coachId, academyId);
     const payoutRecords = await storage.getCoachPayouts(coachId, 12);
@@ -53303,19 +53495,19 @@ router23.get("/api/admin/players/:playerId/stats", authMiddlewareWithFreshData, 
     const playerPackages = await storage.getPlayerPackages(playerId, player2.academyId ?? void 0);
     const unpaidPackages = playerPackages.filter((p) => !p.isPaid);
     const paidPackages = playerPackages.filter((p) => p.isPaid);
-    const pkgTotalOwed = unpaidPackages.reduce((sum, pkg2) => {
+    const pkgTotalOwed = unpaidPackages.reduce((sum2, pkg2) => {
       const pkgPrice = Number(pkg2.price) || Number(pkg2.pricePerCredit || 0) * (pkg2.totalCredits || 0);
-      return sum + pkgPrice;
+      return sum2 + pkgPrice;
     }, 0);
-    const totalPaid = paidPackages.reduce((sum, pkg2) => {
+    const totalPaid = paidPackages.reduce((sum2, pkg2) => {
       const pkgPrice = Number(pkg2.price) || Number(pkg2.pricePerCredit || 0) * (pkg2.totalCredits || 0);
-      return sum + pkgPrice;
+      return sum2 + pkgPrice;
     }, 0);
     const playerAcademyId = player2.academyId || "";
     const allInvoices = playerAcademyId ? await storage.getInvoices(playerAcademyId) : [];
     const playerInvoices = allInvoices.filter((inv) => inv.playerId === playerId);
     const pendingInvoices = playerInvoices.filter((inv) => inv.status === "pending" || inv.status === "sent");
-    const invoiceTotalOwed = pendingInvoices.reduce((sum, inv) => sum + (Number(inv.amount) || 0), 0);
+    const invoiceTotalOwed = pendingInvoices.reduce((sum2, inv) => sum2 + (Number(inv.amount) || 0), 0);
     const totalOwed = pkgTotalOwed + invoiceTotalOwed;
     let paymentStatus = "paid";
     if (totalOwed > 0) {
@@ -54127,13 +54319,13 @@ router23.get("/api/player/me/dashboard", authMiddlewareWithFreshData, requirePla
     const playerPackages = await storage.getPlayerPackages(playerId, player2.academyId ?? void 0);
     const unpaidPackages = playerPackages.filter((p) => !p.isPaid);
     const paidPackages = playerPackages.filter((p) => p.isPaid);
-    const totalOwed = unpaidPackages.reduce((sum, pkg2) => {
+    const totalOwed = unpaidPackages.reduce((sum2, pkg2) => {
       const pkgPrice = Number(pkg2.price) || Number(pkg2.pricePerCredit || 0) * (pkg2.totalCredits || 0);
-      return sum + pkgPrice;
+      return sum2 + pkgPrice;
     }, 0);
-    const totalPaid = paidPackages.reduce((sum, pkg2) => {
+    const totalPaid = paidPackages.reduce((sum2, pkg2) => {
       const pkgPrice = Number(pkg2.price) || Number(pkg2.pricePerCredit || 0) * (pkg2.totalCredits || 0);
-      return sum + pkgPrice;
+      return sum2 + pkgPrice;
     }, 0);
     let paymentStatus = "paid";
     if (totalOwed > 0) {
@@ -55264,9 +55456,9 @@ async function registerRoutes(app2) {
           typeCountMap[type] = (typeCountMap[type] || 0) + 1;
         });
         const lessonsByType = Object.entries(typeCountMap).map(
-          ([type, count7]) => ({
+          ([type, count8]) => ({
             type: type.charAt(0).toUpperCase() + type.slice(1).replace("_", " "),
-            count: count7
+            count: count8
           })
         );
         const coachIds = [
@@ -55287,7 +55479,7 @@ async function registerRoutes(app2) {
         const courtsBooked = courtBookingsData.length;
         const courtHours = Math.round(
           courtBookingsData.reduce(
-            (sum, b) => sum + (b.durationMinutes || 0),
+            (sum2, b) => sum2 + (b.durationMinutes || 0),
             0
           ) / 60
         );
@@ -55311,7 +55503,7 @@ async function registerRoutes(app2) {
             lte9(xpTransactions2.createdAt, endDate)
           )
         );
-        const xpEarned = xpData.reduce((sum, x) => sum + (x.xpAmount || 0), 0);
+        const xpEarned = xpData.reduce((sum2, x) => sum2 + (x.xpAmount || 0), 0);
         const currentLevel = player2.level || 1;
         const currentXp = player2.totalXp || 0;
         const xpPerLevel = [
@@ -55357,7 +55549,7 @@ async function registerRoutes(app2) {
             lte9(creditTransactions.createdAt, endDate)
           )
         );
-        const creditsUsed = creditTxns.filter((t) => t.type === "debit").reduce((sum, t) => sum + Math.abs(t.amount || 0), 0);
+        const creditsUsed = creditTxns.filter((t) => t.type === "debit").reduce((sum2, t) => sum2 + Math.abs(t.amount || 0), 0);
         const playerPackages = await db.select({
           creditType: playerCreditPackages.creditType,
           remainingCredits: playerCreditPackages.remainingCredits
@@ -55368,7 +55560,7 @@ async function registerRoutes(app2) {
           )
         );
         const creditsRemaining = playerPackages.reduce(
-          (sum, p) => sum + (p.remainingCredits || 0),
+          (sum2, p) => sum2 + (p.remainingCredits || 0),
           0
         );
         const creditsByTypeMap = {};
@@ -58487,7 +58679,7 @@ async function registerRoutes(app2) {
         const playerId = req2.user.playerId;
         if (!playerId)
           return res.status(400).json({ error: "Player not found" });
-        const [result] = await db.select({ count: count6() }).from(playerNotifications).where(
+        const [result] = await db.select({ count: count7() }).from(playerNotifications).where(
           and29(
             eq31(playerNotifications.playerId, playerId),
             eq31(playerNotifications.read, false)
@@ -59042,9 +59234,9 @@ async function registerRoutes(app2) {
               type: nextSessionResult[0].sessionType || "training"
             } : null;
             const debitTransactions = await db.select().from(creditTransactions).where(eq31(creditTransactions.playerId, member.id));
-            const outstandingBalance = debitTransactions.reduce((sum, tx) => {
+            const outstandingBalance = debitTransactions.reduce((sum2, tx) => {
               const amount = Number(tx.amount) || 0;
-              return sum + (amount < 0 ? Math.abs(amount) : 0);
+              return sum2 + (amount < 0 ? Math.abs(amount) : 0);
             }, 0);
             return {
               id: member.id,
@@ -59062,7 +59254,7 @@ async function registerRoutes(app2) {
           })
         );
         const outstandingTotal = memberData.reduce(
-          (sum, m) => sum + m.outstandingBalance,
+          (sum2, m) => sum2 + m.outstandingBalance,
           0
         );
         res.json({
@@ -59129,9 +59321,9 @@ async function registerRoutes(app2) {
             eq31(creditTransactions.type, "debit")
           )
         );
-        const totalOwed = debitTransactions.reduce((sum, tx) => {
+        const totalOwed = debitTransactions.reduce((sum2, tx) => {
           const amount = Number(tx.amount) || 0;
-          return sum + (amount < 0 ? Math.abs(amount) : 0);
+          return sum2 + (amount < 0 ? Math.abs(amount) : 0);
         }, 0);
         if (totalOwed === 0) {
           return res.json({
@@ -61212,7 +61404,7 @@ async function registerRoutes(app2) {
           (ps) => ps.playerRecord.attendanceStatus === "present" || ps.playerRecord.attendanceStatus === "late"
         );
         const totalMinutes = attendedSessions.reduce(
-          (sum, ps) => sum + (ps.session.duration || 60),
+          (sum2, ps) => sum2 + (ps.session.duration || 60),
           0
         );
         const attendanceRate = recentSessions.length > 0 ? Math.round(
@@ -64213,7 +64405,7 @@ async function registerRoutes(app2) {
           syncResults.push(result);
         }
         const totalCreated = syncResults.reduce(
-          (sum, r) => sum + r.sessionsCreated,
+          (sum2, r) => sum2 + r.sessionsCreated,
           0
         );
         res.json({
@@ -65058,7 +65250,7 @@ async function registerRoutes(app2) {
         );
         res.json({
           players: playerDetails.sort((a, b) => b.xpEarned - a.xpEarned),
-          totalXp: Object.values(playerXpMap).reduce((sum, xp) => sum + xp, 0),
+          totalXp: Object.values(playerXpMap).reduce((sum2, xp) => sum2 + xp, 0),
           sessionsCompleted: seriesSessions.filter(
             (s) => s.status === "completed"
           ).length,
@@ -66808,8 +67000,8 @@ async function registerRoutes(app2) {
     async (req2, res) => {
       try {
         const { id } = req2.params;
-        const count7 = await storage.getUnreadCountForCoach(id);
-        res.json({ unreadCount: count7 });
+        const count8 = await storage.getUnreadCountForCoach(id);
+        res.json({ unreadCount: count8 });
       } catch (error) {
         console.error("Error fetching unread count:", error);
         res.status(500).json({ error: "Failed to fetch unread count" });
@@ -66823,8 +67015,8 @@ async function registerRoutes(app2) {
     async (req2, res) => {
       try {
         const { id } = req2.params;
-        const count7 = await storage.getUnreadCountForPlayer(id);
-        res.json({ unreadCount: count7 });
+        const count8 = await storage.getUnreadCountForPlayer(id);
+        res.json({ unreadCount: count8 });
       } catch (error) {
         console.error("Error fetching unread count:", error);
         res.status(500).json({ error: "Failed to fetch unread count" });
@@ -68636,7 +68828,7 @@ async function registerRoutes(app2) {
         const player2 = invoice.playerId ? await storage.getPlayer(invoice.playerId) : null;
         const lineItems = parseLineItems2(invoice.lineItems);
         const metadata = parseInvoiceMetadata(invoice.lineItems);
-        const subtotal = metadata.subtotal || lineItems.reduce((sum, item) => sum + item.total, 0);
+        const subtotal = metadata.subtotal || lineItems.reduce((sum2, item) => sum2 + item.total, 0);
         const invoiceData = {
           invoiceNumber: invoice.invoiceNumber,
           issueDate: invoice.createdAt?.toISOString() || (/* @__PURE__ */ new Date()).toISOString(),
@@ -69220,12 +69412,12 @@ async function registerRoutes(app2) {
           }
         }
         const playerMonthlyRates = players3.reduce(
-          (sum, p) => sum + (p.monthlyRate || 0),
+          (sum2, p) => sum2 + (p.monthlyRate || 0),
           0
         );
         const monthlyRevenue = sessionRevenue > 0 ? sessionRevenue : playerMonthlyRates > 0 ? playerMonthlyRates : activePlayers.length * 500;
         const revenueTarget = 5e4;
-        const outstandingPayments = players3.filter((p) => (p.balanceDue || 0) > 0).reduce((sum, p) => sum + (p.balanceDue || 0), 0);
+        const outstandingPayments = players3.filter((p) => (p.balanceDue || 0) > 0).reduce((sum2, p) => sum2 + (p.balanceDue || 0), 0);
         const attendanceRate = recentSessions.length > 0 ? Math.round(
           completedSessions.length / recentSessions.length * 100
         ) : 0;
@@ -69356,7 +69548,7 @@ async function registerRoutes(app2) {
           (p) => p.isActive !== false
         );
         const monthlyPlayerFees = activePlayers.reduce(
-          (sum, p) => sum + (p.monthlyRate || 0),
+          (sum2, p) => sum2 + (p.monthlyRate || 0),
           0
         );
         const academyFees = activeAcademies.length * 500;
@@ -69374,7 +69566,7 @@ async function registerRoutes(app2) {
             const coaches6 = await storage.getCoachesByAcademy(academy.id);
             const settings = await storage.getAcademySettings(academy.id);
             const playerMrr = players3.reduce(
-              (sum, p) => sum + (p.monthlyRate || 0),
+              (sum2, p) => sum2 + (p.monthlyRate || 0),
               0
             );
             const healthScore = Math.min(
@@ -69599,7 +69791,7 @@ async function registerRoutes(app2) {
           completedSessions.length / recentSessions.length * 100
         ) : 0;
         const monthlyRevenue = players3.reduce(
-          (sum, p) => sum + (p.monthlyRate || 0),
+          (sum2, p) => sum2 + (p.monthlyRate || 0),
           0
         );
         const revenueTarget = 5e4;
@@ -69637,7 +69829,7 @@ async function registerRoutes(app2) {
             description: "You have " + activePlayers.length + " active players in your academy!"
           });
         }
-        const outstandingPayments = players3.filter((p) => (p.balanceDue || 0) > 0).reduce((sum, p) => sum + (p.balanceDue || 0), 0);
+        const outstandingPayments = players3.filter((p) => (p.balanceDue || 0) > 0).reduce((sum2, p) => sum2 + (p.balanceDue || 0), 0);
         if (outstandingPayments > 5e3) {
           insights.push({
             id: "payments-overdue",
@@ -69681,7 +69873,7 @@ async function registerRoutes(app2) {
             activePlayers: activePlayers.length,
             activeCoaches: activeCoaches.length,
             sessionsThisWeek: weekData.reduce(
-              (sum, d) => sum + d.sessionCount,
+              (sum2, d) => sum2 + d.sessionCount,
               0
             ),
             attendanceRate,
@@ -69854,7 +70046,7 @@ async function registerRoutes(app2) {
           })
         );
         const totalMrr = academies3.reduce(
-          (sum, a) => sum + (a.monthlyRevenue || 0),
+          (sum2, a) => sum2 + (a.monthlyRevenue || 0),
           0
         );
         const levelDistribution = [1, 2, 3, 4, 5, 6, 7].map((level) => ({
@@ -69936,7 +70128,7 @@ async function registerRoutes(app2) {
         thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
         const academies3 = await storage.getAllAcademies();
         const totalMrr = academies3.reduce(
-          (sum, a) => sum + (a.monthlyRevenue || 0),
+          (sum2, a) => sum2 + (a.monthlyRevenue || 0),
           0
         );
         const arr = totalMrr * 12;
@@ -69947,7 +70139,7 @@ async function registerRoutes(app2) {
           (inv) => inv.status === "pending" || inv.status === "sent"
         );
         const pendingPayments = pendingInvoices.reduce(
-          (sum, inv) => sum + Number(inv.amountDue || 0),
+          (sum2, inv) => sum2 + Number(inv.amountDue || 0),
           0
         );
         const failedPayments = allPayments.filter(
@@ -69955,7 +70147,7 @@ async function registerRoutes(app2) {
         ).length;
         const churnedAcademies = academies3.filter((a) => a.isActive === false);
         const churnValue = churnedAcademies.reduce(
-          (sum, a) => sum + (a.monthlyRevenue || 0),
+          (sum2, a) => sum2 + (a.monthlyRevenue || 0),
           0
         );
         const months = [];
@@ -70122,15 +70314,15 @@ async function registerRoutes(app2) {
         const activeThisWeek = activePlayerIds.size;
         const atRisk = Math.max(0, totalPlayers - activeThisWeek);
         const totalXp = allPlayers.reduce(
-          (sum, p) => sum + (p.totalXp || 0),
+          (sum2, p) => sum2 + (p.totalXp || 0),
           0
         );
         const totalLevel = allPlayers.reduce(
-          (sum, p) => sum + (p.level || 1),
+          (sum2, p) => sum2 + (p.level || 1),
           0
         );
         const totalStreak = allPlayers.reduce(
-          (sum, p) => sum + (p.streak || 0),
+          (sum2, p) => sum2 + (p.streak || 0),
           0
         );
         const avgXpPerPlayer = totalPlayers > 0 ? Math.round(totalXp / totalPlayers) : 0;
@@ -70243,10 +70435,10 @@ async function registerRoutes(app2) {
           (c) => c.burnoutRisk === "high" || c.burnoutRisk === "medium"
         ).length;
         const totalSessions = coachStats.reduce(
-          (sum, c) => sum + c.sessions,
+          (sum2, c) => sum2 + c.sessions,
           0
         );
-        const totalXp = coachStats.reduce((sum, c) => sum + c.xpAwarded, 0);
+        const totalXp = coachStats.reduce((sum2, c) => sum2 + c.xpAwarded, 0);
         const avgSessionsPerCoach = totalCoaches > 0 ? Math.round(totalSessions / totalCoaches * 10) / 10 : 0;
         const avgXpAwarded = totalCoaches > 0 ? Math.round(totalXp / totalCoaches) : 0;
         res.json({
@@ -70497,7 +70689,7 @@ async function registerRoutes(app2) {
             (p) => p.status === "pending"
           );
           totalPendingRevenue += pendingPayments.reduce(
-            (sum, p) => sum + Number(p.amount || 0),
+            (sum2, p) => sum2 + Number(p.amount || 0),
             0
           );
         }
@@ -71753,7 +71945,7 @@ async function registerRoutes(app2) {
           };
         });
         const skillRadar = await Promise.all(skillRadarPromises);
-        const avgProgress = skillRadar.length > 0 ? skillRadar.reduce((sum, s) => sum + s.progress, 0) / skillRadar.length : 0;
+        const avgProgress = skillRadar.length > 0 ? skillRadar.reduce((sum2, s) => sum2 + s.progress, 0) / skillRadar.length : 0;
         const glowScore = Math.min(100, Math.round(avgProgress));
         const allHighlights = skillRadar.flatMap((s) => s.insights.recentHighlights).slice(0, 5);
         const allFocusAreas = skillRadar.flatMap((s) => s.insights.focusAreas).slice(0, 5);
@@ -71806,7 +71998,7 @@ async function registerRoutes(app2) {
           }
         });
         const battlePower = Object.values(pillarScores).reduce(
-          (sum, score) => sum + score,
+          (sum2, score) => sum2 + score,
           0
         );
         const maxBattlePower = 600;
@@ -71920,7 +72112,7 @@ async function registerRoutes(app2) {
             const sessionIds = seriesSessions.map((s) => s.id);
             const attendanceRecords = sessionIds.length > 0 ? await db.select({
               status: sessionPlayers.attendanceStatus,
-              count: count6()
+              count: count7()
             }).from(sessionPlayers).where(
               and29(
                 inArray16(sessionPlayers.sessionId, sessionIds),
@@ -71962,11 +72154,11 @@ async function registerRoutes(app2) {
           })
         );
         const totalPresent = classes.reduce(
-          (sum, c) => sum + c.attendance.present,
+          (sum2, c) => sum2 + c.attendance.present,
           0
         );
         const totalSessions = classes.reduce(
-          (sum, c) => sum + c.attendance.total,
+          (sum2, c) => sum2 + c.attendance.total,
           0
         );
         const overallRate = totalSessions > 0 ? Math.round(totalPresent / totalSessions * 100) : 0;
@@ -73457,22 +73649,22 @@ async function registerRoutes(app2) {
           (p) => p.status === "confirmed" && p.paymentDate && new Date(p.paymentDate) >= lastMonthStart && new Date(p.paymentDate) <= lastMonthEnd
         );
         const collectedThisWeek = thisWeekPayments.reduce(
-          (sum, p) => sum + Number(p.amount || 0),
+          (sum2, p) => sum2 + Number(p.amount || 0),
           0
         );
         const collectedThisMonth = thisMonthPayments.reduce(
-          (sum, p) => sum + Number(p.amount || 0),
+          (sum2, p) => sum2 + Number(p.amount || 0),
           0
         );
         const collectedLastMonth = lastMonthPayments.reduce(
-          (sum, p) => sum + Number(p.amount || 0),
+          (sum2, p) => sum2 + Number(p.amount || 0),
           0
         );
         const pendingPayments = allPayments.filter(
           (p) => p.status === "pending"
         );
         const pendingAmount = pendingPayments.reduce(
-          (sum, p) => sum + Number(p.amount || 0),
+          (sum2, p) => sum2 + Number(p.amount || 0),
           0
         );
         const activeSubscriptions = await storage.getActivePlayerSubscriptions(academyId);
@@ -73488,8 +73680,8 @@ async function registerRoutes(app2) {
           subscriptionBreakdown[sub.planName].count++;
           subscriptionBreakdown[sub.planName].total += monthlyEquivalent;
         }
-        const cashTotal = thisMonthPayments.filter((p) => p.paymentMethod === "cash").reduce((sum, p) => sum + Number(p.amount || 0), 0);
-        const bankTotal = thisMonthPayments.filter((p) => p.paymentMethod === "bank_transfer").reduce((sum, p) => sum + Number(p.amount || 0), 0);
+        const cashTotal = thisMonthPayments.filter((p) => p.paymentMethod === "cash").reduce((sum2, p) => sum2 + Number(p.amount || 0), 0);
+        const bankTotal = thisMonthPayments.filter((p) => p.paymentMethod === "bank_transfer").reduce((sum2, p) => sum2 + Number(p.amount || 0), 0);
         const monthChange = collectedLastMonth > 0 ? Math.round(
           (collectedThisMonth - collectedLastMonth) / collectedLastMonth * 100
         ) : 0;
@@ -73925,15 +74117,15 @@ async function registerRoutes(app2) {
         if (!targetCoach) {
           return res.status(404).json({ error: "Target coach not found in this academy" });
         }
-        const count7 = await storage.reassignCoachSessions(
+        const count8 = await storage.reassignCoachSessions(
           fromCoachId,
           toCoachId,
           academyId
         );
         res.json({
           success: true,
-          reassignedCount: count7,
-          message: `${count7} sessions reassigned`
+          reassignedCount: count8,
+          message: `${count8} sessions reassigned`
         });
       } catch (error) {
         console.error("Reassign sessions error:", error);

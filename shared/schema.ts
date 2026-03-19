@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { pgTable, text, varchar, timestamp, integer, numeric, boolean, date, jsonb, json, index, unique, doublePrecision } from "drizzle-orm/pg-core";
+import { pgTable, text, varchar, timestamp, integer, numeric, boolean, date, jsonb, json, index, uniqueIndex, unique, doublePrecision } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -4257,6 +4257,39 @@ export const serviceProviders = pgTable("service_providers", {
 export const insertServiceProviderSchema = createInsertSchema(serviceProviders).omit({ id: true, createdAt: true, updatedAt: true });
 export type InsertServiceProvider = z.infer<typeof insertServiceProviderSchema>;
 export type ServiceProvider = typeof serviceProviders.$inferSelect;
+
+// ==================== PROVIDER CLIENT BOOK ====================
+
+export const providerClientNotes = pgTable("provider_client_notes", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  providerId: varchar("provider_id").references(() => serviceProviders.id, { onDelete: "cascade" }).notNull(),
+  playerId: varchar("player_id").references(() => players.id, { onDelete: "cascade" }).notNull(),
+  content: text("content").notNull(),
+  noteType: varchar("note_type", { length: 50 }).default("general"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("provider_client_notes_provider_player_idx").on(table.providerId, table.playerId),
+]);
+
+export const insertProviderClientNoteSchema = createInsertSchema(providerClientNotes).omit({ id: true, createdAt: true, updatedAt: true });
+export type InsertProviderClientNote = z.infer<typeof insertProviderClientNoteSchema>;
+export type ProviderClientNote = typeof providerClientNotes.$inferSelect;
+
+export const providerClientPreferences = pgTable("provider_client_preferences", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  providerId: varchar("provider_id").references(() => serviceProviders.id, { onDelete: "cascade" }).notNull(),
+  playerId: varchar("player_id").references(() => players.id, { onDelete: "cascade" }).notNull(),
+  preferences: jsonb("preferences").$type<Record<string, unknown>>().default({}),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  uniqueIndex("provider_client_prefs_unique_idx").on(table.providerId, table.playerId),
+]);
+
+export const insertProviderClientPreferencesSchema = createInsertSchema(providerClientPreferences).omit({ id: true, createdAt: true, updatedAt: true });
+export type InsertProviderClientPreferences = z.infer<typeof insertProviderClientPreferencesSchema>;
+export type ProviderClientPreferences = typeof providerClientPreferences.$inferSelect;
 
 // ==================== COMMUNITY MARKETPLACE (C2C) ====================
 

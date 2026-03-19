@@ -10,12 +10,14 @@ import ProviderProfileScreen from "@/provider/screens/ProviderProfileScreen";
 import ProviderScheduleScreen from "@/provider/screens/ProviderScheduleScreen";
 import ProviderEarningsScreen from "@/provider/screens/ProviderEarningsScreen";
 import ProviderClientsScreen from "@/provider/screens/ProviderClientsScreen";
+import ProviderClientDetailScreen from "@/provider/screens/ProviderClientDetailScreen";
 import ProviderOnboardingScreen from "@/provider/screens/ProviderOnboardingScreen";
 import { Colors } from "@/constants/theme";
 
 export type ProviderStackParamList = {
   ProviderTabs: undefined;
   ProviderBookingDetail: { orderId: string };
+  ProviderClientDetail: { playerId: string };
 };
 
 const Stack = createNativeStackNavigator<ProviderStackParamList>();
@@ -104,6 +106,10 @@ export default function ProviderNavigator() {
         name="ProviderBookingDetail"
         component={ProviderBookingDetailScreen}
         options={{ presentation: "modal" }}
+      />
+      <Stack.Screen
+        name="ProviderClientDetail"
+        component={ProviderClientDetailScreen}
       />
     </Stack.Navigator>
   );

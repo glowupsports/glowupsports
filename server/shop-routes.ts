@@ -2,11 +2,11 @@ import { Router, Request, Response, NextFunction } from "express";
 import { db } from "./db";
 import { 
   shopCategories, shopProducts, shopServices, shopOrders, shopOrderItems, shopWishlist,
-  serviceProviders,
+  serviceProviders, providerClientNotes, providerClientPreferences,
   insertShopCategorySchema, insertShopProductSchema, insertShopServiceSchema,
   players, users
 } from "../shared/schema";
-import { eq, and, desc, asc, sql, inArray } from "drizzle-orm";
+import { eq, and, desc, asc, sql, inArray, count, max, sum } from "drizzle-orm";
 import {
   awardXP,
   updateStreak,
@@ -1411,6 +1411,248 @@ router.get("/provider/stats", authMiddleware, requireServiceProvider, async (req
   } catch (error) {
     console.error("[Provider] Error fetching stats:", error);
     res.status(500).json({ error: "Failed to fetch provider stats" });
+  }
+});
+
+// ==================== PROVIDER CLIENT BOOK ====================
+
+// GET /api/provider/clients — list all unique clients with aggregate info
+router.get("/provider/clients", authMiddleware, requireServiceProvider, async (req: AuthRequest, res: Response) => {
+  try {
+    const [provider] = await db.select({ id: serviceProviders.id })
+      .from(serviceProviders)
+      .where(eq(serviceProviders.userId, req.user!.userId))
+      .limit(1);
+    if (!provider) return res.status(404).json({ error: "Provider not found" });
+
+    // Get distinct players who have booked this provider (completed or confirmed)
+    const clientRows = await db
+      .select({
+        playerId: shopOrders.playerId,
+        totalSessions: count(shopOrders.id),
+        lastVisit: max(shopOrders.scheduledAt),
+      })
+      .from(shopOrders)
+      .where(
+        and(
+          eq(shopOrders.assignedProviderId, provider.id),
+          inArray(shopOrders.status, ["completed", "confirmed"])
+        )
+      )
+      .groupBy(shopOrders.playerId)
+      .orderBy(desc(max(shopOrders.scheduledAt)));
+
+    if (clientRows.length === 0) return res.json([]);
+
+    const playerIds = clientRows
+      .map((r) => r.playerId)
+      .filter((id): id is string => Boolean(id));
+
+    const [playerRows, noteRows, prefRows] = await Promise.all([
+      db.select({ id: players.id, name: players.name, profilePhotoUrl: players.profilePhotoUrl, level: players.level })
+        .from(players)
+        .where(inArray(players.id, playerIds)),
+      db.select({
+        playerId: providerClientNotes.playerId,
+        notesCount: count(providerClientNotes.id),
+        latestContent: max(providerClientNotes.content),
+      })
+        .from(providerClientNotes)
+        .where(eq(providerClientNotes.providerId, provider.id))
+        .groupBy(providerClientNotes.playerId),
+      db.select({ playerId: providerClientPreferences.playerId, preferences: providerClientPreferences.preferences })
+        .from(providerClientPreferences)
+        .where(eq(providerClientPreferences.providerId, provider.id)),
+    ]);
+
+    const playerMap = new Map(playerRows.map((p) => [p.id, p]));
+    const noteMap = new Map(noteRows.map((n) => [n.playerId, n]));
+    const prefMap = new Map(prefRows.map((p) => [p.playerId, p.preferences]));
+
+    const result = clientRows
+      .filter((r) => r.playerId && playerMap.has(r.playerId))
+      .map((r) => {
+        const player = playerMap.get(r.playerId!)!;
+        const note = noteMap.get(r.playerId!) ?? null;
+        return {
+          player,
+          totalSessions: Number(r.totalSessions),
+          lastVisit: r.lastVisit ? new Date(r.lastVisit).toISOString() : null,
+          notesCount: Number(note?.notesCount ?? 0),
+          latestNote: note?.latestContent ? String(note.latestContent).slice(0, 80) : null,
+          preferences: (prefMap.get(r.playerId!) ?? {}) as Record<string, unknown>,
+        };
+      });
+
+    res.json(result);
+  } catch (error) {
+    console.error("[Provider] Error fetching clients:", error);
+    res.status(500).json({ error: "Failed to fetch clients" });
+  }
+});
+
+// GET /api/provider/clients/:playerId — full client detail
+router.get("/provider/clients/:playerId", authMiddleware, requireServiceProvider, async (req: AuthRequest, res: Response) => {
+  try {
+    const { playerId } = req.params;
+    const [provider] = await db.select({ id: serviceProviders.id })
+      .from(serviceProviders)
+      .where(eq(serviceProviders.userId, req.user!.userId))
+      .limit(1);
+    if (!provider) return res.status(404).json({ error: "Provider not found" });
+
+    const [playerRow, bookingRows, noteRows, prefRow] = await Promise.all([
+      db.select({ id: players.id, name: players.name, profilePhotoUrl: players.profilePhotoUrl, level: players.level, totalXp: players.totalXp })
+        .from(players).where(eq(players.id, playerId)).limit(1),
+      db.select({
+        id: shopOrders.id,
+        orderNumber: shopOrders.orderNumber,
+        status: shopOrders.status,
+        scheduledAt: shopOrders.scheduledAt,
+        totalAmount: shopOrders.total,
+      })
+        .from(shopOrders)
+        .where(and(eq(shopOrders.assignedProviderId, provider.id), eq(shopOrders.playerId, playerId)))
+        .orderBy(desc(shopOrders.scheduledAt)),
+      db.select({ id: providerClientNotes.id, content: providerClientNotes.content, noteType: providerClientNotes.noteType, createdAt: providerClientNotes.createdAt })
+        .from(providerClientNotes)
+        .where(and(eq(providerClientNotes.providerId, provider.id), eq(providerClientNotes.playerId, playerId)))
+        .orderBy(desc(providerClientNotes.createdAt)),
+      db.select({ preferences: providerClientPreferences.preferences })
+        .from(providerClientPreferences)
+        .where(and(eq(providerClientPreferences.providerId, provider.id), eq(providerClientPreferences.playerId, playerId)))
+        .limit(1),
+    ]);
+
+    if (!playerRow[0]) return res.status(404).json({ error: "Player not found" });
+
+    // Get service names for bookings via order items
+    const orderIds = bookingRows.map((b) => b.id);
+    let serviceNameMap: Map<string, string> = new Map();
+    if (orderIds.length > 0) {
+      const itemRows = await db
+        .select({ orderId: shopOrderItems.orderId, serviceId: shopOrderItems.serviceId })
+        .from(shopOrderItems)
+        .where(inArray(shopOrderItems.orderId, orderIds));
+      const svcIds = itemRows.map((i) => i.serviceId).filter((id): id is string => Boolean(id));
+      if (svcIds.length > 0) {
+        const svcRows = await db.select({ id: shopServices.id, name: shopServices.name })
+          .from(shopServices).where(inArray(shopServices.id, svcIds));
+        const svcMap = new Map(svcRows.map((s) => [s.id, s.name]));
+        for (const item of itemRows) {
+          if (item.orderId && item.serviceId) {
+            serviceNameMap.set(item.orderId, svcMap.get(item.serviceId) ?? "Service");
+          }
+        }
+      }
+    }
+
+    const lifetimeSpend = bookingRows.reduce((acc, b) => acc + Number(b.totalAmount ?? 0), 0);
+
+    res.json({
+      player: { ...playerRow[0], xp: Number(playerRow[0].totalXp) },
+      totalSessions: bookingRows.filter((b) => ["completed", "confirmed"].includes(b.status)).length,
+      lifetimeSpend: `AED ${lifetimeSpend.toFixed(2)}`,
+      bookingHistory: bookingRows.map((b) => ({
+        id: b.id,
+        orderNumber: b.orderNumber,
+        status: b.status,
+        scheduledAt: b.scheduledAt ? new Date(b.scheduledAt).toISOString() : null,
+        serviceName: serviceNameMap.get(b.id) ?? "Service",
+        totalAmount: String(b.totalAmount ?? "0"),
+        rating: null as number | null,
+      })),
+      notes: noteRows.map((n) => ({
+        id: n.id,
+        content: n.content,
+        noteType: n.noteType ?? "general",
+        createdAt: n.createdAt ? new Date(n.createdAt).toISOString() : new Date().toISOString(),
+      })),
+      preferences: (prefRow[0]?.preferences ?? {}) as Record<string, unknown>,
+    });
+  } catch (error) {
+    console.error("[Provider] Error fetching client detail:", error);
+    res.status(500).json({ error: "Failed to fetch client detail" });
+  }
+});
+
+// POST /api/provider/clients/:playerId/notes
+router.post("/provider/clients/:playerId/notes", authMiddleware, requireServiceProvider, async (req: AuthRequest, res: Response) => {
+  try {
+    const { playerId } = req.params;
+    const { content, noteType } = req.body as { content: string; noteType?: string };
+    if (!content?.trim()) return res.status(400).json({ error: "Note content is required" });
+
+    const [provider] = await db.select({ id: serviceProviders.id })
+      .from(serviceProviders).where(eq(serviceProviders.userId, req.user!.userId)).limit(1);
+    if (!provider) return res.status(404).json({ error: "Provider not found" });
+
+    const [note] = await db.insert(providerClientNotes).values({
+      providerId: provider.id,
+      playerId,
+      content: content.trim(),
+      noteType: noteType ?? "general",
+    }).returning();
+
+    res.status(201).json({
+      id: note.id,
+      content: note.content,
+      noteType: note.noteType,
+      createdAt: note.createdAt ? new Date(note.createdAt).toISOString() : new Date().toISOString(),
+    });
+  } catch (error) {
+    console.error("[Provider] Error creating note:", error);
+    res.status(500).json({ error: "Failed to create note" });
+  }
+});
+
+// DELETE /api/provider/clients/:playerId/notes/:noteId
+router.delete("/provider/clients/:playerId/notes/:noteId", authMiddleware, requireServiceProvider, async (req: AuthRequest, res: Response) => {
+  try {
+    const { playerId, noteId } = req.params;
+    const [provider] = await db.select({ id: serviceProviders.id })
+      .from(serviceProviders).where(eq(serviceProviders.userId, req.user!.userId)).limit(1);
+    if (!provider) return res.status(404).json({ error: "Provider not found" });
+
+    await db.delete(providerClientNotes)
+      .where(and(
+        eq(providerClientNotes.id, noteId),
+        eq(providerClientNotes.providerId, provider.id),
+        eq(providerClientNotes.playerId, playerId)
+      ));
+
+    res.json({ success: true });
+  } catch (error) {
+    console.error("[Provider] Error deleting note:", error);
+    res.status(500).json({ error: "Failed to delete note" });
+  }
+});
+
+// PUT /api/provider/clients/:playerId/preferences
+router.put("/provider/clients/:playerId/preferences", authMiddleware, requireServiceProvider, async (req: AuthRequest, res: Response) => {
+  try {
+    const { playerId } = req.params;
+    const { preferences } = req.body as { preferences: Record<string, unknown> };
+    if (!preferences || typeof preferences !== "object") {
+      return res.status(400).json({ error: "preferences object required" });
+    }
+
+    const [provider] = await db.select({ id: serviceProviders.id })
+      .from(serviceProviders).where(eq(serviceProviders.userId, req.user!.userId)).limit(1);
+    if (!provider) return res.status(404).json({ error: "Provider not found" });
+
+    const [upserted] = await db.insert(providerClientPreferences)
+      .values({ providerId: provider.id, playerId, preferences })
+      .onConflictDoUpdate({
+        target: [providerClientPreferences.providerId, providerClientPreferences.playerId],
+        set: { preferences, updatedAt: new Date() },
+      })
+      .returning({ preferences: providerClientPreferences.preferences });
+
+    res.json({ preferences: (upserted?.preferences ?? {}) as Record<string, unknown> });
+  } catch (error) {
+    console.error("[Provider] Error saving preferences:", error);
+    res.status(500).json({ error: "Failed to save preferences" });
   }
 });
 
