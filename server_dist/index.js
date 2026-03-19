@@ -32475,6 +32475,8 @@ router.patch("/academy/shop/orders/:id/status", authMiddlewareWithFreshData, req
         return res.status(400).json({ error: "Provider not found in your academy" });
       }
     }
+    const [currentOrder] = await db.select({ status: shopOrders.status }).from(shopOrders).where(and3(eq4(shopOrders.id, id), eq4(shopOrders.academyId, req2.user.academyId))).limit(1);
+    const previousStatus = currentOrder?.status;
     const updateData = { updatedAt: /* @__PURE__ */ new Date() };
     if (status) updateData.status = status;
     if (paymentStatus) updateData.paymentStatus = paymentStatus;
@@ -32487,7 +32489,8 @@ router.patch("/academy/shop/orders/:id/status", authMiddlewareWithFreshData, req
     if (!order) {
       return res.status(404).json({ error: "Order not found" });
     }
-    if (status === "confirmed" && order.playerId && order.assignedProviderId && order.academyId) {
+    const isRealConfirmTransition = status === "confirmed" && previousStatus !== "confirmed";
+    if (isRealConfirmTransition && order.playerId && order.assignedProviderId && order.academyId) {
       try {
         const conv = await getOrCreateProviderConversation(
           order.assignedProviderId,

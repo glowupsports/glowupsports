@@ -71,6 +71,9 @@ export default function PlayerMessagesScreen() {
   };
 
   const getConversationTitle = (conv: Conversation) => {
+    if (conv.type === "provider_player") {
+      return (conv as any).providerName ?? conv.title ?? "Service Provider";
+    }
     if (conv.title) return conv.title;
     if (conv.coachName) return conv.coachName;
     if (conv.type === "academy") return "Academy Chat";

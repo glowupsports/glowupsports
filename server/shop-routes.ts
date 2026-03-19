@@ -877,6 +877,13 @@ router.patch("/academy/shop/orders/:id/status", authMiddleware, requireRole("aca
       }
     }
 
+    // Fetch current order status before update for idempotency guard
+    const [currentOrder] = await db.select({ status: shopOrders.status })
+      .from(shopOrders)
+      .where(and(eq(shopOrders.id, id), eq(shopOrders.academyId, req.user!.academyId!)))
+      .limit(1);
+    const previousStatus = currentOrder?.status;
+
     const updateData: Record<string, unknown> = { updatedAt: new Date() };
     if (status) updateData.status = status;
     if (paymentStatus) updateData.paymentStatus = paymentStatus;
@@ -895,8 +902,10 @@ router.patch("/academy/shop/orders/:id/status", authMiddleware, requireRole("aca
       return res.status(404).json({ error: "Order not found" });
     }
 
-    // Auto-create booking chat conversation + post confirmation system message
-    if (status === "confirmed" && order.playerId && order.assignedProviderId && order.academyId) {
+    // Auto-create booking chat conversation + post confirmation system message.
+    // Guard: only post if this is a real transition TO confirmed (not re-confirming an already-confirmed order).
+    const isRealConfirmTransition = status === "confirmed" && previousStatus !== "confirmed";
+    if (isRealConfirmTransition && order.playerId && order.assignedProviderId && order.academyId) {
       try {
         const conv = await getOrCreateProviderConversation(
           order.assignedProviderId,
