@@ -438,12 +438,15 @@ router.get("/player/shop/services/:serviceId/providers/:providerId/availability"
     // Determine day-of-week using shared timezone utility (reuses server/utils/timezone.ts logic)
     const dayOfWeek = getLocalDayOfWeek(date, tz); // 0=Sun, 1=Mon, ..., 6=Sat
 
-    // Fetch all active availability windows for this provider
-    const windows = await db.select().from(providerAvailability)
-      .where(and(
-        eq(providerAvailability.providerId, providerId),
-        eq(providerAvailability.isActive, true),
-      ));
+    // Fetch availability windows — both total (to detect "no config") and active-only (to determine slot times)
+    // Booking validation uses ALL rows to decide if restrictions apply; we mirror that here to stay consistent
+    const [allWindows, activeWindows] = await Promise.all([
+      db.select({ id: providerAvailability.id }).from(providerAvailability)
+        .where(eq(providerAvailability.providerId, providerId)),
+      db.select().from(providerAvailability)
+        .where(and(eq(providerAvailability.providerId, providerId), eq(providerAvailability.isActive, true))),
+    ]);
+    const windows = activeWindows;
 
     // Build a full-day slot grid (06:00 to 21:30) in 30-min increments
     const GRID_START = 6 * 60;  // 06:00
@@ -451,7 +454,8 @@ router.get("/player/shop/services/:serviceId/providers/:providerId/availability"
     const allSlots: { time: string; available: boolean }[] = [];
 
     // No windows configured → all slots available (backend applies no restriction)
-    const noConfig = windows.length === 0;
+    // Mirror booking validation: noConfig only when there are ZERO rows (active or inactive)
+    const noConfig = allWindows.length === 0;
 
     // Provider has windows configured but none on this day → provider is off that day
     const dayWindows = noConfig ? [] : windows.filter((w) => w.dayOfWeek === dayOfWeek);

@@ -17649,14 +17649,15 @@ var init_shop_routes = __esm({
         const academyRecord = await db.select({ timezone: academies.timezone }).from(academies).where(eq4(academies.id, academyId)).limit(1);
         const tz = academyRecord[0]?.timezone ?? "Asia/Dubai";
         const dayOfWeek = getLocalDayOfWeek(date2, tz);
-        const windows = await db.select().from(providerAvailability).where(and3(
-          eq4(providerAvailability.providerId, providerId),
-          eq4(providerAvailability.isActive, true)
-        ));
+        const [allWindows, activeWindows] = await Promise.all([
+          db.select({ id: providerAvailability.id }).from(providerAvailability).where(eq4(providerAvailability.providerId, providerId)),
+          db.select().from(providerAvailability).where(and3(eq4(providerAvailability.providerId, providerId), eq4(providerAvailability.isActive, true)))
+        ]);
+        const windows = activeWindows;
         const GRID_START = 6 * 60;
         const GRID_END = 22 * 60;
         const allSlots = [];
-        const noConfig = windows.length === 0;
+        const noConfig = allWindows.length === 0;
         const dayWindows = noConfig ? [] : windows.filter((w) => w.dayOfWeek === dayOfWeek);
         const dayOff = !noConfig && dayWindows.length === 0;
         const availableMinutes = /* @__PURE__ */ new Set();
