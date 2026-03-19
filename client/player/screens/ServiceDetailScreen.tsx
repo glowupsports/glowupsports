@@ -32,6 +32,7 @@ interface Service {
   requiresApproval?: boolean;
   isFeatured: boolean;
   isStringingService?: boolean;
+  suggestedProviderId?: string | null;
   stringingOptions?: {
     strings: { name: string; brand: string; price: number }[];
     tensionRange: { min: number; max: number };
@@ -117,6 +118,7 @@ export default function ServiceDetailScreen() {
       notes?: string;
       items: Array<{ serviceId: string; quantity: number }>;
       serviceDetails?: Record<string, string>;
+      providerId?: string;
     }) => {
       const res = await apiRequest("POST", "/api/player/shop/orders", payload);
       return res.json();
@@ -143,8 +145,17 @@ export default function ServiceDetailScreen() {
         ]
       );
     },
-    onError: () => {
-      Alert.alert("Error", "Failed to place booking. Please try again.");
+    onError: (err: any) => {
+      let msg = "Failed to place booking. Please try again.";
+      try {
+        const raw = err?.message ?? "";
+        const jsonStart = raw.indexOf("{");
+        if (jsonStart !== -1) {
+          const parsed = JSON.parse(raw.slice(jsonStart));
+          if (parsed?.error) msg = parsed.error;
+        }
+      } catch {}
+      Alert.alert("Booking Failed", msg);
     },
   });
 
@@ -181,6 +192,7 @@ export default function ServiceDetailScreen() {
       notes: notes.trim() || undefined,
       items: [{ serviceId: service.id, quantity: 1 }],
       serviceDetails: Object.keys(serviceDetails).length > 0 ? serviceDetails : undefined,
+      providerId: service.suggestedProviderId ?? undefined,
     });
   };
 

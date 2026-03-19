@@ -4320,6 +4320,44 @@ export const insertProviderClientPreferencesSchema = createInsertSchema(provider
 export type InsertProviderClientPreferences = z.infer<typeof insertProviderClientPreferencesSchema>;
 export type ProviderClientPreferences = typeof providerClientPreferences.$inferSelect;
 
+// Provider weekly availability windows
+export const providerAvailability = pgTable("provider_availability", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  providerId: varchar("provider_id").references(() => serviceProviders.id, { onDelete: "cascade" }).notNull(),
+  dayOfWeek: integer("day_of_week").notNull(), // 0=Sun, 1=Mon, ..., 6=Sat
+  startTime: text("start_time").notNull(), // "09:00"
+  endTime: text("end_time").notNull(), // "18:00"
+  isActive: boolean("is_active").default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("provider_availability_provider_idx").on(table.providerId),
+]);
+
+export const insertProviderAvailabilitySchema = createInsertSchema(providerAvailability).omit({ id: true, createdAt: true, updatedAt: true });
+export type InsertProviderAvailability = z.infer<typeof insertProviderAvailabilitySchema>;
+export type ProviderAvailability = typeof providerAvailability.$inferSelect;
+
+// Pending upsell requests: provider proposes an extra, player approves/declines
+export const shopOrderUpsells = pgTable("shop_order_upsells", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  orderId: varchar("order_id").references(() => shopOrders.id, { onDelete: "cascade" }).notNull(),
+  providerId: varchar("provider_id").references(() => serviceProviders.id, { onDelete: "cascade" }).notNull(),
+  serviceId: varchar("service_id"), // optional link to catalog service
+  label: text("label").notNull(),
+  price: numeric("price", { precision: 10, scale: 2 }).notNull(),
+  status: text("status").notNull().default("pending"), // pending | approved | declined
+  createdAt: timestamp("created_at").defaultNow(),
+  respondedAt: timestamp("responded_at"),
+}, (table) => [
+  index("shop_order_upsells_order_idx").on(table.orderId),
+  index("shop_order_upsells_provider_idx").on(table.providerId),
+]);
+
+export const insertShopOrderUpsellSchema = createInsertSchema(shopOrderUpsells).omit({ id: true, createdAt: true, respondedAt: true });
+export type InsertShopOrderUpsell = z.infer<typeof insertShopOrderUpsellSchema>;
+export type ShopOrderUpsell = typeof shopOrderUpsells.$inferSelect;
+
 // ==================== COMMUNITY MARKETPLACE (C2C) ====================
 
 // Marketplace Listings (player-to-player sales)

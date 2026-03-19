@@ -10,6 +10,7 @@ import {
   Modal,
   TextInput,
   ActivityIndicator,
+  Switch,
 } from "react-native";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -272,6 +273,418 @@ function EditSpecializationsModal({
   );
 }
 
+const DAY_NAMES = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+const DEFAULT_WINDOWS = [
+  { dayOfWeek: 1, startTime: "09:00", endTime: "18:00", isActive: true },
+  { dayOfWeek: 2, startTime: "09:00", endTime: "18:00", isActive: true },
+  { dayOfWeek: 3, startTime: "09:00", endTime: "18:00", isActive: true },
+  { dayOfWeek: 4, startTime: "09:00", endTime: "18:00", isActive: true },
+  { dayOfWeek: 5, startTime: "09:00", endTime: "18:00", isActive: true },
+  { dayOfWeek: 6, startTime: "10:00", endTime: "14:00", isActive: false },
+  { dayOfWeek: 0, startTime: "10:00", endTime: "14:00", isActive: false },
+];
+
+interface AvailabilityWindow {
+  id?: string;
+  dayOfWeek: number;
+  startTime: string;
+  endTime: string;
+  isActive: boolean;
+}
+
+function AvailabilitySection() {
+  const insets = useSafeAreaInsets();
+  const queryClient = useQueryClient();
+  const [showModal, setShowModal] = useState(false);
+  const [windows, setWindows] = useState<AvailabilityWindow[]>(DEFAULT_WINDOWS);
+
+  const { data: savedWindows } = useQuery<AvailabilityWindow[]>({
+    queryKey: ["/api/provider/availability"],
+  });
+
+  useEffect(() => {
+    if (savedWindows && savedWindows.length > 0) {
+      const merged = Array.from({ length: 7 }, (_, i) => {
+        const saved = savedWindows.find((w) => w.dayOfWeek === i);
+        return saved ?? { dayOfWeek: i, startTime: "09:00", endTime: "18:00", isActive: false };
+      });
+      setWindows(merged);
+    }
+  }, [savedWindows]);
+
+  const [saving, setSaving] = useState(false);
+
+  const handleSave = async () => {
+    setSaving(true);
+    try {
+      const res = await apiRequest("PUT", "/api/provider/availability", { windows });
+      if (!res.ok) throw new Error("Failed");
+      await queryClient.invalidateQueries({ queryKey: ["/api/provider/availability"] });
+      setShowModal(false);
+    } catch {
+      Alert.alert("Error", "Could not save availability. Please try again.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const activeCount = windows.filter((w) => w.isActive).length;
+
+  const updateWindow = (idx: number, field: keyof AvailabilityWindow, value: unknown) => {
+    setWindows((prev) => prev.map((w, i) => i === idx ? { ...w, [field]: value } : w));
+  };
+
+  return (
+    <View style={styles.section}>
+      <View style={styles.sectionLabelRow}>
+        <Text style={styles.sectionLabel}>AVAILABILITY</Text>
+        <Pressable style={styles.editSpecsBtn} onPress={() => setShowModal(true)}>
+          <Ionicons name="create-outline" size={13} color={Colors.dark.primary} />
+          <Text style={styles.editSpecsBtnText}>Edit</Text>
+        </Pressable>
+      </View>
+      <Pressable
+        style={availStyles.summaryCard}
+        onPress={() => setShowModal(true)}
+      >
+        <Ionicons name="time-outline" size={18} color={Colors.dark.primary} />
+        <View style={{ flex: 1 }}>
+          <Text style={availStyles.summaryTitle}>
+            {activeCount > 0 ? `${activeCount} day${activeCount !== 1 ? "s" : ""} active` : "No availability set"}
+          </Text>
+          <Text style={availStyles.summaryDays}>
+            {windows.filter((w) => w.isActive).map((w) => DAY_NAMES[w.dayOfWeek]).join(", ") || "Tap to configure"}
+          </Text>
+        </View>
+        <Ionicons name="chevron-forward" size={14} color={Colors.dark.textSecondary} />
+      </Pressable>
+
+      <Modal visible={showModal} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => setShowModal(false)}>
+        <View style={[availStyles.modalContainer, { paddingTop: insets.top + Spacing.sm }]}>
+          <View style={availStyles.modalHeader}>
+            <Pressable onPress={() => setShowModal(false)}>
+              <Text style={availStyles.cancelText}>Cancel</Text>
+            </Pressable>
+            <Text style={availStyles.modalTitle}>Working Hours</Text>
+            <Pressable
+              onPress={handleSave}
+              style={[{ opacity: saving ? 0.5 : 1 }]}
+              disabled={saving}
+            >
+              {saving ? (
+                <ActivityIndicator size="small" color={Colors.dark.primary} />
+              ) : (
+                <Text style={availStyles.saveText}>Save</Text>
+              )}
+            </Pressable>
+          </View>
+          <ScrollView
+            contentContainerStyle={availStyles.modalBody}
+            showsVerticalScrollIndicator={false}
+            keyboardShouldPersistTaps="handled"
+          >
+            {windows.sort((a, b) => (a.dayOfWeek === 0 ? 7 : a.dayOfWeek) - (b.dayOfWeek === 0 ? 7 : b.dayOfWeek)).map((w, idx) => {
+              const realIdx = windows.findIndex((x) => x.dayOfWeek === w.dayOfWeek);
+              return (
+                <View key={w.dayOfWeek} style={availStyles.dayRow}>
+                  <View style={availStyles.dayLeft}>
+                    <Switch
+                      value={w.isActive}
+                      onValueChange={(v) => updateWindow(realIdx, "isActive", v)}
+                      trackColor={{ false: Colors.dark.border, true: Colors.dark.primary + "80" }}
+                      thumbColor={w.isActive ? Colors.dark.primary : Colors.dark.textSecondary}
+                    />
+                    <Text style={[availStyles.dayName, !w.isActive && availStyles.dayNameDisabled]}>
+                      {DAY_NAMES[w.dayOfWeek]}
+                    </Text>
+                  </View>
+                  {w.isActive ? (
+                    <View style={availStyles.timeRow}>
+                      <TextInput
+                        style={availStyles.timeInput}
+                        value={w.startTime}
+                        onChangeText={(v) => updateWindow(realIdx, "startTime", v)}
+                        placeholder="09:00"
+                        placeholderTextColor={Colors.dark.textSecondary}
+                        keyboardType="numbers-and-punctuation"
+                        maxLength={5}
+                      />
+                      <Text style={availStyles.timeSep}>–</Text>
+                      <TextInput
+                        style={availStyles.timeInput}
+                        value={w.endTime}
+                        onChangeText={(v) => updateWindow(realIdx, "endTime", v)}
+                        placeholder="18:00"
+                        placeholderTextColor={Colors.dark.textSecondary}
+                        keyboardType="numbers-and-punctuation"
+                        maxLength={5}
+                      />
+                    </View>
+                  ) : (
+                    <Text style={availStyles.offLabel}>Off</Text>
+                  )}
+                </View>
+              );
+            })}
+          </ScrollView>
+        </View>
+      </Modal>
+    </View>
+  );
+}
+
+interface ShopService {
+  id: string;
+  name: string;
+  description: string | null;
+  durationMinutes: number | null;
+  price: string;
+  iconName: string | null;
+  isActive: boolean;
+}
+
+function ServiceMenuSection() {
+  const insets = useSafeAreaInsets();
+  const queryClient = useQueryClient();
+  const [showModal, setShowModal] = useState(false);
+  const [editingService, setEditingService] = useState<ShopService | null>(null);
+  const [svcName, setSvcName] = useState("");
+  const [svcDesc, setSvcDesc] = useState("");
+  const [svcDuration, setSvcDuration] = useState("");
+  const [svcPrice, setSvcPrice] = useState("");
+  const [svcIcon, setSvcIcon] = useState("build-outline");
+  const [saving, setSaving] = useState(false);
+
+  const { data: services = [], isLoading } = useQuery<ShopService[]>({
+    queryKey: ["/api/provider/services"],
+  });
+
+  const openCreate = () => {
+    setEditingService(null);
+    setSvcName("");
+    setSvcDesc("");
+    setSvcDuration("");
+    setSvcPrice("");
+    setSvcIcon("build-outline");
+    setShowModal(true);
+  };
+
+  const openEdit = (svc: ShopService) => {
+    setEditingService(svc);
+    setSvcName(svc.name);
+    setSvcDesc(svc.description ?? "");
+    setSvcDuration(svc.durationMinutes ? String(svc.durationMinutes) : "");
+    setSvcPrice(String(parseFloat(svc.price).toFixed(2)));
+    setSvcIcon(svc.iconName ?? "build-outline");
+    setShowModal(true);
+  };
+
+  const handleSave = async () => {
+    if (!svcName.trim()) {
+      Alert.alert("Name required", "Please enter a service name.");
+      return;
+    }
+    const price = parseFloat(svcPrice);
+    if (isNaN(price) || price <= 0) {
+      Alert.alert("Invalid price", "Please enter a valid price.");
+      return;
+    }
+    setSaving(true);
+    try {
+      if (editingService) {
+        const res = await apiRequest("PATCH", `/api/provider/services/${editingService.id}`, {
+          name: svcName.trim(),
+          description: svcDesc.trim() || null,
+          durationMinutes: svcDuration ? parseInt(svcDuration) : null,
+          price,
+          iconName: svcIcon,
+        });
+        if (!res.ok) throw new Error("Failed");
+      } else {
+        const res = await apiRequest("POST", "/api/provider/services", {
+          name: svcName.trim(),
+          description: svcDesc.trim() || null,
+          durationMinutes: svcDuration ? parseInt(svcDuration) : null,
+          price,
+          iconName: svcIcon,
+        });
+        if (!res.ok) throw new Error("Failed");
+      }
+      await queryClient.invalidateQueries({ queryKey: ["/api/provider/services"] });
+      setShowModal(false);
+    } catch {
+      Alert.alert("Error", "Could not save service. Please try again.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleDelete = (svc: ShopService) => {
+    Alert.alert("Remove Service", `Remove "${svc.name}" from your menu?`, [
+      { text: "Cancel", style: "cancel" },
+      {
+        text: "Remove",
+        style: "destructive",
+        onPress: async () => {
+          try {
+            await apiRequest("DELETE", `/api/provider/services/${svc.id}`, {});
+            queryClient.invalidateQueries({ queryKey: ["/api/provider/services"] });
+          } catch {
+            Alert.alert("Error", "Could not remove service.");
+          }
+        },
+      },
+    ]);
+  };
+
+  const SERVICE_ICONS: Array<keyof typeof Ionicons.glyphMap> = [
+    "body-outline", "fitness-outline", "medkit-outline", "heart-outline",
+    "ribbon-outline", "star-outline", "flash-outline", "barbell-outline",
+    "bicycle-outline", "walk-outline", "build-outline", "settings-outline",
+  ];
+
+  return (
+    <View style={[styles.section, { marginBottom: Spacing.lg }]}>
+      <View style={styles.sectionLabelRow}>
+        <Text style={styles.sectionLabel}>MY SERVICES</Text>
+        <Pressable style={styles.editSpecsBtn} onPress={openCreate}>
+          <Ionicons name="add" size={13} color={Colors.dark.primary} />
+          <Text style={styles.editSpecsBtnText}>Add</Text>
+        </Pressable>
+      </View>
+      {isLoading ? (
+        <ActivityIndicator color={Colors.dark.primary} style={{ marginTop: Spacing.sm }} />
+      ) : services.length === 0 ? (
+        <Pressable style={svcStyles.emptyCard} onPress={openCreate}>
+          <Ionicons name="add-circle-outline" size={20} color={Colors.dark.primary} />
+          <Text style={svcStyles.emptyText}>Add your first service to the shop</Text>
+        </Pressable>
+      ) : (
+        <View style={svcStyles.serviceList}>
+          {services.map((svc) => (
+            <View key={svc.id} style={svcStyles.serviceCard}>
+              <View style={svcStyles.serviceIconBox}>
+                <Ionicons
+                  name={(svc.iconName ?? "build-outline") as keyof typeof Ionicons.glyphMap}
+                  size={18}
+                  color={Colors.dark.primary}
+                />
+              </View>
+              <View style={svcStyles.serviceInfo}>
+                <Text style={svcStyles.serviceName} numberOfLines={1}>{svc.name}</Text>
+                <View style={svcStyles.serviceMeta}>
+                  <Text style={svcStyles.servicePrice}>AED {parseFloat(svc.price).toFixed(0)}</Text>
+                  {svc.durationMinutes ? (
+                    <Text style={svcStyles.serviceDuration}>{svc.durationMinutes} min</Text>
+                  ) : null}
+                </View>
+              </View>
+              <Pressable style={svcStyles.editBtn} onPress={() => openEdit(svc)}>
+                <Ionicons name="pencil-outline" size={14} color={Colors.dark.primary} />
+              </Pressable>
+              <Pressable style={svcStyles.deleteBtn} onPress={() => handleDelete(svc)}>
+                <Ionicons name="trash-outline" size={14} color={Colors.dark.error} />
+              </Pressable>
+            </View>
+          ))}
+        </View>
+      )}
+
+      <Modal visible={showModal} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => setShowModal(false)}>
+        <View style={[svcStyles.modalContainer, { paddingTop: insets.top + Spacing.sm }]}>
+          <View style={svcStyles.modalHeader}>
+            <Pressable onPress={() => setShowModal(false)}>
+              <Text style={svcStyles.cancelText}>Cancel</Text>
+            </Pressable>
+            <Text style={svcStyles.modalTitle}>{editingService ? "Edit Service" : "New Service"}</Text>
+            <Pressable onPress={handleSave} disabled={saving} style={{ opacity: saving ? 0.5 : 1 }}>
+              {saving ? (
+                <ActivityIndicator size="small" color={Colors.dark.primary} />
+              ) : (
+                <Text style={svcStyles.saveText}>Save</Text>
+              )}
+            </Pressable>
+          </View>
+          <ScrollView
+            contentContainerStyle={svcStyles.modalBody}
+            keyboardShouldPersistTaps="handled"
+            showsVerticalScrollIndicator={false}
+          >
+            <View style={svcStyles.field}>
+              <Text style={svcStyles.fieldLabel}>Service Name</Text>
+              <TextInput
+                style={svcStyles.input}
+                value={svcName}
+                onChangeText={setSvcName}
+                placeholder="e.g. Deep Tissue Massage"
+                placeholderTextColor={Colors.dark.textSecondary}
+                maxLength={60}
+              />
+            </View>
+            <View style={svcStyles.field}>
+              <Text style={svcStyles.fieldLabel}>Description</Text>
+              <TextInput
+                style={[svcStyles.input, { height: 80, paddingTop: 12 }]}
+                value={svcDesc}
+                onChangeText={setSvcDesc}
+                placeholder="What does this service include?"
+                placeholderTextColor={Colors.dark.textSecondary}
+                multiline
+                numberOfLines={3}
+                maxLength={200}
+                textAlignVertical="top"
+              />
+            </View>
+            <View style={svcStyles.fieldRow}>
+              <View style={[svcStyles.field, { flex: 1 }]}>
+                <Text style={svcStyles.fieldLabel}>Price (AED)</Text>
+                <TextInput
+                  style={svcStyles.input}
+                  value={svcPrice}
+                  onChangeText={setSvcPrice}
+                  placeholder="0.00"
+                  placeholderTextColor={Colors.dark.textSecondary}
+                  keyboardType="decimal-pad"
+                  maxLength={10}
+                />
+              </View>
+              <View style={[svcStyles.field, { flex: 1 }]}>
+                <Text style={svcStyles.fieldLabel}>Duration (min)</Text>
+                <TextInput
+                  style={svcStyles.input}
+                  value={svcDuration}
+                  onChangeText={setSvcDuration}
+                  placeholder="60"
+                  placeholderTextColor={Colors.dark.textSecondary}
+                  keyboardType="number-pad"
+                  maxLength={4}
+                />
+              </View>
+            </View>
+            <View style={svcStyles.field}>
+              <Text style={svcStyles.fieldLabel}>Icon</Text>
+              <View style={svcStyles.iconGrid}>
+                {SERVICE_ICONS.map((icon) => (
+                  <Pressable
+                    key={icon}
+                    style={[
+                      svcStyles.iconOption,
+                      svcIcon === icon && svcStyles.iconOptionSelected,
+                    ]}
+                    onPress={() => setSvcIcon(icon)}
+                  >
+                    <Ionicons name={icon} size={20} color={svcIcon === icon ? "#000" : Colors.dark.textSecondary} />
+                  </Pressable>
+                ))}
+              </View>
+            </View>
+          </ScrollView>
+        </View>
+      </Modal>
+    </View>
+  );
+}
+
 export default function ProviderProfileScreen() {
   const insets = useSafeAreaInsets();
   const { signOut, user } = useAuth();
@@ -502,6 +915,14 @@ export default function ProviderProfileScreen() {
               ) : null}
             </View>
           </View>
+        </Animated.View>
+
+        <Animated.View entering={FadeInUp.delay(260).duration(300)}>
+          <AvailabilitySection />
+        </Animated.View>
+
+        <Animated.View entering={FadeInUp.delay(270).duration(300)}>
+          <ServiceMenuSection />
         </Animated.View>
 
         <Animated.View entering={FadeInUp.delay(280).duration(300)}>
@@ -908,4 +1329,242 @@ const styles = StyleSheet.create({
     borderColor: Colors.dark.error + "30",
   },
   signOutText: { fontSize: 16, fontWeight: "600", color: Colors.dark.error },
+});
+
+const availStyles = StyleSheet.create({
+  summaryCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.md,
+    backgroundColor: Colors.dark.backgroundSecondary,
+    borderRadius: 14,
+    padding: Spacing.md,
+  },
+  summaryTitle: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: Colors.dark.text,
+  },
+  summaryDays: {
+    fontSize: 12,
+    color: Colors.dark.textSecondary,
+    marginTop: 2,
+  },
+  modalContainer: {
+    flex: 1,
+    backgroundColor: Colors.dark.backgroundRoot,
+  },
+  modalHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: Spacing.lg,
+    paddingVertical: Spacing.md,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.dark.border,
+  },
+  modalTitle: {
+    fontSize: 17,
+    fontWeight: "700",
+    color: Colors.dark.text,
+  },
+  cancelText: { fontSize: 16, color: Colors.dark.textSecondary },
+  saveText: { fontSize: 16, fontWeight: "700", color: Colors.dark.primary },
+  modalBody: {
+    paddingHorizontal: Spacing.lg,
+    paddingTop: Spacing.md,
+    paddingBottom: 120,
+    gap: Spacing.sm,
+  },
+  dayRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    backgroundColor: Colors.dark.backgroundSecondary,
+    borderRadius: 12,
+    padding: Spacing.sm,
+    paddingHorizontal: Spacing.md,
+    marginBottom: Spacing.xs,
+  },
+  dayLeft: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+    width: 90,
+  },
+  dayName: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: Colors.dark.text,
+  },
+  dayNameDisabled: {
+    color: Colors.dark.textSecondary,
+  },
+  timeRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.xs,
+  },
+  timeInput: {
+    backgroundColor: Colors.dark.backgroundDefault,
+    borderRadius: 8,
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 8,
+    fontSize: 14,
+    color: Colors.dark.text,
+    width: 64,
+    textAlign: "center",
+    borderWidth: 1,
+    borderColor: Colors.dark.border,
+  },
+  timeSep: {
+    color: Colors.dark.textSecondary,
+    fontSize: 16,
+    fontWeight: "600",
+  },
+  offLabel: {
+    fontSize: 13,
+    color: Colors.dark.textSecondary,
+    fontWeight: "500",
+  },
+});
+
+const svcStyles = StyleSheet.create({
+  emptyCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+    backgroundColor: Colors.dark.backgroundSecondary,
+    borderRadius: 14,
+    padding: Spacing.md,
+    borderWidth: 1,
+    borderColor: Colors.dark.border,
+    borderStyle: "dashed",
+  },
+  emptyText: {
+    fontSize: 14,
+    color: Colors.dark.primary,
+    fontWeight: "500",
+  },
+  serviceList: {
+    gap: Spacing.sm,
+  },
+  serviceCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+    backgroundColor: Colors.dark.backgroundSecondary,
+    borderRadius: 14,
+    padding: Spacing.md,
+  },
+  serviceIconBox: {
+    width: 38,
+    height: 38,
+    borderRadius: 10,
+    backgroundColor: Colors.dark.primary + "15",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  serviceInfo: {
+    flex: 1,
+    gap: 3,
+  },
+  serviceName: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: Colors.dark.text,
+  },
+  serviceMeta: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+  },
+  servicePrice: {
+    fontSize: 13,
+    fontWeight: "700",
+    color: Colors.dark.primary,
+  },
+  serviceDuration: {
+    fontSize: 12,
+    color: Colors.dark.textSecondary,
+  },
+  editBtn: {
+    padding: 6,
+    borderRadius: 8,
+    backgroundColor: Colors.dark.primary + "15",
+  },
+  deleteBtn: {
+    padding: 6,
+    borderRadius: 8,
+    backgroundColor: Colors.dark.error + "15",
+  },
+  modalContainer: {
+    flex: 1,
+    backgroundColor: Colors.dark.backgroundRoot,
+  },
+  modalHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: Spacing.lg,
+    paddingVertical: Spacing.md,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.dark.border,
+  },
+  modalTitle: {
+    fontSize: 17,
+    fontWeight: "700",
+    color: Colors.dark.text,
+  },
+  cancelText: { fontSize: 16, color: Colors.dark.textSecondary },
+  saveText: { fontSize: 16, fontWeight: "700", color: Colors.dark.primary },
+  modalBody: {
+    paddingHorizontal: Spacing.lg,
+    paddingTop: Spacing.lg,
+    paddingBottom: 120,
+    gap: Spacing.lg,
+  },
+  field: {
+    gap: Spacing.sm,
+  },
+  fieldRow: {
+    flexDirection: "row",
+    gap: Spacing.md,
+  },
+  fieldLabel: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: Colors.dark.textSecondary,
+    textTransform: "uppercase",
+    letterSpacing: 0.8,
+  },
+  input: {
+    backgroundColor: Colors.dark.backgroundSecondary,
+    borderRadius: 12,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: 14,
+    fontSize: 15,
+    color: Colors.dark.text,
+    borderWidth: 1,
+    borderColor: Colors.dark.border,
+  },
+  iconGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: Spacing.sm,
+  },
+  iconOption: {
+    width: 46,
+    height: 46,
+    borderRadius: 12,
+    backgroundColor: Colors.dark.backgroundSecondary,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1,
+    borderColor: Colors.dark.border,
+  },
+  iconOptionSelected: {
+    backgroundColor: Colors.dark.primary,
+    borderColor: Colors.dark.primary,
+  },
 });

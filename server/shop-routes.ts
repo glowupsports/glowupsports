@@ -1,8 +1,8 @@
 import { Router, Request, Response, NextFunction } from "express";
 import { db } from "./db";
 import { 
-  shopCategories, shopProducts, shopServices, shopOrders, shopOrderItems, shopWishlist,
-  serviceProviders, providerClientNotes, providerClientPreferences,
+  shopCategories, shopProducts, shopServices, shopOrders, shopOrderItems, shopWishlist, shopOrderUpsells,
+  serviceProviders, providerClientNotes, providerClientPreferences, providerAvailability,
   insertShopCategorySchema, insertShopProductSchema, insertShopServiceSchema,
   players, users, academies, conversations, conversationParticipants, messages
 } from "../shared/schema";
@@ -24,6 +24,7 @@ import {
   JWTPayload 
 } from "./auth";
 import { broadcastProviderPlayerMessage } from "./websocket";
+import { sendPushNotification, getPlayerPushTokens } from "./pushNotifications";
 
 const router = Router();
 
@@ -276,7 +277,13 @@ router.get("/player/shop/services/:id", authMiddleware, requirePlayerProfile, re
 
     if (!service[0]) return res.status(404).json({ error: "Service not found" });
 
-    res.json(service[0]);
+    // Attach suggestedProviderId: if the academy has exactly one active provider, include it
+    // so the client can include it in booking requests for availability enforcement
+    const academyProviders = await db.select({ id: serviceProviders.id }).from(serviceProviders)
+      .where(and(eq(serviceProviders.academyId, player[0].academyId), eq(serviceProviders.isActive, true)));
+    const suggestedProviderId = academyProviders.length === 1 ? academyProviders[0].id : null;
+
+    res.json({ ...service[0], suggestedProviderId });
   } catch (error) {
     console.error("[Shop] Error fetching service:", error);
     res.status(500).json({ error: "Failed to load service" });
@@ -653,7 +660,7 @@ router.get("/player/shop/orders/:id", authMiddleware, requirePlayerProfile, requ
 // Create order (cart checkout / service booking)
 router.post("/player/shop/orders", authMiddleware, requirePlayerProfile, requireFeatureUnlock("academy_shop"), async (req: AuthRequest, res: Response) => {
   try {
-    const { items, contactName, contactPhone, contactEmail, notes, scheduledAt } = req.body;
+    const { items, contactName, contactPhone, contactEmail, notes, scheduledAt, providerId: rawProviderId } = req.body;
     
     if (!items || !Array.isArray(items) || items.length === 0) {
       return res.status(400).json({ error: "Cart is empty" });
@@ -664,6 +671,85 @@ router.post("/player/shop/orders", authMiddleware, requirePlayerProfile, require
       return res.status(400).json({ error: "Player has no academy" });
     }
     const academyId = player[0].academyId;
+
+    // Validate and resolve providerId — must belong to the same academy
+    let providerId: string | null = null;
+    if (rawProviderId) {
+      const providerRecord = await db.select().from(serviceProviders)
+        .where(and(eq(serviceProviders.id, rawProviderId), eq(serviceProviders.academyId, academyId)))
+        .limit(1);
+      if (!providerRecord[0]) {
+        return res.status(400).json({ error: "Invalid provider for this academy" });
+      }
+      providerId = providerRecord[0].id;
+    } else if (scheduledAt) {
+      // No explicit provider given — auto-detect if the academy has exactly one provider
+      const academyProviders = await db.select().from(serviceProviders)
+        .where(and(eq(serviceProviders.academyId, academyId), eq(serviceProviders.isActive, true)));
+      if (academyProviders.length === 1) {
+        providerId = academyProviders[0].id;
+      }
+      // Multiple providers or none — skip availability enforcement
+    }
+
+    // Validate availability against resolved provider (if any)
+    if (scheduledAt && providerId) {
+      const requestedDate = new Date(scheduledAt);
+      if (!isNaN(requestedDate.getTime())) {
+        // Check if the provider has ANY availability configured at all
+        const allProviderWindows = await db.select().from(providerAvailability)
+          .where(eq(providerAvailability.providerId, providerId));
+
+        if (allProviderWindows.length > 0) {
+          // Fetch academy timezone so window comparison is in local time, not UTC
+          const academyRecord = await db.select({ timezone: academies.timezone })
+            .from(academies).where(eq(academies.id, academyId)).limit(1);
+          const tz = academyRecord[0]?.timezone ?? "Asia/Dubai";
+
+          // Convert UTC timestamp to academy local time components via Intl
+          const localParts = new Intl.DateTimeFormat("en-US", {
+            timeZone: tz,
+            weekday: "short",
+            hour: "2-digit",
+            minute: "2-digit",
+            hour12: false,
+          }).formatToParts(requestedDate);
+
+          const localWeekdayShort = localParts.find((p) => p.type === "weekday")?.value ?? "";
+          const localHour = parseInt(localParts.find((p) => p.type === "hour")?.value ?? "0", 10);
+          const localMinute = parseInt(localParts.find((p) => p.type === "minute")?.value ?? "0", 10);
+
+          const weekdayMap: Record<string, number> = {
+            Sun: 0, Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6,
+          };
+          const dayOfWeek = weekdayMap[localWeekdayShort] ?? -1;
+          const requestedMinutes = localHour * 60 + localMinute;
+
+          // Get only active windows for this day
+          const activeWindowsForDay = allProviderWindows.filter(
+            (w) => w.isActive && w.dayOfWeek === dayOfWeek
+          );
+
+          if (activeWindowsForDay.length === 0) {
+            // Provider has availability configured but this day is off (inactive)
+            return res.status(400).json({ error: "The provider is not available on the requested day" });
+          }
+
+          const inWindow = activeWindowsForDay.some((w) => {
+            const [startH, startM] = w.startTime.split(":").map(Number);
+            const [endH, endM] = w.endTime.split(":").map(Number);
+            const startMinutes = startH * 60 + startM;
+            const endMinutes = endH * 60 + endM;
+            return requestedMinutes >= startMinutes && requestedMinutes < endMinutes;
+          });
+
+          if (!inWindow) {
+            return res.status(400).json({ error: "The requested time is outside the provider's working hours" });
+          }
+        }
+        // If provider has no availability configured, no restriction is applied
+      }
+    }
 
     let subtotal = 0;
     const orderItems: {
@@ -748,6 +834,7 @@ router.post("/player/shop/orders", authMiddleware, requirePlayerProfile, require
       contactEmail,
       notes,
       scheduledAt: scheduledAt ? new Date(scheduledAt) : undefined,
+      assignedProviderId: providerId || null,
     }).returning();
 
     for (const item of orderItems) {
@@ -2241,5 +2328,398 @@ router.post("/provider/conversations/:id/read", authMiddleware, requireServicePr
 });
 
 // ==================== END PROVIDER CHAT ====================
+
+// ==================== PROVIDER AVAILABILITY ====================
+
+// GET /api/provider/availability
+router.get("/provider/availability", authMiddleware, requireServiceProvider, async (req: AuthRequest, res: Response) => {
+  try {
+    const provider = await getProviderRecord(req.user!.userId);
+    if (!provider) return res.status(404).json({ error: "Provider not found" });
+
+    const rows = await db.select().from(providerAvailability)
+      .where(eq(providerAvailability.providerId, provider.id))
+      .orderBy(asc(providerAvailability.dayOfWeek));
+
+    res.json(rows);
+  } catch (error) {
+    console.error("[Availability] GET error:", error);
+    res.status(500).json({ error: "Failed to load availability" });
+  }
+});
+
+// PUT /api/provider/availability — replace all availability windows for this provider
+router.put("/provider/availability", authMiddleware, requireServiceProvider, async (req: AuthRequest, res: Response) => {
+  try {
+    const provider = await getProviderRecord(req.user!.userId);
+    if (!provider) return res.status(404).json({ error: "Provider not found" });
+
+    const { windows } = req.body as {
+      windows: Array<{ dayOfWeek: number; startTime: string; endTime: string; isActive?: boolean }>;
+    };
+
+    if (!Array.isArray(windows)) {
+      return res.status(400).json({ error: "windows array is required" });
+    }
+
+    const timeRe = /^([01]\d|2[0-3]):[0-5]\d$/;
+    for (const w of windows) {
+      if (typeof w.dayOfWeek !== "number" || w.dayOfWeek < 0 || w.dayOfWeek > 6) {
+        return res.status(400).json({ error: "dayOfWeek must be 0 (Sun) – 6 (Sat)" });
+      }
+      if (!timeRe.test(w.startTime) || !timeRe.test(w.endTime)) {
+        return res.status(400).json({ error: "startTime and endTime must be in HH:mm format" });
+      }
+      const [sh, sm] = w.startTime.split(":").map(Number);
+      const [eh, em] = w.endTime.split(":").map(Number);
+      if (sh * 60 + sm >= eh * 60 + em) {
+        return res.status(400).json({ error: "startTime must be before endTime" });
+      }
+    }
+
+    await db.transaction(async (tx) => {
+      await tx.delete(providerAvailability).where(eq(providerAvailability.providerId, provider.id));
+      if (windows.length > 0) {
+        await tx.insert(providerAvailability).values(
+          windows.map((w) => ({
+            providerId: provider.id,
+            dayOfWeek: w.dayOfWeek,
+            startTime: w.startTime,
+            endTime: w.endTime,
+            isActive: w.isActive !== false,
+          }))
+        );
+      }
+    });
+
+    const rows = await db.select().from(providerAvailability)
+      .where(eq(providerAvailability.providerId, provider.id))
+      .orderBy(asc(providerAvailability.dayOfWeek));
+
+    res.json(rows);
+  } catch (error) {
+    console.error("[Availability] PUT error:", error);
+    res.status(500).json({ error: "Failed to save availability" });
+  }
+});
+
+// GET /api/provider/:providerId/availability — public read for booking validation
+router.get("/providers/:providerId/availability", authMiddleware, async (req: AuthRequest, res: Response) => {
+  try {
+    const { providerId } = req.params;
+    const rows = await db.select().from(providerAvailability)
+      .where(and(eq(providerAvailability.providerId, providerId), eq(providerAvailability.isActive, true)))
+      .orderBy(asc(providerAvailability.dayOfWeek));
+    res.json(rows);
+  } catch (error) {
+    console.error("[Availability] Public GET error:", error);
+    res.status(500).json({ error: "Failed to load availability" });
+  }
+});
+
+// ==================== PROVIDER SERVICE MENU ====================
+
+// GET /api/provider/services — list services for this provider (by academy)
+router.get("/provider/services", authMiddleware, requireServiceProvider, async (req: AuthRequest, res: Response) => {
+  try {
+    const provider = await getProviderRecord(req.user!.userId);
+    if (!provider) return res.status(404).json({ error: "Provider not found" });
+
+    const services = await db.select().from(shopServices)
+      .where(and(eq(shopServices.academyId, provider.academyId), eq(shopServices.isActive, true)))
+      .orderBy(asc(shopServices.order), asc(shopServices.name));
+
+    res.json(services);
+  } catch (error) {
+    console.error("[ServiceMenu] GET error:", error);
+    res.status(500).json({ error: "Failed to load services" });
+  }
+});
+
+// POST /api/provider/services — create a new service entry
+router.post("/provider/services", authMiddleware, requireServiceProvider, async (req: AuthRequest, res: Response) => {
+  try {
+    const provider = await getProviderRecord(req.user!.userId);
+    if (!provider) return res.status(404).json({ error: "Provider not found" });
+
+    const { name, description, durationMinutes, price, iconName } = req.body;
+
+    if (!name || !price) {
+      return res.status(400).json({ error: "name and price are required" });
+    }
+
+    const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") + "-" + Date.now();
+
+    const [service] = await db.insert(shopServices).values({
+      academyId: provider.academyId,
+      name: String(name),
+      slug,
+      description: description ? String(description) : null,
+      price: String(parseFloat(String(price)).toFixed(2)),
+      durationMinutes: durationMinutes ? Number(durationMinutes) : null,
+      iconName: iconName ? String(iconName) : "build",
+      isActive: true,
+      isFeatured: false,
+      requiresBooking: true,
+    }).returning();
+
+    res.status(201).json(service);
+  } catch (error) {
+    console.error("[ServiceMenu] POST error:", error);
+    res.status(500).json({ error: "Failed to create service" });
+  }
+});
+
+// PATCH /api/provider/services/:id — update a service
+router.patch("/provider/services/:id", authMiddleware, requireServiceProvider, async (req: AuthRequest, res: Response) => {
+  try {
+    const provider = await getProviderRecord(req.user!.userId);
+    if (!provider) return res.status(404).json({ error: "Provider not found" });
+
+    const { id } = req.params;
+    const { name, description, durationMinutes, price, iconName, isActive } = req.body;
+
+    const [existing] = await db.select({ id: shopServices.id })
+      .from(shopServices)
+      .where(and(eq(shopServices.id, id), eq(shopServices.academyId, provider.academyId)))
+      .limit(1);
+
+    if (!existing) return res.status(404).json({ error: "Service not found" });
+
+    const updateData: Record<string, unknown> = { updatedAt: new Date() };
+    if (name !== undefined) updateData.name = String(name);
+    if (description !== undefined) updateData.description = description ? String(description) : null;
+    if (durationMinutes !== undefined) updateData.durationMinutes = durationMinutes !== null ? Number(durationMinutes) : null;
+    if (price !== undefined) updateData.price = String(parseFloat(String(price)).toFixed(2));
+    if (iconName !== undefined) updateData.iconName = String(iconName);
+    if (isActive !== undefined) updateData.isActive = Boolean(isActive);
+
+    const [updated] = await db.update(shopServices).set(updateData)
+      .where(and(eq(shopServices.id, id), eq(shopServices.academyId, provider.academyId)))
+      .returning();
+
+    res.json(updated);
+  } catch (error) {
+    console.error("[ServiceMenu] PATCH error:", error);
+    res.status(500).json({ error: "Failed to update service" });
+  }
+});
+
+// DELETE /api/provider/services/:id — delete a service
+router.delete("/provider/services/:id", authMiddleware, requireServiceProvider, async (req: AuthRequest, res: Response) => {
+  try {
+    const provider = await getProviderRecord(req.user!.userId);
+    if (!provider) return res.status(404).json({ error: "Provider not found" });
+
+    const { id } = req.params;
+
+    const [existing] = await db.select({ id: shopServices.id })
+      .from(shopServices)
+      .where(and(eq(shopServices.id, id), eq(shopServices.academyId, provider.academyId)))
+      .limit(1);
+
+    if (!existing) return res.status(404).json({ error: "Service not found" });
+
+    await db.update(shopServices).set({ isActive: false, updatedAt: new Date() })
+      .where(and(eq(shopServices.id, id), eq(shopServices.academyId, provider.academyId)));
+
+    res.json({ success: true });
+  } catch (error) {
+    console.error("[ServiceMenu] DELETE error:", error);
+    res.status(500).json({ error: "Failed to delete service" });
+  }
+});
+
+// ==================== PROVIDER UPSELL ====================
+
+// POST /api/provider/bookings/:orderId/upsell — propose a pending upsell to the player
+router.post("/provider/bookings/:orderId/upsell", authMiddleware, requireServiceProvider, async (req: AuthRequest, res: Response) => {
+  try {
+    const provider = await getProviderRecord(req.user!.userId);
+    if (!provider) return res.status(404).json({ error: "Provider not found" });
+
+    const { orderId } = req.params;
+    const { label, price, serviceId } = req.body;
+
+    if (!label || price === undefined) {
+      return res.status(400).json({ error: "label and price are required" });
+    }
+
+    const parsedPrice = parseFloat(String(price));
+    if (isNaN(parsedPrice) || parsedPrice <= 0) {
+      return res.status(400).json({ error: "price must be a positive number" });
+    }
+
+    const [order] = await db.select().from(shopOrders)
+      .where(and(
+        eq(shopOrders.id, orderId),
+        eq(shopOrders.assignedProviderId, provider.id),
+      ))
+      .limit(1);
+
+    if (!order) return res.status(404).json({ error: "Booking not found" });
+    if (order.status !== "confirmed") {
+      return res.status(409).json({ error: "Can only add extras to confirmed bookings" });
+    }
+
+    const priceStr = parsedPrice.toFixed(2);
+
+    const [upsell] = await db.insert(shopOrderUpsells).values({
+      orderId,
+      providerId: provider.id,
+      serviceId: serviceId || null,
+      label: String(label),
+      price: priceStr,
+      status: "pending",
+    }).returning();
+
+    // Notify the player about the proposed extra
+    if (order.playerId) {
+      try {
+        const tokens = await getPlayerPushTokens(order.playerId);
+        if (tokens.length > 0) {
+          await sendPushNotification(
+            tokens,
+            "Extra Service Proposed",
+            `Your provider suggested "${String(label)}" (AED ${priceStr}) for booking #${order.orderNumber}. Tap to accept or decline.`,
+            { type: "upsell_request", orderId, upsellId: upsell.id },
+            order.playerId
+          );
+        }
+      } catch (notifErr) {
+        console.error("[Upsell] Failed to send notification:", notifErr);
+      }
+    }
+
+    res.json({ upsell });
+  } catch (error) {
+    console.error("[Upsell] POST error:", error);
+    res.status(500).json({ error: "Failed to propose extra" });
+  }
+});
+
+// GET /api/provider/bookings/:orderId/upsells — list all upsell requests for a booking
+router.get("/provider/bookings/:orderId/upsells", authMiddleware, requireServiceProvider, async (req: AuthRequest, res: Response) => {
+  try {
+    const provider = await getProviderRecord(req.user!.userId);
+    if (!provider) return res.status(404).json({ error: "Provider not found" });
+
+    const { orderId } = req.params;
+
+    const [order] = await db.select().from(shopOrders)
+      .where(and(
+        eq(shopOrders.id, orderId),
+        eq(shopOrders.assignedProviderId, provider.id),
+      ))
+      .limit(1);
+
+    if (!order) return res.status(404).json({ error: "Booking not found" });
+
+    const upsells = await db.select().from(shopOrderUpsells)
+      .where(eq(shopOrderUpsells.orderId, orderId))
+      .orderBy(desc(shopOrderUpsells.createdAt));
+
+    res.json(upsells);
+  } catch (error) {
+    console.error("[Upsell] GET error:", error);
+    res.status(500).json({ error: "Failed to load upsells" });
+  }
+});
+
+// GET /api/player/shop/orders/:orderId/upsells — player views pending upsell requests
+router.get("/player/shop/orders/:orderId/upsells", authMiddleware, requirePlayerProfile, async (req: AuthRequest, res: Response) => {
+  try {
+    const { orderId } = req.params;
+
+    const [order] = await db.select().from(shopOrders)
+      .where(and(
+        eq(shopOrders.id, orderId),
+        eq(shopOrders.playerId, req.user!.playerId!),
+      ))
+      .limit(1);
+
+    if (!order) return res.status(404).json({ error: "Order not found" });
+
+    const upsells = await db.select().from(shopOrderUpsells)
+      .where(eq(shopOrderUpsells.orderId, orderId))
+      .orderBy(desc(shopOrderUpsells.createdAt));
+
+    res.json(upsells);
+  } catch (error) {
+    console.error("[Upsell] Player GET error:", error);
+    res.status(500).json({ error: "Failed to load upsells" });
+  }
+});
+
+// POST /api/player/shop/orders/:orderId/upsells/:upsellId/respond — player approves or declines
+router.post("/player/shop/orders/:orderId/upsells/:upsellId/respond", authMiddleware, requirePlayerProfile, async (req: AuthRequest, res: Response) => {
+  try {
+    const { orderId, upsellId } = req.params;
+    const { action } = req.body; // "approve" | "decline"
+
+    if (action !== "approve" && action !== "decline") {
+      return res.status(400).json({ error: "action must be 'approve' or 'decline'" });
+    }
+
+    const [order] = await db.select().from(shopOrders)
+      .where(and(
+        eq(shopOrders.id, orderId),
+        eq(shopOrders.playerId, req.user!.playerId!),
+      ))
+      .limit(1);
+
+    if (!order) return res.status(404).json({ error: "Order not found" });
+
+    const [upsell] = await db.select().from(shopOrderUpsells)
+      .where(and(
+        eq(shopOrderUpsells.id, upsellId),
+        eq(shopOrderUpsells.orderId, orderId),
+      ))
+      .limit(1);
+
+    if (!upsell) return res.status(404).json({ error: "Upsell request not found" });
+    if (upsell.status !== "pending") {
+      return res.status(409).json({ error: "This upsell has already been responded to" });
+    }
+
+    const newStatus = action === "approve" ? "approved" : "declined";
+
+    await db.transaction(async (tx) => {
+      await tx.update(shopOrderUpsells)
+        .set({ status: newStatus, respondedAt: new Date() })
+        .where(eq(shopOrderUpsells.id, upsellId));
+
+      if (action === "approve") {
+        const priceStr = upsell.price;
+
+        await tx.insert(shopOrderItems).values({
+          orderId,
+          itemType: "service",
+          name: upsell.label,
+          serviceId: upsell.serviceId || null,
+          quantity: 1,
+          unitPrice: priceStr,
+          totalPrice: priceStr,
+        });
+
+        await tx.update(shopOrders)
+          .set({
+            total: sql`${shopOrders.total} + ${priceStr}::numeric`,
+            subtotal: sql`${shopOrders.subtotal} + ${priceStr}::numeric`,
+            updatedAt: new Date(),
+          })
+          .where(eq(shopOrders.id, orderId));
+      }
+    });
+
+    const [updatedOrder] = await db.select().from(shopOrders).where(eq(shopOrders.id, orderId)).limit(1);
+    const items = await db.select().from(shopOrderItems).where(eq(shopOrderItems.orderId, orderId));
+
+    res.json({ order: updatedOrder, items, upsellStatus: newStatus });
+  } catch (error) {
+    console.error("[Upsell] Player respond error:", error);
+    res.status(500).json({ error: "Failed to respond to upsell" });
+  }
+});
 
 export default router;

@@ -56,6 +56,7 @@ import QuestsScreen from "@/player/screens/QuestsScreen";
 import ShopScreen from "@/player/screens/ShopScreen";
 import ProductDetailScreen from "@/player/screens/ProductDetailScreen";
 import ServiceDetailScreen from "@/player/screens/ServiceDetailScreen";
+import PlayerOrderDetailScreen from "@/player/screens/PlayerOrderDetailScreen";
 import CartScreen from "@/player/screens/CartScreen";
 import ShopCategoryScreen from "@/player/screens/ShopCategoryScreen";
 import MarketplaceScreen from "@/player/screens/MarketplaceScreen";
@@ -184,6 +185,7 @@ export type PlayerStackParamList = {
   Shop: undefined;
   ProductDetail: { productId: string };
   ServiceDetail: { serviceId: string };
+  PlayerOrderDetail: { orderId: string };
   Cart: undefined;
   ShopCategory: { categoryId: string; categoryName: string };
   Marketplace: undefined;
@@ -845,6 +847,18 @@ function PlayerStackNavigator() {
           presentation: "card",
           headerShown: true,
           headerTitle: "Service",
+          headerStyle: { backgroundColor: '#090E17' },
+          headerTintColor: '#CCFF00',
+          headerTitleStyle: { color: '#ffffff', fontWeight: '600' },
+        }}
+      />
+      <Stack.Screen 
+        name="PlayerOrderDetail" 
+        component={PlayerOrderDetailScreen}
+        options={{
+          presentation: "card",
+          headerShown: true,
+          headerTitle: "Booking Detail",
           headerStyle: { backgroundColor: '#090E17' },
           headerTintColor: '#CCFF00',
           headerTitleStyle: { color: '#ffffff', fontWeight: '600' },

@@ -7,6 +7,9 @@ import {
   Pressable,
   Alert,
   Image,
+  Modal,
+  TextInput,
+  ActivityIndicator,
 } from "react-native";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -132,6 +135,207 @@ interface CompletionToast {
   newBadges: string[];
 }
 
+interface CatalogService {
+  id: string;
+  name: string;
+  price: string;
+  iconName: string;
+  durationMinutes: number | null;
+}
+
+interface UpsellRequest {
+  id: string;
+  label: string;
+  price: string;
+  status: "pending" | "approved" | "declined";
+  serviceId: string | null;
+  createdAt: string;
+}
+
+function AddExtraModal({
+  visible,
+  orderId,
+  onClose,
+  onSuccess,
+}: {
+  visible: boolean;
+  orderId: string;
+  onClose: () => void;
+  onSuccess: () => void;
+}) {
+  const insets = useSafeAreaInsets();
+  const [label, setLabel] = useState("");
+  const [price, setPrice] = useState("");
+  const [selectedServiceId, setSelectedServiceId] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+
+  const { data: services } = useQuery<CatalogService[]>({
+    queryKey: ["/api/provider/services"],
+    enabled: visible,
+  });
+
+  const handleSelectService = (svc: CatalogService) => {
+    setSelectedServiceId(svc.id);
+    setLabel(svc.name);
+    setPrice(parseFloat(svc.price).toFixed(2));
+  };
+
+  const handleClearService = () => {
+    setSelectedServiceId(null);
+    setLabel("");
+    setPrice("");
+  };
+
+  const handleAdd = async () => {
+    const p = parseFloat(price);
+    if (!label.trim()) {
+      Alert.alert("Label required", "Please enter a description for the extra.");
+      return;
+    }
+    if (isNaN(p) || p <= 0) {
+      Alert.alert("Invalid price", "Please enter a valid price greater than 0.");
+      return;
+    }
+    setSaving(true);
+    try {
+      const res = await apiRequest("POST", `/api/provider/bookings/${orderId}/upsell`, {
+        label: label.trim(),
+        price: p,
+        serviceId: selectedServiceId,
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error ?? "Failed");
+      }
+      setLabel("");
+      setPrice("");
+      setSelectedServiceId(null);
+      onSuccess();
+    } catch (e: any) {
+      Alert.alert("Error", e.message ?? "Could not propose extra. Please try again.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <Modal visible={visible} animationType="slide" presentationStyle="pageSheet" onRequestClose={onClose}>
+      <View style={[addExtraStyles.container, { paddingTop: insets.top + Spacing.sm }]}>
+        <View style={addExtraStyles.header}>
+          <Pressable onPress={onClose} style={addExtraStyles.closeBtn}>
+            <Text style={addExtraStyles.cancelText}>Cancel</Text>
+          </Pressable>
+          <Text style={addExtraStyles.title}>Propose Extra</Text>
+          <Pressable
+            onPress={handleAdd}
+            style={[addExtraStyles.saveBtn, saving && { opacity: 0.5 }]}
+            disabled={saving}
+          >
+            {saving ? (
+              <ActivityIndicator size="small" color={Colors.dark.primary} />
+            ) : (
+              <Text style={addExtraStyles.saveText}>Send</Text>
+            )}
+          </Pressable>
+        </View>
+        <ScrollView
+          contentContainerStyle={addExtraStyles.body}
+          keyboardShouldPersistTaps="handled"
+        >
+          {services && services.length > 0 ? (
+            <View style={addExtraStyles.field}>
+              <Text style={addExtraStyles.label}>From Your Service Menu</Text>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginHorizontal: -Spacing.lg }} contentContainerStyle={{ paddingHorizontal: Spacing.lg, gap: Spacing.sm }}>
+                {services.map((svc) => (
+                  <Pressable
+                    key={svc.id}
+                    onPress={() => handleSelectService(svc)}
+                    style={[
+                      addExtraStyles.serviceChip,
+                      selectedServiceId === svc.id && addExtraStyles.serviceChipSelected,
+                    ]}
+                  >
+                    <Ionicons name={safeIoniconName(svc.iconName ?? "pricetag")} size={14} color={selectedServiceId === svc.id ? Colors.dark.backgroundDefault : Colors.dark.primary} />
+                    <Text style={[addExtraStyles.serviceChipText, selectedServiceId === svc.id && addExtraStyles.serviceChipTextSelected]}>
+                      {svc.name}
+                    </Text>
+                    <Text style={[addExtraStyles.serviceChipPrice, selectedServiceId === svc.id && { color: Colors.dark.backgroundDefault + "CC" }]}>
+                      AED {parseFloat(svc.price).toFixed(0)}
+                    </Text>
+                  </Pressable>
+                ))}
+              </ScrollView>
+              {selectedServiceId ? (
+                <Pressable onPress={handleClearService} style={addExtraStyles.clearBtn}>
+                  <Text style={addExtraStyles.clearBtnText}>Clear selection</Text>
+                </Pressable>
+              ) : null}
+            </View>
+          ) : null}
+
+          <View style={addExtraStyles.field}>
+            <Text style={addExtraStyles.label}>Description</Text>
+            <TextInput
+              style={addExtraStyles.input}
+              value={label}
+              onChangeText={setLabel}
+              placeholder="e.g. Extra 30 min, Aromatherapy add-on"
+              placeholderTextColor={Colors.dark.textSecondary}
+              maxLength={80}
+            />
+          </View>
+          <View style={addExtraStyles.field}>
+            <Text style={addExtraStyles.label}>Price (AED)</Text>
+            <TextInput
+              style={addExtraStyles.input}
+              value={price}
+              onChangeText={setPrice}
+              placeholder="0.00"
+              placeholderTextColor={Colors.dark.textSecondary}
+              keyboardType="decimal-pad"
+              maxLength={10}
+            />
+          </View>
+          <View style={addExtraStyles.infoCard}>
+            <Ionicons name="information-circle-outline" size={16} color={Colors.dark.primary} />
+            <Text style={addExtraStyles.infoText}>
+              The player will receive a request to approve this extra. The booking total updates only when they accept.
+            </Text>
+          </View>
+        </ScrollView>
+      </View>
+    </Modal>
+  );
+}
+
+function UpsellHistorySection({ orderId }: { orderId: string }) {
+  const { data: upsells } = useQuery<UpsellRequest[]>({
+    queryKey: [`/api/provider/bookings/${orderId}/upsells`],
+    refetchInterval: 10000,
+  });
+
+  if (!upsells || upsells.length === 0) return null;
+
+  return (
+    <View style={addExtraStyles.upsellSection}>
+      <Text style={addExtraStyles.upsellSectionTitle}>Proposed Extras</Text>
+      {upsells.map((u) => (
+        <View key={u.id} style={addExtraStyles.upsellRow}>
+          <View style={{ flex: 1, gap: 3 }}>
+            <Text style={addExtraStyles.upsellLabel}>{u.label}</Text>
+            <Text style={addExtraStyles.upsellPrice}>AED {parseFloat(u.price).toFixed(0)}</Text>
+          </View>
+          <View style={[addExtraStyles.upsellBadge, { backgroundColor: u.status === "approved" ? Colors.dark.primary + "20" : u.status === "declined" ? Colors.dark.error + "20" : Colors.dark.border }]}>
+            <Text style={[addExtraStyles.upsellBadgeText, { color: u.status === "approved" ? Colors.dark.primary : u.status === "declined" ? Colors.dark.error : Colors.dark.textSecondary }]}>
+              {u.status === "pending" ? "Awaiting approval" : u.status === "approved" ? "Approved" : "Declined"}
+            </Text>
+          </View>
+        </View>
+      ))}
+    </View>
+  );
+}
+
 export default function ProviderBookingDetailScreen() {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<any>();
@@ -139,6 +343,7 @@ export default function ProviderBookingDetailScreen() {
   const queryClient = useQueryClient();
   const orderId: string = route.params?.orderId;
   const [completionToast, setCompletionToast] = useState<CompletionToast | null>(null);
+  const [showAddExtra, setShowAddExtra] = useState(false);
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const toastQueue = useRef<CompletionToast[]>([]);
 
@@ -426,7 +631,15 @@ export default function ProviderBookingDetailScreen() {
           </Animated.View>
         ) : null}
 
-        {booking.player ? (
+        {booking.status === "confirmed" ? (
+          <Animated.View entering={FadeInUp.delay(310).duration(300)}>
+            <View style={styles.section}>
+              <UpsellHistorySection orderId={booking.id} />
+            </View>
+          </Animated.View>
+        ) : null}
+
+        {(booking.status === "confirmed" || booking.status === "completed") && booking.player ? (
           <Animated.View entering={FadeInUp.delay(320).duration(300)}>
             <View style={styles.section}>
               <Pressable
@@ -474,6 +687,17 @@ export default function ProviderBookingDetailScreen() {
         </Animated.View>
       ) : null}
 
+      <AddExtraModal
+        visible={showAddExtra}
+        orderId={orderId}
+        onClose={() => setShowAddExtra(false)}
+        onSuccess={() => {
+          setShowAddExtra(false);
+          queryClient.invalidateQueries({ queryKey: ["/api/provider/me/bookings"] });
+          queryClient.invalidateQueries({ queryKey: [`/api/provider/bookings/${orderId}/upsells`] });
+        }}
+      />
+
       {(booking.status === "pending" || booking.status === "confirmed") ? (
         <Animated.View
           entering={FadeInUp.delay(300).duration(300)}
@@ -515,13 +739,23 @@ export default function ProviderBookingDetailScreen() {
                 </Text>
               </Pressable>
               <Pressable
+                style={[styles.actionButton, styles.actionButtonSecondary]}
+                onPress={() => setShowAddExtra(true)}
+                disabled={statusMutation.isPending}
+              >
+                <Ionicons name="add-circle-outline" size={18} color={Colors.dark.primary} />
+                <Text style={[styles.actionButtonText, { color: Colors.dark.primary }]}>
+                  Add Extra
+                </Text>
+              </Pressable>
+              <Pressable
                 style={[styles.actionButton, styles.actionButtonPrimary]}
                 onPress={handleComplete}
                 disabled={statusMutation.isPending}
               >
                 <Ionicons name="checkmark-done" size={18} color={Colors.dark.backgroundDefault} />
                 <Text style={[styles.actionButtonText, { color: Colors.dark.backgroundDefault }]}>
-                  Mark Complete
+                  Complete
                 </Text>
               </Pressable>
             </>
@@ -741,15 +975,22 @@ const styles = StyleSheet.create({
   },
   actionButtonPrimary: {
     backgroundColor: Colors.dark.primary,
-    flex: 2,
+    flex: 1,
+  },
+  actionButtonSecondary: {
+    borderWidth: 1,
+    borderColor: Colors.dark.primary + "60",
+    backgroundColor: Colors.dark.primary + "10",
+    flex: 1,
   },
   actionButtonOutline: {
     borderWidth: 1,
     borderColor: Colors.dark.error + "60",
     backgroundColor: Colors.dark.error + "10",
+    flex: 1,
   },
   actionButtonText: {
-    fontSize: 15,
+    fontSize: 13,
     fontWeight: "600",
   },
   achievementToast: {
@@ -800,5 +1041,142 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: "700",
     color: Colors.dark.backgroundDefault,
+  },
+});
+
+const addExtraStyles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: Colors.dark.backgroundRoot,
+  },
+  header: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: Spacing.lg,
+    paddingVertical: Spacing.md,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.dark.border,
+  },
+  title: {
+    fontSize: 17,
+    fontWeight: "700",
+    color: Colors.dark.text,
+  },
+  closeBtn: { paddingVertical: 4, paddingHorizontal: 4 },
+  cancelText: { fontSize: 16, color: Colors.dark.textSecondary },
+  saveBtn: { paddingVertical: 4, paddingHorizontal: 4, minWidth: 44, alignItems: "flex-end" },
+  saveText: { fontSize: 16, fontWeight: "700", color: Colors.dark.primary },
+  body: {
+    paddingHorizontal: Spacing.lg,
+    paddingTop: Spacing.lg,
+    paddingBottom: 120,
+    gap: Spacing.lg,
+  },
+  field: { gap: Spacing.sm },
+  label: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: Colors.dark.textSecondary,
+    letterSpacing: 0.8,
+    textTransform: "uppercase",
+  },
+  input: {
+    backgroundColor: Colors.dark.backgroundSecondary,
+    borderRadius: 12,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: 14,
+    fontSize: 15,
+    color: Colors.dark.text,
+    borderWidth: 1,
+    borderColor: Colors.dark.border,
+  },
+  infoCard: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: Spacing.sm,
+    backgroundColor: Colors.dark.primary + "10",
+    borderRadius: 12,
+    padding: Spacing.md,
+  },
+  infoText: {
+    flex: 1,
+    fontSize: 13,
+    color: Colors.dark.textSecondary,
+    lineHeight: 18,
+  },
+  serviceChip: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm,
+    borderRadius: 20,
+    backgroundColor: Colors.dark.backgroundSecondary,
+    borderWidth: 1,
+    borderColor: Colors.dark.primary + "40",
+  },
+  serviceChipSelected: {
+    backgroundColor: Colors.dark.primary,
+    borderColor: Colors.dark.primary,
+  },
+  serviceChipText: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: Colors.dark.primary,
+  },
+  serviceChipTextSelected: {
+    color: Colors.dark.backgroundDefault,
+  },
+  serviceChipPrice: {
+    fontSize: 12,
+    color: Colors.dark.textSecondary,
+    fontWeight: "500",
+  },
+  clearBtn: {
+    alignSelf: "flex-start",
+    marginTop: Spacing.xs,
+  },
+  clearBtnText: {
+    fontSize: 13,
+    color: Colors.dark.error,
+    fontWeight: "500",
+  },
+  upsellSection: {
+    gap: Spacing.sm,
+  },
+  upsellSectionTitle: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: Colors.dark.textSecondary,
+    textTransform: "uppercase",
+    letterSpacing: 0.8,
+    marginBottom: Spacing.xs,
+  },
+  upsellRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: Colors.dark.backgroundSecondary,
+    borderRadius: 12,
+    padding: Spacing.md,
+    gap: Spacing.sm,
+  },
+  upsellLabel: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: Colors.dark.text,
+  },
+  upsellPrice: {
+    fontSize: 13,
+    color: Colors.dark.textSecondary,
+  },
+  upsellBadge: {
+    borderRadius: 8,
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 4,
+  },
+  upsellBadgeText: {
+    fontSize: 12,
+    fontWeight: "600",
   },
 });

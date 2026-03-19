@@ -44,6 +44,42 @@ pool.query('SELECT 1').then(async () => {
   } catch (e: any) {
     console.log('[Database] Audit columns already exist or migration skipped');
   }
+  try {
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS provider_availability (
+        id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(),
+        provider_id VARCHAR NOT NULL REFERENCES service_providers(id) ON DELETE CASCADE,
+        day_of_week INTEGER NOT NULL,
+        start_time TEXT NOT NULL,
+        end_time TEXT NOT NULL,
+        is_active BOOLEAN DEFAULT true,
+        created_at TIMESTAMP DEFAULT NOW(),
+        updated_at TIMESTAMP DEFAULT NOW()
+      )
+    `);
+    await pool.query(`CREATE INDEX IF NOT EXISTS provider_availability_provider_idx ON provider_availability(provider_id)`);
+  } catch (e: any) {
+    console.log('[Database] provider_availability migration skipped:', e.message);
+  }
+  try {
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS shop_order_upsells (
+        id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(),
+        order_id VARCHAR NOT NULL REFERENCES shop_orders(id) ON DELETE CASCADE,
+        provider_id VARCHAR NOT NULL REFERENCES service_providers(id) ON DELETE CASCADE,
+        service_id VARCHAR,
+        label TEXT NOT NULL,
+        price NUMERIC(10,2) NOT NULL,
+        status TEXT NOT NULL DEFAULT 'pending',
+        created_at TIMESTAMP DEFAULT NOW(),
+        responded_at TIMESTAMP
+      )
+    `);
+    await pool.query(`CREATE INDEX IF NOT EXISTS shop_order_upsells_order_idx ON shop_order_upsells(order_id)`);
+    await pool.query(`CREATE INDEX IF NOT EXISTS shop_order_upsells_provider_idx ON shop_order_upsells(provider_id)`);
+  } catch (e: any) {
+    console.log('[Database] shop_order_upsells migration skipped:', e.message);
+  }
 }).catch((err) => {
   console.error('[Database] Connection test FAILED:', err.message);
 });

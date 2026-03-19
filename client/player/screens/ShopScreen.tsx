@@ -9,8 +9,10 @@ import {
   RefreshControl,
   Dimensions,
   TextInput,
+  Alert,
+  ActivityIndicator,
 } from "react-native";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
 import Ionicons from "@expo/vector-icons/Ionicons";
@@ -20,7 +22,7 @@ import * as Haptics from "expo-haptics";
 import { Colors, Spacing, GlowColors } from "@/constants/theme";
 import { useCart } from "../contexts/CartContext";
 import { LockedScreen } from "../components/LockedScreen";
-import { getApiUrl } from "@/lib/query-client";
+import { apiRequest, apiFetch } from "@/lib/query-client";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 const PRODUCT_CARD_WIDTH = (SCREEN_WIDTH - Spacing.lg * 2 - 12) / 2;
@@ -93,6 +95,228 @@ const CATEGORY_ICONS: Record<string, string> = {
   services: "build",
 };
 
+interface ShopOrder {
+  id: string;
+  orderNumber: string;
+  status: string;
+}
+
+interface UpsellRequest {
+  id: string;
+  orderId: string;
+  label: string;
+  price: string;
+  status: "pending" | "approved" | "declined";
+}
+
+interface PendingUpsellWithOrder extends UpsellRequest {
+  orderNumber: string;
+}
+
+function UpsellRowItem({ upsell, onRespond, isResponding, onViewBooking }: { upsell: PendingUpsellWithOrder; onRespond: (action: "approve" | "decline") => void; isResponding: boolean; onViewBooking: () => void }) {
+  return (
+    <View style={pendingUpsellStyles.row}>
+      <View style={{ flex: 1, gap: 3 }}>
+        <Text style={pendingUpsellStyles.label}>{upsell.label}</Text>
+        <Pressable onPress={onViewBooking}>
+          <Text style={pendingUpsellStyles.meta}>
+            {"AED "}
+            {parseFloat(upsell.price).toFixed(0)}
+            {" · "}
+            <Text style={pendingUpsellStyles.bookingLink}>Booking #{upsell.orderNumber}</Text>
+          </Text>
+        </Pressable>
+      </View>
+      <View style={pendingUpsellStyles.actions}>
+        <Pressable
+          style={[pendingUpsellStyles.declineBtn, isResponding && { opacity: 0.5 }]}
+          onPress={() => onRespond("decline")}
+          disabled={isResponding}
+        >
+          {isResponding ? (
+            <ActivityIndicator size="small" color={Colors.dark.error} />
+          ) : (
+            <Ionicons name="close" size={16} color={Colors.dark.error} />
+          )}
+        </Pressable>
+        <Pressable
+          style={[pendingUpsellStyles.approveBtn, isResponding && { opacity: 0.5 }]}
+          onPress={() => onRespond("approve")}
+          disabled={isResponding}
+        >
+          {isResponding ? (
+            <ActivityIndicator size="small" color={Colors.dark.backgroundDefault} />
+          ) : (
+            <Text style={pendingUpsellStyles.approveBtnText}>Accept</Text>
+          )}
+        </Pressable>
+      </View>
+    </View>
+  );
+}
+
+function PendingUpsellsBanner() {
+  const navigation = useNavigation<any>();
+  const queryClient = useQueryClient();
+  const [responding, setResponding] = useState<string | null>(null);
+
+  const { data: orders } = useQuery<ShopOrder[]>({
+    queryKey: ["/api/player/shop/orders"],
+    refetchInterval: 15000,
+  });
+
+  const confirmedOrderIds = (orders ?? []).filter((o) => o.status === "confirmed").map((o) => o.id).join(",");
+
+  const { data: pendingUpsells } = useQuery<PendingUpsellWithOrder[]>({
+    queryKey: ["/api/player/shop/pending-upsells", confirmedOrderIds],
+    enabled: confirmedOrderIds.length > 0,
+    refetchInterval: 15000,
+    queryFn: async () => {
+      const confirmedOrders = (orders ?? []).filter((o) => o.status === "confirmed");
+      const results: PendingUpsellWithOrder[] = [];
+      for (const order of confirmedOrders) {
+        const res = await apiFetch(`/api/player/shop/orders/${order.id}/upsells`);
+        if (res.ok) {
+          const upsells: UpsellRequest[] = await res.json();
+          for (const u of upsells) {
+            if (u.status === "pending") {
+              results.push({ ...u, orderNumber: order.orderNumber });
+            }
+          }
+        }
+      }
+      return results;
+    },
+  });
+
+  const handleRespond = async (upsell: PendingUpsellWithOrder, action: "approve" | "decline") => {
+    setResponding(upsell.id);
+    try {
+      const res = await apiRequest("POST", `/api/player/shop/orders/${upsell.orderId}/upsells/${upsell.id}/respond`, { action });
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error ?? "Failed");
+      }
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      queryClient.invalidateQueries({ queryKey: ["/api/player/shop/pending-upsells", confirmedOrderIds] });
+      queryClient.invalidateQueries({ queryKey: ["/api/player/shop/orders"] });
+      Alert.alert(
+        action === "approve" ? "Extra Added" : "Declined",
+        action === "approve"
+          ? `"${upsell.label}" has been added to booking #${upsell.orderNumber}.`
+          : `You've declined the "${upsell.label}" extra.`
+      );
+    } catch (e: any) {
+      Alert.alert("Error", e.message ?? "Failed to respond.");
+    } finally {
+      setResponding(null);
+    }
+  };
+
+  if (!pendingUpsells || pendingUpsells.length === 0) return null;
+
+  return (
+    <Animated.View entering={FadeInUp.duration(400)} style={pendingUpsellStyles.container}>
+      <View style={pendingUpsellStyles.header}>
+        <Ionicons name="add-circle-outline" size={16} color="#FFD700" />
+        <Text style={pendingUpsellStyles.headerText}>
+          {pendingUpsells.length === 1 ? "Your provider proposed an extra" : `${pendingUpsells.length} extras proposed`}
+        </Text>
+      </View>
+      {pendingUpsells.map((u) => (
+        <UpsellRowItem
+          key={u.id}
+          upsell={u}
+          isResponding={responding === u.id}
+          onRespond={(action) => handleRespond(u, action)}
+          onViewBooking={() => navigation.navigate("PlayerOrderDetail", { orderId: u.orderId })}
+        />
+      ))}
+    </Animated.View>
+  );
+}
+
+const pendingUpsellStyles = StyleSheet.create({
+  container: {
+    marginHorizontal: Spacing.lg,
+    marginTop: Spacing.lg,
+    backgroundColor: "#1A1A00",
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: "#FFD70040",
+    overflow: "hidden",
+  },
+  header: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm,
+    backgroundColor: "#FFD70010",
+    borderBottomWidth: 1,
+    borderBottomColor: "#FFD70020",
+  },
+  headerText: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: "#FFD700",
+    letterSpacing: 0.5,
+    textTransform: "uppercase",
+  },
+  row: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm,
+    gap: Spacing.sm,
+    borderBottomWidth: 1,
+    borderBottomColor: "#FFD70010",
+  },
+  label: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: Colors.dark.text,
+  },
+  meta: {
+    fontSize: 12,
+    color: Colors.dark.textSecondary,
+  },
+  orderRef: {
+    color: "#FFD70099",
+  },
+  bookingLink: {
+    color: "#FFD700",
+    fontWeight: "600",
+    textDecorationLine: "underline",
+  },
+  actions: {
+    flexDirection: "row",
+    gap: Spacing.xs,
+    alignItems: "center",
+  },
+  declineBtn: {
+    width: 34,
+    height: 34,
+    borderRadius: 10,
+    backgroundColor: Colors.dark.error + "20",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  approveBtn: {
+    height: 34,
+    paddingHorizontal: Spacing.sm,
+    borderRadius: 10,
+    backgroundColor: GlowColors.primary,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  approveBtnText: {
+    fontSize: 13,
+    fontWeight: "700",
+    color: Colors.dark.backgroundDefault,
+  },
+});
+
 export default function ShopScreen() {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<any>();
@@ -153,10 +377,7 @@ export default function ShopScreen() {
     }
     setIsSearching(true);
     try {
-      const response = await fetch(
-        `${getApiUrl()}/api/player/shop/search?q=${encodeURIComponent(query)}`,
-        { credentials: "include" }
-      );
+      const response = await apiFetch(`/api/player/shop/search?q=${encodeURIComponent(query)}`);
       if (response.ok) {
         const data = await response.json();
         setSearchResults(data);
@@ -279,6 +500,8 @@ export default function ShopScreen() {
                   </View>
                 </LinearGradient>
               </Animated.View>
+
+              <PendingUpsellsBanner />
 
               <Animated.View entering={FadeInUp.delay(100).duration(400)} style={styles.searchSection}>
                 <View style={styles.searchBar}>
