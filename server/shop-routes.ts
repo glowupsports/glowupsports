@@ -6,7 +6,7 @@ import {
   insertShopCategorySchema, insertShopProductSchema, insertShopServiceSchema,
   players, users, academies, conversations, conversationParticipants, messages
 } from "../shared/schema";
-import { eq, and, desc, asc, sql, inArray, count, max, sum, or } from "drizzle-orm";
+import { eq, and, desc, asc, sql, inArray, count, max, sum, or, isNotNull } from "drizzle-orm";
 import {
   awardXP,
   updateStreak,
@@ -1030,6 +1030,22 @@ router.post("/player/shop/orders", authMiddleware, requirePlayerProfile, require
         orderId: order.id,
         ...item,
       });
+    }
+
+    // Bootstrap provider-player chat when order is auto-confirmed at creation time.
+    // (The academy/provider update routes handle transitions; this covers the initial auto-confirm path.)
+    if (providerId && order.playerId && academyId) {
+      try {
+        const conv = await getOrCreateProviderConversation(
+          providerId,
+          order.playerId,
+          order.id,
+          academyId,
+        );
+        await postBookingConfirmedMessage(conv.id, order.orderNumber, academyId);
+      } catch (chatErr) {
+        console.error("[ProviderChat] Failed to bootstrap booking conversation (order creation):", chatErr);
+      }
     }
 
     res.json({ order, items: orderItems, autoAssigned });
@@ -2909,5 +2925,60 @@ router.post("/player/shop/orders/:orderId/upsells/:upsellId/respond", authMiddle
     res.status(500).json({ error: "Failed to respond to upsell" });
   }
 });
+
+/**
+ * Startup repair: bootstrap provider_player conversations for any confirmed shop orders
+ * that were created before the auto-bootstrap logic existed.
+ * Safe to call multiple times — getOrCreateProviderConversation is idempotent.
+ */
+export async function repairMissingProviderConversations(): Promise<void> {
+  try {
+    const confirmedOrders = await db
+      .select({
+        id: shopOrders.id,
+        orderNumber: shopOrders.orderNumber,
+        playerId: shopOrders.playerId,
+        assignedProviderId: shopOrders.assignedProviderId,
+        academyId: shopOrders.academyId,
+      })
+      .from(shopOrders)
+      .where(
+        and(
+          eq(shopOrders.status, "confirmed"),
+          isNotNull(shopOrders.assignedProviderId),
+          isNotNull(shopOrders.playerId),
+          isNotNull(shopOrders.academyId),
+        ),
+      );
+
+    let created = 0;
+    for (const order of confirmedOrders) {
+      if (!order.assignedProviderId || !order.playerId || !order.academyId) continue;
+      try {
+        const existing = await db
+          .select({ id: conversations.id })
+          .from(conversations)
+          .where(and(eq(conversations.type, "provider_player"), eq(conversations.orderId, order.id)))
+          .limit(1);
+        if (existing.length > 0) continue; // already exists
+        const conv = await getOrCreateProviderConversation(
+          order.assignedProviderId,
+          order.playerId,
+          order.id,
+          order.academyId,
+        );
+        await postBookingConfirmedMessage(conv.id, order.orderNumber, order.academyId);
+        created++;
+      } catch (err) {
+        console.error(`[ProviderChatRepair] Failed for order ${order.id}:`, err);
+      }
+    }
+    if (created > 0) {
+      console.log(`[ProviderChatRepair] Bootstrapped ${created} missing provider conversations`);
+    }
+  } catch (err) {
+    console.error("[ProviderChatRepair] Repair failed:", err);
+  }
+}
 
 export default router;

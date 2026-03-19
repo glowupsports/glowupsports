@@ -491,6 +491,14 @@ function setupErrorHandler(app: express.Application) {
       } catch (error) {
         console.error("[StartupRepair] Failed:", error);
       }
+
+      // Repair: bootstrap provider_player conversations for any confirmed orders that missed initial creation
+      try {
+        const { repairMissingProviderConversations } = await import("./shop-routes");
+        await repairMissingProviderConversations();
+      } catch (err) {
+        console.error("[ProviderChatRepair] Startup repair failed:", err);
+      }
     },
   );
 })();
