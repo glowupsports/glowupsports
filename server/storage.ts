@@ -7120,6 +7120,8 @@ export const storage = {
       reason: creditTransactions.reason,
       metadata: creditTransactions.metadata,
       packageId: creditTransactions.packageId,
+      sessionId: creditTransactions.sessionId,
+      createdAt: creditTransactions.createdAt,
     }).from(creditTransactions)
       .where(inArray(creditTransactions.playerId, playerIds));
     
@@ -7137,11 +7139,15 @@ export const storage = {
       existingPackageIdsByPlayer[pkg.playerId].add(pkg.id);
     }
     
+    // Deduplicate session debits: keep only the latest charge per session per player.
+    // Repair scripts can create multiple debit records for the same session.
+    const debitByPlayerSession = new Map<string, { playerId: string; amount: number; creditType: "group" | "semi_private" | "private"; createdAt: Date | null }>();
+
     for (const tx of allTransactions) {
       const meta = tx.metadata as { settled?: boolean; cancelled?: boolean; expired?: boolean } | null;
       
       // SKIP all debt_settlement transactions entirely
-      // Balance = package_purchased credits - ALL session debts (settled or not)
+      // Balance = package_purchased credits - ALL session debits (settled or not)
       if (tx.reason === "debt_settlement") {
         continue;
       }
@@ -7160,8 +7166,31 @@ export const storage = {
       }
       
       const creditType = (tx.creditType || "group") as "group" | "semi_private" | "private";
-      if (result[tx.playerId] && result[tx.playerId][creditType] !== undefined) {
-        result[tx.playerId][creditType] += Number(tx.amount);
+      if (!result[tx.playerId] || result[tx.playerId][creditType] === undefined) continue;
+      
+      // For session debits: deduplicate by session, keeping only the latest charge per session
+      if (Number(tx.amount) < 0 && tx.sessionId) {
+        const key = `${tx.playerId}:${tx.sessionId}`;
+        const existing = debitByPlayerSession.get(key);
+        if (!existing) {
+          debitByPlayerSession.set(key, { playerId: tx.playerId, amount: Number(tx.amount), creditType, createdAt: tx.createdAt });
+        } else {
+          const existingTime = existing.createdAt ? new Date(existing.createdAt).getTime() : 0;
+          const currentTime = tx.createdAt ? new Date(tx.createdAt).getTime() : 0;
+          if (currentTime > existingTime) {
+            debitByPlayerSession.set(key, { playerId: tx.playerId, amount: Number(tx.amount), creditType, createdAt: tx.createdAt });
+          }
+        }
+        continue; // Applied after the loop
+      }
+      
+      result[tx.playerId][creditType] += Number(tx.amount);
+    }
+    
+    // Apply deduplicated session debits (one charge per session per player)
+    for (const debit of debitByPlayerSession.values()) {
+      if (result[debit.playerId] && result[debit.playerId][debit.creditType] !== undefined) {
+        result[debit.playerId][debit.creditType] += debit.amount;
       }
     }
     

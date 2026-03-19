@@ -10644,7 +10644,9 @@ var init_storage = __esm({
           creditType: creditTransactions.creditType,
           reason: creditTransactions.reason,
           metadata: creditTransactions.metadata,
-          packageId: creditTransactions.packageId
+          packageId: creditTransactions.packageId,
+          sessionId: creditTransactions.sessionId,
+          createdAt: creditTransactions.createdAt
         }).from(creditTransactions).where(inArray(creditTransactions.playerId, playerIds));
         const allPlayerPackages = await db.select({
           id: packages.id,
@@ -10657,6 +10659,7 @@ var init_storage = __esm({
           }
           existingPackageIdsByPlayer[pkg2.playerId].add(pkg2.id);
         }
+        const debitByPlayerSession = /* @__PURE__ */ new Map();
         for (const tx of allTransactions) {
           const meta = tx.metadata;
           if (tx.reason === "debt_settlement") {
@@ -10673,8 +10676,26 @@ var init_storage = __esm({
             continue;
           }
           const creditType = tx.creditType || "group";
-          if (result[tx.playerId] && result[tx.playerId][creditType] !== void 0) {
-            result[tx.playerId][creditType] += Number(tx.amount);
+          if (!result[tx.playerId] || result[tx.playerId][creditType] === void 0) continue;
+          if (Number(tx.amount) < 0 && tx.sessionId) {
+            const key = `${tx.playerId}:${tx.sessionId}`;
+            const existing2 = debitByPlayerSession.get(key);
+            if (!existing2) {
+              debitByPlayerSession.set(key, { playerId: tx.playerId, amount: Number(tx.amount), creditType, createdAt: tx.createdAt });
+            } else {
+              const existingTime = existing2.createdAt ? new Date(existing2.createdAt).getTime() : 0;
+              const currentTime = tx.createdAt ? new Date(tx.createdAt).getTime() : 0;
+              if (currentTime > existingTime) {
+                debitByPlayerSession.set(key, { playerId: tx.playerId, amount: Number(tx.amount), creditType, createdAt: tx.createdAt });
+              }
+            }
+            continue;
+          }
+          result[tx.playerId][creditType] += Number(tx.amount);
+        }
+        for (const debit of debitByPlayerSession.values()) {
+          if (result[debit.playerId] && result[debit.playerId][debit.creditType] !== void 0) {
+            result[debit.playerId][debit.creditType] += debit.amount;
           }
         }
         for (const playerId of playerIds) {
