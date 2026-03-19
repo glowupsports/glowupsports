@@ -1100,14 +1100,19 @@ router.get("/provider/me", authMiddleware, requireServiceProvider, async (req: A
       if (req.user!.role === "platform_owner") {
         const [user] = await db.select({ id: users.id, username: users.username })
           .from(users).where(eq(users.id, req.user!.userId)).limit(1);
-        const [firstAcademy] = await db.select({ id: academies.id })
-          .from(academies).limit(1);
-        if (!firstAcademy) {
-          return res.status(404).json({ error: "No academy found to associate provider with" });
+        // Prefer the academy already on the JWT; fall back to the first academy in the system
+        let resolvedAcademyId = req.user!.academyId;
+        if (!resolvedAcademyId) {
+          const [firstAcademy] = await db.select({ id: academies.id })
+            .from(academies).orderBy(asc(academies.id)).limit(1);
+          if (!firstAcademy) {
+            return res.status(503).json({ error: "Platform has no academies yet — provider profile cannot be created" });
+          }
+          resolvedAcademyId = firstAcademy.id;
         }
         await db.insert(serviceProviders).values({
           userId: req.user!.userId,
-          academyId: firstAcademy.id,
+          academyId: resolvedAcademyId,
           displayName: user?.username ?? "Platform Owner",
           isActive: true,
           isOnboarded: false,

@@ -32614,13 +32614,17 @@ router.get("/provider/me", authMiddlewareWithFreshData, requireServiceProvider, 
     if (!provider[0]) {
       if (req2.user.role === "platform_owner") {
         const [user] = await db.select({ id: users.id, username: users.username }).from(users).where(eq4(users.id, req2.user.userId)).limit(1);
-        const [firstAcademy] = await db.select({ id: academies.id }).from(academies).limit(1);
-        if (!firstAcademy) {
-          return res.status(404).json({ error: "No academy found to associate provider with" });
+        let resolvedAcademyId = req2.user.academyId;
+        if (!resolvedAcademyId) {
+          const [firstAcademy] = await db.select({ id: academies.id }).from(academies).orderBy(asc2(academies.id)).limit(1);
+          if (!firstAcademy) {
+            return res.status(503).json({ error: "Platform has no academies yet \u2014 provider profile cannot be created" });
+          }
+          resolvedAcademyId = firstAcademy.id;
         }
         await db.insert(serviceProviders).values({
           userId: req2.user.userId,
-          academyId: firstAcademy.id,
+          academyId: resolvedAcademyId,
           displayName: user?.username ?? "Platform Owner",
           isActive: true,
           isOnboarded: false
