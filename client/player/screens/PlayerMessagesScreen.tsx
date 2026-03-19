@@ -81,7 +81,17 @@ export default function PlayerMessagesScreen() {
     if (conv.type === "coach_player") return "person";
     if (conv.type === "player_player") return "people";
     if (conv.type === "academy") return "business";
+    if (conv.type === "provider_player") return "build";
     return "chatbubble";
+  };
+
+  const handleConversationPress = (item: Conversation) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    if (item.type === "provider_player") {
+      navigation.navigate("PlayerBookingChat", { conversationId: item.id });
+    } else {
+      navigation.navigate("PlayerChat", { conversationId: item.id });
+    }
   };
 
   const renderConversation = ({ item }: { item: Conversation }) => {
@@ -90,10 +100,7 @@ export default function PlayerMessagesScreen() {
     return (
       <Pressable
         style={[styles.conversationCard, hasUnread && styles.unreadCard]}
-        onPress={() => {
-          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-          navigation.navigate("PlayerChat", { conversationId: item.id });
-        }}
+        onPress={() => handleConversationPress(item)}
       >
         <View style={styles.avatarContainer}>
           <View style={[styles.avatar, { backgroundColor: Colors.dark.primary + "30" }]}>

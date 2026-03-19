@@ -124,10 +124,23 @@ export default function ServiceDetailScreen() {
     onSuccess: (order: any) => {
       queryClient.invalidateQueries({ queryKey: ["/api/player/shop/orders"] });
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      const orderId = order?.id;
       Alert.alert(
-        "Booking Confirmed",
+        "Booking Placed",
         `Your booking #${order?.orderNumber ?? ""} has been placed! We'll confirm within 24 hours.`,
-        [{ text: "Done", onPress: () => navigation.goBack() }]
+        [
+          {
+            text: "Done",
+            onPress: () => navigation.goBack(),
+          },
+          ...(orderId ? [{
+            text: "Chat with Provider",
+            onPress: () => {
+              navigation.goBack();
+              setTimeout(() => navigation.navigate("PlayerBookingChat", { orderId }), 350);
+            },
+          }] : []),
+        ]
       );
     },
     onError: () => {

@@ -9211,7 +9211,8 @@ var init_storage = __esm({
             and(
               eq(messages.conversationId, p.conversationId),
               gte(messages.createdAt, lastRead),
-              ne(messages.senderPlayerId, playerId),
+              // Null-safe: count messages not sent by this player (provider/system/coach msgs have senderPlayerId=null)
+              or(isNull(messages.senderPlayerId), ne(messages.senderPlayerId, playerId)),
               eq(messages.isDeleted, false)
             )
           );
@@ -9340,7 +9341,8 @@ var init_storage = __esm({
             and(
               eq(messages.conversationId, p.conversationId),
               gte(messages.createdAt, lastRead),
-              ne(messages.senderPlayerId, playerId),
+              // Null-safe: count messages not sent by this player (provider/system/coach msgs have senderPlayerId=null)
+              or(isNull(messages.senderPlayerId), ne(messages.senderPlayerId, playerId)),
               eq(messages.isDeleted, false)
             )
           );
@@ -32487,13 +32489,13 @@ router.patch("/academy/shop/orders/:id/status", authMiddlewareWithFreshData, req
     }
     if (status === "confirmed" && order.playerId && order.assignedProviderId && order.academyId) {
       try {
-        await getOrCreateProviderConversation(
+        const conv = await getOrCreateProviderConversation(
           order.assignedProviderId,
           order.playerId,
           order.id,
-          order.academyId,
-          order.orderNumber
+          order.academyId
         );
+        await postBookingConfirmedMessage(conv.id, order.orderNumber, order.academyId);
       } catch (chatErr) {
         console.error("[ProviderChat] Failed to bootstrap booking conversation (academy confirm):", chatErr);
       }
@@ -32879,15 +32881,15 @@ router.patch("/provider/bookings/:orderId/status", authMiddlewareWithFreshData, 
     });
     const [postTxProvider] = await db.select({ xp: serviceProviders.xp }).from(serviceProviders).where(eq4(serviceProviders.userId, req2.user.userId)).limit(1);
     const { rank: newRank } = calculateProviderLevel(Number(postTxProvider?.xp ?? 0));
-    if (status === "confirmed" && order.playerId && order.assignedProviderId) {
+    if (status === "confirmed" && order.playerId && order.assignedProviderId && order.academyId) {
       try {
-        await getOrCreateProviderConversation(
+        const conv = await getOrCreateProviderConversation(
           order.assignedProviderId,
           order.playerId,
           order.id,
-          order.academyId,
-          order.orderNumber
+          order.academyId
         );
+        await postBookingConfirmedMessage(conv.id, order.orderNumber, order.academyId);
       } catch (chatErr) {
         console.error("[ProviderChat] Failed to auto-create conversation:", chatErr);
       }
@@ -33132,23 +33134,12 @@ async function getProviderRecord(userId) {
   const [provider] = await db.select().from(serviceProviders).where(eq4(serviceProviders.userId, userId)).limit(1);
   return provider ?? null;
 }
-async function getOrCreateProviderConversation(providerId, playerId, orderId, academyId, orderNumber) {
-  const confirmationBody = `Your booking #${orderNumber} has been confirmed. Chat here for any questions.`;
+async function getOrCreateProviderConversation(providerId, playerId, orderId, academyId) {
   const [existing2] = await db.select().from(conversations).where(and3(
     eq4(conversations.type, "provider_player"),
     eq4(conversations.orderId, orderId)
   )).limit(1);
-  if (existing2) {
-    await db.insert(messages).values({
-      conversationId: existing2.id,
-      senderType: "system",
-      body: confirmationBody,
-      messageType: "system",
-      academyId
-    });
-    await db.update(conversations).set({ lastMessageAt: /* @__PURE__ */ new Date(), lastMessagePreview: confirmationBody }).where(eq4(conversations.id, existing2.id));
-    return existing2;
-  }
+  if (existing2) return existing2;
   const [conv] = await db.insert(conversations).values({
     type: "provider_player",
     providerId,
@@ -33174,15 +33165,18 @@ async function getOrCreateProviderConversation(providerId, playerId, orderId, ac
       academyId
     }
   ]);
+  return conv;
+}
+async function postBookingConfirmedMessage(conversationId, orderNumber, academyId) {
+  const body = `Your booking #${orderNumber} has been confirmed. Chat here for any questions.`;
   await db.insert(messages).values({
-    conversationId: conv.id,
+    conversationId,
     senderType: "system",
-    body: confirmationBody,
+    body,
     messageType: "system",
     academyId
   });
-  await db.update(conversations).set({ lastMessageAt: /* @__PURE__ */ new Date(), lastMessagePreview: confirmationBody }).where(eq4(conversations.id, conv.id));
-  return conv;
+  await db.update(conversations).set({ lastMessageAt: /* @__PURE__ */ new Date(), lastMessagePreview: body }).where(eq4(conversations.id, conversationId));
 }
 router.get("/provider/bookings/:orderId/conversation", authMiddlewareWithFreshData, requireServiceProvider, async (req2, res) => {
   try {
@@ -33206,8 +33200,7 @@ router.get("/provider/bookings/:orderId/conversation", authMiddlewareWithFreshDa
       provider.id,
       order.playerId,
       order.id,
-      order.academyId,
-      order.orderNumber
+      order.academyId
     );
     res.json(conv);
   } catch (error) {

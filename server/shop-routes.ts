@@ -895,16 +895,16 @@ router.patch("/academy/shop/orders/:id/status", authMiddleware, requireRole("aca
       return res.status(404).json({ error: "Order not found" });
     }
 
-    // Auto-create booking chat conversation and post confirmation system message
+    // Auto-create booking chat conversation + post confirmation system message
     if (status === "confirmed" && order.playerId && order.assignedProviderId && order.academyId) {
       try {
-        await getOrCreateProviderConversation(
+        const conv = await getOrCreateProviderConversation(
           order.assignedProviderId,
           order.playerId,
           order.id,
           order.academyId,
-          order.orderNumber,
         );
+        await postBookingConfirmedMessage(conv.id, order.orderNumber, order.academyId);
       } catch (chatErr) {
         console.error("[ProviderChat] Failed to bootstrap booking conversation (academy confirm):", chatErr);
       }
@@ -1421,16 +1421,16 @@ router.patch("/provider/bookings/:orderId/status", authMiddleware, requireServic
       .limit(1);
     const { rank: newRank } = calculateProviderLevel(Number(postTxProvider?.xp ?? 0));
 
-    // Auto-create chat conversation when booking is confirmed
-    if (status === "confirmed" && order!.playerId && order!.assignedProviderId) {
+    // Auto-create chat conversation + post confirmation system message when booking is confirmed
+    if (status === "confirmed" && order!.playerId && order!.assignedProviderId && order!.academyId) {
       try {
-        await getOrCreateProviderConversation(
+        const conv = await getOrCreateProviderConversation(
           order!.assignedProviderId,
           order!.playerId,
           order!.id,
           order!.academyId,
-          order!.orderNumber,
         );
+        await postBookingConfirmedMessage(conv.id, order!.orderNumber, order!.academyId);
       } catch (chatErr) {
         console.error("[ProviderChat] Failed to auto-create conversation:", chatErr);
       }
@@ -1784,15 +1784,16 @@ async function getProviderRecord(userId: string) {
 }
 
 // Helper: get-or-create a provider_player conversation for a booking
+/**
+ * Get or create a provider_player conversation for a booking.
+ * Does NOT post any system messages — use postBookingConfirmedMessage() for that.
+ */
 async function getOrCreateProviderConversation(
   providerId: string,
   playerId: string,
   orderId: string,
   academyId: string,
-  orderNumber: string,
 ) {
-  const confirmationBody = `Your booking #${orderNumber} has been confirmed. Chat here for any questions.`;
-
   // Try to find existing conversation for this order
   const [existing] = await db.select().from(conversations)
     .where(and(
@@ -1800,20 +1801,7 @@ async function getOrCreateProviderConversation(
       eq(conversations.orderId, orderId),
     )).limit(1);
 
-  if (existing) {
-    // Always post the confirmation system message at confirmation time (idempotent: insert regardless)
-    await db.insert(messages).values({
-      conversationId: existing.id,
-      senderType: "system",
-      body: confirmationBody,
-      messageType: "system",
-      academyId,
-    });
-    await db.update(conversations)
-      .set({ lastMessageAt: new Date(), lastMessagePreview: confirmationBody })
-      .where(eq(conversations.id, existing.id));
-    return existing;
-  }
+  if (existing) return existing;
 
   // Create new conversation
   const [conv] = await db.insert(conversations).values({
@@ -1844,20 +1832,29 @@ async function getOrCreateProviderConversation(
     },
   ]);
 
-  // Post confirmation system message
+  return conv;
+}
+
+/**
+ * Post a booking-confirmed system message into the provider_player conversation.
+ * Called only on status transitions to "confirmed" from either academy or provider routes.
+ */
+async function postBookingConfirmedMessage(
+  conversationId: string,
+  orderNumber: string,
+  academyId: string,
+) {
+  const body = `Your booking #${orderNumber} has been confirmed. Chat here for any questions.`;
   await db.insert(messages).values({
-    conversationId: conv.id,
+    conversationId,
     senderType: "system",
-    body: confirmationBody,
+    body,
     messageType: "system",
     academyId,
   });
-
   await db.update(conversations)
-    .set({ lastMessageAt: new Date(), lastMessagePreview: confirmationBody })
-    .where(eq(conversations.id, conv.id));
-
-  return conv;
+    .set({ lastMessageAt: new Date(), lastMessagePreview: body })
+    .where(eq(conversations.id, conversationId));
 }
 
 // GET /api/provider/bookings/:orderId/conversation — get or create conversation for a booking
@@ -1888,7 +1885,6 @@ router.get("/provider/bookings/:orderId/conversation", authMiddleware, requireSe
       order.playerId,
       order.id,
       order.academyId,
-      order.orderNumber,
     );
 
     res.json(conv);

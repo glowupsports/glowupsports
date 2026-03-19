@@ -46,6 +46,7 @@ import ChallengePlayerScreen from "@/player/screens/ChallengePlayerScreen";
 import GroupDetailScreen from "@/player/screens/GroupDetailScreen";
 import GroupsScreen from "@/player/screens/GroupsScreen";
 import PlayerMessagesScreen from "@/player/screens/PlayerMessagesScreen";
+import PlayerBookingChatScreen from "@/player/screens/PlayerBookingChatScreen";
 import PlayerNotificationsScreen from "@/player/screens/PlayerNotificationsScreen";
 import PlayerHelpScreen from "@/player/screens/PlayerHelpScreen";
 import PlayerPublicProfileScreen from "@/player/screens/PlayerPublicProfileScreen";
@@ -175,6 +176,7 @@ export type PlayerStackParamList = {
   Groups: undefined;
   GroupDetail: { groupId: string; groupName: string };
   PlayerMessages: undefined;
+  PlayerBookingChat: { orderId?: string; conversationId?: string };
   PlayerNotifications: undefined;
   PlayerHelp: undefined;
   PublicProfile: { playerId?: string };
@@ -773,6 +775,14 @@ function PlayerStackNavigator() {
         component={PlayerMessagesScreen}
         options={{
           presentation: "card",
+        }}
+      />
+      <Stack.Screen 
+        name="PlayerBookingChat" 
+        component={PlayerBookingChatScreen}
+        options={{
+          presentation: "card",
+          headerShown: false,
         }}
       />
       <Stack.Screen 
