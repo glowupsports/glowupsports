@@ -22,7 +22,7 @@ import {
 
 const router: Router = express.Router();
 
-router.get("/stats", authMiddleware, requireRole("coach", "academy_owner"), async (req: AuthenticatedRequest, res: Response) => {
+router.get("/stats", authMiddleware, requireRole("coach", "academy_owner", "platform_owner"), async (req: AuthenticatedRequest, res: Response) => {
   try {
     const coachId = req.user?.coachId;
     if (!coachId) {
@@ -61,7 +61,7 @@ router.get("/stats", authMiddleware, requireRole("coach", "academy_owner"), asyn
   }
 });
 
-router.get("/metrics", authMiddleware, requireRole("coach", "academy_owner"), async (req: AuthenticatedRequest, res: Response) => {
+router.get("/metrics", authMiddleware, requireRole("coach", "academy_owner", "platform_owner"), async (req: AuthenticatedRequest, res: Response) => {
   try {
     const coachId = req.user?.coachId;
     if (!coachId) {
@@ -136,7 +136,7 @@ router.get("/metrics", authMiddleware, requireRole("coach", "academy_owner"), as
   }
 });
 
-router.get("/anomalies", authMiddleware, requireRole("coach", "academy_owner"), async (req: AuthenticatedRequest, res: Response) => {
+router.get("/anomalies", authMiddleware, requireRole("coach", "academy_owner", "platform_owner"), async (req: AuthenticatedRequest, res: Response) => {
   try {
     const coachId = req.user?.coachId;
     if (!coachId) {
@@ -213,7 +213,7 @@ router.get("/anomalies", authMiddleware, requireRole("coach", "academy_owner"), 
   }
 });
 
-router.get("/academy-report", authMiddleware, requireRole("academy_owner"), async (req: AuthenticatedRequest, res: Response) => {
+router.get("/academy-report", authMiddleware, requireRole("academy_owner", "platform_owner"), async (req: AuthenticatedRequest, res: Response) => {
   try {
     const academyId = req.user?.academyId;
     if (!academyId) {
@@ -228,7 +228,7 @@ router.get("/academy-report", authMiddleware, requireRole("academy_owner"), asyn
   }
 });
 
-router.post("/anomalies/:id/resolve", authMiddleware, requireRole("coach", "academy_owner"), async (req: AuthenticatedRequest, res: Response) => {
+router.post("/anomalies/:id/resolve", authMiddleware, requireRole("coach", "academy_owner", "platform_owner"), async (req: AuthenticatedRequest, res: Response) => {
   try {
     const { id } = req.params;
     return res.json({ success: true, message: "Anomaly resolved" });

@@ -2622,7 +2622,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get(
     "/api/academy/join-code",
     authMiddleware,
-    requireRole("academy_owner", "coach"),
+    requireRole("academy_owner", "coach", "platform_owner"),
     async (req: AuthenticatedRequest, res: Response) => {
       try {
         const academyId = req.user!.academyId;
@@ -2657,7 +2657,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post(
     "/api/academy/join-code/regenerate",
     authMiddleware,
-    requireRole("academy_owner", "coach"),
+    requireRole("academy_owner", "coach", "platform_owner"),
     async (req: AuthenticatedRequest, res: Response) => {
       try {
         const academyId = req.user!.academyId;
@@ -2793,7 +2793,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.put(
     "/api/academy/profile",
     authMiddleware,
-    requireRole("academy_owner"),
+    requireRole("academy_owner", "platform_owner"),
     async (req: AuthenticatedRequest, res: Response) => {
       try {
         const academyId = req.user!.academyId;
@@ -2874,7 +2874,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.put(
     "/api/coach/directory-settings",
     authMiddleware,
-    requireRole("coach", "academy_owner"),
+    requireRole("coach", "academy_owner", "platform_owner"),
     async (req: AuthenticatedRequest, res: Response) => {
       try {
         const coachId = req.user!.coachId;
@@ -2930,7 +2930,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post(
     "/api/coach/freelance-license",
     authMiddleware,
-    requireRole("coach", "academy_owner", "admin"),
+    requireRole("coach", "academy_owner", "admin", "platform_owner"),
     async (req: AuthenticatedRequest, res: Response) => {
       try {
         const coachId = req.user!.coachId;
@@ -3038,7 +3038,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.put(
     "/api/coach/freelance-profile",
     authMiddleware,
-    requireRole("coach", "academy_owner", "admin"),
+    requireRole("coach", "academy_owner", "admin", "platform_owner"),
     async (req: AuthenticatedRequest, res: Response) => {
       try {
         const coachId = req.user!.coachId;
@@ -3263,7 +3263,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get(
     "/api/coach/transfer-requests/incoming",
     authMiddleware,
-    requireRole("coach", "academy_owner"),
+    requireRole("coach", "academy_owner", "platform_owner"),
     async (req: AuthenticatedRequest, res: Response) => {
       try {
         const academyId = req.user!.academyId;
@@ -3298,7 +3298,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get(
     "/api/coach/transfer-requests/outgoing",
     authMiddleware,
-    requireRole("coach", "academy_owner"),
+    requireRole("coach", "academy_owner", "platform_owner"),
     async (req: AuthenticatedRequest, res: Response) => {
       try {
         const academyId = req.user!.academyId;
@@ -3333,7 +3333,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post(
     "/api/coach/transfer-requests/:id/respond",
     authMiddleware,
-    requireRole("coach", "academy_owner"),
+    requireRole("coach", "academy_owner", "platform_owner"),
     async (req: AuthenticatedRequest, res: Response) => {
       try {
         const { id } = req.params;
@@ -3428,7 +3428,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post(
     "/api/coach-invitations",
     authMiddleware,
-    requireRole("academy_owner"),
+    requireRole("academy_owner", "platform_owner"),
     async (req: AuthenticatedRequest, res: Response) => {
       try {
         const academyId = req.user!.academyId;
@@ -3488,7 +3488,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get(
     "/api/coach-invitations",
     authMiddleware,
-    requireRole("academy_owner"),
+    requireRole("academy_owner", "platform_owner"),
     async (req: AuthenticatedRequest, res: Response) => {
       try {
         const academyId = req.user!.academyId;
@@ -3509,7 +3509,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get(
     "/api/coach/pending-invitations",
     authMiddleware,
-    requireRole("coach", "academy_owner"),
+    requireRole("coach", "academy_owner", "platform_owner"),
     async (req: AuthenticatedRequest, res: Response) => {
       try {
         const coachId = req.user!.coachId;
@@ -3543,7 +3543,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post(
     "/api/coach-invitations/:id/respond",
     authMiddleware,
-    requireRole("coach", "academy_owner"),
+    requireRole("coach", "academy_owner", "platform_owner"),
     async (req: AuthenticatedRequest, res: Response) => {
       try {
         const { id } = req.params;
@@ -3611,7 +3611,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.delete(
     "/api/coach-invitations/:id",
     authMiddleware,
-    requireRole("academy_owner"),
+    requireRole("academy_owner", "platform_owner"),
     async (req: AuthenticatedRequest, res: Response) => {
       try {
         const { id } = req.params;
@@ -3728,7 +3728,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get(
     "/api/join-requests",
     authMiddleware,
-    requireRole("academy_owner", "coach"),
+    requireRole("academy_owner", "coach", "platform_owner"),
     async (req: AuthenticatedRequest, res: Response) => {
       try {
         const academyId = req.user!.academyId;
@@ -3753,7 +3753,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post(
     "/api/join-requests/:id/approve",
     authMiddleware,
-    requireRole("academy_owner", "coach"),
+    requireRole("academy_owner", "coach", "platform_owner"),
     async (req: AuthenticatedRequest, res: Response) => {
       try {
         const { id } = req.params;
@@ -3808,7 +3808,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post(
     "/api/join-requests/:id/reject",
     authMiddleware,
-    requireRole("academy_owner", "coach"),
+    requireRole("academy_owner", "coach", "platform_owner"),
     async (req: AuthenticatedRequest, res: Response) => {
       try {
         const { id } = req.params;
@@ -25688,7 +25688,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post(
     "/api/coach/payments",
     authMiddleware,
-    requireRole("coach", "admin", "academy_owner"),
+    requireRole("coach", "admin", "academy_owner", "platform_owner"),
     async (req: AuthenticatedRequest, res: Response) => {
       try {
         const academyId = req.user?.academyId;

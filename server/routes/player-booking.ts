@@ -2568,7 +2568,7 @@ function toDubaiTime(utcDate: Date): Date {
   });
 
   // Coach: Respond to a review
-  router.post("/api/coach/reviews/:reviewId/respond", authMiddleware, requireRole("coach", "admin", "academy_owner"), async (req: AuthRequest, res: Response) => {
+  router.post("/api/coach/reviews/:reviewId/respond", authMiddleware, requireRole("coach", "admin", "academy_owner", "platform_owner"), async (req: AuthRequest, res: Response) => {
     try {
       const coachId = req.user?.coachId;
       const { reviewId } = req.params;
@@ -2615,7 +2615,7 @@ function toDubaiTime(utcDate: Date): Date {
   });
 
   // Coach: Get my reviews
-  router.get("/api/coach/my-reviews", authMiddleware, requireRole("coach", "admin", "academy_owner"), async (req: AuthRequest, res: Response) => {
+  router.get("/api/coach/my-reviews", authMiddleware, requireRole("coach", "admin", "academy_owner", "platform_owner"), async (req: AuthRequest, res: Response) => {
     try {
       const coachId = req.user?.coachId;
       

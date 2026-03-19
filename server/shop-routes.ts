@@ -1062,7 +1062,7 @@ function requireServiceProvider(req: AuthRequest, res: Response, next: NextFunct
     res.status(401).json({ error: "Authentication required" });
     return;
   }
-  if (req.user.role === "service_provider") {
+  if (req.user.role === "service_provider" || req.user.role === "platform_owner") {
     next();
     return;
   }
