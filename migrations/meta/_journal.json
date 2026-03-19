@@ -22,6 +22,13 @@
       "when": 1742291400000,
       "tag": "0002_play_style",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1742373600000,
+      "tag": "0003_provider_invites",
+      "breakpoints": true
     }
   ]
 }

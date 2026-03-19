@@ -108,6 +108,8 @@ import {
   academies,
   pushDeviceTokens,
   platformConfig,
+  providerInvites,
+  serviceProviders,
 } from "@shared/schema";
 import {
   setupWebSocket,
@@ -2516,6 +2518,294 @@ export async function registerRoutes(app: Express): Promise<Server> {
         .json({ valid: false, message: "Failed to verify invite" });
     }
   });
+
+  // ==================== PROVIDER INVITES ====================
+
+  // Create a provider invite link (platform_owner only)
+  app.post(
+    "/api/provider-invites",
+    authMiddleware,
+    requireRole("platform_owner"),
+    async (req: AuthenticatedRequest, res: Response) => {
+      try {
+        const { email, name, expiresInDays = 7 } = req.body;
+        const createdBy = req.user!.userId;
+        const token = crypto.randomBytes(32).toString("hex");
+        const expiresAt = new Date();
+        expiresAt.setDate(expiresAt.getDate() + Math.min(Number(expiresInDays) || 7, 30));
+
+        const [invite] = await db.insert(providerInvites).values({
+          token,
+          invitedEmail: email ? email.toLowerCase() : null,
+          invitedName: name || null,
+          createdBy,
+          expiresAt,
+        }).returning();
+
+        res.status(201).json({ invite });
+      } catch (error) {
+        console.error("[ProviderInvite] Create error:", error);
+        res.status(500).json({ error: "Failed to create invite" });
+      }
+    },
+  );
+
+  // List provider invites (platform_owner only)
+  app.get(
+    "/api/provider-invites",
+    authMiddleware,
+    requireRole("platform_owner"),
+    async (req: AuthenticatedRequest, res: Response) => {
+      try {
+        const invites = await db.select().from(providerInvites)
+          .where(eq(providerInvites.createdBy, req.user!.userId))
+          .orderBy(desc(providerInvites.createdAt));
+        res.json({ invites });
+      } catch (error) {
+        console.error("[ProviderInvite] List error:", error);
+        res.status(500).json({ error: "Failed to list invites" });
+      }
+    },
+  );
+
+  // Verify a provider invite token (public)
+  app.get("/api/provider-invites/verify/:token", async (req: Request, res: Response) => {
+    try {
+      const { token } = req.params;
+      const [invite] = await db.select().from(providerInvites)
+        .where(eq(providerInvites.token, token)).limit(1);
+
+      if (!invite) return res.status(404).json({ valid: false, message: "Invite not found" });
+      if (invite.usedAt) return res.status(400).json({ valid: false, message: "Invite has already been used" });
+      if (new Date(invite.expiresAt) < new Date()) return res.status(400).json({ valid: false, message: "Invite has expired" });
+
+      res.json({
+        valid: true,
+        invitedEmail: invite.invitedEmail,
+        invitedName: invite.invitedName,
+        expiresAt: invite.expiresAt,
+      });
+    } catch (error) {
+      console.error("[ProviderInvite] Verify error:", error);
+      res.status(500).json({ valid: false, message: "Failed to verify invite" });
+    }
+  });
+
+  // Revoke a provider invite (platform_owner only)
+  app.delete(
+    "/api/provider-invites/:id",
+    authMiddleware,
+    requireRole("platform_owner"),
+    async (req: AuthenticatedRequest, res: Response) => {
+      try {
+        const { id } = req.params;
+        await db.delete(providerInvites)
+          .where(and(eq(providerInvites.id, id), eq(providerInvites.createdBy, req.user!.userId)));
+        res.json({ success: true });
+      } catch (error) {
+        console.error("[ProviderInvite] Delete error:", error);
+        res.status(500).json({ error: "Failed to revoke invite" });
+      }
+    },
+  );
+
+  // Create provider account directly (platform_owner sends credentials via email)
+  app.post(
+    "/api/provider-invites/create-direct",
+    authMiddleware,
+    requireRole("platform_owner"),
+    async (req: AuthenticatedRequest, res: Response) => {
+      try {
+        const { email, name } = req.body;
+        if (!email || !name) return res.status(400).json({ error: "email and name are required" });
+
+        const emailLower = email.toLowerCase();
+        const existing = await db.select().from(users).where(eq(users.email, emailLower)).limit(1);
+        if (existing[0]) return res.status(409).json({ error: "A user with this email already exists" });
+
+        // Generate credentials
+        const baseUsername = name.toLowerCase().replace(/\s+/g, ".").replace(/[^a-z0-9.]/g, "").slice(0, 20);
+        const username = `${baseUsername}.${Date.now().toString(36)}`;
+        const tempPassword = crypto.randomBytes(6).toString("hex").toUpperCase();
+        const hashedPassword = await hashPassword(tempPassword);
+
+        // Resolve academy: prefer the creating platform_owner's academy, fall back to the first academy
+        const [ownerRecord] = await db.select({ academyId: users.academyId }).from(users).where(eq(users.id, req.user!.userId)).limit(1);
+        let resolvedAcademyId: string | null = ownerRecord?.academyId || null;
+        if (!resolvedAcademyId) {
+          const [firstAcademy] = await db.select({ id: academies.id }).from(academies).limit(1);
+          resolvedAcademyId = firstAcademy?.id || null;
+        }
+
+        // Create user
+        const [newUser] = await db.insert(users).values({
+          username,
+          email: emailLower,
+          password: hashedPassword,
+          role: "service_provider",
+          academyId: resolvedAcademyId,
+        }).returning();
+
+        // Create provider profile
+        await db.insert(serviceProviders).values({
+          userId: newUser.id,
+          academyId: resolvedAcademyId!,
+          displayName: name,
+          isActive: true,
+          isOnboarded: false,
+        });
+
+        // Send welcome email with credentials
+        const { sendEmail } = await import("./emailService");
+        await sendEmail({
+          to: emailLower,
+          subject: "Your Glow Up Sports Provider Account",
+          html: `
+            <!DOCTYPE html>
+            <html>
+            <head>
+              <style>
+                body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #0a0a0a; color: #ffffff; margin: 0; padding: 20px; }
+                .container { max-width: 600px; margin: 0 auto; background: #1a1a1a; border-radius: 16px; padding: 40px; }
+                .logo h1 { color: #2ECC40; margin: 0; font-size: 28px; }
+                h2 { color: #ffffff; }
+                p { color: #a0a0a0; line-height: 1.6; }
+                .cred-box { background: #252525; border-radius: 12px; padding: 24px; margin: 20px 0; }
+                .cred-label { color: #666; font-size: 12px; margin-bottom: 4px; }
+                .cred-value { color: #2ECC40; font-size: 18px; font-weight: 700; }
+                .footer { margin-top: 40px; padding-top: 20px; border-top: 1px solid #333; text-align: center; color: #666; font-size: 12px; }
+              </style>
+            </head>
+            <body>
+              <div class="container">
+                <div class="logo"><h1>Glow Up Sports</h1></div>
+                <h2>Welcome, ${name}!</h2>
+                <p>Your provider account has been created. Use the credentials below to log in to the Glow Up Sports app.</p>
+                <div class="cred-box">
+                  <div class="cred-label">USERNAME</div>
+                  <div class="cred-value">${username}</div>
+                </div>
+                <div class="cred-box">
+                  <div class="cred-label">TEMPORARY PASSWORD</div>
+                  <div class="cred-value">${tempPassword}</div>
+                </div>
+                <p>Please change your password after your first login.</p>
+                <div class="footer"><p>Glow Up Sports - Level Up Your Game</p></div>
+              </div>
+            </body>
+            </html>
+          `,
+          text: `Welcome ${name}! Your provider account: username: ${username}, temporary password: ${tempPassword}. Please change your password after first login.`,
+        });
+
+        res.status(201).json({ success: true, username, message: "Account created and credentials sent via email" });
+      } catch (error) {
+        console.error("[ProviderInvite] Create-direct error:", error);
+        res.status(500).json({ error: "Failed to create provider account" });
+      }
+    },
+  );
+
+  // Register via provider invite token (public)
+  app.post(
+    "/auth/register/provider",
+    authLimiter,
+    async (req: Request, res: Response) => {
+      try {
+        const { token, username: rawUsername, name, email, password } = req.body;
+
+        if (!token || !rawUsername || !name || !email || !password) {
+          return res.status(400).json({ error: "token, username, name, email, and password are required" });
+        }
+
+        const passwordValidation = validatePassword(password);
+        if (!passwordValidation.valid) {
+          return res.status(400).json({ error: passwordValidation.errors.join(". ") });
+        }
+
+        const username = rawUsername.trim().toLowerCase();
+        if (username.length < 3 || !/^[a-z0-9_]+$/.test(username)) {
+          return res.status(400).json({ error: "Username must be at least 3 characters (letters, numbers, underscores only)" });
+        }
+
+        const usernameExists = await storage.checkUsernameExists(username);
+        if (usernameExists) return res.status(409).json({ error: "Username already taken" });
+
+        const emailExists = await db.select({ id: users.id }).from(users).where(eq(users.email, email.toLowerCase())).limit(1);
+        if (emailExists[0]) return res.status(409).json({ error: "An account with this email already exists" });
+
+        // Validate invite token
+        const [invite] = await db.select().from(providerInvites)
+          .where(eq(providerInvites.token, token)).limit(1);
+
+        if (!invite) return res.status(400).json({ error: "Invalid or expired invite link" });
+        if (invite.usedAt) return res.status(400).json({ error: "This invite has already been used" });
+        if (new Date() > new Date(invite.expiresAt)) return res.status(400).json({ error: "This invite has expired" });
+
+        // Check email matches if pre-set
+        if (invite.invitedEmail && invite.invitedEmail.toLowerCase() !== email.toLowerCase()) {
+          return res.status(400).json({ error: "Email does not match the invite" });
+        }
+
+        const hashedPassword = await hashPassword(password);
+
+        // Resolve academy: prefer the invite creator's academy, fall back to the first academy
+        const [inviteCreator] = await db.select({ academyId: users.academyId }).from(users).where(eq(users.id, invite.createdBy)).limit(1);
+        let resolvedAcademyId: string | null = inviteCreator?.academyId || null;
+        if (!resolvedAcademyId) {
+          const [firstAcademy] = await db.select({ id: academies.id }).from(academies).limit(1);
+          resolvedAcademyId = firstAcademy?.id || null;
+        }
+
+        // Create user
+        const [newUser] = await db.insert(users).values({
+          username,
+          email: email.toLowerCase(),
+          password: hashedPassword,
+          role: "service_provider",
+          academyId: resolvedAcademyId,
+        }).returning();
+
+        // Create provider profile
+        await db.insert(serviceProviders).values({
+          userId: newUser.id,
+          academyId: resolvedAcademyId!,
+          displayName: name.trim(),
+          isActive: true,
+          isOnboarded: false,
+        });
+
+        // Mark invite as used
+        await db.update(providerInvites)
+          .set({ usedBy: newUser.id, usedAt: new Date() })
+          .where(eq(providerInvites.id, invite.id));
+
+        const authToken = generateToken({
+          userId: newUser.id,
+          email: newUser.email,
+          role: newUser.role,
+          academyId: newUser.academyId,
+          coachId: null,
+          playerId: null,
+        });
+
+        res.status(201).json({
+          token: authToken,
+          user: {
+            id: newUser.id,
+            username: newUser.username,
+            email: newUser.email,
+            role: newUser.role,
+            academyId: newUser.academyId,
+          },
+          message: "Welcome to Glow Up Sports!",
+        });
+      } catch (error) {
+        console.error("[ProviderInvite] Register error:", error);
+        res.status(500).json({ error: "Registration failed" });
+      }
+    },
+  );
 
   // ==================== ACADEMY BROWSING (Public/Player) ====================
 

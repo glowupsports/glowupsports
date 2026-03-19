@@ -8,6 +8,7 @@ import AdminNavigator from "@/admin/navigation/AdminNavigator";
 import OwnerNavigator from "@/owner/navigation/OwnerNavigator";
 import PlatformNavigator from "@/platform/navigation/PlatformNavigator";
 import ProviderNavigator from "@/provider/navigation/ProviderNavigator";
+import ProviderJoinScreen from "@/provider/screens/ProviderJoinScreen";
 import LoginScreen from "@/coach/screens/LoginScreen";
 import BootScreen from "@/screens/BootScreen";
 import { useScreenOptions } from "@/hooks/useScreenOptions";
@@ -25,6 +26,7 @@ export type RootStackParamList = {
   Platform: undefined;
   Provider: undefined;
   Login: undefined;
+  ProviderJoin: { token: string };
 };
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -54,6 +56,14 @@ function useNavigationEffect(
     prevBootRef.current = bootComplete;
     prevModeRef.current = mode;
 
+    // Public routes that don't require authentication — skip redirect
+    const PUBLIC_ROUTES: Array<keyof RootStackParamList> = ["ProviderJoin", "Login"];
+    const navState = navigationRef.getState?.();
+    const currentRoute = navState?.routes?.[navState.index]?.name as keyof RootStackParamList | undefined;
+    if (!isAuthenticated && currentRoute && PUBLIC_ROUTES.includes(currentRoute) && currentRoute !== "Login") {
+      return;
+    }
+
     let targetRoute: keyof RootStackParamList;
     if (!isAuthenticated) {
       targetRoute = "Login";
@@ -72,8 +82,6 @@ function useNavigationEffect(
     }
 
     try {
-      const navState = navigationRef.getState?.();
-      const currentRoute = navState?.routes?.[navState.index]?.name;
       const needsNavigation = authChanged || bootChanged || modeChanged || currentRoute !== targetRoute;
 
       if (!needsNavigation) return;
@@ -168,6 +176,11 @@ export default function RootStackNavigator({ navigationRef }: { navigationRef?: 
       <Stack.Screen
         name="Provider"
         component={ProviderNavigator}
+        options={{ headerShown: false }}
+      />
+      <Stack.Screen
+        name="ProviderJoin"
+        component={ProviderJoinScreen}
         options={{ headerShown: false }}
       />
     </Stack.Navigator>

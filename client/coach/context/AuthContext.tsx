@@ -57,6 +57,7 @@ interface AuthContextType {
   academy: Academy | null;
   isGuest: boolean;
   login: (username: string, password: string) => Promise<{ success: boolean; error?: string; user?: AuthUser }>;
+  loginWithToken: (token: string, user: AuthUser) => Promise<void>;
   loginWithApple: (identityToken: string, appleUser: string) => Promise<{ success: boolean; error?: string; code?: string; user?: AuthUser }>;
   loginAsGuest: () => Promise<void>;
   register: (data: RegisterData) => Promise<{ success: boolean; error?: string }>;
@@ -257,6 +258,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         : (error?.message || "Login failed. Please try again.");
       return { success: false, error: errorMsg };
     }
+  };
+
+  const loginWithToken = async (token: string, user: AuthUser): Promise<void> => {
+    queryClient.clear();
+    await saveAuthState(token, user);
+    setAuthToken(token);
+    await fetchUserData(token, true);
+    setIsAuthenticated(true);
   };
 
   const loginWithApple = async (identityToken: string, appleUser: string): Promise<{ success: boolean; error?: string; code?: string; user?: AuthUser }> => {
@@ -472,6 +481,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         academy,
         isGuest,
         login,
+        loginWithToken,
         loginWithApple,
         loginAsGuest,
         register,

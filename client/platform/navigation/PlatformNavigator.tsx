@@ -18,6 +18,7 @@ import BillingConfigScreen from "@/platform/screens/BillingConfigScreen";
 import NotificationTemplatesScreen from "@/platform/screens/NotificationTemplatesScreen";
 import AuditLogsScreen from "@/platform/screens/AuditLogsScreen";
 import DiagnosticsScreen from "@/platform/screens/DiagnosticsScreen";
+import ProviderInviteManagementScreen from "@/platform/screens/ProviderInviteManagementScreen";
 import { SwipeableTabBar, TabConfig } from "@/components/SwipeableTabBar";
 import { QuickActionsFAB, QuickAction } from "@/components/QuickActionsFAB";
 import { TabNavigationProvider } from "@/components/TabNavigationContext";
@@ -47,6 +48,7 @@ export type PlatformStackParamList = {
   NotificationTemplates: undefined;
   AuditLogs: undefined;
   Diagnostics: undefined;
+  ProviderInviteManagement: undefined;
 };
 
 const Stack = createNativeStackNavigator<PlatformStackParamList>();
@@ -88,6 +90,7 @@ function PlatformStackNavigator() {
       <Stack.Screen name="NotificationTemplates" component={NotificationTemplatesScreen} />
       <Stack.Screen name="AuditLogs" component={AuditLogsScreen} />
       <Stack.Screen name="Diagnostics" component={DiagnosticsScreen} />
+      <Stack.Screen name="ProviderInviteManagement" component={ProviderInviteManagementScreen} />
     </Stack.Navigator>
   );
 }

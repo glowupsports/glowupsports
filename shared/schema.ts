@@ -2462,6 +2462,25 @@ export const insertAcademyInviteSchema = createInsertSchema(academyInvites).omit
 export type InsertAcademyInvite = z.infer<typeof insertAcademyInviteSchema>;
 export type AcademyInvite = typeof academyInvites.$inferSelect;
 
+// Provider Invites — platform owner invites service providers
+export const providerInvites = pgTable("provider_invites", {
+  id: varchar("id")
+    .primaryKey()
+    .default(sql`gen_random_uuid()`),
+  token: text("token").notNull().unique(),
+  invitedEmail: text("invited_email"), // optional — pre-set email
+  invitedName: text("invited_name"),   // optional — pre-set display name
+  createdBy: varchar("created_by").notNull(), // userId of platform_owner
+  usedBy: varchar("used_by"),          // userId of the new service_provider
+  usedAt: timestamp("used_at"),
+  expiresAt: timestamp("expires_at").notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertProviderInviteSchema = createInsertSchema(providerInvites).omit({ id: true, createdAt: true, usedBy: true, usedAt: true });
+export type InsertProviderInvite = z.infer<typeof insertProviderInviteSchema>;
+export type ProviderInvite = typeof providerInvites.$inferSelect;
+
 // Coach Academy Memberships - For multi-academy support
 export const coachAcademyMemberships = pgTable("coach_academy_memberships", {
   id: varchar("id")

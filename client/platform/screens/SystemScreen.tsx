@@ -408,6 +408,12 @@ export default function SystemScreen() {
                 label="Terms & Privacy" 
                 description="Legal document management"
               />
+              <SettingRow 
+                icon="construct" 
+                label="Provider Invites" 
+                description="Invite or create service provider accounts"
+                onPress={() => navigation.navigate("ProviderInviteManagement")}
+              />
             </View>
           </View>
         

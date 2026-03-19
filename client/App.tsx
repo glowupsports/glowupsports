@@ -73,6 +73,7 @@ const linking: LinkingOptions<any> = {
         path: "coach",
       },
       Login: "login",
+      ProviderJoin: "provider-join/:token",
     },
   },
 };
