@@ -469,6 +469,161 @@ router.get("/player/shop/orders", authMiddleware, requirePlayerProfile, requireF
   }
 });
 
+// Get player's upcoming and recently-completed provider bookings (for home screen card)
+router.get("/player/shop/provider-bookings", authMiddleware, requirePlayerProfile, requireFeatureUnlock("academy_shop"), async (req: AuthRequest, res: Response) => {
+  try {
+    const playerId = req.user!.playerId!;
+
+    // Only include orders that have a provider assigned (service bookings with a provider)
+    // For the rating/rebook flow: also include recently-completed provider-assigned orders (within last 48h)
+    const cutoffTime = new Date();
+    cutoffTime.setHours(cutoffTime.getHours() - 48);
+
+    // Statuses that are "active upcoming": not cancelled/refunded/rejected
+    const upcomingStatuses = ["pending", "confirmed", "in_progress"] as const;
+    const now = new Date();
+    const twoWeeksOut = new Date(now.getTime() + 14 * 24 * 60 * 60 * 1000);
+    const twoHoursAgo = new Date(now.getTime() - 2 * 60 * 60 * 1000);
+
+    const orders = await db.select({
+      id: shopOrders.id,
+      orderNumber: shopOrders.orderNumber,
+      status: shopOrders.status,
+      scheduledAt: shopOrders.scheduledAt,
+      completedAt: shopOrders.completedAt,
+      assignedProviderId: shopOrders.assignedProviderId,
+      playerRating: shopOrders.playerRating,
+      playerRatingAt: shopOrders.playerRatingAt,
+      notes: shopOrders.notes,
+      createdAt: shopOrders.createdAt,
+    })
+      .from(shopOrders)
+      .where(
+        and(
+          eq(shopOrders.playerId, playerId),
+          // Must have an assigned provider
+          sql`${shopOrders.assignedProviderId} IS NOT NULL`,
+          // Only include upcoming active orders or recently-completed for rating/rebook
+          or(
+            and(
+              inArray(shopOrders.status, [...upcomingStatuses]),
+              sql`${shopOrders.scheduledAt} IS NOT NULL`,
+              sql`${shopOrders.scheduledAt} >= ${twoHoursAgo.toISOString()}`,
+              sql`${shopOrders.scheduledAt} <= ${twoWeeksOut.toISOString()}`
+            ),
+            and(
+              eq(shopOrders.status, "completed"),
+              sql`${shopOrders.completedAt} >= ${cutoffTime.toISOString()}`
+            )
+          )
+        )
+      )
+      .orderBy(
+        // Upcoming first (ascending by scheduled time), completed after
+        sql`CASE WHEN ${shopOrders.status} = 'completed' THEN 1 ELSE 0 END`,
+        asc(shopOrders.scheduledAt)
+      );
+
+    // No additional client-side filter needed — SQL already scopes correctly
+    const relevantOrders = orders;
+
+    // Typed provider row shape
+    type ProviderRow = {
+      id: string;
+      displayName: string;
+      profilePhotoUrl: string | null;
+      specializations: string[] | null;
+      serviceTypes: string[] | null;
+    };
+
+    // Enrich with order items (service name) and provider info
+    const enriched = await Promise.all(
+      relevantOrders.map(async (order) => {
+        const [items, providerRows] = await Promise.all([
+          db.select({
+            id: shopOrderItems.id,
+            name: shopOrderItems.name,
+            serviceId: shopOrderItems.serviceId,
+            itemType: shopOrderItems.itemType,
+          })
+            .from(shopOrderItems)
+            .where(and(eq(shopOrderItems.orderId, order.id), eq(shopOrderItems.itemType, "service")))
+            .limit(1),
+          db.select({
+            id: serviceProviders.id,
+            displayName: serviceProviders.displayName,
+            profilePhotoUrl: serviceProviders.profilePhotoUrl,
+            specializations: serviceProviders.specializations,
+            serviceTypes: serviceProviders.serviceTypes,
+          })
+            .from(serviceProviders)
+            .where(eq(serviceProviders.id, order.assignedProviderId!))
+            .limit(1) as Promise<ProviderRow[]>,
+        ]);
+
+        return {
+          ...order,
+          serviceName: items[0]?.name ?? null,
+          serviceId: items[0]?.serviceId ?? null,
+          provider: providerRows[0] ?? null,
+        };
+      })
+    );
+
+    res.json(enriched);
+  } catch (error) {
+    console.error("[Shop] Error fetching provider bookings:", error);
+    res.status(500).json({ error: "Failed to load provider bookings" });
+  }
+});
+
+// Submit player rating for a completed provider booking
+router.post("/player/shop/orders/:id/rate", authMiddleware, requirePlayerProfile, requireFeatureUnlock("academy_shop"), async (req: AuthRequest, res: Response) => {
+  try {
+    const { id } = req.params;
+    const { rating } = req.body;
+    const playerId = req.user!.playerId!;
+
+    if (!rating || typeof rating !== "number" || rating < 1 || rating > 5) {
+      return res.status(400).json({ error: "Rating must be a number between 1 and 5" });
+    }
+
+    const order = await db.select().from(shopOrders)
+      .where(and(eq(shopOrders.id, id), eq(shopOrders.playerId, playerId)))
+      .limit(1);
+
+    if (!order[0]) {
+      return res.status(404).json({ error: "Order not found" });
+    }
+
+    if (order[0].status !== "completed") {
+      return res.status(400).json({ error: "Can only rate completed orders" });
+    }
+
+    // Rating is only allowed on provider-assigned service orders
+    if (!order[0].assignedProviderId) {
+      return res.status(400).json({ error: "Can only rate provider service orders" });
+    }
+
+    if (order[0].playerRating !== null) {
+      return res.status(400).json({ error: "Order already rated" });
+    }
+
+    await db.update(shopOrders)
+      .set({
+        playerRating: rating,
+        playerRatingAt: new Date(),
+        updatedAt: new Date(),
+      })
+      .where(eq(shopOrders.id, id));
+
+    res.json({ success: true, rating });
+  } catch (error) {
+    console.error("[Shop] Error rating order:", error);
+    res.status(500).json({ error: "Failed to submit rating" });
+  }
+});
+
 // Get order details
 router.get("/player/shop/orders/:id", authMiddleware, requirePlayerProfile, requireFeatureUnlock("academy_shop"), async (req: AuthRequest, res: Response) => {
   try {

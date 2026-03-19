@@ -4168,6 +4168,10 @@ export const shopOrders = pgTable("shop_orders", {
   // Service provider assignment
   assignedProviderId: varchar("assigned_provider_id"),
   
+  // Player rating (submitted after session is completed)
+  playerRating: integer("player_rating"), // 1-5 star rating by the player
+  playerRatingAt: timestamp("player_rating_at"), // when the rating was submitted
+  
   // Audit
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),

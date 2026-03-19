@@ -39,6 +39,7 @@ import { FirstActionCelebration } from "@/components/FirstActionCelebration";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useQuests, Quest } from "@/player/hooks/useQuests";
 import { DailyBriefingModal } from "@/player/components/DailyBriefingModal";
+import { UpcomingProviderSessionCard } from "@/player/components/UpcomingProviderSessionCard";
 
 interface DashboardData {
   player: {
@@ -556,6 +557,9 @@ function PlayerHomeContent() {
 
         {/* HERO CTA - Next Session (PRIMARY ACTION) */}
         <SessionHeroCard onBookSession={handleBookLesson} />
+
+        {/* UPCOMING PROVIDER SESSION - Smart card for booked provider services */}
+        {!isGuest ? <UpcomingProviderSessionCard /> : null}
 
         {/* ── PLAY SECTION ── Book, find players, join matches */}
         <View style={styles.playDivider}>
