@@ -32171,7 +32171,12 @@ router.get("/player/shop/services/:id/providers", authMiddlewareWithFreshData, r
     if (!service[0]) return res.status(404).json({ error: "Service not found" });
     const serviceTags = service[0].tags ?? [];
     const serviceSlug = service[0].slug ?? "";
-    const providers = await db.select({
+    let serviceCategorySlug = "";
+    if (service[0].categoryId) {
+      const cat = await db.select({ slug: shopCategories.slug }).from(shopCategories).where(eq4(shopCategories.id, service[0].categoryId)).limit(1);
+      serviceCategorySlug = cat[0]?.slug ?? "";
+    }
+    const allProviders = await db.select({
       id: serviceProviders.id,
       displayName: serviceProviders.displayName,
       profilePhotoUrl: serviceProviders.profilePhotoUrl,
@@ -32184,6 +32189,18 @@ router.get("/player/shop/services/:id/providers", authMiddlewareWithFreshData, r
       eq4(serviceProviders.isActive, true),
       eq4(serviceProviders.isOnboarded, true)
     )).orderBy(asc2(serviceProviders.displayName));
+    const hasSignal = serviceTags.length > 0 || serviceSlug || serviceCategorySlug;
+    const providers = hasSignal ? allProviders.filter((p) => {
+      const combined = [
+        ...p.specializations ?? [],
+        ...p.serviceTypes ?? []
+      ].map((s) => s.toLowerCase());
+      const tagMatch = serviceTags.some((t) => combined.includes(t.toLowerCase()));
+      const slugMatch = combined.some(
+        (s) => serviceSlug && (serviceSlug.toLowerCase().includes(s) || s.includes(serviceSlug.toLowerCase())) || serviceCategorySlug && (serviceCategorySlug.toLowerCase().includes(s) || s.includes(serviceCategorySlug.toLowerCase()))
+      );
+      return tagMatch || slugMatch;
+    }) : allProviders;
     const providerIds = providers.map((p) => p.id);
     const workloadMap = {};
     if (providerIds.length > 0) {
@@ -32191,8 +32208,8 @@ router.get("/player/shop/services/:id/providers", authMiddlewareWithFreshData, r
         assignedProviderId: shopOrders.assignedProviderId,
         cnt: sql6`COUNT(*)`
       }).from(shopOrders).where(and3(
-        inArray3(shopOrders.status, ["pending", "confirmed", "in_progress"]),
-        sql6`${shopOrders.assignedProviderId} IS NOT NULL`
+        inArray3(shopOrders.assignedProviderId, providerIds),
+        inArray3(shopOrders.status, ["pending", "confirmed", "in_progress"])
       )).groupBy(shopOrders.assignedProviderId);
       for (const row of workloadRows) {
         if (row.assignedProviderId) {
@@ -32200,23 +32217,14 @@ router.get("/player/shop/services/:id/providers", authMiddlewareWithFreshData, r
         }
       }
     }
-    const scored = providers.map((p) => {
-      const pSpecs = p.specializations ?? [];
-      const pTypes = p.serviceTypes ?? [];
-      const combined = [...pSpecs, ...pTypes].map((s) => s.toLowerCase());
-      const tagMatch = serviceTags.some((t) => combined.includes(t.toLowerCase()));
-      const slugMatch = combined.some((s) => serviceSlug.toLowerCase().includes(s) || s.includes(serviceSlug.toLowerCase()));
-      const relevance = tagMatch || slugMatch ? 1 : 0;
-      return {
-        ...p,
-        rating: p.rating ? Number(p.rating) : 0,
-        totalBookings: p.totalBookings ?? 0,
-        activeBookings: workloadMap[p.id] ?? 0,
-        relevance
-      };
-    });
-    scored.sort((a, b) => b.relevance - a.relevance || b.rating - a.rating);
-    res.json(scored);
+    const result = providers.map((p) => ({
+      ...p,
+      rating: p.rating ? Number(p.rating) : 0,
+      totalBookings: p.totalBookings ?? 0,
+      activeBookings: workloadMap[p.id] ?? 0
+    }));
+    result.sort((a, b) => b.rating - a.rating);
+    res.json(result);
   } catch (error) {
     console.error("[Shop] Error fetching service providers:", error);
     res.status(500).json({ error: "Failed to load providers" });
@@ -32472,7 +32480,17 @@ router.get("/player/shop/orders/:id", authMiddlewareWithFreshData, requirePlayer
 });
 router.post("/player/shop/orders", authMiddlewareWithFreshData, requirePlayerProfile, requireFeatureUnlock("academy_shop"), async (req2, res) => {
   try {
-    const { items, contactName, contactPhone, contactEmail, notes, scheduledAt, providerId: rawProviderId } = req2.body;
+    const {
+      items,
+      contactName,
+      contactPhone,
+      contactEmail,
+      notes,
+      scheduledAt,
+      preferredProviderId: rawPreferredProviderId,
+      providerId: rawLegacyProviderId
+    } = req2.body;
+    const rawProviderId = rawPreferredProviderId ?? rawLegacyProviderId;
     if (!items || !Array.isArray(items) || items.length === 0) {
       return res.status(400).json({ error: "Cart is empty" });
     }
@@ -32497,45 +32515,56 @@ router.post("/player/shop/orders", authMiddlewareWithFreshData, requirePlayerPro
         specializations: serviceProviders.specializations,
         serviceTypes: serviceProviders.serviceTypes
       }).from(serviceProviders).where(and3(eq4(serviceProviders.academyId, academyId), eq4(serviceProviders.isActive, true)));
-      if (academyProviders.length === 1) {
-        providerId = academyProviders[0].id;
-        autoAssigned = true;
-      } else if (academyProviders.length > 1) {
-        const serviceItem = items.find((i) => i.serviceId);
-        let serviceTags = [];
-        let serviceSlug = "";
-        if (serviceItem?.serviceId) {
-          const svc = await db.select({ tags: shopServices.tags, slug: shopServices.slug }).from(shopServices).where(eq4(shopServices.id, serviceItem.serviceId)).limit(1);
-          serviceTags = svc[0]?.tags ?? [];
-          serviceSlug = svc[0]?.slug ?? "";
+      const serviceItem = items.find((i) => i.serviceId);
+      let serviceTags = [];
+      let serviceSlug = "";
+      let serviceCategorySlug = "";
+      if (serviceItem?.serviceId) {
+        const svc = await db.select({ tags: shopServices.tags, slug: shopServices.slug, categoryId: shopServices.categoryId }).from(shopServices).where(eq4(shopServices.id, serviceItem.serviceId)).limit(1);
+        serviceTags = svc[0]?.tags ?? [];
+        serviceSlug = svc[0]?.slug ?? "";
+        if (svc[0]?.categoryId) {
+          const cat = await db.select({ slug: shopCategories.slug }).from(shopCategories).where(eq4(shopCategories.id, svc[0].categoryId)).limit(1);
+          serviceCategorySlug = cat[0]?.slug ?? "";
         }
-        const matching = academyProviders.filter((p) => {
-          const combined = [
-            ...p.specializations ?? [],
-            ...p.serviceTypes ?? []
-          ].map((s) => s.toLowerCase());
-          const tagMatch = serviceTags.some((t) => combined.includes(t.toLowerCase()));
-          const slugMatch = combined.some((s) => serviceSlug.toLowerCase().includes(s) || s.includes(serviceSlug.toLowerCase()));
-          return tagMatch || slugMatch;
-        });
-        const candidates = matching.length > 0 ? matching : academyProviders;
-        const candidateIds = candidates.map((c) => c.id);
-        const workloadRows = await db.select({
-          assignedProviderId: shopOrders.assignedProviderId,
-          cnt: sql6`COUNT(*)`
-        }).from(shopOrders).where(and3(
-          inArray3(shopOrders.assignedProviderId, candidateIds),
-          inArray3(shopOrders.status, ["pending", "confirmed", "in_progress"])
-        )).groupBy(shopOrders.assignedProviderId);
-        const workloadMap = {};
-        for (const row of workloadRows) {
-          if (row.assignedProviderId) workloadMap[row.assignedProviderId] = Number(row.cnt);
-        }
-        const best = candidates.reduce(
-          (a, b) => (workloadMap[a.id] ?? 0) <= (workloadMap[b.id] ?? 0) ? a : b
+      }
+      const matchesService = (p) => {
+        const combined = [
+          ...p.specializations ?? [],
+          ...p.serviceTypes ?? []
+        ].map((s) => s.toLowerCase());
+        const tagMatch = serviceTags.some((t) => combined.includes(t.toLowerCase()));
+        const slugMatch = combined.some(
+          (s) => serviceSlug && (serviceSlug.toLowerCase().includes(s) || s.includes(serviceSlug.toLowerCase())) || serviceCategorySlug && (serviceCategorySlug.toLowerCase().includes(s) || s.includes(serviceCategorySlug.toLowerCase()))
         );
-        providerId = best.id;
-        autoAssigned = true;
+        return tagMatch || slugMatch;
+      };
+      if (academyProviders.length === 1) {
+        if (matchesService(academyProviders[0]) || !serviceTags.length && !serviceSlug) {
+          providerId = academyProviders[0].id;
+          autoAssigned = true;
+        }
+      } else if (academyProviders.length > 1) {
+        const matching = academyProviders.filter(matchesService);
+        if (matching.length > 0) {
+          const candidateIds = matching.map((c) => c.id);
+          const workloadRows = await db.select({
+            assignedProviderId: shopOrders.assignedProviderId,
+            cnt: sql6`COUNT(*)`
+          }).from(shopOrders).where(and3(
+            inArray3(shopOrders.assignedProviderId, candidateIds),
+            inArray3(shopOrders.status, ["pending", "confirmed", "in_progress"])
+          )).groupBy(shopOrders.assignedProviderId);
+          const workloadMap = {};
+          for (const row of workloadRows) {
+            if (row.assignedProviderId) workloadMap[row.assignedProviderId] = Number(row.cnt);
+          }
+          const best = matching.reduce(
+            (a, b) => (workloadMap[a.id] ?? 0) <= (workloadMap[b.id] ?? 0) ? a : b
+          );
+          providerId = best.id;
+          autoAssigned = true;
+        }
       }
     }
     if (scheduledAt && providerId) {

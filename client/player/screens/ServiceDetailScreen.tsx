@@ -135,7 +135,7 @@ export default function ServiceDetailScreen() {
       notes?: string;
       items: Array<{ serviceId: string; quantity: number }>;
       serviceDetails?: Record<string, string>;
-      providerId?: string;
+      preferredProviderId?: string;
     }) => {
       const res = await apiRequest("POST", "/api/player/shop/orders", payload);
       return res.json();
@@ -209,7 +209,7 @@ export default function ServiceDetailScreen() {
       notes: notes.trim() || undefined,
       items: [{ serviceId: service.id, quantity: 1 }],
       serviceDetails: Object.keys(serviceDetails).length > 0 ? serviceDetails : undefined,
-      providerId: selectedProviderId ?? service.suggestedProviderId ?? undefined,
+      preferredProviderId: selectedProviderId ?? service.suggestedProviderId ?? undefined,
     });
   };
 

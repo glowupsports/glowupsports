@@ -311,8 +311,16 @@ router.get("/player/shop/services/:id/providers", authMiddleware, requirePlayerP
     const serviceTags: string[] = (service[0].tags as string[]) ?? [];
     const serviceSlug = service[0].slug ?? "";
 
+    // Also fetch category slug for matching
+    let serviceCategorySlug = "";
+    if (service[0].categoryId) {
+      const cat = await db.select({ slug: shopCategories.slug })
+        .from(shopCategories).where(eq(shopCategories.id, service[0].categoryId!)).limit(1);
+      serviceCategorySlug = cat[0]?.slug ?? "";
+    }
+
     // Fetch all active, onboarded providers in this academy
-    const providers = await db.select({
+    const allProviders = await db.select({
       id: serviceProviders.id,
       displayName: serviceProviders.displayName,
       profilePhotoUrl: serviceProviders.profilePhotoUrl,
@@ -328,6 +336,23 @@ router.get("/player/shop/services/:id/providers", authMiddleware, requirePlayerP
       ))
       .orderBy(asc(serviceProviders.displayName));
 
+    // Filter to providers whose specializations overlap with service tags/slug/category
+    const hasSignal = serviceTags.length > 0 || serviceSlug || serviceCategorySlug;
+    const providers = hasSignal
+      ? allProviders.filter((p) => {
+          const combined = [
+            ...((p.specializations as string[]) ?? []),
+            ...((p.serviceTypes as string[]) ?? []),
+          ].map((s) => s.toLowerCase());
+          const tagMatch = serviceTags.some((t) => combined.includes(t.toLowerCase()));
+          const slugMatch = combined.some((s) =>
+            (serviceSlug && (serviceSlug.toLowerCase().includes(s) || s.includes(serviceSlug.toLowerCase()))) ||
+            (serviceCategorySlug && (serviceCategorySlug.toLowerCase().includes(s) || s.includes(serviceCategorySlug.toLowerCase())))
+          );
+          return tagMatch || slugMatch;
+        })
+      : allProviders; // If service has no tags/slug, show all
+
     // Compute active booking count per provider for workload display
     const providerIds = providers.map((p) => p.id);
     const workloadMap: Record<string, number> = {};
@@ -337,8 +362,8 @@ router.get("/player/shop/services/:id/providers", authMiddleware, requirePlayerP
         cnt: sql<number>`COUNT(*)`,
       }).from(shopOrders)
         .where(and(
+          inArray(shopOrders.assignedProviderId, providerIds),
           inArray(shopOrders.status, ["pending", "confirmed", "in_progress"] as const),
-          sql`${shopOrders.assignedProviderId} IS NOT NULL`,
         ))
         .groupBy(shopOrders.assignedProviderId);
 
@@ -349,27 +374,17 @@ router.get("/player/shop/services/:id/providers", authMiddleware, requirePlayerP
       }
     }
 
-    // Score providers by specialization relevance (exact tag/slug overlap scores higher)
-    const scored = providers.map((p) => {
-      const pSpecs: string[] = (p.specializations as string[]) ?? [];
-      const pTypes: string[] = (p.serviceTypes as string[]) ?? [];
-      const combined = [...pSpecs, ...pTypes].map((s) => s.toLowerCase());
-      const tagMatch = serviceTags.some((t) => combined.includes(t.toLowerCase()));
-      const slugMatch = combined.some((s) => serviceSlug.toLowerCase().includes(s) || s.includes(serviceSlug.toLowerCase()));
-      const relevance = tagMatch || slugMatch ? 1 : 0;
-      return {
-        ...p,
-        rating: p.rating ? Number(p.rating) : 0,
-        totalBookings: p.totalBookings ?? 0,
-        activeBookings: workloadMap[p.id] ?? 0,
-        relevance,
-      };
-    });
+    const result = providers.map((p) => ({
+      ...p,
+      rating: p.rating ? Number(p.rating) : 0,
+      totalBookings: p.totalBookings ?? 0,
+      activeBookings: workloadMap[p.id] ?? 0,
+    }));
 
-    // Sort: matching providers first, then by rating desc
-    scored.sort((a, b) => b.relevance - a.relevance || b.rating - a.rating);
+    // Sort by rating desc
+    result.sort((a, b) => b.rating - a.rating);
 
-    res.json(scored);
+    res.json(result);
   } catch (error) {
     console.error("[Shop] Error fetching service providers:", error);
     res.status(500).json({ error: "Failed to load providers" });
@@ -746,7 +761,10 @@ router.get("/player/shop/orders/:id", authMiddleware, requirePlayerProfile, requ
 // Create order (cart checkout / service booking)
 router.post("/player/shop/orders", authMiddleware, requirePlayerProfile, requireFeatureUnlock("academy_shop"), async (req: AuthRequest, res: Response) => {
   try {
-    const { items, contactName, contactPhone, contactEmail, notes, scheduledAt, providerId: rawProviderId } = req.body;
+    // Accept both preferredProviderId (new contract) and providerId (legacy)
+    const { items, contactName, contactPhone, contactEmail, notes, scheduledAt,
+      preferredProviderId: rawPreferredProviderId, providerId: rawLegacyProviderId } = req.body;
+    const rawProviderId = rawPreferredProviderId ?? rawLegacyProviderId;
     
     if (!items || !Array.isArray(items) || items.length === 0) {
       return res.status(400).json({ error: "Cart is empty" });
@@ -781,57 +799,71 @@ router.post("/player/shop/orders", authMiddleware, requirePlayerProfile, require
       }).from(serviceProviders)
         .where(and(eq(serviceProviders.academyId, academyId), eq(serviceProviders.isActive, true)));
 
-      if (academyProviders.length === 1) {
-        // Single provider — always assign
-        providerId = academyProviders[0].id;
-        autoAssigned = true;
-      } else if (academyProviders.length > 1) {
-        // Identify service tags for matching
-        const serviceItem = items.find((i: { serviceId?: string }) => i.serviceId);
-        let serviceTags: string[] = [];
-        let serviceSlug = "";
-        if (serviceItem?.serviceId) {
-          const svc = await db.select({ tags: shopServices.tags, slug: shopServices.slug })
-            .from(shopServices).where(eq(shopServices.id, serviceItem.serviceId)).limit(1);
-          serviceTags = (svc[0]?.tags as string[]) ?? [];
-          serviceSlug = svc[0]?.slug ?? "";
+      // Identify service tags + category slug for specialization matching
+      const serviceItem = items.find((i: { serviceId?: string }) => i.serviceId);
+      let serviceTags: string[] = [];
+      let serviceSlug = "";
+      let serviceCategorySlug = "";
+      if (serviceItem?.serviceId) {
+        const svc = await db.select({ tags: shopServices.tags, slug: shopServices.slug, categoryId: shopServices.categoryId })
+          .from(shopServices).where(eq(shopServices.id, serviceItem.serviceId)).limit(1);
+        serviceTags = (svc[0]?.tags as string[]) ?? [];
+        serviceSlug = svc[0]?.slug ?? "";
+        if (svc[0]?.categoryId) {
+          const cat = await db.select({ slug: shopCategories.slug })
+            .from(shopCategories).where(eq(shopCategories.id, svc[0].categoryId)).limit(1);
+          serviceCategorySlug = cat[0]?.slug ?? "";
         }
+      }
 
-        // Filter providers by specialization match (inclusive — fallback to all if none match)
-        const matching = academyProviders.filter((p) => {
-          const combined = [
-            ...((p.specializations as string[]) ?? []),
-            ...((p.serviceTypes as string[]) ?? []),
-          ].map((s) => s.toLowerCase());
-          const tagMatch = serviceTags.some((t) => combined.includes(t.toLowerCase()));
-          const slugMatch = combined.some((s) => serviceSlug.toLowerCase().includes(s) || s.includes(serviceSlug.toLowerCase()));
-          return tagMatch || slugMatch;
-        });
-        const candidates = matching.length > 0 ? matching : academyProviders;
-
-        // Get workload counts for candidate providers
-        const candidateIds = candidates.map((c) => c.id);
-        const workloadRows = await db.select({
-          assignedProviderId: shopOrders.assignedProviderId,
-          cnt: sql<number>`COUNT(*)`,
-        }).from(shopOrders)
-          .where(and(
-            inArray(shopOrders.assignedProviderId, candidateIds),
-            inArray(shopOrders.status, ["pending", "confirmed", "in_progress"] as const),
-          ))
-          .groupBy(shopOrders.assignedProviderId);
-
-        const workloadMap: Record<string, number> = {};
-        for (const row of workloadRows) {
-          if (row.assignedProviderId) workloadMap[row.assignedProviderId] = Number(row.cnt);
-        }
-
-        // Pick the provider with fewest active bookings
-        const best = candidates.reduce((a, b) =>
-          (workloadMap[a.id] ?? 0) <= (workloadMap[b.id] ?? 0) ? a : b
+      const matchesService = (p: { specializations: unknown; serviceTypes: unknown }) => {
+        const combined = [
+          ...((p.specializations as string[]) ?? []),
+          ...((p.serviceTypes as string[]) ?? []),
+        ].map((s) => s.toLowerCase());
+        const tagMatch = serviceTags.some((t) => combined.includes(t.toLowerCase()));
+        const slugMatch = combined.some((s) =>
+          (serviceSlug && (serviceSlug.toLowerCase().includes(s) || s.includes(serviceSlug.toLowerCase()))) ||
+          (serviceCategorySlug && (serviceCategorySlug.toLowerCase().includes(s) || s.includes(serviceCategorySlug.toLowerCase())))
         );
-        providerId = best.id;
-        autoAssigned = true;
+        return tagMatch || slugMatch;
+      };
+
+      if (academyProviders.length === 1) {
+        // Single provider — check specialization match; if no match keep pending
+        if (matchesService(academyProviders[0]) || (!serviceTags.length && !serviceSlug)) {
+          providerId = academyProviders[0].id;
+          autoAssigned = true;
+        }
+      } else if (academyProviders.length > 1) {
+        // Filter to matching providers — if none match, leave pending (do NOT fall back to all)
+        const matching = academyProviders.filter(matchesService);
+        if (matching.length > 0) {
+          // Get workload counts for matching providers
+          const candidateIds = matching.map((c) => c.id);
+          const workloadRows = await db.select({
+            assignedProviderId: shopOrders.assignedProviderId,
+            cnt: sql<number>`COUNT(*)`,
+          }).from(shopOrders)
+            .where(and(
+              inArray(shopOrders.assignedProviderId, candidateIds),
+              inArray(shopOrders.status, ["pending", "confirmed", "in_progress"] as const),
+            ))
+            .groupBy(shopOrders.assignedProviderId);
+
+          const workloadMap: Record<string, number> = {};
+          for (const row of workloadRows) {
+            if (row.assignedProviderId) workloadMap[row.assignedProviderId] = Number(row.cnt);
+          }
+
+          // Pick the provider with fewest active bookings
+          const best = matching.reduce((a, b) =>
+            (workloadMap[a.id] ?? 0) <= (workloadMap[b.id] ?? 0) ? a : b
+          );
+          providerId = best.id;
+          autoAssigned = true;
+        }
+        // If no matching provider — leave order pending (as per requirement)
       }
       // If no providers at all — leave as pending
     }
