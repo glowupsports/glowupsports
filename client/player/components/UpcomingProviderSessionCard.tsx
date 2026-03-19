@@ -236,9 +236,11 @@ type PlayerNav = NativeStackNavigationProp<PlayerStackParamList>;
 function SingleProviderCard({
   booking,
   onRated,
+  othersCount = 0,
 }: {
   booking: ProviderBooking;
   onRated: (orderId: string, rating: number) => void;
+  othersCount?: number;
 }) {
   const navigation = useNavigation<PlayerNav>();
   const queryClient = useQueryClient();
@@ -291,10 +293,14 @@ function SingleProviderCard({
   }, [navigation, booking.serviceId]);
 
   const handleCardPress = useCallback(() => {
-    if (!booking.serviceId) return;
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    navigation.navigate("ServiceDetail", { serviceId: booking.serviceId });
-  }, [navigation, booking.serviceId]);
+    navigation.navigate("PlayerBookingChat", { orderId: booking.id });
+  }, [navigation, booking.id]);
+
+  const handleChatPress = useCallback(() => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    navigation.navigate("PlayerBookingChat", { orderId: booking.id });
+  }, [navigation, booking.id]);
 
   const stateColor =
     state === "urgent"
@@ -302,6 +308,8 @@ function SingleProviderCard({
       : state === "today_morning"
       ? "#FF9800"
       : accent;
+
+  const isUpcoming = state === "days_out" || state === "today_morning" || state === "urgent";
 
   return (
     <Animated.View entering={FadeIn.duration(350)}>
@@ -311,7 +319,7 @@ function SingleProviderCard({
           { borderColor: stateColor + "30" },
           state === "urgent" && cardStyles.urgentCard,
         ]}
-        onPress={state === "rating" || state === "rebook" ? undefined : handleCardPress}
+        onPress={isUpcoming ? handleCardPress : undefined}
       >
         {/* Accent top bar */}
         <View style={[cardStyles.topBar, { backgroundColor: stateColor }]} />
@@ -347,8 +355,7 @@ function SingleProviderCard({
             </View>
 
             {/* State-specific right content */}
-            {(state === "days_out" || state === "today_morning" || state === "urgent") &&
-              booking.scheduledAt ? (
+            {isUpcoming && booking.scheduledAt ? (
               <View style={cardStyles.timeBlock}>
                 {state === "urgent" && (
                   <View style={cardStyles.urgentDotContainer}>
@@ -417,17 +424,33 @@ function SingleProviderCard({
             </Animated.View>
           )}
 
-          {/* State badge for upcoming */}
-          {state === "today_morning" && (
-            <View style={[cardStyles.warmBadge, { backgroundColor: stateColor + "15", borderColor: stateColor + "30" }]}>
-              <Text style={[cardStyles.warmBadgeText, { color: stateColor }]}>Session today — get ready</Text>
+          {/* Footer row for upcoming bookings: status badge + Chat button */}
+          {isUpcoming ? (
+            <View style={cardStyles.footerRow}>
+              <View style={{ flexDirection: "row", alignItems: "center", gap: Spacing.xs, flex: 1 }}>
+                {state === "today_morning" ? (
+                  <View style={[cardStyles.warmBadge, { backgroundColor: stateColor + "15", borderColor: stateColor + "30" }]}>
+                    <Text style={[cardStyles.warmBadgeText, { color: stateColor }]}>Today — get ready</Text>
+                  </View>
+                ) : state === "urgent" ? (
+                  <View style={[cardStyles.warmBadge, { backgroundColor: stateColor + "15", borderColor: stateColor + "30" }]}>
+                    <Text style={[cardStyles.warmBadgeText, { color: stateColor }]}>Starting soon</Text>
+                  </View>
+                ) : othersCount > 0 ? (
+                  <View style={[cardStyles.warmBadge, { backgroundColor: "rgba(255,255,255,0.06)", borderColor: "rgba(255,255,255,0.1)" }]}>
+                    <Text style={[cardStyles.warmBadgeText, { color: Colors.dark.textSubtle }]}>+{othersCount} more</Text>
+                  </View>
+                ) : null}
+              </View>
+              <Pressable
+                style={[cardStyles.chatBtn, { backgroundColor: stateColor + "20", borderColor: stateColor + "40" }]}
+                onPress={handleChatPress}
+              >
+                <Ionicons name="chatbubble-outline" size={13} color={stateColor} />
+                <Text style={[cardStyles.chatBtnText, { color: stateColor }]}>Chat</Text>
+              </Pressable>
             </View>
-          )}
-          {state === "urgent" && (
-            <View style={[cardStyles.warmBadge, { backgroundColor: stateColor + "15", borderColor: stateColor + "30" }]}>
-              <Text style={[cardStyles.warmBadgeText, { color: stateColor }]}>Starting soon</Text>
-            </View>
-          )}
+          ) : null}
         </View>
       </Pressable>
     </Animated.View>
@@ -476,9 +499,13 @@ export function UpcomingProviderSessionCard() {
         snapToInterval={SCREEN_WIDTH - Spacing.lg * 2 + Spacing.md}
         snapToAlignment="start"
       >
-        {bookings.map((b) => (
+        {bookings.map((b, i) => (
           <View key={b.id} style={{ width: SCREEN_WIDTH - Spacing.lg * 2 }}>
-            <SingleProviderCard booking={b} onRated={handleRated} />
+            <SingleProviderCard
+              booking={b}
+              onRated={handleRated}
+              othersCount={i === 0 ? bookings.length - 1 : 0}
+            />
           </View>
         ))}
       </ScrollView>
@@ -665,6 +692,28 @@ const cardStyles = StyleSheet.create({
     fontSize: 11,
     fontWeight: "700",
     letterSpacing: 0.5,
+  },
+  footerRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingTop: Spacing.xs,
+    borderTopWidth: 1,
+    borderTopColor: "rgba(255,255,255,0.06)",
+    gap: Spacing.sm,
+  },
+  chatBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: BorderRadius.full,
+    borderWidth: 1,
+  },
+  chatBtnText: {
+    fontSize: 12,
+    fontWeight: "700",
   },
 });
 
