@@ -63,7 +63,20 @@ function isBirthdayToday(dateOfBirth: string | Date | null): boolean {
   router.get("/api/world-chat", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
     try {
       // Find existing world chat conversation
-      let worldConv = await db.select().from(conversations)
+      let worldConv = await db.select({
+        id: conversations.id,
+        type: conversations.type,
+        title: conversations.title,
+        academyId: conversations.academyId,
+        playerId: conversations.playerId,
+        coachId: conversations.coachId,
+        providerId: conversations.providerId,
+        orderId: conversations.orderId,
+        lastMessageAt: conversations.lastMessageAt,
+        lastMessagePreview: conversations.lastMessagePreview,
+        isArchived: conversations.isArchived,
+        createdAt: conversations.createdAt,
+      }).from(conversations)
         .where(eq(conversations.type, "world"))
         .limit(1);
 
@@ -90,7 +103,20 @@ function isBirthdayToday(dateOfBirth: string | Date | null): boolean {
   router.get("/api/world-chat/messages", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
     try {
       // Find world chat conversation
-      const worldConvResult = await db.select().from(conversations)
+      const worldConvResult = await db.select({
+        id: conversations.id,
+        type: conversations.type,
+        title: conversations.title,
+        academyId: conversations.academyId,
+        playerId: conversations.playerId,
+        coachId: conversations.coachId,
+        providerId: conversations.providerId,
+        orderId: conversations.orderId,
+        lastMessageAt: conversations.lastMessageAt,
+        lastMessagePreview: conversations.lastMessagePreview,
+        isArchived: conversations.isArchived,
+        createdAt: conversations.createdAt,
+      }).from(conversations)
         .where(eq(conversations.type, "world"))
         .limit(1);
 
@@ -220,7 +246,20 @@ function isBirthdayToday(dateOfBirth: string | Date | null): boolean {
       }
 
       // Get or create world chat conversation
-      let worldConvResult = await db.select().from(conversations)
+      let worldConvResult = await db.select({
+        id: conversations.id,
+        type: conversations.type,
+        title: conversations.title,
+        academyId: conversations.academyId,
+        playerId: conversations.playerId,
+        coachId: conversations.coachId,
+        providerId: conversations.providerId,
+        orderId: conversations.orderId,
+        lastMessageAt: conversations.lastMessageAt,
+        lastMessagePreview: conversations.lastMessagePreview,
+        isArchived: conversations.isArchived,
+        createdAt: conversations.createdAt,
+      }).from(conversations)
         .where(eq(conversations.type, "world"))
         .limit(1);
 

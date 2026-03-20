@@ -16745,7 +16745,7 @@ async function processDailyScheduleNotifications() {
       todayEnd.setHours(23, 59, 59, 999);
       const sessionsResult = await pool.query(`
         SELECT s.id, s.session_type, s.start_time,
-               (SELECT COUNT(*) FROM session_players sp WHERE sp.session_id = s.id AND sp.status != 'cancelled') as player_count
+               (SELECT COUNT(*) FROM session_players sp WHERE sp.session_id = s.id) as player_count
         FROM sessions s
         WHERE s.coach_id = $1
           AND s.status = 'scheduled'
@@ -50796,7 +50796,20 @@ function isBirthdayToday(dateOfBirth) {
 }
 router22.get("/api/world-chat", authMiddlewareWithFreshData, async (req2, res) => {
   try {
-    let worldConv = await db.select().from(conversations).where(eq30(conversations.type, "world")).limit(1);
+    let worldConv = await db.select({
+      id: conversations.id,
+      type: conversations.type,
+      title: conversations.title,
+      academyId: conversations.academyId,
+      playerId: conversations.playerId,
+      coachId: conversations.coachId,
+      providerId: conversations.providerId,
+      orderId: conversations.orderId,
+      lastMessageAt: conversations.lastMessageAt,
+      lastMessagePreview: conversations.lastMessagePreview,
+      isArchived: conversations.isArchived,
+      createdAt: conversations.createdAt
+    }).from(conversations).where(eq30(conversations.type, "world")).limit(1);
     if (worldConv.length === 0) {
       const created = await db.insert(conversations).values({
         type: "world",
@@ -50815,7 +50828,20 @@ router22.get("/api/world-chat", authMiddlewareWithFreshData, async (req2, res) =
 });
 router22.get("/api/world-chat/messages", authMiddlewareWithFreshData, async (req2, res) => {
   try {
-    const worldConvResult = await db.select().from(conversations).where(eq30(conversations.type, "world")).limit(1);
+    const worldConvResult = await db.select({
+      id: conversations.id,
+      type: conversations.type,
+      title: conversations.title,
+      academyId: conversations.academyId,
+      playerId: conversations.playerId,
+      coachId: conversations.coachId,
+      providerId: conversations.providerId,
+      orderId: conversations.orderId,
+      lastMessageAt: conversations.lastMessageAt,
+      lastMessagePreview: conversations.lastMessagePreview,
+      isArchived: conversations.isArchived,
+      createdAt: conversations.createdAt
+    }).from(conversations).where(eq30(conversations.type, "world")).limit(1);
     if (worldConvResult.length === 0) {
       return res.json([]);
     }
@@ -50911,7 +50937,20 @@ router22.post("/api/world-chat/messages", authMiddlewareWithFreshData, async (re
     if (!sanitizedBody) {
       return res.status(400).json({ error: "Message body required after sanitization" });
     }
-    let worldConvResult = await db.select().from(conversations).where(eq30(conversations.type, "world")).limit(1);
+    let worldConvResult = await db.select({
+      id: conversations.id,
+      type: conversations.type,
+      title: conversations.title,
+      academyId: conversations.academyId,
+      playerId: conversations.playerId,
+      coachId: conversations.coachId,
+      providerId: conversations.providerId,
+      orderId: conversations.orderId,
+      lastMessageAt: conversations.lastMessageAt,
+      lastMessagePreview: conversations.lastMessagePreview,
+      isArchived: conversations.isArchived,
+      createdAt: conversations.createdAt
+    }).from(conversations).where(eq30(conversations.type, "world")).limit(1);
     if (worldConvResult.length === 0) {
       const created = await db.insert(conversations).values({
         type: "world",
