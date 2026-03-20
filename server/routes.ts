@@ -6217,6 +6217,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
 
         const scopeToAcademy = req.query.scope === "academy";
+        if (scopeToAcademy && !academyId) {
+          return res.json([]);
+        }
         const allCoaches = await storage.getAllCoaches(
           (role === "platform_owner" && !scopeToAcademy) ? undefined : academyId,
         );
