@@ -1216,8 +1216,12 @@ export function CoachChatFooter({ mode = "coach" }: ChatFooterProps) {
     );
   };
 
+  const desktopWebStyle = isDesktopWeb
+    ? { position: "fixed" as any, left: 220, right: 0, bottom: 0 }
+    : { bottom: tabBarHeight };
+
   return (
-    <Animated.View style={[styles.container, { bottom: tabBarHeight, paddingTop: isFullscreen ? insets.top : 0 }, isDesktopWeb && { position: "fixed" as any, left: 220, right: 0, bottom: 0 }, animatedStyle]}>
+    <Animated.View style={[styles.container, { paddingTop: isFullscreen ? insets.top : 0 }, desktopWebStyle, animatedStyle]}>
       <BlurView intensity={40} tint="dark" style={StyleSheet.absoluteFill} />
       <View style={styles.header}>
         <Pressable
