@@ -111,6 +111,7 @@ export default function SettingsScreen() {
   const navigation = useNavigation<NavigationProp>();
   const queryClient = useQueryClient();
   const { logout } = useAuth();
+  const [deleteAccountLoading, setDeleteAccountLoading] = useState(false);
   const [showSessionLengthModal, setShowSessionLengthModal] = useState(false);
   const [sessionLengthInput, setSessionLengthInput] = useState("60");
   const [showWelcomeVideoModal, setShowWelcomeVideoModal] = useState(false);
@@ -362,6 +363,49 @@ export default function SettingsScreen() {
     { key: "players", label: "Players", desc: "All player accounts in this academy" },
   ];
 
+  const handleDeleteAccount = () => {
+    Alert.alert(
+      "Delete Account",
+      "Are you sure you want to permanently delete your account?\n\nThis will immediately erase all your data. This cannot be undone.",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Continue",
+          style: "destructive",
+          onPress: () => {
+            Alert.alert(
+              "Final Confirmation",
+              "This is your last chance. Your account and all data will be permanently deleted right now. Are you absolutely sure?",
+              [
+                { text: "Cancel", style: "cancel" },
+                {
+                  text: "Yes, Delete My Account",
+                  style: "destructive",
+                  onPress: async () => {
+                    setDeleteAccountLoading(true);
+                    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+                    try {
+                      await apiRequest("DELETE", "/api/player/me/account", undefined);
+                      Alert.alert(
+                        "Account Deleted",
+                        "Your account has been permanently deleted. A confirmation has been sent to your email address.",
+                        [{ text: "OK", onPress: () => { setTimeout(() => { logout(); }, 350); } }]
+                      );
+                    } catch (error: any) {
+                      Alert.alert("Error", error?.message || "Failed to delete account. Please contact support@glowupsports.com");
+                    } finally {
+                      setDeleteAccountLoading(false);
+                    }
+                  },
+                },
+              ]
+            );
+          },
+        },
+      ]
+    );
+  };
+
   const handleLogout = () => {
     Alert.alert(
       "Sign Out",
@@ -516,6 +560,22 @@ export default function SettingsScreen() {
         <Pressable style={styles.logoutButton} onPress={handleLogout}>
           <Ionicons name="log-out-outline" size={24} color={Colors.dark.error} />
           <Text style={styles.logoutText}>Sign Out</Text>
+        </Pressable>
+        <Pressable
+          style={styles.deleteAccountButton}
+          onPress={handleDeleteAccount}
+          disabled={deleteAccountLoading}
+          accessibilityRole="button"
+          accessibilityLabel="Delete my account"
+        >
+          {deleteAccountLoading ? (
+            <ActivityIndicator size="small" color={Colors.dark.error} />
+          ) : (
+            <>
+              <Ionicons name="trash-outline" size={18} color={Colors.dark.error} />
+              <Text style={styles.deleteAccountText}>Delete Account</Text>
+            </>
+          )}
         </Pressable>
       </ScrollView>
 
@@ -786,6 +846,22 @@ const styles = StyleSheet.create({
     fontSize: Typography.body.fontSize,
     fontWeight: "600",
     color: Colors.dark.error,
+  },
+  deleteAccountButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: Spacing.sm,
+    padding: Spacing.md,
+    backgroundColor: "transparent",
+    borderRadius: BorderRadius.lg,
+    marginTop: Spacing.sm,
+  },
+  deleteAccountText: {
+    fontSize: Typography.caption.fontSize,
+    color: Colors.dark.error,
+    fontWeight: "500",
+    opacity: 0.8,
   },
   modalContainer: {
     flex: 1,
