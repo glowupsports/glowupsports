@@ -101,7 +101,7 @@ function dimColors(colors: string[]): string[] {
   });
 }
 
-function DraggableSessionBlock({ session, top, height, isPast, isActive, gradientColors, sessionLabel, formattedTime, formattedEndTime, hourHeight, courtLaneWidth, onTap, onLongPress, onDragEnd, onDragUpdate, hasConflict, onHoverIn, onHoverOut }: any) {
+function DraggableSessionBlock({ session, top, height, isPast, isActive, gradientColors, sessionLabel, formattedTime, formattedEndTime, hourHeight, courtLaneWidth, onTap, onLongPress, onDragEnd, onDragUpdate, hasConflict, onHoverIn, onHoverOut, onWebPress }: any) {
   const translateX = useSharedValue(0);
   const translateY = useSharedValue(0);
   const isDragging = useSharedValue(false);
@@ -137,7 +137,7 @@ function DraggableSessionBlock({ session, top, height, isPast, isActive, gradien
     });
 
   const tapGesture = Gesture.Tap().onEnd(() => {
-    if (onTap) runOnJS(onTap)();
+    if (Platform.OS !== 'web' && onTap) runOnJS(onTap)();
   });
 
   const longPressGesture = Gesture.LongPress()
@@ -173,31 +173,42 @@ function DraggableSessionBlock({ session, top, height, isPast, isActive, gradien
             overflow: 'hidden',
             borderWidth: hasConflict ? 2 : 1,
             borderColor: hasConflict ? '#FF4444' : 'rgba(255,255,255,0.08)',
-            ...(Platform.OS === 'web' ? { boxShadow: '0 2px 8px rgba(0,0,0,0.35)' } as any : {}),
+            ...(Platform.OS === 'web' ? { boxShadow: '0 2px 8px rgba(0,0,0,0.35)', cursor: 'pointer' } as any : {}),
           },
           animatedStyle,
         ]}
-        {...(Platform.OS === 'web' ? { onMouseEnter: onHoverIn, onMouseLeave: onHoverOut } as any : {})}
+        {...(Platform.OS === 'web' ? {
+          onMouseEnter: onHoverIn,
+          onMouseLeave: onHoverOut,
+          onClick: (e: any) => { e.stopPropagation(); if (onWebPress) onWebPress(e.clientX, e.clientY); },
+        } as any : {})}
       >
         <LinearGradient
           colors={displayColors}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
-          style={{ flex: 1, padding: 4, borderLeftWidth: 3, borderLeftColor: isActive ? '#00E676' : gradientColors[0] }}
+          style={{ flex: 1, borderLeftWidth: 3, borderLeftColor: isActive ? '#00E676' : gradientColors[0] }}
         >
-          {isActive ? (
-            <View style={{ position: 'absolute', top: 2, right: 2 }}>
-              <PulsingDot />
-            </View>
-          ) : null}
-          <Text style={{ color: '#000', fontSize: 10, fontWeight: '700', lineHeight: 12 }} numberOfLines={height > 40 ? 2 : 1}>
-            {sessionLabel}
-          </Text>
-          {height > 30 ? (
-            <Text style={{ color: 'rgba(0,0,0,0.65)', fontSize: 9 }} numberOfLines={1}>
-              {formattedEndTime ? `${formattedTime}–${formattedEndTime}` : formattedTime}
+          <LinearGradient
+            colors={['rgba(0,0,0,0.18)', 'rgba(0,0,0,0.0)', 'rgba(255,255,255,0.06)']}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 0, y: 1 }}
+            style={{ flex: 1, padding: 4 }}
+          >
+            {isActive ? (
+              <View style={{ position: 'absolute', top: 2, right: 2 }}>
+                <PulsingDot />
+              </View>
+            ) : null}
+            <Text style={{ color: '#000', fontSize: 10, fontWeight: '700', lineHeight: 12 }} numberOfLines={height >= 50 ? 2 : 1}>
+              {sessionLabel}
             </Text>
-          ) : null}
+            {height > 30 ? (
+              <Text style={{ color: 'rgba(0,0,0,0.65)', fontSize: 9 }} numberOfLines={1}>
+                {formattedEndTime ? `${formattedTime}–${formattedEndTime}` : formattedTime}
+              </Text>
+            ) : null}
+          </LinearGradient>
         </LinearGradient>
       </Animated.View>
     </GestureDetector>
@@ -343,6 +354,8 @@ export default function CalendarScreen() {
   } | null>(null);
   const [dragConflict, setDragConflict] = useState<string | null>(null);
   const [hoveredSession, setHoveredSession] = useState<any | null>(null);
+  const [pressedSession, setPressedSession] = useState<any | null>(null);
+  const [pressedSessionPos, setPressedSessionPos] = useState<{ x: number; y: number } | null>(null);
   const [pendingDrag, setPendingDrag] = useState<{
     session: Session;
     newStart: Date;
@@ -1934,6 +1947,16 @@ export default function CalendarScreen() {
                             hasConflict={dragConflict === session.id}
                             onHoverIn={Platform.OS === 'web' ? () => setHoveredSession(session) : undefined}
                             onHoverOut={Platform.OS === 'web' ? () => setHoveredSession(null) : undefined}
+                            onWebPress={Platform.OS === 'web' ? (clientX: number, clientY: number) => {
+                              setPressedSession(prev => {
+                                if (prev?.id === session.id) {
+                                  setPressedSessionPos(null);
+                                  return null;
+                                }
+                                setPressedSessionPos({ x: clientX, y: clientY });
+                                return session;
+                              });
+                            } : undefined}
                           />
                         );
                       })}
@@ -3297,53 +3320,126 @@ export default function CalendarScreen() {
         </View>
       </Modal>
 
-      {/* Web hover popup */}
-      {Platform.OS === 'web' && hoveredSession && (
-        <View style={{ position: 'fixed' as any, bottom: 24, right: 24, zIndex: 999 }} pointerEvents="none">
-          <View style={{
-            backgroundColor: '#1A2030',
-            borderRadius: 12,
-            padding: 14,
-            minWidth: 200,
-            borderWidth: 1,
-            borderColor: 'rgba(255,255,255,0.1)',
-            shadowColor: '#000',
-            shadowOffset: { width: 0, height: 8 },
-            shadowOpacity: 0.5,
-            shadowRadius: 16,
-          }}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8, gap: 8 }}>
+      {/* Web hover/press popup */}
+      {Platform.OS === 'web' && (hoveredSession || pressedSession) && (() => {
+        const popupSession = pressedSession || hoveredSession;
+        const typeLabel = popupSession.sessionType === 'private' || popupSession.sessionType === 'private_adjusted' ? 'Private' :
+          popupSession.sessionType === 'semi_private' ? 'Semi-Private' :
+          popupSession.sessionType === 'group' ? 'Group' :
+          popupSession.sessionType === 'activity' ? 'Activity' :
+          popupSession.sessionType === 'physical' ? 'Physical' : 'Session';
+        const accentColor = getSessionTypeGradient(popupSession.sessionType)?.[0] || '#C8FF3D';
+        const playerName = popupSession.players?.[0]?.name || '';
+        const playerInitial = playerName ? playerName.charAt(0).toUpperCase() : '?';
+        const courtName = allCourts.find((c: any) => c.id === popupSession.courtId)?.name || '';
+        const timeRange = `${formatTimeInTimezone(popupSession.startTime, academyTimezone)} – ${formatTimeInTimezone(popupSession.endTime, academyTimezone)}`;
+        const attendance = popupSession.players?.[0]?.attendanceStatus;
+        const attendanceColor = attendance === 'Present' ? '#00E676' : attendance === 'Late' ? '#FFB300' : attendance === 'Absent' ? '#FF4444' : null;
+        const coachName = coach?.name || '';
+        const POPUP_W = 240;
+        const POPUP_H = 190;
+        const MARGIN = 12;
+        let popLeft: number | undefined;
+        let popTop: number | undefined;
+        let popRight: number | undefined;
+        let popBottom: number | undefined;
+        if (pressedSessionPos) {
+          const winW = typeof window !== 'undefined' ? window.innerWidth : 400;
+          const winH = typeof window !== 'undefined' ? window.innerHeight : 800;
+          const rawLeft = pressedSessionPos.x + MARGIN;
+          const rawTop = pressedSessionPos.y + MARGIN;
+          if (rawLeft + POPUP_W > winW - MARGIN) {
+            popRight = winW - pressedSessionPos.x + MARGIN;
+          } else {
+            popLeft = rawLeft;
+          }
+          if (rawTop + POPUP_H > winH - MARGIN) {
+            popBottom = winH - pressedSessionPos.y + MARGIN;
+          } else {
+            popTop = rawTop;
+          }
+        } else {
+          popBottom = 24;
+          popRight = 24;
+        }
+        return (
+          <Pressable
+            style={{ position: 'fixed' as any, inset: 0, zIndex: 998 } as any}
+            onPress={() => { setPressedSession(null); setPressedSessionPos(null); }}
+            pointerEvents={pressedSession ? 'auto' : 'none'}
+          >
+            <View
+              style={[
+                { position: 'absolute' as any, zIndex: 999 },
+                popLeft !== undefined ? { left: popLeft } : {},
+                popRight !== undefined ? { right: popRight } : {},
+                popTop !== undefined ? { top: popTop } : {},
+                popBottom !== undefined ? { bottom: popBottom } : {},
+                Platform.OS === 'web' ? { boxShadow: '0 8px 32px rgba(0,0,0,0.5)' } as any : {},
+              ]}
+              {...(Platform.OS === 'web' ? { onClick: (e: any) => e.stopPropagation() } as any : {})}
+            >
               <View style={{
-                width: 8,
-                height: 8,
-                borderRadius: 4,
-                backgroundColor: getSessionTypeGradient(hoveredSession.sessionType)?.[0] || '#C8FF3D',
-              }} />
-              <Text style={{ color: '#fff', fontSize: 13, fontWeight: '700' }}>
-                {hoveredSession.sessionType === 'private' || hoveredSession.sessionType === 'private_adjusted' ? 'Private' :
-                 hoveredSession.sessionType === 'semi_private' ? 'Semi-Private' :
-                 hoveredSession.sessionType === 'group' ? 'Group' :
-                 hoveredSession.sessionType === 'activity' ? 'Activity' :
-                 hoveredSession.sessionType === 'physical' ? 'Physical' : 'Session'}
-              </Text>
+                backgroundColor: '#141C2B',
+                borderRadius: 14,
+                padding: 14,
+                minWidth: POPUP_W,
+                borderWidth: 1,
+                borderColor: 'rgba(255,255,255,0.12)',
+              }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 10, gap: 10 }}>
+                  <View style={{
+                    width: 34,
+                    height: 34,
+                    borderRadius: 17,
+                    backgroundColor: accentColor,
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                  }}>
+                    <Text style={{ color: '#000', fontSize: 14, fontWeight: '800' }}>{playerInitial}</Text>
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={{ color: '#fff', fontSize: 13, fontWeight: '700', lineHeight: 16 }}>{playerName || 'No player'}</Text>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 2 }}>
+                      <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: accentColor }} />
+                      <Text style={{ color: accentColor, fontSize: 11, fontWeight: '600' }}>{typeLabel}</Text>
+                    </View>
+                  </View>
+                  {attendanceColor ? (
+                    <View style={{ backgroundColor: attendanceColor + '22', borderRadius: 8, paddingHorizontal: 7, paddingVertical: 3, borderWidth: 1, borderColor: attendanceColor + '66' }}>
+                      <Text style={{ color: attendanceColor, fontSize: 10, fontWeight: '700' }}>{attendance}</Text>
+                    </View>
+                  ) : null}
+                </View>
+                <View style={{ gap: 5 }}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                    <Feather name="clock" size={11} color="rgba(255,255,255,0.4)" />
+                    <Text style={{ color: 'rgba(255,255,255,0.65)', fontSize: 11 }}>{timeRange}</Text>
+                  </View>
+                  {courtName ? (
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                      <Feather name="map-pin" size={11} color="rgba(255,255,255,0.4)" />
+                      <Text style={{ color: 'rgba(255,255,255,0.45)', fontSize: 11 }}>{courtName}</Text>
+                    </View>
+                  ) : null}
+                  {coachName ? (
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                      <Feather name="user" size={11} color="rgba(255,255,255,0.4)" />
+                      <Text style={{ color: 'rgba(255,255,255,0.45)', fontSize: 11 }}>{coachName}</Text>
+                    </View>
+                  ) : null}
+                  {popupSession.players && popupSession.players.length > 1 ? (
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                      <Feather name="users" size={11} color="rgba(255,255,255,0.4)" />
+                      <Text style={{ color: 'rgba(255,255,255,0.45)', fontSize: 11 }}>{popupSession.players.length} players</Text>
+                    </View>
+                  ) : null}
+                </View>
+              </View>
             </View>
-            {hoveredSession.players?.[0]?.name && (
-              <Text style={{ color: '#C8FF3D', fontSize: 12, fontWeight: '600', marginBottom: 4 }}>
-                {hoveredSession.players[0].name}
-                {hoveredSession.players.length > 1 ? ` +${hoveredSession.players.length - 1}` : ''}
-              </Text>
-            )}
-            <Text style={{ color: 'rgba(255,255,255,0.6)', fontSize: 11, marginBottom: 2 }}>
-              {formatTimeInTimezone(hoveredSession.startTime, academyTimezone)} – {formatTimeInTimezone(hoveredSession.endTime, academyTimezone)}
-            </Text>
-            {hoveredSession.courtId && (
-              <Text style={{ color: 'rgba(255,255,255,0.45)', fontSize: 10 }}>
-                {allCourts.find((c: any) => c.id === hoveredSession.courtId)?.name || ''}
-              </Text>
-            )}
-          </View>
-        </View>
-      )}
+          </Pressable>
+        );
+      })()}
     </View>
   );
 }
@@ -3981,7 +4077,7 @@ const styles = StyleSheet.create({
     width: TIME_COLUMN_WIDTH,
     backgroundColor: Backgrounds.card,
     borderRightWidth: 1,
-    borderRightColor: "rgba(255, 255, 255, 0.15)",
+    borderRightColor: "rgba(255,255,255,0.08)",
   },
   timeSlot: {
     height: HOUR_HEIGHT_60,
@@ -4007,14 +4103,14 @@ const styles = StyleSheet.create({
     overflow: "visible",
   },
   courtLaneWithDivider: {
-    borderLeftWidth: 3,
-    borderLeftColor: "#FFFFFF",
+    borderLeftWidth: 1,
+    borderLeftColor: "rgba(255,255,255,0.10)",
   },
   hourSlot: {
     height: HOUR_HEIGHT_60,
     position: "relative",
-    borderBottomWidth: 2,
-    borderBottomColor: "#FFFFFF",
+    borderBottomWidth: 1,
+    borderBottomColor: "rgba(255,255,255,0.06)",
     overflow: "visible",
   },
   hourSlotEven: {
@@ -4029,7 +4125,7 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     height: 1,
-    backgroundColor: "rgba(255,255,255,0.05)",
+    backgroundColor: "rgba(255,255,255,0.06)",
   },
   halfHourLine: {
     position: "absolute",
