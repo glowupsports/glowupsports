@@ -159,8 +159,6 @@ function isBirthdayToday(dateOfBirth: string | Date | null): boolean {
         const coachData = await db.select({
           id: coaches.id,
           name: coaches.name,
-          firstName: coaches.firstName,
-          lastName: coaches.lastName,
           academyId: coaches.academyId,
         }).from(coaches).where(inArray(coaches.id, coachIds));
 
@@ -171,7 +169,7 @@ function isBirthdayToday(dateOfBirth: string | Date | null): boolean {
         const academyNameMap = new Map(academyData.map(a => [a.id, a.name]));
 
         for (const c of coachData) {
-          const name = c.name || `${c.firstName || ''} ${c.lastName || ''}`.trim() || 'Coach';
+          const name = c.name || 'Coach';
           coachMap.set(c.id, { name, academyName: (c.academyId ? academyNameMap.get(c.academyId) : null) || 'Academy' });
         }
       }
@@ -180,8 +178,6 @@ function isBirthdayToday(dateOfBirth: string | Date | null): boolean {
         const playerData = await db.select({
           id: players.id,
           name: players.name,
-          firstName: players.firstName,
-          lastName: players.lastName,
           academyId: players.academyId,
         }).from(players).where(inArray(players.id, playerIds));
 
@@ -192,7 +188,7 @@ function isBirthdayToday(dateOfBirth: string | Date | null): boolean {
         const academyNameMap = new Map(academyData.map(a => [a.id, a.name]));
 
         for (const p of playerData) {
-          const name = p.name || `${p.firstName || ''} ${p.lastName || ''}`.trim() || 'Player';
+          const name = p.name || 'Player';
           playerMap.set(p.id, { name, academyName: (p.academyId ? academyNameMap.get(p.academyId) : null) || 'Academy' });
         }
       }
@@ -300,12 +296,10 @@ function isBirthdayToday(dateOfBirth: string | Date | null): boolean {
       if (senderType === "coach" && coachId) {
         const coachData = await db.select({
           name: coaches.name,
-          firstName: coaches.firstName,
-          lastName: coaches.lastName,
           academyId: coaches.academyId,
         }).from(coaches).where(eq(coaches.id, coachId)).limit(1);
         if (coachData.length > 0) {
-          senderName = coachData[0].name || `${coachData[0].firstName || ''} ${coachData[0].lastName || ''}`.trim() || 'Coach';
+          senderName = coachData[0].name || 'Coach';
           if (coachData[0].academyId) {
             const acad = await db.select({ name: academies.name }).from(academies).where(eq(academies.id, coachData[0].academyId!)).limit(1);
             academyName = acad[0]?.name || '';
@@ -314,12 +308,10 @@ function isBirthdayToday(dateOfBirth: string | Date | null): boolean {
       } else if (senderType === "player" && playerId) {
         const playerData = await db.select({
           name: players.name,
-          firstName: players.firstName,
-          lastName: players.lastName,
           academyId: players.academyId,
         }).from(players).where(eq(players.id, playerId)).limit(1);
         if (playerData.length > 0) {
-          senderName = playerData[0].name || `${playerData[0].firstName || ''} ${playerData[0].lastName || ''}`.trim() || 'Player';
+          senderName = playerData[0].name || 'Player';
           if (playerData[0].academyId) {
             const acad = await db.select({ name: academies.name }).from(academies).where(eq(academies.id, playerData[0].academyId!)).limit(1);
             academyName = acad[0]?.name || '';
@@ -351,12 +343,10 @@ function isBirthdayToday(dateOfBirth: string | Date | null): boolean {
       const academyPlayers = await db.select({ 
         id: players.id, 
         name: players.name,
-        firstName: players.firstName,
-        lastName: players.lastName 
       }).from(players).where(eq(players.academyId, academyId!));
       
       const playerIds = academyPlayers.map(p => p.id);
-      const playerMap = new Map(academyPlayers.map(p => [p.id, p.name || `${p.firstName || ''} ${p.lastName || ''}`.trim() || 'Player']));
+      const playerMap = new Map(academyPlayers.map(p => [p.id, p.name || 'Player']));
       
       if (playerIds.length === 0) {
         return res.json({ events: [] });
