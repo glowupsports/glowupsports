@@ -6211,15 +6211,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
       try {
         const role = req.user?.role;
         const academyId = req.user?.academyId;
+        const scopeToAcademy = req.query.scope === "academy";
+
+        if (scopeToAcademy && !academyId) {
+          return res.json([]);
+        }
 
         if (role !== "platform_owner" && !academyId) {
           return res.status(403).json({ error: "Academy membership required" });
         }
 
-        const scopeToAcademy = req.query.scope === "academy";
-        if (scopeToAcademy && !academyId) {
-          return res.json([]);
-        }
         const allCoaches = await storage.getAllCoaches(
           (role === "platform_owner" && !scopeToAcademy) ? undefined : academyId,
         );
