@@ -1811,7 +1811,7 @@ export default function LoginScreen() {
             <TextInput
               value={inviteCode}
               onChangeText={(text) => setInviteCode(text.toUpperCase().replace(/[^A-Z0-9]/g, ""))}
-              placeholder="Enter your invite code"
+              placeholder="Enter your 6-character invite code"
               placeholderTextColor={Colors.dark.textMuted}
               autoCapitalize="characters"
               autoCorrect={false}

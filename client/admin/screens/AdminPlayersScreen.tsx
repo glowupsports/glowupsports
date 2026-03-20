@@ -658,7 +658,7 @@ export default function AdminPlayersScreen() {
     setInviteCopied(false);
   };
 
-  const handleCopyInviteLink = async () => {
+  const handleCopyInviteCode = async () => {
     if (playerInvite?.inviteCode) {
       await Clipboard.setStringAsync(playerInvite.inviteCode);
       setInviteCopied(true);
@@ -1511,22 +1511,23 @@ export default function AdminPlayersScreen() {
                     </Text>
                   </Pressable>
                 ) : playerInvite?.inviteCode ? (
-                  <Pressable 
-                    style={[styles.inviteLinkButton, inviteCopied && styles.inviteLinkButtonCopied]}
-                    onPress={handleCopyInviteLink}
-                  >
-                    <View style={styles.inviteLinkContent}>
+                  <View style={styles.inviteCodeBox}>
+                    <Text style={styles.inviteCodeLabel}>Invite Code</Text>
+                    <Text style={styles.premiumInviteCode}>{playerInvite.inviteCode}</Text>
+                    <Pressable
+                      style={[styles.premiumCopyButton, inviteCopied && styles.premiumCopyButtonCopied]}
+                      onPress={handleCopyInviteCode}
+                    >
                       <Ionicons 
-                        name={inviteCopied ? "checkmark-circle" : "key"} 
-                        size={20} 
+                        name={inviteCopied ? "checkmark-circle" : "copy"} 
+                        size={18} 
                         color={inviteCopied ? Colors.dark.successNeon : Colors.dark.orange} 
                       />
-                      <Text style={[styles.inviteLinkText, inviteCopied && styles.inviteLinkTextCopied]}>
-                        {inviteCopied ? "Copied!" : playerInvite.inviteCode}
+                      <Text style={[styles.premiumCopyButtonText, inviteCopied && styles.premiumCopyButtonTextCopied]}>
+                        {inviteCopied ? "Copied!" : "Copy Code"}
                       </Text>
-                    </View>
-                    <Ionicons name="copy-outline" size={18} color={Colors.dark.textMuted} />
-                  </Pressable>
+                    </Pressable>
+                  </View>
                 ) : inviteLoading ? (
                   <View style={styles.inviteLoading}>
                     <ActivityIndicator size="small" color={Colors.dark.orange} />
@@ -2249,7 +2250,7 @@ export default function AdminPlayersScreen() {
                   </View>
                   <Pressable
                     style={[styles.premiumCopyButton, inviteCopied && styles.premiumCopyButtonCopied]}
-                    onPress={handleCopyInviteLink}
+                    onPress={handleCopyInviteCode}
                   >
                     <LinearGradient
                       colors={inviteCopied 

@@ -251,7 +251,8 @@ function generateShortInviteCode(): string {
   const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
   let code = "";
   for (let i = 0; i < 6; i++) {
-    code += chars[Math.floor(Math.random() * chars.length)];
+    const randomByte = crypto.randomInt(0, chars.length);
+    code += chars[randomByte];
   }
   return code;
 }
@@ -16908,9 +16909,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
 
         // Generate invite code
-        const inviteCode =
-          Math.random().toString(36).substring(2, 10).toUpperCase() +
-          Math.random().toString(36).substring(2, 10).toUpperCase();
+        const inviteCode = generateShortInviteCode();
 
         // Set expiry to 7 days
         const expiresAt = new Date();
