@@ -6216,8 +6216,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
           return res.status(403).json({ error: "Academy membership required" });
         }
 
+        const scopeToAcademy = req.query.scope === "academy";
         const allCoaches = await storage.getAllCoaches(
-          role === "platform_owner" ? undefined : academyId,
+          (role === "platform_owner" && !scopeToAcademy) ? undefined : academyId,
         );
         res.json(allCoaches);
       } catch (error) {

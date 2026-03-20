@@ -289,7 +289,7 @@ export function CoachChatFooter({ mode = "coach" }: ChatFooterProps) {
   const players = Array.isArray(playersData) ? playersData : [];
 
   const { data: allCoaches = [] } = useQuery<{ id: string; name: string }[]>({
-    queryKey: ["/api/coaches"],
+    queryKey: ["/api/coaches?scope=academy"],
     enabled: !!userId && currentTab === "coaches",
   });
 
