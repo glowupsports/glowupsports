@@ -977,7 +977,9 @@ function PlayerDetailView({
       queryClient.setQueryData<Player[]>(["/api/players?withCredits=true"], (old) =>
         old?.filter((p) => p.id !== player.id)
       );
+      queryClient.invalidateQueries({ queryKey: ["/api/players"] });
       queryClient.invalidateQueries({ queryKey: ["/api/players?withCredits=true"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/academy/players-without-baseline"] });
       onBack();
     },
     onError: (error: Error) => {
@@ -988,6 +990,7 @@ function PlayerDetailView({
   });
 
   const handleDeletePlayer = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
     Alert.alert(
       "Delete Player",
       `This will permanently remove ${localPlayer.name} and all their data from your academy. This cannot be undone.`,
