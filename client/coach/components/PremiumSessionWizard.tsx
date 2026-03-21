@@ -225,7 +225,7 @@ export function PremiumSessionWizard({
     const dateStr = extractDateString(initialDate);
     return dateStr ? [{ date: dateStr, time: extractTimeString(initialDate) }] : [];
   });
-  const [flexibleCalendarMonth, setFlexibleCalendarMonth] = useState(new Date());
+  const [flexibleCalendarMonth, setFlexibleCalendarMonth] = useState(initialDate || new Date());
   
   const [maxPlayers, setMaxPlayers] = useState(6);
   const [skillLevel, setSkillLevel] = useState<SkillLevel | null>(null);
@@ -571,6 +571,8 @@ export function PremiumSessionWizard({
       setWeekCount(10);
       const dateStr = extractDateString(initialDate);
       setFlexibleDates(dateStr ? [{ date: dateStr, time: extractTimeString(initialDate) }] : []);
+      setFlexibleCalendarMonth(initialDate || new Date());
+      setDatePickerMonth(initialDate || new Date());
       setMaxPlayers(4);
       setSkillLevel(null);
       setBallLevelOverride(false);
@@ -1420,7 +1422,7 @@ export function PremiumSessionWizard({
     );
   };
 
-  const [datePickerMonth, setDatePickerMonth] = useState(new Date());
+  const [datePickerMonth, setDatePickerMonth] = useState(initialDate || new Date());
   
   const getDatePickerDays = () => {
     const year = datePickerMonth.getFullYear();
