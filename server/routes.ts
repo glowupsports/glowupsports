@@ -8131,9 +8131,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
           const { ensureCreditProcessed } = await import("./storage");
           // Map creditType to all session_type values that normalize to it (same logic as ensureCreditProcessed)
           const sessionTypesForCreditType: Record<string, string[]> = {
-            private: ["private"],
-            semi_private: ["semi", "semi_private", "semi-private"],
-            group: ["group"],
+            private: ["private", "private_adjusted"],
+            semi_private: ["semi", "semi_private", "semi-private", "semi_private_adjusted"],
+            group: ["group", "group_adjusted"],
           };
           const matchingSessionTypes = sessionTypesForCreditType[creditType] ?? [creditType];
           const stuckResult = await db.execute(sql`

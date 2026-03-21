@@ -62511,9 +62511,9 @@ async function registerRoutes(app2) {
         try {
           const { ensureCreditProcessed: ensureCreditProcessed2 } = await Promise.resolve().then(() => (init_storage(), storage_exports));
           const sessionTypesForCreditType = {
-            private: ["private"],
-            semi_private: ["semi", "semi_private", "semi-private"],
-            group: ["group"]
+            private: ["private", "private_adjusted"],
+            semi_private: ["semi", "semi_private", "semi-private", "semi_private_adjusted"],
+            group: ["group", "group_adjusted"]
           };
           const matchingSessionTypes = sessionTypesForCreditType[creditType] ?? [creditType];
           const stuckResult = await db.execute(sql30`
