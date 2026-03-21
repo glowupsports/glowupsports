@@ -169,6 +169,19 @@ const getXpProgress = (totalXp: number, level: number): number => {
   return Math.min((currentLevelXp / xpPerLevel) * 100, 100);
 };
 
+const extractTimeString = (d?: Date): string | null => {
+  if (!d) return null;
+  const h = d.getHours();
+  const m = d.getMinutes();
+  if (h === 0 && m === 0) return null;
+  return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+};
+
+const extractDateString = (d?: Date): string | null => {
+  if (!d) return null;
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+};
+
 export function PremiumSessionWizard({ 
   visible, 
   onClose, 
@@ -199,7 +212,7 @@ export function PremiumSessionWizard({
   const [playerSearch, setPlayerSearch] = useState("");
   const [playerBallFilter, setPlayerBallFilter] = useState<BallLevel | null>(null);
   const [selectedDate, setSelectedDate] = useState<Date>(initialDate || new Date());
-  const [selectedTime, setSelectedTime] = useState<string | null>(null);
+  const [selectedTime, setSelectedTime] = useState<string | null>(extractTimeString(initialDate));
   const [duration, setDuration] = useState(60);
   const [selectedCourtId, setSelectedCourtId] = useState<string | null>(initialCourtId || null);
   const [showSuccessAnimation, setShowSuccessAnimation] = useState(false);
@@ -207,7 +220,10 @@ export function PremiumSessionWizard({
   
   const [schedulePattern, setSchedulePattern] = useState<SchedulePattern>(createSeriesMode ? "recurring" : "one-time");
   const [weekCount, setWeekCount] = useState(10);
-  const [flexibleDates, setFlexibleDates] = useState<FlexibleDate[]>([]);
+  const [flexibleDates, setFlexibleDates] = useState<FlexibleDate[]>(() => {
+    const dateStr = extractDateString(initialDate);
+    return dateStr ? [{ date: dateStr, time: extractTimeString(initialDate) }] : [];
+  });
   const [flexibleCalendarMonth, setFlexibleCalendarMonth] = useState(new Date());
   
   const [maxPlayers, setMaxPlayers] = useState(6);
@@ -527,14 +543,15 @@ export function PremiumSessionWizard({
       setSelectedPlayers([]);
       setPlayerSearch("");
       setSelectedDate(initialDate || new Date());
-      setSelectedTime(null);
+      setSelectedTime(extractTimeString(initialDate));
       setDuration(60);
       setSelectedCourtId(initialCourtId || null);
       setShowSuccessAnimation(false);
       setCreatedSession(null);
       setSchedulePattern(createSeriesMode ? "recurring" : "one-time");
       setWeekCount(10);
-      setFlexibleDates([]);
+      const dateStr = extractDateString(initialDate);
+      setFlexibleDates(dateStr ? [{ date: dateStr, time: extractTimeString(initialDate) }] : []);
       setMaxPlayers(4);
       setSkillLevel(null);
       setBallLevelOverride(false);
