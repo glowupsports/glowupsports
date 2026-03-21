@@ -213,6 +213,7 @@ export function PremiumSessionWizard({
   const [playerBallFilter, setPlayerBallFilter] = useState<BallLevel | null>(null);
   const [selectedDate, setSelectedDate] = useState<Date>(initialDate || new Date());
   const [selectedTime, setSelectedTime] = useState<string | null>(extractTimeString(initialDate));
+  const isPrefilledTime = useRef<boolean>(!!extractTimeString(initialDate));
   const [duration, setDuration] = useState(60);
   const [selectedCourtId, setSelectedCourtId] = useState<string | null>(initialCourtId || null);
   const [showSuccessAnimation, setShowSuccessAnimation] = useState(false);
@@ -391,7 +392,23 @@ export function PremiumSessionWizard({
 
   useEffect(() => {
     if (selectedTime && !availableSlots.includes(selectedTime)) {
-      setSelectedTime(null);
+      if (isPrefilledTime.current && availableSlots.length > 0) {
+        const [h, m] = selectedTime.split(":").map(Number);
+        const targetMins = h * 60 + m;
+        let nearestSlot = availableSlots[0];
+        let minDiff = Infinity;
+        for (const slot of availableSlots) {
+          const [sh, sm] = slot.split(":").map(Number);
+          const diff = Math.abs(sh * 60 + sm - targetMins);
+          if (diff < minDiff) {
+            minDiff = diff;
+            nearestSlot = slot;
+          }
+        }
+        setSelectedTime(nearestSlot);
+      } else {
+        setSelectedTime(null);
+      }
     }
   }, [availableSlots, selectedTime]);
 
@@ -543,7 +560,9 @@ export function PremiumSessionWizard({
       setSelectedPlayers([]);
       setPlayerSearch("");
       setSelectedDate(initialDate || new Date());
-      setSelectedTime(extractTimeString(initialDate));
+      const prefilledTime = extractTimeString(initialDate);
+      setSelectedTime(prefilledTime);
+      isPrefilledTime.current = !!prefilledTime;
       setDuration(60);
       setSelectedCourtId(initialCourtId || null);
       setShowSuccessAnimation(false);
@@ -1633,6 +1652,7 @@ export function PremiumSessionWizard({
                   ]}
                   onPress={() => {
                     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                    isPrefilledTime.current = false;
                     setSelectedTime(time);
                   }}
                 >
