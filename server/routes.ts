@@ -8129,6 +8129,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         // but never actually created a credit_transaction. Now that a package exists, charge them.
         try {
           const { ensureCreditProcessed } = await import("./storage");
+          // Map creditType to all session_type values that normalize to it (same logic as ensureCreditProcessed)
+          const sessionTypesForCreditType: Record<string, string[]> = {
+            private: ["private"],
+            semi_private: ["semi", "semi_private", "semi-private"],
+            group: ["group"],
+          };
+          const matchingSessionTypes = sessionTypesForCreditType[creditType] ?? [creditType];
           const stuckResult = await db.execute(sql`
             SELECT sp.id
             FROM session_players sp
@@ -8136,9 +8143,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
             WHERE sp.player_id = ${playerId}
               AND sp.credit_deducted_at IS NOT NULL
               AND sp.credit_transaction_id IS NULL
-              AND s.session_type = ${creditType}
+              AND s.session_type = ANY(${matchingSessionTypes})
               AND s.status != 'cancelled'
-              AND sp.attendance_status IN ('present', 'late', 'absent')
               AND NOT EXISTS (
                 SELECT 1 FROM credit_transactions ct
                 WHERE ct.player_id = sp.player_id

@@ -5775,107 +5775,7 @@ async function auditAllPlayerCredits() {
     console.log(`[CreditAudit] Orphan purchase fixed: ${playerName} - ${tx.amount} ${tx.creditType} credits (no packageId, reason: ${tx.reason})`);
   }
   console.log(`[CreditAudit] Checked ${results.playersChecked} players, found ${results.ghostCreditsFound} ghost credits for ${results.playersWithIssues.length} players`);
-  const allPackagesForSync = await db.select().from(packages).where(inArray(packages.status, ["active", "depleted"]));
-  let syncFixes = 0;
-  for (const pkg2 of allPackagesForSync) {
-    const playerName = playerNameMap.get(pkg2.playerId) || pkg2.playerId;
-    const pkgTxs = await db.select({
-      id: creditTransactions.id,
-      amount: creditTransactions.amount,
-      creditType: creditTransactions.creditType,
-      reason: creditTransactions.reason,
-      packageId: creditTransactions.packageId,
-      metadata: creditTransactions.metadata
-    }).from(creditTransactions).where(and(
-      eq(creditTransactions.packageId, pkg2.id),
-      eq(creditTransactions.playerId, pkg2.playerId)
-    ));
-    let debitsForPackage = 0;
-    for (const tx of pkgTxs) {
-      const meta = tx.metadata;
-      if (meta?.cancelled === true || meta?.expired === true) continue;
-      if (Number(tx.amount) < 0) {
-        debitsForPackage += Number(tx.amount);
-      }
-    }
-    const txBalance = Number(pkg2.totalCredits) + debitsForPackage;
-    if (txBalance !== Number(pkg2.remainingCredits)) {
-      syncFixes++;
-      console.log(`[CreditAudit] SYNC FIX: ${playerName} - ${pkg2.creditType} package remaining ${pkg2.remainingCredits} -> ${txBalance} (diff: ${Number(pkg2.remainingCredits) - txBalance})`);
-      const allPlayerTxs = await db.select({
-        id: creditTransactions.id,
-        amount: creditTransactions.amount,
-        creditType: creditTransactions.creditType,
-        reason: creditTransactions.reason,
-        packageId: creditTransactions.packageId,
-        metadata: creditTransactions.metadata
-      }).from(creditTransactions).where(and(
-        eq(creditTransactions.playerId, pkg2.playerId),
-        eq(creditTransactions.creditType, pkg2.creditType)
-      ));
-      const unsettledNegative = allPlayerTxs.filter((tx) => {
-        if (Number(tx.amount) >= 0) return false;
-        if (tx.packageId) return false;
-        const meta = tx.metadata;
-        if (meta?.settled || meta?.cancelled || meta?.expired) return false;
-        if (tx.reason === "debt_settlement") return false;
-        return true;
-      });
-      const orphanDebtTotal = unsettledNegative.reduce((sum2, tx) => sum2 + Math.abs(Number(tx.amount)), 0);
-      if (unsettledNegative.length > 0 && orphanDebtTotal > 0 && txBalance > 0) {
-        const creditsToDeduct = Math.min(orphanDebtTotal, txBalance);
-        for (const debt of unsettledNegative) {
-          const existingMeta = debt.metadata || {};
-          await db.update(creditTransactions).set({
-            metadata: {
-              ...existingMeta,
-              settled: true,
-              settledAt: (/* @__PURE__ */ new Date()).toISOString(),
-              settledByPackage: pkg2.id,
-              settledByAudit: true
-            }
-          }).where(eq(creditTransactions.id, debt.id));
-          console.log(`[CreditAudit] Settled orphan debt: ${debt.amount} ${debt.reason} for ${playerName}`);
-        }
-        if (creditsToDeduct > 0) {
-          await db.insert(creditTransactions).values({
-            id: crypto.randomUUID(),
-            playerId: pkg2.playerId,
-            packageId: pkg2.id,
-            creditType: pkg2.creditType,
-            type: "debit",
-            amount: -creditsToDeduct,
-            reason: "debt_settlement",
-            metadata: {
-              settledDebtsCount: unsettledNegative.length,
-              creditsUsed: creditsToDeduct,
-              settledByAudit: true,
-              settledReasons: unsettledNegative.map((d) => d.reason)
-            },
-            createdAt: /* @__PURE__ */ new Date()
-          });
-        }
-        const newRemaining = txBalance - creditsToDeduct;
-        await db.update(packages).set({
-          remainingCredits: newRemaining,
-          status: newRemaining <= 0 ? "depleted" : "active"
-        }).where(eq(packages.id, pkg2.id));
-        console.log(`[CreditAudit] Package ${pkg2.creditType} updated: ${pkg2.remainingCredits} -> ${newRemaining} for ${playerName}`);
-      } else {
-        await db.update(packages).set({
-          remainingCredits: txBalance,
-          status: txBalance <= 0 ? "depleted" : "active"
-        }).where(eq(packages.id, pkg2.id));
-      }
-      if (!results.playersWithIssues.includes(playerName)) {
-        results.playersWithIssues.push(playerName);
-      }
-    }
-  }
-  if (syncFixes > 0) {
-    console.log(`[CreditAudit] Synced ${syncFixes} package(s) with correct remaining credits`);
-  }
-  console.log(`[CreditAudit] Complete: ${results.playersChecked} players checked, ${results.ghostCreditsFound} ghost credits found, ${syncFixes} packages synced`);
+  console.log(`[CreditAudit] Complete: ${results.playersChecked} players checked, ${results.ghostCreditsFound} ghost credits found`);
   if (results.playersWithIssues.length > 0) {
     console.log(`[CreditAudit] Players with issues fixed: ${results.playersWithIssues.join(", ")}`);
   }
@@ -62610,6 +62510,12 @@ async function registerRoutes(app2) {
         }
         try {
           const { ensureCreditProcessed: ensureCreditProcessed2 } = await Promise.resolve().then(() => (init_storage(), storage_exports));
+          const sessionTypesForCreditType = {
+            private: ["private"],
+            semi_private: ["semi", "semi_private", "semi-private"],
+            group: ["group"]
+          };
+          const matchingSessionTypes = sessionTypesForCreditType[creditType] ?? [creditType];
           const stuckResult = await db.execute(sql30`
             SELECT sp.id
             FROM session_players sp
@@ -62617,9 +62523,8 @@ async function registerRoutes(app2) {
             WHERE sp.player_id = ${playerId}
               AND sp.credit_deducted_at IS NOT NULL
               AND sp.credit_transaction_id IS NULL
-              AND s.session_type = ${creditType}
+              AND s.session_type = ANY(${matchingSessionTypes})
               AND s.status != 'cancelled'
-              AND sp.attendance_status IN ('present', 'late', 'absent')
               AND NOT EXISTS (
                 SELECT 1 FROM credit_transactions ct
                 WHERE ct.player_id = sp.player_id
