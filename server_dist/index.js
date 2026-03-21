@@ -5445,13 +5445,16 @@ async function ensureCreditProcessed(sessionPlayerId) {
           transactionId: existingTxId
         };
       }
-      if (sp.credit_deducted_at || sp.credit_transaction_id) {
+      if (sp.credit_deducted_at && sp.credit_transaction_id) {
         console.log(`[EnsureCredit] Session player ${sessionPlayerId} already processed at ${sp.credit_deducted_at}`);
         return {
           success: true,
           action: "already_processed",
           transactionId: sp.credit_transaction_id
         };
+      }
+      if (sp.credit_deducted_at && !sp.credit_transaction_id) {
+        console.log(`[EnsureCredit] Session player ${sessionPlayerId} has credit_deducted_at but no transaction \u2014 retrying charge`);
       }
       const normalizeType = (type) => {
         const normalized = type.toLowerCase().replace("-", "_").replace(" ", "_");
@@ -5663,6 +5666,46 @@ async function repairAllPlayerCredits() {
     }
   }
   console.log(`[RepairCredits] Re-linked ${relinked} of ${needsRelink.rows.length} session_players`);
+  const stuckSessions = await db.execute(sql3`
+    SELECT sp.id, sp.player_id, sp.session_id, p.name as player_name, s.session_type
+    FROM session_players sp
+    JOIN players p ON p.id = sp.player_id
+    JOIN sessions s ON s.id = sp.session_id
+    WHERE sp.credit_deducted_at IS NOT NULL
+      AND sp.credit_transaction_id IS NULL
+      AND s.status != 'cancelled'
+      AND sp.attendance_status IN ('present', 'late', 'absent')
+      AND NOT EXISTS (
+        SELECT 1 FROM credit_transactions ct
+        WHERE ct.player_id = sp.player_id
+          AND ct.session_id = sp.session_id
+          AND ct.amount < 0
+          AND (ct.metadata->>'cancelled')::text IS DISTINCT FROM 'true'
+      )
+    ORDER BY sp.id
+  `);
+  console.log(`[RepairCredits] Found ${stuckSessions.rows.length} stuck session_players (credit_deducted_at set but no transaction) \u2014 re-processing`);
+  let stuckConsumed = 0;
+  let stuckDebts = 0;
+  let stuckErrors = 0;
+  for (const row of stuckSessions.rows) {
+    const sp = row;
+    try {
+      const result = await ensureCreditProcessed(sp.id);
+      if (result.action === "consumed") {
+        stuckConsumed++;
+        console.log(`[RepairCredits] Stuck session healed: ${sp.player_name} \u2192 consumed from package ${result.packageId}`);
+      } else if (result.action === "debt_created") {
+        stuckDebts++;
+        console.log(`[RepairCredits] Stuck session: ${sp.player_name} \u2192 still no package, debt created`);
+      } else if (result.action === "already_processed") {
+      }
+    } catch (err) {
+      stuckErrors++;
+      console.error(`[RepairCredits] Stuck session error for ${sp.player_name}:`, err.message);
+    }
+  }
+  console.log(`[RepairCredits] Stuck sessions: ${stuckConsumed} consumed, ${stuckDebts} debts, ${stuckErrors} errors`);
   console.log(`[RepairCredits] Summary: ${results.processed} processed, ${results.consumed} consumed, ${results.debts} debts, ${results.notAttended} not_attended, ${results.alreadyProcessed} already_processed, ${results.errors.length} errors`);
   return results;
 }
@@ -50869,15 +50912,13 @@ router22.get("/api/world-chat/messages", authMiddlewareWithFreshData, async (req
       const coachData = await db.select({
         id: coaches.id,
         name: coaches.name,
-        firstName: coaches.firstName,
-        lastName: coaches.lastName,
         academyId: coaches.academyId
       }).from(coaches).where(inArray14(coaches.id, coachIds));
       const academyIds = [...new Set(coachData.filter((c) => c.academyId).map((c) => c.academyId))];
       const academyData = academyIds.length > 0 ? await db.select({ id: academies.id, name: academies.name }).from(academies).where(inArray14(academies.id, academyIds)) : [];
       const academyNameMap = new Map(academyData.map((a) => [a.id, a.name]));
       for (const c of coachData) {
-        const name = c.name || `${c.firstName || ""} ${c.lastName || ""}`.trim() || "Coach";
+        const name = c.name || "Coach";
         coachMap.set(c.id, { name, academyName: (c.academyId ? academyNameMap.get(c.academyId) : null) || "Academy" });
       }
     }
@@ -50885,15 +50926,13 @@ router22.get("/api/world-chat/messages", authMiddlewareWithFreshData, async (req
       const playerData = await db.select({
         id: players.id,
         name: players.name,
-        firstName: players.firstName,
-        lastName: players.lastName,
         academyId: players.academyId
       }).from(players).where(inArray14(players.id, playerIds));
       const academyIds = [...new Set(playerData.filter((p) => p.academyId).map((p) => p.academyId))];
       const academyData = academyIds.length > 0 ? await db.select({ id: academies.id, name: academies.name }).from(academies).where(inArray14(academies.id, academyIds)) : [];
       const academyNameMap = new Map(academyData.map((a) => [a.id, a.name]));
       for (const p of playerData) {
-        const name = p.name || `${p.firstName || ""} ${p.lastName || ""}`.trim() || "Player";
+        const name = p.name || "Player";
         playerMap.set(p.id, { name, academyName: (p.academyId ? academyNameMap.get(p.academyId) : null) || "Academy" });
       }
     }
@@ -50981,12 +51020,10 @@ router22.post("/api/world-chat/messages", authMiddlewareWithFreshData, async (re
     if (senderType === "coach" && coachId) {
       const coachData = await db.select({
         name: coaches.name,
-        firstName: coaches.firstName,
-        lastName: coaches.lastName,
         academyId: coaches.academyId
       }).from(coaches).where(eq30(coaches.id, coachId)).limit(1);
       if (coachData.length > 0) {
-        senderName = coachData[0].name || `${coachData[0].firstName || ""} ${coachData[0].lastName || ""}`.trim() || "Coach";
+        senderName = coachData[0].name || "Coach";
         if (coachData[0].academyId) {
           const acad = await db.select({ name: academies.name }).from(academies).where(eq30(academies.id, coachData[0].academyId)).limit(1);
           academyName = acad[0]?.name || "";
@@ -50995,12 +51032,10 @@ router22.post("/api/world-chat/messages", authMiddlewareWithFreshData, async (re
     } else if (senderType === "player" && playerId) {
       const playerData = await db.select({
         name: players.name,
-        firstName: players.firstName,
-        lastName: players.lastName,
         academyId: players.academyId
       }).from(players).where(eq30(players.id, playerId)).limit(1);
       if (playerData.length > 0) {
-        senderName = playerData[0].name || `${playerData[0].firstName || ""} ${playerData[0].lastName || ""}`.trim() || "Player";
+        senderName = playerData[0].name || "Player";
         if (playerData[0].academyId) {
           const acad = await db.select({ name: academies.name }).from(academies).where(eq30(academies.id, playerData[0].academyId)).limit(1);
           academyName = acad[0]?.name || "";
@@ -51025,12 +51060,10 @@ router22.get("/api/academy/activity-feed", authMiddlewareWithFreshData, requireA
     const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1e3);
     const academyPlayers = await db.select({
       id: players.id,
-      name: players.name,
-      firstName: players.firstName,
-      lastName: players.lastName
+      name: players.name
     }).from(players).where(eq30(players.academyId, academyId));
     const playerIds = academyPlayers.map((p) => p.id);
-    const playerMap = new Map(academyPlayers.map((p) => [p.id, p.name || `${p.firstName || ""} ${p.lastName || ""}`.trim() || "Player"]));
+    const playerMap = new Map(academyPlayers.map((p) => [p.id, p.name || "Player"]));
     if (playerIds.length === 0) {
       return res.json({ events: [] });
     }
@@ -56549,7 +56582,8 @@ function generateShortInviteCode() {
   const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
   let code = "";
   for (let i = 0; i < 6; i++) {
-    code += chars[Math.floor(Math.random() * chars.length)];
+    const randomByte = crypto4.randomInt(0, chars.length);
+    code += chars[randomByte];
   }
   return code;
 }
@@ -61051,11 +61085,15 @@ async function registerRoutes(app2) {
       try {
         const role = req2.user?.role;
         const academyId = req2.user?.academyId;
+        const scopeToAcademy = req2.query.scope === "academy";
+        if (scopeToAcademy && !academyId) {
+          return res.json([]);
+        }
         if (role !== "platform_owner" && !academyId) {
           return res.status(403).json({ error: "Academy membership required" });
         }
         const allCoaches = await storage.getAllCoaches(
-          role === "platform_owner" ? void 0 : academyId
+          role === "platform_owner" && !scopeToAcademy ? void 0 : academyId
         );
         res.json(allCoaches);
       } catch (error) {
@@ -62569,6 +62607,40 @@ async function registerRoutes(app2) {
           console.log(
             `[Package] Settled ${debtSettlement.settledCount} debt(s) for player ${playerId}, deducted ${debtSettlement.totalDeducted} credits from package ${pkg2.id}`
           );
+        }
+        try {
+          const { ensureCreditProcessed: ensureCreditProcessed2 } = await Promise.resolve().then(() => (init_storage(), storage_exports));
+          const stuckResult = await db.execute(sql30`
+            SELECT sp.id
+            FROM session_players sp
+            JOIN sessions s ON s.id = sp.session_id
+            WHERE sp.player_id = ${playerId}
+              AND sp.credit_deducted_at IS NOT NULL
+              AND sp.credit_transaction_id IS NULL
+              AND s.session_type = ${creditType}
+              AND s.status != 'cancelled'
+              AND sp.attendance_status IN ('present', 'late', 'absent')
+              AND NOT EXISTS (
+                SELECT 1 FROM credit_transactions ct
+                WHERE ct.player_id = sp.player_id
+                  AND ct.session_id = sp.session_id
+                  AND ct.amount < 0
+                  AND (ct.metadata->>'cancelled')::text IS DISTINCT FROM 'true'
+              )
+            ORDER BY s.start_time ASC
+          `);
+          if (stuckResult.rows.length > 0) {
+            console.log(`[Package] Found ${stuckResult.rows.length} stuck sessions for player ${playerId} (${creditType}) \u2014 retroactively charging`);
+            let retroCharged = 0;
+            for (const row of stuckResult.rows) {
+              const spId = row.id;
+              const result = await ensureCreditProcessed2(spId);
+              if (result.action === "consumed") retroCharged++;
+            }
+            console.log(`[Package] Retroactively charged ${retroCharged} of ${stuckResult.rows.length} stuck sessions`);
+          }
+        } catch (retroErr) {
+          console.error(`[Package] Error in retroactive stuck-session charge:`, retroErr.message);
         }
         if (coachId) {
           await storage.createAuditLog({
@@ -69242,7 +69314,7 @@ async function registerRoutes(app2) {
         if (!email) {
           return res.status(400).json({ error: "Email is required" });
         }
-        const inviteCode = Math.random().toString(36).substring(2, 10).toUpperCase() + Math.random().toString(36).substring(2, 10).toUpperCase();
+        const inviteCode = generateShortInviteCode();
         const expiresAt = /* @__PURE__ */ new Date();
         expiresAt.setDate(expiresAt.getDate() + 7);
         const invite = await storage.createAcademyInvite({

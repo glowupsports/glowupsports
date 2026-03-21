@@ -11263,14 +11263,20 @@ async function ensureCreditProcessed(sessionPlayerId: string): Promise<{
         };
       }
       
-      // STEP 3b: Idempotency check - both fields must be null
-      if (sp.credit_deducted_at || sp.credit_transaction_id) {
+      // STEP 3b: Idempotency check - BOTH fields must be set to skip
+      // If credit_deducted_at is set but credit_transaction_id is NULL, it means a previous
+      // run marked the session as attempted (e.g. no package existed) but never created a real
+      // transaction. We must NOT skip — fall through so a package can be found and charged now.
+      if (sp.credit_deducted_at && sp.credit_transaction_id) {
         console.log(`[EnsureCredit] Session player ${sessionPlayerId} already processed at ${sp.credit_deducted_at}`);
         return { 
           success: true, 
           action: "already_processed" as const, 
           transactionId: sp.credit_transaction_id 
         };
+      }
+      if (sp.credit_deducted_at && !sp.credit_transaction_id) {
+        console.log(`[EnsureCredit] Session player ${sessionPlayerId} has credit_deducted_at but no transaction — retrying charge`);
       }
       
       // STEP 4: Determine credit type needed (sessionType already defined in step 2)
@@ -11539,6 +11545,56 @@ async function repairAllPlayerCredits(): Promise<{
   }
   
   console.log(`[RepairCredits] Re-linked ${relinked} of ${needsRelink.rows.length} session_players`);
+
+  // SECOND PASS: Re-run ensureCreditProcessed for sessions that have credit_deducted_at set
+  // but NO credit_transaction_id and also no existing debit transaction in credit_transactions.
+  // These are "stuck" sessions — the system previously set the timestamp (e.g. no package existed)
+  // but never created a real transaction. Now that ensureCreditProcessed's idempotency guard is
+  // fixed (requires BOTH fields), these will be properly charged if a package now exists.
+  const stuckSessions = await db.execute(sql`
+    SELECT sp.id, sp.player_id, sp.session_id, p.name as player_name, s.session_type
+    FROM session_players sp
+    JOIN players p ON p.id = sp.player_id
+    JOIN sessions s ON s.id = sp.session_id
+    WHERE sp.credit_deducted_at IS NOT NULL
+      AND sp.credit_transaction_id IS NULL
+      AND s.status != 'cancelled'
+      AND sp.attendance_status IN ('present', 'late', 'absent')
+      AND NOT EXISTS (
+        SELECT 1 FROM credit_transactions ct
+        WHERE ct.player_id = sp.player_id
+          AND ct.session_id = sp.session_id
+          AND ct.amount < 0
+          AND (ct.metadata->>'cancelled')::text IS DISTINCT FROM 'true'
+      )
+    ORDER BY sp.id
+  `);
+
+  console.log(`[RepairCredits] Found ${stuckSessions.rows.length} stuck session_players (credit_deducted_at set but no transaction) — re-processing`);
+
+  let stuckConsumed = 0;
+  let stuckDebts = 0;
+  let stuckErrors = 0;
+  for (const row of stuckSessions.rows) {
+    const sp = row as any;
+    try {
+      const result = await ensureCreditProcessed(sp.id);
+      if (result.action === "consumed") {
+        stuckConsumed++;
+        console.log(`[RepairCredits] Stuck session healed: ${sp.player_name} → consumed from package ${result.packageId}`);
+      } else if (result.action === "debt_created") {
+        stuckDebts++;
+        console.log(`[RepairCredits] Stuck session: ${sp.player_name} → still no package, debt created`);
+      } else if (result.action === "already_processed") {
+        // Re-linked in the first pass above
+      }
+    } catch (err: any) {
+      stuckErrors++;
+      console.error(`[RepairCredits] Stuck session error for ${sp.player_name}:`, err.message);
+    }
+  }
+
+  console.log(`[RepairCredits] Stuck sessions: ${stuckConsumed} consumed, ${stuckDebts} debts, ${stuckErrors} errors`);
   
   console.log(`[RepairCredits] Summary: ${results.processed} processed, ${results.consumed} consumed, ${results.debts} debts, ${results.notAttended} not_attended, ${results.alreadyProcessed} already_processed, ${results.errors.length} errors`);
   
