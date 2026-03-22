@@ -1151,6 +1151,25 @@ function isBirthdayToday(dateOfBirth: string | Date | null): boolean {
                 await storage.addPlayerToSession({ sessionId: newSession.id, playerId: pid });
               } catch (e) {}
             }
+
+            // Send push notifications to added players
+            if (playerIds && playerIds.length > 0) {
+              try {
+                const coachDataSmart = await storage.getCoach(coachId!);
+                const coachNameSmart = coachDataSmart?.name || "Your coach";
+                for (const pid of playerIds) {
+                  sendSessionConfirmedNotification(
+                    pid,
+                    sessionType,
+                    newSession.startTime || start,
+                    coachNameSmart,
+                    academyId
+                  ).catch(err => console.error("[PushNotification] SmartSession one-off notification failed:", err));
+                }
+              } catch (err) {
+                console.error("[PushNotification] Failed to send SmartSession one-off notifications:", err);
+              }
+            }
             
             return res.json({
               series: matchingSeries,
@@ -1329,6 +1348,26 @@ function isBirthdayToday(dateOfBirth: string | Date | null): boolean {
           action: `create_flexible_${createdSessions.length}`,
           performedBy: coachId,
         });
+
+        // Send push notifications to assigned players for flexible sessions
+        if (playerIds && Array.isArray(playerIds) && playerIds.length > 0) {
+          try {
+            const coachDataFlex = await storage.getCoach(coachId!);
+            const coachNameFlex = coachDataFlex?.name || "Your coach";
+            const firstFlexSession = createdSessions[0];
+            for (const pid of playerIds) {
+              sendSessionConfirmedNotification(
+                pid,
+                sessionType,
+                firstFlexSession.startTime || start,
+                coachNameFlex,
+                academyId
+              ).catch(err => console.error("[PushNotification] Flexible session notification failed:", err));
+            }
+          } catch (err) {
+            console.error("[PushNotification] Failed to send flexible session notifications:", err);
+          }
+        }
         
         return res.status(201).json({
           sessions: createdSessions,
@@ -1478,7 +1517,7 @@ function isBirthdayToday(dateOfBirth: string | Date | null): boolean {
 
       if (playerIds && Array.isArray(playerIds) && playerIds.length > 0) {
         const coachData = await storage.getCoach(coachId!);
-        const coachName = coachData?.firstName ? `${coachData.firstName} ${coachData.lastName || ""}`.trim() : "Your coach";
+        const coachName = coachData?.name || "Your coach";
         const firstSession = createdSessions[0];
         
         for (const playerId of playerIds) {
@@ -1928,7 +1967,7 @@ function isBirthdayToday(dateOfBirth: string | Date | null): boolean {
         .from(sessionPlayers)
         .where(eq(sessionPlayers.sessionId, id));
       const coachData = coachId ? await storage.getCoach(coachId) : null;
-      const coachName = coachData?.firstName ? `${coachData.firstName} ${coachData.lastName || ""}`.trim() : "Your coach";
+      const coachName = coachData?.name || "Your coach";
       
       for (const p of playersInSession) {
         if (p.playerId) {
@@ -2281,7 +2320,7 @@ function isBirthdayToday(dateOfBirth: string | Date | null): boolean {
       if (playerId && !isGuest && isNewEnrollment) {
         const coachId = req.user?.coachId;
         const coachData = coachId ? await storage.getCoach(coachId) : null;
-        const coachName = coachData?.firstName ? `${coachData.firstName} ${coachData.lastName || ""}`.trim() : "Your coach";
+        const coachName = coachData?.name || "Your coach";
         sendSessionConfirmedNotification(
           playerId,
           session.sessionType,
