@@ -162,7 +162,9 @@ function GamingPlayerCard({
 }) {
   const levelColor = getPlayerLevelColor(player.ballLevel ?? "green");
   const levelTextColor = getPlayerLevelTextColor(player.ballLevel ?? "green");
-  const statusBadge = getStatusBadge(player.status);
+  // Use onHoliday from server as source of truth for holiday badge
+  const effectiveStatus = player.onHoliday ? "holiday" : player.status;
+  const statusBadge = getStatusBadge(effectiveStatus);
   const scale = useSharedValue(1);
   
   const animatedStyle = useAnimatedStyle(() => ({
@@ -336,7 +338,7 @@ export default function PlayersScreen() {
   const [selectedPlayer, setSelectedPlayer] = useState<Player | null>(null);
   const pendingPlayerIdRef = useRef<string | null>(null);
   const [filterLevel, setFilterLevel] = useState<string | null>(null);
-  const [filterStatus, setFilterStatus] = useState<"all" | "active" | "no-lessons">("all");
+  const [filterStatus, setFilterStatus] = useState<"all" | "active" | "no-lessons" | "holiday">("all");
   const [sortBy, setSortBy] = useState<"name" | "credits" | "negative" | "lastLesson">("name");
   const [showSortDropdown, setShowSortDropdown] = useState(false);
   const [showAddModal, setShowAddModal] = useState(false);
@@ -438,6 +440,8 @@ export default function PlayersScreen() {
       result = result.filter((p) => (p.activeGroupsCount ?? 0) > 0);
     } else if (filterStatus === "no-lessons") {
       result = result.filter((p) => (p.activeGroupsCount ?? 0) === 0);
+    } else if (filterStatus === "holiday") {
+      result = result.filter((p) => p.onHoliday === true);
     }
     if (filterLevel) {
       result = result.filter((p) => getEffectiveBallLevel(p.ballLevel) === filterLevel);
@@ -648,22 +652,25 @@ export default function PlayersScreen() {
 
       {/* === LESSON STATUS FILTER === */}
       <View style={styles.statusFilterRow}>
-        {(["all", "active", "no-lessons"] as const).map((status) => {
+        {(["all", "active", "no-lessons", "holiday"] as const).map((status) => {
           const isActive = filterStatus === status;
           const countAll = players.length;
           const countActive = players.filter((p) => (p.activeGroupsCount ?? 0) > 0).length;
           const countNoLessons = players.filter((p) => (p.activeGroupsCount ?? 0) === 0).length;
-          const countMap = { all: countAll, active: countActive, "no-lessons": countNoLessons };
-          const labelMap = { all: "All", active: "Active", "no-lessons": "No Lessons" };
+          const countHoliday = players.filter((p) => p.onHoliday === true).length;
+          const countMap = { all: countAll, active: countActive, "no-lessons": countNoLessons, holiday: countHoliday };
+          const labelMap = { all: "All", active: "Active", "no-lessons": "No Lessons", holiday: "Holiday" };
           const iconMap = {
             all: "people-outline" as const,
             active: "tennisball-outline" as const,
             "no-lessons": "remove-circle-outline" as const,
+            holiday: "airplane-outline" as const,
           };
           const colorMap = {
             all: Colors.dark.primary,
             active: "#22c55e",
             "no-lessons": Colors.dark.error,
+            holiday: Colors.dark.xpCyan,
           };
           const activeColor = colorMap[status];
           return (
