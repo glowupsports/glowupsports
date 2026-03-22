@@ -563,8 +563,8 @@ export default function SeriesDetailDrawer({
 
   // Mutation to update max players
   const updateMaxPlayersMutation = useMutation({
-    mutationFn: async (maxPlayers: number) => {
-      return apiRequest("PATCH", `/api/coach/series/${seriesId}`, { maxPlayers });
+    mutationFn: async (payload: { maxPlayers: number; sessionType?: string }) => {
+      return apiRequest("PATCH", `/api/coach/series/${seriesId}`, payload);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [`/api/coach/series/${seriesId}`] });
@@ -577,7 +577,11 @@ export default function SeriesDetailDrawer({
   const handleSaveMaxPlayers = () => {
     const value = parseInt(newMaxPlayers, 10);
     if (!isNaN(value) && value >= 1 && value <= 20) {
-      updateMaxPlayersMutation.mutate(value);
+      const payload: { maxPlayers: number; sessionType?: string } = { maxPlayers: value };
+      if (value >= 3 && series?.sessionType === "semi_private") {
+        payload.sessionType = "group";
+      }
+      updateMaxPlayersMutation.mutate(payload);
     }
   };
 
@@ -1511,7 +1515,7 @@ export default function SeriesDetailDrawer({
             const activePlayers = series.players.filter(p => p.status === "active");
             const pausedPlayers = series.players.filter(p => p.status === "paused");
             const formerPlayers = series.players.filter(p => p.status === "left");
-            const effectiveMaxPlayers = series.sessionType === "private" ? 1 : series.sessionType === "semi_private" ? 2 : series.maxPlayers;
+            const effectiveMaxPlayers = series.sessionType === "private" ? 1 : series.maxPlayers || (series.sessionType === "semi_private" ? 2 : 6);
             const canAddMore = activePlayers.length < effectiveMaxPlayers;
             
             return (

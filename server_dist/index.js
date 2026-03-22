@@ -65555,6 +65555,7 @@ async function registerRoutes(app2) {
           "ballLevel",
           "skillLevel",
           "maxPlayers",
+          "sessionType",
           "xpPerSession",
           "vibe",
           "price",
