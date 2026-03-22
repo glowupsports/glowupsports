@@ -12079,8 +12079,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
           "seriesEndDate",
         ];
 
+        const validSessionTypes = ["private", "semi_private", "group", "physical", "activity"];
+
         for (const field of allowedFields) {
           if (req.body[field] !== undefined) {
+            if (field === "sessionType" && !validSessionTypes.includes(req.body[field])) {
+              return res.status(400).json({ error: "Invalid sessionType value" });
+            }
             updates[field] =
               field === "title"
                 ? sanitizeTemplateName(req.body[field])

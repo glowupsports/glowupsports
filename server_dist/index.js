@@ -65561,8 +65561,12 @@ async function registerRoutes(app2) {
           "price",
           "seriesEndDate"
         ];
+        const validSessionTypes = ["private", "semi_private", "group", "physical", "activity"];
         for (const field of allowedFields) {
           if (req2.body[field] !== void 0) {
+            if (field === "sessionType" && !validSessionTypes.includes(req2.body[field])) {
+              return res.status(400).json({ error: "Invalid sessionType value" });
+            }
             updates[field] = field === "title" ? sanitizeTemplateName2(req2.body[field]) : req2.body[field];
           }
         }
