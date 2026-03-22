@@ -6637,6 +6637,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           ...player,
           lastLessonDate: lastLessonMap.get(player.id)?.startTime || null,
           activeGroupsCount: activeGroupMap.get(player.id) ?? 0,
+          pausedGroupsCount: pausedGroupMap.get(player.id) ?? 0,
           // onHoliday: true if player status is "holiday" OR if paused in all their active series
           onHoliday:
             player.status === "holiday" ||

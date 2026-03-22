@@ -61387,6 +61387,7 @@ async function registerRoutes(app2) {
           ...player2,
           lastLessonDate: lastLessonMap.get(player2.id)?.startTime || null,
           activeGroupsCount: activeGroupMap.get(player2.id) ?? 0,
+          pausedGroupsCount: pausedGroupMap.get(player2.id) ?? 0,
           // onHoliday: true if player status is "holiday" OR if paused in all their active series
           onHoliday: player2.status === "holiday" || (pausedGroupMap.get(player2.id) ?? 0) > 0 && (activeGroupMap.get(player2.id) ?? 0) === 0
         }));

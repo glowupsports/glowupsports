@@ -82,6 +82,7 @@ interface Player {
   auditVerifiedAt?: string | null;
   auditVerifiedBy?: string | null;
   activeGroupsCount?: number;
+  pausedGroupsCount?: number;
   onHoliday?: boolean;
 }
 
@@ -439,7 +440,7 @@ export default function PlayersScreen() {
     if (filterStatus === "active") {
       result = result.filter((p) => (p.activeGroupsCount ?? 0) > 0);
     } else if (filterStatus === "no-lessons") {
-      result = result.filter((p) => (p.activeGroupsCount ?? 0) === 0);
+      result = result.filter((p) => (p.activeGroupsCount ?? 0) === 0 && (p.pausedGroupsCount ?? 0) === 0);
     } else if (filterStatus === "holiday") {
       result = result.filter((p) => p.onHoliday === true);
     }
@@ -656,7 +657,7 @@ export default function PlayersScreen() {
           const isActive = filterStatus === status;
           const countAll = players.length;
           const countActive = players.filter((p) => (p.activeGroupsCount ?? 0) > 0).length;
-          const countNoLessons = players.filter((p) => (p.activeGroupsCount ?? 0) === 0).length;
+          const countNoLessons = players.filter((p) => (p.activeGroupsCount ?? 0) === 0 && (p.pausedGroupsCount ?? 0) === 0).length;
           const countHoliday = players.filter((p) => p.onHoliday === true).length;
           const countMap = { all: countAll, active: countActive, "no-lessons": countNoLessons, holiday: countHoliday };
           const labelMap = { all: "All", active: "Active", "no-lessons": "No Lessons", holiday: "Holiday" };
