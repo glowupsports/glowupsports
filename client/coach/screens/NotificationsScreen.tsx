@@ -6,6 +6,7 @@ import {
   Pressable,
   ScrollView,
   ActivityIndicator,
+  Alert,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
@@ -213,12 +214,34 @@ export default function NotificationsScreen() {
     },
   });
 
-  const markAllReadMutation = useMutation({
-    mutationFn: () => apiRequest("POST", "/api/coach/notifications/mark-all-read", { coachId: coach?.id }),
+  const clearAllMutation = useMutation({
+    mutationFn: () => apiRequest("DELETE", "/api/coach/notifications"),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/coach/notifications"] });
     },
+    onError: () => {
+      Alert.alert("Error", "Could not clear notifications. Please try again.");
+    },
   });
+
+  const handleClearAll = () => {
+    const count = notifications.length;
+    Alert.alert(
+      "Clear All Notifications",
+      `Remove all ${count} notification${count !== 1 ? "s" : ""}? This cannot be undone.`,
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Clear All",
+          style: "destructive",
+          onPress: () => {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+            clearAllMutation.mutate();
+          },
+        },
+      ]
+    );
+  };
 
   const deleteMutation = useMutation({
     mutationFn: (id: string) => apiRequest("DELETE", `/api/coach/notifications/${id}`),
@@ -259,19 +282,17 @@ export default function NotificationsScreen() {
               </View>
             ) : null}
           </View>
-          {unreadCount > 0 ? (
+          {notifications.length > 0 ? (
             <Pressable
               style={styles.markAllButton}
-              onPress={() => {
-                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-                markAllReadMutation.mutate();
-              }}
+              onPress={handleClearAll}
+              disabled={clearAllMutation.isPending}
             >
               <LinearGradient
                 colors={[Colors.dark.primary, Colors.dark.xpCyan]}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 0 }}
-                style={styles.markAllGradient}
+                style={[styles.markAllGradient, clearAllMutation.isPending && { opacity: 0.5 }]}
               >
                 <Text style={styles.markAllText}>Clear</Text>
               </LinearGradient>

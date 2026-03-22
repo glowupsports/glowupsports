@@ -14314,6 +14314,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
     },
   );
 
+  // Delete ALL notifications for the authenticated coach
+  app.delete(
+    "/api/coach/notifications",
+    authMiddleware,
+    requireAcademy,
+    async (req: AuthenticatedRequest, res: Response) => {
+      try {
+        const coachId = req.user!.coachId;
+        if (!coachId) {
+          return res.status(400).json({ error: "coachId is required" });
+        }
+        const deleted = await storage.deleteAllCoachNotifications(coachId);
+        res.json({ success: true, deleted });
+      } catch (error) {
+        console.error("Error deleting all notifications:", error);
+        res.status(500).json({ error: "Failed to clear notifications" });
+      }
+    },
+  );
+
   // Delete notification
   app.delete(
     "/api/coach/notifications/:id",

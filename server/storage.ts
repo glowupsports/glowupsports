@@ -4078,6 +4078,11 @@ export const storage = {
     await db.update(coachNotifications).set({ isRead: true }).where(eq(coachNotifications.coachId, coachId));
   },
 
+  async deleteAllCoachNotifications(coachId: string): Promise<number> {
+    const result = await db.delete(coachNotifications).where(eq(coachNotifications.coachId, coachId)).returning({ id: coachNotifications.id });
+    return result.length;
+  },
+
   async deleteNotification(id: string, coachId?: string): Promise<void> {
     const conditions = [eq(coachNotifications.id, id)];
     if (coachId) {

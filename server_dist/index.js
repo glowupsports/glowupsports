@@ -8577,6 +8577,10 @@ var init_storage = __esm({
       async markAllNotificationsRead(coachId) {
         await db.update(coachNotifications).set({ isRead: true }).where(eq(coachNotifications.coachId, coachId));
       },
+      async deleteAllCoachNotifications(coachId) {
+        const result = await db.delete(coachNotifications).where(eq(coachNotifications.coachId, coachId)).returning({ id: coachNotifications.id });
+        return result.length;
+      },
       async deleteNotification(id, coachId) {
         const conditions = [eq(coachNotifications.id, id)];
         if (coachId) {
@@ -67254,6 +67258,24 @@ async function registerRoutes(app2) {
       } catch (error) {
         console.error("Error marking all notifications read:", error);
         res.status(500).json({ error: "Failed to mark all notifications read" });
+      }
+    }
+  );
+  app2.delete(
+    "/api/coach/notifications",
+    authMiddlewareWithFreshData,
+    requireAcademy,
+    async (req2, res) => {
+      try {
+        const coachId = req2.user.coachId;
+        if (!coachId) {
+          return res.status(400).json({ error: "coachId is required" });
+        }
+        const deleted = await storage.deleteAllCoachNotifications(coachId);
+        res.json({ success: true, deleted });
+      } catch (error) {
+        console.error("Error deleting all notifications:", error);
+        res.status(500).json({ error: "Failed to clear notifications" });
       }
     }
   );
