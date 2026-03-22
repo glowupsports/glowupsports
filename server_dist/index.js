@@ -7010,13 +7010,16 @@ var init_storage = __esm({
           totalsByPlayer.set(pkg2.playerId, (totalsByPlayer.get(pkg2.playerId) || 0) + (Number(pkg2.totalCredits) || 0));
         }
         return playerList.map((player2) => {
-          const balance = balances[player2.id] || { group: 0, semi_private: 0, private: 0, totalDebt: 0, hasDebt: false };
+          const balance = balances[player2.id] || { group: 0, semi_private: 0, private: 0, totalDebt: 0, groupDebt: 0, semiPrivateDebt: 0, privateDebt: 0, hasDebt: false };
+          const netGroup = balance.group - (balance.groupDebt || 0);
+          const netPrivate = balance.private - (balance.privateDebt || 0);
+          const netSemiPrivate = balance.semi_private - (balance.semiPrivateDebt || 0);
           const byType = {
-            private: balance.private,
-            group: balance.group,
-            semiPrivate: balance.semi_private
+            private: netPrivate,
+            group: netGroup,
+            semiPrivate: netSemiPrivate
           };
-          const totalRemaining = balance.private + balance.group + balance.semi_private;
+          const totalRemaining = netPrivate + netGroup + netSemiPrivate;
           let primaryType = null;
           const absPrivate = Math.abs(byType.private);
           const absGroup = Math.abs(byType.group);
