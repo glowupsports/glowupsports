@@ -4,26 +4,19 @@ import {
   Text,
   Pressable,
   StyleSheet,
-  Modal,
-  Dimensions,
 } from "react-native";
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
   withSpring,
-  withTiming,
   interpolate,
   Extrapolation,
-  runOnJS,
 } from "react-native-reanimated";
-import { BlurView } from "expo-blur";
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { Colors, Backgrounds, Spacing, BorderRadius, Typography, GlowColors } from "@/constants/theme";
-
-const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get("window");
+import { Colors, Spacing, BorderRadius } from "@/constants/theme";
 
 export interface QuickAction {
   id: string;
@@ -46,6 +39,10 @@ const SPRING_CONFIG = {
   mass: 0.8,
 };
 
+const FAB_SIZE = 56;
+const ACTION_ITEM_SIZE = 48;
+const ACTION_ITEM_GAP = Spacing.sm;
+
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
 export function QuickActionsFAB({
@@ -59,6 +56,9 @@ export function QuickActionsFAB({
   const progress = useSharedValue(0);
   const fabScale = useSharedValue(1);
 
+  const fabBottom = bottomOffset + insets.bottom;
+  const bottomBarHeight = fabBottom;
+
   const handleOpen = useCallback(() => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     setIsOpen(true);
@@ -68,7 +68,7 @@ export function QuickActionsFAB({
   const handleClose = useCallback(() => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     progress.value = withSpring(0, SPRING_CONFIG);
-    setTimeout(() => setIsOpen(false), 200);
+    setTimeout(() => setIsOpen(false), 250);
   }, [progress]);
 
   const handleActionPress = useCallback((action: QuickAction) => {
@@ -90,28 +90,16 @@ export function QuickActionsFAB({
     };
   });
 
-  const backdropStyle = useAnimatedStyle(() => ({
-    opacity: progress.value,
-  }));
-
-  const menuContainerStyle = useAnimatedStyle(() => ({
-    opacity: progress.value,
-    transform: [
-      { scale: interpolate(progress.value, [0, 1], [0.8, 1], Extrapolation.CLAMP) },
-      { translateY: interpolate(progress.value, [0, 1], [50, 0], Extrapolation.CLAMP) },
-    ],
-  }));
-
   const getActionStyle = (index: number) => {
     return useAnimatedStyle(() => {
-      const delay = index * 0.08;
+      const delay = index * 0.07;
       const adjustedProgress = Math.max(0, Math.min(1, (progress.value - delay) / (1 - delay)));
-      
+
       return {
         opacity: interpolate(adjustedProgress, [0, 1], [0, 1]),
         transform: [
-          { scale: interpolate(adjustedProgress, [0, 1], [0.5, 1], Extrapolation.CLAMP) },
-          { translateY: interpolate(adjustedProgress, [0, 1], [20, 0], Extrapolation.CLAMP) },
+          { scale: interpolate(adjustedProgress, [0, 1], [0.7, 1], Extrapolation.CLAMP) },
+          { translateY: interpolate(adjustedProgress, [0, 1], [10, 0], Extrapolation.CLAMP) },
         ],
       };
     });
@@ -119,101 +107,71 @@ export function QuickActionsFAB({
 
   return (
     <>
-      <Pressable
-        style={[styles.fabContainer, { bottom: bottomOffset + insets.bottom }]}
-        onPress={handleOpen}
-        onPressIn={() => {
-          fabScale.value = withSpring(0.9, { damping: 10, stiffness: 400 });
-        }}
-        onPressOut={() => {
-          fabScale.value = withSpring(1, { damping: 10, stiffness: 400 });
-        }}
+      {isOpen ? (
+        <Pressable
+          style={[styles.backdrop, { bottom: bottomBarHeight }]}
+          onPress={handleClose}
+        />
+      ) : null}
+
+      <View
+        style={[styles.fabContainer, { bottom: fabBottom }]}
+        pointerEvents="box-none"
       >
-        <View style={[styles.fabGlow, { shadowColor: primaryColor }]} />
-        <Animated.View style={fabAnimatedStyle}>
-          <LinearGradient
-            colors={[primaryColor, secondaryColor]}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={styles.fabGradient}
-          >
-            <Ionicons name="add" size={28} color={Colors.dark.buttonText} />
-          </LinearGradient>
-        </Animated.View>
-      </Pressable>
+        {actions.map((action, index) => {
+          const actionStyle = getActionStyle(index);
+          const actionColor = action.color || primaryColor;
+          const bottomPos = FAB_SIZE + Spacing.md + index * (ACTION_ITEM_SIZE + ACTION_ITEM_GAP);
 
-      <Modal
-        visible={isOpen}
-        transparent
-        animationType="none"
-        statusBarTranslucent
-        onRequestClose={handleClose}
-      >
-        <View style={styles.modalContainer}>
-          <Animated.View style={[styles.backdrop, backdropStyle]}>
-            <Pressable style={StyleSheet.absoluteFill} onPress={handleClose}>
-              <BlurView intensity={40} tint="dark" style={StyleSheet.absoluteFill} />
-            </Pressable>
+          return (
+            <AnimatedPressable
+              key={action.id}
+              style={[
+                styles.actionRow,
+                actionStyle,
+                { bottom: bottomPos },
+              ]}
+              onPress={() => handleActionPress(action)}
+              pointerEvents={isOpen ? "auto" : "none"}
+            >
+              <Text style={styles.actionLabel} numberOfLines={1}>
+                {action.label}
+              </Text>
+              <View style={[styles.actionIconContainer, { borderColor: actionColor + "50" }]}>
+                <LinearGradient
+                  colors={[actionColor + "40", actionColor + "15"]}
+                  style={styles.actionIconGradient}
+                >
+                  <Ionicons name={action.icon} size={22} color={actionColor} />
+                </LinearGradient>
+                <View style={[styles.actionGlow, { backgroundColor: actionColor, shadowColor: actionColor }]} />
+              </View>
+            </AnimatedPressable>
+          );
+        })}
+
+        <Pressable
+          onPress={isOpen ? handleClose : handleOpen}
+          onPressIn={() => {
+            fabScale.value = withSpring(0.9, { damping: 10, stiffness: 400 });
+          }}
+          onPressOut={() => {
+            fabScale.value = withSpring(1, { damping: 10, stiffness: 400 });
+          }}
+        >
+          <View style={[styles.fabGlow, { shadowColor: primaryColor }]} />
+          <Animated.View style={fabAnimatedStyle}>
+            <LinearGradient
+              colors={isOpen ? [Colors.dark.error, "#FF6B6B"] : [primaryColor, secondaryColor]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={styles.fabGradient}
+            >
+              <Ionicons name="add" size={28} color={Colors.dark.buttonText} />
+            </LinearGradient>
           </Animated.View>
-
-          <Animated.View 
-            style={[
-              styles.menuContainer, 
-              menuContainerStyle,
-              { bottom: bottomOffset + insets.bottom + 80 }
-            ]}
-          >
-            <View style={styles.menuHeader}>
-              <Text style={styles.menuTitle}>Quick Actions</Text>
-              <View style={[styles.menuTitleLine, { backgroundColor: primaryColor }]} />
-            </View>
-
-            <View style={styles.actionsGrid}>
-              {actions.map((action, index) => {
-                const actionStyle = getActionStyle(index);
-                const actionColor = action.color || primaryColor;
-
-                return (
-                  <AnimatedPressable
-                    key={action.id}
-                    style={[styles.actionItem, actionStyle]}
-                    onPress={() => handleActionPress(action)}
-                  >
-                    <View style={[styles.actionIconContainer, { borderColor: actionColor + "40" }]}>
-                      <LinearGradient
-                        colors={[actionColor + "30", actionColor + "10"]}
-                        style={styles.actionIconGradient}
-                      >
-                        <Ionicons name={action.icon} size={24} color={actionColor} />
-                      </LinearGradient>
-                      <View style={[styles.actionGlow, { backgroundColor: actionColor, shadowColor: actionColor }]} />
-                    </View>
-                    <Text style={styles.actionLabel} numberOfLines={2}>
-                      {action.label}
-                    </Text>
-                  </AnimatedPressable>
-                );
-              })}
-            </View>
-          </Animated.View>
-
-          <Pressable
-            style={[styles.closeFab, { bottom: bottomOffset + insets.bottom }]}
-            onPress={handleClose}
-          >
-            <Animated.View style={fabAnimatedStyle}>
-              <LinearGradient
-                colors={[Colors.dark.error, "#FF6B6B"]}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 1 }}
-                style={styles.fabGradient}
-              >
-                <Ionicons name="add" size={28} color={Colors.dark.text} />
-              </LinearGradient>
-            </Animated.View>
-          </Pressable>
-        </View>
-      </Modal>
+        </Pressable>
+      </View>
     </>
   );
 }
@@ -223,14 +181,14 @@ const styles = StyleSheet.create({
     position: "absolute",
     right: Spacing.lg,
     zIndex: 100,
-    alignItems: "center",
-    justifyContent: "center",
+    alignItems: "flex-end",
+    justifyContent: "flex-end",
   },
   fabGlow: {
     position: "absolute",
-    width: 56,
-    height: 56,
-    borderRadius: 28,
+    width: FAB_SIZE,
+    height: FAB_SIZE,
+    borderRadius: FAB_SIZE / 2,
     opacity: 0.4,
     shadowOffset: { width: 0, height: 0 },
     shadowOpacity: 1,
@@ -238,9 +196,9 @@ const styles = StyleSheet.create({
     elevation: 10,
   },
   fabGradient: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
+    width: FAB_SIZE,
+    height: FAB_SIZE,
+    borderRadius: FAB_SIZE / 2,
     alignItems: "center",
     justifyContent: "center",
     shadowColor: "#000",
@@ -249,68 +207,41 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     elevation: 8,
   },
-  modalContainer: {
-    flex: 1,
-  },
   backdrop: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: "rgba(0, 0, 0, 0.5)",
-  },
-  menuContainer: {
     position: "absolute",
-    left: Spacing.lg,
-    right: Spacing.lg,
-    backgroundColor: Backgrounds.card,
-    borderRadius: BorderRadius.xl,
-    padding: Spacing.lg,
-    borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.06)",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.5,
-    shadowRadius: 20,
-    elevation: 20,
+    left: 0,
+    right: 0,
+    top: 0,
+    backgroundColor: "transparent",
+    zIndex: 99,
   },
-  menuHeader: {
-    marginBottom: Spacing.lg,
-  },
-  menuTitle: {
-    fontSize: 18,
-    fontWeight: "700",
-    color: Colors.dark.text,
-    textAlign: "center",
-    letterSpacing: 0.5,
-  },
-  menuTitleLine: {
-    height: 2,
-    width: 40,
-    borderRadius: 1,
-    alignSelf: "center",
-    marginTop: Spacing.sm,
-  },
-  actionsGrid: {
+  actionRow: {
+    position: "absolute",
+    right: 0,
     flexDirection: "row",
-    flexWrap: "wrap",
-    justifyContent: "space-evenly",
-    alignItems: "flex-start",
-    gap: Spacing.md,
-  },
-  actionItem: {
-    width: 90,
-    minWidth: 80,
-    maxWidth: 100,
     alignItems: "center",
-    paddingVertical: Spacing.sm,
+    gap: Spacing.sm,
+  },
+  actionLabel: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: Colors.dark.text,
+    backgroundColor: "rgba(10, 15, 30, 0.88)",
+    paddingHorizontal: Spacing.md,
+    paddingVertical: 6,
+    borderRadius: BorderRadius.md,
+    overflow: "hidden",
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.1)",
   },
   actionIconContainer: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
+    width: ACTION_ITEM_SIZE,
+    height: ACTION_ITEM_SIZE,
+    borderRadius: ACTION_ITEM_SIZE / 2,
     alignItems: "center",
     justifyContent: "center",
     borderWidth: 1.5,
     overflow: "hidden",
-    marginBottom: Spacing.sm,
   },
   actionIconGradient: {
     width: "100%",
@@ -320,25 +251,13 @@ const styles = StyleSheet.create({
   },
   actionGlow: {
     position: "absolute",
-    width: 20,
-    height: 20,
-    borderRadius: 10,
+    width: 16,
+    height: 16,
+    borderRadius: 8,
     opacity: 0.3,
     shadowOffset: { width: 0, height: 0 },
     shadowOpacity: 1,
-    shadowRadius: 15,
-  },
-  actionLabel: {
-    fontSize: 11,
-    fontWeight: "600",
-    color: Colors.dark.text,
-    textAlign: "center",
-    lineHeight: 14,
-  },
-  closeFab: {
-    position: "absolute",
-    right: Spacing.lg,
-    zIndex: 101,
+    shadowRadius: 12,
   },
 });
 
