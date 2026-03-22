@@ -10584,7 +10584,7 @@ var init_storage = __esm({
         const debtRows = await db.execute(sql3`
       SELECT player_id, credit_type, ABS(SUM(amount::numeric)) as total
       FROM credit_transactions
-      WHERE player_id = ANY(${playerIds})
+      WHERE player_id = ANY(${sql3.array(playerIds, "text")})
         AND type = 'debit'
         AND reason IN ('session_debt', 'session_join_debt', 'session_unpaid')
         AND COALESCE(metadata->>'isDebt', 'false') = 'true'
