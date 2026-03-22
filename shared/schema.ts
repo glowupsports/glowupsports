@@ -6250,3 +6250,21 @@ export const ladderChallenges = pgTable("ladder_challenges", {
 export const insertLadderChallengeSchema = createInsertSchema(ladderChallenges).omit({ id: true, createdAt: true });
 export type InsertLadderChallenge = z.infer<typeof insertLadderChallengeSchema>;
 export type LadderChallenge = typeof ladderChallenges.$inferSelect;
+
+// ==================== BETA FEEDBACK ====================
+
+export const betaFeedback = pgTable("beta_feedback", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  playerId: varchar("player_id").references(() => players.id),
+  playerName: text("player_name").notNull(),
+  category: text("category").notNull(), // bug | idea | compliment
+  message: text("message").notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("bf_player_idx").on(table.playerId),
+  index("bf_created_idx").on(table.createdAt),
+]);
+
+export const insertBetaFeedbackSchema = createInsertSchema(betaFeedback).omit({ id: true, createdAt: true });
+export type InsertBetaFeedback = z.infer<typeof insertBetaFeedbackSchema>;
+export type BetaFeedback = typeof betaFeedback.$inferSelect;

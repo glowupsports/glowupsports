@@ -476,6 +476,70 @@ export async function sendDeleteAccountRequestEmail(params: {
   });
 }
 
+export async function sendBetaFeedbackEmail(params: {
+  playerName: string;
+  category: string;
+  message: string;
+  createdAt: string;
+  recipientEmail: string;
+}): Promise<{ success: boolean; error?: string }> {
+  const { playerName, category, message, createdAt, recipientEmail } = params;
+
+  const categoryLabels: Record<string, { label: string; color: string; emoji: string }> = {
+    bug: { label: 'Bug Report', color: '#E74C3C', emoji: '🐛' },
+    idea: { label: 'Idea / Feature Request', color: '#3498DB', emoji: '💡' },
+    compliment: { label: 'Compliment', color: '#2ECC40', emoji: '⭐' },
+  };
+  const cat = categoryLabels[category] || { label: category, color: '#888', emoji: '💬' };
+
+  const html = `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #0a0a0a; color: #ffffff; margin: 0; padding: 20px; }
+        .container { max-width: 600px; margin: 0 auto; background: #1a1a1a; border-radius: 16px; padding: 40px; }
+        .logo { text-align: center; margin-bottom: 30px; }
+        .logo h1 { color: #2ECC40; margin: 0; font-size: 28px; }
+        h2 { color: #ffffff; margin-bottom: 20px; }
+        p { color: #a0a0a0; line-height: 1.6; margin-bottom: 16px; }
+        .category-pill { display: inline-block; background: ${cat.color}22; color: ${cat.color}; border: 1px solid ${cat.color}44; padding: 4px 14px; border-radius: 20px; font-size: 13px; font-weight: 700; margin-bottom: 16px; }
+        .message-card { background: #252525; border-radius: 12px; padding: 24px; margin: 20px 0; border-left: 4px solid ${cat.color}; }
+        .message-text { color: #ffffff; font-size: 16px; line-height: 1.7; white-space: pre-wrap; }
+        .meta { color: #666; font-size: 12px; margin-top: 8px; }
+        .footer { margin-top: 40px; padding-top: 20px; border-top: 1px solid #333; text-align: center; color: #666; font-size: 12px; }
+      </style>
+    </head>
+    <body>
+      <div class="container">
+        <div class="logo">
+          <h1>Glow Up Sports</h1>
+        </div>
+        <h2>Beta Feedback Received</h2>
+        <p>A tester has submitted feedback via the app.</p>
+        <div>
+          <span class="category-pill">${cat.label}</span>
+        </div>
+        <div class="message-card">
+          <p class="message-text">${escapeHtml(message)}</p>
+          <p class="meta">From: <strong style="color:#ccc">${escapeHtml(playerName)}</strong> &bull; ${escapeHtml(createdAt)}</p>
+        </div>
+        <div class="footer">
+          <p>Glow Up Sports Beta Program &mdash; Platform Feedback</p>
+        </div>
+      </div>
+    </body>
+    </html>
+  `;
+
+  return sendEmail({
+    to: recipientEmail,
+    subject: `[Beta Feedback] ${cat.label} from ${playerName}`,
+    html,
+    text: `Beta Feedback\n\nCategory: ${cat.label}\nFrom: ${playerName}\nDate: ${createdAt}\n\n${message}`,
+  });
+}
+
 // ==================== EMAIL OTP VERIFICATION ====================
 
 interface OTPStore {

@@ -18,6 +18,7 @@ import { MiniFeed } from "@/player/components/MiniFeed";
 import { SessionHeroCard } from "@/player/components/SessionHeroCard";
 import { NewsTicker } from "@/player/components/NewsTicker";
 import { QuickServeFAB } from "@/player/components/QuickServeFAB";
+import { BetaFeedbackButton } from "@/player/components/BetaFeedbackButton";
 import PlayerBookingWizard from "@/player/components/PlayerBookingWizard";
 import CollapsibleModeSwitcher from "@/components/CollapsibleModeSwitcher";
 import PinEntryModal from "@/components/PinEntryModal";
@@ -614,6 +615,12 @@ function PlayerHomeContent() {
       </ScrollView>
       
       <QuickServeFAB bottomOffset={100} />
+
+      <BetaFeedbackButton
+        playerId={player?.id}
+        playerName={player?.name}
+        bottomOffset={145}
+      />
       
       {/* MODE SWITCHER - Dashboard switching button (top left) */}
       <CollapsibleModeSwitcher />

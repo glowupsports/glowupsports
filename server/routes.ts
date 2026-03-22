@@ -27683,6 +27683,82 @@ export async function registerRoutes(app: Express): Promise<Server> {
     },
   );
 
+  // ==================== BETA FEEDBACK ====================
+
+  const betaFeedbackRateLimiter = rateLimit({
+    windowMs: 60 * 60 * 1000, // 1 hour
+    max: 10,
+    keyGenerator: (req: Request) => `${req.ip || "anon"}:${req.body?.playerId || "guest"}`,
+    message: { error: "Too many feedback submissions. Please wait before submitting again." },
+    standardHeaders: true,
+    legacyHeaders: false,
+  });
+
+  app.post(
+    "/api/beta-feedback",
+    betaFeedbackRateLimiter,
+    async (req: Request, res: Response) => {
+      try {
+        const { playerId, playerName, category, message } = req.body;
+
+        if (!playerName || !category || !message) {
+          return res.status(400).json({ error: "playerName, category and message are required" });
+        }
+
+        if (!["bug", "idea", "compliment"].includes(category)) {
+          return res.status(400).json({ error: "Invalid category. Use: bug, idea, or compliment" });
+        }
+
+        if (message.length > 2000) {
+          return res.status(400).json({ error: "Message too long (max 2000 characters)" });
+        }
+
+        const { betaFeedback: betaFeedbackTable } = await import("@shared/schema");
+
+        const [inserted] = await db.insert(betaFeedbackTable).values({
+          playerId: playerId || null,
+          playerName: playerName.trim(),
+          category,
+          message: message.trim(),
+        }).returning();
+
+        res.status(201).json({ success: true, id: inserted.id });
+      } catch (error) {
+        console.error("[BetaFeedback] Error:", error);
+        res.status(500).json({ error: "Failed to save feedback" });
+      }
+    },
+  );
+
+  app.get(
+    "/api/beta-feedback",
+    authMiddleware,
+    requireRole("platform_owner"),
+    async (req: AuthenticatedRequest, res: Response) => {
+      try {
+        const { betaFeedback: betaFeedbackTable } = await import("@shared/schema");
+        const limit = Math.min(parseInt(req.query.limit as string) || 50, 100);
+        const offset = parseInt(req.query.offset as string) || 0;
+
+        const items = await db
+          .select()
+          .from(betaFeedbackTable)
+          .orderBy(desc(betaFeedbackTable.createdAt))
+          .limit(limit)
+          .offset(offset);
+
+        const [{ total }] = await db
+          .select({ total: count() })
+          .from(betaFeedbackTable);
+
+        res.json({ items, total: Number(total) });
+      } catch (error) {
+        console.error("[BetaFeedback] GET error:", error);
+        res.status(500).json({ error: "Failed to fetch feedback" });
+      }
+    },
+  );
+
   const httpServer = createServer(app);
 
   // Set up WebSocket server for real-time chat

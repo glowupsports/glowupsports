@@ -14,6 +14,7 @@ import { AcademyHealthCards } from "@/platform/components/AcademyHealthCards";
 import { SubscriptionFunnel } from "@/platform/components/SubscriptionFunnel";
 import { AnimatedKpiCard } from "@/admin/components/AnimatedKpiCard";
 import { SmartInsightsPanel, Insight } from "@/admin/components/SmartInsightsPanel";
+import { BetaFeedbackPanel } from "@/platform/components/BetaFeedbackPanel";
 import { GettingStartedChecklist } from "@/components/GettingStartedChecklist";
 import { WelcomeIntroModal } from "@/components/WelcomeIntroModal";
 import { HelpButton } from "@/components/HelpButton";
@@ -363,6 +364,8 @@ export default function CommandCenterScreen() {
         </View>
 
         <SmartInsightsPanel insights={insights} />
+
+        <BetaFeedbackPanel />
 
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Quick Actions</Text>

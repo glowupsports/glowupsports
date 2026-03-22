@@ -80,6 +80,22 @@ pool.query('SELECT 1').then(async () => {
   } catch (e: any) {
     console.log('[Database] shop_order_upsells migration skipped:', e.message);
   }
+  try {
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS beta_feedback (
+        id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(),
+        player_id VARCHAR REFERENCES players(id),
+        player_name TEXT NOT NULL,
+        category TEXT NOT NULL,
+        message TEXT NOT NULL,
+        created_at TIMESTAMP DEFAULT NOW()
+      )
+    `);
+    await pool.query(`CREATE INDEX IF NOT EXISTS bf_player_idx ON beta_feedback(player_id)`);
+    await pool.query(`CREATE INDEX IF NOT EXISTS bf_created_idx ON beta_feedback(created_at)`);
+  } catch (e: any) {
+    console.log('[Database] beta_feedback migration skipped:', e.message);
+  }
 }).catch((err) => {
   console.error('[Database] Connection test FAILED:', err.message);
 });
