@@ -7050,7 +7050,7 @@ export const storage = {
     const debtRows = await db.execute(sql`
       SELECT player_id, credit_type, ABS(SUM(amount::numeric)) as total
       FROM credit_transactions
-      WHERE player_id = ANY(${sql.array(playerIds, 'text')})
+      WHERE player_id = ANY(ARRAY[${sql.join(playerIds.map(id => sql`${id}`), sql`, `)}]::text[])
         AND type = 'debit'
         AND reason IN ('session_debt', 'session_join_debt', 'session_unpaid')
         AND COALESCE(metadata->>'isDebt', 'false') = 'true'
