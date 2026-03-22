@@ -639,6 +639,10 @@ function WeekPlannerTab({ insets, tabBarHeight }: { insets: { bottom: number }; 
                   return `${String(eh).padStart(2, "0")}:${String(em).padStart(2, "0")}`;
                 })();
 
+                const maxCapacity = s.sessionType === "private" ? 1
+                  : s.sessionType === "semi_private" ? Math.min(s.maxPlayers || 2, 3)
+                  : s.maxPlayers || 6;
+
                 return (
                   <Pressable
                     key={s.id}
@@ -653,9 +657,9 @@ function WeekPlannerTab({ insets, tabBarHeight }: { insets: { bottom: number }; 
                       <View style={wpStyles.groupCapacity}>
                         <Text style={[
                           wpStyles.capacityText,
-                          s.playerCount >= (s.maxPlayers || 6) && { color: Colors.dark.orange },
+                          s.playerCount >= maxCapacity && { color: Colors.dark.orange },
                         ]}>
-                          {s.playerCount}/{s.maxPlayers || 6}
+                          {s.playerCount}/{maxCapacity}
                         </Text>
                         <Ionicons name="people" size={14} color={Colors.dark.textMuted} />
                       </View>

@@ -492,6 +492,25 @@ function setupErrorHandler(app: express.Application) {
         console.error("[StartupRepair] Failed:", error);
       }
 
+      // Fix session capacity: correct wrong max_players values from before session-type-aware logic
+      try {
+        const { db } = await import("./db");
+        const { sql: sqlTag } = await import("drizzle-orm");
+        const privResult = await db.execute(sqlTag`
+          UPDATE coaching_series
+          SET max_players = 1
+          WHERE session_type = 'private' AND max_players != 1
+        `);
+        const semiResult = await db.execute(sqlTag`
+          UPDATE coaching_series
+          SET max_players = 2
+          WHERE session_type = 'semi_private' AND max_players > 3
+        `);
+        log(`[SessionCapacityFix] private: ${privResult.rowCount ?? 0} fixed, semi_private: ${semiResult.rowCount ?? 0} fixed`);
+      } catch (err) {
+        console.error("[SessionCapacityFix] Failed:", err);
+      }
+
       // Repair: bootstrap provider_player conversations for any confirmed orders that missed initial creation
       try {
         const { repairMissingProviderConversations } = await import("./shop-routes");
