@@ -61336,9 +61336,22 @@ async function registerRoutes(app2) {
         }
         const playerIds = playerList.map((p) => p.id);
         const lastLessonMap = await storage.getPlayersLastSessions(playerIds);
+        const activeGroupRows = playerIds.length > 0 ? await db.select({ playerId: seriesPlayers.playerId, cnt: count7() }).from(seriesPlayers).innerJoin(coachingSeries, eq32(seriesPlayers.seriesId, coachingSeries.id)).where(
+          and30(
+            inArray16(seriesPlayers.playerId, playerIds),
+            eq32(seriesPlayers.status, "active"),
+            eq32(coachingSeries.status, "active")
+          )
+        ).groupBy(seriesPlayers.playerId) : [];
+        const activeGroupMap = /* @__PURE__ */ new Map();
+        for (const row of activeGroupRows) {
+          if (row.playerId) activeGroupMap.set(row.playerId, Number(row.cnt));
+        }
         const playersWithLessonDates = playerList.map((player2) => ({
           ...player2,
-          lastLessonDate: lastLessonMap.get(player2.id)?.startTime || null
+          lastLessonDate: lastLessonMap.get(player2.id)?.startTime || null,
+          activeGroupsCount: activeGroupMap.get(player2.id) ?? 0,
+          onHoliday: player2.status === "holiday"
         }));
         if (usePagination) {
           const { limit, offset } = parsePagination(req2.query);

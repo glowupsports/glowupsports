@@ -81,6 +81,8 @@ interface Player {
   primaryCreditType?: string | null;
   auditVerifiedAt?: string | null;
   auditVerifiedBy?: string | null;
+  activeGroupsCount?: number;
+  onHoliday?: boolean;
 }
 
 interface PlayerNote {
@@ -249,6 +251,7 @@ function GamingPlayerCard({
               {statusBadge ? (
                 <View style={[styles.gamingStatusBadge, { backgroundColor: statusBadge.color + "25", borderColor: statusBadge.color }]}>
                   <Ionicons name={statusBadge.icon} size={10} color={statusBadge.color} />
+                  <Text style={[styles.gamingStatusBadgeText, { color: statusBadge.color }]}>{statusBadge.label}</Text>
                 </View>
               ) : null}
             </View>
@@ -333,6 +336,7 @@ export default function PlayersScreen() {
   const [selectedPlayer, setSelectedPlayer] = useState<Player | null>(null);
   const pendingPlayerIdRef = useRef<string | null>(null);
   const [filterLevel, setFilterLevel] = useState<string | null>(null);
+  const [filterStatus, setFilterStatus] = useState<"all" | "active" | "no-lessons">("all");
   const [sortBy, setSortBy] = useState<"name" | "credits" | "negative" | "lastLesson">("name");
   const [showSortDropdown, setShowSortDropdown] = useState(false);
   const [showAddModal, setShowAddModal] = useState(false);
@@ -430,6 +434,11 @@ export default function PlayersScreen() {
           (p.email && p.email.toLowerCase().includes(query))
       );
     }
+    if (filterStatus === "active") {
+      result = result.filter((p) => (p.activeGroupsCount ?? 0) > 0);
+    } else if (filterStatus === "no-lessons") {
+      result = result.filter((p) => (p.activeGroupsCount ?? 0) === 0);
+    }
     if (filterLevel) {
       result = result.filter((p) => getEffectiveBallLevel(p.ballLevel) === filterLevel);
       
@@ -467,7 +476,7 @@ export default function PlayersScreen() {
           return a.name.localeCompare(b.name);
       }
     });
-  }, [players, searchQuery, filterLevel, filterSubLevel, sortBy]);
+  }, [players, searchQuery, filterStatus, filterLevel, filterSubLevel, sortBy]);
 
   const getStatusBadge = (status: string | null) => {
     switch (status?.toLowerCase()) {
@@ -636,6 +645,56 @@ export default function PlayersScreen() {
           </View>
         </Pressable>
       </Modal>
+
+      {/* === LESSON STATUS FILTER === */}
+      <View style={styles.statusFilterRow}>
+        {(["all", "active", "no-lessons"] as const).map((status) => {
+          const isActive = filterStatus === status;
+          const countAll = players.length;
+          const countActive = players.filter((p) => (p.activeGroupsCount ?? 0) > 0).length;
+          const countNoLessons = players.filter((p) => (p.activeGroupsCount ?? 0) === 0).length;
+          const countMap = { all: countAll, active: countActive, "no-lessons": countNoLessons };
+          const labelMap = { all: "All", active: "Active", "no-lessons": "No Lessons" };
+          const iconMap = {
+            all: "people-outline" as const,
+            active: "tennisball-outline" as const,
+            "no-lessons": "remove-circle-outline" as const,
+          };
+          const colorMap = {
+            all: Colors.dark.primary,
+            active: "#22c55e",
+            "no-lessons": Colors.dark.error,
+          };
+          const activeColor = colorMap[status];
+          return (
+            <Pressable
+              key={status}
+              style={[
+                styles.statusFilterPill,
+                isActive && { backgroundColor: activeColor + "20", borderColor: activeColor },
+              ]}
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                setFilterStatus(status);
+              }}
+            >
+              <Ionicons
+                name={iconMap[status]}
+                size={12}
+                color={isActive ? activeColor : Colors.dark.tabIconDefault}
+              />
+              <Text style={[styles.statusFilterText, isActive && { color: activeColor }]}>
+                {labelMap[status]}
+              </Text>
+              <View style={[styles.statusFilterCount, isActive && { backgroundColor: activeColor + "30" }]}>
+                <Text style={[styles.statusFilterCountText, isActive && { color: activeColor }]}>
+                  {countMap[status]}
+                </Text>
+              </View>
+            </Pressable>
+          );
+        })}
+      </View>
 
       {/* === GAMING FILTER PILLS === */}
       
@@ -3068,6 +3127,43 @@ const styles = StyleSheet.create({
     color: Colors.dark.text,
     fontWeight: "600",
   },
+  statusFilterRow: {
+    flexDirection: "row",
+    paddingHorizontal: Spacing.lg,
+    gap: Spacing.sm,
+    marginBottom: Spacing.sm,
+  },
+  statusFilterPill: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.12)",
+    backgroundColor: "rgba(255,255,255,0.06)",
+    flex: 1,
+    justifyContent: "center",
+  },
+  statusFilterText: {
+    fontSize: 11,
+    fontWeight: "600",
+    color: Colors.dark.tabIconDefault,
+  },
+  statusFilterCount: {
+    backgroundColor: "rgba(255,255,255,0.1)",
+    borderRadius: 8,
+    paddingHorizontal: 5,
+    paddingVertical: 1,
+    minWidth: 18,
+    alignItems: "center",
+  },
+  statusFilterCountText: {
+    fontSize: 10,
+    fontWeight: "700",
+    color: Colors.dark.tabIconDefault,
+  },
   gamingFilterScroll: {
     marginBottom: Spacing.md,
     maxHeight: 50,
@@ -3260,12 +3356,17 @@ const styles = StyleSheet.create({
     letterSpacing: 0.3,
   },
   gamingStatusBadge: {
-    width: 22,
-    height: 22,
-    borderRadius: 11,
+    flexDirection: "row",
     alignItems: "center",
-    justifyContent: "center",
+    gap: 4,
+    paddingHorizontal: 7,
+    paddingVertical: 3,
+    borderRadius: 10,
     borderWidth: 1,
+  },
+  gamingStatusBadgeText: {
+    fontSize: 10,
+    fontWeight: "600",
   },
   auditVerifiedBadge: {
     marginLeft: 2,

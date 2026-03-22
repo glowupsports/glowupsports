@@ -6591,10 +6591,33 @@ export async function registerRoutes(app: Express): Promise<Server> {
         // Batch fetch last lesson dates for all players at once (performance optimization)
         const playerIds = playerList.map((p) => p.id);
         const lastLessonMap = await storage.getPlayersLastSessions(playerIds);
-        // Map player data with last lesson dates
+
+        // Batch fetch active group counts per player
+        const activeGroupRows = playerIds.length > 0
+          ? await db
+              .select({ playerId: seriesPlayers.playerId, cnt: count() })
+              .from(seriesPlayers)
+              .innerJoin(coachingSeries, eq(seriesPlayers.seriesId, coachingSeries.id))
+              .where(
+                and(
+                  inArray(seriesPlayers.playerId, playerIds),
+                  eq(seriesPlayers.status, "active"),
+                  eq(coachingSeries.status, "active"),
+                )
+              )
+              .groupBy(seriesPlayers.playerId)
+          : [];
+        const activeGroupMap = new Map<string, number>();
+        for (const row of activeGroupRows) {
+          if (row.playerId) activeGroupMap.set(row.playerId, Number(row.cnt));
+        }
+
+        // Map player data with last lesson dates and lesson-status fields
         const playersWithLessonDates = playerList.map((player) => ({
           ...player,
           lastLessonDate: lastLessonMap.get(player.id)?.startTime || null,
+          activeGroupsCount: activeGroupMap.get(player.id) ?? 0,
+          onHoliday: player.status === "holiday",
         }));
 
         if (usePagination) {
