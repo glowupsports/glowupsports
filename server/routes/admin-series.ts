@@ -2170,12 +2170,27 @@ function requirePlayerOrOwner(req: AuthenticatedRequest, res: Response, next: Ne
       const xpToNext = xpData.xpToNextLevel || 500;
       
 
-      // Get player credits by type (includes debt/negative balances)
-      const creditBalance = await storage.getPlayerCreditBalanceByType(playerId);
-      const totalCredits = creditBalance.group + creditBalance.semi_private + creditBalance.private;
-      
-      // Get active packages count
+      // Get active packages — single source of truth for credit summary
       const playerPackages = await storage.getPlayerPackages(playerId, player.academyId ?? undefined);
+
+      // Compute credit summary FROM the packages list so it is always consistent with the card display
+      const _normalizeType = (type: string | undefined | null): "group" | "semi_private" | "private" => {
+        if (!type) return "group";
+        const n = type.toLowerCase().replace(/-/g, "_").replace(/ /g, "_");
+        if (n === "semi" || n === "semi_private" || n === "semi_private_adjusted") return "semi_private";
+        if (n === "private" || n === "private_adjusted") return "private";
+        return "group";
+      };
+      const activePlayerPackages = playerPackages.filter((p: any) => p.status === "active");
+      const computedCredits = { group: 0, semi_private: 0, private: 0 };
+      for (const pkg of activePlayerPackages) {
+        const t = _normalizeType(pkg.creditType);
+        computedCredits[t] += Number(pkg.remainingCredits);
+      }
+      const totalCredits = computedCredits.group + computedCredits.semi_private + computedCredits.private;
+
+      // Fetch debt separately (does not affect the credit summary above)
+      const creditBalance = await storage.getPlayerCreditBalanceByType(playerId);
 
       // Calculate payments from packages
       const unpaidPackages = playerPackages.filter((p: any) => !p.isPaid);
@@ -2266,10 +2281,12 @@ function requirePlayerOrOwner(req: AuthenticatedRequest, res: Response, next: Ne
         },
         credits: {
           total: totalCredits,
-          group: creditBalance.group,
-          semiPrivate: creditBalance.semi_private,
-          private: creditBalance.private,
-          activePackages: playerPackages.filter((p: any) => p.status === "active").length,
+          group: computedCredits.group,
+          semiPrivate: computedCredits.semi_private,
+          private: computedCredits.private,
+          activePackages: activePlayerPackages.length,
+          totalDebt: creditBalance.totalDebt,
+          hasDebt: creditBalance.hasDebt,
         },
         packages: playerPackages.map((pkg: any) => ({
           // Each package shows its OWN remaining credits

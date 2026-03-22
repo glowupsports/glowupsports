@@ -7012,6 +7012,9 @@ export const storage = {
     semi_private: number;
     private: number;
     totalDebt: number;
+    groupDebt: number;
+    semiPrivateDebt: number;
+    privateDebt: number;
     hasDebt: boolean;
   }>> {
     if (playerIds.length === 0) return {};
@@ -7024,9 +7027,9 @@ export const storage = {
       return "group";
     };
 
-    const result: Record<string, { group: number; semi_private: number; private: number; totalDebt: number; hasDebt: boolean }> = {};
+    const result: Record<string, { group: number; semi_private: number; private: number; totalDebt: number; groupDebt: number; semiPrivateDebt: number; privateDebt: number; hasDebt: boolean }> = {};
     for (const id of playerIds) {
-      result[id] = { group: 0, semi_private: 0, private: 0, totalDebt: 0, hasDebt: false };
+      result[id] = { group: 0, semi_private: 0, private: 0, totalDebt: 0, groupDebt: 0, semiPrivateDebt: 0, privateDebt: 0, hasDebt: false };
     }
 
     // Sum remaining_credits from active packages directly
@@ -7064,6 +7067,10 @@ export const storage = {
       if (!result[r.player_id]) continue;
       const debtAmount = Number(r.total);
       result[r.player_id].totalDebt += debtAmount;
+      const debtType = normalizeType(r.credit_type);
+      if (debtType === "group") result[r.player_id].groupDebt += debtAmount;
+      else if (debtType === "semi_private") result[r.player_id].semiPrivateDebt += debtAmount;
+      else if (debtType === "private") result[r.player_id].privateDebt += debtAmount;
     }
 
     for (const playerId of playerIds) {

@@ -32,6 +32,9 @@ interface PlayerCredits {
   semi_private: number;
   private: number;
   totalDebt: number;
+  groupDebt: number;
+  semiPrivateDebt: number;
+  privateDebt: number;
   hasDebt: boolean;
 }
 
@@ -1583,21 +1586,26 @@ export default function SeriesDetailDrawer({
                     const sessionType = series.sessionType;
                     const credits = player.credits;
                     let relevantCredits = 0;
+                    let relevantDebt = 0;
                     let creditLabel = "";
                     if (credits) {
                       if (sessionType === "private") {
                         relevantCredits = credits.private;
+                        relevantDebt = credits.privateDebt || 0;
                         creditLabel = "Private";
                       } else if (sessionType === "semi_private" || sessionType === "semi") {
                         relevantCredits = credits.semi_private;
+                        relevantDebt = credits.semiPrivateDebt || 0;
                         creditLabel = "Semi";
                       } else {
                         relevantCredits = credits.group;
+                        relevantDebt = credits.groupDebt || 0;
                         creditLabel = "Group";
                       }
                     }
-                    const hasNoCredits = relevantCredits <= 0;
-                    const hasDebt = credits?.hasDebt || false;
+                    const hasNoCredits = relevantCredits <= 0 && relevantDebt === 0;
+                    const hasDebt = relevantDebt > 0;
+                    const displayCredits = hasDebt && relevantCredits <= 0 ? -relevantDebt : relevantCredits;
                     
                     const isMenuOpen = playerActionMenuId === player.id;
                     const isPausing = pausingPlayerId === player.id;
@@ -1643,7 +1651,7 @@ export default function SeriesDetailDrawer({
                               hasNoCredits && styles.creditBadgeTextWarning,
                               hasDebt && styles.creditBadgeTextDebt,
                             ]}>
-                              {hasDebt ? `${formatCredits(relevantCredits)}` : formatCredits(relevantCredits)}
+                              {formatCredits(displayCredits)}
                             </Text>
                           </View>
                         ) : null}

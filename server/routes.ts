@@ -11236,6 +11236,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
               semi_private: 0,
               private: 0,
               totalDebt: 0,
+              groupDebt: 0,
+              semiPrivateDebt: 0,
+              privateDebt: 0,
               hasDebt: false,
             };
             const realAttendanceCount = attendanceSummary.get(sp.playerId) || 0;

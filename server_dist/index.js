@@ -10597,7 +10597,7 @@ var init_storage = __esm({
         };
         const result = {};
         for (const id of playerIds) {
-          result[id] = { group: 0, semi_private: 0, private: 0, totalDebt: 0, hasDebt: false };
+          result[id] = { group: 0, semi_private: 0, private: 0, totalDebt: 0, groupDebt: 0, semiPrivateDebt: 0, privateDebt: 0, hasDebt: false };
         }
         const activePackages = await db.select({
           playerId: packages.playerId,
@@ -10628,6 +10628,10 @@ var init_storage = __esm({
           if (!result[r.player_id]) continue;
           const debtAmount = Number(r.total);
           result[r.player_id].totalDebt += debtAmount;
+          const debtType = normalizeType(r.credit_type);
+          if (debtType === "group") result[r.player_id].groupDebt += debtAmount;
+          else if (debtType === "semi_private") result[r.player_id].semiPrivateDebt += debtAmount;
+          else if (debtType === "private") result[r.player_id].privateDebt += debtAmount;
         }
         for (const playerId of playerIds) {
           result[playerId].hasDebt = result[playerId].totalDebt > 0;
@@ -54889,9 +54893,22 @@ router23.get("/api/admin/players/:playerId/stats", authMiddlewareWithFreshData, 
     const currentLevel = xpData.level || player2.level || 1;
     const xpProgress = xpData.totalXp || 0;
     const xpToNext = xpData.xpToNextLevel || 500;
-    const creditBalance = await storage.getPlayerCreditBalanceByType(playerId);
-    const totalCredits = creditBalance.group + creditBalance.semi_private + creditBalance.private;
     const playerPackages = await storage.getPlayerPackages(playerId, player2.academyId ?? void 0);
+    const _normalizeType = (type) => {
+      if (!type) return "group";
+      const n = type.toLowerCase().replace(/-/g, "_").replace(/ /g, "_");
+      if (n === "semi" || n === "semi_private" || n === "semi_private_adjusted") return "semi_private";
+      if (n === "private" || n === "private_adjusted") return "private";
+      return "group";
+    };
+    const activePlayerPackages = playerPackages.filter((p) => p.status === "active");
+    const computedCredits = { group: 0, semi_private: 0, private: 0 };
+    for (const pkg2 of activePlayerPackages) {
+      const t = _normalizeType(pkg2.creditType);
+      computedCredits[t] += Number(pkg2.remainingCredits);
+    }
+    const totalCredits = computedCredits.group + computedCredits.semi_private + computedCredits.private;
+    const creditBalance = await storage.getPlayerCreditBalanceByType(playerId);
     const unpaidPackages = playerPackages.filter((p) => !p.isPaid);
     const paidPackages = playerPackages.filter((p) => p.isPaid);
     const pkgTotalOwed = unpaidPackages.reduce((sum2, pkg2) => {
@@ -54973,10 +54990,12 @@ router23.get("/api/admin/players/:playerId/stats", authMiddlewareWithFreshData, 
       },
       credits: {
         total: totalCredits,
-        group: creditBalance.group,
-        semiPrivate: creditBalance.semi_private,
-        private: creditBalance.private,
-        activePackages: playerPackages.filter((p) => p.status === "active").length
+        group: computedCredits.group,
+        semiPrivate: computedCredits.semi_private,
+        private: computedCredits.private,
+        activePackages: activePlayerPackages.length,
+        totalDebt: creditBalance.totalDebt,
+        hasDebt: creditBalance.hasDebt
       },
       packages: playerPackages.map((pkg2) => ({
         // Each package shows its OWN remaining credits
@@ -64912,6 +64931,9 @@ async function registerRoutes(app2) {
               semi_private: 0,
               private: 0,
               totalDebt: 0,
+              groupDebt: 0,
+              semiPrivateDebt: 0,
+              privateDebt: 0,
               hasDebt: false
             };
             const realAttendanceCount = attendanceSummary.get(sp.playerId) || 0;
