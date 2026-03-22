@@ -1,5 +1,5 @@
 import React, { useState, useCallback } from "react";
-import { View, Text, StyleSheet, Pressable, Modal, Dimensions } from "react-native";
+import { View, Text, StyleSheet, Pressable, Modal, Dimensions, Platform } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { BlurView } from "expo-blur";
 import Ionicons from "@expo/vector-icons/Ionicons";
@@ -9,12 +9,12 @@ import Animated, {
   withSpring,
   interpolate,
   Extrapolation,
+  SharedValue,
 } from "react-native-reanimated";
 import { ProTennisColors, Backgrounds, Spacing, BorderRadius, GlowColors, Colors } from "@/constants/theme";
 import * as Haptics from "expo-haptics";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
-import { Platform } from "react-native";
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get("window");
 
@@ -33,6 +33,38 @@ const SPRING_CONFIG = {
 };
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
+
+interface ActionItemProps {
+  action: QuickAction;
+  index: number;
+  progress: SharedValue<number>;
+  onPress: (action: QuickAction) => void;
+}
+
+function ActionItem({ action, index, progress, onPress }: ActionItemProps) {
+  const animStyle = useAnimatedStyle(() => {
+    const delay = index * 0.08;
+    const adjustedProgress = Math.max(0, Math.min(1, (progress.value - delay) / (1 - delay)));
+    return {
+      opacity: adjustedProgress,
+      transform: [
+        { translateY: interpolate(adjustedProgress, [0, 1], [20, 0], Extrapolation.CLAMP) },
+        { scale: interpolate(adjustedProgress, [0, 1], [0.8, 1], Extrapolation.CLAMP) },
+      ],
+    };
+  });
+
+  return (
+    <Animated.View style={animStyle}>
+      <Pressable style={styles.actionButton} onPress={() => onPress(action)}>
+        <View style={[styles.actionIcon, { borderColor: action.color }]}>
+          <Ionicons name={action.icon} size={20} color={action.color} />
+        </View>
+        <Text style={styles.actionLabel}>{action.label}</Text>
+      </Pressable>
+    </Animated.View>
+  );
+}
 
 interface QuickServeFABProps {
   bottomOffset?: number;
@@ -118,20 +150,6 @@ export function QuickServeFAB({ bottomOffset = 70 }: QuickServeFABProps) {
     ],
   }));
 
-  const getActionStyle = (index: number) => {
-    return useAnimatedStyle(() => {
-      const delay = index * 0.08;
-      const adjustedProgress = Math.max(0, Math.min(1, (progress.value - delay) / (1 - delay)));
-      return {
-        opacity: adjustedProgress,
-        transform: [
-          { translateY: interpolate(adjustedProgress, [0, 1], [20, 0], Extrapolation.CLAMP) },
-          { scale: interpolate(adjustedProgress, [0, 1], [0.8, 1], Extrapolation.CLAMP) },
-        ],
-      };
-    });
-  };
-
   return (
     <>
       <AnimatedPressable
@@ -183,17 +201,13 @@ export function QuickServeFAB({ bottomOffset = 70 }: QuickServeFABProps) {
 
             <View style={styles.menuContent}>
               {actions.map((action, index) => (
-                <Animated.View key={action.id} style={getActionStyle(index)}>
-                  <Pressable
-                    style={styles.actionButton}
-                    onPress={() => handleActionPress(action)}
-                  >
-                    <View style={[styles.actionIcon, { borderColor: action.color }]}>
-                      <Ionicons name={action.icon} size={20} color={action.color} />
-                    </View>
-                    <Text style={styles.actionLabel}>{action.label}</Text>
-                  </Pressable>
-                </Animated.View>
+                <ActionItem
+                  key={action.id}
+                  action={action}
+                  index={index}
+                  progress={progress}
+                  onPress={handleActionPress}
+                />
               ))}
             </View>
           </Animated.View>
