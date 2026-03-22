@@ -6612,12 +6612,36 @@ export async function registerRoutes(app: Express): Promise<Server> {
           if (row.playerId) activeGroupMap.set(row.playerId, Number(row.cnt));
         }
 
+        // Batch fetch paused series counts (for "paused in all series" holiday detection)
+        const pausedGroupRows = playerIds.length > 0
+          ? await db
+              .select({ playerId: seriesPlayers.playerId, cnt: count() })
+              .from(seriesPlayers)
+              .innerJoin(coachingSeries, eq(seriesPlayers.seriesId, coachingSeries.id))
+              .where(
+                and(
+                  inArray(seriesPlayers.playerId, playerIds),
+                  eq(seriesPlayers.status, "paused"),
+                  eq(coachingSeries.status, "active"),
+                )
+              )
+              .groupBy(seriesPlayers.playerId)
+          : [];
+        const pausedGroupMap = new Map<string, number>();
+        for (const row of pausedGroupRows) {
+          if (row.playerId) pausedGroupMap.set(row.playerId, Number(row.cnt));
+        }
+
         // Map player data with last lesson dates and lesson-status fields
         const playersWithLessonDates = playerList.map((player) => ({
           ...player,
           lastLessonDate: lastLessonMap.get(player.id)?.startTime || null,
           activeGroupsCount: activeGroupMap.get(player.id) ?? 0,
-          onHoliday: player.status === "holiday",
+          // onHoliday: true if player status is "holiday" OR if paused in all their active series
+          onHoliday:
+            player.status === "holiday" ||
+            ((pausedGroupMap.get(player.id) ?? 0) > 0 &&
+              (activeGroupMap.get(player.id) ?? 0) === 0),
         }));
 
         if (usePagination) {
