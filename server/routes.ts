@@ -9950,27 +9950,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 },
               });
 
-              const [activePackage] = await db
-                .select()
-                .from(packages)
-                .where(
-                  and(
-                    eq(packages.playerId, playerId),
-                    eq(packages.creditType, creditType),
-                    eq(packages.status, "active"),
-                  ),
-                )
-                .limit(1);
-
-              if (activePackage) {
-                await db
-                  .update(packages)
-                  .set({
-                    remainingCredits: String(Number(activePackage.remainingCredits) + 1),
-                  })
-                  .where(eq(packages.id, activePackage.id));
+              // Atomic increment — no read-modify-write race condition
+              const refundResult = await db.execute(sql`
+                UPDATE packages
+                SET remaining_credits = remaining_credits + 1,
+                    status = 'active'
+                WHERE player_id = ${playerId}
+                  AND credit_type = ${creditType}
+                  AND status = 'active'
+                RETURNING id, remaining_credits
+              `);
+              if (refundResult.rows.length > 0) {
+                const r = refundResult.rows[0] as any;
                 console.log(
-                  `[AttendanceCorrection] Refunded 1 ${creditType} credit to package ${activePackage.id} (${Number(activePackage.remainingCredits)} -> ${Number(activePackage.remainingCredits) + 1})`,
+                  `[AttendanceCorrection] Refunded 1 ${creditType} credit to package ${r.id} (new remaining: ${r.remaining_credits})`,
                 );
               }
             } else {
@@ -9995,27 +9988,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
               },
             });
 
-            const [activePackage] = await db
-              .select()
-              .from(packages)
-              .where(
-                and(
-                  eq(packages.playerId, playerId),
-                  eq(packages.creditType, creditType),
-                  eq(packages.status, "active"),
-                ),
-              )
-              .limit(1);
-
-            if (activePackage && Number(activePackage.remainingCredits) > 0) {
-              await db
-                .update(packages)
-                .set({
-                  remainingCredits: String(Number(activePackage.remainingCredits) - 1),
-                })
-                .where(eq(packages.id, activePackage.id));
+            // Atomic decrement — no read-modify-write race condition
+            const deductResult = await db.execute(sql`
+              UPDATE packages
+              SET remaining_credits = GREATEST(0, remaining_credits - 1),
+                  status = CASE WHEN remaining_credits - 1 <= 0 THEN 'depleted' ELSE status END
+              WHERE player_id = ${playerId}
+                AND credit_type = ${creditType}
+                AND status = 'active'
+                AND remaining_credits > 0
+              RETURNING id, remaining_credits
+            `);
+            if (deductResult.rows.length > 0) {
+              const r = deductResult.rows[0] as any;
               console.log(
-                `[AttendanceCorrection] Deducted 1 ${creditType} credit from package ${activePackage.id} (${Number(activePackage.remainingCredits)} -> ${Number(activePackage.remainingCredits) - 1})`,
+                `[AttendanceCorrection] Deducted 1 ${creditType} credit from package ${r.id} (new remaining: ${r.remaining_credits})`,
               );
             }
           }

@@ -459,7 +459,7 @@ function setupErrorHandler(app: express.Application) {
       
       // Run bulk credit repair on startup to fix any missing charges
       try {
-        const { repairAllPlayerCredits, auditAllPlayerCredits, repairGroupSessionTypes } = await import("./storage");
+        const { repairAllPlayerCredits, auditAllPlayerCredits, repairGroupSessionTypes, reconcilePackageCredits } = await import("./storage");
         
         log("[RepairGroupTypes] Fixing group sessions wrongly converted...");
         const groupResult = await repairGroupSessionTypes();
@@ -486,6 +486,10 @@ function setupErrorHandler(app: express.Application) {
         
         log("[CreditAudit] Running ghost credit audit for ALL players...");
         await auditAllPlayerCredits();
+
+        log("[CreditReconcile] Reconciling package remaining_credits against transaction history...");
+        const reconcileResult = await reconcilePackageCredits();
+        log(`[CreditReconcile] Done: ${reconcileResult.checked} drifted, ${reconcileResult.fixed} fixed, ${reconcileResult.errors.length} errors`);
         
         // SAFETY: Debts must NEVER be auto-cancelled — they track what players owe until a package is purchased
       } catch (error) {
