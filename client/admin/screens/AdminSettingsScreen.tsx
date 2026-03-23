@@ -294,24 +294,14 @@ export default function AdminSettingsScreen() {
   };
 
   const handleLogout = () => {
-    const confirmLogout = () => {
-      logout();
-    };
-
-    if (Platform.OS === "web") {
-      if (window.confirm("Are you sure you want to logout?")) {
-        confirmLogout();
-      }
-    } else {
-      Alert.alert(
-        "Logout",
-        "Are you sure you want to logout?",
-        [
-          { text: "Cancel", style: "cancel" },
-          { text: "Logout", style: "destructive", onPress: confirmLogout },
-        ]
-      );
-    }
+    Alert.alert(
+      "Logout",
+      "Are you sure you want to logout?",
+      [
+        { text: "Cancel", style: "cancel" },
+        { text: "Logout", style: "destructive", onPress: logout },
+      ]
+    );
   };
 
   return (
