@@ -370,6 +370,13 @@ export default function LoginScreen() {
   const [inviteCode, setInviteCode] = useState("");
   const [inviteData, setInviteData] = useState<{ academyName: string; email: string | null; role: string; isPlayerInvite?: boolean; playerId?: string; playerName?: string | null } | null>(null);
   const [inviteValidated, setInviteValidated] = useState(false);
+  const [inviteFieldErrors, setInviteFieldErrors] = useState<{
+    email?: string;
+    username?: string;
+    firstName?: string;
+    lastName?: string;
+    password?: string;
+  }>({});
 
   // OTP verification state
   const [otpCode, setOtpCode] = useState("");
@@ -477,6 +484,7 @@ export default function LoginScreen() {
     setInviteCode("");
     setInviteData(null);
     setInviteValidated(false);
+    setInviteFieldErrors({});
     setUsernameStatus({ checking: false, available: null, error: null, suggestions: [] });
     // Reset OTP state
     setOtpCode("");
@@ -852,39 +860,30 @@ export default function LoginScreen() {
     if (isSubmitting || isInviteRegisteringRef.current) return;
     isInviteRegisteringRef.current = true;
     
-    if (!username || !firstName || !lastName || !password || !email) {
-      Alert.alert("Error", "Please fill in all required fields");
-      isInviteRegisteringRef.current = false;
-      return;
-    }
-
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(email)) {
-      Alert.alert("Error", "Please enter a valid email address");
-      isInviteRegisteringRef.current = false;
-      return;
-    }
-
     const normalizedUsername = username.toLowerCase();
+    const fieldErrors: typeof inviteFieldErrors = {};
 
-    if (normalizedUsername.length < 3) {
-      Alert.alert("Error", "Username must be at least 3 characters");
+    if (!email) fieldErrors.email = "Email is required";
+    else if (!emailRegex.test(email)) fieldErrors.email = "Enter a valid email address";
+
+    if (!username) fieldErrors.username = "Username is required";
+    else if (normalizedUsername.length < 3) fieldErrors.username = "At least 3 characters";
+    else if (!/^[a-z0-9_]+$/.test(normalizedUsername)) fieldErrors.username = "Letters, numbers, underscores only";
+
+    if (!firstName) fieldErrors.firstName = "First name is required";
+    if (!lastName) fieldErrors.lastName = "Last name is required";
+
+    if (!password) fieldErrors.password = "Password is required";
+    else if (password.length < 8) fieldErrors.password = "At least 8 characters";
+
+    if (Object.keys(fieldErrors).length > 0) {
+      setInviteFieldErrors(fieldErrors);
       isInviteRegisteringRef.current = false;
       return;
     }
 
-    if (!/^[a-z0-9_]+$/.test(normalizedUsername)) {
-      Alert.alert("Error", "Username can only contain letters, numbers, and underscores");
-      isInviteRegisteringRef.current = false;
-      return;
-    }
-
-    if (password.length < 8) {
-      Alert.alert("Error", "Password must be at least 8 characters");
-      isInviteRegisteringRef.current = false;
-      return;
-    }
-
+    setInviteFieldErrors({});
     const code = inviteCode.trim().toUpperCase();
 
     setIsSubmitting(true);
@@ -1631,29 +1630,40 @@ export default function LoginScreen() {
           </View>
 
           <View style={styles.inputGroup}>
-            <Text style={styles.label}>{inviteData.email ? `${t("common.email")} (${t("common.invite")})` : t("common.email")}</Text>
-            <View style={[styles.glassInput, inviteData.email ? { opacity: 0.7 } : undefined]}>
+            <Text style={styles.label}>{t("common.email")}</Text>
+            <View style={[styles.glassInput, inviteFieldErrors.email ? { borderColor: Colors.dark.error, borderWidth: 1 } : undefined]}>
               <Ionicons name="mail-outline" size={18} color="#9B59B6" style={styles.inputIcon} />
               <TextInput
                 value={email}
-                onChangeText={inviteData.email ? undefined : setEmail}
-                editable={!inviteData.email}
-                placeholder={inviteData.email ? undefined : "Enter your email"}
+                onChangeText={(text) => {
+                  setEmail(text);
+                  if (inviteFieldErrors.email) setInviteFieldErrors(prev => ({ ...prev, email: undefined }));
+                }}
+                editable={true}
+                placeholder="Enter your email"
                 placeholderTextColor={Colors.dark.textMuted}
                 keyboardType="email-address"
                 autoCapitalize="none"
+                autoCorrect={false}
+                autoComplete="email"
                 style={styles.input}
               />
             </View>
+            {inviteFieldErrors.email ? (
+              <Text style={styles.usernameError}>{inviteFieldErrors.email}</Text>
+            ) : null}
           </View>
 
           <View style={styles.inputGroup}>
             <Text style={styles.label}>{t("auth.usernameLabel")}</Text>
-            <View style={styles.glassInput}>
+            <View style={[styles.glassInput, inviteFieldErrors.username ? { borderColor: Colors.dark.error, borderWidth: 1 } : undefined]}>
               <Ionicons name="at-outline" size={18} color="#9B59B6" style={styles.inputIcon} />
               <TextInput
                 value={username}
-                onChangeText={handleUsernameChange}
+                onChangeText={(text) => {
+                  handleUsernameChange(text);
+                  if (inviteFieldErrors.username) setInviteFieldErrors(prev => ({ ...prev, username: undefined }));
+                }}
                 placeholder={t("auth.usernamePlaceholder")}
                 placeholderTextColor={Colors.dark.textMuted}
                 autoCapitalize="none"
@@ -1673,7 +1683,9 @@ export default function LoginScreen() {
                 </View>
               ) : null}
             </View>
-            {usernameStatus.error ? (
+            {inviteFieldErrors.username ? (
+              <Text style={styles.usernameError}>{inviteFieldErrors.username}</Text>
+            ) : usernameStatus.error ? (
               <Text style={styles.usernameError}>{usernameStatus.error}</Text>
             ) : null}
             {usernameStatus.suggestions.length > 0 ? (
@@ -1697,29 +1709,41 @@ export default function LoginScreen() {
           <View style={styles.inputRow}>
             <View style={[styles.inputGroup, { flex: 1 }]}>
               <Text style={styles.label}>FIRST NAME</Text>
-              <View style={styles.glassInput}>
+              <View style={[styles.glassInput, inviteFieldErrors.firstName ? { borderColor: Colors.dark.error, borderWidth: 1 } : undefined]}>
                 <TextInput
                   value={firstName}
-                  onChangeText={setFirstName}
+                  onChangeText={(text) => {
+                    setFirstName(text);
+                    if (inviteFieldErrors.firstName) setInviteFieldErrors(prev => ({ ...prev, firstName: undefined }));
+                  }}
                   placeholder="First name"
                   placeholderTextColor={Colors.dark.textMuted}
                   autoCapitalize="words"
                   style={styles.input}
                 />
               </View>
+              {inviteFieldErrors.firstName ? (
+                <Text style={styles.usernameError}>{inviteFieldErrors.firstName}</Text>
+              ) : null}
             </View>
             <View style={[styles.inputGroup, { flex: 1 }]}>
               <Text style={styles.label}>LAST NAME</Text>
-              <View style={styles.glassInput}>
+              <View style={[styles.glassInput, inviteFieldErrors.lastName ? { borderColor: Colors.dark.error, borderWidth: 1 } : undefined]}>
                 <TextInput
                   value={lastName}
-                  onChangeText={setLastName}
+                  onChangeText={(text) => {
+                    setLastName(text);
+                    if (inviteFieldErrors.lastName) setInviteFieldErrors(prev => ({ ...prev, lastName: undefined }));
+                  }}
                   placeholder="Last name"
                   placeholderTextColor={Colors.dark.textMuted}
                   autoCapitalize="words"
                   style={styles.input}
                 />
               </View>
+              {inviteFieldErrors.lastName ? (
+                <Text style={styles.usernameError}>{inviteFieldErrors.lastName}</Text>
+              ) : null}
             </View>
           </View>
 
@@ -1745,11 +1769,14 @@ export default function LoginScreen() {
 
           <View style={styles.inputGroup}>
             <Text style={styles.label}>{t("auth.passwordLabel")}</Text>
-            <View style={styles.glassInput}>
+            <View style={[styles.glassInput, inviteFieldErrors.password ? { borderColor: Colors.dark.error, borderWidth: 1 } : undefined]}>
               <Ionicons name="lock-closed-outline" size={18} color="#9B59B6" style={styles.inputIcon} />
               <TextInput
                 value={password}
-                onChangeText={setPassword}
+                onChangeText={(text) => {
+                  setPassword(text);
+                  if (inviteFieldErrors.password) setInviteFieldErrors(prev => ({ ...prev, password: undefined }));
+                }}
                 placeholder={t("auth.passwordPlaceholder")}
                 placeholderTextColor={Colors.dark.textMuted}
                 secureTextEntry={!showPassword}
@@ -1767,6 +1794,9 @@ export default function LoginScreen() {
                 />
               </Pressable>
             </View>
+            {inviteFieldErrors.password ? (
+              <Text style={styles.usernameError}>{inviteFieldErrors.password}</Text>
+            ) : null}
             <PasswordStrengthIndicator password={password} />
           </View>
 
