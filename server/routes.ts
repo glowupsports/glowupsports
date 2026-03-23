@@ -188,6 +188,7 @@ import {
   sendFeedbackNotificationEmail,
   sendLevelUpEmail,
   sendWelcomeEmail,
+  sendPlayerInviteEmail,
   sendSessionReminderEmail,
   sendCoachInviteEmail,
   sendOTPEmail,
@@ -6688,7 +6689,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           expiresAt: null, // No expiry for player invites
         });
 
-        // Send welcome email if player has email (non-blocking)
+        // Send invite email with code if player has email (non-blocking)
         if (player.email) {
           const academy = academyId
             ? await storage.getAcademy(academyId)
@@ -6696,13 +6697,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
           const coach = player.coachId
             ? await storage.getCoach(player.coachId)
             : null;
-          sendWelcomeEmail({
+          sendPlayerInviteEmail({
             to: player.email,
             playerName: player.name,
             academyName: academy?.name || "your academy",
+            inviteCode,
             coachName: coach?.name,
           }).catch((err) =>
-            console.error("Failed to send welcome email:", err),
+            console.error("Failed to send player invite email:", err),
           );
         }
 
@@ -6761,6 +6763,68 @@ export async function registerRoutes(app: Express): Promise<Server> {
       } catch (error) {
         console.error("Error getting player invite:", error);
         res.status(500).json({ error: "Failed to get player invite" });
+      }
+    },
+  );
+
+  // Send invite email to player
+  app.post(
+    "/api/players/:id/send-invite-email",
+    authMiddleware,
+    requireAcademy,
+    async (req: AuthenticatedRequest, res: Response) => {
+      try {
+        const { id } = req.params;
+        const academyId = req.user!.academyId;
+
+        const { valid, player } = await validatePlayerOwnership(
+          id,
+          academyId,
+          storage,
+        );
+        if (!valid || !player) {
+          return res.status(404).json({ error: "Player not found" });
+        }
+
+        if (!player.email) {
+          return res.status(400).json({ error: "Player has no email address" });
+        }
+
+        // Get or create invite code
+        let invite = await storage.getPlayerInviteByPlayerId(id);
+        if (!invite) {
+          const inviteCode = generateShortInviteCode();
+          invite = await storage.createPlayerInvite({
+            playerId: id,
+            academyId: academyId!,
+            inviteCode,
+            status: "pending",
+            expiresAt: null,
+          });
+        }
+
+        const academy = academyId ? await storage.getAcademy(academyId) : null;
+        const coach = player.coachId
+          ? await storage.getCoach(player.coachId)
+          : null;
+
+        const result = await sendPlayerInviteEmail({
+          to: player.email,
+          playerName: player.name,
+          academyName: academy?.name || "your academy",
+          inviteCode: invite.inviteCode,
+          coachName: coach?.name,
+        });
+
+        if (!result.success) {
+          console.error("[send-invite-email] Failed:", result.error);
+          return res.status(500).json({ error: "Failed to send invite email" });
+        }
+
+        res.json({ success: true, sentTo: player.email });
+      } catch (error) {
+        console.error("Error sending player invite email:", error);
+        res.status(500).json({ error: "Failed to send invite email" });
       }
     },
   );

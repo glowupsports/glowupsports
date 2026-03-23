@@ -396,6 +396,107 @@ export async function sendCoachInviteEmail(params: {
   });
 }
 
+export async function sendPlayerInviteEmail(params: {
+  to: string;
+  playerName: string;
+  academyName: string;
+  inviteCode: string;
+  coachName?: string;
+}): Promise<{ success: boolean; error?: string }> {
+  const { to, playerName, academyName, inviteCode, coachName } = params;
+
+  const html = `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #0a0a0a; color: #ffffff; margin: 0; padding: 20px; }
+        .container { max-width: 600px; margin: 0 auto; background: #1a1a1a; border-radius: 16px; padding: 40px; }
+        .logo { text-align: center; margin-bottom: 30px; }
+        .logo h1 { color: #C8FF3D; margin: 0; font-size: 28px; letter-spacing: 1px; }
+        h2 { color: #ffffff; margin-bottom: 8px; }
+        .subtitle { color: #a0a0a0; margin-top: 0; margin-bottom: 24px; font-size: 15px; line-height: 1.5; }
+        p { color: #a0a0a0; line-height: 1.6; margin-bottom: 16px; }
+        .highlight { color: #C8FF3D; font-weight: 600; }
+        .code-box { background: #0f141b; border: 2px solid #C8FF3D; border-radius: 14px; padding: 28px 24px; margin: 24px 0; text-align: center; }
+        .code-label { color: #666; font-size: 13px; text-transform: uppercase; letter-spacing: 2px; margin-bottom: 10px; }
+        .code-value { color: #C8FF3D; font-size: 40px; font-weight: 900; letter-spacing: 8px; font-family: 'Courier New', monospace; }
+        .steps { margin: 24px 0; }
+        .step { display: flex; align-items: flex-start; margin-bottom: 16px; }
+        .step-num { background: #C8FF3D; color: #000; width: 26px; height: 26px; border-radius: 50%; font-weight: 800; font-size: 13px; display: inline-flex; align-items: center; justify-content: center; margin-right: 14px; flex-shrink: 0; }
+        .step-text { color: #cccccc; font-size: 14px; line-height: 1.5; padding-top: 4px; }
+        .step-text a { color: #C8FF3D; text-decoration: none; }
+        .step-text strong { color: #ffffff; }
+        .divider { border: none; border-top: 1px solid #2a2a2a; margin: 28px 0; }
+        .footer { text-align: center; color: #555; font-size: 12px; }
+        .footer a { color: #666; }
+      </style>
+    </head>
+    <body>
+      <div class="container">
+        <div class="logo">
+          <h1>Glow Up Sports</h1>
+        </div>
+
+        <h2>You have been invited!</h2>
+        <p class="subtitle">
+          Hi <span class="highlight">${escapeHtml(playerName)}</span>, ${escapeHtml(coachName ? `Coach ${coachName} has` : `${academyName} has`)} added you to
+          <strong style="color:#fff;">${escapeHtml(academyName)}</strong> on Glow Up Sports.
+          Use the code below to set up your account.
+        </p>
+
+        <div class="code-box">
+          <div class="code-label">Your invite code</div>
+          <div class="code-value">${escapeHtml(inviteCode)}</div>
+        </div>
+
+        <div class="steps">
+          <div class="step">
+            <span class="step-num">1</span>
+            <span class="step-text">
+              <strong>Download the app</strong> — Get Glow Up Sports from TestFlight (iOS):<br>
+              <a href="https://testflight.apple.com/join/glowupsports">https://testflight.apple.com/join/glowupsports</a>
+            </span>
+          </div>
+          <div class="step">
+            <span class="step-num">2</span>
+            <span class="step-text">
+              <strong>Open the app</strong> and tap <strong>"I have an invite code"</strong> on the welcome screen.
+            </span>
+          </div>
+          <div class="step">
+            <span class="step-num">3</span>
+            <span class="step-text">
+              <strong>Enter your code</strong> above and follow the setup steps to complete your profile.
+            </span>
+          </div>
+        </div>
+
+        <hr class="divider">
+
+        <p style="font-size:13px; color:#777;">
+          Once inside the app you can view your training sessions, track your XP progress,
+          receive coach feedback, and earn level-up rewards.
+          ${coachName ? `Your coach <strong style="color:#fff;">${escapeHtml(coachName)}</strong> is looking forward to training with you.` : ''}
+        </p>
+
+        <div class="footer">
+          <p>Glow Up Sports &mdash; Level Up Your Game</p>
+          <p>If you did not expect this email, you can safely ignore it.</p>
+        </div>
+      </div>
+    </body>
+    </html>
+  `;
+
+  return sendEmail({
+    to,
+    subject: `Your invite to ${academyName} on Glow Up Sports — Code: ${inviteCode}`,
+    html,
+    text: `Hi ${playerName}, you have been invited to join ${academyName} on Glow Up Sports.\n\nYour invite code: ${inviteCode}\n\nDownload the app from TestFlight: https://testflight.apple.com/join/glowupsports\nThen tap "I have an invite code" and enter your code to get started.`,
+  });
+}
+
 export async function sendDeleteAccountRequestEmail(params: {
   userEmail: string;
   userName: string;

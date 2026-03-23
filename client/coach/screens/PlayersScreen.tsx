@@ -1109,6 +1109,28 @@ function PlayerDetailView({
     },
   });
 
+  const sendInviteEmailMutation = useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest("POST", `/api/players/${player.id}/send-invite-email`);
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || "Failed to send invite email");
+      }
+      return res.json();
+    },
+    onSuccess: (data: { sentTo: string }) => {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      setTimeout(() => {
+        Alert.alert("Invite Sent", `Invite email sent to ${data.sentTo}`);
+      }, 350);
+    },
+    onError: (error: Error) => {
+      setTimeout(() => {
+        Alert.alert("Failed", error.message || "Could not send invite. Try again.");
+      }, 350);
+    },
+  });
+
   const [localAuditVerified, setLocalAuditVerified] = useState<boolean>(!!player.auditVerifiedAt);
   const [verifyFlashText, setVerifyFlashText] = useState<string | null>(null);
   const verifyFlashOpacity = useSharedValue(0);
@@ -2194,16 +2216,38 @@ function PlayerDetailView({
         <View style={styles.infoSection}>
           <Text style={styles.sectionLabel}>Basic Info</Text>
           <View style={styles.infoCard}>
-            {player.email ? (
-              <View style={styles.infoRow}>
-                <Ionicons name="mail-outline" size={20} color={Colors.dark.tabIconDefault} />
-                <Text style={styles.infoText}>{player.email}</Text>
+            {localPlayer.email ? (
+              <View>
+                <View style={styles.infoRow}>
+                  <Ionicons name="mail-outline" size={20} color={Colors.dark.tabIconDefault} />
+                  <Text style={styles.infoText}>{localPlayer.email}</Text>
+                </View>
+                <Pressable
+                  style={[
+                    styles.sendInviteButton,
+                    sendInviteEmailMutation.isPending ? { opacity: 0.5 } : null,
+                  ]}
+                  onPress={() => {
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                    sendInviteEmailMutation.mutate();
+                  }}
+                  disabled={sendInviteEmailMutation.isPending}
+                >
+                  {sendInviteEmailMutation.isPending ? (
+                    <ActivityIndicator size="small" color={Colors.dark.primary} />
+                  ) : (
+                    <Ionicons name="paper-plane-outline" size={15} color={Colors.dark.primary} />
+                  )}
+                  <Text style={styles.sendInviteButtonText}>
+                    {sendInviteEmailMutation.isPending ? "Sending..." : "Send Invite Email"}
+                  </Text>
+                </Pressable>
               </View>
             ) : null}
-            {player.phone ? (
+            {localPlayer.phone ? (
               <View style={styles.infoRow}>
                 <Ionicons name="call-outline" size={20} color={Colors.dark.tabIconDefault} />
-                <Text style={styles.infoText}>{player.phone}</Text>
+                <Text style={styles.infoText}>{localPlayer.phone}</Text>
               </View>
             ) : null}
             {player.skillLevel ? (
@@ -4494,6 +4538,24 @@ const styles = StyleSheet.create({
   infoText: {
     fontSize: Typography.body.fontSize,
     color: Colors.dark.text,
+  },
+  sendInviteButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    marginTop: 10,
+    paddingVertical: 8,
+    paddingHorizontal: 14,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: Colors.dark.primary + "60",
+    alignSelf: "flex-start",
+    backgroundColor: Colors.dark.primary + "12",
+  },
+  sendInviteButtonText: {
+    fontSize: 13,
+    color: Colors.dark.primary,
+    fontWeight: "600",
   },
   medicalText: {
     flex: 1,
