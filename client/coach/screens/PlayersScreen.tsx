@@ -1109,20 +1109,25 @@ function PlayerDetailView({
     },
   });
 
-  const sendInviteEmailMutation = useMutation({
+  const sendInviteEmailMutation = useMutation<
+    { success: boolean; sent: boolean; sentTo?: string; reason?: string },
+    Error
+  >({
     mutationFn: async () => {
       const res = await apiRequest("POST", `/api/players/${player.id}/send-invite-email`);
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        throw new Error(err.error || "Failed to send invite email");
-      }
       return res.json();
     },
-    onSuccess: (data: { sentTo: string }) => {
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      setTimeout(() => {
-        Alert.alert("Invite Sent", `Invite email sent to ${data.sentTo}`);
-      }, 350);
+    onSuccess: (data) => {
+      if (data.sent) {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        setTimeout(() => {
+          Alert.alert("Invite Sent", `Invite email sent to ${data.sentTo}`);
+        }, 350);
+      } else {
+        setTimeout(() => {
+          Alert.alert("Not Sent", "This player has already accepted their invite.");
+        }, 350);
+      }
     },
     onError: (error: Error) => {
       setTimeout(() => {
