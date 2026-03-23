@@ -6787,7 +6787,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
 
         if (!player.email) {
-          return res.status(400).json({ error: "Player has no email address" });
+          return res.json({ success: true, sent: false, reason: "no_email" });
         }
 
         // Get or create invite code
@@ -6801,6 +6801,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
             status: "pending",
             expiresAt: null,
           });
+        }
+
+        // Only send if invite is still pending (not already accepted/revoked)
+        if (invite.status !== "pending") {
+          return res.json({ success: true, sent: false, reason: "invite_not_pending" });
         }
 
         const academy = academyId ? await storage.getAcademy(academyId) : null;
@@ -6821,7 +6826,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           return res.status(500).json({ error: "Failed to send invite email" });
         }
 
-        res.json({ success: true, sentTo: player.email });
+        res.json({ success: true, sent: true, sentTo: player.email });
       } catch (error) {
         console.error("Error sending player invite email:", error);
         res.status(500).json({ error: "Failed to send invite email" });

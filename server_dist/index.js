@@ -14347,8 +14347,9 @@ async function sendPlayerInviteEmail(params) {
           <div class="step">
             <span class="step-num">1</span>
             <span class="step-text">
-              <strong>Download the app</strong> \u2014 Get Glow Up Sports from TestFlight (iOS):<br>
-              <a href="https://testflight.apple.com/join/glowupsports">https://testflight.apple.com/join/glowupsports</a>
+              <strong>Download the app</strong> \u2014 Choose your platform:<br>
+              iOS (TestFlight): <a href="https://testflight.apple.com/join/glowupsports">https://testflight.apple.com/join/glowupsports</a><br>
+              iOS / Android (Expo Go): search <strong>"Expo Go"</strong> in the App Store or Play Store, then scan your coach's QR code or use the invite code inside the app.
             </span>
           </div>
           <div class="step">
@@ -61632,7 +61633,7 @@ async function registerRoutes(app2) {
           return res.status(404).json({ error: "Player not found" });
         }
         if (!player2.email) {
-          return res.status(400).json({ error: "Player has no email address" });
+          return res.json({ success: true, sent: false, reason: "no_email" });
         }
         let invite = await storage.getPlayerInviteByPlayerId(id);
         if (!invite) {
@@ -61644,6 +61645,9 @@ async function registerRoutes(app2) {
             status: "pending",
             expiresAt: null
           });
+        }
+        if (invite.status !== "pending") {
+          return res.json({ success: true, sent: false, reason: "invite_not_pending" });
         }
         const academy = academyId ? await storage.getAcademy(academyId) : null;
         const coach = player2.coachId ? await storage.getCoach(player2.coachId) : null;
@@ -61658,7 +61662,7 @@ async function registerRoutes(app2) {
           console.error("[send-invite-email] Failed:", result.error);
           return res.status(500).json({ error: "Failed to send invite email" });
         }
-        res.json({ success: true, sentTo: player2.email });
+        res.json({ success: true, sent: true, sentTo: player2.email });
       } catch (error) {
         console.error("Error sending player invite email:", error);
         res.status(500).json({ error: "Failed to send invite email" });

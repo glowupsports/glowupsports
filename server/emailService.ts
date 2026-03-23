@@ -454,8 +454,9 @@ export async function sendPlayerInviteEmail(params: {
           <div class="step">
             <span class="step-num">1</span>
             <span class="step-text">
-              <strong>Download the app</strong> — Get Glow Up Sports from TestFlight (iOS):<br>
-              <a href="https://testflight.apple.com/join/glowupsports">https://testflight.apple.com/join/glowupsports</a>
+              <strong>Download the app</strong> — Choose your platform:<br>
+              iOS (TestFlight): <a href="https://testflight.apple.com/join/glowupsports">https://testflight.apple.com/join/glowupsports</a><br>
+              iOS / Android (Expo Go): search <strong>"Expo Go"</strong> in the App Store or Play Store, then scan your coach's QR code or use the invite code inside the app.
             </span>
           </div>
           <div class="step">

@@ -1410,6 +1410,13 @@ function PlayerDetailView({
     queryKey: ["/api/admin/players", player.id, "stats"],
   });
 
+  const { data: inviteData } = useQuery<{ inviteCode: string; status: string } | null>({
+    queryKey: ["/api/players", player.id, "invite"],
+    enabled: !!localPlayer.email,
+    retry: false,
+  });
+  const isInvitePending = inviteData?.status === "pending";
+
   const getPaymentStatusColor = (status?: string) => {
     switch (status) {
       case "paid": return Colors.dark.successNeon;
@@ -2222,26 +2229,28 @@ function PlayerDetailView({
                   <Ionicons name="mail-outline" size={20} color={Colors.dark.tabIconDefault} />
                   <Text style={styles.infoText}>{localPlayer.email}</Text>
                 </View>
-                <Pressable
-                  style={[
-                    styles.sendInviteButton,
-                    sendInviteEmailMutation.isPending ? { opacity: 0.5 } : null,
-                  ]}
-                  onPress={() => {
-                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                    sendInviteEmailMutation.mutate();
-                  }}
-                  disabled={sendInviteEmailMutation.isPending}
-                >
-                  {sendInviteEmailMutation.isPending ? (
-                    <ActivityIndicator size="small" color={Colors.dark.primary} />
-                  ) : (
-                    <Ionicons name="paper-plane-outline" size={15} color={Colors.dark.primary} />
-                  )}
-                  <Text style={styles.sendInviteButtonText}>
-                    {sendInviteEmailMutation.isPending ? "Sending..." : "Send Invite Email"}
-                  </Text>
-                </Pressable>
+                {isInvitePending ? (
+                  <Pressable
+                    style={[
+                      styles.sendInviteButton,
+                      sendInviteEmailMutation.isPending ? { opacity: 0.5 } : null,
+                    ]}
+                    onPress={() => {
+                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                      sendInviteEmailMutation.mutate();
+                    }}
+                    disabled={sendInviteEmailMutation.isPending}
+                  >
+                    {sendInviteEmailMutation.isPending ? (
+                      <ActivityIndicator size="small" color={Colors.dark.primary} />
+                    ) : (
+                      <Ionicons name="paper-plane-outline" size={15} color={Colors.dark.primary} />
+                    )}
+                    <Text style={styles.sendInviteButtonText}>
+                      {sendInviteEmailMutation.isPending ? "Sending..." : "Send Invite Email"}
+                    </Text>
+                  </Pressable>
+                ) : null}
               </View>
             ) : null}
             {localPlayer.phone ? (
