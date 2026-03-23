@@ -539,6 +539,10 @@ function setupErrorHandler(app: express.Application) {
           return code;
         }
 
+        // Load ALL invite codes across all statuses for global uniqueness checking
+        const allInvites = await dbInstance.select({ inviteCode: playerInvites.inviteCode }).from(playerInvites);
+        const usedCodes = new Set(allInvites.map((i) => i.inviteCode));
+
         const pendingInvites = await dbInstance
           .select()
           .from(playerInvites)
@@ -551,27 +555,34 @@ function setupErrorHandler(app: express.Application) {
         if (legacyInvites.length === 0) {
           log("[MigrateInviteCodes] No legacy invite codes found — skipping");
         } else {
-          const usedCodes = new Set(pendingInvites.map((i) => i.inviteCode));
           let migratedCount = 0;
+          let errorCount = 0;
 
           for (const inv of legacyInvites) {
-            let newCode = genShortCode();
-            let attempts = 0;
-            while (usedCodes.has(newCode) && attempts < 50) {
-              newCode = genShortCode();
-              attempts++;
+            try {
+              // Remove old code from set so it doesn't block its own replacement
+              usedCodes.delete(inv.inviteCode);
+
+              // Generate a globally unique code — retry indefinitely until we find one
+              let newCode = genShortCode();
+              while (usedCodes.has(newCode)) {
+                newCode = genShortCode();
+              }
+              usedCodes.add(newCode);
+
+              await dbInstance
+                .update(playerInvites)
+                .set({ inviteCode: newCode })
+                .where(eq(playerInvites.id, inv.id));
+
+              migratedCount++;
+            } catch (rowErr) {
+              errorCount++;
+              console.error(`[MigrateInviteCodes] Failed to migrate invite ${inv.id}:`, rowErr);
             }
-            usedCodes.add(newCode);
-
-            await dbInstance
-              .update(playerInvites)
-              .set({ inviteCode: newCode })
-              .where(eq(playerInvites.id, inv.id));
-
-            migratedCount++;
           }
 
-          log(`[MigrateInviteCodes] Migrated ${migratedCount} legacy invite codes to short format`);
+          log(`[MigrateInviteCodes] Migrated ${migratedCount} legacy invite codes to short format (${errorCount} errors)`);
         }
       } catch (err) {
         console.error("[MigrateInviteCodes] Failed:", err);

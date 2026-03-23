@@ -78381,6 +78381,8 @@ function setupErrorHandler(app2) {
         const { playerInvites: playerInvites2 } = await Promise.resolve().then(() => (init_schema(), schema_exports));
         const { eq: eq33 } = await import("drizzle-orm");
         const cryptoMod = await import("crypto");
+        const allInvites = await dbInstance.select({ inviteCode: playerInvites2.inviteCode }).from(playerInvites2);
+        const usedCodes = new Set(allInvites.map((i) => i.inviteCode));
         const pendingInvites = await dbInstance.select().from(playerInvites2).where(eq33(playerInvites2.status, "pending"));
         const legacyInvites = pendingInvites.filter(
           (inv) => !/^[A-Z0-9]{6}$/.test(inv.inviteCode)
@@ -78388,20 +78390,24 @@ function setupErrorHandler(app2) {
         if (legacyInvites.length === 0) {
           log("[MigrateInviteCodes] No legacy invite codes found \u2014 skipping");
         } else {
-          const usedCodes = new Set(pendingInvites.map((i) => i.inviteCode));
           let migratedCount = 0;
+          let errorCount = 0;
           for (const inv of legacyInvites) {
-            let newCode = genShortCode2();
-            let attempts = 0;
-            while (usedCodes.has(newCode) && attempts < 50) {
-              newCode = genShortCode2();
-              attempts++;
+            try {
+              usedCodes.delete(inv.inviteCode);
+              let newCode = genShortCode2();
+              while (usedCodes.has(newCode)) {
+                newCode = genShortCode2();
+              }
+              usedCodes.add(newCode);
+              await dbInstance.update(playerInvites2).set({ inviteCode: newCode }).where(eq33(playerInvites2.id, inv.id));
+              migratedCount++;
+            } catch (rowErr) {
+              errorCount++;
+              console.error(`[MigrateInviteCodes] Failed to migrate invite ${inv.id}:`, rowErr);
             }
-            usedCodes.add(newCode);
-            await dbInstance.update(playerInvites2).set({ inviteCode: newCode }).where(eq33(playerInvites2.id, inv.id));
-            migratedCount++;
           }
-          log(`[MigrateInviteCodes] Migrated ${migratedCount} legacy invite codes to short format`);
+          log(`[MigrateInviteCodes] Migrated ${migratedCount} legacy invite codes to short format (${errorCount} errors)`);
         }
       } catch (err) {
         console.error("[MigrateInviteCodes] Failed:", err);
