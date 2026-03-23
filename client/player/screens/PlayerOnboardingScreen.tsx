@@ -325,7 +325,7 @@ function AcademySelectionStep({ data, setData, onNext }: StepProps) {
             placeholderTextColor={Colors.dark.textMuted}
             autoCapitalize="characters"
             autoCorrect={false}
-            maxLength={8}
+            maxLength={6}
           />
           <Pressable
             style={[styles.lookupButton, isLookingUp && styles.buttonDisabled]}

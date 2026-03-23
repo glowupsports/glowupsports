@@ -522,6 +522,60 @@ function setupErrorHandler(app: express.Application) {
       } catch (err) {
         console.error("[ProviderChatRepair] Startup repair failed:", err);
       }
+
+      // Migrate legacy player invite codes (16-char hex → 6-char short format)
+      try {
+        const { db: dbInstance } = await import("./db");
+        const { playerInvites } = await import("../shared/schema");
+        const { eq } = await import("drizzle-orm");
+        const cryptoMod = await import("crypto");
+
+        function genShortCode(): string {
+          const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+          let code = "";
+          for (let i = 0; i < 6; i++) {
+            code += chars[cryptoMod.randomInt(0, chars.length)];
+          }
+          return code;
+        }
+
+        const pendingInvites = await dbInstance
+          .select()
+          .from(playerInvites)
+          .where(eq(playerInvites.status, "pending"));
+
+        const legacyInvites = pendingInvites.filter(
+          (inv) => !/^[A-Z0-9]{6}$/.test(inv.inviteCode),
+        );
+
+        if (legacyInvites.length === 0) {
+          log("[MigrateInviteCodes] No legacy invite codes found — skipping");
+        } else {
+          const usedCodes = new Set(pendingInvites.map((i) => i.inviteCode));
+          let migratedCount = 0;
+
+          for (const inv of legacyInvites) {
+            let newCode = genShortCode();
+            let attempts = 0;
+            while (usedCodes.has(newCode) && attempts < 50) {
+              newCode = genShortCode();
+              attempts++;
+            }
+            usedCodes.add(newCode);
+
+            await dbInstance
+              .update(playerInvites)
+              .set({ inviteCode: newCode })
+              .where(eq(playerInvites.id, inv.id));
+
+            migratedCount++;
+          }
+
+          log(`[MigrateInviteCodes] Migrated ${migratedCount} legacy invite codes to short format`);
+        }
+      } catch (err) {
+        console.error("[MigrateInviteCodes] Failed:", err);
+      }
     },
   );
 })();

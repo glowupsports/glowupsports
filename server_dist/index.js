@@ -78367,6 +78367,45 @@ function setupErrorHandler(app2) {
       } catch (err) {
         console.error("[ProviderChatRepair] Startup repair failed:", err);
       }
+      try {
+        let genShortCode2 = function() {
+          const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+          let code = "";
+          for (let i = 0; i < 6; i++) {
+            code += chars[cryptoMod.randomInt(0, chars.length)];
+          }
+          return code;
+        };
+        var genShortCode = genShortCode2;
+        const { db: dbInstance } = await Promise.resolve().then(() => (init_db(), db_exports));
+        const { playerInvites: playerInvites2 } = await Promise.resolve().then(() => (init_schema(), schema_exports));
+        const { eq: eq33 } = await import("drizzle-orm");
+        const cryptoMod = await import("crypto");
+        const pendingInvites = await dbInstance.select().from(playerInvites2).where(eq33(playerInvites2.status, "pending"));
+        const legacyInvites = pendingInvites.filter(
+          (inv) => !/^[A-Z0-9]{6}$/.test(inv.inviteCode)
+        );
+        if (legacyInvites.length === 0) {
+          log("[MigrateInviteCodes] No legacy invite codes found \u2014 skipping");
+        } else {
+          const usedCodes = new Set(pendingInvites.map((i) => i.inviteCode));
+          let migratedCount = 0;
+          for (const inv of legacyInvites) {
+            let newCode = genShortCode2();
+            let attempts = 0;
+            while (usedCodes.has(newCode) && attempts < 50) {
+              newCode = genShortCode2();
+              attempts++;
+            }
+            usedCodes.add(newCode);
+            await dbInstance.update(playerInvites2).set({ inviteCode: newCode }).where(eq33(playerInvites2.id, inv.id));
+            migratedCount++;
+          }
+          log(`[MigrateInviteCodes] Migrated ${migratedCount} legacy invite codes to short format`);
+        }
+      } catch (err) {
+        console.error("[MigrateInviteCodes] Failed:", err);
+      }
     }
   );
 })();
