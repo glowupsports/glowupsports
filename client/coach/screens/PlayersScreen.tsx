@@ -1124,8 +1124,12 @@ function PlayerDetailView({
           Alert.alert("Invite Sent", `Invite email sent to ${data.sentTo}`);
         }, 350);
       } else {
+        const msg =
+          data.reason === "no_email"
+            ? "This player has no email address."
+            : "This player has already accepted their invite.";
         setTimeout(() => {
-          Alert.alert("Not Sent", "This player has already accepted their invite.");
+          Alert.alert("Not Sent", msg);
         }, 350);
       }
     },
