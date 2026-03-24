@@ -227,11 +227,13 @@ export default function ProviderInviteRegistrationScreen({
               <TextInput
                 style={[styles.input, inviteData.invitedEmail ? styles.inputDisabled : undefined]}
                 value={email}
-                onChangeText={inviteData.invitedEmail ? undefined : setEmail}
+                onChangeText={setEmail}
                 placeholder="Enter your email"
                 placeholderTextColor={Colors.dark.textMuted}
                 keyboardType="email-address"
                 autoCapitalize="none"
+                autoCorrect={false}
+                autoComplete="email"
                 editable={!inviteData.invitedEmail}
               />
             </View>

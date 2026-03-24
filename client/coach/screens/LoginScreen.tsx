@@ -1604,7 +1604,7 @@ export default function LoginScreen() {
   const renderInviteCode = () => {
     if (inviteValidated && inviteData) {
       return (
-        <>
+        <React.Fragment key="invite-registration">
           <View style={styles.formHeader}>
             <Pressable style={styles.backButton} onPress={() => handleModeChange("login")}>
               <Ionicons name="arrow-back" size={24} color={Colors.dark.text} />
@@ -1807,12 +1807,12 @@ export default function LoginScreen() {
             disabled={isSubmitting}
             colors={["#9B59B6", "#8E44AD"]}
           />
-        </>
+        </React.Fragment>
       );
     }
 
     return (
-      <>
+      <React.Fragment key="invite-code-entry">
         <View style={styles.formHeader}>
           <Pressable style={styles.backButton} onPress={() => handleModeChange("login")}>
             <Ionicons name="arrow-back" size={24} color={Colors.dark.text} />
@@ -1865,7 +1865,7 @@ export default function LoginScreen() {
         >
           <Text style={styles.secondaryButtonText}>{t("common.logIn")}</Text>
         </Pressable>
-      </>
+      </React.Fragment>
     );
   };
 
