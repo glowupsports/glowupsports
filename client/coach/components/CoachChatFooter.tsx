@@ -491,8 +491,8 @@ export function CoachChatFooter({ mode = "coach" }: ChatFooterProps) {
     },
     onSuccess: (newMessage: WorldMessage) => {
       queryClient.setQueryData<WorldMessage[]>(["/api/world-chat/messages"], (prev = []) => [
-        newMessage,
         ...prev,
+        newMessage,
       ]);
       queryClient.invalidateQueries({ queryKey: ["/api/world-chat/messages"] });
     },
@@ -888,6 +888,7 @@ export function CoachChatFooter({ mode = "coach" }: ChatFooterProps) {
             data={worldMessages}
             keyExtractor={(item) => item.id}
             renderItem={renderWorldMessage}
+            extraData={userId}
             contentContainerStyle={{ padding: Spacing.sm, gap: 4 }}
             onContentSizeChange={() => flatListRef.current?.scrollToEnd({ animated: false })}
             ListEmptyComponent={
