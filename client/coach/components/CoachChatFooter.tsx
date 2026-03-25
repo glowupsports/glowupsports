@@ -483,12 +483,17 @@ export function CoachChatFooter({ mode = "coach" }: ChatFooterProps) {
 
   const sendWorldMessageMutation = useMutation({
     mutationFn: async (body: string) => {
-      return apiRequest("POST", "/api/world-chat/messages", {
+      const res = await apiRequest("POST", "/api/world-chat/messages", {
         body,
         messageType: "text",
       });
+      return res.json();
     },
-    onSuccess: () => {
+    onSuccess: (newMessage: WorldMessage) => {
+      queryClient.setQueryData<WorldMessage[]>(["/api/world-chat/messages"], (prev = []) => [
+        newMessage,
+        ...prev,
+      ]);
       queryClient.invalidateQueries({ queryKey: ["/api/world-chat/messages"] });
     },
   });
@@ -840,26 +845,28 @@ export function CoachChatFooter({ mode = "coach" }: ChatFooterProps) {
       : (item.senderType === "coach" && item.senderCoachId === userId);
 
     return (
-      <View style={[styles.messageBubble, isOwn ? styles.ownMessage : styles.otherMessage]}>
-        {!isOwn ? (
-          <View style={styles.senderInfo}>
-            <View style={[styles.playerAvatar, { backgroundColor: Colors.dark.primary + "30" }]}>
-              <Ionicons name="person" size={10} color={Colors.dark.primary} />
-            </View>
-            <ThemedText style={[styles.senderName, { color: Colors.dark.primary }]}>
-              {item.senderName}
-            </ThemedText>
-            {item.academyName ? (
-              <View style={styles.worldAcademyBadge}>
-                <Ionicons name="shield-outline" size={9} color={Colors.dark.xpCyan} />
-                <ThemedText style={styles.worldAcademyText}>{item.academyName}</ThemedText>
+      <View style={styles.worldMessageRow}>
+        <View style={[styles.messageBubble, isOwn ? styles.ownMessage : styles.otherMessage]}>
+          {!isOwn ? (
+            <View style={styles.senderInfo}>
+              <View style={[styles.playerAvatar, { backgroundColor: Colors.dark.primary + "30" }]}>
+                <Ionicons name="person" size={10} color={Colors.dark.primary} />
               </View>
-            ) : null}
+              <ThemedText style={[styles.senderName, { color: Colors.dark.primary }]} numberOfLines={1}>
+                {item.senderName}
+              </ThemedText>
+              {item.academyName ? (
+                <View style={styles.worldAcademyBadge}>
+                  <Ionicons name="shield-outline" size={9} color={Colors.dark.xpCyan} />
+                  <ThemedText style={styles.worldAcademyText} numberOfLines={1}>{item.academyName}</ThemedText>
+                </View>
+              ) : null}
+            </View>
+          ) : null}
+          <View style={styles.messageRow}>
+            <ThemedText style={[styles.messageText, isOwn && styles.ownMessageText]}>{item.body}</ThemedText>
+            <ThemedText style={[styles.timestamp, isOwn && styles.ownTimestamp]}>{formatTime(item.createdAt)}</ThemedText>
           </View>
-        ) : null}
-        <View style={styles.messageRow}>
-          <ThemedText style={[styles.messageText, isOwn && styles.ownMessageText]}>{item.body}</ThemedText>
-          <ThemedText style={[styles.timestamp, isOwn && styles.ownTimestamp]}>{formatTime(item.createdAt)}</ThemedText>
         </View>
       </View>
     );
@@ -881,6 +888,7 @@ export function CoachChatFooter({ mode = "coach" }: ChatFooterProps) {
             data={worldMessages}
             keyExtractor={(item) => item.id}
             renderItem={renderWorldMessage}
+            contentContainerStyle={{ padding: Spacing.sm, gap: 4 }}
             onContentSizeChange={() => flatListRef.current?.scrollToEnd({ animated: false })}
             ListEmptyComponent={
               <View style={styles.emptyState}>
@@ -1887,6 +1895,9 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     color: Colors.dark.buttonText,
   },
+  worldMessageRow: {
+    width: "100%",
+  },
   worldAcademyBadge: {
     flexDirection: "row",
     alignItems: "center",
@@ -1898,12 +1909,15 @@ const styles = StyleSheet.create({
     paddingVertical: 1,
     borderRadius: 6,
     marginLeft: 4,
+    maxWidth: 80,
+    flexShrink: 1,
   },
   worldAcademyText: {
     fontSize: 9,
     fontWeight: "600",
     color: Colors.dark.xpCyan,
     letterSpacing: 0.3,
+    flexShrink: 1,
   },
   worldOnlineBadge: {
     flexDirection: "row",
