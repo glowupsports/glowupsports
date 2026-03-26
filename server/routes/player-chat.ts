@@ -76,10 +76,10 @@ router.get("/api/player/me/conversations", authMiddleware, requirePlayerOrOwner,
         }
         if (conv.type === "provider_player" && conv.providerId) {
           const [prov] = await db.select({
-            businessName: serviceProviders.businessName,
+            displayName: serviceProviders.displayName,
             profilePhotoUrl: serviceProviders.profilePhotoUrl,
           }).from(serviceProviders).where(eq(serviceProviders.id, conv.providerId)).limit(1);
-          providerName = prov?.businessName ?? null;
+          providerName = prov?.displayName ?? null;
           providerPhoto = prov?.profilePhotoUrl ?? null;
         }
         return { ...conv, coachName, providerName, providerPhoto };

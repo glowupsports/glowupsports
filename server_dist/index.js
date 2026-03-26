@@ -4111,6 +4111,13 @@ var init_schema = __esm({
       matchPillar: integer("match_pillar"),
       // Skill ratings (JSONB for flexibility)
       skillRatings: jsonb("skill_ratings").$type(),
+      // Stroke-by-stroke feedback (per-shot feedback: forehand, backhand, serve, etc.)
+      strokeFeedback: jsonb("stroke_feedback").$type(),
+      // Overall lesson intensity
+      lessonIntensity: text("lesson_intensity"),
+      // light | normal | intense
+      // Per-player note (separate from the general note)
+      playerNote: text("player_note"),
       // Trial readiness flag
       trialReady: boolean("trial_ready").default(false),
       // Notes
@@ -5311,6 +5318,13 @@ var init_db = __esm({
         await pool.query(`CREATE INDEX IF NOT EXISTS bf_created_idx ON beta_feedback(created_at)`);
       } catch (e) {
         console.log("[Database] beta_feedback migration skipped:", e.message);
+      }
+      try {
+        await pool.query(`ALTER TABLE session_skill_feedback ADD COLUMN IF NOT EXISTS stroke_feedback JSONB`);
+        await pool.query(`ALTER TABLE session_skill_feedback ADD COLUMN IF NOT EXISTS lesson_intensity TEXT`);
+        await pool.query(`ALTER TABLE session_skill_feedback ADD COLUMN IF NOT EXISTS player_note TEXT`);
+      } catch (e) {
+        console.log("[Database] stroke_feedback columns migration skipped:", e.message);
       }
     }).catch((err) => {
       console.error("[Database] Connection test FAILED:", err.message);
@@ -35467,7 +35481,10 @@ router3.post("/api/glow/sessions/:sessionId/feedback", authMiddlewareWithFreshDa
       pillarRatings,
       skillRatings,
       trialReady,
-      note
+      note,
+      strokeFeedback,
+      lessonIntensity,
+      playerNote
     } = req2.body;
     if (!playerId || effort === void 0 || execution === void 0 || understanding === void 0 || !overall) {
       return res.status(400).json({ error: "Missing required feedback fields" });
@@ -35503,6 +35520,9 @@ router3.post("/api/glow/sessions/:sessionId/feedback", authMiddlewareWithFreshDa
       socialPillar: pillarRatings?.SOCIAL,
       matchPillar: pillarRatings?.MATCH,
       skillRatings: skillRatings ? JSON.stringify(skillRatings) : null,
+      strokeFeedback: strokeFeedback || null,
+      lessonIntensity: lessonIntensity || null,
+      playerNote: playerNote || null,
       trialReady: trialReady || false,
       note
     }).returning();
@@ -35548,6 +35568,29 @@ router3.get("/api/glow/sessions/:sessionId/feedback", authMiddlewareWithFreshDat
   } catch (error) {
     console.error("Error fetching session feedback:", error);
     res.status(500).json({ error: "Failed to fetch feedback" });
+  }
+});
+router3.get("/api/glow/players/:playerId/stroke-feedback", authMiddlewareWithFreshData, requireAcademy, async (req2, res) => {
+  try {
+    const { playerId } = req2.params;
+    const academyId = req2.user.academyId;
+    if (!await validatePlayerAccess(playerId, academyId)) {
+      return res.status(404).json({ error: "Player not found" });
+    }
+    const feedbackRows = await db.select({
+      id: sessionSkillFeedback.id,
+      sessionId: sessionSkillFeedback.sessionId,
+      strokeFeedback: sessionSkillFeedback.strokeFeedback,
+      lessonIntensity: sessionSkillFeedback.lessonIntensity,
+      playerNote: sessionSkillFeedback.playerNote,
+      overall: sessionSkillFeedback.overall,
+      effort: sessionSkillFeedback.effort,
+      createdAt: sessionSkillFeedback.createdAt
+    }).from(sessionSkillFeedback).where(eq11(sessionSkillFeedback.playerId, playerId)).orderBy(desc8(sessionSkillFeedback.createdAt)).limit(50);
+    res.json(feedbackRows);
+  } catch (error) {
+    console.error("Error fetching stroke feedback:", error);
+    res.status(500).json({ error: "Failed to fetch stroke feedback" });
   }
 });
 router3.get("/api/glow/players/:playerId/readiness", authMiddlewareWithFreshData, requireAcademy, async (req2, res) => {
@@ -43067,10 +43110,10 @@ router17.get("/api/player/me/conversations", authMiddlewareWithFreshData, requir
         }
         if (conv.type === "provider_player" && conv.providerId) {
           const [prov] = await db.select({
-            businessName: serviceProviders.businessName,
+            displayName: serviceProviders.displayName,
             profilePhotoUrl: serviceProviders.profilePhotoUrl
           }).from(serviceProviders).where(eq25(serviceProviders.id, conv.providerId)).limit(1);
-          providerName = prov?.businessName ?? null;
+          providerName = prov?.displayName ?? null;
           providerPhoto = prov?.profilePhotoUrl ?? null;
         }
         return { ...conv, coachName, providerName, providerPhoto };
@@ -50872,6 +50915,58 @@ function isBirthdayToday(dateOfBirth) {
   const today = /* @__PURE__ */ new Date();
   return birthDate.getMonth() === today.getMonth() && birthDate.getDate() === today.getDate();
 }
+async function autoCancel(sessionId, session, coachId, storageArg, dbArg) {
+  const allSessionPlayers = await storageArg.getSessionPlayers(sessionId);
+  if (allSessionPlayers.length === 0) return false;
+  const allAbsent = allSessionPlayers.every(
+    (sp) => sp.attendanceStatus === "holiday" || sp.attendanceStatus === "vacation" || sp.attendanceStatus === "absent"
+  );
+  if (!allAbsent) return false;
+  await storageArg.updateSession(sessionId, {
+    status: "cancelled",
+    skipReason: "all_players_on_holiday",
+    cancelledAt: /* @__PURE__ */ new Date()
+  });
+  for (const sp of allSessionPlayers) {
+    const cancelResult = await storageArg.cancelSessionDebt(sp.playerId, sessionId);
+    if (cancelResult.cancelled) {
+      console.log(`[AutoCancel] Cancelled debt for player ${sp.playerId} in session ${sessionId}`);
+    }
+  }
+  console.log(`[AutoCancel] Session ${sessionId} auto-cancelled: all players on holiday/absent`);
+  if (coachId) {
+    try {
+      const { sendPushNotification: sendPushNotification2, getCoachPushTokens: getCoachPushTokens2 } = await Promise.resolve().then(() => (init_pushNotifications(), pushNotifications_exports));
+      const { coachNotifications: coachNotifications2 } = await Promise.resolve().then(() => (init_schema(), schema_exports));
+      const tokens = await getCoachPushTokens2(coachId);
+      const sessionTime = new Date(session.startTime).toLocaleTimeString("nl-NL", {
+        hour: "2-digit",
+        minute: "2-digit",
+        hour12: false
+      });
+      const title = "Les automatisch geannuleerd";
+      const message = `Alle spelers zijn op vakantie \u2014 les ${sessionTime} is automatisch geannuleerd`;
+      if (tokens.length > 0) {
+        await sendPushNotification2(tokens, title, message, {
+          type: "auto_cancel_all_holiday",
+          sessionId,
+          coachId
+        });
+      }
+      await dbArg.insert(coachNotifications2).values({
+        coachId,
+        type: "session_cancelled",
+        title,
+        message,
+        priority: "high",
+        metadata: { sessionId, reason: "all_players_on_holiday" }
+      });
+    } catch (notifErr) {
+      console.error("[AutoCancel] Error sending auto-cancel notification:", notifErr);
+    }
+  }
+  return true;
+}
 router22.get("/api/world-chat", authMiddlewareWithFreshData, async (req2, res) => {
   try {
     let worldConv = await db.select({
@@ -52847,6 +52942,12 @@ router22.post("/api/coach/sessions/:id/attendance", authMiddlewareWithFreshData,
           }
         }
       }
+      const isGroupSession = session.sessionType === "group";
+      let autoCancelled = false;
+      const eligibleForAutoCancel = session.status === "scheduled" || session.status === "in_progress";
+      if (isGroupSession && eligibleForAutoCancel && req2.body.attendance.length > 0) {
+        autoCancelled = await autoCancel(id, session, coachId, storage, db);
+      }
       if (coachId && session.endTime) {
         const { rewardCoachForTimelyAttendance: rewardCoachForTimelyAttendance2 } = await Promise.resolve().then(() => (init_pushNotifications(), pushNotifications_exports));
         xpAwarded = await rewardCoachForTimelyAttendance2(coachId, id, session.endTime);
@@ -52857,7 +52958,7 @@ router22.post("/api/coach/sessions/:id/attendance", authMiddlewareWithFreshData,
       const chargeablePlayers = req2.body.attendance.filter(
         (a) => a.status === "present" || a.status === "late" || a.status === "absent"
       );
-      if (req2.body.markCompleted) {
+      if (req2.body.markCompleted && !autoCancelled) {
         let adjustedSessionType = session.sessionType;
         const presentCount = presentPlayers.length;
         if (session.sessionType === "semi_private" && presentCount === 1) {
@@ -52940,7 +53041,7 @@ router22.post("/api/coach/sessions/:id/attendance", authMiddlewareWithFreshData,
         }
       }
       let sessionCompletionXp = 0;
-      if (req2.body.markCompleted && coachId) {
+      if (req2.body.markCompleted && coachId && !autoCancelled) {
         const COACH_XP_REWARDS_BATCH = {
           private: 25,
           semi_private: 35,
@@ -53004,9 +53105,10 @@ router22.post("/api/coach/sessions/:id/attendance", authMiddlewareWithFreshData,
       return res.json({
         success: true,
         updated: results.length,
-        message: req2.body.markCompleted ? "Attendance saved and session completed" : "Attendance saved",
+        message: autoCancelled ? "Session auto-cancelled: all players on holiday" : req2.body.markCompleted ? "Attendance saved and session completed" : "Attendance saved",
         xpAwarded: totalXpAwarded,
-        creditConsumption: creditConsumptionResult
+        creditConsumption: creditConsumptionResult,
+        autoCancelled
       });
     }
     const { playerId, status, lateMinutes, absenceReason } = req2.body;
@@ -53017,7 +53119,12 @@ router22.post("/api/coach/sessions/:id/attendance", authMiddlewareWithFreshData,
       lateMinutes,
       absenceReason
     );
-    if (session.status === "scheduled") {
+    let singleAutoCancelled = false;
+    const singleEligibleForAutoCancel = session.status === "scheduled" || session.status === "in_progress";
+    if (session.sessionType === "group" && singleEligibleForAutoCancel) {
+      singleAutoCancelled = await autoCancel(id, session, coachId, storage, db);
+    }
+    if (!singleAutoCancelled && session.status === "scheduled") {
       await storage.updateSession(id, { status: "completed" });
       console.log(`[Attendance] Auto-completed session ${id} after attendance save`);
       if (playerId && session.coachId) {
@@ -53056,7 +53163,7 @@ router22.post("/api/coach/sessions/:id/attendance", authMiddlewareWithFreshData,
       apiCache.invalidate(`packages:${playerId}`);
       apiCache.invalidate(`credits:${playerId}`);
     }
-    res.json({ ...updated, xpAwarded: xpAwarded ? 25 : 0 });
+    res.json({ ...updated, xpAwarded: xpAwarded ? 25 : 0, autoCancelled: singleAutoCancelled });
   } catch (error) {
     console.error("Error saving attendance:", error);
     res.status(500).json({ error: "Failed to save attendance" });
@@ -59784,6 +59891,22 @@ async function registerRoutes(app2) {
           endDate,
           academyId ?? void 0
         );
+        const holidayCancelledSessions = await db.select().from(sessions).where(
+          and30(
+            eq32(sessions.coachId, coachId),
+            eq32(sessions.status, "cancelled"),
+            eq32(sessions.skipReason, "all_players_on_holiday"),
+            gte17(sessions.startTime, startDate),
+            lte9(sessions.startTime, endDate),
+            academyId ? eq32(sessions.academyId, academyId) : void 0
+          )
+        );
+        if (holidayCancelledSessions.length > 0) {
+          const existingIds = new Set(ownSessions.map((s) => s.id));
+          for (const s of holidayCancelledSessions) {
+            if (!existingIds.has(s.id)) ownSessions.push(s);
+          }
+        }
         const allSeriesIdsForFilter = [
           ...new Set(ownSessions.map((s) => s.seriesId).filter(Boolean))
         ];
@@ -60415,6 +60538,33 @@ async function registerRoutes(app2) {
       } catch (error) {
         console.error("Error fetching session feedback:", error);
         res.status(500).json({ error: "Failed to fetch session feedback" });
+      }
+    }
+  );
+  app2.get(
+    "/api/player/me/stroke-feedback",
+    authMiddlewareWithFreshData,
+    requirePlayerOrOwner4,
+    async (req2, res) => {
+      try {
+        const playerId = req2.user.playerId;
+        if (!playerId) {
+          return res.status(400).json({ error: "Player not found" });
+        }
+        const feedbackRows = await db.select({
+          id: sessionSkillFeedback.id,
+          sessionId: sessionSkillFeedback.sessionId,
+          strokeFeedback: sessionSkillFeedback.strokeFeedback,
+          lessonIntensity: sessionSkillFeedback.lessonIntensity,
+          playerNote: sessionSkillFeedback.playerNote,
+          overall: sessionSkillFeedback.overall,
+          effort: sessionSkillFeedback.effort,
+          createdAt: sessionSkillFeedback.createdAt
+        }).from(sessionSkillFeedback).where(eq32(sessionSkillFeedback.playerId, playerId)).orderBy(desc25(sessionSkillFeedback.createdAt)).limit(50);
+        res.json(feedbackRows);
+      } catch (error) {
+        console.error("Error fetching player stroke feedback:", error);
+        res.status(500).json({ error: "Failed to fetch stroke feedback" });
       }
     }
   );
