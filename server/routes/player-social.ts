@@ -62,6 +62,14 @@ const authLimiter = rateLimit({
   legacyHeaders: false,
 });
 
+const adminRepairLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 5,
+  message: { error: "Too many admin repair requests. Please wait before retrying." },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
 function requirePlayerOrOwner(req: AuthRequest, res: Response, next: NextFunction): void {
   if (!req.user) {
     res.status(401).json({ error: "Authentication required" });
@@ -2363,7 +2371,7 @@ router.get("/api/admin/dashboard/operations", authMiddleware, requireRole("admin
   });
 
   // Demo data seed endpoint for TheLaw (Play Store mockups)
-router.post("/api/admin/seed-demo-data", authMiddleware, requireRole("platform_owner"), async (req: AuthRequest, res: Response) => {
+router.post("/api/admin/seed-demo-data", adminRepairLimiter, authMiddleware, requireRole("platform_owner"), async (req: AuthRequest, res: Response) => {
     try {
 
       const { seedDemoDataForTheLaw } = await import("./seeds/demo-data-seed");
@@ -2381,7 +2389,7 @@ router.post("/api/admin/seed-demo-data", authMiddleware, requireRole("platform_o
   });
 
 
-router.post("/api/admin/repair-private-adjusted", authMiddleware, requireRole("admin", "platform_owner"), async (req: Request, res: Response) => {
+router.post("/api/admin/repair-private-adjusted", adminRepairLimiter, authMiddleware, requireRole("admin", "platform_owner"), async (req: Request, res: Response) => {
     try {
       console.log('[RepairPrivateAdjusted] Starting repair of wrongly charged absent players in private_adjusted sessions...');
 
@@ -2455,7 +2463,7 @@ router.post("/api/admin/repair-private-adjusted", authMiddleware, requireRole("a
   });
 
   // One-time fix: repair series titles with "undefined" and merge duplicate flexible series
-router.post("/api/admin/fix-series-titles-and-merge", authMiddleware, requireRole("admin", "platform_owner"), async (req: Request, res: Response) => {
+router.post("/api/admin/fix-series-titles-and-merge", adminRepairLimiter, authMiddleware, requireRole("admin", "platform_owner"), async (req: Request, res: Response) => {
     try {
       console.log("[SeriesFix] Starting series title repair and merge...");
       const fixes: string[] = [];
@@ -2612,7 +2620,7 @@ router.get("/api/player/spotlight/academy-players", authMiddleware, requirePlaye
 
   
   // DIAGNOSTIC: Check credit processing status for a specific player's semi-private sessions
-router.get("/api/admin/credits/diagnose/:playerId", authMiddleware, requireRole("admin", "platform_owner"), async (req: AuthRequest, res: Response) => {
+router.get("/api/admin/credits/diagnose/:playerId", adminRepairLimiter, authMiddleware, requireRole("admin", "platform_owner"), async (req: AuthRequest, res: Response) => {
     try {
       const { playerId } = req.params;
       

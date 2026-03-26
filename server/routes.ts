@@ -943,7 +943,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           );
           res.json({
             success: true,
-            message: `Monthly report sent`,
+            message: `Monthly report sent to ${user.email}`,
             month: monthName,
           });
         } else {
