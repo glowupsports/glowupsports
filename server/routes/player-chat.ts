@@ -135,10 +135,75 @@ router.post("/api/player/me/conversations", authMiddleware, requirePlayerOrOwner
     }
 
     const academyId = player.academyId;
-    const { type, otherPlayerId, title } = req.body;
+    const { type, otherPlayerId, title, coachId, squadId } = req.body;
 
     if (!type) {
       return res.status(400).json({ error: "Conversation type required" });
+    }
+
+    if (type === "coach_player") {
+      if (!coachId) {
+        return res.status(400).json({ error: "coachId required for coach_player conversation" });
+      }
+      const conversation = await storage.getOrCreateCoachPlayerConversation(coachId, playerId, academyId);
+      return res.json(conversation);
+    }
+
+    if (type === "squad") {
+      if (!squadId) {
+        return res.status(400).json({ error: "squadId required for squad conversation" });
+      }
+      const existing = await db
+        .select()
+        .from(conversations)
+        .where(
+          and(
+            eq(conversations.type, "squad"),
+            eq(conversations.title, squadId),
+            eq(conversations.academyId, academyId)
+          )
+        );
+      if (existing.length > 0) {
+        const conv = existing[0];
+        const alreadyParticipant = await db
+          .select()
+          .from(conversationParticipants)
+          .where(
+            and(
+              eq(conversationParticipants.conversationId, conv.id),
+              eq(conversationParticipants.playerId, playerId)
+            )
+          );
+        if (alreadyParticipant.length === 0) {
+          await db.insert(conversationParticipants).values({
+            conversationId: conv.id,
+            playerId,
+            coachId: null,
+            role: "member",
+            participantType: "player",
+            canPost: true,
+            academyId,
+          });
+        }
+        return res.json(conv);
+      }
+      const conv = await storage.createConversation({
+        type: "squad",
+        title: squadId,
+        playerId: null,
+        coachId: null,
+        academyId,
+      });
+      await db.insert(conversationParticipants).values({
+        conversationId: conv.id,
+        playerId,
+        coachId: null,
+        role: "owner",
+        participantType: "player",
+        canPost: true,
+        academyId,
+      });
+      return res.status(201).json(conv);
     }
 
     if (type === "player_player") {

@@ -181,7 +181,6 @@ export function CoachChatFooter({ mode = "coach", onChallenge }: ChatFooterProps
   const [showCoachSelector, setShowCoachSelector] = useState(false);
   const [typingUsers, setTypingUsers] = useState<Map<string, Set<string>>>(new Map());
   const [academyConvCreated, setAcademyConvCreated] = useState<Conversation | null>(null);
-  const [squadAutoCreated, setSquadAutoCreated] = useState(false);
   const [safetyBannerDismissed, setSafetyBannerDismissed] = useState(false);
   const [selectedSender, setSelectedSender] = useState<SenderProfile | null>(null);
   const flatListRef = useRef<FlatList>(null);
@@ -315,10 +314,10 @@ export function CoachChatFooter({ mode = "coach", onChallenge }: ChatFooterProps
   });
 
   const createConversationMutation = useMutation({
-    mutationFn: async ({ type, playerId, otherPlayerId, title, otherCoachId }: { type: string; playerId?: string; otherPlayerId?: string; title?: string; otherCoachId?: string }): Promise<Conversation> => {
+    mutationFn: async ({ type, playerId, otherPlayerId, title, otherCoachId, coachId, squadId }: { type: string; playerId?: string; otherPlayerId?: string; title?: string; otherCoachId?: string; coachId?: string; squadId?: string }): Promise<Conversation> => {
       if (!userId) throw new Error("No user");
       if (isPlayerMode) {
-        const payload: Record<string, string | undefined> = { type, title, otherPlayerId };
+        const payload: Record<string, string | undefined> = { type, title, otherPlayerId, coachId, squadId };
         const response = await apiRequest("POST", "/api/player/me/conversations", payload);
         return response.json();
       } else {
@@ -561,21 +560,13 @@ export function CoachChatFooter({ mode = "coach", onChallenge }: ChatFooterProps
   }, [currentTab, conversations, selectedConversation, createConversationMutation.isPending, academyConvCreated]);
 
   useEffect(() => {
-    if (currentTab === "squad" && isPlayerMode && !createConversationMutation.isPending && !squadAutoCreated) {
+    if (currentTab === "squad" && isPlayerMode) {
       const squadConv = conversations.find(c => c.type === "squad" || c.type === "group");
-      if (squadConv) {
-        if (!selectedConversation || selectedConversation.id !== squadConv.id) {
-          setSelectedConversation(squadConv);
-        }
-      } else {
-        setSquadAutoCreated(true);
-        createConversationMutation.mutate({
-          type: "squad",
-          title: "My Training Group",
-        });
+      if (squadConv && (!selectedConversation || selectedConversation.id !== squadConv.id)) {
+        setSelectedConversation(squadConv);
       }
     }
-  }, [currentTab, conversations, selectedConversation, createConversationMutation.isPending, isPlayerMode, squadAutoCreated]);
+  }, [currentTab, conversations, selectedConversation, isPlayerMode]);
 
   const renderMessage = ({ item }: { item: Message }) => {
     const isProviderConv = selectedConversation?.type === "provider_player";
@@ -681,7 +672,9 @@ export function CoachChatFooter({ mode = "coach", onChallenge }: ChatFooterProps
   };
 
   const handleStartSquadChat = (squad: Squad) => {
-    const existingConv = conversations.find(c => c.title === squad.name && c.type === "squad");
+    const existingConv = conversations.find(
+      c => c.type === "squad" && (c.title === squad.id || c.title === squad.name)
+    );
     if (existingConv) {
       setSelectedConversation(existingConv);
       setShowSquadSelector(false);
@@ -689,20 +682,35 @@ export function CoachChatFooter({ mode = "coach", onChallenge }: ChatFooterProps
       createConversationMutation.mutate({
         type: "squad",
         title: squad.name,
+        squadId: squad.id,
       });
     }
   };
 
   const handleStartCoachChat = (otherCoach: { id: string; name: string }) => {
-    const existingConv = conversations.find(c => c.title === otherCoach.name && c.type === "coach_coach");
-    if (existingConv) {
-      setSelectedConversation(existingConv);
-      setShowCoachSelector(false);
+    if (isPlayerMode) {
+      const existingConv = conversations.find(c => c.type === "coach_player" && c.coachId === otherCoach.id);
+      if (existingConv) {
+        setSelectedConversation(existingConv);
+        setShowCoachSelector(false);
+      } else {
+        createConversationMutation.mutate({
+          type: "coach_player",
+          coachId: otherCoach.id,
+        });
+      }
     } else {
-      createConversationMutation.mutate({
-        type: "coach_coach",
-        title: otherCoach.name,
-      });
+      const existingConv = conversations.find(c => c.title === otherCoach.name && c.type === "coach_coach");
+      if (existingConv) {
+        setSelectedConversation(existingConv);
+        setShowCoachSelector(false);
+      } else {
+        createConversationMutation.mutate({
+          type: "coach_coach",
+          title: otherCoach.name,
+          otherCoachId: otherCoach.id,
+        });
+      }
     }
   };
 
