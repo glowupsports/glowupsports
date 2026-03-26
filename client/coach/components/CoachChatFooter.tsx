@@ -1382,7 +1382,7 @@ export function CoachChatFooter({ mode = "coach" }: ChatFooterProps) {
                   </ThemedText>
                 </View>
                 <View style={styles.profileModalActions}>
-                  {selectedSender.senderPlayerId ? (
+                  {selectedSender.senderType === "player" && selectedSender.senderPlayerId ? (
                     <Pressable
                       style={styles.profileModalBtn}
                       onPress={() => {
@@ -1409,7 +1409,7 @@ export function CoachChatFooter({ mode = "coach" }: ChatFooterProps) {
                       <ThemedText style={styles.profileModalBtnText}>Message</ThemedText>
                     </Pressable>
                   ) : null}
-                  {selectedSender.senderPlayerId && isPlayerMode ? (
+                  {selectedSender.senderType === "player" && selectedSender.senderPlayerId && isPlayerMode ? (
                     <Pressable
                       style={[styles.profileModalBtn, { backgroundColor: Colors.dark.xpCyan + "15", borderColor: Colors.dark.xpCyan + "50" }]}
                       onPress={() => {
