@@ -314,14 +314,14 @@ export function CoachChatFooter({ mode = "coach", onChallenge }: ChatFooterProps
   });
 
   const createConversationMutation = useMutation({
-    mutationFn: async ({ type, playerId, otherPlayerId, title }: { type: string; playerId?: string; otherPlayerId?: string; title?: string }): Promise<Conversation> => {
+    mutationFn: async ({ type, playerId, otherPlayerId, title, otherCoachId }: { type: string; playerId?: string; otherPlayerId?: string; title?: string; otherCoachId?: string }): Promise<Conversation> => {
       if (!userId) throw new Error("No user");
       if (isPlayerMode) {
         const payload: Record<string, string | undefined> = { type, title, otherPlayerId };
         const response = await apiRequest("POST", "/api/player/me/conversations", payload);
         return response.json();
       } else {
-        const payload: Record<string, string | undefined> = { type, title, coachId: userId, playerId };
+        const payload: Record<string, string | undefined> = { type, title, coachId: userId, playerId, otherCoachId };
         const response = await apiRequest("POST", "/api/conversations", payload);
         return response.json();
       }
@@ -1395,52 +1395,83 @@ export function CoachChatFooter({ mode = "coach", onChallenge }: ChatFooterProps
                   </ThemedText>
                 </View>
                 <View style={styles.profileModalActions}>
-                  {selectedSender.senderType === "player" && selectedSender.senderPlayerId ? (
-                    <Pressable
-                      style={styles.profileModalBtn}
-                      onPress={() => {
-                        const targetPlayerId = selectedSender.senderPlayerId!;
-                        setSelectedSender(null);
-                        setTimeout(() => {
-                          if (isPlayerMode) {
-                            createConversationMutation.mutate({
-                              type: "player_player",
-                              otherPlayerId: targetPlayerId,
-                            });
-                          } else {
-                            createConversationMutation.mutate({
-                              type: "coach_player",
-                              playerId: targetPlayerId,
-                            });
-                          }
-                          setIsExpanded(true);
-                          setCurrentTab("players");
-                        }, 350);
-                      }}
-                    >
-                      <Ionicons name="chatbubble-outline" size={16} color={Colors.dark.primary} />
-                      <ThemedText style={styles.profileModalBtnText}>Message</ThemedText>
-                    </Pressable>
-                  ) : selectedSender.senderType === "coach" && selectedSender.senderCoachId && !isPlayerMode ? (
-                    <Pressable
-                      style={styles.profileModalBtn}
-                      onPress={() => {
-                        const targetCoachId = selectedSender.senderCoachId!;
-                        setSelectedSender(null);
-                        setTimeout(() => {
-                          createConversationMutation.mutate({
-                            type: "coach_coach",
-                            otherCoachId: targetCoachId,
-                          });
-                          setIsExpanded(true);
-                          setCurrentTab("coaches");
-                        }, 350);
-                      }}
-                    >
-                      <Ionicons name="chatbubble-outline" size={16} color={Colors.dark.primary} />
-                      <ThemedText style={styles.profileModalBtnText}>Message</ThemedText>
-                    </Pressable>
-                  ) : null}
+                  {(() => {
+                    const { senderType, senderPlayerId, senderCoachId, senderName } = selectedSender;
+                    if (senderType === "player" && senderPlayerId) {
+                      return (
+                        <Pressable
+                          style={styles.profileModalBtn}
+                          onPress={() => {
+                            setSelectedSender(null);
+                            setTimeout(() => {
+                              if (isPlayerMode) {
+                                createConversationMutation.mutate({ type: "player_player", otherPlayerId: senderPlayerId });
+                              } else {
+                                createConversationMutation.mutate({ type: "coach_player", playerId: senderPlayerId });
+                              }
+                              setIsExpanded(true);
+                              setCurrentTab("players");
+                            }, 350);
+                          }}
+                        >
+                          <Ionicons name="chatbubble-outline" size={16} color={Colors.dark.primary} />
+                          <ThemedText style={styles.profileModalBtnText}>Message</ThemedText>
+                        </Pressable>
+                      );
+                    }
+                    if (senderType === "coach" && senderCoachId && !isPlayerMode) {
+                      return (
+                        <Pressable
+                          style={styles.profileModalBtn}
+                          onPress={() => {
+                            setSelectedSender(null);
+                            setTimeout(() => {
+                              const existing = conversations.find(
+                                (c) => c.type === "coach_coach" && c.title === senderName,
+                              );
+                              if (existing) {
+                                setSelectedConversation(existing);
+                              } else {
+                                createConversationMutation.mutate({
+                                  type: "coach_coach",
+                                  title: senderName,
+                                  otherCoachId: senderCoachId,
+                                });
+                              }
+                              setIsExpanded(true);
+                              setCurrentTab("coaches");
+                            }, 350);
+                          }}
+                        >
+                          <Ionicons name="chatbubble-outline" size={16} color={Colors.dark.primary} />
+                          <ThemedText style={styles.profileModalBtnText}>Message</ThemedText>
+                        </Pressable>
+                      );
+                    }
+                    if (senderType === "coach" && senderCoachId && isPlayerMode) {
+                      const existing = conversations.find(
+                        (c) => (c.type === "coach_player" || c.type === "direct_message") && c.coachId === senderCoachId,
+                      );
+                      if (!existing) return null;
+                      return (
+                        <Pressable
+                          style={styles.profileModalBtn}
+                          onPress={() => {
+                            setSelectedSender(null);
+                            setTimeout(() => {
+                              setSelectedConversation(existing);
+                              setIsExpanded(true);
+                              setCurrentTab("coaches");
+                            }, 350);
+                          }}
+                        >
+                          <Ionicons name="chatbubble-outline" size={16} color={Colors.dark.primary} />
+                          <ThemedText style={styles.profileModalBtnText}>Message</ThemedText>
+                        </Pressable>
+                      );
+                    }
+                    return null;
+                  })()}
                   {selectedSender.senderType === "player" && selectedSender.senderPlayerId && isPlayerMode && onChallenge ? (
                     <Pressable
                       style={[styles.profileModalBtn, { backgroundColor: Colors.dark.xpCyan + "15", borderColor: Colors.dark.xpCyan + "50" }]}
