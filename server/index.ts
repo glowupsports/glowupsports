@@ -69,9 +69,22 @@ declare module "http" {
 }
 
 function setupSecurityHeaders(app: express.Application) {
-  // Use helmet for comprehensive security headers
+  // Use helmet for comprehensive security headers with CSP configured for Replit deployment
   app.use(helmet({
-    contentSecurityPolicy: false, // Disabled for Expo compatibility
+    contentSecurityPolicy: {
+      directives: {
+        defaultSrc: ["'self'"],
+        scriptSrc: ["'self'", "'unsafe-inline'"],
+        styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
+        fontSrc: ["'self'", "https://fonts.gstatic.com", "data:"],
+        imgSrc: ["'self'", "data:", "blob:", "https:"],
+        connectSrc: ["'self'", "wss:", "ws:", "https:"],
+        frameSrc: ["'none'"],
+        objectSrc: ["'none'"],
+        baseUri: ["'self'"],
+        formAction: ["'self'"],
+      },
+    },
     crossOriginEmbedderPolicy: false, // Disabled for API compatibility
     crossOriginResourcePolicy: { policy: "cross-origin" }, // Allow Expo Go to load images
   }));

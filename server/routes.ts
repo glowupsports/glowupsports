@@ -231,7 +231,7 @@ import worldChatRouter from "./routes/world-chat";
 import adminSeriesRouter from "./routes/admin-series";
 import { filterProfanity } from "./profanityFilter";
 import { isPlayerMinor, getPlayerParentalControls } from "./childSafety";
-import { chatRateLimiter, postRateLimiter, diagnosticsLimiter } from "./rateLimiter";
+import { chatRateLimiter, postRateLimiter, diagnosticsLimiter, adminRepairLimiter } from "./rateLimiter";
 
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
@@ -1538,11 +1538,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
     authLimiter,
     async (req: Request, res: Response) => {
       try {
-        const { email } = req.body;
-
-        if (!email || typeof email !== "string") {
-          return res.status(400).json({ error: "Email is required" });
-        }
+        const checkEmailSchema = z.object({ email: z.string().email() });
+        const parsedCheckEmail = checkEmailSchema.safeParse(req.body);
+        if (!parsedCheckEmail.success) return res.status(400).json({ error: fromZodError(parsedCheckEmail.error).message });
+        const { email } = parsedCheckEmail.data;
 
         // Check if any user exists with this email
         const existingUser = await storage.getUserByEmail(email.toLowerCase());
@@ -21444,6 +21443,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // BULK REPAIR: Fix ALL players' credit data using ensureCreditProcessed
   app.post(
     "/api/admin/repair-all-credits",
+    adminRepairLimiter,
     authMiddleware,
     requireRole("admin", "platform_owner"),
     async (req: AuthenticatedRequest, res: Response) => {
