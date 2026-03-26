@@ -1349,6 +1349,36 @@ export async function fixHolidayOvercharges(): Promise<void> {
     } catch (debtPassErr) {
       console.error("[HolidayDebtFix] Error in debt pass:", debtPassErr);
     }
+
+    // --- Post-fix verification: confirm 0 remaining holiday overcharges ---
+    try {
+      const remainingOvercharges = await pool.query(`
+        SELECT COUNT(*) as count
+        FROM session_players sp
+        JOIN sessions s ON s.id = sp.session_id
+        JOIN player_holidays ph ON ph.player_id = sp.player_id
+          AND s.start_time::date BETWEEN ph.start_date AND ph.end_date
+        WHERE sp.attendance_status = 'present'
+          AND sp.credit_deducted_at IS NOT NULL
+      `);
+      const remainingDebts = await pool.query(`
+        SELECT COUNT(*) as count
+        FROM credit_transactions ct
+        JOIN sessions s ON s.id = ct.session_id
+        JOIN player_holidays ph ON ph.player_id = ct.player_id
+          AND s.start_time::date BETWEEN ph.start_date AND ph.end_date
+        WHERE ct.type = 'debit'
+          AND ct.reason IN ('session_debt', 'session_join_debt', 'session_unpaid')
+          AND COALESCE(ct.metadata->>'isDebt', 'false') = 'true'
+          AND COALESCE(ct.metadata->>'settled', 'false') != 'true'
+          AND COALESCE(ct.metadata->>'cancelled', 'false') != 'true'
+      `);
+      const overchargeCount = Number(remainingOvercharges.rows[0]?.count ?? 0);
+      const debtCount = Number(remainingDebts.rows[0]?.count ?? 0);
+      console.log(`[HolidayOverchargeFix] Verification: ${overchargeCount} remaining overcharges, ${debtCount} remaining unsettled holiday debts`);
+    } catch (verifyErr) {
+      console.error("[HolidayOverchargeFix] Verification query failed:", verifyErr);
+    }
   } catch (error) {
     console.error("[HolidayOverchargeFix] Error:", error);
   }
@@ -1433,13 +1463,14 @@ export async function fixAlmaZaleskiCredits(): Promise<void> {
       }
     }
 
-    // Cancel any remaining unsettled group debt transactions for Alma
+    // Cancel any remaining unsettled GROUP debt transactions for Alma (group-type only)
     const cancelRes = await pool.query(
       `UPDATE credit_transactions
        SET metadata = jsonb_set(COALESCE(metadata, '{}')::jsonb, '{cancelled}', 'true')
          || jsonb_build_object('cancelledAt', $2::text, 'cancelReason', 'manual_correction_alma_zalesski')
        WHERE player_id = $1
          AND type = 'debit'
+         AND credit_type = 'group'
          AND reason IN ('session_debt', 'session_join_debt', 'session_unpaid')
          AND COALESCE(metadata->>'isDebt', 'false') = 'true'
          AND COALESCE(metadata->>'settled', 'false') != 'true'
