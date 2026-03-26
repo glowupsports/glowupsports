@@ -152,14 +152,15 @@ function isBirthdayToday(dateOfBirth: string | Date | null): boolean {
       const coachIds = [...new Set(orderedMsgs.filter(m => m.senderCoachId).map(m => m.senderCoachId!))];
       const playerIds = [...new Set(orderedMsgs.filter(m => m.senderPlayerId).map(m => m.senderPlayerId!))];
 
-      const coachMap = new Map<string, { name: string; academyName: string }>();
-      const playerMap = new Map<string, { name: string; academyName: string }>();
+      const coachMap = new Map<string, { name: string; academyName: string; photoUrl: string | null }>();
+      const playerMap = new Map<string, { name: string; academyName: string; photoUrl: string | null }>();
 
       if (coachIds.length > 0) {
         const coachData = await db.select({
           id: coaches.id,
           name: coaches.name,
           academyId: coaches.academyId,
+          photoUrl: coaches.photoUrl,
         }).from(coaches).where(inArray(coaches.id, coachIds));
 
         const academyIds = [...new Set(coachData.filter(c => c.academyId).map(c => c.academyId!))];
@@ -170,7 +171,7 @@ function isBirthdayToday(dateOfBirth: string | Date | null): boolean {
 
         for (const c of coachData) {
           const name = c.name || 'Coach';
-          coachMap.set(c.id, { name, academyName: (c.academyId ? academyNameMap.get(c.academyId) : null) || 'Academy' });
+          coachMap.set(c.id, { name, academyName: (c.academyId ? academyNameMap.get(c.academyId) : null) || 'Academy', photoUrl: c.photoUrl || null });
         }
       }
 
@@ -179,6 +180,7 @@ function isBirthdayToday(dateOfBirth: string | Date | null): boolean {
           id: players.id,
           name: players.name,
           academyId: players.academyId,
+          profilePhotoUrl: players.profilePhotoUrl,
         }).from(players).where(inArray(players.id, playerIds));
 
         const academyIds = [...new Set(playerData.filter(p => p.academyId).map(p => p.academyId!))];
@@ -189,7 +191,7 @@ function isBirthdayToday(dateOfBirth: string | Date | null): boolean {
 
         for (const p of playerData) {
           const name = p.name || 'Player';
-          playerMap.set(p.id, { name, academyName: (p.academyId ? academyNameMap.get(p.academyId) : null) || 'Academy' });
+          playerMap.set(p.id, { name, academyName: (p.academyId ? academyNameMap.get(p.academyId) : null) || 'Academy', photoUrl: p.profilePhotoUrl || null });
         }
       }
 
@@ -197,14 +199,17 @@ function isBirthdayToday(dateOfBirth: string | Date | null): boolean {
       const enrichedMessages = orderedMsgs.map(m => {
         let senderName = "Unknown";
         let academyName = "";
+        let senderPhotoUrl: string | null = null;
         if (m.senderType === "coach" && m.senderCoachId) {
           const info = coachMap.get(m.senderCoachId);
           senderName = info?.name || "Coach";
           academyName = info?.academyName || "";
+          senderPhotoUrl = info?.photoUrl || null;
         } else if (m.senderType === "player" && m.senderPlayerId) {
           const info = playerMap.get(m.senderPlayerId);
           senderName = info?.name || "Player";
           academyName = info?.academyName || "";
+          senderPhotoUrl = info?.photoUrl || null;
         } else if (m.senderType === "system") {
           senderName = "System";
         }
@@ -213,6 +218,7 @@ function isBirthdayToday(dateOfBirth: string | Date | null): boolean {
           ...m,
           senderName,
           academyName,
+          senderPhotoUrl,
           reactions: [],
         };
       });
@@ -293,13 +299,16 @@ function isBirthdayToday(dateOfBirth: string | Date | null): boolean {
       // Get sender info for response
       let senderName = "Unknown";
       let academyName = "";
+      let senderPhotoUrl: string | null = null;
       if (senderType === "coach" && coachId) {
         const coachData = await db.select({
           name: coaches.name,
           academyId: coaches.academyId,
+          photoUrl: coaches.photoUrl,
         }).from(coaches).where(eq(coaches.id, coachId)).limit(1);
         if (coachData.length > 0) {
           senderName = coachData[0].name || 'Coach';
+          senderPhotoUrl = coachData[0].photoUrl || null;
           if (coachData[0].academyId) {
             const acad = await db.select({ name: academies.name }).from(academies).where(eq(academies.id, coachData[0].academyId!)).limit(1);
             academyName = acad[0]?.name || '';
@@ -309,9 +318,11 @@ function isBirthdayToday(dateOfBirth: string | Date | null): boolean {
         const playerData = await db.select({
           name: players.name,
           academyId: players.academyId,
+          profilePhotoUrl: players.profilePhotoUrl,
         }).from(players).where(eq(players.id, playerId)).limit(1);
         if (playerData.length > 0) {
           senderName = playerData[0].name || 'Player';
+          senderPhotoUrl = playerData[0].profilePhotoUrl || null;
           if (playerData[0].academyId) {
             const acad = await db.select({ name: academies.name }).from(academies).where(eq(academies.id, playerData[0].academyId!)).limit(1);
             academyName = acad[0]?.name || '';
@@ -323,6 +334,7 @@ function isBirthdayToday(dateOfBirth: string | Date | null): boolean {
         ...result[0],
         senderName,
         academyName,
+        senderPhotoUrl,
         reactions: [],
       });
     } catch (error) {

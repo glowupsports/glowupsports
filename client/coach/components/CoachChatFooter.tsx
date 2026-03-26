@@ -10,7 +10,9 @@ import {
   ActivityIndicator,
   ScrollView,
   useWindowDimensions,
+  Modal,
 } from "react-native";
+import { Image } from "expo-image";
 import { Ionicons } from "@expo/vector-icons";
 import Animated, {
   useSharedValue,
@@ -132,6 +134,7 @@ interface WorldMessage {
   createdAt: string;
   senderName: string;
   academyName: string;
+  senderPhotoUrl: string | null;
   reactions: Array<{
     id: string;
     emoji: string;
@@ -139,6 +142,14 @@ interface WorldMessage {
     reactorCoachId: string | null;
     reactorPlayerId: string | null;
   }>;
+}
+
+interface SenderProfile {
+  senderName: string;
+  senderPhotoUrl: string | null;
+  senderType: string | null;
+  senderCoachId: string | null;
+  senderPlayerId: string | null;
 }
 
 const TAB_BAR_HEIGHT = 85;
@@ -170,6 +181,7 @@ export function CoachChatFooter({ mode = "coach" }: ChatFooterProps) {
   const [academyConvCreated, setAcademyConvCreated] = useState<Conversation | null>(null);
   const [squadAutoCreated, setSquadAutoCreated] = useState(false);
   const [safetyBannerDismissed, setSafetyBannerDismissed] = useState(false);
+  const [selectedSender, setSelectedSender] = useState<SenderProfile | null>(null);
   const flatListRef = useRef<FlatList>(null);
   const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -840,28 +852,48 @@ export function CoachChatFooter({ mode = "coach" }: ChatFooterProps) {
   );
 
   const renderWorldMessage = ({ item }: { item: WorldMessage }) => {
-    const isOwn = isPlayerMode
-      ? (item.senderType === "player" && item.senderPlayerId === userId)
-      : (item.senderType === "coach" && item.senderCoachId === userId);
+    const isOwn =
+      (coach?.id != null && item.senderCoachId === coach.id) ||
+      (user?.playerId != null && item.senderPlayerId === user.playerId);
+
+    const initials = (item.senderName || "?")
+      .split(" ")
+      .slice(0, 2)
+      .map((w: string) => w[0])
+      .join("")
+      .toUpperCase();
 
     return (
       <View style={styles.worldMessageRow}>
         <View style={[styles.messageBubble, isOwn ? styles.ownMessage : styles.otherMessage]}>
           {!isOwn ? (
-            <View style={styles.senderInfo}>
-              <View style={[styles.playerAvatar, { backgroundColor: Colors.dark.primary + "30" }]}>
-                <Ionicons name="person" size={10} color={Colors.dark.primary} />
+            <Pressable
+              style={styles.senderInfo}
+              onPress={() =>
+                setSelectedSender({
+                  senderName: item.senderName,
+                  senderPhotoUrl: item.senderPhotoUrl,
+                  senderType: item.senderType,
+                  senderCoachId: item.senderCoachId,
+                  senderPlayerId: item.senderPlayerId,
+                })
+              }
+            >
+              <View style={styles.playerAvatar}>
+                {item.senderPhotoUrl ? (
+                  <Image
+                    source={{ uri: item.senderPhotoUrl }}
+                    style={styles.playerAvatarImg}
+                    contentFit="cover"
+                  />
+                ) : (
+                  <ThemedText style={styles.playerAvatarInitials}>{initials}</ThemedText>
+                )}
               </View>
               <ThemedText style={[styles.senderName, { color: Colors.dark.primary }]} numberOfLines={1}>
                 {item.senderName}
               </ThemedText>
-              {item.academyName ? (
-                <View style={styles.worldAcademyBadge}>
-                  <Ionicons name="shield-outline" size={9} color={Colors.dark.xpCyan} />
-                  <ThemedText style={styles.worldAcademyText} numberOfLines={1}>{item.academyName}</ThemedText>
-                </View>
-              ) : null}
-            </View>
+            </Pressable>
           ) : null}
           <View style={styles.messageRow}>
             <ThemedText style={[styles.messageText, isOwn && styles.ownMessageText]}>{item.body}</ThemedText>
@@ -1306,6 +1338,76 @@ export function CoachChatFooter({ mode = "coach" }: ChatFooterProps) {
           </View>
         </View>
       ) : null}
+
+      <Modal
+        visible={selectedSender !== null}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setSelectedSender(null)}
+      >
+        <Pressable style={styles.profileModalOverlay} onPress={() => setSelectedSender(null)}>
+          <Pressable style={styles.profileModalSheet} onPress={(e) => e.stopPropagation()}>
+            <View style={styles.profileModalHandle} />
+            {selectedSender ? (
+              <>
+                <View style={styles.profileModalAvatar}>
+                  {selectedSender.senderPhotoUrl ? (
+                    <Image
+                      source={{ uri: selectedSender.senderPhotoUrl }}
+                      style={styles.profileModalAvatarImg}
+                      contentFit="cover"
+                    />
+                  ) : (
+                    <ThemedText style={styles.profileModalAvatarInitials}>
+                      {(selectedSender.senderName || "?")
+                        .split(" ")
+                        .slice(0, 2)
+                        .map((w: string) => w[0])
+                        .join("")
+                        .toUpperCase()}
+                    </ThemedText>
+                  )}
+                </View>
+                <ThemedText style={styles.profileModalName}>{selectedSender.senderName}</ThemedText>
+                <View style={styles.profileModalRoleBadge}>
+                  <Ionicons
+                    name={selectedSender.senderType === "coach" ? "tennisball-outline" : "person-outline"}
+                    size={11}
+                    color={Colors.dark.primary}
+                  />
+                  <ThemedText style={styles.profileModalRoleText}>
+                    {selectedSender.senderType === "coach" ? "Coach" : "Player"}
+                  </ThemedText>
+                </View>
+                <View style={styles.profileModalActions}>
+                  {selectedSender.senderPlayerId ? (
+                    <Pressable
+                      style={styles.profileModalBtn}
+                      onPress={() => {
+                        setSelectedSender(null);
+                        setTimeout(() => {
+                          createConversationMutation.mutate({
+                            type: "player",
+                            otherPlayerId: selectedSender.senderPlayerId!,
+                          });
+                          setIsExpanded(true);
+                          setCurrentTab("players");
+                        }, 350);
+                      }}
+                    >
+                      <Ionicons name="chatbubble-outline" size={16} color={Colors.dark.primary} />
+                      <ThemedText style={styles.profileModalBtnText}>Message</ThemedText>
+                    </Pressable>
+                  ) : null}
+                </View>
+                <Pressable style={styles.profileModalClose} onPress={() => setSelectedSender(null)}>
+                  <ThemedText style={styles.profileModalCloseText}>Close</ThemedText>
+                </Pressable>
+              </>
+            ) : null}
+          </Pressable>
+        </Pressable>
+      </Modal>
     </Animated.View>
   );
 }
@@ -1709,9 +1811,10 @@ const styles = StyleSheet.create({
     width: 20,
     height: 20,
     borderRadius: 10,
-    backgroundColor: Colors.dark.backgroundRoot,
+    backgroundColor: Colors.dark.primary + "25",
     alignItems: "center",
     justifyContent: "center",
+    overflow: "hidden",
   },
   senderName: {
     fontSize: 11,
@@ -1957,5 +2060,116 @@ const styles = StyleSheet.create({
     fontSize: 11,
     color: "#4FC3F7",
     flex: 1,
+  },
+  playerAvatarImg: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+  },
+  playerAvatarInitials: {
+    fontSize: 8,
+    fontWeight: "800",
+    color: Colors.dark.primary,
+  },
+  profileModalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.55)",
+    justifyContent: "flex-end",
+  },
+  profileModalSheet: {
+    backgroundColor: Colors.dark.backgroundSecondary,
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    paddingTop: 10,
+    paddingBottom: 36,
+    paddingHorizontal: 24,
+    alignItems: "center",
+  },
+  profileModalHandle: {
+    width: 36,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: Colors.dark.primary + "40",
+    marginBottom: 20,
+  },
+  profileModalAvatar: {
+    width: 72,
+    height: 72,
+    borderRadius: 36,
+    backgroundColor: Colors.dark.primary + "25",
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 12,
+    borderWidth: 2,
+    borderColor: Colors.dark.primary + "60",
+    overflow: "hidden",
+  },
+  profileModalAvatarImg: {
+    width: 72,
+    height: 72,
+    borderRadius: 36,
+  },
+  profileModalAvatarInitials: {
+    fontSize: 26,
+    fontWeight: "800",
+    color: Colors.dark.primary,
+  },
+  profileModalName: {
+    fontSize: 18,
+    fontWeight: "800",
+    color: Colors.dark.text,
+    letterSpacing: 0.5,
+    marginBottom: 6,
+    textAlign: "center",
+  },
+  profileModalRoleBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+    backgroundColor: Colors.dark.primary + "15",
+    borderWidth: 1,
+    borderColor: Colors.dark.primary + "35",
+    paddingHorizontal: 10,
+    paddingVertical: 3,
+    borderRadius: 10,
+    marginBottom: 24,
+  },
+  profileModalRoleText: {
+    fontSize: 11,
+    fontWeight: "700",
+    color: Colors.dark.primary,
+    letterSpacing: 0.5,
+    textTransform: "uppercase",
+  },
+  profileModalActions: {
+    width: "100%",
+    gap: 10,
+    marginBottom: 16,
+  },
+  profileModalBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    backgroundColor: Colors.dark.primary + "20",
+    borderWidth: 1,
+    borderColor: Colors.dark.primary + "50",
+    borderRadius: 12,
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+  },
+  profileModalBtnText: {
+    fontSize: 14,
+    fontWeight: "700",
+    color: Colors.dark.primary,
+  },
+  profileModalClose: {
+    paddingVertical: 8,
+    paddingHorizontal: 24,
+  },
+  profileModalCloseText: {
+    fontSize: 13,
+    color: Colors.dark.textSecondary,
+    fontWeight: "500",
   },
 });

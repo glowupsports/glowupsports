@@ -50947,41 +50947,46 @@ router22.get("/api/world-chat/messages", authMiddlewareWithFreshData, async (req
       const coachData = await db.select({
         id: coaches.id,
         name: coaches.name,
-        academyId: coaches.academyId
+        academyId: coaches.academyId,
+        photoUrl: coaches.photoUrl
       }).from(coaches).where(inArray14(coaches.id, coachIds));
       const academyIds = [...new Set(coachData.filter((c) => c.academyId).map((c) => c.academyId))];
       const academyData = academyIds.length > 0 ? await db.select({ id: academies.id, name: academies.name }).from(academies).where(inArray14(academies.id, academyIds)) : [];
       const academyNameMap = new Map(academyData.map((a) => [a.id, a.name]));
       for (const c of coachData) {
         const name = c.name || "Coach";
-        coachMap.set(c.id, { name, academyName: (c.academyId ? academyNameMap.get(c.academyId) : null) || "Academy" });
+        coachMap.set(c.id, { name, academyName: (c.academyId ? academyNameMap.get(c.academyId) : null) || "Academy", photoUrl: c.photoUrl || null });
       }
     }
     if (playerIds.length > 0) {
       const playerData = await db.select({
         id: players.id,
         name: players.name,
-        academyId: players.academyId
+        academyId: players.academyId,
+        profilePhotoUrl: players.profilePhotoUrl
       }).from(players).where(inArray14(players.id, playerIds));
       const academyIds = [...new Set(playerData.filter((p) => p.academyId).map((p) => p.academyId))];
       const academyData = academyIds.length > 0 ? await db.select({ id: academies.id, name: academies.name }).from(academies).where(inArray14(academies.id, academyIds)) : [];
       const academyNameMap = new Map(academyData.map((a) => [a.id, a.name]));
       for (const p of playerData) {
         const name = p.name || "Player";
-        playerMap.set(p.id, { name, academyName: (p.academyId ? academyNameMap.get(p.academyId) : null) || "Academy" });
+        playerMap.set(p.id, { name, academyName: (p.academyId ? academyNameMap.get(p.academyId) : null) || "Academy", photoUrl: p.profilePhotoUrl || null });
       }
     }
     const enrichedMessages = orderedMsgs.map((m) => {
       let senderName = "Unknown";
       let academyName = "";
+      let senderPhotoUrl = null;
       if (m.senderType === "coach" && m.senderCoachId) {
         const info = coachMap.get(m.senderCoachId);
         senderName = info?.name || "Coach";
         academyName = info?.academyName || "";
+        senderPhotoUrl = info?.photoUrl || null;
       } else if (m.senderType === "player" && m.senderPlayerId) {
         const info = playerMap.get(m.senderPlayerId);
         senderName = info?.name || "Player";
         academyName = info?.academyName || "";
+        senderPhotoUrl = info?.photoUrl || null;
       } else if (m.senderType === "system") {
         senderName = "System";
       }
@@ -50989,6 +50994,7 @@ router22.get("/api/world-chat/messages", authMiddlewareWithFreshData, async (req
         ...m,
         senderName,
         academyName,
+        senderPhotoUrl,
         reactions: []
       };
     });
@@ -51052,13 +51058,16 @@ router22.post("/api/world-chat/messages", authMiddlewareWithFreshData, async (re
     }).where(eq30(conversations.id, worldConvId));
     let senderName = "Unknown";
     let academyName = "";
+    let senderPhotoUrl = null;
     if (senderType === "coach" && coachId) {
       const coachData = await db.select({
         name: coaches.name,
-        academyId: coaches.academyId
+        academyId: coaches.academyId,
+        photoUrl: coaches.photoUrl
       }).from(coaches).where(eq30(coaches.id, coachId)).limit(1);
       if (coachData.length > 0) {
         senderName = coachData[0].name || "Coach";
+        senderPhotoUrl = coachData[0].photoUrl || null;
         if (coachData[0].academyId) {
           const acad = await db.select({ name: academies.name }).from(academies).where(eq30(academies.id, coachData[0].academyId)).limit(1);
           academyName = acad[0]?.name || "";
@@ -51067,10 +51076,12 @@ router22.post("/api/world-chat/messages", authMiddlewareWithFreshData, async (re
     } else if (senderType === "player" && playerId) {
       const playerData = await db.select({
         name: players.name,
-        academyId: players.academyId
+        academyId: players.academyId,
+        profilePhotoUrl: players.profilePhotoUrl
       }).from(players).where(eq30(players.id, playerId)).limit(1);
       if (playerData.length > 0) {
         senderName = playerData[0].name || "Player";
+        senderPhotoUrl = playerData[0].profilePhotoUrl || null;
         if (playerData[0].academyId) {
           const acad = await db.select({ name: academies.name }).from(academies).where(eq30(academies.id, playerData[0].academyId)).limit(1);
           academyName = acad[0]?.name || "";
@@ -51081,6 +51092,7 @@ router22.post("/api/world-chat/messages", authMiddlewareWithFreshData, async (re
       ...result[0],
       senderName,
       academyName,
+      senderPhotoUrl,
       reactions: []
     });
   } catch (error) {
