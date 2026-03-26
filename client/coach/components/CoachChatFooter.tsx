@@ -24,6 +24,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { useNavigation } from "@react-navigation/native";
 
 import { ThemedText } from "@/components/ThemedText";
 import { Colors, Backgrounds, Spacing, BorderRadius, GlowColors } from "@/constants/theme";
@@ -164,6 +165,7 @@ export function CoachChatFooter({ mode = "coach" }: ChatFooterProps) {
   const { user } = useAuth();
   const { setChatExpanded } = useChatState();
 
+  const navigation = useNavigation<any>();
   const isPlayerMode = mode === "player";
   const userId = isPlayerMode ? user?.playerId : coach?.id;
   const userType = isPlayerMode ? "player" : "coach";
@@ -1397,6 +1399,26 @@ export function CoachChatFooter({ mode = "coach" }: ChatFooterProps) {
                     >
                       <Ionicons name="chatbubble-outline" size={16} color={Colors.dark.primary} />
                       <ThemedText style={styles.profileModalBtnText}>Message</ThemedText>
+                    </Pressable>
+                  ) : null}
+                  {selectedSender.senderPlayerId && isPlayerMode ? (
+                    <Pressable
+                      style={[styles.profileModalBtn, { backgroundColor: Colors.dark.xpCyan + "15", borderColor: Colors.dark.xpCyan + "50" }]}
+                      onPress={() => {
+                        setSelectedSender(null);
+                        setTimeout(() => {
+                          try {
+                            navigation.navigate("ChallengePlayer", {
+                              playerId: selectedSender.senderPlayerId,
+                              opponentId: selectedSender.senderPlayerId,
+                              opponentName: selectedSender.senderName,
+                            });
+                          } catch (_) {}
+                        }, 350);
+                      }}
+                    >
+                      <Ionicons name="tennisball-outline" size={16} color={Colors.dark.xpCyan} />
+                      <ThemedText style={[styles.profileModalBtnText, { color: Colors.dark.xpCyan }]}>Challenge to Match</ThemedText>
                     </Pressable>
                   ) : null}
                 </View>
