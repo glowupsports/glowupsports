@@ -54,6 +54,7 @@ interface Session {
   isRecurring: boolean | null;
   paymentStatus: string | null;
   status: string | null;
+  skipReason?: string | null;
 }
 
 interface BlockedSession {

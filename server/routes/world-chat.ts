@@ -56,6 +56,81 @@ function isBirthdayToday(dateOfBirth: string | Date | null): boolean {
   return birthDate.getMonth() === today.getMonth() && birthDate.getDate() === today.getDate();
 }
 
+/**
+ * Checks whether all active session players in a group session are marked
+ * holiday, vacation, or absent. If so, cancels the session, cancels any
+ * outstanding credit debts, and sends a push + in-app notification to the coach.
+ *
+ * Returns `true` if the session was auto-cancelled, `false` otherwise.
+ */
+async function autoCancel(
+  sessionId: string,
+  session: { startTime: string; coachId?: string | null },
+  coachId: string | null | undefined,
+  storageArg: typeof storage,
+  dbArg: typeof db,
+): Promise<boolean> {
+  const allSessionPlayers = await storageArg.getSessionPlayers(sessionId);
+  if (allSessionPlayers.length === 0) return false;
+
+  const allAbsent = allSessionPlayers.every(
+    (sp) =>
+      sp.attendanceStatus === "holiday" ||
+      sp.attendanceStatus === "vacation" ||
+      sp.attendanceStatus === "absent",
+  );
+  if (!allAbsent) return false;
+
+  await storageArg.updateSession(sessionId, {
+    status: "cancelled",
+    skipReason: "all_players_on_holiday",
+    cancelledAt: new Date(),
+  });
+
+  for (const sp of allSessionPlayers) {
+    const cancelResult = await storageArg.cancelSessionDebt(sp.playerId, sessionId);
+    if (cancelResult.cancelled) {
+      console.log(`[AutoCancel] Cancelled debt for player ${sp.playerId} in session ${sessionId}`);
+    }
+  }
+
+  console.log(`[AutoCancel] Session ${sessionId} auto-cancelled: all players on holiday/absent`);
+
+  if (coachId) {
+    try {
+      const { sendPushNotification, getCoachPushTokens } = await import("../pushNotifications");
+      const { coachNotifications } = await import("@shared/schema");
+      const tokens = await getCoachPushTokens(coachId);
+      const sessionTime = new Date(session.startTime).toLocaleTimeString("nl-NL", {
+        hour: "2-digit",
+        minute: "2-digit",
+        hour12: false,
+      });
+      const title = "Les automatisch geannuleerd";
+      const message = `Alle spelers zijn op vakantie — les ${sessionTime} is automatisch geannuleerd`;
+      if (tokens.length > 0) {
+        await sendPushNotification(tokens, title, message, {
+          type: "auto_cancel_all_holiday",
+          sessionId,
+          coachId,
+        });
+      }
+      await dbArg.insert(coachNotifications).values({
+        coachId,
+        type: "session_cancelled",
+        title,
+        message,
+        priority: "high",
+        metadata: { sessionId, reason: "all_players_on_holiday" },
+      });
+    } catch (notifErr) {
+      console.error("[AutoCancel] Error sending auto-cancel notification:", notifErr);
+    }
+  }
+
+  return true;
+}
+
   // ==================== WORLD CHAT ====================
   // Global chat across all academies
 
@@ -2546,6 +2621,15 @@ function isBirthdayToday(dateOfBirth: string | Date | null): boolean {
             }
           }
         }
+
+        // AUTO-CANCEL: Check if all players in this group session are on holiday/vacation/absent
+        // Validates against ALL persisted session_players from DB (not just request payload)
+        const isGroupSession = session.sessionType === "group";
+        let autoCancelled = false;
+        const eligibleForAutoCancel = session.status === "scheduled" || session.status === "in_progress";
+        if (isGroupSession && eligibleForAutoCancel && req.body.attendance.length > 0) {
+          autoCancelled = await autoCancel(id, session, coachId, storage, db);
+        }
         
         // Award XP for timely attendance marking (during class time)
         if (coachId && session.endTime) {
@@ -2564,7 +2648,7 @@ function isBirthdayToday(dateOfBirth: string | Date | null): boolean {
           a.status === "present" || a.status === "late" || a.status === "absent"
         );
         
-        if (req.body.markCompleted) {
+        if (req.body.markCompleted && !autoCancelled) {
           // Auto-adjust session type based on present players
           // If only 1 player is present in a semi-private session, convert to private_adjusted
           let adjustedSessionType = session.sessionType;
@@ -2678,7 +2762,7 @@ function isBirthdayToday(dateOfBirth: string | Date | null): boolean {
         
         // Award session completion XP to coach (batch flow)
         let sessionCompletionXp = 0;
-        if (req.body.markCompleted && coachId) {
+        if (req.body.markCompleted && coachId && !autoCancelled) {
           const COACH_XP_REWARDS_BATCH = {
             private: 25,
             semi_private: 35,
@@ -2752,9 +2836,10 @@ function isBirthdayToday(dateOfBirth: string | Date | null): boolean {
         return res.json({ 
           success: true, 
           updated: results.length, 
-          message: req.body.markCompleted ? 'Attendance saved and session completed' : 'Attendance saved',
+          message: autoCancelled ? 'Session auto-cancelled: all players on holiday' : (req.body.markCompleted ? 'Attendance saved and session completed' : 'Attendance saved'),
           xpAwarded: totalXpAwarded,
-          creditConsumption: creditConsumptionResult
+          creditConsumption: creditConsumptionResult,
+          autoCancelled,
         });
       }
 
@@ -2767,8 +2852,16 @@ function isBirthdayToday(dateOfBirth: string | Date | null): boolean {
         lateMinutes,
         absenceReason
       );
-      // Always mark session as completed when attendance is saved (single player)
-      if (session.status === "scheduled") {
+
+      // AUTO-CANCEL (single-attendance path): For group sessions, check if all players are now on holiday/vacation/absent
+      let singleAutoCancelled = false;
+      const singleEligibleForAutoCancel = session.status === "scheduled" || session.status === "in_progress";
+      if (session.sessionType === "group" && singleEligibleForAutoCancel) {
+        singleAutoCancelled = await autoCancel(id, session, coachId, storage, db);
+      }
+
+      // Always mark session as completed when attendance is saved (single player), unless auto-cancelled
+      if (!singleAutoCancelled && session.status === "scheduled") {
         await storage.updateSession(id, { status: "completed" });
         console.log(`[Attendance] Auto-completed session ${id} after attendance save`);
         
@@ -2815,7 +2908,7 @@ function isBirthdayToday(dateOfBirth: string | Date | null): boolean {
         apiCache.invalidate(`credits:${playerId}`);
       }
       
-      res.json({ ...updated, xpAwarded: xpAwarded ? 25 : 0 });
+      res.json({ ...updated, xpAwarded: xpAwarded ? 25 : 0, autoCancelled: singleAutoCancelled });
     } catch (error) {
       console.error("Error saving attendance:", error);
       res.status(500).json({ error: "Failed to save attendance" });

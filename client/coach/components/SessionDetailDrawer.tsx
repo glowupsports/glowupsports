@@ -57,6 +57,7 @@ interface Session {
   duration: number;
   sessionType: string;
   status: string | null;
+  skipReason?: string | null;
   players?: Player[];
 }
 
@@ -864,6 +865,28 @@ export default function SessionDetailDrawer({
           </View>
         )}
       </View>
+
+      {session.status === "cancelled" && session.skipReason === "all_players_on_holiday" ? (
+        <View style={{
+          marginHorizontal: Spacing.lg,
+          marginTop: Spacing.sm,
+          marginBottom: Spacing.xs,
+          backgroundColor: 'rgba(100, 90, 160, 0.18)',
+          borderRadius: BorderRadius.md,
+          borderWidth: 1,
+          borderColor: 'rgba(160, 160, 200, 0.3)',
+          padding: Spacing.md,
+          flexDirection: 'row',
+          alignItems: 'center',
+          gap: Spacing.sm,
+        }}>
+          <Ionicons name="airplane" size={20} color="#A0A0C8" />
+          <View style={{ flex: 1 }}>
+            <Text style={{ color: '#A0A0C8', fontSize: 13, fontWeight: '600' }}>Automatisch geannuleerd</Text>
+            <Text style={{ color: Colors.dark.textMuted, fontSize: 12, marginTop: 2 }}>Iedereen op vakantie</Text>
+          </View>
+        </View>
+      ) : null}
 
       {showIntroCard ? (
         <View style={styles.introCard}>

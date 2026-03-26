@@ -187,6 +187,14 @@ export default function AttendanceDrawer({
       queryClient.invalidateQueries({ predicate: (q) => typeof q.queryKey[0] === "string" && (q.queryKey[0] as string).includes("/api/coach/calendar"), refetchType: "all" });
       queryClient.invalidateQueries({ queryKey: ["/api/coach/dashboard"] });
       queryClient.invalidateQueries({ queryKey: ["/api/coach/profile"] });
+      if (data?.autoCancelled) {
+        Alert.alert(
+          "Les automatisch geannuleerd",
+          "Alle spelers zijn op vakantie. De les is automatisch geannuleerd en er worden geen credits afgeschreven.",
+          [{ text: "OK", onPress: () => { onSave(); onClose(); } }]
+        );
+        return;
+      }
       if (data?.xpAwarded) {
         setCoachXpAwarded(data.xpAwarded);
       }

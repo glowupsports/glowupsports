@@ -1924,40 +1924,67 @@ export default function CalendarScreen() {
                                           session.sessionType === "activity" ? "Activity" :
                                           session.sessionType === "physical" ? "Physical" : "";
                         const playerName = session.players?.[0]?.name?.split(" ")[0] || "";
-                        const sessionLabel = playerName ? `${typeLabel}\n${playerName}` : typeLabel;
-                        const gradientColors = getSessionTypeGradient(session.sessionType);
+                        const isAllHolidayCancelled = session.status === "cancelled" && session.skipReason === "all_players_on_holiday";
+                        const sessionLabel = isAllHolidayCancelled
+                          ? "Geannuleerd"
+                          : (playerName ? `${typeLabel}\n${playerName}` : typeLabel);
+                        const gradientColors = isAllHolidayCancelled
+                          ? ["#4A4A6A", "#2E2E4E"]
+                          : getSessionTypeGradient(session.sessionType);
                         return (
-                          <DraggableSessionBlock
-                            key={session.id}
-                            session={session}
-                            top={top}
-                            height={height}
-                            isPast={isPast}
-                            isActive={isActive}
-                            gradientColors={gradientColors}
-                            sessionLabel={sessionLabel}
-                            formattedTime={formatTimeInTimezone(session.startTime, academyTimezone)}
-                            formattedEndTime={formatTimeInTimezone(session.endTime, academyTimezone)}
-                            hourHeight={hourHeight}
-                            courtLaneWidth={dynamicLaneWidth}
-                            onTap={() => handleSessionTap(session)}
-                            onLongPress={() => handleSessionLongPress(session)}
-                            onDragEnd={(deltaY, deltaX) => handleSessionDragEnd(session, deltaY, deltaX, courtIndex)}
-                            onDragUpdate={(deltaY, deltaX, isDragging) => checkDragConflict(session, deltaY, deltaX, courtIndex, isDragging)}
-                            hasConflict={dragConflict === session.id}
-                            onHoverIn={Platform.OS === 'web' ? () => setHoveredSession(session) : undefined}
-                            onHoverOut={Platform.OS === 'web' ? () => setHoveredSession(null) : undefined}
-                            onWebPress={Platform.OS === 'web' ? (clientX: number, clientY: number) => {
-                              setPressedSession(prev => {
-                                if (prev?.id === session.id) {
-                                  setPressedSessionPos(null);
-                                  return null;
-                                }
-                                setPressedSessionPos({ x: clientX, y: clientY });
-                                return session;
-                              });
-                            } : undefined}
-                          />
+                          <React.Fragment key={session.id}>
+                            <DraggableSessionBlock
+                              session={session}
+                              top={top}
+                              height={height}
+                              isPast={isAllHolidayCancelled ? true : isPast}
+                              isActive={isAllHolidayCancelled ? false : isActive}
+                              gradientColors={gradientColors}
+                              sessionLabel={sessionLabel}
+                              formattedTime={formatTimeInTimezone(session.startTime, academyTimezone)}
+                              formattedEndTime={formatTimeInTimezone(session.endTime, academyTimezone)}
+                              hourHeight={hourHeight}
+                              courtLaneWidth={dynamicLaneWidth}
+                              onTap={() => handleSessionTap(session)}
+                              onLongPress={() => handleSessionLongPress(session)}
+                              onDragEnd={(deltaY, deltaX) => handleSessionDragEnd(session, deltaY, deltaX, courtIndex)}
+                              onDragUpdate={(deltaY, deltaX, isDragging) => checkDragConflict(session, deltaY, deltaX, courtIndex, isDragging)}
+                              hasConflict={dragConflict === session.id}
+                              onHoverIn={Platform.OS === 'web' ? () => setHoveredSession(session) : undefined}
+                              onHoverOut={Platform.OS === 'web' ? () => setHoveredSession(null) : undefined}
+                              onWebPress={Platform.OS === 'web' ? (clientX: number, clientY: number) => {
+                                setPressedSession(prev => {
+                                  if (prev?.id === session.id) {
+                                    setPressedSessionPos(null);
+                                    return null;
+                                  }
+                                  setPressedSessionPos({ x: clientX, y: clientY });
+                                  return session;
+                                });
+                              } : undefined}
+                            />
+                            {isAllHolidayCancelled ? (
+                              <View
+                                style={{
+                                  position: 'absolute',
+                                  top: top + (height - 2) / 2 - 8,
+                                  left: 4,
+                                  right: 4,
+                                  flexDirection: 'row',
+                                  alignItems: 'center',
+                                  justifyContent: 'center',
+                                  gap: 3,
+                                  zIndex: 2,
+                                }}
+                                pointerEvents="none"
+                              >
+                                <Ionicons name="airplane" size={9} color="#A0A0C8" />
+                                {height > 38 ? (
+                                  <Text style={{ color: '#A0A0C8', fontSize: 8, fontWeight: '600' }} numberOfLines={1}>Iedereen op vakantie</Text>
+                                ) : null}
+                              </View>
+                            ) : null}
+                          </React.Fragment>
                         );
                       })}
 

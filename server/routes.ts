@@ -4353,6 +4353,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
           academyId ?? undefined,
         );
 
+        // Also include auto-cancelled sessions (all players on holiday) so they show in calendar
+        const holidayCancelledSessions = await db
+          .select()
+          .from(sessions)
+          .where(
+            and(
+              eq(sessions.coachId, coachId as string),
+              eq(sessions.status, "cancelled"),
+              eq(sessions.skipReason, "all_players_on_holiday"),
+              gte(sessions.startTime, startDate),
+              lte(sessions.startTime, endDate),
+              academyId ? eq(sessions.academyId, academyId) : undefined,
+            ),
+          );
+        if (holidayCancelledSessions.length > 0) {
+          const existingIds = new Set(ownSessions.map((s) => s.id));
+          for (const s of holidayCancelledSessions) {
+            if (!existingIds.has(s.id)) ownSessions.push(s);
+          }
+        }
+
         // Filter out future sessions from ended/completed series
         const allSeriesIdsForFilter = [
           ...new Set(ownSessions.map((s) => s.seriesId).filter(Boolean)),
