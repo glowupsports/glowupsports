@@ -43102,11 +43102,20 @@ router17.get("/api/player/me/conversations", authMiddlewareWithFreshData, requir
     const enriched = await Promise.all(
       conversations2.map(async (conv) => {
         let coachName = null;
+        let playerName = null;
         let providerName = null;
         let providerPhoto = null;
         if (conv.coachId) {
           const coach = await storage.getCoach(conv.coachId, academyId);
-          coachName = coach?.name;
+          coachName = coach?.name ?? null;
+        }
+        if (conv.type === "player_player") {
+          const participants = await storage.getConversationParticipants(conv.id, void 0, academyId);
+          const other = participants.find((p) => p.playerId && p.playerId !== playerId);
+          if (other?.playerId) {
+            const otherPlayer = await storage.getPlayer(other.playerId, academyId);
+            playerName = otherPlayer?.name ?? null;
+          }
         }
         if (conv.type === "provider_player" && conv.providerId) {
           const [prov] = await db.select({
@@ -43116,7 +43125,7 @@ router17.get("/api/player/me/conversations", authMiddlewareWithFreshData, requir
           providerName = prov?.displayName ?? null;
           providerPhoto = prov?.profilePhotoUrl ?? null;
         }
-        return { ...conv, coachName, providerName, providerPhoto };
+        return { ...conv, coachName, playerName, providerName, providerPhoto };
       })
     );
     res.json(enriched);

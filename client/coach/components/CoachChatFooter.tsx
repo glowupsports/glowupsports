@@ -72,7 +72,8 @@ interface Conversation {
   orderId?: string | null;
   lastMessageAt: string | null;
   lastMessagePreview: string | null;
-  playerName?: string;
+  playerName?: string | null;
+  coachName?: string | null;
   providerName?: string | null;
   providerPhoto?: string | null;
 }
@@ -717,6 +718,12 @@ export function CoachChatFooter({ mode = "coach", onChallenge }: ChatFooterProps
     if (conv.type === "squad" || conv.type === "group") return conv.title || "Squad Chat";
     if (conv.type === "coach_coach") return conv.title || "Coach Chat";
     if (conv.type === "provider_player") return conv.providerName || "Service Provider";
+    if (conv.type === "coach_player" || conv.type === "direct_message") {
+      if (conv.coachName) return conv.coachName;
+    }
+    if (conv.type === "player_player") {
+      if (conv.playerName) return conv.playerName;
+    }
     if (conv.playerName && conv.playerName !== "Chat") return conv.playerName;
     if (conv.title && conv.title !== "Chat") return conv.title;
     return "Conversation";
