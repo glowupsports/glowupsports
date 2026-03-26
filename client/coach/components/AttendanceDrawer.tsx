@@ -26,6 +26,7 @@ import { showOfflineAlert } from "@/hooks/useOfflineGuard";
 import { SessionSummaryModal } from "@/components/SessionSummaryModal";
 import { AnimatedCheck } from "@/components/AnimatedCheck";
 import { InfoTooltip } from "@/components/InfoTooltip";
+import StrokeFeedbackModal from "@/coach/components/StrokeFeedbackModal";
 
 type AttendanceStatus = "present" | "late" | "absent" | "holiday";
 type LateMinutes = 5 | 10 | 15 | 20 | 30 | 999;
@@ -96,6 +97,7 @@ export default function AttendanceDrawer({
   const [lastUsedLateMinutes, setLastUsedLateMinutes] = useState<LateMinutes>(DEFAULT_LATE_MINUTES);
   const [showSuccessAnimation, setShowSuccessAnimation] = useState(false);
   const [showSummaryModal, setShowSummaryModal] = useState(false);
+  const [showStrokeFeedback, setShowStrokeFeedback] = useState(false);
   const [quickMode, setQuickMode] = useState(true);
 
   const { data: allPlayersData } = useQuery<AvailablePlayer[]>({
@@ -329,6 +331,26 @@ export default function AttendanceDrawer({
 
   const handleSummaryClose = () => {
     setShowSummaryModal(false);
+    const presentPlayers = session?.players?.filter((p) => {
+      const record = attendance.get(p.id);
+      return record?.status === "present" || record?.status === "late";
+    }) || [];
+    if (presentPlayers.length > 0) {
+      setShowStrokeFeedback(true);
+    } else {
+      onSave();
+      onClose();
+    }
+  };
+
+  const handleStrokeFeedbackComplete = () => {
+    setShowStrokeFeedback(false);
+    onSave();
+    onClose();
+  };
+
+  const handleStrokeFeedbackClose = () => {
+    setShowStrokeFeedback(false);
     onSave();
     onClose();
   };
@@ -744,6 +766,20 @@ export default function AttendanceDrawer({
         visible={showSummaryModal}
         onClose={handleSummaryClose}
         sessionData={getSessionSummaryData()}
+      />
+
+      {/* Stroke Feedback Modal - opened after summary */}
+      <StrokeFeedbackModal
+        visible={showStrokeFeedback}
+        session={session ? {
+          ...session,
+          players: session.players?.filter((p) => {
+            const record = attendance.get(p.id);
+            return record?.status === "present" || record?.status === "late";
+          }),
+        } : null}
+        onClose={handleStrokeFeedbackClose}
+        onComplete={handleStrokeFeedbackComplete}
       />
     </Modal>
   );

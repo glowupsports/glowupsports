@@ -80,6 +80,23 @@ interface CoachFeedbackItem {
   sessionId: string;
 }
 
+interface StrokeEntry {
+  stroke: string;
+  rating: number;
+  note?: string;
+}
+
+interface StrokeFeedbackRow {
+  id: string;
+  sessionId: string;
+  strokeFeedback: StrokeEntry[] | null;
+  lessonIntensity: string | null;
+  playerNote: string | null;
+  overall: number | null;
+  effort: number | null;
+  createdAt: string;
+}
+
 interface SkillDomain {
   id: string;
   name: string;
@@ -1577,6 +1594,10 @@ export default function PlayerProgressScreen() {
     queryKey: ["/api/player/me/feedback"],
   });
 
+  const { data: strokeFeedbackData } = useQuery<StrokeFeedbackRow[]>({
+    queryKey: ["/api/player/me/stroke-feedback"],
+  });
+
   useEffect(() => {
     if (!hasSeenScreen("Progress")) {
       const timer = setTimeout(() => {
@@ -2043,6 +2064,83 @@ export default function PlayerProgressScreen() {
           </View>
         ) : null}
 
+        {/* Stroke Feedback Timeline */}
+        {strokeFeedbackData && strokeFeedbackData.some(r => r.strokeFeedback && r.strokeFeedback.length > 0) ? (
+          <View style={styles.feedbackSection}>
+            <View style={styles.feedbackHeader}>
+              <View style={styles.sectionTitleRow}>
+                <Text style={styles.sectionTitle}>Slag Voortgang</Text>
+                <View style={[styles.feedbackBadge, { backgroundColor: Colors.dark.orange + "20" }]}>
+                  <Ionicons name="tennisball" size={12} color={Colors.dark.orange} />
+                </View>
+              </View>
+            </View>
+            {(() => {
+              const RATING_COLORS = ["#FF4D4D", Colors.dark.orange, "#22C55E"];
+              const RATING_LABELS = ["Aandachtspunt", "In Ontwikkeling", "Goed"];
+              const recentRows = strokeFeedbackData.slice(0, 5);
+              const allStrokes = Array.from(new Set(
+                recentRows.flatMap(r => (r.strokeFeedback || []).map((e: StrokeEntry) => e.stroke))
+              ));
+              const strokeTotals: Record<string, number[]> = {};
+              recentRows.forEach(row => {
+                if (!row.strokeFeedback) return;
+                row.strokeFeedback.forEach((entry: StrokeEntry) => {
+                  if (!strokeTotals[entry.stroke]) strokeTotals[entry.stroke] = [0, 0, 0];
+                  const r = Math.max(0, Math.min(2, entry.rating));
+                  strokeTotals[entry.stroke][r]++;
+                });
+              });
+              return allStrokes.map(stroke => {
+                const ratings = recentRows
+                  .map(r => (r.strokeFeedback || []).find((e: StrokeEntry) => e.stroke === stroke))
+                  .filter(Boolean) as StrokeEntry[];
+                const totals = strokeTotals[stroke] || [0, 0, 0];
+                const dominantIdx = totals[2] >= totals[1] && totals[2] >= totals[0]
+                  ? 2
+                  : totals[1] >= totals[0] ? 1 : 0;
+                const domColor = RATING_COLORS[dominantIdx];
+                return (
+                  <View key={stroke} style={styles.strokeFeedbackRow}>
+                    <View style={styles.strokeLabelCol}>
+                      <Text style={styles.strokeName}>{stroke}</Text>
+                      <View style={[styles.strokeRatingBadge, { backgroundColor: domColor + "25" }]}>
+                        <Text style={[styles.strokeRatingText, { color: domColor }]}>
+                          {RATING_LABELS[dominantIdx]}
+                        </Text>
+                      </View>
+                    </View>
+                    <View style={styles.strokeDotRow}>
+                      {ratings.map((entry, i) => {
+                        const r = Math.max(0, Math.min(2, entry.rating));
+                        return (
+                          <View
+                            key={i}
+                            style={[styles.strokeDot, { backgroundColor: RATING_COLORS[r] }]}
+                          />
+                        );
+                      })}
+                    </View>
+                  </View>
+                );
+              });
+            })()}
+            <View style={styles.strokeLegend}>
+              <View style={styles.strokeLegendItem}>
+                <View style={[styles.strokeDot, { backgroundColor: "#22C55E" }]} />
+                <Text style={styles.strokeLegendText}>Goed</Text>
+              </View>
+              <View style={styles.strokeLegendItem}>
+                <View style={[styles.strokeDot, { backgroundColor: Colors.dark.orange }]} />
+                <Text style={styles.strokeLegendText}>In Ontwikkeling</Text>
+              </View>
+              <View style={styles.strokeLegendItem}>
+                <View style={[styles.strokeDot, { backgroundColor: "#FF4D4D" }]} />
+                <Text style={styles.strokeLegendText}>Aandachtspunt</Text>
+              </View>
+            </View>
+          </View>
+        ) : null}
 
         <View style={styles.infoCard}>
           <Ionicons name="information-circle" size={20} color={Colors.dark.xpCyan} />
@@ -2723,6 +2821,61 @@ const styles = StyleSheet.create({
     ...Typography.body,
     color: Colors.dark.text,
     flex: 1,
+  },
+  strokeFeedbackRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingVertical: Spacing.sm,
+    borderBottomWidth: 1,
+    borderBottomColor: "rgba(255,255,255,0.06)",
+  },
+  strokeLabelCol: {
+    flex: 1,
+    gap: 4,
+  },
+  strokeName: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: Colors.dark.text,
+  },
+  strokeRatingBadge: {
+    alignSelf: "flex-start",
+    borderRadius: 6,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+  },
+  strokeRatingText: {
+    fontSize: 10,
+    fontWeight: "700",
+  },
+  strokeDotRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    paddingLeft: Spacing.md,
+  },
+  strokeDot: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+  },
+  strokeLegend: {
+    flexDirection: "row",
+    gap: Spacing.md,
+    marginTop: Spacing.md,
+    paddingTop: Spacing.sm,
+    borderTopWidth: 1,
+    borderTopColor: "rgba(255,255,255,0.06)",
+  },
+  strokeLegendItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+  },
+  strokeLegendText: {
+    fontSize: 10,
+    color: Colors.dark.textMuted,
   },
   readinessSection: {
     paddingHorizontal: Spacing.xl,

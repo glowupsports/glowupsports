@@ -96,6 +96,13 @@ pool.query('SELECT 1').then(async () => {
   } catch (e: any) {
     console.log('[Database] beta_feedback migration skipped:', e.message);
   }
+  try {
+    await pool.query(`ALTER TABLE session_skill_feedback ADD COLUMN IF NOT EXISTS stroke_feedback JSONB`);
+    await pool.query(`ALTER TABLE session_skill_feedback ADD COLUMN IF NOT EXISTS lesson_intensity TEXT`);
+    await pool.query(`ALTER TABLE session_skill_feedback ADD COLUMN IF NOT EXISTS player_note TEXT`);
+  } catch (e: any) {
+    console.log('[Database] stroke_feedback columns migration skipped:', e.message);
+  }
 }).catch((err) => {
   console.error('[Database] Connection test FAILED:', err.message);
 });

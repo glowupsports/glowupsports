@@ -5212,6 +5212,42 @@ export async function registerRoutes(app: Express): Promise<Server> {
     },
   );
 
+  // GET /api/player/me/stroke-feedback - Get player's stroke feedback timeline
+  app.get(
+    "/api/player/me/stroke-feedback",
+    authMiddleware,
+    requirePlayerOrOwner,
+    async (req: AuthenticatedRequest, res: Response) => {
+      try {
+        const playerId = req.user!.playerId;
+        if (!playerId) {
+          return res.status(400).json({ error: "Player not found" });
+        }
+
+        const feedbackRows = await db
+          .select({
+            id: sessionSkillFeedback.id,
+            sessionId: sessionSkillFeedback.sessionId,
+            strokeFeedback: sessionSkillFeedback.strokeFeedback,
+            lessonIntensity: sessionSkillFeedback.lessonIntensity,
+            playerNote: sessionSkillFeedback.playerNote,
+            overall: sessionSkillFeedback.overall,
+            effort: sessionSkillFeedback.effort,
+            createdAt: sessionSkillFeedback.createdAt,
+          })
+          .from(sessionSkillFeedback)
+          .where(eq(sessionSkillFeedback.playerId, playerId))
+          .orderBy(desc(sessionSkillFeedback.createdAt))
+          .limit(50);
+
+        res.json(feedbackRows);
+      } catch (error) {
+        console.error("Error fetching player stroke feedback:", error);
+        res.status(500).json({ error: "Failed to fetch stroke feedback" });
+      }
+    },
+  );
+
   // ==================== PLAYER NOTIFICATIONS ====================
 
   // GET /api/player/me/notifications - Get player's notifications

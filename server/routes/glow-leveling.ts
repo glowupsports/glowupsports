@@ -642,6 +642,9 @@ router.post("/api/glow/sessions/:sessionId/feedback", authMiddleware, requireAca
       skillRatings,
       trialReady,
       note,
+      strokeFeedback,
+      lessonIntensity,
+      playerNote,
     } = req.body;
     
     if (!playerId || effort === undefined || execution === undefined || understanding === undefined || !overall) {
@@ -694,6 +697,9 @@ router.post("/api/glow/sessions/:sessionId/feedback", authMiddleware, requireAca
         socialPillar: pillarRatings?.SOCIAL,
         matchPillar: pillarRatings?.MATCH,
         skillRatings: skillRatings ? JSON.stringify(skillRatings) : null,
+        strokeFeedback: strokeFeedback || null,
+        lessonIntensity: lessonIntensity || null,
+        playerNote: playerNote || null,
         trialReady: trialReady || false,
         note,
       })
@@ -760,6 +766,39 @@ router.get("/api/glow/sessions/:sessionId/feedback", authMiddleware, requireAcad
   } catch (error) {
     console.error("Error fetching session feedback:", error);
     res.status(500).json({ error: "Failed to fetch feedback" });
+  }
+});
+
+// Get stroke feedback timeline for a player
+router.get("/api/glow/players/:playerId/stroke-feedback", authMiddleware, requireAcademy, async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const { playerId } = req.params;
+    const academyId = req.user!.academyId;
+
+    if (!await validatePlayerAccess(playerId, academyId)) {
+      return res.status(404).json({ error: "Player not found" });
+    }
+
+    const feedbackRows = await db
+      .select({
+        id: sessionSkillFeedback.id,
+        sessionId: sessionSkillFeedback.sessionId,
+        strokeFeedback: sessionSkillFeedback.strokeFeedback,
+        lessonIntensity: sessionSkillFeedback.lessonIntensity,
+        playerNote: sessionSkillFeedback.playerNote,
+        overall: sessionSkillFeedback.overall,
+        effort: sessionSkillFeedback.effort,
+        createdAt: sessionSkillFeedback.createdAt,
+      })
+      .from(sessionSkillFeedback)
+      .where(eq(sessionSkillFeedback.playerId, playerId))
+      .orderBy(desc(sessionSkillFeedback.createdAt))
+      .limit(50);
+
+    res.json(feedbackRows);
+  } catch (error) {
+    console.error("Error fetching stroke feedback:", error);
+    res.status(500).json({ error: "Failed to fetch stroke feedback" });
   }
 });
 

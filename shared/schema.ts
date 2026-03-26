@@ -4882,6 +4882,19 @@ export const sessionSkillFeedback = pgTable("session_skill_feedback", {
     score: number; // 0, 1, 2
   }[]>(),
   
+  // Stroke-by-stroke feedback (per-shot feedback: forehand, backhand, serve, etc.)
+  strokeFeedback: jsonb("stroke_feedback").$type<{
+    stroke: string; // forehand | backhand | serve | volley | slice | smash | return | footwork
+    rating: number; // 0=attention | 1=developing | 2=good
+    note?: string;
+  }[]>(),
+  
+  // Overall lesson intensity
+  lessonIntensity: text("lesson_intensity"), // light | normal | intense
+  
+  // Per-player note (separate from the general note)
+  playerNote: text("player_note"),
+  
   // Trial readiness flag
   trialReady: boolean("trial_ready").default(false),
   
