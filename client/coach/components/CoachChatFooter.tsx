@@ -1389,7 +1389,7 @@ export function CoachChatFooter({ mode = "coach" }: ChatFooterProps) {
                         setSelectedSender(null);
                         setTimeout(() => {
                           createConversationMutation.mutate({
-                            type: "player",
+                            type: "player_player",
                             otherPlayerId: selectedSender.senderPlayerId!,
                           });
                           setIsExpanded(true);
@@ -1405,15 +1405,15 @@ export function CoachChatFooter({ mode = "coach" }: ChatFooterProps) {
                     <Pressable
                       style={[styles.profileModalBtn, { backgroundColor: Colors.dark.xpCyan + "15", borderColor: Colors.dark.xpCyan + "50" }]}
                       onPress={() => {
+                        const opponentId = selectedSender.senderPlayerId!;
+                        const opponentName = selectedSender.senderName;
+                        const opponentPhoto = selectedSender.senderPhotoUrl ?? undefined;
                         setSelectedSender(null);
                         setTimeout(() => {
-                          try {
-                            navigation.navigate("ChallengePlayer", {
-                              playerId: selectedSender.senderPlayerId,
-                              opponentId: selectedSender.senderPlayerId,
-                              opponentName: selectedSender.senderName,
-                            });
-                          } catch (_) {}
+                          navigation.navigate("PlayStack", {
+                            screen: "ChallengePlayer",
+                            params: { opponentId, opponentName, opponentPhoto },
+                          });
                         }, 350);
                       }}
                     >
