@@ -2385,7 +2385,7 @@ router.post("/api/admin/seed-demo-data", authMiddleware, async (req: AuthRequest
   });
 
 
-router.post("/api/admin/repair-private-adjusted", async (req: Request, res: Response) => {
+router.post("/api/admin/repair-private-adjusted", authMiddleware, requireRole("admin", "platform_owner"), async (req: Request, res: Response) => {
     try {
       console.log('[RepairPrivateAdjusted] Starting repair of wrongly charged absent players in private_adjusted sessions...');
 
@@ -2454,12 +2454,12 @@ router.post("/api/admin/repair-private-adjusted", async (req: Request, res: Resp
       });
     } catch (error: any) {
       console.error('[RepairPrivateAdjusted] Error:', error);
-      res.status(500).json({ error: error.message || 'Repair failed' });
+      res.status(500).json({ error: 'Repair failed. Check server logs for details.' });
     }
   });
 
   // One-time fix: repair series titles with "undefined" and merge duplicate flexible series
-router.post("/api/admin/fix-series-titles-and-merge", async (req: Request, res: Response) => {
+router.post("/api/admin/fix-series-titles-and-merge", authMiddleware, requireRole("admin", "platform_owner"), async (req: Request, res: Response) => {
     try {
       console.log("[SeriesFix] Starting series title repair and merge...");
       const fixes: string[] = [];
@@ -2580,7 +2580,7 @@ router.post("/api/admin/fix-series-titles-and-merge", async (req: Request, res: 
       res.json({ success: true, fixes });
     } catch (error: any) {
       console.error("[SeriesFix] Error:", error);
-      res.status(500).json({ error: error.message || "Fix failed" });
+      res.status(500).json({ error: "Fix failed. Check server logs for details." });
     }
   });
   
@@ -2697,7 +2697,7 @@ router.get("/api/admin/credits/diagnose/:playerId", authMiddleware, async (req: 
       });
     } catch (error: any) {
       console.error("[Diagnose] Error:", error);
-      res.status(500).json({ error: error.message });
+      res.status(500).json({ error: "Failed to fetch diagnostics" });
     }
   });
 

@@ -3,6 +3,13 @@
 
 import { Resend } from 'resend';
 
+function maskEmail(email: string): string {
+  const [local, domain] = email.split('@');
+  if (!domain) return '***';
+  const masked = local.length > 3 ? `${local.slice(0, 3)}***` : `${local[0]}***`;
+  return `${masked}@${domain}`;
+}
+
 function escapeHtml(text: string): string {
   const htmlEntities: Record<string, string> = {
     '&': '&amp;',
@@ -754,7 +761,7 @@ export async function sendOTPEmail(email: string): Promise<{ success: boolean; e
     });
 
     if (result.success) {
-      console.log(`[OTP] Sent verification code to ${email}`);
+      console.log(`[OTP] Sent verification code to ${maskEmail(email)}`);
     }
 
     return result;
@@ -792,7 +799,7 @@ export function verifyOTPCode(email: string, code: string): { valid: boolean; er
 
   // Success - delete the OTP
   otpStore.delete(normalizedEmail);
-  console.log(`[OTP] Email verified: ${email}`);
+  console.log(`[OTP] Email verified: ${maskEmail(email)}`);
   
   return { valid: true };
 }

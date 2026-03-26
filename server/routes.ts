@@ -249,6 +249,14 @@ const inviteLimiter = rateLimit({
   legacyHeaders: false,
 });
 
+const diagnosticsLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 20,
+  message: { error: "Too many diagnostic reports submitted. Please try again later." },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
 function generateShortInviteCode(): string {
   const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
   let code = "";
@@ -959,7 +967,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // ==================== DIAGNOSTICS ENDPOINTS ====================
   // Public endpoint - accepts error reports from any user (authenticated or not)
-  app.post("/api/diagnostics/report", async (req: Request, res: Response) => {
+  app.post("/api/diagnostics/report", diagnosticsLimiter, async (req: Request, res: Response) => {
     try {
       const {
         errorId,

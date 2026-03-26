@@ -2179,7 +2179,7 @@ async function processMonthlyReports(): Promise<void> {
         
         if (response.ok) {
           reportsSent++;
-          console.log(`[MonthlyReports] Sent report to ${player.displayName} (${player.email})`);
+          console.log(`[MonthlyReports] Sent report to ${player.displayName}`);
         } else {
           reportsSkipped++;
           const error = await response.text();

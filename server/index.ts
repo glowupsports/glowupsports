@@ -1,3 +1,31 @@
+/**
+ * Security Audit Summary — Task #117 (March 2026)
+ *
+ * FIXED:
+ * 1. Two admin data-repair endpoints in server/routes/player-social.ts had no auth
+ *    guard and were publicly accessible without a token:
+ *    - POST /api/admin/repair-private-adjusted  → now requireRole("admin","platform_owner")
+ *    - POST /api/admin/fix-series-titles-and-merge → now requireRole("admin","platform_owner")
+ *
+ * 2. Three route handlers in player-social.ts exposed raw error.message strings in
+ *    500 responses, potentially leaking internal DB/system details. Replaced with
+ *    generic "Check server logs" messages.
+ *
+ * 3. POST /api/diagnostics/report (public, unauthenticated) had only the global
+ *    300-req/15min rate limiter. Added a dedicated diagnosticsLimiter (20-req/15min)
+ *    to prevent abuse.
+ *
+ * 4. Email addresses were logged in plain text in emailService.ts OTP logs.
+ *    Added maskEmail() helper — now logs "joh***@domain.com" format only.
+ *
+ * VERIFIED OK (no changes needed):
+ * - SQL injection: no raw template-literal user input in pool.query() calls (ORM used throughout)
+ * - Auth middleware: all financial/credit, player data, and admin routes confirmed protected
+ * - Rate limiting: auth routes (authLimiter 10/15min), global API (300/15min) in place
+ * - Error handler (setupErrorHandler): already returns only { message }, no stack traces
+ * - Helmet + custom security headers: correctly configured for Expo/API compatibility
+ * - CORS: validates against allow-list of *.replit.dev, *.repl.co, *.replit.app, localhost
+ */
 import express from "express";
 import type { Request, Response, NextFunction } from "express";
 import helmet from "helmet";
