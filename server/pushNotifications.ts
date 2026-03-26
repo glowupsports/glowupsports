@@ -1207,7 +1207,7 @@ export async function fixHolidayOvercharges(): Promise<void> {
               const pkgStatus = pkgResult.rows[0].status;
 
               const updateFields: string[] = [`remaining_credits = $1`];
-              const updateParams: any[] = [newBalance, origTx.package_id];
+              const updateParams: (number | string)[] = [newBalance, origTx.package_id];
               if (pkgStatus === "depleted" && newBalance > 0) {
                 updateFields.push(`status = 'active'`);
               }
@@ -1405,7 +1405,7 @@ export async function fixAlmaZaleskiCredits(): Promise<void> {
     }
     const playerId = playerRes.rows[0].id;
 
-    // Idempotency guard: skip if the holiday_debt_fix refund marker already exists
+    // Check idempotency for the credit top-up only (separate from debt cancellation)
     const alreadyFixed = await pool.query(
       `SELECT id FROM credit_transactions
        WHERE player_id = $1 AND reason = 'session_removal_refund'
@@ -1413,71 +1413,72 @@ export async function fixAlmaZaleskiCredits(): Promise<void> {
        LIMIT 1`,
       [playerId]
     );
-    if (alreadyFixed.rows.length > 0) {
-      console.log("[AlmaFix] Already corrected — skipping");
-      return;
-    }
+    const creditAlreadyApplied = alreadyFixed.rows.length > 0;
 
-    // Find her active group package
-    const pkgRes = await pool.query(
-      `SELECT id, remaining_credits, total_credits, academy_id
-       FROM packages
-       WHERE player_id = $1 AND credit_type = 'group' AND status = 'active'
-       ORDER BY expiry_date DESC NULLS LAST, remaining_credits DESC
-       LIMIT 1`,
-      [playerId]
-    );
-
-    if (pkgRes.rows.length === 0) {
-      console.log("[AlmaFix] No active group package found for Alma — skipping credit refund");
+    if (creditAlreadyApplied) {
+      console.log("[AlmaFix] Credit already applied — skipping credit top-up");
     } else {
-      const pkg = pkgRes.rows[0];
-      const currentRemaining = Number(pkg.remaining_credits);
+      // Find her active group package for the credit top-up
+      const pkgRes = await pool.query(
+        `SELECT id, remaining_credits, total_credits, academy_id
+         FROM packages
+         WHERE player_id = $1 AND credit_type = 'group' AND status = 'active'
+         ORDER BY expiry_date DESC NULLS LAST, remaining_credits DESC
+         LIMIT 1`,
+        [playerId]
+      );
 
-      // Balance cap guard: only apply +1 if remaining_credits < 4 (target post-fix value).
-      // Prevents over-crediting if data was partially repaired outside this function.
-      if (currentRemaining >= 4) {
-        console.log(`[AlmaFix] Package already at ${currentRemaining} credits (>= 4) — skipping credit refund`);
+      if (pkgRes.rows.length === 0) {
+        console.log("[AlmaFix] No active group package found for Alma — skipping credit top-up");
       } else {
-        const newRemaining = currentRemaining + 1;
-        const client = await pool.connect();
-        try {
-          await client.query("BEGIN");
+        const pkg = pkgRes.rows[0];
+        const currentRemaining = Number(pkg.remaining_credits);
 
-          await client.query(
-            `UPDATE packages SET remaining_credits = $1 WHERE id = $2`,
-            [newRemaining, pkg.id]
-          );
+        // Balance cap guard: only apply +1 if remaining_credits < 4 (target post-fix value).
+        // Prevents over-crediting if data was partially repaired outside this function.
+        if (currentRemaining >= 4) {
+          console.log(`[AlmaFix] Package already at ${currentRemaining} credits (>= 4) — skipping credit top-up`);
+        } else {
+          const newRemaining = currentRemaining + 1;
+          const client = await pool.connect();
+          try {
+            await client.query("BEGIN");
 
-          // Transactionally insert the idempotency marker alongside the balance update
-          await client.query(
-            `INSERT INTO credit_transactions
-               (id, player_id, academy_id, package_id, type, credit_type, amount, reason, balance_before, balance_after, metadata)
-             VALUES
-               (gen_random_uuid(), $1, $2, $3, 'credit', 'group', 1, 'session_removal_refund', $4, $5, $6)`,
-            [
-              playerId,
-              pkg.academy_id,
-              pkg.id,
-              currentRemaining,
-              newRemaining,
-              JSON.stringify({ refundedBy: "holiday_debt_fix", reason: "manual_correction_alma_zalesski" }),
-            ]
-          );
+            await client.query(
+              `UPDATE packages SET remaining_credits = $1 WHERE id = $2`,
+              [newRemaining, pkg.id]
+            );
 
-          await client.query("COMMIT");
-          console.log(`[AlmaFix] Refunded 1 group credit to package ${pkg.id} | ${currentRemaining} -> ${newRemaining}`);
-        } catch (creditErr) {
-          await client.query("ROLLBACK");
-          console.error("[AlmaFix] Failed to add credit:", creditErr);
-        } finally {
-          client.release();
+            // Transactionally insert the idempotency marker alongside the balance update
+            await client.query(
+              `INSERT INTO credit_transactions
+                 (id, player_id, academy_id, package_id, type, credit_type, amount, reason, balance_before, balance_after, metadata)
+               VALUES
+                 (gen_random_uuid(), $1, $2, $3, 'credit', 'group', 1, 'session_removal_refund', $4, $5, $6)`,
+              [
+                playerId,
+                pkg.academy_id,
+                pkg.id,
+                currentRemaining,
+                newRemaining,
+                JSON.stringify({ refundedBy: "holiday_debt_fix", reason: "manual_correction_alma_zalesski" }),
+              ]
+            );
+
+            await client.query("COMMIT");
+            console.log(`[AlmaFix] Refunded 1 group credit to package ${pkg.id} | ${currentRemaining} -> ${newRemaining}`);
+          } catch (creditErr) {
+            await client.query("ROLLBACK");
+            console.error("[AlmaFix] Failed to add credit:", creditErr);
+          } finally {
+            client.release();
+          }
         }
       }
     }
 
     // Cancel any remaining unsettled GROUP debt transactions for Alma (group-type only).
-    // Runs regardless of whether the +1 credit was applied above.
+    // Always runs — debt cancellation is idempotent via the metadata cancelled flag.
     const cancelRes = await pool.query(
       `UPDATE credit_transactions
        SET metadata = jsonb_set(COALESCE(metadata, '{}')::jsonb, '{cancelled}', 'true')
