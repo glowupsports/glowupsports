@@ -13328,10 +13328,10 @@ function setupWebSocket(server) {
             academyRooms.delete(socket.academyId);
           }
         }
-        const users4 = onlineUsers.get(socket.academyId);
-        if (users4) {
-          users4.delete(socket.userId);
-          if (users4.size === 0) {
+        const users3 = onlineUsers.get(socket.academyId);
+        if (users3) {
+          users3.delete(socket.userId);
+          if (users3.size === 0) {
             onlineUsers.delete(socket.academyId);
           }
         }
@@ -15366,7 +15366,7 @@ async function sendExpoPushNotification(tokens, title, body, data) {
   if (tokens.length === 0) return [];
   const notificationType = data?.type;
   const channelId = getChannelIdForNotificationType(notificationType);
-  const messages2 = tokens.map((token) => ({
+  const messages3 = tokens.map((token) => ({
     to: token,
     title,
     body,
@@ -15383,11 +15383,11 @@ async function sendExpoPushNotification(tokens, title, body, data) {
         "Accept-encoding": "gzip, deflate",
         "Content-Type": "application/json"
       },
-      body: JSON.stringify(messages2)
+      body: JSON.stringify(messages3)
     });
     const result = await response.json();
     const tickets = result.data || [];
-    console.log(`[ExpoPush] Sent ${messages2.length} messages, got ${tickets.length} tickets`);
+    console.log(`[ExpoPush] Sent ${messages3.length} messages, got ${tickets.length} tickets`);
     for (let i = 0; i < tickets.length; i++) {
       if (tickets[i].status === "error") {
         console.error(`[ExpoPush] Error for token ${tokens[i]?.substring(0, 30)}...: ${tickets[i].message} (${tickets[i].details?.error})`);
@@ -16660,15 +16660,15 @@ function stopAutoSessionCompletionScheduler() {
 async function processMonthlyReports() {
   console.log("[MonthlyReports] Running monthly report check at", (/* @__PURE__ */ new Date()).toISOString());
   try {
-    const { players: players3, users: users4, playerCreditPackages: playerCreditPackages2 } = await Promise.resolve().then(() => (init_schema(), schema_exports));
+    const { players: players3, users: users3, playerCreditPackages: playerCreditPackages2 } = await Promise.resolve().then(() => (init_schema(), schema_exports));
     const activePlayers = await db.select({
       playerId: players3.id,
       userId: players3.userId,
       displayName: players3.displayName,
-      email: users4.email
-    }).from(players3).innerJoin(users4, eq2(players3.userId, users4.id)).where(
+      email: users3.email
+    }).from(players3).innerJoin(users3, eq2(players3.userId, users3.id)).where(
       and2(
-        isNotNull(users4.email),
+        isNotNull(users3.email),
         eq2(players3.isActive, true)
       )
     );
@@ -31131,19 +31131,19 @@ function getDefaultTemplates() {
 }
 async function seedDefaultTemplates() {
   let count8 = 0;
-  for (const [key, messages2] of Object.entries(DEFAULT_TEMPLATES)) {
+  for (const [key, messages3] of Object.entries(DEFAULT_TEMPLATES)) {
     const existing2 = await db.select().from(roleMessageTemplates).where(and9(
       eq10(roleMessageTemplates.templateKey, key),
       isNull3(roleMessageTemplates.academyId)
     ));
     if (existing2.length === 0) {
-      const placeholders = extractPlaceholders(messages2.coach + messages2.player + messages2.parent);
+      const placeholders = extractPlaceholders(messages3.coach + messages3.player + messages3.parent);
       await db.insert(roleMessageTemplates).values({
         templateKey: key,
         academyId: null,
-        coachMessage: messages2.coach,
-        playerMessage: messages2.player,
-        parentMessage: messages2.parent,
+        coachMessage: messages3.coach,
+        playerMessage: messages3.player,
+        parentMessage: messages3.parent,
         placeholders,
         category: getCategoryForKey(key),
         isActive: true
@@ -34673,7 +34673,7 @@ router2.delete("/player/marketplace/:id/favorite", authMiddlewareWithFreshData, 
 router2.get("/player/marketplace/messages", authMiddlewareWithFreshData, requirePlayerProfile2, requireFeatureUnlock("marketplace"), async (req2, res) => {
   try {
     const playerId = req2.user.playerId;
-    const messages2 = await db.select({
+    const messages3 = await db.select({
       message: marketplaceMessages,
       listing: {
         id: marketplaceListings.id,
@@ -34685,7 +34685,7 @@ router2.get("/player/marketplace/messages", authMiddlewareWithFreshData, require
       eq5(marketplaceMessages.senderId, playerId),
       eq5(marketplaceMessages.recipientId, playerId)
     )).orderBy(desc3(marketplaceMessages.createdAt)).limit(100);
-    res.json(messages2);
+    res.json(messages3);
   } catch (error) {
     console.error("[Marketplace] Error fetching messages:", error);
     res.status(500).json({ error: "Failed to load messages" });
@@ -36156,8 +36156,8 @@ router3.post("/api/glow/messages/render-all", authMiddlewareWithFreshData, async
       return res.status(400).json({ error: "templateKey is required" });
     }
     const { getMessagesForAllRoles: getMessagesForAllRoles2 } = await Promise.resolve().then(() => (init_role_language_engine(), role_language_engine_exports));
-    const messages2 = await getMessagesForAllRoles2(templateKey, context || {}, academyId);
-    res.json({ templateKey, messages: messages2 });
+    const messages3 = await getMessagesForAllRoles2(templateKey, context || {}, academyId);
+    res.json({ templateKey, messages: messages3 });
   } catch (error) {
     console.error("Error rendering messages:", error);
     res.status(500).json({ error: "Failed to render messages" });
@@ -41872,8 +41872,8 @@ router15.post("/api/role-messages/get-all-roles", authMiddlewareWithFreshData, a
     if (!templateKey) {
       return res.status(400).json({ error: "templateKey is required" });
     }
-    const messages2 = await getMessagesForAllRoles(templateKey, context || {}, academyId);
-    res.json(messages2);
+    const messages3 = await getMessagesForAllRoles(templateKey, context || {}, academyId);
+    res.json(messages3);
   } catch (error) {
     console.error("Error getting role messages:", error);
     res.status(500).json({ error: "Failed to get messages" });
@@ -43017,6 +43017,20 @@ router16.post("/api/social/posts/:id/report", authMiddlewareWithFreshData, async
     res.status(500).json({ error: "Failed to submit report" });
   }
 });
+router16.get("/api/social/users/:userId/block", authMiddlewareWithFreshData, async (req2, res) => {
+  try {
+    const blockerUserId = req2.user.userId;
+    const targetUserId = req2.params.userId;
+    const existing2 = await db.select().from(playerBlocks).where(and22(
+      eq24(playerBlocks.blockerUserId, blockerUserId),
+      eq24(playerBlocks.blockedUserId, targetUserId)
+    )).limit(1);
+    res.json({ isBlocked: existing2.length > 0 });
+  } catch (error) {
+    console.error("[BlockStatus] Error:", error);
+    res.status(500).json({ error: "Failed to check block status" });
+  }
+});
 router16.post("/api/social/users/:userId/block", authMiddlewareWithFreshData, async (req2, res) => {
   try {
     const blockerUserId = req2.user.userId;
@@ -43099,6 +43113,7 @@ router17.get("/api/player/me/conversations", authMiddlewareWithFreshData, requir
       return res.json({ friends: [], pendingRequests: [] });
     }
     const conversations2 = await storage.getConversationsForPlayer(playerId, academyId);
+    const currentUserId = req2.user.userId;
     const enriched = await Promise.all(
       conversations2.map(async (conv) => {
         let coachName = null;
@@ -43109,12 +43124,27 @@ router17.get("/api/player/me/conversations", authMiddlewareWithFreshData, requir
           const coach = await storage.getCoach(conv.coachId, academyId);
           coachName = coach?.name ?? null;
         }
+        let otherPlayerId = null;
+        let otherPlayerUserId = null;
+        let isBlockedByMe = false;
         if (conv.type === "player_player") {
           const participants = await storage.getConversationParticipants(conv.id, void 0, academyId);
           const other = participants.find((p) => p.playerId && p.playerId !== playerId);
           if (other?.playerId) {
             const otherPlayer = await storage.getPlayer(other.playerId, academyId);
             playerName = otherPlayer?.name ?? null;
+            otherPlayerId = other.playerId;
+            const [otherUser] = await db.select({ id: users.id }).from(users).where(eq25(users.playerId, other.playerId)).limit(1);
+            otherPlayerUserId = otherUser?.id ?? null;
+            if (currentUserId && otherPlayerUserId) {
+              const [block] = await db.select({ id: playerBlocks.id }).from(playerBlocks).where(
+                and23(
+                  eq25(playerBlocks.blockerUserId, currentUserId),
+                  eq25(playerBlocks.blockedUserId, otherPlayerUserId)
+                )
+              ).limit(1);
+              isBlockedByMe = !!block;
+            }
           }
         }
         if (conv.type === "provider_player" && conv.providerId) {
@@ -43125,13 +43155,36 @@ router17.get("/api/player/me/conversations", authMiddlewareWithFreshData, requir
           providerName = prov?.displayName ?? null;
           providerPhoto = prov?.profilePhotoUrl ?? null;
         }
-        return { ...conv, coachName, playerName, providerName, providerPhoto };
+        return { ...conv, coachName, playerName, providerName, providerPhoto, otherPlayerId, otherPlayerUserId, isBlockedByMe };
       })
     );
-    res.json(enriched);
+    const visible = enriched.filter((conv) => !conv.isBlockedByMe);
+    res.json(visible);
   } catch (error) {
     console.error("Error fetching player conversations:", error);
     res.status(500).json({ error: "Failed to fetch conversations" });
+  }
+});
+router17.delete("/api/player/me/conversations/:id", authMiddlewareWithFreshData, requirePlayerOrOwner, async (req2, res) => {
+  try {
+    if (!req2.user.playerId) {
+      return res.status(403).json({ error: "Player profile required" });
+    }
+    const playerId = req2.user.playerId;
+    const { id: conversationId } = req2.params;
+    const participant = await db.select().from(conversationParticipants).where(and23(
+      eq25(conversationParticipants.conversationId, conversationId),
+      eq25(conversationParticipants.playerId, playerId),
+      eq25(conversationParticipants.participantType, "player")
+    )).limit(1);
+    if (participant.length === 0) {
+      return res.status(403).json({ error: "Access denied" });
+    }
+    await db.update(conversations).set({ isArchived: true }).where(eq25(conversations.id, conversationId));
+    res.json({ success: true });
+  } catch (error) {
+    console.error("Error archiving conversation:", error);
+    res.status(500).json({ error: "Failed to delete conversation" });
   }
 });
 router17.get("/api/player/me/unread-count", authMiddlewareWithFreshData, requirePlayerOrOwner, async (req2, res) => {
@@ -43162,9 +43215,66 @@ router17.post("/api/player/me/conversations", authMiddlewareWithFreshData, requi
       return res.status(403).json({ error: "Academy membership required for chat" });
     }
     const academyId = player2.academyId;
-    const { type, otherPlayerId, title } = req2.body;
+    const { type, otherPlayerId, title, coachId, squadId } = req2.body;
     if (!type) {
       return res.status(400).json({ error: "Conversation type required" });
+    }
+    if (type === "coach_player") {
+      if (!coachId) {
+        return res.status(400).json({ error: "coachId required for coach_player conversation" });
+      }
+      const conversation = await storage.getOrCreateCoachPlayerConversation(coachId, playerId, academyId);
+      return res.json(conversation);
+    }
+    if (type === "squad") {
+      if (!squadId) {
+        return res.status(400).json({ error: "squadId required for squad conversation" });
+      }
+      const existing2 = await db.select().from(conversations).where(
+        and23(
+          eq25(conversations.type, "squad"),
+          eq25(conversations.title, squadId),
+          eq25(conversations.academyId, academyId)
+        )
+      );
+      if (existing2.length > 0) {
+        const conv2 = existing2[0];
+        const alreadyParticipant = await db.select().from(conversationParticipants).where(
+          and23(
+            eq25(conversationParticipants.conversationId, conv2.id),
+            eq25(conversationParticipants.playerId, playerId)
+          )
+        );
+        if (alreadyParticipant.length === 0) {
+          await db.insert(conversationParticipants).values({
+            conversationId: conv2.id,
+            playerId,
+            coachId: null,
+            role: "member",
+            participantType: "player",
+            canPost: true,
+            academyId
+          });
+        }
+        return res.json(conv2);
+      }
+      const conv = await storage.createConversation({
+        type: "squad",
+        title: squadId,
+        playerId: null,
+        coachId: null,
+        academyId
+      });
+      await db.insert(conversationParticipants).values({
+        conversationId: conv.id,
+        playerId,
+        coachId: null,
+        role: "owner",
+        participantType: "player",
+        canPost: true,
+        academyId
+      });
+      return res.status(201).json(conv);
     }
     if (type === "player_player") {
       const playerIsMinor = await isPlayerMinor(playerId);
@@ -43272,9 +43382,9 @@ router17.get("/api/player/me/conversations/:id/messages", authMiddlewareWithFres
     if (!conversation) {
       return res.status(404).json({ error: "Conversation not found" });
     }
-    const messages2 = await storage.getMessagesForPlayer(id, playerId, academyId, limit);
+    const messages3 = await storage.getMessagesForPlayer(id, playerId, academyId, limit);
     const enriched = await Promise.all(
-      messages2.map(async (msg) => {
+      messages3.map(async (msg) => {
         const reactions = await storage.getMessageReactionsForPlayer(msg.id, playerId, academyId);
         return { ...msg, reactions };
       })
@@ -43417,6 +43527,43 @@ router17.post("/api/player/me/messages/:messageId/reactions", authMiddlewareWith
     res.status(500).json({ error: "Failed to add reaction" });
   }
 });
+router17.delete("/api/player/me/messages/:messageId/reactions", authMiddlewareWithFreshData, requirePlayerOrOwner, async (req2, res) => {
+  try {
+    if (!req2.user.playerId) {
+      return res.status(403).json({ error: "Player profile required" });
+    }
+    const playerId = req2.user.playerId;
+    const player2 = await storage.getPlayer(playerId);
+    if (!player2 || !player2.academyId) {
+      return res.status(403).json({ error: "Academy membership required" });
+    }
+    const { messageId } = req2.params;
+    const { emoji } = req2.body;
+    const academyId = player2.academyId;
+    if (!emoji) {
+      return res.status(400).json({ error: "Emoji required" });
+    }
+    const message = await storage.getMessage(messageId);
+    if (!message) {
+      return res.status(404).json({ error: "Message not found" });
+    }
+    const conversation = await storage.getConversationForPlayer(message.conversationId, playerId, academyId);
+    if (!conversation) {
+      return res.status(403).json({ error: "Access denied" });
+    }
+    await db.delete(messageReactions).where(
+      and23(
+        eq25(messageReactions.messageId, messageId),
+        eq25(messageReactions.emoji, emoji),
+        eq25(messageReactions.reactorPlayerId, playerId)
+      )
+    );
+    res.json({ success: true });
+  } catch (error) {
+    console.error("Error removing reaction:", error);
+    res.status(500).json({ error: "Failed to remove reaction" });
+  }
+});
 router17.get("/api/player/me/bookings/:orderId/conversation", authMiddlewareWithFreshData, requirePlayerOrOwner, async (req2, res) => {
   try {
     if (!req2.user.playerId) {
@@ -43485,7 +43632,7 @@ import { Router as Router17 } from "express";
 import { eq as eq26, and as and24, gte as gte12, lte as lte4, or as or11, asc as asc5, inArray as inArray10 } from "drizzle-orm";
 var router18 = Router17();
 function getWarningMessage(code) {
-  const messages2 = {
+  const messages3 = {
     no_contract: "No coach contract found for this academy",
     invalid_hourly_rate: "Coach contract has invalid hourly rate",
     invalid_session_rate: "Coach contract has invalid session rate",
@@ -43494,7 +43641,7 @@ function getWarningMessage(code) {
     missing_academy_pricing: "Academy has no pricing configured for this session type",
     unknown_pay_type: "Coach contract has unknown pay type"
   };
-  return messages2[code] || "Unknown configuration error";
+  return messages3[code] || "Unknown configuration error";
 }
 async function calculateSessionEarning(session, coachId, contracts, cachedData) {
   const sessionId = session.id;
@@ -51062,6 +51209,7 @@ router22.get("/api/world-chat/messages", authMiddlewareWithFreshData, async (req
         coachMap.set(c.id, { name, academyName: (c.academyId ? academyNameMap.get(c.academyId) : null) || "Academy", photoUrl: c.photoUrl || null });
       }
     }
+    const playerUserIdMap = /* @__PURE__ */ new Map();
     if (playerIds.length > 0) {
       const playerData = await db.select({
         id: players.id,
@@ -51076,11 +51224,19 @@ router22.get("/api/world-chat/messages", authMiddlewareWithFreshData, async (req
         const name = p.name || "Player";
         playerMap.set(p.id, { name, academyName: (p.academyId ? academyNameMap.get(p.academyId) : null) || "Academy", photoUrl: p.profilePhotoUrl || null });
       }
+      const playerUserData = await db.select({
+        playerId: users.playerId,
+        userId: users.id
+      }).from(users).where(inArray14(users.playerId, playerIds));
+      for (const u of playerUserData) {
+        if (u.playerId) playerUserIdMap.set(u.playerId, u.userId);
+      }
     }
     const enrichedMessages = orderedMsgs.map((m) => {
       let senderName = "Unknown";
       let academyName = "";
       let senderPhotoUrl = null;
+      let senderUserId = null;
       if (m.senderType === "coach" && m.senderCoachId) {
         const info = coachMap.get(m.senderCoachId);
         senderName = info?.name || "Coach";
@@ -51091,6 +51247,7 @@ router22.get("/api/world-chat/messages", authMiddlewareWithFreshData, async (req
         senderName = info?.name || "Player";
         academyName = info?.academyName || "";
         senderPhotoUrl = info?.photoUrl || null;
+        senderUserId = playerUserIdMap.get(m.senderPlayerId) || null;
       } else if (m.senderType === "system") {
         senderName = "System";
       }
@@ -51099,6 +51256,7 @@ router22.get("/api/world-chat/messages", authMiddlewareWithFreshData, async (req
         senderName,
         academyName,
         senderPhotoUrl,
+        senderUserId,
         reactions: []
       };
     });
@@ -68739,14 +68897,14 @@ async function registerRoutes(app2) {
             return res.status(404).json({ error: "Conversation not found" });
           }
         }
-        const messages2 = await storage.getMessages(
+        const messages3 = await storage.getMessages(
           id,
           limit,
           coachId,
           academyId
         );
         const enriched = await Promise.all(
-          messages2.map(async (msg) => {
+          messages3.map(async (msg) => {
             const reactions = await storage.getMessageReactions(
               msg.id,
               coachId,

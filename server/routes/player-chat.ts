@@ -11,7 +11,7 @@ import { isPlayerMinor, getPlayerParentalControls } from "../childSafety";
 import { chatRateLimiter } from "../rateLimiter";
 import { getCoachPushTokens, sendPushNotification } from "../pushNotifications";
 import { db } from "../db";
-import { serviceProviders, users, shopOrders, conversations, conversationParticipants } from "../../shared/schema";
+import { serviceProviders, users, shopOrders, conversations, conversationParticipants, messageReactions, messages, playerBlocks } from "../../shared/schema";
 import { eq, and } from "drizzle-orm";
 import { broadcastProviderPlayerMessage } from "../websocket";
 
@@ -65,6 +65,9 @@ router.get("/api/player/me/conversations", authMiddleware, requirePlayerOrOwner,
 
     const conversations = await storage.getConversationsForPlayer(playerId, academyId);
 
+    // Get the current user's userId to check against playerBlocks
+    const currentUserId = req.user!.userId;
+
     const enriched = await Promise.all(
       conversations.map(async (conv) => {
         let coachName: string | null = null;
@@ -75,12 +78,29 @@ router.get("/api/player/me/conversations", authMiddleware, requirePlayerOrOwner,
           const coach = await storage.getCoach(conv.coachId, academyId);
           coachName = coach?.name ?? null;
         }
+        let otherPlayerId: string | null = null;
+        let otherPlayerUserId: string | null = null;
+        let isBlockedByMe = false;
         if (conv.type === "player_player") {
           const participants = await storage.getConversationParticipants(conv.id, undefined, academyId);
           const other = participants.find(p => p.playerId && p.playerId !== playerId);
           if (other?.playerId) {
             const otherPlayer = await storage.getPlayer(other.playerId, academyId);
             playerName = otherPlayer?.name ?? null;
+            otherPlayerId = other.playerId;
+            // Get userId for block functionality
+            const [otherUser] = await db.select({ id: users.id }).from(users).where(eq(users.playerId, other.playerId)).limit(1);
+            otherPlayerUserId = otherUser?.id ?? null;
+            // Check if this player is blocked by the current user
+            if (currentUserId && otherPlayerUserId) {
+              const [block] = await db.select({ id: playerBlocks.id }).from(playerBlocks).where(
+                and(
+                  eq(playerBlocks.blockerUserId, currentUserId),
+                  eq(playerBlocks.blockedUserId, otherPlayerUserId),
+                )
+              ).limit(1);
+              isBlockedByMe = !!block;
+            }
           }
         }
         if (conv.type === "provider_player" && conv.providerId) {
@@ -91,14 +111,50 @@ router.get("/api/player/me/conversations", authMiddleware, requirePlayerOrOwner,
           providerName = prov?.displayName ?? null;
           providerPhoto = prov?.profilePhotoUrl ?? null;
         }
-        return { ...conv, coachName, playerName, providerName, providerPhoto };
+        return { ...conv, coachName, playerName, providerName, providerPhoto, otherPlayerId, otherPlayerUserId, isBlockedByMe };
       })
     );
 
-    res.json(enriched);
+    // Filter out conversations where the other player is blocked
+    const visible = enriched.filter(conv => !conv.isBlockedByMe);
+
+    res.json(visible);
   } catch (error) {
     console.error("Error fetching player conversations:", error);
     res.status(500).json({ error: "Failed to fetch conversations" });
+  }
+});
+
+// Delete (archive) a conversation for the current player
+router.delete("/api/player/me/conversations/:id", authMiddleware, requirePlayerOrOwner, async (req: AuthRequest, res: Response) => {
+  try {
+    if (!req.user!.playerId) {
+      return res.status(403).json({ error: "Player profile required" });
+    }
+    const playerId = req.user!.playerId!;
+    const { id: conversationId } = req.params;
+
+    const participant = await db.select()
+      .from(conversationParticipants)
+      .where(and(
+        eq(conversationParticipants.conversationId, conversationId),
+        eq(conversationParticipants.playerId, playerId),
+        eq(conversationParticipants.participantType, "player"),
+      ))
+      .limit(1);
+
+    if (participant.length === 0) {
+      return res.status(403).json({ error: "Access denied" });
+    }
+
+    await db.update(conversations)
+      .set({ isArchived: true })
+      .where(eq(conversations.id, conversationId));
+
+    res.json({ success: true });
+  } catch (error) {
+    console.error("Error archiving conversation:", error);
+    res.status(500).json({ error: "Failed to delete conversation" });
   }
 });
 
@@ -493,6 +549,51 @@ router.post("/api/player/me/messages/:messageId/reactions", authMiddleware, requ
   } catch (error) {
     console.error("Error adding reaction:", error);
     res.status(500).json({ error: "Failed to add reaction" });
+  }
+});
+
+// Remove reaction from a message (player)
+router.delete("/api/player/me/messages/:messageId/reactions", authMiddleware, requirePlayerOrOwner, async (req: AuthRequest, res: Response) => {
+  try {
+    if (!req.user!.playerId) {
+      return res.status(403).json({ error: "Player profile required" });
+    }
+    const playerId = req.user!.playerId!;
+    const player = await storage.getPlayer(playerId);
+    if (!player || !player.academyId) {
+      return res.status(403).json({ error: "Academy membership required" });
+    }
+
+    const { messageId } = req.params;
+    const { emoji } = req.body;
+    const academyId = player.academyId;
+
+    if (!emoji) {
+      return res.status(400).json({ error: "Emoji required" });
+    }
+
+    const message = await storage.getMessage(messageId);
+    if (!message) {
+      return res.status(404).json({ error: "Message not found" });
+    }
+
+    const conversation = await storage.getConversationForPlayer(message.conversationId, playerId, academyId);
+    if (!conversation) {
+      return res.status(403).json({ error: "Access denied" });
+    }
+
+    await db.delete(messageReactions).where(
+      and(
+        eq(messageReactions.messageId, messageId),
+        eq(messageReactions.emoji, emoji),
+        eq(messageReactions.reactorPlayerId, playerId),
+      )
+    );
+
+    res.json({ success: true });
+  } catch (error) {
+    console.error("Error removing reaction:", error);
+    res.status(500).json({ error: "Failed to remove reaction" });
   }
 });
 

@@ -11,6 +11,7 @@ import {
   ScrollView,
   useWindowDimensions,
   Modal,
+  Alert,
 } from "react-native";
 import { Image } from "expo-image";
 import { Ionicons } from "@expo/vector-icons";
@@ -76,6 +77,9 @@ interface Conversation {
   coachName?: string | null;
   providerName?: string | null;
   providerPhoto?: string | null;
+  otherPlayerId?: string | null;
+  otherPlayerUserId?: string | null;
+  isBlockedByMe?: boolean;
 }
 
 const REACTION_EMOJIS = ["thumbsup", "heart", "fire", "trophy", "star"];
@@ -131,6 +135,7 @@ interface WorldMessage {
   senderType: string | null;
   senderCoachId: string | null;
   senderPlayerId: string | null;
+  senderUserId: string | null;
   body: string;
   messageType: string | null;
   createdAt: string;
@@ -152,6 +157,7 @@ interface SenderProfile {
   senderType: string | null;
   senderCoachId: string | null;
   senderPlayerId: string | null;
+  senderUserId?: string | null;
 }
 
 const TAB_BAR_HEIGHT = 85;
@@ -183,6 +189,8 @@ export function CoachChatFooter({ mode = "coach", onChallenge }: ChatFooterProps
   const [academyConvCreated, setAcademyConvCreated] = useState<Conversation | null>(null);
   const [safetyBannerDismissed, setSafetyBannerDismissed] = useState(false);
   const [selectedSender, setSelectedSender] = useState<SenderProfile | null>(null);
+  const [blockedUserId, setBlockedUserId] = useState<string | null>(null);
+  const pendingChallengeRef = useRef<{ opponentId: string; opponentName: string; opponentPhoto?: string } | null>(null);
   const flatListRef = useRef<FlatList>(null);
   const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -193,6 +201,20 @@ export function CoachChatFooter({ mode = "coach", onChallenge }: ChatFooterProps
       if (val === "true") setSafetyBannerDismissed(true);
     });
   }, []);
+
+  useEffect(() => {
+    if (!selectedSender) {
+      setBlockedUserId(null);
+      if (pendingChallengeRef.current && onChallenge) {
+        const { opponentId, opponentName, opponentPhoto } = pendingChallengeRef.current;
+        pendingChallengeRef.current = null;
+        const timer = setTimeout(() => {
+          onChallenge(opponentId, opponentName, opponentPhoto);
+        }, 350);
+        return () => clearTimeout(timer);
+      }
+    }
+  }, [selectedSender, onChallenge]);
 
   const dismissSafetyBanner = useCallback(() => {
     setSafetyBannerDismissed(true);
@@ -379,6 +401,68 @@ export function CoachChatFooter({ mode = "coach", onChallenge }: ChatFooterProps
       queryClient.invalidateQueries({ queryKey: messagesQueryKey });
     },
   });
+
+  const removeReactionMutation = useMutation({
+    mutationFn: async ({ messageId, emoji }: { messageId: string; emoji: string }) => {
+      if (!userId) return;
+      if (isPlayerMode) {
+        return apiRequest("DELETE", `/api/player/me/messages/${messageId}/reactions`, { emoji });
+      } else {
+        return apiRequest("DELETE", `/api/messages/${messageId}/reactions`, {
+          reactorType: userType,
+          reactorId: userId,
+          emoji,
+        });
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: messagesQueryKey });
+    },
+  });
+
+  const deleteConversationMutation = useMutation({
+    mutationFn: async (conversationId: string) => {
+      return apiRequest("DELETE", `/api/player/me/conversations/${conversationId}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: conversationsQueryKey });
+      setSelectedConversation(null);
+    },
+  });
+
+  const blockMutation = useMutation({
+    mutationFn: async (targetUserId: string) => {
+      return apiRequest("POST", `/api/social/users/${targetUserId}/block`, {});
+    },
+    onSuccess: (_data, targetUserId) => {
+      setBlockedUserId(targetUserId);
+      queryClient.invalidateQueries({ queryKey: ["/api/social/users", targetUserId, "block"] });
+    },
+  });
+
+  const unblockMutation = useMutation({
+    mutationFn: async (targetUserId: string) => {
+      return apiRequest("DELETE", `/api/social/users/${targetUserId}/block`);
+    },
+    onSuccess: (_data, targetUserId) => {
+      setBlockedUserId(null);
+      queryClient.invalidateQueries({ queryKey: ["/api/social/users", targetUserId, "block"] });
+    },
+  });
+
+  const senderUserIdForBlockCheck = selectedSender?.senderUserId ?? null;
+  const { data: blockStatusData } = useQuery<{ isBlocked: boolean }>({
+    queryKey: ["/api/social/users", senderUserIdForBlockCheck, "block"],
+    enabled: !!senderUserIdForBlockCheck && isPlayerMode,
+  });
+
+  useEffect(() => {
+    if (senderUserIdForBlockCheck && blockStatusData?.isBlocked) {
+      setBlockedUserId(senderUserIdForBlockCheck);
+    } else if (senderUserIdForBlockCheck && blockStatusData?.isBlocked === false) {
+      setBlockedUserId(prev => prev === senderUserIdForBlockCheck ? null : prev);
+    }
+  }, [blockStatusData, senderUserIdForBlockCheck]);
 
   useEffect(() => {
     const targetHeight = isFullscreen
@@ -612,28 +696,52 @@ export function CoachChatFooter({ mode = "coach", onChallenge }: ChatFooterProps
                 acc[r.emoji] = (acc[r.emoji] || 0) + 1;
                 return acc;
               }, {} as Record<string, number>)
-            ).map(([emoji, count]) => (
-              <View key={emoji} style={styles.reactionBadge}>
-                <Ionicons name={getReactionIcon(emoji)} size={12} color={Colors.dark.text} />
-                <ThemedText style={styles.reactionCount}>{count}</ThemedText>
-              </View>
-            ))}
+            ).map(([emoji, count]) => {
+              const myReaction = isPlayerMode
+                ? item.reactions.find(r => r.emoji === emoji && r.reactorPlayerId === userId)
+                : item.reactions.find(r => r.emoji === emoji && r.reactorCoachId === userId);
+              return (
+                <Pressable
+                  key={emoji}
+                  style={[styles.reactionBadge, myReaction ? { backgroundColor: Colors.dark.primary + "30" } : undefined]}
+                  onPress={() => {
+                    if (myReaction) {
+                      removeReactionMutation.mutate({ messageId: item.id, emoji });
+                    } else {
+                      addReactionMutation.mutate({ messageId: item.id, emoji });
+                    }
+                  }}
+                >
+                  <Ionicons name={getReactionIcon(emoji)} size={12} color={myReaction ? Colors.dark.primary : Colors.dark.text} />
+                  <ThemedText style={[styles.reactionCount, myReaction ? { color: Colors.dark.primary } : undefined]}>{count}</ThemedText>
+                </Pressable>
+              );
+            })}
           </View>
         ) : null}
         {showReactions === item.id ? (
           <View style={styles.reactionPicker}>
-            {REACTION_EMOJIS.map((emoji) => (
-              <Pressable
-                key={emoji}
-                onPress={() => {
-                  addReactionMutation.mutate({ messageId: item.id, emoji });
-                  setShowReactions(null);
-                }}
-                style={styles.reactionOption}
-              >
-                <Ionicons name={getReactionIcon(emoji)} size={18} color={Colors.dark.text} />
-              </Pressable>
-            ))}
+            {REACTION_EMOJIS.map((emoji) => {
+              const myReaction = isPlayerMode
+                ? item.reactions.find(r => r.emoji === emoji && r.reactorPlayerId === userId)
+                : item.reactions.find(r => r.emoji === emoji && r.reactorCoachId === userId);
+              return (
+                <Pressable
+                  key={emoji}
+                  onPress={() => {
+                    if (myReaction) {
+                      removeReactionMutation.mutate({ messageId: item.id, emoji });
+                    } else {
+                      addReactionMutation.mutate({ messageId: item.id, emoji });
+                    }
+                    setShowReactions(null);
+                  }}
+                  style={[styles.reactionOption, myReaction ? { backgroundColor: Colors.dark.primary + "30" } : undefined]}
+                >
+                  <Ionicons name={getReactionIcon(emoji)} size={18} color={myReaction ? Colors.dark.primary : Colors.dark.text} />
+                </Pressable>
+              );
+            })}
           </View>
         ) : null}
       </Pressable>
@@ -906,6 +1014,7 @@ export function CoachChatFooter({ mode = "coach", onChallenge }: ChatFooterProps
                   senderType: item.senderType,
                   senderCoachId: item.senderCoachId,
                   senderPlayerId: item.senderPlayerId,
+                  senderUserId: item.senderUserId,
                 })
               }
             >
@@ -1108,6 +1217,22 @@ export function CoachChatFooter({ mode = "coach", onChallenge }: ChatFooterProps
         renderItem={({ item }) => (
           <Pressable
             onPress={() => setSelectedConversation(item)}
+            onLongPress={() => {
+              if (isPlayerMode && item.type === "player_player") {
+                Alert.alert(
+                  "Delete Conversation",
+                  `Remove your conversation with ${getConvDisplayName(item)}?`,
+                  [
+                    { text: "Cancel", style: "cancel" },
+                    {
+                      text: "Delete",
+                      style: "destructive",
+                      onPress: () => deleteConversationMutation.mutate(item.id),
+                    },
+                  ]
+                );
+              }
+            }}
             style={styles.conversationItem}
           >
             <View style={styles.conversationAvatar}>
@@ -1203,9 +1328,29 @@ export function CoachChatFooter({ mode = "coach", onChallenge }: ChatFooterProps
               <Pressable onPress={() => setSelectedConversation(null)} style={styles.backButton}>
                 <Ionicons name="chevron-back" size={20} color={Colors.dark.text} />
               </Pressable>
-              <ThemedText style={styles.conversationTitle}>
-                {getConvDisplayName(selectedConversation)}
-              </ThemedText>
+              <Pressable
+                onPress={() => {
+                  if (isPlayerMode && selectedConversation.type === "player_player" && selectedConversation.otherPlayerId) {
+                    const otherUserId = selectedConversation.otherPlayerUserId ?? null;
+                    setSelectedSender({
+                      senderName: selectedConversation.playerName || "Player",
+                      senderPhotoUrl: null,
+                      senderType: "player",
+                      senderCoachId: null,
+                      senderPlayerId: selectedConversation.otherPlayerId,
+                      senderUserId: otherUserId,
+                    });
+                    if (selectedConversation.isBlockedByMe && otherUserId) {
+                      setBlockedUserId(otherUserId);
+                    }
+                  }
+                }}
+                style={{ flex: 1 }}
+              >
+                <ThemedText style={styles.conversationTitle}>
+                  {getConvDisplayName(selectedConversation)}
+                </ThemedText>
+              </Pressable>
             </View>
           ) : null}
 
@@ -1374,6 +1519,13 @@ export function CoachChatFooter({ mode = "coach", onChallenge }: ChatFooterProps
         transparent
         animationType="slide"
         onRequestClose={() => setSelectedSender(null)}
+        onDismiss={() => {
+          if (pendingChallengeRef.current && onChallenge) {
+            const { opponentId, opponentName, opponentPhoto } = pendingChallengeRef.current;
+            pendingChallengeRef.current = null;
+            onChallenge(opponentId, opponentName, opponentPhoto);
+          }
+        }}
       >
         <Pressable style={styles.profileModalOverlay} onPress={() => setSelectedSender(null)}>
           <Pressable style={styles.profileModalSheet} onPress={(e) => e.stopPropagation()}>
@@ -1494,15 +1646,57 @@ export function CoachChatFooter({ mode = "coach", onChallenge }: ChatFooterProps
                         const opponentId = selectedSender.senderPlayerId!;
                         const opponentName = selectedSender.senderName;
                         const opponentPhoto = selectedSender.senderPhotoUrl ?? undefined;
+                        pendingChallengeRef.current = { opponentId, opponentName, opponentPhoto };
                         setSelectedSender(null);
-                        setTimeout(() => {
-                          onChallenge(opponentId, opponentName, opponentPhoto);
-                        }, 350);
                       }}
                     >
                       <Ionicons name="tennisball-outline" size={16} color={Colors.dark.xpCyan} />
                       <ThemedText style={[styles.profileModalBtnText, { color: Colors.dark.xpCyan }]}>Challenge to Match</ThemedText>
                     </Pressable>
+                  ) : null}
+                  {selectedSender.senderType === "player" && selectedSender.senderUserId && isPlayerMode ? (
+                    blockedUserId === selectedSender.senderUserId ? (
+                      <Pressable
+                        style={[styles.profileModalBtn, { backgroundColor: Colors.dark.textSecondary + "15", borderColor: Colors.dark.textSecondary + "50" }]}
+                        onPress={() => {
+                          unblockMutation.mutate(selectedSender.senderUserId!);
+                        }}
+                      >
+                        <Ionicons name="close-circle-outline" size={16} color={Colors.dark.textSecondary} />
+                        <ThemedText style={[styles.profileModalBtnText, { color: Colors.dark.textSecondary }]}>Unblock</ThemedText>
+                      </Pressable>
+                    ) : (
+                      <Pressable
+                        style={[styles.profileModalBtn, { backgroundColor: "#FF3B3010", borderColor: "#FF3B3040" }]}
+                        onPress={() => {
+                          Alert.alert(
+                            "Block Player",
+                            `Block ${selectedSender.senderName}? You won't see their messages.`,
+                            [
+                              { text: "Cancel", style: "cancel" },
+                              {
+                                text: "Block",
+                                style: "destructive",
+                                onPress: () => {
+                                  blockMutation.mutate(selectedSender.senderUserId!);
+                                  const convToDelete = conversations.find(c =>
+                                    c.type === "player_player" &&
+                                    c.otherPlayerId === selectedSender.senderPlayerId
+                                  );
+                                  if (convToDelete) {
+                                    deleteConversationMutation.mutate(convToDelete.id);
+                                  }
+                                  setSelectedSender(null);
+                                },
+                              },
+                            ]
+                          );
+                        }}
+                      >
+                        <Ionicons name="ban-outline" size={16} color="#FF3B30" />
+                        <ThemedText style={[styles.profileModalBtnText, { color: "#FF3B30" }]}>Block</ThemedText>
+                      </Pressable>
+                    )
                   ) : null}
                 </View>
                 <Pressable style={styles.profileModalClose} onPress={() => setSelectedSender(null)}>

@@ -1155,6 +1155,25 @@ const socialPostUpload = multer({
     }
   });
 
+  // Check block status for current user against a target userId
+  router.get("/api/social/users/:userId/block", authMiddleware, async (req: AuthRequest, res: Response) => {
+    try {
+      const blockerUserId = req.user!.userId;
+      const targetUserId = req.params.userId;
+      const existing = await db.select()
+        .from(playerBlocksTable)
+        .where(and(
+          eq(playerBlocksTable.blockerUserId, blockerUserId),
+          eq(playerBlocksTable.blockedUserId, targetUserId)
+        ))
+        .limit(1);
+      res.json({ isBlocked: existing.length > 0 });
+    } catch (error) {
+      console.error("[BlockStatus] Error:", error);
+      res.status(500).json({ error: "Failed to check block status" });
+    }
+  });
+
   // Block a user
   router.post("/api/social/users/:userId/block", authMiddleware, async (req: AuthRequest, res: Response) => {
     try {

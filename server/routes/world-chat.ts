@@ -25,6 +25,7 @@ import {
   inSessionFeedback,
   coachingSeries,
   coachSettings,
+  users,
 } from "@shared/schema";
 import {
   authMiddlewareWithFreshData as authMiddleware,
@@ -250,6 +251,7 @@ async function autoCancel(
         }
       }
 
+      const playerUserIdMap = new Map<string, string | null>();
       if (playerIds.length > 0) {
         const playerData = await db.select({
           id: players.id,
@@ -268,6 +270,15 @@ async function autoCancel(
           const name = p.name || 'Player';
           playerMap.set(p.id, { name, academyName: (p.academyId ? academyNameMap.get(p.academyId) : null) || 'Academy', photoUrl: p.profilePhotoUrl || null });
         }
+
+        // Get userIds for players (for block functionality)
+        const playerUserData = await db.select({
+          playerId: users.playerId,
+          userId: users.id,
+        }).from(users).where(inArray(users.playerId, playerIds));
+        for (const u of playerUserData) {
+          if (u.playerId) playerUserIdMap.set(u.playerId, u.userId);
+        }
       }
 
       // Enrich messages with sender info
@@ -275,6 +286,7 @@ async function autoCancel(
         let senderName = "Unknown";
         let academyName = "";
         let senderPhotoUrl: string | null = null;
+        let senderUserId: string | null = null;
         if (m.senderType === "coach" && m.senderCoachId) {
           const info = coachMap.get(m.senderCoachId);
           senderName = info?.name || "Coach";
@@ -285,6 +297,7 @@ async function autoCancel(
           senderName = info?.name || "Player";
           academyName = info?.academyName || "";
           senderPhotoUrl = info?.photoUrl || null;
+          senderUserId = playerUserIdMap.get(m.senderPlayerId) || null;
         } else if (m.senderType === "system") {
           senderName = "System";
         }
@@ -294,6 +307,7 @@ async function autoCancel(
           senderName,
           academyName,
           senderPhotoUrl,
+          senderUserId,
           reactions: [],
         };
       });
