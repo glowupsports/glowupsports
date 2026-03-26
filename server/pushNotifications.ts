@@ -1376,6 +1376,7 @@ export async function fixHolidayOvercharges(): Promise<void> {
           AND COALESCE(ct.metadata->>'isDebt', 'false') = 'true'
           AND COALESCE(ct.metadata->>'settled', 'false') != 'true'
           AND COALESCE(ct.metadata->>'cancelled', 'false') != 'true'
+          AND ct.created_at BETWEEN s.start_time - INTERVAL '1 day' AND s.start_time + INTERVAL '21 days'
       `);
       const overchargeCount = Number(remainingOvercharges.rows[0]?.count ?? 0);
       const debtCount = Number(remainingDebts.rows[0]?.count ?? 0);
@@ -1477,24 +1478,42 @@ export async function fixAlmaZaleskiCredits(): Promise<void> {
       }
     }
 
-    // Cancel any remaining unsettled GROUP debt transactions for Alma (group-type only).
-    // Always runs — debt cancellation is idempotent via the metadata cancelled flag.
-    const cancelRes = await pool.query(
-      `UPDATE credit_transactions
-       SET metadata = jsonb_set(COALESCE(metadata, '{}')::jsonb, '{cancelled}', 'true')
-         || jsonb_build_object('cancelledAt', $2::text, 'cancelReason', 'manual_correction_alma_zalesski')
+    // One-shot debt cancellation for Alma's historical group debts.
+    // Idempotency: skip if any debt was already cancelled with our reason tag.
+    // Scope: only debts created before 2026-04-01 (the fix deployment window) to
+    //         ensure future legitimate group debts are never auto-cancelled.
+    const debtAlreadyCancelled = await pool.query(
+      `SELECT id FROM credit_transactions
        WHERE player_id = $1
-         AND type = 'debit'
          AND credit_type = 'group'
-         AND reason IN ('session_debt', 'session_join_debt', 'session_unpaid')
-         AND COALESCE(metadata->>'isDebt', 'false') = 'true'
-         AND COALESCE(metadata->>'settled', 'false') != 'true'
-         AND COALESCE(metadata->>'cancelled', 'false') != 'true'`,
-      [playerId, new Date().toISOString()]
+         AND COALESCE(metadata->>'cancelReason', '') = 'manual_correction_alma_zalesski'
+       LIMIT 1`,
+      [playerId]
     );
-    const cancelledCount = cancelRes.rowCount ?? 0;
-    if (cancelledCount > 0) {
-      console.log(`[AlmaFix] Cancelled ${cancelledCount} unsettled group debt transaction(s) for Alma`);
+
+    if (debtAlreadyCancelled.rows.length > 0) {
+      console.log("[AlmaFix] Debt cancellation already applied — skipping");
+    } else {
+      const cancelRes = await pool.query(
+        `UPDATE credit_transactions
+         SET metadata = jsonb_set(COALESCE(metadata, '{}')::jsonb, '{cancelled}', 'true')
+           || jsonb_build_object('cancelledAt', $2::text, 'cancelReason', 'manual_correction_alma_zalesski')
+         WHERE player_id = $1
+           AND type = 'debit'
+           AND credit_type = 'group'
+           AND reason IN ('session_debt', 'session_join_debt', 'session_unpaid')
+           AND COALESCE(metadata->>'isDebt', 'false') = 'true'
+           AND COALESCE(metadata->>'settled', 'false') != 'true'
+           AND COALESCE(metadata->>'cancelled', 'false') != 'true'
+           AND created_at < '2026-04-01T00:00:00Z'::timestamptz`,
+        [playerId, new Date().toISOString()]
+      );
+      const cancelledCount = cancelRes.rowCount ?? 0;
+      if (cancelledCount > 0) {
+        console.log(`[AlmaFix] Cancelled ${cancelledCount} historical group debt transaction(s) for Alma`);
+      } else {
+        console.log("[AlmaFix] No historical group debts to cancel");
+      }
     }
 
     console.log("[AlmaFix] Done");
