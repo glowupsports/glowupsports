@@ -20,8 +20,9 @@
  *    POST /api/diagnostics/ui-issue (authenticated) also now validates via Zod schema.
  *
  * 4. PII/sensitive data sanitized from server logs:
- *    - emailService.ts OTP logs: added maskEmail() → "joh***@domain.com" format
- *    - routes.ts [MonthlyReport] server log: user.email removed (response body unchanged)
+ *    - emailService.ts [Email] Sent log: masked via maskEmail() (was full address)
+ *    - emailService.ts OTP logs: masked via maskEmail() → "joh***@domain.com"
+ *    - routes.ts [MonthlyReport] server log: user.email and playerId both removed
  *    - routes.ts [MonthlyReport] error 500 handler: error.message removed from response
  *    - pushNotifications.ts: monthly report error log no longer includes player.playerId
  *

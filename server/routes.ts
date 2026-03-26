@@ -930,9 +930,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
 
         if (result.success) {
-          console.log(
-            `[MonthlyReport] Sent ${monthName} report (player: ${playerId})`,
-          );
+          console.log(`[MonthlyReport] Sent ${monthName} report`);
           res.json({
             success: true,
             message: `Monthly report sent to ${user.email}`,
@@ -21462,7 +21460,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
     async (req: AuthenticatedRequest, res: Response) => {
       try {
         const { id } = req.params;
-        const { level, xp } = req.body;
+        const setLevelSchema = z.object({ level: z.number().int().positive().optional(), xp: z.number().int().nonnegative().optional() });
+        const parsedLevel = setLevelSchema.safeParse(req.body);
+        if (!parsedLevel.success) return res.status(400).json({ error: fromZodError(parsedLevel.error).message });
+        const { level, xp } = parsedLevel.data;
 
         // Level 50 requires 20500 XP based on leveling formula
         // XP = 100 * level + 50 * (level - 1)^1.3 approximately
