@@ -2363,12 +2363,8 @@ router.get("/api/admin/dashboard/operations", authMiddleware, requireRole("admin
   });
 
   // Demo data seed endpoint for TheLaw (Play Store mockups)
-router.post("/api/admin/seed-demo-data", authMiddleware, async (req: AuthRequest, res: Response) => {
+router.post("/api/admin/seed-demo-data", authMiddleware, requireRole("platform_owner"), async (req: AuthRequest, res: Response) => {
     try {
-      const user = req.user!;
-      if (user.role !== "platform_owner") {
-        return res.status(403).json({ error: "Only platform owner can seed demo data" });
-      }
 
       const { seedDemoDataForTheLaw } = await import("./seeds/demo-data-seed");
       const result = await seedDemoDataForTheLaw();
@@ -2616,7 +2612,7 @@ router.get("/api/player/spotlight/academy-players", authMiddleware, requirePlaye
 
   
   // DIAGNOSTIC: Check credit processing status for a specific player's semi-private sessions
-router.get("/api/admin/credits/diagnose/:playerId", authMiddleware, async (req: AuthRequest, res: Response) => {
+router.get("/api/admin/credits/diagnose/:playerId", authMiddleware, requireRole("admin", "platform_owner"), async (req: AuthRequest, res: Response) => {
     try {
       const { playerId } = req.params;
       

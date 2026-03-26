@@ -257,6 +257,19 @@ const diagnosticsLimiter = rateLimit({
   legacyHeaders: false,
 });
 
+const diagnosticsReportSchema = z.object({
+  errorId: z.string().min(1).max(128),
+  severity: z.enum(["error", "warning", "info", "critical"]).optional(),
+  message: z.string().min(1).max(2000),
+  stack: z.string().max(10000).optional().nullable(),
+  screen: z.string().max(256).optional().nullable(),
+  context: z.record(z.unknown()).optional().nullable(),
+  userComment: z.string().max(1000).optional().nullable(),
+  platform: z.string().max(32).optional().nullable(),
+  appVersion: z.string().max(64).optional().nullable(),
+  deviceInfo: z.record(z.unknown()).optional().nullable(),
+});
+
 function generateShortInviteCode(): string {
   const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
   let code = "";
@@ -969,6 +982,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Public endpoint - accepts error reports from any user (authenticated or not)
   app.post("/api/diagnostics/report", diagnosticsLimiter, async (req: Request, res: Response) => {
     try {
+      const parsed = diagnosticsReportSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ error: fromZodError(parsed.error).message });
+      }
       const {
         errorId,
         severity,
@@ -980,13 +997,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         platform,
         appVersion,
         deviceInfo,
-      } = req.body;
-
-      if (!errorId || !message) {
-        return res
-          .status(400)
-          .json({ error: "errorId and message are required" });
-      }
+      } = parsed.data;
 
       // Check for duplicate reports (same errorId)
       const existing = await storage.getDiagnosticReportByErrorId(errorId);

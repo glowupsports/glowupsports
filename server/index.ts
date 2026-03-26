@@ -2,10 +2,12 @@
  * Security Audit Summary — Task #117 (March 2026)
  *
  * FIXED:
- * 1. Two admin data-repair endpoints in server/routes/player-social.ts had no auth
- *    guard and were publicly accessible without a token:
- *    - POST /api/admin/repair-private-adjusted  → now requireRole("admin","platform_owner")
- *    - POST /api/admin/fix-series-titles-and-merge → now requireRole("admin","platform_owner")
+ * 1. Four admin endpoints in server/routes/player-social.ts lacked requireRole():
+ *    - POST /api/admin/repair-private-adjusted  → requireRole("admin","platform_owner")
+ *    - POST /api/admin/fix-series-titles-and-merge → requireRole("admin","platform_owner")
+ *    - GET  /api/admin/credits/diagnose/:playerId → requireRole("admin","platform_owner")
+ *    - POST /api/admin/seed-demo-data → requireRole("platform_owner")
+ *    All four return 401 without a valid token; 403 if wrong role.
  *
  * 2. Three route handlers in player-social.ts exposed raw error.message strings in
  *    500 responses, potentially leaking internal DB/system details. Replaced with
@@ -13,10 +15,12 @@
  *
  * 3. POST /api/diagnostics/report (public, unauthenticated) had only the global
  *    300-req/15min rate limiter. Added a dedicated diagnosticsLimiter (20-req/15min)
- *    to prevent abuse.
+ *    to prevent abuse. Added Zod schema validation (diagnosticsReportSchema) so
+ *    malformed bodies are rejected with 400 before hitting DB logic.
  *
  * 4. Email addresses were logged in plain text in emailService.ts OTP logs.
  *    Added maskEmail() helper — now logs "joh***@domain.com" format only.
+ *    Monthly report success log in pushNotifications.ts no longer includes email.
  *
  * VERIFIED OK (no changes needed):
  * - SQL injection: no raw template-literal user input in pool.query() calls (ORM used throughout)
