@@ -47,6 +47,8 @@ import {
 } from "../auth";
 import { sendBadgeEarnedNotification } from "../pushNotifications";
 import { sendEmail, sendDeleteAccountRequestEmail } from "../emailService";
+import { z } from "zod";
+import { fromZodError } from "zod-validation-error";
 
 const router = Router();
 
@@ -2716,6 +2718,11 @@ router.get("/api/admin/credits/diagnose/:playerId", adminRepairLimiter, authMidd
     return d.toISOString().split('T')[0];
   }
 
+const spotlightNominateSchema = z.object({
+  nominatedPlayerId: z.string().uuid(),
+  reason: z.string().min(1).max(500),
+});
+
 router.post("/api/player/spotlight/nominate", authMiddleware, requirePlayerOrOwner, async (req: AuthRequest, res: Response) => {
     try {
       const academyId = req.user?.academyId;
@@ -2724,10 +2731,11 @@ router.post("/api/player/spotlight/nominate", authMiddleware, requirePlayerOrOwn
         return res.status(400).json({ error: "Academy and player context required" });
       }
 
-      const { nominatedPlayerId, reason } = req.body;
-      if (!nominatedPlayerId || !reason) {
-        return res.status(400).json({ error: "nominatedPlayerId and reason are required" });
+      const parsed = spotlightNominateSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ error: fromZodError(parsed.error).message });
       }
+      const { nominatedPlayerId, reason } = parsed.data;
 
       if (nominatedPlayerId === playerId) {
         return res.status(400).json({ error: "You cannot nominate yourself" });

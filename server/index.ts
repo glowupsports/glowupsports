@@ -21,8 +21,8 @@
  *
  * 4. PII/sensitive data sanitized from server logs:
  *    - emailService.ts OTP logs: added maskEmail() → "joh***@domain.com" format
- *    - routes.ts [MonthlyReport] log: removed user.email from log and JSON response
- *    - routes.ts [MonthlyReport] error handler: removed error.message from 500 response
+ *    - routes.ts [MonthlyReport] server log: user.email removed (response body unchanged)
+ *    - routes.ts [MonthlyReport] error 500 handler: error.message removed from response
  *    - pushNotifications.ts: monthly report error log no longer includes player.playerId
  *
  * VERIFIED OK (no changes needed):
