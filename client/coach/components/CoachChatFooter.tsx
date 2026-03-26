@@ -1386,12 +1386,20 @@ export function CoachChatFooter({ mode = "coach" }: ChatFooterProps) {
                     <Pressable
                       style={styles.profileModalBtn}
                       onPress={() => {
+                        const targetPlayerId = selectedSender.senderPlayerId!;
                         setSelectedSender(null);
                         setTimeout(() => {
-                          createConversationMutation.mutate({
-                            type: "player_player",
-                            otherPlayerId: selectedSender.senderPlayerId!,
-                          });
+                          if (isPlayerMode) {
+                            createConversationMutation.mutate({
+                              type: "player_player",
+                              otherPlayerId: targetPlayerId,
+                            });
+                          } else {
+                            createConversationMutation.mutate({
+                              type: "coach_player",
+                              playerId: targetPlayerId,
+                            });
+                          }
                           setIsExpanded(true);
                           setCurrentTab("players");
                         }, 350);
