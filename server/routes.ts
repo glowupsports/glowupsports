@@ -135,6 +135,7 @@ import {
   validatePackageOwnership,
   validateNotificationOwnership,
   refreshAuthMiddleware,
+  JWT_SECRET,
   type AuthenticatedRequest,
 } from "./auth";
 import {
@@ -997,7 +998,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           const jwt = require("jsonwebtoken");
           const decoded = jwt.verify(
             token,
-            process.env.SESSION_SECRET || "dev-secret",
+            JWT_SECRET,
           ) as any;
           userId = decoded.userId;
           academyId = decoded.academyId;
@@ -6356,8 +6357,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
     async (req: AuthenticatedRequest, res: Response) => {
       try {
         const academyId = req.user!.academyId;
+        // Whitelist allowed fields — academyId is always forced from auth context
+        const { name, address, city, country, mapUrl, notes, isActive } = req.body;
         const location = await storage.createLocation({
-          ...req.body,
+          name, address, city, country, mapUrl, notes, isActive,
           academyId,
         });
         res.status(201).json(location);
@@ -6377,9 +6380,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
       try {
         const { id } = req.params;
         const academyId = req.user!.academyId;
+        // Whitelist allowed fields — never permit academyId or id to be overwritten
+        const { name, address, city, country, mapUrl, notes, isActive } = req.body;
+        const allowedUpdates: Record<string, any> = {};
+        if (name !== undefined) allowedUpdates.name = name;
+        if (address !== undefined) allowedUpdates.address = address;
+        if (city !== undefined) allowedUpdates.city = city;
+        if (country !== undefined) allowedUpdates.country = country;
+        if (mapUrl !== undefined) allowedUpdates.mapUrl = mapUrl;
+        if (notes !== undefined) allowedUpdates.notes = notes;
+        if (isActive !== undefined) allowedUpdates.isActive = isActive;
         const location = await storage.updateLocation(
           id,
-          req.body,
+          allowedUpdates,
           academyId ?? undefined,
         );
         if (!location) {
@@ -14563,19 +14576,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
       try {
         const { id } = req.params;
         const academyId = req.user!.academyId!;
-        const updates = { ...req.body };
+
+        // Whitelist allowed fields — never allow role, academyId, totalXp, level, or other privileged fields
+        const { name, phone, specialty, bio, hourlyRate, photoUrl, availability, certifications } = req.body;
+        const updates: Record<string, any> = { name, phone, specialty, bio, photoUrl, availability, certifications };
 
         // Sanitize numeric fields: convert empty strings to null, valid strings to numbers
-        if (updates.hourlyRate === "" || updates.hourlyRate === undefined) {
+        if (hourlyRate === "" || hourlyRate === undefined) {
           updates.hourlyRate = null;
-        } else if (updates.hourlyRate !== null) {
-          updates.hourlyRate = String(Number(updates.hourlyRate));
+        } else if (hourlyRate !== null) {
+          updates.hourlyRate = String(Number(hourlyRate));
+        } else {
+          updates.hourlyRate = null;
         }
 
         // Sanitize optional text fields: convert empty strings to null
         if (updates.phone === "") updates.phone = null;
         if (updates.specialty === "") updates.specialty = null;
         if (updates.bio === "") updates.bio = null;
+
+        // Remove undefined keys
+        Object.keys(updates).forEach(k => updates[k] === undefined && delete updates[k]);
 
         // Verify coach belongs to academy first
         const coach = await storage.getCoach(id, academyId);
@@ -19148,7 +19169,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post(
     "/api/owner/activate-roles",
     authMiddleware,
-    requireRole("owner", "academy_owner", "platform_owner"),
+    requireRole("academy_owner", "platform_owner"),
     async (req: AuthenticatedRequest, res: Response) => {
       try {
         const userId = req.user!.userId;
@@ -21102,6 +21123,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
             .json({ error: "Search query must be at least 2 characters" });
         }
 
+        const searchConditions = or(
+          ilike(players.name, `%${query}%`),
+          ilike(players.displayName, `%${query}%`),
+          ilike(players.email, `%${query}%`),
+        )!;
+
+        // platform_owner can search globally; academy_owner/admin are scoped to their academy
+        const academyCondition = req.user!.role === "platform_owner"
+          ? searchConditions
+          : and(searchConditions, eq(players.academyId, req.user!.academyId!));
+
         const searchResults = await db
           .select({
             id: players.id,
@@ -21117,13 +21149,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             coachId: players.coachId,
           })
           .from(players)
-          .where(
-            or(
-              ilike(players.name, `%${query}%`),
-              ilike(players.displayName, `%${query}%`),
-              ilike(players.email, `%${query}%`),
-            ),
-          )
+          .where(academyCondition)
           .limit(20);
 
         res.json(searchResults);
@@ -25061,17 +25087,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
           return res.status(400).json({ error: "Academy ID required" });
         }
 
-        const updates = req.body;
+        // Whitelist allowed settings fields — never allow id, ownerId, or other privileged fields
+        const { defaultSessionLength, xpVisibleToPlayers, notificationsEnabled, welcomeVideoUrl } = req.body;
+        const updates: Record<string, any> = {};
+        if (defaultSessionLength !== undefined) updates.defaultSessionLength = defaultSessionLength;
+        if (xpVisibleToPlayers !== undefined) updates.xpVisibleToPlayers = xpVisibleToPlayers;
+        if (notificationsEnabled !== undefined) updates.notificationsEnabled = notificationsEnabled;
 
         // Handle welcomeVideoUrl separately in academy_settings table
-        if (updates.welcomeVideoUrl !== undefined) {
-          await storage.upsertAcademySettings(academyId, {
-            welcomeVideoUrl: updates.welcomeVideoUrl,
-          });
+        if (welcomeVideoUrl !== undefined) {
+          await storage.upsertAcademySettings(academyId, { welcomeVideoUrl });
         }
-        const updated = await storage.updateAcademy(academyId, updates);
 
-        res.json({ success: true, ...updates });
+        if (Object.keys(updates).length > 0) {
+          await storage.updateAcademy(academyId, updates);
+        }
+
+        res.json({ success: true, defaultSessionLength, xpVisibleToPlayers, notificationsEnabled, welcomeVideoUrl });
       } catch (error) {
         console.error("Update academy settings error:", error);
         res.status(500).json({ error: "Failed to update academy settings" });

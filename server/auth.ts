@@ -2,7 +2,10 @@ import { Request, Response, NextFunction } from "express";
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 
-const JWT_SECRET = process.env.SESSION_SECRET || "dev-secret-change-in-production";
+if (!process.env.SESSION_SECRET) {
+  throw new Error("[FATAL] SESSION_SECRET environment variable is not set. Server cannot start without a secure JWT secret.");
+}
+export const JWT_SECRET = process.env.SESSION_SECRET;
 const JWT_EXPIRES_IN = "7d";
 const SALT_ROUNDS = 12;
 

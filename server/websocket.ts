@@ -2,8 +2,7 @@ import { WebSocketServer, WebSocket } from "ws";
 import { Server } from "node:http";
 import jwt from "jsonwebtoken";
 import { storage } from "./storage";
-
-const JWT_SECRET = process.env.SESSION_SECRET || "dev-secret-key";
+import { JWT_SECRET } from "./auth";
 
 interface AuthenticatedSocket extends WebSocket {
   userId: string;
@@ -58,8 +57,25 @@ export function setupWebSocket(server: Server): WebSocketServer {
     const socket = ws as AuthenticatedSocket;
     socket.isAlive = true;
 
-    const url = new URL(req.url || "", `http://${req.headers.host}`);
-    const token = url.searchParams.get("token");
+    // Extract token from Sec-WebSocket-Protocol sub-protocol ("auth-<token>")
+    // This is the standard cross-platform approach that avoids exposing the token in the URL.
+    // The "Authorization" header approach is also accepted for server-to-server connections.
+    let token: string | null = null;
+
+    const authHeader = req.headers.authorization;
+    if (authHeader && authHeader.startsWith("Bearer ")) {
+      token = authHeader.substring(7);
+    } else {
+      // Extract from the Sec-WebSocket-Protocol header (format: "auth-<jwt>")
+      const protocols = req.headers["sec-websocket-protocol"];
+      if (protocols) {
+        const protocolList = protocols.split(",").map((p) => p.trim());
+        const authProtocol = protocolList.find((p) => p.startsWith("auth-"));
+        if (authProtocol) {
+          token = authProtocol.slice(5);
+        }
+      }
+    }
 
     if (!token) {
       socket.close(4001, "Authentication required");

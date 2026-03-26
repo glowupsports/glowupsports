@@ -100,9 +100,13 @@ export function useWebSocket(options: UseWebSocketOptions = {}) {
       }
 
       const apiUrl = getApiUrl();
-      const wsUrl = apiUrl.replace(/^http/, "ws") + "/ws?token=" + encodeURIComponent(token);
+      const wsUrl = apiUrl.replace(/^http/, "ws") + "/ws";
 
-      const ws = new WebSocket(wsUrl);
+      // Pass the JWT via the Sec-WebSocket-Protocol header using a special sub-protocol
+      // of the form "auth-<token>". This is the standard cross-platform approach that
+      // avoids exposing the token in the URL (which appears in server access logs).
+      // The server negotiates the protocol and extracts the token from it.
+      const ws = new WebSocket(wsUrl, [`auth-${token}`]);
       wsRef.current = ws;
 
       ws.onopen = () => {

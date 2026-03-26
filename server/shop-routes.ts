@@ -1270,9 +1270,26 @@ router.post("/academy/shop/products", authMiddleware, requireRole("academy_owner
 router.patch("/academy/shop/products/:id", authMiddleware, requireRole("academy_owner", "coach", "admin", "platform_owner"), async (req: AuthRequest, res: Response) => {
   try {
     const { id } = req.params;
-    
+    // Whitelist updatable fields — never allow academyId, id, or createdAt to be overwritten
+    const { name, description, price, comparePrice, stock, imageUrl, isActive, categoryId, order, sku, currency, taxRate, weight, dimensions } = req.body;
+    const allowedUpdates: Record<string, unknown> = { updatedAt: new Date() };
+    if (name !== undefined) allowedUpdates.name = name;
+    if (description !== undefined) allowedUpdates.description = description;
+    if (price !== undefined) allowedUpdates.price = price;
+    if (comparePrice !== undefined) allowedUpdates.comparePrice = comparePrice;
+    if (stock !== undefined) allowedUpdates.stock = stock;
+    if (imageUrl !== undefined) allowedUpdates.imageUrl = imageUrl;
+    if (isActive !== undefined) allowedUpdates.isActive = isActive;
+    if (categoryId !== undefined) allowedUpdates.categoryId = categoryId;
+    if (order !== undefined) allowedUpdates.order = order;
+    if (sku !== undefined) allowedUpdates.sku = sku;
+    if (currency !== undefined) allowedUpdates.currency = currency;
+    if (taxRate !== undefined) allowedUpdates.taxRate = taxRate;
+    if (weight !== undefined) allowedUpdates.weight = weight;
+    if (dimensions !== undefined) allowedUpdates.dimensions = dimensions;
+
     const [product] = await db.update(shopProducts)
-      .set({ ...req.body, updatedAt: new Date() })
+      .set(allowedUpdates)
       .where(and(
         eq(shopProducts.id, id),
         eq(shopProducts.academyId, req.user!.academyId!)
@@ -1356,9 +1373,24 @@ router.post("/academy/shop/services", authMiddleware, requireRole("academy_owner
 router.patch("/academy/shop/services/:id", authMiddleware, requireRole("academy_owner", "coach", "admin", "platform_owner"), async (req: AuthRequest, res: Response) => {
   try {
     const { id } = req.params;
-    
+    // Whitelist updatable fields — never allow academyId, id, or createdAt to be overwritten
+    const { name, description, price, duration, imageUrl, isActive, categoryId, order, currency, maxParticipants, requiresBooking, slug } = req.body;
+    const allowedUpdates: Record<string, unknown> = { updatedAt: new Date() };
+    if (name !== undefined) allowedUpdates.name = name;
+    if (description !== undefined) allowedUpdates.description = description;
+    if (price !== undefined) allowedUpdates.price = price;
+    if (duration !== undefined) allowedUpdates.duration = duration;
+    if (imageUrl !== undefined) allowedUpdates.imageUrl = imageUrl;
+    if (isActive !== undefined) allowedUpdates.isActive = isActive;
+    if (categoryId !== undefined) allowedUpdates.categoryId = categoryId;
+    if (order !== undefined) allowedUpdates.order = order;
+    if (currency !== undefined) allowedUpdates.currency = currency;
+    if (maxParticipants !== undefined) allowedUpdates.maxParticipants = maxParticipants;
+    if (requiresBooking !== undefined) allowedUpdates.requiresBooking = requiresBooking;
+    if (slug !== undefined) allowedUpdates.slug = slug;
+
     const [service] = await db.update(shopServices)
-      .set({ ...req.body, updatedAt: new Date() })
+      .set(allowedUpdates)
       .where(and(
         eq(shopServices.id, id),
         eq(shopServices.academyId, req.user!.academyId!)
@@ -1565,8 +1597,15 @@ router.patch("/academy/shop/orders/:id/status", authMiddleware, requireRole("aca
 router.patch("/academy/shop/categories/:id", authMiddleware, requireRole("academy_owner", "coach", "admin", "platform_owner"), async (req: AuthRequest, res: Response) => {
   try {
     const { id } = req.params;
+    const { name, description, imageUrl, isActive, order } = req.body;
+    const allowedUpdates: Record<string, unknown> = { updatedAt: new Date() };
+    if (name !== undefined) allowedUpdates.name = name;
+    if (description !== undefined) allowedUpdates.description = description;
+    if (imageUrl !== undefined) allowedUpdates.imageUrl = imageUrl;
+    if (isActive !== undefined) allowedUpdates.isActive = isActive;
+    if (order !== undefined) allowedUpdates.order = order;
     const [category] = await db.update(shopCategories)
-      .set({ ...req.body, updatedAt: new Date() })
+      .set(allowedUpdates)
       .where(and(eq(shopCategories.id, id), eq(shopCategories.academyId, req.user!.academyId!)))
       .returning();
     if (!category) return res.status(404).json({ error: "Category not found" });

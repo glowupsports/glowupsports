@@ -302,8 +302,22 @@ router.patch("/player/marketplace/:id", authMiddleware, requirePlayerProfile, re
     const { id } = req.params;
     const playerId = req.user!.playerId!;
 
+    // Whitelist updatable fields — never allow sellerId, academyId, status, or id to be overwritten
+    const { title, description, price, currency, condition, category, imageUrls, isActive, quantity, location } = req.body;
+    const allowedUpdates: Record<string, unknown> = { updatedAt: new Date() };
+    if (title !== undefined) allowedUpdates.title = title;
+    if (description !== undefined) allowedUpdates.description = description;
+    if (price !== undefined) allowedUpdates.price = price;
+    if (currency !== undefined) allowedUpdates.currency = currency;
+    if (condition !== undefined) allowedUpdates.condition = condition;
+    if (category !== undefined) allowedUpdates.category = category;
+    if (imageUrls !== undefined) allowedUpdates.imageUrls = imageUrls;
+    if (isActive !== undefined) allowedUpdates.isActive = isActive;
+    if (quantity !== undefined) allowedUpdates.quantity = quantity;
+    if (location !== undefined) allowedUpdates.location = location;
+
     const [listing] = await db.update(marketplaceListings)
-      .set({ ...req.body, updatedAt: new Date() })
+      .set(allowedUpdates)
       .where(and(
         eq(marketplaceListings.id, id),
         eq(marketplaceListings.sellerId, playerId)

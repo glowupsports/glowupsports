@@ -2,13 +2,21 @@ import { Router, Request, Response } from "express";
 import { db } from "../db";
 import { lessonGroups, lessonGroupMembers, players, playerLevelEvents } from "../../shared/schema";
 import { eq, and, inArray, sql } from "drizzle-orm";
+import { authMiddlewareWithFreshData as authMiddleware, type AuthenticatedRequest } from "../auth";
 
 const router = Router();
 
+router.use(authMiddleware);
+
 // GET /api/lesson-groups - Get all lesson groups for an academy
-router.get("/", async (req: Request, res: Response) => {
+router.get("/", async (req: AuthenticatedRequest, res: Response) => {
   try {
-    const academyId = req.query.academyId as string;
+    const user = req.user!;
+    // Academy isolation: non platform_owners can only access their own academy
+    const academyId = user.role === "platform_owner"
+      ? (req.query.academyId as string) || user.academyId
+      : user.academyId;
+
     if (!academyId) {
       return res.status(400).json({ error: "academyId is required" });
     }
@@ -45,10 +53,10 @@ router.get("/", async (req: Request, res: Response) => {
 });
 
 // POST /api/lesson-groups - Create a new lesson group
-router.post("/", async (req: Request, res: Response) => {
+router.post("/", async (req: AuthenticatedRequest, res: Response) => {
   try {
+    const user = req.user!;
     const {
-      academyId,
       coachId,
       name,
       description,
@@ -60,6 +68,11 @@ router.post("/", async (req: Request, res: Response) => {
       maxGlowRank,
       maxPlayers,
     } = req.body;
+
+    // Enforce academy isolation: use authenticated user's academyId
+    const academyId = user.role === "platform_owner"
+      ? (req.body.academyId || user.academyId)
+      : user.academyId;
 
     if (!academyId || !name) {
       return res.status(400).json({ error: "academyId and name are required" });
@@ -90,9 +103,10 @@ router.post("/", async (req: Request, res: Response) => {
 });
 
 // GET /api/lesson-groups/:id - Get a single lesson group with members
-router.get("/:id", async (req: Request, res: Response) => {
+router.get("/:id", async (req: AuthenticatedRequest, res: Response) => {
   try {
     const { id } = req.params;
+    const user = req.user!;
 
     const [group] = await db
       .select()
@@ -101,6 +115,11 @@ router.get("/:id", async (req: Request, res: Response) => {
 
     if (!group) {
       return res.status(404).json({ error: "Group not found" });
+    }
+
+    // Academy isolation check
+    if (user.role !== "platform_owner" && group.academyId !== user.academyId) {
+      return res.status(403).json({ error: "Access denied" });
     }
 
     // Get all members with player details
@@ -128,10 +147,47 @@ router.get("/:id", async (req: Request, res: Response) => {
 });
 
 // PUT /api/lesson-groups/:id - Update a lesson group
-router.put("/:id", async (req: Request, res: Response) => {
+router.put("/:id", async (req: AuthenticatedRequest, res: Response) => {
   try {
     const { id } = req.params;
-    const updates = req.body;
+    const user = req.user!;
+
+    // Verify ownership first
+    const [existing] = await db.select().from(lessonGroups).where(eq(lessonGroups.id, id));
+    if (!existing) {
+      return res.status(404).json({ error: "Group not found" });
+    }
+    if (user.role !== "platform_owner" && existing.academyId !== user.academyId) {
+      return res.status(403).json({ error: "Access denied" });
+    }
+
+    // Whitelist allowed update fields (no academyId)
+    type LessonGroupUpdate = Partial<{
+      name: string;
+      description: string;
+      groupType: string;
+      allowedBallLevels: string[];
+      minSkillLevel: number;
+      maxSkillLevel: number;
+      minGlowRank: number;
+      maxGlowRank: number;
+      maxPlayers: number;
+      isActive: boolean;
+      coachId: string;
+    }>;
+    const { name, description, groupType, allowedBallLevels, minSkillLevel, maxSkillLevel, minGlowRank, maxGlowRank, maxPlayers, isActive, coachId } = req.body;
+    const updates: LessonGroupUpdate = {};
+    if (name !== undefined) updates.name = name;
+    if (description !== undefined) updates.description = description;
+    if (groupType !== undefined) updates.groupType = groupType;
+    if (allowedBallLevels !== undefined) updates.allowedBallLevels = allowedBallLevels;
+    if (minSkillLevel !== undefined) updates.minSkillLevel = minSkillLevel;
+    if (maxSkillLevel !== undefined) updates.maxSkillLevel = maxSkillLevel;
+    if (minGlowRank !== undefined) updates.minGlowRank = minGlowRank;
+    if (maxGlowRank !== undefined) updates.maxGlowRank = maxGlowRank;
+    if (maxPlayers !== undefined) updates.maxPlayers = maxPlayers;
+    if (isActive !== undefined) updates.isActive = isActive;
+    if (coachId !== undefined) updates.coachId = coachId;
 
     const [updated] = await db
       .update(lessonGroups)
@@ -151,9 +207,19 @@ router.put("/:id", async (req: Request, res: Response) => {
 });
 
 // DELETE /api/lesson-groups/:id - Delete a lesson group
-router.delete("/:id", async (req: Request, res: Response) => {
+router.delete("/:id", async (req: AuthenticatedRequest, res: Response) => {
   try {
     const { id } = req.params;
+    const user = req.user!;
+
+    // Verify ownership first
+    const [existing] = await db.select().from(lessonGroups).where(eq(lessonGroups.id, id));
+    if (!existing) {
+      return res.status(404).json({ error: "Group not found" });
+    }
+    if (user.role !== "platform_owner" && existing.academyId !== user.academyId) {
+      return res.status(403).json({ error: "Access denied" });
+    }
 
     // First remove all members
     await db
@@ -178,10 +244,11 @@ router.delete("/:id", async (req: Request, res: Response) => {
 });
 
 // POST /api/lesson-groups/:id/members - Add a player to a group
-router.post("/:id/members", async (req: Request, res: Response) => {
+router.post("/:id/members", async (req: AuthenticatedRequest, res: Response) => {
   try {
     const { id } = req.params;
     const { playerId } = req.body;
+    const user = req.user!;
 
     if (!playerId) {
       return res.status(400).json({ error: "playerId is required" });
@@ -195,6 +262,11 @@ router.post("/:id/members", async (req: Request, res: Response) => {
 
     if (!group) {
       return res.status(404).json({ error: "Group not found" });
+    }
+
+    // Academy isolation check
+    if (user.role !== "platform_owner" && group.academyId !== user.academyId) {
+      return res.status(403).json({ error: "Access denied" });
     }
 
     // Check if player is already a member
@@ -237,9 +309,17 @@ router.post("/:id/members", async (req: Request, res: Response) => {
 });
 
 // DELETE /api/lesson-groups/:id/members/:playerId - Remove a player from a group
-router.delete("/:id/members/:playerId", async (req: Request, res: Response) => {
+router.delete("/:id/members/:playerId", async (req: AuthenticatedRequest, res: Response) => {
   try {
     const { id, playerId } = req.params;
+    const user = req.user!;
+
+    // Verify group ownership
+    const [group] = await db.select().from(lessonGroups).where(eq(lessonGroups.id, id));
+    if (!group) return res.status(404).json({ error: "Group not found" });
+    if (user.role !== "platform_owner" && group.academyId !== user.academyId) {
+      return res.status(403).json({ error: "Access denied" });
+    }
 
     const [updated] = await db
       .update(lessonGroupMembers)
@@ -264,9 +344,10 @@ router.delete("/:id/members/:playerId", async (req: Request, res: Response) => {
 });
 
 // GET /api/lesson-groups/eligible/:playerId - Get groups eligible for a player
-router.get("/eligible/:playerId", async (req: Request, res: Response) => {
+router.get("/eligible/:playerId", async (req: AuthenticatedRequest, res: Response) => {
   try {
     const { playerId } = req.params;
+    const user = req.user!;
 
     // Get player details
     const [player] = await db
@@ -276,6 +357,11 @@ router.get("/eligible/:playerId", async (req: Request, res: Response) => {
 
     if (!player) {
       return res.status(404).json({ error: "Player not found" });
+    }
+
+    // Academy isolation: verify player belongs to the user's academy
+    if (user.role !== "platform_owner" && player.academyId !== user.academyId) {
+      return res.status(403).json({ error: "Access denied" });
     }
 
     // Get all groups for the player's academy
@@ -324,10 +410,17 @@ router.get("/eligible/:playerId", async (req: Request, res: Response) => {
 });
 
 // POST /api/players/:id/set-skill-level - Set a player's skill level (coach action)
-router.post("/players/:id/set-skill-level", async (req: Request, res: Response) => {
+router.post("/players/:id/set-skill-level", async (req: AuthenticatedRequest, res: Response) => {
   try {
     const { id } = req.params;
-    const { ballLevel, skillLevel, coachId, reason } = req.body;
+    const user = req.user!;
+    const { ballLevel, skillLevel, reason } = req.body;
+
+    // Only coaches, academy owners, and platform owners can set skill level
+    const canSet = ["coach", "academy_owner", "admin", "platform_owner"].includes(user.role);
+    if (!canSet) {
+      return res.status(403).json({ error: "Access denied" });
+    }
 
     if (!ballLevel || !skillLevel) {
       return res.status(400).json({ error: "ballLevel and skillLevel are required" });
@@ -342,6 +435,13 @@ router.post("/players/:id/set-skill-level", async (req: Request, res: Response) 
     if (!player) {
       return res.status(404).json({ error: "Player not found" });
     }
+
+    // Academy isolation for non-platform_owners
+    if (user.role !== "platform_owner" && player.academyId !== user.academyId) {
+      return res.status(403).json({ error: "Access denied" });
+    }
+
+    const coachId = user.coachId;
 
     // Determine event type
     const isInitial = !player.ballLevel;
@@ -380,9 +480,14 @@ router.post("/players/:id/set-skill-level", async (req: Request, res: Response) 
 });
 
 // GET /api/players/by-level - Get players grouped by skill level
-router.get("/players/by-level", async (req: Request, res: Response) => {
+router.get("/players/by-level", async (req: AuthenticatedRequest, res: Response) => {
   try {
-    const academyId = req.query.academyId as string;
+    const user = req.user!;
+    // Academy isolation: non-platform_owners always use their own academy
+    const academyId = user.role === "platform_owner"
+      ? (req.query.academyId as string) || user.academyId
+      : user.academyId;
+
     if (!academyId) {
       return res.status(400).json({ error: "academyId is required" });
     }
@@ -413,20 +518,28 @@ router.get("/players/by-level", async (req: Request, res: Response) => {
     });
 
     // Count per level
-    const summary = {
+    const summary: {
+      red: { total: number; levels: Record<number, number> };
+      orange: { total: number; levels: Record<number, number> };
+      green: { total: number; levels: Record<number, number> };
+      yellow: { total: number; levels: Record<number, number> };
+      adult: { total: number; byRank: Record<number, number> };
+      unassigned: { total: number };
+    } = {
       red: { total: grouped.red.length, levels: { 1: 0, 2: 0, 3: 0 } },
       orange: { total: grouped.orange.length, levels: { 1: 0, 2: 0, 3: 0 } },
       green: { total: grouped.green.length, levels: { 1: 0, 2: 0, 3: 0 } },
       yellow: { total: grouped.yellow.length, levels: { 1: 0, 2: 0, 3: 0 } },
-      adult: { total: grouped.adult.length, byRank: {} as Record<number, number> },
+      adult: { total: grouped.adult.length, byRank: {} },
       unassigned: { total: grouped.unassigned.length },
     };
 
     // Count skill levels within each ball level
-    ["red", "orange", "green", "yellow"].forEach((level) => {
+    (["red", "orange", "green", "yellow"] as const).forEach((level) => {
+      const levelSummary = summary[level];
       grouped[level].forEach((p) => {
         const skill = p.skillLevel || 1;
-        (summary[level as keyof typeof summary] as any).levels[skill]++;
+        levelSummary.levels[skill] = (levelSummary.levels[skill] || 0) + 1;
       });
     });
 
@@ -444,9 +557,29 @@ router.get("/players/by-level", async (req: Request, res: Response) => {
 });
 
 // GET /api/players/:id/level-history - Get skill level change history for a player
-router.get("/players/:id/level-history", async (req: Request, res: Response) => {
+router.get("/players/:id/level-history", async (req: AuthenticatedRequest, res: Response) => {
   try {
     const { id } = req.params;
+    const user = req.user!;
+
+    // Verify caller has access to this player's data
+    const [player] = await db
+      .select({ id: players.id, academyId: players.academyId })
+      .from(players)
+      .where(eq(players.id, id))
+      .limit(1);
+
+    if (!player) {
+      return res.status(404).json({ error: "Player not found" });
+    }
+
+    const isOwn = user.playerId === id;
+    const isPlatformOwner = user.role === "platform_owner";
+    const isCoachOrAdmin = ["coach", "academy_owner", "admin"].includes(user.role) && player.academyId === user.academyId;
+
+    if (!isOwn && !isPlatformOwner && !isCoachOrAdmin) {
+      return res.status(403).json({ error: "Access denied" });
+    }
 
     const events = await db
       .select()

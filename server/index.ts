@@ -1,6 +1,7 @@
 import express from "express";
 import type { Request, Response, NextFunction } from "express";
 import helmet from "helmet";
+import rateLimit from "express-rate-limit";
 import * as Sentry from "@sentry/node";
 import { registerRoutes } from "./routes";
 import * as fs from "fs";
@@ -393,7 +394,38 @@ function configureExpoAndLanding(app: express.Application) {
   });
 
   app.use("/assets", express.static(path.resolve(process.cwd(), "assets")));
-  app.use("/uploads", express.static(path.resolve(process.cwd(), "uploads")));
+
+  // Authenticated uploads file serving
+  // Profile photos in the profile-photos subdirectory are served publicly (needed for public academy/coach profiles)
+  app.use("/uploads/profile-photos", express.static(path.resolve(process.cwd(), "uploads/profile-photos")));
+
+  // All other uploads require a valid JWT token for ALL HTTP methods (GET, HEAD, etc.)
+  const uploadsAuthGuard = (req: Request, res: Response, next: NextFunction) => {
+    const authHeader = req.headers.authorization;
+    let token: string | null = null;
+
+    if (authHeader && authHeader.startsWith("Bearer ")) {
+      token = authHeader.substring(7);
+    } else if (req.query.token && typeof req.query.token === "string") {
+      // Allow token as query param for direct browser/WebView access
+      token = req.query.token;
+    }
+
+    if (!token) {
+      return res.status(401).json({ error: "Authentication required" });
+    }
+
+    try {
+      const jwt = require("jsonwebtoken");
+      const { JWT_SECRET } = require("./auth");
+      jwt.verify(token, JWT_SECRET);
+      return next();
+    } catch {
+      return res.status(401).json({ error: "Invalid or expired token" });
+    }
+  };
+  app.use("/uploads", uploadsAuthGuard, express.static(path.resolve(process.cwd(), "uploads")));
+
   app.use("/images", express.static(path.resolve(process.cwd(), "server/public/images")));
   // Try static-build first, then fall back to dist for static web files
   app.use(express.static(path.resolve(process.cwd(), "static-build")));
@@ -430,6 +462,16 @@ function setupErrorHandler(app: express.Application) {
   setupCors(app);
   setupBodyParsing(app);
   setupRequestLogging(app);
+
+  // Global API rate limiter — 300 requests per 15 minutes per IP
+  const globalApiLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000,
+    max: 300,
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: { error: "Too many requests, please try again later" },
+  });
+  app.use("/api", globalApiLimiter);
 
   setupExpoDevProxy(app);
   configureExpoAndLanding(app);

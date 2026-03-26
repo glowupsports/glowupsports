@@ -13,6 +13,7 @@ import { Router } from "express";
 import { db } from "../db";
 import { players, adultGlowMatches, adultSkillAssessments } from "@shared/schema";
 import { eq, and, gte, desc, sql } from "drizzle-orm";
+import { authMiddlewareWithFreshData as authMiddleware, type AuthenticatedRequest } from "../auth";
 import {
   updateGlowRankAfterMatch,
   getRankInfo,
@@ -39,6 +40,45 @@ import { ADULT_LESSON_TEMPLATES, getTemplatesByGoal, getTemplatesByType, selectT
 
 const router = Router();
 
+router.use(authMiddleware);
+
+// ─── Helper: verify caller can access a given player ─────────────────────────
+// Returns the player row from DB (verifying it exists and caller has access),
+// or null if the player was not found, or throws a 403 early via `res`.
+async function verifyPlayerAccess(
+  req: AuthenticatedRequest,
+  res: import("express").Response,
+  playerId: string,
+  allowCoachAcademy = true,
+): Promise<{ id: string; name: string; academyId: string | null } | null> {
+  const user = req.user!;
+  const [player] = await db
+    .select({ id: players.id, name: players.name, academyId: players.academyId })
+    .from(players)
+    .where(eq(players.id, playerId))
+    .limit(1);
+
+  if (!player) {
+    res.status(404).json({ error: "Player not found" });
+    return null;
+  }
+
+  const isOwn = user.playerId === playerId;
+  const isPlatformOwner = user.role === "platform_owner";
+  const isCoachOrAdmin = allowCoachAcademy && ["coach", "academy_owner", "admin"].includes(user.role);
+
+  if (isOwn || isPlatformOwner) return player;
+
+  if (isCoachOrAdmin) {
+    if (player.academyId === user.academyId) return player;
+    res.status(403).json({ error: "Access denied" });
+    return null;
+  }
+
+  res.status(403).json({ error: "Access denied" });
+  return null;
+}
+
 // =============================================================================
 // PLAYER RANK ENDPOINTS
 // =============================================================================
@@ -47,10 +87,13 @@ const router = Router();
  * GET /api/adult-glow/player/:playerId/rank
  * Get player's current Glow Rank and MMR info
  */
-router.get("/player/:playerId/rank", async (req, res) => {
+router.get("/player/:playerId/rank", async (req: AuthenticatedRequest, res) => {
   try {
     const { playerId } = req.params;
     
+    const access = await verifyPlayerAccess(req, res, playerId);
+    if (!access) return;
+
     const [player] = await db
       .select({
         id: players.id,
@@ -156,7 +199,7 @@ router.get("/ranks/:rank", async (req, res) => {
  * POST /api/adult-glow/match
  * Record a match result and update MMR/rank
  */
-router.post("/match", async (req, res) => {
+router.post("/match", async (req: AuthenticatedRequest, res) => {
   try {
     const {
       playerId,
@@ -174,6 +217,10 @@ router.post("/match", async (req, res) => {
         error: "Missing required fields: playerId, opponentId, didWin" 
       });
     }
+
+    // Authorization: caller must be the player themselves or a coach/admin in same academy
+    const access = await verifyPlayerAccess(req, res, playerId);
+    if (!access) return;
     
     // Get both players
     const [player, opponent] = await Promise.all([
@@ -186,6 +233,14 @@ router.post("/match", async (req, res) => {
     }
     if (!opponent[0]) {
       return res.status(404).json({ error: "Opponent not found" });
+    }
+
+    // Academy isolation: opponent must be in the same academy as the player
+    // (platform_owner can record cross-academy matches)
+    const user = req.user!;
+    if (user.role !== "platform_owner" && opponent[0].academyId && player[0].academyId &&
+        opponent[0].academyId !== player[0].academyId) {
+      return res.status(403).json({ error: "Cannot record match with a player from a different academy" });
     }
     
     // Load recent matches (last 8 weeks) for anti-farming detection
@@ -333,9 +388,12 @@ router.post("/match", async (req, res) => {
  * GET /api/adult-glow/player/:playerId/expected-score/:opponentId
  * Get expected score against a specific opponent
  */
-router.get("/player/:playerId/expected-score/:opponentId", async (req, res) => {
+router.get("/player/:playerId/expected-score/:opponentId", async (req: AuthenticatedRequest, res) => {
   try {
     const { playerId, opponentId } = req.params;
+
+    const access = await verifyPlayerAccess(req, res, playerId);
+    if (!access) return;
     
     const [player, opponent] = await Promise.all([
       db.select({ glowMmr: players.glowMmr }).from(players).where(eq(players.id, playerId)).limit(1),
@@ -519,11 +577,16 @@ router.post("/templates/select", async (req, res) => {
 
 /**
  * POST /api/adult-glow/find-or-create-opponent
- * Find an existing opponent by name or create a placeholder opponent record
+ * Find an existing opponent by name or create a placeholder opponent record.
+ * Academy isolation: search is limited to the caller's academy; created records
+ * are assigned to the caller's academy.
  */
-router.post("/find-or-create-opponent", async (req, res) => {
+router.post("/find-or-create-opponent", async (req: AuthenticatedRequest, res) => {
   try {
-    const { name, academyId } = req.body;
+    const { name } = req.body;
+    const user = req.user!;
+    // Scope the opponent to the caller's academy — ignore any academyId from the client
+    const scopedAcademyId = user.role === "platform_owner" ? (req.body.academyId || user.academyId) : user.academyId;
     
     if (!name || !name.trim()) {
       return res.status(400).json({ error: "Opponent name is required" });
@@ -531,11 +594,14 @@ router.post("/find-or-create-opponent", async (req, res) => {
     
     const trimmedName = name.trim();
     
-    // Try to find existing player by name
+    // Try to find existing player by name within same academy
     const existingPlayers = await db
       .select({ id: players.id, name: players.name })
       .from(players)
-      .where(sql`LOWER(${players.name}) = LOWER(${trimmedName})`)
+      .where(and(
+        sql`LOWER(${players.name}) = LOWER(${trimmedName})`,
+        scopedAcademyId ? eq(players.academyId, scopedAcademyId) : sql`true`,
+      ))
       .limit(5);
     
     if (existingPlayers.length > 0) {
@@ -547,10 +613,10 @@ router.post("/find-or-create-opponent", async (req, res) => {
       });
     }
     
-    // Create a new "external" opponent
+    // Create a new "external" opponent scoped to caller's academy
     const [newOpponent] = await db.insert(players).values({
       name: trimmedName,
-      academyId: academyId || null,
+      academyId: scopedAcademyId || null,
       isAdult: true,
       glowMmr: 1000,
       glowRank: 9,
@@ -570,20 +636,33 @@ router.post("/find-or-create-opponent", async (req, res) => {
 /**
  * POST /api/adult-glow/player/:playerId/toggle-adult
  * Toggle player between youth (ball levels) and adult (Glow Rank) system
+ * Requires coach/admin role — players cannot toggle their own adult status.
  */
-router.post("/player/:playerId/toggle-adult", async (req, res) => {
+router.post("/player/:playerId/toggle-adult", async (req: AuthenticatedRequest, res) => {
   try {
     const { playerId } = req.params;
     const { isAdult } = req.body;
-    
+    const user = req.user!;
+
+    // Only coaches, academy owners, admins, and platform owners can toggle adult status
+    const canToggle = ["coach", "academy_owner", "admin", "platform_owner"].includes(user.role);
+    if (!canToggle) {
+      return res.status(403).json({ error: "Access denied" });
+    }
+
     const [player] = await db
-      .select()
+      .select({ id: players.id, isAdult: players.isAdult, academyId: players.academyId })
       .from(players)
       .where(eq(players.id, playerId))
       .limit(1);
     
     if (!player) {
       return res.status(404).json({ error: "Player not found" });
+    }
+
+    // Academy isolation: non-platform_owner can only manage players in their own academy
+    if (user.role !== "platform_owner" && player.academyId !== user.academyId) {
+      return res.status(403).json({ error: "Access denied" });
     }
     
     await db.update(players)
@@ -606,9 +685,12 @@ router.post("/player/:playerId/toggle-adult", async (req, res) => {
  * GET /api/adult-glow/player/:playerId/full-profile
  * Get complete adult glow profile: rank, matches, gates, stats in one call
  */
-router.get("/player/:playerId/full-profile", async (req, res) => {
+router.get("/player/:playerId/full-profile", async (req: AuthenticatedRequest, res) => {
   try {
     const { playerId } = req.params;
+
+    const access = await verifyPlayerAccess(req, res, playerId);
+    if (!access) return;
     
     // Get player
     const [player] = await db
@@ -766,9 +848,12 @@ router.get("/config", async (_req, res) => {
  * GET /api/adult-glow/player/:playerId/dss-rating
  * Get player's DSS-style rating (7.1234 format) with full status
  */
-router.get("/player/:playerId/dss-rating", async (req, res) => {
+router.get("/player/:playerId/dss-rating", async (req: AuthenticatedRequest, res) => {
   try {
     const { playerId } = req.params;
+
+    const access = await verifyPlayerAccess(req, res, playerId);
+    if (!access) return;
     
     const [player] = await db
       .select({
@@ -870,10 +955,13 @@ router.get("/player/:playerId/dss-rating", async (req, res) => {
  * GET /api/adult-glow/player/:playerId/rating-history
  * Get full rating history for chart display
  */
-router.get("/player/:playerId/rating-history", async (req, res) => {
+router.get("/player/:playerId/rating-history", async (req: AuthenticatedRequest, res) => {
   try {
     const { playerId } = req.params;
     const limit = Math.min(parseInt(req.query.limit as string) || 50, 100);
+
+    const access = await verifyPlayerAccess(req, res, playerId);
+    if (!access) return;
     
     const [player] = await db
       .select({
@@ -956,7 +1044,7 @@ router.get("/player/:playerId/rating-history", async (req, res) => {
  * POST /api/adult-glow/doubles-match
  * Record a doubles match result and update both players' ratings
  */
-router.post("/doubles-match", async (req, res) => {
+router.post("/doubles-match", async (req: AuthenticatedRequest, res) => {
   try {
     const {
       team1Player1Id,
@@ -976,12 +1064,31 @@ router.post("/doubles-match", async (req, res) => {
         error: "Missing required fields: all 4 player IDs and team1Won required" 
       });
     }
+
+    // Authorization: caller must be one of the 4 players, or a coach/admin in the same academy
+    const user = req.user!;
+    const callerIds = [team1Player1Id, team1Player2Id, team2Player1Id, team2Player2Id];
+    const isParticipant = user.playerId && callerIds.includes(user.playerId);
+    const isPlatformOwner = user.role === "platform_owner";
+    const isCoachOrAdmin = ["coach", "academy_owner", "admin"].includes(user.role);
+
+    if (!isParticipant && !isPlatformOwner && !isCoachOrAdmin) {
+      return res.status(403).json({ error: "Access denied" });
+    }
     
     // Get all players
     const allPlayerIds = [team1Player1Id, team1Player2Id, team2Player1Id, team2Player2Id];
     const playersData = await db.select().from(players).where(
       sql`${players.id} = ANY(${allPlayerIds})`
     );
+
+    // Academy isolation for coaches/admins: all players must be in the caller's academy
+    if (isCoachOrAdmin && !isPlatformOwner) {
+      const outsideAcademy = playersData.filter(p => p.academyId !== user.academyId);
+      if (outsideAcademy.length > 0) {
+        return res.status(403).json({ error: "Access denied: players belong to a different academy" });
+      }
+    }
     
     if (playersData.length !== 4) {
       return res.status(404).json({ error: "One or more players not found" });

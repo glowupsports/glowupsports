@@ -1,8 +1,34 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import * as SecureStore from "expo-secure-store";
+import { Platform } from "react-native";
 
-const AUTH_TOKEN_KEY = "@auth_token";
-const AUTH_USER_KEY = "@auth_user";
-const CURRENT_ACADEMY_KEY = "@current_academy_id";
+const AUTH_TOKEN_KEY = "auth_token";
+const AUTH_USER_KEY = "auth_user";
+const CURRENT_ACADEMY_KEY = "current_academy_id";
+
+// SecureStore uses iOS Keychain / Android Keystore for hardware-backed encryption.
+// On web, SecureStore is unavailable so we fall back to AsyncStorage.
+// On native, we ONLY use SecureStore — errors are surfaced, never silently bypassed.
+async function secureGet(key: string): Promise<string | null> {
+  if (Platform.OS === "web") {
+    return AsyncStorage.getItem("@" + key);
+  }
+  return SecureStore.getItemAsync(key);
+}
+
+async function secureSet(key: string, value: string): Promise<void> {
+  if (Platform.OS === "web") {
+    return AsyncStorage.setItem("@" + key, value);
+  }
+  return SecureStore.setItemAsync(key, value);
+}
+
+async function secureDelete(key: string): Promise<void> {
+  if (Platform.OS === "web") {
+    return AsyncStorage.removeItem("@" + key);
+  }
+  return SecureStore.deleteItemAsync(key);
+}
 
 export interface AuthUser {
   id: string;
@@ -17,11 +43,11 @@ export interface AuthUser {
   isGuest?: boolean;
 }
 
-const GUEST_MODE_KEY = "@guest_mode";
+const GUEST_MODE_KEY = "guest_mode";
 
 export async function saveGuestMode(): Promise<void> {
   try {
-    await AsyncStorage.setItem(GUEST_MODE_KEY, "true");
+    await secureSet(GUEST_MODE_KEY, "true");
   } catch (error) {
     console.error("Failed to save guest mode:", error);
   }
@@ -29,7 +55,7 @@ export async function saveGuestMode(): Promise<void> {
 
 export async function clearGuestMode(): Promise<void> {
   try {
-    await AsyncStorage.removeItem(GUEST_MODE_KEY);
+    await secureDelete(GUEST_MODE_KEY);
   } catch (error) {
     console.error("Failed to clear guest mode:", error);
   }
@@ -37,7 +63,7 @@ export async function clearGuestMode(): Promise<void> {
 
 export async function isGuestMode(): Promise<boolean> {
   try {
-    const val = await AsyncStorage.getItem(GUEST_MODE_KEY);
+    const val = await secureGet(GUEST_MODE_KEY);
     return val === "true";
   } catch {
     return false;
@@ -72,25 +98,18 @@ export function setOnUnauthorizedCallback(callback: (() => void) | null): void {
   onUnauthorizedCallback = callback;
 }
 
-// Attempt to refresh the token before logging out
 async function attemptTokenRefresh(): Promise<boolean> {
   if (!currentToken) {
-    console.log("[Auth] No token to refresh");
     return false;
   }
 
-  // Prevent multiple simultaneous refresh attempts
   if (isRefreshing && refreshPromise) {
-    console.log("[Auth] Refresh already in progress, waiting...");
     return refreshPromise;
   }
 
   isRefreshing = true;
   refreshPromise = (async () => {
     try {
-      console.log("[Auth] Attempting token refresh...");
-      
-      // Dynamic import to avoid circular dependency
       const { getApiUrl } = await import("./query-client");
       const baseUrl = getApiUrl();
       const url = new URL("/auth/refresh", baseUrl);
@@ -107,14 +126,12 @@ async function attemptTokenRefresh(): Promise<boolean> {
       if (response.ok) {
         const data = await response.json();
         if (data.token) {
-          console.log("[Auth] Token refreshed successfully");
           currentToken = data.token;
-          await AsyncStorage.setItem(AUTH_TOKEN_KEY, data.token);
+          await secureSet(AUTH_TOKEN_KEY, data.token);
           return true;
         }
       }
 
-      console.log("[Auth] Token refresh failed with status:", response.status);
       return false;
     } catch (error) {
       console.error("[Auth] Token refresh error:", error);
@@ -129,18 +146,12 @@ async function attemptTokenRefresh(): Promise<boolean> {
 }
 
 export async function triggerUnauthorized(): Promise<void> {
-  console.log("[Auth] Received 401, attempting token refresh first...");
-  
-  // Try to refresh the token
   const refreshSuccess = await attemptTokenRefresh();
-  
+
   if (refreshSuccess) {
-    console.log("[Auth] Token refreshed, retrying original request...");
-    // Token was refreshed, the caller should retry the request
     return;
   }
 
-  console.log("[Auth] Token refresh failed, triggering logout");
   if (onUnauthorizedCallback) {
     onUnauthorizedCallback();
   }
@@ -161,26 +172,25 @@ export function setAuthToken(token: string | null): void {
 export async function loadAuthState(): Promise<AuthState> {
   try {
     const [token, userJson, academyId] = await Promise.all([
-      AsyncStorage.getItem(AUTH_TOKEN_KEY),
-      AsyncStorage.getItem(AUTH_USER_KEY),
-      AsyncStorage.getItem(CURRENT_ACADEMY_KEY),
+      secureGet(AUTH_TOKEN_KEY),
+      secureGet(AUTH_USER_KEY),
+      secureGet(CURRENT_ACADEMY_KEY),
     ]);
-    
+
     if (token) {
       currentToken = token;
     }
-    
+
     if (academyId) {
       currentAcademyId = academyId;
     }
-    
+
     const user = userJson ? JSON.parse(userJson) : null;
-    
-    // Initialize current academy from user if not already set
+
     if (!currentAcademyId && user?.academyId) {
       currentAcademyId = user.academyId;
     }
-    
+
     return {
       token,
       user,
@@ -196,8 +206,8 @@ export async function saveAuthState(token: string, user: AuthUser): Promise<void
   try {
     currentToken = token;
     await Promise.all([
-      AsyncStorage.setItem(AUTH_TOKEN_KEY, token),
-      AsyncStorage.setItem(AUTH_USER_KEY, JSON.stringify(user)),
+      secureSet(AUTH_TOKEN_KEY, token),
+      secureSet(AUTH_USER_KEY, JSON.stringify(user)),
     ]);
   } catch (error) {
     console.error("Failed to save auth state:", error);
@@ -209,9 +219,9 @@ export async function clearAuthState(): Promise<void> {
     currentToken = null;
     currentAcademyId = null;
     await Promise.all([
-      AsyncStorage.removeItem(AUTH_TOKEN_KEY),
-      AsyncStorage.removeItem(AUTH_USER_KEY),
-      AsyncStorage.removeItem(CURRENT_ACADEMY_KEY),
+      secureDelete(AUTH_TOKEN_KEY),
+      secureDelete(AUTH_USER_KEY),
+      secureDelete(CURRENT_ACADEMY_KEY),
     ]);
   } catch (error) {
     console.error("Failed to clear auth state:", error);
@@ -225,15 +235,15 @@ export function getCurrentAcademyId(): string | null {
 export function setCurrentAcademyId(academyId: string | null): void {
   currentAcademyId = academyId;
   if (academyId) {
-    AsyncStorage.setItem(CURRENT_ACADEMY_KEY, academyId).catch(console.error);
+    secureSet(CURRENT_ACADEMY_KEY, academyId).catch(console.error);
   } else {
-    AsyncStorage.removeItem(CURRENT_ACADEMY_KEY).catch(console.error);
+    secureDelete(CURRENT_ACADEMY_KEY).catch(console.error);
   }
 }
 
 export async function loadCurrentAcademyId(): Promise<string | null> {
   try {
-    const academyId = await AsyncStorage.getItem(CURRENT_ACADEMY_KEY);
+    const academyId = await secureGet(CURRENT_ACADEMY_KEY);
     currentAcademyId = academyId;
     return academyId;
   } catch (error) {

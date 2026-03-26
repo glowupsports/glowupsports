@@ -299,10 +299,12 @@ export function generateAttendanceReportHtml(data: AttendanceReportData): string
       </table>
       <div id="emptyLessons_${id}" style="display:none;text-align:center;padding:32px;color:rgba(255,255,255,0.4);">No lessons recorded yet.</div>
     </div>
+    <div id="lessonsData_${id}" data-lessons="${table.lessonsJson.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/'/g, '&#39;').replace(/</g, '&lt;').replace(/>/g, '&gt;')}" style="display:none;"></div>
 
     <script>
       (function() {
-        var lessons = ${table.lessonsJson};
+        var rawData = document.getElementById('lessonsData_${id}');
+        var lessons = rawData ? JSON.parse(rawData.getAttribute('data-lessons') || '[]') : [];
         var BLOCK = 10;
         var currentPage = 0;
         var totalPages = Math.max(1, Math.ceil(lessons.length / BLOCK));

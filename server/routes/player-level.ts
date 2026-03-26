@@ -12,9 +12,11 @@ import {
   playerFeatureUnlockHistory,
 } from "@shared/schema";
 import { sendLevelUpNotification, sendXPGainNotification } from "../pushNotifications";
-import { isAppleReviewAccount } from "../auth";
+import { isAppleReviewAccount, authMiddlewareWithFreshData as authMiddleware, type AuthenticatedRequest } from "../auth";
 
 const router = Router();
+
+router.use(authMiddleware);
 
 // ==================== HELPER FUNCTIONS ====================
 
@@ -172,7 +174,7 @@ async function checkAntiAbuse(
 
 // ==================== XP AWARD ENDPOINT ====================
 
-router.post("/award-xp", async (req: Request, res: Response) => {
+router.post("/award-xp", async (req: AuthenticatedRequest, res: Response) => {
   try {
     const { playerId, actionSource, contextType, contextId } = req.body;
 
@@ -299,9 +301,17 @@ router.post("/award-xp", async (req: Request, res: Response) => {
 
 // ==================== PLAYER LEVEL STATUS ====================
 
-router.get("/player/:playerId/status", async (req: Request, res: Response) => {
+router.get("/player/:playerId/status", async (req: AuthenticatedRequest, res: Response) => {
   try {
     const { playerId } = req.params;
+    const user = req.user!;
+
+    // IDOR check: player can only access own data; coaches/owners can access players in their academy
+    const isOwnPlayer = user.playerId === playerId;
+    const isCoachOrAdmin = ["coach", "academy_owner", "platform_owner", "admin"].includes(user.role);
+    if (!isOwnPlayer && !isCoachOrAdmin) {
+      return res.status(403).json({ error: "Access denied" });
+    }
 
     const [player] = await db
       .select()
@@ -310,6 +320,11 @@ router.get("/player/:playerId/status", async (req: Request, res: Response) => {
 
     if (!player) {
       return res.status(404).json({ error: "Player not found" });
+    }
+
+    // Academy isolation for coaches/admins: player must be in the same academy
+    if (isCoachOrAdmin && !isOwnPlayer && user.role !== "platform_owner" && player.academyId !== user.academyId) {
+      return res.status(403).json({ error: "Access denied" });
     }
 
     const [playerUser] = await db.select({ email: users.email }).from(users).where(eq(users.playerId, playerId));
@@ -392,9 +407,29 @@ router.get("/player/:playerId/status", async (req: Request, res: Response) => {
 
 // ==================== MARK CELEBRATION SHOWN ====================
 
-router.post("/player/:playerId/celebration/:celebrationId/shown", async (req: Request, res: Response) => {
+router.post("/player/:playerId/celebration/:celebrationId/shown", async (req: AuthenticatedRequest, res: Response) => {
   try {
-    const { celebrationId } = req.params;
+    const { playerId, celebrationId } = req.params;
+    const user = req.user!;
+    const isOwnPlayer = user.playerId === playerId;
+    const isPlatformOwner = user.role === "platform_owner";
+    const isCoachOrAdmin = ["coach", "academy_owner", "admin"].includes(user.role);
+
+    if (!isOwnPlayer && !isPlatformOwner && !isCoachOrAdmin) {
+      return res.status(403).json({ error: "Access denied" });
+    }
+
+    // Academy isolation for coaches/admins
+    if (isCoachOrAdmin && !isOwnPlayer) {
+      const [targetPlayer] = await db
+        .select({ academyId: players.academyId })
+        .from(players)
+        .where(eq(players.id, playerId))
+        .limit(1);
+      if (!targetPlayer || targetPlayer.academyId !== user.academyId) {
+        return res.status(403).json({ error: "Access denied" });
+      }
+    }
 
     await db
       .update(playerLevelUpCelebrations)
@@ -402,7 +437,10 @@ router.post("/player/:playerId/celebration/:celebrationId/shown", async (req: Re
         celebrationShown: true,
         celebrationShownAt: new Date(),
       })
-      .where(eq(playerLevelUpCelebrations.id, celebrationId));
+      .where(and(
+        eq(playerLevelUpCelebrations.id, celebrationId),
+        eq(playerLevelUpCelebrations.playerId, playerId),
+      ));
 
     res.json({ success: true });
   } catch (error) {
@@ -413,9 +451,29 @@ router.post("/player/:playerId/celebration/:celebrationId/shown", async (req: Re
 
 // ==================== MARK ONBOARDING SHOWN ====================
 
-router.post("/player/:playerId/onboarding/:featureKey/shown", async (req: Request, res: Response) => {
+router.post("/player/:playerId/onboarding/:featureKey/shown", async (req: AuthenticatedRequest, res: Response) => {
   try {
     const { playerId, featureKey } = req.params;
+    const user = req.user!;
+    const isOwnPlayer = user.playerId === playerId;
+    const isPlatformOwner = user.role === "platform_owner";
+    const isCoachOrAdmin = ["coach", "academy_owner", "admin"].includes(user.role);
+
+    if (!isOwnPlayer && !isPlatformOwner && !isCoachOrAdmin) {
+      return res.status(403).json({ error: "Access denied" });
+    }
+
+    // Academy isolation for coaches/admins
+    if (isCoachOrAdmin && !isOwnPlayer) {
+      const [targetPlayer] = await db
+        .select({ academyId: players.academyId })
+        .from(players)
+        .where(eq(players.id, playerId))
+        .limit(1);
+      if (!targetPlayer || targetPlayer.academyId !== user.academyId) {
+        return res.status(403).json({ error: "Access denied" });
+      }
+    }
 
     await db
       .update(playerFeatureUnlockHistory)
@@ -437,9 +495,30 @@ router.post("/player/:playerId/onboarding/:featureKey/shown", async (req: Reques
 
 // ==================== XP HISTORY ====================
 
-router.get("/player/:playerId/xp-history", async (req: Request, res: Response) => {
+router.get("/player/:playerId/xp-history", async (req: AuthenticatedRequest, res: Response) => {
   try {
     const { playerId } = req.params;
+    const user = req.user!;
+    const isOwnPlayer = user.playerId === playerId;
+    const isPlatformOwner = user.role === "platform_owner";
+    const isCoachOrAdmin = ["coach", "academy_owner", "admin"].includes(user.role);
+
+    if (!isOwnPlayer && !isPlatformOwner && !isCoachOrAdmin) {
+      return res.status(403).json({ error: "Access denied" });
+    }
+
+    // Academy isolation for coaches/admins
+    if (isCoachOrAdmin && !isOwnPlayer) {
+      const [targetPlayer] = await db
+        .select({ academyId: players.academyId })
+        .from(players)
+        .where(eq(players.id, playerId))
+        .limit(1);
+      if (!targetPlayer || targetPlayer.academyId !== user.academyId) {
+        return res.status(403).json({ error: "Access denied" });
+      }
+    }
+
     const limit = parseInt(req.query.limit as string) || 50;
 
     const history = await db
