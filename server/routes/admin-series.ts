@@ -1,4 +1,6 @@
 import { Router, Request, Response, NextFunction } from "express";
+import { z } from "zod";
+import { fromZodError } from "zod-validation-error";
 import { storage } from "../storage";
 import { db } from "../db";
 import {
@@ -658,7 +660,14 @@ function requirePlayerOrOwner(req: AuthenticatedRequest, res: Response, next: Ne
         return res.status(403).json({ error: "Not authorized" });
       }
 
-      const { playerId, packageId, effectiveDate } = req.body;
+      const addPlayerSchema = z.object({
+        playerId: z.string().min(1),
+        packageId: z.string().optional().nullable(),
+        effectiveDate: z.string().datetime({ offset: true }).optional().nullable(),
+      });
+      const parsedAddPlayer = addPlayerSchema.safeParse(req.body);
+      if (!parsedAddPlayer.success) return res.status(400).json({ error: fromZodError(parsedAddPlayer.error).message });
+      const { playerId, packageId, effectiveDate } = parsedAddPlayer.data;
 
       if (!playerId) {
         return res.status(400).json({ error: "playerId is required" });
@@ -1962,7 +1971,14 @@ function requirePlayerOrOwner(req: AuthenticatedRequest, res: Response, next: Ne
   router.post("/api/admin/coaches/:coachId/payouts/:month/:year/pay", authMiddleware, requireRole("admin", "academy_owner", "platform_owner"), async (req: AuthenticatedRequest, res: Response) => {
     try {
       const { coachId, month, year } = req.params;
-      const { paymentMethod, paymentReference, notes } = req.body;
+      const payoutPaySchema = z.object({
+        paymentMethod: z.string().min(1).max(64).optional(),
+        paymentReference: z.string().max(256).optional(),
+        notes: z.string().max(1024).optional(),
+      });
+      const parsedPayout = payoutPaySchema.safeParse(req.body);
+      if (!parsedPayout.success) return res.status(400).json({ error: fromZodError(parsedPayout.error).message });
+      const { paymentMethod, paymentReference, notes } = parsedPayout.data;
       const academyId = req.user?.academyId;
       const adminId = req.user?.coachId || req.user?.id;
 
@@ -2500,7 +2516,14 @@ function requirePlayerOrOwner(req: AuthenticatedRequest, res: Response, next: Ne
   router.post("/api/admin/players/:playerId/add-debt", authMiddleware, requireRole("admin", "academy_owner", "platform_owner"), async (req: AuthenticatedRequest, res: Response) => {
     try {
       const { playerId } = req.params;
-      const { amount, creditType, reason } = req.body;
+      const addDebtSchema = z.object({
+        amount: z.number().positive(),
+        creditType: z.enum(["group", "semi_private", "private"]),
+        reason: z.string().max(512).optional(),
+      });
+      const parsedDebt = addDebtSchema.safeParse(req.body);
+      if (!parsedDebt.success) return res.status(400).json({ error: fromZodError(parsedDebt.error).message });
+      const { amount, creditType, reason } = parsedDebt.data;
       
       if (!amount || amount <= 0) {
         return res.status(400).json({ error: "Amount must be a positive number" });

@@ -552,10 +552,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
     async (req: AuthenticatedRequest, res: Response) => {
       try {
         const userId = req.user!.id;
-        const { key: bodyKey, value: bodyValue } = req.body;
-        if (!bodyKey) {
-          return res.status(400).json({ error: "key is required" });
-        }
+        const onboardingStateSchema = z.object({ key: z.string().min(1).max(128), value: z.unknown() });
+        const parsedOnboarding = onboardingStateSchema.safeParse(req.body);
+        if (!parsedOnboarding.success) return res.status(400).json({ error: fromZodError(parsedOnboarding.error).message });
+        const { key: bodyKey, value: bodyValue } = parsedOnboarding.data;
         const configKey = `user_onboarding_${userId}`;
         const existing = await db
           .select()
@@ -1482,17 +1482,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
     authLimiter,
     async (req: Request, res: Response) => {
       try {
-        const { email } = req.body;
-
-        if (!email || typeof email !== "string") {
-          return res.status(400).json({ error: "Email is required" });
-        }
-
-        // Validate email format
-        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-        if (!emailRegex.test(email)) {
-          return res.status(400).json({ error: "Invalid email format" });
-        }
+        const otpSendSchema = z.object({ email: z.string().email() });
+        const parsedOtp = otpSendSchema.safeParse(req.body);
+        if (!parsedOtp.success) return res.status(400).json({ error: fromZodError(parsedOtp.error).message });
+        const { email } = parsedOtp.data;
 
         const result = await sendOTPEmail(email);
 
@@ -1520,11 +1513,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
     authLimiter,
     async (req: Request, res: Response) => {
       try {
-        const { email, code } = req.body;
-
-        if (!email || !code) {
-          return res.status(400).json({ error: "Email and code are required" });
-        }
+        const otpVerifySchema = z.object({ email: z.string().email(), code: z.string().min(4).max(8) });
+        const parsedOtpVerify = otpVerifySchema.safeParse(req.body);
+        if (!parsedOtpVerify.success) return res.status(400).json({ error: fromZodError(parsedOtpVerify.error).message });
+        const { email, code } = parsedOtpVerify.data;
 
         const result = verifyOTPCode(email, code);
 
@@ -2432,7 +2424,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
     requireRole("academy_owner", "platform_owner"),
     async (req: AuthenticatedRequest, res: Response) => {
       try {
-        const { role = "coach", email, expiresInDays = 7 } = req.body;
+        const inviteSchema = z.object({
+          role: z.enum(["coach", "player", "academy_owner", "service_provider"]).optional().default("coach"),
+          email: z.string().email().optional(),
+          expiresInDays: z.number().int().positive().max(365).optional().default(7),
+        });
+        const parsedInvite = inviteSchema.safeParse(req.body);
+        if (!parsedInvite.success) return res.status(400).json({ error: fromZodError(parsedInvite.error).message });
+        const { role = "coach", email, expiresInDays = 7 } = parsedInvite.data;
         // Use currentAcademyId (from X-Academy-Id header) for multi-academy support
         const academyId = req.user!.currentAcademyId || req.user!.academyId;
         const invitedBy = req.user!.coachId || req.user!.userId;
@@ -3002,7 +3001,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
           return res.status(400).json({ error: "Academy not found" });
         }
 
-        const { resetTypes, confirmationCode } = req.body;
+        const resetSchema = z.object({
+          confirmationCode: z.literal("RESET"),
+          resetTypes: z.record(z.string(), z.boolean()),
+        });
+        const parsedReset = resetSchema.safeParse(req.body);
+        if (!parsedReset.success) return res.status(400).json({ error: fromZodError(parsedReset.error).message });
+        const { resetTypes, confirmationCode } = parsedReset.data;
 
         // Require confirmation code for safety
         if (confirmationCode !== "RESET") {
@@ -5337,7 +5342,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         if (!playerId)
           return res.status(400).json({ error: "Player not found" });
 
-        const { notificationIds } = req.body;
+        const markReadSchema = z.object({ notificationIds: z.array(z.number().int().positive()).optional() });
+        const parsedMarkRead = markReadSchema.safeParse(req.body);
+        if (!parsedMarkRead.success) return res.status(400).json({ error: fromZodError(parsedMarkRead.error).message });
+        const { notificationIds } = parsedMarkRead.data;
 
         if (notificationIds && Array.isArray(notificationIds)) {
           await db
@@ -5659,7 +5667,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
     async (req: AuthenticatedRequest, res: Response) => {
       try {
         const coachId = req.user!.coachId;
-        const { pin } = req.body;
+        const pinVerifySchema = z.object({ pin: z.string().regex(/^\d{4}$/, "PIN must be exactly 4 digits") });
+        const parsedPin = pinVerifySchema.safeParse(req.body);
+        if (!parsedPin.success) return res.status(400).json({ error: fromZodError(parsedPin.error).message });
+        const { pin } = parsedPin.data;
 
         if (!coachId) {
           return res.status(400).json({ error: "Coach ID required" });
@@ -5703,7 +5714,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
     async (req: AuthenticatedRequest, res: Response) => {
       try {
         const coachId = req.user!.coachId;
-        const { currentPin, newPin } = req.body;
+        const pinChangeSchema = z.object({
+          currentPin: z.string().regex(/^\d{4}$/).optional(),
+          newPin: z.string().regex(/^\d{4}$/, "New PIN must be exactly 4 digits"),
+        });
+        const parsedPinChange = pinChangeSchema.safeParse(req.body);
+        if (!parsedPinChange.success) return res.status(400).json({ error: fromZodError(parsedPinChange.error).message });
+        const { currentPin, newPin } = parsedPinChange.data;
 
         if (!coachId) {
           return res.status(400).json({ error: "Coach ID required" });
