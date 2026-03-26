@@ -25,6 +25,8 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useNavigation } from "@react-navigation/native";
+import { NativeStackNavigationProp } from "@react-navigation/native-stack";
+import type { PlayerStackParamList } from "@/player/navigation/PlayerNavigator";
 
 import { ThemedText } from "@/components/ThemedText";
 import { Colors, Backgrounds, Spacing, BorderRadius, GlowColors } from "@/constants/theme";
@@ -165,7 +167,7 @@ export function CoachChatFooter({ mode = "coach" }: ChatFooterProps) {
   const { user } = useAuth();
   const { setChatExpanded } = useChatState();
 
-  const navigation = useNavigation<any>();
+  const navigation = useNavigation<NativeStackNavigationProp<PlayerStackParamList>>();
   const isPlayerMode = mode === "player";
   const userId = isPlayerMode ? user?.playerId : coach?.id;
   const userType = isPlayerMode ? "player" : "coach";
@@ -868,7 +870,21 @@ export function CoachChatFooter({ mode = "coach" }: ChatFooterProps) {
     return (
       <View style={styles.worldMessageRow}>
         <View style={[styles.messageBubble, isOwn ? styles.ownMessage : styles.otherMessage]}>
-          {!isOwn ? (
+          {isOwn ? (
+            <View style={[styles.senderInfo, { justifyContent: "flex-end" }]}>
+              <View style={styles.playerAvatar}>
+                {item.senderPhotoUrl ? (
+                  <Image
+                    source={{ uri: item.senderPhotoUrl }}
+                    style={styles.playerAvatarImg}
+                    contentFit="cover"
+                  />
+                ) : (
+                  <ThemedText style={styles.playerAvatarInitials}>{initials}</ThemedText>
+                )}
+              </View>
+            </View>
+          ) : (
             <Pressable
               style={styles.senderInfo}
               onPress={() =>
@@ -896,7 +912,7 @@ export function CoachChatFooter({ mode = "coach" }: ChatFooterProps) {
                 {item.senderName}
               </ThemedText>
             </Pressable>
-          ) : null}
+          )}
           <View style={styles.messageRow}>
             <ThemedText style={[styles.messageText, isOwn && styles.ownMessageText]}>{item.body}</ThemedText>
             <ThemedText style={[styles.timestamp, isOwn && styles.ownTimestamp]}>{formatTime(item.createdAt)}</ThemedText>
@@ -1418,10 +1434,7 @@ export function CoachChatFooter({ mode = "coach" }: ChatFooterProps) {
                         const opponentPhoto = selectedSender.senderPhotoUrl ?? undefined;
                         setSelectedSender(null);
                         setTimeout(() => {
-                          navigation.navigate("PlayStack", {
-                            screen: "ChallengePlayer",
-                            params: { opponentId, opponentName, opponentPhoto },
-                          });
+                          navigation.navigate("ChallengePlayer", { opponentId, opponentName, opponentPhoto });
                         }, 350);
                       }}
                     >
