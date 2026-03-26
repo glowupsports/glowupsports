@@ -24,9 +24,6 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { useNavigation } from "@react-navigation/native";
-import { NativeStackNavigationProp } from "@react-navigation/native-stack";
-import type { PlayerStackParamList } from "@/player/navigation/PlayerNavigator";
 
 import { ThemedText } from "@/components/ThemedText";
 import { Colors, Backgrounds, Spacing, BorderRadius, GlowColors } from "@/constants/theme";
@@ -38,6 +35,7 @@ import { useChatState } from "@/coach/context/ChatStateContext";
 
 interface ChatFooterProps {
   mode?: "coach" | "player";
+  onChallenge?: (opponentId: string, opponentName: string, opponentPhoto?: string) => void;
 }
 
 const { height: SCREEN_HEIGHT } = Dimensions.get("window");
@@ -157,7 +155,7 @@ interface SenderProfile {
 
 const TAB_BAR_HEIGHT = 85;
 
-export function CoachChatFooter({ mode = "coach" }: ChatFooterProps) {
+export function CoachChatFooter({ mode = "coach", onChallenge }: ChatFooterProps) {
   const insets = useSafeAreaInsets();
   const { width: screenWidth } = useWindowDimensions();
   const isDesktopWeb = Platform.OS === "web" && screenWidth >= 1024;
@@ -167,7 +165,6 @@ export function CoachChatFooter({ mode = "coach" }: ChatFooterProps) {
   const { user } = useAuth();
   const { setChatExpanded } = useChatState();
 
-  const navigation = useNavigation<NativeStackNavigationProp<PlayerStackParamList>>();
   const isPlayerMode = mode === "player";
   const userId = isPlayerMode ? user?.playerId : coach?.id;
   const userType = isPlayerMode ? "player" : "coach";
@@ -1424,8 +1421,27 @@ export function CoachChatFooter({ mode = "coach" }: ChatFooterProps) {
                       <Ionicons name="chatbubble-outline" size={16} color={Colors.dark.primary} />
                       <ThemedText style={styles.profileModalBtnText}>Message</ThemedText>
                     </Pressable>
+                  ) : selectedSender.senderType === "coach" && selectedSender.senderCoachId && !isPlayerMode ? (
+                    <Pressable
+                      style={styles.profileModalBtn}
+                      onPress={() => {
+                        const targetCoachId = selectedSender.senderCoachId!;
+                        setSelectedSender(null);
+                        setTimeout(() => {
+                          createConversationMutation.mutate({
+                            type: "coach_coach",
+                            otherCoachId: targetCoachId,
+                          });
+                          setIsExpanded(true);
+                          setCurrentTab("coaches");
+                        }, 350);
+                      }}
+                    >
+                      <Ionicons name="chatbubble-outline" size={16} color={Colors.dark.primary} />
+                      <ThemedText style={styles.profileModalBtnText}>Message</ThemedText>
+                    </Pressable>
                   ) : null}
-                  {selectedSender.senderType === "player" && selectedSender.senderPlayerId && isPlayerMode ? (
+                  {selectedSender.senderType === "player" && selectedSender.senderPlayerId && isPlayerMode && onChallenge ? (
                     <Pressable
                       style={[styles.profileModalBtn, { backgroundColor: Colors.dark.xpCyan + "15", borderColor: Colors.dark.xpCyan + "50" }]}
                       onPress={() => {
@@ -1434,7 +1450,7 @@ export function CoachChatFooter({ mode = "coach" }: ChatFooterProps) {
                         const opponentPhoto = selectedSender.senderPhotoUrl ?? undefined;
                         setSelectedSender(null);
                         setTimeout(() => {
-                          navigation.navigate("ChallengePlayer", { opponentId, opponentName, opponentPhoto });
+                          onChallenge(opponentId, opponentName, opponentPhoto);
                         }, 350);
                       }}
                     >

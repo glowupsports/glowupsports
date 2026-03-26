@@ -467,6 +467,7 @@ const HIDE_CHAT_TABS = ["PlayStack", "Community"];
 function PlayerTabsContent({ onEdgeSwipeLeft }: { onEdgeSwipeLeft?: () => void }) {
   const { t } = useTranslation();
   const [currentTabKey, setCurrentTabKey] = useState("Home");
+  const navigation = useNavigation<any>();
 
   const playerTabs: TabConfig[] = useMemo(() => [
     { key: "Home", label: "Home", icon: "home-outline", iconFocused: "home", component: ProPlayerHomeScreen },
@@ -479,6 +480,16 @@ function PlayerTabsContent({ onEdgeSwipeLeft }: { onEdgeSwipeLeft?: () => void }
   ], [t]);
   
   const hideChat = HIDE_CHAT_TABS.includes(currentTabKey);
+
+  const handleChallenge = useCallback(
+    (opponentId: string, opponentName: string, opponentPhoto?: string) => {
+      navigation.navigate("PlayerTabs", {
+        screen: "PlayStack",
+        params: { screen: "ChallengePlayer", params: { opponentId, opponentName, opponentPhoto } },
+      });
+    },
+    [navigation],
+  );
   
   const handlePageChange = useCallback((index: number, key: string) => {
     setCurrentTabKey(key);
@@ -490,11 +501,11 @@ function PlayerTabsContent({ onEdgeSwipeLeft }: { onEdgeSwipeLeft?: () => void }
     
     return (
       <>
-        <CoachChatFooter mode="player" />
+        <CoachChatFooter mode="player" onChallenge={handleChallenge} />
         <PlayerQuickActionsFAB />
       </>
     );
-  }, []);
+  }, [handleChallenge]);
   
   return (
     <SwipeableTabBar
