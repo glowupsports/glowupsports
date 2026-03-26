@@ -1891,6 +1891,9 @@ export const storage = {
     
     // Use a transaction to ensure atomicity
     try {
+      // Delete credit transactions first — they FK-reference session_players, packages, and players
+      await db.delete(creditTransactions).where(eq(creditTransactions.playerId, id));
+
       // Delete all related records in order to satisfy foreign key constraints
       // First batch: tables with no further dependencies
       await Promise.all([

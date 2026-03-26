@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, useMemo, useCallback, useRef, ReactNode } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/coach/context/AuthContext";
-import { getStaticAssetsUrl, getApiUrl } from "@/lib/query-client";
+import { getStaticAssetsUrl, getApiUrl, apiRequest } from "@/lib/query-client";
 import * as Location from "expo-location";
 
 type TimeOfDay = "morning" | "afternoon" | "evening" | "night";
@@ -349,11 +349,9 @@ export function PlayerStateProvider({ children }: { children: ReactNode }) {
         if (status !== "granted") return;
         const position = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
         const url = new URL("/api/player/me/location", getApiUrl());
-        await fetch(url.toString(), {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          credentials: "include",
-          body: JSON.stringify({ latitude: position.coords.latitude, longitude: position.coords.longitude }),
+        await apiRequest("PATCH", url.toString(), {
+          latitude: position.coords.latitude,
+          longitude: position.coords.longitude,
         });
       } catch (e) {
         console.log("Location update skipped:", e);
