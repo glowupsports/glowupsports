@@ -47,6 +47,13 @@ import { sendFeedbackNotificationEmail, sendLevelUpEmail } from "../emailService
 import { createCalendarEvent, updateCalendarEvent, deleteCalendarEvent } from "../googleCalendarService";
 import { apiCache } from "../cache";
 import crypto from "crypto";
+import { z } from "zod";
+import { fromZodError } from "zod-validation-error";
+
+const worldChatMessageSchema = z.object({
+  body: z.string().min(1).max(4000),
+  messageType: z.string().max(32).optional(),
+});
 
 const router = Router();
 
@@ -322,14 +329,14 @@ async function autoCancel(
   // Post message to world chat
   router.post("/api/world-chat/messages", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
     try {
-      const { body, messageType } = req.body;
+      const parsedMsg = worldChatMessageSchema.safeParse(req.body);
+      if (!parsedMsg.success) {
+        return res.status(400).json({ error: fromZodError(parsedMsg.error).message });
+      }
+      const { body, messageType } = parsedMsg.data;
       const userId = req.user!.id;
       const coachId = req.user!.coachId;
       const playerId = req.user!.playerId;
-
-      if (!body || !body.trim()) {
-        return res.status(400).json({ error: "Message body required" });
-      }
 
       const sanitizedBody = sanitizeMessage(body);
       if (!sanitizedBody) {

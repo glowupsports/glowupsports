@@ -19,7 +19,25 @@ import {
   type JWTPayload,
 } from "../auth";
 import { fromZodError } from "zod-validation-error";
+import { z } from "zod";
 import { sanitizeMessage } from "../utils/sanitize";
+
+const bookingRequestSchema = z.object({
+  coachId: z.string().uuid().optional(),
+  locationId: z.string().uuid().optional(),
+  courtId: z.string().uuid().optional(),
+  requestedStart: z.string().min(1),
+  requestedEnd: z.string().min(1),
+  duration: z.number().int().positive(),
+  sessionType: z.enum(["private", "semi_private", "group", "play"]),
+  playerNote: z.string().max(500).optional().nullable(),
+  sessionId: z.string().uuid().optional().nullable(),
+  isJoinRequest: z.boolean().optional(),
+});
+
+const bookingDeclineSchema = z.object({
+  reason: z.string().max(500).optional().nullable(),
+});
 
 const router = Router();
 
@@ -146,11 +164,11 @@ function toDubaiTime(utcDate: Date): Date {
         return res.status(404).json({ error: "Player not found" });
       }
 
-      const { coachId, locationId, courtId, requestedStart, requestedEnd, duration, sessionType, playerNote, sessionId, isJoinRequest } = req.body;
-
-      if (!requestedStart || !requestedEnd || !duration || !sessionType) {
-        return res.status(400).json({ error: "Missing required fields" });
+      const parsedBooking = bookingRequestSchema.safeParse(req.body);
+      if (!parsedBooking.success) {
+        return res.status(400).json({ error: fromZodError(parsedBooking.error).message });
       }
+      const { coachId, locationId, courtId, requestedStart, requestedEnd, duration, sessionType, playerNote, sessionId, isJoinRequest } = parsedBooking.data;
 
       // For join requests, validate the session exists and has spots
       if (isJoinRequest && sessionId) {
@@ -1129,7 +1147,11 @@ function toDubaiTime(utcDate: Date): Date {
       const coachId = req.user?.coachId;
       const academyId = req.user?.academyId;
       const { id } = req.params;
-      const { reason } = req.body;
+      const parsedDecline = bookingDeclineSchema.safeParse(req.body);
+      if (!parsedDecline.success) {
+        return res.status(400).json({ error: fromZodError(parsedDecline.error).message });
+      }
+      const { reason } = parsedDecline.data;
       
       if (!coachId || !academyId) {
         return res.status(403).json({ error: "Coach access required" });
