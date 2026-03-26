@@ -1,5 +1,7 @@
 var __defProp = Object.defineProperty;
+var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
 var __getOwnPropNames = Object.getOwnPropertyNames;
+var __hasOwnProp = Object.prototype.hasOwnProperty;
 var __require = /* @__PURE__ */ ((x) => typeof require !== "undefined" ? require : typeof Proxy !== "undefined" ? new Proxy(x, {
   get: (a, b) => (typeof require !== "undefined" ? require : a)[b]
 }) : x)(function(x) {
@@ -13,6 +15,15 @@ var __export = (target, all) => {
   for (var name in all)
     __defProp(target, name, { get: all[name], enumerable: true });
 };
+var __copyProps = (to, from, except, desc26) => {
+  if (from && typeof from === "object" || typeof from === "function") {
+    for (let key of __getOwnPropNames(from))
+      if (!__hasOwnProp.call(to, key) && key !== except)
+        __defProp(to, key, { get: () => from[key], enumerable: !(desc26 = __getOwnPropDesc(from, key)) || desc26.enumerable });
+  }
+  return to;
+};
+var __toCommonJS = (mod) => __copyProps(__defProp({}, "__esModule", { value: true }), mod);
 
 // shared/schema.ts
 var schema_exports = {};
@@ -7143,6 +7154,7 @@ var init_storage = __esm({
         );
         if (player2.length === 0) return false;
         try {
+          await db.delete(creditTransactions).where(eq(creditTransactions.playerId, id));
           await Promise.all([
             // Player invites (MUST be deleted to avoid FK constraint errors)
             db.delete(playerInvites).where(eq(playerInvites.playerId, id)),
@@ -13251,22 +13263,397 @@ var init_storage = __esm({
   }
 });
 
+// server/auth.ts
+var auth_exports = {};
+__export(auth_exports, {
+  JWT_SECRET: () => JWT_SECRET,
+  authMiddleware: () => authMiddleware,
+  authMiddlewareWithFreshData: () => authMiddlewareWithFreshData,
+  createFreshUserMiddleware: () => createFreshUserMiddleware,
+  generateToken: () => generateToken,
+  hashPassword: () => hashPassword,
+  isAppleReviewAccount: () => isAppleReviewAccount,
+  optionalAuthMiddleware: () => optionalAuthMiddleware,
+  refreshAuthMiddleware: () => refreshAuthMiddleware,
+  requireAcademy: () => requireAcademy,
+  requireFeatureUnlock: () => requireFeatureUnlock,
+  requireRole: () => requireRole,
+  setFeatureUnlockChecker: () => setFeatureUnlockChecker,
+  setFreshUserStorage: () => setFreshUserStorage,
+  validateCourtOwnership: () => validateCourtOwnership,
+  validateNotificationOwnership: () => validateNotificationOwnership,
+  validatePackageOwnership: () => validatePackageOwnership,
+  validatePassword: () => validatePassword,
+  validatePlayerOwnership: () => validatePlayerOwnership,
+  validateSessionOwnership: () => validateSessionOwnership,
+  verifyPassword: () => verifyPassword,
+  verifyToken: () => verifyToken,
+  verifyTokenAllowExpired: () => verifyTokenAllowExpired
+});
+import bcrypt from "bcrypt";
+import jwt from "jsonwebtoken";
+function validatePassword(password) {
+  const errors = [];
+  if (!password || password.length < 8) {
+    errors.push("Password must be at least 8 characters long");
+  }
+  if (password.length > 128) {
+    errors.push("Password must be less than 128 characters");
+  }
+  if (!/[A-Z]/.test(password)) {
+    errors.push("Password must contain at least one uppercase letter");
+  }
+  if (!/[a-z]/.test(password)) {
+    errors.push("Password must contain at least one lowercase letter");
+  }
+  if (!/[0-9]/.test(password)) {
+    errors.push("Password must contain at least one number");
+  }
+  return {
+    valid: errors.length === 0,
+    errors
+  };
+}
+async function hashPassword(password) {
+  return bcrypt.hash(password, SALT_ROUNDS);
+}
+async function verifyPassword(password, hash) {
+  return bcrypt.compare(password, hash);
+}
+function generateToken(payload) {
+  return jwt.sign(payload, JWT_SECRET, { expiresIn: JWT_EXPIRES_IN });
+}
+function verifyToken(token) {
+  try {
+    return jwt.verify(token, JWT_SECRET);
+  } catch {
+    return null;
+  }
+}
+function verifyTokenAllowExpired(token) {
+  try {
+    return jwt.verify(token, JWT_SECRET, { ignoreExpiration: true });
+  } catch {
+    return null;
+  }
+}
+function refreshAuthMiddleware(req2, res, next) {
+  const authHeader = req2.headers.authorization;
+  if (!authHeader || !authHeader.startsWith("Bearer ")) {
+    res.status(401).json({ error: "Authentication required" });
+    return;
+  }
+  const token = authHeader.substring(7);
+  const payload = verifyTokenAllowExpired(token);
+  if (!payload) {
+    res.status(401).json({ error: "Invalid token signature" });
+    return;
+  }
+  req2.user = payload;
+  next();
+}
+function authMiddleware(req2, res, next) {
+  const authHeader = req2.headers.authorization;
+  if (!authHeader || !authHeader.startsWith("Bearer ")) {
+    res.status(401).json({ error: "Authentication required" });
+    return;
+  }
+  const token = authHeader.substring(7);
+  const payload = verifyToken(token);
+  if (!payload) {
+    res.status(401).json({ error: "Invalid or expired token" });
+    return;
+  }
+  req2.user = payload;
+  next();
+}
+function setFreshUserStorage(storage2) {
+  freshUserStorage = storage2;
+}
+async function authMiddlewareWithFreshData(req2, res, next) {
+  const authHeader = req2.headers.authorization;
+  if (req2.path.includes("/play/")) {
+  }
+  if (!authHeader || !authHeader.startsWith("Bearer ")) {
+    res.status(401).json({ error: "Authentication required" });
+    return;
+  }
+  const token = authHeader.substring(7);
+  const payload = verifyToken(token);
+  if (!payload) {
+    res.status(401).json({ error: "Invalid or expired token" });
+    return;
+  }
+  const requestedAcademyId = req2.headers["x-academy-id"];
+  if (freshUserStorage) {
+    try {
+      const freshUser = await freshUserStorage.getUserById(payload.userId);
+      if (!freshUser) {
+        console.warn(`[Auth] User ${payload.userId} from token not found in database - rejecting`);
+        res.status(401).json({ error: "User account not found. Please log in again." });
+        return;
+      }
+      if (freshUser.deleted === true) {
+        console.warn(`[Auth] User ${payload.userId} account has been deleted - rejecting`);
+        res.status(401).json({ error: "ACCOUNT_DELETED", message: "Your account has been deleted. Please create a new account to continue." });
+        return;
+      }
+      if (freshUser) {
+        let effectiveAcademyId = freshUser.academyId;
+        if (freshUser.role === "platform_owner" && requestedAcademyId) {
+          effectiveAcademyId = requestedAcademyId;
+        } else if (freshUser.role === "academy_owner" && requestedAcademyId) {
+          const isOwner = await freshUserStorage.isUserAcademyOwner(freshUser.id, requestedAcademyId);
+          if (isOwner) {
+            effectiveAcademyId = requestedAcademyId;
+          } else {
+            res.status(403).json({ error: "Access denied to this academy" });
+            return;
+          }
+        }
+        let effectivePlayerId = freshUser.playerId;
+        const requestedPlayerId = req2.headers["x-active-player-id"];
+        if (requestedPlayerId && requestedPlayerId !== freshUser.playerId && freshUser.playerId) {
+          try {
+            const parentEmail = await freshUserStorage.getPlayerEmail(freshUser.playerId);
+            if (parentEmail) {
+              const childEmail = await freshUserStorage.getPlayerEmail(requestedPlayerId);
+              if (childEmail === parentEmail) {
+                effectivePlayerId = requestedPlayerId;
+              }
+            }
+          } catch (familyErr) {
+            console.error("[Auth] Family player switch error:", familyErr);
+          }
+        }
+        req2.user = {
+          userId: freshUser.id,
+          email: freshUser.email,
+          role: freshUser.role,
+          academyId: freshUser.academyId,
+          coachId: freshUser.coachId,
+          playerId: effectivePlayerId,
+          currentAcademyId: effectiveAcademyId
+        };
+        if (freshUser.role !== "platform_owner") {
+          try {
+            const isMaintenanceOn = await freshUserStorage.isMaintenanceMode();
+            if (isMaintenanceOn) {
+              res.status(503).json({
+                error: "Platform is under maintenance",
+                message: "Glow Up Sports is currently undergoing scheduled maintenance. Please try again later.",
+                maintenance: true
+              });
+              return;
+            }
+          } catch (maintenanceError) {
+            console.error("Error checking maintenance mode:", maintenanceError);
+          }
+        }
+        return next();
+      }
+    } catch (error) {
+      console.error("Error fetching fresh user data:", error);
+    }
+  }
+  req2.user = {
+    ...payload,
+    currentAcademyId: payload.academyId
+    // Only use validated academy from JWT, never trust header in fallback
+  };
+  if (payload.role !== "platform_owner" && freshUserStorage) {
+    try {
+      const isMaintenanceOn = await freshUserStorage.isMaintenanceMode();
+      if (isMaintenanceOn) {
+        res.status(503).json({
+          error: "Platform is under maintenance",
+          message: "Glow Up Sports is currently undergoing scheduled maintenance. Please try again later.",
+          maintenance: true
+        });
+        return;
+      }
+    } catch (maintenanceError) {
+      console.error("Error checking maintenance mode:", maintenanceError);
+    }
+  }
+  next();
+}
+function optionalAuthMiddleware(req2, res, next) {
+  const authHeader = req2.headers.authorization;
+  if (authHeader && authHeader.startsWith("Bearer ")) {
+    const token = authHeader.substring(7);
+    const payload = verifyToken(token);
+    if (payload) {
+      req2.user = payload;
+    }
+  }
+  next();
+}
+function requireRole(...allowedRoles) {
+  return (req2, res, next) => {
+    if (!req2.user) {
+      res.status(401).json({ error: "Authentication required" });
+      return;
+    }
+    if (!allowedRoles.includes(req2.user.role)) {
+      res.status(403).json({ error: "Insufficient permissions" });
+      return;
+    }
+    next();
+  };
+}
+function requireAcademy(req2, res, next) {
+  if (!req2.user) {
+    res.status(401).json({ error: "Authentication required" });
+    return;
+  }
+  if (!req2.user.academyId) {
+    res.status(403).json({ error: "Academy membership required" });
+    return;
+  }
+  next();
+}
+function createFreshUserMiddleware(storage2) {
+  return async function freshUserMiddleware(req2, res, next) {
+    if (!req2.user) {
+      return next();
+    }
+    try {
+      const freshUser = await storage2.getUserById(req2.user.userId);
+      if (freshUser) {
+        req2.user = {
+          userId: freshUser.id,
+          email: freshUser.email,
+          role: freshUser.role,
+          academyId: freshUser.academyId,
+          coachId: freshUser.coachId,
+          playerId: freshUser.playerId
+        };
+      }
+    } catch (error) {
+      console.error("Error fetching fresh user data:", error);
+    }
+    next();
+  };
+}
+async function validatePlayerOwnership(playerId, academyId, storage2) {
+  if (!academyId) {
+    return { valid: false };
+  }
+  const player2 = await storage2.getPlayer(playerId, academyId);
+  return { valid: !!player2, player: player2 };
+}
+async function validateCourtOwnership(courtId, academyId, storage2) {
+  if (!academyId) {
+    return { valid: false };
+  }
+  const court = await storage2.getCourt(courtId, academyId);
+  return { valid: !!court, court };
+}
+async function validateSessionOwnership(sessionId, academyId, storage2) {
+  if (!academyId) {
+    return { valid: false };
+  }
+  const session = await storage2.getSession(sessionId, academyId);
+  return { valid: !!session, session };
+}
+async function validatePackageOwnership(packageId, academyId, storage2) {
+  if (!academyId) {
+    return { valid: false };
+  }
+  const pkg2 = await storage2.getPackage(packageId, academyId);
+  return { valid: !!pkg2, pkg: pkg2 };
+}
+async function validateNotificationOwnership(notificationId, coachId, storage2) {
+  if (!coachId) {
+    return { valid: false };
+  }
+  const notification = await storage2.getCoachNotification(notificationId, coachId);
+  return { valid: !!notification, notification };
+}
+function setFeatureUnlockChecker(checker) {
+  featureUnlockChecker = checker;
+}
+function isAppleReviewAccount(email) {
+  return email === APPLE_REVIEW_EMAIL;
+}
+function requireFeatureUnlock(featureKey) {
+  return async (req2, res, next) => {
+    if (!req2.user) {
+      res.status(401).json({ error: "Authentication required" });
+      return;
+    }
+    if (isAppleReviewAccount(req2.user.email)) {
+      return next();
+    }
+    if (!req2.user.playerId) {
+      return next();
+    }
+    if (!featureUnlockChecker) {
+      console.error("[FeatureGate] Feature unlock checker not initialized");
+      return next();
+    }
+    try {
+      const isUnlocked = await featureUnlockChecker.isFeatureUnlocked(req2.user.playerId, featureKey);
+      if (!isUnlocked) {
+        res.status(403).json({
+          error: "Feature locked",
+          featureKey,
+          message: "This feature requires a higher player level to access"
+        });
+        return;
+      }
+      next();
+    } catch (error) {
+      console.error("[FeatureGate] Error checking feature unlock:", error);
+      next();
+    }
+  };
+}
+var JWT_SECRET, JWT_EXPIRES_IN, SALT_ROUNDS, freshUserStorage, featureUnlockChecker, APPLE_REVIEW_EMAIL;
+var init_auth = __esm({
+  "server/auth.ts"() {
+    "use strict";
+    if (!process.env.SESSION_SECRET) {
+      throw new Error("[FATAL] SESSION_SECRET environment variable is not set. Server cannot start without a secure JWT secret.");
+    }
+    JWT_SECRET = process.env.SESSION_SECRET;
+    JWT_EXPIRES_IN = "7d";
+    SALT_ROUNDS = 12;
+    freshUserStorage = null;
+    featureUnlockChecker = null;
+    APPLE_REVIEW_EMAIL = "review@glowupsports.com";
+  }
+});
+
 // server/websocket.ts
 import { WebSocketServer, WebSocket } from "ws";
-import jwt from "jsonwebtoken";
+import jwt2 from "jsonwebtoken";
 function setupWebSocket(server) {
   const wss = new WebSocketServer({ server, path: "/ws" });
   wss.on("connection", async (ws, req2) => {
     const socket = ws;
     socket.isAlive = true;
-    const url = new URL(req2.url || "", `http://${req2.headers.host}`);
-    const token = url.searchParams.get("token");
+    let token = null;
+    const authHeader = req2.headers.authorization;
+    if (authHeader && authHeader.startsWith("Bearer ")) {
+      token = authHeader.substring(7);
+    } else {
+      const protocols = req2.headers["sec-websocket-protocol"];
+      if (protocols) {
+        const protocolList = protocols.split(",").map((p) => p.trim());
+        const authProtocol = protocolList.find((p) => p.startsWith("auth-"));
+        if (authProtocol) {
+          token = authProtocol.slice(5);
+        }
+      }
+    }
     if (!token) {
       socket.close(4001, "Authentication required");
       return;
     }
     try {
-      const decoded = jwt.verify(token, JWT_SECRET);
+      const decoded = jwt2.verify(token, JWT_SECRET);
       if (!decoded.academyId || !decoded.userId) {
         socket.close(4002, "Academy not found");
         return;
@@ -13451,299 +13838,14 @@ function broadcastSessionUpdate(academyId, payload) {
     payload
   });
 }
-var JWT_SECRET, academyRooms, onlineUsers;
+var academyRooms, onlineUsers;
 var init_websocket = __esm({
   "server/websocket.ts"() {
     "use strict";
     init_storage();
-    JWT_SECRET = process.env.SESSION_SECRET || "dev-secret-key";
+    init_auth();
     academyRooms = /* @__PURE__ */ new Map();
     onlineUsers = /* @__PURE__ */ new Map();
-  }
-});
-
-// server/auth.ts
-import bcrypt from "bcrypt";
-import jwt2 from "jsonwebtoken";
-function validatePassword(password) {
-  const errors = [];
-  if (!password || password.length < 8) {
-    errors.push("Password must be at least 8 characters long");
-  }
-  if (password.length > 128) {
-    errors.push("Password must be less than 128 characters");
-  }
-  if (!/[A-Z]/.test(password)) {
-    errors.push("Password must contain at least one uppercase letter");
-  }
-  if (!/[a-z]/.test(password)) {
-    errors.push("Password must contain at least one lowercase letter");
-  }
-  if (!/[0-9]/.test(password)) {
-    errors.push("Password must contain at least one number");
-  }
-  return {
-    valid: errors.length === 0,
-    errors
-  };
-}
-async function hashPassword(password) {
-  return bcrypt.hash(password, SALT_ROUNDS);
-}
-async function verifyPassword(password, hash) {
-  return bcrypt.compare(password, hash);
-}
-function generateToken(payload) {
-  return jwt2.sign(payload, JWT_SECRET2, { expiresIn: JWT_EXPIRES_IN });
-}
-function verifyToken(token) {
-  try {
-    return jwt2.verify(token, JWT_SECRET2);
-  } catch {
-    return null;
-  }
-}
-function verifyTokenAllowExpired(token) {
-  try {
-    return jwt2.verify(token, JWT_SECRET2, { ignoreExpiration: true });
-  } catch {
-    return null;
-  }
-}
-function refreshAuthMiddleware(req2, res, next) {
-  const authHeader = req2.headers.authorization;
-  if (!authHeader || !authHeader.startsWith("Bearer ")) {
-    res.status(401).json({ error: "Authentication required" });
-    return;
-  }
-  const token = authHeader.substring(7);
-  const payload = verifyTokenAllowExpired(token);
-  if (!payload) {
-    res.status(401).json({ error: "Invalid token signature" });
-    return;
-  }
-  req2.user = payload;
-  next();
-}
-function setFreshUserStorage(storage2) {
-  freshUserStorage = storage2;
-}
-async function authMiddlewareWithFreshData(req2, res, next) {
-  const authHeader = req2.headers.authorization;
-  if (req2.path.includes("/play/")) {
-  }
-  if (!authHeader || !authHeader.startsWith("Bearer ")) {
-    res.status(401).json({ error: "Authentication required" });
-    return;
-  }
-  const token = authHeader.substring(7);
-  const payload = verifyToken(token);
-  if (!payload) {
-    res.status(401).json({ error: "Invalid or expired token" });
-    return;
-  }
-  const requestedAcademyId = req2.headers["x-academy-id"];
-  if (freshUserStorage) {
-    try {
-      const freshUser = await freshUserStorage.getUserById(payload.userId);
-      if (!freshUser) {
-        console.warn(`[Auth] User ${payload.userId} from token not found in database - rejecting`);
-        res.status(401).json({ error: "User account not found. Please log in again." });
-        return;
-      }
-      if (freshUser.deleted === true) {
-        console.warn(`[Auth] User ${payload.userId} account has been deleted - rejecting`);
-        res.status(401).json({ error: "ACCOUNT_DELETED", message: "Your account has been deleted. Please create a new account to continue." });
-        return;
-      }
-      if (freshUser) {
-        let effectiveAcademyId = freshUser.academyId;
-        if (freshUser.role === "platform_owner" && requestedAcademyId) {
-          effectiveAcademyId = requestedAcademyId;
-        } else if (freshUser.role === "academy_owner" && requestedAcademyId) {
-          const isOwner = await freshUserStorage.isUserAcademyOwner(freshUser.id, requestedAcademyId);
-          if (isOwner) {
-            effectiveAcademyId = requestedAcademyId;
-          } else {
-            res.status(403).json({ error: "Access denied to this academy" });
-            return;
-          }
-        }
-        let effectivePlayerId = freshUser.playerId;
-        const requestedPlayerId = req2.headers["x-active-player-id"];
-        if (requestedPlayerId && requestedPlayerId !== freshUser.playerId && freshUser.playerId) {
-          try {
-            const parentEmail = await freshUserStorage.getPlayerEmail(freshUser.playerId);
-            if (parentEmail) {
-              const childEmail = await freshUserStorage.getPlayerEmail(requestedPlayerId);
-              if (childEmail === parentEmail) {
-                effectivePlayerId = requestedPlayerId;
-              }
-            }
-          } catch (familyErr) {
-            console.error("[Auth] Family player switch error:", familyErr);
-          }
-        }
-        req2.user = {
-          userId: freshUser.id,
-          email: freshUser.email,
-          role: freshUser.role,
-          academyId: freshUser.academyId,
-          coachId: freshUser.coachId,
-          playerId: effectivePlayerId,
-          currentAcademyId: effectiveAcademyId
-        };
-        if (freshUser.role !== "platform_owner") {
-          try {
-            const isMaintenanceOn = await freshUserStorage.isMaintenanceMode();
-            if (isMaintenanceOn) {
-              res.status(503).json({
-                error: "Platform is under maintenance",
-                message: "Glow Up Sports is currently undergoing scheduled maintenance. Please try again later.",
-                maintenance: true
-              });
-              return;
-            }
-          } catch (maintenanceError) {
-            console.error("Error checking maintenance mode:", maintenanceError);
-          }
-        }
-        return next();
-      }
-    } catch (error) {
-      console.error("Error fetching fresh user data:", error);
-    }
-  }
-  req2.user = {
-    ...payload,
-    currentAcademyId: payload.academyId
-    // Only use validated academy from JWT, never trust header in fallback
-  };
-  if (payload.role !== "platform_owner" && freshUserStorage) {
-    try {
-      const isMaintenanceOn = await freshUserStorage.isMaintenanceMode();
-      if (isMaintenanceOn) {
-        res.status(503).json({
-          error: "Platform is under maintenance",
-          message: "Glow Up Sports is currently undergoing scheduled maintenance. Please try again later.",
-          maintenance: true
-        });
-        return;
-      }
-    } catch (maintenanceError) {
-      console.error("Error checking maintenance mode:", maintenanceError);
-    }
-  }
-  next();
-}
-function requireRole(...allowedRoles) {
-  return (req2, res, next) => {
-    if (!req2.user) {
-      res.status(401).json({ error: "Authentication required" });
-      return;
-    }
-    if (!allowedRoles.includes(req2.user.role)) {
-      res.status(403).json({ error: "Insufficient permissions" });
-      return;
-    }
-    next();
-  };
-}
-function requireAcademy(req2, res, next) {
-  if (!req2.user) {
-    res.status(401).json({ error: "Authentication required" });
-    return;
-  }
-  if (!req2.user.academyId) {
-    res.status(403).json({ error: "Academy membership required" });
-    return;
-  }
-  next();
-}
-async function validatePlayerOwnership(playerId, academyId, storage2) {
-  if (!academyId) {
-    return { valid: false };
-  }
-  const player2 = await storage2.getPlayer(playerId, academyId);
-  return { valid: !!player2, player: player2 };
-}
-async function validateCourtOwnership(courtId, academyId, storage2) {
-  if (!academyId) {
-    return { valid: false };
-  }
-  const court = await storage2.getCourt(courtId, academyId);
-  return { valid: !!court, court };
-}
-async function validateSessionOwnership(sessionId, academyId, storage2) {
-  if (!academyId) {
-    return { valid: false };
-  }
-  const session = await storage2.getSession(sessionId, academyId);
-  return { valid: !!session, session };
-}
-async function validatePackageOwnership(packageId, academyId, storage2) {
-  if (!academyId) {
-    return { valid: false };
-  }
-  const pkg2 = await storage2.getPackage(packageId, academyId);
-  return { valid: !!pkg2, pkg: pkg2 };
-}
-async function validateNotificationOwnership(notificationId, coachId, storage2) {
-  if (!coachId) {
-    return { valid: false };
-  }
-  const notification = await storage2.getCoachNotification(notificationId, coachId);
-  return { valid: !!notification, notification };
-}
-function setFeatureUnlockChecker(checker) {
-  featureUnlockChecker = checker;
-}
-function isAppleReviewAccount(email) {
-  return email === APPLE_REVIEW_EMAIL;
-}
-function requireFeatureUnlock(featureKey) {
-  return async (req2, res, next) => {
-    if (!req2.user) {
-      res.status(401).json({ error: "Authentication required" });
-      return;
-    }
-    if (isAppleReviewAccount(req2.user.email)) {
-      return next();
-    }
-    if (!req2.user.playerId) {
-      return next();
-    }
-    if (!featureUnlockChecker) {
-      console.error("[FeatureGate] Feature unlock checker not initialized");
-      return next();
-    }
-    try {
-      const isUnlocked = await featureUnlockChecker.isFeatureUnlocked(req2.user.playerId, featureKey);
-      if (!isUnlocked) {
-        res.status(403).json({
-          error: "Feature locked",
-          featureKey,
-          message: "This feature requires a higher player level to access"
-        });
-        return;
-      }
-      next();
-    } catch (error) {
-      console.error("[FeatureGate] Error checking feature unlock:", error);
-      next();
-    }
-  };
-}
-var JWT_SECRET2, JWT_EXPIRES_IN, SALT_ROUNDS, freshUserStorage, featureUnlockChecker, APPLE_REVIEW_EMAIL;
-var init_auth = __esm({
-  "server/auth.ts"() {
-    "use strict";
-    JWT_SECRET2 = process.env.SESSION_SECRET || "dev-secret-change-in-production";
-    JWT_EXPIRES_IN = "7d";
-    SALT_ROUNDS = 12;
-    freshUserStorage = null;
-    featureUnlockChecker = null;
-    APPLE_REVIEW_EMAIL = "review@glowupsports.com";
   }
 });
 
@@ -15272,6 +15374,7 @@ var init_fcm = __esm({
 // server/pushNotifications.ts
 var pushNotifications_exports = {};
 __export(pushNotifications_exports, {
+  fixAlmaZaleskiCredits: () => fixAlmaZaleskiCredits,
   fixHolidayOvercharges: () => fixHolidayOvercharges,
   getCoachPushTokens: () => getCoachPushTokens,
   getPlayerPushTokens: () => getPlayerPushTokens,
@@ -16159,133 +16262,292 @@ async function fixHolidayOvercharges() {
     `);
     if (overcharged.rows.length === 0) {
       console.log("[HolidayOverchargeFix] No holiday overcharges found");
+    } else {
+      console.log(`[HolidayOverchargeFix] Found ${overcharged.rows.length} session_player records wrongly charged during player holidays`);
+      let fixed = 0;
+      let debtsRefunded = 0;
+      let packageRefunded = 0;
+      let errors = 0;
+      const processedIds = /* @__PURE__ */ new Set();
+      for (const row of overcharged.rows) {
+        if (processedIds.has(row.id)) continue;
+        processedIds.add(row.id);
+        const client = await pool.connect();
+        try {
+          await client.query("BEGIN");
+          const guard = await client.query(
+            `SELECT id FROM session_players WHERE id = $1 AND attendance_status = 'present' AND credit_deducted_at IS NOT NULL FOR UPDATE`,
+            [row.id]
+          );
+          if (guard.rows.length === 0) {
+            await client.query("ROLLBACK");
+            continue;
+          }
+          const existingRefund = await client.query(
+            `SELECT id FROM credit_transactions WHERE session_id = $1 AND player_id = $2 AND reason = 'session_removal_refund'
+               AND metadata->>'refundedBy' = 'holiday_overcharge_fix' LIMIT 1`,
+            [row.session_id, row.player_id]
+          );
+          if (existingRefund.rows.length > 0) {
+            await client.query("ROLLBACK");
+            continue;
+          }
+          const debtTxns = await client.query(
+            `SELECT id, amount, metadata, reason, package_id FROM credit_transactions
+             WHERE player_id = $1 AND session_id = $2 AND amount < 0
+               AND reason IN ('session_debt', 'session_join_debt', 'session_unpaid', 'session_booking')`,
+            [row.player_id, row.session_id]
+          );
+          let debtsCancelled = 0;
+          for (const debt of debtTxns.rows) {
+            const meta = typeof debt.metadata === "string" ? JSON.parse(debt.metadata) : debt.metadata || {};
+            if (meta.settled === true || meta.cancelled === true) continue;
+            const isDebt = debt.reason === "session_debt" || debt.reason === "session_join_debt" || debt.reason === "session_unpaid" || debt.reason === "session_booking" && (meta.isDebt === true || !debt.package_id);
+            if (!isDebt) continue;
+            await client.query(
+              `UPDATE credit_transactions SET metadata = jsonb_set(COALESCE(metadata, '{}')::jsonb, '{cancelled}', 'true') || jsonb_build_object('cancelledAt', $2::text, 'cancelReason', 'player_was_on_holiday')
+               WHERE id = $1`,
+              [debt.id, (/* @__PURE__ */ new Date()).toISOString()]
+            );
+            debtsCancelled++;
+          }
+          if (debtsCancelled > 0) {
+            debtsRefunded++;
+            console.log(`[HolidayOverchargeFix] Cancelled ${debtsCancelled} debt(s) for ${row.player_name} | session ${new Date(row.start_time).toISOString().substring(0, 10)}`);
+          }
+          const debitTxQuery = row.credit_transaction_id ? `SELECT ct.id, ct.package_id, ct.amount, ct.credit_type
+               FROM credit_transactions ct
+               WHERE ct.id = $1 AND ct.amount < 0 AND ct.package_id IS NOT NULL` : `SELECT ct.id, ct.package_id, ct.amount, ct.credit_type
+               FROM credit_transactions ct
+               WHERE ct.player_id = $1 AND ct.session_id = $2 AND ct.amount < 0 AND ct.package_id IS NOT NULL
+                 AND ct.reason IN ('session_booking', 'session_debt', 'session_join_debt', 'session_unpaid')
+               ORDER BY ct.created_at DESC LIMIT 1`;
+          const debitTxParams = row.credit_transaction_id ? [row.credit_transaction_id] : [row.player_id, row.session_id];
+          const txResult = await client.query(debitTxQuery, debitTxParams);
+          if (txResult.rows.length > 0) {
+            const origTx = txResult.rows[0];
+            const refundAmount = Math.abs(Number(origTx.amount));
+            const pkgResult = await client.query(
+              `SELECT remaining_credits, status FROM packages WHERE id = $1 FOR UPDATE`,
+              [origTx.package_id]
+            );
+            if (pkgResult.rows.length > 0) {
+              const currentBalance = Number(pkgResult.rows[0].remaining_credits);
+              const newBalance = currentBalance + refundAmount;
+              const pkgStatus = pkgResult.rows[0].status;
+              const updateFields = [`remaining_credits = $1`];
+              const updateParams = [newBalance, origTx.package_id];
+              if (pkgStatus === "depleted" && newBalance > 0) {
+                updateFields.push(`status = 'active'`);
+              }
+              await client.query(
+                `UPDATE packages SET ${updateFields.join(", ")} WHERE id = $2`,
+                updateParams
+              );
+              await client.query(
+                `INSERT INTO credit_transactions (id, player_id, academy_id, package_id, type, credit_type, amount, reason, session_id, balance_before, balance_after, metadata)
+                 VALUES (gen_random_uuid(), $1, $2, $3, 'credit', $4, $5, 'session_removal_refund', $6, $7, $8, $9)`,
+                [
+                  row.player_id,
+                  row.academy_id,
+                  origTx.package_id,
+                  origTx.credit_type || "group",
+                  refundAmount,
+                  row.session_id,
+                  currentBalance,
+                  newBalance,
+                  JSON.stringify({
+                    originalTransactionId: origTx.id,
+                    refundedBy: "holiday_overcharge_fix",
+                    reason: "player_was_on_holiday"
+                  })
+                ]
+              );
+              packageRefunded++;
+              if (pkgStatus === "depleted" && newBalance > 0) {
+                console.log(`[HolidayOverchargeFix] Reactivated depleted package ${origTx.package_id} for ${row.player_name}`);
+              }
+              console.log(`[HolidayOverchargeFix] Refunded ${refundAmount} credits to package ${origTx.package_id} for ${row.player_name}`);
+            }
+          }
+          await client.query(
+            `UPDATE session_players SET attendance_status = 'vacation', credit_deducted_at = NULL, credit_transaction_id = NULL WHERE id = $1`,
+            [row.id]
+          );
+          await client.query("COMMIT");
+          fixed++;
+          console.log(`[HolidayOverchargeFix] Fixed ${row.player_name} | session ${new Date(row.start_time).toISOString().substring(0, 10)} | was '${row.attendance_status}' -> 'vacation'`);
+        } catch (fixErr) {
+          await client.query("ROLLBACK");
+          errors++;
+          console.error(`[HolidayOverchargeFix] Failed to fix ${row.player_name} session ${row.session_id}:`, fixErr);
+        } finally {
+          client.release();
+        }
+      }
+      console.log(`[HolidayOverchargeFix] Complete: ${fixed} fixed, ${debtsRefunded} debts cancelled, ${packageRefunded} package credits refunded, ${errors} errors`);
+    }
+    try {
+      const debtOnlyRows = await pool.query(`
+        SELECT DISTINCT ON (ct.id)
+          ct.id as tx_id, ct.player_id, ct.session_id, ct.amount, ct.credit_type,
+          ct.reason, ct.metadata, p.name as player_name, s.start_time,
+          sp.id as session_player_id, sp.attendance_status
+        FROM credit_transactions ct
+        JOIN sessions s ON s.id = ct.session_id
+        JOIN players p ON p.id = ct.player_id
+        JOIN player_holidays ph ON ph.player_id = ct.player_id
+          AND s.start_time::date BETWEEN ph.start_date AND ph.end_date
+        LEFT JOIN session_players sp ON sp.session_id = ct.session_id AND sp.player_id = ct.player_id
+        WHERE ct.type = 'debit'
+          AND ct.reason IN ('session_debt', 'session_join_debt', 'session_unpaid')
+          AND COALESCE(ct.metadata->>'isDebt', 'false') = 'true'
+          AND COALESCE(ct.metadata->>'settled', 'false') != 'true'
+          AND COALESCE(ct.metadata->>'cancelled', 'false') != 'true'
+        ORDER BY ct.id, s.start_time
+      `);
+      if (debtOnlyRows.rows.length === 0) {
+        console.log("[HolidayDebtFix] No unsettled holiday debt transactions found");
+      } else {
+        console.log(`[HolidayDebtFix] Found ${debtOnlyRows.rows.length} unsettled debt transaction(s) for sessions during player holidays`);
+        let debtFixed = 0;
+        let debtErrors = 0;
+        const processedTxIds = /* @__PURE__ */ new Set();
+        for (const row of debtOnlyRows.rows) {
+          if (processedTxIds.has(row.tx_id)) continue;
+          processedTxIds.add(row.tx_id);
+          const client = await pool.connect();
+          try {
+            await client.query("BEGIN");
+            const guard = await client.query(
+              `SELECT id FROM credit_transactions
+               WHERE id = $1
+                 AND COALESCE(metadata->>'settled', 'false') != 'true'
+                 AND COALESCE(metadata->>'cancelled', 'false') != 'true'
+               FOR UPDATE`,
+              [row.tx_id]
+            );
+            if (guard.rows.length === 0) {
+              await client.query("ROLLBACK");
+              continue;
+            }
+            await client.query(
+              `UPDATE credit_transactions
+               SET metadata = jsonb_set(COALESCE(metadata, '{}')::jsonb, '{cancelled}', 'true')
+                 || jsonb_build_object('cancelledAt', $2::text, 'cancelReason', 'player_was_on_holiday')
+               WHERE id = $1`,
+              [row.tx_id, (/* @__PURE__ */ new Date()).toISOString()]
+            );
+            if (row.session_player_id && row.attendance_status !== "vacation") {
+              await client.query(
+                `UPDATE session_players SET attendance_status = 'vacation' WHERE id = $1`,
+                [row.session_player_id]
+              );
+            }
+            await client.query("COMMIT");
+            debtFixed++;
+            console.log(`[HolidayDebtFix] Cancelled debt tx for ${row.player_name} | session ${new Date(row.start_time).toISOString().substring(0, 10)} | type: ${row.credit_type}`);
+          } catch (err) {
+            await client.query("ROLLBACK");
+            debtErrors++;
+            console.error(`[HolidayDebtFix] Failed to cancel debt tx ${row.tx_id}:`, err);
+          } finally {
+            client.release();
+          }
+        }
+        console.log(`[HolidayDebtFix] Complete: ${debtFixed} cancelled, ${debtErrors} errors`);
+      }
+    } catch (debtPassErr) {
+      console.error("[HolidayDebtFix] Error in debt pass:", debtPassErr);
+    }
+  } catch (error) {
+    console.error("[HolidayOverchargeFix] Error:", error);
+  }
+}
+async function fixAlmaZaleskiCredits() {
+  try {
+    const playerRes = await pool.query(
+      `SELECT id FROM players WHERE name ILIKE 'Alma Zalesski' LIMIT 1`
+    );
+    if (playerRes.rows.length === 0) {
+      console.log("[AlmaFix] Player 'Alma Zalesski' not found \u2014 skipping");
       return;
     }
-    console.log(`[HolidayOverchargeFix] Found ${overcharged.rows.length} session_player records wrongly charged during player holidays`);
-    let fixed = 0;
-    let debtsRefunded = 0;
-    let packageRefunded = 0;
-    let errors = 0;
-    const processedIds = /* @__PURE__ */ new Set();
-    for (const row of overcharged.rows) {
-      if (processedIds.has(row.id)) continue;
-      processedIds.add(row.id);
+    const playerId = playerRes.rows[0].id;
+    const alreadyFixed = await pool.query(
+      `SELECT id FROM credit_transactions
+       WHERE player_id = $1 AND reason = 'session_removal_refund'
+         AND metadata->>'refundedBy' = 'holiday_debt_fix'
+       LIMIT 1`,
+      [playerId]
+    );
+    if (alreadyFixed.rows.length > 0) {
+      console.log("[AlmaFix] Already corrected \u2014 skipping");
+      return;
+    }
+    const pkgRes = await pool.query(
+      `SELECT id, remaining_credits, total_credits, academy_id
+       FROM packages
+       WHERE player_id = $1 AND credit_type = 'group' AND status = 'active'
+       ORDER BY expiry_date DESC NULLS LAST, remaining_credits DESC
+       LIMIT 1`,
+      [playerId]
+    );
+    if (pkgRes.rows.length === 0) {
+      console.log("[AlmaFix] No active group package found for Alma \u2014 skipping credit refund");
+    } else {
+      const pkg2 = pkgRes.rows[0];
+      const currentRemaining = Number(pkg2.remaining_credits);
+      const newRemaining = currentRemaining + 1;
       const client = await pool.connect();
       try {
         await client.query("BEGIN");
-        const guard = await client.query(
-          `SELECT id FROM session_players WHERE id = $1 AND attendance_status = 'present' AND credit_deducted_at IS NOT NULL FOR UPDATE`,
-          [row.id]
-        );
-        if (guard.rows.length === 0) {
-          await client.query("ROLLBACK");
-          continue;
-        }
-        const existingRefund = await client.query(
-          `SELECT id FROM credit_transactions WHERE session_id = $1 AND player_id = $2 AND reason = 'session_removal_refund'
-             AND metadata->>'refundedBy' = 'holiday_overcharge_fix' LIMIT 1`,
-          [row.session_id, row.player_id]
-        );
-        if (existingRefund.rows.length > 0) {
-          await client.query("ROLLBACK");
-          continue;
-        }
-        const debtTxns = await client.query(
-          `SELECT id, amount, metadata, reason, package_id FROM credit_transactions
-           WHERE player_id = $1 AND session_id = $2 AND amount < 0
-             AND reason IN ('session_debt', 'session_join_debt', 'session_unpaid', 'session_booking')`,
-          [row.player_id, row.session_id]
-        );
-        let debtsCancelled = 0;
-        for (const debt of debtTxns.rows) {
-          const meta = typeof debt.metadata === "string" ? JSON.parse(debt.metadata) : debt.metadata || {};
-          if (meta.settled === true || meta.cancelled === true) continue;
-          const isDebt = debt.reason === "session_debt" || debt.reason === "session_join_debt" || debt.reason === "session_unpaid" || debt.reason === "session_booking" && (meta.isDebt === true || !debt.package_id);
-          if (!isDebt) continue;
-          await client.query(
-            `UPDATE credit_transactions SET metadata = jsonb_set(COALESCE(metadata, '{}')::jsonb, '{cancelled}', 'true') || jsonb_build_object('cancelledAt', $2::text, 'cancelReason', 'player_was_on_holiday')
-             WHERE id = $1`,
-            [debt.id, (/* @__PURE__ */ new Date()).toISOString()]
-          );
-          debtsCancelled++;
-        }
-        if (debtsCancelled > 0) {
-          debtsRefunded++;
-          console.log(`[HolidayOverchargeFix] Cancelled ${debtsCancelled} debt(s) for ${row.player_name} | session ${new Date(row.start_time).toISOString().substring(0, 10)}`);
-        }
-        let debitTxQuery = row.credit_transaction_id ? `SELECT ct.id, ct.package_id, ct.amount, ct.credit_type
-             FROM credit_transactions ct
-             WHERE ct.id = $1 AND ct.amount < 0 AND ct.package_id IS NOT NULL` : `SELECT ct.id, ct.package_id, ct.amount, ct.credit_type
-             FROM credit_transactions ct
-             WHERE ct.player_id = $1 AND ct.session_id = $2 AND ct.amount < 0 AND ct.package_id IS NOT NULL
-               AND ct.reason IN ('session_booking', 'session_debt', 'session_join_debt', 'session_unpaid')
-             ORDER BY ct.created_at DESC LIMIT 1`;
-        const debitTxParams = row.credit_transaction_id ? [row.credit_transaction_id] : [row.player_id, row.session_id];
-        const txResult = await client.query(debitTxQuery, debitTxParams);
-        if (txResult.rows.length > 0) {
-          const origTx = txResult.rows[0];
-          const refundAmount = Math.abs(Number(origTx.amount));
-          const pkgResult = await client.query(
-            `SELECT remaining_credits, status FROM packages WHERE id = $1 FOR UPDATE`,
-            [origTx.package_id]
-          );
-          if (pkgResult.rows.length > 0) {
-            const currentBalance = Number(pkgResult.rows[0].remaining_credits);
-            const newBalance = currentBalance + refundAmount;
-            const pkgStatus = pkgResult.rows[0].status;
-            const updateFields = [`remaining_credits = $1`];
-            const updateParams = [newBalance, origTx.package_id];
-            if (pkgStatus === "depleted" && newBalance > 0) {
-              updateFields.push(`status = 'active'`);
-            }
-            await client.query(
-              `UPDATE packages SET ${updateFields.join(", ")} WHERE id = $2`,
-              updateParams
-            );
-            await client.query(
-              `INSERT INTO credit_transactions (id, player_id, academy_id, package_id, type, credit_type, amount, reason, session_id, balance_before, balance_after, metadata)
-               VALUES (gen_random_uuid(), $1, $2, $3, 'credit', $4, $5, 'session_removal_refund', $6, $7, $8, $9)`,
-              [
-                row.player_id,
-                row.academy_id,
-                origTx.package_id,
-                origTx.credit_type || "group",
-                refundAmount,
-                row.session_id,
-                currentBalance,
-                newBalance,
-                JSON.stringify({
-                  originalTransactionId: origTx.id,
-                  refundedBy: "holiday_overcharge_fix",
-                  reason: "player_was_on_holiday"
-                })
-              ]
-            );
-            packageRefunded++;
-            if (pkgStatus === "depleted" && newBalance > 0) {
-              console.log(`[HolidayOverchargeFix] Reactivated depleted package ${origTx.package_id} for ${row.player_name}`);
-            }
-            console.log(`[HolidayOverchargeFix] Refunded ${refundAmount} credits to package ${origTx.package_id} for ${row.player_name}`);
-          }
-        }
         await client.query(
-          `UPDATE session_players SET attendance_status = 'vacation', credit_deducted_at = NULL, credit_transaction_id = NULL WHERE id = $1`,
-          [row.id]
+          `UPDATE packages SET remaining_credits = $1 WHERE id = $2`,
+          [newRemaining, pkg2.id]
+        );
+        await client.query(
+          `INSERT INTO credit_transactions
+             (id, player_id, academy_id, package_id, type, credit_type, amount, reason, balance_before, balance_after, metadata)
+           VALUES
+             (gen_random_uuid(), $1, $2, $3, 'credit', 'group', 1, 'session_removal_refund', $4, $5, $6)`,
+          [
+            playerId,
+            pkg2.academy_id,
+            pkg2.id,
+            currentRemaining,
+            newRemaining,
+            JSON.stringify({ refundedBy: "holiday_debt_fix", reason: "manual_correction_alma_zalesski" })
+          ]
         );
         await client.query("COMMIT");
-        fixed++;
-        console.log(`[HolidayOverchargeFix] Fixed ${row.player_name} | session ${new Date(row.start_time).toISOString().substring(0, 10)} | was '${row.attendance_status}' -> 'vacation'`);
-      } catch (fixErr) {
+        console.log(`[AlmaFix] Refunded 1 group credit to package ${pkg2.id} | ${currentRemaining} -> ${newRemaining}`);
+      } catch (err) {
         await client.query("ROLLBACK");
-        errors++;
-        console.error(`[HolidayOverchargeFix] Failed to fix ${row.player_name} session ${row.session_id}:`, fixErr);
+        console.error("[AlmaFix] Failed to add credit:", err);
       } finally {
         client.release();
       }
     }
-    console.log(`[HolidayOverchargeFix] Complete: ${fixed} fixed, ${debtsRefunded} debts cancelled, ${packageRefunded} package credits refunded, ${errors} errors`);
-  } catch (error) {
-    console.error("[HolidayOverchargeFix] Error:", error);
+    const cancelRes = await pool.query(
+      `UPDATE credit_transactions
+       SET metadata = jsonb_set(COALESCE(metadata, '{}')::jsonb, '{cancelled}', 'true')
+         || jsonb_build_object('cancelledAt', $2::text, 'cancelReason', 'manual_correction_alma_zalesski')
+       WHERE player_id = $1
+         AND type = 'debit'
+         AND reason IN ('session_debt', 'session_join_debt', 'session_unpaid')
+         AND COALESCE(metadata->>'isDebt', 'false') = 'true'
+         AND COALESCE(metadata->>'settled', 'false') != 'true'
+         AND COALESCE(metadata->>'cancelled', 'false') != 'true'`,
+      [playerId, (/* @__PURE__ */ new Date()).toISOString()]
+    );
+    const cancelledCount = cancelRes.rowCount ?? 0;
+    if (cancelledCount > 0) {
+      console.log(`[AlmaFix] Cancelled ${cancelledCount} unsettled group debt transaction(s) for Alma`);
+    }
+    console.log("[AlmaFix] Done");
+  } catch (err) {
+    console.error("[AlmaFix] Error:", err);
   }
 }
 function startReminderScheduler() {
@@ -18382,7 +18644,23 @@ var init_shop_routes = __esm({
     router.patch("/academy/shop/products/:id", authMiddlewareWithFreshData, requireRole("academy_owner", "coach", "admin", "platform_owner"), async (req2, res) => {
       try {
         const { id } = req2.params;
-        const [product] = await db.update(shopProducts).set({ ...req2.body, updatedAt: /* @__PURE__ */ new Date() }).where(and3(
+        const { name, description, price, comparePrice, stock, imageUrl, isActive, categoryId, order, sku, currency, taxRate, weight, dimensions } = req2.body;
+        const allowedUpdates = { updatedAt: /* @__PURE__ */ new Date() };
+        if (name !== void 0) allowedUpdates.name = name;
+        if (description !== void 0) allowedUpdates.description = description;
+        if (price !== void 0) allowedUpdates.price = price;
+        if (comparePrice !== void 0) allowedUpdates.comparePrice = comparePrice;
+        if (stock !== void 0) allowedUpdates.stock = stock;
+        if (imageUrl !== void 0) allowedUpdates.imageUrl = imageUrl;
+        if (isActive !== void 0) allowedUpdates.isActive = isActive;
+        if (categoryId !== void 0) allowedUpdates.categoryId = categoryId;
+        if (order !== void 0) allowedUpdates.order = order;
+        if (sku !== void 0) allowedUpdates.sku = sku;
+        if (currency !== void 0) allowedUpdates.currency = currency;
+        if (taxRate !== void 0) allowedUpdates.taxRate = taxRate;
+        if (weight !== void 0) allowedUpdates.weight = weight;
+        if (dimensions !== void 0) allowedUpdates.dimensions = dimensions;
+        const [product] = await db.update(shopProducts).set(allowedUpdates).where(and3(
           eq4(shopProducts.id, id),
           eq4(shopProducts.academyId, req2.user.academyId)
         )).returning();
@@ -18444,7 +18722,21 @@ var init_shop_routes = __esm({
     router.patch("/academy/shop/services/:id", authMiddlewareWithFreshData, requireRole("academy_owner", "coach", "admin", "platform_owner"), async (req2, res) => {
       try {
         const { id } = req2.params;
-        const [service] = await db.update(shopServices).set({ ...req2.body, updatedAt: /* @__PURE__ */ new Date() }).where(and3(
+        const { name, description, price, duration: duration2, imageUrl, isActive, categoryId, order, currency, maxParticipants, requiresBooking, slug } = req2.body;
+        const allowedUpdates = { updatedAt: /* @__PURE__ */ new Date() };
+        if (name !== void 0) allowedUpdates.name = name;
+        if (description !== void 0) allowedUpdates.description = description;
+        if (price !== void 0) allowedUpdates.price = price;
+        if (duration2 !== void 0) allowedUpdates.duration = duration2;
+        if (imageUrl !== void 0) allowedUpdates.imageUrl = imageUrl;
+        if (isActive !== void 0) allowedUpdates.isActive = isActive;
+        if (categoryId !== void 0) allowedUpdates.categoryId = categoryId;
+        if (order !== void 0) allowedUpdates.order = order;
+        if (currency !== void 0) allowedUpdates.currency = currency;
+        if (maxParticipants !== void 0) allowedUpdates.maxParticipants = maxParticipants;
+        if (requiresBooking !== void 0) allowedUpdates.requiresBooking = requiresBooking;
+        if (slug !== void 0) allowedUpdates.slug = slug;
+        const [service] = await db.update(shopServices).set(allowedUpdates).where(and3(
           eq4(shopServices.id, id),
           eq4(shopServices.academyId, req2.user.academyId)
         )).returning();
@@ -18588,7 +18880,14 @@ var init_shop_routes = __esm({
     router.patch("/academy/shop/categories/:id", authMiddlewareWithFreshData, requireRole("academy_owner", "coach", "admin", "platform_owner"), async (req2, res) => {
       try {
         const { id } = req2.params;
-        const [category] = await db.update(shopCategories).set({ ...req2.body, updatedAt: /* @__PURE__ */ new Date() }).where(and3(eq4(shopCategories.id, id), eq4(shopCategories.academyId, req2.user.academyId))).returning();
+        const { name, description, imageUrl, isActive, order } = req2.body;
+        const allowedUpdates = { updatedAt: /* @__PURE__ */ new Date() };
+        if (name !== void 0) allowedUpdates.name = name;
+        if (description !== void 0) allowedUpdates.description = description;
+        if (imageUrl !== void 0) allowedUpdates.imageUrl = imageUrl;
+        if (isActive !== void 0) allowedUpdates.isActive = isActive;
+        if (order !== void 0) allowedUpdates.order = order;
+        const [category] = await db.update(shopCategories).set(allowedUpdates).where(and3(eq4(shopCategories.id, id), eq4(shopCategories.academyId, req2.user.academyId))).returning();
         if (!category) return res.status(404).json({ error: "Category not found" });
         res.json(category);
       } catch (error) {
@@ -32961,10 +33260,12 @@ function generateAttendanceReportHtml(data) {
       </table>
       <div id="emptyLessons_${id}" style="display:none;text-align:center;padding:32px;color:rgba(255,255,255,0.4);">No lessons recorded yet.</div>
     </div>
+    <div id="lessonsData_${id}" data-lessons="${table.lessonsJson.replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/'/g, "&#39;").replace(/</g, "&lt;").replace(/>/g, "&gt;")}" style="display:none;"></div>
 
     <script>
       (function() {
-        var lessons = ${table.lessonsJson};
+        var rawData = document.getElementById('lessonsData_${id}');
+        var lessons = rawData ? JSON.parse(rawData.getAttribute('data-lessons') || '[]') : [];
         var BLOCK = 10;
         var currentPage = 0;
         var totalPages = Math.max(1, Math.ceil(lessons.length / BLOCK));
@@ -33592,6 +33893,7 @@ var init_attendanceReportPdf = __esm({
 // server/index.ts
 import express2 from "express";
 import helmet from "helmet";
+import rateLimit3 from "express-rate-limit";
 import * as Sentry from "@sentry/node";
 
 // server/routes.ts
@@ -34581,7 +34883,19 @@ router2.patch("/player/marketplace/:id", authMiddlewareWithFreshData, requirePla
   try {
     const { id } = req2.params;
     const playerId = req2.user.playerId;
-    const [listing] = await db.update(marketplaceListings).set({ ...req2.body, updatedAt: /* @__PURE__ */ new Date() }).where(and4(
+    const { title, description, price, currency, condition, category, imageUrls, isActive, quantity, location } = req2.body;
+    const allowedUpdates = { updatedAt: /* @__PURE__ */ new Date() };
+    if (title !== void 0) allowedUpdates.title = title;
+    if (description !== void 0) allowedUpdates.description = description;
+    if (price !== void 0) allowedUpdates.price = price;
+    if (currency !== void 0) allowedUpdates.currency = currency;
+    if (condition !== void 0) allowedUpdates.condition = condition;
+    if (category !== void 0) allowedUpdates.category = category;
+    if (imageUrls !== void 0) allowedUpdates.imageUrls = imageUrls;
+    if (isActive !== void 0) allowedUpdates.isActive = isActive;
+    if (quantity !== void 0) allowedUpdates.quantity = quantity;
+    if (location !== void 0) allowedUpdates.location = location;
+    const [listing] = await db.update(marketplaceListings).set(allowedUpdates).where(and4(
       eq5(marketplaceListings.id, id),
       eq5(marketplaceListings.sellerId, playerId)
     )).returning();
@@ -37789,6 +38103,7 @@ var parent_dashboard_default = router9;
 // server/routes/adult-glow-rank.ts
 init_db();
 init_schema();
+init_auth();
 import { Router as Router9 } from "express";
 import { eq as eq18, and as and17, gte as gte9, desc as desc15, sql as sql19 } from "drizzle-orm";
 
@@ -39090,9 +39405,31 @@ function selectTemplate(goal, playerCount) {
 
 // server/routes/adult-glow-rank.ts
 var router10 = Router9();
+router10.use(authMiddlewareWithFreshData);
+async function verifyPlayerAccess(req2, res, playerId, allowCoachAcademy = true) {
+  const user = req2.user;
+  const [player2] = await db.select({ id: players.id, name: players.name, academyId: players.academyId }).from(players).where(eq18(players.id, playerId)).limit(1);
+  if (!player2) {
+    res.status(404).json({ error: "Player not found" });
+    return null;
+  }
+  const isOwn = user.playerId === playerId;
+  const isPlatformOwner = user.role === "platform_owner";
+  const isCoachOrAdmin = allowCoachAcademy && ["coach", "academy_owner", "admin"].includes(user.role);
+  if (isOwn || isPlatformOwner) return player2;
+  if (isCoachOrAdmin) {
+    if (player2.academyId === user.academyId) return player2;
+    res.status(403).json({ error: "Access denied" });
+    return null;
+  }
+  res.status(403).json({ error: "Access denied" });
+  return null;
+}
 router10.get("/player/:playerId/rank", async (req2, res) => {
   try {
     const { playerId } = req2.params;
+    const access = await verifyPlayerAccess(req2, res, playerId);
+    if (!access) return;
     const [player2] = await db.select({
       id: players.id,
       name: players.name,
@@ -39184,6 +39521,8 @@ router10.post("/match", async (req2, res) => {
         error: "Missing required fields: playerId, opponentId, didWin"
       });
     }
+    const access = await verifyPlayerAccess(req2, res, playerId);
+    if (!access) return;
     const [player2, opponent] = await Promise.all([
       db.select().from(players).where(eq18(players.id, playerId)).limit(1),
       db.select().from(players).where(eq18(players.id, opponentId)).limit(1)
@@ -39193,6 +39532,10 @@ router10.post("/match", async (req2, res) => {
     }
     if (!opponent[0]) {
       return res.status(404).json({ error: "Opponent not found" });
+    }
+    const user = req2.user;
+    if (user.role !== "platform_owner" && opponent[0].academyId && player2[0].academyId && opponent[0].academyId !== player2[0].academyId) {
+      return res.status(403).json({ error: "Cannot record match with a player from a different academy" });
     }
     const eightWeeksAgo = /* @__PURE__ */ new Date();
     eightWeeksAgo.setDate(eightWeeksAgo.getDate() - 56);
@@ -39305,6 +39648,8 @@ router10.post("/match", async (req2, res) => {
 router10.get("/player/:playerId/expected-score/:opponentId", async (req2, res) => {
   try {
     const { playerId, opponentId } = req2.params;
+    const access = await verifyPlayerAccess(req2, res, playerId);
+    if (!access) return;
     const [player2, opponent] = await Promise.all([
       db.select({ glowMmr: players.glowMmr }).from(players).where(eq18(players.id, playerId)).limit(1),
       db.select({ glowMmr: players.glowMmr }).from(players).where(eq18(players.id, opponentId)).limit(1)
@@ -39432,12 +39777,17 @@ router10.post("/templates/select", async (req2, res) => {
 });
 router10.post("/find-or-create-opponent", async (req2, res) => {
   try {
-    const { name, academyId } = req2.body;
+    const { name } = req2.body;
+    const user = req2.user;
+    const scopedAcademyId = user.role === "platform_owner" ? req2.body.academyId || user.academyId : user.academyId;
     if (!name || !name.trim()) {
       return res.status(400).json({ error: "Opponent name is required" });
     }
     const trimmedName = name.trim();
-    const existingPlayers = await db.select({ id: players.id, name: players.name }).from(players).where(sql19`LOWER(${players.name}) = LOWER(${trimmedName})`).limit(5);
+    const existingPlayers = await db.select({ id: players.id, name: players.name }).from(players).where(and17(
+      sql19`LOWER(${players.name}) = LOWER(${trimmedName})`,
+      scopedAcademyId ? eq18(players.academyId, scopedAcademyId) : sql19`true`
+    )).limit(5);
     if (existingPlayers.length > 0) {
       return res.json({
         opponent: existingPlayers[0],
@@ -39447,7 +39797,7 @@ router10.post("/find-or-create-opponent", async (req2, res) => {
     }
     const [newOpponent] = await db.insert(players).values({
       name: trimmedName,
-      academyId: academyId || null,
+      academyId: scopedAcademyId || null,
       isAdult: true,
       glowMmr: 1e3,
       glowRank: 9
@@ -39466,9 +39816,17 @@ router10.post("/player/:playerId/toggle-adult", async (req2, res) => {
   try {
     const { playerId } = req2.params;
     const { isAdult } = req2.body;
-    const [player2] = await db.select().from(players).where(eq18(players.id, playerId)).limit(1);
+    const user = req2.user;
+    const canToggle = ["coach", "academy_owner", "admin", "platform_owner"].includes(user.role);
+    if (!canToggle) {
+      return res.status(403).json({ error: "Access denied" });
+    }
+    const [player2] = await db.select({ id: players.id, isAdult: players.isAdult, academyId: players.academyId }).from(players).where(eq18(players.id, playerId)).limit(1);
     if (!player2) {
       return res.status(404).json({ error: "Player not found" });
+    }
+    if (user.role !== "platform_owner" && player2.academyId !== user.academyId) {
+      return res.status(403).json({ error: "Access denied" });
     }
     await db.update(players).set({ isAdult: isAdult ?? !player2.isAdult }).where(eq18(players.id, playerId));
     res.json({
@@ -39485,6 +39843,8 @@ router10.post("/player/:playerId/toggle-adult", async (req2, res) => {
 router10.get("/player/:playerId/full-profile", async (req2, res) => {
   try {
     const { playerId } = req2.params;
+    const access = await verifyPlayerAccess(req2, res, playerId);
+    if (!access) return;
     const [player2] = await db.select({
       id: players.id,
       name: players.name,
@@ -39596,6 +39956,8 @@ router10.get("/config", async (_req, res) => {
 router10.get("/player/:playerId/dss-rating", async (req2, res) => {
   try {
     const { playerId } = req2.params;
+    const access = await verifyPlayerAccess(req2, res, playerId);
+    if (!access) return;
     const [player2] = await db.select({
       id: players.id,
       name: players.name,
@@ -39670,6 +40032,8 @@ router10.get("/player/:playerId/rating-history", async (req2, res) => {
   try {
     const { playerId } = req2.params;
     const limit = Math.min(parseInt(req2.query.limit) || 50, 100);
+    const access = await verifyPlayerAccess(req2, res, playerId);
+    if (!access) return;
     const [player2] = await db.select({
       id: players.id,
       glowMmr: players.glowMmr
@@ -39745,10 +40109,24 @@ router10.post("/doubles-match", async (req2, res) => {
         error: "Missing required fields: all 4 player IDs and team1Won required"
       });
     }
+    const user = req2.user;
+    const callerIds = [team1Player1Id, team1Player2Id, team2Player1Id, team2Player2Id];
+    const isParticipant = user.playerId && callerIds.includes(user.playerId);
+    const isPlatformOwner = user.role === "platform_owner";
+    const isCoachOrAdmin = ["coach", "academy_owner", "admin"].includes(user.role);
+    if (!isParticipant && !isPlatformOwner && !isCoachOrAdmin) {
+      return res.status(403).json({ error: "Access denied" });
+    }
     const allPlayerIds = [team1Player1Id, team1Player2Id, team2Player1Id, team2Player2Id];
     const playersData = await db.select().from(players).where(
       sql19`${players.id} = ANY(${allPlayerIds})`
     );
+    if (isCoachOrAdmin && !isPlatformOwner) {
+      const outsideAcademy = playersData.filter((p) => p.academyId !== user.academyId);
+      if (outsideAcademy.length > 0) {
+        return res.status(403).json({ error: "Access denied: players belong to a different academy" });
+      }
+    }
     if (playersData.length !== 4) {
       return res.status(404).json({ error: "One or more players not found" });
     }
@@ -39891,12 +40269,15 @@ var adult_glow_rank_default = router10;
 // server/routes/lesson-groups.ts
 init_db();
 init_schema();
+init_auth();
 import { Router as Router10 } from "express";
 import { eq as eq19, and as and18, sql as sql20 } from "drizzle-orm";
 var router11 = Router10();
+router11.use(authMiddlewareWithFreshData);
 router11.get("/", async (req2, res) => {
   try {
-    const academyId = req2.query.academyId;
+    const user = req2.user;
+    const academyId = user.role === "platform_owner" ? req2.query.academyId || user.academyId : user.academyId;
     if (!academyId) {
       return res.status(400).json({ error: "academyId is required" });
     }
@@ -39923,8 +40304,8 @@ router11.get("/", async (req2, res) => {
 });
 router11.post("/", async (req2, res) => {
   try {
+    const user = req2.user;
     const {
-      academyId,
       coachId,
       name,
       description,
@@ -39936,6 +40317,7 @@ router11.post("/", async (req2, res) => {
       maxGlowRank,
       maxPlayers
     } = req2.body;
+    const academyId = user.role === "platform_owner" ? req2.body.academyId || user.academyId : user.academyId;
     if (!academyId || !name) {
       return res.status(400).json({ error: "academyId and name are required" });
     }
@@ -39961,9 +40343,13 @@ router11.post("/", async (req2, res) => {
 router11.get("/:id", async (req2, res) => {
   try {
     const { id } = req2.params;
+    const user = req2.user;
     const [group] = await db.select().from(lessonGroups).where(eq19(lessonGroups.id, id));
     if (!group) {
       return res.status(404).json({ error: "Group not found" });
+    }
+    if (user.role !== "platform_owner" && group.academyId !== user.academyId) {
+      return res.status(403).json({ error: "Access denied" });
     }
     const members = await db.select({
       id: lessonGroupMembers.id,
@@ -39985,7 +40371,27 @@ router11.get("/:id", async (req2, res) => {
 router11.put("/:id", async (req2, res) => {
   try {
     const { id } = req2.params;
-    const updates = req2.body;
+    const user = req2.user;
+    const [existing2] = await db.select().from(lessonGroups).where(eq19(lessonGroups.id, id));
+    if (!existing2) {
+      return res.status(404).json({ error: "Group not found" });
+    }
+    if (user.role !== "platform_owner" && existing2.academyId !== user.academyId) {
+      return res.status(403).json({ error: "Access denied" });
+    }
+    const { name, description, groupType, allowedBallLevels, minSkillLevel, maxSkillLevel, minGlowRank, maxGlowRank, maxPlayers, isActive, coachId } = req2.body;
+    const updates = {};
+    if (name !== void 0) updates.name = name;
+    if (description !== void 0) updates.description = description;
+    if (groupType !== void 0) updates.groupType = groupType;
+    if (allowedBallLevels !== void 0) updates.allowedBallLevels = allowedBallLevels;
+    if (minSkillLevel !== void 0) updates.minSkillLevel = minSkillLevel;
+    if (maxSkillLevel !== void 0) updates.maxSkillLevel = maxSkillLevel;
+    if (minGlowRank !== void 0) updates.minGlowRank = minGlowRank;
+    if (maxGlowRank !== void 0) updates.maxGlowRank = maxGlowRank;
+    if (maxPlayers !== void 0) updates.maxPlayers = maxPlayers;
+    if (isActive !== void 0) updates.isActive = isActive;
+    if (coachId !== void 0) updates.coachId = coachId;
     const [updated] = await db.update(lessonGroups).set({ ...updates, updatedAt: /* @__PURE__ */ new Date() }).where(eq19(lessonGroups.id, id)).returning();
     if (!updated) {
       return res.status(404).json({ error: "Group not found" });
@@ -39999,6 +40405,14 @@ router11.put("/:id", async (req2, res) => {
 router11.delete("/:id", async (req2, res) => {
   try {
     const { id } = req2.params;
+    const user = req2.user;
+    const [existing2] = await db.select().from(lessonGroups).where(eq19(lessonGroups.id, id));
+    if (!existing2) {
+      return res.status(404).json({ error: "Group not found" });
+    }
+    if (user.role !== "platform_owner" && existing2.academyId !== user.academyId) {
+      return res.status(403).json({ error: "Access denied" });
+    }
     await db.delete(lessonGroupMembers).where(eq19(lessonGroupMembers.groupId, id));
     const [deleted] = await db.delete(lessonGroups).where(eq19(lessonGroups.id, id)).returning();
     if (!deleted) {
@@ -40014,12 +40428,16 @@ router11.post("/:id/members", async (req2, res) => {
   try {
     const { id } = req2.params;
     const { playerId } = req2.body;
+    const user = req2.user;
     if (!playerId) {
       return res.status(400).json({ error: "playerId is required" });
     }
     const [group] = await db.select().from(lessonGroups).where(eq19(lessonGroups.id, id));
     if (!group) {
       return res.status(404).json({ error: "Group not found" });
+    }
+    if (user.role !== "platform_owner" && group.academyId !== user.academyId) {
+      return res.status(403).json({ error: "Access denied" });
     }
     const existingMember = await db.select().from(lessonGroupMembers).where(
       and18(
@@ -40047,6 +40465,12 @@ router11.post("/:id/members", async (req2, res) => {
 router11.delete("/:id/members/:playerId", async (req2, res) => {
   try {
     const { id, playerId } = req2.params;
+    const user = req2.user;
+    const [group] = await db.select().from(lessonGroups).where(eq19(lessonGroups.id, id));
+    if (!group) return res.status(404).json({ error: "Group not found" });
+    if (user.role !== "platform_owner" && group.academyId !== user.academyId) {
+      return res.status(403).json({ error: "Access denied" });
+    }
     const [updated] = await db.update(lessonGroupMembers).set({ status: "removed" }).where(
       and18(
         eq19(lessonGroupMembers.groupId, id),
@@ -40065,9 +40489,13 @@ router11.delete("/:id/members/:playerId", async (req2, res) => {
 router11.get("/eligible/:playerId", async (req2, res) => {
   try {
     const { playerId } = req2.params;
+    const user = req2.user;
     const [player2] = await db.select().from(players).where(eq19(players.id, playerId));
     if (!player2) {
       return res.status(404).json({ error: "Player not found" });
+    }
+    if (user.role !== "platform_owner" && player2.academyId !== user.academyId) {
+      return res.status(403).json({ error: "Access denied" });
     }
     const allGroups = await db.select().from(lessonGroups).where(
       and18(
@@ -40104,7 +40532,12 @@ router11.get("/eligible/:playerId", async (req2, res) => {
 router11.post("/players/:id/set-skill-level", async (req2, res) => {
   try {
     const { id } = req2.params;
-    const { ballLevel: ballLevel2, skillLevel, coachId, reason } = req2.body;
+    const user = req2.user;
+    const { ballLevel: ballLevel2, skillLevel, reason } = req2.body;
+    const canSet = ["coach", "academy_owner", "admin", "platform_owner"].includes(user.role);
+    if (!canSet) {
+      return res.status(403).json({ error: "Access denied" });
+    }
     if (!ballLevel2 || !skillLevel) {
       return res.status(400).json({ error: "ballLevel and skillLevel are required" });
     }
@@ -40112,6 +40545,10 @@ router11.post("/players/:id/set-skill-level", async (req2, res) => {
     if (!player2) {
       return res.status(404).json({ error: "Player not found" });
     }
+    if (user.role !== "platform_owner" && player2.academyId !== user.academyId) {
+      return res.status(403).json({ error: "Access denied" });
+    }
+    const coachId = user.coachId;
     const isInitial = !player2.ballLevel;
     const eventType = isInitial ? "initial_assignment" : "coach_override";
     const [updated] = await db.update(players).set({ ballLevel: ballLevel2, skillLevel }).where(eq19(players.id, id)).returning();
@@ -40139,7 +40576,8 @@ router11.post("/players/:id/set-skill-level", async (req2, res) => {
 });
 router11.get("/players/by-level", async (req2, res) => {
   try {
-    const academyId = req2.query.academyId;
+    const user = req2.user;
+    const academyId = user.role === "platform_owner" ? req2.query.academyId || user.academyId : user.academyId;
     if (!academyId) {
       return res.status(400).json({ error: "academyId is required" });
     }
@@ -40170,9 +40608,10 @@ router11.get("/players/by-level", async (req2, res) => {
       unassigned: { total: grouped.unassigned.length }
     };
     ["red", "orange", "green", "yellow"].forEach((level) => {
+      const levelSummary = summary[level];
       grouped[level].forEach((p) => {
         const skill = p.skillLevel || 1;
-        summary[level].levels[skill]++;
+        levelSummary.levels[skill] = (levelSummary.levels[skill] || 0) + 1;
       });
     });
     grouped.adult.forEach((p) => {
@@ -40188,6 +40627,17 @@ router11.get("/players/by-level", async (req2, res) => {
 router11.get("/players/:id/level-history", async (req2, res) => {
   try {
     const { id } = req2.params;
+    const user = req2.user;
+    const [player2] = await db.select({ id: players.id, academyId: players.academyId }).from(players).where(eq19(players.id, id)).limit(1);
+    if (!player2) {
+      return res.status(404).json({ error: "Player not found" });
+    }
+    const isOwn = user.playerId === id;
+    const isPlatformOwner = user.role === "platform_owner";
+    const isCoachOrAdmin = ["coach", "academy_owner", "admin"].includes(user.role) && player2.academyId === user.academyId;
+    if (!isOwn && !isPlatformOwner && !isCoachOrAdmin) {
+      return res.status(403).json({ error: "Access denied" });
+    }
     const events = await db.select().from(playerLevelEvents).where(eq19(playerLevelEvents.playerId, id)).orderBy(sql20`created_at DESC`);
     res.json(events);
   } catch (error) {
@@ -41275,6 +41725,7 @@ init_auth();
 import { Router as Router13 } from "express";
 import { eq as eq22, desc as desc18, and as and21, gte as gte10, sql as sql23 } from "drizzle-orm";
 var router14 = Router13();
+router14.use(authMiddlewareWithFreshData);
 function getXpForLevelFormula2(level) {
   if (level <= 1) return 0;
   if (level <= 50) {
@@ -41457,9 +41908,18 @@ router14.post("/award-xp", async (req2, res) => {
 router14.get("/player/:playerId/status", async (req2, res) => {
   try {
     const { playerId } = req2.params;
+    const user = req2.user;
+    const isOwnPlayer = user.playerId === playerId;
+    const isCoachOrAdmin = ["coach", "academy_owner", "platform_owner", "admin"].includes(user.role);
+    if (!isOwnPlayer && !isCoachOrAdmin) {
+      return res.status(403).json({ error: "Access denied" });
+    }
     const [player2] = await db.select().from(players).where(eq22(players.id, playerId));
     if (!player2) {
       return res.status(404).json({ error: "Player not found" });
+    }
+    if (isCoachOrAdmin && !isOwnPlayer && user.role !== "platform_owner" && player2.academyId !== user.academyId) {
+      return res.status(403).json({ error: "Access denied" });
     }
     const [playerUser] = await db.select({ email: users.email }).from(users).where(eq22(users.playerId, playerId));
     if (isAppleReviewAccount(playerUser?.email)) {
@@ -41516,11 +41976,27 @@ router14.get("/player/:playerId/status", async (req2, res) => {
 });
 router14.post("/player/:playerId/celebration/:celebrationId/shown", async (req2, res) => {
   try {
-    const { celebrationId } = req2.params;
+    const { playerId, celebrationId } = req2.params;
+    const user = req2.user;
+    const isOwnPlayer = user.playerId === playerId;
+    const isPlatformOwner = user.role === "platform_owner";
+    const isCoachOrAdmin = ["coach", "academy_owner", "admin"].includes(user.role);
+    if (!isOwnPlayer && !isPlatformOwner && !isCoachOrAdmin) {
+      return res.status(403).json({ error: "Access denied" });
+    }
+    if (isCoachOrAdmin && !isOwnPlayer) {
+      const [targetPlayer] = await db.select({ academyId: players.academyId }).from(players).where(eq22(players.id, playerId)).limit(1);
+      if (!targetPlayer || targetPlayer.academyId !== user.academyId) {
+        return res.status(403).json({ error: "Access denied" });
+      }
+    }
     await db.update(playerLevelUpCelebrations).set({
       celebrationShown: true,
       celebrationShownAt: /* @__PURE__ */ new Date()
-    }).where(eq22(playerLevelUpCelebrations.id, celebrationId));
+    }).where(and21(
+      eq22(playerLevelUpCelebrations.id, celebrationId),
+      eq22(playerLevelUpCelebrations.playerId, playerId)
+    ));
     res.json({ success: true });
   } catch (error) {
     console.error("Error marking celebration shown:", error);
@@ -41530,6 +42006,19 @@ router14.post("/player/:playerId/celebration/:celebrationId/shown", async (req2,
 router14.post("/player/:playerId/onboarding/:featureKey/shown", async (req2, res) => {
   try {
     const { playerId, featureKey } = req2.params;
+    const user = req2.user;
+    const isOwnPlayer = user.playerId === playerId;
+    const isPlatformOwner = user.role === "platform_owner";
+    const isCoachOrAdmin = ["coach", "academy_owner", "admin"].includes(user.role);
+    if (!isOwnPlayer && !isPlatformOwner && !isCoachOrAdmin) {
+      return res.status(403).json({ error: "Access denied" });
+    }
+    if (isCoachOrAdmin && !isOwnPlayer) {
+      const [targetPlayer] = await db.select({ academyId: players.academyId }).from(players).where(eq22(players.id, playerId)).limit(1);
+      if (!targetPlayer || targetPlayer.academyId !== user.academyId) {
+        return res.status(403).json({ error: "Access denied" });
+      }
+    }
     await db.update(playerFeatureUnlockHistory).set({
       onboardingShown: true,
       onboardingShownAt: /* @__PURE__ */ new Date()
@@ -41546,6 +42035,19 @@ router14.post("/player/:playerId/onboarding/:featureKey/shown", async (req2, res
 router14.get("/player/:playerId/xp-history", async (req2, res) => {
   try {
     const { playerId } = req2.params;
+    const user = req2.user;
+    const isOwnPlayer = user.playerId === playerId;
+    const isPlatformOwner = user.role === "platform_owner";
+    const isCoachOrAdmin = ["coach", "academy_owner", "admin"].includes(user.role);
+    if (!isOwnPlayer && !isPlatformOwner && !isCoachOrAdmin) {
+      return res.status(403).json({ error: "Access denied" });
+    }
+    if (isCoachOrAdmin && !isOwnPlayer) {
+      const [targetPlayer] = await db.select({ academyId: players.academyId }).from(players).where(eq22(players.id, playerId)).limit(1);
+      if (!targetPlayer || targetPlayer.academyId !== user.academyId) {
+        return res.status(403).json({ error: "Access denied" });
+      }
+    }
     const limit = parseInt(req2.query.limit) || 50;
     const history = await db.select().from(playerXpEvents).where(eq22(playerXpEvents.playerId, playerId)).orderBy(desc18(playerXpEvents.createdAt)).limit(limit);
     res.json(history);
@@ -57488,7 +57990,7 @@ async function registerRoutes(app2) {
           const jwt3 = __require("jsonwebtoken");
           const decoded = jwt3.verify(
             token,
-            process.env.SESSION_SECRET || "dev-secret"
+            JWT_SECRET
           );
           userId = decoded.userId;
           academyId = decoded.academyId;
@@ -61572,8 +62074,15 @@ async function registerRoutes(app2) {
     async (req2, res) => {
       try {
         const academyId = req2.user.academyId;
+        const { name, address, city, country, mapUrl, notes, isActive } = req2.body;
         const location = await storage.createLocation({
-          ...req2.body,
+          name,
+          address,
+          city,
+          country,
+          mapUrl,
+          notes,
+          isActive,
           academyId
         });
         res.status(201).json(location);
@@ -61591,9 +62100,18 @@ async function registerRoutes(app2) {
       try {
         const { id } = req2.params;
         const academyId = req2.user.academyId;
+        const { name, address, city, country, mapUrl, notes, isActive } = req2.body;
+        const allowedUpdates = {};
+        if (name !== void 0) allowedUpdates.name = name;
+        if (address !== void 0) allowedUpdates.address = address;
+        if (city !== void 0) allowedUpdates.city = city;
+        if (country !== void 0) allowedUpdates.country = country;
+        if (mapUrl !== void 0) allowedUpdates.mapUrl = mapUrl;
+        if (notes !== void 0) allowedUpdates.notes = notes;
+        if (isActive !== void 0) allowedUpdates.isActive = isActive;
         const location = await storage.updateLocation(
           id,
-          req2.body,
+          allowedUpdates,
           academyId ?? void 0
         );
         if (!location) {
@@ -67849,15 +68367,19 @@ async function registerRoutes(app2) {
       try {
         const { id } = req2.params;
         const academyId = req2.user.academyId;
-        const updates = { ...req2.body };
-        if (updates.hourlyRate === "" || updates.hourlyRate === void 0) {
+        const { name, phone, specialty, bio, hourlyRate, photoUrl, availability, certifications } = req2.body;
+        const updates = { name, phone, specialty, bio, photoUrl, availability, certifications };
+        if (hourlyRate === "" || hourlyRate === void 0) {
           updates.hourlyRate = null;
-        } else if (updates.hourlyRate !== null) {
-          updates.hourlyRate = String(Number(updates.hourlyRate));
+        } else if (hourlyRate !== null) {
+          updates.hourlyRate = String(Number(hourlyRate));
+        } else {
+          updates.hourlyRate = null;
         }
         if (updates.phone === "") updates.phone = null;
         if (updates.specialty === "") updates.specialty = null;
         if (updates.bio === "") updates.bio = null;
+        Object.keys(updates).forEach((k) => updates[k] === void 0 && delete updates[k]);
         const coach = await storage.getCoach(id, academyId);
         if (!coach) {
           return res.status(404).json({ error: "Coach not found" });
@@ -71443,7 +71965,7 @@ async function registerRoutes(app2) {
   app2.post(
     "/api/owner/activate-roles",
     authMiddlewareWithFreshData,
-    requireRole("owner", "academy_owner", "platform_owner"),
+    requireRole("academy_owner", "platform_owner"),
     async (req2, res) => {
       try {
         const userId = req2.user.userId;
@@ -72968,6 +73490,12 @@ async function registerRoutes(app2) {
         if (!query || query.length < 2) {
           return res.status(400).json({ error: "Search query must be at least 2 characters" });
         }
+        const searchConditions = or16(
+          ilike4(players.name, `%${query}%`),
+          ilike4(players.displayName, `%${query}%`),
+          ilike4(players.email, `%${query}%`)
+        );
+        const academyCondition = req2.user.role === "platform_owner" ? searchConditions : and30(searchConditions, eq32(players.academyId, req2.user.academyId));
         const searchResults = await db.select({
           id: players.id,
           name: players.name,
@@ -72980,13 +73508,7 @@ async function registerRoutes(app2) {
           dateOfBirth: players.dateOfBirth,
           parentEmail: players.parentEmail,
           coachId: players.coachId
-        }).from(players).where(
-          or16(
-            ilike4(players.name, `%${query}%`),
-            ilike4(players.displayName, `%${query}%`),
-            ilike4(players.email, `%${query}%`)
-          )
-        ).limit(20);
+        }).from(players).where(academyCondition).limit(20);
         res.json(searchResults);
       } catch (error) {
         console.error("Admin player search error:", error);
@@ -76039,14 +76561,18 @@ async function registerRoutes(app2) {
         if (!academyId) {
           return res.status(400).json({ error: "Academy ID required" });
         }
-        const updates = req2.body;
-        if (updates.welcomeVideoUrl !== void 0) {
-          await storage.upsertAcademySettings(academyId, {
-            welcomeVideoUrl: updates.welcomeVideoUrl
-          });
+        const { defaultSessionLength, xpVisibleToPlayers, notificationsEnabled, welcomeVideoUrl } = req2.body;
+        const updates = {};
+        if (defaultSessionLength !== void 0) updates.defaultSessionLength = defaultSessionLength;
+        if (xpVisibleToPlayers !== void 0) updates.xpVisibleToPlayers = xpVisibleToPlayers;
+        if (notificationsEnabled !== void 0) updates.notificationsEnabled = notificationsEnabled;
+        if (welcomeVideoUrl !== void 0) {
+          await storage.upsertAcademySettings(academyId, { welcomeVideoUrl });
         }
-        const updated = await storage.updateAcademy(academyId, updates);
-        res.json({ success: true, ...updates });
+        if (Object.keys(updates).length > 0) {
+          await storage.updateAcademy(academyId, updates);
+        }
+        res.json({ success: true, defaultSessionLength, xpVisibleToPlayers, notificationsEnabled, welcomeVideoUrl });
       } catch (error) {
         console.error("Update academy settings error:", error);
         res.status(500).json({ error: "Failed to update academy settings" });
@@ -78603,7 +79129,28 @@ function configureExpoAndLanding(app2) {
     next();
   });
   app2.use("/assets", express2.static(path6.resolve(process.cwd(), "assets")));
-  app2.use("/uploads", express2.static(path6.resolve(process.cwd(), "uploads")));
+  app2.use("/uploads/profile-photos", express2.static(path6.resolve(process.cwd(), "uploads/profile-photos")));
+  const uploadsAuthGuard = (req2, res, next) => {
+    const authHeader = req2.headers.authorization;
+    let token = null;
+    if (authHeader && authHeader.startsWith("Bearer ")) {
+      token = authHeader.substring(7);
+    } else if (req2.query.token && typeof req2.query.token === "string") {
+      token = req2.query.token;
+    }
+    if (!token) {
+      return res.status(401).json({ error: "Authentication required" });
+    }
+    try {
+      const jwt3 = __require("jsonwebtoken");
+      const { JWT_SECRET: JWT_SECRET2 } = (init_auth(), __toCommonJS(auth_exports));
+      jwt3.verify(token, JWT_SECRET2);
+      return next();
+    } catch {
+      return res.status(401).json({ error: "Invalid or expired token" });
+    }
+  };
+  app2.use("/uploads", uploadsAuthGuard, express2.static(path6.resolve(process.cwd(), "uploads")));
   app2.use("/images", express2.static(path6.resolve(process.cwd(), "server/public/images")));
   app2.use(express2.static(path6.resolve(process.cwd(), "static-build")));
   app2.use(express2.static(path6.resolve(process.cwd(), "dist")));
@@ -78628,6 +79175,14 @@ function setupErrorHandler(app2) {
   setupCors(app);
   setupBodyParsing(app);
   setupRequestLogging(app);
+  const globalApiLimiter = rateLimit3({
+    windowMs: 15 * 60 * 1e3,
+    max: 300,
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: { error: "Too many requests, please try again later" }
+  });
+  app.use("/api", globalApiLimiter);
   setupExpoDevProxy(app);
   configureExpoAndLanding(app);
   const server = await registerRoutes(app);
@@ -78665,6 +79220,8 @@ function setupErrorHandler(app2) {
         log(`[StartupRepair] Complete: ${result.processed} processed, ${result.consumed} consumed, ${result.debts} debts, ${result.errors} errors`);
         log("[HolidayOverchargeFix] Correcting any holiday sessions wrongly charged...");
         await fixHolidayOvercharges();
+        log("[AlmaFix] Applying one-shot credit correction for Alma Zalesski...");
+        await fixAlmaZaleskiCredits();
         log("[CreditAudit] Running ghost credit audit for ALL players...");
         await auditAllPlayerCredits2();
         log("[CreditReconcile] Reconciling package remaining_credits against transaction history...");

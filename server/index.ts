@@ -7,7 +7,7 @@ import { registerRoutes } from "./routes";
 import * as fs from "fs";
 import * as path from "path";
 import { createProxyMiddleware } from "http-proxy-middleware";
-import { startReminderScheduler, startDailyTipScheduler, startMonthlyReportScheduler, startOnboardingEmailScheduler, startDailyScheduleNotifier, startCreditExpiryReminderScheduler, repairNullAttendance, fixHolidayOvercharges } from "./pushNotifications";
+import { startReminderScheduler, startDailyTipScheduler, startMonthlyReportScheduler, startOnboardingEmailScheduler, startDailyScheduleNotifier, startCreditExpiryReminderScheduler, repairNullAttendance, fixHolidayOvercharges, fixAlmaZaleskiCredits } from "./pushNotifications";
 
 if (process.env.SENTRY_DSN) {
   Sentry.init({
@@ -525,6 +525,9 @@ function setupErrorHandler(app: express.Application) {
         
         log("[HolidayOverchargeFix] Correcting any holiday sessions wrongly charged...");
         await fixHolidayOvercharges();
+
+        log("[AlmaFix] Applying one-shot credit correction for Alma Zalesski...");
+        await fixAlmaZaleskiCredits();
         
         log("[CreditAudit] Running ghost credit audit for ALL players...");
         await auditAllPlayerCredits();

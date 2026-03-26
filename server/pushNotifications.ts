@@ -1095,6 +1095,9 @@ export async function repairNullAttendance(): Promise<void> {
 
 export async function fixHolidayOvercharges(): Promise<void> {
   try {
+    // --- Pass 1: session_players wrongly charged while player was on holiday ---
+    // Finds sessions where attendance='present' and a credit was deducted, but the session
+    // date falls within a recorded player holiday.
     const overcharged = await pool.query(`
       SELECT DISTINCT ON (sp.id) sp.id, sp.player_id, sp.session_id, sp.attendance_status, sp.credit_deducted_at,
              sp.credit_transaction_id, p.name as player_name, s.start_time, s.academy_id
@@ -1110,159 +1113,347 @@ export async function fixHolidayOvercharges(): Promise<void> {
 
     if (overcharged.rows.length === 0) {
       console.log("[HolidayOverchargeFix] No holiday overcharges found");
+    } else {
+      console.log(`[HolidayOverchargeFix] Found ${overcharged.rows.length} session_player records wrongly charged during player holidays`);
+
+      let fixed = 0;
+      let debtsRefunded = 0;
+      let packageRefunded = 0;
+      let errors = 0;
+      const processedIds = new Set<string>();
+
+      for (const row of overcharged.rows) {
+        if (processedIds.has(row.id)) continue;
+        processedIds.add(row.id);
+
+        const client = await pool.connect();
+        try {
+          await client.query("BEGIN");
+
+          const guard = await client.query(
+            `SELECT id FROM session_players WHERE id = $1 AND attendance_status = 'present' AND credit_deducted_at IS NOT NULL FOR UPDATE`,
+            [row.id]
+          );
+          if (guard.rows.length === 0) {
+            await client.query("ROLLBACK");
+            continue;
+          }
+
+          const existingRefund = await client.query(
+            `SELECT id FROM credit_transactions WHERE session_id = $1 AND player_id = $2 AND reason = 'session_removal_refund'
+               AND metadata->>'refundedBy' = 'holiday_overcharge_fix' LIMIT 1`,
+            [row.session_id, row.player_id]
+          );
+          if (existingRefund.rows.length > 0) {
+            await client.query("ROLLBACK");
+            continue;
+          }
+
+          const debtTxns = await client.query(
+            `SELECT id, amount, metadata, reason, package_id FROM credit_transactions
+             WHERE player_id = $1 AND session_id = $2 AND amount < 0
+               AND reason IN ('session_debt', 'session_join_debt', 'session_unpaid', 'session_booking')`,
+            [row.player_id, row.session_id]
+          );
+
+          let debtsCancelled = 0;
+          for (const debt of debtTxns.rows) {
+            const meta = typeof debt.metadata === "string" ? JSON.parse(debt.metadata) : (debt.metadata || {});
+            if (meta.settled === true || meta.cancelled === true) continue;
+            const isDebt = debt.reason === "session_debt" || debt.reason === "session_join_debt" || debt.reason === "session_unpaid"
+              || (debt.reason === "session_booking" && (meta.isDebt === true || !debt.package_id));
+            if (!isDebt) continue;
+
+            await client.query(
+              `UPDATE credit_transactions SET metadata = jsonb_set(COALESCE(metadata, '{}')::jsonb, '{cancelled}', 'true') || jsonb_build_object('cancelledAt', $2::text, 'cancelReason', 'player_was_on_holiday')
+               WHERE id = $1`,
+              [debt.id, new Date().toISOString()]
+            );
+            debtsCancelled++;
+          }
+
+          if (debtsCancelled > 0) {
+            debtsRefunded++;
+            console.log(`[HolidayOverchargeFix] Cancelled ${debtsCancelled} debt(s) for ${row.player_name} | session ${new Date(row.start_time).toISOString().substring(0, 10)}`);
+          }
+
+          const debitTxQuery = row.credit_transaction_id
+            ? `SELECT ct.id, ct.package_id, ct.amount, ct.credit_type
+               FROM credit_transactions ct
+               WHERE ct.id = $1 AND ct.amount < 0 AND ct.package_id IS NOT NULL`
+            : `SELECT ct.id, ct.package_id, ct.amount, ct.credit_type
+               FROM credit_transactions ct
+               WHERE ct.player_id = $1 AND ct.session_id = $2 AND ct.amount < 0 AND ct.package_id IS NOT NULL
+                 AND ct.reason IN ('session_booking', 'session_debt', 'session_join_debt', 'session_unpaid')
+               ORDER BY ct.created_at DESC LIMIT 1`;
+          const debitTxParams = row.credit_transaction_id
+            ? [row.credit_transaction_id]
+            : [row.player_id, row.session_id];
+
+          const txResult = await client.query(debitTxQuery, debitTxParams);
+
+          if (txResult.rows.length > 0) {
+            const origTx = txResult.rows[0];
+            const refundAmount = Math.abs(Number(origTx.amount));
+
+            const pkgResult = await client.query(
+              `SELECT remaining_credits, status FROM packages WHERE id = $1 FOR UPDATE`,
+              [origTx.package_id]
+            );
+
+            if (pkgResult.rows.length > 0) {
+              const currentBalance = Number(pkgResult.rows[0].remaining_credits);
+              const newBalance = currentBalance + refundAmount;
+              const pkgStatus = pkgResult.rows[0].status;
+
+              const updateFields: string[] = [`remaining_credits = $1`];
+              const updateParams: any[] = [newBalance, origTx.package_id];
+              if (pkgStatus === "depleted" && newBalance > 0) {
+                updateFields.push(`status = 'active'`);
+              }
+              await client.query(
+                `UPDATE packages SET ${updateFields.join(", ")} WHERE id = $2`,
+                updateParams
+              );
+
+              await client.query(
+                `INSERT INTO credit_transactions (id, player_id, academy_id, package_id, type, credit_type, amount, reason, session_id, balance_before, balance_after, metadata)
+                 VALUES (gen_random_uuid(), $1, $2, $3, 'credit', $4, $5, 'session_removal_refund', $6, $7, $8, $9)`,
+                [
+                  row.player_id,
+                  row.academy_id,
+                  origTx.package_id,
+                  origTx.credit_type || "group",
+                  refundAmount,
+                  row.session_id,
+                  currentBalance,
+                  newBalance,
+                  JSON.stringify({
+                    originalTransactionId: origTx.id,
+                    refundedBy: "holiday_overcharge_fix",
+                    reason: "player_was_on_holiday",
+                  }),
+                ]
+              );
+
+              packageRefunded++;
+              if (pkgStatus === "depleted" && newBalance > 0) {
+                console.log(`[HolidayOverchargeFix] Reactivated depleted package ${origTx.package_id} for ${row.player_name}`);
+              }
+              console.log(`[HolidayOverchargeFix] Refunded ${refundAmount} credits to package ${origTx.package_id} for ${row.player_name}`);
+            }
+          }
+
+          await client.query(
+            `UPDATE session_players SET attendance_status = 'vacation', credit_deducted_at = NULL, credit_transaction_id = NULL WHERE id = $1`,
+            [row.id]
+          );
+
+          await client.query("COMMIT");
+          fixed++;
+          console.log(`[HolidayOverchargeFix] Fixed ${row.player_name} | session ${new Date(row.start_time).toISOString().substring(0, 10)} | was '${row.attendance_status}' -> 'vacation'`);
+        } catch (fixErr) {
+          await client.query("ROLLBACK");
+          errors++;
+          console.error(`[HolidayOverchargeFix] Failed to fix ${row.player_name} session ${row.session_id}:`, fixErr);
+        } finally {
+          client.release();
+        }
+      }
+
+      console.log(`[HolidayOverchargeFix] Complete: ${fixed} fixed, ${debtsRefunded} debts cancelled, ${packageRefunded} package credits refunded, ${errors} errors`);
+    }
+
+    // --- Pass 2: unsettled debt-only credit transactions for sessions during player holidays ---
+    // These are debit credit_transactions (isDebt=true) that were created when no package was
+    // available. The first pass misses them because credit_deducted_at IS NULL on session_player.
+    // This pass always runs, regardless of whether Pass 1 found anything.
+    try {
+      const debtOnlyRows = await pool.query(`
+        SELECT DISTINCT ON (ct.id)
+          ct.id as tx_id, ct.player_id, ct.session_id, ct.amount, ct.credit_type,
+          ct.reason, ct.metadata, p.name as player_name, s.start_time,
+          sp.id as session_player_id, sp.attendance_status
+        FROM credit_transactions ct
+        JOIN sessions s ON s.id = ct.session_id
+        JOIN players p ON p.id = ct.player_id
+        JOIN player_holidays ph ON ph.player_id = ct.player_id
+          AND s.start_time::date BETWEEN ph.start_date AND ph.end_date
+        LEFT JOIN session_players sp ON sp.session_id = ct.session_id AND sp.player_id = ct.player_id
+        WHERE ct.type = 'debit'
+          AND ct.reason IN ('session_debt', 'session_join_debt', 'session_unpaid')
+          AND COALESCE(ct.metadata->>'isDebt', 'false') = 'true'
+          AND COALESCE(ct.metadata->>'settled', 'false') != 'true'
+          AND COALESCE(ct.metadata->>'cancelled', 'false') != 'true'
+        ORDER BY ct.id, s.start_time
+      `);
+
+      if (debtOnlyRows.rows.length === 0) {
+        console.log("[HolidayDebtFix] No unsettled holiday debt transactions found");
+      } else {
+        console.log(`[HolidayDebtFix] Found ${debtOnlyRows.rows.length} unsettled debt transaction(s) for sessions during player holidays`);
+        let debtFixed = 0;
+        let debtErrors = 0;
+        const processedTxIds = new Set<string>();
+
+        for (const row of debtOnlyRows.rows) {
+          if (processedTxIds.has(row.tx_id)) continue;
+          processedTxIds.add(row.tx_id);
+
+          const client = await pool.connect();
+          try {
+            await client.query("BEGIN");
+
+            const guard = await client.query(
+              `SELECT id FROM credit_transactions
+               WHERE id = $1
+                 AND COALESCE(metadata->>'settled', 'false') != 'true'
+                 AND COALESCE(metadata->>'cancelled', 'false') != 'true'
+               FOR UPDATE`,
+              [row.tx_id]
+            );
+            if (guard.rows.length === 0) {
+              await client.query("ROLLBACK");
+              continue;
+            }
+
+            await client.query(
+              `UPDATE credit_transactions
+               SET metadata = jsonb_set(COALESCE(metadata, '{}')::jsonb, '{cancelled}', 'true')
+                 || jsonb_build_object('cancelledAt', $2::text, 'cancelReason', 'player_was_on_holiday')
+               WHERE id = $1`,
+              [row.tx_id, new Date().toISOString()]
+            );
+
+            if (row.session_player_id && row.attendance_status !== 'vacation') {
+              await client.query(
+                `UPDATE session_players SET attendance_status = 'vacation' WHERE id = $1`,
+                [row.session_player_id]
+              );
+            }
+
+            await client.query("COMMIT");
+            debtFixed++;
+            console.log(`[HolidayDebtFix] Cancelled debt tx for ${row.player_name} | session ${new Date(row.start_time).toISOString().substring(0, 10)} | type: ${row.credit_type}`);
+          } catch (err) {
+            await client.query("ROLLBACK");
+            debtErrors++;
+            console.error(`[HolidayDebtFix] Failed to cancel debt tx ${row.tx_id}:`, err);
+          } finally {
+            client.release();
+          }
+        }
+
+        console.log(`[HolidayDebtFix] Complete: ${debtFixed} cancelled, ${debtErrors} errors`);
+      }
+    } catch (debtPassErr) {
+      console.error("[HolidayDebtFix] Error in debt pass:", debtPassErr);
+    }
+  } catch (error) {
+    console.error("[HolidayOverchargeFix] Error:", error);
+  }
+}
+
+// One-shot data correction for Alma Zalesski:
+// +1 credit to her active group package (3 → 4) and cancel any remaining unsettled group debts.
+// Safe to call multiple times — guarded by checking remaining_credits < 4 and by the
+// 'holiday_debt_fix' refundedBy metadata idempotency marker.
+export async function fixAlmaZaleskiCredits(): Promise<void> {
+  try {
+    // Find Alma by name
+    const playerRes = await pool.query(
+      `SELECT id FROM players WHERE name ILIKE 'Alma Zalesski' LIMIT 1`
+    );
+    if (playerRes.rows.length === 0) {
+      console.log("[AlmaFix] Player 'Alma Zalesski' not found — skipping");
+      return;
+    }
+    const playerId = playerRes.rows[0].id;
+
+    // Idempotency: skip if a holiday_debt_fix refund already recorded
+    const alreadyFixed = await pool.query(
+      `SELECT id FROM credit_transactions
+       WHERE player_id = $1 AND reason = 'session_removal_refund'
+         AND metadata->>'refundedBy' = 'holiday_debt_fix'
+       LIMIT 1`,
+      [playerId]
+    );
+    if (alreadyFixed.rows.length > 0) {
+      console.log("[AlmaFix] Already corrected — skipping");
       return;
     }
 
-    console.log(`[HolidayOverchargeFix] Found ${overcharged.rows.length} session_player records wrongly charged during player holidays`);
-
-    let fixed = 0;
-    let debtsRefunded = 0;
-    let packageRefunded = 0;
-    let errors = 0;
-    const processedIds = new Set<string>();
-
-    for (const row of overcharged.rows) {
-      if (processedIds.has(row.id)) continue;
-      processedIds.add(row.id);
+    // Find her active group package
+    const pkgRes = await pool.query(
+      `SELECT id, remaining_credits, total_credits, academy_id
+       FROM packages
+       WHERE player_id = $1 AND credit_type = 'group' AND status = 'active'
+       ORDER BY expiry_date DESC NULLS LAST, remaining_credits DESC
+       LIMIT 1`,
+      [playerId]
+    );
+    if (pkgRes.rows.length === 0) {
+      console.log("[AlmaFix] No active group package found for Alma — skipping credit refund");
+    } else {
+      const pkg = pkgRes.rows[0];
+      const currentRemaining = Number(pkg.remaining_credits);
+      const newRemaining = currentRemaining + 1;
 
       const client = await pool.connect();
       try {
         await client.query("BEGIN");
 
-        const guard = await client.query(
-          `SELECT id FROM session_players WHERE id = $1 AND attendance_status = 'present' AND credit_deducted_at IS NOT NULL FOR UPDATE`,
-          [row.id]
+        await client.query(
+          `UPDATE packages SET remaining_credits = $1 WHERE id = $2`,
+          [newRemaining, pkg.id]
         );
-        if (guard.rows.length === 0) {
-          await client.query("ROLLBACK");
-          continue;
-        }
-
-        const existingRefund = await client.query(
-          `SELECT id FROM credit_transactions WHERE session_id = $1 AND player_id = $2 AND reason = 'session_removal_refund'
-             AND metadata->>'refundedBy' = 'holiday_overcharge_fix' LIMIT 1`,
-          [row.session_id, row.player_id]
-        );
-        if (existingRefund.rows.length > 0) {
-          await client.query("ROLLBACK");
-          continue;
-        }
-
-        const debtTxns = await client.query(
-          `SELECT id, amount, metadata, reason, package_id FROM credit_transactions
-           WHERE player_id = $1 AND session_id = $2 AND amount < 0
-             AND reason IN ('session_debt', 'session_join_debt', 'session_unpaid', 'session_booking')`,
-          [row.player_id, row.session_id]
-        );
-
-        let debtsCancelled = 0;
-        for (const debt of debtTxns.rows) {
-          const meta = typeof debt.metadata === "string" ? JSON.parse(debt.metadata) : (debt.metadata || {});
-          if (meta.settled === true || meta.cancelled === true) continue;
-          const isDebt = debt.reason === "session_debt" || debt.reason === "session_join_debt" || debt.reason === "session_unpaid"
-            || (debt.reason === "session_booking" && (meta.isDebt === true || !debt.package_id));
-          if (!isDebt) continue;
-
-          await client.query(
-            `UPDATE credit_transactions SET metadata = jsonb_set(COALESCE(metadata, '{}')::jsonb, '{cancelled}', 'true') || jsonb_build_object('cancelledAt', $2::text, 'cancelReason', 'player_was_on_holiday')
-             WHERE id = $1`,
-            [debt.id, new Date().toISOString()]
-          );
-          debtsCancelled++;
-        }
-
-        if (debtsCancelled > 0) {
-          debtsRefunded++;
-          console.log(`[HolidayOverchargeFix] Cancelled ${debtsCancelled} debt(s) for ${row.player_name} | session ${new Date(row.start_time).toISOString().substring(0, 10)}`);
-        }
-
-        let debitTxQuery = row.credit_transaction_id
-          ? `SELECT ct.id, ct.package_id, ct.amount, ct.credit_type
-             FROM credit_transactions ct
-             WHERE ct.id = $1 AND ct.amount < 0 AND ct.package_id IS NOT NULL`
-          : `SELECT ct.id, ct.package_id, ct.amount, ct.credit_type
-             FROM credit_transactions ct
-             WHERE ct.player_id = $1 AND ct.session_id = $2 AND ct.amount < 0 AND ct.package_id IS NOT NULL
-               AND ct.reason IN ('session_booking', 'session_debt', 'session_join_debt', 'session_unpaid')
-             ORDER BY ct.created_at DESC LIMIT 1`;
-        const debitTxParams = row.credit_transaction_id
-          ? [row.credit_transaction_id]
-          : [row.player_id, row.session_id];
-
-        const txResult = await client.query(debitTxQuery, debitTxParams);
-
-        if (txResult.rows.length > 0) {
-          const origTx = txResult.rows[0];
-          const refundAmount = Math.abs(Number(origTx.amount));
-
-          const pkgResult = await client.query(
-            `SELECT remaining_credits, status FROM packages WHERE id = $1 FOR UPDATE`,
-            [origTx.package_id]
-          );
-
-          if (pkgResult.rows.length > 0) {
-            const currentBalance = Number(pkgResult.rows[0].remaining_credits);
-            const newBalance = currentBalance + refundAmount;
-            const pkgStatus = pkgResult.rows[0].status;
-
-            const updateFields: string[] = [`remaining_credits = $1`];
-            const updateParams: any[] = [newBalance, origTx.package_id];
-            if (pkgStatus === "depleted" && newBalance > 0) {
-              updateFields.push(`status = 'active'`);
-            }
-            await client.query(
-              `UPDATE packages SET ${updateFields.join(", ")} WHERE id = $2`,
-              updateParams
-            );
-
-            await client.query(
-              `INSERT INTO credit_transactions (id, player_id, academy_id, package_id, type, credit_type, amount, reason, session_id, balance_before, balance_after, metadata)
-               VALUES (gen_random_uuid(), $1, $2, $3, 'credit', $4, $5, 'session_removal_refund', $6, $7, $8, $9)`,
-              [
-                row.player_id,
-                row.academy_id,
-                origTx.package_id,
-                origTx.credit_type || "group",
-                refundAmount,
-                row.session_id,
-                currentBalance,
-                newBalance,
-                JSON.stringify({
-                  originalTransactionId: origTx.id,
-                  refundedBy: "holiday_overcharge_fix",
-                  reason: "player_was_on_holiday",
-                }),
-              ]
-            );
-
-            packageRefunded++;
-            if (pkgStatus === "depleted" && newBalance > 0) {
-              console.log(`[HolidayOverchargeFix] Reactivated depleted package ${origTx.package_id} for ${row.player_name}`);
-            }
-            console.log(`[HolidayOverchargeFix] Refunded ${refundAmount} credits to package ${origTx.package_id} for ${row.player_name}`);
-          }
-        }
 
         await client.query(
-          `UPDATE session_players SET attendance_status = 'vacation', credit_deducted_at = NULL, credit_transaction_id = NULL WHERE id = $1`,
-          [row.id]
+          `INSERT INTO credit_transactions
+             (id, player_id, academy_id, package_id, type, credit_type, amount, reason, balance_before, balance_after, metadata)
+           VALUES
+             (gen_random_uuid(), $1, $2, $3, 'credit', 'group', 1, 'session_removal_refund', $4, $5, $6)`,
+          [
+            playerId,
+            pkg.academy_id,
+            pkg.id,
+            currentRemaining,
+            newRemaining,
+            JSON.stringify({ refundedBy: "holiday_debt_fix", reason: "manual_correction_alma_zalesski" }),
+          ]
         );
 
         await client.query("COMMIT");
-        fixed++;
-        console.log(`[HolidayOverchargeFix] Fixed ${row.player_name} | session ${new Date(row.start_time).toISOString().substring(0, 10)} | was '${row.attendance_status}' -> 'vacation'`);
-      } catch (fixErr) {
+        console.log(`[AlmaFix] Refunded 1 group credit to package ${pkg.id} | ${currentRemaining} -> ${newRemaining}`);
+      } catch (err) {
         await client.query("ROLLBACK");
-        errors++;
-        console.error(`[HolidayOverchargeFix] Failed to fix ${row.player_name} session ${row.session_id}:`, fixErr);
+        console.error("[AlmaFix] Failed to add credit:", err);
       } finally {
         client.release();
       }
     }
 
-    console.log(`[HolidayOverchargeFix] Complete: ${fixed} fixed, ${debtsRefunded} debts cancelled, ${packageRefunded} package credits refunded, ${errors} errors`);
-  } catch (error) {
-    console.error("[HolidayOverchargeFix] Error:", error);
+    // Cancel any remaining unsettled group debt transactions for Alma
+    const cancelRes = await pool.query(
+      `UPDATE credit_transactions
+       SET metadata = jsonb_set(COALESCE(metadata, '{}')::jsonb, '{cancelled}', 'true')
+         || jsonb_build_object('cancelledAt', $2::text, 'cancelReason', 'manual_correction_alma_zalesski')
+       WHERE player_id = $1
+         AND type = 'debit'
+         AND reason IN ('session_debt', 'session_join_debt', 'session_unpaid')
+         AND COALESCE(metadata->>'isDebt', 'false') = 'true'
+         AND COALESCE(metadata->>'settled', 'false') != 'true'
+         AND COALESCE(metadata->>'cancelled', 'false') != 'true'`,
+      [playerId, new Date().toISOString()]
+    );
+    const cancelledCount = cancelRes.rowCount ?? 0;
+    if (cancelledCount > 0) {
+      console.log(`[AlmaFix] Cancelled ${cancelledCount} unsettled group debt transaction(s) for Alma`);
+    }
+
+    console.log("[AlmaFix] Done");
+  } catch (err) {
+    console.error("[AlmaFix] Error:", err);
   }
 }
 
