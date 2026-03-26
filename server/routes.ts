@@ -939,11 +939,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
         if (result.success) {
           console.log(
-            `[MonthlyReport] Sent ${monthName} report to ${user.email} for player ${playerId}`,
+            `[MonthlyReport] Sent ${monthName} report (player: ${playerId})`,
           );
           res.json({
             success: true,
-            message: `Monthly report sent to ${user.email}`,
+            message: `Monthly report sent`,
             month: monthName,
           });
         } else {
@@ -953,7 +953,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         console.error("[MonthlyReport] Error:", error);
         res
           .status(500)
-          .json({ error: error.message || "Failed to send monthly report" });
+          .json({ error: "Failed to send monthly report" });
       }
     },
   );
@@ -1054,20 +1054,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  const diagnosticsUiIssueSchema = z.object({
+    severity: z.string().max(32).optional(),
+    message: z.string().min(1).max(2000),
+    screen: z.string().max(256).optional().nullable(),
+    context: z.record(z.unknown()).optional().nullable(),
+    userComment: z.string().max(1000).optional().nullable(),
+  });
+
   // UI Issue Report endpoint - for user-reported UI problems
   app.post(
     "/api/diagnostics/ui-issue",
     authMiddleware,
     async (req: AuthenticatedRequest, res: Response) => {
       try {
-        const { severity, message, screen, context, userComment } = req.body;
+        const parsed = diagnosticsUiIssueSchema.safeParse(req.body);
+        if (!parsed.success) {
+          return res.status(400).json({ error: fromZodError(parsed.error).message });
+        }
+        const { severity, message, screen, context, userComment } = parsed.data;
         const userId = req.user?.id;
         const academyId = req.user?.academyId;
         const userRole = req.user?.role;
-
-        if (!message) {
-          return res.status(400).json({ error: "Message is required" });
-        }
 
         const errorId = `ui_issue_${Date.now()}_${Math.random().toString(36).substring(7)}`;
 

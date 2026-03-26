@@ -15,12 +15,15 @@
  *
  * 3. POST /api/diagnostics/report (public, unauthenticated) had only the global
  *    300-req/15min rate limiter. Added a dedicated diagnosticsLimiter (20-req/15min)
- *    to prevent abuse. Added Zod schema validation (diagnosticsReportSchema) so
- *    malformed bodies are rejected with 400 before hitting DB logic.
+ *    to prevent abuse. Added Zod schema (diagnosticsReportSchema) — malformed bodies
+ *    now return 400 before any DB logic runs.
+ *    POST /api/diagnostics/ui-issue (authenticated) also now validates via Zod schema.
  *
- * 4. Email addresses were logged in plain text in emailService.ts OTP logs.
- *    Added maskEmail() helper — now logs "joh***@domain.com" format only.
- *    Monthly report success log in pushNotifications.ts no longer includes email.
+ * 4. PII/sensitive data sanitized from server logs:
+ *    - emailService.ts OTP logs: added maskEmail() → "joh***@domain.com" format
+ *    - routes.ts [MonthlyReport] log: removed user.email from log and JSON response
+ *    - routes.ts [MonthlyReport] error handler: removed error.message from 500 response
+ *    - pushNotifications.ts: monthly report error log no longer includes player.playerId
  *
  * VERIFIED OK (no changes needed):
  * - SQL injection: no raw template-literal user input in pool.query() calls (ORM used throughout)

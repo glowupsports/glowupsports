@@ -2187,7 +2187,7 @@ async function processMonthlyReports(): Promise<void> {
         }
       } catch (err) {
         reportsSkipped++;
-        console.error(`[MonthlyReports] Error sending report to ${player.playerId}:`, err);
+        console.error(`[MonthlyReports] Error sending report:`, err);
       }
       
       // Add a small delay between emails to avoid rate limiting
