@@ -84,7 +84,7 @@ export async function sendEmail(options: EmailOptions): Promise<{ success: boole
       return { success: false, error: result.error.message };
     }
 
-    console.log('[Email] Sent successfully to:', options.to);
+    console.log('[Email] Sent successfully to:', maskEmail(Array.isArray(options.to) ? options.to[0] : options.to));
     return { success: true };
   } catch (error) {
     console.error('[Email] Error:', error);

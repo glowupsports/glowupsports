@@ -1,3 +1,5 @@
+import rateLimit from "express-rate-limit";
+
 export class RateLimiter {
   private requests: Map<string, number[]> = new Map();
   private maxRequests: number;
@@ -28,3 +30,19 @@ export class RateLimiter {
 
 export const chatRateLimiter = new RateLimiter(5, 10000);
 export const postRateLimiter = new RateLimiter(3, 60000);
+
+export const diagnosticsLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 20,
+  message: { error: "Too many diagnostic reports submitted. Please try again later." },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+export const adminRepairLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 5,
+  message: { error: "Too many admin repair requests. Please wait before retrying." },
+  standardHeaders: true,
+  legacyHeaders: false,
+});

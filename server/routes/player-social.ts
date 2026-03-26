@@ -49,6 +49,7 @@ import { sendBadgeEarnedNotification } from "../pushNotifications";
 import { sendEmail, sendDeleteAccountRequestEmail } from "../emailService";
 import { z } from "zod";
 import { fromZodError } from "zod-validation-error";
+import { adminRepairLimiter } from "../rateLimiter";
 
 const router = Router();
 
@@ -60,14 +61,6 @@ const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 10,
   message: { error: "Too many requests, please try again later" },
-  standardHeaders: true,
-  legacyHeaders: false,
-});
-
-const adminRepairLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: 5,
-  message: { error: "Too many admin repair requests. Please wait before retrying." },
   standardHeaders: true,
   legacyHeaders: false,
 });

@@ -231,7 +231,7 @@ import worldChatRouter from "./routes/world-chat";
 import adminSeriesRouter from "./routes/admin-series";
 import { filterProfanity } from "./profanityFilter";
 import { isPlayerMinor, getPlayerParentalControls } from "./childSafety";
-import { chatRateLimiter, postRateLimiter } from "./rateLimiter";
+import { chatRateLimiter, postRateLimiter, diagnosticsLimiter } from "./rateLimiter";
 
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
@@ -245,14 +245,6 @@ const inviteLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 10,
   message: { error: "Too many invite attempts. Please wait 15 minutes and try again." },
-  standardHeaders: true,
-  legacyHeaders: false,
-});
-
-const diagnosticsLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: 20,
-  message: { error: "Too many diagnostic reports submitted. Please try again later." },
   standardHeaders: true,
   legacyHeaders: false,
 });
