@@ -20,6 +20,7 @@ import * as Haptics from "expo-haptics";
 import {
   Spacing,
   BorderRadius,
+  Colors,
   GlowColors,
   TextColors,
   Backgrounds,
