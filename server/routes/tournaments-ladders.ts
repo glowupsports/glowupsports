@@ -4,7 +4,7 @@ import { eq, and, or, desc, asc, sql, inArray, gte, lte, ne, isNotNull } from "d
 import {
   tournaments, tournamentParticipants, tournamentMatches,
   ladders, ladderPlayers, ladderChallenges,
-  players, xpTransactions,
+  players, xpTransactions, academies,
 } from "@shared/schema";
 import {
   authMiddlewareWithFreshData as authMiddleware,
@@ -43,6 +43,19 @@ interface AuthRequest extends Request {
   user?: JWTPayload;
 }
 
+function haversineKm(lat1: number, lng1: number, lat2: number, lng2: number): number {
+  const R = 6371;
+  const dLat = ((lat2 - lat1) * Math.PI) / 180;
+  const dLng = ((lng2 - lng1) * Math.PI) / 180;
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos((lat1 * Math.PI) / 180) *
+      Math.cos((lat2 * Math.PI) / 180) *
+      Math.sin(dLng / 2) *
+      Math.sin(dLng / 2);
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
 // ==================== PLAYER TOURNAMENT ENDPOINTS ====================
 
 router.get("/api/player/tournaments", authMiddleware, async (req: AuthRequest, res: Response) => {
@@ -55,17 +68,23 @@ router.get("/api/player/tournaments", authMiddleware, async (req: AuthRequest, r
     }
 
     const status = req.query.status as string | undefined;
+    const playerLat = req.query.lat ? parseFloat(req.query.lat as string) : null;
+    const playerLng = req.query.lng ? parseFloat(req.query.lng as string) : null;
 
     let whereClause = eq(tournaments.academyId, academyId);
     if (status) {
       whereClause = and(whereClause, eq(tournaments.status, status))!;
     }
 
-    const allTournaments = await db.select().from(tournaments)
+    const allTournaments = await db.select({
+      tournament: tournaments,
+      academyName: academies.name,
+    }).from(tournaments)
+      .leftJoin(academies, eq(tournaments.academyId, academies.id))
       .where(whereClause)
       .orderBy(desc(tournaments.startDate));
 
-    const tournamentIds = allTournaments.map(t => t.id);
+    const tournamentIds = allTournaments.map(t => t.tournament.id);
 
     let registrations: any[] = [];
     if (tournamentIds.length > 0) {
@@ -85,11 +104,22 @@ router.get("/api/player/tournaments", authMiddleware, async (req: AuthRequest, r
       }
     }
 
-    const result = allTournaments.map(t => ({
-      ...t,
-      spotsTaken: spotsTakenMap.get(t.id) || 0,
-      isRegistered: registeredMap.get(t.id) || false,
-    }));
+    const result = allTournaments.map(({ tournament: t, academyName }) => {
+      let distanceKm: number | null = null;
+      if (
+        playerLat !== null && playerLng !== null &&
+        t.venueLat != null && t.venueLng != null
+      ) {
+        distanceKm = Math.round(haversineKm(playerLat, playerLng, Number(t.venueLat), Number(t.venueLng)) * 10) / 10;
+      }
+      return {
+        ...t,
+        academyName: academyName || null,
+        distanceKm,
+        spotsTaken: spotsTakenMap.get(t.id) || 0,
+        isRegistered: registeredMap.get(t.id) || false,
+      };
+    });
 
     // Group by status for the player UI
     const upcoming = result.filter(t => ["upcoming", "registration_open"].includes(t.status));

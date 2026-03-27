@@ -6240,15 +6240,23 @@ export const tournaments = pgTable("tournaments", {
   sport: text("sport").notNull().default("tennis"), // tennis | padel | pickleball
   type: text("type").notNull(),
   format: text("format").notNull(), // knockout | round_robin | group_knockout
+  gender: text("gender").default("open"), // open | male | female
   startDate: date("start_date").notNull(),
   endDate: date("end_date").notNull(),
+  startTime: text("start_time"), // e.g. "09:00"
   registrationDeadline: timestamp("registration_deadline"),
   location: text("location").notNull(),
   address: text("address"),
   description: text("description"),
   entryFee: numeric("entry_fee"),
+  registrationFee: numeric("registration_fee"), // singles entry fee (alias / explicit)
+  doublesRegistrationFee: numeric("doubles_registration_fee"), // doubles partner fee
   spotsTotal: integer("spots_total").notNull().default(32),
   categories: jsonb("categories").$type<string[]>().default([]), // e.g. ["beginner", "intermediate", "u18"]
+  levelMin: numeric("level_min"), // e.g. 0
+  levelMax: numeric("level_max"), // e.g. 2.5
+  venueLat: numeric("venue_lat"), // latitude for distance calculation
+  venueLng: numeric("venue_lng"), // longitude for distance calculation
   xpReward: integer("xp_reward").default(100), // XP awarded to tournament winner
   status: text("status").notNull().default("upcoming"), // upcoming | registration_open | registration_closed | in_progress | completed | cancelled
   drawPublished: boolean("draw_published").default(false),

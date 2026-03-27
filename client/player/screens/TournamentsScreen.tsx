@@ -1,13 +1,11 @@
-import React, { useState, useMemo, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import {
   View,
   Text,
   StyleSheet,
-  ScrollView,
   Pressable,
   FlatList,
-  Dimensions,
   ActivityIndicator,
   RefreshControl,
   Alert,
@@ -18,38 +16,50 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { LinearGradient } from "expo-linear-gradient";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import * as Haptics from "expo-haptics";
+import * as Location from "expo-location";
 import {
   Spacing,
-  Typography,
-  BorderRadius,
   GlowColors,
   TextColors,
- Backgrounds, } from "@/constants/theme";
+  Backgrounds,
+} from "@/constants/theme";
+
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import type { PlayerStackParamList } from "@/player/navigation/PlayerNavigator";
-import { apiRequest } from "@/lib/query-client";
+import { apiRequest, apiFetch } from "@/lib/query-client";
 
-const { width: SCREEN_WIDTH } = Dimensions.get("window");
+type IoniconsName = keyof typeof Ionicons.glyphMap;
 
 type NavigationProp = NativeStackNavigationProp<PlayerStackParamList>;
 type TournamentType = "singles" | "doubles" | "mixed";
 type TournamentFormat = "knockout" | "round_robin" | "box_league";
+type TournamentGender = "open" | "male" | "female";
 type TabType = "upcoming" | "my_tournaments" | "ladders";
 
 interface Tournament {
   id: string;
   name: string;
+  sport: string;
   type: TournamentType;
   format: TournamentFormat;
+  gender?: TournamentGender | null;
   startDate: string;
   endDate: string;
+  startTime?: string | null;
   location: string;
-  entryFee: number | null;
+  address?: string | null;
+  entryFee?: number | string | null;
+  registrationFee?: number | string | null;
+  doublesRegistrationFee?: number | string | null;
   spotsTotal: number;
   spotsTaken: number;
   isRegistered: boolean;
   status: "upcoming" | "registration_open" | "in_progress" | "completed";
-  categories: string[];
+  categories?: string[] | null;
+  levelMin?: number | string | null;
+  levelMax?: number | string | null;
+  academyName?: string | null;
+  distanceKm?: number | null;
 }
 
 interface TournamentData {
@@ -69,142 +79,298 @@ interface Ladder {
   lastActivity: string;
 }
 
-function getTypeColor(type: TournamentType): string {
-  switch (type) {
-    case "singles": return GlowColors.primary;
-    case "doubles": return "#00D4FF";
-    case "mixed": return "#E040FB";
+function getSportColor(sport: string): string {
+  switch (sport?.toLowerCase()) {
+    case "padel": return "#1A6FC4";
+    case "pickleball": return "#E07B20";
+    case "tennis":
+    default: return "#1A8C4C";
   }
 }
 
-function getTypeBadge(type: TournamentType): string {
-  switch (type) {
-    case "singles": return "SINGLES";
-    case "doubles": return "DOUBLES";
-    case "mixed": return "MIXED";
+function getSportLabel(sport: string): string {
+  switch (sport?.toLowerCase()) {
+    case "padel": return "PADEL";
+    case "pickleball": return "PICKLEBALL";
+    case "tennis":
+    default: return "TENNIS";
   }
 }
 
-function getFormatIcon(format: TournamentFormat): string {
+function getSportIcon(sport: string): IoniconsName {
+  switch (sport?.toLowerCase()) {
+    case "padel": return "grid-outline";
+    case "pickleball": return "ellipse-outline";
+    case "tennis":
+    default: return "tennisball-outline";
+  }
+}
+
+function getFormatLabel(format: TournamentFormat, t: (key: string) => string): string {
   switch (format) {
-    case "knockout": return "git-network-outline";
-    case "round_robin": return "sync-outline";
-    case "box_league": return "grid-outline";
+    case "knockout": return t("player.tournaments.knockout");
+    case "round_robin": return t("player.tournaments.roundRobin");
+    case "box_league": return t("player.tournaments.league");
+    default: return t("player.tournaments.knockout");
+  }
+}
+
+function getTypeIcon(type: TournamentType): IoniconsName {
+  switch (type) {
+    case "singles": return "person";
+    case "doubles": return "people";
+    case "mixed": return "people-circle";
+  }
+}
+
+function getTypeLabel(type: TournamentType): string {
+  switch (type) {
+    case "singles": return "Singles";
+    case "doubles": return "Doubles";
+    case "mixed": return "Mixed";
+  }
+}
+
+function getGenderIcon(gender: TournamentGender | null | undefined): IoniconsName {
+  switch (gender) {
+    case "male": return "male";
+    case "female": return "female";
+    default: return "people-outline";
+  }
+}
+
+function getGenderLabel(gender: TournamentGender | null | undefined, t: (key: string) => string): string {
+  switch (gender) {
+    case "male": return t("player.tournaments.genderMale");
+    case "female": return t("player.tournaments.genderFemale");
+    default: return t("player.tournaments.genderOpen");
   }
 }
 
 function formatDateRange(start: string, end: string): string {
   const startDate = new Date(start);
   const endDate = new Date(end);
-  const options: Intl.DateTimeFormatOptions = { month: "short", day: "numeric" };
-  return `${startDate.toLocaleDateString("en-US", options)} - ${endDate.toLocaleDateString("en-US", options)}`;
+  const opts: Intl.DateTimeFormatOptions = { weekday: "short", month: "short", day: "numeric" };
+  if (startDate.toDateString() === endDate.toDateString()) {
+    return startDate.toLocaleDateString("en-US", opts);
+  }
+  const shortOpts: Intl.DateTimeFormatOptions = { month: "short", day: "numeric" };
+  return `${startDate.toLocaleDateString("en-US", shortOpts)} – ${endDate.toLocaleDateString("en-US", shortOpts)}`;
 }
 
-function TournamentCard({ tournament, onPress, onRegister, isRegistering }: { tournament: Tournament; onPress: () => void; onRegister: (t: Tournament) => void; isRegistering: boolean }) {
+function formatPrice(fee: number | string | null | undefined): string | null {
+  if (fee === null || fee === undefined || fee === "" || Number(fee) === 0) return null;
+  return `AED ${Number(fee)}`;
+}
+
+function getDisplayFee(tournament: Tournament): string | null {
+  if (tournament.type === "doubles" && tournament.doublesRegistrationFee) {
+    return formatPrice(tournament.doublesRegistrationFee);
+  }
+  if (tournament.registrationFee) {
+    return formatPrice(tournament.registrationFee);
+  }
+  return formatPrice(tournament.entryFee);
+}
+
+function TournamentCard({
+  tournament,
+  onPress,
+  onRegister,
+  isRegistering,
+}: {
+  tournament: Tournament;
+  onPress: () => void;
+  onRegister: (t: Tournament) => void;
+  isRegistering: boolean;
+}) {
   const { t } = useTranslation();
-  const typeColor = getTypeColor(tournament.type);
+  const sportColor = getSportColor(tournament.sport);
   const spotsRemaining = tournament.spotsTotal - tournament.spotsTaken;
   const isFull = spotsRemaining <= 0;
-  const fillPercent = (tournament.spotsTaken / tournament.spotsTotal) * 100;
+  const isLive = tournament.status === "in_progress";
+  const displayFee = getDisplayFee(tournament);
+  const avatarColors = ["#FF6B6B", "#4ECDC4", "#45B7D1", "#96CEB4", "#FFEAA7"];
+
+  const registerLabel = displayFee
+    ? t("player.tournaments.registerWithFee", { fee: displayFee })
+    : t("player.tournaments.register");
+
+  const hasLevelRange = tournament.levelMin != null && tournament.levelMax != null;
 
   return (
-    <Pressable style={({ pressed }) => [styles.card, pressed && styles.cardPressed]} onPress={onPress}>
-      {tournament.status === "in_progress" ? (
-        <View style={styles.liveBadge}>
-          <View style={styles.liveDot} />
-          <Text style={styles.liveText}>LIVE</Text>
-        </View>
-      ) : null}
-      
-      <View style={styles.cardTop}>
-        <View style={styles.cardHeader}>
-          <Text style={styles.cardTitle} numberOfLines={1}>{tournament.name}</Text>
-          <View style={[styles.typeBadge, { backgroundColor: typeColor }]}>
-            <Text style={styles.typeBadgeText}>{getTypeBadge(tournament.type)}</Text>
+    <Pressable
+      style={({ pressed }) => [styles.card, pressed && styles.cardPressed]}
+      onPress={onPress}
+    >
+      <LinearGradient
+        colors={[sportColor, sportColor + "99"]}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 0 }}
+        style={styles.cardSportBanner}
+      >
+        <View style={styles.sportBannerContent}>
+          <View style={styles.sportBannerLeft}>
+            <Ionicons
+              name={getSportIcon(tournament.sport)}
+              size={18}
+              color="rgba(255,255,255,0.9)"
+            />
+            <Text style={styles.sportBannerLabel}>{getSportLabel(tournament.sport)}</Text>
+          </View>
+          <View style={styles.sportBannerRight}>
+            {isLive ? (
+              <View style={styles.liveBadge}>
+                <View style={styles.liveDot} />
+                <Text style={styles.liveText}>LIVE</Text>
+              </View>
+            ) : null}
+            <View style={styles.genderRow}>
+              <Ionicons name={getGenderIcon(tournament.gender)} size={12} color="rgba(255,255,255,0.8)" />
+              <Text style={styles.genderBannerText}>{getGenderLabel(tournament.gender, t)}</Text>
+            </View>
           </View>
         </View>
-        
-        <View style={styles.formatRow}>
-          <Ionicons name={getFormatIcon(tournament.format) as any} size={12} color={TextColors.muted} />
-          <Text style={styles.formatText}>
-            {tournament.format === "knockout" ? t("player.tournaments.knockout") : tournament.format === "round_robin" ? t("player.tournaments.roundRobin") : "Box League"}
+      </LinearGradient>
+
+      <View style={styles.cardBody}>
+        <View style={styles.cardTopRow}>
+          <View style={styles.badgeRow}>
+            <View style={styles.formatBadge}>
+              <Text style={styles.formatBadgeText}>{getFormatLabel(tournament.format, t)}</Text>
+            </View>
+          </View>
+        </View>
+
+        <Text style={styles.cardTitle} numberOfLines={2}>{tournament.name}</Text>
+
+        <View style={styles.metaRow}>
+          <Ionicons name="calendar-outline" size={12} color={TextColors.muted} />
+          <Text style={styles.metaText}>
+            {formatDateRange(tournament.startDate, tournament.endDate)}
+            {tournament.startTime ? `  |  ${tournament.startTime}` : ""}
           </Text>
         </View>
-      </View>
 
-      <View style={styles.cardMeta}>
-        <View style={styles.metaItem}>
-          <Ionicons name="calendar" size={13} color={TextColors.muted} />
-          <Text style={styles.metaText}>{formatDateRange(tournament.startDate, tournament.endDate)}</Text>
+        <View style={styles.metaRow}>
+          <Ionicons name={getTypeIcon(tournament.type)} size={12} color={TextColors.muted} />
+          <Text style={styles.metaText}>{getTypeLabel(tournament.type)}</Text>
+          {hasLevelRange ? (
+            <>
+              <Text style={styles.metaSeparator}>·</Text>
+              <Text style={styles.metaText}>
+                {t("player.tournaments.levelRange", {
+                  min: Number(tournament.levelMin),
+                  max: Number(tournament.levelMax),
+                })}
+              </Text>
+            </>
+          ) : tournament.categories && tournament.categories.length > 0 ? (
+            <>
+              <Text style={styles.metaSeparator}>·</Text>
+              <Text style={styles.metaText} numberOfLines={1}>{tournament.categories.join(", ")}</Text>
+            </>
+          ) : null}
         </View>
-        <View style={styles.metaItem}>
-          <Ionicons name="location" size={13} color={TextColors.muted} />
-          <Text style={styles.metaText} numberOfLines={1}>{tournament.location}</Text>
-        </View>
-      </View>
 
-      <View style={styles.progressBar}>
-        <View style={[styles.progressFill, { width: `${fillPercent}%`, backgroundColor: isFull ? "#FF4D4D" : GlowColors.primary }]} />
-      </View>
-
-      <View style={styles.cardFooter}>
-        <View style={styles.footerLeft}>
-          <View style={styles.priceBadge}>
-            {tournament.entryFee ? (
-              <>
-                <Ionicons name="cash" size={12} color={GlowColors.primary} />
-                <Text style={styles.priceText}>${tournament.entryFee}</Text>
-              </>
-            ) : (
-              <>
-                <Ionicons name="gift" size={12} color="#00E676" />
-                <Text style={[styles.priceText, { color: "#00E676" }]}>{t("common.free")}</Text>
-              </>
-            )}
+        {tournament.academyName ? (
+          <View style={styles.metaRow}>
+            <Ionicons name="business-outline" size={12} color={TextColors.muted} />
+            <Text style={styles.metaText} numberOfLines={1}>{tournament.academyName}</Text>
           </View>
-          <View style={styles.spotsBadge}>
-            <Ionicons name="people" size={12} color={isFull ? "#FF4D4D" : TextColors.secondary} />
+        ) : null}
+
+        <View style={styles.metaRow}>
+          <Ionicons name="location-outline" size={12} color={TextColors.muted} />
+          <Text style={styles.metaText} numberOfLines={1}>{tournament.location}</Text>
+          {tournament.distanceKm != null ? (
+            <Text style={styles.distanceText}>{tournament.distanceKm} km</Text>
+          ) : null}
+        </View>
+
+        <View style={styles.divider} />
+
+        <View style={styles.cardFooter}>
+          <View style={styles.spotsContainer}>
+            <View style={styles.avatarStack}>
+              {Array.from({ length: Math.min(3, tournament.spotsTaken) }).map((_, i) => (
+                <View
+                  key={i}
+                  style={[
+                    styles.avatarCircle,
+                    { backgroundColor: avatarColors[i % avatarColors.length], marginLeft: i === 0 ? 0 : -8 },
+                  ]}
+                />
+              ))}
+            </View>
             <Text style={[styles.spotsText, isFull ? { color: "#FF4D4D" } : undefined]}>
-              {isFull ? t("player.booking.spotsFull") : t("player.tournaments.spotsAvailable", { count: spotsRemaining })}
+              {isFull
+                ? t("player.tournaments.spotsFull")
+                : `${tournament.spotsTaken}/${tournament.spotsTotal}`}
             </Text>
           </View>
-        </View>
 
-        {tournament.isRegistered ? (
-          <View style={styles.registeredBadge}>
-            <Ionicons name="checkmark-circle" size={14} color={GlowColors.primary} />
-            <Text style={styles.registeredText}>{t("player.tournaments.registered")}</Text>
-          </View>
-        ) : (
-          <Pressable
-            style={[styles.registerBtn, isFull ? styles.registerBtnDisabled : undefined]}
-            disabled={isFull || isRegistering}
-            onPress={(e) => {
-              e.stopPropagation();
-              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-              onRegister(tournament);
-            }}
-          >
-            {isRegistering ? (
-              <ActivityIndicator size="small" color="rgba(255, 255, 255, 0.06)" />
-            ) : (
-              <Text style={[styles.registerBtnText, isFull ? styles.registerBtnTextDisabled : undefined]}>
-                {isFull ? t("player.booking.spotsFull") : t("player.tournaments.register")}
+          <View style={styles.priceCtaRow}>
+            <View style={styles.priceBlock}>
+              <Text style={styles.priceLabel}>
+                {tournament.type === "doubles"
+                  ? t("player.tournaments.doublesEntry")
+                  : t("player.tournaments.singlesEntry")}
               </Text>
+              <Text style={styles.priceValue}>
+                {displayFee || t("player.tournaments.freeEntry")}
+              </Text>
+            </View>
+
+            {tournament.isRegistered ? (
+              <View style={styles.registeredBadge}>
+                <Ionicons name="checkmark-circle" size={14} color={TextColors.secondary} />
+                <Text style={styles.registeredText}>{t("player.tournaments.registered")}</Text>
+              </View>
+            ) : (
+              <Pressable
+                style={[styles.registerBtn, isFull ? styles.registerBtnDisabled : undefined]}
+                disabled={isFull || isRegistering}
+                onPress={(e) => {
+                  e.stopPropagation();
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                  onRegister(tournament);
+                }}
+              >
+                {isRegistering ? (
+                  <ActivityIndicator size="small" color="#fff" />
+                ) : (
+                  <Text style={[styles.registerBtnText, isFull ? styles.registerBtnTextDisabled : undefined]}>
+                    {isFull ? t("player.tournaments.spotsFull") : registerLabel}
+                  </Text>
+                )}
+              </Pressable>
             )}
-          </Pressable>
-        )}
+          </View>
+        </View>
       </View>
     </Pressable>
   );
 }
 
-function LadderCard({ ladder, onPress, onJoin, isJoining }: { ladder: Ladder; onPress: () => void; onJoin: (id: string) => void; isJoining: boolean }) {
+function LadderCard({
+  ladder,
+  onPress,
+  onJoin,
+  isJoining,
+}: {
+  ladder: Ladder;
+  onPress: () => void;
+  onJoin: (id: string) => void;
+  isJoining: boolean;
+}) {
   const { t } = useTranslation();
-  const typeColor = getTypeColor(ladder.type);
 
   return (
-    <Pressable style={({ pressed }) => [styles.ladderCard, pressed && styles.cardPressed]} onPress={onPress}>
+    <Pressable
+      style={({ pressed }) => [styles.ladderCard, pressed && styles.cardPressed]}
+      onPress={onPress}
+    >
       <LinearGradient
         colors={["rgba(255, 255, 255, 0.06)", "rgba(255, 255, 255, 0.08)"]}
         style={styles.ladderGradient}
@@ -215,8 +381,8 @@ function LadderCard({ ladder, onPress, onJoin, isJoining }: { ladder: Ladder; on
           </View>
           <View style={styles.ladderInfo}>
             <Text style={styles.ladderName} numberOfLines={1}>{ladder.name}</Text>
-            <View style={[styles.typeBadgeMini, { backgroundColor: typeColor + "25" }]}>
-              <Text style={[styles.typeBadgeMiniText, { color: typeColor }]}>{getTypeBadge(ladder.type)}</Text>
+            <View style={styles.ladderTypeBadge}>
+              <Text style={styles.ladderTypeBadgeText}>{getTypeLabel(ladder.type)}</Text>
             </View>
           </View>
         </View>
@@ -245,7 +411,7 @@ function LadderCard({ ladder, onPress, onJoin, isJoining }: { ladder: Ladder; on
           </View>
           {ladder.isJoined ? (
             <View style={styles.joinedBadge}>
-              <Ionicons name="checkmark-circle" size={14} color={GlowColors.primary} />
+              <Ionicons name="checkmark-circle" size={14} color="#00C853" />
               <Text style={styles.joinedText}>{t("player.tournaments.registered")}</Text>
             </View>
           ) : (
@@ -259,7 +425,7 @@ function LadderCard({ ladder, onPress, onJoin, isJoining }: { ladder: Ladder; on
               }}
             >
               {isJoining ? (
-                <ActivityIndicator size="small" color="rgba(255, 255, 255, 0.06)" />
+                <ActivityIndicator size="small" color="#fff" />
               ) : (
                 <Text style={styles.joinBtnText}>{t("player.tournaments.joinLadder")}</Text>
               )}
@@ -271,6 +437,15 @@ function LadderCard({ ladder, onPress, onJoin, isJoining }: { ladder: Ladder; on
   );
 }
 
+function EmptyState({ icon, title }: { icon: IoniconsName; title: string }) {
+  return (
+    <View style={styles.empty}>
+      <Ionicons name={icon} size={48} color={TextColors.muted} />
+      <Text style={styles.emptyTitle}>{title}</Text>
+    </View>
+  );
+}
+
 export default function TournamentsScreen() {
   const { t } = useTranslation();
   const navigation = useNavigation<NavigationProp>();
@@ -279,12 +454,44 @@ export default function TournamentsScreen() {
   const [activeTab, setActiveTab] = useState<TabType>("upcoming");
   const [registeringId, setRegisteringId] = useState<string | null>(null);
   const [joiningId, setJoiningId] = useState<string | null>(null);
+  const [playerCoords, setPlayerCoords] = useState<{ lat: number; lng: number } | null>(null);
 
-  const { data: tournamentData, isLoading: tournamentsLoading, refetch: refetchTournaments, isRefetching: tournamentsRefetching, isError: tournamentsError } = useQuery<TournamentData>({
-    queryKey: ["/api/player/tournaments"],
+  useEffect(() => {
+    (async () => {
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== "granted") return;
+      const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+      setPlayerCoords({ lat: loc.coords.latitude, lng: loc.coords.longitude });
+    })();
+  }, []);
+
+  const tournamentsQueryKey = ["/api/player/tournaments", playerCoords ?? {}] as const;
+
+  const {
+    data: tournamentData,
+    isLoading: tournamentsLoading,
+    refetch: refetchTournaments,
+    isRefetching: tournamentsRefetching,
+    isError: tournamentsError,
+  } = useQuery<TournamentData>({
+    queryKey: tournamentsQueryKey,
+    queryFn: async () => {
+      const path = playerCoords
+        ? `/api/player/tournaments?lat=${playerCoords.lat}&lng=${playerCoords.lng}`
+        : "/api/player/tournaments";
+      const res = await apiFetch(path);
+      if (!res.ok) throw new Error(`${res.status}: ${await res.text()}`);
+      return res.json();
+    },
   });
 
-  const { data: laddersData, isLoading: laddersLoading, refetch: refetchLadders, isRefetching: laddersRefetching, isError: laddersError } = useQuery<Ladder[]>({
+  const {
+    data: laddersData,
+    isLoading: laddersLoading,
+    refetch: refetchLadders,
+    isRefetching: laddersRefetching,
+    isError: laddersError,
+  } = useQuery<Ladder[]>({
     queryKey: ["/api/player/ladders"],
   });
 
@@ -299,7 +506,7 @@ export default function TournamentsScreen() {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     },
     onError: (error: Error) => {
-      Alert.alert("Registration Failed", error.message || "Could not register for this tournament.");
+      Alert.alert(t("common.error"), error.message || "Could not register for this tournament.");
     },
     onSettled: () => {
       setRegisteringId(null);
@@ -316,7 +523,7 @@ export default function TournamentsScreen() {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     },
     onError: (error: Error) => {
-      Alert.alert("Join Failed", error.message || "Could not join this ladder.");
+      Alert.alert(t("common.error"), error.message || "Could not join this ladder.");
     },
     onSettled: () => {
       setJoiningId(null);
@@ -326,7 +533,6 @@ export default function TournamentsScreen() {
   const upcomingTournaments = tournamentData?.upcoming || [];
   const myTournaments = tournamentData?.myTournaments || [];
   const ladders = laddersData || [];
-
 
   const handleTabPress = (tab: TabType) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -349,11 +555,11 @@ export default function TournamentsScreen() {
         "Select Category",
         "Choose your registration category:",
         [
-          ...tournament.categories.map(cat => ({
+          ...tournament.categories.map((cat) => ({
             text: cat,
             onPress: () => registerMutation.mutate({ tournamentId: tournament.id, category: cat }),
           })),
-          { text: "Cancel", style: "cancel" as const },
+          { text: t("common.cancel"), style: "cancel" as const },
         ]
       );
     } else {
@@ -376,7 +582,7 @@ export default function TournamentsScreen() {
   const tabs = [
     { key: "upcoming" as TabType, label: t("player.tournaments.upcoming"), count: upcomingTournaments.length },
     { key: "my_tournaments" as TabType, label: t("player.tournaments.myTournaments"), count: myTournaments.length },
-    { key: "ladders" as TabType, label: t("player.tournaments.ladders"), count: ladders.filter(l => l.isJoined).length },
+    { key: "ladders" as TabType, label: t("player.tournaments.ladders"), count: ladders.filter((l) => l.isJoined).length },
   ];
 
   const renderContent = () => {
@@ -429,9 +635,15 @@ export default function TournamentsScreen() {
             contentContainerStyle={styles.listContent}
             showsVerticalScrollIndicator={false}
             refreshControl={
-              <RefreshControl refreshing={isRefetching} onRefresh={handleRefresh} tintColor={GlowColors.primary} />
+              <RefreshControl
+                refreshing={isRefetching}
+                onRefresh={handleRefresh}
+                tintColor={GlowColors.primary}
+              />
             }
-            ListEmptyComponent={<EmptyState icon="trophy-outline" title={t("player.tournaments.noTournaments")} />}
+            ListEmptyComponent={
+              <EmptyState icon="trophy-outline" title={t("player.tournaments.noTournaments")} />
+            }
           />
         );
       case "my_tournaments":
@@ -450,9 +662,15 @@ export default function TournamentsScreen() {
             contentContainerStyle={styles.listContent}
             showsVerticalScrollIndicator={false}
             refreshControl={
-              <RefreshControl refreshing={isRefetching} onRefresh={handleRefresh} tintColor={GlowColors.primary} />
+              <RefreshControl
+                refreshing={isRefetching}
+                onRefresh={handleRefresh}
+                tintColor={GlowColors.primary}
+              />
             }
-            ListEmptyComponent={<EmptyState icon="calendar-outline" title={t("player.tournaments.noTournaments")} />}
+            ListEmptyComponent={
+              <EmptyState icon="calendar-outline" title={t("player.tournaments.noTournaments")} />
+            }
           />
         );
       case "ladders":
@@ -471,9 +689,15 @@ export default function TournamentsScreen() {
             contentContainerStyle={styles.listContent}
             showsVerticalScrollIndicator={false}
             refreshControl={
-              <RefreshControl refreshing={isRefetching} onRefresh={handleRefresh} tintColor={GlowColors.primary} />
+              <RefreshControl
+                refreshing={isRefetching}
+                onRefresh={handleRefresh}
+                tintColor={GlowColors.primary}
+              />
             }
-            ListEmptyComponent={<EmptyState icon="podium-outline" title={t("player.tournaments.noTournaments")} />}
+            ListEmptyComponent={
+              <EmptyState icon="podium-outline" title={t("player.tournaments.noTournaments")} />
+            }
           />
         );
     }
@@ -515,16 +739,6 @@ export default function TournamentsScreen() {
   );
 }
 
-function EmptyState({ icon, title }: { icon: string; title: string }) {
-  return (
-    <View style={styles.empty}>
-      <Ionicons name={icon as any} size={48} color={TextColors.muted} />
-      <Text style={styles.emptyTitle}>{title}</Text>
-      <Text style={styles.emptyText}></Text>
-    </View>
-  );
-}
-
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -541,7 +755,7 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 10,
-    backgroundColor: Backgrounds.card,
+    backgroundColor: "rgba(255,255,255,0.06)",
     alignItems: "center",
     justifyContent: "center",
     borderWidth: 1,
@@ -569,7 +783,7 @@ const styles = StyleSheet.create({
     gap: 4,
     paddingVertical: 10,
     borderRadius: 8,
-    backgroundColor: Backgrounds.card,
+    backgroundColor: "rgba(255,255,255,0.04)",
     borderWidth: 1,
     borderColor: "rgba(255,255,255,0.06)",
   },
@@ -608,6 +822,7 @@ const styles = StyleSheet.create({
   listContent: {
     padding: Spacing.md,
     paddingBottom: 100,
+    gap: 10,
   },
   loadingContainer: {
     flex: 1,
@@ -631,36 +846,93 @@ const styles = StyleSheet.create({
   retryBtnText: {
     fontSize: 13,
     fontWeight: "700",
-    color: Backgrounds.card,
+    color: "#fff",
   },
   card: {
-    backgroundColor: Backgrounds.card,
-    borderRadius: 12,
-    padding: Spacing.md,
-    marginBottom: 10,
+    backgroundColor: "rgba(255,255,255,0.05)",
+    borderRadius: 14,
+    overflow: "hidden",
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.06)",
+    borderColor: "rgba(255,255,255,0.08)",
+    flexDirection: "row",
   },
   cardPressed: {
-    opacity: 0.9,
-    transform: [{ scale: 0.98 }],
+    opacity: 0.88,
+    transform: [{ scale: 0.985 }],
+  },
+  cardSportBanner: {
+    borderTopLeftRadius: 14,
+    borderTopRightRadius: 14,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: 10,
+  },
+  sportBannerContent: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  sportBannerLeft: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 7,
+  },
+  sportBannerLabel: {
+    fontSize: 12,
+    fontWeight: "800",
+    color: "rgba(255,255,255,0.95)",
+    letterSpacing: 1,
+    textTransform: "uppercase",
+  },
+  sportBannerRight: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  genderBannerText: {
+    fontSize: 11,
+    color: "rgba(255,255,255,0.85)",
+    fontWeight: "600",
+  },
+  cardBody: {
+    padding: Spacing.md,
+  },
+  cardTopRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 8,
+  },
+  badgeRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    flexWrap: "wrap",
+    flex: 1,
+  },
+  formatBadge: {
+    paddingHorizontal: 7,
+    paddingVertical: 3,
+    borderRadius: 5,
+    backgroundColor: "rgba(255,255,255,0.08)",
+  },
+  formatBadgeText: {
+    fontSize: 9,
+    fontWeight: "700",
+    color: TextColors.secondary,
+    letterSpacing: 0.3,
   },
   liveBadge: {
-    position: "absolute",
-    top: 10,
-    right: 10,
     flexDirection: "row",
     alignItems: "center",
     gap: 4,
-    backgroundColor: "rgba(255, 77, 77, 0.2)",
-    paddingHorizontal: 8,
+    backgroundColor: "rgba(255, 77, 77, 0.15)",
+    paddingHorizontal: 7,
     paddingVertical: 3,
-    borderRadius: 6,
-    zIndex: 1,
+    borderRadius: 5,
   },
   liveDot: {
-    width: 6,
-    height: 6,
+    width: 5,
+    height: 5,
     borderRadius: 3,
     backgroundColor: "#FF4D4D",
   },
@@ -669,127 +941,135 @@ const styles = StyleSheet.create({
     fontWeight: "800",
     color: "#FF4D4D",
   },
-  cardTop: {
-    marginBottom: 10,
-  },
-  cardHeader: {
-    flexDirection: "row",
-    alignItems: "flex-start",
-    justifyContent: "space-between",
-    gap: 8,
-  },
-  cardTitle: {
-    fontSize: 15,
-    fontWeight: "700",
-    color: TextColors.primary,
-    flex: 1,
-  },
-  typeBadge: {
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 4,
-  },
-  typeBadgeText: {
-    fontSize: 9,
-    fontWeight: "800",
-    color: "rgba(255, 255, 255, 0.06)",
-  },
-  formatRow: {
+  genderRow: {
     flexDirection: "row",
     alignItems: "center",
     gap: 4,
-    marginTop: 4,
+    marginLeft: 6,
   },
-  formatText: {
+  genderText: {
     fontSize: 11,
     color: TextColors.muted,
+    fontWeight: "500",
   },
-  cardMeta: {
-    gap: 6,
-    marginBottom: 10,
+  cardTitle: {
+    fontSize: 16,
+    fontWeight: "700",
+    color: TextColors.primary,
+    marginBottom: 8,
+    lineHeight: 21,
   },
-  metaItem: {
+  metaRow: {
     flexDirection: "row",
     alignItems: "center",
     gap: 6,
+    marginBottom: 4,
   },
   metaText: {
     fontSize: 12,
     color: TextColors.secondary,
     flex: 1,
   },
-  progressBar: {
-    height: 3,
-    backgroundColor: "rgba(255,255,255,0.08)",
-    borderRadius: 2,
-    marginBottom: 10,
-    overflow: "hidden",
+  metaSeparator: {
+    fontSize: 12,
+    color: TextColors.muted,
   },
-  progressFill: {
-    height: "100%",
-    borderRadius: 2,
+  distanceText: {
+    fontSize: 11,
+    color: GlowColors.primary,
+    fontWeight: "600",
+  },
+  divider: {
+    height: 1,
+    backgroundColor: "rgba(255,255,255,0.06)",
+    marginVertical: 10,
   },
   cardFooter: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
   },
-  footerLeft: {
-    flexDirection: "row",
-    gap: 12,
-  },
-  priceBadge: {
+  spotsContainer: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 4,
+    gap: 8,
   },
-  priceText: {
-    fontSize: 12,
-    fontWeight: "700",
-    color: GlowColors.primary,
-  },
-  spotsBadge: {
+  avatarStack: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 4,
+  },
+  avatarCircle: {
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+    borderWidth: 1.5,
+    borderColor: "rgba(255,255,255,0.15)",
   },
   spotsText: {
     fontSize: 11,
     color: TextColors.secondary,
+    fontWeight: "600",
+  },
+  priceCtaRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+  },
+  priceBlock: {
+    alignItems: "flex-end",
+  },
+  priceLabel: {
+    fontSize: 9,
+    color: TextColors.muted,
+    fontWeight: "600",
+    textTransform: "uppercase",
+    letterSpacing: 0.3,
+  },
+  priceValue: {
+    fontSize: 13,
+    fontWeight: "800",
+    color: TextColors.primary,
   },
   registeredBadge: {
     flexDirection: "row",
     alignItems: "center",
     gap: 4,
+    backgroundColor: "rgba(255,255,255,0.08)",
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.12)",
   },
   registeredText: {
     fontSize: 11,
-    fontWeight: "600",
-    color: GlowColors.primary,
+    fontWeight: "700",
+    color: TextColors.secondary,
   },
   registerBtn: {
-    backgroundColor: GlowColors.primary,
+    backgroundColor: "#00C853",
     paddingHorizontal: 14,
-    paddingVertical: 6,
-    borderRadius: 6,
+    paddingVertical: 7,
+    borderRadius: 8,
+    maxWidth: 180,
+    alignItems: "center",
   },
   registerBtnDisabled: {
-    backgroundColor: "rgba(255,255,255,0.1)",
+    backgroundColor: "rgba(255,255,255,0.08)",
   },
   registerBtnText: {
-    fontSize: 11,
+    fontSize: 12,
     fontWeight: "700",
-    color: "rgba(255, 255, 255, 0.06)",
+    color: "#fff",
   },
   registerBtnTextDisabled: {
     color: TextColors.muted,
   },
   ladderCard: {
-    borderRadius: 12,
-    marginBottom: 10,
+    borderRadius: 14,
     overflow: "hidden",
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.06)",
+    borderColor: "rgba(255,255,255,0.08)",
   },
   ladderGradient: {
     padding: Spacing.md,
@@ -820,14 +1100,16 @@ const styles = StyleSheet.create({
     color: TextColors.primary,
     flex: 1,
   },
-  typeBadgeMini: {
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 4,
+  ladderTypeBadge: {
+    paddingHorizontal: 7,
+    paddingVertical: 3,
+    borderRadius: 5,
+    backgroundColor: "rgba(255,255,255,0.08)",
   },
-  typeBadgeMiniText: {
-    fontSize: 8,
-    fontWeight: "800",
+  ladderTypeBadgeText: {
+    fontSize: 9,
+    fontWeight: "700",
+    color: TextColors.secondary,
   },
   ladderStats: {
     flexDirection: "row",
@@ -869,22 +1151,28 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 4,
+    backgroundColor: "rgba(0, 200, 83, 0.12)",
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 8,
   },
   joinedText: {
     fontSize: 11,
-    fontWeight: "600",
-    color: GlowColors.primary,
+    fontWeight: "700",
+    color: "#00C853",
   },
   joinBtn: {
     backgroundColor: GlowColors.primary,
     paddingHorizontal: 14,
-    paddingVertical: 6,
-    borderRadius: 6,
+    paddingVertical: 7,
+    borderRadius: 8,
+    minWidth: 80,
+    alignItems: "center",
   },
   joinBtnText: {
-    fontSize: 11,
+    fontSize: 12,
     fontWeight: "700",
-    color: "rgba(255, 255, 255, 0.06)",
+    color: "#fff",
   },
   empty: {
     alignItems: "center",
@@ -896,10 +1184,5 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     color: TextColors.primary,
     marginTop: 12,
-  },
-  emptyText: {
-    fontSize: 13,
-    color: TextColors.muted,
-    marginTop: 4,
   },
 });

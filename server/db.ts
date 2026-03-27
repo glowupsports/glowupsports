@@ -387,6 +387,19 @@ pool.query('SELECT 1').then(async () => {
   } catch (e: any) {
     console.log('[Database] group_events wager migration skipped:', e.message);
   }
+  try {
+    await pool.query(`ALTER TABLE tournaments ADD COLUMN IF NOT EXISTS gender TEXT DEFAULT 'open'`);
+    await pool.query(`ALTER TABLE tournaments ADD COLUMN IF NOT EXISTS start_time TEXT`);
+    await pool.query(`ALTER TABLE tournaments ADD COLUMN IF NOT EXISTS registration_fee NUMERIC`);
+    await pool.query(`ALTER TABLE tournaments ADD COLUMN IF NOT EXISTS doubles_registration_fee NUMERIC`);
+    await pool.query(`ALTER TABLE tournaments ADD COLUMN IF NOT EXISTS level_min NUMERIC`);
+    await pool.query(`ALTER TABLE tournaments ADD COLUMN IF NOT EXISTS level_max NUMERIC`);
+    await pool.query(`ALTER TABLE tournaments ADD COLUMN IF NOT EXISTS venue_lat NUMERIC`);
+    await pool.query(`ALTER TABLE tournaments ADD COLUMN IF NOT EXISTS venue_lng NUMERIC`);
+    console.log('[Database] tournaments extended fields migration successful');
+  } catch (e: any) {
+    console.log('[Database] tournaments extended fields migration skipped:', e.message);
+  }
 }).catch((err) => {
   console.error('[Database] Connection test FAILED:', err.message);
 });
