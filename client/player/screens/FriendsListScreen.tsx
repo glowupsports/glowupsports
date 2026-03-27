@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { View, StyleSheet, FlatList, Pressable, ActivityIndicator, RefreshControl } from "react-native";
+import { View, StyleSheet, FlatList, Pressable, ActivityIndicator, RefreshControl, Alert } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -56,17 +56,25 @@ function getBallColor(ball: string | null): string {
   }
 }
 
-function FriendCard({ connection, onPress }: { connection: Connection; onPress: () => void }) {
+function getPhotoUri(photoUrl: string | null): string | null {
+  if (!photoUrl) return null;
+  if (photoUrl.startsWith("data:") || photoUrl.startsWith("http")) return photoUrl;
+  return getStaticAssetsUrl() + photoUrl;
+}
+
+function FriendCard({ connection, onPress, onRemove }: { connection: Connection; onPress: () => void; onRemove: () => void }) {
   const player = connection.player;
   if (!player) return null;
   
+  const photoUri = getPhotoUri(player.photoUrl);
+
   return (
     <Animated.View entering={FadeInRight.delay(100)}>
       <Pressable style={styles.friendCard} onPress={onPress}>
         <View style={styles.playerAvatarContainer}>
-          {player.photoUrl ? (
+          {photoUri ? (
             <Image
-              source={{ uri: getStaticAssetsUrl() + player.photoUrl }}
+              source={{ uri: photoUri }}
               style={styles.playerAvatar}
             />
           ) : (
@@ -105,7 +113,16 @@ function FriendCard({ connection, onPress }: { connection: Connection; onPress: 
           <ThemedText style={styles.scoreText}>{player.glowScore}</ThemedText>
         </View>
         
-        <Ionicons name="chevron-forward" size={18} color={Colors.dark.textMuted} />
+        <Pressable
+          style={styles.removeButton}
+          onPress={(e) => {
+            e.stopPropagation();
+            onRemove();
+          }}
+          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+        >
+          <Ionicons name="person-remove-outline" size={18} color={Colors.dark.error} />
+        </Pressable>
       </Pressable>
     </Animated.View>
   );
@@ -132,7 +149,7 @@ function RequestCard({
           <View style={styles.playerAvatarContainer}>
             {player.photoUrl ? (
               <Image
-                source={{ uri: getStaticAssetsUrl() + player.photoUrl }}
+                source={{ uri: getPhotoUri(player.photoUrl) ?? "" }}
                 style={styles.playerAvatar}
               />
             ) : (
@@ -218,6 +235,38 @@ export default function FriendsListScreen() {
       setRespondingTo(null);
     },
   });
+
+  const removeMutation = useMutation({
+    mutationFn: async (connectionId: string) => {
+      return apiRequest("DELETE", `/api/player/connections/${connectionId}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/player/connections"] });
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    },
+    onError: () => {
+      Alert.alert("Error", "Failed to remove friend. Please try again.");
+    },
+  });
+
+  const handleRemoveFriend = (connection: Connection) => {
+    const name = connection.player?.name || "this player";
+    Alert.alert(
+      "Remove Friend",
+      `Are you sure you want to remove ${name} from your friends?`,
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Remove",
+          style: "destructive",
+          onPress: () => {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+            removeMutation.mutate(connection.id);
+          },
+        },
+      ]
+    );
+  };
   
   const handleAccept = (connectionId: string) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
@@ -321,7 +370,8 @@ export default function FriendsListScreen() {
           renderItem={({ item }) => (
             <FriendCard 
               connection={item} 
-              onPress={() => item.player && navigateToProfile(item.player.id)} 
+              onPress={() => item.player && navigateToProfile(item.player.id)}
+              onRemove={() => handleRemoveFriend(item)}
             />
           )}
           refreshControl={
@@ -365,7 +415,7 @@ export default function FriendsListScreen() {
                     <View style={styles.sentAvatar}>
                       {conn.player?.photoUrl ? (
                         <Image
-                          source={{ uri: getStaticAssetsUrl() + conn.player.photoUrl }}
+                          source={{ uri: getPhotoUri(conn.player.photoUrl) ?? "" }}
                           style={styles.smallAvatar}
                         />
                       ) : (
@@ -563,6 +613,14 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: "700",
     color: Colors.dark.gold,
+  },
+  removeButton: {
+    width: 32,
+    height: 32,
+    justifyContent: "center",
+    alignItems: "center",
+    borderRadius: 8,
+    backgroundColor: Colors.dark.error + "15",
   },
   requestCard: {
     marginBottom: Spacing.md,

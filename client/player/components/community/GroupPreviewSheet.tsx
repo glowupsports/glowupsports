@@ -115,7 +115,7 @@ export default function GroupPreviewSheet({ visible, group, onClose, onOpenGroup
   const isAdmin = data?.myRole === "admin" || group.role === "admin";
   const memberCount = data?.memberCount ?? group.memberCount ?? 0;
   const members = data?.members ?? [];
-  const previewMembers = members.slice(0, 5);
+  const previewMembers = members.slice(0, 6);
   const extraCount = memberCount > previewMembers.length ? memberCount - previewMembers.length : 0;
 
   return (

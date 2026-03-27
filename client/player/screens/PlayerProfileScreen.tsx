@@ -447,13 +447,13 @@ export default function PlayerProfileScreen() {
               {player.profilePhotoUrl ? (
                 Platform.OS === 'web' ? (
                   <RNImage
-                    source={{ uri: player.profilePhotoUrl.startsWith('http') ? player.profilePhotoUrl : `${getStaticAssetsUrl()}${player.profilePhotoUrl}` }}
+                    source={{ uri: (player.profilePhotoUrl.startsWith('http') || player.profilePhotoUrl.startsWith('data:')) ? player.profilePhotoUrl : `${getStaticAssetsUrl()}${player.profilePhotoUrl}` }}
                     style={styles.avatarImage}
                     resizeMode="cover"
                   />
                 ) : (
                   <Image
-                    source={{ uri: player.profilePhotoUrl.startsWith('http') ? player.profilePhotoUrl : `${getStaticAssetsUrl()}${player.profilePhotoUrl}` }}
+                    source={{ uri: (player.profilePhotoUrl.startsWith('http') || player.profilePhotoUrl.startsWith('data:')) ? player.profilePhotoUrl : `${getStaticAssetsUrl()}${player.profilePhotoUrl}` }}
                     style={styles.avatarImage}
                     contentFit="cover"
                   />

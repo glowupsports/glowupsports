@@ -393,8 +393,8 @@ export function FriendsSection({ onChallenge, onSelectActivity }: { onChallenge?
       const data = res.ok ? await res.json() : null;
       const link = data?.link || "https://glowuptennis.app";
       await Share.share({
-        message: `Speel tennis met mij op Glow Up Tennis! Download de app en voeg me toe als vriend: ${link}`,
-        title: "Nodig tennismaatjes uit",
+        message: `Play tennis with me on Glow Up Tennis! Download the app and add me as a friend: ${link}`,
+        title: "Invite tennis friends",
       });
     } catch (e) {
       logger.log("Invite error", e);
@@ -648,7 +648,7 @@ export function FriendsSection({ onChallenge, onSelectActivity }: { onChallenge?
                 <Ionicons name="people" size={48} color={Colors.dark.primary} />
               </View>
               <ThemedText style={friendStyles.emptyTitle}>{t('player.community.noFriends')}</ThemedText>
-              <ThemedText style={friendStyles.emptySubtitle}>Nodig je tennismaatjes uit en verbind met andere spelers</ThemedText>
+              <ThemedText style={friendStyles.emptySubtitle}>Invite your tennis friends and connect with other players</ThemedText>
               <Pressable
                 style={friendStyles.inviteBtn}
                 onPress={handleInviteFriends}
@@ -660,7 +660,7 @@ export function FriendsSection({ onChallenge, onSelectActivity }: { onChallenge?
                   style={friendStyles.inviteBtnGradient}
                 >
                   <Ionicons name="share-social" size={18} color={Colors.dark.backgroundRoot} />
-                  <ThemedText style={friendStyles.inviteBtnText}>Nodig tennismaatjes uit</ThemedText>
+                  <ThemedText style={friendStyles.inviteBtnText}>Invite tennis friends</ThemedText>
                 </LinearGradient>
               </Pressable>
               <Pressable
@@ -726,7 +726,7 @@ export function GroupsSection() {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       try {
         await Share.share({
-          message: `Ik heb een tennisgroep aangemaakt: "${groupName}". Word lid en train samen met mij op Glow Up Tennis!`,
+          message: `I created a tennis group: "${groupName}". Join and train with me on Glow Up Tennis!`,
           title: groupName,
         });
       } catch {}
@@ -859,12 +859,12 @@ export function GroupsSection() {
                 <Ionicons name="people-circle" size={56} color={Colors.dark.primary} />
               </View>
               <ThemedText style={groupStyles.emptyTitle}>
-                {groupFilter === "all" ? "Maak je eerste groep" : `No ${groupFilter} groups yet`}
+                {groupFilter === "all" ? "Create your first group" : `No ${groupFilter} groups yet`}
               </ThemedText>
               <ThemedText style={groupStyles.emptySubtitle}>
                 {groupFilter === "training"
                   ? "Join training groups created by your coach"
-                  : "Maak een squad aan en nodig je tennismaatjes uit"}
+                  : "Create a squad and invite your tennis friends"}
               </ThemedText>
               {groupFilter !== "training" ? (
                 <Pressable
@@ -882,7 +882,7 @@ export function GroupsSection() {
                     style={groupStyles.squadBtnGradient}
                   >
                     <Ionicons name="people" size={20} color={Colors.dark.backgroundRoot} />
-                    <ThemedText style={groupStyles.squadBtnText}>Maak je Squad</ThemedText>
+                    <ThemedText style={groupStyles.squadBtnText}>Create Squad</ThemedText>
                   </LinearGradient>
                 </Pressable>
               ) : null}

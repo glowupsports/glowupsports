@@ -96,13 +96,10 @@ function PostCard({ post, typeColor }: { post: Post; typeColor: string }) {
 
   const handleLike = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    if (liked) {
-      setLiked(false);
-      setLikeCount(c => c - 1);
-    } else {
-      setLiked(true);
-      setLikeCount(c => c + 1);
-    }
+    setLiked(prev => {
+      setLikeCount(c => prev ? c - 1 : c + 1);
+      return !prev;
+    });
   };
 
   const timeAgo = (dateStr: string) => {
@@ -140,7 +137,7 @@ function PostCard({ post, typeColor }: { post: Post; typeColor: string }) {
             color={liked ? "#FF4D6D" : Colors.dark.textMuted}
           />
           <Text style={[styles.likeCount, liked ? { color: "#FF4D6D" } : {}]}>
-            {likeCount}
+            {likeCount > 0 ? likeCount : "Like"}
           </Text>
         </Pressable>
       </View>
@@ -211,26 +208,11 @@ export default function GroupDetailScreen({ route, navigation }: Props) {
             <Pressable style={styles.heroBackBtn} onPress={() => navigation.goBack()}>
               <Ionicons name="chevron-back" size={22} color="#fff" />
             </Pressable>
-            <Pressable
-              style={styles.heroMenuBtn}
-              onPress={() => {
-                const options: string[] = [];
-                if (data?.myRole !== "admin" && data?.isMember) options.push("Leave Group");
-                options.push("Cancel");
-                Alert.alert(
-                  data?.group.name || groupName,
-                  undefined,
-                  [
-                    ...(data?.myRole !== "admin" && data?.isMember
-                      ? [{ text: "Leave Group", style: "destructive" as const, onPress: handleLeave }]
-                      : []),
-                    { text: "Cancel", style: "cancel" as const },
-                  ]
-                );
-              }}
-            >
-              <Ionicons name="ellipsis-horizontal" size={20} color="rgba(255,255,255,0.8)" />
-            </Pressable>
+            {data?.myRole !== "admin" && data?.isMember ? (
+              <Pressable style={styles.heroMenuBtn} onPress={handleLeave}>
+                <Ionicons name="exit-outline" size={20} color="rgba(255,255,255,0.7)" />
+              </Pressable>
+            ) : null}
           </View>
 
           {/* Icon */}

@@ -34,13 +34,7 @@ export const courtPhotoUpload = multer({
 });
 
 export const profilePhotoUpload = multer({
-  storage: multer.diskStorage({
-    destination: (_req, _file, cb) => cb(null, PROFILE_PHOTOS_DIR),
-    filename: (_req, file, cb) => {
-      const uniqueSuffix = `${Date.now()}-${Math.round(Math.random() * 1e9)}`;
-      cb(null, `profile-${uniqueSuffix}${path.extname(file.originalname) || ".jpg"}`);
-    },
-  }),
+  storage: multer.memoryStorage(),
   limits: { fileSize: 5 * 1024 * 1024 },
   fileFilter: imageFilter,
 });

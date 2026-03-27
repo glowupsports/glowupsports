@@ -1780,7 +1780,9 @@ import fs from "fs";
           return res.status(400).json({ error: "No photo uploaded" });
         }
 
-        const photoUrl = `/uploads/profile-photos/${req.file.filename}`;
+        const mimeType = req.file.mimetype || "image/jpeg";
+        const base64Data = req.file.buffer.toString("base64");
+        const photoUrl = `data:${mimeType};base64,${base64Data}`;
 
         await db.execute(
           sql`UPDATE players SET profile_photo_url = ${photoUrl} WHERE id = ${playerId}`,

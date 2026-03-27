@@ -321,13 +321,13 @@ export default function CoachProfileScreen() {
                   {profile?.photoUrl ? (
                     Platform.OS === 'web' ? (
                       <RNImage
-                        source={{ uri: `${getApiUrl()}${profile.photoUrl}` }}
+                        source={{ uri: profile.photoUrl.startsWith('data:') ? profile.photoUrl : `${getApiUrl()}${profile.photoUrl}` }}
                         style={styles.avatarImage}
                         resizeMode="cover"
                       />
                     ) : (
                       <Image
-                        source={{ uri: `${getApiUrl()}${profile.photoUrl}` }}
+                        source={{ uri: profile.photoUrl.startsWith('data:') ? profile.photoUrl : `${getApiUrl()}${profile.photoUrl}` }}
                         style={styles.avatarImage}
                         contentFit="cover"
                       />
