@@ -245,14 +245,8 @@ export default function PlayerBookingWizard({
   // Build availability query URL with params
   // Note: We don't filter by locationId because coach_availability doesn't have location set
   const availabilityQueryUrl = useMemo(() => {
-    const startDate = new Date(selectedDate);
-    startDate.setHours(0, 0, 0, 0);
-    const endDate = new Date(selectedDate);
-    endDate.setHours(23, 59, 59, 999);
-    
     const params = new URLSearchParams({
-      startDate: startDate.toISOString(),
-      endDate: endDate.toISOString(),
+      date: selectedDateString,
       duration: duration.toString(),
     });
     // When browsing by coach, filter to that coach only
@@ -261,7 +255,7 @@ export default function PlayerBookingWizard({
     }
     
     return `/api/player/availability?${params}`;
-  }, [selectedDate, duration, browseMode, selectedCoachId]);
+  }, [selectedDateString, duration, browseMode, selectedCoachId]);
 
   // Fetch available slots using default queryFn
   // Enable when on slide 2 (When & Where) or later

@@ -111,10 +111,27 @@ function toDubaiTime(utcDate: Date): Date {
         return res.status(403).json({ error: "Player access required" });
       }
 
-      const { coachId, locationId, startDate, endDate, duration } = req.query;
-      
-      if (!startDate || !endDate) {
-        return res.status(400).json({ error: "startDate and endDate are required" });
+      const { coachId, locationId, date, startDate, endDate, duration } = req.query;
+
+      // Support either `date` (date string, preferred) or `startDate`/`endDate` (legacy ISO timestamps)
+      let rangeStart: Date;
+      let rangeEnd: Date;
+      if (date) {
+        // Validate YYYY-MM-DD format before constructing Date objects
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(date as string)) {
+          return res.status(400).json({ error: "date must be in YYYY-MM-DD format" });
+        }
+        // Parse as a calendar day in UTC to avoid timezone shifts
+        rangeStart = new Date(`${date as string}T00:00:00.000Z`);
+        rangeEnd = new Date(`${date as string}T23:59:59.999Z`);
+        if (isNaN(rangeStart.getTime())) {
+          return res.status(400).json({ error: "Invalid date value" });
+        }
+      } else if (startDate && endDate) {
+        rangeStart = new Date(startDate as string);
+        rangeEnd = new Date(endDate as string);
+      } else {
+        return res.status(400).json({ error: "date (or startDate and endDate) is required" });
       }
 
       const player = await storage.getPlayer(playerId, req.user?.academyId || "");
@@ -122,13 +139,13 @@ function toDubaiTime(utcDate: Date): Date {
         return res.status(404).json({ error: "Player not found" });
       }
 
-      console.log("[Availability] Fetching slots for player:", playerId, "dates:", startDate, "-", endDate, "academyId:", player.academyId);
+      console.log("[Availability] Fetching slots for player:", playerId, "date:", date || `${startDate} - ${endDate}`, "academyId:", player.academyId);
       const slots = await storage.getAvailableSlots({
         academyId: player.academyId || "",
         coachId: coachId as string | undefined,
         locationId: locationId as string | undefined,
-        startDate: new Date(startDate as string),
-        endDate: new Date(endDate as string),
+        startDate: rangeStart,
+        endDate: rangeEnd,
         duration: parseInt(duration as string) || 60,
       });
       // Enrich slots with coach, location, and court names

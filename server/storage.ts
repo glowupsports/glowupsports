@@ -8479,8 +8479,8 @@ export const storage = {
 
     // Fetch court availability blocks for the date range (blocked/booked from ALL coaches)
     // This ensures cross-coach court conflict exclusion
-    const startDateStr = `${params.startDate.getFullYear()}-${String(params.startDate.getMonth() + 1).padStart(2, "0")}-${String(params.startDate.getDate()).padStart(2, "0")}`;
-    const endDateStr = `${params.endDate.getFullYear()}-${String(params.endDate.getMonth() + 1).padStart(2, "0")}-${String(params.endDate.getDate()).padStart(2, "0")}`;
+    const startDateStr = `${params.startDate.getUTCFullYear()}-${String(params.startDate.getUTCMonth() + 1).padStart(2, "0")}-${String(params.startDate.getUTCDate()).padStart(2, "0")}`;
+    const endDateStr = `${params.endDate.getUTCFullYear()}-${String(params.endDate.getUTCMonth() + 1).padStart(2, "0")}-${String(params.endDate.getUTCDate()).padStart(2, "0")}`;
     const courtBlocks = await db.select({
       courtId: courtAvailability.courtId,
       date: courtAvailability.date,
@@ -8505,10 +8505,27 @@ export const storage = {
       endTime: Date;
     }> = [];
     
-    const currentDate = new Date(params.startDate);
-    while (currentDate <= params.endDate) {
-      const weekday = currentDate.getDay();
-      const dateStr = `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, "0")}-${String(currentDate.getDate()).padStart(2, "0")}`;
+    // Use UTC-epoch-aligned midnight for iteration so weekday/date math is
+    // always in UTC regardless of the server's local timezone.
+    const startMidnightUtc = Date.UTC(
+      params.startDate.getUTCFullYear(),
+      params.startDate.getUTCMonth(),
+      params.startDate.getUTCDate()
+    );
+    const endMidnightUtc = Date.UTC(
+      params.endDate.getUTCFullYear(),
+      params.endDate.getUTCMonth(),
+      params.endDate.getUTCDate()
+    );
+
+    let currentDayUtcMs = startMidnightUtc;
+    while (currentDayUtcMs <= endMidnightUtc) {
+      const currentDayDate = new Date(currentDayUtcMs);
+      const weekday = currentDayDate.getUTCDay();
+      const yyyy = currentDayDate.getUTCFullYear();
+      const mm = String(currentDayDate.getUTCMonth() + 1).padStart(2, "0");
+      const dd = String(currentDayDate.getUTCDate()).padStart(2, "0");
+      const dateStr = `${yyyy}-${mm}-${dd}`;
       
       const dayAvailability = availabilitySlots.filter(a => a.weekday === weekday);
       
@@ -8516,11 +8533,10 @@ export const storage = {
         const [startHour, startMin] = availability.startTime.split(':').map(Number);
         const [endHour, endMin] = availability.endTime.split(':').map(Number);
         
-        const slotStart = new Date(currentDate);
-        slotStart.setHours(startHour, startMin, 0, 0);
+        // Build slot boundaries in UTC using explicit UTC component setting
+        const slotStart = new Date(Date.UTC(yyyy, currentDayDate.getUTCMonth(), currentDayDate.getUTCDate(), startHour, startMin, 0, 0));
         
-        const availabilityEnd = new Date(currentDate);
-        availabilityEnd.setHours(endHour, endMin, 0, 0);
+        const availabilityEnd = new Date(Date.UTC(yyyy, currentDayDate.getUTCMonth(), currentDayDate.getUTCDate(), endHour, endMin, 0, 0));
         
         const slotDuration = availability.slotDuration || params.duration;
         
@@ -8533,8 +8549,8 @@ export const storage = {
           }
 
           const slotEnd = new Date(slotStart.getTime() + slotDuration * 60000);
-          const slotStartTime = `${String(slotStart.getHours()).padStart(2, "0")}:${String(slotStart.getMinutes()).padStart(2, "0")}`;
-          const slotEndTime = `${String(slotEnd.getHours()).padStart(2, "0")}:${String(slotEnd.getMinutes()).padStart(2, "0")}`;
+          const slotStartTime = `${String(slotStart.getUTCHours()).padStart(2, "0")}:${String(slotStart.getUTCMinutes()).padStart(2, "0")}`;
+          const slotEndTime = `${String(slotEnd.getUTCHours()).padStart(2, "0")}:${String(slotEnd.getUTCMinutes()).padStart(2, "0")}`;
 
           // Check coach-level session conflict (same coach)
           const hasConflict = existingSessions.some(session => 
@@ -8578,7 +8594,7 @@ export const storage = {
         }
       }
       
-      currentDate.setDate(currentDate.getDate() + 1);
+      currentDayUtcMs += 24 * 60 * 60 * 1000;
     }
     
     return availableSlots;
