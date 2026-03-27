@@ -106,8 +106,8 @@ const DRAWER_SECTIONS: DrawerSection[] = [
     title: "MATCHES & COMPETITION",
     icon: "trophy",
     items: [
-      { id: "matchprep", title: "Match Prep", subtitle: "Opponent scouting", icon: "flag", screen: "Match", unlockLevel: 7 },
-      { id: "matchlog", title: "Match Log", subtitle: "Results & history", icon: "list", screen: "Match", unlockLevel: 7 },
+      { id: "matchprep", title: "Match Prep", subtitle: "Opponent scouting", icon: "flag", screen: "PlayerTabs", params: { screen: "Schedule", params: { screen: "Match", params: { initialTab: "upcoming" } } }, unlockLevel: 7 },
+      { id: "matchlog", title: "Match Log", subtitle: "Results & history", icon: "list", screen: "PlayerTabs", params: { screen: "Schedule", params: { screen: "Match", params: { initialTab: "history" } } }, unlockLevel: 7 },
       { id: "tournaments", title: "Tournaments", subtitle: "Brackets & stages", icon: "podium", screen: "PlayerTabs", params: { screen: "Progress", params: { screen: "Tournaments" } } },
       { id: "glowrank", title: "Glow Rank", subtitle: "Performance score", icon: "trending-up", screen: "PlayerTabs", params: { screen: "Progress", params: { screen: "GlowLeaderboard" } } },
       { id: "leaderboard", title: "Leaderboard", subtitle: "Global rankings", icon: "medal", screen: "PlayerTabs", params: { screen: "Progress", params: { screen: "GlowLeaderboard" } }, unlockLevel: 5 },

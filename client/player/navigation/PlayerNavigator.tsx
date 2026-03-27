@@ -142,7 +142,7 @@ export type ScheduleStackParamList = {
   CourtDetail: { courtId: string; date: string; time?: string };
   MyCourtBookings: undefined;
   QuickBook: undefined;
-  Match: { opponentId?: string } | undefined;
+  Match: { opponentId?: string; initialTab?: "upcoming" | "history" } | undefined;
   MatchDetail: { matchId: string };
 };
 
@@ -611,7 +611,7 @@ function PlayerTabsWithDrawer() {
 
   const handleDrawerNavigate = (screen: string, params?: any) => {
     if (screen === "PlayerTabs" && params?.screen) {
-      navigateToTab(params.screen, params.params ? { screen: params.params.screen, params: params.params } : undefined);
+      navigateToTab(params.screen, params.params ? params.params : undefined);
     } else {
       navigation.navigate(screen, params);
     }

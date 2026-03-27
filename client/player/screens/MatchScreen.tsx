@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   View,
   Text,
@@ -9,8 +9,8 @@ import {
   ActivityIndicator,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { useNavigation } from "@react-navigation/native";
-import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
+import { useNavigation, useRoute } from "@react-navigation/native";
+import type { NativeStackNavigationProp, NativeStackScreenProps } from "@react-navigation/native-stack";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { LinearGradient } from "expo-linear-gradient";
@@ -18,7 +18,7 @@ import * as Haptics from "expo-haptics";
 import { Colors, Spacing, BorderRadius, Typography, ProTennisColors, GlowColors } from "@/constants/theme";
 import { usePlayer } from "@/player/context/PlayerContext";
 import { apiRequest } from "@/lib/query-client";
-import type { PlayerStackParamList } from "@/player/navigation/PlayerNavigator";
+import type { PlayerStackParamList, ScheduleStackParamList } from "@/player/navigation/PlayerNavigator";
 import { LockedScreen } from "../components/LockedScreen";
 
 interface Opponent {
@@ -67,9 +67,19 @@ const PLAYSTYLE_LABELS: Record<string, string> = {
 export default function MatchScreen() {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<NativeStackNavigationProp<PlayerStackParamList>>();
+  const route = useRoute<NativeStackScreenProps<ScheduleStackParamList, "Match">["route"]>();
   const { player } = usePlayer();
   const queryClient = useQueryClient();
-  const [activeTab, setActiveTab] = useState<"upcoming" | "history">("upcoming");
+  const [activeTab, setActiveTab] = useState<"upcoming" | "history">(
+    route.params?.initialTab ?? "upcoming"
+  );
+
+  useEffect(() => {
+    if (route.params?.initialTab) {
+      setActiveTab(route.params.initialTab);
+    }
+  }, [route.params?.initialTab]);
+
   const [showPrepareModal, setShowPrepareModal] = useState(false);
   const [showResultModal, setShowResultModal] = useState(false);
   const [selectedPlan, setSelectedPlan] = useState<MatchPlan | null>(null);
