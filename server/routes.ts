@@ -244,6 +244,7 @@ import coachAnalyticsRouter from "./routes/coach-analytics";
 import academySettingsRouter from "./routes/academy-settings";
 import platformOwnerRouter from "./routes/platform-owner";
 import playerSessionsRouter from "./routes/player-sessions";
+import corporateAccountsRouter from "./routes/corporate-accounts";
 import { filterProfanity } from "./profanityFilter";
 import { isPlayerMinor, getPlayerParentalControls } from "./childSafety";
 import { chatRateLimiter, postRateLimiter, diagnosticsLimiter, adminRepairLimiter } from "./rateLimiter";
@@ -555,6 +556,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.use(academySettingsRouter);
   app.use(platformOwnerRouter);
   app.use(playerSessionsRouter);
+  app.use(corporateAccountsRouter);
 
   // ==================== USER ONBOARDING STATE ====================
 

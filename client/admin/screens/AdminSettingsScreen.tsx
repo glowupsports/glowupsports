@@ -439,6 +439,23 @@ export default function AdminSettingsScreen() {
               </View>
             </Pressable>
 
+            <Pressable
+              style={[styles.menuCard, CardStyles.elevated]}
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                navigation.navigate("AdminCorporateAccounts");
+              }}
+            >
+              <View style={styles.menuContent}>
+                <Ionicons name="business-outline" size={24} color={Colors.dark.xpCyan} />
+                <View style={styles.menuText}>
+                  <Text style={styles.menuTitle}>Corporate Accounts</Text>
+                  <Text style={styles.menuSubtitle}>Manage company employee benefits</Text>
+                </View>
+                <Ionicons name="chevron-forward" size={20} color={Colors.dark.textMuted} />
+              </View>
+            </Pressable>
+
             <Pressable 
               style={[styles.menuCard, CardStyles.elevated]}
               onPress={() => {

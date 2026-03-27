@@ -1276,3 +1276,168 @@ export async function sendOnboardingDay7Email(params: {
     text: `Hi ${userName}, you've been with us for a week! Here are some features to explore: ${highlights.features.map(f => f.title).join(', ')}. Open the app to try them out.`,
   });
 }
+
+export async function sendCorporateMonthlyReportEmail(params: {
+  to: string;
+  companyName: string;
+  academyName: string;
+  month: string;
+  creditBalance: number;
+  totalCreditsUsed: number;
+  activeMembers: number;
+  memberUsage: { inviteEmail: string; playerName?: string; creditsUsed: number; sessionCount: number }[];
+  csvAttachment?: string;
+}): Promise<{ success: boolean; error?: string }> {
+  const { to, companyName, academyName, month, creditBalance, totalCreditsUsed, activeMembers, memberUsage } = params;
+
+  const memberRows = memberUsage
+    .map((m) => `
+      <tr>
+        <td style="padding:8px 12px;border-bottom:1px solid #222;">${escapeHtml(m.playerName || m.inviteEmail)}</td>
+        <td style="padding:8px 12px;border-bottom:1px solid #222;text-align:center;">${m.creditsUsed}</td>
+        <td style="padding:8px 12px;border-bottom:1px solid #222;text-align:center;">${m.sessionCount}</td>
+      </tr>`)
+    .join("");
+
+  const html = `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #0a0a0a; color: #ffffff; margin: 0; padding: 20px; }
+        .container { max-width: 600px; margin: 0 auto; background: #1a1a1a; border-radius: 16px; padding: 40px; }
+        h1 { color: #C8FF3D; margin: 0 0 8px; font-size: 20px; }
+        h2 { color: #ffffff; margin: 0 0 24px; font-size: 16px; font-weight: 400; }
+        .stats { display: flex; gap: 16px; margin: 24px 0; }
+        .stat { flex: 1; background: #0f141b; border-radius: 12px; padding: 20px; text-align: center; }
+        .stat-value { color: #C8FF3D; font-size: 28px; font-weight: 900; }
+        .stat-label { color: #666; font-size: 12px; text-transform: uppercase; letter-spacing: 1px; margin-top: 4px; }
+        table { width: 100%; border-collapse: collapse; margin: 16px 0; }
+        th { background: #0f141b; color: #666; padding: 8px 12px; text-align: left; font-size: 12px; text-transform: uppercase; letter-spacing: 1px; }
+        td { color: #ccc; font-size: 14px; }
+        .footer { margin-top: 32px; padding-top: 20px; border-top: 1px solid #333; color: #666; font-size: 12px; }
+      </style>
+    </head>
+    <body>
+      <div class="container">
+        <h1>Glow Up Sports</h1>
+        <h2>Monthly Usage Report — ${escapeHtml(month)}</h2>
+        <p style="color:#a0a0a0;">Corporate account summary for <strong style="color:#fff;">${escapeHtml(companyName)}</strong> at ${escapeHtml(academyName)}.</p>
+        <div class="stats">
+          <div class="stat">
+            <div class="stat-value">${creditBalance}</div>
+            <div class="stat-label">Credits Left</div>
+          </div>
+          <div class="stat">
+            <div class="stat-value">${totalCreditsUsed}</div>
+            <div class="stat-label">Used This Month</div>
+          </div>
+          <div class="stat">
+            <div class="stat-value">${activeMembers}</div>
+            <div class="stat-label">Active Members</div>
+          </div>
+        </div>
+        <table>
+          <thead>
+            <tr>
+              <th>Employee</th>
+              <th style="text-align:center;">Credits</th>
+              <th style="text-align:center;">Sessions</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${memberRows || '<tr><td colspan="3" style="padding:12px;color:#666;text-align:center;">No usage recorded</td></tr>'}
+          </tbody>
+        </table>
+        <div class="footer">
+          <p>This report was generated automatically by Glow Up Sports. Manage your account at any time through the app.</p>
+        </div>
+      </div>
+    </body>
+    </html>
+  `;
+
+  return sendEmail({
+    to,
+    subject: `${companyName} Corporate Credit Report — ${month}`,
+    html,
+    text: `Monthly report for ${companyName}: Credits remaining: ${creditBalance}, Credits used: ${totalCreditsUsed}, Active members: ${activeMembers}.`,
+  });
+}
+
+export async function sendCorporateEmployeeInviteEmail(params: {
+  to: string;
+  companyName: string;
+  contactName: string;
+  academyName: string;
+  inviteToken: string;
+}): Promise<{ success: boolean; error?: string }> {
+  const { to, companyName, contactName, academyName, inviteToken } = params;
+
+  const html = `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #0a0a0a; color: #ffffff; margin: 0; padding: 20px; }
+        .container { max-width: 600px; margin: 0 auto; background: #1a1a1a; border-radius: 16px; padding: 40px; }
+        .logo { text-align: center; margin-bottom: 30px; }
+        .logo h1 { color: #C8FF3D; margin: 0; font-size: 28px; letter-spacing: 1px; }
+        h2 { color: #ffffff; margin-bottom: 8px; }
+        p { color: #a0a0a0; line-height: 1.6; margin-bottom: 16px; }
+        .highlight { color: #C8FF3D; font-weight: 600; }
+        .code-box { background: #0f141b; border: 2px solid #C8FF3D; border-radius: 14px; padding: 28px 24px; margin: 24px 0; text-align: center; }
+        .code-label { color: #666; font-size: 13px; text-transform: uppercase; letter-spacing: 2px; margin-bottom: 10px; }
+        .code-value { color: #C8FF3D; font-size: 28px; font-weight: 900; letter-spacing: 4px; font-family: 'Courier New', monospace; word-break: break-all; }
+        .steps { margin: 24px 0; }
+        .step { display: flex; align-items: flex-start; margin-bottom: 16px; }
+        .step-num { background: #C8FF3D; color: #000; width: 26px; height: 26px; border-radius: 50%; font-weight: 800; font-size: 13px; display: inline-flex; align-items: center; justify-content: center; margin-right: 14px; flex-shrink: 0; }
+        .step-text { color: #cccccc; font-size: 14px; line-height: 1.5; padding-top: 4px; }
+        .footer { margin-top: 40px; padding-top: 20px; border-top: 1px solid #333; text-align: center; color: #666; font-size: 12px; }
+      </style>
+    </head>
+    <body>
+      <div class="container">
+        <div class="logo">
+          <h1>Glow Up Sports</h1>
+        </div>
+        <h2>Your Company Benefits Are Ready</h2>
+        <p><span class="highlight">${escapeHtml(companyName)}</span> has enrolled you in <strong>${escapeHtml(academyName)}</strong> as part of your employee wellness benefits. You can now book sport sessions using company credits.</p>
+        <div class="code-box">
+          <div class="code-label">Your Invite Token</div>
+          <div class="code-value">${escapeHtml(inviteToken)}</div>
+        </div>
+        <div class="steps">
+          <div class="step">
+            <div class="step-num">1</div>
+            <div class="step-text">Download or open the Glow Up Sports app</div>
+          </div>
+          <div class="step">
+            <div class="step-num">2</div>
+            <div class="step-text">Register or log in to your account</div>
+          </div>
+          <div class="step">
+            <div class="step-num">3</div>
+            <div class="step-text">Go to <strong>Corporate Benefits</strong> and enter your invite token to activate company credits</div>
+          </div>
+          <div class="step">
+            <div class="step-num">4</div>
+            <div class="step-text">Book sessions and pay with company credits</div>
+          </div>
+        </div>
+        <p>Invited by: <span class="highlight">${escapeHtml(contactName)}</span> from ${escapeHtml(companyName)}</p>
+        <div class="footer">
+          <p>Glow Up Sports - Level Up Your Game</p>
+        </div>
+      </div>
+    </body>
+    </html>
+  `;
+
+  return sendEmail({
+    to,
+    subject: `${companyName} has activated sport session benefits for you on Glow Up Sports`,
+    html,
+    text: `${companyName} has enrolled you in ${academyName} sport sessions. Your invite token: ${inviteToken}. Download Glow Up Sports and enter this token under Corporate Benefits to activate your company credits.`,
+  });
+}

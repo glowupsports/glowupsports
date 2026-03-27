@@ -172,6 +172,11 @@ export default function PlayScreen() {
   });
   const pendingInvitesCount = invitesData?.filter(i => i.booking_invite_guests?.status === "pending")?.length || 0;
 
+  const { data: corporateData } = useQuery<{ corporateAccount: { companyName: string; creditBalance: number } | null; member: { inviteStatus: string } | null }>({
+    queryKey: ["/api/corporate/my-account"],
+  });
+  const hasCorporateCredits = !!(corporateData?.corporateAccount && corporateData?.member?.inviteStatus === "accepted" && (corporateData.corporateAccount.creditBalance ?? 0) > 0);
+
   const playerBallLevel = profileData?.player?.ballLevel?.toLowerCase() || "glow";
 
   useEffect(() => {
@@ -523,9 +528,11 @@ export default function PlayScreen() {
 
               {/* Credit Cost Indicator */}
               <View style={styles.creditCostRow}>
-                <Ionicons name="ticket-outline" size={14} color={Colors.dark.textMuted} />
-                <Text style={styles.creditCostText}>
-                  1 {session.sessionType === "group" ? "Group" : "Semi-Private"} Credit
+                <Ionicons name="ticket-outline" size={14} color={hasCorporateCredits ? Colors.dark.xpCyan : Colors.dark.textMuted} />
+                <Text style={[styles.creditCostText, hasCorporateCredits ? { color: Colors.dark.xpCyan } : {}]}>
+                  {hasCorporateCredits
+                    ? `Company credit (${corporateData?.corporateAccount?.companyName})`
+                    : `1 ${session.sessionType === "group" ? "Group" : "Semi-Private"} Credit`}
                 </Text>
               </View>
 

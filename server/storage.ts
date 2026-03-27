@@ -7,6 +7,16 @@ import {
   users,
   type User,
   type InsertUser,
+  // Corporate accounts (imported near top to avoid circular issues)
+  corporateAccounts,
+  corporateMembers,
+  corporateCreditTransactions,
+  type CorporateAccount,
+  type InsertCorporateAccount,
+  type CorporateMember,
+  type InsertCorporateMember,
+  type CorporateCreditTransaction,
+  type InsertCorporateCreditTransaction,
   // Multi-academy structure
   academies,
   academyApplications,
@@ -11204,7 +11214,104 @@ async function ensureCreditProcessed(sessionPlayerId: string): Promise<{
       const seriesId = sp.series_id;
       const creditCost = ((sp as any).duration || 60) / 60;
       
-      // STEP 5: Find a package with matching credits
+      // STEP 4b: Check idempotency for corporate debit — if already debited for this session_player, skip
+      const existingCorpDebitResult = await tx.execute(sql`
+        SELECT id FROM corporate_credit_transactions
+        WHERE session_player_id = ${sessionPlayerId}
+        LIMIT 1
+      `);
+      if (existingCorpDebitResult.rows.length > 0) {
+        const existingCorpTxId = (existingCorpDebitResult.rows[0] as any).id;
+        console.log(`[EnsureCredit] Corporate debit already exists for session_player ${sessionPlayerId} — marking processed`);
+        await tx.execute(sql`
+          UPDATE session_players 
+          SET credit_deducted_at = COALESCE(credit_deducted_at, NOW()),
+              credit_transaction_id = COALESCE(credit_transaction_id, ${existingCorpTxId})
+          WHERE id = ${sessionPlayerId}
+        `);
+        return { success: true, action: "already_processed" as const, transactionId: existingCorpTxId };
+      }
+
+      // Check if player has an active corporate membership with sufficient credits
+      // Corporate credits are used BEFORE personal package credits.
+      // IMPORTANT: constrain by academyId to enforce tenant isolation (no cross-academy credit usage).
+      const corpMemberResult = await tx.execute(sql`
+        SELECT cm.id as member_id, ca.id as account_id, ca.credit_balance, ca.academy_id as corp_academy_id
+        FROM corporate_members cm
+        JOIN corporate_accounts ca ON ca.id = cm.corporate_account_id
+        WHERE cm.player_id = ${playerId}
+          AND cm.invite_status = 'accepted'
+          AND ca.is_active = true
+          AND ca.academy_id = ${academyId}
+          AND ca.credit_balance >= ${creditCost}
+        LIMIT 1
+        FOR UPDATE OF ca
+      `);
+
+      // BULLETPROOF: Use eventKey for unique constraint
+      const consumeEventKey = `consume:${sessionPlayerId}`;
+      const debtEventKey = `debt:${sessionPlayerId}`;
+
+      if (corpMemberResult.rows.length > 0) {
+        // Use corporate credits first
+        // Corporate credits are whole integers; round up to nearest whole credit
+        const corpCreditCost = Math.max(1, Math.round(creditCost));
+        const corpRow = corpMemberResult.rows[0] as any;
+        const corpBalanceBefore = Number(corpRow.credit_balance);
+        const corpBalanceAfter = corpBalanceBefore - corpCreditCost;
+
+        // Re-check if we still have enough after rounding up
+        if (corpBalanceAfter < 0) {
+          // Not enough corporate credits after rounding — fall through to personal credits
+        } else {
+        const corpTxId = crypto.randomUUID();
+
+        try {
+          await tx.execute(sql`
+            INSERT INTO corporate_credit_transactions (
+              id, corporate_account_id, academy_id, player_id, session_id, session_player_id,
+              type, amount, balance_before, balance_after, reason, notes
+            )
+            VALUES (
+              ${corpTxId}, ${corpRow.account_id}, ${academyId}, ${playerId}, ${sessionId}, ${sessionPlayerId},
+              'debit', ${-corpCreditCost}, ${corpBalanceBefore}, ${corpBalanceAfter},
+              'session_debit', ${`Credit used for ${sessionType} session`}
+            )
+          `);
+        } catch (corpInsertErr: any) {
+          if (corpInsertErr.code === '23505') {
+            // Duplicate insert — already processed by concurrent request
+            console.log(`[EnsureCredit] Duplicate corporate debit detected for session_player ${sessionPlayerId}`);
+            return { success: true, action: "already_processed" as const };
+          }
+          throw corpInsertErr;
+        }
+
+        // Decrement corporate account balance
+        await tx.execute(sql`
+          UPDATE corporate_accounts SET credit_balance = ${corpBalanceAfter}, updated_at = NOW()
+          WHERE id = ${corpRow.account_id}
+        `);
+
+        // Update session_player — use the corporate tx id so idempotency checks work
+        await tx.execute(sql`
+          UPDATE session_players 
+          SET credit_deducted_at = NOW(),
+              credit_transaction_id = ${corpTxId}
+          WHERE id = ${sessionPlayerId}
+        `);
+
+        console.log(`[EnsureCredit] Corporate credit used: ${corpCreditCost} from account ${corpRow.account_id} for session_player ${sessionPlayerId}`);
+        return {
+          success: true,
+          action: "consumed" as const,
+          transactionId: corpTxId,
+          creditType: requiredCreditType,
+        };
+        } // end else (corpBalanceAfter >= 0)
+      } // end if (corpMemberResult.rows.length > 0)
+
+      // STEP 5: No (usable) corporate credits — find a personal package with matching credits
       const packageResult = await tx.execute(sql`
         SELECT id, remaining_credits, credit_type, academy_id
         FROM packages 
@@ -11216,10 +11323,6 @@ async function ensureCreditProcessed(sessionPlayerId: string): Promise<{
         FOR UPDATE
         LIMIT 1
       `);
-      
-      // BULLETPROOF: Use eventKey for unique constraint
-      const consumeEventKey = `consume:${sessionPlayerId}`;
-      const debtEventKey = `debt:${sessionPlayerId}`;
       
       if (packageResult.rows.length === 0) {
         // STEP 6A: No credits available - create debt transaction
@@ -11811,3 +11914,153 @@ export async function getVideoFeedbackByCoach(coachId: string): Promise<VideoFee
 export async function updateVideoFeedbackMessageId(id: string, messageId: string, conversationId: string): Promise<void> {
   await db.update(videoFeedback).set({ messageId, conversationId }).where(eq(videoFeedback.id, id));
 }
+
+// ==================== CORPORATE ACCOUNTS ====================
+
+export const corporateStorage = {
+  async getCorporateAccounts(academyId: string): Promise<CorporateAccount[]> {
+    return db.select().from(corporateAccounts).where(eq(corporateAccounts.academyId, academyId)).orderBy(desc(corporateAccounts.createdAt));
+  },
+
+  async getCorporateAccount(id: string): Promise<CorporateAccount | undefined> {
+    const result = await db.select().from(corporateAccounts).where(eq(corporateAccounts.id, id)).limit(1);
+    return result[0];
+  },
+
+  async getCorporateAccountByContactEmail(academyId: string, email: string): Promise<CorporateAccount | undefined> {
+    const result = await db.select().from(corporateAccounts)
+      .where(and(eq(corporateAccounts.academyId, academyId), eq(corporateAccounts.contactEmail, email.toLowerCase())))
+      .limit(1);
+    return result[0];
+  },
+
+  async createCorporateAccount(data: InsertCorporateAccount): Promise<CorporateAccount> {
+    const result = await db.insert(corporateAccounts).values({ ...data, contactEmail: data.contactEmail.toLowerCase() }).returning();
+    return result[0];
+  },
+
+  async updateCorporateAccount(id: string, data: Partial<InsertCorporateAccount>): Promise<CorporateAccount | undefined> {
+    const result = await db.update(corporateAccounts).set({ ...data, updatedAt: new Date() }).where(eq(corporateAccounts.id, id)).returning();
+    return result[0];
+  },
+
+  async addCorporateCredits(corporateAccountId: string, academyId: string, amount: number, reason: string, notes?: string, actorId?: string): Promise<CorporateAccount> {
+    const account = await this.getCorporateAccount(corporateAccountId);
+    if (!account) throw new Error("Corporate account not found");
+    const balanceBefore = account.creditBalance;
+    const balanceAfter = balanceBefore + amount;
+    const [updated] = await db.update(corporateAccounts).set({ creditBalance: balanceAfter, updatedAt: new Date() }).where(eq(corporateAccounts.id, corporateAccountId)).returning();
+    await db.insert(corporateCreditTransactions).values({
+      corporateAccountId,
+      academyId,
+      type: "credit",
+      amount,
+      balanceBefore,
+      balanceAfter,
+      reason,
+      notes,
+    });
+    return updated;
+  },
+
+  async deductCorporateCredits(corporateAccountId: string, academyId: string, playerId: string, sessionId: string | undefined, amount: number, reason: string, notes?: string): Promise<CorporateAccount> {
+    const account = await this.getCorporateAccount(corporateAccountId);
+    if (!account) throw new Error("Corporate account not found");
+    const balanceBefore = account.creditBalance;
+    const balanceAfter = Math.max(0, balanceBefore - amount);
+    const [updated] = await db.update(corporateAccounts).set({ creditBalance: balanceAfter, updatedAt: new Date() }).where(eq(corporateAccounts.id, corporateAccountId)).returning();
+    await db.insert(corporateCreditTransactions).values({
+      corporateAccountId,
+      academyId,
+      playerId,
+      sessionId,
+      type: "debit",
+      amount: -amount,
+      balanceBefore,
+      balanceAfter,
+      reason,
+      notes,
+    });
+    return updated;
+  },
+
+  async getCorporateTransactions(corporateAccountId: string): Promise<CorporateCreditTransaction[]> {
+    return db.select().from(corporateCreditTransactions)
+      .where(eq(corporateCreditTransactions.corporateAccountId, corporateAccountId))
+      .orderBy(desc(corporateCreditTransactions.createdAt));
+  },
+
+  async getCorporateMembers(corporateAccountId: string): Promise<CorporateMember[]> {
+    return db.select().from(corporateMembers)
+      .where(eq(corporateMembers.corporateAccountId, corporateAccountId))
+      .orderBy(desc(corporateMembers.createdAt));
+  },
+
+  async getCorporateMemberByEmail(corporateAccountId: string, email: string): Promise<CorporateMember | undefined> {
+    const result = await db.select().from(corporateMembers)
+      .where(and(eq(corporateMembers.corporateAccountId, corporateAccountId), eq(corporateMembers.inviteEmail, email.toLowerCase())))
+      .limit(1);
+    return result[0];
+  },
+
+  async getCorporateMemberByToken(token: string): Promise<CorporateMember | undefined> {
+    const result = await db.select().from(corporateMembers)
+      .where(eq(corporateMembers.inviteToken, token))
+      .limit(1);
+    return result[0];
+  },
+
+  async getCorporateMemberByPlayerId(playerId: string): Promise<CorporateMember | undefined> {
+    const result = await db.select().from(corporateMembers)
+      .where(and(eq(corporateMembers.playerId, playerId), eq(corporateMembers.inviteStatus, "accepted")))
+      .limit(1);
+    return result[0];
+  },
+
+  async createCorporateMember(data: InsertCorporateMember): Promise<CorporateMember> {
+    const result = await db.insert(corporateMembers).values({ ...data, inviteEmail: data.inviteEmail.toLowerCase() }).returning();
+    return result[0];
+  },
+
+  async updateCorporateMember(id: string, data: Partial<InsertCorporateMember & { acceptedAt: Date }>): Promise<CorporateMember | undefined> {
+    const result = await db.update(corporateMembers).set(data).where(eq(corporateMembers.id, id)).returning();
+    return result[0];
+  },
+
+  async acceptCorporateInvite(token: string, playerId: string): Promise<CorporateMember | undefined> {
+    const result = await db.update(corporateMembers)
+      .set({ inviteStatus: "accepted", playerId, acceptedAt: new Date(), inviteToken: null })
+      .where(and(eq(corporateMembers.inviteToken, token), eq(corporateMembers.inviteStatus, "pending")))
+      .returning();
+    return result[0];
+  },
+
+  async getCorporateUsageReport(corporateAccountId: string): Promise<{
+    totalCreditsUsed: number;
+    memberUsage: { playerId: string; inviteEmail: string; creditsUsed: number; sessionCount: number }[];
+  }> {
+    const transactions = await db.select().from(corporateCreditTransactions)
+      .where(and(
+        eq(corporateCreditTransactions.corporateAccountId, corporateAccountId),
+        eq(corporateCreditTransactions.type, "debit"),
+      ));
+    const totalCreditsUsed = transactions.reduce((sum, t) => sum + Math.abs(t.amount), 0);
+    const byPlayer: Record<string, { playerId: string; inviteEmail: string; creditsUsed: number; sessionCount: number }> = {};
+    for (const tx of transactions) {
+      if (tx.playerId) {
+        if (!byPlayer[tx.playerId]) {
+          byPlayer[tx.playerId] = { playerId: tx.playerId, inviteEmail: "", creditsUsed: 0, sessionCount: 0 };
+        }
+        byPlayer[tx.playerId].creditsUsed += Math.abs(tx.amount);
+        if (tx.sessionId) byPlayer[tx.playerId].sessionCount++;
+      }
+    }
+    const members = await db.select().from(corporateMembers).where(eq(corporateMembers.corporateAccountId, corporateAccountId));
+    for (const m of members) {
+      if (m.playerId && byPlayer[m.playerId]) {
+        byPlayer[m.playerId].inviteEmail = m.inviteEmail;
+      }
+    }
+    return { totalCreditsUsed, memberUsage: Object.values(byPlayer) };
+  },
+};

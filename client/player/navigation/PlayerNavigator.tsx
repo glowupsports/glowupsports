@@ -75,6 +75,8 @@ import ManageMatchScreen from "@/player/screens/ManageMatchScreen";
 import BookingPreferencesScreen from "@/player/screens/BookingPreferencesScreen";
 import BookingInvitesScreen from "@/player/screens/BookingInvitesScreen";
 import FamilyLobbyScreen from "@/player/screens/FamilyLobbyScreen";
+import CorporateBenefitsScreen from "@/player/screens/CorporateBenefitsScreen";
+import CompanyContactDashboardScreen from "@/player/screens/CompanyContactDashboardScreen";
 import NewsScreen from "@/player/screens/NewsScreen";
 import SpotlightDetailScreen from "@/player/screens/SpotlightDetailScreen";
 import MatchLiveScreen from "@/player/screens/MatchLiveScreen";
@@ -201,6 +203,8 @@ export type PlayerStackParamList = {
   PrivacySettings: { isOnboarding?: boolean; currentLevel?: string };
   SpotlightDetail: undefined;
   VideoFeedbackPlayer: { feedbackId?: string } | undefined;
+  CorporateBenefits: undefined;
+  CompanyContactDashboard: undefined;
   MatchLive: {
     challengeId: string;
     opponentName: string;
@@ -1032,6 +1036,20 @@ function PlayerStackNavigator() {
           />
         )}
       </Stack.Screen>
+      <Stack.Screen
+        name="CorporateBenefits"
+        component={CorporateBenefitsScreen}
+        options={{
+          headerShown: false,
+        }}
+      />
+      <Stack.Screen
+        name="CompanyContactDashboard"
+        component={CompanyContactDashboardScreen}
+        options={{
+          headerShown: false,
+        }}
+      />
     </Stack.Navigator>
   );
 }

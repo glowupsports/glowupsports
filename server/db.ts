@@ -180,6 +180,63 @@ pool.query('SELECT 1').then(async () => {
   } catch (e: any) {
     console.log('[Database] equipment_rentals migration skipped:', e.message);
   }
+  try {
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS corporate_accounts (
+        id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(),
+        academy_id VARCHAR NOT NULL REFERENCES academies(id) ON DELETE CASCADE,
+        company_name TEXT NOT NULL,
+        contact_name TEXT NOT NULL,
+        contact_email TEXT NOT NULL,
+        credit_balance INTEGER NOT NULL DEFAULT 0,
+        is_active BOOLEAN NOT NULL DEFAULT true,
+        notes TEXT,
+        created_at TIMESTAMP DEFAULT NOW(),
+        updated_at TIMESTAMP DEFAULT NOW()
+      )
+    `);
+    await pool.query(`CREATE INDEX IF NOT EXISTS corporate_accounts_academy_idx ON corporate_accounts(academy_id)`);
+    await pool.query(`CREATE INDEX IF NOT EXISTS corporate_accounts_email_idx ON corporate_accounts(contact_email)`);
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS corporate_members (
+        id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(),
+        corporate_account_id VARCHAR NOT NULL REFERENCES corporate_accounts(id) ON DELETE CASCADE,
+        player_id VARCHAR REFERENCES players(id),
+        invite_email TEXT NOT NULL,
+        invite_token TEXT UNIQUE,
+        invite_status TEXT NOT NULL DEFAULT 'pending',
+        invited_by VARCHAR NOT NULL REFERENCES users(id),
+        accepted_at TIMESTAMP,
+        created_at TIMESTAMP DEFAULT NOW()
+      )
+    `);
+    await pool.query(`CREATE INDEX IF NOT EXISTS corporate_members_account_idx ON corporate_members(corporate_account_id)`);
+    await pool.query(`CREATE INDEX IF NOT EXISTS corporate_members_player_idx ON corporate_members(player_id)`);
+    await pool.query(`CREATE INDEX IF NOT EXISTS corporate_members_token_idx ON corporate_members(invite_token)`);
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS corporate_credit_transactions (
+        id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(),
+        corporate_account_id VARCHAR NOT NULL REFERENCES corporate_accounts(id) ON DELETE CASCADE,
+        academy_id VARCHAR NOT NULL REFERENCES academies(id),
+        player_id VARCHAR REFERENCES players(id),
+        session_id VARCHAR REFERENCES sessions(id),
+        session_player_id VARCHAR,
+        type TEXT NOT NULL,
+        amount INTEGER NOT NULL,
+        balance_before INTEGER NOT NULL,
+        balance_after INTEGER NOT NULL,
+        reason TEXT NOT NULL,
+        notes TEXT,
+        created_at TIMESTAMP DEFAULT NOW()
+      )
+    `);
+    await pool.query(`CREATE INDEX IF NOT EXISTS corp_credit_tx_account_idx ON corporate_credit_transactions(corporate_account_id)`);
+    await pool.query(`CREATE INDEX IF NOT EXISTS corp_credit_tx_player_idx ON corporate_credit_transactions(player_id)`);
+    await pool.query(`ALTER TABLE corporate_credit_transactions ADD COLUMN IF NOT EXISTS session_player_id VARCHAR`);
+    await pool.query(`CREATE UNIQUE INDEX IF NOT EXISTS corp_credit_tx_session_player_uniq ON corporate_credit_transactions(session_player_id) WHERE session_player_id IS NOT NULL`);
+  } catch (e: any) {
+    console.log('[Database] corporate accounts migration skipped:', e.message);
+  }
 }).catch((err) => {
   console.error('[Database] Connection test FAILED:', err.message);
 });

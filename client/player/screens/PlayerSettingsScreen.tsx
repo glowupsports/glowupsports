@@ -261,6 +261,20 @@ export default function PlayerSettingsScreen() {
       type: "link",
     },
     {
+      id: "corporate-benefits",
+      icon: "business",
+      label: "Corporate Benefits",
+      type: "link",
+      onPress: () => (navigation.getParent() as any)?.navigate("CorporateBenefits"),
+    },
+    {
+      id: "company-dashboard",
+      icon: "bar-chart",
+      label: "Company Dashboard",
+      type: "link",
+      onPress: () => (navigation.getParent() as any)?.navigate("CompanyContactDashboard"),
+    },
+    {
       id: "privacy",
       icon: "lock-closed",
       label: "Privacy Settings",

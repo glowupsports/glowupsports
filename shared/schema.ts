@@ -6264,6 +6264,84 @@ export const insertLadderChallengeSchema = createInsertSchema(ladderChallenges).
 export type InsertLadderChallenge = z.infer<typeof insertLadderChallengeSchema>;
 export type LadderChallenge = typeof ladderChallenges.$inferSelect;
 
+// ==================== CORPORATE ACCOUNTS ====================
+
+export const corporateAccounts = pgTable("corporate_accounts", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  academyId: varchar("academy_id").references(() => academies.id).notNull(),
+  companyName: text("company_name").notNull(),
+  contactName: text("contact_name").notNull(),
+  contactEmail: text("contact_email").notNull(),
+  creditBalance: integer("credit_balance").notNull().default(0),
+  isActive: boolean("is_active").notNull().default(true),
+  notes: text("notes"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("corporate_accounts_academy_idx").on(table.academyId),
+  index("corporate_accounts_email_idx").on(table.contactEmail),
+]);
+
+export const insertCorporateAccountSchema = createInsertSchema(corporateAccounts).omit({ id: true, createdAt: true, updatedAt: true });
+export const corporateAccountInputSchema = z.object({
+  companyName: z.string().min(2, "Company name is required"),
+  contactName: z.string().min(2, "Contact name is required"),
+  contactEmail: z.string().email("Valid email is required"),
+  creditBalance: z.number().int().min(0).default(0),
+  notes: z.string().optional(),
+});
+export const addCorporateCreditsSchema = z.object({
+  amount: z.number().int().min(1, "Amount must be at least 1"),
+  notes: z.string().optional(),
+});
+export type InsertCorporateAccount = z.infer<typeof insertCorporateAccountSchema>;
+export type CorporateAccount = typeof corporateAccounts.$inferSelect;
+export type CorporateAccountInput = z.infer<typeof corporateAccountInputSchema>;
+
+export const corporateMembers = pgTable("corporate_members", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  corporateAccountId: varchar("corporate_account_id").references(() => corporateAccounts.id).notNull(),
+  playerId: varchar("player_id").references(() => players.id),
+  inviteEmail: text("invite_email").notNull(),
+  inviteToken: text("invite_token").unique(),
+  inviteStatus: text("invite_status").notNull().default("pending"), // pending | accepted | declined
+  invitedBy: varchar("invited_by").references(() => users.id).notNull(),
+  acceptedAt: timestamp("accepted_at"),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("corporate_members_account_idx").on(table.corporateAccountId),
+  index("corporate_members_player_idx").on(table.playerId),
+  index("corporate_members_token_idx").on(table.inviteToken),
+]);
+
+export const insertCorporateMemberSchema = createInsertSchema(corporateMembers).omit({ id: true, createdAt: true, acceptedAt: true });
+export type InsertCorporateMember = z.infer<typeof insertCorporateMemberSchema>;
+export type CorporateMember = typeof corporateMembers.$inferSelect;
+
+export const corporateCreditTransactions = pgTable("corporate_credit_transactions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  corporateAccountId: varchar("corporate_account_id").references(() => corporateAccounts.id).notNull(),
+  academyId: varchar("academy_id").references(() => academies.id).notNull(),
+  playerId: varchar("player_id").references(() => players.id),
+  sessionId: varchar("session_id").references(() => sessions.id),
+  sessionPlayerId: varchar("session_player_id"), // idempotency key for booking debits
+  type: text("type").notNull(), // credit | debit
+  amount: integer("amount").notNull(),
+  balanceBefore: integer("balance_before").notNull(),
+  balanceAfter: integer("balance_after").notNull(),
+  reason: text("reason").notNull(), // top_up | session_debit | admin_adjustment
+  notes: text("notes"),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("corp_credit_tx_account_idx").on(table.corporateAccountId),
+  index("corp_credit_tx_player_idx").on(table.playerId),
+  uniqueIndex("corp_credit_tx_session_player_uniq").on(table.sessionPlayerId),
+]);
+
+export const insertCorporateCreditTransactionSchema = createInsertSchema(corporateCreditTransactions).omit({ id: true, createdAt: true });
+export type InsertCorporateCreditTransaction = z.infer<typeof insertCorporateCreditTransactionSchema>;
+export type CorporateCreditTransaction = typeof corporateCreditTransactions.$inferSelect;
+
 // ==================== BETA FEEDBACK ====================
 
 export const betaFeedback = pgTable("beta_feedback", {

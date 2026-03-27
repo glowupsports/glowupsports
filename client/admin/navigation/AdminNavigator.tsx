@@ -14,6 +14,7 @@ import AdminLocationsScreen from "@/admin/screens/AdminLocationsScreen";
 import AdminSubscriptionsScreen from "@/admin/screens/AdminSubscriptionsScreen";
 import AdminRolesPermissionsScreen from "@/admin/screens/AdminRolesPermissionsScreen";
 import AdminEquipmentScreen from "@/admin/screens/AdminEquipmentScreen";
+import AdminCorporateAccountsScreen from "@/admin/screens/AdminCorporateAccountsScreen";
 import { SwipeableTabBar, TabConfig } from "@/components/SwipeableTabBar";
 import { QuickActionsFAB, QuickAction } from "@/components/QuickActionsFAB";
 import { TabNavigationProvider } from "@/components/TabNavigationContext";
@@ -47,6 +48,7 @@ export type AdminStackParamList = {
   AdminClasses: undefined;
   AdminReports: undefined;
   AdminEquipment: undefined;
+  AdminCorporateAccounts: undefined;
 };
 
 const Stack = createNativeStackNavigator<AdminStackParamList>();
@@ -82,6 +84,7 @@ function AdminStackNavigator() {
       <Stack.Screen name="AdminSubscriptions" component={AdminSubscriptionsScreen} />
       <Stack.Screen name="AdminRolesPermissions" component={AdminRolesPermissionsScreen} />
       <Stack.Screen name="AdminEquipment" component={AdminEquipmentScreen} />
+      <Stack.Screen name="AdminCorporateAccounts" component={AdminCorporateAccountsScreen} />
     </Stack.Navigator>
   );
 }
@@ -138,6 +141,13 @@ function AdminQuickActionsFAB() {
       icon: "bag-outline",
       color: Colors.dark.xpCyan ?? Colors.dark.primary,
       onPress: () => navigation.navigate("AdminEquipment"),
+    },
+    {
+      id: "corporate",
+      label: "Corporate",
+      icon: "business-outline",
+      color: Colors.dark.xpCyan,
+      onPress: () => navigation.navigate("AdminCorporateAccounts"),
     },
   ];
 
