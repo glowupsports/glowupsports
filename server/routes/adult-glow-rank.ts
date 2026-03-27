@@ -37,6 +37,7 @@ import {
 } from "../services/glow-rank-engine-adult";
 import { ADULT_GLOW_RANKS, ADULT_SKILL_RUBRICS, MMR_CONFIG } from "../seeds/adult-glow-rank-seed";
 import { ADULT_LESSON_TEMPLATES, getTemplatesByGoal, getTemplatesByType, selectTemplate } from "../seeds/adult-lesson-templates-seed";
+import { updatePillarProgressFromMatch } from "../services/match-pillar-update";
 
 const router = Router();
 
@@ -364,6 +365,17 @@ router.post("/match", async (req: AuthenticatedRequest, res) => {
         totalMatchesPlayed: (opponent[0].totalMatchesPlayed || 0) + 1,
       })
       .where(eq(players.id, opponentId));
+
+    // Update pillar progress for Glow 1-5 (data-driven) players
+    try {
+      await updatePillarProgressFromMatch({
+        playerId,
+        result: didWin ? "win" : "loss",
+        coachVerified: verification === "coach_verified",
+      });
+    } catch (pillarErr) {
+      console.error("[adult-glow/match] Pillar update failed (non-fatal):", pillarErr);
+    }
     
     res.json({
       success: true,

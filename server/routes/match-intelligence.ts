@@ -13,6 +13,7 @@ import {
 } from "../../shared/schema";
 import { eq, and, desc, sql } from "drizzle-orm";
 import { awardXP } from "../services/xp-service";
+import { updatePillarProgressFromMatch } from "../services/match-pillar-update";
 
 const router = Router();
 
@@ -298,6 +299,23 @@ router.post("/matches", async (req: Request, res: Response) => {
       console.error("Error awarding match XP:", xpError);
     }
 
+    // Update pillar progress for Glow 1-5 (data-driven) players.
+    // Basic win/loss signal fires immediately. If the player later submits a
+    // reflection, another update fires with richer context (energy, confidence,
+    // tactics). Two EMA nudges from the same match are intentional here since
+    // reflection is genuinely new information, not a repeat of the same data.
+    try {
+      await updatePillarProgressFromMatch({
+        playerId,
+        result,
+        coachVerified: false,
+        unforcedErrors: unforcedErrors !== undefined && unforcedErrors !== null ? unforcedErrors : undefined,
+        winners: winners !== undefined && winners !== null ? winners : undefined,
+      });
+    } catch (pillarErr) {
+      console.error("[match-intelligence/matches] Pillar update failed (non-fatal):", pillarErr);
+    }
+
     res.status(201).json(match);
   } catch (error) {
     console.error("Error creating match:", error);
@@ -443,6 +461,32 @@ router.post("/matches/:id/reflection", async (req: Request, res: Response) => {
       console.error("Error awarding reflection XP:", xpError);
     }
 
+    // Update pillar progress for Glow 1-5 players with full reflection context
+    try {
+      const [matchRow] = await db
+        .select({ result: matches.result, trustLevel: matches.trustLevel, unforcedErrors: matches.unforcedErrors, winners: matches.winners, planId: matches.planId })
+        .from(matches)
+        .where(eq(matches.id, id));
+
+      if (matchRow) {
+        await updatePillarProgressFromMatch({
+          playerId,
+          result: matchRow.result ?? "unknown",
+          coachVerified: matchRow.trustLevel === "coach_verified",
+          unforcedErrors: matchRow.unforcedErrors !== undefined && matchRow.unforcedErrors !== null ? matchRow.unforcedErrors : undefined,
+          winners: matchRow.winners !== undefined && matchRow.winners !== null ? matchRow.winners : undefined,
+          postMatchEnergy: postMatchEnergy ?? undefined,
+          postMatchConfidence: postMatchConfidence !== undefined && postMatchConfidence !== null ? postMatchConfidence : undefined,
+          whatWorked: whatWorked ?? [],
+          whatDidntWork: whatDidntWork ?? [],
+          biggestChallenge: biggestChallenge ?? undefined,
+          hasPlan: !!matchRow.planId,
+        });
+      }
+    } catch (pillarErr) {
+      console.error("[match-intelligence/reflection] Pillar update failed (non-fatal):", pillarErr);
+    }
+
     res.status(201).json(reflection);
   } catch (error) {
     console.error("Error creating reflection:", error);
@@ -583,6 +627,38 @@ router.post("/matches/:id/coach-review", async (req: Request, res: Response) => 
       .set({ verifiedBy: coachId, verifiedAt: new Date(), trustLevel: "coach_verified" })
       .where(eq(matches.id, id));
 
+    // Re-apply pillar update as coach_verified so the 1.5x weight boost takes effect.
+    // Fetch the full match (and any reflection) for context.
+    try {
+      const [verifiedMatch] = await db
+        .select({ result: matches.result, unforcedErrors: matches.unforcedErrors, winners: matches.winners, planId: matches.planId })
+        .from(matches)
+        .where(eq(matches.id, id));
+
+      const [matchReflection] = await db
+        .select()
+        .from(matchReflections)
+        .where(eq(matchReflections.matchId, id));
+
+      if (verifiedMatch) {
+        await updatePillarProgressFromMatch({
+          playerId,
+          result: verifiedMatch.result ?? "unknown",
+          coachVerified: true,
+          unforcedErrors: verifiedMatch.unforcedErrors !== undefined && verifiedMatch.unforcedErrors !== null ? verifiedMatch.unforcedErrors : undefined,
+          winners: verifiedMatch.winners !== undefined && verifiedMatch.winners !== null ? verifiedMatch.winners : undefined,
+          postMatchEnergy: matchReflection?.postMatchEnergy ?? undefined,
+          postMatchConfidence: matchReflection?.postMatchConfidence !== undefined && matchReflection?.postMatchConfidence !== null ? matchReflection.postMatchConfidence : undefined,
+          whatWorked: matchReflection?.whatWorked ?? [],
+          whatDidntWork: matchReflection?.whatDidntWork ?? [],
+          biggestChallenge: matchReflection?.biggestChallenge ?? undefined,
+          hasPlan: !!verifiedMatch.planId,
+        });
+      }
+    } catch (pillarErr) {
+      console.error("[match-intelligence/coach-review] Pillar verified update failed (non-fatal):", pillarErr);
+    }
+
     res.status(201).json(review);
   } catch (error) {
     console.error("Error creating coach review:", error);
@@ -718,6 +794,30 @@ router.post("/matches/:matchId/review", async (req: Request, res: Response) => {
         verifiedAt: new Date(),
       })
       .where(eq(matches.id, matchId));
+
+    // Re-apply pillar update as coach_verified so the 1.5x weight boost takes effect.
+    try {
+      const [matchReflection] = await db
+        .select()
+        .from(matchReflections)
+        .where(eq(matchReflections.matchId, matchId));
+
+      await updatePillarProgressFromMatch({
+        playerId: match.playerId,
+        result: match.result ?? "unknown",
+        coachVerified: true,
+        unforcedErrors: match.unforcedErrors !== undefined && match.unforcedErrors !== null ? match.unforcedErrors : undefined,
+        winners: match.winners !== undefined && match.winners !== null ? match.winners : undefined,
+        postMatchEnergy: matchReflection?.postMatchEnergy ?? undefined,
+        postMatchConfidence: matchReflection?.postMatchConfidence !== undefined && matchReflection?.postMatchConfidence !== null ? matchReflection.postMatchConfidence : undefined,
+        whatWorked: matchReflection?.whatWorked ?? [],
+        whatDidntWork: matchReflection?.whatDidntWork ?? [],
+        biggestChallenge: matchReflection?.biggestChallenge ?? undefined,
+        hasPlan: !!match.planId,
+      });
+    } catch (pillarErr) {
+      console.error("[match-intelligence/review] Pillar verified update failed (non-fatal):", pillarErr);
+    }
 
     res.status(201).json(review);
   } catch (error) {
