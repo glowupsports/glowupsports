@@ -741,7 +741,7 @@ function AddMembersModal({
 export default function GroupDetailScreen({ route, navigation }: Props) {
   const insets = useSafeAreaInsets();
   const queryClient = useQueryClient();
-  const { groupId, groupName } = route.params as { groupId: string; groupName: string };
+  const { groupId, groupName = "" } = route.params as { groupId: string; groupName?: string };
   const [activeTab, setActiveTab] = useState<Tab>("feed");
   const [composeVisible, setComposeVisible] = useState(false);
   const [addMembersVisible, setAddMembersVisible] = useState(false);
@@ -778,10 +778,13 @@ export default function GroupDetailScreen({ route, navigation }: Props) {
 
   const handleInvite = async () => {
     const name = data?.group.name || groupName;
+    const domain = process.env.EXPO_PUBLIC_DOMAIN || "glowupsports.com";
+    const inviteUrl = `https://${domain}/group/${groupId}`;
     try {
       await Share.share({
-        message: `Join my group "${name}" on Glow Up Sports!\ngups://group/${groupId}`,
+        message: `Join my group "${name}" on Glow Up Sports! ${inviteUrl}`,
         title: `Join ${name}`,
+        url: inviteUrl,
       });
     } catch {
       Alert.alert("Error", "Could not open share sheet");

@@ -303,6 +303,9 @@ function setupExpoDevProxy(app: express.Application) {
     if (req.path.startsWith('/api') || req.path.startsWith('/auth') || req.path.startsWith('/uploads') || req.path.startsWith('/assets') || req.path.startsWith('/public')) {
       return next();
     }
+    if (req.path.startsWith('/.well-known/') || req.path.startsWith('/group/')) {
+      return next();
+    }
     if (templateRoutes.includes(req.path)) {
       return next();
     }
@@ -401,6 +404,163 @@ function configureExpoAndLanding(app: express.Application) {
     } else {
       res.status(404).send("Privacy policy not found");
     }
+  });
+
+  app.get("/.well-known/apple-app-site-association", (_req: Request, res: Response) => {
+    const teamId = process.env.APPLE_TEAM_ID || "TEAMID";
+    res.setHeader("Content-Type", "application/json");
+    res.json({
+      applinks: {
+        apps: [],
+        details: [
+          {
+            appIDs: [`${teamId}.com.glowupsports.app`],
+            components: [
+              { "/": "/group/*", comment: "Group invite deep links" },
+            ],
+          },
+        ],
+      },
+    });
+  });
+
+  app.get("/.well-known/assetlinks.json", (_req: Request, res: Response) => {
+    const fingerprints = process.env.ANDROID_SHA256_FINGERPRINT
+      ? [process.env.ANDROID_SHA256_FINGERPRINT]
+      : [];
+    res.setHeader("Content-Type", "application/json");
+    res.json([
+      {
+        relation: ["delegate_permission/common.handle_all_urls"],
+        target: {
+          namespace: "android_app",
+          package_name: "com.glowupsports.app",
+          sha256_cert_fingerprints: fingerprints,
+        },
+      },
+    ]);
+  });
+
+  app.get("/group/:groupId", (req: Request, res: Response) => {
+    const rawGroupId = req.params.groupId || "";
+    const safeGroupId = rawGroupId.replace(/[^a-zA-Z0-9\-_]/g, "");
+    if (!safeGroupId) {
+      return res.status(400).send("Invalid group ID");
+    }
+    const ua = req.headers["user-agent"] || "";
+    const isIOS = /iphone|ipad|ipod/i.test(ua);
+    const isAndroid = /android/i.test(ua);
+    const appSchemeUrl = `glowupsports://player/group/${safeGroupId}`;
+    const appStoreUrl = "https://apps.apple.com/app/glow-up-sports/id6744871692";
+    const playStoreUrl = "https://play.google.com/store/apps/details?id=com.glowupsports.app";
+
+    const html = `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Join Group — Glow Up Sports</title>
+  <style>
+    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: #0C1118;
+      color: #F0F4F8;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+    }
+    .card {
+      background: #161D28;
+      border: 1px solid rgba(255,255,255,0.07);
+      border-radius: 20px;
+      padding: 40px 32px;
+      max-width: 400px;
+      width: 100%;
+      text-align: center;
+    }
+    .logo-mark {
+      width: 64px;
+      height: 64px;
+      border-radius: 16px;
+      background: #C8FF3D;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin: 0 auto 20px;
+    }
+    .logo-mark svg { width: 36px; height: 36px; }
+    h1 { font-size: 22px; font-weight: 800; margin-bottom: 8px; letter-spacing: -0.5px; }
+    p { font-size: 15px; color: #8A95A3; margin-bottom: 28px; line-height: 1.6; }
+    .btn {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      width: 100%;
+      padding: 14px 20px;
+      border-radius: 12px;
+      font-size: 15px;
+      font-weight: 700;
+      text-decoration: none;
+      margin-bottom: 12px;
+      transition: opacity 0.2s;
+    }
+    .btn:hover { opacity: 0.85; }
+    .btn-open { background: #C8FF3D; color: #000; }
+    .btn-ios { background: #111820; color: #F0F4F8; border: 1px solid rgba(255,255,255,0.1); }
+    .btn-android { background: #111820; color: #F0F4F8; border: 1px solid rgba(255,255,255,0.1); }
+    .divider { color: #445566; font-size: 13px; margin: 4px 0 16px; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="logo-mark">
+      <svg viewBox="0 0 24 24" fill="none" stroke="#000" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="12" cy="12" r="10"/>
+        <path d="M6 12a8 8 0 0 0 12 0"/>
+        <path d="M12 2a8 8 0 0 0 0 20"/>
+      </svg>
+    </div>
+    <h1>You're invited!</h1>
+    <p>Someone shared a group with you on Glow Up Sports. Open the app to join.</p>
+    ${isIOS || isAndroid ? `
+    <a class="btn btn-open" href="${appSchemeUrl}" id="openApp">Open in Glow Up Sports</a>
+    <div class="divider">Don't have the app?</div>
+    <a class="btn ${isIOS ? "btn-ios" : "btn-android"}" href="${isIOS ? appStoreUrl : playStoreUrl}">
+      ${isIOS ? "Download on the App Store" : "Get it on Google Play"}
+    </a>
+    ` : `
+    <p style="margin-bottom: 16px;">Download the app to join this group:</p>
+    <a class="btn btn-ios" href="${appStoreUrl}">Download on the App Store</a>
+    <a class="btn btn-android" href="${playStoreUrl}">Get it on Google Play</a>
+    `}
+  </div>
+  <script>
+    (function() {
+      var appUrl = ${JSON.stringify(appSchemeUrl)};
+      var started = Date.now();
+      var isIOS = ${isIOS};
+      var isAndroid = ${isAndroid};
+      var storeUrl = ${JSON.stringify(isIOS ? appStoreUrl : playStoreUrl)};
+      if (!isIOS && !isAndroid) return;
+      window.location.href = appUrl;
+      var timer = setTimeout(function() {
+        if (Date.now() - started < 2500) {
+          window.location.href = storeUrl;
+        }
+      }, 1500);
+      document.addEventListener('visibilitychange', function() {
+        if (document.hidden) clearTimeout(timer);
+      });
+    })();
+  </script>
+</body>
+</html>`;
+    res.setHeader("Content-Type", "text/html; charset=utf-8");
+    return res.status(200).send(html);
   });
 
   app.use((req: Request, res: Response, next: NextFunction) => {

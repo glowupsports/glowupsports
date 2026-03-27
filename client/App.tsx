@@ -1,7 +1,7 @@
 import logger from "@/lib/logger";
 import React, { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { StyleSheet, View, Platform } from "react-native";
-import { NavigationContainer, NavigationContainerRef, LinkingOptions, useNavigationContainerRef } from "@react-navigation/native";
+import { NavigationContainer, NavigationContainerRef, LinkingOptions, useNavigationContainerRef, getStateFromPath as defaultGetStateFromPath } from "@react-navigation/native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { KeyboardProvider } from "react-native-keyboard-controller";
 import { SafeAreaProvider } from "react-native-safe-area-context";
@@ -47,8 +47,16 @@ import { CelebrationProvider } from "@/contexts/CelebrationContext";
 import { WebContainer } from "@/components/WebContainer";
 import { WebAlertProvider } from "@/components/WebAlertProvider";
 
+const DOMAIN = process.env.EXPO_PUBLIC_DOMAIN;
+
+const GROUP_PATH_RE = /^group\/([a-zA-Z0-9\-_]+)$/;
+
 const linking: LinkingOptions<any> = {
-  prefixes: [Linking.createURL("/"), "glowupsports://"],
+  prefixes: [
+    Linking.createURL("/"),
+    "glowupsports://",
+    ...(DOMAIN ? [`https://${DOMAIN}`, `http://${DOMAIN}`] : []),
+  ],
   config: {
     screens: {
       Player: {
@@ -68,6 +76,7 @@ const linking: LinkingOptions<any> = {
           Shop: "shop",
           FamilyLobby: "family",
           News: "news",
+          GroupDetail: "group/:groupId",
         },
       },
       Coach: {
@@ -76,6 +85,26 @@ const linking: LinkingOptions<any> = {
       Login: "login",
       ProviderJoin: "provider-join/:token",
     },
+  },
+  getStateFromPath(path, options) {
+    const clean = path.replace(/^\//, "");
+    const match = GROUP_PATH_RE.exec(clean);
+    if (match) {
+      const groupId = match[1];
+      return {
+        routes: [
+          {
+            name: "Player",
+            state: {
+              routes: [
+                { name: "GroupDetail", params: { groupId, groupName: "" } },
+              ],
+            },
+          },
+        ],
+      };
+    }
+    return defaultGetStateFromPath(path, options);
   },
 };
 

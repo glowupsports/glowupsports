@@ -2,6 +2,8 @@ import React, { useState, useCallback, useEffect, useRef } from "react";
 import { ActivityIndicator, View, StyleSheet } from "react-native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { CommonActions, useNavigationContainerRef } from "@react-navigation/native";
+import * as Linking from "expo-linking";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import CoachNavigator from "@/coach/navigation/CoachNavigator";
 import PlayerNavigator from "@/player/navigation/PlayerNavigator";
 import AdminNavigator from "@/admin/navigation/AdminNavigator";
@@ -31,6 +33,13 @@ export type RootStackParamList = {
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
+const PENDING_GROUP_KEY = "pending_group_deep_link";
+
+function extractGroupIdFromUrl(url: string): string | null {
+  const match = url.match(/\/group\/([a-zA-Z0-9\-_]+)/);
+  return match ? match[1] : null;
+}
+
 function BootScreenWrapper({ onBootComplete }: { onBootComplete: () => void }) {
   return <BootScreen onBootComplete={onBootComplete} />;
 }
@@ -56,7 +65,6 @@ function useNavigationEffect(
     prevBootRef.current = bootComplete;
     prevModeRef.current = mode;
 
-    // Public routes that don't require authentication — skip redirect
     const PUBLIC_ROUTES: Array<keyof RootStackParamList> = ["ProviderJoin", "Login"];
     const navState = navigationRef.getState?.();
     const currentRoute = navState?.routes?.[navState.index]?.name as keyof RootStackParamList | undefined;
@@ -97,6 +105,61 @@ function useNavigationEffect(
   }, [isAuthenticated, bootComplete, mode, navigationRef]);
 }
 
+function usePendingGroupDeepLink(
+  isAuthenticated: boolean,
+  bootComplete: boolean,
+  mode: string,
+  navigationRef: ReturnType<typeof useNavigationContainerRef> | null
+) {
+  const handledRef = useRef(false);
+
+  useEffect(() => {
+    async function capturePendingLink() {
+      try {
+        const url = await Linking.getInitialURL();
+        if (!url) return;
+        const groupId = extractGroupIdFromUrl(url);
+        if (groupId) {
+          await AsyncStorage.setItem(PENDING_GROUP_KEY, groupId);
+        }
+      } catch {}
+    }
+    capturePendingLink();
+  }, []);
+
+  useEffect(() => {
+    const isPlayerMode = !mode || mode === "player";
+    if (!isAuthenticated || !bootComplete || !isPlayerMode || !navigationRef?.isReady() || handledRef.current) return;
+
+    async function navigatePending() {
+      try {
+        const groupId = await AsyncStorage.getItem(PENDING_GROUP_KEY);
+        if (!groupId) return;
+        await AsyncStorage.removeItem(PENDING_GROUP_KEY);
+        handledRef.current = true;
+        navigationRef!.dispatch(
+          CommonActions.reset({
+            index: 0,
+            routes: [
+              {
+                name: "Player",
+                state: {
+                  index: 1,
+                  routes: [
+                    { name: "Home" },
+                    { name: "GroupDetail", params: { groupId, groupName: "" } },
+                  ],
+                },
+              },
+            ],
+          })
+        );
+      } catch {}
+    }
+    navigatePending();
+  }, [isAuthenticated, bootComplete, mode, navigationRef]);
+}
+
 export default function RootStackNavigator({ navigationRef }: { navigationRef?: ReturnType<typeof useNavigationContainerRef> | null }) {
   const screenOptions = useScreenOptions();
   const { mode } = useAppMode();
@@ -109,6 +172,7 @@ export default function RootStackNavigator({ navigationRef }: { navigationRef?: 
 
   usePushNotifications();
   useNavigationEffect(isAuthenticated, bootComplete, mode, navigationRef ?? null);
+  usePendingGroupDeepLink(isAuthenticated, bootComplete, mode, navigationRef ?? null);
 
   if (isLoading) {
     return (
