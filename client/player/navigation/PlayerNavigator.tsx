@@ -292,11 +292,24 @@ function PlayStackNavigator() {
   );
 }
 
+function ScheduleMainWithCallback(props: any) {
+  const navigation = useNavigation<any>();
+  const { registerTabCallback } = useTabNavigation();
+
+  React.useEffect(() => {
+    return registerTabCallback("Schedule", (screen, params) => {
+      navigation.navigate(screen, params);
+    });
+  }, [navigation, registerTabCallback]);
+
+  return <PlayerScheduleScreen {...props} />;
+}
+
 function ScheduleStackNavigator() {
   const { t } = useTranslation();
   return (
     <ScheduleStack.Navigator screenOptions={{ headerShown: false }}>
-      <ScheduleStack.Screen name="ScheduleMain" component={PlayerScheduleScreen} />
+      <ScheduleStack.Screen name="ScheduleMain" component={ScheduleMainWithCallback} />
       <ScheduleStack.Screen name="CourtBooking" component={CourtBookingScreen} />
       <ScheduleStack.Screen name="CourtDetail" component={CourtDetailScreen} />
       <ScheduleStack.Screen name="MyCourtBookings" component={MyCourtBookingsScreen} />
