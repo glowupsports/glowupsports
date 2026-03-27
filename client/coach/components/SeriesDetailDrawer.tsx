@@ -839,6 +839,7 @@ export default function SeriesDetailDrawer({
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     
     // API call runs in background
+    setSavingAttendance(true);
     try {
       await apiRequest("POST", `/api/coach/sessions/${sessionId}/attendance`, {
         attendance,
@@ -864,6 +865,8 @@ export default function SeriesDetailDrawer({
       console.error("Error saving attendance:", error);
       Alert.alert("Error", "Failed to save attendance. Please try again.");
       queryClient.invalidateQueries({ queryKey: [`/api/coach/series/${seriesId}`] });
+    } finally {
+      setSavingAttendance(false);
     }
   };
 
@@ -877,6 +880,7 @@ export default function SeriesDetailDrawer({
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     
     // API call runs in background
+    setCancellingSession(true);
     try {
       await apiRequest("PATCH", `/api/coach/sessions/${sessionId}/cancel`, {
         reason: "Holiday / No Class",
@@ -888,6 +892,8 @@ export default function SeriesDetailDrawer({
       console.error("Error cancelling session:", error);
       Alert.alert("Error", "Failed to cancel session. Please try again.");
       queryClient.invalidateQueries({ queryKey: [`/api/coach/series/${seriesId}`] });
+    } finally {
+      setCancellingSession(false);
     }
   };
 
@@ -902,6 +908,7 @@ export default function SeriesDetailDrawer({
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     
     // API call runs in background
+    setDeletingSession(true);
     try {
       await apiRequest("DELETE", `/api/coach/sessions/${sessionId}`);
       queryClient.invalidateQueries({ queryKey: [`/api/coach/series/${seriesId}`] });
@@ -911,6 +918,8 @@ export default function SeriesDetailDrawer({
       Alert.alert("Error", "Failed to delete session. Please try again.");
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
       queryClient.invalidateQueries({ queryKey: [`/api/coach/series/${seriesId}`] });
+    } finally {
+      setDeletingSession(false);
     }
   };
 
@@ -1571,9 +1580,9 @@ export default function SeriesDetailDrawer({
         handleCancelSession={handleCancelSession}
         handleDeleteSession={handleDeleteSession}
         onTransfer={(sessionId, targetCoachId) => transferSessionMutation.mutate({ sessionId, targetCoachId })}
-        savingAttendance={saveAttendanceMutation.isPending}
-        cancellingSession={cancelSessionMutation.isPending}
-        deletingSession={deleteSessionMutation.isPending}
+        savingAttendance={savingAttendance}
+        cancellingSession={cancellingSession}
+        deletingSession={deletingSession}
         transferringSession={transferringSession}
         setTransferringSession={setTransferringSession}
         formatDate={formatDate}
