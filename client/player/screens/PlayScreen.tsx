@@ -139,7 +139,7 @@ export default function PlayScreen() {
   const [showOtherLevels, setShowOtherLevels] = useState(false);
   const [selectedDay, setSelectedDay] = useState<string>("all");
   const [selectedPlayerLevel, setSelectedPlayerLevel] = useState<string>("all");
-  const [discoverFilter, setDiscoverFilter] = useState<DiscoverFilter>("all");
+  const [discoverFilter, setDiscoverFilter] = useState<DiscoverFilter>("sameLevel");
   const [selectedSession, setSelectedSession] = useState<PlaySession | null>(null);
   const [friendRequestPlayer, setFriendRequestPlayer] = useState<NearbyPlayer | null>(null);
   const [friendRequestSent, setFriendRequestSent] = useState(false);
@@ -991,7 +991,7 @@ export default function PlayScreen() {
                   >
                     <Ionicons 
                       name={filter.icon as any} 
-                      size={14} 
+                      size={12} 
                       color={isSelected ? Colors.dark.backgroundRoot : Colors.dark.primary} 
                     />
                     <Text style={[
@@ -2134,9 +2134,9 @@ const styles = StyleSheet.create({
   discoverChip: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 6,
-    paddingHorizontal: Spacing.md,
-    paddingVertical: Spacing.sm,
+    gap: 4,
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 4,
     backgroundColor: Colors.dark.backgroundSecondary,
     borderRadius: BorderRadius.full,
     borderWidth: 1,
@@ -2147,7 +2147,7 @@ const styles = StyleSheet.create({
     borderColor: Colors.dark.primary,
   },
   discoverChipText: {
-    fontSize: 13,
+    fontSize: 11,
     fontWeight: "600",
     color: Colors.dark.text,
   },

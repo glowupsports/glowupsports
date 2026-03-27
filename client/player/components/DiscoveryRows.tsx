@@ -115,7 +115,7 @@ export function PlayersNearYouRow() {
 
   const handleSeeAll = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    navigateToTab("PlayStack");
+    navigateToTab("PlayStack", { screen: "Play", params: { initialTab: "Players" } });
   };
 
   const getAvatarSource = (player: typeof state.nearbyPlayers[0]) => {
