@@ -453,6 +453,7 @@ function PlayerHomeContent() {
   const handleBookLesson = () => {
     guardAction(() => {
       if (isMultiSport && activeSports.length > 1) {
+        setBookingWizardSport(activeSport);
         setShowBookingSportPicker(true);
       } else {
         setBookingWizardSport(activeSport);
@@ -655,25 +656,28 @@ function PlayerHomeContent() {
             <Text style={{ color: Colors.dark.text, fontSize: 18, fontWeight: "700", textAlign: "center", marginBottom: Spacing.md }}>
               Book Lesson In
             </Text>
-            {SPORT_DEFINITIONS.filter(s => activeSports.includes(s.key)).map(sportDef => (
-              <Pressable
-                key={sportDef.key}
-                style={{ flexDirection: "row", alignItems: "center", gap: Spacing.sm, padding: Spacing.md, borderRadius: 12, borderWidth: 1.5, borderColor: activeSport === sportDef.key ? getSportColor(sportDef.key) : "rgba(255,255,255,0.08)", marginBottom: Spacing.sm, backgroundColor: activeSport === sportDef.key ? getSportColor(sportDef.key) + "15" : "transparent" }}
-                onPress={() => {
-                  setShowBookingSportPicker(false);
-                  setBookingWizardSport(sportDef.key);
-                  setTimeout(() => setShowBookingWizard(true), 350);
-                }}
-              >
-                <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: getSportColor(sportDef.key) }} />
-                <Text style={{ color: activeSport === sportDef.key ? getSportColor(sportDef.key) : Colors.dark.text, fontSize: 16, fontWeight: "600", flex: 1 }}>
-                  {getSportLabel(sportDef.key)}
-                </Text>
-                {activeSport === sportDef.key ? (
-                  <Ionicons name="checkmark" size={18} color={getSportColor(sportDef.key)} />
-                ) : null}
-              </Pressable>
-            ))}
+            {SPORT_DEFINITIONS.filter(s => activeSports.includes(s.key)).map(sportDef => {
+              const isSelected = bookingWizardSport === sportDef.key;
+              return (
+                <Pressable
+                  key={sportDef.key}
+                  style={{ flexDirection: "row", alignItems: "center", gap: Spacing.sm, padding: Spacing.md, borderRadius: 12, borderWidth: 1.5, borderColor: isSelected ? getSportColor(sportDef.key) : "rgba(255,255,255,0.08)", marginBottom: Spacing.sm, backgroundColor: isSelected ? getSportColor(sportDef.key) + "15" : "transparent" }}
+                  onPress={() => {
+                    setBookingWizardSport(sportDef.key);
+                    setShowBookingSportPicker(false);
+                    setTimeout(() => setShowBookingWizard(true), 350);
+                  }}
+                >
+                  <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: getSportColor(sportDef.key) }} />
+                  <Text style={{ color: isSelected ? getSportColor(sportDef.key) : Colors.dark.text, fontSize: 16, fontWeight: "600", flex: 1 }}>
+                    {getSportLabel(sportDef.key)}
+                  </Text>
+                  {isSelected ? (
+                    <Ionicons name="checkmark" size={18} color={getSportColor(sportDef.key)} />
+                  ) : null}
+                </Pressable>
+              );
+            })}
             <Pressable
               style={{ marginTop: Spacing.xs, padding: Spacing.sm, alignItems: "center" }}
               onPress={() => setShowBookingSportPicker(false)}
