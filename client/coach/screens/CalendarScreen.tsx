@@ -58,6 +58,8 @@ import { CalendarDayViewOverview } from "@/coach/components/calendar/CalendarDay
 import { CalendarWeekViewOverview } from "@/coach/components/calendar/CalendarWeekViewOverview";
 import { CalendarWeekViewSlots } from "@/coach/components/calendar/CalendarWeekViewSlots";
 import { CalendarDayViewSlots } from "@/coach/components/calendar/CalendarDayViewSlots";
+import { TIME_COLUMN_WIDTH, MIN_COURT_LANE_WIDTH, HOUR_HEIGHT_60, HOUR_HEIGHT_30, START_HOUR, END_HOUR } from "@/coach/components/calendar/calendarConstants";
+import { dimColors, DraggableSessionBlock, WeekDraggableSessionBlock, PulsingDot } from "@/coach/components/calendar/SessionBlocks";
 import { styles } from "@/coach/components/calendar/calendarStyles";
 type CalendarRouteParams = {
   Calendar: {
@@ -108,27 +110,6 @@ interface CoachData {
   role: string | null;
   academyId: string | null;
 }
-
-const TIME_COLUMN_WIDTH = 50;
-const MIN_COURT_LANE_WIDTH = 90;
-const HOUR_HEIGHT_60 = 80;
-const HOUR_HEIGHT_30 = 60;
-const START_HOUR = 6;
-const END_HOUR = 21;
-
-// Compare dates by UTC date string to avoid timezone issues
-const isSameUTCDate = (date1: Date, date2: Date): boolean => {
-  return date1.getUTCFullYear() === date2.getUTCFullYear() &&
-         date1.getUTCMonth() === date2.getUTCMonth() &&
-         date1.getUTCDate() === date2.getUTCDate();
-};
-
-// Get UTC date string (YYYY-MM-DD) from a timestamp
-const getUTCDateString = (timestamp: string | Date): string => {
-  const date = parseUTCTimestamp(timestamp);
-  return date.toISOString().split('T')[0];
-};
-
 export default function CalendarScreen() {
   const { coach, academy, calendarData, isLoading, isFetching, refetchCalendar, setCoach, focusMode, setFocusMode, timeGrid, setTimeGrid, selectedDate, setSelectedDate, viewMode, setViewMode } = useCoach();
   const route = useRoute<RouteProp<any>>();

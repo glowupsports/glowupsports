@@ -1,97 +1,23 @@
-// Extracted from CalendarScreen.tsx
-import logger from "@/lib/logger";
-import React, { useState, useEffect, useMemo, useCallback, useRef } from "react";
+import React from "react";
 import {
   View,
   Text,
-  StyleSheet,
-  ScrollView,
-  Pressable,
-  useWindowDimensions,
-  ActivityIndicator,
-  Alert,
   Platform,
-  Modal,
 } from "react-native";
 import * as Haptics from "expo-haptics";
-import * as Sharing from "expo-sharing";
-import * as FileSystem from "expo-file-system";
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
   withRepeat,
   withTiming,
   withSpring,
-  withDelay,
   withSequence,
-  Easing,
   runOnJS,
-  FadeIn,
 } from "react-native-reanimated";
-import { BlurView } from "expo-blur";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { apiRequest, getApiUrl } from "@/lib/query-client";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { Ionicons, Feather } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
-import { useQuery } from "@tanstack/react-query";
-import { useCoach } from "@/coach/context/CoachContext";
-import { useRoute, RouteProp } from "@react-navigation/native";
-import { Colors, Backgrounds, Spacing, BorderRadius, Typography, GlowColors } from "@/constants/theme";
-import { 
-  getLocalDateString, 
-  formatLocalDateToString, 
-  formatDateObjectInTimezone,
-  getTimeInTimezone,
-  formatTimeInTimezone,
-  parseUTCTimestamp,
-} from "@/lib/dateUtils";
+import { GlowColors } from "@/constants/theme";
 
-import { PremiumSessionWizard } from "@/coach/components/PremiumSessionWizard";
-import AttendanceDrawer from "@/coach/components/AttendanceDrawer";
-import SessionDetailDrawer from "@/coach/components/SessionDetailDrawer";
-import QuickFeedbackModal from "@/coach/components/QuickFeedbackModal";
-type CalendarRouteParams = {
-  Calendar: {
-    openSessionId?: string;
-    action?: "attendance" | "detail" | "extend" | "end";
-    openWizard?: boolean;
-  };
-};
-
-interface CoachData {
-  id: string;
-  name: string;
-  email: string | null;
-  phone: string | null;
-  homeLocationId: string | null;
-  hourlyRate: string | null;
-  level: number | null;
-  totalXp: number | null;
-  role: string | null;
-  academyId: string | null;
-}
-
-const TIME_COLUMN_WIDTH = 50;
-const MIN_COURT_LANE_WIDTH = 90;
-const HOUR_HEIGHT_60 = 80;
-const HOUR_HEIGHT_30 = 60;
-const START_HOUR = 6;
-const END_HOUR = 21;
-
-// Compare dates by UTC date string to avoid timezone issues
-const isSameUTCDate = (date1: Date, date2: Date): boolean => {
-  return date1.getUTCFullYear() === date2.getUTCFullYear() &&
-         date1.getUTCMonth() === date2.getUTCMonth() &&
-         date1.getUTCDate() === date2.getUTCDate();
-};
-
-// Get UTC date string (YYYY-MM-DD) from a timestamp
-const getUTCDateString = (timestamp: string | Date): string => {
-  const date = parseUTCTimestamp(timestamp);
-  return date.toISOString().split('T')[0];
-};
 
 export function dimColors(colors: string[]): string[] {
   return colors.map(c => {

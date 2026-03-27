@@ -17,11 +17,10 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import * as Haptics from "expo-haptics";
 import { Colors, Spacing, BorderRadius, Typography, CardStyles, GlowColors, RoleColors } from "@/constants/theme";
 import CreateSessionWizard from "@/coach/components/CreateSessionWizard";
+import { TIME_COLUMN_WIDTH, START_HOUR } from "@/coach/components/calendar/calendarConstants";
 const ADMIN_COLOR = RoleColors.admin;
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
-const TIME_COLUMN_WIDTH = 50;
 const HOUR_HEIGHT = 60;
-const START_HOUR = 6;
 const END_HOUR = 23;
 
 interface Session {
