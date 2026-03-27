@@ -115,7 +115,7 @@ export default function GroupPreviewSheet({ visible, group, onClose, onOpenGroup
   const isAdmin = data?.myRole === "admin" || group.role === "admin";
   const memberCount = data?.memberCount ?? group.memberCount ?? 0;
   const members = data?.members ?? [];
-  const previewMembers = members.slice(0, 6);
+  const previewMembers = members.slice(0, 5);
   const extraCount = memberCount > previewMembers.length ? memberCount - previewMembers.length : 0;
 
   return (
@@ -165,6 +165,10 @@ export default function GroupPreviewSheet({ visible, group, onClose, onOpenGroup
           <View style={styles.statChip}>
             <Ionicons name="people" size={14} color={typeConfig.color} />
             <Text style={styles.statText}>{memberCount} {memberCount === 1 ? "Member" : "Members"}</Text>
+          </View>
+          <View style={styles.statChip}>
+            <Ionicons name="document-text" size={14} color="#7A8EA0" />
+            <Text style={styles.statText}>{group.memberCount > 0 ? group.memberCount : 0} Posts</Text>
           </View>
           {data?.group.allowChat ? (
             <View style={styles.statChip}>
