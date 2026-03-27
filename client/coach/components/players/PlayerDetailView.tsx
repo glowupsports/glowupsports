@@ -37,6 +37,7 @@ import Animated, {
 import { Colors, Backgrounds, Spacing, BorderRadius, Typography, FontSizes, getPlayerLevelColor, getPlayerLevelTextColor, GlowColors } from "@/constants/theme";
 import { apiRequest, getStaticAssetsUrl, getApiUrl, getAuthHeaders } from "@/lib/query-client";
 import { useCoach } from "@/coach/context/CoachContext";
+import { useNavigation } from "@react-navigation/native";
 import { formatCredits } from "@/lib/dateUtils";
 import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollViewCompat";
 import PackagesCard from "@/coach/components/PackagesCard";
@@ -215,6 +216,7 @@ export function PlayerDetailView({
   insets: { top: number; bottom: number };
 }) {
   const { coach, academy } = useCoach();
+  const navigation = useNavigation<any>();
   const queryClient = useQueryClient();
   const tz = academy?.timezone || "Asia/Dubai";
   
@@ -668,6 +670,12 @@ export function PlayerDetailView({
               ) : (
                 <Ionicons name="document-text-outline" size={22} color={Colors.dark.xpCyan} />
               )}
+            </Pressable>
+            <Pressable
+              style={styles.premiumExportButton}
+              onPress={() => navigation.navigate("VideoFeedback", { playerId: player.id })}
+            >
+              <Ionicons name="videocam-outline" size={22} color="#4DA3FF" />
             </Pressable>
           </View>
         </View>

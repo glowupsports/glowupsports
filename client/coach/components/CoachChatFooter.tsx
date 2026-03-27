@@ -23,6 +23,7 @@ import Animated, {
 import { BlurView } from "expo-blur";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useNavigation } from "@react-navigation/native";
 
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
@@ -171,6 +172,7 @@ export function CoachChatFooter({ mode = "coach", onChallenge }: ChatFooterProps
   const { coach } = useCoach();
   const { user } = useAuth();
   const { setChatExpanded } = useChatState();
+  const navigation = useNavigation<any>();
 
   const isPlayerMode = mode === "player";
   const userId = isPlayerMode ? user?.playerId : coach?.id;
@@ -696,6 +698,56 @@ export function CoachChatFooter({ mode = "coach", onChallenge }: ChatFooterProps
           <Ionicons name="notifications-outline" size={14} color={Colors.dark.successNeon} />
           <ThemedText style={styles.systemText}>{item.body}</ThemedText>
         </View>
+      );
+    }
+
+    if (item.messageType === "video_feedback") {
+      let parsed: { feedbackId?: string; title?: string; annotations?: any[] } = {};
+      try { parsed = JSON.parse(item.body); } catch {}
+      const annotationCount = parsed.annotations?.length ?? 0;
+      return (
+        <Pressable
+          style={[styles.messageBubble, isOwn ? styles.ownMessage : styles.otherMessage]}
+          onPress={() => {
+            if (parsed.feedbackId) {
+              if (isPlayerMode) {
+                navigation.navigate("VideoFeedbackPlayer", { feedbackId: parsed.feedbackId });
+              } else {
+                navigation.navigate("VideoFeedback");
+              }
+            }
+          }}
+        >
+          {!isOwn ? (
+            <View style={styles.senderInfo}>
+              <View style={styles.playerAvatar}>
+                <Ionicons name="person" size={10} color={Colors.dark.text} />
+              </View>
+              <ThemedText style={styles.senderName}>
+                {isProviderConv
+                  ? (selectedConversation?.providerName || "Provider")
+                  : (selectedConversation?.playerName || "Player")}
+              </ThemedText>
+            </View>
+          ) : null}
+          <View style={{ flexDirection: "row", alignItems: "center", gap: Spacing.sm }}>
+            <View style={{ width: 32, height: 32, borderRadius: 6, backgroundColor: "#1a3a5c", alignItems: "center", justifyContent: "center" }}>
+              <Ionicons name="videocam" size={16} color="#4DA3FF" />
+            </View>
+            <View style={{ flex: 1 }}>
+              <ThemedText style={[styles.messageText, isOwn && styles.ownMessageText, { fontWeight: "600" }]} numberOfLines={1}>
+                {parsed.title || "Video Feedback"}
+              </ThemedText>
+              {annotationCount > 0 ? (
+                <ThemedText style={{ fontSize: 11, color: GlowColors.primary, marginTop: 2 }}>
+                  {annotationCount} coach note{annotationCount !== 1 ? "s" : ""}
+                </ThemedText>
+              ) : null}
+            </View>
+            <Ionicons name="chevron-forward" size={14} color={Colors.dark.textSecondary} />
+          </View>
+          <ThemedText style={[styles.timestamp, isOwn && styles.ownTimestamp]}>{formatTime(item.createdAt)}</ThemedText>
+        </Pressable>
       );
     }
 

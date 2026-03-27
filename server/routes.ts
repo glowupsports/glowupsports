@@ -223,6 +223,7 @@ import playerLevelRoutes from "./routes/player-level";
 import roleMessagesRoutes from "./routes/role-messages";
 import socialFeaturesRoutes from "./routes/social-features";
 import playerChatRoutes from "./routes/player-chat";
+import videoFeedbackRoutes from "./routes/video-feedback";
 import coachEarningsRoutes from "./routes/coach-earnings";
 import playerBookingRoutes from "./routes/player-booking";
 import playerSocialRoutes from "./routes/player-social";
@@ -528,6 +529,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.use(roleMessagesRoutes);
   app.use(socialFeaturesRoutes);
   app.use(playerChatRoutes);
+  app.use(videoFeedbackRoutes);
   app.use(coachEarningsRoutes);
   app.use(playerBookingRoutes);
   app.use(playerSocialRoutes);

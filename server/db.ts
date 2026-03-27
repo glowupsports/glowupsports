@@ -103,6 +103,30 @@ pool.query('SELECT 1').then(async () => {
   } catch (e: any) {
     console.log('[Database] stroke_feedback columns migration skipped:', e.message);
   }
+  try {
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS video_feedback (
+        id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(),
+        coach_id VARCHAR NOT NULL REFERENCES coaches(id) ON DELETE CASCADE,
+        player_id VARCHAR NOT NULL REFERENCES players(id) ON DELETE CASCADE,
+        session_id VARCHAR REFERENCES sessions(id) ON DELETE SET NULL,
+        academy_id VARCHAR REFERENCES academies(id) ON DELETE CASCADE,
+        title TEXT NOT NULL,
+        video_url TEXT NOT NULL,
+        thumbnail_url TEXT,
+        annotations JSONB DEFAULT '[]'::jsonb,
+        message_id VARCHAR,
+        conversation_id VARCHAR,
+        created_at TIMESTAMP DEFAULT NOW()
+      )
+    `);
+    await pool.query(`CREATE INDEX IF NOT EXISTS vf_coach_idx ON video_feedback(coach_id)`);
+    await pool.query(`CREATE INDEX IF NOT EXISTS vf_player_idx ON video_feedback(player_id)`);
+    await pool.query(`CREATE INDEX IF NOT EXISTS vf_academy_idx ON video_feedback(academy_id)`);
+    await pool.query(`CREATE INDEX IF NOT EXISTS vf_created_idx ON video_feedback(created_at)`);
+  } catch (e: any) {
+    console.log('[Database] video_feedback migration skipped:', e.message);
+  }
 }).catch((err) => {
   console.error('[Database] Connection test FAILED:', err.message);
 });

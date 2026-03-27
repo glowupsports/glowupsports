@@ -80,6 +80,7 @@ import MatchLiveScreen from "@/player/screens/MatchLiveScreen";
 import PrivacySettingsScreen from "@/player/screens/PrivacySettingsScreen";
 import FeedbackCenterScreen from "@/player/screens/FeedbackCenterScreen";
 import CoachFeedbackHistoryScreen from "@/player/screens/CoachFeedbackHistoryScreen";
+import VideoFeedbackPlayerScreen from "@/player/screens/VideoFeedbackPlayerScreen";
 import TournamentsScreen from "@/player/screens/TournamentsScreen";
 import TournamentDetailScreen from "@/player/screens/TournamentDetailScreen";
 import LadderDetailScreen from "@/player/screens/LadderDetailScreen";
@@ -197,6 +198,7 @@ export type PlayerStackParamList = {
   News: undefined;
   PrivacySettings: { isOnboarding?: boolean; currentLevel?: string };
   SpotlightDetail: undefined;
+  VideoFeedbackPlayer: { feedbackId?: string } | undefined;
   MatchLive: {
     challengeId: string;
     opponentName: string;
@@ -787,6 +789,14 @@ function PlayerStackNavigator() {
           presentation: "fullScreenModal",
           headerShown: false,
           animation: "slide_from_bottom",
+        }}
+      />
+      <Stack.Screen 
+        name="VideoFeedbackPlayer" 
+        component={VideoFeedbackPlayerScreen}
+        options={{
+          presentation: "card",
+          headerShown: false,
         }}
       />
       <Stack.Screen 

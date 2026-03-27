@@ -32,6 +32,7 @@ import MatchReviewScreen from "@/coach/screens/glow/MatchReviewScreen";
 import LessonTemplateLibraryScreen from "@/coach/screens/glow/LessonTemplateLibraryScreen";
 import WellbeingDetailScreen from "@/coach/screens/WellbeingDetailScreen";
 import WellnessLogScreen from "@/coach/screens/WellnessLogScreen";
+import VideoFeedbackScreen from "@/coach/screens/VideoFeedbackScreen";
 import OfflineBanner from "@/components/OfflineBanner";
 import { QuickActionsFAB, QuickAction } from "@/components/QuickActionsFAB";
 import { PremiumAddPlayerFlow } from "@/coach/components/PremiumAddPlayerFlow";
@@ -86,6 +87,7 @@ export type CoachStackParamList = {
   MatchReview: { matchId: string };
   WellbeingDetail: undefined;
   WellnessLog: undefined;
+  VideoFeedback: { playerId?: string } | undefined;
 };
 
 const Stack = createNativeStackNavigator<CoachStackParamList>();
@@ -312,6 +314,14 @@ function CoachStackNavigator() {
           presentation: "card",
         }}
       />
+      <Stack.Screen 
+        name="VideoFeedback" 
+        component={VideoFeedbackScreen}
+        options={{
+          headerShown: false,
+          presentation: "card",
+        }}
+      />
     </Stack.Navigator>
   );
 }
@@ -438,6 +448,13 @@ function CoachQuickActionsFAB({ onAddPlayer }: { onAddPlayer: () => void }) {
       icon: "ribbon-outline",
       color: Colors.dark.successNeon,
       onPress: () => navigation.navigate("LevelCards"),
+    },
+    {
+      id: "video-feedback",
+      label: "Video Feedback",
+      icon: "videocam-outline",
+      color: "#4DA3FF",
+      onPress: () => navigation.navigate("VideoFeedback"),
     },
   ];
 

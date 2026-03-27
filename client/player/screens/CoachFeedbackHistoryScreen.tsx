@@ -4,7 +4,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
 import { useQuery } from "@tanstack/react-query";
 import Ionicons from "@expo/vector-icons/Ionicons";
-import { Colors, Backgrounds, Spacing, Typography, BorderRadius, GlowColors, TextColors } from "@/constants/theme";
+import { Colors, Backgrounds, Spacing, Typography, BorderRadius, GlowColors, TextColors, FunctionColors } from "@/constants/theme";
 import { Card } from "@/components/Card";
 import { EmptyStateCard } from "@/components/EmptyStateCard";
 
@@ -163,6 +163,21 @@ export default function CoachFeedbackHistoryScreen() {
         </View>
       </View>
 
+      {/* Video Feedback Banner */}
+      <Pressable
+        style={styles.videoFeedbackBanner}
+        onPress={() => navigation.navigate("VideoFeedbackPlayer")}
+      >
+        <View style={styles.videoFeedbackBannerIcon}>
+          <Ionicons name="videocam" size={20} color={FunctionColors.planning} />
+        </View>
+        <View style={{ flex: 1 }}>
+          <Text style={styles.videoFeedbackBannerTitle}>Video Feedback</Text>
+          <Text style={styles.videoFeedbackBannerSubtitle}>Watch technique clips from your coach</Text>
+        </View>
+        <Ionicons name="chevron-forward" size={18} color={TextColors.muted} />
+      </Pressable>
+
       {!isLoading && feedbacks && feedbacks.length > 0 ? (
         <View style={styles.statsRow}>
           <View style={styles.statItem}>
@@ -277,6 +292,37 @@ const styles = StyleSheet.create({
     height: 40,
     backgroundColor: Backgrounds.surface,
     marginHorizontal: Spacing.xl,
+  },
+  videoFeedbackBanner: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.md,
+    marginHorizontal: Spacing.lg,
+    marginBottom: Spacing.sm,
+    marginTop: Spacing.xs,
+    backgroundColor: Backgrounds.elevated,
+    borderRadius: BorderRadius.md,
+    padding: Spacing.md,
+    borderWidth: 1,
+    borderColor: FunctionColors.planning + "30",
+  },
+  videoFeedbackBannerIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: BorderRadius.md,
+    backgroundColor: FunctionColors.planning + "20",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  videoFeedbackBannerTitle: {
+    fontSize: 14,
+    fontWeight: "700",
+    color: TextColors.primary,
+  },
+  videoFeedbackBannerSubtitle: {
+    fontSize: 12,
+    color: TextColors.muted,
+    marginTop: 1,
   },
   scrollView: {
     flex: 1,

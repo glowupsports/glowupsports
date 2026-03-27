@@ -6281,3 +6281,46 @@ export const betaFeedback = pgTable("beta_feedback", {
 export const insertBetaFeedbackSchema = createInsertSchema(betaFeedback).omit({ id: true, createdAt: true });
 export type InsertBetaFeedback = z.infer<typeof insertBetaFeedbackSchema>;
 export type BetaFeedback = typeof betaFeedback.$inferSelect;
+
+// ==================== VIDEO FEEDBACK ====================
+
+export interface VideoAnnotation {
+  timestamp: number; // seconds into the video
+  text: string;
+}
+
+export const videoFeedback = pgTable("video_feedback", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  coachId: varchar("coach_id").references(() => coaches.id).notNull(),
+  playerId: varchar("player_id").references(() => players.id).notNull(),
+  sessionId: varchar("session_id").references(() => sessions.id), // optional
+  academyId: varchar("academy_id").references(() => academies.id),
+  title: text("title").notNull(),
+  videoUrl: text("video_url").notNull(),
+  thumbnailUrl: text("thumbnail_url"),
+  annotations: jsonb("annotations").$type<VideoAnnotation[]>().default([]),
+  messageId: varchar("message_id"), // references messages.id (set after chat message is created)
+  conversationId: varchar("conversation_id"), // references conversations.id
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("vf_coach_idx").on(table.coachId),
+  index("vf_player_idx").on(table.playerId),
+  index("vf_academy_idx").on(table.academyId),
+  index("vf_created_idx").on(table.createdAt),
+]);
+
+export const insertVideoFeedbackSchema = createInsertSchema(videoFeedback).omit({ id: true, createdAt: true });
+export const videoFeedbackInputSchema = z.object({
+  playerId: z.string().min(1, "Player is required"),
+  sessionId: z.string().optional(),
+  title: z.string().min(1, "Title is required").max(200),
+  videoUrl: z.string().min(1, "Video URL is required"),
+  thumbnailUrl: z.string().optional(),
+  annotations: z.array(z.object({
+    timestamp: z.number().min(0),
+    text: z.string().min(1).max(500),
+  })).default([]),
+});
+export type InsertVideoFeedback = z.infer<typeof insertVideoFeedbackSchema>;
+export type VideoFeedback = typeof videoFeedback.$inferSelect;
+export type VideoFeedbackInput = z.infer<typeof videoFeedbackInputSchema>;

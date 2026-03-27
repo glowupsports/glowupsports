@@ -2693,3 +2693,21 @@ export function stopCreditExpiryReminderScheduler(): void {
     console.log("[CreditExpiry] Scheduler stopped");
   }
 }
+
+// Video feedback notification
+export async function sendVideoFeedbackNotification(
+  playerId: string,
+  coachName: string,
+  feedbackTitle: string
+): Promise<void> {
+  const tokens = await getPlayerPushTokens(playerId);
+  if (tokens.length === 0) return;
+
+  await sendPushNotification(
+    tokens,
+    "New Video Feedback",
+    `${coachName} sent you video feedback: "${feedbackTitle}"`,
+    { type: "video_feedback", playerId, screen: "CoachFeedbackHistory" },
+    playerId
+  );
+}

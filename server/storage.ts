@@ -11782,3 +11782,32 @@ async function reconcilePackageCredits(): Promise<{ checked: number; fixed: numb
 }
 
 export { getSessionTypeByPlayerCount, updateSeriesSessionType, recalculateSeriesCredits, ensureCreditProcessed, repairAllPlayerCredits, auditAllPlayerCredits, repairGroupSessionTypes, cleanupGhostSessions, reconcilePackageCredits };
+
+// ==================== VIDEO FEEDBACK ====================
+import { videoFeedback, type VideoFeedback, type InsertVideoFeedback } from "@shared/schema";
+
+export async function createVideoFeedback(data: InsertVideoFeedback): Promise<VideoFeedback> {
+  const result = await db.insert(videoFeedback).values(data).returning();
+  return result[0];
+}
+
+export async function getVideoFeedbackById(id: string): Promise<VideoFeedback | undefined> {
+  const result = await db.select().from(videoFeedback).where(eq(videoFeedback.id, id));
+  return result[0];
+}
+
+export async function getVideoFeedbackForPlayer(playerId: string): Promise<VideoFeedback[]> {
+  return db.select().from(videoFeedback)
+    .where(eq(videoFeedback.playerId, playerId))
+    .orderBy(desc(videoFeedback.createdAt));
+}
+
+export async function getVideoFeedbackByCoach(coachId: string): Promise<VideoFeedback[]> {
+  return db.select().from(videoFeedback)
+    .where(eq(videoFeedback.coachId, coachId))
+    .orderBy(desc(videoFeedback.createdAt));
+}
+
+export async function updateVideoFeedbackMessageId(id: string, messageId: string, conversationId: string): Promise<void> {
+  await db.update(videoFeedback).set({ messageId, conversationId }).where(eq(videoFeedback.id, id));
+}
