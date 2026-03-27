@@ -299,6 +299,7 @@ export default function GroupDetailScreen({ route, navigation }: Props) {
           </View>
         ) : (
           <FlatList
+            key="feed"
             data={posts}
             keyExtractor={(item) => item.id}
             renderItem={({ item }) => <PostCard post={item} typeColor={typeColor} />}
@@ -326,6 +327,7 @@ export default function GroupDetailScreen({ route, navigation }: Props) {
         )
       ) : (
         <FlatList
+          key="members"
           data={members}
           keyExtractor={(item) => item.id}
           numColumns={4}
