@@ -106,6 +106,7 @@ import { FamilyProvider } from "@/player/context/FamilyContext";
 import { WalkthroughProvider } from "@/player/context/WalkthroughContext";
 import { WalkthroughOverlay } from "@/player/components/WalkthroughOverlay";
 import { PlayerProvider as PlayerDataProvider } from "@/player/context/PlayerContext";
+import { SportContextProvider } from "@/player/context/SportContext";
 import { QuickActionsFAB, QuickAction } from "@/components/QuickActionsFAB";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 
@@ -1247,18 +1248,20 @@ export default function PlayerNavigator() {
     <ChatStateProvider>
       <TabNavigationProvider>
         <PlayerDataProvider>
-          <CartProvider>
-            <FamilyProvider playerId={playerId}>
-              <PlayerLevelProvider playerId={playerId}>
-                <WalkthroughProvider>
-                  <View style={styles.container}>
-                    <PlayerStackNavigator />
-                    <WalkthroughOverlay />
-                  </View>
-                </WalkthroughProvider>
-              </PlayerLevelProvider>
-            </FamilyProvider>
-          </CartProvider>
+          <SportContextProvider>
+            <CartProvider>
+              <FamilyProvider playerId={playerId}>
+                <PlayerLevelProvider playerId={playerId}>
+                  <WalkthroughProvider>
+                    <View style={styles.container}>
+                      <PlayerStackNavigator />
+                      <WalkthroughOverlay />
+                    </View>
+                  </WalkthroughProvider>
+                </PlayerLevelProvider>
+              </FamilyProvider>
+            </CartProvider>
+          </SportContextProvider>
         </PlayerDataProvider>
       </TabNavigationProvider>
     </ChatStateProvider>

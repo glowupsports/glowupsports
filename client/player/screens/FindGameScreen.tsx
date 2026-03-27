@@ -21,6 +21,7 @@ import { Colors, Spacing, BorderRadius } from "@/constants/theme";
 import { apiRequest, getStaticAssetsUrl } from "@/lib/query-client";
 import { useAuth } from "@/coach/context/AuthContext";
 import { Image } from "expo-image";
+import { useSport } from "@/player/context/SportContext";
 
 const SPORTS = [
   { key: "all", label: "All", icon: "apps-outline" },
@@ -107,8 +108,9 @@ export default function FindGameScreen() {
   const { user } = useAuth();
   const playerId = user?.playerId;
   const headerHeight = useHeaderHeight();
+  const { activeSport, activeSports, isMultiSport } = useSport();
 
-  const [selectedSport, setSelectedSport] = useState<SportKey>("all");
+  const [selectedSport, setSelectedSport] = useState<SportKey>(() => activeSport as SportKey);
   const [joiningId, setJoiningId] = useState<string | null>(null);
 
   const queryKey = selectedSport === "all"
@@ -304,32 +306,34 @@ export default function FindGameScreen() {
 
   return (
     <View style={[styles.container, { paddingTop: headerHeight }]}>
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        style={styles.sportFilter}
-        contentContainerStyle={styles.sportFilterContent}
-      >
-        {SPORTS.map(s => (
-          <Pressable
-            key={s.key}
-            style={[styles.sportChip, selectedSport === s.key && styles.sportChipActive]}
-            onPress={() => {
-              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-              setSelectedSport(s.key);
-            }}
-          >
-            <Ionicons
-              name={s.icon as any}
-              size={15}
-              color={selectedSport === s.key ? Colors.dark.backgroundRoot : Colors.dark.textMuted}
-            />
-            <Text style={[styles.sportChipText, selectedSport === s.key && styles.sportChipTextActive]}>
-              {s.label}
-            </Text>
-          </Pressable>
-        ))}
-      </ScrollView>
+      {isMultiSport ? (
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          style={styles.sportFilter}
+          contentContainerStyle={styles.sportFilterContent}
+        >
+          {SPORTS.filter(s => s.key === "all" || (activeSports as readonly string[]).includes(s.key)).map(s => (
+            <Pressable
+              key={s.key}
+              style={[styles.sportChip, selectedSport === s.key && styles.sportChipActive]}
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                setSelectedSport(s.key);
+              }}
+            >
+              <Ionicons
+                name={s.icon as keyof typeof Ionicons.glyphMap}
+                size={15}
+                color={selectedSport === s.key ? Colors.dark.backgroundRoot : Colors.dark.textMuted}
+              />
+              <Text style={[styles.sportChipText, selectedSport === s.key && styles.sportChipTextActive]}>
+                {s.label}
+              </Text>
+            </Pressable>
+          ))}
+        </ScrollView>
+      ) : null}
 
       {isLoading ? (
         <View style={styles.center}>

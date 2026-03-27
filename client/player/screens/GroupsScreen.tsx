@@ -19,10 +19,12 @@ import Animated, { FadeIn, FadeInDown, SlideInUp } from "react-native-reanimated
 import { Colors, Spacing, BorderRadius, GlowColors } from "@/constants/theme";
 import { ThemedText as Text } from "@/components/ThemedText";
 import { Card } from "@/components/Card";
-import { apiRequest } from "@/lib/query-client";
+import { apiRequest, getApiUrl, getAuthHeaders } from "@/lib/query-client";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { LockedScreen } from "../components/LockedScreen";
 import GroupPreviewSheet, { type SheetGroup } from "@/player/components/community/GroupPreviewSheet";
+import { useSport, getSportColor, getSportLabel, getSportIcon } from "@/player/context/SportContext";
+import { SportSwitcherChips } from "@/player/components/SportSwitcherChips";
 
 interface Group {
   id: string;
@@ -227,9 +229,17 @@ export default function GroupsScreen({ navigation }: Props) {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [activeTab, setActiveTab] = useState<"my" | "discover">("my");
   const [previewGroup, setPreviewGroup] = useState<SheetGroup | null>(null);
+  const { isMultiSport, activeSport } = useSport();
 
   const { data, isLoading, refetch, isRefetching } = useQuery<GroupsData>({
-    queryKey: ["/api/player/groups"],
+    queryKey: ["/api/player/groups", activeSport],
+    queryFn: async () => {
+      const url = new URL("/api/player/groups", getApiUrl());
+      url.searchParams.set("sport", activeSport);
+      const res = await fetch(url.toString(), { headers: getAuthHeaders() });
+      if (!res.ok) throw new Error("Failed to load groups");
+      return res.json() as Promise<GroupsData>;
+    },
   });
 
   const joinMutation = useMutation({
@@ -327,6 +337,10 @@ export default function GroupsScreen({ navigation }: Props) {
 
         <View style={styles.titleRow}>
           <Text style={styles.title}>Groups</Text>
+          <View style={[styles.sportTagBadge, { borderColor: getSportColor(activeSport) + "60", backgroundColor: getSportColor(activeSport) + "15" }]}>
+            <Ionicons name={getSportIcon(activeSport) as keyof typeof Ionicons.glyphMap} size={12} color={getSportColor(activeSport)} />
+            <Text style={[styles.sportTagText, { color: getSportColor(activeSport) }]}>{getSportLabel(activeSport)}</Text>
+          </View>
           <Pressable 
             style={styles.createIconButton}
             onPress={() => {
@@ -362,6 +376,8 @@ export default function GroupsScreen({ navigation }: Props) {
             ) : null}
           </Pressable>
         </View>
+
+        {isMultiSport ? <SportSwitcherChips style={styles.sportChips} /> : null}
 
         {isLoading ? (
           <View style={styles.loadingContainer}>
@@ -453,11 +469,27 @@ const styles = StyleSheet.create({
   createIconButton: {
     padding: Spacing.xs,
   },
+  sportTagBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 4,
+    borderRadius: BorderRadius.full,
+    borderWidth: 1,
+  },
+  sportTagText: {
+    fontSize: 12,
+    fontWeight: "600",
+  },
   tabs: {
     flexDirection: "row",
     paddingHorizontal: Spacing.lg,
     marginBottom: Spacing.md,
     gap: Spacing.sm,
+  },
+  sportChips: {
+    marginBottom: Spacing.sm,
   },
   tab: {
     flexDirection: "row",

@@ -34,6 +34,7 @@ import { ThemedText } from "@/components/ThemedText";
 import { apiRequest, getApiUrl, getStaticAssetsUrl } from "@/lib/query-client";
 import { LockedScreen } from "../components/LockedScreen";
 import { useAuth } from "@/coach/context/AuthContext";
+import { getSportLabel, getSportIcon, getSportColor } from "@/player/context/SportContext";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 
@@ -43,6 +44,7 @@ interface OpenMatch {
   hostPlayerId: string;
   academyId: string | null;
   matchType: string;
+  sport?: string;
   title: string | null;
   description: string | null;
   requiredLevelMin: number;
@@ -268,6 +270,16 @@ function PremiumMatchCard({
               {match.matchType.charAt(0).toUpperCase() + match.matchType.slice(1)}
             </Text>
           </LinearGradient>
+
+          {(() => {
+            const sport = match.sport || "tennis";
+            return (
+              <View style={[styles.sportPill, { borderColor: getSportColor(sport) + "60", backgroundColor: getSportColor(sport) + "15" }]}>
+                <Ionicons name={getSportIcon(sport) as keyof typeof Ionicons.glyphMap} size={12} color={getSportColor(sport)} />
+                <Text style={[styles.sportPillText, { color: getSportColor(sport) }]}>{getSportLabel(sport)}</Text>
+              </View>
+            );
+          })()}
 
           <CountdownTimer scheduledTime={match.scheduledTime} />
         </View>
@@ -682,6 +694,19 @@ const styles = StyleSheet.create({
     fontSize: FontSizes.sm,
     fontWeight: "700",
     color: "#fff",
+  },
+  sportPill: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    paddingVertical: 4,
+    paddingHorizontal: Spacing.sm,
+    borderRadius: BorderRadius.full,
+    borderWidth: 1,
+  },
+  sportPillText: {
+    fontSize: 11,
+    fontWeight: "600",
   },
   countdownBadge: {
     flexDirection: "row",

@@ -13,6 +13,8 @@ import { Colors, Spacing, BorderRadius } from "@/constants/theme";
 import { apiRequest } from "@/lib/query-client";
 import { GuidedEmptyState } from "@/components/GuidedEmptyState";
 import { useWalkthrough } from "@/player/context/WalkthroughContext";
+import { useSport, SPORT_DEFINITIONS, getSportColor, getSportLabel, getSportIcon, type Sport } from "@/player/context/SportContext";
+import { SportSwitcherChips } from "@/player/components/SportSwitcherChips";
 
 const ProTennisColors = {
   midnightBlue: "#0B0D10",
@@ -168,6 +170,9 @@ export default function PlayerScheduleScreen() {
   const navigation = useNavigation<any>();
   const queryClient = useQueryClient();
   const { hasSeenScreen, startWalkthrough } = useWalkthrough();
+  const { isMultiSport, activeSports, activeSport, setActiveSport } = useSport();
+  const [showSportPickerModal, setShowSportPickerModal] = useState(false);
+  const [sportPickerDestination, setSportPickerDestination] = useState<"LessonBooking" | "CourtBooking" | "OpenMatches">("OpenMatches");
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [showAttendanceModal, setShowAttendanceModal] = useState(false);
@@ -534,19 +539,42 @@ export default function PlayerScheduleScreen() {
     setSelectedDate(day.date);
   };
 
+  const openWithSportPicker = (dest: "LessonBooking" | "CourtBooking" | "OpenMatches") => {
+    if (isMultiSport) {
+      setSportPickerDestination(dest);
+      setShowSportPickerModal(true);
+    } else {
+      if (dest === "OpenMatches") {
+        navigation.navigate("Play", { screen: "OpenMatches" });
+      } else {
+        navigation.navigate(dest);
+      }
+    }
+  };
+
   const handleBookLesson = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    navigation.navigate("LessonBooking");
+    openWithSportPicker("LessonBooking");
   };
 
   const handleBookCourt = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    navigation.navigate("CourtBooking");
+    openWithSportPicker("CourtBooking");
   };
 
   const handleFindMatch = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    navigation.navigate("Play", { screen: "OpenMatches" });
+    openWithSportPicker("OpenMatches");
+  };
+
+  const handleSportPicked = (sport: Sport) => {
+    setActiveSport(sport);
+    setShowSportPickerModal(false);
+    if (sportPickerDestination === "OpenMatches") {
+      navigation.navigate("Play", { screen: "OpenMatches" });
+    } else {
+      navigation.navigate(sportPickerDestination);
+    }
   };
 
   const handleSetVacation = () => {
@@ -638,6 +666,7 @@ export default function PlayerScheduleScreen() {
       >
         <Animated.View entering={FadeInDown.delay(100).duration(400)}>
           <Text style={styles.screenTitle}>My Schedule</Text>
+          {isMultiSport ? <SportSwitcherChips style={{ marginTop: Spacing.sm, marginBottom: Spacing.xs }} /> : null}
         </Animated.View>
 
         <Animated.View entering={FadeInDown.delay(150).duration(400)}>
@@ -656,14 +685,14 @@ export default function PlayerScheduleScreen() {
               label={t("player.schedule.nextLesson")}
               value={getNextSessionCountdown() || "-"}
               color={ProTennisColors.neonCyan}
-              subtext={nextSession?.type ? getTypeLabel(nextSession.type).split(' ')[0] : undefined}
+              subtext={nextSession?.type ? `${getSportLabel(activeSport)} · ${getTypeLabel(nextSession.type).split(' ')[0]}` : getSportLabel(activeSport)}
             />
             <StatCard
               icon="calendar"
               label={t("player.schedule.thisMonth")}
               value={thisMonthCount}
               color={ProTennisColors.neonGreen}
-              subtext={t("player.schedule.activities")}
+              subtext={`${getSportLabel(activeSport)} ${t("player.schedule.activities")}`}
             />
             <StatCard
               icon="check-circle"
@@ -1167,6 +1196,43 @@ export default function PlayerScheduleScreen() {
               ))
             )}
           </ScrollView>
+        </View>
+      </Modal>
+
+      <Modal
+        visible={showSportPickerModal}
+        animationType="fade"
+        transparent
+        onRequestClose={() => setShowSportPickerModal(false)}
+      >
+        <View style={styles.sportPickerOverlay}>
+          <View style={styles.sportPickerSheet}>
+            <Text style={styles.sportPickerTitle}>
+              {sportPickerDestination === "LessonBooking"
+                ? "Book Lesson In"
+                : sportPickerDestination === "CourtBooking"
+                ? "Book Court In"
+                : "Find a Match In"}
+            </Text>
+            {SPORT_DEFINITIONS.filter(s => activeSports.includes(s.key)).map(sport => (
+              <Pressable
+                key={sport.key}
+                style={[styles.sportPickerOption, activeSport === sport.key && { borderColor: getSportColor(sport.key) }]}
+                onPress={() => handleSportPicked(sport.key)}
+              >
+                <View style={[styles.sportPickerDot, { backgroundColor: getSportColor(sport.key) }]} />
+                <Text style={[styles.sportPickerOptionText, activeSport === sport.key && { color: getSportColor(sport.key) }]}>
+                  {getSportLabel(sport.key)}
+                </Text>
+                {activeSport === sport.key ? (
+                  <Feather name="check" size={18} color={getSportColor(sport.key)} />
+                ) : null}
+              </Pressable>
+            ))}
+            <Pressable style={styles.sportPickerCancel} onPress={() => setShowSportPickerModal(false)}>
+              <Text style={styles.sportPickerCancelText}>Cancel</Text>
+            </Pressable>
+          </View>
         </View>
       </Modal>
     </View>
@@ -1923,6 +1989,57 @@ const styles = StyleSheet.create({
   },
   attendanceRecordDetailText: {
     fontSize: 12,
+    color: ProTennisColors.textSecondary,
+  },
+  sportPickerOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.6)",
+    justifyContent: "center",
+    alignItems: "center",
+    paddingHorizontal: Spacing.xl,
+  },
+  sportPickerSheet: {
+    backgroundColor: ProTennisColors.surfaceElevated,
+    borderRadius: BorderRadius.xl,
+    padding: Spacing.xl,
+    width: "100%",
+  },
+  sportPickerTitle: {
+    fontSize: 18,
+    fontWeight: "700",
+    color: ProTennisColors.white,
+    marginBottom: Spacing.lg,
+    textAlign: "center",
+  },
+  sportPickerOption: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.md,
+    paddingVertical: Spacing.md,
+    paddingHorizontal: Spacing.md,
+    borderRadius: BorderRadius.lg,
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.1)",
+    marginBottom: Spacing.sm,
+  },
+  sportPickerDot: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+  },
+  sportPickerOptionText: {
+    flex: 1,
+    fontSize: 16,
+    fontWeight: "600",
+    color: ProTennisColors.white,
+  },
+  sportPickerCancel: {
+    marginTop: Spacing.sm,
+    paddingVertical: Spacing.md,
+    alignItems: "center",
+  },
+  sportPickerCancelText: {
+    fontSize: 15,
     color: ProTennisColors.textSecondary,
   },
 });

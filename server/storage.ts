@@ -4430,12 +4430,19 @@ export const storage = {
     return sessionsWithDowns;
   },
 
-  async getPlayerDomainXpSummary(playerId: string): Promise<{ domainId: string; totalXp: number; observationCount: number; avgDelta: number; lastObservation: Date | null }[]> {
+  async getPlayerDomainXpSummary(playerId: string, sport?: string): Promise<{ domainId: string; totalXp: number; observationCount: number; avgDelta: number; lastObservation: Date | null }[]> {
     const allDomains = await db.select().from(skillDomains);
-    const observations = await db
-      .select()
-      .from(sessionSkillObservations)
-      .where(eq(sessionSkillObservations.playerId, playerId));
+    const observationRows = sport
+      ? await db
+          .select({ obs: sessionSkillObservations })
+          .from(sessionSkillObservations)
+          .innerJoin(sessions, eq(sessionSkillObservations.sessionId, sessions.id))
+          .where(and(eq(sessionSkillObservations.playerId, playerId), eq(sessions.sport, sport)))
+      : await db
+          .select({ obs: sessionSkillObservations })
+          .from(sessionSkillObservations)
+          .where(eq(sessionSkillObservations.playerId, playerId));
+    const observations = observationRows.map(r => r.obs);
     
     const domainMap: Record<string, { totalXp: number; count: number; lastDate: Date | null }> = {};
     

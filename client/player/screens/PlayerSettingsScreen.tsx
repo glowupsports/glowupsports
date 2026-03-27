@@ -12,6 +12,7 @@ import { useAuth } from "@/coach/context/AuthContext";
 import { apiRequest, getApiUrl } from "@/lib/query-client";
 import { usePushNotifications } from "@/hooks/usePushNotifications";
 import { SUPPORTED_LANGUAGES, setStoredLanguage, type LanguageCode } from "@/i18n";
+import { useSport, SPORT_DEFINITIONS, type Sport } from "@/player/context/SportContext";
 
 interface SettingItem {
   id: string;
@@ -37,6 +38,26 @@ export default function PlayerSettingsScreen() {
   const [deleteLoading, setDeleteLoading] = useState(false);
   const [appleLinked, setAppleLinked] = useState(false);
   const [appleLoading, setAppleLoading] = useState(false);
+  const [sportSaving, setSportSaving] = useState(false);
+
+  const { activeSports, updateActiveSports } = useSport();
+
+  const toggleSport = async (sport: Sport) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    let newSports: Sport[];
+    if (activeSports.includes(sport)) {
+      if (activeSports.length === 1) return;
+      newSports = activeSports.filter(s => s !== sport);
+    } else {
+      newSports = [...activeSports, sport];
+    }
+    setSportSaving(true);
+    try {
+      await updateActiveSports(newSports);
+    } finally {
+      setSportSaving(false);
+    }
+  };
 
   useEffect(() => {
     if (Platform.OS === 'ios') {
@@ -355,6 +376,38 @@ export default function PlayerSettingsScreen() {
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.section}>
+          <View style={styles.sectionHeaderRow}>
+            <Text style={styles.sectionTitle}>My Sports</Text>
+            {sportSaving ? <ActivityIndicator size="small" color={Colors.dark.primary} /> : null}
+          </View>
+          <Text style={styles.sectionSubtitle}>Select the sports you play to personalise your experience.</Text>
+          <View style={styles.sectionCard}>
+            {SPORT_DEFINITIONS.map((sport, index) => {
+              const isActive = activeSports.includes(sport.key);
+              const isLast = index === SPORT_DEFINITIONS.length - 1;
+              return (
+                <Pressable
+                  key={sport.key}
+                  style={[styles.settingItem, !isLast && styles.settingItemBorder]}
+                  onPress={() => toggleSport(sport.key)}
+                >
+                  <View style={[styles.settingIcon, { backgroundColor: sport.color + "20" }]}>
+                    <Ionicons name={sport.icon as keyof typeof Ionicons.glyphMap} size={20} color={sport.color} />
+                  </View>
+                  <View style={styles.languageTextContainer}>
+                    <Text style={styles.settingLabel}>{sport.label}</Text>
+                    <Text style={styles.languageDescription}>{sport.description}</Text>
+                  </View>
+                  <View style={[styles.sportCheckbox, isActive && { backgroundColor: sport.color, borderColor: sport.color }]}>
+                    {isActive ? <Ionicons name="checkmark" size={14} color={Colors.dark.backgroundRoot} /> : null}
+                  </View>
+                </Pressable>
+              );
+            })}
+          </View>
+        </View>
+
+        <View style={styles.section}>
           <Text style={styles.sectionTitle}>{t('player.settings.notifications')}</Text>
           <View style={styles.sectionCard}>
             {notificationSettings.map(renderSettingItem)}
@@ -640,6 +693,32 @@ const styles = StyleSheet.create({
     height: 12,
     borderRadius: 6,
     backgroundColor: GlowColors.primary,
+  },
+  sectionHeaderRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginLeft: Spacing.sm,
+    marginBottom: 2,
+  },
+  sectionSubtitle: {
+    fontSize: 13,
+    color: Colors.dark.textMuted,
+    marginLeft: Spacing.sm,
+    marginBottom: Spacing.xs,
+  },
+  settingItemBorder: {
+    borderBottomWidth: 1,
+    borderBottomColor: "rgba(255, 255, 255, 0.06)",
+  },
+  sportCheckbox: {
+    width: 24,
+    height: 24,
+    borderRadius: 6,
+    borderWidth: 2,
+    borderColor: Colors.dark.border,
+    alignItems: "center",
+    justifyContent: "center",
   },
   deleteAccountButton: {
     flexDirection: "row",

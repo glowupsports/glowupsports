@@ -49,6 +49,7 @@ import { apiRequest, getApiUrl, apiFetch } from "@/lib/query-client";
 import { saveAuthState, setAuthToken, AuthUser } from "@/lib/auth";
 import { useAuth } from "@/coach/context/AuthContext";
 import { TshirtSize, childTshirtSizes, adultTshirtSizes } from "@shared/schema";
+import { SPORT_DEFINITIONS } from "@/player/context/SportContext";
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get("window");
 
@@ -110,6 +111,7 @@ interface OnboardingData {
   gender: string | null;
   profilePhotoUri: string | null;
   ballLevel: string | null;
+  selectedSports: string[];
   motivationType: string | null;
   motivationTypes: string[];
   experienceLevel: string | null;
@@ -150,7 +152,7 @@ interface StepProps {
   ageGroup?: AgeGroup;
 }
 
-const TOTAL_STEPS = 19;
+const TOTAL_STEPS = 20;
 
 function ProgressBar({ currentStep, totalSteps }: { currentStep: number; totalSteps: number }) {
   return (
@@ -1626,6 +1628,55 @@ function AcademySelectionStep({ data, setData, onNext }: StepProps) {
   );
 }
 
+function SportSelectionStep({ data, setData, onNext }: StepProps) {
+  const toggleSport = (sportKey: string) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    setData(prev => {
+      const current = prev.selectedSports;
+      if (current.includes(sportKey)) {
+        if (current.length === 1) return prev;
+        return { ...prev, selectedSports: current.filter(s => s !== sportKey) };
+      }
+      return { ...prev, selectedSports: [...current, sportKey] };
+    });
+  };
+
+  return (
+    <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.stepContainer} showsVerticalScrollIndicator={false}>
+      <Text style={styles.stepTitle}>Which sports do you play?</Text>
+      <Text style={styles.stepSubtitle}>Select all that apply. We will personalise your experience for each sport.</Text>
+
+      <View style={styles.sportGrid}>
+        {SPORT_DEFINITIONS.map(sport => {
+          const isSelected = data.selectedSports.includes(sport.key);
+          return (
+            <Pressable
+              key={sport.key}
+              style={[
+                styles.sportCard,
+                isSelected && { borderColor: sport.color, backgroundColor: sport.color + "15" },
+              ]}
+              onPress={() => toggleSport(sport.key)}
+            >
+              <View style={[styles.sportIconCircle, { backgroundColor: sport.color + "20" }]}>
+                <Ionicons name={sport.icon as keyof typeof Ionicons.glyphMap} size={28} color={sport.color} />
+              </View>
+              <Text style={[styles.sportCardTitle, isSelected && { color: sport.color }]}>{sport.label}</Text>
+              <Text style={styles.sportCardDesc}>{sport.description}</Text>
+              {isSelected ? (
+                <View style={[styles.sportCheckmark, { backgroundColor: sport.color }]}>
+                  <Ionicons name="checkmark" size={12} color="#000" />
+                </View>
+              ) : null}
+            </Pressable>
+          );
+        })}
+      </View>
+
+    </ScrollView>
+  );
+}
+
 function GoalSettingStep({ data, setData, onNext }: StepProps) {
   const [selectedGoals, setSelectedGoals] = useState<string[]>(data.shortTermGoals || []);
   const [longTermDream, setLongTermDream] = useState(data.longTermDream || "");
@@ -1985,6 +2036,7 @@ export default function PlayerOnboardingV2Screen({ onComplete }: Props) {
     gender: null,
     profilePhotoUri: null,
     ballLevel: null,
+    selectedSports: ["tennis"],
     motivationType: null,
     motivationTypes: [],
     experienceLevel: null,
@@ -2036,6 +2088,10 @@ export default function PlayerOnboardingV2Screen({ onComplete }: Props) {
         longTermDream: onboardingData.longTermDream,
         quizScore: onboardingData.quizScore,
         playStyle: onboardingData.playStyle,
+        sportProfiles: onboardingData.selectedSports.reduce<Record<string, {}>>((acc, sport) => {
+          acc[sport] = {};
+          return acc;
+        }, {}),
       };
       const response = await apiRequest("POST", "/api/player/me/onboarding", payload);
       const result = await response.json();
@@ -2188,8 +2244,9 @@ export default function PlayerOnboardingV2Screen({ onComplete }: Props) {
       case 14: return true; // Academy Selection
       case 15: return true; // Academy Welcome Video
       case 16: return true; // Goal Setting
-      case 17: return true; // Parent Connect
-      case 18: return true; // Completion
+      case 17: return true; // Sport Selection
+      case 18: return true; // Parent Connect
+      case 19: return true; // Completion
       default: return false;
     }
   };
@@ -2215,13 +2272,14 @@ export default function PlayerOnboardingV2Screen({ onComplete }: Props) {
       case 14: return <AcademySelectionStep {...stepProps} />;
       case 15: return <AcademyWelcomeVideoStep {...stepProps} />;
       case 16: return <GoalSettingStep {...stepProps} />;
-      case 17: return needsParentConnect ? <ParentConnectStep {...stepProps} /> : <CompletionStep {...stepProps} onComplete={handleComplete} isSaving={completionSaving} />;
-      case 18: return <CompletionStep {...stepProps} onComplete={handleComplete} isSaving={completionSaving} />;
+      case 17: return <SportSelectionStep {...stepProps} />;
+      case 18: return needsParentConnect ? <ParentConnectStep {...stepProps} /> : <CompletionStep {...stepProps} onComplete={handleComplete} isSaving={completionSaving} />;
+      case 19: return <CompletionStep {...stepProps} onComplete={handleComplete} isSaving={completionSaving} />;
       default: return null;
     }
   };
 
-  const isCompletionStep = currentStep === TOTAL_STEPS - 1 || (currentStep === 17 && !needsParentConnect);
+  const isCompletionStep = currentStep === TOTAL_STEPS - 1 || (currentStep === 18 && !needsParentConnect);
 
   return (
     <View style={[styles.container, { paddingTop: insets.top + Spacing.lg }]}>
@@ -3055,6 +3113,52 @@ const styles = StyleSheet.create({
     ...Typography.body,
     color: Colors.dark.backgroundRoot,
     fontWeight: "600",
+  },
+  sportGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: Spacing.md,
+    marginTop: Spacing.xl,
+    justifyContent: "center",
+  },
+  sportCard: {
+    width: (SCREEN_WIDTH - Spacing.xl * 2 - Spacing.md) / 2 - 12,
+    backgroundColor: "rgba(255,255,255,0.05)",
+    borderRadius: BorderRadius.lg,
+    borderWidth: 2,
+    borderColor: "rgba(255,255,255,0.10)",
+    padding: Spacing.lg,
+    alignItems: "center",
+    gap: Spacing.sm,
+    position: "relative",
+  },
+  sportIconCircle: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  sportCardTitle: {
+    ...Typography.body,
+    fontWeight: "700",
+    color: Colors.dark.text,
+    textAlign: "center",
+  },
+  sportCardDesc: {
+    ...Typography.small,
+    color: Colors.dark.textMuted,
+    textAlign: "center",
+  },
+  sportCheckmark: {
+    position: "absolute",
+    top: 8,
+    right: 8,
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    alignItems: "center",
+    justifyContent: "center",
   },
   adjustLink: {
     flexDirection: "row",

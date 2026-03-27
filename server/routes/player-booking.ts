@@ -4838,6 +4838,7 @@ Return only the JSON array, nothing else.`;
         requiredLevelMax,
         requiredBallLevel,
         maxPlayers,
+        sport,
       } = req.body;
 
       const [request] = await db.insert(matchRequests).values({
@@ -4855,6 +4856,7 @@ Return only the JSON array, nothing else.`;
         invitedPlayerId: invitedPlayerId || null,
         status: invitedPlayerId ? "pending_invite" : "open",
         matchIntent: matchIntent || "friendly",
+        sport: sport || "tennis",
       }).returning();
 
       console.log("[MatchRequest] Created:", request.id, "by player:", playerId);

@@ -14,6 +14,8 @@ import PillarProgressRings from "@/components/PillarProgressRings";
 import { EmptyStateCard } from "@/components/EmptyStateCard";
 import { getStageFromLevel, type BallStage } from "@shared/language-switch";
 import { useWalkthrough } from "@/player/context/WalkthroughContext";
+import { useSport, SPORT_DEFINITIONS, getSportColor, getSportLabel, getSportIcon } from "@/player/context/SportContext";
+import { getApiUrl, getAuthHeaders } from "@/lib/query-client";
 
 interface DomainInsights {
   recentHighlights: string[];
@@ -58,6 +60,7 @@ interface LevelReadiness {
 }
 
 interface ProgressData {
+  sport?: string;
   level: number;
   xp: number;
   xpForNextLevel: number;
@@ -1575,6 +1578,7 @@ export default function PlayerProgressScreen() {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<any>();
   const { hasSeenScreen, startWalkthrough } = useWalkthrough();
+  const { activeSports, activeSport, setActiveSport, isMultiSport } = useSport();
   const [showLevelModal, setShowLevelModal] = useState(false);
   const [showGlowScoreModal, setShowGlowScoreModal] = useState(false);
   const [showXpModal, setShowXpModal] = useState(false);
@@ -1583,20 +1587,30 @@ export default function PlayerProgressScreen() {
   const [showPillarModal, setShowPillarModal] = useState(false);
   const [selectedPillar, setSelectedPillar] = useState<SkillDomain | null>(null);
 
+  const makeSportUrl = (path: string) => {
+    const url = new URL(path, getApiUrl());
+    url.searchParams.set("sport", activeSport);
+    return url.toString();
+  };
+
   const { data, isLoading, error } = useQuery<ProgressData>({
-    queryKey: ["/api/player/me/progress"],
+    queryKey: ["/api/player/me/progress", activeSport],
+    queryFn: () => fetch(makeSportUrl("/api/player/me/progress"), { headers: getAuthHeaders() }).then(r => r.json()),
   });
 
   const { data: attendanceData } = useQuery<AttendanceData>({
-    queryKey: ["/api/player/me/attendance"],
+    queryKey: ["/api/player/me/attendance", activeSport],
+    queryFn: () => fetch(makeSportUrl("/api/player/me/attendance"), { headers: getAuthHeaders() }).then(r => r.json()),
   });
 
   const { data: coachFeedback } = useQuery<CoachFeedbackItem[]>({
-    queryKey: ["/api/player/me/feedback"],
+    queryKey: ["/api/player/me/feedback", activeSport],
+    queryFn: () => fetch(makeSportUrl("/api/player/me/feedback"), { headers: getAuthHeaders() }).then(r => r.json()),
   });
 
   const { data: strokeFeedbackData } = useQuery<StrokeFeedbackRow[]>({
-    queryKey: ["/api/player/me/stroke-feedback"],
+    queryKey: ["/api/player/me/stroke-feedback", activeSport],
+    queryFn: () => fetch(makeSportUrl("/api/player/me/stroke-feedback"), { headers: getAuthHeaders() }).then(r => r.json()),
   });
 
   useEffect(() => {
@@ -1718,12 +1732,54 @@ export default function PlayerProgressScreen() {
           </View>
           <Text style={styles.subtitle}>
             {isNewPlayer 
-              ? "Start your tennis journey - your coach will track your progress"
+              ? "Start your journey - your coach will track your progress"
               : "Coach-validated skill development"}
           </Text>
         </View>
 
-        {/* Ball Level Badge - Always Shown with Neon Border */}
+        {/* Sport Tab Switcher */}
+        {isMultiSport ? (
+          <View style={styles.sportTabsRow}>
+            {SPORT_DEFINITIONS.filter(s => activeSports.includes(s.key)).map(sport => {
+              const isActive = activeSport === sport.key;
+              return (
+                <Pressable
+                  key={sport.key}
+                  style={[styles.sportTab, isActive && { borderBottomColor: sport.color, borderBottomWidth: 2 }]}
+                  onPress={() => {
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                    setActiveSport(sport.key);
+                  }}
+                >
+                  <Ionicons
+                    name={sport.icon as keyof typeof Ionicons.glyphMap}
+                    size={15}
+                    color={isActive ? sport.color : Colors.dark.textMuted}
+                  />
+                  <Text style={[styles.sportTabText, isActive && { color: sport.color }]}>
+                    {sport.label}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </View>
+        ) : null}
+
+        {/* Sport context label - shows which sport's stats are displayed */}
+        {isMultiSport ? (
+          <View style={styles.sportContextRow}>
+            <Ionicons
+              name={getSportIcon(activeSport) as keyof typeof Ionicons.glyphMap}
+              size={13}
+              color={getSportColor(activeSport)}
+            />
+            <Text style={[styles.sportContextLabel, { color: getSportColor(activeSport) }]}>
+              {getSportLabel(activeSport)} Stats
+            </Text>
+          </View>
+        ) : null}
+
+        {/* Progression Level Badge - Sport-Aware */}
         <View style={styles.ballLevelSection}>
           <LinearGradient
             colors={["rgba(200, 255, 61, 0.3)", "rgba(0, 229, 255, 0.3)", "rgba(224, 64, 251, 0.3)"]}
@@ -1741,7 +1797,15 @@ export default function PlayerProgressScreen() {
                 showLabel={true}
               />
               <View style={styles.levelLabelRow}>
-                <Text style={styles.ballLevelHint}>{isNewPlayer ? "Your starting level" : "Tap to learn more"}</Text>
+                <Text style={styles.ballLevelHint}>
+                  {isNewPlayer
+                    ? "Your starting level"
+                    : activeSport === "padel"
+                    ? "Padel level"
+                    : activeSport === "pickleball"
+                    ? "Pickleball rating"
+                    : "Tap to learn more"}
+                </Text>
                 <Ionicons name="information-circle-outline" size={12} color={Colors.dark.textMuted} />
               </View>
             </Pressable>
@@ -1884,7 +1948,9 @@ export default function PlayerProgressScreen() {
         {/* Pillar Progress Rings - 6 Core Pillars - ALWAYS SHOWN */}
         <View style={styles.pillarRingsSection}>
           <View style={styles.pillarHeaderRow}>
-            <Text style={styles.sectionTitle}>THE 6 PILLARS</Text>
+            <Text style={styles.sectionTitle}>
+              {activeSport === "padel" ? "PADEL SKILLS" : activeSport === "pickleball" ? "PICKLEBALL SKILLS" : "THE 6 PILLARS"}
+            </Text>
             {isNewPlayer && (
               <View style={styles.pillarNewBadge}>
                 <Ionicons name="information-circle" size={12} color="#00E5FF" />
@@ -2247,6 +2313,41 @@ const styles = StyleSheet.create({
     ...Typography.small,
     color: Colors.dark.textMuted,
     marginTop: 4,
+  },
+  sportTabsRow: {
+    flexDirection: "row",
+    paddingHorizontal: Spacing.xl,
+    marginBottom: Spacing.md,
+    borderBottomWidth: 1,
+    borderBottomColor: "rgba(255,255,255,0.08)",
+  },
+  sportTab: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    paddingVertical: Spacing.sm,
+    paddingHorizontal: Spacing.md,
+    marginRight: Spacing.sm,
+    borderBottomWidth: 2,
+    borderBottomColor: "transparent",
+  },
+  sportTabText: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: Colors.dark.textMuted,
+  },
+  sportContextRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+    paddingHorizontal: Spacing.xl,
+    marginBottom: Spacing.md,
+  },
+  sportContextLabel: {
+    fontSize: 12,
+    fontWeight: "700",
+    letterSpacing: 0.5,
+    textTransform: "uppercase",
   },
   ballLevelSection: {
     alignItems: "center",

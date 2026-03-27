@@ -16,6 +16,8 @@ import { apiRequest, getStaticAssetsUrl } from "@/lib/query-client";
 import { useWalkthrough } from "@/player/context/WalkthroughContext";
 import { useFamily } from "@/player/context/FamilyContext";
 import FamilyQuickSwitch from "@/player/components/FamilyQuickSwitch";
+import { useSport, getSportLabel, getSportColor, getSportIcon, SPORT_DEFINITIONS } from "@/player/context/SportContext";
+import { SportSwitcherChips } from "@/player/components/SportSwitcherChips";
 
 const courtBackground = require("@/assets/images/courts/court-night-default.png");
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
@@ -135,6 +137,9 @@ export default function PlayScreen() {
   const queryClient = useQueryClient();
   const { hasSeenScreen, startWalkthrough } = useWalkthrough();
   const { isFamily, familyData, activePlayerId } = useFamily();
+  const { isMultiSport, activeSports, activeSport, setActiveSport } = useSport();
+  const [showPlayModal, setShowPlayModal] = useState(false);
+  const [playModalStep, setPlayModalStep] = useState<"sport" | "type">("type");
   const initialTab = route.params?.initialTab || "Group Lessons";
   const [activeTab, setActiveTab] = useState<typeof TAB_OPTIONS[number]>(initialTab);
 
@@ -226,15 +231,15 @@ export default function PlayScreen() {
     return selectedBallLevel; // "all" or specific level
   }, [showOtherLevels, selectedBallLevel, playerBallLevel]);
 
-  const sessionsQueryKey = `/api/play/sessions?level=${sessionsLevelParam}`;
+  const sessionsQueryKey = `/api/play/sessions?level=${sessionsLevelParam}&sport=${activeSport}`;
 
   const { data: sessions, isLoading: sessionsLoading } = useQuery<PlaySession[]>({
     queryKey: [sessionsQueryKey],
   });
 
   const nearbyPlayersQueryKey = discoverFilter !== "all" 
-    ? `/api/play/nearby-players?filter=${discoverFilter}` 
-    : "/api/play/nearby-players";
+    ? `/api/play/nearby-players?filter=${discoverFilter}&sport=${activeSport}` 
+    : `/api/play/nearby-players?sport=${activeSport}`;
   const { data: nearbyPlayers, isLoading: playersLoading } = useQuery<NearbyPlayer[]>({
     queryKey: [nearbyPlayersQueryKey],
   });
@@ -887,12 +892,16 @@ export default function PlayScreen() {
 
         {activeTab === "Group Lessons" ? (
           <>
+            {isMultiSport ? <SportSwitcherChips style={styles.sportChipsRow} /> : null}
+
+            {/* Unified Play Hub */}
             <View style={styles.quickActions}>
               <Pressable 
                 style={styles.findMatchButton}
                 onPress={() => {
                   Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-                  navigation.navigate("CreateMatch" as never);
+                  setPlayModalStep(isMultiSport ? "sport" : "type");
+                  setShowPlayModal(true);
                 }}
               >
                 <LinearGradient
@@ -901,8 +910,10 @@ export default function PlayScreen() {
                   end={{ x: 1, y: 0 }}
                   style={styles.findMatchGradient}
                 >
-                  <Ionicons name="flame" size={22} color={Colors.dark.backgroundRoot} />
-                  <Text style={styles.findMatchText}>{t("player.play.findMatch")}</Text>
+                  <Ionicons name="flame" size={20} color={Colors.dark.backgroundRoot} />
+                  <Text style={styles.findMatchText}>
+                    {isMultiSport ? `Play ${getSportLabel(activeSport)}` : t("player.play.findMatch")}
+                  </Text>
                 </LinearGradient>
               </Pressable>
 
@@ -919,25 +930,116 @@ export default function PlayScreen() {
                   end={{ x: 1, y: 0 }}
                   style={styles.findMatchGradient}
                 >
-                  <Ionicons name="tennisball" size={20} color={Colors.dark.backgroundRoot} />
+                  <Ionicons name="tennisball" size={18} color={Colors.dark.backgroundRoot} />
                   <Text style={styles.findMatchText}>{t("player.play.openMatches")}</Text>
                 </LinearGradient>
               </Pressable>
             </View>
 
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.bookingToolsScroll} contentContainerStyle={styles.bookingToolsRow}>
-              <Pressable
-                style={styles.bookingToolButton}
-                onPress={() => {
-                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-                  navigation.navigate("FindGame" as never);
-                }}
-              >
-                <View style={styles.bookingToolIcon}>
-                  <Ionicons name="people-circle-outline" size={18} color={"#00E5FF"} />
+            {/* Play Modal - unified entry point: sport (if multi) then match type */}
+            <Modal
+              visible={showPlayModal}
+              transparent
+              animationType="slide"
+              onRequestClose={() => {
+                setShowPlayModal(false);
+                setPlayModalStep(isMultiSport ? "sport" : "type");
+              }}
+            >
+              <Pressable style={styles.playModalOverlay} onPress={() => {
+                setShowPlayModal(false);
+                setPlayModalStep(isMultiSport ? "sport" : "type");
+              }}>
+                <View style={styles.playModalSheet}>
+                  <View style={styles.playModalHandle} />
+                  {playModalStep === "sport" ? (
+                    <>
+                      <Text style={styles.playModalTitle}>Choose a sport</Text>
+                      {SPORT_DEFINITIONS.filter(s => activeSports.includes(s.key)).map(sport => (
+                        <Pressable
+                          key={sport.key}
+                          style={[styles.playModalOption, { borderWidth: 1, borderColor: sport.color + "40", backgroundColor: sport.color + "10", borderRadius: 14 }]}
+                          onPress={() => {
+                            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                            setActiveSport(sport.key);
+                            setPlayModalStep("type");
+                          }}
+                        >
+                          <View style={styles.playModalSportRow}>
+                            <Ionicons name={getSportIcon(sport.key) as keyof typeof Ionicons.glyphMap} size={22} color={sport.color} />
+                            <Text style={[styles.playModalOptionTitle, { color: sport.color }]}>{sport.label}</Text>
+                            <Ionicons name="chevron-forward" size={18} color={sport.color} />
+                          </View>
+                        </Pressable>
+                      ))}
+                    </>
+                  ) : (
+                    <>
+                      <Text style={styles.playModalTitle}>
+                        {isMultiSport ? `${getSportLabel(activeSport)} — What are you looking for?` : "What are you looking for?"}
+                      </Text>
+                      {isMultiSport ? (
+                        <Pressable style={styles.playModalBackRow} onPress={() => {
+                          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                          setPlayModalStep("sport");
+                        }}>
+                          <Ionicons name="chevron-back" size={14} color={Colors.dark.textMuted} />
+                          <Text style={styles.playModalBackText}>Change sport</Text>
+                        </Pressable>
+                      ) : null}
+                      <Pressable
+                        style={styles.playModalOption}
+                        onPress={() => {
+                          setShowPlayModal(false);
+                          setPlayModalStep(isMultiSport ? "sport" : "type");
+                          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                          navigation.navigate("CreateMatch" as never);
+                        }}
+                      >
+                        <LinearGradient
+                          colors={[Colors.dark.primary, Colors.dark.primaryGlow]}
+                          start={{ x: 0, y: 0 }}
+                          end={{ x: 1, y: 0 }}
+                          style={styles.playModalOptionGradient}
+                        >
+                          <Ionicons name="flame" size={22} color={Colors.dark.backgroundRoot} />
+                          <View style={styles.playModalOptionText}>
+                            <Text style={styles.playModalOptionTitle}>Find a Match</Text>
+                            <Text style={styles.playModalOptionDesc}>Challenge a player to a 1v1 match</Text>
+                          </View>
+                          <Ionicons name="chevron-forward" size={18} color={Colors.dark.backgroundRoot} />
+                        </LinearGradient>
+                      </Pressable>
+                      <Pressable
+                        style={styles.playModalOption}
+                        onPress={() => {
+                          setShowPlayModal(false);
+                          setPlayModalStep(isMultiSport ? "sport" : "type");
+                          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                          navigation.navigate("FindGame" as never);
+                        }}
+                      >
+                        <LinearGradient
+                          colors={["#00E5FF", "#00A3D9"]}
+                          start={{ x: 0, y: 0 }}
+                          end={{ x: 1, y: 0 }}
+                          style={styles.playModalOptionGradient}
+                        >
+                          <Ionicons name="people-circle-outline" size={22} color={Colors.dark.backgroundRoot} />
+                          <View style={styles.playModalOptionText}>
+                            <Text style={styles.playModalOptionTitle}>Find a Game</Text>
+                            <Text style={styles.playModalOptionDesc}>Join a group session or social game</Text>
+                          </View>
+                          <Ionicons name="chevron-forward" size={18} color={Colors.dark.backgroundRoot} />
+                        </LinearGradient>
+                      </Pressable>
+                    </>
+                  )}
                 </View>
-                <Text style={[styles.bookingToolText, { color: "#00E5FF" }]}>Find a Game</Text>
               </Pressable>
+            </Modal>
+
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.bookingToolsScroll} contentContainerStyle={styles.bookingToolsRow}>
               <Pressable
                 style={styles.bookingToolButton}
                 onPress={() => {
@@ -1419,20 +1521,87 @@ const styles = StyleSheet.create({
     fontWeight: "700",
   },
   quickActions: {
-    flexDirection: "row",
+    flexDirection: "column",
     paddingHorizontal: Spacing.lg,
     marginBottom: Spacing.lg,
     gap: Spacing.sm,
   },
+  sportChipsRow: {
+    marginBottom: Spacing.sm,
+  },
   findMatchButton: {
-    flex: 1,
     borderRadius: BorderRadius.full,
     overflow: "hidden",
     borderWidth: 2,
     borderColor: Colors.dark.primaryGlow + "60",
   },
-  openMatchesButton: {
+  playModalOverlay: {
     flex: 1,
+    backgroundColor: "rgba(0,0,0,0.6)",
+    justifyContent: "flex-end",
+  },
+  playModalSheet: {
+    backgroundColor: Colors.dark.surface,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    padding: Spacing.xl,
+    paddingBottom: 48,
+    gap: Spacing.md,
+  },
+  playModalHandle: {
+    width: 40,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: Colors.dark.border,
+    alignSelf: "center",
+    marginBottom: Spacing.sm,
+  },
+  playModalTitle: {
+    ...Typography.h3,
+    color: Colors.dark.text,
+    fontWeight: "700",
+    marginBottom: Spacing.sm,
+  },
+  playModalOption: {
+    borderRadius: BorderRadius.lg,
+    overflow: "hidden",
+  },
+  playModalOptionGradient: {
+    flexDirection: "row",
+    alignItems: "center",
+    padding: Spacing.lg,
+    gap: Spacing.md,
+  },
+  playModalOptionText: {
+    flex: 1,
+  },
+  playModalOptionTitle: {
+    ...Typography.h4,
+    color: Colors.dark.backgroundRoot,
+    fontWeight: "700",
+  },
+  playModalOptionDesc: {
+    ...Typography.small,
+    color: Colors.dark.backgroundRoot + "cc",
+    marginTop: 2,
+  },
+  playModalSportRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.md,
+    padding: Spacing.md,
+  },
+  playModalBackRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    marginBottom: Spacing.sm,
+  },
+  playModalBackText: {
+    ...Typography.small,
+    color: Colors.dark.textMuted,
+  },
+  openMatchesButton: {
     borderRadius: BorderRadius.full,
     overflow: "hidden",
     borderWidth: 2,

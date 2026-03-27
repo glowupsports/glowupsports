@@ -1049,6 +1049,7 @@ import fs from "fs";
           });
         }
         const playerId = req.user!.playerId!;
+        const requestedSport = (req.query.sport as string) || "tennis";
 
         const player = await storage.getPlayer(playerId);
         if (!player) {
@@ -1061,9 +1062,9 @@ import fs from "fs";
         // Get player skill states for all domains
         const skillStates = await storage.getPlayerSkillStates(playerId);
 
-        // Get domain XP summary from observations
+        // Get domain XP summary from observations, scoped to the requested sport
         const domainXpSummary =
-          await storage.getPlayerDomainXpSummary(playerId);
+          await storage.getPlayerDomainXpSummary(playerId, requestedSport);
 
         // Get XP data
         const xpData = await storage.getPlayerXpTotal(playerId);
@@ -1118,8 +1119,11 @@ import fs from "fs";
           .slice(0, 5);
 
         // Calculate level readiness for next level
-        // Support both legacy composite (red1, red2) and new split (ballLevel=red, skillLevel=1) formats
-        const currentBallLevel = player.ballLevel || "red";
+        // For non-tennis sports, use sport-specific ballLevel from sportProfiles if available
+        type SportProfile = { ballLevel?: string | null; skillLevel?: number | null };
+        const sportProfiles = (player as { sportProfiles?: Record<string, SportProfile> | null }).sportProfiles ?? null;
+        const sportSpecificBallLevel = requestedSport !== "tennis" && sportProfiles?.[requestedSport]?.ballLevel;
+        const currentBallLevel = sportSpecificBallLevel || player.ballLevel || "red";
         const currentSkillLevel = player.skillLevel || 1;
 
         // Determine next level based on current ball level and skill level
@@ -1221,6 +1225,7 @@ import fs from "fs";
         const compositeLevel = `${normalizedBallLevel.toUpperCase()}_${normalizedSkillLevel}`;
 
         res.json({
+          sport: requestedSport,
           level,
           xp: totalXp,
           xpForNextLevel: (level + 1) * 500,
@@ -1292,6 +1297,7 @@ import fs from "fs";
           });
         }
         const playerId = req.user!.playerId!;
+        const attendanceSport = typeof req.query.sport === "string" ? req.query.sport : null;
 
         // Get all series this player is enrolled in
         const playerSeriesRecords = await db
@@ -1313,11 +1319,16 @@ import fs from "fs";
 
         const seriesIds = playerSeriesRecords.map((r) => r.seriesId);
 
-        // Get series details
+        // Get series details, optionally filtered by sport
         const seriesDetails = await db
           .select()
           .from(coachingSeries)
-          .where(inArray(coachingSeries.id, seriesIds));
+          .where(
+            and(
+              inArray(coachingSeries.id, seriesIds),
+              attendanceSport ? eq(coachingSeries.sport, attendanceSport) : undefined,
+            ),
+          );
 
         // Get attendance counts per series
         const classes = await Promise.all(
@@ -2080,16 +2091,28 @@ import fs from "fs";
 
         const myGroupIds = memberRows.map((m) => m.groupId);
 
-        // Get academy groups (public ones player can join)
-        const academyGroups = await db
-          .select()
+        // Get academy groups (public ones player can join), optionally filtered by sport
+        const groupsSport = typeof req.query.sport === "string" ? req.query.sport : null;
+
+        const academyGroupRows = await db
+          .select({
+            group: communityGroupsTable,
+            seriesSport: coachingSeries.sport,
+          })
           .from(communityGroupsTable)
+          .leftJoin(coachingSeries, eq(coachingSeries.id, communityGroupsTable.seriesId))
           .where(eq(communityGroupsTable.academyId, player.academyId));
 
-        const groups = academyGroups.map((g) => ({
-          ...g,
-          isMember: myGroupIds.includes(g.id),
-          role: memberRows.find((m) => m.groupId === g.id)?.role || null,
+        const filteredGroupRows = groupsSport
+          ? academyGroupRows.filter(
+              (row) => row.seriesSport === null || row.seriesSport === undefined || row.seriesSport === groupsSport,
+            )
+          : academyGroupRows;
+
+        const groups = filteredGroupRows.map((row) => ({
+          ...row.group,
+          isMember: myGroupIds.includes(row.group.id),
+          role: memberRows.find((m) => m.groupId === row.group.id)?.role || null,
         }));
 
         res.json({
@@ -3148,13 +3171,22 @@ import fs from "fs";
           });
         }
 
-        // Build sportProfiles.tennis from the onboarding ball level so it is represented
-        // in the per-sport profile model from the start
+        // Build sportProfiles from onboarding: merge selected sports + ball level for tennis
+        type SportProfileEntry = { ballLevel?: string | null; skillLevel?: number | null };
+        type SportProfilesMap = Record<string, SportProfileEntry>;
         const existingPlayer = await storage.getPlayer(playerId);
-        const existingSportProfiles = (existingPlayer as any)?.sportProfiles || {};
-        const updatedSportProfiles = ballLevel
-          ? { ...existingSportProfiles, tennis: { ...(existingSportProfiles.tennis || {}), ballLevel } }
-          : existingSportProfiles;
+        const existingSportProfiles: SportProfilesMap = (existingPlayer as { sportProfiles?: SportProfilesMap | null })?.sportProfiles ?? {};
+        // Start with selected sports from request body (e.g. tennis, padel, pickleball)
+        const rawBodyProfiles = req.body.sportProfiles;
+        const selectedSports: SportProfilesMap = (rawBodyProfiles && typeof rawBodyProfiles === "object" && !Array.isArray(rawBodyProfiles))
+          ? (rawBodyProfiles as SportProfilesMap)
+          : {};
+        const mergedSportProfiles: SportProfilesMap = { ...existingSportProfiles, ...selectedSports };
+        // Only inject ballLevel into tennis profile when tennis is among the user's selected sports
+        const userSelectedTennis = "tennis" in mergedSportProfiles;
+        const updatedSportProfiles = (ballLevel && userSelectedTennis)
+          ? { ...mergedSportProfiles, tennis: { ...(mergedSportProfiles.tennis || {}), ballLevel } }
+          : mergedSportProfiles;
 
         const updatedPlayer = await storage.updatePlayer(playerId, {
           onboardingCompleted: true,

@@ -41,6 +41,7 @@ import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import { Colors, Spacing, FontSizes, BorderRadius, Typography } from "@/constants/theme";
 import { apiRequest, getApiUrl } from "@/lib/query-client";
+import { useSport } from "@/player/context/SportContext";
 import { getAuthToken } from "@/lib/auth";
 import { useHeaderHeight } from "@react-navigation/elements";
 import Slider from "@react-native-community/slider";
@@ -70,6 +71,7 @@ export default function CreateMatchScreen() {
   const insets = useSafeAreaInsets();
   const headerHeight = useHeaderHeight();
   const queryClient = useQueryClient();
+  const { activeSport } = useSport();
   
   // Get pre-selected opponent from route params (when coming from Challenge button)
   const preSelectedOpponent = route.params?.opponentId ? {
@@ -152,6 +154,7 @@ export default function CreateMatchScreen() {
         preferredTime: selectedTime,
         maxPlayers: matchType === "doubles" ? 4 : 2,
         matchIntent,
+        sport: activeSport,
       };
       
       logger.log("[CreateMatch] Match data:", matchData);

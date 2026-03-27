@@ -910,7 +910,9 @@ import { Router, type Request, type Response, type NextFunction } from "express"
           return res.status(400).json({ error: "Player not found" });
         }
 
-        const feedback = await db
+        const sport = typeof req.query.sport === "string" ? req.query.sport : null;
+
+        const feedbackQuery = db
           .select({
             id: inSessionFeedback.id,
             feedbackType: inSessionFeedback.feedbackType,
@@ -920,16 +922,18 @@ import { Router, type Request, type Response, type NextFunction } from "express"
             sessionId: inSessionFeedback.sessionId,
           })
           .from(inSessionFeedback)
-
+          .leftJoin(sessions, eq(sessions.id, inSessionFeedback.sessionId))
           .where(
             and(
               eq(inSessionFeedback.playerId, playerId),
               eq(inSessionFeedback.visibility, "public"),
+              sport ? eq(sessions.sport, sport) : undefined,
             ),
           )
           .orderBy(desc(inSessionFeedback.createdAt))
           .limit(50);
 
+        const feedback = await feedbackQuery;
         res.json(feedback);
       } catch (error) {
         console.error("Error fetching player feedback:", error);
@@ -1031,6 +1035,8 @@ import { Router, type Request, type Response, type NextFunction } from "express"
           return res.status(400).json({ error: "Player not found" });
         }
 
+        const strokeSport = typeof req.query.sport === "string" ? req.query.sport : null;
+
         const feedbackRows = await db
           .select({
             id: sessionSkillFeedback.id,
@@ -1043,7 +1049,13 @@ import { Router, type Request, type Response, type NextFunction } from "express"
             createdAt: sessionSkillFeedback.createdAt,
           })
           .from(sessionSkillFeedback)
-          .where(eq(sessionSkillFeedback.playerId, playerId))
+          .leftJoin(sessions, eq(sessions.id, sessionSkillFeedback.sessionId))
+          .where(
+            and(
+              eq(sessionSkillFeedback.playerId, playerId),
+              strokeSport ? eq(sessions.sport, strokeSport) : undefined,
+            ),
+          )
           .orderBy(desc(sessionSkillFeedback.createdAt))
           .limit(50);
 

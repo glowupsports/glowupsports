@@ -854,6 +854,9 @@ export const matchRequests = pgTable("match_requests", {
   // Capacity for doubles
   maxPlayers: integer("max_players").default(2),
   
+  // Sport
+  sport: text("sport").default("tennis"), // tennis | padel | pickleball
+
   // Status
   status: text("status").default("open"), // open | matched | cancelled | expired
   
