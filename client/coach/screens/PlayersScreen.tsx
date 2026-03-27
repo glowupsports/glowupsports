@@ -779,34 +779,4 @@ export default function PlayersScreen() {
   );
 }
 
-interface AttendanceHistoryRecord {
-  sessionId: string;
-  date: string;
-  startTime: string;
-  endTime: string;
-  sessionType: string;
-  status: string | null;
-  lateMinutes: number | null;
-  sessionStatus: string | null;
-  seriesId?: string | null;
-  seriesDayOfWeek?: number | null;
-  seriesTitle?: string | null;
-}
-
-interface SeriesAttendanceSummary {
-  seriesId: string;
-  dayOfWeek: number;
-  dayName: string;
-  startTime: string;
-  title: string;
-  totalSessions: number;
-  presentCount: number;
-  absentCount: number;
-  attendanceRate: number;
-}
-
-interface AttendanceHistoryResponse {
-  history: AttendanceHistoryRecord[];
-  seriesSummaries: SeriesAttendanceSummary[];
-}
 

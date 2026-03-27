@@ -3043,7 +3043,7 @@ export const styles = StyleSheet.create({
   },
 });
 
-const strokeTimelineStyles = StyleSheet.create({
+export const strokeTimelineStyles = StyleSheet.create({
   strokeRow: {
     backgroundColor: "rgba(255,255,255,0.04)",
     borderRadius: BorderRadius.sm,

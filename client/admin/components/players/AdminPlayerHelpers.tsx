@@ -4,8 +4,9 @@ import Ionicons from "@expo/vector-icons/Ionicons";
 import { Colors, Spacing, BorderRadius, Typography } from "@/constants/theme";
 import { GLOW_UP_TENNIS_LOGO } from "@/admin/components/logoBase64";
 import { styles } from "./adminPlayersStyles";
+import { AdminPlayerStats, AdminPlayer, AdminPlayerSessionItem } from "./adminPlayerTypes";
 
-export const generateAttendanceReportPDF = (stats: any, player: any) => {
+export const generateAttendanceReportPDF = (stats: AdminPlayerStats, player: AdminPlayer | undefined) => {
   if (!stats?.sessions || stats.sessions.length === 0) {
     Alert.alert("No Sessions", "There are no sessions to include in the report.");
     return;
@@ -15,7 +16,7 @@ export const generateAttendanceReportPDF = (stats: any, player: any) => {
   const reportDate = now.toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" });
   
   // Filter out future sessions - only show past sessions
-  const pastSessions = stats.sessions.filter((s: any) => {
+  const pastSessions = stats.sessions.filter((s: AdminPlayerSessionItem) => {
     if (!s.startTime) return false;
     const sessionTime = new Date(s.startTime);
     return sessionTime < now;
@@ -27,13 +28,13 @@ export const generateAttendanceReportPDF = (stats: any, player: any) => {
   }
   
   // Calculate stats only for past sessions
-  const presentCount = pastSessions.filter((s: any) => s.attended === "present").length;
-  const absentCount = pastSessions.filter((s: any) => s.attended === "absent" || s.attended === "no_show").length;
+  const presentCount = pastSessions.filter((s: AdminPlayerSessionItem) => s.attended === "present").length;
+  const absentCount = pastSessions.filter((s: AdminPlayerSessionItem) => s.attended === "absent" || s.attended === "no_show").length;
   const attendanceRate = pastSessions.length > 0 ? Math.round((presentCount / pastSessions.length) * 100) : 0;
 
   // Group sessions by month
-  const sessionsByMonth: { [key: string]: any[] } = {};
-  pastSessions.forEach((session: any) => {
+  const sessionsByMonth: { [key: string]: AdminPlayerSessionItem[] } = {};
+  pastSessions.forEach((session: AdminPlayerSessionItem) => {
     const sessionDate = new Date(session.startTime);
     const monthKey = `${sessionDate.getFullYear()}-${String(sessionDate.getMonth() + 1).padStart(2, '0')}`;
     if (!sessionsByMonth[monthKey]) {
@@ -59,7 +60,7 @@ export const generateAttendanceReportPDF = (stats: any, player: any) => {
     const date = new Date(monthKey + '-01');
     const monthLabel = date.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
     
-    const rowsHtml = sessions.map((session: any) => {
+    const rowsHtml = sessions.map((session: AdminPlayerSessionItem) => {
       const sessionDate = new Date(session.startTime);
       const isAttended = session.attended === "present";
       const isAbsent = session.attended === "absent" || session.attended === "no_show";

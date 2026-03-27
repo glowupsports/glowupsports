@@ -6,7 +6,6 @@ import {
   FlatList,
   Pressable,
   TextInput,
-  Modal,
   Alert,
   Platform,
   ActivityIndicator,
@@ -34,6 +33,7 @@ import { AdminInlinePlayerProfile } from "@/admin/components/players/AdminInline
 import { AdminMarkPaidModal } from "@/admin/components/players/AdminMarkPaidModal";
 import { AdminRecordPaymentModal } from "@/admin/components/players/AdminRecordPaymentModal";
 import { AdminAddPlayerModal } from "@/admin/components/players/AdminAddPlayerModal";
+import { AdminDeletePlayerModal } from "@/admin/components/players/AdminDeletePlayerModal";
 
 type Player = { id: string; name: string; email?: string | null; phone?: string | null; ballLevel?: string; level?: number; coachName?: string; age?: number; dateOfBirth?: string; parentName?: string; parentPhone?: string; isActive?: boolean; status?: string };
 type PlayerPackage = {
@@ -847,122 +847,13 @@ export default function AdminPlayersScreen() {
         isSubmitting={addPlayerMutation.isPending}
       />
 
-      {/* Delete Confirmation Modal */}
-      <Modal
+      <AdminDeletePlayerModal
         visible={showDeleteModal}
-        animationType="fade"
-        transparent
-        onRequestClose={() => setShowDeleteModal(false)}
-      >
-        <View style={styles.deleteModalOverlay}>
-          <Pressable style={StyleSheet.absoluteFill} onPress={() => setShowDeleteModal(false)} />
-          <View style={styles.deleteModalContent}>
-            <View style={styles.deleteModalHeader}>
-              <View style={styles.deleteModalIconContainer}>
-                <Ionicons name="trash" size={32} color={Colors.dark.error} />
-              </View>
-              <Text style={styles.deleteModalTitle}>Delete Player</Text>
-              <Text style={styles.deleteModalSubtitle}>
-                {playerStats?.player?.name || selectedPlayer?.name || "Player"}
-              </Text>
-            </View>
-
-            <Text style={styles.deleteOptionsLabel}>This will permanently delete:</Text>
-            
-            <ScrollView style={styles.deleteOptionsContainer}>
-              <View style={styles.deleteOptionRow}>
-                <View style={[styles.checkbox, styles.checkboxChecked]}>
-                  <Ionicons name="checkmark" size={14} color={Colors.dark.buttonText} />
-                </View>
-                <View style={styles.deleteOptionContent}>
-                  <Text style={styles.deleteOptionLabel}>Progress & XP Data</Text>
-                  <Text style={styles.deleteOptionDesc}>Skills, levels, XP transactions, assessments</Text>
-                </View>
-              </View>
-
-              <View style={styles.deleteOptionRow}>
-                <View style={[styles.checkbox, styles.checkboxChecked]}>
-                  <Ionicons name="checkmark" size={14} color={Colors.dark.buttonText} />
-                </View>
-                <View style={styles.deleteOptionContent}>
-                  <Text style={styles.deleteOptionLabel}>Feedback & Notes</Text>
-                  <Text style={styles.deleteOptionDesc}>Session feedback, coach notes</Text>
-                </View>
-              </View>
-
-              <View style={styles.deleteOptionRow}>
-                <View style={[styles.checkbox, styles.checkboxChecked]}>
-                  <Ionicons name="checkmark" size={14} color={Colors.dark.buttonText} />
-                </View>
-                <View style={styles.deleteOptionContent}>
-                  <Text style={styles.deleteOptionLabel}>Billing & Payments</Text>
-                  <Text style={styles.deleteOptionDesc}>Invoices, payments, packages, subscriptions</Text>
-                </View>
-              </View>
-
-              <View style={styles.deleteOptionRow}>
-                <View style={[styles.checkbox, styles.checkboxChecked]}>
-                  <Ionicons name="checkmark" size={14} color={Colors.dark.buttonText} />
-                </View>
-                <View style={styles.deleteOptionContent}>
-                  <Text style={styles.deleteOptionLabel}>Chat Messages</Text>
-                  <Text style={styles.deleteOptionDesc}>Conversations and message history</Text>
-                </View>
-              </View>
-
-              <View style={styles.deleteOptionRow}>
-                <View style={[styles.checkbox, styles.checkboxChecked]}>
-                  <Ionicons name="checkmark" size={14} color={Colors.dark.buttonText} />
-                </View>
-                <View style={styles.deleteOptionContent}>
-                  <Text style={styles.deleteOptionLabel}>Coach Reviews</Text>
-                  <Text style={styles.deleteOptionDesc}>Reviews given by the player</Text>
-                </View>
-              </View>
-
-              <View style={styles.deleteOptionRow}>
-                <View style={[styles.checkbox, styles.checkboxChecked]}>
-                  <Ionicons name="checkmark" size={14} color={Colors.dark.buttonText} />
-                </View>
-                <View style={styles.deleteOptionContent}>
-                  <Text style={styles.deleteOptionLabel}>Booking Requests</Text>
-                  <Text style={styles.deleteOptionDesc}>Pending and past booking requests</Text>
-                </View>
-              </View>
-            </ScrollView>
-
-            <View style={styles.warningInfo}>
-              <Ionicons name="warning" size={16} color={Colors.dark.warning} />
-              <Text style={styles.warningText}>
-                This action cannot be undone
-              </Text>
-            </View>
-
-            <View style={styles.deleteModalActions}>
-              <Pressable 
-                style={styles.cancelDeleteBtn}
-                onPress={() => setShowDeleteModal(false)}
-              >
-                <Text style={styles.cancelDeleteBtnText}>Cancel</Text>
-              </Pressable>
-              <Pressable 
-                style={[styles.confirmDeleteBtn, deletePlayerMutation.isPending && styles.btnDisabled]}
-                onPress={confirmDelete}
-                disabled={deletePlayerMutation.isPending}
-              >
-                {deletePlayerMutation.isPending ? (
-                  <ActivityIndicator size="small" color={Colors.dark.text} />
-                ) : (
-                  <>
-                    <Ionicons name="trash" size={16} color={Colors.dark.text} />
-                    <Text style={styles.confirmDeleteBtnText}>Delete Player</Text>
-                  </>
-                )}
-              </Pressable>
-            </View>
-          </View>
-        </View>
-      </Modal>
+        playerName={playerStats?.player?.name || selectedPlayer?.name || ''}
+        isPending={deletePlayerMutation.isPending}
+        onClose={() => setShowDeleteModal(false)}
+        onConfirm={confirmDelete}
+      />
 
       <ReportIssueModal
         visible={showReportIssueModal}
