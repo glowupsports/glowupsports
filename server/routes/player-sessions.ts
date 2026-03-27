@@ -2155,7 +2155,7 @@ import fs from "fs";
           })
           .from(groupMembersTable)
           .leftJoin(users, eq(groupMembersTable.userId, users.id))
-          .leftJoin(players, eq(players.userId, groupMembersTable.userId))
+          .leftJoin(players, eq(players.id, users.playerId))
           .where(eq(groupMembersTable.groupId, groupId));
 
         const members = membersData.map((m) => ({
