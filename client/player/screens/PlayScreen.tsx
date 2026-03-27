@@ -132,6 +132,15 @@ export default function PlayScreen() {
   const { isFamily, familyData, activePlayerId } = useFamily();
   const initialTab = route.params?.initialTab || "Group Lessons";
   const [activeTab, setActiveTab] = useState<typeof TAB_OPTIONS[number]>(initialTab);
+
+  useEffect(() => {
+    const tab = route.params?.initialTab;
+    if (tab) {
+      setActiveTab(tab);
+      navigation.setParams({ initialTab: undefined });
+    }
+  }, [route.params?.initialTab]);
+
   const [joiningSessionId, setJoiningSessionId] = useState<string | null>(null);
   const [currentTime, setCurrentTime] = useState(new Date());
   const [playerSearchQuery, setPlayerSearchQuery] = useState("");
