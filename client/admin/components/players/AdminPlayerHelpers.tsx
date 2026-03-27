@@ -1,33 +1,10 @@
-import { styles } from "./adminPlayersStyles";
-import React, { useState, useMemo } from "react";
-import {
-  View,
-  Text,
-  StyleSheet,
-  FlatList,
-  Pressable,
-  TextInput,
-  Modal,
-  Alert,
-  Platform,
-  ActivityIndicator,
-  ScrollView,
-} from "react-native";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { LinearGradient } from "expo-linear-gradient";
+import React from "react";
+import { View, Text, Alert, Platform } from "react-native";
 import Ionicons from "@expo/vector-icons/Ionicons";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import * as Haptics from "expo-haptics";
-import * as Clipboard from "expo-clipboard";
-import DateTimePicker from "@react-native-community/datetimepicker";
-import { Colors, Backgrounds, Spacing, BorderRadius, Typography, CardStyles, GlowColors } from "@/constants/theme";
-import { apiRequest } from "@/lib/query-client";
-import { formatCredits } from "@/lib/dateUtils";
-import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollViewCompat";
-import { ReportIssueModal } from "@/components/ReportIssueModal";
-import CreateInvoiceModal from "@/admin/components/CreateInvoiceModal";
-import CreditStoreModal from "@/admin/components/CreditStoreModal";
+import { Colors, Spacing, BorderRadius, Typography } from "@/constants/theme";
 import { GLOW_UP_TENNIS_LOGO } from "@/admin/components/logoBase64";
+import { styles } from "./adminPlayersStyles";
+
 export const generateAttendanceReportPDF = (stats: any, player: any) => {
   if (!stats?.sessions || stats.sessions.length === 0) {
     Alert.alert("No Sessions", "There are no sessions to include in the report.");
@@ -339,115 +316,6 @@ export const generateAttendanceReportPDF = (stats: any, player: any) => {
   }
 };
 
-interface Player {
-  id: string;
-  name: string;
-  email?: string;
-  phone?: string;
-  ballLevel?: string;
-  level?: number;
-  totalXp?: number;
-  coachName?: string;
-  remainingCredits?: number;
-  totalCredits?: number;
-  creditsByType?: { private: number; group: number; semiPrivate: number };
-  age?: number;
-  dateOfBirth?: string;
-  status?: string;
-  isActive?: boolean;
-}
-
-interface PlayerSession {
-  id: string;
-  sessionId: string;
-  startTime: string;
-  endTime: string;
-  sessionType: string;
-  attended: string;
-  creditsUsed: number;
-  isPaid: boolean;
-}
-
-interface PlayerPackage {
-  id: string;
-  creditType: string;
-  totalCredits: number;
-  remainingCredits: number;
-  status: string;
-  expiryDate?: string;
-  createdAt?: string;
-  pricePerCredit?: number;
-  isPaid?: boolean;
-  price?: number;
-}
-
-interface PlayerStats {
-  player: {
-    id: string;
-    name: string;
-    email?: string;
-    phone?: string;
-    ballLevel?: string;
-    level?: number;
-    totalXp?: number;
-    glowScore?: number;
-    coachName?: string;
-    parentName?: string;
-    parentPhone?: string;
-    medicalNotes?: string;
-  };
-  attendance: {
-    totalSessions: number;
-    attended: number;
-    missed: number;
-    rate: number;
-    streak: number;
-  };
-  progress: {
-    level: number;
-    xp: number;
-    xpToNextLevel: number;
-    skills: {
-      technical: number;
-      tactical: number;
-      physical: number;
-      mental: number;
-      social: number;
-    };
-    recentMilestones: string[];
-  };
-  payments: {
-    totalOwed: number;
-    totalPaid: number;
-    lastPaymentDate?: string;
-    status: "paid" | "partial" | "overdue";
-    currency: string;
-    invoices?: {
-      id: string;
-      invoiceNumber: string;
-      amount: number;
-      currency: string;
-      status: string;
-      dueDate?: string;
-      paidAt?: string;
-      createdAt?: string;
-      notes?: string;
-      isOverdue: boolean;
-    }[];
-  };
-  credits?: {
-    total: number;
-    group: number;
-    semiPrivate: number;
-    private: number;
-    activePackages: number;
-  };
-  packages?: PlayerPackage[];
-  sessions?: PlayerSession[];
-}
-
-const BALL_LEVELS = ["red", "orange", "green", "yellow"];
-
 interface StatItemProps {
   icon: keyof typeof Ionicons.glyphMap;
   label: string;
@@ -481,10 +349,4 @@ export function SkillBar({ label, value, color }: { label: string; value: number
   );
 }
 
-type SortOption = "name_asc" | "name_desc" | "level_high" | "level_low" | "newest";
-
-interface Coach {
-  id: string;
-  name: string;
-}
 

@@ -1,6 +1,10 @@
 import { StyleSheet, Platform } from "react-native";
 import { Colors, Spacing, BorderRadius, Typography, Backgrounds, GlowColors } from "@/constants/theme";
 
+const TIME_COLUMN_WIDTH = 50;
+const HOUR_HEIGHT_60 = 80;
+const HOUR_HEIGHT_30 = 60;
+
 export const styles = StyleSheet.create({
   container: {
     flex: 1,

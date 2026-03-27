@@ -31,6 +31,10 @@ import { useTabNavigation } from "@/components/TabNavigationContext";
 import { styles } from "./series-detail/seriesDetailStyles";
 import type { PlayerCredits, Player, FeedbackData, ProgressData, SessionInstance, SeriesDetail, SeriesDetailDrawerProps, TabId } from "./series-detail/types";
 import { TABS, DAY_NAMES, SESSION_TYPE_COLORS, BALL_LEVEL_COLORS, getSessionTypeColor, getBallLevelColor, isPlayerActiveForSession } from "./series-detail/utils";
+import { SeriesTimelineTab } from "./series-detail/SeriesTimelineTab";
+import { SeriesFeedbackTab } from "./series-detail/SeriesFeedbackTab";
+import { SeriesProgressTab } from "./series-detail/SeriesProgressTab";
+import { SeriesPlanTab } from "./series-detail/SeriesPlanTab";
 export default function SeriesDetailDrawer({
   visible,
   seriesId,
@@ -1719,440 +1723,39 @@ export default function SeriesDetailDrawer({
 
   const renderTimelineTab = () => {
     if (!series) return null;
-
-    const sortedSessions = [...(series.sessions || [])].sort(
-      (a, b) => new Date(b.startTime).getTime() - new Date(a.startTime).getTime()
-    );
-    
-    const formatSessionTime = (startTime: string) => {
-      try {
-        const date = new Date(startTime);
-        return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: tz });
-      } catch {
-        return "";
-      }
-    };
-
     return (
-      <View style={styles.tabContent}>
-        {sortedSessions.length === 0 ? (
-          <View style={styles.emptyState}>
-            <Ionicons name="calendar-outline" size={48} color={Colors.dark.textMuted} />
-            <Text style={styles.emptyText}>No sessions scheduled yet</Text>
-          </View>
-        ) : (
-          sortedSessions.map((session, index) => {
-            const sessionDate = new Date(session.startTime);
-            const now = new Date();
-            const isCompleted = session.status === "completed";
-            const isCancelled = session.status === "cancelled";
-            const isSkipped = session.status === "skipped";
-            const isPast = sessionDate.getTime() < now.getTime();
-            const isToday = sessionDate.toDateString() === now.toDateString();
-            const needsAttendance = isPast && !isCompleted && !isCancelled && !isSkipped;
-            const isFuture = !isPast && !isToday;
-            const canClick = true; // All sessions are now clickable
-
-            const timelineContent = (
-              <>
-                <View style={styles.timelineConnector}>
-                  <View
-                    style={[
-                      styles.timelineDot,
-                      isCompleted && { backgroundColor: Colors.dark.successNeon },
-                      (isCancelled || isSkipped) && { backgroundColor: Colors.dark.error },
-                      isToday && !isCompleted && !isCancelled && { backgroundColor: accentColor },
-                      isFuture && { backgroundColor: Colors.dark.textMuted },
-                      needsAttendance && { backgroundColor: Colors.dark.accentWarning },
-                    ]}
-                  />
-                  {index < sortedSessions.length - 1 ? (
-                    <View style={styles.timelineLine} />
-                  ) : null}
-                </View>
-                <View style={[styles.timelineContent, styles.timelineContentClickable]}>
-                  <View style={styles.timelineHeader}>
-                    <View style={{ flexDirection: "row", alignItems: "center", gap: Spacing.sm }}>
-                      <Text
-                        style={[
-                          styles.timelineDate,
-                          isToday && { color: accentColor, fontWeight: "700" },
-                          needsAttendance && { color: Colors.dark.accentWarning },
-                        ]}
-                      >
-                        {isToday ? "Today" : formatDate(session.startTime)}
-                      </Text>
-                      <Text style={[styles.timelineSessionTime, isFuture && { color: Colors.dark.accentCyan }]}>
-                        {formatSessionTime(session.startTime)}
-                      </Text>
-                    </View>
-                    <View style={styles.timelineStatusRow}>
-                      <Text
-                        style={[
-                          styles.timelineStatus,
-                          isCompleted && { color: Colors.dark.successNeon },
-                          (isCancelled || isSkipped) && { color: Colors.dark.error },
-                          needsAttendance && { color: Colors.dark.accentWarning },
-                          isFuture && { color: Colors.dark.accentCyan },
-                        ]}
-                      >
-                        {isCompleted
-                          ? "Completed"
-                          : isCancelled || isSkipped
-                          ? "Cancelled - Refunded"
-                          : isPast || isToday
-                          ? "Needs Attendance"
-                          : "Tap to Edit"}
-                      </Text>
-                      <Ionicons 
-                        name="chevron-forward" 
-                        size={16} 
-                        color={
-                          isCancelled || isSkipped 
-                            ? Colors.dark.error 
-                            : isCompleted 
-                              ? Colors.dark.successNeon 
-                              : isFuture
-                                ? Colors.dark.accentCyan
-                                : Colors.dark.accentWarning
-                        } 
-                      />
-                    </View>
-                  </View>
-                  <Text style={styles.timelineTime}>
-                    Week {session.weekNumber || index + 1}
-                  </Text>
-                </View>
-              </>
-            );
-
-            return (
-              <Pressable
-                key={session.id}
-                style={styles.timelineItem}
-                onPress={() => handleSessionPress(session)}
-              >
-                {timelineContent}
-              </Pressable>
-            );
-          })
-        )}
-      </View>
+      <SeriesTimelineTab
+        series={series}
+        accentColor={accentColor}
+        formatDate={formatDate}
+        onSessionPress={handleSessionPress}
+      />
     );
   };
 
-  const renderFeedbackTab = () => {
-    if (feedbackLoading) {
-      return (
-        <View style={styles.tabContent}>
-          <ActivityIndicator size="large" color={Colors.dark.successNeon} />
-        </View>
-      );
-    }
+  const renderFeedbackTab = () => (
+    <SeriesFeedbackTab
+      feedbackLoading={feedbackLoading}
+      feedbackData={feedbackData}
+      series={series}
+      formatDate={formatDate}
+    />
+  );
 
-    const hasAnyFeedback = (feedbackData?.summary.withFeedback || 0) > 0 || 
-                          (feedbackData?.playerFeedback?.length || 0) > 0;
-    
-    if (!feedbackData || !hasAnyFeedback) {
-      return (
-        <View style={styles.tabContent}>
-          <View style={styles.emptyState}>
-            <Ionicons name="chatbubble-outline" size={48} color={Colors.dark.textMuted} />
-            <Text style={styles.emptyText}>No feedback recorded yet</Text>
-            <Text style={styles.emptySubtext}>
-              Complete sessions and add feedback to track progress
-            </Text>
-          </View>
-        </View>
-      );
-    }
+  const renderProgressTab = () => (
+    <SeriesProgressTab
+      progressLoading={progressLoading}
+      progressData={progressData}
+      onAssessPlayer={(player) => {
+        setAssessmentPlayer(player);
+        setShowDeepAssessment(true);
+      }}
+    />
+  );
 
-    const { summary, feedback, playerFeedback } = feedbackData;
-    
-    // Helper to get feedback type styling
-    const getFeedbackTypeStyle = (type: string) => {
-      switch (type) {
-        case "praise": return { icon: "star" as const, color: GlowColors.primary, label: "Praise" };
-        case "effort": return { icon: "flame" as const, color: Colors.dark.orange, label: "Great Effort" };
-        case "technique": return { icon: "bulb" as const, color: Colors.dark.xpCyan, label: "Technique Tip" };
-        case "improvement": return { icon: "trending-up" as const, color: Colors.dark.successNeon, label: "Improvement" };
-        case "focus": return { icon: "eye" as const, color: Colors.dark.gold, label: "Focus Needed" };
-        case "attitude": return { icon: "happy" as const, color: "#EC4899", label: "Attitude" };
-        default: return { icon: "chatbubble" as const, color: Colors.dark.textSecondary, label: "Note" };
-      }
-    };
-    
-    // Get player name from series
-    const getPlayerName = (playerId: string) => {
-      const player = series?.players?.find((p: Player) => p.id === playerId);
-      return player?.name || "Player";
-    };
-
-    return (
-      <View style={styles.tabContent}>
-        <View style={styles.feedbackSummary}>
-          <View style={styles.feedbackStat}>
-            <Text style={styles.feedbackStatValue}>{summary.withFeedback}</Text>
-            <Text style={styles.feedbackStatLabel}>Sessions with Feedback</Text>
-          </View>
-          <View style={styles.feedbackStat}>
-            <Text style={styles.feedbackStatValue}>{summary.total - summary.withFeedback}</Text>
-            <Text style={styles.feedbackStatLabel}>Pending Feedback</Text>
-          </View>
-        </View>
-        
-        {Object.keys(summary.intensity).length > 0 ? (
-          <View style={styles.intensityBreakdown}>
-            <Text style={styles.sectionTitle}>Intensity Breakdown</Text>
-            <View style={styles.intensityRow}>
-              {Object.entries(summary.intensity).map(([level, count]) => (
-                <View key={level} style={styles.intensityChip}>
-                  <Ionicons 
-                    name={level === "intense" ? "flame" : level === "normal" ? "fitness" : "leaf"} 
-                    size={16} 
-                    color={level === "intense" ? Colors.dark.error : level === "normal" ? Colors.dark.gold : Colors.dark.successNeon} 
-                  />
-                  <Text style={styles.intensityText}>{level}: {count}</Text>
-                </View>
-              ))}
-            </View>
-          </View>
-        ) : null}
-
-        {/* Player Feedback Section */}
-        {playerFeedback && playerFeedback.length > 0 ? (
-          <>
-            <Text style={styles.sectionTitle}>Player Feedback ({playerFeedback.length})</Text>
-            {playerFeedback.slice(0, 10).map((pf) => {
-              const typeStyle = getFeedbackTypeStyle(pf.feedbackType);
-              return (
-                <View key={pf.id} style={styles.feedbackCard}>
-                  <View style={styles.feedbackHeader}>
-                    <View style={{ flexDirection: "row", alignItems: "center", gap: Spacing.sm }}>
-                      <View style={[styles.feedbackTypeIcon, { backgroundColor: typeStyle.color + "20" }]}>
-                        <Ionicons name={typeStyle.icon} size={14} color={typeStyle.color} />
-                      </View>
-                      <Text style={styles.feedbackPlayerName}>{getPlayerName(pf.playerId)}</Text>
-                    </View>
-                    <View style={{ flexDirection: "row", alignItems: "center", gap: Spacing.xs }}>
-                      {pf.xpAwarded > 0 ? (
-                        <View style={styles.xpBadge}>
-                          <Text style={styles.xpBadgeText}>+{pf.xpAwarded} XP</Text>
-                        </View>
-                      ) : null}
-                      <View style={[styles.visibilityBadge, { backgroundColor: pf.visibility === "public" ? GlowColors.primary + "20" : Colors.dark.border }]}>
-                        <Ionicons 
-                          name={pf.visibility === "public" ? "eye" : "eye-off"} 
-                          size={12} 
-                          color={pf.visibility === "public" ? GlowColors.primary : Colors.dark.textMuted} 
-                        />
-                      </View>
-                    </View>
-                  </View>
-                  <Text style={styles.feedbackNote} numberOfLines={2}>{pf.message}</Text>
-                  <Text style={styles.feedbackTimestamp}>
-                    {formatDate(pf.createdAt)} • {typeStyle.label}
-                  </Text>
-                </View>
-              );
-            })}
-          </>
-        ) : null}
-
-        {/* Session Feedback Section */}
-        {feedback.length > 0 ? (
-          <>
-            <Text style={styles.sectionTitle}>Session Notes</Text>
-            {feedback.slice(0, 5).map((fb) => (
-              <View key={fb.id} style={styles.feedbackCard}>
-                <View style={styles.feedbackHeader}>
-                  <Text style={styles.feedbackDate}>
-                    {fb.sessionDate ? formatDate(fb.sessionDate) : "Session"}
-                  </Text>
-                  {fb.intensity ? (
-                    <View style={[styles.intensityBadge, { backgroundColor: fb.intensity === "intense" ? Colors.dark.error + "20" : fb.intensity === "normal" ? Colors.dark.gold + "20" : Colors.dark.successNeon + "20" }]}>
-                      <Text style={[styles.intensityBadgeText, { color: fb.intensity === "intense" ? Colors.dark.error : fb.intensity === "normal" ? Colors.dark.gold : Colors.dark.successNeon }]}>
-                        {fb.intensity}
-                      </Text>
-                    </View>
-                  ) : null}
-                </View>
-                {fb.coachNotes ? (
-                  <Text style={styles.feedbackNote} numberOfLines={2}>{fb.coachNotes}</Text>
-                ) : null}
-              </View>
-            ))}
-          </>
-        ) : null}
-      </View>
-    );
-  };
-
-  const renderProgressTab = () => {
-    if (progressLoading) {
-      return (
-        <View style={styles.tabContent}>
-          <ActivityIndicator size="large" color={Colors.dark.gold} />
-        </View>
-      );
-    }
-
-    if (!progressData || progressData.players.length === 0) {
-      return (
-        <View style={styles.tabContent}>
-          <View style={styles.emptyState}>
-            <Ionicons name="trending-up-outline" size={48} color={Colors.dark.textMuted} />
-            <Text style={styles.emptyText}>No progress data yet</Text>
-            <Text style={styles.emptySubtext}>
-              Complete sessions to track player XP gains
-            </Text>
-          </View>
-        </View>
-      );
-    }
-
-    return (
-      <View style={styles.tabContent}>
-        <View style={styles.progressSummary}>
-          <View style={styles.progressStat}>
-            <Text style={styles.progressStatValue}>{progressData.totalXp.toLocaleString()}</Text>
-            <Text style={styles.progressStatLabel}>Total XP Earned</Text>
-          </View>
-          <View style={styles.progressStat}>
-            <Text style={styles.progressStatValue}>{progressData.sessionsCompleted}/{progressData.totalSessions}</Text>
-            <Text style={styles.progressStatLabel}>Sessions Complete</Text>
-          </View>
-        </View>
-
-        <Text style={styles.sectionTitle}>Player Leaderboard</Text>
-        {progressData.players.map((player, index) => (
-          <View key={player.id} style={styles.playerProgressCard}>
-            <View style={styles.playerRank}>
-              <Text style={styles.rankNumber}>{index + 1}</Text>
-            </View>
-            <View style={styles.playerProgressInfo}>
-              <Text style={styles.playerProgressName}>{player.name}</Text>
-              <Text style={styles.playerProgressSessions}>{player.sessionsAttended} sessions</Text>
-            </View>
-            <Pressable
-              style={styles.assessButton}
-              onPress={() => {
-                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-                setAssessmentPlayer({ id: player.id, name: player.name, ballLevel: player.ballLevel });
-                setShowDeepAssessment(true);
-              }}
-            >
-              <Ionicons name="clipboard-outline" size={14} color={Colors.dark.xpCyan} />
-              <Text style={styles.assessButtonText}>Assess</Text>
-            </Pressable>
-            <View style={styles.playerXpBadge}>
-              <Ionicons name="star" size={14} color={Colors.dark.gold} />
-              <Text style={styles.playerXpValue}>{player.xpEarned.toLocaleString()}</Text>
-            </View>
-          </View>
-        ))}
-      </View>
-    );
-  };
-
-  const renderPlanTab = () => {
-    const upcomingSessions = series?.sessions?.filter(s => {
-      const sessionDate = new Date(s.startTime);
-      return sessionDate >= new Date() && s.status !== "completed" && s.status !== "cancelled";
-    }).sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime()) || [];
-
-    return (
-      <View style={styles.planTabContainer}>
-        <View style={styles.planHeader}>
-          <Ionicons name="clipboard" size={24} color={Colors.dark.gold} />
-          <Text style={styles.planHeaderTitle}>Session Plans</Text>
-        </View>
-        <Text style={styles.planHeaderSubtitle}>
-          Generate and manage lesson plans for upcoming sessions
-        </Text>
-
-        {upcomingSessions.length === 0 ? (
-          <View style={styles.planEmptyState}>
-            <Ionicons name="calendar-outline" size={48} color={Colors.dark.textMuted} />
-            <Text style={styles.planEmptyTitle}>No Upcoming Sessions</Text>
-            <Text style={styles.planEmptySubtitle}>
-              Schedule sessions to generate lesson plans
-            </Text>
-          </View>
-        ) : (
-          <View style={styles.planSessionsList}>
-            <Text style={styles.planSectionTitle}>Upcoming Sessions ({upcomingSessions.length})</Text>
-            {upcomingSessions.slice(0, 5).map((session: any) => {
-              const sessionDate = new Date(session.startTime);
-              const hasPlan = session.sessionPlan?.blocks?.length > 0;
-              
-              return (
-                <Pressable
-                  key={session.id}
-                  style={styles.planSessionCard}
-                  onPress={() => {
-                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                  }}
-                >
-                  <View style={styles.planSessionInfo}>
-                    <Text style={styles.planSessionDate}>
-                      {sessionDate.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric", timeZone: tz })}
-                    </Text>
-                    <Text style={styles.planSessionTime}>
-                      {sessionDate.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", timeZone: tz })}
-                    </Text>
-                  </View>
-                  <View style={styles.planSessionStatus}>
-                    {hasPlan ? (
-                      <View style={styles.planReadyBadge}>
-                        <Ionicons name="checkmark-circle" size={16} color={Colors.dark.successNeon} />
-                        <Text style={styles.planReadyText}>Plan Ready</Text>
-                      </View>
-                    ) : (
-                      <View style={styles.planNeededBadge}>
-                        <Ionicons name="add-circle" size={16} color={Colors.dark.gold} />
-                        <Text style={styles.planNeededText}>Generate Plan</Text>
-                      </View>
-                    )}
-                  </View>
-                </Pressable>
-              );
-            })}
-            
-            {upcomingSessions.length > 5 && (
-              <Text style={styles.planMoreText}>
-                +{upcomingSessions.length - 5} more sessions
-              </Text>
-            )}
-          </View>
-        )}
-
-        <View style={styles.planTemplatesSection}>
-          <Text style={styles.planSectionTitle}>Quick Actions</Text>
-          <Pressable
-            style={styles.planActionButton}
-            onPress={() => {
-              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-            }}
-          >
-            <Ionicons name="document-text-outline" size={20} color={Colors.dark.gold} />
-            <Text style={styles.planActionText}>Browse Lesson Templates</Text>
-            <Ionicons name="chevron-forward" size={18} color={Colors.dark.textMuted} />
-          </Pressable>
-          <Pressable
-            style={styles.planActionButton}
-            onPress={() => {
-              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-            }}
-          >
-            <Ionicons name="flash-outline" size={20} color={Colors.dark.gold} />
-            <Text style={styles.planActionText}>Auto-Generate All Plans</Text>
-            <Ionicons name="chevron-forward" size={18} color={Colors.dark.textMuted} />
-          </Pressable>
-        </View>
-      </View>
-    );
-  };
+  const renderPlanTab = () => (
+    <SeriesPlanTab series={series} />
+  );
 
   const renderTabContent = () => {
     switch (activeTab) {
