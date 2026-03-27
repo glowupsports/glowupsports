@@ -41,6 +41,7 @@ import { Router, type Request, type Response, type NextFunction } from "express"
     posts as postsTable, postReactions as postReactionsTable,
     postComments as postCommentsTable, commentLikes as commentLikesTable,
     communityGroups as communityGroupsTable, groupMembers as groupMembersTable,
+    groupEvents as groupEventsTable, groupEventRsvps as groupEventRsvpsTable,
     openToPlay as openToPlayTable, userSocialProfiles as userSocialProfilesTable,
     questTemplates as questTemplatesTable, playerQuests as playerQuestsTable,
     dailyQuestSlots as dailyQuestSlotsTable, playerConnections,
@@ -2638,6 +2639,347 @@ import fs from "fs";
       }
     },
   );
+
+  // ============ GROUP EVENTS API ============
+
+  // Get events for a group
+  router.get(
+    "/api/player/groups/:groupId/events",
+    authMiddleware,
+    requirePlayerOrOwner,
+    requireFeatureUnlock("groups"),
+    async (req: AuthenticatedRequest, res: Response) => {
+      try {
+        const { groupId } = req.params;
+        const userId = req.user!.userId!;
+
+        // Verify membership
+        const [membership] = await db.select().from(groupMembersTable)
+          .where(and(eq(groupMembersTable.groupId, groupId), eq(groupMembersTable.userId, userId)));
+
+        if (!membership) {
+          return res.status(403).json({ error: "Not a member of this group" });
+        }
+
+        const events = await db.select().from(groupEventsTable)
+          .where(eq(groupEventsTable.groupId, groupId))
+          .orderBy(asc(groupEventsTable.eventDate));
+
+        // Enrich with RSVP counts and going-avatars
+        const enriched = await Promise.all(events.map(async (event) => {
+          const rsvps = await db.select({
+            userId: groupEventRsvpsTable.userId,
+            status: groupEventRsvpsTable.status,
+          }).from(groupEventRsvpsTable)
+            .where(eq(groupEventRsvpsTable.eventId, event.id));
+
+          const goingCount = rsvps.filter(r => r.status === "going").length;
+          const maybeCount = rsvps.filter(r => r.status === "maybe").length;
+          const notGoingCount = rsvps.filter(r => r.status === "not_going").length;
+
+          const myRsvp = rsvps.find(r => r.userId === userId);
+
+          // Get avatars of going users (up to 5)
+          const goingUserIds = rsvps.filter(r => r.status === "going").slice(0, 5).map(r => r.userId);
+          const goingAvatars = await Promise.all(goingUserIds.map(async (uid) => {
+            const [userData] = await db.select({ name: players.name, photo: players.profilePhotoUrl })
+              .from(users).leftJoin(players, eq(users.playerId, players.id)).where(eq(users.id, uid));
+            return { name: userData?.name || "?", avatarUrl: userData?.photo || null };
+          }));
+
+          return {
+            ...event,
+            goingCount,
+            maybeCount,
+            notGoingCount,
+            myRsvpStatus: myRsvp?.status || null,
+            goingAvatars,
+          };
+        }));
+
+        res.json(enriched);
+      } catch (error) {
+        console.error("Error fetching group events:", error);
+        res.status(500).json({ error: "Failed to fetch events" });
+      }
+    },
+  );
+
+  // Create a group event
+  router.post(
+    "/api/player/groups/:groupId/events",
+    authMiddleware,
+    requirePlayerOrOwner,
+    requireFeatureUnlock("groups"),
+    async (req: AuthenticatedRequest, res: Response) => {
+      try {
+        const { groupId } = req.params;
+        const userId = req.user!.userId!;
+        const playerId = req.user!.playerId!;
+
+        // Verify membership
+        const [membership] = await db.select().from(groupMembersTable)
+          .where(and(eq(groupMembersTable.groupId, groupId), eq(groupMembersTable.userId, userId)));
+
+        if (!membership) {
+          return res.status(403).json({ error: "Not a member of this group" });
+        }
+
+        const { eventType, title, description, location, sport, eventDate, maxPlayers, opponentUserId } = req.body;
+
+        if (!title || !eventDate) {
+          return res.status(400).json({ error: "title and eventDate are required" });
+        }
+
+        // Match events always require an opponent — challenge is auto-created
+        if (eventType === "match" && !opponentUserId) {
+          return res.status(400).json({ error: "opponentUserId is required for match events" });
+        }
+
+        let matchChallengeId: string | null = null;
+
+        // For match type: auto-create a match challenge (opponent guaranteed by check above)
+        if (eventType === "match" && opponentUserId) {
+          // Validate opponent is a member of this group
+          const [opponentMembership] = await db.select().from(groupMembersTable)
+            .where(and(eq(groupMembersTable.groupId, groupId), eq(groupMembersTable.userId, opponentUserId)));
+          if (!opponentMembership) {
+            return res.status(400).json({ error: "Opponent must be a member of this group" });
+          }
+          try {
+            const player = await storage.getPlayer(playerId);
+            const [opponentUser] = await db.select({ playerId: users.playerId }).from(users).where(eq(users.id, opponentUserId));
+            if (opponentUser?.playerId && player) {
+              const insertResult = await db.execute(
+                sql`INSERT INTO match_challenges (id, challenger_id, opponent_id, academy_id, match_type, match_format, match_date, match_time, status, created_at, updated_at)
+                    VALUES (gen_random_uuid(), ${playerId}, ${opponentUser.playerId}, ${player.academyId}, 'singles', 'friendly', ${eventDate.split("T")[0]}, ${eventDate.split("T")[1]?.substring(0, 5) || "10:00"}, 'pending', NOW(), NOW())
+                    RETURNING id`
+              );
+              const row = insertResult.rows[0];
+              matchChallengeId = (row && typeof row === "object" && "id" in row) ? String(row.id) : null;
+            }
+          } catch (mcErr) {
+            console.error("[GroupEvent] Failed to create match challenge (non-fatal):", mcErr);
+          }
+        }
+
+        const [newEvent] = await db.insert(groupEventsTable).values({
+          groupId,
+          creatorId: userId,
+          eventType: eventType || "social",
+          title: title.trim(),
+          description: description?.trim() || null,
+          location: location?.trim() || null,
+          sport: sport || null,
+          eventDate: new Date(eventDate),
+          maxPlayers: maxPlayers || null,
+          opponentUserId: opponentUserId || null,
+          matchChallengeId,
+        }).returning();
+
+        // Auto-RSVP creator as going
+        await db.insert(groupEventRsvpsTable).values({
+          eventId: newEvent.id,
+          userId,
+          status: "going",
+        }).onConflictDoNothing();
+
+        // Notify all group members
+        try {
+          const allMembers = await db.select().from(groupMembersTable)
+            .where(eq(groupMembersTable.groupId, groupId));
+          const otherMemberUserIds = allMembers.filter(m => m.userId !== userId).map(m => m.userId);
+
+          for (const memberUserId of otherMemberUserIds) {
+            const [memberUser] = await db.select().from(users).where(eq(users.id, memberUserId));
+            if (memberUser?.playerId) {
+              await db.insert(playerNotifications).values({
+                playerId: memberUser.playerId,
+                title: "New Event in Your Group",
+                body: `${title.trim()} — tap to RSVP`,
+                type: "group_event",
+                data: { groupId, eventId: newEvent.id },
+              }).catch(() => {});
+
+              const tokens = await getPlayerPushTokens(memberUser.playerId);
+              if (tokens.length > 0) {
+                await sendPushNotification(tokens, "New Event in Your Group", `${title.trim()} — tap to RSVP`, { type: "group_event", groupId, eventId: newEvent.id }, memberUser.playerId).catch(() => {});
+              }
+            }
+          }
+        } catch (notifErr) {
+          console.error("[GroupEvent] Failed to send member notifications:", notifErr);
+        }
+
+        res.status(201).json(newEvent);
+      } catch (error) {
+        console.error("Error creating group event:", error);
+        res.status(500).json({ error: "Failed to create event" });
+      }
+    },
+  );
+
+  // RSVP to a group event (upsert)
+  router.post(
+    "/api/player/groups/:groupId/events/:eventId/rsvp",
+    authMiddleware,
+    requirePlayerOrOwner,
+    requireFeatureUnlock("groups"),
+    async (req: AuthenticatedRequest, res: Response) => {
+      try {
+        const { groupId, eventId } = req.params;
+        const userId = req.user!.userId!;
+        const playerId = req.user!.playerId!;
+        const { status } = req.body;
+
+        if (!["going", "maybe", "not_going"].includes(status)) {
+          return res.status(400).json({ error: "status must be going, maybe, or not_going" });
+        }
+
+        // Verify membership
+        const [membership] = await db.select().from(groupMembersTable)
+          .where(and(eq(groupMembersTable.groupId, groupId), eq(groupMembersTable.userId, userId)));
+
+        if (!membership) {
+          return res.status(403).json({ error: "Not a member of this group" });
+        }
+
+        // Verify event belongs to this group (IDOR protection)
+        const [event] = await db.select().from(groupEventsTable)
+          .where(and(eq(groupEventsTable.id, eventId), eq(groupEventsTable.groupId, groupId)));
+        if (!event) {
+          return res.status(404).json({ error: "Event not found in this group" });
+        }
+
+        // Upsert RSVP
+        const [rsvp] = await db.insert(groupEventRsvpsTable).values({
+          eventId,
+          userId,
+          status,
+        }).onConflictDoUpdate({
+          target: [groupEventRsvpsTable.eventId, groupEventRsvpsTable.userId],
+          set: { status, updatedAt: new Date() },
+        }).returning();
+
+        // Notify event creator (in-app + push) on any RSVP status change
+        try {
+          if (event.creatorId !== userId) {
+            const [creatorUser] = await db.select().from(users).where(eq(users.id, event.creatorId));
+            if (creatorUser?.playerId) {
+              const [player] = await db.select({ name: players.name }).from(players).where(eq(players.id, playerId));
+              const playerName = player?.name || "Someone";
+              const notifTitle = status === "going" ? "Someone is coming!"
+                : status === "maybe" ? "Maybe attending"
+                : "RSVP update";
+              const notifBody = status === "going"
+                ? `${playerName} is going to your event: ${event.title}`
+                : status === "maybe"
+                ? `${playerName} might attend your event: ${event.title}`
+                : `${playerName} can't make it to your event: ${event.title}`;
+              await db.insert(playerNotifications).values({
+                playerId: creatorUser.playerId,
+                title: notifTitle,
+                body: notifBody,
+                type: "group_event_rsvp",
+                data: { groupId, eventId },
+              }).catch(() => {});
+              const tokens = await getPlayerPushTokens(creatorUser.playerId);
+              if (tokens.length > 0) {
+                sendPushNotification(tokens, notifTitle, notifBody, { screen: "GroupDetail", groupId }).catch(() => {});
+              }
+            }
+          }
+        } catch (notifErr) {
+          console.error("[GroupEvent] RSVP notification error:", notifErr);
+        }
+
+        res.json(rsvp);
+      } catch (error) {
+        console.error("Error RSVPing to group event:", error);
+        res.status(500).json({ error: "Failed to RSVP" });
+      }
+    },
+  );
+
+  // Update a group event (creator or admin only)
+  router.patch(
+    "/api/player/groups/:groupId/events/:eventId",
+    authMiddleware,
+    requirePlayerOrOwner,
+    requireFeatureUnlock("groups"),
+    async (req: AuthenticatedRequest, res: Response) => {
+      try {
+        const { groupId, eventId } = req.params;
+        const userId = req.user!.userId!;
+
+        // Verify event belongs to this group (IDOR protection)
+        const [event] = await db.select().from(groupEventsTable)
+          .where(and(eq(groupEventsTable.id, eventId), eq(groupEventsTable.groupId, groupId)));
+        if (!event) return res.status(404).json({ error: "Event not found in this group" });
+
+        const [membership] = await db.select().from(groupMembersTable)
+          .where(and(eq(groupMembersTable.groupId, groupId), eq(groupMembersTable.userId, userId)));
+        if (!membership || (event.creatorId !== userId && membership.role !== "admin")) {
+          return res.status(403).json({ error: "Not authorized to edit this event" });
+        }
+
+        const { title, description, location, sport, eventDate, maxPlayers } = req.body;
+        const updates: Record<string, unknown> = { updatedAt: new Date() };
+        if (title !== undefined) updates.title = title.trim();
+        if (description !== undefined) updates.description = description?.trim() || null;
+        if (location !== undefined) updates.location = location?.trim() || null;
+        if (sport !== undefined) updates.sport = sport || null;
+        if (eventDate !== undefined) updates.eventDate = new Date(eventDate);
+        if (maxPlayers !== undefined) updates.maxPlayers = maxPlayers || null;
+
+        const [updated] = await db.update(groupEventsTable)
+          .set(updates)
+          .where(eq(groupEventsTable.id, eventId))
+          .returning();
+
+        res.json(updated);
+      } catch (error) {
+        console.error("Error updating group event:", error);
+        res.status(500).json({ error: "Failed to update event" });
+      }
+    },
+  );
+
+  // Delete a group event (creator or admin only)
+  router.delete(
+    "/api/player/groups/:groupId/events/:eventId",
+    authMiddleware,
+    requirePlayerOrOwner,
+    requireFeatureUnlock("groups"),
+    async (req: AuthenticatedRequest, res: Response) => {
+      try {
+        const { groupId, eventId } = req.params;
+        const userId = req.user!.userId!;
+
+        // Verify event belongs to this group (IDOR protection)
+        const [event] = await db.select().from(groupEventsTable)
+          .where(and(eq(groupEventsTable.id, eventId), eq(groupEventsTable.groupId, groupId)));
+        if (!event) return res.status(404).json({ error: "Event not found in this group" });
+
+        const [membership] = await db.select().from(groupMembersTable)
+          .where(and(eq(groupMembersTable.groupId, groupId), eq(groupMembersTable.userId, userId)));
+
+        if (!membership || (event.creatorId !== userId && membership.role !== "admin")) {
+          return res.status(403).json({ error: "Not authorized to delete this event" });
+        }
+
+        await db.delete(groupEventRsvpsTable).where(eq(groupEventRsvpsTable.eventId, eventId));
+        await db.delete(groupEventsTable).where(eq(groupEventsTable.id, eventId));
+
+        res.json({ success: true });
+      } catch (error) {
+        console.error("Error deleting group event:", error);
+        res.status(500).json({ error: "Failed to delete event" });
+      }
+    },
+  );
+
+  // ============ END GROUP EVENTS API ============
 
   // Save player onboarding data
   router.post(

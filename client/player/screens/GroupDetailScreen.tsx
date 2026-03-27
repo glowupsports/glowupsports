@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useRef, useCallback, useEffect } from "react";
 import {
   View,
   StyleSheet,
@@ -21,10 +21,13 @@ import Ionicons from "@expo/vector-icons/Ionicons";
 import { LinearGradient } from "expo-linear-gradient";
 import * as Haptics from "expo-haptics";
 import * as ImagePicker from "expo-image-picker";
+import DateTimePicker from "@react-native-community/datetimepicker";
 import Animated, { FadeIn, FadeInDown } from "react-native-reanimated";
 import { Colors, Spacing, BorderRadius } from "@/constants/theme";
 import { ThemedText as Text } from "@/components/ThemedText";
 import { apiRequest, getApiUrl } from "@/lib/query-client";
+import { useWebSocket, type NewMessagePayload } from "@/lib/useWebSocket";
+import { useAuth } from "@/coach/context/AuthContext";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 
 interface GroupDetail {
@@ -84,7 +87,38 @@ interface SuggestedPlayer {
   avatarUrl?: string | null;
 }
 
-type Tab = "feed" | "members";
+interface GroupEvent {
+  id: string;
+  groupId: string;
+  creatorId: string;
+  eventType: string;
+  title: string;
+  description?: string | null;
+  location?: string | null;
+  sport?: string | null;
+  eventDate: string;
+  maxPlayers?: number | null;
+  opponentUserId?: string | null;
+  matchChallengeId?: string | null;
+  createdAt: string;
+  goingCount: number;
+  maybeCount: number;
+  notGoingCount: number;
+  myRsvpStatus: string | null;
+  goingAvatars: { name: string; avatarUrl: string | null }[];
+}
+
+interface ChatMessage {
+  id: string;
+  conversationId: string;
+  senderType: string | null;
+  senderPlayerId: string | null;
+  body: string;
+  createdAt: string;
+  reactions: Array<{ id: string; emoji: string; reactorPlayerId: string | null }>;
+}
+
+type Tab = "feed" | "events" | "chat" | "members";
 type Props = NativeStackScreenProps<any, "GroupDetail">;
 
 const GROUP_TYPE_CONFIG: Record<string, { icon: string; color: string; label: string }> = {
@@ -741,11 +775,980 @@ function AddMembersModal({
   );
 }
 
+// ─── EVENTS TAB ────────────────────────────────────────────────────────────────
+
+const EVENT_TYPES = [
+  { value: "casual", label: "Casual Play", icon: "sunny" },
+  { value: "training", label: "Training", icon: "barbell" },
+  { value: "match", label: "Match", icon: "trophy" },
+  { value: "tournament", label: "Tournament", icon: "medal" },
+  { value: "social", label: "Social", icon: "people" },
+] as const;
+
+function formatEventDate(dateStr: string): string {
+  const d = new Date(dateStr);
+  const now = new Date();
+  const diffMs = d.getTime() - now.getTime();
+  const diffDays = Math.floor(diffMs / 86400000);
+  if (diffDays === 0) return `Today ${d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`;
+  if (diffDays === 1) return `Tomorrow ${d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`;
+  return d.toLocaleDateString([], { weekday: "short", month: "short", day: "numeric" }) +
+    " " + d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+}
+
+function EventCard({
+  event,
+  typeColor,
+  onRsvp,
+  onDelete,
+  onEdit,
+  isAdmin,
+  currentUserId,
+}: {
+  event: GroupEvent;
+  typeColor: string;
+  onRsvp: (eventId: string, status: "going" | "maybe" | "not_going") => void;
+  onDelete: (eventId: string) => void;
+  onEdit: (event: GroupEvent) => void;
+  isAdmin: boolean;
+  currentUserId?: string;
+}) {
+  const isPast = new Date(event.eventDate) < new Date();
+  const goingCount = event.goingCount ?? 0;
+  const isCreator = event.creatorId === currentUserId;
+
+  return (
+    <Animated.View entering={FadeInDown} style={evtStyles.card}>
+      <View style={evtStyles.cardHeader}>
+        <View style={[evtStyles.eventTypeBadge, { backgroundColor: typeColor + "20" }]}>
+          <Ionicons
+            name={(EVENT_TYPES.find(e => e.value === event.eventType)?.icon ?? "calendar") as any}
+            size={13}
+            color={typeColor}
+          />
+          <Text style={[evtStyles.eventTypeTxt, { color: typeColor }]}>
+            {EVENT_TYPES.find(e => e.value === event.eventType)?.label ?? event.eventType}
+          </Text>
+        </View>
+        {(isAdmin || isCreator) ? (
+          <View style={{ flexDirection: "row", gap: 8 }}>
+            <Pressable onPress={() => onEdit(event)} style={evtStyles.deleteBtn}>
+              <Ionicons name="create-outline" size={16} color={typeColor} />
+            </Pressable>
+            <Pressable onPress={() => {
+              Alert.alert("Delete Event", "Remove this event?", [
+                { text: "Cancel", style: "cancel" },
+                { text: "Delete", style: "destructive", onPress: () => onDelete(event.id) },
+              ]);
+            }} style={evtStyles.deleteBtn}>
+              <Ionicons name="trash-outline" size={16} color="#FF6B6B" />
+            </Pressable>
+          </View>
+        ) : null}
+      </View>
+
+      <Text style={evtStyles.eventTitle}>{event.title}</Text>
+      {event.description ? <Text style={evtStyles.eventDesc}>{event.description}</Text> : null}
+
+      <View style={evtStyles.metaRow}>
+        <Ionicons name="time-outline" size={14} color="#7A8EA0" />
+        <Text style={evtStyles.metaTxt}>{formatEventDate(event.eventDate)}</Text>
+      </View>
+      {event.location ? (
+        <View style={evtStyles.metaRow}>
+          <Ionicons name="location-outline" size={14} color="#7A8EA0" />
+          <Text style={evtStyles.metaTxt}>{event.location}</Text>
+        </View>
+      ) : null}
+      {event.maxPlayers ? (
+        <View style={evtStyles.metaRow}>
+          <Ionicons name="people-outline" size={14} color="#7A8EA0" />
+          <Text style={evtStyles.metaTxt}>{goingCount}/{event.maxPlayers} going</Text>
+        </View>
+      ) : null}
+
+      {event.goingAvatars.length > 0 && (
+        <View style={evtStyles.avatarRow}>
+          {event.goingAvatars.slice(0, 5).map((a, i) => (
+            <View key={i} style={[evtStyles.miniAvatar, { marginLeft: i > 0 ? -8 : 0, zIndex: 10 - i, backgroundColor: typeColor + "40" }]}>
+              {a.avatarUrl ? (
+                <Image source={{ uri: a.avatarUrl }} style={evtStyles.miniAvatarImg} />
+              ) : (
+                <Text style={[evtStyles.miniAvatarInit, { color: typeColor }]}>{a.name[0]?.toUpperCase()}</Text>
+              )}
+            </View>
+          ))}
+          <Text style={evtStyles.goingTxt}>{goingCount} going</Text>
+        </View>
+      )}
+
+      {!isPast && (
+        <View style={evtStyles.rsvpRow}>
+          {(["going", "maybe", "not_going"] as const).map((status) => {
+            const active = event.myRsvpStatus === status;
+            const labels: Record<string, string> = { going: "Going", maybe: "Maybe", not_going: "Decline" };
+            const colors: Record<string, string> = { going: "#4ECDC4", maybe: "#FFD166", not_going: "#FF6B6B" };
+            return (
+              <Pressable
+                key={status}
+                onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); onRsvp(event.id, status); }}
+                style={[evtStyles.rsvpBtn, active && { backgroundColor: colors[status] + "30", borderColor: colors[status] }]}
+              >
+                <Text style={[evtStyles.rsvpBtnTxt, active && { color: colors[status], fontWeight: "700" }]}>
+                  {labels[status]}
+                </Text>
+              </Pressable>
+            );
+          })}
+        </View>
+      )}
+    </Animated.View>
+  );
+}
+
+/**
+ * CreateEventWizard
+ *
+ * Two different flows depending on event type:
+ *
+ * Match (2 steps):
+ *   Step 0 — Select opponent (required from group members)
+ *   Step 1 — Pick date, time & location → Create (challenge auto-sent)
+ *
+ * Non-match (3 steps):
+ *   Step 0 — Select event type
+ *   Step 1 — Title, description, location, max players
+ *   Step 2 — Date & time → Create
+ */
+function CreateEventWizard({
+  visible,
+  onClose,
+  groupId,
+  typeColor,
+  members,
+}: {
+  visible: boolean;
+  onClose: () => void;
+  groupId: string;
+  typeColor: string;
+  members: GroupDetail["members"];
+}) {
+  const queryClient = useQueryClient();
+  // "match" launches a 2-step quick-plan; everything else uses the 3-step wizard
+  const [isMatchFlow, setIsMatchFlow] = useState(false);
+  const [step, setStep] = useState(0); // 0..1 for match, 0..2 for non-match
+  const [eventType, setEventType] = useState<string>("social");
+  const [title, setTitle] = useState("");
+  const [description, setDescription] = useState("");
+  const [location, setLocation] = useState("");
+  const [maxPlayers, setMaxPlayers] = useState("");
+  const [eventDate, setEventDate] = useState(new Date(Date.now() + 86400000));
+  const [showDatePicker, setShowDatePicker] = useState(false);
+  const [showTimePicker, setShowTimePicker] = useState(false);
+  const [opponentUserId, setOpponentUserId] = useState<string>("");
+
+  const resetWizard = () => {
+    setIsMatchFlow(false); setStep(0); setEventType("social"); setTitle("");
+    setDescription(""); setLocation(""); setMaxPlayers("");
+    setEventDate(new Date(Date.now() + 86400000));
+    setOpponentUserId(""); setShowDatePicker(false); setShowTimePicker(false);
+  };
+
+  const mutation = useMutation({
+    mutationFn: (data: Record<string, unknown>) => apiRequest("POST", `/api/player/groups/${groupId}/events`, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [`/api/player/groups/${groupId}/events`] });
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      resetWizard();
+      onClose();
+    },
+    onError: (e: any) => Alert.alert("Error", e.message || "Failed to create event"),
+  });
+
+  const submitCreate = (overrides: Record<string, unknown> = {}) => {
+    mutation.mutate({
+      eventType, title: title.trim(),
+      description: description.trim() || undefined,
+      location: location.trim() || undefined,
+      maxPlayers: maxPlayers ? parseInt(maxPlayers, 10) : undefined,
+      eventDate: eventDate.toISOString(),
+      ...overrides,
+    });
+  };
+
+  // ── Match flow helpers ──────────────────────────────────────────────────────
+  const matchStepCount = 2;
+  const canAdvanceMatch = step === 0 ? !!opponentUserId : true;
+
+  const handleNextMatch = () => {
+    if (step === 0) {
+      // Auto-title the match event
+      const opponent = members.find(m => m.userId === opponentUserId);
+      if (!title.trim()) setTitle(`Match vs ${opponent?.name?.split(" ")[0] ?? "Opponent"}`);
+      setStep(1);
+    } else {
+      // Step 1 → submit; opponentUserId required, challenger auto-created on server
+      submitCreate({ eventType: "match", opponentUserId });
+    }
+  };
+
+  // ── Regular flow helpers ────────────────────────────────────────────────────
+  const regularStepCount = 3;
+  const canAdvanceRegular = step === 0 ? !!eventType : step === 1 ? title.trim().length > 0 : true;
+
+  const handleNextRegular = () => {
+    if (step === 0) {
+      if (!title.trim()) {
+        const label = EVENT_TYPES.find(e => e.value === eventType)?.label ?? eventType;
+        setTitle(label + " Session");
+      }
+      setStep(1);
+    } else if (step === 1) {
+      setStep(2);
+    } else {
+      submitCreate();
+    }
+  };
+
+  const totalSteps = isMatchFlow ? matchStepCount : regularStepCount;
+  const canAdvance = isMatchFlow ? canAdvanceMatch : canAdvanceRegular;
+  const handleNext = isMatchFlow ? handleNextMatch : handleNextRegular;
+  const isLastStep = step === totalSteps - 1;
+
+  // Entry screen: choose match flow vs. other event type
+  const showEntryTypeSelector = !isMatchFlow && step === 0;
+
+  return (
+    <Modal visible={visible} transparent animationType="slide" onRequestClose={() => { resetWizard(); onClose(); }}>
+      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : "height"}>
+        <Pressable style={styles.modalOverlay} onPress={() => { resetWizard(); onClose(); }}>
+          <View style={styles.modalBackdrop} />
+        </Pressable>
+        <View style={evtStyles.wizardSheet}>
+          <View style={styles.composeHandle} />
+          <View style={styles.composeHeader}>
+            <Pressable
+              onPress={() => {
+                if (step > 0) { setStep(step - 1); }
+                else if (isMatchFlow) { setIsMatchFlow(false); }
+                else { resetWizard(); onClose(); }
+              }}
+              style={styles.composeCancelBtn}
+            >
+              <Text style={styles.composeCancelText}>{step > 0 || isMatchFlow ? "Back" : "Cancel"}</Text>
+            </Pressable>
+            <Text style={styles.composeTitle}>
+              {isMatchFlow ? (step === 0 ? "Match — Select Opponent" : "Match — Date & Time") : "Create Event"}
+            </Text>
+            <Pressable
+              onPress={handleNext}
+              disabled={!canAdvance || mutation.isPending}
+              style={[styles.composePostBtn, { backgroundColor: canAdvance ? typeColor : typeColor + "50" }]}
+            >
+              {mutation.isPending && isLastStep ? (
+                <ActivityIndicator size="small" color="#000" />
+              ) : (
+                <Text style={styles.composePostBtnText}>{isLastStep ? (isMatchFlow ? "Challenge" : "Create") : "Next"}</Text>
+              )}
+            </Pressable>
+          </View>
+
+          {/* Step indicator dots */}
+          <View style={evtStyles.stepRow}>
+            {Array.from({ length: totalSteps }).map((_, i) => (
+              <View key={i} style={[evtStyles.stepDot, i <= step && { backgroundColor: typeColor }]} />
+            ))}
+          </View>
+
+          <ScrollView style={{ flex: 1 }} keyboardShouldPersistTaps="handled" contentContainerStyle={{ paddingBottom: 40 }}>
+
+            {/* ── Match flow ── */}
+            {isMatchFlow && step === 0 && (
+              <View style={evtStyles.wizardSection}>
+                <Text style={evtStyles.wizardLabel}>Select your opponent from the group</Text>
+                {members.filter(m => m.userId !== undefined).length === 0 ? (
+                  <Text style={{ color: "#7A8EA0", marginTop: 12 }}>No group members to challenge.</Text>
+                ) : null}
+                <View style={evtStyles.typeGrid}>
+                  {members.filter(m => m.userId !== undefined).map(m => (
+                    <Pressable
+                      key={m.userId}
+                      onPress={() => { setOpponentUserId(opponentUserId === m.userId ? "" : (m.userId ?? "")); Haptics.selectionAsync(); }}
+                      style={[evtStyles.typeChip, { flexDirection: "row", gap: 10, alignItems: "center" },
+                        opponentUserId === m.userId && { borderColor: typeColor, backgroundColor: typeColor + "20" }]}
+                    >
+                      <View style={[evtStyles.opponentAvatar, { backgroundColor: typeColor + "30" }]}>
+                        {m.avatarUrl ? (
+                          <Image source={{ uri: m.avatarUrl }} style={evtStyles.opponentAvatarImg} />
+                        ) : (
+                          <Text style={[evtStyles.opponentAvatarInit, { color: typeColor }]}>{m.name[0]?.toUpperCase()}</Text>
+                        )}
+                      </View>
+                      <Text style={[evtStyles.typeChipTxt, opponentUserId === m.userId && { color: typeColor, fontWeight: "700" }]} numberOfLines={1}>{m.name}</Text>
+                      {opponentUserId === m.userId ? <Ionicons name="checkmark-circle" size={18} color={typeColor} /> : null}
+                    </Pressable>
+                  ))}
+                </View>
+              </View>
+            )}
+
+            {isMatchFlow && step === 1 && (
+              <View style={evtStyles.wizardSection}>
+                {(() => {
+                  const opponent = members.find(m => m.userId === opponentUserId);
+                  return opponent ? (
+                    <View style={[evtStyles.wizardSummary, { borderColor: typeColor + "30", backgroundColor: typeColor + "10", marginBottom: 16 }]}>
+                      <Text style={evtStyles.wizardSummaryTitle}>Match vs {opponent.name}</Text>
+                      <Text style={evtStyles.wizardSummaryMeta}>A challenge will be sent automatically</Text>
+                    </View>
+                  ) : null;
+                })()}
+                <Text style={evtStyles.wizardLabel}>Location (optional)</Text>
+                <TextInput
+                  style={evtStyles.wizardInput}
+                  value={location}
+                  onChangeText={setLocation}
+                  placeholder="e.g. Court 3, Main Club"
+                  placeholderTextColor="#445566"
+                />
+                <Text style={[evtStyles.wizardLabel, { marginTop: 16 }]}>Date</Text>
+                <Pressable onPress={() => setShowDatePicker(true)} style={evtStyles.dateBtn}>
+                  <Ionicons name="calendar-outline" size={18} color={typeColor} />
+                  <Text style={[evtStyles.dateBtnTxt, { color: typeColor }]}>
+                    {eventDate.toLocaleDateString([], { weekday: "long", year: "numeric", month: "long", day: "numeric" })}
+                  </Text>
+                </Pressable>
+                {showDatePicker && (
+                  <DateTimePicker value={eventDate} mode="date" minimumDate={new Date()}
+                    onChange={(_, d) => { setShowDatePicker(false); if (d) setEventDate(prev => { const n = new Date(d); n.setHours(prev.getHours(), prev.getMinutes()); return n; }); }} />
+                )}
+                <Text style={[evtStyles.wizardLabel, { marginTop: 16 }]}>Time</Text>
+                <Pressable onPress={() => setShowTimePicker(true)} style={evtStyles.dateBtn}>
+                  <Ionicons name="time-outline" size={18} color={typeColor} />
+                  <Text style={[evtStyles.dateBtnTxt, { color: typeColor }]}>
+                    {eventDate.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                  </Text>
+                </Pressable>
+                {showTimePicker && (
+                  <DateTimePicker value={eventDate} mode="time"
+                    onChange={(_, d) => { setShowTimePicker(false); if (d) setEventDate(prev => { const n = new Date(prev); n.setHours(d.getHours(), d.getMinutes()); return n; }); }} />
+                )}
+              </View>
+            )}
+
+            {/* ── Non-match flow ── */}
+            {showEntryTypeSelector && (
+              <View style={evtStyles.wizardSection}>
+                <Text style={evtStyles.wizardLabel}>What kind of event?</Text>
+                {/* Match shortcut — takes user into dedicated 2-step match flow */}
+                <Pressable
+                  onPress={() => { setEventType("match"); setIsMatchFlow(true); Haptics.selectionAsync(); }}
+                  style={[evtStyles.typeChip, { flexDirection: "row", gap: 10, marginBottom: 4 }]}
+                >
+                  <Ionicons name="trophy" size={20} color="#7A8EA0" />
+                  <View style={{ flex: 1 }}>
+                    <Text style={evtStyles.typeChipTxt}>Match Challenge</Text>
+                    <Text style={{ color: "#7A8EA0", fontSize: 11, marginTop: 2 }}>Select opponent + pick date in 2 steps</Text>
+                  </View>
+                  <Ionicons name="chevron-forward" size={16} color="#7A8EA0" />
+                </Pressable>
+                <View style={evtStyles.typeGrid}>
+                  {EVENT_TYPES.filter(e => e.value !== "match").map((et) => (
+                    <Pressable
+                      key={et.value}
+                      onPress={() => { setEventType(et.value); Haptics.selectionAsync(); }}
+                      style={[evtStyles.typeChip, eventType === et.value && { borderColor: typeColor, backgroundColor: typeColor + "20" }]}
+                    >
+                      <Ionicons name={et.icon as any} size={20} color={eventType === et.value ? typeColor : "#7A8EA0"} />
+                      <Text style={[evtStyles.typeChipTxt, eventType === et.value && { color: typeColor, fontWeight: "700" }]}>{et.label}</Text>
+                    </Pressable>
+                  ))}
+                </View>
+              </View>
+            )}
+
+            {!isMatchFlow && step === 1 && (
+              <View style={evtStyles.wizardSection}>
+                <Text style={evtStyles.wizardLabel}>Event title</Text>
+                <TextInput
+                  style={evtStyles.wizardInput}
+                  value={title}
+                  onChangeText={setTitle}
+                  placeholder="e.g. Sunday Doubles"
+                  placeholderTextColor="#445566"
+                  autoFocus
+                />
+                <Text style={[evtStyles.wizardLabel, { marginTop: 16 }]}>Description (optional)</Text>
+                <TextInput
+                  style={[evtStyles.wizardInput, { minHeight: 80, textAlignVertical: "top" }]}
+                  value={description}
+                  onChangeText={setDescription}
+                  placeholder="What should people know?"
+                  placeholderTextColor="#445566"
+                  multiline
+                />
+                <Text style={[evtStyles.wizardLabel, { marginTop: 16 }]}>Location (optional)</Text>
+                <TextInput
+                  style={evtStyles.wizardInput}
+                  value={location}
+                  onChangeText={setLocation}
+                  placeholder="Where is it?"
+                  placeholderTextColor="#445566"
+                />
+                <Text style={[evtStyles.wizardLabel, { marginTop: 16 }]}>Max players (optional)</Text>
+                <TextInput
+                  style={evtStyles.wizardInput}
+                  value={maxPlayers}
+                  onChangeText={setMaxPlayers}
+                  placeholder="No limit"
+                  placeholderTextColor="#445566"
+                  keyboardType="number-pad"
+                />
+              </View>
+            )}
+
+            {!isMatchFlow && step === 2 && (
+              <View style={evtStyles.wizardSection}>
+                <Text style={evtStyles.wizardLabel}>Date</Text>
+                <Pressable onPress={() => setShowDatePicker(true)} style={evtStyles.dateBtn}>
+                  <Ionicons name="calendar-outline" size={18} color={typeColor} />
+                  <Text style={[evtStyles.dateBtnTxt, { color: typeColor }]}>
+                    {eventDate.toLocaleDateString([], { weekday: "long", year: "numeric", month: "long", day: "numeric" })}
+                  </Text>
+                </Pressable>
+                {showDatePicker && (
+                  <DateTimePicker value={eventDate} mode="date" minimumDate={new Date()}
+                    onChange={(_, d) => { setShowDatePicker(false); if (d) setEventDate(prev => { const n = new Date(d); n.setHours(prev.getHours(), prev.getMinutes()); return n; }); }} />
+                )}
+                <Text style={[evtStyles.wizardLabel, { marginTop: 16 }]}>Time</Text>
+                <Pressable onPress={() => setShowTimePicker(true)} style={evtStyles.dateBtn}>
+                  <Ionicons name="time-outline" size={18} color={typeColor} />
+                  <Text style={[evtStyles.dateBtnTxt, { color: typeColor }]}>
+                    {eventDate.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                  </Text>
+                </Pressable>
+                {showTimePicker && (
+                  <DateTimePicker value={eventDate} mode="time"
+                    onChange={(_, d) => { setShowTimePicker(false); if (d) setEventDate(prev => { const n = new Date(prev); n.setHours(d.getHours(), d.getMinutes()); return n; }); }} />
+                )}
+                <View style={[evtStyles.wizardSummary, { borderColor: typeColor + "30", backgroundColor: typeColor + "10" }]}>
+                  <Text style={evtStyles.wizardSummaryTitle}>{title}</Text>
+                  <Text style={evtStyles.wizardSummaryMeta}>{EVENT_TYPES.find(e => e.value === eventType)?.label} • {formatEventDate(eventDate.toISOString())}</Text>
+                  {location ? <Text style={evtStyles.wizardSummaryMeta}>{location}</Text> : null}
+                </View>
+              </View>
+            )}
+
+          </ScrollView>
+        </View>
+      </KeyboardAvoidingView>
+    </Modal>
+  );
+}
+
+function GroupEventsTab({
+  groupId,
+  typeColor,
+  isAdmin,
+  currentUserId,
+  members,
+}: {
+  groupId: string;
+  typeColor: string;
+  isAdmin: boolean;
+  currentUserId?: string;
+  members: GroupDetail["members"];
+}) {
+  const queryClient = useQueryClient();
+  const [showCreate, setShowCreate] = useState(false);
+  const [editingEvent, setEditingEvent] = useState<GroupEvent | null>(null);
+  const [editTitle, setEditTitle] = useState("");
+  const [editDescription, setEditDescription] = useState("");
+  const [editLocation, setEditLocation] = useState("");
+  const [editDate, setEditDate] = useState(new Date());
+  const [editShowDatePicker, setEditShowDatePicker] = useState(false);
+  const [editShowTimePicker, setEditShowTimePicker] = useState(false);
+  const insets = useSafeAreaInsets();
+
+  const { data: events = [], isLoading, refetch } = useQuery<GroupEvent[]>({
+    queryKey: [`/api/player/groups/${groupId}/events`],
+  });
+
+  const rsvpMutation = useMutation({
+    mutationFn: ({ eventId, status }: { eventId: string; status: string }) =>
+      apiRequest("POST", `/api/player/groups/${groupId}/events/${eventId}/rsvp`, { status }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: [`/api/player/groups/${groupId}/events`] }),
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: (eventId: string) => apiRequest("DELETE", `/api/player/groups/${groupId}/events/${eventId}`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [`/api/player/groups/${groupId}/events`] });
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    },
+    onError: (e: any) => Alert.alert("Error", e.message || "Failed to delete event"),
+  });
+
+  const editMutation = useMutation({
+    mutationFn: ({ eventId, payload }: { eventId: string; payload: Record<string, unknown> }) =>
+      apiRequest("PATCH", `/api/player/groups/${groupId}/events/${eventId}`, payload),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [`/api/player/groups/${groupId}/events`] });
+      setEditingEvent(null);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    },
+    onError: (e: any) => Alert.alert("Error", e.message || "Failed to update event"),
+  });
+
+  const openEditModal = (event: GroupEvent) => {
+    setEditingEvent(event);
+    setEditTitle(event.title);
+    setEditDescription(event.description ?? "");
+    setEditLocation(event.location ?? "");
+    setEditDate(new Date(event.eventDate));
+  };
+
+  const submitEdit = () => {
+    if (!editingEvent || !editTitle.trim()) return;
+    editMutation.mutate({
+      eventId: editingEvent.id,
+      payload: {
+        title: editTitle.trim(),
+        description: editDescription.trim() || null,
+        location: editLocation.trim() || null,
+        eventDate: editDate.toISOString(),
+      },
+    });
+  };
+
+  if (isLoading) {
+    return <ActivityIndicator style={{ marginTop: 60 }} color={typeColor} />;
+  }
+
+  return (
+    <View style={{ flex: 1 }}>
+      {/* Edit Event Modal */}
+      <Modal visible={editingEvent !== null} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => setEditingEvent(null)}>
+        <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} style={{ flex: 1, backgroundColor: "#0A1628" }}>
+          <View style={evtStyles.wizardHeader}>
+            <Pressable onPress={() => setEditingEvent(null)}><Text style={evtStyles.wizardCancel}>Cancel</Text></Pressable>
+            <Text style={evtStyles.wizardTitle}>Edit Event</Text>
+            <Pressable onPress={submitEdit} disabled={!editTitle.trim() || editMutation.isPending}>
+              <Text style={[evtStyles.wizardNext, { color: typeColor, opacity: editTitle.trim() ? 1 : 0.4 }]}>
+                {editMutation.isPending ? "Saving..." : "Save"}
+              </Text>
+            </Pressable>
+          </View>
+          <ScrollView contentContainerStyle={{ padding: 20, gap: 16 }}>
+            <View style={evtStyles.wizardSection}>
+              <Text style={evtStyles.wizardLabel}>Title</Text>
+              <TextInput
+                style={evtStyles.wizardInput}
+                value={editTitle}
+                onChangeText={setEditTitle}
+                placeholder="Event title"
+                placeholderTextColor="#445566"
+              />
+            </View>
+            <View style={evtStyles.wizardSection}>
+              <Text style={evtStyles.wizardLabel}>Description (optional)</Text>
+              <TextInput
+                style={[evtStyles.wizardInput, { height: 80 }]}
+                value={editDescription}
+                onChangeText={setEditDescription}
+                placeholder="Add a description"
+                placeholderTextColor="#445566"
+                multiline
+              />
+            </View>
+            <View style={evtStyles.wizardSection}>
+              <Text style={evtStyles.wizardLabel}>Location (optional)</Text>
+              <TextInput
+                style={evtStyles.wizardInput}
+                value={editLocation}
+                onChangeText={setEditLocation}
+                placeholder="Where is it?"
+                placeholderTextColor="#445566"
+              />
+            </View>
+            <View style={evtStyles.wizardSection}>
+              <Text style={evtStyles.wizardLabel}>Date</Text>
+              <Pressable onPress={() => setEditShowDatePicker(true)} style={evtStyles.dateBtn}>
+                <Ionicons name="calendar-outline" size={18} color={typeColor} />
+                <Text style={[evtStyles.dateBtnTxt, { color: typeColor }]}>
+                  {editDate.toLocaleDateString([], { weekday: "long", year: "numeric", month: "long", day: "numeric" })}
+                </Text>
+              </Pressable>
+              {editShowDatePicker && (
+                <DateTimePicker
+                  value={editDate}
+                  mode="date"
+                  onChange={(_, d) => { setEditShowDatePicker(false); if (d) setEditDate(prev => { const n = new Date(d); n.setHours(prev.getHours(), prev.getMinutes()); return n; }); }}
+                />
+              )}
+              <Text style={[evtStyles.wizardLabel, { marginTop: 16 }]}>Time</Text>
+              <Pressable onPress={() => setEditShowTimePicker(true)} style={evtStyles.dateBtn}>
+                <Ionicons name="time-outline" size={18} color={typeColor} />
+                <Text style={[evtStyles.dateBtnTxt, { color: typeColor }]}>
+                  {editDate.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                </Text>
+              </Pressable>
+              {editShowTimePicker && (
+                <DateTimePicker
+                  value={editDate}
+                  mode="time"
+                  onChange={(_, d) => { setEditShowTimePicker(false); if (d) setEditDate(prev => { const n = new Date(prev); n.setHours(d.getHours(), d.getMinutes()); return n; }); }}
+                />
+              )}
+            </View>
+          </ScrollView>
+        </KeyboardAvoidingView>
+      </Modal>
+
+      <FlatList
+        data={events}
+        keyExtractor={(e) => e.id}
+        renderItem={({ item }) => (
+          <EventCard
+            event={item}
+            typeColor={typeColor}
+            onRsvp={(id, status) => rsvpMutation.mutate({ eventId: id, status })}
+            onDelete={(id) => deleteMutation.mutate(id)}
+            onEdit={openEditModal}
+            isAdmin={isAdmin}
+            currentUserId={currentUserId}
+          />
+        )}
+        contentContainerStyle={[styles.listContent, { paddingBottom: insets.bottom + 100 }]}
+        refreshControl={<RefreshControl refreshing={false} onRefresh={refetch} tintColor={typeColor} />}
+        ListEmptyComponent={
+          <View style={styles.emptyState}>
+            <View style={[styles.emptyIcon, { backgroundColor: typeColor + "20" }]}>
+              <Ionicons name="calendar-outline" size={36} color={typeColor} />
+            </View>
+            <Text style={styles.emptyTitle}>No upcoming events</Text>
+            <Text style={styles.emptySubtitle}>Tap + to create a group event</Text>
+          </View>
+        }
+      />
+      <Pressable
+        onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); setShowCreate(true); }}
+        style={[styles.fab, { bottom: insets.bottom + 24 }]}
+      >
+        <LinearGradient
+          colors={[typeColor, typeColor + "BB"]}
+          start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
+          style={styles.fabGradient}
+        >
+          <Ionicons name="add" size={28} color="#000" />
+        </LinearGradient>
+      </Pressable>
+      <CreateEventWizard
+        visible={showCreate}
+        onClose={() => setShowCreate(false)}
+        groupId={groupId}
+        typeColor={typeColor}
+        members={members}
+      />
+    </View>
+  );
+}
+
+// ─── GROUP CHAT TAB ────────────────────────────────────────────────────────────
+
+const QUICK_REACTIONS = ["👍", "❤️", "😂", "🎾", "🔥"];
+
+function GroupChatTab({
+  groupId,
+  typeColor,
+  groupName,
+}: {
+  groupId: string;
+  typeColor: string;
+  groupName: string;
+}) {
+  const { user } = useAuth();
+  const insets = useSafeAreaInsets();
+  const [conversationId, setConversationId] = useState<string | null>(null);
+  const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
+  const [loadingConv, setLoadingConv] = useState(true);
+  const [inputText, setInputText] = useState("");
+  const [sending, setSending] = useState(false);
+  // Server-backed read state: latest timestamp that any other participant has read up to
+  const [othersLastReadAt, setOthersLastReadAt] = useState<Date | null>(null);
+  const flatListRef = useRef<FlatList>(null);
+
+  // Get or create group conversation
+  useEffect(() => {
+    (async () => {
+      setLoadingConv(true);
+      try {
+        const resp = await apiRequest("POST", "/api/player/me/conversations", {
+          type: "group",
+          groupId,
+        });
+        setConversationId(resp.id);
+      } catch (e) {
+        console.error("Failed to get group conversation:", e);
+      } finally {
+        setLoadingConv(false);
+      }
+    })();
+  }, [groupId]);
+
+  // Load messages + fetch others' read state
+  const loadMessages = useCallback(async () => {
+    if (!conversationId) return;
+    try {
+      const [msgs, readState] = await Promise.all([
+        apiRequest("GET", `/api/player/me/conversations/${conversationId}/messages?limit=100`),
+        apiRequest("GET", `/api/player/me/conversations/${conversationId}/read-state`).catch(() => []),
+      ]);
+      setChatMessages(msgs);
+      // Mark self as read
+      apiRequest("POST", `/api/player/me/conversations/${conversationId}/read`).catch(() => {});
+      // Compute the latest timestamp any other participant has read up to
+      if (Array.isArray(readState) && readState.length > 0) {
+        const latest = readState.reduce<Date | null>((max, p) => {
+          if (!p.lastReadAt) return max;
+          const d = new Date(p.lastReadAt);
+          return max === null || d > max ? d : max;
+        }, null);
+        setOthersLastReadAt(latest);
+      }
+    } catch (e) {
+      console.error("Failed to load messages:", e);
+    }
+  }, [conversationId]);
+
+  // Real-time via WebSocket
+  useWebSocket({
+    onNewMessage: useCallback((payload: NewMessagePayload) => {
+      if (payload.conversationId === conversationId) {
+        setChatMessages(prev => {
+          const exists = prev.find(m => m.id === payload.message.id);
+          if (exists) return prev;
+          const wsMsg: ChatMessage = {
+            id: payload.message.id,
+            conversationId: payload.conversationId,
+            senderType: payload.message.senderType,
+            senderPlayerId: payload.message.senderId ?? null,
+            body: payload.message.content,
+            createdAt: payload.message.createdAt,
+            reactions: [],
+          };
+          return [...prev, wsMsg];
+        });
+        setTimeout(() => flatListRef.current?.scrollToEnd({ animated: true }), 100);
+      }
+    }, [conversationId]),
+    onMessageRead: useCallback(() => {
+      // Refresh read state when another participant marks the conversation read
+      if (conversationId) {
+        apiRequest("GET", `/api/player/me/conversations/${conversationId}/read-state`)
+          .then((readState: Array<{ playerId: string | null; lastReadAt: string | Date | null }>) => {
+            if (Array.isArray(readState) && readState.length > 0) {
+              const latest = readState.reduce<Date | null>((max, p) => {
+                if (!p.lastReadAt) return max;
+                const d = new Date(p.lastReadAt);
+                return max === null || d > max ? d : max;
+              }, null);
+              setOthersLastReadAt(latest);
+            }
+          })
+          .catch(() => {});
+      }
+    }, [conversationId]),
+  });
+
+  const sendMessage = async () => {
+    if (!inputText.trim() || !conversationId || sending) return;
+    const text = inputText.trim();
+    setInputText("");
+    setSending(true);
+    try {
+      await apiRequest("POST", `/api/player/me/conversations/${conversationId}/messages`, { body: text });
+      await loadMessages();
+      setTimeout(() => flatListRef.current?.scrollToEnd({ animated: true }), 150);
+    } catch {
+      Alert.alert("Error", "Failed to send message");
+      setInputText(text);
+    } finally {
+      setSending(false);
+    }
+  };
+
+  const addReaction = async (messageId: string, emoji: string) => {
+    if (!conversationId) return;
+    try {
+      await apiRequest("POST", `/api/player/me/messages/${messageId}/reactions`, { emoji });
+      await loadMessages();
+    } catch {
+      // silent fail — reactions are non-critical
+    }
+  };
+
+  if (loadingConv) {
+    return (
+      <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
+        <ActivityIndicator color={typeColor} />
+      </View>
+    );
+  }
+
+  if (!conversationId) {
+    return (
+      <View style={styles.emptyState}>
+        <View style={[styles.emptyIcon, { backgroundColor: typeColor + "20" }]}>
+          <Ionicons name="chatbubbles-outline" size={36} color={typeColor} />
+        </View>
+        <Text style={styles.emptyTitle}>Chat unavailable</Text>
+        <Text style={styles.emptySubtitle}>Unable to load group chat</Text>
+      </View>
+    );
+  }
+
+  return (
+    <View style={{ flex: 1 }}>
+      <FlatList
+        ref={flatListRef}
+        data={chatMessages}
+        keyExtractor={(m) => m.id}
+        renderItem={({ item, index }) => {
+          // Server-backed seen indicator: show "Seen" on the last sent message that
+          // falls before the latest timestamp any other participant has read up to
+          const isMyLastSeen = item.senderPlayerId === user?.playerId &&
+            othersLastReadAt !== null &&
+            new Date(item.createdAt) <= othersLastReadAt &&
+            (index === chatMessages.length - 1 ||
+              chatMessages.slice(index + 1).every(m => m.senderPlayerId !== user?.playerId));
+          return (
+            <ChatBubble
+              message={item}
+              typeColor={typeColor}
+              currentPlayerId={user?.playerId ?? null}
+              showSeenIndicator={isMyLastSeen}
+              onReact={(emoji) => addReaction(item.id, emoji)}
+            />
+          );
+        }}
+        contentContainerStyle={{ paddingHorizontal: 12, paddingTop: 12, paddingBottom: 8 }}
+        onContentSizeChange={() => flatListRef.current?.scrollToEnd({ animated: false })}
+        ListEmptyComponent={
+          <View style={styles.emptyState}>
+            <View style={[styles.emptyIcon, { backgroundColor: typeColor + "20" }]}>
+              <Ionicons name="chatbubbles-outline" size={36} color={typeColor} />
+            </View>
+            <Text style={styles.emptyTitle}>Start the conversation</Text>
+            <Text style={styles.emptySubtitle}>Send the first message to the group</Text>
+          </View>
+        }
+      />
+      <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"}>
+        <View style={[chatStyles.inputBar, { paddingBottom: insets.bottom + 8 }]}>
+          <TextInput
+            style={chatStyles.chatInput}
+            value={inputText}
+            onChangeText={setInputText}
+            placeholder="Message group..."
+            placeholderTextColor="#445566"
+            multiline
+            maxLength={1000}
+          />
+          <Pressable
+            onPress={sendMessage}
+            disabled={!inputText.trim() || sending}
+            style={[chatStyles.sendBtn, { backgroundColor: inputText.trim() ? typeColor : typeColor + "40" }]}
+          >
+            {sending ? <ActivityIndicator size="small" color="#000" /> : <Ionicons name="send" size={18} color="#000" />}
+          </Pressable>
+        </View>
+      </KeyboardAvoidingView>
+    </View>
+  );
+}
+
+function ChatBubble({
+  message,
+  typeColor,
+  currentPlayerId,
+  showSeenIndicator,
+  onReact,
+}: {
+  message: ChatMessage;
+  typeColor: string;
+  currentPlayerId: string | null;
+  showSeenIndicator: boolean;
+  onReact: (emoji: string) => void;
+}) {
+  const isMe = message.senderPlayerId === currentPlayerId;
+  const time = new Date(message.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+  const [showReactions, setShowReactions] = useState(false);
+
+  // Aggregate reactions
+  const reactionCounts = message.reactions.reduce<Record<string, number>>((acc, r) => {
+    acc[r.emoji] = (acc[r.emoji] ?? 0) + 1;
+    return acc;
+  }, {});
+
+  return (
+    <View style={[chatStyles.bubbleWrap, isMe ? chatStyles.bubbleWrapMe : chatStyles.bubbleWrapOther]}>
+      <Pressable
+        onLongPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); setShowReactions(true); }}
+        style={[chatStyles.bubble, isMe ? [chatStyles.bubbleMe, { backgroundColor: typeColor + "30", borderColor: typeColor + "50" }] : chatStyles.bubbleOther]}
+      >
+        <Text style={[chatStyles.bubbleTxt, isMe && { color: "#FFFFFF" }]}>{message.body}</Text>
+        <View style={chatStyles.bubbleFooter}>
+          <Text style={[chatStyles.bubbleTime, isMe && { color: typeColor }]}>{time}</Text>
+          {isMe ? (
+            <Ionicons name="checkmark-done" size={13} color={typeColor} style={{ marginLeft: 4 }} />
+          ) : null}
+        </View>
+      </Pressable>
+
+      {/* Reaction counts */}
+      {Object.keys(reactionCounts).length > 0 && (
+        <View style={[chatStyles.reactionRow, isMe ? chatStyles.reactionRowMe : chatStyles.reactionRowOther]}>
+          {Object.entries(reactionCounts).map(([emoji, count]) => (
+            <Pressable key={emoji} onPress={() => onReact(emoji)} style={chatStyles.reactionChip}>
+              <Text style={chatStyles.reactionEmoji}>{emoji}</Text>
+              {count > 1 ? <Text style={chatStyles.reactionCount}>{count}</Text> : null}
+            </Pressable>
+          ))}
+        </View>
+      )}
+
+      {/* Quick reaction picker */}
+      {showReactions ? (
+        <Pressable onPress={() => setShowReactions(false)} style={chatStyles.reactionPickerBackdrop}>
+          <View style={[chatStyles.reactionPicker, isMe ? { right: 0 } : { left: 0 }]}>
+            {QUICK_REACTIONS.map(emoji => (
+              <Pressable
+                key={emoji}
+                onPress={() => { setShowReactions(false); onReact(emoji); }}
+                style={chatStyles.reactionPickerBtn}
+              >
+                <Text style={{ fontSize: 22 }}>{emoji}</Text>
+              </Pressable>
+            ))}
+          </View>
+        </Pressable>
+      ) : null}
+
+      {/* Server-backed seen indicator — shown on sender's message once others have read past it */}
+      {showSeenIndicator ? (
+        <Text style={[chatStyles.seenLabel, { alignSelf: "flex-end" }]}>Seen</Text>
+      ) : null}
+    </View>
+  );
+}
+
 // ─── MAIN SCREEN ───────────────────────────────────────────────────────────────
 
 export default function GroupDetailScreen({ route, navigation }: Props) {
   const insets = useSafeAreaInsets();
   const queryClient = useQueryClient();
+  const { user } = useAuth();
   const { groupId, groupName = "" } = route.params as { groupId: string; groupName?: string };
   const [activeTab, setActiveTab] = useState<Tab>("feed");
   const [composeVisible, setComposeVisible] = useState(false);
@@ -886,14 +1889,17 @@ export default function GroupDetailScreen({ route, navigation }: Props) {
 
       {/* TABS */}
       <View style={styles.tabRow}>
-        <Pressable style={styles.tabItem} onPress={() => setActiveTab("feed")}>
-          <Text style={[styles.tabLabel, activeTab === "feed" && styles.tabLabelActive]}>Feed</Text>
-          {activeTab === "feed" ? <View style={[styles.tabUnderline, { backgroundColor: Colors.dark.primary }]} /> : null}
-        </Pressable>
-        <Pressable style={styles.tabItem} onPress={() => setActiveTab("members")}>
-          <Text style={[styles.tabLabel, activeTab === "members" && styles.tabLabelActive]}>Members</Text>
-          {activeTab === "members" ? <View style={[styles.tabUnderline, { backgroundColor: Colors.dark.primary }]} /> : null}
-        </Pressable>
+        {([
+          { id: "feed", label: "Feed" },
+          { id: "events", label: "Events" },
+          { id: "chat", label: "Chat" },
+          { id: "members", label: "Members" },
+        ] as const).map((tab) => (
+          <Pressable key={tab.id} style={styles.tabItem} onPress={() => setActiveTab(tab.id)}>
+            <Text style={[styles.tabLabel, activeTab === tab.id && styles.tabLabelActive]}>{tab.label}</Text>
+            {activeTab === tab.id ? <View style={[styles.tabUnderline, { backgroundColor: typeColor }]} /> : null}
+          </Pressable>
+        ))}
         {activeTab === "members" && isAdmin ? (
           <Pressable
             style={styles.tabAddBtn}
@@ -944,6 +1950,30 @@ export default function GroupDetailScreen({ route, navigation }: Props) {
             }
           />
         )
+      ) : activeTab === "events" ? (
+        <GroupEventsTab
+          groupId={groupId}
+          typeColor={typeColor}
+          isAdmin={isAdmin}
+          currentUserId={user?.id}
+          members={members}
+        />
+      ) : activeTab === "chat" ? (
+        data?.isMember ? (
+          <GroupChatTab
+            groupId={groupId}
+            typeColor={typeColor}
+            groupName={data?.group.name ?? groupName}
+          />
+        ) : (
+          <View style={styles.emptyState}>
+            <View style={[styles.emptyIcon, { backgroundColor: typeColor + "15" }]}>
+              <Ionicons name="chatbubbles-outline" size={36} color={typeColor} />
+            </View>
+            <Text style={styles.emptyTitle}>Members Only</Text>
+            <Text style={styles.emptySubtitle}>Join the group to access group chat</Text>
+          </View>
+        )
       ) : (
         <FlatList
           key="members"
@@ -968,8 +1998,8 @@ export default function GroupDetailScreen({ route, navigation }: Props) {
         />
       )}
 
-      {/* POST FAB */}
-      {data?.isMember && data?.group.allowPosts ? (
+      {/* POST FAB — only on feed tab */}
+      {activeTab === "feed" && data?.isMember && data?.group.allowPosts ? (
         <Pressable
           style={[styles.fab, { bottom: insets.bottom + 20 }]}
           onPress={() => {
@@ -1155,4 +2185,70 @@ const styles = StyleSheet.create({
   addBtn: { paddingVertical: 7, paddingHorizontal: 16, borderRadius: 20, minWidth: 56, alignItems: "center", justifyContent: "center" },
   addBtnDone: { backgroundColor: "rgba(255,255,255,0.07)", borderWidth: 1, borderColor: "rgba(255,255,255,0.1)" },
   addBtnText: { fontSize: 13, fontWeight: "700", color: "#000" },
+});
+
+const evtStyles = StyleSheet.create({
+  card: { backgroundColor: "#0F141B", borderRadius: 16, padding: 16, marginBottom: 10, borderWidth: 1, borderColor: "rgba(255,255,255,0.06)" },
+  cardHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 10 },
+  eventTypeBadge: { flexDirection: "row", alignItems: "center", gap: 6, paddingHorizontal: 10, paddingVertical: 5, borderRadius: 20 },
+  eventTypeTxt: { fontSize: 12, fontWeight: "700", textTransform: "uppercase", letterSpacing: 0.6 },
+  deleteBtn: { padding: 6 },
+  eventTitle: { fontSize: 16, fontWeight: "700", color: "#FFFFFF", marginBottom: 4 },
+  eventDesc: { fontSize: 14, color: "#7A8EA0", lineHeight: 20, marginBottom: 8 },
+  metaRow: { flexDirection: "row", alignItems: "center", gap: 6, marginTop: 4 },
+  metaTxt: { fontSize: 13, color: "#7A8EA0" },
+  avatarRow: { flexDirection: "row", alignItems: "center", marginTop: 12, marginBottom: 4 },
+  miniAvatar: { width: 26, height: 26, borderRadius: 13, justifyContent: "center", alignItems: "center", borderWidth: 1.5, borderColor: "#0a0f1a" },
+  miniAvatarImg: { width: 26, height: 26, borderRadius: 13 },
+  miniAvatarInit: { fontSize: 10, fontWeight: "700" },
+  goingTxt: { fontSize: 12, color: "#7A8EA0", marginLeft: 10 },
+  rsvpRow: { flexDirection: "row", gap: 8, marginTop: 12 },
+  rsvpBtn: { flex: 1, alignItems: "center", paddingVertical: 8, borderRadius: 20, borderWidth: 1, borderColor: "rgba(255,255,255,0.1)", backgroundColor: "rgba(255,255,255,0.04)" },
+  rsvpBtnTxt: { fontSize: 13, fontWeight: "600", color: "#7A8EA0" },
+
+  // Wizard
+  wizardSheet: { backgroundColor: "#0F141B", borderTopLeftRadius: 24, borderTopRightRadius: 24, flex: 1, maxHeight: "92%", borderWidth: 1, borderColor: "rgba(255,255,255,0.08)" },
+  stepRow: { flexDirection: "row", justifyContent: "center", gap: 8, paddingVertical: 12 },
+  stepDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: "rgba(255,255,255,0.15)" },
+  wizardSection: { paddingHorizontal: 20, paddingTop: 4 },
+  wizardLabel: { fontSize: 13, fontWeight: "700", color: "#7A8EA0", textTransform: "uppercase", letterSpacing: 0.7, marginBottom: 10 },
+  wizardInput: { backgroundColor: "rgba(255,255,255,0.06)", borderRadius: 12, paddingHorizontal: 14, paddingVertical: 12, color: "#FFFFFF", fontSize: 15, borderWidth: 1, borderColor: "rgba(255,255,255,0.08)" },
+  typeGrid: { flexDirection: "row", flexWrap: "wrap", gap: 10 },
+  typeChip: { flexDirection: "row", alignItems: "center", gap: 8, paddingHorizontal: 16, paddingVertical: 12, borderRadius: 14, borderWidth: 1.5, borderColor: "rgba(255,255,255,0.1)", backgroundColor: "rgba(255,255,255,0.04)", minWidth: "45%" },
+  typeChipTxt: { fontSize: 14, fontWeight: "600", color: "#7A8EA0" },
+  opponentChip: { alignItems: "center", padding: 10, borderRadius: 14, borderWidth: 1.5, borderColor: "rgba(255,255,255,0.1)", backgroundColor: "rgba(255,255,255,0.04)", minWidth: 70 },
+  opponentAvatar: { width: 46, height: 46, borderRadius: 23, justifyContent: "center", alignItems: "center", marginBottom: 6 },
+  opponentAvatarImg: { width: 46, height: 46, borderRadius: 23 },
+  opponentAvatarInit: { fontSize: 17, fontWeight: "700" },
+  opponentName: { fontSize: 12, fontWeight: "600", color: "#7A8EA0", textAlign: "center" },
+  dateBtn: { flexDirection: "row", alignItems: "center", gap: 10, backgroundColor: "rgba(255,255,255,0.06)", borderRadius: 12, paddingHorizontal: 14, paddingVertical: 14, borderWidth: 1, borderColor: "rgba(255,255,255,0.08)" },
+  dateBtnTxt: { fontSize: 15, fontWeight: "600" },
+  wizardSummary: { marginTop: 20, borderRadius: 14, padding: 16, borderWidth: 1 },
+  wizardSummaryTitle: { fontSize: 16, fontWeight: "700", color: "#FFFFFF", marginBottom: 4 },
+  wizardSummaryMeta: { fontSize: 13, color: "#7A8EA0", marginTop: 2 },
+});
+
+const chatStyles = StyleSheet.create({
+  inputBar: { flexDirection: "row", alignItems: "flex-end", gap: 10, paddingHorizontal: 12, paddingTop: 8, borderTopWidth: 1, borderTopColor: "rgba(255,255,255,0.07)", backgroundColor: "#0a0f1a" },
+  chatInput: { flex: 1, backgroundColor: "rgba(255,255,255,0.06)", borderRadius: 20, paddingHorizontal: 16, paddingVertical: 10, color: "#FFFFFF", fontSize: 14, maxHeight: 100, minHeight: 42, borderWidth: 1, borderColor: "rgba(255,255,255,0.08)" },
+  sendBtn: { width: 42, height: 42, borderRadius: 21, justifyContent: "center", alignItems: "center" },
+  bubbleWrap: { marginBottom: 10, maxWidth: "80%" },
+  bubbleWrapMe: { alignSelf: "flex-end" },
+  bubbleWrapOther: { alignSelf: "flex-start" },
+  bubble: { borderRadius: 18, paddingHorizontal: 14, paddingVertical: 10, borderWidth: 1 },
+  bubbleMe: { borderColor: "transparent" },
+  bubbleOther: { backgroundColor: "rgba(255,255,255,0.06)", borderColor: "rgba(255,255,255,0.08)" },
+  bubbleTxt: { fontSize: 14, color: "#CCDDEE", lineHeight: 20 },
+  bubbleFooter: { flexDirection: "row", alignItems: "center", justifyContent: "flex-end", marginTop: 4 },
+  bubbleTime: { fontSize: 10, color: "#445566" },
+  reactionRow: { flexDirection: "row", flexWrap: "wrap", gap: 4, marginTop: 4 },
+  reactionRowMe: { justifyContent: "flex-end" },
+  reactionRowOther: { justifyContent: "flex-start" },
+  reactionChip: { flexDirection: "row", alignItems: "center", backgroundColor: "rgba(255,255,255,0.08)", borderRadius: 12, paddingHorizontal: 8, paddingVertical: 3, gap: 3, borderWidth: 1, borderColor: "rgba(255,255,255,0.1)" },
+  reactionEmoji: { fontSize: 14 },
+  reactionCount: { fontSize: 11, color: "#7A8EA0", fontWeight: "600" },
+  reactionPickerBackdrop: { position: "absolute", top: -48, left: -10, right: -10, zIndex: 99 },
+  reactionPicker: { flexDirection: "row", position: "absolute", backgroundColor: "#1A2535", borderRadius: 24, paddingHorizontal: 8, paddingVertical: 6, gap: 4, borderWidth: 1, borderColor: "rgba(255,255,255,0.12)", top: 0 },
+  reactionPickerBtn: { padding: 4 },
+  seenLabel: { fontSize: 10, color: "#445566", marginTop: 2 },
 });

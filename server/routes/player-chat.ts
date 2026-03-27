@@ -9,13 +9,16 @@ import {
 import { filterProfanity } from "../profanityFilter";
 import { isPlayerMinor, getPlayerParentalControls } from "../childSafety";
 import { chatRateLimiter } from "../rateLimiter";
-import { getCoachPushTokens, sendPushNotification } from "../pushNotifications";
+import { getCoachPushTokens, sendPushNotification, getPlayerPushTokens } from "../pushNotifications";
 import { db } from "../db";
-import { serviceProviders, users, shopOrders, conversations, conversationParticipants, messageReactions, messages, playerBlocks } from "../../shared/schema";
+import { serviceProviders, users, shopOrders, conversations, conversationParticipants, messageReactions, messages, playerBlocks, groupMembers, communityGroups } from "../../shared/schema";
 import { eq, and } from "drizzle-orm";
 import { broadcastProviderPlayerMessage } from "../websocket";
 
 const router = Router();
+
+// Throttle cache for group chat push notifications (1 per 5 min per conversation)
+const groupChatPushCache = new Map<string, number>();
 
 interface AuthRequest extends Request {
   user?: JWTPayload;
@@ -191,7 +194,7 @@ router.post("/api/player/me/conversations", authMiddleware, requirePlayerOrOwner
     }
 
     const academyId = player.academyId;
-    const { type, otherPlayerId, title, coachId, squadId } = req.body;
+    const { type, otherPlayerId, title, coachId, squadId, groupId } = req.body;
 
     if (!type) {
       return res.status(400).json({ error: "Conversation type required" });
@@ -259,6 +262,51 @@ router.post("/api/player/me/conversations", authMiddleware, requirePlayerOrOwner
         canPost: true,
         academyId,
       });
+      return res.status(201).json(conv);
+    }
+
+    if (type === "group") {
+      if (!groupId) {
+        return res.status(400).json({ error: "groupId required for group conversation" });
+      }
+      // Verify user is a member of the group
+      const [membership] = await db.select().from(groupMembers)
+        .where(and(eq(groupMembers.groupId, groupId), eq(groupMembers.userId, req.user!.userId!)));
+      if (!membership) {
+        return res.status(403).json({ error: "Not a member of this group" });
+      }
+      // Get or create a group conversation
+      const existing = await db.select().from(conversations)
+        .where(and(eq(conversations.type, "group"), eq(conversations.title, groupId)));
+      if (existing.length > 0) {
+        const conv = existing[0];
+        const alreadyParticipant = await db.select().from(conversationParticipants)
+          .where(and(eq(conversationParticipants.conversationId, conv.id), eq(conversationParticipants.playerId, playerId)));
+        if (alreadyParticipant.length === 0) {
+          await db.insert(conversationParticipants).values({
+            conversationId: conv.id, playerId, coachId: null, role: "member",
+            participantType: "player", canPost: true, academyId,
+          });
+        }
+        return res.json(conv);
+      }
+      const [group] = await db.select().from(communityGroups).where(eq(communityGroups.id, groupId));
+      const conv = await storage.createConversation({
+        type: "group", title: groupId, playerId: null, coachId: null, academyId,
+      });
+      // Add all current group members as participants
+      const groupMemberRows = await db.select().from(groupMembers)
+        .where(eq(groupMembers.groupId, groupId));
+      for (const gm of groupMemberRows) {
+        const [memberUser] = await db.select().from(users).where(eq(users.id, gm.userId));
+        if (memberUser?.playerId) {
+          await db.insert(conversationParticipants).values({
+            conversationId: conv.id, playerId: memberUser.playerId, coachId: null,
+            role: gm.role === "admin" ? "owner" : "member",
+            participantType: "player", canPost: true, academyId,
+          }).catch(() => {});
+        }
+      }
       return res.status(201).json(conv);
     }
 
@@ -472,10 +520,56 @@ router.post("/api/player/me/conversations/:id/messages", authMiddleware, require
         }
       }
     }
+
+    // For group chats: send throttled push to other player participants
+    if (conversation.type === "group") {
+      const cacheKey = `group_chat_push:${id}`;
+      const lastPushTime = groupChatPushCache.get(cacheKey) ?? 0;
+      const now = Date.now();
+      if (now - lastPushTime > 5 * 60 * 1000) {
+        groupChatPushCache.set(cacheKey, now);
+        const otherParticipants = participants.filter(p => p.playerId && p.playerId !== playerId);
+        for (const p of otherParticipants) {
+          if (p.playerId) {
+            const tokens = await getPlayerPushTokens(p.playerId);
+            if (tokens.length > 0) {
+              sendPushNotification(
+                tokens,
+                `Group: ${player.name || "Someone"} sent a message`,
+                filteredBody.substring(0, 100),
+                { screen: "Messages", conversationId: id }
+              ).catch(() => {});
+            }
+          }
+        }
+      }
+    }
+
     res.status(201).json(message);
   } catch (error) {
     console.error("Error sending player message:", error);
     res.status(500).json({ error: "Failed to send message" });
+  }
+});
+
+// Get participant read state for a conversation (server-backed seen indicators)
+router.get("/api/player/me/conversations/:id/read-state", authMiddleware, requirePlayerOrOwner, async (req: AuthRequest, res: Response) => {
+  try {
+    if (!req.user!.playerId) return res.json([]);
+    const playerId = req.user!.playerId!;
+    const player = await storage.getPlayer(playerId);
+    if (!player || !player.academyId) return res.json([]);
+    const { id } = req.params;
+    const conversation = await storage.getConversationForPlayer(id, playerId, player.academyId);
+    if (!conversation) return res.status(404).json({ error: "Conversation not found" });
+    const participants = await storage.getConversationParticipants(id, undefined, player.academyId);
+    const readState = participants
+      .filter(p => p.playerId && p.playerId !== playerId)
+      .map(p => ({ playerId: p.playerId, lastReadAt: p.lastReadAt }));
+    res.json(readState);
+  } catch (error) {
+    console.error("Error fetching read state:", error);
+    res.status(500).json({ error: "Failed to fetch read state" });
   }
 });
 

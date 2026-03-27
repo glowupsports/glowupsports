@@ -3539,6 +3539,66 @@ export const insertGroupMemberSchema = createInsertSchema(groupMembers).omit({ i
 export type InsertGroupMember = z.infer<typeof insertGroupMemberSchema>;
 export type GroupMember = typeof groupMembers.$inferSelect;
 
+// Group Events
+export const groupEvents = pgTable("group_events", {
+  id: varchar("id")
+    .primaryKey()
+    .default(sql`gen_random_uuid()`),
+  groupId: varchar("group_id").references(() => communityGroups.id).notNull(),
+  creatorId: varchar("creator_id").references(() => users.id).notNull(),
+
+  // Event type: booking | match | social
+  eventType: text("event_type").notNull().default("social"),
+
+  title: text("title").notNull(),
+  description: text("description"),
+  location: text("location"),
+  sport: text("sport"),
+
+  // When
+  eventDate: timestamp("event_date").notNull(),
+
+  maxPlayers: integer("max_players"),
+
+  // For match type: optional opponent (another member userId)
+  opponentUserId: varchar("opponent_user_id").references(() => users.id),
+  // Link to match challenge if auto-created
+  matchChallengeId: varchar("match_challenge_id"),
+
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("group_events_group_idx").on(table.groupId),
+  index("group_events_date_idx").on(table.eventDate),
+]);
+
+export const insertGroupEventSchema = createInsertSchema(groupEvents).omit({ id: true, createdAt: true, updatedAt: true });
+export type InsertGroupEvent = z.infer<typeof insertGroupEventSchema>;
+export type GroupEvent = typeof groupEvents.$inferSelect;
+
+// Group Event RSVPs
+export const groupEventRsvps = pgTable("group_event_rsvps", {
+  id: varchar("id")
+    .primaryKey()
+    .default(sql`gen_random_uuid()`),
+  eventId: varchar("event_id").references(() => groupEvents.id).notNull(),
+  userId: varchar("user_id").references(() => users.id).notNull(),
+
+  // going | maybe | not_going
+  status: text("status").notNull().default("going"),
+
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("group_event_rsvps_event_idx").on(table.eventId),
+  index("group_event_rsvps_user_idx").on(table.userId),
+  unique("group_event_rsvps_event_user_unique").on(table.eventId, table.userId),
+]);
+
+export const insertGroupEventRsvpSchema = createInsertSchema(groupEventRsvps).omit({ id: true, createdAt: true, updatedAt: true });
+export type InsertGroupEventRsvp = z.infer<typeof insertGroupEventRsvpSchema>;
+export type GroupEventRsvp = typeof groupEventRsvps.$inferSelect;
+
 // Posts (Moments) - Social feed content
 export const posts = pgTable("posts", {
   id: varchar("id")
