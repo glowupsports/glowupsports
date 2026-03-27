@@ -305,7 +305,10 @@ import { Router, type Request, type Response, type NextFunction } from "express"
           },
         });
 
-        // Settle any outstanding debts for this player and credit type
+        // Settle any outstanding debts for this player and credit type.
+        // The settlement function is internally guarded so it can never deduct
+        // more credits than the package has remaining (hard cap in storage layer).
+        console.log(`[Package] Running debt settlement for player ${playerId}, creditType=${creditType}, packageCredits=${totalCredits}`);
         const debtSettlement = await storage.settlePlayerDebts(
           playerId,
           creditType,
@@ -313,9 +316,18 @@ import { Router, type Request, type Response, type NextFunction } from "express"
         );
 
         if (debtSettlement.settledCount > 0) {
-          console.log(
-            `[Package] Settled ${debtSettlement.settledCount} debt(s) for player ${playerId}, deducted ${debtSettlement.totalDeducted} credits from package ${pkg.id}`,
-          );
+          // Sanity check: settled debts should never exceed package credits
+          if (debtSettlement.totalDeducted > totalCredits) {
+            console.error(
+              `[Package] SETTLEMENT OVERFLOW: deducted ${debtSettlement.totalDeducted} credits but package only has ${totalCredits} — investigate immediately`
+            );
+          } else {
+            console.log(
+              `[Package] Settled ${debtSettlement.settledCount} debt(s) for player ${playerId}, deducted ${debtSettlement.totalDeducted}/${totalCredits} credits from package ${pkg.id}`,
+            );
+          }
+        } else {
+          console.log(`[Package] No outstanding debts to settle for player ${playerId} (${creditType})`);
         }
 
         // Retroactively charge any "stuck" sessions: sessions that have credit_deducted_at set

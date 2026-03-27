@@ -737,6 +737,26 @@ function setupErrorHandler(app: express.Application) {
 
         log("[AlmaFix] Applying one-shot credit correction for Alma Zalesski...");
         await fixAlmaZaleskiCredits();
+
+        // One-time cleanup: remove ghost session_debt with NULL session_id (Erina, Feb 15 2026)
+        try {
+          const { db: dbInst } = await import("./db");
+          const { sql: sqlTag } = await import("drizzle-orm");
+          const ghostResult = await dbInst.execute(sqlTag`
+            DELETE FROM credit_transactions
+            WHERE id = '96adb4db-e661-4ff2-b9aa-82bab3186080'
+              AND session_id IS NULL
+              AND reason IN ('session_debt', 'session_join_debt', 'session_unpaid')
+          `);
+          const deleted = (ghostResult as any).rowCount ?? 0;
+          if (deleted > 0) {
+            log("[GhostDebtCleanup] Removed 1 orphaned session_debt with NULL session_id");
+          } else {
+            log("[GhostDebtCleanup] Orphaned debt already removed — no action needed");
+          }
+        } catch (ghostErr: any) {
+          console.error("[GhostDebtCleanup] Error:", ghostErr.message);
+        }
         
         log("[CreditAudit] Running ghost credit audit for ALL players...");
         await auditAllPlayerCredits();
