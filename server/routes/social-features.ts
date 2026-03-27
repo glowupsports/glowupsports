@@ -104,7 +104,7 @@ const socialPostUpload = multer({
           }
           
           const rawFriendUsers = await db.execute(sql`
-            SELECT id FROM users WHERE player_id = ANY(${friendPlayerIds})
+            SELECT id FROM users WHERE player_id IN (${sql.join(friendPlayerIds.map((id: string) => sql`${id}`), sql`, `)})
           `);
           friendUserIds = (rawFriendUsers.rows || []).map((r: any) => r.id);
           
@@ -145,7 +145,7 @@ const socialPostUpload = multer({
                    media_urls, media_types, visibility, group_id, cheer_count, 
                    comment_count, created_at, is_hidden
             FROM posts 
-            WHERE academy_id = ${academyId} AND is_hidden = false AND author_id = ANY(${friendUserIds})
+            WHERE academy_id = ${academyId} AND is_hidden = false AND author_id IN (${sql.join(friendUserIds.map((id: string) => sql`${id}`), sql`, `)})
             ORDER BY id DESC
             LIMIT ${limitVal}
             OFFSET ${offsetVal}
@@ -156,7 +156,7 @@ const socialPostUpload = multer({
                    media_urls, media_types, visibility, group_id, cheer_count, 
                    comment_count, created_at, is_hidden
             FROM posts 
-            WHERE academy_id = ${academyId} AND is_hidden = false AND group_id = ANY(${groupIds})
+            WHERE academy_id = ${academyId} AND is_hidden = false AND group_id IN (${sql.join(groupIds.map((id: string) => sql`${id}`), sql`, `)})
             ORDER BY id DESC
             LIMIT ${limitVal}
             OFFSET ${offsetVal}
@@ -237,8 +237,8 @@ const socialPostUpload = multer({
                   author_id = ${userId}
                   OR visibility = 'academy'
                   OR visibility = 'public'
-                  OR (visibility = 'friends' AND author_id = ANY(${forYouFriendIds}))
-                  OR (visibility = 'group' AND group_id = ANY(${forYouGroupIds}))
+                  OR (visibility = 'friends' AND author_id IN (${sql.join(forYouFriendIds.map((id: string) => sql`${id}`), sql`, `)}))
+                  OR (visibility = 'group' AND group_id IN (${sql.join(forYouGroupIds.map((id: string) => sql`${id}`), sql`, `)}))
                 )
               ORDER BY id DESC
               LIMIT ${limitVal}
@@ -256,7 +256,7 @@ const socialPostUpload = multer({
                   author_id = ${userId}
                   OR visibility = 'academy'
                   OR visibility = 'public'
-                  OR (visibility = 'friends' AND author_id = ANY(${forYouFriendIds}))
+                  OR (visibility = 'friends' AND author_id IN (${sql.join(forYouFriendIds.map((id: string) => sql`${id}`), sql`, `)}))
                 )
               ORDER BY id DESC
               LIMIT ${limitVal}
@@ -274,7 +274,7 @@ const socialPostUpload = multer({
                   author_id = ${userId}
                   OR visibility = 'academy'
                   OR visibility = 'public'
-                  OR (visibility = 'group' AND group_id = ANY(${forYouGroupIds}))
+                  OR (visibility = 'group' AND group_id IN (${sql.join(forYouGroupIds.map((id: string) => sql`${id}`), sql`, `)}))
                 )
               ORDER BY id DESC
               LIMIT ${limitVal}

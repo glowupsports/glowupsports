@@ -21,7 +21,7 @@ import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import { Image } from "expo-image";
 import Animated, { FadeInUp } from "react-native-reanimated";
-import { Colors, Spacing, BorderRadius, Typography } from "@/constants/theme";
+import { Colors, Spacing, BorderRadius, Typography, FontSizes } from "@/constants/theme";
 import { apiRequest } from "@/lib/query-client";
 import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollViewCompat";
 
@@ -790,7 +790,7 @@ const styles = StyleSheet.create({
     borderBottomColor: Colors.dark.primary,
   },
   tabText: {
-    fontSize: Typography.sizes.md,
+    fontSize: FontSizes.md,
     color: Colors.dark.textMuted,
   },
   tabTextActive: {
@@ -827,7 +827,7 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.dark.primary + "33",
   },
   filterChipText: {
-    fontSize: Typography.sizes.sm,
+    fontSize: FontSizes.sm,
     color: Colors.dark.textMuted,
   },
   filterChipTextActive: {
@@ -870,12 +870,12 @@ const styles = StyleSheet.create({
   },
   cardTitle: {
     flex: 1,
-    fontSize: Typography.sizes.md,
+    fontSize: FontSizes.md,
     fontWeight: "600",
     color: Colors.dark.text,
   },
   cardDesc: {
-    fontSize: Typography.sizes.sm,
+    fontSize: FontSizes.sm,
     color: Colors.dark.textMuted,
   },
   typeBadge: {
@@ -902,7 +902,7 @@ const styles = StyleSheet.create({
     borderRadius: 4,
   },
   priceChipText: {
-    fontSize: Typography.sizes.xs,
+    fontSize: FontSizes.xs,
     color: Colors.dark.text,
     fontWeight: "500",
   },
@@ -917,7 +917,7 @@ const styles = StyleSheet.create({
     borderRadius: 3,
   },
   availText: {
-    fontSize: Typography.sizes.xs,
+    fontSize: FontSizes.xs,
   },
   cardCTA: {
     width: 44,
@@ -951,12 +951,12 @@ const styles = StyleSheet.create({
     gap: 2,
   },
   rentalTitle: {
-    fontSize: Typography.sizes.md,
+    fontSize: FontSizes.md,
     fontWeight: "600",
     color: Colors.dark.text,
   },
   rentalDates: {
-    fontSize: Typography.sizes.xs,
+    fontSize: FontSizes.xs,
     color: Colors.dark.textMuted,
   },
   rentalStatusRow: {
@@ -971,11 +971,11 @@ const styles = StyleSheet.create({
     borderRadius: 4,
   },
   statusText: {
-    fontSize: Typography.sizes.xs,
+    fontSize: FontSizes.xs,
     fontWeight: "600",
   },
   paymentTag: {
-    fontSize: Typography.sizes.xs,
+    fontSize: FontSizes.xs,
     color: Colors.dark.textMuted,
     marginLeft: "auto",
   },
@@ -992,12 +992,12 @@ const styles = StyleSheet.create({
     gap: Spacing.sm,
   },
   emptyText: {
-    fontSize: Typography.sizes.lg,
+    fontSize: FontSizes.lg,
     fontWeight: "600",
     color: Colors.dark.text,
   },
   emptySubtext: {
-    fontSize: Typography.sizes.sm,
+    fontSize: FontSizes.sm,
     color: Colors.dark.textMuted,
     textAlign: "center",
   },
@@ -1014,7 +1014,7 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.lg,
   },
   modalTitle: {
-    fontSize: Typography.sizes.xl,
+    fontSize: FontSizes.xl,
     fontWeight: "700",
     color: Colors.dark.text,
   },
@@ -1032,22 +1032,22 @@ const styles = StyleSheet.create({
     borderRadius: BorderRadius.sm,
   },
   modalItemName: {
-    fontSize: Typography.sizes.lg,
+    fontSize: FontSizes.lg,
     fontWeight: "600",
     color: Colors.dark.text,
   },
   modalItemDesc: {
-    fontSize: Typography.sizes.sm,
+    fontSize: FontSizes.sm,
     color: Colors.dark.textMuted,
     marginTop: 2,
   },
   stockTag: {
-    fontSize: Typography.sizes.xs,
+    fontSize: FontSizes.xs,
     color: Colors.dark.textMuted,
     marginTop: 4,
   },
   modalLabel: {
-    fontSize: Typography.sizes.sm,
+    fontSize: FontSizes.sm,
     color: Colors.dark.textMuted,
     marginBottom: 6,
     marginTop: Spacing.md,
@@ -1073,7 +1073,7 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.dark.gold + "22",
   },
   paymentOptionText: {
-    fontSize: Typography.sizes.sm,
+    fontSize: FontSizes.sm,
     color: Colors.dark.textMuted,
     fontWeight: "500",
   },
@@ -1083,7 +1083,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.md,
     paddingVertical: Spacing.sm,
     color: Colors.dark.text,
-    fontSize: Typography.sizes.md,
+    fontSize: FontSizes.md,
     borderWidth: 1,
     borderColor: Colors.dark.border,
   },
@@ -1099,12 +1099,12 @@ const styles = StyleSheet.create({
   },
   dateText: {
     color: Colors.dark.text,
-    fontSize: Typography.sizes.md,
+    fontSize: FontSizes.md,
     flex: 1,
   },
   datePlaceholder: {
     color: Colors.dark.textMuted,
-    fontSize: Typography.sizes.md,
+    fontSize: FontSizes.md,
     flex: 1,
   },
   confirmBox: {
@@ -1117,7 +1117,7 @@ const styles = StyleSheet.create({
   },
   confirmText: {
     flex: 1,
-    fontSize: Typography.sizes.sm,
+    fontSize: FontSizes.sm,
     color: Colors.dark.textMuted,
   },
   qtyRow: {
@@ -1141,7 +1141,7 @@ const styles = StyleSheet.create({
     borderRadius: BorderRadius.sm,
     paddingVertical: Spacing.sm,
     color: Colors.dark.text,
-    fontSize: Typography.sizes.lg,
+    fontSize: FontSizes.lg,
     fontWeight: "600",
     borderWidth: 1,
     borderColor: Colors.dark.border,
@@ -1157,11 +1157,11 @@ const styles = StyleSheet.create({
     borderTopColor: Colors.dark.border,
   },
   totalLabel: {
-    fontSize: Typography.sizes.md,
+    fontSize: FontSizes.md,
     color: Colors.dark.textMuted,
   },
   totalValue: {
-    fontSize: Typography.sizes.lg,
+    fontSize: FontSizes.lg,
     fontWeight: "700",
     color: Colors.dark.primary,
   },
@@ -1179,6 +1179,6 @@ const styles = StyleSheet.create({
   ctaBtnText: {
     color: "#000",
     fontWeight: "700",
-    fontSize: Typography.sizes.md,
+    fontSize: FontSizes.md,
   },
 });

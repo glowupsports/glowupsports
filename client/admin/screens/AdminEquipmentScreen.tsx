@@ -19,7 +19,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import { Image } from "expo-image";
-import { Colors, Spacing, BorderRadius, Typography, CardStyles } from "@/constants/theme";
+import { Colors, Spacing, BorderRadius, Typography, FontSizes, CardStyles } from "@/constants/theme";
 import { apiRequest, getApiUrl } from "@/lib/query-client";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollViewCompat";
@@ -786,7 +786,7 @@ const styles = StyleSheet.create({
   },
   headerTitle: {
     flex: 1,
-    fontSize: Typography.sizes.xl,
+    fontSize: FontSizes.xl,
     fontWeight: "700",
     color: Colors.dark.text,
   },
@@ -811,7 +811,7 @@ const styles = StyleSheet.create({
     borderRadius: BorderRadius.full,
   },
   statText: {
-    fontSize: Typography.sizes.xs,
+    fontSize: FontSizes.xs,
     color: Colors.dark.textMuted,
   },
   tabs: {
@@ -832,7 +832,7 @@ const styles = StyleSheet.create({
     borderBottomColor: Colors.dark.primary,
   },
   tabText: {
-    fontSize: Typography.sizes.md,
+    fontSize: FontSizes.md,
     color: Colors.dark.textMuted,
   },
   tabTextActive: {
@@ -898,13 +898,13 @@ const styles = StyleSheet.create({
     gap: Spacing.xs,
   },
   cardTitle: {
-    fontSize: Typography.sizes.md,
+    fontSize: FontSizes.md,
     fontWeight: "600",
     color: Colors.dark.text,
     flex: 1,
   },
   cardDesc: {
-    fontSize: Typography.sizes.sm,
+    fontSize: FontSizes.sm,
     color: Colors.dark.textMuted,
   },
   priceRow: {
@@ -913,7 +913,7 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   priceText: {
-    fontSize: Typography.sizes.sm,
+    fontSize: FontSizes.sm,
     color: Colors.dark.primary,
     fontWeight: "500",
   },
@@ -924,11 +924,11 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   stockText: {
-    fontSize: Typography.sizes.xs,
+    fontSize: FontSizes.xs,
     color: Colors.dark.textMuted,
   },
   inactiveBadge: {
-    fontSize: Typography.sizes.xs,
+    fontSize: FontSizes.xs,
     color: Colors.dark.textMuted,
     backgroundColor: Colors.dark.backgroundRoot,
     paddingHorizontal: 6,
@@ -942,7 +942,7 @@ const styles = StyleSheet.create({
     borderRadius: 4,
   },
   typeBadgeText: {
-    fontSize: Typography.sizes.xs,
+    fontSize: FontSizes.xs,
     fontWeight: "500",
   },
   cardActions: {
@@ -958,11 +958,11 @@ const styles = StyleSheet.create({
     borderRadius: BorderRadius.sm,
   },
   actionBtnText: {
-    fontSize: Typography.sizes.xs,
+    fontSize: FontSizes.xs,
     fontWeight: "600",
   },
   rentalDates: {
-    fontSize: Typography.sizes.xs,
+    fontSize: FontSizes.xs,
     color: Colors.dark.textSecondary,
     marginTop: 2,
   },
@@ -978,11 +978,11 @@ const styles = StyleSheet.create({
     borderRadius: 4,
   },
   statusText: {
-    fontSize: Typography.sizes.xs,
+    fontSize: FontSizes.xs,
     fontWeight: "600",
   },
   paymentBadge: {
-    fontSize: Typography.sizes.xs,
+    fontSize: FontSizes.xs,
     color: Colors.dark.textMuted,
     marginLeft: "auto",
   },
@@ -1002,7 +1002,7 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.dark.primary + "33",
   },
   filterChipText: {
-    fontSize: Typography.sizes.sm,
+    fontSize: FontSizes.sm,
     color: Colors.dark.textMuted,
   },
   filterChipTextActive: {
@@ -1019,12 +1019,12 @@ const styles = StyleSheet.create({
     gap: Spacing.sm,
   },
   emptyText: {
-    fontSize: Typography.sizes.lg,
+    fontSize: FontSizes.lg,
     color: Colors.dark.text,
     fontWeight: "600",
   },
   emptySubtext: {
-    fontSize: Typography.sizes.sm,
+    fontSize: FontSizes.sm,
     color: Colors.dark.textMuted,
     textAlign: "center",
   },
@@ -1041,7 +1041,7 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.lg,
   },
   modalTitle: {
-    fontSize: Typography.sizes.xl,
+    fontSize: FontSizes.xl,
     fontWeight: "700",
     color: Colors.dark.text,
   },
@@ -1049,7 +1049,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   label: {
-    fontSize: Typography.sizes.sm,
+    fontSize: FontSizes.sm,
     color: Colors.dark.textMuted,
     marginBottom: 4,
     marginTop: Spacing.md,
@@ -1060,7 +1060,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.md,
     paddingVertical: Spacing.sm,
     color: Colors.dark.text,
-    fontSize: Typography.sizes.md,
+    fontSize: FontSizes.md,
     borderWidth: 1,
     borderColor: Colors.dark.border,
   },
@@ -1093,7 +1093,7 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.dark.primary + "22",
   },
   typeOptionText: {
-    fontSize: Typography.sizes.sm,
+    fontSize: FontSizes.sm,
     color: Colors.dark.textMuted,
     fontWeight: "500",
   },
@@ -1125,7 +1125,7 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   photoPlaceholderText: {
-    fontSize: Typography.sizes.xs,
+    fontSize: FontSizes.xs,
     color: Colors.dark.textMuted,
   },
   saveBtn: {
@@ -1142,6 +1142,6 @@ const styles = StyleSheet.create({
   saveBtnText: {
     color: "#000",
     fontWeight: "700",
-    fontSize: Typography.sizes.md,
+    fontSize: FontSizes.md,
   },
 });
