@@ -1,5 +1,21 @@
 import rateLimit from "express-rate-limit";
 
+export const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 10,
+  message: { error: "Too many login attempts, please try again later" },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+export const inviteLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 10,
+  message: { error: "Too many invite attempts. Please wait 15 minutes and try again." },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
 export class RateLimiter {
   private requests: Map<string, number[]> = new Map();
   private maxRequests: number;
