@@ -7,6 +7,7 @@ import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollV
 import StandaloneSessionDetailDrawer from "@/coach/components/StandaloneSessionDetailDrawer";
 import { styles } from "../coachingStyles";
 import type { FeedbackTabState } from "./useFeedbackTab";
+import type { QuickSignal, SocialIssue } from "../types";
 
 export function FeedbackDetailView(props: FeedbackTabState) {
   const {

@@ -1,4 +1,11 @@
 export type TabType = "series" | "weekPlanner" | "today" | "progress" | "plans" | "levels" | "templates" | "levelCards" | "matchLog" | "sessionPlan";
+
+export interface SessionPlayer {
+  id: string;
+  playerId: string;
+  player: { id: string; name: string; ballLevel: string | null };
+}
+
 export type ProgressTrend = "up" | "stable" | "down";
 export type EffortLevel = "high" | "normal" | "low";
 export type Intensity = "light" | "normal" | "intense";

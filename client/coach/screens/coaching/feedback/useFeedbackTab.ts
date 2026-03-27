@@ -452,6 +452,7 @@ export function useFeedbackTab(tabBarHeight: number) {
     formatTime,
     handleSaveFeedback,
     tabBarHeight,
+    periodSessions,
   };
 }
 
