@@ -14,6 +14,7 @@ import { db } from "../db";
 import { players, adultGlowMatches, adultSkillAssessments } from "@shared/schema";
 import { eq, and, gte, desc, sql } from "drizzle-orm";
 import { authMiddlewareWithFreshData as authMiddleware, type AuthenticatedRequest } from "../auth";
+import { fireQuestEvent } from "../services/quest-events";
 import {
   updateGlowRankAfterMatch,
   getRankInfo,
@@ -377,6 +378,11 @@ router.post("/match", async (req: AuthenticatedRequest, res) => {
       console.error("[adult-glow/match] Pillar update failed (non-fatal):", pillarErr);
     }
     
+    fireQuestEvent(playerId, "log_match").catch(() => {});
+    if (didWin) {
+      fireQuestEvent(playerId, "win_match").catch(() => {});
+    }
+
     res.json({
       success: true,
       playerId,

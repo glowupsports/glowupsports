@@ -47,6 +47,7 @@ import {
 } from "../auth";
 import { sendBadgeEarnedNotification } from "../pushNotifications";
 import { sendEmail, sendDeleteAccountRequestEmail } from "../emailService";
+import { fireQuestEvent } from "../services/quest-events";
 import { z } from "zod";
 import { fromZodError } from "zod-validation-error";
 import { adminRepairLimiter } from "../rateLimiter";
@@ -241,7 +242,9 @@ router.post("/api/quests/assign-daily", authMiddleware, async (req: AuthRequest,
         quest2Id: createdQuests[1]?.id,
         quest3Id: createdQuests[2]?.id,
       });
-      
+
+      fireQuestEvent(playerId, "daily_login").catch(() => {});
+
       res.status(201).json({ 
         message: "Daily quests assigned", 
         questCount: createdQuests.length,
@@ -1670,7 +1673,9 @@ router.post("/api/player/connections/request", authMiddleware, async (req: AuthR
           connectionType: "friend",
         })
         .returning();
-      
+
+      fireQuestEvent(playerId, "send_connection").catch(() => {});
+
       res.json({ success: true, connection: newConnection });
     } catch (error) {
       console.error("Error sending friend request:", error);

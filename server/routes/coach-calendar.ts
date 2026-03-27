@@ -1,6 +1,7 @@
 import { Router, type Request, type Response, type NextFunction } from "express";
   import { db } from "../db";
   import { storage } from "../storage";
+  import { fireQuestEvent } from "../services/quest-events";
   import {
     eq, sql, desc, and, ne, gt, gte, asc, inArray, notInArray,
     isNull, isNotNull, or, count, ilike, lte,
@@ -934,6 +935,9 @@ import { Router, type Request, type Response, type NextFunction } from "express"
           .limit(50);
 
         const feedback = await feedbackQuery;
+        if (feedback.length > 0) {
+          fireQuestEvent(playerId, "read_coach_feedback").catch(() => {});
+        }
         res.json(feedback);
       } catch (error) {
         console.error("Error fetching player feedback:", error);

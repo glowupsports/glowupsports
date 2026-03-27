@@ -22,6 +22,7 @@ import {
 } from "../auth";
 import { filterProfanity } from "../profanityFilter";
 import { isPlayerMinor, getPlayerParentalControls } from "../childSafety";
+import { fireQuestEvent } from "../services/quest-events";
 import { chatRateLimiter, postRateLimiter } from "../rateLimiter";
 import multer from "multer";
 import path from "path";
@@ -516,7 +517,11 @@ const socialPostUpload = multer({
       await db.update(userSocialProfilesTable)
         .set({ postCount: sql`post_count + 1` })
         .where(eq(userSocialProfilesTable.userId, userId));
-      
+
+      if (playerId) {
+        fireQuestEvent(playerId, "post_moment").catch(() => {});
+      }
+
       res.status(201).json(newPost);
     } catch (error) {
       console.error("Error creating post:", error);
@@ -655,6 +660,11 @@ const socialPostUpload = multer({
         await db.update(postsTable)
           .set({ cheerCount: sql`cheer_count + 1` })
           .where(eq(postsTable.id, postId));
+
+        const reactorPlayerId = req.user!.playerId;
+        if (reactorPlayerId) {
+          fireQuestEvent(reactorPlayerId, "give_reaction").catch(() => {});
+        }
       }
       
       res.json({ success: true, reactionType });
@@ -834,7 +844,11 @@ const socialPostUpload = multer({
       await db.update(postsTable)
         .set({ commentCount: sql`comment_count + 1` })
         .where(eq(postsTable.id, postId));
-      
+
+      if (playerId) {
+        fireQuestEvent(playerId, "post_comment").catch(() => {});
+      }
+
       res.status(201).json(newComment);
     } catch (error) {
       console.error("Error adding comment:", error);

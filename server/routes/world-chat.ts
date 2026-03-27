@@ -1,6 +1,7 @@
 import { Router, Request, Response } from "express";
 import { db } from "../db";
 import { storage } from "../storage";
+import { fireQuestEvent } from "../services/quest-events";
 import { eq, sql, desc, and, inArray, isNotNull, gte, lte, ne, asc } from "drizzle-orm";
 import {
   conversations,
@@ -2645,7 +2646,11 @@ async function autoCancel(
             record.absentReason
           );
           results.push(updated);
-          
+
+          if (record.status === "present" || record.status === "late") {
+            fireQuestEvent(record.playerId, "complete_session").catch(() => {});
+          }
+
           // When attendance changes to vacation, cancel any debt for this session
           if (record.status === "vacation") {
             const cancelResult = await storage.cancelSessionDebt(record.playerId, id);
