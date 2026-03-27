@@ -1532,8 +1532,8 @@ export const ADULT_GLOW_SKILLS_BY_LEVEL: Record<string, LevelSkillsConfig> = {
       tactical: 25,
       physical: 5,
       mental: 25,
-      social: 0,
-      match: 30,
+      social: 5,
+      match: 25,
     },
     promotionRequirements: {
       minMatches: 10,
@@ -1543,8 +1543,7 @@ export const ADULT_GLOW_SKILLS_BY_LEVEL: Record<string, LevelSkillsConfig> = {
     },
     isDataDriven: true,
     skills: [
-      // From Glow 5 onwards - data + match history + behavior driven
-      // Fewer checkbox skills, more outcome-based criteria
+      // TECHNIQUE
       { id: "G5_TECH_FH_WEAPON", pillar: "TECHNIQUE", name: "FH is Primary Weapon", description: "FH is primaire wapen",
         rubric: [
           { score: 0, label: "Not Yet", observable: "FH is niet wapen" },
@@ -1566,6 +1565,35 @@ export const ADULT_GLOW_SKILLS_BY_LEVEL: Record<string, LevelSkillsConfig> = {
           { score: 2, label: "Achieved", observable: "Geen duidelijke zwakte" },
         ]
       },
+      { id: "G5_TECH_SERVE_WEAPON", pillar: "TECHNIQUE", name: "Serve as Weapon", description: "Service levert directe voordelen op (aces, druk)",
+        rubric: [
+          { score: 0, label: "Not Yet", observable: "Service is neutraal of zwak" },
+          { score: 1, label: "Emerging", observable: "Service soms effectief" },
+          { score: 2, label: "Achieved", observable: "Service is wapen dat directe druk zet" },
+        ]
+      },
+      { id: "G5_TECH_2ND_SERVE_SECURE", pillar: "TECHNIQUE", name: "Reliable Second Serve Under Pressure", description: "2e service betrouwbaar ook bij BP",
+        rubric: [
+          { score: 0, label: "Not Yet", observable: "2e service zakt bij druk" },
+          { score: 1, label: "Emerging", observable: "Soms stabiel onder druk" },
+          { score: 2, label: "Achieved", observable: "2e service stabiel bij break-points" },
+        ]
+      },
+      { id: "G5_TECH_BH_RELIABLE", pillar: "TECHNIQUE", name: "BH Reliable Under Pressure", description: "Backhand betrouwbaar in wedstrijd",
+        rubric: [
+          { score: 0, label: "Not Yet", observable: "BH breekt onder druk" },
+          { score: 1, label: "Emerging", observable: "BH meestal stabiel" },
+          { score: 2, label: "Achieved", observable: "BH stabiel ook bij druk" },
+        ]
+      },
+      { id: "G5_TECH_RETURN_CONSISTENT", pillar: "TECHNIQUE", name: "Consistent Return Game", description: "Return game geeft tegenstander geen gratis punten",
+        rubric: [
+          { score: 0, label: "Not Yet", observable: "Veel return fouten" },
+          { score: 1, label: "Emerging", observable: "Soms gratis punten" },
+          { score: 2, label: "Achieved", observable: "Geen gratis punten via return" },
+        ]
+      },
+      // TACTICAL
       { id: "G5_TAC_GAME_PLAN", pillar: "TACTICAL", name: "Clear Game Plan", description: "Speelt met duidelijk wedstrijdplan",
         rubric: [
           { score: 0, label: "Not Yet", observable: "Geen plan" },
@@ -1580,6 +1608,50 @@ export const ADULT_GLOW_SKILLS_BY_LEVEL: Record<string, LevelSkillsConfig> = {
           { score: 2, label: "Achieved", observable: "Speelt score slim" },
         ]
       },
+      { id: "G5_TAC_PATTERNS_MATCH", pillar: "TACTICAL", name: "Applies Patterns in Match", description: "Past trainingspatronen toe in wedstrijd",
+        rubric: [
+          { score: 0, label: "Not Yet", observable: "Patronen verdwijnen in wedstrijd" },
+          { score: 1, label: "Emerging", observable: "Soms patronen in match" },
+          { score: 2, label: "Achieved", observable: "Past patronen consistent toe in match" },
+        ]
+      },
+      { id: "G5_TAC_IDENTIFY_WEAKNESS", pillar: "TACTICAL", name: "Identifies Opponent Weakness", description: "Identificeert zwaktes van tegenstander",
+        rubric: [
+          { score: 0, label: "Not Yet", observable: "Speelt random" },
+          { score: 1, label: "Emerging", observable: "Soms gericht spelen" },
+          { score: 2, label: "Achieved", observable: "Richt snel op zwaktes" },
+        ]
+      },
+      { id: "G5_TAC_NET_POINT", pillar: "TACTICAL", name: "Net Approach as Point Builder", description: "Komt naar net als tactische keuze",
+        rubric: [
+          { score: 0, label: "Not Yet", observable: "Nooit naar net" },
+          { score: 1, label: "Emerging", observable: "Soms naar net" },
+          { score: 2, label: "Achieved", observable: "Net inzetten als tactisch wapen" },
+        ]
+      },
+      { id: "G5_TAC_TIEBREAK", pillar: "TACTICAL", name: "Tiebreak Tactics", description: "Heeft duidelijke tiebreak aanpak",
+        rubric: [
+          { score: 0, label: "Not Yet", observable: "Geen tiebreak strategie" },
+          { score: 1, label: "Emerging", observable: "Vaage strategie in tiebreak" },
+          { score: 2, label: "Achieved", observable: "Duidelijke tiebreak aanpak" },
+        ]
+      },
+      // PHYSICAL
+      { id: "G5_PHY_FULL_MATCH", pillar: "PHYSICAL", name: "Full Match Endurance", description: "Fysiek niveau stabiel in 3e set",
+        rubric: [
+          { score: 0, label: "Not Yet", observable: "Zakt in 3e set" },
+          { score: 1, label: "Emerging", observable: "Soms stabiel in 3e set" },
+          { score: 2, label: "Achieved", observable: "Stabiel door hele wedstrijd" },
+        ]
+      },
+      { id: "G5_PHY_SPEED_RECOVERY", pillar: "PHYSICAL", name: "Quick Recovery Between Points", description: "Herstelt snel tussen punten",
+        rubric: [
+          { score: 0, label: "Not Yet", observable: "Langzaam herstel" },
+          { score: 1, label: "Emerging", observable: "Redelijk herstel" },
+          { score: 2, label: "Achieved", observable: "Snel en bewust herstel" },
+        ]
+      },
+      // MENTAL
       { id: "G5_MEN_CLOSE_MATCHES", pillar: "MENTAL", name: "Closes Matches", description: "Kan wedstrijden afmaken",
         rubric: [
           { score: 0, label: "Not Yet", observable: "Verliest voorsprongen" },
@@ -1594,6 +1666,50 @@ export const ADULT_GLOW_SKILLS_BY_LEVEL: Record<string, LevelSkillsConfig> = {
           { score: 2, label: "Achieved", observable: "Beter onder druk" },
         ]
       },
+      { id: "G5_MEN_NO_TILT", pillar: "MENTAL", name: "Doesn't Tilt", description: "Geen tilt na onverwacht verlies",
+        rubric: [
+          { score: 0, label: "Not Yet", observable: "Tilt na verrassend verlies" },
+          { score: 1, label: "Emerging", observable: "Soms tilt" },
+          { score: 2, label: "Achieved", observable: "Geen tilt" },
+        ]
+      },
+      { id: "G5_MEN_DECISIVE", pillar: "MENTAL", name: "Decisive on Key Points", description: "Neemt beslissingen op cruciale momenten",
+        rubric: [
+          { score: 0, label: "Not Yet", observable: "Twijfelt op key moments" },
+          { score: 1, label: "Emerging", observable: "Soms beslissend" },
+          { score: 2, label: "Achieved", observable: "Altijd beslissend op key points" },
+        ]
+      },
+      { id: "G5_MEN_MANAGE_EXPECTATIONS", pillar: "MENTAL", name: "Manages Own Expectations", description: "Beheert eigen verwachtingen in wedstrijd",
+        rubric: [
+          { score: 0, label: "Not Yet", observable: "Verwachtingen sturen gedrag negatief" },
+          { score: 1, label: "Emerging", observable: "Soms beheert" },
+          { score: 2, label: "Achieved", observable: "Beheert verwachtingen consistent" },
+        ]
+      },
+      { id: "G5_MEN_ROUTINE", pillar: "MENTAL", name: "Pre-Point Routine", description: "Heeft vaste routine tussen punten",
+        rubric: [
+          { score: 0, label: "Not Yet", observable: "Geen routine" },
+          { score: 1, label: "Emerging", observable: "Soms routine" },
+          { score: 2, label: "Achieved", observable: "Vaste pre-punt routine" },
+        ]
+      },
+      // SOCIAL
+      { id: "G5_SOC_PROFESSIONAL", pillar: "SOCIAL", name: "Professional On-Court Behavior", description: "Professioneel gedrag tijdens wedstrijden",
+        rubric: [
+          { score: 0, label: "Not Yet", observable: "Ongepast gedrag in wedstrijden" },
+          { score: 1, label: "Emerging", observable: "Soms professioneel" },
+          { score: 2, label: "Achieved", observable: "Altijd professioneel op de baan" },
+        ]
+      },
+      { id: "G5_SOC_COMPETITIVE_RESPECT", pillar: "SOCIAL", name: "Respects Competitive Context", description: "Respecteert tegenstanders en officials ook bij spanning",
+        rubric: [
+          { score: 0, label: "Not Yet", observable: "Verliest respect bij spanning" },
+          { score: 1, label: "Emerging", observable: "Meestal respectvol" },
+          { score: 2, label: "Achieved", observable: "Altijd respectvol ook bij spanning" },
+        ]
+      },
+      // MATCH
       { id: "G5_MAT_STRUCTURAL_WINS", pillar: "MATCH", name: "Structural Wins", description: "Wint structureel wedstrijden op eigen niveau",
         rubric: [
           { score: 0, label: "Not Yet", observable: "Inconsistent winnen" },
@@ -1615,6 +1731,34 @@ export const ADULT_GLOW_SKILLS_BY_LEVEL: Record<string, LevelSkillsConfig> = {
           { score: 2, label: "Achieved", observable: "Snel herstel na verlies" },
         ]
       },
+      { id: "G5_MAT_WINRATE", pillar: "MATCH", name: "50-60% Win Rate", description: "Wint ≥50–60% van competitieve matches",
+        rubric: [
+          { score: 0, label: "Not Yet", observable: "< 50% winrate" },
+          { score: 1, label: "Emerging", observable: "50-55%" },
+          { score: 2, label: "Achieved", observable: "55-60%+ winrate" },
+        ]
+      },
+      { id: "G5_MAT_SET_CONVERSION", pillar: "MATCH", name: "Converts Set Leads", description: "Zet setleads om in overwinningen",
+        rubric: [
+          { score: 0, label: "Not Yet", observable: "Verliest sets vanuit voorsprong" },
+          { score: 1, label: "Emerging", observable: "Soms converteren" },
+          { score: 2, label: "Achieved", observable: "Converteert setleads consistent" },
+        ]
+      },
+      { id: "G5_MAT_SHOW_UP", pillar: "MATCH", name: "Shows Up Every Match", description: "Presteert consistent, ook op slechte dagen",
+        rubric: [
+          { score: 0, label: "Not Yet", observable: "Grote variatie per dag" },
+          { score: 1, label: "Emerging", observable: "Soms consistent" },
+          { score: 2, label: "Achieved", observable: "Consistent ook op slechte dagen" },
+        ]
+      },
+      { id: "G5_MAT_ANALYZE_SELF", pillar: "MATCH", name: "Self-Analysis After Match", description: "Analyseert eigen match zelfstandig",
+        rubric: [
+          { score: 0, label: "Not Yet", observable: "Geen zelf-analyse" },
+          { score: 1, label: "Emerging", observable: "Oppervlakkige analyse" },
+          { score: 2, label: "Achieved", observable: "Diepgaande zelf-analyse" },
+        ]
+      },
     ]
   },
 
@@ -1628,10 +1772,10 @@ export const ADULT_GLOW_SKILLS_BY_LEVEL: Record<string, LevelSkillsConfig> = {
     pillarWeighting: {
       technique: 10,
       tactical: 20,
-      physical: 5,
+      physical: 10,
       mental: 30,
-      social: 0,
-      match: 35,
+      social: 5,
+      match: 25,
     },
     promotionRequirements: {
       minMatches: 15,
@@ -1641,6 +1785,7 @@ export const ADULT_GLOW_SKILLS_BY_LEVEL: Record<string, LevelSkillsConfig> = {
     },
     isDataDriven: true,
     skills: [
+      // TECHNIQUE
       { id: "G4_TECH_IDENTITY", pillar: "TECHNIQUE", name: "Clear Playing Identity", description: "Duidelijke identiteit (spin / tempo / druk)",
         rubric: [
           { score: 0, label: "Not Yet", observable: "Geen duidelijke identiteit" },
@@ -1648,6 +1793,28 @@ export const ADULT_GLOW_SKILLS_BY_LEVEL: Record<string, LevelSkillsConfig> = {
           { score: 2, label: "Achieved", observable: "Duidelijke spel-identiteit" },
         ]
       },
+      { id: "G4_TECH_SERVE_ACE", pillar: "TECHNIQUE", name: "Serve Produces Direct Points", description: "Service levert direct punten op (aces of zwakke return)",
+        rubric: [
+          { score: 0, label: "Not Yet", observable: "Service is neutraal" },
+          { score: 1, label: "Emerging", observable: "Service soms direct punt" },
+          { score: 2, label: "Achieved", observable: "Service levert regelmatig direct punten" },
+        ]
+      },
+      { id: "G4_TECH_RETURN_ATK", pillar: "TECHNIQUE", name: "Attacking Return", description: "Return kan aanvallend ingezet worden",
+        rubric: [
+          { score: 0, label: "Not Yet", observable: "Return alleen verdedigend" },
+          { score: 1, label: "Emerging", observable: "Soms aanvallend return" },
+          { score: 2, label: "Achieved", observable: "Return als aanvalswapen" },
+        ]
+      },
+      { id: "G4_TECH_SHOT_SELECTION", pillar: "TECHNIQUE", name: "Match Shot Selection", description: "Slagkeuze afgestemd op wedstrijdsituatie",
+        rubric: [
+          { score: 0, label: "Not Yet", observable: "Slagkeuze onlogisch" },
+          { score: 1, label: "Emerging", observable: "Soms logische keuze" },
+          { score: 2, label: "Achieved", observable: "Slagkeuze altijd situatie-passend" },
+        ]
+      },
+      // TACTICAL
       { id: "G4_TAC_OPPONENT", pillar: "TACTICAL", name: "Analyzes Opponent", description: "Analyseert opponent vóór de match",
         rubric: [
           { score: 0, label: "Not Yet", observable: "Geen analyse vooraf" },
@@ -1669,6 +1836,50 @@ export const ADULT_GLOW_SKILLS_BY_LEVEL: Record<string, LevelSkillsConfig> = {
           { score: 2, label: "Achieved", observable: "Wint ook op slechte dagen" },
         ]
       },
+      { id: "G4_TAC_IMPOSE_IDENTITY", pillar: "TACTICAL", name: "Imposes Own Identity", description: "Legt eigen speelstijl op aan tegenstander",
+        rubric: [
+          { score: 0, label: "Not Yet", observable: "Speelt op tempo tegenstander" },
+          { score: 1, label: "Emerging", observable: "Soms eigen identiteit opleggen" },
+          { score: 2, label: "Achieved", observable: "Legt eigen identiteit consequent op" },
+        ]
+      },
+      { id: "G4_TAC_WEAK_EXPLOIT", pillar: "TACTICAL", name: "Exploits Weaknesses Systematically", description: "Benut zwaktes van tegenstander stelselmatig",
+        rubric: [
+          { score: 0, label: "Not Yet", observable: "Benut zwaktes niet" },
+          { score: 1, label: "Emerging", observable: "Soms gericht aanvallen" },
+          { score: 2, label: "Achieved", observable: "Benut zwaktes stelselmatig" },
+        ]
+      },
+      { id: "G4_TAC_SERVE_PLUS1", pillar: "TACTICAL", name: "Consistent Serve+1 Pattern", description: "Serve +1 is vast patroon",
+        rubric: [
+          { score: 0, label: "Not Yet", observable: "Geen serve+1 plan" },
+          { score: 1, label: "Emerging", observable: "Soms serve+1" },
+          { score: 2, label: "Achieved", observable: "Serve+1 is altijd aanwezig" },
+        ]
+      },
+      // PHYSICAL
+      { id: "G4_PHY_ELITE_ENDURANCE", pillar: "PHYSICAL", name: "Elite Match Endurance", description: "Fysiek presteert de hele wedstrijd door",
+        rubric: [
+          { score: 0, label: "Not Yet", observable: "Fysiek zakt in lange wedstrijden" },
+          { score: 1, label: "Emerging", observable: "Meeste wedstrijden ok" },
+          { score: 2, label: "Achieved", observable: "Fysiek stabiel in elke wedstrijd" },
+        ]
+      },
+      { id: "G4_PHY_MOVEMENT_EFFICIENT", pillar: "PHYSICAL", name: "Movement Efficiency", description: "Beweegt efficiënt, verspilt geen energie",
+        rubric: [
+          { score: 0, label: "Not Yet", observable: "Verspilt veel energie in beweging" },
+          { score: 1, label: "Emerging", observable: "Redelijk efficiënt" },
+          { score: 2, label: "Achieved", observable: "Beweging is efficiënt en economisch" },
+        ]
+      },
+      { id: "G4_PHY_INJURY_PREVENTION", pillar: "PHYSICAL", name: "Injury Prevention Routine", description: "Actieve blessurepreventie routine",
+        rubric: [
+          { score: 0, label: "Not Yet", observable: "Geen preventie" },
+          { score: 1, label: "Emerging", observable: "Soms preventie" },
+          { score: 2, label: "Achieved", observable: "Actieve preventie routine" },
+        ]
+      },
+      // MENTAL
       { id: "G4_MEN_KILLER", pillar: "MENTAL", name: "Killer Instinct", description: "Wil winnen — niet 'leuk spelen'",
         rubric: [
           { score: 0, label: "Not Yet", observable: "Speelt voor plezier" },
@@ -1690,6 +1901,43 @@ export const ADULT_GLOW_SKILLS_BY_LEVEL: Record<string, LevelSkillsConfig> = {
           { score: 2, label: "Achieved", observable: "Klinische afwerking" },
         ]
       },
+      { id: "G4_MEN_UNBREAKABLE", pillar: "MENTAL", name: "Unbreakable in Crisis", description: "Breekt niet bij extreme tegenslagen",
+        rubric: [
+          { score: 0, label: "Not Yet", observable: "Breekt bij grote tegenslagen" },
+          { score: 1, label: "Emerging", observable: "Soms stabiel in crisis" },
+          { score: 2, label: "Achieved", observable: "Onbreekbaar in crisis" },
+        ]
+      },
+      { id: "G4_MEN_PREP_RITUAL", pillar: "MENTAL", name: "Pre-Match Preparation Ritual", description: "Heeft vaste voorbereiding voor wedstrijden",
+        rubric: [
+          { score: 0, label: "Not Yet", observable: "Geen voorbereiding" },
+          { score: 1, label: "Emerging", observable: "Soms voorbereiding" },
+          { score: 2, label: "Achieved", observable: "Vaste voorbereiding aanwezig" },
+        ]
+      },
+      { id: "G4_MEN_LONG_TERM_GOALS", pillar: "MENTAL", name: "Long-Term Goal Orientation", description: "Werkt met doelen op lange termijn",
+        rubric: [
+          { score: 0, label: "Not Yet", observable: "Geen lange termijn denken" },
+          { score: 1, label: "Emerging", observable: "Vaag lange termijn doel" },
+          { score: 2, label: "Achieved", observable: "Duidelijke lange termijn doelen" },
+        ]
+      },
+      // SOCIAL
+      { id: "G4_SOC_PROFESSIONAL_CONDUCT", pillar: "SOCIAL", name: "Professional Conduct", description: "Professioneel gedrag in elke wedstrijd",
+        rubric: [
+          { score: 0, label: "Not Yet", observable: "Ongepast gedrag" },
+          { score: 1, label: "Emerging", observable: "Soms professioneel" },
+          { score: 2, label: "Achieved", observable: "Altijd professioneel gedrag" },
+        ]
+      },
+      { id: "G4_SOC_TEAM_DOUBLES", pillar: "SOCIAL", name: "Elite Doubles Partnership", description: "Kan effectief samenwerken in dubbel op hoog niveau",
+        rubric: [
+          { score: 0, label: "Not Yet", observable: "Moeite met dubbel samenwerking" },
+          { score: 1, label: "Emerging", observable: "Soms goede samenwerking" },
+          { score: 2, label: "Achieved", observable: "Effectieve dubbel partner" },
+        ]
+      },
+      // MATCH
       { id: "G4_MAT_DOMINANT", pillar: "MATCH", name: "Dominant on Level", description: "Wint structureel tegen sterke tegenstanders",
         rubric: [
           { score: 0, label: "Not Yet", observable: "Verliest van sterke tegenstanders" },
@@ -1711,6 +1959,20 @@ export const ADULT_GLOW_SKILLS_BY_LEVEL: Record<string, LevelSkillsConfig> = {
           { score: 2, label: "Achieved", observable: "Stabiel over maanden" },
         ]
       },
+      { id: "G4_MAT_RANKING_PROGRESS", pillar: "MATCH", name: "Ranking Progression", description: "Ranking toont consistente stijging",
+        rubric: [
+          { score: 0, label: "Not Yet", observable: "Ranking stagneert" },
+          { score: 1, label: "Emerging", observable: "Lichte stijging" },
+          { score: 2, label: "Achieved", observable: "Ranking stijgt consistent" },
+        ]
+      },
+      { id: "G4_MAT_BIG_POINTS", pillar: "MATCH", name: "Wins Big Points", description: "Wint de cruciale punten (BP, SP, MP)",
+        rubric: [
+          { score: 0, label: "Not Yet", observable: "Verliest cruciale punten" },
+          { score: 1, label: "Emerging", observable: "Soms cruciale punten winnen" },
+          { score: 2, label: "Achieved", observable: "Wint cruciale punten structureel" },
+        ]
+      },
     ]
   },
 
@@ -1726,8 +1988,8 @@ export const ADULT_GLOW_SKILLS_BY_LEVEL: Record<string, LevelSkillsConfig> = {
       tactical: 20,
       physical: 10,
       mental: 25,
-      social: 0,
-      match: 30,
+      social: 5,
+      match: 25,
     },
     promotionRequirements: {
       minMatches: 12,
@@ -1738,6 +2000,7 @@ export const ADULT_GLOW_SKILLS_BY_LEVEL: Record<string, LevelSkillsConfig> = {
     },
     isDataDriven: true,
     skills: [
+      // TECHNIQUE
       { id: "G3_TECH_PROOFED", pillar: "TECHNIQUE", name: "Match-Proofed Technique", description: "Techniek is wedstrijd-proof",
         rubric: [
           { score: 0, label: "Not Yet", observable: "Techniek zakt in wedstrijd" },
@@ -1745,6 +2008,35 @@ export const ADULT_GLOW_SKILLS_BY_LEVEL: Record<string, LevelSkillsConfig> = {
           { score: 2, label: "Achieved", observable: "Wedstrijd-proof techniek" },
         ]
       },
+      { id: "G3_TECH_BOTH_SIDES", pillar: "TECHNIQUE", name: "Both Sides Reliable", description: "Zowel FH als BH betrouwbaar in wedstrijd",
+        rubric: [
+          { score: 0, label: "Not Yet", observable: "Duidelijke zwakke kant" },
+          { score: 1, label: "Emerging", observable: "Bijna gelijkwaardig" },
+          { score: 2, label: "Achieved", observable: "Beide kanten betrouwbaar" },
+        ]
+      },
+      { id: "G3_TECH_SERVE_PRECISION", pillar: "TECHNIQUE", name: "Serve Placement Precision", description: "Service heeft precieze plaatsing",
+        rubric: [
+          { score: 0, label: "Not Yet", observable: "Service zonder plaatsing" },
+          { score: 1, label: "Emerging", observable: "Soms precieze plaatsing" },
+          { score: 2, label: "Achieved", observable: "Consistente precieze plaatsing" },
+        ]
+      },
+      { id: "G3_TECH_TRANSITION", pillar: "TECHNIQUE", name: "Defense-to-Attack Transition", description: "Kan van verdediging naar aanval overschakelen",
+        rubric: [
+          { score: 0, label: "Not Yet", observable: "Blijft verdedigend" },
+          { score: 1, label: "Emerging", observable: "Soms omschakelen" },
+          { score: 2, label: "Achieved", observable: "Schakelt vloeiend om naar aanval" },
+        ]
+      },
+      { id: "G3_TECH_ELITE_VOLLEY", pillar: "TECHNIQUE", name: "Elite Volley Under Pressure", description: "Volleys consistent ook onder druk",
+        rubric: [
+          { score: 0, label: "Not Yet", observable: "Volleys breken onder druk" },
+          { score: 1, label: "Emerging", observable: "Soms stabiel aan net" },
+          { score: 2, label: "Achieved", observable: "Volleys consistent ook bij druk" },
+        ]
+      },
+      // TACTICAL
       { id: "G3_TAC_EXPLAIN", pillar: "TACTICAL", name: "Can Explain Game Plan", description: "Kan wedstrijdplan uitleggen",
         rubric: [
           { score: 0, label: "Not Yet", observable: "Kan plan niet uitleggen" },
@@ -1766,6 +2058,43 @@ export const ADULT_GLOW_SKILLS_BY_LEVEL: Record<string, LevelSkillsConfig> = {
           { score: 2, label: "Achieved", observable: "Extreem volwassen score-spel" },
         ]
       },
+      { id: "G3_TAC_COUNTER_STYLE", pillar: "TACTICAL", name: "Counter-Style Tactics", description: "Heeft tactische antwoorden op elke speelstijl",
+        rubric: [
+          { score: 0, label: "Not Yet", observable: "Geen counter-tactiek" },
+          { score: 1, label: "Emerging", observable: "Soms counter" },
+          { score: 2, label: "Achieved", observable: "Tactisch antwoord op elke stijl" },
+        ]
+      },
+      { id: "G3_TAC_BREAK_GAME", pillar: "TACTICAL", name: "Breaks Opponent's Game", description: "Verstoort het ritme van tegenstander",
+        rubric: [
+          { score: 0, label: "Not Yet", observable: "Speelt in ritme van tegenstander" },
+          { score: 1, label: "Emerging", observable: "Soms verstoring" },
+          { score: 2, label: "Achieved", observable: "Verstoort ritme stelselmatig" },
+        ]
+      },
+      // PHYSICAL
+      { id: "G3_PHY_HIGH_INTENSITY", pillar: "PHYSICAL", name: "Maintains High Intensity", description: "Speelintensiteit blijft hoog gedurende match",
+        rubric: [
+          { score: 0, label: "Not Yet", observable: "Intensiteit zakt snel" },
+          { score: 1, label: "Emerging", observable: "Soms hoge intensiteit" },
+          { score: 2, label: "Achieved", observable: "Hoge intensiteit constant" },
+        ]
+      },
+      { id: "G3_PHY_ELITE_MOVEMENT", pillar: "PHYSICAL", name: "Elite Court Coverage", description: "Dekt baan professioneel en volledig af",
+        rubric: [
+          { score: 0, label: "Not Yet", observable: "Bereikt veel ballen niet" },
+          { score: 1, label: "Emerging", observable: "Goede baandekking" },
+          { score: 2, label: "Achieved", observable: "Professionele baandekking" },
+        ]
+      },
+      { id: "G3_PHY_ATHLETIC_RECOVERY", pillar: "PHYSICAL", name: "Athletic Recovery Speed", description: "Herstelt snel na intense rallies",
+        rubric: [
+          { score: 0, label: "Not Yet", observable: "Langzaam herstel na rally" },
+          { score: 1, label: "Emerging", observable: "Redelijk herstel" },
+          { score: 2, label: "Achieved", observable: "Snel atletisch herstel" },
+        ]
+      },
+      // MENTAL
       { id: "G3_MEN_STABLE_PRESSURE", pillar: "MENTAL", name: "Stable Under Pressure", description: "Stabiel onder druk hele wedstrijd",
         rubric: [
           { score: 0, label: "Not Yet", observable: "Instabiel onder druk" },
@@ -1780,6 +2109,43 @@ export const ADULT_GLOW_SKILLS_BY_LEVEL: Record<string, LevelSkillsConfig> = {
           { score: 2, label: "Achieved", observable: "Reset direct na setverlies" },
         ]
       },
+      { id: "G3_MEN_PROACTIVE_STRATEGY", pillar: "MENTAL", name: "Proactive Strategic Thinking", description: "Denkt proactief vooruit in wedstrijd",
+        rubric: [
+          { score: 0, label: "Not Yet", observable: "Reactief, niet proactief" },
+          { score: 1, label: "Emerging", observable: "Soms vooruit denken" },
+          { score: 2, label: "Achieved", observable: "Proactief vooruit denken altijd" },
+        ]
+      },
+      { id: "G3_MEN_IDENTITY_BELIEF", pillar: "MENTAL", name: "Believes in Own Identity", description: "Gelooft in eigen spel-identiteit",
+        rubric: [
+          { score: 0, label: "Not Yet", observable: "Twijfelt aan eigen spel" },
+          { score: 1, label: "Emerging", observable: "Soms vertrouwen" },
+          { score: 2, label: "Achieved", observable: "Sterk geloof in eigen identiteit" },
+        ]
+      },
+      { id: "G3_MEN_INDEPENDENCE", pillar: "MENTAL", name: "Mental Independence", description: "Kan mentaal zelfstandig functioneren in match",
+        rubric: [
+          { score: 0, label: "Not Yet", observable: "Heeft constant ondersteuning nodig" },
+          { score: 1, label: "Emerging", observable: "Soms zelfstandig" },
+          { score: 2, label: "Achieved", observable: "Mentaal volledig zelfstandig" },
+        ]
+      },
+      // SOCIAL
+      { id: "G3_SOC_ROLE_MODEL", pillar: "SOCIAL", name: "Role Model Behavior", description: "Gedraagt zich als rolmodel voor anderen",
+        rubric: [
+          { score: 0, label: "Not Yet", observable: "Gedrag is niet voorbeeldig" },
+          { score: 1, label: "Emerging", observable: "Soms voorbeeldig" },
+          { score: 2, label: "Achieved", observable: "Altijd rolmodel gedrag" },
+        ]
+      },
+      { id: "G3_SOC_COACH_COMMUNICATE", pillar: "SOCIAL", name: "Clear Coach Communication", description: "Communiceert helder met coach over tactiek",
+        rubric: [
+          { score: 0, label: "Not Yet", observable: "Onduidelijke communicatie" },
+          { score: 1, label: "Emerging", observable: "Soms helder" },
+          { score: 2, label: "Achieved", observable: "Altijd heldere communicatie" },
+        ]
+      },
+      // MATCH
       { id: "G3_MAT_60_65", pillar: "MATCH", name: "60-65% Win Rate", description: "Wint >60–65% van competitieve matches",
         rubric: [
           { score: 0, label: "Not Yet", observable: "< 50% winrate" },
@@ -1801,6 +2167,20 @@ export const ADULT_GLOW_SKILLS_BY_LEVEL: Record<string, LevelSkillsConfig> = {
           { score: 2, label: "Achieved", observable: "Logische progressie in history" },
         ]
       },
+      { id: "G3_MAT_TOURNAMENT_READY", pillar: "MATCH", name: "Tournament Ready", description: "Presteert goed in toernooiomgeving",
+        rubric: [
+          { score: 0, label: "Not Yet", observable: "Presteert slecht bij toernooi" },
+          { score: 1, label: "Emerging", observable: "Soms goed bij toernooi" },
+          { score: 2, label: "Achieved", observable: "Toernooi-klaar" },
+        ]
+      },
+      { id: "G3_MAT_PRESSURE_POINTS", pillar: "MATCH", name: "Wins Under Match Pressure", description: "Wint cruciale punten in echte wedstrijdsituaties",
+        rubric: [
+          { score: 0, label: "Not Yet", observable: "Verliest cruciale punten" },
+          { score: 1, label: "Emerging", observable: "Soms cruciale punten winnen" },
+          { score: 2, label: "Achieved", observable: "Wint cruciale punten structureel" },
+        ]
+      },
     ]
   },
 
@@ -1816,8 +2196,8 @@ export const ADULT_GLOW_SKILLS_BY_LEVEL: Record<string, LevelSkillsConfig> = {
       tactical: 20,
       physical: 5,
       mental: 25,
-      social: 0,
-      match: 35,
+      social: 5,
+      match: 30,
     },
     promotionRequirements: {
       minMatches: 20,
@@ -1828,6 +2208,7 @@ export const ADULT_GLOW_SKILLS_BY_LEVEL: Record<string, LevelSkillsConfig> = {
     },
     isDataDriven: true,
     skills: [
+      // TECHNIQUE
       { id: "G2_TECH_WEAPONIZED", pillar: "TECHNIQUE", name: "Weaponized Technique", description: "Techniek is functioneel onder stress",
         rubric: [
           { score: 0, label: "Not Yet", observable: "Techniek zakt onder stress" },
@@ -1835,6 +2216,21 @@ export const ADULT_GLOW_SKILLS_BY_LEVEL: Record<string, LevelSkillsConfig> = {
           { score: 2, label: "Achieved", observable: "Functioneel onder alle stress" },
         ]
       },
+      { id: "G2_TECH_SIGNATURE_SHOT", pillar: "TECHNIQUE", name: "Signature Shot", description: "Heeft een handtekening-slag die punten oplevert",
+        rubric: [
+          { score: 0, label: "Not Yet", observable: "Geen handtekening-slag" },
+          { score: 1, label: "Emerging", observable: "Handtekening-slag in ontwikkeling" },
+          { score: 2, label: "Achieved", observable: "Duidelijke handtekening-slag" },
+        ]
+      },
+      { id: "G2_TECH_CONSISTENCY_ELITE", pillar: "TECHNIQUE", name: "Elite Consistency (85-90%)", description: "Rally consistency ≥85-90%",
+        rubric: [
+          { score: 0, label: "Not Yet", observable: "< 80% consistent" },
+          { score: 1, label: "Emerging", observable: "80-85%" },
+          { score: 2, label: "Achieved", observable: "85-90%+ consistent" },
+        ]
+      },
+      // TACTICAL
       { id: "G2_TAC_A_B_PLAN", pillar: "TACTICAL", name: "A and B Plan", description: "Heeft duidelijk A-plan én B-plan",
         rubric: [
           { score: 0, label: "Not Yet", observable: "Alleen A-plan" },
@@ -1849,6 +2245,36 @@ export const ADULT_GLOW_SKILLS_BY_LEVEL: Record<string, LevelSkillsConfig> = {
           { score: 2, label: "Achieved", observable: "Legt helder uit waarom" },
         ]
       },
+      { id: "G2_TAC_EXPLOIT_FAST", pillar: "TACTICAL", name: "Exploits Weakness Quickly", description: "Vindt en benut zwaktes snel (binnen 3 games)",
+        rubric: [
+          { score: 0, label: "Not Yet", observable: "Vindt zwaktes niet" },
+          { score: 1, label: "Emerging", observable: "Soms snel vinden" },
+          { score: 2, label: "Achieved", observable: "Benut zwaktes binnen 3 games" },
+        ]
+      },
+      { id: "G2_TAC_SECOND_SET", pillar: "TACTICAL", name: "Adjusts After First Set", description: "Past aanpak bewust aan na eerste set",
+        rubric: [
+          { score: 0, label: "Not Yet", observable: "Geen aanpassing na set" },
+          { score: 1, label: "Emerging", observable: "Soms aanpassen" },
+          { score: 2, label: "Achieved", observable: "Bewuste aanpassing na set" },
+        ]
+      },
+      // PHYSICAL
+      { id: "G2_PHY_ELITE_CONDITIONING", pillar: "PHYSICAL", name: "Elite Physical Conditioning", description: "Fysiek op elite niveau getraind",
+        rubric: [
+          { score: 0, label: "Not Yet", observable: "Fysiek niveau onder elite" },
+          { score: 1, label: "Emerging", observable: "Redelijk getraind" },
+          { score: 2, label: "Achieved", observable: "Fysiek op elite niveau" },
+        ]
+      },
+      { id: "G2_PHY_FATIGUE_PROOF", pillar: "PHYSICAL", name: "Fatigue-Proof Performance", description: "Presteert ook bij vermoeidheid op hoog niveau",
+        rubric: [
+          { score: 0, label: "Not Yet", observable: "Prestatie zakt snel bij vermoeidheid" },
+          { score: 1, label: "Emerging", observable: "Soms goed bij vermoeidheid" },
+          { score: 2, label: "Achieved", observable: "Prestatie stabiel ook bij vermoeidheid" },
+        ]
+      },
+      // MENTAL
       { id: "G2_MEN_PRESSURE_FUEL", pillar: "MENTAL", name: "Pressure as Fuel", description: "Druk = brandstof",
         rubric: [
           { score: 0, label: "Not Yet", observable: "Druk is probleem" },
@@ -1863,6 +2289,36 @@ export const ADULT_GLOW_SKILLS_BY_LEVEL: Record<string, LevelSkillsConfig> = {
           { score: 2, label: "Achieved", observable: "Neemt altijd verantwoordelijkheid" },
         ]
       },
+      { id: "G2_MEN_SELF_COACH", pillar: "MENTAL", name: "Self-Coaching in Match", description: "Coacht zichzelf effectief in wedstrijd",
+        rubric: [
+          { score: 0, label: "Not Yet", observable: "Heeft extern coaching nodig in match" },
+          { score: 1, label: "Emerging", observable: "Soms zelf-coaching" },
+          { score: 2, label: "Achieved", observable: "Effectieve zelf-coaching in match" },
+        ]
+      },
+      { id: "G2_MEN_COMP_MINDSET", pillar: "MENTAL", name: "Competitor Mindset", description: "Denkt en handelt als echte competitor",
+        rubric: [
+          { score: 0, label: "Not Yet", observable: "Geen competitor mentaliteit" },
+          { score: 1, label: "Emerging", observable: "Soms competitor mindset" },
+          { score: 2, label: "Achieved", observable: "Altijd competitor mindset" },
+        ]
+      },
+      // SOCIAL
+      { id: "G2_SOC_SPORTMANSHIP_ELITE", pillar: "SOCIAL", name: "Elite Sportsmanship", description: "Toont elite sportiviteit in alle omstandigheden",
+        rubric: [
+          { score: 0, label: "Not Yet", observable: "Sportiviteit ontbreekt soms" },
+          { score: 1, label: "Emerging", observable: "Meestal sportief" },
+          { score: 2, label: "Achieved", observable: "Altijd elite sportiviteit" },
+        ]
+      },
+      { id: "G2_SOC_TRAINING_ATTITUDE", pillar: "SOCIAL", name: "Elite Training Attitude", description: "Houding in training is altijd professioneel",
+        rubric: [
+          { score: 0, label: "Not Yet", observable: "Training attitude niet professioneel" },
+          { score: 1, label: "Emerging", observable: "Soms professioneel" },
+          { score: 2, label: "Achieved", observable: "Altijd professionele trainingshouding" },
+        ]
+      },
+      // MATCH
       { id: "G2_MAT_CONSISTENT_WINS", pillar: "MATCH", name: "Consistent Winning", description: "Wint consistent op niveau",
         rubric: [
           { score: 0, label: "Not Yet", observable: "Inconsistent" },
@@ -1884,6 +2340,20 @@ export const ADULT_GLOW_SKILLS_BY_LEVEL: Record<string, LevelSkillsConfig> = {
           { score: 2, label: "Achieved", observable: "Duidelijke progressie" },
         ]
       },
+      { id: "G2_MAT_HIGH_COMPETITION", pillar: "MATCH", name: "Competes at High Level", description: "Speelt op het hoogste niveau dat beschikbaar is",
+        rubric: [
+          { score: 0, label: "Not Yet", observable: "Mijdt hoge competitie" },
+          { score: 1, label: "Emerging", observable: "Soms hoge competitie" },
+          { score: 2, label: "Achieved", observable: "Zoekt altijd hoge competitie" },
+        ]
+      },
+      { id: "G2_MAT_BIG_TOURNAMENT", pillar: "MATCH", name: "Performs in Big Tournaments", description: "Presteert goed in grote toernooien",
+        rubric: [
+          { score: 0, label: "Not Yet", observable: "Presteert slecht in grote toernooien" },
+          { score: 1, label: "Emerging", observable: "Soms goed in grote toernooien" },
+          { score: 2, label: "Achieved", observable: "Presteert consistent in grote toernooien" },
+        ]
+      },
     ]
   },
 
@@ -1899,8 +2369,8 @@ export const ADULT_GLOW_SKILLS_BY_LEVEL: Record<string, LevelSkillsConfig> = {
       tactical: 20,
       physical: 5,
       mental: 25,
-      social: 0,
-      match: 40,
+      social: 5,
+      match: 35,
     },
     promotionRequirements: {
       minMatches: 40,
@@ -1911,6 +2381,7 @@ export const ADULT_GLOW_SKILLS_BY_LEVEL: Record<string, LevelSkillsConfig> = {
     },
     isDataDriven: true,
     skills: [
+      // TECHNIQUE
       { id: "G1_TECH_AUTOMATED", pillar: "TECHNIQUE", name: "Automated Technique", description: "Techniek volledig geautomatiseerd",
         rubric: [
           { score: 0, label: "Not Yet", observable: "Denkt nog over techniek" },
@@ -1925,6 +2396,21 @@ export const ADULT_GLOW_SKILLS_BY_LEVEL: Record<string, LevelSkillsConfig> = {
           { score: 2, label: "Achieved", observable: "Nooit technische breakdown" },
         ]
       },
+      { id: "G1_TECH_ELITE_WEAPONS", pillar: "TECHNIQUE", name: "Multiple Elite Weapons", description: "Heeft meerdere wapens op elite niveau",
+        rubric: [
+          { score: 0, label: "Not Yet", observable: "Slechts één of geen wapen" },
+          { score: 1, label: "Emerging", observable: "Één sterk wapen" },
+          { score: 2, label: "Achieved", observable: "Meerdere elite wapens" },
+        ]
+      },
+      { id: "G1_TECH_SERVE_DOMINANT", pillar: "TECHNIQUE", name: "Dominant Serve", description: "Service wint direct punten op hoog niveau",
+        rubric: [
+          { score: 0, label: "Not Yet", observable: "Service is neutraal" },
+          { score: 1, label: "Emerging", observable: "Service soms dominant" },
+          { score: 2, label: "Achieved", observable: "Service dominant op hoog niveau" },
+        ]
+      },
+      // TACTICAL
       { id: "G1_TAC_MULTI_PLANS", pillar: "TACTICAL", name: "Multiple Game Plans", description: "Heeft meerdere gameplans",
         rubric: [
           { score: 0, label: "Not Yet", observable: "Één plan" },
@@ -1946,6 +2432,36 @@ export const ADULT_GLOW_SKILLS_BY_LEVEL: Record<string, LevelSkillsConfig> = {
           { score: 2, label: "Achieved", observable: "Volledig zelfstandig in wedstrijd" },
         ]
       },
+      { id: "G1_TAC_CHESS_MASTER", pillar: "TACTICAL", name: "Chess-Master Thinking", description: "Denkt meerdere slagen vooruit",
+        rubric: [
+          { score: 0, label: "Not Yet", observable: "Denkt niet vooruit" },
+          { score: 1, label: "Emerging", observable: "Soms vooruit denken" },
+          { score: 2, label: "Achieved", observable: "Denkt altijd meerdere slagen vooruit" },
+        ]
+      },
+      { id: "G1_TAC_PATTERN_SETUP", pillar: "TACTICAL", name: "Patterns Set Up Winning Shots", description: "Patronen leiden bewust naar winnende slagen",
+        rubric: [
+          { score: 0, label: "Not Yet", observable: "Geen patroon → winst koppeling" },
+          { score: 1, label: "Emerging", observable: "Soms patronen naar winst" },
+          { score: 2, label: "Achieved", observable: "Altijd patronen die winst opleveren" },
+        ]
+      },
+      // PHYSICAL
+      { id: "G1_PHY_SEMI_PRO_FITNESS", pillar: "PHYSICAL", name: "Semi-Pro Fitness Level", description: "Fysieke conditie op semi-professioneel niveau",
+        rubric: [
+          { score: 0, label: "Not Yet", observable: "Fysiek onder semi-pro niveau" },
+          { score: 1, label: "Emerging", observable: "Bijna semi-pro niveau" },
+          { score: 2, label: "Achieved", observable: "Semi-pro fitness niveau" },
+        ]
+      },
+      { id: "G1_PHY_ATHLETIC_IDENTITY", pillar: "PHYSICAL", name: "Athletic Lifestyle", description: "Leeft als sporter (slaap, voeding, herstel)",
+        rubric: [
+          { score: 0, label: "Not Yet", observable: "Geen athletische levensstijl" },
+          { score: 1, label: "Emerging", observable: "Deels athletische levensstijl" },
+          { score: 2, label: "Achieved", observable: "Volledig athletische levensstijl" },
+        ]
+      },
+      // MENTAL
       { id: "G1_MEN_MATCH_POINT_CALM", pillar: "MENTAL", name: "Calm at Match Points", description: "Blijft kalm bij matchpoints",
         rubric: [
           { score: 0, label: "Not Yet", observable: "Nerveus bij matchpoints" },
@@ -1967,6 +2483,36 @@ export const ADULT_GLOW_SKILLS_BY_LEVEL: Record<string, LevelSkillsConfig> = {
           { score: 2, label: "Achieved", observable: "Speelt altijd het moment" },
         ]
       },
+      { id: "G1_MEN_ELITE_CONFIDENCE", pillar: "MENTAL", name: "Elite Confidence", description: "Gelooft volledig in eigen kunnen op elk niveau",
+        rubric: [
+          { score: 0, label: "Not Yet", observable: "Twijfelt op hoog niveau" },
+          { score: 1, label: "Emerging", observable: "Soms volledig vertrouwen" },
+          { score: 2, label: "Achieved", observable: "Volledig vertrouwen op elk niveau" },
+        ]
+      },
+      { id: "G1_MEN_PRESSURE_IDENTITY", pillar: "MENTAL", name: "Pressure is Identity", description: "Druk is onderdeel van identiteit als speler",
+        rubric: [
+          { score: 0, label: "Not Yet", observable: "Druk is nog belasting" },
+          { score: 1, label: "Emerging", observable: "Druk accepteren" },
+          { score: 2, label: "Achieved", observable: "Druk is deel van identiteit" },
+        ]
+      },
+      // SOCIAL
+      { id: "G1_SOC_AMBASSADOR", pillar: "SOCIAL", name: "Ambassador of the Sport", description: "Fungeert als ambassadeur van de sport",
+        rubric: [
+          { score: 0, label: "Not Yet", observable: "Geen ambassadeursrol" },
+          { score: 1, label: "Emerging", observable: "Soms ambassadeur" },
+          { score: 2, label: "Achieved", observable: "Altijd ambassadeur van de sport" },
+        ]
+      },
+      { id: "G1_SOC_MENTORS_OTHERS", pillar: "SOCIAL", name: "Mentors Other Players", description: "Helpt en mentort jongere/zwakkere spelers",
+        rubric: [
+          { score: 0, label: "Not Yet", observable: "Geen mentoring gedrag" },
+          { score: 1, label: "Emerging", observable: "Soms mentor" },
+          { score: 2, label: "Achieved", observable: "Actief mentor voor anderen" },
+        ]
+      },
+      // MATCH
       { id: "G1_MAT_HIGH_LEVEL", pillar: "MATCH", name: "Wins at High Level", description: "Wint op hoog niveau",
         rubric: [
           { score: 0, label: "Not Yet", observable: "Verliest op hoog niveau" },
@@ -1993,6 +2539,20 @@ export const ADULT_GLOW_SKILLS_BY_LEVEL: Record<string, LevelSkillsConfig> = {
           { score: 0, label: "Not Yet", observable: "Korte termijn succes" },
           { score: 1, label: "Emerging", observable: "Meerdere maanden stabiel" },
           { score: 2, label: "Achieved", observable: "Jaar+ stabiele resultaten" },
+        ]
+      },
+      { id: "G1_MAT_65_WINRATE", pillar: "MATCH", name: "65%+ Win Rate", description: "Wint ≥65% van competitieve matches",
+        rubric: [
+          { score: 0, label: "Not Yet", observable: "< 55% winrate" },
+          { score: 1, label: "Emerging", observable: "55-65%" },
+          { score: 2, label: "Achieved", observable: "65%+ winrate" },
+        ]
+      },
+      { id: "G1_MAT_OPEN_LEVEL", pillar: "MATCH", name: "Competes at Open Level", description: "Speelt op open competitie niveau",
+        rubric: [
+          { score: 0, label: "Not Yet", observable: "Speelt op lager niveau" },
+          { score: 1, label: "Emerging", observable: "Soms open niveau" },
+          { score: 2, label: "Achieved", observable: "Speelt structureel open niveau" },
         ]
       },
     ]
