@@ -62,6 +62,7 @@ interface Post {
   authorName: string;
   cheerCount?: number;
   commentCount?: number;
+  userReaction?: string | null;
 }
 
 interface Comment {
@@ -281,14 +282,16 @@ function CommentsSheet({
 function PostCard({
   post,
   typeColor,
+  groupId,
   onCommentPress,
 }: {
   post: Post;
   typeColor: string;
+  groupId: string;
   onCommentPress: () => void;
 }) {
   const queryClient = useQueryClient();
-  const [liked, setLiked] = useState(false);
+  const [liked, setLiked] = useState(post.userReaction === "clap");
   const [likeCount, setLikeCount] = useState(post.cheerCount || 0);
 
   const likeMutation = useMutation({
@@ -298,11 +301,14 @@ function PostCard({
         : apiRequest("POST", `/api/social/posts/${post.id}/reactions`, { reactionType: "clap" }),
     onMutate: () => {
       setLiked(prev => !prev);
-      setLikeCount(c => liked ? c - 1 : c + 1);
+      setLikeCount(c => liked ? Math.max(0, c - 1) : c + 1);
     },
     onError: () => {
       setLiked(prev => !prev);
-      setLikeCount(c => liked ? c + 1 : c - 1);
+      setLikeCount(c => liked ? c + 1 : Math.max(0, c - 1));
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: [`/api/player/groups/${groupId}/feed`] });
     },
   });
 
@@ -375,7 +381,7 @@ function PostCard({
         <Pressable style={styles.actionBtn} onPress={onCommentPress}>
           <Ionicons name="chatbubble-outline" size={17} color={Colors.dark.textMuted} />
           <Text style={styles.actionBtnText}>
-            {commentCount > 0 ? commentCount : "Comment"}
+            {commentCount > 0 ? `Comment ${commentCount}` : "Comment"}
           </Text>
         </Pressable>
       </View>
@@ -908,6 +914,7 @@ export default function GroupDetailScreen({ route, navigation }: Props) {
               <PostCard
                 post={item}
                 typeColor={typeColor}
+                groupId={groupId}
                 onCommentPress={() => setCommentPostId(item.id)}
               />
             )}

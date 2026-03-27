@@ -2216,7 +2216,7 @@ import fs from "fs";
           .orderBy(desc(postsTable.createdAt))
           .limit(50);
 
-        // Add author info (prefer player name, fallback to email prefix)
+        // Add author info + per-user reaction state
         const postsWithAuthor = await Promise.all(
           groupPosts.map(async (post) => {
             const [author] = await db
@@ -2231,9 +2231,19 @@ import fs from "fs";
                 .where(eq(players.id, author.playerId));
               if (player?.name) authorName = player.name;
             }
+            const [myReaction] = await db
+              .select({ reactionType: postReactionsTable.reactionType })
+              .from(postReactionsTable)
+              .where(
+                and(
+                  eq(postReactionsTable.postId, post.id),
+                  eq(postReactionsTable.userId, userId),
+                ),
+              );
             return {
               ...post,
               authorName,
+              userReaction: myReaction?.reactionType || null,
             };
           }),
         );
