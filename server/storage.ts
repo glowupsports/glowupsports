@@ -8376,7 +8376,10 @@ export const storage = {
       conditions.push(eq(coachAvailability.coachId, params.coachId));
     }
     if (params.locationId) {
-      conditions.push(eq(coachAvailability.locationId, params.locationId));
+      conditions.push(or(
+        eq(coachAvailability.locationId, params.locationId),
+        isNull(coachAvailability.locationId)
+      ));
     }
     
     const availabilitySlots = await db.select().from(coachAvailability)
@@ -8457,7 +8460,14 @@ export const storage = {
         
         const slotDuration = availability.slotDuration || params.duration;
         
+        const nowUtc = new Date();
         while (slotStart.getTime() + slotDuration * 60000 <= availabilityEnd.getTime()) {
+          // Skip slots that have already started (past times for today)
+          if (slotStart < nowUtc) {
+            slotStart.setTime(slotStart.getTime() + slotDuration * 60000);
+            continue;
+          }
+
           const slotEnd = new Date(slotStart.getTime() + slotDuration * 60000);
           const slotStartTime = `${String(slotStart.getHours()).padStart(2, "0")}:${String(slotStart.getMinutes()).padStart(2, "0")}`;
           const slotEndTime = `${String(slotEnd.getHours()).padStart(2, "0")}:${String(slotEnd.getMinutes()).padStart(2, "0")}`;

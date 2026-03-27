@@ -539,7 +539,7 @@ export function CoachChatFooter({ mode = "coach", onChallenge }: ChatFooterProps
     return currentTabConfig?.types.includes(conv.type) ?? false;
   });
   const displayConversations = filteredConversations;
-  const latestConversation = conversations[0];
+  const latestConversation = conversations.find(c => c.lastMessagePreview) || conversations[0];
   const unreadCount = unreadData?.unreadCount || 0;
 
   const recentContacts = useMemo(() => {
@@ -1462,14 +1462,12 @@ export function CoachChatFooter({ mode = "coach", onChallenge }: ChatFooterProps
                 </View>
               ) : null}
             </View>
-            {latestConversation && !isExpanded ? (
+            {latestConversation && latestConversation.lastMessagePreview && !isExpanded ? (
               <ThemedText numberOfLines={1} style={styles.previewText}>
                 <ThemedText style={styles.previewSender}>
-                  {latestConversation.type === "provider_player"
-                    ? (latestConversation.providerName || "Provider")
-                    : (latestConversation.playerName || "Chat")}:{" "}
+                  {getConvDisplayName(latestConversation)}:{" "}
                 </ThemedText>
-                {latestConversation.lastMessagePreview || "No messages"}
+                {latestConversation.lastMessagePreview}
               </ThemedText>
             ) : (
               <ThemedText style={styles.headerTitle}>Glow Chat</ThemedText>

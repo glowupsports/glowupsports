@@ -1143,6 +1143,7 @@ function PlayerQuickActionsFAB() {
       actions={playerActions}
       primaryColor={Colors.dark.ballGlow}
       secondaryColor={Colors.dark.xpCyan}
+      bottomOffset={165}
     />
   );
 }
