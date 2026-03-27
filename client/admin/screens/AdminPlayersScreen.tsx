@@ -1410,6 +1410,8 @@ export default function AdminPlayersScreen() {
         handleCopyInviteCode={handleCopyInviteCode}
         playerInvite={playerInvite}
         inviteLoading={inviteLoading}
+        inviteError={inviteError}
+        refetchInvite={refetchInvite}
         inviteCopied={inviteCopied}
         handleDelete={handleDelete}
       />
@@ -1914,7 +1916,7 @@ export default function AdminPlayersScreen() {
                         </Text>
                       </View>
                       <Pressable
-                        style={styles.markPaidButton}
+                        style={styles.markPaidButtonFilled}
                         onPress={async () => {
                           Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
                           try {
@@ -1932,7 +1934,7 @@ export default function AdminPlayersScreen() {
                         }}
                       >
                         <Ionicons name="checkmark" size={18} color="#000" />
-                        <Text style={styles.markPaidButtonText}>Mark Paid</Text>
+                        <Text style={styles.markPaidButtonFilledText}>Mark Paid</Text>
                       </Pressable>
                     </View>
                   ))}

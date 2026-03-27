@@ -375,14 +375,14 @@ export const styles = StyleSheet.create({
     ...Typography.small,
     fontWeight: "700",
   },
-  loadingContainer: {
+  inlineLoadingContainer: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
     gap: Spacing.sm,
     padding: Spacing.lg,
   },
-  loadingText: {
+  inlineLoadingText: {
     ...Typography.small,
     color: Colors.dark.textMuted,
   },
@@ -1601,7 +1601,7 @@ export const styles = StyleSheet.create({
     color: Colors.dark.error,
     fontWeight: "700",
   },
-  markPaidButton: {
+  markPaidButtonFilled: {
     flexDirection: "row",
     alignItems: "center",
     gap: 6,
@@ -1610,7 +1610,7 @@ export const styles = StyleSheet.create({
     paddingVertical: Spacing.sm,
     borderRadius: BorderRadius.md,
   },
-  markPaidButtonText: {
+  markPaidButtonFilledText: {
     ...Typography.caption,
     color: "#000",
     fontWeight: "700",

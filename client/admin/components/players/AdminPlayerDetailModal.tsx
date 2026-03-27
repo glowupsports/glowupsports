@@ -29,7 +29,7 @@ type PlayerStats = any;
 interface AdminPlayerDetailModalProps {
   showFullDetailsModal: boolean;
   closeFullDetailsModal: () => void;
-  insets: { top: number };
+  insets: { top: number; bottom: number };
   statsLoading: boolean;
   statsError: any;
   refetchStats: () => void;
@@ -54,6 +54,8 @@ interface AdminPlayerDetailModalProps {
   handleCopyInviteCode: () => void;
   playerInvite: { inviteCode: string; status: string } | undefined;
   inviteLoading: boolean;
+  inviteError: boolean;
+  refetchInvite: () => void;
   inviteCopied: boolean;
   handleDelete: () => void;
 }
@@ -108,6 +110,8 @@ export function AdminPlayerDetailModal({
   handleCopyInviteCode,
   playerInvite,
   inviteLoading,
+  inviteError,
+  refetchInvite,
   inviteCopied,
   handleDelete,
 }: AdminPlayerDetailModalProps) {
