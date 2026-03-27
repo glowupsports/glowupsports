@@ -17,6 +17,7 @@ import { Router, type Request, type Response, type NextFunction } from "express"
     validateSessionOwnership,
     validatePackageOwnership,
     validateNotificationOwnership,
+    generateRefreshToken,
     type AuthenticatedRequest,
   } from "../auth";
   import { z } from "zod";
@@ -3180,17 +3181,20 @@ import fs from "fs";
         // If a new player was created, generate a fresh token with the new playerId
         // This ensures the frontend can immediately use the new playerId without re-login
         let token: string | undefined;
+        let refreshToken: string | undefined;
         if (newPlayerCreated) {
           const user = await storage.getUser(req.user!.id);
           if (user) {
-            token = generateToken({
+            const onboardingJwtPayload = {
               userId: user.id,
               email: user.email,
               role: user.role,
               academyId: user.academyId,
               coachId: user.coachId,
               playerId: playerId,
-            });
+            };
+            token = generateToken(onboardingJwtPayload);
+            refreshToken = generateRefreshToken(onboardingJwtPayload);
           }
         }
 
@@ -3199,6 +3203,7 @@ import fs from "fs";
           player: updatedPlayer,
           playerId,
           token, // Include fresh token if player was just created
+          refreshToken,
         });
       } catch (error) {
         console.error("Error saving onboarding:", error);

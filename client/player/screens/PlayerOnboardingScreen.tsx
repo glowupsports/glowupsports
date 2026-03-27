@@ -1057,7 +1057,7 @@ export default function PlayerOnboardingScreen({ onComplete }: Props) {
       const response = await apiRequest("POST", "/api/player/me/onboarding", onboardingData);
       return response.json();
     },
-    onSuccess: async (responseData: { success: boolean; playerId: string; token?: string }) => {
+    onSuccess: async (responseData: { success: boolean; playerId: string; token?: string; refreshToken?: string }) => {
       // If a new token was issued (player profile was created), save it
       if (responseData.token && user) {
         setAuthToken(responseData.token);
@@ -1065,7 +1065,7 @@ export default function PlayerOnboardingScreen({ onComplete }: Props) {
           ...user,
           playerId: responseData.playerId,
         };
-        await saveAuthState(responseData.token, updatedUser);
+        await saveAuthState(responseData.token, updatedUser, responseData.refreshToken);
       }
       
       // Refresh auth to get updated user data

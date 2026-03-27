@@ -3,6 +3,7 @@ import * as SecureStore from "expo-secure-store";
 import { Platform } from "react-native";
 
 const AUTH_TOKEN_KEY = "auth_token";
+const REFRESH_TOKEN_KEY = "refresh_token";
 const AUTH_USER_KEY = "auth_user";
 const CURRENT_ACADEMY_KEY = "current_academy_id";
 
@@ -114,10 +115,17 @@ async function attemptTokenRefresh(): Promise<boolean> {
       const baseUrl = getApiUrl();
       const url = new URL("/auth/refresh", baseUrl);
 
+      // The refresh endpoint requires a refresh token (type=refresh, 90d lifetime)
+      const storedRefreshToken = await secureGet(REFRESH_TOKEN_KEY);
+      if (!storedRefreshToken) {
+        return false;
+      }
+      const tokenToUse = storedRefreshToken;
+
       const response = await fetch(url.toString(), {
         method: "POST",
         headers: {
-          "Authorization": `Bearer ${currentToken}`,
+          "Authorization": `Bearer ${tokenToUse}`,
           "Content-Type": "application/json",
         },
         credentials: "include",
@@ -128,6 +136,9 @@ async function attemptTokenRefresh(): Promise<boolean> {
         if (data.token) {
           currentToken = data.token;
           await secureSet(AUTH_TOKEN_KEY, data.token);
+          if (data.refreshToken) {
+            await secureSet(REFRESH_TOKEN_KEY, data.refreshToken);
+          }
           return true;
         }
       }
@@ -202,13 +213,17 @@ export async function loadAuthState(): Promise<AuthState> {
   }
 }
 
-export async function saveAuthState(token: string, user: AuthUser): Promise<void> {
+export async function saveAuthState(token: string, user: AuthUser, refreshToken?: string): Promise<void> {
   try {
     currentToken = token;
-    await Promise.all([
+    const saves: Promise<void>[] = [
       secureSet(AUTH_TOKEN_KEY, token),
       secureSet(AUTH_USER_KEY, JSON.stringify(user)),
-    ]);
+    ];
+    if (refreshToken) {
+      saves.push(secureSet(REFRESH_TOKEN_KEY, refreshToken));
+    }
+    await Promise.all(saves);
   } catch (error) {
     console.error("Failed to save auth state:", error);
   }
@@ -220,6 +235,7 @@ export async function clearAuthState(): Promise<void> {
     currentAcademyId = null;
     await Promise.all([
       secureDelete(AUTH_TOKEN_KEY),
+      secureDelete(REFRESH_TOKEN_KEY),
       secureDelete(AUTH_USER_KEY),
       secureDelete(CURRENT_ACADEMY_KEY),
     ]);

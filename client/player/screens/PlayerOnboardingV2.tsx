@@ -2125,14 +2125,14 @@ export default function PlayerOnboardingV2Screen({ onComplete }: Props) {
       
       return result;
     },
-    onSuccess: async (responseData: { success: boolean; playerId: string; token?: string }) => {
+    onSuccess: async (responseData: { success: boolean; playerId: string; token?: string; refreshToken?: string }) => {
       if (responseData.token && user) {
         setAuthToken(responseData.token);
         const updatedUser: AuthUser = {
           ...user,
           playerId: responseData.playerId,
         };
-        await saveAuthState(responseData.token, updatedUser);
+        await saveAuthState(responseData.token, updatedUser, responseData.refreshToken);
       }
       await refreshAuth();
       queryClient.invalidateQueries({ queryKey: ["/api/player/me/dashboard"] });

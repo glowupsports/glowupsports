@@ -245,7 +245,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return { success: false, error: data.error || "Login failed" };
       }
       
-      await saveAuthState(data.token, data.user);
+      await saveAuthState(data.token, data.user, data.refreshToken);
       setAuthToken(data.token);
       await fetchUserData(data.token, true);
       setIsAuthenticated(true);
@@ -286,7 +286,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return { success: false, error: data.error || "Apple Sign-In failed", code: data.code };
       }
       
-      await saveAuthState(data.token, data.user);
+      await saveAuthState(data.token, data.user, data.refreshToken);
       setAuthToken(data.token);
       await fetchUserData(data.token, true);
       setIsAuthenticated(true);
@@ -313,7 +313,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return { success: false, error: data.error || "Registration failed" };
       }
       
-      await saveAuthState(data.token, data.user);
+      await saveAuthState(data.token, data.user, data.refreshToken);
       setAuthToken(data.token);
       await fetchUserData(data.token, true);
       setIsAuthenticated(true);
@@ -344,7 +344,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return { success: false, error: data.error || "Registration failed" };
       }
       
-      await saveAuthState(data.token, data.user);
+      await saveAuthState(data.token, data.user, data.refreshToken);
       setAuthToken(data.token);
       await fetchUserData(data.token, true);
       setIsAuthenticated(true);

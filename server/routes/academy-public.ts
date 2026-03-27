@@ -51,7 +51,7 @@ import { Router, type Request, type Response, type NextFunction } from "express"
     submitReviewSchema,
   } from "@shared/schema";
   import { authLimiter, inviteLimiter } from "../rateLimiter";
-  import { hashPassword, verifyPassword, generateToken, validatePassword } from "../auth";
+  import { hashPassword, verifyPassword, generateToken, generateRefreshToken, validatePassword } from "../auth";
   import { sendCoachInviteEmail, sendWelcomeEmail } from "../emailService";
   import { sendSessionConfirmedNotification } from "../pushNotifications";
   import { getCurrencyForCountry } from "@shared/countries";
@@ -450,17 +450,20 @@ import { Router, type Request, type Response, type NextFunction } from "express"
           .set({ usedBy: newUser.id, usedAt: new Date() })
           .where(eq(providerInvites.id, invite.id));
 
-        const authToken = generateToken({
+        const providerJwtPayload = {
           userId: newUser.id,
           email: newUser.email,
           role: newUser.role,
           academyId: newUser.academyId,
           coachId: null,
           playerId: null,
-        });
+        };
+        const authToken = generateToken(providerJwtPayload);
+        const refreshToken = generateRefreshToken(providerJwtPayload);
 
         res.status(201).json({
           token: authToken,
+          refreshToken,
           user: {
             id: newUser.id,
             username: newUser.username,

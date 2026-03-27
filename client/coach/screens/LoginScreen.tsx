@@ -923,7 +923,7 @@ export default function LoginScreen() {
           academyId: data.user.academyId || null,
           coachId: data.user.coachId || null,
           playerId: data.user.playerId || null,
-        });
+        }, data.refreshToken);
         
         // Trigger app navigation by refreshing auth
         await refreshAuth();

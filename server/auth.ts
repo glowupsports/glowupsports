@@ -6,7 +6,8 @@ if (!process.env.SESSION_SECRET) {
   throw new Error("[FATAL] SESSION_SECRET environment variable is not set. Server cannot start without a secure JWT secret.");
 }
 export const JWT_SECRET = process.env.SESSION_SECRET;
-const JWT_EXPIRES_IN = "7d";
+const JWT_EXPIRES_IN = "30d";
+const REFRESH_TOKEN_EXPIRES_IN = "90d";
 const SALT_ROUNDS = 12;
 
 export interface JWTPayload {
@@ -17,6 +18,7 @@ export interface JWTPayload {
   coachId: string | null;
   playerId: string | null;
   currentAcademyId?: string | null; // The active academy context (from X-Academy-Id header)
+  type?: "access" | "refresh"; // Token type claim to distinguish access from refresh tokens
 }
 
 export interface AuthenticatedRequest extends Request {
@@ -69,28 +71,64 @@ export async function verifyPassword(password: string, hash: string): Promise<bo
 }
 
 export function generateToken(payload: JWTPayload): string {
-  return jwt.sign(payload, JWT_SECRET, { expiresIn: JWT_EXPIRES_IN });
+  const { type: _omit, ...rest } = payload;
+  return jwt.sign({ ...rest, type: "access" }, JWT_SECRET, { expiresIn: JWT_EXPIRES_IN });
 }
 
+export function generateRefreshToken(payload: JWTPayload): string {
+  const { type: _omit, ...rest } = payload;
+  return jwt.sign({ ...rest, type: "refresh" }, JWT_SECRET, { expiresIn: REFRESH_TOKEN_EXPIRES_IN });
+}
+
+// Verify a refresh token — enforces expiry and checks the type claim
+export function verifyRefreshToken(token: string): JWTPayload | null {
+  try {
+    const payload = jwt.verify(token, JWT_SECRET) as JWTPayload;
+    if (payload.type !== "refresh") {
+      return null;
+    }
+    return payload;
+  } catch {
+    return null;
+  }
+}
+
+// Verify an access token. Rejects refresh tokens (type === "refresh").
+// Accepts tokens without a type claim for backward compatibility with
+// tokens issued before the type claim was introduced.
 export function verifyToken(token: string): JWTPayload | null {
   try {
-    return jwt.verify(token, JWT_SECRET) as JWTPayload;
+    const payload = jwt.verify(token, JWT_SECRET) as JWTPayload;
+    if (payload.type === "refresh") {
+      // Refresh tokens must not be used to authorize API requests
+      return null;
+    }
+    return payload;
   } catch {
     return null;
   }
 }
 
-// Verify token but allow expired tokens (for refresh purposes)
-// Returns the payload even if expired, but returns null if signature is invalid
+// Verify token but allow expired tokens (for legacy refresh fallback only).
+// Returns the payload even if expired, but returns null if the signature is
+// invalid or if the token is a refresh token (refresh tokens must go through
+// verifyRefreshToken and are never accepted here).
 export function verifyTokenAllowExpired(token: string): JWTPayload | null {
   try {
-    return jwt.verify(token, JWT_SECRET, { ignoreExpiration: true }) as JWTPayload;
+    const payload = jwt.verify(token, JWT_SECRET, { ignoreExpiration: true }) as JWTPayload;
+    if (payload.type === "refresh") {
+      // Refresh tokens must not be accepted via this path — they have their own expiry
+      return null;
+    }
+    return payload;
   } catch {
     return null;
   }
 }
 
-// Middleware that accepts expired tokens (for token refresh endpoint)
+// Middleware for the token refresh endpoint.
+// Only accepts a valid, non-expired refresh token (type === "refresh").
+// Access tokens are rejected — clients must have obtained a refresh token at login.
 export function refreshAuthMiddleware(req: AuthenticatedRequest, res: Response, next: NextFunction): void {
   const authHeader = req.headers.authorization;
   
@@ -100,15 +138,15 @@ export function refreshAuthMiddleware(req: AuthenticatedRequest, res: Response, 
   }
 
   const token = authHeader.substring(7);
-  const payload = verifyTokenAllowExpired(token);
 
-  if (!payload) {
-    res.status(401).json({ error: "Invalid token signature" });
-    return;
+  // Only refresh tokens (type=refresh) are accepted here — enforces 90d expiry
+  const refreshPayload = verifyRefreshToken(token);
+  if (refreshPayload) {
+    req.user = refreshPayload;
+    return next();
   }
 
-  req.user = payload;
-  next();
+  res.status(401).json({ error: "Invalid or expired refresh token" });
 }
 
 export function authMiddleware(req: AuthenticatedRequest, res: Response, next: NextFunction): void {

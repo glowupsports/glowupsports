@@ -51,7 +51,7 @@ import { Router, type Request, type Response, type NextFunction } from "express"
     submitReviewSchema,
   } from "@shared/schema";
   import { authLimiter, inviteLimiter } from "../rateLimiter";
-  import { hashPassword, verifyPassword, generateToken, validatePassword, JWT_SECRET, refreshAuthMiddleware } from "../auth";
+  import { hashPassword, verifyPassword, generateToken, generateRefreshToken, validatePassword, JWT_SECRET, refreshAuthMiddleware } from "../auth";
   import { sendWelcomeEmail, sendPlayerInviteEmail, sendCoachInviteEmail, sendOTPEmail, verifyOTPCode, hasValidOTP } from "../emailService";
   import crypto from "crypto";
   const router = Router();
@@ -157,17 +157,20 @@ import { Router, type Request, type Response, type NextFunction } from "express"
         }
       }
 
-      const token = generateToken({
+      const jwtPayload = {
         userId: user.id,
         email: user.email,
         role: user.role,
         academyId: effectiveAcademyId,
         coachId: user.coachId,
         playerId: user.playerId,
-      });
+      };
+      const token = generateToken(jwtPayload);
+      const refreshToken = generateRefreshToken(jwtPayload);
 
       res.json({
         token,
+        refreshToken,
         user: {
           id: user.id,
           username: user.username,
@@ -230,17 +233,20 @@ import { Router, type Request, type Response, type NextFunction } from "express"
         }
       }
 
-      const token = generateToken({
+      const appleJwtPayload = {
         userId: existingUser.id,
         email: existingUser.email,
         role: existingUser.role,
         academyId: effectiveAcademyId,
         coachId: existingUser.coachId,
         playerId: existingUser.playerId,
-      });
+      };
+      const token = generateToken(appleJwtPayload);
+      const refreshToken = generateRefreshToken(appleJwtPayload);
 
       res.json({
         token,
+        refreshToken,
         user: {
           id: existingUser.id,
           username: existingUser.username,
@@ -524,17 +530,20 @@ import { Router, type Request, type Response, type NextFunction } from "express"
         // Link player to user
         await storage.updateUser(user.id, { playerId: player.id });
 
-        const token = generateToken({
+        const playerRegJwtPayload = {
           userId: user.id,
           email: user.email,
           role: user.role,
           academyId: user.academyId,
           coachId: user.coachId,
           playerId: player.id,
-        });
+        };
+        const token = generateToken(playerRegJwtPayload);
+        const refreshToken = generateRefreshToken(playerRegJwtPayload);
 
         res.status(201).json({
           token,
+          refreshToken,
           user: {
             id: user.id,
             username: user.username,
@@ -654,17 +663,20 @@ import { Router, type Request, type Response, type NextFunction } from "express"
         // Mark invite as used
         await storage.markInviteUsed(invite.id, user.id);
 
-        const authToken = generateToken({
+        const coachRegJwtPayload = {
           userId: user.id,
           email: user.email,
           role: user.role,
           academyId: user.academyId,
           coachId: user.coachId,
           playerId: user.playerId,
-        });
+        };
+        const authToken = generateToken(coachRegJwtPayload);
+        const refreshToken = generateRefreshToken(coachRegJwtPayload);
 
         res.status(201).json({
           token: authToken,
+          refreshToken,
           user: {
             id: user.id,
             username: user.username,
@@ -1139,19 +1151,22 @@ import { Router, type Request, type Response, type NextFunction } from "express"
         );
 
         // Generate JWT token for immediate authentication
-        const jwtToken = generateToken({
+        const playerInviteJwtPayload = {
           userId: user.id,
           email: user.email,
           role: user.role,
           academyId: user.academyId,
           coachId: null,
           playerId: playerId,
-        });
+        };
+        const jwtToken = generateToken(playerInviteJwtPayload);
+        const refreshToken = generateRefreshToken(playerInviteJwtPayload);
 
         res.status(201).json({
           success: true,
           message: "Welcome to the team!",
           token: jwtToken,
+          refreshToken,
           user: {
             id: user.id,
             username: user.username,
@@ -1251,15 +1266,17 @@ import { Router, type Request, type Response, type NextFunction } from "express"
     async (req: AuthenticatedRequest, res: Response) => {
       try {
         const user = req.user!;
-        const token = generateToken({
+        const payload = {
           userId: user.userId,
           email: user.email,
           role: user.role,
           academyId: user.academyId,
           coachId: user.coachId,
           playerId: user.playerId,
-        });
-        res.json({ token });
+        };
+        const token = generateToken(payload);
+        const refreshToken = generateRefreshToken(payload);
+        res.json({ token, refreshToken });
       } catch (error) {
         console.error("Token refresh error:", error);
         res.status(500).json({ error: "Token refresh failed" });
