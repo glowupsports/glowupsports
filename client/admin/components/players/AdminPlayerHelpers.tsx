@@ -1,3 +1,4 @@
+import { styles } from "./adminPlayersStyles";
 import React, { useState, useMemo } from "react";
 import {
   View,
