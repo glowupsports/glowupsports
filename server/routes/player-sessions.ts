@@ -2725,10 +2725,17 @@ import fs from "fs";
           return res.status(403).json({ error: "Not a member of this group" });
         }
 
-        const { eventType, title, description, location, sport, eventDate, maxPlayers, opponentUserId } = req.body;
+        const { eventType, title, description, location, sport, eventDate, maxPlayers, opponentUserId, wager, wagerCurrency } = req.body;
 
         if (!title || !eventDate) {
           return res.status(400).json({ error: "title and eventDate are required" });
+        }
+
+        if (wager !== undefined && wager !== null) {
+          const wagerNum = Number(wager);
+          if (isNaN(wagerNum) || wagerNum < 0 || wagerNum > 1000000) {
+            return res.status(400).json({ error: "wager must be a non-negative number up to 1,000,000" });
+          }
         }
 
         // Match events always require an opponent — challenge is auto-created
@@ -2775,6 +2782,8 @@ import fs from "fs";
           maxPlayers: maxPlayers || null,
           opponentUserId: opponentUserId || null,
           matchChallengeId,
+          wager: wager != null ? String(Number(wager)) : null,
+          wagerCurrency: wagerCurrency || "AED",
         }).returning();
 
         // Auto-RSVP creator as going
@@ -2923,7 +2932,15 @@ import fs from "fs";
           return res.status(403).json({ error: "Not authorized to edit this event" });
         }
 
-        const { title, description, location, sport, eventDate, maxPlayers } = req.body;
+        const { title, description, location, sport, eventDate, maxPlayers, wager, wagerCurrency } = req.body;
+
+        if (wager !== undefined && wager !== null) {
+          const wagerNum = Number(wager);
+          if (isNaN(wagerNum) || wagerNum < 0 || wagerNum > 1000000) {
+            return res.status(400).json({ error: "wager must be a non-negative number up to 1,000,000" });
+          }
+        }
+
         const updates: Record<string, unknown> = { updatedAt: new Date() };
         if (title !== undefined) updates.title = title.trim();
         if (description !== undefined) updates.description = description?.trim() || null;
@@ -2931,6 +2948,8 @@ import fs from "fs";
         if (sport !== undefined) updates.sport = sport || null;
         if (eventDate !== undefined) updates.eventDate = new Date(eventDate);
         if (maxPlayers !== undefined) updates.maxPlayers = maxPlayers || null;
+        if (wager !== undefined) updates.wager = wager != null ? String(Number(wager)) : null;
+        if (wagerCurrency !== undefined) updates.wagerCurrency = wagerCurrency || "AED";
 
         const [updated] = await db.update(groupEventsTable)
           .set(updates)
@@ -2980,6 +2999,27 @@ import fs from "fs";
   );
 
   // ============ END GROUP EVENTS API ============
+
+  // Get courts for player's academy (used in match wizard court picker)
+  router.get(
+    "/api/player/courts",
+    authMiddleware,
+    requirePlayerOrOwner,
+    async (req: AuthenticatedRequest, res: Response) => {
+      try {
+        const academyId = req.user!.academyId;
+        if (!academyId) {
+          return res.json([]);
+        }
+        const allCourts = await storage.getAllCourts(academyId);
+        const activeCourts = allCourts.filter((c) => c.isActive !== false);
+        res.json(activeCourts);
+      } catch (error) {
+        console.error("Error fetching player courts:", error);
+        res.status(500).json({ error: "Failed to fetch courts" });
+      }
+    },
+  );
 
   // Save player onboarding data
   router.post(

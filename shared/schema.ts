@@ -3572,6 +3572,10 @@ export const groupEvents = pgTable("group_events", {
   // Link to match challenge if auto-created
   matchChallengeId: varchar("match_challenge_id"),
 
+  // Optional wager/prize amount for match events (display only, no payment processing)
+  wager: numeric("wager"),
+  wagerCurrency: text("wager_currency").default("AED"),
+
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 }, (table) => [

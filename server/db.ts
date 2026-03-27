@@ -380,6 +380,13 @@ pool.query('SELECT 1').then(async () => {
   } catch (e: any) {
     console.log('[Database] play_requests migration skipped:', e.message);
   }
+  try {
+    await pool.query(`ALTER TABLE group_events ADD COLUMN IF NOT EXISTS wager NUMERIC`);
+    await pool.query(`ALTER TABLE group_events ADD COLUMN IF NOT EXISTS wager_currency TEXT NOT NULL DEFAULT 'AED'`);
+    console.log('[Database] group_events wager migration successful');
+  } catch (e: any) {
+    console.log('[Database] group_events wager migration skipped:', e.message);
+  }
 }).catch((err) => {
   console.error('[Database] Connection test FAILED:', err.message);
 });

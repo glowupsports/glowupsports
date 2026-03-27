@@ -100,12 +100,22 @@ interface GroupEvent {
   maxPlayers?: number | null;
   opponentUserId?: string | null;
   matchChallengeId?: string | null;
+  wager?: string | null;
+  wagerCurrency?: string | null;
   createdAt: string;
   goingCount: number;
   maybeCount: number;
   notGoingCount: number;
   myRsvpStatus: string | null;
   goingAvatars: { name: string; avatarUrl: string | null }[];
+}
+
+interface Court {
+  id: string;
+  name: string;
+  sport?: string | null;
+  surface?: string | null;
+  isActive?: boolean | null;
 }
 
 interface ChatMessage {
@@ -866,6 +876,14 @@ function EventCard({
           <Text style={evtStyles.metaTxt}>{goingCount}/{event.maxPlayers} going</Text>
         </View>
       ) : null}
+      {event.wager ? (
+        <View style={evtStyles.metaRow}>
+          <Ionicons name="cash-outline" size={14} color="#FFD700" />
+          <Text style={[evtStyles.metaTxt, { color: "#FFD700", fontWeight: "700" }]}>
+            {event.wagerCurrency || "AED"} {parseFloat(event.wager).toFixed(2)} Inzet
+          </Text>
+        </View>
+      ) : null}
 
       {event.goingAvatars.length > 0 && (
         <View style={evtStyles.avatarRow}>
@@ -941,15 +959,22 @@ function CreateEventWizard({
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [location, setLocation] = useState("");
+  const [selectedCourtId, setSelectedCourtId] = useState<string>("");
   const [maxPlayers, setMaxPlayers] = useState("");
+  const [wager, setWager] = useState("");
   const [eventDate, setEventDate] = useState(new Date(Date.now() + 86400000));
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [showTimePicker, setShowTimePicker] = useState(false);
   const [opponentUserId, setOpponentUserId] = useState<string>("");
 
+  const { data: courts = [] } = useQuery<Court[]>({
+    queryKey: ["/api/player/courts"],
+    enabled: visible,
+  });
+
   const resetWizard = () => {
     setIsMatchFlow(false); setStep(0); setEventType("social"); setTitle("");
-    setDescription(""); setLocation(""); setMaxPlayers("");
+    setDescription(""); setLocation(""); setSelectedCourtId(""); setMaxPlayers(""); setWager("");
     setEventDate(new Date(Date.now() + 86400000));
     setOpponentUserId(""); setShowDatePicker(false); setShowTimePicker(false);
   };
@@ -965,13 +990,24 @@ function CreateEventWizard({
     onError: (e: any) => Alert.alert("Error", e.message || "Failed to create event"),
   });
 
+  const resolvedLocation = selectedCourtId
+    ? (courts.find(c => c.id === selectedCourtId)?.name ?? location.trim())
+    : location.trim();
+
   const submitCreate = (overrides: Record<string, unknown> = {}) => {
+    const wagerNum = wager.trim() ? parseFloat(wager.trim()) : undefined;
+    if (wagerNum !== undefined && (isNaN(wagerNum) || wagerNum < 0)) {
+      Alert.alert("Invalid Wager", "Please enter a valid non-negative amount for Inzet / Prijs.");
+      return;
+    }
     mutation.mutate({
       eventType, title: title.trim(),
       description: description.trim() || undefined,
-      location: location.trim() || undefined,
+      location: resolvedLocation || undefined,
       maxPlayers: maxPlayers ? parseInt(maxPlayers, 10) : undefined,
       eventDate: eventDate.toISOString(),
+      wager: wagerNum,
+      wagerCurrency: "AED",
       ...overrides,
     });
   };
@@ -1030,7 +1066,7 @@ function CreateEventWizard({
             <Pressable
               onPress={() => {
                 if (step > 0) { setStep(step - 1); }
-                else if (isMatchFlow) { setIsMatchFlow(false); }
+                else if (isMatchFlow) { setIsMatchFlow(false); setSelectedCourtId(""); setLocation(""); setWager(""); }
                 else { resetWizard(); onClose(); }
               }}
               style={styles.composeCancelBtn}
@@ -1103,15 +1139,61 @@ function CreateEventWizard({
                     </View>
                   ) : null;
                 })()}
-                <Text style={evtStyles.wizardLabel}>Location (optional)</Text>
-                <TextInput
-                  style={evtStyles.wizardInput}
-                  value={location}
-                  onChangeText={setLocation}
-                  placeholder="e.g. Court 3, Main Club"
-                  placeholderTextColor="#445566"
-                />
-                <Text style={[evtStyles.wizardLabel, { marginTop: 16 }]}>Date</Text>
+
+                <Text style={evtStyles.wizardLabel}>Baan / Court (optioneel)</Text>
+                {courts.length > 0 ? (
+                  <View style={{ gap: 8 }}>
+                    {courts.map(court => {
+                      const selected = selectedCourtId === court.id;
+                      return (
+                        <Pressable
+                          key={court.id}
+                          onPress={() => { setSelectedCourtId(selected ? "" : court.id); Haptics.selectionAsync(); }}
+                          style={[evtStyles.courtRow, selected && { borderColor: typeColor, backgroundColor: typeColor + "15" }]}
+                        >
+                          <Ionicons name="tennisball-outline" size={16} color={selected ? typeColor : "#7A8EA0"} />
+                          <Text style={[evtStyles.courtRowTxt, selected && { color: typeColor, fontWeight: "700" }]} numberOfLines={1}>{court.name}</Text>
+                          {court.surface ? (
+                            <Text style={evtStyles.courtSurface}>{court.surface}</Text>
+                          ) : null}
+                          {selected ? <Ionicons name="checkmark-circle" size={18} color={typeColor} /> : null}
+                        </Pressable>
+                      );
+                    })}
+                    {selectedCourtId === "" ? (
+                      <TextInput
+                        style={[evtStyles.wizardInput, { marginTop: 4 }]}
+                        value={location}
+                        onChangeText={setLocation}
+                        placeholder="Of typ een locatie..."
+                        placeholderTextColor="#445566"
+                      />
+                    ) : null}
+                  </View>
+                ) : (
+                  <TextInput
+                    style={evtStyles.wizardInput}
+                    value={location}
+                    onChangeText={setLocation}
+                    placeholder="e.g. Court 3, Main Club"
+                    placeholderTextColor="#445566"
+                  />
+                )}
+
+                <Text style={[evtStyles.wizardLabel, { marginTop: 16 }]}>Inzet / Prijs (optioneel)</Text>
+                <View style={evtStyles.wagerRow}>
+                  <Text style={evtStyles.wagerCurrency}>AED</Text>
+                  <TextInput
+                    style={[evtStyles.wizardInput, { flex: 1, borderTopLeftRadius: 0, borderBottomLeftRadius: 0 }]}
+                    value={wager}
+                    onChangeText={setWager}
+                    placeholder="0"
+                    placeholderTextColor="#445566"
+                    keyboardType="decimal-pad"
+                  />
+                </View>
+
+                <Text style={[evtStyles.wizardLabel, { marginTop: 16 }]}>Datum</Text>
                 <Pressable onPress={() => setShowDatePicker(true)} style={evtStyles.dateBtn}>
                   <Ionicons name="calendar-outline" size={18} color={typeColor} />
                   <Text style={[evtStyles.dateBtnTxt, { color: typeColor }]}>
@@ -1122,12 +1204,16 @@ function CreateEventWizard({
                   <DateTimePicker value={eventDate} mode="date" minimumDate={new Date()}
                     onChange={(_, d) => { setShowDatePicker(false); if (d) setEventDate(prev => { const n = new Date(d); n.setHours(prev.getHours(), prev.getMinutes()); return n; }); }} />
                 )}
-                <Text style={[evtStyles.wizardLabel, { marginTop: 16 }]}>Time</Text>
-                <Pressable onPress={() => setShowTimePicker(true)} style={evtStyles.dateBtn}>
-                  <Ionicons name="time-outline" size={18} color={typeColor} />
-                  <Text style={[evtStyles.dateBtnTxt, { color: typeColor }]}>
+                <Text style={[evtStyles.wizardLabel, { marginTop: 16 }]}>Tijd</Text>
+                <Pressable
+                  onPress={() => setShowTimePicker(true)}
+                  style={[evtStyles.dateBtn, { borderWidth: 1.5, borderColor: typeColor + "60" }]}
+                >
+                  <Ionicons name="time" size={18} color={typeColor} />
+                  <Text style={[evtStyles.dateBtnTxt, { color: typeColor, fontSize: 17, fontWeight: "700" }]}>
                     {eventDate.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
                   </Text>
+                  <Ionicons name="chevron-down" size={14} color={typeColor + "80"} style={{ marginLeft: "auto" }} />
                 </Pressable>
                 {showTimePicker && (
                   <DateTimePicker value={eventDate} mode="time"
@@ -1220,12 +1306,16 @@ function CreateEventWizard({
                   <DateTimePicker value={eventDate} mode="date" minimumDate={new Date()}
                     onChange={(_, d) => { setShowDatePicker(false); if (d) setEventDate(prev => { const n = new Date(d); n.setHours(prev.getHours(), prev.getMinutes()); return n; }); }} />
                 )}
-                <Text style={[evtStyles.wizardLabel, { marginTop: 16 }]}>Time</Text>
-                <Pressable onPress={() => setShowTimePicker(true)} style={evtStyles.dateBtn}>
-                  <Ionicons name="time-outline" size={18} color={typeColor} />
-                  <Text style={[evtStyles.dateBtnTxt, { color: typeColor }]}>
+                <Text style={[evtStyles.wizardLabel, { marginTop: 16 }]}>Tijd</Text>
+                <Pressable
+                  onPress={() => setShowTimePicker(true)}
+                  style={[evtStyles.dateBtn, { borderWidth: 1.5, borderColor: typeColor + "60" }]}
+                >
+                  <Ionicons name="time" size={18} color={typeColor} />
+                  <Text style={[evtStyles.dateBtnTxt, { color: typeColor, fontSize: 17, fontWeight: "700" }]}>
                     {eventDate.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
                   </Text>
+                  <Ionicons name="chevron-down" size={14} color={typeColor + "80"} style={{ marginLeft: "auto" }} />
                 </Pressable>
                 {showTimePicker && (
                   <DateTimePicker value={eventDate} mode="time"
@@ -1265,6 +1355,7 @@ function GroupEventsTab({
   const [editTitle, setEditTitle] = useState("");
   const [editDescription, setEditDescription] = useState("");
   const [editLocation, setEditLocation] = useState("");
+  const [editWager, setEditWager] = useState("");
   const [editDate, setEditDate] = useState(new Date());
   const [editShowDatePicker, setEditShowDatePicker] = useState(false);
   const [editShowTimePicker, setEditShowTimePicker] = useState(false);
@@ -1305,6 +1396,7 @@ function GroupEventsTab({
     setEditTitle(event.title);
     setEditDescription(event.description ?? "");
     setEditLocation(event.location ?? "");
+    setEditWager(event.wager ? String(parseFloat(event.wager)) : "");
     setEditDate(new Date(event.eventDate));
   };
 
@@ -1317,6 +1409,7 @@ function GroupEventsTab({
         description: editDescription.trim() || null,
         location: editLocation.trim() || null,
         eventDate: editDate.toISOString(),
+        wager: editWager.trim() ? parseFloat(editWager.trim()) : null,
       },
     });
   };
@@ -1371,6 +1464,22 @@ function GroupEventsTab({
                 placeholderTextColor="#445566"
               />
             </View>
+            {editingEvent?.eventType === "match" ? (
+              <View style={evtStyles.wizardSection}>
+                <Text style={evtStyles.wizardLabel}>Inzet / Prijs (optioneel)</Text>
+                <View style={evtStyles.wagerRow}>
+                  <Text style={evtStyles.wagerCurrency}>AED</Text>
+                  <TextInput
+                    style={[evtStyles.wizardInput, { flex: 1, borderTopLeftRadius: 0, borderBottomLeftRadius: 0 }]}
+                    value={editWager}
+                    onChangeText={setEditWager}
+                    placeholder="0"
+                    placeholderTextColor="#445566"
+                    keyboardType="decimal-pad"
+                  />
+                </View>
+              </View>
+            ) : null}
             <View style={evtStyles.wizardSection}>
               <Text style={evtStyles.wizardLabel}>Date</Text>
               <Pressable onPress={() => setEditShowDatePicker(true)} style={evtStyles.dateBtn}>
@@ -1387,11 +1496,15 @@ function GroupEventsTab({
                 />
               )}
               <Text style={[evtStyles.wizardLabel, { marginTop: 16 }]}>Time</Text>
-              <Pressable onPress={() => setEditShowTimePicker(true)} style={evtStyles.dateBtn}>
-                <Ionicons name="time-outline" size={18} color={typeColor} />
-                <Text style={[evtStyles.dateBtnTxt, { color: typeColor }]}>
+              <Pressable
+                onPress={() => setEditShowTimePicker(true)}
+                style={[evtStyles.dateBtn, { borderWidth: 1.5, borderColor: typeColor + "60" }]}
+              >
+                <Ionicons name="time" size={18} color={typeColor} />
+                <Text style={[evtStyles.dateBtnTxt, { color: typeColor, fontSize: 17, fontWeight: "700" }]}>
                   {editDate.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
                 </Text>
+                <Ionicons name="chevron-down" size={14} color={typeColor + "80"} style={{ marginLeft: "auto" }} />
               </Pressable>
               {editShowTimePicker && (
                 <DateTimePicker
@@ -2207,7 +2320,7 @@ const evtStyles = StyleSheet.create({
   rsvpBtnTxt: { fontSize: 13, fontWeight: "600", color: "#7A8EA0" },
 
   // Wizard
-  wizardSheet: { backgroundColor: "#0F141B", borderTopLeftRadius: 24, borderTopRightRadius: 24, flex: 1, maxHeight: "92%", borderWidth: 1, borderColor: "rgba(255,255,255,0.08)" },
+  wizardSheet: { backgroundColor: "#0F141B", borderTopLeftRadius: 24, borderTopRightRadius: 24, flex: 1, maxHeight: "96%", minHeight: "75%", borderWidth: 1, borderColor: "rgba(255,255,255,0.08)" },
   stepRow: { flexDirection: "row", justifyContent: "center", gap: 8, paddingVertical: 12 },
   stepDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: "rgba(255,255,255,0.15)" },
   wizardSection: { paddingHorizontal: 20, paddingTop: 4 },
@@ -2226,6 +2339,11 @@ const evtStyles = StyleSheet.create({
   wizardSummary: { marginTop: 20, borderRadius: 14, padding: 16, borderWidth: 1 },
   wizardSummaryTitle: { fontSize: 16, fontWeight: "700", color: "#FFFFFF", marginBottom: 4 },
   wizardSummaryMeta: { fontSize: 13, color: "#7A8EA0", marginTop: 2 },
+  courtRow: { flexDirection: "row", alignItems: "center", gap: 10, backgroundColor: "rgba(255,255,255,0.04)", borderRadius: 12, paddingHorizontal: 14, paddingVertical: 12, borderWidth: 1.5, borderColor: "rgba(255,255,255,0.1)" },
+  courtRowTxt: { flex: 1, fontSize: 14, fontWeight: "600", color: "#7A8EA0" },
+  courtSurface: { fontSize: 11, color: "#445566", textTransform: "capitalize" },
+  wagerRow: { flexDirection: "row", alignItems: "center" },
+  wagerCurrency: { fontSize: 14, fontWeight: "700", color: "#FFFFFF", backgroundColor: "rgba(255,255,255,0.1)", paddingHorizontal: 14, paddingVertical: 12, borderRadius: 12, borderTopRightRadius: 0, borderBottomRightRadius: 0, borderWidth: 1, borderColor: "rgba(255,255,255,0.08)", borderRightWidth: 0 },
 });
 
 const chatStyles = StyleSheet.create({
