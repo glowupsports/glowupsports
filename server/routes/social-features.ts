@@ -103,9 +103,10 @@ const socialPostUpload = multer({
             return res.json({ friends: [], pendingRequests: [] });
           }
           
-          const rawFriendUsers = await db.execute(sql`
-            SELECT id FROM users WHERE player_id IN (${sql.join(friendPlayerIds.map((id: string) => sql`${id}`), sql`, `)})
-          `);
+          const rawFriendUsers = await pool.query(
+            `SELECT id FROM users WHERE player_id = ANY($1::text[])`,
+            [friendPlayerIds]
+          );
           friendUserIds = (rawFriendUsers.rows || []).map((r: any) => r.id);
           
           if (friendUserIds.length === 0) {
@@ -140,27 +141,31 @@ const socialPostUpload = multer({
         let rawPosts: any;
         
         if (filter === "friends" && friendUserIds.length > 0) {
-          rawPosts = await db.execute(sql`
-            SELECT id, author_id, academy_id, context_type, context_id, caption, 
+          const result = await pool.query(
+            `SELECT id, author_id, academy_id, context_type, context_id, caption, 
                    media_urls, media_types, visibility, group_id, cheer_count, 
                    comment_count, created_at, is_hidden
             FROM posts 
-            WHERE academy_id = ${academyId} AND is_hidden = false AND author_id IN (${sql.join(friendUserIds.map((id: string) => sql`${id}`), sql`, `)})
+            WHERE academy_id = $1 AND is_hidden = false AND author_id = ANY($2::uuid[])
             ORDER BY id DESC
-            LIMIT ${limitVal}
-            OFFSET ${offsetVal}
-          `);
+            LIMIT $3
+            OFFSET $4`,
+            [academyId, friendUserIds, limitVal, offsetVal]
+          );
+          rawPosts = { rows: result.rows };
         } else if (filter === "groups" && groupIds.length > 0) {
-          rawPosts = await db.execute(sql`
-            SELECT id, author_id, academy_id, context_type, context_id, caption, 
+          const result = await pool.query(
+            `SELECT id, author_id, academy_id, context_type, context_id, caption, 
                    media_urls, media_types, visibility, group_id, cheer_count, 
                    comment_count, created_at, is_hidden
             FROM posts 
-            WHERE academy_id = ${academyId} AND is_hidden = false AND group_id IN (${sql.join(groupIds.map((id: string) => sql`${id}`), sql`, `)})
+            WHERE academy_id = $1 AND is_hidden = false AND group_id = ANY($2::uuid[])
             ORDER BY id DESC
-            LIMIT ${limitVal}
-            OFFSET ${offsetVal}
-          `);
+            LIMIT $3
+            OFFSET $4`,
+            [academyId, groupIds, limitVal, offsetVal]
+          );
+          rawPosts = { rows: result.rows };
         } else if (filter === "academy") {
           rawPosts = await db.execute(sql`
             SELECT id, author_id, academy_id, context_type, context_id, caption, 
@@ -226,60 +231,66 @@ const socialPostUpload = multer({
           // group posts (visibility=group, user is member), or academy-wide posts
           // Build dynamic conditions based on friends/groups
           if (forYouFriendIds.length > 0 && forYouGroupIds.length > 0) {
-            rawPosts = await db.execute(sql`
-              SELECT id, author_id, academy_id, context_type, context_id, caption, 
+            const result = await pool.query(
+              `SELECT id, author_id, academy_id, context_type, context_id, caption, 
                      media_urls, media_types, visibility, group_id, cheer_count, 
                      comment_count, created_at, is_hidden
               FROM posts 
-              WHERE academy_id = ${academyId} 
+              WHERE academy_id = $1 
                 AND is_hidden = false
                 AND (
-                  author_id = ${userId}
+                  author_id = $2
                   OR visibility = 'academy'
                   OR visibility = 'public'
-                  OR (visibility = 'friends' AND author_id IN (${sql.join(forYouFriendIds.map((id: string) => sql`${id}`), sql`, `)}))
-                  OR (visibility = 'group' AND group_id IN (${sql.join(forYouGroupIds.map((id: string) => sql`${id}`), sql`, `)}))
+                  OR (visibility = 'friends' AND author_id = ANY($3::uuid[]))
+                  OR (visibility = 'group' AND group_id = ANY($4::uuid[]))
                 )
               ORDER BY id DESC
-              LIMIT ${limitVal}
-              OFFSET ${offsetVal}
-            `);
+              LIMIT $5
+              OFFSET $6`,
+              [academyId, userId, forYouFriendIds, forYouGroupIds, limitVal, offsetVal]
+            );
+            rawPosts = { rows: result.rows };
           } else if (forYouFriendIds.length > 0) {
-            rawPosts = await db.execute(sql`
-              SELECT id, author_id, academy_id, context_type, context_id, caption, 
+            const result = await pool.query(
+              `SELECT id, author_id, academy_id, context_type, context_id, caption, 
                      media_urls, media_types, visibility, group_id, cheer_count, 
                      comment_count, created_at, is_hidden
               FROM posts 
-              WHERE academy_id = ${academyId} 
+              WHERE academy_id = $1 
                 AND is_hidden = false
                 AND (
-                  author_id = ${userId}
+                  author_id = $2
                   OR visibility = 'academy'
                   OR visibility = 'public'
-                  OR (visibility = 'friends' AND author_id IN (${sql.join(forYouFriendIds.map((id: string) => sql`${id}`), sql`, `)}))
+                  OR (visibility = 'friends' AND author_id = ANY($3::uuid[]))
                 )
               ORDER BY id DESC
-              LIMIT ${limitVal}
-              OFFSET ${offsetVal}
-            `);
+              LIMIT $4
+              OFFSET $5`,
+              [academyId, userId, forYouFriendIds, limitVal, offsetVal]
+            );
+            rawPosts = { rows: result.rows };
           } else if (forYouGroupIds.length > 0) {
-            rawPosts = await db.execute(sql`
-              SELECT id, author_id, academy_id, context_type, context_id, caption, 
+            const result = await pool.query(
+              `SELECT id, author_id, academy_id, context_type, context_id, caption, 
                      media_urls, media_types, visibility, group_id, cheer_count, 
                      comment_count, created_at, is_hidden
               FROM posts 
-              WHERE academy_id = ${academyId} 
+              WHERE academy_id = $1 
                 AND is_hidden = false
                 AND (
-                  author_id = ${userId}
+                  author_id = $2
                   OR visibility = 'academy'
                   OR visibility = 'public'
-                  OR (visibility = 'group' AND group_id IN (${sql.join(forYouGroupIds.map((id: string) => sql`${id}`), sql`, `)}))
+                  OR (visibility = 'group' AND group_id = ANY($3::uuid[]))
                 )
               ORDER BY id DESC
-              LIMIT ${limitVal}
-              OFFSET ${offsetVal}
-            `);
+              LIMIT $4
+              OFFSET $5`,
+              [academyId, userId, forYouGroupIds, limitVal, offsetVal]
+            );
+            rawPosts = { rows: result.rows };
           } else {
             // No friends or groups - show own posts and academy-wide posts
             rawPosts = await db.execute(sql`

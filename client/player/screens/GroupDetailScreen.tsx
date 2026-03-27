@@ -430,15 +430,20 @@ function ComposePostModal({
     setImages((prev) => prev.filter((_, i) => i !== idx));
   };
 
-  type RNFile = { uri: string; type: string; name: string };
-
   const uploadImages = async (): Promise<string[]> => {
     if (images.length === 0) return [];
     const formData = new FormData();
-    images.forEach((uri, idx) => {
-      const file: RNFile = { uri, type: "image/jpeg", name: `photo_${idx}.jpg` };
-      formData.append("images", file as unknown as Blob);
-    });
+    for (let idx = 0; idx < images.length; idx++) {
+      const uri = images[idx];
+      const filename = `photo_${idx}.jpg`;
+      if (Platform.OS === "web") {
+        const response = await fetch(uri);
+        const blob = await response.blob();
+        formData.append("images", blob, filename);
+      } else {
+        formData.append("images", { uri, name: filename, type: "image/jpeg" } as any);
+      }
+    }
     const base = getApiUrl();
     const token = (await import("@react-native-async-storage/async-storage")).default.getItem("auth_token");
     const authToken = await token;
