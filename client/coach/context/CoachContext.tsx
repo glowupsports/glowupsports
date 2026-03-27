@@ -1,3 +1,4 @@
+import logger from "@/lib/logger";
 import React, { createContext, useContext, useState, useEffect, useRef, ReactNode } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -166,7 +167,7 @@ export function CoachProvider({ children }: { children: ReactNode }) {
         const response = await apiRequest("POST", "/api/coach/series/migrate");
         if (response.ok) {
           const data = await response.json();
-          console.log(`Auto-migrated ${data.migratedCount} recurring sessions to classes`);
+          logger.log(`Auto-migrated ${data.migratedCount} recurring sessions to classes`);
           
           // Mark as migrated for this coach
           await AsyncStorage.setItem(`${AUTO_MIGRATE_KEY}_${authCoach.id}`, "true");

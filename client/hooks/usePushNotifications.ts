@@ -1,3 +1,4 @@
+import logger from "@/lib/logger";
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { Platform, Alert } from 'react-native';
 import * as Notifications from 'expo-notifications';
@@ -106,7 +107,7 @@ export function usePushNotifications() {
             navigation.navigate('CoachFeedbackHistory');
             break;
           default:
-            console.log('[Push] Unknown deep link screen:', data.screen);
+            logger.log('[Push] Unknown deep link screen:', data.screen);
         }
       }
     } catch (error) {
@@ -116,35 +117,35 @@ export function usePushNotifications() {
 
   const registerForPushNotificationsAsync = useCallback(async (): Promise<string | null> => {
     if (Platform.OS === 'web') {
-      console.log('[Push] Skipping - web platform');
+      logger.log('[Push] Skipping - web platform');
       return null;
     }
 
     if (!Device.isDevice) {
-      console.log('[Push] Skipping - not a real device (simulator/emulator)');
+      logger.log('[Push] Skipping - not a real device (simulator/emulator)');
       return null;
     }
 
     setState(prev => ({ ...prev, isLoading: true, error: null }));
 
     try {
-      console.log('[Push] Starting push notification registration...');
-      console.log('[Push] Device:', Device.brand, Device.modelName, '| OS:', Platform.OS, Platform.Version);
-      console.log('[Push] App ownership:', Constants.appOwnership || 'standalone');
+      logger.log('[Push] Starting push notification registration...');
+      logger.log('[Push] Device:', Device.brand, Device.modelName, '| OS:', Platform.OS, Platform.Version);
+      logger.log('[Push] App ownership:', Constants.appOwnership || 'standalone');
 
       const { status: existingStatus } = await Notifications.getPermissionsAsync();
       let finalStatus = existingStatus;
-      console.log('[Push] Existing permission status:', existingStatus);
+      logger.log('[Push] Existing permission status:', existingStatus);
 
       if (existingStatus !== 'granted') {
-        console.log('[Push] Requesting permission...');
+        logger.log('[Push] Requesting permission...');
         const { status } = await Notifications.requestPermissionsAsync();
         finalStatus = status;
-        console.log('[Push] New permission status:', status);
+        logger.log('[Push] New permission status:', status);
       }
 
       if (finalStatus !== 'granted') {
-        console.log('[Push] Permission NOT granted - user denied notifications');
+        logger.log('[Push] Permission NOT granted - user denied notifications');
         setState(prev => ({ 
           ...prev, 
           isLoading: false, 
@@ -154,7 +155,7 @@ export function usePushNotifications() {
       }
 
       if (Platform.OS === 'android') {
-        console.log('[Push] Setting up Android notification channels...');
+        logger.log('[Push] Setting up Android notification channels...');
         await Notifications.setNotificationChannelAsync('default', {
           name: 'General',
           importance: Notifications.AndroidImportance.MAX,
@@ -181,31 +182,31 @@ export function usePushNotifications() {
           importance: Notifications.AndroidImportance.DEFAULT,
           lightColor: '#FFD700',
         });
-        console.log('[Push] Android channels created');
+        logger.log('[Push] Android channels created');
       }
 
       let token: string | null = null;
       const isExpoGo = Constants.appOwnership === 'expo';
 
-      console.log('[Push] App ownership:', Constants.appOwnership, '| isExpoGo:', isExpoGo);
+      logger.log('[Push] App ownership:', Constants.appOwnership, '| isExpoGo:', isExpoGo);
 
       try {
-        console.log('[Push] Getting native FCM device token...');
+        logger.log('[Push] Getting native FCM device token...');
         const nativeToken = await Notifications.getDevicePushTokenAsync();
         token = nativeToken.data as string;
-        console.log('[Push] SUCCESS: Got FCM device token:', token?.substring(0, 50) + '...');
-        console.log('[Push] FCM token length:', token?.length);
+        logger.log('[Push] SUCCESS: Got FCM device token:', token?.substring(0, 50) + '...');
+        logger.log('[Push] FCM token length:', token?.length);
       } catch (fcmError: any) {
         console.error('[Push] FAILED to get FCM device token:', fcmError?.message || fcmError);
         
         if (isExpoGo) {
-          console.log('[Push] Running in Expo Go - FCM not available, trying Expo push token as fallback...');
+          logger.log('[Push] Running in Expo Go - FCM not available, trying Expo push token as fallback...');
           const projectId = Constants.expoConfig?.extra?.eas?.projectId;
           if (projectId) {
             try {
               const tokenData = await Notifications.getExpoPushTokenAsync({ projectId });
               token = tokenData.data;
-              console.log('[Push] Got Expo push token (Expo Go only):', token?.substring(0, 30) + '...');
+              logger.log('[Push] Got Expo push token (Expo Go only):', token?.substring(0, 30) + '...');
             } catch (expoError: any) {
               console.error('[Push] FAILED to get Expo push token:', expoError?.message || expoError);
             }
@@ -228,7 +229,7 @@ export function usePushNotifications() {
       }
 
       const tokenType = token.startsWith('ExponentPushToken[') ? 'EXPO' : 'FCM';
-      console.log('[Push] Final token type:', tokenType, '| Length:', token.length, '| isExpoGo:', isExpoGo);
+      logger.log('[Push] Final token type:', tokenType, '| Length:', token.length, '| isExpoGo:', isExpoGo);
 
       setState(prev => ({ 
         ...prev, 
@@ -247,13 +248,13 @@ export function usePushNotifications() {
 
   const registerTokenWithServer = useCallback(async (token: string) => {
     if (!user?.id) {
-      console.log('[Push] Cannot register with server - no user id');
+      logger.log('[Push] Cannot register with server - no user id');
       return;
     }
 
-    console.log('[Push] Registering token with server for user:', user.id);
-    console.log('[Push] Token preview:', token.substring(0, 40) + '...');
-    console.log('[Push] Platform:', Platform.OS, '| Device:', Device.brand, Device.modelName);
+    logger.log('[Push] Registering token with server for user:', user.id);
+    logger.log('[Push] Token preview:', token.substring(0, 40) + '...');
+    logger.log('[Push] Platform:', Platform.OS, '| Device:', Device.brand, Device.modelName);
 
     try {
       const url = new URL('/api/push/register', getApiUrl());
@@ -265,14 +266,14 @@ export function usePushNotifications() {
       
       setState(prev => ({ ...prev, isRegistered: true }));
       retryCount.current = 0;
-      console.log('[Push] SUCCESS: Token registered with server');
+      logger.log('[Push] SUCCESS: Token registered with server');
     } catch (error: any) {
       console.error('[Push] FAILED to register token with server:', error?.message || error);
       
       if (retryCount.current < MAX_RETRIES) {
         retryCount.current++;
         const delay = retryCount.current * 3000;
-        console.log(`[Push] Will retry in ${delay}ms (attempt ${retryCount.current}/${MAX_RETRIES})`);
+        logger.log(`[Push] Will retry in ${delay}ms (attempt ${retryCount.current}/${MAX_RETRIES})`);
         setTimeout(() => {
           registerTokenWithServer(token);
         }, delay);
@@ -306,12 +307,12 @@ export function usePushNotifications() {
     if (Platform.OS === 'web') return;
 
     notificationListener.current = Notifications.addNotificationReceivedListener((notification: Notifications.Notification) => {
-      console.log('[Push] Notification received in foreground:', notification.request.content.title);
+      logger.log('[Push] Notification received in foreground:', notification.request.content.title);
     });
 
     responseListener.current = Notifications.addNotificationResponseReceivedListener((response: Notifications.NotificationResponse) => {
       const data = response.notification.request.content.data as DeepLinkData;
-      console.log('[Push] Notification tapped:', data);
+      logger.log('[Push] Notification tapped:', data);
       handleDeepLink(data);
     });
 
@@ -335,14 +336,14 @@ export function usePushNotifications() {
     }
 
     if (!Device.isDevice) {
-      console.log('[Push] Not a real device - skipping push registration');
+      logger.log('[Push] Not a real device - skipping push registration');
       return;
     }
 
     isRegistering.current = true;
-    console.log('[Push] ===== REGISTERING push notifications (refreshes every app open) =====');
-    console.log('[Push] User:', user.id, '| Role:', user.role);
-    console.log('[Push] Build type:', Constants.appOwnership || 'standalone (Play Store/production)');
+    logger.log('[Push] ===== REGISTERING push notifications (refreshes every app open) =====');
+    logger.log('[Push] User:', user.id, '| Role:', user.role);
+    logger.log('[Push] Build type:', Constants.appOwnership || 'standalone (Play Store/production)');
 
     const doRegister = async () => {
       try {
@@ -351,10 +352,10 @@ export function usePushNotifications() {
         const token = await registerForPushNotificationsAsync();
         if (token) {
           const tokenType = token.startsWith('ExponentPushToken[') ? 'EXPO' : 'FCM';
-          console.log(`[Push] Got ${tokenType} token, registering with server...`);
+          logger.log(`[Push] Got ${tokenType} token, registering with server...`);
           await registerTokenWithServer(token);
         } else {
-          console.log('[Push] No token obtained after registration attempt');
+          logger.log('[Push] No token obtained after registration attempt');
         }
       } finally {
         isRegistering.current = false;

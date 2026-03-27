@@ -1,3 +1,4 @@
+import logger from "@/lib/logger";
 import React, { useState, useEffect } from "react";
 import {
   View,
@@ -109,7 +110,7 @@ export function CommentsModal({ visible, postId, onClose }: CommentsModalProps) 
       refetch();
       queryClient.invalidateQueries({ queryKey: ["/api/social/feed"] });
     } catch (error) {
-      console.log("Comment error:", error);
+      logger.log("Comment error:", error);
       if (Platform.OS === "web" && typeof window !== "undefined") {
         window.alert("Failed to post comment. Please try again.");
       } else {
@@ -137,7 +138,7 @@ export function CommentsModal({ visible, postId, onClose }: CommentsModalProps) 
       await apiRequest("POST", `/api/social/comments/${commentId}/like`);
       refetch();
     } catch (error) {
-      console.log("Like error:", error);
+      logger.log("Like error:", error);
       setLikedComments(prev => {
         const newSet = new Set(prev);
         if (newSet.has(commentId)) {
@@ -166,7 +167,7 @@ export function CommentsModal({ visible, postId, onClose }: CommentsModalProps) 
       refetch();
       queryClient.invalidateQueries({ queryKey: ["/api/social/feed"] });
     } catch (error) {
-      console.log("Delete comment error:", error);
+      logger.log("Delete comment error:", error);
     }
   };
 
@@ -1001,7 +1002,7 @@ export function CreateMomentModal({ visible, onClose, onSubmit, isSubmitting, us
           const result = await uploadResponse.json();
           uploadedMediaUrls = result.images || [];
           uploadedMediaTypes = uploadedMediaUrls.map(() => selectedMedia.type);
-          console.log("[Social] Uploaded media:", uploadedMediaUrls, "types:", uploadedMediaTypes);
+          logger.log("[Social] Uploaded media:", uploadedMediaUrls, "types:", uploadedMediaTypes);
         } else {
           const errorText = await uploadResponse.text();
           console.error("[Social] Upload failed:", errorText);
@@ -1017,7 +1018,7 @@ export function CreateMomentModal({ visible, onClose, onSubmit, isSubmitting, us
       }
     }
 
-    console.log("[Social] Creating post with mediaUrls:", uploadedMediaUrls);
+    logger.log("[Social] Creating post with mediaUrls:", uploadedMediaUrls);
 
     let visibility = "friends";
     if (selectedContext === "group") {

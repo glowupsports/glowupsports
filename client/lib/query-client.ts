@@ -1,3 +1,4 @@
+import logger from "./logger";
 import { QueryClient, QueryFunction } from "@tanstack/react-query";
 import { getAuthToken, triggerUnauthorized, getCurrentAcademyId, getRefreshedToken } from "./auth";
 import { validateEnv, isDevelopment, logEnvStatus } from "./env";
@@ -43,7 +44,7 @@ export function getStaticAssetsUrl(): string {
 async function throwIfResNotOk(res: Response) {
   if (!res.ok) {
     if (res.status === 401) {
-      console.log("[API] Received 401, attempting token refresh...");
+      logger.log("[API] Received 401, attempting token refresh...");
       await triggerUnauthorized();
       // After triggerUnauthorized, check if we got a new token
       const newToken = getRefreshedToken();
@@ -149,13 +150,13 @@ async function fetchWithRetry(url: URL, unauthorizedBehavior: UnauthorizedBehavi
   });
 
   if (res.status === 401) {
-    console.log("[QueryClient] Received 401, attempting token refresh...");
+    logger.log("[QueryClient] Received 401, attempting token refresh...");
     await triggerUnauthorized();
     
     // Check if token was refreshed
     const newToken = getRefreshedToken();
     if (newToken && retryCount === 0) {
-      console.log("[QueryClient] Token refreshed, retrying request...");
+      logger.log("[QueryClient] Token refreshed, retrying request...");
       return fetchWithRetry(url, unauthorizedBehavior, retryCount + 1);
     }
     

@@ -1,3 +1,4 @@
+import logger from "@/lib/logger";
 import React, { useEffect, useState } from "react";
 import {
   View,
@@ -384,7 +385,7 @@ export default function PlayerIdentityDrawer({ visible, onClose, onNavigate }: P
           rootNav.navigate(screen, params);
         }
       } catch (error) {
-        console.log("[Drawer] Navigation error:", error);
+        logger.log("[Drawer] Navigation error:", error);
       }
       setTimeout(() => {
         handleClose();

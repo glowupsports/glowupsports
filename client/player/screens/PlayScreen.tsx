@@ -1,3 +1,4 @@
+import logger from "@/lib/logger";
 import React, { useState, useEffect, useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import { View, Text, StyleSheet, ScrollView, Pressable, ActivityIndicator, Image, Alert, ImageBackground, Dimensions, Platform, Image as RNImage, TextInput, Modal } from "react-native";
@@ -331,7 +332,7 @@ export default function PlayScreen() {
   };
 
   const handleJoinSession = (sessionId: string) => {
-    console.log("[PlayScreen] handleJoinSession called with sessionId:", sessionId);
+    logger.log("[PlayScreen] handleJoinSession called with sessionId:", sessionId);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     setJoiningSessionId(sessionId);
     joinSessionMutation.mutate(sessionId);
@@ -471,7 +472,7 @@ export default function PlayScreen() {
                     <Pressable 
                       style={[styles.epicJoinButton, isJoining && styles.buttonDisabled]}
                       onPress={() => {
-                        console.log("[PlayScreen] Join button pressed for session:", session.id);
+                        logger.log("[PlayScreen] Join button pressed for session:", session.id);
                         if (!isJoining) {
                           handleJoinSession(session.id);
                         }
@@ -490,7 +491,7 @@ export default function PlayScreen() {
                     <Pressable 
                       style={[styles.epicWaitlistButton, isJoining && styles.buttonDisabled]}
                       onPress={() => {
-                        console.log("[PlayScreen] Waitlist button pressed for session:", session.id);
+                        logger.log("[PlayScreen] Waitlist button pressed for session:", session.id);
                         if (!isJoining) {
                           handleJoinWaitlist(session.id);
                         }

@@ -1,3 +1,4 @@
+import logger from "@/lib/logger";
 import React, { useState, useEffect, useRef } from "react";
 import {
   View,
@@ -512,7 +513,7 @@ export default function LoginScreen() {
         setOtpCode("");
       }
     } catch (error) {
-      console.log("[Email Check] Error:", error);
+      logger.log("[Email Check] Error:", error);
       setIsNewEmail(null);
     }
   };
@@ -630,7 +631,7 @@ export default function LoginScreen() {
   };
 
   const handleLogin = async () => {
-    console.log("[Login] handleLogin called, username:", username, "hasPassword:", !!password);
+    logger.log("[Login] handleLogin called, username:", username, "hasPassword:", !!password);
     if (!username || !password) {
       Alert.alert("Error", "Please fill in all required fields");
       return;
@@ -641,9 +642,9 @@ export default function LoginScreen() {
 
     try {
       const normalizedUsername = username.toLowerCase();
-      console.log("[Login] Attempting login for:", normalizedUsername);
+      logger.log("[Login] Attempting login for:", normalizedUsername);
       const result = await login(normalizedUsername, password);
-      console.log("[Login] Login result:", { success: result.success, hasUser: !!result.user, error: result.error });
+      logger.log("[Login] Login result:", { success: result.success, hasUser: !!result.user, error: result.error });
       if (result.success && result.user) {
         await saveAccount(
           normalizedUsername,
@@ -654,7 +655,7 @@ export default function LoginScreen() {
         loadSavedAccounts();
       } else if (!result.success) {
         const errorMsg = result.error || t("auth.invalidCredentials");
-        console.log("[Login] Login failed:", errorMsg);
+        logger.log("[Login] Login failed:", errorMsg);
         Alert.alert(t("common.error"), errorMsg);
       }
     } catch (error: any) {
@@ -941,7 +942,7 @@ export default function LoginScreen() {
         Alert.alert("Registration Failed", data.error || "Please try again");
       }
     } catch (error: any) {
-      console.log("[InviteRegister] Error:", error.message);
+      logger.log("[InviteRegister] Error:", error.message);
       let errorMessage = "Something went wrong. Please try again.";
       if (error.message) {
         try {

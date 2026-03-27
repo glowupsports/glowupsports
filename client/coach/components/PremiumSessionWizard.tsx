@@ -1,3 +1,4 @@
+import logger from "@/lib/logger";
 import React, { useState, useEffect, useMemo, useRef } from "react";
 import { View, Text, StyleSheet, Modal, Pressable, TextInput, ScrollView, Dimensions, Platform, Switch, ActivityIndicator, Alert } from "react-native";
 import { Image } from "expo-image";
@@ -260,7 +261,7 @@ export function PremiumSessionWizard({
           setSkipIntro(true);
         }
       } catch (e) {
-        console.log("Error loading skip intro setting:", e);
+        logger.log("Error loading skip intro setting:", e);
       }
     };
     loadSkipIntroSetting();
@@ -466,7 +467,7 @@ export function PremiumSessionWizard({
           }
         }
       } catch (e) {
-        console.log("Error checking multi-week availability:", e);
+        logger.log("Error checking multi-week availability:", e);
       }
       
       setMultiWeekBlockedSlots(blocked);
@@ -641,7 +642,7 @@ export function PremiumSessionWizard({
         await AsyncStorage.setItem(SKIP_INTRO_KEY, "true");
         setSkipIntro(true);
       } catch (e) {
-        console.log("Error saving skip intro setting:", e);
+        logger.log("Error saving skip intro setting:", e);
       }
     }
     

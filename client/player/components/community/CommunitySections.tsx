@@ -1,3 +1,4 @@
+import logger from "@/lib/logger";
 import React, { useState, useMemo } from "react";
 import {
   View,
@@ -319,7 +320,7 @@ export function FriendsSection({ onChallenge, onSelectActivity }: { onChallenge?
   const friends = friendsData?.friends || [];
   const requests = friendsData?.pendingRequests || [];
 
-  console.log("[DEBUG FRIENDS] friendsData raw:", JSON.stringify({
+  logger.log("[DEBUG FRIENDS] friendsData raw:", JSON.stringify({
     hasFriendsData: !!friendsData,
     friendsArray: Array.isArray(friendsData?.friends),
     friendsCount: friends.length,
@@ -372,7 +373,7 @@ export function FriendsSection({ onChallenge, onSelectActivity }: { onChallenge?
     try {
       await apiRequest("POST", `/api/player/friends/accept/${requestId}`);
       refetch();
-    } catch (e) { console.log("Accept error", e); }
+    } catch (e) { logger.log("Accept error", e); }
   };
 
   const handleRejectRequest = async (requestId: string) => {
@@ -380,7 +381,7 @@ export function FriendsSection({ onChallenge, onSelectActivity }: { onChallenge?
     try {
       await apiRequest("POST", `/api/player/friends/reject/${requestId}`);
       refetch();
-    } catch (e) { console.log("Reject error", e); }
+    } catch (e) { logger.log("Reject error", e); }
   };
 
   const renderFriendCard = (friend: Friend) => (

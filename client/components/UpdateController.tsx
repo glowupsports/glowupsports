@@ -1,3 +1,4 @@
+import logger from "@/lib/logger";
 import React, { useEffect, useState, useRef } from "react";
 import {
   View,
@@ -33,7 +34,7 @@ export function UpdateController({ children }: UpdateControllerProps) {
 
   const testCdnConnectivity = async (): Promise<boolean> => {
     try {
-      console.log("[UpdateController] Testing CDN connectivity...");
+      logger.log("[UpdateController] Testing CDN connectivity...");
       const testUrl = "https://u.expo.dev/ce3ccb00-0553-4abc-a038-1a93b7483738";
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 10000);
@@ -44,12 +45,12 @@ export function UpdateController({ children }: UpdateControllerProps) {
       });
       clearTimeout(timeoutId);
       
-      console.log("[UpdateController] CDN test response:", response.status);
+      logger.log("[UpdateController] CDN test response:", response.status);
       setCdnStatus(`CDN: ${response.status}`);
       return response.ok || response.status === 404;
     } catch (error) {
       const errorMsg = error instanceof Error ? error.message : String(error);
-      console.log("[UpdateController] CDN test failed:", errorMsg);
+      logger.log("[UpdateController] CDN test failed:", errorMsg);
       setCdnStatus(`CDN: ${errorMsg}`);
       return false;
     }
@@ -73,25 +74,25 @@ export function UpdateController({ children }: UpdateControllerProps) {
 
   const checkForUpdates = async () => {
     try {
-      console.log("[UpdateController] Checking for updates...");
-      console.log("[UpdateController] Updates.isEnabled:", Updates.isEnabled);
-      console.log("[UpdateController] Updates.channel:", Updates.channel);
-      console.log("[UpdateController] Updates.runtimeVersion:", Updates.runtimeVersion);
-      console.log("[UpdateController] Updates.updateId:", Updates.updateId);
+      logger.log("[UpdateController] Checking for updates...");
+      logger.log("[UpdateController] Updates.isEnabled:", Updates.isEnabled);
+      logger.log("[UpdateController] Updates.channel:", Updates.channel);
+      logger.log("[UpdateController] Updates.runtimeVersion:", Updates.runtimeVersion);
+      logger.log("[UpdateController] Updates.updateId:", Updates.updateId);
       
       const update = await Updates.checkForUpdateAsync();
-      console.log("[UpdateController] Check result:", JSON.stringify(update));
+      logger.log("[UpdateController] Check result:", JSON.stringify(update));
       
       if (update.isAvailable) {
-        console.log("[UpdateController] Update available! Showing update screen...");
+        logger.log("[UpdateController] Update available! Showing update screen...");
         setShowUpdateScreen(true);
         downloadUpdate();
       } else {
-        console.log("[UpdateController] No update available");
+        logger.log("[UpdateController] No update available");
       }
     } catch (error: unknown) {
       const errorMessage = error instanceof Error ? error.message : String(error);
-      console.log("[UpdateController] Error checking for updates:", errorMessage);
+      logger.log("[UpdateController] Error checking for updates:", errorMessage);
     }
   };
 
@@ -115,9 +116,9 @@ export function UpdateController({ children }: UpdateControllerProps) {
         setDownloadProgress(progress);
       }, 200);
 
-      console.log("[UpdateController] Starting fetchUpdateAsync...");
+      logger.log("[UpdateController] Starting fetchUpdateAsync...");
       const result = await Updates.fetchUpdateAsync();
-      console.log("[UpdateController] fetchUpdateAsync result:", JSON.stringify(result));
+      logger.log("[UpdateController] fetchUpdateAsync result:", JSON.stringify(result));
 
       if (progressIntervalRef.current) {
         clearInterval(progressIntervalRef.current);
@@ -127,7 +128,7 @@ export function UpdateController({ children }: UpdateControllerProps) {
       if (result.isNew) {
         setIsUpdateReady(true);
         setIsDownloading(false);
-        console.log("[UpdateController] Update downloaded, auto-reloading...");
+        logger.log("[UpdateController] Update downloaded, auto-reloading...");
         await Updates.reloadAsync();
       }
     } catch (error: unknown) {
@@ -167,7 +168,7 @@ export function UpdateController({ children }: UpdateControllerProps) {
       });
     }
     
-    console.log(`[UpdateController] Retry count: ${newRetryCount}/${MAX_RETRY_ATTEMPTS}, error: ${errorCode} - ${errorMessage}`);
+    logger.log(`[UpdateController] Retry count: ${newRetryCount}/${MAX_RETRY_ATTEMPTS}, error: ${errorCode} - ${errorMessage}`);
   };
 
   const retryDownload = () => {
@@ -185,12 +186,12 @@ export function UpdateController({ children }: UpdateControllerProps) {
   };
 
   const skipUpdate = () => {
-    console.log("[UpdateController] User skipped update");
+    logger.log("[UpdateController] User skipped update");
     setShowUpdateScreen(false);
   };
 
   const continueWithoutUpdate = () => {
-    console.log("[UpdateController] User continuing without update after failures");
+    logger.log("[UpdateController] User continuing without update after failures");
     setShowUpdateScreen(false);
   };
 

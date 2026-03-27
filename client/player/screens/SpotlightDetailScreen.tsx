@@ -1,3 +1,4 @@
+import logger from "@/lib/logger";
 import React, { useState, useRef } from "react";
 import { View, Text, StyleSheet, ScrollView, Pressable, Platform, Share } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
@@ -270,7 +271,7 @@ export default function SpotlightDetailScreen() {
         await Share.share({ message: `Check out the Player of the Week on Glow Up Sports!` });
       }
     } catch (e) {
-      console.log("Share error:", e);
+      logger.log("Share error:", e);
     }
   };
 

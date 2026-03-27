@@ -1,3 +1,4 @@
+import logger from "./logger";
 type EnvConfig = {
   EXPO_PUBLIC_API_URL: string;
   EXPO_PUBLIC_DOMAIN: string;
@@ -56,11 +57,11 @@ export function getEnv(): EnvConfig {
 
 export function logEnvStatus(): void {
   const env = getEnv();
-  console.log("=== ENV STATUS ===");
-  console.log("EXPO_PUBLIC_API_URL:", env.EXPO_PUBLIC_API_URL || "NOT SET");
-  console.log("EXPO_PUBLIC_DOMAIN:", env.EXPO_PUBLIC_DOMAIN || "NOT SET");
-  console.log("EXPO_PUBLIC_ENV:", env.EXPO_PUBLIC_ENV || "NOT SET");
-  console.log("==================");
+  logger.log("=== ENV STATUS ===");
+  logger.log("EXPO_PUBLIC_API_URL:", env.EXPO_PUBLIC_API_URL || "NOT SET");
+  logger.log("EXPO_PUBLIC_DOMAIN:", env.EXPO_PUBLIC_DOMAIN || "NOT SET");
+  logger.log("EXPO_PUBLIC_ENV:", env.EXPO_PUBLIC_ENV || "NOT SET");
+  logger.log("==================");
 }
 
 export function isProduction(): boolean {

@@ -1,3 +1,4 @@
+import logger from "@/lib/logger";
 import React, { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import {
   View,
@@ -749,9 +750,9 @@ export default function CreateSessionWizard({
   const createSessionMutation = useMutation({
     mutationFn: async (mutationData: { endpoint: string; isSeriesMode: boolean; payload: any }) => {
       const { endpoint, payload } = mutationData;
-      console.log("[CreateSession] Calling API:", endpoint, payload);
+      logger.log("[CreateSession] Calling API:", endpoint, payload);
       const response = await apiRequest("POST", endpoint, payload);
-      console.log("[CreateSession] API response received");
+      logger.log("[CreateSession] API response received");
       return response;
     },
     onSuccess: (_data, variables) => {
@@ -793,16 +794,16 @@ export default function CreateSessionWizard({
 
   // Handle create session
   const handleCreate = useCallback(() => {
-    console.log("[CreateSession] handleCreate called", { isOffline, adminMode, effectiveCoach: effectiveCoach?.id, selectedCourtId, startTime, createSeriesMode, createSeriesModeRef: createSeriesModeRef.current });
+    logger.log("[CreateSession] handleCreate called", { isOffline, adminMode, effectiveCoach: effectiveCoach?.id, selectedCourtId, startTime, createSeriesMode, createSeriesModeRef: createSeriesModeRef.current });
     
     if (isOffline) {
-      console.log("[CreateSession] Blocked: offline");
+      logger.log("[CreateSession] Blocked: offline");
       showOfflineAlert();
       return;
     }
 
     if (adminMode && !effectiveCoach?.id) {
-      console.log("[CreateSession] Blocked: no coach selected in admin mode");
+      logger.log("[CreateSession] Blocked: no coach selected in admin mode");
       Alert.alert("Error", "Please select a coach");
       return;
     }
@@ -855,14 +856,14 @@ export default function CreateSessionWizard({
       };
       
       const endpoint = adminMode ? "/api/admin/sessions/bulk" : "/api/coach/sessions/bulk";
-      console.log("[CreateSession] Creating flexible sessions:", flexibleSessions.length);
+      logger.log("[CreateSession] Creating flexible sessions:", flexibleSessions.length);
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
       createSessionMutation.mutate({ endpoint, isSeriesMode: false, payload: flexiblePayload });
       return;
     }
     
     if (!selectedCourtId || !startTime) {
-      console.log("[CreateSession] Blocked: missing court or time", { selectedCourtId, startTime });
+      logger.log("[CreateSession] Blocked: missing court or time", { selectedCourtId, startTime });
       Alert.alert("Error", "Please select a court and time");
       return;
     }
@@ -904,7 +905,7 @@ export default function CreateSessionWizard({
       };
 
       const endpoint = adminMode ? "/api/admin/series" : "/api/coach/series";
-      console.log("[CreateSession] Creating series with endpoint:", endpoint, "data:", JSON.stringify(seriesPayload, null, 2));
+      logger.log("[CreateSession] Creating series with endpoint:", endpoint, "data:", JSON.stringify(seriesPayload, null, 2));
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
       createSessionMutation.mutate({ endpoint, isSeriesMode: true, payload: seriesPayload });
       return;
@@ -931,7 +932,7 @@ export default function CreateSessionWizard({
     };
 
     const endpoint = adminMode ? "/api/admin/sessions" : "/api/coach/sessions";
-    console.log("[CreateSession] Creating session with endpoint:", endpoint);
+    logger.log("[CreateSession] Creating session with endpoint:", endpoint);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
     createSessionMutation.mutate({ endpoint, isSeriesMode: false, payload: sessionPayload });
   }, [

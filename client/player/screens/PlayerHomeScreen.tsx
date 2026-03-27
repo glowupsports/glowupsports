@@ -1,3 +1,4 @@
+import logger from "@/lib/logger";
 import React, { useState, useCallback, useEffect } from "react";
 import { View, Text, StyleSheet, ScrollView, ActivityIndicator, Pressable, Modal, Platform, TextInput, Alert, Image as RNImage } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -927,10 +928,10 @@ export default function PlayerHomeScreen() {
   const { isBirthday } = usePlayer();
   
   useEffect(() => {
-    console.log("[Birthday] isBirthday:", isBirthday, "showPlayerDashboard:", showPlayerDashboard);
+    logger.log("[Birthday] isBirthday:", isBirthday, "showPlayerDashboard:", showPlayerDashboard);
     if (isBirthday && showPlayerDashboard) {
       shouldShowBirthdayCelebration(isBirthday).then((shouldShow) => {
-        console.log("[Birthday] shouldShow:", shouldShow); if (shouldShow) {
+        logger.log("[Birthday] shouldShow:", shouldShow); if (shouldShow) {
           setShowBirthdayModal(true);
         }
       });

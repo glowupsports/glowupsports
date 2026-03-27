@@ -1,3 +1,4 @@
+import logger from "@/lib/logger";
 import React, { useEffect, useState } from "react";
 import { View, Text, StyleSheet, Pressable, Linking } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
@@ -114,7 +115,7 @@ export function NewsTicker({
       try {
         await Linking.openURL(link);
       } catch (error) {
-        console.log("Could not open link:", link);
+        logger.log("Could not open link:", link);
       }
     }
   };
@@ -227,7 +228,7 @@ export function NewsCard({ article, style }: NewsCardProps) {
       try {
         await Linking.openURL(article.link);
       } catch (error) {
-        console.log("Could not open link");
+        logger.log("Could not open link");
       }
     }
   };

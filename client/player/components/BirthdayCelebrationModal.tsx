@@ -1,3 +1,4 @@
+import logger from "@/lib/logger";
 import React, { useState, useEffect } from "react";
 import { View, Text, StyleSheet, Modal, Pressable } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
@@ -203,12 +204,12 @@ export async function shouldShowBirthdayCelebration(isBirthday: boolean): Promis
   try {
     const lastCelebration = await AsyncStorage.getItem(BIRTHDAY_STORAGE_KEY);
     const today = new Date().toISOString().split("T")[0];
-    console.log("[Birthday] shouldShow check - lastCelebration:", lastCelebration, "today:", today, "result:", lastCelebration !== today);
+    logger.log("[Birthday] shouldShow check - lastCelebration:", lastCelebration, "today:", today, "result:", lastCelebration !== today);
     // Always show the birthday celebration if it's their birthday (reset if needed)
     if (lastCelebration === today) {
       // Clear the cache to allow showing again for testing
       await AsyncStorage.removeItem(BIRTHDAY_STORAGE_KEY);
-      console.log("[Birthday] Cleared cache to show celebration again");
+      logger.log("[Birthday] Cleared cache to show celebration again");
     }
     return true; // Always show if it's their birthday
   } catch {

@@ -1,3 +1,4 @@
+import logger from "@/lib/logger";
 import React, { createContext, useContext, ReactNode } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/coach/context/AuthContext";
@@ -90,7 +91,7 @@ export function PlayerProvider({ children }: PlayerProviderProps) {
   
   // Debug logging for birthday
   if (profile?.player) {
-    console.log("[PlayerContext] dateOfBirth:", dateOfBirth, "isBirthday:", isBirthday, "today:", new Date().toISOString());
+    logger.log("[PlayerContext] dateOfBirth:", dateOfBirth, "isBirthday:", isBirthday, "today:", new Date().toISOString());
   }
   
   const value: PlayerContextData = {

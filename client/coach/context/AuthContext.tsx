@@ -1,3 +1,4 @@
+import logger from "@/lib/logger";
 import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback, useRef } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useQueryClient } from "@tanstack/react-query";
@@ -116,7 +117,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           return false;
         }
         const data = JSON.parse(text);
-        console.log("[AuthContext] Received user data:", { hasUser: !!data.user, hasCoach: !!data.coach, hasAcademy: !!data.academy });
+        logger.log("[AuthContext] Received user data:", { hasUser: !!data.user, hasCoach: !!data.coach, hasAcademy: !!data.academy });
         setUser(data.user);
         setCoach(data.coach);
         setAcademy(data.academy);
@@ -124,17 +125,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const userRole = data.user?.role || "player";
         const availableModes = getModesForRole(userRole);
         const defaultMode = getDefaultModeForRole(userRole);
-        console.log("[AuthContext] Setting modes for role:", userRole, "modes:", availableModes, "default:", defaultMode);
+        logger.log("[AuthContext] Setting modes for role:", userRole, "modes:", availableModes, "default:", defaultMode);
         setAvailableModesRef.current(availableModes, defaultMode);
         
         if (forceDefaultMode && defaultMode) {
-          console.log("[AuthContext] Forcing default mode for role:", defaultMode);
+          logger.log("[AuthContext] Forcing default mode for role:", defaultMode);
           setModeRef.current(defaultMode);
         }
         
         return true;
       }
-      console.log("[AuthContext] /api/me returned status:", response.status);
+      logger.log("[AuthContext] /api/me returned status:", response.status);
       return false;
     } catch (error) {
       console.error("[AuthContext] Failed to fetch user data:", error);
@@ -144,10 +145,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const handleUnauthorized = useCallback(async () => {
     if (isGuest) {
-      console.log("[AuthContext] Ignoring 401 in guest mode");
+      logger.log("[AuthContext] Ignoring 401 in guest mode");
       return;
     }
-    console.log("[AuthContext] Handling unauthorized - clearing auth state and forcing re-login");
+    logger.log("[AuthContext] Handling unauthorized - clearing auth state and forcing re-login");
     queryClient.clear();
     await clearAuthState();
     setAuthToken(null);
@@ -168,7 +169,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     let isMounted = true;
     
     const initAuth = async () => {
-      console.log("[AuthContext] Starting auth init...");
+      logger.log("[AuthContext] Starting auth init...");
       try {
         const impersonationAcademy = await AsyncStorage.getItem(IMPERSONATION_ACADEMY_NAME_KEY);
         if (impersonationAcademy) {
@@ -179,28 +180,28 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         await clearGuestMode();
 
         const authState = await loadAuthState();
-        console.log("[AuthContext] Loaded auth state:", { hasToken: !!authState.token, hasUser: !!authState.user });
+        logger.log("[AuthContext] Loaded auth state:", { hasToken: !!authState.token, hasUser: !!authState.user });
         
         if (authState.token && authState.user && isMounted) {
           setAuthToken(authState.token);
-          console.log("[AuthContext] Fetching user data...");
+          logger.log("[AuthContext] Fetching user data...");
           const success = await fetchUserData(authState.token);
-          console.log("[AuthContext] Fetch user data result:", success);
+          logger.log("[AuthContext] Fetch user data result:", success);
           if (success && isMounted) {
             setIsAuthenticated(true);
-            console.log("[AuthContext] User authenticated successfully");
+            logger.log("[AuthContext] User authenticated successfully");
           } else {
-            console.log("[AuthContext] Clearing auth state due to failed fetch");
+            logger.log("[AuthContext] Clearing auth state due to failed fetch");
             await clearAuthState();
           }
         } else {
-          console.log("[AuthContext] No stored auth state, showing login");
+          logger.log("[AuthContext] No stored auth state, showing login");
         }
       } catch (error) {
         console.error("[AuthContext] Auth init error:", error);
       } finally {
         if (isMounted) {
-          console.log("[AuthContext] Setting isLoading to false");
+          logger.log("[AuthContext] Setting isLoading to false");
           setIsLoading(false);
         }
       }
@@ -214,7 +215,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [fetchUserData]);
 
   const loginAsGuest = async () => {
-    console.log("[AuthContext] Guest login");
+    logger.log("[AuthContext] Guest login");
     queryClient.clear();
     setUser(GUEST_USER);
     setIsGuest(true);
@@ -356,7 +357,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const logout = async () => {
-    console.log("[AuthContext] Logout called");
+    logger.log("[AuthContext] Logout called");
     try {
       queryClient.clear();
       await clearAuthState();
@@ -367,7 +368,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setUser(null);
       setCoach(null);
       setAcademy(null);
-      console.log("[AuthContext] Logout successful");
+      logger.log("[AuthContext] Logout successful");
     } catch (error) {
       console.error("[AuthContext] Logout error:", error);
     }

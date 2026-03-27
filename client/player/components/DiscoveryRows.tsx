@@ -1,3 +1,4 @@
+import logger from "@/lib/logger";
 import React, { useEffect, useState } from "react";
 import { View, Text, StyleSheet, Pressable, ScrollView, ActivityIndicator, Alert, Platform, Image as RNImage } from "react-native";
 import { Image as ExpoImage } from "expo-image";
@@ -107,7 +108,7 @@ export function PlayersNearYouRow() {
   });
 
   const handlePlayerPress = (playerId: string) => {
-    console.log("[DiscoveryRows] handlePlayerPress called for playerId:", playerId);
+    logger.log("[DiscoveryRows] handlePlayerPress called for playerId:", playerId);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     navigation.navigate("PublicProfile", { playerId });
   };
@@ -541,14 +542,14 @@ export function OpenMatchesRow() {
   };
 
   const handleSeeAll = () => {
-    console.log("[DiscoveryRows] handleSeeAll called");
+    logger.log("[DiscoveryRows] handleSeeAll called");
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     // Navigate to Play tab with Players sub-tab
     navigateToTab("PlayStack", { screen: "Play", params: { initialTab: "Players" } });
   };
 
   const handleCreateMatch = () => {
-    console.log("[DiscoveryRows] handleCreateMatch called");
+    logger.log("[DiscoveryRows] handleCreateMatch called");
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     // Navigate directly to CreateMatch screen
     navigateToTab("PlayStack", { screen: "CreateMatch" });

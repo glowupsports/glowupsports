@@ -1,3 +1,4 @@
+import logger from "@/lib/logger";
 import React, { useState, useCallback, useMemo } from "react";
 import {
   View,
@@ -1382,7 +1383,7 @@ export default function SettingsScreen() {
           <Pressable
             style={styles.logoutButton}
             onPress={() => {
-              console.log("[SettingsScreen] Logout button pressed");
+              logger.log("[SettingsScreen] Logout button pressed");
               Alert.alert(
                 "Sign Out",
                 "Are you sure you want to sign out?",
@@ -1392,7 +1393,7 @@ export default function SettingsScreen() {
                     text: "Sign Out",
                     style: "destructive",
                     onPress: () => {
-                      console.log("[SettingsScreen] Confirmed logout");
+                      logger.log("[SettingsScreen] Confirmed logout");
                       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
                       logout();
                     },

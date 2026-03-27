@@ -1,3 +1,4 @@
+import logger from "@/lib/logger";
 import React, { useState, useMemo, useEffect } from "react";
 import {
   View,
@@ -188,14 +189,14 @@ export default function CommunityScreen() {
         });
       }
     } catch (error) {
-      console.log("Share error:", error);
+      logger.log("Share error:", error);
       try {
         await Clipboard.setStringAsync(post.caption || "Check out this moment!");
         if (Platform.OS === "web" && typeof window !== "undefined") {
           window.alert("Copied to clipboard!");
         }
       } catch (e) {
-        console.log("Clipboard error:", e);
+        logger.log("Clipboard error:", e);
       }
     }
   };
@@ -352,7 +353,7 @@ export default function CommunityScreen() {
           setSelectedFriendActivity(null);
         }}
         onCheer={(postId) => {
-          console.log("Cheer post:", postId);
+          logger.log("Cheer post:", postId);
         }}
       />
 

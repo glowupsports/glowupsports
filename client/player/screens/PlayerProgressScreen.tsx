@@ -1,3 +1,4 @@
+import logger from "@/lib/logger";
 import React, { useState, useEffect, useMemo } from "react";
 import { View, Text, StyleSheet, ScrollView, ActivityIndicator, Pressable, Modal, FlatList } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -1668,7 +1669,7 @@ export default function PlayerProgressScreen() {
   }
 
   // DEBUG: Log skill radar data to see what's coming from API
-  console.log("[DEBUG PROGRESS] skillRadar from API:", JSON.stringify(data.skillRadar.map(s => ({
+  logger.log("[DEBUG PROGRESS] skillRadar from API:", JSON.stringify(data.skillRadar.map(s => ({
     domainId: s.domainId,
     domain: s.domain,
     progress: s.progress
@@ -1686,7 +1687,7 @@ export default function PlayerProgressScreen() {
   }));
 
   // DEBUG: Log mapped domains
-  console.log("[DEBUG PROGRESS] Mapped domains:", JSON.stringify(domains.map(d => ({
+  logger.log("[DEBUG PROGRESS] Mapped domains:", JSON.stringify(domains.map(d => ({
     id: d.id,
     name: d.name,
     value: d.value

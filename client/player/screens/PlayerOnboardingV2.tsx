@@ -1,3 +1,4 @@
+import logger from "@/lib/logger";
 import React, { useState, useRef, useEffect } from "react";
 import {
   View,
@@ -2007,7 +2008,7 @@ export default function PlayerOnboardingV2Screen({ onComplete }: Props) {
       const response = await apiRequest("POST", "/api/player/me/onboarding", payload);
       const result = await response.json();
       
-      console.log("[Onboarding] Photo upload check:", { 
+      logger.log("[Onboarding] Photo upload check:", { 
         hasPhotoUri: !!onboardingData.profilePhotoUri, 
         platform: Platform.OS,
         photoUri: onboardingData.profilePhotoUri 
@@ -2015,12 +2016,12 @@ export default function PlayerOnboardingV2Screen({ onComplete }: Props) {
       
       if (onboardingData.profilePhotoUri) {
         try {
-          console.log("[Onboarding] Uploading profile photo...");
+          logger.log("[Onboarding] Uploading profile photo...");
           const formData = new FormData();
           const authToken = await import("@/lib/auth").then(m => m.getAuthToken());
           
           if (Platform.OS === 'web') {
-            console.log("[Onboarding] Web platform - converting blob URL to File...");
+            logger.log("[Onboarding] Web platform - converting blob URL to File...");
             
             if (!onboardingData.profilePhotoUri.startsWith('blob:')) {
               console.warn("[Onboarding] Photo URI is not a blob URL:", onboardingData.profilePhotoUri.substring(0, 50));
@@ -2039,7 +2040,7 @@ export default function PlayerOnboardingV2Screen({ onComplete }: Props) {
               }
               
               const blob = await blobResponse.blob();
-              console.log("[Onboarding] Blob fetched successfully, size:", blob.size, "type:", blob.type);
+              logger.log("[Onboarding] Blob fetched successfully, size:", blob.size, "type:", blob.type);
               
               if (blob.size === 0) {
                 console.warn("[Onboarding] Blob is empty, skipping upload");
@@ -2062,7 +2063,7 @@ export default function PlayerOnboardingV2Screen({ onComplete }: Props) {
             formData.append("photo", file);
           }
           
-          console.log("[Onboarding] Uploading to server...");
+          logger.log("[Onboarding] Uploading to server...");
           const uploadController = new AbortController();
           const uploadTimeoutId = setTimeout(() => uploadController.abort(), 60000);
           
@@ -2076,13 +2077,13 @@ export default function PlayerOnboardingV2Screen({ onComplete }: Props) {
           });
           clearTimeout(uploadTimeoutId);
           
-          console.log("[Onboarding] Photo upload response:", photoResponse.status);
+          logger.log("[Onboarding] Photo upload response:", photoResponse.status);
           if (!photoResponse.ok) {
             const errorText = await photoResponse.text();
             console.warn("[Onboarding] Photo upload failed:", errorText);
           } else {
             const uploadResult = await photoResponse.json();
-            console.log("[Onboarding] Photo upload successful!", uploadResult);
+            logger.log("[Onboarding] Photo upload successful!", uploadResult);
           }
         } catch (photoError: any) {
           const errorMessage = photoError?.message || photoError?.name || String(photoError) || 'Unknown error';

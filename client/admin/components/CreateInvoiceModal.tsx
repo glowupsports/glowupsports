@@ -1,3 +1,4 @@
+import logger from "@/lib/logger";
 import React, { useState, useEffect, useRef } from "react";
 import {
   View,
@@ -1004,11 +1005,11 @@ export default function CreateInvoiceModal({
         showToast("Invoice downloaded! Open it and use Print > Save as PDF.");
       } else {
         // Mobile: Generate PDF and share (allows saving to Files)
-        console.log("[PDF] Starting mobile PDF generation...");
+        logger.log("[PDF] Starting mobile PDF generation...");
         const { uri } = await Print.printToFileAsync({ html });
-        console.log("[PDF] PDF created at:", uri);
+        logger.log("[PDF] PDF created at:", uri);
         const canShare = await Sharing.isAvailableAsync();
-        console.log("[PDF] Sharing available:", canShare);
+        logger.log("[PDF] Sharing available:", canShare);
         if (canShare) {
           await Sharing.shareAsync(uri, {
             mimeType: "application/pdf",

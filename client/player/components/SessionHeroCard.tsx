@@ -1,3 +1,4 @@
+import logger from "@/lib/logger";
 import React, { useEffect, useState } from "react";
 import { View, Text, StyleSheet, Pressable, Modal, TextInput, Alert, Platform } from "react-native";
 import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollViewCompat";
@@ -471,13 +472,13 @@ export function SessionHeroCard({
   };
 
   const handleBookCourt = () => {
-    console.log("[SessionHeroCard] handleBookCourt called");
+    logger.log("[SessionHeroCard] handleBookCourt called");
     // Navigate to Schedule tab, then to CourtBooking screen
     navigateToTab("Schedule", { screen: "CourtBooking" });
   };
 
   const handleFindMatch = () => {
-    console.log("[SessionHeroCard] handleFindMatch called");
+    logger.log("[SessionHeroCard] handleFindMatch called");
     if (onFindMatch) {
       onFindMatch();
     } else {
@@ -487,7 +488,7 @@ export function SessionHeroCard({
   };
 
   const handleJoinOpenGroup = () => {
-    console.log("[SessionHeroCard] handleJoinOpenGroup called");
+    logger.log("[SessionHeroCard] handleJoinOpenGroup called");
     // Navigate to Play tab with Group Lessons sub-tab
     navigateToTab("PlayStack", { screen: "Play", params: { initialTab: "Group Lessons" } });
   };

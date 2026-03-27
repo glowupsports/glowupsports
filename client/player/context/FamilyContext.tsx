@@ -1,3 +1,4 @@
+import logger from "@/lib/logger";
 import React, { createContext, useContext, useState, useCallback, useEffect, useRef, ReactNode } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { getApiUrl, getAuthHeaders, setActivePlayerOverride } from "@/lib/query-client";
@@ -76,12 +77,12 @@ export function FamilyProvider({ children, playerId }: FamilyProviderProps) {
       if (!mountedRef.current) return false;
       
       if (response.status === 401) {
-        console.log("[FamilyContext] Auth not ready yet");
+        logger.log("[FamilyContext] Auth not ready yet");
         return false;
       }
       
       if (!response.ok) {
-        console.log("[FamilyContext] Request failed:", response.status);
+        logger.log("[FamilyContext] Request failed:", response.status);
         setFamilyData(null);
         setHasFetched(true);
         return true;

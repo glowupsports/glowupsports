@@ -1,3 +1,4 @@
+import logger from "@/lib/logger";
 import React, { useState, useEffect, useRef } from "react";
 import {
   View,
@@ -138,7 +139,7 @@ export default function CreateMatchScreen() {
   // Create match mutation
   const createMatchMutation = useMutation({
     mutationFn: async () => {
-      console.log("[CreateMatch] Starting publish...");
+      logger.log("[CreateMatch] Starting publish...");
       const matchData = {
         invitedPlayerId: selectedPartner?.id || null,
         matchType,
@@ -153,9 +154,9 @@ export default function CreateMatchScreen() {
         matchIntent,
       };
       
-      console.log("[CreateMatch] Match data:", matchData);
+      logger.log("[CreateMatch] Match data:", matchData);
       const token = getAuthToken();
-      console.log("[CreateMatch] Auth token present:", !!token);
+      logger.log("[CreateMatch] Auth token present:", !!token);
       
       const res = await fetch(new URL("/api/play/create-match-request", getApiUrl()).toString(), {
         method: "POST",
@@ -167,7 +168,7 @@ export default function CreateMatchScreen() {
         body: JSON.stringify(matchData),
       });
       
-      console.log("[CreateMatch] Response status:", res.status);
+      logger.log("[CreateMatch] Response status:", res.status);
       if (!res.ok) {
         const errorText = await res.text();
         console.error("[CreateMatch] Error response:", errorText);

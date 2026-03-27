@@ -1,3 +1,4 @@
+import logger from "@/lib/logger";
 import React, { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { StyleSheet, View, Platform } from "react-native";
 import { NavigationContainer, NavigationContainerRef, LinkingOptions, useNavigationContainerRef } from "@react-navigation/native";
@@ -84,7 +85,7 @@ function NavigationContainerWithRef() {
   const [navReady, setNavReady] = useState(false);
   
   const handleReady = useCallback(() => {
-    console.log("[NavigationContainerWithRef] Navigation ready, registering ref");
+    logger.log("[NavigationContainerWithRef] Navigation ready, registering ref");
     registerNavigation(navigationRef);
     setNavReady(true);
   }, [registerNavigation, navigationRef]);

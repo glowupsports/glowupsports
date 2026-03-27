@@ -1,3 +1,4 @@
+import logger from "@/lib/logger";
 import React, { useState, useMemo, useRef, useEffect } from "react";
 import {
   View,
@@ -27,184 +28,8 @@ import InSessionFeedbackDrawer from "./InSessionFeedbackDrawer";
 import { DeepAssessmentDrawer } from "./DeepAssessmentDrawer";
 import { useTabNavigation } from "@/components/TabNavigationContext";
 
-interface PlayerCredits {
-  group: number;
-  semi_private: number;
-  private: number;
-  totalDebt: number;
-  groupDebt: number;
-  semiPrivateDebt: number;
-  privateDebt: number;
-  hasDebt: boolean;
-}
-
-interface Player {
-  id: string;
-  name: string;
-  ballLevel?: string | null;
-  status?: string; // active | paused | left
-  sessionsAttended?: number;
-  totalXpEarned?: number;
-  joinedAt?: string;
-  leftAt?: string | null;
-  pauseFrom?: string | null;
-  pauseUntil?: string | null;
-  pauseReason?: string | null;
-  linkedPackageId?: string | null;
-  isGuest?: boolean;
-  guestUntil?: string | null;
-  credits?: PlayerCredits;
-}
-
-interface FeedbackData {
-  feedback: {
-    id: string;
-    sessionId: string;
-    intensity: string | null;
-    mood: string | null;
-    coachNotes: string | null;
-    sessionDate?: string;
-  }[];
-  playerFeedback: {
-    id: string;
-    playerId: string;
-    sessionId: string;
-    coachId: string;
-    feedbackType: string;
-    message: string;
-    visibility: string;
-    xpAwarded: number;
-    pillarId?: string | null;
-    createdAt: string;
-  }[];
-  summary: {
-    total: number;
-    withFeedback: number;
-    intensity: Record<string, number>;
-  };
-}
-
-interface ProgressData {
-  players: {
-    id: string;
-    name: string;
-    xpEarned: number;
-    sessionsAttended: number;
-  }[];
-  totalXp: number;
-  sessionsCompleted: number;
-  totalSessions: number;
-}
-
-interface SessionInstance {
-  id: string;
-  startTime: string;
-  endTime: string;
-  status: string | null;
-  weekNumber?: number;
-}
-
-interface SeriesDetail {
-  id: string;
-  title: string;
-  dayOfWeek: number;
-  startTime: string;
-  duration: number;
-  sessionType: string;
-  status: string;
-  weekCount: number | null;
-  seriesStartDate: string;
-  seriesEndDate: string | null;
-  maxPlayers: number;
-  xpPerSession: number;
-  locationName?: string;
-  courtId?: string | null;
-  courtName?: string;
-  players: Player[];
-  sessions: SessionInstance[];
-  stats: {
-    totalSessions: number;
-    completedSessions: number;
-    upcomingSessions: number;
-    cancelledSessions: number;
-  };
-}
-
-interface SeriesDetailDrawerProps {
-  visible: boolean;
-  seriesId: string | null;
-  onClose: () => void;
-}
-
-type TabId = "overview" | "timeline" | "feedback" | "progress" | "plan";
-
-const TABS: { id: TabId; label: string; icon: string }[] = [
-  { id: "overview", label: "Overview", icon: "information-circle-outline" },
-  { id: "timeline", label: "Timeline", icon: "calendar-outline" },
-  { id: "feedback", label: "Feedback", icon: "chatbubble-outline" },
-  { id: "progress", label: "Progress", icon: "trending-up-outline" },
-  { id: "plan", label: "Plan", icon: "clipboard-outline" },
-];
-
-const DAY_NAMES = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-
-const SESSION_TYPE_COLORS: Record<string, string> = {
-  private: Colors.dark.sessionPrivate,
-  semi_private: Colors.dark.sessionSemiPrivate,
-  group: Colors.dark.sessionGroup,
-  camp: Colors.dark.sessionPhysical,
-  team_training: Colors.dark.sessionPhysical,
-  clinic: Colors.dark.sessionActivity,
-};
-
-function getSessionTypeColor(type: string): string {
-  return SESSION_TYPE_COLORS[type] || Colors.dark.textMuted;
-}
-
-// Ball level colors for player avatars
-const BALL_LEVEL_COLORS: Record<string, string> = {
-  blue: "#3B82F6",
-  red: "#EF4444",
-  orange: "#F97316",
-  green: "#22C55E",
-  yellow: "#EAB308",
-  adult: "#00E5FF",  // Cyan for adult players
-  glow: "#00E5FF",   // Cyan for adult/glow players
-};
-
-function getBallLevelColor(ballLevel: string | null | undefined): string {
-  if (!ballLevel) return Colors.dark.textMuted;
-  return BALL_LEVEL_COLORS[ballLevel.toLowerCase()] || Colors.dark.textMuted;
-}
-
-function isPlayerActiveForSession(player: Player, sessionDate: Date): boolean {
-  if (player.joinedAt) {
-    const joinDate = new Date(player.joinedAt);
-    joinDate.setHours(0, 0, 0, 0);
-    const sessionDay = new Date(sessionDate);
-    sessionDay.setHours(0, 0, 0, 0);
-    if (sessionDay < joinDate) return false;
-  }
-
-  if (player.leftAt) {
-    const leftDate = new Date(player.leftAt);
-    if (leftDate < sessionDate) return false;
-  }
-  
-  if (player.pauseFrom) {
-    const pauseStart = new Date(player.pauseFrom);
-    if (sessionDate >= pauseStart) {
-      if (!player.pauseUntil) {
-        return false;
-      }
-      const pauseEnd = new Date(player.pauseUntil);
-      if (sessionDate <= pauseEnd) return false;
-    }
-  }
-  
-  return true;
-}
-
+import type { PlayerCredits, Player, FeedbackData, ProgressData, SessionInstance, SeriesDetail, SeriesDetailDrawerProps, TabId } from "./series-detail/types";
+import { TABS, DAY_NAMES, SESSION_TYPE_COLORS, BALL_LEVEL_COLORS, getSessionTypeColor, getBallLevelColor, isPlayerActiveForSession } from "./series-detail/utils";
 export default function SeriesDetailDrawer({
   visible,
   seriesId,
@@ -962,14 +787,14 @@ export default function SeriesDetailDrawer({
   };
 
   const handleSetAttendance = (playerId: string, status: "present" | "absent" | "vacation") => {
-    console.log("[Attendance] Setting status:", { playerId, status });
+    logger.log("[Attendance] Setting status:", { playerId, status });
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     setSessionAttendance(prev => {
       const newState = {
         ...prev,
         [playerId]: status,
       };
-      console.log("[Attendance] New state:", newState);
+      logger.log("[Attendance] New state:", newState);
       return newState;
     });
   };
