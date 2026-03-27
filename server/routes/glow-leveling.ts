@@ -18,6 +18,7 @@ import { eq, and, or, desc, sql, inArray } from "drizzle-orm";
 import { AuthenticatedRequest, authMiddlewareWithFreshData as authMiddleware, requireAcademy } from "../auth";
 import { awardXP } from "../services/xp-service";
 import { ADULT_GLOW_SKILLS_BY_LEVEL } from "../seeds/adult-glow-skills-seed";
+import { checkForScoringAnomaly } from "../services/coach-calibration-engine";
 
 const router = Router();
 
@@ -719,11 +720,6 @@ router.post("/api/glow/sessions/:sessionId/feedback", authMiddleware, requireAca
       await processSkillScores(playerId, sessionId, coachId, skillRatings);
     }
     
-    // Update coach calibration
-    if (coachId) {
-      await updateCoachCalibration(coachId);
-    }
-    
     // Award XP to player for receiving feedback (session attendance)
     try {
       await awardXP(playerId, "session_attend", "session", sessionId);
@@ -1346,33 +1342,13 @@ async function processSkillScores(
         movingAverage: movingAverage.toFixed(2),
         observationCount,
       });
-  }
-}
 
-async function updateCoachCalibration(coachId: string) {
-  // Get or create calibration record
-  const [existing] = await db
-    .select()
-    .from(coachCalibration)
-    .where(eq(coachCalibration.coachId, coachId));
-  
-  if (existing) {
-    await db
-      .update(coachCalibration)
-      .set({
-        calibrationCount: (existing.calibrationCount || 0) + 1,
-        lastCalibrationAt: new Date(),
-        updatedAt: new Date(),
-      })
-      .where(eq(coachCalibration.coachId, coachId));
-  } else {
-    await db
-      .insert(coachCalibration)
-      .values({
-        coachId,
-        calibrationCount: 1,
-        lastCalibrationAt: new Date(),
+    // Run calibration anomaly detection silently in the background
+    if (coachId) {
+      checkForScoringAnomaly(coachId, skillId, sessionId, playerId, score).catch(err => {
+        console.error("Error running calibration anomaly check:", err);
       });
+    }
   }
 }
 

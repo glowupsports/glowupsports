@@ -1905,6 +1905,8 @@ import { Router, type Request, type Response, type NextFunction } from "express"
             .json({ error: "assessments array is required" });
         }
 
+        const { checkForScoringAnomaly } = await import("../services/coach-calibration-engine");
+
         const results = [];
         for (const item of assessments) {
           const assessment = await storage.upsertPlayerDeepAssessment({
@@ -1919,6 +1921,19 @@ import { Router, type Request, type Response, type NextFunction } from "express"
             sessionId: item.sessionId,
           });
           results.push(assessment);
+
+          // Run calibration anomaly detection silently in the background
+          if (coachId && item.skillId && item.score !== undefined) {
+            checkForScoringAnomaly(
+              coachId,
+              item.skillId,
+              item.sessionId || `deep-assessment-${Date.now()}`,
+              id,
+              item.score
+            ).catch(err => {
+              console.error("Error running calibration anomaly check on deep assessment:", err);
+            });
+          }
         }
 
         res.json({ saved: results.length, assessments: results });
