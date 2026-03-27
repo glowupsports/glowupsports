@@ -196,8 +196,21 @@ export default function PlayScreen() {
     return { text: `${seconds}s left`, urgent: true, expired: false };
   };
 
+  // Compute the level param to pass to the API:
+  // "my_level" selected (and not browsing) -> pass player's ball level
+  // "all" (browsing with no chip) -> pass "all"
+  // specific level chip selected -> pass that level
+  const sessionsLevelParam = useMemo(() => {
+    if (!showOtherLevels || selectedBallLevel === "my_level") {
+      return playerBallLevel;
+    }
+    return selectedBallLevel; // "all" or specific level
+  }, [showOtherLevels, selectedBallLevel, playerBallLevel]);
+
+  const sessionsQueryKey = `/api/play/sessions?level=${sessionsLevelParam}`;
+
   const { data: sessions, isLoading: sessionsLoading } = useQuery<PlaySession[]>({
-    queryKey: ["/api/play/sessions"],
+    queryKey: [sessionsQueryKey],
   });
 
   const nearbyPlayersQueryKey = discoverFilter !== "all" 
@@ -244,23 +257,15 @@ export default function PlayScreen() {
   const filteredSessions = useMemo(() => {
     if (!sessions) return [];
     
+    // API already handles level filtering; only apply day filter client-side
     let filtered = sessions.filter(s => s.sessionType === "group");
-    
-    if (selectedBallLevel !== "all") {
-      const filterLevel = (selectedBallLevel === "my_level" ? playerBallLevel : selectedBallLevel).toLowerCase();
-      filtered = filtered.filter(s => {
-        const sessionLevel = (s.ballLevel || "").toLowerCase();
-        if (!sessionLevel) return false;
-        return sessionLevel === filterLevel;
-      });
-    }
     
     if (selectedDay !== "all") {
       filtered = filtered.filter(s => getDayOfWeek(s.startTime) === selectedDay);
     }
     
     return filtered;
-  }, [sessions, selectedBallLevel, playerBallLevel, selectedDay]);
+  }, [sessions, selectedDay]);
 
   const joinSessionMutation = useMutation({
     mutationFn: async (sessionId: string) => {
@@ -270,7 +275,7 @@ export default function PlayScreen() {
     onSuccess: (data: { success?: boolean; message?: string }) => {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       Alert.alert("Joined!", data.message || "You're in the session!");
-      queryClient.invalidateQueries({ queryKey: ["/api/play/sessions"] });
+      queryClient.invalidateQueries({ predicate: (q) => typeof q.queryKey[0] === "string" && q.queryKey[0].startsWith("/api/play/sessions") });
     },
     onError: (error: Error) => {
       const errorMessage = error.message.includes(": ") 
@@ -291,7 +296,7 @@ export default function PlayScreen() {
     onSuccess: (data: { success?: boolean; message?: string; position?: number }) => {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       Alert.alert("Waitlist", data.message || `You're #${data.position} on the waitlist!`);
-      queryClient.invalidateQueries({ queryKey: ["/api/play/sessions"] });
+      queryClient.invalidateQueries({ predicate: (q) => typeof q.queryKey[0] === "string" && q.queryKey[0].startsWith("/api/play/sessions") });
     },
     onError: (error: Error) => {
       const errorMessage = error.message.includes(": ") 
@@ -312,7 +317,7 @@ export default function PlayScreen() {
     onSuccess: (data: { success?: boolean; message?: string }) => {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       Alert.alert("Left Session", data.message || "You've left the session");
-      queryClient.invalidateQueries({ queryKey: ["/api/play/sessions"] });
+      queryClient.invalidateQueries({ predicate: (q) => typeof q.queryKey[0] === "string" && q.queryKey[0].startsWith("/api/play/sessions") });
     },
     onError: (error: Error) => {
       const errorMessage = error.message.includes(": ") 

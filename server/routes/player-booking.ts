@@ -748,8 +748,14 @@ Return only the JSON array, nothing else.`;
         
       });
 
-      // Filter by player's ball level - only show sessions matching their level
+      // Determine which level(s) to show based on optional ?level= query param
+      // level=all -> skip level filter entirely
+      // level=<specific> -> filter to that level
+      // absent -> default to player's own ball level
+      const levelParam = (req.query.level as string | undefined)?.toLowerCase();
       const playerBallLevel = (currentPlayer?.ballLevel || "green").toLowerCase();
+      const targetLevel = levelParam ?? playerBallLevel;
+
       const seriesIds = [...new Set(sessions.map(s => s.seriesId).filter(Boolean))];
       const seriesLevelMap = new Map<string, string>();
       for (const sid of seriesIds) {
@@ -760,13 +766,15 @@ Return only the JSON array, nothing else.`;
           }
         } catch (e) {}
       }
-      const levelFilteredSessions = sessions.filter(s => {
-        const sessionBallLevel = (s.ballLevel || "").toLowerCase();
-        const seriesLevel = s.seriesId ? seriesLevelMap.get(s.seriesId) || "" : "";
-        const effectiveLevel = sessionBallLevel || seriesLevel;
-        if (!effectiveLevel) return false;
-        return effectiveLevel === playerBallLevel;
-      });
+      const levelFilteredSessions = targetLevel === "all"
+        ? sessions
+        : sessions.filter(s => {
+            const sessionBallLevel = (s.ballLevel || "").toLowerCase();
+            const seriesLevel = s.seriesId ? seriesLevelMap.get(s.seriesId) || "" : "";
+            const effectiveLevel = sessionBallLevel || seriesLevel;
+            if (!effectiveLevel) return false;
+            return effectiveLevel === targetLevel;
+          });
 
       const enrichedSessions = await Promise.all(levelFilteredSessions.map(async (session) => {
         // Get players in this session - first check session_players
