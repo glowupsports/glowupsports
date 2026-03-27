@@ -36,8 +36,68 @@ import { AdminRecordPaymentModal } from "@/admin/components/players/AdminRecordP
 import { AdminAddPlayerModal } from "@/admin/components/players/AdminAddPlayerModal";
 
 type Player = { id: string; name: string; email?: string | null; phone?: string | null; ballLevel?: string; level?: number; coachName?: string; age?: number; dateOfBirth?: string; parentName?: string; parentPhone?: string; isActive?: boolean; status?: string };
-type PlayerPackage = any;
-type PlayerStats = any;
+type PlayerPackage = {
+  id: string;
+  creditType: string;
+  totalCredits: number;
+  remainingCredits: string | number;
+  status: string;
+  expiryDate: string | null;
+  createdAt: string;
+  pricePerCredit: number;
+  isPaid: boolean;
+  price: number;
+};
+type PlayerSessionItem = {
+  id: string;
+  sessionId?: string;
+  startTime: string;
+  endTime?: string;
+  sessionType: string;
+  attended?: string;
+  attendanceStatus?: string | null;
+  status?: string | null;
+  courtId?: string | null;
+  creditsUsed?: number;
+  isPaid?: boolean;
+  seriesId?: string | null;
+  seriesName?: string | null;
+};
+type PlayerStats = {
+  player: {
+    id: string;
+    name: string;
+    email?: string;
+    phone?: string;
+    ballLevel?: string;
+    level?: number;
+    totalXp?: number;
+    glowScore?: number;
+    coachName?: string;
+    parentName?: string;
+    parentPhone?: string;
+    medicalNotes?: string;
+  };
+  attendance: { totalSessions: number; attended: number; missed: number; rate: number; streak: number };
+  progress: {
+    level: number;
+    xp: number;
+    xpToNextLevel: number;
+    skills: { technical: number; tactical: number; physical: number; mental: number; social: number };
+    recentMilestones: string[];
+  };
+  payments: {
+    totalOwed: number;
+    totalPaid: number;
+    lastPaymentDate?: string;
+    status: string;
+    currency: string;
+    invoices: { id: string; invoiceNumber?: string; amount: number; currency: string; status: string; dueDate?: string; paidAt?: string; createdAt: string; notes?: string; isOverdue: boolean }[];
+  };
+  credits: { total: number; group: number; semiPrivate: number; private: number; activePackages: number; totalDebt: number; hasDebt: boolean };
+  packages: PlayerPackage[];
+  sessions: PlayerSessionItem[];
+};
 type Coach = { id: string; name: string };
 
 export default function AdminPlayersScreen() {
@@ -126,7 +186,7 @@ export default function AdminPlayersScreen() {
   const uniqueSeries = useMemo(() => {
     if (!playerStats?.sessions) return [];
     const seriesMap = new Map();
-    playerStats.sessions.forEach((s: any) => {
+    playerStats.sessions.forEach((s: PlayerSessionItem) => {
       if (s.seriesName && s.seriesId) {
         seriesMap.set(s.seriesId, s.seriesName);
       }
@@ -137,7 +197,7 @@ export default function AdminPlayersScreen() {
   const filteredSessions = useMemo(() => {
     if (!playerStats?.sessions) return [];
     return selectedSeriesFilter 
-      ? playerStats.sessions.filter((s: any) => s.seriesId === selectedSeriesFilter)
+      ? playerStats.sessions.filter((s: PlayerSessionItem) => s.seriesId === selectedSeriesFilter)
       : playerStats.sessions;
   }, [playerStats?.sessions, selectedSeriesFilter]);
 

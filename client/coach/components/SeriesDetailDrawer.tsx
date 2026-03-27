@@ -41,6 +41,10 @@ import { SeriesPausePlayerModal } from "./series-detail/SeriesPausePlayerModal";
 import { SeriesRemovePlayerModal } from "./series-detail/SeriesRemovePlayerModal";
 import { SeriesEditJoinDateModal } from "./series-detail/SeriesEditJoinDateModal";
 import { SeriesExtendClassModal } from "./series-detail/SeriesExtendClassModal";
+import { SeriesSmartFillModal } from "./series-detail/SeriesSmartFillModal";
+import { SeriesAddPlayerModal } from "./series-detail/SeriesAddPlayerModal";
+import { SeriesAttendanceModal } from "./series-detail/SeriesAttendanceModal";
+import { SeriesExtraLessonModal } from "./series-detail/SeriesExtraLessonModal";
 export default function SeriesDetailDrawer({
   visible,
   seriesId,
@@ -1874,929 +1878,136 @@ export default function SeriesDetailDrawer({
       </View>
 
       {/* Smart Fill Modal */}
-      <Modal
+      <SeriesSmartFillModal
         visible={showSmartFill}
-        animationType="slide"
-        transparent={true}
-        onRequestClose={() => setShowSmartFill(false)}
-      >
-        <View style={styles.overlay}>
-          <Pressable style={styles.backdrop} onPress={() => setShowSmartFill(false)} />
-          <View style={[styles.drawer, { paddingBottom: insets.bottom + Spacing.md }]}>
-            <View style={styles.handleContainer}>
-              <View style={styles.handle} />
-            </View>
-            <View style={styles.addPlayerHeader}>
-              <View>
-                <Text style={styles.addPlayerTitle}>Smart Fill</Text>
-                <Text style={{ fontSize: 12, color: Colors.dark.textMuted, marginTop: 2 }}>
-                  Players on holiday from other groups
-                </Text>
-              </View>
-              <Pressable onPress={() => setShowSmartFill(false)}>
-                <Ionicons name="close" size={24} color={Colors.dark.text} />
-              </Pressable>
-            </View>
-            <ScrollView style={styles.addPlayerContent} contentContainerStyle={{ paddingBottom: 40 }}>
-              {loadingSuggestions ? (
-                <View style={{ alignItems: "center", padding: Spacing.xl }}>
-                  <ActivityIndicator size="large" color={Colors.dark.orange} />
-                  <Text style={{ color: Colors.dark.textMuted, marginTop: Spacing.md }}>Finding available players...</Text>
-                </View>
-              ) : !mergeSuggestions?.suggestions?.length ? (
-                <View style={{ alignItems: "center", padding: Spacing.xl }}>
-                  <Ionicons name="people-outline" size={48} color={Colors.dark.textMuted} />
-                  <Text style={{ color: Colors.dark.textMuted, marginTop: Spacing.md, textAlign: "center" }}>
-                    No players on holiday from other groups right now
-                  </Text>
-                </View>
-              ) : (
-                <>
-                  <Text style={{ color: Colors.dark.orange, fontSize: 11, fontWeight: "600", textTransform: "uppercase", letterSpacing: 1, marginBottom: Spacing.md }}>
-                    {mergeSuggestions.suggestions.length} available ({mergeSuggestions.openSlots} open slots)
-                  </Text>
-                  {mergeSuggestions.suggestions.map((suggestion) => {
-                    const ballColor = getBallLevelColor(suggestion.ballLevel);
-                    const dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-                    return (
-                      <View key={suggestion.playerId} style={styles.smartFillCard}>
-                        <View style={{ flexDirection: "row", alignItems: "center", flex: 1 }}>
-                          <View style={[styles.playerAvatar, { backgroundColor: ballColor + "30", borderWidth: 2, borderColor: ballColor, width: 36, height: 36 }]}>
-                            <Text style={[styles.playerInitial, { color: ballColor, fontSize: 14 }]}>
-                              {suggestion.name.charAt(0).toUpperCase()}
-                            </Text>
-                          </View>
-                          <View style={{ marginLeft: Spacing.md, flex: 1 }}>
-                            <Text style={styles.playerName}>{suggestion.name}</Text>
-                            <Text style={{ fontSize: 11, color: Colors.dark.textMuted }}>
-                              From: {suggestion.homeSeriesName}
-                            </Text>
-                            {suggestion.pauseFrom && suggestion.pauseUntil ? (
-                              <Text style={{ fontSize: 11, color: Colors.dark.orange }}>
-                                Holiday: {formatDate(suggestion.pauseFrom)} - {formatDate(suggestion.pauseUntil)}
-                              </Text>
-                            ) : null}
-                          </View>
-                        </View>
-                        <Pressable
-                          style={styles.smartFillAddBtn}
-                          onPress={() => {
-                            const guestEnd = suggestion.pauseUntil ? new Date(suggestion.pauseUntil) : getDefaultGuestUntil();
-                            setIsGuestAdd(true);
-                            setGuestUntilDate(guestEnd);
-                            setSelectedPlayerId(suggestion.playerId);
-                            setJoinDate(new Date());
-                            setShowSmartFill(false);
-                            setShowAddPlayerModal(true);
-                            setShowPackageSelection(true);
-                          }}
-                        >
-                          <Ionicons name="add" size={16} color={Colors.dark.backgroundRoot} />
-                          <Text style={{ fontSize: 12, fontWeight: "700", color: Colors.dark.backgroundRoot }}>Add as Guest</Text>
-                        </Pressable>
-                      </View>
-                    );
-                  })}
-                </>
-              )}
-            </ScrollView>
-          </View>
-        </View>
-      </Modal>
+        onClose={() => setShowSmartFill(false)}
+        loadingSuggestions={loadingSuggestions}
+        mergeSuggestions={mergeSuggestions}
+        getBallLevelColor={getBallLevelColor}
+        formatDate={formatDate}
+        getDefaultGuestUntil={getDefaultGuestUntil}
+        onSelectSuggestion={(playerId, guestEnd) => {
+          setIsGuestAdd(true);
+          setGuestUntilDate(guestEnd);
+          setSelectedPlayerId(playerId);
+          setJoinDate(new Date());
+          setShowSmartFill(false);
+          setShowAddPlayerModal(true);
+          setShowPackageSelection(true);
+        }}
+        bottomInset={insets.bottom}
+      />
 
       {/* Add Player Modal */}
-      <Modal
+      <SeriesAddPlayerModal
         visible={showAddPlayerModal}
-        animationType="slide"
-        transparent={true}
-        onRequestClose={() => setShowAddPlayerModal(false)}
-      >
-        <View style={styles.overlay}>
-          <Pressable style={styles.backdrop} onPress={() => setShowAddPlayerModal(false)} />
-          <View style={[styles.drawer, { paddingBottom: insets.bottom + Spacing.md }]}>
-            <View style={styles.handleContainer}>
-              <View style={styles.handle} />
-            </View>
-            
-            <View style={styles.addPlayerHeader}>
-              <Text style={styles.addPlayerTitle}>
-                {showAttendanceBackfill ? "Mark Attendance" : showPackageSelection ? "Assign Package" : selectedPlayerId ? "Set Join Date" : "Add Player"}
-              </Text>
-              <Pressable onPress={() => {
-                setShowAddPlayerModal(false);
-                setShowPackageSelection(false);
-                setShowAttendanceBackfill(false);
-                setSelectedPlayerId(null);
-                setSelectedPackageTemplateId(null);
-                setPlayerSearch("");
-              }}>
-                <Ionicons name="close" size={24} color={Colors.dark.text} />
-              </Pressable>
-            </View>
-
-            {showAttendanceBackfill ? (
-              // Attendance backfill screen
-              <ScrollView style={styles.addPlayerContent} contentContainerStyle={{ paddingBottom: 100 }}>
-                <Text style={styles.backfillSubtitle}>
-                  Mark which past sessions this player attended since {joinDate.toLocaleDateString()}
-                </Text>
-                {getPastSessionsSinceJoinDate().map((session, idx) => (
-                  <Pressable
-                    key={session.id}
-                    style={[
-                      styles.attendanceRow,
-                      selectedAttendance[session.id] && styles.attendanceRowSelected,
-                    ]}
-                    onPress={() => {
-                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                      setSelectedAttendance(prev => ({
-                        ...prev,
-                        [session.id]: !prev[session.id],
-                      }));
-                    }}
-                  >
-                    <View style={styles.attendanceCheck}>
-                      {selectedAttendance[session.id] ? (
-                        <Ionicons name="checkmark-circle" size={24} color={Colors.dark.successNeon} />
-                      ) : (
-                        <Ionicons name="ellipse-outline" size={24} color={Colors.dark.textMuted} />
-                      )}
-                    </View>
-                    <View style={styles.attendanceInfo}>
-                      <Text style={styles.attendanceDate}>{formatDate(session.startTime)}</Text>
-                      <Text style={styles.attendanceWeek}>Week {session.weekNumber || idx + 1}</Text>
-                    </View>
-                  </Pressable>
-                ))}
-                
-                <Pressable
-                  style={[styles.saveButton, addPlayerMutation.isPending && styles.saveButtonDisabled]}
-                  onPress={handleSavePlayer}
-                  disabled={addPlayerMutation.isPending}
-                >
-                  {addPlayerMutation.isPending ? (
-                    <ActivityIndicator size="small" color={Colors.dark.backgroundRoot} />
-                  ) : (
-                    <Text style={styles.saveButtonText}>
-                      Save ({Object.values(selectedAttendance).filter(Boolean).length} sessions attended)
-                    </Text>
-                  )}
-                </Pressable>
-              </ScrollView>
-            ) : showPackageSelection ? (
-              // Package selection screen
-              <KeyboardAwareScrollViewCompat style={styles.addPlayerContent} contentContainerStyle={{ paddingBottom: 100 }}>
-                <Text style={styles.backfillSubtitle}>
-                  Optionally assign a credit package to this player
-                </Text>
-                
-                {showCreatePackageForm ? (
-                  <View style={styles.createPackageForm}>
-                    <Text style={styles.createPackageTitle}>Create New Package</Text>
-                    
-                    <View style={styles.formField}>
-                      <Text style={styles.formLabel}>Package Name</Text>
-                      <TextInput
-                        style={styles.formInput}
-                        placeholder="e.g., 10 Lesson Pack"
-                        placeholderTextColor={Colors.dark.textMuted}
-                        value={newPackageName}
-                        onChangeText={setNewPackageName}
-                      />
-                    </View>
-                    
-                    <View style={styles.formRow}>
-                      <View style={[styles.formField, { flex: 1 }]}>
-                        <Text style={styles.formLabel}>Credits</Text>
-                        <TextInput
-                          style={styles.formInput}
-                          placeholder="10"
-                          placeholderTextColor={Colors.dark.textMuted}
-                          keyboardType="numeric"
-                          value={newPackageCredits}
-                          onChangeText={setNewPackageCredits}
-                        />
-                      </View>
-                      
-                      <View style={[styles.formField, { flex: 1, marginLeft: Spacing.sm }]}>
-                        <Text style={styles.formLabel}>Price/Credit (AED)</Text>
-                        <TextInput
-                          style={styles.formInput}
-                          placeholder="150"
-                          placeholderTextColor={Colors.dark.textMuted}
-                          keyboardType="decimal-pad"
-                          value={newPackagePricePerCredit}
-                          onChangeText={setNewPackagePricePerCredit}
-                        />
-                      </View>
-                    </View>
-                    
-                    {newPackageCredits && newPackagePricePerCredit ? (
-                      <Text style={styles.totalPricePreview}>
-                        Total: AED {(parseInt(newPackageCredits, 10) * parseFloat(newPackagePricePerCredit) || 0).toFixed(0)}
-                      </Text>
-                    ) : null}
-                    
-                    <View style={styles.formActions}>
-                      <Pressable
-                        style={styles.formCancelButton}
-                        onPress={() => {
-                          setShowCreatePackageForm(false);
-                          setNewPackageName("");
-                          setNewPackageCredits("");
-                          setNewPackagePricePerCredit("");
-                        }}
-                      >
-                        <Text style={styles.formCancelButtonText}>Cancel</Text>
-                      </Pressable>
-                      
-                      <Pressable
-                        style={[
-                          styles.formSaveButton,
-                          (!newPackageName.trim() || !newPackageCredits || !newPackagePricePerCredit || createPackageMutation.isPending) && styles.formSaveButtonDisabled,
-                        ]}
-                        onPress={handleCreatePackage}
-                        disabled={!newPackageName.trim() || !newPackageCredits || !newPackagePricePerCredit || createPackageMutation.isPending}
-                      >
-                        {createPackageMutation.isPending ? (
-                          <ActivityIndicator size="small" color={Colors.dark.backgroundRoot} />
-                        ) : (
-                          <Text style={styles.formSaveButtonText}>Create Package</Text>
-                        )}
-                      </Pressable>
-                    </View>
-                  </View>
-                ) : (
-                  <>
-                    <View style={styles.infoBox}>
-                      <Ionicons name="information-circle-outline" size={16} color={Colors.dark.textMuted} />
-                      <Text style={styles.infoBoxText}>
-                        Credit packages are automatically priced based on your session pricing.
-                      </Text>
-                    </View>
-                    
-                    {Object.entries(creditPackagesByType).map(([creditType, packages]) => {
-                      const config = CREDIT_TYPE_CONFIG[creditType] || { label: creditType, color: Colors.dark.textMuted, icon: "cube" };
-                      const isExpanded = expandedCreditType === creditType;
-                      const pricePerCredit = packages[0]?.pricePerCredit || "0";
-                      const currency = packages[0]?.currency || "AED";
-                      
-                      return (
-                        <View key={creditType} style={styles.creditAccordion}>
-                          <Pressable
-                            style={[styles.creditAccordionHeader, isExpanded && styles.creditAccordionHeaderExpanded]}
-                            onPress={() => setExpandedCreditType(isExpanded ? null : creditType)}
-                          >
-                            <View style={styles.creditAccordionLeft}>
-                              <View style={[styles.creditTypeIcon, { backgroundColor: config.color + "30" }]}>
-                                <Ionicons name={config.icon as any} size={20} color={config.color} />
-                              </View>
-                              <View>
-                                <Text style={styles.creditAccordionTitle}>{config.label}</Text>
-                                <Text style={styles.creditAccordionSubtitle}>
-                                  {currency} {parseFloat(pricePerCredit).toFixed(2)} per credit
-                                </Text>
-                              </View>
-                            </View>
-                            <Ionicons 
-                              name={isExpanded ? "chevron-up" : "chevron-down"} 
-                              size={20} 
-                              color={Colors.dark.textMuted} 
-                            />
-                          </Pressable>
-                          
-                          {isExpanded ? (
-                            <View style={styles.creditOptionsGrid}>
-                              {packages.map((pkg) => {
-                                const isSelected = selectedCreditPackage?.creditType === pkg.creditType && 
-                                                   selectedCreditPackage?.credits === pkg.credits;
-                                return (
-                                  <Pressable
-                                    key={`${pkg.creditType}-${pkg.credits}`}
-                                    style={[
-                                      styles.creditOption,
-                                      isSelected && styles.creditOptionSelected,
-                                    ]}
-                                    onPress={() => {
-                                      setSelectedPackageTemplateId(null);
-                                      setSelectedCreditPackage({
-                                        creditType: pkg.creditType,
-                                        credits: pkg.credits,
-                                        price: pkg.totalPrice,
-                                      });
-                                    }}
-                                  >
-                                    <Text style={[styles.creditOptionCredits, isSelected && styles.creditOptionTextSelected]}>
-                                      {pkg.credits}
-                                    </Text>
-                                    <Text style={[styles.creditOptionLabel, isSelected && styles.creditOptionTextSelected]}>
-                                      {pkg.credits === 1 ? "credit" : "credits"}
-                                    </Text>
-                                    <Text style={[styles.creditOptionPrice, isSelected && styles.creditOptionTextSelected]}>
-                                      {pkg.currency} {parseFloat(pkg.totalPrice).toFixed(0)}
-                                    </Text>
-                                  </Pressable>
-                                );
-                              })}
-                            </View>
-                          ) : null}
-                        </View>
-                      );
-                    })}
-                    
-                    {selectedCreditPackage ? (
-                      <Pressable
-                        style={[styles.assignPackageButton, addPlayerMutation.isPending && styles.assignPackageButtonDisabled]}
-                        onPress={() => {
-                          addPlayerMutation.mutate({
-                            playerId: selectedPlayerId!,
-                            joinDate: joinDate.toISOString().split("T")[0],
-                            attendedSessionIds: Object.entries(selectedAttendance)
-                              .filter(([_, attended]) => attended)
-                              .map(([id]) => id),
-                            packageTemplateId: null,
-                            creditPackage: {
-                              creditType: selectedCreditPackage.creditType,
-                              credits: selectedCreditPackage.credits,
-                            },
-                            isGuest: isGuestAdd,
-                            guestUntil: isGuestAdd ? guestUntilDate.toISOString().split("T")[0] : null,
-                          });
-                        }}
-                        disabled={addPlayerMutation.isPending}
-                      >
-                        <Text style={styles.assignPackageButtonText}>
-                          {addPlayerMutation.isPending ? "Adding..." : `Assign ${selectedCreditPackage.credits} ${selectedCreditPackage.creditType} Credits`}
-                        </Text>
-                      </Pressable>
-                    ) : null}
-                    
-                    {packageTemplates.length > 0 ? (
-                      <View style={styles.templateSection}>
-                        <Text style={styles.templateSectionTitle}>Or select a saved package:</Text>
-                        {packageTemplates.map((template) => (
-                          <View key={template.id} style={styles.templateRow}>
-                            <Pressable
-                              style={[
-                                styles.packageCard,
-                                styles.packageCardFlex,
-                                selectedPackageTemplateId === template.id && styles.packageCardSelected,
-                              ]}
-                              onPress={() => {
-                                setSelectedCreditPackage(null);
-                                handleSelectPackage(template.id);
-                              }}
-                            >
-                              <View style={styles.packageInfo}>
-                                <Text style={styles.packageName}>{template.name}</Text>
-                                <Text style={styles.packageDetails}>
-                                  {template.credits} credits - Valid {template.validityDays} days
-                                </Text>
-                              </View>
-                              <Text style={styles.packagePrice}>
-                                {template.currency} {parseFloat(template.price).toFixed(0)}
-                              </Text>
-                            </Pressable>
-                            <Pressable
-                              style={styles.templateDeleteButton}
-                              onPress={() => deleteTemplateMutation.mutate(template.id)}
-                              disabled={deleteTemplateMutation.isPending}
-                            >
-                              <Ionicons name="trash-outline" size={18} color={Colors.dark.error} />
-                            </Pressable>
-                          </View>
-                        ))}
-                      </View>
-                    ) : null}
-                    
-                    <Pressable
-                      style={styles.createPackageButton}
-                      onPress={() => setShowCreatePackageForm(true)}
-                    >
-                      <Ionicons name="add-circle-outline" size={20} color={Colors.dark.successNeon} />
-                      <Text style={styles.createPackageButtonText}>Create Custom Package</Text>
-                    </Pressable>
-                  </>
-                )}
-                
-                <Pressable
-                  style={[styles.skipButton, addPlayerMutation.isPending && styles.skipButtonDisabled]}
-                  onPress={handleSkipPackage}
-                  disabled={addPlayerMutation.isPending}
-                >
-                  <Text style={styles.skipButtonText}>
-                    {addPlayerMutation.isPending ? "Adding..." : "Skip - Add Without Package"}
-                  </Text>
-                </Pressable>
-              </KeyboardAwareScrollViewCompat>
-            ) : selectedPlayerId ? (
-              // Join date picker screen
-              <View style={styles.addPlayerContent}>
-                <Text style={styles.selectedPlayerName}>
-                  {allPlayers.find(p => p.id === selectedPlayerId)?.name}
-                </Text>
-                
-                <Text style={styles.dateLabel}>When did they join this class?</Text>
-                {Platform.OS === "web" ? (
-                  <WebCalendarPicker
-                    value={joinDate}
-                    onChange={setJoinDate}
-                    maximumDate={new Date()}
-                  />
-                ) : (
-                  <>
-                    <Pressable 
-                      style={styles.datePickerButton}
-                      onPress={() => setShowDatePicker(true)}
-                    >
-                      <Ionicons name="calendar-outline" size={20} color={Colors.dark.successNeon} />
-                      <Text style={styles.datePickerText}>{joinDate.toLocaleDateString()}</Text>
-                    </Pressable>
-                    
-                    {showDatePicker ? (
-                      <DateTimePicker
-                        value={joinDate}
-                        mode="date"
-                        display="default"
-                        onChange={(_, date) => {
-                          setShowDatePicker(false);
-                          if (date) setJoinDate(date);
-                        }}
-                        maximumDate={new Date()}
-                      />
-                    ) : null}
-                  </>
-                )}
-                
-                <View style={styles.guestToggleContainer}>
-                  <View style={styles.guestToggleRow}>
-                    <View style={{ flex: 1 }}>
-                      <Text style={styles.guestToggleLabel}>Add as Guest</Text>
-                      <Text style={styles.guestToggleSubtext}>Temporary membership with an end date</Text>
-                    </View>
-                    <Pressable
-                      style={[styles.guestToggleSwitch, isGuestAdd && styles.guestToggleSwitchActive]}
-                      onPress={() => setIsGuestAdd(!isGuestAdd)}
-                    >
-                      <View style={[styles.guestToggleKnob, isGuestAdd && styles.guestToggleKnobActive]} />
-                    </Pressable>
-                  </View>
-                  
-                  {isGuestAdd ? (
-                    <View style={styles.guestDateSection}>
-                      <Text style={styles.guestDateLabel}>Guest until</Text>
-                      <View style={styles.guestQuickButtons}>
-                        {[
-                          { label: "1 week", days: 7 },
-                          { label: "2 weeks", days: 14 },
-                          { label: "1 month", days: 30 },
-                        ].map(({ label, days }) => {
-                          const target = new Date();
-                          target.setDate(target.getDate() + days);
-                          const isSelected = Math.abs(guestUntilDate.getTime() - target.getTime()) < 86400000;
-                          return (
-                            <Pressable
-                              key={label}
-                              style={[styles.guestQuickBtn, isSelected && styles.guestQuickBtnActive]}
-                              onPress={() => {
-                                const d = new Date();
-                                d.setDate(d.getDate() + days);
-                                setGuestUntilDate(d);
-                              }}
-                            >
-                              <Text style={[styles.guestQuickBtnText, isSelected && styles.guestQuickBtnTextActive]}>{label}</Text>
-                            </Pressable>
-                          );
-                        })}
-                      </View>
-                      <Pressable 
-                        style={styles.datePickerButton}
-                        onPress={() => setShowGuestDatePicker(true)}
-                      >
-                        <Ionicons name="calendar-outline" size={18} color={Colors.dark.orange} />
-                        <Text style={[styles.datePickerText, { color: Colors.dark.orange }]}>
-                          Until {guestUntilDate.toLocaleDateString()}
-                        </Text>
-                      </Pressable>
-                      {showGuestDatePicker ? (
-                        <DateTimePicker
-                          value={guestUntilDate}
-                          mode="date"
-                          display="default"
-                          onChange={(_, date) => {
-                            setShowGuestDatePicker(false);
-                            if (date) setGuestUntilDate(date);
-                          }}
-                          minimumDate={new Date()}
-                        />
-                      ) : null}
-                    </View>
-                  ) : null}
-                </View>
-                
-                <Pressable
-                  style={[styles.saveButton, { marginTop: Spacing.xl }]}
-                  onPress={handleContinueToPackage}
-                >
-                  <Text style={styles.saveButtonText}>Continue</Text>
-                </Pressable>
-              </View>
-            ) : (
-              // Player selection screen
-              <View style={styles.addPlayerContent}>
-                <View style={styles.searchContainer}>
-                  <Ionicons name="search" size={18} color={Colors.dark.textMuted} />
-                  <TextInput
-                    style={styles.searchInput}
-                    placeholder="Search players..."
-                    placeholderTextColor={Colors.dark.textMuted}
-                    value={playerSearch}
-                    onChangeText={setPlayerSearch}
-                  />
-                </View>
-                
-                <ScrollView style={styles.playerList}>
-                  {filteredPlayers.length === 0 ? (
-                    <Text style={styles.noPlayersText}>
-                      {playerSearch ? "No matching players" : "No available players"}
-                    </Text>
-                  ) : (
-                    filteredPlayers.map((player) => {
-                      const playerBallColor = getBallLevelColor(player.ballLevel);
-                      return (
-                      <Pressable
-                        key={player.id}
-                        style={styles.selectablePlayerRow}
-                        onPress={() => handlePlayerSelect(player.id)}
-                      >
-                        <View style={[styles.playerAvatar, { backgroundColor: playerBallColor + "30", borderWidth: 2, borderColor: playerBallColor }]}>
-                          <Text style={[styles.playerInitial, { color: playerBallColor }]}>
-                            {player.name.charAt(0).toUpperCase()}
-                          </Text>
-                        </View>
-                        <View style={styles.playerInfo}>
-                          <Text style={styles.playerName}>{player.name}</Text>
-                          {player.ballLevel ? (
-                            <Text style={styles.playerStats}>{player.ballLevel.toUpperCase()}</Text>
-                          ) : null}
-                        </View>
-                        <Ionicons name="chevron-forward" size={20} color={Colors.dark.textMuted} />
-                      </Pressable>
-                    );})
-                  )}
-                </ScrollView>
-              </View>
-            )}
-          </View>
-        </View>
-      </Modal>
+        onClose={() => {
+          setShowAddPlayerModal(false);
+          setTimeout(() => {
+            setSelectedPlayerId(null);
+            setPlayerSearch('');
+            setJoinDate(new Date());
+            setIsGuestAdd(false);
+            setGuestUntilDate(getDefaultGuestUntil());
+            setShowDatePicker(false);
+            setShowGuestDatePicker(false);
+            setShowAttendanceBackfill(false);
+            setShowPackageSelection(false);
+            setSelectedAttendance({});
+            setSelectedCreditPackage(null);
+            setSelectedPackageTemplateId(null);
+            setExpandedCreditType(null);
+            setShowCreatePackageForm(false);
+            setNewPackageName('');
+            setNewPackageCredits('');
+            setNewPackagePricePerCredit('');
+          }, 350);
+        }}
+        bottomInset={insets.bottom}
+        showAttendanceBackfill={showAttendanceBackfill}
+        showPackageSelection={showPackageSelection}
+        selectedPlayerId={selectedPlayerId}
+        joinDate={joinDate}
+        setJoinDate={setJoinDate}
+        isGuestAdd={isGuestAdd}
+        setIsGuestAdd={setIsGuestAdd}
+        guestUntilDate={guestUntilDate}
+        setGuestUntilDate={setGuestUntilDate}
+        showDatePicker={showDatePicker}
+        setShowDatePicker={setShowDatePicker}
+        showGuestDatePicker={showGuestDatePicker}
+        setShowGuestDatePicker={setShowGuestDatePicker}
+        selectedAttendance={selectedAttendance}
+        setSelectedAttendance={setSelectedAttendance}
+        pastSessions={getPastSessionsSinceJoinDate()}
+        addPlayerIsPending={addPlayerMutation.isPending}
+        handleSavePlayer={handleSavePlayer}
+        showCreatePackageForm={showCreatePackageForm}
+        setShowCreatePackageForm={setShowCreatePackageForm}
+        newPackageName={newPackageName}
+        setNewPackageName={setNewPackageName}
+        newPackageCredits={newPackageCredits}
+        setNewPackageCredits={setNewPackageCredits}
+        newPackagePricePerCredit={newPackagePricePerCredit}
+        setNewPackagePricePerCredit={setNewPackagePricePerCredit}
+        createPackageIsPending={createPackageMutation.isPending}
+        handleCreatePackage={handleCreatePackage}
+        creditPackagesByType={creditPackagesByType}
+        expandedCreditType={expandedCreditType}
+        setExpandedCreditType={setExpandedCreditType}
+        selectedCreditPackage={selectedCreditPackage}
+        setSelectedCreditPackage={setSelectedCreditPackage}
+        selectedPackageTemplateId={selectedPackageTemplateId}
+        setSelectedPackageTemplateId={setSelectedPackageTemplateId}
+        packageTemplates={packageTemplates}
+        deleteTemplateIsPending={deleteTemplateMutation.isPending}
+        onDeleteTemplate={(id) => deleteTemplateMutation.mutate(id)}
+        handleSelectPackage={handleSelectPackage}
+        handleSkipPackage={handleSkipPackage}
+        onAssignCreditPackage={handleSavePlayer}
+        allPlayers={allPlayers}
+        filteredPlayers={filteredPlayers}
+        playerSearch={playerSearch}
+        setPlayerSearch={setPlayerSearch}
+        handlePlayerSelect={handlePlayerSelect}
+        handleContinueToPackage={handleContinueToPackage}
+        getBallLevelColor={getBallLevelColor}
+        formatDate={formatDate}
+      />
 
       {/* Attendance Modal (also contains Transfer view) */}
-      <Modal
+      <SeriesAttendanceModal
         visible={showAttendanceModal}
-        transparent
-        animationType="slide"
-        onRequestClose={() => {
+        onClose={() => {
           setShowAttendanceModal(false);
-          setAttendanceModalView("attendance");
-          setSelectedTargetCoachId(null);
+          setTimeout(() => {
+            setSelectedSession(null);
+            setSessionAttendance({});
+          }, 350);
         }}
-      >
-        <View style={styles.overlay}>
-          <Pressable style={styles.backdrop} onPress={() => {
-            setShowAttendanceModal(false);
-            setAttendanceModalView("attendance");
-            setSelectedTargetCoachId(null);
-          }} />
-          <View style={[styles.drawer, { paddingTop: Spacing.xl, paddingHorizontal: Spacing.lg }]}>
-            {/* Dynamic Header based on view */}
-            <View style={styles.attendanceModalHeader}>
-              <View style={{ flexDirection: "row", alignItems: "center", gap: Spacing.sm }}>
-                {attendanceModalView === "transfer" && (
-                  <Pressable 
-                    onPress={() => {
-                      setAttendanceModalView("attendance");
-                      setSelectedTargetCoachId(null);
-                    }}
-                    style={{ marginRight: Spacing.xs }}
-                  >
-                    <Ionicons name="arrow-back" size={24} color={Colors.dark.accentCyan} />
-                  </Pressable>
-                )}
-                <View>
-                  <View style={{ flexDirection: "row", alignItems: "center", gap: Spacing.sm }}>
-                    {attendanceModalView === "transfer" && (
-                      <Ionicons name="swap-horizontal" size={20} color={Colors.dark.accentCyan} />
-                    )}
-                    <Text style={styles.attendanceModalTitle}>
-                      {attendanceModalView === "transfer" ? "Transfer Session" : "Mark Attendance"}
-                    </Text>
-                    {loadingAttendance && attendanceModalView === "attendance" ? (
-                      <ActivityIndicator size="small" color={Colors.dark.accentNeon} />
-                    ) : null}
-                  </View>
-                  {selectedSession ? (
-                    <Text style={styles.attendanceModalDate}>
-                      {formatDate(selectedSession.startTime)} - Week {selectedSession.weekNumber || ([...(series?.sessions || [])].sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime()).findIndex(s => s.id === selectedSession.id) + 1)}
-                    </Text>
-                  ) : null}
-                </View>
-              </View>
-              <Pressable onPress={() => {
-                setShowAttendanceModal(false);
-                setAttendanceModalView("attendance");
-                setSelectedTargetCoachId(null);
-              }}>
-                <Ionicons name="close" size={24} color={Colors.dark.text} />
-              </Pressable>
-            </View>
-
-            {/* Attendance View */}
-            {attendanceModalView === "attendance" ? (
-            <ScrollView style={{ flex: 1 }}>
-              {(() => {
-                const sessionDate = selectedSession ? new Date(selectedSession.startTime) : new Date();
-                // Filter players who were active at the session date (including former players who were active then)
-                const activePlayers = (series?.players || []).filter(p => isPlayerActiveForSession(p, sessionDate));
-                const presentCount = Object.values(sessionAttendance).filter(s => s === "present").length;
-                const sessionType = series?.sessionType || "group";
-                
-                let creditTypeHint = "";
-                let isPrivateCharge = false;
-                if (sessionType === "semi_private" || sessionType === "semi") {
-                  if (activePlayers.length === 1) {
-                    creditTypeHint = "Only 1 player in group - charged as private lesson";
-                    isPrivateCharge = true;
-                  } else if (presentCount === 1) {
-                    creditTypeHint = "Only 1 player present - charged as private lesson";
-                    isPrivateCharge = true;
-                  } else if (presentCount >= 2) {
-                    creditTypeHint = "Semi-private credits will be charged";
-                    isPrivateCharge = false;
-                  }
-                }
-
-                return (
-                  <>
-                    {activePlayers.map((player) => {
-                      const status = sessionAttendance[player.id] || "present";
-                      return (
-                        <View key={player.id} style={styles.attendancePlayerRow}>
-                          <View style={styles.attendancePlayerInfo}>
-                            <View style={styles.attendancePlayerAvatar}>
-                              <Text style={styles.attendancePlayerInitial}>
-                                {player.name.charAt(0).toUpperCase()}
-                              </Text>
-                            </View>
-                            <Text style={styles.attendancePlayerName}>{player.name}</Text>
-                          </View>
-                          <View style={styles.attendanceToggle}>
-                            <Pressable
-                              style={[
-                                styles.attendanceToggleOption,
-                                status === "present" && styles.attendanceToggleActive,
-                              ]}
-                              onPress={() => handleSetAttendance(player.id, "present")}
-                            >
-                              <Text
-                                style={[
-                                  styles.attendanceToggleText,
-                                  status === "present" && styles.attendanceToggleTextActive,
-                                ]}
-                              >
-                                Present
-                              </Text>
-                            </Pressable>
-                            <Pressable
-                              style={[
-                                styles.attendanceToggleOption,
-                                status === "absent" && styles.attendanceToggleAbsent,
-                              ]}
-                              onPress={() => handleSetAttendance(player.id, "absent")}
-                            >
-                              <Text
-                                style={[
-                                  styles.attendanceToggleText,
-                                  status === "absent" && styles.attendanceToggleTextActive,
-                                ]}
-                              >
-                                Absent
-                              </Text>
-                            </Pressable>
-                            <Pressable
-                              style={[
-                                styles.attendanceToggleOption,
-                                status === "vacation" && styles.attendanceToggleVacation,
-                              ]}
-                              onPress={() => handleSetAttendance(player.id, "vacation")}
-                            >
-                              <Text
-                                style={[
-                                  styles.attendanceToggleText,
-                                  status === "vacation" && styles.attendanceToggleTextActive,
-                                ]}
-                              >
-                                Vacation
-                              </Text>
-                            </Pressable>
-                          </View>
-                        </View>
-                      );
-                    })}
-                    
-                    {creditTypeHint ? (
-                      <View style={[
-                        styles.creditHintBox,
-                        isPrivateCharge ? styles.creditHintBoxPrivate : styles.creditHintBoxSemi
-                      ]}>
-                        <Ionicons 
-                          name={isPrivateCharge ? "person" : "people"} 
-                          size={16} 
-                          color={isPrivateCharge ? Colors.dark.sessionPrivate : Colors.dark.sessionSemiPrivate} 
-                        />
-                        <Text style={[
-                          styles.creditHint, 
-                          isPrivateCharge ? styles.creditHintPrivate : styles.creditHintSemi
-                        ]}>
-                          {creditTypeHint}
-                        </Text>
-                      </View>
-                    ) : null}
-                  </>
-                );
-              })()}
-
-              <View style={styles.attendanceActions}>
-                <Pressable
-                  style={[styles.saveButton, (savingAttendance || cancellingSession) && styles.saveButtonDisabled]}
-                  onPress={handleSaveAttendance}
-                  disabled={savingAttendance || cancellingSession}
-                >
-                  <Text style={styles.saveButtonText}>
-                    {savingAttendance ? "Saving..." : "Save Attendance"}
-                  </Text>
-                </Pressable>
-
-                <Pressable
-                  style={[styles.cancelSessionButton, (savingAttendance || cancellingSession) && styles.saveButtonDisabled]}
-                  onPress={handleCancelSession}
-                  disabled={savingAttendance || cancellingSession}
-                >
-                  <Text style={styles.cancelSessionButtonText}>
-                    {cancellingSession ? "Cancelling..." : "Cancel Session (Holiday/No Class)"}
-                  </Text>
-                </Pressable>
-
-                <Pressable
-                  style={[styles.transferButton, (savingAttendance || cancellingSession) && styles.saveButtonDisabled]}
-                  onPress={() => {
-                    setAttendanceModalView("transfer");
-                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                  }}
-                  disabled={savingAttendance || cancellingSession}
-                >
-                  <Ionicons name="swap-horizontal" size={18} color={Colors.dark.text} />
-                  <Text style={styles.transferButtonText}>Transfer to Another Coach</Text>
-                </Pressable>
-
-                <Pressable
-                  style={[styles.deleteSessionButton, (savingAttendance || cancellingSession || deletingSession) && styles.saveButtonDisabled]}
-                  onPress={() => {
-                    Alert.alert(
-                      "Delete Session",
-                      "Are you sure you want to permanently delete this session? This will remove it from the calendar and refund any credits used. This cannot be undone.",
-                      [
-                        { text: "Cancel", style: "cancel" },
-                        { 
-                          text: "Delete", 
-                          style: "destructive",
-                          onPress: handleDeleteSession
-                        }
-                      ]
-                    );
-                  }}
-                  disabled={savingAttendance || cancellingSession || deletingSession}
-                >
-                  <Ionicons name="trash-outline" size={18} color="#FF4444" />
-                  <Text style={styles.deleteSessionButtonText}>
-                    {deletingSession ? "Deleting..." : "Delete Session Permanently"}
-                  </Text>
-                </Pressable>
-              </View>
-            </ScrollView>
-            ) : (
-            /* Transfer View */
-            <View style={{ flex: 1 }}>
-              <View style={styles.transferInfoCard}>
-                <Ionicons name="information-circle" size={18} color={Colors.dark.accentCyan} />
-                <Text style={styles.transferInfoText}>
-                  The session will be removed from your calendar and added to the selected coach's calendar.
-                </Text>
-              </View>
-
-              <Text style={styles.transferSectionLabel}>Select Coach</Text>
-              
-              <ScrollView 
-                style={styles.transferCoachList}
-                showsVerticalScrollIndicator={false}
-              >
-                {coaches.filter(c => c.id !== currentCoach?.id).length === 0 ? (
-                  <View style={styles.noCoachesContainer}>
-                    <Ionicons name="people-outline" size={40} color={Colors.dark.textMuted} />
-                    <Text style={styles.noCoachesText}>No other coaches available</Text>
-                  </View>
-                ) : (
-                  coaches.filter(c => c.id !== currentCoach?.id).map((coach) => (
-                    <Pressable
-                      key={coach.id}
-                      style={[
-                        styles.transferCoachCard,
-                        selectedTargetCoachId === coach.id && styles.transferCoachCardActive,
-                      ]}
-                      onPress={() => {
-                        setSelectedTargetCoachId(coach.id);
-                        Haptics.selectionAsync();
-                      }}
-                    >
-                      <LinearGradient
-                        colors={selectedTargetCoachId === coach.id 
-                          ? [Colors.dark.accentCyan + "25", Colors.dark.accentCyan + "10"]
-                          : ["transparent", "transparent"]
-                        }
-                        style={StyleSheet.absoluteFillObject}
-                      />
-                      <View style={[
-                        styles.transferCoachAvatar,
-                        selectedTargetCoachId === coach.id && styles.transferCoachAvatarActive,
-                      ]}>
-                        <Text style={[
-                          styles.transferCoachAvatarText,
-                          selectedTargetCoachId === coach.id && styles.transferCoachAvatarTextActive,
-                        ]}>
-                          {coach.name.charAt(0).toUpperCase()}
-                        </Text>
-                      </View>
-                      <View style={styles.transferCoachInfo}>
-                        <Text style={styles.transferCoachName}>{coach.name}</Text>
-                        <Text style={styles.transferCoachRole}>Coach</Text>
-                      </View>
-                      {selectedTargetCoachId === coach.id ? (
-                        <View style={styles.transferCheckmark}>
-                          <Ionicons name="checkmark" size={16} color={"rgba(255, 255, 255, 0.06)"} />
-                        </View>
-                      ) : (
-                        <View style={styles.transferRadio} />
-                      )}
-                    </Pressable>
-                  ))
-                )}
-              </ScrollView>
-
-              <View style={styles.transferActions}>
-                <Pressable
-                  style={[
-                    styles.transferConfirmButton,
-                    (!selectedTargetCoachId || transferringSession) && styles.transferConfirmButtonDisabled,
-                  ]}
-                  onPress={() => {
-                    if (selectedSession && selectedTargetCoachId) {
-                      setTransferringSession(true);
-                      transferSessionMutation.mutate({
-                        sessionId: selectedSession.id,
-                        targetCoachId: selectedTargetCoachId,
-                      });
-                    }
-                  }}
-                  disabled={!selectedTargetCoachId || transferringSession}
-                >
-                  <LinearGradient
-                    colors={!selectedTargetCoachId || transferringSession
-                      ? ["rgba(255, 255, 255, 0.04)", "rgba(255, 255, 255, 0.04)"]
-                      : [GlowColors.primary, GlowColors.soft]
-                    }
-                    start={{ x: 0, y: 0 }}
-                    end={{ x: 1, y: 0 }}
-                    style={styles.transferConfirmGradient}
-                  >
-                    <Ionicons 
-                      name={transferringSession ? "hourglass" : "swap-horizontal"} 
-                      size={20} 
-                      color={!selectedTargetCoachId || transferringSession ? Colors.dark.textMuted : "rgba(255, 255, 255, 0.06)"} 
-                    />
-                    <Text style={[
-                      styles.transferConfirmText,
-                      (!selectedTargetCoachId || transferringSession) && styles.transferConfirmTextDisabled,
-                    ]}>
-                      {transferringSession ? "Transferring..." : "Confirm Transfer"}
-                    </Text>
-                  </LinearGradient>
-                </Pressable>
-              </View>
-            </View>
-            )}
-          </View>
-        </View>
-      </Modal>
+        attendanceModalView={attendanceModalView}
+        setAttendanceModalView={setAttendanceModalView}
+        selectedTargetCoachId={selectedTargetCoachId}
+        setSelectedTargetCoachId={setSelectedTargetCoachId}
+        loadingAttendance={loadingAttendance}
+        selectedSession={selectedSession}
+        series={series}
+        sessionAttendance={sessionAttendance}
+        isPlayerActiveForSession={isPlayerActiveForSession}
+        coaches={coaches}
+        currentCoachId={currentCoach?.id}
+        handleSetAttendance={handleSetAttendance}
+        handleSaveAttendance={handleSaveAttendance}
+        handleCancelSession={handleCancelSession}
+        handleDeleteSession={handleDeleteSession}
+        onTransfer={(sessionId, targetCoachId) => transferSessionMutation.mutate({ sessionId, targetCoachId })}
+        savingAttendance={saveAttendanceMutation.isPending}
+        cancellingSession={cancelSessionMutation.isPending}
+        deletingSession={deleteSessionMutation.isPending}
+        transferringSession={transferringSession}
+        setTransferringSession={setTransferringSession}
+        formatDate={formatDate}
+      />
 
       <SeriesRestoreSessionModal
         visible={showRestoreModal}
@@ -2893,337 +2104,37 @@ export default function SeriesDetailDrawer({
       />
       
       {/* Extra Lesson Modal - 3 Step Wizard */}
-      <Modal
+      <SeriesExtraLessonModal
         visible={showExtraLessonModal}
-        animationType="fade"
-        transparent={true}
-        onRequestClose={resetExtraLessonModal}
-      >
-        <View style={styles.extendModalOverlay}>
-          <View style={styles.extendModalBackdrop}>
-            <Pressable 
-              style={StyleSheet.absoluteFill} 
-              onPress={resetExtraLessonModal} 
-            />
-          </View>
-          <View style={styles.extendModalContent}>
-            {/* Step Indicator */}
-            <View style={{ flexDirection: "row", justifyContent: "center", marginBottom: Spacing.md, gap: Spacing.xs }}>
-              {[1, 2, 3].map((step) => (
-                <View 
-                  key={step} 
-                  style={{ 
-                    width: 8, 
-                    height: 8, 
-                    borderRadius: 4, 
-                    backgroundColor: extraLessonStep >= step ? Colors.dark.warning : Colors.dark.border 
-                  }} 
-                />
-              ))}
-            </View>
-            
-            {/* Step 1: Court Selection */}
-            {extraLessonStep === 1 && (
-              <>
-                <View style={styles.extendModalHeader}>
-                  <Ionicons name="tennisball-outline" size={32} color={Colors.dark.warning} />
-                  <Text style={styles.extendModalTitle}>Select Court</Text>
-                  <Text style={styles.extendModalSubtitle}>
-                    Choose a court for the extra lesson
-                  </Text>
-                </View>
-                
-                <View style={{ marginBottom: Spacing.md }}>
-                  {courtsData && courtsData.length > 0 ? (
-                    courtsData.map((court, index) => (
-                      <Pressable
-                        key={court.id}
-                        style={[
-                          {
-                            flexDirection: "row",
-                            alignItems: "center",
-                            padding: Spacing.md,
-                            borderRadius: BorderRadius.md,
-                            backgroundColor: selectedCourtId === court.id ? Colors.dark.warning + "20" : Colors.dark.backgroundSecondary,
-                            borderWidth: 2,
-                            borderColor: selectedCourtId === court.id ? Colors.dark.warning : Colors.dark.border,
-                            marginBottom: index < courtsData.length - 1 ? Spacing.sm : 0,
-                          },
-                        ]}
-                        onPress={() => {
-                          Haptics.selectionAsync();
-                          setSelectedCourtId(court.id);
-                        }}
-                      >
-                        <View style={{ 
-                          width: 16, 
-                          height: 16, 
-                          borderRadius: 8, 
-                          backgroundColor: court.color || Colors.dark.accent,
-                          marginRight: Spacing.md,
-                        }} />
-                        <Text style={{
-                          color: selectedCourtId === court.id ? Colors.dark.warning : Colors.dark.text,
-                          fontSize: 16,
-                          fontWeight: selectedCourtId === court.id ? "600" : "400",
-                          flex: 1,
-                        }}>
-                          {court.name}
-                        </Text>
-                        {selectedCourtId === court.id && (
-                          <Ionicons name="checkmark-circle" size={22} color={Colors.dark.warning} />
-                        )}
-                      </Pressable>
-                    ))
-                  ) : (
-                    <View style={{ padding: Spacing.lg, alignItems: "center" }}>
-                      <Ionicons name="tennisball-outline" size={40} color={Colors.dark.textMuted} />
-                      <Text style={{ color: Colors.dark.textSecondary, textAlign: "center", marginTop: Spacing.sm }}>
-                        No courts available
-                      </Text>
-                    </View>
-                  )}
-                </View>
-                
-                <View style={styles.extendModalFooter}>
-                  <Pressable style={styles.extendCancelButton} onPress={resetExtraLessonModal}>
-                    <Text style={styles.extendCancelButtonText}>Cancel</Text>
-                  </Pressable>
-                  <Pressable
-                    style={[styles.extendConfirmButton, !selectedCourtId && { opacity: 0.5 }]}
-                    onPress={() => selectedCourtId && setExtraLessonStep(2)}
-                    disabled={!selectedCourtId}
-                  >
-                    <LinearGradient
-                      colors={[Colors.dark.warning, Colors.dark.warning]}
-                      start={{ x: 0, y: 0 }}
-                      end={{ x: 1, y: 0 }}
-                      style={styles.extendConfirmGradient}
-                    >
-                      <Text style={styles.extendConfirmButtonText}>Next</Text>
-                      <Ionicons name="arrow-forward" size={18} color={Colors.dark.backgroundRoot} />
-                    </LinearGradient>
-                  </Pressable>
-                </View>
-              </>
-            )}
-            
-            {/* Step 2: Date Selection */}
-            {extraLessonStep === 2 && (
-              <>
-                <View style={styles.extendModalHeader}>
-                  <Ionicons name="calendar-outline" size={32} color={Colors.dark.warning} />
-                  <Text style={styles.extendModalTitle}>Select Date</Text>
-                  <Text style={styles.extendModalSubtitle}>
-                    Pick a date for the extra lesson
-                  </Text>
-                </View>
-                
-                {Platform.OS === "web" ? (
-                  <WebCalendarPicker
-                    value={extraLessonDate}
-                    onChange={(date) => setExtraLessonDate(date)}
-                  />
-                ) : (
-                  <>
-                    <Pressable
-                      style={styles.datePickerButton}
-                      onPress={() => setShowExtraLessonDatePicker(true)}
-                    >
-                      <Ionicons name="calendar" size={20} color={Colors.dark.accent} />
-                      <Text style={styles.datePickerText}>
-                        {extraLessonDate.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric", year: "numeric" })}
-                      </Text>
-                    </Pressable>
-                    {showExtraLessonDatePicker && (
-                      <DateTimePicker
-                        value={extraLessonDate}
-                        mode="date"
-                        display="default"
-                        onChange={(event, selectedDate) => {
-                          setShowExtraLessonDatePicker(false);
-                          if (selectedDate) setExtraLessonDate(selectedDate);
-                        }}
-                      />
-                    )}
-                  </>
-                )}
-                
-                <View style={[styles.extendModalFooter, { marginTop: Spacing.lg }]}>
-                  <Pressable style={styles.extendCancelButton} onPress={() => setExtraLessonStep(1)}>
-                    <Ionicons name="arrow-back" size={16} color={Colors.dark.textSecondary} />
-                    <Text style={styles.extendCancelButtonText}>Back</Text>
-                  </Pressable>
-                  <Pressable
-                    style={styles.extendConfirmButton}
-                    onPress={() => setExtraLessonStep(3)}
-                  >
-                    <LinearGradient
-                      colors={[Colors.dark.warning, Colors.dark.warning]}
-                      start={{ x: 0, y: 0 }}
-                      end={{ x: 1, y: 0 }}
-                      style={styles.extendConfirmGradient}
-                    >
-                      <Text style={styles.extendConfirmButtonText}>Next</Text>
-                      <Ionicons name="arrow-forward" size={18} color={Colors.dark.backgroundRoot} />
-                    </LinearGradient>
-                  </Pressable>
-                </View>
-              </>
-            )}
-            
-            {/* Step 3: Time Selection */}
-            {extraLessonStep === 3 && (
-              <>
-                <View style={styles.extendModalHeader}>
-                  <Ionicons name="time-outline" size={32} color={Colors.dark.warning} />
-                  <Text style={styles.extendModalTitle}>Available Times</Text>
-                  <Text style={styles.extendModalSubtitle}>
-                    {courtsData?.find(c => c.id === selectedCourtId)?.name || "Court"} - {extraLessonDate.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })}
-                  </Text>
-                  <Text style={{ color: Colors.dark.textSecondary, fontSize: 12, marginTop: 4 }}>
-                    Tap a start time, then tap an end time to set duration
-                  </Text>
-                </View>
-                
-                <View style={{ 
-                  flexDirection: "row", 
-                  flexWrap: "wrap", 
-                  justifyContent: "space-between",
-                  marginBottom: Spacing.md,
-                }}>
-                  {timeSlots.map((slot) => {
-                    const isStart = selectedTimeSlot === slot.time;
-                    const isEnd = selectedEndTimeSlot === slot.time;
-                    const inRange = isInRange(slot.time);
-                    const isHighlighted = isStart || isEnd || inRange;
-                    const busyLabel = slot.coachBusy ? "You're busy" : slot.courtBusy ? "Court busy" : !slot.available ? "Booked" : "";
-                    return (
-                      <Pressable
-                        key={slot.time}
-                        style={{
-                          width: "23%",
-                          paddingVertical: Spacing.xs,
-                          paddingHorizontal: Spacing.xs,
-                          marginBottom: Spacing.xs,
-                          borderRadius: BorderRadius.md,
-                          borderWidth: 2,
-                          borderColor: isHighlighted ? Colors.dark.successNeon : slot.coachBusy ? "#FF6B6B60" : Colors.dark.border,
-                          backgroundColor: isHighlighted
-                            ? Colors.dark.successNeon + "30"
-                            : slot.coachBusy
-                              ? "#FF6B6B15"
-                              : slot.available
-                                ? Colors.dark.backgroundSecondary
-                                : Colors.dark.backgroundRoot,
-                          opacity: slot.available ? 1 : 0.5,
-                          alignItems: "center",
-                        }}
-                        onPress={() => {
-                          if (!slot.available) return;
-                          Haptics.selectionAsync();
-                          const slotMins = (() => { const [h, m] = slot.time.split(":").map(Number); return h * 60 + m; })();
-
-                          if (!selectedTimeSlot) {
-                            // No start yet — set start
-                            setSelectedTimeSlot(slot.time);
-                            setSelectedEndTimeSlot(null);
-                            const [hours, minutes] = slot.time.split(":");
-                            const newTime = new Date();
-                            newTime.setHours(parseInt(hours), parseInt(minutes || "0"), 0, 0);
-                            setExtraLessonTime(newTime);
-                          } else {
-                            const startMins = (() => { const [h, m] = selectedTimeSlot.split(":").map(Number); return h * 60 + m; })();
-                            if (slot.time === selectedTimeSlot) {
-                              // Tap start again — deselect all
-                              setSelectedTimeSlot(null);
-                              setSelectedEndTimeSlot(null);
-                            } else if (slotMins > startMins && isRangeClear(selectedTimeSlot, slot.time)) {
-                              // Valid end time — set range
-                              setSelectedEndTimeSlot(slot.time);
-                            } else {
-                              // Reset: treat tapped slot as new start
-                              setSelectedTimeSlot(slot.time);
-                              setSelectedEndTimeSlot(null);
-                              const [hours, minutes] = slot.time.split(":");
-                              const newTime = new Date();
-                              newTime.setHours(parseInt(hours), parseInt(minutes || "0"), 0, 0);
-                              setExtraLessonTime(newTime);
-                            }
-                          }
-                        }}
-                      >
-                        <Text style={{
-                          color: isHighlighted
-                            ? Colors.dark.successNeon
-                            : slot.available
-                              ? Colors.dark.text
-                              : Colors.dark.textMuted,
-                          fontSize: 13,
-                          fontWeight: isHighlighted ? "700" : "500",
-                        }}>
-                          {slot.time}
-                        </Text>
-                        {busyLabel ? (
-                          <Text style={{ color: slot.coachBusy ? "#FF6B6B" : Colors.dark.textMuted, fontSize: 8, marginTop: 1 }}>
-                            {busyLabel}
-                          </Text>
-                        ) : null}
-                      </Pressable>
-                    );
-                  })}
-                </View>
-                
-                {selectedTimeSlot && (
-                  <View style={{ 
-                    padding: Spacing.md, 
-                    backgroundColor: Colors.dark.successNeon + "15", 
-                    borderRadius: BorderRadius.md,
-                    borderWidth: 1,
-                    borderColor: Colors.dark.successNeon + "40",
-                    marginBottom: Spacing.md,
-                  }}>
-                    <View style={{ flexDirection: "row", alignItems: "center", gap: Spacing.sm }}>
-                      <Ionicons name="checkmark-circle" size={20} color={Colors.dark.successNeon} />
-                      {selectedEndTimeSlot ? (
-                        <Text style={{ color: Colors.dark.successNeon, fontWeight: "600", fontSize: 14 }}>
-                          {selectedTimeSlot} → {selectedEndTimeSlot} ({calcDurationMins(selectedTimeSlot, selectedEndTimeSlot)} min)
-                        </Text>
-                      ) : (
-                        <Text style={{ color: Colors.dark.successNeon, fontWeight: "600", fontSize: 14 }}>
-                          Start: {selectedTimeSlot} — tap an end time
-                        </Text>
-                      )}
-                    </View>
-                  </View>
-                )}
-                
-                <View style={[styles.extendModalFooter, { marginTop: Spacing.sm }]}>
-                  <Pressable style={styles.extendCancelButton} onPress={() => setExtraLessonStep(2)}>
-                    <Ionicons name="arrow-back" size={16} color={Colors.dark.textSecondary} />
-                    <Text style={styles.extendCancelButtonText}>Back</Text>
-                  </Pressable>
-                  <Pressable
-                    style={[styles.extendConfirmButton, !selectedTimeSlot && { opacity: 0.5 }]}
-                    onPress={confirmAddExtraLesson}
-                    disabled={!selectedTimeSlot}
-                  >
-                    <LinearGradient
-                      colors={[Colors.dark.successNeon, Colors.dark.accentGreen]}
-                      start={{ x: 0, y: 0 }}
-                      end={{ x: 1, y: 0 }}
-                      style={styles.extendConfirmGradient}
-                    >
-                      <Ionicons name="checkmark-circle" size={20} color={Colors.dark.backgroundRoot} />
-                      <Text style={styles.extendConfirmButtonText}>Add Lesson</Text>
-                    </LinearGradient>
-                  </Pressable>
-                </View>
-              </>
-            )}
-          </View>
-        </View>
-      </Modal>
+        onReset={() => {
+          setShowExtraLessonModal(false);
+          setTimeout(() => {
+            setExtraLessonStep(1);
+            setSelectedCourtId(null);
+            setSelectedTimeSlot(null);
+            setSelectedEndTimeSlot(null);
+          }, 350);
+        }}
+        extraLessonStep={extraLessonStep}
+        setExtraLessonStep={setExtraLessonStep}
+        extraLessonDate={extraLessonDate}
+        setExtraLessonDate={setExtraLessonDate}
+        showExtraLessonDatePicker={showExtraLessonDatePicker}
+        setShowExtraLessonDatePicker={setShowExtraLessonDatePicker}
+        selectedCourtId={selectedCourtId}
+        setSelectedCourtId={setSelectedCourtId}
+        courtsData={courtsData}
+        timeSlots={timeSlots}
+        selectedTimeSlot={selectedTimeSlot}
+        setSelectedTimeSlot={setSelectedTimeSlot}
+        selectedEndTimeSlot={selectedEndTimeSlot}
+        setSelectedEndTimeSlot={setSelectedEndTimeSlot}
+        setExtraLessonTime={setExtraLessonTime}
+        isInRange={isInRange}
+        isRangeClear={isRangeClear}
+        calcDurationMins={calcDurationMins}
+        confirmAddExtraLesson={confirmAddExtraLesson}
+      />
     </Modal>
 
     {/* Feedback Drawer - appears after saving attendance */}

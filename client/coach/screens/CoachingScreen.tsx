@@ -23,7 +23,7 @@ import Animated, {
 import { useCoach } from "@/coach/context/CoachContext";
 import { Colors, Spacing, BorderRadius } from "@/constants/theme";
 import { styles } from "./coaching/coachingStyles";
-import type { TabType } from "./coaching/types";
+import type { TabType, ProgressTrend, EffortLevel } from "./coaching/types";
 import { SeriesTab } from "./coaching/SeriesTab";
 import { WeekPlannerTab } from "./coaching/WeekPlannerTab";
 import { TodayFeedbackTab } from "./coaching/TodayFeedbackTab";

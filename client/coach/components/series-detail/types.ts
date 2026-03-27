@@ -107,3 +107,49 @@ export interface SeriesDetailDrawerProps {
   seriesId: string | null;
   onClose: () => void;
 }
+
+export interface MergeSuggestion {
+  playerId: string;
+  name: string;
+  ballLevel?: string;
+  homeSeriesName: string;
+  pauseFrom?: string;
+  pauseUntil?: string;
+}
+
+export interface CoachOption {
+  id: string;
+  name: string;
+}
+
+export interface PackageTemplate {
+  id: string;
+  name: string;
+  credits: number;
+  validityDays: number;
+  currency: string;
+  price: string;
+}
+
+export interface CreditPackageOption {
+  creditType: string;
+  credits: number;
+  totalPrice: string;
+  pricePerCredit: string;
+  currency: string;
+}
+
+export interface TimeSlot {
+  time: string;
+  available: boolean;
+  coachBusy?: boolean;
+  courtBusy?: boolean;
+}
+
+export interface CourtOption {
+  id: string;
+  name: string;
+  color?: string;
+}
+
+export type TabId = "overview" | "timeline" | "feedback" | "progress" | "plan";
