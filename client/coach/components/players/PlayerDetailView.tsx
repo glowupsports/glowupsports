@@ -130,7 +130,81 @@ const getLevelReadiness = (currentLevel: string | null, totalXp: number): LevelR
   };
 };
 
+import * as Clipboard from "expo-clipboard";
 import { styles } from "./playersStyles";
+
+function ProminentInviteCard({
+  inviteCode,
+  playerName,
+  onSendEmail,
+  isSendingEmail,
+}: {
+  inviteCode: string;
+  playerName: string;
+  onSendEmail?: () => void;
+  isSendingEmail?: boolean;
+}) {
+  const [copied, setCopied] = useState(false);
+  const handleCopy = async () => {
+    await Clipboard.setStringAsync(inviteCode);
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 3000);
+  };
+  const handleShare = async () => {
+    if (Platform.OS === "web") return;
+    try {
+      const { Share } = await import("react-native");
+      await Share.share({
+        message: `Hi ${playerName}! Use invite code ${inviteCode} to sign up on the Glow Up Sports app.`,
+        title: "Invite Code",
+      });
+    } catch {}
+  };
+  return (
+    <View style={styles.prominentInviteCard}>
+      <Text style={styles.prominentInviteCardTitle}>Invite Code — Awaiting Signup</Text>
+      <Text style={styles.prominentInviteInstruction}>
+        Share this code with {playerName} so they can sign up in the app
+      </Text>
+      <Text style={styles.prominentInviteCode} selectable>{inviteCode}</Text>
+      <Pressable style={styles.prominentCopyButton} onPress={handleCopy}>
+        <LinearGradient
+          colors={[Colors.dark.primary, Colors.dark.xpCyan]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 0 }}
+          style={styles.prominentCopyButtonGradient}
+        >
+          <Ionicons name={copied ? "checkmark-circle" : "copy-outline"} size={18} color={Colors.dark.backgroundRoot} />
+          <Text style={styles.prominentCopyButtonText}>{copied ? "Copied!" : "Copy Code"}</Text>
+        </LinearGradient>
+      </Pressable>
+      {Platform.OS !== "web" ? (
+        <Pressable style={styles.prominentShareButton} onPress={handleShare}>
+          <Ionicons name="share-outline" size={16} color={Colors.dark.primary} />
+          <Text style={styles.prominentShareButtonText}>Share via...</Text>
+        </Pressable>
+      ) : null}
+      {onSendEmail ? (
+        <Pressable
+          style={[styles.prominentShareButton, { marginTop: 8, borderColor: Colors.dark.tabIconDefault + "40", backgroundColor: Colors.dark.backgroundTertiary }]}
+          onPress={onSendEmail}
+          disabled={isSendingEmail}
+        >
+          {isSendingEmail ? (
+            <ActivityIndicator size="small" color={Colors.dark.primary} />
+          ) : (
+            <Ionicons name="paper-plane-outline" size={16} color={Colors.dark.tabIconDefault} />
+          )}
+          <Text style={[styles.prominentShareButtonText, { color: Colors.dark.tabIconDefault }]}>
+            {isSendingEmail ? "Sending..." : "Send invite by email"}
+          </Text>
+        </Pressable>
+      ) : null}
+    </View>
+  );
+}
+
 export function PlayerDetailView({
   player,
   onBack,
@@ -420,7 +494,7 @@ export function PlayerDetailView({
 
   const { data: inviteData } = useQuery<{ inviteCode: string; status: string } | null>({
     queryKey: ["/api/players", player.id, "invite"],
-    enabled: !!localPlayer.email,
+    enabled: !localPlayer.onboardingCompleted,
     retry: false,
   });
   const isInvitePending = inviteData?.status === "pending";
@@ -753,6 +827,10 @@ export function PlayerDetailView({
 
 
 
+        {isInvitePending && inviteData?.inviteCode ? (
+          <ProminentInviteCard inviteCode={inviteData.inviteCode} playerName={localPlayer.name} onSendEmail={() => sendInviteEmailMutation.mutate()} isSendingEmail={sendInviteEmailMutation.isPending} />
+        ) : null}
+
         <View style={styles.infoSection}>
           <Text style={styles.sectionLabel}>Basic Info</Text>
           <View style={styles.infoCard}>
@@ -762,28 +840,6 @@ export function PlayerDetailView({
                   <Ionicons name="mail-outline" size={20} color={Colors.dark.tabIconDefault} />
                   <Text style={styles.infoText}>{localPlayer.email}</Text>
                 </View>
-                {isInvitePending ? (
-                  <Pressable
-                    style={[
-                      styles.sendInviteButton,
-                      sendInviteEmailMutation.isPending ? { opacity: 0.5 } : null,
-                    ]}
-                    onPress={() => {
-                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                      sendInviteEmailMutation.mutate();
-                    }}
-                    disabled={sendInviteEmailMutation.isPending}
-                  >
-                    {sendInviteEmailMutation.isPending ? (
-                      <ActivityIndicator size="small" color={Colors.dark.primary} />
-                    ) : (
-                      <Ionicons name="paper-plane-outline" size={15} color={Colors.dark.primary} />
-                    )}
-                    <Text style={styles.sendInviteButtonText}>
-                      {sendInviteEmailMutation.isPending ? "Sending..." : "Send Invite Email"}
-                    </Text>
-                  </Pressable>
-                ) : null}
               </View>
             ) : null}
             {localPlayer.phone ? (

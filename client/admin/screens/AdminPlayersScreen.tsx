@@ -10,6 +10,7 @@ import {
   Platform,
   ActivityIndicator,
   ScrollView,
+  Modal,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
@@ -36,7 +37,7 @@ import { AdminAddPlayerModal } from "@/admin/components/players/AdminAddPlayerMo
 import { AdminDeletePlayerModal } from "@/admin/components/players/AdminDeletePlayerModal";
 
 type SortOption = "name_asc" | "name_desc" | "level_high" | "level_low";
-type Player = { id: string; name: string; email?: string | null; phone?: string | null; ballLevel?: string; level?: number; coachName?: string; age?: number; dateOfBirth?: string; parentName?: string; parentPhone?: string; isActive?: boolean; status?: string; remainingCredits?: number; creditsByType?: Record<string, number> };
+type Player = { id: string; name: string; email?: string | null; phone?: string | null; ballLevel?: string; level?: number; coachName?: string; age?: number; dateOfBirth?: string; parentName?: string; parentPhone?: string; isActive?: boolean; status?: string; remainingCredits?: number; creditsByType?: Record<string, number>; onboardingCompleted?: boolean };
 type PlayerPackage = {
   id: string;
   creditType: string;
@@ -109,6 +110,8 @@ export default function AdminPlayersScreen() {
   const [showFullDetailsModal, setShowFullDetailsModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [selectedPlayerId, setSelectedPlayerId] = useState<string | null>(null);
+  const [invitePopoverPlayer, setInvitePopoverPlayer] = useState<{ id: string; name: string } | null>(null);
+  const [invitePopoverCopied, setInvitePopoverCopied] = useState(false);
   const [editingPlayer, setEditingPlayer] = useState<Player | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [showReportIssueModal, setShowReportIssueModal] = useState(false);
@@ -467,6 +470,20 @@ export default function AdminPlayersScreen() {
                 {invoiceInfo.overdueCount > 0 ? "Overdue" : "Pending"}
               </Text>
             </View>
+          ) : null}
+          {!item.onboardingCompleted ? (
+            <Pressable
+              style={{ flexDirection: "row", alignItems: "center", gap: 3, backgroundColor: Colors.dark.orange + "25", borderRadius: 8, paddingHorizontal: 6, paddingVertical: 2, borderWidth: 1, borderColor: Colors.dark.orange + "50" }}
+              onPress={(e) => {
+                e.stopPropagation();
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                setInvitePopoverCopied(false);
+                setInvitePopoverPlayer({ id: item.id, name: item.name });
+              }}
+            >
+              <Ionicons name="time-outline" size={9} color={Colors.dark.orange} />
+              <Text style={{ fontSize: 9, fontWeight: "700", color: Colors.dark.orange, letterSpacing: 0.3 }}>Awaiting signup</Text>
+            </Pressable>
           ) : null}
         </View>
       </Pressable>
@@ -903,7 +920,112 @@ export default function AdminPlayersScreen() {
         packages={playerStats?.packages}
         selectedPlayerId={selectedPlayerId}
       />
+
+      <AdminInvitePopover
+        player={invitePopoverPlayer}
+        copied={invitePopoverCopied}
+        onClose={() => { setInvitePopoverPlayer(null); setInvitePopoverCopied(false); }}
+        onCopied={() => setInvitePopoverCopied(true)}
+      />
     </View>
+  );
+}
+
+function AdminInvitePopover({
+  player,
+  copied,
+  onClose,
+  onCopied,
+}: {
+  player: { id: string; name: string } | null;
+  copied: boolean;
+  onClose: () => void;
+  onCopied: () => void;
+}) {
+  const { data: inviteData, isLoading } = useQuery<{ inviteCode: string; status: string } | null>({
+    queryKey: ["/api/players", player?.id, "invite"],
+    enabled: !!player,
+    retry: false,
+  });
+
+  const handleCopy = async () => {
+    const code = inviteData?.inviteCode;
+    if (code) {
+      await Clipboard.setStringAsync(code);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      onCopied();
+    }
+  };
+
+  return (
+    <Modal visible={!!player} transparent animationType="fade" onRequestClose={onClose}>
+      <Pressable
+        style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.85)", alignItems: "center", justifyContent: "center", padding: 24 }}
+        onPress={onClose}
+      >
+        <Pressable
+          style={{
+            backgroundColor: Colors.dark.backgroundSecondary,
+            borderRadius: BorderRadius.lg,
+            padding: Spacing.lg,
+            width: 300,
+            borderWidth: 1,
+            borderColor: Colors.dark.orange + "40",
+            alignItems: "center",
+          }}
+          onPress={(e) => e.stopPropagation()}
+          onStartShouldSetResponder={() => true}
+        >
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 4 }}>
+            <Ionicons name="time-outline" size={18} color={Colors.dark.orange} />
+            <Text style={{ fontSize: 14, fontWeight: "700", color: Colors.dark.text }}>Awaiting Signup</Text>
+          </View>
+          <Text style={{ fontSize: 12, color: Colors.dark.textMuted, textAlign: "center", lineHeight: 16, marginBottom: Spacing.md }}>
+            {player?.name} hasn't joined the app yet. Share this code with them:
+          </Text>
+          {isLoading ? (
+            <ActivityIndicator size="small" color={Colors.dark.orange} style={{ marginVertical: 16 }} />
+          ) : inviteData?.inviteCode ? (
+            <>
+              <Text style={{
+                fontSize: 28,
+                fontWeight: "900",
+                color: Colors.dark.orange,
+                letterSpacing: 6,
+                fontFamily: Platform.OS === "ios" ? "Menlo" : "monospace",
+                marginVertical: Spacing.sm,
+              }} selectable>{inviteData.inviteCode}</Text>
+              <Pressable
+                style={{
+                  flexDirection: "row",
+                  alignItems: "center",
+                  gap: 6,
+                  backgroundColor: Colors.dark.orange + "20",
+                  borderRadius: BorderRadius.md,
+                  paddingVertical: 10,
+                  paddingHorizontal: 20,
+                  borderWidth: 1,
+                  borderColor: Colors.dark.orange + "50",
+                  width: "100%",
+                  justifyContent: "center",
+                }}
+                onPress={handleCopy}
+              >
+                <Ionicons name={copied ? "checkmark-circle" : "copy-outline"} size={16} color={copied ? Colors.dark.primary : Colors.dark.orange} />
+                <Text style={{ fontSize: 14, fontWeight: "700", color: copied ? Colors.dark.primary : Colors.dark.orange }}>
+                  {copied ? "Copied!" : "Copy Code"}
+                </Text>
+              </Pressable>
+            </>
+          ) : (
+            <Text style={{ color: Colors.dark.textMuted, fontSize: 13 }}>No invite code available</Text>
+          )}
+          <Pressable style={{ marginTop: Spacing.sm, paddingVertical: 8 }} onPress={onClose}>
+            <Text style={{ fontSize: 13, color: Colors.dark.textMuted, textAlign: "center" }}>Dismiss</Text>
+          </Pressable>
+        </Pressable>
+      </Pressable>
+    </Modal>
   );
 }
 

@@ -10,6 +10,7 @@ import {
 } from "react-native";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import * as Haptics from "expo-haptics";
+import { LinearGradient } from "expo-linear-gradient";
 import { useQueryClient } from "@tanstack/react-query";
 import { Colors, Spacing, BorderRadius, CardStyles, Typography } from "@/constants/theme";
 import { apiRequest } from "@/lib/query-client";
@@ -739,46 +740,59 @@ export function AdminPlayerDetailModal({
                 </View>
               ) : null}
 
-              <View style={[styles.section, CardStyles.elevated]}>
-                <Text style={styles.sectionTitle}>Player Invite Code</Text>
-                <Text style={styles.inviteDescription}>
-                  Share this code so the player or parent can connect their account
-                </Text>
-                {inviteError ? (
-                  <Pressable 
-                    style={styles.inviteLoading} 
-                    onPress={() => refetchInvite()}
+              {inviteLoading ? (
+                <View style={[styles.section, CardStyles.elevated, { alignItems: "center", paddingVertical: 20 }]}>
+                  <ActivityIndicator size="small" color={Colors.dark.orange} />
+                  <Text style={{ color: Colors.dark.textMuted, marginTop: 8, fontSize: 13 }}>Loading invite code...</Text>
+                </View>
+              ) : inviteError ? (
+                <Pressable
+                  style={[styles.section, CardStyles.elevated, { flexDirection: "row", alignItems: "center", gap: 8, paddingVertical: 16 }]}
+                  onPress={() => refetchInvite()}
+                >
+                  <Ionicons name="alert-circle" size={20} color={Colors.dark.error} />
+                  <Text style={{ color: Colors.dark.error, fontSize: 13 }}>Failed to load invite — tap to retry</Text>
+                </Pressable>
+              ) : playerInvite?.inviteCode && playerInvite?.status === "pending" ? (
+                <View style={{
+                  backgroundColor: Colors.dark.backgroundTertiary,
+                  borderRadius: BorderRadius.lg,
+                  padding: Spacing.lg,
+                  marginBottom: Spacing.md,
+                  borderWidth: 2,
+                  borderColor: Colors.dark.primary + "40",
+                }}>
+                  <Text style={{ fontSize: 11, fontWeight: "700", color: Colors.dark.primary, letterSpacing: 1.5, textTransform: "uppercase", marginBottom: 6 }}>
+                    Invite Code — Awaiting Signup
+                  </Text>
+                  <Text style={{ fontSize: 13, color: Colors.dark.textSecondary, textAlign: "center", lineHeight: 18, marginBottom: 8 }}>
+                    Give this code to {stats?.player?.name ?? selectedPlayer?.name} — they enter it when signing up in the app
+                  </Text>
+                  <Text style={{
+                    fontSize: 36,
+                    fontWeight: "900",
+                    color: Colors.dark.primary,
+                    textAlign: "center",
+                    letterSpacing: 8,
+                    fontFamily: "Menlo",
+                    marginVertical: Spacing.md,
+                  }} selectable>{playerInvite.inviteCode}</Text>
+                  <Pressable
+                    style={{ borderRadius: BorderRadius.md, overflow: "hidden", marginBottom: Spacing.sm }}
+                    onPress={handleCopyInviteCode}
                   >
-                    <Ionicons name="alert-circle" size={20} color={Colors.dark.error} />
-                    <Text style={[styles.inviteLoadingText, { color: Colors.dark.error }]}>
-                      Failed to load - tap to retry
-                    </Text>
-                  </Pressable>
-                ) : playerInvite?.inviteCode ? (
-                  <View style={styles.inviteCodeBox}>
-                    <Text style={styles.inviteCodeLabel}>Invite Code</Text>
-                    <Text style={styles.premiumInviteCode}>{playerInvite.inviteCode}</Text>
-                    <Pressable
-                      style={[styles.premiumCopyButton, inviteCopied && styles.premiumCopyButtonCopied]}
-                      onPress={handleCopyInviteCode}
+                    <LinearGradient
+                      colors={[Colors.dark.primary, Colors.dark.xpCyan]}
+                      start={{ x: 0, y: 0 }}
+                      end={{ x: 1, y: 0 }}
+                      style={{ flexDirection: "row", alignItems: "center", justifyContent: "center", gap: Spacing.sm, paddingVertical: Spacing.md + 2, paddingHorizontal: Spacing.lg }}
                     >
-                      <Ionicons 
-                        name={inviteCopied ? "checkmark-circle" : "copy"} 
-                        size={18} 
-                        color={inviteCopied ? Colors.dark.successNeon : Colors.dark.orange} 
-                      />
-                      <Text style={[styles.premiumCopyButtonText, inviteCopied && styles.premiumCopyButtonTextCopied]}>
-                        {inviteCopied ? "Copied!" : "Copy Code"}
-                      </Text>
-                    </Pressable>
-                  </View>
-                ) : inviteLoading ? (
-                  <View style={styles.inviteLoading}>
-                    <ActivityIndicator size="small" color={Colors.dark.orange} />
-                    <Text style={styles.inviteLoadingText}>Generating invite code...</Text>
-                  </View>
-                ) : null}
-              </View>
+                      <Ionicons name={inviteCopied ? "checkmark-circle" : "copy-outline"} size={18} color={Colors.dark.backgroundRoot} />
+                      <Text style={{ fontSize: 16, fontWeight: "700", color: Colors.dark.backgroundRoot }}>{inviteCopied ? "Copied!" : "Copy Code"}</Text>
+                    </LinearGradient>
+                  </Pressable>
+                </View>
+              ) : null}
 
               <Pressable style={styles.deleteButton} onPress={handleDelete}>
                 <Ionicons name="trash-outline" size={18} color={Colors.dark.error} />

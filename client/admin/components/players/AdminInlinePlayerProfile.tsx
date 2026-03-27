@@ -519,45 +519,51 @@ export function AdminInlinePlayerProfile({
             )}
           </View>
 
-          <View style={[styles.section, CardStyles.elevated]}>
-            <View style={styles.premiumInviteHeader}>
-              <View style={styles.inviteIconBadge}>
-                <Ionicons name="link" size={18} color={Colors.dark.xpCyan} />
-              </View>
-              <Text style={styles.premiumSectionTitle}>Player Invite</Text>
+          {inviteLoading ? (
+            <View style={[styles.section, CardStyles.elevated, { alignItems: "center", paddingVertical: 20 }]}>
+              <ActivityIndicator size="small" color={Colors.dark.orange} />
+              <Text style={{ color: Colors.dark.textMuted, marginTop: 8, fontSize: 13 }}>Loading invite code...</Text>
             </View>
-            {inviteLoading ? (
-              <View style={styles.inviteLoadingState}>
-                <ActivityIndicator size="small" color={Colors.dark.orange} />
-                <Text style={styles.inviteLoadingStateText}>Generating invite...</Text>
-              </View>
-            ) : playerInvite?.inviteCode ? (
-              <View style={styles.premiumInviteContainer}>
-                <View style={styles.inviteCodeBox}>
-                  <Text style={styles.inviteCodeLabel}>Invite Code</Text>
-                  <Text style={styles.premiumInviteCode}>{playerInvite.inviteCode}</Text>
-                </View>
-                <Pressable
-                  style={[styles.premiumCopyButton, inviteCopied && styles.premiumCopyButtonCopied]}
-                  onPress={handleCopyInviteCode}
+          ) : playerInvite?.inviteCode && playerInvite?.status === "pending" ? (
+            <View style={{
+              backgroundColor: Colors.dark.backgroundTertiary,
+              borderRadius: BorderRadius.lg,
+              padding: Spacing.lg,
+              marginBottom: Spacing.md,
+              borderWidth: 2,
+              borderColor: Colors.dark.primary + "40",
+            }}>
+              <Text style={{ fontSize: 11, fontWeight: "700", color: Colors.dark.primary, letterSpacing: 1.5, textTransform: "uppercase", marginBottom: 6 }}>
+                Invite Code — Awaiting Signup
+              </Text>
+              <Text style={{ fontSize: 13, color: Colors.dark.textSecondary, textAlign: "center", lineHeight: 18, marginBottom: 8 }}>
+                Give this code to {selectedPlayer?.name} — they enter it when signing up in the app
+              </Text>
+              <Text style={{
+                fontSize: 36,
+                fontWeight: "900",
+                color: Colors.dark.primary,
+                textAlign: "center",
+                letterSpacing: 8,
+                fontFamily: "Menlo",
+                marginVertical: Spacing.md,
+              }} selectable>{playerInvite.inviteCode}</Text>
+              <Pressable
+                style={{ borderRadius: BorderRadius.md, overflow: "hidden", marginBottom: Spacing.sm }}
+                onPress={handleCopyInviteCode}
+              >
+                <LinearGradient
+                  colors={[Colors.dark.primary, Colors.dark.xpCyan]}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 0 }}
+                  style={{ flexDirection: "row", alignItems: "center", justifyContent: "center", gap: Spacing.sm, paddingVertical: Spacing.md + 2, paddingHorizontal: Spacing.lg }}
                 >
-                  <LinearGradient
-                    colors={inviteCopied ? ["rgba(200, 255, 61, 0.2)", "rgba(200, 255, 61, 0.1)"] : ["rgba(0, 224, 255, 0.15)", "rgba(0, 224, 255, 0.05)"]}
-                    style={styles.copyButtonGradient}
-                  />
-                  <Ionicons name={inviteCopied ? "checkmark-circle" : "copy"} size={18} color={inviteCopied ? Colors.dark.successNeon : Colors.dark.xpCyan} />
-                  <Text style={[styles.premiumCopyButtonText, inviteCopied && styles.premiumCopyButtonTextCopied]}>
-                    {inviteCopied ? "Copied!" : "Copy Code"}
-                  </Text>
-                </Pressable>
-              </View>
-            ) : (
-              <View style={styles.noInviteState}>
-                <Ionicons name="key-outline" size={24} color={Colors.dark.textMuted} />
-                <Text style={styles.noInviteText}>No invite code available</Text>
-              </View>
-            )}
-          </View>
+                  <Ionicons name={inviteCopied ? "checkmark-circle" : "copy-outline"} size={18} color={Colors.dark.backgroundRoot} />
+                  <Text style={{ fontSize: 16, fontWeight: "700", color: Colors.dark.backgroundRoot }}>{inviteCopied ? "Copied!" : "Copy Code"}</Text>
+                </LinearGradient>
+              </Pressable>
+            </View>
+          ) : null}
 
           <Pressable
             style={styles.deletePlayerButton}

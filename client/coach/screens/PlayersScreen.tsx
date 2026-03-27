@@ -706,34 +706,68 @@ export default function PlayersScreen() {
         }}
       />
 
-      {/* Player Invite Success Modal */}
-      <Modal visible={showInviteModal} transparent animationType="fade">
-        <View style={styles.modalOverlay}>
-          <View style={styles.inviteModalContent}>
-            <View style={styles.inviteModalHeader}>
-              <View style={styles.inviteSuccessIcon}>
-                <Ionicons name="checkmark-circle" size={48} color={Colors.dark.primary} />
+      {/* Player Invite Success Modal — Full-screen */}
+      <Modal visible={showInviteModal} transparent={false} animationType="slide">
+        <View style={{ flex: 1, backgroundColor: Colors.dark.backgroundRoot }}>
+          <ScrollView
+            contentContainerStyle={{
+              flexGrow: 1,
+              alignItems: "center",
+              justifyContent: "center",
+              padding: Spacing.xl,
+              paddingTop: insets.top + Spacing.xl,
+              paddingBottom: insets.bottom + Spacing.xl,
+            }}
+            showsVerticalScrollIndicator={false}
+          >
+            <View style={{ alignItems: "center", marginBottom: Spacing.xl }}>
+              <View style={{
+                width: 96,
+                height: 96,
+                borderRadius: 48,
+                backgroundColor: Colors.dark.primary + "20",
+                alignItems: "center",
+                justifyContent: "center",
+                marginBottom: Spacing.lg,
+                borderWidth: 2,
+                borderColor: Colors.dark.primary + "50",
+              }}>
+                <Ionicons name="checkmark-circle" size={64} color={Colors.dark.primary} />
               </View>
-              <Text style={styles.inviteModalTitle}>Player Added</Text>
-              <Text style={styles.inviteModalSubtitle}>
-                {createdPlayerInvite?.name} has been added to your roster
+              <Text style={{ fontSize: 28, fontWeight: "800", color: Colors.dark.text, marginBottom: Spacing.sm, textAlign: "center" }}>
+                Player Added!
+              </Text>
+              <Text style={{ fontSize: 16, color: Colors.dark.tabIconDefault, textAlign: "center", lineHeight: 22 }}>
+                Share this code with {createdPlayerInvite?.name} so they can sign up in the app
               </Text>
             </View>
 
-            <View style={styles.inviteCodeSection}>
-              <Text style={styles.inviteCodeLabel}>Share this code with the player or parent:</Text>
-              <View style={styles.inviteCodeBox}>
-                <Text style={styles.inviteCodeText} selectable>
-                  {createdPlayerInvite?.inviteCode}
-                </Text>
-              </View>
-              <Pressable 
-                style={styles.copyButton}
+            <View style={{
+              width: "100%",
+              backgroundColor: Colors.dark.backgroundSecondary,
+              borderRadius: BorderRadius.xl,
+              padding: Spacing.xl,
+              marginBottom: Spacing.xl,
+              borderWidth: 2,
+              borderColor: Colors.dark.primary + "40",
+              alignItems: "center",
+            }}>
+              <Text style={{ fontSize: 11, fontWeight: "700", color: Colors.dark.primary, letterSpacing: 2, textTransform: "uppercase", marginBottom: Spacing.md }}>
+                Invite Code
+              </Text>
+              <Text style={styles.inviteCodeText} selectable>
+                {createdPlayerInvite?.inviteCode}
+              </Text>
+              <Text style={{ fontSize: 13, color: Colors.dark.tabIconDefault, textAlign: "center", marginTop: Spacing.sm, marginBottom: Spacing.lg, lineHeight: 18 }}>
+                {createdPlayerInvite?.name} enters this code when signing up in the app
+              </Text>
+              <Pressable
+                style={[styles.copyButton, { width: "100%" }]}
                 onPress={async () => {
                   if (createdPlayerInvite?.inviteCode) {
                     await Clipboard.setStringAsync(createdPlayerInvite.inviteCode);
                     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-                    Alert.alert('Copied', 'Invite code copied to clipboard!');
+                    Alert.alert('Copied!', 'Invite code copied to clipboard.');
                   }
                 }}
               >
@@ -743,14 +777,33 @@ export default function PlayersScreen() {
                   end={{ x: 1, y: 0 }}
                   style={styles.copyButtonGradient}
                 >
-                  <Ionicons name="copy-outline" size={18} color={Colors.dark.backgroundRoot} />
-                  <Text style={styles.copyButtonText}>Copy Code</Text>
+                  <Ionicons name="copy-outline" size={20} color={Colors.dark.backgroundRoot} />
+                  <Text style={[styles.copyButtonText, { fontSize: 18 }]}>Copy Code</Text>
                 </LinearGradient>
               </Pressable>
+              {Platform.OS !== "web" ? (
+                <Pressable
+                  style={[styles.inviteShareButton, { width: "100%" }]}
+                  onPress={async () => {
+                    if (createdPlayerInvite?.inviteCode) {
+                      try {
+                        const { Share } = await import("react-native");
+                        await Share.share({
+                          message: `Hi ${createdPlayerInvite.name}! Use invite code ${createdPlayerInvite.inviteCode} to sign up on the Glow Up Sports app.`,
+                          title: "Invite Code",
+                        });
+                      } catch {}
+                    }
+                  }}
+                >
+                  <Ionicons name="share-outline" size={18} color={Colors.dark.primary} />
+                  <Text style={styles.inviteShareButtonText}>Share via...</Text>
+                </Pressable>
+              ) : null}
             </View>
 
-            <Pressable 
-              style={styles.inviteDoneButton}
+            <Pressable
+              style={[styles.inviteDoneButton, { width: "100%" }]}
               onPress={() => {
                 setShowInviteModal(false);
                 setCreatedPlayerInvite(null);
@@ -758,7 +811,7 @@ export default function PlayersScreen() {
             >
               <Text style={styles.inviteDoneButtonText}>Done</Text>
             </Pressable>
-          </View>
+          </ScrollView>
         </View>
       </Modal>
 

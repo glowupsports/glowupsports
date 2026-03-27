@@ -164,10 +164,29 @@ export function GamingPlayerCard({
 }) {
   const levelColor = getPlayerLevelColor(player.ballLevel ?? "green");
   const levelTextColor = getPlayerLevelTextColor(player.ballLevel ?? "green");
-  // Use onHoliday from server as source of truth for holiday badge
   const effectiveStatus = player.onHoliday ? "holiday" : player.status;
   const statusBadge = getStatusBadge(effectiveStatus);
   const scale = useSharedValue(1);
+  const [showInvitePopover, setShowInvitePopover] = useState(false);
+  const [inviteCodeCopied, setInviteCodeCopied] = useState(false);
+
+  const isPendingSignup = !player.onboardingCompleted;
+
+  const { data: inviteData } = useQuery<{ inviteCode: string; status: string } | null>({
+    queryKey: ["/api/players", player.id, "invite"],
+    enabled: isPendingSignup && showInvitePopover,
+    retry: false,
+  });
+
+  const handleCopyInviteCode = async () => {
+    const code = inviteData?.inviteCode;
+    if (code) {
+      await Clipboard.setStringAsync(code);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      setInviteCodeCopied(true);
+      setTimeout(() => setInviteCodeCopied(false), 3000);
+    }
+  };
   
   const animatedStyle = useAnimatedStyle(() => ({
     transform: [{ scale: scale.value }],
@@ -184,6 +203,7 @@ export function GamingPlayerCard({
   const xpProgress = Math.random() * 100;
 
   return (
+    <>
     <AnimatedPressable
       style={[styles.gamingCardContainer, animatedStyle]}
       onPress={() => {
@@ -252,6 +272,19 @@ export function GamingPlayerCard({
                   <Text style={styles.baselineNeededText}>Baseline</Text>
                 </Pressable>
               )}
+              {isPendingSignup ? (
+                <Pressable
+                  style={styles.awaitingSignupBadge}
+                  onPress={(e) => {
+                    e.stopPropagation();
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                    setShowInvitePopover(true);
+                  }}
+                >
+                  <Ionicons name="time-outline" size={9} color={Colors.dark.orange} />
+                  <Text style={styles.awaitingSignupText}>Awaiting signup</Text>
+                </Pressable>
+              ) : null}
               {statusBadge ? (
                 <View style={[styles.gamingStatusBadge, { backgroundColor: statusBadge.color + "25", borderColor: statusBadge.color }]}>
                   <Ionicons name={statusBadge.icon} size={10} color={statusBadge.color} />
@@ -328,6 +361,40 @@ export function GamingPlayerCard({
         </View>
       </LinearGradient>
     </AnimatedPressable>
+
+    <Modal visible={showInvitePopover} transparent animationType="fade" onRequestClose={() => setShowInvitePopover(false)}>
+      <Pressable
+        style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.85)", alignItems: "center", justifyContent: "center", padding: 24 }}
+        onPress={() => setShowInvitePopover(false)}
+      >
+        <Pressable style={styles.pendingInvitePopover} onPress={(e) => e.stopPropagation()} onStartShouldSetResponder={() => true}>
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 4 }}>
+            <Ionicons name="time-outline" size={18} color={Colors.dark.orange} />
+            <Text style={styles.pendingInvitePopoverTitle}>Awaiting Signup</Text>
+          </View>
+          <Text style={styles.pendingInvitePopoverInstruction}>
+            {player.name} hasn't joined the app yet. Share this code with them:
+          </Text>
+          {inviteData?.inviteCode ? (
+            <>
+              <Text style={styles.pendingInvitePopoverCode} selectable>{inviteData.inviteCode}</Text>
+              <Pressable style={styles.pendingInviteCopyBtn} onPress={handleCopyInviteCode}>
+                <Ionicons name={inviteCodeCopied ? "checkmark-circle" : "copy-outline"} size={16} color={inviteCodeCopied ? Colors.dark.primary : Colors.dark.orange} />
+                <Text style={[styles.pendingInviteCopyBtnText, inviteCodeCopied ? { color: Colors.dark.primary } : null]}>
+                  {inviteCodeCopied ? "Copied!" : "Copy Code"}
+                </Text>
+              </Pressable>
+            </>
+          ) : (
+            <ActivityIndicator size="small" color={Colors.dark.orange} style={{ marginVertical: 16 }} />
+          )}
+          <Pressable style={styles.pendingInviteDismissBtn} onPress={() => setShowInvitePopover(false)}>
+            <Text style={styles.pendingInviteDismissBtnText}>Dismiss</Text>
+          </Pressable>
+        </Pressable>
+      </Pressable>
+    </Modal>
+    </>
   );
 }
 
