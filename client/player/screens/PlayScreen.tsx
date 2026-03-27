@@ -52,6 +52,11 @@ interface PlaySession {
   waitlistCount: number;
   status: "open" | "almost_full" | "full";
   isEnrolled?: boolean;
+  isOnWaitlist?: boolean;
+  waitlistPosition?: number | null;
+  waitlistStatus?: string | null;
+  offeredAt?: string | null;
+  claimWindowMinutes?: number;
 }
 
 interface NearbyPlayer {
@@ -344,10 +349,77 @@ export default function PlayScreen() {
     },
   });
 
+  const leaveWaitlistMutation = useMutation({
+    mutationFn: async (sessionId: string) => {
+      const response = await apiRequest("DELETE", `/api/play/sessions/${sessionId}/waitlist`);
+      return await response.json();
+    },
+    onSuccess: (data: { success?: boolean; message?: string }) => {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      Alert.alert("Removed", data.message || "You've been removed from the waitlist");
+      queryClient.invalidateQueries({ predicate: (q) => typeof q.queryKey[0] === "string" && q.queryKey[0].startsWith("/api/play/sessions") });
+    },
+    onError: (error: Error) => {
+      const errorMessage = error.message.includes(": ") 
+        ? error.message.split(": ").slice(1).join(": ")
+        : error.message;
+      Alert.alert("Oops", errorMessage || "Could not leave waitlist");
+    },
+    onSettled: () => {
+      setJoiningSessionId(null);
+    },
+  });
+
+  const claimWaitlistSpotMutation = useMutation({
+    mutationFn: async (sessionId: string) => {
+      const response = await apiRequest("POST", `/api/play/sessions/${sessionId}/waitlist/claim`);
+      return await response.json();
+    },
+    onSuccess: (data: { success?: boolean; message?: string }) => {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      Alert.alert("Spot Claimed!", data.message || "You've successfully claimed your spot!");
+      queryClient.invalidateQueries({ predicate: (q) => typeof q.queryKey[0] === "string" && q.queryKey[0].startsWith("/api/play/sessions") });
+    },
+    onError: (error: Error) => {
+      const errorMessage = error.message.includes(": ") 
+        ? error.message.split(": ").slice(1).join(": ")
+        : error.message;
+      Alert.alert("Oops", errorMessage || "Could not claim the spot");
+    },
+    onSettled: () => {
+      setJoiningSessionId(null);
+    },
+  });
+
   const handleLeaveSession = (sessionId: string) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     setJoiningSessionId(sessionId);
     leaveSessionMutation.mutate(sessionId);
+  };
+
+  const handleLeaveWaitlist = (sessionId: string) => {
+    Alert.alert(
+      "Leave Waitlist",
+      "Are you sure you want to remove yourself from the waitlist?",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Leave",
+          style: "destructive",
+          onPress: () => {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+            setJoiningSessionId(sessionId);
+            leaveWaitlistMutation.mutate(sessionId);
+          },
+        },
+      ]
+    );
+  };
+
+  const handleClaimWaitlistSpot = (sessionId: string) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+    setJoiningSessionId(sessionId);
+    claimWaitlistSpotMutation.mutate(sessionId);
   };
 
   const handleJoinSession = (sessionId: string) => {
@@ -390,13 +462,26 @@ export default function PlayScreen() {
     return "All Levels";
   };
 
+  const getWaitlistClaimCountdown = (offeredAt: string, claimWindowMinutes: number): string => {
+    const offeredTime = new Date(offeredAt).getTime();
+    const expiryTime = offeredTime + claimWindowMinutes * 60 * 1000;
+    const now = Date.now();
+    const remainingMs = expiryTime - now;
+    if (remainingMs <= 0) return "Expired";
+    const minutes = Math.floor(remainingMs / 60000);
+    const seconds = Math.floor((remainingMs % 60000) / 1000);
+    return `${minutes}:${seconds.toString().padStart(2, "0")}`;
+  };
+
   const renderSessionCard = (session: PlaySession) => {
     const statusBadge = getStatusBadge(session);
     const effectiveMax = session.sessionType === "semi_private" ? Math.min(session.maxPlayers, 2) : session.maxPlayers;
-    const isFull = session.currentPlayers >= effectiveMax;
+    // Use server-provided status which accounts for offered waitlist spots as reserved seats
+    const isFull = session.status === "full";
     const isJoining = joiningSessionId === session.id;
     const backgroundImage = session.courtImageUrl ? { uri: session.courtImageUrl } : courtBackground;
     const sessionLevelColor = getBallLevelColor(session.ballLevel || "");
+    const isOffered = session.isOnWaitlist && session.waitlistStatus === "offered";
 
     return (
       <View 
@@ -466,8 +551,10 @@ export default function PlayScreen() {
 
               <View style={styles.epicActionsRow}>
                 <View style={styles.epicStatusSection}>
-                  <View style={[styles.epicStatusBadge, { backgroundColor: statusBadge.bgColor }]}>
-                    <Text style={[styles.epicStatusText, { color: statusBadge.color }]}>{statusBadge.text}</Text>
+                  <View style={[styles.epicStatusBadge, { backgroundColor: isOffered ? "#F59E0B40" : statusBadge.bgColor }]}>
+                    <Text style={[styles.epicStatusText, { color: isOffered ? "#F59E0B" : statusBadge.color }]}>
+                      {isOffered ? "Spot Offered!" : statusBadge.text}
+                    </Text>
                   </View>
                   {session.isEnrolled ? (
                     <Pressable 
@@ -487,6 +574,56 @@ export default function PlayScreen() {
                         </>
                       )}
                     </Pressable>
+                  ) : isOffered ? (
+                    <View style={styles.waitlistOfferedContainer}>
+                      <Text style={styles.waitlistClaimTimer}>
+                        {session.offeredAt ? getWaitlistClaimCountdown(session.offeredAt, session.claimWindowMinutes || 30) : ""}
+                      </Text>
+                      <View style={styles.waitlistOfferedButtons}>
+                        <Pressable
+                          style={[styles.epicClaimButton, isJoining && styles.buttonDisabled]}
+                          onPress={() => {
+                            if (!isJoining) handleClaimWaitlistSpot(session.id);
+                          }}
+                        >
+                          {isJoining ? (
+                            <ActivityIndicator size="small" color="#000" />
+                          ) : (
+                            <>
+                              <Ionicons name="checkmark-circle-outline" size={16} color="#000" />
+                              <Text style={styles.epicClaimButtonText}>Claim Spot</Text>
+                            </>
+                          )}
+                        </Pressable>
+                        <Pressable
+                          style={styles.epicDeclineButton}
+                          onPress={() => handleLeaveWaitlist(session.id)}
+                        >
+                          <Text style={styles.epicDeclineButtonText}>Decline</Text>
+                        </Pressable>
+                      </View>
+                    </View>
+                  ) : session.isOnWaitlist ? (
+                    <View style={styles.waitlistStatusContainer}>
+                      <View style={styles.waitlistPositionBadge}>
+                        <Ionicons name="time-outline" size={14} color={Colors.dark.xpCyan} />
+                        <Text style={styles.waitlistPositionText}>
+                          {session.waitlistPosition != null ? `#${session.waitlistPosition} on waitlist` : "On waitlist"}
+                        </Text>
+                      </View>
+                      <Pressable
+                        style={[styles.epicLeaveWaitlistButton, isJoining && styles.buttonDisabled]}
+                        onPress={() => {
+                          if (!isJoining) handleLeaveWaitlist(session.id);
+                        }}
+                      >
+                        {isJoining ? (
+                          <ActivityIndicator size="small" color="#FF6B6B" />
+                        ) : (
+                          <Text style={styles.epicLeaveWaitlistText}>Leave Waitlist</Text>
+                        )}
+                      </Pressable>
+                    </View>
                   ) : !isFull ? (
                     <Pressable 
                       style={[styles.epicJoinButton, isJoining && styles.buttonDisabled]}
@@ -519,7 +656,10 @@ export default function PlayScreen() {
                       {isJoining ? (
                         <ActivityIndicator size="small" color={Colors.dark.text} />
                       ) : (
-                        <Text style={styles.epicWaitlistButtonText}>Join Waitlist</Text>
+                        <>
+                          <Ionicons name="list-outline" size={16} color={Colors.dark.text} />
+                          <Text style={styles.epicWaitlistButtonText}>Join Waitlist{session.waitlistCount > 0 ? ` (${session.waitlistCount})` : ""}</Text>
+                        </>
                       )}
                     </Pressable>
                   )}
@@ -1656,6 +1796,9 @@ const styles = StyleSheet.create({
     fontWeight: "700",
   },
   epicWaitlistButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.xs,
     backgroundColor: "rgba(255,255,255,0.15)",
     paddingHorizontal: Spacing.lg,
     paddingVertical: Spacing.sm,
@@ -1667,6 +1810,81 @@ const styles = StyleSheet.create({
     ...Typography.body,
     color: Colors.dark.text,
     fontWeight: "600",
+  },
+  waitlistStatusContainer: {
+    alignItems: "flex-end",
+    gap: Spacing.xs,
+  },
+  waitlistPositionBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    backgroundColor: Colors.dark.xpCyan + "20",
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 3,
+    borderRadius: BorderRadius.sm,
+    borderWidth: 1,
+    borderColor: Colors.dark.xpCyan + "40",
+  },
+  waitlistPositionText: {
+    ...Typography.caption,
+    color: Colors.dark.xpCyan,
+    fontWeight: "600",
+  },
+  epicLeaveWaitlistButton: {
+    backgroundColor: "rgba(255, 107, 107, 0.12)",
+    paddingHorizontal: Spacing.md,
+    paddingVertical: 5,
+    borderRadius: BorderRadius.sm,
+    borderWidth: 1,
+    borderColor: "#FF6B6B60",
+  },
+  epicLeaveWaitlistText: {
+    ...Typography.caption,
+    color: "#FF6B6B",
+    fontWeight: "600",
+  },
+  waitlistOfferedContainer: {
+    alignItems: "flex-end",
+    gap: Spacing.xs,
+  },
+  waitlistClaimTimer: {
+    ...Typography.caption,
+    color: "#F59E0B",
+    fontWeight: "700",
+    fontSize: 13,
+  },
+  waitlistOfferedButtons: {
+    flexDirection: "row",
+    gap: Spacing.xs,
+  },
+  epicClaimButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    backgroundColor: "#F59E0B",
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm,
+    borderRadius: BorderRadius.md,
+  },
+  epicClaimButtonText: {
+    ...Typography.body,
+    color: "#000",
+    fontWeight: "700",
+    fontSize: 13,
+  },
+  epicDeclineButton: {
+    backgroundColor: "rgba(255,255,255,0.1)",
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm,
+    borderRadius: BorderRadius.md,
+    borderWidth: 1,
+    borderColor: Colors.dark.border,
+  },
+  epicDeclineButtonText: {
+    ...Typography.body,
+    color: Colors.dark.textMuted,
+    fontSize: 13,
   },
   epicCancelButton: {
     flexDirection: "row",

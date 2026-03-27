@@ -4,7 +4,7 @@ import { storage } from "../storage";
 import https from "https";
 import {
   players, coaches, users, sessions, packages, coachingSeries, seriesPlayers,
-  creditTransactions, invoices, payments, sessionPlayers,
+  creditTransactions, invoices, payments, sessionPlayers, sessionWaitlist,
   locationTravelTimes, coachSettings, coachAvailability, availabilityExceptions,
   coachTimeBlocks, courtAvailability, courtAvailabilitySnapshots, courts,
   bookingInvites, bookingInviteGuests, openMatches, openMatchSlots,
@@ -24,6 +24,53 @@ import {
 import { fromZodError } from "zod-validation-error";
 import { z } from "zod";
 import { sanitizeMessage } from "../utils/sanitize";
+import { playerNotifications } from "@shared/schema";
+import { sendPushNotification, getPlayerPushTokens } from "../pushNotifications";
+
+async function getEffectivePlayerCount(sessionId: string): Promise<number> {
+  const [enrolledRows, offeredRows] = await Promise.all([
+    db.query.sessionPlayers.findMany({ where: (sp, { eq }) => eq(sp.sessionId, sessionId) }),
+    db.query.sessionWaitlist.findMany({
+      where: (w, { and, eq }) => and(eq(w.sessionId, sessionId), eq(w.status, "offered")),
+    }),
+  ]);
+  return enrolledRows.length + offeredRows.length;
+}
+
+async function notifyWaitlistPlayerSpotOffered(
+  playerId: string,
+  sessionId: string,
+  claimWindowMinutes: number,
+  offeredAt: Date
+): Promise<void> {
+  try {
+    // Always create in-app notification
+    await db.insert(playerNotifications).values({
+      playerId,
+      title: "Spot Available!",
+      body: `A spot opened up in your waitlisted session. You have ${claimWindowMinutes} minutes to claim it!`,
+      type: "waitlist_spot_offered",
+      data: {
+        sessionId,
+        claimWindowMinutes,
+        offeredAt: offeredAt.toISOString(),
+      },
+    });
+    // Also push if tokens available
+    const tokens = await getPlayerPushTokens(playerId);
+    if (tokens.length > 0) {
+      await sendPushNotification(
+        tokens,
+        "Spot Available!",
+        `A spot opened up in your waitlisted session. You have ${claimWindowMinutes} minutes to claim it!`,
+        { type: "waitlist_spot_offered", sessionId },
+        playerId
+      );
+    }
+  } catch (err) {
+    console.error("[Waitlist] Failed to send spot-offered notification:", err);
+  }
+}
 
 const bookingRequestSchema = z.object({
   coachId: z.string().uuid().optional(),
@@ -288,7 +335,9 @@ function toDubaiTime(utcDate: Date): Date {
         // Check if session has available spots
         const sessionPlayers = await storage.getSessionPlayers(sessionId);
         const maxPlayers = session.maxPlayers || 6;
-        if (sessionPlayers.length >= maxPlayers) {
+        // Count offered waitlist entries as reserved seats
+        const effectiveCount = await getEffectivePlayerCount(sessionId);
+        if (effectiveCount >= maxPlayers) {
           return res.status(400).json({ error: "Session is full" });
         }
         
@@ -444,7 +493,9 @@ function toDubaiTime(utcDate: Date): Date {
         }).map(async (s: any) => {
           const players = await storage.getSessionPlayers(s.id);
           const maxPlayers = s.maxPlayers || 6;
-          const hasSpots = players.length < maxPlayers;
+          // Count offered waitlist entries as reserved to prevent double-booking
+          const effectiveBookingCount = await getEffectivePlayerCount(s.id);
+          const hasSpots = effectiveBookingCount < maxPlayers;
           const isEnrolled = players.some((p: any) => p.id === playerId);
           
           if (!hasSpots || isEnrolled) return null;
@@ -840,20 +891,35 @@ Return only the JSON array, nothing else.`;
 
         // Check waitlist
         const waitlistRecords = await db.query.sessionWaitlist.findMany({
-          where: (w, { and, eq }) => and(
+          where: (w, { and, eq, inArray }) => and(
             eq(w.sessionId, session.id),
-            eq(w.status, "waiting")
+            inArray(w.status, ["waiting", "offered"])
           ),
+          orderBy: (w, { asc }) => asc(w.createdAt),
         });
 
         const maxPlayers = session.maxPlayers || 6;
         const currentPlayers = players.length;
+        // Count offered waitlist entries as reserved seats for accurate status
+        const offeredCount = waitlistRecords.filter(w => w.status === "offered").length;
+        const effectiveCount = currentPlayers + offeredCount;
         let status: "open" | "almost_full" | "full" = "open";
-        if (currentPlayers >= maxPlayers) status = "full";
-        else if (maxPlayers - currentPlayers === 1) status = "almost_full";
+        if (effectiveCount >= maxPlayers) status = "full";
+        else if (maxPlayers - effectiveCount === 1) status = "almost_full";
 
         // Check if current player is enrolled in this session
         const isEnrolled = playerIds.includes(playerId);
+
+        // Check if current player is on waitlist
+        const myWaitlistEntry = waitlistRecords.find(w => w.playerId === playerId);
+        const isOnWaitlist = !!myWaitlistEntry;
+        // Position counts ALL active entries (waiting + offered) ahead in queue order
+        const waitlistPosition = myWaitlistEntry
+          ? waitlistRecords.findIndex(w => w.playerId === playerId) + 1
+          : null;
+        const waitlistStatus = myWaitlistEntry?.status || null;
+        const offeredAt = myWaitlistEntry?.offeredAt?.toISOString() || null;
+        const claimWindowMinutes = myWaitlistEntry?.claimWindowMinutes || 30;
 
         return {
           id: session.id,
@@ -871,7 +937,7 @@ Return only the JSON array, nothing else.`;
           maxLevel: session.maxLevel,
           xpReward: session.xpReward || 20,
           maxPlayers,
-          currentPlayers,
+          currentPlayers: effectiveCount,
           players: players.map(p => ({
             id: p.id,
             name: p.name,
@@ -879,8 +945,14 @@ Return only the JSON array, nothing else.`;
             ballLevel: p.ballLevel,
             avatarUrl: p.profilePhotoUrl,
           })),
-          waitlistCount: waitlistRecords.length,
+          waitlistCount: waitlistRecords.filter(w => w.status === "waiting").length,
           status,
+          isEnrolled,
+          isOnWaitlist,
+          waitlistPosition,
+          waitlistStatus,
+          offeredAt,
+          claimWindowMinutes,
         };
       }));
 
@@ -1033,13 +1105,10 @@ Return only the JSON array, nothing else.`;
         return res.status(400).json({ error: "Already joined this session" });
       }
 
-      // Check capacity
-      const currentPlayers = await db.query.sessionPlayers.findMany({
-        where: (sp, { eq }) => eq(sp.sessionId, sessionId),
-      });
-
+      // Check capacity (count offered waitlist entries as reserved)
       const maxPlayers = session.maxPlayers || 6;
-      if (currentPlayers.length >= maxPlayers) {
+      const effectiveJoinCount = await getEffectivePlayerCount(sessionId);
+      if (effectiveJoinCount >= maxPlayers) {
         return res.status(400).json({ error: "Session is full. Join the waitlist instead." });
       }
 
@@ -1214,152 +1283,40 @@ Return only the JSON array, nothing else.`;
         console.warn(`[Leave Session] No join transaction found for player ${playerId} session ${sessionId}. No refund issued.`);
       }
 
-      // Notify and promote first player on waitlist
+      // Offer the spot to the first player on waitlist (time-limited window to claim)
       const waitlistPlayers = await db.query.sessionWaitlist.findMany({
         where: (wl, { and: wlAnd, eq: wlEq }) => wlAnd(
           wlEq(wl.sessionId, sessionId),
           wlEq(wl.status, "waiting")
         ),
-        orderBy: (wl, { asc: wlAsc }) => wlAsc(wl.joinedAt),
+        orderBy: (wl, { asc: wlAsc }) => wlAsc(wl.createdAt),
       });
 
       let waitlistPromoted = false;
-      const sessionCredits = session.sessionType === "private" ? 2 : 1;
       
-      // Promote first eligible waitlist player to the session (with credit deduction)
-      // Loop through waitlist until we find someone who can pay
-      for (const waitlistEntry of waitlistPlayers) {
-        if (waitlistPromoted) break; // Stop once someone is promoted
+      // Offer spot to first player on waitlist (they must claim within the window)
+      if (waitlistPlayers.length > 0) {
+        const firstWaitlistEntry = waitlistPlayers[0];
+        const waitlistPlayer = await storage.getPlayer(firstWaitlistEntry.playerId);
         
-        const waitlistPlayer = await storage.getPlayer(waitlistEntry.playerId);
-        if (!waitlistPlayer) continue;
-        
-        const playerCredits = waitlistPlayer.credits || 0;
-        const playerMakeUpCredits = waitlistPlayer.makeUpCredits || 0;
-        
-        let canPromote = false;
-        let useMakeUp = false;
-        
-        // Prefer make-up credits, then regular credits
-        if (playerMakeUpCredits > 0) {
-          canPromote = true;
-          useMakeUp = true;
-        } else if (playerCredits >= sessionCredits) {
-          canPromote = true;
-          useMakeUp = false;
-        }
-        
-        if (canPromote) {
-          try {
-            // Use database transaction for atomicity - all or nothing
-            await db.transaction(async (tx) => {
-              // Step 1: Atomically deduct credits with guard to prevent negative balance
-              // Uses raw SQL column references for concurrency safety
-              if (useMakeUp) {
-                const result = await tx.update(players)
-                  .set({ makeUpCredits: sql`GREATEST(0, COALESCE(make_up_credits, 0) - 1)` })
-                  
-          .where(and(
-                    eq(players.id, waitlistPlayer.id),
-                    sql`COALESCE(make_up_credits, 0) > 0`
-                  ))
-                  .returning({ id: players.id });
-                
-                if (result.length === 0) {
-                  throw new Error("Insufficient make-up credits (concurrent deduction)");
-                }
-              } else {
-                const result = await tx.update(players)
-                  .set({ credits: sql`GREATEST(0, COALESCE(credits, 0) - ${sessionCredits})` })
-                  
-          .where(and(
-                    eq(players.id, waitlistPlayer.id),
-                    sql`COALESCE(credits, 0) >= ${sessionCredits}`
-                  ))
-                  .returning({ id: players.id });
-                
-                if (result.length === 0) {
-                  throw new Error("Insufficient credits (concurrent deduction)");
-                }
-              }
-              
-              // Step 2: Add player to session
-              await tx.insert(sessionPlayers).values({
-                sessionId,
-                playerId: waitlistPlayer.id,
-              });
-              
-              // Step 3: Log the credit transaction
-              await tx.insert(creditTransactions).values({
-                playerId: waitlistPlayer.id,
-                academyId: session.academyId || waitlistPlayer.academyId,
-                type: "debit",
-                amount: useMakeUp ? 0 : -sessionCredits,
-                reason: useMakeUp ? "make_up_lesson_used" : "session_join",
-                sessionId,
-                metadata: JSON.stringify({
-                  sessionType: session.sessionType,
-                  paymentMethod: useMakeUp ? "make_up_credit" : "credits",
-                  makeUpUsed: useMakeUp,
-                  promotedFromWaitlist: true,
-                }),
-              });
-              
-              // Step 4: Update waitlist status to promoted
-              await tx.update(sessionWaitlist)
-                .set({ status: "promoted" })
-                .where(eq(sessionWaitlist.id, waitlistEntry.id));
-            });
-            
-            // Transaction succeeded - mark as promoted
-            waitlistPromoted = true;
-            
-            // Step 5: Notify the promoted player (outside transaction, non-critical)
-            if (waitlistPlayer.userId) {
-              await storage.createScheduledNotification({
-                userId: waitlistPlayer.userId,
-                playerId: waitlistPlayer.id,
-                title: "You're In!",
-                body: useMakeUp 
-                  ? `You've been promoted from the waitlist! Make-up credit used.`
-                  : `You've been promoted from the waitlist! ${sessionCredits} credit(s) deducted.`,
-                type: "waitlist_promoted",
-                metadata: JSON.stringify({
-                  sessionId,
-                  sessionType: session.sessionType,
-                  startTime: session.startTime,
-                  creditsUsed: useMakeUp ? 0 : sessionCredits,
-                  makeUpUsed: useMakeUp,
-                }),
-                scheduledFor: new Date(),
-              });
-            }
-          } catch (promotionError) {
-            // Transaction rolled back - try next waitlist player
-            console.error(`[Waitlist] Promotion transaction failed for player ${waitlistPlayer.id}:`, promotionError);
-            continue;
-          }
-        } else {
-          // Player doesn't have enough credits - notify and continue to next
-          if (waitlistPlayer.userId) {
-            await storage.createScheduledNotification({
-              userId: waitlistPlayer.userId,
-              playerId: waitlistPlayer.id,
-              title: "Spot Available - Credits Needed",
-              body: `A spot opened up but you need ${sessionCredits} credit(s) to join.`,
-              type: "waitlist_credits_needed",
-              metadata: JSON.stringify({
-                sessionId,
-                sessionType: session.sessionType,
-                creditsNeeded: sessionCredits,
-              }),
-              scheduledFor: new Date(),
-            });
-          }
-          // Update waitlist status to show they were notified but continue loop
+        if (waitlistPlayer) {
+          const claimWindowMinutes = firstWaitlistEntry.claimWindowMinutes || 30;
+          const offeredAt = new Date();
+          
+          // Mark spot as offered
           await db.update(sessionWaitlist)
-            .set({ status: "insufficient_credits" })
-            .where(eq(sessionWaitlist.id, waitlistEntry.id));
+            .set({ status: "offered", offeredAt })
+            .where(eq(sessionWaitlist.id, firstWaitlistEntry.id));
+          
+          waitlistPromoted = true;
+          
+          // Notify the player that a spot is available (push + in-app)
+          await notifyWaitlistPlayerSpotOffered(
+            waitlistPlayer.id,
+            sessionId,
+            claimWindowMinutes,
+            offeredAt
+          );
         }
       }
 
@@ -1379,20 +1336,30 @@ Return only the JSON array, nothing else.`;
           .slice(0, 5);
 
         for (const makeUpPlayer of eligiblePlayers) {
-          await storage.createScheduledNotification({
-            userId: makeUpPlayer.userId!,
+          // In-app notification for make-up opportunity
+          await db.insert(playerNotifications).values({
             playerId: makeUpPlayer.id,
             title: "Spot Available!",
             body: `A spot opened up in a ${session.sessionType} session. Use your make-up credit!`,
             type: "make_up_opportunity",
-            metadata: JSON.stringify({
+            data: {
               sessionId,
               sessionType: session.sessionType,
               startTime: session.startTime,
-              locationName: session.locationName || session.location,
-            }),
-            scheduledFor: new Date(),
+              locationName: session.locationName,
+            },
           });
+          // Also push if tokens available
+          const makeUpTokens = await getPlayerPushTokens(makeUpPlayer.id);
+          if (makeUpTokens.length > 0) {
+            await sendPushNotification(
+              makeUpTokens,
+              "Spot Available!",
+              `A spot opened up in a ${session.sessionType} session. Use your make-up credit!`,
+              { type: "make_up_opportunity", sessionId },
+              makeUpPlayer.id
+            );
+          }
         }
       }
 
@@ -1427,28 +1394,56 @@ Return only the JSON array, nothing else.`;
         return res.status(403).json({ error: "Player access required" });
       }
 
-      // Check if already on waitlist
+      // Validate the session exists and is actually full
+      const session = await storage.getSession(sessionId);
+      if (!session) {
+        return res.status(404).json({ error: "Session not found" });
+      }
+
+      // Check if player is already enrolled in the session
+      const existingEnrollment = await db.query.sessionPlayers.findFirst({
+        where: (sp, { and: spAnd, eq: spEq }) => spAnd(
+          spEq(sp.sessionId, sessionId),
+          spEq(sp.playerId, playerId)
+        ),
+      });
+      if (existingEnrollment) {
+        return res.status(400).json({ error: "Already enrolled in this session" });
+      }
+
+      // Check session capacity — only allow waitlist when session is effectively full
+      // (include offered entries as reserved seats)
+      const maxPlayers = session.maxPlayers || 6;
+      const effectiveWaitlistCount = await getEffectivePlayerCount(sessionId);
+      if (effectiveWaitlistCount < maxPlayers) {
+        return res.status(400).json({ error: "Session is not full. Join the session directly instead." });
+      }
+
+      // Check if player already has an active waitlist entry (waiting or offered)
       const existingWaitlist = await db.query.sessionWaitlist.findFirst({
-        where: (w, { and, eq }) => and(
+        where: (w, { and, eq, inArray }) => and(
           eq(w.sessionId, sessionId),
           eq(w.playerId, playerId),
-          eq(w.status, "waiting")
+          inArray(w.status, ["waiting", "offered"])
         ),
       });
 
       if (existingWaitlist) {
-        return res.status(400).json({ error: "Already on the waitlist" });
+        const msg = existingWaitlist.status === "offered"
+          ? "You already have an offered spot — claim it before it expires!"
+          : "Already on the waitlist";
+        return res.status(400).json({ error: msg });
       }
 
-      // Get current position
-      const waitlistCount = await db.query.sessionWaitlist.findMany({
+      // Count only "waiting" entries for queue position (offered ones are ahead)
+      const waitingCount = await db.query.sessionWaitlist.findMany({
         where: (w, { and, eq }) => and(
           eq(w.sessionId, sessionId),
           eq(w.status, "waiting")
         ),
       });
 
-      const position = waitlistCount.length + 1;
+      const position = waitingCount.length + 1;
 
       await db.insert(sessionWaitlist).values({
         sessionId,
@@ -1466,6 +1461,241 @@ Return only the JSON array, nothing else.`;
     } catch (error) {
       console.error("Join waitlist error:", error);
       res.status(500).json({ error: "Failed to join waitlist" });
+    }
+  });
+
+  // Leave session waitlist
+  router.delete("/api/play/sessions/:sessionId/waitlist", authMiddleware, async (req: AuthRequest, res: Response) => {
+    try {
+      const playerId = req.user?.playerId;
+      const { sessionId } = req.params;
+      
+      if (!playerId) {
+        return res.status(403).json({ error: "Player access required" });
+      }
+
+      const existingEntry = await db.query.sessionWaitlist.findFirst({
+        where: (w, { and, eq, inArray }) => and(
+          eq(w.sessionId, sessionId),
+          eq(w.playerId, playerId),
+          inArray(w.status, ["waiting", "offered"])
+        ),
+      });
+
+      if (!existingEntry) {
+        return res.status(404).json({ error: "You are not on the waitlist for this session" });
+      }
+
+      await db.update(sessionWaitlist)
+        .set({ status: "cancelled" })
+        .where(eq(sessionWaitlist.id, existingEntry.id));
+
+      // If they were the offered player, offer to next in line
+      if (existingEntry.status === "offered") {
+        const nextWaiting = await db.query.sessionWaitlist.findFirst({
+          where: (w, { and, eq }) => and(
+            eq(w.sessionId, sessionId),
+            eq(w.status, "waiting")
+          ),
+          orderBy: (w, { asc }) => asc(w.createdAt),
+        });
+
+        if (nextWaiting) {
+          const nextPlayer = await storage.getPlayer(nextWaiting.playerId);
+          if (nextPlayer) {
+            const claimWindowMinutes = nextWaiting.claimWindowMinutes || 30;
+            const offeredAt = new Date();
+            
+            await db.update(sessionWaitlist)
+              .set({ status: "offered", offeredAt })
+              .where(eq(sessionWaitlist.id, nextWaiting.id));
+
+            // Notify next player (push + in-app)
+            await notifyWaitlistPlayerSpotOffered(
+              nextPlayer.id,
+              sessionId,
+              claimWindowMinutes,
+              offeredAt
+            );
+          }
+        }
+      }
+
+      res.json({ success: true, message: "You've been removed from the waitlist" });
+    } catch (error) {
+      console.error("Leave waitlist error:", error);
+      res.status(500).json({ error: "Failed to leave waitlist" });
+    }
+  });
+
+  // Claim an offered waitlist spot
+  router.post("/api/play/sessions/:sessionId/waitlist/claim", authMiddleware, async (req: AuthRequest, res: Response) => {
+    try {
+      const playerId = req.user?.playerId;
+      const { sessionId } = req.params;
+      
+      if (!playerId) {
+        return res.status(403).json({ error: "Player access required" });
+      }
+
+      const offeredEntry = await db.query.sessionWaitlist.findFirst({
+        where: (w, { and, eq }) => and(
+          eq(w.sessionId, sessionId),
+          eq(w.playerId, playerId),
+          eq(w.status, "offered")
+        ),
+      });
+
+      if (!offeredEntry) {
+        return res.status(404).json({ error: "No offered spot found. The spot may have expired." });
+      }
+
+      // Check if claim window has expired
+      if (offeredEntry.offeredAt) {
+        const claimWindowMs = (offeredEntry.claimWindowMinutes || 30) * 60 * 1000;
+        const expiryTime = new Date(offeredEntry.offeredAt.getTime() + claimWindowMs);
+        if (new Date() > expiryTime) {
+          // Expire this entry and offer to next
+          await db.update(sessionWaitlist)
+            .set({ status: "expired" })
+            .where(eq(sessionWaitlist.id, offeredEntry.id));
+
+          // Offer to next in line
+          const nextWaiting = await db.query.sessionWaitlist.findFirst({
+            where: (w, { and, eq }) => and(
+              eq(w.sessionId, sessionId),
+              eq(w.status, "waiting")
+            ),
+            orderBy: (w, { asc }) => asc(w.createdAt),
+          });
+
+          if (nextWaiting) {
+            const nextPlayer = await storage.getPlayer(nextWaiting.playerId);
+            if (nextPlayer) {
+              const claimWindowMinutes = nextWaiting.claimWindowMinutes || 30;
+              const newOfferedAt = new Date();
+              
+              await db.update(sessionWaitlist)
+                .set({ status: "offered", offeredAt: newOfferedAt })
+                .where(eq(sessionWaitlist.id, nextWaiting.id));
+
+              // Notify next player (push + in-app)
+              await notifyWaitlistPlayerSpotOffered(
+                nextPlayer.id,
+                sessionId,
+                claimWindowMinutes,
+                newOfferedAt
+              );
+            }
+          }
+
+          return res.status(400).json({ error: "The claim window has expired. The spot has been offered to the next player." });
+        }
+      }
+
+      // Check if session still has a spot
+      const session = await storage.getSession(sessionId);
+      if (!session) {
+        return res.status(404).json({ error: "Session not found" });
+      }
+
+      // Check capacity: exclude THIS player's offered entry from effective count
+      // (the offered entry IS the reserved seat for this player)
+      const currentSessionPlayers = await db.query.sessionPlayers.findMany({
+        where: (sp, { eq: spEq }) => spEq(sp.sessionId, sessionId),
+      });
+      const maxPlayers = session.maxPlayers || 6;
+      if (currentSessionPlayers.length >= maxPlayers) {
+        return res.status(400).json({ error: "Session is no longer available" });
+      }
+
+      const waitlistPlayer = await storage.getPlayer(playerId);
+      if (!waitlistPlayer) {
+        return res.status(404).json({ error: "Player not found" });
+      }
+
+      // Atomically claim the spot — credits deducted at attendance time (same as normal join)
+      await db.transaction(async (tx) => {
+        await tx.insert(sessionPlayers).values({
+          sessionId,
+          playerId,
+        });
+
+        await tx.update(sessionWaitlist)
+          .set({ status: "claimed", promotedAt: new Date() })
+          .where(eq(sessionWaitlist.id, offeredEntry.id));
+      });
+
+      res.json({
+        success: true,
+        message: "Spot claimed! Credit will be deducted when attendance is marked.",
+        attendancePending: true,
+      });
+    } catch (error) {
+      console.error("Claim waitlist spot error:", error);
+      res.status(500).json({ error: "Failed to claim waitlist spot" });
+    }
+  });
+
+  // Get waitlist for a session (coach/admin view)
+  router.get("/api/coach/sessions/:sessionId/waitlist", authMiddleware, requireRole("coach", "admin", "academy_owner", "platform_owner"), async (req: AuthRequest, res: Response) => {
+    try {
+      const coachId = req.user?.coachId;
+      const academyId = req.user?.academyId;
+      const { sessionId } = req.params;
+
+      const session = await storage.getSession(sessionId);
+      if (!session) {
+        return res.status(404).json({ error: "Session not found" });
+      }
+
+      // Verify the requester belongs to the same academy as the session
+      const sessionAcademyId = session.academyId;
+      if (coachId && session.coachId !== coachId && session.academyId !== academyId) {
+        return res.status(403).json({ error: "Not authorized to view this session's waitlist" });
+      }
+      if (!coachId && academyId && sessionAcademyId !== academyId) {
+        return res.status(403).json({ error: "Not authorized to view this session's waitlist" });
+      }
+
+      const waitlistEntries = await db.query.sessionWaitlist.findMany({
+        where: (w, { and, eq, inArray }) => and(
+          eq(w.sessionId, sessionId),
+          inArray(w.status, ["waiting", "offered"])
+        ),
+        orderBy: (w, { asc }) => asc(w.createdAt),
+      });
+
+      const enrichedWaitlist = await Promise.all(
+        waitlistEntries.map(async (entry, index) => {
+          const player = await storage.getPlayer(entry.playerId);
+          return {
+            id: entry.id,
+            position: index + 1,
+            status: entry.status,
+            offeredAt: entry.offeredAt?.toISOString() || null,
+            claimWindowMinutes: entry.claimWindowMinutes || 30,
+            joinedAt: entry.createdAt?.toISOString(),
+            player: player ? {
+              id: player.id,
+              name: player.name,
+              level: player.level || 1,
+              ballLevel: player.ballLevel,
+              avatarUrl: player.profilePhotoUrl,
+              credits: player.credits || 0,
+            } : null,
+          };
+        })
+      );
+
+      res.json({
+        sessionId,
+        waitlist: enrichedWaitlist,
+        count: enrichedWaitlist.length,
+      });
+    } catch (error) {
+      console.error("Get session waitlist error:", error);
+      res.status(500).json({ error: "Failed to fetch session waitlist" });
     }
   });
 

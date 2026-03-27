@@ -1,6 +1,6 @@
 import { db, pool } from "./db";
 import { eq, and, gte, lte, inArray, isNull, lt, ne, or, sql } from "drizzle-orm";
-import { pushDeviceTokens, notificationPreferences, users, players, coaches, sessions, sessionPlayers, seriesPlayers, coachXpTransactions, creditTransactions, coachNotifications } from "@shared/schema";
+import { pushDeviceTokens, notificationPreferences, users, players, coaches, sessions, sessionPlayers, seriesPlayers, coachXpTransactions, creditTransactions, coachNotifications, sessionWaitlist, playerNotifications } from "@shared/schema";
 import { storage, ensureCreditProcessed } from "./storage";
 import { sendSessionReminderEmail, sendOnboardingDay3Email, sendOnboardingDay7Email } from "./emailService";
 import { initializeFirebase, isFirebaseInitialized, isFCMToken, sendFCMNotification, getChannelIdForNotificationType } from "./fcm";
@@ -550,6 +550,101 @@ async function sendRemindersForSession(
   }
 
   console.log(`[SessionReminders] ${reminderType} reminder for "${sessionName}" - ${playerNotificationsSent} player push sent, ${playersWithNoTokens} without tokens, coach notified`);
+}
+
+export async function processExpiredWaitlistSpots(): Promise<void> {
+  const now = new Date();
+  try {
+    // Find all offered waitlist entries where the claim window has passed
+    const offeredEntries = await db.query.sessionWaitlist.findMany({
+      where: (w, { and: wAnd, eq: wEq, isNotNull: wIsNotNull }) => wAnd(
+        wEq(w.status, "offered"),
+        wIsNotNull(w.offeredAt)
+      ),
+    });
+
+    for (const entry of offeredEntries) {
+      if (!entry.offeredAt) continue;
+      const claimWindowMs = (entry.claimWindowMinutes || 30) * 60 * 1000;
+      const expiryTime = new Date(entry.offeredAt.getTime() + claimWindowMs);
+      
+      if (now > expiryTime) {
+        // Mark as expired
+        await db.update(sessionWaitlist)
+          .set({ status: "expired" })
+          .where(eq(sessionWaitlist.id, entry.id));
+
+        console.log(`[Waitlist] Expired offered spot for player ${entry.playerId} in session ${entry.sessionId}`);
+
+        // Notify the expired player that their window closed
+        await db.insert(playerNotifications).values({
+          playerId: entry.playerId,
+          title: "Spot Offer Expired",
+          body: "Your waitlist spot offer has expired. The next player will be offered the spot.",
+          type: "waitlist_spot_expired",
+          data: { sessionId: entry.sessionId },
+        });
+        const expiredPlayerTokens = await getPlayerPushTokens(entry.playerId);
+        if (expiredPlayerTokens.length > 0) {
+          await sendPushNotification(
+            expiredPlayerTokens,
+            "Spot Offer Expired",
+            "Your waitlist spot offer has expired. The next player will be offered the spot.",
+            { type: "waitlist_spot_expired", sessionId: entry.sessionId },
+            entry.playerId
+          );
+        }
+
+        // Offer to the next player in line
+        const nextWaiting = await db.query.sessionWaitlist.findFirst({
+          where: (w, { and: wAnd, eq: wEq }) => wAnd(
+            wEq(w.sessionId, entry.sessionId),
+            wEq(w.status, "waiting")
+          ),
+          orderBy: (w, { asc }) => asc(w.createdAt),
+        });
+
+        if (nextWaiting) {
+          const nextPlayer = await storage.getPlayer(nextWaiting.playerId);
+          if (nextPlayer) {
+            const claimWindowMinutes = nextWaiting.claimWindowMinutes || 30;
+            const offeredAt = new Date();
+
+            await db.update(sessionWaitlist)
+              .set({ status: "offered", offeredAt })
+              .where(eq(sessionWaitlist.id, nextWaiting.id));
+
+            console.log(`[Waitlist] Offered spot to next player ${nextPlayer.id} in session ${entry.sessionId}`);
+
+            // Always create in-app notification, then push if tokens available
+            await db.insert(playerNotifications).values({
+              playerId: nextPlayer.id,
+              title: "Spot Available!",
+              body: `A spot opened up in your waitlisted session. You have ${claimWindowMinutes} minutes to claim it!`,
+              type: "waitlist_spot_offered",
+              data: {
+                sessionId: entry.sessionId,
+                claimWindowMinutes,
+                offeredAt: offeredAt.toISOString(),
+              },
+            });
+            const playerTokens = await getPlayerPushTokens(nextPlayer.id);
+            if (playerTokens.length > 0) {
+              await sendPushNotification(
+                playerTokens,
+                "Spot Available!",
+                `A spot opened up in your waitlisted session. You have ${claimWindowMinutes} minutes to claim it!`,
+                { type: "waitlist_spot_offered", sessionId: entry.sessionId },
+                nextPlayer.id
+              );
+            }
+          }
+        }
+      }
+    }
+  } catch (error) {
+    console.error("[Waitlist] Error processing expired waitlist spots:", error);
+  }
 }
 
 export async function processScheduledReminders(): Promise<void> {
@@ -1536,6 +1631,7 @@ export function startReminderScheduler(): void {
       await processScheduledReminders();
       await processAutoCompleteSession();
       await processAutoAttendance();
+      await processExpiredWaitlistSpots();
     } catch (e) { console.error("[Scheduler] Startup sequence error:", e); }
   })();
   repairMissingSessionPlayers().catch(console.error);
@@ -1546,6 +1642,7 @@ export function startReminderScheduler(): void {
       await processScheduledReminders();
       await processAutoCompleteSession();
       await processAutoAttendance();
+      await processExpiredWaitlistSpots();
     } catch (e) { console.error("[Scheduler] Interval error:", e); }
   }, 5 * 60 * 1000);
 }

@@ -201,6 +201,31 @@ export default function SessionDetailDrawer({
   });
   const allPlayers = Array.isArray(allPlayersData) ? allPlayersData : [];
 
+  const isGroupSession = session?.sessionType === "group" || session?.sessionType === "semi_private";
+  const [showWaitlist, setShowWaitlist] = useState(false);
+
+  interface WaitlistEntry {
+    id: string;
+    position: number;
+    status: string;
+    offeredAt: string | null;
+    claimWindowMinutes: number;
+    joinedAt: string;
+    player: {
+      id: string;
+      name: string;
+      level: number;
+      ballLevel?: string;
+      avatarUrl?: string;
+      credits: number;
+    } | null;
+  }
+
+  const { data: waitlistData, refetch: refetchWaitlist } = useQuery<{ waitlist: WaitlistEntry[]; count: number }>({
+    queryKey: [`/api/coach/sessions/${session?.id}/waitlist`],
+    enabled: visible && isGroupSession && !!session?.id,
+  });
+
   const existingPlayerIds = liveSession?.players?.filter(p => !removedPlayerIds.has(p.id)).map(p => p.id) || [];
   const availablePlayers = allPlayers.filter(p => !existingPlayerIds.includes(p.id));
   
@@ -1368,6 +1393,67 @@ export default function SessionDetailDrawer({
           <Ionicons name="chevron-forward" size={20} color={Colors.dark.gold} />
         </Pressable>
       ) : null}
+
+      {/* Waitlist Section - Group/Semi-Private Sessions Only */}
+      {isGroupSession && (
+        <View style={styles.waitlistSection}>
+          <Pressable
+            style={styles.waitlistHeader}
+            onPress={() => {
+              setShowWaitlist(!showWaitlist);
+              if (!showWaitlist) refetchWaitlist();
+            }}
+          >
+            <View style={styles.waitlistHeaderLeft}>
+              <Ionicons name="list-outline" size={18} color={Colors.dark.xpCyan} />
+              <Text style={styles.waitlistHeaderTitle}>
+                Waitlist {waitlistData && waitlistData.count > 0 ? `(${waitlistData.count})` : ""}
+              </Text>
+            </View>
+            <Ionicons
+              name={showWaitlist ? "chevron-up" : "chevron-down"}
+              size={18}
+              color={Colors.dark.textMuted}
+            />
+          </Pressable>
+
+          {showWaitlist && (
+            <View style={styles.waitlistContent}>
+              {!waitlistData || waitlistData.waitlist.length === 0 ? (
+                <Text style={styles.waitlistEmptyText}>No players on the waitlist</Text>
+              ) : (
+                waitlistData.waitlist.map((entry) => (
+                  <View key={entry.id} style={styles.waitlistEntry}>
+                    <View style={styles.waitlistEntryLeft}>
+                      <View style={styles.waitlistPositionCircle}>
+                        <Text style={styles.waitlistPositionNumber}>{entry.position}</Text>
+                      </View>
+                      <View style={styles.waitlistPlayerInfo}>
+                        <Text style={styles.waitlistPlayerName}>{entry.player?.name || "Unknown Player"}</Text>
+                        <Text style={styles.waitlistPlayerMeta}>
+                          {entry.player?.ballLevel ? `${entry.player.ballLevel} level` : `Level ${entry.player?.level || "?"}`}
+                          {" · "}{entry.player?.credits || 0} credits
+                        </Text>
+                      </View>
+                    </View>
+                    <View style={[
+                      styles.waitlistStatusBadge,
+                      entry.status === "offered" && styles.waitlistStatusOffered,
+                    ]}>
+                      <Text style={[
+                        styles.waitlistStatusText,
+                        entry.status === "offered" && styles.waitlistStatusTextOffered,
+                      ]}>
+                        {entry.status === "offered" ? "Offered" : "Waiting"}
+                      </Text>
+                    </View>
+                  </View>
+                ))
+              )}
+            </View>
+          )}
+        </View>
+      )}
 
       {/* Session Controls */}
       <View style={styles.sessionControlsSection}>
@@ -3340,5 +3426,102 @@ const styles = StyleSheet.create({
     textAlign: "center",
     marginTop: Spacing.lg,
     fontStyle: "italic",
+  },
+  waitlistSection: {
+    marginHorizontal: Spacing.lg,
+    marginBottom: Spacing.md,
+    backgroundColor: Backgrounds.card,
+    borderRadius: BorderRadius.md,
+    overflow: "hidden",
+    borderWidth: 1,
+    borderColor: Colors.dark.xpCyan + "30",
+  },
+  waitlistHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.md,
+  },
+  waitlistHeaderLeft: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+  },
+  waitlistHeaderTitle: {
+    ...Typography.body,
+    color: Colors.dark.xpCyan,
+    fontWeight: "600",
+  },
+  waitlistContent: {
+    borderTopWidth: 1,
+    borderTopColor: Colors.dark.border,
+    padding: Spacing.sm,
+  },
+  waitlistEmptyText: {
+    ...Typography.caption,
+    color: Colors.dark.textMuted,
+    textAlign: "center",
+    paddingVertical: Spacing.md,
+  },
+  waitlistEntry: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingVertical: Spacing.sm,
+    paddingHorizontal: Spacing.xs,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.dark.border + "50",
+  },
+  waitlistEntryLeft: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+    flex: 1,
+  },
+  waitlistPositionCircle: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: Colors.dark.xpCyan + "20",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  waitlistPositionNumber: {
+    ...Typography.caption,
+    color: Colors.dark.xpCyan,
+    fontWeight: "700",
+  },
+  waitlistPlayerInfo: {
+    flex: 1,
+  },
+  waitlistPlayerName: {
+    ...Typography.body,
+    color: Colors.dark.text,
+    fontWeight: "600",
+    fontSize: 13,
+  },
+  waitlistPlayerMeta: {
+    ...Typography.caption,
+    color: Colors.dark.textMuted,
+  },
+  waitlistStatusBadge: {
+    backgroundColor: Colors.dark.border,
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 3,
+    borderRadius: BorderRadius.sm,
+  },
+  waitlistStatusOffered: {
+    backgroundColor: "#F59E0B30",
+    borderWidth: 1,
+    borderColor: "#F59E0B60",
+  },
+  waitlistStatusText: {
+    ...Typography.caption,
+    color: Colors.dark.textMuted,
+    fontWeight: "600",
+  },
+  waitlistStatusTextOffered: {
+    color: "#F59E0B",
   },
 });

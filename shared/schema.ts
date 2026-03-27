@@ -1694,8 +1694,10 @@ export const sessionWaitlist = pgTable("session_waitlist", {
   position: integer("position").notNull(), // 1, 2, 3... position in queue
   xpBonusOnJoin: integer("xp_bonus_on_join").default(5), // Bonus XP if they get in
   
-  status: text("status").default("waiting"), // waiting/promoted/cancelled/expired
-  promotedAt: timestamp("promoted_at"), // When they got a spot
+  status: text("status").default("waiting"), // waiting/offered/claimed/promoted/cancelled/expired/insufficient_credits
+  offeredAt: timestamp("offered_at"), // When the spot was offered to this player
+  claimWindowMinutes: integer("claim_window_minutes").default(30), // How long they have to claim
+  promotedAt: timestamp("promoted_at"), // When they claimed/got a spot
   
   createdAt: timestamp("created_at").defaultNow(),
 });
