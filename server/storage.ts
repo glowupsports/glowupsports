@@ -6770,7 +6770,7 @@ export const storage = {
     return await db.transaction(async (tx) => {
       // Lock the package for the duration of settlement to prevent race conditions
       const pkgResult = await tx.execute(sql`
-        SELECT id, remaining_credits FROM packages WHERE id = ${packageId} FOR UPDATE
+        SELECT id, remaining_credits, total_credits FROM packages WHERE id = ${packageId} FOR UPDATE
       `);
       if (pkgResult.rows.length === 0) {
         console.error(`[SettleDebts] Package ${packageId} not found`);
@@ -6779,6 +6779,7 @@ export const storage = {
 
       const pkg = pkgResult.rows[0] as any;
       let currentRemaining = Number(pkg.remaining_credits);
+      const originalRemaining = currentRemaining;
 
       const unsettledDebts = await tx.select().from(creditTransactions)
         .where(and(
@@ -6802,12 +6803,16 @@ export const storage = {
         return { settledCount: 0, totalDeducted: 0 };
       }
 
+      console.log(`[SettleDebts] Found ${unsettledDebts.length} unsettled debt(s), package has ${currentRemaining} credits available`);
+
       let settledCount = 0;
       let totalDeducted = 0;
 
       for (const debt of unsettledDebts) {
         const debtAmount = Math.abs(Number(debt.amount));
-        if (currentRemaining < debtAmount) break;
+
+        // Hard guard: never settle more than this package can cover
+        if (currentRemaining < debtAmount || currentRemaining <= 0) break;
 
         const meta = debt.metadata ? (typeof debt.metadata === 'string' ? JSON.parse(debt.metadata) : debt.metadata) : {};
 
@@ -6828,6 +6833,12 @@ export const storage = {
         settledCount++;
       }
 
+      // Safety assertion: totalDeducted must never exceed what the package started with
+      if (totalDeducted > originalRemaining) {
+        console.error(`[SettleDebts] SAFETY VIOLATION: attempted to deduct ${totalDeducted} from package with only ${originalRemaining} remaining — rolling back extra settlements`);
+        throw new Error(`Settlement safety violation for package ${packageId}: deducted ${totalDeducted} but only ${originalRemaining} available`);
+      }
+
       if (settledCount > 0) {
         await tx.execute(sql`
           UPDATE packages
@@ -6835,7 +6846,7 @@ export const storage = {
               status = CASE WHEN ${currentRemaining} <= 0 THEN 'depleted' ELSE status END
           WHERE id = ${packageId}
         `);
-        console.log(`[SettleDebts] Settled ${settledCount} debt(s) for player ${playerId}, deducted ${totalDeducted} credits, ${pkg.remaining_credits} -> ${currentRemaining}`);
+        console.log(`[SettleDebts] Settled ${settledCount}/${unsettledDebts.length} debt(s) for player ${playerId}, deducted ${totalDeducted} credits, ${originalRemaining} -> ${currentRemaining}`);
       }
 
       return { settledCount, totalDeducted };

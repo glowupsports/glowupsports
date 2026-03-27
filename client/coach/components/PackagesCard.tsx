@@ -60,6 +60,89 @@ const CREDIT_TYPE_ICONS: Record<CreditType, string> = {
   semi_private: "people-outline",
 };
 
+function PackageItemRow({ pkg, onDelete }: { pkg: Package; onDelete: (pkg: Package) => void }) {
+  const creditType = (pkg.creditType || "group") as CreditType;
+  const progressPercent = pkg.totalCredits > 0 ? (pkg.remainingCredits / pkg.totalCredits) * 100 : 0;
+  const isDepleted = pkg.remainingCredits <= 0;
+  const expired = pkg.expiryDate ? new Date(pkg.expiryDate) < new Date() : false;
+  const typeColor = creditType === "private" ? Colors.dark.sessionPrivate
+    : creditType === "semi_private" ? Colors.dark.sessionSemiPrivate
+    : Colors.dark.sessionGroup;
+
+  const formatExpiryDate = (date: string | null) => {
+    if (!date) return "No expiry";
+    return new Date(date).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+  };
+
+  return (
+    <View
+      style={[
+        styles.packageItem,
+        isDepleted && styles.packageItemDepleted,
+        expired && styles.packageItemExpired,
+      ]}
+    >
+      <View style={styles.packageHeader}>
+        <View style={styles.packageTitleRow}>
+          <View style={[styles.packageTypeBadge, { backgroundColor: typeColor + "20" }]}>
+            <Text style={[styles.packageTypeText, { color: typeColor }]}>
+              {CREDIT_TYPE_LABELS[creditType]}
+            </Text>
+          </View>
+          {isDepleted && !expired ? (
+            <View style={styles.depletedBadge}>
+              <Text style={styles.depletedBadgeText}>Depleted</Text>
+            </View>
+          ) : null}
+          {expired ? (
+            <View style={styles.expiredBadge}>
+              <Text style={styles.expiredBadgeText}>Expired</Text>
+            </View>
+          ) : null}
+        </View>
+        <Pressable
+          onPress={() => onDelete(pkg)}
+          style={({ pressed }) => [styles.deleteButton, pressed && styles.buttonPressed]}
+        >
+          <Ionicons name="trash-outline" size={18} color={Colors.dark.error} />
+        </Pressable>
+      </View>
+
+      <View style={styles.packageCreditsSection}>
+        <Text style={styles.creditsLabel}>Credits</Text>
+        <View style={styles.creditsDisplay}>
+          <Text style={[styles.creditsRemaining, isDepleted && styles.creditsDepleted]}>
+            {formatCredits(pkg.remainingCredits)}
+          </Text>
+          <Text style={styles.creditsTotal}>/ {formatCredits(pkg.totalCredits)}</Text>
+        </View>
+      </View>
+
+      <View style={styles.progressBarContainer}>
+        <View style={styles.progressBarBackground}>
+          <View
+            style={[
+              styles.progressBarFill,
+              {
+                width: `${progressPercent}%`,
+                backgroundColor: isDepleted || expired ? Colors.dark.disabled : typeColor,
+              },
+            ]}
+          />
+        </View>
+      </View>
+
+      <View style={styles.packageFooter}>
+        <Ionicons name="calendar-outline" size={12} color={Colors.dark.tabIconDefault} />
+        <Text style={[styles.expiryText, expired && styles.expiryTextExpired]}>
+          {expired ? "Expired " : "Valid until "}
+          {formatExpiryDate(pkg.expiryDate)}
+        </Text>
+      </View>
+    </View>
+  );
+}
+
 const BUNDLE_OPTIONS = [1, 5, 10, 20] as const;
 
 const BUNDLE_DISCOUNTS: Record<number, number> = {
@@ -86,6 +169,7 @@ export default function PackagesCard({ playerId, playerName }: PackagesCardProps
   // Credit Store accordion state
   const [expandedType, setExpandedType] = useState<CreditType | null>(null);
   const [selectedBundle, setSelectedBundle] = useState<{ type: CreditType; amount: number } | null>(null);
+  const [showPastPackages, setShowPastPackages] = useState(false);
   
   const toggleCreditType = useCallback((type: CreditType) => {
     if (Platform.OS !== "web") {
@@ -160,6 +244,10 @@ export default function PackagesCard({ playerId, playerName }: PackagesCardProps
 
   const activePackages = packages.filter(
     (p) => p.remainingCredits > 0 && (!p.expiryDate || new Date(p.expiryDate) >= new Date())
+  );
+
+  const pastPackages = packages.filter(
+    (p) => p.remainingCredits <= 0 || (p.expiryDate !== null && new Date(p.expiryDate) < new Date())
   );
 
   const totalRemaining = activePackages.reduce((sum, p) => sum + p.remainingCredits, 0);
@@ -449,84 +537,43 @@ export default function PackagesCard({ playerId, playerName }: PackagesCardProps
         </View>
       ) : (
         <View style={styles.packagesList}>
-          {packages.map((pkg) => {
-            const creditType = (pkg.creditType || "group") as CreditType;
-            const progressPercent = pkg.totalCredits > 0 ? (pkg.remainingCredits / pkg.totalCredits) * 100 : 0;
-            const isDepleted = pkg.remainingCredits <= 0;
-            const expired = isExpired(pkg.expiryDate);
-            const typeColor = creditType === "private" ? Colors.dark.sessionPrivate 
-              : creditType === "semi_private" ? Colors.dark.sessionSemiPrivate 
-              : Colors.dark.sessionGroup;
-            
-            return (
-              <View
-                key={pkg.id}
-                style={[
-                  styles.packageItem,
-                  isDepleted && styles.packageItemDepleted,
-                  expired && styles.packageItemExpired,
-                ]}
+          {activePackages.map((pkg) => (
+            <PackageItemRow
+              key={pkg.id}
+              pkg={pkg}
+              onDelete={handleDeletePackage}
+            />
+          ))}
+
+          {pastPackages.length > 0 ? (
+            <View>
+              <Pressable
+                style={styles.pastPackagesToggle}
+                onPress={() => {
+                  if (Platform.OS !== "web") {
+                    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+                  }
+                  setShowPastPackages((v) => !v);
+                }}
               >
-                <View style={styles.packageHeader}>
-                  <View style={styles.packageTitleRow}>
-                    <View style={[styles.packageTypeBadge, { backgroundColor: typeColor + "20" }]}>
-                      <Text style={[styles.packageTypeText, { color: typeColor }]}>
-                        {CREDIT_TYPE_LABELS[creditType]}
-                      </Text>
-                    </View>
-                    {isDepleted && !expired ? (
-                      <View style={styles.depletedBadge}>
-                        <Text style={styles.depletedBadgeText}>Depleted</Text>
-                      </View>
-                    ) : null}
-                    {expired ? (
-                      <View style={styles.expiredBadge}>
-                        <Text style={styles.expiredBadgeText}>Expired</Text>
-                      </View>
-                    ) : null}
-                  </View>
-                  <Pressable 
-                    onPress={() => handleDeletePackage(pkg)} 
-                    style={({ pressed }) => [styles.deleteButton, pressed && styles.buttonPressed]}
-                  >
-                    <Ionicons name="trash-outline" size={18} color={Colors.dark.error} />
-                  </Pressable>
-                </View>
-                
-                <View style={styles.packageCreditsSection}>
-                  <Text style={styles.creditsLabel}>Credits</Text>
-                  <View style={styles.creditsDisplay}>
-                    <Text style={[styles.creditsRemaining, isDepleted && styles.creditsDepleted]}>
-                      {formatCredits(pkg.remainingCredits)}
-                    </Text>
-                    <Text style={styles.creditsTotal}>/ {formatCredits(pkg.totalCredits)}</Text>
-                  </View>
-                </View>
-                
-                <View style={styles.progressBarContainer}>
-                  <View style={styles.progressBarBackground}>
-                    <View 
-                      style={[
-                        styles.progressBarFill, 
-                        { 
-                          width: `${progressPercent}%`,
-                          backgroundColor: isDepleted || expired ? Colors.dark.disabled : typeColor,
-                        }
-                      ]} 
-                    />
-                  </View>
-                </View>
-                
-                <View style={styles.packageFooter}>
-                  <Ionicons name="calendar-outline" size={12} color={Colors.dark.tabIconDefault} />
-                  <Text style={[styles.expiryText, expired && styles.expiryTextExpired]}>
-                    {expired ? "Expired " : "Valid until "}
-                    {formatExpiryDate(pkg.expiryDate)}
-                  </Text>
-                </View>
-              </View>
-            );
-          })}
+                <Text style={styles.pastPackagesToggleText}>
+                  Past Packages ({pastPackages.length})
+                </Text>
+                <Ionicons
+                  name={showPastPackages ? "chevron-up" : "chevron-down"}
+                  size={16}
+                  color={Colors.dark.tabIconDefault}
+                />
+              </Pressable>
+              {showPastPackages ? pastPackages.map((pkg) => (
+                <PackageItemRow
+                  key={pkg.id}
+                  pkg={pkg}
+                  onDelete={handleDeletePackage}
+                />
+              )) : null}
+            </View>
+          ) : null}
         </View>
       )}
 
@@ -1001,6 +1048,21 @@ const styles = StyleSheet.create({
     ...Typography.caption,
     color: Colors.dark.warning,
     fontSize: 10,
+    fontWeight: "600",
+  },
+  pastPackagesToggle: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingVertical: Spacing.sm,
+    paddingHorizontal: Spacing.sm,
+    marginTop: Spacing.sm,
+    borderTopWidth: 1,
+    borderTopColor: Colors.dark.border + "40",
+  },
+  pastPackagesToggleText: {
+    ...Typography.caption,
+    color: Colors.dark.tabIconDefault,
     fontWeight: "600",
   },
   buttonPressed: {
