@@ -215,11 +215,24 @@ const PlayStack = createNativeStackNavigator<PlayStackParamList>();
 const ScheduleStack = createNativeStackNavigator<ScheduleStackParamList>();
 const ProgressStack = createNativeStackNavigator<ProgressStackParamList>();
 
+function PlayScreenWithCallback(props: any) {
+  const navigation = useNavigation<any>();
+  const { registerTabCallback } = useTabNavigation();
+  React.useEffect(() => {
+    return registerTabCallback("PlayStack", (screen: string, params: any) => {
+      if (params?.initialTab) {
+        navigation.setParams({ initialTab: params.initialTab });
+      }
+    });
+  }, [navigation, registerTabCallback]);
+  return <PlayScreen {...props} />;
+}
+
 function PlayStackNavigator() {
   const { t } = useTranslation();
   return (
     <PlayStack.Navigator screenOptions={{ headerShown: false }}>
-      <PlayStack.Screen name="Play" component={PlayScreen} />
+      <PlayStack.Screen name="Play" component={PlayScreenWithCallback} />
       <PlayStack.Screen 
         name="OpenMatches" 
         component={OpenMatchFeedScreen}
