@@ -3367,7 +3367,7 @@ Return only the JSON array, nothing else.`;
       // Get blocked slots for each court and calculate available time slots
       const TIME_SLOTS = ["07:00", "08:00", "09:00", "10:00", "11:00", "12:00", "13:00", "14:00", "15:00", "16:00", "17:00", "18:00", "19:00", "20:00", "21:00"];
       const dateParam = req.query.date as string | undefined;
-      const now = dateParam ? new Date(dateParam) : new Date(); const DUBAI_OFFSET = 4; const dubaiNow = new Date(now.getTime() + DUBAI_OFFSET * 60 * 60 * 1000);
+      const now = new Date(); const DUBAI_OFFSET = 4; const dubaiNow = new Date(now.getTime() + DUBAI_OFFSET * 60 * 60 * 1000);
       const nowTime = dubaiNow.toISOString().slice(11, 16);
       const dubaiDateStr = dubaiNow.toISOString().split("T")[0]; const isToday = searchDate === dubaiDateStr;
 
