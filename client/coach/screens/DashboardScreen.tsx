@@ -43,7 +43,7 @@ import { CoachEarningsCard } from "@/coach/components/CoachEarningsCard";
 import { AcademySwitcher } from "@/coach/components/AcademySwitcher";
 import CollapsibleModeSwitcher from "@/components/CollapsibleModeSwitcher";
 import { filterSessionsByDate } from "@/lib/dateUtils";
-import { getApiUrl } from "@/lib/query-client";
+import { getApiUrl, apiRequest } from "@/lib/query-client";
 import { NextSessionCountdown } from "@/coach/components/NextSessionCountdown";
 import SessionDetailDrawer from "@/coach/components/SessionDetailDrawer";
 import AttendanceDrawer from "@/coach/components/AttendanceDrawer";
@@ -437,6 +437,13 @@ export default function DashboardScreen() {
     const xpPercent = Math.min(100, Math.max(0, requiredXP > 0 ? Math.round((currentXP / requiredXP) * 100) : 0));
     return { level, currentXP, requiredXP, xpPercent };
   }, [coachXpData, coach?.level, coach?.totalXp]);
+
+  // Fetch pending booking requests for this coach
+  const { data: pendingBookingRequests = [] } = useQuery<any[]>({
+    queryKey: ["/api/coach/booking-requests?status=pending"],
+    enabled: !!coach?.id,
+    staleTime: 30000,
+  });
 
   const pendingFeedbackCount = useMemo(() => {
     return todaysSessions.filter(
@@ -938,6 +945,75 @@ export default function DashboardScreen() {
               }}
               ctaText={t("coach.dashboard.reviewNow")}
             />
+          </View>
+        )}
+
+        {/* === PENDING BOOKING REQUESTS === */}
+        {pendingBookingRequests.length > 0 && (
+          <View style={styles.bookingRequestsSection}>
+            <View style={styles.bookingRequestsHeader}>
+              <View style={styles.bookingRequestsTitleRow}>
+                <Ionicons name="calendar-number" size={18} color={Colors.dark.primary} />
+                <Text style={styles.bookingRequestsTitle}>
+                  Booking Requests
+                </Text>
+                <View style={styles.bookingRequestsBadge}>
+                  <Text style={styles.bookingRequestsBadgeText}>{pendingBookingRequests.length}</Text>
+                </View>
+              </View>
+            </View>
+            {pendingBookingRequests.slice(0, 3).map((req: any) => {
+              const start = new Date(req.requestedStart);
+              const end = new Date(req.requestedEnd);
+              const dateStr = start.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" });
+              const timeStr = `${start.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })} - ${end.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`;
+              return (
+                <View key={req.id} style={styles.bookingRequestCard}>
+                  <View style={styles.bookingRequestCardLeft}>
+                    <Text style={styles.bookingRequestSessionType}>
+                      {req.sessionType === "private" ? "Private Lesson" : req.sessionType === "semi_private" ? "Semi-Private" : req.sessionType === "group" ? "Group Session" : "Open Play"}
+                    </Text>
+                    <Text style={styles.bookingRequestDateTime}>{dateStr} · {timeStr}</Text>
+                    <Text style={styles.bookingRequestDuration}>{req.duration} min</Text>
+                    {!!req.playerNote && (
+                      <View style={styles.bookingRequestFocusTag}>
+                        <Ionicons name="sparkles" size={12} color={Colors.dark.xpCyan} />
+                        <Text style={styles.bookingRequestFocusText} numberOfLines={2}>{req.playerNote}</Text>
+                      </View>
+                    )}
+                  </View>
+                  <View style={styles.bookingRequestActions}>
+                    <Pressable
+                      style={[styles.bookingRequestBtn, styles.bookingRequestApproveBtn]}
+                      onPress={async () => {
+                        try {
+                          await apiRequest("POST", `/api/coach/booking-requests/${req.id}/approve`, {});
+                          queryClient.invalidateQueries({ queryKey: ["/api/coach/booking-requests?status=pending"] });
+                          queryClient.invalidateQueries({ queryKey: ["/api/sessions"] });
+                        } catch (e) {
+                          RNAlert.alert("Error", "Failed to approve request");
+                        }
+                      }}
+                    >
+                      <Ionicons name="checkmark" size={16} color="#FFF" />
+                    </Pressable>
+                    <Pressable
+                      style={[styles.bookingRequestBtn, styles.bookingRequestDeclineBtn]}
+                      onPress={async () => {
+                        try {
+                          await apiRequest("POST", `/api/coach/booking-requests/${req.id}/decline`, {});
+                          queryClient.invalidateQueries({ queryKey: ["/api/coach/booking-requests?status=pending"] });
+                        } catch (e) {
+                          RNAlert.alert("Error", "Failed to decline request");
+                        }
+                      }}
+                    >
+                      <Ionicons name="close" size={16} color="#FFF" />
+                    </Pressable>
+                  </View>
+                </View>
+              );
+            })}
           </View>
         )}
 
@@ -1699,7 +1775,102 @@ const styles = StyleSheet.create({
   actionNeededSection: {
     marginBottom: Spacing.lg,
   },
-  
+
+  bookingRequestsSection: {
+    marginBottom: Spacing.lg,
+    paddingHorizontal: Spacing.xl,
+  },
+  bookingRequestsHeader: {
+    marginBottom: Spacing.md,
+  },
+  bookingRequestsTitleRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+  },
+  bookingRequestsTitle: {
+    fontSize: 16,
+    fontWeight: "700",
+    color: Colors.dark.text,
+    flex: 1,
+  },
+  bookingRequestsBadge: {
+    backgroundColor: Colors.dark.primary,
+    borderRadius: 12,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    minWidth: 24,
+    alignItems: "center",
+  },
+  bookingRequestsBadgeText: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: "#FFF",
+  },
+  bookingRequestCard: {
+    backgroundColor: Colors.dark.backgroundSecondary,
+    borderRadius: BorderRadius.lg,
+    padding: Spacing.md,
+    marginBottom: Spacing.sm,
+    flexDirection: "row",
+    alignItems: "flex-start",
+    borderWidth: 1,
+    borderColor: Colors.dark.primary + "30",
+  },
+  bookingRequestCardLeft: {
+    flex: 1,
+    gap: 3,
+  },
+  bookingRequestSessionType: {
+    fontSize: 14,
+    fontWeight: "700",
+    color: Colors.dark.primary,
+  },
+  bookingRequestDateTime: {
+    fontSize: 13,
+    color: Colors.dark.text,
+    fontWeight: "600",
+  },
+  bookingRequestDuration: {
+    fontSize: 12,
+    color: Colors.dark.textSecondary,
+  },
+  bookingRequestFocusTag: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: 4,
+    marginTop: 4,
+    backgroundColor: Colors.dark.xpCyan + "15",
+    borderRadius: BorderRadius.sm,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+  },
+  bookingRequestFocusText: {
+    fontSize: 12,
+    color: Colors.dark.xpCyan,
+    flex: 1,
+    lineHeight: 16,
+  },
+  bookingRequestActions: {
+    flexDirection: "row",
+    gap: Spacing.sm,
+    alignItems: "flex-start",
+    marginLeft: Spacing.md,
+  },
+  bookingRequestBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  bookingRequestApproveBtn: {
+    backgroundColor: GlowColors.primary,
+  },
+  bookingRequestDeclineBtn: {
+    backgroundColor: Colors.dark.error || "#FF3B30",
+  },
+
   // Header
   modeSwitcherContainer: {
     paddingHorizontal: Spacing.xl,

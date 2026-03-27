@@ -1,14 +1,17 @@
 import { Router, Request, Response, NextFunction } from "express";
 import { db, pool } from "../db";
 import { storage } from "../storage";
+import https from "https";
 import {
   players, coaches, users, sessions, packages, coachingSeries, seriesPlayers,
   creditTransactions, invoices, payments, sessionPlayers,
   locationTravelTimes, coachSettings, coachAvailability, availabilityExceptions,
-  coachTimeBlocks, courtAvailability, courtAvailabilitySnapshots,
+  coachTimeBlocks, courtAvailability, courtAvailabilitySnapshots, courts,
   bookingInvites, bookingInviteGuests, openMatches, openMatchSlots,
-  matchRequests, playerBookingPreferences,
+  matchRequests, playerBookingPreferences, bookingRequests,
   submitReviewSchema,
+  inSessionFeedback, sessionSkillObservations, xpTransactions,
+  playerSkillScores, glowSkills,
 } from "@shared/schema";
 import { eq, sql, desc, and, ne, gt, gte, asc, inArray, lte, or, count } from "drizzle-orm";
 import {
@@ -29,7 +32,7 @@ const bookingRequestSchema = z.object({
   requestedStart: z.string().min(1),
   requestedEnd: z.string().min(1),
   duration: z.number().int().positive(),
-  sessionType: z.enum(["private", "semi_private", "group", "play"]),
+  sessionType: z.enum(["private", "semi_private", "group", "play", "open_play"]).transform(v => v === "open_play" ? "play" : v),
   playerNote: z.string().max(500).optional().nullable(),
   sessionId: z.string().uuid().optional().nullable(),
   isJoinRequest: z.boolean().optional(),
@@ -151,6 +154,106 @@ function toDubaiTime(utcDate: Date): Date {
     }
   });
 
+  // Get available courts for a location+time window (filters out blocked/booked courts)
+  router.get("/api/player/available-courts", authMiddleware, async (req: AuthRequest, res: Response) => {
+    try {
+      const playerId = req.user?.playerId;
+      const academyId = req.user?.academyId;
+
+      if (!playerId) {
+        return res.status(403).json({ error: "Player access required" });
+      }
+
+      const { locationId, startTime, endTime } = req.query;
+      if (!startTime || !endTime) {
+        return res.status(400).json({ error: "startTime and endTime are required" });
+      }
+
+      const start = new Date(startTime as string);
+      const end = new Date(endTime as string);
+      const dateStr = `${start.getFullYear()}-${String(start.getMonth() + 1).padStart(2, "0")}-${String(start.getDate()).padStart(2, "0")}`;
+      const startTimeStr = `${String(start.getHours()).padStart(2, "0")}:${String(start.getMinutes()).padStart(2, "0")}`;
+      const endTimeStr = `${String(end.getHours()).padStart(2, "0")}:${String(end.getMinutes()).padStart(2, "0")}`;
+
+      // Get courts for the location/academy
+      let allCourts: any[];
+      if (locationId) {
+        allCourts = await storage.getCourtsByLocation(locationId as string, academyId);
+      } else if (academyId) {
+        allCourts = await storage.getAllCourts(academyId);
+      } else {
+        return res.json([]);
+      }
+
+      // Filter to active bookable courts
+      allCourts = allCourts.filter(c => c.isActive !== false);
+
+      // Fetch blocks for this date and time range
+      const courtIds = allCourts.map((c: any) => c.id);
+      if (courtIds.length === 0) return res.json([]);
+
+      const conflictingBlocks = await db
+        .select({ courtId: courtAvailability.courtId })
+        .from(courtAvailability)
+        .where(
+          and(
+            inArray(courtAvailability.courtId, courtIds),
+            eq(courtAvailability.date, dateStr),
+            sql`${courtAvailability.startTime} < ${endTimeStr}`,
+            sql`${courtAvailability.endTime} > ${startTimeStr}`,
+            sql`${courtAvailability.status} IN ('blocked', 'booked')`
+          )
+        );
+
+      // Also check sessions that overlap this window and use these courts
+      const conflictingSessions = await db
+        .select({ courtId: sessions.courtId })
+        .from(sessions)
+        .where(
+          and(
+            inArray(sessions.courtId, courtIds),
+            ne(sessions.status, "cancelled"),
+            sql`${sessions.startTime} < ${end.toISOString()}::timestamp`,
+            sql`${sessions.endTime} > ${start.toISOString()}::timestamp`
+          )
+        );
+
+      // Also check pending booking requests that already claimed a court (may not have a courtAvailability row yet)
+      const conflictingPendingRequests = await db
+        .select({ courtId: bookingRequests.courtId })
+        .from(bookingRequests)
+        .where(
+          and(
+            inArray(bookingRequests.courtId, courtIds),
+            sql`${bookingRequests.status} IN ('pending', 'approved')`,
+            sql`${bookingRequests.requestedStart} < ${end.toISOString()}::timestamp`,
+            sql`${bookingRequests.requestedEnd} > ${start.toISOString()}::timestamp`
+          )
+        );
+
+      const blockedCourtIds = new Set([
+        ...conflictingBlocks.map((b: any) => b.courtId),
+        ...conflictingSessions.map((s: any) => s.courtId).filter(Boolean),
+        ...conflictingPendingRequests.map((r: any) => r.courtId).filter(Boolean),
+      ]);
+
+      // Return only courts that are actually available (not blocked/booked)
+      const availableCourts = allCourts
+        .filter((court: any) => !blockedCourtIds.has(court.id))
+        .map((court: any) => ({
+          id: court.id,
+          name: court.name,
+          locationId: court.locationId,
+          surface: court.surface,
+        }));
+
+      res.json(availableCourts);
+    } catch (error) {
+      console.error("Available courts error:", error);
+      res.status(500).json({ error: "Failed to fetch available courts" });
+    }
+  });
+
   // Create a booking request (new session OR join existing session)
   router.post("/api/player/booking-requests", authMiddleware, async (req: AuthRequest, res: Response) => {
     try {
@@ -195,20 +298,97 @@ function toDubaiTime(utcDate: Date): Date {
         }
       }
 
-      const request = await storage.createBookingRequest({
-        academyId: player.academyId,
-        playerId,
-        coachId: coachId || null,
-        locationId: locationId || null,
-        courtId: courtId || null,
-        sessionId: isJoinRequest ? sessionId : null,
-        requestedStart: new Date(requestedStart),
-        requestedEnd: new Date(requestedEnd),
-        duration,
-        sessionType,
-        playerNote: playerNote || null,
-        status: "pending",
-      });
+      // Create booking request + court block atomically in a single transaction
+      // This prevents race conditions where two concurrent requests could book the same court
+      let request: any;
+      
+      try {
+        await db.transaction(async (tx) => {
+          // 1. Insert the booking request
+          const newRequests = await tx.insert(bookingRequests).values({
+            academyId: player.academyId,
+            playerId,
+            coachId: coachId || null,
+            locationId: locationId || null,
+            courtId: courtId || null,
+            sessionId: isJoinRequest ? sessionId : null,
+            requestedStart: new Date(requestedStart),
+            requestedEnd: new Date(requestedEnd),
+            duration,
+            sessionType,
+            playerNote: playerNote || null,
+            status: "pending",
+          }).returning();
+          
+          request = newRequests[0];
+
+          // 2. If a court was requested, check for conflicts and block it within the same transaction
+          if (courtId && !isJoinRequest) {
+            const startDate = new Date(requestedStart);
+            const endDate = new Date(requestedEnd);
+            const dateStr = `${startDate.getFullYear()}-${String(startDate.getMonth() + 1).padStart(2, "0")}-${String(startDate.getDate()).padStart(2, "0")}`;
+            const startTimeStr = `${String(startDate.getHours()).padStart(2, "0")}:${String(startDate.getMinutes()).padStart(2, "0")}`;
+            const endTimeStr = `${String(endDate.getHours()).padStart(2, "0")}:${String(endDate.getMinutes()).padStart(2, "0")}`;
+
+            // Check for conflicting court blocks or sessions within the transaction
+            const existingBlocks = await tx
+              .select({ id: courtAvailability.id })
+              .from(courtAvailability)
+              .where(
+                and(
+                  eq(courtAvailability.courtId, courtId),
+                  eq(courtAvailability.date, dateStr),
+                  sql`${courtAvailability.startTime} < ${endTimeStr}`,
+                  sql`${courtAvailability.endTime} > ${startTimeStr}`,
+                  sql`${courtAvailability.status} IN ('blocked', 'booked')`
+                )
+              )
+              .limit(1);
+
+            if (existingBlocks.length > 0) {
+              // Throw to roll back the entire transaction (booking request won't be created)
+              throw new Error("COURT_CONFLICT");
+            }
+
+            // Also check for overlapping sessions using this court (handles cases without courtAvailability rows)
+            const overlappingSessions = await tx
+              .select({ id: sessions.id })
+              .from(sessions)
+              .where(
+                and(
+                  eq(sessions.courtId, courtId),
+                  ne(sessions.status, "cancelled"),
+                  sql`${sessions.startTime} < ${new Date(requestedEnd).toISOString()}::timestamp`,
+                  sql`${sessions.endTime} > ${new Date(requestedStart).toISOString()}::timestamp`
+                )
+              )
+              .limit(1);
+
+            if (overlappingSessions.length > 0) {
+              throw new Error("COURT_CONFLICT");
+            }
+
+            // Block the court - this is now inside the transaction
+            await tx.insert(courtAvailability).values({
+              courtId,
+              date: dateStr,
+              startTime: startTimeStr,
+              endTime: endTimeStr,
+              status: "blocked",
+              blockedReason: `booking_request:${request.id}`,
+            });
+          }
+        });
+      } catch (txError: any) {
+        if (txError?.message === "COURT_CONFLICT") {
+          return res.status(409).json({ error: "This court is no longer available for the requested time slot. Please choose another slot." });
+        }
+        throw txError; // Re-throw to outer catch
+      }
+      
+      if (!request) {
+        return res.status(500).json({ error: "Failed to create booking request" });
+      }
 
       await storage.createAuditLog({
         academyId: player.academyId,
@@ -316,10 +496,218 @@ function toDubaiTime(utcDate: Date): Date {
 
       const updated = await storage.updateBookingRequest(id, { status: "cancelled" });
 
+      // Unblock court if there was a court blocked for this request
+      if (request.courtId) {
+        try {
+          await db.delete(courtAvailability).where(
+            and(
+              eq(courtAvailability.courtId, request.courtId),
+              eq(courtAvailability.blockedReason, `booking_request:${id}`)
+            )
+          );
+        } catch (courtUnblockError) {
+          console.error("Court unblock error (non-fatal):", courtUnblockError);
+        }
+      }
+
       res.json(updated);
     } catch (error) {
       console.error("Cancel booking request error:", error);
       res.status(500).json({ error: "Failed to cancel booking request" });
+    }
+  });
+
+  // ==================== AI BOOKING FOCUS SUGGESTIONS ====================
+
+  // Get AI-powered session focus suggestions based on player history
+  router.post("/api/player/booking-ai-focus", authMiddleware, async (req: AuthRequest, res: Response) => {
+    try {
+      const playerId = req.user?.playerId;
+      if (!playerId) {
+        return res.status(403).json({ error: "Player access required" });
+      }
+
+      const player = await storage.getPlayer(playerId, req.user?.academyId || "");
+      if (!player) {
+        return res.status(404).json({ error: "Player not found" });
+      }
+
+      // Fetch last 5 session coach feedback (public only)
+      const recentFeedback = await db
+        .select({
+          feedbackType: inSessionFeedback.feedbackType,
+          message: inSessionFeedback.message,
+          createdAt: inSessionFeedback.createdAt,
+        })
+        .from(inSessionFeedback)
+        .where(
+          and(
+            eq(inSessionFeedback.playerId, playerId),
+            eq(inSessionFeedback.visibility, "public"),
+          )
+        )
+        .orderBy(desc(inSessionFeedback.createdAt))
+        .limit(5);
+
+      // Fetch last 10 skill observations
+      const recentSkillObs = await db
+        .select({
+          direction: sessionSkillObservations.direction,
+          note: sessionSkillObservations.note,
+          appliedDelta: sessionSkillObservations.appliedDelta,
+          domainId: sessionSkillObservations.domainId,
+          createdAt: sessionSkillObservations.createdAt,
+        })
+        .from(sessionSkillObservations)
+        .where(eq(sessionSkillObservations.playerId, playerId))
+        .orderBy(desc(sessionSkillObservations.createdAt))
+        .limit(10);
+
+      // Fetch recent XP transactions
+      const recentXp = await db
+        .select({
+          xpAmount: xpTransactions.xpAmount,
+          source: xpTransactions.source,
+          description: xpTransactions.description,
+          createdAt: xpTransactions.createdAt,
+        })
+        .from(xpTransactions)
+        .where(eq(xpTransactions.playerId, playerId))
+        .orderBy(desc(xpTransactions.createdAt))
+        .limit(10);
+
+      // Fetch Glow Score weak areas - skills with lowest moving average scores
+      const weakGlowAreas = await db
+        .select({
+          skillName: glowSkills.name,
+          pillar: glowSkills.pillar,
+          movingAverage: playerSkillScores.movingAverage,
+          observationCount: playerSkillScores.observationCount,
+        })
+        .from(playerSkillScores)
+        .innerJoin(glowSkills, eq(playerSkillScores.skillId, glowSkills.id))
+        .where(eq(playerSkillScores.playerId, playerId))
+        .orderBy(asc(playerSkillScores.movingAverage))
+        .limit(5);
+
+      // Build context summary for AI
+      const feedbackSummary = recentFeedback.length > 0
+        ? recentFeedback.map(f => `[${f.feedbackType}] ${f.message}`).join("\n")
+        : "No recent coach feedback available.";
+
+      const skillSummary = recentSkillObs.length > 0
+        ? recentSkillObs.map(o => `${o.direction} trend${o.note ? `: ${o.note}` : ""}`).join("\n")
+        : "No recent skill observations available.";
+
+      const xpSummary = recentXp.length > 0
+        ? recentXp.map(x => `${x.xpAmount > 0 ? "+" : ""}${x.xpAmount} XP (${x.source})${x.description ? ": " + x.description : ""}`).join("\n")
+        : "No recent XP history.";
+
+      const glowWeakSummary = weakGlowAreas.length > 0
+        ? weakGlowAreas.map(w => `${w.skillName} (${w.pillar} pillar, avg score: ${w.movingAverage ?? "new"})`).join("\n")
+        : "No Glow Score skill data yet.";
+
+      const playerName = player.name || "this player";
+      const ballLevel = player.ballLevel || "intermediate";
+
+      const prompt = `You are a tennis coaching AI assistant. Based on the player data below, suggest 3 specific, actionable session focus areas for their upcoming lesson. Prioritize their weakest Glow Score skills first. Return ONLY a JSON array of short focus phrases (3-7 words each), no explanations.
+
+Player: ${playerName} (Ball Level: ${ballLevel})
+
+Glow Score Weak Areas (prioritize these):
+${glowWeakSummary}
+
+Recent Coach Feedback:
+${feedbackSummary}
+
+Recent Skill Observations:
+${skillSummary}
+
+Recent XP Activity:
+${xpSummary}
+
+Return format example: ["Backhand slice consistency", "Net approach footwork", "Serve second ball placement"]
+Return only the JSON array, nothing else.`;
+
+      const openaiKey = process.env.OPENAI_API_KEY;
+      
+      if (!openaiKey) {
+        // Build suggestions from Glow Score weak areas first, then ball level fallbacks
+        const suggestions: string[] = [];
+        
+        // Add top weak Glow Score skills as focus suggestions
+        if (weakGlowAreas.length > 0) {
+          for (const area of weakGlowAreas.slice(0, 3)) {
+            suggestions.push(`Improve ${area.skillName.toLowerCase()}`);
+          }
+        }
+        
+        // Fallback to ball-level defaults if not enough from Glow Score
+        if (suggestions.length < 3) {
+          const fallbacks: Record<string, string[]> = {
+            red: ["Basic rally consistency", "Forehand groundstroke", "Court positioning"],
+            orange: ["Cross-court rallying", "Volley technique", "Serve placement"],
+            green: ["Backhand slice", "Net approach footwork", "Serve consistency"],
+            yellow: ["Topspin rally depth", "Approach shot patterns", "Return of serve"],
+            default: ["Technique refinement", "Match tactics", "Footwork & movement"],
+          };
+          const level = (ballLevel || "default").toLowerCase();
+          const levelFallbacks = fallbacks[level] || fallbacks.default;
+          for (const s of levelFallbacks) {
+            if (suggestions.length >= 3) break;
+            if (!suggestions.includes(s)) suggestions.push(s);
+          }
+        }
+        
+        return res.json({ suggestions: suggestions.slice(0, 3) });
+      }
+
+      // Call OpenAI API
+      const requestBody = JSON.stringify({
+        model: "gpt-4o-mini",
+        messages: [{ role: "user", content: prompt }],
+        max_tokens: 200,
+        temperature: 0.7,
+      });
+
+      const aiResponse = await new Promise<string>((resolve, reject) => {
+        const options = {
+          hostname: "api.openai.com",
+          path: "/v1/chat/completions",
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${openaiKey}`,
+            "Content-Length": Buffer.byteLength(requestBody),
+          },
+        };
+
+        const req = https.request(options, (res) => {
+          let data = "";
+          res.on("data", chunk => { data += chunk; });
+          res.on("end", () => resolve(data));
+        });
+        req.on("error", reject);
+        req.write(requestBody);
+        req.end();
+      });
+
+      const parsed = JSON.parse(aiResponse);
+      const content = parsed.choices?.[0]?.message?.content?.trim() || "[]";
+      
+      let suggestions: string[] = [];
+      try {
+        suggestions = JSON.parse(content);
+        if (!Array.isArray(suggestions)) suggestions = [];
+        suggestions = suggestions.slice(0, 3);
+      } catch {
+        suggestions = ["Technique refinement", "Match consistency", "Footwork"];
+      }
+
+      res.json({ suggestions });
+    } catch (error) {
+      console.error("AI focus suggestions error:", error);
+      res.json({ suggestions: ["Technique refinement", "Match consistency", "Footwork"] });
     }
   });
 
@@ -1125,6 +1513,22 @@ function toDubaiTime(utcDate: Date): Date {
 
       const result = await storage.approveBookingRequest(id, coachId);
 
+      // Update court availability from "blocked" to "booked" when approved
+      if (request.courtId) {
+        try {
+          await db.update(courtAvailability)
+            .set({ status: "booked" })
+            .where(
+              and(
+                eq(courtAvailability.courtId, request.courtId),
+                eq(courtAvailability.blockedReason, `booking_request:${id}`)
+              )
+            );
+        } catch (courtUpdateError) {
+          console.error("Court status update on approve error (non-fatal):", courtUpdateError);
+        }
+      }
+
       await storage.createAuditLog({
         academyId: request.academyId,
         entityType: "booking_request",
@@ -1180,6 +1584,20 @@ function toDubaiTime(utcDate: Date): Date {
         respondedAt: new Date(),
         responseNote: reason || null,
       });
+
+      // Unblock court if there was a court blocked for this request
+      if (request.courtId) {
+        try {
+          await db.delete(courtAvailability).where(
+            and(
+              eq(courtAvailability.courtId, request.courtId),
+              eq(courtAvailability.blockedReason, `booking_request:${id}`)
+            )
+          );
+        } catch (courtUnblockError) {
+          console.error("Court unblock on decline error (non-fatal):", courtUnblockError);
+        }
+      }
 
       await storage.createAuditLog({
         academyId: request.academyId,

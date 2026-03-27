@@ -203,9 +203,18 @@ export default function PlayerBookingWizard({
   const [selectedSession, setSelectedSession] = useState<JoinableSession | null>(null);
   const [isJoining, setIsJoining] = useState(false); // true = joining existing, false = requesting new
 
+  // Court selection (can override the slot's pre-assigned court)
+  const [selectedCourtId, setSelectedCourtId] = useState<string | null>(null);
+  const [selectedCourtName, setSelectedCourtName] = useState<string | null>(null);
+
   // Slide 3: Details
   const [playerNote, setPlayerNote] = useState("");
   const [friendEmail, setFriendEmail] = useState("");
+
+  // AI Focus suggestions
+  const [aiFocusSuggestions, setAiFocusSuggestions] = useState<string[]>([]);
+  const [aiFocusLoading, setAiFocusLoading] = useState(false);
+  const [aiFocusFetched, setAiFocusFetched] = useState(false);
 
   // Slide 4: Confirm
   const [showSuccess, setShowSuccess] = useState(false);
@@ -274,6 +283,29 @@ export default function PlayerBookingWizard({
     enabled: visible && currentSlide >= 2 && (sessionType === "group" || sessionType === "semi_private" || sessionType === "open_play"),
   });
 
+  // Fetch available courts when a slot is selected (for court selection step)
+  const availableCourtsUrl = useMemo(() => {
+    if (!selectedSlot || isJoining) return null;
+    const params = new URLSearchParams({
+      startTime: selectedSlot.startTime,
+      endTime: selectedSlot.endTime,
+    });
+    if (selectedSlot.locationId) {
+      params.append("locationId", selectedSlot.locationId);
+    }
+    return `/api/player/available-courts?${params}`;
+  }, [selectedSlot, isJoining]);
+
+  const { data: availableCourts = [] } = useQuery<Array<{
+    id: string;
+    name: string;
+    locationId: string | null;
+    surface: string | null;
+  }>>({
+    queryKey: [availableCourtsUrl],
+    enabled: !!availableCourtsUrl && visible,
+  });
+
   // Fetch coaches for "browse by coach" mode
   const { data: coaches = [] } = useQuery<Coach[]>({
     queryKey: ["/api/coaches"],
@@ -323,6 +355,10 @@ export default function PlayerBookingWizard({
     setShowSuccess(false);
     setShowCoachDrawer(false);
     setSelectedCoachForDrawer(null);
+    setAiFocusSuggestions([]);
+    setAiFocusFetched(false);
+    setSelectedCourtId(null);
+    setSelectedCourtName(null);
   }, []);
 
   useEffect(() => {
@@ -353,6 +389,33 @@ export default function PlayerBookingWizard({
     };
     if (visible) pulse();
   }, [visible]);
+
+  // Reset court override whenever the selected slot changes (prevents stale court from previous selection)
+  useEffect(() => {
+    setSelectedCourtId(null);
+    setSelectedCourtName(null);
+  }, [selectedSlot]);
+
+  // Fetch AI focus suggestions when entering the Details slide
+  const detailsSlideIndex = browseMode === "by_coach" ? 4 : 3;
+  useEffect(() => {
+    if (currentSlide === detailsSlideIndex && !aiFocusFetched && visible) {
+      setAiFocusLoading(true);
+      setAiFocusFetched(true);
+      apiRequest("POST", "/api/player/booking-ai-focus", {})
+        .then((res) => res.json())
+        .then((data: any) => {
+          const suggestions = data?.suggestions || [];
+          setAiFocusSuggestions(suggestions);
+        })
+        .catch(() => {
+          setAiFocusSuggestions([]);
+        })
+        .finally(() => {
+          setAiFocusLoading(false);
+        });
+    }
+  }, [currentSlide, detailsSlideIndex, aiFocusFetched, visible]);
 
   // Navigation
   const goNext = useCallback(() => {
@@ -444,11 +507,11 @@ export default function PlayerBookingWizard({
       };
       bookingMutation.mutate(bookingData);
     } else if (selectedSlot) {
-      // Request new session slot
+      // Request new session slot (use player-selected court if overridden, else slot's pre-assigned court)
       const bookingData = {
         coachId: selectedSlot.coachId,
         locationId: selectedSlot.locationId,
-        courtId: selectedSlot.courtId,
+        courtId: selectedCourtId ?? selectedSlot.courtId,
         requestedStart: selectedSlot.startTime,
         requestedEnd: selectedSlot.endTime,
         duration: selectedSlot.duration,
@@ -457,7 +520,7 @@ export default function PlayerBookingWizard({
       };
       bookingMutation.mutate(bookingData);
     }
-  }, [selectedSlot, selectedSession, isJoining, sessionType, playerNote, bookingMutation]);
+  }, [selectedSlot, selectedSession, isJoining, sessionType, playerNote, selectedCourtId, bookingMutation]);
 
   // Progress bar animated style
   const progressStyle = useAnimatedStyle(() => ({
@@ -752,6 +815,44 @@ export default function PlayerBookingWizard({
             })}
           </ScrollView>
 
+          {/* Location Filter */}
+          {locations.length > 0 && (
+            <>
+              <View style={[styles.sectionHeader, { marginTop: Spacing.md }]}>
+                <Ionicons name="location" size={18} color={Colors.dark.xpCyan} />
+                <Text style={styles.sectionTitle}>Location</Text>
+              </View>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.durationScroll}>
+                <Pressable
+                  style={[styles.locationChip, selectedLocationId === null && styles.locationChipSelected]}
+                  onPress={() => {
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                    setSelectedLocationId(null);
+                  }}
+                >
+                  <Text style={[styles.locationChipText, selectedLocationId === null && styles.locationChipTextSelected]}>
+                    All
+                  </Text>
+                </Pressable>
+                {locations.map((loc) => (
+                  <Pressable
+                    key={loc.id}
+                    style={[styles.locationChip, selectedLocationId === loc.id && styles.locationChipSelected]}
+                    onPress={() => {
+                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                      setSelectedLocationId(loc.id);
+                      setSelectedSlot(null);
+                    }}
+                  >
+                    <Text style={[styles.locationChipText, selectedLocationId === loc.id && styles.locationChipTextSelected]}>
+                      {loc.name}
+                    </Text>
+                  </Pressable>
+                ))}
+              </ScrollView>
+            </>
+          )}
+
           {/* Available Sessions Section */}
           <View style={[styles.sectionHeader, { marginTop: Spacing.lg }]}>
             <Ionicons name="tennisball" size={18} color={Colors.dark.xpCyan} />
@@ -849,12 +950,12 @@ export default function PlayerBookingWizard({
             )}
 
             {/* Available Slots for New Booking */}
-            {availableSlots.length > 0 && (
+            {availableSlots.filter(slot => !selectedLocationId || slot.locationId === selectedLocationId).length > 0 && (
               <>
                 <Text style={styles.sessionSectionTitle}>
                   {showJoinable ? "Or Request New Session" : "Available Times"}
                 </Text>
-                {availableSlots.map((slot, index) => {
+                {availableSlots.filter(slot => !selectedLocationId || slot.locationId === selectedLocationId).map((slot, index) => {
                   const isSelected = selectedSlot?.startTime === slot.startTime && selectedSlot?.coachId === slot.coachId;
                   return (
                     <Pressable
@@ -898,12 +999,12 @@ export default function PlayerBookingWizard({
               </>
             )}
 
-            {availableSlots.length === 0 && joinableSessions.length === 0 && !isLoading && (
+            {availableSlots.filter(slot => !selectedLocationId || slot.locationId === selectedLocationId).length === 0 && joinableSessions.length === 0 && !isLoading && (
               <View style={styles.emptyState}>
                 <Ionicons name="calendar-outline" size={48} color={Colors.dark.textSecondary} />
                 <Text style={styles.emptyStateTitle}>No sessions available</Text>
                 <Text style={styles.emptyStateText}>
-                  Try a different date or duration
+                  {selectedLocationId ? "Try a different location, date, or duration" : "Try a different date or duration"}
                 </Text>
               </View>
             )}
@@ -918,6 +1019,82 @@ export default function PlayerBookingWizard({
   const renderDetailsSlide = () => (
     <Animated.View entering={FadeIn} style={styles.slideContent}>
       <Text style={styles.slideSubtitle}>Any special requests? (Optional)</Text>
+
+      {/* Court Selection - shown only for new slot requests with available courts */}
+      {selectedSlot && !isJoining && availableCourts.length > 0 && (
+        <View style={styles.courtSelectionSection}>
+          <View style={styles.aiFocusHeader}>
+            <Ionicons name="tennisball" size={15} color={Colors.dark.primary} />
+            <Text style={[styles.aiFocusLabel, { color: Colors.dark.primary }]}>Court Selection</Text>
+          </View>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+            <View style={styles.aiFocusChips}>
+              {availableCourts.map((court) => {
+                const isPreassigned = court.id === selectedSlot.courtId;
+                const isSelected = (selectedCourtId ?? selectedSlot.courtId) === court.id;
+                return (
+                  <Pressable
+                    key={court.id}
+                    style={[
+                      styles.aiFocusChip,
+                      isSelected && styles.aiFocusChipSelected,
+                    ]}
+                    onPress={() => {
+                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                      setSelectedCourtId(court.id);
+                      setSelectedCourtName(court.name);
+                    }}
+                  >
+                    <Text style={[
+                      styles.aiFocusChipText,
+                      isSelected && styles.aiFocusChipTextSelected,
+                    ]}>
+                      {court.name}{isPreassigned ? " (suggested)" : ""}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+          </ScrollView>
+        </View>
+      )}
+
+      {/* AI Focus Suggestions */}
+      <View style={styles.aiFocusSection}>
+        <View style={styles.aiFocusHeader}>
+          <Ionicons name="sparkles" size={15} color={Colors.dark.xpCyan} />
+          <Text style={styles.aiFocusLabel}>AI Focus Suggestions</Text>
+          {aiFocusLoading ? (
+            <ActivityIndicator size="small" color={Colors.dark.xpCyan} style={{ marginLeft: 4 }} />
+          ) : null}
+        </View>
+        {aiFocusSuggestions.length > 0 ? (
+          <View style={styles.aiFocusChips}>
+            {aiFocusSuggestions.map((s, i) => (
+              <Pressable
+                key={i}
+                style={[
+                  styles.aiFocusChip,
+                  playerNote === s && styles.aiFocusChipSelected,
+                ]}
+                onPress={() => {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  setPlayerNote(playerNote === s ? "" : s);
+                }}
+              >
+                <Text style={[
+                  styles.aiFocusChipText,
+                  playerNote === s && styles.aiFocusChipTextSelected,
+                ]}>
+                  {s}
+                </Text>
+              </Pressable>
+            ))}
+          </View>
+        ) : !aiFocusLoading ? (
+          <Text style={styles.aiFocusEmpty}>Add a custom note below</Text>
+        ) : null}
+      </View>
 
       <View style={styles.detailsForm}>
         <View style={styles.inputGroup}>
@@ -1028,7 +1205,7 @@ export default function PlayerBookingWizard({
                   <Text style={styles.confirmText}>
                     {"locationName" in sessionInfo ? sessionInfo.locationName : ""}
                     {" · "}
-                    {"courtName" in sessionInfo ? sessionInfo.courtName : ""}
+                    {selectedCourtName ?? ("courtName" in sessionInfo ? sessionInfo.courtName : "")}
                   </Text>
                 </View>
 
@@ -1784,6 +1961,77 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: Colors.dark.textSecondary,
     textAlign: "center",
+  },
+  courtSelectionSection: {
+    marginBottom: Spacing.lg,
+  },
+  locationChip: {
+    backgroundColor: Colors.dark.backgroundSecondary,
+    borderRadius: 20,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    marginRight: Spacing.sm,
+    borderWidth: 1,
+    borderColor: Colors.dark.border,
+  },
+  locationChipSelected: {
+    backgroundColor: Colors.dark.primary + "20",
+    borderColor: Colors.dark.primary,
+  },
+  locationChipText: {
+    fontSize: 13,
+    color: Colors.dark.textSecondary,
+    fontWeight: "500",
+  },
+  locationChipTextSelected: {
+    color: Colors.dark.primary,
+    fontWeight: "700",
+  },
+  aiFocusSection: {
+    marginBottom: Spacing.lg,
+  },
+  aiFocusHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    marginBottom: Spacing.sm,
+  },
+  aiFocusLabel: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: Colors.dark.xpCyan,
+    flex: 1,
+  },
+  aiFocusChips: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: Spacing.sm,
+  },
+  aiFocusChip: {
+    backgroundColor: Colors.dark.backgroundSecondary,
+    borderRadius: 20,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderWidth: 1,
+    borderColor: Colors.dark.border,
+  },
+  aiFocusChipSelected: {
+    backgroundColor: Colors.dark.xpCyan + "20",
+    borderColor: Colors.dark.xpCyan,
+  },
+  aiFocusChipText: {
+    fontSize: 13,
+    color: Colors.dark.textSecondary,
+    fontWeight: "500",
+  },
+  aiFocusChipTextSelected: {
+    color: Colors.dark.xpCyan,
+    fontWeight: "600",
+  },
+  aiFocusEmpty: {
+    fontSize: 13,
+    color: Colors.dark.textSecondary,
+    fontStyle: "italic",
   },
   detailsForm: {
     gap: Spacing.lg,

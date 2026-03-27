@@ -8409,6 +8409,26 @@ export const storage = {
     
     const pendingRequests = await db.select().from(bookingRequests)
       .where(and(...pendingConditions));
+
+    // Fetch court availability blocks for the date range (blocked/booked from ALL coaches)
+    // This ensures cross-coach court conflict exclusion
+    const startDateStr = `${params.startDate.getFullYear()}-${String(params.startDate.getMonth() + 1).padStart(2, "0")}-${String(params.startDate.getDate()).padStart(2, "0")}`;
+    const endDateStr = `${params.endDate.getFullYear()}-${String(params.endDate.getMonth() + 1).padStart(2, "0")}-${String(params.endDate.getDate()).padStart(2, "0")}`;
+    const courtBlocks = await db.select({
+      courtId: courtAvailability.courtId,
+      date: courtAvailability.date,
+      startTime: courtAvailability.startTime,
+      endTime: courtAvailability.endTime,
+      status: courtAvailability.status,
+    }).from(courtAvailability)
+      .where(and(
+        gte(courtAvailability.date, startDateStr),
+        lte(courtAvailability.date, endDateStr),
+        sql`${courtAvailability.status} IN ('blocked', 'booked')`
+      ));
+
+    // Also check sessions that have courts assigned (cross-coach court conflict)
+    const sessionCourtConflicts = existingSessions.filter(s => s.courtId);
     
     const availableSlots: Array<{
       coachId: string;
@@ -8421,6 +8441,7 @@ export const storage = {
     const currentDate = new Date(params.startDate);
     while (currentDate <= params.endDate) {
       const weekday = currentDate.getDay();
+      const dateStr = `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, "0")}-${String(currentDate.getDate()).padStart(2, "0")}`;
       
       const dayAvailability = availabilitySlots.filter(a => a.weekday === weekday);
       
@@ -8438,20 +8459,38 @@ export const storage = {
         
         while (slotStart.getTime() + slotDuration * 60000 <= availabilityEnd.getTime()) {
           const slotEnd = new Date(slotStart.getTime() + slotDuration * 60000);
-          
+          const slotStartTime = `${String(slotStart.getHours()).padStart(2, "0")}:${String(slotStart.getMinutes()).padStart(2, "0")}`;
+          const slotEndTime = `${String(slotEnd.getHours()).padStart(2, "0")}:${String(slotEnd.getMinutes()).padStart(2, "0")}`;
+
+          // Check coach-level session conflict (same coach)
           const hasConflict = existingSessions.some(session => 
             session.coachId === availability.coachId &&
             session.startTime && session.endTime &&
             slotStart < session.endTime && slotEnd > session.startTime
           );
           
+          // Check coach-level pending request conflict (same coach)
           const hasPendingConflict = pendingRequests.some(req =>
             req.coachId === availability.coachId &&
             req.requestedStart && req.requestedEnd &&
             slotStart < req.requestedEnd && slotEnd > req.requestedStart
           );
+
+          // Check court-level conflict via courtAvailability (blocked/booked by ANY coach)
+          const hasCourtBlock = availability.courtId ? courtBlocks.some(block =>
+            block.courtId === availability.courtId &&
+            block.date === dateStr &&
+            block.startTime < slotEndTime && block.endTime > slotStartTime
+          ) : false;
+
+          // Check court-level conflict via sessions with courts (cross-coach)
+          const hasCourtSessionConflict = availability.courtId ? sessionCourtConflicts.some(session =>
+            session.courtId === availability.courtId &&
+            session.startTime && session.endTime &&
+            slotStart < session.endTime && slotEnd > session.startTime
+          ) : false;
           
-          if (!hasConflict && !hasPendingConflict) {
+          if (!hasConflict && !hasPendingConflict && !hasCourtBlock && !hasCourtSessionConflict) {
             availableSlots.push({
               coachId: availability.coachId,
               locationId: availability.locationId,
