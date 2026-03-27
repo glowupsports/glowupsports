@@ -367,8 +367,8 @@ export function AdminInlinePlayerProfile({
             {stats.packages && stats.packages.length > 0 ? (
               <View style={styles.packagesGrid}>
                 {stats.packages.map((pkg: AdminPlayerPackage) => {
-                  const remaining = pkg.remainingCredits ?? pkg.remaining ?? 0;
-                  const total = pkg.totalCredits || 0;
+                  const remaining = Number(pkg.remainingCredits ?? pkg.remaining ?? 0);
+                  const total = Number(pkg.totalCredits || 0);
                   const percentage = total > 0 ? (remaining / total) * 100 : 0;
                   const creditColor = remaining > 0 ? Colors.dark.successNeon : Colors.dark.textMuted;
                   return (

@@ -18,9 +18,9 @@ interface AdminRecordPaymentModalProps {
 
 export function AdminRecordPaymentModal({ visible, onClose, packages, selectedPlayerId }: AdminRecordPaymentModalProps) {
   const queryClient = useQueryClient();
-  const unpaidPackages = packages?.filter((p: PlayerPackage) => !p.isPaid) || [];
+  const unpaidPackages = packages?.filter((p: AdminPlayerPackage) => !p.isPaid) || [];
 
-  const handleMarkPaid = async (pkg: PlayerPackage) => {
+  const handleMarkPaid = async (pkg: AdminPlayerPackage) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     try {
       await apiRequest("PATCH", `/api/packages/${pkg.id}`, { isPaid: true, paidAt: new Date().toISOString() });
@@ -55,7 +55,7 @@ export function AdminRecordPaymentModal({ visible, onClose, packages, selectedPl
             ) : (
               <>
                 <Text style={styles.unpaidSectionTitle}>Unpaid Packages</Text>
-                {unpaidPackages.map((pkg: PlayerPackage) => (
+                {unpaidPackages.map((pkg: AdminPlayerPackage) => (
                   <View key={pkg.id} style={styles.unpaidPackageCard}>
                     <View style={styles.unpaidPackageInfo}>
                       <View style={styles.unpaidPackageRow}>

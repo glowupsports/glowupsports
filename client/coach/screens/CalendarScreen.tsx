@@ -67,6 +67,35 @@ type CalendarRouteParams = {
   };
 };
 
+interface Session {
+  id: string;
+  coachId: string | null;
+  courtId: string | null;
+  locationId?: string | null;
+  startTime: string;
+  endTime: string;
+  duration: number;
+  sessionType: string;
+  ballLevel?: string | null;
+  skillLevel?: number | null;
+  isRecurring?: boolean | null;
+  paymentStatus?: string | null;
+  status: string | null;
+  skipReason?: string | null;
+  players?: Array<{ name: string }>;
+  title?: string | null;
+}
+
+interface BlockedSession {
+  id: string;
+  courtId: string | null;
+  startTime: string;
+  endTime: string;
+  blocked?: true;
+  blockedReason?: string;
+  isCourtBlock?: boolean;
+}
+
 interface CoachData {
   id: string;
   name: string;
@@ -105,6 +134,7 @@ export default function CalendarScreen() {
   const route = useRoute<RouteProp<any>>();
   const insets = useSafeAreaInsets();
   const { width: screenWidth } = useWindowDimensions();
+  const queryClient = useQueryClient();
 
   // Academy timezone for correct local time display - default to Dubai if not set
   const academyTimezone = academy?.timezone || "Asia/Dubai";
@@ -471,7 +501,7 @@ export default function CalendarScreen() {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
   }, []);
 
-  const setSelectedSession = useCallback((session: any) => {
+  const setSelectedSession = useCallback((_session: Session | null) => {
     setSelectedSessionForAttendance(null);
     setSelectedSessionForDetail(null);
     setSelectedSessionForFeedback(null);
@@ -835,7 +865,7 @@ export default function CalendarScreen() {
     },
   });
 
-  const handleBlockedSlotPress = (session: any) => {
+  const handleBlockedSlotPress = (session: BlockedSession) => {
     if (!session.courtId) return;
     const startLocal = getTimeInTimezone(session.startTime, academyTimezone);
     const endLocal = getTimeInTimezone(session.endTime, academyTimezone);

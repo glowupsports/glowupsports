@@ -16,14 +16,18 @@ export type AdminPlayer = {
 
 export type AdminPlayerPackage = {
   id: string;
+  creditType?: string;
+  totalCredits?: number | string;
   remainingCredits?: number | string;
   remaining?: number | string;
-  totalCredits?: number | string;
-  isPaid?: boolean;
-  packageName?: string;
-  creditType?: string;
+  status?: string;
+  expiryDate?: string | null;
   expiresAt?: string;
-  expiryDate?: string;
+  createdAt?: string;
+  pricePerCredit?: number;
+  isPaid?: boolean;
+  price?: number;
+  packageName?: string;
 };
 
 export type AdminPlayerInvoice = {
