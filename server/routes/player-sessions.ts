@@ -2377,6 +2377,156 @@ import fs from "fs";
     },
   );
 
+  // Get member-add suggestions (academy players + friends not already in group)
+  router.get(
+    "/api/player/groups/:groupId/member-suggestions",
+    authMiddleware,
+    requirePlayerOrOwner,
+    requireFeatureUnlock("groups"),
+    async (req: AuthenticatedRequest, res: Response) => {
+      try {
+        const { groupId } = req.params;
+        const userId = req.user!.userId!;
+        const playerId = req.user!.playerId!;
+
+        // Must be admin of the group
+        const [membership] = await db
+          .select()
+          .from(groupMembersTable)
+          .where(and(eq(groupMembersTable.groupId, groupId), eq(groupMembersTable.userId, userId)));
+        if (!membership || membership.role !== "admin") {
+          return res.status(403).json({ error: "Only group admins can view member suggestions" });
+        }
+
+        const player = await storage.getPlayer(playerId);
+        if (!player || !player.academyId) {
+          return res.status(400).json({ error: "Player must be in an academy" });
+        }
+
+        // Get all current member userIds for exclusion
+        const currentMembers = await db
+          .select({ userId: groupMembersTable.userId })
+          .from(groupMembersTable)
+          .where(eq(groupMembersTable.groupId, groupId));
+        const memberUserIds = currentMembers.map((m) => m.userId);
+
+        // Get accepted friend connections for this player
+        const friendConns = await db
+          .select({
+            player1Id: playerConnections.player1Id,
+            player2Id: playerConnections.player2Id,
+          })
+          .from(playerConnections)
+          .where(
+            and(
+              eq(playerConnections.status, "accepted"),
+              or(
+                eq(playerConnections.player1Id, playerId),
+                eq(playerConnections.player2Id, playerId),
+              ),
+            ),
+          );
+        const friendPlayerIds = friendConns.map((c) =>
+          c.player1Id === playerId ? c.player2Id : c.player1Id,
+        );
+
+        // Resolve friend playerIds → users (who are not already members)
+        const friendUsers = friendPlayerIds.length > 0
+          ? await db
+              .select({
+                userId: users.id,
+                name: players.name,
+                avatarUrl: players.profilePhotoUrl,
+              })
+              .from(players)
+              .innerJoin(users, eq(users.playerId, players.id))
+              .where(inArray(players.id, friendPlayerIds))
+          : [];
+
+        // Academy players not already members (excluding self)
+        const academyUsers = await db
+          .select({
+            userId: users.id,
+            name: players.name,
+            avatarUrl: players.profilePhotoUrl,
+          })
+          .from(players)
+          .innerJoin(users, eq(users.playerId, players.id))
+          .where(
+            and(
+              eq(players.academyId, player.academyId),
+              ne(players.id, playerId),
+            ),
+          )
+          .limit(60);
+
+        // Filter out existing members
+        const notMember = (u: { userId: string }) => !memberUserIds.includes(u.userId);
+        const friends = friendUsers.filter(notMember);
+        const friendUserIds = new Set(friends.map((f) => f.userId));
+        const academy = academyUsers.filter((u) => notMember(u) && !friendUserIds.has(u.userId));
+
+        res.json({ friends, academy });
+      } catch (error) {
+        console.error("Error fetching member suggestions:", error);
+        res.status(500).json({ error: "Failed to fetch suggestions" });
+      }
+    },
+  );
+
+  // Admin adds a player to the group directly
+  router.post(
+    "/api/player/groups/:groupId/members",
+    authMiddleware,
+    requirePlayerOrOwner,
+    requireFeatureUnlock("groups"),
+    async (req: AuthenticatedRequest, res: Response) => {
+      try {
+        const { groupId } = req.params;
+        const { userId: targetUserId } = req.body;
+        const userId = req.user!.userId!;
+
+        if (!targetUserId) {
+          return res.status(400).json({ error: "userId is required" });
+        }
+
+        // Must be admin
+        const [membership] = await db
+          .select()
+          .from(groupMembersTable)
+          .where(and(eq(groupMembersTable.groupId, groupId), eq(groupMembersTable.userId, userId)));
+        if (!membership || membership.role !== "admin") {
+          return res.status(403).json({ error: "Only group admins can add members" });
+        }
+
+        // Check if target already a member
+        const [existing] = await db
+          .select()
+          .from(groupMembersTable)
+          .where(and(eq(groupMembersTable.groupId, groupId), eq(groupMembersTable.userId, targetUserId)));
+        if (existing) {
+          return res.status(409).json({ error: "Player is already a member" });
+        }
+
+        await db.insert(groupMembersTable).values({
+          groupId,
+          userId: targetUserId,
+          role: "member",
+        });
+
+        await db
+          .update(communityGroupsTable)
+          .set({ memberCount: sql`${communityGroupsTable.memberCount} + 1` })
+          .where(eq(communityGroupsTable.id, groupId));
+
+        res.json({ success: true });
+      } catch (error) {
+        console.error("Error adding group member:", error);
+        res.status(500).json({ error: "Failed to add member" });
+      }
+    },
+  );
+
   // Create a new group (player-created groups)
   router.post(
     "/api/player/groups",

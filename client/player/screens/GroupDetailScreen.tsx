@@ -61,6 +61,12 @@ interface Post {
   authorName: string;
 }
 
+interface SuggestedPlayer {
+  userId: string;
+  name: string;
+  avatarUrl?: string | null;
+}
+
 type Tab = "feed" | "members";
 type Props = NativeStackScreenProps<any, "GroupDetail">;
 
@@ -257,12 +263,173 @@ function ComposePostModal({
   );
 }
 
+function AddMembersModal({
+  visible,
+  onClose,
+  groupId,
+  typeColor,
+}: {
+  visible: boolean;
+  onClose: () => void;
+  groupId: string;
+  typeColor: string;
+}) {
+  const queryClient = useQueryClient();
+  const [search, setSearch] = useState("");
+  const [addedIds, setAddedIds] = useState<Set<string>>(new Set());
+
+  const { data, isLoading } = useQuery<{ friends: SuggestedPlayer[]; academy: SuggestedPlayer[] }>({
+    queryKey: [`/api/player/groups/${groupId}/member-suggestions`],
+    enabled: visible,
+  });
+
+  const addMutation = useMutation({
+    mutationFn: (userId: string) =>
+      apiRequest("POST", `/api/player/groups/${groupId}/members`, { userId }),
+    onSuccess: (_res, userId) => {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      setAddedIds(prev => new Set([...prev, userId]));
+      queryClient.invalidateQueries({ queryKey: [`/api/player/groups/${groupId}`] });
+    },
+    onError: (error: unknown) => {
+      const msg = error instanceof Error ? error.message : "Failed to add member";
+      Alert.alert("Error", msg);
+    },
+  });
+
+  const handleClose = () => {
+    setSearch("");
+    setAddedIds(new Set());
+    onClose();
+  };
+
+  const filterPlayers = (list: SuggestedPlayer[]) => {
+    if (!search.trim()) return list;
+    const q = search.toLowerCase();
+    return list.filter((p) => p.name.toLowerCase().includes(q));
+  };
+
+  const friends = filterPlayers(data?.friends || []);
+  const academy = filterPlayers(data?.academy || []);
+  const isEmpty = friends.length === 0 && academy.length === 0;
+
+  const renderPlayer = (item: SuggestedPlayer) => {
+    const photoUri = getPhotoUri(item.avatarUrl);
+    const added = addedIds.has(item.userId);
+    return (
+      <View key={item.userId} style={styles.suggestionRow}>
+        <View style={styles.suggestionAvatarWrap}>
+          {photoUri ? (
+            <Image source={{ uri: photoUri }} style={styles.suggestionAvatarImg} />
+          ) : (
+            <View style={[styles.suggestionAvatar, { backgroundColor: typeColor + "30" }]}>
+              <Text style={[styles.suggestionInitial, { color: typeColor }]}>
+                {item.name.charAt(0).toUpperCase()}
+              </Text>
+            </View>
+          )}
+        </View>
+        <Text style={styles.suggestionName} numberOfLines={1}>{item.name}</Text>
+        <Pressable
+          style={[
+            styles.addBtn,
+            added ? styles.addBtnDone : { backgroundColor: typeColor },
+          ]}
+          disabled={added || addMutation.isPending}
+          onPress={() => {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+            addMutation.mutate(item.userId);
+          }}
+        >
+          {added ? (
+            <Ionicons name="checkmark" size={16} color={typeColor} />
+          ) : (
+            <Text style={styles.addBtnText}>Add</Text>
+          )}
+        </Pressable>
+      </View>
+    );
+  };
+
+  return (
+    <Modal visible={visible} transparent animationType="slide" onRequestClose={handleClose}>
+      <View style={styles.modalOverlay}>
+        <Pressable style={styles.modalBackdrop} onPress={handleClose} />
+        <View style={styles.addMembersSheet}>
+          <View style={styles.composeHandle} />
+
+          <View style={styles.addMembersHeader}>
+            <Text style={styles.addMembersTitle}>Add Members</Text>
+            <Pressable onPress={handleClose} style={styles.addMembersCloseBtn}>
+              <Ionicons name="close" size={20} color="#7A8EA0" />
+            </Pressable>
+          </View>
+
+          <View style={styles.searchWrap}>
+            <Ionicons name="search" size={16} color="#445566" style={styles.searchIcon} />
+            <TextInput
+              style={styles.searchInput}
+              placeholder="Search players..."
+              placeholderTextColor="#445566"
+              value={search}
+              onChangeText={setSearch}
+              autoCorrect={false}
+            />
+          </View>
+
+          {isLoading ? (
+            <View style={styles.addMembersLoading}>
+              <ActivityIndicator color={typeColor} />
+            </View>
+          ) : isEmpty ? (
+            <View style={styles.addMembersEmpty}>
+              <Ionicons name="people-outline" size={40} color="#334455" />
+              <Text style={styles.addMembersEmptyText}>
+                {search.trim() ? "No players match your search" : "Everyone in your academy is already in the group"}
+              </Text>
+            </View>
+          ) : (
+            <ScrollView
+              style={styles.addMembersScroll}
+              showsVerticalScrollIndicator={false}
+              keyboardShouldPersistTaps="handled"
+            >
+              {friends.length > 0 ? (
+                <>
+                  <View style={styles.sectionHeaderRow}>
+                    <Ionicons name="heart" size={12} color={typeColor} />
+                    <Text style={[styles.sectionHeaderText, { color: typeColor }]}>Friends</Text>
+                  </View>
+                  {friends.map(renderPlayer)}
+                </>
+              ) : null}
+
+              {academy.length > 0 ? (
+                <>
+                  <View style={styles.sectionHeaderRow}>
+                    <Ionicons name="business" size={12} color="#7A8EA0" />
+                    <Text style={styles.sectionHeaderText}>Academy Players</Text>
+                  </View>
+                  {academy.map(renderPlayer)}
+                </>
+              ) : null}
+
+              <View style={{ height: 32 }} />
+            </ScrollView>
+          )}
+        </View>
+      </View>
+    </Modal>
+  );
+}
+
 export default function GroupDetailScreen({ route, navigation }: Props) {
   const insets = useSafeAreaInsets();
   const queryClient = useQueryClient();
   const { groupId, groupName } = route.params as { groupId: string; groupName: string };
   const [activeTab, setActiveTab] = useState<Tab>("feed");
   const [composeVisible, setComposeVisible] = useState(false);
+  const [addMembersVisible, setAddMembersVisible] = useState(false);
 
   const { data, isLoading, refetch, isRefetching } = useQuery<GroupDetail>({
     queryKey: [`/api/player/groups/${groupId}`],
@@ -324,6 +491,7 @@ export default function GroupDetailScreen({ route, navigation }: Props) {
 
   const typeConfig = GROUP_TYPE_CONFIG[data?.group.type || "friends"] || GROUP_TYPE_CONFIG.friends;
   const typeColor = typeConfig.color;
+  const isAdmin = data?.myRole === "admin";
 
   if (isLoading) {
     return (
@@ -413,6 +581,19 @@ export default function GroupDetailScreen({ route, navigation }: Props) {
           <Text style={[styles.tabLabel, activeTab === "members" && styles.tabLabelActive]}>Members</Text>
           {activeTab === "members" ? <View style={[styles.tabUnderline, { backgroundColor: Colors.dark.primary }]} /> : null}
         </Pressable>
+
+        {/* Admin "Add Members" button — only visible in members tab */}
+        {activeTab === "members" && isAdmin ? (
+          <Pressable
+            style={styles.tabAddBtn}
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              setAddMembersVisible(true);
+            }}
+          >
+            <Ionicons name="person-add-outline" size={18} color={typeColor} />
+          </Pressable>
+        ) : null}
       </View>
 
       {/* ---- CONTENT ---- */}
@@ -499,6 +680,14 @@ export default function GroupDetailScreen({ route, navigation }: Props) {
       <ComposePostModal
         visible={composeVisible}
         onClose={() => setComposeVisible(false)}
+        groupId={groupId}
+        typeColor={typeColor}
+      />
+
+      {/* ---- ADD MEMBERS MODAL ---- */}
+      <AddMembersModal
+        visible={addMembersVisible}
+        onClose={() => setAddMembersVisible(false)}
         groupId={groupId}
         typeColor={typeColor}
       />
@@ -611,6 +800,7 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: "rgba(255,255,255,0.07)",
     backgroundColor: "#0a0f1a",
+    alignItems: "center",
   },
   tabItem: {
     flex: 1,
@@ -633,6 +823,12 @@ const styles = StyleSheet.create({
     right: "20%",
     height: 2.5,
     borderRadius: 2,
+  },
+  tabAddBtn: {
+    paddingHorizontal: 16,
+    paddingVertical: 13,
+    justifyContent: "center",
+    alignItems: "center",
   },
 
   // Content
@@ -883,5 +1079,144 @@ const styles = StyleSheet.create({
   composeCounter: {
     fontSize: 12,
     color: "#445566",
+  },
+
+  // Add Members sheet
+  addMembersSheet: {
+    backgroundColor: "#0F141B",
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    maxHeight: "80%",
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.08)",
+  },
+  addMembersHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: 20,
+    paddingVertical: 14,
+    borderBottomWidth: 1,
+    borderBottomColor: "rgba(255,255,255,0.07)",
+  },
+  addMembersTitle: {
+    fontSize: 17,
+    fontWeight: "700",
+    color: "#FFFFFF",
+  },
+  addMembersCloseBtn: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: "rgba(255,255,255,0.07)",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  searchWrap: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "rgba(255,255,255,0.06)",
+    borderRadius: 12,
+    marginHorizontal: 16,
+    marginTop: 14,
+    marginBottom: 4,
+    paddingHorizontal: 12,
+    gap: 8,
+  },
+  searchIcon: {
+    marginRight: 2,
+  },
+  searchInput: {
+    flex: 1,
+    height: 42,
+    color: "#FFFFFF",
+    fontSize: 15,
+  },
+  addMembersScroll: {
+    flex: 1,
+    paddingTop: 6,
+  },
+  addMembersLoading: {
+    paddingVertical: 40,
+    alignItems: "center",
+  },
+  addMembersEmpty: {
+    paddingVertical: 40,
+    alignItems: "center",
+    paddingHorizontal: 32,
+    gap: 14,
+  },
+  addMembersEmptyText: {
+    fontSize: 14,
+    color: "#445566",
+    textAlign: "center",
+    lineHeight: 20,
+  },
+
+  // Section headers in add members
+  sectionHeaderRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    paddingHorizontal: 16,
+    paddingTop: 16,
+    paddingBottom: 8,
+  },
+  sectionHeaderText: {
+    fontSize: 11,
+    fontWeight: "700",
+    color: "#7A8EA0",
+    textTransform: "uppercase",
+    letterSpacing: 0.8,
+  },
+
+  // Suggestion row
+  suggestionRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    gap: 12,
+  },
+  suggestionAvatarWrap: {},
+  suggestionAvatar: {
+    width: 46,
+    height: 46,
+    borderRadius: 23,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  suggestionAvatarImg: {
+    width: 46,
+    height: 46,
+    borderRadius: 23,
+  },
+  suggestionInitial: {
+    fontSize: 17,
+    fontWeight: "700",
+  },
+  suggestionName: {
+    flex: 1,
+    fontSize: 15,
+    fontWeight: "600",
+    color: "#FFFFFF",
+  },
+  addBtn: {
+    paddingVertical: 7,
+    paddingHorizontal: 16,
+    borderRadius: 20,
+    minWidth: 56,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  addBtnDone: {
+    backgroundColor: "rgba(255,255,255,0.07)",
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.1)",
+  },
+  addBtnText: {
+    fontSize: 13,
+    fontWeight: "700",
+    color: "#000",
   },
 });
