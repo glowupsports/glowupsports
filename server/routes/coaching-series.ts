@@ -2184,6 +2184,19 @@ import { Router, type Request, type Response, type NextFunction } from "express"
                     `[AddPlayer] Settled ${addPlayerDebtSettlement.settledCount} debt(s) for player ${playerId}`,
                   );
                 }
+
+                // Settle sessions where credit_deducted_at IS NULL and no debt transaction exists.
+                const addPlayerUnpaidSettlement = await storage.settleUnpaidSessions(
+                  playerId,
+                  addPlayerCreditType,
+                  pkg.id,
+                  academyId,
+                );
+                if (addPlayerUnpaidSettlement.settledCount > 0) {
+                  console.log(
+                    `[AddPlayer] Settled ${addPlayerUnpaidSettlement.settledCount} unpaid session(s) for player ${playerId}, deducted ${addPlayerUnpaidSettlement.totalDeducted} credit(s) from package ${pkg.id}`,
+                  );
+                }
               }
             }
           } catch (pkgError) {

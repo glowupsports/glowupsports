@@ -6769,7 +6769,9 @@ export const storage = {
     console.log(`[SettleDebts] Starting for player ${playerId}, creditType ${creditType}, package ${packageId}`);
 
     const matchingCreditTypes = creditType === "semi_private" || creditType === "semi"
-      ? ["semi_private", "semi"]
+      ? ["semi_private", "semi", "semi_private_adjusted"]
+      : creditType === "private"
+      ? ["private", "private_adjusted"]
       : [creditType];
 
     return await db.transaction(async (tx) => {
@@ -6908,6 +6910,22 @@ export const storage = {
     const settledSessionIds: string[] = [];
     
     for (const session of unpaidSessions) {
+      // Guard against double-deduction: skip if a settled debt transaction already
+      // covers this session player record (e.g. from a prior settlePlayerDebts run).
+      const existingSettled = await db.select({ id: creditTransactions.id })
+        .from(creditTransactions)
+        .where(and(
+          eq(creditTransactions.playerId, playerId),
+          eq(creditTransactions.sessionId, session.sessionId),
+          eq(creditTransactions.type, "debit"),
+          sql`COALESCE(${creditTransactions.metadata}->>'settled', 'false') = 'true'`
+        ))
+        .limit(1);
+      if (existingSettled.length > 0) {
+        console.log(`[SettleUnpaidSessions] Skipping session ${session.sessionId} — already covered by a settled debt transaction`);
+        continue;
+      }
+
       const creditCost = (Number(session.duration) || 60) / 60;
       if (currentRemaining < creditCost) break;
       

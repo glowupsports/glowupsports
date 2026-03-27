@@ -330,6 +330,20 @@ import { Router, type Request, type Response, type NextFunction } from "express"
           console.log(`[Package] No outstanding debts to settle for player ${playerId} (${creditType})`);
         }
 
+        // Settle sessions where credit_deducted_at IS NULL and no debt transaction exists.
+        // This covers sessions attended before the debt system was introduced.
+        const unpaidSettlement = await storage.settleUnpaidSessions(
+          playerId,
+          creditType,
+          pkg.id,
+          academyId,
+        );
+        if (unpaidSettlement.settledCount > 0) {
+          console.log(
+            `[Package] Settled ${unpaidSettlement.settledCount} unpaid session(s) for player ${playerId}, deducted ${unpaidSettlement.totalDeducted} credit(s) from package ${pkg.id}`,
+          );
+        }
+
         // Retroactively charge any "stuck" sessions: sessions that have credit_deducted_at set
         // but no credit_transaction_id and no existing debit transaction. These occur when the
         // system previously set credit_deducted_at (e.g. via old code with no package available)
