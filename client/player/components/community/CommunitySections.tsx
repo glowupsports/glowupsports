@@ -1,5 +1,6 @@
 import logger from "@/lib/logger";
 import React, { useState, useMemo } from "react";
+import GroupPreviewSheet, { type SheetGroup } from "./GroupPreviewSheet";
 import {
   View,
   StyleSheet,
@@ -706,6 +707,7 @@ export function GroupsSection() {
   const [newGroupName, setNewGroupName] = useState("");
   const [newGroupDescription, setNewGroupDescription] = useState("");
   const [newGroupType, setNewGroupType] = useState<"social" | "friends">("social");
+  const [previewGroup, setPreviewGroup] = useState<SheetGroup | null>(null);
 
   const { data: groupsData, isLoading } = useQuery<Group[]>({
     queryKey: ["/api/social/groups"],
@@ -762,31 +764,14 @@ export function GroupsSection() {
 
   const handleGroupPress = (group: Group) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    const isJoined = group.isJoined !== false;
-    if (isJoined) {
-      navigation.navigate("GroupDetail", { groupId: group.id, groupName: group.name });
-    } else {
-      Alert.alert(
-        group.name,
-        `Join "${group.name}"? ${group.memberCount} members`,
-        [
-          { text: "Cancel", style: "cancel" },
-          {
-            text: "Join",
-            onPress: async () => {
-              try {
-                await apiRequest("POST", `/api/player/groups/${group.id}/join`);
-                queryClient.invalidateQueries({ queryKey: ["/api/social/groups"] });
-                Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-                navigation.navigate("GroupDetail", { groupId: group.id, groupName: group.name });
-              } catch {
-                Alert.alert("Error", "Could not join group. Please try again.");
-              }
-            },
-          },
-        ]
-      );
-    }
+    setPreviewGroup({
+      id: group.id,
+      name: group.name,
+      description: group.description,
+      type: group.type,
+      memberCount: group.memberCount,
+      isJoined: group.isJoined,
+    });
   };
 
   const renderGroupCard = (group: Group) => (
@@ -991,6 +976,16 @@ export function GroupsSection() {
           </Animated.View>
         </View>
       </Modal>
+
+      <GroupPreviewSheet
+        visible={!!previewGroup}
+        group={previewGroup}
+        onClose={() => setPreviewGroup(null)}
+        onOpenGroup={(g) => {
+          setPreviewGroup(null);
+          navigation.navigate("GroupDetail", { groupId: g.id, groupName: g.name });
+        }}
+      />
     </View>
   );
 }

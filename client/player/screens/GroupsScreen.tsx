@@ -22,6 +22,7 @@ import { Card } from "@/components/Card";
 import { apiRequest } from "@/lib/query-client";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { LockedScreen } from "../components/LockedScreen";
+import GroupPreviewSheet, { type SheetGroup } from "@/player/components/community/GroupPreviewSheet";
 
 interface Group {
   id: string;
@@ -225,6 +226,7 @@ export default function GroupsScreen({ navigation }: Props) {
   const queryClient = useQueryClient();
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [activeTab, setActiveTab] = useState<"my" | "discover">("my");
+  const [previewGroup, setPreviewGroup] = useState<SheetGroup | null>(null);
 
   const { data, isLoading, refetch, isRefetching } = useQuery<GroupsData>({
     queryKey: ["/api/player/groups"],
@@ -265,14 +267,17 @@ export default function GroupsScreen({ navigation }: Props) {
   });
 
   const handleGroupPress = (group: Group) => {
-    if (group.isMember) {
-      navigation.navigate("GroupDetail", { groupId: group.id, groupName: group.name });
-    } else {
-      Alert.alert("Join Group", `Join "${group.name}" to see posts and chat with members?`, [
-        { text: "Cancel", style: "cancel" },
-        { text: "Join", onPress: () => joinMutation.mutate(group.id) },
-      ]);
-    }
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    setPreviewGroup({
+      id: group.id,
+      name: group.name,
+      description: group.description,
+      type: group.type,
+      memberCount: group.memberCount,
+      isMember: group.isMember,
+      isPrivate: group.isPrivate,
+      role: group.role,
+    });
   };
 
   const handleLeave = (group: Group) => {
@@ -394,6 +399,16 @@ export default function GroupsScreen({ navigation }: Props) {
           visible={showCreateModal}
           onClose={() => setShowCreateModal(false)}
           onCreate={(data) => createMutation.mutate(data)}
+        />
+
+        <GroupPreviewSheet
+          visible={!!previewGroup}
+          group={previewGroup}
+          onClose={() => setPreviewGroup(null)}
+          onOpenGroup={(g) => {
+            setPreviewGroup(null);
+            navigation.navigate("GroupDetail", { groupId: g.id, groupName: g.name });
+          }}
         />
       </View>
     </LockedScreen>

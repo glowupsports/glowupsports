@@ -7,6 +7,7 @@ import {
   RefreshControl,
   ActivityIndicator,
   Alert,
+  ScrollView,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -14,9 +15,8 @@ import Ionicons from "@expo/vector-icons/Ionicons";
 import { LinearGradient } from "expo-linear-gradient";
 import * as Haptics from "expo-haptics";
 import Animated, { FadeIn, FadeInDown } from "react-native-reanimated";
-import { Colors, Spacing, BorderRadius, GlowColors } from "@/constants/theme";
+import { Colors, Spacing, BorderRadius } from "@/constants/theme";
 import { ThemedText as Text } from "@/components/ThemedText";
-import { Card } from "@/components/Card";
 import { apiRequest } from "@/lib/query-client";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 
@@ -55,60 +55,92 @@ interface Post {
 }
 
 type Tab = "feed" | "members";
-
 type Props = NativeStackScreenProps<any, "GroupDetail">;
 
-const GROUP_TYPE_ICONS: Record<string, { icon: string; color: string }> = {
-  level: { icon: "tennisball", color: "#9AE66E" },
-  team: { icon: "shield", color: "#4ECDC4" },
-  academy: { icon: "business", color: "#FFD700" },
-  event: { icon: "calendar", color: "#FF6B35" },
-  friends: { icon: "people", color: "#E040FB" },
+const GROUP_TYPE_CONFIG: Record<string, { icon: string; color: string; label: string }> = {
+  level: { icon: "tennisball", color: "#9AE66E", label: "Level" },
+  team: { icon: "shield", color: "#4ECDC4", label: "Team" },
+  academy: { icon: "business", color: "#FFD700", label: "Academy" },
+  event: { icon: "calendar", color: "#FF6B35", label: "Event" },
+  friends: { icon: "people", color: "#E040FB", label: "Friends" },
+  skill_level: { icon: "trophy", color: "#9AE66E", label: "Skill Level" },
+  age_group: { icon: "people", color: "#4ECDC4", label: "Age Group" },
+  tournament: { icon: "ribbon", color: "#FF6B35", label: "Tournament" },
+  social: { icon: "tennisball", color: "#E040FB", label: "Social" },
+  training: { icon: "barbell", color: "#9AE66E", label: "Training" },
 };
 
-function MemberCard({ member, isAdmin }: { member: GroupDetail["members"][0]; isAdmin: boolean }) {
+function MemberGridCell({ member, typeColor }: { member: GroupDetail["members"][0]; typeColor: string }) {
   return (
-    <Animated.View entering={FadeInDown.duration(200)}>
-      <Card style={styles.memberCard}>
-        <View style={styles.memberAvatar}>
-          <Text style={styles.memberAvatarText}>{member.name.charAt(0).toUpperCase()}</Text>
-        </View>
-        <View style={styles.memberInfo}>
-          <Text style={styles.memberName}>{member.name}</Text>
-          <Text style={styles.memberJoined}>
-            Joined {new Date(member.joinedAt).toLocaleDateString()}
+    <Animated.View entering={FadeInDown.duration(200)} style={styles.memberCell}>
+      <View style={styles.memberCellAvatarWrap}>
+        <View style={[styles.memberCellAvatar, { backgroundColor: typeColor + "30" }]}>
+          <Text style={[styles.memberCellInitial, { color: typeColor }]}>
+            {member.name.charAt(0).toUpperCase()}
           </Text>
         </View>
-        {member.role === "admin" && (
-          <View style={styles.adminBadge}>
-            <Ionicons name="star" size={12} color={Colors.dark.gold} />
-            <Text style={styles.adminBadgeText}>Admin</Text>
+        {member.role === "admin" ? (
+          <View style={styles.adminStarBadge}>
+            <Ionicons name="star" size={9} color={Colors.dark.gold} />
           </View>
-        )}
-      </Card>
+        ) : null}
+      </View>
+      <Text style={styles.memberCellName} numberOfLines={1}>{member.name.split(" ")[0]}</Text>
     </Animated.View>
   );
 }
 
-function PostCard({ post }: { post: Post }) {
+function PostCard({ post, typeColor }: { post: Post; typeColor: string }) {
+  const [liked, setLiked] = useState(false);
+  const [likeCount, setLikeCount] = useState(0);
+
+  const handleLike = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    setLiked(prev => {
+      setLikeCount(c => prev ? c - 1 : c + 1);
+      return !prev;
+    });
+  };
+
+  const timeAgo = (dateStr: string) => {
+    const diff = Date.now() - new Date(dateStr).getTime();
+    const m = Math.floor(diff / 60000);
+    if (m < 60) return `${m}m ago`;
+    const h = Math.floor(m / 60);
+    if (h < 24) return `${h}h ago`;
+    return `${Math.floor(h / 24)}d ago`;
+  };
+
   return (
-    <Animated.View entering={FadeInDown.duration(200)}>
-      <Card style={styles.postCard}>
-        <View style={styles.postHeader}>
-          <View style={styles.postAvatar}>
-            <Text style={styles.postAvatarText}>{post.authorName.charAt(0).toUpperCase()}</Text>
-          </View>
-          <View style={styles.postInfo}>
-            <Text style={styles.postAuthor}>{post.authorName}</Text>
-            <Text style={styles.postTime}>
-              {new Date(post.createdAt).toLocaleDateString()}
-            </Text>
-          </View>
+    <Animated.View entering={FadeInDown.duration(250)} style={styles.postCard}>
+      <View style={styles.postHeader}>
+        <View style={[styles.postAvatar, { backgroundColor: typeColor + "25" }]}>
+          <Text style={[styles.postAvatarInitial, { color: typeColor }]}>
+            {post.authorName.charAt(0).toUpperCase()}
+          </Text>
         </View>
-        {post.caption && (
-          <Text style={styles.postCaption}>{post.caption}</Text>
-        )}
-      </Card>
+        <View style={styles.postMeta}>
+          <Text style={styles.postAuthor}>{post.authorName}</Text>
+          <Text style={styles.postTime}>{timeAgo(post.createdAt)}</Text>
+        </View>
+      </View>
+
+      {post.caption ? (
+        <Text style={styles.postCaption}>{post.caption}</Text>
+      ) : null}
+
+      <View style={styles.postActions}>
+        <Pressable style={styles.likeButton} onPress={handleLike}>
+          <Ionicons
+            name={liked ? "heart" : "heart-outline"}
+            size={18}
+            color={liked ? "#FF4D6D" : Colors.dark.textMuted}
+          />
+          <Text style={[styles.likeCount, liked ? { color: "#FF4D6D" } : {}]}>
+            {likeCount > 0 ? likeCount : "Like"}
+          </Text>
+        </Pressable>
+      </View>
     </Animated.View>
   );
 }
@@ -125,7 +157,7 @@ export default function GroupDetailScreen({ route, navigation }: Props) {
 
   const { data: feedData, isLoading: feedLoading } = useQuery<{ posts: Post[] }>({
     queryKey: [`/api/player/groups/${groupId}/feed`],
-    enabled: activeTab === "feed" && !!data?.isMember,
+    enabled: activeTab === "feed",
   });
 
   const leaveMutation = useMutation({
@@ -133,6 +165,7 @@ export default function GroupDetailScreen({ route, navigation }: Props) {
     onSuccess: () => {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
       queryClient.invalidateQueries({ queryKey: ["/api/player/groups"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/social/groups"] });
       navigation.goBack();
     },
     onError: (error: any) => {
@@ -141,98 +174,106 @@ export default function GroupDetailScreen({ route, navigation }: Props) {
   });
 
   const handleLeave = () => {
-    Alert.alert("Leave Group", `Are you sure you want to leave "${groupName}"?`, [
+    Alert.alert("Leave Group", `Leave "${groupName}"?`, [
       { text: "Cancel", style: "cancel" },
       { text: "Leave", style: "destructive", onPress: () => leaveMutation.mutate() },
     ]);
   };
 
-  const typeConfig = GROUP_TYPE_ICONS[data?.group.type || "friends"] || GROUP_TYPE_ICONS.friends;
+  const typeConfig = GROUP_TYPE_CONFIG[data?.group.type || "friends"] || GROUP_TYPE_CONFIG.friends;
+  const typeColor = typeConfig.color;
 
   if (isLoading) {
     return (
-      <View style={[styles.container, styles.centered, { paddingTop: insets.top }]}>
+      <View style={[styles.container, styles.centered]}>
         <ActivityIndicator size="large" color={Colors.dark.primary} />
       </View>
     );
   }
 
+  const posts = feedData?.posts || [];
+  const members = data?.members || [];
+
   return (
-    <View style={[styles.container, { paddingTop: insets.top }]}>
-      <View style={styles.header}>
-        <Pressable style={styles.backButton} onPress={() => navigation.goBack()}>
-          <Ionicons name="chevron-back" size={24} color={Colors.dark.text} />
-        </Pressable>
-        <Text style={styles.title} numberOfLines={1}>{groupName}</Text>
-        {data?.myRole !== "admin" && data?.isMember && (
-          <Pressable style={styles.leaveButton} onPress={handleLeave}>
-            <Ionicons name="exit-outline" size={20} color={Colors.dark.error} />
-          </Pressable>
-        )}
+    <View style={styles.container}>
+      {/* ---- HERO HEADER ---- */}
+      <View style={styles.heroWrapper}>
+        <LinearGradient
+          colors={[typeColor + "CC", typeColor + "44", "#0a0f1a"]}
+          locations={[0, 0.55, 1]}
+          style={[styles.hero, { paddingTop: insets.top + 12 }]}
+        >
+          {/* Back + Menu */}
+          <View style={styles.heroTopRow}>
+            <Pressable style={styles.heroBackBtn} onPress={() => navigation.goBack()}>
+              <Ionicons name="chevron-back" size={22} color="#fff" />
+            </Pressable>
+            {data?.myRole !== "admin" && data?.isMember ? (
+              <Pressable style={styles.heroMenuBtn} onPress={handleLeave}>
+                <Ionicons name="exit-outline" size={20} color="rgba(255,255,255,0.7)" />
+              </Pressable>
+            ) : null}
+          </View>
+
+          {/* Icon */}
+          <View style={[styles.heroIcon, { backgroundColor: typeColor + "35", borderColor: typeColor + "60" }]}>
+            <Ionicons name={typeConfig.icon as any} size={36} color={typeColor} />
+          </View>
+
+          <Text style={styles.heroName}>{data?.group.name || groupName}</Text>
+
+          <View style={[styles.heroBadge, { backgroundColor: typeColor + "25" }]}>
+            <Text style={[styles.heroBadgeText, { color: typeColor }]}>
+              {typeConfig.label}
+            </Text>
+          </View>
+        </LinearGradient>
       </View>
 
-      <Animated.View entering={FadeIn.duration(300)}>
-        <Card style={styles.groupInfoCard}>
-          <View style={styles.groupHeader}>
-            <View style={[styles.groupAvatar, { backgroundColor: typeConfig.color + "30" }]}>
-              <Ionicons name={typeConfig.icon as any} size={32} color={typeConfig.color} />
-            </View>
-            <View style={styles.groupStats}>
-              <View style={styles.groupStat}>
-                <Text style={styles.groupStatValue}>{data?.memberCount || 0}</Text>
-                <Text style={styles.groupStatLabel}>Members</Text>
-              </View>
-              <View style={styles.groupStat}>
-                <Text style={styles.groupStatValue}>{feedData?.posts?.length || 0}</Text>
-                <Text style={styles.groupStatLabel}>Posts</Text>
-              </View>
-            </View>
+      {/* ---- STATS PILLS ---- */}
+      <Animated.View entering={FadeIn.duration(400)}>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          style={styles.statsScroll}
+          contentContainerStyle={styles.statsContent}
+        >
+          <View style={styles.statPill}>
+            <Ionicons name="people" size={13} color={typeColor} />
+            <Text style={styles.statPillText}>{data?.memberCount ?? 0} Members</Text>
           </View>
-          {data?.group.description && (
-            <Text style={styles.groupDescription}>{data.group.description}</Text>
-          )}
-          <View style={styles.groupTags}>
-            {data?.group.isPrivate && (
-              <View style={styles.groupTag}>
-                <Ionicons name="lock-closed" size={12} color={Colors.dark.textMuted} />
-                <Text style={styles.groupTagText}>Private</Text>
-              </View>
-            )}
-            <View style={styles.groupTag}>
-              <Ionicons name={typeConfig.icon as any} size={12} color={typeConfig.color} />
-              <Text style={[styles.groupTagText, { color: typeConfig.color }]}>
-                {data?.group.type.charAt(0).toUpperCase()}{data?.group.type.slice(1)}
-              </Text>
-            </View>
+          <View style={styles.statPill}>
+            <Ionicons name="document-text" size={13} color="#7A8EA0" />
+            <Text style={styles.statPillText}>{posts.length} Posts</Text>
           </View>
-        </Card>
+          {data?.group.isPrivate ? (
+            <View style={styles.statPill}>
+              <Ionicons name="lock-closed" size={13} color="#7A8EA0" />
+              <Text style={styles.statPillText}>Private</Text>
+            </View>
+          ) : null}
+          {data?.group.allowChat ? (
+            <View style={[styles.statPill, { borderColor: Colors.dark.primary + "30" }]}>
+              <Ionicons name="chatbubble" size={13} color={Colors.dark.primary} />
+              <Text style={[styles.statPillText, { color: Colors.dark.primary }]}>Chat On</Text>
+            </View>
+          ) : null}
+        </ScrollView>
       </Animated.View>
 
-      <View style={styles.tabs}>
-        <Pressable 
-          style={[styles.tab, activeTab === "feed" && styles.tabActive]}
-          onPress={() => setActiveTab("feed")}
-        >
-          <Ionicons 
-            name="chatbubbles-outline" 
-            size={18} 
-            color={activeTab === "feed" ? Colors.dark.primary : Colors.dark.textMuted} 
-          />
-          <Text style={[styles.tabText, activeTab === "feed" && styles.tabTextActive]}>Feed</Text>
+      {/* ---- TABS ---- */}
+      <View style={styles.tabRow}>
+        <Pressable style={styles.tabItem} onPress={() => setActiveTab("feed")}>
+          <Text style={[styles.tabLabel, activeTab === "feed" && styles.tabLabelActive]}>Feed</Text>
+          {activeTab === "feed" ? <View style={[styles.tabUnderline, { backgroundColor: Colors.dark.primary }]} /> : null}
         </Pressable>
-        <Pressable 
-          style={[styles.tab, activeTab === "members" && styles.tabActive]}
-          onPress={() => setActiveTab("members")}
-        >
-          <Ionicons 
-            name="people-outline" 
-            size={18} 
-            color={activeTab === "members" ? Colors.dark.primary : Colors.dark.textMuted} 
-          />
-          <Text style={[styles.tabText, activeTab === "members" && styles.tabTextActive]}>Members</Text>
+        <Pressable style={styles.tabItem} onPress={() => setActiveTab("members")}>
+          <Text style={[styles.tabLabel, activeTab === "members" && styles.tabLabelActive]}>Members</Text>
+          {activeTab === "members" ? <View style={[styles.tabUnderline, { backgroundColor: Colors.dark.primary }]} /> : null}
         </Pressable>
       </View>
 
+      {/* ---- CONTENT ---- */}
       {activeTab === "feed" ? (
         feedLoading ? (
           <View style={styles.centered}>
@@ -240,10 +281,11 @@ export default function GroupDetailScreen({ route, navigation }: Props) {
           </View>
         ) : (
           <FlatList
-            data={feedData?.posts || []}
+            data={posts}
             keyExtractor={(item) => item.id}
-            renderItem={({ item }) => <PostCard post={item} />}
+            renderItem={({ item }) => <PostCard post={item} typeColor={typeColor} />}
             contentContainerStyle={styles.listContent}
+            showsVerticalScrollIndicator={false}
             refreshControl={
               <RefreshControl
                 refreshing={isRefetching}
@@ -253,21 +295,25 @@ export default function GroupDetailScreen({ route, navigation }: Props) {
             }
             ListEmptyComponent={
               <View style={styles.emptyState}>
-                <Ionicons name="chatbubbles-outline" size={48} color={Colors.dark.textMuted} />
+                <View style={[styles.emptyIcon, { backgroundColor: typeColor + "15" }]}>
+                  <Ionicons name="tennisball" size={36} color={typeColor} />
+                </View>
                 <Text style={styles.emptyTitle}>No Posts Yet</Text>
-                <Text style={styles.emptySubtitle}>Be the first to share something!</Text>
+                <Text style={styles.emptySubtitle}>
+                  {data?.isMember ? "Be the first to share something!" : "Join the group to see posts"}
+                </Text>
               </View>
             }
           />
         )
       ) : (
         <FlatList
-          data={data?.members || []}
+          data={members}
           keyExtractor={(item) => item.id}
-          renderItem={({ item }) => (
-            <MemberCard member={item} isAdmin={data?.myRole === "admin"} />
-          )}
-          contentContainerStyle={styles.listContent}
+          numColumns={4}
+          renderItem={({ item }) => <MemberGridCell member={item} typeColor={typeColor} />}
+          contentContainerStyle={styles.memberGrid}
+          showsVerticalScrollIndicator={false}
           refreshControl={
             <RefreshControl
               refreshing={isRefetching}
@@ -275,8 +321,32 @@ export default function GroupDetailScreen({ route, navigation }: Props) {
               tintColor={Colors.dark.primary}
             />
           }
+          ListEmptyComponent={
+            <View style={styles.emptyState}>
+              <View style={[styles.emptyIcon, { backgroundColor: typeColor + "15" }]}>
+                <Ionicons name="people" size={36} color={typeColor} />
+              </View>
+              <Text style={styles.emptyTitle}>No Members Yet</Text>
+              <Text style={styles.emptySubtitle}>Be the first to join!</Text>
+            </View>
+          }
         />
       )}
+
+      {/* ---- POST FAB (only if member + allowPosts) ---- */}
+      {data?.isMember && data?.group.allowPosts ? (
+        <Pressable
+          style={[styles.fab, { bottom: insets.bottom + 20 }]}
+          onPress={() => Alert.alert("Post", "Post creation coming soon!")}
+        >
+          <LinearGradient
+            colors={[Colors.dark.primary, Colors.dark.primary + "CC"]}
+            style={styles.fabGradient}
+          >
+            <Ionicons name="add" size={26} color="#000" />
+          </LinearGradient>
+        </Pressable>
+      ) : null}
     </View>
   );
 }
@@ -284,220 +354,294 @@ export default function GroupDetailScreen({ route, navigation }: Props) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: Colors.dark.backgroundRoot,
+    backgroundColor: "#0a0f1a",
   },
   centered: {
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
   },
-  header: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingHorizontal: Spacing.md,
-    paddingVertical: Spacing.md,
+
+  // Hero
+  heroWrapper: {
+    overflow: "hidden",
   },
-  backButton: {
-    padding: Spacing.xs,
-  },
-  title: {
-    flex: 1,
-    fontSize: 20,
-    fontWeight: "700",
-    color: Colors.dark.text,
-    marginLeft: Spacing.sm,
-  },
-  leaveButton: {
-    padding: Spacing.xs,
-  },
-  groupInfoCard: {
-    marginHorizontal: Spacing.lg,
-    padding: Spacing.lg,
-    marginBottom: Spacing.md,
-  },
-  groupHeader: {
-    flexDirection: "row",
+  hero: {
+    paddingHorizontal: 20,
+    paddingBottom: 28,
     alignItems: "center",
   },
-  groupAvatar: {
-    width: 64,
-    height: 64,
-    borderRadius: 16,
+  heroTopRow: {
+    width: "100%",
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 16,
+  },
+  heroBackBtn: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: "rgba(0,0,0,0.3)",
     justifyContent: "center",
     alignItems: "center",
   },
-  groupStats: {
-    flex: 1,
-    flexDirection: "row",
-    justifyContent: "space-around",
-    marginLeft: Spacing.lg,
-  },
-  groupStat: {
+  heroMenuBtn: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: "rgba(0,0,0,0.3)",
+    justifyContent: "center",
     alignItems: "center",
   },
-  groupStatValue: {
-    fontSize: 20,
-    fontWeight: "700",
-    color: Colors.dark.text,
-  },
-  groupStatLabel: {
-    fontSize: 12,
-    color: Colors.dark.textMuted,
-  },
-  groupDescription: {
-    fontSize: 14,
-    color: Colors.dark.textSecondary,
-    marginTop: Spacing.md,
-    lineHeight: 20,
-  },
-  groupTags: {
-    flexDirection: "row",
-    gap: Spacing.sm,
-    marginTop: Spacing.md,
-  },
-  groupTag: {
-    flexDirection: "row",
+  heroIcon: {
+    width: 80,
+    height: 80,
+    borderRadius: 24,
+    justifyContent: "center",
     alignItems: "center",
-    backgroundColor: Colors.dark.backgroundRoot,
-    paddingHorizontal: Spacing.sm,
-    paddingVertical: 4,
-    borderRadius: BorderRadius.full,
-    gap: 4,
+    borderWidth: 1.5,
+    marginBottom: 14,
   },
-  groupTagText: {
-    fontSize: 11,
-    fontWeight: "500",
-    color: Colors.dark.textMuted,
+  heroName: {
+    fontSize: 22,
+    fontWeight: "800",
+    color: "#FFFFFF",
+    textAlign: "center",
+    marginBottom: 10,
+    letterSpacing: 0.3,
   },
-  tabs: {
-    flexDirection: "row",
-    marginHorizontal: Spacing.lg,
-    marginBottom: Spacing.sm,
-    gap: Spacing.sm,
-  },
-  tab: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingHorizontal: Spacing.md,
-    paddingVertical: Spacing.sm,
-    borderRadius: BorderRadius.full,
-    backgroundColor: Colors.dark.backgroundSecondary,
-    gap: Spacing.xs,
-  },
-  tabActive: {
-    backgroundColor: Colors.dark.primary + "20",
-  },
-  tabText: {
-    fontSize: 14,
-    fontWeight: "600",
-    color: Colors.dark.textMuted,
-  },
-  tabTextActive: {
-    color: Colors.dark.primary,
-  },
-  listContent: {
-    paddingHorizontal: Spacing.lg,
-    paddingBottom: Spacing.xl,
-  },
-  memberCard: {
-    flexDirection: "row",
-    alignItems: "center",
-    padding: Spacing.md,
-    marginBottom: Spacing.xs,
-  },
-  memberAvatar: {
-    width: 40,
-    height: 40,
+  heroBadge: {
+    paddingHorizontal: 14,
+    paddingVertical: 5,
     borderRadius: 20,
-    backgroundColor: Colors.dark.primary + "20",
-    justifyContent: "center",
-    alignItems: "center",
   },
-  memberAvatarText: {
-    fontSize: 16,
-    fontWeight: "600",
-    color: Colors.dark.primary,
-  },
-  memberInfo: {
-    flex: 1,
-    marginLeft: Spacing.md,
-  },
-  memberName: {
-    fontSize: 15,
-    fontWeight: "600",
-    color: Colors.dark.text,
-  },
-  memberJoined: {
+  heroBadgeText: {
     fontSize: 12,
-    color: Colors.dark.textMuted,
+    fontWeight: "700",
+    textTransform: "uppercase",
+    letterSpacing: 0.8,
   },
-  adminBadge: {
+
+  // Stats
+  statsScroll: {
+    backgroundColor: "#0a0f1a",
+  },
+  statsContent: {
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    gap: 8,
+  },
+  statPill: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: Colors.dark.gold + "20",
-    paddingHorizontal: Spacing.sm,
-    paddingVertical: 4,
-    borderRadius: BorderRadius.full,
-    gap: 4,
+    backgroundColor: "rgba(255,255,255,0.06)",
+    paddingHorizontal: 14,
+    paddingVertical: 7,
+    borderRadius: 20,
+    gap: 6,
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.08)",
+    marginRight: 8,
   },
-  adminBadgeText: {
-    fontSize: 11,
+  statPillText: {
+    fontSize: 13,
+    fontWeight: "500",
+    color: "#7A8EA0",
+  },
+
+  // Tabs
+  tabRow: {
+    flexDirection: "row",
+    borderBottomWidth: 1,
+    borderBottomColor: "rgba(255,255,255,0.07)",
+    backgroundColor: "#0a0f1a",
+  },
+  tabItem: {
+    flex: 1,
+    alignItems: "center",
+    paddingVertical: 13,
+    position: "relative",
+  },
+  tabLabel: {
+    fontSize: 14,
     fontWeight: "600",
-    color: Colors.dark.gold,
+    color: "#445566",
   },
+  tabLabelActive: {
+    color: "#FFFFFF",
+  },
+  tabUnderline: {
+    position: "absolute",
+    bottom: 0,
+    left: "20%",
+    right: "20%",
+    height: 2.5,
+    borderRadius: 2,
+  },
+
+  // Content
+  listContent: {
+    paddingHorizontal: 16,
+    paddingTop: 14,
+    paddingBottom: 100,
+  },
+
+  // Post card
   postCard: {
-    padding: Spacing.md,
-    marginBottom: Spacing.sm,
+    backgroundColor: "#0F141B",
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 10,
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.06)",
   },
   postHeader: {
     flexDirection: "row",
     alignItems: "center",
+    marginBottom: 10,
   },
   postAvatar: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: Colors.dark.xpCyan + "20",
+    width: 38,
+    height: 38,
+    borderRadius: 19,
     justifyContent: "center",
     alignItems: "center",
   },
-  postAvatarText: {
-    fontSize: 14,
-    fontWeight: "600",
-    color: Colors.dark.xpCyan,
+  postAvatarInitial: {
+    fontSize: 15,
+    fontWeight: "700",
   },
-  postInfo: {
+  postMeta: {
     flex: 1,
-    marginLeft: Spacing.sm,
+    marginLeft: 10,
   },
   postAuthor: {
     fontSize: 14,
     fontWeight: "600",
-    color: Colors.dark.text,
+    color: "#FFFFFF",
   },
   postTime: {
-    fontSize: 11,
-    color: Colors.dark.textMuted,
+    fontSize: 12,
+    color: "#445566",
+    marginTop: 1,
   },
   postCaption: {
     fontSize: 14,
-    color: Colors.dark.textSecondary,
-    marginTop: Spacing.sm,
-    lineHeight: 20,
+    color: "#8899AA",
+    lineHeight: 21,
+    marginBottom: 12,
   },
+  postActions: {
+    flexDirection: "row",
+    borderTopWidth: 1,
+    borderTopColor: "rgba(255,255,255,0.06)",
+    paddingTop: 10,
+    marginTop: 2,
+  },
+  likeButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    paddingVertical: 2,
+    paddingHorizontal: 4,
+  },
+  likeCount: {
+    fontSize: 13,
+    fontWeight: "500",
+    color: "#445566",
+  },
+
+  // Members grid
+  memberGrid: {
+    paddingHorizontal: 12,
+    paddingTop: 16,
+    paddingBottom: 100,
+  },
+  memberCell: {
+    flex: 1,
+    alignItems: "center",
+    paddingVertical: 14,
+    maxWidth: "25%",
+  },
+  memberCellAvatarWrap: {
+    position: "relative",
+    marginBottom: 7,
+  },
+  memberCellAvatar: {
+    width: 58,
+    height: 58,
+    borderRadius: 29,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  memberCellInitial: {
+    fontSize: 20,
+    fontWeight: "700",
+  },
+  adminStarBadge: {
+    position: "absolute",
+    bottom: 0,
+    right: 0,
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+    backgroundColor: Colors.dark.gold + "25",
+    borderWidth: 1.5,
+    borderColor: "#0a0f1a",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  memberCellName: {
+    fontSize: 11,
+    fontWeight: "500",
+    color: "#7A8EA0",
+    textAlign: "center",
+    maxWidth: 70,
+  },
+
+  // Empty state
   emptyState: {
     alignItems: "center",
-    paddingVertical: Spacing.xl * 2,
+    paddingVertical: 60,
+  },
+  emptyIcon: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    justifyContent: "center",
+    alignItems: "center",
+    marginBottom: 18,
   },
   emptyTitle: {
     fontSize: 18,
-    fontWeight: "600",
-    color: Colors.dark.text,
-    marginTop: Spacing.md,
+    fontWeight: "700",
+    color: "#FFFFFF",
+    marginBottom: 8,
   },
   emptySubtitle: {
     fontSize: 14,
-    color: Colors.dark.textMuted,
-    marginTop: Spacing.xs,
+    color: "#445566",
+    textAlign: "center",
+  },
+
+  // FAB
+  fab: {
+    position: "absolute",
+    right: 20,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    overflow: "hidden",
+    elevation: 8,
+    shadowColor: Colors.dark.primary,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.4,
+    shadowRadius: 8,
+  },
+  fabGradient: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
   },
 });
