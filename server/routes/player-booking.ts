@@ -474,7 +474,7 @@ function toDubaiTime(utcDate: Date): Date {
         return res.status(404).json({ error: "Player not found" });
       }
 
-      const { date, sessionType } = req.query;
+      const { date, sessionType, sport } = req.query;
       
       // Get all future sessions for the academy
       const allSessions = await storage.getSessionsByAcademy(academyId);
@@ -488,8 +488,9 @@ function toDubaiTime(utcDate: Date): Date {
           const isFuture = sessionStart > now;
           const matchesType = !sessionType || s.sessionType === sessionType;
           const matchesDate = !date || sessionStart.toISOString().split('T')[0] === date;
+          const matchesSport = !sport || s.sport === sport;
           const isGroupType = s.sessionType === "group" || s.sessionType === "semi_private" || s.sessionType === "open_play";
-          return isFuture && matchesType && matchesDate && isGroupType;
+          return isFuture && matchesType && matchesDate && matchesSport && isGroupType;
         }).map(async (s: any) => {
           const players = await storage.getSessionPlayers(s.id);
           const maxPlayers = s.maxPlayers || 6;

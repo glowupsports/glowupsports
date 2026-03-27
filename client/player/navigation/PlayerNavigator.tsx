@@ -182,7 +182,7 @@ export type PlayerStackParamList = {
   ParentCreditStore: { playerId: string };
   ParentSettings: undefined;
   QuickBook: undefined;
-  LessonBooking: undefined;
+  LessonBooking: { sport?: string } | undefined;
   BrowseGroupLessons: undefined;
   MyLessonRequests: undefined;
   PlayerFinder: undefined;

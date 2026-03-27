@@ -540,12 +540,14 @@ export default function PlayerScheduleScreen() {
   };
 
   const openWithSportPicker = (dest: "LessonBooking" | "CourtBooking" | "OpenMatches") => {
-    if (isMultiSport) {
+    if (isMultiSport && activeSports.length > 1) {
       setSportPickerDestination(dest);
       setShowSportPickerModal(true);
     } else {
       if (dest === "OpenMatches") {
         navigation.navigate("Play", { screen: "OpenMatches" });
+      } else if (dest === "LessonBooking") {
+        navigation.navigate("LessonBooking", { sport: activeSport });
       } else {
         navigation.navigate(dest);
       }
@@ -572,6 +574,8 @@ export default function PlayerScheduleScreen() {
     setShowSportPickerModal(false);
     if (sportPickerDestination === "OpenMatches") {
       navigation.navigate("Play", { screen: "OpenMatches" });
+    } else if (sportPickerDestination === "LessonBooking") {
+      navigation.navigate("LessonBooking", { sport });
     } else {
       navigation.navigate(sportPickerDestination);
     }

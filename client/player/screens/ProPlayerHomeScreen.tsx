@@ -1,11 +1,12 @@
 import React, { useCallback, useState, useEffect, useMemo, useRef } from "react";
 import { useTranslation } from "react-i18next";
-import { View, Text, StyleSheet, ScrollView, ActivityIndicator, RefreshControl, Pressable, DimensionValue } from "react-native";
+import { View, Text, StyleSheet, ScrollView, ActivityIndicator, RefreshControl, Pressable, DimensionValue, Modal } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useFocusEffect, useNavigation } from "@react-navigation/native";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Spacing, GlowColors, Backgrounds, BorderRadius, Colors } from "@/constants/theme";
 import { useAuth } from "@/coach/context/AuthContext";
+import { useSport, SPORT_DEFINITIONS, getSportColor, getSportLabel, type Sport } from "@/player/context/SportContext";
 import { usePlayerDrawer } from "@/player/context/PlayerDrawerContext";
 import { useWalkthrough } from "@/player/context/WalkthroughContext";
 import { GuestPromptModal, useGuestGuard } from "@/components/GuestPromptModal";
@@ -150,7 +151,10 @@ function PlayerHomeContent() {
   const navigation = useNavigation<any>();
   const { navigateToTab } = useTabNavigation();
   const { guardAction, promptProps } = useGuestGuard();
+  const { isMultiSport, activeSports, activeSport } = useSport();
   const [showBookingWizard, setShowBookingWizard] = useState(false);
+  const [bookingWizardSport, setBookingWizardSport] = useState<string | undefined>(undefined);
+  const [showBookingSportPicker, setShowBookingSportPicker] = useState(false);
   const [showPinModal, setShowPinModal] = useState(false);
   const [ramadanDismissed, setRamadanDismissed] = useState(false);
   const { hasSeenScreen, startWalkthrough } = useWalkthrough();
@@ -447,7 +451,14 @@ function PlayerHomeContent() {
   };
 
   const handleBookLesson = () => {
-    guardAction(() => setShowBookingWizard(true));
+    guardAction(() => {
+      if (isMultiSport && activeSports.length > 1) {
+        setShowBookingSportPicker(true);
+      } else {
+        setBookingWizardSport(activeSport);
+        setShowBookingWizard(true);
+      }
+    });
   };
 
   const handleBookingSuccess = () => {
@@ -629,6 +640,50 @@ function PlayerHomeContent() {
       {/* MODE SWITCHER - Dashboard switching button (top left) */}
       <CollapsibleModeSwitcher />
       
+      {/* SPORT PICKER before booking wizard */}
+      <Modal
+        visible={showBookingSportPicker}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setShowBookingSportPicker(false)}
+      >
+        <Pressable
+          style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.5)" }}
+          onPress={() => setShowBookingSportPicker(false)}
+        >
+          <View style={{ position: "absolute", bottom: 0, left: 0, right: 0, backgroundColor: "#1A1F2E", borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: Spacing.lg, paddingBottom: Spacing.xl }}>
+            <Text style={{ color: Colors.dark.text, fontSize: 18, fontWeight: "700", textAlign: "center", marginBottom: Spacing.md }}>
+              Book Lesson In
+            </Text>
+            {SPORT_DEFINITIONS.filter(s => activeSports.includes(s.key)).map(sportDef => (
+              <Pressable
+                key={sportDef.key}
+                style={{ flexDirection: "row", alignItems: "center", gap: Spacing.sm, padding: Spacing.md, borderRadius: 12, borderWidth: 1.5, borderColor: activeSport === sportDef.key ? getSportColor(sportDef.key) : "rgba(255,255,255,0.08)", marginBottom: Spacing.sm, backgroundColor: activeSport === sportDef.key ? getSportColor(sportDef.key) + "15" : "transparent" }}
+                onPress={() => {
+                  setShowBookingSportPicker(false);
+                  setBookingWizardSport(sportDef.key);
+                  setTimeout(() => setShowBookingWizard(true), 350);
+                }}
+              >
+                <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: getSportColor(sportDef.key) }} />
+                <Text style={{ color: activeSport === sportDef.key ? getSportColor(sportDef.key) : Colors.dark.text, fontSize: 16, fontWeight: "600", flex: 1 }}>
+                  {getSportLabel(sportDef.key)}
+                </Text>
+                {activeSport === sportDef.key ? (
+                  <Ionicons name="checkmark" size={18} color={getSportColor(sportDef.key)} />
+                ) : null}
+              </Pressable>
+            ))}
+            <Pressable
+              style={{ marginTop: Spacing.xs, padding: Spacing.sm, alignItems: "center" }}
+              onPress={() => setShowBookingSportPicker(false)}
+            >
+              <Text style={{ color: Colors.dark.textMuted, fontSize: 15 }}>Cancel</Text>
+            </Pressable>
+          </View>
+        </Pressable>
+      </Modal>
+
       {/* BOOKING WIZARD MODAL */}
       <PlayerBookingWizard
         visible={showBookingWizard}
@@ -636,6 +691,7 @@ function PlayerHomeContent() {
         onBookingSuccess={handleBookingSuccess}
         playerId={player?.id}
         playerBallLevel={player?.ballLevel}
+        sport={bookingWizardSport}
       />
       
       {/* PIN ENTRY MODAL for Credit Store */}

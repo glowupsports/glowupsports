@@ -41,6 +41,7 @@ import { AnimatedCheck } from "@/components/AnimatedCheck";
 import { SuccessToast } from "@/components/SuccessToast";
 import BookingCoachCard from "./BookingCoachCard";
 import CoachProfileDrawer from "./CoachProfileDrawer";
+import { getSportLabel, getSportColor } from "@/player/context/SportContext";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 
@@ -114,6 +115,7 @@ interface PlayerBookingWizardProps {
   onBookingSuccess?: () => void;
   playerId?: string;
   playerBallLevel?: string | null;
+  sport?: string;
 }
 
 type SessionType = "private" | "semi_private" | "group" | "open_play";
@@ -178,6 +180,7 @@ export default function PlayerBookingWizard({
   onBookingSuccess,
   playerId,
   playerBallLevel,
+  sport,
 }: PlayerBookingWizardProps) {
   const insets = useSafeAreaInsets();
   const queryClient = useQueryClient();
@@ -273,8 +276,9 @@ export default function PlayerBookingWizard({
       date: selectedDateString,
       sessionType,
     });
+    if (sport) params.set("sport", sport);
     return `/api/player/joinable-sessions?${params}`;
-  }, [selectedDateString, sessionType]);
+  }, [selectedDateString, sessionType, sport]);
 
   // Fetch joinable sessions using the dedicated player endpoint (server-filtered)
   // Enable when on slide 2 (When & Where) or later
@@ -1290,9 +1294,18 @@ export default function PlayerBookingWizard({
 
           <View style={styles.headerCenter}>
             <Text style={styles.headerTitle}>{getSlideTitle(currentSlide)}</Text>
-            <Text style={styles.headerSlide}>
-              Step {currentSlide + 1} of {getTotalSlides()}
-            </Text>
+            <View style={{ flexDirection: "row", alignItems: "center", gap: Spacing.xs }}>
+              <Text style={styles.headerSlide}>
+                Step {currentSlide + 1} of {getTotalSlides()}
+              </Text>
+              {sport ? (
+                <View style={{ backgroundColor: getSportColor(sport as any) + "22", borderRadius: 8, paddingHorizontal: 6, paddingVertical: 2 }}>
+                  <Text style={{ color: getSportColor(sport as any), fontSize: 10, fontWeight: "600" }}>
+                    {getSportLabel(sport as any)}
+                  </Text>
+                </View>
+              ) : null}
+            </View>
           </View>
 
           <View style={{ width: 40 }} />
