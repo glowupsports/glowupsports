@@ -4,9 +4,11 @@ import { LinearGradient } from "expo-linear-gradient";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { Colors, Spacing, Typography, BorderRadius, GlowColors, FunctionColors, TextColors } from "@/constants/theme";
 import { getStageFromLevel, getStageColor, translateLevelLabel } from "@shared/language-switch";
+import { getSportConfig, formatSportSkillLevel, getSportSkillLevelColor } from "@shared/sportConfig";
 
 interface BallLevelBadgeProps {
   levelId: string;
+  sport?: string | null;
   status?: "active" | "trial";
   size?: "small" | "medium" | "large";
   showLabel?: boolean;
@@ -15,6 +17,7 @@ interface BallLevelBadgeProps {
 
 export default function BallLevelBadge({
   levelId,
+  sport,
   status = "active",
   size = "medium",
   showLabel = true,
@@ -24,10 +27,15 @@ export default function BallLevelBadge({
   if (!levelId) {
     return null;
   }
-  
+
+  const normalizedSport = sport && sport !== "tennis" ? sport : null;
+  const sportCfg = normalizedSport ? getSportConfig(normalizedSport) : null;
+
   const stage = getStageFromLevel(levelId);
-  const stageColor = getStageColor(stage);
-  const levelLabel = translateLevelLabel(levelId, { stage, role: "player" });
+  const stageColor = sportCfg ? getSportSkillLevelColor(normalizedSport, levelId) : getStageColor(stage);
+  const levelLabel = sportCfg
+    ? formatSportSkillLevel(normalizedSport, levelId)
+    : translateLevelLabel(levelId, { stage, role: "player" });
   
   const isTrial = status === "trial";
   
@@ -53,6 +61,10 @@ export default function BallLevelBadge({
   };
   
   const trialDays = getTrialDaysRemaining();
+
+  const iconName = sportCfg
+    ? (sportCfg.icon as "tennisball" | "grid" | "disc" | "apps")
+    : "tennisball";
   
   return (
     <View style={styles.container}>
@@ -71,7 +83,7 @@ export default function BallLevelBadge({
           style={StyleSheet.absoluteFill}
         />
         <Ionicons 
-          name="tennisball" 
+          name={iconName}
           size={dims.iconSize} 
           color={stageColor} 
         />

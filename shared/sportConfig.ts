@@ -8,6 +8,7 @@ export interface SportSkillLevel {
   key: string;
   label: string;
   order: number;
+  color?: string;
 }
 
 export type SportProfileField = "ballLevel" | "category" | "rating";
@@ -43,13 +44,13 @@ export const sportConfig: Record<SportOrMulti, SportConfig> = {
     icon: "grid",
     color: "#9B59B6",
     skillLevels: [
-      { key: "c7", label: "C7 (Beginner)", order: 1 },
-      { key: "c6", label: "C6", order: 2 },
-      { key: "c5", label: "C5", order: 3 },
-      { key: "c4", label: "C4 (Intermediate)", order: 4 },
-      { key: "c3", label: "C3", order: 5 },
-      { key: "c2", label: "C2 (Advanced)", order: 6 },
-      { key: "c1", label: "C1 (Elite)", order: 7 },
+      { key: "c7", label: "C7 (Beginner)", order: 1, color: "#A8D5A2" },
+      { key: "c6", label: "C6", order: 2, color: "#66BB6A" },
+      { key: "c5", label: "C5", order: 3, color: "#42A5F5" },
+      { key: "c4", label: "C4 (Intermediate)", order: 4, color: "#7E57C2" },
+      { key: "c3", label: "C3", order: 5, color: "#9B59B6" },
+      { key: "c2", label: "C2 (Advanced)", order: 6, color: "#E91E63" },
+      { key: "c1", label: "C1 (Elite)", order: 7, color: "#F44336" },
     ],
     skillLevelLabel: "Category",
     profileField: "category",
@@ -60,12 +61,13 @@ export const sportConfig: Record<SportOrMulti, SportConfig> = {
     icon: "disc",
     color: "#FF851B",
     skillLevels: [
-      { key: "beginner", label: "Beginner", order: 1 },
-      { key: "intermediate", label: "Intermediate", order: 2 },
-      { key: "advanced", label: "Advanced", order: 3 },
-      { key: "open", label: "Open", order: 4 },
+      { key: "beginner", label: "Beginner", order: 1, color: "#81C784" },
+      { key: "2.5", label: "2.5", order: 2, color: "#AED581" },
+      { key: "3.0", label: "3.0", order: 3, color: "#FFB74D" },
+      { key: "3.5", label: "3.5", order: 4, color: "#FF7043" },
+      { key: "4.0+", label: "4.0+", order: 5, color: "#F44336" },
     ],
-    skillLevelLabel: "DUPR Rating",
+    skillLevelLabel: "Rating",
     profileField: "rating",
   },
   multi: {
@@ -102,11 +104,35 @@ export function getSportSkillLevels(sport?: string | null): SportSkillLevel[] {
   return getSportConfig(sport).skillLevels;
 }
 
+const PICKLEBALL_LEGACY_MAP: Record<string, string> = {
+  intermediate: "3.0",
+  advanced: "3.5",
+  open: "4.0+",
+};
+
+function normalizeLevelKey(sport: string | null | undefined, key: string): string {
+  if (sport === "pickleball") {
+    return PICKLEBALL_LEGACY_MAP[key.toLowerCase()] ?? key;
+  }
+  return key.toLowerCase();
+}
+
 export function formatSportSkillLevel(sport?: string | null, skillKey?: string | null): string {
   if (!skillKey) return "Not Set";
   const config = getSportConfig(sport);
-  const level = config.skillLevels.find(l => l.key === skillKey);
+  const resolvedKey = normalizeLevelKey(sport, skillKey);
+  const level = config.skillLevels.find(l => l.key === resolvedKey || l.key === skillKey);
   return level?.label ?? skillKey;
+}
+
+export function getSportSkillLevelColor(sport?: string | null, skillKey?: string | null): string {
+  if (!skillKey || !sport || sport === "tennis") {
+    return getSportConfig(sport).color;
+  }
+  const config = getSportConfig(sport);
+  const resolvedKey = normalizeLevelKey(sport, skillKey);
+  const level = config.skillLevels.find(l => l.key === resolvedKey || l.key === skillKey);
+  return level?.color ?? config.color;
 }
 
 export function validateSport(sport: unknown): Sport {

@@ -17,6 +17,7 @@ interface TodaySession {
   playerId: string;
   playerName: string;
   playerLevel: string;
+  sport?: string | null;
   startTime: string;
   endTime: string;
   type: string;
@@ -201,7 +202,7 @@ export default function CoachHQScreen() {
             <View style={styles.sessionHeader}>
               <View style={styles.sessionInfo}>
                 <View style={styles.playerRow}>
-                  <BallLevelBadge levelId={session.playerLevel} size="small" showLabel={false} />
+                  <BallLevelBadge levelId={session.playerLevel} sport={session.sport} size="small" showLabel={false} />
                   <View style={styles.playerInfo}>
                     <ThemedText style={styles.playerName}>{session.playerName}</ThemedText>
                     <ThemedText style={styles.sessionType}>{session.type}</ThemedText>

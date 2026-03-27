@@ -15,11 +15,16 @@ import { useCoach } from "@/coach/context/CoachContext";
 import { Colors, Spacing, BorderRadius } from "@/constants/theme";
 import { convertUTCTimeToLocal } from "@/lib/dateUtils";
 import SeriesDetailDrawer from "@/coach/components/SeriesDetailDrawer";
+import { SportBadge } from "@/components/SportBadge";
+import { formatSportSkillLevel, getSportSkillLevelColor } from "@shared/sportConfig";
 import type { TabProps } from "./types";
 
 const DAY_NAMES = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 
-function getBallColor(level: string | null | undefined): string {
+function getBallColor(level: string | null | undefined, sport?: string | null): string {
+  if (sport && sport !== "tennis") {
+    return getSportSkillLevelColor(sport, level);
+  }
   switch (level?.toLowerCase()) {
     case "red": return "#FF4D4D";
     case "orange": return "#FF851B";
@@ -218,24 +223,39 @@ export function WeekPlannerTab({ insets: _insets, tabBarHeight }: TabProps) {
                       </View>
                     </View>
 
-                    {s.courtName || s.title ? (
-                      <Text style={wpStyles.groupSubtitle} numberOfLines={1}>
-                        {s.courtName ? `${s.courtName}` : ""}{s.title ? ` \u2022 ${s.title}` : ""}
-                      </Text>
+                    {(s.courtName || s.title || (s.sport && s.sport !== "tennis")) ? (
+                      <View style={wpStyles.subtitleRow}>
+                        {s.sport && s.sport !== "tennis" ? (
+                          <SportBadge sport={s.sport} size="sm" showLabel={true} />
+                        ) : null}
+                        {s.courtName || s.title ? (
+                          <Text style={wpStyles.groupSubtitle} numberOfLines={1}>
+                            {s.courtName ? `${s.courtName}` : ""}{s.title ? ` \u2022 ${s.title}` : ""}
+                          </Text>
+                        ) : null}
+                      </View>
                     ) : null}
 
                     <View style={wpStyles.playerList}>
-                      {players.map((p: any) => (
-                        <View key={p.id} style={wpStyles.playerRow}>
-                          <View style={[wpStyles.ballDot, { backgroundColor: getBallColor(p.ballLevel) }]} />
-                          <Text style={wpStyles.playerName} numberOfLines={1}>{p.name}</Text>
-                          {p.ballLevel ? (
-                            <Text style={[wpStyles.playerBallLevel, { color: getBallColor(p.ballLevel) }]}>
-                              {p.ballLevel}
-                            </Text>
-                          ) : null}
-                        </View>
-                      ))}
+                      {players.map((p: any) => {
+                        const dotColor = getBallColor(p.ballLevel, s.sport);
+                        const levelLabel = p.ballLevel
+                          ? (s.sport && s.sport !== "tennis"
+                            ? formatSportSkillLevel(s.sport, p.ballLevel)
+                            : p.ballLevel)
+                          : null;
+                        return (
+                          <View key={p.id} style={wpStyles.playerRow}>
+                            <View style={[wpStyles.ballDot, { backgroundColor: dotColor }]} />
+                            <Text style={wpStyles.playerName} numberOfLines={1}>{p.name}</Text>
+                            {levelLabel ? (
+                              <Text style={[wpStyles.playerBallLevel, { color: dotColor }]}>
+                                {levelLabel}
+                              </Text>
+                            ) : null}
+                          </View>
+                        );
+                      })}
                       {players.length === 0 ? (
                         <Text style={wpStyles.noPlayersText}>No active players</Text>
                       ) : null}
@@ -397,10 +417,16 @@ const wpStyles = StyleSheet.create({
     fontSize: 14,
     fontWeight: "600",
   },
+  subtitleRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+    marginBottom: Spacing.sm,
+    flexWrap: "wrap",
+  },
   groupSubtitle: {
     color: Colors.dark.textMuted,
     fontSize: 12,
-    marginBottom: Spacing.sm,
   },
   playerList: {
     gap: 4,

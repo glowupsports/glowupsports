@@ -25,6 +25,7 @@ import { GuidedEmptyState } from "@/components/GuidedEmptyState";
 import { apiRequest } from "@/lib/query-client";
 import { useCoach } from "@/coach/context/CoachContext";
 import { convertUTCTimeToLocal } from "@/lib/dateUtils";
+import { getSportColor, formatSportSkillLevel, getSportSkillLevelColor } from "@shared/sportConfig";
 
 interface PlayerPreview {
   id: string;
@@ -50,6 +51,7 @@ interface CoachingSeries {
   sessionsCompleted: number;
   pendingFeedback: number;
   playerPreview?: PlayerPreview[];
+  sport?: string | null;
 }
 
 interface Props {
@@ -58,11 +60,15 @@ interface Props {
 }
 
 type FilterType = "all" | "active" | "paused" | "ended";
+type SportFilter = "all" | "tennis" | "padel" | "pickleball";
 
 const DAY_NAMES = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 const FLEXIBLE_DAY = -1;
 
-function getBallColor(level: string): string {
+function getBallColor(level: string, sport?: string | null): string {
+  if (sport && sport !== "tennis") {
+    return getSportSkillLevelColor(sport, level);
+  }
   const l = level.toLowerCase();
   if (l.includes("red")) return "#FF4444";
   if (l.includes("orange")) return "#FF8C00";
@@ -195,6 +201,7 @@ const collapsibleStyles = StyleSheet.create({
 
 export function CoachingSeriesSection({ onSeriesPress, onCreatePress }: Props) {
   const [filter, setFilter] = useState<FilterType>("active");
+  const [sportFilter, setSportFilter] = useState<SportFilter>("all");
   const [expandedDays, setExpandedDays] = useState<Set<number>>(new Set());
   const [searchText, setSearchText] = useState("");
   const [showSearch, setShowSearch] = useState(false);
@@ -247,16 +254,28 @@ export function CoachingSeriesSection({ onSeriesPress, onCreatePress }: Props) {
     });
   }, [searchText, seriesList]);
 
-  const filteredSeries = seriesList?.filter(series => {
-    if (filter === "all") return true;
-    return series.status === filter;
-  }) || [];
+  const uniqueSports = useMemo(() => {
+    if (!seriesList) return new Set<string>();
+    const sports = new Set<string>();
+    for (const s of seriesList) {
+      sports.add(s.sport || "tennis");
+    }
+    return sports;
+  }, [seriesList]);
+
+  const showSportFilter = uniqueSports.size > 1;
+
+  const filteredSeries = (seriesList?.filter(series => {
+    const statusMatch = filter === "all" ? true : series.status === filter;
+    const sportMatch = sportFilter === "all" ? true : (series.sport || "tennis") === sportFilter;
+    return statusMatch && sportMatch;
+  }) || []);
 
   const flexibleSeries = filteredSeries.filter(s => s.dayOfWeek === FLEXIBLE_DAY);
   const regularSeries = filteredSeries.filter(s => s.dayOfWeek !== FLEXIBLE_DAY);
 
   const flexibleGroupedByPlayer = useMemo(() => {
-    const playerMap = new Map<string, { playerName: string; ballLevel: string | null; series: CoachingSeries[] }>();
+    const playerMap = new Map<string, { playerName: string; ballLevel: string | null; sport: string | null; series: CoachingSeries[] }>();
     const ungrouped: CoachingSeries[] = [];
 
     for (const s of flexibleSeries) {
@@ -268,7 +287,7 @@ export function CoachingSeriesSection({ onSeriesPress, onCreatePress }: Props) {
       for (const p of players) {
         const key = p.id;
         if (!playerMap.has(key)) {
-          playerMap.set(key, { playerName: p.name, ballLevel: p.ballLevel || null, series: [] });
+          playerMap.set(key, { playerName: p.name, ballLevel: p.ballLevel || null, sport: s.sport || null, series: [] });
         }
         const existing = playerMap.get(key)!;
         if (!existing.series.find(ex => ex.id === s.id)) {
@@ -454,6 +473,32 @@ export function CoachingSeriesSection({ onSeriesPress, onCreatePress }: Props) {
         ))}
       </View>
 
+      {showSportFilter ? (
+        <View style={styles.sportFilterRow}>
+          {(["all", "tennis", "padel", "pickleball"] as SportFilter[]).map((s) => {
+            const isActive = sportFilter === s;
+            const sportColor = s === "all" ? Colors.dark.textMuted : getSportColor(s);
+            return (
+              <Pressable
+                key={s}
+                onPress={() => {
+                  Haptics.selectionAsync();
+                  setSportFilter(s);
+                }}
+                style={[
+                  styles.sportFilterChip,
+                  isActive && { backgroundColor: `${sportColor}20`, borderColor: `${sportColor}60` },
+                ]}
+              >
+                <Text style={[styles.sportFilterText, isActive && { color: sportColor }]}>
+                  {s.charAt(0).toUpperCase() + s.slice(1)}
+                </Text>
+              </Pressable>
+            );
+          })}
+        </View>
+      ) : null}
+
       {filteredSeries.length === 0 ? (
         <View style={styles.emptyContainer}>
           <GuidedEmptyState
@@ -498,8 +543,12 @@ export function CoachingSeriesSection({ onSeriesPress, onCreatePress }: Props) {
                         </View>
                         <Text style={playerGroupStyles.playerName}>{group.playerName}</Text>
                         {group.ballLevel ? (
-                          <View style={[playerGroupStyles.ballBadge, { backgroundColor: getBallColor(group.ballLevel) + "25" }]}>
-                            <Text style={[playerGroupStyles.ballText, { color: getBallColor(group.ballLevel) }]}>{group.ballLevel}</Text>
+                          <View style={[playerGroupStyles.ballBadge, { backgroundColor: getBallColor(group.ballLevel, group.sport) + "25" }]}>
+                            <Text style={[playerGroupStyles.ballText, { color: getBallColor(group.ballLevel, group.sport) }]}>
+                              {group.sport && group.sport !== "tennis"
+                                ? formatSportSkillLevel(group.sport, group.ballLevel)
+                                : group.ballLevel}
+                            </Text>
                           </View>
                         ) : null}
                         <Text style={playerGroupStyles.classCount}>{group.series.length} {group.series.length === 1 ? "class" : "classes"}</Text>
@@ -586,6 +635,26 @@ const styles = StyleSheet.create({
   },
   filterTextActive: {
     color: Colors.dark.primary,
+    fontWeight: "600",
+  },
+  sportFilterRow: {
+    flexDirection: "row",
+    gap: Spacing.sm,
+    paddingHorizontal: Spacing.lg,
+    paddingBottom: Spacing.md,
+    flexWrap: "wrap",
+  },
+  sportFilterChip: {
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm,
+    borderRadius: BorderRadius.full,
+    backgroundColor: Colors.dark.backgroundSecondary,
+    borderWidth: 1,
+    borderColor: Colors.dark.border,
+  },
+  sportFilterText: {
+    ...Typography.caption,
+    color: Colors.dark.textMuted,
     fontWeight: "600",
   },
   emptyContainer: {

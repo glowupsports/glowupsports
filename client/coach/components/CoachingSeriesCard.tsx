@@ -12,6 +12,7 @@ import { Colors, Spacing, BorderRadius, Typography } from "@/constants/theme";
 import { useCoach } from "@/coach/context/CoachContext";
 import { convertUTCTimeToLocal } from "@/lib/dateUtils";
 import { SportBadge } from "@/components/SportBadge";
+import { getSportSkillLevelColor, formatSportSkillLevel } from "@shared/sportConfig";
 
 interface PlayerPreview {
   id: string;
@@ -122,7 +123,10 @@ export function CoachingSeriesCard({ series, onPress, onEditPress }: Props) {
     }
   };
   
-  const getBallLevelColor = (level?: string | null) => {
+  const getBallLevelColor = (level?: string | null, sport?: string | null) => {
+    if (sport && sport !== "tennis") {
+      return getSportSkillLevelColor(sport, level);
+    }
     switch (level?.toUpperCase()) {
       case "BLUE": return "#3B82F6";
       case "RED": return "#EF4444";
@@ -130,12 +134,15 @@ export function CoachingSeriesCard({ series, onPress, onEditPress }: Props) {
       case "GREEN": return "#22C55E";
       case "YELLOW": return "#EAB308";
       case "ADULT":
-      case "GLOW": return "#00E5FF"; // Cyan for adult players
+      case "GLOW": return "#00E5FF";
       default: return Colors.dark.textMuted;
     }
   };
   
-  const ballLevelColor = getBallLevelColor(series.primaryBallLevel);
+  const ballLevelColor = getBallLevelColor(series.primaryBallLevel, series.sport);
+  const ballLevelLabel = series.sport && series.sport !== "tennis"
+    ? formatSportSkillLevel(series.sport, series.primaryBallLevel)
+    : series.primaryBallLevel;
   const playerPreview = series.playerPreview || [];
   
   const formatNextSession = () => {
@@ -180,7 +187,7 @@ export function CoachingSeriesCard({ series, onPress, onEditPress }: Props) {
               <View style={[styles.ballLevelBadge, { backgroundColor: ballLevelColor + '20', borderColor: ballLevelColor }]}>
                 <View style={[styles.ballLevelDot, { backgroundColor: ballLevelColor }]} />
                 <Text style={[styles.ballLevelText, { color: ballLevelColor }]}>
-                  {series.primaryBallLevel}
+                  {ballLevelLabel}
                 </Text>
               </View>
             ) : null}
