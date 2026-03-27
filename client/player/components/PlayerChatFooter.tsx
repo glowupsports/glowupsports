@@ -231,8 +231,7 @@ export function PlayerChatFooter() {
 
   const handleSelectConversation = useCallback((conv: Conversation) => {
     setSelectedConversation(conv);
-    markAsReadMutation.mutate(conv.id);
-  }, [markAsReadMutation]);
+  }, []);
 
   useEffect(() => {
     const safeFullscreenHeight = SCREEN_HEIGHT - insets.top - tabBarHeight;
