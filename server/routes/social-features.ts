@@ -146,7 +146,7 @@ const socialPostUpload = multer({
                    media_urls, media_types, visibility, group_id, cheer_count, 
                    comment_count, created_at, is_hidden
             FROM posts 
-            WHERE academy_id = $1 AND is_hidden = false AND author_id = ANY($2::uuid[])
+            WHERE academy_id = $1 AND is_hidden = false AND author_id = ANY($2::text[])
             ORDER BY id DESC
             LIMIT $3
             OFFSET $4`,
@@ -159,7 +159,7 @@ const socialPostUpload = multer({
                    media_urls, media_types, visibility, group_id, cheer_count, 
                    comment_count, created_at, is_hidden
             FROM posts 
-            WHERE academy_id = $1 AND is_hidden = false AND group_id = ANY($2::uuid[])
+            WHERE academy_id = $1 AND is_hidden = false AND group_id = ANY($2::text[])
             ORDER BY id DESC
             LIMIT $3
             OFFSET $4`,
@@ -242,8 +242,8 @@ const socialPostUpload = multer({
                   author_id = $2
                   OR visibility = 'academy'
                   OR visibility = 'public'
-                  OR (visibility = 'friends' AND author_id = ANY($3::uuid[]))
-                  OR (visibility = 'group' AND group_id = ANY($4::uuid[]))
+                  OR (visibility = 'friends' AND author_id = ANY($3::text[]))
+                  OR (visibility = 'group' AND group_id = ANY($4::text[]))
                 )
               ORDER BY id DESC
               LIMIT $5
@@ -263,7 +263,7 @@ const socialPostUpload = multer({
                   author_id = $2
                   OR visibility = 'academy'
                   OR visibility = 'public'
-                  OR (visibility = 'friends' AND author_id = ANY($3::uuid[]))
+                  OR (visibility = 'friends' AND author_id = ANY($3::text[]))
                 )
               ORDER BY id DESC
               LIMIT $4
@@ -283,7 +283,7 @@ const socialPostUpload = multer({
                   author_id = $2
                   OR visibility = 'academy'
                   OR visibility = 'public'
-                  OR (visibility = 'group' AND group_id = ANY($3::uuid[]))
+                  OR (visibility = 'group' AND group_id = ANY($3::text[]))
                 )
               ORDER BY id DESC
               LIMIT $4
