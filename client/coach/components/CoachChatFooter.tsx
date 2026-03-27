@@ -450,6 +450,37 @@ export function CoachChatFooter({ mode = "coach", onChallenge }: ChatFooterProps
     },
   });
 
+  const markAsReadMutation = useMutation({
+    mutationFn: async (conversation: Conversation) => {
+      if (!userId || conversation.id?.startsWith("sample-")) return;
+      if (isPlayerMode) {
+        return apiRequest("POST", `/api/player/me/conversations/${conversation.id}/read`, {});
+      } else {
+        return apiRequest("POST", `/api/conversations/${conversation.id}/read`, {
+          participantType: "coach",
+          participantId: userId,
+        });
+      }
+    },
+    onSuccess: () => {
+      if (isPlayerMode) {
+        queryClient.invalidateQueries({ queryKey: ["/api/player/me/unread-count"] });
+        queryClient.invalidateQueries({ queryKey: ["/api/player/me/conversations"] });
+      } else {
+        queryClient.invalidateQueries({ queryKey: ["/api/coaches", userId, "unread-count"] });
+        queryClient.invalidateQueries({ queryKey: ["/api/coaches", userId, "conversations"] });
+      }
+    },
+    onError: (error) => {
+      console.error("Failed to mark conversation as read:", error);
+    },
+  });
+
+  const handleSelectConversation = useCallback((conversation: Conversation) => {
+    setSelectedConversation(conversation);
+    markAsReadMutation.mutate(conversation);
+  }, [markAsReadMutation]);
+
   const senderUserIdForBlockCheck = selectedSender?.senderUserId ?? null;
   const { data: blockStatusData } = useQuery<{ isBlocked: boolean }>({
     queryKey: ["/api/social/users", senderUserIdForBlockCheck, "block"],
@@ -614,7 +645,7 @@ export function CoachChatFooter({ mode = "coach", onChallenge }: ChatFooterProps
     if (tab === "academy") {
       const academyConv = conversations.find(c => c.type === "academy");
       if (academyConv) {
-        setSelectedConversation(academyConv);
+        handleSelectConversation(academyConv);
       }
     } else {
       if (selectedConversation?.type === "academy") {
@@ -628,11 +659,11 @@ export function CoachChatFooter({ mode = "coach", onChallenge }: ChatFooterProps
       const academyConv = conversations.find(c => c.type === "academy");
       if (academyConv) {
         if (!selectedConversation || selectedConversation.id !== academyConv.id) {
-          setSelectedConversation(academyConv);
+          handleSelectConversation(academyConv);
         }
       } else if (academyConvCreated) {
         if (!selectedConversation || selectedConversation.id !== academyConvCreated.id) {
-          setSelectedConversation(academyConvCreated);
+          handleSelectConversation(academyConvCreated);
         }
       } else {
         createConversationMutation.mutate({
@@ -647,7 +678,7 @@ export function CoachChatFooter({ mode = "coach", onChallenge }: ChatFooterProps
     if (currentTab === "squad" && isPlayerMode) {
       const squadConv = conversations.find(c => c.type === "squad" || c.type === "group");
       if (squadConv && (!selectedConversation || selectedConversation.id !== squadConv.id)) {
-        setSelectedConversation(squadConv);
+        handleSelectConversation(squadConv);
       }
     }
   }, [currentTab, conversations, selectedConversation, isPlayerMode]);
@@ -755,7 +786,7 @@ export function CoachChatFooter({ mode = "coach", onChallenge }: ChatFooterProps
         c.type === "player_player" && c.title?.includes(playerName)
       );
       if (existingConv) {
-        setSelectedConversation(existingConv);
+        handleSelectConversation(existingConv);
         setShowNewMessage(false);
       } else {
         createConversationMutation.mutate({
@@ -767,7 +798,7 @@ export function CoachChatFooter({ mode = "coach", onChallenge }: ChatFooterProps
     } else {
       const existingConv = conversations.find(c => c.playerId === player.id);
       if (existingConv) {
-        setSelectedConversation(existingConv);
+        handleSelectConversation(existingConv);
         setShowNewMessage(false);
       } else {
         createConversationMutation.mutate({
@@ -784,7 +815,7 @@ export function CoachChatFooter({ mode = "coach", onChallenge }: ChatFooterProps
       c => c.type === "squad" && (c.title === squad.id || c.title === squad.name)
     );
     if (existingConv) {
-      setSelectedConversation(existingConv);
+      handleSelectConversation(existingConv);
       setShowSquadSelector(false);
     } else {
       createConversationMutation.mutate({
@@ -799,7 +830,7 @@ export function CoachChatFooter({ mode = "coach", onChallenge }: ChatFooterProps
     if (isPlayerMode) {
       const existingConv = conversations.find(c => c.type === "coach_player" && c.coachId === otherCoach.id);
       if (existingConv) {
-        setSelectedConversation(existingConv);
+        handleSelectConversation(existingConv);
         setShowCoachSelector(false);
       } else {
         createConversationMutation.mutate({
@@ -810,7 +841,7 @@ export function CoachChatFooter({ mode = "coach", onChallenge }: ChatFooterProps
     } else {
       const existingConv = conversations.find(c => c.title === otherCoach.name && c.type === "coach_coach");
       if (existingConv) {
-        setSelectedConversation(existingConv);
+        handleSelectConversation(existingConv);
         setShowCoachSelector(false);
       } else {
         createConversationMutation.mutate({
@@ -1216,7 +1247,7 @@ export function CoachChatFooter({ mode = "coach", onChallenge }: ChatFooterProps
         keyExtractor={(item) => item.id}
         renderItem={({ item }) => (
           <Pressable
-            onPress={() => setSelectedConversation(item)}
+            onPress={() => handleSelectConversation(item)}
             onLongPress={() => {
               if (isPlayerMode && item.type === "player_player") {
                 Alert.alert(
@@ -1595,7 +1626,7 @@ export function CoachChatFooter({ mode = "coach", onChallenge }: ChatFooterProps
                                 (c) => c.type === "coach_coach" && c.title === senderName,
                               );
                               if (existing) {
-                                setSelectedConversation(existing);
+                                handleSelectConversation(existing);
                               } else {
                                 createConversationMutation.mutate({
                                   type: "coach_coach",
@@ -1624,7 +1655,7 @@ export function CoachChatFooter({ mode = "coach", onChallenge }: ChatFooterProps
                           onPress={() => {
                             setSelectedSender(null);
                             setTimeout(() => {
-                              setSelectedConversation(existing);
+                              handleSelectConversation(existing);
                               setIsExpanded(true);
                               setCurrentTab("coaches");
                             }, 350);
