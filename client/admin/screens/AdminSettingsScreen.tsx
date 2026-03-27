@@ -404,6 +404,26 @@ export default function AdminSettingsScreen() {
 
         
           <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Equipment & Shop</Text>
+            <Pressable
+              style={[styles.menuCard, CardStyles.elevated]}
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                navigation.navigate("AdminEquipment" as never);
+              }}
+            >
+              <View style={styles.menuContent}>
+                <Ionicons name="bag-outline" size={24} color={Colors.dark.primary} />
+                <View style={styles.menuText}>
+                  <Text style={styles.menuTitle}>Equipment Rental & Shop</Text>
+                  <Text style={styles.menuSubtitle}>Manage inventory and track rentals</Text>
+                </View>
+                <Ionicons name="chevron-forward" size={20} color={Colors.dark.textMuted} />
+              </View>
+            </Pressable>
+          </View>
+
+          <View style={styles.section}>
             <Text style={styles.sectionTitle}>User Management</Text>
             <Pressable 
               style={[styles.menuCard, CardStyles.elevated]}

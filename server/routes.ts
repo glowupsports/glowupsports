@@ -208,6 +208,7 @@ import { apiCache, CACHE_KEYS, CACHE_TTL } from "./cache";
 import { getCurrencyForCountry } from "@shared/countries";
 import shopRoutes from "./shop-routes";
 import marketplaceRoutes from "./marketplace-routes";
+import equipmentRoutes from "./equipment-routes";
 import glowLevelingRoutes from "./routes/glow-leveling";
 import sessionPlansRoutes from "./routes/session-plans";
 import matchLogsRoutes from "./routes/match-logs";
@@ -508,6 +509,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Register marketplace routes
   app.use("/api", marketplaceRoutes);
+
+  // Register equipment rental routes
+  app.use("/api", equipmentRoutes);
 
   // Register Glow Leveling OS routes
   app.use(glowLevelingRoutes);

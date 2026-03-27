@@ -127,6 +127,59 @@ pool.query('SELECT 1').then(async () => {
   } catch (e: any) {
     console.log('[Database] video_feedback migration skipped:', e.message);
   }
+  try {
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS equipment (
+        id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(),
+        academy_id VARCHAR NOT NULL REFERENCES academies(id) ON DELETE CASCADE,
+        name TEXT NOT NULL,
+        description TEXT,
+        type TEXT NOT NULL DEFAULT 'rental',
+        price_credits INTEGER,
+        price_cash NUMERIC(10,2),
+        currency TEXT DEFAULT 'AED',
+        quantity INTEGER NOT NULL DEFAULT 1,
+        available_quantity INTEGER NOT NULL DEFAULT 1,
+        photo_url TEXT,
+        is_active BOOLEAN DEFAULT true,
+        created_at TIMESTAMP DEFAULT NOW(),
+        updated_at TIMESTAMP DEFAULT NOW()
+      )
+    `);
+    await pool.query(`CREATE INDEX IF NOT EXISTS equipment_academy_idx ON equipment(academy_id)`);
+    await pool.query(`CREATE INDEX IF NOT EXISTS equipment_type_idx ON equipment(type)`);
+  } catch (e: any) {
+    console.log('[Database] equipment migration skipped:', e.message);
+  }
+  try {
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS equipment_rentals (
+        id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(),
+        equipment_id VARCHAR NOT NULL REFERENCES equipment(id) ON DELETE CASCADE,
+        player_id VARCHAR NOT NULL REFERENCES players(id) ON DELETE CASCADE,
+        academy_id VARCHAR NOT NULL REFERENCES academies(id) ON DELETE CASCADE,
+        reserved_from TIMESTAMP NOT NULL,
+        reserved_until TIMESTAMP NOT NULL,
+        returned_at TIMESTAMP,
+        status TEXT NOT NULL DEFAULT 'reserved',
+        payment_method TEXT NOT NULL DEFAULT 'credits',
+        amount_paid NUMERIC(10,2),
+        credits_used INTEGER,
+        notes TEXT,
+        checked_out_by VARCHAR,
+        checked_in_by VARCHAR,
+        created_at TIMESTAMP DEFAULT NOW(),
+        updated_at TIMESTAMP DEFAULT NOW()
+      )
+    `);
+    await pool.query(`ALTER TABLE equipment_rentals ADD COLUMN IF NOT EXISTS transaction_type TEXT NOT NULL DEFAULT 'rental'`);
+    await pool.query(`CREATE INDEX IF NOT EXISTS eq_rentals_equipment_idx ON equipment_rentals(equipment_id)`);
+    await pool.query(`CREATE INDEX IF NOT EXISTS eq_rentals_player_idx ON equipment_rentals(player_id)`);
+    await pool.query(`CREATE INDEX IF NOT EXISTS eq_rentals_academy_idx ON equipment_rentals(academy_id)`);
+    await pool.query(`CREATE INDEX IF NOT EXISTS eq_rentals_status_idx ON equipment_rentals(status)`);
+  } catch (e: any) {
+    console.log('[Database] equipment_rentals migration skipped:', e.message);
+  }
 }).catch((err) => {
   console.error('[Database] Connection test FAILED:', err.message);
 });

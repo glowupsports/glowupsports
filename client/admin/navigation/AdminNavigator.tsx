@@ -13,6 +13,7 @@ import AdminCourtsScreen from "@/admin/screens/AdminCourtsScreen";
 import AdminLocationsScreen from "@/admin/screens/AdminLocationsScreen";
 import AdminSubscriptionsScreen from "@/admin/screens/AdminSubscriptionsScreen";
 import AdminRolesPermissionsScreen from "@/admin/screens/AdminRolesPermissionsScreen";
+import AdminEquipmentScreen from "@/admin/screens/AdminEquipmentScreen";
 import { SwipeableTabBar, TabConfig } from "@/components/SwipeableTabBar";
 import { QuickActionsFAB, QuickAction } from "@/components/QuickActionsFAB";
 import { TabNavigationProvider } from "@/components/TabNavigationContext";
@@ -45,6 +46,7 @@ export type AdminStackParamList = {
   AdminPlayers: undefined;
   AdminClasses: undefined;
   AdminReports: undefined;
+  AdminEquipment: undefined;
 };
 
 const Stack = createNativeStackNavigator<AdminStackParamList>();
@@ -79,6 +81,7 @@ function AdminStackNavigator() {
       <Stack.Screen name="AdminLocations" component={AdminLocationsScreen} />
       <Stack.Screen name="AdminSubscriptions" component={AdminSubscriptionsScreen} />
       <Stack.Screen name="AdminRolesPermissions" component={AdminRolesPermissionsScreen} />
+      <Stack.Screen name="AdminEquipment" component={AdminEquipmentScreen} />
     </Stack.Navigator>
   );
 }
@@ -128,6 +131,13 @@ function AdminQuickActionsFAB() {
       icon: "tennisball-outline",
       color: Colors.dark.orange,
       onPress: () => navigation.navigate("AdminCourts"),
+    },
+    {
+      id: "equipment",
+      label: "Equipment",
+      icon: "bag-outline",
+      color: Colors.dark.xpCyan ?? Colors.dark.primary,
+      onPress: () => navigation.navigate("AdminEquipment"),
     },
   ];
 

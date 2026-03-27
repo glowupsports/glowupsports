@@ -6324,3 +6324,76 @@ export const videoFeedbackInputSchema = z.object({
 export type InsertVideoFeedback = z.infer<typeof insertVideoFeedbackSchema>;
 export type VideoFeedback = typeof videoFeedback.$inferSelect;
 export type VideoFeedbackInput = z.infer<typeof videoFeedbackInputSchema>;
+
+// ==================== EQUIPMENT RENTAL & SHOP ====================
+
+export const equipment = pgTable("equipment", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  academyId: varchar("academy_id").references(() => academies.id).notNull(),
+
+  name: text("name").notNull(),
+  description: text("description"),
+  type: text("type").notNull().default("rental"), // rental | sale
+
+  // Pricing
+  priceCredits: integer("price_credits"), // cost in credits (null = not available via credits)
+  priceCash: numeric("price_cash", { precision: 10, scale: 2 }), // cost in cash (null = not available for cash)
+  currency: text("currency").default("AED"),
+
+  // Inventory
+  quantity: integer("quantity").notNull().default(1),
+  availableQuantity: integer("available_quantity").notNull().default(1),
+
+  // Media
+  photoUrl: text("photo_url"),
+
+  // Status
+  isActive: boolean("is_active").default(true),
+
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("equipment_academy_idx").on(table.academyId),
+  index("equipment_type_idx").on(table.type),
+]);
+
+export const insertEquipmentSchema = createInsertSchema(equipment).omit({ id: true, createdAt: true, updatedAt: true });
+export type InsertEquipment = z.infer<typeof insertEquipmentSchema>;
+export type Equipment = typeof equipment.$inferSelect;
+
+export const equipmentRentals = pgTable("equipment_rentals", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  equipmentId: varchar("equipment_id").references(() => equipment.id).notNull(),
+  playerId: varchar("player_id").references(() => players.id).notNull(),
+  academyId: varchar("academy_id").references(() => academies.id).notNull(),
+
+  // Rental window
+  reservedFrom: timestamp("reserved_from").notNull(),
+  reservedUntil: timestamp("reserved_until").notNull(),
+  returnedAt: timestamp("returned_at"),
+
+  // Status: reserved | active | returned | overdue | cancelled
+  status: text("status").notNull().default("reserved"),
+
+  // Payment
+  paymentMethod: text("payment_method").notNull().default("credits"), // credits | cash
+  amountPaid: numeric("amount_paid", { precision: 10, scale: 2 }),
+  creditsUsed: integer("credits_used"),
+
+  notes: text("notes"),
+  transactionType: text("transaction_type").notNull().default("rental"), // rental | purchase
+  checkedOutBy: varchar("checked_out_by"), // staff userId who checked out
+  checkedInBy: varchar("checked_in_by"),  // staff userId who checked in
+
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("eq_rentals_equipment_idx").on(table.equipmentId),
+  index("eq_rentals_player_idx").on(table.playerId),
+  index("eq_rentals_academy_idx").on(table.academyId),
+  index("eq_rentals_status_idx").on(table.status),
+]);
+
+export const insertEquipmentRentalSchema = createInsertSchema(equipmentRentals).omit({ id: true, createdAt: true, updatedAt: true });
+export type InsertEquipmentRental = z.infer<typeof insertEquipmentRentalSchema>;
+export type EquipmentRental = typeof equipmentRentals.$inferSelect;

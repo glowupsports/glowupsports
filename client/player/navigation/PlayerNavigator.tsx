@@ -60,6 +60,7 @@ import PlayerOrderDetailScreen from "@/player/screens/PlayerOrderDetailScreen";
 import CartScreen from "@/player/screens/CartScreen";
 import ShopCategoryScreen from "@/player/screens/ShopCategoryScreen";
 import MarketplaceScreen from "@/player/screens/MarketplaceScreen";
+import PlayerEquipmentScreen from "@/player/screens/PlayerEquipmentScreen";
 import MarketplaceListingDetailScreen from "@/player/screens/MarketplaceListingDetailScreen";
 import MyListingsScreen from "@/player/screens/MyListingsScreen";
 import MatchScreen from "@/player/screens/MatchScreen";
@@ -191,6 +192,7 @@ export type PlayerStackParamList = {
   ShopCategory: { categoryId: string; categoryName: string };
   Marketplace: undefined;
   MarketplaceListing: { listingId: string };
+  Equipment: undefined;
   MyListings: undefined;
   BookingPreferences: undefined;
   BookingInvites: undefined;
@@ -968,6 +970,18 @@ function PlayerStackNavigator() {
         }}
       />
       <Stack.Screen 
+        name="Equipment" 
+        component={PlayerEquipmentScreen}
+        options={{
+          presentation: "card",
+          headerShown: true,
+          headerTitle: "Equipment",
+          headerStyle: { backgroundColor: '#090E17' },
+          headerTintColor: '#CCFF00',
+          headerTitleStyle: { color: '#ffffff', fontWeight: '600' },
+        }}
+      />
+      <Stack.Screen 
         name="BookingPreferences" 
         component={BookingPreferencesScreen}
         options={{
@@ -1147,6 +1161,13 @@ function PlayerQuickActionsFAB() {
       icon: "storefront-outline",
       color: Colors.dark.orange,
       onPress: () => navigation.navigate("Marketplace"),
+    },
+    {
+      id: "equipment",
+      label: "Equipment",
+      icon: "bag-outline",
+      color: Colors.dark.primary,
+      onPress: () => navigation.navigate("Equipment"),
     },
     {
       id: "quests",
