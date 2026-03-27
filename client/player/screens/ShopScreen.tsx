@@ -89,6 +89,7 @@ interface ShopOrder {
 
 const CATEGORY_ICONS: Record<string, string> = {
   rackets: "tennisball",
+  clothing: "shirt",
   shoes: "footsteps",
   gear: "briefcase",
   strings: "construct",
