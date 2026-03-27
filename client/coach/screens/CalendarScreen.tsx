@@ -51,9 +51,14 @@ import { PremiumSessionWizard } from "@/coach/components/PremiumSessionWizard";
 import AttendanceDrawer from "@/coach/components/AttendanceDrawer";
 import SessionDetailDrawer from "@/coach/components/SessionDetailDrawer";
 import QuickFeedbackModal from "@/coach/components/QuickFeedbackModal";
-import { CalendarFilterOverlay } from "@/coach/components/calendar/CalendarFilterOverlay";
 import { CalendarBlockModal } from "@/coach/components/calendar/CalendarBlockModal";
 import { CalendarDragModal } from "@/coach/components/calendar/CalendarDragModal";
+import { CalendarMonthView } from "@/coach/components/calendar/CalendarMonthView";
+import { CalendarDayViewOverview } from "@/coach/components/calendar/CalendarDayViewOverview";
+import { CalendarWeekViewOverview } from "@/coach/components/calendar/CalendarWeekViewOverview";
+import { CalendarWeekViewSlots } from "@/coach/components/calendar/CalendarWeekViewSlots";
+import { CalendarDayViewSlots } from "@/coach/components/calendar/CalendarDayViewSlots";
+import { styles } from "@/coach/components/calendar/calendarStyles";
 type CalendarRouteParams = {
   Calendar: {
     openSessionId?: string;
@@ -95,8 +100,6 @@ const getUTCDateString = (timestamp: string | Date): string => {
   return date.toISOString().split('T')[0];
 };
 
-import { dimColors, DraggableSessionBlock, WeekDraggableSessionBlock, PulsingDot } from "@/coach/components/calendar/SessionBlocks";
-import { styles } from "@/coach/components/calendar/calendarStyles";
 export default function CalendarScreen() {
   const { coach, academy, calendarData, isLoading, isFetching, refetchCalendar, setCoach, focusMode, setFocusMode, timeGrid, setTimeGrid, selectedDate, setSelectedDate, viewMode, setViewMode } = useCoach();
   const route = useRoute<RouteProp<any>>();
@@ -1435,1211 +1438,119 @@ export default function CalendarScreen() {
 
       {/* DAY VIEW - OVERVIEW MODE (Compact Lesson List for selected date) */}
       {viewMode === "day" && dayMode === "overview" && (
-        <ScrollView 
-          style={styles.calendarScroll} 
-          showsVerticalScrollIndicator={false}
-          contentContainerStyle={styles.weekCardsContainer}
-        >
-          {(() => {
-            const daySessions = getSessionsForDate(selectedDate)
-              .sort((a, b) => parseUTCTimestamp(a.startTime).getTime() - parseUTCTimestamp(b.startTime).getTime());
-            
-            if (daySessions.length === 0) {
-              return (
-                <View style={styles.overviewEmpty}>
-                  <Ionicons name="calendar-outline" size={48} color={Colors.dark.tabIconDefault} />
-                  <Text style={styles.overviewEmptyText}>No lessons today</Text>
-                </View>
-              );
-            }
-            
-            return daySessions.map((session) => {
-              const typeLabel = session.sessionType === "private" || session.sessionType === "private_adjusted" ? "Private" :
-                                session.sessionType === "semi_private" ? "Semi-Private" :
-                                session.sessionType === "group" ? "Group" :
-                                session.sessionType === "activity" ? "Activity" :
-                                session.sessionType === "physical" ? "Physical" : "Session";
-              const playerNames = session.players?.map(p => p.name.split(" ")[0]).join(", ") || "";
-              const courtName = courts.find(c => c.id === session.courtId)?.name || "";
-              const gradientColors = getSessionTypeGradient(session.sessionType);
-              const now = new Date();
-              const sessionStart = parseUTCTimestamp(session.startTime);
-              const sessionEnd = parseUTCTimestamp(session.endTime);
-              const isPast = sessionEnd < now;
-              const isActive = now >= sessionStart && now < sessionEnd;
-              
-              return (
-                <Pressable
-                  key={session.id}
-                  style={[styles.overviewSessionRow, isPast && styles.overviewSessionRowPast]}
-                  onPress={() => {
-                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                    setSelectedSessionForDetail(session as Session);
-                  }}
-                >
-                  <View style={[styles.overviewSessionAccent, { backgroundColor: gradientColors[0] }]} />
-                  <View style={styles.overviewSessionTime}>
-                    <Text style={[styles.overviewTimeText, isPast && styles.overviewTimePast]}>
-                      {formatTimeInTimezone(session.startTime, academyTimezone)}
-                    </Text>
-                    <Text style={styles.overviewTimeDash}>-</Text>
-                    <Text style={[styles.overviewTimeText, isPast && styles.overviewTimePast]}>
-                      {formatTimeInTimezone(session.endTime, academyTimezone)}
-                    </Text>
-                  </View>
-                  <View style={styles.overviewSessionInfo}>
-                    <View style={styles.overviewSessionTopRow}>
-                      <Text style={[styles.overviewTypeLabel, { color: gradientColors[0] }]}>{typeLabel}</Text>
-                      {isActive ? (
-                        <View style={styles.overviewLiveBadge}>
-                          <View style={styles.overviewLiveDot} />
-                          <Text style={styles.overviewLiveText}>LIVE</Text>
-                        </View>
-                      ) : null}
-                    </View>
-                    <View style={styles.overviewSessionDetails}>
-                      {playerNames ? <Text style={styles.overviewPlayerText} numberOfLines={1}>{playerNames}</Text> : null}
-                      {courtName ? (
-                        <View style={styles.overviewCourtChip}>
-                          <Ionicons name="location-outline" size={10} color={Colors.dark.tabIconDefault} />
-                          <Text style={styles.overviewCourtText}>{courtName}</Text>
-                        </View>
-                      ) : null}
-                    </View>
-                  </View>
-                  <Ionicons name="chevron-forward" size={16} color={Colors.dark.tabIconDefault} />
-                </Pressable>
-              );
-            });
-          })()}
-        </ScrollView>
+        <CalendarDayViewOverview
+          selectedDate={selectedDate}
+          getSessionsForDate={getSessionsForDate}
+          courts={courts}
+          academyTimezone={academyTimezone}
+          setSelectedSessionForDetail={(s) => setSelectedSessionForDetail(s as Session)}
+        />
       )}
-
       {/* DAY VIEW - SLOTS MODE */}
       {viewMode === "day" && dayMode === "slots" && (
-        <>
-          <CalendarFilterOverlay
-            visible={showFilterOverlay}
-            onClose={() => setShowFilterOverlay(false)}
-            allLocations={allLocations}
-            locationFilteredCourts={locationFilteredCourts}
-            selectedLocationFilter={selectedLocationFilter}
-            setSelectedLocationFilter={setSelectedLocationFilter}
-            selectedCourtFilter={selectedCourtFilter}
-            setSelectedCourtFilter={setSelectedCourtFilter}
-          />
-
-          {/* Court Headers - Clean minimal style */}
-          
-          <View style={styles.courtHeaders}>
-            <View style={styles.timeColumnHeader} />
-            <ScrollView
-              ref={courtHeaderScrollRef}
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              scrollEventThrottle={16}
-              onScroll={(e) => {
-                // Sync scroll with court lanes
-                courtLanesScrollRef.current?.scrollTo({
-                  x: e.nativeEvent.contentOffset.x,
-                  animated: false,
-                });
-              }}
-              contentContainerStyle={{ width: totalCourtsWidth }}
-            >
-              {courts.map((court, index) => {
-                return (
-                  <View key={court.id} style={[
-                    styles.courtHeader,
-                    { width: dynamicLaneWidth },
-                    index > 0 && styles.courtHeaderWithDivider,
-                  ]}>
-                    <Text style={styles.courtHeaderText} numberOfLines={1}>{court.name}</Text>
-                  </View>
-                );
-              })}
-            </ScrollView>
-          </View>
-          
-
-          {/* Calendar Grid */}
-          <ScrollView style={styles.calendarScroll} showsVerticalScrollIndicator={false} nestedScrollEnabled={true}>
-            <View style={styles.calendarGrid}>
-              {/* Time Column */}
-              <View style={styles.timeColumn}>
-                {hours.map((hour) => (
-                  <View key={hour} style={[styles.timeSlot, { height: hourHeight }]}>
-                    <Text style={styles.timeText}>{formatTime(hour)}</Text>
-                  </View>
-                ))}
-              </View>
-
-              {/* Court Lanes - Horizontal Scrollable */}
-              <ScrollView
-                ref={courtLanesScrollRef}
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                nestedScrollEnabled={true}
-                scrollEventThrottle={16}
-                onScroll={(e) => {
-                  // Sync scroll with court headers
-                  courtHeaderScrollRef.current?.scrollTo({
-                    x: e.nativeEvent.contentOffset.x,
-                    animated: false,
-                  });
-                }}
-                contentContainerStyle={{ width: totalCourtsWidth }}
-                style={styles.courtLanesContainer}
-              >
-                {courts.map((court, courtIndex) => (
-                  <View key={court.id} style={[
-                    styles.courtLane,
-                    { width: dynamicLaneWidth },
-                    courtIndex > 0 && styles.courtLaneWithDivider,
-                  ]}>
-                    {/* Hour grid lines and clickable slots */}
-                    {hours.map((hour, hourIndex) => (
-                      <Pressable
-                        key={hour}
-                        style={[
-                          styles.hourSlot, 
-                          { height: hourHeight },
-                          hourIndex % 2 === 0 ? styles.hourSlotEven : styles.hourSlotOdd,
-                          isCellSelected(court.id, hour) && styles.hourSlotSelected,
-                        ]}
-                        onPress={() => handleSlotPress(court.id, hour)}
-                        onLongPress={() => handleSlotLongPress(court.id, court.name, hour, courtIndex)}
-                        delayLongPress={400}
-                      >
-                        <View style={styles.hourLine} />
-                        {timeGrid === 30 && <View style={[styles.halfHourLine, { top: hourHeight / 2 }]} />}
-                        {isCellSelected(court.id, hour) && (
-                          <View style={styles.selectedCellOverlay}>
-                            <Feather name="check" size={14} color={Colors.dark.primary} />
-                          </View>
-                        )}
-                      </Pressable>
-                    ))}
-
-                    {/* Render draggable sessions for this court (or unassigned sessions in first court) */}
-                    {ownSessions
-                      .filter((s) => {
-                        // Filter by selected date using academy timezone (not UTC!)
-                        const sessionDateStr = getLocalDateString(s.startTime, academyTimezone);
-                        const selectedDateStr = formatDateObjectInTimezone(selectedDate, academyTimezone);
-                        if (sessionDateStr !== selectedDateStr) return false;
-                        // Then filter by court
-                        return s.courtId === court.id || (s.courtId === null && courtIndex === 0);
-                      })
-                      .map((session) => {
-                        const { top, height } = getSessionPosition(session);
-                        const now = new Date();
-                        const sessionEnd = parseUTCTimestamp(session.endTime);
-                        const sessionStart = parseUTCTimestamp(session.startTime);
-                        const isPast = sessionEnd < now;
-                        const isActive = now >= sessionStart && now < sessionEnd;
-                        const typeLabel = session.sessionType === "private" || session.sessionType === "private_adjusted" ? "Private" :
-                                          session.sessionType === "semi_private" ? "Semi" :
-                                          session.sessionType === "group" ? "Group" :
-                                          session.sessionType === "activity" ? "Activity" :
-                                          session.sessionType === "physical" ? "Physical" : "";
-                        const playerName = session.players?.[0]?.name?.split(" ")[0] || "";
-                        const isAllHolidayCancelled = session.status === "cancelled" && session.skipReason === "all_players_on_holiday";
-                        const sessionLabel = isAllHolidayCancelled
-                          ? "Geannuleerd"
-                          : (playerName ? `${typeLabel}\n${playerName}` : typeLabel);
-                        const gradientColors = isAllHolidayCancelled
-                          ? ["#4A4A6A", "#2E2E4E"]
-                          : getSessionTypeGradient(session.sessionType);
-                        return (
-                          <React.Fragment key={session.id}>
-                            <DraggableSessionBlock
-                              session={session}
-                              top={top}
-                              height={height}
-                              isPast={isAllHolidayCancelled ? true : isPast}
-                              isActive={isAllHolidayCancelled ? false : isActive}
-                              gradientColors={gradientColors}
-                              sessionLabel={sessionLabel}
-                              formattedTime={formatTimeInTimezone(session.startTime, academyTimezone)}
-                              formattedEndTime={formatTimeInTimezone(session.endTime, academyTimezone)}
-                              hourHeight={hourHeight}
-                              courtLaneWidth={dynamicLaneWidth}
-                              onTap={() => handleSessionTap(session)}
-                              onLongPress={() => handleSessionLongPress(session)}
-                              onDragEnd={(deltaY, deltaX) => handleSessionDragEnd(session, deltaY, deltaX, courtIndex)}
-                              onDragUpdate={(deltaY, deltaX, isDragging) => checkDragConflict(session, deltaY, deltaX, courtIndex, isDragging)}
-                              hasConflict={dragConflict === session.id}
-                              onHoverIn={Platform.OS === 'web' ? () => setHoveredSession(session) : undefined}
-                              onHoverOut={Platform.OS === 'web' ? () => setHoveredSession(null) : undefined}
-                              onWebPress={Platform.OS === 'web' ? (clientX: number, clientY: number) => {
-                                setPressedSession(prev => {
-                                  if (prev?.id === session.id) {
-                                    setPressedSessionPos(null);
-                                    return null;
-                                  }
-                                  setPressedSessionPos({ x: clientX, y: clientY });
-                                  return session;
-                                });
-                              } : undefined}
-                            />
-                            {isAllHolidayCancelled ? (
-                              <View
-                                style={{
-                                  position: 'absolute',
-                                  top: top + (height - 2) / 2 - 8,
-                                  left: 4,
-                                  right: 4,
-                                  flexDirection: 'row',
-                                  alignItems: 'center',
-                                  justifyContent: 'center',
-                                  gap: 3,
-                                  zIndex: 2,
-                                }}
-                                pointerEvents="none"
-                              >
-                                <Ionicons name="airplane" size={9} color="#A0A0C8" />
-                                {height > 38 ? (
-                                  <Text style={{ color: '#A0A0C8', fontSize: 8, fontWeight: '600' }} numberOfLines={1}>Iedereen op vakantie</Text>
-                                ) : null}
-                              </View>
-                            ) : null}
-                          </React.Fragment>
-                        );
-                      })}
-
-                    {/* Render blocked sessions */}
-                    {blockedSessions
-                      .filter((s) => s.courtId === court.id || (s.courtId === null && courtIndex === 0))
-                      .map((session) => {
-                        const { top, height } = getSessionPosition(session);
-                        const isCourtBlock = (session as any).isCourtBlock;
-                        return (
-                          <Pressable
-                            key={session.id}
-                            style={[
-                              isCourtBlock ? styles.blockedBlock : styles.blockedBlockOther,
-                              { top, height: height - 2 },
-                            ]}
-                            onPress={() => handleBlockedSlotPress(session)}
-                          >
-                            {isCourtBlock ? (
-                              <>
-                                <Feather name="lock" size={12} color="#FF4444" style={{ marginBottom: 2 }} />
-                                <Text style={styles.blockedTextCourt}>BLOCKED</Text>
-                                {(session as any).blockedReason && height > 40 ? (
-                                  <Text style={styles.blockedReasonText}>
-                                    {(session as any).blockedReason}
-                                  </Text>
-                                ) : null}
-                              </>
-                            ) : (
-                              <Text style={styles.blockedText}>Unavailable</Text>
-                            )}
-                          </Pressable>
-                        );
-                      })}
-
-                    {/* Render coach personal blocks (orange dashed) */}
-                    {coachBlocks
-                      .filter((block: any) => {
-                        const blockDateStr = getLocalDateString(new Date(block.startTime), academyTimezone);
-                        const selectedDateStr = formatDateObjectInTimezone(selectedDate, academyTimezone);
-                        return blockDateStr === selectedDateStr;
-                      })
-                      .map((block: any) => {
-                        const startDt = new Date(block.startTime);
-                        const endDt = new Date(block.endTime);
-                        const startHour = startDt.getUTCHours() + startDt.getUTCMinutes() / 60;
-                        const endHour = endDt.getUTCHours() + endDt.getUTCMinutes() / 60;
-                        const top = (startHour - START_HOUR) * hourHeight;
-                        const height = (endHour - startHour) * hourHeight;
-                        return (
-                          <View
-                            key={block.id + "-" + court.id}
-                            style={[
-                              styles.coachBlockStyle,
-                              { top, height: height - 2 },
-                            ]}
-                          >
-                            <Feather name="user-x" size={10} color="#FFA500" style={{ marginBottom: 1 }} />
-                            <Text style={styles.coachBlockText}>MY BLOCK</Text>
-                            {height > 30 && block.blockReason ? (
-                              <Text style={[styles.coachBlockText, { fontWeight: "400", fontSize: 8 }]}>
-                                {block.blockReason}
-                              </Text>
-                            ) : null}
-                          </View>
-                        );
-                      })}
-
-                    {/* Render cross-location busy blocks - show where coach is busy elsewhere */}
-                    {crossLocationBusyBlocks
-                      .filter((block) => {
-                        // Filter by selected date
-                        const blockDateStr = getLocalDateString(block.startTime, academyTimezone);
-                        const selectedDateStr = formatDateObjectInTimezone(selectedDate, academyTimezone);
-                        if (blockDateStr !== selectedDateStr) return false;
-                        // Filter by court
-                        return block.courtId === court.id;
-                      })
-                      .map((block) => {
-                        const startLocal = getTimeInTimezone(block.startTime, academyTimezone);
-                        const endLocal = getTimeInTimezone(block.endTime, academyTimezone);
-                        const startHour = startLocal.hours + startLocal.minutes / 60;
-                        const endHour = endLocal.hours + endLocal.minutes / 60;
-                        const top = (startHour - focusBaseHour) * hourHeight;
-                        const height = (endHour - startHour) * hourHeight;
-                        return (
-                          <View
-                            key={block.id}
-                            style={[styles.busyElsewhereBlock, { top, height: Math.max(height - 2, 24) }]}
-                          >
-                            <Feather name="map-pin" size={10} color={Colors.dark.gold} style={{ marginRight: 2 }} />
-                            <Text style={styles.busyElsewhereText} numberOfLines={1}>
-                              @ {block.busyAtLocation}
-                            </Text>
-                          </View>
-                        );
-                      })}
-
-                    {/* Render travel time blocks (only on first court lane) */}
-                    {courtIndex === 0 && travelTimeBlocks
-                      .filter((block) => {
-                        // Use academy timezone for date comparison
-                        const blockDateStr = getLocalDateString(block.startTime, academyTimezone);
-                        const selectedDateStr = formatDateObjectInTimezone(selectedDate, academyTimezone);
-                        return blockDateStr === selectedDateStr;
-                      })
-                      .map((block) => {
-                        // Use timezone-aware time extraction for positioning
-                        const startLocal = getTimeInTimezone(block.startTime, academyTimezone);
-                        const endLocal = getTimeInTimezone(block.endTime, academyTimezone);
-                        const startHour = startLocal.hours + startLocal.minutes / 60;
-                        const endHour = endLocal.hours + endLocal.minutes / 60;
-                        const top = (startHour - focusBaseHour) * hourHeight;
-                        const height = (endHour - startHour) * hourHeight;
-                        return (
-                          <View
-                            key={block.id}
-                            style={[styles.travelTimeBlock, { top, height: Math.max(height - 2, 24), width: courts.length * dynamicLaneWidth - 4 }]}
-                          >
-                            <Feather name="navigation" size={12} color={Colors.dark.gold} style={{ marginRight: 4 }} />
-                            <Text style={styles.travelTimeBlockText}>{block.minutes} min travel</Text>
-                          </View>
-                        );
-                      })}
-                  </View>
-                ))}
-
-                {/* Now Line */}
-                {nowPosition !== null && isToday && (
-                  <View style={[styles.nowLine, { top: nowPosition, width: totalCourtsWidth }]}>
-                    <PulsingDot />
-                    <View style={[styles.nowLineBar, { width: totalCourtsWidth }]} />
-                  </View>
-                )}
-              </ScrollView>
-            </View>
-          </ScrollView>
-        </>
+        <CalendarDayViewSlots
+          courtHeaderScrollRef={courtHeaderScrollRef}
+          courtLanesScrollRef={courtLanesScrollRef}
+          showFilterOverlay={showFilterOverlay}
+          setShowFilterOverlay={setShowFilterOverlay}
+          allLocations={allLocations}
+          locationFilteredCourts={locationFilteredCourts}
+          selectedLocationFilter={selectedLocationFilter}
+          setSelectedLocationFilter={setSelectedLocationFilter}
+          selectedCourtFilter={selectedCourtFilter}
+          setSelectedCourtFilter={setSelectedCourtFilter}
+          courts={courts}
+          dynamicLaneWidth={dynamicLaneWidth}
+          totalCourtsWidth={totalCourtsWidth}
+          hours={hours}
+          hourHeight={hourHeight}
+          timeGrid={timeGrid}
+          formatTime={formatTime}
+          isCellSelected={isCellSelected}
+          handleSlotPress={handleSlotPress}
+          handleSlotLongPress={handleSlotLongPress}
+          ownSessions={ownSessions}
+          selectedDate={selectedDate}
+          academyTimezone={academyTimezone}
+          getSessionPosition={getSessionPosition}
+          handleSessionTap={handleSessionTap}
+          handleSessionLongPress={handleSessionLongPress}
+          handleSessionDragEnd={handleSessionDragEnd}
+          checkDragConflict={checkDragConflict}
+          dragConflict={dragConflict}
+          setHoveredSession={setHoveredSession}
+          setPressedSession={setPressedSession}
+          setPressedSessionPos={setPressedSessionPos}
+          blockedSessions={blockedSessions}
+          handleBlockedSlotPress={handleBlockedSlotPress}
+          coachBlocks={coachBlocks}
+          crossLocationBusyBlocks={crossLocationBusyBlocks}
+          travelTimeBlocks={travelTimeBlocks}
+          focusBaseHour={focusBaseHour}
+          nowPosition={nowPosition}
+          isToday={isToday}
+          START_HOUR={START_HOUR}
+        />
       )}
-
       {/* WEEK VIEW - OVERVIEW MODE (Week Calendar Grid - sessions only, no empty slots) */}
       {viewMode === "week" && weekMode === "overview" && (
-        <>
-          {/* Court Filter for Week Overview */}
-          {allCourts.length > 1 && (
-            <ScrollView 
-              horizontal 
-              showsHorizontalScrollIndicator={false}
-              style={styles.courtFilterContainer}
-              contentContainerStyle={styles.courtFilterContent}
-            >
-              <Pressable
-                style={[styles.courtFilterChip, !selectedCourtFilter && styles.courtFilterChipActive]}
-                onPress={() => {
-                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                  setSelectedCourtFilter(null);
-                }}
-              >
-                <Text style={[styles.courtFilterText, !selectedCourtFilter && styles.courtFilterTextActive]}>All Courts</Text>
-              </Pressable>
-              {allCourts.map((court) => (
-                <Pressable
-                  key={court.id}
-                  style={[styles.courtFilterChip, selectedCourtFilter === court.id && styles.courtFilterChipActive]}
-                  onPress={() => {
-                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                    setSelectedCourtFilter(court.id);
-                  }}
-                >
-                  <Text style={[styles.courtFilterText, selectedCourtFilter === court.id && styles.courtFilterTextActive]}>{court.name}</Text>
-                </Pressable>
-              ))}
-            </ScrollView>
-          )}
-
-          <ScrollView 
-            style={styles.calendarScroll} 
-            showsVerticalScrollIndicator={false}
-            contentContainerStyle={{ paddingBottom: Spacing.xl }}
-          >
-            {/* Sticky Week Day Header Row */}
-            <View style={styles.weekCalHeader}>
-              <View style={styles.weekCalTimeCol}>
-                <Text style={styles.weekCalTimeLabel}>TIME</Text>
-              </View>
-              {weekDates.map((date, idx) => {
-                const dayLetters = ["MON", "TUE", "WED", "THU", "FRI", "SAT", "SUN"];
-                const isToday = date.toDateString() === new Date().toDateString();
-                return (
-                  <Pressable
-                    key={idx}
-                    style={[styles.weekCalDayCol, isToday && styles.weekCalDayColToday]}
-                    onPress={() => {
-                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                      handleDateSelect(date);
-                    }}
-                  >
-                    <Text style={[styles.weekCalDayLabel, isToday && styles.weekCalDayLabelToday]}>{dayLetters[idx]}</Text>
-                    <Text style={[styles.weekCalDateLabel, isToday && styles.weekCalDateLabelToday]}>{date.getDate()}</Text>
-                  </Pressable>
-                );
-              })}
-            </View>
-
-            {/* Calendar Grid - bands with absolute session positioning, gaps collapsed */}
-            {(() => {
-              const filteredSessions = selectedCourtFilter 
-                ? ownSessions.filter(s => s.courtId === selectedCourtFilter)
-                : ownSessions;
-
-              const weekSessionsByDay: Record<number, typeof ownSessions> = {};
-              
-              const getTimeInTz = (isoStr: string) => {
-                const d = parseUTCTimestamp(isoStr);
-                const parts = new Intl.DateTimeFormat("en-US", { hour: "numeric", minute: "numeric", hour12: false, timeZone: academyTimezone }).formatToParts(d);
-                const hourPart = parts.find(p => p.type === "hour");
-                const minutePart = parts.find(p => p.type === "minute");
-                const h = parseInt(hourPart?.value || "0", 10);
-                const m = parseInt(minutePart?.value || "0", 10);
-                return h + m / 60;
-              };
-
-              const activeHoursSet = new Set<number>();
-
-              weekDates.forEach((date, idx) => {
-                const targetDateStr = formatDateObjectInTimezone(date, academyTimezone);
-                const daySessions = filteredSessions.filter((s) => {
-                  const sessionDateStr = getLocalDateString(s.startTime, academyTimezone);
-                  return sessionDateStr === targetDateStr;
-                });
-                weekSessionsByDay[idx] = daySessions;
-                daySessions.forEach(s => {
-                  const startH = Math.floor(getTimeInTz(s.startTime));
-                  const endH = Math.ceil(getTimeInTz(s.endTime));
-                  for (let h = startH; h < endH; h++) {
-                    activeHoursSet.add(h);
-                  }
-                });
-              });
-
-              const sortedHours = Array.from(activeHoursSet).sort((a, b) => a - b);
-
-              if (sortedHours.length === 0) {
-                return (
-                  <View style={styles.overviewEmpty}>
-                    <Ionicons name="calendar-outline" size={48} color={Colors.dark.tabIconDefault} />
-                    <Text style={styles.overviewEmptyText}>No lessons this week</Text>
-                  </View>
-                );
-              }
-
-              const bands: { start: number; end: number }[] = [];
-              let bandStart = sortedHours[0];
-              let bandEnd = sortedHours[0] + 1;
-              for (let i = 1; i < sortedHours.length; i++) {
-                if (sortedHours[i] === bandEnd) {
-                  bandEnd = sortedHours[i] + 1;
-                } else {
-                  bands.push({ start: bandStart, end: bandEnd });
-                  bandStart = sortedHours[i];
-                  bandEnd = sortedHours[i] + 1;
-                }
-              }
-              bands.push({ start: bandStart, end: bandEnd });
-
-              const OVERVIEW_ROW_HEIGHT = 56;
-              const colCount = 7;
-              const timeColWidth = 48;
-
-              return (
-                <View>
-                  {bands.map((band, bandIdx) => {
-                    const bandHours: number[] = [];
-                    for (let h = band.start; h < band.end; h++) bandHours.push(h);
-                    const bandHeightRows = band.end - band.start;
-
-                    return (
-                      <React.Fragment key={band.start}>
-                        {bandIdx > 0 ? (
-                          <View style={{ height: 16, justifyContent: "center", alignItems: "center" }}>
-                            <View style={{ height: StyleSheet.hairlineWidth, backgroundColor: "rgba(255,255,255,0.08)", width: "90%" }} />
-                          </View>
-                        ) : null}
-                        <View style={{ position: "relative", height: bandHeightRows * OVERVIEW_ROW_HEIGHT }}>
-                          {bandHours.map((hour, hIdx) => {
-                            const timeStr = `${hour.toString().padStart(2, "0")}:00`;
-                            return (
-                              <View key={hour} style={[styles.weekCalRow, { height: OVERVIEW_ROW_HEIGHT, position: "absolute", top: hIdx * OVERVIEW_ROW_HEIGHT, left: 0, right: 0 }]}>
-                                <View style={styles.weekCalTimeCol}>
-                                  <Text style={styles.weekCalTimeText}>{timeStr}</Text>
-                                </View>
-                                {weekDates.map((_, dayIdx) => {
-                                  const isToday = weekDates[dayIdx].toDateString() === new Date().toDateString();
-                                  return (
-                                    <Pressable
-                                      key={dayIdx}
-                                      style={[styles.weekCalCell, isToday && styles.weekCalCellToday]}
-                                      onPress={() => {
-                                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                                        const slotDate = weekDates[dayIdx];
-                                        const slotTime = new Date(slotDate);
-                                        slotTime.setHours(hour, 0, 0, 0);
-                                        setSelectedSlot({ courtId: courts[0]?.id || "", time: slotTime });
-                                        setShowCreateDrawer(true);
-                                      }}
-                                    />
-                                  );
-                                })}
-                              </View>
-                            );
-                          })}
-
-                          {weekDates.map((_, dayIdx) => {
-                            const daySessions = weekSessionsByDay[dayIdx] || [];
-                            return daySessions.map(session => {
-                              const startFrac = getTimeInTz(session.startTime);
-                              const endFrac = getTimeInTz(session.endTime);
-                              if (startFrac < band.start || startFrac >= band.end) return null;
-                              const durationHours = endFrac - startFrac;
-                              const topOffset = (startFrac - band.start) * OVERVIEW_ROW_HEIGHT;
-                              const blockHeight = Math.max(durationHours * OVERVIEW_ROW_HEIGHT, 28);
-
-                              const gradientColors = getSessionTypeGradient(session.sessionType);
-                              const typeLabel = session.sessionType === "private" || session.sessionType === "private_adjusted" ? "PVT" :
-                                                session.sessionType === "semi_private" ? "SEMI" :
-                                                session.sessionType === "group" ? "GRP" :
-                                                session.sessionType === "activity" ? "ACT" :
-                                                session.sessionType === "physical" ? "FIT" : "SES";
-                              const playerName = session.players?.[0]?.name?.split(" ")[0] || "";
-                              const now = new Date();
-                              const sessionEnd = parseUTCTimestamp(session.endTime);
-                              const sessionStart = parseUTCTimestamp(session.startTime);
-                              const isPast = sessionEnd < now;
-                              const isActive = now >= sessionStart && now < sessionEnd;
-                              const showTitle = session.title && (session.sessionType === "activity" || session.sessionType === "physical");
-                              const playerCount = session.players?.length || 0;
-                              const extraPlayers = playerCount > 1 ? `, +${playerCount - 1}` : "";
-                              const displayName = showTitle ? (session.title || "") : (playerName ? `${playerName}${extraPlayers}` : "");
-
-                              return (
-                                <Pressable
-                                  key={session.id}
-                                  style={[
-                                    styles.weekCalSessionBlock,
-                                    {
-                                      position: "absolute",
-                                      top: topOffset,
-                                      left: timeColWidth + 2 + (dayIdx * ((screenWidth - timeColWidth - 16) / colCount)),
-                                      width: ((screenWidth - timeColWidth - 16) / colCount) - 4,
-                                      height: blockHeight,
-                                      backgroundColor: gradientColors[0] + "30",
-                                      borderLeftColor: gradientColors[0],
-                                      zIndex: 10,
-                                      overflow: "hidden",
-                                    },
-                                    isPast ? styles.weekCalSessionPast : null,
-                                    isActive ? styles.weekCalSessionActive : null,
-                                  ]}
-                                  onPress={() => {
-                                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                                    setSelectedSessionForDetail(session as Session);
-                                  }}
-                                >
-                                  <Text style={[styles.weekCalSessionType, { color: gradientColors[0] }]} numberOfLines={1}>{typeLabel}</Text>
-                                  {displayName ? <Text style={styles.weekCalSessionPlayer} numberOfLines={1}>{displayName}</Text> : null}
-                                  {isActive ? <View style={styles.weekCalLiveDot} /> : null}
-                                </Pressable>
-                              );
-                            });
-                          })}
-                        </View>
-                      </React.Fragment>
-                    );
-                  })}
-                </View>
-              );
-            })()}
-          </ScrollView>
-        </>
+        <CalendarWeekViewOverview
+          allCourts={allCourts}
+          selectedCourtFilter={selectedCourtFilter}
+          setSelectedCourtFilter={setSelectedCourtFilter}
+          weekDates={weekDates}
+          handleDateSelect={handleDateSelect}
+          ownSessions={ownSessions}
+          academyTimezone={academyTimezone}
+          screenWidth={screenWidth}
+          setSelectedSessionForDetail={(s) => setSelectedSessionForDetail(s as Session)}
+          courts={courts}
+          setSelectedSlot={setSelectedSlot}
+          setShowCreateDrawer={setShowCreateDrawer}
+        />
       )}
-
       {/* WEEK VIEW - SLOTS MODE (Playtomic-style Time Grid) */}
       {viewMode === "week" && weekMode === "availability" && (
-        <>
-          {/* Sticky Week Header with Day Columns */}
-          <View style={styles.weekGridHeader}>
-            <View style={styles.weekTimeColumnHeader}>
-              <Text style={styles.weekTimeHeaderText}>Time</Text>
-            </View>
-            {weekDates.map((date, dayIdx) => {
-              const dayNames = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
-              const isToday = date.toDateString() === new Date().toDateString();
-              return (
-                <Pressable
-                  key={dayIdx}
-                  style={[styles.weekDayHeader, isToday && styles.weekDayHeaderToday]}
-                  onPress={() => {
-                    setSelectedDate(date);
-                    setViewMode("day");
-                  }}
-                >
-                  <Text style={[styles.weekDayName, isToday && styles.weekDayNameToday]}>
-                    {dayNames[dayIdx]}
-                  </Text>
-                  <Text style={[styles.weekDayNumber, isToday && styles.weekDayNumberToday]}>
-                    {date.getDate()}
-                  </Text>
-                </Pressable>
-              );
-            })}
-          </View>
-
-          {/* Scrollable Time Grid */}
-          <ScrollView style={styles.weekGridScroll} showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 120 }}>
-            {(() => {
-              // Fixed hour range for week view (never affected by focusMode)
-              const weekHours = Array.from({ length: END_HOUR - START_HOUR + 1 }, (_, i) => START_HOUR + i);
-              
-              // Calculate week now position relative to START_HOUR
-              const getWeekNowPosition = () => {
-                const now = new Date();
-                const currentHours = now.getHours() + now.getMinutes() / 60;
-                if (currentHours < START_HOUR || currentHours > END_HOUR) return null;
-                return (currentHours - START_HOUR) * hourHeight;
-              };
-              const weekNowPosition = getWeekNowPosition();
-              
-              // Get blocked sessions for a specific date (using academy timezone)
-              const getBlockedSessionsForDate = (date: Date) => {
-                const targetDateStr = formatDateObjectInTimezone(date, academyTimezone);
-                return blockedSessions.filter((s) => {
-                  const sessionDateStr = getLocalDateString(s.startTime, academyTimezone);
-                  return sessionDateStr === targetDateStr;
-                });
-              };
-              
-              return (
-                <View style={styles.weekGridBody}>
-                  {/* Time Column */}
-                  <View style={styles.weekTimeColumn}>
-                    {weekHours.map((hour) => (
-                      <View key={hour} style={[styles.weekTimeSlot, { height: hourHeight }]}>
-                        <Text style={styles.weekTimeText}>{formatTime(hour)}</Text>
-                      </View>
-                    ))}
-                  </View>
-
-                  {/* Day Columns with Sessions */}
-                  <View style={styles.weekDayColumns}>
-                    {weekDates.map((date, dayIdx) => {
-                      const isDayToday = date.toDateString() === new Date().toDateString();
-                      const daySessions = getSessionsForDate(date);
-                      const dayBlockedSessions = getBlockedSessionsForDate(date);
-                      
-                      // Calculate session positions for this day (using academy timezone)
-                      const getWeekSessionPosition = (session: Session | BlockedSession) => {
-                        const startLocal = getTimeInTimezone(session.startTime, academyTimezone);
-                        const endLocal = getTimeInTimezone(session.endTime, academyTimezone);
-                        const startHour = startLocal.hours + startLocal.minutes / 60;
-                        const endHour = endLocal.hours + endLocal.minutes / 60;
-                        const top = (startHour - START_HOUR) * hourHeight;
-                        const height = (endHour - startHour) * hourHeight;
-                        return { top, height };
-                      };
-
-                      return (
-                        <View key={dayIdx} style={[styles.weekDayColumn, isDayToday && styles.weekDayColumnToday]}>
-                          {/* Hour grid lines and clickable slots */}
-                          {weekHours.map((hour) => (
-                            <Pressable
-                              key={hour}
-                              style={[styles.weekHourSlot, { height: hourHeight }]}
-                              onPress={() => {
-                                const time = new Date(date);
-                                time.setHours(hour, 0, 0, 0);
-                                setSelectedDate(date);
-                                setSelectedSlot({ courtId: courts[0]?.id || "", time });
-                                setShowCreateDrawer(true);
-                              }}
-                            >
-                              <View style={styles.weekHourLine} />
-                              {timeGrid === 30 && <View style={[styles.weekHalfHourLine, { top: hourHeight / 2 }]} />}
-                            </Pressable>
-                          ))}
-
-                          {/* Render blocked sessions */}
-                          {dayBlockedSessions.map((session) => {
-                            const { top, height } = getWeekSessionPosition(session);
-                            return (
-                              <View
-                                key={session.id}
-                                style={[
-                                  styles.weekBlockedBlock,
-                                  {
-                                    top,
-                                    height: Math.max(height - 2, 20),
-                                  },
-                                ]}
-                              >
-                                <Text style={styles.weekBlockedText}>Blocked</Text>
-                              </View>
-                            );
-                          })}
-
-                          {/* Render coach personal blocks in week view */}
-                          {coachBlocks
-                            .filter((block: any) => {
-                              const blockDateStr = getLocalDateString(new Date(block.startTime), academyTimezone);
-                              const dateStr = `${date.getFullYear()}-${(date.getMonth() + 1).toString().padStart(2, "0")}-${date.getDate().toString().padStart(2, "0")}`;
-                              return blockDateStr === dateStr;
-                            })
-                            .map((block: any) => {
-                              const startDt = new Date(block.startTime);
-                              const endDt = new Date(block.endTime);
-                              const startHour = startDt.getUTCHours() + startDt.getUTCMinutes() / 60;
-                              const endHour = endDt.getUTCHours() + endDt.getUTCMinutes() / 60;
-                              const top = (startHour - START_HOUR) * hourHeight;
-                              const height = (endHour - startHour) * hourHeight;
-                              return (
-                                <View
-                                  key={block.id + "-week"}
-                                  style={[styles.coachBlockStyle, { top, height: Math.max(height - 2, 16) }]}
-                                >
-                                  <Text style={[styles.coachBlockText, { fontSize: 7 }]}>MY BLOCK</Text>
-                                </View>
-                              );
-                            })}
-
-                          {/* Render draggable sessions for this day */}
-                          {daySessions.map((session) => {
-                            const { top, height } = getWeekSessionPosition(session);
-                            const now = new Date();
-                            const sessionEnd = parseUTCTimestamp(session.endTime);
-                            const sessionStart = parseUTCTimestamp(session.startTime);
-                            const isPast = sessionEnd < now;
-                            const isActive = now >= sessionStart && now < sessionEnd;
-                            const gradientColors = getSessionTypeGradient(session.sessionType);
-                            
-                            // Session type as full name for week view
-                            const typeLabel = session.sessionType === "private" || session.sessionType === "private_adjusted" ? "PRIVATE" :
-                                              session.sessionType === "semi_private" ? "SEMI" :
-                                              session.sessionType === "group" ? "GROUP" :
-                                              session.sessionType === "activity" ? "ACT" :
-                                              session.sessionType === "physical" ? "PHYS" : "";
-                            
-                            // Get player names for the session
-                            const playerNames = session.players?.map(p => p.name.split(" ")[0]).join(", ") || "";
-                            
-                            // Get location name
-                            const sessionCourt = courts.find(c => c.id === session.courtId);
-                            const courtLocation = sessionCourt?.locationId ? allLocations.find(l => l.id === sessionCourt.locationId) : null;
-                            const locationShortName = courtLocation?.name?.split(" ")[0] || "";
-                            
-                            // Build session label: TYPE + name(s) + location
-                            const sessionLabel = typeLabel;
-                            const sessionSubtitle = playerNames || locationShortName;
-                            
-                            const dayColumnWidth = (screenWidth - TIME_COLUMN_WIDTH - Spacing.lg * 2) / 7;
-                            
-                            return (
-                              <WeekDraggableSessionBlock
-                                key={session.id}
-                                session={session}
-                                top={top}
-                                height={height}
-                                isPast={isPast}
-                                isActive={isActive}
-                                gradientColors={gradientColors}
-                                sessionLabel={sessionLabel}
-                                formattedTime={sessionSubtitle}
-                                hourHeight={hourHeight}
-                                dayColumnWidth={dayColumnWidth}
-                                onTap={() => {
-                                  setSelectedDate(date);
-                                  handleSessionTap(session);
-                                }}
-                                onLongPress={() => handleSessionLongPress(session)}
-                                onDragEnd={(deltaY, deltaX) => handleWeekSessionDragEnd(session, deltaY, deltaX, dayColumnWidth)}
-                              />
-                            );
-                          })}
-
-                          {/* Current time line for today */}
-                          {isDayToday && weekNowPosition !== null && (
-                            <View style={[styles.weekNowLine, { top: weekNowPosition }]} />
-                          )}
-                        </View>
-                      );
-                    })}
-                  </View>
-                </View>
-              );
-            })()}
-          </ScrollView>
-        </>
+        <CalendarWeekViewSlots
+          weekDates={weekDates}
+          setSelectedDate={setSelectedDate}
+          setViewMode={setViewMode}
+          hourHeight={hourHeight}
+          START_HOUR={START_HOUR}
+          END_HOUR={END_HOUR}
+          formatTime={formatTime}
+          timeGrid={timeGrid}
+          getSessionsForDate={getSessionsForDate}
+          blockedSessions={blockedSessions}
+          academyTimezone={academyTimezone}
+          courts={courts}
+          allLocations={allLocations}
+          screenWidth={screenWidth}
+          TIME_COLUMN_WIDTH={TIME_COLUMN_WIDTH}
+          handleSessionTap={handleSessionTap}
+          handleSessionLongPress={handleSessionLongPress}
+          handleWeekSessionDragEnd={handleWeekSessionDragEnd}
+          setSelectedSlot={setSelectedSlot}
+          setShowCreateDrawer={setShowCreateDrawer}
+          coachBlocks={coachBlocks}
+        />
       )}
-
       {/* MONTH VIEW */}
       {viewMode === "month" && (
-        <ScrollView 
-          style={{ flex: 1 }} 
-          showsVerticalScrollIndicator={false}
-          contentContainerStyle={{ paddingBottom: insets.bottom + 100 }}
-        >
-          {/* Month Mode Toggle */}
-          <View style={styles.monthModeToggle}>
-            <Pressable
-              style={[styles.monthModeButton, monthMode === "load" && styles.monthModeButtonActive]}
-              onPress={() => setMonthMode("load")}
-            >
-              <Ionicons name="flame-outline" size={14} color={monthMode === "load" ? Colors.dark.backgroundRoot : Colors.dark.text} />
-              <Text style={[styles.monthModeText, monthMode === "load" && styles.monthModeTextActive]}>Load</Text>
-            </Pressable>
-            <Pressable
-              style={[styles.monthModeButton, monthMode === "availability" && styles.monthModeButtonActive]}
-              onPress={() => setMonthMode("availability")}
-            >
-              <Ionicons name="calendar-outline" size={14} color={monthMode === "availability" ? Colors.dark.backgroundRoot : Colors.dark.text} />
-              <Text style={[styles.monthModeText, monthMode === "availability" && styles.monthModeTextActive]}>Availability</Text>
-            </Pressable>
-          </View>
-
-          <View>
-            {/* Month Day Headers */}
-            <View style={styles.monthDayHeaders}>
-              {["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].map((day) => (
-                <Text key={day} style={styles.monthDayHeaderText}>{day}</Text>
-              ))}
-            </View>
-
-            {/* Month Grid */}
-            {monthDates.map((week, weekIdx) => {
-              return (
-                <View key={weekIdx} style={styles.monthWeekRowPremium}>
-                  {week.map((date, dayIdx) => {
-                    if (!date) {
-                      return <View key={dayIdx} style={styles.monthDayCardEmpty} />;
-                    }
-                    const stats = getDayStats(date);
-                    const isToday = date.toDateString() === new Date().toDateString();
-                    const isSelected = date.toDateString() === selectedDate.toDateString();
-                    const isWeekend = date.getDay() === 0 || date.getDay() === 6;
-                    
-                    // Load mode: gradient fill based on hours
-                    const loadHeight = Math.min(100, (stats.totalMinutes / 480) * 100);
-                    const loadGradient: [string, string] = stats.totalMinutes >= 360 
-                      ? ["#FF6B35", "#D84315"] // Heavy: orange-red
-                      : stats.totalMinutes >= 240 
-                        ? ["#FFD54F", "#F9A825"] // Busy: amber
-                        : stats.totalMinutes > 0 
-                          ? ["#3AE374", "#1E8449"] // Normal: green
-                          : ["transparent", "transparent"];
-                    
-                    // Availability mode: derive status from actual booked hours
-                    // Capacity assumption: 8 hours max per day, each slot = ~1 hour
-                    const maxCapacity = 8;
-                    const bookedHours = stats.totalHours;
-                    const freeHours = Math.max(0, maxCapacity - bookedHours);
-                    // Thresholds: 5+ free hours = open, 2-4 = limited, <2 = full
-                    const availabilityStatus = freeHours >= 5 ? "open" : freeHours >= 2 ? "limited" : "full";
-                    // Display remaining slots (only if actually open/limited)
-                    const displaySlots = Math.floor(freeHours);
-                    
-                    return (
-                      <Pressable 
-                        key={dayIdx} 
-                        style={[
-                          styles.monthDayCard, 
-                          isWeekend && styles.monthDayCardWeekend,
-                          isToday && styles.monthDayCardToday, 
-                          isSelected && styles.monthDayCardSelected
-                        ]}
-                        onPress={() => handleDateSelect(date)}
-                      >
-                        {/* Date number (small, top-left) */}
-                        <Text style={[
-                          styles.monthDayCardNumber, 
-                          isWeekend && styles.monthDayCardNumberWeekend,
-                          isToday && styles.monthDayCardNumberToday
-                        ]}>
-                          {date.getDate()}
-                        </Text>
-                        
-                        {monthMode === "load" ? (
-                          <>
-                            {/* Gradient fill from bottom */}
-                            {stats.totalMinutes > 0 && (
-                              <View style={[styles.monthLoadFillContainer, { height: `${loadHeight}%` }]}>
-                                <LinearGradient
-                                  colors={loadGradient}
-                                  style={styles.monthLoadFill}
-                                  start={{ x: 0, y: 1 }}
-                                  end={{ x: 0, y: 0 }}
-                                />
-                              </View>
-                            )}
-                            {/* Hours label */}
-                            {stats.totalHours > 0 && (
-                              <Text style={styles.monthHoursLabel}>{stats.totalHours}h</Text>
-                            )}
-                          </>
-                        ) : (
-                          <>
-                            {/* Availability indicator */}
-                            <View style={[
-                              styles.monthAvailabilityIndicator,
-                              availabilityStatus === "open" && styles.monthAvailabilityOpen,
-                              availabilityStatus === "limited" && styles.monthAvailabilityLimited,
-                              availabilityStatus === "full" && styles.monthAvailabilityFull,
-                            ]} />
-                            {availabilityStatus !== "full" && displaySlots > 0 && (
-                              <Text style={styles.monthSlotsLabel}>{displaySlots}h</Text>
-                            )}
-                          </>
-                        )}
-                      </Pressable>
-                    );
-                  })}
-                </View>
-              );
-            })}
-          </View>
-          
-          {/* Day Context Panel - Always visible, updates with selected day */}
-          <View style={styles.dayContextPanel}>
-            {/* Header */}
-            <View style={styles.dayContextHeader}>
-              <Ionicons name="calendar" size={16} color={Colors.dark.primary} />
-              <Text style={styles.dayContextDate}>
-                {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"][selectedDate.getDay()]}{" "}
-                {selectedDate.getDate()}{" "}
-                {["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"][selectedDate.getMonth()]}
-              </Text>
-              {selectedDate.toDateString() === new Date().toDateString() && (
-                <Text style={styles.dayContextTodayBadge}>Today</Text>
-              )}
-            </View>
-            
-            {/* Mode-dependent content */}
-            {(() => {
-              const stats = getDayStats(selectedDate);
-              const daySessions = getSessionsForDate(selectedDate);
-              
-              // Calculate if there are any free slots
-              const hasAvailability = (() => {
-                for (let hour = 8; hour < 22; hour++) {
-                  const slotStart = new Date(selectedDate);
-                  slotStart.setHours(hour, 0, 0, 0);
-                  const slotEnd = new Date(selectedDate);
-                  slotEnd.setHours(hour + 1, 0, 0, 0);
-                  
-                  for (const court of courts) {
-                    const isOccupied = daySessions.some(s => {
-                      const sStart = parseUTCTimestamp(s.startTime);
-                      const sEnd = parseUTCTimestamp(s.endTime);
-                      return s.courtId === court.id && sStart < slotEnd && sEnd > slotStart;
-                    });
-                    if (!isOccupied) return true;
-                  }
-                }
-                return false;
-              })();
-              
-              if (monthMode === "load") {
-                // Load mode - show sessions and workload
-                // Calculate peak time from actual session distribution
-                const morningMinutes = daySessions.filter(s => parseUTCTimestamp(s.startTime).getHours() < 12).reduce((sum, s) => {
-                  const mins = (parseUTCTimestamp(s.endTime).getTime() - parseUTCTimestamp(s.startTime).getTime()) / 60000;
-                  return sum + mins;
-                }, 0);
-                const afternoonMinutes = daySessions.filter(s => {
-                  const hour = parseUTCTimestamp(s.startTime).getHours();
-                  return hour >= 12 && hour < 17;
-                }).reduce((sum, s) => {
-                  const mins = (parseUTCTimestamp(s.endTime).getTime() - parseUTCTimestamp(s.startTime).getTime()) / 60000;
-                  return sum + mins;
-                }, 0);
-                const eveningMinutes = daySessions.filter(s => parseUTCTimestamp(s.startTime).getHours() >= 17).reduce((sum, s) => {
-                  const mins = (parseUTCTimestamp(s.endTime).getTime() - parseUTCTimestamp(s.startTime).getTime()) / 60000;
-                  return sum + mins;
-                }, 0);
-                
-                const peakTime = stats.sessions === 0 ? "—" 
-                  : eveningMinutes >= morningMinutes && eveningMinutes >= afternoonMinutes ? "Evening"
-                  : afternoonMinutes >= morningMinutes ? "Afternoon" : "Morning";
-                const loadLevel = stats.totalMinutes >= 360 ? "High load" : stats.totalMinutes >= 240 ? "Moderate" : "Light";
-                
-                return (
-                  <View style={styles.dayContextContent}>
-                    <View style={styles.dayContextRow}>
-                      <Text style={styles.dayContextLabel}>{stats.sessions} sessions</Text>
-                      <Text style={styles.dayContextDot}>·</Text>
-                      <Text style={styles.dayContextLabel}>{stats.totalMinutes} min</Text>
-                    </View>
-                    {stats.sessions > 0 && (
-                      <View style={styles.dayContextRow}>
-                        <View style={styles.peakPill}>
-                          <Ionicons 
-                            name={peakTime === "Morning" ? "sunny-outline" : peakTime === "Afternoon" ? "partly-sunny-outline" : "moon-outline"} 
-                            size={10} 
-                            color={Colors.dark.xpCyan} 
-                          />
-                          <Text style={styles.peakPillText}>{peakTime}</Text>
-                        </View>
-                        <Text style={[
-                          styles.dayContextMeta,
-                          stats.totalMinutes >= 360 && { color: "#FF6B6B" },
-                          stats.totalMinutes >= 240 && stats.totalMinutes < 360 && { color: Colors.dark.gold },
-                        ]}>{loadLevel}</Text>
-                      </View>
-                    )}
-                    
-                    {/* Mini load bar */}
-                    <View style={styles.dayContextLoadBar}>
-                      <View 
-                        style={[
-                          styles.dayContextLoadFill,
-                          { 
-                            width: `${Math.min(100, (stats.totalMinutes / 480) * 100)}%`,
-                            backgroundColor: stats.totalMinutes >= 360 ? "#FF6B6B" : stats.totalMinutes >= 240 ? Colors.dark.gold : Colors.dark.primary,
-                          }
-                        ]} 
-                      />
-                    </View>
-                  </View>
-                );
-              } else {
-                // Availability mode - show free slots
-                const freeSlots: { courtId: string; courtName: string; hour: number }[] = [];
-                for (let hour = 8; hour < 22; hour++) {
-                  const slotStart = new Date(selectedDate);
-                  slotStart.setHours(hour, 0, 0, 0);
-                  const slotEnd = new Date(selectedDate);
-                  slotEnd.setHours(hour + 1, 0, 0, 0);
-                  
-                  courts.forEach(court => {
-                    const isOccupied = daySessions.some(s => {
-                      const sStart = parseUTCTimestamp(s.startTime);
-                      const sEnd = parseUTCTimestamp(s.endTime);
-                      return s.courtId === court.id && sStart < slotEnd && sEnd > slotStart;
-                    });
-                    if (!isOccupied && freeSlots.length < 5) {
-                      freeSlots.push({ courtId: court.id, courtName: court.name, hour });
-                    }
-                  });
-                }
-                
-                return (
-                  <View style={styles.dayContextContent}>
-                    {freeSlots.length > 0 ? (
-                      <>
-                        <Text style={styles.dayContextAvailLabel}>Available today:</Text>
-                        {freeSlots.slice(0, 3).map((slot, i) => (
-                          <Pressable 
-                            key={i} 
-                            style={styles.dayContextSlot}
-                            onPress={() => {
-                              const slotTime = new Date(selectedDate);
-                              slotTime.setHours(slot.hour, 0, 0, 0);
-                              setSelectedSlot({ courtId: slot.courtId, time: slotTime });
-                              setShowCreateDrawer(true);
-                            }}
-                          >
-                            <Text style={styles.dayContextSlotTime}>{formatTime(slot.hour)} - {formatTime(slot.hour + 1)}</Text>
-                            <Text style={styles.dayContextSlotCourt}>{slot.courtName}</Text>
-                          </Pressable>
-                        ))}
-                        {freeSlots.length > 3 && (
-                          <Text style={styles.dayContextMoreSlots}>+{freeSlots.length - 3} more available</Text>
-                        )}
-                      </>
-                    ) : (
-                      <Text style={styles.dayContextNoSlots}>Fully booked</Text>
-                    )}
-                  </View>
-                );
-              }
-            })()}
-            
-            {/* Quick Action - disabled when fully booked */}
-            {(() => {
-              const daySessions = getSessionsForDate(selectedDate);
-              // Check if there are any free slots
-              let firstFreeSlot: { courtId: string; time: Date } | null = null;
-              for (let hour = 8; hour < 22 && !firstFreeSlot; hour++) {
-                const slotStart = new Date(selectedDate);
-                slotStart.setHours(hour, 0, 0, 0);
-                const slotEnd = new Date(selectedDate);
-                slotEnd.setHours(hour + 1, 0, 0, 0);
-                
-                for (const court of courts) {
-                  const isOccupied = daySessions.some(s => {
-                    const sStart = parseUTCTimestamp(s.startTime);
-                    const sEnd = parseUTCTimestamp(s.endTime);
-                    return s.courtId === court.id && sStart < slotEnd && sEnd > slotStart;
-                  });
-                  if (!isOccupied) {
-                    firstFreeSlot = { courtId: court.id, time: slotStart };
-                    break;
-                  }
-                }
-              }
-              
-              const isFullyBooked = !firstFreeSlot;
-              
-              return (
-                <Pressable 
-                  style={[
-                    styles.dayContextAction,
-                    isFullyBooked && styles.dayContextActionDisabled,
-                  ]}
-                  onPress={() => {
-                    if (firstFreeSlot) {
-                      setSelectedSlot(firstFreeSlot);
-                      setShowCreateDrawer(true);
-                    }
-                  }}
-                  disabled={isFullyBooked}
-                >
-                  <Ionicons 
-                    name={isFullyBooked ? "close-circle-outline" : "add-circle-outline"} 
-                    size={16} 
-                    color={isFullyBooked ? Colors.dark.disabled : Colors.dark.primary} 
-                  />
-                  <Text style={[
-                    styles.dayContextActionText,
-                    isFullyBooked && styles.dayContextActionTextDisabled,
-                  ]}>
-                    {isFullyBooked ? "Fully booked" : "Book on this day"}
-                  </Text>
-                </Pressable>
-              );
-            })()}
-          </View>
-        </ScrollView>
+        <CalendarMonthView
+          monthMode={monthMode}
+          setMonthMode={setMonthMode}
+          monthDates={monthDates}
+          selectedDate={selectedDate}
+          handleDateSelect={handleDateSelect}
+          getDayStats={getDayStats}
+          getSessionsForDate={getSessionsForDate}
+          courts={courts}
+          setSelectedSlot={setSelectedSlot}
+          setShowCreateDrawer={setShowCreateDrawer}
+          formatTime={formatTime}
+          bottomInset={insets.bottom}
+        />
       )}
 
       {/* Selection Mode Toolbar */}

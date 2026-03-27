@@ -25,8 +25,72 @@ type Player = {
   dateOfBirth?: string; parentName?: string; parentPhone?: string;
   isActive?: boolean; status?: string;
 };
-type PlayerPackage = any;
-type PlayerStats = any;
+
+type PlayerPackage = {
+  id: string;
+  remainingCredits?: number | string;
+  remaining?: number | string;
+  totalCredits?: number | string;
+  isPaid?: boolean;
+  packageName?: string;
+  creditType?: string;
+  expiresAt?: string;
+  expiryDate?: string;
+};
+
+type PlayerInvoice = {
+  id: string;
+  invoiceNumber: string;
+  isOverdue?: boolean;
+  status?: string;
+  dueDate?: string;
+  currency?: string;
+  amount: number;
+};
+
+type PlayerSession = {
+  id?: string;
+  seriesId?: string;
+  seriesName?: string;
+  startTime?: string;
+  status?: string;
+  attended?: boolean;
+};
+
+type PlayerStats = {
+  player: {
+    id: string;
+    name: string;
+    email?: string | null;
+    phone?: string | null;
+    ballLevel?: string;
+    coachName?: string;
+    parentName?: string;
+    parentPhone?: string;
+  };
+  attendance: {
+    attended: number;
+    missed: number;
+    rate: number;
+    streak: number;
+  };
+  progress: {
+    level: number;
+    xp: number;
+    xpToNextLevel: number;
+    skills: {
+      technical: number;
+      tactical: number;
+      physical: number;
+      mental: number;
+    };
+  };
+  payments: {
+    invoices: PlayerInvoice[];
+  };
+  packages: PlayerPackage[];
+  sessions: PlayerSession[];
+};
 
 interface AdminInlinePlayerProfileProps {
   selectedPlayerId: string;
@@ -85,14 +149,14 @@ export function AdminInlinePlayerProfile({
   });
 
   const { data: playerInvite, isLoading: inviteLoading } = useQuery<{ inviteCode?: string }>({
-    queryKey: ["/api/admin/players", selectedPlayerId, "invite"],
+    queryKey: ["/api/players", selectedPlayerId, "invite"],
     enabled: !!selectedPlayerId,
   });
 
   const uniqueSeries = useMemo(() => {
     if (!playerStats?.sessions) return [];
     const seriesMap = new Map<string, { id: string; name: string }>();
-    playerStats.sessions.forEach((s: any) => {
+    playerStats.sessions.forEach((s: PlayerSession) => {
       if (s.seriesId && s.seriesName) {
         seriesMap.set(s.seriesId, { id: s.seriesId, name: s.seriesName });
       }
@@ -103,7 +167,7 @@ export function AdminInlinePlayerProfile({
   const filteredSessions = useMemo(() => {
     if (!playerStats?.sessions) return [];
     return selectedSeriesFilter
-      ? playerStats.sessions.filter((s: any) => s.seriesId === selectedSeriesFilter)
+      ? playerStats.sessions.filter((s: PlayerSession) => s.seriesId === selectedSeriesFilter)
       : playerStats.sessions;
   }, [playerStats?.sessions, selectedSeriesFilter]);
 
@@ -285,7 +349,7 @@ export function AdminInlinePlayerProfile({
                 <Text style={{ ...Typography.caption, color: Colors.dark.textMuted, fontWeight: "700", letterSpacing: 1, marginBottom: Spacing.sm }}>
                   INVOICES ({stats.payments.invoices.length})
                 </Text>
-                {stats.payments.invoices.map((inv: any) => {
+                {stats.payments.invoices.map((inv: PlayerInvoice) => {
                   const isOverdue = inv.isOverdue;
                   const isPaid = inv.status === "paid";
                   const statusColor = isPaid ? Colors.dark.successNeon : isOverdue ? Colors.dark.error : "#FFD700";
