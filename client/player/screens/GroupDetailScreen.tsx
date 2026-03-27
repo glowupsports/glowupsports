@@ -820,6 +820,13 @@ const EVENT_TYPES = [
   { value: "social", label: "Social", icon: "people" },
 ] as const;
 
+function toLocalDateString(date: Date): string {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, "0");
+  const d = String(date.getDate()).padStart(2, "0");
+  return `${y}-${m}-${d}`;
+}
+
 function formatEventDate(dateStr: string): string {
   const d = new Date(dateStr);
   const now = new Date();
@@ -1233,8 +1240,37 @@ function CreateEventWizard({
                   </Text>
                 </Pressable>
                 {showDatePicker && (
-                  <DateTimePicker value={eventDate} mode="date" minimumDate={new Date()}
-                    onChange={(_, d) => { setShowDatePicker(false); if (d) setEventDate(prev => { const n = new Date(d); n.setHours(prev.getHours(), prev.getMinutes()); return n; }); }} />
+                  Platform.OS === "web" ? (
+                    <input
+                      type="date"
+                      min={toLocalDateString(new Date())}
+                      value={toLocalDateString(eventDate)}
+                      onChange={e => {
+                        if (e.target.value) {
+                          const [y, m, d] = e.target.value.split("-").map(Number);
+                          setEventDate(prev => { const n = new Date(prev); n.setFullYear(y, m - 1, d); return n; });
+                        }
+                        setShowDatePicker(false);
+                      }}
+                      style={{ display: "block", marginTop: 8, padding: 8, fontSize: 16, width: "100%", borderRadius: 8, border: "1px solid #ccc" }}
+                    />
+                  ) : Platform.OS === "ios" ? (
+                    <View>
+                      <DateTimePicker
+                        value={eventDate}
+                        mode="date"
+                        display="spinner"
+                        minimumDate={new Date()}
+                        onChange={(_, d) => { if (d) setEventDate(prev => { const n = new Date(d); n.setHours(prev.getHours(), prev.getMinutes()); return n; }); }}
+                      />
+                      <Pressable onPress={() => setShowDatePicker(false)} style={evtStyles.pickerDoneBtn}>
+                        <Text style={evtStyles.pickerDoneTxt}>Klaar</Text>
+                      </Pressable>
+                    </View>
+                  ) : (
+                    <DateTimePicker value={eventDate} mode="date" minimumDate={new Date()}
+                      onChange={(_, d) => { setShowDatePicker(false); if (d) setEventDate(prev => { const n = new Date(d); n.setHours(prev.getHours(), prev.getMinutes()); return n; }); }} />
+                  )
                 )}
                 <Text style={[evtStyles.wizardLabel, { marginTop: 16 }]}>Tijd</Text>
                 <Pressable
@@ -1248,8 +1284,35 @@ function CreateEventWizard({
                   <Ionicons name="chevron-down" size={14} color={typeColor + "80"} style={{ marginLeft: "auto" }} />
                 </Pressable>
                 {showTimePicker && (
-                  <DateTimePicker value={eventDate} mode="time"
-                    onChange={(_, d) => { setShowTimePicker(false); if (d) setEventDate(prev => { const n = new Date(prev); n.setHours(d.getHours(), d.getMinutes()); return n; }); }} />
+                  Platform.OS === "web" ? (
+                    <input
+                      type="time"
+                      value={`${String(eventDate.getHours()).padStart(2, "0")}:${String(eventDate.getMinutes()).padStart(2, "0")}`}
+                      onChange={e => {
+                        if (e.target.value) {
+                          const [h, m] = e.target.value.split(":").map(Number);
+                          setEventDate(prev => { const n = new Date(prev); n.setHours(h, m); return n; });
+                        }
+                        setShowTimePicker(false);
+                      }}
+                      style={{ display: "block", marginTop: 8, padding: 8, fontSize: 16, width: "100%", borderRadius: 8, border: "1px solid #ccc" }}
+                    />
+                  ) : Platform.OS === "ios" ? (
+                    <View>
+                      <DateTimePicker
+                        value={eventDate}
+                        mode="time"
+                        display="spinner"
+                        onChange={(_, d) => { if (d) setEventDate(prev => { const n = new Date(prev); n.setHours(d.getHours(), d.getMinutes()); return n; }); }}
+                      />
+                      <Pressable onPress={() => setShowTimePicker(false)} style={evtStyles.pickerDoneBtn}>
+                        <Text style={evtStyles.pickerDoneTxt}>Klaar</Text>
+                      </Pressable>
+                    </View>
+                  ) : (
+                    <DateTimePicker value={eventDate} mode="time"
+                      onChange={(_, d) => { setShowTimePicker(false); if (d) setEventDate(prev => { const n = new Date(prev); n.setHours(d.getHours(), d.getMinutes()); return n; }); }} />
+                  )
                 )}
               </View>
             )}
@@ -1335,8 +1398,37 @@ function CreateEventWizard({
                   </Text>
                 </Pressable>
                 {showDatePicker && (
-                  <DateTimePicker value={eventDate} mode="date" minimumDate={new Date()}
-                    onChange={(_, d) => { setShowDatePicker(false); if (d) setEventDate(prev => { const n = new Date(d); n.setHours(prev.getHours(), prev.getMinutes()); return n; }); }} />
+                  Platform.OS === "web" ? (
+                    <input
+                      type="date"
+                      min={toLocalDateString(new Date())}
+                      value={toLocalDateString(eventDate)}
+                      onChange={e => {
+                        if (e.target.value) {
+                          const [y, m, d] = e.target.value.split("-").map(Number);
+                          setEventDate(prev => { const n = new Date(prev); n.setFullYear(y, m - 1, d); return n; });
+                        }
+                        setShowDatePicker(false);
+                      }}
+                      style={{ display: "block", marginTop: 8, padding: 8, fontSize: 16, width: "100%", borderRadius: 8, border: "1px solid #ccc" }}
+                    />
+                  ) : Platform.OS === "ios" ? (
+                    <View>
+                      <DateTimePicker
+                        value={eventDate}
+                        mode="date"
+                        display="spinner"
+                        minimumDate={new Date()}
+                        onChange={(_, d) => { if (d) setEventDate(prev => { const n = new Date(d); n.setHours(prev.getHours(), prev.getMinutes()); return n; }); }}
+                      />
+                      <Pressable onPress={() => setShowDatePicker(false)} style={evtStyles.pickerDoneBtn}>
+                        <Text style={evtStyles.pickerDoneTxt}>Klaar</Text>
+                      </Pressable>
+                    </View>
+                  ) : (
+                    <DateTimePicker value={eventDate} mode="date" minimumDate={new Date()}
+                      onChange={(_, d) => { setShowDatePicker(false); if (d) setEventDate(prev => { const n = new Date(d); n.setHours(prev.getHours(), prev.getMinutes()); return n; }); }} />
+                  )
                 )}
                 <Text style={[evtStyles.wizardLabel, { marginTop: 16 }]}>Tijd</Text>
                 <Pressable
@@ -1350,8 +1442,35 @@ function CreateEventWizard({
                   <Ionicons name="chevron-down" size={14} color={typeColor + "80"} style={{ marginLeft: "auto" }} />
                 </Pressable>
                 {showTimePicker && (
-                  <DateTimePicker value={eventDate} mode="time"
-                    onChange={(_, d) => { setShowTimePicker(false); if (d) setEventDate(prev => { const n = new Date(prev); n.setHours(d.getHours(), d.getMinutes()); return n; }); }} />
+                  Platform.OS === "web" ? (
+                    <input
+                      type="time"
+                      value={`${String(eventDate.getHours()).padStart(2, "0")}:${String(eventDate.getMinutes()).padStart(2, "0")}`}
+                      onChange={e => {
+                        if (e.target.value) {
+                          const [h, m] = e.target.value.split(":").map(Number);
+                          setEventDate(prev => { const n = new Date(prev); n.setHours(h, m); return n; });
+                        }
+                        setShowTimePicker(false);
+                      }}
+                      style={{ display: "block", marginTop: 8, padding: 8, fontSize: 16, width: "100%", borderRadius: 8, border: "1px solid #ccc" }}
+                    />
+                  ) : Platform.OS === "ios" ? (
+                    <View>
+                      <DateTimePicker
+                        value={eventDate}
+                        mode="time"
+                        display="spinner"
+                        onChange={(_, d) => { if (d) setEventDate(prev => { const n = new Date(prev); n.setHours(d.getHours(), d.getMinutes()); return n; }); }}
+                      />
+                      <Pressable onPress={() => setShowTimePicker(false)} style={evtStyles.pickerDoneBtn}>
+                        <Text style={evtStyles.pickerDoneTxt}>Klaar</Text>
+                      </Pressable>
+                    </View>
+                  ) : (
+                    <DateTimePicker value={eventDate} mode="time"
+                      onChange={(_, d) => { setShowTimePicker(false); if (d) setEventDate(prev => { const n = new Date(prev); n.setHours(d.getHours(), d.getMinutes()); return n; }); }} />
+                  )
                 )}
                 <View style={[evtStyles.wizardSummary, { borderColor: typeColor + "30", backgroundColor: typeColor + "10" }]}>
                   <Text style={evtStyles.wizardSummaryTitle}>{title}</Text>
@@ -2661,6 +2780,8 @@ const evtStyles = StyleSheet.create({
   courtSurface: { fontSize: 11, color: "#445566", textTransform: "capitalize" },
   wagerRow: { flexDirection: "row", alignItems: "center" },
   wagerCurrency: { fontSize: 14, fontWeight: "700", color: "#FFFFFF", backgroundColor: "rgba(255,255,255,0.1)", paddingHorizontal: 14, paddingVertical: 12, borderRadius: 12, borderTopRightRadius: 0, borderBottomRightRadius: 0, borderWidth: 1, borderColor: "rgba(255,255,255,0.08)", borderRightWidth: 0 },
+  pickerDoneBtn: { alignSelf: "flex-end", marginTop: 8, marginRight: 16, paddingHorizontal: 20, paddingVertical: 8, borderRadius: 10, backgroundColor: "rgba(255,255,255,0.1)" },
+  pickerDoneTxt: { fontSize: 15, fontWeight: "700", color: "#FFFFFF" },
 });
 
 const chatStyles = StyleSheet.create({
