@@ -192,8 +192,9 @@ function ComposePostModal({
       setCaption("");
       onClose();
     },
-    onError: (error: any) => {
-      Alert.alert("Error", error?.message || "Failed to post");
+    onError: (error: unknown) => {
+      const msg = error instanceof Error ? error.message : "Failed to post";
+      Alert.alert("Error", msg);
     },
   });
 
@@ -292,12 +293,16 @@ export default function GroupDetailScreen({ route, navigation }: Props) {
     ]);
   };
 
-  const handleInvite = () => {
+  const handleInvite = async () => {
     const name = data?.group.name || groupName;
-    Share.share({
-      message: `Join my group "${name}" on Glow Up Sports!\ngups://group/${groupId}`,
-      title: `Join ${name}`,
-    });
+    try {
+      await Share.share({
+        message: `Join my group "${name}" on Glow Up Sports!\ngups://group/${groupId}`,
+        title: `Join ${name}`,
+      });
+    } catch {
+      Alert.alert("Error", "Could not open share sheet");
+    }
   };
 
   const handleMenu = () => {
