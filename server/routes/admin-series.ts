@@ -3708,6 +3708,12 @@ function requirePlayerOrOwner(req: AuthenticatedRequest, res: Response, next: Ne
       // Players only see sessions matching their ball level (RED sees RED, ORANGE sees ORANGE, etc.)
       const playerBallLevel = (player.ballLevel || "green").toLowerCase();
       
+      // Optional filters from query params
+      const sportFilterParam = (req.query.sport as string | undefined)?.toLowerCase();
+      const typeFilterParam = (req.query.type as string | undefined)?.toLowerCase();
+      const offsetParam = Math.max(0, parseInt((req.query.offset as string) || "0", 10) || 0);
+      const limitParam = Math.min(50, Math.max(1, parseInt((req.query.limit as string) || "20", 10) || 20));
+      
       const openSessions: Array<{
         id: string; 
         type: string; 
@@ -3717,7 +3723,13 @@ function requirePlayerOrOwner(req: AuthenticatedRequest, res: Response, next: Ne
         coachName?: string;
         ballLevel: string;
         participants: Array<{id: string; name: string; profilePhotoUrl?: string; level: number}>;
+        price?: number;
+        sport?: string;
+        locationName?: string;
+        distanceKm?: number;
       }> = [];
+      // Track total filtered session count for correct open-match pagination (set inside sessions block below)
+      let totalSessionCount = 0;
       
       if (player.academyId) {
         const dateParam = req.query.date as string | undefined;
@@ -3725,14 +3737,22 @@ function requirePlayerOrOwner(req: AuthenticatedRequest, res: Response, next: Ne
         
         const academySessions = await storage.getSessionsByAcademy(player.academyId);
         
-        // Build a map of seriesId -> ballLevel for proper level filtering
+        // Build a map of seriesId -> ballLevel + price for proper level filtering
         const seriesLevelMap = new Map<string, string>();
+        const seriesPriceMap = new Map<string, number>();
+        const seriesSportMap = new Map<string, string>();
         const seriesIds = [...new Set(academySessions.map(s => (s as any).seriesId).filter(Boolean))];
         for (const sid of seriesIds) {
           try {
             const series = await storage.getCoachingSeriesById(sid);
             if (series?.ballLevel) {
               seriesLevelMap.set(sid, series.ballLevel.toLowerCase());
+            }
+            if ((series as any)?.sessionPrice) {
+              seriesPriceMap.set(sid, Number((series as any).sessionPrice));
+            }
+            if ((series as any)?.sport) {
+              seriesSportMap.set(sid, ((series as any).sport as string).toLowerCase());
             }
           } catch (e) {}
         }
@@ -3745,12 +3765,30 @@ function requirePlayerOrOwner(req: AuthenticatedRequest, res: Response, next: Ne
           const effectiveLevel = sessionBallLevel || seriesLevel;
           
           if (!effectiveLevel) return false;
-          return effectiveLevel === playerBallLevel;
+          if (effectiveLevel !== playerBallLevel) return false;
+          
+          // Apply type filter
+          if (typeFilterParam && typeFilterParam !== "all") {
+            const sessionType = (s.sessionType || "group").toLowerCase();
+            if (sessionType !== typeFilterParam) return false;
+          }
+          
+          // Apply sport filter — exclude sessions with no sport when filter is active
+          if (sportFilterParam && sportFilterParam !== "all") {
+            const rawSessionSport: string = ((s as any).sport as string | undefined) ?? "";
+            const rawSeriesSport: string = ((s as any).seriesId ? (seriesSportMap.get((s as any).seriesId) ?? "") : "");
+            const effectiveSport = (rawSessionSport || rawSeriesSport).toLowerCase();
+            if (!effectiveSport || effectiveSport !== sportFilterParam) return false;
+          }
+          
+          return true;
         });
         
-        // Sort by start time before slicing
+        // Sort by start time, then apply pagination
+        // Save total count BEFORE slicing so open-match pagination can be computed correctly
         const sortedSessions = levelFilteredSessions.sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime());
-        const upcomingSessions = sortedSessions.slice(0, 6);
+        totalSessionCount = sortedSessions.length;
+        const upcomingSessions = sortedSessions.slice(offsetParam, offsetParam + limitParam);
         
         for (const session of upcomingSessions) {
           const coach = session.coachId ? await storage.getCoach(session.coachId) : null;
@@ -3801,35 +3839,66 @@ function requirePlayerOrOwner(req: AuthenticatedRequest, res: Response, next: Ne
           const dubaiTimeStr = dubaiTimeFormatter.format(time);
           
           
-          // Get location name
+          // Get location name and coordinates for distance calculation
           let locationName = "Academy Courts";
+          let locationLat: number | undefined;
+          let locationLng: number | undefined;
           if ((session as any).locationId) {
             const location = await storage.getLocationById((session as any).locationId);
-            if (location) locationName = location.name;
+            if (location) {
+              locationName = location.name;
+              locationLat = (location as any).lat ?? undefined;
+              locationLng = (location as any).lng ?? undefined;
+            }
           } else if ((session as any).courtId) {
             const court = await storage.getCourtById((session as any).courtId);
             if (court) locationName = court.name;
           }
 
+          // Compute distance from player to session location (if coordinates available)
+          let sessionDistanceKm: number | undefined;
+          if (myLat != null && myLon != null && locationLat != null && locationLng != null) {
+            sessionDistanceKm = Math.round(haversineKm(myLat, myLon, locationLat, locationLng) * 10) / 10;
+          }
+
           const effectiveBallLevel = ((session as any).ballLevel || ((session as any).seriesId ? seriesLevelMap.get((session as any).seriesId) : "") || "").toLowerCase();
+          const rawSessionPrice: number | undefined = (session as any).price != null ? Number((session as any).price) : undefined;
+          const rawSeriesPrice: number | undefined = (session as any).seriesId ? seriesPriceMap.get((session as any).seriesId) : undefined;
+          const sessionPrice: number | undefined = rawSessionPrice ?? rawSeriesPrice;
+          const rawSessionSportVal: string | undefined = (session as any).sport as string | undefined;
+          const rawSeriesSportVal: string | undefined = (session as any).seriesId ? seriesSportMap.get((session as any).seriesId) : undefined;
+          const sessionSport: string | undefined = rawSessionSportVal ?? rawSeriesSportVal;
           openSessions.push({
             id: session.id,
             type: session.sessionType || "group",
             time: dubaiTimeStr,
             date: session.startTime.toISOString(),
             spotsLeft: Math.max(0, maxPlayers - actualCurrentPlayers),
+            maxPlayers,
             coachName: coach?.name,
             ballLevel: effectiveBallLevel || null,
             participants,
             isEnrolled,
             locationName,
+            price: sessionPrice,
+            sport: sessionSport,
+            distanceKm: sessionDistanceKm,
           });
         }
       }
 
       // Add open matches from match_requests table
-      if (player.academyId) {
-        const openMatchRequests = await db
+      // Skip if type filter excludes open_match, or if a specific sport filter is active
+      // (open_match records do not carry a sport field, so they cannot be sport-filtered)
+      const includeOpenMatches = (!typeFilterParam || typeFilterParam === "all" || typeFilterParam === "open_match")
+        && (!sportFilterParam || sportFilterParam === "all");
+      if (player.academyId && includeOpenMatches) {
+        // Open-match pagination: use the total filtered session count (before slicing)
+        // so that offset skips through sessions correctly even when few are returned.
+        const matchOffset = Math.max(0, offsetParam - totalSessionCount);
+        const matchLimit = Math.max(0, limitParam - openSessions.length);
+
+        const openMatchRequests = matchLimit > 0 ? await db
           .select({
             id: matchRequests.id,
             playerId: matchRequests.playerId,
@@ -3848,7 +3917,6 @@ function requirePlayerOrOwner(req: AuthenticatedRequest, res: Response, next: Ne
           })
           .from(matchRequests)
           .leftJoin(players, eq(matchRequests.playerId, players.id))
-          
           .where(and(
             eq(matchRequests.status, "open"),
             eq(players.ballLevel, player.ballLevel),
@@ -3857,7 +3925,8 @@ function requirePlayerOrOwner(req: AuthenticatedRequest, res: Response, next: Ne
               isNull(matchRequests.academyId)
             )
           ))
-          .limit(6);
+          .offset(matchOffset)
+          .limit(matchLimit) : [];
 
         for (const match of openMatchRequests) {
           const timeStr = match.preferredTime || "TBD";

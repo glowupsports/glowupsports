@@ -13,7 +13,7 @@ import {
   inSessionFeedback, sessionSkillObservations, xpTransactions,
   playerSkillScores, glowSkills,
 } from "@shared/schema";
-import { eq, sql, desc, and, ne, gt, gte, asc, inArray, lte, or, count } from "drizzle-orm";
+import { eq, sql, desc, and, ne, gt, gte, asc, inArray, lte, or, count, isNull } from "drizzle-orm";
 import {
   authMiddlewareWithFreshData as authMiddleware,
   requireRole,
@@ -4927,7 +4927,77 @@ Return only the JSON array, nothing else.`;
     }
   });
 
-  // Cancel a match request
+  // Join (accept) an open match request
+  router.post("/api/play/match-requests/:requestId/join", authMiddleware, async (req: AuthRequest, res: Response) => {
+    try {
+      const playerId = req.user?.playerId;
+      const { requestId } = req.params;
+
+      if (!playerId) {
+        return res.status(401).json({ error: "Player profile required" });
+      }
+
+      // Load the joining player's profile for eligibility checks
+      const joiningPlayer = await storage.getPlayer(playerId);
+      if (!joiningPlayer) {
+        return res.status(403).json({ error: "Player profile not found" });
+      }
+
+      const [request] = await db
+        .select()
+        .from(matchRequests)
+        .where(eq(matchRequests.id, requestId));
+
+      if (!request) {
+        return res.status(404).json({ error: "Match request not found" });
+      }
+      if (request.status !== "open") {
+        return res.status(400).json({ error: "This match request is no longer available" });
+      }
+      if (request.playerId === playerId) {
+        return res.status(400).json({ error: "You created this match request" });
+      }
+      if (request.invitedPlayerId) {
+        return res.status(400).json({ error: "This match request already has a challenger" });
+      }
+
+      // Enforce academy scoping: if the request is academy-scoped, the joiner MUST belong to the same academy
+      const requestAcademyId = request.academyId;
+      const joinerAcademyId = (joiningPlayer as any).academyId as string | undefined;
+      if (requestAcademyId && joinerAcademyId !== requestAcademyId) {
+        return res.status(403).json({ error: "This match request is not available at your academy" });
+      }
+
+      // Enforce ball-level compatibility (same level matching as the discovery listing)
+      const requestCreator = await storage.getPlayer(request.playerId);
+      const creatorBallLevel = requestCreator?.ballLevel;
+      const joinerBallLevel = joiningPlayer.ballLevel;
+      if (creatorBallLevel && joinerBallLevel && creatorBallLevel !== joinerBallLevel) {
+        return res.status(403).json({ error: "Your skill level does not match this match request" });
+      }
+
+      // Atomic update: only succeeds if the request is still open and unclaimed
+      const updated = await db
+        .update(matchRequests)
+        .set({ invitedPlayerId: playerId, status: "matched", updatedAt: new Date() })
+        .where(and(
+          eq(matchRequests.id, requestId),
+          eq(matchRequests.status, "open"),
+          isNull(matchRequests.invitedPlayerId),
+        ))
+        .returning();
+
+      if (updated.length === 0) {
+        return res.status(409).json({ error: "This match request was just claimed by someone else" });
+      }
+
+      res.json({ success: true, message: "Successfully joined the match request" });
+    } catch (error) {
+      console.error("Join match request error:", error);
+      res.status(500).json({ error: "Failed to join match request" });
+    }
+  });
+
   router.post("/api/play/match-requests/:requestId/cancel", authMiddleware, async (req: AuthRequest, res: Response) => {
     try {
       const playerId = req.user?.playerId;

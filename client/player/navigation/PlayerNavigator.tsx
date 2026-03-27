@@ -81,6 +81,7 @@ import FindGameScreen from "@/player/screens/FindGameScreen";
 import CreateGameRequestScreen from "@/player/screens/CreateGameRequestScreen";
 import MyGamesScreen from "@/player/screens/MyGamesScreen";
 import NewsScreen from "@/player/screens/NewsScreen";
+import ClassesDiscoveryScreen from "@/player/screens/ClassesDiscoveryScreen";
 import SpotlightDetailScreen from "@/player/screens/SpotlightDetailScreen";
 import MatchLiveScreen from "@/player/screens/MatchLiveScreen";
 import StartLiveMatchScreen from "@/player/screens/StartLiveMatchScreen";
@@ -215,6 +216,7 @@ export type PlayerStackParamList = {
   FindGame: undefined;
   CreateGameRequest: undefined;
   MyGames: undefined;
+  ClassesDiscovery: undefined;
   MatchLive: {
     matchId: string;
     opponentName: string;
@@ -1161,6 +1163,18 @@ function PlayerStackNavigator() {
           headerStyle: { backgroundColor: '#090E17' },
           headerTintColor: '#CCFF00',
           headerTitleStyle: { color: '#ffffff', fontWeight: '600' },
+        }}
+      />
+      <Stack.Screen
+        name="ClassesDiscovery"
+        component={ClassesDiscoveryScreen}
+        options={{
+          headerShown: true,
+          headerTitle: "Classes",
+          headerStyle: { backgroundColor: '#090E17' },
+          headerTintColor: '#CCFF00',
+          headerTitleStyle: { color: '#ffffff', fontWeight: '600' },
+          headerTransparent: false,
         }}
       />
     </Stack.Navigator>

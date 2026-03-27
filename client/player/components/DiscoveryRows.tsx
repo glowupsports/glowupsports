@@ -317,7 +317,7 @@ export function GroupLessonsRow() {
 
   const handleSeeAll = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    navigateToTab("Schedule");
+    navigation.navigate("ClassesDiscovery");
   };
 
   const ballLevelLabel = playerBallLevel.charAt(0).toUpperCase() + playerBallLevel.slice(1);

@@ -79,6 +79,15 @@ export function QuickServeFAB({ bottomOffset = 70 }: QuickServeFABProps) {
 
   const actions: QuickAction[] = [
     {
+      id: "classes",
+      label: "Classes",
+      icon: "people-outline",
+      color: "#C8FF3D",
+      onPress: () => {
+        navigation.navigate("ClassesDiscovery");
+      },
+    },
+    {
       id: "log-score",
       label: "Log Score",
       icon: "tennisball-outline",
