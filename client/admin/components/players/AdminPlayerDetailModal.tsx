@@ -16,33 +16,25 @@ import { apiRequest } from "@/lib/query-client";
 import { formatCredits } from "@/lib/dateUtils";
 import { styles } from "./adminPlayersStyles";
 import { generateAttendanceReportPDF, StatItem, SkillBar } from "./AdminPlayerHelpers";
-
-type Player = {
-  id: string; name: string; email?: string | null; phone?: string | null;
-  ballLevel?: string; level?: number; coachName?: string; age?: number;
-  dateOfBirth?: string; parentName?: string; parentPhone?: string;
-  isActive?: boolean; status?: string;
-};
-type PlayerPackage = any;
-type PlayerStats = any;
+import { AdminPlayer, AdminPlayerPackage, AdminPlayerStats, AdminPlayerInvoice, AdminPlayerSessionItem } from "./adminPlayerTypes";
 
 interface AdminPlayerDetailModalProps {
   showFullDetailsModal: boolean;
   closeFullDetailsModal: () => void;
   insets: { top: number; bottom: number };
   statsLoading: boolean;
-  statsError: any;
+  statsError: Error | null;
   refetchStats: () => void;
-  playerStats: PlayerStats | undefined;
-  selectedPlayer: Player | undefined;
+  playerStats: AdminPlayerStats | undefined;
+  selectedPlayer: AdminPlayer | undefined;
   selectedPlayerId: string | null;
   setShowReportIssueModal: (v: boolean) => void;
-  setEditingPlayer: (p: Player | null) => void;
-  setFormData: (d: any) => void;
+  setEditingPlayer: (p: AdminPlayer | null) => void;
+  setFormData: (d: Record<string, unknown>) => void;
   closeDetailModal: () => void;
   setShowAddModal: (v: boolean) => void;
   setShowRecordPaymentModal: (v: boolean) => void;
-  setSelectedPackageForPayment: (p: PlayerPackage | null) => void;
+  setSelectedPackageForPayment: (p: AdminPlayerPackage | null) => void;
   setShowInvoiceModal: (v: boolean) => void;
   setShowCreditStoreModal: (v: boolean) => void;
   progressExpanded: boolean;
@@ -50,7 +42,7 @@ interface AdminPlayerDetailModalProps {
   selectedSeriesFilter: string | null;
   setSelectedSeriesFilter: (v: string | null) => void;
   uniqueSeries: Array<{ id: string; name: string }>;
-  filteredSessions: any[];
+  filteredSessions: AdminPlayerSessionItem[];
   handleCopyInviteCode: () => void;
   playerInvite: { inviteCode: string; status: string } | undefined;
   inviteLoading: boolean;
@@ -333,7 +325,7 @@ export function AdminPlayerDetailModal({
                     <Text style={{ ...Typography.caption, color: Colors.dark.textMuted, fontWeight: "700", letterSpacing: 1, marginBottom: Spacing.sm }}>
                       INVOICES ({stats.payments.invoices.length})
                     </Text>
-                    {stats.payments.invoices.map((inv: any) => {
+                    {stats.payments.invoices.map((inv: AdminPlayerInvoice) => {
                       const isOverdue = inv.isOverdue;
                       const isPaid = inv.status === "paid";
                       const statusColor = isPaid ? Colors.dark.successNeon : isOverdue ? Colors.dark.error : "#FFD700";
@@ -658,7 +650,7 @@ export function AdminPlayerDetailModal({
 
                 {filteredSessions && filteredSessions.length > 0 ? (
                   <View style={styles.attendanceList}>
-                    {filteredSessions.slice(0, 10).map((session: any, index: number) => {
+                    {filteredSessions.slice(0, 10).map((session: AdminPlayerSessionItem, index: number) => {
                       const sessionDate = new Date(session.startTime);
                       const isAttended = session.attended === "present";
                       const isAbsent = session.attended === "absent" || session.attended === "no_show";

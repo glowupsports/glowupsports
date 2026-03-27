@@ -7,13 +7,12 @@ import { Colors } from "@/constants/theme";
 import { apiRequest } from "@/lib/query-client";
 import { formatCredits } from "@/lib/dateUtils";
 import { styles } from "./adminPlayersStyles";
-
-type PlayerPackage = any;
+import { AdminPlayerPackage } from "./adminPlayerTypes";
 
 interface AdminRecordPaymentModalProps {
   visible: boolean;
   onClose: () => void;
-  packages: PlayerPackage[] | undefined;
+  packages: AdminPlayerPackage[] | undefined;
   selectedPlayerId: string | null;
 }
 

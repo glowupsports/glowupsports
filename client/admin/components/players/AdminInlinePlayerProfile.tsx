@@ -18,90 +18,18 @@ import { apiRequest } from "@/lib/query-client";
 import { formatCredits } from "@/lib/dateUtils";
 import { styles } from "./adminPlayersStyles";
 import { generateAttendanceReportPDF, StatItem, SkillBar } from "./AdminPlayerHelpers";
-
-type Player = {
-  id: string; name: string; email?: string | null; phone?: string | null;
-  ballLevel?: string; level?: number; coachName?: string; age?: number;
-  dateOfBirth?: string; parentName?: string; parentPhone?: string;
-  isActive?: boolean; status?: string;
-};
-
-type PlayerPackage = {
-  id: string;
-  remainingCredits?: number | string;
-  remaining?: number | string;
-  totalCredits?: number | string;
-  isPaid?: boolean;
-  packageName?: string;
-  creditType?: string;
-  expiresAt?: string;
-  expiryDate?: string;
-};
-
-type PlayerInvoice = {
-  id: string;
-  invoiceNumber: string;
-  isOverdue?: boolean;
-  status?: string;
-  dueDate?: string;
-  currency?: string;
-  amount: number;
-};
-
-type PlayerSession = {
-  id?: string;
-  seriesId?: string;
-  seriesName?: string;
-  startTime?: string;
-  status?: string;
-  attended?: boolean;
-};
-
-type PlayerStats = {
-  player: {
-    id: string;
-    name: string;
-    email?: string | null;
-    phone?: string | null;
-    ballLevel?: string;
-    coachName?: string;
-    parentName?: string;
-    parentPhone?: string;
-  };
-  attendance: {
-    attended: number;
-    missed: number;
-    rate: number;
-    streak: number;
-  };
-  progress: {
-    level: number;
-    xp: number;
-    xpToNextLevel: number;
-    skills: {
-      technical: number;
-      tactical: number;
-      physical: number;
-      mental: number;
-    };
-  };
-  payments: {
-    invoices: PlayerInvoice[];
-  };
-  packages: PlayerPackage[];
-  sessions: PlayerSession[];
-};
+import { AdminPlayer, AdminPlayerPackage, AdminPlayerInvoice, AdminPlayerSessionItem, AdminPlayerStats } from "./adminPlayerTypes";
 
 interface AdminInlinePlayerProfileProps {
   selectedPlayerId: string;
-  selectedPlayer: Player | undefined;
+  selectedPlayer: AdminPlayer | undefined;
   onBack: () => void;
   onEditPlayer: (player: { id: string; name: string; email?: string | null; phone?: string | null; ballLevel?: string; parentName?: string; parentPhone?: string }) => void;
   onShowDeleteModal: () => void;
   onShowInvoiceModal: () => void;
   onShowCreditStoreModal: () => void;
   onShowRecordPaymentModal: () => void;
-  onShowMarkPaidModal: (pkg: PlayerPackage) => void;
+  onShowMarkPaidModal: (pkg: AdminPlayerPackage) => void;
 }
 
 function getBallLevelColor(level?: string): string {
@@ -143,7 +71,7 @@ export function AdminInlinePlayerProfile({
   const [inviteCopied, setInviteCopied] = useState(false);
   const [selectedSeriesFilter, setSelectedSeriesFilter] = useState<string | null>(null);
 
-  const { data: playerStats, isLoading: statsLoading, error: statsError, refetch: refetchStats } = useQuery<PlayerStats>({
+  const { data: playerStats, isLoading: statsLoading, error: statsError, refetch: refetchStats } = useQuery<AdminPlayerStats>({
     queryKey: ["/api/admin/players", selectedPlayerId, "stats"],
     enabled: !!selectedPlayerId,
   });
@@ -156,7 +84,7 @@ export function AdminInlinePlayerProfile({
   const uniqueSeries = useMemo(() => {
     if (!playerStats?.sessions) return [];
     const seriesMap = new Map<string, { id: string; name: string }>();
-    playerStats.sessions.forEach((s: PlayerSession) => {
+    playerStats.sessions.forEach((s: AdminPlayerSessionItem) => {
       if (s.seriesId && s.seriesName) {
         seriesMap.set(s.seriesId, { id: s.seriesId, name: s.seriesName });
       }
@@ -167,7 +95,7 @@ export function AdminInlinePlayerProfile({
   const filteredSessions = useMemo(() => {
     if (!playerStats?.sessions) return [];
     return selectedSeriesFilter
-      ? playerStats.sessions.filter((s: PlayerSession) => s.seriesId === selectedSeriesFilter)
+      ? playerStats.sessions.filter((s: AdminPlayerSessionItem) => s.seriesId === selectedSeriesFilter)
       : playerStats.sessions;
   }, [playerStats?.sessions, selectedSeriesFilter]);
 
@@ -349,7 +277,7 @@ export function AdminInlinePlayerProfile({
                 <Text style={{ ...Typography.caption, color: Colors.dark.textMuted, fontWeight: "700", letterSpacing: 1, marginBottom: Spacing.sm }}>
                   INVOICES ({stats.payments.invoices.length})
                 </Text>
-                {stats.payments.invoices.map((inv: PlayerInvoice) => {
+                {stats.payments.invoices.map((inv: AdminPlayerInvoice) => {
                   const isOverdue = inv.isOverdue;
                   const isPaid = inv.status === "paid";
                   const statusColor = isPaid ? Colors.dark.successNeon : isOverdue ? Colors.dark.error : "#FFD700";
@@ -438,7 +366,7 @@ export function AdminInlinePlayerProfile({
             </View>
             {stats.packages && stats.packages.length > 0 ? (
               <View style={styles.packagesGrid}>
-                {stats.packages.map((pkg: PlayerPackage) => {
+                {stats.packages.map((pkg: AdminPlayerPackage) => {
                   const remaining = pkg.remainingCredits ?? pkg.remaining ?? 0;
                   const total = pkg.totalCredits || 0;
                   const percentage = total > 0 ? (remaining / total) * 100 : 0;

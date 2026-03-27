@@ -7,13 +7,12 @@ import * as Haptics from "expo-haptics";
 import { Colors } from "@/constants/theme";
 import { apiRequest } from "@/lib/query-client";
 import { formatCredits } from "@/lib/dateUtils";
-
-type PlayerPackage = any;
+import { AdminPlayerPackage } from "./adminPlayerTypes";
 
 interface AdminMarkPaidModalProps {
   visible: boolean;
   onClose: () => void;
-  selectedPackage: PlayerPackage | null;
+  selectedPackage: AdminPlayerPackage | null;
   selectedPlayerId: string | null;
 }
 
