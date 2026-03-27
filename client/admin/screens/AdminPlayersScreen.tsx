@@ -33,6 +33,7 @@ import { AdminPlayerDetailModal } from "@/admin/components/players/AdminPlayerDe
 import { AdminInlinePlayerProfile } from "@/admin/components/players/AdminInlinePlayerProfile";
 import { AdminMarkPaidModal } from "@/admin/components/players/AdminMarkPaidModal";
 import { AdminRecordPaymentModal } from "@/admin/components/players/AdminRecordPaymentModal";
+import { AdminAddPlayerModal } from "@/admin/components/players/AdminAddPlayerModal";
 
 type Player = { id: string; name: string; email?: string | null; phone?: string | null; ballLevel?: string; level?: number; coachName?: string; age?: number; dateOfBirth?: string; parentName?: string; parentPhone?: string; isActive?: boolean; status?: string };
 type PlayerPackage = any;
@@ -776,124 +777,15 @@ export default function AdminPlayersScreen() {
         handleDelete={handleDelete}
       />
 
-      <Modal
+      <AdminAddPlayerModal
         visible={showAddModal}
-        animationType="slide"
-        presentationStyle="pageSheet"
-        onRequestClose={() => setShowAddModal(false)}
-      >
-        <View style={[styles.modalContainer, { paddingTop: insets.top + Spacing.lg }]}>
-          <View style={styles.modalHeader}>
-            <Pressable onPress={() => setShowAddModal(false)}>
-              <Text style={styles.cancelButton}>Cancel</Text>
-            </Pressable>
-            <Text style={styles.modalTitle}>
-              {editingPlayer ? "Edit Player" : "Add Player"}
-            </Text>
-            <Pressable 
-              onPress={handleSubmit}
-              disabled={addPlayerMutation.isPending}
-            >
-              <Text style={[styles.saveButton, addPlayerMutation.isPending && styles.disabledButton]}>
-                {addPlayerMutation.isPending ? "Saving..." : "Save"}
-              </Text>
-            </Pressable>
-          </View>
-
-          <KeyboardAwareScrollViewCompat
-            style={styles.formScroll}
-            contentContainerStyle={styles.form}
-          >
-            <View style={styles.formGroup}>
-              <Text style={styles.label}>Name *</Text>
-              <TextInput
-                style={styles.input}
-                value={formData.name}
-                onChangeText={(text) => setFormData((prev) => ({ ...prev, name: text }))}
-                placeholder="Player name"
-                placeholderTextColor={Colors.dark.textMuted}
-              />
-            </View>
-
-            <View style={styles.formGroup}>
-              <Text style={styles.label}>Email</Text>
-              <TextInput
-                style={styles.input}
-                value={formData.email}
-                onChangeText={(text) => setFormData((prev) => ({ ...prev, email: text }))}
-                placeholder="player@example.com"
-                placeholderTextColor={Colors.dark.textMuted}
-                keyboardType="email-address"
-                autoCapitalize="none"
-              />
-            </View>
-
-            <View style={styles.formGroup}>
-              <Text style={styles.label}>Phone</Text>
-              <TextInput
-                style={styles.input}
-                value={formData.phone}
-                onChangeText={(text) => setFormData((prev) => ({ ...prev, phone: text }))}
-                placeholder="+971 50 123 4567"
-                placeholderTextColor={Colors.dark.textMuted}
-                keyboardType="phone-pad"
-              />
-            </View>
-
-            <View style={styles.formGroup}>
-              <Text style={styles.label}>Ball Level</Text>
-              <View style={styles.ballLevelSelector}>
-                {BALL_LEVELS.map((level) => (
-                  <Pressable
-                    key={level}
-                    style={[
-                      styles.ballLevelOption,
-                      formData.ballLevel === level && styles.ballLevelSelected,
-                      { borderColor: getBallLevelColor(level) },
-                    ]}
-                    onPress={() => {
-                      setFormData((prev) => ({ ...prev, ballLevel: level }));
-                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                    }}
-                  >
-                    <View style={[styles.ballLevelDot, { backgroundColor: getBallLevelColor(level) }]} />
-                    <Text style={[styles.ballLevelText, { color: getBallLevelColor(level) }]}>
-                      {level.charAt(0).toUpperCase() + level.slice(1)}
-                    </Text>
-                  </Pressable>
-                ))}
-              </View>
-            </View>
-
-            <View style={styles.formDivider}>
-              <Text style={styles.formDividerText}>Parent/Guardian</Text>
-            </View>
-
-            <View style={styles.formGroup}>
-              <Text style={styles.label}>Parent Name</Text>
-              <TextInput
-                style={styles.input}
-                value={formData.parentName}
-                onChangeText={(text) => setFormData((prev) => ({ ...prev, parentName: text }))}
-                placeholder="Parent name"
-                placeholderTextColor={Colors.dark.textMuted}
-              />
-            </View>
-
-            <View style={styles.formGroup}>
-              <Text style={styles.label}>Parent Phone</Text>
-              <TextInput
-                style={styles.input}
-                value={formData.parentPhone}
-                onChangeText={(text) => setFormData((prev) => ({ ...prev, parentPhone: text }))}
-                placeholder="+971 50 123 4567"
-                placeholderTextColor={Colors.dark.textMuted}
-                keyboardType="phone-pad"
-              />
-            </View>
-          </KeyboardAwareScrollViewCompat>
-        </View>
-      </Modal>
+        onClose={() => setShowAddModal(false)}
+        editingPlayer={editingPlayer}
+        formData={formData}
+        setFormData={setFormData}
+        onSubmit={handleSubmit}
+        isSubmitting={addPlayerMutation.isPending}
+      />
 
       {/* Delete Confirmation Modal */}
       <Modal
@@ -1052,7 +944,7 @@ export default function AdminPlayersScreen() {
         selectedPlayerId={selectedPlayerId}
       />
 
-      {/* Record Payment Modal */      {/* Record Payment Modal */}
+      {/* Record Payment Modal */}
       <AdminRecordPaymentModal
         visible={showRecordPaymentModal}
         onClose={() => setShowRecordPaymentModal(false)}

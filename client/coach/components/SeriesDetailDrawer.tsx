@@ -35,6 +35,12 @@ import { SeriesTimelineTab } from "./series-detail/SeriesTimelineTab";
 import { SeriesFeedbackTab } from "./series-detail/SeriesFeedbackTab";
 import { SeriesProgressTab } from "./series-detail/SeriesProgressTab";
 import { SeriesPlanTab } from "./series-detail/SeriesPlanTab";
+import { SeriesRestoreSessionModal } from "./series-detail/SeriesRestoreSessionModal";
+import { SeriesRescheduleSessionModal } from "./series-detail/SeriesRescheduleSessionModal";
+import { SeriesPausePlayerModal } from "./series-detail/SeriesPausePlayerModal";
+import { SeriesRemovePlayerModal } from "./series-detail/SeriesRemovePlayerModal";
+import { SeriesEditJoinDateModal } from "./series-detail/SeriesEditJoinDateModal";
+import { SeriesExtendClassModal } from "./series-detail/SeriesExtendClassModal";
 export default function SeriesDetailDrawer({
   visible,
   seriesId,
@@ -2792,675 +2798,99 @@ export default function SeriesDetailDrawer({
         </View>
       </Modal>
 
-      {/* Restore Session Modal */}
-      <Modal
+      <SeriesRestoreSessionModal
         visible={showRestoreModal}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setShowRestoreModal(false)}
-      >
-        <View style={styles.overlay}>
-          <Pressable style={styles.backdrop} onPress={() => setShowRestoreModal(false)} />
-          <View 
-            style={[styles.restoreModalContent, { paddingBottom: insets.bottom + Spacing.lg }]}
-          >
-            <LinearGradient
-              colors={[Colors.dark.accentCyan + "15", "transparent"]}
-              style={styles.restoreModalGlow}
-            />
-            
-            <View style={styles.restoreModalHeader}>
-              <View style={styles.restoreModalTitleRow}>
-                <Ionicons name="refresh-circle" size={28} color={Colors.dark.accentCyan} />
-                <Text style={styles.restoreModalTitle}>Restore Session</Text>
-              </View>
-              <Pressable 
-                onPress={() => setShowRestoreModal(false)} 
-                style={styles.restoreCloseButton}
-                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-              >
-                <Ionicons name="close" size={24} color={Colors.dark.text} />
-              </Pressable>
-            </View>
-            
-            {selectedSession ? (
-              <View style={styles.restoreSessionContent}>
-                <View style={styles.restoreSessionCard}>
-                  <LinearGradient
-                    colors={[Colors.dark.accentCyan + "25", Colors.dark.accentCyan + "08"]}
-                    style={styles.restoreSessionCardGradient}
-                  >
-                    <View style={styles.restoreSessionIconContainer}>
-                      <Ionicons name="calendar" size={36} color={Colors.dark.accentCyan} />
-                    </View>
-                    
-                    <Text style={styles.restoreSessionDate}>
-                      {formatDate(selectedSession.startTime)}
-                    </Text>
-                    <Text style={styles.restoreSessionWeek}>
-                      Week {selectedSession.weekNumber || ([...(series?.sessions || [])].sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime()).findIndex(s => s.id === selectedSession.id) + 1)}
-                    </Text>
-                  </LinearGradient>
-                </View>
-                
-                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, marginBottom: Spacing.sm, paddingHorizontal: Spacing.md, paddingVertical: 8, borderRadius: 8, backgroundColor: Colors.dark.accentCyan + "15", borderWidth: 1, borderColor: Colors.dark.accentCyan + "30" }}>
-                  <Ionicons name="shield-checkmark" size={18} color={Colors.dark.accentCyan} />
-                  <Text style={{ color: Colors.dark.accentCyan, fontSize: 13, fontWeight: "600" }}>
-                    Credits Refunded - No charges applied
-                  </Text>
-                </View>
-                
-                <Text style={styles.restoreSessionDescription}>
-                  Restore this cancelled session to mark attendance
-                </Text>
-                
-                <Pressable
-                  style={({ pressed }) => [
-                    styles.restoreButton,
-                    pressed && styles.restoreButtonPressed,
-                    restoringSession && styles.restoreButtonDisabled,
-                  ]}
-                  onPress={handleRestoreSession}
-                  disabled={restoringSession}
-                >
-                  <LinearGradient
-                    colors={[Colors.dark.successNeon, Colors.dark.accentGreen]}
-                    start={{ x: 0, y: 0 }}
-                    end={{ x: 1, y: 0 }}
-                    style={styles.restoreButtonGradient}
-                  >
-                    {restoringSession ? (
-                      <ActivityIndicator size="small" color={Colors.dark.text} />
-                    ) : (
-                      <>
-                        <Ionicons name="checkmark-circle" size={22} color={Colors.dark.text} />
-                        <Text style={styles.restoreButtonText}>Restore Session</Text>
-                      </>
-                    )}
-                  </LinearGradient>
-                </Pressable>
-              </View>
-            ) : null}
-          </View>
-        </View>
-      </Modal>
+        onClose={() => setShowRestoreModal(false)}
+        selectedSession={selectedSession}
+        series={series}
+        onRestore={handleRestoreSession}
+        restoringSession={restoringSession}
+        bottomInset={insets.bottom}
+      />
 
-      {/* Reschedule Session Modal */}
-      <Modal
+      <SeriesRescheduleSessionModal
         visible={showRescheduleModal}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setShowRescheduleModal(false)}
-      >
-        <View style={styles.overlay}>
-          <Pressable style={styles.backdrop} onPress={() => setShowRescheduleModal(false)} />
-          <View 
-            style={[styles.restoreModalContent, { paddingBottom: insets.bottom + Spacing.lg }]}
-          >
-            <LinearGradient
-              colors={[Colors.dark.accentCyan + "15", "transparent"]}
-              style={styles.restoreModalGlow}
-            />
-            
-            <View style={styles.restoreModalHeader}>
-              <View style={styles.restoreModalTitleRow}>
-                <Ionicons name="calendar-outline" size={28} color={Colors.dark.accentCyan} />
-                <Text style={styles.restoreModalTitle}>Reschedule Session</Text>
-              </View>
-              <Pressable 
-                onPress={() => setShowRescheduleModal(false)} 
-                style={styles.restoreCloseButton}
-                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-              >
-                <Ionicons name="close" size={24} color={Colors.dark.text} />
-              </Pressable>
-            </View>
-            
-            {selectedSession ? (
-              <View style={styles.restoreSessionContent}>
-                <Text style={[styles.sectionLabel, { marginBottom: Spacing.sm }]}>
-                  NEW DATE
-                </Text>
-                
-                {Platform.OS === "web" ? (
-                  <View style={styles.webTimePickerRow}>
-                    <TextInput
-                      style={styles.webTimeInput}
-                      value={rescheduleDate.toISOString().split('T')[0]}
-                      onChangeText={(text) => {
-                        const parsed = new Date(text);
-                        if (!isNaN(parsed.getTime())) {
-                          setRescheduleDate(parsed);
-                        }
-                      }}
-                      placeholder="YYYY-MM-DD"
-                      placeholderTextColor={Colors.dark.textMuted}
-                    />
-                  </View>
-                ) : (
-                  <>
-                    <Pressable
-                      onPress={() => setShowRescheduleDatePicker(true)}
-                      style={styles.timePickerButton}
-                    >
-                      <Ionicons name="calendar-outline" size={20} color={Colors.dark.accentCyan} />
-                      <Text style={styles.timePickerText}>
-                        {rescheduleDate.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })}
-                      </Text>
-                    </Pressable>
-                    {showRescheduleDatePicker && (
-                      <DateTimePicker
-                        value={rescheduleDate}
-                        mode="date"
-                        display="spinner"
-                        onChange={(_, date) => {
-                          setShowRescheduleDatePicker(false);
-                          if (date) setRescheduleDate(date);
-                        }}
-                      />
-                    )}
-                  </>
-                )}
-                
-                <Text style={[styles.sectionLabel, { marginTop: Spacing.lg, marginBottom: Spacing.sm }]}>
-                  NEW TIME
-                </Text>
-                
-                {Platform.OS === "web" ? (
-                  <View style={styles.webTimePickerRow}>
-                    <TextInput
-                      style={styles.webTimeInput}
-                      value={`${String(rescheduleTime.getHours()).padStart(2, '0')}:${String(rescheduleTime.getMinutes()).padStart(2, '0')}`}
-                      onChangeText={(text) => {
-                        const [hours, minutes] = text.split(':').map(Number);
-                        if (!isNaN(hours) && !isNaN(minutes)) {
-                          const newTime = new Date(rescheduleTime);
-                          newTime.setHours(hours, minutes, 0, 0);
-                          setRescheduleTime(newTime);
-                        }
-                      }}
-                      placeholder="HH:MM"
-                      placeholderTextColor={Colors.dark.textMuted}
-                      keyboardType="numbers-and-punctuation"
-                    />
-                  </View>
-                ) : (
-                  <>
-                    <Pressable
-                      onPress={() => setShowRescheduleTimePicker(true)}
-                      style={styles.timePickerButton}
-                    >
-                      <Ionicons name="time-outline" size={20} color={Colors.dark.accentCyan} />
-                      <Text style={styles.timePickerText}>
-                        {`${String(rescheduleTime.getHours()).padStart(2, '0')}:${String(rescheduleTime.getMinutes()).padStart(2, '0')}`}
-                      </Text>
-                    </Pressable>
-                    {showRescheduleTimePicker && (
-                      <DateTimePicker
-                        value={rescheduleTime}
-                        mode="time"
-                        is24Hour={true}
-                        display="spinner"
-                        onChange={(_, date) => {
-                          setShowRescheduleTimePicker(false);
-                          if (date) setRescheduleTime(date);
-                        }}
-                      />
-                    )}
-                  </>
-                )}
-                
-                <Pressable
-                  style={({ pressed }) => [
-                    styles.restoreButton,
-                    pressed && styles.restoreButtonPressed,
-                    reschedulingSession && styles.restoreButtonDisabled,
-                    { marginTop: Spacing.xl },
-                  ]}
-                  onPress={handleRescheduleSession}
-                  disabled={reschedulingSession}
-                >
-                  <LinearGradient
-                    colors={[Colors.dark.accentCyan, Colors.dark.accent]}
-                    start={{ x: 0, y: 0 }}
-                    end={{ x: 1, y: 0 }}
-                    style={styles.restoreButtonGradient}
-                  >
-                    {reschedulingSession ? (
-                      <ActivityIndicator size="small" color={Colors.dark.text} />
-                    ) : (
-                      <>
-                        <Ionicons name="checkmark-circle" size={22} color={Colors.dark.text} />
-                        <Text style={styles.restoreButtonText}>Reschedule</Text>
-                      </>
-                    )}
-                  </LinearGradient>
-                </Pressable>
-                
-                <Pressable
-                  style={styles.cancelSessionButton}
-                  onPress={async () => {
-                    if (!selectedSession) return;
-                    setCancellingSession(true);
-                    try {
-                      await apiRequest("POST", `/api/coach/sessions/${selectedSession.id}/cancel`);
-                      queryClient.invalidateQueries({ queryKey: [`/api/coach/series/${seriesId}`] });
-                      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-                      setShowRescheduleModal(false);
-                      setSelectedSession(null);
-                    } catch (error) {
-                      console.error("Error cancelling session:", error);
-                    } finally {
-                      setCancellingSession(false);
-                    }
-                  }}
-                  disabled={cancellingSession}
-                >
-                  {cancellingSession ? (
-                    <ActivityIndicator size="small" color={Colors.dark.error} />
-                  ) : (
-                    <>
-                      <Ionicons name="close-circle-outline" size={18} color={Colors.dark.error} />
-                      <Text style={styles.cancelSessionButtonText}>Cancel This Session</Text>
-                    </>
-                  )}
-                </Pressable>
-              </View>
-            ) : null}
-          </View>
-        </View>
-      </Modal>
+        onClose={() => setShowRescheduleModal(false)}
+        selectedSession={selectedSession}
+        rescheduleDate={rescheduleDate}
+        setRescheduleDate={setRescheduleDate}
+        rescheduleTime={rescheduleTime}
+        setRescheduleTime={setRescheduleTime}
+        showRescheduleDatePicker={showRescheduleDatePicker}
+        setShowRescheduleDatePicker={setShowRescheduleDatePicker}
+        showRescheduleTimePicker={showRescheduleTimePicker}
+        setShowRescheduleTimePicker={setShowRescheduleTimePicker}
+        onReschedule={handleRescheduleSession}
+        reschedulingSession={reschedulingSession}
+        onCancelSession={async () => {
+          if (!selectedSession) return;
+          setCancellingSession(true);
+          try {
+            await apiRequest("POST", `/api/coach/sessions/${selectedSession.id}/cancel`);
+            queryClient.invalidateQueries({ queryKey: [`/api/coach/series/${seriesId}`] });
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+            setShowRescheduleModal(false);
+            setSelectedSession(null);
+          } catch (error) {
+            console.error("Error cancelling session:", error);
+          } finally {
+            setCancellingSession(false);
+          }
+        }}
+        cancellingSession={cancellingSession}
+        bottomInset={insets.bottom}
+      />
 
-      {/* Pause Player Modal */}
-      <Modal
+      <SeriesPausePlayerModal
         visible={showPauseModal}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setShowPauseModal(false)}
-      >
-        <View style={styles.overlay}>
-          <Pressable style={styles.backdrop} onPress={() => setShowPauseModal(false)} />
-          <View 
-            style={[styles.modalContent, { paddingBottom: insets.bottom + Spacing.lg, zIndex: 2 }]}
-          >
-            <KeyboardAwareScrollViewCompat>
-              <View style={styles.modalHeader}>
-                <Text style={styles.modalTitle}>Pause Player</Text>
-                <Pressable onPress={() => setShowPauseModal(false)} style={styles.closeButton}>
-                  <Ionicons name="close" size={24} color={Colors.dark.text} />
-                </Pressable>
-              </View>
-              
-              <Text style={styles.modalSubtitle}>
-                Player will not appear in sessions during this period
-              </Text>
+        onClose={() => setShowPauseModal(false)}
+        pauseFromDate={pauseFromDate}
+        setPauseFromDate={setPauseFromDate}
+        pauseUntilDate={pauseUntilDate}
+        setPauseUntilDate={setPauseUntilDate}
+        showPauseFromPicker={showPauseFromPicker}
+        setShowPauseFromPicker={setShowPauseFromPicker}
+        showPauseUntilPicker={showPauseUntilPicker}
+        setShowPauseUntilPicker={setShowPauseUntilPicker}
+        pauseReason={pauseReason}
+        setPauseReason={setPauseReason}
+        onConfirm={handleConfirmPause}
+        isPending={pausePlayerMutation.isPending}
+        bottomInset={insets.bottom}
+      />
 
-              <View style={styles.dateFieldsRow}>
-                <View style={styles.dateField}>
-                  <Text style={styles.fieldLabel}>From Date</Text>
-                  {Platform.OS === "web" ? (
-                    <WebCalendarPicker
-                      value={pauseFromDate}
-                      onChange={(date) => {
-                        setPauseFromDate(date);
-                        if (pauseUntilDate < date) {
-                          const newUntil = new Date(date);
-                          newUntil.setDate(newUntil.getDate() + 7);
-                          setPauseUntilDate(newUntil);
-                        }
-                      }}
-                    />
-                  ) : (
-                    <>
-                      <Pressable 
-                        style={styles.dateButton} 
-                        onPress={() => setShowPauseFromPicker(true)}
-                      >
-                        <Ionicons name="calendar-outline" size={18} color={Colors.dark.gold} />
-                        <Text style={styles.dateButtonText}>
-                          {pauseFromDate.toLocaleDateString()}
-                        </Text>
-                      </Pressable>
-                      {showPauseFromPicker ? (
-                        <DateTimePicker
-                          value={pauseFromDate}
-                          mode="date"
-                          display="default"
-                          onChange={(e, date) => {
-                            setShowPauseFromPicker(false);
-                            if (date) {
-                              setPauseFromDate(date);
-                              if (pauseUntilDate < date) {
-                                const newUntil = new Date(date);
-                                newUntil.setDate(newUntil.getDate() + 7);
-                                setPauseUntilDate(newUntil);
-                              }
-                            }
-                          }}
-                        />
-                      ) : null}
-                    </>
-                  )}
-                </View>
-
-                <View style={styles.dateField}>
-                  <Text style={styles.fieldLabel}>Until Date</Text>
-                  {Platform.OS === "web" ? (
-                    <WebCalendarPicker
-                      value={pauseUntilDate}
-                      onChange={setPauseUntilDate}
-                    />
-                  ) : (
-                    <>
-                      <Pressable 
-                        style={styles.dateButton} 
-                        onPress={() => setShowPauseUntilPicker(true)}
-                      >
-                        <Ionicons name="calendar-outline" size={18} color={Colors.dark.gold} />
-                        <Text style={styles.dateButtonText}>
-                          {pauseUntilDate.toLocaleDateString()}
-                        </Text>
-                      </Pressable>
-                      {showPauseUntilPicker ? (
-                        <DateTimePicker
-                          value={pauseUntilDate}
-                          mode="date"
-                          display="default"
-                          minimumDate={pauseFromDate}
-                          onChange={(e, date) => {
-                            setShowPauseUntilPicker(false);
-                            if (date) setPauseUntilDate(date);
-                          }}
-                        />
-                      ) : null}
-                    </>
-                  )}
-                </View>
-              </View>
-
-              {pauseUntilDate < pauseFromDate ? (
-                <Text style={styles.dateValidationError}>
-                  Until date must be on or after from date
-                </Text>
-              ) : null}
-
-              <View style={styles.reasonField}>
-                <Text style={styles.fieldLabel}>Reason (optional)</Text>
-                <TextInput
-                  style={styles.reasonInput}
-                  placeholder="e.g., Family vacation, Injury..."
-                  placeholderTextColor={Colors.dark.textMuted}
-                  value={pauseReason}
-                  onChangeText={setPauseReason}
-                />
-              </View>
-
-              <View style={styles.modalActions}>
-                <Pressable 
-                  style={styles.cancelButton} 
-                  onPress={() => setShowPauseModal(false)}
-                >
-                  <Text style={styles.cancelButtonText}>Cancel</Text>
-                </Pressable>
-                <Pressable 
-                  style={[
-                    styles.confirmButton, 
-                    styles.pauseConfirmButton,
-                    pauseUntilDate < pauseFromDate && styles.confirmButtonDisabled
-                  ]}
-                  onPress={handleConfirmPause}
-                  disabled={pausePlayerMutation.isPending || pauseUntilDate < pauseFromDate}
-                >
-                  {pausePlayerMutation.isPending ? (
-                    <ActivityIndicator size="small" color={Colors.dark.backgroundRoot} />
-                  ) : (
-                    <Text style={styles.confirmButtonText}>Pause Player</Text>
-                  )}
-                </Pressable>
-              </View>
-            </KeyboardAwareScrollViewCompat>
-          </View>
-        </View>
-      </Modal>
-
-      {/* Remove Player Modal */}
-      <Modal
+      <SeriesRemovePlayerModal
         visible={showRemoveModal}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setShowRemoveModal(false)}
-      >
-        <View style={styles.overlay}>
-          <Pressable style={styles.backdrop} onPress={() => setShowRemoveModal(false)} />
-          <View 
-            style={[styles.modalContent, { paddingBottom: insets.bottom + Spacing.lg, zIndex: 2 }]}
-          >
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Remove Player</Text>
-              <Pressable onPress={() => setShowRemoveModal(false)} style={styles.closeButton}>
-                <Ionicons name="close" size={24} color={Colors.dark.text} />
-              </Pressable>
-            </View>
-            
-            <Text style={styles.modalSubtitle}>
-              This will mark the player as a former player from the selected date
-            </Text>
+        onClose={() => setShowRemoveModal(false)}
+        removeDate={removeDate}
+        setRemoveDate={setRemoveDate}
+        showRemoveDatePicker={showRemoveDatePicker}
+        setShowRemoveDatePicker={setShowRemoveDatePicker}
+        onConfirm={handleConfirmRemove}
+        isPending={removePlayerMutation.isPending}
+        bottomInset={insets.bottom}
+      />
 
-            <View style={styles.dateField}>
-              <Text style={styles.fieldLabel}>Effective Date</Text>
-              {Platform.OS === "web" ? (
-                <WebCalendarPicker
-                  value={removeDate}
-                  onChange={setRemoveDate}
-                />
-              ) : (
-                <>
-                  <Pressable 
-                    style={styles.dateButton} 
-                    onPress={() => setShowRemoveDatePicker(true)}
-                  >
-                    <Ionicons name="calendar-outline" size={18} color={Colors.dark.error} />
-                    <Text style={styles.dateButtonText}>
-                      {removeDate.toLocaleDateString()}
-                    </Text>
-                  </Pressable>
-                  {showRemoveDatePicker ? (
-                    <DateTimePicker
-                      value={removeDate}
-                      mode="date"
-                      display="default"
-                      onChange={(e, date) => {
-                        setShowRemoveDatePicker(false);
-                        if (date) setRemoveDate(date);
-                      }}
-                    />
-                  ) : null}
-                </>
-              )}
-            </View>
-
-            <View style={styles.modalActions}>
-              <Pressable 
-                style={styles.cancelButton} 
-                onPress={() => setShowRemoveModal(false)}
-              >
-                <Text style={styles.cancelButtonText}>Cancel</Text>
-              </Pressable>
-              <Pressable 
-                style={[styles.confirmButton, styles.removeConfirmButton]}
-                onPress={handleConfirmRemove}
-                disabled={removePlayerMutation.isPending}
-              >
-                {removePlayerMutation.isPending ? (
-                  <ActivityIndicator size="small" color={Colors.dark.text} />
-                ) : (
-                  <Text style={styles.confirmButtonText}>Remove Player</Text>
-                )}
-              </Pressable>
-            </View>
-          </View>
-        </View>
-      </Modal>
-
-      {/* Edit Join Date Modal */}
-      <Modal
+      <SeriesEditJoinDateModal
         visible={showEditJoinDateModal}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setShowEditJoinDateModal(false)}
-      >
-        <View style={styles.overlay}>
-          <Pressable style={styles.backdrop} onPress={() => setShowEditJoinDateModal(false)} />
-          <View 
-            style={[styles.modalContent, { paddingBottom: insets.bottom + Spacing.lg, zIndex: 2 }]}
-          >
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Edit Join Date</Text>
-              <Pressable onPress={() => setShowEditJoinDateModal(false)} style={styles.closeButton}>
-                <Ionicons name="close" size={24} color={Colors.dark.text} />
-              </Pressable>
-            </View>
-            
-            <Text style={styles.modalSubtitle}>
-              Change when this player joined the class. This affects which sessions they appear in for attendance.
-            </Text>
+        onClose={() => setShowEditJoinDateModal(false)}
+        editJoinDate={editJoinDate}
+        setEditJoinDate={setEditJoinDate}
+        showEditJoinDatePicker={showEditJoinDatePicker}
+        setShowEditJoinDatePicker={setShowEditJoinDatePicker}
+        onConfirm={handleSaveJoinDate}
+        savingJoinDate={savingJoinDate}
+        bottomInset={insets.bottom}
+      />
 
-            <View style={styles.dateField}>
-              <Text style={styles.fieldLabel}>Join Date</Text>
-              {Platform.OS === "web" ? (
-                <WebCalendarPicker
-                  value={editJoinDate}
-                  onChange={setEditJoinDate}
-                />
-              ) : (
-                <>
-                  <Pressable 
-                    style={styles.dateButton} 
-                    onPress={() => setShowEditJoinDatePicker(true)}
-                  >
-                    <Ionicons name="calendar-outline" size={18} color={Colors.dark.accentCyan} />
-                    <Text style={styles.dateButtonText}>
-                      {editJoinDate.toLocaleDateString()}
-                    </Text>
-                  </Pressable>
-                  {showEditJoinDatePicker ? (
-                    <DateTimePicker
-                      value={editJoinDate}
-                      mode="date"
-                      display="default"
-                      onChange={(e, date) => {
-                        setShowEditJoinDatePicker(false);
-                        if (date) setEditJoinDate(date);
-                      }}
-                    />
-                  ) : null}
-                </>
-              )}
-            </View>
-
-            <View style={styles.modalActions}>
-              <Pressable 
-                style={styles.cancelButton} 
-                onPress={() => setShowEditJoinDateModal(false)}
-              >
-                <Text style={styles.cancelButtonText}>Cancel</Text>
-              </Pressable>
-              <Pressable 
-                style={styles.confirmButton}
-                onPress={handleSaveJoinDate}
-                disabled={savingJoinDate}
-              >
-                {savingJoinDate ? (
-                  <ActivityIndicator size="small" color={Colors.dark.backgroundRoot} />
-                ) : (
-                  <Text style={styles.confirmButtonText}>Save</Text>
-                )}
-              </Pressable>
-            </View>
-          </View>
-        </View>
-      </Modal>
-
-      {/* Extend Class Modal */}
-      <Modal
+      <SeriesExtendClassModal
         visible={showExtendModal}
-        animationType="fade"
-        transparent={true}
-        onRequestClose={() => setShowExtendModal(false)}
-      >
-        <View style={styles.extendModalOverlay}>
-          <View style={styles.extendModalBackdrop}>
-            <Pressable 
-              style={StyleSheet.absoluteFill} 
-              onPress={() => setShowExtendModal(false)} 
-            />
-          </View>
-          <View style={styles.extendModalContent}>
-            <View style={styles.extendModalHeader}>
-              <Ionicons name="calendar-outline" size={32} color={Colors.dark.accent} />
-              <Text style={styles.extendModalTitle}>Extend Class</Text>
-              <Text style={styles.extendModalSubtitle}>
-                Add more weeks to this class series
-              </Text>
-            </View>
-            
-            <Text style={styles.extendModalLabel}>How many weeks?</Text>
-            <View style={styles.weekOptionsGrid}>
-              {weekOptions.map((weeks) => (
-                <Pressable
-                  key={weeks}
-                  style={[
-                    styles.weekOption,
-                    weeksToExtend === weeks && styles.weekOptionSelected,
-                  ]}
-                  onPress={() => {
-                    Haptics.selectionAsync();
-                    setWeeksToExtend(weeks);
-                  }}
-                >
-                  <Text style={[
-                    styles.weekOptionText,
-                    weeksToExtend === weeks && styles.weekOptionTextSelected,
-                  ]}>
-                    {weeks}
-                  </Text>
-                  <Text style={[
-                    styles.weekOptionSubtext,
-                    weeksToExtend === weeks && styles.weekOptionSubtextSelected,
-                  ]}>
-                    weeks
-                  </Text>
-                </Pressable>
-              ))}
-            </View>
-            
-            <View style={styles.extendModalFooter}>
-              <Pressable
-                style={styles.extendCancelButton}
-                onPress={() => setShowExtendModal(false)}
-              >
-                <Text style={styles.extendCancelButtonText}>Cancel</Text>
-              </Pressable>
-              <Pressable
-                style={styles.extendConfirmButton}
-                onPress={confirmExtendSeries}
-              >
-                <LinearGradient
-                  colors={[Colors.dark.accent, Colors.dark.accentGreen]}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 0 }}
-                  style={styles.extendConfirmGradient}
-                >
-                  <Ionicons name="add-circle" size={20} color={Colors.dark.backgroundRoot} />
-                  <Text style={styles.extendConfirmButtonText}>
-                    Add {weeksToExtend} Weeks
-                  </Text>
-                </LinearGradient>
-              </Pressable>
-            </View>
-          </View>
-        </View>
-      </Modal>
+        onClose={() => setShowExtendModal(false)}
+        weeksToExtend={weeksToExtend}
+        setWeeksToExtend={setWeeksToExtend}
+        weekOptions={weekOptions}
+        onConfirm={confirmExtendSeries}
+      />
       
       {/* Extra Lesson Modal - 3 Step Wizard */}
       <Modal

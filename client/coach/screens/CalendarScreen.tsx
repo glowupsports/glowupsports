@@ -51,6 +51,9 @@ import { PremiumSessionWizard } from "@/coach/components/PremiumSessionWizard";
 import AttendanceDrawer from "@/coach/components/AttendanceDrawer";
 import SessionDetailDrawer from "@/coach/components/SessionDetailDrawer";
 import QuickFeedbackModal from "@/coach/components/QuickFeedbackModal";
+import { CalendarFilterOverlay } from "@/coach/components/calendar/CalendarFilterOverlay";
+import { CalendarBlockModal } from "@/coach/components/calendar/CalendarBlockModal";
+import { CalendarDragModal } from "@/coach/components/calendar/CalendarDragModal";
 type CalendarRouteParams = {
   Calendar: {
     openSessionId?: string;
@@ -1515,66 +1518,16 @@ export default function CalendarScreen() {
       {/* DAY VIEW - SLOTS MODE */}
       {viewMode === "day" && dayMode === "slots" && (
         <>
-          <Modal visible={showFilterOverlay} transparent animationType="fade" onRequestClose={() => setShowFilterOverlay(false)}>
-            <Pressable style={styles.filterOverlayBackdrop} onPress={() => setShowFilterOverlay(false)}>
-              <View style={styles.filterOverlayContent} onStartShouldSetResponder={() => true}>
-                <View style={styles.filterOverlayHeader}>
-                  <Text style={styles.filterOverlayTitle}>FILTERS</Text>
-                  <Pressable onPress={() => setShowFilterOverlay(false)}>
-                    <Ionicons name="close" size={20} color={Colors.dark.text} />
-                  </Pressable>
-                </View>
-
-                {allLocations.length > 0 ? (
-                  <>
-                    <Text style={styles.filterSectionLabel}>LOCATION</Text>
-                    <View style={styles.filterChipsWrap}>
-                      <Pressable
-                        style={[styles.locationFilterChip, !selectedLocationFilter && styles.locationFilterChipActive]}
-                        onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); setSelectedLocationFilter(null); setSelectedCourtFilter(null); }}
-                      >
-                        <Ionicons name="location" size={12} color={!selectedLocationFilter ? Colors.dark.gold : Colors.dark.textMuted} style={{ marginRight: 4 }} />
-                        <Text style={[styles.locationFilterText, !selectedLocationFilter && styles.locationFilterTextActive]}>All</Text>
-                      </Pressable>
-                      {allLocations.map((location) => (
-                        <Pressable
-                          key={location.id}
-                          style={[styles.locationFilterChip, selectedLocationFilter === location.id && styles.locationFilterChipActive]}
-                          onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); setSelectedLocationFilter(location.id); setSelectedCourtFilter(null); }}
-                        >
-                          <Ionicons name="location" size={12} color={selectedLocationFilter === location.id ? Colors.dark.gold : Colors.dark.textMuted} style={{ marginRight: 4 }} />
-                          <Text style={[styles.locationFilterText, selectedLocationFilter === location.id && styles.locationFilterTextActive]}>{location.name}</Text>
-                        </Pressable>
-                      ))}
-                    </View>
-                  </>
-                ) : null}
-
-                {locationFilteredCourts.length > 1 ? (
-                  <>
-                    <Text style={styles.filterSectionLabel}>COURT</Text>
-                    <View style={styles.filterChipsWrap}>
-                      <Pressable
-                        style={[styles.courtFilterChip, !selectedCourtFilter && styles.courtFilterChipActive]}
-                        onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); setSelectedCourtFilter(null); }}
-                      >
-                        <Text style={[styles.courtFilterText, !selectedCourtFilter && styles.courtFilterTextActive]}>All Courts</Text>
-                      </Pressable>
-                      {locationFilteredCourts.map((court) => (
-                        <Pressable
-                          key={court.id}
-                          style={[styles.courtFilterChip, selectedCourtFilter === court.id && styles.courtFilterChipActive]}
-                          onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); setSelectedCourtFilter(court.id); }}
-                        >
-                          <Text style={[styles.courtFilterText, selectedCourtFilter === court.id && styles.courtFilterTextActive]}>{court.name}</Text>
-                        </Pressable>
-                      ))}
-                    </View>
-                  </>
-                ) : null}
-              </View>
-            </Pressable>
-          </Modal>
+          <CalendarFilterOverlay
+            visible={showFilterOverlay}
+            onClose={() => setShowFilterOverlay(false)}
+            allLocations={allLocations}
+            locationFilteredCourts={locationFilteredCourts}
+            selectedLocationFilter={selectedLocationFilter}
+            setSelectedLocationFilter={setSelectedLocationFilter}
+            selectedCourtFilter={selectedCourtFilter}
+            setSelectedCourtFilter={setSelectedCourtFilter}
+          />
 
           {/* Court Headers - Clean minimal style */}
           
@@ -2715,215 +2668,13 @@ export default function CalendarScreen() {
       )}
 
       {/* Block Action Modal - Enhanced with date range & weekday selector */}
-      <Modal
+      <CalendarBlockModal
         visible={showBlockActionModal}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setShowBlockActionModal(false)}
-      >
-        <Pressable style={styles.blockModalOverlay} onPress={() => setShowBlockActionModal(false)}>
-          <ScrollView style={{ maxHeight: "90%" }} contentContainerStyle={{ justifyContent: "center", flexGrow: 1 }}>
-          <Pressable style={styles.blockModalContent} onPress={(e) => e.stopPropagation()}>
-            <Text style={styles.blockModalTitle}>BLOCK MY TIME</Text>
-            <Text style={styles.blockModalSubtitle}>
-              Block your availability as a coach
-            </Text>
-
-            {/* Time summary */}
-            <View style={styles.blockModalSummary}>
-              {(() => {
-                const allHours = selectedCells.map(c => c.hour).sort((a, b) => a - b);
-                const uniqueHours = [...new Set(allHours)];
-                if (uniqueHours.length === 0) return null;
-                const startH = uniqueHours[0];
-                const endH = uniqueHours[uniqueHours.length - 1] + 1;
-                return (
-                  <View style={styles.blockModalSummaryRow}>
-                    <Feather name="clock" size={14} color={Colors.dark.primary} />
-                    <Text style={styles.blockModalTimeRange}>
-                      {formatTime(startH)} - {formatTime(endH)}
-                    </Text>
-                  </View>
-                );
-              })()}
-            </View>
-
-            {/* Date Range */}
-            <Text style={styles.blockModalReasonLabel}>DATE RANGE</Text>
-            <View style={styles.dateRangeRow}>
-              <Pressable 
-                style={styles.datePickerBtn} 
-                onPress={() => setShowFromPicker(!showFromPicker)}
-              >
-                <Feather name="calendar" size={14} color={Colors.dark.primary} />
-                <Text style={styles.datePickerBtnText}>
-                  {blockDateFrom.toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" })}
-                </Text>
-              </Pressable>
-              <Text style={styles.dateRangeArrow}>to</Text>
-              <Pressable 
-                style={styles.datePickerBtn} 
-                onPress={() => setShowToPicker(!showToPicker)}
-              >
-                <Feather name="calendar" size={14} color={Colors.dark.primary} />
-                <Text style={styles.datePickerBtnText}>
-                  {blockDateTo.toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" })}
-                </Text>
-              </Pressable>
-            </View>
-            
-            {showFromPicker ? (
-              <View style={styles.inlineDatePicker}>
-                <View style={styles.datePickerControls}>
-                  <Pressable onPress={() => {
-                    const d = new Date(blockDateFrom);
-                    d.setDate(d.getDate() - 1);
-                    setBlockDateFrom(d);
-                  }}>
-                    <Feather name="chevron-left" size={24} color={Colors.dark.primary} />
-                  </Pressable>
-                  <Text style={styles.datePickerCurrentDate}>
-                    {blockDateFrom.toLocaleDateString("en-GB", { weekday: "short", day: "2-digit", month: "short", year: "numeric" })}
-                  </Text>
-                  <Pressable onPress={() => {
-                    const d = new Date(blockDateFrom);
-                    d.setDate(d.getDate() + 1);
-                    setBlockDateFrom(d);
-                    if (d > blockDateTo) setBlockDateTo(new Date(d));
-                  }}>
-                    <Feather name="chevron-right" size={24} color={Colors.dark.primary} />
-                  </Pressable>
-                </View>
-                <Pressable style={styles.datePickerDone} onPress={() => setShowFromPicker(false)}>
-                  <Text style={styles.datePickerDoneText}>Done</Text>
-                </Pressable>
-              </View>
-            ) : null}
-
-            {showToPicker ? (
-              <View style={styles.inlineDatePicker}>
-                <View style={styles.datePickerControls}>
-                  <Pressable onPress={() => {
-                    const d = new Date(blockDateTo);
-                    d.setDate(d.getDate() - 1);
-                    if (d >= blockDateFrom) setBlockDateTo(d);
-                  }}>
-                    <Feather name="chevron-left" size={24} color={Colors.dark.primary} />
-                  </Pressable>
-                  <Text style={styles.datePickerCurrentDate}>
-                    {blockDateTo.toLocaleDateString("en-GB", { weekday: "short", day: "2-digit", month: "short", year: "numeric" })}
-                  </Text>
-                  <Pressable onPress={() => {
-                    const d = new Date(blockDateTo);
-                    d.setDate(d.getDate() + 1);
-                    setBlockDateTo(d);
-                  }}>
-                    <Feather name="chevron-right" size={24} color={Colors.dark.primary} />
-                  </Pressable>
-                </View>
-                <Pressable style={styles.datePickerDone} onPress={() => setShowToPicker(false)}>
-                  <Text style={styles.datePickerDoneText}>Done</Text>
-                </Pressable>
-              </View>
-            ) : null}
-
-            {/* Weekday Selector */}
-            <Text style={[styles.blockModalReasonLabel, { marginTop: 16 }]}>REPEAT ON DAYS</Text>
-            <View style={styles.weekdayRow}>
-              {[
-                { label: "Sun", value: 0 },
-                { label: "Mon", value: 1 },
-                { label: "Tue", value: 2 },
-                { label: "Wed", value: 3 },
-                { label: "Thu", value: 4 },
-                { label: "Fri", value: 5 },
-                { label: "Sat", value: 6 },
-              ].map((day) => {
-                const isSelected = blockWeekdays.includes(day.value);
-                return (
-                  <Pressable
-                    key={day.value}
-                    style={[styles.weekdayPill, isSelected && styles.weekdayPillActive]}
-                    onPress={() => {
-                      setBlockWeekdays(prev =>
-                        isSelected
-                          ? prev.filter(d => d !== day.value)
-                          : [...prev, day.value]
-                      );
-                    }}
-                  >
-                    <Text style={[styles.weekdayPillText, isSelected && styles.weekdayPillTextActive]}>
-                      {day.label}
-                    </Text>
-                  </Pressable>
-                );
-              })}
-            </View>
-
-            {/* Reason */}
-            <Text style={[styles.blockModalReasonLabel, { marginTop: 16 }]}>REASON</Text>
-            <View style={styles.blockReasonRow}>
-              {["personal", "holiday", "tournament", "sick", "training"].map((reason) => (
-                <Pressable
-                  key={reason}
-                  style={[
-                    styles.blockReasonPill,
-                    blockReason === reason && styles.blockReasonPillActive,
-                  ]}
-                  onPress={() => setBlockReason(reason)}
-                >
-                  <Text style={[
-                    styles.blockReasonPillText,
-                    blockReason === reason && styles.blockReasonPillTextActive,
-                  ]}>
-                    {reason.charAt(0).toUpperCase() + reason.slice(1)}
-                  </Text>
-                </Pressable>
-              ))}
-            </View>
-
-            <View style={styles.blockModalActions}>
-              <Pressable style={styles.blockModalCancelBtn} onPress={() => {
-                setShowBlockActionModal(false);
-              }}>
-                <Text style={styles.blockModalCancelText}>Cancel</Text>
-              </Pressable>
-              <Pressable 
-                style={styles.blockModalConfirmBtn} 
-                onPress={() => {
-                  const allHours = selectedCells.map(c => c.hour).sort((a, b) => a - b);
-                  const uniqueHours = [...new Set(allHours)];
-                  const startH = uniqueHours[0];
-                  const endH = uniqueHours[uniqueHours.length - 1] + 1;
-                  const startTime = `${startH.toString().padStart(2, "0")}:00`;
-                  const endTime = `${endH.toString().padStart(2, "0")}:00`;
-                  const startDate = `${blockDateFrom.getFullYear()}-${(blockDateFrom.getMonth() + 1).toString().padStart(2, "0")}-${blockDateFrom.getDate().toString().padStart(2, "0")}`;
-                  const endDate = `${blockDateTo.getFullYear()}-${(blockDateTo.getMonth() + 1).toString().padStart(2, "0")}-${blockDateTo.getDate().toString().padStart(2, "0")}`;
-                  coachBlockMutation.mutate({
-                    startDate,
-                    endDate,
-                    weekdays: blockWeekdays,
-                    startTime,
-                    endTime,
-                    reason: blockReason,
-                  });
-                }}
-                disabled={coachBlockMutation.isPending || blockWeekdays.length === 0}
-              >
-                {coachBlockMutation.isPending ? (
-                  <ActivityIndicator size="small" color="#1A1A1A" />
-                ) : (
-                  <>
-                    <Feather name="lock" size={16} color="#1A1A1A" />
-                    <Text style={styles.blockModalConfirmText}>Block Time</Text>
-                  </>
-                )}
-              </Pressable>
-            </View>
-          </Pressable>
-          </ScrollView>
-        </Pressable>
-      </Modal>
+        onClose={() => setShowBlockActionModal(false)}
+        selectedCells={selectedCells}
+        onConfirm={(data) => coachBlockMutation.mutate(data)}
+        isConfirming={coachBlockMutation.isPending}
+      />
 
       {/* Loading Overlay - Only show on initial load when there's no data */}
       {isLoading && !calendarData && (
@@ -2994,125 +2745,13 @@ export default function CalendarScreen() {
       />
 
       {/* Drag Confirm Modal */}
-      <Modal
-        visible={!!pendingDrag}
-        transparent
-        animationType="fade"
-        onRequestClose={cancelPendingDrag}
-      >
-        <View style={dragModalStyles.backdrop}>
-          <Pressable style={StyleSheet.absoluteFill} onPress={cancelPendingDrag} />
-          <View style={dragModalStyles.container}>
-            <Animated.View entering={FadeIn.duration(200)} style={dragModalStyles.card}>
-              {/* Header */}
-              <View style={dragModalStyles.header}>
-                <View style={dragModalStyles.iconContainer}>
-                  <Ionicons name="move" size={28} color={GlowColors.primary} />
-                </View>
-                <Text style={dragModalStyles.title}>Move Session</Text>
-                {pendingDrag?.isPastSession ? (
-                  <View style={dragModalStyles.warningBadge}>
-                    <Ionicons name="warning" size={14} color="#FF6B35" />
-                    <Text style={dragModalStyles.warningText}>Past Time</Text>
-                  </View>
-                ) : null}
-              </View>
+      <CalendarDragModal
+        pendingDrag={pendingDrag}
+        onCancel={cancelPendingDrag}
+        onConfirm={confirmPendingDrag}
+        courts={courts}
+      />
 
-              {/* Session Info */}
-              <View style={dragModalStyles.sessionInfo}>
-                <Text style={dragModalStyles.sessionName} numberOfLines={1}>
-                  {pendingDrag?.session?.type === "private" ? "PRIVATE" : 
-                   pendingDrag?.session?.type === "group" ? "GROUP" : 
-                   pendingDrag?.session?.type?.toUpperCase() || "SESSION"}
-                </Text>
-              </View>
-
-              {/* Changes Preview */}
-              <View style={dragModalStyles.changesContainer}>
-                {/* Time Change */}
-                <View style={dragModalStyles.changeRow}>
-                  <Ionicons name="time-outline" size={20} color="#8E8E93" />
-                  <View style={dragModalStyles.changeContent}>
-                    <Text style={dragModalStyles.changeLabel}>Time</Text>
-                    <View style={dragModalStyles.changeValues}>
-                      <Text style={dragModalStyles.oldValue}>
-                        {pendingDrag?.session ? formatTimeInTimezone(parseUTCTimestamp(pendingDrag.session.startTime)) : ""}
-                      </Text>
-                      <Ionicons name="arrow-forward" size={16} color={GlowColors.primary} />
-                      <Text style={dragModalStyles.newValue}>
-                        {pendingDrag?.newStart ? formatTimeInTimezone(pendingDrag.newStart) : ""}
-                      </Text>
-                    </View>
-                  </View>
-                </View>
-
-                {/* Date Change (if different) */}
-                {pendingDrag?.session && pendingDrag?.newStart && 
-                 parseUTCTimestamp(pendingDrag.session.startTime).toDateString() !== pendingDrag.newStart.toDateString() ? (
-                  <View style={dragModalStyles.changeRow}>
-                    <Ionicons name="calendar-outline" size={20} color="#8E8E93" />
-                    <View style={dragModalStyles.changeContent}>
-                      <Text style={dragModalStyles.changeLabel}>Date</Text>
-                      <View style={dragModalStyles.changeValues}>
-                        <Text style={dragModalStyles.oldValue}>
-                          {formatDateObjectInTimezone(parseUTCTimestamp(pendingDrag.session.startTime), "EEE, MMM d")}
-                        </Text>
-                        <Ionicons name="arrow-forward" size={16} color={GlowColors.primary} />
-                        <Text style={dragModalStyles.newValue}>
-                          {formatDateObjectInTimezone(pendingDrag.newStart, "EEE, MMM d")}
-                        </Text>
-                      </View>
-                    </View>
-                  </View>
-                ) : null}
-
-                {/* Court Change */}
-                {pendingDrag?.newCourtName ? (
-                  <View style={dragModalStyles.changeRow}>
-                    <Ionicons name="tennisball-outline" size={20} color="#8E8E93" />
-                    <View style={dragModalStyles.changeContent}>
-                      <Text style={dragModalStyles.changeLabel}>Court</Text>
-                      <View style={dragModalStyles.changeValues}>
-                        <Text style={dragModalStyles.oldValue}>
-                          {courts.find(c => c.id === pendingDrag?.session?.courtId)?.name || "Unassigned"}
-                        </Text>
-                        <Ionicons name="arrow-forward" size={16} color={GlowColors.primary} />
-                        <Text style={dragModalStyles.newValue}>
-                          {pendingDrag.newCourtName}
-                        </Text>
-                      </View>
-                    </View>
-                  </View>
-                ) : null}
-              </View>
-
-              {/* Actions */}
-              <View style={dragModalStyles.actions}>
-                <Pressable 
-                  style={dragModalStyles.cancelButton} 
-                  onPress={cancelPendingDrag}
-                >
-                  <Text style={dragModalStyles.cancelButtonText}>Cancel</Text>
-                </Pressable>
-                <Pressable 
-                  style={dragModalStyles.confirmButton} 
-                  onPress={confirmPendingDrag}
-                >
-                  <LinearGradient
-                    colors={[GlowColors.primary, GlowColors.primaryDark || "#9ACC2C"]}
-                    start={{ x: 0, y: 0 }}
-                    end={{ x: 1, y: 1 }}
-                    style={dragModalStyles.confirmGradient}
-                  >
-                    <Ionicons name="checkmark" size={20} color="#000" />
-                    <Text style={dragModalStyles.confirmButtonText}>Confirm Move</Text>
-                  </LinearGradient>
-                </Pressable>
-              </View>
-            </Animated.View>
-          </View>
-        </View>
-      </Modal>
 
       {/* Web hover/press popup */}
       {Platform.OS === 'web' && (hoveredSession || pressedSession) && (() => {

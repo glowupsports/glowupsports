@@ -1,0 +1,56 @@
+
+Now replace the 4 render function bodies with lightweight component wrappers. Let me do them one by one:
+
+Let me replace the render functions. I'll use a node script to get the exact content for the old_string patterns:
+
+Let me use a script to do all 4 replacements at once:
+
+Good, file reduced from 4226 to 3826 lines. Let me check for bundle errors and verify the changes look right:
+
+Bundle compiles cleanly. The TIME_COLUMN_WIDTH error is from CalendarScreen — let me check if it's pre-existing:
+
+Found the bug. calendarStyles.ts uses TIME_COLUMN_WIDTH without defining it. Let me fix that:
+
+Now let me check if SeriesFeedbackTab correctly imports from the theme and check for any issues:
+
+Now let me move to the AdminPlayersScreen. Let me check its current state and the renderInlinePlayerProfile function:
+
+Now I have everything I need. Let me create the AdminInlinePlayerProfile.tsx component:
+
+Now I'll create the AdminInlinePlayerProfile.tsx component with all the internally managed state:
+
+Now let me wire AdminInlinePlayerProfile into AdminPlayersScreen:
+
+Now replace the renderInlinePlayerProfile() call in the render with the component:
+
+Now remove the large renderInlinePlayerProfile function body from AdminPlayersScreen:
+
+AdminPlayersScreen is down from 1958 to 1310 lines. Now let me clean up unused state that moved into the component:
+
+The HOUR_HEIGHT_60 constant is also missing from calendarStyles. Let me fix all missing constants at once:
+
+Now let me also check if Player type reference in AdminPlayersScreen is still intact (after the extraction):
+
+The original file used these types without explicit definitions — TypeScript in strict mode would error, but the bundle compiles fine since Expo uses Babel. Let me add the types to AdminPlayersScreen for cleanliness:
+
+Let me check the logs and current file sizes:
+
+There are two errors — HOUR_HEIGHT_60 (my fix is already applied, bundle is cached) and GlowColors is not defined. Let me find the GlowColors source:
+
+All the imports look correct. The errors are from a stale cached bundle. Let me do a quick check on what's currently happening and verify the file sizes:
+
+Good progress. Let me look at the structure of remaining modals in AdminPlayersScreen to see what can be extracted to reach ~1000 lines:
+
+Let me check the Add Player modal and Filter modal sizes:
+
+Let me extract the 3 largest inline modals to get AdminPlayersScreen under 1000 lines:
+
+Let me extract the 3 modal components to get AdminPlayersScreen below 1000 lines. First read all 3 modals:
+
+Now I'll create the two payment modal components and the Add Player modal:
+
+Now wire them into AdminPlayersScreen using a node script for precise replacements:
+
+The payment state vars are now unused — let me remove them and check what else can be cleaned up:
+
+StatItem, SkillBar, and generateAttendanceReportPDF are confirmed unused. Let me now do a clean sweep — remove dead imports/state + extract Add Player Modal:
