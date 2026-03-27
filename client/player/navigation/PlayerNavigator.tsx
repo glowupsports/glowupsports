@@ -802,11 +802,7 @@ function PlayerStackNavigator() {
         component={GroupDetailScreen}
         options={{
           presentation: "card",
-          headerShown: true,
-          headerTitle: "Group Details",
-          headerStyle: { backgroundColor: '#090E17' },
-          headerTintColor: '#CCFF00',
-          headerTitleStyle: { color: '#ffffff', fontWeight: '600' },
+          headerShown: false,
         }}
       />
       <Stack.Screen 

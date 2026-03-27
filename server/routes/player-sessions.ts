@@ -2145,22 +2145,26 @@ import fs from "fs";
           return res.status(403).json({ error: "This is a private group" });
         }
 
-        // Get all members with user details
+        // Get all members with user details + player profile photo
         const membersData = await db
           .select({
             member: groupMembersTable,
             user: users,
+            playerPhoto: players.profilePhotoUrl,
+            playerName: players.name,
           })
           .from(groupMembersTable)
           .leftJoin(users, eq(groupMembersTable.userId, users.id))
+          .leftJoin(players, eq(players.userId, groupMembersTable.userId))
           .where(eq(groupMembersTable.groupId, groupId));
 
         const members = membersData.map((m) => ({
           id: m.member.id,
           userId: m.member.userId,
-          name: m.user?.email?.split("@")[0] || "Unknown",
+          name: m.playerName || m.user?.email?.split("@")[0] || "Unknown",
           role: m.member.role,
           joinedAt: m.member.joinedAt,
+          avatarUrl: m.playerPhoto || null,
         }));
 
         res.json({
@@ -2207,9 +2211,9 @@ import fs from "fs";
         // Get posts in this group
         const groupPosts = await db
           .select()
-          .from(posts)
-          .where(eq(posts.groupId, groupId))
-          .orderBy(desc(posts.createdAt))
+          .from(postsTable)
+          .where(eq(postsTable.groupId, groupId))
+          .orderBy(desc(postsTable.createdAt))
           .limit(50);
 
         // Add author info

@@ -8,6 +8,12 @@ import {
   ActivityIndicator,
   Alert,
   ScrollView,
+  TextInput,
+  Modal,
+  KeyboardAvoidingView,
+  Platform,
+  Share,
+  Image,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -17,7 +23,7 @@ import * as Haptics from "expo-haptics";
 import Animated, { FadeIn, FadeInDown } from "react-native-reanimated";
 import { Colors, Spacing, BorderRadius } from "@/constants/theme";
 import { ThemedText as Text } from "@/components/ThemedText";
-import { apiRequest } from "@/lib/query-client";
+import { apiRequest, getApiUrl } from "@/lib/query-client";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 
 interface GroupDetail {
@@ -41,6 +47,7 @@ interface GroupDetail {
     name: string;
     role: string;
     joinedAt: string;
+    avatarUrl?: string | null;
   }[];
   memberCount: number;
 }
@@ -70,15 +77,26 @@ const GROUP_TYPE_CONFIG: Record<string, { icon: string; color: string; label: st
   training: { icon: "barbell", color: "#9AE66E", label: "Training" },
 };
 
+function getPhotoUri(url: string | null | undefined): string | null {
+  if (!url) return null;
+  if (url.startsWith("data:") || url.startsWith("http")) return url;
+  return `${getApiUrl()}${url}`;
+}
+
 function MemberGridCell({ member, typeColor }: { member: GroupDetail["members"][0]; typeColor: string }) {
+  const photoUri = getPhotoUri(member.avatarUrl);
   return (
     <Animated.View entering={FadeInDown.duration(200)} style={styles.memberCell}>
       <View style={styles.memberCellAvatarWrap}>
-        <View style={[styles.memberCellAvatar, { backgroundColor: typeColor + "30" }]}>
-          <Text style={[styles.memberCellInitial, { color: typeColor }]}>
-            {member.name.charAt(0).toUpperCase()}
-          </Text>
-        </View>
+        {photoUri ? (
+          <Image source={{ uri: photoUri }} style={styles.memberCellAvatarImg} />
+        ) : (
+          <View style={[styles.memberCellAvatar, { backgroundColor: typeColor + "30" }]}>
+            <Text style={[styles.memberCellInitial, { color: typeColor }]}>
+              {member.name.charAt(0).toUpperCase()}
+            </Text>
+          </View>
+        )}
         {member.role === "admin" ? (
           <View style={styles.adminStarBadge}>
             <Ionicons name="star" size={9} color={Colors.dark.gold} />
@@ -145,11 +163,105 @@ function PostCard({ post, typeColor }: { post: Post; typeColor: string }) {
   );
 }
 
+function ComposePostModal({
+  visible,
+  onClose,
+  groupId,
+  typeColor,
+}: {
+  visible: boolean;
+  onClose: () => void;
+  groupId: string;
+  typeColor: string;
+}) {
+  const queryClient = useQueryClient();
+  const [caption, setCaption] = useState("");
+  const MAX = 280;
+
+  const postMutation = useMutation({
+    mutationFn: () =>
+      apiRequest("POST", "/api/social/posts", {
+        contextType: "group",
+        groupId,
+        visibility: "group",
+        caption: caption.trim(),
+      }),
+    onSuccess: () => {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      queryClient.invalidateQueries({ queryKey: [`/api/player/groups/${groupId}/feed`] });
+      setCaption("");
+      onClose();
+    },
+    onError: (error: any) => {
+      Alert.alert("Error", error?.message || "Failed to post");
+    },
+  });
+
+  const handleSubmit = () => {
+    if (!caption.trim()) return;
+    postMutation.mutate();
+  };
+
+  return (
+    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
+      <KeyboardAvoidingView
+        style={styles.modalOverlay}
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
+      >
+        <Pressable style={styles.modalBackdrop} onPress={onClose} />
+        <View style={styles.composeSheet}>
+          <View style={styles.composeHandle} />
+
+          <View style={styles.composeHeader}>
+            <Pressable onPress={onClose} style={styles.composeCancelBtn}>
+              <Text style={styles.composeCancelText}>Cancel</Text>
+            </Pressable>
+            <Text style={styles.composeTitle}>New Post</Text>
+            <Pressable
+              onPress={handleSubmit}
+              disabled={!caption.trim() || postMutation.isPending}
+              style={[
+                styles.composePostBtn,
+                { backgroundColor: typeColor },
+                (!caption.trim() || postMutation.isPending) && { opacity: 0.4 },
+              ]}
+            >
+              {postMutation.isPending ? (
+                <ActivityIndicator size="small" color="#000" />
+              ) : (
+                <Text style={styles.composePostBtnText}>Post</Text>
+              )}
+            </Pressable>
+          </View>
+
+          <TextInput
+            style={styles.composeInput}
+            placeholder="Share something with the group..."
+            placeholderTextColor="#445566"
+            multiline
+            maxLength={MAX}
+            value={caption}
+            onChangeText={setCaption}
+            autoFocus
+          />
+
+          <View style={styles.composeFooter}>
+            <Text style={[styles.composeCounter, caption.length > MAX * 0.9 && { color: "#FF4D6D" }]}>
+              {caption.length}/{MAX}
+            </Text>
+          </View>
+        </View>
+      </KeyboardAvoidingView>
+    </Modal>
+  );
+}
+
 export default function GroupDetailScreen({ route, navigation }: Props) {
   const insets = useSafeAreaInsets();
   const queryClient = useQueryClient();
   const { groupId, groupName } = route.params as { groupId: string; groupName: string };
   const [activeTab, setActiveTab] = useState<Tab>("feed");
+  const [composeVisible, setComposeVisible] = useState(false);
 
   const { data, isLoading, refetch, isRefetching } = useQuery<GroupDetail>({
     queryKey: [`/api/player/groups/${groupId}`],
@@ -180,6 +292,31 @@ export default function GroupDetailScreen({ route, navigation }: Props) {
     ]);
   };
 
+  const handleInvite = () => {
+    const name = data?.group.name || groupName;
+    Share.share({
+      message: `Join my group "${name}" on Glow Up Sports!\ngups://group/${groupId}`,
+      title: `Join ${name}`,
+    });
+  };
+
+  const handleMenu = () => {
+    const isAdmin = data?.myRole === "admin";
+    const isMember = data?.isMember;
+
+    const options: Array<{ text: string; style?: "destructive" | "cancel"; onPress?: () => void }> = [];
+
+    if (isMember) {
+      options.push({ text: "Invite to Group", onPress: handleInvite });
+    }
+    if (isMember && !isAdmin) {
+      options.push({ text: "Leave Group", style: "destructive", onPress: handleLeave });
+    }
+    options.push({ text: "Cancel", style: "cancel" });
+
+    Alert.alert(data?.group.name || groupName, undefined, options);
+  };
+
   const typeConfig = GROUP_TYPE_CONFIG[data?.group.type || "friends"] || GROUP_TYPE_CONFIG.friends;
   const typeColor = typeConfig.color;
 
@@ -208,9 +345,9 @@ export default function GroupDetailScreen({ route, navigation }: Props) {
             <Pressable style={styles.heroBackBtn} onPress={() => navigation.goBack()}>
               <Ionicons name="chevron-back" size={22} color="#fff" />
             </Pressable>
-            {data?.myRole !== "admin" && data?.isMember ? (
-              <Pressable style={styles.heroMenuBtn} onPress={handleLeave}>
-                <Ionicons name="exit-outline" size={20} color="rgba(255,255,255,0.7)" />
+            {data?.isMember ? (
+              <Pressable style={styles.heroMenuBtn} onPress={handleMenu}>
+                <Ionicons name="ellipsis-horizontal" size={20} color="rgba(255,255,255,0.8)" />
               </Pressable>
             ) : null}
           </View>
@@ -339,7 +476,10 @@ export default function GroupDetailScreen({ route, navigation }: Props) {
       {data?.isMember && data?.group.allowPosts ? (
         <Pressable
           style={[styles.fab, { bottom: insets.bottom + 20 }]}
-          onPress={() => Alert.alert("Post", "Post creation coming soon!")}
+          onPress={() => {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+            setComposeVisible(true);
+          }}
         >
           <LinearGradient
             colors={[Colors.dark.primary, Colors.dark.primary + "CC"]}
@@ -349,6 +489,14 @@ export default function GroupDetailScreen({ route, navigation }: Props) {
           </LinearGradient>
         </Pressable>
       ) : null}
+
+      {/* ---- COMPOSE MODAL ---- */}
+      <ComposePostModal
+        visible={composeVisible}
+        onClose={() => setComposeVisible(false)}
+        groupId={groupId}
+        typeColor={typeColor}
+      />
     </View>
   );
 }
@@ -577,6 +725,11 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
   },
+  memberCellAvatarImg: {
+    width: 58,
+    height: 58,
+    borderRadius: 29,
+  },
   memberCellInitial: {
     fontSize: 20,
     fontWeight: "700",
@@ -645,5 +798,85 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
+  },
+
+  // Compose modal
+  modalOverlay: {
+    flex: 1,
+    justifyContent: "flex-end",
+  },
+  modalBackdrop: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: "rgba(0,0,0,0.5)",
+  },
+  composeSheet: {
+    backgroundColor: "#0F141B",
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    paddingBottom: 32,
+    minHeight: 300,
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.08)",
+  },
+  composeHandle: {
+    width: 40,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: "rgba(255,255,255,0.15)",
+    alignSelf: "center",
+    marginTop: 10,
+    marginBottom: 4,
+  },
+  composeHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: "rgba(255,255,255,0.07)",
+  },
+  composeCancelBtn: {
+    paddingVertical: 4,
+    paddingHorizontal: 4,
+    minWidth: 60,
+  },
+  composeCancelText: {
+    fontSize: 15,
+    color: "#7A8EA0",
+  },
+  composeTitle: {
+    fontSize: 16,
+    fontWeight: "700",
+    color: "#FFFFFF",
+  },
+  composePostBtn: {
+    paddingVertical: 7,
+    paddingHorizontal: 18,
+    borderRadius: 20,
+    minWidth: 60,
+    alignItems: "center",
+  },
+  composePostBtnText: {
+    fontSize: 14,
+    fontWeight: "700",
+    color: "#000",
+  },
+  composeInput: {
+    color: "#FFFFFF",
+    fontSize: 16,
+    lineHeight: 24,
+    padding: 16,
+    minHeight: 120,
+    textAlignVertical: "top",
+  },
+  composeFooter: {
+    paddingHorizontal: 16,
+    paddingTop: 8,
+    alignItems: "flex-end",
+  },
+  composeCounter: {
+    fontSize: 12,
+    color: "#445566",
   },
 });
