@@ -587,7 +587,7 @@ import fs from "fs";
         });
         if (!wasCharged && !sessionPlayer.creditDeductedAt) {
           try {
-            const { ensureCreditProcessed } = await import("./storage");
+            const { ensureCreditProcessed } = await import("../storage");
             await ensureCreditProcessed(sessionPlayer.id);
           } catch (creditErr) {
             console.error(`[Late] Credit processing failed for player ${playerId}:`, creditErr);
@@ -663,7 +663,7 @@ import fs from "fs";
           });
           if (!wasCharged && !sp.creditDeductedAt) {
             try {
-              const { ensureCreditProcessed } = await import("./storage");
+              const { ensureCreditProcessed } = await import("../storage");
               await ensureCreditProcessed(sp.id);
             } catch (creditErr) {
               console.error(`[CheckIn] Credit processing failed for player ${playerId}:`, creditErr);
@@ -6041,7 +6041,7 @@ import fs from "fs";
         return res.status(400).json({ error: "Name, email, and message are required" });
       }
 
-      const { sendEmail } = await import("./emailService");
+      const { sendEmail } = await import("../emailService");
 
       await sendEmail({
         to: "support@glowupsports.com",
@@ -6106,7 +6106,7 @@ import fs from "fs";
         return res.status(404).send("<h1>Report not found</h1>");
       }
 
-      const { generateAttendanceReportHtml } = await import("./services/attendanceReportPdf");
+      const { generateAttendanceReportHtml } = await import("../services/attendanceReportPdf");
 
       const academyId = player.academyId;
       const academy = academyId ? await storage.getAcademy(academyId) : null;

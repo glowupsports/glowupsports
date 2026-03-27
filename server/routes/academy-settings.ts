@@ -619,7 +619,7 @@ import { Router, type Request, type Response, type NextFunction } from "express"
             .json({ error: "Token is required in request body" });
         }
 
-        const { isFCMToken } = await import("./fcm");
+        const { isFCMToken } = await import("../fcm");
         const tokenType = token.startsWith("ExponentPushToken[")
           ? "expo"
           : isFCMToken(token)
@@ -650,7 +650,7 @@ import { Router, type Request, type Response, type NextFunction } from "express"
           );
           return res.json({ success: true, tokenType, results });
         } else {
-          const { sendPushNotification } = await import("./pushNotifications");
+          const { sendPushNotification } = await import("../pushNotifications");
           const results = await sendPushNotification(
             [token],
             "Glow Up Sports - Test",
@@ -691,9 +691,9 @@ import { Router, type Request, type Response, type NextFunction } from "express"
         }
 
         const results = [];
-        const { sendPushNotification } = await import("./pushNotifications");
+        const { sendPushNotification } = await import("../pushNotifications");
         const { isFCMToken, isFirebaseInitialized: isFirebaseInit } =
-          await import("./fcm");
+          await import("../fcm");
 
         for (const t of allTokens) {
           const tokenType = t.token.startsWith("ExponentPushToken[")
@@ -762,7 +762,7 @@ import { Router, type Request, type Response, type NextFunction } from "express"
           createdAt: t.createdAt,
         }));
 
-        const { isFirebaseInitialized } = await import("./fcm");
+        const { isFirebaseInitialized } = await import("../fcm");
 
         res.json({
           userId,
@@ -809,8 +809,8 @@ import { Router, type Request, type Response, type NextFunction } from "express"
           getUserPushTokens,
           getPlayerPushTokens,
           getCoachPushTokens,
-        } = await import("./pushNotifications");
-        const { isFirebaseInitialized } = await import("./fcm");
+        } = await import("../pushNotifications");
+        const { isFirebaseInitialized } = await import("../fcm");
 
         // Collect ALL tokens for this user across all roles
         const tokenSets: { source: string; tokens: string[] }[] = [];

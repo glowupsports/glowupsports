@@ -326,7 +326,7 @@ import { Router, type Request, type Response, type NextFunction } from "express"
         });
 
         // Send welcome email with credentials
-        const { sendEmail } = await import("./emailService");
+        const { sendEmail } = await import("../emailService");
         await sendEmail({
           to: emailLower,
           subject: "Your Glow Up Sports Provider Account",

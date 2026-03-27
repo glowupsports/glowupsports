@@ -551,7 +551,7 @@ import { Router, type Request, type Response, type NextFunction } from "express"
                     healed++;
                     if (isCompleted && newRecord?.id) {
                       try {
-                        const { ensureCreditProcessed } = await import("./storage");
+                        const { ensureCreditProcessed } = await import("../storage");
                         await ensureCreditProcessed(newRecord.id);
                       } catch (creditErr) {
                         console.error(`[Series Auto-Heal] Credit processing failed for player ${playerId}:`, creditErr);
@@ -2263,7 +2263,7 @@ import { Router, type Request, type Response, type NextFunction } from "express"
                     academyId,
                   );
                   if (attendanceResult && attendanceResult.isNewAttendance) {
-                    const { ensureCreditProcessed } = await import("./storage");
+                    const { ensureCreditProcessed } = await import("../storage");
                     await ensureCreditProcessed(attendanceResult.record.id);
                     if (session) {
                       const xpAmount = session.xpValue || 20;
@@ -2382,7 +2382,7 @@ import { Router, type Request, type Response, type NextFunction } from "express"
                 academyId,
               );
               if (attendanceResult && attendanceResult.isNewAttendance) {
-                const { ensureCreditProcessed } = await import("./storage");
+                const { ensureCreditProcessed } = await import("../storage");
                 await ensureCreditProcessed(attendanceResult.record.id);
                 if (session) {
                   const xpAmount = session.xpValue || 20;

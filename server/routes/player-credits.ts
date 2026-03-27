@@ -323,7 +323,7 @@ import { Router, type Request, type Response, type NextFunction } from "express"
         // system previously set credit_deducted_at (e.g. via old code with no package available)
         // but never actually created a credit_transaction. Now that a package exists, charge them.
         try {
-          const { ensureCreditProcessed } = await import("./storage");
+          const { ensureCreditProcessed } = await import("../storage");
           // Map creditType to all session_type values that normalize to it (same logic as ensureCreditProcessed)
           const sessionTypesForCreditType: Record<string, string[]> = {
             private: ["private", "private_adjusted"],

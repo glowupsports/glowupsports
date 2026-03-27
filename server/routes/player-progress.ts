@@ -303,7 +303,7 @@ import { Router, type Request, type Response, type NextFunction } from "express"
           return res.status(404).json({ error: "Player not found" });
         }
         const { generateAttendanceReportHtml, AttendanceReportData } =
-          await import("./services/attendanceReportPdf");
+          await import("../services/attendanceReportPdf");
 
         const academy = academyId ? await storage.getAcademy(academyId) : null;
 

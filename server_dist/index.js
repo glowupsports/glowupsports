@@ -32628,9 +32628,9 @@ init_websocket();
 init_auth();
 import { createServer } from "node:http";
 import rateLimit4 from "express-rate-limit";
-import multer5 from "multer";
-import path6 from "path";
-import fs6 from "fs";
+import multer6 from "multer";
+import path7 from "path";
+import fs7 from "fs";
 import {
   eq as eq44,
   and as and42,
@@ -40587,15 +40587,15 @@ async function isPlayerMinor(playerId) {
 }
 
 // server/rateLimiter.ts
-import rateLimit2 from "express-rate-limit";
-var authLimiter = rateLimit2({
+import rateLimit from "express-rate-limit";
+var authLimiter = rateLimit({
   windowMs: 15 * 60 * 1e3,
   max: 10,
   message: { error: "Too many login attempts, please try again later" },
   standardHeaders: true,
   legacyHeaders: false
 });
-var inviteLimiter = rateLimit2({
+var inviteLimiter = rateLimit({
   windowMs: 15 * 60 * 1e3,
   max: 10,
   message: { error: "Too many invite attempts. Please wait 15 minutes and try again." },
@@ -40628,14 +40628,14 @@ var RateLimiter = class {
 };
 var chatRateLimiter = new RateLimiter(5, 1e4);
 var postRateLimiter = new RateLimiter(3, 6e4);
-var diagnosticsLimiter = rateLimit2({
+var diagnosticsLimiter = rateLimit({
   windowMs: 15 * 60 * 1e3,
   max: 20,
   message: { error: "Too many diagnostic reports submitted. Please try again later." },
   standardHeaders: true,
   legacyHeaders: false
 });
-var adminRepairLimiter2 = rateLimit2({
+var adminRepairLimiter = rateLimit({
   windowMs: 15 * 60 * 1e3,
   max: 5,
   message: { error: "Too many admin repair requests. Please wait before retrying." },
@@ -46542,7 +46542,7 @@ import { Router as Router19 } from "express";
 import multer4 from "multer";
 import path4 from "path";
 import fs4 from "fs";
-import rateLimit3 from "express-rate-limit";
+import rateLimit2 from "express-rate-limit";
 init_schema();
 init_auth();
 init_pushNotifications();
@@ -46551,7 +46551,7 @@ import { eq as eq28, and as and26, or as or13, desc as desc21, asc as asc7, sql 
 import { z as z3 } from "zod";
 import { fromZodError as fromZodError2 } from "zod-validation-error";
 var router20 = Router19();
-var authLimiter2 = rateLimit3({
+var authLimiter2 = rateLimit2({
   windowMs: 15 * 60 * 1e3,
   max: 10,
   message: { error: "Too many requests, please try again later" },
@@ -48253,7 +48253,7 @@ router20.get("/api/admin/dashboard/operations", authMiddlewareWithFreshData, req
     res.status(500).json({ error: "Failed to fetch operations dashboard data" });
   }
 });
-router20.post("/api/admin/seed-demo-data", adminRepairLimiter2, authMiddlewareWithFreshData, requireRole("platform_owner"), async (req2, res) => {
+router20.post("/api/admin/seed-demo-data", adminRepairLimiter, authMiddlewareWithFreshData, requireRole("platform_owner"), async (req2, res) => {
   try {
     const { seedDemoDataForTheLaw } = await import("./seeds/demo-data-seed");
     const result = await seedDemoDataForTheLaw();
@@ -48267,7 +48267,7 @@ router20.post("/api/admin/seed-demo-data", adminRepairLimiter2, authMiddlewareWi
     res.status(500).json({ error: "Failed to seed demo data" });
   }
 });
-router20.post("/api/admin/repair-private-adjusted", adminRepairLimiter2, authMiddlewareWithFreshData, requireRole("admin", "platform_owner"), async (req2, res) => {
+router20.post("/api/admin/repair-private-adjusted", adminRepairLimiter, authMiddlewareWithFreshData, requireRole("admin", "platform_owner"), async (req2, res) => {
   try {
     console.log("[RepairPrivateAdjusted] Starting repair of wrongly charged absent players in private_adjusted sessions...");
     const badTransactions = await db.execute(sql26`
@@ -48332,7 +48332,7 @@ router20.post("/api/admin/repair-private-adjusted", adminRepairLimiter2, authMid
     res.status(500).json({ error: "Repair failed. Check server logs for details." });
   }
 });
-router20.post("/api/admin/fix-series-titles-and-merge", adminRepairLimiter2, authMiddlewareWithFreshData, requireRole("admin", "platform_owner"), async (req2, res) => {
+router20.post("/api/admin/fix-series-titles-and-merge", adminRepairLimiter, authMiddlewareWithFreshData, requireRole("admin", "platform_owner"), async (req2, res) => {
   try {
     console.log("[SeriesFix] Starting series title repair and merge...");
     const fixes = [];
@@ -48434,7 +48434,7 @@ router20.get("/api/player/spotlight/academy-players", authMiddlewareWithFreshDat
     res.status(500).json({ error: "Failed to get players" });
   }
 });
-router20.get("/api/admin/credits/diagnose/:playerId", adminRepairLimiter2, authMiddlewareWithFreshData, requireRole("admin", "platform_owner"), async (req2, res) => {
+router20.get("/api/admin/credits/diagnose/:playerId", adminRepairLimiter, authMiddlewareWithFreshData, requireRole("admin", "platform_owner"), async (req2, res) => {
   try {
     const { playerId } = req2.params;
     const sessionData = await db.execute(sql26`
@@ -51212,11 +51212,11 @@ router22.post("/api/coach/sessions/bulk", authMiddlewareWithFreshData, requireAc
         }
       }
     }
-    for (const fs8 of flexibleSessions) {
-      const start = new Date(fs8.startTime);
-      const end = new Date(fs8.endTime);
-      const dateStr = fs8.date;
-      const startTimeStr = fs8.time;
+    for (const fs9 of flexibleSessions) {
+      const start = new Date(fs9.startTime);
+      const end = new Date(fs9.endTime);
+      const dateStr = fs9.date;
+      const startTimeStr = fs9.time;
       const endTimeStr = end.toISOString().split("T")[1].slice(0, 5);
       const coachConflict = await storage.checkCoachConflict(coachId, start, end, void 0, academyId ?? void 0, courtId);
       const courtConflict = await storage.checkCourtConflict(courtId, start, end, void 0, academyId ?? void 0);
@@ -53432,11 +53432,11 @@ router23.post("/api/admin/sessions/bulk", authMiddlewareWithFreshData, requireRo
         }
       }
     }
-    for (const fs8 of flexibleSessions) {
-      const start = new Date(fs8.startTime);
-      const end = new Date(fs8.endTime);
-      const dateStr = fs8.date;
-      const startTimeStr = fs8.time;
+    for (const fs9 of flexibleSessions) {
+      const start = new Date(fs9.startTime);
+      const end = new Date(fs9.endTime);
+      const dateStr = fs9.date;
+      const startTimeStr = fs9.time;
       const endTimeStr = end.toISOString().split("T")[1].slice(0, 5);
       const coachConflict = await storage.checkCoachConflict(coachId, start, end, void 0, academyId, courtId);
       const courtConflict = await storage.checkCourtConflict(courtId, start, end, void 0, academyId);
@@ -59629,6 +59629,7 @@ init_storage();
 init_auth();
 init_schema();
 init_emailService();
+import crypto5 from "crypto";
 import { Router as Router27 } from "express";
 import {
   eq as eq35,
@@ -59639,6 +59640,15 @@ import {
 } from "drizzle-orm";
 import { fromZodError as fromZodError8 } from "zod-validation-error";
 var router28 = Router27();
+function generateShortInviteCode() {
+  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+  let code = "";
+  for (let i = 0; i < 6; i++) {
+    const randomByte = crypto5.randomInt(0, chars.length);
+    code += chars[randomByte];
+  }
+  return code;
+}
 function parsePagination(query) {
   const limit = Math.min(parseInt(query.limit) || 50, 100);
   const page = parseInt(query.page) || 1;
@@ -63400,6 +63410,7 @@ var player_progress_default = router30;
 init_db();
 init_storage();
 init_auth();
+import crypto6 from "crypto";
 import { Router as Router30 } from "express";
 import {
   eq as eq38,
@@ -64557,7 +64568,7 @@ async function processExtendSeriesBackground(seriesId, weeks, coachId, academyId
     } catch (e) {
     }
     const sessionInserts = validSessions.map((vs) => ({
-      id: crypto.randomUUID(),
+      id: crypto6.randomUUID(),
       seriesId,
       coachId,
       academyId,
@@ -65964,6 +65975,83 @@ import {
 init_schema();
 init_websocket();
 init_pushNotifications();
+
+// server/upload-middleware.ts
+import multer5 from "multer";
+import path5 from "path";
+import fs5 from "fs";
+var UPLOADS_DIR = path5.join(process.cwd(), "uploads");
+var COURT_PHOTOS_DIR = path5.join(UPLOADS_DIR, "court-photos");
+var PROFILE_PHOTOS_DIR = path5.join(UPLOADS_DIR, "profile-photos");
+var SOCIAL_POSTS_DIR2 = path5.join(UPLOADS_DIR, "social-posts");
+if (!fs5.existsSync(UPLOADS_DIR)) fs5.mkdirSync(UPLOADS_DIR, { recursive: true });
+if (!fs5.existsSync(COURT_PHOTOS_DIR)) fs5.mkdirSync(COURT_PHOTOS_DIR, { recursive: true });
+if (!fs5.existsSync(PROFILE_PHOTOS_DIR)) fs5.mkdirSync(PROFILE_PHOTOS_DIR, { recursive: true });
+if (!fs5.existsSync(SOCIAL_POSTS_DIR2)) fs5.mkdirSync(SOCIAL_POSTS_DIR2, { recursive: true });
+var imageFilter = (_req, file, cb) => {
+  const allowed = ["image/jpeg", "image/png", "image/webp", "image/heic", "image/heif"];
+  if (allowed.includes(file.mimetype)) {
+    cb(null, true);
+  } else {
+    cb(new Error("Invalid file type. Only JPEG, PNG, WebP, and HEIC images are allowed."));
+  }
+};
+var courtPhotoUpload = multer5({
+  storage: multer5.diskStorage({
+    destination: (_req, _file, cb) => cb(null, COURT_PHOTOS_DIR),
+    filename: (_req, file, cb) => {
+      const uniqueSuffix = `${Date.now()}-${Math.round(Math.random() * 1e9)}`;
+      cb(null, `court-${uniqueSuffix}${path5.extname(file.originalname)}`);
+    }
+  }),
+  limits: { fileSize: 10 * 1024 * 1024 },
+  fileFilter: imageFilter
+});
+var profilePhotoUpload = multer5({
+  storage: multer5.diskStorage({
+    destination: (_req, _file, cb) => cb(null, PROFILE_PHOTOS_DIR),
+    filename: (_req, file, cb) => {
+      const uniqueSuffix = `${Date.now()}-${Math.round(Math.random() * 1e9)}`;
+      cb(null, `profile-${uniqueSuffix}${path5.extname(file.originalname) || ".jpg"}`);
+    }
+  }),
+  limits: { fileSize: 5 * 1024 * 1024 },
+  fileFilter: imageFilter
+});
+var socialPostUpload2 = multer5({
+  storage: multer5.diskStorage({
+    destination: (_req, _file, cb) => cb(null, SOCIAL_POSTS_DIR2),
+    filename: (_req, file, cb) => {
+      const uniqueSuffix = `${Date.now()}-${Math.round(Math.random() * 1e9)}`;
+      cb(null, `post-${uniqueSuffix}${path5.extname(file.originalname) || ".jpg"}`);
+    }
+  }),
+  limits: { fileSize: 50 * 1024 * 1024 },
+  fileFilter: (_req, file, cb) => {
+    const allowed = [
+      "image/jpeg",
+      "image/png",
+      "image/webp",
+      "image/heic",
+      "image/heif",
+      "image/gif",
+      "video/mp4",
+      "video/quicktime",
+      "video/mov",
+      "video/mpeg",
+      "video/x-m4v",
+      "video/3gpp",
+      "video/webm"
+    ];
+    if (allowed.includes(file.mimetype)) {
+      cb(null, true);
+    } else {
+      cb(new Error("Invalid file type. Only images (JPEG, PNG, WebP, HEIC, GIF) and videos (MP4, MOV, WebM) are allowed."));
+    }
+  }
+});
+
+// server/routes/coach-management.ts
 var router32 = Router31();
 function parsePagination2(query) {
   const limit = Math.min(parseInt(query.limit) || 50, 100);
@@ -68072,7 +68160,7 @@ init_db();
 init_storage();
 init_auth();
 init_schema();
-import crypto5 from "crypto";
+import crypto7 from "crypto";
 import { Router as Router33 } from "express";
 import {
   eq as eq41,
@@ -68510,7 +68598,7 @@ function generateShortInviteCode2() {
   const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
   let code = "";
   for (let i = 0; i < 6; i++) {
-    const randomByte = crypto5.randomInt(0, chars.length);
+    const randomByte = crypto7.randomInt(0, chars.length);
     code += chars[randomByte];
   }
   return code;
@@ -69981,6 +70069,7 @@ init_db();
 init_storage();
 init_auth();
 init_schema();
+import crypto8 from "crypto";
 import { Router as Router34 } from "express";
 import {
   eq as eq42,
@@ -71270,7 +71359,7 @@ router35.post(
           city
         });
       }
-      const inviteToken = crypto.randomUUID();
+      const inviteToken = crypto8.randomUUID();
       const inviteEmail = ownerEmail && typeof ownerEmail === "string" && ownerEmail.includes("@") ? ownerEmail.trim().toLowerCase() : null;
       await storage.createInvite({
         token: inviteToken,
@@ -72225,6 +72314,8 @@ init_storage();
 init_auth();
 init_schema();
 init_pushNotifications();
+import crypto9 from "crypto";
+import rateLimit3 from "express-rate-limit";
 import { Router as Router35 } from "express";
 import {
   eq as eq43,
@@ -72234,8 +72325,8 @@ import {
   inArray as inArray27,
   count as count18
 } from "drizzle-orm";
-import path5 from "path";
-import fs5 from "fs";
+import path6 from "path";
+import fs6 from "fs";
 var router36 = Router35();
 function requirePlayerOrOwner5(req2, res, next) {
   if (!req2.user) {
@@ -76016,7 +76107,7 @@ router36.post(
       const court = await storage.getCourt(courtId, academyId || void 0);
       if (!court) {
         try {
-          fs5.unlinkSync(req2.file.path);
+          fs6.unlinkSync(req2.file.path);
         } catch (e) {
           console.warn("Could not clean up orphaned upload:", e);
         }
@@ -76029,13 +76120,13 @@ router36.post(
         academyId || void 0
       );
       if (court.photoUrl && court.photoUrl !== photoUrl) {
-        const oldPhotoPath = path5.join(
+        const oldPhotoPath = path6.join(
           process.cwd(),
           court.photoUrl.replace(/^\//, "")
         );
-        if (fs5.existsSync(oldPhotoPath)) {
+        if (fs6.existsSync(oldPhotoPath)) {
           try {
-            fs5.unlinkSync(oldPhotoPath);
+            fs6.unlinkSync(oldPhotoPath);
           } catch (e) {
             console.warn("Could not delete old photo:", e);
           }
@@ -76060,7 +76151,7 @@ router36.post(
       console.error("Court photo upload error:", error);
       if (req2.file) {
         try {
-          fs5.unlinkSync(req2.file.path);
+          fs6.unlinkSync(req2.file.path);
         } catch (e) {
           console.warn("Could not clean up file:", e);
         }
@@ -77063,7 +77154,7 @@ router36.post(
       }
       let token = player2.attendanceShareToken;
       if (!token || token.length > 15) {
-        token = crypto.randomBytes(8).toString("base64url");
+        token = crypto9.randomBytes(8).toString("base64url");
         await db.update(players).set({ attendanceShareToken: token }).where(eq43(players.id, id));
       }
       const baseUrl = process.env.EXPO_PUBLIC_DOMAIN ? `https://${process.env.EXPO_PUBLIC_DOMAIN}` : `${req2.protocol}://${req2.get("host")}`;
@@ -77076,11 +77167,10 @@ router36.post(
     }
   }
 );
-var betaFeedbackRateLimiter = rateLimit({
+var betaFeedbackRateLimiter = rateLimit3({
   windowMs: 60 * 60 * 1e3,
   // 1 hour
   max: 10,
-  keyGenerator: (req2) => `${req2.ip || "anon"}:${req2.body?.playerId || "guest"}`,
   message: { error: "Too many feedback submissions. Please wait before submitting again." },
   standardHeaders: true,
   legacyHeaders: false
@@ -77161,33 +77251,33 @@ var diagnosticsReportSchema = z10.object({
   appVersion: z10.string().max(64).optional().nullable(),
   deviceInfo: z10.record(z10.unknown()).optional().nullable()
 });
-var UPLOADS_DIR = path6.join(process.cwd(), "uploads");
-var COURT_PHOTOS_DIR = path6.join(UPLOADS_DIR, "court-photos");
-var PROFILE_PHOTOS_DIR = path6.join(UPLOADS_DIR, "profile-photos");
-var SOCIAL_POSTS_DIR2 = path6.join(UPLOADS_DIR, "social-posts");
-if (!fs6.existsSync(UPLOADS_DIR)) {
-  fs6.mkdirSync(UPLOADS_DIR, { recursive: true });
+var UPLOADS_DIR2 = path7.join(process.cwd(), "uploads");
+var COURT_PHOTOS_DIR2 = path7.join(UPLOADS_DIR2, "court-photos");
+var PROFILE_PHOTOS_DIR2 = path7.join(UPLOADS_DIR2, "profile-photos");
+var SOCIAL_POSTS_DIR3 = path7.join(UPLOADS_DIR2, "social-posts");
+if (!fs7.existsSync(UPLOADS_DIR2)) {
+  fs7.mkdirSync(UPLOADS_DIR2, { recursive: true });
 }
-if (!fs6.existsSync(COURT_PHOTOS_DIR)) {
-  fs6.mkdirSync(COURT_PHOTOS_DIR, { recursive: true });
+if (!fs7.existsSync(COURT_PHOTOS_DIR2)) {
+  fs7.mkdirSync(COURT_PHOTOS_DIR2, { recursive: true });
 }
-if (!fs6.existsSync(PROFILE_PHOTOS_DIR)) {
-  fs6.mkdirSync(PROFILE_PHOTOS_DIR, { recursive: true });
+if (!fs7.existsSync(PROFILE_PHOTOS_DIR2)) {
+  fs7.mkdirSync(PROFILE_PHOTOS_DIR2, { recursive: true });
 }
-if (!fs6.existsSync(SOCIAL_POSTS_DIR2)) {
-  fs6.mkdirSync(SOCIAL_POSTS_DIR2, { recursive: true });
+if (!fs7.existsSync(SOCIAL_POSTS_DIR3)) {
+  fs7.mkdirSync(SOCIAL_POSTS_DIR3, { recursive: true });
 }
-var courtPhotoStorage = multer5.diskStorage({
+var courtPhotoStorage = multer6.diskStorage({
   destination: (_req, _file, cb) => {
-    cb(null, COURT_PHOTOS_DIR);
+    cb(null, COURT_PHOTOS_DIR2);
   },
   filename: (_req, file, cb) => {
     const uniqueSuffix = `${Date.now()}-${Math.round(Math.random() * 1e9)}`;
-    const ext = path6.extname(file.originalname);
+    const ext = path7.extname(file.originalname);
     cb(null, `court-${uniqueSuffix}${ext}`);
   }
 });
-var courtPhotoUpload2 = multer5({
+var courtPhotoUpload2 = multer6({
   storage: courtPhotoStorage,
   limits: {
     fileSize: 10 * 1024 * 1024
@@ -77212,17 +77302,17 @@ var courtPhotoUpload2 = multer5({
     }
   }
 });
-var profilePhotoStorage = multer5.diskStorage({
+var profilePhotoStorage = multer6.diskStorage({
   destination: (_req, _file, cb) => {
-    cb(null, PROFILE_PHOTOS_DIR);
+    cb(null, PROFILE_PHOTOS_DIR2);
   },
   filename: (_req, file, cb) => {
     const uniqueSuffix = `${Date.now()}-${Math.round(Math.random() * 1e9)}`;
-    const ext = path6.extname(file.originalname) || ".jpg";
+    const ext = path7.extname(file.originalname) || ".jpg";
     cb(null, `profile-${uniqueSuffix}${ext}`);
   }
 });
-var profilePhotoUpload2 = multer5({
+var profilePhotoUpload2 = multer6({
   storage: profilePhotoStorage,
   limits: {
     fileSize: 5 * 1024 * 1024
@@ -77247,17 +77337,17 @@ var profilePhotoUpload2 = multer5({
     }
   }
 });
-var socialPostStorage2 = multer5.diskStorage({
+var socialPostStorage2 = multer6.diskStorage({
   destination: (_req, _file, cb) => {
-    cb(null, SOCIAL_POSTS_DIR2);
+    cb(null, SOCIAL_POSTS_DIR3);
   },
   filename: (_req, file, cb) => {
     const uniqueSuffix = `${Date.now()}-${Math.round(Math.random() * 1e9)}`;
-    const ext = path6.extname(file.originalname) || ".jpg";
+    const ext = path7.extname(file.originalname) || ".jpg";
     cb(null, `post-${uniqueSuffix}${ext}`);
   }
 });
-var socialPostUpload2 = multer5({
+var socialPostUpload4 = multer6({
   storage: socialPostStorage2,
   limits: {
     fileSize: 50 * 1024 * 1024
@@ -77877,8 +77967,8 @@ async function registerRoutes(app2) {
 
 // server/index.ts
 init_pushNotifications();
-import * as fs7 from "fs";
-import * as path7 from "path";
+import * as fs8 from "fs";
+import * as path8 from "path";
 import { createProxyMiddleware } from "http-proxy-middleware";
 if (process.env.SENTRY_DSN) {
   Sentry.init({
@@ -77976,7 +78066,7 @@ function setupRequestLogging(app2) {
   app2.use((req2, res, next) => {
     const requestId = generateRequestId();
     const start = Date.now();
-    const path8 = req2.path;
+    const path9 = req2.path;
     let capturedJsonResponse = void 0;
     res.setHeader("X-Request-Id", requestId);
     req2.requestId = requestId;
@@ -77986,18 +78076,18 @@ function setupRequestLogging(app2) {
       return originalResJson.apply(res, [bodyJson, ...args]);
     };
     res.on("finish", () => {
-      if (!path8.startsWith("/api")) return;
+      if (!path9.startsWith("/api")) return;
       const duration2 = Date.now() - start;
       const logEntry = {
         timestamp: (/* @__PURE__ */ new Date()).toISOString(),
         requestId,
         method: req2.method,
-        path: path8,
+        path: path9,
         status: res.statusCode,
         duration: duration2,
         userAgent: req2.get("user-agent")?.slice(0, 50)
       };
-      let logLine = `[${requestId}] ${req2.method} ${path8} ${res.statusCode} in ${duration2}ms`;
+      let logLine = `[${requestId}] ${req2.method} ${path9} ${res.statusCode} in ${duration2}ms`;
       if (capturedJsonResponse) {
         logLine += ` :: ${JSON.stringify(capturedJsonResponse)}`;
       }
@@ -78011,8 +78101,8 @@ function setupRequestLogging(app2) {
 }
 function getAppName() {
   try {
-    const appJsonPath = path7.resolve(process.cwd(), "app.json");
-    const appJsonContent = fs7.readFileSync(appJsonPath, "utf-8");
+    const appJsonPath = path8.resolve(process.cwd(), "app.json");
+    const appJsonContent = fs8.readFileSync(appJsonPath, "utf-8");
     const appJson = JSON.parse(appJsonContent);
     return appJson.expo?.name || "App Landing Page";
   } catch {
@@ -78020,19 +78110,19 @@ function getAppName() {
   }
 }
 function serveExpoManifest(platform, res) {
-  const manifestPath = path7.resolve(
+  const manifestPath = path8.resolve(
     process.cwd(),
     "static-build",
     platform,
     "manifest.json"
   );
-  if (!fs7.existsSync(manifestPath)) {
+  if (!fs8.existsSync(manifestPath)) {
     return res.status(404).json({ error: `Manifest not found for platform: ${platform}` });
   }
   res.setHeader("expo-protocol-version", "1");
   res.setHeader("expo-sfv-version", "0");
   res.setHeader("content-type", "application/json");
-  const manifest = fs7.readFileSync(manifestPath, "utf-8");
+  const manifest = fs8.readFileSync(manifestPath, "utf-8");
   res.send(manifest);
 }
 function serveLandingPage({
@@ -78100,35 +78190,35 @@ function setupExpoDevProxy(app2) {
   });
 }
 function configureExpoAndLanding(app2) {
-  const templatePath = path7.resolve(
+  const templatePath = path8.resolve(
     process.cwd(),
     "server",
     "templates",
     "landing-page.html"
   );
-  const landingPageTemplate = fs7.readFileSync(templatePath, "utf-8");
+  const landingPageTemplate = fs8.readFileSync(templatePath, "utf-8");
   const appName = getAppName();
-  const privacyPolicyPath = path7.resolve(
+  const privacyPolicyPath = path8.resolve(
     process.cwd(),
     "server",
     "templates",
     "privacy-policy.html"
   );
-  const privacyPolicyTemplate = fs7.existsSync(privacyPolicyPath) ? fs7.readFileSync(privacyPolicyPath, "utf-8") : null;
-  const deleteAccountPath = path7.resolve(
+  const privacyPolicyTemplate = fs8.existsSync(privacyPolicyPath) ? fs8.readFileSync(privacyPolicyPath, "utf-8") : null;
+  const deleteAccountPath = path8.resolve(
     process.cwd(),
     "server",
     "templates",
     "delete-account.html"
   );
-  const deleteAccountTemplate = fs7.existsSync(deleteAccountPath) ? fs7.readFileSync(deleteAccountPath, "utf-8") : null;
-  const supportPath = path7.resolve(
+  const deleteAccountTemplate = fs8.existsSync(deleteAccountPath) ? fs8.readFileSync(deleteAccountPath, "utf-8") : null;
+  const supportPath = path8.resolve(
     process.cwd(),
     "server",
     "templates",
     "support.html"
   );
-  const supportTemplate = fs7.existsSync(supportPath) ? fs7.readFileSync(supportPath, "utf-8") : null;
+  const supportTemplate = fs8.existsSync(supportPath) ? fs8.readFileSync(supportPath, "utf-8") : null;
   log("Serving static Expo files with dynamic manifest routing");
   app2.get("/privacy-policy", (_req, res) => {
     if (privacyPolicyTemplate) {
@@ -78182,8 +78272,8 @@ function configureExpoAndLanding(app2) {
       });
     }
     if (req2.path === "/") {
-      const distIndexPath = path7.resolve(process.cwd(), "dist", "index.html");
-      if (fs7.existsSync(distIndexPath)) {
+      const distIndexPath = path8.resolve(process.cwd(), "dist", "index.html");
+      if (fs8.existsSync(distIndexPath)) {
         return res.sendFile(distIndexPath);
       }
       return serveLandingPage({
@@ -78195,8 +78285,8 @@ function configureExpoAndLanding(app2) {
     }
     next();
   });
-  app2.use("/assets", express2.static(path7.resolve(process.cwd(), "assets")));
-  app2.use("/uploads/profile-photos", express2.static(path7.resolve(process.cwd(), "uploads/profile-photos")));
+  app2.use("/assets", express2.static(path8.resolve(process.cwd(), "assets")));
+  app2.use("/uploads/profile-photos", express2.static(path8.resolve(process.cwd(), "uploads/profile-photos")));
   const uploadsAuthGuard = (req2, res, next) => {
     const authHeader = req2.headers.authorization;
     let token = null;
@@ -78217,10 +78307,10 @@ function configureExpoAndLanding(app2) {
       return res.status(401).json({ error: "Invalid or expired token" });
     }
   };
-  app2.use("/uploads", uploadsAuthGuard, express2.static(path7.resolve(process.cwd(), "uploads")));
-  app2.use("/images", express2.static(path7.resolve(process.cwd(), "server/public/images")));
-  app2.use(express2.static(path7.resolve(process.cwd(), "static-build")));
-  app2.use(express2.static(path7.resolve(process.cwd(), "dist")));
+  app2.use("/uploads", uploadsAuthGuard, express2.static(path8.resolve(process.cwd(), "uploads")));
+  app2.use("/images", express2.static(path8.resolve(process.cwd(), "server/public/images")));
+  app2.use(express2.static(path8.resolve(process.cwd(), "static-build")));
+  app2.use(express2.static(path8.resolve(process.cwd(), "dist")));
   log("Expo routing: Checking expo-platform header on / and /manifest");
 }
 function setupErrorHandler(app2) {

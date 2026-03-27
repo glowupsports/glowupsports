@@ -1604,7 +1604,7 @@ import { Router, type Request, type Response, type NextFunction } from "express"
                 const isChargeable = action.status === "present" || action.status === "late";
                 if (isChargeable && spRecord && !spRecord.creditDeductedAt) {
                   try {
-                    const { ensureCreditProcessed } = await import("./storage");
+                    const { ensureCreditProcessed } = await import("../storage");
                     await ensureCreditProcessed(spRecord.id);
                   } catch (creditErr) {
                     console.error(`[OfflineSync] Credit processing failed for player ${action.playerId}:`, creditErr);

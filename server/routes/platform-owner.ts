@@ -2621,7 +2621,7 @@ import { Router, type Request, type Response, type NextFunction } from "express"
         console.log(
           "[BulkRepair] Starting bulk repair of all player credits...",
         );
-        const { repairAllPlayerCredits } = await import("./storage");
+        const { repairAllPlayerCredits } = await import("../storage");
         const result = await repairAllPlayerCredits();
 
         console.log(

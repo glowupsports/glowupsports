@@ -2369,7 +2369,7 @@ router.get("/api/admin/dashboard/operations", authMiddleware, requireRole("admin
 router.post("/api/admin/seed-demo-data", adminRepairLimiter, authMiddleware, requireRole("platform_owner"), async (req: AuthRequest, res: Response) => {
     try {
 
-      const { seedDemoDataForTheLaw } = await import("./seeds/demo-data-seed");
+      const { seedDemoDataForTheLaw } = await import("../seeds/demo-data-seed");
       const result = await seedDemoDataForTheLaw();
       
       if (result.success) {
