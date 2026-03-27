@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useRef, useEffect, useCallback } from "react";
 import { View, Text, StyleSheet, ScrollView, Pressable, Dimensions } from "react-native";
 import { useQuery } from "@tanstack/react-query";
 import { useNavigation } from "@react-navigation/native";
@@ -10,6 +10,9 @@ import { Colors, Spacing, GlowColors, Backgrounds } from "@/constants/theme";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 const PRODUCT_CARD_WIDTH = 140;
+const CARD_SPACING = 10;
+const AUTO_ROTATE_INTERVAL = 3000;
+const RESUME_DELAY = 5000;
 
 interface ShopProduct {
   id: string;
@@ -37,6 +40,11 @@ interface ShopData {
 
 export function GlowMarketSpotlight() {
   const navigation = useNavigation<any>();
+  const scrollRef = useRef<ScrollView>(null);
+  const currentIndexRef = useRef(0);
+  const autoRotateTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const resumeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const isUserScrollingRef = useRef(false);
 
   const { data: shopData } = useQuery<ShopData>({
     queryKey: ["/api/player/shop"],
@@ -48,7 +56,7 @@ export function GlowMarketSpotlight() {
     staleTime: 10 * 60 * 1000,
   });
 
-  const featuredProducts = shopData?.featuredProducts || [];
+  const featuredProducts = shopData?.featuredProducts?.slice(0, 6) || [];
 
   const getDiscountPercent = (product: ShopProduct): number | null => {
     if (!product.compareAtPrice || !product.price) return null;
@@ -72,6 +80,54 @@ export function GlowMarketSpotlight() {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     navigation.navigate("Shop");
   };
+
+  const scrollToIndex = useCallback((index: number, products: ShopProduct[]) => {
+    if (!scrollRef.current || products.length === 0) return;
+    const clampedIndex = Math.max(0, Math.min(index, products.length - 1));
+    const offset = clampedIndex * (PRODUCT_CARD_WIDTH + CARD_SPACING);
+    scrollRef.current.scrollTo({ x: offset, animated: true });
+    currentIndexRef.current = clampedIndex;
+  }, []);
+
+  const startAutoRotate = useCallback((products: ShopProduct[]) => {
+    if (products.length <= 1) return;
+    if (autoRotateTimerRef.current) clearInterval(autoRotateTimerRef.current);
+    autoRotateTimerRef.current = setInterval(() => {
+      if (isUserScrollingRef.current) return;
+      const nextIndex = (currentIndexRef.current + 1) % products.length;
+      scrollToIndex(nextIndex, products);
+    }, AUTO_ROTATE_INTERVAL);
+  }, [scrollToIndex]);
+
+  const stopAutoRotate = useCallback(() => {
+    if (autoRotateTimerRef.current) {
+      clearInterval(autoRotateTimerRef.current);
+      autoRotateTimerRef.current = null;
+    }
+  }, []);
+
+  const pauseAndResume = useCallback((products: ShopProduct[]) => {
+    isUserScrollingRef.current = true;
+    stopAutoRotate();
+    if (resumeTimerRef.current) clearTimeout(resumeTimerRef.current);
+    resumeTimerRef.current = setTimeout(() => {
+      isUserScrollingRef.current = false;
+      startAutoRotate(products);
+    }, RESUME_DELAY);
+  }, [stopAutoRotate, startAutoRotate]);
+
+  const productSignature = featuredProducts.map((p) => p.id).join(",");
+
+  useEffect(() => {
+    currentIndexRef.current = 0;
+    if (featuredProducts.length > 1) {
+      startAutoRotate(featuredProducts);
+    }
+    return () => {
+      stopAutoRotate();
+      if (resumeTimerRef.current) clearTimeout(resumeTimerRef.current);
+    };
+  }, [productSignature]);
 
   return (
     <Animated.View entering={FadeIn.duration(400)} style={styles.container}>
@@ -102,11 +158,19 @@ export function GlowMarketSpotlight() {
 
         {featuredProducts.length > 0 ? (
           <ScrollView
+            ref={scrollRef}
             horizontal
             showsHorizontalScrollIndicator={false}
             contentContainerStyle={styles.productsScroll}
+            scrollEventThrottle={16}
+            onScrollBeginDrag={() => pauseAndResume(featuredProducts)}
+            onMomentumScrollEnd={(e) => {
+              const offsetX = e.nativeEvent.contentOffset.x;
+              const index = Math.round(offsetX / (PRODUCT_CARD_WIDTH + CARD_SPACING));
+              currentIndexRef.current = index;
+            }}
           >
-            {featuredProducts.slice(0, 6).map((product) => {
+            {featuredProducts.map((product) => {
               const discount = getDiscountPercent(product);
               return (
                 <Pressable
@@ -227,7 +291,7 @@ const styles = StyleSheet.create({
   },
   productsScroll: {
     paddingHorizontal: Spacing.md,
-    gap: 10,
+    gap: CARD_SPACING,
     paddingBottom: Spacing.xs,
   },
   productCard: {
