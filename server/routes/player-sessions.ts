@@ -2910,6 +2910,63 @@ import fs from "fs";
     },
   );
 
+  // Get attendees for a group event (all RSVPs with user details)
+  router.get(
+    "/api/player/groups/:groupId/events/:eventId/attendees",
+    authMiddleware,
+    requirePlayerOrOwner,
+    requireFeatureUnlock("groups"),
+    async (req: AuthenticatedRequest, res: Response) => {
+      try {
+        const { groupId, eventId } = req.params;
+        const userId = req.user!.userId!;
+
+        // Verify membership
+        const [membership] = await db.select().from(groupMembersTable)
+          .where(and(eq(groupMembersTable.groupId, groupId), eq(groupMembersTable.userId, userId)));
+        if (!membership) {
+          return res.status(403).json({ error: "Not a member of this group" });
+        }
+
+        // Verify event belongs to group
+        const [event] = await db.select().from(groupEventsTable)
+          .where(and(eq(groupEventsTable.id, eventId), eq(groupEventsTable.groupId, groupId)));
+        if (!event) {
+          return res.status(404).json({ error: "Event not found" });
+        }
+
+        // Get all RSVPs with user info in a single joined query
+        const rsvpsWithUsers = await db
+          .select({
+            userId: groupEventRsvpsTable.userId,
+            status: groupEventRsvpsTable.status,
+            name: players.name,
+            photo: players.profilePhotoUrl,
+          })
+          .from(groupEventRsvpsTable)
+          .leftJoin(users, eq(groupEventRsvpsTable.userId, users.id))
+          .leftJoin(players, eq(users.playerId, players.id))
+          .where(eq(groupEventRsvpsTable.eventId, eventId));
+
+        const enriched = rsvpsWithUsers.map(r => ({
+          userId: r.userId,
+          status: r.status,
+          name: r.name || "Unknown",
+          avatarUrl: r.photo || null,
+        }));
+
+        res.json({
+          going: enriched.filter(a => a.status === "going"),
+          maybe: enriched.filter(a => a.status === "maybe"),
+          notGoing: enriched.filter(a => a.status === "not_going"),
+        });
+      } catch (error) {
+        console.error("Error fetching event attendees:", error);
+        res.status(500).json({ error: "Failed to fetch attendees" });
+      }
+    },
+  );
+
   // Update a group event (creator or admin only)
   router.patch(
     "/api/player/groups/:groupId/events/:eventId",

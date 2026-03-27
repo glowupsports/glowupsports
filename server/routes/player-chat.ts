@@ -189,16 +189,22 @@ router.post("/api/player/me/conversations", authMiddleware, requirePlayerOrOwner
     }
     const playerId = req.user!.playerId!;
     const player = await storage.getPlayer(playerId);
-    if (!player || !player.academyId) {
-      return res.status(403).json({ error: "Academy membership required for chat" });
+    if (!player) {
+      return res.status(403).json({ error: "Player profile not found" });
     }
 
-    const academyId = player.academyId;
     const { type, otherPlayerId, title, coachId, squadId, groupId } = req.body;
 
     if (!type) {
       return res.status(400).json({ error: "Conversation type required" });
     }
+
+    // Group conversations don't require academy membership
+    if (type !== "group" && !player.academyId) {
+      return res.status(403).json({ error: "Academy membership required for chat" });
+    }
+
+    const academyId = player.academyId || null;
 
     if (type === "coach_player") {
       if (!coachId) {
@@ -407,16 +413,16 @@ router.post("/api/player/me/conversations", authMiddleware, requirePlayerOrOwner
 router.get("/api/player/me/conversations/:id/messages", authMiddleware, requirePlayerOrOwner, async (req: AuthRequest, res: Response) => {
   try {
     if (!req.user!.playerId) {
-      return res.json({ friends: [], pendingRequests: [] });
+      return res.json([]);
     }
     const playerId = req.user!.playerId!;
     const player = await storage.getPlayer(playerId);
-    if (!player || !player.academyId) {
-      return res.json({ friends: [], pendingRequests: [] });
+    if (!player) {
+      return res.json([]);
     }
 
     const { id } = req.params;
-    const academyId = player.academyId;
+    const academyId = player.academyId || null;
     const limit = parseInt(req.query.limit as string) || 50;
 
     const conversation = await storage.getConversationForPlayer(id, playerId, academyId);
@@ -448,12 +454,12 @@ router.post("/api/player/me/conversations/:id/messages", authMiddleware, require
     }
     const playerId = req.user!.playerId!;
     const player = await storage.getPlayer(playerId);
-    if (!player || !player.academyId) {
-      return res.status(403).json({ error: "Academy membership required" });
+    if (!player) {
+      return res.status(403).json({ error: "Player profile not found" });
     }
 
     const { id } = req.params;
-    const academyId = player.academyId;
+    const academyId = player.academyId || null;
     const { body, messageType } = req.body;
 
     if (!body || !body.trim()) {
@@ -558,11 +564,12 @@ router.get("/api/player/me/conversations/:id/read-state", authMiddleware, requir
     if (!req.user!.playerId) return res.json([]);
     const playerId = req.user!.playerId!;
     const player = await storage.getPlayer(playerId);
-    if (!player || !player.academyId) return res.json([]);
+    if (!player) return res.json([]);
     const { id } = req.params;
-    const conversation = await storage.getConversationForPlayer(id, playerId, player.academyId);
+    const academyId = player.academyId || null;
+    const conversation = await storage.getConversationForPlayer(id, playerId, academyId);
     if (!conversation) return res.status(404).json({ error: "Conversation not found" });
-    const participants = await storage.getConversationParticipants(id, undefined, player.academyId);
+    const participants = await storage.getConversationParticipants(id, undefined, academyId as string);
     const readState = participants
       .filter(p => p.playerId && p.playerId !== playerId)
       .map(p => ({ playerId: p.playerId, lastReadAt: p.lastReadAt }));
@@ -581,12 +588,12 @@ router.post("/api/player/me/conversations/:id/read", authMiddleware, requirePlay
     }
     const playerId = req.user!.playerId!;
     const player = await storage.getPlayer(playerId);
-    if (!player || !player.academyId) {
-      return res.status(403).json({ error: "Academy membership required" });
+    if (!player) {
+      return res.status(403).json({ error: "Player profile not found" });
     }
 
     const { id } = req.params;
-    const academyId = player.academyId;
+    const academyId = player.academyId || null;
 
     const conversation = await storage.getConversationForPlayer(id, playerId, academyId);
     if (!conversation) {

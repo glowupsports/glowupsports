@@ -5300,7 +5300,8 @@ export const storage = {
     return result[0];
   },
 
-  async getConversationForPlayer(conversationId: string, playerId: string, academyId: string): Promise<Conversation | undefined> {
+  async getConversationForPlayer(conversationId: string, playerId: string, academyId: string | null): Promise<Conversation | undefined> {
+    // First, check if the player is a participant in this conversation
     const participant = await db
       .select()
       .from(conversationParticipants)
@@ -5311,34 +5312,42 @@ export const storage = {
           eq(conversationParticipants.participantType, "player")
         )
       );
-    
-    if (participant.length === 0) {
+
+    if (participant.length > 0) {
+      // Player is a participant — fetch the conversation.
+      // For group conversations (no academyId), participant membership is sufficient.
+      // For academy conversations, enforce tenant scoping.
       const conv = await db
         .select()
         .from(conversations)
-        .where(
-          and(
-            eq(conversations.id, conversationId),
-            eq(conversations.playerId, playerId),
-            eq(conversations.academyId, academyId)
-          )
-        );
-      return conv[0];
+        .where(eq(conversations.id, conversationId));
+      const c = conv[0];
+      if (!c) return undefined;
+      // Group conversations (type === "group") have null academyId — allow access via participant
+      if (c.type === "group") return c;
+      // Academy conversations: enforce tenant scoping
+      if (academyId && c.academyId === academyId) return c;
+      return undefined;
     }
-    
+
+    // Fallback: player is the conversation owner (direct conversation starter)
     const conv = await db
       .select()
       .from(conversations)
       .where(
         and(
           eq(conversations.id, conversationId),
-          eq(conversations.academyId, academyId)
+          eq(conversations.playerId, playerId),
         )
       );
-    return conv[0];
+    const c = conv[0];
+    if (!c) return undefined;
+    if (c.type === "group") return c;
+    if (academyId && c.academyId === academyId) return c;
+    return undefined;
   },
 
-  async getMessagesForPlayer(conversationId: string, playerId: string, academyId: string, limit: number = 50): Promise<Message[]> {
+  async getMessagesForPlayer(conversationId: string, playerId: string, academyId: string | null, limit: number = 50): Promise<Message[]> {
     const hasAccess = await this.getConversationForPlayer(conversationId, playerId, academyId);
     if (!hasAccess) return [];
     

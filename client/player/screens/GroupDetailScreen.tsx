@@ -25,7 +25,7 @@ import DateTimePicker from "@react-native-community/datetimepicker";
 import Animated, { FadeIn, FadeInDown } from "react-native-reanimated";
 import { Colors, Spacing, BorderRadius } from "@/constants/theme";
 import { ThemedText as Text } from "@/components/ThemedText";
-import { apiRequest, getApiUrl } from "@/lib/query-client";
+import { apiRequest, getApiUrl, getAuthHeaders } from "@/lib/query-client";
 import { useWebSocket, type NewMessagePayload } from "@/lib/useWebSocket";
 import { useAuth } from "@/coach/context/AuthContext";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
@@ -476,29 +476,52 @@ function ComposePostModal({
 
   const uploadImages = async (): Promise<string[]> => {
     if (images.length === 0) return [];
-    const formData = new FormData();
-    for (let idx = 0; idx < images.length; idx++) {
-      const uri = images[idx];
-      const filename = `photo_${idx}.jpg`;
-      if (Platform.OS === "web") {
-        const response = await fetch(uri);
-        const blob = await response.blob();
-        formData.append("images", blob, filename);
-      } else {
-        formData.append("images", { uri, name: filename, type: "image/jpeg" } as any);
+
+    if (Platform.OS === "web") {
+      // Web: use fetch + FormData (supports multiple files in one request)
+      const formData = new FormData();
+      for (let idx = 0; idx < images.length; idx++) {
+        const uri = images[idx];
+        const blob = await fetch(uri).then(r => r.blob());
+        formData.append("images", blob, `photo_${idx}.jpg`);
       }
+      const base = getApiUrl();
+      const AsyncStorage = (await import("@react-native-async-storage/async-storage")).default;
+      const authToken = await AsyncStorage.getItem("auth_token");
+      const res = await fetch(`${base}/api/social/posts/upload-images`, {
+        method: "POST",
+        headers: authToken ? { Authorization: `Bearer ${authToken}` } : {},
+        body: formData,
+      });
+      if (!res.ok) {
+        const errText = await res.text().catch(() => "");
+        throw new Error(`Image upload failed${errText ? `: ${errText}` : ""}`);
+      }
+      const json = await res.json();
+      return json.images || [];
+    } else {
+      // React Native: use expo-file-system uploadAsync (one file at a time, multipart)
+      const { uploadAsync, FileSystemUploadType } = await import("expo-file-system/legacy");
+      const uploadUrl = `${getApiUrl()}/api/social/posts/upload-images`;
+      const authHeaders = getAuthHeaders();
+      const allUrls: string[] = [];
+      for (const uri of images) {
+        const result = await uploadAsync(uploadUrl, uri, {
+          fieldName: "images",
+          httpMethod: "POST",
+          uploadType: FileSystemUploadType.MULTIPART,
+          mimeType: "image/jpeg",
+          headers: authHeaders,
+        });
+        if (result.status >= 200 && result.status < 300) {
+          const json = JSON.parse(result.body);
+          if (Array.isArray(json.images)) allUrls.push(...json.images);
+        } else {
+          throw new Error(`Image upload failed: ${result.body}`);
+        }
+      }
+      return allUrls;
     }
-    const base = getApiUrl();
-    const token = (await import("@react-native-async-storage/async-storage")).default.getItem("auth_token");
-    const authToken = await token;
-    const res = await fetch(`${base}/api/social/posts/upload-images`, {
-      method: "POST",
-      headers: authToken ? { Authorization: `Bearer ${authToken}` } : {},
-      body: formData,
-    });
-    if (!res.ok) throw new Error("Image upload failed");
-    const json = await res.json();
-    return json.images || [];
   };
 
   const postMutation = useMutation({
@@ -825,6 +848,7 @@ function EventCard({
 }) {
   const isPast = new Date(event.eventDate) < new Date();
   const goingCount = event.goingCount ?? 0;
+  const maybeCount = event.maybeCount ?? 0;
   const isCreator = event.creatorId === currentUserId;
 
   return (
@@ -885,7 +909,7 @@ function EventCard({
         </View>
       ) : null}
 
-      {event.goingAvatars.length > 0 && (
+      {(event.goingAvatars.length > 0 || maybeCount > 0) && (
         <View style={evtStyles.avatarRow}>
           {event.goingAvatars.slice(0, 5).map((a, i) => (
             <View key={i} style={[evtStyles.miniAvatar, { marginLeft: i > 0 ? -8 : 0, zIndex: 10 - i, backgroundColor: typeColor + "40" }]}>
@@ -896,7 +920,13 @@ function EventCard({
               )}
             </View>
           ))}
-          <Text style={evtStyles.goingTxt}>{goingCount} going</Text>
+          <Text style={evtStyles.goingTxt}>
+            {goingCount > 0 && maybeCount > 0
+              ? `${goingCount} going · ${maybeCount} maybe`
+              : goingCount > 0
+              ? `${goingCount} going`
+              : `${maybeCount} maybe`}
+          </Text>
         </View>
       )}
 
@@ -1336,6 +1366,201 @@ function CreateEventWizard({
   );
 }
 
+interface AttendeeGroup {
+  going: { userId: string; name: string; avatarUrl: string | null }[];
+  maybe: { userId: string; name: string; avatarUrl: string | null }[];
+  notGoing: { userId: string; name: string; avatarUrl: string | null }[];
+}
+
+function EventDetailSheet({
+  event,
+  groupId,
+  typeColor,
+  visible,
+  onClose,
+  onRsvp,
+  isAdmin,
+  currentUserId,
+  onDelete,
+  onEdit,
+}: {
+  event: GroupEvent | null;
+  groupId: string;
+  typeColor: string;
+  visible: boolean;
+  onClose: () => void;
+  onRsvp: (eventId: string, status: "going" | "maybe" | "not_going") => void;
+  isAdmin: boolean;
+  currentUserId?: string;
+  onDelete: (eventId: string) => void;
+  onEdit: (event: GroupEvent) => void;
+}) {
+  const insets = useSafeAreaInsets();
+  const { data: attendees } = useQuery<AttendeeGroup>({
+    queryKey: [`/api/player/groups/${groupId}/events/${event?.id}/attendees`],
+    enabled: visible && !!event?.id,
+  });
+
+  if (!event) return null;
+  const isPast = new Date(event.eventDate) < new Date();
+  const isCreator = event.creatorId === currentUserId;
+  const goingCount = event.goingCount ?? 0;
+  const maybeCount = event.maybeCount ?? 0;
+
+  const RSVP_LABELS: Record<string, string> = { going: "Going", maybe: "Maybe", not_going: "Decline" };
+  const RSVP_COLORS: Record<string, string> = { going: "#4ECDC4", maybe: "#FFD166", not_going: "#FF6B6B" };
+
+  const renderAttendeeRow = (a: { userId: string; name: string; avatarUrl: string | null }, idx: number) => {
+    const photoUri = getPhotoUri(a.avatarUrl);
+    return (
+      <View key={a.userId + idx} style={detailStyles.attendeeRow}>
+        {photoUri ? (
+          <Image source={{ uri: photoUri }} style={detailStyles.attendeeAvatar} />
+        ) : (
+          <View style={[detailStyles.attendeeAvatarFallback, { backgroundColor: typeColor + "30" }]}>
+            <Text style={[detailStyles.attendeeAvatarInit, { color: typeColor }]}>{a.name[0]?.toUpperCase()}</Text>
+          </View>
+        )}
+        <Text style={detailStyles.attendeeName}>{a.name}</Text>
+      </View>
+    );
+  };
+
+  return (
+    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
+      <View style={styles.modalOverlay}>
+        <Pressable style={styles.modalBackdrop} onPress={onClose} />
+        <View style={[detailStyles.sheet, { paddingBottom: insets.bottom || 20 }]}>
+          <View style={styles.composeHandle} />
+
+          {/* Header */}
+          <View style={detailStyles.header}>
+            <View style={{ flex: 1 }}>
+              <View style={[evtStyles.eventTypeBadge, { backgroundColor: typeColor + "20", alignSelf: "flex-start", marginBottom: 8 }]}>
+                <Ionicons
+                  name={(EVENT_TYPES.find(e => e.value === event.eventType)?.icon ?? "calendar") as any}
+                  size={13}
+                  color={typeColor}
+                />
+                <Text style={[evtStyles.eventTypeTxt, { color: typeColor }]}>
+                  {EVENT_TYPES.find(e => e.value === event.eventType)?.label ?? event.eventType}
+                </Text>
+              </View>
+              <Text style={detailStyles.title}>{event.title}</Text>
+            </View>
+            <View style={{ flexDirection: "row", gap: 8 }}>
+              {(isAdmin || isCreator) ? (
+                <>
+                  <Pressable onPress={() => { onClose(); setTimeout(() => onEdit(event), 300); }} style={evtStyles.deleteBtn}>
+                    <Ionicons name="create-outline" size={18} color={typeColor} />
+                  </Pressable>
+                  <Pressable onPress={() => {
+                    Alert.alert("Delete Event", "Remove this event?", [
+                      { text: "Cancel", style: "cancel" },
+                      { text: "Delete", style: "destructive", onPress: () => { onDelete(event.id); onClose(); } },
+                    ]);
+                  }} style={evtStyles.deleteBtn}>
+                    <Ionicons name="trash-outline" size={18} color="#FF6B6B" />
+                  </Pressable>
+                </>
+              ) : null}
+              <Pressable onPress={onClose} style={evtStyles.deleteBtn}>
+                <Ionicons name="close" size={18} color="#7A8EA0" />
+              </Pressable>
+            </View>
+          </View>
+
+          <ScrollView showsVerticalScrollIndicator={false} style={{ flex: 1 }}>
+            {/* Event info */}
+            {event.description ? <Text style={detailStyles.desc}>{event.description}</Text> : null}
+
+            <View style={detailStyles.metaSection}>
+              <View style={evtStyles.metaRow}>
+                <Ionicons name="time-outline" size={14} color="#7A8EA0" />
+                <Text style={evtStyles.metaTxt}>{formatEventDate(event.eventDate)}</Text>
+              </View>
+              {event.location ? (
+                <View style={evtStyles.metaRow}>
+                  <Ionicons name="location-outline" size={14} color="#7A8EA0" />
+                  <Text style={evtStyles.metaTxt}>{event.location}</Text>
+                </View>
+              ) : null}
+              {event.maxPlayers ? (
+                <View style={evtStyles.metaRow}>
+                  <Ionicons name="people-outline" size={14} color="#7A8EA0" />
+                  <Text style={evtStyles.metaTxt}>{goingCount}/{event.maxPlayers} going</Text>
+                </View>
+              ) : null}
+            </View>
+
+            {/* Summary pill */}
+            <View style={detailStyles.countRow}>
+              {goingCount > 0 && (
+                <View style={[detailStyles.countPill, { backgroundColor: "#4ECDC420" }]}>
+                  <Text style={[detailStyles.countNum, { color: "#4ECDC4" }]}>{goingCount}</Text>
+                  <Text style={detailStyles.countLabel}>Going</Text>
+                </View>
+              )}
+              {maybeCount > 0 && (
+                <View style={[detailStyles.countPill, { backgroundColor: "#FFD16620" }]}>
+                  <Text style={[detailStyles.countNum, { color: "#FFD166" }]}>{maybeCount}</Text>
+                  <Text style={detailStyles.countLabel}>Maybe</Text>
+                </View>
+              )}
+            </View>
+
+            {/* Attendees list */}
+            {attendees && (attendees.going.length > 0 || attendees.maybe.length > 0 || attendees.notGoing.length > 0) ? (
+              <View style={detailStyles.attendeeSection}>
+                {attendees.going.length > 0 && (
+                  <>
+                    <Text style={[detailStyles.sectionLabel, { color: "#4ECDC4" }]}>Going ({attendees.going.length})</Text>
+                    {attendees.going.map((a, i) => renderAttendeeRow(a, i))}
+                  </>
+                )}
+                {attendees.maybe.length > 0 && (
+                  <>
+                    <Text style={[detailStyles.sectionLabel, { color: "#FFD166", marginTop: 12 }]}>Maybe ({attendees.maybe.length})</Text>
+                    {attendees.maybe.map((a, i) => renderAttendeeRow(a, i))}
+                  </>
+                )}
+                {attendees.notGoing.length > 0 && (
+                  <>
+                    <Text style={[detailStyles.sectionLabel, { color: "#FF6B6B", marginTop: 12 }]}>Can't make it ({attendees.notGoing.length})</Text>
+                    {attendees.notGoing.map((a, i) => renderAttendeeRow(a, i))}
+                  </>
+                )}
+              </View>
+            ) : null}
+
+            <View style={{ height: 20 }} />
+          </ScrollView>
+
+          {/* RSVP buttons */}
+          {!isPast && (
+            <View style={[evtStyles.rsvpRow, { paddingHorizontal: 16, paddingTop: 12, borderTopWidth: 1, borderTopColor: "rgba(255,255,255,0.07)" }]}>
+              {(["going", "maybe", "not_going"] as const).map((status) => {
+                const active = event.myRsvpStatus === status;
+                return (
+                  <Pressable
+                    key={status}
+                    onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); onRsvp(event.id, status); }}
+                    style={[evtStyles.rsvpBtn, active && { backgroundColor: RSVP_COLORS[status] + "30", borderColor: RSVP_COLORS[status] }]}
+                  >
+                    <Text style={[evtStyles.rsvpBtnTxt, active && { color: RSVP_COLORS[status], fontWeight: "700" }]}>
+                      {RSVP_LABELS[status]}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+          )}
+        </View>
+      </View>
+    </Modal>
+  );
+}
+
 function GroupEventsTab({
   groupId,
   typeColor,
@@ -1352,6 +1577,7 @@ function GroupEventsTab({
   const queryClient = useQueryClient();
   const [showCreate, setShowCreate] = useState(false);
   const [editingEvent, setEditingEvent] = useState<GroupEvent | null>(null);
+  const [selectedEvent, setSelectedEvent] = useState<GroupEvent | null>(null);
   const [editTitle, setEditTitle] = useState("");
   const [editDescription, setEditDescription] = useState("");
   const [editLocation, setEditLocation] = useState("");
@@ -1368,7 +1594,57 @@ function GroupEventsTab({
   const rsvpMutation = useMutation({
     mutationFn: ({ eventId, status }: { eventId: string; status: string }) =>
       apiRequest("POST", `/api/player/groups/${groupId}/events/${eventId}/rsvp`, { status }),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: [`/api/player/groups/${groupId}/events`] }),
+    onMutate: async ({ eventId, status }) => {
+      await queryClient.cancelQueries({ queryKey: [`/api/player/groups/${groupId}/events`] });
+      const previous = queryClient.getQueryData<GroupEvent[]>([`/api/player/groups/${groupId}/events`]);
+      // Snapshot selectedEvent for rollback
+      let previousSelectedEvent: GroupEvent | null = null;
+      queryClient.setQueryData<GroupEvent[]>([`/api/player/groups/${groupId}/events`], (old = []) =>
+        old.map((e) => {
+          if (e.id !== eventId) return e;
+          const prev = e.myRsvpStatus;
+          const goingDelta = (status === "going" ? 1 : 0) - (prev === "going" ? 1 : 0);
+          const maybeDelta = (status === "maybe" ? 1 : 0) - (prev === "maybe" ? 1 : 0);
+          const notGoingDelta = (status === "not_going" ? 1 : 0) - (prev === "not_going" ? 1 : 0);
+          return {
+            ...e,
+            myRsvpStatus: status,
+            goingCount: Math.max(0, e.goingCount + goingDelta),
+            maybeCount: Math.max(0, e.maybeCount + maybeDelta),
+            notGoingCount: Math.max(0, e.notGoingCount + notGoingDelta),
+          };
+        })
+      );
+      // Also update selectedEvent so detail sheet reflects change instantly
+      setSelectedEvent(prev => {
+        if (!prev || prev.id !== eventId) return prev;
+        previousSelectedEvent = prev;
+        const goingDelta = (status === "going" ? 1 : 0) - (prev.myRsvpStatus === "going" ? 1 : 0);
+        const maybeDelta = (status === "maybe" ? 1 : 0) - (prev.myRsvpStatus === "maybe" ? 1 : 0);
+        const notGoingDelta = (status === "not_going" ? 1 : 0) - (prev.myRsvpStatus === "not_going" ? 1 : 0);
+        return {
+          ...prev,
+          myRsvpStatus: status,
+          goingCount: Math.max(0, prev.goingCount + goingDelta),
+          maybeCount: Math.max(0, prev.maybeCount + maybeDelta),
+          notGoingCount: Math.max(0, prev.notGoingCount + notGoingDelta),
+        };
+      });
+      return { previous, previousSelectedEvent };
+    },
+    onError: (_err, _vars, context) => {
+      if (context?.previous) {
+        queryClient.setQueryData([`/api/player/groups/${groupId}/events`], context.previous);
+      }
+      if (context?.previousSelectedEvent) {
+        setSelectedEvent(context.previousSelectedEvent);
+      }
+    },
+    onSettled: (_data, _err, vars) => {
+      queryClient.invalidateQueries({ queryKey: [`/api/player/groups/${groupId}/events`] });
+      // Refresh attendee list for the event so groupings stay accurate
+      queryClient.invalidateQueries({ queryKey: [`/api/player/groups/${groupId}/events/${vars.eventId}/attendees`] });
+    },
   });
 
   const deleteMutation = useMutation({
@@ -1522,15 +1798,17 @@ function GroupEventsTab({
         data={events}
         keyExtractor={(e) => e.id}
         renderItem={({ item }) => (
-          <EventCard
-            event={item}
-            typeColor={typeColor}
-            onRsvp={(id, status) => rsvpMutation.mutate({ eventId: id, status })}
-            onDelete={(id) => deleteMutation.mutate(id)}
-            onEdit={openEditModal}
-            isAdmin={isAdmin}
-            currentUserId={currentUserId}
-          />
+          <Pressable onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); setSelectedEvent(item); }}>
+            <EventCard
+              event={item}
+              typeColor={typeColor}
+              onRsvp={(id, status) => rsvpMutation.mutate({ eventId: id, status })}
+              onDelete={(id) => deleteMutation.mutate(id)}
+              onEdit={openEditModal}
+              isAdmin={isAdmin}
+              currentUserId={currentUserId}
+            />
+          </Pressable>
         )}
         contentContainerStyle={[styles.listContent, { paddingBottom: insets.bottom + 100 }]}
         refreshControl={<RefreshControl refreshing={false} onRefresh={refetch} tintColor={typeColor} />}
@@ -1563,6 +1841,18 @@ function GroupEventsTab({
         typeColor={typeColor}
         members={members}
       />
+      <EventDetailSheet
+        event={selectedEvent}
+        groupId={groupId}
+        typeColor={typeColor}
+        visible={selectedEvent !== null}
+        onClose={() => setSelectedEvent(null)}
+        onRsvp={(id, status) => rsvpMutation.mutate({ eventId: id, status })}
+        isAdmin={isAdmin}
+        currentUserId={currentUserId}
+        onDelete={(id) => deleteMutation.mutate(id)}
+        onEdit={openEditModal}
+      />
     </View>
   );
 }
@@ -1585,38 +1875,46 @@ function GroupChatTab({
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
   const [loadingConv, setLoadingConv] = useState(true);
+  const [convError, setConvError] = useState(false);
   const [inputText, setInputText] = useState("");
   const [sending, setSending] = useState(false);
   // Server-backed read state: latest timestamp that any other participant has read up to
   const [othersLastReadAt, setOthersLastReadAt] = useState<Date | null>(null);
   const flatListRef = useRef<FlatList>(null);
 
-  // Get or create group conversation
-  useEffect(() => {
-    (async () => {
-      setLoadingConv(true);
-      try {
-        const resp = await apiRequest("POST", "/api/player/me/conversations", {
-          type: "group",
-          groupId,
-        });
-        setConversationId(resp.id);
-      } catch (e) {
-        console.error("Failed to get group conversation:", e);
-      } finally {
-        setLoadingConv(false);
-      }
-    })();
+  const initConversation = useCallback(async () => {
+    setLoadingConv(true);
+    setConvError(false);
+    try {
+      const res = await apiRequest("POST", "/api/player/me/conversations", {
+        type: "group",
+        groupId,
+      });
+      const data = await res.json();
+      setConversationId(data.id);
+    } catch (e) {
+      console.error("Failed to get group conversation:", e);
+      setConvError(true);
+    } finally {
+      setLoadingConv(false);
+    }
   }, [groupId]);
+
+  // Get or create group conversation on mount
+  useEffect(() => {
+    initConversation();
+  }, [initConversation]);
 
   // Load messages + fetch others' read state
   const loadMessages = useCallback(async () => {
     if (!conversationId) return;
     try {
-      const [msgs, readState] = await Promise.all([
+      const [msgsRes, readStateRes] = await Promise.all([
         apiRequest("GET", `/api/player/me/conversations/${conversationId}/messages?limit=100`),
-        apiRequest("GET", `/api/player/me/conversations/${conversationId}/read-state`).catch(() => []),
+        apiRequest("GET", `/api/player/me/conversations/${conversationId}/read-state`).catch(async () => new Response("[]", { status: 200 })),
       ]);
+      const msgs = await msgsRes.json();
+      const readState = await readStateRes.json().catch(() => []);
       setChatMessages(msgs);
       // Mark self as read
       apiRequest("POST", `/api/player/me/conversations/${conversationId}/read`).catch(() => {});
@@ -1633,6 +1931,11 @@ function GroupChatTab({
       console.error("Failed to load messages:", e);
     }
   }, [conversationId]);
+
+  // Load messages when conversationId first becomes available
+  useEffect(() => {
+    if (conversationId) loadMessages();
+  }, [conversationId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Real-time via WebSocket
   useWebSocket({
@@ -1659,6 +1962,7 @@ function GroupChatTab({
       // Refresh read state when another participant marks the conversation read
       if (conversationId) {
         apiRequest("GET", `/api/player/me/conversations/${conversationId}/read-state`)
+          .then(res => res.json())
           .then((readState: Array<{ playerId: string | null; lastReadAt: string | Date | null }>) => {
             if (Array.isArray(readState) && readState.length > 0) {
               const latest = readState.reduce<Date | null>((max, p) => {
@@ -1709,14 +2013,19 @@ function GroupChatTab({
     );
   }
 
-  if (!conversationId) {
+  if (convError && !conversationId) {
     return (
       <View style={styles.emptyState}>
         <View style={[styles.emptyIcon, { backgroundColor: typeColor + "20" }]}>
           <Ionicons name="chatbubbles-outline" size={36} color={typeColor} />
         </View>
-        <Text style={styles.emptyTitle}>Chat unavailable</Text>
-        <Text style={styles.emptySubtitle}>Unable to load group chat</Text>
+        <Text style={styles.emptyTitle}>Couldn't load chat</Text>
+        <Text style={styles.emptySubtitle}>Check your connection and try again</Text>
+        <Pressable onPress={initConversation} style={{ marginTop: 20, alignSelf: "center", borderRadius: 24, overflow: "hidden" }}>
+          <LinearGradient colors={[typeColor, typeColor + "BB"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={{ borderRadius: 24, paddingHorizontal: 28, paddingVertical: 13 }}>
+            <Text style={{ color: "#000", fontWeight: "700", fontSize: 15 }}>Try Again</Text>
+          </LinearGradient>
+        </Pressable>
       </View>
     );
   }
@@ -2319,6 +2628,12 @@ const evtStyles = StyleSheet.create({
   rsvpBtn: { flex: 1, alignItems: "center", paddingVertical: 8, borderRadius: 20, borderWidth: 1, borderColor: "rgba(255,255,255,0.1)", backgroundColor: "rgba(255,255,255,0.04)" },
   rsvpBtnTxt: { fontSize: 13, fontWeight: "600", color: "#7A8EA0" },
 
+  // Wizard header
+  wizardHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 20, paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: "rgba(255,255,255,0.07)" },
+  wizardCancel: { fontSize: 15, color: "#7A8EA0", fontWeight: "600" },
+  wizardTitle: { fontSize: 16, fontWeight: "700", color: "#FFFFFF" },
+  wizardNext: { fontSize: 15, fontWeight: "700" },
+
   // Wizard
   wizardSheet: { backgroundColor: "#0F141B", borderTopLeftRadius: 24, borderTopRightRadius: 24, flex: 1, maxHeight: "96%", minHeight: "75%", borderWidth: 1, borderColor: "rgba(255,255,255,0.08)" },
   stepRow: { flexDirection: "row", justifyContent: "center", gap: 8, paddingVertical: 12 },
@@ -2369,4 +2684,23 @@ const chatStyles = StyleSheet.create({
   reactionPicker: { flexDirection: "row", position: "absolute", backgroundColor: "#1A2535", borderRadius: 24, paddingHorizontal: 8, paddingVertical: 6, gap: 4, borderWidth: 1, borderColor: "rgba(255,255,255,0.12)", top: 0 },
   reactionPickerBtn: { padding: 4 },
   seenLabel: { fontSize: 10, color: "#445566", marginTop: 2 },
+});
+
+const detailStyles = StyleSheet.create({
+  sheet: { backgroundColor: "#0F141B", borderTopLeftRadius: 24, borderTopRightRadius: 24, maxHeight: "90%", paddingTop: 8, borderWidth: 1, borderColor: "rgba(255,255,255,0.08)" },
+  header: { flexDirection: "row", alignItems: "flex-start", paddingHorizontal: 16, paddingTop: 8, paddingBottom: 12, gap: 12 },
+  title: { fontSize: 20, fontWeight: "700", color: "#FFFFFF", flexShrink: 1 },
+  desc: { fontSize: 14, color: "#7A8EA0", lineHeight: 22, paddingHorizontal: 16, marginBottom: 12 },
+  metaSection: { paddingHorizontal: 16, marginBottom: 16, gap: 4 },
+  countRow: { flexDirection: "row", gap: 10, paddingHorizontal: 16, marginBottom: 16 },
+  countPill: { flexDirection: "row", alignItems: "center", gap: 6, paddingHorizontal: 12, paddingVertical: 6, borderRadius: 20 },
+  countNum: { fontSize: 16, fontWeight: "700" },
+  countLabel: { fontSize: 13, color: "#7A8EA0" },
+  attendeeSection: { paddingHorizontal: 16, marginBottom: 8 },
+  sectionLabel: { fontSize: 12, fontWeight: "700", textTransform: "uppercase", letterSpacing: 0.7, marginBottom: 8 },
+  attendeeRow: { flexDirection: "row", alignItems: "center", gap: 10, paddingVertical: 6 },
+  attendeeAvatar: { width: 34, height: 34, borderRadius: 17 },
+  attendeeAvatarFallback: { width: 34, height: 34, borderRadius: 17, justifyContent: "center", alignItems: "center" },
+  attendeeAvatarInit: { fontSize: 14, fontWeight: "700" },
+  attendeeName: { fontSize: 14, color: "#CCDDEE", fontWeight: "500" },
 });

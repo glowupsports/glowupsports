@@ -24,7 +24,7 @@ import * as Haptics from "expo-haptics";
 import Animated, { FadeIn, FadeInDown, SlideInUp, useSharedValue, useAnimatedStyle, withSpring } from "react-native-reanimated";
 import { Colors, Spacing, BorderRadius } from "@/constants/theme";
 import { ThemedText } from "@/components/ThemedText";
-import { apiRequest, apiFetch, getApiUrl } from "@/lib/query-client";
+import { apiRequest, apiFetch, getApiUrl, getAuthHeaders } from "@/lib/query-client";
 import { useAuth } from "@/coach/context/AuthContext";
 import {
   type Achievement,
@@ -985,30 +985,43 @@ export function CreateMomentModal({ visible, onClose, onSubmit, isSubmitting, us
           const response = await fetch(uri);
           const blob = await response.blob();
           formData.append("images", blob, filename);
+          const uploadResponse = await apiFetch("/api/social/posts/upload-images", {
+            method: "POST",
+            body: formData,
+          });
+          if (uploadResponse.ok) {
+            const result = await uploadResponse.json();
+            uploadedMediaUrls = result.images || [];
+            uploadedMediaTypes = uploadedMediaUrls.map(() => selectedMedia.type);
+          } else {
+            const errorText = await uploadResponse.text();
+            console.error("[Social] Upload failed:", errorText);
+            Alert.alert("Error", "Failed to upload media. Please try again.");
+            setIsUploading(false);
+            return;
+          }
         } else {
-          formData.append("images", {
-            uri,
-            name: filename,
-            type: mimeType,
-          } as any);
-        }
-
-        const uploadResponse = await apiFetch("/api/social/posts/upload-images", {
-          method: "POST",
-          body: formData,
-        });
-
-        if (uploadResponse.ok) {
-          const result = await uploadResponse.json();
-          uploadedMediaUrls = result.images || [];
-          uploadedMediaTypes = uploadedMediaUrls.map(() => selectedMedia.type);
-          logger.log("[Social] Uploaded media:", uploadedMediaUrls, "types:", uploadedMediaTypes);
-        } else {
-          const errorText = await uploadResponse.text();
-          console.error("[Social] Upload failed:", errorText);
-          Alert.alert("Error", "Failed to upload media. Please try again.");
-          setIsUploading(false);
-          return;
+          // Use expo-file-system uploadAsync for React Native multipart upload
+          const { uploadAsync, FileSystemUploadType } = await import("expo-file-system/legacy");
+          const uploadUrl = `${getApiUrl()}/api/social/posts/upload-images`;
+          const uploadResult = await uploadAsync(uploadUrl, uri, {
+            fieldName: "images",
+            httpMethod: "POST",
+            uploadType: FileSystemUploadType.MULTIPART,
+            mimeType,
+            headers: getAuthHeaders(),
+          });
+          if (uploadResult.status >= 200 && uploadResult.status < 300) {
+            const result = JSON.parse(uploadResult.body);
+            uploadedMediaUrls = result.images || [];
+            uploadedMediaTypes = uploadedMediaUrls.map(() => selectedMedia.type);
+            logger.log("[Social] Uploaded media:", uploadedMediaUrls, "types:", uploadedMediaTypes);
+          } else {
+            console.error("[Social] Upload failed:", uploadResult.body);
+            Alert.alert("Error", "Failed to upload media. Please try again.");
+            setIsUploading(false);
+            return;
+          }
         }
       } catch (error) {
         console.error("[Social] Upload error:", error);
