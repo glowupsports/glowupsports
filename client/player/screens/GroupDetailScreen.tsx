@@ -1,4 +1,4 @@
-import React, { useState, useRef } from "react";
+import React, { useState } from "react";
 import {
   View,
   StyleSheet,
@@ -424,15 +424,14 @@ function ComposePostModal({
     setImages((prev) => prev.filter((_, i) => i !== idx));
   };
 
+  type RNFile = { uri: string; type: string; name: string };
+
   const uploadImages = async (): Promise<string[]> => {
     if (images.length === 0) return [];
     const formData = new FormData();
     images.forEach((uri, idx) => {
-      formData.append("images", {
-        uri,
-        type: "image/jpeg",
-        name: `photo_${idx}.jpg`,
-      } as any);
+      const file: RNFile = { uri, type: "image/jpeg", name: `photo_${idx}.jpg` };
+      formData.append("images", file as unknown as Blob);
     });
     const base = getApiUrl();
     const token = (await import("@react-native-async-storage/async-storage")).default.getItem("auth_token");
