@@ -45,6 +45,14 @@ pool.query('SELECT 1').then(async () => {
     console.log('[Database] Audit columns already exist or migration skipped');
   }
   try {
+    await pool.query(`ALTER TABLE locations ADD COLUMN IF NOT EXISTS address TEXT`);
+    await pool.query(`ALTER TABLE locations ADD COLUMN IF NOT EXISTS lat DOUBLE PRECISION`);
+    await pool.query(`ALTER TABLE locations ADD COLUMN IF NOT EXISTS lng DOUBLE PRECISION`);
+    await pool.query(`ALTER TABLE locations ADD COLUMN IF NOT EXISTS is_active BOOLEAN DEFAULT TRUE`);
+  } catch (e: any) {
+    console.log('[Database] Locations migration skipped:', e.message);
+  }
+  try {
     await pool.query(`
       CREATE TABLE IF NOT EXISTS provider_availability (
         id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(),

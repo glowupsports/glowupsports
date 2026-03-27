@@ -259,9 +259,15 @@ function requirePlayerOrOwner(req: AuthenticatedRequest, res: Response, next: Ne
 
       // Get location and court names
       let locationName = null;
+      let locationAddress = null;
+      let locationLat: number | null = null;
+      let locationLng: number | null = null;
       if (series.locationId) {
         const location = await storage.getLocationById(series.locationId);
-        locationName = location?.name;
+        locationName = location?.name || null;
+        locationAddress = location?.address || null;
+        locationLat = location?.lat ?? null;
+        locationLng = location?.lng ?? null;
       }
 
       let courtName = null;
@@ -274,6 +280,9 @@ function requirePlayerOrOwner(req: AuthenticatedRequest, res: Response, next: Ne
         ...series,
         coachName: coach?.name || "Unknown Coach",
         locationName,
+        locationAddress,
+        locationLat,
+        locationLng,
         courtName,
         players: playerDetails,
         sessions: seriesSessions,
@@ -335,6 +344,25 @@ function requirePlayerOrOwner(req: AuthenticatedRequest, res: Response, next: Ne
         return res.status(404).json({ error: "Coach not found" });
       }
 
+      // Enforce location selection when academy has multiple active locations
+      const allLocations = await storage.getAllLocations(academyId);
+      const activeLocationCount = allLocations.filter((l) => l.isActive !== false).length;
+      let resolvedLocationId: string | null = locationId || null;
+      if (activeLocationCount > 1) {
+        if (!resolvedLocationId) {
+          if (courtId) {
+            // Auto-resolve location from court
+            const assignedCourt = await storage.getCourt(courtId);
+            if (!assignedCourt?.locationId) {
+              return res.status(400).json({ error: "The selected court must be assigned to a location when the academy has multiple locations" });
+            }
+            resolvedLocationId = assignedCourt.locationId;
+          } else {
+            return res.status(400).json({ error: "Location is required when the academy has multiple locations" });
+          }
+        }
+      }
+
       const VALID_SPORTS = ["tennis", "padel", "pickleball"];
       const validatedSport = sport && VALID_SPORTS.includes(sport) ? sport : "tennis";
 
@@ -343,7 +371,7 @@ function requirePlayerOrOwner(req: AuthenticatedRequest, res: Response, next: Ne
         academyId,
         coachId,
         courtId: courtId || null,
-        locationId: locationId || null,
+        locationId: resolvedLocationId,
         title: sanitizeTemplateName(title),
         dayOfWeek,
         startTime,
@@ -4209,6 +4237,7 @@ function requirePlayerOrOwner(req: AuthenticatedRequest, res: Response, next: Ne
       // Batch fetch coaches and courts for efficiency
       const coachIds = [...new Set(sessions.map(s => s.coachId).filter((id): id is string => !!id))];
       const courtIds = [...new Set(sessions.map(s => s.courtId).filter((id): id is string => !!id))];
+      const directLocationIds = [...new Set(sessions.map(s => s.locationId).filter((id): id is string => !!id))];
       
       // Fetch all coaches and their user info
       const coachMap: Record<string, string> = {};
@@ -4220,12 +4249,46 @@ function requirePlayerOrOwner(req: AuthenticatedRequest, res: Response, next: Ne
         }
       }
       
-      // Fetch all courts
+      // Pre-fetch location data (shared by court lookup and direct session.locationId)
+      type LocationInfo = { name: string; address: string | null; lat: number | null; lng: number | null };
+      const locationInfoMap: Record<string, LocationInfo> = {};
+      const allLocationIdsToFetch = new Set<string>();
+
+      // Fetch all courts and their location info
       const courtMap: Record<string, string> = {};
+      const courtToLocationId: Record<string, string> = {};
       for (const courtId of courtIds) {
         const court = await storage.getCourt(courtId);
         if (court) {
           courtMap[courtId] = court.name;
+          if (court.locationId) {
+            courtToLocationId[courtId] = court.locationId;
+            allLocationIdsToFetch.add(court.locationId);
+          }
+        }
+      }
+      // Also ensure direct session locationIds are fetched
+      for (const locId of directLocationIds) {
+        allLocationIdsToFetch.add(locId);
+      }
+      // Fetch all needed locations
+      for (const locId of allLocationIdsToFetch) {
+        const loc = await storage.getLocation(locId);
+        if (loc) {
+          locationInfoMap[locId] = {
+            name: loc.name,
+            address: loc.address ?? null,
+            lat: loc.lat ?? null,
+            lng: loc.lng ?? null,
+          };
+        }
+      }
+      // Build court->location map using fetched data
+      const courtLocationMap: Record<string, LocationInfo> = {};
+      for (const courtId of courtIds) {
+        const locId = courtToLocationId[courtId];
+        if (locId && locationInfoMap[locId]) {
+          courtLocationMap[courtId] = locationInfoMap[locId];
         }
       }
       
@@ -4268,6 +4331,30 @@ function requirePlayerOrOwner(req: AuthenticatedRequest, res: Response, next: Ne
             sessionType: displaySessionType,
             courtName: session.courtId ? courtMap[session.courtId] || null : null,
             title: getSessionTitle(displaySessionType),
+            locationId: (() => {
+              const fromCourt = session.courtId ? courtToLocationId[session.courtId] : undefined;
+              return fromCourt ?? session.locationId ?? null;
+            })(),
+            locationName: (() => {
+              const fromCourt = session.courtId ? courtLocationMap[session.courtId]?.name : undefined;
+              const fromDirect = session.locationId ? locationInfoMap[session.locationId]?.name : undefined;
+              return fromCourt ?? fromDirect ?? null;
+            })(),
+            locationAddress: (() => {
+              const fromCourt = session.courtId ? courtLocationMap[session.courtId]?.address : undefined;
+              const fromDirect = session.locationId ? locationInfoMap[session.locationId]?.address : undefined;
+              return fromCourt ?? fromDirect ?? null;
+            })(),
+            locationLat: (() => {
+              const fromCourt = session.courtId ? courtLocationMap[session.courtId]?.lat : undefined;
+              const fromDirect = session.locationId ? locationInfoMap[session.locationId]?.lat : undefined;
+              return fromCourt ?? fromDirect ?? null;
+            })(),
+            locationLng: (() => {
+              const fromCourt = session.courtId ? courtLocationMap[session.courtId]?.lng : undefined;
+              const fromDirect = session.locationId ? locationInfoMap[session.locationId]?.lng : undefined;
+              return fromCourt ?? fromDirect ?? null;
+            })(),
           },
           coachName: session.coachId ? coachMap[session.coachId] || null : null,
         };

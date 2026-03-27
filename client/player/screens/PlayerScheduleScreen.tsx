@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect } from "react";
-import { View, Text, StyleSheet, ScrollView, Pressable, ActivityIndicator, Alert, Modal, Platform } from "react-native";
+import { View, Text, StyleSheet, ScrollView, Pressable, ActivityIndicator, Alert, Modal, Platform, Linking } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -42,6 +42,11 @@ interface SessionData {
     sessionType: string;
     courtName: string | null;
     title: string;
+    locationId?: string | null;
+    locationName?: string | null;
+    locationAddress?: string | null;
+    locationLat?: number | null;
+    locationLng?: number | null;
   } | null;
   coachName: string | null;
 }
@@ -82,6 +87,11 @@ interface ScheduledItem {
   subtitle: string;
   coachName: string;
   courtName: string;
+  locationId?: string | null;
+  locationName?: string | null;
+  locationAddress?: string | null;
+  locationLat?: number | null;
+  locationLng?: number | null;
   status: "upcoming" | "completed" | "cancelled";
   attendanceStatus?: string;
 }
@@ -167,6 +177,7 @@ export default function PlayerScheduleScreen() {
   const [vacationEndDate, setVacationEndDate] = useState<Date | null>(null);
   const [showStartPicker, setShowStartPicker] = useState(false);
   const [showEndPicker, setShowEndPicker] = useState(false);
+  const [selectedLocationFilter, setSelectedLocationFilter] = useState<string | null>(null);
 
   // Walkthrough effect - only run once on mount using ref to prevent re-triggers
   const walkthroughTriggered = React.useRef(false);
@@ -268,6 +279,11 @@ export default function PlayerScheduleScreen() {
           subtitle: s.coachName || "Coach",
           coachName: s.coachName || "Coach",
           courtName: s.session.courtName || "Court",
+          locationId: s.session.locationId || null,
+          locationName: s.session.locationName || null,
+          locationAddress: s.session.locationAddress || null,
+          locationLat: s.session.locationLat ?? null,
+          locationLng: s.session.locationLng ?? null,
           status: isCancelled ? "cancelled" : (isPast ? "completed" : "upcoming"),
           attendanceStatus: s.attendanceStatus,
         });
@@ -368,9 +384,28 @@ export default function PlayerScheduleScreen() {
     };
   }, [allItems, attendanceStreak]);
 
-  const upcomingItems = useMemo(() => {
-    return allItems.filter(s => s.status === "upcoming").slice(0, 5);
+  const upcomingSessionLocations = useMemo(() => {
+    const seen = new Set<string>();
+    const locs: { id: string; name: string }[] = [];
+    for (const item of allItems) {
+      if (item.status === "upcoming" && item.locationName) {
+        const key = item.locationId || item.locationName;
+        if (!seen.has(key)) {
+          seen.add(key);
+          locs.push({ id: key, name: item.locationName });
+        }
+      }
+    }
+    return locs;
   }, [allItems]);
+
+  const upcomingItems = useMemo(() => {
+    const upcoming = allItems.filter(s => s.status === "upcoming");
+    const filtered = selectedLocationFilter
+      ? upcoming.filter(s => (s.locationId || s.locationName) === selectedLocationFilter)
+      : upcoming;
+    return filtered.slice(0, 5);
+  }, [allItems, selectedLocationFilter]);
 
   const nextSession = upcomingItems.find(i => i.type !== "court" && i.type !== "match");
 
@@ -789,6 +824,31 @@ export default function PlayerScheduleScreen() {
                           <Feather name={item.type === "court" ? "map-pin" : item.type === "match" ? "users" : "user"} size={12} color={ProTennisColors.textSecondary} />
                           <Text style={styles.sessionMetaText}>{item.subtitle}</Text>
                         </View>
+                        {(item.locationName || item.locationAddress) ? (
+                          item.locationAddress ? (
+                            <Pressable
+                              style={styles.sessionMeta}
+                              onPress={() => {
+                                const q = encodeURIComponent(item.locationAddress!);
+                                const url = Platform.OS === "ios"
+                                  ? `maps:?q=${q}`
+                                  : `geo:0,0?q=${q}`;
+                                Linking.canOpenURL(url).then(supported => {
+                                  if (supported) Linking.openURL(url);
+                                  else Linking.openURL(`https://maps.google.com/?q=${q}`);
+                                });
+                              }}
+                            >
+                              <Feather name="navigation" size={12} color={ProTennisColors.neonCyan} />
+                              <Text style={[styles.sessionMetaText, { color: ProTennisColors.neonCyan }]}>{item.locationAddress}</Text>
+                            </Pressable>
+                          ) : (
+                            <View style={styles.sessionMeta}>
+                              <Feather name="map-pin" size={12} color={ProTennisColors.textSecondary} />
+                              <Text style={styles.sessionMetaText}>{item.locationName}</Text>
+                            </View>
+                          )
+                        ) : null}
                       </View>
                       {item.status === "completed" ? (
                         <View style={[styles.sessionStatus, { backgroundColor: ProTennisColors.neonGreen + "20" }]}>
@@ -811,12 +871,36 @@ export default function PlayerScheduleScreen() {
           )}
         </Animated.View>
 
-        {upcomingItems.length > 0 ? (
+        {upcomingItems.length > 0 || upcomingSessionLocations.length > 1 ? (
           <Animated.View entering={FadeInDown.delay(500).duration(400)}>
             <View style={styles.sectionHeader}>
               <Text style={styles.sectionTitle}>{t("player.schedule.upcoming")}</Text>
               <Text style={styles.sectionCount}>{upcomingItems.length} scheduled</Text>
             </View>
+            {upcomingSessionLocations.length > 1 ? (
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.locationFilterScroll}
+              >
+                <Pressable
+                  style={[styles.locationFilterChip, selectedLocationFilter === null && styles.locationFilterChipActive]}
+                  onPress={() => setSelectedLocationFilter(null)}
+                >
+                  <Text style={[styles.locationFilterChipText, selectedLocationFilter === null && styles.locationFilterChipTextActive]}>All</Text>
+                </Pressable>
+                {upcomingSessionLocations.map((loc) => (
+                  <Pressable
+                    key={loc.id}
+                    style={[styles.locationFilterChip, selectedLocationFilter === loc.id && styles.locationFilterChipActive]}
+                    onPress={() => setSelectedLocationFilter(selectedLocationFilter === loc.id ? null : loc.id)}
+                  >
+                    <Feather name="map-pin" size={12} color={selectedLocationFilter === loc.id ? ProTennisColors.neonGreen : ProTennisColors.textSecondary} />
+                    <Text style={[styles.locationFilterChipText, selectedLocationFilter === loc.id && styles.locationFilterChipTextActive]} numberOfLines={1}>{loc.name}</Text>
+                  </Pressable>
+                ))}
+              </ScrollView>
+            ) : null}
             <View style={styles.upcomingList}>
               {upcomingItems.map((item, index) => (
                 <View key={item.id} style={styles.upcomingItem}>
@@ -1476,6 +1560,34 @@ const styles = StyleSheet.create({
     borderRadius: 18,
     alignItems: "center",
     justifyContent: "center",
+  },
+  locationFilterScroll: {
+    paddingHorizontal: Spacing.lg,
+    paddingBottom: Spacing.sm,
+    gap: Spacing.sm,
+    flexDirection: "row",
+  },
+  locationFilterChip: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: 6,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: ProTennisColors.border,
+    backgroundColor: "transparent",
+  },
+  locationFilterChipActive: {
+    borderColor: ProTennisColors.neonGreen,
+    backgroundColor: ProTennisColors.neonGreen + "15",
+  },
+  locationFilterChipText: {
+    fontSize: 12,
+    color: ProTennisColors.textSecondary,
+  },
+  locationFilterChipTextActive: {
+    color: ProTennisColors.neonGreen,
   },
   upcomingList: {
     paddingHorizontal: Spacing.lg,

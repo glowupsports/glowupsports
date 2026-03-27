@@ -1564,6 +1564,11 @@ export const storage = {
     return result[0];
   },
 
+  async getLocationById(id: string): Promise<Location | undefined> {
+    const result = await db.select().from(locations).where(eq(locations.id, id));
+    return result[0];
+  },
+
   async getAllLocations(academyId?: string): Promise<Location[]> {
     if (academyId) {
       return db.select().from(locations).where(eq(locations.academyId, academyId));
@@ -7630,6 +7635,8 @@ export const storage = {
     coachId: string | null;
     attendanceStatus: string | null;
     seriesId: string | null;
+    locationId: string | null;
+    sessionStatus: string | null;
   }[]> {
     try {
       // Get sessionPlayer records, excluding those marked as absent (cancelled)
@@ -7680,6 +7687,8 @@ export const storage = {
           coachId: s.coachId,
           attendanceStatus: playerRecord?.attendanceStatus || null,
           seriesId: s.seriesId,
+          locationId: s.locationId ?? null,
+          sessionStatus: s.status,
         };
       });
     } catch (error) {

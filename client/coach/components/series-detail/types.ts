@@ -89,7 +89,10 @@ export interface SeriesDetail {
   seriesEndDate: string | null;
   maxPlayers: number;
   xpPerSession: number;
-  locationName?: string;
+  locationName?: string | null;
+  locationAddress?: string | null;
+  locationLat?: number | null;
+  locationLng?: number | null;
   courtId?: string | null;
   courtName?: string;
   players: Player[];

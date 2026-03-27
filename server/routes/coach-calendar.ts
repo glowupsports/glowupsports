@@ -617,6 +617,26 @@ import { Router, type Request, type Response, type NextFunction } from "express"
 
             const firstPlayer = players[0];
 
+            // Resolve location via court or direct session.locationId
+            let resolvedLocationId: string | null = null;
+            let locationName: string | null = null;
+            let locationAddress: string | null = null;
+            if (session.courtId) {
+              const court = await storage.getCourt(session.courtId);
+              if (court?.locationId) {
+                resolvedLocationId = court.locationId;
+                const loc = await storage.getLocation(court.locationId);
+                locationName = loc?.name ?? null;
+                locationAddress = loc?.address ?? null;
+              }
+            }
+            if (!locationName && session.locationId) {
+              resolvedLocationId = session.locationId;
+              const loc = await storage.getLocation(session.locationId);
+              locationName = loc?.name ?? null;
+              locationAddress = loc?.address ?? null;
+            }
+
             return {
               id: session.id,
               playerId: firstPlayer?.id || null,
@@ -634,6 +654,9 @@ import { Router, type Request, type Response, type NextFunction } from "express"
                     ? "in_progress"
                     : "scheduled",
               sessionPlanId: plan?.id || null,
+              locationId: resolvedLocationId,
+              locationName,
+              locationAddress,
             };
           }),
         );

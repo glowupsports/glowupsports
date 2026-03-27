@@ -571,9 +571,15 @@ import { Router, type Request, type Response, type NextFunction } from "express"
 
         // Get location name if applicable
         let locationName = null;
+        let locationAddress = null;
+        let locationLat: number | null = null;
+        let locationLng: number | null = null;
         if (series.locationId) {
           const location = await storage.getLocationById(series.locationId);
-          locationName = location?.name;
+          locationName = location?.name || null;
+          locationAddress = location?.address || null;
+          locationLat = location?.lat ?? null;
+          locationLng = location?.lng ?? null;
         }
 
         // Get court name if applicable
@@ -586,6 +592,9 @@ import { Router, type Request, type Response, type NextFunction } from "express"
         res.json({
           ...series,
           locationName,
+          locationAddress,
+          locationLat,
+          locationLng,
           courtName,
           players: playerDetails,
           sessions: seriesSessions,
@@ -690,6 +699,25 @@ import { Router, type Request, type Response, type NextFunction } from "express"
           }
         }
 
+        // Enforce location selection when academy has multiple active locations
+        const allLocations = await storage.getAllLocations(academyId);
+        const activeLocationCount = allLocations.filter((l) => l.isActive !== false).length;
+        let resolvedLocationId: string | null = locationId || null;
+        if (activeLocationCount > 1) {
+          if (!resolvedLocationId) {
+            if (courtId) {
+              // Auto-resolve location from court so series always stores a non-null locationId
+              const assignedCourt = await storage.getCourt(courtId);
+              if (!assignedCourt?.locationId) {
+                return res.status(400).json({ error: "The selected court must be assigned to a location when the academy has multiple locations" });
+              }
+              resolvedLocationId = assignedCourt.locationId;
+            } else {
+              return res.status(400).json({ error: "Location is required when the academy has multiple locations" });
+            }
+          }
+        }
+
         // For flexible series, derive start/end dates from flexibleDates
         let effectiveSeriesStartDate = seriesStartDate;
         let effectiveSeriesEndDate = seriesEndDate;
@@ -714,7 +742,7 @@ import { Router, type Request, type Response, type NextFunction } from "express"
           academyId,
           coachId,
           courtId: courtId || null,
-          locationId: locationId || null,
+          locationId: resolvedLocationId,
           title: sanitizeTemplateName(title),
           dayOfWeek: effectiveDayOfWeek,
           startTime,
@@ -933,10 +961,16 @@ import { Router, type Request, type Response, type NextFunction } from "express"
               : [];
 
           let locationName = null;
+          let locationAddress = null;
+          let locationLat: number | null = null;
+          let locationLng: number | null = null;
           let courtName = null;
           if (locationId) {
             const location = await storage.getLocationById(locationId);
             locationName = location?.name || null;
+            locationAddress = location?.address || null;
+            locationLat = location?.lat ?? null;
+            locationLng = location?.lng ?? null;
           }
           if (courtId) {
             const court = await storage.getCourtById(courtId);
@@ -959,6 +993,9 @@ import { Router, type Request, type Response, type NextFunction } from "express"
                   ? series.createdAt.toISOString()
                   : series.createdAt,
               locationName,
+              locationAddress,
+              locationLat,
+              locationLng,
               courtName,
               players: enrichedPlayers,
               sessions: createdSessions,
@@ -1238,10 +1275,16 @@ import { Router, type Request, type Response, type NextFunction } from "express"
 
         // Get location and court names
         let locationName = null;
+        let locationAddress = null;
+        let locationLat: number | null = null;
+        let locationLng: number | null = null;
         let courtName = null;
         if (locationId) {
           const location = await storage.getLocationById(locationId);
           locationName = location?.name || null;
+          locationAddress = location?.address || null;
+          locationLat = location?.lat ?? null;
+          locationLng = location?.lng ?? null;
         }
         if (courtId) {
           const court = await storage.getCourtById(courtId);
@@ -1253,6 +1296,9 @@ import { Router, type Request, type Response, type NextFunction } from "express"
           series: {
             ...series,
             locationName,
+            locationAddress,
+            locationLat,
+            locationLng,
             courtName,
             players: enrichedPlayers,
             sessions: createdSessions,

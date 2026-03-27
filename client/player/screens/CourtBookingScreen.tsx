@@ -255,6 +255,7 @@ export default function CourtBookingScreen() {
 
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedSurface, setSelectedSurface] = useState<keyof typeof SURFACE_CONFIG>("all");
+  const [selectedLocationId, setSelectedLocationId] = useState<string | null>(null);
   const [selectedDate, setSelectedDate] = useState<string>(() => {
     const today = new Date();
     return today.toISOString().split("T")[0];
@@ -269,15 +270,31 @@ export default function CourtBookingScreen() {
     queryKey: [searchUrl],
   });
 
+  const availableLocations = useMemo(() => {
+    const seen = new Set<string>();
+    const locs: { id: string; name: string }[] = [];
+    for (const court of courts) {
+      if (court.location && !seen.has(court.location.id)) {
+        seen.add(court.location.id);
+        locs.push({ id: court.location.id, name: court.location.name });
+      }
+    }
+    return locs;
+  }, [courts]);
+
   const filteredCourts = useMemo(() => {
-    if (!searchQuery.trim()) return courts;
+    let result = courts;
+    if (selectedLocationId) {
+      result = result.filter(court => court.location?.id === selectedLocationId);
+    }
+    if (!searchQuery.trim()) return result;
     const query = searchQuery.toLowerCase();
-    return courts.filter(court => 
+    return result.filter(court => 
       court.name.toLowerCase().includes(query) ||
       court.academy?.name.toLowerCase().includes(query) ||
       court.location?.name?.toLowerCase().includes(query)
     );
-  }, [courts, searchQuery]);
+  }, [courts, searchQuery, selectedLocationId]);
 
   const handleCourtPress = (court: Court, time?: string) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
@@ -423,6 +440,45 @@ export default function CourtBookingScreen() {
             })}
           </ScrollView>
         </View>
+
+        {availableLocations.length > 1 && (
+          <View style={styles.filterSection}>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.filterScroll}
+            >
+              <Pressable
+                style={[
+                  styles.filterChip,
+                  selectedLocationId === null && { borderColor: Colors.dark.primary, backgroundColor: Colors.dark.primary + "15" },
+                ]}
+                onPress={() => { Haptics.selectionAsync(); setSelectedLocationId(null); }}
+              >
+                <Ionicons name="location-outline" size={16} color={selectedLocationId === null ? Colors.dark.primary : Colors.dark.textSecondary} />
+                <Text style={[styles.filterText, selectedLocationId === null && { color: Colors.dark.primary }]}>All Locations</Text>
+              </Pressable>
+              {availableLocations.map((loc) => {
+                const isSelected = selectedLocationId === loc.id;
+                return (
+                  <Pressable
+                    key={loc.id}
+                    style={[
+                      styles.filterChip,
+                      isSelected && { borderColor: Colors.dark.primary, backgroundColor: Colors.dark.primary + "15" },
+                    ]}
+                    onPress={() => { Haptics.selectionAsync(); setSelectedLocationId(isSelected ? null : loc.id); }}
+                  >
+                    <Ionicons name="location" size={16} color={isSelected ? Colors.dark.primary : Colors.dark.textSecondary} />
+                    <Text style={[styles.filterText, isSelected && { color: Colors.dark.primary }]} numberOfLines={1}>
+                      {loc.name}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </ScrollView>
+          </View>
+        )}
 
         <ScrollView 
           style={styles.courtsList} 

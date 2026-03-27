@@ -501,13 +501,18 @@ export const insertCoachFreelanceProfileSchema = createInsertSchema(coachFreelan
 export type InsertCoachFreelanceProfile = z.infer<typeof insertCoachFreelanceProfileSchema>;
 export type CoachFreelanceProfile = typeof coachFreelanceProfiles.$inferSelect;
 
-// Locations
+// Academy Locations — physical locations belonging to an academy (academy_id FK).
+// This table serves as the `academy_locations` entity; each record is scoped to one academy.
 export const locations = pgTable("locations", {
   id: varchar("id")
     .primaryKey()
     .default(sql`gen_random_uuid()`),
   academyId: varchar("academy_id").references(() => academies.id),
   name: text("name").notNull(),
+  address: text("address"),
+  lat: doublePrecision("lat"),
+  lng: doublePrecision("lng"),
+  isActive: boolean("is_active").default(true),
   timezone: text("timezone").default("Asia/Dubai"),
   createdAt: timestamp("created_at").defaultNow(),
 });

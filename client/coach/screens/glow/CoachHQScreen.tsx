@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from "react";
+import React, { useState, useCallback, useMemo } from "react";
 import { View, StyleSheet, ScrollView, RefreshControl, Pressable } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useHeaderHeight } from "@react-navigation/elements";
@@ -22,6 +22,9 @@ interface TodaySession {
   type: string;
   status: "scheduled" | "in_progress" | "completed";
   sessionPlanId?: string;
+  locationId?: string | null;
+  locationName?: string | null;
+  locationAddress?: string | null;
 }
 
 interface QuickStat {
@@ -36,10 +39,33 @@ export default function CoachHQScreen() {
   const headerHeight = useHeaderHeight();
   const navigation = useNavigation<any>();
   const [refreshing, setRefreshing] = useState(false);
+  const [selectedLocationFilter, setSelectedLocationFilter] = useState<string | null>(null);
 
   const { data: todaySessions = [], refetch } = useQuery<TodaySession[]>({
     queryKey: ["/api/coach/sessions/today"],
   });
+
+  const sessionLocations = useMemo(() => {
+    const seen = new Set<string>();
+    const locs: { id: string; name: string }[] = [];
+    for (const s of todaySessions) {
+      const name = s.locationName || s.locationAddress;
+      const id = s.locationId || name;
+      if (name && id && !seen.has(id)) {
+        seen.add(id);
+        locs.push({ id, name });
+      }
+    }
+    return locs;
+  }, [todaySessions]);
+
+  const filteredSessions = useMemo(() => {
+    if (!selectedLocationFilter) return todaySessions;
+    return todaySessions.filter(s => {
+      const id = s.locationId || s.locationName || s.locationAddress;
+      return id === selectedLocationFilter;
+    });
+  }, [todaySessions, selectedLocationFilter]);
 
   const quickStats: QuickStat[] = [
     { label: "Sessions Today", value: todaySessions.length, icon: "calendar-outline", color: Colors.dark.xpCyan },
@@ -129,17 +155,44 @@ export default function CoachHQScreen() {
         </Pressable>
       </View>
 
-      {todaySessions.length === 0 ? (
+      {sessionLocations.length > 1 ? (
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.locationFilterScroll}
+        >
+          <Pressable
+            style={[styles.locationFilterChip, selectedLocationFilter === null && styles.locationFilterChipActive]}
+            onPress={() => setSelectedLocationFilter(null)}
+          >
+            <ThemedText style={[styles.locationFilterChipText, selectedLocationFilter === null && styles.locationFilterChipTextActive]}>All</ThemedText>
+          </Pressable>
+          {sessionLocations.map((loc) => (
+            <Pressable
+              key={loc.id}
+              style={[styles.locationFilterChip, selectedLocationFilter === loc.id && styles.locationFilterChipActive]}
+              onPress={() => setSelectedLocationFilter(selectedLocationFilter === loc.id ? null : loc.id)}
+            >
+              <Ionicons name="location-outline" size={12} color={selectedLocationFilter === loc.id ? Colors.dark.primary : Colors.dark.disabled} />
+              <ThemedText style={[styles.locationFilterChipText, selectedLocationFilter === loc.id && styles.locationFilterChipTextActive]} numberOfLines={1}>{loc.name}</ThemedText>
+            </Pressable>
+          ))}
+        </ScrollView>
+      ) : null}
+
+      {filteredSessions.length === 0 ? (
         <Card style={styles.emptyCard}>
           <Ionicons name="calendar-outline" size={48} color={Colors.dark.disabled} />
-          <ThemedText style={styles.emptyText}>No sessions scheduled for today</ThemedText>
-          <Pressable style={styles.addButton}>
-            <Ionicons name="add" size={20} color={Colors.dark.text} />
-            <ThemedText style={styles.addButtonText}>Schedule Session</ThemedText>
-          </Pressable>
+          <ThemedText style={styles.emptyText}>{selectedLocationFilter ? "No sessions at this location today" : "No sessions scheduled for today"}</ThemedText>
+          {selectedLocationFilter ? null : (
+            <Pressable style={styles.addButton}>
+              <Ionicons name="add" size={20} color={Colors.dark.text} />
+              <ThemedText style={styles.addButtonText}>Schedule Session</ThemedText>
+            </Pressable>
+          )}
         </Card>
       ) : (
-        todaySessions.map((session) => (
+        filteredSessions.map((session) => (
           <Card 
             key={session.id} 
             style={styles.sessionCard}
@@ -167,6 +220,14 @@ export default function CoachHQScreen() {
                   {formatTime(session.startTime)} - {formatTime(session.endTime)}
                 </ThemedText>
               </View>
+              {(session.locationName || session.locationAddress) ? (
+                <View style={styles.timeBlock}>
+                  <Ionicons name="location-outline" size={14} color={Colors.dark.text} style={{ opacity: 0.6 }} />
+                  <ThemedText style={[styles.timeText, { opacity: 0.8 }]}>
+                    {session.locationAddress || session.locationName}
+                  </ThemedText>
+                </View>
+              ) : null}
               
               {session.status === "scheduled" ? (
                 <View style={[styles.actionButton, { backgroundColor: Colors.dark.primary + "20" }]}>
@@ -251,6 +312,33 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: Colors.dark.backgroundRoot,
+  },
+  locationFilterScroll: {
+    paddingBottom: Spacing.md,
+    gap: Spacing.sm,
+    flexDirection: "row",
+  },
+  locationFilterChip: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: 6,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: Colors.dark.border,
+    backgroundColor: "transparent",
+  },
+  locationFilterChipActive: {
+    borderColor: Colors.dark.primary,
+    backgroundColor: Colors.dark.primary + "20",
+  },
+  locationFilterChipText: {
+    fontSize: 12,
+    color: Colors.dark.disabled,
+  },
+  locationFilterChipTextActive: {
+    color: Colors.dark.primary,
   },
   header: {
     marginBottom: Spacing.xl,

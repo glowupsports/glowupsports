@@ -11,6 +11,8 @@ import {
   Dimensions,
   TextInput,
   Modal,
+  Linking,
+  Platform,
 } from "react-native";
 import { useNavigation, useRoute } from "@react-navigation/native";
 import type { NativeStackNavigationProp, NativeStackScreenProps } from "@react-navigation/native-stack";
@@ -465,10 +467,23 @@ export default function CourtDetailScreen() {
             </View>
           )}
           {court.location && (
-            <View style={styles.metaRow}>
+            <Pressable
+              style={styles.metaRow}
+              onPress={() => {
+                const addr = court.location!.address || court.location!.name;
+                const encoded = encodeURIComponent(addr);
+                const url = Platform.OS === "ios"
+                  ? `maps:?q=${encoded}`
+                  : `geo:0,0?q=${encoded}`;
+                Linking.openURL(url).catch(() => Linking.openURL(`https://maps.google.com/?q=${encoded}`));
+              }}
+            >
               <Ionicons name="location-outline" size={14} color="#B8BCC6" />
-              <Text style={styles.metaText}>{court.location.name}</Text>
-            </View>
+              <Text style={styles.metaText}>{court.location.address || court.location.name}</Text>
+              {court.location.address ? (
+                <Ionicons name="navigate-outline" size={12} color="#00D4FF" style={{ marginLeft: 4 }} />
+              ) : null}
+            </Pressable>
           )}
         </View>
       </View>

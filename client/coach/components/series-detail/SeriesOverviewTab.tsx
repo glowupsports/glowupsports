@@ -1,5 +1,5 @@
 import React from "react";
-import { View, Text, Pressable, TextInput, ActivityIndicator, StyleSheet } from "react-native";
+import { View, Text, Pressable, TextInput, ActivityIndicator, StyleSheet, Linking, Platform } from "react-native";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { LinearGradient } from "expo-linear-gradient";
 import { Colors, Spacing } from "@/constants/theme";
@@ -130,6 +130,23 @@ export function SeriesOverviewTab({
           </Text>
           <Ionicons name="pencil-outline" size={14} color={Colors.dark.disabled} style={{ marginLeft: 6 }} />
         </Pressable>
+        {series.locationAddress ? (
+          <Pressable
+            style={[styles.infoRow, { marginTop: -4 }]}
+            onPress={() => {
+              const addr = encodeURIComponent(series.locationAddress!);
+              const url = Platform.OS === "ios"
+                ? `maps:?q=${addr}`
+                : `geo:0,0?q=${addr}`;
+              Linking.openURL(url).catch(() => Linking.openURL(`https://maps.google.com/?q=${addr}`));
+            }}
+          >
+            <Ionicons name="navigate-outline" size={16} color={Colors.dark.primary} />
+            <Text style={[styles.infoText, { color: Colors.dark.primary }]} numberOfLines={1}>
+              {series.locationAddress}
+            </Text>
+          </Pressable>
+        ) : null}
         {showSeriesCourtPicker && courtsData && courtsData.length > 0 ? (
           <View style={{ backgroundColor: "rgba(255,255,255,0.05)", borderRadius: 8, padding: 12, marginTop: 4 }}>
             <Text style={{ fontSize: 11, color: Colors.dark.textMuted, marginBottom: 8, textTransform: "uppercase", letterSpacing: 1 }}>Change Court for All Sessions</Text>

@@ -5355,6 +5355,13 @@ import fs from "fs";
           return res.status(400).json({ error: "Court name is required" });
         }
 
+        // Enforce location selection when academy has multiple active locations
+        const allAcademyLocations = await storage.getAllLocations(academyId);
+        const activeLocations = allAcademyLocations.filter((l) => l.isActive !== false);
+        if (activeLocations.length > 1 && !locationId) {
+          return res.status(400).json({ error: "Location is required when the academy has multiple locations" });
+        }
+
         // Check for duplicate court name within academy
         const existingCourt = await storage.getCourtByName(
           name.trim(),
@@ -5602,11 +5609,24 @@ import fs from "fs";
 
         const locations = await storage.getAllLocations(academyId);
         const courts = await storage.getAllCourts(academyId);
+        const allSessions = await storage.getSessionsByAcademy(academyId);
 
-        const locationsWithCounts = locations.map((loc) => ({
-          ...loc,
-          courtCount: courts.filter((c) => c.locationId === loc.id).length,
-        }));
+        const locationsWithCounts = locations.map((loc) => {
+          const courtsAtLocation = courts.filter((c) => c.locationId === loc.id);
+          const courtIds = courtsAtLocation.map(c => c.id);
+          const sessionCount = allSessions.filter(s => {
+            // Count sessions via court->location mapping
+            if (s.courtId && courtIds.includes(s.courtId)) return true;
+            // Also count sessions assigned directly to this location (no court)
+            if (s.locationId === loc.id) return true;
+            return false;
+          }).length;
+          return {
+            ...loc,
+            courtCount: courtsAtLocation.length,
+            sessionCount,
+          };
+        });
 
         res.json(locationsWithCounts);
       } catch (error) {
@@ -5628,15 +5648,35 @@ import fs from "fs";
           return res.status(400).json({ error: "Academy ID required" });
         }
 
-        const { name, timezone } = req.body;
+        const { name, timezone, address, lat, lng, isActive } = req.body;
         if (!name) {
           return res.status(400).json({ error: "Location name is required" });
+        }
+
+        const parseCoord = (v: any, min: number, max: number): number | null => {
+          if (v === null || v === undefined || v === "") return null;
+          const n = Number(v);
+          if (isNaN(n) || n < min || n > max) return null;
+          return n;
+        };
+
+        const parsedLat = parseCoord(lat, -90, 90);
+        const parsedLng = parseCoord(lng, -180, 180);
+        if ((lat !== undefined && lat !== null && lat !== "") && parsedLat === null) {
+          return res.status(400).json({ error: "Invalid latitude (must be between -90 and 90)" });
+        }
+        if ((lng !== undefined && lng !== null && lng !== "") && parsedLng === null) {
+          return res.status(400).json({ error: "Invalid longitude (must be between -180 and 180)" });
         }
 
         const location = await storage.createLocation({
           academyId,
           name,
           timezone: timezone || "Asia/Dubai",
+          address: address || null,
+          lat: parsedLat,
+          lng: parsedLng,
+          isActive: isActive !== false,
         });
 
         await storage.createAuditLog({
@@ -5675,14 +5715,33 @@ import fs from "fs";
           return res.status(404).json({ error: "Location not found" });
         }
 
-        const { name, timezone } = req.body;
+        const { name, timezone, address, lat, lng, isActive } = req.body;
+
+        const parseCoordUpdate = (v: any, min: number, max: number): number | null => {
+          if (v === null || v === undefined || v === "") return null;
+          const n = Number(v);
+          if (isNaN(n) || n < min || n > max) return null;
+          return n;
+        };
+
+        const parsedLatUpdate = lat !== undefined ? parseCoordUpdate(lat, -90, 90) : undefined;
+        const parsedLngUpdate = lng !== undefined ? parseCoordUpdate(lng, -180, 180) : undefined;
+        if (lat !== undefined && lat !== null && lat !== "" && parsedLatUpdate === null) {
+          return res.status(400).json({ error: "Invalid latitude (must be between -90 and 90)" });
+        }
+        if (lng !== undefined && lng !== null && lng !== "" && parsedLngUpdate === null) {
+          return res.status(400).json({ error: "Invalid longitude (must be between -180 and 180)" });
+        }
 
         const updatedLocation = await storage.updateLocation(
           id,
           {
             name: name !== undefined ? name : existingLocation.name,
-            timezone:
-              timezone !== undefined ? timezone : existingLocation.timezone,
+            timezone: timezone !== undefined ? timezone : existingLocation.timezone,
+            address: address !== undefined ? (address || null) : existingLocation.address,
+            lat: parsedLatUpdate !== undefined ? parsedLatUpdate : existingLocation.lat,
+            lng: parsedLngUpdate !== undefined ? parsedLngUpdate : existingLocation.lng,
+            isActive: isActive !== undefined ? isActive : existingLocation.isActive,
           },
           academyId || undefined,
         );

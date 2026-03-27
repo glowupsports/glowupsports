@@ -24,9 +24,12 @@ interface Location {
   academyId: string;
   name: string;
   address: string | null;
+  lat: number | null;
+  lng: number | null;
   isActive: boolean;
   createdAt: string;
   courtCount?: number;
+  sessionCount?: number;
 }
 
 export default function AdminLocationsScreen() {
@@ -39,6 +42,8 @@ export default function AdminLocationsScreen() {
   const [formData, setFormData] = useState({
     name: "",
     address: "",
+    lat: "",
+    lng: "",
     isActive: true,
   });
 
@@ -49,7 +54,7 @@ export default function AdminLocationsScreen() {
   const invalidateLocations = () => {
     queryClient.invalidateQueries({ predicate: (query) => {
       const key = query.queryKey[0];
-      return typeof key === 'string' && key.startsWith('/api/admin/locations');
+      return typeof key === 'string' && (key.startsWith('/api/admin/locations') || key === '/api/locations');
     }});
   };
 
@@ -97,6 +102,8 @@ export default function AdminLocationsScreen() {
     setFormData({
       name: "",
       address: "",
+      lat: "",
+      lng: "",
       isActive: true,
     });
   };
@@ -106,9 +113,21 @@ export default function AdminLocationsScreen() {
       Alert.alert("Error", "Location name is required");
       return;
     }
+    const latNum = formData.lat.trim() ? parseFloat(formData.lat.trim()) : null;
+    const lngNum = formData.lng.trim() ? parseFloat(formData.lng.trim()) : null;
+    if (formData.lat.trim() && isNaN(latNum!)) {
+      Alert.alert("Error", "Latitude must be a valid number");
+      return;
+    }
+    if (formData.lng.trim() && isNaN(lngNum!)) {
+      Alert.alert("Error", "Longitude must be a valid number");
+      return;
+    }
     createMutation.mutate({
       name: formData.name.trim(),
       address: formData.address.trim() || null,
+      lat: latNum,
+      lng: lngNum,
       isActive: formData.isActive,
     });
   };
@@ -118,11 +137,23 @@ export default function AdminLocationsScreen() {
       Alert.alert("Error", "Location name is required");
       return;
     }
+    const latNum = formData.lat.trim() ? parseFloat(formData.lat.trim()) : null;
+    const lngNum = formData.lng.trim() ? parseFloat(formData.lng.trim()) : null;
+    if (formData.lat.trim() && isNaN(latNum!)) {
+      Alert.alert("Error", "Latitude must be a valid number");
+      return;
+    }
+    if (formData.lng.trim() && isNaN(lngNum!)) {
+      Alert.alert("Error", "Longitude must be a valid number");
+      return;
+    }
     updateMutation.mutate({
       id: selectedLocation.id,
       data: {
         name: formData.name.trim(),
         address: formData.address.trim() || null,
+        lat: latNum,
+        lng: lngNum,
         isActive: formData.isActive,
       },
     });
@@ -155,6 +186,8 @@ export default function AdminLocationsScreen() {
     setFormData({
       name: location.name,
       address: location.address || "",
+      lat: location.lat != null ? String(location.lat) : "",
+      lng: location.lng != null ? String(location.lng) : "",
       isActive: location.isActive,
     });
     setShowEditModal(true);
@@ -219,9 +252,16 @@ export default function AdminLocationsScreen() {
                       {location.address ? (
                         <Text style={styles.locationAddress}>{location.address}</Text>
                       ) : null}
-                      <Text style={styles.courtCount}>
-                        {location.courtCount || 0} court{(location.courtCount || 0) !== 1 ? "s" : ""}
-                      </Text>
+                      <View style={styles.statsRow}>
+                        <Text style={styles.courtCount}>
+                          {location.courtCount || 0} court{(location.courtCount || 0) !== 1 ? "s" : ""}
+                        </Text>
+                        {(location.sessionCount || 0) > 0 ? (
+                          <Text style={styles.sessionCount}>
+                            {location.sessionCount} session{location.sessionCount !== 1 ? "s" : ""}
+                          </Text>
+                        ) : null}
+                      </View>
                     </View>
                     <Ionicons name="chevron-forward" size={20} color={Colors.dark.textMuted} />
                   </Pressable>
@@ -246,9 +286,16 @@ export default function AdminLocationsScreen() {
                       {location.address ? (
                         <Text style={[styles.locationAddress, styles.inactiveText]}>{location.address}</Text>
                       ) : null}
-                      <Text style={[styles.courtCount, styles.inactiveText]}>
-                        {location.courtCount || 0} court{(location.courtCount || 0) !== 1 ? "s" : ""}
-                      </Text>
+                      <View style={styles.statsRow}>
+                        <Text style={[styles.courtCount, styles.inactiveText]}>
+                          {location.courtCount || 0} court{(location.courtCount || 0) !== 1 ? "s" : ""}
+                        </Text>
+                        {(location.sessionCount || 0) > 0 ? (
+                          <Text style={[styles.sessionCount, styles.inactiveText]}>
+                            {location.sessionCount} session{location.sessionCount !== 1 ? "s" : ""}
+                          </Text>
+                        ) : null}
+                      </View>
                     </View>
                     <Ionicons name="chevron-forward" size={20} color={Colors.dark.textMuted} />
                   </Pressable>
@@ -297,6 +344,31 @@ export default function AdminLocationsScreen() {
                   multiline
                   numberOfLines={3}
                 />
+              </View>
+
+              <View style={styles.coordRow}>
+                <View style={[styles.formGroup, styles.coordField]}>
+                  <Text style={styles.label}>Latitude</Text>
+                  <TextInput
+                    style={styles.input}
+                    value={formData.lat}
+                    onChangeText={(text) => setFormData({ ...formData, lat: text })}
+                    placeholder="e.g. 25.2048"
+                    placeholderTextColor={Colors.dark.textMuted}
+                    keyboardType="decimal-pad"
+                  />
+                </View>
+                <View style={[styles.formGroup, styles.coordField]}>
+                  <Text style={styles.label}>Longitude</Text>
+                  <TextInput
+                    style={styles.input}
+                    value={formData.lng}
+                    onChangeText={(text) => setFormData({ ...formData, lng: text })}
+                    placeholder="e.g. 55.2708"
+                    placeholderTextColor={Colors.dark.textMuted}
+                    keyboardType="decimal-pad"
+                  />
+                </View>
               </View>
 
               <Pressable
@@ -363,6 +435,31 @@ export default function AdminLocationsScreen() {
                   multiline
                   numberOfLines={3}
                 />
+              </View>
+
+              <View style={styles.coordRow}>
+                <View style={[styles.formGroup, styles.coordField]}>
+                  <Text style={styles.label}>Latitude</Text>
+                  <TextInput
+                    style={styles.input}
+                    value={formData.lat}
+                    onChangeText={(text) => setFormData({ ...formData, lat: text })}
+                    placeholder="e.g. 25.2048"
+                    placeholderTextColor={Colors.dark.textMuted}
+                    keyboardType="decimal-pad"
+                  />
+                </View>
+                <View style={[styles.formGroup, styles.coordField]}>
+                  <Text style={styles.label}>Longitude</Text>
+                  <TextInput
+                    style={styles.input}
+                    value={formData.lng}
+                    onChangeText={(text) => setFormData({ ...formData, lng: text })}
+                    placeholder="e.g. 55.2708"
+                    placeholderTextColor={Colors.dark.textMuted}
+                    keyboardType="decimal-pad"
+                  />
+                </View>
               </View>
 
               <Pressable
@@ -518,10 +615,19 @@ const styles = StyleSheet.create({
     color: Colors.dark.textMuted,
     marginTop: 2,
   },
+  statsRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+    marginTop: 4,
+  },
   courtCount: {
     fontSize: Typography.caption.fontSize,
     color: Colors.dark.primary,
-    marginTop: 4,
+  },
+  sessionCount: {
+    fontSize: Typography.caption.fontSize,
+    color: Colors.dark.textMuted,
   },
   inactiveText: {
     color: Colors.dark.textMuted,
@@ -637,5 +743,12 @@ const styles = StyleSheet.create({
   deleteButtonText: {
     fontSize: Typography.body.fontSize,
     color: Colors.dark.error,
+  },
+  coordRow: {
+    flexDirection: "row",
+    gap: Spacing.sm,
+  },
+  coordField: {
+    flex: 1,
   },
 });
