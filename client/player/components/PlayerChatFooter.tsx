@@ -219,6 +219,21 @@ export function PlayerChatFooter() {
     },
   });
 
+  const markAsReadMutation = useMutation({
+    mutationFn: async (conversationId: string) => {
+      return apiRequest("POST", `/api/player/me/conversations/${conversationId}/read`, {});
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/player/me/unread-count"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/player/me/conversations"] });
+    },
+  });
+
+  const handleSelectConversation = useCallback((conv: Conversation) => {
+    setSelectedConversation(conv);
+    markAsReadMutation.mutate(conv.id);
+  }, [markAsReadMutation]);
+
   useEffect(() => {
     const safeFullscreenHeight = SCREEN_HEIGHT - insets.top - tabBarHeight;
     const targetHeight = isFullscreen 
@@ -232,6 +247,12 @@ export function PlayerChatFooter() {
   const animatedStyle = useAnimatedStyle(() => ({
     height: height.value,
   }));
+
+  useEffect(() => {
+    if (selectedConversation?.id) {
+      markAsReadMutation.mutate(selectedConversation.id);
+    }
+  }, [selectedConversation?.id]);
 
   const handleSend = async () => {
     if (inputText.trim() && selectedConversation) {
@@ -587,7 +608,7 @@ export function PlayerChatFooter() {
                   keyExtractor={(item) => item.id}
                   renderItem={({ item }) => (
                     <Pressable
-                      onPress={() => setSelectedConversation(item)}
+                      onPress={() => handleSelectConversation(item)}
                       style={styles.conversationItem}
                     >
                       <View style={[styles.conversationAvatar, currentTab === "players" && styles.playerAvatar]}>
