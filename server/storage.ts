@@ -5198,8 +5198,8 @@ export const storage = {
         .where(
           and(
             eq(messages.conversationId, p.conversationId),
-            gte(messages.createdAt, lastRead),
-            ne(messages.senderCoachId, coachId),
+            gt(messages.createdAt, lastRead),
+            or(isNull(messages.senderCoachId), ne(messages.senderCoachId, coachId)),
             eq(messages.isDeleted, false)
           )
         );
@@ -5230,7 +5230,7 @@ export const storage = {
         .where(
           and(
             eq(messages.conversationId, p.conversationId),
-            gte(messages.createdAt, lastRead),
+            gt(messages.createdAt, lastRead),
             // Null-safe: count messages not sent by this player (provider/system/coach msgs have senderPlayerId=null)
             or(isNull(messages.senderPlayerId), ne(messages.senderPlayerId, playerId)),
             eq(messages.isDeleted, false)
@@ -5428,7 +5428,7 @@ export const storage = {
         .where(
           and(
             eq(messages.conversationId, p.conversationId),
-            gte(messages.createdAt, lastRead),
+            gt(messages.createdAt, lastRead),
             // Null-safe: count messages not sent by this player (provider/system/coach msgs have senderPlayerId=null)
             or(isNull(messages.senderPlayerId), ne(messages.senderPlayerId, playerId)),
             eq(messages.isDeleted, false)

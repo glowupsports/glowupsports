@@ -205,6 +205,25 @@ export default function ChatInboxScreen() {
     },
   });
 
+  const markAsReadMutation = useMutation({
+    mutationFn: async (conversationId: string) => {
+      if (!coach?.id) return;
+      return apiRequest("POST", `/api/conversations/${conversationId}/read`, {
+        participantType: "coach",
+        participantId: coach.id,
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/coaches", coach?.id, "unread-count"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/coaches", coach?.id, "conversations"] });
+    },
+  });
+
+  const handleSelectConversation = (item: Conversation) => {
+    setSelectedConversation(item);
+    markAsReadMutation.mutate(item.id);
+  };
+
   const handleSend = async () => {
     if (inputText.trim() && selectedConversation) {
       sendScale.value = withSpring(0.9, { damping: 15 });
@@ -505,7 +524,7 @@ export default function ChatInboxScreen() {
               item={item}
               onPress={() => {
                 Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                setSelectedConversation(item);
+                handleSelectConversation(item);
               }}
               formatTime={formatTime}
             />

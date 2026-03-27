@@ -4,6 +4,8 @@ import Ionicons from "@expo/vector-icons/Ionicons";
 import * as Haptics from "expo-haptics";
 import { useTabNavigation } from "@/components/TabNavigationContext";
 import { useAuth } from "@/coach/context/AuthContext";
+import { useQuery } from "@tanstack/react-query";
+import { useCoach } from "@/coach/context/CoachContext";
 
 const ACCENT = "#C8FF3D";
 const BG_SIDEBAR = "#0F141B";
@@ -11,6 +13,7 @@ const BG_MAIN = "#0C1118";
 const BORDER = "rgba(255,255,255,0.07)";
 const TEXT = "#F0F4F8";
 const MUTED = "#8A95A3";
+const BADGE_BG = "#EF4444";
 const SIDEBAR_WIDTH = 220;
 
 interface NavItem {
@@ -37,8 +40,19 @@ interface DesktopShellProps {
 
 export function DesktopShell({ children, coachName, academyName }: DesktopShellProps) {
   const [activeIndex, setActiveIndex] = useState(0);
-  const { navigateToTab, registerActiveTabListener } = useTabNavigation();
+  const { navigateToTab, registerActiveTabListener, getNavigation } = useTabNavigation();
   const { logout } = useAuth();
+  const { coach } = useCoach();
+
+  const coachId = coach?.id;
+
+  const { data: unreadData } = useQuery<{ unreadCount: number }>({
+    queryKey: ["/api/coaches", coachId, "unread-count"],
+    enabled: !!coachId,
+    refetchInterval: 30000,
+  });
+
+  const unreadCount = unreadData?.unreadCount ?? 0;
 
   const handleLogout = useCallback(() => {
     Alert.alert(
@@ -69,6 +83,13 @@ export function DesktopShell({ children, coachName, academyName }: DesktopShellP
     setActiveIndex(item.index);
     navigateToTab(item.key);
   }, [navigateToTab]);
+
+  const handleChatPress = useCallback(() => {
+    const nav = getNavigation();
+    if (nav) {
+      nav.navigate("ChatInbox" as never);
+    }
+  }, [getNavigation]);
 
   const initials = coachName
     ? coachName.split(" ").map(w => w[0]).slice(0, 2).join("").toUpperCase()
@@ -110,10 +131,34 @@ export function DesktopShell({ children, coachName, academyName }: DesktopShellP
                   <Text style={[styles.navLabel, focused && styles.navLabelActive]}>
                     {item.label}
                   </Text>
-                  {focused && <View style={styles.navActiveDot} />}
+                  {focused ? <View style={styles.navActiveDot} /> : null}
                 </Pressable>
               );
             })}
+
+            <Pressable
+              style={({ hovered }) => [
+                styles.navItem,
+                (hovered as boolean) && styles.navItemHovered,
+              ]}
+              onPress={handleChatPress}
+            >
+              <View style={styles.chatIconWrapper}>
+                <Ionicons
+                  name="chatbubble-outline"
+                  size={19}
+                  color={MUTED}
+                />
+                {unreadCount > 0 ? (
+                  <View style={styles.unreadBadge}>
+                    <Text style={styles.unreadBadgeText}>
+                      {unreadCount > 99 ? "99+" : String(unreadCount)}
+                    </Text>
+                  </View>
+                ) : null}
+              </View>
+              <Text style={styles.navLabel}>Chat</Text>
+            </Pressable>
           </View>
         </View>
 
@@ -238,6 +283,31 @@ const styles = StyleSheet.create({
     height: 5,
     borderRadius: 3,
     backgroundColor: ACCENT,
+  },
+  chatIconWrapper: {
+    position: "relative",
+    width: 22,
+    height: 22,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  unreadBadge: {
+    position: "absolute",
+    top: -5,
+    right: -6,
+    backgroundColor: BADGE_BG,
+    borderRadius: 8,
+    minWidth: 16,
+    height: 16,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 3,
+  },
+  unreadBadgeText: {
+    fontSize: 9,
+    fontWeight: "700" as const,
+    color: "#fff",
+    lineHeight: 11,
   },
   sidebarBottom: {
     paddingHorizontal: 14,
