@@ -2460,11 +2460,13 @@ import fs from "fs";
           )
           .limit(60);
 
-        // Filter out existing members
+        // Filter out existing members and cap total to 50 (friends have priority)
         const notMember = (u: { userId: string }) => !memberUserIds.includes(u.userId);
-        const friends = friendUsers.filter(notMember);
+        const friends = friendUsers.filter(notMember).slice(0, 50);
         const friendUserIds = new Set(friends.map((f) => f.userId));
-        const academy = academyUsers.filter((u) => notMember(u) && !friendUserIds.has(u.userId));
+        const academy = academyUsers
+          .filter((u) => notMember(u) && !friendUserIds.has(u.userId))
+          .slice(0, 50 - friends.length);
 
         res.json({ friends, academy });
       } catch (error) {
@@ -2497,6 +2499,32 @@ import fs from "fs";
           .where(and(eq(groupMembersTable.groupId, groupId), eq(groupMembersTable.userId, userId)));
         if (!membership || membership.role !== "admin") {
           return res.status(403).json({ error: "Only group admins can add members" });
+        }
+
+        // Fetch the group to validate academy membership
+        const [group] = await db
+          .select()
+          .from(communityGroupsTable)
+          .where(eq(communityGroupsTable.id, groupId));
+        if (!group) {
+          return res.status(404).json({ error: "Group not found" });
+        }
+
+        // Validate target user belongs to the same academy
+        const [adminPlayer] = await db
+          .select({ academyId: players.academyId })
+          .from(players)
+          .innerJoin(users, eq(users.playerId, players.id))
+          .where(eq(users.id, userId));
+
+        const [targetPlayer] = await db
+          .select({ academyId: players.academyId })
+          .from(players)
+          .innerJoin(users, eq(users.playerId, players.id))
+          .where(eq(users.id, targetUserId));
+
+        if (!targetPlayer || targetPlayer.academyId !== group.academyId) {
+          return res.status(400).json({ error: "Player is not in the same academy as this group" });
         }
 
         // Check if target already a member

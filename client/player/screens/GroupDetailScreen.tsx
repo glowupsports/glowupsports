@@ -290,6 +290,7 @@ function AddMembersModal({
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       setAddedIds(prev => new Set([...prev, userId]));
       queryClient.invalidateQueries({ queryKey: [`/api/player/groups/${groupId}`] });
+      queryClient.invalidateQueries({ queryKey: [`/api/player/groups/${groupId}/member-suggestions`] });
     },
     onError: (error: unknown) => {
       const msg = error instanceof Error ? error.message : "Failed to add member";
