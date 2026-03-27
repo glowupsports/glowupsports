@@ -251,6 +251,7 @@ export function SessionHeroCard({
     scheduledDate: string;
     scheduledTime: string;
     courtName?: string;
+    customLocation?: string;
     message?: string;
     challengerName?: string;
     opponentName?: string;
@@ -896,10 +897,10 @@ export function SessionHeroCard({
                   <Text style={styles.cleanCourtLabel}>{formatChallengeTime12(c.scheduledTime)}</Text>
                 </View>
               </View>
-              {c.courtName ? (
+              {(c.courtName || c.customLocation) ? (
                 <View style={{ flexDirection: "row", alignItems: "center", gap: 3, marginTop: 1 }}>
-                  <Feather name="map-pin" size={11} color={ProTennisColors.textMuted} />
-                  <Text style={styles.cleanCourtLabel}>{c.courtName}</Text>
+                  <Ionicons name="location-outline" size={12} color={ProTennisColors.textMuted} />
+                  <Text style={styles.cleanCourtLabel}>{c.courtName || c.customLocation}</Text>
                 </View>
               ) : null}
             </View>
