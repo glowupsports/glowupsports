@@ -62,21 +62,17 @@ router.post("/", async (req: Request, res: Response) => {
           { type: "match_challenge", challengeId: challenge.id, challengerId },
           opponentId
         );
+      } else {
+        await db.insert(playerNotifications).values({
+          playerId: opponentId,
+          title: "You've been challenged!",
+          body: `${challengerName} wants to play ${matchType || "singles"} ${matchFormat || "friendly"} on ${matchDate} at ${matchTime}`,
+          type: "match_challenge",
+          data: { challengeId: challenge.id, challengerId, challengerName },
+        });
       }
     } catch (pushErr) {
       console.error("Error sending challenge push notification:", pushErr);
-    }
-
-    try {
-      await db.insert(playerNotifications).values({
-        playerId: opponentId,
-        title: "You've been challenged!",
-        body: `${challengerName} wants to play ${matchType || "singles"} ${matchFormat || "friendly"} on ${matchDate} at ${matchTime}`,
-        type: "match_challenge",
-        data: { challengeId: challenge.id, challengerId, challengerName },
-      });
-    } catch (notifErr) {
-      console.error("Error creating in-app notification:", notifErr);
     }
 
     res.status(201).json(challenge);
@@ -177,14 +173,12 @@ router.post("/:id/respond", async (req: Request, res: Response) => {
         .where(eq(players.id, challenge.opponentId));
 
       const opponentName = opponent?.name || "Your opponent";
+      const title = response === "accepted" ? "Challenge Accepted!" : "Challenge Declined";
+      const body = response === "accepted"
+        ? `${opponentName} accepted your challenge! Game on!`
+        : `${opponentName} declined your challenge`;
       const tokens = await getPlayerPushTokens(challenge.challengerId);
       if (tokens.length > 0) {
-        const title = response === "accepted"
-          ? "Challenge Accepted!"
-          : "Challenge Declined";
-        const body = response === "accepted"
-          ? `${opponentName} accepted your challenge!`
-          : `${opponentName} declined your challenge`;
         await sendPushNotification(
           tokens,
           title,
@@ -192,30 +186,17 @@ router.post("/:id/respond", async (req: Request, res: Response) => {
           { type: "match_challenge_response", challengeId: id, response },
           challenge.challengerId
         );
+      } else {
+        await db.insert(playerNotifications).values({
+          playerId: challenge.challengerId,
+          title,
+          body,
+          type: "match_challenge_response",
+          data: { challengeId: id, response, opponentName },
+        });
       }
     } catch (pushErr) {
       console.error("Error sending challenge response push notification:", pushErr);
-    }
-
-    try {
-      const [opponent] = await db
-        .select()
-        .from(players)
-        .where(eq(players.id, challenge.opponentId));
-      const opponentName = opponent?.name || "Your opponent";
-      const title = response === "accepted" ? "Challenge Accepted!" : "Challenge Declined";
-      const body = response === "accepted"
-        ? `${opponentName} accepted your challenge! Game on!`
-        : `${opponentName} declined your challenge`;
-      await db.insert(playerNotifications).values({
-        playerId: challenge.challengerId,
-        title,
-        body,
-        type: "match_challenge_response",
-        data: { challengeId: id, response, opponentName },
-      });
-    } catch (notifErr) {
-      console.error("Error creating challenge response notification:", notifErr);
     }
 
     res.json(updated);
@@ -272,14 +253,15 @@ router.post("/:id/cancel", async (req: Request, res: Response) => {
           { type: "match_challenge_cancelled", challengeId: id },
           otherPlayerId
         );
+      } else {
+        await db.insert(playerNotifications).values({
+          playerId: otherPlayerId,
+          title: "Match Cancelled",
+          body: `${cancellerName} cancelled the match`,
+          type: "match_challenge_cancelled",
+          data: { challengeId: id, cancelledBy: playerId },
+        });
       }
-      await db.insert(playerNotifications).values({
-        playerId: otherPlayerId,
-        title: "Match Cancelled",
-        body: `${cancellerName} cancelled the match`,
-        type: "match_challenge_cancelled",
-        data: { challengeId: id, cancelledBy: playerId },
-      });
     } catch (notifErr) {
       console.error("Error sending cancel notification:", notifErr);
     }
@@ -399,14 +381,15 @@ router.post("/:id/running-late", async (req: Request, res: Response) => {
           { type: "match_running_late", challengeId: id },
           otherPlayerId
         );
+      } else {
+        await db.insert(playerNotifications).values({
+          playerId: otherPlayerId,
+          title: "Running Late",
+          body: lateMsg,
+          type: "match_running_late",
+          data: { challengeId: id, lateBy: playerId, minutes },
+        });
       }
-      await db.insert(playerNotifications).values({
-        playerId: otherPlayerId,
-        title: "Running Late",
-        body: lateMsg,
-        type: "match_running_late",
-        data: { challengeId: id, lateBy: playerId, minutes },
-      });
     } catch (notifErr) {
       console.error("Error sending late notification:", notifErr);
     }

@@ -503,7 +503,9 @@ function ComposePostModal({
       // React Native: use expo-file-system uploadAsync (one file at a time, multipart)
       const { uploadAsync, FileSystemUploadType } = await import("expo-file-system/legacy");
       const uploadUrl = `${getApiUrl()}/api/social/posts/upload-images`;
-      const authHeaders = getAuthHeaders();
+      const AsyncStorage = (await import("@react-native-async-storage/async-storage")).default;
+      const authToken = await AsyncStorage.getItem("auth_token");
+      const authHeaders: Record<string, string> = authToken ? { Authorization: `Bearer ${authToken}` } : {};
       const allUrls: string[] = [];
       for (const uri of images) {
         const result = await uploadAsync(uploadUrl, uri, {
